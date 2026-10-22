@@ -3,9 +3,9 @@ title: Orbis Master Guide
 aliases: [Orbis, ORBIS-MG-003]
 tags: [product, spec, orbis, draft]
 status: draft-for-founder-review
-version: 0.4
+version: 0.5
 document-id: ORBIS-MG-003
-date-of-issue: 2026-10-18
+date-of-issue: 2026-10-23
 owner: Founder
 classification: Confidential
 related: "[[Orbis — Project Home]]"
@@ -16,7 +16,7 @@ related: "[[Orbis — Project Home]]"
 > **Communication, identity and protection in one app.**
 > *Keep your commitments. Work clearly. Protect what matters.*
 >
-> Core engine · Growth · Aura profile · Culture rules · Privacy layer · Orbis Work (planned)
+> Core engine · Growth · Aura profile · Culture rules · Privacy layer · Orbis Work (prototype) · Discover (prototype foundation)
 
 > **Draft for founder review.** Designed-to descriptions only. No security, legal compliance or launch outcome is guaranteed. Legal points are to be confirmed by counsel per market before launch.
 
@@ -26,8 +26,8 @@ related: "[[Orbis — Project Home]]"
 |---|---|
 | Title | Orbis Master Guide: the complete product description |
 | Document ID | ORBIS-MG-003 |
-| Version and status | 0.4 — DRAFT for founder review |
-| Date of issue | 18 October 2026 |
+| Version and status | 0.5 — DRAFT for founder review |
+| Date of issue | 23 October 2026 |
 | Document owner | Founder |
 | Classification | Confidential. Internal and invited collaborators only. |
 | Language | English. Bahasa Indonesia planned at launch. |
@@ -41,6 +41,7 @@ related: "[[Orbis — Project Home]]"
 | 0.2 | 18 Oct 2026 | Adopted Orbis as the umbrella brand; standard guide format. |
 | 0.3 | 18 Oct 2026 | Single product: Orbis, with Aura (profile), Culture (company rules), Orbis Work (planned module), privacy protection layer. |
 | 0.4 | 18 Oct 2026 | Merged the 5–9 Freedom Lab playbook as the Growth layer; added growth rules, stages, claim discipline, monetization rules and decisions D-09 to D-11. Renumbered parts. |
+| 0.5 | 23 Oct 2026 | Added the Discover prototype foundation (public listings, submissions, attributed reviews, human approval gate) and Aura AI preferences (saved, not applied). Marked Orbis Work as prototype-built. |
 
 ### Approval
 
@@ -92,7 +93,8 @@ Orbis helps people keep their commitments and communicate clearly, while their c
 | Aura | The personal profile: work style, strengths, growth edges, portfolio, shown with the color archetype language from Chromatica. | `[PROPOSED DESIGN]` |
 | Culture | The company's working rules: hours, tone, approval steps. Optional for companies. | `[PROPOSED DESIGN]` |
 | Growth | Personal learning and progress layer, from the 5–9 Freedom Lab method. After-work time, separate from work data. | `[PROPOSED DESIGN]` |
-| Orbis Work | A planned job-discovery module (search, introduction, conversation). | `[FUTURE VISION]` |
+| Orbis Work | Job discovery module (search, introduction, conversation). A prototype build exists in the app with mock data; public launch conditions in Section 20 still apply. | `[PROPOSED DESIGN]` |
+| Discover | Public product discovery: listings, maker attribution, submissions and attributed reviews, kept separate from private Orbis data. A prototype foundation exists. | `[PROPOSED DESIGN]` |
 | Chromatica and System.GPT | Earlier working names. Their essence lives in Aura (color archetypes and self-reflection) and Culture (practical rules and systems). Used in brand storytelling only. | `[PROPOSED DESIGN]` |
 
 *Orbita is retired as a product name to avoid confusion with Orbis. Its functions are now core features of Orbis.*
@@ -103,7 +105,7 @@ Orbis helps people keep their commitments and communicate clearly, while their c
 |---|---|---|
 | Individual users (B2C) | Core communication features, personal Aura, personal privacy controls. | Free plan, with an optional personal paid plan. |
 | Companies (B2B) | Team workspace, Culture rules, admin controls, audit trail. | Per-seat team plan. |
-| Job seekers and employers | Orbis Work (planned): portfolios, search, introductions. | Planned. Pricing to be decided. |
+| Job seekers and employers | Orbis Work (prototype): portfolios, search, introductions. | Planned. Pricing to be decided. |
 
 ## 4. Core principles
 
@@ -131,7 +133,7 @@ Orbis helps people keep their commitments and communicate clearly, while their c
 | Sales professional | Follow up on time without manual tracking. | Follow-up timing, summaries before calls. |
 | Founder or manager | See what is open across many threads. | Summaries, shared commitments (team plan). |
 | Employee in a company | Work clearly, leave work at the end of the day. | Culture rules, quiet hours, personal space. |
-| Job seeker (Orbis Work, planned) | Be found for the right roles. | Portfolio, Aura, introductions. |
+| Job seeker (Orbis Work, prototype) | Be found for the right roles. | Portfolio, Aura, introductions. |
 | Company admin | Set working norms and control data access. | Culture rules, workspace settings, audit log. |
 
 ## 6. A typical day
@@ -158,6 +160,18 @@ Morning → During the day → Review → Evening → Weekly.
 | Never used for | Ranking, filtering, rejecting or scoring any person, or for employer decisions. |
 | Sensitive content | Health, religion, political views, and similar data are not collected. Written content of this kind is warned about and excluded from matching and search. |
 | Control | Edit, hide or delete at any time. Deletion is complete within the retention window in Section 18. |
+
+### 7A. Aura AI preferences
+
+`[PROPOSED DESIGN]` Aura includes a small, optional set of AI response preferences: response length, tone, format, and whether the assistant should ask a clarifying question when a request is ambiguous. They are self-chosen, saved with Aura, and never inferred from private messages.
+
+| Rule | Detail |
+|---|---|
+| Source | Chosen by the person in Aura. No inference from messages, behaviour or private data. |
+| Scope | Presentation preferences only. No personality score, no ranking, no candidate filtering. |
+| Application | Applied only where a real model integration exists. The current prototype has **no live model**, so the preferences are stored and clearly labeled as not yet applied. |
+| Sharing | Private by default. A copy action lets the person reuse the preferences elsewhere, explicitly and by their own action. |
+| No silent learning | Orbis SHALL NOT change these preferences by observing private messages. |
 
 ## 8. Culture: company rules
 
@@ -315,6 +329,7 @@ Public feeds, sharing rituals and community challenges belong to a later stage. 
 | Message content | Only where needed for a feature | Summaries and suggestions | Anything outside the feature |
 | Aura (self-chosen profile) | Yes, with the person's input | Personal reflection, chosen context | Ranking, rejecting, employer decisions |
 | Portfolio items | Yes, chosen by the person | Shown to others the person picks | Matching without consent |
+| Discover listings and reviews | Only what the person explicitly submits | Public browse and attributed reviews after human approval | Private Orbis data, ranking of people, sponsored influence on scores |
 | Health, religion, political views, similar written | No. Warned and excluded if written | None | All uses |
 
 ## 14. Sensitive content
@@ -351,9 +366,9 @@ Every automated suggestion shows its reason and source. Hiring-related decisions
 
 ---
 
-# Part VI — Orbis Work (Planned Module)
+# Part VI — Orbis Work (Prototype)
 
-`[FUTURE VISION]` This module is a future vision. Scope, pricing and launch are not decided.
+`[PROPOSED DESIGN]` A prototype build exists in the app with mock data. Scope, pricing and public launch are not decided, and the launch conditions in Section 20 still apply.
 
 ## 19. How it works
 
@@ -378,11 +393,41 @@ Every automated suggestion shows its reason and source. Hiring-related decisions
 
 ---
 
+# Part VI-A — Orbis Discover (Prototype Foundation)
+
+`[PROPOSED DESIGN]` Discover is a public product-discovery surface inside Orbis. It is not a separate app, account or navigation layer. It is also distinct from Growth: Discover is about public products, while Growth is the person's private learning and progress.
+
+`[ESTABLISHED CONCEPT]` The external source of record for Discover is *Product Specification — Curated Product Growth Network* (WritingBlock ID 58317). This section records the prototype implementation only; it does not replace or overwrite that specification.
+
+## 20A. What the prototype does
+
+| Feature | Behaviour | Status |
+|---|---|---|
+| Navigation | `Discover` appears in the desktop sidebar and the mobile navigation of both app builds. | `[PROPOSED DESIGN]` — built |
+| Landing and browse | Listings with categories, search and filters, plus details, maker attribution and external links. | `[PROPOSED DESIGN]` — built with mock data |
+| Maker submissions | A maker submits a listing. It is stored as `pending`, not public, until a human approves it. | `[PROPOSED DESIGN]` — built |
+| Attributed reviews | A display name, date and three criteria (clarity of problem, usefulness, reliability of claims), each scored 1–5 with a written note. | `[PROPOSED DESIGN]` — built |
+| Approval gate | Submissions and reviews are excluded from public views until a human approves them. The local prototype includes a clearly labeled reviewer queue; production requires a reviewer who is not the maker. | `[PROPOSED DESIGN]` — built as a local prototype |
+| Honest labeling | Seed listings carry a **Mock example** badge; every maker claim is marked **Unverified claim**; no rating appears until an approved review exists. | `[PROPOSED DESIGN]` — built |
+| Deferred | Creator campaigns, referral tracking, analytics, cash payouts, payment integrations, elaborate rewards, sponsored placement. | `[FUTURE VISION]` |
+
+## 20B. Rules
+
+| Rule | Requirement |
+|---|---|
+| Data separation | Discover SHALL use only its own public collection. Private messages, commitments, Aura and Work data SHALL NOT be used for public activity, rankings or promotion. |
+| Consent | A person's public activity SHALL be an explicit action. No private data is published on their behalf. |
+| Human approval | Listings and reviews SHALL remain unpublished until a human reviewer approves them. |
+| Attribution | Published reviews SHALL show the reviewer's chosen display name and date. Anonymous reviews are not published. |
+| Claims | Maker claims SHALL be labeled unverified until checked. Orbis SHALL NOT invent users, ratings, traction or testimonials. |
+| Independence | Sponsored placement SHALL NOT exist in this foundation. If ever added, it SHALL be labeled and SHALL NOT affect review scores. |
+| Growth remains separate | Discover SHALL NOT replace, feed or score the personal Growth feature. |
+
 # Part VII — Architecture and Data
 
 | Layer | Description |
 |---|---|
-| Apps | Mobile first, web for admins. Views: follow-up queue, commitments, search, Aura, Culture, privacy dashboard. |
+| Apps | Mobile first, web for admins. Views: follow-up queue, commitments, search, Aura, Culture, Growth, Orbis Work, Discover, privacy dashboard. |
 | Connections | Authorized sources only. Consent, revocation, rate limits and error handling. |
 | Processing | Parsing, participant grouping, duplicate detection, metadata normalization. |
 | AI layer | Detection, classification, summaries and drafts. Every output keeps its source link and reason. |
@@ -403,6 +448,9 @@ Every automated suggestion shows its reason and source. Hiring-related decisions
 | Aura | Owner, self-entered fields, visibility per item. |
 | Culture rule | Workspace, rule text, applies-to, visible to members. |
 | Audit event | Actor, action, time, object. Kept 12 months. |
+| Discover listing | Title, category, maker, claims, links, mock flag, publication status. |
+| Discover submission | Maker-entered listing, submitted time, pending/approved/rejected status. |
+| Discover review | Listing, reviewer display name, three criterion scores, text, submitted time, pending/approved/rejected status. |
 
 ## 22. Non-functional targets
 
@@ -424,7 +472,7 @@ Every automated suggestion shows its reason and source. Hiring-related decisions
 | Personal free | Individuals | Core features for a limited number of sources. | Free |
 | Personal paid | Individuals | More sources, longer history, advanced summaries. | To be decided (V) |
 | Team | Companies | Workspace, Culture rules, admin controls, audit log. | Per seat, to be decided (V) |
-| Orbis Work | Job seekers and employers | Planned module. | Not decided (F) |
+| Orbis Work | Job seekers and employers | Prototype module. | Not decided (F) |
 
 Individual use is the entry point. Company plans carry the revenue. Pricing needs willingness-to-pay evidence before it is fixed.
 
@@ -441,6 +489,7 @@ Individual use is the entry point. Company plans carry the revenue. Pricing need
 | Platform access | Providers may limit message access. | Launch with sources that allow it. |
 | Noisy suggestions | Wrong reminders erode trust. | Easy dismiss; learn from corrections. |
 | Fake profiles | Damages the marketplace. | Verification stages and report queue. |
+| Unverified Discover claims | A public listing can overstate what a product does. | Mock and unverified-claim labels, human approval, no score until an approved review. |
 | Crowded market | Existing email tools add AI features. | Win on commitments and privacy, not inbox features. |
 
 ## 24. Decision register
@@ -452,12 +501,13 @@ Individual use is the entry point. Company plans carry the revenue. Pricing need
 | D-03 | First connected source(s). | Open |
 | D-04 | Pricing for personal and team plans. | Open |
 | D-05 | Launch language and market order. | Open |
-| D-06 | Whether and when to start Orbis Work. | Open |
+| D-06 | Whether and when to launch Orbis Work publicly. | Open |
 | D-07 | Retention windows confirmed by counsel. | Open |
 | D-08 | Aura color palette and Ray and Citrine separation. | Open |
 | D-09 | Growth layer in the first release, or after the core is proven (recommended: after). | Open |
 | D-10 | Whether affiliate recommendations are ever offered, and in which surfaces. | Open |
 | D-11 | Keep the 5–9 Freedom Lab name as a method label, or use only "Growth". | Open |
+| D-12 | Discover public launch: reviewer model, maker verification, abuse handling and review appeal process. | Open |
 
 ## 25. Glossary
 
@@ -466,7 +516,7 @@ Individual use is the entry point. Company plans carry the revenue. Pricing need
 | Orbis | The product and brand. |
 | Aura | The self-chosen personal profile and portfolio. |
 | Culture | Optional company working rules, visible to members. |
-| Orbis Work | Planned job discovery module. |
+| Orbis Work | Job discovery module (prototype built). |
 | Commitment | A promise, request or deadline that may need tracking. |
 | Kill switch | A control that pauses all AI features. |
 | Concierge test | A manual service delivered to a few users to test value before building. |
