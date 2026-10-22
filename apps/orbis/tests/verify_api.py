@@ -26,6 +26,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SERVER = ROOT / "server" / "server.py"
+# Loopback only. Override (e.g. ORBIS_TEST_HOST=::1) on hosts where IPv4
+# loopback connections are blocked.
+HOST = os.environ.get("ORBIS_TEST_HOST", "127.0.0.1")
 
 PASSED = 0
 FAILED = 0
@@ -41,9 +44,10 @@ def check(condition, label):
         print("  FAIL - %s" % label)
 
 
-def free_port():
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(("127.0.0.1", 0))
+def free_port(host="127.0.0.1"):
+    family = socket.AF_INET6 if ":" in host else socket.AF_INET
+    sock = socket.socket(family, socket.SOCK_STREAM)
+    sock.bind((host, 0))
     port = sock.getsockname()[1]
     sock.close()
     return port
@@ -83,11 +87,13 @@ def main():
     env["ORBIS_DB"] = str(Path(tmp_dir) / "orbis-test.db")
     env["PYTHONUNBUFFERED"] = "1"
 
-    port = free_port()
-    base = "http://127.0.0.1:%d" % port
+    port = free_port(HOST)
+    host_for_url = "[%s]" % HOST if ":" in HOST else HOST
+    base = "http://%s:%d" % (host_for_url, port)
 
     proc = subprocess.Popen(
-        [sys.executable, str(SERVER), "--port", str(port), "--no-browser"],
+        [sys.executable, str(SERVER), "--port", str(port), "--host", HOST,
+         "--no-browser"],
         cwd=str(ROOT),
         env=env,
         stdout=subprocess.PIPE,
@@ -117,10 +123,30 @@ def main():
         state = json.loads(body)
         check(status == 200, "state returns 200")
         expected = ["queue", "commitments", "aura", "culture", "growth",
-                    "sources", "audit", "settings", "work"]
+                    "sources", "audit", "settings", "work", "discover"]
         check(all(k in state for k in expected), "state contains all collections")
         check(len(state["queue"]) == 5, "state.queue seeded with 5 items")
         check(len(state["commitments"]) == 5, "state.commitments seeded with 5 items")
+
+        # 2b. Discover seed: mock listings only, no invented reviews
+        discover = state.get("discover") or {}
+        check(isinstance(discover.get("listings"), list) and len(discover["listings"]) == 6,
+              "discover seeded with 6 listings")
+        check(all(l.get("mock") is True for l in discover["listings"]),
+              "every seeded listing is labeled mock")
+        check(all(l.get("status") == "published" for l in discover["listings"]),
+              "seeded listings are published mock examples")
+        check(discover.get("reviews") == [],
+              "discover seeds no reviews, ratings or testimonials")
+        check(discover.get("submissions") == [],
+              "discover seeds no pending submissions")
+
+        # 2c. Aura AI preferences exist and are self-chosen fields only
+        prefs = (state.get("aura") or {}).get("aiPreferences") or {}
+        check(set(prefs) == {"length", "tone", "format", "askClarifying"},
+              "aura.aiPreferences has the four chosen fields")
+        check(isinstance(prefs.get("askClarifying"), bool),
+              "aura.aiPreferences.askClarifying is boolean")
 
         # 3. GET a single collection
         status, _, body = request("GET", base + "/api/queue")
@@ -142,6 +168,24 @@ def main():
 
         status, _, body = request("GET", base + "/api/queue")
         check(json.loads(body) == new_queue, "GET reflects PUT (round-trip)")
+
+        # 4b. Discover collection round-trip (public data, separate collection)
+        new_discover = {
+            "categories": ["Learning"],
+            "listings": [],
+            "submissions": [{"id": "sub-test", "title": "Pending item",
+                             "status": "pending"}],
+            "reviews": [{"id": "rev-test", "listingId": "x",
+                         "status": "pending"}],
+            "reviewCriteria": [],
+        }
+        status, _, body = request("PUT", base + "/api/discover", data=new_discover)
+        check(status == 200 and json.loads(body).get("collection") == "discover",
+              "PUT /api/discover returns 200")
+        status, _, body = request("GET", base + "/api/discover")
+        check(json.loads(body) == new_discover, "discover PUT round-trips")
+        check(json.loads(body)["submissions"][0]["status"] == "pending",
+              "pending submission stays unpublished after save")
 
         # 5. audit: PUT above appended an event, plus an explicit POST
         status, _, body = request("POST", base + "/api/audit",

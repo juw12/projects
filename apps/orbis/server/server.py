@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import socket
 import sqlite3
 import threading
 import webbrowser
@@ -49,6 +50,7 @@ COLLECTIONS = [
     "audit",
     "settings",
     "work",
+    "discover",
 ]
 
 # The database location can be overridden with the ORBIS_DB environment
@@ -154,6 +156,14 @@ def build_seeds() -> dict:
                 {"title": "Senior Product Designer at Northwind Studio",
                  "link": "https://northwind.example", "shared": True},
             ],
+            # Self-chosen AI response preferences. Stored but not yet applied:
+            # the prototype has no live model (see docs).
+            "aiPreferences": {
+                "length": "short",
+                "tone": "direct",
+                "format": "bullets",
+                "askClarifying": True,
+            },
         },
         "culture": {
             "workspace": "Northwind Studio",
@@ -278,6 +288,128 @@ def build_seeds() -> dict:
             ],
             "interests": [],
             "applications": [],
+        },
+        # Public product discovery. Nothing in this collection is derived from
+        # private messages, commitments or Work data. Seed listings are clearly
+        # labeled mock examples; there are no seeded reviews, ratings or
+        # testimonials. Submissions and reviews stay "pending" until a human
+        # reviewer approves them.
+        "discover": {
+            "categories": [
+                "Productivity", "Developer tools", "Learning",
+                "Community", "Finance", "Wellness",
+            ],
+            "listings": [
+                {
+                    "id": "mock-nimbus-notes",
+                    "title": "Nimbus Notes",
+                    "tagline": "Turn meeting notes into decisions and follow-ups.",
+                    "category": "Productivity",
+                    "description": "A sample listing used to show the Discover layout. The product is fictional. It would capture decisions and open questions from a meeting and turn them into a short follow-up list.",
+                    "maker": {"name": "Northwind Studio (sample maker)",
+                              "url": "https://example.com/northwind"},
+                    "productUrl": "https://example.com/nimbus-notes",
+                    "claims": [
+                        {"text": "Works offline.", "verified": False},
+                        {"text": "Exports to Markdown.", "verified": False},
+                    ],
+                    "mock": True,
+                    "status": "published",
+                    "publishedAt": "2026-10-20",
+                },
+                {
+                    "id": "mock-signal-stack",
+                    "title": "Signal Stack",
+                    "tagline": "A review queue for small product teams.",
+                    "category": "Developer tools",
+                    "description": "A sample listing used to show the Discover layout. The product is fictional. It would collect change proposals in one queue so a team can review them in a consistent order.",
+                    "maker": {"name": "Sample Maker Collective (fictional)",
+                              "url": "https://example.com/sample-collective"},
+                    "productUrl": "https://example.com/signal-stack",
+                    "claims": [
+                        {"text": "Integrates with common version control hosts.", "verified": False},
+                    ],
+                    "mock": True,
+                    "status": "published",
+                    "publishedAt": "2026-10-19",
+                },
+                {
+                    "id": "mock-orbit-learn",
+                    "title": "Orbit Learn",
+                    "tagline": "Short, practical courses with a visible syllabus.",
+                    "category": "Learning",
+                    "description": "A sample listing used to show the Discover layout. The product is fictional. Each course would state its outcomes, time estimate and what is not covered before anyone enrols.",
+                    "maker": {"name": "Sample Learning Lab (fictional)",
+                              "url": "https://example.com/sample-learning"},
+                    "productUrl": "https://example.com/orbit-learn",
+                    "claims": [
+                        {"text": "Every course lists its prerequisites.", "verified": False},
+                        {"text": "No subscription required.", "verified": False},
+                    ],
+                    "mock": True,
+                    "status": "published",
+                    "publishedAt": "2026-10-18",
+                },
+                {
+                    "id": "mock-kopi-club",
+                    "title": "Kopi Club",
+                    "tagline": "A local noticeboard for coffee meetups.",
+                    "category": "Community",
+                    "description": "A sample listing used to show the Discover layout. The product is fictional. It would let a neighbourhood post small, in-person meetups with a clear host and capacity.",
+                    "maker": {"name": "Sample Neighbourhood Group (fictional)",
+                              "url": "https://example.com/sample-neighbourhood"},
+                    "productUrl": "https://example.com/kopi-club",
+                    "claims": [
+                        {"text": "Events are moderated before publishing.", "verified": False},
+                    ],
+                    "mock": True,
+                    "status": "published",
+                    "publishedAt": "2026-10-17",
+                },
+                {
+                    "id": "mock-groundwork",
+                    "title": "Groundwork",
+                    "tagline": "A simple budget for irregular income.",
+                    "category": "Finance",
+                    "description": "A sample listing used to show the Discover layout. The product is fictional. It would help a freelancer plan around uneven monthly income without connecting a bank account.",
+                    "maker": {"name": "Sample Finance Studio (fictional)",
+                              "url": "https://example.com/sample-finance"},
+                    "productUrl": "https://example.com/groundwork",
+                    "claims": [
+                        {"text": "No bank connection needed.", "verified": False},
+                        {"text": "Data stays on the device.", "verified": False},
+                    ],
+                    "mock": True,
+                    "status": "published",
+                    "publishedAt": "2026-10-16",
+                },
+                {
+                    "id": "mock-still",
+                    "title": "Still",
+                    "tagline": "A focus timer that protects rest breaks.",
+                    "category": "Wellness",
+                    "description": "A sample listing used to show the Discover layout. The product is fictional. It would schedule focus blocks and treat breaks as part of the plan rather than an interruption.",
+                    "maker": {"name": "Sample Wellness Co-op (fictional)",
+                              "url": "https://example.com/sample-wellness"},
+                    "productUrl": "https://example.com/still",
+                    "claims": [
+                        {"text": "No account required.", "verified": False},
+                    ],
+                    "mock": True,
+                    "status": "published",
+                    "publishedAt": "2026-10-15",
+                },
+            ],
+            "submissions": [],
+            "reviews": [],
+            "reviewCriteria": [
+                {"id": "clarity", "label": "Clarity of problem",
+                 "hint": "Does the listing explain who the product is for and what it changes?"},
+                {"id": "usefulness", "label": "Usefulness",
+                 "hint": "Did it help with the job described, in your own use?"},
+                {"id": "claims", "label": "Reliability of claims",
+                 "hint": "Did the listing's claims hold up when you checked?"},
+            ],
         },
     }
 
@@ -656,9 +788,14 @@ def main() -> None:
 
     init_db()
 
-    httpd = ThreadingHTTPServer((args.host, args.port), OrbisHandler)
+    class OrbisServer(ThreadingHTTPServer):
+        # ThreadingHTTPServer defaults to AF_INET; honour an IPv6 --host.
+        address_family = socket.AF_INET6 if ":" in args.host else socket.AF_INET
+
+    httpd = OrbisServer((args.host, args.port), OrbisHandler)
     httpd.daemon_threads = True
-    url = "http://%s:%d/" % (args.host, args.port)
+    display_host = "[%s]" % args.host if ":" in args.host else args.host
+    url = "http://%s:%d/" % (display_host, args.port)
 
     print("Orbis prototype server")
     print("  serving: %s" % WEB_DIR)

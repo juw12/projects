@@ -18,7 +18,7 @@ This is the working project for **Orbis**, built from the source product spec [[
 
 | | |
 |---|---|
-| Source spec | [[Orbis Master Guide]] (v0.4, ORBIS-MG-003) |
+| Source spec | [[Orbis Master Guide]] (v0.5, ORBIS-MG-003) |
 | Code folder | `prototype/` (this folder) |
 | Type | Front-end prototype + optional local backend |
 | Backend | `server.py` — Python 3 standard library only (no `pip install`) |
@@ -30,8 +30,8 @@ This is the working project for **Orbis**, built from the source product spec [[
 ## What's real vs. what's a prototype
 
 - **Real:** the UI, the interactions, the client-side routing, the persistence API, the SQLite storage, and the PWA install.
-- **Prototype / mock:** all content (messages, commitments, companies, people) is sample data. There is **no** email/Slack/WhatsApp integration, no accounts, no AI model, no encryption.
-- **Not built:** Orbis Work is shown as a *planned* module only.
+- **Prototype / mock:** all content (messages, commitments, companies, people, Discover listings) is sample data. Discover seed listings are tagged **Mock example** and carry no real reviews, ratings or traction. There is **no** email/Slack/WhatsApp integration, no accounts, no AI model, no encryption.
+- **Not built:** real marketplace moderation at scale, real public listings/reviews, and any live model that would apply Aura's AI preferences.
 
 > ⚠️ Per the spec's honesty rule: **no security, legal-compliance or outcome guarantee applies.** Legal points need counsel confirmation per market before launch.
 
@@ -66,7 +66,7 @@ The app shows a badge in the top bar: **"Saved to server"** (green) or **"Local 
 | `tests/verify_api.py` | Automated API test (spawns an isolated server + temp DB). |
 | `data/orbis.db` | SQLite database (auto-created on first run). |
 
-## The app (10 surfaces)
+## The app (11 surfaces)
 
 | View | What it does |
 |---|---|
@@ -75,11 +75,12 @@ The app shows a badge in the top bar: **"Saved to server"** (green) or **"Local 
 | **Search** | Search by meaning; results show the original message. |
 | **Summaries** | Thread summaries: main topic, decisions, open questions, facts vs guesses. |
 | **Drafts** | Suggested replies — never sent without explicit approval. |
-| **Aura** | Self-chosen profile (work style, strengths, growth edges, portfolio, 12-color archetype). |
+| **Aura** | Self-chosen profile (work style, strengths, growth edges, portfolio, 12-color archetype) plus **AI response preferences** (length, tone, format, clarifying questions). Preferences are saved but not applied — there is no live model. |
 | **Culture** | Optional company working rules, admin/member view. |
 | **Growth** | After-work layer: 5-stage method, curriculum, key results, session log, weekly review, metrics, progress card, export. |
 | **Privacy** | Principles, data-by-category, source consent, AI kill switch, audit log, retention, sensitive-content warning, export/delete. |
 | **Orbis Work** | **Built.** Job marketplace in the `work` view: skills-matched roles, filters (city/type/category), candidates, and **Apply → Commitment + Today** (consent-logged). |
+| **Orbis Discover** | **Foundation built.** Public listings with categories + search, maker attribution, maker submissions, and attributed reviews on three stated criteria. Seed listings are labeled **Mock example**; every maker claim is marked **Unverified claim**. Submissions and reviews stay `pending` until a human approves them. Uses only the `discover` collection — no private Orbis data. |
 
 ## Sign-in (both apps)
 
@@ -99,14 +100,14 @@ Two mobile artifacts exist:
 - **Login / Sign up** — mock auth gate. Any email + password works (or "Continue as guest"). Session lives in `localStorage['orbis-session']`.
 - **Account** — avatar, name, email, plan, workspace, verification level, Sign out.
 - **Settings** — theme (light/dark), quiet hours, language (English / Bahasa Indonesia), notification toggles, AI kill switch, About, Sign out.
-- **Bottom tab bar** — Today · Commitments · Search · Aura · Privacy · More (More opens the full drawer).
+- **Bottom tab bar** — Today · Commitments · Discover · Aura · Privacy · More (More opens the full drawer; Search remains in the drawer).
 - **Fits a phone** — every view fits with no horizontal scroll (the Commitments table is now stacked cards).
 
 Installable (PWA) via `manifest.webmanifest` + `sw.js`.
 
 **How it works** (same order on every platform): **1 Connect** (you choose the source) → **2 Detect** (possible reply or commitment) → **3 Explain** (reason + original message) → **4 Decide** (you confirm/edit/snooze/dismiss) → **5 Track** (watches for resolution) → **6 Review** (all open items in one place). Every suggestion keeps its source and reason.
 
-Tested at **390×844** (phone) and **1440×900** (desktop): 0 console errors, no horizontal overflow in any view.
+Earlier views were tested at **390×844** (phone) and **1440×900** (desktop): 0 console errors, no horizontal overflow. The Discover view was added later and has been exercised functionally, not visually, in this environment; its responsive layout still needs a browser pass.
 
 ## Backend API (quick reference)
 
@@ -123,7 +124,7 @@ Base: `/api` · Default `http://127.0.0.1:8765`
 | GET | `/api/export` | Download all data as JSON. |
 | POST | `/api/reset` | Reseed to defaults. |
 
-Collections: `queue, commitments, summaries, drafts, aura, culture, growth, sources, audit, settings, work`.
+Collections: `queue, commitments, summaries, drafts, aura, culture, growth, sources, audit, settings, work, discover`.
 
 ## Design system
 
@@ -145,6 +146,8 @@ Collections: `queue, commitments, summaries, drafts, aura, culture, growth, sour
 - [ ] Decide whether Growth ships in v1 or after the core (D-09).
 - [ ] Wire a real data source (email/Slack) — currently mock only.
 - [ ] Add authentication if it becomes multi-user.
+- [ ] Connect a real model before claiming Aura AI preferences change responses.
+- [ ] Replace the local Discover review queue with a reviewer-separated moderation flow before any public launch.
 
 ---
 
@@ -161,3 +164,24 @@ Collections: `queue, commitments, summaries, drafts, aura, culture, growth, sour
 - **Server:** the `work` collection now holds roles(6) + employers(4) + candidates(5); Orbis's original collection API is intact.
 - Merged from the former `loker` / `orbis-work` apps, now removed (originals in git history).
 - Run: `python apps/orbis/server/server.py` → `http://127.0.0.1:8765/`
+
+---
+
+## 2026-10-23 — Orbis Discover + Aura AI preferences (foundation)
+
+**Discover is integrated into Orbis**, not a separate app. It appears as **Orbis Discover** in the desktop sidebar and in the mobile navigation (bottom tab) of both `web/app.html` and `web/app-mobile.html`.
+
+- **Browse:** 6 clearly labeled **Mock example** listings, category chips, search, details with maker attribution and external links.
+- **Claims:** every seeded maker claim is marked **Unverified claim**. No traction, user counts or testimonials are invented.
+- **Ratings:** no score is shown until an approved review exists; there are **no seeded reviews**.
+- **Reviews:** attributed display name + date + three stated criteria (clarity of problem, usefulness, reliability of claims). Reviews are `pending` until a human approves them.
+- **Submissions:** makers submit a listing; it is `pending` and excluded from the public list until approved by a human.
+- **Review queue:** a clearly labeled prototype-only moderation card lets the local operator act as the human reviewer. It states that production needs a reviewer who is not the maker.
+- **Separation:** all Discover data lives in the `discover` collection. Private messages, commitments, Aura and Work data are never read for public activity, ranking or promotion. No sponsored placement, referrals, analytics or payouts.
+- **Aura AI preferences:** length, tone, format, and clarifying-question choice are stored in `aura.aiPreferences` with Aura's existing persistence. The UI says plainly that **no model is connected**, so they do not yet change behavior. A copy action exports the preferences for use in another tool.
+- **Server:** `discover` added to the collection API and first-run seeds; existing collections are untouched. Aura's seed gains `aiPreferences`.
+- **Tests/docs:** `tests/verify_api.py` now covers the Discover seed, pending states and Aura preferences. README and Master Guide record what is implemented versus planned.
+
+**Validation in this environment:** the front-end flows were exercised in a jsdom harness (30 checks for each app: browse, filter, search, pending submission, approval, pending review, approval, attribution, averages, preference persistence) and the API was exercised in-process over a socketpair (23 checks: state shape, Discover round-trip, audit, export, errors, static serving, reset). The repository's TCP-based `verify_api.py` could not run here because the sandbox blocks loopback TCP connections; run it locally with `python tests/verify_api.py` (or `ORBIS_TEST_HOST=::1`).
+
+**Incomplete:** real public moderation, verification of makers/claims, report/abuse handling, and a live model integration. Nothing in Discover has been published to a real audience.

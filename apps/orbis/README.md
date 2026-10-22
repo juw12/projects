@@ -37,9 +37,37 @@ python server/server.py --host 0.0.0.0  # bind to all interfaces (default: 127.0
 | `POST` | `/api/reset` | Reset database to seed data |
 | `OPTIONS` | `/api/*` | CORS preflight |
 
-Collections: `queue`, `commitments`, `summaries`, `drafts`, `aura`, `culture`, `growth`, `sources`, `audit`, `settings`, `work`.
+Collections: `queue`, `commitments`, `summaries`, `drafts`, `aura`, `culture`, `growth`, `sources`, `audit`, `settings`, `work`, `discover`.
+
+`discover` holds only public-space data (`listings`, `submissions`, `reviews`,
+`categories`, `reviewCriteria`). It never reads the private collections. Its
+seed listings are clearly labeled mock examples, and it seeds no reviews,
+ratings or testimonials. Submissions and reviews begin with `status: "pending"`
+and are not shown publicly until a human approves them.
 
 All API responses include `Access-Control-Allow-Origin: *` for CORS.
+
+## Discover and Aura AI preferences
+
+- **Orbis Discover** is a public product-discovery surface inside Orbis
+  (`#discover` in both apps). It supports browsing, category filters, search,
+  listing details with maker attribution, maker submissions, and attributed
+  reviews scored on three stated criteria.
+- **Human approval gate.** New listings and reviews are stored as `pending` and
+  are excluded from the public list. The local prototype includes a clearly
+  labeled review queue so the approval step can be exercised; production would
+  require a reviewer who is not the maker.
+- **Honest seed data.** Seed listings are fictional and tagged `mock: true`.
+  The app shows a "Mock example" badge, marks every maker claim "Unverified
+  claim", and displays no rating until an approved review exists.
+- **Separate data.** Discover uses the `discover` collection only. It does not
+  read messages, commitments, Aura, or `work`, and no private data is used for
+  public ranking or promotion.
+- **Aura AI preferences** (`aura.aiPreferences`) store response length, tone,
+  format, and whether to ask clarifying questions. They are self-set, never
+  inferred from messages, and currently **saved but not applied** because the
+  prototype has no live model. Aura offers a copy action so the preferences can
+  be used in another tool, and states this limitation in the UI.
 
 ## Storage Model
 
@@ -79,7 +107,10 @@ cd apps/orbis
 python tests/verify_api.py
 ```
 
-Expected output: `31 passed, 0 failed` with exit code 0.
+Expected output: `41 passed, 0 failed` with exit code 0.
+
+If IPv4 loopback is blocked on your machine, point the test at IPv6 loopback:
+`ORBIS_TEST_HOST=::1 python tests/verify_api.py`.
 
 The test:
 - Starts an isolated server instance with a temporary database

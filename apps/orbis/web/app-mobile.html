@@ -214,6 +214,22 @@
     .badge-validation { background: #FFFBEB; color: var(--warm); }
     .badge-future { background: #F1F5F9; color: #64748B; }
 
+    /* Discover */
+    .discover-grid { display: grid; grid-template-columns: 1fr; gap: 12px; align-items: start; }
+    .discover-card { margin-bottom: 0; }
+    .discover-card > summary { list-style: none; cursor: pointer; }
+    .discover-card > summary::-webkit-details-marker { display: none; }
+    .discover-card > summary:focus-visible { outline: 2px solid var(--brand-600); outline-offset: 4px; border-radius: var(--radius-sm); }
+    .discover-meta { font-size: 12px; color: var(--muted); }
+    .discover-section { margin-top: 14px; }
+    .discover-section h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); margin-bottom: 6px; }
+    .discover-claim { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; padding: 8px 0; border-bottom: 1px dashed var(--line); }
+    .discover-claim:last-child { border-bottom: 0; }
+    .discover-review { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; font-size: 13px; }
+    .discover-score { font-weight: 600; }
+    .discover-form-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    .discover-form-row .form-select { min-width: 0; }
+
     /* Source Chip */
     .source-chip {
       display: inline-flex;
@@ -1319,6 +1335,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
           <span>Orbis Work</span>
         </a>
+        <a class="nav-item" data-view="discover" href="#discover" role="button" tabindex="0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+          <span>Orbis Discover</span>
+        </a>
         <a class="nav-item" data-view="account" href="#account" role="button" tabindex="0">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           <span>Account</span>
@@ -1500,7 +1520,47 @@
               </div>
               <button type="button" class="btn btn-secondary btn-sm" id="addPortfolioItem" style="margin-top: 8px;">+ Add item</button>
             </div>
-            <button type="submit" class="btn btn-primary">Save Aura</button>
+
+            <div class="aura-note" style="margin: 8px 0 16px;">
+              <strong>AI response preferences — saved, not yet applied.</strong> These are your own choices, stored with Aura. This prototype has no connected AI model, so nothing here changes model behaviour yet. They are never inferred from your messages and are never shared unless you copy them yourself.
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="aiLength">Response length</label>
+              <select class="form-select" id="aiLength">
+                <option value="short">Short</option>
+                <option value="balanced">Balanced</option>
+                <option value="detailed">Detailed</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="aiTone">Tone</label>
+              <select class="form-select" id="aiTone">
+                <option value="direct">Direct</option>
+                <option value="warm">Warm</option>
+                <option value="formal">Formal</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="aiFormat">Format</label>
+              <select class="form-select" id="aiFormat">
+                <option value="bullets">Bullet list</option>
+                <option value="prose">Prose</option>
+                <option value="steps">Step by step</option>
+              </select>
+            </div>
+
+            <label class="visibility-toggle" style="margin-top: 12px; align-items: flex-start;">
+              <input type="checkbox" id="aiClarifying">
+              <span style="font-size: 14px;">Ask me a clarifying question when a request is ambiguous</span>
+            </label>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px;">
+              <button type="button" class="btn btn-secondary btn-sm" id="copyAiPrefs">Copy preferences for another AI tool</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="resetAiPrefs">Reset to neutral defaults</button>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="margin-top: 16px;">Save Aura</button>
           </form>
         </section>
 
@@ -2019,6 +2079,104 @@
           </div>
         </section>
 
+        <!-- DISCOVER VIEW -->
+        <section id="discover" class="view" role="region" aria-labelledby="discover-title">
+          <div class="view-header">
+            <h1 class="view-title" id="discover-title">Orbis Discover</h1>
+            <p class="view-intro">Public product discovery: listings, makers, and attributed reviews. Separate from your private messages, commitments and Orbis Work data.</p>
+          </div>
+
+          <div class="aura-note">
+            <strong>Public space, by design:</strong> Discover never reads your private Orbis data, and nothing it contains is used to rank or promote your Aura or Work profile. Makers submit their own listings; listings and reviews stay unpublished until a human approves them. Sponsored placement is not offered, and any future placement would be labeled and kept out of review scores.
+          </div>
+
+          <div class="card" style="margin-bottom: 20px;">
+            <input type="search" class="form-input" id="discoverSearch" placeholder="Search listings by name, maker or category…" aria-label="Search Discover listings" oninput="renderDiscover()">
+            <div id="discoverCategoryChips" style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px;"></div>
+            <p style="font-size: 12px; color: var(--muted); margin-top: 12px; margin-bottom: 0;">
+              <span id="discoverResultCount">6 listings</span> · Listings marked <strong>Mock example</strong> are fictional samples. They are not real products and carry no real reviews, ratings or traction.
+            </p>
+          </div>
+
+          <div id="discoverListings" class="discover-grid"></div>
+
+          <div class="card" style="margin-top: 20px;">
+            <details>
+              <summary style="cursor: pointer; list-style: none;">
+                <span style="font-size: 18px; font-weight: 600;">Submit a listing</span>
+                <span class="badge badge-proposed" style="margin-left: 8px;">Reviewed first</span>
+              </summary>
+              <p style="font-size: 13px; color: var(--muted); margin: 12px 0;">
+                Everything you enter here becomes public if approved. Do not include private messages or personal data about other people. In this local prototype, submissions are stored only on this device.
+              </p>
+              <form id="discoverSubmitForm" style="display: grid; gap: 12px;">
+                <div class="form-group" style="margin: 0;">
+                  <label class="form-label" for="discoverTitle">Product name</label>
+                  <input class="form-input" id="discoverTitle" required maxlength="80" placeholder="Your product">
+                </div>
+                <div class="form-group" style="margin: 0;">
+                  <label class="form-label" for="discoverTagline">One-line description</label>
+                  <input class="form-input" id="discoverTagline" required maxlength="140" placeholder="What it does, in one sentence">
+                </div>
+                <div class="form-group" style="margin: 0;">
+                  <label class="form-label" for="discoverCategory">Category</label>
+                  <select class="form-select" id="discoverCategory"></select>
+                </div>
+                <div class="form-group" style="margin: 0;">
+                  <label class="form-label" for="discoverDescription">Description</label>
+                  <textarea class="form-textarea" id="discoverDescription" rows="4" required maxlength="1200" placeholder="Who it is for, what it changes, and what it does not do."></textarea>
+                </div>
+                <div class="form-group" style="margin: 0;">
+                  <label class="form-label" for="discoverProductUrl">Product link</label>
+                  <input class="form-input" id="discoverProductUrl" type="url" required placeholder="https://…">
+                </div>
+                <div class="form-group" style="margin: 0;">
+                  <label class="form-label" for="discoverMakerName">Maker name</label>
+                  <input class="form-input" id="discoverMakerName" required maxlength="80" placeholder="Person or studio">
+                </div>
+                <div class="form-group" style="margin: 0;">
+                  <label class="form-label" for="discoverMakerUrl">Maker link (optional)</label>
+                  <input class="form-input" id="discoverMakerUrl" type="url" placeholder="https://…">
+                </div>
+                <label class="visibility-toggle" style="align-items: flex-start;">
+                  <input type="checkbox" id="discoverAccuracy">
+                  <span style="font-size: 13px;">I confirm this listing describes a real product I made or represent, and that its claims are accurate.</span>
+                </label>
+                <div>
+                  <button type="submit" class="btn btn-primary">Submit for review</button>
+                </div>
+              </form>
+            </details>
+          </div>
+
+          <div class="card" style="margin-top: 20px;">
+            <h2 style="font-size: 18px; margin-bottom: 12px;">Your submissions</h2>
+            <div id="discoverSubmissions"></div>
+          </div>
+
+          <div class="card" style="margin-top: 20px;">
+            <h2 style="font-size: 18px; margin-bottom: 12px;">How reviews work</h2>
+            <ul style="font-size: 14px; color: var(--muted); line-height: 1.8; padding-left: 20px;">
+              <li><strong>Attributed.</strong> Every published review shows the reviewer's chosen display name and the date. Anonymous reviews are not published.</li>
+              <li><strong>Same criteria for everyone.</strong> Clarity of problem, usefulness, and reliability of claims — each scored 1–5, with a written note.</li>
+              <li><strong>Human approval.</strong> A review is unpublished until a human moderator approves it. Makers cannot edit or remove reviews.</li>
+              <li><strong>No mixed incentives.</strong> Sponsored placement, referral tracking and rewards are not part of Discover, so they cannot affect a review score.</li>
+              <li><strong>No private data.</strong> Reviews are written here, not generated from messages or other private activity.</li>
+            </ul>
+            <div style="margin-top: 12px; padding: 12px; background: var(--surface-2); border-radius: var(--radius-sm); font-size: 13px; color: var(--muted);">
+              <strong>Format example — not a real review:</strong> “Sample Reviewer · 2026-10-20 — Clarity 4/5 · Usefulness 4/5 · Claims 3/5. The listing explained the problem well; one claim was not verifiable from the public page.”
+            </div>
+          </div>
+
+          <div class="card" style="margin-top: 20px;" id="discoverModerationCard">
+            <h2 style="font-size: 18px; margin-bottom: 8px;">Review queue <span class="badge badge-validation">Prototype</span></h2>
+            <p style="font-size: 13px; color: var(--muted); margin-bottom: 12px;">
+              On this local build you act as the human reviewer. In production, approval would require a reviewer who is not the maker. Nothing enters the public list before you approve it.
+            </p>
+            <div id="discoverModeration"></div>
+          </div>
+        </section>
+
         <section id="account" class="view" role="region" aria-labelledby="account-title">
           <div class="view-header">
             <h1 class="view-title" id="account-title">Account</h1>
@@ -2160,9 +2318,9 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
       <span>Commitments</span>
     </a>
-    <a class="tab-item" data-view="search" role="button" tabindex="0" aria-label="Search">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-      <span>Search</span>
+    <a class="tab-item" data-view="discover" role="button" tabindex="0" aria-label="Discover">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+      <span>Discover</span>
     </a>
     <a class="tab-item" data-view="aura" role="button" tabindex="0" aria-label="Aura">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 000 20 14.5 14.5 0 000-20"/></svg>
@@ -2373,7 +2531,8 @@
         archetype: { name: 'Indigo', color: '#4F46E5' },
         portfolio: [
           { title: 'Senior Product Designer at Northwind Studio', url: 'https://northwind.example', shared: true }
-        ]
+        ],
+        aiPreferences: { length: 'short', tone: 'direct', format: 'bullets', askClarifying: true }
       },
       growth: {
         sessions: [
@@ -2407,6 +2566,25 @@
         ],
         interests: [],
         applications: []
+      },
+      discover: {
+        categories: ['Productivity', 'Developer tools', 'Learning', 'Community', 'Finance', 'Wellness'],
+        categoryFilter: '',
+        listings: [
+          { id: 'mock-nimbus-notes', title: 'Nimbus Notes', tagline: 'Turn meeting notes into decisions and follow-ups.', category: 'Productivity', description: 'A sample listing used to show the Discover layout. The product is fictional. It would capture decisions and open questions from a meeting and turn them into a short follow-up list.', maker: { name: 'Northwind Studio (sample maker)', url: 'https://example.com/northwind' }, productUrl: 'https://example.com/nimbus-notes', claims: [{ text: 'Works offline.', verified: false }, { text: 'Exports to Markdown.', verified: false }], mock: true, status: 'published', publishedAt: '2026-10-20' },
+          { id: 'mock-signal-stack', title: 'Signal Stack', tagline: 'A review queue for small product teams.', category: 'Developer tools', description: 'A sample listing used to show the Discover layout. The product is fictional. It would collect change proposals in one queue so a team can review them in a consistent order.', maker: { name: 'Sample Maker Collective (fictional)', url: 'https://example.com/sample-collective' }, productUrl: 'https://example.com/signal-stack', claims: [{ text: 'Integrates with common version control hosts.', verified: false }], mock: true, status: 'published', publishedAt: '2026-10-19' },
+          { id: 'mock-orbit-learn', title: 'Orbit Learn', tagline: 'Short, practical courses with a visible syllabus.', category: 'Learning', description: 'A sample listing used to show the Discover layout. The product is fictional. Each course would state its outcomes, time estimate and what is not covered before anyone enrols.', maker: { name: 'Sample Learning Lab (fictional)', url: 'https://example.com/sample-learning' }, productUrl: 'https://example.com/orbit-learn', claims: [{ text: 'Every course lists its prerequisites.', verified: false }, { text: 'No subscription required.', verified: false }], mock: true, status: 'published', publishedAt: '2026-10-18' },
+          { id: 'mock-kopi-club', title: 'Kopi Club', tagline: 'A local noticeboard for coffee meetups.', category: 'Community', description: 'A sample listing used to show the Discover layout. The product is fictional. It would let a neighbourhood post small, in-person meetups with a clear host and capacity.', maker: { name: 'Sample Neighbourhood Group (fictional)', url: 'https://example.com/sample-neighbourhood' }, productUrl: 'https://example.com/kopi-club', claims: [{ text: 'Events are moderated before publishing.', verified: false }], mock: true, status: 'published', publishedAt: '2026-10-17' },
+          { id: 'mock-groundwork', title: 'Groundwork', tagline: 'A simple budget for irregular income.', category: 'Finance', description: 'A sample listing used to show the Discover layout. The product is fictional. It would help a freelancer plan around uneven monthly income without connecting a bank account.', maker: { name: 'Sample Finance Studio (fictional)', url: 'https://example.com/sample-finance' }, productUrl: 'https://example.com/groundwork', claims: [{ text: 'No bank connection needed.', verified: false }, { text: 'Data stays on the device.', verified: false }], mock: true, status: 'published', publishedAt: '2026-10-16' },
+          { id: 'mock-still', title: 'Still', tagline: 'A focus timer that protects rest breaks.', category: 'Wellness', description: 'A sample listing used to show the Discover layout. The product is fictional. It would schedule focus blocks and treat breaks as part of the plan rather than an interruption.', maker: { name: 'Sample Wellness Co-op (fictional)', url: 'https://example.com/sample-wellness' }, productUrl: 'https://example.com/still', claims: [{ text: 'No account required.', verified: false }], mock: true, status: 'published', publishedAt: '2026-10-15' }
+        ],
+        submissions: [],
+        reviews: [],
+        reviewCriteria: [
+          { id: 'clarity', label: 'Clarity of problem', hint: 'Does the listing explain who the product is for and what it changes?' },
+          { id: 'usefulness', label: 'Usefulness', hint: 'Did it help with the job described, in your own use?' },
+          { id: 'claims', label: 'Reliability of claims', hint: 'Did the listing\u2019s claims hold up when you checked?' }
+        ]
       }
     };
 
@@ -2495,6 +2673,7 @@
         if (typeof serverState.settings.darkMode === 'boolean') state.darkMode = serverState.settings.darkMode;
       }
       if (serverState.work) state.work = serverState.work;
+      if (serverState.discover) state.discover = { ...state.discover, ...serverState.discover };
       if (serverState.summaries) state.summaries = serverState.summaries;
       if (serverState.drafts) state.drafts = serverState.drafts;
     }
@@ -2531,6 +2710,7 @@
         audit: state.auditLog,
         settings: getSettings(),
         work: state.work,
+        discover: state.discover,
         summaries: state.summaries,
         drafts: state.drafts
       };
@@ -2963,6 +3143,11 @@
       if (state.aura) {
         $('#workStyle').value = state.aura.workStyle || 'collaborative';
         $('#growthEdges').value = state.aura.growthEdges || '';
+        const prefs = state.aura.aiPreferences || {};
+        if ($('#aiLength')) $('#aiLength').value = prefs.length || 'short';
+        if ($('#aiTone')) $('#aiTone').value = prefs.tone || 'direct';
+        if ($('#aiFormat')) $('#aiFormat').value = prefs.format || 'bullets';
+        if ($('#aiClarifying')) $('#aiClarifying').checked = prefs.askClarifying !== false;
         $('#archetypeName').textContent = state.aura.archetype?.name || 'Indigo';
         // Render strengths tags
         const strengthsTags = $('#strengthsTags');
@@ -3123,6 +3308,346 @@
       persist('audit');
       showToast('Applied — added to your commitments and Today');
       renderWork();
+    }
+
+    // === DISCOVER ===
+    function safeUrl(url) {
+      const value = String(url || '').trim();
+      return /^https?:\/\//i.test(value) ? value : '#';
+    }
+
+    function todayStamp() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    function publishedDiscoverListings() {
+      return (state.discover?.listings || []).filter(l => (l.status || 'published') === 'published');
+    }
+
+    function discoverReviewsFor(listingId) {
+      return (state.discover?.reviews || [])
+        .filter(r => r.listingId === listingId && r.status === 'approved')
+        .sort((a, b) => String(b.submittedAt).localeCompare(String(a.submittedAt)));
+    }
+
+    function discoverAverage(listingId) {
+      const reviews = discoverReviewsFor(listingId);
+      if (!reviews.length) return null;
+      const criteriaIds = (state.discover?.reviewCriteria || []).map(c => c.id);
+      const averages = {};
+      criteriaIds.forEach(id => {
+        const values = reviews.map(r => Number(r.criteria?.[id])).filter(v => v >= 1 && v <= 5);
+        averages[id] = values.length ? (values.reduce((a, b) => a + b, 0) / values.length) : null;
+      });
+      return { count: reviews.length, averages };
+    }
+
+    function setDiscoverCategory(value) {
+      if (!state.discover) return;
+      state.discover.categoryFilter = value;
+      renderDiscover();
+    }
+
+    function renderDiscover() {
+      const container = $('#discoverListings');
+      if (!container) return;
+      if (!state.discover) state.discover = { listings: [], submissions: [], reviews: [], categories: [], reviewCriteria: [] };
+
+      const categorySelect = $('#discoverCategory');
+      if (categorySelect && categorySelect.options.length === 0) {
+        (state.discover.categories || []).forEach(c => categorySelect.add(new Option(c, c)));
+      }
+
+      const chips = $('#discoverCategoryChips');
+      if (chips) {
+        const active = state.discover.categoryFilter || '';
+        const cats = state.discover.categories || [];
+        chips.innerHTML = ['All', ...cats].map(c => {
+          const value = c === 'All' ? '' : c;
+          const on = active === value;
+          return `<button type="button" class="badge ${on ? 'badge-established' : 'badge-proposed'}" style="cursor:pointer;" onclick="setDiscoverCategory('${escapeHtml(value)}')">${escapeHtml(c)}</button>`;
+        }).join('');
+      }
+
+      const query = ($('#discoverSearch')?.value || '').trim().toLowerCase();
+      const activeCategory = state.discover.categoryFilter || '';
+      const listings = publishedDiscoverListings().filter(l => {
+        if (activeCategory && l.category !== activeCategory) return false;
+        if (!query) return true;
+        return [l.title, l.tagline, l.category, l.maker?.name, l.description].join(' ').toLowerCase().includes(query);
+      });
+
+      const count = $('#discoverResultCount');
+      if (count) count.textContent = `${listings.length} listing${listings.length === 1 ? '' : 's'}`;
+
+      container.innerHTML = listings.length === 0
+        ? '<div class="card" style="text-align: center; color: var(--muted);">No listings match this search.</div>'
+        : listings.map(l => {
+            const avg = discoverAverage(l.id);
+            const reviews = discoverReviewsFor(l.id);
+            const criteria = state.discover.reviewCriteria || [];
+            const scoreLine = avg
+              ? `<div class="discover-meta"><span class="discover-score">${avg.count} attributed review${avg.count === 1 ? '' : 's'}</span></div>`
+              : `<div class="discover-meta">No published reviews yet. No score is shown until a review is approved.</div>`;
+
+            const claimRows = (l.claims || []).length
+              ? l.claims.map(c => `
+                  <div class="discover-claim">
+                    <span>${escapeHtml(c.text)}</span>
+                    <span class="badge ${c.verified ? 'badge-established' : 'badge-validation'}" style="margin-left: auto; flex-shrink: 0;">${c.verified ? 'Verified' : 'Unverified claim'}</span>
+                  </div>
+                `).join('')
+              : '<div class="discover-meta">The maker did not list specific claims.</div>';
+
+            const reviewRows = reviews.length
+              ? reviews.map(r => `
+                  <div class="discover-review">
+                    <div style="display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+                      <strong>${escapeHtml(r.reviewerName || 'Unattributed')}</strong>
+                      <span class="discover-meta">${escapeHtml(r.submittedAt || '')}</span>
+                    </div>
+                    <div class="discover-meta" style="margin: 4px 0 6px;">
+                      ${criteria.map(c => `${escapeHtml(c.label)} ${Number(r.criteria?.[c.id]) || 0}/5`).join(' · ')}
+                    </div>
+                    <div>${escapeHtml(r.text || '')}</div>
+                  </div>
+                `).join('')
+              : '<div class="discover-meta">No approved reviews for this listing yet.</div>';
+
+            return `
+              <details class="card discover-card">
+                <summary>
+                  <span style="display: block; margin-bottom: 6px;">
+                    <span class="card-title" style="display: block;">${escapeHtml(l.title)}</span>
+                    <span class="card-subtitle" style="display: block;">${escapeHtml(l.tagline || '')}</span>
+                  </span>
+                  <span style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">
+                    <span class="badge badge-proposed">${escapeHtml(l.category || 'Uncategorized')}</span>
+                    ${l.mock ? '<span class="badge badge-future">Mock example</span>' : '<span class="badge badge-established">Maker submission</span>'}
+                    ${l.verifiedMaker ? '<span class="badge badge-established">Maker verified</span>' : ''}
+                  </span>
+                  <span class="discover-meta" style="display: block;">By ${escapeHtml(l.maker?.name || 'Unknown maker')} · ${escapeHtml(l.publishedAt || '')}</span>
+                  <span style="display: block; margin-top: 8px; font-size: 12px; color: var(--brand-600); font-weight: 600;">View details &amp; reviews →</span>
+                </summary>
+
+                <div class="discover-section">
+                  <h3>About</h3>
+                  <p style="font-size: 14px;">${escapeHtml(l.description || '')}</p>
+                </div>
+
+                <div class="discover-section">
+                  <h3>Maker</h3>
+                  <div style="font-size: 14px;">
+                    ${escapeHtml(l.maker?.name || 'Unknown maker')}
+                    ${l.maker?.url ? ` · <a href="${escapeHtml(safeUrl(l.maker.url))}" target="_blank" rel="noopener noreferrer">Maker link</a>` : ''}
+                  </div>
+                  <div class="discover-meta" style="margin-top: 4px;">Attribution is supplied by the maker. It is not an endorsement by Orbis.</div>
+                </div>
+
+                <div class="discover-section">
+                  <h3>Maker claims</h3>
+                  ${claimRows}
+                  <div class="discover-meta" style="margin-top: 6px;">Claims are labeled unverified until a reviewer checks them. Orbis does not independently test products.</div>
+                </div>
+
+                <div class="discover-section">
+                  <h3>Links</h3>
+                  <a href="${escapeHtml(safeUrl(l.productUrl))}" target="_blank" rel="noopener noreferrer" style="font-size: 14px;">Visit the product page →</a>
+                  <div class="discover-meta" style="margin-top: 4px;">External link. Orbis does not track referrals.</div>
+                </div>
+
+                <div class="discover-section">
+                  <h3>Reviews</h3>
+                  ${scoreLine}
+                  ${avg ? `<div class="discover-meta" style="margin: 6px 0;">${criteria.map(c => `${escapeHtml(c.label)} ${avg.averages[c.id] == null ? '—' : avg.averages[c.id].toFixed(1)}/5`).join(' · ')}</div>` : ''}
+                  <div class="discover-meta" style="margin-bottom: 6px;">Criteria are identical for every listing. Only attributed, approved reviews appear here.</div>
+                  ${reviewRows}
+                </div>
+
+                <div class="discover-section">
+                  <h3>Write a review</h3>
+                  ${l.mock
+                    ? '<div class="discover-meta">Reviews are disabled on mock examples so no fictional rating is created.</div>'
+                    : `<form onsubmit="submitDiscoverReview(event, '${escapeHtml(l.id)}')" style="display: grid; gap: 8px;">
+                        <input class="form-input" id="reviewName-${escapeHtml(l.id)}" required maxlength="60" placeholder="Display name (published with your review)">
+                        <div class="discover-form-row">
+                          ${criteria.map(c => `
+                            <label style="font-size: 12px; color: var(--muted);">${escapeHtml(c.label)}
+                              <select class="form-select" id="review-${escapeHtml(l.id)}-${escapeHtml(c.id)}" required title="${escapeHtml(c.hint)}">
+                                <option value="">—</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                              </select>
+                            </label>
+                          `).join('')}
+                        </div>
+                        <textarea class="form-textarea" id="reviewText-${escapeHtml(l.id)}" rows="3" required maxlength="800" placeholder="What worked, what did not, and what you checked."></textarea>
+                        <div class="discover-meta">Your review is unpublished until a human moderator approves it. You cannot edit or remove a published review from this prototype.</div>
+                        <button type="submit" class="btn btn-secondary btn-sm" style="justify-self: start;">Submit review for approval</button>
+                      </form>`}
+                </div>
+              </details>
+            `;
+          }).join('');
+
+      const submissions = state.discover.submissions || [];
+      const subsContainer = $('#discoverSubmissions');
+      if (subsContainer) {
+        subsContainer.innerHTML = submissions.length
+          ? submissions.map(s => `
+              <div style="padding: 12px 0; border-bottom: 1px solid var(--line);">
+                <div style="display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+                  <strong>${escapeHtml(s.title)}</strong>
+                  <span class="badge ${s.status === 'approved' ? 'badge-established' : s.status === 'rejected' ? 'badge-future' : 'badge-validation'}">${escapeHtml(s.status)}</span>
+                </div>
+                <div class="discover-meta">${escapeHtml(s.category)} · submitted ${escapeHtml(s.submittedAt)}</div>
+                <div class="discover-meta" style="margin-top: 4px;">${s.status === 'pending' ? 'Not public. Waiting for a human reviewer.' : s.status === 'approved' ? 'Approved and published.' : 'Not published.'}</div>
+              </div>
+            `).join('')
+          : '<div class="discover-meta">You have not submitted a listing yet. Submissions appear here and stay private until approved.</div>';
+      }
+
+      renderDiscoverModeration();
+    }
+
+    function renderDiscoverModeration() {
+      const container = $('#discoverModeration');
+      if (!container) return;
+      const pendingSubs = (state.discover?.submissions || []).filter(s => s.status === 'pending');
+      const pendingReviews = (state.discover?.reviews || []).filter(r => r.status === 'pending');
+      if (!pendingSubs.length && !pendingReviews.length) {
+        container.innerHTML = '<div class="discover-meta">Nothing is waiting for review.</div>';
+        return;
+      }
+      const rows = [];
+      pendingSubs.forEach(s => rows.push(`
+        <div style="padding: 12px 0; border-bottom: 1px solid var(--line);">
+          <div style="display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+            <div><strong>Listing:</strong> ${escapeHtml(s.title)} <span class="discover-meta">by ${escapeHtml(s.makerName)}</span></div>
+            <div style="display: flex; gap: 6px;">
+              <button class="btn btn-primary btn-sm" onclick="approveDiscover('submission', '${escapeHtml(s.id)}')">Approve</button>
+              <button class="btn btn-secondary btn-sm" onclick="rejectDiscover('submission', '${escapeHtml(s.id)}')">Reject</button>
+            </div>
+          </div>
+        </div>
+      `));
+      pendingReviews.forEach(r => {
+        const listing = (state.discover?.listings || []).find(l => l.id === r.listingId);
+        const criteria = state.discover.reviewCriteria || [];
+        rows.push(`
+          <div style="padding: 12px 0; border-bottom: 1px solid var(--line);">
+            <div style="display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+              <div>
+                <strong>Review:</strong> ${escapeHtml(listing?.title || 'Unknown listing')} <span class="discover-meta">by ${escapeHtml(r.reviewerName)}</span>
+                <div class="discover-meta">${criteria.map(c => `${escapeHtml(c.label)} ${Number(r.criteria?.[c.id]) || 0}/5`).join(' · ')}</div>
+              </div>
+              <div style="display: flex; gap: 6px;">
+                <button class="btn btn-primary btn-sm" onclick="approveDiscover('review', '${escapeHtml(r.id)}')">Approve</button>
+                <button class="btn btn-secondary btn-sm" onclick="rejectDiscover('review', '${escapeHtml(r.id)}')">Reject</button>
+              </div>
+            </div>
+            <div style="font-size: 13px; margin-top: 6px;">${escapeHtml(r.text)}</div>
+          </div>
+        `);
+      });
+      container.innerHTML = rows.join('');
+    }
+
+    function submitDiscoverListing(event) {
+      event.preventDefault();
+      if (!$('#discoverAccuracy').checked) {
+        showToast('Please confirm the accuracy statement before submitting');
+        return;
+      }
+      const submission = {
+        id: 'sub-' + Date.now(),
+        title: $('#discoverTitle').value.trim(),
+        tagline: $('#discoverTagline').value.trim(),
+        category: $('#discoverCategory').value,
+        description: $('#discoverDescription').value.trim(),
+        productUrl: $('#discoverProductUrl').value.trim(),
+        makerName: $('#discoverMakerName').value.trim(),
+        makerUrl: $('#discoverMakerUrl').value.trim(),
+        submittedAt: todayStamp(),
+        status: 'pending'
+      };
+      state.discover.submissions = state.discover.submissions || [];
+      state.discover.submissions.unshift(submission);
+      persist('discover');
+      renderDiscover();
+      showToast('Submitted for human review — not public yet');
+    }
+
+    function submitDiscoverReview(event, listingId) {
+      event.preventDefault();
+      const criteria = {};
+      (state.discover.reviewCriteria || []).forEach(c => {
+        criteria[c.id] = Number($(`#review-${listingId}-${c.id}`)?.value);
+      });
+      const review = {
+        id: 'rev-' + Date.now(),
+        listingId,
+        reviewerName: ($(`#reviewName-${listingId}`)?.value || '').trim(),
+        criteria,
+        text: ($(`#reviewText-${listingId}`)?.value || '').trim(),
+        submittedAt: todayStamp(),
+        status: 'pending'
+      };
+      if (!review.reviewerName || !review.text) {
+        showToast('Add a display name and a written review');
+        return;
+      }
+      state.discover.reviews = state.discover.reviews || [];
+      state.discover.reviews.unshift(review);
+      persist('discover');
+      renderDiscover();
+      showToast('Review submitted for approval — not published yet');
+    }
+
+    async function approveDiscover(kind, id) {
+      const ok = await confirmDialog('Publish this ' + kind + '? It will be public and attributed.');
+      if (!ok) return;
+      if (kind === 'submission') {
+        const sub = (state.discover.submissions || []).find(s => s.id === id);
+        if (!sub || sub.status !== 'pending') return;
+        sub.status = 'approved';
+        state.discover.listings = state.discover.listings || [];
+        state.discover.listings.unshift({
+          id: 'listing-' + Date.now(),
+          title: sub.title,
+          tagline: sub.tagline,
+          category: sub.category,
+          description: sub.description,
+          maker: { name: sub.makerName, url: sub.makerUrl },
+          productUrl: sub.productUrl,
+          claims: [],
+          mock: false,
+          verifiedMaker: false,
+          status: 'published',
+          publishedAt: todayStamp(),
+          source: 'maker submission'
+        });
+      } else {
+        const review = (state.discover.reviews || []).find(r => r.id === id);
+        if (!review || review.status !== 'pending') return;
+        review.status = 'approved';
+      }
+      persist('discover');
+      renderDiscover();
+      showToast('Approved and published');
+    }
+
+    function rejectDiscover(kind, id) {
+      const collection = kind === 'submission' ? state.discover.submissions : state.discover.reviews;
+      const item = (collection || []).find(x => x.id === id);
+      if (!item || item.status !== 'pending') return;
+      item.status = 'rejected';
+      persist('discover');
+      renderDiscover();
+      showToast('Rejected — not published');
     }
 
     function renderPrivacy() {
@@ -3418,6 +3943,7 @@
         case 'growth': break;
         case 'privacy': renderPrivacy(); break;
         case 'work': renderWork(); break;
+        case 'discover': renderDiscover(); break;
         case 'account': renderAccount(); break;
         case 'settings': renderSettings(); break;
       }
@@ -3709,9 +4235,52 @@
           shared: item.querySelector('input[type="checkbox"]').checked
         }));
         const archetype = state.aura?.archetype || { name: 'Indigo', color: '#4F46E5' };
-        state.aura = { workStyle, strengths, growthEdges, portfolio, archetype };
+        const aiPreferences = {
+          length: $('#aiLength')?.value || 'short',
+          tone: $('#aiTone')?.value || 'direct',
+          format: $('#aiFormat')?.value || 'bullets',
+          askClarifying: !!$('#aiClarifying')?.checked
+        };
+        state.aura = { workStyle, strengths, growthEdges, portfolio, archetype, aiPreferences };
         persist('aura');
         showToast('Aura saved');
+      });
+
+      // AI preferences: copy is a real action; nothing is applied automatically.
+      $('#copyAiPrefs')?.addEventListener('click', () => {
+        // Copy what is on screen, so unsaved edits are not silently ignored.
+        const prefs = {
+          length: $('#aiLength')?.value || state.aura?.aiPreferences?.length || 'short',
+          tone: $('#aiTone')?.value || state.aura?.aiPreferences?.tone || 'direct',
+          format: $('#aiFormat')?.value || state.aura?.aiPreferences?.format || 'bullets',
+          askClarifying: $('#aiClarifying') ? !!$('#aiClarifying').checked : state.aura?.aiPreferences?.askClarifying !== false
+        };
+        const labels = {
+          length: { short: 'Short', balanced: 'Balanced', detailed: 'Detailed' },
+          tone: { direct: 'Direct', warm: 'Warm', formal: 'Formal' },
+          format: { bullets: 'Bullet list', prose: 'Prose', steps: 'Step by step' }
+        };
+        const text = [
+          'Orbis Aura — AI response preferences',
+          'Length: ' + (labels.length[prefs.length] || 'Short'),
+          'Tone: ' + (labels.tone[prefs.tone] || 'Direct'),
+          'Format: ' + (labels.format[prefs.format] || 'Bullet list'),
+          'Ask clarifying questions when a request is ambiguous: ' + (prefs.askClarifying === false ? 'No' : 'Yes'),
+          'Note: self-set preferences, not inferred from private messages.'
+        ].join('\n');
+        if (navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(text).then(() => showToast('Preferences copied')).catch(() => showToast('Copy failed — select the text manually'));
+        } else {
+          showToast('Clipboard is not available in this browser');
+        }
+      });
+
+      $('#resetAiPrefs')?.addEventListener('click', () => {
+        if ($('#aiLength')) $('#aiLength').value = 'short';
+        if ($('#aiTone')) $('#aiTone').value = 'direct';
+        if ($('#aiFormat')) $('#aiFormat').value = 'bullets';
+        if ($('#aiClarifying')) $('#aiClarifying').checked = true;
+        showToast('Neutral defaults selected — save Aura to keep them');
       });
     }
 
@@ -3929,6 +4498,7 @@
       initCulture();
       initGrowth();
       initPrivacy();
+      $('#discoverSubmitForm')?.addEventListener('submit', submitDiscoverListing);
 
       // Initial renders
       renderToday();
@@ -3939,6 +4509,7 @@
       renderPrivacy();
       renderAura();
       renderWork();
+      renderDiscover();
     }
 
     init();
