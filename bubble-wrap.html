@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🫧 Bubble Wrap</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+      background: radial-gradient(circle at 30% 20%, #eaf6ff 0%, #cfe8ff 45%, #b9dcff 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(6px);
+      border-radius: 24px;
+      padding: 22px;
+      box-shadow: 0 14px 46px rgba(40, 90, 150, 0.22);
+      max-width: 560px;
+      width: 96%;
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.9rem;
+      color: #2a86d6;
+      margin-bottom: 4px;
+      letter-spacing: 1px;
+      text-shadow: 0 2px 0 #fff;
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #6a93bb;
+      margin-bottom: 14px;
+    }
+
+    /* ============ SCORE DISPLAY ============ */
+    .score-board {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 10px 16px;
+      background: linear-gradient(135deg, #eaf6ff, #d5ecff);
+      border-radius: 12px;
+      font-size: 0.95rem;
+      color: #4a6d8c;
+      font-weight: 500;
+    }
+    .score-board span { font-weight: 700; color: #2a86d6; }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 6px 20px rgba(40, 90, 150, 0.16);
+      background: linear-gradient(180deg, #f4fbff, #e2f2ff);
+    }
+    canvas { display: block; width: 100%; height: auto; touch-action: none; }
+
+    /* ============ SCREENS (Start / Game Over) ============ */
+    .screen {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      background: rgba(255, 255, 255, 0.94);
+      transition: opacity 0.3s ease;
+      padding: 20px; text-align: center;
+    }
+    .screen.hidden { opacity: 0; pointer-events: none; }
+    .screen-title {
+      font-size: 1.9rem; color: #2a86d6; margin-bottom: 8px;
+      text-shadow: 0 2px 0 #fff;
+    }
+    .screen-subtitle { font-size: 0.95rem; color: #7a9cbd; margin-bottom: 22px; line-height: 1.6; }
+    .final-score { font-size: 1.4rem; color: #2a86d6; margin-bottom: 10px; }
+    .best-tag { font-size: 0.9rem; color: #8aa9c6; margin-bottom: 20px; }
+
+    /* ============ ACTION BUTTONS ============ */
+    .action-btn {
+      padding: 13px 34px;
+      background: linear-gradient(135deg, #56b6f5, #2a86d6);
+      color: white; border: none; border-radius: 25px;
+      font-size: 1.05rem; font-weight: 700; cursor: pointer;
+      transition: all 0.18s ease;
+      box-shadow: 0 5px 16px rgba(42, 134, 214, 0.35);
+      letter-spacing: 0.5px;
+    }
+    .action-btn:hover { transform: translateY(-3px); box-shadow: 0 8px 22px rgba(42, 134, 214, 0.45); }
+    .action-btn:active { transform: translateY(-1px); }
+
+    /* ============ PAUSE OVERLAY ============ */
+    .pause-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(240, 250, 255, 0.82);
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      font-size: 1.8rem; color: #2a86d6; font-weight: 700;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+    }
+    .pause-overlay.visible { opacity: 1; }
+    .pause-overlay small { font-size: 0.8rem; color: #7a9cbd; margin-top: 8px; font-weight: 400; }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 480px) {
+      .game-container { padding: 14px; }
+      .game-title { font-size: 1.5rem; }
+      .screen-title { font-size: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">🫧 Bubble Wrap</h1>
+    <p class="game-subtitle">Pop bubbles before the sheet reaches the bottom!</p>
+
+    <div class="score-board">
+      <div>Score: <span id="score">0</span></div>
+      <div>Combo: <span id="combo">x1</span></div>
+      <div>Best: <span id="highScore">0</span></div>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="480" height="600"></canvas>
+
+      <!-- Start Screen -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">Ready to Pop?</h2>
+        <p class="screen-subtitle">
+          Tap or click any bubble to pop it.<br>
+          Clear a whole row for a bonus — and slow the flow.<br>
+          Pop fast to build up your combo!
+        </p>
+        <button class="action-btn" id="startBtn">Start Popping</button>
+      </div>
+
+      <!-- Game Over Screen -->
+      <div id="gameOverScreen" class="screen hidden">
+        <h2 class="screen-title">Overflow!</h2>
+        <p class="final-score">Score: <span id="finalScore">0</span></p>
+        <p class="best-tag" id="bestTag"></p>
+        <button class="action-btn" id="playAgainBtn">Pop Again</button>
+      </div>
+
+      <!-- Pause Overlay -->
+      <div id="pauseOverlay" class="pause-overlay">
+        ⏸ Paused
+        <small>Press P or tap to resume</small>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============ GAME CONFIGURATION ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const COLS = 10;
+    const ROWS = 12;                          // board capacity in cells
+    const CELL = canvas.width / COLS;         // square cells (48px)
+    const BOARD_H = ROWS * CELL;
+    const BOARD_TOP = canvas.height - BOARD_H; // reserved margin at top
+    const BOARD_BOTTOM = BOARD_TOP + BOARD_H;
+
+    const INIT_ROWS = 7;      // starting rows of wrap
+    const BASE_RISE = 9;      // px per second (gentle)
+    const MAX_RISE = 40;
+    const SLOW_FACTOR = 0.6;  // rise multiplier right after a clear
+    const SLOW_MS = 2600;     // slow-down duration
+
+    // ============ GAME STATE ============
+    let grid = [];            // grid[row][col] -> bubble or null (row 0 = top)
+    let slide = 0;            // sub-cell scroll of the sheet, [0, 1)
+    let riseSpeed = BASE_RISE;
+    let slowTimer = 0;
+    let score = 0;
+    let combo = 0;
+    let comboTimer = 0;
+    let highScore = parseInt(localStorage.getItem('bubbleWrapBest') || '0', 10);
+    let running = false;
+    let paused = false;
+    let gameOver = false;
+    let particles = [];
+    let rings = [];
+    let floats = [];
+    let colRewarded = [];     // per-column guard so a clear pays out once
+    let lastTime = 0;
+    let ac = null;            // lazy AudioContext
+
+    // ============ DOM ELEMENTS ============
+    const scoreEl = document.getElementById('score');
+    const comboEl = document.getElementById('combo');
+    const highScoreEl = document.getElementById('highScore');
+    const finalScoreEl = document.getElementById('finalScore');
+    const bestTag = document.getElementById('bestTag');
+    const startScreen = document.getElementById('startScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const startBtn = document.getElementById('startBtn');
+    const playAgainBtn = document.getElementById('playAgainBtn');
+
+    highScoreEl.textContent = highScore;
+
+    // ============ AUDIO (WebAudio pleasant "bloop" pop) ============
+    function ensureAudio() {
+      if (!ac) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) ac = new AC();
+      }
+      if (ac && ac.state === 'suspended') ac.resume();
+    }
+
+    // warm pop: soft sine bloop with a quick pitch drop + airy sparkle
+    function popSound(step) {
+      if (!ac) return;
+      const t = ac.currentTime;
+      const base = 320 + step * 42;
+
+      const osc = ac.createOscillator();
+      const gain = ac.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(base * 1.6, t);
+      osc.frequency.exponentialRampToValueAtTime(base * 0.72, t + 0.13);
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.26, t + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
+      osc.connect(gain).connect(ac.destination);
+      osc.start(t);
+      osc.stop(t + 0.17);
+
+      const o2 = ac.createOscillator();
+      const g2 = ac.createGain();
+      o2.type = 'triangle';
+      o2.frequency.setValueAtTime(base * 3.0, t);
+      o2.frequency.exponentialRampToValueAtTime(base * 1.8, t + 0.08);
+      g2.gain.setValueAtTime(0.05, t);
+      g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+      o2.connect(g2).connect(ac.destination);
+      o2.start(t);
+      o2.stop(t + 0.1);
+    }
+
+    // bright arpeggio when a whole row clears
+    function clearSound() {
+      if (!ac) return;
+      const t = ac.currentTime;
+      [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+        const o = ac.createOscillator();
+        const g = ac.createGain();
+        const at = t + i * 0.05;
+        o.type = 'sine';
+        o.frequency.setValueAtTime(f, at);
+        g.gain.setValueAtTime(0.0001, at);
+        g.gain.exponentialRampToValueAtTime(0.18, at + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, at + 0.42);
+        o.connect(g).connect(ac.destination);
+        o.start(at);
+        o.stop(at + 0.46);
+      });
+    }
+
+    // ============ BUBBLES & FIELD ============
+    function makeBubble() {
+      return {
+        hue: 188 + Math.random() * 62,      // cyan/aqua/blue family
+        light: 86 + Math.random() * 9,
+        scale: 1,
+        wobble: Math.random() * Math.PI * 2
+      };
+    }
+
+    function newRow() {
+      const row = new Array(COLS);
+      for (let c = 0; c < COLS; c++) row[c] = makeBubble();
+      return row;
+    }
+
+    function initField() {
+      grid = [];
+      for (let r = 0; r < INIT_ROWS; r++) grid.push(newRow());
+      slide = 0;
+      riseSpeed = BASE_RISE;
+      slowTimer = 0;
+    }
+
+    // row center y, given the sheet's sub-cell slide
+    function rowY(r) {
+      return BOARD_TOP - CELL / 2 + (r + slide) * CELL;
+    }
+
+    // ============ SCORING ============
+    function comboMultiplier() {
+      return Math.min(8, 1 + Math.floor(combo / 4));
+    }
+    function addCombo() {
+      combo++;
+      comboTimer = 1400;
+      comboEl.textContent = 'x' + comboMultiplier();
+    }
+    function breakCombo() {
+      combo = 0;
+      comboTimer = 0;
+      comboEl.textContent = 'x1';
+    }
+
+    // ============ EFFECTS ============
+    function burst(cx, cy, hue, count) {
+      const n = count || 11;
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const sp = 45 + Math.random() * 140;
+        particles.push({
+          x: cx, y: cy,
+          vx: Math.cos(a) * sp,
+          vy: Math.sin(a) * sp,
+          life: 1,
+          size: 1.5 + Math.random() * 3.5,
+          hue: hue + (Math.random() * 40 - 20)
+        });
+      }
+      rings.push({ x: cx, y: cy, r: CELL * 0.16, life: 1, hue: hue });
+    }
+
+    function floatText(cx, cy, text, hue) {
+      floats.push({ x: cx, y: cy, text: text, life: 1, hue: hue });
+    }
+
+    function updateEffects(dt) {
+      particles = particles.filter(p => {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vx *= 0.93;
+        p.vy = p.vy * 0.93 + 55 * dt;
+        p.life -= dt * 1.9;
+        return p.life > 0;
+      });
+      rings = rings.filter(r => {
+        r.r += dt * 190;
+        r.life -= dt * 2.6;
+        return r.life > 0;
+      });
+      floats = floats.filter(f => {
+        f.y -= dt * 48;
+        f.life -= dt * 1.1;
+        return f.life > 0;
+      });
+    }
+
+    // ============ DRAWING ============
+    function drawBubble(cx, cy, s, b) {
+      const R = CELL * 0.42 * s;
+      if (R <= 0.6) return;
+
+      // soft contact shadow
+      ctx.beginPath();
+      ctx.arc(cx, cy + R * 0.14, R, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${b.hue}, 60%, 52%, 0.12)`;
+      ctx.fill();
+
+      // translucent body
+      const g = ctx.createRadialGradient(cx - R * 0.34, cy - R * 0.36, R * 0.1, cx, cy, R);
+      g.addColorStop(0, 'rgba(255,255,255,0.95)');
+      g.addColorStop(0.36, `hsla(${b.hue}, 90%, ${b.light}%, 0.72)`);
+      g.addColorStop(1, `hsla(${b.hue}, 82%, 60%, 0.4)`);
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, 0, Math.PI * 2);
+      ctx.fillStyle = g;
+      ctx.fill();
+
+      // rim
+      ctx.lineWidth = Math.max(1, R * 0.09);
+      ctx.strokeStyle = `hsla(${b.hue}, 85%, 72%, 0.85)`;
+      ctx.stroke();
+
+      // specular highlights
+      ctx.beginPath();
+      ctx.arc(cx - R * 0.32, cy - R * 0.34, R * 0.22, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx + R * 0.28, cy + R * 0.3, R * 0.09, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.fill();
+    }
+
+    function draw() {
+      // background
+      const bg = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      bg.addColorStop(0, '#eaf7ff');
+      bg.addColorStop(1, '#cfeaff');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // danger line near the bottom
+      ctx.save();
+      ctx.setLineDash([10, 8]);
+      ctx.strokeStyle = 'rgba(255, 86, 120, 0.45)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, BOARD_BOTTOM - CELL * 0.5);
+      ctx.lineTo(canvas.width, BOARD_BOTTOM - CELL * 0.5);
+      ctx.stroke();
+      ctx.restore();
+
+      // field (clip to the board so incoming rows slide in from above)
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, BOARD_TOP, canvas.width, BOARD_H);
+      ctx.clip();
+
+      for (let r = 0; r < grid.length; r++) {
+        const cy = rowY(r);
+        if (cy < BOARD_TOP - CELL || cy > BOARD_BOTTOM + CELL) continue;
+        for (let c = 0; c < COLS; c++) {
+          const b = grid[r][c];
+          if (!b || b.scale <= 0) continue;
+          const wob = 1 + Math.sin(b.wobble) * 0.03;
+          drawBubble(c * CELL + CELL / 2, cy, b.scale * wob, b);
+        }
+      }
+      ctx.restore();
+
+      // pop rings
+      rings.forEach(r => {
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2);
+        ctx.strokeStyle = `hsla(${r.hue}, 90%, 70%, ${r.life * 0.8})`;
+        ctx.lineWidth = 3 * r.life;
+        ctx.stroke();
+      });
+
+      // particles
+      particles.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${p.hue}, 90%, 72%, ${p.life})`;
+        ctx.fill();
+      });
+
+      // floating score pops
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = '700 20px Trebuchet MS, sans-serif';
+      floats.forEach(f => {
+        ctx.fillStyle = `hsla(${f.hue}, 80%, 42%, ${f.life})`;
+        ctx.fillText(f.text, f.x, f.y);
+      });
+
+      // slow-down badge
+      if (slowTimer > 0) {
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.font = '700 14px Trebuchet MS, sans-serif';
+        ctx.fillStyle = 'rgba(42,134,214,0.85)';
+        ctx.fillText('❄ SLOWED', 12, 10);
+      }
+    }
+
+    // ============ POP LOGIC ============
+    function popAt(col, row) {
+      const b = grid[row] && grid[row][col];
+      if (!b || b.scale <= 0) return false;
+
+      grid[row][col] = null;
+      addCombo();
+      const mult = comboMultiplier();
+      const gain = 10 * mult;
+      score += gain;
+      scoreEl.textContent = score;
+
+      const cx = col * CELL + CELL / 2;
+      const cy = rowY(row);
+      burst(cx, cy, b.hue);
+      popSound(Math.min(6, combo));
+      floatText(cx, cy, '+' + gain, b.hue);
+
+      checkClears();
+      return true;
+    }
+
+    function checkClears() {
+      let cleared = 0;
+
+      // whole empty rows slide out of the sheet -> buys vertical space
+      for (let r = 0; r < grid.length; r++) {
+        if (grid[r].every(cell => !cell)) {
+          for (let c = 0; c < COLS; c++) {
+            burst(c * CELL + CELL / 2, rowY(r), 200, 6);
+          }
+          grid.splice(r, 1);
+          r--;
+          cleared++;
+        }
+      }
+
+      // a fully popped column is also a clear (mass removed, stays open)
+      for (let c = 0; c < COLS; c++) {
+        let empty = grid.length > 0;
+        for (let r = 0; r < grid.length; r++) {
+          if (grid[r][c]) { empty = false; break; }
+        }
+        if (empty) { cleared++; }
+      }
+
+      if (cleared > 0) {
+        clearSound();
+        const bonus = 50 * cleared * comboMultiplier();
+        score += bonus;
+        scoreEl.textContent = score;
+        riseSpeed = Math.max(BASE_RISE, riseSpeed * SLOW_FACTOR);
+        slowTimer = SLOW_MS;
+        floatText(canvas.width / 2, canvas.height * 0.4, 'CLEAR! +' + bonus, 150);
+      }
+    }
+
+    // ============ UPDATE ============
+    function update(dt) {
+      if (comboTimer > 0) {
+        comboTimer -= dt * 1000;
+        if (comboTimer <= 0) breakCombo();
+      }
+      if (slowTimer > 0) slowTimer -= dt * 1000;
+
+      // rise ramps gently with score; slow-down window eases it back
+      const ramp = Math.min(MAX_RISE, BASE_RISE + score / 260);
+      const target = slowTimer > 0 ? ramp * 0.3 : ramp;
+      riseSpeed += (target - riseSpeed) * Math.min(1, dt * 2);
+
+      // advance the sheet, committing whole cells as new rows from the top
+      slide += (riseSpeed / CELL) * dt;
+      while (slide >= 1) {
+        slide -= 1;
+        grid.unshift(newRow());
+        for (let c = 0; c < COLS; c++) grid[0][c].scale = 0.35; // grow-in
+      }
+
+      // bubble animation
+      for (let r = 0; r < grid.length; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const b = grid[r][c];
+          if (!b) continue;
+          b.wobble += dt * 2.2;
+          if (b.scale < 1) b.scale = Math.min(1, b.scale + dt * 4);
+        }
+      }
+
+      // overflow: bottom of the sheet reaches the danger line
+      if (grid.length - 1 + slide >= ROWS - 0.5) endGame();
+    }
+
+    // ============ MAIN LOOP ============
+    function loop(now) {
+      if (!running) return;
+      const dt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+
+      if (!paused && !gameOver) {
+        update(dt);
+        updateEffects(dt);
+      }
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // ============ INPUT ============
+    function canvasPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const sx = canvas.width / rect.width;
+      const sy = canvas.height / rect.height;
+      let cx, cy;
+      if (e.touches && e.touches.length) { cx = e.touches[0].clientX; cy = e.touches[0].clientY; }
+      else if (e.changedTouches && e.changedTouches.length) { cx = e.changedTouches[0].clientX; cy = e.changedTouches[0].clientY; }
+      else { cx = e.clientX; cy = e.clientY; }
+      return { x: (cx - rect.left) * sx, y: (cy - rect.top) * sy };
+    }
+
+    function handlePop(e) {
+      ensureAudio();
+      if (!running) return;
+      if (gameOver) return;
+      if (paused) { togglePause(); return; }
+
+      const p = canvasPos(e);
+      const col = Math.floor(p.x / CELL);
+      const row = Math.round((p.y - BOARD_TOP + CELL / 2) / CELL - slide);
+      if (col < 0 || col >= COLS || row < 0 || row >= grid.length) return;
+
+      const cx = col * CELL + CELL / 2;
+      const cy = rowY(row);
+      if (Math.hypot(p.x - cx, p.y - cy) > CELL * 0.56) return;
+
+      popAt(col, row);
+    }
+
+    canvas.addEventListener('mousedown', handlePop);
+    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handlePop(e); }, { passive: false });
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' || e.code === 'KeyP') { e.preventDefault(); togglePause(); }
+    });
+
+    // ============ GAME FLOW ============
+    function resetGame() {
+      initField();
+      particles = [];
+      rings = [];
+      floats = [];
+      score = 0;
+      combo = 0;
+      comboTimer = 0;
+      gameOver = false;
+      scoreEl.textContent = '0';
+      comboEl.textContent = 'x1';
+    }
+
+    function startGame() {
+      ensureAudio();
+      resetGame();
+      running = true;
+      paused = false;
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      pauseOverlay.classList.remove('visible');
+      lastTime = performance.now();
+      requestAnimationFrame(loop);
+    }
+
+    function endGame() {
+      gameOver = true;
+      running = false;
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('bubbleWrapBest', String(highScore));
+        highScoreEl.textContent = highScore;
+        bestTag.textContent = '✦ New best! ✦';
+      } else {
+        bestTag.textContent = 'Best: ' + highScore;
+      }
+      finalScoreEl.textContent = score;
+      gameOverScreen.classList.remove('hidden');
+    }
+
+    function togglePause() {
+      if (!running || gameOver) return;
+      paused = !paused;
+      pauseOverlay.classList.toggle('visible', paused);
+      if (!paused) {
+        lastTime = performance.now();
+        requestAnimationFrame(loop);
+      }
+    }
+
+    startBtn.addEventListener('click', startGame);
+    playAgainBtn.addEventListener('click', startGame);
+
+    // ============ INITIAL DRAW ============
+    initField();
+    draw();
+  </script>
+</body>
+</html>

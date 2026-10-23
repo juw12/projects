@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Hamster Roll</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(circle at 50% 0%, #2a2140 0%, #16121f 60%, #0d0a14 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    overflow: hidden;
+    padding: 12px;
+    touch-action: manipulation;
+    color: #f4e9d0;
+  }
+  #app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: min(97vw, 980px);
+  }
+  #game-wrap {
+    position: relative;
+    width: 100%;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 18px 50px rgba(0,0,0,.6), 0 0 0 2px rgba(255,214,120,.25) inset;
+    background: #1b2233;
+  }
+  canvas { display: block; width: 100%; height: auto; }
+  #hint {
+    position: absolute; bottom: 6px; width: 100%; text-align: center;
+    font-size: 11px; letter-spacing: 1px; color: rgba(255,255,255,.6);
+    pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,.7);
+  }
+
+  /* ============ SCREENS (Start / Over / Win) ============ */
+  .screen {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    text-align: center; padding: 20px;
+    background: rgba(14,11,22,.86);
+    backdrop-filter: blur(3px);
+    transition: opacity .3s ease;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen-title {
+    font-size: clamp(1.6rem, 4vw, 2.6rem);
+    color: #ffd76e;
+    letter-spacing: 2px;
+    text-shadow: 0 3px 0 #7a4a00, 0 0 22px rgba(255,200,80,.5);
+    margin-bottom: 6px;
+  }
+  .screen-sub { font-size: .95rem; color: #b9aed0; margin-bottom: 18px; max-width: 520px; line-height: 1.5; }
+  .stat-line { font-size: 1.05rem; color: #ffeec2; margin: 3px 0; }
+  .stat-line b { color: #7fe0a0; }
+  .action-btn {
+    margin-top: 16px;
+    padding: 12px 34px;
+    border: none; border-radius: 30px;
+    background: linear-gradient(135deg, #ffcf5c, #f39a2b);
+    color: #3a2400; font-weight: bold; font-size: 1.05rem;
+    letter-spacing: 1px; cursor: pointer;
+    box-shadow: 0 5px 0 #b06a12, 0 10px 22px rgba(0,0,0,.4);
+    transition: transform .08s ease, filter .15s ease;
+  }
+  .action-btn:hover { filter: brightness(1.08); }
+  .action-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #b06a12; }
+
+  /* ============ CONTROLS BAR ============ */
+  #controls { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  #controls button, #touch button {
+    font-family: inherit; font-size: 13px; font-weight: bold;
+    letter-spacing: 1px; padding: 9px 18px; border: none; border-radius: 10px;
+    cursor: pointer; color: #fff; background: #3c4a68;
+    box-shadow: 0 4px 0 rgba(0,0,0,.35);
+    transition: transform .06s ease, background .15s ease;
+    user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  #controls button:hover { background: #4d5e83; }
+  #controls button:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.35); }
+  #btn-restart { background: #a8492b; }
+  #btn-restart:hover { background: #c05a36; }
+
+  /* ============ TOUCH CONTROLS ============ */
+  #touch { display: flex; gap: 10px; justify-content: center; width: 100%; }
+  #touch button { flex: 1 1 0; max-width: 150px; font-size: 20px; padding: 14px 0; background: #4a3d6b; }
+  #touch button:active { transform: translateY(2px); background: #5f4e88; }
+  @media (hover: hover) and (pointer: fine) { #touch { display: none; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="game-wrap">
+    <canvas id="game" width="960" height="540"></canvas>
+    <div id="hint">← → / A D to roll &nbsp;|&nbsp; SPACE to hop &nbsp;|&nbsp; P pause &nbsp;|&nbsp; R restart level</div>
+
+    <!-- ============ START SCREEN ============ -->
+    <div id="startScreen" class="screen">
+      <h1 class="screen-title">HAMSTER ROLL</h1>
+      <p class="screen-sub">
+        Roll your hamster ball to the goal flag! Ride ramps, cross moving
+        platforms, dodge spikes and grab snacks. Reach the flag as fast as you can.
+      </p>
+      <div class="stat-line">Best Run: <b id="startBest">--:--</b></div>
+      <div class="stat-line" style="font-size:.85rem;color:#8f85a8;">5 levels &bull; 5 lives each &bull; checkpoints save you</div>
+      <button class="action-btn" id="startBtn">Start Rolling</button>
+    </div>
+
+    <!-- ============ GAME OVER SCREEN ============ -->
+    <div id="overScreen" class="screen hidden">
+      <h2 class="screen-title" style="color:#ff8a8a;">OUT OF LIVES</h2>
+      <p class="screen-sub" id="overMsg">The hamster rolled a little too far.</p>
+      <div class="stat-line">Reached: <b id="overLevel">1</b> &bull; Snacks: <b id="overCoins">0</b></div>
+      <button class="action-btn" id="retryBtn">Try Again</button>
+    </div>
+
+    <!-- ============ WIN SCREEN ============ -->
+    <div id="winScreen" class="screen hidden">
+      <h2 class="screen-title">ALL LEVELS CLEARED!</h2>
+      <p class="screen-sub">A true champion of the wheel.</p>
+      <div class="stat-line">Total Time: <b id="winTime">00:00</b></div>
+      <div class="stat-line">Snacks Collected: <b id="winCoins">0</b></div>
+      <div class="stat-line">Best Run: <b id="winBest">--:--</b></div>
+      <button class="action-btn" id="againBtn">Play Again</button>
+    </div>
+  </div>
+
+  <div id="controls">
+    <button id="btn-pause" type="button">Pause</button>
+    <button id="btn-restart" type="button">Restart Level</button>
+  </div>
+  <div id="touch">
+    <button id="t-left" type="button">◀</button>
+    <button id="t-jump" type="button">HOP</button>
+    <button id="t-right" type="button">▶</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============ CANVAS & CONSTANTS ============ */
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;
+  const H = canvas.height;
+
+  const GRAV = 0.55;
+  const ACC = 0.78;
+  const AIR_ACC = 0.44;
+  const MAX_VX = 7;
+  const JUMP_V = -10.4;
+  const R = 18;                 // ball radius
+  const STEP = 1 / 60;          // fixed timestep
+  const MAX_LIVES = 5;
+
+  /* ============ LEVEL DATA ============ */
+  // rect: {x,y,w,h, spring?}  spring = bouncy pad (extra energy)
+  // moving rect: add moving:{axis,range,speed,phase}
+  // ramp: [x1,y1,x2,y2]  straight slope segment
+  const LEVELS = [
+    {
+      name: "Sunny Meadow", worldW: 2050, worldH: 540,
+      start: { x: 90, y: 400 }, goal: { x: 1955, y: 470 },
+      rects: [
+        { x: -40, y: 0, w: 40, h: 640 }, { x: 2050, y: 0, w: 40, h: 640 },
+        { x: 0, y: 470, w: 760, h: 140 },
+        { x: 950, y: 350, w: 260, h: 30 },
+        { x: 1300, y: 410, w: 240, h: 30 },
+        { x: 1700, y: 470, w: 350, h: 140 }
+      ],
+      ramps: [[760, 470, 950, 350], [1540, 410, 1700, 470]],
+      spikes: [{ x: 480, y: 440, w: 60, h: 30 }],
+      coins: [{ x: 120, y: 400 }, { x: 520, y: 380 }, { x: 1080, y: 310 },
+              { x: 1380, y: 370 }, { x: 1800, y: 430 }],
+      checkpoints: [{ x: 120, y: 420 }, { x: 1150, y: 310 }]
+    },
+    {
+      name: "Wobbly Bridge", worldW: 2400, worldH: 540,
+      start: { x: 90, y: 400 }, goal: { x: 2320, y: 470 },
+      rects: [
+        { x: -40, y: 0, w: 40, h: 640 }, { x: 2400, y: 0, w: 40, h: 640 },
+        { x: 0, y: 470, w: 620, h: 140 },
+        { x: 700, y: 430, w: 150, h: 24 },
+        { x: 960, y: 395, w: 150, h: 24 },
+        { x: 1180, y: 380, w: 150, h: 24, moving: { axis: "x", range: 150, speed: 1.5 } },
+        { x: 1460, y: 410, w: 200, h: 30 },
+        { x: 1820, y: 470, w: 580, h: 140 },
+        { x: 2020, y: 452, w: 90, h: 18, spring: true }
+      ],
+      ramps: [[1660, 410, 1820, 470]],
+      spikes: [{ x: 300, y: 440, w: 80, h: 30 }],
+      coins: [{ x: 560, y: 420 }, { x: 770, y: 380 }, { x: 1030, y: 345 },
+              { x: 1245, y: 330 }, { x: 1530, y: 360 }, { x: 1900, y: 420 }],
+      checkpoints: [{ x: 120, y: 420 }, { x: 1000, y: 350 }]
+    },
+    {
+      name: "Spike Alley", worldW: 2600, worldH: 540,
+      start: { x: 90, y: 400 }, goal: { x: 2500, y: 300 },
+      rects: [
+        { x: -40, y: 0, w: 40, h: 640 }, { x: 2600, y: 0, w: 40, h: 640 },
+        { x: 0, y: 470, w: 900, h: 140 },
+        { x: 1000, y: 470, w: 700, h: 140 },
+        { x: 1900, y: 470, w: 700, h: 140 },
+        { x: 2200, y: 300, w: 340, h: 26 },
+        { x: 2380, y: 452, w: 80, h: 18, spring: true }
+      ],
+      ramps: [[2100, 470, 2200, 300]],
+      spikes: [
+        { x: 320, y: 440, w: 70, h: 30 }, { x: 560, y: 440, w: 70, h: 30 },
+        { x: 1180, y: 440, w: 90, h: 30 }, { x: 1450, y: 440, w: 70, h: 30 },
+        { x: 2000, y: 440, w: 70, h: 30 }
+      ],
+      coins: [{ x: 250, y: 400 }, { x: 480, y: 340 }, { x: 700, y: 400 },
+              { x: 1250, y: 340 }, { x: 1560, y: 400 }, { x: 2050, y: 340 },
+              { x: 2300, y: 250 }],
+      checkpoints: [{ x: 120, y: 420 }, { x: 1050, y: 420 }, { x: 1950, y: 420 }]
+    },
+    {
+      name: "The Climb", worldW: 2100, worldH: 900,
+      start: { x: 90, y: 780 }, goal: { x: 1900, y: 190 },
+      rects: [
+        { x: -40, y: 0, w: 40, h: 1000 }, { x: 2100, y: 0, w: 40, h: 1000 },
+        { x: 0, y: 860, w: 560, h: 140 },
+        { x: 620, y: 780, w: 160, h: 26 },
+        { x: 900, y: 700, w: 160, h: 26 },
+        { x: 1180, y: 620, w: 160, h: 26, moving: { axis: "y", range: 90, speed: 1.1 } },
+        { x: 1460, y: 540, w: 160, h: 26 },
+        { x: 1180, y: 460, w: 160, h: 26 },
+        { x: 900, y: 380, w: 160, h: 26 },
+        { x: 1180, y: 300, w: 160, h: 26 },
+        { x: 1500, y: 220, w: 480, h: 30 },
+        { x: 620, y: 560, w: 120, h: 20, spring: true }
+      ],
+      ramps: [[520, 860, 620, 780]],
+      spikes: [{ x: 700, y: 750, w: 60, h: 30 }, { x: 1520, y: 510, w: 60, h: 30 }],
+      coins: [{ x: 300, y: 800 }, { x: 700, y: 720 }, { x: 980, y: 640 },
+              { x: 1260, y: 540 }, { x: 1540, y: 470 }, { x: 1260, y: 390 },
+              { x: 980, y: 310 }, { x: 1700, y: 170 }],
+      checkpoints: [{ x: 120, y: 800 }, { x: 950, y: 650 }, { x: 1200, y: 410 }]
+    },
+    {
+      name: "Final Roll", worldW: 3000, worldH: 540,
+      start: { x: 90, y: 400 }, goal: { x: 2880, y: 300 },
+      rects: [
+        { x: -40, y: 0, w: 40, h: 640 }, { x: 3000, y: 0, w: 40, h: 640 },
+        { x: 0, y: 470, w: 500, h: 140 },
+        { x: 560, y: 430, w: 140, h: 24 },
+        { x: 800, y: 400, w: 140, h: 24, moving: { axis: "x", range: 140, speed: 1.7 } },
+        { x: 1060, y: 430, w: 160, h: 26 },
+        { x: 1320, y: 380, w: 140, h: 24 },
+        { x: 1580, y: 430, w: 140, h: 24, moving: { axis: "y", range: 80, speed: 1.4 } },
+        { x: 1840, y: 430, w: 200, h: 26 },
+        { x: 2140, y: 470, w: 400, h: 140 },
+        { x: 2620, y: 470, w: 340, h: 140 },
+        { x: 2560, y: 300, w: 380, h: 26 },
+        { x: 2380, y: 452, w: 80, h: 18, spring: true }
+      ],
+      ramps: [[2480, 470, 2560, 300]],
+      spikes: [
+        { x: 200, y: 440, w: 70, h: 30 }, { x: 1100, y: 400, w: 70, h: 30 },
+        { x: 2200, y: 440, w: 80, h: 30 }, { x: 2350, y: 440, w: 70, h: 30 }
+      ],
+      coins: [{ x: 150, y: 400 }, { x: 500, y: 380 }, { x: 630, y: 380 },
+              { x: 870, y: 340 }, { x: 1140, y: 380 }, { x: 1400, y: 330 },
+              { x: 1650, y: 370 }, { x: 1900, y: 380 }, { x: 2250, y: 400 },
+              { x: 2700, y: 265 }],
+      checkpoints: [{ x: 120, y: 420 }, { x: 1120, y: 410 }, { x: 2180, y: 420 }]
+    }
+  ];
+
+  /* ============ GAME STATE ============ */
+  const STATE = { MENU: 0, PLAY: 1, PAUSED: 2, OVER: 3, WON: 4 };
+  let state = STATE.MENU;
+
+  let levelIndex = 0;
+  let level = null;            // cloned working copy
+  let rects = [], ramps = [], spikes = [], coins = [], checkpoints = [];
+  let goal = { x: 0, y: 0 };
+  let cam = { x: 0, y: 0 };
+
+  const ball = { x: 0, y: 0, vx: 0, vy: 0, r: R, grounded: false, angle: 0 };
+
+  let lives = MAX_LIVES;
+  let levelTime = 0;           // seconds on current level
+  let totalTime = 0;           // seconds accumulated over finished levels
+  let runCoins = 0;
+  let levelCoins = 0;
+  let hurtFlash = 0;
+  let clearToast = 0;
+  let particles = [];
+  let shakeT = 0;
+  let frames = 0;
+
+  const input = { left: false, right: false, jump: false, jumpEdge: false };
+
+  // best times (seconds) persisted in localStorage
+  let bestRun = parseFloat(localStorage.getItem("hamsterRollBest") || "0") || 0;
+
+  /* ============ DOM ============ */
+  const startScreen = document.getElementById("startScreen");
+  const overScreen = document.getElementById("overScreen");
+  const winScreen = document.getElementById("winScreen");
+  const startBestEl = document.getElementById("startBest");
+  const overMsgEl = document.getElementById("overMsg");
+  const overLevelEl = document.getElementById("overLevel");
+  const overCoinsEl = document.getElementById("overCoins");
+  const winTimeEl = document.getElementById("winTime");
+  const winCoinsEl = document.getElementById("winCoins");
+  const winBestEl = document.getElementById("winBest");
+  const btnPause = document.getElementById("btn-pause");
+
+  /* ============ HELPERS ============ */
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function fmt(t) {
+    if (!t) return "--:--";
+    const m = Math.floor(t / 60), s = Math.floor(t % 60);
+    return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  /* ============ SOUND (WebAudio, no assets) ============ */
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+
+  /* ============ LEVEL LOADING ============ */
+  function loadLevel(i) {
+    levelIndex = i;
+    level = JSON.parse(JSON.stringify(LEVELS[i]));
+    rects = level.rects;
+    ramps = level.ramps;
+    spikes = level.spikes;
+    goal = level.goal;
+    coins = level.coins.map(c => ({ x: c.x, y: c.y, got: false }));
+    checkpoints = level.checkpoints.slice();
+    // moving platforms remember their origin + produce dx/dy each frame
+    rects.forEach(r => {
+      if (r.moving) { r.bx = r.x; r.by = r.y; r.dx = 0; r.dy = 0; r.t = r.moving.phase || 0; }
+      r.dx = r.dx || 0; r.dy = r.dy || 0;
+    });
+    lives = MAX_LIVES;
+    levelTime = 0;
+    levelCoins = 0;
+    hurtFlash = 0;
+    particles = [];
+    respawn(true);
+  }
+
+  function respawn(fresh) {
+    const cp = checkpoints[checkpoints.length - 1];
+    // choose the farthest checkpoint passed (we simply use last touched index)
+    const spot = (cp && cp.taken) ? cp : level.start;
+    ball.x = spot.x; ball.y = spot.y;
+    ball.vx = 0; ball.vy = 0; ball.grounded = false; ball.angle = 0;
+    if (fresh) { checkpoints[0].taken = true; }
+    cam.x = clamp(ball.x - W / 2, 0, Math.max(0, level.worldW - W));
+    cam.y = clamp(ball.y - H / 2, 0, Math.max(0, level.worldH - H));
+  }
+
+  // track which checkpoints have been reached so respawn uses the latest one
+  function lastCheckpoint() {
+    for (let i = checkpoints.length - 1; i >= 0; i--) {
+      if (checkpoints[i].taken) return checkpoints[i];
+    }
+    return level.start;
+  }
+
+  /* ============ INPUT ============ */
+  window.addEventListener("keydown", function (e) {
+    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"].indexOf(e.code) >= 0) e.preventDefault();
+
+    if (e.code === "KeyP" || e.code === "Escape") { togglePause(); return; }
+    if (e.code === "KeyR") { if (state === STATE.PLAY || state === STATE.PAUSED) { loadLevel(levelIndex); state = STATE.PLAY; } return; }
+
+    if (state === STATE.MENU) { if (e.code === "Space" || e.code === "Enter") startRun(); return; }
+    if (state === STATE.OVER) { if (e.code === "Space" || e.code === "Enter") startRun(); return; }
+    if (state === STATE.WON) { if (e.code === "Space" || e.code === "Enter") startRun(); return; }
+
+    if (e.code === "ArrowLeft" || e.code === "KeyA") input.left = true;
+    if (e.code === "ArrowRight" || e.code === "KeyD") input.right = true;
+    if (e.code === "Space" || e.code === "ArrowUp" || e.code === "KeyW") {
+      if (!input.jump) input.jumpEdge = true;
+      input.jump = true;
+    }
+  });
+  window.addEventListener("keyup", function (e) {
+    if (e.code === "ArrowLeft" || e.code === "KeyA") input.left = false;
+    if (e.code === "ArrowRight" || e.code === "KeyD") input.right = false;
+    if (e.code === "Space" || e.code === "ArrowUp" || e.code === "KeyW") input.jump = false;
+  });
+
+  function bindHold(id, key) {
+    const el = document.getElementById(id);
+    const on = function (e) {
+      e.preventDefault();
+      if (key === "jump" && !input.jump) input.jumpEdge = true;
+      input[key] = true;
+    };
+    const off = function (e) { e.preventDefault(); input[key] = false; };
+    el.addEventListener("touchstart", on, { passive: false });
+    el.addEventListener("touchend", off, { passive: false });
+    el.addEventListener("touchcancel", off, { passive: false });
+    el.addEventListener("mousedown", on);
+    el.addEventListener("mouseup", off);
+    el.addEventListener("mouseleave", off);
+  }
+  bindHold("t-left", "left");
+  bindHold("t-right", "right");
+  bindHold("t-jump", "jump");
+
+  /* ============ BUTTONS ============ */
+  function show(el) { el.classList.remove("hidden"); }
+  function hide(el) { el.classList.add("hidden"); }
+
+  function startRun() {
+    totalTime = 0; runCoins = 0;
+    loadLevel(0);
+    state = STATE.PLAY;
+    hide(startScreen); hide(overScreen); hide(winScreen);
+    syncPauseBtn();
+    beep(620, 0.1, "triangle");
+  }
+  function gameOver() {
+    state = STATE.OVER;
+    overLevelEl.textContent = String(levelIndex + 1);
+    overCoinsEl.textContent = String(runCoins + levelCoins);
+    overMsgEl.textContent = "The hamster rolled a little too far on \u201C" + level.name + "\u201D.";
+    show(overScreen);
+    beep(150, 0.4, "sawtooth");
+  }
+  function winRun() {
+    state = STATE.WON;
+    const total = totalTime + levelTime;
+    if (!bestRun || total < bestRun) {
+      bestRun = total;
+      localStorage.setItem("hamsterRollBest", String(bestRun));
+    }
+    winTimeEl.textContent = fmt(total);
+    winCoinsEl.textContent = String(runCoins + levelCoins);
+    winBestEl.textContent = fmt(bestRun);
+    show(winScreen);
+    beep(880, 0.12, "sine");
+    setTimeout(function () { beep(1180, 0.2, "sine"); }, 130);
+  }
+  function togglePause() {
+    if (state === STATE.PLAY) { state = STATE.PAUSED; syncPauseBtn(); beep(420, 0.08, "triangle"); }
+    else if (state === STATE.PAUSED) { state = STATE.PLAY; syncPauseBtn(); beep(620, 0.08, "triangle"); }
+  }
+  function syncPauseBtn() { btnPause.textContent = (state === STATE.PAUSED) ? "Resume" : "Pause"; }
+
+  document.getElementById("startBtn").addEventListener("click", startRun);
+  document.getElementById("retryBtn").addEventListener("click", startRun);
+  document.getElementById("againBtn").addEventListener("click", startRun);
+  btnPause.addEventListener("click", togglePause);
+  document.getElementById("btn-restart").addEventListener("click", function () {
+    if (state === STATE.PLAY || state === STATE.PAUSED) { loadLevel(levelIndex); state = STATE.PLAY; syncPauseBtn(); }
+  });
+
+  /* ============ COLLISION ============ */
+  // circle vs axis-aligned rectangle. Returns contact info or null.
+  function circleRect(rect) {
+    const cx = clamp(ball.x, rect.x, rect.x + rect.w);
+    const cy = clamp(ball.y, rect.y, rect.y + rect.h);
+    let dx = ball.x - cx, dy = ball.y - cy;
+    let d = Math.hypot(dx, dy);
+    if (d >= ball.r) return null;
+
+    let nx, ny, pen;
+    if (d < 0.0001) {
+      // center inside rect: push out along least-penetration axis
+      const left = ball.x - rect.x, right = rect.x + rect.w - ball.x;
+      const top = ball.y - rect.y, bottom = rect.y + rect.h - ball.y;
+      const m = Math.min(left, right, top, bottom);
+      if (m === left) { nx = -1; ny = 0; pen = left + ball.r; }
+      else if (m === right) { nx = 1; ny = 0; pen = right + ball.r; }
+      else if (m === top) { nx = 0; ny = -1; pen = top + ball.r; }
+      else { nx = 0; ny = 1; pen = bottom + ball.r; }
+    } else {
+      nx = dx / d; ny = dy / d; pen = ball.r - d;
+    }
+
+    ball.x += nx * pen;
+    ball.y += ny * pen;
+
+    const vn = ball.vx * nx + ball.vy * ny;
+    if (vn < 0) {
+      const rest = rect.spring ? -0.55 : 0.28;
+      ball.vx -= (1 + rest) * vn * nx;
+      ball.vy -= (1 + rest) * vn * ny;
+      if (rect.spring) {
+        ball.vy = Math.min(ball.vy, -11.5);       // guaranteed pop upward
+        beep(520, 0.09, "sine");
+      } else if (Math.abs(vn) > 6) {
+        beep(180, 0.05, "square");
+      }
+    }
+    if (ny < -0.45) ball.grounded = true;          // resting on top
+    // carry with moving platforms
+    if (rect.moving) { ball.x += rect.dx; ball.y += rect.dy; }
+    return { nx: nx, ny: ny };
+  }
+
+  // circle vs line segment (ramps)
+  function circleSeg(s) {
+    const ax = s[0], ay = s[1], bx = s[2], by = s[3];
+    const ex = bx - ax, ey = by - ay;
+    const len2 = ex * ex + ey * ey || 1;
+    let t = ((ball.x - ax) * ex + (ball.y - ay) * ey) / len2;
+    t = clamp(t, 0, 1);
+    const px = ax + t * ex, py = ay + t * ey;
+    let nx = ball.x - px, ny = ball.y - py;
+    let d = Math.hypot(nx, ny);
+    if (d >= ball.r) return;
+    if (d < 0.0001) { nx = 0; ny = -1; d = 1; } else { nx /= d; ny /= d; }
+
+    ball.x += nx * (ball.r - d);
+    ball.y += ny * (ball.r - d);
+
+    const vn = ball.vx * nx + ball.vy * ny;
+    if (vn < 0) { ball.vx -= 1.03 * vn * nx; ball.vy -= 1.03 * vn * ny; }
+
+    if (ny < -0.3) {
+      ball.grounded = true;
+      // gravity component along the slope makes the ball roll downhill
+      ball.vx += GRAV * nx * 0.9;
+    }
+    ball.vx *= 0.998;
+  }
+
+  /* ============ PHYSICS STEP ============ */
+  function physics() {
+    frames++;
+
+    // --- update moving platforms ---
+    for (let i = 0; i < rects.length; i++) {
+      const r = rects[i];
+      if (!r.moving) continue;
+      const m = r.moving;
+      r.t = (r.t || 0) + m.speed * 0.02;
+      const off = Math.sin(r.t) * m.range;
+      const oldX = r.x, oldY = r.y;
+      if (m.axis === "x") r.x = r.bx + off; else r.y = r.by + off;
+      r.dx = r.x - oldX; r.dy = r.y - oldY;
+    }
+
+    ball.grounded = false;
+
+    // --- horizontal input & acceleration ---
+    let ax = 0;
+    if (input.left) ax -= 1;
+    if (input.right) ax += 1;
+    if (ax !== 0) {
+      const acc = ball.grounded ? ACC : AIR_ACC;
+      ball.vx += ax * acc;
+      if (Math.abs(ball.vx) > MAX_VX) ball.vx = Math.sign(ball.vx) * MAX_VX;
+    } else if (ball.grounded) {
+      ball.vx *= 0.965;                              // rolling friction
+      if (Math.abs(ball.vx) < 0.05) ball.vx = 0;
+    } else {
+      ball.vx *= 0.999;                              // light air drag
+    }
+
+    // --- jump ---
+    if (input.jumpEdge && ball.grounded) {
+      ball.vy = JUMP_V;
+      ball.grounded = false;
+      beep(700, 0.08, "square");
+    }
+    input.jumpEdge = false;
+
+    // --- gravity ---
+    ball.vy += GRAV;
+    if (ball.vy > 17) ball.vy = 17;
+
+    // --- integrate X then resolve ---
+    ball.x += ball.vx;
+    for (let i = 0; i < rects.length; i++) circleRect(rects[i]);
+    for (let i = 0; i < ramps.length; i++) circleSeg(ramps[i]);
+
+    // --- integrate Y then resolve ---
+    ball.y += ball.vy;
+    for (let i = 0; i < rects.length; i++) circleRect(rects[i]);
+    for (let i = 0; i < ramps.length; i++) circleSeg(ramps[i]);
+
+    // rolling visual
+    ball.angle += ball.vx * 0.045;
+
+    // --- fall out of the world ---
+    if (ball.y > level.worldH + 120 || ball.y < -400) { hurt(true); return; }
+
+    // --- checkpoints ---
+    for (let i = 0; i < checkpoints.length; i++) {
+      const cp = checkpoints[i];
+      if (!cp.taken && Math.abs(ball.x - cp.x) < 40 && Math.abs(ball.y - cp.y) < 60) {
+        cp.taken = true;
+        beep(760, 0.1, "sine");
+      }
+    }
+
+    // --- coins ---
+    for (let i = 0; i < coins.length; i++) {
+      const c = coins[i];
+      if (c.got) continue;
+      if (Math.hypot(ball.x - c.x, ball.y - c.y) < ball.r + 12) {
+        c.got = true;
+        levelCoins++;
+        spawnBurst(c.x, c.y, "#ffd76e");
+        beep(980, 0.08, "sine");
+      }
+    }
+
+    // --- spikes ---
+    for (let i = 0; i < spikes.length; i++) {
+      const s = spikes[i];
+      // shrink a little so it feels fair
+      const cx = clamp(ball.x, s.x + 4, s.x + s.w - 4);
+      const cy = clamp(ball.y, s.y + 6, s.y + s.h);
+      if (Math.hypot(ball.x - cx, ball.y - cy) < ball.r - 3) { hurt(false); return; }
+    }
+
+    // --- goal flag ---
+    if (Math.abs(ball.x - goal.x) < 34 && ball.y > goal.y - 120 && ball.y < goal.y + 40) {
+      reachGoal();
+      return;
+    }
+
+    // --- camera ---
+    const tx = clamp(ball.x - W / 2, 0, Math.max(0, level.worldW - W));
+    const ty = clamp(ball.y - H / 2, 0, Math.max(0, level.worldH - H));
+    cam.x += (tx - cam.x) * 0.12;
+    cam.y += (ty - cam.y) * 0.12;
+
+    // --- timers / fx ---
+    levelTime += STEP;
+    if (hurtFlash > 0) hurtFlash -= STEP;
+    if (shakeT > 0) shakeT -= STEP;
+    updateParticles();
+  }
+
+  function hurt(fell) {
+    lives--;
+    hurtFlash = 0.5;
+    shakeT = 0.3;
+    spawnBurst(ball.x, ball.y, "#ff8a8a", 12);
+    beep(fell ? 220 : 160, 0.2, "sawtooth");
+    if (lives <= 0) { gameOver(); return; }
+    const cp = lastCheckpoint();
+    ball.x = cp.x; ball.y = cp.y;
+    ball.vx = 0; ball.vy = 0; ball.grounded = false;
+    cam.x = clamp(ball.x - W / 2, 0, Math.max(0, level.worldW - W));
+    cam.y = clamp(ball.y - H / 2, 0, Math.max(0, level.worldH - H));
+  }
+
+  function reachGoal() {
+    totalTime += levelTime;
+    runCoins += levelCoins;
+    spawnBurst(goal.x, goal.y, "#7fe0a0", 18);
+    beep(900, 0.12, "sine");
+    if (levelIndex >= LEVELS.length - 1) { winRun(); return; }
+    clearToast = 1.6;
+    levelIndex++;
+    loadLevel(levelIndex);
+  }
+
+  /* ============ PARTICLES ============ */
+  function spawnBurst(x, y, color, n) {
+    n = n || 8;
+    for (let i = 0; i < n; i++) {
+      particles.push({
+        x: x, y: y,
+        vx: (Math.random() - 0.5) * 6,
+        vy: (Math.random() - 0.5) * 6 - 1,
+        life: 1, color: color, size: Math.random() * 3 + 2
+      });
+    }
+  }
+  function updateParticles() {
+    particles = particles.filter(function (p) {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.25; p.life -= STEP * 1.4;
+      return p.life > 0;
+    });
+  }
+
+  /* ============ DRAWING ============ */
+  function roundRect(x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function drawBackground() {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    if (levelIndex === 0) { g.addColorStop(0, "#8fd3f4"); g.addColorStop(1, "#d9f3ff"); }
+    else if (levelIndex === 1) { g.addColorStop(0, "#f7b267"); g.addColorStop(1, "#ffe1b5"); }
+    else if (levelIndex === 2) { g.addColorStop(0, "#5b6b8c"); g.addColorStop(1, "#9fb3c8"); }
+    else if (levelIndex === 3) { g.addColorStop(0, "#6b5b95"); g.addColorStop(1, "#b9a7d6"); }
+    else { g.addColorStop(0, "#f2708a"); g.addColorStop(1, "#ffd0b0"); }
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // parallax hills (screen space, offset by camera)
+    ctx.save();
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = "#ffffff";
+    const par = -(cam.x * 0.25) % 420;
+    for (let x = par - 420; x < W + 420; x += 420) {
+      ctx.beginPath();
+      ctx.arc(x + 120, H - 60, 190, Math.PI, 0);
+      ctx.arc(x + 330, H - 40, 150, Math.PI, 0);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawRects() {
+    for (let i = 0; i < rects.length; i++) {
+      const r = rects[i];
+      if (r.w <= 40 && r.h >= 600) continue;        // hide invisible walls
+      if (r.spring) {
+        // bounce pad
+        roundRect(r.x, r.y, r.w, r.h, 8);
+        ctx.fillStyle = "#ff9f43";
+        ctx.fill();
+        ctx.strokeStyle = "#c96b18"; ctx.lineWidth = 3; ctx.stroke();
+        ctx.fillStyle = "#fff3d6";
+        for (let s = r.x + 10; s < r.x + r.w - 6; s += 16) {
+          ctx.beginPath(); ctx.moveTo(s, r.y + 4); ctx.lineTo(s + 6, r.y + r.h - 4);
+          ctx.lineTo(s + 12, r.y + 4); ctx.fill();
+        }
+        continue;
+      }
+      const grad = ctx.createLinearGradient(0, r.y, 0, r.y + r.h);
+      grad.addColorStop(0, "#7a5a3a");
+      grad.addColorStop(0.18, "#5e4128");
+      grad.addColorStop(1, "#3d2a18");
+      ctx.fillStyle = grad;
+      roundRect(r.x, r.y, r.w, r.h, 6);
+      ctx.fill();
+      // grass / top highlight
+      ctx.fillStyle = r.moving ? "#8ad07a" : "#6fbf5d";
+      roundRect(r.x, r.y, r.w, Math.min(10, r.h * 0.35), 5);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,.3)"; ctx.lineWidth = 2;
+      roundRect(r.x, r.y, r.w, r.h, 6); ctx.stroke();
+      if (r.moving) {
+        ctx.fillStyle = "rgba(255,255,255,.55)";
+        ctx.font = "bold 12px sans-serif"; ctx.textAlign = "center";
+        ctx.fillText("\u2194", r.x + r.w / 2, r.y + r.h / 2 + 12);
+      }
+    }
+  }
+
+  function drawRamps() {
+    for (let i = 0; i < ramps.length; i++) {
+      const s = ramps[i];
+      ctx.strokeStyle = "#5e4128";
+      ctx.lineWidth = 16; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(s[0], s[1]); ctx.lineTo(s[2], s[3]); ctx.stroke();
+      ctx.strokeStyle = "#6fbf5d";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(s[0], s[1] - 5); ctx.lineTo(s[2], s[3] - 5);
+      ctx.stroke();
+    }
+    ctx.lineCap = "butt";
+  }
+
+  function drawSpikes() {
+    for (let i = 0; i < spikes.length; i++) {
+      const s = spikes[i];
+      const n = Math.max(2, Math.floor(s.w / 18));
+      const step = s.w / n;
+      ctx.fillStyle = "#cdd6e0";
+      ctx.strokeStyle = "#7b8794"; ctx.lineWidth = 1.5;
+      for (let k = 0; k < n; k++) {
+        ctx.beginPath();
+        ctx.moveTo(s.x + k * step, s.y + s.h);
+        ctx.lineTo(s.x + k * step + step / 2, s.y);
+        ctx.lineTo(s.x + (k + 1) * step, s.y + s.h);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+      }
+    }
+  }
+
+  function drawCoins() {
+    for (let i = 0; i < coins.length; i++) {
+      const c = coins[i];
+      if (c.got) continue;
+      const bob = Math.sin(frames * 0.1 + c.x) * 3;
+      ctx.save();
+      ctx.translate(c.x, c.y + bob);
+      ctx.fillStyle = "#ffcf3f";
+      ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ffe89a";
+      ctx.beginPath(); ctx.arc(-3, -3, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#c8901a"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = "#b8791a"; ctx.font = "bold 12px sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("\u2605", 0, 1);
+      ctx.restore();
+    }
+  }
+
+  function drawCheckpoints() {
+    for (let i = 0; i < checkpoints.length; i++) {
+      const cp = checkpoints[i];
+      if (Math.abs(cp.x - level.start.x) < 5 && i === 0) { /* skip start marker */ }
+      ctx.strokeStyle = cp.taken ? "#7fe0a0" : "#b9aed0";
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(cp.x, cp.y + 40); ctx.lineTo(cp.x, cp.y - 30); ctx.stroke();
+      ctx.fillStyle = cp.taken ? "#7fe0a0" : "#6b6288";
+      ctx.beginPath();
+      ctx.moveTo(cp.x, cp.y - 30); ctx.lineTo(cp.x + 22, cp.y - 20);
+      ctx.lineTo(cp.x, cp.y - 10); ctx.closePath(); ctx.fill();
+    }
+  }
+
+  function drawGoal() {
+    const g = goal;
+    ctx.strokeStyle = "#c9c2dd"; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(g.x, g.y + 10); ctx.lineTo(g.x, g.y - 110); ctx.stroke();
+    const wave = Math.sin(frames * 0.15) * 4;
+    ctx.fillStyle = "#7fe0a0";
+    ctx.beginPath();
+    ctx.moveTo(g.x, g.y - 110);
+    ctx.quadraticCurveTo(g.x + 30, g.y - 100 + wave, g.x + 54, g.y - 86);
+    ctx.lineTo(g.x, g.y - 62);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#3a7d54"; ctx.font = "bold 14px sans-serif";
+    ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    ctx.fillText("GOAL", g.x + 6, g.y - 86);
+    // glowing base
+    ctx.fillStyle = "rgba(127,224,160,.4)";
+    ctx.beginPath(); ctx.ellipse(g.x, g.y + 8, 26, 8, 0, 0, Math.PI * 2); ctx.fill();
+  }
+
+  function drawBall() {
+    ctx.save();
+    ctx.translate(ball.x, ball.y);
+
+    // shadow
+    ctx.fillStyle = "rgba(0,0,0,.18)";
+    ctx.beginPath(); ctx.ellipse(0, R + 4, R * 0.9, R * 0.35, 0, 0, Math.PI * 2); ctx.fill();
+
+    // outer ball
+    const bg = ctx.createRadialGradient(-6, -6, 3, 0, 0, R);
+    bg.addColorStop(0, "rgba(190,230,255,.95)");
+    bg.addColorStop(1, "rgba(90,150,220,.55)");
+    ctx.fillStyle = bg;
+    ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "rgba(60,110,180,.9)"; ctx.lineWidth = 3; ctx.stroke();
+
+    // rotating spokes
+    ctx.save();
+    ctx.rotate(ball.angle);
+    ctx.strokeStyle = "rgba(255,255,255,.6)"; ctx.lineWidth = 2;
+    for (let i = 0; i < 4; i++) {
+      const a = i * Math.PI / 2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * 5, Math.sin(a) * 5);
+      ctx.lineTo(Math.cos(a) * (R - 3), Math.sin(a) * (R - 3));
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // hamster body (stays upright)
+    ctx.fillStyle = "#f3c98b";
+    ctx.beginPath(); ctx.ellipse(0, 2, 10, 9, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#fff4e0";
+    ctx.beginPath(); ctx.ellipse(0, 5, 6, 5, 0, 0, Math.PI * 2); ctx.fill();
+    // ears
+    ctx.fillStyle = "#e0aa68";
+    ctx.beginPath(); ctx.arc(-7, -6, 3.4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(7, -6, 3.4, 0, Math.PI * 2); ctx.fill();
+    // eyes
+    ctx.fillStyle = "#2b2118";
+    ctx.beginPath(); ctx.arc(-3.5, -1, 1.8, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(3.5, -1, 1.8, 0, Math.PI * 2); ctx.fill();
+    // nose
+    ctx.fillStyle = "#d98b8b";
+    ctx.beginPath(); ctx.arc(0, 2.5, 1.6, 0, Math.PI * 2); ctx.fill();
+
+    ctx.restore();
+
+    if (hurtFlash > 0 && Math.floor(frames / 3) % 2 === 0) {
+      ctx.fillStyle = "rgba(255,80,80,.35)";
+      ctx.beginPath(); ctx.arc(ball.x, ball.y, R + 4, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  function drawParticles() {
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /* ============ HUD ============ */
+  function drawHUD() {
+    ctx.save();
+    ctx.textBaseline = "middle";
+    // level name + timer
+    ctx.font = "bold 20px 'Trebuchet MS', sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillStyle = "rgba(20,16,30,.55)";
+    roundRect(14, 12, 250, 40, 10); ctx.fill();
+    ctx.fillStyle = "#ffd76e";
+    ctx.fillText("LV " + (levelIndex + 1) + " \u2022 " + level.name, 26, 33);
+
+    // timer center
+    ctx.textAlign = "center";
+    ctx.fillStyle = "rgba(20,16,30,.55)";
+    roundRect(W / 2 - 80, 12, 160, 40, 10); ctx.fill();
+    ctx.fillStyle = "#fff3d6";
+    ctx.font = "bold 22px 'Trebuchet MS', sans-serif";
+    ctx.fillText(fmt(levelTime), W / 2, 33);
+
+    // coins + lives right
+    ctx.textAlign = "right";
+    ctx.fillStyle = "rgba(20,16,30,.55)";
+    roundRect(W - 264, 12, 250, 40, 10); ctx.fill();
+    ctx.fillStyle = "#ffcf3f";
+    ctx.font = "bold 20px 'Trebuchet MS', sans-serif";
+    ctx.fillText("\u2605 " + (runCoins + levelCoins), W - 150, 33);
+    // hearts
+    for (let i = 0; i < MAX_LIVES; i++) {
+      ctx.fillStyle = i < lives ? "#ff6b8a" : "rgba(255,255,255,.22)";
+      drawHeart(W - 40 - i * 26, 32, 8);
+    }
+    ctx.restore();
+  }
+
+  function drawHeart(x, y, s) {
+    ctx.beginPath();
+    ctx.moveTo(x, y + s * 0.35);
+    ctx.bezierCurveTo(x, y - s * 0.4, x - s, y - s * 0.4, x - s, y + s * 0.25);
+    ctx.bezierCurveTo(x - s, y + s * 0.8, x, y + s * 1.1, x, y + s * 1.35);
+    ctx.bezierCurveTo(x, y + s * 1.1, x + s, y + s * 0.8, x + s, y + s * 0.25);
+    ctx.bezierCurveTo(x + s, y - s * 0.4, x, y - s * 0.4, x, y + s * 0.35);
+    ctx.fill();
+  }
+
+  function drawToast() {
+    if (clearToast > 0) {
+      clearToast -= STEP;
+      ctx.save();
+      ctx.globalAlpha = clamp(clearToast, 0, 1);
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillStyle = "rgba(20,16,30,.7)";
+      roundRect(W / 2 - 190, H / 2 - 46, 380, 92, 16); ctx.fill();
+      ctx.fillStyle = "#7fe0a0";
+      ctx.font = "bold 34px 'Trebuchet MS', sans-serif";
+      ctx.fillText("LEVEL CLEAR!", W / 2, H / 2 - 12);
+      ctx.fillStyle = "#ffeec2";
+      ctx.font = "bold 18px 'Trebuchet MS', sans-serif";
+      ctx.fillText("Time " + fmt(levelTime), W / 2, H / 2 + 24);
+      ctx.restore();
+    }
+  }
+
+  function drawPaused() {
+    ctx.fillStyle = "rgba(12,9,20,.66)";
+    ctx.fillRect(0, 0, W, H);
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillStyle = "#ffd76e";
+    ctx.font = "bold 46px 'Trebuchet MS', sans-serif";
+    ctx.fillText("PAUSED", W / 2, H / 2 - 8);
+    ctx.fillStyle = "#c6bcdf";
+    ctx.font = "17px 'Trebuchet MS', sans-serif";
+    ctx.fillText("Press P or the button to resume", W / 2, H / 2 + 36);
+  }
+
+  /* ============ RENDER ============ */
+  function render() {
+    ctx.save();
+    if (shakeT > 0) {
+      ctx.translate((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10);
+    }
+    drawBackground();
+
+    ctx.save();
+    ctx.translate(-Math.round(cam.x), -Math.round(cam.y));
+    drawRamps();
+    drawRects();
+    drawCheckpoints();
+    drawSpikes();
+    drawCoins();
+    drawGoal();
+    drawBall();
+    drawParticles();
+    ctx.restore();
+
+    if (state === STATE.PLAY || state === STATE.PAUSED) {
+      drawHUD();
+      drawToast();
+    }
+    if (state === STATE.PAUSED) drawPaused();
+    ctx.restore();
+  }
+
+  /* ============ MAIN LOOP ============ */
+  let last = performance.now();
+  let acc = 0;
+  let raf = null;
+
+  function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+
+    if (state === STATE.PLAY) {
+      acc += dt;
+      let guard = 0;
+      while (acc >= STEP && guard++ < 5) { physics(); acc -= STEP; if (state !== STATE.PLAY) break; }
+    } else {
+      frames++;                       // keep animations alive on menus
+      if (clearToast > 0) clearToast -= STEP;
+      updateParticles();
+    }
+
+    render();
+    raf = requestAnimationFrame(loop);
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { if (raf) { cancelAnimationFrame(raf); raf = null; } }
+    else if (!raf) { last = performance.now(); raf = requestAnimationFrame(loop); }
+  });
+
+  /* ============ INIT ============ */
+  startBestEl.textContent = fmt(bestRun);
+  loadLevel(0);
+  state = STATE.MENU;
+  show(startScreen);
+  render();
+  raf = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

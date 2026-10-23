@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Tic-Tac-Toe</title>
+<style>
+  /* ============ RESET & THEME ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0b1020; --panel: rgba(255,255,255,.05); --line: rgba(255,255,255,.12);
+    --text: #e8ecff; --muted: #8792b8; --x: #4fd6ff; --o: #ffb24d;
+    --accent: #6c8cff; --good: #4ade80;
+  }
+
+  html, body { min-height: 100%; }
+
+  body {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(1200px 600px at 12% -10%, rgba(79,214,255,.16), transparent 60%),
+      radial-gradient(900px 520px at 100% 0%, rgba(255,178,77,.12), transparent 55%),
+      var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    padding: 18px; touch-action: manipulation;
+  }
+
+  /* ============ APP LAYOUT ============ */
+  .app { width: min(94vw, 430px); display: flex; flex-direction: column; gap: 14px; }
+
+  .title {
+    text-align: center; font-size: clamp(1.5rem, 6vw, 2rem); font-weight: 800;
+    letter-spacing: .5px; background: linear-gradient(90deg, var(--x), var(--o));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+
+  .hint { text-align: center; font-size: .82rem; color: var(--muted); line-height: 1.45; margin-top: -6px; }
+
+  /* ============ SEGMENTED CONTROLS ============ */
+  .controls {
+    display: flex; flex-direction: column; gap: 10px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 12px;
+  }
+
+  .row { display: flex; align-items: center; gap: 10px; }
+  .row-label { font-size: .72rem; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); width: 62px; flex-shrink: 0; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .seg-btn {
+    font-family: inherit; font-size: .82rem; font-weight: 600; color: var(--muted);
+    background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 10px;
+    padding: 7px 13px; cursor: pointer; transition: all .15s ease; -webkit-tap-highlight-color: transparent;
+  }
+  .seg-btn:hover { color: var(--text); background: rgba(108,140,255,.15); }
+  .seg-btn.active {
+    color: #fff; background: linear-gradient(135deg, var(--accent), #8a6cff);
+    border-color: transparent; box-shadow: 0 4px 14px rgba(108,140,255,.4);
+  }
+  .row.hidden { display: none; }
+
+  /* ============ SCORE TALLY ============ */
+  .scores { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .score-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px 8px; text-align: center; }
+  .score-card .who { font-size: .7rem; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+  .score-card .val { font-size: 1.35rem; font-weight: 800; margin-top: 2px; }
+  .score-card.sx .val { color: var(--x); }
+  .score-card.so .val { color: var(--o); }
+  .score-card.sd .val { color: var(--muted); }
+
+  /* ============ STATUS LINE ============ */
+  .status { text-align: center; font-size: .95rem; font-weight: 600; min-height: 1.4em; color: var(--text); }
+  .status .mark { font-weight: 800; }
+  .status .mark.x { color: var(--x); }
+  .status .mark.o { color: var(--o); }
+
+  /* ============ BOARD ============ */
+  .board-wrap { position: relative; }
+  .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; font-size: clamp(30px, 11.5vw, 52px); }
+
+  .cell {
+    aspect-ratio: 1 / 1; position: relative; border-radius: 16px; border: 1px solid var(--line);
+    background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+    cursor: pointer; transition: background .15s, border-color .15s, transform .1s, box-shadow .15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cell:hover:not(.filled) {
+    background: rgba(108,140,255,.14); border-color: rgba(108,140,255,.55);
+    transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,.35);
+  }
+  .cell:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cell.filled { cursor: default; }
+
+  /* --- X mark (two glowing bars) --- */
+  .cell.x::before, .cell.x::after {
+    content: ""; position: absolute; left: 50%; top: 50%;
+    width: .2em; height: .92em; border-radius: .09em; background: var(--x);
+    box-shadow: 0 0 .55em rgba(79,214,255,.7);
+  }
+  .cell.x::before { transform: translate(-50%,-50%) rotate(45deg); animation: markX1 .2s ease both; }
+  .cell.x::after { transform: translate(-50%,-50%) rotate(-45deg); animation: markX2 .2s ease both; }
+  @keyframes markX1 { from { opacity: 0; transform: translate(-50%,-50%) rotate(45deg) scale(.2); } to { opacity: 1; transform: translate(-50%,-50%) rotate(45deg) scale(1); } }
+  @keyframes markX2 { from { opacity: 0; transform: translate(-50%,-50%) rotate(-45deg) scale(.2); } to { opacity: 1; transform: translate(-50%,-50%) rotate(-45deg) scale(1); } }
+
+  /* --- O mark (glowing ring) --- */
+  .cell.o::before {
+    content: ""; position: absolute; inset: 20%; border-radius: 50%; border: .22em solid var(--o);
+    box-shadow: 0 0 .55em rgba(255,178,77,.55), inset 0 0 .45em rgba(255,178,77,.35);
+    animation: markO .22s ease both;
+  }
+  @keyframes markO { from { opacity: 0; transform: scale(.2); } to { opacity: 1; transform: scale(1); } }
+
+  /* --- Winning line highlight --- */
+  .cell.win { border-color: var(--good); background: rgba(74,222,128,.14); animation: winPulse 1.1s ease-in-out infinite; }
+  @keyframes winPulse { 0%, 100% { box-shadow: 0 0 0 rgba(74,222,128,0); } 50% { box-shadow: 0 0 26px rgba(74,222,128,.55); } }
+
+  /* ============ RESULT BANNER OVERLAY ============ */
+  .banner {
+    position: absolute; inset: 0; display: flex; flex-direction: column; gap: 16px;
+    align-items: center; justify-content: center; text-align: center; padding: 22px; border-radius: 18px;
+    background: rgba(9,13,28,.84); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    opacity: 0; pointer-events: none; transition: opacity .25s ease;
+  }
+  .banner.show { opacity: 1; pointer-events: auto; }
+  .banner-title { font-size: clamp(1.3rem, 5.5vw, 1.7rem); font-weight: 800; }
+  .banner-title.x { color: var(--x); }
+  .banner-title.o { color: var(--o); }
+  .banner-title.draw { color: var(--muted); }
+  .banner-sub { font-size: .85rem; color: var(--muted); }
+
+  /* ============ BUTTONS ============ */
+  .btn {
+    font-family: inherit; font-size: .92rem; font-weight: 700; color: #fff;
+    background: linear-gradient(135deg, var(--accent), #8a6cff); border: none; border-radius: 12px;
+    padding: 12px 26px; cursor: pointer; box-shadow: 0 6px 18px rgba(108,140,255,.35);
+    transition: transform .08s ease, box-shadow .15s ease; -webkit-tap-highlight-color: transparent;
+  }
+  .btn:hover { box-shadow: 0 8px 24px rgba(108,140,255,.5); }
+  .btn:active { transform: translateY(2px); }
+  .btn.ghost { background: rgba(255,255,255,.05); border: 1px solid var(--line); color: var(--muted); box-shadow: none; }
+  .btn.ghost:hover { color: var(--text); background: rgba(255,255,255,.1); }
+
+  .footer { display: flex; justify-content: center; gap: 10px; }
+
+  /* ============ RESPONSIVE (360px) ============ */
+  @media (max-width: 380px) {
+    body { padding: 10px; }
+    .app { gap: 11px; }
+    .row-label { width: 52px; font-size: .66rem; }
+    .seg-btn { padding: 6px 10px; font-size: .76rem; }
+    .board { gap: 8px; }
+    .controls { padding: 10px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1 class="title">Tic-Tac-Toe</h1>
+  <p class="hint">Line up three in a row. Beat the CPU on Hard &mdash; or play a friend. Keys 1&ndash;9 place a mark.</p>
+
+  <!-- ============ CONTROLS ============ -->
+  <div class="controls">
+    <div class="row">
+      <span class="row-label">Mode</span>
+      <div class="seg" id="modeSeg">
+        <button type="button" class="seg-btn active" data-mode="cpu">vs CPU</button>
+        <button type="button" class="seg-btn" data-mode="2p">2 Players</button>
+      </div>
+    </div>
+    <div class="row" id="diffRow">
+      <span class="row-label">Level</span>
+      <div class="seg" id="diffSeg">
+        <button type="button" class="seg-btn" data-diff="easy">Easy</button>
+        <button type="button" class="seg-btn" data-diff="medium">Medium</button>
+        <button type="button" class="seg-btn active" data-diff="hard">Hard</button>
+      </div>
+    </div>
+    <div class="row" id="sideRow">
+      <span class="row-label">Play as</span>
+      <div class="seg" id="sideSeg">
+        <button type="button" class="seg-btn active" data-side="X">X</button>
+        <button type="button" class="seg-btn" data-side="O">O</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SCORE TALLY ============ -->
+  <div class="scores">
+    <div class="score-card sx"><div class="who">X wins</div><div class="val" id="scoreX">0</div></div>
+    <div class="score-card so"><div class="who">O wins</div><div class="val" id="scoreO">0</div></div>
+    <div class="score-card sd"><div class="who">Draws</div><div class="val" id="scoreD">0</div></div>
+  </div>
+
+  <!-- ============ STATUS ============ -->
+  <div class="status" id="status"></div>
+
+  <!-- ============ BOARD ============ -->
+  <div class="board-wrap">
+    <div class="board" id="board"></div>
+    <div class="banner" id="banner">
+      <div class="banner-title" id="bannerTitle">Result</div>
+      <div class="banner-sub" id="bannerSub"></div>
+      <button type="button" class="btn" id="nextBtn">Next Round</button>
+    </div>
+  </div>
+
+  <!-- ============ FOOTER BUTTONS ============ -->
+  <div class="footer">
+    <button type="button" class="btn ghost" id="roundBtn">New Round</button>
+    <button type="button" class="btn ghost" id="resetBtn">Reset Scores</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONSTANTS & STATE ============
+  const WINS = [
+    [0, 1, 2], [3, 4, 5], [6, 7, 8],   // rows
+    [0, 3, 6], [1, 4, 7], [2, 5, 8],   // columns
+    [0, 4, 8], [2, 4, 6]               // diagonals
+  ];
+  const SCORE_KEY = "tttScore";
+
+  let board = ["", "", "", "", "", "", "", "", ""];
+  let mode = "cpu";         // "cpu" | "2p"
+  let difficulty = "hard";  // "easy" | "medium" | "hard"
+  let humanMark = "X";      // player's mark in CPU mode
+  let cpuMark = "O";
+  let startMark = "X";      // alternates each round
+  let currentPlayer = "X";
+  let gameActive = true;
+  let busy = false;         // CPU thinking / input locked
+  let scores = loadScores();
+
+  // ============ DOM ELEMENTS ============
+  const boardEl = document.getElementById("board");
+  const statusEl = document.getElementById("status");
+  const bannerEl = document.getElementById("banner");
+  const bannerTitle = document.getElementById("bannerTitle");
+  const bannerSub = document.getElementById("bannerSub");
+  const nextBtn = document.getElementById("nextBtn");
+  const roundBtn = document.getElementById("roundBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const diffRow = document.getElementById("diffRow");
+  const sideRow = document.getElementById("sideRow");
+  const scoreXEl = document.getElementById("scoreX");
+  const scoreOEl = document.getElementById("scoreO");
+  const scoreDEl = document.getElementById("scoreD");
+
+  // Build the 9 board cells.
+  const cells = [];
+  for (let i = 0; i < 9; i++) {
+    const c = document.createElement("button");
+    c.type = "button";
+    c.className = "cell";
+    c.dataset.i = i;
+    c.setAttribute("aria-label", "cell " + (i + 1));
+    boardEl.appendChild(c);
+    cells.push(c);
+  }
+
+  // ============ SOUND (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "sine";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.06, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+  function soundPlace() { beep(520, 0.06, "square"); }
+  function soundWin() {
+    beep(660, 0.10, "sine");
+    setTimeout(function () { beep(880, 0.12, "sine"); }, 110);
+    setTimeout(function () { beep(1180, 0.18, "sine"); }, 230);
+  }
+  function soundDraw() {
+    beep(340, 0.14, "triangle");
+    setTimeout(function () { beep(260, 0.20, "triangle"); }, 150);
+  }
+  function soundClick() { beep(430, 0.05, "triangle"); }
+
+  // ============ SCORE PERSISTENCE ============
+  function loadScores() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(SCORE_KEY));
+      if (raw && typeof raw.X === "number" && typeof raw.O === "number" && typeof raw.draws === "number") return raw;
+    } catch (e) { /* corrupt or missing */ }
+    return { X: 0, O: 0, draws: 0 };
+  }
+  function saveScores() {
+    try { localStorage.setItem(SCORE_KEY, JSON.stringify(scores)); } catch (e) { /* ignore */ }
+  }
+  function renderScores() {
+    scoreXEl.textContent = scores.X;
+    scoreOEl.textContent = scores.O;
+    scoreDEl.textContent = scores.draws;
+  }
+
+  // ============ GAME RULES ============
+  function evaluate(b) {
+    for (let k = 0; k < WINS.length; k++) {
+      const line = WINS[k];
+      if (b[line[0]] && b[line[0]] === b[line[1]] && b[line[0]] === b[line[2]]) {
+        return { winner: b[line[0]], line: line };
+      }
+    }
+    for (let i = 0; i < 9; i++) if (!b[i]) return { winner: null, line: null };
+    return { winner: "draw", line: null };
+  }
+  function other(mark) { return mark === "X" ? "O" : "X"; }
+  function emptyCells() {
+    const list = [];
+    for (let i = 0; i < 9; i++) if (!board[i]) list.push(i);
+    return list;
+  }
+  function randomOf(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+  // Move that immediately completes a line for `mark`, or -1.
+  function findWinningMove(mark) {
+    for (let i = 0; i < 9; i++) {
+      if (!board[i]) {
+        board[i] = mark;
+        const r = evaluate(board);
+        board[i] = "";
+        if (r.winner === mark) return i;
+      }
+    }
+    return -1;
+  }
+
+  // ============ MINIMAX AI ============
+  // `player` is the mark to move; CPU maximizes, human minimizes.
+  function minimax(b, player, depth) {
+    const res = evaluate(b);
+    if (res.winner === cpuMark) return 10 - depth;
+    if (res.winner === humanMark) return depth - 10;
+    if (res.winner === "draw") return 0;
+
+    if (player === cpuMark) {
+      let best = -Infinity;
+      for (let i = 0; i < 9; i++) {
+        if (!b[i]) { b[i] = player; best = Math.max(best, minimax(b, humanMark, depth + 1)); b[i] = ""; }
+      }
+      return best;
+    }
+    let best = Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (!b[i]) { b[i] = player; best = Math.min(best, minimax(b, cpuMark, depth + 1)); b[i] = ""; }
+    }
+    return best;
+  }
+
+  // Perfect play for the CPU (assumes cpuMark to move).
+  function perfectMove() {
+    let bestScore = -Infinity, bestIdx = -1;
+    for (let i = 0; i < 9; i++) {
+      if (!board[i]) {
+        board[i] = cpuMark;
+        const s = minimax(board, humanMark, 1);
+        board[i] = "";
+        if (s > bestScore) { bestScore = s; bestIdx = i; }
+      }
+    }
+    return bestIdx;
+  }
+
+  function cpuChoose() {
+    const empties = emptyCells();
+    if (!empties.length) return -1;
+
+    if (difficulty === "easy") {
+      // Mostly random, occasional flashes of competence.
+      return Math.random() < 0.2 ? perfectMove() : randomOf(empties);
+    }
+    if (difficulty === "medium") {
+      // Always take a win / block an obvious loss, otherwise often random.
+      const win = findWinningMove(cpuMark);
+      if (win !== -1) return win;
+      const block = findWinningMove(humanMark);
+      if (block !== -1) return block;
+      return Math.random() < 0.55 ? randomOf(empties) : perfectMove();
+    }
+    return perfectMove(); // Hard: unbeatable.
+  }
+
+  // ============ RENDERING ============
+  function renderCell(index) {
+    const cell = cells[index];
+    cell.className = "cell";
+    if (board[index]) cell.classList.add("filled", board[index] === "X" ? "x" : "o");
+  }
+  function markSpan(mark) { return '<span class="mark ' + (mark === "X" ? "x" : "o") + '">' + mark + "</span>"; }
+  function setStatus(html) { statusEl.innerHTML = html; }
+
+  function renderTurn() {
+    if (!gameActive) return;
+    let who = "Player " + markSpan(currentPlayer) + "'s turn";
+    if (mode === "cpu") {
+      who = currentPlayer === humanMark ? "Your turn " + markSpan(currentPlayer) : "CPU turn " + markSpan(currentPlayer);
+    }
+    if (busy) who = "CPU is thinking&hellip;";
+    setStatus(who);
+  }
+
+  // ============ ROUND FLOW ============
+  function hideBanner() { bannerEl.classList.remove("show"); }
+  function updateRowVisibility() {
+    diffRow.classList.toggle("hidden", mode !== "cpu");
+    sideRow.classList.toggle("hidden", mode !== "cpu");
+  }
+
+  function newRound() {
+    board = ["", "", "", "", "", "", "", "", ""];
+    gameActive = true;
+    busy = false;
+    hideBanner();
+    for (let i = 0; i < 9; i++) renderCell(i);
+
+    currentPlayer = startMark;
+    startMark = other(startMark); // alternate who opens the next round
+
+    renderTurn();
+    if (mode === "cpu" && currentPlayer === cpuMark) maybeCpuMove();
+  }
+
+  function placeMark(index) {
+    if (!gameActive || board[index]) return;
+    board[index] = currentPlayer;
+    renderCell(index);
+    soundPlace();
+
+    const res = evaluate(board);
+    if (res.winner) { endRound(res); return; }
+
+    currentPlayer = other(currentPlayer);
+    renderTurn();
+    if (mode === "cpu" && currentPlayer === cpuMark) maybeCpuMove();
+  }
+
+  function maybeCpuMove() {
+    if (mode !== "cpu" || !gameActive || currentPlayer !== cpuMark) return;
+    busy = true;
+    renderTurn();
+    setTimeout(function () {
+      if (!gameActive || currentPlayer !== cpuMark) { busy = false; return; }
+      busy = false;
+      const idx = cpuChoose();
+      if (idx !== -1) placeMark(idx);
+    }, 420);
+  }
+
+  function endRound(res) {
+    gameActive = false;
+    busy = false;
+
+    if (res.winner === "draw") {
+      scores.draws++;
+      soundDraw();
+      bannerTitle.className = "banner-title draw";
+      bannerTitle.textContent = "It's a Draw";
+      bannerSub.textContent = "Nobody got three in a row.";
+      setStatus("Draw &mdash; board full");
+    } else {
+      const w = res.winner;
+      if (w === "X") scores.X++; else scores.O++;
+      soundWin();
+
+      for (let k = 0; k < res.line.length; k++) cells[res.line[k]].classList.add("win"); // highlight winning line
+
+      bannerTitle.className = "banner-title " + (w === "X" ? "x" : "o");
+      if (mode === "2p") bannerTitle.textContent = "Player " + w + " Wins!";
+      else bannerTitle.textContent = (w === humanMark) ? "You Win!" : "CPU Wins";
+      bannerSub.textContent = "Three in a row for " + w + ".";
+      setStatus("Winner: " + markSpan(w));
+    }
+
+    saveScores();
+    renderScores();
+    bannerEl.classList.add("show");
+  }
+
+  // ============ INPUT: BOARD ============
+  function isHumanTurn() { return mode === "2p" || currentPlayer === humanMark; }
+
+  boardEl.addEventListener("click", function (e) {
+    const cell = e.target.closest(".cell");
+    if (!cell || !gameActive || busy || !isHumanTurn()) return;
+    placeMark(parseInt(cell.dataset.i, 10));
+  });
+
+  // ============ INPUT: KEYBOARD ============
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "r" || e.key === "R") { e.preventDefault(); newRound(); return; }
+    if (e.key === "Enter") { e.preventDefault(); if (!gameActive) newRound(); return; }
+    if (e.key >= "1" && e.key <= "9") {
+      e.preventDefault();
+      if (!gameActive || busy || !isHumanTurn()) return;
+      placeMark(parseInt(e.key, 10) - 1);
+    }
+  });
+
+  // ============ INPUT: SEGMENTED CONTROLS ============
+  function wireSeg(container, attr, onPick) {
+    const btns = Array.prototype.slice.call(container.querySelectorAll(".seg-btn"));
+    btns.forEach(function (b) {
+      b.addEventListener("click", function () {
+        btns.forEach(function (x) { x.classList.remove("active"); });
+        b.classList.add("active");
+        soundClick();
+        onPick(b.dataset[attr]);
+      });
+    });
+  }
+
+  wireSeg(document.getElementById("modeSeg"), "mode", function (v) {
+    mode = v;
+    humanMark = "X";
+    cpuMark = "O";
+    const sideBtns = Array.prototype.slice.call(document.querySelectorAll("#sideSeg .seg-btn"));
+    sideBtns.forEach(function (x) { x.classList.toggle("active", x.dataset.side === "X"); });
+    updateRowVisibility();
+    startMark = "X";
+    newRound();
+  });
+
+  wireSeg(document.getElementById("diffSeg"), "diff", function (v) { difficulty = v; });
+
+  wireSeg(document.getElementById("sideSeg"), "side", function (v) {
+    humanMark = v;
+    cpuMark = other(v);
+    startMark = v; // player opens the first round on their chosen mark
+    newRound();
+  });
+
+  // ============ BUTTONS ============
+  nextBtn.addEventListener("click", function () { soundClick(); newRound(); });
+  roundBtn.addEventListener("click", function () { soundClick(); newRound(); });
+  resetBtn.addEventListener("click", function () {
+    soundClick();
+    scores = { X: 0, O: 0, draws: 0 };
+    saveScores();
+    renderScores();
+    newRound();
+  });
+
+  // ============ INIT ============
+  updateRowVisibility();
+  renderScores();
+  newRound();
+})();
+</script>
+</body>
+</html>

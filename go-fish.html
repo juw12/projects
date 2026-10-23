@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🐟 Go Fish</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: radial-gradient(circle at 50% -10%, #2a6f8e 0%, #12405c 45%, #08202f 100%);
+    color: #eaf6ff;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 14px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ============ GAME CONTAINER ============ */
+  .game-container {
+    width: min(96vw, 860px);
+    background: linear-gradient(160deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03));
+    border: 1px solid rgba(150, 220, 255, 0.22);
+    border-radius: 22px;
+    padding: 18px;
+    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255,255,255,0.10);
+    position: relative;
+    overflow: hidden;
+  }
+  .game-container::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(6px 6px at 15% 20%, rgba(180,230,255,0.18) 48%, transparent 50%),
+      radial-gradient(4px 4px at 75% 60%, rgba(180,230,255,0.14) 48%, transparent 50%),
+      radial-gradient(8px 8px at 55% 85%, rgba(180,230,255,0.10) 48%, transparent 50%);
+    pointer-events: none;
+  }
+  .game-container > * { position: relative; z-index: 1; }
+
+  .game-title {
+    text-align: center;
+    font-size: 1.9rem;
+    letter-spacing: 1px;
+    color: #ffe9a8;
+    text-shadow: 0 2px 0 rgba(0,0,0,0.35);
+  }
+  .game-subtitle {
+    text-align: center;
+    font-size: 0.85rem;
+    color: #a8cfe3;
+    margin: 4px 0 12px;
+  }
+
+  /* ============ SCORE BOARD ============ */
+  .score-board {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+  .score-chip {
+    background: rgba(8, 40, 60, 0.55);
+    border: 1px solid rgba(150, 220, 255, 0.25);
+    border-radius: 12px;
+    padding: 6px 12px;
+    font-size: 0.82rem;
+    color: #cfe9f7;
+  }
+  .score-chip b { color: #ffe9a8; }
+
+  /* ============ OPPONENTS ============ */
+  .opponents {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .opponent {
+    flex: 1 1 150px;
+    background: rgba(8, 40, 60, 0.45);
+    border: 2px solid rgba(150, 220, 255, 0.18);
+    border-radius: 14px;
+    padding: 10px;
+    transition: all 0.18s ease;
+  }
+  .opponent.turn { border-color: #ffe9a8; box-shadow: 0 0 0 2px rgba(255,233,168,0.28); }
+  .opponent.askable { cursor: pointer; border-color: #6fe0a8; box-shadow: 0 0 16px rgba(111,224,168,0.45); }
+  .opponent.askable:hover { transform: translateY(-2px); background: rgba(20, 70, 60, 0.55); }
+  .opp-name { font-size: 0.92rem; font-weight: 600; color: #bfe6ff; margin-bottom: 6px; }
+  .opp-hand { display: flex; flex-wrap: wrap; gap: 3px; min-height: 30px; margin-bottom: 8px; }
+  .card-back {
+    width: 20px; height: 28px; border-radius: 4px;
+    background: repeating-linear-gradient(45deg, #1d6fa5, #1d6fa5 3px, #2b8dc9 3px, #2b8dc9 6px);
+    border: 1px solid #0d4261;
+    box-shadow: 0 2px 3px rgba(0,0,0,0.3);
+  }
+  .opp-books { display: flex; flex-wrap: wrap; gap: 4px; min-height: 20px; }
+  .book-chip {
+    font-size: 0.72rem; font-weight: 700; padding: 2px 7px; border-radius: 8px;
+    background: linear-gradient(135deg, #ffd76e, #f0a83c); color: #5a3d00;
+    border: 1px solid #c98a1e;
+  }
+  .empty-note { font-size: 0.72rem; color: #7fa8bf; font-style: italic; }
+
+  /* ============ TURN LOG ============ */
+  .log {
+    height: 130px;
+    overflow-y: auto;
+    background: rgba(3, 20, 30, 0.55);
+    border: 1px solid rgba(150, 220, 255, 0.16);
+    border-radius: 12px;
+    padding: 8px 10px;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    margin-bottom: 12px;
+  }
+  .log div { color: #c3e2f2; }
+  .log div.you { color: #b6ffd9; }
+  .log div.cpu { color: #ffd9e0; }
+  .log div.book { color: #ffe9a8; font-weight: 700; }
+  .log::-webkit-scrollbar { width: 8px; }
+  .log::-webkit-scrollbar-thumb { background: rgba(150,220,255,0.28); border-radius: 4px; }
+
+  /* ============ STATUS LINE ============ */
+  .status {
+    text-align: center;
+    font-size: 0.92rem;
+    color: #ffe9a8;
+    min-height: 24px;
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+
+  /* ============ YOUR HAND ============ */
+  .hand-label { font-size: 0.82rem; color: #a8cfe3; margin-bottom: 6px; }
+  .hand {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 96px;
+    padding: 8px;
+    background: rgba(3, 20, 30, 0.35);
+    border-radius: 14px;
+    border: 1px dashed rgba(150, 220, 255, 0.18);
+  }
+  .card {
+    width: 58px; height: 84px; border-radius: 8px;
+    background: linear-gradient(160deg, #ffffff, #eef6fb);
+    color: #12324a;
+    border: 1px solid #b9d6e6;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; position: relative;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    user-select: none;
+  }
+  .card:hover { transform: translateY(-6px); box-shadow: 0 10px 18px rgba(0,0,0,0.4); }
+  .card.selected {
+    transform: translateY(-8px);
+    border-color: #6fe0a8;
+    box-shadow: 0 0 0 3px rgba(111,224,168,0.6), 0 10px 18px rgba(0,0,0,0.4);
+  }
+  .card .rank { font-size: 1.6rem; font-weight: 800; line-height: 1; }
+  .card .suit { font-size: 1rem; }
+  .card.red { color: #d23b4e; }
+  .card .count {
+    position: absolute; bottom: 4px; right: 5px;
+    background: #12324a; color: #fff; font-size: 0.62rem; font-weight: 700;
+    border-radius: 7px; padding: 1px 5px;
+  }
+  .hand-locked .card { cursor: default; opacity: 0.85; }
+  .hand-locked .card:hover { transform: none; }
+
+  /* ============ CONTROLS ============ */
+  .controls { display: flex; justify-content: center; gap: 10px; margin-top: 14px; }
+  .action-btn {
+    padding: 12px 26px;
+    background: linear-gradient(135deg, #ffd76e, #f0a83c);
+    color: #4a3100;
+    border: none; border-radius: 22px;
+    font-size: 1rem; font-weight: 700; cursor: pointer;
+    box-shadow: 0 5px 16px rgba(240,168,60,0.35);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  .action-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(240,168,60,0.5); }
+  .action-btn:active { transform: translateY(0); }
+
+  /* ============ OVERLAYS (Start / Result) ============ */
+  .screen {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+    background: rgba(4, 24, 36, 0.94);
+    border-radius: 22px;
+    padding: 24px;
+    text-align: center;
+    transition: opacity 0.3s ease;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen-title { font-size: 1.9rem; color: #ffe9a8; text-shadow: 0 2px 0 rgba(0,0,0,0.4); }
+  .screen-subtitle { font-size: 0.9rem; color: #a8cfe3; max-width: 440px; line-height: 1.5; }
+  .final-line { font-size: 1.05rem; color: #cfe9f7; }
+  .final-line b { color: #ffe9a8; }
+  .choice-label { font-size: 0.85rem; color: #a8cfe3; }
+  .choice-buttons { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .choice-btn {
+    padding: 10px 20px; border-radius: 18px; cursor: pointer;
+    background: rgba(255,255,255,0.08); color: #cfe9f7;
+    border: 2px solid rgba(150,220,255,0.3); font-size: 0.9rem; font-weight: 600;
+    transition: all 0.15s ease;
+  }
+  .choice-btn:hover { background: rgba(255,255,255,0.16); }
+  .choice-btn.selected {
+    background: linear-gradient(135deg, #6fe0a8, #35b47e);
+    color: #06301f; border-color: #6fe0a8;
+  }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 560px) {
+    .game-title { font-size: 1.5rem; }
+    .card { width: 48px; height: 72px; }
+    .card .rank { font-size: 1.3rem; }
+    .log { height: 104px; }
+    .opponent { flex-basis: 120px; }
+  }
+</style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">🐟 Go Fish</h1>
+    <p class="game-subtitle">Ask for a rank you hold — collect all four to make a book!</p>
+
+    <!-- ============ SCORE BOARD ============ -->
+    <div class="score-board" id="scoreBoard"></div>
+
+    <!-- ============ OPPONENTS ============ -->
+    <div class="opponents" id="opponents"></div>
+
+    <!-- ============ STATUS ============ -->
+    <div class="status" id="status">Choose how many opponents to play against.</div>
+
+    <!-- ============ TURN LOG ============ -->
+    <div class="log" id="log"></div>
+
+    <!-- ============ YOUR HAND ============ -->
+    <div class="hand-label" id="handLabel">Your hand</div>
+    <div class="hand" id="hand"></div>
+
+    <!-- ============ CONTROLS ============ -->
+    <div class="controls">
+      <button class="action-btn" id="restartBtn">Restart</button>
+    </div>
+
+    <!-- ============ START OVERLAY ============ -->
+    <div class="screen" id="startScreen">
+      <h2 class="screen-title">Go Fish</h2>
+      <p class="screen-subtitle">
+        You and 1–3 CPU fishers each start with a hand of cards.
+        Ask an opponent for a rank you already hold. If they have it, you take them all and go again;
+        if not, "Go Fish!" and draw from the pond.
+      </p>
+      <p class="choice-label">Number of CPU opponents</p>
+      <div class="choice-buttons" id="cpuChoices">
+        <button class="choice-btn selected" data-cpus="1">1 CPU</button>
+        <button class="choice-btn" data-cpus="2">2 CPUs</button>
+        <button class="choice-btn" data-cpus="3">3 CPUs</button>
+      </div>
+      <button class="action-btn" id="startBtn">Start Game</button>
+      <p class="final-line" id="winsLabel"></p>
+    </div>
+
+    <!-- ============ RESULT OVERLAY ============ -->
+    <div class="screen hidden" id="resultScreen">
+      <h2 class="screen-title" id="resultTitle">Game Over</h2>
+      <p class="final-line" id="resultLine"></p>
+      <p class="screen-subtitle" id="resultDetail"></p>
+      <button class="action-btn" id="playAgainBtn">Play Again</button>
+    </div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONSTANTS ============
+  const RANK_NAMES = { 1:"A", 2:"2", 3:"3", 4:"4", 5:"5", 6:"6",
+                       7:"7", 8:"8", 9:"9", 10:"10", 11:"J", 12:"Q", 13:"K" };
+  const SUITS = ["\u2660", "\u2665", "\u2666", "\u2663"]; // ♠ ♥ ♦ ♣
+  const SUIT_RED = { "\u2665": true, "\u2666": true };
+  const TOTAL_BOOKS = 13;
+  const LS_KEY = "goFishWins";
+
+  // ============ DOM ELEMENTS ============
+  const scoreBoardEl = document.getElementById("scoreBoard");
+  const opponentsEl  = document.getElementById("opponents");
+  const statusEl     = document.getElementById("status");
+  const logEl        = document.getElementById("log");
+  const handEl       = document.getElementById("hand");
+  const handLabelEl  = document.getElementById("handLabel");
+  const startScreen  = document.getElementById("startScreen");
+  const resultScreen = document.getElementById("resultScreen");
+  const startBtn     = document.getElementById("startBtn");
+  const restartBtn   = document.getElementById("restartBtn");
+  const playAgainBtn = document.getElementById("playAgainBtn");
+  const cpuChoices   = Array.prototype.slice.call(document.querySelectorAll("#cpuChoices .choice-btn"));
+  const winsLabelEl  = document.getElementById("winsLabel");
+
+  // ============ GAME STATE ============
+  let players = [];          // { name, hand:{rank:count}, books:[rank] }
+  let pond = [];             // array of rank numbers remaining
+  let current = 0;           // index of active player (0 = human)
+  let selectedRank = null;   // human's chosen rank this turn
+  let humanActive = false;   // true while human may pick a rank / target
+  let busy = false;          // guards re-entrancy during resolution
+  let gameOver = false;
+  let cpuCount = 1;
+  let knownEmpty = [];       // knownEmpty[player][rank] = true → publicly known to hold none
+  let wins = Number(localStorage.getItem(LS_KEY) || 0);
+
+  // ============ SOUND (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.06, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+  function fanfare() {
+    beep(660, 0.10, "sine");
+    setTimeout(function () { beep(880, 0.12, "sine"); }, 110);
+    setTimeout(function () { beep(1180, 0.18, "sine"); }, 230);
+  }
+
+  // ============ HELPERS ============
+  function rankName(r) { return RANK_NAMES[r]; }
+  function suitFor(r) { return SUITS[r % 4]; }
+  function handCount(p) {
+    let n = 0;
+    for (const k in p.hand) n += p.hand[k];
+    return n;
+  }
+  function totalBooks() {
+    let n = 0;
+    for (const p of players) n += p.books.length;
+    return n;
+  }
+  function log(msg, cls) {
+    const d = document.createElement("div");
+    if (cls) d.className = cls;
+    d.textContent = msg;
+    logEl.appendChild(d);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  // ============ DECK ============
+  function buildDeck() {
+    const deck = [];
+    for (let r = 1; r <= 13; r++) {
+      for (let s = 0; s < 4; s++) deck.push(r);
+    }
+    // Fisher–Yates shuffle
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = deck[i]; deck[i] = deck[j]; deck[j] = t;
+    }
+    return deck;
+  }
+
+  function dealCard(p) {
+    const r = pond.pop();
+    p.hand[r] = (p.hand[r] || 0) + 1;
+    return r;
+  }
+
+  // ============ SETUP / RESET ============
+  function newGame(numCpus) {
+    cpuCount = numCpus;
+    players = [{ name: "You", hand: {}, books: [] }];
+    for (let i = 1; i <= numCpus; i++) {
+      players.push({ name: "CPU " + i, hand: {}, books: [] });
+    }
+    pond = buildDeck();
+    current = 0;
+    selectedRank = null;
+    humanActive = false;
+    busy = true;
+    gameOver = false;
+    knownEmpty = players.map(function () {
+      const arr = [];
+      for (let r = 0; r <= 13; r++) arr[r] = false;
+      return arr;
+    });
+
+    logEl.innerHTML = "";
+    log("New game with " + numCpus + " CPU opponent" + (numCpus > 1 ? "s" : "") + ".", "book");
+
+    // Deal hands: 7 cards for 2–3 players, 5 for 4 players.
+    const handSize = players.length <= 3 ? 7 : 5;
+    for (let c = 0; c < handSize; c++) {
+      for (const p of players) dealCard(p);
+    }
+    // Auto-book any ranks fully held after the deal (rare, but correct)
+    players.forEach(function (p, i) { autoBookAll(i, true); });
+
+    log("Everyone drew " + handSize + " cards. Pond: " + pond.length + " cards left.", "book");
+
+    startScreen.classList.add("hidden");
+    resultScreen.classList.add("hidden");
+    render();
+    setTimeout(beginTurn, 350);
+  }
+
+  // ============ TURN FLOW ============
+  function beginTurn() {
+    if (gameOver) return;
+    const p = players[current];
+
+    // A player with an empty hand must draw from the pond.
+    if (handCount(p) === 0) {
+      if (pond.length > 0) {
+        const r = dealCard(p);
+        log(p.name + " has no cards and draws from the pond.", current === 0 ? "you" : "cpu");
+        beep(500, 0.09, "triangle");
+        checkBook(current, r);
+        if (gameOver) return;
+      }
+      if (handCount(p) === 0) {
+        log(p.name + " has no cards — turn passes.", current === 0 ? "you" : "cpu");
+        render();
+        advanceTurn();
+        return;
+      }
+    }
+
+    if (current === 0) {
+      busy = false;
+      humanActive = true;
+      selectedRank = null;
+      statusEl.textContent = "Your turn — pick a rank in your hand, then pick who to ask.";
+      beep(600, 0.07, "triangle");
+    } else {
+      busy = true;
+      humanActive = false;
+      statusEl.textContent = p.name + " is thinking…";
+      render();
+      setTimeout(cpuMove, 750);
+      return;
+    }
+    render();
+  }
+
+  function advanceTurn() {
+    if (gameOver) return;
+    current = (current + 1) % players.length;
+    beginTurn();
+  }
+
+  // ============ CORE ASK RESOLUTION ============
+  // Returns true if the asker keeps the turn, false otherwise.
+  function doAsk(askerIdx, targetIdx, rank) {
+    const asker = players[askerIdx];
+    const target = players[targetIdx];
+    const got = target.hand[rank] || 0;
+    const cls = askerIdx === 0 ? "you" : "cpu";
+    let again = false;
+
+    if (got > 0) {
+      target.hand[rank] -= got;
+      if (target.hand[rank] <= 0) delete target.hand[rank];
+      asker.hand[rank] = (asker.hand[rank] || 0) + got;
+      knownEmpty[targetIdx][rank] = true; // they may be out of it now
+      knownEmpty[askerIdx][rank] = false; // asker definitely has at least one
+      log(asker.name + " → " + target.name + ": \u201cany " + rankName(rank) +
+          "s?\u201d  \u2014 \u201cYes! Take " + got + ".\u201d", cls);
+      beep(760, 0.11, "sine");
+      again = true;
+      checkBook(askerIdx, rank);
+    } else {
+      knownEmpty[targetIdx][rank] = true;
+      log(asker.name + " → " + target.name + ": \u201cany " + rankName(rank) +
+          "s?\u201d  \u2014 \u201cGo Fish!\u201d", cls);
+      if (pond.length > 0) {
+        const drawn = dealCard(asker);
+        if (drawn === rank) {
+          log("  " + asker.name + " draws from the pond — a " + rankName(drawn) +
+              "! Lucky — go again.", "book");
+          beep(880, 0.14, "sine");
+          again = true;
+        } else {
+          log("  " + asker.name + " draws a " + rankName(drawn) + " from the pond.", cls);
+          beep(300, 0.12, "square");
+        }
+        checkBook(askerIdx, drawn);
+      } else {
+        log("  The pond is empty — nothing to draw.", cls);
+        beep(200, 0.15, "square");
+      }
+    }
+    return again;
+  }
+
+  // ============ BOOKS ============
+  function checkBook(playerIdx, rank) {
+    const p = players[playerIdx];
+    if ((p.hand[rank] || 0) >= 4) {
+      delete p.hand[rank];
+      p.books.push(rank);
+      log("\u2b50 " + p.name + " lays down a book of " + rankName(rank) + "s!",
+          playerIdx === 0 ? "book" : "book");
+      fanfare();
+      if (totalBooks() >= TOTAL_BOOKS) endGame();
+    }
+  }
+  function autoBookAll(playerIdx, silent) {
+    const p = players[playerIdx];
+    Object.keys(p.hand).map(Number).forEach(function (r) {
+      if (p.hand[r] >= 4) {
+        delete p.hand[r];
+        p.books.push(r);
+        if (!silent) log(p.name + " lays down a book of " + rankName(r) + "s!", "book");
+      }
+    });
+  }
+
+  // ============ HUMAN INPUT ============
+  function selectRank(rank) {
+    if (!humanActive || busy || current !== 0 || gameOver) return;
+    selectedRank = (selectedRank === rank) ? null : rank;
+    beep(520, 0.05, "triangle");
+    render();
+  }
+
+  function humanAsk(targetIdx) {
+    if (!humanActive || busy || current !== 0 || gameOver) return;
+    if (selectedRank == null) return;
+    humanActive = false;
+    busy = true;
+    const rank = selectedRank;
+    statusEl.textContent = "Asking " + players[targetIdx].name + " for " + rankName(rank) + "s…";
+    render();
+
+    setTimeout(function () {
+      const again = doAsk(0, targetIdx, rank);
+      render();
+      if (gameOver) return;
+      if (again) {
+        setTimeout(beginTurn, 500); // same player keeps asking
+      } else {
+        setTimeout(advanceTurn, 400);
+      }
+    }, 320);
+  }
+
+  // ============ CPU BRAIN ============
+  function chooseCpuRank(pi) {
+    const me = players[pi];
+    const ranks = Object.keys(me.hand).map(Number);
+    if (!ranks.length) return null;
+    let best = null, bestScore = -1;
+    for (const r of ranks) {
+      // Prefer ranks we hold the most of, and that some opponent likely still has.
+      let oppOpen = 0;
+      players.forEach(function (p, j) {
+        if (j !== pi && !knownEmpty[j][r]) oppOpen += 1;
+      });
+      const score = me.hand[r] * 2 + oppOpen * 3 + Math.random();
+      if (score > bestScore) { bestScore = score; best = r; }
+    }
+    return best;
+  }
+
+  function chooseCpuTarget(pi, rank) {
+    const candidates = [];
+    players.forEach(function (p, j) { if (j !== pi) candidates.push(j); });
+    let pool = candidates.filter(function (j) { return !knownEmpty[j][rank]; });
+    if (!pool.length) pool = candidates;
+    // "asks for a rank it holds and that you likely have" — bias toward the human.
+    if (pool.indexOf(0) !== -1 && Math.random() < 0.7) return 0;
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function cpuMove() {
+    if (gameOver) return;
+    const pi = current;
+    const rank = chooseCpuRank(pi);
+    if (rank == null) { // no cards at all (shouldn't happen after beginTurn)
+      advanceTurn();
+      return;
+    }
+    const targetIdx = chooseCpuTarget(pi, rank);
+    statusEl.textContent = players[pi].name + " asks " + players[targetIdx].name + "…";
+    render();
+
+    const again = doAsk(pi, targetIdx, rank);
+    render();
+    if (gameOver) return;
+    if (again) {
+      setTimeout(cpuMove, 800);
+    } else {
+      setTimeout(advanceTurn, 550);
+    }
+  }
+
+  // ============ RENDERING ============
+  function render() {
+    renderScoreBoard();
+    renderOpponents();
+    renderHand();
+  }
+
+  function renderScoreBoard() {
+    let html = '<div class="score-chip">\uD83C\uDF0A Pond: <b>' + pond.length + '</b></div>';
+    html += '<div class="score-chip">\uD83D\uDCDA Books made: <b>' + totalBooks() + ' / ' + TOTAL_BOOKS + '</b></div>';
+    players.forEach(function (p, i) {
+      html += '<div class="score-chip">' + (i === 0 ? "\uD83E\uDDD1 " : "\uD83E\uDD16 ") +
+              escapeHtml(p.name) + ": <b>" + p.books.length + "</b> book" +
+              (p.books.length === 1 ? "" : "s") + "</div>";
+    });
+    scoreBoardEl.innerHTML = html;
+  }
+
+  function renderOpponents() {
+    opponentsEl.innerHTML = "";
+    for (let i = 1; i < players.length; i++) {
+      const p = players[i];
+      const div = document.createElement("div");
+      div.className = "opponent";
+      if (current === i && !gameOver) div.classList.add("turn");
+      if (humanActive && selectedRank != null) div.classList.add("askable");
+      div.dataset.idx = String(i);
+
+      const backs = "";
+      let count = handCount(p);
+
+      let inner = '<div class="opp-name">' + (current === i && !gameOver ? "\u25B6 " : "") +
+                  escapeHtml(p.name) + " \u2014 " + count + " card" + (count === 1 ? "" : "s") + "</div>";
+      inner += '<div class="opp-hand">';
+      if (count === 0) {
+        inner += '<span class="empty-note">no cards</span>';
+      } else {
+        for (let k = 0; k < count; k++) inner += '<div class="card-back"></div>';
+      }
+      inner += "</div>";
+      inner += '<div class="opp-books">';
+      if (p.books.length === 0) {
+        inner += '<span class="empty-note">no books</span>';
+      } else {
+        p.books.slice().sort(function (a, b) { return a - b; }).forEach(function (r) {
+          inner += '<span class="book-chip">' + rankName(r) + "\u00D74</span>";
+        });
+      }
+      inner += "</div>";
+
+      div.innerHTML = inner;
+      div.addEventListener("click", function () { humanAsk(i); });
+      opponentsEl.appendChild(div);
+    }
+    if (players.length === 1) {
+      opponentsEl.innerHTML = '<div class="empty-note" style="padding:8px">No opponents yet.</div>';
+    }
+  }
+
+  function renderHand() {
+    const me = players[0];
+    if (!me) { handEl.innerHTML = ""; return; }
+    const ranks = Object.keys(me.hand).map(Number).sort(function (a, b) { return a - b; });
+    handLabelEl.textContent = "Your hand (" + handCount(me) + " cards)" +
+      (me.books.length ? "  \u2022  Books: " + me.books.slice().sort(function (a,b){return a-b;}).map(rankName).join(", ") : "");
+
+    handEl.innerHTML = "";
+    handEl.classList.toggle("hand-locked", !humanActive);
+    if (!ranks.length) {
+      handEl.innerHTML = '<span class="empty-note" style="padding:10px">You have no cards.</span>';
+      return;
+    }
+    const clickable = humanActive && !busy && current === 0 && !gameOver;
+    ranks.forEach(function (r) {
+      const cnt = me.hand[r];
+      const suit = suitFor(r);
+      const card = document.createElement("div");
+      card.className = "card" + (SUIT_RED[suit] ? " red" : "") + (selectedRank === r ? " selected" : "");
+      card.innerHTML = '<div class="rank">' + rankName(r) + "</div>" +
+                       '<div class="suit">' + suit + "</div>" +
+                       (cnt > 1 ? '<div class="count">\u00D7' + cnt + "</div>" : "");
+      if (clickable) card.addEventListener("click", function () { selectRank(r); });
+      handEl.appendChild(card);
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  // ============ END GAME ============
+  function endGame() {
+    gameOver = true;
+    humanActive = false;
+    busy = true;
+    const max = players.reduce(function (m, p) { return Math.max(m, p.books.length); }, 0);
+    const leaders = players.filter(function (p) { return p.books.length === max; });
+    const humanWon = leaders.length === 1 && players[0].books.length === max;
+
+    if (humanWon) {
+      wins += 1;
+      localStorage.setItem(LS_KEY, String(wins));
+      document.getElementById("resultTitle").textContent = "\uD83C\uDFC6 You Win!";
+      document.getElementById("resultLine").innerHTML =
+        "Most books: <b>" + max + "</b>";
+    } else if (leaders.indexOf(players[0]) !== -1) {
+      document.getElementById("resultTitle").textContent = "\uD83E\uDD1D It's a Tie!";
+      document.getElementById("resultLine").innerHTML = "You share the lead with <b>" + max + "</b> books";
+    } else {
+      document.getElementById("resultTitle").textContent = "\uD83D\uDC22 You Lose";
+      document.getElementById("resultLine").innerHTML =
+        players[leaders[0]].name + " wins with <b>" + max + "</b> books";
+    }
+
+    const detail = players.map(function (p) {
+      return p.name + ": " + p.books.length + " book" + (p.books.length === 1 ? "" : "s") +
+        (p.books.length ? " (" + p.books.slice().sort(function (a,b){return a-b;}).map(rankName).join(" ") + ")" : "");
+    }).join("  \u2022  ");
+    document.getElementById("resultDetail").textContent = detail;
+
+    log("Game over — all " + TOTAL_BOOKS + " books have been made.", "book");
+    beep(humanWon ? 990 : 180, 0.3, humanWon ? "sine" : "sawtooth");
+    render();
+    resultScreen.classList.remove("hidden");
+    updateWinsLabel();
+  }
+
+  function updateWinsLabel() {
+    winsLabelEl.textContent = "Games won: " + wins;
+  }
+
+  // ============ OVERLAY / BUTTON WIRING ============
+  cpuChoices.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      cpuChoices.forEach(function (b) { b.classList.remove("selected"); });
+      btn.classList.add("selected");
+      cpuCount = Number(btn.dataset.cpus);
+      beep(480, 0.05, "triangle");
+    });
+  });
+
+  startBtn.addEventListener("click", function () { newGame(cpuCount); });
+  playAgainBtn.addEventListener("click", function () { newGame(cpuCount); });
+  restartBtn.addEventListener("click", function () {
+    // Return to the start screen (paused, no partial game).
+    gameOver = true;
+    humanActive = false;
+    logEl.innerHTML = "";
+    log("Game restarted. Choose opponents and start again.", "book");
+    resultScreen.classList.add("hidden");
+    startScreen.classList.remove("hidden");
+    statusEl.textContent = "Choose how many opponents to play against.";
+    players = [{ name: "You", hand: {}, books: [] }];
+    pond = [];
+    render();
+  });
+
+  // ============ KEYBOARD SHORTCUT ============
+  document.addEventListener("keydown", function (e) {
+    if (e.code === "KeyR" || e.key === "r" || e.key === "R") {
+      e.preventDefault();
+      restartBtn.click();
+    }
+  });
+
+  // ============ INITIAL RENDER ============
+  updateWinsLabel();
+  render();
+})();
+</script>
+</body>
+</html>

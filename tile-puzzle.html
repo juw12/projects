@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Tile Puzzle</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg1: #071420;
+    --bg2: #0a1e2e;
+    --panel: rgba(120, 200, 255, 0.06);
+    --ink: #dff2ff;
+    --muted: #6f93ad;
+    --line: rgba(120, 200, 255, 0.16);
+    --tile: #0d2233;
+    --tileEdge: rgba(120, 200, 255, 0.14);
+    --pipe: #2c526a;
+    --pipeOn: #39e6c4;
+    --source: #46e07a;
+    --goal: #ff5fa2;
+    --leak: #ff5a6a;
+    --accent: #39e6c4;
+    --accent2: #7cc6ff;
+    --gold: #ffcf5c;
+    --mono: "Consolas", "SFMono-Regular", "Menlo", "Courier New", monospace;
+  }
+  html, body {
+    min-height: 100%;
+    background:
+      repeating-linear-gradient(0deg, rgba(120,200,255,0.03) 0 1px, transparent 1px 34px),
+      repeating-linear-gradient(90deg, rgba(120,200,255,0.03) 0 1px, transparent 1px 34px),
+      radial-gradient(1100px 760px at 50% -12%, #123149 0%, var(--bg1) 46%, var(--bg2) 100%);
+    color: var(--ink);
+    font-family: "Segoe UI", "Trebuchet MS", Tahoma, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 14px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #app {
+    width: min(96vw, 540px);
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+  }
+
+  /* ============ HEADER ============ */
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  h1 {
+    font-family: var(--mono);
+    font-size: clamp(1.15rem, 4.8vw, 1.7rem);
+    letter-spacing: 3px;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 0 18px rgba(57,230,196,0.4);
+  }
+  h1 span { color: var(--accent); }
+  .best-tag {
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-align: right;
+    line-height: 1.35;
+    font-family: var(--mono);
+  }
+  .best-tag b { color: var(--gold); font-weight: 700; }
+
+  /* ============ STATUS BAR ============ */
+  #status {
+    display: flex;
+    gap: 8px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 9px 12px;
+    backdrop-filter: blur(6px);
+  }
+  #status .stat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    text-align: center;
+  }
+  #status .stat .k {
+    color: var(--muted);
+    font-size: 0.62rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  #status .stat .v {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    font-family: var(--mono);
+  }
+  #status .stat .v.warn { color: var(--gold); }
+  #status .stat .v.done { color: var(--accent); }
+
+  /* ============ BOARD ============ */
+  #board-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 14px;
+    background: rgba(0, 0, 0, 0.28);
+    box-shadow: 0 16px 46px rgba(0, 0, 0, 0.5), inset 0 0 0 1px var(--line);
+    overflow: hidden;
+  }
+  #cv { display: block; width: 100%; height: 100%; cursor: pointer; }
+
+  /* ============ OVERLAY ============ */
+  #overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 20px;
+    text-align: center;
+    background: rgba(5, 13, 22, 0.88);
+    backdrop-filter: blur(4px);
+    opacity: 1;
+    transition: opacity .25s ease;
+  }
+  #overlay.hidden { opacity: 0; pointer-events: none; }
+  #overlay h2 {
+    font-family: var(--mono);
+    font-size: clamp(1.3rem, 5.6vw, 1.9rem);
+    color: var(--accent);
+    letter-spacing: 1px;
+    text-shadow: 0 0 22px rgba(57,230,196,0.5);
+  }
+  #overlay p { color: var(--muted); font-size: 0.82rem; }
+  #overlay .ov-stats {
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+    font-family: var(--mono);
+  }
+  #overlay .newbest {
+    color: var(--gold);
+    font-weight: 800;
+    letter-spacing: 1px;
+    font-size: 0.86rem;
+  }
+  #overlay .btn { margin-top: 12px; padding: 12px 26px; font-size: 0.9rem; }
+
+  /* ============ BUTTONS ============ */
+  #actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .btn {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: .6px;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 11px;
+    cursor: pointer;
+    color: #04212a;
+    background: linear-gradient(135deg, var(--accent), #1fb8d8);
+    box-shadow: 0 4px 0 rgba(0, 0, 0, .28);
+    transition: transform .06s ease, filter .15s ease;
+    user-select: none;
+  }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.28); }
+  .btn.ghost {
+    background: var(--panel);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    box-shadow: none;
+  }
+  .btn.ghost:hover { background: rgba(255,255,255,0.09); }
+  #diff { display: flex; gap: 6px; }
+  #diff button {
+    padding: 9px 11px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .12s ease;
+  }
+  #diff button:hover { background: rgba(255,255,255,0.09); }
+  #diff button.active {
+    background: linear-gradient(135deg, var(--accent2), #2b7fd6);
+    color: #04121f;
+    border-color: var(--accent2);
+  }
+
+  /* ============ FOOTER ============ */
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.66rem;
+    letter-spacing: .5px;
+    line-height: 1.55;
+  }
+  footer b { color: var(--accent2); }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 420px) {
+    #status .stat .v { font-size: 0.9rem; }
+    .btn { padding: 9px 12px; font-size: 0.72rem; }
+    #diff button { padding: 8px 8px; font-size: 0.66rem; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>TILE<span>PUZZLE</span></h1>
+    <div class="best-tag" id="bestTag"></div>
+  </header>
+
+  <div id="status">
+    <div class="stat"><span class="k">Size</span><span class="v" id="statSize">4&times;4</span></div>
+    <div class="stat"><span class="k">Moves</span><span class="v" id="statMoves">0</span></div>
+    <div class="stat"><span class="k">Time</span><span class="v" id="statTime">00:00</span></div>
+    <div class="stat"><span class="k">Flow</span><span class="v" id="statFlow">0/0</span></div>
+  </div>
+
+  <div id="board-wrap">
+    <canvas id="cv"></canvas>
+
+    <!-- Win overlay -->
+    <div id="overlay" class="hidden">
+      <h2 id="ovTitle">Flow Complete!</h2>
+      <p id="ovSub">Every pipe connected &mdash; no leaks.</p>
+      <div class="ov-stats" id="ovStats"></div>
+      <p class="newbest" id="ovBest"></p>
+      <button class="btn" id="ovNew">New Puzzle</button>
+    </div>
+  </div>
+
+  <div id="actions">
+    <button class="btn" id="btnNew">New Puzzle</button>
+    <div id="diff">
+      <button data-diff="easy" class="active">4&times;4</button>
+      <button data-diff="medium">5&times;5</button>
+      <button data-diff="hard">6&times;6</button>
+    </div>
+    <button class="btn ghost" id="btnRestart">Restart</button>
+  </div>
+
+  <footer>
+    Rotate tiles so one leak-free pipe network flows from the <b>green source</b> to the <b>pink goal</b><br>
+    Tap / click = rotate clockwise &middot; Right-click = counter-clockwise &middot; R = restart &middot; N = new
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONFIGURATION ============
+  var HALF_PI = Math.PI / 2;
+  // direction index: 0=N 1=E 2=S 3=W  (bitmask bits)
+  var DIRS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+  var SIZES = { easy: 4, medium: 5, hard: 6 };
+  var SIZE_LABEL = { easy: "4\u00d74", medium: "5\u00d75", hard: "6\u00d76" };
+  // base (unrotated) pipe masks
+  var BASE = { end: 1, straight: 5, elbow: 3, tee: 7, cross: 15 };
+  var BEST_KEY = "tilePuzzleBest";
+
+  // ============ DOM ============
+  var canvas = document.getElementById("cv");
+  var ctx = canvas.getContext("2d");
+  var boardWrap = document.getElementById("board-wrap");
+  var overlay = document.getElementById("overlay");
+
+  // ============ GAME STATE ============
+  var difficulty = localStorage.getItem("tilePuzzleDiff") || "easy";
+  if (!SIZES[difficulty]) difficulty = "easy";
+
+  var state = null;      // { N, total, cells[], source, goal, solvedMasks[] }
+  var connected = null;  // { seen[], count }  component reachable from source
+  var moves = 0;
+  var solved = false;
+  var dpr = 1;
+  var size = 360;        // CSS pixel size of the square canvas
+  var animT = 0;         // global time for flow animation
+
+  var startTime = 0;
+  var elapsed = 0;
+  var timerId = null;
+  var running = false;
+
+  // ============ SOUND (WebAudio, no assets) ============
+  var actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = actx.createOscillator();
+      var g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  // ============ UTILITIES ============
+  function countBits(m) { var c = 0; while (m) { c += m & 1; m >>= 1; } return c; }
+  function rot90(m) {
+    var r = 0;
+    for (var d = 0; d < 4; d++) if (m & (1 << d)) r |= 1 << ((d + 1) % 4);
+    return r;
+  }
+  function maskOf(base, rot) {
+    var m = base, k = ((rot % 4) + 4) % 4;
+    for (var i = 0; i < k; i++) m = rot90(m);
+    return m;
+  }
+  function fmtTime(ms) {
+    var s = Math.floor(ms / 1000);
+    var m = Math.floor(s / 60);
+    s = s % 60;
+    return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+  }
+  function shapeOf(m) {
+    var pop = countBits(m);
+    if (pop <= 1) return "end";
+    if (pop === 4) return "cross";
+    if (pop === 2) return (m === 5 || m === 10) ? "straight" : "elbow";
+    return "tee";
+  }
+  function solvedRotFor(base, solvedMask) {
+    for (var k = 0; k < 4; k++) if (maskOf(base, k) === solvedMask) return k;
+    return 0;
+  }
+
+  // ============ GENERATOR ============
+  // BFS distance between two cells using the tree adjacency.
+  function treeDist(adj, a, b) {
+    var n = adj.length;
+    var dist = new Array(n).fill(-1);
+    dist[a] = 0;
+    var q = [a];
+    while (q.length) {
+      var c = q.shift();
+      if (c === b) return dist[c];
+      for (var i = 0; i < adj[c].length; i++) {
+        var t = adj[c][i].to;
+        if (dist[t] < 0) { dist[t] = dist[c] + 1; q.push(t); }
+      }
+    }
+    return 0;
+  }
+
+  // Build a random spanning tree (perfect maze) over the grid, then turn the
+  // tree edges into pipe openings. The resulting layout is ALWAYS solvable:
+  // every cell has exactly the openings needed to wire the whole tree.
+  function generate(N) {
+    var total = N * N;
+    var adj = [];
+    for (var i = 0; i < total; i++) adj.push([]);
+
+    var visited = new Array(total).fill(false);
+    var stack = [Math.floor(Math.random() * total)];
+    visited[stack[0]] = true;
+
+    while (stack.length) {
+      var cur = stack[stack.length - 1];
+      var x = cur % N, y = (cur / N) | 0;
+      var cand = [];
+      for (var d = 0; d < 4; d++) {
+        var nx = x + DIRS[d][0], ny = y + DIRS[d][1];
+        if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+        var ni = ny * N + nx;
+        if (!visited[ni]) cand.push([ni, d]);
+      }
+      if (cand.length) {
+        var pick = cand[Math.floor(Math.random() * cand.length)];
+        visited[pick[0]] = true;
+        adj[cur].push({ to: pick[0], dir: pick[1] });
+        adj[pick[0]].push({ to: cur, dir: (pick[1] + 2) % 4 });
+        stack.push(pick[0]);
+      } else {
+        stack.pop();
+      }
+    }
+
+    // solved mask per cell = accumulated openings
+    var solvedMasks = [];
+    for (var j = 0; j < total; j++) {
+      var m = 0;
+      for (var e = 0; e < adj[j].length; e++) m |= 1 << adj[j][e].dir;
+      solvedMasks.push(m);
+    }
+
+    // source + goal = the two farthest-apart dead ends (degree-1 cells)
+    var deadends = [];
+    for (var c2 = 0; c2 < total; c2++) if (adj[c2].length === 1) deadends.push(c2);
+    var source, goal;
+    if (deadends.length >= 2) {
+      source = deadends[0];
+      var best = -1;
+      for (var d2 = 0; d2 < deadends.length; d2++) {
+        var cand2 = deadends[d2];
+        if (cand2 === source) continue;
+        var dd = treeDist(adj, source, cand2);
+        if (dd > best) { best = dd; goal = cand2; }
+      }
+    } else {
+      source = 0; goal = total - 1;
+    }
+
+    var cells = [];
+    for (var k = 0; k < total; k++) {
+      var shape = shapeOf(solvedMasks[k]);
+      var base = BASE[shape];
+      var srot = solvedRotFor(base, solvedMasks[k]);
+      // scramble: pick any rotation whose mask differs from the solved one
+      var options = [];
+      for (var r = 0; r < 4; r++) if (maskOf(base, r) !== solvedMasks[k]) options.push(r);
+      var rot = options.length ? options[Math.floor(Math.random() * options.length)] : srot;
+      cells.push({
+        base: base, shape: shape,
+        rot: rot, angle: rot * HALF_PI, target: rot * HALF_PI,
+        solvedMask: solvedMasks[k], solvedRot: srot
+      });
+    }
+
+    return { N: N, total: total, cells: cells, source: source, goal: goal, solvedMasks: solvedMasks };
+  }
+
+  // Re-scramble the current board (keeps the same solution).
+  function scramble() {
+    for (var i = 0; i < state.total; i++) {
+      var c = state.cells[i];
+      var options = [];
+      for (var r = 0; r < 4; r++) if (maskOf(c.base, r) !== c.solvedMask) options.push(r);
+      var rot = options.length ? options[Math.floor(Math.random() * options.length)] : c.rot;
+      c.rot = rot;
+      c.angle = rot * HALF_PI;
+      c.target = rot * HALF_PI;
+    }
+  }
+
+  // ============ CONNECTIVITY ============
+  // Flood from source across matching openings. Returns which cells carry flow.
+  function computeConnected() {
+    var N = state.N, total = state.total;
+    var seen = new Array(total).fill(false);
+    var q = [state.source];
+    seen[state.source] = true;
+    var count = 1;
+    while (q.length) {
+      var cur = q.pop();
+      var x = cur % N, y = (cur / N) | 0;
+      var cm = maskOf(state.cells[cur].base, state.cells[cur].rot);
+      for (var d = 0; d < 4; d++) {
+        if (!(cm & (1 << d))) continue;
+        var nx = x + DIRS[d][0], ny = y + DIRS[d][1];
+        if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+        var ni = ny * N + nx;
+        if (seen[ni]) continue;
+        var nm = maskOf(state.cells[ni].base, state.cells[ni].rot);
+        if (nm & (1 << ((d + 2) % 4))) { seen[ni] = true; count++; q.push(ni); }
+      }
+    }
+    return { seen: seen, count: count };
+  }
+
+  // Is an opening a leak? (no in-range neighbour pointing back)
+  function isLeak(i, d) {
+    var N = state.N;
+    var x = i % N, y = (i / N) | 0;
+    var nx = x + DIRS[d][0], ny = y + DIRS[d][1];
+    if (nx < 0 || ny < 0 || nx >= N || ny >= N) return true;
+    var ni = ny * N + nx;
+    var nm = maskOf(state.cells[ni].base, state.cells[ni].rot);
+    return !(nm & (1 << ((d + 2) % 4)));
+  }
+
+  // ============ CANVAS LAYOUT ============
+  function resize() {
+    var css = boardWrap.clientWidth || 360;
+    size = css;
+    dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(css * dpr);
+    canvas.height = Math.round(css * dpr);
+    canvas.style.width = css + "px";
+    canvas.style.height = css + "px";
+  }
+  function getGeom() {
+    var pad = size * 0.045;
+    var boardPx = size - pad * 2;
+    return { pad: pad, boardPx: boardPx, cell: boardPx / state.N };
+  }
+  function rr(x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  // ============ RENDER ============
+  function draw() {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var g = getGeom();
+    var N = state.N, cell = g.cell, half = cell / 2;
+    var on = connected ? connected.seen : new Array(state.total).fill(false);
+
+    // background
+    var grad = ctx.createLinearGradient(0, 0, size, size);
+    grad.addColorStop(0, "#0b1c2b");
+    grad.addColorStop(1, "#08131f");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+
+    // board plate
+    ctx.save();
+    rr(g.pad - cell * 0.08, g.pad - cell * 0.08,
+       g.boardPx + cell * 0.16, g.boardPx + cell * 0.16, cell * 0.22);
+    ctx.fillStyle = "rgba(0,0,0,0.32)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(120,200,255,0.10)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+
+    // tile backgrounds + faint edge sockets
+    for (var i = 0; i < state.total; i++) {
+      var x = i % N, y = (i / N) | 0;
+      var tx = g.pad + x * cell, ty = g.pad + y * cell;
+      var gap = cell * 0.06;
+
+      ctx.save();
+      rr(tx + gap, ty + gap, cell - gap * 2, cell - gap * 2, cell * 0.16);
+      ctx.fillStyle = on[i] ? "rgba(57,230,196,0.07)" : "rgba(255,255,255,0.02)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(120,200,255,0.10)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
+
+      // socket pads at the 4 edges
+      var cx = tx + half, cy = ty + half;
+      ctx.fillStyle = "rgba(120,200,255,0.12)";
+      for (var s = 0; s < 4; s++) {
+        var px = cx + DIRS[s][0] * (half - cell * 0.06);
+        var py = cy + DIRS[s][1] * (half - cell * 0.06);
+        ctx.beginPath();
+        ctx.arc(px, py, cell * 0.045, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // pipes
+    for (var p = 0; p < state.total; p++) {
+      var c = state.cells[p];
+      var xx = p % N, yy = (p / N) | 0;
+      var pcx = g.pad + xx * cell + half;
+      var pcy = g.pad + yy * cell + half;
+      var isOn = on[p];
+
+      var col = isOn ? "#39e6c4" : "#2c526a";
+      if (p === state.source) col = isOn ? "#7dffb0" : "#46e07a";
+      if (p === state.goal) col = isOn ? "#ff9cc6" : "#ff5fa2";
+
+      ctx.save();
+      ctx.translate(pcx, pcy);
+      ctx.rotate(c.angle);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+
+      if (isOn) { ctx.shadowColor = "rgba(57,230,196,0.75)"; ctx.shadowBlur = cell * 0.32; }
+      ctx.strokeStyle = col;
+      ctx.lineWidth = cell * 0.30;
+      for (var d3 = 0; d3 < 4; d3++) {
+        if (!(c.base & (1 << d3))) continue;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(DIRS[d3][0] * (half - cell * 0.03), DIRS[d3][1] * (half - cell * 0.03));
+        ctx.stroke();
+      }
+      // hub
+      ctx.beginPath();
+      ctx.arc(0, 0, cell * 0.22, 0, Math.PI * 2);
+      ctx.fillStyle = col;
+      ctx.fill();
+      ctx.restore();
+
+      // flow pulse travelling along connected pipes
+      if (isOn && !solved) {
+        ctx.save();
+        ctx.translate(pcx, pcy);
+        ctx.rotate(c.angle);
+        ctx.lineCap = "round";
+        ctx.lineWidth = cell * 0.13;
+        ctx.strokeStyle = "rgba(220,255,250,0.55)";
+        ctx.setLineDash([cell * 0.16, cell * 0.34]);
+        ctx.lineDashOffset = -animT * 0.06;
+        for (var d4 = 0; d4 < 4; d4++) {
+          if (!(c.base & (1 << d4))) continue;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(DIRS[d4][0] * (half - cell * 0.03), DIRS[d4][1] * (half - cell * 0.03));
+          ctx.stroke();
+        }
+        ctx.restore();
+        ctx.setLineDash([]);
+      }
+    }
+
+    // leak markers on unmatched openings
+    for (var l = 0; l < state.total; l++) {
+      var lc = state.cells[l];
+      var lrot = ((lc.rot % 4) + 4) % 4;
+      var lx = l % N, ly = (l / N) | 0;
+      var ccx = g.pad + lx * cell + half;
+      var ccy = g.pad + ly * cell + half;
+      var curMask = maskOf(lc.base, lc.rot);
+      for (var d5 = 0; d5 < 4; d5++) {
+        if (!(curMask & (1 << d5))) continue;
+        if (!isLeak(l, d5)) continue;
+        var wd = (d5 + lrot) % 4; // world direction after rotation
+        var mx = ccx + DIRS[wd][0] * (half - cell * 0.02);
+        var my = ccy + DIRS[wd][1] * (half - cell * 0.02);
+        ctx.beginPath();
+        ctx.arc(mx, my, cell * 0.085, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255,90,106,0.9)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,90,106,0.4)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
+
+    // source / goal rings
+    drawRing(state.source, "#46e07a", cell, g, half);
+    drawRing(state.goal, "#ff5fa2", cell, g, half);
+
+    // source label dot
+    drawTag(state.source, "IN", "#46e07a", cell, g, half, N);
+    drawTag(state.goal, "OUT", "#ff5fa2", cell, g, half, N);
+  }
+
+  function drawRing(i, col, cell, g, half) {
+    var N = state.N;
+    var x = i % N, y = (i / N) | 0;
+    var gx = g.pad + x * cell + cell * 0.06;
+    var gy = g.pad + y * cell + cell * 0.06;
+    ctx.save();
+    ctx.strokeStyle = col;
+    ctx.lineWidth = Math.max(2, cell * 0.06);
+    ctx.shadowColor = col;
+    ctx.shadowBlur = cell * 0.3;
+    rr(gx, gy, cell * 0.88, cell * 0.88, cell * 0.18);
+    ctx.stroke();
+    ctx.restore();
+  }
+  function drawTag(i, label, col, cell, g, half, N) {
+    var x = i % N, y = (i / N) | 0;
+    var cx = g.pad + x * cell + half;
+    var cy = g.pad + y * cell + cell * 0.14;
+    ctx.save();
+    ctx.font = "700 " + Math.round(cell * 0.16) + "px Consolas, monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = col;
+    ctx.fillText(label, cx, cy);
+    ctx.restore();
+  }
+
+  // ============ INTERACTION ============
+  function cellFromEvent(e) {
+    var rect = canvas.getBoundingClientRect();
+    var g = getGeom();
+    var px = (e.clientX - rect.left) * (size / rect.width);
+    var py = (e.clientY - rect.top) * (size / rect.height);
+    var x = Math.floor((px - g.pad) / g.cell);
+    var y = Math.floor((py - g.pad) / g.cell);
+    if (x < 0 || y < 0 || x >= state.N || y >= state.N) return -1;
+    return y * state.N + x;
+  }
+
+  function rotateCell(i, dir) {
+    if (i < 0 || solved) return;
+    var before = connected.count;
+    var c = state.cells[i];
+    // crosses cannot be rotated meaningfully
+    if (c.shape === "cross") { beep(300, 0.04, "sine"); return; }
+
+    c.rot = ((c.rot + dir) % 4 + 4) % 4;
+    c.target += dir * HALF_PI;
+    moves++;
+    document.getElementById("statMoves").textContent = moves;
+
+    recompute();
+    var after = connected.count;
+    if (after > before) beep(520 + after * 22, 0.06, "square");
+    else if (after < before) beep(200, 0.07, "sawtooth");
+    else beep(420, 0.04, "sine");
+
+    updateStatus();
+    if (connected.count === state.total) win();
+  }
+
+  function recompute() { connected = computeConnected(); }
+
+  function updateStatus() {
+    document.getElementById("statFlow").textContent = connected.count + "/" + state.total;
+    var flowEl = document.getElementById("statFlow");
+    flowEl.className = "v" + (connected.count === state.total ? " done" : "");
+  }
+
+  // ============ TIMER ============
+  function startTimer() {
+    if (timerId) return;
+    startTime = performance.now();
+    timerId = setInterval(tick, 250);
+    running = true;
+  }
+  function tick() {
+    if (running) {
+      var now = performance.now();
+      elapsed += now - startTime;
+      startTime = now;
+      document.getElementById("statTime").textContent = fmtTime(elapsed);
+    }
+  }
+  function stopTimer() {
+    if (timerId) { clearInterval(timerId); timerId = null; }
+    running = false;
+  }
+  function resetTimer() {
+    stopTimer();
+    elapsed = 0;
+    document.getElementById("statTime").textContent = "00:00";
+  }
+
+  // ============ BEST (localStorage) ============
+  function loadBest() {
+    try { return JSON.parse(localStorage.getItem(BEST_KEY)) || {}; }
+    catch (e) { return {}; }
+  }
+  function saveBest(m) {
+    try { localStorage.setItem(BEST_KEY, JSON.stringify(m)); } catch (e) {}
+  }
+  function updateBestTag() {
+    var m = loadBest();
+    var b = m[difficulty];
+    document.getElementById("bestTag").innerHTML = b
+      ? "Best<br><b>" + b.moves + " mv &middot; " + fmtTime(b.time) + "</b>"
+      : "";
+  }
+
+  // ============ WIN ============
+  function win() {
+    solved = true;
+    stopTimer();
+    beep(660, 0.1, "square");
+    setTimeout(function () { beep(880, 0.12, "square"); }, 110);
+    setTimeout(function () { beep(1180, 0.22, "square"); }, 240);
+
+    var best = loadBest();
+    var prev = best[difficulty];
+    var isBest = !prev || moves < prev.moves || (moves === prev.moves && elapsed < prev.time);
+    if (isBest) { best[difficulty] = { moves: moves, time: elapsed }; saveBest(best); }
+    updateBestTag();
+
+    document.getElementById("ovSub").textContent = SIZE_LABEL[difficulty] + " \u2014 every pipe connected, no leaks.";
+    document.getElementById("ovStats").textContent = "Moves " + moves + "  \u00b7  Time " + fmtTime(elapsed);
+    document.getElementById("ovBest").textContent = isBest
+      ? "\u2605 New best!"
+      : "Best: " + best[difficulty].moves + " mv / " + fmtTime(best[difficulty].time);
+    overlay.classList.remove("hidden");
+  }
+
+  // ============ NEW GAME ============
+  function newGame() {
+    resetTimer();
+    overlay.classList.add("hidden");
+    state = generate(SIZES[difficulty]);
+    solved = false;
+    moves = 0;
+    document.getElementById("statSize").innerHTML = SIZE_LABEL[difficulty];
+    document.getElementById("statMoves").textContent = "0";
+    recompute();
+    updateStatus();
+    updateBestTag();
+    resize();
+    startTimer();
+    beep(600, 0.06, "sine");
+  }
+
+  function restart() {
+    if (!state) return;
+    resetTimer();
+    overlay.classList.add("hidden");
+    scramble();
+    solved = false;
+    moves = 0;
+    document.getElementById("statMoves").textContent = "0";
+    recompute();
+    updateStatus();
+    startTimer();
+    beep(500, 0.06, "sine");
+  }
+
+  // ============ MAIN LOOP ============
+  function loop(t) {
+    animT = t || 0;
+    if (state) {
+      for (var i = 0; i < state.total; i++) {
+        var c = state.cells[i];
+        if (c.angle !== c.target) {
+          var diff = c.target - c.angle;
+          if (Math.abs(diff) < 0.002) c.angle = c.target;
+          else c.angle += diff * 0.28;
+        }
+      }
+      draw();
+    }
+    requestAnimationFrame(loop);
+  }
+
+  // ============ INPUT ============
+  canvas.addEventListener("click", function (e) {
+    if (solved) return;
+    rotateCell(cellFromEvent(e), 1);
+  });
+  canvas.addEventListener("contextmenu", function (e) {
+    e.preventDefault();
+    if (solved) return;
+    rotateCell(cellFromEvent(e), -1);
+  });
+  // touch: left tap handled by click; long-press maps to contextmenu (CCW)
+
+  document.getElementById("btnNew").addEventListener("click", newGame);
+  document.getElementById("ovNew").addEventListener("click", newGame);
+  document.getElementById("btnRestart").addEventListener("click", restart);
+
+  var diffButtons = Array.prototype.slice.call(document.querySelectorAll("#diff button"));
+  function syncDiffButtons() {
+    diffButtons.forEach(function (b) { b.classList.toggle("active", b.dataset.diff === difficulty); });
+  }
+  diffButtons.forEach(function (b) {
+    b.addEventListener("click", function () {
+      difficulty = b.dataset.diff;
+      localStorage.setItem("tilePuzzleDiff", difficulty);
+      syncDiffButtons();
+      newGame();
+    });
+  });
+
+  window.addEventListener("keydown", function (e) {
+    if (e.key === "r" || e.key === "R") { e.preventDefault(); restart(); }
+    else if (e.key === "n" || e.key === "N") { e.preventDefault(); newGame(); }
+  });
+
+  window.addEventListener("resize", function () { resize(); });
+
+  // ============ INITIALIZATION ============
+  syncDiffButtons();
+  newGame();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

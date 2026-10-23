@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🐣 Pet Care</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #e6f7ff 0%, #fff0f5 55%, #fff9e6 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: manipulation;
+      user-select: none;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(255, 255, 255, 0.92);
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: 0 10px 40px rgba(120, 140, 200, 0.18);
+      max-width: 460px;
+      width: 95%;
+      max-height: 96vh;
+      overflow-y: auto;
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.8rem;
+      color: #6fbf73;
+      margin-bottom: 4px;
+      text-shadow: 2px 2px 0 #fff;
+      letter-spacing: 1px;
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.82rem;
+      color: #8a97a8;
+      margin-bottom: 12px;
+    }
+
+    /* ============ HUD / METERS ============ */
+    .hud {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 14px;
+      margin-bottom: 12px;
+      padding: 12px 14px;
+      background: linear-gradient(135deg, #f7fbff, #fff5f8);
+      border-radius: 14px;
+      border: 1px solid #eaf0f7;
+    }
+
+    .meter { display: flex; flex-direction: column; gap: 4px; }
+
+    .meter-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      color: #6b7686;
+      font-weight: 600;
+    }
+
+    .meter-bar {
+      height: 9px;
+      border-radius: 6px;
+      background: #e6ecf3;
+      overflow: hidden;
+    }
+
+    .meter-fill {
+      height: 100%;
+      width: 100%;
+      border-radius: 6px;
+      transition: width 0.25s ease, background 0.25s ease;
+    }
+
+    .fill-hunger  { background: linear-gradient(90deg, #ffb347, #ff8c42); }
+    .fill-happy   { background: linear-gradient(90deg, #ff9ecd, #ff6b9d); }
+    .fill-energy  { background: linear-gradient(90deg, #7ec8ff, #4a9dff); }
+    .fill-hygiene { background: linear-gradient(90deg, #86e5c9, #3ecfa3); }
+
+    /* ============ STATUS ROW ============ */
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 0.85rem;
+      color: #55606f;
+    }
+
+    .status-row .stage {
+      font-weight: 700;
+      color: #6fbf73;
+    }
+
+    .status-row .coins {
+      font-weight: 700;
+      color: #e0a53b;
+    }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(120, 140, 200, 0.12);
+      background: linear-gradient(180deg, #d6f0ff, #eafbf0);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      cursor: pointer;
+    }
+
+    /* ============ TOAST ============ */
+    .toast {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-12px);
+      background: rgba(60, 72, 88, 0.88);
+      color: #fff;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      white-space: nowrap;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ============ ACTION BUTTONS ============ */
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .act-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 10px 4px 8px;
+      border: 2px solid #e6eef6;
+      background: #fff;
+      border-radius: 14px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: #55606f;
+      cursor: pointer;
+      transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+    }
+
+    .act-btn .emoji { font-size: 1.35rem; line-height: 1; }
+
+    .act-btn:hover { background: #f4faff; transform: translateY(-2px); }
+    .act-btn:active { transform: scale(0.95); }
+    .act-btn:disabled { opacity: 0.45; cursor: default; transform: none; }
+
+    .act-btn.tool-on {
+      background: linear-gradient(135deg, #d9f7e6, #c2f0d8);
+      border-color: #8fd9b6;
+    }
+
+    /* ============ BOTTOM BAR ============ */
+    .bottom-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+      gap: 8px;
+    }
+
+    .ghost-btn {
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 2px solid #e0e8f0;
+      background: #fff;
+      color: #6b7686;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .ghost-btn:hover { background: #f4faff; }
+    .ghost-btn:active { transform: scale(0.96); }
+
+    .hint {
+      font-size: 0.68rem;
+      color: #9aa7b6;
+      text-align: right;
+      flex: 1;
+      line-height: 1.3;
+    }
+
+    /* ============ FLOATING HEARTS (DOM) ============ */
+    .fx-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .float-fx {
+      position: absolute;
+      font-size: 1.4rem;
+      animation: floatUp 1s ease-out forwards;
+      pointer-events: none;
+    }
+
+    @keyframes floatUp {
+      0%   { opacity: 1; transform: translateY(0) scale(0.8); }
+      100% { opacity: 0; transform: translateY(-70px) scale(1.3); }
+    }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 420px) {
+      .game-container { padding: 14px; border-radius: 18px; }
+      .game-title { font-size: 1.45rem; }
+      .act-btn { font-size: 0.6rem; padding: 8px 2px 6px; }
+      .hint { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">🐣 Pet Care</h1>
+    <p class="game-subtitle">Raise your very own Blobling!</p>
+
+    <!-- ============ HUD ============ -->
+    <div class="hud">
+      <div class="meter">
+        <div class="meter-label"><span>🍖 Hunger</span><span id="vHunger">100%</span></div>
+        <div class="meter-bar"><div class="meter-fill fill-hunger" id="mHunger"></div></div>
+      </div>
+      <div class="meter">
+        <div class="meter-label"><span>💗 Happiness</span><span id="vHappy">100%</span></div>
+        <div class="meter-bar"><div class="meter-fill fill-happy" id="mHappy"></div></div>
+      </div>
+      <div class="meter">
+        <div class="meter-label"><span>⚡ Energy</span><span id="vEnergy">100%</span></div>
+        <div class="meter-bar"><div class="meter-fill fill-energy" id="mEnergy"></div></div>
+      </div>
+      <div class="meter">
+        <div class="meter-label"><span>🫧 Hygiene</span><span id="vHygiene">100%</span></div>
+        <div class="meter-bar"><div class="meter-fill fill-hygiene" id="mHygiene"></div></div>
+      </div>
+    </div>
+
+    <!-- ============ STATUS ============ -->
+    <div class="status-row">
+      <div>Stage: <span class="stage" id="stageName">Egg</span> · <span id="ageText">day 1</span></div>
+      <div class="coins">🪙 <span id="coinCount">0</span></div>
+    </div>
+
+    <!-- ============ CANVAS ============ -->
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="400" height="320"></canvas>
+      <div class="toast" id="toast"></div>
+      <div class="fx-layer" id="fxLayer"></div>
+    </div>
+
+    <!-- ============ ACTIONS ============ -->
+    <div class="actions">
+      <button class="act-btn" id="btnFeed"><span class="emoji">🍎</span>Feed</button>
+      <button class="act-btn" id="btnPlay"><span class="emoji">🎾</span>Ball</button>
+      <button class="act-btn" id="btnPet"><span class="emoji">🤚</span>Pet</button>
+      <button class="act-btn" id="btnClean"><span class="emoji">🧼</span>Bath</button>
+      <button class="act-btn" id="btnSleep"><span class="emoji">🌙</span>Sleep</button>
+      <button class="act-btn" id="btnTreat"><span class="emoji">🍬</span>Treat</button>
+      <button class="act-btn" id="btnReset"><span class="emoji">🔄</span>Restart</button>
+      <button class="act-btn" id="btnMute"><span class="emoji" id="muteIcon">🔊</span>Sound</button>
+    </div>
+
+    <!-- ============ BOTTOM BAR ============ -->
+    <div class="bottom-bar">
+      <button class="ghost-btn" id="btnSave">💾 Save</button>
+      <div class="hint">Care for your pet to help it grow.<br>Progress saves automatically.</div>
+      <button class="ghost-btn" id="btnLoad">📂 Load</button>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    // ============ GAME CONFIGURATION ============================
+    // ============================================================
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+    const SAVE_KEY = 'petCareSave_v1';
+
+    // Decay per second for each meter (tuned for a calm, casual pace)
+    const DECAY = {
+      hunger: 0.9,    // full -> empty in ~110s untouched
+      happiness: 0.75,
+      energy: 0.55,
+      hygiene: 0.5
+    };
+
+    // Growth thresholds: minutes of "good care" (all meters > 40) to advance
+    const STAGES = [
+      { name: 'Egg',      need: 0.00, emoji: '🥚' },
+      { name: 'Blobling', need: 0.12, emoji: '🐣' },
+      { name: 'Puffkid',  need: 0.55, emoji: '🐥' },
+      { name: 'Glowling', need: 1.40, emoji: '🐤' },
+      { name: 'Nimbus',   need: 3.00, emoji: '🦜' }
+    ];
+
+    // ============================================================
+    // ============ GAME STATE ====================================
+    // ============================================================
+    let state = {
+      meters: { hunger: 100, happiness: 100, energy: 100, hygiene: 100 },
+      careMinutes: 0,   // accumulated "good care" time in minutes
+      ageSeconds: 0,
+      coins: 0,
+      asleep: false,
+      sickTimer: 0
+    };
+
+    let muted = false;
+    let toastTimer = null;
+    let blinkTimer = 2;
+    let blink = 0;
+    let bob = 0;
+    let particles = [];
+    let crumbs = [];        // food crumbs drawn near pet
+    let ball = null;        // { x, y, vx, vy, active }
+    let legT = 0;
+
+    // ============================================================
+    // ============ DOM ELEMENTS =================================
+    // ============================================================
+    const el = {
+      mHunger: document.getElementById('mHunger'),
+      mHappy: document.getElementById('mHappy'),
+      mEnergy: document.getElementById('mEnergy'),
+      mHygiene: document.getElementById('mHygiene'),
+      vHunger: document.getElementById('vHunger'),
+      vHappy: document.getElementById('vHappy'),
+      vEnergy: document.getElementById('vEnergy'),
+      vHygiene: document.getElementById('vHygiene'),
+      stageName: document.getElementById('stageName'),
+      ageText: document.getElementById('ageText'),
+      coinCount: document.getElementById('coinCount'),
+      toast: document.getElementById('toast'),
+      fxLayer: document.getElementById('fxLayer'),
+      muteIcon: document.getElementById('muteIcon')
+    };
+    const buttons = {
+      feed: document.getElementById('btnFeed'),
+      play: document.getElementById('btnPlay'),
+      pet: document.getElementById('btnPet'),
+      clean: document.getElementById('btnClean'),
+      sleep: document.getElementById('btnSleep'),
+      treat: document.getElementById('btnTreat'),
+      reset: document.getElementById('btnReset'),
+      mute: document.getElementById('btnMute'),
+      save: document.getElementById('btnSave'),
+      load: document.getElementById('btnLoad')
+    };
+
+    // ============================================================
+    // ============ WEBAUDIO (no external files) =================
+    // ============================================================
+    let audioCtx = null;
+    function beep(freq, dur, type) {
+      if (muted) return;
+      try {
+        if (!audioCtx) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return;
+          audioCtx = new AC();
+        }
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type || 'sine';
+        osc.frequency.value = freq;
+        const now = audioCtx.currentTime;
+        const d = dur || 0.12;
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.18, now + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + d);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + d + 0.02);
+      } catch (e) { /* audio is a nice-to-have, never fatal */ }
+    }
+
+    // ============================================================
+    // ============ HELPERS ======================================
+    // ============================================================
+    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+    function currentStageIndex() {
+      let idx = 0;
+      for (let i = 0; i < STAGES.length; i++) {
+        if (state.careMinutes >= STAGES[i].need) idx = i;
+      }
+      return idx;
+    }
+
+    function showToast(msg) {
+      el.toast.textContent = msg;
+      el.toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.toast.classList.remove('show'), 1500);
+    }
+
+    function floatFx(emoji, x, y) {
+      const node = document.createElement('div');
+      node.className = 'float-fx';
+      node.textContent = emoji;
+      node.style.left = (x) + 'px';
+      node.style.top = (y) + 'px';
+      el.fxLayer.appendChild(node);
+      setTimeout(() => node.remove(), 1000);
+    }
+
+    function spawnParticles(x, y, color, count) {
+      for (let i = 0; i < (count || 10); i++) {
+        particles.push({
+          x: x, y: y,
+          vx: (Math.random() - 0.5) * 90,
+          vy: -Math.random() * 90 - 20,
+          life: 1,
+          color: color,
+          size: Math.random() * 4 + 2
+        });
+      }
+    }
+
+    // ============================================================
+    // ============ PERSISTENCE (localStorage) ===================
+    // ============================================================
+    function saveGame(silent) {
+      try {
+        localStorage.setItem(SAVE_KEY, JSON.stringify({
+          meters: state.meters,
+          careMinutes: state.careMinutes,
+          ageSeconds: state.ageSeconds,
+          coins: state.coins,
+          muted: muted
+        }));
+        if (!silent) { showToast('💾 Saved!'); beep(660, 0.1); }
+        return true;
+      } catch (e) {
+        if (!silent) showToast('Save unavailable');
+        return false;
+      }
+    }
+
+    function loadGame(silent) {
+      let raw = null;
+      try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { raw = null; }
+      if (!raw) { if (!silent) showToast('No save found'); return false; }
+      try {
+        const d = JSON.parse(raw);
+        if (d.meters) {
+          state.meters.hunger = clamp(d.meters.hunger, 0, 100);
+          state.meters.happiness = clamp(d.meters.happiness, 0, 100);
+          state.meters.energy = clamp(d.meters.energy, 0, 100);
+          state.meters.hygiene = clamp(d.meters.hygiene, 0, 100);
+        }
+        state.careMinutes = d.careMinutes || 0;
+        state.ageSeconds = d.ageSeconds || 0;
+        state.coins = d.coins || 0;
+        state.asleep = false;
+        muted = !!d.muted;
+        el.muteIcon.textContent = muted ? '🔇' : '🔊';
+        if (!silent) { showToast('📂 Loaded!'); beep(720, 0.1); }
+        return true;
+      } catch (e) {
+        if (!silent) showToast('Save corrupted');
+        return false;
+      }
+    }
+
+    // ============================================================
+    // ============ PET INTERACTIONS ==============================
+    // ============================================================
+
+    // Feed: raises hunger, adds a crumb, costs happiness slightly if sick
+    function doFeed() {
+      if (state.asleep) { showToast('Shh… pet is sleeping 💤'); return; }
+      if (state.meters.hunger >= 99) { showToast('Already full! 😋'); beep(300, 0.1); return; }
+      state.meters.hunger = clamp(state.meters.hunger + 22, 0, 100);
+      state.meters.hygiene = clamp(state.meters.hygiene - 4, 0, 100);
+      state.meters.happiness = clamp(state.meters.happiness + 3, 0, 100);
+      crumbs.push({ x: W / 2 + (Math.random() - 0.5) * 40, y: H - 46, life: 1 });
+      spawnParticles(W / 2, H - 60, '#ffb347', 8);
+      floatFx('🍎', W / 2 - 10, H / 2);
+      beep(520, 0.1, 'triangle');
+      setTimeout(() => beep(660, 0.1, 'triangle'), 70);
+      showToast('Nom nom! 🍎');
+    }
+
+    // Play: launches a bouncing ball; happy meter rises, energy falls
+    function doPlay() {
+      if (state.asleep) { showToast('Shh… pet is sleeping 💤'); return; }
+      if (state.meters.energy < 10) { showToast('Too tired to play 😴'); beep(300, 0.1); return; }
+      if (state.meters.happiness >= 99) { showToast('Already so happy! 💗'); beep(500, 0.1); return; }
+      ball = { x: W / 2, y: H / 2, vx: (Math.random() < 0.5 ? -1 : 1) * 170, vy: -120, active: true };
+      state.meters.happiness = clamp(state.meters.happiness + 18, 0, 100);
+      state.meters.energy = clamp(state.meters.energy - 12, 0, 100);
+      state.meters.hygiene = clamp(state.meters.hygiene - 3, 0, 100);
+      floatFx('🎾', W / 2 - 10, H / 2);
+      beep(700, 0.09, 'square');
+      showToast('Bounce bounce! 🎾');
+    }
+
+    // Pet: small happiness boost, cheap and repeatable
+    function doPet() {
+      if (state.asleep) { state.meters.happiness = clamp(state.meters.happiness + 10, 0, 100); showToast('Happy dreams 💤'); beep(440, 0.12); return; }
+      state.meters.happiness = clamp(state.meters.happiness + 7, 0, 100);
+      state.coins += 1;
+      floatFx('💗', W / 2 + (Math.random() - 0.5) * 60, H / 2 - 20);
+      spawnParticles(W / 2, H / 2, '#ff6b9d', 6);
+      beep(620, 0.1);
+      showToast('*snuggle* 💗');
+    }
+
+    // Clean: restores hygiene fully
+    function doClean() {
+      if (state.asleep) { showToast('Let it sleep first 💤'); return; }
+      if (state.meters.hygiene >= 99) { showToast('Already sparkling! ✨'); beep(500, 0.1); return; }
+      state.meters.hygiene = 100;
+      state.meters.happiness = clamp(state.meters.happiness - 4, 0, 100);
+      spawnParticles(W / 2, H / 2, '#86e5c9', 14);
+      floatFx('🫧', W / 2 - 10, H / 2 + 10);
+      beep(520, 0.09); setTimeout(() => beep(640, 0.09), 90); setTimeout(() => beep(760, 0.12), 180);
+      showToast('Squeaky clean! 🫧');
+    }
+
+    // Sleep: toggles rest, recharges energy, pauses most care
+    function doSleep() {
+      state.asleep = !state.asleep;
+      buttons.sleep.classList.toggle('tool-on', state.asleep);
+      if (state.asleep) {
+        floatFx('💤', W / 2, H / 2 - 20);
+        beep(340, 0.2, 'sine');
+        showToast('Zzz… resting 🌙');
+      } else {
+        beep(560, 0.12);
+        showToast('Morning! 🌞');
+      }
+    }
+
+    // Treat: costs coins, big happiness
+    function doTreat() {
+      if (state.asleep) { showToast('Shh… pet is sleeping 💤'); return; }
+      if (state.coins < 3) { showToast('Need 3 🪙 — pet your pet!'); beep(300, 0.1); return; }
+      state.coins -= 3;
+      state.meters.happiness = clamp(state.meters.happiness + 30, 0, 100);
+      state.meters.hunger = clamp(state.meters.hunger + 8, 0, 100);
+      floatFx('🍬', W / 2 - 10, H / 2);
+      spawnParticles(W / 2, H / 2, '#ffd166', 12);
+      beep(800, 0.1); setTimeout(() => beep(1000, 0.12), 90);
+      showToast('Yummy treat! 🍬');
+    }
+
+    // ============================================================
+    // ============ SIMULATION / UPDATE ===========================
+    // ============================================================
+    function updateMeters(dt) {
+      const m = state.meters;
+      const stageIdx = currentStageIndex();
+      // Bigger pets eat/burn a little faster
+      const sizeFactor = 1 + stageIdx * 0.14;
+
+      if (state.asleep) {
+        // While asleep: energy regenerates, others decay slower
+        m.energy = clamp(m.energy + 9 * dt, 0, 100);
+        m.hunger = clamp(m.hunger - DECAY.hunger * 0.4 * dt * sizeFactor, 0, 100);
+        m.hygiene = clamp(m.hygiene - DECAY.hygiene * 0.3 * dt, 0, 100);
+        m.happiness = clamp(m.happiness - DECAY.happiness * 0.2 * dt, 0, 100);
+        if (m.energy >= 100) {
+          state.asleep = false;
+          buttons.sleep.classList.remove('tool-on');
+          floatFx('🌞', W / 2, H / 2 - 20);
+          showToast('Rested and ready! 🌞');
+        }
+      } else {
+        m.hunger = clamp(m.hunger - DECAY.hunger * dt * sizeFactor, 0, 100);
+        m.happiness = clamp(m.happiness - DECAY.happiness * dt, 0, 100);
+        m.energy = clamp(m.energy - DECAY.energy * dt, 0, 100);
+        m.hygiene = clamp(m.hygiene - DECAY.hygiene * dt, 0, 100);
+      }
+
+      // Care time accumulates when well kept (faster when everything high)
+      const avg = (m.hunger + m.happiness + m.energy + m.hygiene) / 4;
+      if (avg > 40 && !state.asleep) {
+        const goodBonus = avg > 75 ? 1.5 : 1.0;
+        state.careMinutes += (dt / 60) * goodBonus;
+      }
+
+      // Sick state when hygiene or hunger bottom out -> drains happiness
+      if ((m.hygiene < 12 || m.hunger < 12) && !state.asleep) {
+        m.happiness = clamp(m.happiness - 1.6 * dt, 0, 100);
+        state.sickTimer += dt;
+      } else {
+        state.sickTimer = 0;
+      }
+
+      state.ageSeconds += dt;
+    }
+
+    function updateParticles(dt) {
+      particles = particles.filter(p => {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += 260 * dt;
+        p.life -= dt * 1.1;
+        return p.life > 0;
+      });
+      crumbs = crumbs.filter(c => { c.life -= dt * 0.6; return c.life > 0; });
+    }
+
+    function updateBall(dt) {
+      if (!ball || !ball.active) return;
+      ball.vy += 420 * dt;
+      ball.x += ball.vx * dt;
+      ball.y += ball.vy * dt;
+      const r = 12;
+      if (ball.x < r) { ball.x = r; ball.vx = Math.abs(ball.vx); beep(600, 0.05, 'square'); }
+      if (ball.x > W - r) { ball.x = W - r; ball.vx = -Math.abs(ball.vx); beep(600, 0.05, 'square'); }
+      if (ball.y > H - 20 - r) {
+        ball.y = H - 20 - r;
+        ball.vy = -Math.abs(ball.vy) * 0.82;
+        if (Math.abs(ball.vy) < 30) { ball.vy = 0; }
+      }
+      // Ball time raises happiness gradually while it bounces
+      state.meters.happiness = clamp(state.meters.happiness + 6 * dt, 0, 100);
+      if (Math.abs(ball.vx) < 5 && Math.abs(ball.vy) < 5) { ball.active = false; }
+    }
+
+    // ============================================================
+    // ============ RENDER =======================================
+    // ============================================================
+    function drawBackground() {
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, state.asleep ? '#2f3b5c' : '#d6f0ff');
+      g.addColorStop(1, state.asleep ? '#4a5a86' : '#eafbf0');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      // Soft clouds / stars
+      if (state.asleep) {
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        for (let i = 0; i < 30; i++) {
+          const x = (i * 137.5) % W;
+          const y = (i * 71.3) % (H * 0.6);
+          const tw = 0.5 + 0.5 * Math.sin(bob * 2 + i);
+          ctx.globalAlpha = 0.3 + tw * 0.6;
+          ctx.beginPath();
+          ctx.arc(x, y, 1.4 + tw, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        // Moon
+        ctx.fillStyle = '#fdf6cf';
+        ctx.beginPath();
+        ctx.arc(W - 50, 50, 22, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = state.asleep ? '#2f3b5c' : '#fdf6cf';
+      } else {
+        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        const clouds = [[70, 55, 30], [300, 80, 24], [200, 40, 20]];
+        clouds.forEach(c => {
+          ctx.beginPath();
+          ctx.arc(c[0] + Math.sin(bob * 0.4) * 6, c[1], c[2], 0, Math.PI * 2);
+          ctx.arc(c[0] + 24 + Math.sin(bob * 0.4) * 6, c[1] + 6, c[2] * 0.8, 0, Math.PI * 2);
+          ctx.arc(c[0] - 22 + Math.sin(bob * 0.4) * 6, c[1] + 8, c[2] * 0.7, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        // Sun
+        ctx.fillStyle = '#ffe07a';
+        ctx.beginPath();
+        ctx.arc(W - 52, 52, 24, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Ground
+      ctx.fillStyle = state.asleep ? 'rgba(70,90,140,0.35)' : 'rgba(140, 220, 170, 0.55)';
+      ctx.beginPath();
+      ctx.ellipse(W / 2, H - 4, W * 0.6, 38, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawBall() {
+      if (!ball || !ball.active) return;
+      ctx.fillStyle = '#ff6b6b';
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, 12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, 12, Math.PI * 0.15, Math.PI * 0.85);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.beginPath();
+      ctx.arc(ball.x - 4, ball.y - 4, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawPet() {
+      const stageIdx = currentStageIndex();
+      const stage = STAGES[stageIdx];
+      const cx = W / 2;
+      const baseY = H - 58;
+      const y = baseY + Math.sin(bob * 2) * 3;
+      const mood = state.meters.happiness;
+      const dirty = state.meters.hygiene < 40;
+
+      // Body radius grows with stage
+      const bodyR = 26 + stageIdx * 5;
+      const bodyH = bodyR * 1.05;
+
+      // Shadow
+      ctx.fillStyle = 'rgba(60, 90, 120, 0.18)';
+      ctx.beginPath();
+      ctx.ellipse(cx, baseY + bodyH * 0.85, bodyR * 0.85, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // ---- EGG (stage 0) ----
+      if (stageIdx === 0) {
+        const wobble = Math.sin(bob * 4) * 0.06 * (1 + (100 - state.careMinutes * 400));
+        ctx.save();
+        ctx.translate(cx, y);
+        ctx.rotate(wobble);
+        ctx.fillStyle = '#fff3d6';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, bodyR * 0.85, bodyR * 1.15, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#e4d3ad';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        // spots
+        ctx.fillStyle = '#ffd9a0';
+        [[-8, -6, 5], [7, 4, 6], [0, 14, 4], [-6, 12, 3]].forEach(s => {
+          ctx.beginPath(); ctx.arc(s[0], s[1], s[2], 0, Math.PI * 2); ctx.fill();
+        });
+        // crack as it nears hatching
+        const prog = clamp(state.careMinutes / STAGES[1].need, 0, 1);
+        if (prog > 0.55) {
+          ctx.strokeStyle = 'rgba(160,130,90,' + ((prog - 0.55) / 0.45) + ')';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(-6, -14); ctx.lineTo(-1, -6); ctx.lineTo(-5, 0); ctx.lineTo(2, 6);
+          ctx.stroke();
+        }
+        ctx.restore();
+        return;
+      }
+
+      // ---- HATCHED CREATURE ----
+      const bodyColor = ['#9be7a6', '#8fd8f0', '#ffd47a', '#c9a6f0', '#7fe3c8'][stageIdx];
+      const bellyColor = ['#dffbe4', '#dff3fb', '#fff3d6', '#efe4ff', '#dcfff2'][stageIdx];
+
+      // Legs (little stubs)
+      const legOff = Math.sin(legT * 3) * 2;
+      ctx.fillStyle = bodyColor;
+      [cx - bodyR * 0.45, cx + bodyR * 0.45].forEach((lx, i) => {
+        ctx.beginPath();
+        ctx.ellipse(lx + (i ? legOff : -legOff), baseY + bodyH * 0.7, 7, 10, 0, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Body
+      ctx.fillStyle = bodyColor;
+      ctx.beginPath();
+      ctx.ellipse(cx, y, bodyR, bodyH, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Belly patch
+      ctx.fillStyle = bellyColor;
+      ctx.beginPath();
+      ctx.ellipse(cx, y + bodyH * 0.22, bodyR * 0.62, bodyH * 0.55, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Ears / antennae based on stage
+      if (stageIdx >= 2) {
+        ctx.fillStyle = bodyColor;
+        ctx.beginPath();
+        ctx.ellipse(cx - bodyR * 0.6, y - bodyH * 0.85, 8, 14, -0.4, 0, Math.PI * 2);
+        ctx.ellipse(cx + bodyR * 0.6, y - bodyH * 0.85, 8, 14, 0.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      if (stageIdx >= 3) {
+        // antennae with glow tips
+        ctx.strokeStyle = bodyColor;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(cx - 8, y - bodyH * 0.95); ctx.lineTo(cx - 14, y - bodyH * 1.5);
+        ctx.moveTo(cx + 8, y - bodyH * 0.95); ctx.lineTo(cx + 14, y - bodyH * 1.5);
+        ctx.stroke();
+        ctx.fillStyle = '#ffe07a';
+        ctx.beginPath();
+        ctx.arc(cx - 14, y - bodyH * 1.5, 4, 0, Math.PI * 2);
+        ctx.arc(cx + 14, y - bodyH * 1.5, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Arms (waving when happy)
+      const wave = mood > 60 ? Math.sin(bob * 6) * 0.5 : 0;
+      ctx.fillStyle = bodyColor;
+      ctx.save();
+      ctx.translate(cx - bodyR * 0.95, y - bodyH * 0.1);
+      ctx.rotate(-0.5 - wave);
+      ctx.beginPath(); ctx.ellipse(0, 0, 7, 13, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      ctx.save();
+      ctx.translate(cx + bodyR * 0.95, y - bodyH * 0.1);
+      ctx.rotate(0.5 + wave);
+      ctx.beginPath(); ctx.ellipse(0, 0, 7, 13, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+
+      // Face
+      const eyeOpen = state.asleep ? 0 : (blink > 0.12 ? 1 : 0.15);
+      const eyeY = y - bodyH * 0.15;
+      const eyeDX = bodyR * 0.34;
+      // eye whites
+      ctx.fillStyle = '#ffffff';
+      if (eyeOpen > 0.3) {
+        ctx.beginPath();
+        ctx.arc(cx - eyeDX, eyeY, 7, 0, Math.PI * 2);
+        ctx.arc(cx + eyeDX, eyeY, 7, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // pupils / happy closed eyes
+      ctx.fillStyle = '#37424f';
+      if (state.asleep || eyeOpen <= 0.3) {
+        ctx.strokeStyle = '#37424f';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(cx - eyeDX, eyeY, 6, Math.PI * 0.15, Math.PI * 0.85);
+        ctx.arc(cx + eyeDX, eyeY, 6, Math.PI * 0.15, Math.PI * 0.85);
+        ctx.stroke();
+      } else {
+        const look = mood > 50 ? 0 : -2;
+        ctx.beginPath();
+        ctx.arc(cx - eyeDX + 1, eyeY + look, 3.4, 0, Math.PI * 2);
+        ctx.arc(cx + eyeDX + 1, eyeY + look, 3.4, 0, Math.PI * 2);
+        ctx.fill();
+        // shine
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(cx - eyeDX - 1, eyeY - 1.5, 1.4, 0, Math.PI * 2);
+        ctx.arc(cx + eyeDX - 1, eyeY - 1.5, 1.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Mouth: smile when happy, flat when sad, open while asleep
+      ctx.strokeStyle = '#37424f';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      const my = y + bodyH * 0.18;
+      if (state.asleep) {
+        ctx.arc(cx, my, 4, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (mood > 55) {
+        ctx.arc(cx, my - 2, 7, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.stroke();
+      } else if (mood > 25) {
+        ctx.moveTo(cx - 6, my); ctx.lineTo(cx + 6, my);
+        ctx.stroke();
+      } else {
+        ctx.arc(cx, my + 6, 7, 1.15 * Math.PI, 1.85 * Math.PI);
+        ctx.stroke();
+      }
+
+      // Cheeks when happy
+      if (mood > 55 && !state.asleep) {
+        ctx.fillStyle = 'rgba(255,150,180,0.5)';
+        ctx.beginPath();
+        ctx.arc(cx - bodyR * 0.7, my - 2, 4, 0, Math.PI * 2);
+        ctx.arc(cx + bodyR * 0.7, my - 2, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Dirt smudges when dirty
+      if (dirty) {
+        ctx.fillStyle = 'rgba(110, 90, 60, 0.45)';
+        ctx.beginPath();
+        ctx.arc(cx - bodyR * 0.5, y + bodyH * 0.4, 4, 0, Math.PI * 2);
+        ctx.arc(cx + bodyR * 0.55, y - bodyH * 0.3, 3, 0, Math.PI * 2);
+        ctx.arc(cx + bodyR * 0.1, y + bodyH * 0.5, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        // flies
+        const fx = cx + Math.cos(bob * 5) * (bodyR + 14);
+        const fy = y - bodyH * 0.7 + Math.sin(bob * 7) * 8;
+        ctx.fillStyle = '#4a4a4a';
+        ctx.beginPath(); ctx.arc(fx, fy, 2, 0, Math.PI * 2); ctx.fill();
+      }
+
+      // Zzz while asleep
+      if (state.asleep) {
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.font = 'bold 18px Segoe UI, sans-serif';
+        const zPhase = (bob * 0.6) % 1;
+        ctx.globalAlpha = 1 - zPhase;
+        ctx.fillText('z', cx + bodyR + 6, y - bodyH - 4 - zPhase * 20);
+        ctx.fillText('Z', cx + bodyR + 18, y - bodyH - 16 - zPhase * 20);
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    function drawParticles() {
+      particles.forEach(p => {
+        ctx.globalAlpha = clamp(p.life, 0, 1);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+    }
+
+    function drawCrumbs() {
+      crumbs.forEach(c => {
+        ctx.globalAlpha = clamp(c.life, 0, 1);
+        ctx.fillStyle = '#c98b3f';
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+    }
+
+    function render() {
+      drawBackground();
+      drawBall();
+      drawPet();
+      drawCrumbs();
+      drawParticles();
+    }
+
+    // ============================================================
+    // ============ HUD UPDATE ===================================
+    // ============================================================
+    function syncHud() {
+      const m = state.meters;
+      el.mHunger.style.width = m.hunger + '%';
+      el.mHappy.style.width = m.happiness + '%';
+      el.mEnergy.style.width = m.energy + '%';
+      el.mHygiene.style.width = m.hygiene + '%';
+      el.vHunger.textContent = Math.round(m.hunger) + '%';
+      el.vHappy.textContent = Math.round(m.happiness) + '%';
+      el.vEnergy.textContent = Math.round(m.energy) + '%';
+      el.vHygiene.textContent = Math.round(m.hygiene) + '%';
+
+      const si = currentStageIndex();
+      el.stageName.textContent = STAGES[si].emoji + ' ' + STAGES[si].name;
+      el.ageText.textContent = 'day ' + (Math.floor(state.ageSeconds / 60) + 1);
+      el.coinCount.textContent = state.coins;
+
+      // Disable controls that can't be used right now
+      buttons.feed.disabled = state.asleep || m.hunger >= 100;
+      buttons.play.disabled = state.asleep || m.energy < 10;
+      buttons.clean.disabled = state.asleep || m.hygiene >= 100;
+      buttons.treat.disabled = state.asleep || state.coins < 3;
+    }
+
+    // ============================================================
+    // ============ MAIN LOOP ====================================
+    // ============================================================
+    let lastTime = performance.now();
+    let hudTimer = 0;
+    let saveTimer = 0;
+
+    function loop(now) {
+      let dt = (now - lastTime) / 1000;
+      lastTime = now;
+      if (dt > 0.1) dt = 0.1; // clamp after tab switches
+
+      bob += dt;
+      legT += dt;
+      blinkTimer -= dt;
+      if (blinkTimer <= 0) { blink = 0.3; blinkTimer = 2 + Math.random() * 3; }
+      if (blink > 0) blink -= dt;
+
+      updateMeters(dt);
+      updateBall(dt);
+      updateParticles(dt);
+
+      // Stage-up announcement
+      const prevStage = state._lastStage;
+      const nowStage = currentStageIndex();
+      if (prevStage !== undefined && nowStage > prevStage) {
+        showToast('🎉 Grew into ' + STAGES[nowStage].name + '!');
+        beep(660, 0.12); setTimeout(() => beep(880, 0.14), 130); setTimeout(() => beep(1100, 0.16), 260);
+        spawnParticles(W / 2, H / 2, '#ffd166', 22);
+      }
+      state._lastStage = nowStage;
+
+      render();
+
+      hudTimer += dt;
+      if (hudTimer > 0.1) { syncHud(); hudTimer = 0; }
+
+      saveTimer += dt;
+      if (saveTimer > 15) { saveGame(true); saveTimer = 0; }
+
+      requestAnimationFrame(loop);
+    }
+
+    // ============================================================
+    // ============ INPUT (buttons + canvas tap) =================
+    // ============================================================
+    buttons.feed.addEventListener('click', doFeed);
+    buttons.play.addEventListener('click', doPlay);
+    buttons.pet.addEventListener('click', doPet);
+    buttons.clean.addEventListener('click', doClean);
+    buttons.sleep.addEventListener('click', doSleep);
+    buttons.treat.addEventListener('click', doTreat);
+    buttons.save.addEventListener('click', () => saveGame(false));
+    buttons.load.addEventListener('click', () => { if (loadGame(false)) syncHud(); });
+    buttons.mute.addEventListener('click', () => {
+      muted = !muted;
+      el.muteIcon.textContent = muted ? '🔇' : '🔊';
+      if (!muted) beep(700, 0.1);
+      saveGame(true);
+    });
+
+    // Restart: confirm via toast/second tap (no alert/prompt allowed)
+    let resetArmed = false;
+    buttons.reset.addEventListener('click', () => {
+      if (!resetArmed) {
+        resetArmed = true;
+        showToast('Tap Restart again to confirm 🔄');
+        buttons.reset.querySelector('.emoji').textContent = '❗';
+        setTimeout(() => {
+          resetArmed = false;
+          buttons.reset.querySelector('.emoji').textContent = '🔄';
+        }, 2500);
+        return;
+      }
+      resetArmed = false;
+      buttons.reset.querySelector('.emoji').textContent = '🔄';
+      state = {
+        meters: { hunger: 100, happiness: 100, energy: 100, hygiene: 100 },
+        careMinutes: 0, ageSeconds: 0, coins: 0, asleep: false, sickTimer: 0, _lastStage: 0
+      };
+      ball = null; particles = []; crumbs = [];
+      buttons.sleep.classList.remove('tool-on');
+      localStorage.removeItem(SAVE_KEY);
+      showToast('New pet started! 🐣');
+      beep(520, 0.1); setTimeout(() => beep(700, 0.12), 100);
+    });
+
+    // Canvas tap = interact with pet (petting / pop the ball)
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left) * (W / rect.width);
+      const y = (e.clientY - rect.top) * (H / rect.height);
+      // If the ball is bouncing, tap it to bounce higher
+      if (ball && ball.active && Math.hypot(x - ball.x, y - ball.y) < 26) {
+        ball.vy = -220;
+        ball.vx += (x - W / 2) * 0.6;
+        state.meters.happiness = clamp(state.meters.happiness + 6, 0, 100);
+        beep(900, 0.07, 'square');
+        spawnParticles(ball.x, ball.y, '#ff6b6b', 6);
+        return;
+      }
+      // Otherwise: pet wherever you tap
+      doPet();
+      floatFx('💗', x, y);
+    });
+
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const t = e.changedTouches[0];
+      const rect = canvas.getBoundingClientRect();
+      const x = (t.clientX - rect.left) * (W / rect.width);
+      const y = (t.clientY - rect.top) * (H / rect.height);
+      if (ball && ball.active && Math.hypot(x - ball.x, y - ball.y) < 30) {
+        ball.vy = -220;
+        beep(900, 0.07, 'square');
+        spawnParticles(ball.x, ball.y, '#ff6b6b', 6);
+        return;
+      }
+      doPet();
+      floatFx('💗', x, y);
+    }, { passive: false });
+
+    // Keyboard shortcuts (desktop convenience)
+    document.addEventListener('keydown', (e) => {
+      switch (e.code) {
+        case 'KeyF': doFeed(); break;
+        case 'KeyP': doPlay(); break;
+        case 'KeyH': doPet(); break;
+        case 'KeyC': doClean(); break;
+        case 'KeyS': doSleep(); break;
+        case 'KeyT': doTreat(); break;
+        default: return;
+      }
+      e.preventDefault();
+    });
+
+    // ============================================================
+    // ============ BOOT =========================================
+    // ============================================================
+    // Prefer an existing save; otherwise start fresh with a full pet.
+    loadGame(true);
+    state._lastStage = currentStageIndex();
+    syncHud();
+    render();
+    requestAnimationFrame(loop);
+
+    // Persist when leaving the page so progress is never lost.
+    window.addEventListener('beforeunload', () => saveGame(true));
+    document.addEventListener('visibilitychange', () => { if (document.hidden) saveGame(true); });
+  </script>
+</body>
+</html>

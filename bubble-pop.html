@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Bubble Pop</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: linear-gradient(160deg, #0b1026 0%, #1a1040 55%, #2b0f3a 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+    overflow: hidden;
+    touch-action: manipulation;
+    padding: 12px;
+    color: #e9e4ff;
+  }
+  #app {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: min(94vw, 600px);
+  }
+
+  /* ============ HUD / SCORE BOARD ============ */
+  #hud {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 12px;
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.12);
+    font-size: 14px;
+    letter-spacing: .5px;
+  }
+  #hud .cell { display: flex; align-items: center; gap: 6px; color: #b9b2e6; }
+  #hud .cell b { color: #fff; font-size: 17px; font-variant-numeric: tabular-nums; }
+  #hud .swatch {
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.85);
+    box-shadow: 0 0 10px currentColor;
+    transition: background .25s ease, box-shadow .25s ease;
+  }
+  #time.low { color: #ff6b6b !important; animation: pulse .6s infinite alternate; }
+  @keyframes pulse { from { opacity: 1; } to { opacity: .45; } }
+
+  /* ============ CANVAS WRAPPER ============ */
+  #game-wrap {
+    position: relative;
+    width: 100%;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 18px 60px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.08);
+  }
+  canvas { display: block; width: 100%; height: auto; background: #0b1026; cursor: crosshair; }
+
+  /* ============ OVERLAY SCREENS ============ */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    padding: 24px;
+    text-align: center;
+    background: radial-gradient(circle at 50% 35%, rgba(40,20,80,.86), rgba(6,8,22,.95));
+    backdrop-filter: blur(3px);
+    transition: opacity .3s ease;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen h1 {
+    font-size: clamp(28px, 7vw, 46px);
+    letter-spacing: 3px;
+    background: linear-gradient(90deg, #7ee8fa, #b983ff 45%, #ff8fd0 80%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 26px rgba(160,120,255,.45);
+  }
+  .screen p { color: #c3bde8; font-size: 14px; line-height: 1.7; max-width: 380px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center; font-size: 12.5px; color: #cfc8f5; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+  .final {
+    font-size: 15px; color: #d7d1ff;
+    background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 12px;
+    padding: 12px 22px;
+    line-height: 1.9;
+  }
+  .final big { font-size: 30px; color: #fff; display: block; }
+
+  /* ============ BUTTONS ============ */
+  button {
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: bold;
+    letter-spacing: 1.5px;
+    padding: 12px 34px;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    color: #16102b;
+    background: linear-gradient(135deg, #8ef0ff, #b983ff 60%, #ff8fd0);
+    box-shadow: 0 8px 24px rgba(150,110,255,.45);
+    transition: transform .08s ease, box-shadow .2s ease, filter .2s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:hover { filter: brightness(1.08); box-shadow: 0 10px 32px rgba(150,110,255,.6); }
+  button:active { transform: translateY(2px); }
+  button.ghost {
+    background: rgba(255,255,255,.1);
+    color: #e9e4ff;
+    box-shadow: 0 4px 0 rgba(0,0,0,.3);
+    font-size: 13px;
+    padding: 10px 22px;
+  }
+  #controls { display: flex; justify-content: center; gap: 12px; }
+  #pausedTag {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: clamp(26px, 6vw, 40px); font-weight: bold; letter-spacing: 6px;
+    color: #fff; background: rgba(6,8,22,.68);
+    opacity: 0; pointer-events: none; transition: opacity .2s ease;
+  }
+  #pausedTag.on { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ============ HUD ============ -->
+  <div id="hud">
+    <div class="cell">SCORE <b id="uiScore">0</b></div>
+    <div class="cell">BEST <b id="uiBest">0</b></div>
+    <div class="cell">TIME <b id="uiTime">60</b></div>
+    <div class="cell">COMBO <b id="uiCombo">x1</b></div>
+    <div class="cell">TARGET <span class="swatch" id="uiTarget"></span></div>
+  </div>
+
+  <!-- ============ CANVAS ============ -->
+  <div id="game-wrap">
+    <canvas id="game" width="800" height="600"></canvas>
+    <div id="pausedTag">PAUSED</div>
+
+    <!-- Start Screen -->
+    <div id="startScreen" class="screen">
+      <h1>BUBBLE POP</h1>
+      <p>Tap the floating bubbles to pop them before they escape!<br>
+         Pop the <b>TARGET</b> color for a <b>x3 bonus</b> and chain pops to build a combo.</p>
+      <div class="legend">
+        <span><i class="dot" style="background:#7ee8fa"></i>Time +5s</span>
+        <span><i class="dot" style="background:#ffd24d"></i>Bonus points</span>
+        <span><i class="dot" style="background:#3a2f55;border:1px solid #ff6b6b"></i>Bomb — avoid!</span>
+      </div>
+      <button id="btnStart">START</button>
+      <p style="font-size:12px;opacity:.7">60-second round &nbsp;|&nbsp; Mouse / Touch</p>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="overScreen" class="screen hidden">
+      <h1>TIME UP</h1>
+      <div class="final">
+        <big id="uiFinal">0</big>
+        SCORE &nbsp;·&nbsp; BEST <span id="uiFinalBest">0</span>
+      </div>
+      <p id="overMsg">Nice popping!</p>
+      <button id="btnAgain">PLAY AGAIN</button>
+    </div>
+  </div>
+
+  <div id="controls">
+    <button class="ghost" id="btnPause">PAUSE</button>
+    <button class="ghost" id="btnRestart">RESTART</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONFIGURATION ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;
+  const H = canvas.height;
+
+  const ROUND_TIME = 60;          // seconds per round
+  const BASE_POINTS = 10;
+  const COMBO_WINDOW = 1.7;       // seconds to keep a combo alive
+  const COMBO_CAP = 8;            // max score multiplier
+  const TARGET_EVERY = 9;         // seconds between target-color swaps
+
+  const COLORS = [
+    { name: "Rose",   hex: "#ff5f8f", light: "#ffc0d4" },
+    { name: "Amber",  hex: "#ffb128", light: "#ffe0a3" },
+    { name: "Lime",   hex: "#4fdb8a", light: "#c2f5d8" },
+    { name: "Azure",  hex: "#4d9bff", light: "#bcd9ff" },
+    { name: "Violet", hex: "#b06bff", light: "#e2caff" },
+    { name: "Teal",   hex: "#22d3d3", light: "#b6f5f5" }
+  ];
+  const SPECIAL = {
+    bomb:  { hex: "#3a2f55", light: "#ff6b6b" },
+    time:  { hex: "#7ee8fa", light: "#dffbff" },
+    bonus: { hex: "#ffd24d", light: "#fff4c4" }
+  };
+
+  // ============ GAME STATE ============
+  let bubbles = [];
+  let particles = [];
+  let texts = [];
+  let rings = [];
+
+  let score = 0;
+  let best = Number(localStorage.getItem("bubblePopBest") || 0);
+  let timeLeft = ROUND_TIME;
+  let combo = 0;
+  let comboTimer = 0;
+  let target = COLORS[Math.floor(Math.random() * COLORS.length)];
+  let targetTimer = TARGET_EVERY;
+  let spawnTimer = 0;
+  let shake = 0;
+  let flash = 0;
+  let flashColor = "#ff6b6b";
+  let overMsg = "";
+
+  let running = false;
+  let paused = false;
+  let lastTime = 0;
+  let raf = null;
+  let elapsed = 0;
+
+  // ============ DOM ELEMENTS ============
+  const uiScore = document.getElementById("uiScore");
+  const uiBest = document.getElementById("uiBest");
+  const uiTime = document.getElementById("uiTime");
+  const uiCombo = document.getElementById("uiCombo");
+  const uiTarget = document.getElementById("uiTarget");
+  const uiFinal = document.getElementById("uiFinal");
+  const uiFinalBest = document.getElementById("uiFinalBest");
+  const overMsgEl = document.getElementById("overMsg");
+  const startScreen = document.getElementById("startScreen");
+  const overScreen = document.getElementById("overScreen");
+  const pausedTag = document.getElementById("pausedTag");
+  const btnStart = document.getElementById("btnStart");
+  const btnAgain = document.getElementById("btnAgain");
+  const btnPause = document.getElementById("btnPause");
+  const btnRestart = document.getElementById("btnRestart");
+
+  // ============ SOUND (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "sine";
+      o.frequency.setValueAtTime(freq, actx.currentTime);
+      g.gain.setValueAtTime(vol || 0.06, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+  function popSound(pitch) {
+    beep(520 + pitch * 40, 0.09, "triangle", 0.07);
+    beep(980 + pitch * 60, 0.05, "sine", 0.04);
+  }
+
+  // ============ HELPERS ============
+  function rnd(a, b) { return a + Math.random() * (b - a); }
+  function pickTarget() {
+    let next = target;
+    let guard = 0;
+    while (next === target && guard++ < 12) {
+      next = COLORS[Math.floor(Math.random() * COLORS.length)];
+    }
+    target = next;
+    uiTarget.style.background = target.hex;
+    uiTarget.style.color = target.hex;
+    beep(760, 0.07, "sine", 0.05);
+  }
+
+  // ============ SPAWNING ============
+  function spawnBubble() {
+    const r = rnd(22, 40);
+    let type = "normal";
+    const roll = Math.random();
+    if (elapsed > 4 && roll < 0.09) type = "bomb";
+    else if (roll < 0.16) type = "time";
+    else if (roll < 0.25) type = "bonus";
+
+    let color;
+    if (type === "normal") color = COLORS[Math.floor(Math.random() * COLORS.length)];
+    else color = SPECIAL[type];
+
+    bubbles.push({
+      x: rnd(r + 10, W - r - 10),
+      y: H + r + rnd(0, 60),
+      r: r,
+      vy: rnd(38, 74) + Math.min(elapsed * 0.9, 40),
+      drift: rnd(-22, 22),
+      phase: rnd(0, Math.PI * 2),
+      wob: rnd(0.7, 1.6),
+      color: color,
+      type: type,
+      born: 0,
+      popped: false
+    });
+  }
+
+  // ============ EFFECTS ============
+  function burst(x, y, hex, light, count) {
+    for (let i = 0; i < count; i++) {
+      const a = rnd(0, Math.PI * 2);
+      const sp = rnd(40, 260);
+      particles.push({
+        x: x, y: y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 40,
+        life: 1,
+        size: rnd(2, 6),
+        color: Math.random() < 0.4 ? light : hex
+      });
+    }
+    rings.push({ x: x, y: y, r: 6, life: 1, color: light });
+  }
+  function floatText(x, y, str, color) {
+    texts.push({ x: x, y: y, life: 1, str: str, color: color });
+  }
+
+  // ============ POP LOGIC ============
+  function popBubble(b) {
+    if (b.popped) return;
+    b.popped = true;
+
+    if (b.type === "bomb") {
+      // Penalty
+      score = Math.max(0, score - 30);
+      timeLeft = Math.max(0, timeLeft - 3);
+      combo = 0; comboTimer = 0;
+      shake = 16;
+      flash = 1; flashColor = "#ff3b3b";
+      burst(b.x, b.y, "#ff3b3b", "#ffb3b3", 22);
+      floatText(b.x, b.y, "-30  -3s", "#ff7a7a");
+      beep(120, 0.35, "sawtooth", 0.12);
+      updateHUD();
+      return;
+    }
+
+    // Combo up
+    combo += 1;
+    comboTimer = COMBO_WINDOW;
+    const mult = Math.min(combo, COMBO_CAP);
+
+    let pts, labelColor;
+    if (b.type === "time") {
+      timeLeft = Math.min(99, timeLeft + 5);
+      pts = BASE_POINTS * mult;
+      labelColor = "#7ee8fa";
+      floatText(b.x, b.y, "+" + pts + "  +5s", labelColor);
+      beep(1100, 0.12, "sine", 0.08);
+    } else if (b.type === "bonus") {
+      pts = BASE_POINTS * mult * 2;
+      labelColor = "#ffd24d";
+      floatText(b.x, b.y, "+" + pts, labelColor);
+      beep(1300, 0.12, "triangle", 0.08);
+    } else {
+      const isTarget = b.color === target;
+      pts = BASE_POINTS * mult * (isTarget ? 3 : 1);
+      labelColor = isTarget ? b.color.light : "#ffffff";
+      floatText(b.x, b.y, "+" + pts + (isTarget ? "  TARGET x3!" : ""), labelColor);
+      if (isTarget) { beep(1240, 0.1, "square", 0.07); beep(1560, 0.1, "square", 0.05); }
+      else popSound(mult);
+    }
+
+    score += pts;
+    burst(b.x, b.y, b.color.hex, b.color.light, b.type === "normal" ? 14 : 20);
+    if (mult >= 4) shake = Math.min(10, mult);
+    updateHUD();
+  }
+
+  function updateHUD() {
+    uiScore.textContent = score;
+    uiBest.textContent = best;
+    uiTime.textContent = Math.ceil(timeLeft);
+    uiCombo.textContent = "x" + Math.min(combo, COMBO_CAP);
+    uiTime.classList.toggle("low", timeLeft <= 10);
+  }
+
+  // ============ INPUT ============
+  function pointerPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const cx = (e.touches ? e.touches[0].clientX : e.clientX);
+    const cy = (e.touches ? e.touches[0].clientY : e.clientY);
+    return {
+      x: (cx - rect.left) * (W / rect.width),
+      y: (cy - rect.top) * (H / rect.height)
+    };
+  }
+
+  function handleTap(e) {
+    if (!running || paused) return;
+    const p = pointerPos(e);
+    // topmost bubble under the pointer
+    for (let i = bubbles.length - 1; i >= 0; i--) {
+      const b = bubbles[i];
+      if (b.popped || b.born < 0.12) continue;
+      const dx = p.x - b.x, dy = p.y - b.y;
+      if (dx * dx + dy * dy <= b.r * b.r) {
+        popBubble(b);
+        return;
+      }
+    }
+    // miss: small ripple, break combo
+    rings.push({ x: p.x, y: p.y, r: 4, life: 0.6, color: "rgba(255,255,255,.5)" });
+    if (combo > 0) { combo = 0; comboTimer = 0; updateHUD(); }
+  }
+
+  canvas.addEventListener("mousedown", function (e) { e.preventDefault(); handleTap(e); });
+  canvas.addEventListener("touchstart", function (e) { e.preventDefault(); handleTap(e); }, { passive: false });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.code === "KeyP" || e.key === "p" || e.key === "P" || e.key === "Escape") {
+      e.preventDefault(); togglePause();
+    } else if (e.code === "KeyR" || e.key === "r" || e.key === "R") {
+      e.preventDefault(); startGame();
+    }
+  });
+
+  // ============ GAME LIFECYCLE ============
+  function resetGame() {
+    bubbles = []; particles = []; texts = []; rings = [];
+    score = 0; timeLeft = ROUND_TIME; combo = 0; comboTimer = 0;
+    spawnTimer = 0.4; elapsed = 0; shake = 0; flash = 0;
+    targetTimer = TARGET_EVERY;
+    target = COLORS[Math.floor(Math.random() * COLORS.length)];
+    uiTarget.style.background = target.hex;
+    uiTarget.style.color = target.hex;
+    updateHUD();
+  }
+
+  function startGame() {
+    resetGame();
+    running = true; paused = false;
+    pausedTag.classList.remove("on");
+    btnPause.textContent = "PAUSE";
+    startScreen.classList.add("hidden");
+    overScreen.classList.add("hidden");
+    lastTime = performance.now();
+    if (!raf) raf = requestAnimationFrame(loop);
+    beep(660, 0.1, "sine", 0.06);
+  }
+
+  function endGame() {
+    running = false;
+    if (score > best) {
+      best = score;
+      localStorage.setItem("bubblePopBest", String(best));
+    }
+    uiBest.textContent = best;
+    uiFinal.textContent = score;
+    uiFinalBest.textContent = best;
+    overMsg = score >= 900 ? "Bubble legend!" :
+              score >= 500 ? "Fantastic popping!" :
+              score >= 250 ? "Nice popping!" : "Keep at it!";
+    overMsgEl.textContent = overMsg;
+    overScreen.classList.remove("hidden");
+    beep(200, 0.5, "sawtooth", 0.1);
+  }
+
+  function togglePause() {
+    if (!running) return;
+    paused = !paused;
+    pausedTag.classList.toggle("on", paused);
+    btnPause.textContent = paused ? "RESUME" : "PAUSE";
+    if (!paused) lastTime = performance.now();
+    beep(paused ? 380 : 620, 0.08, "triangle", 0.05);
+  }
+
+  // ============ UPDATE ============
+  function update(dt) {
+    elapsed += dt;
+
+    // Spawn cadence ramps up over time
+    spawnTimer -= dt;
+    if (spawnTimer <= 0) {
+      spawnBubble();
+      if (elapsed > 20 && Math.random() < 0.35) spawnBubble();
+      spawnTimer = Math.max(0.32, 0.95 - elapsed * 0.011);
+    }
+
+    // Move bubbles
+    for (let i = bubbles.length - 1; i >= 0; i--) {
+      const b = bubbles[i];
+      b.born += dt;
+      b.y -= b.vy * dt;
+      b.phase += dt * b.wob;
+      b.x += (b.drift + Math.sin(b.phase) * 26) * dt;
+      if (b.x < b.r) { b.x = b.r; b.drift = Math.abs(b.drift); }
+      if (b.x > W - b.r) { b.x = W - b.r; b.drift = -Math.abs(b.drift); }
+
+      if (b.y < -b.r - 5 || b.popped) {
+        if (b.popped && b.born > 0.2) {
+          // shrink-out handled by particle burst; drop immediately
+        }
+        bubbles.splice(i, 1);
+      }
+    }
+
+    // Combo decay
+    if (comboTimer > 0) {
+      comboTimer -= dt;
+      if (comboTimer <= 0 && combo > 0) { combo = 0; updateHUD(); }
+    }
+
+    // Target rotation
+    targetTimer -= dt;
+    if (targetTimer <= 0) { targetTimer = TARGET_EVERY; pickTarget(); }
+
+    // Round timer
+    timeLeft -= dt;
+    if (timeLeft <= 0) { timeLeft = 0; updateHUD(); endGame(); return; }
+
+    // Particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.vy += 320 * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vx *= 0.98;
+      p.life -= dt * 1.7;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+    for (let i = rings.length - 1; i >= 0; i--) {
+      const r = rings[i];
+      r.r += 220 * dt;
+      r.life -= dt * 2.4;
+      if (r.life <= 0) rings.splice(i, 1);
+    }
+    for (let i = texts.length - 1; i >= 0; i--) {
+      const t = texts[i];
+      t.y -= 46 * dt;
+      t.life -= dt * 1.1;
+      if (t.life <= 0) texts.splice(i, 1);
+    }
+
+    if (shake > 0) shake = Math.max(0, shake - dt * 40);
+    if (flash > 0) flash = Math.max(0, flash - dt * 2.6);
+
+    uiTime.textContent = Math.ceil(timeLeft);
+    uiTime.classList.toggle("low", timeLeft <= 10);
+  }
+
+  // ============ DRAW ============
+  const bokeh = [];
+  for (let i = 0; i < 22; i++) {
+    bokeh.push({ x: rnd(0, W), y: rnd(0, H), r: rnd(6, 26), a: rnd(0.02, 0.06), s: rnd(6, 18) });
+  }
+
+  function drawBackground(dt) {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#0d1330");
+    g.addColorStop(0.5, "#1a1040");
+    g.addColorStop(1, "#2a0e38");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // drifting bokeh glows
+    for (const k of bokeh) {
+      k.y -= k.s * dt;
+      if (k.y < -k.r) { k.y = H + k.r; k.x = rnd(0, W); }
+      const rg = ctx.createRadialGradient(k.x, k.y, 0, k.x, k.y, k.r);
+      rg.addColorStop(0, "rgba(150,120,255," + k.a + ")");
+      rg.addColorStop(1, "rgba(150,120,255,0)");
+      ctx.fillStyle = rg;
+      ctx.beginPath();
+      ctx.arc(k.x, k.y, k.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawBubble(b) {
+    const grow = Math.min(1, b.born / 0.22);
+    const r = b.r * (0.65 + grow * 0.35);
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    ctx.scale(grow, grow);
+    ctx.translate(-b.x, -b.y);
+
+    // outer glow
+    ctx.shadowColor = b.color.hex;
+    ctx.shadowBlur = b.type === "normal" ? 16 : 26;
+
+    // body gradient
+    const grd = ctx.createRadialGradient(b.x - r * 0.3, b.y - r * 0.35, r * 0.15, b.x, b.y, r);
+    grd.addColorStop(0, b.color.light);
+    grd.addColorStop(0.55, b.color.hex);
+    grd.addColorStop(1, "rgba(0,0,0,0.28)");
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // inner rim
+    ctx.strokeStyle = "rgba(255,255,255,0.35)";
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+
+    // highlight
+    ctx.fillStyle = "rgba(255,255,255,0.72)";
+    ctx.beginPath();
+    ctx.arc(b.x - r * 0.32, b.y - r * 0.34, r * 0.17, 0, Math.PI * 2);
+    ctx.fill();
+
+    // icon per type
+    if (b.type === "bomb") {
+      ctx.strokeStyle = "#ff6b6b";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(b.x - r * 0.35, b.y - r * 0.28);
+      ctx.lineTo(b.x + r * 0.28, b.y + r * 0.32);
+      ctx.moveTo(b.x + r * 0.35, b.y - r * 0.28);
+      ctx.lineTo(b.x - r * 0.28, b.y + r * 0.32);
+      ctx.stroke();
+    } else if (b.type === "time") {
+      ctx.strokeStyle = "#04545f";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(b.x, b.y); ctx.lineTo(b.x, b.y - r * 0.5);
+      ctx.moveTo(b.x, b.y); ctx.lineTo(b.x + r * 0.4, b.y + r * 0.15);
+      ctx.stroke();
+    } else if (b.type === "bonus") {
+      drawStar(b.x, b.y, r * 0.48);
+    }
+    ctx.restore();
+  }
+
+  function drawStar(cx, cy, rad) {
+    ctx.fillStyle = "rgba(120,80,0,0.85)";
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const ang = (Math.PI / 5) * i - Math.PI / 2;
+      const rr = (i % 2 === 0) ? rad : rad * 0.45;
+      const x = cx + Math.cos(ang) * rr;
+      const y = cy + Math.sin(ang) * rr;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawEffects() {
+    for (const r of rings) {
+      ctx.globalAlpha = Math.max(0, r.life) * 0.8;
+      ctx.strokeStyle = r.color;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    for (const p of particles) {
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * Math.max(0.2, p.life), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (const t of texts) {
+      ctx.globalAlpha = Math.max(0, t.life);
+      ctx.font = "bold 22px 'Trebuchet MS', sans-serif";
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "rgba(0,0,0,0.55)";
+      ctx.strokeText(t.str, t.x, t.y);
+      ctx.fillStyle = t.color;
+      ctx.fillText(t.str, t.x, t.y);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawHUDCanvas() {
+    // time bar across the top
+    const bw = W - 40;
+    const pct = Math.max(0, timeLeft / ROUND_TIME);
+    ctx.fillStyle = "rgba(255,255,255,0.12)";
+    ctx.beginPath();
+    ctx.roundRect(20, 18, bw, 12, 6);
+    ctx.fill();
+    const bar = ctx.createLinearGradient(20, 0, 20 + bw, 0);
+    bar.addColorStop(0, timeLeft <= 10 ? "#ff4d4d" : "#7ee8fa");
+    bar.addColorStop(1, timeLeft <= 10 ? "#ff8f6b" : "#b983ff");
+    ctx.fillStyle = bar;
+    ctx.beginPath();
+    ctx.roundRect(20, 18, Math.max(4, bw * pct), 12, 6);
+    ctx.fill();
+
+    // combo badge
+    if (combo > 1) {
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.font = "bold 26px 'Trebuchet MS', sans-serif";
+      ctx.fillStyle = "#ffd24d";
+      ctx.shadowColor = "#ff9d00";
+      ctx.shadowBlur = 12;
+      ctx.fillText("COMBO x" + Math.min(combo, COMBO_CAP), 22, 58);
+      ctx.shadowBlur = 0;
+    }
+  }
+
+  function render(dt) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    drawBackground(dt);
+
+    if (shake > 0) {
+      ctx.translate(rnd(-shake, shake), rnd(-shake, shake));
+    }
+
+    for (const b of bubbles) drawBubble(b);
+    drawEffects();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    drawHUDCanvas();
+
+    if (flash > 0) {
+      ctx.globalAlpha = flash * 0.45;
+      ctx.fillStyle = flashColor;
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // ============ MAIN LOOP ============
+  function loop(now) {
+    raf = requestAnimationFrame(loop);
+    if (!lastTime) lastTime = now;
+    let dt = (now - lastTime) / 1000;
+    lastTime = now;
+    if (dt > 0.05) dt = 0.05; // clamp after tab switches
+
+    if (running && !paused) update(dt);
+    render(running && !paused ? dt : 0);
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    lastTime = performance.now();
+  });
+
+  // ============ BUTTONS ============
+  btnStart.addEventListener("click", startGame);
+  btnAgain.addEventListener("click", startGame);
+  btnRestart.addEventListener("click", startGame);
+  btnPause.addEventListener("click", togglePause);
+
+  // ============ INIT ============
+  uiBest.textContent = best;
+  uiTarget.style.background = target.hex;
+  uiTarget.style.color = target.hex;
+  updateHUD();
+  raf = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

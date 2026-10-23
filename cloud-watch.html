@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>☁️ Cloud Watch</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Trebuchet MS', 'Segoe UI', Tahoma, sans-serif;
+      background: #10162a;
+      color: #f2f5ff;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    /* ============ STAGE ============ */
+    .stage {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ============ TOOLBAR ============ */
+    .toolbar {
+      position: relative;
+      z-index: 5;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: rgba(16, 22, 42, 0.55);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .brand {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin-right: 6px;
+      text-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
+      white-space: nowrap;
+    }
+
+    .phase {
+      font-size: 0.78rem;
+      opacity: 0.85;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1);
+      white-space: nowrap;
+    }
+
+    .spacer { flex: 1 1 auto; }
+
+    .tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .tbtn {
+      font-family: inherit;
+      font-size: 0.85rem;
+      color: #eaf0ff;
+      background: rgba(255, 255, 255, 0.09);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 10px;
+      padding: 7px 11px;
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.12s ease;
+      -webkit-tap-highlight-color: transparent;
+      white-space: nowrap;
+    }
+
+    .tbtn:hover { background: rgba(255, 255, 255, 0.18); transform: translateY(-1px); }
+    .tbtn:active { transform: translateY(0) scale(0.97); }
+    .tbtn.active {
+      background: linear-gradient(135deg, #ffd479, #ff9d6e);
+      color: #2a1b0f;
+      border-color: transparent;
+      box-shadow: 0 4px 14px rgba(255, 157, 110, 0.35);
+    }
+
+    /* ============ CANVAS ============ */
+    canvas {
+      display: block;
+      flex: 1 1 auto;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      cursor: grab;
+    }
+    canvas.stamping { cursor: crosshair; }
+    canvas.grabbing { cursor: grabbing; }
+
+    /* ============ HINT ============ */
+    .hint {
+      position: absolute;
+      left: 50%;
+      bottom: 12px;
+      transform: translateX(-50%);
+      z-index: 5;
+      font-size: 0.76rem;
+      text-align: center;
+      padding: 7px 14px;
+      border-radius: 999px;
+      background: rgba(16, 22, 42, 0.45);
+      backdrop-filter: blur(6px);
+      color: rgba(240, 245, 255, 0.9);
+      pointer-events: none;
+      max-width: 92vw;
+    }
+
+    @media (max-width: 560px) {
+      .brand { font-size: 1rem; }
+      .phase { display: none; }
+      .tbtn { padding: 6px 9px; font-size: 0.8rem; }
+      .hint { font-size: 0.68rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <!-- ============ TOOLBAR ============ -->
+    <header class="toolbar">
+      <div class="brand">☁️ Cloud Watch</div>
+      <div class="phase" id="phase">Day</div>
+      <div class="spacer"></div>
+      <div class="tools">
+        <button class="tbtn active" data-mode="nudge" id="nudgeBtn">✋ Drift</button>
+        <button class="tbtn" data-stamp="sun">☀️</button>
+        <button class="tbtn" data-stamp="moon">🌙</button>
+        <button class="tbtn" data-stamp="star">⭐</button>
+        <button class="tbtn" data-stamp="heart">💗</button>
+        <button class="tbtn" data-stamp="balloon">🎈</button>
+        <button class="tbtn" data-stamp="kite">🪁</button>
+        <button class="tbtn" id="soundBtn">🔊</button>
+        <button class="tbtn" id="resetBtn">↺ Reset</button>
+      </div>
+    </header>
+
+    <!-- ============ CANVAS ============ -->
+    <canvas id="sky"></canvas>
+    <div class="hint" id="hint">Drag clouds to nudge • tap a cloud to split • drop one onto another to merge • tap open sky for a new cloud</div>
+  </div>
+
+  <script>
+    // ============================================================
+    // CLOUD WATCH — a calm cloud-shaping toy
+    // ============================================================
+
+    // ============ CANVAS SETUP ============
+    const canvas = document.getElementById('sky');
+    const ctx = canvas.getContext('2d');
+    let W = 0, H = 0, DPR = 1;
+
+    function resize() {
+      DPR = Math.min(window.devicePixelRatio || 1, 2);
+      W = canvas.clientWidth;
+      H = canvas.clientHeight;
+      canvas.width = Math.round(W * DPR);
+      canvas.height = Math.round(H * DPR);
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      buildStars();
+    }
+    window.addEventListener('resize', resize);
+
+    // ============ UTILITIES ============
+    const rand = (a, b) => a + Math.random() * (b - a);
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const TAU = Math.PI * 2;
+
+    function hexToRgb(h) {
+      const n = parseInt(h.slice(1), 16);
+      return [ (n >> 16) & 255, (n >> 8) & 255, n & 255 ];
+    }
+    function mixColor(c1, c2, t) {
+      const a = hexToRgb(c1), b = hexToRgb(c2);
+      return `rgb(${Math.round(lerp(a[0], b[0], t))},${Math.round(lerp(a[1], b[1], t))},${Math.round(lerp(a[2], b[2], t))})`;
+    }
+
+    // ============ AUDIO (WebAudio) ============
+    let audioCtx = null;
+    let soundOn = true;
+
+    function beep(freq = 440, dur = 0.18, type = 'sine', gain = 0.06) {
+      if (!soundOn) return;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, now);
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.exponentialRampToValueAtTime(gain, now + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+        osc.connect(g).connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + dur + 0.05);
+      } catch (e) { /* audio unavailable — stay silent */ }
+    }
+
+    function chime(base) {
+      beep(base, 0.35, 'sine', 0.05);
+      setTimeout(() => beep(base * 1.5, 0.4, 'sine', 0.035), 90);
+    }
+
+    // ============ TIME OF DAY ============
+    let dayT = 0.3;                 // 0..1 through the day
+    const DAY_SPEED = 1 / 240;      // full cycle ~ 240s
+    const SKY_KEYS = [
+      { t: 0.00, top: '#1b2140', mid: '#6a5f96', bot: '#e79a76' }, // first light
+      { t: 0.12, top: '#3a6ea5', mid: '#8fc4e8', bot: '#ffe3bd' }, // morning
+      { t: 0.34, top: '#3d87d1', mid: '#a4d4f1', bot: '#e9f7ff' }, // midday
+      { t: 0.54, top: '#4a6fb0', mid: '#e7a86b', bot: '#ffd7a0' }, // afternoon
+      { t: 0.70, top: '#2b2f5e', mid: '#c9698a', bot: '#ff9d6d' }, // dusk
+      { t: 0.86, top: '#0e1230', mid: '#2e2a56', bot: '#5f4372' }, // night
+      { t: 1.00, top: '#1b2140', mid: '#6a5f96', bot: '#e79a76' }  // wrap
+    ];
+
+    function skyColors(t) {
+      let a = SKY_KEYS[0], b = SKY_KEYS[SKY_KEYS.length - 1];
+      for (let i = 0; i < SKY_KEYS.length - 1; i++) {
+        if (t >= SKY_KEYS[i].t && t <= SKY_KEYS[i + 1].t) { a = SKY_KEYS[i]; b = SKY_KEYS[i + 1]; break; }
+      }
+      const span = (b.t - a.t) || 1;
+      const k = clamp((t - a.t) / span, 0, 1);
+      return {
+        top: mixColor(a.top, b.top, k),
+        mid: mixColor(a.mid, b.mid, k),
+        bot: mixColor(a.bot, b.bot, k)
+      };
+    }
+
+    function phaseName(t) {
+      if (t < 0.08) return 'First Light';
+      if (t < 0.30) return 'Morning';
+      if (t < 0.48) return 'Midday';
+      if (t < 0.62) return 'Afternoon';
+      if (t < 0.76) return 'Dusk';
+      return 'Night';
+    }
+
+    // ============ STATE ============
+    let clouds = [];
+    let birds = [];
+    let raindrops = [];
+    let stamps = [];
+    let stars = [];
+
+    let mode = 'nudge';             // 'nudge' | 'stamp'
+    let stampShape = 'sun';
+    let pointer = { down: false, x: 0, y: 0, startX: 0, startY: 0, moved: false };
+    let dragCloud = null;
+
+    let weather = 'clear';          // 'clear' | 'rain' | 'rainbow'
+    let weatherTimer = rand(10, 18);
+    let rainLevel = 0;              // 0..1 fade for rain
+    let rainbowLevel = 0;           // 0..1 fade for rainbow
+
+    // ============ STARS ============
+    function buildStars() {
+      stars = [];
+      const count = Math.round((W * H) / 26000);
+      for (let i = 0; i < count; i++) {
+        stars.push({ x: Math.random() * W, y: Math.random() * H * 0.75, r: rand(0.4, 1.5), tw: Math.random() * TAU });
+      }
+    }
+
+    // ============ CLOUD FACTORY ============
+    function cloudPuffs() {
+      // a fluffy silhouette built from a row of bumps
+      const base = [
+        { dx: -58, dy: 10, r: 24 },
+        { dx: -30, dy: -6, r: 36 },
+        { dx: 2, dy: -18, r: 46 },
+        { dx: 34, dy: -4, r: 34 },
+        { dx: 60, dy: 12, r: 22 }
+      ];
+      return base.map(p => ({ dx: p.dx + rand(-4, 4), dy: p.dy + rand(-4, 4), r: p.r + rand(-3, 3) }));
+    }
+
+    function makeCloud(x, y, scale) {
+      return {
+        x, y,
+        scale: scale || rand(0.7, 1.15),
+        puffs: cloudPuffs(),
+        vx: rand(-0.22, 0.22),
+        vy: rand(-0.05, 0.05),
+        bob: Math.random() * TAU,
+        alpha: 0,
+        dark: 0,
+        dragging: false
+      };
+    }
+
+    function cloudRadius(c) { return 66 * c.scale; }
+
+    function addCloud(x, y, scale) {
+      const c = makeCloud(x, y, scale);
+      clouds.push(c);
+      return c;
+    }
+
+    function seedClouds() {
+      clouds = [];
+      const n = 4 + Math.round(W / 420);
+      for (let i = 0; i < n; i++) {
+        addCloud(rand(W * 0.1, W * 0.9), rand(H * 0.14, H * 0.55), rand(0.7, 1.15));
+      }
+    }
+
+    // ============ CLOUD OPERATIONS ============
+    function splitCloud(c) {
+      const mid = c.scale * c.scale;
+      clouds = clouds.filter(o => o !== c);
+      const halves = [
+        c.puffs.filter(p => p.dx < 0),
+        c.puffs.filter(p => p.dx >= 0)
+      ];
+      halves.forEach((puffs, i) => {
+        if (!puffs.length) return;
+        const dir = i === 0 ? -1 : 1;
+        const child = makeCloud(
+          c.x + dir * 34 * c.scale,
+          c.y + rand(-6, 6),
+          Math.max(0.5, c.scale * 0.72)
+        );
+        child.puffs = puffs.map(p => ({ dx: p.dx - dir * 8, dy: p.dy, r: p.r * 0.9 }));
+        child.vx = c.vx + dir * rand(0.1, 0.35);
+        child.alpha = c.alpha;
+        clouds.push(child);
+      });
+      chime(520);
+    }
+
+    function mergeClouds() {
+      for (let i = 0; i < clouds.length; i++) {
+        for (let j = i + 1; j < clouds.length; j++) {
+          const a = clouds[i], b = clouds[j];
+          const d = Math.hypot(a.x - b.x, a.y - b.y);
+          const touch = (cloudRadius(a) + cloudRadius(b)) * 0.55;
+          if (d < touch) {
+            const [big, small] = a.scale >= b.scale ? [a, b] : [b, a];
+            const total = big.scale + small.scale * 0.55;
+            big.x = (big.x + small.x) / 2;
+            big.y = (big.y + small.y) / 2;
+            big.scale = Math.min(1.9, total);
+            big.puffs = cloudPuffs().map(p => ({ dx: p.dx * (big.scale / 1), dy: p.dy, r: p.r }));
+            clouds = clouds.filter(o => o !== small);
+            chime(360);
+            return; // one merge per frame
+          }
+        }
+      }
+    }
+
+    function cloudAt(x, y) {
+      for (let i = clouds.length - 1; i >= 0; i--) {
+        const c = clouds[i];
+        if (Math.hypot(x - c.x, y - c.y) < cloudRadius(c)) return c;
+      }
+      return null;
+    }
+
+    // ============ BIRDS ============
+    function spawnBirdFlock() {
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      const n = 3 + (Math.random() * 4 | 0);
+      const y = rand(H * 0.16, H * 0.45);
+      const speed = rand(0.7, 1.4) * dir;
+      for (let i = 0; i < n; i++) {
+        birds.push({
+          x: dir > 0 ? -40 - i * rand(30, 60) : W + 40 + i * rand(30, 60),
+          y: y + rand(-26, 26),
+          vx: speed,
+          flap: Math.random() * TAU,
+          flapSpeed: rand(0.12, 0.2),
+          size: rand(6, 11)
+        });
+      }
+    }
+
+    // ============ RAIN / RAINBOW ============
+    function startRain() {
+      weather = 'rain';
+      weatherTimer = rand(6, 11);
+      raindrops = [];
+      const n = Math.round(clamp(W / 4, 90, 320));
+      for (let i = 0; i < n; i++) raindrops.push(newDrop(true));
+    }
+    function newDrop(anywhere) {
+      return { x: Math.random() * W, y: anywhere ? Math.random() * H : rand(-60, -10), len: rand(8, 18), v: rand(6, 11), a: rand(0.15, 0.4) };
+    }
+    function endRain() {
+      weather = 'rainbow';
+      weatherTimer = rand(8, 13);
+      raindrops = [];
+    }
+
+    // ============ STAMP SHAPES ============
+    function stampShapePath(shape, x, y, s, rot) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rot);
+      ctx.beginPath();
+      switch (shape) {
+        case 'sun': {
+          ctx.arc(0, 0, s * 0.5, 0, TAU);
+          for (let i = 0; i < 12; i++) {
+            const a = (i / 12) * TAU;
+            ctx.moveTo(Math.cos(a) * s * 0.7, Math.sin(a) * s * 0.7);
+            ctx.lineTo(Math.cos(a) * s * 1.05, Math.sin(a) * s * 1.05);
+          }
+          break;
+        }
+        case 'moon': {
+          ctx.arc(0, 0, s * 0.6, Math.PI * 0.35, Math.PI * 1.65, false);
+          ctx.arc(s * 0.35, 0, s * 0.5, Math.PI * 1.6, Math.PI * 0.4, true);
+          ctx.closePath();
+          break;
+        }
+        case 'star': {
+          const spikes = 5, outer = s * 0.65, inner = outer * 0.45;
+          for (let i = 0; i < spikes * 2; i++) {
+            const r = i % 2 ? inner : outer;
+            const a = (i / (spikes * 2)) * TAU - Math.PI / 2;
+            const px = Math.cos(a) * r, py = Math.sin(a) * r;
+            i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+          }
+          ctx.closePath();
+          break;
+        }
+        case 'heart': {
+          const s2 = s * 0.6;
+          ctx.moveTo(0, s2 * 0.75);
+          ctx.bezierCurveTo(-s2 * 1.6, -s2 * 0.3, -s2 * 0.5, -s2 * 1.3, 0, -s2 * 0.45);
+          ctx.bezierCurveTo(s2 * 0.5, -s2 * 1.3, s2 * 1.6, -s2 * 0.3, 0, s2 * 0.75);
+          ctx.closePath();
+          break;
+        }
+        case 'balloon': {
+          ctx.ellipse(0, 0, s * 0.45, s * 0.58, 0, 0, TAU);
+          break;
+        }
+        case 'kite': {
+          ctx.moveTo(0, -s * 0.7);
+          ctx.lineTo(s * 0.5, 0);
+          ctx.lineTo(0, s * 0.7);
+          ctx.lineTo(-s * 0.5, 0);
+          ctx.closePath();
+          break;
+        }
+      }
+      ctx.restore();
+    }
+
+    const STAMP_COLORS = {
+      sun: '#ffd166', moon: '#f4f1ff', star: '#fff2a8',
+      heart: '#ff9bb3', balloon: '#9fd8ff', kite: '#ffb37a'
+    };
+
+    function placeStamp(x, y) {
+      stamps.push({ shape: stampShape, x, y, size: rand(26, 40), rot: rand(-0.2, 0.2), born: performance.now() });
+      const notes = { sun: 660, moon: 392, star: 784, heart: 523, balloon: 587, kite: 494 };
+      beep(notes[stampShape] || 550, 0.22, 'triangle', 0.05);
+    }
+
+    // ============ WEATHER SIMULATION ============
+    function updateWeather(dt) {
+      weatherTimer -= dt;
+      const targetRain = weather === 'rain' ? 1 : 0;
+      const targetBow = weather === 'rainbow' ? 1 : 0;
+      rainLevel += clamp(targetRain - rainLevel, -dt * 0.8, dt * 0.8);
+      rainbowLevel += clamp(targetBow - rainbowLevel, -dt * 0.5, dt * 0.5);
+
+      if (weatherTimer <= 0) {
+        if (weather === 'clear') startRain();
+        else if (weather === 'rain') endRain();
+        else { weather = 'clear'; weatherTimer = rand(12, 22); }
+      }
+
+      for (let i = 0; i < raindrops.length; i++) {
+        const d = raindrops[i];
+        d.y += d.v * dt * 60;
+        d.x += 0.6 * dt * 60;
+        if (d.y > H + 20) raindrops[i] = newDrop(false);
+      }
+    }
+
+    // ============ UPDATE ============
+    function update(dt) {
+      dayT = (dayT + DAY_SPEED * dt) % 1;
+
+      updateWeather(dt);
+
+      // clouds
+      for (const c of clouds) {
+        if (!c.dragging) {
+          c.x += c.vx * dt * 60;
+          c.y += c.vy * dt * 60;
+        }
+        c.bob += dt * 0.6;
+        c.alpha = clamp(c.alpha + dt * 1.4, 0, 1);
+        c.dark = lerp(c.dark, rainLevel * 0.85, dt * 2);
+
+        // soft wrap-around
+        const r = cloudRadius(c);
+        if (c.x < -r - 40) c.x = W + r + 40;
+        if (c.x > W + r + 40) c.x = -r - 40;
+        if (c.y < r * 0.5) c.vy = Math.abs(c.vy);
+        if (c.y > H * 0.72) c.vy = -Math.abs(c.vy);
+      }
+
+      // birds
+      for (const b of birds) {
+        b.x += b.vx * dt * 60;
+        b.y += Math.sin(performance.now() * 0.001 + b.flap) * 0.15;
+        b.flap += b.flapSpeed;
+      }
+      birds = birds.filter(b => b.x > -80 && b.x < W + 80);
+
+      // occasional birds
+      if (Math.random() < dt * 0.06 && birds.length < 8) spawnBirdFlock();
+
+      // stamps settle
+      stamps = stamps.filter(s => performance.now() - s.born < 1.0e9);
+    }
+
+    // ============ RENDER: SKY ============
+    function drawSky() {
+      const col = skyColors(dayT);
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, col.top);
+      g.addColorStop(0.55, col.mid);
+      g.addColorStop(1, col.bot);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      // stars at night
+      const starT = clamp(Math.max(0, (dayT - 0.78) / 0.14) + Math.max(0, (0.06 - dayT) / 0.06), 0, 1);
+      if (starT > 0.01) {
+        for (const s of stars) {
+          const tw = 0.55 + 0.45 * Math.sin(performance.now() * 0.002 + s.tw);
+          ctx.globalAlpha = starT * tw * 0.9;
+          ctx.fillStyle = '#fdfeff';
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r, 0, TAU);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    function drawCelestial() {
+      const now = performance.now();
+      if (dayT < 0.62) {
+        // sun travels left → right
+        const p = dayT / 0.62;
+        const x = lerp(W * 0.08, W * 0.92, p);
+        const y = H * 0.6 - Math.sin(p * Math.PI) * H * 0.42;
+        const r = clamp(Math.min(W, H) * 0.06, 34, 68);
+        const glow = ctx.createRadialGradient(x, y, r * 0.3, x, y, r * 3.2);
+        glow.addColorStop(0, 'rgba(255,240,190,0.95)');
+        glow.addColorStop(0.4, 'rgba(255,210,140,0.35)');
+        glow.addColorStop(1, 'rgba(255,200,130,0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath(); ctx.arc(x, y, r * 3.2, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#fff6d8';
+        ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+      } else {
+        // moon
+        const p = (dayT - 0.62) / 0.38;
+        const x = lerp(W * 0.12, W * 0.88, p);
+        const y = H * 0.58 - Math.sin(p * Math.PI) * H * 0.38;
+        const r = clamp(Math.min(W, H) * 0.05, 28, 54);
+        const glow = ctx.createRadialGradient(x, y, r * 0.3, x, y, r * 3);
+        glow.addColorStop(0, 'rgba(230,238,255,0.5)');
+        glow.addColorStop(1, 'rgba(200,215,255,0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath(); ctx.arc(x, y, r * 3, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#f3f2ff';
+        ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+        ctx.fillStyle = 'rgba(205,205,230,0.6)';
+        ctx.beginPath(); ctx.arc(x - r * 0.3, y - r * 0.2, r * 0.18, 0, TAU);
+        ctx.arc(x + r * 0.25, y + r * 0.3, r * 0.13, 0, TAU); ctx.fill();
+      }
+    }
+
+    // ============ RENDER: RAINBOW ============
+    function drawRainbow() {
+      if (rainbowLevel < 0.01) return;
+      const cx = W * 0.5, cy = H * 1.05;
+      const baseR = Math.min(W, H) * 0.72;
+      const bands = ['#ff6b6b', '#ffa94d', '#ffd43b', '#69db7c', '#4dabf7', '#9775fa'];
+      ctx.save();
+      ctx.globalAlpha = rainbowLevel * 0.5;
+      ctx.lineWidth = clamp(baseR * 0.028, 6, 16);
+      bands.forEach((col, i) => {
+        ctx.strokeStyle = col;
+        ctx.beginPath();
+        ctx.arc(cx, cy, baseR - i * ctx.lineWidth * 1.05, Math.PI, TAU);
+        ctx.stroke();
+      });
+      ctx.restore();
+    }
+
+    // ============ RENDER: RAIN ============
+    function drawRain() {
+      if (rainLevel < 0.01) return;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(190,215,255,0.9)';
+      ctx.lineWidth = 1.2;
+      for (const d of raindrops) {
+        ctx.globalAlpha = d.a * rainLevel;
+        ctx.beginPath();
+        ctx.moveTo(d.x, d.y);
+        ctx.lineTo(d.x - d.len * 0.35, d.y + d.len);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // ============ RENDER: CLOUD ============
+    function drawCloud(c) {
+      const yOff = Math.sin(c.bob) * 2.5;
+      ctx.save();
+      ctx.translate(c.x, c.y + yOff);
+      ctx.scale(c.scale, c.scale);
+      ctx.globalAlpha = c.alpha;
+
+      // soft shadow underneath
+      ctx.shadowColor = 'rgba(40,55,100,0.28)';
+      ctx.shadowBlur = 26;
+      ctx.shadowOffsetY = 10;
+
+      // base silhouette
+      ctx.beginPath();
+      for (const p of c.puffs) {
+        ctx.moveTo(p.dx + p.r, p.dy);
+        ctx.arc(p.dx, p.dy, p.r, 0, TAU);
+      }
+      const dark = c.dark;
+      const grad = ctx.createLinearGradient(0, -70, 0, 60);
+      grad.addColorStop(0, `rgba(${lerp(255, 168, dark)},${lerp(255, 180, dark)},${lerp(255, 205, dark)},0.98)`);
+      grad.addColorStop(1, `rgba(${lerp(224, 150, dark)},${lerp(232, 162, dark)},${lerp(245, 190, dark)},0.95)`);
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // crisp top highlight
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+      ctx.globalAlpha = c.alpha * 0.5;
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.beginPath();
+      const top = c.puffs.slice().sort((a, b) => a.dy - b.dy)[0];
+      ctx.arc(top.dx, top.dy - top.r * 0.25, top.r * 0.55, 0, TAU);
+      ctx.fill();
+
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    }
+
+    // ============ RENDER: BIRDS ============
+    function drawBirds() {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(35,45,70,0.72)';
+      ctx.lineCap = 'round';
+      for (const b of birds) {
+        const flap = Math.sin(b.flap) * 0.6;
+        ctx.lineWidth = clamp(b.size * 0.22, 1.2, 2.4);
+        ctx.beginPath();
+        ctx.moveTo(b.x - b.size, b.y + flap * b.size);
+        ctx.quadraticCurveTo(b.x - b.size * 0.5, b.y - b.size * 0.5, b.x, b.y);
+        ctx.quadraticCurveTo(b.x + b.size * 0.5, b.y - b.size * 0.5, b.x + b.size, b.y + flap * b.size);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // ============ RENDER: STAMPS ============
+    function drawStamps() {
+      for (const s of stamps) {
+        ctx.save();
+        ctx.globalAlpha = 0.92;
+        ctx.fillStyle = STAMP_COLORS[s.shape] || '#ffe9a8';
+        ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+        ctx.lineWidth = 2;
+        stampShapePath(s.shape, s.x, s.y, s.size, s.rot);
+        ctx.fill();
+        if (s.shape === 'sun') ctx.stroke();
+        if (s.shape === 'balloon') {
+          ctx.beginPath();
+          ctx.moveTo(s.x, s.y + s.size * 0.58);
+          ctx.quadraticCurveTo(s.x + 6, s.y + s.size * 1.1, s.x, s.y + s.size * 1.5);
+          ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+          ctx.stroke();
+        }
+        if (s.shape === 'kite') {
+          ctx.beginPath();
+          ctx.moveTo(s.x, s.y + s.size * 0.7);
+          ctx.quadraticCurveTo(s.x + 10, s.y + s.size * 1.1, s.x - 4, s.y + s.size * 1.6);
+          ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // ghost preview while a stamp is armed
+      if (mode === 'stamp' && pointer.x >= 0) {
+        ctx.save();
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle = STAMP_COLORS[stampShape] || '#ffe9a8';
+        stampShapePath(stampShape, pointer.x, pointer.y, 34, 0);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // ============ RENDER FRAME ============
+    function render() {
+      drawSky();
+      drawCelestial();
+      drawRainbow();
+
+      // clouds sorted back-to-front by size for depth
+      const sorted = clouds.slice().sort((a, b) => a.scale - b.scale);
+      for (const c of sorted) drawCloud(c);
+
+      drawStamps();
+      drawBirds();
+      drawRain();
+    }
+
+    // ============ INPUT ============
+    function pointerPos(e) {
+      const r = canvas.getBoundingClientRect();
+      const t = e.touches ? e.touches[0] : e;
+      return { x: t.clientX - r.left, y: t.clientY - r.top };
+    }
+
+    function onDown(e) {
+      e.preventDefault();
+      const p = pointerPos(e);
+      pointer.down = true; pointer.moved = false;
+      pointer.x = p.x; pointer.y = p.y;
+      pointer.startX = p.x; pointer.startY = p.y;
+
+      if (mode === 'stamp') return;
+
+      const hit = cloudAt(p.x, p.y);
+      if (hit) {
+        dragCloud = hit;
+        dragCloud.dragging = true;
+        canvas.classList.add('grabbing');
+        beep(300, 0.08, 'sine', 0.03);
+      }
+    }
+
+    function onMove(e) {
+      const p = pointerPos(e);
+      pointer.x = p.x; pointer.y = p.y;
+      if (!pointer.down) return;
+      e.preventDefault();
+      if (Math.hypot(p.x - pointer.startX, p.y - pointer.startY) > 6) pointer.moved = true;
+      if (dragCloud) {
+        dragCloud.x = p.x;
+        dragCloud.y = clamp(p.y, 30, H * 0.8);
+      }
+    }
+
+    function onUp(e) {
+      if (!pointer.down) return;
+      pointer.down = false;
+      canvas.classList.remove('grabbing');
+
+      if (mode === 'stamp') {
+        placeStamp(pointer.x, pointer.y);
+        return;
+      }
+
+      if (dragCloud) {
+        dragCloud.dragging = false;
+        dragCloud.vx = rand(-0.22, 0.22);
+        dragCloud.vy = rand(-0.05, 0.05);
+        const dropped = dragCloud;
+        dragCloud = null;
+        if (!pointer.moved) {
+          splitCloud(dropped);                 // tap → split
+        } else {
+          mergeClouds();                       // drop → maybe merge
+          beep(440, 0.1, 'sine', 0.035);
+        }
+      } else if (!pointer.moved) {
+        // tap open sky → new cloud
+        const c = addCloud(pointer.x, pointer.y, rand(0.6, 0.9));
+        c.vx = rand(-0.22, 0.22);
+        beep(620, 0.18, 'sine', 0.045);
+      }
+    }
+
+    canvas.addEventListener('mousedown', onDown);
+    canvas.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    canvas.addEventListener('touchstart', onDown, { passive: false });
+    canvas.addEventListener('touchmove', onMove, { passive: false });
+    canvas.addEventListener('touchend', onUp, { passive: false });
+
+    // ============ TOOLBAR ============
+    const nudgeBtn = document.getElementById('nudgeBtn');
+    const soundBtn = document.getElementById('soundBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const phaseEl = document.getElementById('phase');
+    const stampBtns = Array.from(document.querySelectorAll('[data-stamp]'));
+
+    function setMode(m) {
+      mode = m;
+      nudgeBtn.classList.toggle('active', m === 'nudge');
+      stampBtns.forEach(b => b.classList.toggle('active', m === 'stamp' && b.dataset.stamp === stampShape));
+      canvas.classList.toggle('stamping', m === 'stamp');
+    }
+
+    nudgeBtn.addEventListener('click', () => { setMode('nudge'); beep(400, 0.1); });
+    stampBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        stampShape = btn.dataset.stamp;
+        setMode('stamp');
+        beep(520, 0.12, 'triangle', 0.05);
+      });
+    });
+
+    soundBtn.addEventListener('click', () => {
+      soundOn = !soundOn;
+      soundBtn.textContent = soundOn ? '🔊' : '🔇';
+      if (soundOn) beep(600, 0.14);
+    });
+
+    resetBtn.addEventListener('click', () => {
+      seedClouds();
+      stamps = [];
+      birds = [];
+      raindrops = [];
+      weather = 'clear'; weatherTimer = rand(10, 16);
+      rainLevel = 0; rainbowLevel = 0;
+      setMode('nudge');
+      chime(440);
+    });
+
+    // keyboard: R reset, S sound, 1..6 stamps, 0 drift
+    document.addEventListener('keydown', (e) => {
+      const k = e.key.toLowerCase();
+      if (k === 'r') resetBtn.click();
+      else if (k === 's') soundBtn.click();
+      else if (k === '0') nudgeBtn.click();
+      else if (['1','2','3','4','5','6'].includes(k)) {
+        const order = ['sun','moon','star','heart','balloon','kite'];
+        stampShape = order[+k - 1];
+        setMode('stamp');
+        beep(520, 0.1, 'triangle', 0.05);
+      }
+    });
+
+    // ============ MAIN LOOP ============
+    let last = performance.now();
+    let phaseCheck = 0;
+
+    function frame(now) {
+      const dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
+
+      update(dt);
+      render();
+
+      phaseCheck += dt;
+      if (phaseCheck > 0.5) {
+        phaseCheck = 0;
+        phaseEl.textContent = phaseName(dayT);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    // ============ BOOT ============
+    resize();
+    seedClouds();
+    setMode('nudge');
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>

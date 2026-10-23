@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Game Library</title>
+  <link rel="icon" href="icons/gamelibrary.ico">
+  <style>
+    /* ============================================
+       CSS Custom Properties (Design Tokens)
+       ============================================ */
+    :root {
+      /* Colors - Dark Theme */
+      --bg-primary: #0f0f11;
+      --bg-secondary: #1a1a1e;
+      --bg-card: #232329;
+      --bg-card-hover: #2a2a32;
+      --bg-pill: #2a2a32;
+      --bg-pill-active: #3b3e4a;
+      --text-primary: #f0f0f5;
+      --text-secondary: #a0a0b0;
+      --text-muted: #6a6a7a;
+      --border-color: #33333d;
+      --focus-ring: #6366f1;
+      
+      /* Accent Colors */
+      --accent-pink: #ffb3c6;
+      --accent-green: #a8e6cf;
+      --accent-indigo: #7c7cff;
+      --accent-violet: #9d7cff;
+      --accent-emerald: #50c878;
+      --accent-felt: #2d5a3f;
+      --accent-orange: #ffb37c;
+      --accent-beige: #e8d5b7;
+      
+      /* Spacing Scale (8px base) */
+      --space-1: 0.25rem;
+      --space-2: 0.5rem;
+      --space-3: 0.75rem;
+      --space-4: 1rem;
+      --space-5: 1.25rem;
+      --space-6: 1.5rem;
+      --space-8: 2rem;
+      --space-10: 2.5rem;
+      --space-12: 3rem;
+      
+      /* Typography */
+      --font-family: system-ui, 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-size-sm: 0.875rem;
+      --font-size-base: 1rem;
+      --font-size-lg: 1.125rem;
+      --font-size-xl: 1.25rem;
+      --font-size-2xl: 1.5rem;
+      --font-size-3xl: 2rem;
+      --font-size-4xl: 2.5rem;
+      
+      /* Border Radius */
+      --radius-sm: 0.375rem;
+      --radius-md: 0.5rem;
+      --radius-lg: 0.75rem;
+      --radius-xl: 1rem;
+      --radius-2xl: 1.25rem;
+      --radius-full: 9999px;
+      
+      /* Shadows */
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+      --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+      --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+      --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.3);
+      
+      /* Transitions */
+      --transition-fast: 150ms ease;
+      --transition-base: 250ms ease;
+      --transition-slow: 350ms ease;
+    }
+    
+    /* ============================================
+       Base Styles
+       ============================================ */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    html {
+      font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    
+    body {
+      font-family: var(--font-family);
+      background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.6;
+      padding: var(--space-8) var(--space-4);
+    }
+    
+    /* ============================================
+       Layout
+       ============================================ */
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    
+    /* ============================================
+       Header
+       ============================================ */
+    .header {
+      text-align: center;
+      margin-bottom: var(--space-10);
+      padding: var(--space-8) 0;
+    }
+    
+    .header h1 {
+      font-size: var(--font-size-4xl);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: var(--space-2);
+      background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .header p {
+      font-size: var(--font-size-lg);
+      color: var(--text-secondary);
+      font-weight: 400;
+    }
+    
+    .header-logo {
+      display: block;
+      width: 88px;
+      height: 88px;
+      margin: 0 auto var(--space-4);
+      filter: drop-shadow(0 6px 16px rgba(99, 102, 241, 0.45));
+    }
+    
+    /* ============================================
+       Controls Section (Search + Pills + Actions)
+       ============================================ */
+    .controls-section {
+      margin-bottom: var(--space-10);
+    }
+    
+    /* Search + Surprise Me Row */
+    .search-row {
+      display: flex;
+      gap: var(--space-4);
+      margin-bottom: var(--space-6);
+      align-items: center;
+    }
+    
+    .search-container {
+      flex: 1;
+      position: relative;
+    }
+    
+    .search-input {
+      width: 100%;
+      padding: var(--space-4) var(--space-6);
+      font-size: var(--font-size-base);
+      font-family: var(--font-family);
+      color: var(--text-primary);
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-2xl);
+      outline: none;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+    
+    .search-input::placeholder {
+      color: var(--text-muted);
+    }
+    
+    .search-input:focus {
+      border-color: var(--focus-ring);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    }
+    
+    .surprise-btn {
+      flex-shrink: 0;
+      padding: var(--space-4) var(--space-6);
+      font-size: var(--font-size-base);
+      font-family: var(--font-family);
+      font-weight: 600;
+      color: var(--text-primary);
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      border: none;
+      border-radius: var(--radius-2xl);
+      cursor: pointer;
+      transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+      white-space: nowrap;
+    }
+    
+    .surprise-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+    }
+    
+    .surprise-btn:active {
+      transform: translateY(0);
+    }
+    
+    .surprise-btn:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+    
+    /* Category Pills */
+    .pills-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-3);
+      align-items: center;
+    }
+    
+    .category-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-3) var(--space-5);
+      font-size: var(--font-size-sm);
+      font-family: var(--font-family);
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: var(--bg-pill);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-full);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    
+    .category-pill:hover {
+      background: var(--bg-pill-active);
+      color: var(--text-primary);
+      transform: translateY(-1px);
+    }
+    
+    .category-pill[aria-pressed="true"] {
+      background: var(--bg-pill-active);
+      color: var(--text-primary);
+      border-color: var(--focus-ring);
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    }
+    
+    .category-pill:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+    
+    .pill-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 1.5rem;
+      height: 1.5rem;
+      padding: 0 var(--space-1);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--bg-card);
+      border-radius: var(--radius-full);
+    }
+    
+    .category-pill[aria-pressed="true"] .pill-count {
+      color: var(--text-primary);
+      background: rgba(99, 102, 241, 0.2);
+    }
+    
+    /* Result Count */
+    .result-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--space-6);
+      padding: var(--space-4) 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+    
+    .result-count {
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary);
+    }
+    
+    .clear-btn {
+      padding: var(--space-2) var(--space-4);
+      font-size: var(--font-size-sm);
+      font-family: var(--font-family);
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: transparent;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    
+    .clear-btn:hover {
+      color: var(--text-primary);
+      background: var(--bg-pill);
+      border-color: var(--text-muted);
+    }
+    
+    .clear-btn:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+    
+    /* ============================================
+       Game Grid
+       ============================================ */
+    .game-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: var(--space-6);
+      margin-bottom: var(--space-12);
+    }
+    
+    /* Category Section */
+    .category-section {
+      grid-column: 1 / -1;
+      margin-bottom: var(--space-6);
+    }
+    
+    .category-section:first-child {
+      margin-top: 0;
+    }
+    
+    .category-section h2 {
+      font-size: var(--font-size-xl);
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: var(--space-4);
+      padding-bottom: var(--space-2);
+      border-bottom: 1px solid var(--border-color);
+      letter-spacing: 0.02em;
+    }
+    
+    .category-section .game-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: var(--space-6);
+      margin-bottom: 0;
+    }
+    
+    /* ============================================
+       Game Card
+       ============================================ */
+    .game-card {
+      display: block;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-xl);
+      padding: var(--space-6);
+      text-decoration: none;
+      color: inherit;
+      transition: transform var(--transition-base), 
+                  box-shadow var(--transition-base), 
+                  border-color var(--transition-base),
+                  background-color var(--transition-fast);
+      position: relative;
+      overflow: hidden;
+      animation: cardEnter 0.4s ease-out forwards;
+      opacity: 0;
+    }
+    
+    @keyframes cardEnter {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    @media (prefers-reduced-motion: reduce) {
+      .game-card {
+        animation: none;
+        opacity: 1;
+      }
+    }
+    
+    .game-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: var(--accent-color, var(--accent-indigo));
+      transform: scaleX(0);
+      transition: transform var(--transition-base);
+    }
+    
+    .game-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-lg), 0 0 40px rgba(99, 102, 241, 0.15);
+      border-color: var(--accent-color, var(--accent-indigo));
+      background: var(--bg-card-hover);
+    }
+    
+    .game-card:hover::before {
+      transform: scaleX(1);
+    }
+    
+    .game-card:focus {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+    
+    .game-card:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+    
+    /* Card Content */
+    .card-emoji {
+      font-size: 3.5rem;
+      margin-bottom: var(--space-4);
+      display: block;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+    }
+    
+    .card-title {
+      font-size: var(--font-size-xl);
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: var(--space-2);
+      letter-spacing: -0.01em;
+    }
+    
+    .card-blurb {
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin-bottom: var(--space-3);
+    }
+    
+    .card-category-badge {
+      display: inline-block;
+      padding: var(--space-1) var(--space-3);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--bg-pill);
+      border-radius: var(--radius-full);
+      text-transform: capitalize;
+    }
+    
+    /* ============================================
+       Empty State
+       ============================================ */
+    .empty-state {
+      text-align: center;
+      padding: var(--space-12) var(--space-8);
+      color: var(--text-muted);
+      display: none;
+    }
+    
+    .empty-state.visible {
+      display: block;
+    }
+    
+    .empty-state p {
+      font-size: var(--font-size-lg);
+      margin-bottom: var(--space-4);
+    }
+    
+    .empty-state-emoji {
+      font-size: 4rem;
+      margin-bottom: var(--space-4);
+      display: block;
+      opacity: 0.5;
+    }
+    
+    /* ============================================
+       Footer
+       ============================================ */
+    .footer {
+      text-align: center;
+      padding: var(--space-8) 0;
+      border-top: 1px solid var(--border-color);
+      color: var(--text-muted);
+      font-size: var(--font-size-sm);
+    }
+    
+    /* ============================================
+       Responsive Adjustments
+       ============================================ */
+    @media (max-width: 640px) {
+      body {
+        padding: var(--space-4) var(--space-3);
+      }
+      
+      .header h1 {
+        font-size: var(--font-size-3xl);
+      }
+      
+      .header p {
+        font-size: var(--font-size-base);
+      }
+      
+      .search-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      
+      .surprise-btn {
+        width: 100%;
+        justify-content: center;
+      }
+      
+      .pills-container {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        padding-bottom: var(--space-2);
+        -webkit-overflow-scrolling: touch;
+      }
+      
+      .category-pill {
+        flex-shrink: 0;
+        white-space: nowrap;
+      }
+      
+      .game-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-4);
+      }
+      
+      .card-emoji {
+        font-size: 2.5rem;
+      }
+      
+      .result-info {
+        flex-direction: column;
+        gap: var(--space-3);
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <img class="header-logo" src="icons/gamelibrary-logo.png" alt="Game Library logo" width="88" height="88">
+      <h1>Game Library</h1>
+      <p>Your offline collection of browser games</p>
+    </header>
+    
+    <!-- Controls Section -->
+    <section class="controls-section" aria-label="Game filters and search">
+      <!-- Search + Surprise Me -->
+      <div class="search-row">
+        <div class="search-container">
+          <input 
+            type="text" 
+            id="search-input" 
+            class="search-input" 
+            placeholder="Search games by title, category, or description..." 
+            aria-label="Search games"
+          >
+        </div>
+        <button type="button" id="surprise-btn" class="surprise-btn" aria-label="Play a random game from the current selection">
+          🎲 Surprise Me
+        </button>
+      </div>
+      
+      <!-- Category Pills -->
+      <div id="pills-container" class="pills-container" role="group" aria-label="Filter by category">
+        <!-- Pills rendered by JavaScript -->
+      </div>
+      
+      <!-- Result Info -->
+      <div class="result-info">
+        <span id="result-count" class="result-count" aria-live="polite">334 games</span>
+        <button type="button" id="clear-btn" class="clear-btn" style="display: none;">
+          Clear filters
+        </button>
+      </div>
+    </section>
+    
+    <!-- Game Grid -->
+    <main id="game-grid" class="game-grid" role="list" aria-live="polite" aria-busy="false">
+      <!-- Cards rendered by JavaScript -->
+    </main>
+    
+    <!-- Empty State -->
+    <div id="empty-state" class="empty-state" role="status" aria-live="polite">
+      <span class="empty-state-emoji">🎮</span>
+      <p id="empty-state-message">No games found matching your search.</p>
+      <button type="button" id="empty-clear-btn" class="clear-btn">
+        Clear filters
+      </button>
+    </div>
+    
+    <!-- Footer -->
+    <footer class="footer">
+      <p>Offline game library — no internet required.</p>
+    </footer>
+  </div>
+  
+  <script>
+    /* ============================================
+       Game Library Data (334 games)
+       ============================================ */
+    const GAMES = [
+      {"title": "Cute Snake", "href": "snake.html", "emoji": "🐍", "category": "Arcade", "accent": "linear-gradient(135deg, #ffb3c6 0%, #a8e6cf 100%)", "blurb": "Classic snake with a cute pastel look."},
+      {"title": "Whimsical Woodland Chess", "href": "chess-game/index.html", "emoji": "♞", "category": "Card & Board", "accent": "linear-gradient(135deg, #7c7cff 0%, #9d7cff 100%)", "blurb": "Play chess against an AI on a woodland board."},
+      {"title": "Big Two", "href": "big-two-game/index.html", "emoji": "🃏", "category": "Card & Board", "accent": "linear-gradient(135deg, #50c878 0%, #2d5a3f 100%)", "blurb": "The classic Cantonese card game 大老二."},
+      {"title": "2048", "href": "2048-game/index.html", "emoji": "🔢", "category": "Puzzle", "accent": "linear-gradient(135deg, #ffb37c 0%, #e8d5b7 100%)", "blurb": "Slide and merge tiles to reach 2048."},
+      {"title": "Jet Shooter", "href": "jet-shooting.html", "emoji": "🚀", "category": "Shooter", "accent": "linear-gradient(135deg, #22d3ee 0%, #a855f7 100%)", "blurb": "Classic vertical jet shooter — dodge, blast, survive."},
+      {"title": "Dogminton", "href": "badminton-dogs.html", "emoji": "🏸", "category": "Sports", "accent": "linear-gradient(135deg, #38bdf8 0%, #22c55e 100%)", "blurb": "Fast-paced badminton rally against playful dogs."},
+      {"title": "Mahjong Solitaire", "href": "mahjong.html", "emoji": "🀄", "category": "Puzzle", "accent": "linear-gradient(135deg, #e3b658 0%, #b3261e 100%)", "blurb": "Match tiles across solitaire and connect modes."},
+      {"title": "Texas Hold'em Poker", "href": "poker-game/index.html", "emoji": "♠️", "category": "Card & Board", "accent": "linear-gradient(135deg, #1a472a 0%, #b3261e 100%)", "blurb": "No-limit Texas Hold'em against CPU opponents."},
+      {"title": "Pinball", "href": "pinball.html", "emoji": "🕹️", "category": "Arcade", "accent": "linear-gradient(135deg, #818cf8 0%, #1e1b4b 100%)", "blurb": "Arcade pinball — launch, flip, and chase the high score."},
+      {"title": "Neon Asphalt Racing", "href": "asphalt-racing.html", "emoji": "🏎️", "category": "Racing", "accent": "linear-gradient(135deg, #f43f5e 0%, #1e293b 100%)", "blurb": "Neon-soaked arcade street racing at top speed."},
+      {"title": "Minesweeper", "href": "minesweeper.html", "emoji": "💣", "category": "Puzzle", "accent": "linear-gradient(135deg, #94a3b8 0%, #334155 100%)", "blurb": "Flag the mines and clear the board."},
+      {"title": "Tic-Tac-Toe", "href": "tic-tac-toe.html", "emoji": "❌", "category": "Card & Board", "accent": "linear-gradient(135deg, #f87171 0%, #38bdf8 100%)", "blurb": "Three in a row vs a smart AI or a friend."},
+      {"title": "Memory Match", "href": "memory-match.html", "emoji": "🧠", "category": "Puzzle", "accent": "linear-gradient(135deg, #f0abfc 0%, #6b21a8 100%)", "blurb": "Flip cards and match the pairs."},
+      {"title": "Simon Says", "href": "simon.html", "emoji": "🎵", "category": "Arcade", "accent": "linear-gradient(135deg, #fbbf24 0%, #4ade80 100%)", "blurb": "Repeat the growing colour sequence."},
+      {"title": "Sudoku", "href": "sudoku.html", "emoji": "🧮", "category": "Puzzle", "accent": "linear-gradient(135deg, #60a5fa 0%, #1e3a8a 100%)", "blurb": "Fill the grid — a fresh puzzle every time."},
+      {"title": "Iron Fist Arena", "href": "iron-fist-arena.html", "emoji": "🥊", "category": "Fighting", "accent": "linear-gradient(135deg, #f87171 0%, #7f1d1d 100%)", "blurb": "2.5D fighter — combos, juggles, throws, specials, arcade ladder."},
+      {"title": "Ninja Arena", "href": "ninja-arena.html", "emoji": "🥷", "category": "Fighting", "accent": "linear-gradient(135deg, #38bdf8 0%, #1e3a8a 100%)", "blurb": "Ninja arena brawler — energy techniques, air combos, supers."},
+      {"title": "Chinese Chess (Xiangqi)", "href": "chinese-chess.html", "emoji": "🐉", "category": "Card & Board", "accent": "linear-gradient(135deg, #c8102e 0%, #111827 100%)", "blurb": "Traditional Chinese chess — cannons, flying general, check & mate."},
+      {"title": "Color Clash", "href": "color-clash.html", "emoji": "🌈", "category": "Card & Board", "accent": "linear-gradient(135deg, #ef4444 0%, #3b82f6 100%)", "blurb": "Uno-style colour & number card battle vs 3 CPUs."},
+      {"title": "Property Tycoon", "href": "property-tycoon.html", "emoji": "🏙️", "category": "Card & Board", "accent": "linear-gradient(135deg, #22c55e 0%, #0f766e 100%)", "blurb": "Roll, buy and trade — bankrupt your rivals."},
+      {"title": "Turbo Kart GP", "href": "turbo-kart-gp.html", "emoji": "🏁", "category": "Racing", "accent": "linear-gradient(135deg, #f59e0b 0%, #dc2626 100%)", "blurb": "Drift, boost and battle in an original kart racer."},
+      {"title": "Snakes & Ladders", "href": "snakes-and-ladders.html", "emoji": "🎲", "category": "Card & Board", "accent": "linear-gradient(135deg, #a3e635 0%, #16a34a 100%)", "blurb": "Climb the ladders, dodge the snakes — race to 100."},
+      {"title": "Checkers", "href": "checkers.html", "emoji": "⚫", "category": "Card & Board", "accent": "linear-gradient(135deg, #94a3b8 0%, #111827 100%)", "blurb": "Classic draughts — forced captures and kings."},
+      {"title": "Reversi", "href": "reversi.html", "emoji": "⚪", "category": "Card & Board", "accent": "linear-gradient(135deg, #34d399 0%, #065f46 100%)", "blurb": "Flip discs to own the board in Othello."},
+      {"title": "Klondike Solitaire", "href": "klondike-solitaire.html", "emoji": "🃏", "category": "Card & Board", "accent": "linear-gradient(135deg, #0ea5e9 0%, #1e3a8a 100%)", "blurb": "Classic Klondike solitaire — draw 1 or 3."},
+      {"title": "FreeCell", "href": "freecell.html", "emoji": "♣️", "category": "Card & Board", "accent": "linear-gradient(135deg, #4ade80 0%, #15803d 100%)", "blurb": "FreeCell solitaire — 4 free cells, 8 columns."},
+      {"title": "Blackjack", "href": "blackjack.html", "emoji": "♦️", "category": "Card & Board", "accent": "linear-gradient(135deg, #dc2626 0%, #111827 100%)", "blurb": "Beat the dealer to 21 — hit, stand, double, split."},
+      {"title": "Bubble Shooter", "href": "bubble-shooter.html", "emoji": "🫧", "category": "Puzzle", "accent": "linear-gradient(135deg, #38bdf8 0%, #a855f7 100%)", "blurb": "Match 3+ bubbles and pop the cluster."},
+      {"title": "Hangman", "href": "hangman.html", "emoji": "🔤", "category": "Puzzle", "accent": "linear-gradient(135deg, #fbbf24 0%, #b45309 100%)", "blurb": "Guess the word before the figure is complete."},
+      {"title": "Word Search", "href": "word-search.html", "emoji": "🔎", "category": "Puzzle", "accent": "linear-gradient(135deg, #22d3ee 0%, #0369a1 100%)", "blurb": "Find the hidden words across the letter grid."},
+      {"title": "Nonogram", "href": "nonogram.html", "emoji": "🟦", "category": "Puzzle", "accent": "linear-gradient(135deg, #818cf8 0%, #3730a3 100%)", "blurb": "Use the clues to reveal the hidden picture."},
+      {"title": "Whack-a-Mole", "href": "whack-a-mole.html", "emoji": "🔨", "category": "Arcade", "accent": "linear-gradient(135deg, #f97316 0%, #7c2d12 100%)", "blurb": "Whack the moles, dodge the bombs."},
+      {"title": "Tower Guard", "href": "tower-guard.html", "emoji": "🗼", "category": "Strategy", "accent": "linear-gradient(135deg, #14b8a6 0%, #0f172a 100%)", "blurb": "Build towers and stop the invading waves."},
+      {"title": "Spider Solitaire", "href": "spider-solitaire.html", "emoji": "🕷️", "category": "Card & Board", "accent": "linear-gradient(135deg, #64748b 0%, #0f172a 100%)", "blurb": "Build same-suit runs in Spider solitaire — 1/2/4 suits."},
+      {"title": "Pyramid Solitaire", "href": "pyramid-solitaire.html", "emoji": "🔺", "category": "Card & Board", "accent": "linear-gradient(135deg, #fbbf24 0%, #b45309 100%)", "blurb": "Clear the pyramid by pairing cards that sum to 13."},
+      {"title": "Video Poker", "href": "video-poker.html", "emoji": "🎰", "category": "Card & Board", "accent": "linear-gradient(135deg, #a855f7 0%, #111827 100%)", "blurb": "Jacks-or-Better draw poker against the paytable."},
+      {"title": "Crazy Eights", "href": "crazy-eights.html", "emoji": "🎴", "category": "Card & Board", "accent": "linear-gradient(135deg, #f43f5e 0%, #1e293b 100%)", "blurb": "Shed your hand — match suit or rank, 8s are wild."},
+      {"title": "Go Fish", "href": "go-fish.html", "emoji": "🎣", "category": "Card & Board", "accent": "linear-gradient(135deg, #22d3ee 0%, #0369a1 100%)", "blurb": "Ask, match and collect books against the CPU."},
+      {"title": "Chinese Checkers", "href": "chinese-checkers.html", "emoji": "⭐", "category": "Card & Board", "accent": "linear-gradient(135deg, #f472b6 0%, #6d28d9 100%)", "blurb": "Hop your marbles across the star board."},
+      {"title": "Dots & Boxes", "href": "dots-and-boxes.html", "emoji": "🔗", "category": "Card & Board", "accent": "linear-gradient(135deg, #38bdf8 0%, #1e3a8a 100%)", "blurb": "Draw lines, claim boxes, steal the trap."},
+      {"title": "Nine Men's Morris", "href": "nine-mens-morris.html", "emoji": "🎯", "category": "Card & Board", "accent": "linear-gradient(135deg, #a3e635 0%, #166534 100%)", "blurb": "Place, move and mill to reduce your rival to two."},
+      {"title": "Ludo", "href": "ludo.html", "emoji": "🎲", "category": "Card & Board", "accent": "linear-gradient(135deg, #f59e0b 0%, #b91c1c 100%)", "blurb": "Roll, race and send rivals home in classic Ludo."},
+      {"title": "Mancala", "href": "mancala.html", "emoji": "🟤", "category": "Card & Board", "accent": "linear-gradient(135deg, #b45309 0%, #78350f 100%)", "blurb": "Sow stones and capture in Kalah Mancala."},
+      {"title": "Dominoes", "href": "dominoes.html", "emoji": "🎴", "category": "Card & Board", "accent": "linear-gradient(135deg, #94a3b8 0%, #1f2937 100%)", "blurb": "Match the pips and go out first in double-six dominoes."},
+      {"title": "Lights Out", "href": "lights-out.html", "emoji": "💡", "category": "Puzzle", "accent": "linear-gradient(135deg, #fde047 0%, #1e293b 100%)", "blurb": "Toggle the grid until every light is off."},
+      {"title": "Sliding Puzzle", "href": "sliding-puzzle.html", "emoji": "🧩", "category": "Puzzle", "accent": "linear-gradient(135deg, #38bdf8 0%, #7c3aed 100%)", "blurb": "Slide the numbered tiles back into order."},
+      {"title": "Peg Solitaire", "href": "peg-solitaire.html", "emoji": "📍", "category": "Puzzle", "accent": "linear-gradient(135deg, #34d399 0%, #0f766e 100%)", "blurb": "Jump pegs to leave as few as possible."},
+      {"title": "Tower of Hanoi", "href": "tower-of-hanoi.html", "emoji": "🏗️", "category": "Puzzle", "accent": "linear-gradient(135deg, #fb923c 0%, #7c2d12 100%)", "blurb": "Move the stack without a bigger disk on a smaller."},
+      {"title": "Maze Escape", "href": "maze-escape.html", "emoji": "🌀", "category": "Puzzle", "accent": "linear-gradient(135deg, #22d3ee 0%, #1e3a8a 100%)", "blurb": "Find the exit of a fresh procedural maze."},
+      {"title": "Color Flow", "href": "flow-free.html", "emoji": "🌊", "category": "Puzzle", "accent": "linear-gradient(135deg, #38bdf8 0%, #a855f7 100%)", "blurb": "Connect matching dots and fill the whole grid."},
+      {"title": "Gem Crush", "href": "match-3.html", "emoji": "💎", "category": "Puzzle", "accent": "linear-gradient(135deg, #f472b6 0%, #6d28d9 100%)", "blurb": "Swap gems to line up three or more."},
+      {"title": "Flood-It", "href": "flood-it.html", "emoji": "🎨", "category": "Puzzle", "accent": "linear-gradient(135deg, #f87171 0%, #2563eb 100%)", "blurb": "Flood the whole board within the move limit."},
+      {"title": "Bouncer", "href": "bouncer.html", "emoji": "🦘", "category": "Arcade", "accent": "linear-gradient(135deg, #a3e635 0%, #15803d 100%)", "blurb": "Hop upward forever — don't fall off the bottom."},
+      {"title": "Cube Hopper", "href": "cube-hopper.html", "emoji": "🧊", "category": "Arcade", "accent": "linear-gradient(135deg, #818cf8 0%, #4c1d95 100%)", "blurb": "Hop the isometric pyramid and repaint every cube."},
+      {"title": "Blast Friends", "href": "blast-friends.html", "emoji": "🧨", "category": "Arcade", "accent": "linear-gradient(135deg, #f97316 0%, #111827 100%)", "blurb": "Plant bombs, blast enemies, clear the arena."},
+      {"title": "Sky Guard", "href": "sky-guard.html", "emoji": "🛰️", "category": "Shooter", "accent": "linear-gradient(135deg, #22d3ee 0%, #0f172a 100%)", "blurb": "Intercept incoming missiles before they land."},
+      {"title": "Digger", "href": "digger.html", "emoji": "🕳️", "category": "Arcade", "accent": "linear-gradient(135deg, #fb923c 0%, #14532d 100%)", "blurb": "Tunnel through dirt and pop the chasing enemies."},
+      {"title": "Micro GP", "href": "micro-gp.html", "emoji": "🚗", "category": "Racing", "accent": "linear-gradient(135deg, #f43f5e 0%, #1e293b 100%)", "blurb": "Top-down lap racing against five AI drivers."},
+      {"title": "Rock Paper Scissors", "href": "rock-paper-scissors.html", "emoji": "✂️", "category": "Casual", "accent": "linear-gradient(135deg, #fbbf24 0%, #4ade80 100%)", "blurb": "Best-of matches vs a CPU that learns your habits."},
+      {"title": "Typing Rush", "href": "typing-rush.html", "emoji": "⌨️", "category": "Casual", "accent": "linear-gradient(135deg, #34d399 0%, #1e3a8a 100%)", "blurb": "Type the falling words before they reach the base."},
+      {"title": "Backgammon", "href": "backgammon.html", "emoji": "🎲", "category": "Card & Board", "accent": "linear-gradient(135deg, #f59e0b 0%, #1f2937 100%)", "blurb": "Roll, hit and bear off in classic backgammon."},
+      {"title": "Go (9x9)", "href": "go-9x9.html", "emoji": "🔵", "category": "Card & Board", "accent": "linear-gradient(135deg, #94a3b8 0%, #111827 100%)", "blurb": "Surround territory and capture on a 9x9 board."},
+      {"title": "Light Cycles", "href": "light-cycles.html", "emoji": "🏍️", "category": "Arcade", "accent": "linear-gradient(135deg, #22d3ee 0%, #7c3aed 100%)", "blurb": "Grow glowing trails and trap your rivals."},
+      {"title": "Spacewar", "href": "spacewar.html", "emoji": "👽", "category": "Shooter", "accent": "linear-gradient(135deg, #a855f7 0%, #0f172a 100%)", "blurb": "Gravity duel around a star — thrust and shoot."},
+      {"title": "Air Hockey", "href": "air-hockey.html", "emoji": "🏒", "category": "Sports", "accent": "linear-gradient(135deg, #38bdf8 0%, #1e3a8a 100%)", "blurb": "Fast puck battles — beat the CPU to seven."},
+      {"title": "Dice Duel", "href": "dice-duel.html", "emoji": "🎲", "category": "Card & Board", "accent": "linear-gradient(135deg, #4ade80 0%, #166534 100%)", "blurb": "Five dice, 13 boxes — out-score your rivals."},
+      {"title": "8-Ball Pool", "href": "pool-billiards.html", "emoji": "🎱", "category": "Sports", "accent": "linear-gradient(135deg, #16a34a 0%, #0f172a 100%)", "blurb": "Aim, break and pot your group, then the 8-ball."},
+      {"title": "Reaction Grid", "href": "reaction-grid.html", "emoji": "⚡", "category": "Casual", "accent": "linear-gradient(135deg, #fde047 0%, #f97316 100%)", "blurb": "Test your reflexes — how fast can you tap?"},
+      {"title": "Fruit Slash", "href": "fruit-slash.html", "emoji": "🍉", "category": "Arcade", "accent": "linear-gradient(135deg, #f43f5e 0%, #f59e0b 100%)", "blurb": "Swipe to slice the fruit — dodge the bombs."},
+      {"title": "Bingo", "href": "bingo.html", "emoji": "🎟️", "category": "Casual", "accent": "linear-gradient(135deg, #f472b6 0%, #4c1d95 100%)", "blurb": "Daub your card and beat the callers to a line."},
+      {"title": "Idle Empire", "href": "idle-empire.html", "emoji": "🏭", "category": "Strategy", "accent": "linear-gradient(135deg, #f59e0b 0%, #78350f 100%)", "blurb": "Tap, automate and grow an empire that earns while idle."},
+      {"title": "Trivia Quiz", "href": "trivia-quiz.html", "emoji": "❓", "category": "Casual", "accent": "linear-gradient(135deg, #22d3ee 0%, #6d28d9 100%)", "blurb": "Answer fast across categories — beat your best."},
+      {"title": "Stack Tower", "href": "stack-tower.html", "emoji": "🏢", "category": "Arcade", "accent": "linear-gradient(135deg, #818cf8 0%, #0f172a 100%)", "blurb": "Drop and stack the blocks as high as you can."},
+      {"title": "Note Tiles", "href": "note-tiles.html", "emoji": "🎹", "category": "Casual", "accent": "linear-gradient(135deg, #a855f7 0%, #1e3a8a 100%)", "blurb": "Tap the falling tiles and play a tune."},
+      {"title": "Marble Blast", "href": "marble-blast.html", "emoji": "🔮", "category": "Arcade", "accent": "linear-gradient(135deg, #a855f7 0%, #f59e0b 100%)", "blurb": "Shoot marbles into the chain — match 3+ and blast the path."},
+      {"title": "Tower Climber", "href": "tower-climber.html", "emoji": "🧗", "category": "Arcade", "accent": "linear-gradient(135deg, #38bdf8 0%, #4338ca 100%)", "blurb": "Bounce up an endless tower — don't fall."},
+      {"title": "Pet Pal", "href": "pet-pal.html", "emoji": "🐶", "category": "Casual", "accent": "linear-gradient(135deg, #fbbf24 0%, #f472b6 100%)", "blurb": "Feed, play and raise your own virtual pet."},
+      {"title": "Dragon Haven", "href": "dragon-haven.html", "emoji": "🐲", "category": "Strategy", "accent": "linear-gradient(135deg, #22c55e 0%, #7c3aed 100%)", "blurb": "Breed dragons and grow your village."},
+      {"title": "Hamster Roll", "href": "hamster-roll.html", "emoji": "🐹", "category": "Arcade", "accent": "linear-gradient(135deg, #f59e0b 0%, #a16207 100%)", "blurb": "Roll a hamster ball through obstacle courses."},
+      {"title": "Hockey Ball", "href": "hockey-ball.html", "emoji": "🏑", "category": "Sports", "accent": "linear-gradient(135deg, #38bdf8 0%, #0f766e 100%)", "blurb": "Paddle-and-ball rink duel — first to seven."},
+      {"title": "Traffic Jam", "href": "traffic-jam.html", "emoji": "🚕", "category": "Puzzle", "accent": "linear-gradient(135deg, #fde047 0%, #b91c1c 100%)", "blurb": "Slide the cars to free the red one."},
+      {"title": "Happy Harvest", "href": "happy-harvest.html", "emoji": "🌾", "category": "Casual", "accent": "linear-gradient(135deg, #a3e635 0%, #b45309 100%)", "blurb": "Plant, raise animals and grow your farm."},
+      {"title": "Island Base", "href": "island-base.html", "emoji": "🏝️", "category": "Strategy", "accent": "linear-gradient(135deg, #14b8a6 0%, #0f172a 100%)", "blurb": "Build defenses and raid enemy islands."},
+      {"title": "Terra Sandbox", "href": "terra-sandbox.html", "emoji": "🏔️", "category": "Sandbox", "accent": "linear-gradient(135deg, #7cbd56 0%, #4b5563 100%)", "blurb": "Dig, build and craft in a 2D tile world."},
+      {"title": "Dungeon Crawl", "href": "dungeon-crawl.html", "emoji": "🗡️", "category": "Action", "accent": "linear-gradient(135deg, #a855f7 0%, #1e1b4b 100%)", "blurb": "Top-down dungeon action — slay and descend."},
+      {"title": "Street Brawl", "href": "street-brawl.html", "emoji": "👊", "category": "Action", "accent": "linear-gradient(135deg, #f43f5e 0%, #1e293b 100%)", "blurb": "Beat-'em-up through waves of thugs."},
+      {"title": "Run & Gun", "href": "run-and-gun.html", "emoji": "🪖", "category": "Action", "accent": "linear-gradient(135deg, #22c55e 0%, #052e16 100%)", "blurb": "Run, jump and blast through enemy lines."},
+      {"title": "Ghost Agent", "href": "ghost-agent.html", "emoji": "🕵️", "category": "Action", "accent": "linear-gradient(135deg, #64748b 0%, #0f172a 100%)", "blurb": "Top-down stealth — sneak past guards and cameras."},
+      {"title": "Hover Racer", "href": "hover-racer.html", "emoji": "🛸", "category": "Racing", "accent": "linear-gradient(135deg, #22d3ee 0%, #7c3aed 100%)", "blurb": "Neon hovercraft racing at breakneck speed."},
+      {"title": "Drag Racer", "href": "drag-racer.html", "emoji": "🚦", "category": "Racing", "accent": "linear-gradient(135deg, #f59e0b 0%, #111827 100%)", "blurb": "Perfect your launch and shifts down the quarter-mile."},
+      {"title": "Moto Rush", "href": "moto-rush.html", "emoji": "🛵", "category": "Racing", "accent": "linear-gradient(135deg, #fb923c 0%, #0f172a 100%)", "blurb": "Endless highway dash on a motorbike."},
+      {"title": "Cave Runner", "href": "cave-runner.html", "emoji": "🦇", "category": "Runner", "accent": "linear-gradient(135deg, #64748b 0%, #1c1917 100%)", "blurb": "Sprint through an endless cave."},
+      {"title": "Jet Ski", "href": "jet-ski.html", "emoji": "🚤", "category": "Runner", "accent": "linear-gradient(135deg, #22d3ee 0%, #0369a1 100%)", "blurb": "Endless river run — dodge rocks and grab rings."},
+      {"title": "Rooftop Run", "href": "rooftop-run.html", "emoji": "🌆", "category": "Runner", "accent": "linear-gradient(135deg, #818cf8 0%, #1e293b 100%)", "blurb": "Parkour across the city skyline."},
+      {"title": "Soccer Striker", "href": "soccer-striker.html", "emoji": "⚽", "category": "Sports", "accent": "linear-gradient(135deg, #22c55e 0%, #15803d 100%)", "blurb": "Arcade football — dribble, pass and score."},
+      {"title": "Basket Hoops", "href": "basket-hoops.html", "emoji": "🏀", "category": "Sports", "accent": "linear-gradient(135deg, #f97316 0%, #7c2d12 100%)", "blurb": "Drag, aim and sink the perfect shot."},
+      {"title": "Tennis Open", "href": "tennis-open.html", "emoji": "🎾", "category": "Sports", "accent": "linear-gradient(135deg, #a3e635 0%, #166534 100%)", "blurb": "Rally over the net with real scoring."},
+      {"title": "Bowling Alley", "href": "bowling-alley.html", "emoji": "🎳", "category": "Sports", "accent": "linear-gradient(135deg, #38bdf8 0%, #6d28d9 100%)", "blurb": "Ten-pin bowling with spin and splits."},
+      {"title": "Sumo Clash", "href": "sumo-clash.html", "emoji": "🤼", "category": "Fighting", "accent": "linear-gradient(135deg, #f59e0b 0%, #7f1d1d 100%)", "blurb": "Push your rival out of the dohyo."},
+      {"title": "Particle Sandbox", "href": "particle-sandbox.html", "emoji": "🧪", "category": "Sandbox", "accent": "linear-gradient(135deg, #f59e0b 0%, #1e293b 100%)", "blurb": "Paint sand, water, fire and lava — falling-sand physics."},
+      {"title": "Rail Shooter", "href": "rail-shooter.html", "emoji": "🔫", "category": "Shooter", "accent": "linear-gradient(135deg, #f59e0b 0%, #111827 100%)", "blurb": "On-rails shooting gallery — aim, shoot, reload."},
+      {"title": "Arena Shooter", "href": "arena-shooter.html", "emoji": "🎮", "category": "Shooter", "accent": "linear-gradient(135deg, #22d3ee 0%, #6d28d9 100%)", "blurb": "Twin-stick arena — survive the enemy waves."},
+      {"title": "Tank Battle", "href": "tank-battle.html", "emoji": "🛻", "category": "Shooter", "accent": "linear-gradient(135deg, #4d7c0f 0%, #1c1917 100%)", "blurb": "Hull and turret warfare against AI tanks."},
+      {"title": "Sword Duel", "href": "sword-duel.html", "emoji": "🤺", "category": "Fighting", "accent": "linear-gradient(135deg, #94a3b8 0%, #111827 100%)", "blurb": "Parry, strike and counter in a 1v1 duel."},
+      {"title": "Boxing Ring", "href": "boxing-ring.html", "emoji": "🥋", "category": "Fighting", "accent": "linear-gradient(135deg, #f43f5e 0%, #111827 100%)", "blurb": "Jab, hook and dodge your way to a knockout."},
+      {"title": "Domination", "href": "domination.html", "emoji": "🗺️", "category": "Strategy", "accent": "linear-gradient(135deg, #f59e0b 0%, #7c2d12 100%)", "blurb": "Conquer the map, territory by territory."},
+      {"title": "Siege Defense", "href": "siege-defense.html", "emoji": "🏹", "category": "Strategy", "accent": "linear-gradient(135deg, #64748b 0%, #7f1d1d 100%)", "blurb": "Defend your castle from the marching horde."},
+      {"title": "City Builder", "href": "city-builder.html", "emoji": "🏘️", "category": "Sandbox", "accent": "linear-gradient(135deg, #38bdf8 0%, #1e293b 100%)", "blurb": "Zone, build and grow your own city."},
+      {"title": "Aquarium", "href": "aquarium.html", "emoji": "🐠", "category": "Sandbox", "accent": "linear-gradient(135deg, #22d3ee 0%, #0f766e 100%)", "blurb": "Build a fish tank and watch it thrive."},
+      {"title": "Lucky Wheel", "href": "lucky-wheel.html", "emoji": "🎡", "category": "Casual", "accent": "linear-gradient(135deg, #f472b6 0%, #6d28d9 100%)", "blurb": "Spin for coins, multipliers and jackpots."},
+      {"title": "Meteor Dodge", "href": "meteor-dodge.html", "emoji": "🌠", "category": "Arcade", "accent": "linear-gradient(135deg, #818cf8 0%, #0f172a 100%)", "blurb": "Survive the falling meteor swarm."},
+      {"title": "Fire & Frost", "href": "fire-and-frost.html", "emoji": "🔥", "category": "Puzzle", "accent": "linear-gradient(135deg, #f97316 0%, #0ea5e9 100%)", "blurb": "Two-element co-op puzzle platformer — Fire and Frost."},
+      {"title": "Golf Links", "href": "golf-links.html", "emoji": "⛳", "category": "Sports", "accent": "linear-gradient(135deg, #4ade80 0%, #166534 100%)", "blurb": "Aim, power up and sink nine mini-golf holes."},
+      {"title": "Dart Champ", "href": "dart-champ.html", "emoji": "🎯", "category": "Sports", "accent": "linear-gradient(135deg, #dc2626 0%, #111827 100%)", "blurb": "Aim for triple twenty and check out."},
+      {"title": "Zombie Survival", "href": "zombie-survival.html", "emoji": "🧟", "category": "Action", "accent": "linear-gradient(135deg, #4d7c0f 0%, #111827 100%)", "blurb": "Top-down horde survival — survive the waves."},
+      {"title": "Mech Assault", "href": "mech-assault.html", "emoji": "🤖", "category": "Action", "accent": "linear-gradient(135deg, #38bdf8 0%, #1e1b4b 100%)", "blurb": "Pilot a mech and blast enemy war machines."},
+      {"title": "Speedboat GP", "href": "speedboat-gp.html", "emoji": "⛵", "category": "Racing", "accent": "linear-gradient(135deg, #22d3ee 0%, #0369a1 100%)", "blurb": "Buoy-to-buoy boat racing on open water."},
+      {"title": "Volley Smash", "href": "volley-smash.html", "emoji": "🏐", "category": "Sports", "accent": "linear-gradient(135deg, #fbbf24 0%, #2563eb 100%)", "blurb": "Time your jump and smash the ball over the net."},
+      {"title": "Shadow Ninja", "href": "shadow-ninja.html", "emoji": "🥷", "category": "Action", "accent": "linear-gradient(135deg, #334155 0%, #0f172a 100%)", "blurb": "Wall-jump and slash through a ninja action platformer."},
+      {"title": "Alpine Rush", "href": "alpine-rush.html", "emoji": "🏂", "category": "Racing", "accent": "linear-gradient(135deg, #93c5fd 0%, #1e40af 100%)", "blurb": "Carve down an endless snowy slalom."},
+      {"title": "Mine Cart", "href": "mine-cart.html", "emoji": "🚃", "category": "Runner", "accent": "linear-gradient(135deg, #a16207 0%, #1c1917 100%)", "blurb": "Endless mine-cart dash — jump the gaps."},
+      {"title": "Lava Leap", "href": "lava-leap.html", "emoji": "🌋", "category": "Runner", "accent": "linear-gradient(135deg, #f97316 0%, #7f1d1d 100%)", "blurb": "Hop the platforms before the lava rises."},
+      {"title": "Mage Duel", "href": "mage-duel.html", "emoji": "🧙", "category": "Fighting", "accent": "linear-gradient(135deg, #a855f7 0%, #1e1b4b 100%)", "blurb": "Blink, shield and sling spells in a wizard duel."},
+      {"title": "Robo Brawl", "href": "robo-brawl.html", "emoji": "🦾", "category": "Fighting", "accent": "linear-gradient(135deg, #22d3ee 0%, #1f2937 100%)", "blurb": "Hammer, laser and rocket your robot rival."},
+      {"title": "Zen Garden", "href": "zen-garden.html", "emoji": "🌿", "category": "Sandbox", "accent": "linear-gradient(135deg, #4ade80 0%, #0f766e 100%)", "blurb": "Arrange a calm, growing garden."},
+      {"title": "Space Sandbox", "href": "space-sandbox.html", "emoji": "🪐", "category": "Sandbox", "accent": "linear-gradient(135deg, #818cf8 0%, #0f172a 100%)", "blurb": "Drop stars and planets and watch gravity do the rest."},
+      {"title": "Ant Farm", "href": "ant-farm.html", "emoji": "🐜", "category": "Sandbox", "accent": "linear-gradient(135deg, #b45309 0%, #1c1917 100%)", "blurb": "Dig tunnels and grow a busy ant colony."},
+      {"title": "Kaiju Rampage", "href": "kaiju-rampage.html", "emoji": "🦖", "category": "Fighting", "accent": "linear-gradient(135deg, #4d7c0f 0%, #111827 100%)", "blurb": "Giant monsters brawl over the city."},
+      {"title": "Stick Brawl", "href": "stick-brawl.html", "emoji": "🥢", "category": "Fighting", "accent": "linear-gradient(135deg, #cbd5e1 0%, #111827 100%)", "blurb": "Minimal stick-figure fighting."},
+      {"title": "Monster Trucks", "href": "monster-trucks.html", "emoji": "🚙", "category": "Racing", "accent": "linear-gradient(135deg, #f97316 0%, #1c1917 100%)", "blurb": "Rough-terrain monster-truck racing."},
+      {"title": "Ice Rally", "href": "ice-rally.html", "emoji": "⛸️", "category": "Racing", "accent": "linear-gradient(135deg, #93c5fd 0%, #1e3a8a 100%)", "blurb": "Drift a low-grip ice circuit."},
+      {"title": "Wall Runner", "href": "wall-runner.html", "emoji": "💨", "category": "Runner", "accent": "linear-gradient(135deg, #38bdf8 0%, #1e293b 100%)", "blurb": "Endless wall-running parkour."},
+      {"title": "Space Runner", "href": "space-runner.html", "emoji": "🌌", "category": "Runner", "accent": "linear-gradient(135deg, #a855f7 0%, #0f172a 100%)", "blurb": "Zero-gravity station sprint — flip and dodge."},
+      {"title": "Pixel Defense", "href": "pixel-shooter.html", "emoji": "📡", "category": "Shooter", "accent": "linear-gradient(135deg, #22c55e 0%, #052e16 100%)", "blurb": "Hold the base against descending waves."},
+      {"title": "Terrarium", "href": "terrarium.html", "emoji": "🪴", "category": "Sandbox", "accent": "linear-gradient(135deg, #4ade80 0%, #14532d 100%)", "blurb": "Balance a sealed glass ecosystem."},
+      {"title": "Rocket Lab", "href": "rocket-lab.html", "emoji": "🚀", "category": "Sandbox", "accent": "linear-gradient(135deg, #38bdf8 0%, #1e1b4b 100%)", "blurb": "Build a rocket and try to reach orbit."},
+      {"title": "Marble Run", "href": "marble-run.html", "emoji": "🎢", "category": "Sandbox", "accent": "linear-gradient(135deg, #f472b6 0%, #6d28d9 100%)", "blurb": "Build ramps and roll a marble to the goal."},
+      {"title": "Gladiator Arena", "href": "gladiator-arena.html", "emoji": "🔱", "category": "Fighting", "accent": "linear-gradient(135deg, #b45309 0%, #111827 100%)", "blurb": "Sword and shield melee before the crowd."},
+      {"title": "Mech Duel", "href": "mech-duel.html", "emoji": "🦿", "category": "Fighting", "accent": "linear-gradient(135deg, #22d3ee 0%, #1f2937 100%)", "blurb": "Heat-managed mech vs mech duel."},
+      {"title": "Tower Craft", "href": "tower-craft.html", "emoji": "⚙️", "category": "Strategy", "accent": "linear-gradient(135deg, #94a3b8 0%, #0f172a 100%)", "blurb": "Build a castle and survive the siege."},
+      {"title": "Trading Tycoon", "href": "trading-tycoon.html", "emoji": "💰", "category": "Strategy", "accent": "linear-gradient(135deg, #fbbf24 0%, #78350f 100%)", "blurb": "Buy low, sell high across the markets."},
+      {"title": "Boss Rush", "href": "boss-rush.html", "emoji": "👹", "category": "Shooter", "accent": "linear-gradient(135deg, #dc2626 0%, #111827 100%)", "blurb": "Fight escalating bosses with attack patterns."},
+      {"title": "Hack & Slash", "href": "hack-n-slash.html", "emoji": "🪓", "category": "Action", "accent": "linear-gradient(135deg, #f59e0b 0%, #7f1d1d 100%)", "blurb": "Top-down melee against monster hordes."},
+      {"title": "Table Football", "href": "table-football.html", "emoji": "🥅", "category": "Sports", "accent": "linear-gradient(135deg, #22c55e 0%, #111827 100%)", "blurb": "Foosball — spin the rods and score."},
+      {"title": "Critter Clash", "href": "critter-clash.html", "emoji": "🐾", "category": "Fighting", "accent": "linear-gradient(135deg, #f59e0b 0%, #78350f 100%)", "blurb": "Cartoon animals brawl it out."},
+      {"title": "Magic Arena", "href": "magic-arena.html", "emoji": "✨", "category": "Fighting", "accent": "linear-gradient(135deg, #a855f7 0%, #1e1b4b 100%)", "blurb": "Spell-slinging top-down arena duel."},
+      {"title": "Rally Cross", "href": "rally-cross.html", "emoji": "🛞", "category": "Racing", "accent": "linear-gradient(135deg, #b45309 0%, #1c1917 100%)", "blurb": "Mixed-surface rally on changing grip."},
+      {"title": "Dino Run", "href": "dino-run.html", "emoji": "🦕", "category": "Runner", "accent": "linear-gradient(135deg, #84cc16 0%, #365314 100%)", "blurb": "Endless dino dash — jump, duck, survive."},
+      {"title": "Candy Dash", "href": "candy-dash.html", "emoji": "🍬", "category": "Runner", "accent": "linear-gradient(135deg, #f472b6 0%, #a21caf 100%)", "blurb": "Zip through a candy world collecting sweets."},
+      {"title": "Merge Gems", "href": "merge-gems.html", "emoji": "🟪", "category": "Puzzle", "accent": "linear-gradient(135deg, #a855f7 0%, #4c1d95 100%)", "blurb": "Slide and merge gems up the tiers."},
+      {"title": "Bubble Pop", "href": "bubble-pop.html", "emoji": "🎈", "category": "Casual", "accent": "linear-gradient(135deg, #38bdf8 0%, #6d28d9 100%)", "blurb": "Pop bubbles fast in a 60-second burst."},
+      {"title": "Naval Command", "href": "naval-command.html", "emoji": "⚓", "category": "Strategy", "accent": "linear-gradient(135deg, #0ea5e9 0%, #0f172a 100%)", "blurb": "Turn-based fleet warfare with salvos."},
+      {"title": "Steel Legion", "href": "steel-legion.html", "emoji": "🔧", "category": "Action", "accent": "linear-gradient(135deg, #38bdf8 0%, #1e1b4b 100%)", "blurb": "Side-scrolling mech action with a boss."},
+      {"title": "Sandbox Kingdom", "href": "sandbox-kingdom.html", "emoji": "🧭", "category": "Sandbox", "accent": "linear-gradient(135deg, #4ade80 0%, #1e40af 100%)", "blurb": "Paint a world and let villagers roam."},
+      {"title": "Penalty Kicks", "href": "penalty-kicks.html", "emoji": "🧤", "category": "Sports", "accent": "linear-gradient(135deg, #22c55e 0%, #111827 100%)", "blurb": "Score and save in a penalty shootout."},
+      {"title": "Astro Trooper", "href": "astro-trooper.html", "emoji": "🚀", "category": "Action", "accent": "linear-gradient(135deg, #38bdf8 0%, #1e1b4b 100%)", "blurb": "Sci-fi run-and-gun platformer."},
+      {"title": "Drift King", "href": "drift-king.html", "emoji": "🚘", "category": "Racing", "accent": "linear-gradient(135deg, #f43f5e 0%, #1e293b 100%)", "blurb": "Chain drifts through corners for big scores."},
+      {"title": "Ninja Run", "href": "ninja-run.html", "emoji": "💫", "category": "Runner", "accent": "linear-gradient(135deg, #334155 0%, #0f172a 100%)", "blurb": "Endless ninja dash — slash and slide."},
+      {"title": "Kung Fu Duel", "href": "kung-fu-duel.html", "emoji": "🐅", "category": "Fighting", "accent": "linear-gradient(135deg, #f59e0b 0%, #7f1d1d 100%)", "blurb": "Punch, kick and sweep in a dojo duel."},
+      {"title": "Sharpshooter", "href": "sharpshooter.html", "emoji": "🔭", "category": "Shooter", "accent": "linear-gradient(135deg, #64748b 0%, #0f172a 100%)", "blurb": "Steady your breath and hit the bullseye."},
+      {"title": "Empire Builder", "href": "empire-builder.html", "emoji": "👑", "category": "Strategy", "accent": "linear-gradient(135deg, #fbbf24 0%, #7c2d12 100%)", "blurb": "Grow a civilization and conquer rival empires."},
+      {"title": "Physics Toys", "href": "physics-toys.html", "emoji": "🧲", "category": "Sandbox", "accent": "linear-gradient(135deg, #22d3ee 0%, #1e293b 100%)", "blurb": "Ramps, ropes, dominoes — a physics playground."},
+      {"title": "Clicker Cafe", "href": "clicker-cafe.html", "emoji": "☕", "category": "Casual", "accent": "linear-gradient(135deg, #b45309 0%, #78350f 100%)", "blurb": "Tap, upgrade and idle your way to a café empire."},
+      {"title": "Bounce Blitz", "href": "bounce-blitz.html", "emoji": "🟠", "category": "Arcade", "accent": "linear-gradient(135deg, #f97316 0%, #7c3aed 100%)", "blurb": "Brick-buster with moving bricks and power-ups."},
+      {"title": "Kite Fly", "href": "kite-fly.html", "emoji": "🪁", "category": "Casual", "accent": "linear-gradient(135deg, #38bdf8 0%, #0369a1 100%)", "blurb": "Ride the wind in a relaxing kite glide."},
+      {"title": "Track Sprint", "href": "track-sprint.html", "emoji": "🏅", "category": "Sports", "accent": "linear-gradient(135deg, #f59e0b 0%, #b91c1c 100%)", "blurb": "100m dash — explode off the blocks."},
+      {"title": "Chopper Attack", "href": "chopper-attack.html", "emoji": "🚁", "category": "Action", "accent": "linear-gradient(135deg, #16a34a 0%, #14532d 100%)", "blurb": "Gunship run-and-gun with bombs and missiles."},
+      {"title": "Formula GP", "href": "formula-gp.html", "emoji": "🛞", "category": "Racing", "accent": "linear-gradient(135deg, #ef4444 0%, #111827 100%)", "blurb": "Open-wheel laps with tire grip and pit strategy."},
+      {"title": "Grapple Run", "href": "grapple-run.html", "emoji": "🪝", "category": "Runner", "accent": "linear-gradient(135deg, #8b5cf6 0%, #1e293b 100%)", "blurb": "Swing and zip forward on a grapple hook."},
+      {"title": "Samurai Slash", "href": "samurai-slash.html", "emoji": "🎌", "category": "Fighting", "accent": "linear-gradient(135deg, #dc2626 0%, #171717 100%)", "blurb": "Duel with parries, dashes and iaido timing."},
+      {"title": "Alien Siege", "href": "alien-siege.html", "emoji": "👽", "category": "Shooter", "accent": "linear-gradient(135deg, #34d399 0%, #0f172a 100%)", "blurb": "Defend your base from descending alien waves."},
+      {"title": "Hex War", "href": "hex-war.html", "emoji": "🔶", "category": "Strategy", "accent": "linear-gradient(135deg, #f97316 0%, #7c2d12 100%)", "blurb": "Turn-based hex conquest against CPU empires."},
+      {"title": "Rail Yard", "href": "rail-yard.html", "emoji": "🚂", "category": "Sandbox", "accent": "linear-gradient(135deg, #a16207 0%, #1c1917 100%)", "blurb": "Lay track, run trains, build a rail empire."},
+      {"title": "Arm Wrestle", "href": "arm-wrestle.html", "emoji": "💪", "category": "Sports", "accent": "linear-gradient(135deg, #e11d48 0%, #1f2937 100%)", "blurb": "Mash and time a stamina-fueled grip battle."},
+      {"title": "Zen Stack", "href": "zen-stack.html", "emoji": "🪨", "category": "Casual", "accent": "linear-gradient(135deg, #14b8a6 0%, #134e4a 100%)", "blurb": "Drop and slice blocks in a calming stack."},
+      {"title": "Darts", "href": "darts.html", "emoji": "🎯", "category": "Sports", "accent": "linear-gradient(135deg, #16a34a 0%, #111827 100%)", "blurb": "Aim, release and checkout from 501."},
+      {"title": "Moto Racer", "href": "moto-racer.html", "emoji": "🏍️", "category": "Racing", "accent": "linear-gradient(135deg, #f97316 0%, #0f172a 100%)", "blurb": "Weave and throttle through traffic at speed."},
+      {"title": "Sky Dash", "href": "sky-dash.html", "emoji": "☁️", "category": "Runner", "accent": "linear-gradient(135deg, #38bdf8 0%, #1d4ed8 100%)", "blurb": "Jump shrinking platforms high in the clouds."},
+      {"title": "Stick Fight", "href": "stick-fight.html", "emoji": "💢", "category": "Fighting", "accent": "linear-gradient(135deg, #475569 0%, #0f172a 100%)", "blurb": "Stickman brawls with combos and knockdowns."},
+      {"title": "Dino Park", "href": "dino-park.html", "emoji": "🦖", "category": "Sandbox", "accent": "linear-gradient(135deg, #15803d 0%, #052e16 100%)", "blurb": "Hatch dinos, build enclosures, run the park."},
+      {"title": "City Planner", "href": "city-planner.html", "emoji": "🏗️", "category": "Strategy", "accent": "linear-gradient(135deg, #0ea5e9 0%, #1e3a8a 100%)", "blurb": "Zone, tax and grow a thriving city."},
+      {"title": "Kart Battle", "href": "kart-battle.html", "emoji": "💨", "category": "Racing", "accent": "linear-gradient(135deg, #ec4899 0%, #1e293b 100%)", "blurb": "Drift and fire items in a combat kart race."},
+      {"title": "Bubble Wrap", "href": "bubble-wrap.html", "emoji": "🫧", "category": "Casual", "accent": "linear-gradient(135deg, #22d3ee 0%, #0e7490 100%)", "blurb": "Endless satisfying bubble popping."},
+      {"title": "Archery", "href": "archery.html", "emoji": "🏹", "category": "Sports", "accent": "linear-gradient(135deg, #65a30d 0%, #14532d 100%)", "blurb": "Draw, aim and beat the wind for bullseyes."},
+      {"title": "Robot Rampage", "href": "robot-rampage.html", "emoji": "🤖", "category": "Action", "accent": "linear-gradient(135deg, #64748b 0%, #0f172a 100%)", "blurb": "Run-and-gun through waves of enemy bots."},
+      {"title": "Cave Dash", "href": "cave-dash.html", "emoji": "🕳️", "category": "Runner", "accent": "linear-gradient(135deg, #a16207 0%, #0f172a 100%)", "blurb": "Endless mine cart through collapsing caves."},
+      {"title": "Colony Build", "href": "colony-build.html", "emoji": "🪐", "category": "Strategy", "accent": "linear-gradient(135deg, #38bdf8 0%, #4c1d95 100%)", "blurb": "Balance power, water and food on Mars."},
+      {"title": "Zombie Shooter", "href": "zombie-shooter.html", "emoji": "🧟", "category": "Shooter", "accent": "linear-gradient(135deg, #4ade80 0%, #052e16 100%)", "blurb": "Twin-stick arena survival against the horde."},
+      {"title": "Garden Grow", "href": "garden-grow.html", "emoji": "🪴", "category": "Casual", "accent": "linear-gradient(135deg, #4ade80 0%, #166534 100%)", "blurb": "Plant, water and harvest a cozy idle garden."},
+      {"title": "Frisbee", "href": "frisbee.html", "emoji": "🥏", "category": "Sports", "accent": "linear-gradient(135deg, #22d3ee 0%, #0e7490 100%)", "blurb": "Curve your throw through wind to the target."},
+      {"title": "Twin Gunner", "href": "twin-gunner.html", "emoji": "🛰️", "category": "Shooter", "accent": "linear-gradient(135deg, #8b5cf6 0%, #0b1120 100%)", "blurb": "Neon twin-stick shooter with power-ups."},
+      {"title": "Siege Craft", "href": "siege-craft.html", "emoji": "⚙️", "category": "Strategy", "accent": "linear-gradient(135deg, #a16207 0%, #450a0a 100%)", "blurb": "Build walls, place archers, hold the keep."},
+      {"title": "Boat Race", "href": "boat-race.html", "emoji": "🚤", "category": "Racing", "accent": "linear-gradient(135deg, #0ea5e9 0%, #0c4a6e 100%)", "blurb": "Powerboat laps around buoy checkpoints."},
+      {"title": "Trampoline", "href": "trampoline.html", "emoji": "🛝", "category": "Casual", "accent": "linear-gradient(135deg, #f472b6 0%, #7c3aed 100%)", "blurb": "Bounce and flip up an endless tower."},
+      {"title": "Hurdles", "href": "hurdles.html", "emoji": "🚧", "category": "Sports", "accent": "linear-gradient(135deg, #f59e0b 0%, #7c2d12 100%)", "blurb": "Time your leaps in the 110m hurdles."},
+      {"title": "Platform Blaster", "href": "platform-blaster.html", "emoji": "💣", "category": "Action", "accent": "linear-gradient(135deg, #ef4444 0%, #111827 100%)", "blurb": "Arena shooting across floating platforms."},
+      {"title": "Monster Truck", "href": "monster-truck.html", "emoji": "🛻", "category": "Racing", "accent": "linear-gradient(135deg, #84cc16 0%, #1c1917 100%)", "blurb": "Big wheels, big air, bumpy time trials."},
+      {"title": "Laser Runner", "href": "laser-runner.html", "emoji": "🔆", "category": "Runner", "accent": "linear-gradient(135deg, #22d3ee 0%, #4c1d95 100%)", "blurb": "Dodge sweeping lasers in a neon corridor."},
+      {"title": "Dogfight", "href": "dogfight.html", "emoji": "🛩️", "category": "Shooter", "accent": "linear-gradient(135deg, #38bdf8 0%, #1e3a8a 100%)", "blurb": "Top-down aerial combat with missiles."},
+      {"title": "Dungeon Tactics", "href": "dungeon-tactics.html", "emoji": "🔮", "category": "Strategy", "accent": "linear-gradient(135deg, #8b5cf6 0%, #1e1b4b 100%)", "blurb": "Turn-based grid battles for a small party."},
+      {"title": "Traffic Sim", "href": "traffic-sim.html", "emoji": "🚦", "category": "Sandbox", "accent": "linear-gradient(135deg, #64748b 0%, #0f172a 100%)", "blurb": "Build roads and lights to keep traffic flowing."},
+      {"title": "Beast Arena", "href": "beast-arena.html", "emoji": "🐻", "category": "Fighting", "accent": "linear-gradient(135deg, #92400e 0%, #1c1917 100%)", "blurb": "Claw, bite and charge in a monster brawl."},
+      {"title": "Simon Says", "href": "simon-says.html", "emoji": "🔔", "category": "Puzzle", "accent": "linear-gradient(135deg, #f43f5e 0%, #1e1b4b 100%)", "blurb": "Repeat the growing color-and-tone sequence."},
+      {"title": "Zen Sand", "href": "zen-sand.html", "emoji": "⌛", "category": "Casual", "accent": "linear-gradient(135deg, #fbbf24 0%, #0f172a 100%)", "blurb": "Paint sand, water and fire in a calm toy."},
+      {"title": "Table Hockey", "href": "table-hockey.html", "emoji": "🏒", "category": "Sports", "accent": "linear-gradient(135deg, #06b6d4 0%, #0f172a 100%)", "blurb": "Fast air-hockey duels against the CPU."},
+      {"title": "Resource Wars", "href": "resource-wars.html", "emoji": "⚒️", "category": "Strategy", "accent": "linear-gradient(135deg, #a16207 0%, #1c1917 100%)", "blurb": "Gather, build and raid in a compact RTS."},
+      {"title": "Temple Dash", "href": "temple-dash.html", "emoji": "🗿", "category": "Runner", "accent": "linear-gradient(135deg, #16a34a 0%, #1c1917 100%)", "blurb": "Endless lane-running through ancient ruins."},
+      {"title": "Volcano Sim", "href": "volcano-sim.html", "emoji": "🌋", "category": "Sandbox", "accent": "linear-gradient(135deg, #dc2626 0%, #1c1917 100%)", "blurb": "Shape terrain and trigger lava eruptions."},
+      {"title": "Cave Flyer", "href": "cave-flyer.html", "emoji": "🦇", "category": "Action", "accent": "linear-gradient(135deg, #7c3aed 0%, #0f172a 100%)", "blurb": "Thrust through a collapsing bat cave."},
+      {"title": "Soapbox Derby", "href": "soapbox-derby.html", "emoji": "🛴", "category": "Racing", "accent": "linear-gradient(135deg, #f59e0b 0%, #1c1917 100%)", "blurb": "Gravity-powered downhill cart racing."},
+      {"title": "Turret Gunner", "href": "turret-gunner.html", "emoji": "💠", "category": "Shooter", "accent": "linear-gradient(135deg, #06b6d4 0%, #0f172a 100%)", "blurb": "Hold the line from a fixed, overheating turret."},
+      {"title": "Word Guess", "href": "word-guess.html", "emoji": "🟩", "category": "Puzzle", "accent": "linear-gradient(135deg, #22c55e 0%, #0f172a 100%)", "blurb": "Crack the five-letter word in six tries."},
+      {"title": "Fidget", "href": "fidget.html", "emoji": "🎡", "category": "Casual", "accent": "linear-gradient(135deg, #a855f7 0%, #0f172a 100%)", "blurb": "Spin, pop and fiddle — pure relaxation."},
+      {"title": "Cricket", "href": "cricket.html", "emoji": "🏏", "category": "Sports", "accent": "linear-gradient(135deg, #16a34a 0%, #1c1917 100%)", "blurb": "Time your shots and rack up the runs."},
+      {"title": "Heist Run", "href": "heist-run.html", "emoji": "🕵️", "category": "Action", "accent": "linear-gradient(135deg, #0f172a 0%, #334155 100%)", "blurb": "Sneak past guards, grab loot, escape."},
+      {"title": "Enduro", "href": "enduro.html", "emoji": "🚵", "category": "Racing", "accent": "linear-gradient(135deg, #b45309 0%, #1c1917 100%)", "blurb": "Dirt-bike over brutal terrain and big jumps."},
+      {"title": "Canyon Run", "href": "canyon-run.html", "emoji": "🏜️", "category": "Runner", "accent": "linear-gradient(135deg, #f59e0b 0%, #7c2d12 100%)", "blurb": "Leap and slide along sun-baked canyon ledges."},
+      {"title": "Orbital Defense", "href": "orbital-defense.html", "emoji": "🌍", "category": "Shooter", "accent": "linear-gradient(135deg, #38bdf8 0%, #1e1b4b 100%)", "blurb": "Rotate, aim and blast incoming meteors."},
+      {"title": "Code Breaker", "href": "code-breaker.html", "emoji": "🔐", "category": "Puzzle", "accent": "linear-gradient(135deg, #8b5cf6 0%, #0f172a 100%)", "blurb": "Deduce the secret code from feedback pegs."},
+      {"title": "Pet Care", "href": "pet-care.html", "emoji": "🐾", "category": "Casual", "accent": "linear-gradient(135deg, #f472b6 0%, #7c2d12 100%)", "blurb": "Feed, play with and raise a virtual pet."},
+      {"title": "Soccer Freekick", "href": "soccer-freekick.html", "emoji": "⚽", "category": "Sports", "accent": "linear-gradient(135deg, #22c55e 0%, #0f172a 100%)", "blurb": "Bend free kicks over the wall and in."},
+      {"title": "Western Duel", "href": "western-duel.html", "emoji": "🤠", "category": "Action", "accent": "linear-gradient(135deg, #b45309 0%, #1c1917 100%)", "blurb": "Win the high-noon quick-draw."},
+      {"title": "Ice Race", "href": "ice-race.html", "emoji": "🧊", "category": "Racing", "accent": "linear-gradient(135deg, #22d3ee 0%, #1e293b 100%)", "blurb": "Grip, drift and slide around a frozen track."},
+      {"title": "Metro Surf", "href": "metro-surf.html", "emoji": "🚇", "category": "Runner", "accent": "linear-gradient(135deg, #0ea5e9 0%, #0f172a 100%)", "blurb": "Endless three-lane dash through the city."},
+      {"title": "Gladiator", "href": "gladiator.html", "emoji": "🗡️", "category": "Fighting", "accent": "linear-gradient(135deg, #a16207 0%, #450a0a 100%)", "blurb": "Sword, shield and stamina in the arena."},
+      {"title": "Nomad Empire", "href": "nomad-empire.html", "emoji": "🏕️", "category": "Strategy", "accent": "linear-gradient(135deg, #ca8a04 0%, #1c1917 100%)", "blurb": "Lead a tribe across seasons and terrain."},
+      {"title": "Space Explorer", "href": "space-explorer.html", "emoji": "🧑🚀", "category": "Sandbox", "accent": "linear-gradient(135deg, #6366f1 0%, #0b1120 100%)", "blurb": "Mine, trade and upgrade across a star system."},
+      {"title": "Koi Pond", "href": "koi-pond.html", "emoji": "🐟", "category": "Casual", "accent": "linear-gradient(135deg, #22d3ee 0%, #0f766e 100%)", "blurb": "Feed and grow koi in a tranquil pond."},
+      {"title": "Golf Putt", "href": "golf-putt.html", "emoji": "⛳", "category": "Sports", "accent": "linear-gradient(135deg, #22c55e 0%, #14532d 100%)", "blurb": "Read the line and sink it under par."},
+      {"title": "Knight Quest", "href": "knight-quest.html", "emoji": "🏇", "category": "Action", "accent": "linear-gradient(135deg, #b45309 0%, #1c1917 100%)", "blurb": "Sword-swinging platform adventure."},
+      {"title": "Drag Race", "href": "drag-race.html", "emoji": "⬛", "category": "Racing", "accent": "linear-gradient(135deg, #f97316 0%, #111827 100%)", "blurb": "Nail the launch and shift for a fast ET."},
+      {"title": "Arcade Brawl", "href": "arcade-brawl.html", "emoji": "👥", "category": "Fighting", "accent": "linear-gradient(135deg, #ef4444 0%, #1e1b4b 100%)", "blurb": "Retro side-scrolling beat-'em-up."},
+      {"title": "Meteor Blaster", "href": "meteor-blaster.html", "emoji": "☄️", "category": "Shooter", "accent": "linear-gradient(135deg, #38bdf8 0%, #0b1120 100%)", "blurb": "Vector space shooter with wrap-around."},
+      {"title": "Empire Naval", "href": "empire-naval.html", "emoji": "⚓", "category": "Strategy", "accent": "linear-gradient(135deg, #0e7490 0%, #0f172a 100%)", "blurb": "Command a fleet and sink the enemy."},
+      {"title": "Mining Sandbox", "href": "mining-sandbox.html", "emoji": "⛏️", "category": "Sandbox", "accent": "linear-gradient(135deg, #a16207 0%, #1c1917 100%)", "blurb": "Dig, place blocks and craft simple tools."},
+      {"title": "Flood Run", "href": "flood-run.html", "emoji": "🌊", "category": "Runner", "accent": "linear-gradient(135deg, #0ea5e9 0%, #0c4a6e 100%)", "blurb": "Outrun the rising water across rooftops."},
+      {"title": "Word Scramble", "href": "word-scramble.html", "emoji": "🔡", "category": "Puzzle", "accent": "linear-gradient(135deg, #a855f7 0%, #0f172a 100%)", "blurb": "Unscramble the letters before time runs out."},
+      {"title": "Snow Globe", "href": "snow-globe.html", "emoji": "🎇", "category": "Casual", "accent": "linear-gradient(135deg, #38bdf8 0%, #1e3a8a 100%)", "blurb": "Shake and swirl a pretty snow globe."},
+      {"title": "Baseball", "href": "baseball.html", "emoji": "⚾", "category": "Sports", "accent": "linear-gradient(135deg, #ef4444 0%, #0f172a 100%)", "blurb": "Time your swing and clear the fences."},
+      {"title": "Pirate Ship", "href": "pirate-ship.html", "emoji": "🏴‍☠️", "category": "Action", "accent": "linear-gradient(135deg, #0e7490 0%, #1c1917 100%)", "blurb": "Sail, broadside and plunder the high seas."},
+      {"title": "Hoverboard", "href": "hoverboard.html", "emoji": "🛹", "category": "Racing", "accent": "linear-gradient(135deg, #8b5cf6 0%, #0b1120 100%)", "blurb": "Race a neon tube track on a hoverboard."},
+      {"title": "Space Run", "href": "space-run.html", "emoji": "👟", "category": "Runner", "accent": "linear-gradient(135deg, #22d3ee 0%, #1e1b4b 100%)", "blurb": "Endless dash through a space station."},
+      {"title": "Clash Arena", "href": "clash-arena.html", "emoji": "🆚", "category": "Fighting", "accent": "linear-gradient(135deg, #f43f5e 0%, #1e1b4b 100%)", "blurb": "Character-select versus fighting with supers."},
+      {"title": "Garden Defense", "href": "garden-defense.html", "emoji": "🌻", "category": "Shooter", "accent": "linear-gradient(135deg, #22c55e 0%, #14532d 100%)", "blurb": "Plant turrets and stop the bug invasion."},
+      {"title": "Architect", "href": "architect.html", "emoji": "📐", "category": "Strategy", "accent": "linear-gradient(135deg, #0891b2 0%, #1e293b 100%)", "blurb": "Build bridges under budget and stress."},
+      {"title": "Logic Grid", "href": "logic-grid.html", "emoji": "🔲", "category": "Puzzle", "accent": "linear-gradient(135deg, #0ea5e9 0%, #0f172a 100%)", "blurb": "Use the clues to reveal the hidden picture."},
+      {"title": "Bubble Tea", "href": "bubble-tea.html", "emoji": "🧋", "category": "Casual", "accent": "linear-gradient(135deg, #c084fc 0%, #7c2d12 100%)", "blurb": "Assemble drinks to order at your tea stall."},
+      {"title": "Bowling", "href": "bowling.html", "emoji": "🎳", "category": "Sports", "accent": "linear-gradient(135deg, #6366f1 0%, #1e1b4b 100%)", "blurb": "Aim, spin and chase the perfect strike."},
+      {"title": "Super Spy", "href": "super-spy.html", "emoji": "🕶️", "category": "Action", "accent": "linear-gradient(135deg, #0f172a 0%, #334155 100%)", "blurb": "Gadgets, hacking and stealth infiltration."},
+      {"title": "Street Drift", "href": "street-drift.html", "emoji": "🚙", "category": "Racing", "accent": "linear-gradient(135deg, #ec4899 0%, #0b1120 100%)", "blurb": "Bank drift style points through the night."},
+      {"title": "Roof Run", "href": "roof-run.html", "emoji": "🏙️", "category": "Runner", "accent": "linear-gradient(135deg, #f59e0b 0%, #1e293b 100%)", "blurb": "Leap between city rooftops at dusk."},
+      {"title": "Muscle Brawl", "href": "muscle-brawl.html", "emoji": "🦍", "category": "Fighting", "accent": "linear-gradient(135deg, #dc2626 0%, #1e1b4b 100%)", "blurb": "Pro-wrestling slams, ropes and pins."},
+      {"title": "Cyber Ops", "href": "cyber-ops.html", "emoji": "💥", "category": "Shooter", "accent": "linear-gradient(135deg, #a855f7 0%, #0b1120 100%)", "blurb": "Dash, hack and blast in a neon city."},
+      {"title": "Galactic Conquest", "href": "galactic-conquest.html", "emoji": "♟️", "category": "Strategy", "accent": "linear-gradient(135deg, #4338ca 0%, #0b1120 100%)", "blurb": "Colonize systems and conquer the galaxy."},
+      {"title": "Planet Forge", "href": "planet-forge.html", "emoji": "🛠️", "category": "Sandbox", "accent": "linear-gradient(135deg, #0891b2 0%, #1e1b4b 100%)", "blurb": "Paint biomes and forge your own planet."},
+      {"title": "Jigsaw", "href": "jigsaw.html", "emoji": "🖼️", "category": "Puzzle", "accent": "linear-gradient(135deg, #f59e0b 0%, #1e3a8a 100%)", "blurb": "Drag and snap the pieces of a hand-drawn scene."},
+      {"title": "Fencing", "href": "fencing.html", "emoji": "🤺", "category": "Sports", "accent": "linear-gradient(135deg, #94a3b8 0%, #1e1b4b 100%)", "blurb": "Footwork, lunge and parry to five touches."},
+      {"title": "Bomber Run", "href": "bomber-run.html", "emoji": "🎈", "category": "Action", "accent": "linear-gradient(135deg, #ef4444 0%, #1e293b 100%)", "blurb": "Blast blocks and dodge your own bombs."},
+      {"title": "Underground Race", "href": "underground-race.html", "emoji": "🌃", "category": "Racing", "accent": "linear-gradient(135deg, #8b5cf6 0%, #0b1120 100%)", "blurb": "Night street racing with nitro and traffic."},
+      {"title": "Jungle Run", "href": "jungle-run.html", "emoji": "🌴", "category": "Runner", "accent": "linear-gradient(135deg, #22c55e 0%, #14532d 100%)", "blurb": "Swing and sprint through the jungle."},
+      {"title": "Street Rumble", "href": "street-rumble.html", "emoji": "🦅", "category": "Fighting", "accent": "linear-gradient(135deg, #f43f5e 0%, #1e1b4b 100%)", "blurb": "Fighter-select urban 1v1 combat."},
+      {"title": "Trench War", "href": "trench-war.html", "emoji": "🧨", "category": "Shooter", "accent": "linear-gradient(135deg, #78716c 0%, #1c1917 100%)", "blurb": "Turn-based artillery with wind and terrain."},
+      {"title": "Kingdom Wars", "href": "kingdom-wars.html", "emoji": "🏯", "category": "Strategy", "accent": "linear-gradient(135deg, #b45309 0%, #1e1b4b 100%)", "blurb": "Deploy a battle line and win the field."},
+      {"title": "Diorama", "href": "diorama.html", "emoji": "🖌️", "category": "Sandbox", "accent": "linear-gradient(135deg, #22d3ee 0%, #7c2d12 100%)", "blurb": "Build a cozy miniature scene with animated life."},
+      {"title": "Crossword", "href": "crossword.html", "emoji": "📝", "category": "Puzzle", "accent": "linear-gradient(135deg, #38bdf8 0%, #1e293b 100%)", "blurb": "Fill the grid from across and down clues."},
+      {"title": "Wind Chimes", "href": "wind-chimes.html", "emoji": "🎐", "category": "Casual", "accent": "linear-gradient(135deg, #5eead4 0%, #0f766e 100%)", "blurb": "Swing chimes and make soft pentatonic music."},
+      {"title": "Surfing", "href": "surfing.html", "emoji": "🏄", "category": "Sports", "accent": "linear-gradient(135deg, #22d3ee 0%, #0c4a6e 100%)", "blurb": "Ride the wave, land aerials, reach the beach."},
+      {"title": "Assault Run", "href": "assault-run.html", "emoji": "🔥", "category": "Action", "accent": "linear-gradient(135deg, #b91c1c 0%, #1c1917 100%)", "blurb": "Run-and-gun through enemy lines."},
+      {"title": "Truck Trail", "href": "truck-trail.html", "emoji": "🚚", "category": "Racing", "accent": "linear-gradient(135deg, #0891b2 0%, #1e293b 100%)", "blurb": "Haul cargo, beat the clock, stay on the road."},
+      {"title": "Candy Run", "href": "candy-run.html", "emoji": "🍬", "category": "Runner", "accent": "linear-gradient(135deg, #f472b6 0%, #7c3aed 100%)", "blurb": "Endless sprint across a pastel candy land."},
+      {"title": "Arena Champs", "href": "arena-champs.html", "emoji": "🏟️", "category": "Fighting", "accent": "linear-gradient(135deg, #f59e0b 0%, #7f1d1d 100%)", "blurb": "Climb the ladder and take the belt."},
+      {"title": "Bug Hunt", "href": "bug-hunt.html", "emoji": "🐛", "category": "Shooter", "accent": "linear-gradient(135deg, #84cc16 0%, #14532d 100%)", "blurb": "Splat the swarm — spare the friendly bugs."},
+      {"title": "Space Station Sim", "href": "space-station-sim.html", "emoji": "🚉", "category": "Strategy", "accent": "linear-gradient(135deg, #818cf8 0%, #0b1120 100%)", "blurb": "Assemble modules and keep the station alive."},
+      {"title": "Snow Mountain", "href": "snow-mountain.html", "emoji": "🏔️", "category": "Sandbox", "accent": "linear-gradient(135deg, #93c5fd 0%, #1e3a8a 100%)", "blurb": "Shape a snowy hill and send sledders down."},
+      {"title": "Cloud Watch", "href": "cloud-watch.html", "emoji": "🌈", "category": "Casual", "accent": "linear-gradient(135deg, #7dd3fc 0%, #1d4ed8 100%)", "blurb": "Nudge, merge and drift calming clouds."},
+      {"title": "Squash", "href": "squash.html", "emoji": "🟢", "category": "Sports", "accent": "linear-gradient(135deg, #22c55e 0%, #1e293b 100%)", "blurb": "Fast racquet rallies off three walls."},
+      {"title": "Ferry", "href": "ferry.html", "emoji": "🛶", "category": "Racing", "accent": "linear-gradient(135deg, #0ea5e9 0%, #0c4a6e 100%)", "blurb": "Run the crossing, dock on time, earn fares."},
+      {"title": "Agent Run", "href": "agent-run.html", "emoji": "🕴️", "category": "Runner", "accent": "linear-gradient(135deg, #334155 0%, #0b1120 100%)", "blurb": "Spy on the run across rooftops."},
+      {"title": "Boxing Legends", "href": "boxing-legends.html", "emoji": "🦵", "category": "Fighting", "accent": "linear-gradient(135deg, #dc2626 0%, #1c1917 100%)", "blurb": "Jab, weave and climb the boxing ladder."},
+      {"title": "Vampire Hunter", "href": "vampire-hunter.html", "emoji": "☠️", "category": "Shooter", "accent": "linear-gradient(135deg, #7c3aed 0%, #1c1917 100%)", "blurb": "Gothic action with whips and sub-weapons."},
+      {"title": "Lumberyard", "href": "lumberyard.html", "emoji": "🪵", "category": "Strategy", "accent": "linear-gradient(135deg, #a16207 0%, #1c1917 100%)", "blurb": "Plant, harvest and grow a timber business."},
+      {"title": "Fireworks", "href": "fireworks.html", "emoji": "🎆", "category": "Sandbox", "accent": "linear-gradient(135deg, #a855f7 0%, #0b1120 100%)", "blurb": "Design dazzling particle fireworks displays."},
+      {"title": "Numberlink", "href": "numberlink.html", "emoji": "🔗", "category": "Puzzle", "accent": "linear-gradient(135deg, #22d3ee 0%, #1e1b4b 100%)", "blurb": "Connect matching dots without crossing."},
+      {"title": "Worry Stones", "href": "worry-stones.html", "emoji": "💎", "category": "Casual", "accent": "linear-gradient(135deg, #a3e635 0%, #0f766e 100%)", "blurb": "Balance smooth stones into a calm cairn."},
+      {"title": "Water Polo", "href": "water-polo.html", "emoji": "🤽", "category": "Sports", "accent": "linear-gradient(135deg, #0ea5e9 0%, #0c4a6e 100%)", "blurb": "Swim, pass and shoot in the pool."},
+      {"title": "Jungle Hunt", "href": "jungle-hunt.html", "emoji": "🦁", "category": "Action", "accent": "linear-gradient(135deg, #16a34a 0%, #14532d 100%)", "blurb": "Vine-swinging jungle action-adventure."},
+      {"title": "Big Rig", "href": "big-rig.html", "emoji": "🚛", "category": "Racing", "accent": "linear-gradient(135deg, #0891b2 0%, #1c1917 100%)", "blurb": "Overtake traffic in a highway truck race."},
+      {"title": "Desert Run", "href": "desert-run.html", "emoji": "🐪", "category": "Runner", "accent": "linear-gradient(135deg, #f59e0b 0%, #7c2d12 100%)", "blurb": "Endless dash across the dunes and mesas."},
+      {"title": "Karate", "href": "karate.html", "emoji": "🥋", "category": "Fighting", "accent": "linear-gradient(135deg, #dc2626 0%, #1e1b4b 100%)", "blurb": "Kicks, blocks and kata-charged sparring."},
+      {"title": "Galaxy Gunner", "href": "galaxy-gunner.html", "emoji": "🌠", "category": "Shooter", "accent": "linear-gradient(135deg, #6366f1 0%, #0b1120 100%)", "blurb": "Vertical shmup with power-ups and bosses."},
+      {"title": "Beach Head", "href": "beach-head.html", "emoji": "🏖️", "category": "Strategy", "accent": "linear-gradient(135deg, #0891b2 0%, #1c1917 100%)", "blurb": "Defend the coast against landing waves."},
+      {"title": "Music Maker", "href": "music-maker.html", "emoji": "🎹", "category": "Sandbox", "accent": "linear-gradient(135deg, #f43f5e 0%, #1e1b4b 100%)", "blurb": "Build beats in a WebAudio step sequencer."},
+      {"title": "Lucky Cat", "href": "lucky-cat.html", "emoji": "🐱", "category": "Casual", "accent": "linear-gradient(135deg, #fbbf24 0%, #b91c1c 100%)", "blurb": "Tap the lucky cat and rake in the coins."},
+      {"title": "Basketball Shot", "href": "basketball-shot.html", "emoji": "🏀", "category": "Sports", "accent": "linear-gradient(135deg, #f97316 0%, #1c1917 100%)", "blurb": "Flick shots into the hoop for a hot streak."},
+      {"title": "Cowboy Shooter", "href": "cowboy-shooter.html", "emoji": "🌵", "category": "Action", "accent": "linear-gradient(135deg, #b45309 0%, #1c1917 100%)", "blurb": "Hold the dusty town through outlaw waves."},
+      {"title": "Go Kart", "href": "go-kart.html", "emoji": "🟡", "category": "Racing", "accent": "linear-gradient(135deg, #eab308 0%, #1e293b 100%)", "blurb": "Tight twisty go-kart laps against AI."},
+      {"title": "Aurora Run", "href": "aurora-run.html", "emoji": "🎿", "category": "Runner", "accent": "linear-gradient(135deg, #22d3ee 0%, #1e1b4b 100%)", "blurb": "Run and glide beneath shifting auroras."},
+      {"title": "Wushu", "href": "wushu.html", "emoji": "🀄", "category": "Fighting", "accent": "linear-gradient(135deg, #dc2626 0%, #1e1b4b 100%)", "blurb": "Palm strikes, sweeps and chi supers."},
+      {"title": "Laser Tag", "href": "laser-tag.html", "emoji": "🟥", "category": "Shooter", "accent": "linear-gradient(135deg, #ef4444 0%, #0b1120 100%)", "blurb": "Tag the bots in a glowing neon arena."},
+      {"title": "Castle Defense", "href": "castle-defense.html", "emoji": "🏰", "category": "Strategy", "accent": "linear-gradient(135deg, #a16207 0%, #1e1b4b 100%)", "blurb": "Build towers and hold the keep."},
+      {"title": "Sand Play", "href": "sand-play.html", "emoji": "🏝️", "category": "Sandbox", "accent": "linear-gradient(135deg, #fbbf24 0%, #0e7490 100%)", "blurb": "Build sandcastles before the tide returns."},
+      {"title": "Tile Puzzle", "href": "tile-puzzle.html", "emoji": "🟫", "category": "Puzzle", "accent": "linear-gradient(135deg, #14b8a6 0%, #0f172a 100%)", "blurb": "Rotate pipes to connect the flow."},
+      {"title": "Plant Sitter", "href": "plant-sitter.html", "emoji": "🪷", "category": "Casual", "accent": "linear-gradient(135deg, #4ade80 0%, #166534 100%)", "blurb": "Water, sun and grow a windowsill of plants."},
+      {"title": "Dodgeball", "href": "dodgeball.html", "emoji": "⚪", "category": "Sports", "accent": "linear-gradient(135deg, #ef4444 0%, #1e293b 100%)", "blurb": "Dodge, catch and eliminate the other team."},
+      {"title": "Escape Tower", "href": "escape-tower.html", "emoji": "🗼", "category": "Action", "accent": "linear-gradient(135deg, #f97316 0%, #0b1120 100%)", "blurb": "Wall-jump up a collapsing tower."},
+      {"title": "Sky Race", "href": "sky-race.html", "emoji": "🛸", "category": "Racing", "accent": "linear-gradient(135deg, #22d3ee 0%, #4c1d95 100%)", "blurb": "Bank and boost through sky-ring courses."},
+      {"title": "Flame Run", "href": "flame-run.html", "emoji": "👣", "category": "Runner", "accent": "linear-gradient(135deg, #f97316 0%, #7f1d1d 100%)", "blurb": "Outrun the wildfire as embers fly."},
+      {"title": "Mortal Arena", "href": "mortal-arena.html", "emoji": "🤜", "category": "Fighting", "accent": "linear-gradient(135deg, #dc2626 0%, #0b1120 100%)", "blurb": "Fantasy fighters with elemental supers."},
+      {"title": "Tank Storm", "href": "tank-storm.html", "emoji": "🧿", "category": "Shooter", "accent": "linear-gradient(135deg, #65a30d 0%, #1c1917 100%)", "blurb": "Defend your core from armored waves."},
+      {"title": "Airport Tycoon", "href": "airport-tycoon.html", "emoji": "✈️", "category": "Strategy", "accent": "linear-gradient(135deg, #38bdf8 0%, #1e293b 100%)", "blurb": "Build runways and keep the planes on time."},
+      {"title": "Pottery", "href": "pottery.html", "emoji": "🏺", "category": "Sandbox", "accent": "linear-gradient(135deg, #d97706 0%, #1c1917 100%)", "blurb": "Shape clay on the wheel and fire your pots."},
+      {"title": "Mahjong Solitaire", "href": "mahjong-solitaire.html", "emoji": "🀫", "category": "Puzzle", "accent": "linear-gradient(135deg, #14b8a6 0%, #1c1917 100%)", "blurb": "Match free tiles and clear the layout."},
+      {"title": "Wish Lanterns", "href": "wish-lanterns.html", "emoji": "🏮", "category": "Casual", "accent": "linear-gradient(135deg, #fb923c 0%, #1e1b4b 100%)", "blurb": "Release glowing lanterns over a still lake."},
+      {"title": "Table Tennis Pro", "href": "table-tennis-pro.html", "emoji": "🏓", "category": "Sports", "accent": "linear-gradient(135deg, #ef4444 0%, #0f172a 100%)", "blurb": "Spin, serve and rally to eleven."},
+      {"title": "Dungeon Crawler", "href": "dungeon-crawler.html", "emoji": "🗝️", "category": "Action", "accent": "linear-gradient(135deg, #7c3aed 0%, #0b1120 100%)", "blurb": "Procedural dungeon runs with upgrades."},
+      {"title": "Pedal Power", "href": "pedal-power.html", "emoji": "🚲", "category": "Racing", "accent": "linear-gradient(135deg, #eab308 0%, #1e293b 100%)", "blurb": "Cadence, gears and sprints on two wheels."},
+      {"title": "City Skyline", "href": "city-skyline.html", "emoji": "🌆", "category": "Sandbox", "accent": "linear-gradient(135deg, #f472b6 0%, #1e1b4b 100%)", "blurb": "Build a glowing skyline day and night."},
+      {"title": "Star Squadron", "href": "star-squadron.html", "emoji": "⭐", "category": "Arcade", "accent": "linear-gradient(135deg, #a855f7 0%, #0b1120 100%)", "blurb": "Hold the line against a marching alien fleet."},
+      {"title": "Hopper Cross", "href": "hopper-cross.html", "emoji": "🐸", "category": "Arcade", "accent": "linear-gradient(135deg, #22c55e 0%, #0c4a6e 100%)", "blurb": "Hop the road and river to reach home."},
+      {"title": "Gem Digger", "href": "gem-digger.html", "emoji": "🥕", "category": "Arcade", "accent": "linear-gradient(135deg, #f59e0b 0%, #1c1917 100%)", "blurb": "Dig tunnels, grab gems, dodge the burrowers."},
+      {"title": "Wall Smash", "href": "wall-smash.html", "emoji": "🔨", "category": "Arcade", "accent": "linear-gradient(135deg, #ef4444 0%, #1e293b 100%)", "blurb": "Speed-ramping brick smasher with combos."},
+      {"title": "Dot Muncher", "href": "dot-muncher.html", "emoji": "⚫", "category": "Arcade", "accent": "linear-gradient(135deg, #eab308 0%, #1e1b4b 100%)", "blurb": "Clear the maze while the ghosts give chase."},
+      {"title": "Pyramid Hop", "href": "pyramid-hop.html", "emoji": "🔺", "category": "Arcade", "accent": "linear-gradient(135deg, #f472b6 0%, #0b1120 100%)", "blurb": "Isometric cube-hopping against the clock."},
+      {"title": "Bonsai", "href": "bonsai.html", "emoji": "🌳", "category": "Sandbox", "accent": "linear-gradient(135deg, #4ade80 0%, #14532d 100%)", "blurb": "Grow, prune and shape a tranquil bonsai."},
+      {"title": "Harbor Heist", "href": "harbor-heist.html", "emoji": "🚢", "category": "Action", "accent": "linear-gradient(135deg, #0f172a 0%, #334155 100%)", "blurb": "Sneak the dockside loot onto the boat."},
+      {"title": "Paper Plane", "href": "paper-plane.html", "emoji": "🪂", "category": "Casual", "accent": "linear-gradient(135deg, #7dd3fc 0%, #1e3a8a 100%)", "blurb": "Glide a paper plane across the city skyline."},
+      {"title": "Wing Chun", "href": "wing-chun.html", "emoji": "✊", "category": "Fighting", "accent": "linear-gradient(135deg, #dc2626 0%, #1e1b4b 100%)", "blurb": "Chain-punch and trap in close-quarters combat."},
+      {"title": "Capoeira", "href": "capoeira.html", "emoji": "🕺", "category": "Fighting", "accent": "linear-gradient(135deg, #f59e0b 0%, #166534 100%)", "blurb": "Dance-fight with spinning kicks and dodges."},
+      {"title": "Tiger Style", "href": "tiger-style.html", "emoji": "🦊", "category": "Fighting", "accent": "linear-gradient(135deg, #ea580c 0%, #1c1917 100%)", "blurb": "Animal-style kung fu with distinct move sets."},
+      {"title": "Train Run", "href": "train-run.html", "emoji": "🛤️", "category": "Runner", "accent": "linear-gradient(135deg, #0ea5e9 0%, #1e293b 100%)", "blurb": "Sprint across the rooftops of a moving train."},
+      {"title": "Urban Garden", "href": "urban-garden.html", "emoji": "🌿", "category": "Sandbox", "accent": "linear-gradient(135deg, #4ade80 0%, #0f766e 100%)", "blurb": "Turn a grey rooftop into a green garden."},
+      {"title": "Caravan Trader", "href": "caravan-trader.html", "emoji": "🏪", "category": "Strategy", "accent": "linear-gradient(135deg, #ca8a04 0%, #1c1917 100%)", "blurb": "Buy low, cross the desert, sell high."},
+      {"title": "Hearts", "href": "hearts.html", "emoji": "♥️", "category": "Card & Board", "accent": "linear-gradient(135deg, #ef4444 0%, #1c1917 100%)", "blurb": "Classic trick-taking — dodge the queen of spades."},
+      {"title": "Pixel Art", "href": "pixel-art.html", "emoji": "🎨", "category": "Sandbox", "accent": "linear-gradient(135deg, #f472b6 0%, #0ea5e9 100%)", "blurb": "Draw, animate and export pixel-art sprites."}
+    ];
+    
+    /* ============================================
+       State Management
+       ============================================ */
+    const STORAGE_KEY = 'gamelib_selected_category';
+    let state = {
+      selectedCategory: 'All',
+      searchQuery: '',
+      categories: []
+    };
+    
+    /* ============================================
+       Utility Functions
+       ============================================ */
+    
+    /**
+     * Extract unique categories from games and count them
+     */
+    function getCategoriesWithCounts() {
+      const counts = {};
+      GAMES.forEach(game => {
+        const cat = game.category;
+        counts[cat] = (counts[cat] || 0) + 1;
+      });
+      // Sort alphabetically, but put "All" first
+      const sorted = Object.entries(counts)
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([name, count]) => ({ name, count }));
+      return [{ name: 'All', count: GAMES.length }, ...sorted];
+    }
+    
+    /**
+     * Filter games by category and search query
+     */
+    function filterGames(category, query) {
+      let filtered = GAMES;
+      
+      // Filter by category
+      if (category !== 'All') {
+        filtered = filtered.filter(game => game.category === category);
+      }
+      
+      // Filter by search query
+      if (query && query.trim() !== '') {
+        const normalizedQuery = query.toLowerCase().trim();
+        filtered = filtered.filter(game => 
+          game.title.toLowerCase().includes(normalizedQuery) ||
+          game.category.toLowerCase().includes(normalizedQuery) ||
+          game.blurb.toLowerCase().includes(normalizedQuery)
+        );
+      }
+      
+      return filtered;
+    }
+    
+    /**
+     * Group games by category
+     */
+    function groupGamesByCategory(games) {
+      const groups = {};
+      games.forEach(game => {
+        if (!groups[game.category]) {
+          groups[game.category] = [];
+        }
+        groups[game.category].push(game);
+      });
+      // Sort categories alphabetically
+      return Object.entries(groups)
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .reduce((acc, [cat, games]) => {
+          acc[cat] = games;
+          return acc;
+        }, {});
+    }
+    
+    /* ============================================
+       Render Functions
+       ============================================ */
+    
+    /**
+     * Render category pills
+     */
+    function renderPills() {
+      const container = document.getElementById('pills-container');
+      const categories = getCategoriesWithCounts();
+      
+      container.innerHTML = categories.map(cat => `
+        <button 
+          type="button"
+          class="category-pill" 
+          data-category="${cat.name}"
+          aria-pressed="${cat.name === state.selectedCategory}"
+          tabindex="${cat.name === state.selectedCategory ? '0' : '-1'}"
+        >
+          ${cat.name}
+          <span class="pill-count">${cat.count}</span>
+        </button>
+      `).join('');
+      
+      // Add click listeners
+      container.querySelectorAll('.category-pill').forEach(pill => {
+        pill.addEventListener('click', () => {
+          const category = pill.dataset.category;
+          if (category !== state.selectedCategory) {
+            state.selectedCategory = category;
+            localStorage.setItem(STORAGE_KEY, category);
+            updatePills();
+            renderGames();
+          }
+        });
+        
+        // Keyboard navigation
+        pill.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            pill.click();
+          }
+        });
+      });
+    }
+    
+    /**
+     * Update pill aria-pressed states
+     */
+    function updatePills() {
+      document.querySelectorAll('.category-pill').forEach(pill => {
+        const isActive = pill.dataset.category === state.selectedCategory;
+        pill.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        pill.setAttribute('tabindex', isActive ? '0' : '-1');
+      });
+    }
+    
+    /**
+     * Create a game card element
+     */
+    function createGameCard(game, index) {
+      const card = document.createElement('a');
+      card.className = 'game-card';
+      card.href = game.href;
+      card.setAttribute('role', 'listitem');
+      card.setAttribute('aria-label', `${game.title}: ${game.blurb}`);
+      card.style.setProperty('--accent-color', game.accent);
+      card.style.animationDelay = `${index * 0.05}s`;
+      
+      card.innerHTML = `
+        <span class="card-emoji">${game.emoji}</span>
+        <h3 class="card-title">${game.title}</h3>
+        <p class="card-blurb">${game.blurb}</p>
+        <span class="card-category-badge">${game.category}</span>
+      `;
+      
+      return card;
+    }
+    
+    /**
+     * Render game cards to the grid
+     */
+    function renderGames() {
+      const grid = document.getElementById('game-grid');
+      const emptyState = document.getElementById('empty-state');
+      const emptyMessage = document.getElementById('empty-state-message');
+      const resultCount = document.getElementById('result-count');
+      const clearBtn = document.getElementById('clear-btn');
+      const emptyClearBtn = document.getElementById('empty-clear-btn');
+      
+      // Clear existing content
+      grid.innerHTML = '';
+      grid.setAttribute('aria-busy', 'false');
+      
+      // Get filtered games
+      const filtered = filterGames(state.selectedCategory, state.searchQuery);
+      
+      // Update result count
+      const totalText = filtered.length === 1 ? '1 game' : `${filtered.length} games`;
+      resultCount.textContent = totalText;
+      
+      // Show/hide clear button
+      const hasFilters = state.selectedCategory !== 'All' || state.searchQuery !== '';
+      clearBtn.style.display = hasFilters ? 'block' : 'none';
+      
+      if (filtered.length === 0) {
+        emptyState.classList.add('visible');
+        emptyMessage.textContent = state.searchQuery 
+          ? `No games found matching "${state.searchQuery}" in ${state.selectedCategory === 'All' ? 'all categories' : state.selectedCategory}.`
+          : `No games in ${state.selectedCategory} yet.`;
+        emptyClearBtn.style.display = 'inline-block';
+        return;
+      }
+      
+      emptyState.classList.remove('visible');
+      
+      // Determine rendering mode
+      const isAllActive = state.selectedCategory === 'All';
+      const isSearchActive = state.searchQuery !== '';
+      
+      if (isAllActive && !isSearchActive) {
+        // Grouped view by category
+        const grouped = groupGamesByCategory(filtered);
+        let cardIndex = 0;
+        
+        Object.entries(grouped).forEach(([category, games]) => {
+          const section = document.createElement('div');
+          section.className = 'category-section';
+          
+          const heading = document.createElement('h2');
+          heading.textContent = category;
+          section.appendChild(heading);
+          
+          const sectionGrid = document.createElement('div');
+          sectionGrid.className = 'game-grid';
+          
+          games.forEach(game => {
+            const card = createGameCard(game, cardIndex++);
+            sectionGrid.appendChild(card);
+          });
+          
+          section.appendChild(sectionGrid);
+          grid.appendChild(section);
+        });
+      } else {
+        // Flat view for filtered results
+        filtered.forEach((game, index) => {
+          const card = createGameCard(game, index);
+          grid.appendChild(card);
+        });
+      }
+    }
+    
+    /* ============================================
+       Event Handlers
+       ============================================ */
+    
+    /**
+     * Handle search input changes
+     */
+    function handleSearch(event) {
+      state.searchQuery = event.target.value;
+      renderGames();
+    }
+    
+    /**
+     * Handle clear filters
+     */
+    function handleClear() {
+      state.searchQuery = '';
+      state.selectedCategory = 'All';
+      localStorage.setItem(STORAGE_KEY, 'All');
+      document.getElementById('search-input').value = '';
+      updatePills();
+      renderGames();
+      document.getElementById('search-input').focus();
+    }
+    
+    /**
+     * Handle Surprise Me button
+     */
+    function handleSurpriseMe() {
+      const filtered = filterGames(state.selectedCategory, state.searchQuery);
+      if (filtered.length === 0) return;
+      
+      const randomIndex = Math.floor(Math.random() * filtered.length);
+      const randomGame = filtered[randomIndex];
+      window.location.href = randomGame.href;
+    }
+    
+    /* ============================================
+       Initialization
+       ============================================ */
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      // Restore saved category
+      const savedCategory = localStorage.getItem(STORAGE_KEY);
+      if (savedCategory && getCategoriesWithCounts().some(c => c.name === savedCategory)) {
+        state.selectedCategory = savedCategory;
+      }
+      
+      // Render pills
+      renderPills();
+      
+      // Initial render of games
+      renderGames();
+      
+      // Set up search listener
+      const searchInput = document.getElementById('search-input');
+      searchInput.addEventListener('input', handleSearch);
+      
+      // Set up clear button
+      document.getElementById('clear-btn').addEventListener('click', handleClear);
+      document.getElementById('empty-clear-btn').addEventListener('click', handleClear);
+      
+      // Set up surprise me button
+      document.getElementById('surprise-btn').addEventListener('click', handleSurpriseMe);
+      
+      // Keyboard shortcut for surprise (Shift+S)
+      document.addEventListener('keydown', (e) => {
+        if (e.shiftKey && e.key.toLowerCase() === 's' && e.target.tagName !== 'INPUT') {
+          e.preventDefault();
+          handleSurpriseMe();
+        }
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>KARATE &mdash; Way of the Empty Hand</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%; overflow: hidden; padding: 10px; touch-action: manipulation;
+    background: radial-gradient(circle at 50% -10%, #33302a 0%, #16130f 72%);
+    display: flex; align-items: center; justify-content: center;
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+    color: #f3ecdd; -webkit-tap-highlight-color: transparent;
+  }
+  /* ============ SHELL ============ */
+  #app { width: min(96vw, 960px); display: flex; flex-direction: column; gap: 9px; }
+  #title {
+    text-align: center; font-family: Impact, "Arial Black", sans-serif;
+    font-size: clamp(22px, 4.6vw, 40px); letter-spacing: 12px; font-weight: 400;
+    color: #f4efe3; text-shadow: 0 3px 0 #7c1f1c, 0 0 22px rgba(216,35,42,.4);
+  }
+  #title span { color: #d8232a; text-shadow: 0 3px 0 #4a0f0e, 0 0 22px rgba(216,35,42,.6); }
+  #tagline { text-align: center; font-size: 11px; letter-spacing: 5px; color: #9c8f78; margin-top: -4px; }
+  /* ============ HUD ============ */
+  #hud { display: flex; align-items: stretch; gap: 10px; }
+  .fside { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  .fside.right { align-items: flex-end; }
+  .fname { font-size: 12px; letter-spacing: 3px; color: #e8c05a; opacity: .95; font-weight: 700; }
+  .bar {
+    position: relative; width: 100%; height: 17px; border-radius: 3px; overflow: hidden;
+    background: #1b1712; border: 2px solid #645234; box-shadow: inset 0 0 10px rgba(0,0,0,.85);
+  }
+  .bar i { position: absolute; inset: 0; width: 100%; display: block; transition: width .12s linear; }
+  .bar i.p1 { background: linear-gradient(180deg, #ff7a6a, #d8232a 58%, #8a1210); }
+  .bar i.p2 { background: linear-gradient(180deg, #7fb0ff, #3568c9 58%, #1b3a72); }
+  .bar.rtl i { right: 0; left: auto; }
+  .bar i.hurt { animation: flashbar .18s steps(2) 2; }
+  @keyframes flashbar { 50% { filter: brightness(2.6) saturate(.2); } }
+  .meter {
+    position: relative; width: 66%; height: 8px; border-radius: 3px; overflow: hidden;
+    background: #171410; border: 1px solid #4d3f28; margin-top: 1px;
+  }
+  .meter i { position: absolute; inset: 0; left: 0; width: 0%; display: block; transition: width .1s linear;
+    background: linear-gradient(90deg, #b98a2e, #e8c05a 60%, #fff0b0); }
+  .meter.full i { box-shadow: 0 0 10px #ffdf8a; }
+  .meter.rtl i { right: 0; left: auto; background: linear-gradient(270deg, #b98a2e, #e8c05a 60%, #fff0b0); }
+  .pips { display: flex; gap: 5px; margin-top: 1px; }
+  .pips .pip { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #645234; background: #241d15; }
+  .pips .pip.on.p1 { background: #d8232a; box-shadow: 0 0 8px #d8232a; border-color: #ffb0a4; }
+  .pips .pip.on.p2 { background: #3568c9; box-shadow: 0 0 8px #3568c9; border-color: #b0ccff; }
+  #clock {
+    min-width: 72px; display: flex; align-items: center; justify-content: center;
+    font-family: Impact, "Arial Black", sans-serif; font-size: 26px; letter-spacing: 1px;
+    color: #e8c05a; background: #1b1712; border: 2px solid #645234; border-radius: 5px; padding: 2px 8px;
+    text-shadow: 0 0 12px rgba(232,192,90,.5);
+  }
+  /* ============ STAGE / CANVAS ============ */
+  #stage {
+    position: relative; width: 100%; border-radius: 8px; overflow: hidden;
+    box-shadow: 0 14px 44px rgba(0,0,0,.65), 0 0 0 3px #645234, 0 0 0 6px #241d15;
+  }
+  canvas { display: block; width: 100%; height: auto; background: #1b1712; }
+  /* ============ OVERLAY SCREENS ============ */
+  .screen {
+    position: absolute; inset: 0; padding: 16px; gap: 11px; text-align: center;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(16,12,9,.92); backdrop-filter: blur(2px); transition: opacity .25s ease;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen h2 { font-family: Impact, "Arial Black", sans-serif; font-size: clamp(24px, 4.8vw, 44px);
+    letter-spacing: 7px; color: #f4efe3; text-shadow: 0 3px 0 #7c1f1c; font-weight: 400; }
+  .screen p { font-size: 13px; color: #c3b69c; letter-spacing: 1px; }
+  .sub { font-size: 11px; letter-spacing: 3px; color: #9c8f78; text-transform: uppercase; }
+  .row { display: flex; gap: 9px; flex-wrap: wrap; justify-content: center; }
+  .btn {
+    font-family: inherit; font-size: 13px; font-weight: 700; letter-spacing: 2px; padding: 9px 20px;
+    color: #ffeccb; background: linear-gradient(180deg, #6d4130, #46271d); border: 2px solid #a5763a;
+    border-radius: 5px; cursor: pointer; box-shadow: 0 4px 0 #291610; transition: transform .06s ease, background .15s ease;
+  }
+  .btn:hover { background: linear-gradient(180deg, #8a5140, #5a3126); }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #291610; }
+  .btn.sel { background: linear-gradient(180deg, #d8232a, #8a1210); border-color: #e8c05a; color: #fff4e2;
+    box-shadow: 0 4px 0 #4a0f0e, 0 0 16px rgba(216,35,42,.5); }
+  .btn.big { font-size: 15px; padding: 13px 36px; }
+  .btn:disabled { opacity: .4; cursor: default; }
+  #beltLine { font-size: 14px; color: #e8c05a; letter-spacing: 3px; }
+  #recordLine { font-size: 11px; color: #9c8f78; letter-spacing: 2px; }
+  #finalLine { font-size: 15px; color: #f0dcae; letter-spacing: 2px; }
+  .keys { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 20px; font-size: 11.5px; color: #b3a68c; letter-spacing: .5px; }
+  .keys b { color: #e8c05a; }
+  /* ============ TOUCH CONTROLS ============ */
+  #touch { display: none; gap: 8px; justify-content: space-between; align-items: stretch; }
+  #touch.visible { display: flex; }
+  #touch .tgrp { display: flex; gap: 7px; }
+  .tbtn {
+    font-family: inherit; font-size: 11px; font-weight: 700; letter-spacing: 1px; color: #ffeccb;
+    min-width: 52px; padding: 12px 8px; border-radius: 8px; border: 2px solid #7a5a34;
+    background: linear-gradient(180deg, #4c3326, #2b1d15); user-select: none;
+  }
+  .tbtn.atk { background: linear-gradient(180deg, #6f2f26, #431a14); border-color: #a5462f; }
+  .tbtn.blk { background: linear-gradient(180deg, #2f4a63, #1b2c3c); border-color: #3f6f95; }
+  .tbtn.sp { background: linear-gradient(180deg, #6a5a1f, #3d3412); border-color: #e8c05a; color: #fff0b0; }
+  .tbtn:active { transform: translateY(2px); filter: brightness(1.3); }
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 620px) {
+    #clock { font-size: 19px; min-width: 52px; }
+    .fname { font-size: 10px; letter-spacing: 2px; }
+    .pips .pip { width: 10px; height: 10px; }
+    .keys { font-size: 10.5px; }
+    .meter { width: 78%; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="title">KARATE<span>.</span></div>
+  <div id="tagline">WAY OF THE EMPTY HAND</div>
+  <!-- ============ HUD ============ -->
+  <div id="hud">
+    <div class="fside left">
+      <div class="fname">PLAYER 1</div>
+      <div class="bar"><i id="hp1" class="p1"></i></div>
+      <div class="meter" id="mtWrap1"><i id="mt1"></i></div>
+      <div class="pips" id="pips1"></div>
+    </div>
+    <div id="clock">60</div>
+    <div class="fside right">
+      <div class="fname" id="name2">WHITE BELT</div>
+      <div class="bar rtl"><i id="hp2" class="p2"></i></div>
+      <div class="meter rtl" id="mtWrap2"><i id="mt2"></i></div>
+      <div class="pips" id="pips2"></div>
+    </div>
+  </div>
+  <!-- ============ STAGE ============ -->
+  <div id="stage">
+    <canvas id="gameCanvas" width="900" height="500"></canvas>
+    <!-- Start Screen -->
+    <div id="startScreen" class="screen">
+      <h2>KARATE</h2>
+      <p id="winsLine">Master the kata, then spar. Best of 3 rounds.</p>
+      <div class="sub">Mode</div>
+      <div class="row" id="modeRow">
+        <button class="btn sel" data-mode="ladder" type="button">BELT LADDER</button>
+        <button class="btn" data-mode="cpu" type="button">VS CPU</button>
+        <button class="btn" data-mode="2p" type="button">2 PLAYERS</button>
+      </div>
+      <div class="sub">CPU Skill</div>
+      <div class="row" id="diffRow">
+        <button class="btn" data-diff="easy" type="button">Light</button>
+        <button class="btn sel" data-diff="normal" type="button">Steady</button>
+        <button class="btn" data-diff="hard" type="button">Fierce</button>
+      </div>
+      <div class="keys">
+        <div><b>P1</b> A/D step in &amp; out &middot; S down-block</div>
+        <div><b>P1</b> F punch &middot; G front kick &middot; R roundhouse</div>
+        <div><b>P1</b> E power kata strike (full meter)</div>
+        <div><b>P2</b> &larr;/&rarr; step &middot; &darr; block</div>
+        <div><b>P2</b> J punch &middot; K front &middot; L round &middot; U strike</div>
+        <div><b>SYSTEM</b> P pause &middot; Enter start</div>
+      </div>
+      <div id="recordLine">Ladder best &mdash; 0 belts cleared</div>
+      <button class="btn big" id="startBtn" type="button">ENTER THE DOJO</button>
+    </div>
+    <!-- Result Screen -->
+    <div id="resultScreen" class="screen hidden">
+      <h2 id="resultTitle">PLAYER 1 WINS</h2>
+      <div id="finalLine">Rounds 2 &ndash; 0</div>
+      <div id="recordLine2">Ladder best &mdash; 0 belts cleared</div>
+      <div class="row">
+        <button class="btn big" id="nextBtn" type="button">REMATCH</button>
+        <button class="btn" id="menuBtn" type="button">DOJO MENU</button>
+      </div>
+    </div>
+  </div>
+  <!-- ============ TOUCH CONTROLS ============ -->
+  <div id="touch">
+    <div class="tgrp">
+      <button class="tbtn" data-key="KeyA" type="button">STEP&nbsp;&#9664;</button>
+      <button class="tbtn" data-key="KeyD" type="button">STEP&nbsp;&#9654;</button>
+    </div>
+    <div class="tgrp">
+      <button class="tbtn atk" data-key="KeyF" type="button">PUNCH</button>
+      <button class="tbtn atk" data-key="KeyG" type="button">FRONT</button>
+      <button class="tbtn atk" data-key="KeyR" type="button">ROUND</button>
+      <button class="tbtn blk" data-key="KeyS" type="button">BLOCK</button>
+      <button class="tbtn sp" data-key="KeyE" type="button">KATA</button>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  "use strict";
+  /* ============ DOM & CANVAS ============ */
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;
+  const H = canvas.height;
+  const hp1El = document.getElementById("hp1");
+  const hp2El = document.getElementById("hp2");
+  const mt1El = document.getElementById("mt1");
+  const mt2El = document.getElementById("mt2");
+  const mtWrap1 = document.getElementById("mtWrap1");
+  const mtWrap2 = document.getElementById("mtWrap2");
+  const pips1El = document.getElementById("pips1");
+  const pips2El = document.getElementById("pips2");
+  const clockEl = document.getElementById("clock");
+  const name2El = document.getElementById("name2");
+  const startScreen = document.getElementById("startScreen");
+  const resultScreen = document.getElementById("resultScreen");
+  const resultTitle = document.getElementById("resultTitle");
+  const finalLine = document.getElementById("finalLine");
+  const recordLine = document.getElementById("recordLine");
+  const recordLine2 = document.getElementById("recordLine2");
+  const winsLine = document.getElementById("winsLine");
+  const startBtn = document.getElementById("startBtn");
+  const nextBtn = document.getElementById("nextBtn");
+  const menuBtn = document.getElementById("menuBtn");
+  const modeBtns = Array.prototype.slice.call(document.querySelectorAll("#modeRow .btn"));
+  const diffBtns = Array.prototype.slice.call(document.querySelectorAll("#diffRow .btn"));
+  const touchRoot = document.getElementById("touch");
+  /* ============ CONFIG ============ */
+  const FLOOR = 430;              // ground line (feet)
+  const MOVE_SPEED = 3.4;
+  const STEP_IMPULSE = 6.2;       // burst when a step begins
+  const MIN_X = 66;
+  const MAX_X = W - 66;
+  const MAX_HP = 100;
+  const ROUND_SECONDS = 60;
+  const WINS_NEEDED = 2;          // best of 3
+  const TOTAL_ROUNDS = 3;
+  const GRAVITY = 0.9;
+  // Contact reducer when a blow is down-blocked (gedan barai).
+  const BLOCK_CUT = 0.22;
+  // Attack frames @60fps: startup, active, recovery.
+  const MOVES = {
+    punch:   { name: "Punch",      start: 3, active: 3,  rec: 6,  dmg: 5,  reach: 48, height: -66, hitH: 22, push: 4,  stun: 9,  meter: 10, kick: false },
+    front:   { name: "Front Kick", start: 5, active: 4,  rec: 10, dmg: 8,  reach: 58, height: -50, hitH: 30, push: 8,  stun: 12, meter: 12, kick: true },
+    round:   { name: "Roundhouse", start: 9, active: 5,  rec: 16, dmg: 12, reach: 66, height: -76, hitH: 36, push: 11, stun: 16, meter: 14, kick: true },
+    special: { name: "Kata Strike",start: 8, active: 12, rec: 18, dmg: 24, reach: 78, height: -78, hitH: 70, push: 18, stun: 30, meter: -100, kick: true }
+  };
+  const AI_LEVELS = {
+    easy:   { mul: 0.85, react: 26, aggro: 0.34, block: 0.26, special: 0.24, range: 96 },
+    normal: { mul: 1.00, react: 15, aggro: 0.60, block: 0.50, special: 0.54, range: 106 },
+    hard:   { mul: 1.14, react: 8,  aggro: 0.86, block: 0.76, special: 0.88, range: 118 }
+  };
+  // Belt ladder: each rank fights a little smarter and a little meaner.
+  const BELTS = [
+    { name: "WHITE BELT",  belt: "#f2f0e6", react: 25, aggro: 0.32, block: 0.24, speed: 0.84, special: 0.22, range: 98  },
+    { name: "YELLOW BELT", belt: "#e9c94a", react: 21, aggro: 0.42, block: 0.32, speed: 0.90, special: 0.32, range: 102 },
+    { name: "ORANGE BELT", belt: "#e0892f", react: 17, aggro: 0.52, block: 0.42, speed: 0.96, special: 0.42, range: 107 },
+    { name: "GREEN BELT",  belt: "#4caf50", react: 14, aggro: 0.62, block: 0.52, speed: 1.02, special: 0.54, range: 112 },
+    { name: "BLUE BELT",   belt: "#3f7fd6", react: 11, aggro: 0.72, block: 0.62, speed: 1.08, special: 0.66, range: 117 },
+    { name: "BROWN BELT",  belt: "#8b5a2b", react: 9,  aggro: 0.82, block: 0.72, speed: 1.13, special: 0.78, range: 122 },
+    { name: "BLACK BELT",  belt: "#1a1a1a", react: 7,  aggro: 0.90, block: 0.80, speed: 1.18, special: 0.90, range: 128 }
+  ];
+  const KATA_POOL = ["punch", "front", "round"];
+  const KATA_KEY = { punch: "KeyF", front: "KeyG", round: "KeyR" };
+  const KATA_LABEL = { punch: "PUNCH", front: "FRONT KICK", round: "ROUNDHOUSE" };
+  const KATA_TIME = 150;          // frames allowed per kata command
+  /* ============ AUDIO (WebAudio, no assets) ============ */
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+  /* ============ STATE ============ */
+  // phase: menu | kata | countdown | fight | roundover | matchover
+  let phase = "menu";
+  let paused = false;
+  let frame = 0;
+  let roundNum = 1;
+  let wins = [0, 0];
+  let clockFrames = ROUND_SECONDS * 60;
+  let countFrames = 0;
+  let bannerTimer = 0;
+  let bannerText = "";
+  let bannerSub = "";
+  let matchWinner = -1;
+  let mode = "ladder";
+  let aiLevel = "normal";
+  let beltIndex = 0;              // current ladder opponent
+  let hitstop = 0;
+  let shake = 0;
+  let slowmo = 0;
+  let carryMeter = 0;             // kata power carried between rounds
+  let storedWins = Number(localStorage.getItem("karateWins") || 0);
+  let ladderBest = Number(localStorage.getItem("karateBest") || 0);
+  if (localStorage.getItem("karateMode")) mode = localStorage.getItem("karateMode");
+  if (localStorage.getItem("karateDiff")) aiLevel = localStorage.getItem("karateDiff");
+  let particles = [];
+  let impactRings = [];
+  // kata minigame
+  const kata = { seq: [], idx: 0, timer: 0, built: 0, flash: 0, wrongFlash: 0, done: false };
+  /* ============ FIGHTERS ============ */
+  function makeFighter(side) {
+    const cpuBelt = BELTS[beltIndex] || BELTS[0];
+    return {
+      side: side, x: side === 0 ? W * 0.30 : W * 0.70, y: FLOOR, vx: 0, vy: 0,
+      facing: side === 0 ? 1 : -1, hp: MAX_HP, meter: 0, onGround: true, blocking: false,
+      stun: 0, hitFlash: 0, attack: null, specialGlow: 0, speed: MOVE_SPEED,
+      anim: 0, lastHitBy: -1, wasMoving: false,
+      beltColor: side === 0 ? "#d8232a" : (mode === "cpu" || mode === "ladder" ? cpuBelt.belt : "#3568c9")
+    };
+  }
+  let fighters = [makeFighter(0), makeFighter(1)];
+  /* ============ CPU BRAIN ============ */
+  const cpu = { move: 0, block: false, punch: false, front: false, round: false, special: false, timer: 0 };
+  function oppParams() {
+    if (mode === "ladder") {
+      const b = BELTS[beltIndex] || BELTS[BELTS.length - 1];
+      return { react: b.react, aggro: b.aggro, block: b.block, speed: b.speed, special: b.special, range: b.range };
+    }
+    const L = AI_LEVELS[aiLevel];
+    return { react: L.react, aggro: L.aggro, block: L.block, speed: L.mul, special: L.special, range: L.range };
+  }
+  /* ============ INPUT ============ */
+  const keys = {};
+  const prevKeys = {};
+  const GAME_KEYS = ["KeyA", "KeyD", "KeyS", "KeyF", "KeyG", "KeyR", "KeyE",
+                     "ArrowLeft", "ArrowRight", "ArrowDown", "KeyJ", "KeyK", "KeyL", "KeyU",
+                     "KeyP", "Enter", "Space"];
+  window.addEventListener("keydown", function (e) {
+    if (GAME_KEYS.indexOf(e.code) !== -1) e.preventDefault();
+    if (keys[e.code]) return;
+    keys[e.code] = true;
+    if (e.code === "KeyP") togglePause();
+    if (e.code === "Enter" && phase === "menu") startMatch();
+  });
+  window.addEventListener("keyup", function (e) { keys[e.code] = false; });
+  window.addEventListener("blur", function () { for (const k in keys) keys[k] = false; });
+  function edge(code) { return !!keys[code] && !prevKeys[code]; }
+  function snapshotKeys() { for (const k in keys) prevKeys[k] = keys[k]; }
+  /* ============ TOUCH CONTROLS ============ */
+  (function setupTouch() {
+    const isTouch = ("ontouchstart" in window) || navigator.maxTouchPoints > 0;
+    if (isTouch) touchRoot.classList.add("visible");
+    Array.prototype.forEach.call(touchRoot.querySelectorAll(".tbtn"), function (btn) {
+      const code = btn.dataset.key;
+      const down = function (e) { e.preventDefault(); keys[code] = true; };
+      const up = function (e) { e.preventDefault(); keys[code] = false; };
+      btn.addEventListener("pointerdown", down);
+      btn.addEventListener("pointerup", up);
+      btn.addEventListener("pointerleave", up);
+      btn.addEventListener("pointercancel", up);
+    });
+  })();
+  /* ============ UI WIRING ============ */
+  function refreshRecord() {
+    const txt = "Ladder best \u2014 " + ladderBest + " belts cleared";
+    recordLine.textContent = txt;
+    recordLine2.textContent = txt;
+  }
+  function syncUI() {
+    modeBtns.forEach(function (b) { b.classList.toggle("sel", b.dataset.mode === mode); });
+    diffBtns.forEach(function (b) {
+      b.classList.toggle("sel", b.dataset.diff === aiLevel);
+      b.disabled = (mode !== "cpu");
+    });
+    if (mode === "2p") name2El.textContent = "PLAYER 2";
+    else if (mode === "ladder") name2El.textContent = BELTS[beltIndex].name;
+    else name2El.textContent = "CPU";
+    winsLine.textContent = mode === "ladder"
+      ? "Belt ladder \u2014 climb all 7 ranks. Beat each challenger 2 rounds of 3."
+      : "Best of 3 rounds. Build power in the kata, then spar.";
+    refreshRecord();
+    buildPips();
+  }
+  function buildPips() {
+    [pips1El, pips2El].forEach(function (el, idx) {
+      el.innerHTML = "";
+      for (let i = 0; i < WINS_NEEDED; i++) {
+        const d = document.createElement("span");
+        d.className = "pip" + (wins[idx] > i ? " on p" + (idx + 1) : "");
+        el.appendChild(d);
+      }
+    });
+  }
+  function refreshBars() {
+    hp1El.style.width = Math.max(0, fighters[0].hp) + "%";
+    hp2El.style.width = Math.max(0, fighters[1].hp) + "%";
+    const m1 = Math.max(0, fighters[0].meter);
+    const m2 = Math.max(0, fighters[1].meter);
+    mt1El.style.width = m1 + "%";
+    mt2El.style.width = m2 + "%";
+    mtWrap1.classList.toggle("full", m1 >= 100);
+    mtWrap2.classList.toggle("full", m2 >= 100);
+  }
+  modeBtns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      mode = b.dataset.mode;
+      localStorage.setItem("karateMode", mode);
+      syncUI();
+      beep(520, 0.05, "triangle");
+    });
+  });
+  diffBtns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (b.disabled) return;
+      aiLevel = b.dataset.diff;
+      localStorage.setItem("karateDiff", aiLevel);
+      syncUI();
+      beep(620, 0.05, "triangle");
+    });
+  });
+  startBtn.addEventListener("click", startLadderMatch);
+  nextBtn.addEventListener("click", continueFromResult);
+  menuBtn.addEventListener("click", toMenu);
+  /* ============ FLOW ============ */
+  function unlockAudio() {
+    try { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+  }
+  function toMenu() {
+    phase = "menu";
+    paused = false;
+    resultScreen.classList.add("hidden");
+    startScreen.classList.remove("hidden");
+    syncUI();
+  }
+  function startLadderMatch() {
+    unlockAudio();
+    if (mode === "ladder") beltIndex = 0;
+    wins = [0, 0];
+    roundNum = 1;
+    matchWinner = -1;
+    carryMeter = 0;
+    startScreen.classList.add("hidden");
+    resultScreen.classList.add("hidden");
+    syncUI();
+    beginMatch();
+    beep(440, 0.1, "square");
+  }
+  function beginMatch() {
+    wins = [0, 0];
+    roundNum = 1;
+    matchWinner = -1;
+    carryMeter = 0;
+    syncUI();
+    // Kata warm-up only for single player: it seeds opening power.
+    if (mode === "2p") { beginRound(); }
+    else { beginKata(); }
+  }
+  function beginKata() {
+    const len = 3 + Math.min(3, Math.floor(beltIndex / 2));
+    kata.seq = [];
+    for (let i = 0; i < len; i++) {
+      kata.seq.push(KATA_POOL[Math.floor(Math.random() * KATA_POOL.length)]);
+    }
+    kata.idx = 0;
+    kata.timer = KATA_TIME;
+    kata.built = 0;
+    kata.flash = 0;
+    kata.wrongFlash = 0;
+    kata.done = false;
+    carryMeter = 0;
+    phase = "kata";
+    beep(680, 0.08, "triangle");
+  }
+  function beginRound() {
+    const p2 = oppParams();
+    fighters = [makeFighter(0), makeFighter(1)];
+    fighters[1].speed = MOVE_SPEED * p2.speed;
+    fighters[0].meter = carryMeter;
+    clockFrames = ROUND_SECONDS * 60;
+    countFrames = 200; // 3 - 2 - 1 - FIGHT!
+    bannerTimer = 0;
+    particles = [];
+    impactRings = [];
+    hitstop = 0;
+    phase = "countdown";
+    cpu.timer = 0; cpu.move = 0; cpu.block = false;
+    buildPips();
+    refreshBars();
+    clockEl.textContent = ROUND_SECONDS;
+  }
+  function endRound(winnerIdx) {
+    if (phase !== "fight") return;
+    if (winnerIdx >= 0) {
+      wins[winnerIdx]++;
+      const who = winnerIdx === 0 ? "PLAYER 1" : (mode === "2p" ? "PLAYER 2" : (mode === "ladder" ? BELTS[beltIndex].name : "CPU"));
+      bannerText = who + " TAKES THE ROUND";
+    } else {
+      bannerText = "DRAW";
+    }
+    bannerSub = "Rounds " + wins[0] + " \u2013 " + wins[1];
+    bannerTimer = 110;
+    phase = "roundover";
+    carryMeter = fighters[0].meter; // keep kata power flowing between rounds
+    buildPips();
+    beep(winnerIdx === 0 ? 700 : 220, 0.18, winnerIdx === 0 ? "square" : "sawtooth");
+    if (wins[0] >= WINS_NEEDED || wins[1] >= WINS_NEEDED) {
+      matchWinner = wins[0] >= WINS_NEEDED ? 0 : 1;
+    }
+  }
+  function finishMatch() {
+    phase = "matchover";
+    const humanWon = matchWinner === 0;
+    if (humanWon) {
+      storedWins++;
+      localStorage.setItem("karateWins", String(storedWins));
+    }
+    let title;
+    if (mode === "2p") title = matchWinner === 0 ? "PLAYER 1 WINS" : "PLAYER 2 WINS";
+    else if (mode === "ladder") title = matchWinner === 0 ? "BELT CLEARED" : (BELTS[beltIndex].name + " WINS");
+    else title = matchWinner === 0 ? "PLAYER 1 WINS" : "CPU WINS";
+    resultTitle.textContent = title;
+    finalLine.textContent = "Rounds  " + wins[0] + " \u2013 " + wins[1];
+    // Ladder progression + best-depth record.
+    let ladderCleared = mode === "ladder" && humanWon && beltIndex >= BELTS.length - 1;
+    if (mode === "ladder" && humanWon) {
+      const cleared = beltIndex + 1;
+      if (cleared > ladderBest) { ladderBest = cleared; localStorage.setItem("karateBest", String(ladderBest)); }
+      if (ladderCleared) {
+        resultTitle.textContent = "GRANDMASTER";
+        finalLine.textContent = "All seven belts cleared!";
+      }
+    }
+    refreshRecord();
+    // Contextual primary action.
+    if (mode === "ladder" && humanWon && !ladderCleared) {
+      nextBtn.textContent = "NEXT BELT";
+    } else if (mode === "ladder" && humanWon && ladderCleared) {
+      nextBtn.textContent = "CLIMB AGAIN";
+    } else if (humanWon) {
+      nextBtn.textContent = "REMATCH";
+    } else {
+      nextBtn.textContent = "TRY AGAIN";
+    }
+    resultScreen.classList.remove("hidden");
+    beep(matchWinner === 0 ? 880 : 150, 0.35, matchWinner === 0 ? "square" : "sawtooth");
+  }
+  function continueFromResult() {
+    resultScreen.classList.add("hidden");
+    if (mode === "ladder" && matchWinner === 0 && beltIndex < BELTS.length - 1) {
+      beltIndex++;
+      beginMatch();
+    } else if (mode === "ladder") {
+      beltIndex = 0;
+      beginMatch();
+    } else {
+      beginMatch();
+    }
+    beep(500, 0.08, "square");
+  }
+  function togglePause() {
+    if (phase !== "fight" && phase !== "countdown" && phase !== "kata") return;
+    paused = !paused;
+    beep(paused ? 400 : 600, 0.07, "triangle");
+  }
+  /* ============ ATTACKS ============ */
+  function startAttack(f, type) {
+    if (!MOVES[type] || f.attack) return;
+    if (type === "special" && f.meter < 100) return;
+    const m = MOVES[type];
+    f.attack = {
+      type: type, t: 0, start: m.start, active: m.active, rec: m.rec,
+      dmg: m.dmg, reach: m.reach, height: m.height, hitH: m.hitH,
+      push: m.push, stun: m.stun, meter: m.meter, kick: !!m.kick, hasHit: false
+    };
+    if (type === "special") {
+      f.meter = 0;
+      f.specialGlow = 1;
+      beep(290, 0.14, "sawtooth");
+      spawnSparks(f.x + f.facing * 40, f.y - 62, "#e8c05a", 16);
+    } else if (type === "punch") {
+      beep(540, 0.045, "square");
+    } else if (type === "front") {
+      beep(400, 0.05, "square");
+    } else {
+      beep(320, 0.06, "square");
+    }
+    if (f.onGround) f.vx = 0;
+    refreshBars();
+  }
+  function hitboxOf(f) {
+    const a = f.attack; if (!a) return null;
+    const left = f.facing > 0 ? f.x + 16 : f.x - 16 - a.reach;
+    return { x: left, y: f.y + a.height, w: a.reach, h: a.hitH };
+  }
+  function hurtboxOf(f) {
+    return { x: f.x - 22, y: f.y - 104, w: 44, h: 104 };
+  }
+  function overlap(b, h) {
+    return b.x < h.x + h.w && b.x + b.w > h.x && b.y < h.y + h.h && b.y + b.h > h.y;
+  }
+  /* ============ KATA MINIGAME ============ */
+  function updateKata() {
+    if (kata.flash > 0) kata.flash--;
+    if (kata.wrongFlash > 0) kata.wrongFlash--;
+    const want = kata.seq[kata.idx];
+    if (!want) { endKata(); return; }
+    const code = KATA_KEY[want];
+    if (edge(code)) {
+      kata.built += Math.round(100 / kata.seq.length);
+      kata.flash = 10;
+      spawnSparks(W / 2, 210, "#e8c05a", 10);
+      beep(760 + kata.idx * 60, 0.07, "square");
+      kata.idx++;
+      kata.timer = KATA_TIME;
+      if (kata.idx >= kata.seq.length) {
+        kata.built = 100;
+        endKata();
+        return;
+      }
+    } else if (edge(KATA_KEY[KATA_POOL[0]]) || edge(KATA_KEY[KATA_POOL[1]]) || edge(KATA_KEY[KATA_POOL[2]])) {
+      kata.wrongFlash = 10;
+      kata.timer = Math.max(20, kata.timer - 40);
+      beep(180, 0.09, "sawtooth");
+    }
+    kata.timer--;
+    if (kata.timer <= 0) {
+      kata.idx++;
+      kata.timer = KATA_TIME;
+      kata.wrongFlash = 10;
+      if (kata.idx >= kata.seq.length) { endKata(); return; }
+    }
+  }
+  function endKata() {
+    kata.done = true;
+    carryMeter = Math.min(100, kata.built);
+    beep(920, 0.18, "square");
+    beginRound();
+  }
+  /* ============ SPARKS / FX ============ */
+  function spawnSparks(x, y, color, n) {
+    for (let i = 0; i < n; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const spd = 2 + Math.random() * 7;
+      particles.push({
+        x: x, y: y,
+        vx: Math.cos(ang) * spd,
+        vy: Math.sin(ang) * spd - 1.5,
+        life: 1, size: 1.5 + Math.random() * 3,
+        color: color, spark: Math.random() < 0.6
+      });
+    }
+  }
+  function spawnImpact(x, y, r, color) {
+    impactRings.push({ x: x, y: y, r: 6, max: r, life: 1, color: color });
+  }
+  /* ============ HIT RESOLUTION ============ */
+  function applyHit(att, def, a) {
+    const blocked = def.blocking;
+    let dmg = a.dmg, stun = a.stun, push = a.push;
+    if (blocked) {
+      dmg = Math.max(1, Math.round(dmg * BLOCK_CUT));
+      stun = Math.round(stun * 0.3);
+      push = Math.round(push * 0.4);
+    }
+    def.hp = Math.max(0, def.hp - dmg);
+    def.stun = Math.max(def.stun, stun);
+    def.hitFlash = 1;
+    def.attack = null;
+    def.blocking = false;
+    def.lastHitBy = att.side;
+    att.meter = Math.min(100, att.meter + Math.max(0, a.meter));
+    def.meter = Math.min(100, def.meter + Math.round(Math.max(0, a.meter) * 0.4));
+    if (def.onGround) {
+      def.vx = att.facing * push;
+    } else {
+      def.vx = att.facing * push * 1.15;
+    }
+    const hx = att.x + att.facing * (a.reach * 0.7);
+    const hy = def.y + a.height + a.hitH * 0.5;
+    if (blocked) {
+      spawnSparks(hx, hy, "#9fd0ff", 8);
+      spawnImpact(hx, hy, 26, "rgba(150,210,255,0.9)");
+      shake = Math.max(shake, 4);
+      hitstop = 3;
+      beep(250, 0.05, "square");
+    } else {
+      const big = a.dmg >= 18;
+      spawnSparks(hx, hy, "#fff2c4", big ? 26 : 14);
+      spawnSparks(hx, hy, "#ff9a3c", big ? 16 : 8);
+      spawnImpact(hx, hy, big ? 54 : 30, "rgba(255,225,150,0.95)");
+      shake = Math.max(shake, big ? 15 : 7);
+      hitstop = big ? 9 : 4;
+      beep(big ? 180 : (a.dmg >= 9 ? 260 : 340), big ? 0.16 : 0.08, "square");
+      if (big) slowmo = 14;
+    }
+    hp1El.classList.toggle("hurt", def.side === 0);
+    hp2El.classList.toggle("hurt", def.side === 1);
+    refreshBars();
+    if (def.hp <= 0) endRound(att.side);
+  }
+  /* ============ INPUT APPLICATION ============ */
+  function applyInput(f, inp) {
+    if (phase !== "fight") { f.blocking = false; return; }
+    if (f.stun > 0) { f.blocking = false; return; }
+    if (f.attack) return;
+    f.blocking = !!inp.block && f.onGround;
+    if (f.blocking) { f.vx = 0; f.wasMoving = false; return; }
+    // Footwork: a fresh step gives a burst; holding keeps you advancing.
+    const mv = inp.move;
+    if (mv !== 0) {
+      if (!f.wasMoving) { f.vx = mv * f.speed * (STEP_IMPULSE / MOVE_SPEED); beep(300, 0.03, "triangle"); }
+      else f.vx = mv * f.speed;
+      f.wasMoving = true;
+    } else {
+      f.wasMoving = false;
+    }
+    if (inp.punch) startAttack(f, "punch");
+    else if (inp.front) startAttack(f, "front");
+    else if (inp.round) startAttack(f, "round");
+    else if (inp.special && f.meter >= 100) startAttack(f, "special");
+  }
+  function humanInput(f, side) {
+    if (side === 0) return {
+      move: (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0), block: !!keys.KeyS,
+      punch: !!keys.KeyF, front: !!keys.KeyG, round: !!keys.KeyR, special: !!keys.KeyE
+    };
+    return {
+      move: (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0), block: !!keys.ArrowDown,
+      punch: !!keys.KeyJ, front: !!keys.KeyK, round: !!keys.KeyL, special: !!keys.KeyU
+    };
+  }
+  function emptyInput() {
+    return { move: 0, block: false, punch: false, front: false, round: false, special: false };
+  }
+  /* ============ CPU THINK ============ */
+  function cpuThink() {
+    const inp = emptyInput();
+    const me = fighters[1], foe = fighters[0];
+    const L = oppParams();
+    if (phase !== "fight" || me.stun > 0 || me.attack) { cpu.move = 0; cpu.block = false; return inp; }
+    cpu.timer--;
+    const dist = Math.abs(me.x - foe.x);
+    const dir = foe.x > me.x ? 1 : -1;
+    if (cpu.timer <= 0) {
+      cpu.timer = L.react + Math.floor(Math.random() * L.react);
+      cpu.move = 0; cpu.block = false;
+      const foeAttacking = !!foe.attack;
+      if (foeAttacking && dist < 118 && Math.random() < L.block) {
+        cpu.block = true;
+      } else if (me.meter >= 100 && dist < 92 && Math.random() < L.special) {
+        inp.special = true;
+      } else if (dist > L.range) {
+        cpu.move = dir;
+      } else if (dist <= 66) {
+        const roll = Math.random();
+        if (roll < 0.24) cpu.move = -dir;      // step out of range
+        else if (roll < 0.24 + L.aggro) {
+          const r = Math.random();
+          if (r < 0.45) inp.punch = true;
+          else if (r < 0.8) inp.front = true;
+          else inp.round = true;
+        }
+      } else {
+        if (Math.random() < L.aggro) {
+          const r = Math.random();
+          if (r < 0.4) inp.front = true;
+          else if (r < 0.75) inp.punch = true;
+          else inp.round = true;
+        } else cpu.move = dir;
+      }
+    }
+    inp.move = cpu.block ? 0 : cpu.move;
+    inp.block = cpu.block;
+    return inp;
+  }
+  /* ============ PHYSICS / TICK ============ */
+  function stepFighter(f, foe) {
+    f.anim++;
+    if (f.stun > 0) f.stun--;
+    if (f.hitFlash > 0) f.hitFlash -= 0.09;
+    if (f.specialGlow > 0) f.specialGlow -= 0.03;
+    if (f.onGround && (f.stun > 0 || f.attack || f.blocking)) {
+      f.vx *= 0.72;
+      if (Math.abs(f.vx) < 0.1) f.vx = 0;
+    } else if (f.onGround && !f.wasMoving) {
+      f.vx *= 0.6;                          // a step settles when you stop
+      if (Math.abs(f.vx) < 0.1) f.vx = 0;
+    }
+    f.x += f.vx;
+    if (f.x < MIN_X) { f.x = MIN_X; if (f.vx < 0) f.vx = 0; }
+    if (f.x > MAX_X) { f.x = MAX_X; if (f.vx > 0) f.vx = 0; }
+    if (f.onGround && !f.attack && f.stun <= 0) {
+      f.facing = foe.x >= f.x ? 1 : -1;
+    }
+    if (f.attack) {
+      const a = f.attack;
+      a.t++;
+      const from = a.start, to = a.start + a.active;
+      if (a.t >= from && a.t < to && !a.hasHit) {
+        if (overlap(hitboxOf(f), hurtboxOf(foe))) {
+          a.hasHit = true;
+          applyHit(f, foe, a);
+        }
+      }
+      if (a.t > from + a.active + a.rec) f.attack = null;
+    }
+  }
+  /* ============ MAIN UPDATE ============ */
+  function update() {
+    frame++;
+    if (shake > 0) shake *= 0.86;
+    if (shake < 0.4) shake = 0;
+    if (slowmo > 0) slowmo--;
+    particles = particles.filter(function (p) {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.28; p.vx *= 0.98;
+      p.life -= 0.035;
+      return p.life > 0;
+    });
+    impactRings = impactRings.filter(function (r) {
+      r.r += (r.max - r.r) * 0.28; r.life -= 0.06;
+      return r.life > 0;
+    });
+    if (phase === "kata") { updateKata(); snapshotKeys(); return; }
+    if (phase === "countdown") {
+      countFrames--;
+      if (countFrames <= 0) { phase = "fight"; countFrames = 0; }
+      snapshotKeys();
+      return;
+    }
+    if (phase === "roundover") {
+      bannerTimer--;
+      if (bannerTimer <= 0) {
+        if (matchWinner >= 0) finishMatch();
+        else { roundNum++; beginRound(); }
+      }
+      snapshotKeys();
+      return;
+    }
+    if (phase !== "fight") { snapshotKeys(); return; }
+    clockFrames--;
+    clockEl.textContent = Math.max(0, Math.ceil(clockFrames / 60));
+    if (clockFrames <= 0) {
+      if (fighters[0].hp > fighters[1].hp) endRound(0);
+      else if (fighters[1].hp > fighters[0].hp) endRound(1);
+      else endRound(-1);
+      snapshotKeys();
+      return;
+    }
+    const in0 = humanInput(fighters[0], 0);
+    const in1 = (mode === "2p") ? humanInput(fighters[1], 1) : cpuThink();
+    applyInput(fighters[0], in0);
+    applyInput(fighters[1], in1);
+    stepFighter(fighters[0], fighters[1]);
+    stepFighter(fighters[1], fighters[0]);
+    // fighters cannot occupy the same space
+    const dx = fighters[1].x - fighters[0].x;
+    const minGap = 42;
+    if (Math.abs(dx) < minGap) {
+      const push = (minGap - Math.abs(dx)) * 0.5 * (dx >= 0 ? 1 : -1);
+      fighters[0].x -= push; fighters[1].x += push;
+      fighters[0].x = Math.max(MIN_X, Math.min(MAX_X, fighters[0].x));
+      fighters[1].x = Math.max(MIN_X, Math.min(MAX_X, fighters[1].x));
+    }
+    refreshBars();
+    snapshotKeys();
+  }
+  /* ============ DRAW: DOJO ============ */
+  function drawDojo() {
+    // plaster wall
+    const wall = ctx.createLinearGradient(0, 0, 0, FLOOR);
+    wall.addColorStop(0, "#efe6d2");
+    wall.addColorStop(0.7, "#e0d3b8");
+    wall.addColorStop(1, "#cdbc9d");
+    ctx.fillStyle = wall;
+    ctx.fillRect(0, 0, W, FLOOR);
+    // rising-sun mark
+    ctx.save();
+    ctx.globalAlpha = 0.5;
+    ctx.fillStyle = "#d8232a";
+    ctx.beginPath();
+    ctx.arc(W / 2, 176, 104, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = "#7c1f1c";
+    ctx.beginPath();
+    ctx.arc(W / 2, 176, 122, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    // wooden beams
+    ctx.fillStyle = "#6b4a2b";
+    ctx.fillRect(0, 0, W, 26);
+    ctx.fillRect(0, 300, W, 16);
+    [64, W / 2 - 6, W - 70].forEach(function (bx) { ctx.fillRect(bx, 26, 12, 274); });
+    // hanging scroll with the two characters "karate"
+    const sway = Math.sin(frame * 0.015) * 2;
+    ctx.save();
+    ctx.translate(W / 2 + sway, 40);
+    ctx.fillStyle = "#f6efdd";
+    ctx.fillRect(-46, 0, 92, 210);
+    ctx.strokeStyle = "#a5793c"; ctx.lineWidth = 3; ctx.strokeRect(-46, 0, 92, 210);
+    ctx.fillStyle = "#33302a";
+    ctx.font = "bold 44px 'Trebuchet MS', sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("\u7a7a", 0, 72);
+    ctx.fillText("\u624b", 0, 152);
+    ctx.fillStyle = "#6b4a2b";
+    ctx.fillRect(-54, -8, 108, 12);
+    ctx.fillRect(-54, 210, 108, 12);
+    ctx.restore();
+    // dojo floor (wood planks)
+    const floor = ctx.createLinearGradient(0, FLOOR, 0, H);
+    floor.addColorStop(0, "#b6813f");
+    floor.addColorStop(1, "#7a5327");
+    ctx.fillStyle = floor;
+    ctx.fillRect(0, FLOOR, W, H - FLOOR);
+    ctx.strokeStyle = "rgba(60,38,16,0.5)";
+    ctx.lineWidth = 2;
+    for (let x = 0; x < W; x += 74) {
+      ctx.beginPath(); ctx.moveTo(x, FLOOR); ctx.lineTo(x - 26, H); ctx.stroke();
+    }
+    ctx.beginPath(); ctx.moveTo(0, FLOOR + 22); ctx.lineTo(W, FLOOR + 22); ctx.stroke();
+    ctx.fillStyle = "rgba(255,225,170,0.4)";
+    ctx.fillRect(0, FLOOR - 3, W, 3);
+    // corner markers of the fighting line
+    ctx.fillStyle = "rgba(216,35,42,0.18)";
+    ctx.fillRect(MIN_X - 6, FLOOR, 3, H - FLOOR);
+    ctx.fillRect(MAX_X + 6, FLOOR, 3, H - FLOOR);
+  }
+  /* ============ DRAW: FIGHTER ============ */
+  function limb(x1, y1, x2, y2, w, color) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = w;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  }
+  function drawFighter(f) {
+    const skin = "#e8bd88";
+    const gi = "#f4f0e6";
+    const giShade = "#d8d1c0";
+    const belt = f.beltColor;
+    // shadow
+    ctx.save();
+    ctx.globalAlpha = 0.28;
+    ctx.fillStyle = "#1a1214";
+    ctx.beginPath();
+    ctx.ellipse(f.x, FLOOR - 4, 32, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    ctx.scale(f.facing, 1);
+    const t = f.anim;
+    const stepping = f.onGround && Math.abs(f.vx) > 0.6 && !f.attack && f.stun <= 0;
+    const bob = stepping ? Math.abs(Math.sin(t * 0.32)) * 2 : Math.sin(t * 0.06) * 1.1;
+    let lean = 0;
+    // Default karate guard: hands up, weight low.
+    let hip = { x: 0, y: -46 };
+    let elbowB = { x: -12, y: -66 }, handB = { x: -4, y: -80 };
+    let elbowF = { x: 12, y: -66 }, handF = { x: 18, y: -82 };
+    let kneeB = { x: -12, y: -24 }, footB = { x: -14, y: 0 };
+    let kneeF = { x: 12, y: -24 }, footF = { x: 15, y: 0 };
+    if (f.blocking) {
+      // gedan barai — low sweeping forearm
+      elbowF = { x: 14, y: -58 }; handF = { x: 24, y: -44 };
+      elbowB = { x: -6, y: -62 }; handB = { x: 2, y: -74 };
+      hip = { x: 0, y: -42 }; lean = 4;
+      kneeF = { x: 14, y: -22 }; kneeB = { x: -14, y: -22 };
+    }
+    const a = f.attack;
+    if (a) {
+      const hold = a.t >= a.start && a.t <= a.start + a.active;
+      const ext = hold ? 1 : (a.t < a.start ? a.t / a.start : 1 - (a.t - a.start - a.active) / a.rec);
+      if (a.type === "punch") {
+        handF = { x: 18 + ext * 32, y: -80 };
+        elbowF = { x: 12 + ext * 16, y: -76 };
+        lean = ext * 5;
+      } else if (a.type === "front") {
+        footF = { x: 16 + ext * 46, y: -42 - ext * 4 };
+        kneeF = { x: 12 + ext * 22, y: -40 };
+        kneeB = { x: -10, y: -26 }; footB = { x: -12, y: 0 };
+        elbowF = { x: 8, y: -70 }; handF = { x: 14, y: -84 };
+        lean = -ext * 7;
+      } else if (a.type === "round") {
+        footF = { x: 10 + ext * 52, y: -70 - Math.sin(ext * Math.PI) * 10 };
+        kneeF = { x: 10 + ext * 26, y: -54 };
+        kneeB = { x: -8, y: -28 }; footB = { x: -10, y: 0 };
+        elbowF = { x: 18, y: -74 }; handF = { x: 26, y: -86 };
+        lean = -10 * ext; hip = { x: -3, y: -46 };
+      } else if (a.type === "special") {
+        ctx.rotate(f.facing * Math.sin(a.t * 0.5) * 0.35);
+        footF = { x: 22, y: -34 }; kneeF = { x: 14, y: -36 };
+        kneeB = { x: -6, y: -28 }; footB = { x: -14, y: -14 };
+        handF = { x: 30, y: -80 }; elbowF = { x: 20, y: -74 };
+        handB = { x: -18, y: -74 }; elbowB = { x: -12, y: -70 };
+        lean = 8;
+      }
+    }
+    if (f.stun > 0) {
+      lean = -9;
+      elbowF = { x: 8, y: -60 }; handF = { x: 16, y: -54 };
+      elbowB = { x: -6, y: -60 }; handB = { x: -18, y: -56 };
+    }
+    if (f.specialGlow > 0) {
+      ctx.save();
+      ctx.globalAlpha = f.specialGlow * 0.55;
+      ctx.fillStyle = "#e8c05a";
+      ctx.beginPath();
+      ctx.ellipse(0, -60, 44, 66, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.translate(lean * 0.4, 0);
+    // legs
+    limb(hip.x, hip.y, kneeB.x, kneeB.y, 13, giShade);
+    limb(kneeB.x, kneeB.y, footB.x, footB.y, 11, giShade);
+    limb(hip.x, hip.y, kneeF.x, kneeF.y, 13, gi);
+    limb(kneeF.x, kneeF.y, footF.x, footF.y, 11, gi);
+    ctx.fillStyle = "#241d15";
+    ctx.beginPath(); ctx.ellipse(footB.x - 3, footB.y - 2, 9, 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(footF.x + 3, footF.y - 2, 9, 5, 0, 0, Math.PI * 2); ctx.fill();
+    // torso (gi jacket)
+    ctx.fillStyle = gi;
+    ctx.beginPath();
+    ctx.moveTo(hip.x - 14, hip.y + 6);
+    ctx.lineTo(hip.x + 14, hip.y + 6);
+    ctx.lineTo(12, -84);
+    ctx.lineTo(-12, -84);
+    ctx.closePath();
+    ctx.fill();
+    // crossed lapels
+    ctx.strokeStyle = giShade; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(-10, -84); ctx.lineTo(6, -58); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(9, -84); ctx.lineTo(-4, -56); ctx.stroke();
+    // belt (colour = rank, outlined so pale belts read against the gi)
+    ctx.fillStyle = belt;
+    ctx.fillRect(-15, hip.y - 3, 30, 8);
+    ctx.fillRect(hip.x - 3, hip.y + 4, 6, 14);
+    ctx.strokeStyle = "rgba(40,32,24,.55)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-15, hip.y - 3, 30, 8);
+    // arms
+    limb(-2, -80, elbowB.x, elbowB.y, 11, giShade);
+    limb(elbowB.x, elbowB.y, handB.x, handB.y, 9, skin);
+    limb(2, -80, elbowF.x, elbowF.y, 11, gi);
+    limb(elbowF.x, elbowF.y, handF.x, handF.y, 9, skin);
+    // open hands (karate chop)
+    ctx.fillStyle = skin;
+    ctx.beginPath(); ctx.arc(handB.x, handB.y, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(handF.x, handF.y, 5, 0, Math.PI * 2); ctx.fill();
+    // head
+    const hy = -96 + bob;
+    ctx.fillStyle = skin;
+    ctx.beginPath(); ctx.arc(2, hy, 14, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#2b241c";
+    ctx.beginPath();
+    ctx.ellipse(2, hy - 7, 15, 7, 0, Math.PI, 0);
+    ctx.fill();
+    ctx.fillStyle = "#2b241c";
+    ctx.beginPath(); ctx.arc(9, hy + 1, 2.6, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(1, hy + 1, 2.6, 0, Math.PI * 2); ctx.fill();
+    if (f.hitFlash > 0) {
+      ctx.globalAlpha = f.hitFlash * 0.75;
+      ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.ellipse(0, -60, 26, 48, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+    if (f.meter >= 100 && phase === "fight") {
+      ctx.save();
+      ctx.globalAlpha = 0.55 + 0.35 * Math.sin(frame * 0.2);
+      ctx.fillStyle = "#e8c05a";
+      ctx.font = "bold 13px 'Trebuchet MS', sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("\u2756 KATA STRIKE", f.x, f.y - 124);
+      ctx.restore();
+    }
+  }
+  /* ============ DRAW: FX & BANNERS ============ */
+  function drawFx() {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    particles.forEach(function (p) {
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      if (p.spark) {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(Math.atan2(p.vy, p.vx));
+        ctx.fillRect(-p.size * 2, -p.size * 0.5, p.size * 4, p.size);
+        ctx.restore();
+      } else {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    });
+    impactRings.forEach(function (r) {
+      ctx.globalAlpha = Math.max(0, r.life);
+      ctx.strokeStyle = r.color;
+      ctx.lineWidth = 3 * r.life + 1;
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+  function drawKata() {
+    ctx.save();
+    ctx.fillStyle = "rgba(16,12,9,0.72)";
+    ctx.fillRect(0, 0, W, H);
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#e8c05a";
+    ctx.font = "bold 20px 'Trebuchet MS', sans-serif";
+    ctx.fillText("KATA \u2014 BUILD YOUR POWER", W / 2, 110);
+    const want = kata.seq[kata.idx];
+    if (want) {
+      const pulse = kata.flash > 0 ? 1.18 : 1;
+      ctx.fillStyle = kata.wrongFlash > 0 ? "#ff6a5a" : "#f4efe3";
+      ctx.font = "bold " + Math.round(58 * pulse) + "px Impact, 'Arial Black', sans-serif";
+      ctx.fillText(KATA_LABEL[want], W / 2, 250);
+      ctx.fillStyle = "#b3a68c";
+      ctx.font = "17px 'Trebuchet MS', sans-serif";
+      ctx.fillText("press  " + KATA_KEY[want].replace("Key", "") + "   (" + (kata.idx + 1) + " / " + kata.seq.length + ")", W / 2, 300);
+      // per-command timer bar
+      const bw = 320, bx = W / 2 - bw / 2, by = 330;
+      ctx.fillStyle = "#2b221a";
+      ctx.fillRect(bx, by, bw, 12);
+      ctx.fillStyle = "#e8c05a";
+      ctx.fillRect(bx, by, bw * Math.max(0, kata.timer / KATA_TIME), 12);
+      ctx.strokeStyle = "#645234"; ctx.lineWidth = 2; ctx.strokeRect(bx, by, bw, 12);
+    }
+    // built-power pips
+    ctx.fillStyle = "#b3a68c";
+    ctx.font = "14px 'Trebuchet MS', sans-serif";
+    ctx.fillText("POWER", W / 2, 390);
+    const pw = 260, px = W / 2 - pw / 2;
+    ctx.fillStyle = "#2b221a";
+    ctx.fillRect(px, 402, pw, 16);
+    ctx.fillStyle = "#e8c05a";
+    ctx.fillRect(px, 402, pw * (kata.built / 100), 16);
+    ctx.strokeStyle = "#645234"; ctx.lineWidth = 2; ctx.strokeRect(px, 402, pw, 16);
+    ctx.restore();
+  }
+  function drawCountdown() {
+    const n = countFrames > 150 ? 3 : countFrames > 100 ? 2 : countFrames > 50 ? 1 : 0;
+    let label, scale;
+    if (n > 0) { label = String(n); scale = 1 + (1 - ((countFrames - 1) % 50) / 50) * 0.45; }
+    else { label = "FIGHT!"; scale = 1.25; }
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.globalAlpha = 0.93;
+    ctx.font = "bold " + Math.round(58 * scale) + "px Impact, 'Arial Black', sans-serif";
+    ctx.fillStyle = n > 1 ? "#e8c05a" : "#d8232a";
+    ctx.strokeStyle = "#241d15";
+    ctx.lineWidth = 6;
+    ctx.strokeText(label, W / 2, 250);
+    ctx.fillText(label, W / 2, 250);
+    ctx.restore();
+  }
+  function drawBanner() {
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.fillStyle = "rgba(16,12,9,0.6)";
+    ctx.fillRect(0, 196, W, 112);
+    ctx.fillStyle = "#e8c05a";
+    ctx.font = "bold 38px Impact, 'Arial Black', sans-serif";
+    ctx.fillText(bannerText, W / 2, 246);
+    ctx.fillStyle = "#c3b69c";
+    ctx.font = "19px 'Trebuchet MS', sans-serif";
+    ctx.fillText(bannerSub, W / 2, 284);
+    ctx.restore();
+  }
+  function drawPause() {
+    ctx.save();
+    ctx.fillStyle = "rgba(16,12,9,0.62)";
+    ctx.fillRect(0, 0, W, H);
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#e8c05a";
+    ctx.font = "bold 42px Impact, 'Arial Black', sans-serif";
+    ctx.fillText("PAUSED", W / 2, 244);
+    ctx.font = "16px 'Trebuchet MS', sans-serif";
+    ctx.fillStyle = "#c3b69c";
+    ctx.fillText("Press P to resume", W / 2, 282);
+    ctx.restore();
+  }
+  /* ============ RENDER ============ */
+  function render() {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    ctx.save();
+    if (shake > 0) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+    drawDojo();
+    if (phase !== "menu") {
+      const order = fighters[0].x <= fighters[1].x ? [0, 1] : [1, 0];
+      drawFighter(fighters[order[0]]);
+      drawFighter(fighters[order[1]]);
+      drawFx();
+    }
+    ctx.restore();
+    if (phase === "kata") drawKata();
+    if (phase === "countdown") drawCountdown();
+    if (phase === "roundover") drawBanner();
+    if (paused) drawPause();
+  }
+  /* ============ LOOP ============ */
+  let raf = null;
+  function loop() {
+    if (!paused) {
+      if (hitstop > 0) { hitstop--; }
+      else if (slowmo > 0) { if (frame % 2 === 0) update(); else frame++; }
+      else update();
+    }
+    render();
+    raf = requestAnimationFrame(loop);
+  }
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { if (raf) { cancelAnimationFrame(raf); raf = null; } }
+    else if (!raf) { raf = requestAnimationFrame(loop); }
+  });
+  /* ============ BOOT ============ */
+  syncUI();
+  refreshBars();
+  render();
+  loop();
+})();
+</script>
+</body>
+</html>

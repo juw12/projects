@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Cube Hopper</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { min-height: 100%; background: radial-gradient(circle at 50% 0%, #1c2b4d 0%, #0c1322 55%, #05070d 100%); font-family: "Courier New", monospace; color: #e8eefc; display: flex; align-items: center; justify-content: center; padding: 12px; overflow-x: hidden; touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; }
+  #app { display: flex; flex-direction: column; align-items: center; gap: 10px; width: min(96vw, 760px); }
+
+  /* ============ TITLE ============ */
+  #title { font-size: 22px; letter-spacing: 6px; font-weight: bold; color: #7dffc0; text-shadow: 0 0 12px rgba(125,255,192,.55), 0 2px 0 #04121a; }
+  #title span { color: #7fb0ff; text-shadow: 0 0 12px rgba(127,176,255,.55); }
+
+  /* ============ HUD ============ */
+  #hud { display: flex; flex-wrap: wrap; gap: 6px 18px; justify-content: center; align-items: center; width: 100%; padding: 8px 14px; border-radius: 12px; background: linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.03)); border: 1px solid rgba(127,176,255,.22); font-size: 13px; letter-spacing: 1px; }
+  #hud b { color: #7dffc0; font-size: 15px; }
+  #hud .lbl { color: #8fa3c8; }
+  #lives { color: #ff6b81; letter-spacing: 2px; }
+
+  /* ============ CANVAS ============ */
+  #game-wrap { position: relative; width: 100%; border-radius: 14px; overflow: hidden; border: 1px solid rgba(127,176,255,.22); box-shadow: 0 14px 44px rgba(0,0,0,.55), inset 0 0 60px rgba(0,0,0,.4); background: #070c16; }
+  canvas { display: block; width: 100%; height: auto; }
+
+  /* ============ SCREENS (Start / Over / Pause) ============ */
+  .screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 20px; text-align: center; background: rgba(6,10,20,.86); backdrop-filter: blur(3px); transition: opacity .25s ease; }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen h2 { font-size: 30px; letter-spacing: 4px; color: #7dffc0; text-shadow: 0 0 16px rgba(125,255,192,.5); }
+  .screen p { font-size: 13px; line-height: 1.7; color: #a9b8d8; max-width: 430px; }
+  .screen .big { font-size: 20px; color: #ffe08a; letter-spacing: 2px; }
+  .screen .key { color: #7fb0ff; font-weight: bold; }
+  .btn { margin-top: 8px; font-family: inherit; font-size: 15px; font-weight: bold; letter-spacing: 2px; padding: 12px 30px; border: none; border-radius: 10px; cursor: pointer; color: #04121a; background: linear-gradient(180deg, #7dffc0, #35c98a); box-shadow: 0 5px 0 #1c7a52, 0 0 20px rgba(125,255,192,.35); transition: transform .06s ease, box-shadow .12s ease; }
+  .btn:hover { box-shadow: 0 5px 0 #1c7a52, 0 0 28px rgba(125,255,192,.6); }
+  .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #1c7a52; }
+
+  /* ============ CONTROL BAR ============ */
+  #bar { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  #bar button { font-family: inherit; font-size: 13px; font-weight: bold; letter-spacing: 1px; padding: 9px 20px; border: 1px solid rgba(127,176,255,.35); border-radius: 9px; cursor: pointer; color: #cfe0ff; background: rgba(255,255,255,.07); box-shadow: 0 3px 0 rgba(0,0,0,.35); transition: transform .06s ease, background .15s ease; }
+  #bar button:hover { background: rgba(127,176,255,.2); }
+  #bar button:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.35); }
+
+  /* ============ ON-SCREEN D-PAD (iso diagonals) ============ */
+  #dpad { display: grid; grid-template-columns: repeat(3, 62px); grid-template-rows: repeat(3, 62px); gap: 8px; justify-content: center; }
+  #dpad button { font-family: inherit; font-size: 26px; line-height: 1; border: 1px solid rgba(125,255,192,.35); border-radius: 14px; cursor: pointer; color: #d7fff0; background: linear-gradient(180deg, rgba(125,255,192,.20), rgba(127,176,255,.10)); box-shadow: 0 4px 0 rgba(0,0,0,.45), inset 0 0 18px rgba(125,255,192,.12); transition: transform .05s ease, background .1s ease; touch-action: none; }
+  #dpad button:hover { background: linear-gradient(180deg, rgba(125,255,192,.36), rgba(127,176,255,.18)); }
+  #dpad button:active { transform: translateY(3px) scale(.96); box-shadow: 0 1px 0 rgba(0,0,0,.45); }
+  #dpad button[data-dir="UL"] { grid-area: 1 / 1; }
+  #dpad button[data-dir="UR"] { grid-area: 1 / 3; }
+  #dpad button[data-dir="DL"] { grid-area: 3 / 1; }
+  #dpad button[data-dir="DR"] { grid-area: 3 / 3; }
+  #dpad .core { grid-area: 2 / 2; display: flex; align-items: center; justify-content: center; font-size: 11px; letter-spacing: 1px; color: #6f86ad; border: 1px dashed rgba(127,176,255,.25); border-radius: 14px; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 560px) {
+    #title { font-size: 17px; letter-spacing: 3px; }
+    #dpad { grid-template-columns: repeat(3, 54px); grid-template-rows: repeat(3, 54px); }
+    #dpad button { font-size: 22px; }
+    .screen h2 { font-size: 23px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="title">CUBE <span>HOPPER</span></div>
+
+  <div id="hud">
+    <span class="lbl">SCORE</span><b id="score">0</b>
+    <span class="lbl">BEST</span><b id="best">0</b>
+    <span class="lbl">LEVEL</span><b id="level">1</b>
+    <span class="lbl">LIVES</span><b id="lives">&#9679;&#9679;&#9679;</b>
+  </div>
+
+  <div id="game-wrap">
+    <canvas id="game" width="700" height="560"></canvas>
+
+    <!-- Start screen -->
+    <div id="startScreen" class="screen">
+      <h2>CUBE HOPPER</h2>
+      <p>Hop diagonally across the isometric pyramid. Every landing repaints the cube's top.</p>
+      <p>Turn <span class="key">every cube green</span> to clear the level. Don't hop off the edge!</p>
+      <p><span class="key">Q</span> up-left &nbsp; <span class="key">E</span> up-right &nbsp;
+         <span class="key">A</span> down-left &nbsp; <span class="key">D</span> down-right</p>
+      <button class="btn" id="startBtn" type="button">START</button>
+    </div>
+
+    <!-- Game over screen -->
+    <div id="gameOverScreen" class="screen hidden">
+      <h2>GAME OVER</h2>
+      <p class="big">SCORE <span id="finalScore">0</span></p>
+      <p>Best <span id="finalBest">0</span> &nbsp;|&nbsp; Reached level <span id="finalLevel">1</span></p>
+      <button class="btn" id="againBtn" type="button">PLAY AGAIN</button>
+    </div>
+
+    <!-- Pause overlay -->
+    <div id="pauseScreen" class="screen hidden">
+      <h2>PAUSED</h2>
+      <p>Press <span class="key">P</span> to resume</p>
+    </div>
+  </div>
+
+  <div id="bar">
+    <button id="pauseBtn" type="button">Pause</button>
+    <button id="restartBtn" type="button">Restart</button>
+  </div>
+
+  <!-- On-screen iso d-pad -->
+  <div id="dpad">
+    <button type="button" data-dir="UL">&#8598;</button>
+    <button type="button" data-dir="UR">&#8599;</button>
+    <div class="core">HOP</div>
+    <button type="button" data-dir="DL">&#8601;</button>
+    <button type="button" data-dir="DR">&#8600;</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CANVAS & CONSTANTS ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;    // 700
+  const H = canvas.height;   // 560
+  const TARGET_STATE = 2;                       // every cube must reach this state
+  const STATE_COLORS = [                        // [ top face, left face, right face ]
+    ["#5b8def", "#3560b3", "#4772cc"],
+    ["#f4c542", "#b8891c", "#dcaa2c"],
+    ["#39d98a", "#1c9a60", "#27bd74"]
+  ];
+  const STATE_GLOW = ["#9cc4ff", "#ffe89e", "#a8ffd6"];
+  // Isometric hop table: DL = down-left, DR = down-right, UL = up-left, UR = up-right
+  const DELTA = { DL: [1, 0], DR: [1, 1], UL: [-1, -1], UR: [-1, 0] };
+  const DIRS = ["UL", "UR", "DL", "DR"];
+  const HOP_DUR = 0.135;                        // player hop duration (seconds)
+  const DEATH_GRAVITY = 1600;                   // px / s^2 while falling off
+  const GEM_LIFETIME = 9;                       // seconds a bonus gem survives
+
+  // ============ GAME STATE ============
+  let state = "start";                          // start | play | dying | clear | over
+  let paused = false;
+  let score = 0, level = 1, lives = 3;
+  let best = loadBest();
+  let invuln = 0;
+  let rows = 4, maxRow = 3;
+  let tw = 50, th = 28, depth = 42, originX = W / 2, originY = 300, psize = 15;
+  let cubes = {};                               // "row,col" -> { state: 0 | 1 | 2 }
+  let cubeCount = 0;
+  let player = null;
+  let enemies = [];
+  let gem = null;
+  let particles = [];
+  let gemTimer = 0;
+  let deathTimer = 0, clearTimer = 0, flash = 0, shake = 0, tnow = 0;
+  let lastTime = 0, raf = null;
+
+  // ============ DOM ELEMENTS ============
+  const scoreEl = document.getElementById("score");
+  const bestEl = document.getElementById("best");
+  const levelEl = document.getElementById("level");
+  const livesEl = document.getElementById("lives");
+  const startScreen = document.getElementById("startScreen");
+  const gameOverScreen = document.getElementById("gameOverScreen");
+  const pauseScreen = document.getElementById("pauseScreen");
+  const finalScoreEl = document.getElementById("finalScore");
+  const finalBestEl = document.getElementById("finalBest");
+  const finalLevelEl = document.getElementById("finalLevel");
+  const startBtn = document.getElementById("startBtn");
+  const againBtn = document.getElementById("againBtn");
+  const pauseBtn = document.getElementById("pauseBtn");
+  const restartBtn = document.getElementById("restartBtn");
+
+  // ============ PERSISTENCE (best score) ============
+  function loadBest() {
+    try { return Number(localStorage.getItem("cubeHopperBest") || 0); } catch (e) { return 0; }
+  }
+  function saveBest(v) {
+    try { localStorage.setItem("cubeHopperBest", String(v)); } catch (e) { /* storage unavailable */ }
+  }
+
+  // ============ AUDIO (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        actx = new AC();
+      }
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.06, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g);
+      g.connect(actx.destination);
+      o.start();
+      o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  // ============ GEOMETRY ============
+  function computeGeometry(rowCount) {
+    maxRow = rowCount - 1;
+    tw = Math.min(60, (W * 0.80) / (2 * rowCount));   // half width of a cube's top diamond
+    th = tw * 0.56;                                   // half height of that diamond
+    depth = th * 1.5;                                 // side-face height
+    originX = W / 2;
+    originY = 340 - ((rowCount - 1) * th) / 2;
+    psize = Math.max(13, Math.min(20, tw * 0.42));    // character radius
+  }
+  function cubePos(row, col) {
+    return { x: originX + (2 * col - row) * tw, y: originY + row * th };
+  }
+  function keyOf(row, col) { return row + "," + col; }
+  function valid(row, col) { return row >= 0 && row <= maxRow && col >= 0 && col <= row; }
+
+  // ============ LEVEL BUILDING ============
+  function buildLevel() {
+    rows = Math.min(8, 3 + level);                    // L1: 4 rows ... L5+: 8 rows
+    computeGeometry(rows);
+    cubes = {};
+    cubeCount = 0;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c <= r; c++) {
+        cubes[keyOf(r, c)] = { state: 0 };
+        cubeCount++;
+      }
+    }
+    player = { row: 0, col: 0, x: 0, y: 0, hopping: false, hopT: 0, fx: 0, fy: 0, tx: 0, ty: 0, nr: 0, nc: 0, dir: "DR", vy: 0, vx: 0 };
+    const p0 = cubePos(0, 0);
+    player.x = p0.x; player.y = p0.y;
+    resetEnemies();
+    gem = null;
+    gemTimer = 4 + Math.random() * 4;
+    particles = [];
+    invuln = 1.2;
+  }
+
+  function resetEnemies() {
+    enemies = [];
+    const n = (level >= 2) ? 2 : 1;
+    for (let i = 0; i < n; i++) {
+      const e = {
+        row: 0, col: 0,
+        dir: Math.random() < 0.5 ? "DL" : "DR",
+        x: 0, y: 0, hopping: false, hopT: 0,
+        fx: 0, fy: 0, tx: 0, ty: 0, nr: 0, nc: 0,
+        wait: 0.6 + i * 0.9 + Math.random() * 0.5,
+        hopDur: Math.max(0.26, 0.60 - level * 0.03),   // faster every level
+        spin: 0
+      };
+      const p = cubePos(0, 0);
+      e.x = p.x; e.y = p.y;
+      enemies.push(e);
+    }
+  }
+
+  // ============ HUD ============
+  function updateHUD() {
+    scoreEl.textContent = score;
+    bestEl.textContent = best;
+    levelEl.textContent = level;
+    livesEl.textContent = "\u25CF".repeat(Math.max(0, lives)) + "\u25CB".repeat(Math.max(0, 3 - lives));
+  }
+
+  // ============ FLOW ============
+  function newGame() {
+    score = 0; level = 1; lives = 3; paused = false; state = "play";
+    buildLevel();
+    updateHUD();
+    startScreen.classList.add("hidden");
+    gameOverScreen.classList.add("hidden");
+    pauseScreen.classList.add("hidden");
+    pauseBtn.textContent = "Pause";
+    beep(520, 0.08, "triangle");
+    lastTime = performance.now();
+    if (!raf) raf = requestAnimationFrame(loop);
+  }
+
+  function gameOver() {
+    state = "over";
+    if (score > best) { best = score; saveBest(best); }
+    updateHUD();
+    finalScoreEl.textContent = score;
+    finalBestEl.textContent = best;
+    finalLevelEl.textContent = level;
+    gameOverScreen.classList.remove("hidden");
+    beep(180, 0.35, "sawtooth");
+  }
+
+  function togglePause() {
+    if (state !== "play" && state !== "dying" && state !== "clear") return;
+    paused = !paused;
+    pauseScreen.classList.toggle("hidden", !paused);
+    pauseBtn.textContent = paused ? "Resume" : "Pause";
+    beep(paused ? 420 : 640, 0.07, "triangle");
+  }
+
+  function restart() { paused = false; newGame(); }
+
+  // ============ PLAYER ACTIONS ============
+  function tryHop(dir) {
+    if (state !== "play" || paused || player.hopping) return;
+    const d = DELTA[dir];
+    const nr = player.row + d[0];
+    const nc = player.col + d[1];
+    player.dir = dir;
+    if (!valid(nr, nc)) { fellOff(dir); return; }     // stepped off the pyramid
+    const from = cubePos(player.row, player.col);
+    const to = cubePos(nr, nc);
+    player.hopping = true;
+    player.hopT = 0;
+    player.fx = from.x; player.fy = from.y;
+    player.tx = to.x; player.ty = to.y;
+    player.nr = nr; player.nc = nc;
+    beep(700, 0.05, "square");
+  }
+
+  function landPlayer() {
+    player.hopping = false;
+    player.row = player.nr;
+    player.col = player.nc;
+    const p = cubePos(player.row, player.col);
+    player.x = p.x; player.y = p.y;
+
+    // Repaint this cube's top face (cycles start -> halfway -> goal -> start)
+    const cube = cubes[keyOf(player.row, player.col)];
+    if (cube) {
+      cube.state = (cube.state + 1) % 3;
+      score += (cube.state === TARGET_STATE) ? 25 : 10;
+      updateHUD();
+      burst(p.x, p.y, STATE_GLOW[cube.state], 7);
+      beep(cube.state === TARGET_STATE ? 880 : 620, 0.06, "square");
+    }
+
+    // Bonus pickup
+    if (gem && gem.row === player.row && gem.col === player.col) {
+      score += 100;
+      updateHUD();
+      burst(gem.x, gem.y - 14, "#ffe08a", 16);
+      beep(1180, 0.12, "sine");
+      gem = null;
+      gemTimer = 6 + Math.random() * 4;
+    }
+
+    checkHit();
+    if (state === "play") checkLevelClear();
+  }
+
+  function fellOff(dir) {
+    if (state !== "play") return;
+    const d = DELTA[dir];
+    killPlayer("fall", d[1] - d[0]);
+  }
+
+  function killPlayer(cause, drift) {
+    if (state !== "play") return;
+    lives--;
+    updateHUD();
+    burst(player.x, player.y - 12, "#ff6b81", 16);
+    shake = 0.35;
+    state = "dying";
+    deathTimer = 0.95;
+    player.hopping = false;
+    player.vy = -140;
+    player.vx = (drift || 0) * 120;
+    beep(cause === "fall" ? 220 : 150, 0.3, "sawtooth");
+  }
+
+  function checkHit() {
+    if (invuln > 0 || state !== "play") return;
+    const hitR = psize * 1.15;
+    for (let i = 0; i < enemies.length; i++) {
+      const dx = enemies[i].x - player.x;
+      const dy = enemies[i].y - player.y;
+      if (dx * dx + dy * dy < hitR * hitR) { killPlayer("enemy", 0); return; }
+    }
+  }
+
+  function checkLevelClear() {
+    for (const k in cubes) { if (cubes[k].state !== TARGET_STATE) return; }
+    state = "clear";
+    clearTimer = 1.5;
+    flash = 1;
+    score += 100 + level * 25 + cubeCount * 5;
+    updateHUD();
+    beep(720, 0.1, "square");
+    setTimeout(function () { beep(960, 0.14, "square"); }, 120);
+    setTimeout(function () { beep(1280, 0.2, "square"); }, 260);
+  }
+
+  function nextLevel() {
+    level++;
+    state = "play";
+    buildLevel();
+    updateHUD();
+  }
+
+  // ============ UPDATE ============
+  function update(dt) {
+    if (flash > 0) flash = Math.max(0, flash - dt * 1.8);
+    if (shake > 0) shake = Math.max(0, shake - dt);
+    updateParticles(dt);
+
+    if (state === "clear") {
+      clearTimer -= dt;
+      if (clearTimer <= 0) nextLevel();
+      return;
+    }
+
+    if (state === "dying") {
+      player.vy += DEATH_GRAVITY * dt;
+      player.y += player.vy * dt;
+      player.x += player.vx * dt;
+      deathTimer -= dt;
+      if (deathTimer <= 0) { if (lives > 0) respawn(); else gameOver(); }
+      return;
+    }
+
+    if (state !== "play") return;
+    if (invuln > 0) invuln = Math.max(0, invuln - dt);
+
+    // ---- player hop arc ----
+    if (player.hopping) {
+      player.hopT += dt / HOP_DUR;
+      if (player.hopT >= 1) {
+        landPlayer();
+      } else {
+        const t = player.hopT;
+        player.x = player.fx + (player.tx - player.fx) * t;
+        player.y = player.fy + (player.ty - player.fy) * t - Math.sin(t * Math.PI) * (th * 1.5);
+      }
+    }
+
+    // ---- enemies hop / bounce along the pyramid ----
+    for (let i = 0; i < enemies.length; i++) {
+      const e = enemies[i];
+      e.spin += dt * 8;
+      if (e.hopping) {
+        e.hopT += dt / e.hopDur;
+        if (e.hopT >= 1) {
+          e.hopping = false;
+          e.row = e.nr; e.col = e.nc;
+          const p = cubePos(e.row, e.col);
+          e.x = p.x; e.y = p.y;
+          e.wait = 0.05 + Math.random() * 0.15;
+        } else {
+          const t = e.hopT;
+          e.x = e.fx + (e.tx - e.fx) * t;
+          e.y = e.fy + (e.ty - e.fy) * t - Math.sin(t * Math.PI) * (th * 1.7);
+        }
+      } else {
+        e.wait -= dt;
+        if (e.wait <= 0) enemyStep(e);
+      }
+    }
+
+    // ---- bonus gem lifecycle ----
+    if (gem) {
+      gem.life -= dt;
+      if (gem.life <= 0) { gem = null; gemTimer = 5 + Math.random() * 5; }
+    } else {
+      gemTimer -= dt;
+      if (gemTimer <= 0) spawnGem();
+    }
+
+    checkHit();
+  }
+
+  function respawn() {
+    resetEnemies();
+    player.row = 0; player.col = 0;
+    const p = cubePos(0, 0);
+    player.x = p.x; player.y = p.y;
+    player.hopping = false;
+    player.vy = 0; player.vx = 0;
+    invuln = 1.6;
+    state = "play";
+  }
+
+  function enemyStep(e) {
+    const opts = [];
+    for (let i = 0; i < DIRS.length; i++) {
+      const dd = DELTA[DIRS[i]];
+      if (valid(e.row + dd[0], e.col + dd[1])) opts.push(DIRS[i]);
+    }
+    if (!opts.length) return;
+
+    let dir;
+    if (opts.indexOf(e.dir) >= 0 && Math.random() < 0.62) {
+      dir = e.dir;                                     // keep bouncing the same way
+    } else {
+      dir = opts[Math.floor(Math.random() * opts.length)];
+      // bias: at the bottom turn back up, at the top head down (keeps it roaming)
+      if (e.row === maxRow && Math.random() < 0.7) {
+        const ups = opts.filter(function (d) { return d === "UL" || d === "UR"; });
+        if (ups.length) dir = ups[Math.floor(Math.random() * ups.length)];
+      } else if (e.row === 0 && Math.random() < 0.7) {
+        const downs = opts.filter(function (d) { return d === "DL" || d === "DR"; });
+        if (downs.length) dir = downs[Math.floor(Math.random() * downs.length)];
+      }
+    }
+
+    e.dir = dir;
+    const dd = DELTA[dir];
+    const nr = e.row + dd[0];
+    const nc = e.col + dd[1];
+    if (!valid(nr, nc)) return;
+    const from = cubePos(e.row, e.col);
+    const to = cubePos(nr, nc);
+    e.hopping = true;
+    e.hopT = 0;
+    e.fx = from.x; e.fy = from.y;
+    e.tx = to.x; e.ty = to.y;
+    e.nr = nr; e.nc = nc;
+    beep(300, 0.04, "sawtooth");
+  }
+
+  function spawnGem() {
+    for (let tries = 0; tries < 40; tries++) {
+      const r = Math.floor(Math.random() * rows);
+      const c = Math.floor(Math.random() * (r + 1));
+      if (r === player.row && c === player.col) continue;
+      const p = cubePos(r, c);
+      gem = { row: r, col: c, x: p.x, y: p.y, life: GEM_LIFETIME, spin: 0 };
+      beep(1000, 0.05, "sine");
+      return;
+    }
+  }
+
+  // ============ PARTICLES ============
+  function burst(x, y, color, n) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = 40 + Math.random() * 130;
+      particles.push({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 40, life: 1, color: color, size: 2 + Math.random() * 3 });
+    }
+  }
+  function updateParticles(dt) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 320 * dt;
+      p.life -= dt * 1.7;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+    if (gem) gem.spin += dt * 2.4;
+  }
+
+  // ============ RENDER: BACKGROUND & CUBES ============
+  function drawBackground() {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#0d1730");
+    g.addColorStop(0.55, "#0a1122");
+    g.addColorStop(1, "#05070d");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // starfield
+    ctx.fillStyle = "rgba(160,190,255,0.35)";
+    for (let i = 0; i < 46; i++) {
+      const sx = (i * 157.3) % W;
+      const sy = (i * 91.7) % (H * 0.7);
+      const s = (i % 3) * 0.5 + 0.6;
+      ctx.fillRect(sx, sy, s, s);
+    }
+    // glow behind the pyramid
+    const rg = ctx.createRadialGradient(originX, originY + maxRow * th, 10, originX, originY + maxRow * th, W * 0.55);
+    rg.addColorStop(0, "rgba(90,140,255,0.18)");
+    rg.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = rg;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  function drawCube(cx, cy, colors) {
+    const d = depth;
+    // left face
+    ctx.beginPath();
+    ctx.moveTo(cx - tw, cy); ctx.lineTo(cx, cy + th); ctx.lineTo(cx, cy + th + d); ctx.lineTo(cx - tw, cy + d);
+    ctx.closePath();
+    ctx.fillStyle = colors[1]; ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,0.30)"; ctx.lineWidth = 1; ctx.stroke();
+    // right face
+    ctx.beginPath();
+    ctx.moveTo(cx + tw, cy); ctx.lineTo(cx, cy + th); ctx.lineTo(cx, cy + th + d); ctx.lineTo(cx + tw, cy + d);
+    ctx.closePath();
+    ctx.fillStyle = colors[2]; ctx.fill(); ctx.stroke();
+    // top face
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - th); ctx.lineTo(cx + tw, cy); ctx.lineTo(cx, cy + th); ctx.lineTo(cx - tw, cy);
+    ctx.closePath();
+    ctx.fillStyle = colors[0]; ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = 1.2; ctx.stroke();
+    // top sheen
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - th * 0.72); ctx.lineTo(cx + tw * 0.60, cy - th * 0.06); ctx.lineTo(cx, cy + th * 0.34); ctx.lineTo(cx - tw * 0.60, cy - th * 0.06);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(255,255,255,0.14)"; ctx.fill();
+  }
+
+  function drawPyramid() {
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c <= r; c++) {
+        const p = cubePos(r, c);
+        drawCube(p.x, p.y, STATE_COLORS[cubes[keyOf(r, c)].state]);
+      }
+    }
+  }
+
+  // ============ RENDER: PICKUPS & CHARACTERS ============
+  function drawGem() {
+    if (!gem) return;
+    const bobY = gem.y - 16 - Math.sin(gem.spin) * 3;
+    const pulse = 0.6 + 0.4 * Math.sin(gem.spin * 1.6);
+    ctx.save();
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = "rgba(255,224,138,0.30)";
+    ctx.beginPath(); ctx.arc(gem.x, bobY, 16, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(gem.x, bobY);
+    ctx.rotate(Math.sin(gem.spin * 0.8) * 0.25);
+    const s = 10;
+    ctx.beginPath();
+    ctx.moveTo(0, -s); ctx.lineTo(s * 0.8, 0); ctx.lineTo(0, s); ctx.lineTo(-s * 0.8, 0);
+    ctx.closePath();
+    ctx.fillStyle = "#ffe08a"; ctx.fill();
+    ctx.strokeStyle = "#fff6cf"; ctx.lineWidth = 1.4; ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, -s); ctx.lineTo(0, s); ctx.moveTo(-s * 0.8, 0); ctx.lineTo(s * 0.8, 0);
+    ctx.strokeStyle = "rgba(255,255,255,0.55)"; ctx.lineWidth = 1; ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawEnemy(e) {
+    ctx.fillStyle = "rgba(0,0,0,0.28)";
+    ctx.beginPath(); ctx.ellipse(e.x, e.y + psize * 0.45, psize * 0.85, psize * 0.34, 0, 0, Math.PI * 2); ctx.fill();
+    const bob = e.hopping ? 0 : Math.sin(e.spin * 1.4) * 1.6;
+    ctx.save();
+    ctx.translate(e.x, e.y - psize * 0.9 + bob);
+    ctx.rotate(Math.sin(e.spin) * 0.18);
+    // rolling body
+    const grd = ctx.createLinearGradient(0, -psize, 0, psize);
+    grd.addColorStop(0, "#c86bff");
+    grd.addColorStop(1, "#7a2ec4");
+    ctx.fillStyle = grd;
+    ctx.beginPath(); ctx.arc(0, 0, psize, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#3d1160"; ctx.lineWidth = 1.6; ctx.stroke();
+    // spikes
+    ctx.fillStyle = "#e0a8ff";
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + e.spin * 0.4;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * psize * 0.9, Math.sin(a) * psize * 0.9);
+      ctx.lineTo(Math.cos(a + 0.25) * psize * 1.35, Math.sin(a + 0.25) * psize * 1.35);
+      ctx.lineTo(Math.cos(a + 0.5) * psize * 0.9, Math.sin(a + 0.5) * psize * 0.9);
+      ctx.closePath(); ctx.fill();
+    }
+    // angry eyes
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.arc(-psize * 0.32, -psize * 0.12, psize * 0.26, 0, Math.PI * 2);
+    ctx.arc(psize * 0.32, -psize * 0.12, psize * 0.26, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#1a0a28";
+    ctx.beginPath();
+    ctx.arc(-psize * 0.26, -psize * 0.08, psize * 0.13, 0, Math.PI * 2);
+    ctx.arc(psize * 0.38, -psize * 0.08, psize * 0.13, 0, Math.PI * 2);
+    ctx.fill();
+    // brows
+    ctx.strokeStyle = "#3d1160"; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-psize * 0.6, -psize * 0.5); ctx.lineTo(-psize * 0.06, -psize * 0.28);
+    ctx.moveTo(psize * 0.6, -psize * 0.5); ctx.lineTo(psize * 0.06, -psize * 0.28);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawPlayer() {
+    const blink = invuln > 0 && Math.floor(invuln * 12) % 2 === 0;
+    ctx.fillStyle = "rgba(0,0,0,0.30)";
+    ctx.beginPath(); ctx.ellipse(player.x, player.y + psize * 0.5, psize * 0.95, psize * 0.36, 0, 0, Math.PI * 2); ctx.fill();
+    if (blink) return;
+
+    const bob = player.hopping ? 0 : Math.sin(tnow * 6) * 1.5;
+    ctx.save();
+    ctx.translate(player.x, player.y - psize * 0.95 + bob);
+    // body
+    const grd = ctx.createLinearGradient(0, -psize, 0, psize);
+    grd.addColorStop(0, "#ffd27a");
+    grd.addColorStop(0.55, "#ff9a3c");
+    grd.addColorStop(1, "#e0651a");
+    ctx.fillStyle = grd;
+    ctx.beginPath(); ctx.ellipse(0, 0, psize * 0.92, psize, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#8a3a08"; ctx.lineWidth = 1.6; ctx.stroke();
+    // belly
+    ctx.fillStyle = "rgba(255,244,214,0.75)";
+    ctx.beginPath(); ctx.ellipse(0, psize * 0.34, psize * 0.5, psize * 0.42, 0, 0, Math.PI * 2); ctx.fill();
+    // antennae
+    ctx.strokeStyle = "#8a3a08"; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-psize * 0.3, -psize * 0.85); ctx.lineTo(-psize * 0.48, -psize * 1.4);
+    ctx.moveTo(psize * 0.3, -psize * 0.85); ctx.lineTo(psize * 0.48, -psize * 1.4);
+    ctx.stroke();
+    ctx.fillStyle = "#7dffc0";
+    ctx.beginPath();
+    ctx.arc(-psize * 0.48, -psize * 1.4, psize * 0.16, 0, Math.PI * 2);
+    ctx.arc(psize * 0.48, -psize * 1.4, psize * 0.16, 0, Math.PI * 2);
+    ctx.fill();
+    // eyes look toward hop direction
+    const d = DELTA[player.dir] || [0, 0];
+    const lx = (2 * d[1] - d[0]) * 0.35;
+    const ly = d[0] * 0.35;
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.arc(-psize * 0.33, -psize * 0.22, psize * 0.28, 0, Math.PI * 2);
+    ctx.arc(psize * 0.33, -psize * 0.22, psize * 0.28, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#25160a";
+    ctx.beginPath();
+    ctx.arc(-psize * 0.33 + lx * psize * 0.35, -psize * 0.22 + ly * psize * 0.35, psize * 0.14, 0, Math.PI * 2);
+    ctx.arc(psize * 0.33 + lx * psize * 0.35, -psize * 0.22 + ly * psize * 0.35, psize * 0.14, 0, Math.PI * 2);
+    ctx.fill();
+    // smile
+    ctx.strokeStyle = "#8a3a08"; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.arc(0, psize * 0.06, psize * 0.3, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawParticles() {
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawOverlays() {
+    if (state === "clear") {
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillStyle = "rgba(6,10,20,0.55)";
+      ctx.fillRect(0, H / 2 - 46, W, 92);
+      ctx.fillStyle = "#7dffc0";
+      ctx.font = "bold 34px 'Courier New', monospace";
+      ctx.fillText("LEVEL " + level + " CLEAR", W / 2, H / 2 - 10);
+      ctx.fillStyle = "#ffe08a";
+      ctx.font = "15px 'Courier New', monospace";
+      ctx.fillText("Get ready for level " + (level + 1), W / 2, H / 2 + 22);
+    }
+    // colour legend
+    ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+    ctx.font = "12px 'Courier New', monospace";
+    const legends = [["#5b8def", "start"], ["#f4c542", "halfway"], ["#39d98a", "GOAL"]];
+    for (let i = 0; i < legends.length; i++) {
+      const x = 14 + i * 96, y = H - 18;
+      ctx.fillStyle = legends[i][0];
+      ctx.fillRect(x, y - 9, 11, 11);
+      ctx.fillStyle = "#8fa3c8";
+      ctx.fillText(legends[i][1], x + 16, y + 1);
+    }
+  }
+
+  function render() {
+    ctx.save();
+    if (shake > 0) ctx.translate((Math.random() - 0.5) * 10 * shake, (Math.random() - 0.5) * 10 * shake);
+    drawBackground();
+    drawPyramid();
+    drawGem();
+    // draw entities back-to-front (by y)
+    const items = [];
+    for (let i = 0; i < enemies.length; i++) {
+      (function (e) { items.push({ y: e.y, fn: function () { drawEnemy(e); } }); })(enemies[i]);
+    }
+    if (player) items.push({ y: player.y, fn: drawPlayer });
+    items.sort(function (a, b) { return a.y - b.y; });
+    for (let i = 0; i < items.length; i++) items[i].fn();
+    drawParticles();
+    drawOverlays();
+    ctx.restore();
+    if (flash > 0) {
+      ctx.fillStyle = "rgba(255,255,255," + (flash * 0.5) + ")";
+      ctx.fillRect(0, 0, W, H);
+    }
+  }
+
+  // ============ MAIN LOOP ============
+  function loop(now) {
+    raf = requestAnimationFrame(loop);
+    if (paused) { lastTime = now; return; }
+    let dt = (now - lastTime) / 1000;
+    lastTime = now;
+    if (!isFinite(dt) || dt < 0) dt = 0;
+    if (dt > 0.05) dt = 0.05;                 // clamp after tab switches
+    tnow += dt;
+    update(dt);
+    render();
+  }
+
+  // ============ INPUT: KEYBOARD ============
+  const KEYMAP = {
+    KeyQ: "UL", Numpad7: "UL", ArrowLeft: "UL",
+    KeyE: "UR", Numpad9: "UR", ArrowUp: "UR",
+    KeyA: "DL", Numpad1: "DL", ArrowDown: "DL",
+    KeyD: "DR", Numpad3: "DR", ArrowRight: "DR"
+  };
+
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "KeyP" || e.key === "p" || e.key === "P" || e.key === "Escape") {
+      e.preventDefault(); togglePause(); return;
+    }
+    if (e.code === "KeyR" || e.key === "r" || e.key === "R") {
+      e.preventDefault(); restart(); return;
+    }
+    if (e.code === "Enter" || e.code === "Space" || e.key === " ") {
+      if (state === "start" || state === "over") { e.preventDefault(); newGame(); return; }
+    }
+    const dir = KEYMAP[e.code];
+    if (dir) {
+      e.preventDefault();
+      if (state === "start" || state === "over") { newGame(); return; }
+      tryHop(dir);
+    }
+  });
+
+  // ============ INPUT: ON-SCREEN D-PAD ============
+  Array.prototype.slice.call(document.querySelectorAll("#dpad button")).forEach(function (btn) {
+    btn.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      if (pendingGame()) { newGame(); return; }
+      if (paused) return;
+      tryHop(btn.dataset.dir);
+    });
+  });
+  function pendingGame() { return state === "start" || state === "over" || state === "clear"; }
+
+  startBtn.addEventListener("click", newGame);
+  againBtn.addEventListener("click", newGame);
+  pauseBtn.addEventListener("click", togglePause);
+  restartBtn.addEventListener("click", restart);
+
+  // Freeze rendering while the tab is hidden
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { if (raf) { cancelAnimationFrame(raf); raf = null; } }
+    else if (!raf) { lastTime = performance.now(); raf = requestAnimationFrame(loop); }
+  });
+
+  // ============ BOOT ============
+  buildLevel();          // paint a pyramid behind the start screen
+  state = "start";
+  updateHUD();
+  lastTime = performance.now();
+  raf = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

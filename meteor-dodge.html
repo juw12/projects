@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Meteor Dodge</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(circle at 50% 0%, #131a3a 0%, #070a18 60%, #02030a 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Courier New", monospace;
+    overflow: hidden;
+    touch-action: none;
+    padding: 12px;
+  }
+
+  /* ============ APP LAYOUT ============ */
+  #app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: min(96vw, 760px);
+  }
+
+  /* ============ GAME WRAP & CANVAS ============ */
+  #game-wrap {
+    position: relative;
+    width: 100%;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, .6), 0 0 0 1px rgba(120, 180, 255, .15) inset;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  canvas { display: block; width: 100%; height: auto; background: #05070f; }
+
+  #hint {
+    position: absolute;
+    bottom: 8px;
+    width: 100%;
+    text-align: center;
+    color: rgba(160, 200, 255, .75);
+    font-size: 12px;
+    letter-spacing: 1px;
+    pointer-events: none;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, .8);
+  }
+
+  /* ============ SCREENS (Start / Over) ============ */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+    text-align: center;
+    padding: 24px;
+    background: rgba(4, 8, 22, .82);
+    backdrop-filter: blur(2px);
+    transition: opacity .3s ease;
+    z-index: 5;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen h1 {
+    font-size: clamp(1.6rem, 6vw, 2.8rem);
+    letter-spacing: 4px;
+    color: #7fd7ff;
+    text-shadow: 0 0 18px rgba(80, 200, 255, .8), 0 0 4px #fff;
+  }
+  .screen h2 {
+    font-size: clamp(1.3rem, 5vw, 2.2rem);
+    letter-spacing: 3px;
+    color: #ff6a6a;
+    text-shadow: 0 0 18px rgba(255, 80, 80, .8);
+  }
+  .screen p { color: #b9c6e8; font-size: .92rem; line-height: 1.6; max-width: 460px; }
+  .screen .big { font-size: 1.4rem; color: #fff; }
+  .screen .big b { color: #ffd447; }
+  .screen .keycap {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 5px;
+    background: rgba(120, 180, 255, .16);
+    border: 1px solid rgba(120, 180, 255, .35);
+    color: #d6e6ff;
+    font-size: .82rem;
+  }
+
+  /* ============ DIFFICULTY ============ */
+  .diff-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .diff-row .label { color: #9fb4dd; font-size: .8rem; align-self: center; letter-spacing: 1px; }
+  .diff-btn {
+    font-family: inherit;
+    font-size: .82rem;
+    font-weight: bold;
+    letter-spacing: 1px;
+    padding: 7px 16px;
+    border: 1px solid rgba(120, 180, 255, .3);
+    border-radius: 8px;
+    cursor: pointer;
+    color: #b9c6e8;
+    background: rgba(120, 180, 255, .08);
+    transition: all .15s ease;
+  }
+  .diff-btn:hover { background: rgba(120, 180, 255, .2); }
+  .diff-btn.selected {
+    color: #06101f;
+    background: linear-gradient(135deg, #7fd7ff, #4aa8ff);
+    border-color: #7fd7ff;
+    box-shadow: 0 0 16px rgba(80, 200, 255, .6);
+  }
+
+  /* ============ ACTION BUTTON ============ */
+  .action-btn {
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: bold;
+    letter-spacing: 2px;
+    padding: 13px 34px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    color: #04121f;
+    background: linear-gradient(135deg, #7fd7ff, #4aa8ff);
+    box-shadow: 0 5px 0 rgba(30, 90, 160, .8), 0 0 22px rgba(80, 200, 255, .5);
+    transition: transform .06s ease, box-shadow .12s ease;
+    user-select: none;
+  }
+  .action-btn:hover { box-shadow: 0 6px 0 rgba(30, 90, 160, .8), 0 0 30px rgba(80, 200, 255, .8); }
+  .action-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(30, 90, 160, .8); }
+
+  /* ============ FOOTER CONTROLS ============ */
+  #controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 10px 14px;
+  }
+  #controls button {
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    padding: 9px 20px;
+    border: 1px solid rgba(120, 180, 255, .25);
+    border-radius: 8px;
+    cursor: pointer;
+    color: #d6e6ff;
+    background: rgba(120, 180, 255, .12);
+    transition: transform .05s ease, background .15s ease;
+    user-select: none;
+  }
+  #controls button:hover { background: rgba(120, 180, 255, .24); }
+  #controls button:active { transform: translateY(2px); }
+  #btn-restart { border-color: rgba(255, 120, 120, .3); color: #ffc9c9; background: rgba(255, 90, 90, .14); }
+  #btn-restart:hover { background: rgba(255, 90, 90, .28); }
+
+  /* ============ MOBILE CONTROLS ============ */
+  #mobile {
+    display: none;
+    width: 100%;
+    gap: 10px;
+  }
+  #mobile button {
+    flex: 1;
+    font-family: inherit;
+    font-size: 1.6rem;
+    padding: 18px 0;
+    border: 1px solid rgba(120, 180, 255, .3);
+    border-radius: 10px;
+    background: rgba(120, 180, 255, .12);
+    color: #d6e6ff;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #mobile button:active { background: rgba(120, 180, 255, .32); }
+
+  @media (max-width: 560px) {
+    #mobile { display: flex; }
+    #hint { display: none; }
+    .screen p { font-size: .82rem; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="game-wrap">
+    <canvas id="game" width="720" height="720"></canvas>
+    <div id="hint">&larr; &rarr; / A D or drag to steer &nbsp;|&nbsp; P pause &nbsp;|&nbsp; R restart</div>
+
+    <!-- Start Screen -->
+    <div id="startScreen" class="screen">
+      <h1>METEOR DODGE</h1>
+      <p>Steer your ship through the storm. Collect <b style="color:#ffd447">orbs</b> for points
+         and grab <b style="color:#7fd7ff">power-ups</b>: slow-time, shield &amp; magnet.<br>
+         Survive as long as you can &mdash; 3 hulls, one hit each.</p>
+      <div class="diff-row">
+        <span class="label">SPEED</span>
+        <button class="diff-btn selected" data-diff="easy">Easy</button>
+        <button class="diff-btn" data-diff="normal">Normal</button>
+        <button class="diff-btn" data-diff="hard">Hard</button>
+      </div>
+      <p style="font-size:.8rem">Best score: <b id="bestStart" style="color:#ffd447">0</b></p>
+      <button class="action-btn" id="startBtn">START</button>
+      <p style="font-size:.78rem"><span class="keycap">&larr;</span><span class="keycap">&rarr;</span> move &nbsp; <span class="keycap">P</span> pause &nbsp; <span class="keycap">R</span> restart</p>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="gameOverScreen" class="screen hidden">
+      <h2>GAME OVER</h2>
+      <p class="big">Score: <b id="finalScore">0</b></p>
+      <p class="big" style="font-size:1.1rem">Time: <b id="finalTime">0.0s</b> &nbsp; Orbs: <b id="finalOrbs">0</b> &nbsp; Best: <b id="finalBest">0</b></p>
+      <button class="action-btn" id="playAgainBtn">PLAY AGAIN</button>
+    </div>
+  </div>
+
+  <div id="controls">
+    <button id="btn-pause" type="button">Pause</button>
+    <button id="btn-restart" type="button">Restart</button>
+  </div>
+
+  <div id="mobile">
+    <button id="mob-left" type="button">&#9664;</button>
+    <button id="mob-right" type="button">&#9654;</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CANVAS & CONSTANTS ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;
+  const H = canvas.height;
+
+  const STATE = { READY: 0, PLAYING: 1, OVER: 2 };
+
+  // Difficulty presets: meteor speed, spawn interval (frames), spawn jitter, split chance
+  const DIFFICULTY = {
+    easy:   { speed: 1.5, interval: 46, jitter: 26, splitChance: 0.06, ramp: 0.0016 },
+    normal: { speed: 1.9, interval: 38, jitter: 22, splitChance: 0.12, ramp: 0.0024 },
+    hard:   { speed: 2.4, interval: 30, jitter: 18, splitChance: 0.20, ramp: 0.0034 }
+  };
+  const DIFF_LABEL = { easy: "Easy", normal: "Normal", hard: "Hard" };
+
+  // ============ GAME STATE ============
+  let state = STATE.READY;
+  let paused = false;
+  let frames = 0;
+  let elapsed = 0;            // survival seconds
+  let orbsCollected = 0;
+  let spawnTimer = 0;
+  let diff = localStorage.getItem("meteorDiff") || "normal";
+  if (!DIFFICULTY[diff]) diff = "normal";
+  let best = Number(localStorage.getItem("meteorBest") || 0);
+
+  // Ship
+  const ship = { x: W / 2, y: H - 90, r: 16, vx: 0, lives: 3, invuln: 0, tilt: 0 };
+  const SHIP_ACCEL = 0.9;
+  const SHIP_MAX = 8;
+  const SHIP_FRICTION = 0.82;
+
+  // Collections
+  let meteors = [];
+  let orbs = [];
+  let powerups = [];
+  let particles = [];
+  let stars = [];
+
+  // Power-up timers (frames remaining)
+  const power = { slow: 0, shield: 0, magnet: 0 };
+
+  const keys = { left: false, right: false };
+  let pointerActive = false;
+
+  // ============ DOM ELEMENTS ============
+  const bestStartEl = document.getElementById("bestStart");
+  const finalScoreEl = document.getElementById("finalScore");
+  const finalTimeEl = document.getElementById("finalTime");
+  const finalOrbsEl = document.getElementById("finalOrbs");
+  const finalBestEl = document.getElementById("finalBest");
+  const startScreen = document.getElementById("startScreen");
+  const gameOverScreen = document.getElementById("gameOverScreen");
+  const startBtn = document.getElementById("startBtn");
+  const playAgainBtn = document.getElementById("playAgainBtn");
+  const btnPause = document.getElementById("btn-pause");
+  const btnRestart = document.getElementById("btn-restart");
+  const diffButtons = Array.prototype.slice.call(document.querySelectorAll(".diff-btn"));
+
+  bestStartEl.textContent = best;
+
+  // ============ SOUND (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.06, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g);
+      g.connect(actx.destination);
+      o.start();
+      o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  // ============ STARFIELD ============
+  function initStars() {
+    stars = [];
+    for (let i = 0; i < 90; i++) {
+      stars.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        z: Math.random() * 0.8 + 0.2,   // parallax depth
+        r: Math.random() * 1.6 + 0.4,
+        tw: Math.random() * Math.PI * 2
+      });
+    }
+  }
+
+  // ============ PARTICLES ============
+  function burst(x, y, color, count, force) {
+    const n = count || 14;
+    const f = force || 5;
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = Math.random() * f + 0.5;
+      particles.push({
+        x: x, y: y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: 1,
+        color: color,
+        size: Math.random() * 3 + 1.5
+      });
+    }
+  }
+
+  function updateParticles() {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vx *= 0.96;
+      p.vy = p.vy * 0.96 + 0.06;
+      p.life -= 0.022;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+  }
+
+  // ============ SPAWNING ============
+  function spawnMeteor(x, y, size, vxScale) {
+    const c = DIFFICULTY[diff];
+    const r = size || (Math.random() * 16 + 12);
+    const rampMul = 1 + elapsed * c.ramp;
+    meteors.push({
+      x: x !== undefined ? x : Math.random() * (W - 80) + 40,
+      y: y !== undefined ? y : -40,
+      r: r,
+      vx: (Math.random() - 0.5) * (1.2 + r * 0.04) * (vxScale || 1),
+      vy: (c.speed + r * 0.05) * rampMul,
+      spin: (Math.random() - 0.5) * 0.08,
+      rot: Math.random() * Math.PI * 2,
+      verts: makeMeteorShape(r)
+    });
+  }
+
+  function makeMeteorShape(r) {
+    const pts = [];
+    const n = 9;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const rr = r * (0.78 + Math.random() * 0.34);
+      pts.push({ a: a, r: rr });
+    }
+    return pts;
+  }
+
+  function spawnOrb() {
+    orbs.push({
+      x: Math.random() * (W - 80) + 40,
+      y: -20,
+      r: 9,
+      vy: 1.1 + Math.random() * 0.8,
+      pulse: Math.random() * Math.PI * 2
+    });
+  }
+
+  function spawnPowerup() {
+    const types = ["slow", "shield", "magnet"];
+    const t = types[Math.floor(Math.random() * types.length)];
+    const colors = { slow: "#7fd7ff", shield: "#8affa0", magnet: "#ffb0f0" };
+    powerups.push({
+      x: Math.random() * (W - 80) + 40,
+      y: -24,
+      r: 14,
+      vy: 1.3,
+      type: t,
+      color: colors[t],
+      pulse: Math.random() * Math.PI * 2
+    });
+  }
+
+  // ============ GAME FLOW ============
+  function reset() {
+    state = STATE.READY;
+    paused = false;
+    frames = 0;
+    elapsed = 0;
+    orbsCollected = 0;
+    spawnTimer = 0;
+    meteors = [];
+    orbs = [];
+    powerups = [];
+    particles = [];
+    power.slow = 0; power.shield = 0; power.magnet = 0;
+    ship.x = W / 2;
+    ship.y = H - 90;
+    ship.vx = 0;
+    ship.lives = 3;
+    ship.invuln = 0;
+    ship.tilt = 0;
+    keys.left = false; keys.right = false;
+    pointerActive = false;
+    syncPauseButton();
+  }
+
+  function startGame() {
+    reset();
+    state = STATE.PLAYING;
+    startScreen.classList.add("hidden");
+    gameOverScreen.classList.add("hidden");
+    beep(520, 0.1, "triangle");
+  }
+
+  function gameOver() {
+    if (state === STATE.OVER) return;
+    state = STATE.OVER;
+    beep(150, 0.34, "sawtooth");
+    burst(ship.x, ship.y, "#ff9c4a", 40, 8);
+    burst(ship.x, ship.y, "#ffe27a", 24, 5);
+
+    const score = Math.floor(elapsed * 10 + orbsCollected * 25);
+    if (score > best) {
+      best = score;
+      localStorage.setItem("meteorBest", String(best));
+    }
+    finalScoreEl.textContent = score;
+    finalTimeEl.textContent = elapsed.toFixed(1) + "s";
+    finalOrbsEl.textContent = orbsCollected;
+    finalBestEl.textContent = best;
+    bestStartEl.textContent = best;
+    gameOverScreen.classList.remove("hidden");
+  }
+
+  function syncPauseButton() {
+    btnPause.textContent = paused ? "Play" : "Pause";
+  }
+
+  function togglePause() {
+    if (state !== STATE.PLAYING) return;
+    paused = !paused;
+    syncPauseButton();
+    beep(paused ? 420 : 620, 0.07, "triangle");
+  }
+
+  function setDifficulty(d) {
+    if (!DIFFICULTY[d]) return;
+    diff = d;
+    localStorage.setItem("meteorDiff", d);
+    syncDiffButtons();
+    reset();
+  }
+
+  function syncDiffButtons() {
+    diffButtons.forEach(function (b) {
+      b.classList.toggle("selected", b.dataset.diff === diff);
+    });
+  }
+
+  // ============ COLLISION ============
+  function hitShip(obj) {
+    const dx = obj.x - ship.x;
+    const dy = obj.y - ship.y;
+    const rr = obj.r + ship.r * 0.82;
+    return dx * dx + dy * dy < rr * rr;
+  }
+
+  function damageShip() {
+    if (ship.invuln > 0) return;
+    if (power.shield > 0) {
+      power.shield = 0;
+      ship.invuln = 40;
+      burst(ship.x, ship.y, "#8affa0", 24, 6);
+      beep(700, 0.12, "sine");
+      return;
+    }
+    ship.lives--;
+    ship.invuln = 70;
+    burst(ship.x, ship.y, "#ff6a6a", 26, 7);
+    beep(240, 0.18, "sawtooth");
+    if (ship.lives <= 0) gameOver();
+  }
+
+  // ============ UPDATE ============
+  function update() {
+    frames++;
+
+    // ---- starfield drift ----
+    for (let i = 0; i < stars.length; i++) {
+      const s = stars[i];
+      s.y += s.z * 1.8;
+      s.tw += 0.04;
+      if (s.y > H) { s.y = -4; s.x = Math.random() * W; }
+    }
+
+    updateParticles();
+
+    if (state !== STATE.PLAYING) return;
+
+    const c = DIFFICULTY[diff];
+    const slowMul = power.slow > 0 ? 0.4 : 1;   // slow-time affects the world
+    elapsed += (1 / 60) * slowMul;
+
+    // ---- ship movement ----
+    if (keys.left) ship.vx -= SHIP_ACCEL;
+    if (keys.right) ship.vx += SHIP_ACCEL;
+    ship.vx *= SHIP_FRICTION;
+    if (ship.vx > SHIP_MAX) ship.vx = SHIP_MAX;
+    if (ship.vx < -SHIP_MAX) ship.vx = -SHIP_MAX;
+    ship.x += ship.vx;
+    if (ship.x < ship.r) { ship.x = ship.r; ship.vx = 0; }
+    if (ship.x > W - ship.r) { ship.x = W - ship.r; ship.vx = 0; }
+    ship.tilt += (ship.vx * 0.045 - ship.tilt) * 0.2;
+    if (ship.invuln > 0) ship.invuln--;
+    if (power.slow > 0) power.slow--;
+    if (power.magnet > 0) power.magnet--;
+    if (power.shield > 0) power.shield--;
+
+    // ---- meteor spawning (ramps with time) ----
+    spawnTimer--;
+    if (spawnTimer <= 0) {
+      const jitter = Math.random() * c.jitter;
+      spawnTimer = Math.max(8, (c.interval - elapsed * 0.35) + jitter);
+      spawnMeteor();
+      // occasional extra meteor once things heat up
+      if (elapsed > 18 && Math.random() < 0.4) spawnMeteor();
+      if (elapsed > 40 && Math.random() < 0.5) spawnMeteor();
+    }
+
+    // ---- orbs & powerup spawning ----
+    if (frames % 90 === 0 && Math.random() < 0.7) spawnOrb();
+    if (frames % 300 === 0 && Math.random() < 0.55) spawnPowerup();
+
+    // ---- meteors ----
+    for (let i = meteors.length - 1; i >= 0; i--) {
+      const m = meteors[i];
+      m.x += m.vx * slowMul;
+      m.y += m.vy * slowMul;
+      m.rot += m.spin;
+
+      // off-screen cleanup
+      if (m.y - m.r > H + 20 || m.x < -60 || m.x > W + 60) {
+        meteors.splice(i, 1);
+        continue;
+      }
+
+      // split into fragments on larger rocks
+      if (m.r > 20 && m.y > H * 0.35 && Math.random() < c.splitChance * 0.006) {
+        meteors.splice(i, 1);
+        for (let k = 0; k < 2; k++) {
+          spawnMeteor(m.x + (k ? 12 : -12), m.y, m.r * 0.55, 1.4);
+        }
+        burst(m.x, m.y, "#c76b3a", 8, 3);
+        continue;
+      }
+
+      if (hitShip(m)) {
+        meteors.splice(i, 1);
+        damageShip();
+        burst(m.x, m.y, "#ff8a4a", 16, 6);
+      }
+    }
+
+    // ---- orbs (with magnet attraction) ----
+    for (let i = orbs.length - 1; i >= 0; i--) {
+      const o = orbs[i];
+      if (power.magnet > 0) {
+        const dx = ship.x - o.x;
+        const dy = ship.y - o.y;
+        const d = Math.sqrt(dx * dx + dy * dy) || 1;
+        o.x += (dx / d) * 3.4;
+        o.y += (dy / d) * 3.4;
+      }
+      o.y += o.vy * slowMul;
+      o.pulse += 0.12;
+
+      if (o.y > H + 20) { orbs.splice(i, 1); continue; }
+
+      if (hitShip({ x: o.x, y: o.y, r: o.r })) {
+        orbs.splice(i, 1);
+        orbsCollected++;
+        burst(o.x, o.y, "#ffd447", 12, 4);
+        beep(900, 0.08, "sine");
+      }
+    }
+
+    // ---- powerups ----
+    for (let i = powerups.length - 1; i >= 0; i--) {
+      const p = powerups[i];
+      p.y += p.vy * slowMul;
+      p.pulse += 0.1;
+
+      if (p.y > H + 24) { powerups.splice(i, 1); continue; }
+
+      if (hitShip({ x: p.x, y: p.y, r: p.r })) {
+        powerups.splice(i, 1);
+        if (p.type === "slow") power.slow = 300;
+        if (p.type === "shield") power.shield = 480;
+        if (p.type === "magnet") power.magnet = 420;
+        burst(p.x, p.y, p.color, 20, 5);
+        beep(1000, 0.14, "triangle");
+      }
+    }
+  }
+
+  // ============ DRAWING ============
+  function drawBackground() {
+    const g = ctx.createRadialGradient(W / 2, 0, 40, W / 2, H * 0.7, H);
+    g.addColorStop(0, "#131c40");
+    g.addColorStop(1, "#03050e");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // stars
+    for (let i = 0; i < stars.length; i++) {
+      const s = stars[i];
+      const a = 0.4 + 0.6 * Math.abs(Math.sin(s.tw));
+      ctx.globalAlpha = a * s.z;
+      ctx.fillStyle = "#cfe4ff";
+      ctx.fillRect(s.x, s.y, s.r, s.r);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawMeteor(m) {
+    ctx.save();
+    ctx.translate(m.x, m.y);
+    ctx.rotate(m.rot);
+
+    // glow / heat trail
+    ctx.globalAlpha = 0.5;
+    const halo = ctx.createRadialGradient(0, 0, m.r * 0.4, 0, 0, m.r * 2.1);
+    halo.addColorStop(0, "rgba(255,140,60,0.55)");
+    halo.addColorStop(1, "rgba(255,80,0,0)");
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(0, 0, m.r * 2.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // body
+    ctx.beginPath();
+    for (let i = 0; i < m.verts.length; i++) {
+      const p = m.verts[i];
+      const px = Math.cos(p.a) * p.r;
+      const py = Math.sin(p.a) * p.r;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    const rock = ctx.createRadialGradient(-m.r * 0.3, -m.r * 0.3, m.r * 0.2, 0, 0, m.r);
+    rock.addColorStop(0, "#8a5a3c");
+    rock.addColorStop(0.6, "#5a3620");
+    rock.addColorStop(1, "#2e1a10");
+    ctx.fillStyle = rock;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,180,120,0.5)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // hot crack lines
+    ctx.strokeStyle = "rgba(255,160,80,0.7)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-m.r * 0.4, -m.r * 0.2);
+    ctx.lineTo(0, m.r * 0.1);
+    ctx.lineTo(m.r * 0.3, -m.r * 0.3);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawOrb(o) {
+    const pulse = 1 + Math.sin(o.pulse) * 0.12;
+    ctx.save();
+    ctx.translate(o.x, o.y);
+    ctx.scale(pulse, pulse);
+
+    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, o.r * 2.4);
+    glow.addColorStop(0, "rgba(255,220,80,0.9)");
+    glow.addColorStop(1, "rgba(255,200,0,0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, o.r * 2.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#ffe066";
+    ctx.beginPath();
+    ctx.arc(0, 0, o.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#fffbe0";
+    ctx.beginPath();
+    ctx.arc(-o.r * 0.3, -o.r * 0.3, o.r * 0.45, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawPowerup(p) {
+    const pulse = 1 + Math.sin(p.pulse) * 0.14;
+    ctx.save();
+    ctx.translate(p.x, p.y);
+
+    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, p.r * 2.6);
+    glow.addColorStop(0, p.color);
+    glow.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.globalAlpha = 0.6;
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, p.r * 2.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.scale(pulse, pulse);
+    ctx.fillStyle = p.color;
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2;
+    // rounded square
+    const s = p.r;
+    ctx.beginPath();
+    ctx.moveTo(-s + 4, -s);
+    ctx.arcTo(s, -s, s, s, 6);
+    ctx.arcTo(s, s, -s, s, 6);
+    ctx.arcTo(-s, s, -s, -s, 6);
+    ctx.arcTo(-s, -s, s, -s, 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // glyph
+    ctx.fillStyle = "#06101f";
+    ctx.font = "bold 15px 'Courier New', monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const glyph = p.type === "slow" ? "S" : p.type === "shield" ? "\u25C6" : "M";
+    ctx.fillText(glyph, 0, 1);
+
+    ctx.restore();
+  }
+
+  function drawShip() {
+    if (state === STATE.OVER && ship.lives <= 0) return;
+    ctx.save();
+    ctx.translate(ship.x, ship.y);
+    ctx.rotate(ship.tilt);
+
+    // invulnerability blink
+    if (ship.invuln > 0 && Math.floor(ship.invuln / 4) % 2 === 0) ctx.globalAlpha = 0.35;
+
+    // engine flame
+    const flick = 10 + Math.random() * 12;
+    const flame = ctx.createLinearGradient(0, ship.r * 0.6, 0, ship.r * 0.6 + flick);
+    flame.addColorStop(0, "rgba(120,210,255,0.95)");
+    flame.addColorStop(1, "rgba(120,210,255,0)");
+    ctx.fillStyle = flame;
+    ctx.beginPath();
+    ctx.moveTo(-6, ship.r * 0.6);
+    ctx.lineTo(6, ship.r * 0.6);
+    ctx.lineTo(0, ship.r * 0.6 + flick);
+    ctx.closePath();
+    ctx.fill();
+
+    // hull
+    const hull = ctx.createLinearGradient(-ship.r, 0, ship.r, 0);
+    hull.addColorStop(0, "#dbe9ff");
+    hull.addColorStop(0.5, "#9fc4ff");
+    hull.addColorStop(1, "#6f9fe0");
+    ctx.fillStyle = hull;
+    ctx.beginPath();
+    ctx.moveTo(0, -ship.r);
+    ctx.lineTo(ship.r * 0.8, ship.r * 0.5);
+    ctx.lineTo(ship.r * 0.35, ship.r * 0.8);
+    ctx.lineTo(-ship.r * 0.35, ship.r * 0.8);
+    ctx.lineTo(-ship.r * 0.8, ship.r * 0.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "#cfe4ff";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // cockpit
+    const cock = ctx.createRadialGradient(0, -ship.r * 0.25, 1, 0, -ship.r * 0.25, ship.r * 0.5);
+    cock.addColorStop(0, "#bff4ff");
+    cock.addColorStop(1, "#2f7fbf");
+    ctx.fillStyle = cock;
+    ctx.beginPath();
+    ctx.arc(0, -ship.r * 0.25, ship.r * 0.42, 0, Math.PI * 2);
+    ctx.fill();
+
+    // shield bubble
+    if (power.shield > 0) {
+      ctx.globalAlpha = 0.4 + 0.25 * Math.sin(frames * 0.15);
+      ctx.strokeStyle = "#8affa0";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, ship.r * 1.9, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  function drawParticles() {
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawHUD() {
+    if (state !== STATE.PLAYING && state !== STATE.OVER) return;
+    const score = Math.floor(elapsed * 10 + orbsCollected * 25);
+
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillStyle = "#eaf2ff";
+    ctx.font = "bold 22px 'Courier New', monospace";
+    ctx.fillText("SCORE " + score, 16, 14);
+
+    ctx.font = "15px 'Courier New', monospace";
+    ctx.fillStyle = "#9fb4dd";
+    ctx.fillText("TIME " + elapsed.toFixed(1) + "s   ORBS " + orbsCollected, 16, 44);
+
+    // lives (hull icons)
+    for (let i = 0; i < 3; i++) {
+      ctx.globalAlpha = i < ship.lives ? 1 : 0.22;
+      ctx.fillStyle = i < ship.lives ? "#7fd7ff" : "#44506e";
+      const hx = W - 30 - i * 26;
+      ctx.beginPath();
+      ctx.moveTo(hx, 16);
+      ctx.lineTo(hx + 8, 30);
+      ctx.lineTo(hx - 8, 30);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // active power-up timers
+    ctx.textAlign = "center";
+    ctx.font = "bold 13px 'Courier New', monospace";
+    let px = W / 2 - 90;
+    const bar = function (label, val, max, color) {
+      if (val <= 0) return;
+      ctx.fillStyle = color;
+      ctx.fillText(label, px + 30, 16);
+      ctx.fillStyle = "rgba(255,255,255,0.15)";
+      ctx.fillRect(px, 32, 60, 6);
+      ctx.fillStyle = color;
+      ctx.fillRect(px, 32, 60 * (val / max), 6);
+      px += 74;
+    };
+    bar("SLOW", power.slow, 300, "#7fd7ff");
+    bar("SHIELD", power.shield, 480, "#8affa0");
+    bar("MAGNET", power.magnet, 420, "#ffb0f0");
+  }
+
+  function drawOverlayText() {
+    if (state !== STATE.PLAYING) return;
+    if (paused) {
+      ctx.fillStyle = "rgba(3,6,16,0.7)";
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "#7fd7ff";
+      ctx.font = "bold 44px 'Courier New', monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("PAUSED", W / 2, H / 2 - 8);
+      ctx.fillStyle = "#b9c6e8";
+      ctx.font = "17px 'Courier New', monospace";
+      ctx.fillText("Press P / Play to resume", W / 2, H / 2 + 30);
+    }
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+    drawBackground();
+
+    if (state === STATE.READY) {
+      // idle ship over the drifting starfield behind the start screen
+      drawShip();
+      drawParticles();
+      ctx.fillStyle = "rgba(3,6,16,0.35)";
+      ctx.fillRect(0, 0, W, H);
+      return;
+    }
+
+    for (let i = 0; i < meteors.length; i++) drawMeteor(meteors[i]);
+    for (let i = 0; i < orbs.length; i++) drawOrb(orbs[i]);
+    for (let i = 0; i < powerups.length; i++) drawPowerup(powerups[i]);
+    drawParticles();
+    drawShip();
+    drawHUD();
+    drawOverlayText();
+  }
+
+  // ============ GAME LOOP ============
+  let raf;
+  function loop() {
+    if (!paused) update();
+    render();
+    raf = requestAnimationFrame(loop);
+  }
+
+  // ============ INPUT ============
+  function startOrRestart() {
+    if (state === STATE.PLAYING) return;
+    startGame();
+  }
+
+  window.addEventListener("keydown", function (e) {
+    if (["ArrowLeft", "ArrowRight", "KeyA", "KeyD", "Space"].indexOf(e.code) !== -1) {
+      e.preventDefault();
+    }
+    if (e.code === "ArrowLeft" || e.code === "KeyA") keys.left = true;
+    if (e.code === "ArrowRight" || e.code === "KeyD") keys.right = true;
+
+    if (e.code === "KeyP" || e.key === "p" || e.key === "P" || e.key === "Escape") {
+      togglePause();
+      return;
+    }
+    if (e.code === "KeyR" || e.key === "r" || e.key === "R") {
+      startGame();
+      return;
+    }
+    if (e.code === "Space" || e.code === "Enter") {
+      if (state !== STATE.PLAYING) startOrRestart();
+    }
+  });
+
+  window.addEventListener("keyup", function (e) {
+    if (e.code === "ArrowLeft" || e.code === "KeyA") keys.left = false;
+    if (e.code === "ArrowRight" || e.code === "KeyD") keys.right = false;
+  });
+
+  // Pointer steering (drag / move across the play field)
+  function pointerX(clientX) {
+    const rect = canvas.getBoundingClientRect();
+    return (clientX - rect.left) * (W / rect.width);
+  }
+
+  function steerTo(clientX) {
+    if (state !== STATE.PLAYING || paused) return;
+    const tx = pointerX(clientX);
+    ship.x = Math.max(ship.r, Math.min(W - ship.r, tx));
+    ship.vx = 0;
+  }
+
+  canvas.addEventListener("mousedown", function (e) { pointerActive = true; steerTo(e.clientX); });
+  canvas.addEventListener("mousemove", function (e) { if (pointerActive) steerTo(e.clientX); });
+  window.addEventListener("mouseup", function () { pointerActive = false; });
+
+  canvas.addEventListener("touchstart", function (e) {
+    e.preventDefault();
+    steerTo(e.touches[0].clientX);
+  }, { passive: false });
+  canvas.addEventListener("touchmove", function (e) {
+    e.preventDefault();
+    steerTo(e.touches[0].clientX);
+  }, { passive: false });
+
+  // On-screen mobile buttons
+  function bindHold(el, dir) {
+    const on = function (e) { e.preventDefault(); keys[dir] = true; };
+    const off = function (e) { e.preventDefault(); keys[dir] = false; };
+    el.addEventListener("touchstart", on, { passive: false });
+    el.addEventListener("touchend", off, { passive: false });
+    el.addEventListener("mousedown", on);
+    el.addEventListener("mouseup", off);
+    el.addEventListener("mouseleave", off);
+  }
+  bindHold(document.getElementById("mob-left"), "left");
+  bindHold(document.getElementById("mob-right"), "right");
+
+  // Buttons
+  startBtn.addEventListener("click", startGame);
+  playAgainBtn.addEventListener("click", startGame);
+  btnPause.addEventListener("click", togglePause);
+  btnRestart.addEventListener("click", startGame);
+  diffButtons.forEach(function (b) {
+    b.addEventListener("click", function () { setDifficulty(b.dataset.diff); });
+  });
+
+  // Pause render when tab hidden
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+    } else if (!raf) {
+      raf = requestAnimationFrame(loop);
+    }
+  });
+
+  // ============ BOOT ============
+  initStars();
+  syncDiffButtons();
+  syncPauseButton();
+  reset();
+  loop();
+})();
+</script>
+</body>
+</html>
