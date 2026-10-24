@@ -294,6 +294,28 @@
       "image_alt": "Eiffel Tower: a 330 mm solid miniature rendered in three-quarter view on a dark background, showing the four splayed legs, arched base and spire",
       "files": "https://github.com/juwpegatron/projects/tree/main/outputs/eiffel",
       "order": 12
+    },
+    {
+      "id": "loka-translate",
+      "name": "Loka Translate",
+      "category": "Software",
+      "desc": "Private, local Windows translation for English, Chinese and Bahasa Indonesia",
+      "description": "An offline Windows translation desk for English, Simplified Chinese, Traditional Chinese and Bahasa Indonesia. Runs a local Ollama model with tone and context controls, glossary guidance, streaming output, alternative phrasings and English word-choice notes. OpenCC normalizes Chinese script; review warnings flag changed numbers, missing links and missing preferred terms. No cloud fallback, API fees or saved translation history. A working desktop prototype &mdash; not a claim of superior translation accuracy.",
+      "tags": [
+        "offline translation",
+        "Ollama",
+        "Traditional Chinese",
+        "Bahasa Indonesia",
+        "Windows"
+      ],
+      "image": "loka-translate.png",
+      "image_alt": "Loka Translate Windows interface with source and translated text, tone controls, context and a local Ollama model selector",
+      "links": {
+        "app": "loka-translate/"
+      },
+      "native": true,
+      "featured": true,
+      "order": 5.5
     }
   ]
 }

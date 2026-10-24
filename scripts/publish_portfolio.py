@@ -97,6 +97,15 @@ def render_card(app):
                 f'{ind}      <a class="project-link" href="{app["files"]}" '
                 f'target="_blank" rel="noopener noreferrer">Files</a>'
             )
+    elif app.get("native"):
+        lines.append(
+            f'{ind}      <a class="project-link" href="{SITE_BASE}{app["links"]["app"]}" '
+            f'target="_blank" rel="noopener noreferrer">Windows app</a>'
+        )
+        lines.append(
+            f'{ind}      <a class="project-link" href="{REPO_URL}/tree/main/apps/{app["id"]}" '
+            f'target="_blank" rel="noopener noreferrer">Source</a>'
+        )
     else:
         for label, key in (("App", "app"), ("Web", "web"), ("Mobile", "mobile")):
             lines.append(
@@ -168,6 +177,21 @@ def render_note(app, today):
         if files:
             body += f"- **Files** \u2014 {files}\n"
         return body
+    if app.get("native"):
+        return (
+            "---\n"
+            f"id: {app['id']}\n"
+            "type: project\n"
+            "status: working-prototype\n"
+            f"date: {today}\n"
+            f"tags: {tags_yaml}\n"
+            "---\n\n"
+            f"# {app['name']}\n\n"
+            f"{unescape(app['description'])}\n\n"
+            f"- **Windows app** — {app_url(app, 'app')}\n"
+            f"- **Source** — {REPO_URL}/tree/main/apps/{app['id']}\n\n"
+            "Native desktop application. No browser/mobile translator is claimed.\n"
+        )
     links_yaml = (
         ", ".join(f'"{app_url(app, k)}"' for k in ("app", "web", "mobile"))
         + f', "apps/{app["id"]}/"'

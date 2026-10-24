@@ -72,7 +72,8 @@ def build_landing_apps(catalog):
         landing.append({
             "name": app["name"],
             "desc": app["desc"],
-            "links": [("App", links["app"]), ("Web", links["web"]), ("Mobile", links["mobile"])],
+            "links": ([("Windows app", links["app"])] if app.get("native") else
+                      [("App", links["app"]), ("Web", links["web"]), ("Mobile", links["mobile"])]),
         })
     return landing
 
@@ -241,7 +242,7 @@ def generate_index(out_dir, repo_name, apps):
 <body>
   <div class="container">
     <h1>{repo_name}</h1>
-    <p class="subtitle">Product projects — each with an app, web and mobile build</p>
+    <p class="subtitle">Product projects — native desktop apps and web/mobile experiences</p>
 
     <div class="grid">
 {cards_html}
