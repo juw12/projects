@@ -11,6 +11,8 @@ apps/orbis/data/
 apps/orbis/server/data/
 apps/peers/server/data/
 apps/house-of-articles/server/data/
+apps/loka-translate/settings.json
+apps/loka-translate/.loka-theme-*.tmp
 *.db
 *.sqlite
 *.sqlite3

@@ -1,7 +1,16 @@
 # Loka Translate
 
 A local Windows translation desk for English, Simplified Chinese, Traditional Chinese and Bahasa Indonesia.
-Version 1.0.0. A working desktop prototype, not a certified translation service.
+Version 1.1.0. A working desktop prototype, not a certified translation service.
+
+## New in 1.1.0
+
+- Use **Dark mode / Light mode** in the upper-right header. Editors, tabs, dropdowns, buttons and selection colors switch together.
+- The appearance preference is remembered beside the app. Translation text, context and glossary are not saved.
+- Switching preserves input, output, selections and translation-control state, including during a request.
+- Native Windows dialogs retain the system's appearance settings.
+
+For an upgrade, copy or save any current translation text, close the old app, and replace the executable in its existing folder. Existing shortcuts still point to that location. Keep any existing appearance settings when extracting the new download.
 
 ## Windows app
 
@@ -13,6 +22,7 @@ Create a desktop shortcut to the executable if desired. On Windows, open the app
 
 ## Features
 
+- Light/dark toggle in the top-right header. The entire translation workspace, tabs, dropdowns and text selection change immediately without clearing text. Only the theme preference is saved beside the app; translation text is not saved. Native Windows dialogs follow Windows appearance settings.
 - Explicit source selection or model-based auto detection; four target language/script choices.
 - Natural, Professional, Friendly, Formal and Literal tone.
 - Optional context and a per-session glossary: one `source term = preferred translation` per line.

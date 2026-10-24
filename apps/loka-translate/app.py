@@ -10,6 +10,7 @@ from pathlib import Path
 import queue
 import re
 import sys
+import tempfile
 import threading
 import time
 import tkinter as tk
@@ -19,7 +20,7 @@ import urllib.request
 
 from opencc import OpenCC
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 APP_ID = "Juwen.LokaTranslate.Desktop"
 BASE_URL = "http://127.0.0.1:11434"
 MAX_TEXT = 4000
@@ -37,15 +38,61 @@ TONES = {
     "Formal": "Polite, formal language, without adding information.",
     "Literal": "Close to the source wording while remaining grammatical.",
 }
-BACKGROUND = "#f5f2eb"
-PAPER = "#fffefa"
-INK = "#1c302e"
-MUTED = "#566963"
-ACCENT = "#176b5b"
-LINE = "#d6ddd6"
+THEMES = {
+    "light": {
+        "background": "#f5f2eb", "paper": "#fffefa", "ink": "#1c302e",
+        "muted": "#566963", "accent": "#176b5b", "line": "#d6ddd6",
+        "hover": "#e8eee6", "tab": "#e6e9df", "selection": "#b7d9c7",
+        "accent_hover": "#0f5145", "accent_ink": "#ffffff",
+        "disabled": "#d6ddd6", "disabled_ink": "#59675f",
+        "badge": "#dcebdd", "badge_ink": "#176b5b",
+    },
+    "dark": {
+        "background": "#151d1c", "paper": "#202b29", "ink": "#eef4ef",
+        "muted": "#b2c4ba", "accent": "#81d6b5", "line": "#425750",
+        "hover": "#30433b", "tab": "#25352f", "selection": "#365c4d",
+        "accent_hover": "#a2e5ca", "accent_ink": "#10251c",
+        "disabled": "#31423a", "disabled_ink": "#9eafa5",
+        "badge": "#244438", "badge_ink": "#9be0bf",
+    },
+}
 URL_RE = re.compile(r"https?://[^\s<>]+")
 NUMBER_RE = re.compile(r"\d+(?:[.,]\d+)*")
 CONVERTERS = {"中文 · 简体": OpenCC("t2s"), "中文 · 繁體": OpenCC("s2twp")}
+
+
+def default_settings_path():
+    folder = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
+    return folder / "settings.json"
+
+
+def load_theme(path):
+    try:
+        settings = json.loads(Path(path).read_text(encoding="utf-8"))
+        theme = settings.get("theme") if isinstance(settings, dict) else None
+        return theme if isinstance(theme, str) and theme in THEMES else "light"
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return "light"
+
+
+def save_theme(path, theme):
+    """Persist appearance only; never store source, translation or glossary text."""
+    if theme not in THEMES:
+        raise ValueError("Unknown theme")
+    path = Path(path)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent,
+            prefix=".loka-theme-", suffix=".tmp", delete=False,
+        ) as stream:
+            temporary = Path(stream.name)
+            json.dump({"theme": theme}, stream)
+            stream.write("\n")
+        temporary.replace(path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 class Cancelled(Exception):
@@ -288,12 +335,17 @@ def readable_error(error):
 
 
 class LokaApp(tk.Tk):
-    def __init__(self):
+    def __init__(self, settings_path=None):
         super().__init__()
+        self.settings_path = Path(settings_path) if settings_path is not None else default_settings_path()
+        self.theme_name = load_theme(self.settings_path)
+        self._closing = False
+        self.text_surfaces = []
+        self.text_widgets = []
         self.title("Loka Translate")
         self.geometry("1180x850")
         self.minsize(980, 730)
-        self.configure(bg=BACKGROUND)
+        self.configure(bg=THEMES[self.theme_name]["background"])
         icon = Path(getattr(sys, "_MEIPASS", Path(__file__).parent)) / "loka.ico"
         if icon.exists():
             self.iconbitmap(str(icon))
@@ -312,6 +364,7 @@ class LokaApp(tk.Tk):
         self.count_var = tk.StringVar(value=f"0 / {MAX_TEXT:,} characters")
         self._style()
         self._build()
+        self.apply_theme()
         self.bind("<Control-Return>", lambda event: self.translate())
         self.bind("<Escape>", lambda event: self.cancel())
         self.protocol("WM_DELETE_WINDOW", self.close)
@@ -319,29 +372,127 @@ class LokaApp(tk.Tk):
         self.refresh_models()
 
     def _style(self):
+        colors = THEMES[self.theme_name]
         self.option_add("*Font", ("Segoe UI", 10))
         style = ttk.Style(self)
-        style.theme_use("clam")
-        style.configure("TFrame", background=BACKGROUND)
-        style.configure("TLabel", background=BACKGROUND, foreground=INK)
-        style.configure("TButton", padding=(12, 8), background=PAPER, foreground=INK, borderwidth=1)
-        style.map("TButton", background=[("active", "#e8eee6")])
-        style.configure("Accent.TButton", background=ACCENT, foreground="white", font=("Segoe UI", 11, "bold"))
-        style.map("Accent.TButton", background=[("active", "#0f5145"), ("disabled", "#a6bcb0")])
-        style.configure("TCombobox", padding=6, fieldbackground=PAPER, foreground=INK)
-        style.map("TCombobox", fieldbackground=[("readonly", PAPER)])
-        style.configure("TNotebook", background=BACKGROUND, borderwidth=0)
-        style.configure("TNotebook.Tab", padding=(18, 9), background="#e6e9df", foreground=INK)
-        style.map("TNotebook.Tab", background=[("selected", PAPER)])
+        if style.theme_use() != "clam":
+            style.theme_use("clam")
+        style.configure(
+            ".", background=colors["background"], foreground=colors["ink"],
+            bordercolor=colors["line"], lightcolor=colors["line"], darkcolor=colors["line"],
+            troughcolor=colors["background"], selectbackground=colors["selection"],
+            selectforeground=colors["ink"], focuscolor=colors["accent"],
+        )
+        style.configure("TFrame", background=colors["background"])
+        style.configure("TLabel", background=colors["background"], foreground=colors["ink"])
+        style.configure("Muted.TLabel", foreground=colors["muted"])
+        style.configure(
+            "TButton", padding=(12, 8), background=colors["paper"],
+            foreground=colors["ink"], borderwidth=1,
+        )
+        style.map(
+            "TButton",
+            background=[("disabled", colors["disabled"]), ("active", colors["hover"])],
+            foreground=[("disabled", colors["disabled_ink"])],
+        )
+        style.configure(
+            "Accent.TButton", background=colors["accent"], foreground=colors["accent_ink"],
+            font=("Segoe UI", 11, "bold"),
+        )
+        style.map(
+            "Accent.TButton",
+            background=[("disabled", colors["disabled"]), ("active", colors["accent_hover"])],
+            foreground=[("disabled", colors["disabled_ink"]), ("!disabled", colors["accent_ink"])],
+        )
+        style.configure(
+            "TCombobox", padding=6, fieldbackground=colors["paper"],
+            background=colors["tab"], foreground=colors["ink"], arrowcolor=colors["ink"],
+        )
+        style.map(
+            "TCombobox",
+            fieldbackground=[("disabled", colors["disabled"]), ("readonly", colors["paper"])],
+            background=[("active", colors["hover"])],
+            foreground=[("disabled", colors["disabled_ink"]), ("readonly", colors["ink"])],
+            arrowcolor=[("disabled", colors["disabled_ink"])],
+            selectbackground=[("!disabled", colors["selection"])],
+            selectforeground=[("!disabled", colors["ink"])],
+        )
+        style.configure("TNotebook", background=colors["background"], borderwidth=0)
+        style.configure(
+            "TNotebook.Tab", padding=(18, 9), background=colors["tab"], foreground=colors["ink"],
+            lightcolor=colors["line"], darkcolor=colors["line"], bordercolor=colors["line"],
+        )
+        style.map("TNotebook.Tab", background=[("selected", colors["paper"]), ("active", colors["hover"])])
+        style.configure("TScrollbar", background=colors["tab"], arrowcolor=colors["muted"])
+        style.map("TScrollbar", background=[("active", colors["hover"]), ("pressed", colors["accent"])])
+        style.configure("TProgressbar", background=colors["accent"])
+
+    def apply_theme(self):
+        """Recolor existing widgets without replacing text, undo stacks or selections."""
+        colors = THEMES[self.theme_name]
+        self._style()
+        self.configure(bg=colors["background"])
+        self.wordmark.configure(bg=colors["background"], fg=colors["ink"])
+        self.offline_badge.configure(bg=colors["badge"], fg=colors["badge_ink"])
+        self.theme_button.configure(text="Light mode" if self.theme_name == "dark" else "Dark mode")
+        for surface in self.text_surfaces:
+            surface.configure(bg=colors["paper"], highlightbackground=colors["line"], highlightcolor=colors["line"])
+        for widget in self.text_widgets:
+            widget.configure(
+                bg=colors["paper"], fg=colors["ink"], insertbackground=colors["accent"],
+                selectbackground=colors["selection"], selectforeground=colors["ink"],
+                inactiveselectbackground=colors["selection"],
+            )
+        for widget in (self.source_box, self.target_box, self.tone_box, self.model_box):
+            popup = self.tk.call("ttk::combobox::PopdownWindow", str(widget))
+            self.tk.call(
+                str(popup) + ".f.l", "configure",
+                "-background", colors["paper"], "-foreground", colors["ink"],
+                "-selectbackground", colors["selection"], "-selectforeground", colors["ink"],
+                "-highlightbackground", colors["line"],
+            )
+        self.after_idle(self._theme_titlebar)
+
+    def _theme_titlebar(self):
+        if sys.platform != "win32":
+            return
+        try:
+            user32 = ctypes.windll.user32
+            user32.GetParent.argtypes = [ctypes.c_void_p]
+            user32.GetParent.restype = ctypes.c_void_p
+            window = user32.GetParent(self.winfo_id()) or self.winfo_id()
+            enabled = ctypes.c_int(self.theme_name == "dark")
+            for attribute in (20, 19):
+                result = ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                    ctypes.c_void_p(window), attribute, ctypes.byref(enabled), ctypes.sizeof(enabled),
+                )
+                if result == 0:
+                    break
+        except (AttributeError, OSError):
+            pass  # Native title-bar theming is optional on older Windows builds.
+
+    def toggle_theme(self):
+        self.theme_name = "dark" if self.theme_name == "light" else "light"
+        self.apply_theme()
+        try:
+            save_theme(self.settings_path, self.theme_name)
+        except OSError:
+            messagebox.showwarning(
+                "Appearance preference", "The theme changed for this session, but this folder is not writable. "
+                "The appearance preference could not be saved.", parent=self,
+            )
 
     def _text(self, parent, height, readonly=False, size=12):
-        frame = tk.Frame(parent, bg=PAPER, highlightbackground=LINE, highlightthickness=1)
+        colors = THEMES[self.theme_name]
+        frame = tk.Frame(parent, bg=colors["paper"], highlightbackground=colors["line"], highlightthickness=1)
         widget = tk.Text(
-            frame, height=height, wrap="word", undo=not readonly, bg=PAPER, fg=INK,
-            insertbackground=ACCENT, relief="flat", padx=16, pady=14,
+            frame, height=height, wrap="word", undo=not readonly, bg=colors["paper"], fg=colors["ink"],
+            insertbackground=colors["accent"], relief="flat", padx=16, pady=14,
             font=("Segoe UI", size), spacing1=3, spacing3=5,
-            selectbackground="#b7d9c7", selectforeground=INK,
+            selectbackground=colors["selection"], selectforeground=colors["ink"],
         )
+        self.text_surfaces.append(frame)
+        self.text_widgets.append(widget)
         scroll = ttk.Scrollbar(frame, command=widget.yview)
         widget.configure(yscrollcommand=scroll.set)
         scroll.pack(side="right", fill="y")
@@ -358,9 +509,13 @@ class LokaApp(tk.Tk):
         shell.rowconfigure(6, weight=1)
         header = ttk.Frame(shell)
         header.grid(row=0, column=0, sticky="ew", pady=(0, 18))
-        tk.Label(header, text="LOKA", font=("Georgia", 30, "bold"), bg=BACKGROUND, fg=INK).pack(side="left")
-        ttk.Label(header, text="TRANSLATE\nYour words. Your context. Your PC.", foreground=MUTED).pack(side="left", padx=20)
-        tk.Label(header, text="  ●  LOCAL ONLY  ", bg="#dcebdd", fg=ACCENT, font=("Segoe UI", 10, "bold"), padx=8, pady=8).pack(side="right")
+        self.wordmark = tk.Label(header, text="LOKA", font=("Georgia", 30, "bold"))
+        self.wordmark.pack(side="left")
+        ttk.Label(header, text="TRANSLATE\nYour words. Your context. Your PC.", style="Muted.TLabel").pack(side="left", padx=20)
+        self.offline_badge = tk.Label(header, text="  ●  LOCAL ONLY  ", font=("Segoe UI", 10, "bold"), padx=8, pady=8)
+        self.offline_badge.pack(side="right")
+        self.theme_button = ttk.Button(header, text="Dark mode", command=self.toggle_theme)
+        self.theme_button.pack(side="right", padx=(0, 12))
         toolbar = ttk.Frame(shell)
         toolbar.grid(row=1, column=0, sticky="ew", pady=(0, 14))
         ttk.Label(toolbar, text="From").pack(side="left", padx=(0, 6))
@@ -379,8 +534,8 @@ class LokaApp(tk.Tk):
         titles = ttk.Frame(shell)
         titles.grid(row=2, column=0, sticky="ew", pady=(0, 6))
         titles.columnconfigure((0, 1), weight=1, uniform="headers")
-        ttk.Label(titles, text="ORIGINAL", foreground=MUTED).grid(row=0, column=0, sticky="w")
-        ttk.Label(titles, text="TRANSLATION", foreground=MUTED).grid(row=0, column=1, sticky="w", padx=(8, 0))
+        ttk.Label(titles, text="ORIGINAL", style="Muted.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(titles, text="TRANSLATION", style="Muted.TLabel").grid(row=0, column=1, sticky="w", padx=(8, 0))
         panes = ttk.Frame(shell)
         panes.grid(row=3, column=0, sticky="nsew")
         panes.columnconfigure((0, 1), weight=1, uniform="texts")
@@ -398,7 +553,7 @@ class LokaApp(tk.Tk):
         self.clear_button.pack(side="left", padx=6)
         self.example_button = ttk.Button(actions, text="Try example", command=self.example)
         self.example_button.pack(side="left")
-        ttk.Label(actions, textvariable=self.count_var, foreground=MUTED).pack(side="left", padx=12)
+        ttk.Label(actions, textvariable=self.count_var, style="Muted.TLabel").pack(side="left", padx=12)
         self.save_button = ttk.Button(actions, text="Save text…", command=self.save_text)
         self.save_button.pack(side="right")
         self.copy_button = ttk.Button(actions, text="Copy", command=self.copy)
@@ -406,7 +561,7 @@ class LokaApp(tk.Tk):
         self.insights_button = ttk.Button(actions, text="Explain & alternatives", command=self.insights)
         self.insights_button.pack(side="right")
         self.review_var = tk.StringVar(value="No history is saved. Copy or export only when you choose.")
-        ttk.Label(shell, textvariable=self.review_var, foreground=MUTED, wraplength=1100).grid(row=5, column=0, sticky="ew", pady=(0, 10))
+        ttk.Label(shell, textvariable=self.review_var, style="Muted.TLabel", wraplength=1100).grid(row=5, column=0, sticky="ew", pady=(0, 10))
         self.tabs = ttk.Notebook(shell)
         self.tabs.grid(row=6, column=0, sticky="nsew")
         self.context_tab = ttk.Frame(self.tabs, padding=10)
@@ -415,10 +570,10 @@ class LokaApp(tk.Tk):
         help_tab = ttk.Frame(self.tabs, padding=14)
         for frame, title in [(self.context_tab, "Context"), (self.glossary_tab, "Glossary"), (self.insight_tab, "Insights"), (help_tab, "Privacy & help")]:
             self.tabs.add(frame, text=title)
-        ttk.Label(self.context_tab, text="Optional: audience, subject, or background. Not added to the translation.", foreground=MUTED).pack(anchor="w", pady=(0, 6))
+        ttk.Label(self.context_tab, text="Optional: audience, subject, or background. Not added to the translation.", style="Muted.TLabel").pack(anchor="w", pady=(0, 6))
         frame, self.context_text = self._text(self.context_tab, 3, size=10)
         frame.pack(fill="both", expand=True)
-        ttk.Label(self.glossary_tab, text="One term per line: torque = 扭力   ·   Guidance is checked, not guaranteed. Update terms when switching languages.", foreground=MUTED).pack(anchor="w", pady=(0, 6))
+        ttk.Label(self.glossary_tab, text="One term per line: torque = 扭力   ·   Guidance is checked, not guaranteed. Update terms when switching languages.", style="Muted.TLabel").pack(anchor="w", pady=(0, 6))
         frame, self.glossary_text = self._text(self.glossary_tab, 3, size=10)
         frame.pack(fill="both", expand=True)
         frame, self.insight_text = self._text(self.insight_tab, 4, readonly=True, size=10)
@@ -428,23 +583,24 @@ class LokaApp(tk.Tk):
             "All inference uses Ollama at 127.0.0.1:11434. No API keys, telemetry, cloud fallback, or automatic downloads. "
             "Keep a local model installed; qwen3:8b is recommended. Open Ollama if the connection is unavailable.\n"
             "Ctrl+Enter: translate. Esc: request stop (may wait for the next model response). First use loads the model and can be slower.\n"
+            "Use the header Light/Dark mode button to change appearance; only this preference is saved beside the app. "
             "Source, context and glossary remain in memory until cleared or the app closes. The app does not write translation history. "
             "Copied/exported text and Ollama/system diagnostics are outside this guarantee.\n"
             "Chinese script is normalized locally using OpenCC; Traditional uses Taiwan vocabulary. "
             "AI can omit or mistranslate details. Review important, legal, medical and safety-critical text. "
             "No claim of outperforming Google Translate."
         )
-        ttk.Label(help_tab, text=help_text, wraplength=1040, foreground=MUTED, justify="left").pack(anchor="w")
+        ttk.Label(help_tab, text=help_text, wraplength=1040, style="Muted.TLabel", justify="left").pack(anchor="w")
         footer = ttk.Frame(shell)
         footer.grid(row=7, column=0, sticky="ew", pady=(14, 0))
-        ttk.Label(footer, text="Local model", foreground=MUTED).pack(side="left", padx=(0, 8))
+        ttk.Label(footer, text="Local model", style="Muted.TLabel").pack(side="left", padx=(0, 8))
         self.model_box = ttk.Combobox(footer, textvariable=self.model_var, state="readonly", width=21)
         self.model_box.pack(side="left")
         self.refresh_button = ttk.Button(footer, text="Refresh", command=self.refresh_models)
         self.refresh_button.pack(side="left", padx=6)
         self.stop_button = ttk.Button(footer, text="Stop", command=self.cancel, state="disabled")
         self.stop_button.pack(side="right")
-        ttk.Label(footer, textvariable=self.status_var, foreground=MUTED, wraplength=550).pack(side="left", padx=12)
+        ttk.Label(footer, textvariable=self.status_var, style="Muted.TLabel", wraplength=550).pack(side="left", padx=12)
         self.progress = ttk.Progressbar(shell, mode="indeterminate")
         self.progress.grid(row=8, column=0, sticky="ew", pady=(10, 0))
         self.insights_button.configure(state="disabled")
@@ -602,7 +758,8 @@ class LokaApp(tk.Tk):
                     messagebox.showerror("Local translation unavailable", data, parent=self)
         except queue.Empty:
             pass
-        self.after(60, self.poll_events)
+        if not self._closing:
+            self.after(60, self.poll_events)
 
     def cancel(self):
         if self.busy:
@@ -675,7 +832,12 @@ class LokaApp(tk.Tk):
                 messagebox.showerror("Could not save", str(error), parent=self)
 
     def close(self):
+        if self._closing:
+            return
+        self._closing = True
         self.cancel_event.set()
+        for timer in self.tk.call("after", "info"):
+            self.after_cancel(timer)
         self.destroy()
 
 

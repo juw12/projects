@@ -299,23 +299,25 @@
       "id": "loka-translate",
       "name": "Loka Translate",
       "category": "Software",
-      "desc": "Private, local Windows translation for English, Chinese and Bahasa Indonesia",
-      "description": "An offline Windows translation desk for English, Simplified Chinese, Traditional Chinese and Bahasa Indonesia. Runs a local Ollama model with tone and context controls, glossary guidance, streaming output, alternative phrasings and English word-choice notes. OpenCC normalizes Chinese script; review warnings flag changed numbers, missing links and missing preferred terms. No cloud fallback, API fees or saved translation history. A working desktop prototype &mdash; not a claim of superior translation accuracy.",
+      "desc": "Private, local Windows translation for English, Chinese and Bahasa Indonesia — with light/dark themes",
+      "description": "An offline Windows translation desk for English, Simplified Chinese, Traditional Chinese and Bahasa Indonesia. Runs a local Ollama model with tone and context controls, glossary guidance, streaming output, alternative phrasings and English word-choice notes. Switch between light and dark themes without clearing text; only the appearance preference is remembered locally. OpenCC normalizes Chinese script; review warnings flag changed numbers, missing links and missing preferred terms. No cloud fallback, API fees or saved translation history. A working desktop prototype &mdash; not a claim of superior translation accuracy.",
       "tags": [
         "offline translation",
         "Ollama",
         "Traditional Chinese",
         "Bahasa Indonesia",
-        "Windows"
+        "Windows",
+        "dark mode"
       ],
       "image": "loka-translate.png",
-      "image_alt": "Loka Translate Windows interface with source and translated text, tone controls, context and a local Ollama model selector",
+      "image_alt": "Loka Translate in dark mode: English and Traditional Chinese text, a Light mode toggle, context and a local model selector",
       "links": {
         "app": "loka-translate/"
       },
       "native": true,
       "featured": true,
-      "order": 5.5
+      "order": 5.5,
+      "version": "1.1.0"
     }
   ]
 }

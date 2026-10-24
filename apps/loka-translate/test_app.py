@@ -2,15 +2,63 @@
 import io
 import json
 import os
+from pathlib import Path
+import tempfile
 import threading
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from app import (
     Cancelled, LANGUAGES, LokaApp, OllamaClient, TranslationRequest,
     is_cloud_model, make_messages, normalize_script, parse_glossary,
     readable_error, review_warnings,
+    THEMES, load_theme, save_theme,
 )
+
+
+class ThemeSettingsTests(unittest.TestCase):
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory(prefix="loka-test-", dir=Path(__file__).parent)
+        self.addCleanup(self.folder.cleanup)
+        self.settings_path = Path(self.folder.name) / "settings.json"
+
+    def test_missing_settings_default_to_light(self):
+        self.assertEqual(load_theme(self.settings_path), "light")
+
+    def test_invalid_settings_default_to_light(self):
+        for content in ['invalid JSON', 'null', '[]', '{"theme":"unknown"}', '{"theme":[]}']:
+            with self.subTest(content=content):
+                self.settings_path.write_text(content, encoding="utf-8")
+                self.assertEqual(load_theme(self.settings_path), "light")
+        self.settings_path.write_bytes(b"\xff\xfe")
+        self.assertEqual(load_theme(self.settings_path), "light")
+
+    def test_only_appearance_is_persisted(self):
+        for theme in ("dark", "light"):
+            save_theme(self.settings_path, theme)
+            self.assertEqual(load_theme(self.settings_path), theme)
+            self.assertEqual(json.loads(self.settings_path.read_text()), {"theme": theme})
+            self.assertEqual(list(self.settings_path.parent.iterdir()), [self.settings_path])
+
+    def test_invalid_theme_is_not_saved(self):
+        with self.assertRaises(ValueError):
+            save_theme(self.settings_path, "unknown")
+        self.assertFalse(self.settings_path.exists())
+
+    def test_text_palette_contrast(self):
+        def luminance(color):
+            channels = [int(color[index:index + 2], 16) / 255 for index in (1, 3, 5)]
+            linear = [value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4 for value in channels]
+            return sum(value * weight for value, weight in zip(linear, (0.2126, 0.7152, 0.0722)))
+
+        for theme, colors in THEMES.items():
+            for foreground, background in [
+                ("ink", "paper"), ("muted", "background"),
+                ("accent_ink", "accent"), ("ink", "selection"), ("badge_ink", "badge"),
+            ]:
+                with self.subTest(theme=theme, foreground=foreground, background=background):
+                    values = sorted([luminance(colors[foreground]), luminance(colors[background])])
+                    self.assertGreaterEqual((values[1] + 0.05) / (values[0] + 0.05), 4.5)
 
 
 class CoreTests(unittest.TestCase):
@@ -147,6 +195,77 @@ class CoreTests(unittest.TestCase):
 
     def test_connection_error_message(self):
         self.assertIn("No cloud fallback", readable_error(ConnectionError()))
+
+
+@unittest.skipUnless(os.environ.get("LOKA_GUI") == "1", "Optional GUI smoke test")
+class ThemeGuiTests(unittest.TestCase):
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory(prefix="loka-test-", dir=Path(__file__).parent)
+        self.addCleanup(self.folder.cleanup)
+        self.settings_path = Path(self.folder.name) / "settings.json"
+        models = patch("app.OllamaClient.models", return_value=["qwen3:8b"])
+        models.start()
+        self.addCleanup(models.stop)
+        self.app = LokaApp(settings_path=self.settings_path)
+        self.addCleanup(self.app.close)
+        self.app.update()
+
+    def test_toggle_preserves_all_text_and_selection(self):
+        app = self.app
+        contents = ["Keep this English text.", "保留翻譯。", "Supplier email", "torque = 扭力", "Keep these notes."]
+        for widget, content in zip(app.text_widgets, contents):
+            app.replace(widget, content, str(widget.cget("state")) == "disabled")
+        app.source_text.tag_add("sel", "1.0", "1.4")
+        app.source_text.mark_set("insert", "1.8")
+        app.source_text.edit_modified(False)
+        original_states = [str(widget.cget("state")) for widget in app.text_widgets]
+        for expected in ("dark", "light", "dark"):
+            app.theme_button.invoke()
+            app.update()
+            self.assertEqual(app.theme_name, expected)
+            self.assertEqual([app.value(widget) for widget in app.text_widgets], contents)
+            self.assertEqual([str(widget.cget("state")) for widget in app.text_widgets], original_states)
+            self.assertEqual(tuple(str(index) for index in app.source_text.tag_ranges("sel")), ("1.0", "1.4"))
+            self.assertEqual(app.source_text.index("insert"), "1.8")
+            self.assertFalse(app.source_text.edit_modified())
+            self.assertEqual(app.source_text.cget("background"), THEMES[expected]["paper"])
+            self.assertEqual(load_theme(self.settings_path), expected)
+
+    def test_dropdowns_and_tabs_are_themed(self):
+        self.app.theme_button.invoke()
+        self.app.update()
+        for combo in [self.app.source_box, self.app.target_box, self.app.tone_box, self.app.model_box]:
+            popup = self.app.tk.call("ttk::combobox::PopdownWindow", str(combo))
+            background = self.app.tk.call(str(popup) + ".f.l", "cget", "-background")
+            self.assertEqual(background, THEMES["dark"]["paper"])
+        self.assertEqual(self.app.offline_badge.cget("foreground"), THEMES["dark"]["badge_ink"])
+        self.assertEqual(str(self.app.theme_button.cget("text")), "Light mode")
+
+    def test_toggle_while_busy_keeps_controls_locked(self):
+        self.app.set_busy(True)
+        self.app.theme_button.invoke()
+        self.app.update()
+        self.assertTrue(self.app.busy)
+        self.assertEqual(str(self.app.source_text.cget("state")), "disabled")
+        self.assertIn("disabled", self.app.translate_button.state())
+        self.assertNotIn("disabled", self.app.theme_button.state())
+        self.app.set_busy(False)
+
+    def test_write_error_does_not_prevent_theme_change(self):
+        with patch("app.save_theme", side_effect=PermissionError()), patch("app.messagebox.showwarning") as warning:
+            self.app.toggle_theme()
+        self.assertEqual(self.app.theme_name, "dark")
+        warning.assert_called_once()
+
+    def test_saved_theme_is_restored_in_a_new_window(self):
+        self.app.toggle_theme()
+        self.app.close()
+        self.app = LokaApp(settings_path=self.settings_path)
+        self.addCleanup(self.app.close)
+        self.app.update()
+        self.assertEqual(self.app.theme_name, "dark")
+        self.assertEqual(self.app.source_text.cget("background"), THEMES["dark"]["paper"])
+        self.assertEqual(str(self.app.theme_button.cget("text")), "Light mode")
 
 
 @unittest.skipUnless(os.environ.get("LOKA_GUI") == "1", "Optional GUI smoke test")
