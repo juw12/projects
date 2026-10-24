@@ -178,11 +178,13 @@ def render_note(app, today):
             body += f"- **Files** \u2014 {files}\n"
         return body
     if app.get("native"):
+        version_yaml = f"version: {app['version']}\n" if app.get("version") else ""
         return (
             "---\n"
             f"id: {app['id']}\n"
             "type: project\n"
             "status: working-prototype\n"
+            f"{version_yaml}"
             f"date: {today}\n"
             f"tags: {tags_yaml}\n"
             "---\n\n"
