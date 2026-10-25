@@ -1,8 +1,9 @@
-// Trade Twin 1.0.2: own cache only; complete offline snapshot; API never cached.
+// Trade Twin 1.1.0: own cache only; complete offline snapshot; API never cached.
 const PREFIX = "trade-twin:" + self.registration.scope + ":";
-const SHELL = PREFIX + "1.0.2";
+const SHELL = PREFIX + "1.1.0";
 const FILES = [
-  "./", "index.html", "demo.js", "manifest.webmanifest",
+  "./", "index.html", "./?v=1.1.0", "index.html?v=1.1.0",
+  "demo.js?v=1.1.0", "theme.js?v=1.1.0", "theme.css?v=1.1.0", "manifest.webmanifest",
   "icons/apple-touch-icon.png", "icons/icon-192.png", "icons/icon-512.png",
   "demo/meta.json", "demo/market.json", "demo/monthly.json",
   "demo/news.json", "demo/copycat.json", "demo/trade.json",

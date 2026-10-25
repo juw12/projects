@@ -323,8 +323,8 @@
       "id": "trade-twin",
       "name": "Trade Twin",
       "category": "Software",
-      "desc": "Practice investing and day trading — 10,000-path research tools, with safer offline and account handling",
-      "description": "An iPhone-ready practice investing and day-trading companion. An educational preferences quiz sets editable risk limits; paper portfolios, a goal planner with 10,000 historical-bootstrap paths, SEC 13F research and a dated news feed. Version 1.0.2 adds deposit-neutral drawdowns, plan-aligned replay exits, stale-ticket protection, browser-profile isolation and a complete offline demo. Stdlib Python backend for live delayed data; installable PWA and snapshot web demo. No real orders; simulations are not forecasts or financial advice.",
+      "desc": "Try investing research without login — guest practice mode, historical simulations and light/dark themes",
+      "description": "An iPhone-ready practice investing and trading companion. Continue as guest without login, email or a mandatory quiz; explore a separate $10,000 practice portfolio, historical goal simulations, SEC 13F research and the TSLA replay. Version 1.1 adds saved System / Light / Dark appearance, theme-aware charts, optional assessment, guest reset controls and honest partial-copy feedback. Guests use a dated snapshot; live delayed data requires the local Python backend. No real orders and no financial advice.",
       "tags": [
         "Python",
         "PWA",
@@ -334,15 +334,15 @@
         "zero-dependency"
       ],
       "image": "trade-twin.png",
-      "image_alt": "Trade Twin v1.0.2: goal simulation with deposit-neutral drawdown and a token-bound practice trade checklist",
+      "image_alt": "Trade Twin v1.1: Continue as guest welcome screen, light-mode practice portfolio and dark-mode appearance settings",
       "links": {
-        "app": "trade-twin/",
+        "app": "trade-twin/?v=1.1.0",
         "web": "trade-twin/web.html",
         "mobile": "trade-twin/mobile.html"
       },
       "featured": true,
       "order": 5.6,
-      "version": "1.0.2"
+      "version": "1.1.0"
     },
     {
       "id": "glow",
