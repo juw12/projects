@@ -323,8 +323,8 @@
       "id": "trade-twin",
       "name": "Trade Twin",
       "category": "Software",
-      "desc": "Invest and day-trade with a twin that replays 10,000 futures before you risk a dollar",
-      "description": "An iPhone-ready investing and day-trading companion. A 10-question personality test sets your type and guard-rails (max loss per trade, daily stop, reward:risk); paper trading at real delayed prices; a goal planner that simulates 10,000 futures from real monthly history; copy a famous investor&rsquo;s latest SEC 13F into a practice portfolio; a news feed; and a day-trade checklist whose Time Machine replays the session 10,000 times before you size the trade. Stdlib Python backend + installable PWA; the web build runs offline on a data snapshot. Practice money only &mdash; not financial advice.",
+      "desc": "Practice investing and day trading — 10,000-path research tools, with safer offline and account handling",
+      "description": "An iPhone-ready practice investing and day-trading companion. An educational preferences quiz sets editable risk limits; paper portfolios, a goal planner with 10,000 historical-bootstrap paths, SEC 13F research and a dated news feed. Version 1.0.2 adds deposit-neutral drawdowns, plan-aligned replay exits, stale-ticket protection, browser-profile isolation and a complete offline demo. Stdlib Python backend for live delayed data; installable PWA and snapshot web demo. No real orders; simulations are not forecasts or financial advice.",
       "tags": [
         "Python",
         "PWA",
@@ -334,14 +334,15 @@
         "zero-dependency"
       ],
       "image": "trade-twin.png",
-      "image_alt": "Trade Twin on iPhone: the getting-started guide, a 10,000-future goal fan chart, and the day-trade checklist with the Time Machine verdict",
+      "image_alt": "Trade Twin v1.0.2: goal simulation with deposit-neutral drawdown and a token-bound practice trade checklist",
       "links": {
         "app": "trade-twin/",
         "web": "trade-twin/web.html",
         "mobile": "trade-twin/mobile.html"
       },
       "featured": true,
-      "order": 5.6
+      "order": 5.6,
+      "version": "1.0.2"
     },
     {
       "id": "mufakat",

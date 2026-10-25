@@ -1,0 +1,161 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Trade Twin browser regressions</title>
+<pre id="report">RUNNING</pre>
+<script src="demo.js"></script>
+<script>
+(async () => {
+  const checks = [];
+  const check = (name, condition) => {
+    checks.push({ name, pass: Boolean(condition) });
+    document.getElementById("report").textContent = JSON.stringify({ done: false, checks });
+    fetch("__result", { method: "POST", body: JSON.stringify({ done: false, checks }) });
+  };
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const api = window.TradeTwinDemo.api;
+  const errors = [];
+  window.addEventListener("unhandledrejection", (event) => errors.push(String(event.reason)));
+  const storageKey = "trade-twin-demo-v1";
+  const profile = () => JSON.parse(localStorage.getItem(storageKey));
+  try {
+    localStorage.clear();
+    const originalFetch = window.fetch;
+    // Deterministic negative-return history exercises the browser's real goal engine.
+    window.fetch = async (url, options) => {
+      const response = await originalFetch(url, options);
+      if (String(url).endsWith("demo/monthly.json")) {
+        const data = await response.json();
+        data.DROP = Object.fromEntries(Array.from({ length: 120 }, (_, i) => [
+          `${2000 + Math.floor(i / 12)}-${String(i % 12 + 1).padStart(2, "0")}`, -0.05,
+        ]));
+        return new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } });
+      }
+      return response;
+    };
+    let result = await api("api/signup", { username: "alice", name: "Alice", password: "unique-demo-pass" });
+    check("signup works", result.ok);
+    check("salted PBKDF2 demo credential", profile().users.alice.kdf === "pbkdf2-sha256-200000" && profile().users.alice.salt.length === 32);
+    check("password not stored in plaintext", !localStorage.getItem(storageKey).includes("unique-demo-pass"));
+    result = await api("api/signup", { username: "__proto__", name: "Bad", password: "unique-demo-pass" });
+    check("prototype usernames refused", !result.ok);
+    await api("api/quiz", { answers: { risk_points: [2, 3], style_points: [2], flags: [] } });
+    result = await api("api/me");
+    check("half-up risk rounding agrees with Python", result.profile.quiz.risk_level === 3);
+    await api("api/profile", { limits: { default_target: "1.5R" } });
+    result = await api("api/profile", { name: [] });
+    check("invalid profile types rejected", !result.ok);
+    result = await api("api/profile", { limits: { max_position_pct: 101 } });
+    check("invalid percentage limit rejected", !result.ok);
+    result = await api("api/paper/order", { symbol: "AAPL", side: "buy", dollars: "NaN" });
+    check("NaN order rejected", !result.ok);
+    const orders = await Promise.all(Array.from({ length: 6 }, () => api("api/paper/order", {
+      symbol: "AAPL", side: "buy", dollars: 100,
+    })));
+    result = await api("api/me");
+    check("concurrent browser orders preserved", orders.every((r) => r.ok) && result.profile.paper.history.length === 6 && result.profile.paper.cash === 9400);
+    const normal = await api("api/goal", { tickers: "DROP", years: 1, initial: 1000, monthly: 0, target: 2000 });
+    const deposits = await api("api/goal", { tickers: "DROP,DROP", years: 1, initial: 1000, monthly: 10000, target: 2000 });
+    check("drawdown does not hide behind deposits", normal.ok && deposits.ok && normal.result.median_worst_drop === deposits.result.median_worst_drop && normal.result.median_worst_drop < -40);
+    check("duplicate tickers deduplicated", Object.keys(deposits.result.weights).length === 1 && deposits.result.weights.DROP === 100);
+    let first = await api("api/trade", { mode: "demo", step: "entry", params: { symbol: "TSLA" } });
+    let second = await api("api/trade", { mode: "demo", step: "entry", params: { symbol: "TSLA" } });
+    result = await api("api/trade", { mode: "demo", step: "exit", run_id: first.run_id, params: {} });
+    check("stale run token refused", !result.ok);
+    // Start again after the rejected stale attempt.
+    second = await api("api/trade", { mode: "demo", step: "entry", params: { symbol: "TSLA" } });
+    for (const step of ["exit", "timemachine", "budget", "risk", "broker"]) {
+      result = await api("api/trade", { mode: "demo", step, run_id: second.run_id, params: { target_rule: "1.5R" } });
+      check("demo pipeline " + step, result.ok);
+      if (step === "timemachine") {
+        check("replay horizon matches plan", result.data.mc.until === "15:55");
+      }
+    }
+    await api("api/signup", { username: "bob", name: "Bob", password: "another-demo-pass" });
+    result = await api("api/trade", { mode: "demo", step: "broker", run_id: second.run_id, params: {} });
+    check("other account cannot reuse run", !result.ok);
+    result = await api("api/me");
+    check("other account has separate portfolio", result.profile.paper.history.length === 0);
+    // Legacy demo profiles migrate only after successful verification.
+    const legacy = profile();
+    legacy.users.bob.hash = "plain:bob:another-demo-pass";
+    delete legacy.users.bob.salt;
+    delete legacy.users.bob.kdf;
+    localStorage.setItem(storageKey, JSON.stringify(legacy));
+    await api("api/logout");
+    result = await api("api/login", { username: "bob", password: "another-demo-pass" });
+    check("legacy plaintext credentials upgraded", result.ok && profile().users.bob.kdf === "pbkdf2-sha256-200000" && !localStorage.getItem(storageKey).includes("plain:"));
+    await api("api/logout");
+    // A real service worker install must preserve other apps' caches and include every demo asset.
+    await caches.open("other-app-keep-me");
+    await caches.open("tt-shell-v3");
+    await navigator.serviceWorker.register("sw.js");
+    await Promise.race([
+      navigator.serviceWorker.ready,
+      delay(8000).then(() => { throw new Error("service worker install timed out"); }),
+    ]);
+    for (let i = 0; i < 40 && (await caches.keys()).includes("tt-shell-v3"); i++) {
+      await delay(50);
+    }
+    const keys = await caches.keys();
+    check("unrelated app cache survives activation", keys.includes("other-app-keep-me"));
+    check("old Trade Twin cache cleaned", !keys.includes("tt-shell-v3"));
+    const current = keys.find((key) => key.startsWith("trade-twin:") && key.endsWith(":1.0.2"));
+    const offline = await caches.open(current);
+    const cached = await offline.keys();
+    check("complete demo precached", ["demo.js", "demo/market.json", "demo/monthly.json", "demo/trade.json", "demo/news.json"].every((name) => cached.some((request) => request.url.endsWith(name))));
+    // Real UI: caches must clear on logout; a server outage must never log in to a different demo.
+    const frame = document.createElement("iframe");
+    frame.style.cssText = "width:320px;height:820px;border:0";
+    document.body.append(frame);
+    frame.src = "index.html";
+    await new Promise((resolve) => { frame.onload = resolve; });
+    const win = frame.contentWindow;
+    const doc = frame.contentDocument;
+    win.addEventListener("error", (event) => errors.push(event.message));
+    win.addEventListener("unhandledrejection", (event) => errors.push(String(event.reason)));
+    for (let i = 0; i < 80 && !doc.querySelector("input[autocomplete=username]"); i++) {
+      await delay(50);
+    }
+    doc.querySelector("input[autocomplete=username]").value = "alice";
+    doc.querySelector("input[type=password]").value = "unique-demo-pass";
+    doc.querySelector("button.primary").click();
+    for (let i = 0; i < 80 && !doc.getElementById("tab-me"); i++) {
+      await delay(50);
+    }
+    check("UI login succeeded", Boolean(doc.getElementById("tab-me")));
+    for (const tab of ["home", "invest", "trade", "news", "me"]) {
+      doc.getElementById("tab-" + tab).click();
+      await delay(300);
+      check("320px layout: " + tab, doc.documentElement.scrollWidth <= 320);
+    }
+    doc.getElementById("tab-trade").click();
+    await delay(200);
+    const runButton = [...doc.querySelectorAll("button")].find((button) => button.textContent.includes("Run check"));
+    runButton.click();
+    check("trade controls disable while running", runButton.disabled);
+    doc.getElementById("tab-news").click();
+    check("mode and tab cannot change mid-run", win.eval('state.tab') === "trade");
+    for (let i = 0; i < 100 && win.eval('state.tradeBusy'); i++) {
+      await delay(100);
+    }
+    check("UI completes token-bound demo flow", win.eval('state.tradeResults.broker?.result?.data?.[0]?.ready') === true);
+    doc.getElementById("tab-me").click();
+    await delay(200);
+    const exitButton = [...doc.querySelectorAll("button")].find((button) => button.textContent === "Log out");
+    exitButton.click();
+    for (let i = 0; i < 80 && !doc.querySelector("input[autocomplete=username]"); i++) {
+      await delay(50);
+    }
+    check("private caches cleared on logout", win.eval("state.paper === null && state.newsCache === null && Object.keys(state.tradeResults).length === 0"));
+    win.localStorage.setItem("tt-runtime-mode", "server");
+    win.fetch = async () => { throw new Error("offline"); };
+    await win.boot();
+    check("offline server does not become demo account", doc.body.textContent.includes("Server unavailable"));
+    check("no unhandled UI errors", errors.length === 0);
+  } catch (error) {
+    checks.push({ name: String(error.stack || error), pass: false });
+  }
+  document.getElementById("report").textContent = JSON.stringify({ done: true, checks });
+  await fetch("__result", { method: "POST", body: JSON.stringify({ done: true, checks }) });
+})();
+</script>

@@ -71,7 +71,7 @@ TOOL = {
 }
 
 
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 
 
 class AppError(Exception):
@@ -250,13 +250,28 @@ def goal_sim(weights, years, initial, monthly, goal, paths=10000, seed=19, block
     months (so bad stretches stay together), rebalanced monthly to the weights."""
     if not weights:
         raise AppError("pick at least one ticker")
+    if len(weights) > 8:
+        raise AppError("use at most 8 tickers per simulation")
+    weights = {clean_symbol(k): number(v, "weight", low=0) for k, v in weights.items()}
     total = sum(weights.values())
+    if not math.isfinite(total) or total <= 0:
+        raise AppError("at least one weight must be positive")
     weights = {k: v / total for k, v in weights.items() if v > 0}
     series = {sym: monthly_returns(sym) for sym in weights}
-    months = sorted(set.intersection(*[set(s) for s in series.values()]))
+    all_months = sorted(set.intersection(*[set(s) for s in series.values()]))
+    # Keep one unbroken calendar run: missing months must never be stitched together.
+    runs = []
+    for month in all_months:
+        if not runs or month_serial(month) != month_serial(runs[-1][-1]) + 1:
+            runs.append([])
+        runs[-1].append(month)
+    months = max(runs, key=lambda run: (len(run), run[-1]), default=[])
     if len(months) < 60:
         raise AppError("need at least 5 years of shared history; %d months available" % len(months))
     history = [sum(w * series[s][m] for s, w in weights.items()) for m in months]
+    if any(not math.isfinite(r) or r < -1 for r in history):
+        raise AppError("invalid historical returns; simulation refused")
+    block = int(number(block, "block size", low=1, high=len(history)))
 
     n_months = int(years * 12)
     rng = random.Random(seed)
@@ -265,19 +280,22 @@ def goal_sim(weights, years, initial, monthly, goal, paths=10000, seed=19, block
     worst_drawdowns = []
     for _ in range(paths):
         value = float(initial)
-        peak = value
+        unit_value = 1.0
+        peak = 1.0
         worst = 0.0
         yearly[0].append(value)
         m = 0
         while m < n_months:
-            start = rng.randrange(len(history))
+            start = rng.randrange(len(history) - block + 1)
             for k in range(block):
                 if m >= n_months:
                     break
-                value = (value + monthly) * (1 + history[(start + k) % len(history)])
-                peak = max(peak, value)
-                if peak > 0:
-                    worst = min(worst, value / peak - 1)
+                period_return = history[start + k]
+                value = (value + monthly) * (1 + period_return)
+                # Measure investment drawdown on unit value, not on deposit-inflated cash.
+                unit_value *= 1 + period_return
+                peak = max(peak, unit_value)
+                worst = min(worst, unit_value / peak - 1)
                 m += 1
                 if m % 12 == 0:
                     yearly[m // 12].append(value)
@@ -330,8 +348,21 @@ def goal_sim(weights, years, initial, monthly, goal, paths=10000, seed=19, block
         "note": "Built from %s's own monthly total returns %s to %s (block bootstrap, 12-month blocks, "
                 "rebalanced monthly). Not a prediction: the future can be worse than any stretch in this history."
                 % ("/".join(weights), months[0], months[-1]),
-        "warnings": history_warnings(len(months)),
+        "warnings": history_warnings(len(months)) + (
+            ["Missing shared months: using the longest consecutive history only."]
+            if len(months) != len(all_months) else []),
+        "drawdown_basis": "time-weighted unit value; deposits excluded",
+        "assumptions": [
+            "Nominal dollars; inflation, taxes, transaction fees and trading slippage are excluded.",
+            "Contributions at the start of each month; fixed weights rebalanced monthly.",
+            "Historical sample estimates, not calibrated forecasts or guaranteed outcomes."
+        ],
     }
+
+
+def month_serial(month):
+    year, mon = month.split("-")
+    return int(year) * 12 + int(mon)
 
 
 def history_warnings(n_months):
@@ -353,6 +384,10 @@ def compound(seq):
 
 # ------------------------------------------------------------ users + sessions
 
+def reject_json_constant(value):
+    raise ValueError("non-finite JSON value")
+
+
 def load_json(path, default):
     try:
         return json.loads(path.read_text())
@@ -362,9 +397,13 @@ def load_json(path, default):
 
 def save_json(path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(data, indent=2))
-    tmp.replace(path)
+    tmp = path.with_name(path.name + "." + secrets.token_hex(8) + ".tmp")
+    try:
+        tmp.write_text(json.dumps(data, indent=2, allow_nan=False))
+        tmp.chmod(0o600)
+        tmp.replace(path)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def number(value, name, low=None, high=None, default=None):
@@ -373,6 +412,8 @@ def number(value, name, low=None, high=None, default=None):
         if default is not None:
             return default
         raise AppError("%s is required" % name)
+    if isinstance(value, bool):
+        raise AppError("%s must be a number, not a boolean" % name)
     try:
         result = float(value)
     except (TypeError, ValueError):
@@ -553,9 +594,13 @@ def score_quiz(answers):
     flags = answers.get("flags", [])
     if not risk or not style:
         raise AppError("answer every question")
+    if not isinstance(risk, list) or not isinstance(style, list) or len(risk) > 20 or len(style) > 20:
+        raise AppError("invalid assessment answers")
+    risk = [number(value, "risk answer", low=1, high=5) for value in risk]
+    style = [number(value, "style answer", low=1, high=5) for value in style]
     risk_avg = sum(risk) / len(risk)          # 1..5
     style_avg = sum(style) / len(style)       # 1 (long-term investor) .. 5 (active trader)
-    level = max(1, min(5, round(risk_avg)))
+    level = max(1, min(5, int(math.floor(risk_avg + 0.5))))
     if style_avg >= 3.8 and level >= 3:
         key = "trader"
     elif style_avg >= 2.8 and level >= 3:
@@ -621,8 +666,7 @@ def sync_trader_config(uid, profile):
                     "flat_by", "no_entries_before", "no_entries_after"):
             if key in limits:
                 config[key] = limits[key]
-        if agent:
-            config["sec_user_agent"] = agent
+        config["sec_user_agent"] = agent
         config.update({"paper": True, "allow_options": False, "allow_margin": False, "allow_short": False})
         save_json(path, config)
 
@@ -763,7 +807,60 @@ def opt(args, flag, value):
         args += [flag, str(value)]
 
 
-def day_trade_step(uid, step, mode, p):
+PIPELINE_STEPS = ("entry", "exit", "timemachine", "budget", "risk", "broker")
+PIPELINE_FILES = ("entry.json", "plan.json", "timemachine.json", "orders.json", "state/risk.json")
+TRADE_LOCKS = {}
+
+
+def day_trade_step(uid, step, mode, params, run_id=None):
+    """Bind every hand-off to one completed run and the current limits.
+
+    Clear stale outputs before attempting a new step; reject interleaved tabs,
+    old tokens, expired live runs, and a ticket without a successful risk check.
+    """
+    with LOCK:
+        run_lock = TRADE_LOCKS.setdefault((uid, mode), threading.RLock())
+    with run_lock:
+        if step in ("clock", "scanner"):
+            return execute_trade_step(uid, step, mode, params)
+        if step not in PIPELINE_STEPS:
+            raise AppError("unknown trade step")
+        root = trader_root(uid, mode) / "trader"
+        state_path = root / "state/pipeline.json"
+        fingerprint = hashlib.sha256((root / "config.json").read_bytes()).hexdigest()
+        if step == "entry":
+            run = {"id": secrets.token_hex(16), "completed": [], "config": fingerprint, "started": time.time()}
+        else:
+            run = load_json(state_path, {})
+            if not run_id or run_id != run.get("id"):
+                raise AppError("This trade run is stale. Start a new check from Entry.")
+            if run.get("config") != fingerprint:
+                raise AppError("Your limits changed. Start a new trade check.")
+            if mode == "live" and time.time() - run.get("started", 0) > 300:
+                raise AppError("This live check expired after five minutes. Run it again.")
+            previous = PIPELINE_STEPS[PIPELINE_STEPS.index(step) - 1]
+            if previous not in run.get("completed", []):
+                raise AppError("Complete %s successfully before %s." % (previous, step))
+        index = PIPELINE_STEPS.index(step)
+        run["completed"] = list(PIPELINE_STEPS[:index]) if index else []
+        for relative in PIPELINE_FILES[index:]:
+            (root / relative).unlink(missing_ok=True)
+        save_json(state_path, run)
+        result = execute_trade_step(uid, step, mode, params)
+        data = result.get("data") or {}
+        complete = result.get("ok", False)
+        if step == "entry":
+            complete = complete and data.get("status") == "triggered"
+        if step == "budget":
+            complete = complete and not data.get("sizing", {}).get("refusal")
+        if complete:
+            run["completed"].append(step)
+        save_json(state_path, run)
+        result["run_id"] = run["id"]
+        return result
+
+
+def execute_trade_step(uid, step, mode, p):
     demo = mode == "demo"
     clock = ["--now", DEMO_NOW] if demo else []
     if step == "scanner":
@@ -794,6 +891,10 @@ def day_trade_step(uid, step, mode, p):
         args = [TOOL["timemachine"], "run", "--write", "--json"]
         opt(args, "--replays", int(p.get("replays") or 10000))
         opt(args, "--seed", p.get("seed") or 19)
+        flat_by = load_json(trader_root(uid, mode) / "trader/plan.json", {}).get("flat_by", "15:55")
+        opt(args, "--until", flat_by)
+        replays = int(number(p.get("replays"), "replays", low=100, high=20000, default=10000))
+        args[args.index("--replays") + 1] = str(replays)
         if p.get("manual"):
             args += ["--symbol", clean_symbol(p.get("symbol"))]
             for key in ("entry", "stop", "target"):
@@ -896,7 +997,7 @@ class Handler(BaseHTTPRequestHandler):
         return None
 
     def send_json(self, payload, status=200, cookie=None):
-        body = json.dumps(payload).encode()
+        body = json.dumps(payload, allow_nan=False).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
@@ -946,17 +1047,22 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"error": "too large"}, 413)
             return
         try:
-            body = json.loads(self.rfile.read(length) or b"{}")
+            body = json.loads(self.rfile.read(length) or b"{}", parse_constant=reject_json_constant)
+            if not isinstance(body, dict):
+                raise ValueError("expected an object")
         except ValueError:
             self.send_json({"error": "bad JSON"}, 400)
             return
         path = urllib.parse.urlparse(self.path).path
         try:
             self.route(path, body)
+        except (TypeError, KeyError, ValueError) as exc:
+            self.send_json({"ok": False, "error": "Invalid request fields."}, 400)
         except AppError as exc:
             self.send_json({"ok": False, "error": str(exc)})
         except Exception as exc:  # keep the app alive; show the problem
-            self.send_json({"ok": False, "error": "server error: %s" % exc}, 500)
+            self.log_message("Request failed: %s", type(exc).__name__)
+            self.send_json({"ok": False, "error": "Internal error; the operation could not complete."}, 500)
 
     def route(self, path, body):
         if path == "/api/signup":
@@ -995,9 +1101,24 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/me":
             self.send_json({"ok": True, "profile": profile})
         elif path == "/api/profile":
-            for key in ("name", "email", "watchlist", "goal", "onboarded", "guide_done"):
-                if key in body:
-                    profile[key] = body[key]
+            if "name" in body:
+                name = body["name"]
+                if not isinstance(name, str) or not name.strip() or len(name) > 80:
+                    raise AppError("name must contain 1–80 characters")
+                profile["name"] = name.strip()
+            if "email" in body:
+                email = body["email"]
+                if not isinstance(email, str) or len(email) > 254 or (email and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email)):
+                    raise AppError("enter a valid email, or leave it blank")
+                profile["email"] = email.strip()
+            for key in ("watchlist", "guide_done"):
+                if key in body and (not isinstance(body[key], list) or len(body[key]) > 100 or
+                                    any(not isinstance(item, str) or len(item) > 80 for item in body[key])):
+                    raise AppError("invalid " + key)
+            if "guide_done" in body:
+                profile["guide_done"] = list(dict.fromkeys(body["guide_done"]))
+            if "onboarded" in body:
+                profile["onboarded"] = bool(body["onboarded"])
             if "watchlist" in body:
                 profile["watchlist"] = list(dict.fromkeys(clean_symbol(s) for s in body["watchlist"]))[:40]
             if "budget" in body:
@@ -1007,15 +1128,30 @@ class Handler(BaseHTTPRequestHandler):
                 profile["limits"] = limits_for(level, budget)
             if "limits" in body and isinstance(body["limits"], dict):
                 limits = profile.get("limits") or limits_for(2, profile.get("budget", 5000))
+                bounds = {
+                    "budget": (1, 1e9), "risk_pct": (0, 100),
+                    "max_loss_per_trade_usd": (0, 1e9), "max_daily_loss_usd": (0, 1e9),
+                    "max_trades_per_day": (1, 100), "min_reward_risk": (0.1, 20),
+                    "cash_buffer_pct": (0, 99), "max_position_pct": (1, 100),
+                    "max_order_usd": (0, 1e9),
+                }
                 for key, value in body["limits"].items():
                     if key not in limits or value in (None, ""):
                         continue
-                    if isinstance(limits[key], str):
-                        limits[key] = str(value)[:20]
-                    elif isinstance(limits[key], int) and not isinstance(limits[key], bool):
-                        limits[key] = int(round(number(value, key, low=0, high=1e9)))
-                    else:
-                        limits[key] = number(value, key, low=0, high=1e9)
+                    if key == "default_target":
+                        if value not in ("1R", "1.5R", "2R", "3R"):
+                            raise AppError("invalid default target")
+                        limits[key] = value
+                    elif key in ("flat_by", "no_entries_before", "no_entries_after"):
+                        if not isinstance(value, str) or not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", value):
+                            raise AppError("time must be HH:MM")
+                        limits[key] = value
+                    elif key in bounds:
+                        low, high = bounds[key]
+                        parsed = number(value, key, low=low, high=high)
+                        if key == "max_trades_per_day" and not parsed.is_integer():
+                            raise AppError("trades per day must be a whole number")
+                        limits[key] = int(parsed) if key == "max_trades_per_day" else parsed
                 profile["limits"] = limits
             put_profile(uid, profile)
             sync_trader_config(uid, profile)
@@ -1074,7 +1210,7 @@ class Handler(BaseHTTPRequestHandler):
             put_profile(uid, profile)
             self.send_json({"ok": True, "paper": paper_state(profile)})
         elif path == "/api/goal":
-            tickers = [clean_symbol(t) for t in re.split(r"[,\s]+", body.get("tickers") or "") if t]
+            tickers = list(dict.fromkeys(clean_symbol(t) for t in re.split(r"[,\s]+", body.get("tickers") or "") if t))
             raw_weights = body.get("weights") or {}
             weights = {t: number(raw_weights.get(t, 1), "weight", low=0) for t in tickers}
             years = int(round(number(body.get("years"), "years", low=1, high=40, default=20.0)))
@@ -1098,7 +1234,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(copycat(uid, profile, body.get("action"), body))
         elif path == "/api/trade":
             mode = "demo" if body.get("mode") == "demo" else "live"
-            result = day_trade_step(uid, body.get("step"), mode, body.get("params") or {})
+            result = day_trade_step(uid, body.get("step"), mode, body.get("params") or {}, body.get("run_id"))
             result["step"] = body.get("step")
             self.send_json(result)
         elif path == "/api/trade/reset":
