@@ -114,13 +114,13 @@
       "id": "sweep",
       "name": "Sweep",
       "category": "AI",
-      "desc": "Turn a plain-words idea into a checkable Build → Grow → Earn plan — then chat with Otto, an offline, approval-first AI operator (brand, site, posts, outreach, research, deck, insights, sheets) built to beat hosted builders on privacy and ownership",
-      "description": "Turns a rough app idea into a Build &rarr; Grow &rarr; Earn plan; its local agent Otto then drafts brand, site, posts and ledgers through an approval queue. Fully offline.",
+      "desc": "Turn a plain-words idea into a scored spec (Kiro-style requirements, design, tasks), a drag-and-drop task board and a Build → Grow → Earn plan — hand it to Lovable, v0, Cursor or Claude Code in one click, share remix links, and let Otto, an offline approval-first AI operator, draft brand, site, posts and outreach",
+      "description": "Turns a rough app idea into a scored spec, a task board and a Build &rarr; Grow &rarr; Earn plan, then hands it to Lovable, v0, Cursor or Claude Code in one click. Its local agent Otto drafts brand, site and posts. Fully offline.",
       "tags": [
-        "idea &rarr; plan",
-        "offline agent",
-        "approval-first",
-        "exportable"
+        "spec score",
+        "task board",
+        "1-click handoff",
+        "offline agent"
       ],
       "image": "sweep-hero.svg",
       "image_alt": "Sweep turning a plain-words idea into a Build, Grow and Earn plan — a guided intake, an idea brief, a generated capability matrix, a Definition of Done checklist, a scaffold file tree and a project catalog",
