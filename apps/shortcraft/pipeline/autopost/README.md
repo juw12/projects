@@ -135,3 +135,9 @@ monetization eligibility.
    In GitHub Actions set the secrets `ELEVENLABS_API_KEY` and `ELEVENLABS_VOICE_ID`.
 
 Only clone your own voice. YouTube does not require an AI label for narration made with a clone of your own voice.
+
+**Free alternative ($0, no account):** `"voiceConfig": {"provider": "openvoice", "name": "id-ID-ArdiNeural"}`.
+The free edge-tts voice is re-coloured to your timbre with OpenVoice V2 (MIT) on CPU, using the same
+`secrets/voice/sample.wav`. One-time: `pip install torch librosa soundfile huggingface_hub` and
+`python voice_convert.py setup`. It sounds closer to you (timbre, pitch) but keeps the base voice's
+rhythm and accent; ElevenLabs is the more faithful clone.
