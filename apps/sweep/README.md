@@ -34,6 +34,31 @@ encrypted at rest.
   encrypts local data with WebCrypto (PBKDF2 → AES-GCM) when available, otherwise
   it falls back to a clearly labeled unencrypted local profile.
 
+### Studio (`web/studio.js` + `web/studio.css` + `web/badge.svg`)
+
+Turns a plan into a builder-ready spec — offline, no AI call, no sign-up. Opens
+from the plan's Studio strip, the **Studio** nav tab, or the command palette.
+
+- **Spec Score** — 0–100 (Clarity, Testability, Scope, User focus; grade A–D)
+  with one-click "Fix" that jumps to the weak field in the brief.
+- **Kiro / Spec Kit-compatible specs** — `specs/requirements.md` (EARS
+  "WHEN … THEN THE SYSTEM SHALL"), `specs/design.md` (architecture diagram,
+  capability decisions, data model), `specs/tasks.md` (dependencies, `[P]`
+  parallel markers, complexity, rough hours), plus `AGENTS.md`, `CLAUDE.md`,
+  `.cursor/rules/sweep.mdc` and `PROMPT.md`. Download all as one zip, or get them
+  in Generate.
+- **Task board** — To do / Doing / Done kanban (drag or arrows), persisted per
+  project; blocked tasks and the next unblocked task are highlighted.
+- **Handoff** — Build in Lovable / Open in v0 (prefilled URLs), copy-and-open
+  Bolt, Cursor / Claude Code / AGENTS files; editable builder prompt.
+- **Share** — remix link (`#share=…`, brief compressed into the URL; never
+  progress or Operator data), 1200×630 share-card PNG, "Planned with Sweep"
+  README badge. Opening a link shows a preview with "Remix into my workspace".
+- **Templates** — six high-scoring starter briefs in the catalog, one-click remix.
+
+Remove the two tags from `index.html` / `mobile.html` to disable; the core app
+does not depend on it.
+
 ### Visual theme (`web/theme.css`)
 
 "Editorial" skin loaded last, on top of `styles.css` and `enhance.css`: system-sans UI with serif headlines, softer radii and shadows, glassy sticky masthead with pill navigation, gradient primary buttons, custom animated checkboxes, numbered verify gates with a terminal-style command block, a landing hero on the workspace gate, a tuned Night palette, and a compact one-row phone header. Delete the `<link>` to revert to the original look — no markup depends on it.

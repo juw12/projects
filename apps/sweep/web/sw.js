@@ -1,7 +1,7 @@
 // Sweep Service Worker — Offline-first caching
 // Network-first for HTML/navigation, cache-first for static assets
 
-const CACHE_NAME = 'sweep-v9-editorial';
+const CACHE_NAME = 'sweep-v10-studio';
 const ASSETS_TO_CACHE = [
   './app.html',
   './index.html',
@@ -11,6 +11,9 @@ const ASSETS_TO_CACHE = [
   './enhance.js',
   './enhance.css',
   './theme.css',
+  './studio.js',
+  './studio.css',
+  './badge.svg',
   './manifest.webmanifest',
   './icons/app-icon.svg'
 ];
