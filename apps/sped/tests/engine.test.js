@@ -1,5 +1,5 @@
 /*
- * Hookline engine tests. Runtime-agnostic: `node engine.test.js <webDir>` or
+ * Sped engine tests. Runtime-agnostic: `node engine.test.js <webDir>` or
  * `jsc engine.test.js -- <webDir>` (macOS JavaScriptCore). Exits non-zero on failure.
  */
 (function () {
@@ -7,7 +7,7 @@
   const isNode = typeof process !== 'undefined' && process.versions && process.versions.node;
   const log = isNode ? console.log : print;
   const args = isNode ? process.argv.slice(2) : (globalThis.arguments ? Array.prototype.slice.call(globalThis.arguments) : []);
-  const webDir = (args[0] || 'apps/hookline/web').replace(/\/$/, '') + '/';
+  const webDir = (args[0] || 'apps/sped/web').replace(/\/$/, '') + '/';
   const only = args[1] || '';
 
   function loadScript(path) {
@@ -24,7 +24,7 @@
   loadScript(webDir + 'demo.js');
   loadScript(webDir + 'rights.js');
   loadScript(webDir + 'recipes.js');
-  const H = globalThis.Hookline;
+  const H = globalThis.Sped;
 
   let failures = 0;
   let passes = 0;
@@ -433,6 +433,19 @@
     const legacy = H.recipes.loadProject(saved, [track]);
     check(legacy.assignments[0].rights.basis === 'unknown', 'assumed permission for legacy file');
     check(!legacy.publication.commercial, 'wrong default');
+  });
+
+  test('recipe files saved before the Hookline -> Sped rename still load', function () {
+    const track = Object.assign({}, usableMain(), { id: 'old', name: 'Old session song', ready: true });
+    const saved = H.recipes.saveProject([track], {}, 'faster', { platform: 'tiktok', commercial: false });
+    check(saved.format === 'sped-project', 'new files should use the new format name');
+    const legacy = JSON.parse(JSON.stringify(saved));
+    legacy.format = 'hookline-project';
+    legacy.version = '1.2.0';
+    const restored = H.recipes.loadProject(legacy, [track]);
+    check(restored.assignments[0].id === 'old', 'legacy recipe did not map to the uploaded source');
+    legacy.format = 'someone-else-project';
+    rejects(function () { H.recipes.loadProject(legacy, [track]); });
   });
 
   test('permission notes are not an audio renderer copyright gate', function () {

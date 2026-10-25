@@ -1,6 +1,6 @@
 /* Versioned, app-scoped offline cache. Never deletes another app's caches.
  * An update waits for explicit approval so a session cannot silently mix builds. */
-const CACHE = 'hookline-v1.2.0';
+const CACHE = 'sped-v1.3.0';
 const SHELL = [
   './', 'index.html', 'web.html', 'mobile.html', 'styles.css', 'engine.js',
   'engine-client.js', 'demo.js', 'rights.js', 'recipes.js', 'app.js', 'worker.js',
@@ -22,7 +22,7 @@ self.addEventListener('message', function (event) {
 self.addEventListener('activate', function (event) {
   event.waitUntil(caches.keys().then(function (keys) {
     return Promise.all(keys.filter(function (key) {
-      return key.startsWith('hookline-v') && key !== CACHE;
+      return key.startsWith('sped-v') && key !== CACHE;
     }).map(function (key) {
       return caches.delete(key);
     }));

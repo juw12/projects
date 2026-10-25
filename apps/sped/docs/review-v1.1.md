@@ -1,3 +1,5 @@
+> Written when this app was named **Hookline**; it is now **Sped** (v1.3.0 rename). Paths below are updated.
+
 # Hookline v1.1.0 — reliability and claim audit
 
 ## Findings and fixes
