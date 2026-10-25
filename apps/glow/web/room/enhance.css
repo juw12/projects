@@ -1,4 +1,4 @@
-/* Crewroom desktop enhancements: KPI strip, bot dock, command palette, toasts, goal templates. */
+/* GlowRoom desktop enhancements: KPI strip, bot dock, command palette, toasts, goal templates. */
 :root {
   --cr-accent-grad: linear-gradient(135deg, #3b82f6, #8b5cf6);
   --cr-glass: rgba(13, 18, 27, .72);

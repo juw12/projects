@@ -1,4 +1,4 @@
-// Crewroom cinematic layer for the 3D office.
+// GlowRoom cinematic layer for the 3D office.
 //  - Command bar ("CEO seat") to give the crew a mission from inside the office
 //  - Live speech bubbles projected above each 3D bot, streaming what it's really doing
 //  - Event FX (✅ ❗ 🔎 …) popping above bots

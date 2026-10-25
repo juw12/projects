@@ -80,9 +80,11 @@ def build_landing_apps(catalog):
 
 # Apps that were renamed: old site path -> the app's current id. A tiny redirect
 # stub is emitted at the old path so existing links/bookmarks keep working.
+# The target may be a sub-app inside an app folder (e.g. "glow/room" for the Glow ecosystem).
 REDIRECTS = {
     "ziris-motor": "airiz-motor",
-    "mufakat": "glow",
+    "mufakat": "glow/chat",
+    "virtual-bots": "glow/room",
     "hookline": "sped",
     "trade-twin": "twin",
 }
@@ -94,6 +96,7 @@ REDIRECTS = {
 LEGACY_WORKERS = {
     "mufakat": {"cache_prefixes": ["mufakat-"], "start": "app.html", "reload_clients": False},
     "hookline": {"cache_prefixes": ["hookline-v"], "start": "", "reload_clients": False},
+    "virtual-bots": {"cache_prefixes": ["crewroom-"], "start": "", "reload_clients": True},
     "trade-twin": {
         "cache_prefixes": ["trade-twin:{scope}", "tt-shell-v"],
         "start": "",
@@ -106,7 +109,7 @@ def write_redirects(out_dir, catalog):
     """Emit redirect stubs for renamed apps (old path -> current path)."""
     ids = {app["id"] for app in catalog}
     for old_id, new_id in REDIRECTS.items():
-        if new_id not in ids:
+        if new_id.split("/")[0] not in ids:
             continue
         targets = [
             ("index.html", f"../{new_id}/", out_dir / new_id),
@@ -129,6 +132,7 @@ def write_redirects(out_dir, catalog):
                 f'<p>This page moved to <a href="{target}">{new_id}</a>.</p>\n'
                 '</body>\n</html>\n',
                 encoding="utf-8")
+        (out_dir / old_id).mkdir(parents=True, exist_ok=True)
         (out_dir / old_id / "redirect.js").write_text(
             '"use strict";\n'
             'const destination = new URL(document.currentScript.dataset.target, location.href);\n'
@@ -164,14 +168,16 @@ def write_redirects(out_dir, catalog):
                 "});\n",
                 encoding="utf-8",
             )
-            legacy_manifest = json.loads((out_dir / new_id / "manifest.webmanifest").read_text())
-            legacy_manifest["start_url"] = f"../{new_id}/" + legacy["start"]
-            legacy_manifest["scope"] = f"../{new_id}/"
-            for icon in legacy_manifest["icons"]:
-                icon["src"] = f"../{new_id}/" + icon["src"].removeprefix("./")
-            (out_dir / old_id / "manifest.webmanifest").write_text(
-                json.dumps(legacy_manifest, indent=2) + "\n", encoding="utf-8"
-            )
+            target_manifest = out_dir / new_id / "manifest.webmanifest"
+            if target_manifest.exists():
+                legacy_manifest = json.loads(target_manifest.read_text())
+                legacy_manifest["start_url"] = f"../{new_id}/" + legacy["start"]
+                legacy_manifest["scope"] = f"../{new_id}/"
+                for icon in legacy_manifest["icons"]:
+                    icon["src"] = f"../{new_id}/" + icon["src"].removeprefix("./")
+                (out_dir / old_id / "manifest.webmanifest").write_text(
+                    json.dumps(legacy_manifest, indent=2) + "\n", encoding="utf-8"
+                )
         print(f"  [redirect] {old_id}/ -> {new_id}/")
 
 

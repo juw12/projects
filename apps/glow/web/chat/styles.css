@@ -367,3 +367,7 @@ li.task.done > span { text-decoration: line-through; color: var(--muted); }
 /* Crewroom link (Glow ecosystem) */
 a.side-btn { display: block; color: inherit; text-decoration: none; }
 .crewroom-link { background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, var(--card)), var(--card)); }
+
+/* ===== Glow ecosystem: app launcher next to the brand ===== */
+.glow-apps-launcher { width: 30px; height: 30px; padding: 0; margin-right: 8px; vertical-align: -6px; border-radius: 9px; background: var(--card); border: 1px solid var(--border); color: var(--muted); }
+.glow-apps-launcher:hover, .glow-apps-launcher[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
