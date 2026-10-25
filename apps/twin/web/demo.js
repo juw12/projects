@@ -1,6 +1,6 @@
-/* Trade Twin — offline demo engine.
+/* Twin — offline demo engine.
  *
- * When no Trade Twin server answers (e.g. on GitHub Pages), the app runs on this
+ * When no Twin server answers (e.g. on GitHub Pages), the app runs on this
  * file instead. It answers the same API calls from a bundled snapshot of real data
  * (demo/*.json): delayed quotes and charts, monthly total-return histories, SEC 13F
  * holdings for five investors, a news snapshot and the day-trader-skill TSLA replay.
@@ -12,6 +12,7 @@
 "use strict";
 
 (function () {
+  // Storage keys keep the pre-rename "trade-twin" prefix so saved profiles and guests survive the rename.
   const STORE = "trade-twin-demo-v1";
   const GUEST_STORE = "trade-twin-guest-v1";
   let guestMemory = null;
@@ -256,7 +257,7 @@
     const market = await load("market");
     const q = market.quotes[symbol];
     if (!q) {
-      throw new Error(`${symbol} is not in the demo snapshot (has ${Object.keys(market.quotes).join(", ")}). Run Trade Twin on your computer for any ticker.`);
+      throw new Error(`${symbol} is not in the demo snapshot (has ${Object.keys(market.quotes).join(", ")}). Run Twin on your computer for any ticker.`);
     }
     return q;
   }
@@ -559,7 +560,7 @@
 
   async function trade(profile, store, mode, step, params) {
     if (mode !== "demo") {
-      return fail("Live checks need the Trade Twin server running on your computer. In this web demo, use Demo (TSLA replay).");
+      return fail("Live checks need the Twin server running on your computer. In this web demo, use Demo (TSLA replay).");
     }
     const data = await load("trade");
     const limits = profile.limits || limitsFor(2, profile.budget || 5000);
@@ -855,7 +856,7 @@
           }
           const cik = String(body.cik || "").padStart(10, "0");
           if (!copycat.copy[cik]) {
-            return fail("This web demo includes Berkshire Hathaway, Scion (Burry), Pershing Square (Ackman), ARK (Cathie Wood) and Baupost (Klarman). Run Trade Twin on your computer to read any investor's latest 13F live from SEC EDGAR.");
+            return fail("This web demo includes Berkshire Hathaway, Scion (Burry), Pershing Square (Ackman), ARK (Cathie Wood) and Baupost (Klarman). Run Twin on your computer to read any investor's latest 13F live from SEC EDGAR.");
           }
           return { ok: true, data: body.action === "diff" ? copycat.diff[cik] : copycat.copy[cik] };
         }
@@ -894,7 +895,7 @@
     return next;
   }
 
-  window.TradeTwinDemo = {
+  window.TwinDemo = {
     api: (path, body) => dispatch(path, body, false),
     guest: (path, body) => dispatch(path, body, true),
     hasGuest: () => readStore(true).session === "guest",

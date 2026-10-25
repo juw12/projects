@@ -1,4 +1,4 @@
-# Trade Twin 1.1.0 — guest trial and appearance
+# Twin 1.1.0 — guest trial and appearance
 
 ## Requirements delivered
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Trade Twin: an iPhone-ready investing + day-trading companion.
+"""Twin: an iPhone-ready investing + day-trading companion.
 
 Wraps two MIT-licensed skill packs by Jake Schincariol:
   * day-trader-skill  (scanner, entry, exit, 10,000-replay Time Machine, sizing, risk)
@@ -9,10 +9,10 @@ and adds accounts, a risk/personality profile, paper trading, a goal planner
 
 Standard library only. It never places a real order.
 
-    python apps/trade-twin/server.py          # http://127.0.0.1:8765 on this computer
-    python apps/trade-twin/server.py --lan    # also reachable from your phone on the same Wi-Fi
+    python apps/twin/server.py          # http://127.0.0.1:8765 on this computer
+    python apps/twin/server.py --lan    # also reachable from your phone on the same Wi-Fi
 
-Set TRADE_TWIN_DATA to keep accounts somewhere else (the tests use a temp dir).
+Set TWIN_DATA (or the legacy TRADE_TWIN_DATA) to keep accounts somewhere else.
 """
 import argparse
 import hashlib
@@ -42,7 +42,8 @@ DAY = APP_DIR / "vendor" / "day-trader-skill"
 INV = APP_DIR / "vendor" / "trader-skill"
 DAY_FIX = DAY / "tests" / "fixtures"
 STATIC = APP_DIR / "web"
-DATA = Path(os.environ.get("TRADE_TWIN_DATA") or APP_DIR / "data").resolve()
+# TRADE_TWIN_DATA is still accepted so existing installs keep their accounts after the rename.
+DATA = Path(os.environ.get("TWIN_DATA") or os.environ.get("TRADE_TWIN_DATA") or APP_DIR / "data").resolve()
 USERS_FILE = DATA / "users.json"
 SESSIONS_FILE = DATA / "sessions.json"
 
@@ -71,7 +72,7 @@ TOOL = {
 }
 
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
 
 class AppError(Exception):
@@ -120,7 +121,7 @@ def http_json(url, ttl=60):
     last_error = None
     for host in ("query2", "query1"):
         target = url.replace("query2.", host + ".")
-        request = urllib.request.Request(target, headers={"User-Agent": "Mozilla/5.0 (TradeTwin)"})
+        request = urllib.request.Request(target, headers={"User-Agent": "Mozilla/5.0 (Twin)"})
         try:
             with urllib.request.urlopen(request, timeout=20, context=SSL_CTX) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
@@ -922,7 +923,7 @@ def execute_trade_step(uid, step, mode, p):
 def sec_agent(profile):
     if not profile.get("email"):
         raise AppError("SEC asks every app to identify itself: add your email in Me → Profile first")
-    return "%s %s" % (re.sub(r"\s+", "", profile.get("name") or "TradeTwinUser"), profile["email"])
+    return "%s %s" % (re.sub(r"\s+", "", profile.get("name") or "TwinUser"), profile["email"])
 
 
 def copycat(uid, profile, action, p):
@@ -983,7 +984,7 @@ MIME = {
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "TradeTwin/2.0"
+    server_version = "Twin/2.0"
 
     def log_message(self, fmt, *args):
         sys.stderr.write("[tt] %s %s\n" % (self.address_string(), fmt % args))
@@ -1028,7 +1029,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urllib.parse.urlparse(self.path).path
         if path == "/api/health":
-            self.send_json({"ok": True, "app": "trade-twin", "version": VERSION})
+            self.send_json({"ok": True, "app": "twin", "version": VERSION})
         elif path in ("/", ""):
             self.send_static("index.html")
         else:
@@ -1253,7 +1254,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Trade Twin server")
+    ap = argparse.ArgumentParser(description="Twin server")
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--lan", action="store_true", help="listen on your Wi-Fi so your iPhone can connect")
     ap.add_argument("--no-browser", action="store_true")
@@ -1265,7 +1266,7 @@ def main():
     host = "0.0.0.0" if a.lan else "127.0.0.1"
     server = ThreadingHTTPServer((host, a.port), Handler)
     local = "http://127.0.0.1:%d" % a.port
-    print("Trade Twin is running.")
+    print("Twin is running.")
     print("  On this Mac:   %s" % local)
     if a.lan:
         print("  On your iPhone (same Wi-Fi): http://%s:%d" % (lan_ip(), a.port))

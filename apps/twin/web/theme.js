@@ -1,7 +1,7 @@
 /* Apply appearance before the first paint. No account or network access is needed. */
 (function () {
   "use strict";
-  const KEY = "trade-twin-theme";
+  const KEY = "trade-twin-theme"; // legacy key kept so the saved theme survives the rename
   const choices = ["system", "light", "dark"];
   const media = window.matchMedia("(prefers-color-scheme: dark)");
   let preference = "system";
@@ -34,7 +34,7 @@
     window.dispatchEvent(new CustomEvent("tt-theme-change", { detail: { preference, resolved } }));
   }
 
-  window.TradeTwinTheme = {
+  window.TwinTheme = {
     preference: () => preference,
     resolved: () => document.documentElement.dataset.theme,
     set(value) {
