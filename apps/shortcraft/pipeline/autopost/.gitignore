@@ -5,3 +5,4 @@ tokens/
 queue/
 logs/
 *.log
+.openvoice/
