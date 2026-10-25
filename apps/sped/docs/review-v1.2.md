@@ -1,3 +1,5 @@
+> Written when this app was named **Hookline**; it is now **Sped** (v1.3.0 rename). Paths below are updated.
+
 # Hookline 1.2.0 — real-song workflow and remaining control fixes
 
 ## Corrected explanation

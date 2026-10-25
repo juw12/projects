@@ -80,7 +80,11 @@ def build_landing_apps(catalog):
 
 # Apps that were renamed: old site path -> the app's current id. A tiny redirect
 # stub is emitted at the old path so existing links/bookmarks keep working.
-REDIRECTS = {"ziris-motor": "airiz-motor", "mufakat": "glow"}
+REDIRECTS = {"ziris-motor": "airiz-motor", "mufakat": "glow", "hookline": "sped"}
+
+# Renamed apps that shipped an offline service worker: old id -> (cache prefix, start page).
+# The retired worker deletes only caches with this prefix, never other apps' caches.
+LEGACY_WORKERS = {"mufakat": ("mufakat-", "app.html"), "hookline": ("hookline-v", "")}
 
 
 def write_redirects(out_dir, catalog):
@@ -118,20 +122,21 @@ def write_redirects(out_dir, catalog):
             'location.replace(destination.href);\n',
             encoding="utf-8",
         )
-        if old_id == "mufakat":
+        if old_id in LEGACY_WORKERS:
+            cache_prefix, start_page = LEGACY_WORKERS[old_id]
             # Retire only this app's former worker/cache, not other Pages apps.
             (out_dir / old_id / "sw.js").write_text(
                 "self.addEventListener('install', () => self.skipWaiting());\n"
                 "self.addEventListener('activate', (event) => {\n"
                 "  event.waitUntil(caches.keys().then((names) => Promise.all(\n"
-                "    names.filter((name) => name.startsWith('mufakat-'))\n"
+                f"    names.filter((name) => name.startsWith('{cache_prefix}'))\n"
                 "      .map((name) => caches.delete(name))\n"
                 "  )).then(() => self.registration.unregister()));\n"
                 "});\n",
                 encoding="utf-8",
             )
             legacy_manifest = json.loads((out_dir / new_id / "manifest.webmanifest").read_text())
-            legacy_manifest["start_url"] = f"../{new_id}/app.html"
+            legacy_manifest["start_url"] = f"../{new_id}/{start_page}"
             legacy_manifest["scope"] = f"../{new_id}/"
             for icon in legacy_manifest["icons"]:
                 icon["src"] = f"../{new_id}/" + icon["src"].removeprefix("./")

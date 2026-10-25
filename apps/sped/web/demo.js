@@ -1,11 +1,11 @@
 /*
- * Hookline demo stand-ins — procedurally synthesised pop-punk style tracks with a
+ * Sped demo stand-ins — procedurally synthesised pop-punk style tracks with a
  * known tempo, key and verse/chorus layout. Used for the in-app demo and as test
  * fixtures. They are NOT recordings of any real song.
  */
 (function (root) {
   'use strict';
-  const H = root.Hookline;
+  const H = root.Sped;
 
   function midiToHz(midi) {
     return 440 * Math.pow(2, (midi - 69) / 12);

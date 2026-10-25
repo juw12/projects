@@ -3,7 +3,7 @@
  * blocks local audio editing based on song titles or unverified declarations. */
 (function (root) {
   'use strict';
-  const H = root.Hookline;
+  const H = root.Sped;
   const bases = {
     unknown: 'Not documented',
     owned: 'I control the recording and composition',
@@ -75,9 +75,9 @@
       if (d.basis === 'unknown') {
         warnings.push(t.name + ': permissions are not documented. Uploading or buying a file does not establish remix or publication rights.');
       } else if (d.basis === 'platform-only') {
-        warnings.push(t.name + ': an in-platform library license does not automatically cover exporting music into Hookline, remixing it here, or redistributing the resulting sound. Use the licensed library inside its permitted workflow or obtain separate rights.');
+        warnings.push(t.name + ': an in-platform library license does not automatically cover exporting music into Sped, remixing it here, or redistributing the resulting sound. Use the licensed library inside its permitted workflow or obtain separate rights.');
       } else {
-        warnings.push(t.name + ': ' + bases[d.basis] + ' is your declaration, not something Hookline has verified. Check recording, composition, derivative-use and distribution permissions.');
+        warnings.push(t.name + ': ' + bases[d.basis] + ' is your declaration, not something Sped has verified. Check recording, composition, derivative-use and distribution permissions.');
       }
       return { name: t.name, declaration: d };
     });
@@ -91,7 +91,7 @@
       other: 'For cross-platform or standalone remix distribution, obtain rights that expressly cover those outputs. A platform-specific music license is not a portable blanket license.',
     }[p.platform];
     return {
-      format: 'hookline-publishing-notes',
+      format: 'sped-publishing-notes',
       version: H.VERSION,
       scope: 'Current active session sources; not proof of clearance or a manifest of any previously rendered file.',
       verified: false,

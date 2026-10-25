@@ -85,9 +85,9 @@ def main():
                          height=844 if mobile else 1000, deviceScaleFactor=1, mobile=mobile)
                 cdp.call('Page.navigate', url=url + '/' + page)
                 time.sleep(0.3)
-                wait('window.HooklineApp && Hookline.VERSION === "1.2.0"')
+                wait('window.SpedApp && Sped.VERSION === "1.3.0"')
                 if 'demo=1' in page:
-                    wait('HooklineApp.state.output && !HooklineApp.state.busy')
+                    wait('SpedApp.state.output && !SpedApp.state.busy')
 
             def screenshot(name):
                 data = base64.b64decode(cdp.call('Page.captureScreenshot', format='png')['data'])
@@ -95,15 +95,15 @@ def main():
 
             visit('index.html?demo=1')
             check('real worker demo and honest checklist', '''
-                HooklineApp.state.output.plan.targetBpm === 164 &&
-                HooklineApp.state.output.plan.targetKey === 'C major' &&
+                SpedApp.state.output.plan.targetBpm === 164 &&
+                SpedApp.state.output.plan.targetKey === 'C major' &&
                 !/potential|recognition/i.test(document.querySelector('.score').textContent)
             ''')
-            screenshot('hookline-desktop.png')
+            screenshot('sped-desktop.png')
             check('coupled pitch readout reflects actual speed instead of stored independent pitch', '''(async () => {
                 document.querySelector('[data-mode=coupled]').click();
                 await new Promise(resolve => setTimeout(resolve, 30));
-                const source = HooklineApp.state.tracks.find(t => t.role === 'main');
+                const source = SpedApp.state.tracks.find(t => t.role === 'main');
                 const expected = 12 * Math.log2(164 / (source.overrides.bpm || source.analysis.bpm));
                 const displayed = parseFloat(document.getElementById('semitones-out').textContent);
                 const okay = Math.abs(expected - displayed) < 0.02 && document.getElementById('semitones').disabled;
@@ -113,12 +113,12 @@ def main():
             check('auto-arrange immediately unlocks the clip length control', '''(async () => {
                 document.querySelector('[data-action=auto-arrange]').click();
                 await new Promise(resolve => setTimeout(resolve, 20));
-                while (HooklineApp.state.busy) await new Promise(resolve => setTimeout(resolve, 50));
-                return !document.getElementById('lengthSec').disabled && !HooklineApp.state.recipe.segments;
+                while (SpedApp.state.busy) await new Promise(resolve => setTimeout(resolve, 50));
+                return !document.getElementById('lengthSec').disabled && !SpedApp.state.recipe.segments;
             })()''')
             check('editing supports undocumented sources without asserting publication rights', '''
-                HooklineApp.state.output && document.getElementById('rights-card').textContent.includes('does not verify permission') &&
-                Hookline.rights.review(HooklineApp.state.tracks, HooklineApp.state.publication).verified === false
+                SpedApp.state.output && document.getElementById('rights-card').textContent.includes('does not verify permission') &&
+                Sped.rights.review(SpedApp.state.tracks, SpedApp.state.publication).verified === false
             ''')
             check('permission notes and destination persist in portable recipes', '''(async () => {
                 const basis = document.querySelector('[data-rights=basis]');
@@ -128,13 +128,13 @@ def main():
                 destination.value = 'instagram';
                 destination.dispatchEvent(new Event('change', {bubbles:true}));
                 await new Promise(resolve => setTimeout(resolve, 30));
-                const saved = Hookline.recipes.saveProject(HooklineApp.state.tracks, HooklineApp.state.recipe, '', HooklineApp.state.publication);
-                const restored = Hookline.recipes.loadProject(saved, HooklineApp.state.tracks);
+                const saved = Sped.recipes.saveProject(SpedApp.state.tracks, SpedApp.state.recipe, '', SpedApp.state.publication);
+                const restored = Sped.recipes.loadProject(saved, SpedApp.state.tracks);
                 return restored.assignments[0].rights.basis === 'platform-only' && restored.publication.platform === 'instagram' &&
                     document.getElementById('rights-summary').textContent.includes('do not automatically transfer');
             })()''')
-            report_file = args.artifacts / 'hookline-publishing-notes.json'
-            session_file = args.artifacts / 'hookline-current-session.json'
+            report_file = args.artifacts / 'sped-publishing-notes.json'
+            session_file = args.artifacts / 'sped-current-session.json'
             report_file.unlink(missing_ok=True)
             session_file.unlink(missing_ok=True)
             cdp.evaluate("document.querySelector('[data-rights-action=report]').click(); document.querySelector('[data-rights-action=session]').click();")
@@ -149,40 +149,40 @@ def main():
             results.append({'test': 'publishing notes and current-session recipe download through UI', 'passed': True})
             print('PASS publishing notes and current-session recipe download through UI', flush=True)
             check('invalid explicit target BPM is refused rather than silently becoming auto', '''(async () => {
-                const previous = HooklineApp.state.recipe.targetBpm;
+                const previous = SpedApp.state.recipe.targetBpm;
                 const input = document.getElementById('targetBpm');
                 input.value = '0';
                 input.dispatchEvent(new Event('change', {bubbles:true}));
                 await new Promise(resolve => setTimeout(resolve, 20));
-                return HooklineApp.state.recipe.targetBpm === previous && /40.240/.test(document.getElementById('status').textContent);
+                return SpedApp.state.recipe.targetBpm === previous && /40.240/.test(document.getElementById('status').textContent);
             })()''')
             check('changed settings visibly mark previous render', '''(() => {
-                const before = HooklineApp.state.output.savedProject.recipe.semitones;
+                const before = SpedApp.state.output.savedProject.recipe.semitones;
                 const el = document.getElementById('semitones');
                 el.value = '6';
                 el.dispatchEvent(new Event('input', {bubbles:true}));
-                return HooklineApp.state.stale && document.querySelector('#output-card .warn').textContent.includes('PREVIOUS') &&
-                    HooklineApp.state.output.savedProject.recipe.semitones === before;
+                return SpedApp.state.stale && document.querySelector('#output-card .warn').textContent.includes('PREVIOUS') &&
+                    SpedApp.state.output.savedProject.recipe.semitones === before;
             })()''')
             cdp.evaluate("document.getElementById('request').value = 'faster, no reverb, without bass, no loop, 12 seconds'; document.querySelector('[data-action=remix]').click();")
-            wait("!HooklineApp.state.busy && HooklineApp.state.output.plan.recipe.lengthSec === 12")
-            check('request negation through UI', "HooklineApp.state.recipe.fx.reverb === 0 && HooklineApp.state.recipe.fx.bass === 0 && !HooklineApp.state.recipe.loop")
+            wait("!SpedApp.state.busy && SpedApp.state.output.plan.recipe.lengthSec === 12")
+            check('request negation through UI', "SpedApp.state.recipe.fx.reverb === 0 && SpedApp.state.recipe.fx.bass === 0 && !SpedApp.state.recipe.loop")
             check('cancel locks UI and recovered worker keeps all sources', '''(async () => {
-                const before = HooklineApp.state.tracks.length;
-                const task = HooklineApp.renderRemix();
+                const before = SpedApp.state.tracks.length;
+                const task = SpedApp.renderRemix();
                 const locked = document.getElementById('workspace').disabled;
-                HooklineApp.engine.cancel();
+                SpedApp.engine.cancel();
                 await task;
-                const output = await HooklineApp.renderRemix();
-                return locked && !!output && HooklineApp.state.tracks.length === before && !HooklineApp.state.busy;
+                const output = await SpedApp.renderRemix();
+                return locked && !!output && SpedApp.state.tracks.length === before && !SpedApp.state.busy;
             })()''')
             check('worker failure rejects task and next render rehydrates', '''(async () => {
                 let worker;
-                const client = Hookline.createEngineClient(() => HooklineApp.state.tracks, () => {}, () => {
+                const client = Sped.createEngineClient(() => SpedApp.state.tracks, () => {}, () => {
                     worker = new Worker('worker.js'); return worker;
                 });
-                const settings = Object.fromEntries(HooklineApp.state.tracks.map(t => [t.id, {role:t.role, overrides:t.overrides, name:t.name}]));
-                const recipe = HooklineApp.state.recipe;
+                const settings = Object.fromEntries(SpedApp.state.tracks.map(t => [t.id, {role:t.role, overrides:t.overrides, name:t.name}]));
+                const recipe = SpedApp.state.recipe;
                 const first = await client.call('render', {settings, recipe});
                 const task = client.call('render', {settings, recipe});
                 worker.onerror({preventDefault() {}});
@@ -195,40 +195,40 @@ def main():
             check('bounded timeout reports actionable error', '''(async () => {
                 const original = window.setTimeout;
                 window.setTimeout = (fn, delay, ...args) => original(fn, delay === 90000 ? 10 : delay, ...args);
-                const client = Hookline.createEngineClient(() => [], () => {}, () => ({postMessage() {}, terminate() {}}));
+                const client = Sped.createEngineClient(() => [], () => {}, () => ({postMessage() {}, terminate() {}}));
                 let message = '';
                 try { await client.call('addTrack', {}); } catch (e) { message = e.message; }
                 finally { window.setTimeout = original; client.cancel(); }
                 return /timed out/.test(message);
             })()''')
             project = args.artifacts / 'portable-test.json'
-            project.write_text(cdp.evaluate('JSON.stringify(HooklineApp.state.output.savedProject)'))
-            cdp.evaluate("HooklineApp.state.tracks.reverse(); HooklineApp.state.tracks.forEach((t, i) => t.id = 'restored' + i); HooklineApp.engine.cancel();")
+            project.write_text(cdp.evaluate('JSON.stringify(SpedApp.state.output.savedProject)'))
+            cdp.evaluate("SpedApp.state.tracks.reverse(); SpedApp.state.tracks.forEach((t, i) => t.id = 'restored' + i); SpedApp.engine.cancel();")
             doc = cdp.call('DOM.getDocument')['root']['nodeId']
             node = cdp.call('DOM.querySelector', nodeId=doc, selector='#request-card [data-action=load-recipe]')['nodeId']
             cdp.call('DOM.setFileInputFiles', nodeId=node, files=[str(project.resolve())])
-            wait("!HooklineApp.state.busy && HooklineApp.state.output.plan.mainId.startsWith('restored')")
-            check('portable recipe file maps reordered uploads correctly', "HooklineApp.state.output.plan.tracks[HooklineApp.state.output.plan.mainId].name.includes(\"That's What You Get\")")
+            wait("!SpedApp.state.busy && SpedApp.state.output.plan.mainId.startsWith('restored')")
+            check('portable recipe file maps reordered uploads correctly', "SpedApp.state.output.plan.tracks[SpedApp.state.output.plan.mainId].name.includes(\"That's What You Get\")")
             # Worker remains functional through three distinct presets.
             cdp.evaluate("document.querySelector('[data-action=variants]').click()")
-            wait('HooklineApp.state.variants.length === 3 && !HooklineApp.state.busy', seconds=60)
-            check('three variants complete without overlapping jobs', 'HooklineApp.state.variants.every(v => v.channels[0].length > 0)')
+            wait('SpedApp.state.variants.length === 3 && !SpedApp.state.busy', seconds=60)
+            check('three variants complete without overlapping jobs', 'SpedApp.state.variants.every(v => v.channels[0].length > 0)')
             # Save a genuine WAV from the browser renderer and re-upload it to exercise decodeAudioData.
             wav = args.artifacts / 'synthetic-upload.wav'
-            wav.write_bytes(base64.b64decode(cdp.evaluate('Hookline.base64FromBuffer(Hookline.encodeWav(HooklineApp.state.output.channels, HooklineApp.state.output.sampleRate))')))
+            wav.write_bytes(base64.b64decode(cdp.evaluate('Sped.base64FromBuffer(Sped.encodeWav(SpedApp.state.output.channels, SpedApp.state.output.sampleRate))')))
             visit('web.html')
             doc = cdp.call('DOM.getDocument')['root']['nodeId']
             node = cdp.call('DOM.querySelector', nodeId=doc, selector='#file-input')['nodeId']
             cdp.call('DOM.setFileInputFiles', nodeId=node, files=[str(wav.resolve())])
-            wait('HooklineApp.state.tracks.length === 1 && HooklineApp.state.tracks[0].ready && !HooklineApp.state.busy')
+            wait('SpedApp.state.tracks.length === 1 && SpedApp.state.tracks[0].ready && !SpedApp.state.busy')
             cdp.evaluate("document.getElementById('request').value = 'slower, 8 seconds'; document.querySelector('[data-action=remix]').click();")
-            wait('HooklineApp.state.output && !HooklineApp.state.busy')
-            check('actual WAV file upload, decode, analyse and render', 'HooklineApp.state.output.channels[0].length > 10000')
+            wait('SpedApp.state.output && !SpedApp.state.busy')
+            check('actual WAV file upload, decode, analyse and render', 'SpedApp.state.output.channels[0].length > 10000')
             check('offline worker ready on loopback', '(async () => !!(await navigator.serviceWorker.ready).active)()')
             check('cache activation retains foreign app data', '''(async () => {
                 const foreign = await caches.open('other-app-test');
                 await foreign.put('foreign.txt', new Response('keep'));
-                await caches.open('hookline-v0-test');
+                await caches.open('sped-v0-test');
                 const registration = await navigator.serviceWorker.register('sw.js?test-update=1');
                 await new Promise(resolve => {
                     if (registration.waiting) { resolve(); return; }
@@ -249,23 +249,23 @@ def main():
                     await new Promise(resolve => setTimeout(resolve, 20));
                 }
                 const keys = await caches.keys();
-                if (!keys.includes('other-app-test') || keys.includes('hookline-v0-test')) {
+                if (!keys.includes('other-app-test') || keys.includes('sped-v0-test')) {
                     throw new Error(JSON.stringify({keys, active:registration.active?.scriptURL, waiting:registration.waiting?.scriptURL}));
                 }
                 return true;
             })()''')
             cdp.call('Network.emulateNetworkConditions', offline=True, latency=0, downloadThroughput=-1, uploadThroughput=-1)
             visit('mobile.html?demo=1&offline=1', mobile=True)
-            check('offline query-string demo renders on mobile', 'HooklineApp.state.output.plan.targetBpm === 164')
+            check('offline query-string demo renders on mobile', 'SpedApp.state.output.plan.targetBpm === 164')
             check('mobile has no horizontal overflow', 'document.documentElement.scrollWidth === 390')
             cdp.evaluate("document.getElementById('output-card').scrollIntoView({behavior:'instant'})")
-            screenshot('hookline-mobile.png')
+            screenshot('sped-mobile.png')
             cdp.evaluate("document.getElementById('rights-card').scrollIntoView({behavior:'instant'})")
-            screenshot('hookline-publishing-notes.png')
+            screenshot('sped-publishing-notes.png')
             cdp.evaluate("document.querySelector('.track [data-action=remove]').click()")
-            wait("HooklineApp.state.tracks.length === 2")
+            wait("SpedApp.state.tracks.length === 2")
             check('removed main is reassigned and missing arrangement source is visible', '''
-                HooklineApp.state.tracks.some(t => t.role === 'main' && t.id === HooklineApp.state.recipe.mainId) &&
+                SpedApp.state.tracks.some(t => t.role === 'main' && t.id === SpedApp.state.recipe.mainId) &&
                 document.getElementById('arrange-card').textContent.includes('Missing track')
             ''')
             errors = [e for e in cdp.events if e.get('method') == 'Runtime.exceptionThrown']

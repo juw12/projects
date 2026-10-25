@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Hookline tests (stdlib only).
+"""Sped tests (stdlib only).
 
 1. Static checks: every web entry point loads the scripts it needs, refs are
    relative (GitHub Pages sub-path safe), the service worker caches files that
@@ -42,7 +42,7 @@ def static_checks():
     for entry in re.findall(r"'([^']+)'", sw.split("const SHELL = [", 1)[1].split("];", 1)[0]):
         if entry != "./":
             check((WEB / entry).exists(), f"sw.js caches missing file {entry}")
-    check("key.startsWith('hookline-v')" in sw, "service worker must not delete other apps' caches")
+    check("key.startsWith('sped-v')" in sw, "service worker must not delete other apps' caches")
     check("ignoreSearch: true" in sw, "offline demo query must resolve to cached shell")
     check("ACTIVATE_UPDATE" in sw, "updates need explicit activation")
     manifest = json.loads((WEB / "manifest.webmanifest").read_text(encoding="utf-8"))
@@ -79,7 +79,7 @@ def main():
         for failure in failures:
             print(" -", failure)
         sys.exit(1)
-    print("hookline: all checks passed")
+    print("sped: all checks passed")
 
 
 if __name__ == "__main__":

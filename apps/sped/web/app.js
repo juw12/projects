@@ -1,7 +1,7 @@
-/* Hookline UI — uploads, request parsing, fine-tuning, rendering, scoring, export. */
+/* Sped UI — uploads, request parsing, fine-tuning, rendering, scoring, export. */
 (function () {
   'use strict';
-  const H = window.Hookline;
+  const H = window.Sped;
   const root = document.getElementById('app');
   const params = new URLSearchParams(location.search);
 
@@ -125,7 +125,7 @@
       '<header class="topbar">',
       '  <div class="brand"><span class="logo" aria-hidden="true">',
       '    <svg viewBox="0 0 32 32" width="28" height="28"><defs><linearGradient id="lg" x1="0" x2="1"><stop offset="0" stop-color="#ff3d7f"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#lg)"/><path d="M7 19c3 0 3-7 6-7s3 10 6 10 3-12 6-12" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round"/></svg>',
-      '  </span><div><h1>Hookline</h1><p class="tagline">Make short-form edits from your songs</p></div></div>',
+      '  </span><div><h1>Sped</h1><p class="tagline">Make short-form edits from your songs</p></div></div>',
       '  <span class="pill" title="Decoding, analysis and rendering run in your browser">🔒 Songs never leave your device</span>',
       '</header>',
       '<p id="status" class="status" role="status" aria-live="polite"></p>',
@@ -145,7 +145,7 @@
       '</fieldset></main>',
       '<footer class="footer">',
       '  <p>Use songs you have the rights to remix. Posting remixes of commercial music may need the platform\'s licensed library or the rights holder\'s permission. The edit score is a heuristic built from common short-form patterns — not a prediction.</p>',
-      '  <p>Hookline v' + H.VERSION + ' · engine: <span id="engine-mode"></span> · <a href="index.html">App</a> · <a href="web.html">Web</a> · <a href="mobile.html">Mobile</a></p>',
+      '  <p>Sped v' + H.VERSION + ' · engine: <span id="engine-mode"></span> · <a href="index.html">App</a> · <a href="web.html">Web</a> · <a href="mobile.html">Mobile</a></p>',
       '</footer>',
     ].join('\n');
     document.getElementById('engine-mode').textContent = engine.mode();
@@ -1001,7 +1001,7 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'hookline-' + slug(label) + '-' + Math.round(result.plan.targetBpm) + 'bpm.wav';
+    a.download = 'sped-' + slug(label) + '-' + Math.round(result.plan.targetBpm) + 'bpm.wav';
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -1036,7 +1036,7 @@
       const a = document.createElement('a');
       const url = URL.createObjectURL(blob);
       a.href = url;
-      a.download = 'hookline-recipe-' + slug(state.output.label) + '.json';
+      a.download = 'sped-recipe-' + slug(state.output.label) + '.json';
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -1100,7 +1100,7 @@
     };
     card.innerHTML = [
       '<h2>Real songs & publishing notes</h2>',
-      '<p class="small">You can edit local song files here. Hookline supplies no music license and does not verify permission. Editing capability and permission to publish are different questions; local-only use is not a blanket legal exception.</p>',
+      '<p class="small">You can edit local song files here. Sped supplies no music license and does not verify permission. Editing capability and permission to publish are different questions; local-only use is not a blanket legal exception.</p>',
       '<p class="muted small">These notes cover the current active session sources, not necessarily an older rendered WAV. They are user declarations, never a “copyright-safe” badge.</p>',
       '<div class="row"><label>Destination <select data-publication="platform">' + options(H.rights.platforms, state.publication.platform) + '</select></label>',
       '<label><input type="checkbox" data-publication="commercial"' + (state.publication.commercial ? ' checked' : '') + '> Commercial / branded use</label></div>',
@@ -1118,7 +1118,7 @@
       '<p class="muted small">JSON exports include source names and the notes you enter. Review before sharing. No audio or permissions are supplied with the notes.</p>',
       '<details><summary>Official platform guidance</summary><ul>' + H.rights.links.map(function (link) {
         return '<li><a href="' + link.url + '" target="_blank" rel="noopener noreferrer">' + link.label + '</a></li>';
-      }).join('') + '</ul><p class="small">For cross-platform remixes, use your own cleared material or a license expressly allowing that output. For a platform-specific video, add music in the destination platform’s permitted library workflow instead of extracting it into Hookline.</p></details>',
+      }).join('') + '</ul><p class="small">For cross-platform remixes, use your own cleared material or a license expressly allowing that output. For a platform-specific video, add music in the destination platform’s permitted library workflow instead of extracting it into Sped.</p></details>',
     ].join('');
     renderRightsSummary();
   }
@@ -1160,9 +1160,9 @@
       throw new Error('Add audio sources before saving session notes.');
     }
     if (button.dataset.rightsAction === 'report') {
-      downloadJson(H.rights.review(activeTracks(), state.publication), 'hookline-publishing-notes.json');
+      downloadJson(H.rights.review(activeTracks(), state.publication), 'sped-publishing-notes.json');
     } else {
-      downloadJson(H.recipes.saveProject(state.tracks, state.recipe, state.request, state.publication), 'hookline-current-session.json');
+      downloadJson(H.recipes.saveProject(state.tracks, state.recipe, state.request, state.publication), 'sped-current-session.json');
     }
   }
 
@@ -1430,5 +1430,5 @@
   if (params.get('demo') === '1') {
     safe(addDemoTracks);
   }
-  window.HooklineApp = { state: state, engine: engine, applyCurated: applyCurated, renderRemix: renderRemix };
+  window.SpedApp = { state: state, engine: engine, applyCurated: applyCurated, renderRemix: renderRemix };
 })();

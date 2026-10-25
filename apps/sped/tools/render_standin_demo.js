@@ -11,7 +11,7 @@
   const isNode = typeof process !== 'undefined' && process.versions && process.versions.node;
   const log = isNode ? console.log : print;
   const args = isNode ? process.argv.slice(2) : (globalThis.arguments ? Array.prototype.slice.call(globalThis.arguments) : []);
-  const webDir = (args[0] || 'apps/hookline/web').replace(/\/$/, '') + '/';
+  const webDir = (args[0] || 'apps/sped/web').replace(/\/$/, '') + '/';
   function loadScript(path) {
     if (isNode) {
       require('vm').runInThisContext(require('fs').readFileSync(path, 'utf8'), { filename: path });
@@ -22,7 +22,7 @@
   loadScript(webDir + 'engine.js');
   loadScript(webDir + 'demo.js');
   loadScript(webDir + 'recipes.js');
-  const H = globalThis.Hookline;
+  const H = globalThis.Sped;
   const recipeDef = H.recipes.curated.paramore;
   const specs = { main: [131, 'Ab major', 11], nostalgia1: [173, 'Db major', 12], nostalgia2: [162, 'D major', 13] };
   const session = H.createSession();

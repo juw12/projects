@@ -1,5 +1,5 @@
 /*
- * Hookline presets and curated recipes.
+ * Sped presets and curated recipes.
  *
  * Presets are plain-language requests: they go through the same request parser a
  * user's own words do, so there is one source of truth for "what sped up means".
@@ -8,7 +8,7 @@
  */
 (function (root) {
   'use strict';
-  const H = root.Hookline;
+  const H = root.Sped;
 
   const presets = [
     { id: 'sped-up', name: 'Sped Up', request: 'sped up, higher pitch, crisp, 25 seconds' },
@@ -136,11 +136,13 @@
         s.track = mapping[s.track];
       });
     }
-    return { format: 'hookline-project', schema: 2, version: H.VERSION, request: String(request || '').slice(0, 2000), sources: sources, recipe: validated, publication: H.rights.publication(publication) };
+    return { format: 'sped-project', schema: 2, version: H.VERSION, request: String(request || '').slice(0, 2000), sources: sources, recipe: validated, publication: H.rights.publication(publication) };
   }
 
   function loadProject(data, tracks) {
-    if (!data || data.format !== 'hookline-project' || data.schema !== 2) {
+    // Files saved before the rename use the 'hookline-project' format name.
+    const knownFormats = ['sped-project', 'hookline-project'];
+    if (!data || !knownFormats.includes(data.format) || data.schema !== 2) {
       throw new Error('Use a v1.1 or newer portable recipe. Older files use temporary track IDs; recreate and save them in this version.');
     }
     if (!Array.isArray(data.sources) || !data.sources.length || data.sources.length > H.LIMITS.maxTracks) {

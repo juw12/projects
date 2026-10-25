@@ -1,8 +1,8 @@
 /*
- * Hookline engine — dependency-free audio DSP for short-form "short-form" remixes.
+ * Sped engine — dependency-free audio DSP for short-form "short-form" remixes.
  *
  * Runs unchanged in browsers, Web Workers, Node and JavaScriptCore and exposes a
- * single global `Hookline`. Audio is always an array of Float32Array channels at
+ * single global `Sped`. Audio is always an array of Float32Array channels at
  * one shared sample rate.
  *
  * Pipeline: analyse (tempo, beat grid, key, hook) -> plan (tempo/key matching,
@@ -15,11 +15,11 @@
   if (typeof module === 'object' && module.exports) {
     module.exports = api;
   }
-  root.Hookline = api;
+  root.Sped = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  const VERSION = '1.2.0';
+  const VERSION = '1.3.0';
   const SHARP_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   const FLAT_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
   // Krumhansl–Kessler key profiles.
