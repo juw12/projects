@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Shortcraft — make faceless 9:16 explainer shorts in your browser. Scenes, captions, music and export, no install.">
+  <title>Shortcraft Studio</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+</head>
+<body class="studio">
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="Shortcraft home">
+      <img src="icons/icon.svg" alt="" width="28" height="28">
+      <span>Shortcraft</span>
+    </a>
+    <div class="topbar-actions">
+      <label class="sr-only" for="sample-select">Load a sample</label>
+      <select id="sample-select" aria-label="Load a sample"></select>
+      <button type="button" id="btn-new" class="btn ghost">New</button>
+      <button type="button" id="btn-import" class="btn ghost">Import JSON</button>
+      <button type="button" id="btn-save" class="btn ghost">Save JSON</button>
+      <input type="file" id="file-import" accept="application/json,.json" hidden>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="editor" aria-label="Editor">
+      <div class="panel">
+        <h2>Project</h2>
+        <div class="grid2">
+          <label>Title<input id="f-title" type="text" maxlength="80"></label>
+          <label>Kicker / tag<input id="f-kicker" type="text" maxlength="40"></label>
+          <label>Template
+            <select id="f-template">
+              <option value="editorial">Editorial — light, step tracker</option>
+              <option value="teardown">Teardown — dark, callout cards</option>
+            </select>
+          </label>
+          <label>Language
+            <select id="f-lang">
+              <option value="en">English</option>
+              <option value="id">Bahasa Indonesia</option>
+            </select>
+          </label>
+          <label>Music
+            <select id="f-music">
+              <option value="calm">Calm (generated)</option>
+              <option value="bright">Bright (generated)</option>
+              <option value="dark">Dark (generated)</option>
+              <option value="none">None</option>
+            </select>
+          </label>
+          <label>Voice
+            <select id="f-voice">
+              <option value="own">My voice — record / upload (exported)</option>
+              <option value="browser">Browser voice — preview only</option>
+              <option value="none">Captions only</option>
+            </select>
+          </label>
+        </div>
+        <label class="check"><input id="f-captions" type="checkbox" checked> Burn-in captions</label>
+        <p class="hint" id="voice-hint"></p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Scenes</h2>
+          <button type="button" id="btn-add-scene" class="btn small">+ Add scene</button>
+        </div>
+        <p class="hint">Scene 1 is the hook, the last scene is the outro/CTA, everything between becomes a numbered step.</p>
+        <div id="scenes"></div>
+      </div>
+    </section>
+
+    <section class="stage" aria-label="Preview and export">
+      <div class="canvas-wrap">
+        <canvas id="preview" width="1080" height="1920" aria-label="Video preview"></canvas>
+      </div>
+      <div class="transport">
+        <button type="button" id="btn-play" class="btn">▶ Play</button>
+        <button type="button" id="btn-restart" class="btn ghost" aria-label="Restart">⟲</button>
+        <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Scrub timeline">
+        <span id="time" class="mono">0.0 / 0.0 s</span>
+      </div>
+      <div class="panel">
+        <h2>Export</h2>
+        <p class="hint">Exports in real time (a 50 s video takes 50 s). Keep this tab visible while exporting.</p>
+        <button type="button" id="btn-export" class="btn primary">⬇ Export video</button>
+        <div id="export-status" class="hint" role="status"></div>
+        <a id="download-link" class="btn ghost" hidden>Download</a>
+      </div>
+      <div class="panel">
+        <h2>Viral checklist</h2>
+        <ul id="checklist" class="checklist"></ul>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Post kit</h2>
+          <button type="button" id="btn-copy-kit" class="btn small">Copy</button>
+        </div>
+        <textarea id="post-kit" rows="9" readonly></textarea>
+      </div>
+    </section>
+  </main>
+
+  <template id="scene-tpl">
+    <article class="scene">
+      <div class="scene-head">
+        <span class="scene-num"></span>
+        <span class="scene-role"></span>
+        <span class="scene-dur mono"></span>
+        <div class="scene-tools">
+          <button type="button" class="btn icon" data-act="preview" aria-label="Preview scene">▶</button>
+          <button type="button" class="btn icon" data-act="up" aria-label="Move up">↑</button>
+          <button type="button" class="btn icon" data-act="down" aria-label="Move down">↓</button>
+          <button type="button" class="btn icon danger" data-act="delete" aria-label="Delete scene">✕</button>
+        </div>
+      </div>
+      <div class="grid2">
+        <label>Headline<input data-k="headline" type="text"></label>
+        <label>Sub-title<input data-k="sub" type="text"></label>
+        <label>Step label<input data-k="label" type="text" placeholder="e.g. EVT"></label>
+        <label>Icon (emoji)<input data-k="icon" type="text" maxlength="4"></label>
+        <label>Big stat<input data-k="stat" type="text" placeholder="e.g. 850 nm"></label>
+        <label>Stat label<input data-k="statLabel" type="text"></label>
+      </div>
+      <label>Narration (what is said)<textarea data-k="narration" rows="3"></textarea></label>
+      <label>Caption override (optional — what is shown)<textarea data-k="caption" rows="2"></textarea></label>
+      <div class="grid2">
+        <label>Chip / footnote<input data-k="chip" type="text"></label>
+        <label>Image<input data-act="image" type="file" accept="image/*"></label>
+      </div>
+      <div class="voice-row">
+        <button type="button" class="btn small" data-act="record">● Record voice</button>
+        <label class="btn small ghost file-btn">Upload audio<input data-act="audio" type="file" accept="audio/*" hidden></label>
+        <button type="button" class="btn small ghost" data-act="clear-voice">Clear voice</button>
+        <button type="button" class="btn small ghost" data-act="clear-image">Remove image</button>
+        <span class="voice-status hint"></span>
+      </div>
+    </article>
+  </template>
+
+  <script src="js/samples.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/ui.js"></script>
+</body>
+</html>
