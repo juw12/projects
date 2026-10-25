@@ -30,9 +30,9 @@ def check(condition, message):
 def static_checks():
     for page in ("index.html", "web.html", "mobile.html"):
         html = (WEB / page).read_text(encoding="utf-8")
-        for script in ("engine.js", "demo.js", "recipes.js", "engine-client.js", "app.js"):
+        for script in ("engine.js", "demo.js", "rights.js", "recipes.js", "engine-client.js", "app.js"):
             check(f'src="{script}"' in html, f"{page} does not load {script}")
-        order = [html.find(f'src="{s}"') for s in ("engine.js", "demo.js", "recipes.js", "engine-client.js", "app.js")]
+        order = [html.find(f'src="{s}"') for s in ("engine.js", "demo.js", "rights.js", "recipes.js", "engine-client.js", "app.js")]
         check(order == sorted(order), f"{page} loads scripts out of order")
         for ref in re.findall(r'(?:href|src)="([^"]+)"', html):
             check(not ref.startswith("/"), f"{page}: absolute ref {ref}")

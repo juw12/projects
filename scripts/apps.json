@@ -373,18 +373,17 @@
       "id": "hookline",
       "name": "Hookline",
       "category": "Software",
-      "desc": "Private short-form audio edits with independent tempo/pitch, crossfades, portable recipes and safer worker recovery",
-      "description": "Hookline is a private browser remix studio: upload your audio, give a rule-based request, adjust tempo and pitch independently, sequence and crossfade recordings, audition and export WAV. Version 1.1 adds validated upload/render limits, cancellable workers with recovery, portable recipes that preserve source identities and corrections, explicit Paramore recipe slots, and safer offline updates. Its editing checklist is unvalidated—not a virality prediction. No stem separation or external AI; automatic BPM/key/hook estimates need listening checks. A working browser prototype.",
+      "desc": "Private audio remixing with portable recipes and platform-specific, user-declared publishing notes",
+      "description": "Hookline is a private browser remix studio for user-provided audio: independent tempo/pitch controls, whole-track sequencing and crossfades, auditioning and WAV export. Version 1.2 adds publishing notes for permission basis, license references, credits, restrictions and intended platforms; they are user declarations, not rights clearance. Commercial-song titles are not an editing gate. Fixes include accurate coupled-pitch readouts, exact manual source starts and clearer automatic-arrangement controls. Portable recipes, bounded audio jobs and worker recovery remain built in. No licensed song catalogue, stem separation or proven virality prediction.",
       "tags": [
         "Web Audio",
-        "browser DSP",
         "private audio",
+        "publishing notes",
         "portable recipes",
-        "worker recovery",
         "PWA"
       ],
       "image": "hookline.png",
-      "image_alt": "Hookline 1.1 browser remix studio showing synthetic tracks, coloured waveform and an explicitly unvalidated editing checklist",
+      "image_alt": "Hookline 1.2 browser remix studio using synthetic audio fixtures; editing tools do not supply music publishing rights",
       "links": {
         "app": "hookline/",
         "web": "hookline/web.html",
@@ -392,7 +391,7 @@
       },
       "featured": true,
       "order": 5.7,
-      "version": "1.1.0"
+      "version": "1.2.0"
     },
     {
       "id": "shortcraft",

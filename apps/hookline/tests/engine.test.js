@@ -22,6 +22,7 @@
 
   loadScript(webDir + 'engine.js');
   loadScript(webDir + 'demo.js');
+  loadScript(webDir + 'rights.js');
   loadScript(webDir + 'recipes.js');
   const H = globalThis.Hookline;
 
@@ -389,6 +390,62 @@
     const copied = H.makeRecipe(first);
     first.fx.bass = 3;
     check(copied.fx.bass === 9, 'effect leaked into saved copy');
+  });
+
+
+  test('publishing notes do not mark any declared source as legally cleared', function () {
+    Object.keys(H.rights.bases).forEach(function (basis) {
+      const review = H.rights.review([{ name: 'Real song', ready: true, role: 'main', rights: { basis: basis } }], { platform: 'youtube', commercial: true });
+      check(review.verified === false, 'false clearance claim');
+      check(review.warnings.length >= 2, 'missing commercial/source warning');
+      check(review.sources[0].declaration.basis === basis, 'lost user declaration');
+    });
+  });
+
+  test('platform-only permission explicitly does not transfer to cross-platform outputs', function () {
+    const review = H.rights.review([{ name: 'Library track', rights: { basis: 'platform-only' } }], { platform: 'instagram', commercial: false });
+    check(review.warnings[0].includes('does not automatically cover'), 'missing export restriction');
+    check(review.guidance.includes('do not automatically transfer'), 'missing destination restriction');
+    check(review.scope.includes('Current active session'), 'ambiguous report scope');
+    check(H.rights.review([{ name: 'Off', role: 'off' }], {}).sources.length === 0, 'includes inactive source');
+  });
+
+  test('permission fields are validated and can never inject a verified flag', function () {
+    rejects(function () { H.rights.declaration({ basis: 'cleared' }); }, 'Unknown');
+    rejects(function () { H.rights.declaration({ credit: 'x'.repeat(501) }); }, 'at most');
+    rejects(function () { H.rights.publication({ platform: '__proto__' }); }, 'Invalid');
+    rejects(function () { H.rights.publication({ commercial: 'yes' }); }, 'Invalid');
+    const report = H.rights.review([{ name: 'Track', rights: { basis: 'owned', verified: true } }], {});
+    check(report.verified === false && report.sources[0].declaration.verified === undefined, 'trusts imported clearance');
+  });
+
+  test('portable recipes retain declarations and read old v1.1 recipes safely', function () {
+    const track = Object.assign({}, usableMain(), {
+      id: 'source', name: 'Personal recording', ready: true,
+      rights: { basis: 'permission', reference: 'Contract reference A', credit: 'Artist', restrictions: 'Noncommercial only' },
+    });
+    const saved = H.recipes.saveProject([track], {}, 'faster', { platform: 'youtube', commercial: false });
+    const restored = H.recipes.loadProject(saved, [track]);
+    check(restored.assignments[0].rights.reference === 'Contract reference A', 'lost reference');
+    check(restored.publication.platform === 'youtube', 'lost destination');
+    delete saved.sources[0].rights;
+    delete saved.publication;
+    const legacy = H.recipes.loadProject(saved, [track]);
+    check(legacy.assignments[0].rights.basis === 'unknown', 'assumed permission for legacy file');
+    check(!legacy.publication.commercial, 'wrong default');
+  });
+
+  test('permission notes are not an audio renderer copyright gate', function () {
+    const track = usableMain();
+    track.name = "Paramore - That's What You Get (user supplied fixture)";
+    track.rights = { basis: 'unknown' };
+    const out = H.renderRemix({ main: track }, { lengthSec: 8 });
+    check(out.channels[0].length > 0 && !H.hasInvalidSamples(out.channels), 'title/notes blocked local editing');
+  });
+
+  test('explicit manual source starts stay exact even with automatic beat snapping enabled', function () {
+    const plan = H.planRemix({ main: usableMain() }, { segments: [{ track: 'main', bars: 2, from: 'time', startSec: 5.123456 }], snapToBeats: true });
+    check(plan.segments[0].sourceStartSec === 5.123456, 'silently moved explicit start');
   });
 
   log('');

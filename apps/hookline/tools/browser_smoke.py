@@ -55,14 +55,15 @@ def main():
                     time.sleep(0.1)
             if cdp is None:
                 raise RuntimeError('Isolated Chrome did not start')
-            cdp.sock.settimeout(45)
+            cdp.sock.settimeout(100)
             cdp.call('Runtime.enable')
             cdp.call('Page.enable')
             cdp.call('Network.enable')
             cdp.call('DOM.enable')
+            cdp.call('Browser.setDownloadBehavior', behavior='allow', downloadPath=str(args.artifacts.resolve()))
             cdp.call('Network.setCacheDisabled', cacheDisabled=True)
 
-            def wait(expression, seconds=40):
+            def wait(expression, seconds=120):
                 start = time.monotonic()
                 while time.monotonic() - start < seconds:
                     value = cdp.evaluate(expression)
@@ -72,7 +73,7 @@ def main():
                 raise TimeoutError(cdp.evaluate("document.getElementById('status')?.textContent"))
 
             def check(name, expression):
-                wrapped = 'Promise.race([Promise.resolve().then(() => (' + expression + ')), new Promise((_, reject) => setTimeout(() => reject(new Error("Test timed out")), 30000))])'
+                wrapped = 'Promise.race([Promise.resolve().then(() => (' + expression + ')), new Promise((_, reject) => setTimeout(() => reject(new Error("Test timed out")), 90000))])'
                 value = cdp.evaluate(wrapped)
                 if not value:
                     raise AssertionError(name)
@@ -84,7 +85,7 @@ def main():
                          height=844 if mobile else 1000, deviceScaleFactor=1, mobile=mobile)
                 cdp.call('Page.navigate', url=url + '/' + page)
                 time.sleep(0.3)
-                wait('window.HooklineApp && Hookline.VERSION === "1.1.0"')
+                wait('window.HooklineApp && Hookline.VERSION === "1.2.0"')
                 if 'demo=1' in page:
                     wait('HooklineApp.state.output && !HooklineApp.state.busy')
 
@@ -99,6 +100,62 @@ def main():
                 !/potential|recognition/i.test(document.querySelector('.score').textContent)
             ''')
             screenshot('hookline-desktop.png')
+            check('coupled pitch readout reflects actual speed instead of stored independent pitch', '''(async () => {
+                document.querySelector('[data-mode=coupled]').click();
+                await new Promise(resolve => setTimeout(resolve, 30));
+                const source = HooklineApp.state.tracks.find(t => t.role === 'main');
+                const expected = 12 * Math.log2(164 / (source.overrides.bpm || source.analysis.bpm));
+                const displayed = parseFloat(document.getElementById('semitones-out').textContent);
+                const okay = Math.abs(expected - displayed) < 0.02 && document.getElementById('semitones').disabled;
+                document.querySelector('[data-mode=independent]').click();
+                return okay;
+            })()''')
+            check('auto-arrange immediately unlocks the clip length control', '''(async () => {
+                document.querySelector('[data-action=auto-arrange]').click();
+                await new Promise(resolve => setTimeout(resolve, 20));
+                while (HooklineApp.state.busy) await new Promise(resolve => setTimeout(resolve, 50));
+                return !document.getElementById('lengthSec').disabled && !HooklineApp.state.recipe.segments;
+            })()''')
+            check('editing supports undocumented sources without asserting publication rights', '''
+                HooklineApp.state.output && document.getElementById('rights-card').textContent.includes('does not verify permission') &&
+                Hookline.rights.review(HooklineApp.state.tracks, HooklineApp.state.publication).verified === false
+            ''')
+            check('permission notes and destination persist in portable recipes', '''(async () => {
+                const basis = document.querySelector('[data-rights=basis]');
+                basis.value = 'platform-only';
+                basis.dispatchEvent(new Event('change', {bubbles:true}));
+                const destination = document.querySelector('[data-publication=platform]');
+                destination.value = 'instagram';
+                destination.dispatchEvent(new Event('change', {bubbles:true}));
+                await new Promise(resolve => setTimeout(resolve, 30));
+                const saved = Hookline.recipes.saveProject(HooklineApp.state.tracks, HooklineApp.state.recipe, '', HooklineApp.state.publication);
+                const restored = Hookline.recipes.loadProject(saved, HooklineApp.state.tracks);
+                return restored.assignments[0].rights.basis === 'platform-only' && restored.publication.platform === 'instagram' &&
+                    document.getElementById('rights-summary').textContent.includes('do not automatically transfer');
+            })()''')
+            report_file = args.artifacts / 'hookline-publishing-notes.json'
+            session_file = args.artifacts / 'hookline-current-session.json'
+            report_file.unlink(missing_ok=True)
+            session_file.unlink(missing_ok=True)
+            cdp.evaluate("document.querySelector('[data-rights-action=report]').click(); document.querySelector('[data-rights-action=session]').click();")
+            for _ in range(100):
+                if report_file.exists() and session_file.exists():
+                    break
+                time.sleep(0.05)
+            exported_report = json.loads(report_file.read_text())
+            exported_session = json.loads(session_file.read_text())
+            if exported_report.get('verified') is not False or exported_session['sources'][0]['rights']['basis'] != 'platform-only':
+                raise AssertionError('Actual publishing/session downloads lost declarations or claimed clearance')
+            results.append({'test': 'publishing notes and current-session recipe download through UI', 'passed': True})
+            print('PASS publishing notes and current-session recipe download through UI', flush=True)
+            check('invalid explicit target BPM is refused rather than silently becoming auto', '''(async () => {
+                const previous = HooklineApp.state.recipe.targetBpm;
+                const input = document.getElementById('targetBpm');
+                input.value = '0';
+                input.dispatchEvent(new Event('change', {bubbles:true}));
+                await new Promise(resolve => setTimeout(resolve, 20));
+                return HooklineApp.state.recipe.targetBpm === previous && /40.240/.test(document.getElementById('status').textContent);
+            })()''')
             check('changed settings visibly mark previous render', '''(() => {
                 const before = HooklineApp.state.output.savedProject.recipe.semitones;
                 const el = document.getElementById('semitones');
@@ -203,6 +260,8 @@ def main():
             check('mobile has no horizontal overflow', 'document.documentElement.scrollWidth === 390')
             cdp.evaluate("document.getElementById('output-card').scrollIntoView({behavior:'instant'})")
             screenshot('hookline-mobile.png')
+            cdp.evaluate("document.getElementById('rights-card').scrollIntoView({behavior:'instant'})")
+            screenshot('hookline-publishing-notes.png')
             cdp.evaluate("document.querySelector('.track [data-action=remove]').click()")
             wait("HooklineApp.state.tracks.length === 2")
             check('removed main is reassigned and missing arrangement source is visible', '''

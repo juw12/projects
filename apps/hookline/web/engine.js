@@ -19,7 +19,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  const VERSION = '1.1.0';
+  const VERSION = '1.2.0';
   const SHARP_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   const FLAT_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
   // Krumhansl–Kessler key profiles.
@@ -1513,7 +1513,7 @@
       const sourceBarSec = 240 / tp.effectiveSourceBpm;
       const base = seg.from === 'time' && typeof seg.startSec === 'number' ? seg.startSec : tp.hookSec;
       let sourceStart = base + (seg.offsetBars || 0) * sourceBarSec;
-      if (recipe.snapToBeats) {
+      if (recipe.snapToBeats && seg.from !== 'time') {
         sourceStart = refineBeatNear(tracks[seg.track], sourceStart, sourceBarSec / 4);
       }
       const sourceDuration = tracks[seg.track].duration;
@@ -1540,7 +1540,7 @@
         startBar: barCursor,
         outStartSec: barCursor * barSec,
         outLengthSec: seg.bars * barSec,
-        sourceStartSec: Math.round(sourceStart * 1000) / 1000,
+        sourceStartSec: seg.from === 'time' ? sourceStart : Math.round(sourceStart * 1000) / 1000,
         tempoRatio: tp.tempoRatio,
         semitones: tp.semitones,
         gainDb: seg.gainDb || 0,
