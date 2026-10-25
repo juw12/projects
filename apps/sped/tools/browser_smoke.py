@@ -85,7 +85,7 @@ def main():
                          height=844 if mobile else 1000, deviceScaleFactor=1, mobile=mobile)
                 cdp.call('Page.navigate', url=url + '/' + page)
                 time.sleep(0.3)
-                wait('window.SpedApp && Sped.VERSION === "1.3.0"')
+                wait('window.SpedApp && Sped.VERSION === "1.4.0"')
                 if 'demo=1' in page:
                     wait('SpedApp.state.output && !SpedApp.state.busy')
 
@@ -100,6 +100,10 @@ def main():
                 !/potential|recognition/i.test(document.querySelector('.score').textContent)
             ''')
             screenshot('sped-desktop.png')
+            cdp.evaluate("SpedApp.setTab('post')")
+            time.sleep(0.2)
+            screenshot('sped-desktop-post.png')
+            cdp.evaluate("SpedApp.setTab('edit')")
             check('coupled pitch readout reflects actual speed instead of stored independent pitch', '''(async () => {
                 document.querySelector('[data-mode=coupled]').click();
                 await new Promise(resolve => setTimeout(resolve, 30));
@@ -224,6 +228,99 @@ def main():
             cdp.evaluate("document.getElementById('request').value = 'slower, 8 seconds'; document.querySelector('[data-action=remix]').click();")
             wait('SpedApp.state.output && !SpedApp.state.busy')
             check('actual WAV file upload, decode, analyse and render', 'SpedApp.state.output.channels[0].length > 10000')
+            check('preview animates with the audio (frames differ over time)', '''(() => {
+                const canvas = document.getElementById('preview');
+                const frame = t => { SpedApp.state.previewTime = t; Sped.video.drawFrame(canvas.getContext('2d'), {
+                    look: SpedApp.state.look, platformId: 'tiktok', plan: SpedApp.state.output.plan,
+                    analysis: Sped.shorts.frameBands(SpedApp.state.output.channels, SpedApp.state.output.sampleRate, 30, 32),
+                    duration: SpedApp.state.output.plan.durationSec, segments: [] }, t); return canvas.toDataURL(); };
+                canvas.getContext('2d').setTransform(0.5, 0, 0, 0.5, 0, 0);
+                return frame(0.2) !== frame(4.1);
+            })()''')
+            check('platform switch adapts caption: Reels caps hashtags, Shorts gets a title and #shorts', '''(async () => {
+                document.querySelector('#top-platforms [data-platform=instagram]').click();
+                await new Promise(r => setTimeout(r, 30));
+                const reelsTags = (document.getElementById('caption').value.match(/#\\w+/g) || []).length;
+                const reelsOk = reelsTags > 0 && reelsTags <= 5 && /Reels/.test(document.getElementById('post-card').textContent) &&
+                    document.querySelector('[data-publication=platform]').value === 'instagram';
+                document.querySelector('#top-platforms [data-platform=youtube]').click();
+                await new Promise(r => setTimeout(r, 30));
+                const shortsOk = !!document.getElementById('video-title') && document.getElementById('caption').value.includes('#shorts');
+                document.querySelector('#top-platforms [data-platform=tiktok]').click();
+                return reelsOk && shortsOk && SpedApp.state.publication.platform === 'tiktok';
+            })()''')
+            check('theme choice updates the look and is remembered locally', '''(async () => {
+                document.querySelector('#look-card [data-theme=sunset]').click();
+                await new Promise(r => setTimeout(r, 20));
+                const saved = JSON.parse(localStorage.getItem('sped-look') || '{}');
+                const ok = SpedApp.state.look.theme === 'sunset' && saved.theme === 'sunset' && !('title' in saved);
+                document.querySelector('#look-card [data-theme=neon]').click();
+                return ok;
+            })()''')
+            check('MP4 export: 1080x1920 H.264 + AAC with the edit duration', '''(async () => {
+                SpedApp.state.includeAudio = true;
+                await SpedApp.exportVideo();
+                const r = SpedApp.state.exportResult;
+                if (!r || r.extension !== 'mp4' || r.blob.size < 20000) throw new Error('no mp4: ' + JSON.stringify(r && {ext: r.extension, size: r.blob.size}));
+                const bytes = new Uint8Array(await r.blob.arrayBuffer());
+                const text = Array.from(bytes.subarray(0, Math.min(bytes.length, 400000)), b => String.fromCharCode(b)).join('');
+                const tail = Array.from(bytes.subarray(Math.max(0, bytes.length - 400000)), b => String.fromCharCode(b)).join('');
+                const codecs = (text + tail).includes('avc1') && (text + tail).includes('mp4a');
+                const v = document.createElement('video');
+                v.muted = true;
+                v.src = r.url;
+                await new Promise((resolve, reject) => { v.onloadedmetadata = resolve; v.onerror = () => reject(new Error('video unreadable')); });
+                const expected = SpedApp.state.output.plan.durationSec;
+                window.__exportInfo = {w: v.videoWidth, h: v.videoHeight, duration: v.duration, expected, size: r.blob.size, codecs};
+                return codecs && v.videoWidth === 1080 && v.videoHeight === 1920 && Math.abs(v.duration - expected) < 0.35 &&
+                    document.getElementById('export-video') && !SpedApp.state.busy;
+            })()''')
+            print('  export info', cdp.evaluate('JSON.stringify(window.__exportInfo)'), flush=True)
+            exported = args.artifacts / cdp.evaluate('SpedApp.state.exportResult.name')
+            exported.unlink(missing_ok=True)
+            cdp.evaluate("document.querySelector('[data-action=download-video]').click()")
+            for _ in range(200):
+                if exported.exists() and exported.stat().st_size > 20000:
+                    break
+                time.sleep(0.05)
+            if not exported.exists():
+                raise AssertionError('Download video button did not save the MP4')
+            results.append({'test': 'download video button saves the exported MP4', 'passed': True, 'file': exported.name})
+            print('PASS download video button saves the exported MP4', exported.name, flush=True)
+            check('silent export for adding the platform sound has video but no audio track', '''(async () => {
+                const box = document.querySelector('[data-action=include-audio]');
+                box.checked = false;
+                box.dispatchEvent(new Event('change', {bubbles:true}));
+                await new Promise(r => setTimeout(r, 20));
+                const advice = document.querySelector('[data-check=audio]');
+                await SpedApp.exportVideo();
+                const r = SpedApp.state.exportResult;
+                const bytes = new Uint8Array(await r.blob.arrayBuffer());
+                const text = Array.from(bytes, b => String.fromCharCode(b)).join('');
+                const back = document.querySelector('[data-action=include-audio]');
+                back.checked = true;
+                back.dispatchEvent(new Event('change', {bubbles:true}));
+                return !!advice && r.includeAudio === false && text.includes('avc1') && !text.includes('mp4a');
+            })()''')
+            cover = args.artifacts / 'sped-slower-8-seconds-tiktok-cover.png'
+            for stale_cover in args.artifacts.glob('*-cover.png'):
+                stale_cover.unlink()
+            cdp.evaluate("document.querySelector('[data-action=cover]').click()")
+            for _ in range(200):
+                covers = list(args.artifacts.glob('*-cover.png'))
+                if covers and covers[0].stat().st_size > 1000:
+                    break
+                time.sleep(0.05)
+            covers = list(args.artifacts.glob('*-cover.png'))
+            if not covers:
+                raise AssertionError('cover image was not saved')
+            header = covers[0].read_bytes()[:24]
+            width = int.from_bytes(header[16:20], 'big')
+            height = int.from_bytes(header[20:24], 'big')
+            if (width, height) != (1080, 1920):
+                raise AssertionError(f'cover is {width}x{height}')
+            results.append({'test': 'cover image is a 1080x1920 PNG', 'passed': True})
+            print('PASS cover image is a 1080x1920 PNG', flush=True)
             check('offline worker ready on loopback', '(async () => !!(await navigator.serviceWorker.ready).active)()')
             check('cache activation retains foreign app data', '''(async () => {
                 const foreign = await caches.open('other-app-test');
@@ -258,8 +355,17 @@ def main():
             visit('mobile.html?demo=1&offline=1', mobile=True)
             check('offline query-string demo renders on mobile', 'SpedApp.state.output.plan.targetBpm === 164')
             check('mobile has no horizontal overflow', 'document.documentElement.scrollWidth === 390')
-            cdp.evaluate("document.getElementById('output-card').scrollIntoView({behavior:'instant'})")
+            check('mobile toolbar shows one tool panel at a time', '''(async () => {
+                document.querySelector('.toolbar [data-tab=edit]').click();
+                await new Promise(r => setTimeout(r, 30));
+                const visible = Array.from(document.querySelectorAll('.panel')).filter(p => p.offsetParent !== null).map(p => p.dataset.panel);
+                const toolbar = getComputedStyle(document.querySelector('.toolbar')).position === 'fixed';
+                return toolbar && visible.length === 1 && visible[0] === 'edit' && document.getElementById('preview').offsetParent !== null;
+            })()''')
+            cdp.evaluate("window.scrollTo(0, 0)")
             screenshot('sped-mobile.png')
+            cdp.evaluate("SpedApp.setTab('post'); document.getElementById('post-card').scrollIntoView({behavior:'instant'})")
+            screenshot('sped-mobile-post.png')
             cdp.evaluate("document.getElementById('rights-card').scrollIntoView({behavior:'instant'})")
             screenshot('sped-publishing-notes.png')
             cdp.evaluate("document.querySelector('.track [data-action=remove]').click()")

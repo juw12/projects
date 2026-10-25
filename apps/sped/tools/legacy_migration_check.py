@@ -120,7 +120,7 @@ def main():
             cdp.call('Page.navigate', url=origin + '/hookline/mobile.html?demo=0#top')
             landed = wait("location.pathname.includes('/sped/') && window.Sped && location.href")
             check('old link lands on Sped mobile with query and hash kept', landed.endswith('/sped/mobile.html?demo=0#top'))
-            check('new app reports v1.3.0 and Sped branding', cdp.evaluate("Sped.VERSION === '1.3.0' && document.querySelector('h1').textContent === 'Sped'"))
+            check('new app reports a current Sped version and branding', cdp.evaluate("/^1\\.(3|4)\\./.test(Sped.VERSION) && document.querySelector('h1').textContent === 'Sped'"))
             cdp.call('Browser.close')
         finally:
             if chrome.poll() is None:

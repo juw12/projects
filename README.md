@@ -13,7 +13,7 @@ runnable, deployable project.
 | [`apps/sweep`](apps/sweep) | The `/sweep` pipeline — validate, then sync the repo to GitHub and mirror a note to Obsidian | PowerShell helper + OpenCode slash command |
 | [`apps/twin`](apps/twin) | Invest and day-trade with a twin that replays 10,000 futures — personality test, paper trading, goal planner, copy a 13F, news | Zero-dependency Python stdlib server + installable PWA (offline web demo) |
 | [`apps/shortcraft`](apps/shortcraft) | Faceless 9:16 explainer shorts in the browser — scenes, captions, generated music, MP4 export (EN/ID), channel kit, YouTube upload + opt-in autoposter | Static web app (Canvas + Web Audio + MediaRecorder) + optional Python pipeline |
-| [`apps/sped`](apps/sped) | Sped (formerly Hookline): private short-form remix studio with tempo/pitch controls, full-track crossfades, portable recipes and an unvalidated edit checklist | Zero-dependency browser DSP + Web Workers + offline PWA |
+| [`apps/sped`](apps/sped) | Sped (formerly Hookline): shorts studio — sped-up/slowed/mashup edits, live 9:16 preview and timeline, MP4 export for TikTok, Reels and Shorts | Zero-dependency browser DSP + Canvas/MediaRecorder + Web Workers + offline PWA |
 
 Each project follows the same shape:
 
