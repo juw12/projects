@@ -13,95 +13,24 @@
     output: null,
     variants: [],
     busy: false,
-    status: 'Drop songs to start — or try the demo stand-ins.',
+    status: 'Drop songs to start — or try synthetic demo audio.',
     playing: null,
     loopPlayback: true,
+    cancelled: false,
+    stale: false,
+    slotMapping: {},
   };
   let trackCounter = 0;
   let audioContext = null;
 
   // ---------------------------------------------------------------- engine client (worker with main-thread fallback)
 
-  const engine = (function () {
-    let worker = null;
-    let local = null;
-    let sequence = 0;
-    const pending = {};
-    function localSession() {
-      if (!local) {
-        local = H.createSession();
-      }
-      return local;
+  const engine = H.createEngineClient(function () { return state.tracks; }, function (mode) {
+    const label = document.getElementById('engine-mode');
+    if (label) {
+      label.textContent = mode;
     }
-    if (window.Worker && /^https?:$/.test(location.protocol)) {
-      try {
-        worker = new Worker('worker.js');
-        worker.onmessage = function (event) {
-          const message = event.data;
-          const entry = pending[message.id];
-          if (!entry) {
-            return;
-          }
-          delete pending[message.id];
-          if (message.ok) {
-            entry.resolve(message.result);
-          } else {
-            entry.reject(new Error(message.error));
-          }
-        };
-        worker.onerror = function (event) {
-          console.warn('Hookline worker failed, using main thread', event.message);
-          worker = null;
-          Object.keys(pending).forEach(function (id) {
-            pending[id].reject(new Error('worker-failed'));
-            delete pending[id];
-          });
-        };
-      } catch (err) {
-        worker = null;
-      }
-    }
-    function runLocal(cmd, payload) {
-      const session = localSession();
-      if (cmd === 'addTrack') {
-        return session.addTrack(payload.id, payload.channels, payload.sampleRate, payload.name);
-      }
-      if (cmd === 'removeTrack') {
-        return session.removeTrack(payload.id);
-      }
-      if (cmd === 'render') {
-        return session.render(payload.settings, payload.recipe);
-      }
-      throw new Error('Unknown command ' + cmd);
-    }
-    return {
-      mode: function () {
-        return worker ? 'worker' : 'main thread';
-      },
-      call: function (cmd, payload, transfer) {
-        if (!worker) {
-          return new Promise(function (resolve, reject) {
-            setTimeout(function () {
-              try {
-                resolve(runLocal(cmd, payload));
-              } catch (err) {
-                reject(err);
-              }
-            }, 30);
-          });
-        }
-        const id = ++sequence;
-        return new Promise(function (resolve, reject) {
-          pending[id] = { resolve: resolve, reject: reject };
-          worker.postMessage({ id: id, cmd: cmd, payload: payload }, transfer || []);
-        });
-      },
-      // Re-run a command on the main thread (used when the worker dies mid-session).
-      local: function (cmd, payload) {
-        return runLocal(cmd, payload);
-      },
-    };
-  })();
+  });
 
   // ---------------------------------------------------------------- helpers
 
@@ -175,6 +104,14 @@
       setStatus(text);
     }
     document.body.classList.toggle('is-busy', busy);
+    const workspace = document.getElementById('workspace');
+    if (workspace) {
+      workspace.disabled = busy;
+    }
+    const cancel = document.getElementById('cancel-task');
+    if (cancel) {
+      cancel.hidden = !busy || !/^https?:$/.test(location.protocol);
+    }
     root.querySelectorAll('[data-needs-idle]').forEach(function (el) {
       el.disabled = busy;
     });
@@ -187,11 +124,12 @@
       '<header class="topbar">',
       '  <div class="brand"><span class="logo" aria-hidden="true">',
       '    <svg viewBox="0 0 32 32" width="28" height="28"><defs><linearGradient id="lg" x1="0" x2="1"><stop offset="0" stop-color="#ff3d7f"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#lg)"/><path d="M7 19c3 0 3-7 6-7s3 10 6 10 3-12 6-12" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round"/></svg>',
-      '  </span><div><h1>Hookline</h1><p class="tagline">Turn songs into viral short-form sounds</p></div></div>',
+      '  </span><div><h1>Hookline</h1><p class="tagline">Make short-form edits from your songs</p></div></div>',
       '  <span class="pill" title="Decoding, analysis and rendering run in your browser">🔒 Songs never leave your device</span>',
       '</header>',
       '<p id="status" class="status" role="status" aria-live="polite"></p>',
-      '<main class="layout">',
+      '<button id="cancel-task" class="btn" hidden>Cancel audio task</button>',
+      '<main><fieldset id="workspace" class="layout">',
       '  <div class="col col-left">',
       '    <section class="card" id="songs-card"></section>',
       '    <section class="card" id="request-card"></section>',
@@ -202,9 +140,9 @@
       '    <section class="card" id="variants-card" hidden></section>',
       '    <section class="card" id="arrange-card"></section>',
       '  </div>',
-      '</main>',
+      '</fieldset></main>',
       '<footer class="footer">',
-      '  <p>Use songs you have the rights to remix. Posting remixes of commercial music may need the platform\'s licensed library or the rights holder\'s permission. The viral score is a heuristic built from common short-form patterns — not a prediction.</p>',
+      '  <p>Use songs you have the rights to remix. Posting remixes of commercial music may need the platform\'s licensed library or the rights holder\'s permission. The edit score is a heuristic built from common short-form patterns — not a prediction.</p>',
       '  <p>Hookline v' + H.VERSION + ' · engine: <span id="engine-mode"></span> · <a href="index.html">App</a> · <a href="web.html">Web</a> · <a href="mobile.html">Mobile</a></p>',
       '</footer>',
     ].join('\n');
@@ -250,9 +188,10 @@
         '    </select>',
         '    <button class="icon-btn" data-action="remove" title="Remove" aria-label="Remove ' + escapeHtml(t.name) + '">✕</button>',
         '  </div>',
+        '  <p class="small muted">Tempo and key are estimates; preview the hook and correct them if needed.</p>',
         '  <canvas class="mini-wave" width="600" height="56" aria-hidden="true"></canvas>',
         '  <div class="track-fields">',
-        '    <label>BPM <input type="number" step="0.1" min="40" max="240" data-field="bpm" value="' + bpm.toFixed(1) + '"></label>',
+        '    <label>BPM <input type="number" step="0.1" min="40" max="300" data-field="bpm" value="' + bpm.toFixed(1) + '"></label>',
         '    <button class="chip" data-action="double" title="Detected half-time? Double it">×2</button>',
         '    <button class="chip" data-action="half" title="Detected double-time? Halve it">÷2</button>',
         '    <label>Key <select data-field="key">' + keyOptions + '</select></label>',
@@ -269,9 +208,9 @@
     card.innerHTML = [
       '<h2><span class="step">1</span> Songs</h2>',
       '<label class="dropzone" id="dropzone">',
-      '  <input type="file" id="file-input" accept="audio/*,.mp3,.m4a,.wav,.ogg,.flac,.aac" multiple>',
+      '  <input type="file" id="file-input" aria-label="Upload audio files" accept="audio/*,.mp3,.m4a,.wav,.ogg,.flac,.aac" multiple>',
       '  <strong>Drop songs here</strong> or click to upload',
-      '  <span class="muted">MP3, M4A, WAV, OGG, FLAC · first song = main, the rest mash in</span>',
+      '  <span class="muted">Up to 4 tracks · 40 MB/file · 6 minutes/track · 15 minutes total. Format support depends on your browser.</span>',
       '</label>',
       '<div class="row">',
       '  <button class="btn ghost" data-action="demo" data-needs-idle>Try demo stand-ins</button>',
@@ -313,43 +252,105 @@
     g.fillRect(x0, 0, 2, h);
   }
 
+  async function checkFile(file) {
+    if (file.size > H.LIMITS.maxFileBytes) {
+      throw new Error('File exceeds the 40 MB limit. Trim or compress it first.');
+    }
+    const url = URL.createObjectURL(file);
+    const audio = new Audio();
+    try {
+      const duration = await new Promise(function (resolve, reject) {
+        const timer = setTimeout(function () {
+          reject(new Error('Could not read audio duration; use a WAV/MP3 file supported by this browser.'));
+        }, 15000);
+        audio.preload = 'metadata';
+        audio.onloadedmetadata = function () {
+          clearTimeout(timer);
+          resolve(audio.duration);
+        };
+        audio.onerror = function () {
+          clearTimeout(timer);
+          reject(new Error('This browser cannot read this audio format. Try WAV or MP3.'));
+        };
+        audio.src = url;
+      });
+      const used = state.tracks.reduce(function (sum, t) { return sum + (t.ready ? t.analysis.duration : 0); }, 0);
+      if (!Number.isFinite(duration) || duration < 1 || duration > H.LIMITS.maxTrackSeconds || duration + used > H.LIMITS.maxTotalSeconds) {
+        throw new Error('Use 1–360 second tracks; the session limit is 900 seconds.');
+      }
+    } finally {
+      audio.removeAttribute('src');
+      audio.load();
+      URL.revokeObjectURL(url);
+    }
+  }
+
   async function addFiles(files) {
-    const list = Array.prototype.slice.call(files).filter(function (f) {
-      return /^audio\//.test(f.type) || /\.(mp3|m4a|wav|ogg|flac|aac|opus|webm)$/i.test(f.name);
-    });
-    if (!list.length) {
-      setStatus('Those files do not look like audio.');
+    if (state.busy) {
       return;
     }
-    for (const file of list) {
-      const id = 't' + (++trackCounter);
-      const track = { id: id, name: file.name.replace(/\.[^.]+$/, ''), role: state.tracks.some(function (t) {
-        return t.role === 'main';
-      }) ? 'layer' : 'main', overrides: {}, ready: false };
-      state.tracks.push(track);
+    const list = Array.from(files);
+    if (!list.length) {
+      return;
+    }
+    if (state.tracks.length + list.length > H.LIMITS.maxTracks) {
+      throw new Error('At most 4 tracks per session. Remove unused tracks first.');
+    }
+    state.cancelled = false;
+    setBusy(true, 'Checking files…');
+    const errors = [];
+    try {
+      for (const file of list) {
+        if (state.cancelled) {
+          break;
+        }
+        let track = null;
+        try {
+          if (!/^audio\//.test(file.type) && !/\.(mp3|m4a|wav|ogg|flac|aac|opus|webm)$/i.test(file.name)) {
+            throw new Error('Not a supported audio file.');
+          }
+          setStatus('Checking ' + file.name + '…');
+          await checkFile(file);
+          if (state.cancelled) { break; }
+          const data = await file.arrayBuffer();
+          const buffer = await ctx().decodeAudioData(data);
+          if (state.cancelled) { break; }
+          track = { id: 't' + (++trackCounter), name: file.name.replace(/\.[^.]+$/, ''), role: state.tracks.some(function (t) {
+            return t.role === 'main';
+          }) ? 'layer' : 'main', overrides: {}, ready: false };
+          state.tracks.push(track);
+          renderSongs();
+          await registerTrack(track, buffer);
+          markStale();
+        } catch (err) {
+          if (track) {
+            state.tracks = state.tracks.filter(function (t) { return t.id !== track.id; });
+          }
+          errors.push(file.name + ': ' + err.message);
+        }
+      }
+    } finally {
+      setBusy(false);
       renderSongs();
-      try {
-        setBusy(true, 'Decoding ' + file.name + '…');
-        const data = await file.arrayBuffer();
-        const buffer = await ctx().decodeAudioData(data);
-        await registerTrack(track, buffer);
-      } catch (err) {
-        console.error(err);
-        state.tracks = state.tracks.filter(function (t) {
-          return t.id !== id;
-        });
-        setStatus('Could not decode ' + file.name + ' (' + err.message + ').');
+      renderRequest();
+      renderArrangement();
+      if (errors.length) {
+        setStatus(errors.join(' • '));
       }
     }
-    setBusy(false);
-    renderSongs();
-    renderArrangement();
   }
 
   async function registerTrack(track, buffer) {
+    if (buffer.numberOfChannels > 2) {
+      throw new Error('Use mono or stereo audio, not multichannel.');
+    }
+    const used = state.tracks.reduce(function (sum, t) { return sum + (t.ready ? t.analysis.duration : 0); }, 0);
+    if (buffer.duration > H.LIMITS.maxTrackSeconds || used + buffer.duration > H.LIMITS.maxTotalSeconds) {
+      throw new Error('Decoded audio exceeds the session limit.');
+    }
     const channels = [];
     for (let c = 0; c < Math.min(2, buffer.numberOfChannels); c++) {
-      channels.push(new Float32Array(buffer.getChannelData(c)));
+      channels.push(buffer.getChannelData(c));
     }
     track.buffer = buffer;
     track.channels = channels.length === 1 ? [channels[0], channels[0]] : channels;
@@ -358,23 +359,19 @@
     const copies = track.channels.map(function (c) {
       return new Float32Array(c);
     });
-    let analysis;
-    try {
-      analysis = await engine.call('addTrack', { id: track.id, channels: copies, sampleRate: track.sampleRate, name: track.name }, copies.map(function (c) {
-        return c.buffer;
-      }));
-    } catch (err) {
-      if (err.message !== 'worker-failed') {
-        throw err;
-      }
-      analysis = engine.local('addTrack', { id: track.id, channels: track.channels, sampleRate: track.sampleRate, name: track.name });
-    }
+    const analysis = await engine.call('addTrack', {
+      id: track.id, channels: copies, sampleRate: track.sampleRate, name: track.name,
+    }, copies.map(function (c) { return c.buffer; }));
     track.analysis = analysis;
     track.ready = true;
     setStatus(track.name + ': ' + analysis.bpm.toFixed(1) + ' BPM, ' + analysis.key.name + ', hook at ' + formatTime(analysis.hooks[0].start) + '.');
   }
 
   async function addDemoTracks() {
+    if (state.tracks.length + 3 > H.LIMITS.maxTracks) {
+      throw new Error('The demo needs three free track slots. Remove tracks first.');
+    }
+    state.cancelled = false;
     const specs = [
       { name: "Synth stand-in (That's What You Get tempo/key)", bpm: 131, key: 'Ab major', seed: 11 },
       { name: 'Synth stand-in (Misery Business tempo/key)', bpm: 173, key: 'Db major', seed: 12 },
@@ -382,6 +379,7 @@
     ];
     setBusy(true, 'Synthesising demo stand-ins…');
     for (const spec of specs) {
+      if (state.cancelled) { break; }
       await new Promise(function (r) {
         setTimeout(r, 20);
       });
@@ -392,11 +390,20 @@
       const track = { id: 't' + (++trackCounter), name: spec.name, role: state.tracks.length ? 'layer' : 'main', overrides: {}, ready: false };
       state.tracks.push(track);
       renderSongs();
-      await registerTrack(track, buffer);
+      try {
+        await registerTrack(track, buffer);
+      } catch (err) {
+        state.tracks = state.tracks.filter(function (t) { return t.id !== track.id; });
+        renderSongs();
+        throw err;
+      }
       renderSongs();
     }
     setBusy(false);
-    await applyCurated('paramore');
+    renderRequest();
+    if (!state.cancelled) {
+      await applyCurated('paramore');
+    }
   }
 
   function onSongsEvent(event) {
@@ -404,8 +411,7 @@
     const actionEl = event.target.closest('[data-action]');
     const action = actionEl && actionEl.dataset.action;
     if (action === 'demo') {
-      addDemoTracks();
-      return;
+      return addDemoTracks();
     }
     if (!trackEl) {
       return;
@@ -418,33 +424,42 @@
     }
     const bpm = track.overrides.bpm || track.analysis.bpm;
     if (action === 'remove') {
+      stopPlayback();
       engine.call('removeTrack', { id: track.id }).catch(function () {});
       state.tracks = state.tracks.filter(function (t) {
         return t.id !== track.id;
       });
-      if (track.role === 'main' && state.tracks.length) {
-        state.tracks[0].role = 'main';
+      if (track.role === 'main') {
+        const replacement = state.tracks.find(function (t) { return t.ready && t.role !== 'off'; });
+        if (replacement) {
+          replacement.role = 'main';
+        }
+        state.recipe.mainId = replacement ? replacement.id : null;
       }
+      markStale();
       renderSongs();
+      renderRequest();
       renderArrangement();
     } else if (action === 'double') {
-      track.overrides.bpm = Math.round(bpm * 2 * 10) / 10;
+      track.overrides.bpm = Math.min(300, Math.round(bpm * 2 * 10) / 10);
+      markStale();
       renderSongs();
     } else if (action === 'half') {
-      track.overrides.bpm = Math.round(bpm / 2 * 10) / 10;
+      track.overrides.bpm = Math.max(30, Math.round(bpm / 2 * 10) / 10);
+      markStale();
       renderSongs();
     } else if (action === 'preview') {
       const hook = typeof track.overrides.hookSec === 'number' ? track.overrides.hookSec : track.analysis.hooks[0].start;
-      playBuffer(track.buffer, hook, 8, false);
+      playBuffer(track.buffer, hook, Math.min(8, track.buffer.duration - hook), false);
     }
   }
 
   function onSongsChange(event) {
     const field = event.target.dataset.field;
     if (event.target.id === 'file-input') {
-      addFiles(event.target.files);
+      const files = Array.from(event.target.files);
       event.target.value = '';
-      return;
+      return addFiles(files);
     }
     const trackEl = event.target.closest('.track');
     if (!field || !trackEl) {
@@ -463,6 +478,7 @@
         });
       }
       track.role = value;
+      if (value === 'main') { state.recipe.mainId = track.id; }
     } else if (field === 'bpm') {
       const v = parseFloat(value);
       track.overrides.bpm = isFinite(v) && v > 30 ? v : undefined;
@@ -481,7 +497,15 @@
     } else if (field === 'semitones') {
       track.overrides.semitones = parseFloat(value) || 0;
     }
+    if (!state.tracks.some(function (t) { return t.role === 'main'; })) {
+      const candidate = state.tracks.find(function (t) { return t.ready && t.role !== 'off'; });
+      if (candidate) { candidate.role = 'main'; }
+    }
+    const main = state.tracks.find(function (t) { return t.role === 'main'; });
+    state.recipe.mainId = main ? main.id : null;
+    markStale();
     renderSongs();
+    renderRequest();
   }
 
   // ---------------------------------------------------------------- request
@@ -491,25 +515,39 @@
     const curated = H.recipes.curated.paramore;
     card.innerHTML = [
       '<h2><span class="step">2</span> Your request</h2>',
-      '<textarea id="request" rows="3" placeholder="e.g. make it higher and faster, add a nostalgic 2000s mashup, 25 seconds">' + escapeHtml(state.request || '') + '</textarea>',
+      '<textarea id="request" aria-label="Remix request" maxlength="2000" rows="3" placeholder="e.g. make it higher and faster, add a nostalgic 2000s mashup, 25 seconds">' + escapeHtml(state.request || '') + '</textarea>',
       '<div class="chips" role="list">',
       H.recipes.presets.map(function (p) {
         return '<button class="chip" role="listitem" data-preset="' + p.id + '" title="' + escapeHtml(p.request) + '">' + escapeHtml(p.name) + '</button>';
       }).join(''),
       '</div>',
+      '<p class="small muted">Rule-based request parser, not an AI music model. Review the interpreted controls. Layering uses crossfades, not separated vocals/instruments.</p>',
+      '<label class="btn ghost file-btn">Load portable recipe<input type="file" accept="application/json,.json" data-action="load-recipe" aria-label="Load portable recipe"></label>',
       '<div class="row">',
       '  <button class="btn primary" data-action="remix" data-needs-idle>Remix it</button>',
-      '  <button class="btn" data-action="variants" data-needs-idle>3 viral variants</button>',
+      '  <button class="btn" data-action="variants" data-needs-idle>Compare 3 edits</button>',
       '</div>',
       '<div class="curated">',
+      renderSlots(curated),
       '  <div><span class="badge">Test recipe</span> <strong>' + escapeHtml(curated.name) + '</strong></div>',
-      '  <p class="muted small">Paramore at 164 BPM, +4 st into C major, with Misery Business and Sugar, We\'re Goin Down mashed in. Upload those three songs (any order) or use the demo stand-ins.</p>',
+      '  <p class="muted small">Paramore at 164 BPM, +4 st into C major, with Misery Business and Sugar, We\'re Goin Down mashed in. Select each recording below, verify its metadata, or try the synthetic demo.</p>',
       '  <button class="btn ghost" data-action="curated" data-needs-idle>Apply test recipe</button>',
       '</div>',
       state.notes.length ? '<ul class="notes">' + state.notes.map(function (n) {
         return '<li>' + escapeHtml(n) + '</li>';
       }).join('') + '</ul>' : '',
     ].join('\n');
+  }
+
+  function renderSlots(def) {
+    const suggestions = H.recipes.assignSlots(def, state.tracks.filter(function (t) { return t.ready; }));
+    return '<div class="slot-picker">' + def.slots.map(function (slot) {
+      const selected = state.slotMapping[slot.id] || suggestions[slot.id] || '';
+      return '<label>' + escapeHtml(slot.label) + '<select data-slot="' + slot.id + '">' +
+        '<option value="">Choose recording…</option>' + state.tracks.filter(function (t) { return t.ready; }).map(function (t) {
+          return '<option value="' + t.id + '"' + (selected === t.id ? ' selected' : '') + '>' + escapeHtml(t.name) + '</option>';
+        }).join('') + '</select></label>';
+    }).join('') + '</div>';
   }
 
   async function onRequestEvent(event) {
@@ -546,6 +584,7 @@
     }
     const parsed = H.parseRequest(state.request || '', { trackCount: activeTracks().length });
     state.recipe = H.makeRecipe(parsed.patch);
+    markStale();
     state.notes = parsed.notes;
     state.curated = null;
     renderRequest();
@@ -562,38 +601,33 @@
       setStatus('Upload the songs for the test recipe first (or try the demo stand-ins).');
       return;
     }
-    const mapping = H.recipes.assignSlots(def, ready);
-    const used = {};
+    const mapping = {};
+    root.querySelectorAll('[data-slot]').forEach(function (el) {
+      mapping[el.dataset.slot] = el.value;
+    });
+    const recipe = H.recipes.bindRecipe(def, mapping);
+    const used = new Set(Object.values(mapping));
     def.slots.forEach(function (slot) {
-      const id = mapping[slot.id];
-      if (!id) {
-        return;
-      }
-      used[id] = true;
-      const track = ready.find(function (t) {
-        return t.id === id;
-      });
+      const track = ready.find(function (t) { return t.id === mapping[slot.id]; });
+      if (!track) { throw new Error('A selected recording was removed. Select the slots again.'); }
       track.role = slot.role;
-      const override = H.recipes.tempoOverride(track.overrides.bpm || track.analysis.bpm, slot.refBpm);
-      track.warning = '';
-      if (override) {
-        track.overrides.bpm = override;
-        track.warning = 'Detected ' + track.analysis.bpm.toFixed(1) + ' BPM; using the reference ' + override + ' BPM for “' + slot.label + '”. Fix it above if needed.';
+      // Resolve octave convention only; never force catalogue BPM or key.
+      const current = track.overrides.bpm || track.analysis.bpm;
+      const adjusted = current * Math.pow(2, Math.round(Math.log2(slot.refBpm / current)));
+      if (Math.abs(adjusted / slot.refBpm - 1) < 0.04) {
+        track.overrides.bpm = adjusted;
+        track.warning = 'Tempo octave aligned to this recipe. Verify BPM, key and hook by ear.';
+      } else {
+        track.warning = 'Detected tempo differs from catalogue metadata. No catalogue value was forced; verify before using this edit.';
       }
     });
     ready.forEach(function (t) {
-      if (!used[t.id]) {
-        t.role = 'off';
-      }
+      if (!used.has(t.id)) { t.role = 'off'; }
     });
-    state.recipe = H.makeRecipe(H.recipes.bindRecipe(def, mapping));
+    state.slotMapping = mapping;
+    state.recipe = recipe;
     state.request = def.request;
-    const missing = def.slots.filter(function (s) {
-      return !mapping[s.id];
-    }).map(function (s) {
-      return s.label;
-    });
-    state.notes = def.why.concat(missing.length ? ['Missing: ' + missing.join(', ') + ' — upload for the full mashup.'] : []);
+    state.notes = def.why;
     state.curated = name;
     renderSongs();
     renderRequest();
@@ -622,6 +656,7 @@
       '  <button data-mode="coupled" class="' + (r.mode === 'coupled' ? 'on' : '') + '">Classic speed (nightcore)</button>',
       '</div>',
       '<div class="tune-grid">',
+      slider('targetLufs', 'Loudness target (approx)', -24, -9, 1, r.targetLufs, function (v) { return v + ' LUFS'; }),
       slider('tempo', r.targetBpm ? 'Tempo (overridden by target BPM)' : 'Tempo', 0.6, 1.6, 0.01, r.tempo, function (v) {
         return '×' + Number(v).toFixed(2);
       }),
@@ -629,7 +664,7 @@
       slider('semitones', r.mode === 'coupled' ? 'Pitch (follows tempo)' : 'Pitch', -12, 12, 0.5, r.semitones, function (v) {
         return (v > 0 ? '+' : '') + v + ' st';
       }),
-      slider('lengthSec', 'Length', 8, 60, 1, r.lengthSec, function (v) {
+      slider('lengthSec', r.segments ? 'Length (custom bars override this)' : 'Length (rounded to bars)', 8, 60, 1, r.lengthSec, function (v) {
         return v + ' s';
       }),
       slider('reverb', 'Reverb', 0, 0.8, 0.01, fx.reverb || 0, pct),
@@ -645,7 +680,7 @@
       '<div class="toggles">',
       '  <label><input type="checkbox" data-tune="mashup"' + (r.mashup ? ' checked' : '') + '> Mash in other songs</label>',
       '  <label><input type="checkbox" data-tune="keyMatch"' + (r.keyMatch ? ' checked' : '') + '> Key-match layers</label>',
-      '  <label><input type="checkbox" data-tune="loop"' + (r.loop ? ' checked' : '') + '> Seamless loop</label>',
+      '  <label><input type="checkbox" data-tune="loop"' + (r.loop ? ' checked' : '') + '> Blend loop boundary (audition it)</label>',
       '  <label>Style <select data-tune="style">' + ['sped', 'slowed', 'remix'].map(function (s) {
         return '<option' + (r.style === s ? ' selected' : '') + '>' + s + '</option>';
       }).join('') + '</select></label>',
@@ -653,6 +688,8 @@
       '<div class="row"><button class="btn primary" data-action="render" data-needs-idle>Render</button>',
       '<button class="btn ghost" data-action="auto-arrange" data-needs-idle title="Discard the custom arrangement">Auto-arrange</button></div>',
     ].join('\n');
+    document.getElementById('semitones').disabled = r.mode === 'coupled';
+    document.getElementById('lengthSec').disabled = !!r.segments;
   }
 
   function onTuneInput(event) {
@@ -677,14 +714,19 @@
       r.style = el.value;
     } else {
       r[key] = num;
-      if (key === 'lengthSec' && !state.curated) {
+      if (key === 'tempo') {
+        r.targetBpm = null;
+        document.getElementById('targetBpm').value = '';
+      }
+      if (key === 'lengthSec') {
         r.segments = null;
       }
     }
+    markStale();
     const out = document.getElementById(key + '-out');
     if (out && el.type === 'range') {
       const v = num;
-      out.textContent = { tempo: '×' + v.toFixed(2), semitones: (v > 0 ? '+' : '') + v + ' st', lengthSec: v + ' s', bass: '+' + v + ' dB', air: '+' + v + ' dB' }[key] || Math.round(v * 100) + '%';
+      out.textContent = { tempo: '×' + v.toFixed(2), semitones: (v > 0 ? '+' : '') + v + ' st', lengthSec: v + ' s', targetLufs: v + ' LUFS', bass: '+' + v + ' dB', air: '+' + v + ' dB' }[key] || Math.round(v * 100) + '%';
     }
   }
 
@@ -692,6 +734,7 @@
     const modeBtn = event.target.closest('[data-mode]');
     if (modeBtn) {
       state.recipe.mode = modeBtn.dataset.mode;
+      markStale();
       renderTune();
       return;
     }
@@ -700,11 +743,11 @@
       return;
     }
     if (actionEl.dataset.action === 'render') {
-      renderRemix();
+      return renderRemix();
     } else if (actionEl.dataset.action === 'auto-arrange') {
       state.recipe.segments = null;
       state.curated = null;
-      renderRemix();
+      return renderRemix();
     }
   }
 
@@ -726,25 +769,22 @@
       return null;
     }
     const recipe = recipeOverride || state.recipe;
+    if (!recipeOverride) {
+      markStale();
+    }
     stopPlayback();
     setBusy(true, 'Rendering: time-stretch, pitch, mashup, FX, loudness…');
     const started = performance.now();
     try {
-      let result;
-      try {
-        result = await engine.call('render', { settings: trackSettings(), recipe: recipe });
-      } catch (err) {
-        if (err.message !== 'worker-failed') {
-          throw err;
-        }
-        result = engine.local('render', { settings: trackSettings(), recipe: recipe });
-      }
+      const result = await engine.call('render', { settings: trackSettings(), recipe: H.makeRecipe(recipe) });
       if (recipeOverride) {
         return result;
       }
       state.output = result;
+      state.stale = false;
+      state.output.savedProject = H.recipes.saveProject(state.tracks, result.plan.recipe, state.request);
       state.output.label = state.curated ? H.recipes.curated[state.curated].name : (state.request || 'remix');
-      setStatus('Rendered ' + result.plan.durationSec.toFixed(1) + ' s at ' + result.plan.targetBpm.toFixed(1) + ' BPM in ' + ((performance.now() - started) / 1000).toFixed(1) + ' s · viral score ' + result.score.score + ' of 100.');
+      setStatus('Rendered ' + result.plan.durationSec.toFixed(1) + ' s at ' + result.plan.targetBpm.toFixed(1) + ' BPM in ' + ((performance.now() - started) / 1000).toFixed(1) + ' s · edit score ' + result.score.score + ' of 100.');
       document.body.dataset.state = 'rendered';
       document.body.dataset.score = result.score.score;
       renderOutput();
@@ -755,7 +795,9 @@
       setStatus('Render failed: ' + err.message);
       return null;
     } finally {
-      setBusy(false);
+      if (!recipeOverride) {
+        setBusy(false);
+      }
     }
   }
 
@@ -765,13 +807,14 @@
     const card = document.getElementById('output-card');
     const out = state.output;
     if (!out) {
-      card.innerHTML = '<h2><span class="step">4</span> Your sound</h2><div class="empty"><p>Your remix appears here with a waveform, a viral-potential score and a WAV download.</p></div>';
+      card.innerHTML = '<h2><span class="step">4</span> Your sound</h2><div class="empty"><p>Your remix appears here with a waveform, an editing checklist and a WAV download.</p></div>';
       return;
     }
     const s = out.score;
     const ring = Math.round(s.score * 3.6);
     card.innerHTML = [
       '<h2><span class="step">4</span> Your sound</h2>',
+      state.stale ? '<p class="warn">Settings changed. This playback/download is the PREVIOUS render; render again to apply edits.</p>' : '',
       '<canvas id="out-wave" class="out-wave" width="1200" height="180" aria-label="Waveform of the remix"></canvas>',
       '<div class="legend">' + Object.keys(out.plan.tracks).map(function (id) {
         return '<span><i style="background:' + trackColor(id) + '"></i>' + escapeHtml(out.plan.tracks[id].name) + '</span>';
@@ -785,7 +828,7 @@
       '</div>',
       '<div class="score">',
       '  <div class="ring" style="--deg:' + ring + 'deg"><span>' + s.score + '</span></div>',
-      '  <div><strong>' + escapeHtml(s.grade) + '</strong><p class="muted small">Heuristic viral-potential score (not a prediction).</p></div>',
+      '  <div><strong>' + escapeHtml(s.grade) + '</strong><p class="muted small">Unvalidated editing checklist — not a virality or audience prediction.</p></div>',
       '</div>',
       '<ul class="factors">' + s.factors.map(function (f) {
         return '<li><span class="f-label">' + escapeHtml(f.label) + '</span><span class="bar"><i style="width:' + Math.round(f.score * 100) + '%"></i></span><span class="f-value">' + escapeHtml(f.value) + '</span></li>';
@@ -793,6 +836,7 @@
       s.tips.length ? '<ul class="tips">' + s.tips.map(function (t) {
         return '<li>' + escapeHtml(t) + '</li>';
       }).join('') + '</ul>' : '',
+      out.plan.warnings && out.plan.warnings.length ? '<ul class="warn">' + out.plan.warnings.map(function (w) { return '<li>' + escapeHtml(w) + '</li>'; }).join('') + '</ul>' : '',
       '<ul class="plan">' + H.describePlan(out.plan).map(function (line) {
         return '<li>' + escapeHtml(line) + '</li>';
       }).join('') + '</ul>',
@@ -934,39 +978,44 @@
     } else if (action === 'download') {
       download(state.output, state.output.label);
     } else if (action === 'save-recipe') {
-      const blob = new Blob([JSON.stringify({ hookline: H.VERSION, request: state.request || '', recipe: state.output.plan.recipe }, null, 2)], { type: 'application/json' });
+      const project = state.output.savedProject;
+      if (!project) { throw new Error('Render again before saving a portable recipe.'); }
+      const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(blob);
+      a.href = url;
       a.download = 'hookline-recipe-' + slug(state.output.label) + '.json';
+      document.body.appendChild(a);
       a.click();
+      a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
     }
   }
 
-  function onOutputChange(event) {
+  async function onOutputChange(event) {
     if (event.target.dataset.action !== 'load-recipe' || !event.target.files[0]) {
       return;
     }
-    event.target.files[0].text().then(function (text) {
-      const data = JSON.parse(text);
-      state.recipe = H.makeRecipe(data.recipe || data);
-      if (state.recipe.segments) {
-        const ids = state.tracks.map(function (t) {
-          return t.id;
-        });
-        state.recipe.segments = state.recipe.segments.filter(function (s) {
-          return ids.indexOf(s.track) >= 0;
-        });
-        if (!state.recipe.segments.length) {
-          state.recipe.segments = null;
-        }
-      }
-      state.request = data.request || '';
-      renderRequest();
-      renderTune();
-      renderRemix();
-    }).catch(function (err) {
-      setStatus('Could not load recipe: ' + err.message);
+    const file = event.target.files[0];
+    setBusy(true, 'Checking portable recipe…');
+    if (file.size > 256 * 1024) {
+      throw new Error('Recipe files must be smaller than 256 KB.');
+    }
+    const project = H.recipes.loadProject(JSON.parse(await file.text()), state.tracks);
+    // Apply only after every reference and override has passed validation.
+    state.tracks.forEach(function (t) {
+      const saved = project.assignments.find(function (a) { return a.id === t.id; });
+      t.role = saved ? saved.role : 'off';
+      if (saved) { t.overrides = saved.overrides; }
     });
+    state.recipe = project.recipe;
+    state.request = project.request;
+    state.curated = null;
+    markStale();
+    renderSongs();
+    renderRequest();
+    renderTune();
+    await renderRemix();
   }
 
   // ---------------------------------------------------------------- variants
@@ -984,13 +1033,16 @@
       tracks.length > 1 ? ['Nostalgia Mashup', 'nostalgic mashup, sped up and high, 26 seconds'] : ['Bass Boosted 8D', 'bass boosted 8d, a bit faster, 25 seconds'],
     ];
     state.variants = [];
+    state.cancelled = false;
     for (let i = 0; i < requests.length; i++) {
+      if (state.cancelled) { break; }
       setBusy(true, 'Rendering variant ' + (i + 1) + '/3: ' + requests[i][0] + '…');
       const recipe = H.makeRecipe(H.parseRequest(requests[i][1], ctxInfo).patch);
       const result = await renderRemix(recipe);
       if (result) {
         result.label = requests[i][0];
         result.request = requests[i][1];
+        result.savedProject = H.recipes.saveProject(state.tracks, result.plan.recipe, result.request);
         state.variants.push(result);
       }
     }
@@ -998,7 +1050,7 @@
     state.variants.sort(function (a, b) {
       return b.score.score - a.score.score;
     });
-    setStatus('Variants ranked by viral score. Best: ' + (state.variants[0] ? state.variants[0].label + ' (' + state.variants[0].score.score + ')' : '–') + '.');
+    setStatus('Edits sorted by checklist score, not predicted reach. First: ' + (state.variants[0] ? state.variants[0].label + ' (' + state.variants[0].score.score + ')' : '–') + '.');
     renderVariants();
   }
 
@@ -1024,6 +1076,8 @@
     } else if (btn.dataset.variant === 'download') {
       download(variant, variant.label);
     } else if (btn.dataset.variant === 'use') {
+      stopPlayback();
+      state.stale = false;
       state.output = variant;
       state.recipe = H.makeRecipe(variant.plan.recipe);
       state.request = variant.request;
@@ -1042,7 +1096,8 @@
     const custom = state.recipe.segments && state.recipe.segments.length;
     const out = state.output;
     const options = function (selected) {
-      return state.tracks.filter(function (t) {
+      const missing = state.tracks.some(function (t) { return t.id === selected && t.ready; }) ? '' : '<option value="" selected>Missing track — select replacement</option>';
+      return missing + state.tracks.filter(function (t) {
         return t.ready;
       }).map(function (t) {
         return '<option value="' + t.id + '"' + (t.id === selected ? ' selected' : '') + '>' + escapeHtml(t.name) + '</option>';
@@ -1098,6 +1153,7 @@
         state.recipe.segments = null;
       }
     }
+    markStale();
     renderArrangement();
   }
 
@@ -1107,6 +1163,7 @@
     if (!field || !row) {
       return;
     }
+    markStale();
     const seg = state.recipe.segments[parseInt(row.dataset.index, 10)];
     if (event.target.type === 'checkbox') {
       seg[field] = event.target.checked;
@@ -1120,78 +1177,106 @@
 
   // ---------------------------------------------------------------- wiring
 
+  function markStale() {
+    state.stale = !!state.output;
+    state.variants = [];
+    renderVariants();
+    if (state.output) {
+      renderOutput();
+    }
+  }
+
+  function safe(action) {
+    return Promise.resolve().then(action).catch(function (err) {
+      setBusy(false);
+      setStatus(err.message || String(err));
+    });
+  }
+
   function wire() {
+    document.getElementById('cancel-task').addEventListener('click', function () {
+      state.cancelled = true;
+      engine.cancel();
+      setStatus('Cancelling… loaded tracks will be kept.');
+    });
     root.addEventListener('click', function (event) {
-      if (event.target.closest('#songs-card')) {
-        onSongsEvent(event);
-      } else if (event.target.closest('#request-card')) {
-        onRequestEvent(event);
-      } else if (event.target.closest('#tune-card')) {
-        onTuneClick(event);
-      } else if (event.target.closest('#output-card')) {
-        onOutputEvent(event);
-      } else if (event.target.closest('#variants-card')) {
-        onVariantsEvent(event);
-      } else if (event.target.closest('#arrange-card')) {
-        onArrangeEvent(event);
-      }
-    });
-    root.addEventListener('change', function (event) {
-      if (event.target.closest('#songs-card')) {
-        onSongsChange(event);
-      } else if (event.target.closest('#tune-card')) {
-        onTuneInput(event);
-      } else if (event.target.closest('#output-card')) {
-        onOutputChange(event);
-      } else if (event.target.closest('#arrange-card')) {
-        onArrangeChange(event);
-      }
-    });
-    root.addEventListener('input', function (event) {
-      if (event.target.closest('#tune-card') && event.target.type === 'range') {
-        onTuneInput(event);
-      }
-      if (event.target.id === 'request') {
-        state.request = event.target.value;
-      }
-    });
-    root.addEventListener('keydown', function (event) {
-      if (event.target.id === 'request' && event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
-        state.request = event.target.value;
-        remixFromRequest();
-      }
-    });
-    ['dragenter', 'dragover'].forEach(function (type) {
-      root.addEventListener(type, function (event) {
-        if (event.target.closest('#dropzone')) {
-          event.preventDefault();
-          event.target.closest('#dropzone').classList.add('over');
-        }
+      if (state.busy) { return; }
+      safe(function () {
+        if (event.target.closest('#songs-card')) { return onSongsEvent(event); }
+        if (event.target.closest('#request-card')) { return onRequestEvent(event); }
+        if (event.target.closest('#tune-card')) { return onTuneClick(event); }
+        if (event.target.closest('#output-card')) { return onOutputEvent(event); }
+        if (event.target.closest('#variants-card')) { return onVariantsEvent(event); }
+        if (event.target.closest('#arrange-card')) { return onArrangeEvent(event); }
       });
     });
-    root.addEventListener('dragleave', function (event) {
-      const zone = event.target.closest('#dropzone');
-      if (zone) {
-        zone.classList.remove('over');
+    root.addEventListener('change', function (event) {
+      if (state.busy) { return; }
+      safe(function () {
+        if (event.target.dataset.action === 'load-recipe') { return onOutputChange(event); }
+        if (event.target.dataset.slot) { state.slotMapping[event.target.dataset.slot] = event.target.value; return; }
+        if (event.target.closest('#songs-card')) { return onSongsChange(event); }
+        if (event.target.closest('#tune-card')) { return onTuneInput(event); }
+        if (event.target.closest('#arrange-card')) { return onArrangeChange(event); }
+      });
+    });
+    root.addEventListener('input', function (event) {
+      if (state.busy) { return; }
+      if (event.target.closest('#tune-card') && event.target.type === 'range') { onTuneInput(event); }
+      if (event.target.id === 'request') { state.request = event.target.value; }
+    });
+    root.addEventListener('keydown', function (event) {
+      if (!state.busy && event.target.id === 'request' && event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        state.request = event.target.value;
+        safe(remixFromRequest);
       }
     });
-    root.addEventListener('drop', function (event) {
-      const zone = event.target.closest('#dropzone');
-      if (zone) {
+    ['dragenter', 'dragover', 'drop'].forEach(function (type) {
+      root.addEventListener(type, function (event) {
         event.preventDefault();
-        zone.classList.remove('over');
-        addFiles(event.dataTransfer.files);
-      }
+        if (type === 'drop' && !state.busy && event.target.closest('#dropzone')) {
+          safe(function () { return addFiles(event.dataTransfer.files); });
+        }
+      });
     });
   }
 
   shell();
   wire();
-  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-    navigator.serviceWorker.register('sw.js').catch(function () {});
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname))) {
+    navigator.serviceWorker.register('sw.js').then(function (registration) {
+      function offerUpdate() {
+        if (!registration.waiting || !navigator.serviceWorker.controller || document.getElementById('app-update')) {
+          return;
+        }
+        const button = document.createElement('button');
+        button.id = 'app-update';
+        button.className = 'btn';
+        button.textContent = 'Update available — reload when ready';
+        button.addEventListener('click', function () {
+          if (state.busy) {
+            setStatus('Finish or cancel the audio task before updating.');
+            return;
+          }
+          if (confirm('Reload to update? Export your audio/recipe first; loaded tracks will be cleared.')) {
+            navigator.serviceWorker.addEventListener('controllerchange', function () { location.reload(); }, { once: true });
+            registration.waiting.postMessage({ type: 'ACTIVATE_UPDATE' });
+          }
+        });
+        document.querySelector('.topbar').appendChild(button);
+      }
+      offerUpdate();
+      registration.addEventListener('updatefound', function () {
+        const installing = registration.installing;
+        if (installing) {
+          installing.addEventListener('statechange', offerUpdate);
+        }
+      });
+    }).catch(function () {});
   }
   if (params.get('demo') === '1') {
-    addDemoTracks();
+    safe(addDemoTracks);
   }
-  window.HooklineApp = { state: state, applyCurated: applyCurated, renderRemix: renderRemix };
+  window.HooklineApp = { state: state, engine: engine, applyCurated: applyCurated, renderRemix: renderRemix };
 })();

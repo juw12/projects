@@ -33,8 +33,7 @@
     const demo = H.demo.demoTrack({ bpm: spec[0], key: spec[1], bars: 32, seed: spec[2] });
     const analysis = session.addTrack(slot.id, demo.channels, demo.sampleRate, 'Stand-in for ' + slot.label);
     analyses[slot.id] = { bpm: analysis.bpm, key: analysis.key.name, hook: analysis.hooks[0].start };
-    const override = H.recipes.tempoOverride(analysis.bpm, slot.refBpm);
-    settings[slot.id] = { role: slot.role, name: 'Stand-in for ' + slot.label, overrides: override ? { bpm: override } : {} };
+    settings[slot.id] = { role: slot.role, name: 'Stand-in for ' + slot.label, overrides: {} };
   });
   const mapping = { main: 'main', nostalgia1: 'nostalgia1', nostalgia2: 'nostalgia2' };
   const result = session.render(settings, H.recipes.bindRecipe(recipeDef, mapping));

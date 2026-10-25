@@ -1,79 +1,97 @@
-# Hookline — viral sound remixer
+# Hookline 1.1 — private short-form remix studio
 
-Upload real songs, say what you want ("higher, faster, mash in some 2000s
-nostalgia, 25 seconds"), and Hookline renders a loop-ready short-form sound for
-TikTok, Reels and Shorts — with a heuristic **viral-potential score** that tells
-you what to fix.
-
-Everything runs in the browser: songs are decoded, analysed and rendered on your
-device and are never uploaded. No dependencies, no build step.
-
-**Live:** [App](https://juwpegatron.github.io/projects/hookline/) ·
+[Open app](https://juwpegatron.github.io/projects/hookline/) ·
 [Web](https://juwpegatron.github.io/projects/hookline/web.html) ·
 [Mobile](https://juwpegatron.github.io/projects/hookline/mobile.html)
 
-## What it does
+Upload your audio, describe a direction such as “higher, faster, no reverb,
+20 seconds,” audition the result, and export a WAV. Processing happens in your
+browser; there is no audio-upload server, account, or external AI service.
 
-| Step | How |
-| --- | --- |
-| **Analyse** each upload | Tempo + beat grid (spectral-flux onsets, autocorrelation, comb phase search), key (chroma × Krumhansl profiles), hook/chorus finder (loudness + harmonic repetition + energy jump, half-beat resolution), loudness (BS.1770-style K-weighted LUFS approximation). |
-| **Understand the request** | Plain-language parser: *high/low*, *faster/slower*, *nightcore*, *slowed + reverb*, *bass boosted*, *8D*, *lo-fi*, *nostalgic/mashup*, intensity words (*a bit*, *very*) and explicit numbers (`+3 semitones`, `1.25x`, `140 bpm`, `20 seconds`). |
-| **Change tempo and pitch** | Independent mode: WSOLA time-stretch + anti-aliased Hermite resampling (faster *and* higher, each by its own amount). Classic mode: pure resample — pitch follows tempo, the true nightcore/daycore sound. |
-| **Mash up** | Layers are tempo-matched to the main track (half/double time folded so nothing is stretched more than ±41 %) and key-matched to its shifted key (relative keys respected, shifts ≤ ±6 st), then arranged bar-by-bar with equal-power crossfades, filter-in intros and noise risers. Segments re-snap to the local beat phase so long songs don't drift. |
-| **Master** | Low cut, bass and air shelves, lo-fi, 8D auto-pan, Freeverb-style reverb, glue compressor, loudness normalisation to ≈ −10 LUFS, look-ahead limiter at −1 dBFS. |
-| **Loop** | The tail is rendered past the last bar line and folded over the faded-in start, so the platform's auto-loop is seamless. |
-| **Score** | Hook in the first seconds, seamless loop, short-form length, trend tempo fit (absolute and relative), energy lift, loudness, recognition. A heuristic, not a prediction. |
-| **Export** | 16-bit WAV with TPDF dither, plus a JSON recipe you can reload. *3 viral variants* renders and ranks three directions in one click. |
+## Capabilities and honest limits
 
-## The Paramore test recipe
+- **Requests:** a rule-based keyword/number parser, not an AI music model.
+  Supports faster/slower, higher/lower, nightcore, reverb, bass, lo-fi, auto-pan,
+  simple negations and explicit tempo/pitch/duration values. Review its notes
+  and controls: arbitrary natural-language arrangements are not understood.
+- **Tempo/pitch:** independent WSOLA stretch and resampling, or coupled classic
+  speed change. No formant preservation or stem separation; extreme settings
+  can smear transients or sound artificial.
+- **Analysis:** approximate BPM, key and energetic/repeated hook candidates.
+  They are not guaranteed choruses, downbeats or reliable harmonic matches.
+  Half/double-time is common; manual corrections and hook previews are available.
+- **Mashups:** bar-length sequencing and crossfading of complete recordings,
+  tempo/key matching, optional filter-in and risers. Not clean vocal-over-
+  instrumental mashups. Upload the source recordings yourself.
+- **Master:** EQ, optional FX, compression, an editable approximate loudness
+  target (default −14 LUFS), and a −1 dBFS **sample-peak** ceiling. This is not a
+  certified BS.1770 meter or a true-peak limiter; no platform compliance claim.
+- **Loops:** optional tail blending; audition the seam. A blended waveform does
+  not guarantee a seamless musical phrase. Non-loop endings get a short declick.
+- **Editing checklist:** onset energy, boundary continuity, length, style tempo,
+  dynamic contrast and loudness. It is unvalidated and cannot predict virality,
+  recognition, taste or reach. “Compare 3 edits” ranks these heuristics only.
+- **Exports:** 16-bit stereo WAV and versioned portable recipe JSON. Recipes
+  contain source names/checksums and corrections, not audio. Share them only if
+  you are comfortable sharing source names; the recipe does not confer rights.
 
-`web/recipes.js` ships the curated test the app was built for:
-**"That's What You Get" — Nostalgia Sped Up.** See
-[docs/paramore-test.md](docs/paramore-test.md) for the decisions and the
-verification. Upload the three songs (any order — slots are matched by file
-name) and press **Apply test recipe**. Without the songs, **Try demo stand-ins**
-runs the identical pipeline on synthesised tracks at the same tempos and keys.
+## Safer workflow in 1.1
 
-> Use songs you have the rights to remix. Posting remixes of commercial music
-> may need the platform's licensed sound library or the rights holder's
-> permission. No copyrighted audio is stored in this repository.
+1. Upload up to **4 mono/stereo tracks**, **40 MB each**, **1–360 seconds each**,
+   **900 seconds total**. Metadata is checked before decode and decoded audio is
+   checked again. Format support depends on the browser. Limits reduce memory
+   pressure but long sessions can still be demanding on phones.
+2. Preview and correct estimated BPM, key and hook. State explicit numbers when
+   possible. Unsupported/extreme values fail with a readable error.
+3. Render or compare edits. Controls stay locked during processing. Cancel a
+   worker task without losing the loaded tracks; after a worker failure, retry
+   Render to restore its audio store. Worker tasks have a 90-second timeout.
+   Direct file opening uses a main-thread fallback, which can pause the UI;
+   use HTTP/HTTPS for cancellation and offline support.
+4. Changing settings marks the playback/download as the **previous render**.
+   Render again to apply changes. Saving that output saves its own recipe,
+   not unrelated current controls.
+5. Load a portable recipe only after re-uploading the unchanged original files.
+   Matching uses normalized names, duration and a sampled PCM checksum, not
+   upload order. Missing, changed or ambiguous files are rejected. Checksums are
+   for accidental mismatches, not cryptographic identity. Older v1.0 recipes
+   used temporary IDs; recreate/save them in 1.1 rather than silently remapping.
 
-## Files
+The offline service worker deletes **only Hookline caches**, caches local assets
+only, and stages new versions until you choose to reload. Reloading clears
+loaded audio; export it first. Audio itself is never persisted in the cache.
 
-```
-web/
-  index.html  web.html  mobile.html   App / Web / Mobile shells
-  engine.js     DSP engine (analysis, stretch, pitch, mashup, FX, loudness, score, WAV)
-  worker.js     runs the engine off the UI thread (main-thread fallback for file://)
-  recipes.js    presets + the curated Paramore recipe and slot matching
-  demo.js       synthesised stand-in tracks (demo + test fixtures)
-  app.js  styles.css  manifest.webmanifest  sw.js  icons/
-tests/
-  engine.test.js    23 engine tests (node or JavaScriptCore)
-  test_hookline.py  static checks + runs the engine tests (CI)
-tools/
-  render_standin_demo.js   renders the Paramore recipe with stand-ins to WAV (base64)
-docs/
-  paramore-test.md
-```
+## Paramore concept recipe
 
-## Run locally
+The built-in recipe targets **164 BPM, +4 semitones, 18 bars (about 26.3 s)** for
+“That’s What You Get,” with “Misery Business” and “Sugar, We’re Goin Down.”
+Choose each recording explicitly. Unique title matches can prefill the choices;
+unrelated filenames are never assigned by order. A full recipe needs all three.
 
-```
-cd apps/hookline/web && python3 -m http.server 8000
-# open http://localhost:8000/?demo=1
-```
+It uses your measured/manual keys rather than forcing catalogue keys. It only
+normalizes tempo octave convention when reasonably close to reference metadata.
+Catalogue data is inconsistent, so verify by ear. See [the test note](docs/paramore-test.md).
+The real recordings have **not** been tested or bundled. The in-app demo uses
+original synthetic stand-ins, not Paramore/Fall Out Boy audio.
 
-Tests: `python3 apps/hookline/tests/test_hookline.py`
+Only remix and publish material you have permission to use. Platform licensing,
+Content ID, territorial restrictions and commercial-use rights need separate
+review; this app neither clears rights nor bypasses platform restrictions.
 
-## Limits
+## Development and tests
 
-- Tempo detection can land on half/double time (use ×2 / ÷2) and, rarely, on a
-  2/3 relationship; curated recipes carry a reference BPM and fall back to it.
-- Constant-tempo assumption per song; local beat re-snapping handles drift but
-  not deliberate tempo changes.
-- WSOLA is clean for ±25 % but adds some smearing on extreme stretches; vocals
-  shifted more than ~5 semitones start to sound processed (that's the point of
-  nightcore, less so for natural edits).
-- The viral score encodes common short-form patterns; it has not been
-  validated against real engagement data.
+No build dependencies. Serve the web directory using Python's HTTP server.
+The App/Web/Mobile entry points share the same engine and UI.
+
+- `tests/test_hookline.py`: static asset/cache checks and 38 engine regressions
+  under Node or macOS JavaScriptCore. CI supplies Node; local absence is reported
+  as a skip rather than a fabricated test pass.
+- `tools/browser_smoke.py`: isolated headless-Chrome checks with real workers,
+  uploads, recipe roundtrip, failure/timeout/cancel recovery, mobile and offline
+  behavior. Supply `--chrome` and `--artifacts`; no personal browser profile is used.
+- `tools/render_standin_demo.js`: generates a synthetic test render, never a real
+  commercial-song remix.
+
+This is a working browser prototype, not a validated music-production service
+or an engagement-prediction system. Safari/iOS hardware, real commercial audio,
+professional listening quality and real-world audience performance remain unverified.

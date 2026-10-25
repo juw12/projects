@@ -11,6 +11,8 @@ self.onmessage = function (event) {
     let transfer = [];
     if (message.cmd === 'addTrack') {
       result = session.addTrack(args.id, args.channels, args.sampleRate, args.name);
+    } else if (message.cmd === 'restoreTrack') {
+      result = session.restoreTrack(args.id, args.channels, args.sampleRate, args.name, args.analysis);
     } else if (message.cmd === 'removeTrack') {
       result = session.removeTrack(args.id);
     } else if (message.cmd === 'render') {

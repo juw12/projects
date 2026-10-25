@@ -1,5 +1,5 @@
 /*
- * Hookline engine — dependency-free audio DSP for short-form "viral sound" remixes.
+ * Hookline engine — dependency-free audio DSP for short-form "short-form" remixes.
  *
  * Runs unchanged in browsers, Web Workers, Node and JavaScriptCore and exposes a
  * single global `Hookline`. Audio is always an array of Float32Array channels at
@@ -7,7 +7,7 @@
  *
  * Pipeline: analyse (tempo, beat grid, key, hook) -> plan (tempo/key matching,
  * arrangement) -> render (WSOLA time-stretch + resample pitch shift, crossfades,
- * transitions, master FX, loop fold, loudness) -> score (viral heuristics).
+ * transitions, master FX, loop fold, loudness) -> score (unvalidated edit heuristics).
  */
 (function (root, factory) {
   'use strict';
@@ -19,7 +19,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  const VERSION = '1.0.0';
+  const VERSION = '1.1.0';
   const SHARP_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   const FLAT_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
   // Krumhansl–Kessler key profiles.
@@ -38,8 +38,10 @@
     xfadeBeats: 1,
     loop: true,            // fold the tail into the start so the sound loops seamlessly
     snapToBeats: true,
-    style: 'remix',        // 'sped' | 'slowed' | 'remix' (used for trend-fit scoring)
+    style: 'remix',        // 'sped' | 'slowed' | 'remix' (used for the style-tempo heuristic)
     fx: { reverb: 0, bass: 0, air: 0, lofi: 0, eightD: 0 },
+    mainId: null,
+    targetLufs: -14,       // conservative starting target, not a platform specification
     segments: null,        // null = auto arrangement
   };
 
@@ -85,6 +87,9 @@
       return out;
     }
     Object.keys(patch).forEach(function (key) {
+      if (['__proto__', 'prototype', 'constructor'].indexOf(key) >= 0) {
+        throw new Error('Unsafe object key: ' + key);
+      }
       const value = patch[key];
       if (value && typeof value === 'object' && !Array.isArray(value) && base && typeof base[key] === 'object' && base[key] !== null && !Array.isArray(base[key])) {
         out[key] = deepMerge(base[key], value);
@@ -95,8 +100,119 @@
     return out;
   }
 
+  const LIMITS = Object.freeze({
+    maxTracks: 4,
+    maxFileBytes: 40 * 1024 * 1024,
+    maxTrackSeconds: 360,
+    maxTotalSeconds: 900,
+    maxOutputSeconds: 90,
+    maxSegments: 16,
+  });
+
+  function finiteNumber(value, lo, hi, label) {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < lo || value > hi) {
+      throw new Error(label + ' must be a finite number between ' + lo + ' and ' + hi + '.');
+    }
+    return value;
+  }
+
+  function plainObject(value, label) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      throw new Error(label + ' must be an object.');
+    }
+    Object.keys(value).forEach(function (key) {
+      if (['__proto__', 'constructor', 'prototype'].indexOf(key) >= 0) {
+        throw new Error('Unsafe object key: ' + key);
+      }
+    });
+    return value;
+  }
+
   function makeRecipe(patch) {
-    return deepMerge(DEFAULT_RECIPE, patch || {});
+    const input = patch == null ? {} : plainObject(patch, 'Recipe');
+    const freshDefaults = Object.assign({}, DEFAULT_RECIPE, {
+      fx: Object.assign({}, DEFAULT_RECIPE.fx),
+    });
+    const r = deepMerge(freshDefaults, input);
+    Object.keys(input).forEach(function (key) {
+      if (!Object.prototype.hasOwnProperty.call(DEFAULT_RECIPE, key)) {
+        throw new Error('Unknown recipe setting: ' + key);
+      }
+    });
+    finiteNumber(r.tempo, 0.5, 2, 'Tempo ratio');
+    if (r.targetBpm !== null) {
+      finiteNumber(r.targetBpm, 40, 240, 'Target BPM');
+    }
+    finiteNumber(r.semitones, -12, 12, 'Pitch');
+    finiteNumber(r.lengthSec, 6, 60, 'Length');
+    finiteNumber(r.xfadeBeats, 0, 2, 'Crossfade');
+    finiteNumber(r.targetLufs, -24, -9, 'Loudness target');
+    if (!['independent', 'coupled'].includes(r.mode) || !['sped', 'slowed', 'remix'].includes(r.style)) {
+      throw new Error('Unsupported speed mode or style.');
+    }
+    ['loop', 'mashup', 'keyMatch', 'snapToBeats'].forEach(function (key) {
+      if (typeof r[key] !== 'boolean') {
+        throw new Error(key + ' must be true or false.');
+      }
+    });
+    if (r.mainId !== null && (typeof r.mainId !== 'string' || r.mainId.length > 100)) {
+      throw new Error('Invalid main track identifier.');
+    }
+    plainObject(r.fx, 'Effects');
+    const effects = { reverb: [0, 0.8], bass: [0, 9], air: [0, 6], lofi: [0, 1], eightD: [0, 1], room: [0, 1] };
+    Object.keys(r.fx).forEach(function (key) {
+      if (!effects[key]) {
+        throw new Error('Unknown effect: ' + key);
+      }
+      finiteNumber(r.fx[key], effects[key][0], effects[key][1], key);
+    });
+    if (r.segments !== null) {
+      if (!Array.isArray(r.segments) || !r.segments.length || r.segments.length > LIMITS.maxSegments) {
+        throw new Error('Arrangement must have 1–' + LIMITS.maxSegments + ' segments.');
+      }
+      r.segments = r.segments.map(function (seg) {
+        plainObject(seg, 'Segment');
+        if (typeof seg.track !== 'string' || !seg.track || seg.track.length > 100) {
+          throw new Error('Segment needs a track identifier.');
+        }
+        const s = Object.assign({ from: 'hook', offsetBars: 0, gainDb: 0, filterIn: false, riserBefore: false }, seg);
+        finiteNumber(s.bars, 1, 32, 'Segment bars');
+        finiteNumber(s.offsetBars, 0, 64, 'Hook offset');
+        if (!Number.isInteger(s.bars) || !Number.isInteger(s.offsetBars)) {
+          throw new Error('Bars and offsets must be whole numbers.');
+        }
+        finiteNumber(s.gainDb, -24, 6, 'Segment gain');
+        if (!['hook', 'time'].includes(s.from)) {
+          throw new Error('Segment source must be hook or time.');
+        }
+        if (s.from === 'time') {
+          finiteNumber(s.startSec, 0, LIMITS.maxTrackSeconds, 'Source start');
+        }
+        if (typeof s.filterIn !== 'boolean' || typeof s.riserBefore !== 'boolean') {
+          throw new Error('Segment effects must be true or false.');
+        }
+        return s;
+      });
+    }
+    return r;
+  }
+
+  function validateAudio(channels, sampleRate) {
+    finiteNumber(sampleRate, 8000, 96000, 'Sample rate');
+    if (!Array.isArray(channels) || channels.length < 1 || channels.length > 2) {
+      throw new Error('Use mono or stereo audio.');
+    }
+    const length = channels[0].length;
+    if (length < sampleRate || length > sampleRate * LIMITS.maxTrackSeconds ||
+        channels.some(function (c) { return !(c instanceof Float32Array) || c.length !== length; })) {
+      throw new Error('Use 1–360 second mono/stereo tracks with equal-length channels.');
+    }
+    if (hasInvalidSamples(channels)) {
+      throw new Error('Audio contains non-finite samples.');
+    }
+    if (peakOf(channels) < 0.00001) {
+      throw new Error('This track is silent. Choose audible audio.');
+    }
   }
 
   function toMono(channels) {
@@ -661,6 +777,7 @@
   }
 
   function prepareTrack(channels, sampleRate) {
+    validateAudio(channels, sampleRate);
     const stereo = ensureStereo(channels);
     const mono = toMono(stereo);
     return {
@@ -1261,10 +1378,9 @@
 
   function autoArrange(trackIds, mainId, layerIds, recipe, targetBpm) {
     const barSec = 240 / targetBpm;
-    let totalBars = Math.max(4, Math.round(recipe.lengthSec / barSec));
-    if (totalBars % 2) {
-      totalBars += 1;
-    }
+    // Round to the nearest bar, not a four-bar minimum: short uploaded clips
+    // must not be stretched into a much longer edit just by requesting 6–10 s.
+    const totalBars = Math.max(1, Math.round(recipe.lengthSec / barSec));
     if (!recipe.mashup || !layerIds.length) {
       return [{ track: mainId, from: 'hook', offsetBars: 0, bars: totalBars }];
     }
@@ -1297,13 +1413,32 @@
 
   function planRemix(tracks, recipeInput) {
     const recipe = makeRecipe(recipeInput);
+    const warnings = [];
     const ids = Object.keys(tracks).filter(function (id) {
       return (tracks[id].role || 'layer') !== 'off';
     });
     if (!ids.length) {
       throw new Error('Add at least one track.');
     }
-    let mainId = recipe.mainId && tracks[recipe.mainId] ? recipe.mainId : null;
+    if (ids.length > LIMITS.maxTracks) {
+      throw new Error('Use at most ' + LIMITS.maxTracks + ' active tracks.');
+    }
+    ids.forEach(function (id) {
+      const t = tracks[id];
+      finiteNumber(trackTempo(t), 30, 300, 'Track BPM');
+      const key = trackKey(t);
+      if (!key || !Number.isInteger(key.pc) || key.pc < 0 || key.pc > 11 || !['major', 'minor'].includes(key.mode)) {
+        throw new Error('Invalid key for ' + t.name);
+      }
+      finiteNumber(trackHook(t), 0, t.duration, 'Hook start');
+      if (t.overrides && t.overrides.semitones !== undefined) {
+        finiteNumber(t.overrides.semitones, -6, 6, 'Pitch nudge');
+      }
+    });
+    if (recipe.mainId && !ids.includes(recipe.mainId)) {
+      throw new Error('The recipe main track is missing or switched off.');
+    }
+    let mainId = recipe.mainId;
     if (!mainId) {
       mainId = ids.filter(function (id) {
         return tracks[id].role === 'main';
@@ -1316,7 +1451,17 @@
     const mainBpm = trackTempo(main);
     const targetBpm = recipe.targetBpm || mainBpm * recipe.tempo;
     const mainRatio = targetBpm / mainBpm;
-    const mainSemis = recipe.mode === 'coupled' ? 12 * Math.log2(mainRatio) : recipe.semitones;
+    finiteNumber(targetBpm, 40, 240, 'Output BPM');
+    finiteNumber(mainRatio, 0.5, 2, 'Main tempo ratio');
+    ids.forEach(function (id) {
+      if (tracks[id].sampleRate !== main.sampleRate) {
+        throw new Error('All tracks must share one sample rate. Re-import them in the same session.');
+      }
+    });
+    if (recipe.mashup && !layerIds.length) {
+      warnings.push('No mash-in tracks are active; rendering the main track only.');
+    }
+    const mainSemis = (recipe.mode === 'coupled' ? 12 * Math.log2(mainRatio) : recipe.semitones) + ((main.overrides || {}).semitones || 0);
     const mainKey = trackKey(main);
     const targetPc = majorEquivalent(mainKey) + mainSemis;
     const segmentsInput = recipe.segments && recipe.segments.length ? recipe.segments : autoArrange(ids, mainId, layerIds, recipe, targetBpm);
@@ -1339,7 +1484,7 @@
       } else {
         semis = mainSemis;
       }
-      if (track.overrides && typeof track.overrides.semitones === 'number') {
+      if (!isMain && track.overrides && typeof track.overrides.semitones === 'number') {
         semis += track.overrides.semitones;
       }
       trackPlans[id] = {
@@ -1357,15 +1502,36 @@
 
     const barSec = 240 / targetBpm;
     let barCursor = 0;
-    const segments = segmentsInput.filter(function (seg) {
-      return tracks[seg.track] && seg.bars > 0;
-    }).map(function (seg) {
+    const plannedSeconds = segmentsInput.reduce(function (sum, s) { return sum + s.bars * barSec; }, 0);
+    finiteNumber(plannedSeconds, 1, LIMITS.maxOutputSeconds, 'Rendered duration');
+    planFor(mainId);
+    const segments = segmentsInput.map(function (seg, index) {
+      if (!ids.includes(seg.track)) {
+        throw new Error('Segment ' + (index + 1) + ' references a missing or disabled track.');
+      }
       const tp = planFor(seg.track);
       const sourceBarSec = 240 / tp.effectiveSourceBpm;
       const base = seg.from === 'time' && typeof seg.startSec === 'number' ? seg.startSec : tp.hookSec;
       let sourceStart = base + (seg.offsetBars || 0) * sourceBarSec;
       if (recipe.snapToBeats) {
         sourceStart = refineBeatNear(tracks[seg.track], sourceStart, sourceBarSec / 4);
+      }
+      const sourceDuration = tracks[seg.track].duration;
+      const preSeconds = index ? recipe.xfadeBeats * 30 / targetBpm : 0;
+      const postSeconds = index === segmentsInput.length - 1 ? (recipe.loop ? 30 / targetBpm : 0) : recipe.xfadeBeats * 30 / targetBpm;
+      const requiredSource = (seg.bars * barSec + postSeconds) * tp.tempoRatio;
+      const minimum = preSeconds * tp.tempoRatio;
+      const latest = sourceDuration - requiredSource - 0.1;
+      if (latest < minimum) {
+        throw new Error(tp.name + ' is too short for segment ' + (index + 1) + '. Use fewer bars or a longer recording.');
+      }
+      if (sourceStart < minimum || sourceStart > latest) {
+        if (seg.from === 'time') {
+          throw new Error('Segment ' + (index + 1) + ' exceeds the available audio. Move its start or reduce its bars.');
+        }
+        const adjusted = clamp(sourceStart, minimum, latest);
+        sourceStart = adjusted;
+        warnings.push('Segment ' + (index + 1) + ': hook moved to ' + adjusted.toFixed(1) + ' s to fit the audio; listen before export.');
       }
       const planned = {
         track: seg.track,
@@ -1390,9 +1556,10 @@
     const finalKey = { pc: ((Math.round(targetPc) % 12) + 12) % 12, mode: 'major' };
     return {
       recipe: recipe,
+      warnings: warnings,
       mainId: mainId,
       targetBpm: Math.round(targetBpm * 100) / 100,
-      targetKey: Math.abs(targetPc - Math.round(targetPc)) < 0.05 ? keyName(mainKey.mode === 'minor' ? { pc: (finalKey.pc + 9) % 12, mode: 'minor' } : finalKey) : keyName(finalKey) + ' (detuned)',
+      targetKey: keyName(mainKey.mode === 'minor' ? { pc: (finalKey.pc + 9) % 12, mode: 'minor' } : finalKey) + (Math.abs(targetPc - Math.round(targetPc)) >= 0.05 ? ' (detuned)' : ''),
       barSec: barSec,
       totalBars: barCursor,
       durationSec: barCursor * barSec,
@@ -1444,7 +1611,7 @@
     const recipe = plan.recipe;
     const sampleRate = tracks[plan.mainId].sampleRate;
     const beatSamples = (60 / plan.targetBpm) * sampleRate;
-    const crossfade = Math.max(64, Math.round(recipe.xfadeBeats * beatSamples));
+    const crossfade = Math.round(recipe.xfadeBeats * beatSamples);
     const half = crossfade >> 1;
     const loopTail = recipe.loop ? Math.max(64, Math.round(beatSamples * 0.5)) : 0;
     const totalLength = Math.round(plan.durationSec * sampleRate);
@@ -1531,8 +1698,11 @@
       return new Float32Array(data.subarray(0, totalLength));
     });
     progress({ stage: 'loudness' });
+    if (peakOf(out) < 0.00001 || hasInvalidSamples(out)) {
+      throw new Error('Selected segments are silent or invalid. Pick audible source regions.');
+    }
     const loudness = integratedLoudness(out, sampleRate);
-    const targetLufs = recipe.targetLufs || -10;
+    const targetLufs = recipe.targetLufs;
     const makeup = dbToGain(clamp(targetLufs - loudness, -24, 24));
     out.forEach(function (data) {
       for (let i = 0; i < data.length; i++) {
@@ -1540,13 +1710,21 @@
       }
     });
     out = limiter(out, sampleRate, dbToGain(-1));
-    const score = viralScore(out, sampleRate, plan);
+    if (!recipe.loop) {
+      const fade = Math.min(out[0].length, Math.round(sampleRate * 0.015));
+      out.forEach(function (c) {
+        for (let i = 0; i < fade; i++) {
+          c[c.length - fade + i] *= (fade - 1 - i) / Math.max(1, fade - 1);
+        }
+      });
+    }
+    const score = editScore(out, sampleRate, plan);
     return { channels: out, sampleRate: sampleRate, plan: plan, score: score };
   }
 
-  // ------------------------------------------------------------------ viral score (heuristic)
+  // ------------------------------------------------------------------ editing checklist (unvalidated)
 
-  function viralScore(channels, sampleRate, plan) {
+  function editScore(channels, sampleRate, plan) {
     const duration = channels[0].length / sampleRate;
     const blocks = blockPowers(channels, sampleRate, 0.4, 0.1).map(powerToLufs);
     const loudness = integratedLoudness(channels, sampleRate);
@@ -1604,11 +1782,6 @@
     const quiet = sorted.length ? sorted[Math.floor(sorted.length * 0.05)] : -70;
     const loud = sorted.length ? sorted[Math.floor(sorted.length * 0.95)] : -70;
     const contrast = loud - quiet;
-    const sources = {};
-    plan.segments.forEach(function (seg) {
-      sources[seg.track] = true;
-    });
-    const sourceCount = Object.keys(sources).length;
     const factors = [
       {
         key: 'hook', label: 'Hook in first seconds', weight: 0.22,
@@ -1616,7 +1789,7 @@
         tip: 'Start on the chorus or drop — viewers decide in the first 1–2 seconds.',
       },
       {
-        key: 'loop', label: 'Seamless loop', weight: 0.18,
+        key: 'loop', label: 'Loop seam check', weight: 0.18,
         value: plan.recipe.loop ? 'folded, Δ ' + levelJump.toFixed(1) + ' dB' : 'off', score: loopScore,
         tip: plan.recipe.loop ? 'The start and end differ in level — drop the filter-in on bar 1 or start straight on the hook for a smoother replay.' : 'Turn on loop folding so the sound replays without a bump.',
       },
@@ -1626,7 +1799,7 @@
         tip: 'Aim for 12–35 s: long enough for a trend, short enough to loop.',
       },
       {
-        key: 'tempo', label: 'Trend tempo fit', weight: 0.15,
+        key: 'tempo', label: 'Style tempo fit', weight: 0.15,
         value: Math.round(bpm) + ' BPM (' + style + ')', score: tempoScore,
         tip: style === 'slowed' ? 'Slowed edits land best around ×0.75–0.9 of the original (or 65–95 BPM).' : 'Sped-up edits usually sit at ×1.15–1.4 of the original (125–180 BPM).',
       },
@@ -1637,22 +1810,19 @@
       },
       {
         key: 'loudness', label: 'Loudness', weight: 0.10,
-        value: loudness.toFixed(1) + ' LUFS', score: band(loudness, -11.5, -8, -20, -5),
-        tip: 'Masters around −10 LUFS hold up against other sounds in the feed.',
+        value: loudness.toFixed(1) + ' LUFS (approx)', score: clamp(1 - Math.abs(loudness - plan.recipe.targetLufs) / 8, 0, 1),
+        tip: 'Measured loudness differs from your target; lower FX or source gain and listen. This is not a certified LUFS/true-peak meter.',
       },
-      {
-        key: 'recognition', label: 'Recognition', weight: 0.08,
-        value: sourceCount + (sourceCount === 1 ? ' song' : ' songs'), score: sourceCount >= 3 ? 1 : sourceCount === 2 ? 0.9 : 0.65,
-        tip: 'Familiar hooks from a second song (same era) add instant recognition.',
-      },
+
     ];
     let total = 0;
+    const totalWeight = factors.reduce(function (sum, f) { return sum + f.weight; }, 0);
     factors.forEach(function (f) {
       f.score = Math.round(f.score * 100) / 100;
       total += f.score * f.weight;
     });
-    const score = Math.round(total * 100);
-    const grade = score >= 85 ? 'Strong viral potential' : score >= 70 ? 'Good potential' : score >= 55 ? 'Needs polish' : 'Low potential';
+    const score = Math.round(total / totalWeight * 100);
+    const grade = score >= 85 ? 'Most edit checks met' : score >= 70 ? 'Some edit checks met' : 'Review this edit';
     const tips = factors.filter(function (f) {
       return f.score < 0.7;
     }).map(function (f) {
@@ -1665,8 +1835,14 @@
 
   function parseRequest(text, context) {
     const ctx = context || {};
-    const input = String(text || '');
-    const lower = input.toLowerCase();
+    const input = String(text || '').slice(0, 2000);
+    let lower = input.toLowerCase();
+    const disabled = [];
+    const negatives = /\b(?:no|without|skip|avoid|don['’]?t(?: add| use)?)\s+(reverb|echo|bass(?: boost(?:ed)?)?|8d|lo-?fi|mashup|mash-up|loop(?:ing)?|pitch(?: shift)?|speed(?: change)?)\b/g;
+    lower = lower.replace(negatives, function (match, effect) {
+      disabled.push(effect.replace(/[- ]/g, ''));
+      return ' ';
+    });
     const patch = { fx: {} };
     const notes = [];
     const has = function (re) {
@@ -1721,13 +1897,16 @@
     // Explicit numbers win over adjectives.
     let m = lower.match(/(?:^|[^\w.])([+-]?\d+(?:\.\d+)?)\s*(semitones?|semis?|st)\b/);
     if (m) {
-      patch.semitones = clamp(parseFloat(m[1]), -12, 12);
+      patch.semitones = finiteNumber(parseFloat(m[1]), -12, 12, 'Requested pitch');
+      if (m[1][0] !== '-' && /\b(?:down|lower|deeper)\b/.test(lower)) {
+        patch.semitones = -Math.abs(patch.semitones);
+      }
       patch.mode = 'independent';
       notes.push('Pitch ' + (patch.semitones > 0 ? '+' : '') + patch.semitones + ' st');
     }
     m = lower.match(/\b(\d+(?:\.\d+)?)\s*x\b/);
-    if (m && parseFloat(m[1]) >= 0.5 && parseFloat(m[1]) <= 2) {
-      patch.tempo = parseFloat(m[1]);
+    if (m) {
+      patch.tempo = finiteNumber(parseFloat(m[1]), 0.5, 2, 'Requested tempo');
       notes.push('Tempo ×' + patch.tempo);
     }
     m = lower.match(/(\d+)\s*%\s*(faster|quicker|speed)/);
@@ -1745,9 +1924,9 @@
       patch.targetBpm = parseFloat(m[1]);
       notes.push('Target ' + patch.targetBpm + ' BPM');
     }
-    m = lower.match(/\b(\d{1,2})\s*(s|sec|secs|seconds?)\b/);
+    m = lower.match(/\b(\d{1,4})\s+(sec|secs|seconds?)\b|\b(\d{1,2})\s*s\b/);
     if (m) {
-      patch.lengthSec = clamp(parseInt(m[1], 10), 6, 60);
+      patch.lengthSec = finiteNumber(parseInt(m[1] || m[3], 10), 6, 60, 'Requested length');
       notes.push('Length ' + patch.lengthSec + ' s');
     }
     if (has(/\b(reverb|dreamy|ethereal|echo|spacey|spacious|atmospheric)\b/) || slowedReverb) {
@@ -1785,6 +1964,19 @@
     if (has(/\b(tiktok|reels?|shorts?)\b/) && !patch.lengthSec) {
       patch.lengthSec = has(/\bshorts?\b/) ? 30 : 25;
     }
+    disabled.forEach(function (effect) {
+      if (effect === 'reverb' || effect === 'echo') { patch.fx.reverb = 0; }
+      if (effect.startsWith('bass')) { patch.fx.bass = 0; }
+      if (effect === '8d') { patch.fx.eightD = 0; }
+      if (effect === 'lofi') { patch.fx.lofi = 0; }
+      if (effect === 'mashup') { patch.mashup = false; }
+      if (effect.startsWith('loop')) { patch.loop = false; }
+      if (effect.startsWith('pitch')) { patch.mode = 'independent'; patch.semitones = 0; }
+      if (effect.startsWith('speed')) { patch.tempo = 1; patch.targetBpm = null; }
+      notes.push('Explicitly disabled: ' + effect);
+    });
+    // Reject impossible explicit requests before they reach DSP allocations.
+    makeRecipe(patch);
     if (!notes.length) {
       notes.push('No specific style found — making a clean, loop-ready hook edit');
     }
@@ -1890,12 +2082,19 @@
   // ------------------------------------------------------------------ session (shared by worker and main-thread fallback)
 
   function createSession() {
-    const store = {};
+    const store = Object.create(null);
     return {
       addTrack: function (id, channels, sampleRate, name) {
         const track = prepareTrack(channels, sampleRate);
         track.name = name || id;
         track.analysis = analyzeTrack(track);
+        store[id] = track;
+        return track.analysis;
+      },
+      restoreTrack: function (id, channels, sampleRate, name, analysis) {
+        const track = prepareTrack(channels, sampleRate);
+        track.name = name;
+        track.analysis = analysis || analyzeTrack(track);
         store[id] = track;
         return track.analysis;
       },
@@ -1907,7 +2106,7 @@
         const tracks = {};
         Object.keys(settings).forEach(function (id) {
           if (!store[id]) {
-            return;
+            throw new Error('Track data unavailable. Re-import the missing audio.');
           }
           const s = settings[id];
           tracks[id] = {
@@ -1931,6 +2130,8 @@
 
   return {
     VERSION: VERSION,
+    LIMITS: LIMITS,
+    validateAudio: validateAudio,
     DEFAULT_RECIPE: DEFAULT_RECIPE,
     makeRecipe: makeRecipe,
     deepMerge: deepMerge,
@@ -1965,7 +2166,7 @@
     autoArrange: autoArrange,
     planRemix: planRemix,
     renderRemix: renderRemix,
-    viralScore: viralScore,
+    editScore: editScore,
     parseRequest: parseRequest,
     encodeWav: encodeWav,
     base64FromBuffer: base64FromBuffer,
