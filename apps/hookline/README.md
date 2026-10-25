@@ -1,4 +1,4 @@
-# Hookline 1.1 — private short-form remix studio
+# Hookline 1.2 — private short-form remix studio
 
 [Open app](https://juwpegatron.github.io/projects/hookline/) ·
 [Web](https://juwpegatron.github.io/projects/hookline/web.html) ·
@@ -7,6 +7,28 @@
 Upload your audio, describe a direction such as “higher, faster, no reverb,
 20 seconds,” audition the result, and export a WAV. Processing happens in your
 browser; there is no audio-upload server, account, or external AI service.
+
+## Real songs and publishing (new in 1.2)
+
+Copyright is not an automatic technical block on editing an uploaded song. The
+separate question is whether the intended remix/publication is permitted. A
+local-only editor does not grant rights or create a blanket private-use exception.
+See [music and publishing guidance](docs/music-and-publishing.md) for official
+CapCut, TikTok and YouTube references and practical options.
+
+The **Real songs & publishing notes** panel records your declarations, license
+reference, required credit, restrictions, destination and commercial-use intent.
+It supplies guidance and an optional JSON checklist—not a clearance certificate.
+No title/copyright gate, song downloading, DRM bypass or Content ID evasion was
+added. “Save current session recipe” includes current notes; “Save rendered
+recipe” keeps the earlier render's snapshot. Source names and notes are included
+in these optional JSON files; review them before sharing.
+
+Version 1.2 also corrects coupled-pitch readouts, unlocks duration after switching
+to automatic arrangement, exposes source pitch nudges on main tracks, rejects
+invalid explicit BPM input instead of silently choosing auto, and preserves
+manual source-start times exactly. Ordinary v1.1 portable recipes remain readable;
+missing permission notes are treated as unknown, never inferred as licensed.
 
 ## Capabilities and honest limits
 
@@ -83,10 +105,10 @@ review; this app neither clears rights nor bypasses platform restrictions.
 No build dependencies. Serve the web directory using Python's HTTP server.
 The App/Web/Mobile entry points share the same engine and UI.
 
-- `tests/test_hookline.py`: static asset/cache checks and 38 engine regressions
+- `tests/test_hookline.py`: static asset/cache checks and 44 engine regressions
   under Node or macOS JavaScriptCore. CI supplies Node; local absence is reported
   as a skip rather than a fabricated test pass.
-- `tools/browser_smoke.py`: isolated headless-Chrome checks with real workers,
+- `tools/browser_smoke.py`: 21 isolated headless-Chrome checks with real workers,
   uploads, recipe roundtrip, failure/timeout/cancel recovery, mobile and offline
   behavior. Supply `--chrome` and `--artifacts`; no personal browser profile is used.
 - `tools/render_standin_demo.js`: generates a synthetic test render, never a real

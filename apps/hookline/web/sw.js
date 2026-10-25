@@ -1,9 +1,9 @@
 /* Versioned, app-scoped offline cache. Never deletes another app's caches.
  * An update waits for explicit approval so a session cannot silently mix builds. */
-const CACHE = 'hookline-v1.1.0';
+const CACHE = 'hookline-v1.2.0';
 const SHELL = [
   './', 'index.html', 'web.html', 'mobile.html', 'styles.css', 'engine.js',
-  'engine-client.js', 'demo.js', 'recipes.js', 'app.js', 'worker.js',
+  'engine-client.js', 'demo.js', 'rights.js', 'recipes.js', 'app.js', 'worker.js',
   'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png',
 ];
 

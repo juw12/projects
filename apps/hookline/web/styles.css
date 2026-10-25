@@ -755,3 +755,12 @@ fieldset.layout { border: 0; padding: 0; margin: 0; min-width: 0; }
 .dropzone input { display: block; width: 100%; max-width: 280px; font-size: 0.85rem; }
 input:disabled, select:disabled, button:disabled { opacity: 0.55; cursor: not-allowed; }
 [hidden] { display: none !important; }
+
+.rights-source { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 10px; }
+.rights-source summary { cursor: pointer; overflow-wrap: anywhere; }
+.rights-source label { display: grid; gap: 4px; margin-top: 8px; font-size: 0.82rem; }
+.rights-source input, .rights-source select { min-width: 0; width: 100%; }
+#rights-card a { color: var(--cyan); }
+#rights-summary { overflow-wrap: anywhere; }
+#rights-summary li { margin-bottom: 6px; }
+.layout-mobile #rights-card { order: 7; }
