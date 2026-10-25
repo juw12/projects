@@ -16,12 +16,12 @@ WEB_DIR = os.path.join(BASE_DIR, "web")
 REQUIRED = [
     "index.html", "app.html", "mobile.html", "styles.css", "manifest.webmanifest",
     "icons/icon.svg", "js/engine.js", "js/ui.js", "js/samples.js",
-    "channel.html", "js/channel.js", "js/publish.js",
+    "channel.html", "js/channel.js", "js/publish.js", "js/pop.js",
 ]
 HTML_FILES = ["index.html", "app.html", "mobile.html", "channel.html"]
-JS_FILES = ["js/engine.js", "js/ui.js", "js/samples.js", "js/channel.js", "js/publish.js"]
+JS_FILES = ["js/engine.js", "js/ui.js", "js/samples.js", "js/channel.js", "js/publish.js", "js/pop.js"]
 # Only the opt-in publisher talks to the network (Google sign-in + YouTube upload).
-OFFLINE_JS = ["js/engine.js", "js/ui.js", "js/samples.js", "js/channel.js"]
+OFFLINE_JS = ["js/engine.js", "js/ui.js", "js/samples.js", "js/channel.js", "js/pop.js"]
 PUBLISH_HOSTS = ("accounts.google.com", "www.googleapis.com", "youtube.com")  # last one: result link only
 
 

@@ -140,7 +140,7 @@
   function buildTimeline(project, voiceDurations) {
     var lang = project.lang || "en";
     var rate = WORDS_PER_SEC[lang] || 2.5;
-    var maxChars = project.template === "editorial" ? 24 : 20;
+    var maxChars = project.template === "editorial" ? 24 : (project.template === "pop" ? 18 : 20);
     var cursor = 0;
     var stepCount = 0;
     var scenes = project.scenes.map(function (scene, i) {
@@ -148,7 +148,8 @@
       var words = narration.split(/\s+/).filter(Boolean).length;
       var measured = voiceDurations && voiceDurations[i];
       var voDur = measured || Math.max(0.6, words / rate);
-      var dur = Math.max(scene.minDur || 3.2, voDur + 0.7);
+      var pad = typeof project.scenePad === "number" ? project.scenePad : 0.7;
+      var dur = Math.max(scene.minDur || 3.2, voDur + pad);
       var role = sceneRole(project, i);
       var item = {
         index: i,
@@ -656,7 +657,10 @@
 
   function renderFrame(ctx, project, timeline, t, assets) {
     ctx.save();
-    if (project.template === "teardown") {
+    var extra = window.SC_TEMPLATES && window.SC_TEMPLATES[project.template];
+    if (extra) {
+      extra(ctx, project, timeline, t, assets, window.SC);
+    } else if (project.template === "teardown") {
       drawTeardown(ctx, project, timeline, t, assets);
     } else {
       drawEditorial(ctx, project, timeline, t, assets);

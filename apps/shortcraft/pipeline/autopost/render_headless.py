@@ -42,30 +42,57 @@ def chrome_path():
 
 
 def make_voices(project, out_dir):
+    """Neural voice per scene. A project can override the voice with
+    "voiceConfig": {"name": "id-ID-GadisNeural", "rate": "+0%", "pitch": "+0Hz"}."""
     tool = shutil.which("edge-tts") or str(Path(sys.executable).with_name("edge-tts"))
     voice, rate = VOICES.get(project.get("lang", "en"), VOICES["en"])
+    pitch = "+0Hz"
+    override = project.get("voiceConfig") or {}
+    voice = override.get("name", voice)
+    rate = override.get("rate", rate)
+    pitch = override.get("pitch", pitch)
     files = []
     for i, scene in enumerate(project["scenes"]):
         text = (scene.get("narration") or "").strip()
         target = out_dir / f"scene_{i + 1:02d}.mp3"
         if text:
-            subprocess.run([tool, "--voice", voice, f"--rate={rate}", "--text", text,
-                            "--write-media", str(target)], check=True, capture_output=True)
+            raw_clip = out_dir / f"scene_{i + 1:02d}_raw.mp3"
+            subprocess.run([tool, "--voice", voice, f"--rate={rate}", f"--pitch={pitch}", "--text", text,
+                            "--write-media", str(raw_clip)], check=True, capture_output=True)
+            # trim the TTS engine's leading/trailing silence: tighter, more natural pacing
+            subprocess.run([
+                imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-loglevel", "error", "-i", str(raw_clip), "-af",
+                "silenceremove=start_periods=1:start_threshold=-45dB,areverse,"
+                "silenceremove=start_periods=1:start_threshold=-45dB,areverse",
+                str(target),
+            ], check=True)
+            raw_clip.unlink()
             files.append(target.name)
         else:
             files.append(None)
     return files
 
 
-def render(project_path, out_path, port_http=8766, port_cdp=9334):
+def free_port():
+    """Ask the OS for an unused local port, so renders never collide with other servers."""
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.bind(("127.0.0.1", 0))
+        return probe.getsockname()[1]
+
+
+def render(project_path, out_path, port_http=None, port_cdp=None):
+    port_http = port_http or free_port()
+    port_cdp = port_cdp or free_port()
     project = json.loads(Path(project_path).read_text(encoding="utf-8"))
     project["voice"] = "own"
-    with tempfile.TemporaryDirectory() as tmp:
+    tmp = tempfile.mkdtemp(prefix="shortcraft-render-")
+    try:
         site = Path(tmp) / "site"
         shutil.copytree(WEB_DIR, site)
         voice_files = make_voices(project, site)
         (site / "_project.json").write_text(json.dumps(project), encoding="utf-8")
-        server = subprocess.Popen([sys.executable, "-m", "http.server", str(port_http)], cwd=site,
+        server = subprocess.Popen([sys.executable, "-m", "http.server", str(port_http), "--bind", "127.0.0.1"], cwd=site,
                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         chrome = subprocess.Popen([
             chrome_path(), "--headless=new", "--disable-gpu", f"--remote-debugging-port={port_cdp}",
@@ -73,8 +100,15 @@ def render(project_path, out_path, port_http=8766, port_cdp=9334):
             "--autoplay-policy=no-user-gesture-required", "--window-size=1400,1100", "about:blank",
         ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         try:
-            time.sleep(3)
-            targets = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{port_cdp}/json").read())
+            cdp_deadline = time.time() + 45
+            while True:
+                try:
+                    targets = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{port_cdp}/json").read())
+                    break
+                except OSError:
+                    if time.time() > cdp_deadline:
+                        raise
+                    time.sleep(0.5)
             page = next(t for t in targets if t["type"] == "page")
             ws = websocket.create_connection(page["webSocketDebuggerUrl"], timeout=600)
             counter = [0]
@@ -95,7 +129,11 @@ def render(project_path, out_path, port_http=8766, port_cdp=9334):
                 return res.get("result", {}).get("value")
 
             send("Page.navigate", {"url": f"http://127.0.0.1:{port_http}/app.html"})
-            time.sleep(3)
+            ready_deadline = time.time() + 60
+            while not evaluate("!!(window.ShortcraftStudio && window.ShortcraftStudio.setProject)"):
+                if time.time() > ready_deadline:
+                    raise RuntimeError("studio page did not load within 60 s")
+                time.sleep(0.5)
             info = evaluate("""
             (async () => {
               const S = window.ShortcraftStudio;
@@ -135,6 +173,10 @@ def render(project_path, out_path, port_http=8766, port_cdp=9334):
         finally:
             chrome.terminate()
             server.terminate()
+            try:
+                chrome.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                chrome.kill()
         ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
         subprocess.run([
             ffmpeg, "-y", "-loglevel", "error", "-i", str(raw),
@@ -142,6 +184,8 @@ def render(project_path, out_path, port_http=8766, port_cdp=9334):
             "-af", "loudnorm=I=-14:TP=-1.5:LRA=11", "-ar", "48000", "-c:a", "aac", "-b:a", "192k",
             "-movflags", "+faststart", str(out_path),
         ], check=True)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
     return {"seconds": round(info["total"], 1), "path": str(out_path)}
 
 
