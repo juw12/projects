@@ -134,6 +134,11 @@ def main():
             except OSError:
                 time.sleep(0.1)
         run_tests()
+    except BaseException:
+        app.terminate()
+        print("\n--- server output ---")
+        print(app.stdout.read().decode(errors="replace")[-4000:])
+        raise
     finally:
         app.terminate()
         mock.shutdown()
