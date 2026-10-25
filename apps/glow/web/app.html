@@ -55,6 +55,12 @@
     <button class="secondary" id="council-stop-btn" type="button">Stop</button>
   </div>
   <div id="composer-wrap">
+    <div id="rate-notice" class="rate-notice hidden" role="status" aria-live="polite">
+      <span class="rate-icon" aria-hidden="true">⏳</span>
+      <span id="rate-text" class="rate-text"></span>
+      <button class="link-btn" id="rate-signin" type="button">Sign in for faster AI</button>
+      <button class="link-btn" id="rate-close" type="button" aria-label="Dismiss notice" title="Dismiss">✕</button>
+    </div>
     <div id="pending-files" class="hidden"></div>
     <div id="composer">
       <button class="icon-btn" id="attach-btn" type="button" title="Attach text or code files" aria-label="Attach files">📎</button>

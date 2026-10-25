@@ -18,7 +18,7 @@ class V04Tests(unittest.TestCase):
         for name in PAGES:
             page = (WEB / name).read_text(encoding="utf-8")
             for element_id in ("welcome-screen", "signin-btn", "guest-btn", "tour", "tour-next", "tour-skip",
-                               "theme-toggle", "help-btn", "account-box", "set-theme", "set-sync", "toast"):
+                               "theme-toggle", "help-btn", "account-box", "set-theme", "set-sync", "toast", "rate-notice", "rate-text", "rate-close"):
                 self.assertIn(f'id="{element_id}"', page, f"{name} is missing #{element_id}")
 
     def test_csp_allows_only_the_puter_sdk_as_external_script(self):
@@ -51,7 +51,7 @@ class V04Tests(unittest.TestCase):
 
     def test_offline_cache_bumped_for_new_assets(self):
         worker = (WEB / "sw.js").read_text(encoding="utf-8")
-        self.assertIn("const CACHE_NAME = 'glow-v3';", worker)
+        self.assertIn("const CACHE_NAME = 'glow-v4';", worker)
 
     def test_guests_get_keyless_free_ai(self):
         self.assertIn('const FREE_AI_URL = "https://text.pollinations.ai/openai";', self.script)
@@ -61,7 +61,7 @@ class V04Tests(unittest.TestCase):
     def test_catalog_version(self):
         apps = json.loads((REPO / "scripts/apps.json").read_text(encoding="utf-8"))["apps"]
         glow = next(app for app in apps if app["id"] == "glow")
-        self.assertEqual(glow["version"], "0.4.1")
+        self.assertEqual(glow["version"], "0.4.2")
         self.assertEqual(glow["name"], "Glow")
 
 
