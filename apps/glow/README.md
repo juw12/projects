@@ -46,9 +46,9 @@ Chats, settings and votes are stored in browser localStorage. API keys are store
 python apps/glow/tests/test_static_integrity.py
 python apps/glow/tests/verify_api.py
 ```
-In-browser self-test: open `web/index.html#selftest` (57 checks covering chat, council,
-judge, arena, voting, export, search, the v0.2.1 fixes, and v0.4 sign-in, guest mode, tour,
-theme, sync and UI, using a Puter test double so no real account is touched). Demos: `#demo-council`, `#demo-arena`.
+In-browser self-test: open `web/index.html#selftest` (89 checks covering chat, council,
+judge, arena, voting, export, search, the v0.2.1 fixes, v0.4 sign-in, guest mode, tour,
+theme, sync and UI, and the v0.5 model picker, personas, checklists, Fuse, share links and Markdown, using a Puter test double so no real account is touched). Demos: `#demo-council`, `#demo-arena`.
 
 ## v0.2.1 fixes
 - Demo and self-test links (`#selftest`, `#demo-*`) run in a sandbox and never touch a visitor's saved chats or keys.
@@ -69,6 +69,16 @@ Free OpenRouter models are rate-limited. Working prototype, not a production ser
 - Demo/self-test links still use isolated storage.
 - Glow cache cleanup is restricted to Glow, preserving other apps on the same origin.
 - Glow is a prototype brand chosen by the owner, not a unique or trademark-cleared name.
+
+## v0.5.0 — choose your model, personas, checklists
+- **Model picker**: searchable dropdown grouped by provider with badges (Free, Fast, Reasoning, Smart, Local), ★ favourites, keyboard navigation. Guests see Glow AI models with a 🔒; picking one opens sign-in and selects it afterwards. Signed-in users can show every Glow AI model.
+- **Personas per chat**: Default, Planner, Tutor, Coder, Writer, Critic, Translator, plus your own **custom instructions** (Settings) applied to every mode.
+- **Interactive checklists**: `- [ ]` tasks in replies become tickable checkboxes with a progress bar; ticks are saved and included in exports. The *Make a plan* starter uses the Planner.
+- **Follow-up chips**: 2–3 suggested next questions under each reply (can be turned off).
+- **Arena Fuse**: merge the side-by-side answers into one best answer.
+- **Improve prompt** (with undo), **voice input** and **Listen** (read aloud) where the browser supports it.
+- **Share by link**: a chat is compressed into the link itself; no server stores it. Imports are sanitized.
+- **Fixes**: Markdown tables, safe links, nested/numbered lists, blockquotes; autoscroll no longer yanks you down while reading (↓ Latest button); pinned chats; character/token counter; print layout.
 
 ## v0.4.0 — sign in, guest mode, guided tour, themes
 - **Welcome screen**: *Sign in* (free real AI) or *Continue as guest* (demo, own keys, Ollama). Existing chats and keys are kept; switch any time from the sidebar or Settings.
