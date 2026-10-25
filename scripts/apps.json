@@ -416,6 +416,43 @@
       },
       "featured": true,
       "order": 5.6
+    },
+    {
+      "id": "guangyao",
+      "name": "Guang Yao Together · 光耀同行",
+      "category": "Software",
+      "desc": "Unofficial learning and community concept for 發一光耀 — a responsive, installable PWA with local demonstration data",
+      "description": "An unofficial Traditional Chinese learning and community concept for 發一光耀. Explore level-based courses, quizzes, watermarked sample certificates, activities, community interactions, rewards and transparent-giving demonstrations. One responsive, installable PWA across App, Web and Mobile; real accounts, payments, live meetings and official certification are not connected.",
+      "tags": [
+        "PWA",
+        "learning &amp; community",
+        "Traditional Chinese",
+        "offline demo"
+      ],
+      "image": "guangyao-desktop.png",
+      "image_alt": "Guang Yao Together desktop demo: course progression, upcoming activities and a clear local-demo notice",
+      "thumbnails": [
+        {
+          "src": "guangyao-mobile.png",
+          "alt": "Guang Yao Together mobile PWA demo with bottom navigation and installation guidance",
+          "label": "View the mobile PWA demo"
+        },
+        {
+          "src": "guangyao-desktop.png",
+          "alt": "Guang Yao Together desktop learning dashboard demo",
+          "label": "Return to the desktop demo"
+        }
+      ],
+      "project_id": "guangyao",
+      "links": {
+        "app": "guangyao/index.html",
+        "web": "guangyao/",
+        "mobile": "guangyao/index.html#home"
+      },
+      "featured": true,
+      "order": 1.6,
+      "status": "frontend-pwa-demo",
+      "version": "2.0.2"
     }
   ]
 }
