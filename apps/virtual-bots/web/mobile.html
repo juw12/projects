@@ -448,7 +448,7 @@ svg { display: block; }
   <section class="view" id="view-settings" aria-label="Settings">
     <div class="section-title" style="margin-top:4px"><span>AI brain</span></div>
     <div class="card">
-      <div class="set-row"><div class="label"><b>Provider</b><span id="ai-provider-label">Free AI</span></div><button class="btn btn-ghost btn-sm" id="ai-configure">Configure</button></div>
+      <div class="set-row"><div class="label"><b>Provider</b><span id="ai-provider-label">Glow AI</span></div><button class="btn btn-ghost btn-sm" id="ai-configure">Configure</button></div>
       <div class="set-row"><div class="label"><b>Results</b><span>Everything your crew has delivered</span></div><button class="btn btn-ghost btn-sm" id="ai-history">Open</button></div>
     </div>
     <div class="section-title"><span>Simulation</span></div>
@@ -468,9 +468,10 @@ svg { display: block; }
     <div class="section-title"><span>About</span></div>
     <div class="card about">
       <b data-brand>Crewroom</b> is a control room for a crew of AI bots: watch who is working, follow every tool step, and dispatch goals.
-      Goals you dispatch are done for real by AI (free by default, or your own key in <b>AI brain</b>): Scout reads the live web, Byte runs real code, Pixel draws graphics. Ambient crew activity is simulated.
+      Goals you dispatch are done for real by <b>Glow AI</b> (free by default; sign in with your Glow account for stronger models, or use your own key in <b>AI brain</b>): Scout reads the live web, Byte runs real code, Pixel draws graphics. The optional <b>Run simulation</b> switch adds pretend background activity.
       <div class="links">
         <a href="./"><span>Open 3D office</span></a>
+        <a href="../glow/mobile.html">✦ Open Glow</a>
         <a href="app.html">Install app</a>
         <a href="../">All projects</a>
       </div>
@@ -627,7 +628,7 @@ svg { display: block; }
     bots: Object.fromEntries(BOTS.map(b => [b.id, freshBot(b.id)])),
     events: [],
     queue: [],
-    settings: { sim: true, speed: 1, auto: false, theme: 'dark', haptics: true, toasts: true },
+    settings: { sim: false, speed: 1, auto: false, theme: 'dark', haptics: true, toasts: true },
     view: 'crew',
     seenEvents: 0
   };

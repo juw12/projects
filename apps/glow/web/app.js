@@ -3269,6 +3269,56 @@ async function demoArena() {
   vote(0, 1);
 }
 
+
+/* ================= Crewroom link (same origin: shared account + hand-offs) ================= */
+// Crewroom (../virtual-bots/) uses Glow AI as its default model and hands finished results
+// to Glow through this inbox, so the user can keep talking about them here.
+const CREWROOM_INBOX_KEY = "glow.inbox";
+function importCrewroomInbox() {
+  if (TEST_MODE) return null;
+  let items = [];
+  try {
+    items = JSON.parse(localStorage.getItem(CREWROOM_INBOX_KEY) || "[]");
+  } catch {
+    items = [];
+  }
+  localStorage.removeItem(CREWROOM_INBOX_KEY);
+  if (!Array.isArray(items) || !items.length) return null;
+  const known = new Set(state.conversations.map((c) => c.id));
+  let latest = null;
+  for (const item of items) {
+    if (!item || typeof item.id !== "string" || !Array.isArray(item.messages)) continue;
+    const messages = item.messages
+      .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+      .map((m) => ({ role: m.role, content: m.content.slice(0, 200000) }));
+    if (!messages.length) continue;
+    const existing = known.has(item.id) ? state.conversations.find((c) => c.id === item.id) : null;
+    const conv = existing || { id: item.id, type: "chat" };
+    Object.assign(conv, {
+      title: String(item.title || "From Crewroom").slice(0, 80),
+      messages,
+      model: conv.model || state.settings.lastModel,
+      updated: Date.now(),
+    });
+    if (!existing) state.conversations.unshift(conv);
+    latest = conv;
+  }
+  if (latest) {
+    saveState();
+    renderHistory();
+  }
+  return latest;
+}
+function openCrewroom(event) {
+  // Hand whatever is typed in the box to the crew as their mission.
+  const text = ($("input").value || "").trim();
+  if (!text) return;
+  event.preventDefault();
+  const url = new URL($("crewroom-link").href);
+  url.searchParams.set("goal", text.slice(0, 2000));
+  window.open(url.toString(), "crewroom");
+}
+
 async function boot() {
   applyTheme();
   fillPersonaSelect();
@@ -3276,6 +3326,18 @@ async function boot() {
   renderAccount();
   await loadModels();
   newChat();
+  const handedOff = importCrewroomInbox();
+  if (handedOff) {
+    openConversation(handedOff);
+    if (location.hash === "#from-crewroom") history.replaceState(null, "", location.pathname);
+    toast("Result from Crewroom added to your chats");
+  }
+  window.addEventListener("storage", (event) => {
+    if (event.key !== CREWROOM_INBOX_KEY || !event.newValue) return;
+    const conv = importCrewroomInbox();
+    if (conv) toast("New result from Crewroom is in your chats");
+  });
+  $("crewroom-link").addEventListener("click", openCrewroom);
   if ("serviceWorker" in navigator && location.protocol === "https:") {
     navigator.serviceWorker.register("./sw.js").catch(() => {});
   }
