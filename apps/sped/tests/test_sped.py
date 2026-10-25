@@ -30,9 +30,9 @@ def check(condition, message):
 def static_checks():
     for page in ("index.html", "web.html", "mobile.html"):
         html = (WEB / page).read_text(encoding="utf-8")
-        for script in ("engine.js", "demo.js", "rights.js", "recipes.js", "engine-client.js", "app.js"):
+        for script in ("engine.js", "demo.js", "rights.js", "recipes.js", "shorts.js", "video.js", "engine-client.js", "app.js"):
             check(f'src="{script}"' in html, f"{page} does not load {script}")
-        order = [html.find(f'src="{s}"') for s in ("engine.js", "demo.js", "rights.js", "recipes.js", "engine-client.js", "app.js")]
+        order = [html.find(f'src="{s}"') for s in ("engine.js", "demo.js", "rights.js", "recipes.js", "shorts.js", "video.js", "engine-client.js", "app.js")]
         check(order == sorted(order), f"{page} loads scripts out of order")
         for ref in re.findall(r'(?:href|src)="([^"]+)"', html):
             check(not ref.startswith("/"), f"{page}: absolute ref {ref}")
@@ -53,6 +53,15 @@ def static_checks():
         check(f"id: '{slot}'" in recipes, f"Paramore recipe lacks slot {slot}")
         check(f"track: '{slot}'" in recipes, f"Paramore arrangement never uses slot {slot}")
     check("targetBpm: 164" in recipes and "semitones: 4" in recipes, "Paramore recipe tempo/pitch changed")
+    engine = (WEB / "engine.js").read_text(encoding="utf-8")
+    version = re.search(r"VERSION = '([^']+)'", engine).group(1)
+    check(f"const CACHE = 'sped-v{version}'" in sw, "service worker cache name must match engine VERSION")
+    video = (WEB / "video.js").read_text(encoding="utf-8")
+    shorts = (WEB / "shorts.js").read_text(encoding="utf-8")
+    check("width: 1080, height: 1920" in shorts, "exports must stay 1080x1920 (9:16)")
+    check("drawFrame(g, scene" in video, "preview and export must share one frame renderer")
+    for banned in ("fetch(", "XMLHttpRequest", "sendBeacon"):
+        check(banned not in video and banned not in shorts, f"shorts/video modules must not make network calls ({banned})")
     worker = (WEB / "worker.js").read_text(encoding="utf-8")
     check("message.payload" in worker, "worker must read the nested payload (request id collision)")
 
