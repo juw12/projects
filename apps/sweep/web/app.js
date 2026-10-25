@@ -1482,7 +1482,7 @@ function renderVerifyView(project) {
     const gateEl = document.createElement('div');
     gateEl.className = 'verify-gate';
     gateEl.innerHTML = `
-      <input type="checkbox" class="verify-gate-checkbox" id="${gateId}" ${isChecked ? 'checked' : ''} onchange="toggleVerifyGate('${gateId}')">
+      <input type="checkbox" class="verify-gate-checkbox" id="${gateId}" aria-label="${escapeHtml(String(gate.title).replace(/<[^>]*>/g, ''))}" ${isChecked ? 'checked' : ''} onchange="toggleVerifyGate('${gateId}')">
       <div class="verify-gate-content">
         <div class="verify-gate-title">${gate.title}</div>
         <div class="verify-gate-hint">${gate.hint}</div>
@@ -2220,7 +2220,7 @@ function renderOverviewTab(op, project) {
           <div id="operator-chat-thread" class="operator-chat-thread"></div>
           <div class="operator-chat-input-row">
             <input type="text" id="operator-chat-input" placeholder="Type a message..." autocomplete="off">
-            <button class="btn btn-primary" id="operator-chat-send">
+            <button class="btn btn-primary" id="operator-chat-send" aria-label="Send message">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             </button>
           </div>
@@ -2240,7 +2240,7 @@ function renderPermissionToggle(key, label, enabled) {
     <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--spacing-sm);background:var(--color-border-light);border-radius:var(--radius-card)">
       <span style="font-size:13px">${escapeHtml(label)}</span>
       <label class="toggle-switch">
-        <input type="checkbox" ${enabled ? 'checked' : ''} onchange="togglePermission('${key}')">
+        <input type="checkbox" aria-label="${escapeHtml(label)}" ${enabled ? 'checked' : ''} onchange="togglePermission('${key}')">
         <span class="toggle-slider"></span>
       </label>
     </div>
@@ -3366,7 +3366,7 @@ function renderPaymentsPlans(op) {
       <p class="operator-note">Enable test mode to use Stripe test keys and show test card hints.</p>
       <div style="display:flex;align-items:center;gap:var(--spacing-sm);margin-top:var(--spacing-sm)">
         <label class="toggle-switch">
-          <input type="checkbox" ${testMode ? 'checked' : ''} onchange="toggleTestMode()">
+          <input type="checkbox" aria-label="Stripe test mode" ${testMode ? 'checked' : ''} onchange="toggleTestMode()">
           <span class="toggle-slider"></span>
         </label>
         <span style="font-size:13px;font-weight:600">${testMode ? 'Test mode ON' : 'Test mode OFF'}</span>
@@ -4016,7 +4016,7 @@ function renderIntegrations(op) {
             <span class="integration-icon">${int.icon}</span>
             <span class="integration-label">${int.label}</span>
             <label class="toggle-switch">
-              <input type="checkbox" ${op.integrations[int.key] ? 'checked' : ''} onchange="toggleIntegration('${int.key}')">
+              <input type="checkbox" aria-label="${escapeHtml(int.label)}" ${op.integrations[int.key] ? 'checked' : ''} onchange="toggleIntegration('${int.key}')">
               <span class="toggle-slider"></span>
             </label>
           </div>

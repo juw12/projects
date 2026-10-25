@@ -146,7 +146,7 @@
 .tool-mark.v0 { background: #111; }
 .tool-mark.bolt { background: linear-gradient(135deg, #1389fd, #0b5bd3); }
 .tool-mark.cursor { background: #1d1d1f; }
-.tool-mark.claude { background: #c96442; }
+.tool-mark.claude { background: #b4532f; }
 .tool-mark.agents { background: var(--color-productive); }
 .tool-mark.pack { background: var(--color-accent); }
 
@@ -200,7 +200,8 @@
 .task-card:hover { box-shadow: var(--shadow-card); transform: translateY(-1px); }
 .task-card.is-dragging { opacity: 0.45; }
 .task-card.is-next { border-color: var(--color-accent); box-shadow: 0 0 0 3px var(--accent-tint); }
-.task-card.is-blocked { opacity: 0.72; }
+.task-card.is-blocked { border-style: dashed; background: color-mix(in srgb, var(--color-border-light) 55%, var(--color-white)); }
+.task-card.is-blocked h5, .task-card.is-blocked .task-title { color: var(--color-ink-light); }
 .task-card.is-done .task-title { color: var(--color-muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--color-muted) 50%, transparent); }
 .task-card.just-done { animation: task-pop 600ms ease; }
 @keyframes task-pop {
@@ -213,7 +214,7 @@
 .task-phase, .task-p, .task-flag { font: 700 10px var(--font-ui); letter-spacing: 0.05em; padding: 2px 6px; border-radius: 99px; background: var(--color-border-light); color: var(--color-ink-light); }
 .task-p { background: color-mix(in srgb, var(--color-neutral) 18%, transparent); color: color-mix(in srgb, var(--color-neutral) 70%, var(--color-ink)); }
 .task-flag { margin-left: auto; background: var(--color-accent); color: #fff; }
-.task-flag.blocked { background: var(--color-border); color: var(--color-ink-light); }
+.task-flag.blocked { background: var(--color-border); color: var(--color-ink); }
 .task-flag + .task-flag { margin-left: 0; }
 .task-title { font-size: 13.5px; line-height: 1.4; color: var(--color-ink); margin: 0 0 8px; }
 .task-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 11px; color: var(--color-muted); }
@@ -327,6 +328,7 @@
 .template-tag { font: 700 10px var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-accent); background: var(--accent-tint); padding: 3px 8px; border-radius: 99px; }
 .template-grade { font: 700 12px var(--font-ui); padding: 3px 8px; border-radius: 99px; background: var(--ok-tint); color: var(--color-productive); }
 .template-grade::before { content: "Spec "; font-weight: 500; }
+html:not([data-theme="night"]) .template-grade { color: #156b2e; }
 .template-grade.grade-C, .template-grade.grade-D { background: var(--accent-tint); color: var(--color-accent); }
 .template-card h4 { font-family: var(--font-serif); font-size: 19px; margin: 2px 0 0; color: var(--color-ink); }
 .template-card p { font-size: 13.5px; color: var(--color-ink-light); line-height: 1.5; margin: 0; flex: 1; }
@@ -405,4 +407,14 @@ body.studio-modal-open { overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) {
   .task-card, .template-card, .handoff-quick, .studio-modal, .studio-modal-card { animation: none; transition: none; }
+}
+
+/* ---------- touch devices: no hover, bigger targets ---------- */
+@media (hover: none) {
+  .task-move { opacity: 1; }
+}
+@media (pointer: coarse) {
+  .task-move button { width: 40px; height: 40px; font-size: 16px; }
+  .task-card { padding-bottom: 54px; }
+  .seg button { min-height: 40px; padding-left: 14px; padding-right: 14px; }
 }

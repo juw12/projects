@@ -64,7 +64,7 @@
 
   function splitList(text) {
     return String(text || '')
-      .split(/\n|;|,(?![^()]*\))/)
+      .split(/\n|;|；|，|、|,(?![^()]*\))/)
       .map(function (item) { return item.replace(/^[-*•\s]+/, '').trim(); })
       .filter(function (item) { return item.length > 1; });
   }
@@ -147,6 +147,21 @@
   };
 
   const OBSERVABLE = /\d|file:\/\/|console|boot|load|open|creat|add|delet|remov|updat|edit|filter|search|sort|export|import|download|upload|persist|reload|sav|render|responsive|mobile|offline|sync|notif|remind|sign|log ?in|pay|checkout|share|streak|list|show|display|track|schedul|invite/i;
+  // Chinese and Indonesian action verbs, so non-English success checks are not marked untestable.
+  const OBSERVABLE_INTL = /添加|新增|创建|删除|编辑|修改|保存|查看|显示|看到|搜索|筛选|排序|导出|导入|下载|上传|刷新|打开|登录|注册|分享|提醒|通知|同步|列表|统计|支付|tambah|buat|hapus|ubah|simpan|lihat|tampil|cari|saring|urut|ekspor|impor|unduh|unggah|muat ulang|buka|masuk|daftar|bagikan|ingatkan|notifikasi|sinkron|bayar|daftar/i;
+  const CJK_CHARS = /[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/g;
+
+  // CJK text packs roughly a word per character, so weight it like ~3 Latin characters.
+  function textWeight(value) {
+    const text = String(value || '').trim();
+    const cjk = (text.match(CJK_CHARS) || []).length;
+    return text.length - cjk + cjk * 3;
+  }
+
+  function isObservable(check) {
+    return OBSERVABLE.test(check) || OBSERVABLE_INTL.test(check);
+  }
+
   const GENERIC_USERS = /^(users?|everyone|people|anyone|customers?|clients?|the public)$/i;
 
   const FIELD_LABELS = {
@@ -193,7 +208,7 @@
       });
     });
     const problemLength = String(project.problem || '').trim().length;
-    if (problemLength < 40) {
+    if (textWeight(project.problem) < 40) {
       clarity -= 6;
       issues.push({
         area: 'Clarity',
@@ -206,7 +221,7 @@
     if (clarity >= 22) strengths.push('Clear, concrete wording');
 
     // Testability — enough success checks, each observable.
-    const observable = checks.filter(function (check) { return OBSERVABLE.test(check); });
+    const observable = checks.filter(isObservable);
     let testability = Math.round((Math.min(checks.length, 4) / 4) * 15);
     if (checks.length) testability += Math.round((observable.length / checks.length) * 10);
     if (checks.length < 3) {
@@ -218,7 +233,7 @@
       });
     }
     checks.forEach(function (check) {
-      if (!OBSERVABLE.test(check)) {
+      if (!isObservable(check)) {
         issues.push({
           area: 'Testability',
           field: 'success-checks-container',
@@ -263,7 +278,8 @@
     // User focus — a specific user, a real job, a tight one-liner.
     let focus = 0;
     const user = String(project.targetUser || '').trim();
-    if (user && !GENERIC_USERS.test(user) && user.split(/\s+/).length >= 2) {
+    const userIsSpecific = user.split(/\s+/).length >= 2 || (user.match(CJK_CHARS) || []).length >= 3;
+    if (user && !GENERIC_USERS.test(user) && userIsSpecific) {
       focus += 10;
     } else {
       issues.push({
@@ -273,7 +289,11 @@
         fix: 'add a qualifier, e.g. “freelance designers with 5–20 clients”'
       });
     }
-    if (/\bwhen\b/i.test(project.jtbd || '') && /\b(so|to)\b/i.test(project.jtbd || '')) {
+    const jtbd = String(project.jtbd || '');
+    const jtbdEnglish = /\bwhen\b/i.test(jtbd) && /\b(so|to)\b/i.test(jtbd);
+    const jtbdChinese = /当|在.{0,12}时/.test(jtbd) && /这样|以便|从而|好让|为了|就能|可以/.test(jtbd);
+    const jtbdIndonesian = /\b(ketika|saat|setiap kali)\b/i.test(jtbd) && /\b(agar|supaya|sehingga|untuk)\b/i.test(jtbd);
+    if (jtbdEnglish || jtbdChinese || jtbdIndonesian) {
       focus += 10;
     } else {
       issues.push({
@@ -284,13 +304,14 @@
       });
     }
     const linerLength = String(project.oneLiner || '').trim().length;
-    if (linerLength >= 20 && linerLength <= 140) {
+    const linerWeight = textWeight(project.oneLiner);
+    if (linerWeight >= 20 && linerWeight <= 140) {
       focus += 5;
     } else {
       issues.push({
         area: 'User focus',
         field: 'brief-one-liner',
-        message: linerLength < 20 ? 'One-liner is too short to pitch' : 'One-liner runs long (' + linerLength + ' chars)',
+        message: linerWeight < 20 ? 'One-liner is too short to pitch' : 'One-liner runs long (' + linerLength + ' chars)',
         fix: 'aim for 60–120 characters: who + what + why'
       });
     }
@@ -1039,14 +1060,41 @@
     return 'j' + toBase64Url(bytes);
   }
 
+  const MAX_SHARE_BYTES = 64 * 1024;
+
+  // Read a decompressed stream but stop at a size limit, so a hostile link cannot exhaust memory.
+  async function readCapped(stream, limit) {
+    const reader = stream.getReader();
+    const chunks = [];
+    let total = 0;
+    while (true) {
+      const step = await reader.read();
+      if (step.done) break;
+      total += step.value.length;
+      if (total > limit) {
+        reader.cancel();
+        throw new Error('Share link is too large');
+      }
+      chunks.push(step.value);
+    }
+    const merged = new Uint8Array(total);
+    let offset = 0;
+    chunks.forEach(function (chunk) {
+      merged.set(chunk, offset);
+      offset += chunk.length;
+    });
+    return new TextDecoder().decode(merged);
+  }
+
   async function decodeShare(token) {
+    if (token.length > MAX_SHARE_BYTES) throw new Error('Share link is too large');
     const kind = token.charAt(0);
     const bytes = fromBase64Url(token.slice(1));
     let json;
     if (kind === 'z') {
       if (!window.DecompressionStream) throw new Error('This browser cannot open compressed share links');
       const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-      json = await new Response(stream).text();
+      json = await readCapped(stream, MAX_SHARE_BYTES);
     } else if (kind === 'j') {
       json = new TextDecoder().decode(bytes);
     } else {
@@ -1166,7 +1214,7 @@
       '<div class="template-row" role="list">' +
         TEMPLATES.map(function (template, index) {
           const score = scoreSpec(template);
-          return '<article class="template-card" role="listitem">' +
+          return '<div class="template-card" role="listitem">' +
             '<div class="template-top"><span class="template-tag">' + esc(template.tag) + '</span>' +
             '<span class="template-grade grade-' + score.grade + '" title="Spec score">' + score.score + '</span></div>' +
             '<h4>' + esc(template.name) + '</h4>' +
@@ -1175,7 +1223,7 @@
             '<button type="button" class="btn btn-secondary btn-sm template-remix" data-template="' + index + '">' +
               '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>' +
               ' Remix</button>' +
-          '</article>';
+          '</div>';
         }).join('') +
       '</div>';
     const actions = $('.catalog-actions', section);
@@ -1509,7 +1557,7 @@
         '<div class="prompt-tools"><span class="prompt-count" id="prompt-count">' + prompt.length.toLocaleString() + ' chars</span>' +
         '<button type="button" class="btn btn-text btn-sm" data-studio="reset-prompt">Reset</button>' +
         '<button type="button" class="btn btn-secondary btn-sm" data-studio="copy-prompt">Copy</button></div></div>' +
-      '<textarea id="handoff-prompt" spellcheck="false" rows="14">' + esc(prompt) + '</textarea>' +
+      '<textarea id="handoff-prompt" spellcheck="false" rows="14" aria-label="Builder prompt">' + esc(prompt) + '</textarea>' +
       '<p class="studio-foot">Lovable and v0 open in a new tab with this prompt. Nothing is sent until you press send there.</p>' +
     '</div>';
   }
@@ -1552,7 +1600,7 @@
         '<div class="studio-card">' +
           '<span class="studio-kicker">Remix link</span>' +
           '<h4>Anyone with the link can open and remix this plan</h4>' +
-          '<div class="share-url-row"><input id="share-url" readonly value="Building link…" aria-label="Share link">' +
+          '<div class="share-url-row"><input id="share-url" type="text" readonly value="Building link…" aria-label="Share link">' +
           '<button type="button" class="btn btn-primary btn-sm" data-studio="copy-link">Copy</button></div>' +
           '<p class="studio-foot" id="share-url-length">The whole brief lives inside the link.</p>' +
           '<p class="studio-foot">Includes the brief only — never your progress, notes or Operator data.</p>' +
