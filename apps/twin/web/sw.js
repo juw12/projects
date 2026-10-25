@@ -1,9 +1,9 @@
-// Twin 1.2.0: own cache only; complete offline snapshot; API never cached.
+// Twin 1.3.0: own cache only; complete offline snapshot; API never cached.
 const PREFIX = "twin:" + self.registration.scope + ":";
-const SHELL = PREFIX + "1.2.0";
+const SHELL = PREFIX + "1.3.0";
 const FILES = [
-  "./", "index.html", "./?v=1.2.0", "index.html?v=1.2.0",
-  "demo.js?v=1.2.0", "theme.js?v=1.2.0", "theme.css?v=1.2.0", "manifest.webmanifest",
+  "./", "index.html", "./?v=1.3.0", "index.html?v=1.3.0",
+  "demo.js?v=1.3.0", "pro.js?v=1.3.0", "pro-ui.js?v=1.3.0", "broker-ui.js?v=1.3.0", "academy.js?v=1.3.0", "theme.js?v=1.3.0", "theme.css?v=1.3.0", "manifest.webmanifest",
   "icons/apple-touch-icon.png", "icons/icon-192.png", "icons/icon-512.png",
   "demo/meta.json", "demo/market.json", "demo/monthly.json",
   "demo/news.json", "demo/copycat.json", "demo/trade.json",

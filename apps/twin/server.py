@@ -7,7 +7,8 @@ Wraps two MIT-licensed skill packs by Jake Schincariol:
 and adds accounts, a risk/personality profile, paper trading, a goal planner
 (10,000 simulated futures), a news feed and a guide.
 
-Standard library only. It never places a real order.
+Standard library only. Practice by default; real orders are sent only after a
+signed-in user connects their own Alpaca keys and confirms a preview (see broker.py).
 
     python apps/twin/server.py          # http://127.0.0.1:8765 on this computer
     python apps/twin/server.py --lan    # also reachable from your phone on the same Wi-Fi
@@ -72,7 +73,7 @@ TOOL = {
 }
 
 
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 
 
 class AppError(Exception):
@@ -112,6 +113,9 @@ if CA_BUNDLE:
 SSL_CTX = ssl.create_default_context(cafile=CA_BUNDLE) if CA_BUNDLE else ssl.create_default_context()
 
 _cache = {}
+
+sys.path.insert(0, str(APP_DIR))
+import broker as broker_mod  # noqa: E402  (local module next to this file)
 
 
 def http_json(url, ttl=60):
@@ -961,6 +965,26 @@ def news_feed(uid, profile, p):
 
 # ------------------------------------------------------------------ HTTP
 
+def verify_password(uid, password):
+    """Re-check the signed-in user's Twin password (used before enabling live trading)."""
+    users = load_json(USERS_FILE, {"users": {}}).get("users", {})
+    for record in users.values():
+        if record.get("id") == uid:
+            expected = record.get("hash", "")
+            return bool(password) and secrets.compare_digest(hash_password(str(password), record["salt"]), expected)
+    return False
+
+
+BROKER = broker_mod.Broker(DATA, SSL_CTX, load_json, save_json, lambda symbol: quote(symbol))
+
+
+def broker_call(fn, *args, **kwargs):
+    try:
+        return fn(*args, **kwargs)
+    except broker_mod.BrokerError as exc:
+        raise AppError(str(exc))
+
+
 def lan_ip():
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -1238,6 +1262,34 @@ class Handler(BaseHTTPRequestHandler):
             result = day_trade_step(uid, body.get("step"), mode, body.get("params") or {}, body.get("run_id"))
             result["step"] = body.get("step")
             self.send_json(result)
+        elif path == "/api/broker/status":
+            self.send_json({"ok": True, "broker": broker_call(BROKER.status, uid)})
+        elif path == "/api/broker/connect":
+            status = broker_call(
+                BROKER.connect, uid, body.get("key_id"), body.get("secret"), body.get("mode", "paper"),
+                phrase=body.get("phrase", ""), max_order_usd=body.get("max_order_usd"),
+                password_ok=verify_password(uid, body.get("password")) if body.get("mode") == "live" else False,
+            )
+            self.send_json({"ok": True, "broker": status})
+        elif path == "/api/broker/disconnect":
+            self.send_json({"ok": True, "broker": broker_call(BROKER.disconnect, uid)})
+        elif path == "/api/broker/settings":
+            self.send_json({"ok": True, "broker": broker_call(BROKER.settings, uid, body.get("max_order_usd"))})
+        elif path == "/api/broker/portfolio":
+            self.send_json({
+                "ok": True,
+                "positions": broker_call(BROKER.positions, uid),
+                "orders": broker_call(BROKER.orders, uid, "open"),
+                "recent": broker_call(BROKER.orders, uid, "closed")[:15],
+            })
+        elif path == "/api/broker/preview":
+            self.send_json({"ok": True, "preview": broker_call(BROKER.preview, uid, body.get("order") or {}, profile.get("limits") or {})})
+        elif path == "/api/broker/order":
+            self.send_json({"ok": True, **broker_call(BROKER.place, uid, body.get("preview_id"), body.get("confirm"))})
+        elif path == "/api/broker/cancel":
+            self.send_json({"ok": True, **broker_call(BROKER.cancel, uid, body.get("id"))})
+        elif path == "/api/broker/cancel_all":
+            self.send_json({"ok": True, **broker_call(BROKER.cancel_all, uid)})
         elif path == "/api/trade/reset":
             mode = "demo" if body.get("mode") == "demo" else "live"
             trader = trader_root(uid, mode) / "trader"
