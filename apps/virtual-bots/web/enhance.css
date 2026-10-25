@@ -149,3 +149,23 @@
 .cr-count { font: 700 10px/1 'SF Mono', Consolas, monospace; padding: 3px 6px; border-radius: 99px; background: rgba(139, 92, 246, .2); color: #c4b5fd; }
 .cr-toast a { pointer-events: auto; }
 @media (max-width: 1300px) { .cr-kbd-btn:not(.cr-ai-btn):not(.cr-results-btn) kbd { display: none; } }
+
+/* Glow AI (default provider) */
+.cr-ai-btn.glow {
+  background: linear-gradient(135deg, rgba(245, 158, 11, .18), rgba(236, 72, 153, .16));
+  border-color: rgba(245, 158, 11, .45);
+}
+.cr-glow-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #fbbf24, #ec4899);
+  color: #fff;
+  font-style: normal;
+  font-size: 11px;
+}
+
+.cr-glow-link { text-decoration: none; }

@@ -53,7 +53,7 @@
     wrap.innerHTML = `
       <div class="cr-kpi"><b id="cr-working">0</b><span>Working</span></div>
       <div class="cr-load" title="Crew load"><i id="cr-load"></i></div>
-      <div class="cr-kpi"><b id="cr-done">0</b><span>Finished</span></div>
+      <div class="cr-kpi"><b id="cr-done">0</b><span>Results</span></div>
       <div class="cr-kpi"><b id="cr-epm">0</b><span>Events / min</span></div>
       <canvas class="cr-spark" id="cr-spark" width="280" height="64" aria-hidden="true"></canvas>`;
     left.appendChild(wrap);
@@ -83,6 +83,16 @@
       ai.title = 'AI settings';
       ai.addEventListener('click', () => window.CrewEngine && CrewEngine.openSettings());
       right.insertBefore(ai, results);
+
+      // Ecosystem switcher: jump to Glow (same account, same AI).
+      const glowLink = document.createElement('a');
+      glowLink.className = 'cr-kbd-btn cr-glow-link';
+      glowLink.href = '../glow/';
+      glowLink.target = 'glow';
+      glowLink.rel = 'noopener';
+      glowLink.title = 'Open Glow — chat, council and arena with the same Glow account';
+      glowLink.innerHTML = '<i class="cr-glow-mark">✦</i>Glow';
+      right.insertBefore(glowLink, ai);
       updateAiButton();
     }
   }
@@ -91,8 +101,10 @@
     const ai = document.getElementById('cr-ai-btn');
     if (!ai || !window.CrewEngine) return;
     const s = CrewEngine.getSettings();
+    const isGlow = s.provider === 'glow';
+    ai.classList.toggle('glow', s.realMode && isGlow);
     ai.innerHTML = s.realMode
-      ? `<i class="cr-ai-dot"></i>${esc(CrewEngine.providerLabel())}`
+      ? `${isGlow ? '<i class="cr-glow-mark">✦</i>' : '<i class="cr-ai-dot"></i>'}${esc(CrewEngine.providerLabel())}`
       : '<i class="cr-ai-dot off"></i>Demo mode';
     const running = CrewEngine.runs.filter(r => r.status === 'running').length;
     const count = document.getElementById('cr-run-count');
@@ -102,13 +114,13 @@
   let finishedCount = 0;
 
   function updateKpis() {
-    const keys = Object.keys(office.BOT_CONFIG);
+    const keys = crewKeys();
     const working = keys.filter(k => office.state.bots[k]?.state === 'working').length;
     const el = id => document.getElementById(id);
     if (!el('cr-working')) return;
     el('cr-working').innerHTML = `${working}<small>/${keys.length}</small>`;
     el('cr-load').style.width = (working / keys.length * 100).toFixed(0) + '%';
-    el('cr-done').textContent = finishedCount;
+    el('cr-done').textContent = window.CrewEngine ? CrewEngine.runs.filter(r => r.status === 'done').length : finishedCount;
 
     const now = Date.now();
     while (eventTimes.length && now - eventTimes[0] > 120000) eventTimes.shift();
@@ -198,7 +210,7 @@
     if (!dock) return;
     const r = 11;
     const circ = 2 * Math.PI * r;
-    dock.innerHTML = Object.entries(office.BOT_CONFIG).map(([key, cfg]) => {
+    dock.innerHTML = crewKeys().map(key => [key, office.BOT_CONFIG[key]]).map(([key, cfg]) => {
       const bs = office.state.bots[key] || {};
       const status = bs.state || 'idle';
       const np = bs.nameplate || {};
@@ -351,6 +363,29 @@
     return window.CrewEngine && CrewEngine.getSettings().realMode;
   }
 
+  // The bots that do real work (the rest of the office is scenery).
+  function crewKeys() {
+    const all = Object.keys(office.BOT_CONFIG);
+    if (!window.CrewEngine) return all;
+    return all.filter(k => CrewEngine.BOTS[k]);
+  }
+
+  // With real AI on, the canned demo feed would show fake work as if it were real. Keep it off
+  // unless the user explicitly turns the simulation on.
+  function silenceDemoFeed() {
+    const feed = office.app && office.app.feed;
+    if (!feed || !realModeOn() || office.state.simulating) return;
+    if (feed.constructor && feed.constructor.name === 'MockFeed' && feed.isPlaying) {
+      feed.stop();
+      Object.keys(office.BOT_CONFIG).forEach(key => {
+        const bs = office.state.bots[key];
+        if (bs && bs.state === 'working' && !CrewEngine.runs.some(r => r.status === 'running')) {
+          office.app.ui.updateBotState(key, 'end', null, 'Ready', null);
+        }
+      });
+    }
+  }
+
   function startRealRun(goal, agent) {
     // Leader = whole crew (Nova plans); any other bot = that bot alone.
     const run = CrewEngine.start(goal, { bots: agent && agent !== 'leader' ? [agent] : [] });
@@ -410,8 +445,10 @@
     if (!window.CrewEngine) return;
     interceptConsole();
     CrewEngine.on('bot', feedOffice);
+    CrewEngine.on('notice', message => toast(`<b style="--c:#f59e0b">✦ Glow</b> · ${esc(message)}`, '#f59e0b'));
     CrewEngine.on('settings', () => {
       updateAiButton();
+      silenceDemoFeed();
       const label = document.querySelector('#command-send [data-i18n="console.send"]');
       if (label) label.textContent = realModeOn() ? 'Run with AI' : 'Send Command';
     });
@@ -423,8 +460,8 @@
       } else if (run.status === 'error') {
         toast(`<b>Couldn't finish</b> · ${esc(run.error || '')}`, '#ef4444', true);
       }
-      // Resume the ambient demo feed once nothing real is running.
-      if (pausedMockFeed && !CrewEngine.runs.some(r => r.status === 'running')) {
+      // Only resume the canned demo feed when real AI is switched off.
+      if (pausedMockFeed && !realModeOn() && !CrewEngine.runs.some(r => r.status === 'running')) {
         resumeTimer = setTimeout(() => {
           if (office.state.isPlaying && office.app.feed && !office.app.feed.isPlaying) office.app.feed.start();
           pausedMockFeed = false;
@@ -647,9 +684,11 @@
     window.addEventListener('office-event', onOfficeEvent);
     // Keep dock/KPIs fresh for state changes that don't emit events (done → idle timers).
     setInterval(() => {
+      silenceDemoFeed();
       renderDock();
       updateKpis();
     }, 1000);
+    silenceDemoFeed();
     updateKpis();
   }
 

@@ -191,9 +191,16 @@
     const el = document.getElementById('cn-ai');
     if (!el) return;
     const s = Engine.getSettings();
-    el.innerHTML = s.realMode
-      ? `<span style="color:#10b981">●</span> Real AI · ${esc(Engine.providerLabel())} · <button>change</button>`
-      : '<span style="color:#f59e0b">●</span> Demo mode · <button>turn on real AI</button>';
+    const glowInfo = s.provider === 'glow' && Engine.glow ? Engine.glow.status() : null;
+    if (!s.realMode) {
+      el.innerHTML = '<span style="color:#f59e0b">●</span> Demo mode · <button>turn on real AI</button>';
+    } else if (glowInfo) {
+      el.innerHTML = glowInfo.signedIn
+        ? `<span class="cn-glow-dot">✦</span> Powered by Glow · ${esc(glowInfo.model)} · <button>change</button>`
+        : `<span class="cn-glow-dot">✦</span> Powered by Glow Free · <button>sign in for stronger models</button>`;
+    } else {
+      el.innerHTML = `<span style="color:#10b981">●</span> Real AI · ${esc(Engine.providerLabel())} · <button>change</button>`;
+    }
   }
 
   function submit() {
@@ -495,7 +502,7 @@
           <button class="cn-mission-btn" data-w="0"><span class="ic">🔎</span><span>Compare budget 3D printers<small>Scout reads live reviews and cites them</small></span></button>
           <button class="cn-mission-btn" data-w="1"><span class="ic">⚙️</span><span>Loan calculator<small>Byte writes code and actually runs it</small></span></button>
         </div>
-        <div class="cn-wfoot"><span>Free AI built in · no sign-up</span><button data-w="skip">Explore the office →</button></div>
+        <div class="cn-wfoot"><span>✦ Powered by Glow AI · free, no sign-up</span><button data-w="skip">Explore the office →</button></div>
       </div>`;
     document.getElementById('viewport').appendChild(el);
     el.addEventListener('click', e => {
@@ -531,7 +538,19 @@
     buildCommandBar();
     wire();
     setTimeout(keepRailHeader, 300);
-    setTimeout(showWelcome, 600);
+    const sharedGoal = new URLSearchParams(location.search).get('goal');
+    if (sharedGoal) {
+      localStorage.setItem(WELCOME_KEY, '1');
+      const input = document.getElementById('cn-input');
+      if (input) {
+        input.value = sharedGoal.slice(0, 2000);
+        input.dispatchEvent(new Event('input'));
+        input.focus();
+      }
+      history.replaceState(null, '', location.pathname + location.hash);
+    } else {
+      setTimeout(showWelcome, 600);
+    }
   }
 
   if (window.__office) {

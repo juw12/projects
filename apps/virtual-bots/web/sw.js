@@ -1,7 +1,7 @@
 // Crewroom service worker: installable + offline.
 // Pages are network-first (so updates ship immediately); static assets are cache-first.
 (function () {
-  var CACHE_NAME = 'crewroom-v4';
+  var CACHE_NAME = 'crewroom-v5';
   var SCOPE = self.registration.scope;
 
   function resolveUrl(path) {
