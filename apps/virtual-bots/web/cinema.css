@@ -1,0 +1,207 @@
+/* Crewroom cinematic layer: command bar, live 3D speech bubbles, event FX,
+   mission pipeline, party-frame crew rail, cinema layout and welcome. */
+
+:root {
+  --cn-glass: rgba(12, 17, 26, .72);
+  --cn-glass-strong: rgba(12, 17, 26, .86);
+  --cn-line: rgba(148, 163, 184, .16);
+  --cn-text: #eef2f8;
+  --cn-muted: #9aa8bc;
+  --cn-accent: #7c8cff;
+  --cn-grad: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 55%, #ec4899 100%);
+  --cn-shadow: 0 24px 60px -24px rgba(0, 0, 0, .75);
+}
+[data-theme="light"] {
+  --cn-glass: rgba(255, 255, 255, .78);
+  --cn-glass-strong: rgba(255, 255, 255, .92);
+  --cn-line: rgba(15, 23, 42, .12);
+  --cn-text: #0f172a;
+  --cn-muted: #475569;
+  --cn-shadow: 0 24px 60px -28px rgba(15, 23, 42, .35);
+}
+
+/* ---------- Cinema layout: the office fills the screen ---------- */
+body.cr-cinema { grid-template-columns: 1fr 0 !important; }
+body.cr-cinema > .sidebar { display: none !important; }
+.viewport::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 5;
+  background:
+    radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(3, 6, 12, .55) 100%),
+    linear-gradient(180deg, rgba(3, 6, 12, .25), transparent 18%, transparent 75%, rgba(3, 6, 12, .45));
+}
+[data-theme="light"] .viewport::after { background: radial-gradient(120% 90% at 50% 40%, transparent 60%, rgba(15, 23, 42, .18) 100%); }
+
+/* ---------- Crew rail (party frames) ---------- */
+.cr-dock {
+  left: 14px !important; top: 14px !important; bottom: auto !important;
+  transform: none !important; flex-direction: column; gap: 4px !important;
+  max-height: calc(100% - 150px); overflow-y: auto; overflow-x: hidden;
+  padding: 6px !important; border-radius: 16px !important; width: 196px; z-index: 12 !important;
+}
+.cr-dock .cr-chip { width: 100%; padding: 5px 8px 5px 5px; }
+.cr-dock .cr-chip-text span { max-width: 128px; }
+.cr-dock .cr-chip::after {
+  content: ''; position: absolute; left: 44px; right: 10px; bottom: 3px; height: 2px; border-radius: 2px;
+  background: linear-gradient(90deg, var(--c), transparent); opacity: 0; transition: opacity .3s;
+}
+.cr-dock .cr-chip.working::after { opacity: .8; animation: cn-scan 1.6s linear infinite; background-size: 200% 100%; }
+@keyframes cn-scan { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+.cr-rail-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 8px 6px; font: 700 10px/1 'SF Mono', Consolas, monospace; letter-spacing: .12em; color: var(--cn-muted); text-transform: uppercase; }
+
+/* ---------- Command bar ("CEO seat") ---------- */
+.cn-command {
+  position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 14;
+  width: min(760px, calc(100% - 260px));
+  border-radius: 22px; padding: 10px 10px 10px 14px;
+  background: var(--cn-glass-strong); border: 1px solid var(--cn-line);
+  backdrop-filter: blur(20px) saturate(170%); -webkit-backdrop-filter: blur(20px) saturate(170%);
+  box-shadow: var(--cn-shadow), 0 0 0 1px rgba(124, 140, 255, .08);
+  color: var(--cn-text);
+  transition: box-shadow .25s, transform .25s;
+}
+.cn-command::before {
+  content: ''; position: absolute; inset: -1px; border-radius: 23px; padding: 1px; pointer-events: none;
+  background: var(--cn-grad); opacity: .0; transition: opacity .25s;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+}
+.cn-command.focus::before, .cn-command.busy::before { opacity: .9; }
+.cn-command.busy::before { animation: cn-glow 2.4s linear infinite; background-size: 300% 300%; }
+@keyframes cn-glow { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+.cn-row { display: flex; align-items: flex-end; gap: 10px; }
+.cn-input {
+  flex: 1; min-height: 26px; max-height: 120px; resize: none; border: 0; outline: none; background: transparent;
+  color: inherit; font: 500 16px/1.45 -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif; padding: 6px 2px;
+}
+.cn-input::placeholder { color: var(--cn-muted); }
+.cn-send {
+  width: 44px; height: 44px; border-radius: 14px; border: 0; cursor: pointer; flex: none;
+  background: var(--cn-grad); color: #fff; display: grid; place-items: center;
+  box-shadow: 0 10px 24px -10px rgba(139, 92, 246, .9); transition: transform .12s, opacity .15s, filter .15s;
+}
+.cn-send:hover { filter: brightness(1.08); }
+.cn-send:active { transform: scale(.94); }
+.cn-send:disabled { opacity: .4; box-shadow: none; cursor: default; }
+.cn-send svg { width: 20px; height: 20px; }
+.cn-crew { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; overflow-x: auto; scrollbar-width: none; }
+.cn-crew::-webkit-scrollbar { display: none; }
+.cn-pick {
+  display: inline-flex; align-items: center; gap: 6px; flex: none; cursor: pointer;
+  padding: 4px 10px 4px 4px; border-radius: 99px; border: 1px solid var(--cn-line);
+  background: transparent; color: var(--cn-muted); font: 600 12px/1 -apple-system, sans-serif; transition: all .15s;
+}
+.cn-pick i { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 800 10px/1 sans-serif; font-style: normal; background: var(--c); }
+.cn-pick:hover { color: var(--cn-text); border-color: var(--c); }
+.cn-pick.on { color: var(--cn-text); background: color-mix(in srgb, var(--c) 22%, transparent); border-color: var(--c); }
+.cn-meta { display: flex; align-items: center; gap: 10px; margin-top: 6px; font-size: 11px; color: var(--cn-muted); }
+.cn-meta kbd { font: 600 10px 'SF Mono', Consolas, monospace; padding: 2px 5px; border-radius: 5px; border: 1px solid var(--cn-line); }
+.cn-meta .grow { flex: 1; }
+.cn-meta button { border: 0; background: none; color: var(--cn-accent); font: 600 11px inherit; cursor: pointer; padding: 0; }
+.cn-ideas { display: flex; gap: 6px; margin-top: 8px; overflow-x: auto; scrollbar-width: none; }
+.cn-ideas::-webkit-scrollbar { display: none; }
+.cn-idea { flex: none; padding: 6px 10px; border-radius: 10px; border: 1px dashed var(--cn-line); background: transparent; color: var(--cn-muted); font: 500 12px -apple-system, sans-serif; cursor: pointer; }
+.cn-idea:hover { color: var(--cn-text); border-style: solid; border-color: var(--cn-accent); }
+
+/* ---------- Mission pipeline ---------- */
+.cn-mission {
+  position: absolute; top: 14px; left: 50%; transform: translate(-50%, -140%); z-index: 13;
+  display: flex; align-items: center; gap: 12px; max-width: calc(100% - 440px);
+  padding: 8px 10px 8px 14px; border-radius: 16px;
+  background: var(--cn-glass-strong); border: 1px solid var(--cn-line); color: var(--cn-text);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: var(--cn-shadow);
+  transition: transform .45s cubic-bezier(.2, .9, .2, 1);
+}
+.cn-mission.show { transform: translate(-50%, 0); }
+.cn-goal { font: 700 13px -apple-system, sans-serif; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cn-time { font: 600 11px 'SF Mono', Consolas, monospace; color: var(--cn-muted); }
+.cn-steps { display: flex; align-items: center; gap: 4px; }
+.cn-step { display: flex; align-items: center; gap: 6px; padding: 3px 9px 3px 3px; border-radius: 99px; font: 600 11px -apple-system, sans-serif; color: var(--cn-muted); background: rgba(148, 163, 184, .1); position: relative; }
+.cn-step i { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 800 10px sans-serif; font-style: normal; background: var(--c); opacity: .55; }
+.cn-step.running { color: var(--cn-text); background: color-mix(in srgb, var(--c) 22%, transparent); box-shadow: 0 0 0 1px var(--c), 0 0 18px -4px var(--c); }
+.cn-step.running i { opacity: 1; animation: cn-pulse 1.2s ease-in-out infinite; }
+.cn-step.done { color: var(--cn-text); }
+.cn-step.done i { opacity: 1; }
+.cn-step.done::after { content: '✓'; position: absolute; right: -3px; top: -5px; width: 13px; height: 13px; border-radius: 50%; background: #10b981; color: #fff; font: 800 8px/13px sans-serif; text-align: center; }
+.cn-step.error i { background: #ef4444; opacity: 1; }
+.cn-arrow { color: var(--cn-muted); opacity: .5; font-size: 11px; }
+@keyframes cn-pulse { 50% { transform: scale(1.18); } }
+.cn-mbtn { height: 30px; padding: 0 11px; border-radius: 9px; border: 1px solid var(--cn-line); background: transparent; color: var(--cn-text); font: 600 12px -apple-system, sans-serif; cursor: pointer; white-space: nowrap; }
+.cn-mbtn:hover { border-color: var(--cn-accent); }
+.cn-mbtn.on { background: rgba(124, 140, 255, .18); border-color: var(--cn-accent); }
+.cn-mbtn.primary { background: var(--cn-grad); border-color: transparent; color: #fff; }
+.cn-mbtn.stop { color: #f87171; }
+
+/* ---------- 3D speech bubbles + event FX ---------- */
+.cn-layer { position: absolute; inset: 0; pointer-events: none; z-index: 8; overflow: hidden; }
+.cn-bubble {
+  position: absolute; left: 0; top: 0; max-width: 250px; min-width: 120px;
+  padding: 8px 11px 9px; border-radius: 13px 13px 13px 4px;
+  background: var(--cn-glass-strong); color: var(--cn-text); border: 1px solid var(--cn-line);
+  border-left: 3px solid var(--c);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 14px 30px -14px rgba(0, 0, 0, .7);
+  font: 500 12px/1.4 -apple-system, BlinkMacSystemFont, sans-serif;
+  transform-origin: 0 100%; opacity: 0; transition: opacity .3s;
+  will-change: transform;
+}
+.cn-bubble.show { opacity: 1; }
+.cn-bubble b { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--c); margin-bottom: 2px; letter-spacing: .02em; }
+.cn-bubble b em { font-style: normal; font-weight: 600; color: var(--cn-muted); }
+.cn-bubble .t { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+.cn-bubble.typing .t::after { content: '▍'; color: var(--c); animation: cn-blink 1s steps(1) infinite; }
+.cn-bubble.code .t { font: 11px/1.4 'SF Mono', Consolas, monospace; }
+@keyframes cn-blink { 50% { opacity: 0; } }
+.cn-fx {
+  position: absolute; left: 0; top: 0; font-size: 22px; pointer-events: none;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, .5)); animation: cn-rise 1.6s cubic-bezier(.2, .8, .3, 1) forwards;
+}
+@keyframes cn-rise {
+  0% { opacity: 0; transform: translate(-50%, 0) scale(.5); }
+  15% { opacity: 1; transform: translate(-50%, -14px) scale(1.15); }
+  70% { opacity: 1; transform: translate(-50%, -42px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -60px) scale(.9); }
+}
+
+/* ---------- Welcome ---------- */
+.cn-welcome {
+  position: absolute; inset: 0; z-index: 20; display: grid; place-items: center;
+  background: radial-gradient(60% 60% at 50% 45%, rgba(10, 14, 22, .55), rgba(5, 8, 14, .82));
+  backdrop-filter: blur(3px); animation: cn-fade .4s ease;
+}
+@keyframes cn-fade { from { opacity: 0; } }
+.cn-wcard {
+  width: min(620px, calc(100% - 40px)); padding: 28px; border-radius: 24px; color: var(--cn-text);
+  background: var(--cn-glass-strong); border: 1px solid var(--cn-line); box-shadow: var(--cn-shadow);
+  animation: cn-pop .45s cubic-bezier(.2, .9, .3, 1.15);
+}
+@keyframes cn-pop { from { transform: translateY(14px) scale(.97); opacity: 0; } }
+.cn-wcard h2 { margin: 0 0 6px; font: 800 28px/1.15 -apple-system, sans-serif; letter-spacing: -.03em; }
+.cn-wcard h2 span { background: var(--cn-grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.cn-wcard p { margin: 0 0 18px; color: var(--cn-muted); font-size: 14px; line-height: 1.55; }
+.cn-faces { display: flex; gap: 8px; margin-bottom: 18px; }
+.cn-face { display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 1; padding: 10px 4px; border-radius: 14px; background: rgba(148, 163, 184, .08); font: 600 11px -apple-system, sans-serif; color: var(--cn-muted); text-align: center; }
+.cn-face i { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 800 14px sans-serif; font-style: normal; background: var(--c); box-shadow: 0 6px 16px -6px var(--c); }
+.cn-face b { color: var(--cn-text); font-size: 12px; }
+.cn-missions { display: grid; gap: 8px; }
+.cn-mission-btn {
+  display: flex; align-items: center; gap: 12px; text-align: left; padding: 12px 14px; border-radius: 14px; cursor: pointer;
+  border: 1px solid var(--cn-line); background: rgba(148, 163, 184, .06); color: var(--cn-text); font: 500 13px -apple-system, sans-serif;
+  transition: border-color .15s, transform .12s, background .15s;
+}
+.cn-mission-btn:hover { border-color: var(--cn-accent); background: rgba(124, 140, 255, .1); transform: translateY(-1px); }
+.cn-mission-btn .ic { font-size: 20px; }
+.cn-mission-btn small { display: block; color: var(--cn-muted); font-size: 12px; margin-top: 2px; }
+.cn-wfoot { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; font-size: 12px; color: var(--cn-muted); }
+.cn-wfoot button { border: 0; background: none; color: var(--cn-accent); font: 700 13px -apple-system, sans-serif; cursor: pointer; }
+
+/* Toasts sit under the mission strip. */
+.cr-toasts { top: 70px !important; }
+
+@media (max-width: 1100px) {
+  .cn-command { width: calc(100% - 40px); }
+  .cr-dock { width: 58px; }
+  .cr-dock .cr-chip-text { display: none; }
+  .cn-mission { max-width: calc(100% - 40px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cn-fx, .cn-step.running i, .cn-command.busy::before, .cr-dock .cr-chip.working::after { animation: none !important; }
+}

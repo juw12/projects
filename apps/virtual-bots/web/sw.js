@@ -1,6 +1,7 @@
-// Virtual Bots - service worker: makes the studio installable and works offline.
+// Crewroom service worker: installable + offline.
+// Pages are network-first (so updates ship immediately); static assets are cache-first.
 (function () {
-  var CACHE_NAME = 'virtual-bots-v1';
+  var CACHE_NAME = 'crewroom-v4';
   var SCOPE = self.registration.scope;
 
   function resolveUrl(path) {
@@ -11,6 +12,11 @@
     resolveUrl('./app.html'),
     resolveUrl('./index.html'),
     resolveUrl('./mobile.html'),
+    resolveUrl('./enhance.js'),
+    resolveUrl('./crew-engine.js'),
+    resolveUrl('./cinema.js'),
+    resolveUrl('./cinema.css'),
+    resolveUrl('./enhance.css'),
     resolveUrl('./manifest.webmanifest'),
     resolveUrl('./icons/app-icon.svg'),
     resolveUrl('./assets/logo.svg'),
@@ -43,6 +49,10 @@
     );
   });
 
+  function isPage(req, url) {
+    return req.mode === 'navigate' || /\.html?$/.test(url.pathname) || url.pathname.endsWith('/');
+  }
+
   self.addEventListener('fetch', function (event) {
     var req = event.request;
     if (req.method !== 'GET') return;
@@ -50,6 +60,22 @@
     // Only handle same-origin static assets; never intercept the live bridge API.
     if (url.origin !== self.location.origin) return;
     if (url.pathname.split('/').indexOf('api') !== -1) return;
+
+    if (isPage(req, url)) {
+      event.respondWith(
+        fetch(req).then(function (res) {
+          var copy = res.clone();
+          caches.open(CACHE_NAME).then(function (cache) {
+            cache.put(req, copy);
+          });
+          return res;
+        }).catch(function () {
+          return caches.match(req);
+        })
+      );
+      return;
+    }
+
     event.respondWith(
       caches.match(req).then(function (cached) {
         return cached || fetch(req);
