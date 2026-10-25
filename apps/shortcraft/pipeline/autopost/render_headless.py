@@ -10,6 +10,7 @@ Requires: Google Chrome, `pip install websocket-client edge-tts imageio-ffmpeg`.
 
 import base64
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -41,45 +42,71 @@ def chrome_path():
     return found
 
 
+def trim_silence(source, target):
+    """Trim the TTS engine's leading/trailing silence: tighter, more natural pacing."""
+    subprocess.run([
+        imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-loglevel", "error", "-i", str(source), "-af",
+        "silenceremove=start_periods=1:start_threshold=-45dB,areverse,"
+        "silenceremove=start_periods=1:start_threshold=-45dB,areverse",
+        str(target),
+    ], check=True)
+
+
 def make_voices(project, out_dir):
     """Neural voice per scene. A project can override the voice with
     "voiceConfig": {"name": "id-ID-GadisNeural", "rate": "+0%", "pitch": "+0Hz"}.
-    Cloned voice (see voice_clone.py): "voiceConfig": {"provider": "elevenlabs", "speed": 1.08,
-    "stability": 0.45, "style": 0.25}; key/voice id come from env or secrets/."""
+    Own voice, paid (see voice_clone.py): {"provider": "elevenlabs", "speed": 1.08}.
+    Own voice, free (see voice_convert.py): {"provider": "openvoice", "name": "id-ID-ArdiNeural"};
+    the edge-tts clip is re-coloured to the owner's timbre on CPU (OPENVOICE_PYTHON selects the env)."""
     tool = shutil.which("edge-tts") or str(Path(sys.executable).with_name("edge-tts"))
     voice, rate = VOICES.get(project.get("lang", "en"), VOICES["en"])
     pitch = "+0Hz"
     override = project.get("voiceConfig") or {}
+    provider = override.get("provider", "edge")
+    if provider == "openvoice":
+        voice = "id-ID-ArdiNeural"
     voice = override.get("name", voice)
     rate = override.get("rate", rate)
     pitch = override.get("pitch", pitch)
-    provider = override.get("provider", "edge")
-    clone_settings = {key: value for key, value in override.items() if key not in ("provider", "name", "rate", "pitch")}
+    here = Path(__file__).resolve().parent
     if provider == "elevenlabs":
-        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        sys.path.insert(0, str(here))
         import voice_clone
+    clone_settings = {key: value for key, value in override.items() if key not in ("provider", "name", "rate", "pitch")}
+
     files = []
+    pending = []  # (raw clip, final mp3) pairs still to convert/trim
     for i, scene in enumerate(project["scenes"]):
         text = (scene.get("narration") or "").strip()
         target = out_dir / f"scene_{i + 1:02d}.mp3"
-        if text:
-            raw_clip = out_dir / f"scene_{i + 1:02d}_raw.mp3"
-            if provider == "elevenlabs":
-                voice_clone.synthesize(text, raw_clip, clone_settings)
-            else:
-                subprocess.run([tool, "--voice", voice, f"--rate={rate}", f"--pitch={pitch}", "--text", text,
-                                "--write-media", str(raw_clip)], check=True, capture_output=True)
-            # trim the TTS engine's leading/trailing silence: tighter, more natural pacing
-            subprocess.run([
-                imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-loglevel", "error", "-i", str(raw_clip), "-af",
-                "silenceremove=start_periods=1:start_threshold=-45dB,areverse,"
-                "silenceremove=start_periods=1:start_threshold=-45dB,areverse",
-                str(target),
-            ], check=True)
-            raw_clip.unlink()
-            files.append(target.name)
-        else:
+        if not text:
             files.append(None)
+            continue
+        raw_clip = out_dir / f"scene_{i + 1:02d}_raw.mp3"
+        if provider == "elevenlabs":
+            voice_clone.synthesize(text, raw_clip, clone_settings)
+        else:
+            subprocess.run([tool, "--voice", voice, f"--rate={rate}", f"--pitch={pitch}", "--text", text,
+                            "--write-media", str(raw_clip)], check=True, capture_output=True)
+        pending.append((raw_clip, target))
+        files.append(target.name)
+
+    if provider == "openvoice" and pending:
+        converted = [(raw, raw.with_name(raw.stem + "_me.wav")) for raw, _ in pending]
+        python = os.environ.get("OPENVOICE_PYTHON", sys.executable)
+        args = [python, str(here / "voice_convert.py"), "batch"]
+        for raw, wav in converted:
+            args += [str(raw), str(wav)]
+        env = {**os.environ, "OPENVOICE_BASE": voice, "OPENVOICE_TAU": str(override.get("tau", 0.3))}
+        subprocess.run(args, check=True, env=env, capture_output=True)
+        for (raw, wav), (_, target) in zip(converted, pending):
+            trim_silence(wav, target)
+            raw.unlink()
+            wav.unlink()
+    else:
+        for raw, target in pending:
+            trim_silence(raw, target)
+            raw.unlink()
     return files
 
 
