@@ -4,6 +4,7 @@
 No third-party test dependencies. Only an ephemeral local server and fresh browser
 profile are used; does not touch the user's normal browser profile.
 """
+import errno
 import functools
 import html
 import http.server
@@ -14,9 +15,37 @@ import shutil
 import subprocess
 import tempfile
 import threading
+import time
 from pathlib import Path
 
 APP = Path(__file__).resolve().parent.parent
+
+
+class BrowserProfile(tempfile.TemporaryDirectory):
+    """Chrome helper processes can briefly flush files after the parent exits.
+
+    Retry only ENOTEMPTY from that teardown race. Never suppress browser test
+    failures or unrelated filesystem errors, and keep the cleanup retry bounded.
+    """
+
+    def cleanup(self):
+        for attempt in range(8):
+            try:
+                super().cleanup()
+                return
+            except OSError as error:
+                if error.errno != errno.ENOTEMPTY or attempt == 7:
+                    raise
+                time.sleep(0.15 * (attempt + 1))
+
+
+def accept_report(latest, report, report_lock, finished):
+    """Progress POSTs may arrive after the terminal report; completion is sticky."""
+    with report_lock:
+        if not latest.get('done'):
+            latest.update(report)
+        if latest.get('done'):
+            finished.set()
 
 
 def main():
@@ -29,6 +58,7 @@ def main():
         return
 
     finished = threading.Event()
+    report_lock = threading.Lock()
     latest = {"done": False, "checks": []}
 
     class Handler(http.server.SimpleHTTPRequestHandler):
@@ -37,9 +67,7 @@ def main():
                 self.send_error(404)
                 return
             report = json.loads(self.rfile.read(int(self.headers.get('Content-Length', '0'))))
-            latest.update(report)
-            if report.get('done'):
-                finished.set()
+            accept_report(latest, report, report_lock, finished)
             self.send_response(204)
             self.end_headers()
 
@@ -61,7 +89,7 @@ def main():
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        with tempfile.TemporaryDirectory(prefix='trade-twin-browser-') as profile:
+        with BrowserProfile(prefix='trade-twin-browser-') as profile:
             args = [browser, '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
                     '--disable-extensions', '--disable-background-networking',
                     '--user-data-dir=' + profile,
@@ -71,7 +99,8 @@ def main():
             process = subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             try:
                 finished.wait(45)
-                report = dict(latest)
+                with report_lock:
+                    report = dict(latest)
             finally:
                 process.terminate()
                 try:

@@ -49,3 +49,12 @@ when a later build is ready; it does not silently reload. Coming from v1.0,
 close all open Hookline tabs/PWA windows and reopen so the waiting worker can
 activate. Re-upload originals to load v1.1 portable recipes. Recreate legacy
 v1.0 recipes because their temporary source IDs cannot be safely recovered.
+
+## Shared CI cleanup follow-up
+
+Hookline's tests passed in GitHub CI, but the repository job then failed while
+removing a separate Trade Twin browser-test profile. Chrome helper processes can
+briefly write after the parent process exits. That test-only cleanup now retries
+only `ENOTEMPTY`, with a bounded delay; permission errors and persistent cleanup
+failures still fail. Four regressions cover the retry, non-suppression, retry bound and a terminal-report latch. Late progress POSTs can no longer overwrite a completed result.
+No Trade Twin product behavior was changed.
