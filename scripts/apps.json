@@ -399,8 +399,8 @@
       "id": "shortcraft",
       "name": "Shortcraft",
       "category": "Software",
-      "desc": "Make faceless 9:16 explainer shorts in the browser — captions, music and MP4 export",
-      "description": "A zero-install web studio for faceless explainer shorts in English and Bahasa Indonesia. Write hook &rarr; steps &rarr; CTA scenes, pick the editorial step-tracker or dark teardown template, record or upload your voice per scene (timing follows the audio) and export a 1080&times;1920 MP4 with burned-in captions and generated, copyright-free music. Includes a viral checklist, a post kit (title, caption, hashtags) and an optional Python pipeline for neural voiceovers and full renders. Grew out of four hand-rendered pilot videos (CCTV teardown and NPI &ldquo;5 gates&rdquo;, EN/ID). A working tool &mdash; it makes the format fast; it does not guarantee views.",
+      "desc": "Make faceless 9:16 explainer shorts in the browser — captions, music, MP4 export, channel kit and publishing",
+      "description": "A zero-install web studio for faceless explainer shorts in English and Bahasa Indonesia. Write hook &rarr; steps &rarr; CTA scenes, pick the editorial step-tracker or dark teardown template, record or upload your voice per scene (timing follows the audio) and export a 1080&times;1920 MP4 with burned-in captions and generated, copyright-free music. Includes a viral checklist, a post kit (title, caption, hashtags) and an optional Python pipeline for neural voiceovers and full renders. New: a Channel Kit (one prompt &rarr; names, bios, 30-day plan, avatar and banner), direct YouTube upload and an opt-in autoposter for YouTube, TikTok and Instagram with a review-before-post queue. Grew out of four hand-rendered pilot videos (CCTV teardown and NPI &ldquo;5 gates&rdquo;, EN/ID). A working tool &mdash; it makes the format fast; it does not guarantee views.",
       "tags": [
         "video",
         "Canvas",
