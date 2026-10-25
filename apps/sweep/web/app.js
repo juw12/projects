@@ -1132,7 +1132,7 @@ function openProject(id) {
   state.verifyGates = project.verifyGates || {};
   ensureOperator(project);
   renderPlanView(project);
-  updateNavForProject();
+  updateNavForProject(project);
   navigateTo('plan');
 }
 
@@ -1907,6 +1907,7 @@ function generateMemoryNote(project) {
   const date = new Date().toISOString().split('T')[0];
   const id = `${toKebabCase(project.name)}-${Date.now()}`;
   
+  const growPlan = generateGrowPlan(project);
   const earnPlan = generateEarnPlan(project);
   
   return `---

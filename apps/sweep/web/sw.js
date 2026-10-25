@@ -1,13 +1,15 @@
 // Sweep Service Worker — Offline-first caching
 // Network-first for HTML/navigation, cache-first for static assets
 
-const CACHE_NAME = 'sweep-v7-operator';
+const CACHE_NAME = 'sweep-v8-interactive';
 const ASSETS_TO_CACHE = [
   './app.html',
   './index.html',
   './mobile.html',
   './styles.css',
   './app.js',
+  './enhance.js',
+  './enhance.css',
   './manifest.webmanifest',
   './icons/app-icon.svg'
 ];
