@@ -11,6 +11,7 @@ runnable, deployable project.
 | [`apps/hazel`](apps/hazel) | Desktop studio for creators — auto-cut, repurpose to every platform, publish, measure traffic | Electron + bundled ffmpeg + local Whisper (offline) |
 | [`apps/sweep`](apps/sweep) | The `/sweep` pipeline — validate, then sync the repo to GitHub and mirror a note to Obsidian | PowerShell helper + OpenCode slash command |
 | [`apps/trade-twin`](apps/trade-twin) | Invest and day-trade with a twin that replays 10,000 futures — personality test, paper trading, goal planner, copy a 13F, news | Zero-dependency Python stdlib server + installable PWA (offline web demo) |
+| [`apps/shortcraft`](apps/shortcraft) | Faceless 9:16 explainer shorts in the browser — scenes, captions, generated music, MP4 export (EN/ID) | Static web app (Canvas + Web Audio + MediaRecorder) + optional Python pipeline |
 
 Each project follows the same shape:
 
