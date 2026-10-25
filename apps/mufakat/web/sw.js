@@ -1,5 +1,5 @@
 // Mufakat service worker: offline app shell. AI requests always go to the network.
-const CACHE_NAME = 'mufakat-v2';
+const CACHE_NAME = 'mufakat-v3';
 const ASSETS_TO_CACHE = [
   './index.html',
   './app.html',

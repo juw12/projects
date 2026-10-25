@@ -44,8 +44,16 @@ Keys, chats and votes live only in `localStorage`.
 python apps/mufakat/tests/test_static_integrity.py
 python apps/mufakat/tests/verify_api.py
 ```
-In-browser self-test: open `web/index.html#selftest` (16 checks covering chat, council,
-judge, arena, voting, export, search). Demos: `#demo-council`, `#demo-arena`.
+In-browser self-test: open `web/index.html#selftest` (21 checks covering chat, council,
+judge, arena, voting, export, search, and the v0.2.1 fixes). Demos: `#demo-council`, `#demo-arena`.
+
+## v0.2.1 fixes
+- Demo and self-test links (`#selftest`, `#demo-*`) run in a sandbox and never touch a visitor's saved chats or keys.
+- Rate limits (HTTP 429/5xx) are retried automatically with backoff (honours `Retry-After`), which matters on free models.
+- Long conversations are trimmed to the most recent ~24k characters so small models don't overflow.
+- Consensus only counts when an agent *ends* with `CONSENSUS` (not "no consensus yet").
+- Second opinion never falls back to the demo bot when a real model is connected.
+- Default models prefer strong general chat models over alphabetical order.
 
 ## Honest limits
 Mufakat doesn't train its own model, so answer quality comes from the models you connect.
