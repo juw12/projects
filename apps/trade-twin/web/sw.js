@@ -1,6 +1,6 @@
 // Trade Twin service worker: caches the app shell so it opens instantly.
 // Market data and account calls always go to the network.
-const SHELL = "tt-shell-v2";
+const SHELL = "tt-shell-v3";
 const FILES = ["./", "icons/icon-192.png", "manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
@@ -23,8 +23,11 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        const copy = response.clone();
-        caches.open(SHELL).then((cache) => cache.put(event.request, copy));
+        // Only keep good same-origin copies; never cache errors or opaque responses.
+        if (response.ok && url.origin === self.location.origin) {
+          const copy = response.clone();
+          caches.open(SHELL).then((cache) => cache.put(event.request, copy));
+        }
         return response;
       })
       .catch(() => caches.match(event.request))

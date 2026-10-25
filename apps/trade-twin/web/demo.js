@@ -222,6 +222,27 @@
     };
   }
 
+  // Parse a user-supplied number: finite and within [low, high], else a friendly error.
+  function num(value, name, low, high, fallback) {
+    if (value === undefined || value === null || value === "") {
+      if (fallback !== undefined) {
+        return fallback;
+      }
+      throw new Error(`${name} is required`);
+    }
+    const n = Number(value);
+    if (!Number.isFinite(n)) {
+      throw new Error(`${name} must be a number`);
+    }
+    if (low !== undefined && n < low) {
+      throw new Error(`${name} must be at least ${low}`);
+    }
+    if (high !== undefined && n > high) {
+      throw new Error(`${name} must be at most ${high}`);
+    }
+    return n;
+  }
+
   async function paperOrder(profile, symbol, side, dollars, qty, note) {
     symbol = String(symbol || "").trim().toUpperCase();
     const q = await quote(symbol);
@@ -544,10 +565,7 @@
             profile.watchlist = [...new Set(body.watchlist.map((s) => String(s).trim().toUpperCase()).filter(Boolean))].slice(0, 40);
           }
           if ("budget" in body) {
-            const budget = Number(body.budget);
-            if (!(budget > 0)) {
-              return fail("budget must be positive");
-            }
+            const budget = num(body.budget, "budget", 1, 1e9);
             profile.budget = budget;
             profile.limits = limitsFor((profile.quiz || {}).risk_level || 2, budget);
           }
@@ -555,7 +573,7 @@
             const limits = profile.limits || limitsFor(2, profile.budget);
             for (const [key, value] of Object.entries(body.limits)) {
               if (key in limits && value !== "" && value !== null) {
-                limits[key] = typeof limits[key] === "number" ? Number(value) : String(value);
+                limits[key] = typeof limits[key] === "number" ? num(value, key, 0, 1e9) : String(value).slice(0, 20);
               }
             }
             profile.limits = limits;
@@ -568,8 +586,9 @@
           profile.quiz = result;
           profile.limits = limitsFor(result.risk_level, profile.budget || 5000);
           if (body.paper_cash && !Object.keys(profile.paper.positions).length && !profile.paper.history.length) {
-            profile.paper.cash = Number(body.paper_cash);
-            profile.paper.start_cash = Number(body.paper_cash);
+            const cash = num(body.paper_cash, "practice money", 100, 1e9);
+            profile.paper.cash = cash;
+            profile.paper.start_cash = cash;
           }
           save();
           return { ok: true, profile };
@@ -612,12 +631,15 @@
             return fail(`amount must be between $0 and your paper cash ($${profile.paper.cash.toFixed(2)})`);
           }
           const weights = body.weights || [];
-          const total = weights.reduce((a, w) => a + Number(w.weight), 0) || 1;
+          weights.forEach((w) => {
+            w.weight = num(w.weight, "weight", 0);
+          });
+          const total = weights.reduce((a, w) => a + w.weight, 0) || 1;
           const fills = [];
           const errors = [];
           for (const w of weights) {
             try {
-              fills.push(await paperOrder(profile, w.ticker, "buy", amount * Number(w.weight) / total, null, body.note || "copy"));
+              fills.push(await paperOrder(profile, w.ticker, "buy", amount * w.weight / total, null, body.note || "copy"));
             } catch (error) {
               errors.push(`${w.ticker}: ${error.message}`);
             }
@@ -627,7 +649,7 @@
           return { ok: true, fills, errors, paper };
         }
         case "paper/reset": {
-          const cash = Number(body.cash) || profile.paper.start_cash;
+          const cash = num(body.cash, "practice money", 100, 1e9, profile.paper.start_cash);
           profile.paper = { start_cash: cash, cash, positions: {}, history: [], snapshots: [] };
           save();
           return { ok: true, paper: await paperState(profile) };
@@ -637,8 +659,14 @@
           if (!tickers.length) {
             return fail("pick at least one ticker");
           }
-          const years = Math.max(1, Math.min(40, Math.round(Number(body.years) || 20)));
-          const result = await goalSim(tickers, years, Number(body.initial) || 0, Number(body.monthly) || 0, Number(body.target) || 0);
+          const years = Math.round(num(body.years, "years", 1, 40, 20));
+          const result = await goalSim(
+            tickers,
+            years,
+            num(body.initial, "starting amount", 0, 1e10, 0),
+            num(body.monthly, "monthly amount", 0, 1e8, 0),
+            num(body.target, "goal", 0, 1e12, 0),
+          );
           profile.goal = { tickers: tickers.join(","), years, initial: body.initial, monthly: body.monthly, target: body.target };
           save();
           return { ok: true, result };
