@@ -323,23 +323,91 @@ async function streamReply(modelValue, system, messages, onText) {
       headers["X-Title"] = "Glow";
     }
     const body = JSON.stringify({ model, stream: true, messages: [{ role: "system", content: system }, ...mergeRoles(clean)] });
-    const previousStatus = $("status").textContent;
-    const response = await fetchWithRetry(
-      () => fetch(`${config.base}/chat/completions`, { method: "POST", headers, signal: controller.signal, body }),
-      controller.signal,
-      (seconds, attempt) => {
-        $("status").textContent = `Rate limited by the provider, retrying in ${seconds}s (${attempt}/${MAX_RETRIES})…`;
-      },
-    );
-    $("status").textContent = previousStatus;
+    let waiting = false;
+    let response;
+    try {
+      response = await fetchWithRetry(
+        () => fetch(`${config.base}/chat/completions`, { method: "POST", headers, signal: controller.signal, body }),
+        controller.signal,
+        (seconds, attempt) => {
+          if (!waiting) {
+            waiting = true;
+            rateNotice.waiting += 1;
+          }
+          showRateWait(provider, seconds, attempt);
+        },
+      );
+    } finally {
+      if (waiting) rateNotice.waiting -= 1;
+    }
+    if (response.status === 429) {
+      showRateLimited(provider);
+    } else if (waiting) {
+      settleRateNotice();
+    }
     if (!response.ok) {
       const detail = await response.text().catch(() => "");
       throw new Error(friendlyError(response.status, detail, provider));
     }
-    return await readSse(response, onText);
+    try {
+      return await readSse(response, onText);
+    } catch (error) {
+      if (error.name !== "AbortError" && RATE_LIMIT_TEXT.test(error.message || "")) {
+        showRateLimited(provider);
+        throw new Error(friendlyError(429, error.message, provider));
+      }
+      throw error;
+    }
   } finally {
     controllers.delete(controller);
   }
+}
+
+/* ================= visible rate-limit notice ================= */
+const RATE_LIMIT_TEXT = /rate.?limit|too many requests|queue (is )?full|throttl|slow down/i;
+const rateNotice = { waiting: 0, timer: null, failed: false };
+function rateLabel(provider) {
+  return provider === "free" ? "Glow Free (shared free AI)" : "The AI provider";
+}
+function showRateWait(provider, seconds, attempt) {
+  clearInterval(rateNotice.timer);
+  rateNotice.failed = false;
+  let remaining = Math.max(1, seconds);
+  const paint = () => {
+    $("rate-text").textContent = `${rateLabel(provider)} is busy right now, so your reply is waiting in line. Retrying in ${remaining}s (try ${attempt} of ${MAX_RETRIES})…`;
+  };
+  paint();
+  openRateNotice(provider, "waiting");
+  rateNotice.timer = setInterval(() => {
+    remaining = Math.max(0, remaining - 1);
+    paint();
+  }, 1000);
+  $("status").textContent = `Rate limited, retrying in ${seconds}s (${attempt}/${MAX_RETRIES})…`;
+}
+function showRateLimited(provider) {
+  clearInterval(rateNotice.timer);
+  rateNotice.failed = true;
+  $("rate-text").textContent = provider === "free"
+    ? "Glow Free is still too busy after several tries (it's shared by everyone and rate-limited). Wait about a minute, then press ↻ Regenerate or send again. Signing in gives you faster Glow AI models."
+    : "The AI provider is still rate-limiting requests. Wait a moment and try again, or pick another model.";
+  openRateNotice(provider, "failed");
+  $("status").textContent = "Rate limited";
+}
+function openRateNotice(provider, mode) {
+  const box = $("rate-notice");
+  box.classList.remove("hidden");
+  box.classList.toggle("failed", mode === "failed");
+  $("rate-signin").classList.toggle("hidden", provider !== "free" || puterSignedIn || TEST_MODE);
+}
+function settleRateNotice() {
+  if (rateNotice.waiting > 0 || rateNotice.failed) return; // another reply is still waiting, or a failure needs reading
+  closeRateNotice();
+}
+function closeRateNotice() {
+  clearInterval(rateNotice.timer);
+  rateNotice.failed = false;
+  $("rate-notice").classList.add("hidden");
+  if (/^Rate limited/.test($("status").textContent)) $("status").textContent = "";
 }
 async function readSse(response, onText) {
   const reader = response.body.getReader();
@@ -751,6 +819,7 @@ function renameConversation(conv, name) {
 }
 function regenerate() {
   if ($("send-btn").disabled) return null;
+  if (rateNotice.failed) closeRateNotice();
   while (current.messages.length && current.messages[current.messages.length - 1].role !== "user") current.messages.pop();
   current.model = $("chat-model").value;
   renderMessages();
@@ -1775,6 +1844,7 @@ function autoSize() {
 }
 function onSend() {
   if ($("send-btn").disabled) return null;
+  if (rateNotice.failed) closeRateNotice();
   const text = $("input").value.trim();
   if (!text && !pendingFiles.length) {
     if (current.type === "council" && current.started) return runCouncil(current, 1);
@@ -1930,6 +2000,11 @@ function wire() {
   $("account-btn").addEventListener("click", onAccountButton);
   $("set-account-btn").addEventListener("click", onAccountButton);
   $("banner-signin").addEventListener("click", showWelcome);
+  $("rate-close").addEventListener("click", closeRateNotice);
+  $("rate-signin").addEventListener("click", () => {
+    closeRateNotice();
+    showWelcome();
+  });
   $("set-sync").addEventListener("change", () => {
     state.settings.cloudSync = $("set-sync").checked;
     saveState();
@@ -2018,6 +2093,53 @@ async function selfTest() {
   const freeBody = JSON.parse(freeRequest.options.body);
   expect("guest: free AI answers with no key or sign-in", freeText.endsWith("Free hello") && freeRequest.url === `${FREE_AI_URL}/chat/completions`
     && !freeRequest.options.headers.Authorization && freeBody.model === "openai-fast" && freeBody.stream === true);
+  const sseOk = 'data: {"choices":[{"delta":{"content":"After the wait"}}]}\n\ndata: [DONE]\n\n';
+  let noticeDuringWait = null;
+  let throttleCalls = 0;
+  window.fetch = async () => {
+    throttleCalls += 1;
+    if (throttleCalls === 1) return new Response("Too Many Requests", { status: 429, headers: { "retry-after": "0.3" } });
+    noticeDuringWait = { shown: !$("rate-notice").classList.contains("hidden"), text: $("rate-text").textContent };
+    return new Response(new Blob([sseOk]).stream(), { status: 200 });
+  };
+  let recovered = "";
+  try {
+    recovered = await streamReply(FREE_MODEL.value, "Be brief.", [{ role: "user", content: "hi" }], () => {});
+  } finally {
+    window.fetch = realFetch;
+  }
+  expect("rate limit: visible notice with countdown while a guest reply waits", !!noticeDuringWait && noticeDuringWait.shown
+    && /busy/.test(noticeDuringWait.text) && /Retrying in \d+s \(try 1 of 3\)/.test(noticeDuringWait.text));
+  expect("rate limit: notice clears once the reply arrives", recovered === "After the wait" && $("rate-notice").classList.contains("hidden"));
+
+  window.fetch = async () => new Response("Too Many Requests", { status: 429, headers: { "retry-after": "0.01" } });
+  let finalError = "";
+  try {
+    await streamReply(FREE_MODEL.value, "Be brief.", [{ role: "user", content: "hi" }], () => {});
+  } catch (error) {
+    finalError = error.message;
+  } finally {
+    window.fetch = realFetch;
+  }
+  const noticeBox = $("rate-notice");
+  const noticeRect = noticeBox.getBoundingClientRect();
+  expect("rate limit: stays visible after retries run out", !noticeBox.classList.contains("hidden") && noticeBox.classList.contains("failed")
+    && /still too busy/.test($("rate-text").textContent) && finalError.includes("busy") && noticeRect.height > 0 && noticeRect.bottom <= innerHeight);
+  $("rate-close").click();
+  expect("rate limit: notice can be dismissed", noticeBox.classList.contains("hidden"));
+
+  window.fetch = async () => new Response(new Blob(['data: {"error":{"message":"Rate limit exceeded: queue full for anonymous tier"}}\n\n']).stream(), { status: 200 });
+  let streamError = "";
+  try {
+    await streamReply(FREE_MODEL.value, "Be brief.", [{ role: "user", content: "hi" }], () => {});
+  } catch (error) {
+    streamError = error.message;
+  } finally {
+    window.fetch = realFetch;
+  }
+  expect("rate limit: throttling reported inside the stream is shown too", !noticeBox.classList.contains("hidden") && streamError.includes("busy"));
+  closeRateNotice();
+
   const modelsBeforeRank = models;
   models = [modelsBeforeRank[0], FREE_MODEL];
   const guestDefault = defaultModel();
