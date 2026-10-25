@@ -46,7 +46,7 @@ Chats, settings and votes are stored in browser localStorage. API keys are store
 python apps/glow/tests/test_static_integrity.py
 python apps/glow/tests/verify_api.py
 ```
-In-browser self-test: open `web/index.html#selftest` (52 checks covering chat, council,
+In-browser self-test: open `web/index.html#selftest` (57 checks covering chat, council,
 judge, arena, voting, export, search, the v0.2.1 fixes, and v0.4 sign-in, guest mode, tour,
 theme, sync and UI, using a Puter test double so no real account is touched). Demos: `#demo-council`, `#demo-arena`.
 
@@ -83,3 +83,7 @@ Free OpenRouter models are rate-limited. Working prototype, not a production ser
 - Guests now get real answers immediately: **Glow Free** (GPT-OSS 20B via Pollinations' anonymous tier, no key, no account) is the default model, so typing and pressing Enter works like a normal AI chat. Demo stays available.
 - Your own strong models (OpenRouter key, signed-in Glow AI, local Ollama) still take priority when connected.
 - Friendly messages when the free service is busy (it's shared and rate-limited; requests are retried automatically) or the network is down.
+
+## v0.4.2 — visible rate-limit notice
+- When the free guest AI (or any provider) throttles a reply, a clear notice appears above the message box on desktop and mobile: why it's waiting, a live retry countdown and the attempt number. It disappears as soon as the reply starts.
+- If retries run out, the notice stays (with a "Sign in for faster AI" shortcut for guests) until the user dismisses it or tries again. Throttling reported inside the stream is caught too.

@@ -263,3 +263,15 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
   .welcome { margin-top: 3vh; }
   .welcome h2 { font-size: 24px; }
 }
+
+/* Visible rate-limit notice (free guest AI throttling) */
+.rate-notice { max-width: 800px; margin: 0 auto 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 12px; border-radius: 12px; font-size: 13px;
+  background: color-mix(in srgb, var(--judge) 14%, var(--card)); border: 1px solid color-mix(in srgb, var(--judge) 60%, var(--border)); animation: rise .2s ease both; }
+.rate-notice.failed { background: var(--notice-bg); border-color: var(--accent); }
+.rate-icon { font-size: 16px; }
+.rate-notice:not(.failed) .rate-icon { animation: tick 1.2s ease-in-out infinite; }
+@keyframes tick { 50% { transform: rotate(180deg); } }
+.rate-text { flex: 1; min-width: 200px; }
+.rate-notice .link-btn { color: var(--text); }
+#rate-signin { font-weight: 600; color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { .rate-notice, .rate-notice .rate-icon { animation: none; } }
