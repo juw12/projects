@@ -34,6 +34,10 @@ encrypted at rest.
   encrypts local data with WebCrypto (PBKDF2 → AES-GCM) when available, otherwise
   it falls back to a clearly labeled unencrypted local profile.
 
+### Visual theme (`web/theme.css`)
+
+"Editorial" skin loaded last, on top of `styles.css` and `enhance.css`: system-sans UI with serif headlines, softer radii and shadows, glassy sticky masthead with pill navigation, gradient primary buttons, custom animated checkboxes, numbered verify gates with a terminal-style command block, a landing hero on the workspace gate, a tuned Night palette, and a compact one-row phone header. Delete the `<link>` to revert to the original look — no markup depends on it.
+
 ### Interaction layer (`web/enhance.js` + `web/enhance.css`)
 
 Loaded after `app.js` on `index.html` and `mobile.html`; it wraps the app's
