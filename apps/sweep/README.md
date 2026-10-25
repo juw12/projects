@@ -34,6 +34,23 @@ encrypted at rest.
   encrypts local data with WebCrypto (PBKDF2 → AES-GCM) when available, otherwise
   it falls back to a clearly labeled unencrypted local profile.
 
+### Interaction layer (`web/enhance.js` + `web/enhance.css`)
+
+Loaded after `app.js` on `index.html` and `mobile.html`; it wraps the app's
+global render functions instead of rewriting them.
+
+- **Plan progress** — ring + Build / Verify / Grow / Earn bars (sticky), "Next up"
+  jump, clickable M0–M3 phase stepper; Definition-of-Done, Grow, Earn ticks and
+  Verify gates now persist with the project.
+- **Edit brief** in place (keeps ticks across reordered success checks);
+  "Copy to my projects" for the demo.
+- **Catalog** — stats, search, status filters, sort, JSON import, per-card
+  progress and edit / duplicate / export / delete (with Undo).
+- **Brief** — example ideas, readiness meter, autosaved draft (localStorage for
+  guests, sessionStorage for encrypted workspaces), smarter name/user drafting.
+- **Command palette** (Ctrl/⌘ K) and shortcuts (`/`, `N`, `G`+letter, `E`, `T`, `?`).
+- **Generate** — auto-opens a file, line numbers, file-type badges, arrow-key nav.
+
 ## Mode B — sync (what the script does)
 
 1. **Validates first** (never push a failing state): `scripts/build_site.py`,
