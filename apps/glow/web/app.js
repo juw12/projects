@@ -15,6 +15,9 @@ const STORE_KEY = TEST_MODE ? "glow.sandbox" : "mufakat.v1";
 const MAX_CONTEXT_CHARS = 24000;
 const MAX_RETRIES = 3;
 const OPENROUTER_URL = "https://openrouter.ai/api/v1";
+// Free AI for guests with no key or sign-up: Pollinations' anonymous tier (shared and rate-limited).
+const FREE_AI_URL = "https://text.pollinations.ai/openai";
+const FREE_MODEL = { value: "free::openai-fast", label: "Glow Free: GPT-OSS 20B (no sign-in needed)", short: "Glow Free", group: "Free: works right away" };
 const SYSTEM_PROMPT = "You are a helpful, accurate and thoughtful assistant. Format answers with Markdown.";
 const MAX_ATTACHMENT_CHARS = 100000;
 const AGENT_COLORS = ["a", "b", "c"];
@@ -154,6 +157,7 @@ function modelLabel(value) {
 function providerConfig(provider) {
   const s = state.settings;
   if (provider === "openrouter") return { base: OPENROUTER_URL, key: s.openrouterKey };
+  if (provider === "free") return { base: FREE_AI_URL, key: "" };
   if (provider === "ollama") return { base: s.ollamaUrl.replace(/\/$/, "") + "/v1", key: "" };
   if (provider === "custom") return { base: s.customUrl.replace(/\/$/, ""), key: s.customKey };
   return null;
@@ -179,7 +183,8 @@ async function loadModels() {
     refreshModelSelects();
     return;
   }
-  const status = puterSignedIn ? [`Glow AI · ${list.length - 1} models`] : [];
+  list.push(FREE_MODEL);
+  const status = puterSignedIn ? [`Glow AI · ${list.length - 2} models`] : ["Free AI ready"];
   const jobs = [];
 
   if (s.openrouterKey) {
@@ -241,6 +246,7 @@ const PREFERRED_MODEL_PATTERNS = [/llama-3\.3-70b/i, /deepseek-(chat|v3|r1)/i, /
 function modelRank(value) {
   if (value.startsWith("puter::")) return -1 + PUTER_MODELS.findIndex(([id]) => `puter::${id}` === value) / 100;
   if (value.startsWith("ollama::")) return 0; // local models the user chose to install come first
+  if (value.startsWith("free::")) return PREFERRED_MODEL_PATTERNS.length + 0.5; // after strong models from the user's own keys
   const index = PREFERRED_MODEL_PATTERNS.findIndex((pattern) => pattern.test(value));
   return index === -1 ? PREFERRED_MODEL_PATTERNS.length + 1 : index + 1;
 }
@@ -328,7 +334,7 @@ async function streamReply(modelValue, system, messages, onText) {
     $("status").textContent = previousStatus;
     if (!response.ok) {
       const detail = await response.text().catch(() => "");
-      throw new Error(friendlyError(response.status, detail));
+      throw new Error(friendlyError(response.status, detail, provider));
     }
     return await readSse(response, onText);
   } finally {
@@ -393,7 +399,11 @@ function mergeRoles(messages) {
   if (merged.length && merged[0].role !== "user") merged.unshift({ role: "user", content: "(begin)" });
   return merged;
 }
-function friendlyError(status, detail) {
+function friendlyError(status, detail, provider = "") {
+  if (provider === "free") {
+    if (status === 429 || status >= 500) return "The free guest AI is busy right now. Wait a few seconds and press ↻ Regenerate, or sign in for faster Glow AI models.";
+    return `The free guest AI couldn't answer (error ${status}). Try again, or sign in for Glow AI models.`;
+  }
   if (status === 401) return "The API key was rejected. Check it in Settings.";
   if (status === 402) return "This model needs credit on your account. Pick a free model.";
   if (status === 429) return "Rate limited by the provider. Wait a moment or pick another free model.";
@@ -427,7 +437,7 @@ function demoText(system, messages) {
     const slot = system.match(/\[arena:(\d)\]/)[1];
     return `*(Demo answer ${"ABC"[slot]})* ${["Short and direct", "Detailed and structured", "Example-driven"][slot]} take on: *${prompt.slice(0, 120)}*`;
   }
-  return `**Demo mode:** no AI model is connected, so this is a canned reply.\n\nYou wrote: *${prompt.slice(0, 200)}*\n\nFor real answers at no cost:\n1. Click **Sign in** in the sidebar for free Glow AI models (no key needed), or\n2. Add a free OpenRouter key in **Settings** and pick a model marked *free*`;
+  return `**Demo mode:** no AI model is connected, so this is a canned reply.\n\nYou wrote: *${prompt.slice(0, 200)}*\n\nFor real answers at no cost, pick **Glow Free** in the model menu at the top (works right away), or click **Sign in** in the sidebar for more Glow AI models.`;
 }
 function streamDemo(system, messages, onText, signal) {
   const text = demoText(system, messages);
@@ -629,6 +639,7 @@ function setBusy(busy) {
   $("stop-btn").classList.toggle("hidden", !busy);
 }
 function errorText(error) {
+  if (error instanceof TypeError) return "Couldn't reach the AI service. Check your internet connection and try again.";
   return error.message || "Network error. Is the provider reachable?";
 }
 
@@ -1637,7 +1648,7 @@ function hideWelcome() {
 /* ================= guided tour ================= */
 const TOUR_STEPS = [
   { title: "Welcome to Glow ✨", text: "A quick tour of the main controls. Use Next or the → key, Back or ←, and Esc to skip." },
-  { target: "#chat-model", title: "Pick a model", text: "Choose which AI answers. Signed in, you get Glow AI models such as GPT, Claude, Gemini and DeepSeek. Guests get Demo plus any keys they add." },
+  { target: "#chat-model", title: "Pick a model", text: "Choose which AI answers. Glow Free works right away with no sign-in. Sign in for more Glow AI models such as GPT, Claude, Gemini and DeepSeek." },
   { target: "#composer", title: "Ask anything", text: "Type here and press Enter to send. Shift+Enter adds a new line; 📎 or paste attaches text and code files." },
   { target: "#new-council-btn", sidebar: true, title: "Council ⚖", text: "2–3 agents with different roles debate until they agree, then a Judge writes the final answer." },
   { target: "#new-arena-btn", sidebar: true, title: "Arena ⚔", text: "Ask several models the same question side by side, vote for the best and build your own leaderboard." },
@@ -1990,6 +2001,31 @@ async function selfTest() {
   expect("search: filters history", document.querySelectorAll("#history .history-item").length === 1);
   $("search").value = "";
   renderHistory();
+
+  const realFetch = window.fetch;
+  let freeRequest = null;
+  window.fetch = async (url, options) => {
+    freeRequest = { url, options };
+    const sse = 'data: {"choices":[{"delta":{"reasoning":"hmm"}}]}\n\ndata: {"choices":[{"delta":{"content":"Free hello"}}]}\n\ndata: [DONE]\n\n';
+    return new Response(new Blob([sse]).stream(), { status: 200, headers: { "Content-Type": "text/event-stream" } });
+  };
+  let freeText = "";
+  try {
+    freeText = await streamReply(FREE_MODEL.value, "Be brief.", [{ role: "user", content: "hi" }], () => {});
+  } finally {
+    window.fetch = realFetch;
+  }
+  const freeBody = JSON.parse(freeRequest.options.body);
+  expect("guest: free AI answers with no key or sign-in", freeText.endsWith("Free hello") && freeRequest.url === `${FREE_AI_URL}/chat/completions`
+    && !freeRequest.options.headers.Authorization && freeBody.model === "openai-fast" && freeBody.stream === true);
+  const modelsBeforeRank = models;
+  models = [modelsBeforeRank[0], FREE_MODEL];
+  const guestDefault = defaultModel();
+  models = [modelsBeforeRank[0], FREE_MODEL, { value: "openrouter::meta-llama/llama-3.3-70b-instruct:free", label: "llama" }];
+  const keyDefault = defaultModel();
+  models = modelsBeforeRank;
+  expect("guest: new chats default to free AI, own strong keys win", guestDefault === FREE_MODEL.value && keyDefault.startsWith("openrouter::"));
+  expect("guest: busy free AI explained in plain words", friendlyError(429, "", "free").includes("busy"));
 
   newChat();
   expect("ui: starter prompts on the empty chat", document.querySelectorAll(".starter").length === STARTERS.length);

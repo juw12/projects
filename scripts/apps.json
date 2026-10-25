@@ -348,8 +348,8 @@
       "id": "glow",
       "name": "Glow",
       "category": "Software",
-      "desc": "From a spark to something real: sign in for free AI or continue as a guest, then chat, run a Council with a Judge, or compare models side by side",
-      "description": "<strong>Glow</strong> &mdash; from a spark to something real. Explore ideas and shape plans with multiple AI perspectives. <strong>Sign in</strong> with a free Puter account for real AI models (GPT, Claude, Gemini, DeepSeek) with no API key, and your chats sync across devices; or <strong>continue as a guest</strong> with demo replies, your own OpenRouter key or local Ollama. <strong>Council</strong>: 2&ndash;3 agents discuss a task and a Judge summarizes agreements, open questions and a final answer. <strong>Arena</strong>: compare models side by side and vote. Includes a guided tour, light/dark themes, starter prompts, second opinions, attachments, search, Markdown export and an installable PWA. Signed-in AI uses each person's own free Puter allowance; AI output still needs human verification.",
+      "desc": "From a spark to something real: chat with free AI right away (no sign-up), sign in for more models, run a Council with a Judge, or compare models side by side",
+      "description": "<strong>Glow</strong> &mdash; from a spark to something real. Explore ideas and shape plans with multiple AI perspectives. <strong>Sign in</strong> with a free Puter account for real AI models (GPT, Claude, Gemini, DeepSeek) with no API key, and your chats sync across devices; or <strong>continue as a guest</strong> and chat with free AI right away (no sign-up, shared and rate-limited), your own OpenRouter key or local Ollama. <strong>Council</strong>: 2&ndash;3 agents discuss a task and a Judge summarizes agreements, open questions and a final answer. <strong>Arena</strong>: compare models side by side and vote. Includes a guided tour, light/dark themes, starter prompts, second opinions, attachments, search, Markdown export and an installable PWA. Signed-in AI uses each person's own free Puter allowance; AI output still needs human verification.",
       "tags": [
         "multi-agent",
         "AI council",
@@ -367,7 +367,7 @@
       },
       "featured": true,
       "order": 1.5,
-      "version": "0.4.0"
+      "version": "0.4.1"
     },
     {
       "id": "hookline",
