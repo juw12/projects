@@ -382,6 +382,156 @@
       .calendar-event { min-height: 35px; }
     }
     @media print { .app-status, .mobile-nav, .nav-overlay, .drawer-close { display: none !important; } body { padding: 0; } }
+
+    /* ---------- v3 study experience ---------- */
+    .btn.wide { width: 100%; min-height: 48px; font-size: 14px; }
+    .btn.rate { flex-direction: column; gap: 0; min-width: 72px; line-height: 1.3; }
+    .btn.rate small { font-size: 10px; opacity: .8; font-weight: 400; }
+    .today-panel { display: grid; grid-template-columns: 1.15fr 1fr 1fr 1.4fr 1fr; gap: 12px; margin-bottom: 14px; }
+    .today-card { display: flex; align-items: center; gap: 12px; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 14px; text-align: left; color: var(--ink); min-height: 86px; font: inherit; }
+    .today-card.action { cursor: pointer; transition: border-color .15s, transform .15s; }
+    .today-card.action:hover { border-color: #9fbea9; transform: translateY(-1px); }
+    .today-card.primary { background: #173f3c; color: #fff; border-color: #173f3c; }
+    .today-card.primary .eyebrow { color: #b2c8b3; }
+    .today-card.primary .stat-symbol { background: #edc784; color: #2c4430; }
+    .today-card strong { display: block; font-size: 14px; line-height: 1.4; }
+    .today-card small { display: flex; align-items: center; gap: 3px; font-size: 10px; color: var(--muted); }
+    .today-card small .icon { width: 11px; height: 11px; }
+    .today-card .eyebrow { margin-bottom: 2px; font-size: 9px; }
+    .ring-card { padding: 8px 14px; }
+    .goal-ring .track { fill: none; stroke: #e6ece2; stroke-width: 9; }
+    .goal-ring .fill { fill: none; stroke: #e0a94f; stroke-width: 9; stroke-linecap: round; transition: stroke-dashoffset .5s; }
+    .goal-ring .ring-big { font-size: 22px; font-weight: 700; fill: var(--ink); }
+    .goal-ring .ring-small { font-size: 9px; fill: var(--muted); }
+    .flame { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: #f1f1ec; color: #b9bdb3; flex-shrink: 0; }
+    .flame.lit { background: #fdeedb; color: #e2832f; }
+    .flame .icon { width: 26px; height: 26px; }
+    .group-quest { margin-bottom: 22px; padding: 16px 20px; }
+    .group-quest h3 { display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 0; }
+    .goal-picker { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-bottom: 14px; border-color: #e7d6ae; background: #fffaf0; }
+    .goal-picker h3 { margin-bottom: 2px; }
+    .goal-picker p { margin: 0; font-size: 12px; }
+    .goal-options { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn.goal-option { flex-direction: column; background: #fff; color: var(--ink); border-color: #e2d8bf; min-width: 108px; line-height: 1.35; }
+    .btn.goal-option small { font-size: 10px; font-weight: 400; color: var(--muted); }
+    .btn.goal-option.selected { border-color: var(--green); box-shadow: 0 0 0 2px #24655c33; }
+    dialog.lesson-dialog { width: min(640px, calc(100% - 24px)); padding: 20px 26px 24px; }
+    .lesson-top { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .lesson-progress { flex: 1; height: 12px; border-radius: 8px; background: #e9eee5; overflow: hidden; }
+    .lesson-progress i { display: block; height: 100%; background: linear-gradient(90deg, #5d9a7c, #e0b45e); border-radius: inherit; transition: width .35s; }
+    .lesson-count { font-size: 11px; color: var(--muted); min-width: 30px; text-align: right; }
+    .lesson-title { font-size: 20px; margin: 4px 0 16px; }
+    .lesson-body { min-height: 210px; }
+    .lesson-footer { margin-top: 20px; display: flex; justify-content: center; align-items: center; min-height: 48px; }
+    .reading p { font-size: 16px; line-height: 1.9; margin-bottom: 14px; }
+    .prompt { font-size: 16px; font-weight: 600; margin-bottom: 14px; }
+    .options { display: grid; gap: 10px; }
+    .option { text-align: left; border: 2px solid var(--line); border-bottom-width: 4px; background: #fff; border-radius: 12px; padding: 14px 16px; font-size: 15px; color: var(--ink); cursor: pointer; }
+    .option:hover:not(:disabled) { border-color: #9fbea9; }
+    .option.correct { border-color: #4f9a6c; background: #ecf7ef; }
+    .option.wrong { border-color: #d07b5b; background: #fdf0ea; }
+    .option:disabled { cursor: default; opacity: 1; }
+    .feedback { margin-top: 16px; border-radius: 12px; padding: 12px 16px; }
+    .feedback.good { background: #e7f5ec; color: #2f6b45; }
+    .feedback.bad { background: #fdf0e9; color: #9b4f33; }
+    .feedback p { margin: 4px 0 0; font-size: 13px; }
+    .cloze { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 17px; line-height: 2; }
+    .cloze input { width: 110px; border: none; border-bottom: 3px solid var(--green); background: #f4f7f1; padding: 6px 8px; font-size: 17px; text-align: center; border-radius: 6px 6px 0 0; color: var(--ink); }
+    .chip { border: 2px solid var(--line); border-bottom-width: 4px; background: #fff; color: var(--ink); border-radius: 12px; padding: 10px 14px; font-size: 14px; cursor: pointer; }
+    .chip.picked { background: #eef5ec; border-color: #9fc0a8; }
+    .order-slots, .order-pool { display: flex; flex-wrap: wrap; gap: 8px; min-height: 56px; padding: 10px; border-radius: 12px; }
+    .order-slots { background: #f5f8f2; border: 2px dashed #d5e1d0; margin-bottom: 10px; align-items: center; }
+    .lesson-complete { text-align: center; padding-top: 10px; }
+    .lesson-complete h3 { font-size: 22px; margin: 12px 0 6px; }
+    .badge-symbol.big { width: 84px; height: 84px; }
+    .badge-symbol.big .icon { width: 40px; height: 40px; }
+    .flashcard { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 26px; min-height: 300px; display: flex; flex-direction: column; box-shadow: 0 10px 40px #1a3f3510; }
+    .flash-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; font-size: 11px; }
+    .flash-front { font-size: 22px; font-weight: 650; line-height: 1.6; margin: auto 0 12px; text-align: center; }
+    .flash-back { font-size: 18px; line-height: 1.7; text-align: center; color: #2b6150; margin-bottom: 18px; }
+    .flashcard hr { border: none; border-top: 1px dashed #d6e0d2; width: 100%; margin: 6px 0 16px; }
+    .flash-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: auto; }
+    .forecast { display: grid; grid-template-columns: repeat(7, 1fr); align-items: end; gap: 6px; height: 104px; margin-bottom: 14px; }
+    .forecast div { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; font-size: 9px; color: var(--muted); }
+    .forecast i { width: 70%; background: #8fb59b; border-radius: 4px 4px 0 0; }
+    .forecast b { font-size: 11px; color: var(--ink); }
+    .tutor-card { display: flex; flex-direction: column; }
+    .tutor-head { display: flex; align-items: end; gap: 14px; padding: 16px 18px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+    .tutor-messages { min-height: 300px; max-height: 52vh; }
+    .bubble .cite { display: block; margin-top: 8px; font-size: 10px; color: #6b8a73; border-top: 1px dashed #cfdccb; padding-top: 5px; }
+    .bubble.typing { color: var(--muted); font-style: italic; }
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 16px 6px; }
+    .chips .chip { font-size: 12px; padding: 6px 12px; border-bottom-width: 2px; }
+    .heat-wrap { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px; max-width: 520px; }
+    .heat-days { display: grid; grid-template-rows: repeat(7, 1fr); gap: 4px; font-size: 10px; color: var(--muted); align-items: center; }
+    .heatmap { display: grid; grid-template-columns: repeat(var(--weeks, 12), minmax(11px, 1fr)); grid-template-rows: repeat(7, auto); grid-auto-flow: column; gap: 4px; overflow-x: auto; padding-bottom: 4px; }
+    .heat { display: block; width: 100%; aspect-ratio: 1; min-width: 11px; border-radius: 3px; background: #ebefe7; }
+    .heat.l1 { background: #cfe3d2; }
+    .heat.l2 { background: #9cc7a6; }
+    .heat.l3 { background: #5e9d74; }
+    .heat.l4 { background: #2f6b4b; }
+    .heat.frozen { background: #bcd7ea; }
+    .heat.future { background: transparent; }
+    .heat-legend { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--muted); margin-top: 8px; flex-wrap: wrap; }
+    .heat-legend .heat { width: 11px; height: 11px; }
+    .focus-choices { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }
+    .focus-ring { --ratio: 0; width: 210px; height: 210px; margin: 10px auto 16px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(#5d9a7c calc(var(--ratio) * 360deg), #e8eee4 0); }
+    .focus-ring span { display: grid; place-items: center; width: 172px; height: 172px; border-radius: 50%; background: #fff; font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); }
+    .choice-group { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px 12px; margin: 0 0 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .choice-group legend { font-size: 12px; font-weight: 600; padding: 0 4px; }
+    .choice { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; cursor: pointer; font-size: 13px; }
+    .choice input { accent-color: var(--green); }
+    .choice:has(input:checked) { border-color: var(--green); background: #edf4ec; }
+    .mobile-nav button { position: relative; }
+    .nav-badge { position: absolute; top: 4px; right: calc(50% - 22px); min-width: 17px; height: 17px; border-radius: 9px; background: #d9773f; color: #fff; font-size: 10px; line-height: 17px; padding: 0 4px; font-style: normal; }
+    @media (max-width: 1180px) { .today-panel { grid-template-columns: repeat(3, 1fr); } .today-panel .primary { grid-column: span 2; } }
+    @media (max-width: 760px) {
+      .today-panel { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .today-panel .primary { grid-column: 1 / -1; order: -1; }
+      .today-card { min-height: 76px; padding: 12px; }
+      .goal-picker { flex-direction: column; align-items: stretch; }
+      .goal-options { display: grid; grid-template-columns: repeat(3, 1fr); }
+      .btn.goal-option { min-width: 0; padding: 8px 4px; }
+      dialog.lesson-dialog { width: 100%; max-width: 100%; max-height: 100dvh; height: 100dvh; margin: 0; border-radius: 0; padding: calc(16px + env(safe-area-inset-top)) 18px calc(18px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; }
+      dialog.lesson-dialog .lesson-body { flex: 1; overflow-y: auto; }
+      .flashcard { min-height: 340px; padding: 20px; }
+      .flash-front { font-size: 20px; }
+      .btn.rate { min-width: 0; flex: 1; padding: 6px 4px; }
+      .tutor-messages { min-height: 260px; max-height: 46vh; }
+    }
+    /* Large-text modes (zoom keeps the existing pixel-based layout proportional). */
+    html[data-text="large"] main, html[data-text="large"] dialog { zoom: 1.15; }
+    html[data-text="xl"] main, html[data-text="xl"] dialog { zoom: 1.3; }
+    html[data-text="large"] .mobile-nav span, html[data-text="xl"] .mobile-nav span { font-size: 12px; }
+    /* Dark theme */
+    html[data-theme="dark"] { color-scheme: dark; --ink: #e4ece6; --muted: #9fb1a5; --paper: #0f1a19; --line: #2a3b38; --mint: #1f3632; --green: #6fbf9a; }
+    html[data-theme="dark"] body { background: var(--paper); }
+    html[data-theme="dark"] .sidebar, html[data-theme="dark"] .card, html[data-theme="dark"] .stat, html[data-theme="dark"] dialog, html[data-theme="dark"] .today-card:not(.primary), html[data-theme="dark"] .flashcard, html[data-theme="dark"] .lesson-row, html[data-theme="dark"] .option, html[data-theme="dark"] .chip, html[data-theme="dark"] .filter, html[data-theme="dark"] .btn.secondary, html[data-theme="dark"] .btn.goal-option, html[data-theme="dark"] .calendar-cell, html[data-theme="dark"] .mobile-nav, html[data-theme="dark"] .focus-ring span { background: #152422; color: var(--ink); border-color: var(--line); }
+    html[data-theme="dark"] .topbar { background: #12201ed9; border-color: var(--line); }
+    html[data-theme="dark"] .app-status { background: #172b27; color: #a9c9b4; border-color: var(--line); }
+    html[data-theme="dark"] .app-status button { color: #cfe6d6; }
+    html[data-theme="dark"] .field input, html[data-theme="dark"] .field textarea, html[data-theme="dark"] .field select, html[data-theme="dark"] .chat-compose input, html[data-theme="dark"] .search-wrap input, html[data-theme="dark"] .cloze input { background: #0f1a19; color: var(--ink); border-color: var(--line); }
+    html[data-theme="dark"] .callout, html[data-theme="dark"] .community-strip, html[data-theme="dark"] .sidebar-note, html[data-theme="dark"] .settings-note, html[data-theme="dark"] .order-slots, html[data-theme="dark"] .goal-picker { background: #182a27; border-color: var(--line); color: #b9d0c0; }
+    html[data-theme="dark"] .callout.warning { background: #2a2416; border-color: #4a3d22; color: #e3c88f; }
+    html[data-theme="dark"] .bubble { background: #1d302d; }
+    html[data-theme="dark"] .mine .bubble { background: #22403a; }
+    html[data-theme="dark"] .nav-item.active, html[data-theme="dark"] .chat-room.active, html[data-theme="dark"] .lesson-row.active, html[data-theme="dark"] .mobile-nav button[aria-current="page"] { background: #1f3632; color: #9fe0bf; }
+    html[data-theme="dark"] th { background: #182826; color: var(--muted); }
+    html[data-theme="dark"] .progress, html[data-theme="dark"] .lesson-progress, html[data-theme="dark"] .heat.l0 { background: #233431; }
+    html[data-theme="dark"] .goal-ring .track { stroke: #233431; }
+    html[data-theme="dark"] .tag { background: #1f3632; color: #9fd3b6; }
+    html[data-theme="dark"] .tag.gold { background: #33291a; color: #e6c27e; }
+    html[data-theme="dark"] .tag.gray { background: #222f2d; color: #a8b8ad; }
+    html[data-theme="dark"] .certificate { background: #191f1a; color: #d7e4d9; outline-color: #22302c; }
+    html[data-theme="dark"] .option.correct { background: #173628; border-color: #4f9a6c; }
+    html[data-theme="dark"] .option.wrong { background: #3a2018; border-color: #c06d4d; }
+    html[data-theme="dark"] .feedback.good { background: #173628; color: #a8e0bd; }
+    html[data-theme="dark"] .feedback.bad { background: #3a2018; color: #f0b9a2; }
+    html[data-theme="dark"] .flash-back { color: #9fe0bf; }
+    html[data-theme="dark"] .course-art, html[data-theme="dark"] .project-visual, html[data-theme="dark"] .reward-visual { filter: brightness(.82); }
+    html[data-theme="dark"] .eyebrow, html[data-theme="dark"] .stat-label, html[data-theme="dark"] .meta, html[data-theme="dark"] .progress-label, html[data-theme="dark"] .nav-group, html[data-theme="dark"] .muted, html[data-theme="dark"] small { color: var(--muted); }
+    html[data-theme="dark"] .icon-button, html[data-theme="dark"] .profile-button, html[data-theme="dark"] a { color: var(--ink); }
+    html[data-theme="dark"] .btn.ghost, html[data-theme="dark"] .section-head a { color: #8fd6b2; }
   </style>
 </head>
 <body>
@@ -463,7 +613,8 @@
       publicPortfolio: false,
       leaderboard: false,
       bio: '在學習中看見自己，在同行中練習善意。',
-      pointHistory: [{label: '示範帳戶起始積分', amount: 320}]
+      pointHistory: [{label: '示範帳戶起始積分', amount: 320}],
+      study: null
     });
     let state = initialState();
     let recoveryWarning = '';
@@ -578,6 +729,7 @@
         anonymous: donation.anonymous !== false,
         status: donation.status === 'reviewed' ? 'reviewed' : 'simulated'
       }));
+      result.study = typeof normalizeStudyState === 'function' ? normalizeStudyState(raw.study, result) : (raw.study && typeof raw.study === 'object' ? raw.study : null);
       result.publicPortfolio = raw.publicPortfolio === true;
       result.leaderboard = raw.leaderboard === true;
       return result;
@@ -629,6 +781,9 @@
     const navItems = [
       ['學習中心', 'home', 'home', '我的總覽'],
       ['', 'courses', 'book', '探索課程'],
+      ['', 'review', 'layers', '每日複習'],
+      ['', 'tutor', 'spark', 'AI 學伴'],
+      ['', 'stats', 'chart', '學習數據'],
       ['', 'schedule', 'calendar', '課程與活動'],
       ['同行社群', 'community', 'people', '同行社群'],
       ['', 'meetings', 'video', '會議與回顧'],
@@ -787,9 +942,9 @@
       const route = location.hash.slice(1) || 'home';
       const page = route.split('/')[0];
       const activePage = page === 'course' ? 'courses' : page;
-      document.getElementById('sidebar').innerHTML = `<button type="button" class="icon-button drawer-close" data-action="close-menu" aria-label="關閉主選單">${icon('close')}</button><div class="brand"><span class="brandmark">${icon('sun')}</span><div><strong>光耀同行</strong><small>發一光耀 · 學習與成長</small></div></div><nav>${navItems.map(([group, id, symbol, label]) => `${group ? `<div class="nav-group">${group}</div>` : ''}<button class="nav-item ${activePage === id ? 'active' : ''}" data-action="navigate" data-page="${id}" ${activePage === id ? 'aria-current="page"' : ''}>${icon(symbol)}${label}${id === 'community' ? '<span class="count">2</span>' : ''}</button>`).join('')}${canManage() ? `<div class="nav-group">工作空間</div><button class="nav-item ${page === 'admin' ? 'active' : ''}" data-action="navigate" data-page="admin">${icon('shield')}${canAdmin() ? '管理中心' : '活動工作台'}</button>` : ''}</nav><div class="sidebar-bottom"><div class="sidebar-note">${icon('leaf')} 一起學習，一起成為更好的自己。<p>每一個微小的善意，都值得被看見。</p></div><div class="sidebar-foot"><span>PWA DEMO · V2.0</span><a href="app-plan.html" target="_blank" rel="noopener">產品藍圖 ↗</a></div></div>`;
+      document.getElementById('sidebar').innerHTML = `<button type="button" class="icon-button drawer-close" data-action="close-menu" aria-label="關閉主選單">${icon('close')}</button><div class="brand"><span class="brandmark">${icon('sun')}</span><div><strong>光耀同行</strong><small>發一光耀 · 學習與成長</small></div></div><nav>${navItems.map(([group, id, symbol, label]) => `${group ? `<div class="nav-group">${group}</div>` : ''}<button class="nav-item ${activePage === id ? 'active' : ''}" data-action="navigate" data-page="${id}" ${activePage === id ? 'aria-current="page"' : ''}>${icon(symbol)}${label}${(window.GY_NAV_BADGE && window.GY_NAV_BADGE(id)) || (id === 'community' ? '<span class="count">2</span>' : '')}</button>`).join('')}${canManage() ? `<div class="nav-group">工作空間</div><button class="nav-item ${page === 'admin' ? 'active' : ''}" data-action="navigate" data-page="admin">${icon('shield')}${canAdmin() ? '管理中心' : '活動工作台'}</button>` : ''}</nav><div class="sidebar-bottom"><div class="sidebar-note">${icon('leaf')} 一起學習，一起成為更好的自己。<p>每一個微小的善意，都值得被看見。</p></div><div class="sidebar-foot"><span>PWA DEMO · V3.0</span><a href="app-plan.html" target="_blank" rel="noopener">產品藍圖 ↗</a></div></div>`;
       document.getElementById('topbar').innerHTML = `<button class="icon-button mobile-menu" data-action="menu" aria-label="開啟或關閉導覽" aria-controls="sidebar" aria-expanded="false">${icon('menu')}</button><form class="search-wrap" data-form="search">${icon('search')}<input name="query" aria-label="搜尋課程、活動或頁面" placeholder="搜尋課程、活動或學習靈感…" maxlength="80" required><kbd>↵</kbd></form><div class="top-actions"><span class="demo-pill">互動原型 · 示範資料</span><button class="icon-button notification" data-action="notifications" aria-label="查看示範通知">${icon('bell')}</button><button class="profile-button" data-action="account" aria-label="帳戶與示範角色"><span class="avatar">${state.signedIn ? esc(state.name.slice(-1)) : '客'}</span><span class="profile-copy"><strong>${state.signedIn ? esc(state.name) : '訪客'}</strong><small>${state.signedIn ? roleLabel() : '登入示範帳戶'}</small></span><span style="color:#a1ada1;font-size:11px">⌄</span></button></div>`;
-      const pages = {home: homePage, courses: coursesPage, schedule: schedulePage, community: communityPage, meetings: meetingsPage, portfolio: portfolioPage, vault: vaultPage, rewards: rewardsPage, invite: invitePage, about: aboutPage, admin: adminPage};
+      const pages = {home: homePage, courses: coursesPage, schedule: schedulePage, community: communityPage, meetings: meetingsPage, portfolio: portfolioPage, vault: vaultPage, rewards: rewardsPage, invite: invitePage, about: aboutPage, admin: adminPage, ...(window.GY_PAGES || {})};
       let content;
       if (!state.signedIn && !['about', 'invite'].includes(page)) {
         content = `${pageHead('歡迎加入光耀同行', '從一份好奇開始，走進學習、交流與善意的日常。')}<section class="hero"><div class="hero-copy"><div class="eyebrow">YOUR JOURNEY STARTS HERE</div><h2>學習不只是一堂課，<br>也是一段同行。</h2><p>無需真實密碼，即可體驗此互動原型。</p>${button('進入示範帳戶', 'account', '', 'gold')}</div>${heroArt()}</section><div class="callout">這不是正式登入系統。不要輸入真實密碼或敏感資料。所有示範資料只儲存在這個瀏覽器。</div>${navButton('先認識光耀', 'about', 'secondary')}`;
@@ -1341,9 +1496,12 @@
       if (editing) toast('另一個分頁已更新本機資料；送出時會重新檢查最新狀態。');
       else render();
     });
-    render();
-    if (recoveryWarning) toast(recoveryWarning);
+    document.addEventListener('DOMContentLoaded', () => {
+      render();
+      if (recoveryWarning) toast(recoveryWarning);
+    });
   </script>
+  <script src="study.js" defer></script>
   <script src="pwa.js" defer></script>
 </body>
 </html>

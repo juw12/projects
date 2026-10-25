@@ -394,13 +394,14 @@
       "id": "guangyao",
       "name": "Guang Yao Together · 光耀同行",
       "category": "Apps",
-      "desc": "Unofficial learning and community concept for 發一光耀 — a responsive, installable PWA with local demonstration data",
-      "description": "Unofficial Traditional Chinese learning and community concept for 發一光耀 &mdash; level-based courses, quizzes, activities and rewards in one installable PWA. Demo only: no real accounts or payments.",
+      "desc": "Unofficial learning and community concept for 發一光耀 — interactive lessons, spaced-repetition review, a source-citing AI study buddy and streaks in one installable PWA",
+      "description": "An unofficial Traditional Chinese learning and community concept for 發一光耀. Bite-size interactive lessons with instant feedback, automatic spaced-repetition flashcards, a study buddy that answers only from the lessons with citations and Socratic hints (optional opt-in cloud AI), daily goals, streaks with freezes, focus timer, progress heatmap, large-text and dark modes, plus activities, certificates and transparent-giving demos. No hearts or paywalls. Real accounts, payments and official certification are not connected.",
       "tags": [
         "PWA",
-        "learning &amp; community",
+        "spaced repetition",
+        "AI study buddy",
         "Traditional Chinese",
-        "offline demo"
+        "offline-first"
       ],
       "image": "guangyao-desktop.png",
       "image_alt": "Guang Yao Together desktop demo: course progression, upcoming activities and a clear local-demo notice",
@@ -425,7 +426,7 @@
       "featured": true,
       "order": 15,
       "status": "frontend-pwa-demo",
-      "version": "2.0.2",
+      "version": "3.0.0",
       "note_tags": [
         "projects",
         "education",
