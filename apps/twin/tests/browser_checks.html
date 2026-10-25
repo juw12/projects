@@ -1,6 +1,6 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>Trade Twin browser regressions</title>
+<title>Twin browser regressions</title>
 <pre id="report">RUNNING</pre>
 <script src="demo.js"></script>
 <script>
@@ -12,7 +12,7 @@
     fetch("__result", { method: "POST", body: JSON.stringify({ done: false, checks }) });
   };
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-  const api = window.TradeTwinDemo.api;
+  const api = window.TwinDemo.api;
   const errors = [];
   window.addEventListener("unhandledrejection", (event) => errors.push(String(event.reason)));
   const storageKey = "trade-twin-demo-v1";
@@ -98,8 +98,8 @@
     }
     const keys = await caches.keys();
     check("unrelated app cache survives activation", keys.includes("other-app-keep-me"));
-    check("old Trade Twin cache cleaned", !keys.includes("tt-shell-v3"));
-    const current = keys.find((key) => key.startsWith("trade-twin:") && key.endsWith(":1.1.0"));
+    check("old Twin cache cleaned", !keys.includes("tt-shell-v3"));
+    const current = keys.find((key) => key.startsWith("twin:") && key.endsWith(":1.2.0"));
     const offline = await caches.open(current);
     const cached = await offline.keys();
     check("complete demo precached", ["demo.js", "theme.js", "theme.css", "demo/market.json", "demo/monthly.json", "demo/trade.json", "demo/news.json"].every((name) => cached.some((request) => request.url.split("?")[0].endsWith(name))));
@@ -153,16 +153,16 @@
     check("offline server does not become demo account", doc.body.textContent.includes("Server unavailable"));
     // Guest mode is a separate session store. Never disturb an existing saved profile.
     const savedAccounts = localStorage.getItem(storageKey);
-    const guestStart = await window.TradeTwinDemo.guest("api/guest/start");
+    const guestStart = await window.TwinDemo.guest("api/guest/start");
     check("guest starts without credentials", guestStart.ok && guestStart.profile.guest && guestStart.profile.paper.cash === 10000);
     check("guest isn't falsely assessed", guestStart.profile.quiz.unassessed === true);
     check("guest doesn't alter account store", localStorage.getItem(storageKey) === savedAccounts);
-    const guestBuy = await window.TradeTwinDemo.guest("api/paper/order", { symbol: "AAPL", side: "buy", dollars: 500 });
+    const guestBuy = await window.TwinDemo.guest("api/paper/order", { symbol: "AAPL", side: "buy", dollars: 500 });
     check("guest practice orders work", guestBuy.ok && guestBuy.paper.cash === 9500);
-    const guestLogin = await window.TradeTwinDemo.guest("api/login", { username: "alice", password: "unique-demo-pass" });
+    const guestLogin = await window.TwinDemo.guest("api/login", { username: "alice", password: "unique-demo-pass" });
     check("guest cannot accidentally sign into account", !guestLogin.ok);
     check("guest changes remain separate", localStorage.getItem(storageKey) === savedAccounts);
-    await window.TradeTwinDemo.guest("api/logout");
+    await window.TwinDemo.guest("api/logout");
     check("guest exit erases only guest data", !sessionStorage.getItem("trade-twin-guest-v1") && localStorage.getItem(storageKey) === savedAccounts);
 
     // Restore fetch after the disconnected-server test above and reopen the real welcome UI.
@@ -196,11 +196,11 @@
     guestDoc.getElementById("tab-home").click();
     await delay(300);
     const canvas = guestDoc.querySelector("canvas");
-    guestWindow.TradeTwinTheme.set("dark");
+    guestWindow.TwinTheme.set("dark");
     await delay(150);
     const darkPixels = canvas.toDataURL();
     const beforeTheme = JSON.stringify(guestWindow.eval("state.paper"));
-    guestWindow.TradeTwinTheme.set("light");
+    guestWindow.TwinTheme.set("light");
     await delay(150);
     check("light theme changes canvas rendering", darkPixels !== canvas.toDataURL());
     check("theme doesn't change portfolio", JSON.stringify(guestWindow.eval("state.paper")) === beforeTheme);
@@ -218,7 +218,7 @@
       return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
     }
     for (const choice of ["light", "dark"]) {
-      guestWindow.TradeTwinTheme.set(choice);
+      guestWindow.TwinTheme.set(choice);
       await delay(100);
       const style = guestWindow.getComputedStyle(guestDoc.documentElement);
       const variable = (name) => style.getPropertyValue(name).trim();
@@ -228,9 +228,9 @@
       check(choice + " median chart line contrast", contrast(variable("--median"), variable("--card")) >= 4.5);
       check(choice + " phone layout", guestDoc.documentElement.scrollWidth <= 320);
     }
-    guestWindow.TradeTwinTheme.set("system");
+    guestWindow.TwinTheme.set("system");
     check("system theme follows device", guestDoc.documentElement.dataset.theme === (guestWindow.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
-    guestWindow.TradeTwinTheme.set("light");
+    guestWindow.TwinTheme.set("light");
     frame.src = "index.html";
     await new Promise((resolve) => { frame.onload = resolve; });
     const reloadWindow = frame.contentWindow, reloadDoc = frame.contentDocument;

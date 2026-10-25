@@ -1,4 +1,4 @@
-# Trade Twin 1.0.2 — second audit
+# Twin 1.0.2 — second audit
 
 ## Verified fixes
 
@@ -13,7 +13,7 @@
 | Web demo used weak hashing and a plaintext fallback | Random-salt PBKDF2-SHA256 (200,000 iterations); secure-context requirement; migrate legacy credentials only after verified login | New-credential, plaintext-absence and migration checks |
 | Account-switching retained portfolio/news/results | Clear caches and ignore late responses after account changes; reset on cross-tab identity change | UI logout assertions |
 | Lost live connection silently became demo mode | Distinguish static host from outage; remember live-server mode and show retry screen | Forced-offline live-server browser test |
-| Service worker deleted unrelated apps' caches | Scope cleanup to Trade Twin's names; precache complete demo, not only splash page | Real worker activation retains sentinel other-app cache and all demo assets |
+| Service worker deleted unrelated apps' caches | Scope cleanup to Twin's names; precache complete demo, not only splash page | Real worker activation retains sentinel other-app cache and all demo assets |
 | Profile fields, percentages and JSON shapes inadequately validated | Type/bounds validation, reject non-finite JSON literals and booleans as money | HTTP and browser regression checks |
 
 Also corrected 13F freshness language: the 45-day rule is a **filing deadline**, not a maximum
@@ -25,9 +25,9 @@ age guarantee. Investor sheets display quarter-end date, filing date and age. Re
 From the repository root:
 
 ```sh
-python apps/trade-twin/tests/verify_api.py
-python apps/trade-twin/tests/test_iteration.py
-python apps/trade-twin/tests/verify_browser.py
+python apps/twin/tests/verify_api.py
+python apps/twin/tests/test_iteration.py
+python apps/twin/tests/verify_browser.py
 python scripts/build_site.py
 python scripts/check_site.py
 python scripts/run_all_tests.py

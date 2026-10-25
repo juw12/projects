@@ -15,7 +15,7 @@ class IterationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.directory = tempfile.TemporaryDirectory()
-        os.environ['TRADE_TWIN_DATA'] = cls.directory.name
+        os.environ['TWIN_DATA'] = cls.directory.name
         spec = importlib.util.spec_from_file_location('iteration_server', APP / 'server.py')
         cls.server = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(cls.server)

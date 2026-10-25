@@ -11,7 +11,7 @@ runnable, deployable project.
 | [`apps/house-of-articles`](apps/house-of-articles) | Athlete-moment sneaker news + live market feed | Static prototype + versioned data spine |
 | [`apps/hazel`](apps/hazel) | Desktop studio for creators — auto-cut, repurpose to every platform, publish, measure traffic | Electron + bundled ffmpeg + local Whisper (offline) |
 | [`apps/sweep`](apps/sweep) | The `/sweep` pipeline — validate, then sync the repo to GitHub and mirror a note to Obsidian | PowerShell helper + OpenCode slash command |
-| [`apps/trade-twin`](apps/trade-twin) | Invest and day-trade with a twin that replays 10,000 futures — personality test, paper trading, goal planner, copy a 13F, news | Zero-dependency Python stdlib server + installable PWA (offline web demo) |
+| [`apps/twin`](apps/twin) | Invest and day-trade with a twin that replays 10,000 futures — personality test, paper trading, goal planner, copy a 13F, news | Zero-dependency Python stdlib server + installable PWA (offline web demo) |
 | [`apps/shortcraft`](apps/shortcraft) | Faceless 9:16 explainer shorts in the browser — scenes, captions, generated music, MP4 export (EN/ID), channel kit, YouTube upload + opt-in autoposter | Static web app (Canvas + Web Audio + MediaRecorder) + optional Python pipeline |
 | [`apps/sped`](apps/sped) | Sped (formerly Hookline): private short-form remix studio with tempo/pitch controls, full-track crossfades, portable recipes and an unvalidated edit checklist | Zero-dependency browser DSP + Web Workers + offline PWA |
 
@@ -42,7 +42,7 @@ apps/<name>/
 python apps/orbis/server/server.py
 python apps/peers/server/server.py
 python apps/house-of-articles/server/server.py
-python apps/trade-twin/server.py --lan
+python apps/twin/server.py --lan
 ```
 
 Each server serves both its API and its `web/` front-end.
@@ -53,7 +53,7 @@ Each server serves both its API and its `web/` front-end.
 python apps/orbis/tests/verify_api.py
 python apps/peers/tests/verify_api.py
 python apps/house-of-articles/tests/verify_api.py
-python apps/trade-twin/tests/verify_api.py
+python apps/twin/tests/verify_api.py
 ```
 
 All tests are hermetic (temp database, free port) and exit `0` / `1`. You can

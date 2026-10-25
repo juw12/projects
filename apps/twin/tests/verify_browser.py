@@ -89,7 +89,7 @@ def main():
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        with BrowserProfile(prefix='trade-twin-browser-') as profile:
+        with BrowserProfile(prefix='twin-browser-') as profile:
             args = [browser, '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
                     '--disable-extensions', '--disable-background-networking',
                     '--user-data-dir=' + profile,

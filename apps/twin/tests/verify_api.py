@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Hermetic end-to-end test for Trade Twin (stdlib only, no network).
+"""Hermetic end-to-end test for Twin (stdlib only, no network).
 
 Starts the server on a free port with a temporary data directory, then checks:
 health + static files, accounts (signup, login, wrong password, isolation),
@@ -70,9 +70,9 @@ class Client:
 
 def unit_tests(data_dir):
     print("unit: monthly returns + goal simulator")
-    os.environ["TRADE_TWIN_DATA"] = data_dir
+    os.environ["TWIN_DATA"] = data_dir
     sys.path.insert(0, str(APP_DIR))
-    import server  # noqa: E402  (imported after TRADE_TWIN_DATA is set)
+    import server  # noqa: E402  (imported after TWIN_DATA is set)
 
     # Quarterly bars must not be mistaken for monthly returns.
     def fake_http_json(url, ttl=60):
@@ -111,7 +111,7 @@ def unit_tests(data_dir):
 def end_to_end(data_dir):
     print("end-to-end: server")
     port = free_port()
-    env = dict(os.environ, TRADE_TWIN_DATA=data_dir)
+    env = dict(os.environ, TWIN_DATA=data_dir)
     proc = subprocess.Popen(
         [sys.executable, str(SERVER), "--port", str(port), "--no-browser"],
         env=env,
@@ -128,11 +128,11 @@ def end_to_end(data_dir):
                 time.sleep(0.1)
         alice = Client(base)
         status, body = alice.get("/api/health")
-        check("GET /api/health", status == 200 and json.loads(body)["app"] == "trade-twin")
+        check("GET /api/health", status == 200 and json.loads(body)["app"] == "twin")
         status, body = alice.get("/")
-        check("serves the app at /", status == 200 and b"Trade Twin" in body)
+        check("serves the app at /", status == 200 and b"Twin" in body)
         status, body = alice.get("/demo.js")
-        check("serves web/demo.js", status == 200 and b"TradeTwinDemo" in body)
+        check("serves web/demo.js", status == 200 and b"TwinDemo" in body)
 
         status, body = alice.post("/api/me")
         check("API requires login", status == 401)
@@ -255,7 +255,7 @@ def main():
     if FAILURES:
         print(f"FAILED: {len(FAILURES)} check(s): {', '.join(FAILURES)}")
         sys.exit(1)
-    print("PASSED: Trade Twin")
+    print("PASSED: Twin")
     sys.exit(0)
 
 

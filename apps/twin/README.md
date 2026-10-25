@@ -1,13 +1,15 @@
-# Trade Twin
+# Twin
+
+_Formerly **Trade Twin**. Old `/projects/trade-twin/` links redirect here; saved profiles, guest sessions and the theme choice carry over._
 
 An iPhone-ready investing and day-trading companion that replays 10,000 futures
 before you risk a dollar — matched to your personality.
 
 | | |
 | --- | --- |
-| **App** (installable PWA) | https://juwpegatron.github.io/projects/trade-twin/ |
-| **Web** (desktop) | https://juwpegatron.github.io/projects/trade-twin/web.html |
-| **Mobile** | https://juwpegatron.github.io/projects/trade-twin/mobile.html |
+| **App** (installable PWA) | https://juwpegatron.github.io/projects/twin/ |
+| **Web** (desktop) | https://juwpegatron.github.io/projects/twin/web.html |
+| **Mobile** | https://juwpegatron.github.io/projects/twin/mobile.html |
 
 ## Try without signing in
 
@@ -45,10 +47,10 @@ Warns when the shared history is shorter than 20 years. Drawdowns use time-weigh
 
 ## Two ways to run
 
-* **Live (your computer + phone).** `python apps/trade-twin/server.py --lan` (or double-click
-  `Start Trade Twin (iPhone).command` on a Mac). Open the printed address on your phone (same
+* **Live (your computer + phone).** `python apps/twin/server.py --lan` (or double-click
+  `Start Twin (iPhone).command` on a Mac). Open the printed address on your phone (same
   Wi-Fi) → Share → Add to Home Screen. Accounts are salted PBKDF2 hashes with HttpOnly session
-  cookies, stored in `apps/trade-twin/data/` (git-ignored). Live delayed quotes (Yahoo Finance),
+  cookies, stored in `apps/twin/data/` (git-ignored). Live delayed quotes (Yahoo Finance),
   SEC EDGAR 13Fs (needs your email as the SEC user agent), news, and the full skill tools.
 * **Web demo (GitHub Pages).** When no server answers, `web/demo.js` takes over: the same app runs
   in the browser on a bundled snapshot (`web/demo/`: 16 tickers' prices and charts, 12 monthly
@@ -58,7 +60,7 @@ Warns when the shared history is shorter than 20 years. Drawdowns use time-weigh
 ## Test
 
 ```bash
-python apps/trade-twin/tests/verify_api.py
+python apps/twin/tests/verify_api.py
 ```
 
 Hermetic (temp data dir, free port, no network): health + static files, accounts and isolation,
@@ -75,11 +77,13 @@ do not expose this development server to the public internet. Use a properly con
 for untrusted networks. The preferences quiz is educational, not a validated suitability assessment.
 
 
-Practice money only — Trade Twin never places a real order and never asks for broker credentials.
+Practice money only — Twin never places a real order and never asks for broker credentials.
 Quotes are delayed and unofficial; 13F reports describe quarter-end holdings and are due within 45 days after the quarter; the latest available holdings can be much older and exclude shorts/cash. Simulations resample
 history and are not predictions. Not financial advice.
 
 ## Changelog
+
+- **1.2.0** — Renamed Trade Twin → **Twin**: new address `/projects/twin/`, app folder `apps/twin/`, home-screen name and launcher. Old links redirect (query and hash kept); the old offline worker and its caches are retired at the old address so installed copies stop showing the old name. Browser storage keys are unchanged, so saved profiles, guest sessions and theme carry over. `TWIN_DATA` replaces `TRADE_TWIN_DATA` (the old variable still works).
 
 - **1.1.0** — No-login, no-email guest trial with optional assessment; isolated session-only practice
   data, reset/exit confirmations and memory-only fallback. Added saved system/light/dark appearance
@@ -96,7 +100,7 @@ history and are not predictions. Not financial advice.
   UI controls are frozen during a run. Browser credentials now use random-salt PBKDF2 and legacy
   demo profiles upgrade at login; plaintext fallback removed. Browser profile updates serialize
   across tabs via Web Locks where available. Logout clears cached portfolios/news/results.
-  Service-worker cleanup only touches Trade Twin's caches, and the whole snapshot is precached.
+  Service-worker cleanup only touches Twin's caches, and the whole snapshot is precached.
   A disconnected live server no longer silently switches users to demo data.
   See [audit and regression evidence](docs/AUDIT-1.0.2.md).
 

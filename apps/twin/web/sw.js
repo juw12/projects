@@ -1,9 +1,9 @@
-// Trade Twin 1.1.0: own cache only; complete offline snapshot; API never cached.
-const PREFIX = "trade-twin:" + self.registration.scope + ":";
-const SHELL = PREFIX + "1.1.0";
+// Twin 1.2.0: own cache only; complete offline snapshot; API never cached.
+const PREFIX = "twin:" + self.registration.scope + ":";
+const SHELL = PREFIX + "1.2.0";
 const FILES = [
-  "./", "index.html", "./?v=1.1.0", "index.html?v=1.1.0",
-  "demo.js?v=1.1.0", "theme.js?v=1.1.0", "theme.css?v=1.1.0", "manifest.webmanifest",
+  "./", "index.html", "./?v=1.2.0", "index.html?v=1.2.0",
+  "demo.js?v=1.2.0", "theme.js?v=1.2.0", "theme.css?v=1.2.0", "manifest.webmanifest",
   "icons/apple-touch-icon.png", "icons/icon-192.png", "icons/icon-512.png",
   "demo/meta.json", "demo/market.json", "demo/monthly.json",
   "demo/news.json", "demo/copycat.json", "demo/trade.json",
@@ -36,7 +36,7 @@ self.addEventListener("fetch", (event) => {
       }
       return response;
     } catch (error) {
-      return new Response("Trade Twin is offline. Reconnect to finish installing the offline demo.", {
+      return new Response("Twin is offline. Reconnect to finish installing the offline demo.", {
         status: 503, headers: { "Content-Type": "text/plain" },
       });
     }

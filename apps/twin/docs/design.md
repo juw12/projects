@@ -1,4 +1,4 @@
-# Trade Twin — design notes
+# Twin — design notes
 
 * **Backend**: `server.py`, stdlib only. Wraps the vendored skill CLIs as subprocesses, one
   workspace per user and mode (`data/users/<id>/{demo,live}/trader/`), so the skills' own
@@ -13,5 +13,5 @@
   quarterly bars for long histories — and returns are only taken between consecutive months.
 * **Goal planner**: 12-month block bootstrap, 10,000 paths, fixed seed (19) so a run is repeatable.
 * **Frontend**: one mobile-first file (`web/index.html`), relative paths only (served under
-  `/projects/trade-twin/` on Pages), canvas charts, bottom tab bar, bottom sheets, PWA manifest +
+  `/projects/twin/` on Pages), canvas charts, bottom tab bar, bottom sheets, PWA manifest +
   service worker. `web.html` frames it for desktop; `mobile.html` forwards to it.
