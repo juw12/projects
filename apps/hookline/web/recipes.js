@@ -112,7 +112,7 @@
     return (hash >>> 0).toString(16);
   }
 
-  function saveProject(tracks, recipe, request) {
+  function saveProject(tracks, recipe, request, publication) {
     const validated = H.makeRecipe(recipe);
     const active = tracks.filter(function (t) { return t.ready && t.role !== 'off'; });
     const mapping = {};
@@ -123,6 +123,7 @@
         ref: ref, name: t.name, duration: t.analysis.duration,
         fingerprint: fingerprint(t.channels), role: t.role,
         overrides: JSON.parse(JSON.stringify(t.overrides || {})),
+        rights: H.rights.declaration(t.rights),
       };
     });
     if (validated.mainId) {
@@ -135,12 +136,12 @@
         s.track = mapping[s.track];
       });
     }
-    return { format: 'hookline-project', schema: 2, version: H.VERSION, request: String(request || '').slice(0, 2000), sources: sources, recipe: validated };
+    return { format: 'hookline-project', schema: 2, version: H.VERSION, request: String(request || '').slice(0, 2000), sources: sources, recipe: validated, publication: H.rights.publication(publication) };
   }
 
   function loadProject(data, tracks) {
     if (!data || data.format !== 'hookline-project' || data.schema !== 2) {
-      throw new Error('Use a v1.1 portable recipe. Older files use temporary track IDs; recreate and save them in this version.');
+      throw new Error('Use a v1.1 or newer portable recipe. Older files use temporary track IDs; recreate and save them in this version.');
     }
     if (!Array.isArray(data.sources) || !data.sources.length || data.sources.length > H.LIMITS.maxTracks) {
       throw new Error('Invalid recipe source manifest.');
@@ -177,7 +178,7 @@
       });
       mapping[src.ref] = matches[0].id;
       used.add(matches[0].id);
-      assignments.push({ id: matches[0].id, role: src.role, overrides: JSON.parse(JSON.stringify(overrides)) });
+      assignments.push({ id: matches[0].id, role: src.role, overrides: JSON.parse(JSON.stringify(overrides)), rights: H.rights.declaration(src.rights) });
     });
     if (assignments.filter(function (a) { return a.role === 'main'; }).length !== 1) {
       throw new Error('A portable recipe must have exactly one main track.');
@@ -192,7 +193,7 @@
         s.track = mapping[s.track];
       });
     }
-    return { recipe: recipe, assignments: assignments, request: String(data.request || '').slice(0, 2000) };
+    return { recipe: recipe, assignments: assignments, request: String(data.request || '').slice(0, 2000), publication: H.rights.publication(data.publication) };
   }
 
   H.recipes = {

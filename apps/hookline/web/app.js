@@ -19,6 +19,7 @@
     cancelled: false,
     stale: false,
     slotMapping: {},
+    publication: H.rights.publication(),
   };
   let trackCounter = 0;
   let audioContext = null;
@@ -139,6 +140,7 @@
       '    <section class="card output-card" id="output-card"></section>',
       '    <section class="card" id="variants-card" hidden></section>',
       '    <section class="card" id="arrange-card"></section>',
+      '    <section class="card" id="rights-card"></section>',
       '  </div>',
       '</fieldset></main>',
       '<footer class="footer">',
@@ -152,6 +154,7 @@
     renderTune();
     renderOutput();
     renderArrangement();
+    renderRights();
     setStatus(state.status);
   }
 
@@ -191,7 +194,7 @@
         '  <p class="small muted">Tempo and key are estimates; preview the hook and correct them if needed.</p>',
         '  <canvas class="mini-wave" width="600" height="56" aria-hidden="true"></canvas>',
         '  <div class="track-fields">',
-        '    <label>BPM <input type="number" step="0.1" min="40" max="300" data-field="bpm" value="' + bpm.toFixed(1) + '"></label>',
+        '    <label>BPM <input type="number" step="0.1" min="30" max="300" data-field="bpm" value="' + bpm.toFixed(1) + '"></label>',
         '    <button class="chip" data-action="double" title="Detected half-time? Double it">×2</button>',
         '    <button class="chip" data-action="half" title="Detected double-time? Halve it">÷2</button>',
         '    <label>Key <select data-field="key">' + keyOptions + '</select></label>',
@@ -199,7 +202,7 @@
           return Math.abs(h.start - hook) < 0.01;
         }) ? '' : ' selected') + '>custom…</option></select></label>',
         '    <label class="narrow">at <input type="number" step="0.1" min="0" data-field="hookSec" value="' + hook.toFixed(1) + '">s</label>',
-        t.role === 'layer' ? '    <label class="narrow">nudge <input type="number" step="1" min="-6" max="6" data-field="semitones" value="' + (t.overrides.semitones || 0) + '">st</label>' : '',
+        '    <label class="narrow">nudge <input type="number" step="1" min="-6" max="6" data-field="semitones" value="' + (t.overrides.semitones || 0) + '">st</label>',
         '  </div>',
         t.warning ? '  <p class="warn">' + escapeHtml(t.warning) + '</p>' : '',
         '</div>',
@@ -223,6 +226,8 @@
         drawMiniWave(t);
       }
     });
+    renderRights();
+    refreshTuneReadouts();
   }
 
   function drawMiniWave(track) {
@@ -481,7 +486,11 @@
       if (value === 'main') { state.recipe.mainId = track.id; }
     } else if (field === 'bpm') {
       const v = parseFloat(value);
-      track.overrides.bpm = isFinite(v) && v > 30 ? v : undefined;
+      if (!Number.isFinite(v) || v < 30 || v > 300) {
+        renderSongs();
+        throw new Error('Source BPM must be 30–300. The previous value was kept.');
+      }
+      track.overrides.bpm = v;
     } else if (field === 'key') {
       const parts = value.split(':');
       track.overrides.key = { pc: parseInt(parts[0], 10), mode: parts[1], name: H.keyName({ pc: parseInt(parts[0], 10), mode: parts[1] }) };
@@ -495,7 +504,12 @@
         track.overrides.hookSec = Math.max(0, Math.min(track.analysis.duration - 1, v));
       }
     } else if (field === 'semitones') {
-      track.overrides.semitones = parseFloat(value) || 0;
+      const nudge = parseFloat(value);
+      if (!Number.isFinite(nudge) || nudge < -6 || nudge > 6) {
+        renderSongs();
+        throw new Error('Source pitch nudge must be −6 to +6 semitones.');
+      }
+      track.overrides.semitones = nudge;
     }
     if (!state.tracks.some(function (t) { return t.role === 'main'; })) {
       const candidate = state.tracks.find(function (t) { return t.ready && t.role !== 'off'; });
@@ -642,6 +656,38 @@
       '<input type="range" id="' + id + '" data-tune="' + id + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + value + '"></label>';
   }
 
+  function effectiveSpeed() {
+    const main = state.tracks.find(function (t) { return t.ready && t.role === 'main'; });
+    const bpm = main ? (main.overrides.bpm || main.analysis.bpm) : null;
+    return state.recipe.targetBpm && bpm ? state.recipe.targetBpm / bpm : state.recipe.tempo;
+  }
+
+  function refreshTuneReadouts() {
+    const r = state.recipe;
+    const tempo = document.getElementById('tempo');
+    const pitch = document.getElementById('semitones');
+    const length = document.getElementById('lengthSec');
+    if (!tempo || !pitch || !length) {
+      return;
+    }
+    const ratio = effectiveSpeed();
+    const main = state.tracks.find(function (t) { return t.ready && t.role === 'main'; });
+    const nudge = main && main.overrides ? (main.overrides.semitones || 0) : 0;
+    tempo.parentNode.querySelector('span').firstChild.textContent = r.targetBpm ? 'Tempo (target BPM takes priority) ' : 'Tempo ';
+    document.getElementById('tempo-out').textContent = '×' + ratio.toFixed(3);
+    pitch.disabled = r.mode === 'coupled';
+    if (r.mode === 'coupled') {
+      const semitones = 12 * Math.log2(ratio) + nudge;
+      pitch.value = Math.max(-12, Math.min(12, semitones));
+      document.getElementById('semitones-out').textContent = (semitones >= 0 ? '+' : '') + semitones.toFixed(2) + ' st';
+    } else {
+      pitch.value = r.semitones;
+      document.getElementById('semitones-out').textContent = (r.semitones >= 0 ? '+' : '') + r.semitones + ' st' + (nudge ? ' · source nudge ' + (nudge > 0 ? '+' : '') + nudge : '');
+    }
+    length.disabled = !!r.segments;
+    length.parentNode.querySelector('span').firstChild.textContent = r.segments ? 'Length (custom bars take priority) ' : 'Length (rounded to bars) ';
+  }
+
   function renderTune() {
     const r = state.recipe;
     const fx = r.fx || {};
@@ -657,14 +703,14 @@
       '</div>',
       '<div class="tune-grid">',
       slider('targetLufs', 'Loudness target (approx)', -24, -9, 1, r.targetLufs, function (v) { return v + ' LUFS'; }),
-      slider('tempo', r.targetBpm ? 'Tempo (overridden by target BPM)' : 'Tempo', 0.6, 1.6, 0.01, r.tempo, function (v) {
+      slider('tempo', r.targetBpm ? 'Tempo (target BPM takes priority)' : 'Tempo', 0.5, 2, 0.01, r.tempo, function (v) {
         return '×' + Number(v).toFixed(2);
       }),
-      '<label class="field">Target BPM <input type="number" id="targetBpm" data-tune="targetBpm" min="50" max="220" step="0.5" placeholder="auto" value="' + (r.targetBpm || '') + '"></label>',
+      '<label class="field">Target BPM <input type="number" id="targetBpm" data-tune="targetBpm" min="40" max="240" step="0.5" placeholder="auto" value="' + (r.targetBpm || '') + '"></label>',
       slider('semitones', r.mode === 'coupled' ? 'Pitch (follows tempo)' : 'Pitch', -12, 12, 0.5, r.semitones, function (v) {
         return (v > 0 ? '+' : '') + v + ' st';
       }),
-      slider('lengthSec', r.segments ? 'Length (custom bars override this)' : 'Length (rounded to bars)', 8, 60, 1, r.lengthSec, function (v) {
+      slider('lengthSec', r.segments ? 'Length (custom bars override this)' : 'Length (rounded to bars)', 6, 60, 1, r.lengthSec, function (v) {
         return v + ' s';
       }),
       slider('reverb', 'Reverb', 0, 0.8, 0.01, fx.reverb || 0, pct),
@@ -688,8 +734,7 @@
       '<div class="row"><button class="btn primary" data-action="render" data-needs-idle>Render</button>',
       '<button class="btn ghost" data-action="auto-arrange" data-needs-idle title="Discard the custom arrangement">Auto-arrange</button></div>',
     ].join('\n');
-    document.getElementById('semitones').disabled = r.mode === 'coupled';
-    document.getElementById('lengthSec').disabled = !!r.segments;
+    refreshTuneReadouts();
   }
 
   function onTuneInput(event) {
@@ -704,7 +749,11 @@
     if (['reverb', 'bass', 'air', 'lofi', 'eightD'].indexOf(key) >= 0) {
       r.fx[key] = num;
     } else if (key === 'targetBpm') {
-      r.targetBpm = isFinite(num) && num > 0 ? num : null;
+      if (el.value.trim() && (!Number.isFinite(num) || num < 40 || num > 240)) {
+        el.value = r.targetBpm === null ? '' : r.targetBpm;
+        throw new Error('Target BPM must be 40–240; clear the field for automatic tempo.');
+      }
+      r.targetBpm = el.value.trim() ? num : null;
     } else if (key === 'mashup' || key === 'keyMatch' || key === 'loop') {
       r[key] = el.checked;
       if (key === 'mashup') {
@@ -728,6 +777,7 @@
       const v = num;
       out.textContent = { tempo: '×' + v.toFixed(2), semitones: (v > 0 ? '+' : '') + v + ' st', lengthSec: v + ' s', targetLufs: v + ' LUFS', bass: '+' + v + ' dB', air: '+' + v + ' dB' }[key] || Math.round(v * 100) + '%';
     }
+    refreshTuneReadouts();
   }
 
   function onTuneClick(event) {
@@ -747,6 +797,7 @@
     } else if (actionEl.dataset.action === 'auto-arrange') {
       state.recipe.segments = null;
       state.curated = null;
+      renderTune();
       return renderRemix();
     }
   }
@@ -782,7 +833,7 @@
       }
       state.output = result;
       state.stale = false;
-      state.output.savedProject = H.recipes.saveProject(state.tracks, result.plan.recipe, state.request);
+      state.output.savedProject = H.recipes.saveProject(state.tracks, result.plan.recipe, state.request, state.publication);
       state.output.label = state.curated ? H.recipes.curated[state.curated].name : (state.request || 'remix');
       setStatus('Rendered ' + result.plan.durationSec.toFixed(1) + ' s at ' + result.plan.targetBpm.toFixed(1) + ' BPM in ' + ((performance.now() - started) / 1000).toFixed(1) + ' s · edit score ' + result.score.score + ' of 100.');
       document.body.dataset.state = 'rendered';
@@ -822,10 +873,11 @@
       '<div class="transport">',
       '  <button class="btn primary" data-action="play">▶ Play</button>',
       '  <label><input type="checkbox" data-action="loop-toggle"' + (state.loopPlayback ? ' checked' : '') + '> Loop</label>',
-      '  <button class="btn" data-action="download">⬇ WAV</button>',
-      '  <button class="btn ghost" data-action="save-recipe">Save recipe</button>',
+      '  <button class="btn" data-action="download" title="Export rendered audio; this does not grant publishing rights">⬇ WAV</button>',
+      '  <button class="btn ghost" data-action="save-recipe">Save rendered recipe</button>',
       '  <label class="btn ghost file-btn">Load recipe<input type="file" accept="application/json,.json" data-action="load-recipe"></label>',
       '</div>',
+      '<p class="muted small">WAV export is local editing, not rights clearance. The rendered recipe is a snapshot. Use Publishing notes below to save current source/permission notes.</p>',
       '<div class="score">',
       '  <div class="ring" style="--deg:' + ring + 'deg"><span>' + s.score + '</span></div>',
       '  <div><strong>' + escapeHtml(s.grade) + '</strong><p class="muted small">Unvalidated editing checklist — not a virality or audience prediction.</p></div>',
@@ -1006,9 +1058,13 @@
     state.tracks.forEach(function (t) {
       const saved = project.assignments.find(function (a) { return a.id === t.id; });
       t.role = saved ? saved.role : 'off';
-      if (saved) { t.overrides = saved.overrides; }
+      if (saved) {
+        t.overrides = saved.overrides;
+        t.rights = saved.rights;
+      }
     });
     state.recipe = project.recipe;
+    state.publication = project.publication;
     state.request = project.request;
     state.curated = null;
     markStale();
@@ -1016,6 +1072,98 @@
     renderRequest();
     renderTune();
     await renderRemix();
+  }
+
+  // ---------------------------------------------------------------- publishing notes
+
+  function renderRightsSummary() {
+    const summary = document.getElementById('rights-summary');
+    if (!summary) {
+      return;
+    }
+    const report = H.rights.review(activeTracks(), state.publication);
+    summary.innerHTML = '<p>' + escapeHtml(report.guidance) + '</p>' +
+      '<ul class="small">' + report.warnings.map(function (w) {
+        return '<li>' + escapeHtml(w) + '</li>';
+      }).join('') + '</ul><p class="muted small">' + escapeHtml(report.reminder) + '</p>';
+  }
+
+  function renderRights() {
+    const card = document.getElementById('rights-card');
+    if (!card) {
+      return;
+    }
+    const options = function (entries, selected) {
+      return Object.keys(entries).map(function (key) {
+        return '<option value="' + key + '"' + (selected === key ? ' selected' : '') + '>' + escapeHtml(entries[key]) + '</option>';
+      }).join('');
+    };
+    card.innerHTML = [
+      '<h2>Real songs & publishing notes</h2>',
+      '<p class="small">You can edit local song files here. Hookline supplies no music license and does not verify permission. Editing capability and permission to publish are different questions; local-only use is not a blanket legal exception.</p>',
+      '<p class="muted small">These notes cover the current active session sources, not necessarily an older rendered WAV. They are user declarations, never a “copyright-safe” badge.</p>',
+      '<div class="row"><label>Destination <select data-publication="platform">' + options(H.rights.platforms, state.publication.platform) + '</select></label>',
+      '<label><input type="checkbox" data-publication="commercial"' + (state.publication.commercial ? ' checked' : '') + '> Commercial / branded use</label></div>',
+      activeTracks().map(function (t) {
+        const d = H.rights.declaration(t.rights);
+        return '<details class="rights-source" data-source="' + t.id + '"><summary>' + escapeHtml(t.name) + '</summary>' +
+          '<label>Permission basis <select data-rights="basis">' + options(H.rights.bases, d.basis) + '</select></label>' +
+          '<label>License link / reference <input type="text" maxlength="500" data-rights="reference" value="' + escapeHtml(d.reference) + '"></label>' +
+          '<label>Required credit <input type="text" maxlength="500" data-rights="credit" value="' + escapeHtml(d.credit) + '"></label>' +
+          '<label>Restrictions / territories / expiry <textarea maxlength="1000" data-rights="restrictions" rows="2">' + escapeHtml(d.restrictions) + '</textarea></label></details>';
+      }).join(''),
+      '<div id="rights-summary"></div>',
+      '<div class="row"><button class="btn" data-rights-action="report">Download publishing notes</button>',
+      '<button class="btn ghost" data-rights-action="session">Save current session recipe</button></div>',
+      '<p class="muted small">JSON exports include source names and the notes you enter. Review before sharing. No audio or permissions are supplied with the notes.</p>',
+      '<details><summary>Official platform guidance</summary><ul>' + H.rights.links.map(function (link) {
+        return '<li><a href="' + link.url + '" target="_blank" rel="noopener noreferrer">' + link.label + '</a></li>';
+      }).join('') + '</ul><p class="small">For cross-platform remixes, use your own cleared material or a license expressly allowing that output. For a platform-specific video, add music in the destination platform’s permitted library workflow instead of extracting it into Hookline.</p></details>',
+    ].join('');
+    renderRightsSummary();
+  }
+
+  function onRightsInput(event) {
+    if (event.target.dataset.publication) {
+      const key = event.target.dataset.publication;
+      state.publication[key] = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
+      state.publication = H.rights.publication(state.publication);
+    } else if (event.target.dataset.rights) {
+      const row = event.target.closest('[data-source]');
+      const track = state.tracks.find(function (t) { return t.id === row.dataset.source; });
+      const d = H.rights.declaration(track.rights);
+      d[event.target.dataset.rights] = event.target.value;
+      track.rights = H.rights.declaration(d);
+    } else {
+      return;
+    }
+    renderRightsSummary();
+  }
+
+  function downloadJson(value, filename) {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  }
+
+  function onRightsClick(event) {
+    const button = event.target.closest('[data-rights-action]');
+    if (!button) {
+      return;
+    }
+    if (!activeTracks().length) {
+      throw new Error('Add audio sources before saving session notes.');
+    }
+    if (button.dataset.rightsAction === 'report') {
+      downloadJson(H.rights.review(activeTracks(), state.publication), 'hookline-publishing-notes.json');
+    } else {
+      downloadJson(H.recipes.saveProject(state.tracks, state.recipe, state.request, state.publication), 'hookline-current-session.json');
+    }
   }
 
   // ---------------------------------------------------------------- variants
@@ -1042,7 +1190,7 @@
       if (result) {
         result.label = requests[i][0];
         result.request = requests[i][1];
-        result.savedProject = H.recipes.saveProject(state.tracks, result.plan.recipe, result.request);
+        result.savedProject = H.recipes.saveProject(state.tracks, result.plan.recipe, result.request, state.publication);
         state.variants.push(result);
       }
     }
@@ -1050,7 +1198,7 @@
     state.variants.sort(function (a, b) {
       return b.score.score - a.score.score;
     });
-    setStatus('Edits sorted by checklist score, not predicted reach. First: ' + (state.variants[0] ? state.variants[0].label + ' (' + state.variants[0].score.score + ')' : '–') + '.');
+    setStatus((state.cancelled ? 'Comparison cancelled. Completed edits only. First: ' : 'Edits sorted by checklist score, not predicted reach. First: ') + (state.variants[0] ? state.variants[0].label + ' (' + state.variants[0].score.score + ')' : '–') + '.');
     renderVariants();
   }
 
@@ -1109,7 +1257,7 @@
         state.recipe.segments.map(function (s, i) {
           return '<tr data-index="' + i + '"><td>' + (i + 1) + '</td><td><select data-seg="track">' + options(s.track) + '</select></td>' +
             '<td><select data-seg="from"><option value="hook"' + (s.from !== 'time' ? ' selected' : '') + '>hook</option><option value="time"' + (s.from === 'time' ? ' selected' : '') + '>time</option></select></td>' +
-            '<td>' + (s.from === 'time' ? '<input type="number" step="0.1" min="0" data-seg="startSec" value="' + (s.startSec || 0) + '">s' : '+<input type="number" step="1" min="0" data-seg="offsetBars" value="' + (s.offsetBars || 0) + '"> bars') + '</td>' +
+            '<td>' + (s.from === 'time' ? '<input type="number" step="0.001" min="0" data-seg="startSec" value="' + (s.startSec || 0) + '">s' : '+<input type="number" step="1" min="0" data-seg="offsetBars" value="' + (s.offsetBars || 0) + '"> bars') + '</td>' +
             '<td><input type="number" min="1" max="32" step="1" data-seg="bars" value="' + s.bars + '"></td>' +
             '<td><input type="checkbox" data-seg="filterIn"' + (s.filterIn ? ' checked' : '') + '></td>' +
             '<td><input type="checkbox" data-seg="riserBefore"' + (s.riserBefore ? ' checked' : '') + '></td>' +
@@ -1154,6 +1302,7 @@
       }
     }
     markStale();
+    renderTune();
     renderArrangement();
   }
 
@@ -1208,12 +1357,14 @@
         if (event.target.closest('#output-card')) { return onOutputEvent(event); }
         if (event.target.closest('#variants-card')) { return onVariantsEvent(event); }
         if (event.target.closest('#arrange-card')) { return onArrangeEvent(event); }
+        if (event.target.closest('#rights-card')) { return onRightsClick(event); }
       });
     });
     root.addEventListener('change', function (event) {
       if (state.busy) { return; }
       safe(function () {
         if (event.target.dataset.action === 'load-recipe') { return onOutputChange(event); }
+        if (event.target.closest('#rights-card')) { return onRightsInput(event); }
         if (event.target.dataset.slot) { state.slotMapping[event.target.dataset.slot] = event.target.value; return; }
         if (event.target.closest('#songs-card')) { return onSongsChange(event); }
         if (event.target.closest('#tune-card')) { return onTuneInput(event); }
@@ -1224,6 +1375,7 @@
       if (state.busy) { return; }
       if (event.target.closest('#tune-card') && event.target.type === 'range') { onTuneInput(event); }
       if (event.target.id === 'request') { state.request = event.target.value; }
+      if (event.target.closest('#rights-card')) { safe(function () { return onRightsInput(event); }); }
     });
     root.addEventListener('keydown', function (event) {
       if (!state.busy && event.target.id === 'request' && event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
