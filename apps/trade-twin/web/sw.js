@@ -1,35 +1,43 @@
-// Trade Twin service worker: caches the app shell so it opens instantly.
-// Market data and account calls always go to the network.
-const SHELL = "tt-shell-v3";
-const FILES = ["./", "icons/icon-192.png", "manifest.webmanifest"];
+// Trade Twin 1.0.2: own cache only; complete offline snapshot; API never cached.
+const PREFIX = "trade-twin:" + self.registration.scope + ":";
+const SHELL = PREFIX + "1.0.2";
+const FILES = [
+  "./", "index.html", "demo.js", "manifest.webmanifest",
+  "icons/apple-touch-icon.png", "icons/icon-192.png", "icons/icon-512.png",
+  "demo/meta.json", "demo/market.json", "demo/monthly.json",
+  "demo/news.json", "demo/copycat.json", "demo/trade.json",
+];
+const assets = new Set(FILES.map((file) => new URL(file, self.registration.scope).href));
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(SHELL).then((cache) => cache.addAll(FILES)));
-  self.skipWaiting();
+  event.waitUntil(caches.open(SHELL).then((cache) => cache.addAll(FILES.map((file) => new Request(file, { cache: "reload" })))).then(() => self.skipWaiting()));
 });
-
 self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== SHELL).map((k) => caches.delete(k))))
-  );
-  self.clients.claim();
+  event.waitUntil(caches.keys().then((keys) => Promise.all(
+    keys.filter((key) => key !== SHELL && (key.startsWith(PREFIX) || /^tt-shell-v\d+$/.test(key)))
+      .map((key) => caches.delete(key))
+  )).then(() => self.clients.claim()));
 });
-
 self.addEventListener("fetch", (event) => {
-  const url = new URL(event.request.url);
-  if (event.request.method !== "GET" || url.pathname.includes("api/")) {
+  if (event.request.method !== "GET" || !assets.has(event.request.url)) {
     return;
   }
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        // Only keep good same-origin copies; never cache errors or opaque responses.
-        if (response.ok && url.origin === self.location.origin) {
-          const copy = response.clone();
-          caches.open(SHELL).then((cache) => cache.put(event.request, copy));
-        }
-        return response;
-      })
-      .catch(() => caches.match(event.request))
-  );
+  // Versioned offline snapshot stays internally consistent until the next worker install.
+  event.respondWith(caches.open(SHELL).then(async (cache) => {
+    const cached = await cache.match(event.request);
+    if (cached) {
+      return cached;
+    }
+    try {
+      const response = await fetch(event.request);
+      if (response.ok && response.type !== "opaque") {
+        await cache.put(event.request, response.clone());
+      }
+      return response;
+    } catch (error) {
+      return new Response("Trade Twin is offline. Reconnect to finish installing the offline demo.", {
+        status: 503, headers: { "Content-Type": "text/plain" },
+      });
+    }
+  }));
 });

@@ -28,7 +28,7 @@ needed within 3 years caps the risk level at 2.
 **Goal planner.** Block bootstrap (random 12-month runs of real monthly total returns,
 rebalanced monthly) over 10,000 paths. Reports the chance of reaching the goal, the 5 / 50 / 95 %
 outcomes, the chance of ending below what you put in and the worst drop along the way.
-Warns when the shared history is shorter than 20 years.
+Warns when the shared history is shorter than 20 years. Drawdowns use time-weighted unit value, excluding deposits. Values are nominal and omit inflation, tax, transaction costs and slippage.
 
 ## Two ways to run
 
@@ -55,11 +55,29 @@ monthly-return gap handling and the goal simulator.
 
 ## Safety
 
+Browser demo profiles are **not cloud accounts or a privacy boundary**: anyone who can inspect this
+browser's storage can read them. Use a unique demo password, not a brokerage password. Live-server
+accounts are separate and do not sync with GitHub Pages profiles. A LAN HTTP connection is unencrypted;
+do not expose this development server to the public internet. Use a properly configured HTTPS host
+for untrusted networks. The preferences quiz is educational, not a validated suitability assessment.
+
+
 Practice money only — Trade Twin never places a real order and never asks for broker credentials.
-Quotes are delayed and unofficial; 13F data is up to ~45 days old and long-only. Simulations resample
+Quotes are delayed and unofficial; 13F reports describe quarter-end holdings and are due within 45 days after the quarter; the latest available holdings can be much older and exclude shorts/cash. Simulations resample
 history and are not predictions. Not financial advice.
 
 ## Changelog
+
+- **1.0.2** — Cashflow-neutral drawdowns (deposits cannot hide losses); contiguous-history sampling
+  without end-to-start wrap; duplicate tickers and invalid weights rejected; clearer model assumptions.
+  Replays respect the plan's flat-by time (the bundled TSLA recordings now end at 15:55).
+  Token-bound trade pipelines reject stale/cross-account runs, changed limits and skipped steps;
+  UI controls are frozen during a run. Browser credentials now use random-salt PBKDF2 and legacy
+  demo profiles upgrade at login; plaintext fallback removed. Browser profile updates serialize
+  across tabs via Web Locks where available. Logout clears cached portfolios/news/results.
+  Service-worker cleanup only touches Trade Twin's caches, and the whole snapshot is precached.
+  A disconnected live server no longer silently switches users to demo data.
+  See [audit and regression evidence](docs/AUDIT-1.0.2.md).
 
 - **1.0.1** — Hardening pass: every numeric input (orders, copy amount, budget, limits, practice cash,
   goal planner) is validated as a finite number within sane bounds, on the server and in the web demo
