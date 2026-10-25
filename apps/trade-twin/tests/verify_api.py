@@ -4,7 +4,8 @@
 Starts the server on a free port with a temporary data directory, then checks:
 health + static files, accounts (signup, login, wrong password, isolation),
 the personality test -> limits mapping, budget recalculation, the cross-site
-guard, and the full demo day-trade flow on the bundled TSLA replay.
+guard, input validation (NaN/inf/negative amounts, path traversal, bad
+Content-Length), and the full demo day-trade flow on the bundled TSLA replay.
 It also unit-tests the monthly-return gap handling and the goal simulator
 with synthetic data. Exits 0 on success, 1 on failure.
 """
@@ -178,6 +179,35 @@ def end_to_end(data_dir):
         check("ticket READY, paper", bool(tickets[0].get("ready")) and bool(tickets[0].get("paper")))
         status, body = alice.post("/api/trade", {"step": "entry", "mode": "demo", "params": {"symbol": "AAPL"}})
         check("demo refuses non-TSLA tickers", not body.get("ok"))
+
+        print("input validation (no network needed)")
+        status, body = alice.post("/api/profile", {"budget": "lots"})
+        check("text budget rejected cleanly", status == 200 and not body.get("ok") and "number" in body.get("error", ""), str(body))
+        status, body = alice.post("/api/profile", {"budget": "NaN"})
+        check("NaN budget rejected", not body.get("ok"), str(body))
+        status, body = alice.post("/api/profile", {"limits": {"max_loss_per_trade_usd": -5}})
+        check("negative max loss rejected", not body.get("ok"), str(body))
+        status, body = alice.post("/api/paper/order", {"symbol": "AAPL", "side": "buy", "dollars": "nan"})
+        check("NaN paper order rejected", not body.get("ok"), str(body))
+        status, body = alice.post("/api/paper/order", {"symbol": "AAPL", "side": "buy", "dollars": "Infinity"})
+        check("infinite paper order rejected", not body.get("ok"), str(body))
+        status, body = alice.post("/api/paper/copy", {"amount": "nan", "weights": [{"ticker": "AAPL", "weight": 1}]})
+        check("NaN copy amount rejected", not body.get("ok"), str(body))
+        status, body = alice.post("/api/paper/reset", {"cash": -50})
+        check("negative paper reset rejected", not body.get("ok"), str(body))
+        status, body = alice.post("/api/me")
+        cash = body["profile"]["paper"]["cash"]
+        check("paper cash still a real number", isinstance(cash, (int, float)) and cash == cash and cash > 0, str(cash))
+
+        host, port_text = base.split("//", 1)[1].split(":")
+        with socket.create_connection((host, int(port_text)), timeout=10) as raw:
+            raw.sendall(b"GET /%2e%2e/server.py HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n")
+            reply = raw.recv(4096).decode("latin-1")
+        check("path traversal blocked", reply.startswith("HTTP/1.0 404") or reply.startswith("HTTP/1.1 404"), reply[:40])
+        with socket.create_connection((host, int(port_text)), timeout=10) as raw:
+            raw.sendall(b"POST /api/me HTTP/1.1\r\nHost: x\r\nContent-Length: abc\r\nConnection: close\r\n\r\n")
+            reply = raw.recv(4096).decode("latin-1")
+        check("bad Content-Length answered with 413", " 413 " in reply.split("\r\n", 1)[0], reply[:40])
 
         bob = Client(base)
         bob.post("/api/signup", {"username": "bob", "password": "another-pass-2", "name": "Bob"})
