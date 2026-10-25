@@ -46,9 +46,9 @@ Chats, settings and votes are stored in browser localStorage. API keys are store
 python apps/glow/tests/test_static_integrity.py
 python apps/glow/tests/verify_api.py
 ```
-In-browser self-test: open `web/index.html#selftest` (89 checks covering chat, council,
+In-browser self-test: open `web/index.html#selftest` (94 checks covering chat, council,
 judge, arena, voting, export, search, the v0.2.1 fixes, v0.4 sign-in, guest mode, tour,
-theme, sync and UI, and the v0.5 model picker, personas, checklists, Fuse, share links and Markdown, using a Puter test double so no real account is touched). Demos: `#demo-council`, `#demo-arena`.
+theme, sync and UI, and the v0.5 model picker, personas, checklists, Fuse, share links and Markdown, and the Crewroom link, using a Puter test double so no real account is touched). Demos: `#demo-council`, `#demo-arena`.
 
 ## v0.2.1 fixes
 - Demo and self-test links (`#selftest`, `#demo-*`) run in a sandbox and never touch a visitor's saved chats or keys.
@@ -69,6 +69,11 @@ Free OpenRouter models are rate-limited. Working prototype, not a production ser
 - Demo/self-test links still use isolated storage.
 - Glow cache cleanup is restricted to Glow, preserving other apps on the same origin.
 - Glow is a prototype brand chosen by the owner, not a unique or trademark-cleared name.
+
+## v0.5.1 — connected to Crewroom
+- **Glow → Crewroom**: the 🏢 Crewroom button in the sidebar hands whatever you typed to Crewroom's AI crew (web research, code, media) as their mission; **🏢 Ask the crew** under any reply sends the question plus Glow's answer so the crew can check and extend it.
+- **Crewroom → Glow**: finished crew results arrive in Glow as a chat marked 🏢, so you can keep asking about them. Both apps share one Glow account and the same Glow AI models.
+- Works because both apps live on the same site (shared browser storage); nothing goes through a server.
 
 ## v0.5.0 — choose your model, personas, checklists
 - **Model picker**: searchable dropdown grouped by provider with badges (Free, Fast, Reasoning, Smart, Local), ★ favourites, keyboard navigation. Guests see Glow AI models with a 🔒; picking one opens sign-in and selects it afterwards. Signed-in users can show every Glow AI model.

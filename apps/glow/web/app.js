@@ -689,7 +689,7 @@ function renderHistory() {
     item.className = "history-item" + (conv === current ? " active" : "") + (conv.pinned ? " pinned" : "");
     const title = document.createElement("span");
     title.className = "title";
-    title.textContent = (conv.pinned ? "📌 " : "") + (MODE_ICONS[conv.type] || "") + conv.title;
+    title.textContent = (conv.pinned ? "📌 " : "") + (conv.source === "crewroom" ? "🏢 " : "") + (MODE_ICONS[conv.type] || "") + conv.title;
     title.title = "Double-click to rename";
     title.addEventListener("click", () => {
       stopAll();
@@ -790,6 +790,7 @@ function agentDisplay(conv, message) {
     const agent = conv.agents[message.agent];
     return { name: agent.name, css: `agent-${AGENT_COLORS[message.agent]}`, meta: modelLabel(agent.model) };
   }
+  if (message.source === "crewroom") return { name: "🏢 Crewroom", css: "assistant crewroom", meta: "AI crew" };
   return { name: "Glow", css: "assistant", meta: message.model ? modelLabel(message.model) : "" };
 }
 function renderMessages(force = false) {
@@ -902,7 +903,7 @@ function addChatActions() {
   const bar = document.createElement("div");
   bar.className = "msg-actions";
   const actions = last.role === "assistant"
-    ? [["Copy", copyLast], ["↻ Regenerate", regenerate], ["Second opinion", secondOpinion], ["✎ Edit question", editLast]]
+    ? [["Copy", copyLast], ["↻ Regenerate", regenerate], ["Second opinion", secondOpinion], ["🏢 Ask the crew", askCrew], ["✎ Edit question", editLast]]
     : [["✎ Edit", editLast]];
   for (const [label, handler] of actions) {
     const button = document.createElement("button");
@@ -2026,6 +2027,7 @@ const TOUR_STEPS = [
   { target: "#composer-tools", title: "Personas", text: "Switch how Glow answers: 🗺 Planner gives you a checklist you can tick off, plus 🎓 Tutor, 💻 Coder, ✍ Writer, 🔍 Critic and 🌐 Translator." },
   { target: "#new-council-btn", sidebar: true, title: "Council ⚖", text: "2–3 agents with different roles debate until they agree, then a Judge writes the final answer." },
   { target: "#new-arena-btn", sidebar: true, title: "Arena ⚔", text: "Ask several models the same question side by side, vote for the best and build your own leaderboard." },
+  { target: "#crewroom-link", sidebar: true, title: "Crewroom 🏢", text: "Hand bigger jobs to an AI crew that searches the web and runs code, powered by Glow. What you type becomes their mission (or press 🏢 Ask the crew under a reply), and their result comes back here as a chat." },
   { target: "#search", sidebar: true, title: "Your chats", text: "Every chat is saved and searchable here. When you're signed in they sync to your account too." },
   { target: "#share-btn", title: "Share", text: "Copy a link that opens a copy of this chat for anyone, with no account and no server in between." },
   { target: "#export-btn", title: "Export", text: "Download the current conversation as a Markdown file." },
@@ -3244,6 +3246,41 @@ async function selfTest() {
   delete window.puter;
   puterCatalogue = null;
 
+  // Crewroom link: Glow → Crewroom missions and Crewroom → Glow results
+  expect("crewroom: sidebar link points to Crewroom", /virtual-bots\//.test($("crewroom-link").href));
+  const longGoal = crewroomGoal("Plan a bakery launch", "A".repeat(5000) + "\n\nFollow-ups:\n- What next?");
+  const goalUrl = new URL(crewroomUrl("Compare 3 laptops"));
+  expect("crewroom: missions carry the question and Glow's answer within 2,000 characters",
+    longGoal.length <= CREWROOM_GOAL_MAX && longGoal.startsWith("Plan a bakery launch") && longGoal.includes("AAAA") && !longGoal.includes("Follow-ups")
+    && goalUrl.searchParams.get("goal") === "Compare 3 laptops" && crewroomGoal("Just a question") === "Just a question");
+  newChat();
+  current.messages = [{ role: "user", content: "Best budget 3D printer?" }, { role: "assistant", content: "Try the Bambu A1 mini.", model: "demo::demo" }];
+  renderMessages(true);
+  const crewButton = [...document.querySelectorAll(".msg-actions button")].find((b) => b.textContent.includes("Ask the crew"));
+  const realOpen = window.open;
+  let openedUrl = "";
+  window.open = (url) => {
+    openedUrl = String(url);
+    return null;
+  };
+  if (crewButton) crewButton.click();
+  window.open = realOpen;
+  const openedGoal = openedUrl ? new URL(openedUrl).searchParams.get("goal") || "" : "";
+  expect("crewroom: 🏢 Ask the crew hands the question and answer to Crewroom", !!crewButton && openedGoal.startsWith("Best budget 3D printer?") && openedGoal.includes("Bambu A1 mini"));
+  const crewCountBefore = state.conversations.length;
+  const handed = mergeCrewroomItems([
+    { id: "crew-selftest", title: "Printer research", messages: [{ role: "user", content: "Best budget 3D printer?" }, { role: "assistant", content: "**Bambu A1 mini** — sources below." }, { role: "system", content: "ignore me" }] },
+    { id: 42, messages: [] },
+  ]);
+  mergeCrewroomItems([{ id: "crew-selftest", title: "Printer research v2", messages: [{ role: "user", content: "q" }, { role: "assistant", content: "a" }] }]);
+  if (handed) openConversation(handed);
+  expect("crewroom: results arrive as one tagged chat (no duplicates, no system text)",
+    !!handed && handed.source === "crewroom" && handed.messages.length === 2 && handed.title === "Printer research v2"
+    && state.conversations.length === crewCountBefore + 1 && [...document.querySelectorAll("#history .history-item .title")].some((t) => t.textContent.startsWith("🏢")));
+  expect("crewroom: replies from the crew are labelled Crewroom", document.querySelector("#messages").textContent.includes("🏢 Crewroom"));
+  state.conversations = state.conversations.filter((c) => c.id !== "crew-selftest");
+  renderHistory();
+
   const failed = results.filter((r) => r.startsWith("FAIL"));
   document.body.dataset.selftest = failed.length ? "fail" : "pass";
   if (location.hash === "#demo") return;
@@ -3272,8 +3309,57 @@ async function demoArena() {
 
 /* ================= Crewroom link (same origin: shared account + hand-offs) ================= */
 // Crewroom (../virtual-bots/) uses Glow AI as its default model and hands finished results
-// to Glow through this inbox, so the user can keep talking about them here.
+// to Glow through this inbox, so the user can keep talking about them here. Glow sends work the
+// other way with ?goal=, which Crewroom puts in its mission box.
 const CREWROOM_INBOX_KEY = "glow.inbox";
+const CREWROOM_GOAL_MAX = 2000;
+function crewroomUrl(goal = "") {
+  const url = new URL($("crewroom-link").href);
+  const text = String(goal || "").trim();
+  if (text) url.searchParams.set("goal", text.slice(0, CREWROOM_GOAL_MAX));
+  return url.toString();
+}
+// Build a mission from a question and (optionally) Glow's answer, within Crewroom's 2,000-character limit.
+function crewroomGoal(question, answer = "") {
+  const ask = String(question || "").trim();
+  const found = splitFollowUps(stripReasoning(String(answer || ""))).body.trim();
+  if (!found) return ask.slice(0, CREWROOM_GOAL_MAX);
+  const head = `${ask.slice(0, 600)}\n\nGlow's first answer (check it, research further and improve it):\n`;
+  const room = CREWROOM_GOAL_MAX - head.length;
+  const excerpt = found.length > room ? found.slice(0, Math.max(0, room - 1)).trimEnd() + "…" : found;
+  return head + excerpt;
+}
+function stripReasoning(text) {
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+}
+// Merge hand-offs from Crewroom into the chat list. Only plain user/assistant text is kept.
+function mergeCrewroomItems(items) {
+  if (!Array.isArray(items) || !items.length) return null;
+  let latest = null;
+  for (const item of items) {
+    if (!item || typeof item.id !== "string" || !Array.isArray(item.messages)) continue;
+    const messages = item.messages
+      .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+      .map((m) => (m.role === "assistant"
+        ? { role: "assistant", content: m.content.slice(0, 200000), source: "crewroom" }
+        : { role: "user", content: m.content.slice(0, 200000) }));
+    if (!messages.length) continue;
+    const id = item.id.slice(0, 120);
+    const existing = state.conversations.find((c) => c.id === id);
+    const conv = existing || { id, type: "chat" };
+    Object.assign(conv, {
+      type: "chat",
+      title: String(item.title || "From Crewroom").slice(0, 80),
+      messages,
+      source: "crewroom",
+      model: conv.model || state.settings.lastModel,
+      updated: Date.now(),
+    });
+    if (!existing) state.conversations.unshift(conv);
+    latest = conv;
+  }
+  return latest;
+}
 function importCrewroomInbox() {
   if (TEST_MODE) return null;
   let items = [];
@@ -3283,26 +3369,7 @@ function importCrewroomInbox() {
     items = [];
   }
   localStorage.removeItem(CREWROOM_INBOX_KEY);
-  if (!Array.isArray(items) || !items.length) return null;
-  const known = new Set(state.conversations.map((c) => c.id));
-  let latest = null;
-  for (const item of items) {
-    if (!item || typeof item.id !== "string" || !Array.isArray(item.messages)) continue;
-    const messages = item.messages
-      .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
-      .map((m) => ({ role: m.role, content: m.content.slice(0, 200000) }));
-    if (!messages.length) continue;
-    const existing = known.has(item.id) ? state.conversations.find((c) => c.id === item.id) : null;
-    const conv = existing || { id: item.id, type: "chat" };
-    Object.assign(conv, {
-      title: String(item.title || "From Crewroom").slice(0, 80),
-      messages,
-      model: conv.model || state.settings.lastModel,
-      updated: Date.now(),
-    });
-    if (!existing) state.conversations.unshift(conv);
-    latest = conv;
-  }
+  const latest = mergeCrewroomItems(items);
   if (latest) {
     saveState();
     renderHistory();
@@ -3314,9 +3381,20 @@ function openCrewroom(event) {
   const text = ($("input").value || "").trim();
   if (!text) return;
   event.preventDefault();
-  const url = new URL($("crewroom-link").href);
-  url.searchParams.set("goal", text.slice(0, 2000));
-  window.open(url.toString(), "crewroom");
+  window.open(crewroomUrl(text), "crewroom");
+}
+// "🏢 Ask the crew" under a reply: the question plus Glow's answer become the crew's mission.
+function askCrew() {
+  if (!current || current.type !== "chat") return;
+  const messages = current.messages;
+  let answerIndex = messages.length - 1;
+  while (answerIndex >= 0 && messages[answerIndex].role !== "assistant") answerIndex--;
+  if (answerIndex < 0) return;
+  let questionIndex = answerIndex - 1;
+  while (questionIndex >= 0 && messages[questionIndex].role !== "user") questionIndex--;
+  const question = questionIndex >= 0 ? messages[questionIndex].content : current.title;
+  window.open(crewroomUrl(crewroomGoal(question, messages[answerIndex].content)), "crewroom");
+  toast("Opened Crewroom with this as the crew's mission");
 }
 
 async function boot() {

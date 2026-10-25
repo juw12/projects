@@ -1,5 +1,5 @@
 // Glow service worker: offline app shell. AI requests always go to the network.
-const CACHE_NAME = 'glow-v5';
+const CACHE_NAME = 'glow-v6';
 const ASSETS_TO_CACHE = [
   './index.html',
   './app.html',
