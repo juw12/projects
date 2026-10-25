@@ -5,7 +5,7 @@ aliases:
   - 發一光耀平台概念
 type: project
 status: frontend-pwa-demo
-version: "2.0"
+version: "3.0.0"
 tags:
   - projects
   - education
@@ -43,6 +43,19 @@ Charitable funds, participation points and affiliate commissions require separat
 - This Obsidian-ready note and the portfolio copy below.
 
 The app and generated portfolio card have been prepared in local copies of juwpegatron/projects and juwpegatron/portfolio. The Obsidian vault is still unconfirmed. Local integration is not proof of a successful push or public deployment; verify those separately.
+
+## v3.0.0 study layer (October 2026)
+
+Benchmarked against Duolingo, Anki, Quizlet, Brilliant, NotebookLM, Khanmigo/ChatGPT Study Mode and Forest; details in `competitive-analysis.md`.
+
+- Interactive lesson player (reading + TTS, multiple choice, cloze, ordering, reflection) with no hearts or paywall.
+- Auto-generated flashcards with simplified SM-2 spaced review and a 7-day forecast.
+- XP, daily goal, streaks with earned freezes, focus timer, 12-week heatmap and mastery stats.
+- Offline grounded tutor 光光 with citations, honest not-found answers, Socratic hints and quiz mode; opt-in cloud AI behind a consent dialog.
+- Cooperative group goal, share card, ICS export, dark theme, large text and mobile bottom navigation with due badge.
+- Browser regression suite extended for the study layer in Chromium and WebKit.
+
+Limits: sample (non-official) lesson content, local-only progress, retrieval-based tutor, live cloud AI and physical devices untested, no learning-outcome study yet.
 
 ## Requirements map
 
