@@ -2,8 +2,8 @@
  * rehydrates every loaded track from the UI's retained PCM before rendering. */
 (function (root) {
   'use strict';
-  root.Hookline.createEngineClient = function (getTracks, onMode, workerFactory) {
-    const H = root.Hookline;
+  root.Sped.createEngineClient = function (getTracks, onMode, workerFactory) {
+    const H = root.Sped;
     let worker = null;
     let local = null;
     let sequence = 0;

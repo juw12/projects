@@ -1,4 +1,4 @@
-"""Small stdlib CDP client for Hookline browser regression checks.
+"""Small stdlib CDP client for Sped browser regression checks.
 
 Only connects to an isolated test Chrome process on localhost; never uses a
 personal browser profile. Chrome must be supplied by the caller.

@@ -370,11 +370,11 @@
       "version": "0.4.1"
     },
     {
-      "id": "hookline",
-      "name": "Hookline",
+      "id": "sped",
+      "name": "Sped",
       "category": "Software",
       "desc": "Private audio remixing with portable recipes and platform-specific, user-declared publishing notes",
-      "description": "Hookline is a private browser remix studio for user-provided audio: independent tempo/pitch controls, whole-track sequencing and crossfades, auditioning and WAV export. Version 1.2 adds publishing notes for permission basis, license references, credits, restrictions and intended platforms; they are user declarations, not rights clearance. Commercial-song titles are not an editing gate. Fixes include accurate coupled-pitch readouts, exact manual source starts and clearer automatic-arrangement controls. Portable recipes, bounded audio jobs and worker recovery remain built in. No licensed song catalogue, stem separation or proven virality prediction.",
+      "description": "Sped (formerly Hookline) is a private browser remix studio for user-provided audio: independent tempo/pitch controls, whole-track sequencing and crossfades, auditioning and WAV export. It includes publishing notes for permission basis, license references, credits, restrictions and intended platforms; they are user declarations, not rights clearance. Commercial-song titles are not an editing gate. Fixes include accurate coupled-pitch readouts, exact manual source starts and clearer automatic-arrangement controls. Portable recipes, bounded audio jobs and worker recovery remain built in. No licensed song catalogue, stem separation or proven virality prediction.",
       "tags": [
         "Web Audio",
         "private audio",
@@ -382,16 +382,16 @@
         "portable recipes",
         "PWA"
       ],
-      "image": "hookline.png",
-      "image_alt": "Hookline 1.2 browser remix studio using synthetic audio fixtures; editing tools do not supply music publishing rights",
+      "image": "sped.png",
+      "image_alt": "Sped 1.3 browser remix studio using synthetic audio fixtures; editing tools do not supply music publishing rights",
       "links": {
-        "app": "hookline/",
-        "web": "hookline/web.html",
-        "mobile": "hookline/mobile.html"
+        "app": "sped/",
+        "web": "sped/web.html",
+        "mobile": "sped/mobile.html"
       },
       "featured": true,
       "order": 5.7,
-      "version": "1.2.0"
+      "version": "1.3.0"
     },
     {
       "id": "shortcraft",

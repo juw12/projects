@@ -1,9 +1,9 @@
-# Real songs, remixing and publishing — Hookline 1.2
+# Real songs, remixing and publishing — Sped 1.2
 
 ## Correcting the earlier explanation
 
 The earlier blanket statement that copyrighted songs cannot be remixed was too
-broad. Hookline can process user-provided audio, including commercial recordings;
+broad. Sped can process user-provided audio, including commercial recordings;
 there is no song-title or copyright-status gate in the DSP pipeline. An assistant
 can also help transform audio the user provides. These technical capabilities do
 not establish whether a particular use is legally permitted.
@@ -37,7 +37,7 @@ requirements. “Royalty-free” is not the same as unlimited remix redistributi
 
 ## Practical options
 
-1. **Bring your audio to Hookline.** Preview, adjust pitch/tempo, sequence and
+1. **Bring your audio to Sped.** Preview, adjust pitch/tempo, sequence and
    export locally. Before public distribution, check the rights for that use.
    An independent Paramore mashup normally needs consideration of both the master
    recordings and underlying compositions, plus derivative-use, distribution and
@@ -45,7 +45,7 @@ requirements. “Royalty-free” is not the same as unlimited remix redistributi
    permission to reuse the original recording or make a mashup.
 2. **Use a destination platform's permitted library workflow.** Prepare your video,
    then add an eligible sound within that platform. Do not assume its license
-   transfers into Hookline or onto another social network, or permits standalone
+   transfers into Sped or onto another social network, or permits standalone
    remix distribution. Check business/commercial restrictions.
 3. **Use original or explicitly remix-licensed material.** Verify both the
    recording and composition, permitted modifications, publication channels,

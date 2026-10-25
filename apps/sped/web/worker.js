@@ -1,7 +1,7 @@
-/* Hookline worker: runs analysis and rendering off the UI thread. */
+/* Sped worker: runs analysis and rendering off the UI thread. */
 importScripts('engine.js');
 
-const session = self.Hookline.createSession();
+const session = self.Sped.createSession();
 
 self.onmessage = function (event) {
   const message = event.data;

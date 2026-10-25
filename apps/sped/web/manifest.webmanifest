@@ -1,6 +1,6 @@
 {
-  "name": "Hookline \u2014 short-form remix studio",
-  "short_name": "Hookline",
+  "name": "Sped \u2014 short-form remix studio",
+  "short_name": "Sped",
   "description": "Private browser-based tempo, pitch and crossfade edits with an unvalidated editing checklist.",
   "start_url": "./index.html",
   "scope": "./",
