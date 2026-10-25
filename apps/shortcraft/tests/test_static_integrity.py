@@ -16,9 +16,13 @@ WEB_DIR = os.path.join(BASE_DIR, "web")
 REQUIRED = [
     "index.html", "app.html", "mobile.html", "styles.css", "manifest.webmanifest",
     "icons/icon.svg", "js/engine.js", "js/ui.js", "js/samples.js",
+    "channel.html", "js/channel.js", "js/publish.js",
 ]
-HTML_FILES = ["index.html", "app.html", "mobile.html"]
-JS_FILES = ["js/engine.js", "js/ui.js", "js/samples.js"]
+HTML_FILES = ["index.html", "app.html", "mobile.html", "channel.html"]
+JS_FILES = ["js/engine.js", "js/ui.js", "js/samples.js", "js/channel.js", "js/publish.js"]
+# Only the opt-in publisher talks to the network (Google sign-in + YouTube upload).
+OFFLINE_JS = ["js/engine.js", "js/ui.js", "js/samples.js", "js/channel.js"]
+PUBLISH_HOSTS = ("accounts.google.com", "www.googleapis.com", "youtube.com")  # last one: result link only
 
 
 def read(rel):
@@ -75,9 +79,12 @@ def run():
                 continue
             check(exists_case_exact(path), f"{rel}: local ref '{path}' exists (case-exact)")
 
-    # 4. offline-first: no network calls in the shipped JS
-    combined_js = "\n".join(texts[rel] for rel in JS_FILES)
-    check(not re.search(r"\bfetch\(|XMLHttpRequest|WebSocket", combined_js), "JS makes no network calls")
+    # 4. offline-first: no network calls outside the opt-in publisher
+    combined_js = "\n".join(texts[rel] for rel in OFFLINE_JS)
+    check(not re.search(r"\bfetch\(|XMLHttpRequest|WebSocket", combined_js), "studio + channel kit make no network calls")
+    publish_hosts = set(re.findall(r"https://([a-z0-9.-]+)", texts["js/publish.js"]))
+    check(publish_hosts <= set(PUBLISH_HOSTS), f"publish.js only contacts {', '.join(PUBLISH_HOSTS)}")
+    check("client_secret" not in texts["js/publish.js"], "publish.js ships no client secret")
 
     # 5. samples parse and are well-formed
     match = re.search(r"window\.SC_SAMPLES\s*=\s*(\[.*\]);\s*/\* SAMPLES:END", texts["js/samples.js"], re.S)
@@ -99,10 +106,13 @@ def run():
     for name in ("buildTimeline", "renderFrame", "scheduleMusic", "scheduleVoices", "pickMime", "postKit", "checklist"):
         check(name + ":" in texts["js/engine.js"], f"engine exports {name}")
 
-    # 7. every element id the UI looks up exists in app.html
-    ids_used = set(re.findall(r'\$\("([a-z0-9-]+)"\)', texts["js/ui.js"]))
-    for element_id in sorted(ids_used):
-        check(f'id="{element_id}"' in texts["app.html"], f"app.html has #{element_id}")
+    # 7. every element id a script looks up exists in its page
+    for script, page in (("js/ui.js", "app.html"), ("js/publish.js", "app.html"), ("js/channel.js", "channel.html")):
+        ids_used = set(re.findall(r'\$\("([a-z0-9-]+)"\)', texts[script]))
+        for element_id in sorted(ids_used):
+            check(f'id="{element_id}"' in texts[page], f"{page} has #{element_id} ({script})")
+    check('src="js/publish.js"' in texts["app.html"], "app.html loads the publisher")
+    check('src="js/channel.js"' in texts["channel.html"], "channel.html loads the channel kit")
 
     # 8. manifest is valid JSON with a relative start_url
     manifest = json.loads(read("manifest.webmanifest"))

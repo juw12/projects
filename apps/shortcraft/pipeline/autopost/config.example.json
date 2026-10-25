@@ -1,0 +1,40 @@
+{
+  "_comment": "Copy to config.json (git-ignored). One entry per channel; slots are local times (UTC+7 = WIB). Start with 1 slot/day, e.g. [\"12:00\", \"19:00\"] later once quality holds.",
+  "utc_offset_hours": 7,
+  "queue_dir": "queue",
+  "token_dir": "tokens",
+  "llm": {
+    "_comment": "Optional: OpenAI-compatible endpoint for `plan --llm`. Leave api_key empty to write scripts yourself.",
+    "base_url": "https://api.openai.com/v1",
+    "model": "gpt-4o-mini",
+    "api_key": ""
+  },
+  "channels": [
+    {
+      "name": "en",
+      "lang": "en",
+      "template": "teardown",
+      "kicker": "Teardown",
+      "slots": ["19:00"],
+      "auto_approve": false,
+      "platforms": {
+        "youtube": {"enabled": true, "client_secrets": "secrets/google_client_secret.json", "privacy": "public", "category_id": "27"},
+        "tiktok": {"enabled": false, "client_key": "", "client_secret": "", "privacy_level": "SELF_ONLY", "redirect_port": 8723},
+        "instagram": {"enabled": false, "ig_user_id": "", "access_token": "", "mode": "url", "public_base_url": "https://example.com/shortcraft-media", "api_version": "v23.0"}
+      }
+    },
+    {
+      "name": "id",
+      "lang": "id",
+      "template": "teardown",
+      "kicker": "Bedah produk",
+      "slots": ["18:30"],
+      "auto_approve": false,
+      "platforms": {
+        "youtube": {"enabled": true, "client_secrets": "secrets/google_client_secret.json", "privacy": "public", "category_id": "27"},
+        "tiktok": {"enabled": false, "client_key": "", "client_secret": "", "privacy_level": "SELF_ONLY", "redirect_port": 8723},
+        "instagram": {"enabled": false, "ig_user_id": "", "access_token": "", "mode": "url", "public_base_url": "https://example.com/shortcraft-media", "api_version": "v23.0"}
+      }
+    }
+  ]
+}

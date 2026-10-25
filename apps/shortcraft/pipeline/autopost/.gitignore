@@ -1,0 +1,7 @@
+# local secrets and state — never commit
+config.json
+secrets/
+tokens/
+queue/
+logs/
+*.log

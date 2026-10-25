@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Shortcraft Channel Kit — turn one prompt into channel names, handles, bios, a posting plan, avatar and banner.">
+  <title>Shortcraft — Channel Kit</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html">
+      <img src="icons/icon.svg" alt="" width="28" height="28">
+      <span>Shortcraft</span>
+    </a>
+    <div class="topbar-actions">
+      <a class="btn ghost" href="app.html">Studio</a>
+      <a class="btn" href="channel.html">Channel Kit</a>
+    </div>
+  </header>
+
+  <main class="landing">
+    <section class="panel">
+      <h2>Channel Kit — from one prompt to a ready-to-create channel</h2>
+      <label>What is the channel about?
+        <textarea id="k-prompt" rows="2" placeholder="e.g. engineering teardowns of CCTV cameras, phones and gadgets, by an R&amp;D engineer"></textarea>
+      </label>
+      <div class="grid2">
+        <label class="check"><input id="k-en" type="checkbox" checked> English channel</label>
+        <label class="check"><input id="k-id" type="checkbox" checked> Bahasa Indonesia channel</label>
+        <label>Posts per day
+          <select id="k-perday">
+            <option value="1">1 (recommended to start)</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+          </select>
+        </label>
+      </div>
+      <button type="button" id="btn-generate" class="btn primary">Generate channel kit</button>
+      <p class="hint">Names, handles, bios (within each platform's limits), content pillars, a 30-day plan,
+        an 800×800 avatar and a 2560×1440 YouTube banner (text inside the 1546×423 safe area).
+        Platforms require a real person to create and verify accounts — the kit makes that a 5-minute job.</p>
+    </section>
+    <div id="kit-out"></div>
+    <div id="kit-actions" class="voice-row" hidden>
+      <button type="button" id="btn-kit-md" class="btn">⬇ Download kit (Markdown)</button>
+      <a class="btn ghost" href="app.html">Open the studio →</a>
+    </div>
+  </main>
+
+  <script src="js/channel.js"></script>
+</body>
+</html>
