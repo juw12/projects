@@ -1,13 +1,15 @@
-// Mufakat: free, browser-only AI chat where models deliberate to consensus.
+// Glow: free, browser-only AI chat where models deliberate to consensus.
 // Modes: Chat · Council (2–3 agents + Judge) · Arena (side-by-side model vote).
-// No backend: keys and chats stay in this browser (localStorage).
+// No backend: local storage; prompts and credentials are sent to the chosen provider.
 "use strict";
 
 const $ = (id) => document.getElementById(id);
 const TEST_HASHES = ["#selftest", "#demo", "#demo-council", "#demo-arena"];
 const TEST_MODE = TEST_HASHES.includes(location.hash);
 // Demos and self-tests use their own sandbox so they never touch a visitor's saved chats or keys.
-const STORE_KEY = TEST_MODE ? "mufakat.sandbox" : "mufakat.v1";
+// Keep the original production storage key so the rename preserves chats, keys and votes.
+// GitHub Pages paths share the same origin; no copying or deletion is necessary.
+const STORE_KEY = TEST_MODE ? "glow.sandbox" : "mufakat.v1";
 const MAX_CONTEXT_CHARS = 24000;
 const MAX_RETRIES = 3;
 const OPENROUTER_URL = "https://openrouter.ai/api/v1";
@@ -132,6 +134,14 @@ async function fetchJson(url, headers = {}) {
 async function loadModels() {
   const s = state.settings;
   const list = [{ value: "demo::demo", label: "Demo agent (offline, canned replies)", short: "Demo", group: "Demo: no setup" }];
+  if (TEST_MODE) {
+    models = list;
+    $("status").textContent = "Demo mode — no provider connected";
+    $("banner-settings").textContent = "Open Glow";
+    $("setup-banner").classList.remove("hidden");
+    refreshModelSelects();
+    return;
+  }
   const status = [];
   const jobs = [];
 
@@ -254,7 +264,7 @@ async function streamReply(modelValue, system, messages, onText) {
     if (config.key) headers.Authorization = `Bearer ${config.key}`;
     if (provider === "openrouter") {
       headers["HTTP-Referer"] = location.origin;
-      headers["X-Title"] = "Mufakat";
+      headers["X-Title"] = "Glow";
     }
     const body = JSON.stringify({ model, stream: true, messages: [{ role: "system", content: system }, ...mergeRoles(clean)] });
     const previousStatus = $("status").textContent;
@@ -445,7 +455,7 @@ function openConversation(conv) {
   $("chat-model").classList.toggle("hidden", conv.type !== "chat");
   if (conv.type === "chat") fillSelect($("chat-model"), conv.model);
   $("input").placeholder = {
-    chat: "Message Mufakat…",
+    chat: "Message Glow…",
     council: conv.started ? "Interject in the council (optional)…" : "Set up the council above…",
     arena: conv.started ? "Ask all models the same thing…" : "Pick models above, then ask…",
   }[conv.type];
@@ -498,14 +508,14 @@ function agentDisplay(conv, message) {
     const agent = conv.agents[message.agent];
     return { name: agent.name, css: `agent-${AGENT_COLORS[message.agent]}`, meta: modelLabel(agent.model) };
   }
-  return { name: "Mufakat", css: "assistant", meta: message.model ? modelLabel(message.model) : "" };
+  return { name: "Glow", css: "assistant", meta: message.model ? modelLabel(message.model) : "" };
 }
 function renderMessages() {
   const box = $("messages");
   box.innerHTML = "";
   if (current.type === "chat" && current.messages.length === 0) {
-    box.innerHTML = `<div class="welcome"><h2>Many minds. One answer.</h2>
-      <p>Chat with any model, convene a <b>Council</b> that deliberates to consensus, or pit models against each other in the <b>Arena</b>.</p>
+    box.innerHTML = `<div class="welcome"><h2>From a spark to something real.</h2>
+      <p>Explore an idea, shape a plan, and get another perspective. Chat with a model, gather a <b>Council</b>, or compare answers in the <b>Arena</b>.</p>
       <div class="welcome-actions"><button class="secondary" type="button" data-start="council">⚖ Start a council</button>
       <button class="secondary" type="button" data-start="arena">⚔ Open the arena</button></div></div>`;
     return;
@@ -596,7 +606,7 @@ async function sendChat(text) {
 }
 async function replyToChat() {
   setBusy(true);
-  const reply = await streamAssistant(current.model, SYSTEM_PROMPT, current.messages, "Mufakat", "assistant");
+  const reply = await streamAssistant(current.model, SYSTEM_PROMPT, current.messages, "Glow", "assistant");
   if (reply) current.messages.push({ role: "assistant", content: reply, model: current.model });
   persist(current);
   setBusy(false);
@@ -695,7 +705,7 @@ function renderCouncilSetup(conv) {
   setup.className = "setup";
   setup.innerHTML = `
     <h2>⚖ Council</h2>
-    <p class="hint">Agents take turns until they reach <b>consensus</b> (mufakat), then an impartial Judge writes the final answer. Give each agent a different model for real diversity of thought.</p>
+    <p class="hint">Agents take turns until they reach <b>consensus</b> , then an impartial Judge writes the final answer. Give each agent a different model for real diversity of thought.</p>
     <div class="row"><label for="council-preset">Preset</label><select id="council-preset"></select></div>
     <div class="agents" id="council-agents"></div>
     <div class="row">
@@ -1004,7 +1014,7 @@ function vote(roundIndex, winner) {
 
 /* ================= export ================= */
 function conversationMarkdown(conv) {
-  const lines = [`# ${conv.title}`, "", `*Exported from Mufakat · ${new Date().toISOString().slice(0, 10)}*`, ""];
+  const lines = [`# ${conv.title}`, "", `*Exported from Glow · ${new Date().toISOString().slice(0, 10)}*`, ""];
   if (conv.type === "arena") {
     conv.rounds.forEach((round) => {
       lines.push(`## Prompt`, "", round.prompt, "");
@@ -1030,7 +1040,7 @@ function download(filename, text, type) {
 }
 function exportCurrent() {
   const slug = current.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40) || "chat";
-  download(`mufakat-${slug}.md`, conversationMarkdown(current), "text/markdown");
+  download(`glow-${slug}.md`, conversationMarkdown(current), "text/markdown");
 }
 
 /* ================= attachments ================= */
@@ -1096,7 +1106,7 @@ async function saveSettings() {
   await loadModels();
 }
 function exportAll() {
-  download(`mufakat-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify({ conversations: state.conversations, arenaStats: state.arenaStats }, null, 2), "application/json");
+  download(`glow-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify({ conversations: state.conversations, arenaStats: state.arenaStats }, null, 2), "application/json");
 }
 function importAll(file) {
   const reader = new FileReader();
@@ -1112,7 +1122,7 @@ function importAll(file) {
       saveState();
       renderHistory();
     } catch {
-      alert("That file isn't a Mufakat backup.");
+      alert("That file isn't a Glow backup.");
     }
   };
   reader.readAsText(file);
@@ -1235,7 +1245,16 @@ function wire() {
   });
   $("export-btn").addEventListener("click", exportCurrent);
   $("menu-btn").addEventListener("click", () => document.body.classList.toggle("sidebar-open"));
-  for (const id of ["settings-btn", "banner-settings"]) $(id).addEventListener("click", openSettings);
+  $("settings-btn").addEventListener("click", openSettings);
+  $("banner-settings").addEventListener("click", () => {
+    if (TEST_MODE) {
+      const normalPage = new URL(location.href);
+      normalPage.hash = "";
+      location.replace(normalPage.href);
+    } else {
+      openSettings();
+    }
+  });
   $("settings-close").addEventListener("click", () => $("settings-modal").classList.remove("open"));
   $("settings-save").addEventListener("click", saveSettings);
   $("backup-btn").addEventListener("click", exportAll);
@@ -1292,7 +1311,7 @@ async function selfTest() {
   vote(0, 1);
   expect("arena: vote recorded on leaderboard", state.arenaStats["demo::demo"] && state.arenaStats["demo::demo"].games === 2 && state.arenaStats["demo::demo"].wins === 1);
 
-  expect("fix: self-test uses a sandbox, never the visitor's data", STORE_KEY === "mufakat.sandbox");
+  expect("fix: self-test uses a sandbox, never the visitor's data", STORE_KEY === "glow.sandbox");
   expect("fix: consensus only counts as a sign-off", signalsConsensus("Looks right. CONSENSUS") && signalsConsensus("Agreed.\n\n**CONSENSUS**") && !signalsConsensus("We have no CONSENSUS yet, keep going.") && !signalsConsensus("no consensus"));
   const long = Array.from({ length: 40 }, (_, i) => ({ role: i % 2 ? "assistant" : "user", content: "x".repeat(1000) + i }));
   const trimmed = trimHistory(long);

@@ -1,6 +1,6 @@
 {
-  "name": "Mufakat: many minds, one answer",
-  "short_name": "Mufakat",
+  "name": "Glow \u2014 From a spark to something real",
+  "short_name": "Glow",
   "description": "Free AI chat where models deliberate to consensus: Council with a Judge, side-by-side Arena, second opinions.",
   "start_url": "./app.html",
   "scope": "./",

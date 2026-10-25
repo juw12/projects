@@ -80,7 +80,7 @@ def build_landing_apps(catalog):
 
 # Apps that were renamed: old site path -> the app's current id. A tiny redirect
 # stub is emitted at the old path so existing links/bookmarks keep working.
-REDIRECTS = {"ziris-motor": "airiz-motor"}
+REDIRECTS = {"ziris-motor": "airiz-motor", "mufakat": "glow"}
 
 
 def write_redirects(out_dir, catalog):
@@ -91,6 +91,7 @@ def write_redirects(out_dir, catalog):
             continue
         targets = [
             ("index.html", f"../{new_id}/", out_dir / new_id),
+            ("app.html", f"../{new_id}/app.html", out_dir / new_id / "app.html"),
             ("web.html", f"../{new_id}/web.html", out_dir / new_id / "web.html"),
             ("mobile.html", f"../{new_id}/mobile.html", out_dir / new_id / "mobile.html"),
         ]
@@ -102,12 +103,41 @@ def write_redirects(out_dir, catalog):
             dst.write_text(
                 '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
                 '<meta charset="UTF-8">\n'
-                f'<meta http-equiv="refresh" content="0; url={target}">\n'
+                f'<noscript><meta http-equiv="refresh" content="0; url={target}"></noscript>\n'
+                f'<script src="./redirect.js" data-target="{target}"></script>\n'
                 f'<link rel="canonical" href="{target}">\n'
                 '<title>Moved</title>\n</head>\n<body>\n'
                 f'<p>This page moved to <a href="{target}">{new_id}</a>.</p>\n'
                 '</body>\n</html>\n',
                 encoding="utf-8")
+        (out_dir / old_id / "redirect.js").write_text(
+            '"use strict";\n'
+            'const destination = new URL(document.currentScript.dataset.target, location.href);\n'
+            'destination.search = location.search;\n'
+            'destination.hash = location.hash;\n'
+            'location.replace(destination.href);\n',
+            encoding="utf-8",
+        )
+        if old_id == "mufakat":
+            # Retire only this app's former worker/cache, not other Pages apps.
+            (out_dir / old_id / "sw.js").write_text(
+                "self.addEventListener('install', () => self.skipWaiting());\n"
+                "self.addEventListener('activate', (event) => {\n"
+                "  event.waitUntil(caches.keys().then((names) => Promise.all(\n"
+                "    names.filter((name) => name.startsWith('mufakat-'))\n"
+                "      .map((name) => caches.delete(name))\n"
+                "  )).then(() => self.registration.unregister()));\n"
+                "});\n",
+                encoding="utf-8",
+            )
+            legacy_manifest = json.loads((out_dir / new_id / "manifest.webmanifest").read_text())
+            legacy_manifest["start_url"] = f"../{new_id}/app.html"
+            legacy_manifest["scope"] = f"../{new_id}/"
+            for icon in legacy_manifest["icons"]:
+                icon["src"] = f"../{new_id}/" + icon["src"].removeprefix("./")
+            (out_dir / old_id / "manifest.webmanifest").write_text(
+                json.dumps(legacy_manifest, indent=2) + "\n", encoding="utf-8"
+            )
         print(f"  [redirect] {old_id}/ -> {new_id}/")
 
 

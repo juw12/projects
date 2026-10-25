@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Mufakat (hosted) - multi-user AI chat with Council mode, logins and Stripe subscriptions.
+"""Glow (hosted) - multi-user AI chat with Council mode, logins and Stripe subscriptions.
 
 Standard library only. Configure with environment variables (see .env.example).
 Run locally:  python3 app.py   ->  http://localhost:8000
@@ -31,7 +31,7 @@ def env_int(name, default):
 
 
 # ---------------------------------------------------------------- configuration
-APP_NAME = os.environ.get("APP_NAME", "Mufakat")
+APP_NAME = os.environ.get("APP_NAME", "Glow")
 PORT = env_int("PORT", 8000)
 PUBLIC_URL = os.environ.get("PUBLIC_URL", f"http://localhost:{PORT}").rstrip("/")
 DATA_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).resolve().parent / "data"))
@@ -67,7 +67,9 @@ SSL_CONTEXT = ssl.create_default_context()
 
 # ---------------------------------------------------------------- database
 DATA_DIR.mkdir(parents=True, exist_ok=True)
-DB_PATH = DATA_DIR / "mufakat.sqlite3"
+# Retain the existing database when upgrading a Mufakat deployment.
+LEGACY_DB_PATH = DATA_DIR / "mufakat.sqlite3"
+DB_PATH = LEGACY_DB_PATH if LEGACY_DB_PATH.exists() else DATA_DIR / "glow.sqlite3"
 
 
 class _Result:
@@ -465,7 +467,7 @@ SECURITY_HEADERS = {
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
-    server_version = "Mufakat"
+    server_version = "Glow"
 
     def log_message(self, fmt, *args):
         print(f"{self.address_string()} {fmt % args}")

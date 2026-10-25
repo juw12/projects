@@ -1,9 +1,9 @@
-"""Static integrity test for apps/mufakat/web (stdlib only).
+"""Static integrity test for apps/glow/web (stdlib only).
 
 Checks every page's local references resolve, the PWA manifest and service worker
 point at real files, there is no inline script (the CSP forbids it), and the
 apps.json catalog entry links to pages that exist.
-Run from the repo root:  python apps/mufakat/tests/test_static_integrity.py
+Run from the repo root:  python apps/glow/tests/test_static_integrity.py
 """
 import json
 import re
@@ -56,8 +56,8 @@ check("app.js: never uses innerHTML with message content unescaped", "innerHTML 
 check("app.js: keys stay client-side (no third-party analytics)", "google-analytics" not in app_js and "gtag(" not in app_js)
 
 catalog = json.loads((REPO / "scripts" / "apps.json").read_text(encoding="utf-8"))
-entry = next((a for a in catalog["apps"] if a["id"] == "mufakat"), None)
-check("apps.json: mufakat entry exists", entry is not None)
+entry = next((a for a in catalog["apps"] if a["id"] == "glow"), None)
+check("apps.json: glow entry exists", entry is not None)
 if entry:
     for key, link in entry["links"].items():
         target = WEB / link.split("/", 1)[1] if "/" in link else WEB
