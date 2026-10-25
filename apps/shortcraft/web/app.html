@@ -18,6 +18,7 @@
     <div class="topbar-actions">
       <label class="sr-only" for="sample-select">Load a sample</label>
       <select id="sample-select" aria-label="Load a sample"></select>
+      <a class="btn ghost" href="channel.html">Channel Kit</a>
       <button type="button" id="btn-new" class="btn ghost">New</button>
       <button type="button" id="btn-import" class="btn ghost">Import JSON</button>
       <button type="button" id="btn-save" class="btn ghost">Save JSON</button>
@@ -91,6 +92,35 @@
         <div id="export-status" class="hint" role="status"></div>
         <a id="download-link" class="btn ghost" hidden>Download</a>
       </div>
+      <div class="panel" id="pub-panel">
+        <h2>Publish</h2>
+        <p class="hint">YouTube uploads directly (your Google OAuth Client ID, stored only in this browser).
+          TikTok &amp; Instagram: on a phone, <b>Share to app</b> opens the TikTok / Instagram composer with the video.
+          Scheduled multi-platform posting: <code>pipeline/autopost</code>.</p>
+        <label>Google OAuth Client ID (YouTube)<input id="yt-client" type="text" placeholder="xxxx.apps.googleusercontent.com"></label>
+        <div class="grid2">
+          <label>Visibility
+            <select id="yt-privacy">
+              <option value="public">Public</option>
+              <option value="unlisted">Unlisted</option>
+              <option value="private">Private</option>
+            </select>
+          </label>
+          <label>Schedule (optional)<input id="yt-schedule" type="datetime-local"></label>
+        </div>
+        <div class="voice-row">
+          <button type="button" id="yt-connect" class="btn small ghost">Connect YouTube</button>
+          <button type="button" id="yt-upload" class="btn small">▲ Upload to YouTube</button>
+          <a id="yt-link" class="btn small ghost" target="_blank" rel="noopener" hidden>Open on YouTube</a>
+        </div>
+        <div class="voice-row" style="margin-top:10px">
+          <button type="button" id="share-app" class="btn small">↗ Share to TikTok / Instagram</button>
+          <button type="button" id="copy-caption" class="btn small ghost">Copy caption</button>
+          <a class="btn small ghost" href="https://www.tiktok.com/tiktokstudio/upload" target="_blank" rel="noopener">TikTok upload</a>
+          <a class="btn small ghost" href="https://www.instagram.com/" target="_blank" rel="noopener">Instagram</a>
+        </div>
+        <div id="pub-status" class="hint" role="status"></div>
+      </div>
       <div class="panel">
         <h2>Viral checklist</h2>
         <ul id="checklist" class="checklist"></ul>
@@ -145,5 +175,6 @@
   <script src="js/samples.js"></script>
   <script src="js/engine.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/publish.js"></script>
 </body>
 </html>

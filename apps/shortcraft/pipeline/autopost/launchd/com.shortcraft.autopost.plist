@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Runs `autopost.py run` every 15 minutes. Replace /ABSOLUTE/PATH with your checkout path. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.shortcraft.autopost</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/ABSOLUTE/PATH/apps/shortcraft/pipeline/.venv/bin/python</string>
+    <string>/ABSOLUTE/PATH/apps/shortcraft/pipeline/autopost/autopost.py</string>
+    <string>run</string>
+  </array>
+  <key>StartInterval</key>
+  <integer>900</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/tmp/shortcraft-autopost.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/shortcraft-autopost.log</string>
+</dict>
+</plist>

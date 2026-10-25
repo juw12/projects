@@ -589,6 +589,8 @@
       link.download = slug(state.project.title) + "." + ext;
       link.textContent = "⬇ Download " + ext.toUpperCase() + " (" + (blob.size / 1048576).toFixed(1) + " MB)";
       link.hidden = false;
+      state.lastExport = { blob: blob, filename: link.download };
+      document.dispatchEvent(new CustomEvent("shortcraft:exported"));
       $("export-status").textContent = "Done. " + (ext === "webm"
         ? "WebM uploads fine to YouTube; for TikTok/Instagram convert to MP4 if needed."
         : "MP4 ready for TikTok, Reels and Shorts.");
