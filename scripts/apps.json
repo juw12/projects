@@ -320,11 +320,11 @@
       "version": "1.1.0"
     },
     {
-      "id": "trade-twin",
-      "name": "Trade Twin",
+      "id": "twin",
+      "name": "Twin",
       "category": "Software",
       "desc": "Try investing research without login — guest practice mode, historical simulations and light/dark themes",
-      "description": "An iPhone-ready practice investing and trading companion. Continue as guest without login, email or a mandatory quiz; explore a separate $10,000 practice portfolio, historical goal simulations, SEC 13F research and the TSLA replay. Version 1.1 adds saved System / Light / Dark appearance, theme-aware charts, optional assessment, guest reset controls and honest partial-copy feedback. Guests use a dated snapshot; live delayed data requires the local Python backend. No real orders and no financial advice.",
+      "description": "Twin (formerly Trade Twin) is an iPhone-ready practice investing and trading companion. Continue as guest without login, email or a mandatory quiz; explore a separate $10,000 practice portfolio, historical goal simulations, SEC 13F research and the TSLA replay. Saved System / Light / Dark appearance, theme-aware charts, optional assessment and guest reset controls. Old Trade Twin links redirect and saved profiles carry over. Guests use a dated snapshot; live delayed data requires the local Python backend. No real orders and no financial advice.",
       "tags": [
         "Python",
         "PWA",
@@ -333,16 +333,16 @@
         "SEC 13F",
         "zero-dependency"
       ],
-      "image": "trade-twin.png",
-      "image_alt": "Trade Twin v1.1: Continue as guest welcome screen, light-mode practice portfolio and dark-mode appearance settings",
+      "image": "twin.png",
+      "image_alt": "Twin v1.2: Continue as guest welcome screen, light-mode practice portfolio and dark-mode appearance settings",
       "links": {
-        "app": "trade-twin/?v=1.1.0",
-        "web": "trade-twin/web.html",
-        "mobile": "trade-twin/mobile.html"
+        "app": "twin/?v=1.2.0",
+        "web": "twin/web.html",
+        "mobile": "twin/mobile.html"
       },
       "featured": true,
       "order": 5.6,
-      "version": "1.1.0"
+      "version": "1.2.0"
     },
     {
       "id": "glow",

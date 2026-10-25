@@ -6,15 +6,15 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Trade Twin">
+<meta name="apple-mobile-web-app-title" content="Twin">
 <meta name="theme-color" content="#0d1117">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
-<title>Trade Twin — invest &amp; day-trade with 10,000 replays</title>
-<meta name="description" content="Trade Twin: a personality-matched investing and day-trading companion. Paper trading, 10,000-future goal planner, copy a famous investor's 13F, news feed and the day-trader-skill Time Machine.">
-<script src="theme.js?v=1.1.0"></script>
-<link rel="stylesheet" href="theme.css?v=1.1.0">
+<title>Twin — invest &amp; day-trade with 10,000 replays</title>
+<meta name="description" content="Twin: a personality-matched investing and day-trading companion. Paper trading, 10,000-future goal planner, copy a famous investor's 13F, news feed and the day-trader-skill Time Machine.">
+<script src="theme.js?v=1.2.0"></script>
+<link rel="stylesheet" href="theme.css?v=1.2.0">
 <style>
   :root {
     --bg: #0b0f14;
@@ -218,7 +218,7 @@
 <div class="sheet" id="sheet" inert aria-hidden="true"></div>
 <div class="toast" id="toast"></div>
 
-<script src="demo.js?v=1.1.0"></script>
+<script src="demo.js?v=1.2.0"></script>
 <script>
 "use strict";
 
@@ -312,7 +312,7 @@ async function detectServer() {
     if (response.status === 404 && readPreference("tt-runtime-mode") !== "server") {
       return "demo";
     }
-    if (response.ok && (await response.json()).app === "trade-twin") {
+    if (response.ok && ["twin", "trade-twin"].includes((await response.json()).app)) {
       writePreference("tt-runtime-mode", "server");
       return "server";
     }
@@ -332,7 +332,7 @@ let authEpoch = 0;
 async function api(path, body = {}) {
   const requestEpoch = authEpoch;
   if (DEMO || GUEST) {
-    const result = await window.TradeTwinDemo[GUEST ? "guest" : "api"](path, body);
+    const result = await window.TwinDemo[GUEST ? "guest" : "api"](path, body);
     if (requestEpoch !== authEpoch) {
       return { ok: false, error: "Account changed; result discarded." };
     }
@@ -353,7 +353,7 @@ async function api(path, body = {}) {
       body: JSON.stringify(body),
     });
   } catch (error) {
-    return { ok: false, error: "Can't reach your Trade Twin server. Is it running on your Mac, and are you on the same Wi-Fi?" };
+    return { ok: false, error: "Can't reach your Twin server. Is it running on your Mac, and are you on the same Wi-Fi?" };
   }
   let data;
   try {
@@ -375,12 +375,12 @@ const spinner = (label) => h("div", { class: "loading" }, h("div", { class: "spi
 const errorBox = (message) => h("div", { class: "err" }, message);
 
 function appearanceControls() {
-  const preference = window.TradeTwinTheme.preference();
+  const preference = window.TwinTheme.preference();
   return h("div", { class: "theme-picker", role: "group", "aria-label": "Appearance" },
     ["system", "light", "dark"].map((choice) => h("button", {
       class: "btn small" + (preference === choice ? " on" : ""),
       "data-theme-choice": choice, "aria-pressed": String(preference === choice),
-      onclick: () => window.TradeTwinTheme.set(choice),
+      onclick: () => window.TwinTheme.set(choice),
     }, choice[0].toUpperCase() + choice.slice(1))));
 }
 
@@ -397,7 +397,7 @@ function setGuestActive(active) {
 }
 
 async function startGuest(reset = false) {
-  const result = await window.TradeTwinDemo.guest(reset ? "api/guest/reset" : "api/guest/start");
+  const result = await window.TwinDemo.guest(reset ? "api/guest/reset" : "api/guest/start");
   if (!result.ok) {
     toast(result.error || "Could not start the guest preview.");
     return;
@@ -407,7 +407,7 @@ async function startGuest(reset = false) {
   setGuestActive(true);
   state.profile = result.profile;
   state.guestStorage = result.guest_storage;
-  state.demoMeta = await window.TradeTwinDemo.meta().catch(() => null);
+  state.demoMeta = await window.TwinDemo.meta().catch(() => null);
   renderShell();
 }
 
@@ -415,7 +415,7 @@ async function leaveGuest() {
   if (!confirm("Leave guest mode and erase this tab's practice data? Saved profiles and appearance settings are kept.")) {
     return;
   }
-  await window.TradeTwinDemo.guest("api/logout");
+  await window.TwinDemo.guest("api/logout");
   clearPrivateState();
   GUEST = false;
   setGuestActive(false);
@@ -785,7 +785,7 @@ const GUIDE = [
     id: "start", icon: "🚀", title: "Getting started",
     body: [
       ["p", "New here? Choose Continue as guest: no login, email or quiz required. You get a separate tab/session with practice cash and dated sample data. Me contains the optional assessment, reset/exit controls and System / Light / Dark appearance settings."],
-      ["p", "Trade Twin has five tabs:"],
+      ["p", "Twin has five tabs:"],
       ["ul", [
         "🏠 Home — your practice portfolio, watchlist and today's next step.",
         "📈 Invest — goal planner (10,000 possible futures), copy a famous investor, and your paper portfolio.",
@@ -793,17 +793,17 @@ const GUIDE = [
         "📰 News — headlines for everything you watch or hold.",
         "👤 Me — your profile, personality result, limits and this guide.",
       ]],
-      ["p", "Everything uses practice (paper) money. Trade Twin never sends a real order — it helps you decide, then you act in your own broker if you choose to."],
+      ["p", "Everything uses practice (paper) money. Twin never sends a real order — it helps you decide, then you act in your own broker if you choose to."],
     ],
   },
   {
     id: "install", icon: "📱", title: "Install on your iPhone",
     body: [
       ["ol", [
-        "On your computer, run Trade Twin from the projects repo: double-click apps/trade-twin/“Start Trade Twin (iPhone).command” on a Mac, or run python apps/trade-twin/server.py --lan. It prints an address like http://192.168.1.20:8765.",
+        "On your computer, run Twin from the projects repo: double-click apps/twin/“Start Twin (iPhone).command” on a Mac, or run python apps/twin/server.py --lan. It prints an address like http://192.168.1.20:8765.",
         "Your iPhone must be on the same Wi-Fi. Open that address in Safari.",
         "Tap the Share button → “Add to Home Screen” → Add.",
-        "Open Trade Twin from the Home Screen: it runs full-screen like an app, and you stay logged in.",
+        "Open Twin from the Home Screen: it runs full-screen like an app, and you stay logged in.",
       ]],
       ["p", "If macOS asks whether Python may accept incoming connections, click Allow. The computer must be awake with the server running. The public web demo also installs to your Home Screen, but runs on a saved snapshot instead of live data."],
       ["p", "Away from home: install Tailscale (free) on the Mac and iPhone and use the Mac's Tailscale address instead — no ports opened to the internet."],
@@ -827,7 +827,7 @@ const GUIDE = [
   {
     id: "goal", icon: "🎯", title: "Goal planner: 10,000 futures",
     body: [
-      ["p", "Pick funds or stocks, a starting amount, a monthly contribution and a goal. Trade Twin builds 10,000 possible futures by stitching together random 12-month stretches of those investments' real history (with dividends)."],
+      ["p", "Pick funds or stocks, a starting amount, a monthly contribution and a goal. Twin builds 10,000 possible futures by stitching together random 12-month stretches of those investments' real history (with dividends)."],
       ["p", "The fan chart shows the middle outcome (solid line), the likely range (dark band, 25–75%) and the wide range (light band, 5–95%). ‘Chance of reaching goal’ counts how many of the 10,000 futures got there."],
       ["p", "Short histories (under 20 years) usually miss a full crash and look too rosy — the app warns you. SPY goes back to 1993 and includes 2000–2002 and 2008."],
     ],
@@ -835,7 +835,7 @@ const GUIDE = [
   {
     id: "copy", icon: "🧑‍💼", title: "Copy a famous investor",
     body: [
-      ["p", "Like eToro's CopyTrader, but from public filings: big US funds must file a 13F every quarter listing their US stock holdings. Trade Twin reads it from SEC EDGAR and turns the top positions into weights you can copy into your paper portfolio."],
+      ["p", "Like eToro's CopyTrader, but from public filings: big US funds must file a 13F every quarter listing their US stock holdings. Twin reads it from SEC EDGAR and turns the top positions into weights you can copy into your paper portfolio."],
       ["p", "Important: 13Fs are filed up to 45 days after the quarter ends and show only long US stock positions — no shorts, cash or foreign shares. You see what they held, not what they hold today. Copying their picks does not copy their results."],
       ["p", "SEC requires an email to identify each app user; add yours in Me → Profile."],
     ],
@@ -877,7 +877,7 @@ const GUIDE = [
     id: "safety", icon: "🛡️", title: "Safety & going real",
     body: [
       ["ul", [
-        "Trade Twin never places real orders and never asks for broker passwords.",
+        "Twin never places real orders and never asks for broker passwords.",
         "Prices are free delayed quotes — check your broker before acting.",
         "Most new day traders lose money. Prove a strategy on paper first, with a written plan.",
         "US margin accounts can be limited by pattern-day-trader rules; check your broker's current rules before day trading.",
@@ -928,7 +928,7 @@ async function boot() {
   }
   let resumeGuest = false;
   try {
-    resumeGuest = sessionStorage.getItem("tt-guest-active") === "1" && window.TradeTwinDemo.hasGuest();
+    resumeGuest = sessionStorage.getItem("tt-guest-active") === "1" && window.TwinDemo.hasGuest();
   } catch (error) {
     // No persisted guest in storage-restricted browsers.
   }
@@ -941,7 +941,7 @@ async function boot() {
   if (runtime === "unavailable") {
     $("#app").replaceChildren(h("div", { class: "screen" },
       h("h1", {}, "Server unavailable"),
-      h("p", {}, "Your account has not been switched to a demo. Restart your Trade Twin server and check your connection."),
+      h("p", {}, "Your account has not been switched to a demo. Restart your Twin server and check your connection."),
       h("button", { class: "btn primary", onclick: () => location.reload() }, "Retry"),
       h("button", { class: "btn ghost", onclick: () => startGuest() }, "Continue as guest (snapshot)")));
 
@@ -950,7 +950,7 @@ async function boot() {
   DEMO = runtime === "demo";
   writePreference("tt-runtime-mode", runtime);
   if (DEMO) {
-    state.demoMeta = await window.TradeTwinDemo.meta().catch(() => null);
+    state.demoMeta = await window.TwinDemo.meta().catch(() => null);
   }
   const me = await api("api/me");
   if (!me.ok) {
@@ -1016,8 +1016,8 @@ function demoBanner() {
   return h("div", { class: "warn", style: "margin:10px 0" },
     h("b", {}, GUEST ? "Guest preview · " : "Web demo · "),
     `prices from ${meta.market_as_of || "a recent snapshot"}, 5 famous investors, TSLA trade replay. `,
-    "For live data on your phone, run Trade Twin on your computer — ",
-    h("a", { href: "https://github.com/juwpegatron/projects/tree/main/apps/trade-twin", target: "_blank", rel: "noopener" }, "source & setup"),
+    "For live data on your phone, run Twin on your computer — ",
+    h("a", { href: "https://github.com/juwpegatron/projects/tree/main/apps/twin", target: "_blank", rel: "noopener" }, "source & setup"),
     ".");
 }
 
@@ -1063,7 +1063,7 @@ function renderAuth(mode = "login") {
   });
   put(app, h("div", { class: "screen" },
     h("img", { class: "logo", src: "icons/icon-192.png", alt: "" }),
-    h("h1", {}, mode === "login" ? "Try Trade Twin" : "Create your account"),
+    h("h1", {}, mode === "login" ? "Try Twin" : "Create your account"),
     h("p", { class: "muted" }, "Invest and day-trade with a twin that replays 10,000 futures before you risk a dollar."),
     h("div", { class: "guest-actions" },
       h("button", { class: "btn primary", id: "continue-guest", onclick: () => startGuest() }, "Continue as guest"),
@@ -1095,7 +1095,7 @@ function renderAuth(mode = "login") {
    ========================================================================= */
 function renderOnboarding() {
   const slides = [
-    ["👋", "Hi " + (state.profile.name || "there") + "!", "Trade Twin helps you invest for the long run and practice day trading — with practice money first."],
+    ["👋", "Hi " + (state.profile.name || "there") + "!", "Twin helps you invest for the long run and practice day trading — with practice money first."],
     ["🔮", "Look before you leap", "Before any trade, your twin replays 10,000 possible outcomes from real price history and tells you the honest odds."],
     ["🧭", "Made for you", "A 2-minute personality test sets your style and your risk limits. You can change everything later."],
   ];
@@ -1243,7 +1243,7 @@ function renderQuizResult() {
         renderShell();
         setTimeout(() => openGuide("start"), 400);
       },
-    }, "Start using Trade Twin")));
+    }, "Start using Twin")));
 }
 
 /* =========================================================================
@@ -1422,7 +1422,7 @@ function nextStep() {
   const done = state.profile.guide_done || [];
   const p = state.paper;
   const steps = [
-    [!done.includes("install"), "📱", "Put Trade Twin on your iPhone", () => openGuide("install")],
+    [!done.includes("install"), "📱", "Put Twin on your iPhone", () => openGuide("install")],
     [p && p.positions.length === 0, "🧪", "Make your first paper investment", () => openStock(state.profile.quiz.focus === "trade" ? "SPY" : "SPY")],
     [!state.profile.goal_ran, "🎯", "See 10,000 futures for your goal", () => { state.investView = "goal"; switchTab("invest"); }],
     [state.profile.quiz.focus === "trade" && !done.includes("trade"), "⚡", "Learn the day-trade checklist", () => openGuide("trade")],
@@ -1993,7 +1993,7 @@ function showTradeDetail(id, detail) {
       (state.tradeResults.timemachine || {}).cls === "bad"
         ? h("div", { class: "err" }, "🔮 The Time Machine leaned toward the stop for this plan. Most traders would skip it.")
         : null,
-      h("div", { class: "warn" }, "Trade Twin never sends orders. Enter this bracket order in your own broker (paper account first) if you decide to take it.")));
+      h("div", { class: "warn" }, "Twin never sends orders. Enter this bracket order in your own broker (paper account first) if you decide to take it.")));
     return;
   }
   if (id === "risk" && d) {
@@ -2201,8 +2201,8 @@ function renderMe(main) {
       }, "Save limits")),
     h("div", { class: "card" }, h("h3", {}, "Guide"), guideList()),
     h("div", { class: "card small muted" },
-      h("b", { style: "color:var(--text)" }, "Trade Twin · v1.1.0"),
-      h("p", {}, "Trade Twin is built on two free, MIT-licensed skill packs by Jake Schincariol (day-trader-skill and trader-skill). Data: Yahoo Finance (delayed, unofficial), SEC EDGAR."),
+      h("b", { style: "color:var(--text)" }, "Twin · v1.2.0"),
+      h("p", {}, "Twin is built on two free, MIT-licensed skill packs by Jake Schincariol (day-trader-skill and trader-skill). Data: Yahoo Finance (delayed, unofficial), SEC EDGAR."),
       h("p", {}, "Not financial advice. Practice money only. You can lose money investing; past performance and simulations do not guarantee future results.")),
     h("button", {
       class: "btn ghost",

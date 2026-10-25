@@ -80,11 +80,26 @@ def build_landing_apps(catalog):
 
 # Apps that were renamed: old site path -> the app's current id. A tiny redirect
 # stub is emitted at the old path so existing links/bookmarks keep working.
-REDIRECTS = {"ziris-motor": "airiz-motor", "mufakat": "glow", "hookline": "sped"}
+REDIRECTS = {
+    "ziris-motor": "airiz-motor",
+    "mufakat": "glow",
+    "hookline": "sped",
+    "trade-twin": "twin",
+}
 
-# Renamed apps that shipped an offline service worker: old id -> (cache prefix, start page).
-# The retired worker deletes only caches with this prefix, never other apps' caches.
-LEGACY_WORKERS = {"mufakat": ("mufakat-", "app.html"), "hookline": ("hookline-v", "")}
+# Renamed installable apps whose old service worker must be retired at the old path.
+# Each entry lists the cache-name prefixes that belonged to that old worker only
+# ("{scope}" is replaced by the old registration scope at runtime) and the page the
+# old home-screen icon should open now.
+LEGACY_WORKERS = {
+    "mufakat": {"cache_prefixes": ["mufakat-"], "start": "app.html", "reload_clients": False},
+    "hookline": {"cache_prefixes": ["hookline-v"], "start": "", "reload_clients": False},
+    "trade-twin": {
+        "cache_prefixes": ["trade-twin:{scope}", "tt-shell-v"],
+        "start": "",
+        "reload_clients": True,
+    },
+}
 
 
 def write_redirects(out_dir, catalog):
@@ -122,21 +137,35 @@ def write_redirects(out_dir, catalog):
             'location.replace(destination.href);\n',
             encoding="utf-8",
         )
-        if old_id in LEGACY_WORKERS:
-            cache_prefix, start_page = LEGACY_WORKERS[old_id]
+        legacy = LEGACY_WORKERS.get(old_id)
+        if legacy:
             # Retire only this app's former worker/cache, not other Pages apps.
+            checks = []
+            for prefix in legacy["cache_prefixes"]:
+                if "{scope}" in prefix:
+                    checks.append(f"name.startsWith('{prefix.replace('{scope}', '')}' + self.registration.scope)")
+                else:
+                    checks.append(f"name.startsWith('{prefix}')")
+            condition = " || ".join(checks)
+            reload_clients = (
+                "      .then(() => self.clients.matchAll({ type: 'window' }))\n"
+                "      .then((clients) => Promise.all(clients.map((client) => client.navigate(client.url))))\n"
+                if legacy["reload_clients"] else ""
+            )
             (out_dir / old_id / "sw.js").write_text(
                 "self.addEventListener('install', () => self.skipWaiting());\n"
                 "self.addEventListener('activate', (event) => {\n"
                 "  event.waitUntil(caches.keys().then((names) => Promise.all(\n"
-                f"    names.filter((name) => name.startsWith('{cache_prefix}'))\n"
+                f"    names.filter((name) => {condition})\n"
                 "      .map((name) => caches.delete(name))\n"
-                "  )).then(() => self.registration.unregister()));\n"
+                "  )).then(() => self.registration.unregister())\n"
+                f"{reload_clients}"
+                "  );\n"
                 "});\n",
                 encoding="utf-8",
             )
             legacy_manifest = json.loads((out_dir / new_id / "manifest.webmanifest").read_text())
-            legacy_manifest["start_url"] = f"../{new_id}/{start_page}"
+            legacy_manifest["start_url"] = f"../{new_id}/" + legacy["start"]
             legacy_manifest["scope"] = f"../{new_id}/"
             for icon in legacy_manifest["icons"]:
                 icon["src"] = f"../{new_id}/" + icon["src"].removeprefix("./")

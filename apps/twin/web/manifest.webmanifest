@@ -1,6 +1,6 @@
 {
-  "name": "Trade Twin",
-  "short_name": "Trade Twin",
+  "name": "Twin",
+  "short_name": "Twin",
   "description": "Try as a guest: practice portfolios, historical simulations and investor research. No login required; light, dark and system themes.",
   "start_url": "./",
   "scope": "./",

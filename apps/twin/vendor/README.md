@@ -1,7 +1,7 @@
 # Vendored skill packs
 
 Both packs are MIT-licensed work by Jake Schincariol, copied unmodified (their own
-`LICENSE` files are kept inside each folder). Trade Twin runs their command-line
+`LICENSE` files are kept inside each folder). Twin runs their command-line
 tools as subprocesses.
 
 | Folder | Upstream | Commit |
@@ -10,4 +10,4 @@ tools as subprocesses.
 | `trader-skill/` | https://github.com/Jakeschincariol/trader-skill | `5189e79b9a48` |
 
 To update: replace a folder with a fresh clone (minus `.git`) and run
-`python apps/trade-twin/tests/verify_api.py`.
+`python apps/twin/tests/verify_api.py`.
