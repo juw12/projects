@@ -24,6 +24,7 @@
   loadScript(webDir + 'demo.js');
   loadScript(webDir + 'rights.js');
   loadScript(webDir + 'recipes.js');
+  loadScript(webDir + 'shorts.js');
   const H = globalThis.Sped;
 
   let failures = 0;
@@ -459,6 +460,118 @@
   test('explicit manual source starts stay exact even with automatic beat snapping enabled', function () {
     const plan = H.planRemix({ main: usableMain() }, { segments: [{ track: 'main', bars: 2, from: 'time', startSec: 5.123456 }], snapToBeats: true });
     check(plan.segments[0].sourceStartSec === 5.123456, 'silently moved explicit start');
+  });
+
+  // ------------------------------------------------------------------ shorts toolkit
+
+  test('shorts: recorder prefers MP4 H.264, falls back to WebM, and honours silent exports', function () {
+    const S = H.shorts;
+    const all = S.pickMimeType(function () { return true; }, true);
+    check(all.extension === 'mp4' && /avc1/.test(all.mimeType) && /mp4a/.test(all.mimeType), 'did not prefer MP4 with AAC');
+    const webmOnly = S.pickMimeType(function (t) { return /webm/.test(t); }, true);
+    check(webmOnly.extension === 'webm' && /opus/.test(webmOnly.mimeType), 'no WebM fallback');
+    const silent = S.pickMimeType(function () { return true; }, false);
+    check(silent.extension === 'mp4' && !/mp4a/.test(silent.mimeType), 'silent export still asked for an audio codec');
+    check(S.pickMimeType(function () { return false; }, true) === null, 'claimed support when none exists');
+    check(S.pickMimeType(function () { throw new Error('boom'); }, true) === null, 'throwing isTypeSupported was not handled');
+    check(S.formatWarnings('instagram', 'webm').length === 1 && S.formatWarnings('tiktok', 'webm').length === 0, 'format warnings wrong');
+    check(S.formatWarnings('youtube', null).length === 1, 'no warning when recording is impossible');
+  });
+
+  test('shorts: layouts stay inside each platform safe zone for every text position', function () {
+    const S = H.shorts;
+    Object.keys(S.platforms).forEach(function (id) {
+      S.POSITIONS.forEach(function (position) {
+        const box = S.layout(id, { position: position });
+        ['title', 'visualizer', 'progress'].forEach(function (part) {
+          check(S.insideSafe(box[part], box.safe), id + '/' + position + ': ' + part + ' outside safe zone');
+        });
+        check(box.title.y + box.title.h <= box.visualizer.y || box.visualizer.y + box.visualizer.h <= box.title.y, id + '/' + position + ': title overlaps visualizer');
+      });
+    });
+    const other = S.platform('other').safe;
+    ['tiktok', 'instagram', 'youtube'].forEach(function (id) {
+      const s = S.platform(id).safe;
+      check(other.top >= s.top && other.bottom >= s.bottom && other.right >= s.right, '"All platforms" is not the strictest safe zone');
+    });
+    check(S.platform('nonsense').id === 'other', 'unknown platform did not fall back safely');
+  });
+
+  test('shorts: captions respect Instagram hashtag cap, Shorts title cap and only user-entered credits', function () {
+    const S = H.shorts;
+    const tags = ['#a', '#b', 'c', '#d', '#e', '#f', '#g', '#a'];
+    const reels = S.buildCaption({ platformId: 'instagram', title: 'Song (sped up)', credits: ['Artist — Song'], hashtags: tags });
+    check(reels.hashtags.length === 5 && reels.hashtags[2] === '#c', 'Reels hashtags not capped/normalised: ' + reels.hashtags.join(' '));
+    check(reels.warnings.length === 1 && /5 hashtags/.test(reels.warnings[0]), 'missing hashtag-cap warning');
+    check(reels.text.indexOf('Credit: Artist — Song') >= 0 && reels.title === null, 'credit missing or Reels given a title');
+    const longTitle = new Array(30).join('very long ');
+    const shorts = S.buildCaption({ platformId: 'youtube', title: longTitle, hashtags: ['#shorts'] });
+    check(shorts.title.length === 100 && shorts.warnings.some(function (w) { return /100/.test(w); }), 'Shorts title not capped at 100');
+    const bare = S.buildCaption({ platformId: 'tiktok', title: '', credits: [], hashtags: [] });
+    check(bare.text === '' && bare.warnings.length === 0, 'invented caption text or credits');
+    check(S.normaliseTag('sped up!') === '#spedup' && S.normaliseTag('###') === '', 'tag normalisation wrong');
+  });
+
+  test('shorts: hashtags describe the actual edit', function () {
+    const S = H.shorts;
+    const plan = { mainId: 'm', tracks: { m: { tempoRatio: 1.3 } }, segments: [{ track: 'm' }, { track: 'x' }], recipe: { mode: 'coupled', fx: { reverb: 0 } } };
+    const sped = S.suggestHashtags(plan, 'youtube');
+    check(sped.indexOf('#nightcore') >= 0 && sped.indexOf('#spedup') >= 0 && sped.indexOf('#mashup') >= 0 && sped.indexOf('#shorts') >= 0, 'sped tags: ' + sped.join(' '));
+    check(sped.indexOf('#slowed') < 0, 'sped edit tagged as slowed');
+    const slowed = S.suggestHashtags({ mainId: 'm', tracks: { m: { tempoRatio: 0.85 } }, segments: [{ track: 'm' }], recipe: { fx: { reverb: 0.4 } } }, 'tiktok');
+    check(slowed.indexOf('#slowedandreverb') >= 0 && slowed.indexOf('#spedup') < 0 && slowed.indexOf('#mashup') < 0, 'slowed tags: ' + slowed.join(' '));
+  });
+
+  test('shorts: readiness flags length, late hooks, missing permissions and stale renders without blocking', function () {
+    const S = H.shorts;
+    const output = { plan: { durationSec: 200 }, score: { hookTime: 3.2, loudness: -14.2 } };
+    const report = S.readiness({ platformId: 'youtube', output: output, stale: true, tracks: [{ rights: { basis: 'unknown' } }], includeAudio: true });
+    const ids = report.items.filter(function (i) { return i.level === 'warn'; }).map(function (i) { return i.id; });
+    ['length', 'hook', 'rights', 'stale'].forEach(function (id) {
+      check(ids.indexOf(id) >= 0, 'missing warning: ' + id + ' in ' + ids.join(','));
+    });
+    check(report.ready === false, 'flagged report claimed ready');
+    const good = S.readiness({ platformId: 'tiktok', output: { plan: { durationSec: 26 }, score: { hookTime: 0, loudness: -14 } }, tracks: [{ rights: { basis: 'owned', credit: '' } }] });
+    check(good.ready === true, 'clean edit not ready: ' + JSON.stringify(good.items));
+    const silent = S.readiness({ platformId: 'instagram', output: { plan: { durationSec: 20 }, score: { hookTime: 0, loudness: -14 } }, tracks: [{ rights: { basis: 'unknown' } }], includeAudio: false });
+    check(!silent.items.some(function (i) { return i.id === 'rights' && i.level === 'warn'; }) && silent.items.some(function (i) { return i.id === 'audio'; }), 'silent export still warned about song rights');
+    check(S.readiness({ platformId: 'tiktok' }).items[0].level === 'todo', 'no output should ask for a render');
+    check(JSON.stringify(report).toLowerCase().indexOf('viral') < 0, 'checklist makes virality claims');
+  });
+
+  test('shorts: visualizer bands are bounded, silent audio stays flat and beats pulse on the grid', function () {
+    const S = H.shorts;
+    const rate = 22050;
+    const tone = new Float32Array(rate * 2);
+    for (let i = 0; i < tone.length; i++) {
+      tone[i] = 0.4 * Math.sin(2 * Math.PI * 220 * i / rate) + (i % 2205 < 200 ? 0.3 * Math.sin(2 * Math.PI * 5000 * i / rate) : 0);
+    }
+    const bands = S.frameBands([tone, tone], rate, 30, 24);
+    check(bands.frames === 60 && bands.data.length === 60 * 24, 'wrong frame/band count');
+    let min = 1;
+    let max = 0;
+    for (let i = 0; i < bands.data.length; i++) {
+      min = Math.min(min, bands.data[i]);
+      max = Math.max(max, bands.data[i]);
+    }
+    check(min >= 0 && max <= 1 && max > 0.9, 'band values not normalised: ' + min + '..' + max);
+    const at = S.bandsAt(bands, 1.0);
+    check(at.values.length === 24 && at.level > 0, 'bandsAt wrong');
+    const quiet = S.frameBands([new Float32Array(rate), new Float32Array(rate)], rate, 30, 16);
+    let quietMax = 0;
+    for (let i = 0; i < quiet.data.length; i++) {
+      quietMax = Math.max(quietMax, quiet.data[i]);
+    }
+    check(quietMax === 0 && !Number.isNaN(quiet.level[0]), 'silence produced visualizer motion or NaN');
+    const beat = 60 / 120;
+    check(Math.abs(S.beatPulse(0, 120) - 1) < 1e-9 && Math.abs(S.beatPulse(beat, 120) - 1) < 1e-6, 'pulse not on beat');
+    check(S.beatPulse(beat * 0.9, 120) < 0.05 && S.beatPulse(1, 0) === 0, 'pulse does not decay or handles bad BPM');
+  });
+
+  test('shorts: export file names are safe and platform-specific', function () {
+    const S = H.shorts;
+    check(S.fileName("That's What You Get", 'instagram', 'mp4') === 'sped-that-s-what-you-get-reels.mp4', S.fileName("That's What You Get", 'instagram', 'mp4'));
+    check(S.fileName('../../etc', 'youtube', 'webm') === 'sped-etc-shorts.webm', 'unsafe file name');
   });
 
   log('');

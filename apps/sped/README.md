@@ -1,4 +1,4 @@
-# Sped 1.3 — private short-form remix studio
+# Sped 1.4 — shorts studio for sped-up, slowed & mashup edits
 
 *Formerly **Hookline**. Old `/projects/hookline/` links redirect here, and recipe files saved under the old name still load.*
 
@@ -10,7 +10,36 @@ Upload your audio, describe a direction such as “higher, faster, no reverb,
 20 seconds,” audition the result, and export a WAV. Processing happens in your
 browser; there is no audio-upload server, account, or external AI service.
 
-## Real songs and publishing (new in 1.2)
+## Built for posting (new in 1.4)
+
+TikTok, Instagram Reels and YouTube Shorts accept video, not audio-only files, so
+Sped now turns the edit into a ready-to-post **9:16 MP4**:
+
+- **Editor layout like the popular mobile editors:** a live 9:16 preview in the
+  centre, a multi-lane timeline (text, visual, audio segments, bar grid; click to
+  jump), one-tap **Styles** tiles, quick speed chips (0.8×–1.5×) and an inspector
+  with Edit / Mix / Text & look / Post tabs. On phones it becomes preview-on-top
+  with a fixed bottom toolbar (Media, Styles, Edit, Mix, Text, Post).
+- **Platform switch (TikTok / Reels / Shorts / All):** drives approximate
+  UI safe zones (toggle the overlay), caption limits and the pre-post checklist.
+- **Text & look:** title, subtitle, text position, five themes, bars/wave/ring
+  beat-reactive visualizer, speed/BPM badge, progress bar, optional background
+  image (stays on the device).
+- **Export:** 1080×1920, 30 fps MP4 (H.264 + AAC) where the browser supports it,
+  WebM otherwise; recorded in real time from the same renderer as the preview.
+  Optional **silent export** so you can add the official sound inside the app —
+  usually the safest route for commercial songs. Also a 1080×1920 cover PNG.
+- **Caption helper:** title + credits you entered + hashtags that describe the
+  edit (#spedup, #slowed, #nightcore, #mashup…), capped per platform
+  (Instagram: 5 hashtags; Shorts: 100-character title). Copy, or Share on phones.
+- **Post:** Share opens the system share sheet (installed apps such as TikTok or
+  Instagram appear if the OS offers them); otherwise download and use
+  “Open upload”. Sped cannot post on your behalf — that needs each platform's
+  approved developer integration.
+
+See [posting guide](docs/posting-shorts.md) for specs, safe zones and limits.
+
+## Real songs and publishing (since 1.2)
 
 Copyright is not an automatic technical block on editing an uploaded song. The
 separate question is whether the intended remix/publication is permitted. A
@@ -55,7 +84,10 @@ missing permission notes are treated as unknown, never inferred as licensed.
 - **Editing checklist:** onset energy, boundary continuity, length, style tempo,
   dynamic contrast and loudness. It is unvalidated and cannot predict virality,
   recognition, taste or reach. “Compare 3 edits” ranks these heuristics only.
-- **Exports:** 16-bit stereo WAV and versioned portable recipe JSON. Recipes
+- **Video:** real-time MediaRecorder capture (keep the tab visible while it
+  records). Safe zones are approximations of each app's overlays and vary by
+  device. Platform limits change; the destination's upload screen wins.
+- **Exports:** 9:16 MP4/WebM video, cover PNG, 16-bit stereo WAV and versioned portable recipe JSON. Recipes
   contain source names/checksums and corrections, not audio. Share them only if
   you are comfortable sharing source names; the recipe does not confer rights.
 
