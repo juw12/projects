@@ -68,17 +68,61 @@ SSL_CONTEXT = ssl.create_default_context()
 # ---------------------------------------------------------------- database
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA_DIR / "mufakat.sqlite3"
-_local = threading.local()
+
+
+class _Result:
+    """Rows materialized while the lock is held, so no cursor outlives it."""
+
+    def __init__(self, rows, lastrowid):
+        self._rows = rows
+        self.lastrowid = lastrowid
+
+    def fetchone(self):
+        return self._rows[0] if self._rows else None
+
+    def fetchall(self):
+        return list(self._rows)
+
+
+class _Database:
+    """One shared connection in autocommit mode; every call is serialized.
+
+    Per-thread connections left implicit write transactions open on newer
+    Python versions ("database is locked"). Autocommit + a lock means each
+    statement is committed immediately and never overlaps another.
+    """
+
+    def __init__(self, path):
+        self._lock = threading.RLock()
+        self._conn = sqlite3.connect(path, timeout=10, check_same_thread=False, isolation_level=None)
+        self._conn.row_factory = sqlite3.Row
+        self._conn.execute("PRAGMA journal_mode=WAL")
+        self._conn.execute("PRAGMA foreign_keys=ON")
+
+    def execute(self, sql, params=()):
+        with self._lock:
+            cursor = self._conn.execute(sql, params)
+            return _Result(cursor.fetchall(), cursor.lastrowid)
+
+    def executescript(self, script):
+        with self._lock:
+            self._conn.executescript(script)
+
+    def commit(self):
+        pass  # autocommit: every statement is already committed
+
+
+_database = None
+_database_lock = threading.Lock()
 
 
 def db():
-    if not hasattr(_local, "conn"):
-        conn = sqlite3.connect(DB_PATH, timeout=10)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA foreign_keys=ON")
-        _local.conn = conn
-    return _local.conn
+    global _database
+    if _database is None:
+        with _database_lock:
+            if _database is None:
+                _database = _Database(DB_PATH)
+    return _database
 
 
 def init_db():
