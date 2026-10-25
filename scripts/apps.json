@@ -367,6 +367,32 @@
       "featured": true,
       "order": 1.5,
       "version": "0.2.0"
+    },
+    {
+      "id": "hookline",
+      "name": "Hookline",
+      "category": "Software",
+      "desc": "Remix songs into loop-ready viral short-form sounds — sped up, pitched, mashed up and scored, privately in the browser",
+      "description": "Upload real songs, describe the vibe (&ldquo;higher, faster, mash in some 2000s nostalgia&rdquo;) and Hookline renders a loop-ready TikTok/Reels/Shorts sound. Detects tempo, key and the chorus hook; changes tempo and pitch independently (WSOLA + resampling) or classic nightcore-style; tempo- and key-matches mashup layers with beat-aligned crossfades, risers and seamless loop folding; masters to about &minus;10 LUFS and scores viral potential with fixable tips. Includes a curated Paramore &ldquo;That&rsquo;s What You Get&rdquo; nostalgia recipe. Zero-dependency JavaScript, songs never leave the device. The score is a heuristic, not a prediction.",
+      "tags": [
+        "Web Audio",
+        "DSP",
+        "time-stretch",
+        "pitch shift",
+        "mashup",
+        "zero-dependency",
+        "PWA"
+      ],
+      "image": "hookline.png",
+      "image_alt": "Hookline remixing three stand-in tracks into a 164 BPM mashup with a colour-coded waveform and an 83/100 viral-potential score",
+      "links": {
+        "app": "hookline/",
+        "web": "hookline/web.html",
+        "mobile": "hookline/mobile.html"
+      },
+      "featured": true,
+      "order": 5.7,
+      "version": "1.0.0"
     }
   ]
 }
