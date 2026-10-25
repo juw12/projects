@@ -36,9 +36,20 @@
     <button id="menu-btn" type="button" aria-label="Menu">☰</button>
     <span class="mobile-brand">Glow</span>
     <span class="label" id="mode-label">Chat</span>
-    <select id="chat-model" aria-label="Model"></select>
+    <div class="model-picker" id="model-picker">
+      <button type="button" id="model-picker-btn" class="model-picker-btn" aria-haspopup="dialog" aria-expanded="false" title="Choose a model">
+        <span id="model-picker-label">Model</span><span class="caret" aria-hidden="true">▾</span>
+      </button>
+      <div id="model-menu" class="model-menu hidden" role="dialog" aria-label="Choose a model">
+        <input type="search" id="model-search" placeholder="Search models…" aria-label="Search models" autocomplete="off">
+        <div id="model-list" class="model-list" role="listbox" aria-label="Models"></div>
+        <div id="model-menu-foot" class="model-menu-foot"></div>
+      </div>
+      <select id="chat-model" aria-label="Model" hidden></select>
+    </div>
     <span class="spacer"></span>
     <span id="status"></span>
+    <button class="secondary small" id="share-btn" type="button" title="Copy a link that opens this chat (no account needed)">🔗 Share</button>
     <button class="secondary small" id="export-btn" type="button" title="Export this conversation as Markdown">⤓ Export</button>
     <button class="icon-btn" id="theme-toggle" type="button" title="Switch light / dark theme" aria-label="Switch light or dark theme">☀</button>
     <button class="icon-btn help-btn" id="help-btn" type="button" title="Take the guided tour" aria-label="Take the guided tour">?</button>
@@ -49,6 +60,7 @@
     <button class="secondary small" id="banner-settings" type="button">Use my own key</button>
   </div>
   <div id="messages"></div>
+  <button id="jump-btn" class="jump-btn hidden" type="button" title="Jump to the latest message">↓ Latest</button>
   <div id="council-controls" class="hidden">
     <button class="secondary" id="council-continue-btn" type="button">Another round</button>
     <button class="secondary" id="council-judge-btn" type="button">Ask the Judge</button>
@@ -61,11 +73,23 @@
       <button class="link-btn" id="rate-signin" type="button">Sign in for faster AI</button>
       <button class="link-btn" id="rate-close" type="button" aria-label="Dismiss notice" title="Dismiss">✕</button>
     </div>
+    <div id="improve-bar" class="improve-bar hidden" role="status">
+      <span>✨ Prompt improved. Review it, then press Enter to send.</span>
+      <button class="link-btn" id="improve-undo" type="button">Undo</button>
+    </div>
+    <div id="composer-tools" class="composer-tools">
+      <label for="persona-select" class="persona-label">Persona</label>
+      <select id="persona-select" aria-label="Persona"></select>
+      <span class="spacer"></span>
+      <span id="char-count" class="char-count" aria-live="off"></span>
+    </div>
     <div id="pending-files" class="hidden"></div>
     <div id="composer">
       <button class="icon-btn" id="attach-btn" type="button" title="Attach text or code files" aria-label="Attach files">📎</button>
       <input type="file" id="file-input" multiple hidden accept=".txt,.md,.csv,.json,.py,.js,.ts,.html,.css,.xml,.yaml,.yml,.log,.sql,.java,.c,.cpp,.h,.go,.rs,.rb,.php,.sh,text/*">
       <textarea id="input" rows="1" placeholder="Message Glow…" aria-label="Message"></textarea>
+      <button class="icon-btn" id="improve-btn" type="button" title="Improve my prompt with AI" aria-label="Improve my prompt">✨</button>
+      <button class="icon-btn hidden" id="mic-btn" type="button" title="Speak instead of typing (uses your browser's speech recognition)" aria-label="Voice input">🎤</button>
       <button class="secondary hidden" id="stop-btn" type="button">Stop</button>
       <button class="primary" id="send-btn" type="button">Send</button>
     </div>
@@ -84,6 +108,11 @@
     </div>
     <label class="note"><input type="checkbox" id="set-sync"> Sync my chats to my account (so they follow me to other devices)</label>
     <p class="note">Sign-in uses <a href="https://puter.com" target="_blank" rel="noopener">Puter</a>, a free third-party account. Glow AI models run on your own free Puter allowance, so there are no API keys and no cost to you or to Glow. API keys you add below are never synced.</p>
+
+    <h4>About you &amp; how Glow should answer</h4>
+    <p class="note">Added to every chat, council and arena prompt. Example: “I'm a student in Batam. Explain simply and give examples in Indonesian Rupiah.”</p>
+    <textarea id="set-instructions" rows="3" maxlength="1500" placeholder="Optional custom instructions…"></textarea>
+    <label class="note"><input type="checkbox" id="set-followups"> Suggest follow-up questions after replies</label>
 
     <h4>Appearance</h4>
     <div class="row" style="margin-top:4px">

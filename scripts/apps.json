@@ -326,8 +326,8 @@
       "id": "glow",
       "name": "Glow",
       "category": "AI",
-      "desc": "From a spark to something real: chat with free AI right away (no sign-up), sign in for more models, run a Council with a Judge, or compare models side by side",
-      "description": "Get several AI perspectives on one idea: a Council of agents debates while a Judge summarizes, or an Arena compares models side by side. Free AI for guests, no sign-up needed.",
+      "desc": "From a spark to something real: chat with free AI right away (no sign-up), pick any model, use personas like Planner for tickable checklists, run a Council with a Judge, or compare and fuse models side by side",
+      "description": "Get several AI perspectives on one idea: pick any model from a searchable list, use personas like Planner for tickable checklists, let a Council debate while a Judge summarizes, or compare and fuse models in an Arena. Free AI for guests, no sign-up needed.",
       "tags": [
         "multi-agent",
         "model arena",
@@ -343,7 +343,7 @@
       },
       "featured": true,
       "order": 5,
-      "version": "0.4.2"
+      "version": "0.5.0"
     },
     {
       "id": "sped",

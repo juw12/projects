@@ -20,6 +20,20 @@ const FREE_AI_URL = "https://text.pollinations.ai/openai";
 const FREE_MODEL = { value: "free::openai-fast", label: "Glow Free: GPT-OSS 20B (no sign-in needed)", short: "Glow Free", group: "Free: works right away" };
 const SYSTEM_PROMPT = "You are a helpful, accurate and thoughtful assistant. Format answers with Markdown.";
 const MAX_ATTACHMENT_CHARS = 100000;
+const PERSONAS = {
+  default: { icon: "✨", name: "Default", prompt: SYSTEM_PROMPT },
+  planner: { icon: "🗺", name: "Planner", prompt: "You are a practical planner. Turn the user's idea or goal into a clear, doable plan. Start with a one-line **Goal**. Then list the steps as Markdown task lists using '- [ ]' checkboxes, grouped under short milestone headings; each task must be concrete and small, with a rough time estimate in brackets. Finish with '**Do this first:**' and the single next action. Use Markdown." },
+  tutor: { icon: "🎓", name: "Tutor", prompt: "You are a patient tutor. Explain step by step in simple words with one concrete everyday example, then ask one short question to check understanding. Use Markdown." },
+  coder: { icon: "💻", name: "Coder", prompt: "You are a senior software engineer. Give correct, complete, runnable code in fenced code blocks with language tags, then a short explanation of how it works and how to run it. Point out edge cases. Use Markdown." },
+  writer: { icon: "✍", name: "Writer", prompt: "You are a skilled editor and writer. Improve clarity, flow and tone while keeping the author's meaning. When the user gives text, return the improved version first, then 2-3 bullet notes on what you changed. Use Markdown." },
+  critic: { icon: "🔍", name: "Critic", prompt: "You are a constructive critic and risk analyst. Find the weaknesses, hidden assumptions, risks and counter-arguments in the user's idea, ranked by importance, and suggest a fix for each. Be direct but fair. Use Markdown." },
+  translator: { icon: "🌐", name: "Translator", prompt: "You are a professional translator. Detect the language of the user's text. If it is Indonesian, translate it into natural English; otherwise translate it into natural Indonesian, unless the user names another target language. Keep the meaning, tone and formatting. Reply with the translation, then one short note about any tricky phrase." },
+};
+const FOLLOW_UP_INSTRUCTION = "\n\nAfter your answer, add a final section exactly in this form:\nFollow-ups:\n- <short question>\n- <short question>\nwith 2 or 3 natural next questions the user might ask. Write the follow-ups in exactly the same language as the user's last message (for example English if they wrote English, Indonesian if they wrote Indonesian). Keep the heading \"Follow-ups:\" in English.";
+const FOLLOW_UPS = /\n+[*_]{0,2}Follow[- ]?ups?[*_]{0,2}:?[*_]{0,2}:?[ \t]*\n((?:[ \t]*(?:[-*•]|\d+[.)])[ \t]+.+(?:\n|$)){1,4})\s*$/i;
+const IMPROVE_PROMPT = "You rewrite prompts so an AI assistant can answer them well. Keep the user's language, intent and every detail they gave. Make it specific: state the goal, the context worth including, the desired format and length, and any constraints. If key information is missing, add short [placeholders] for the user to fill in. Reply with the improved prompt only: no preamble, no quotes.";
+const FUSE_PROMPT = "You are an expert editor. You receive several AI answers to the same question. Merge them into ONE answer that is better than each of them: keep the correct, useful and specific parts, fix mistakes, remove repetition, resolve disagreements by choosing what is best supported (briefly note any real disagreement), and keep a clear structure. Do not refer to 'Answer A/B' unless it genuinely helps. Use Markdown.";
+const MAX_SHARE_CHARS = 60000;
 const AGENT_COLORS = ["a", "b", "c"];
 const PUTER_SDK_URL = "https://js.puter.com/v2/";
 // Curated Glow AI models served through Puter, best general picks first. Retired ids are
@@ -48,6 +62,7 @@ const controllers = new Set();
 let councilRunning = false;
 let puterSignedIn = false;
 let puterCatalogue = null;
+let puterCatalogueList = null;
 let puterPromise = null;
 let cloudTimer = null;
 let lastCloudPayload = "";
@@ -68,6 +83,10 @@ function loadState() {
       accountName: "",
       cloudSync: true,
       tourDone: false,
+      customInstructions: "",
+      followUps: true,
+      favoriteModels: [],
+      allPuterModels: false,
     },
     conversations: [],
     arenaStats: {},
@@ -102,34 +121,118 @@ function escapeHtml(text) {
   return String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 function inlineMarkdown(text) {
-  return text
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
+  // Input is already HTML-escaped. Protect code spans and links before applying emphasis.
+  const held = [];
+  const hold = (html) => `\u0000${held.push(html) - 1}\u0000`;
+  let out = text.replace(/`([^`]+)`/g, (_, code) => hold(`<code>${code}</code>`));
+  out = out.replace(/\[([^\]\n]+)\]\(((?:https?:\/\/|mailto:)[^\s)]+)\)/g, (_, label, url) =>
+    hold(`<a href="${url}" target="_blank" rel="noopener noreferrer">${label}</a>`));
+  out = out.replace(/(^|[\s(])((?:https?:\/\/)[^\s<)]+[^\s<).,;:!?'"])/g, (_, lead, url) =>
+    lead + hold(`<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`));
+  out = out
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>")
+    .replace(/~~([^~\n]+)~~/g, "<del>$1</del>");
+  return out.replace(/\u0000(\d+)\u0000/g, (_, i) => held[Number(i)]);
+}
+const LIST_ITEM = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
+const TABLE_ROW = /^\s*\|.*\|\s*$/;
+const TABLE_RULE = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
+function tableCells(line) {
+  return line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => inlineMarkdown(cell.trim()));
+}
+function renderList(lines) {
+  const stack = [];
+  let html = "";
+  for (const raw of lines) {
+    const match = raw.match(LIST_ITEM);
+    if (!match) {
+      html += "<br>" + inlineMarkdown(raw.trim());
+      continue;
+    }
+    const indent = match[1].replace(/\t/g, "    ").length;
+    const ordered = /\d/.test(match[2]);
+    const task = match[3].match(/^\[( |x|X)\]\s+(.*)$/);
+    const liOpen = task ? '<li class="task">' : "<li>";
+    const body = task
+      ? `<input type="checkbox" class="task-box" disabled${task[1].trim() ? " checked" : ""}> <span>${inlineMarkdown(task[2])}</span>`
+      : inlineMarkdown(match[3]);
+    const top = stack[stack.length - 1];
+    if (!top || indent > top.indent + 1) {
+      const start = ordered ? parseInt(match[2], 10) : 1;
+      stack.push({ indent, ordered });
+      html += (ordered ? `<ol${start > 1 ? ` start="${start}"` : ""}>` : "<ul>") + liOpen;
+    } else {
+      while (stack.length > 1 && indent < stack[stack.length - 1].indent - 1) {
+        html += `</li></${stack.pop().ordered ? "ol" : "ul"}>`;
+      }
+      html += "</li>" + liOpen;
+    }
+    html += body;
+  }
+  while (stack.length) html += `</li></${stack.pop().ordered ? "ol" : "ul"}>`;
+  return html;
+}
+function renderBlocks(text) {
+  const lines = text.split("\n");
+  let html = "";
+  let paragraph = [];
+  const flush = () => {
+    if (paragraph.length) html += `<p>${inlineMarkdown(paragraph.join("\n")).replace(/\n/g, "<br>")}</p>`;
+    paragraph = [];
+  };
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    let match;
+    if (!line.trim()) {
+      flush();
+      i++;
+    } else if ((match = line.match(/^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/))) {
+      flush();
+      const level = Math.min(match[1].length + 2, 6);
+      html += `<h${level}>${inlineMarkdown(match[2])}</h${level}>`;
+      i++;
+    } else if (/^\s{0,3}([-*_])(\s*\1){2,}\s*$/.test(line)) {
+      flush();
+      html += "<hr>";
+      i++;
+    } else if (/^\s*&gt;\s?/.test(line)) {
+      flush();
+      const quote = [];
+      while (i < lines.length && /^\s*&gt;\s?/.test(lines[i])) quote.push(lines[i++].replace(/^\s*&gt;\s?/, ""));
+      html += `<blockquote>${renderBlocks(quote.join("\n"))}</blockquote>`;
+    } else if (TABLE_ROW.test(line) && i + 1 < lines.length && TABLE_RULE.test(lines[i + 1]) && lines[i + 1].includes("-")) {
+      flush();
+      const head = tableCells(line);
+      i += 2;
+      const rows = [];
+      while (i < lines.length && TABLE_ROW.test(lines[i])) rows.push(tableCells(lines[i++]));
+      html += `<div class="table-wrap"><table><thead><tr>${head.map((c) => `<th>${c}</th>`).join("")}</tr></thead><tbody>`
+        + rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("") + "</tbody></table></div>";
+    } else if (LIST_ITEM.test(line)) {
+      flush();
+      const items = [];
+      while (i < lines.length && (LIST_ITEM.test(lines[i]) || (items.length && /^\s{2,}\S/.test(lines[i])))) items.push(lines[i++]);
+      html += renderList(items);
+    } else {
+      paragraph.push(line);
+      i++;
+    }
+  }
+  flush();
+  return html;
 }
 function renderMarkdown(source) {
   let html = "";
-  source.split(/```/).forEach((part, index) => {
+  String(source).split(/```/).forEach((part, index) => {
     if (index % 2 === 1) {
-      const code = part.replace(/^[\w+-]*\n/, "");
-      html += `<pre><button class="copy-btn" type="button">Copy</button><code>${escapeHtml(code)}</code></pre>`;
+      const lang = (part.match(/^([\w+#.-]*)\n/) || [, ""])[1];
+      const code = part.replace(/^[\w+#.-]*\n/, "");
+      html += `<pre${lang ? ` data-lang="${escapeHtml(lang)}"` : ""}><button class="copy-btn" type="button">Copy</button><code>${escapeHtml(code)}</code></pre>`;
       return;
     }
-    const spaced = part.replace(/^(#{1,6} .*)$/gm, "$1\n");
-    for (const block of escapeHtml(spaced).split(/\n{2,}/)) {
-      if (!block.trim()) continue;
-      const lines = block.split("\n");
-      if (lines.every((l) => /^\s*([-*]|\d+\.)\s+/.test(l))) {
-        const ordered = /^\s*\d+\./.test(lines[0]);
-        const items = lines.map((l) => `<li>${inlineMarkdown(l.replace(/^\s*([-*]|\d+\.)\s+/, ""))}</li>`).join("");
-        html += ordered ? `<ol>${items}</ol>` : `<ul>${items}</ul>`;
-      } else if (/^#{1,6}\s/.test(block)) {
-        const level = Math.min(block.match(/^#+/)[0].length + 2, 6);
-        html += `<h${level}>${inlineMarkdown(block.replace(/^#+\s/, ""))}</h${level}>`;
-      } else {
-        html += `<p>${inlineMarkdown(block).replace(/\n/g, "<br>")}</p>`;
-      }
-    }
+    html += renderBlocks(escapeHtml(part));
   });
   return html;
 }
@@ -270,6 +373,7 @@ function fillSelect(select, selected) {
     groups[option.group].appendChild(el);
   }
   select.value = models.some((m) => m.value === selected) ? selected : defaultModel();
+  if (select.id === "chat-model") updatePickerLabel();
 }
 function refreshModelSelects() {
   fillSelect($("chat-model"), (current && current.model) || state.settings.lastModel);
@@ -467,6 +571,26 @@ function mergeRoles(messages) {
   if (merged.length && merged[0].role !== "user") merged.unshift({ role: "user", content: "(begin)" });
   return merged;
 }
+function withInstructions(prompt) {
+  const extra = (state.settings.customInstructions || "").trim();
+  return extra ? `${prompt}\n\nAbout the user and how to answer (follow unless the user asks otherwise):\n${extra.slice(0, 1500)}` : prompt;
+}
+function systemPromptFor(conv) {
+  const personaKey = PERSONAS[conv.persona] ? conv.persona : "default";
+  let prompt = withInstructions(PERSONAS[personaKey].prompt);
+  if (conv.type === "chat" && state.settings.followUps && personaKey !== "translator") prompt += FOLLOW_UP_INSTRUCTION;
+  return prompt;
+}
+function splitFollowUps(text) {
+  const source = String(text || "");
+  const match = source.match(FOLLOW_UPS);
+  if (!match) return { body: source, questions: [] };
+  const questions = match[1].split("\n")
+    .map((line) => line.replace(/^[ \t]*(?:[-*•]|\d+[.)])[ \t]+/, "").replace(/\*\*/g, "").trim())
+    .filter(Boolean)
+    .slice(0, 3);
+  return { body: source.slice(0, match.index).trimEnd(), questions };
+}
 function friendlyError(status, detail, provider = "") {
   if (provider === "free") {
     if (status === 429 || status >= 500) return "The free guest AI is busy right now. Wait a few seconds and press ↻ Regenerate, or sign in for faster Glow AI models.";
@@ -484,6 +608,15 @@ function demoText(system, messages) {
   const prompt = lastUser ? lastUser.content.replace(/^[^:\n]{1,40}:\s*/, "") : "";
   if (system.includes("impartial judge")) {
     return "## Verdict\n**Final answer:** Define the goal, score three options on cost, time and risk, build the winner, then test it against the goal.\n\n**Agreed:** the plan needs measurable criteria and a final check.\n\n**Still open:** none.\n\n**Confidence:** high (demo).";
+  }
+  if (system.includes("You rewrite prompts")) {
+    return `Goal: ${prompt}\nContext: [who it is for, budget, deadline]\nFormat: a numbered step-by-step answer with a one-line summary first\nLength: under 300 words`;
+  }
+  if (system.includes("Merge them into ONE answer")) {
+    return "## Fused answer (demo)\nThe strongest points from every answer, combined: lead with the **short direct answer**, add the **structured detail** where it helps, and finish with **one concrete example**.";
+  }
+  if (system.includes("practical planner")) {
+    return `**Goal:** ${prompt.slice(0, 80)}\n\n### Get ready\n- [ ] Write down what “done” looks like (15 min)\n- [ ] List what you already have (15 min)\n\n### Do it\n- [ ] Pick the simplest first version (30 min)\n- [ ] Build it and test it with one person (2 h)\n\n**Do this first:** write the one-sentence goal.`;
   }
   if (system.includes("second-opinion reviewer")) {
     return "*(Second opinion, demo)* The answer is reasonable, but it skips **how to verify** the result. Add one concrete check before trusting it.";
@@ -505,7 +638,7 @@ function demoText(system, messages) {
     const slot = system.match(/\[arena:(\d)\]/)[1];
     return `*(Demo answer ${"ABC"[slot]})* ${["Short and direct", "Detailed and structured", "Example-driven"][slot]} take on: *${prompt.slice(0, 120)}*`;
   }
-  return `**Demo mode:** no AI model is connected, so this is a canned reply.\n\nYou wrote: *${prompt.slice(0, 200)}*\n\nFor real answers at no cost, pick **Glow Free** in the model menu at the top (works right away), or click **Sign in** in the sidebar for more Glow AI models.`;
+  return `**Demo mode:** no AI model is connected, so this is a canned reply.\n\nYou wrote: *${prompt.slice(0, 200)}*\n\nFor real answers at no cost, pick **Glow Free** in the model menu at the top (works right away), or click **Sign in** in the sidebar for more Glow AI models.${system.includes("Follow-ups:") ? "\n\nFollow-ups:\n- How do I pick a real AI model?\n- What does the Council do?" : ""}`;
 }
 function streamDemo(system, messages, onText, signal) {
   const text = demoText(system, messages);
@@ -549,13 +682,14 @@ function renderHistory() {
   const query = ($("search").value || "").trim().toLowerCase();
   const history = $("history");
   history.innerHTML = "";
-  for (const conv of state.conversations) {
+  const ordered = [...state.conversations.filter((c) => c.pinned), ...state.conversations.filter((c) => !c.pinned)];
+  for (const conv of ordered) {
     if (query && !conversationText(conv).includes(query)) continue;
     const item = document.createElement("div");
-    item.className = "history-item" + (conv === current ? " active" : "");
+    item.className = "history-item" + (conv === current ? " active" : "") + (conv.pinned ? " pinned" : "");
     const title = document.createElement("span");
     title.className = "title";
-    title.textContent = (MODE_ICONS[conv.type] || "") + conv.title;
+    title.textContent = (conv.pinned ? "📌 " : "") + (MODE_ICONS[conv.type] || "") + conv.title;
     title.title = "Double-click to rename";
     title.addEventListener("click", () => {
       stopAll();
@@ -578,15 +712,28 @@ function renderHistory() {
       if (current === conv) newChat();
       else renderHistory();
     });
-    item.append(title, del);
+    const pin = document.createElement("button");
+    pin.className = "del pin";
+    pin.type = "button";
+    pin.title = conv.pinned ? "Unpin" : "Pin to top";
+    pin.textContent = conv.pinned ? "📍" : "📌";
+    pin.addEventListener("click", () => togglePin(conv));
+    item.append(title, pin, del);
     history.appendChild(item);
   }
+}
+function togglePin(conv) {
+  conv.pinned = !conv.pinned;
+  saveState();
+  renderHistory();
+  toast(conv.pinned ? "Pinned to the top" : "Unpinned");
 }
 function openConversation(conv) {
   current = conv;
   const labels = { chat: "Chat", council: "Council", arena: "Arena" };
   $("mode-label").textContent = labels[conv.type];
-  $("chat-model").classList.toggle("hidden", conv.type !== "chat");
+  $("model-picker").classList.toggle("hidden", conv.type !== "chat");
+  closeModelMenu();
   if (conv.type === "chat") fillSelect($("chat-model"), conv.model);
   $("input").placeholder = {
     chat: "Message Glow…",
@@ -597,12 +744,13 @@ function openConversation(conv) {
   $("attach-btn").classList.toggle("hidden", conv.type === "council" && !conv.started);
   if (conv.type === "council" && !conv.started) renderCouncilSetup(conv);
   else if (conv.type === "arena" && !conv.started) renderArenaSetup(conv);
-  else renderConversation();
+  else renderConversation(true);
   renderHistory();
+  syncComposerTools();
 }
-function renderConversation() {
+function renderConversation(force = false) {
   if (current.type === "arena") renderArena();
-  else renderMessages();
+  else renderMessages(force);
 }
 
 /* ================= message rendering ================= */
@@ -644,8 +792,10 @@ function agentDisplay(conv, message) {
   }
   return { name: "Glow", css: "assistant", meta: message.model ? modelLabel(message.model) : "" };
 }
-function renderMessages() {
+function renderMessages(force = false) {
   const box = $("messages");
+  const keepBottom = force || nearBottom();
+  const previousTop = box.scrollTop;
   box.innerHTML = "";
   if (current.type === "chat" && current.messages.length === 0) {
     const starters = STARTERS.map((s, i) => `<button class="starter" type="button" data-starter="${i}">
@@ -665,17 +815,86 @@ function renderMessages() {
       const who = agentDisplay(current, m);
       const bubble = messageElement(who.name, who.css, who.meta);
       bubble.innerHTML = renderReply(m.content);
+      bindTasks(bubble, m);
+      const header = bubble.parentElement.querySelector(".who");
+      if ("speechSynthesis" in window) {
+        const listen = document.createElement("button");
+        listen.type = "button";
+        listen.className = "msg-copy";
+        listen.title = "Read this reply aloud";
+        listen.textContent = "🔊 Listen";
+        listen.dataset.speakIndex = String(index);
+        header.appendChild(listen);
+      }
       const copy = document.createElement("button");
       copy.type = "button";
       copy.className = "msg-copy";
       copy.title = "Copy this reply";
       copy.textContent = "⧉ Copy";
       copy.dataset.copyIndex = String(index);
-      bubble.parentElement.querySelector(".who").appendChild(copy);
+      header.appendChild(copy);
     }
-    if (current.type === "chat" && index === current.messages.length - 1) addChatActions();
+    if (current.type === "chat" && index === current.messages.length - 1) {
+      addChatActions();
+      if (m.role === "assistant" && (m.followUps || []).length) addFollowUps(m.followUps);
+    }
   });
-  scrollDown();
+  if (keepBottom) scrollDown(true);
+  else box.scrollTop = previousTop;
+  updateJumpButton();
+}
+function addFollowUps(questions) {
+  const row = document.createElement("div");
+  row.className = "followups";
+  for (const question of questions) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "followup";
+    chip.textContent = question;
+    chip.dataset.followup = question;
+    row.appendChild(chip);
+  }
+  $("messages").lastElementChild.appendChild(row);
+}
+function bindTasks(bubble, message) {
+  const boxes = [...bubble.querySelectorAll("input.task-box")];
+  if (!boxes.length) return;
+  message.checks = message.checks || {};
+  const progress = document.createElement("div");
+  progress.className = "task-progress";
+  bubble.prepend(progress);
+  boxes.forEach((box, i) => {
+    box.disabled = false;
+    if (i in message.checks) box.checked = !!message.checks[i];
+    box.dataset.taskIndex = String(i);
+    box.addEventListener("change", () => {
+      message.checks[i] = box.checked;
+      persist(current);
+      updateTaskProgress(bubble, boxes);
+      if (boxes.every((b) => b.checked)) toast("🎉 Plan complete!");
+    });
+  });
+  updateTaskProgress(bubble, boxes);
+}
+function updateTaskProgress(bubble, boxes) {
+  const done = boxes.filter((b) => b.checked).length;
+  boxes.forEach((b) => b.closest("li").classList.toggle("done", b.checked));
+  const percent = Math.round((done / boxes.length) * 100);
+  const progress = bubble.querySelector(".task-progress");
+  progress.classList.toggle("complete", done === boxes.length);
+  progress.innerHTML = `<span>✅ ${done} of ${boxes.length} done</span><span class="track"><span class="fill" style="width:${percent}%"></span></span>`;
+}
+function applyChecks(content, checks) {
+  if (!checks || !Object.keys(checks).length) return content;
+  let counter = 0;
+  return String(content).split(/```/).map((part, index) => {
+    if (index % 2 === 1) return part;
+    return part.replace(/^(\s*(?:[-*+]|\d+[.)])\s+)\[( |x|X)\]/gm, (whole, lead, mark) => {
+      const i = counter++;
+      if (!(i in checks)) return whole;
+      return `${lead}[${checks[i] ? "x" : " "}]`;
+    });
+  }).join("```");
 }
 function addChatActions() {
   const last = current.messages[current.messages.length - 1];
@@ -699,8 +918,18 @@ function showNotice(message) {
   messageElement("Notice", "notice").textContent = message;
   scrollDown();
 }
-function scrollDown() {
-  $("messages").scrollTop = $("messages").scrollHeight;
+function nearBottom() {
+  const box = $("messages");
+  return box.scrollHeight - box.scrollTop - box.clientHeight < 140;
+}
+function scrollDown(force = false) {
+  const box = $("messages");
+  if (force || nearBottom()) box.scrollTop = box.scrollHeight;
+  updateJumpButton();
+}
+function updateJumpButton() {
+  const box = $("messages");
+  $("jump-btn").classList.toggle("hidden", nearBottom() || box.scrollHeight <= box.clientHeight + 10);
 }
 function setBusy(busy) {
   $("send-btn").disabled = busy;
@@ -712,8 +941,8 @@ function errorText(error) {
 }
 
 /* ================= chat ================= */
-function newChat() {
-  current = { id: newId(), type: "chat", title: "New chat", messages: [], model: $("chat-model").value || state.settings.lastModel };
+function newChat(persona = "default") {
+  current = { id: newId(), type: "chat", title: "New chat", messages: [], persona, model: $("chat-model").value || state.settings.lastModel };
   openConversation(current);
 }
 function takeAttachments(text) {
@@ -724,12 +953,12 @@ function takeAttachments(text) {
   renderPendingFiles();
   return { content: text + blocks, display: text, files };
 }
-async function streamAssistant(model, system, history, who, css) {
+async function streamAssistant(model, system, history, who, css, view = (text) => text) {
   const bubble = messageElement(who, css, modelLabel(model));
   bubble.classList.add("cursor");
   try {
     const reply = await streamReply(model, system, history, (full) => {
-      bubble.innerHTML = renderReply(full);
+      bubble.innerHTML = renderReply(view(full));
       scrollDown();
     });
     bubble.classList.remove("cursor");
@@ -748,13 +977,16 @@ async function sendChat(text) {
   const message = { role: "user", ...takeAttachments(text) };
   if (current.messages.length === 0) current.title = text.slice(0, 40) || (message.files[0] || "Chat");
   current.messages.push(message);
-  renderMessages();
+  renderMessages(true);
   return replyToChat();
 }
 async function replyToChat() {
   setBusy(true);
-  const reply = await streamAssistant(current.model, SYSTEM_PROMPT, current.messages, "Glow", "assistant");
-  if (reply) current.messages.push({ role: "assistant", content: reply, model: current.model });
+  const reply = await streamAssistant(current.model, systemPromptFor(current), current.messages, "Glow", "assistant", (text) => splitFollowUps(text).body);
+  if (reply) {
+    const { body, questions } = splitFollowUps(reply);
+    current.messages.push({ role: "assistant", content: body, model: current.model, followUps: questions });
+  }
   persist(current);
   setBusy(false);
   if (reply) renderMessages(); // on failure keep the error notice on screen
@@ -798,13 +1030,14 @@ function toast(message) {
 }
 const STARTERS = [
   { icon: "💡", title: "Brainstorm", prompt: "Give me 10 fresh ideas for a weekend side project I could finish in two days." },
-  { icon: "🗺", title: "Make a plan", prompt: "Turn this goal into a step-by-step plan with milestones: launch a small online shop in 30 days." },
+  { icon: "🗺", title: "Make a plan", prompt: "Turn this goal into a step-by-step plan with milestones: launch a small online shop in 30 days.", persona: "planner" },
   { icon: "🔍", title: "Get a review", prompt: "Act as a tough but fair reviewer. What are the biggest risks in starting a food delivery app in my city?" },
   { icon: "✍", title: "Explain simply", prompt: "Explain how large language models work, like I'm 12, with one everyday example." },
 ];
 function useStarter(index) {
   const starter = STARTERS[index];
   if (!starter || !current || current.type !== "chat") return null;
+  if (starter.persona) setPersona(starter.persona, false);
   $("input").value = starter.prompt;
   autoSize();
   return onSend();
@@ -986,13 +1219,13 @@ function startCouncil(conv) {
 function councilSystemPrompt(conv, index) {
   const self = conv.agents[index];
   const others = conv.agents.filter((_, i) => i !== index).map((a) => `"${a.name}"`).join(" and ");
-  return `${self.persona}
+  return withInstructions(`${self.persona}
 
 You are "${self.name}" in a ${conv.agents.length}-agent council with ${others}. The human set this task:
 """${conv.topic}"""
 Other agents' and the human's messages appear as user messages prefixed with the speaker's name.
 Build on, refine, or challenge the latest points. Be concise and substantive; never repeat what was already said. Do not speak for other agents.
-When the group has reached a correct, complete answer and you agree with it, end your message with: CONSENSUS`;
+When the group has reached a correct, complete answer and you agree with it, end your message with: CONSENSUS`);
 }
 function signalsConsensus(reply) {
   return /\bCONSENSUS[\s.!*_)]*$/.test(stripThinking(reply));
@@ -1159,11 +1392,60 @@ function renderArenaRound(round, roundIndex) {
     tie.addEventListener("click", () => vote(roundIndex, -1));
     votes.appendChild(tie);
   } else {
-    votes.textContent = round.winner === -1 ? "You called it a tie." : `You picked ${"ABC"[round.winner]}.`;
+    const verdict = document.createElement("span");
+    verdict.textContent = round.winner === -1 ? "You called it a tie." : `You picked ${"ABC"[round.winner]}.`;
+    votes.appendChild(verdict);
+  }
+  if (!round.fused) {
+    const fuse = document.createElement("button");
+    fuse.type = "button";
+    fuse.className = "secondary fuse-btn";
+    fuse.textContent = "✨ Fuse into one best answer";
+    fuse.title = "Merge the best parts of every answer into one (like big-AGI's Beam)";
+    fuse.addEventListener("click", () => fuseRound(roundIndex));
+    votes.appendChild(fuse);
   }
   wrap.appendChild(votes);
+  if (round.fused) {
+    const fused = document.createElement("div");
+    fused.className = "fused";
+    fused.innerHTML = `<div class="who">✨ Fused answer <span class="meta">${escapeHtml(modelLabel(round.fused.model))}</span></div>`;
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.id = `fused-${roundIndex}`;
+    bubble.innerHTML = renderReply(round.fused.content || "");
+    fused.appendChild(bubble);
+    wrap.appendChild(fused);
+  }
   $("messages").appendChild(wrap);
   return { bubbles, votes };
+}
+async function fuseRound(roundIndex) {
+  if ($("send-btn").disabled || !current || current.type !== "arena") return null;
+  const round = current.rounds[roundIndex];
+  if (!round || round.fused) return null;
+  const model = round.replies.map((r) => r.model).find((value) => !value.startsWith("demo::")) || round.replies[0].model;
+  const answers = round.replies
+    .map((r, i) => `Answer ${"ABC"[i]} (${modelLabel(r.model)}):\n${stripThinking(r.content)}`)
+    .join("\n\n---\n\n");
+  const history = [{ role: "user", content: `Question:\n${round.prompt}\n\n${answers}` }];
+  round.fused = { model, content: "" };
+  renderArena();
+  const bubble = $(`fused-${roundIndex}`);
+  bubble.classList.add("cursor");
+  bubble.scrollIntoView({ block: "nearest" });
+  setBusy(true);
+  try {
+    round.fused.content = await streamReply(model, withInstructions(FUSE_PROMPT), history, (full) => {
+      bubble.innerHTML = renderReply(full);
+    });
+  } catch (error) {
+    round.fused.content = error.name === "AbortError" ? bubble.textContent : `⚠️ ${errorText(error)}`;
+  }
+  persist(current);
+  setBusy(false);
+  renderArena();
+  return round.fused.content;
 }
 async function sendArena(text) {
   const message = takeAttachments(text);
@@ -1184,7 +1466,7 @@ async function sendArena(text) {
     bubbles[slot].classList.add("cursor");
     try {
       const isDemo = splitModel(reply.model).provider === "demo";
-      const system = isDemo ? `${SYSTEM_PROMPT} [arena:${slot}]` : SYSTEM_PROMPT;
+      const system = isDemo ? `${SYSTEM_PROMPT} [arena:${slot}]` : withInstructions(SYSTEM_PROMPT);
       reply.content = await streamReply(reply.model, system, history(slot), (full) => {
         bubbles[slot].innerHTML = renderReply(full);
       });
@@ -1222,11 +1504,12 @@ function conversationMarkdown(conv) {
       round.replies.forEach((reply, i) => {
         lines.push(`### ${"ABC"[i]} · ${modelLabel(reply.model)}${round.winner === i ? " 🏆" : ""}`, "", stripThinking(reply.content), "");
       });
+      if (round.fused && round.fused.content) lines.push(`### ✨ Fused answer (${modelLabel(round.fused.model)})`, "", stripThinking(round.fused.content), "");
     });
   } else {
     for (const m of conv.messages) {
       const who = m.role === "user" ? { name: "You" } : agentDisplay(conv, m);
-      lines.push(`## ${who.name}${who.meta ? ` (${who.meta})` : ""}`, "", stripThinking(m.display || m.content), "");
+      lines.push(`## ${who.name}${who.meta ? ` (${who.meta})` : ""}`, "", applyChecks(stripThinking(m.display || m.content), m.checks), "");
     }
   }
   return lines.join("\n");
@@ -1294,6 +1577,8 @@ function openSettings() {
   $("set-custom-key").value = s.customKey;
   $("set-theme").value = s.theme;
   $("set-sync").checked = s.cloudSync;
+  $("set-instructions").value = s.customInstructions || "";
+  $("set-followups").checked = s.followUps !== false;
   renderAccount();
   $("settings-modal").classList.add("open");
 }
@@ -1305,6 +1590,8 @@ async function saveSettings() {
     customUrl: $("set-custom-url").value.trim(),
     customKey: $("set-custom-key").value.trim(),
     cloudSync: $("set-sync").checked,
+    customInstructions: $("set-instructions").value.trim().slice(0, 1500),
+    followUps: $("set-followups").checked,
   });
   saveState();
   $("settings-modal").classList.remove("open");
@@ -1416,6 +1703,9 @@ async function puterModelOptions() {
   if (!puterCatalogue && sdk && sdk.ai && typeof sdk.ai.listModels === "function") {
     try {
       const list = await withTimeout(sdk.ai.listModels(), 5000, "catalogue timeout");
+      puterCatalogueList = (Array.isArray(list) ? list : []).filter((m) => m && m.id
+        && (!m.modalities || !m.modalities.output || m.modalities.output.includes("text"))
+        && !/embed|tts|whisper|transcri|image|video|moderation|rerank|ocr|speech|audio/i.test(m.id));
       const ids = new Set();
       for (const m of Array.isArray(list) ? list : []) {
         if (m && m.id) ids.add(m.id);
@@ -1427,12 +1717,24 @@ async function puterModelOptions() {
     }
   }
   const available = PUTER_MODELS.filter(([id]) => !puterCatalogue || puterCatalogue.has(id));
-  return (available.length ? available : PUTER_MODELS).map(([id, name]) => ({
+  const curated = (available.length ? available : PUTER_MODELS).map(([id, name]) => ({
     value: `puter::${id}`,
     label: name,
     short: name.replace(/\s*\(.*\)$/, ""),
     group: "Glow AI: free with your account",
   }));
+  if (!state.settings.allPuterModels || !puterCatalogueList) return curated;
+  const seen = new Set(curated.map((m) => m.value));
+  const everything = puterCatalogueList
+    .filter((m) => !seen.has(`puter::${m.id}`))
+    .map((m) => ({
+      value: `puter::${m.id}`,
+      label: m.name || m.id,
+      short: (m.name || m.id).replace(/\s*\(.*\)$/, ""),
+      group: `Glow AI: all models${m.provider ? ` · ${m.provider}` : ""}`,
+    }))
+    .sort((a, b) => a.group.localeCompare(b.group) || a.label.localeCompare(b.label));
+  return [...curated, ...everything];
 }
 async function streamPuter(model, system, messages, onText, signal) {
   let sdk;
@@ -1571,6 +1873,8 @@ async function signIn() {
   toast(`Signed in as ${state.settings.accountName}`);
   await loadModels();
   if (current && current.type === "chat") fillSelect($("chat-model"), current.model);
+  if (pendingModel && current && current.type === "chat") selectChatModel(pendingModel);
+  pendingModel = null;
   await pullCloud();
   maybeStartTour();
   return true;
@@ -1717,11 +2021,13 @@ function hideWelcome() {
 /* ================= guided tour ================= */
 const TOUR_STEPS = [
   { title: "Welcome to Glow ✨", text: "A quick tour of the main controls. Use Next or the → key, Back or ←, and Esc to skip." },
-  { target: "#chat-model", title: "Pick a model", text: "Choose which AI answers. Glow Free works right away with no sign-in. Sign in for more Glow AI models such as GPT, Claude, Gemini and DeepSeek." },
-  { target: "#composer", title: "Ask anything", text: "Type here and press Enter to send. Shift+Enter adds a new line; 📎 or paste attaches text and code files." },
+  { target: "#model-picker-btn", title: "Pick a model", text: "Open this menu to search models, star your favorites and see what each is good at. Glow Free works right away; 🔒 models unlock with a free sign-in." },
+  { target: "#composer", title: "Ask anything", text: "Type here and press Enter to send. Shift+Enter adds a new line; 📎 or paste attaches files, ✨ improves your prompt and 🎤 lets you speak." },
+  { target: "#composer-tools", title: "Personas", text: "Switch how Glow answers: 🗺 Planner gives you a checklist you can tick off, plus 🎓 Tutor, 💻 Coder, ✍ Writer, 🔍 Critic and 🌐 Translator." },
   { target: "#new-council-btn", sidebar: true, title: "Council ⚖", text: "2–3 agents with different roles debate until they agree, then a Judge writes the final answer." },
   { target: "#new-arena-btn", sidebar: true, title: "Arena ⚔", text: "Ask several models the same question side by side, vote for the best and build your own leaderboard." },
   { target: "#search", sidebar: true, title: "Your chats", text: "Every chat is saved and searchable here. When you're signed in they sync to your account too." },
+  { target: "#share-btn", title: "Share", text: "Copy a link that opens a copy of this chat for anyone, with no account and no server in between." },
   { target: "#export-btn", title: "Export", text: "Download the current conversation as a Markdown file." },
   { target: "#theme-toggle", title: "Light or dark", text: "Switch the theme any time. Glow follows your device until you pick one." },
   { target: "#account-box", sidebar: true, title: "Your account", text: "See who's signed in, sign in to get free Glow AI, or sign out." },
@@ -1832,6 +2138,467 @@ function positionTour() {
   card.style.top = `${Math.min(viewH - cardH - 12, Math.max(12, top))}px`;
 }
 
+
+/* ================= model picker (searchable, favorites, badges, locked upgrades) ================= */
+let pendingModel = null;
+let pickerActive = -1;
+function modelBadges(option) {
+  const value = option.value.toLowerCase();
+  const badges = [];
+  if (value.startsWith("demo::")) badges.push("Offline");
+  if (value.startsWith("free::") || /:free$/.test(value)) badges.push("Free");
+  if (value.startsWith("ollama::")) badges.push("Local");
+  if (value.startsWith("puter::")) badges.push("Glow AI");
+  if (/nano|mini|flash|lite|fast|haiku|\b[1-9]b\b/.test(value)) badges.push("Fast");
+  if (/gpt-oss|deepseek-r1|reason|think|qwq|\bo[34]\b/.test(value)) badges.push("Reasoning");
+  if (/sonnet|opus|-pro\b|large|70b|405b|gpt-4o$|gpt-5(\.\d)?$/.test(value)) badges.push("Smart");
+  return badges.slice(0, 3);
+}
+function pickerEntries() {
+  const entries = models.map((m) => ({ ...m, locked: false }));
+  if (!puterSignedIn && !entries.some((e) => e.value.startsWith("puter::"))) {
+    for (const [id, name] of PUTER_MODELS) {
+      entries.push({ value: `puter::${id}`, label: name, short: name.replace(/\s*\(.*\)$/, ""), group: "🔒 Free with sign-in", locked: true });
+    }
+  }
+  return entries;
+}
+function updatePickerLabel() {
+  const value = $("chat-model").value;
+  $("model-picker-label").textContent = value ? modelLabel(value) : "Choose a model";
+}
+function openModelMenu() {
+  $("model-menu").classList.remove("hidden");
+  $("model-picker-btn").setAttribute("aria-expanded", "true");
+  $("model-search").value = "";
+  renderModelMenu();
+  $("model-search").focus();
+}
+function closeModelMenu() {
+  $("model-menu").classList.add("hidden");
+  $("model-picker-btn").setAttribute("aria-expanded", "false");
+}
+function modelMenuOpen() {
+  return !$("model-menu").classList.contains("hidden");
+}
+function renderModelMenu() {
+  const query = $("model-search").value.trim().toLowerCase();
+  const selected = $("chat-model").value;
+  const favorites = new Set(state.settings.favoriteModels || []);
+  const list = $("model-list");
+  list.innerHTML = "";
+  const entries = pickerEntries().filter((e) => !query || `${e.label} ${e.value} ${e.group}`.toLowerCase().includes(query));
+  const groups = new Map();
+  const favoriteEntries = entries.filter((e) => favorites.has(e.value) && !e.locked);
+  if (favoriteEntries.length) groups.set("★ Favorites", favoriteEntries);
+  for (const entry of entries) {
+    if (!groups.has(entry.group)) groups.set(entry.group, []);
+    groups.get(entry.group).push(entry);
+  }
+  let shown = 0;
+  for (const [group, items] of groups) {
+    if (shown >= 300) break;
+    const head = document.createElement("div");
+    head.className = "model-group";
+    head.textContent = group;
+    list.appendChild(head);
+    for (const entry of items) {
+      if (shown >= 300) break;
+      shown += 1;
+      const row = document.createElement("div");
+      row.className = "model-row" + (entry.value === selected && !entry.locked ? " selected" : "") + (entry.locked ? " locked" : "");
+      row.setAttribute("role", "option");
+      row.setAttribute("aria-selected", String(entry.value === selected && !entry.locked));
+      row.dataset.value = entry.value;
+      row.dataset.locked = entry.locked ? "1" : "";
+      const name = document.createElement("span");
+      name.className = "model-name";
+      name.textContent = entry.label;
+      const badges = document.createElement("span");
+      badges.className = "model-badges";
+      for (const badge of modelBadges(entry)) {
+        const tag = document.createElement("span");
+        tag.className = `badge badge-${badge.toLowerCase().replace(/\s+/g, "-")}`;
+        tag.textContent = badge;
+        badges.appendChild(tag);
+      }
+      row.append(name, badges);
+      if (!entry.locked) {
+        const star = document.createElement("button");
+        star.type = "button";
+        star.className = "model-star" + (favorites.has(entry.value) ? " on" : "");
+        star.textContent = favorites.has(entry.value) ? "★" : "☆";
+        star.title = favorites.has(entry.value) ? "Remove from favorites" : "Add to favorites";
+        star.dataset.star = entry.value;
+        row.appendChild(star);
+      }
+      list.appendChild(row);
+    }
+  }
+  if (!entries.length) {
+    const empty = document.createElement("div");
+    empty.className = "model-empty";
+    empty.textContent = `No models match “${query}”.`;
+    list.appendChild(empty);
+  } else if (shown >= 300) {
+    const more = document.createElement("div");
+    more.className = "model-empty";
+    more.textContent = "Showing the first 300. Type to search the rest.";
+    list.appendChild(more);
+  }
+  pickerActive = -1;
+  const foot = $("model-menu-foot");
+  foot.innerHTML = "";
+  if (!puterSignedIn && !TEST_MODE) {
+    const unlock = document.createElement("button");
+    unlock.type = "button";
+    unlock.className = "link-btn unlock";
+    unlock.dataset.menuAction = "signin";
+    unlock.textContent = "🔓 Sign in free to unlock GPT, Claude, Gemini, DeepSeek…";
+    foot.appendChild(unlock);
+  } else if (puterSignedIn) {
+    const label = document.createElement("label");
+    label.className = "note";
+    label.innerHTML = `<input type="checkbox" data-menu-action="all-models"${state.settings.allPuterModels ? " checked" : ""}> Show every Glow AI model${puterCatalogueList ? ` (${puterCatalogueList.length})` : ""}`;
+    foot.appendChild(label);
+  }
+  const keys = document.createElement("button");
+  keys.type = "button";
+  keys.className = "link-btn";
+  keys.dataset.menuAction = "keys";
+  keys.textContent = "🔑 Use my own keys";
+  foot.appendChild(keys);
+}
+function selectChatModel(value, announce = true) {
+  if (!models.some((m) => m.value === value)) return false;
+  $("chat-model").value = value;
+  $("chat-model").dispatchEvent(new Event("change"));
+  updatePickerLabel();
+  closeModelMenu();
+  if (announce) toast(`Model: ${modelLabel(value)}`);
+  return true;
+}
+function toggleFavorite(value) {
+  const favorites = new Set(state.settings.favoriteModels || []);
+  if (favorites.has(value)) favorites.delete(value);
+  else favorites.add(value);
+  state.settings.favoriteModels = [...favorites];
+  saveState();
+  renderModelMenu();
+}
+function onModelListClick(event) {
+  const star = event.target.closest("[data-star]");
+  if (star) {
+    event.stopPropagation();
+    toggleFavorite(star.dataset.star);
+    return;
+  }
+  const row = event.target.closest(".model-row");
+  if (!row) return;
+  if (row.dataset.locked) {
+    pendingModel = row.dataset.value;
+    closeModelMenu();
+    toast(`Sign in (free) to use ${row.querySelector(".model-name").textContent}`);
+    showWelcome();
+    return;
+  }
+  selectChatModel(row.dataset.value);
+}
+async function onModelFootClick(event) {
+  const action = event.target.dataset.menuAction;
+  if (action === "all-models" && event.type !== "change") return;
+  if (action === "signin") {
+    closeModelMenu();
+    showWelcome();
+  } else if (action === "keys") {
+    closeModelMenu();
+    openSettings();
+  } else if (action === "all-models") {
+    state.settings.allPuterModels = event.target.checked;
+    saveState();
+    await loadModels();
+    renderModelMenu();
+  }
+}
+function onModelSearchKey(event) {
+  const rows = [...$("model-list").querySelectorAll(".model-row")];
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    if (!rows.length) return;
+    pickerActive = (pickerActive + (event.key === "ArrowDown" ? 1 : -1) + rows.length) % rows.length;
+    rows.forEach((row, i) => row.classList.toggle("active", i === pickerActive));
+    rows[pickerActive].scrollIntoView({ block: "nearest" });
+  } else if (event.key === "Enter") {
+    event.preventDefault();
+    const row = rows[pickerActive >= 0 ? pickerActive : 0];
+    if (row) row.click();
+  }
+}
+
+/* ================= personas, character count ================= */
+function fillPersonaSelect() {
+  const select = $("persona-select");
+  select.innerHTML = "";
+  for (const [key, persona] of Object.entries(PERSONAS)) {
+    const option = document.createElement("option");
+    option.value = key;
+    option.textContent = `${persona.icon} ${persona.name}`;
+    select.appendChild(option);
+  }
+}
+function setPersona(key, announce = true) {
+  if (!current || current.type !== "chat" || !PERSONAS[key]) return;
+  current.persona = key;
+  $("persona-select").value = key;
+  if (current.messages.length) persist(current);
+  if (announce) toast(`Persona: ${PERSONAS[key].icon} ${PERSONAS[key].name}`);
+}
+function syncComposerTools() {
+  const isChat = current && current.type === "chat";
+  $("persona-select").classList.toggle("hidden", !isChat);
+  document.querySelector(".persona-label").classList.toggle("hidden", !isChat);
+  if (isChat) $("persona-select").value = PERSONAS[current.persona] ? current.persona : "default";
+  updateCharCount();
+}
+function updateCharCount() {
+  const length = $("input").value.length;
+  const counter = $("char-count");
+  counter.textContent = length > 200 ? `${length.toLocaleString()} chars ≈ ${Math.ceil(length / 4).toLocaleString()} tokens` : "";
+  counter.classList.toggle("warn", length > MAX_CONTEXT_CHARS / 2);
+}
+
+/* ================= ✨ improve my prompt ================= */
+let improveUndo = null;
+async function improvePrompt() {
+  const text = $("input").value.trim();
+  if (!text) {
+    toast("Type a prompt first, then press ✨");
+    $("input").focus();
+    return null;
+  }
+  if ($("send-btn").disabled || $("improve-btn").disabled) return null;
+  const model = current && current.type === "chat" ? $("chat-model").value : defaultModel();
+  $("improve-btn").disabled = true;
+  $("improve-btn").classList.add("working");
+  try {
+    const raw = await streamReply(model, IMPROVE_PROMPT, [{ role: "user", content: text }], () => {});
+    const improved = stripThinking(raw).replace(/^["“'`]+|["”'`]+$/g, "").trim();
+    if (!improved) throw new Error("No suggestion came back. Try again.");
+    improveUndo = text;
+    $("input").value = improved;
+    autoSize();
+    updateCharCount();
+    $("improve-bar").classList.remove("hidden");
+    $("input").focus();
+    return improved;
+  } catch (error) {
+    if (error.name !== "AbortError") toast(errorText(error));
+    return null;
+  } finally {
+    $("improve-btn").disabled = false;
+    $("improve-btn").classList.remove("working");
+  }
+}
+function undoImprove() {
+  if (improveUndo !== null) $("input").value = improveUndo;
+  improveUndo = null;
+  $("improve-bar").classList.add("hidden");
+  autoSize();
+  updateCharCount();
+  $("input").focus();
+}
+
+/* ================= 🎤 voice input and 🔊 read aloud ================= */
+const SpeechRecognitionApi = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null;
+function toggleDictation() {
+  if (!SpeechRecognitionApi) return;
+  if (recognition) {
+    recognition.stop();
+    return;
+  }
+  recognition = new SpeechRecognitionApi();
+  recognition.lang = navigator.language || "en-US";
+  recognition.interimResults = true;
+  const base = $("input").value ? $("input").value.replace(/\s*$/, " ") : "";
+  recognition.onresult = (event) => {
+    let heard = "";
+    for (const result of event.results) heard += result[0].transcript;
+    $("input").value = base + heard;
+    autoSize();
+    updateCharCount();
+  };
+  recognition.onerror = (event) => {
+    toast(event.error === "not-allowed" ? "Microphone access was blocked. Allow it in the browser to use voice input." : `Voice input stopped (${event.error}).`);
+  };
+  recognition.onend = () => {
+    recognition = null;
+    $("mic-btn").classList.remove("listening");
+  };
+  $("mic-btn").classList.add("listening");
+  recognition.start();
+  toast("Listening… speak now");
+}
+function plainSpeech(text) {
+  return stripThinking(text)
+    .replace(/```[\s\S]*?```/g, " (code block) ")
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[#*_>`|~]+/g, " ")
+    .replace(/^\s*[-+]\s+/gm, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+function speechLanguage(text) {
+  const indonesianWords = (text.match(/\b(yang|dan|tidak|ini|itu|dengan|untuk|adalah|kamu|saya|bisa)\b/gi) || []).length;
+  return indonesianWords >= 3 ? "id-ID" : (navigator.language || "en-US");
+}
+function speakMessage(index) {
+  if (!("speechSynthesis" in window) || !current) return false;
+  if (speechSynthesis.speaking) {
+    speechSynthesis.cancel();
+    return false;
+  }
+  const message = current.messages[index];
+  if (!message) return false;
+  const text = plainSpeech(message.content);
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = speechLanguage(text);
+  speechSynthesis.speak(utterance);
+  toast("🔊 Reading aloud. Press 🔊 again to stop.");
+  return true;
+}
+
+/* ================= 🔗 share a chat by link (no server, no account) ================= */
+function toBase64Url(bytes) {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function fromBase64Url(text) {
+  const binary = atob(text.replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(binary, (c) => c.charCodeAt(0));
+}
+function sharePayload(conv) {
+  const clean = (text) => stripThinking(String(text || "")).slice(0, 100000);
+  const payload = { v: 1, type: conv.type, title: String(conv.title || "Shared chat").slice(0, 80) };
+  if (conv.type === "arena") {
+    payload.models = conv.models;
+    payload.rounds = (conv.rounds || []).map((r) => ({
+      prompt: clean(r.prompt),
+      replies: r.replies.map((reply) => ({ model: reply.model, content: clean(reply.content) })),
+      winner: r.winner,
+      fused: r.fused ? { model: r.fused.model, content: clean(r.fused.content) } : undefined,
+    }));
+  } else {
+    payload.persona = conv.persona;
+    payload.messages = conv.messages.map((m) => ({
+      role: m.role,
+      content: m.role === "user" ? clean(m.display || m.content) : clean(m.content),
+      agent: m.agent,
+      model: m.model,
+      checks: m.checks,
+    }));
+    if (conv.type === "council") {
+      payload.topic = clean(conv.topic);
+      payload.agents = conv.agents.map((a) => ({ name: a.name, model: a.model, persona: String(a.persona || "").slice(0, 2000) }));
+      payload.judge = conv.judge;
+    }
+  }
+  return payload;
+}
+async function encodeShare(conv) {
+  const json = JSON.stringify(sharePayload(conv));
+  if (window.CompressionStream) {
+    const stream = new Blob([json]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+    return "z." + toBase64Url(new Uint8Array(await new Response(stream).arrayBuffer()));
+  }
+  return "j." + toBase64Url(new TextEncoder().encode(json));
+}
+async function decodeShare(token) {
+  const [kind, data] = [token.slice(0, 2), token.slice(2)];
+  const bytes = fromBase64Url(data);
+  let json;
+  if (kind === "z.") {
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    json = await new Response(stream).text();
+  } else if (kind === "j.") {
+    json = new TextDecoder().decode(bytes);
+  } else {
+    throw new Error("Unknown share format");
+  }
+  return JSON.parse(json);
+}
+function sanitizeShared(data) {
+  const text = (value) => String(value == null ? "" : value).slice(0, 100000);
+  const model = (value) => (typeof value === "string" && value.includes("::") ? value.slice(0, 200) : FREE_MODEL.value);
+  if (!data || data.v !== 1 || !["chat", "council", "arena"].includes(data.type)) throw new Error("Not a Glow share link");
+  const conv = { id: newId(), type: data.type, title: `🔗 ${text(data.title).slice(0, 60)}`, shared: true, started: true, updated: Date.now() };
+  if (data.type === "arena") {
+    conv.models = (Array.isArray(data.models) ? data.models : []).slice(0, 3).map(model);
+    conv.rounds = (Array.isArray(data.rounds) ? data.rounds : []).slice(0, 50).map((r) => ({
+      prompt: text(r.prompt),
+      files: [],
+      replies: (Array.isArray(r.replies) ? r.replies : []).slice(0, 3).map((reply) => ({ model: model(reply.model), content: text(reply.content) })),
+      winner: Number.isInteger(r.winner) ? r.winner : null,
+      fused: r.fused ? { model: model(r.fused.model), content: text(r.fused.content) } : undefined,
+    }));
+    if (conv.models.length < 2) throw new Error("Incomplete arena");
+    return conv;
+  }
+  conv.persona = PERSONAS[data.persona] ? data.persona : "default";
+  conv.model = state.settings.lastModel;
+  conv.messages = (Array.isArray(data.messages) ? data.messages : []).slice(0, 400).map((m) => {
+    const message = { role: m.role === "user" ? "user" : "assistant", content: text(m.content) };
+    if (Number.isInteger(m.agent) || m.agent === "judge" || m.agent === "critic") message.agent = m.agent;
+    if (m.model) message.model = model(m.model);
+    if (m.checks && typeof m.checks === "object") message.checks = Object.fromEntries(Object.entries(m.checks).slice(0, 200).map(([k, v]) => [String(parseInt(k, 10)), !!v]));
+    return message;
+  });
+  if (data.type === "council") {
+    conv.topic = text(data.topic);
+    conv.agents = (Array.isArray(data.agents) ? data.agents : []).slice(0, 3).map((a, i) => ({ name: text(a.name).slice(0, 40) || `Agent ${i + 1}`, model: model(a.model), persona: text(a.persona).slice(0, 2000) }));
+    conv.judge = { enabled: !!(data.judge && data.judge.enabled), model: model(data.judge && data.judge.model) };
+    conv.roundCount = 2;
+    conv.stopOnConsensus = true;
+    if (conv.agents.length < 2) throw new Error("Incomplete council");
+  }
+  return conv;
+}
+function hasShareableContent(conv) {
+  return conv && ((conv.messages && conv.messages.length) || (conv.rounds && conv.rounds.length));
+}
+async function shareCurrent() {
+  if (!hasShareableContent(current)) {
+    toast("Nothing to share yet. Send a message first.");
+    return null;
+  }
+  const token = await encodeShare(current);
+  if (token.length > MAX_SHARE_CHARS) {
+    toast("This chat is too long for a link. Use ⤓ Export instead.");
+    return null;
+  }
+  const url = `${location.origin}${location.pathname}#share=${token}`;
+  copyText(url, "🔗 Link copied. Anyone who opens it gets their own copy of this chat.");
+  return url;
+}
+async function importSharedFromHash() {
+  const match = location.hash.match(/^#share=([A-Za-z0-9_.-]+)$/);
+  if (!match) return false;
+  history.replaceState(null, "", location.pathname + location.search);
+  try {
+    const conv = sanitizeShared(await decodeShare(match[1]));
+    state.conversations.unshift(conv);
+    saveState();
+    openConversation(conv);
+    toast("Shared chat opened. It's saved in your chats.");
+    return true;
+  } catch (error) {
+    console.warn(error);
+    toast("That share link is broken or incomplete.");
+    return false;
+  }
+}
+
 /* ================= wiring ================= */
 function stopAll() {
   councilRunning = false;
@@ -1845,6 +2612,9 @@ function autoSize() {
 function onSend() {
   if ($("send-btn").disabled) return null;
   if (rateNotice.failed) closeRateNotice();
+  $("improve-bar").classList.add("hidden");
+  improveUndo = null;
+  setTimeout(updateCharCount, 0);
   const text = $("input").value.trim();
   if (!text && !pendingFiles.length) {
     if (current.type === "council" && current.started) return runCouncil(current, 1);
@@ -1882,6 +2652,12 @@ function wire() {
     }
     const starter = target.closest && target.closest("[data-starter]");
     if (starter) useStarter(Number(starter.dataset.starter));
+    if (target.dataset.speakIndex && current) speakMessage(Number(target.dataset.speakIndex));
+    if (target.dataset.followup && !$("send-btn").disabled) {
+      $("input").value = target.dataset.followup;
+      onSend();
+    }
+    if (modelMenuOpen() && !(target.closest && target.closest("#model-picker"))) closeModelMenu();
     if (target.dataset.start === "council") newCouncil();
     if (target.dataset.start === "arena") newArena();
   });
@@ -1892,6 +2668,12 @@ function wire() {
       else if (e.key === "ArrowLeft") moveTour(-1);
       else return;
       e.preventDefault();
+      return;
+    }
+    if (e.key === "Escape" && modelMenuOpen()) {
+      e.preventDefault();
+      closeModelMenu();
+      $("model-picker-btn").focus();
       return;
     }
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || "");
@@ -2001,6 +2783,21 @@ function wire() {
   $("set-account-btn").addEventListener("click", onAccountButton);
   $("banner-signin").addEventListener("click", showWelcome);
   $("rate-close").addEventListener("click", closeRateNotice);
+  $("model-picker-btn").addEventListener("click", () => (modelMenuOpen() ? closeModelMenu() : openModelMenu()));
+  $("model-search").addEventListener("input", renderModelMenu);
+  $("model-search").addEventListener("keydown", onModelSearchKey);
+  $("model-list").addEventListener("click", onModelListClick);
+  $("model-menu-foot").addEventListener("click", onModelFootClick);
+  $("model-menu-foot").addEventListener("change", onModelFootClick);
+  $("persona-select").addEventListener("change", () => setPersona($("persona-select").value));
+  $("improve-btn").addEventListener("click", improvePrompt);
+  $("improve-undo").addEventListener("click", undoImprove);
+  $("mic-btn").classList.toggle("hidden", !SpeechRecognitionApi);
+  $("mic-btn").addEventListener("click", toggleDictation);
+  $("share-btn").addEventListener("click", shareCurrent);
+  $("jump-btn").addEventListener("click", () => scrollDown(true));
+  $("messages").addEventListener("scroll", updateJumpButton, { passive: true });
+  $("input").addEventListener("input", updateCharCount);
   $("rate-signin").addEventListener("click", () => {
     closeRateNotice();
     showWelcome();
@@ -2053,6 +2850,9 @@ async function selfTest() {
   expect("arena: both models answered in parallel", round.replies.length === 2 && round.replies.every((r) => r.content.length > 10) && round.replies[0].content !== round.replies[1].content);
   vote(0, 1);
   expect("arena: vote recorded on leaderboard", state.arenaStats["demo::demo"] && state.arenaStats["demo::demo"].games === 2 && state.arenaStats["demo::demo"].wins === 1);
+  const fusedText = await fuseRound(current.rounds.length - 1);
+  expect("arena: ✨ fuse merges the answers into one", (fusedText || "").includes("Fused answer") && document.querySelector(".fused .bubble").textContent.includes("strongest points"));
+  expect("persona: selector hidden outside chat", $("persona-select").classList.contains("hidden"));
 
   expect("fix: self-test uses a sandbox, never the visitor's data", STORE_KEY === "glow.sandbox");
   expect("fix: consensus only counts as a sign-off", signalsConsensus("Looks right. CONSENSUS") && signalsConsensus("Agreed.\n\n**CONSENSUS**") && !signalsConsensus("We have no CONSENSUS yet, keep going.") && !signalsConsensus("no consensus"));
@@ -2153,10 +2953,151 @@ async function selfTest() {
   expect("ui: starter prompts on the empty chat", document.querySelectorAll(".starter").length === STARTERS.length);
   await useStarter(0);
   expect("ui: starter prompt sends a real chat", current.messages.length === 2 && current.messages[0].content === STARTERS[0].prompt);
-  expect("ui: every reply has its own Copy button", document.querySelectorAll(".msg-copy").length === current.messages.filter((m) => m.role === "assistant").length);
+  expect("ui: every reply has its own Copy button", document.querySelectorAll("[data-copy-index]").length === current.messages.filter((m) => m.role === "assistant").length);
   expect("ui: rename a chat", renameConversation(current, "  My renamed chat  ") && current.title === "My renamed chat" && !renameConversation(current, "   "));
   toast("Hello");
   expect("ui: toast feedback appears", $("toast").classList.contains("show") && $("toast").textContent === "Hello");
+
+  // ---- v0.5: model picker, personas, checklists, follow-ups, improve, share, scroll, pin, voice, markdown ----
+  const waitUntil = async (check, ms = 5000) => {
+    const end = Date.now() + ms;
+    while (Date.now() < end) {
+      if (check()) return true;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    return false;
+  };
+  const mdRender = renderMarkdown;
+  expect("markdown: tables render as real tables", /<table>.*<th>Plan<\/th>.*<td>Free<\/td>/s.test(mdRender("| Plan | Price |\n|---|---|\n| Free | $0 |")));
+  expect("markdown: links are clickable and open in a new tab", mdRender("See [docs](https://example.com/a?b=1&c=2).").includes('<a href="https://example.com/a?b=1&amp;c=2" target="_blank" rel="noopener noreferrer">docs</a>')
+    && mdRender("Visit https://glow.app/x.").includes('href="https://glow.app/x"'));
+  expect("markdown: unsafe links are never linked", !mdRender("[x](javascript:alert(1))").includes("<a ") && !mdRender('[x](https://a.com/" onmouseover="alert(1))').includes('" onmouseover'));
+  expect("markdown: numbered lists keep counting across gaps", mdRender("1. one\n\n2. two").includes('<ol start="2">'));
+  expect("markdown: nested lists", mdRender("- a\n  - b").includes("<ul><li>a<ul><li>b</li></ul></li></ul>"));
+  expect("markdown: quotes, rules and code language labels", mdRender("> note\n\n---").includes("<blockquote><p>note</p></blockquote><hr>") && mdRender("```python\nprint(1)\n```").includes('data-lang="python"'));
+  expect("markdown: a list right after a sentence", mdRender("Tips:\n- a\n- b") === "<p>Tips:</p><ul><li>a</li><li>b</li></ul>");
+
+  newChat();
+  current.messages = [{ role: "user", content: "plan" }, { role: "assistant", content: "Plan:\n- [ ] one\n- [x] two\n- [ ] three", model: "demo::demo" }];
+  persist(current);
+  renderMessages(true);
+  const taskBoxes = [...document.querySelectorAll(".msg.assistant input.task-box")];
+  expect("checklist: tasks become checkboxes with a progress bar", taskBoxes.length === 3 && !taskBoxes[0].disabled && taskBoxes[1].checked
+    && /1 of 3 done/.test(document.querySelector(".task-progress").textContent));
+  taskBoxes[0].click();
+  expect("checklist: ticking a task is saved", current.messages[1].checks[0] === true && /2 of 3 done/.test(document.querySelector(".task-progress").textContent));
+  renderMessages(true);
+  expect("checklist: ticks survive reloads and appear in exports", document.querySelectorAll(".msg.assistant input.task-box:checked").length === 2 && conversationMarkdown(current).includes("- [x] one"));
+
+  newChat();
+  state.settings.customInstructions = "Answer like a pirate.";
+  setPersona("planner", false);
+  let capturedSystem = "";
+  window.fetch = async (url, options) => {
+    capturedSystem = JSON.parse(options.body).messages[0].content;
+    const sse = 'data: {"choices":[{"delta":{"content":"Plan ready\\n\\nFollow-ups:\\n- What is step one?\\n- How long will it take?"}}]}\n\ndata: [DONE]\n\n';
+    return new Response(new Blob([sse]).stream(), { status: 200 });
+  };
+  const modelsBeforePersona = models;
+  models = [modelsBeforePersona[0], FREE_MODEL];
+  fillSelect($("chat-model"), FREE_MODEL.value);
+  try {
+    await sendChat("Open a cafe");
+  } finally {
+    window.fetch = realFetch;
+    models = modelsBeforePersona;
+  }
+  state.settings.customInstructions = "";
+  expect("persona: planner prompt and custom instructions are sent", capturedSystem.includes("practical planner") && capturedSystem.includes("Answer like a pirate.") && capturedSystem.includes("Follow-ups:"));
+  const plannedReply = current.messages[current.messages.length - 1];
+  expect("follow-ups: suggestions are split off and shown as chips", plannedReply.content === "Plan ready" && plannedReply.followUps.length === 2 && document.querySelectorAll(".followup").length === 2);
+  fillSelect($("chat-model"), "demo::demo");
+  document.querySelector(".followup").click();
+  const followSent = await waitUntil(() => current.messages.some((m) => m.role === "user" && m.content === "What is step one?") && !$("send-btn").disabled);
+  expect("follow-ups: tapping a chip asks it", followSent && current.messages[current.messages.length - 1].content.includes("- [ ]"));
+
+  newChat();
+  $("model-picker-btn").click();
+  const pickerRows = [...document.querySelectorAll("#model-list .model-row")];
+  expect("picker: menu lists models, badges and locked upgrades", !$("model-menu").classList.contains("hidden") && pickerRows.some((r) => r.dataset.value === "demo::demo")
+    && pickerRows.some((r) => r.dataset.locked && r.dataset.value === "puter::gpt-5-mini") && !!document.querySelector("#model-list .badge"));
+  $("model-search").value = "claude";
+  $("model-search").dispatchEvent(new Event("input"));
+  const filteredRows = [...document.querySelectorAll("#model-list .model-row")];
+  expect("picker: search filters the list", filteredRows.length >= 1 && filteredRows.every((r) => /claude/i.test(r.textContent + r.dataset.value)));
+  $("model-search").value = "";
+  $("model-search").dispatchEvent(new Event("input"));
+  document.querySelector('#model-list [data-star="demo::demo"]').click();
+  expect("picker: starred models pin to the top", state.settings.favoriteModels.includes("demo::demo") && document.querySelector("#model-list .model-group").textContent.includes("Favorites")
+    && !$("model-menu").classList.contains("hidden"));
+  document.querySelector('#model-list .model-row[data-value="demo::demo"]').click();
+  expect("picker: choosing updates the chat and closes the menu", $("chat-model").value === "demo::demo" && current.model === "demo::demo"
+    && $("model-menu").classList.contains("hidden") && $("model-picker-label").textContent === "Demo");
+  $("model-picker-btn").click();
+  document.querySelector('#model-list .model-row[data-locked="1"]').click();
+  expect("picker: locked models lead to the free sign-in", !$("welcome-screen").classList.contains("hidden") && !!pendingModel && pendingModel.startsWith("puter::"));
+  hideWelcome();
+  pendingModel = null;
+  $("model-picker-btn").click();
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+  expect("picker: Esc closes the menu without stopping replies", $("model-menu").classList.contains("hidden"));
+  state.settings.favoriteModels = [];
+  expect("persona: selector shown in chat", !$("persona-select").classList.contains("hidden"));
+
+  $("input").value = "plan a trip to Bali";
+  const improvedPrompt = await improvePrompt();
+  expect("improve: ✨ rewrites the prompt in place", !!improvedPrompt && improvedPrompt.startsWith("Goal: plan a trip to Bali") && $("input").value === improvedPrompt && !$("improve-bar").classList.contains("hidden"));
+  $("improve-undo").click();
+  expect("improve: Undo restores the original", $("input").value === "plan a trip to Bali" && $("improve-bar").classList.contains("hidden"));
+  $("input").value = "";
+
+  newChat();
+  current.messages = [{ role: "user", content: "Share me" }, { role: "assistant", content: "<think>secret</think>Shared answer\n- [ ] task", model: "demo::demo", checks: { 0: true } }];
+  current.title = "Share test";
+  persist(current);
+  const shareUrl = await shareCurrent();
+  const shareToken = (shareUrl || "").split("#share=")[1] || "";
+  const decodedShare = sanitizeShared(await decodeShare(shareToken));
+  expect("share: link round-trips the chat without hidden reasoning", shareUrl.startsWith(location.origin) && decodedShare.messages.length === 2
+    && decodedShare.messages[1].content === "Shared answer\n- [ ] task" && decodedShare.messages[1].checks["0"] === true && decodedShare.title.includes("Share test"));
+  const conversationsBefore = state.conversations.length;
+  history.replaceState(null, "", `${location.pathname}#share=${shareToken}`);
+  await importSharedFromHash();
+  expect("share: opening a link imports a copy", state.conversations.length === conversationsBefore + 1 && current.shared === true && location.hash === "");
+  history.replaceState(null, "", `${location.pathname}#selftest`);
+  let rejectsBadVersion = false;
+  try {
+    sanitizeShared({ v: 2 });
+  } catch {
+    rejectsBadVersion = true;
+  }
+  expect("share: bad links are rejected and roles are sanitized", rejectsBadVersion && sanitizeShared({ v: 1, type: "chat", messages: [{ role: "system", content: "x" }] }).messages[0].role === "assistant");
+
+  newChat();
+  current.messages = Array.from({ length: 30 }, (_, i) => ({ role: i % 2 ? "assistant" : "user", content: `Line ${i}\n\n${"text ".repeat(40)}` }));
+  renderMessages(true);
+  const scrollBox = $("messages");
+  scrollBox.scrollTop = 0;
+  scrollDown();
+  expect("scroll: reading older messages is not interrupted", scrollBox.scrollTop === 0 && !$("jump-btn").classList.contains("hidden"));
+  $("jump-btn").click();
+  expect("scroll: ↓ Latest jumps to the newest message", nearBottom() && $("jump-btn").classList.contains("hidden"));
+
+  const oldestChat = state.conversations[state.conversations.length - 1];
+  togglePin(oldestChat);
+  expect("history: pinned chats stay on top", oldestChat.pinned === true && document.querySelector("#history .history-item .title").textContent.startsWith("📌"));
+  togglePin(oldestChat);
+
+  const realSpeech = window.speechSynthesis;
+  let spoken = null;
+  Object.defineProperty(window, "speechSynthesis", { configurable: true, value: { speaking: false, speak: (utterance) => { spoken = utterance; }, cancel() {} } });
+  newChat();
+  current.messages = [{ role: "user", content: "hi" }, { role: "assistant", content: "**Halo**, apa kabar? Ini adalah jawaban yang bisa kamu dengar.", model: "demo::demo" }];
+  renderMessages(true);
+  const listenButton = document.querySelector("[data-speak-index]");
+  if (listenButton) listenButton.click();
+  Object.defineProperty(window, "speechSynthesis", { configurable: true, value: realSpeech });
+  expect("voice: 🔊 reads replies aloud in the right language", !!spoken && spoken.text.includes("Halo") && !spoken.text.includes("**") && spoken.lang === "id-ID");
 
   // ---- v0.4: theme, welcome, guest, guided tour, Glow AI sign-in (Puter test double), sync ----
   const themeBefore = state.settings.theme;
@@ -2177,7 +3118,7 @@ async function selfTest() {
   expect("tour: starts after the first choice", tour.active && !$("tour").classList.contains("hidden") && $("tour-title").textContent.includes("Welcome"));
   moveTour(1);
   const spotStyle = $("tour-spot").style;
-  const pickerRect = $("chat-model").getBoundingClientRect();
+  const pickerRect = $("model-picker-btn").getBoundingClientRect();
   const spotLeft = parseFloat(spotStyle.left);
   const spotTop = parseFloat(spotStyle.top);
   expect("tour: spotlight frames the model picker", $("tour-title").textContent === "Pick a model"
@@ -2258,6 +3199,12 @@ async function selfTest() {
   expect("sync: chats from another device are merged in", state.conversations.some((c) => c.id === "cloud1"));
   expect("sync: local chats are uploaded to the account", JSON.parse(kvStore.get(`${CLOUD_PREFIX}meta`)).parts >= 1 && kvStore.get(`${CLOUD_PREFIX}0`).includes("Plan a picnic"));
 
+  state.settings.allPuterModels = true;
+  await loadModels();
+  const showsEverything = models.some((m) => m.group.startsWith("Glow AI: all models"));
+  state.settings.allPuterModels = false;
+  await loadModels();
+  expect("picker: signed-in users can browse every Glow AI model", showsEverything && !models.some((m) => m.group.startsWith("Glow AI: all models")));
   newChat();
   expect("sign in: new chats default to a Glow AI model", $("chat-model").value === "puter::gpt-5-mini");
   const aiReply = await sendChat("Say hello");
@@ -2324,6 +3271,7 @@ async function demoArena() {
 
 async function boot() {
   applyTheme();
+  fillPersonaSelect();
   wire();
   renderAccount();
   await loadModels();
@@ -2333,6 +3281,7 @@ async function boot() {
   }
   const hash = location.hash;
   if (!TEST_MODE) {
+    await importSharedFromHash();
     if (!state.settings.account) showWelcome();
     if (state.settings.account === "puter" && (await restorePuterSession())) {
       await loadModels();

@@ -51,7 +51,7 @@ class V04Tests(unittest.TestCase):
 
     def test_offline_cache_bumped_for_new_assets(self):
         worker = (WEB / "sw.js").read_text(encoding="utf-8")
-        self.assertIn("const CACHE_NAME = 'glow-v4';", worker)
+        self.assertIn("const CACHE_NAME = 'glow-v5';", worker)
 
     def test_guests_get_keyless_free_ai(self):
         self.assertIn('const FREE_AI_URL = "https://text.pollinations.ai/openai";', self.script)
@@ -61,9 +61,37 @@ class V04Tests(unittest.TestCase):
     def test_catalog_version(self):
         apps = json.loads((REPO / "scripts/apps.json").read_text(encoding="utf-8"))["apps"]
         glow = next(app for app in apps if app["id"] == "glow")
-        self.assertEqual(glow["version"], "0.4.2")
+        self.assertEqual(glow["version"], "0.5.0")
         self.assertEqual(glow["name"], "Glow")
 
+
+
+class GlowV05FeatureTests(unittest.TestCase):
+    """v0.5: model picker, personas, checklists, fuse, improve, voice and share."""
+
+    def setUp(self):
+        self.web = Path(__file__).resolve().parents[1] / "web"
+        self.html = (self.web / "index.html").read_text(encoding="utf-8")
+        self.js = (self.web / "app.js").read_text(encoding="utf-8")
+
+    def test_new_controls_exist_in_every_page(self):
+        ids = [
+            "model-picker-btn", "model-menu", "model-search", "model-list",
+            "persona-select", "share-btn", "improve-btn", "mic-btn",
+            "jump-btn", "set-instructions", "set-followups",
+        ]
+        for page in ("index.html", "app.html", "mobile.html"):
+            html = (self.web / page).read_text(encoding="utf-8")
+            for element_id in ids:
+                self.assertIn(f'id="{element_id}"', html, f"{element_id} missing in {page}")
+
+    def test_feature_functions_present(self):
+        for name in ("fuseRound", "splitFollowUps", "withInstructions",
+                     "importSharedFromHash", "applyChecks", "togglePin"):
+            self.assertIn(name, self.js)
+
+    def test_follow_ups_follow_user_language(self):
+        self.assertIn("same language as the user's last message", self.js)
 
 if __name__ == "__main__":
     unittest.main()
