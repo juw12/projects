@@ -123,3 +123,15 @@ review step (`auto_approve: false`). Add slots only when every video is still wo
 YouTube's policies on repetitive and mass-produced content, and on inauthentic content, apply to
 automated channels. Posting three near-identical videos a day is the fastest way to lose
 monetization eligibility.
+
+## 2c. Narrate in your own voice (voice clone)
+
+1. `python voice_recorder.py` opens a teleprompter page. Press **Mulai rekam**, read ~80 s, press **Selesai**.
+   The take is checked instantly (length, loudness, clipping, background noise) and saved to
+   `secrets/voice/sample.wav` (git-ignored).
+2. On the same page paste an ElevenLabs API key (Starter plan or higher: Instant Voice Clone + commercial
+   licence) and press **Buat clone**. A test line plays back in your cloned voice.
+3. Use it in a project: `"voiceConfig": {"provider": "elevenlabs", "speed": 1.08}`.
+   In GitHub Actions set the secrets `ELEVENLABS_API_KEY` and `ELEVENLABS_VOICE_ID`.
+
+Only clone your own voice. YouTube does not require an AI label for narration made with a clone of your own voice.
