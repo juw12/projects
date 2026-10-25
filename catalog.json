@@ -1,8 +1,8 @@
 {
   "schema": 1,
-  "updatedAt": "2026-10-25T16:00:48.599Z",
+  "updatedAt": "2026-10-25T16:00:50.677Z",
   "settings": {
-    "announcement": "",
+    "announcement": "歡迎使用光耀同行！第一次使用，請先看「新手導覽」單元與使用手冊。",
     "hideSamples": false
   },
   "lessons": [
