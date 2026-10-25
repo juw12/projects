@@ -39,12 +39,43 @@
     localStorage.setItem(STORE, JSON.stringify(store));
   }
 
-  async function digest(text) {
-    if (window.crypto && crypto.subtle) {
-      const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-      return [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  const owns = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+
+  function requireCrypto() {
+    if (!window.isSecureContext || !window.crypto || !crypto.subtle) {
+      throw new Error("Browser profiles require HTTPS (or localhost). No password will be stored here.");
     }
-    return "plain:" + text;
+  }
+
+  async function passwordHash(password, salt) {
+    requireCrypto();
+    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+    const bytes = await crypto.subtle.deriveBits({
+      name: "PBKDF2", salt: new TextEncoder().encode(salt), iterations: 200000, hash: "SHA-256",
+    }, key, 256);
+    return [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
+
+  async function credentials(password) {
+    requireCrypto();
+    const salt = [...crypto.getRandomValues(new Uint8Array(16))]
+      .map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    return { salt, hash: await passwordHash(password, salt), kdf: "pbkdf2-sha256-200000" };
+  }
+
+  async function verifyPassword(user, username, password) {
+    requireCrypto();
+    if (user.kdf === "pbkdf2-sha256-200000") {
+      return user.hash === await passwordHash(password, user.salt);
+    }
+    // Upgrade legacy demo profiles after a successful login; never write legacy credentials.
+    const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(username + ":" + password));
+    const legacyHash = [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    if (user.hash !== legacyHash && user.hash !== "plain:" + username + ":" + password) {
+      return false;
+    }
+    Object.assign(user, await credentials(password));
+    return true;
   }
 
   const fail = (error, extra = {}) => ({ ok: false, error, ...extra });
@@ -230,6 +261,9 @@
       }
       throw new Error(`${name} is required`);
     }
+    if (typeof value === "boolean" || (typeof value !== "number" && typeof value !== "string")) {
+      throw new Error(`${name} must be a number`);
+    }
     const n = Number(value);
     if (!Number.isFinite(n)) {
       throw new Error(`${name} must be a number`);
@@ -248,9 +282,9 @@
     const q = await quote(symbol);
     const price = q.price;
     if (dollars !== undefined && dollars !== null && dollars !== "") {
-      qty = Number(dollars) / price;
+      qty = num(dollars, "amount", 0) / price;
     }
-    qty = Number(qty || 0);
+    qty = num(qty, "quantity", 0, undefined, 0);
     if (!(qty > 0)) {
       throw new Error("enter an amount");
     }
@@ -310,10 +344,23 @@
     if (missing.length) {
       throw new Error(`Demo history covers ${Object.keys(monthly).join(", ")}. ${missing.join(", ")} needs the full app on your computer.`);
     }
+    if (tickers.length > 8) {
+      throw new Error("use at most 8 tickers per simulation");
+    }
     const weight = 1 / tickers.length;
-    const months = Object.keys(monthly[tickers[0]])
+    const allMonths = Object.keys(monthly[tickers[0]])
       .filter((m) => tickers.every((t) => m in monthly[t]))
       .sort();
+    const serial = (month) => Number(month.slice(0, 4)) * 12 + Number(month.slice(5));
+    const runs = [];
+    allMonths.forEach((month) => {
+      const current = runs[runs.length - 1];
+      if (!current || serial(month) !== serial(current[current.length - 1]) + 1) {
+        runs.push([]);
+      }
+      runs[runs.length - 1].push(month);
+    });
+    const months = runs.reduce((best, run) => run.length >= best.length ? run : best, []);
     if (months.length < 60) {
       throw new Error(`need at least 5 years of shared history; ${months.length} months available`);
     }
@@ -326,20 +373,19 @@
     const worst = new Float64Array(paths);
     for (let p = 0; p < paths; p++) {
       let value = initial;
-      let peak = value;
+      let unitValue = 1;
+      let peak = 1;
       let dd = 0;
       yearly[0][p] = value;
       let m = 0;
       while (m < nMonths) {
-        const start = Math.floor(rand() * history.length);
+        const start = Math.floor(rand() * (history.length - 12 + 1));
         for (let k = 0; k < 12 && m < nMonths; k++) {
-          value = (value + monthlyAdd) * (1 + history[(start + k) % history.length]);
-          if (value > peak) {
-            peak = value;
-          }
-          if (peak > 0) {
-            dd = Math.min(dd, value / peak - 1);
-          }
+          const periodReturn = history[start + k];
+          value = (value + monthlyAdd) * (1 + periodReturn);
+          unitValue *= 1 + periodReturn;
+          peak = Math.max(peak, unitValue);
+          dd = Math.min(dd, unitValue / peak - 1);
           m += 1;
           if (m % 12 === 0) {
             yearly[m / 12][p] = value;
@@ -391,6 +437,12 @@
         max_drawdown_pct: Math.round(maxDd * 1000) / 10,
         worst_12m_pct: Math.round(worst12 * 1000) / 10,
       },
+      drawdown_basis: "time-weighted unit value; deposits excluded",
+      assumptions: [
+        "Nominal dollars; inflation, taxes, transaction fees and trading slippage are excluded.",
+        "Contributions at the start of each month; fixed weights rebalanced monthly.",
+        "Historical sample estimates, not calibrated forecasts or guaranteed outcomes."
+      ],
       warnings: historyYears < 20
         ? [`Only ${Math.round(historyYears)} years of shared history, which may not include a full crash and recovery. Results are likely too optimistic. For a longer record try SPY (since 1993) or a mix like SPY + AGG.`]
         : [],
@@ -459,7 +511,24 @@
     }
     const data = await load("trade");
     const limits = profile.limits || limitsFor(2, profile.budget || 5000);
-    const session = store.trade || (store.trade = {});
+    const session = store.users[store.session].trade || (store.users[store.session].trade = {});
+    const steps = ["entry", "exit", "timemachine", "budget", "risk", "broker"];
+    if (step === "entry") {
+      session.completed = [];
+      session.target = null;
+      session.id = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString() + Math.random().toString();
+      session.config = JSON.stringify(limits);
+    } else if (steps.includes(step)) {
+      if (!params.run_id || params.run_id !== session.id || session.config !== JSON.stringify(limits)) {
+        return fail("This check is stale or your limits changed. Start again from Entry.");
+      }
+      if (!(session.completed || []).includes(steps[steps.indexOf(step) - 1])) {
+        return fail("Complete the previous step successfully before continuing.");
+      }
+    }
+    if (steps.includes(step)) {
+      session.completed = (session.completed || []).filter((name) => steps.indexOf(name) < steps.indexOf(step));
+    }
     if (step === "scanner") {
       return { ok: true, data: data.scanner };
     }
@@ -506,7 +575,7 @@
   }
 
   // ------------------------------------------------------------ router
-  async function api(path, body = {}) {
+  async function route(path, body = {}) {
     const route = path.replace(/^\/?api\//, "");
     const store = readStore();
     try {
@@ -521,11 +590,11 @@
         if (!String(body.name || "").trim()) {
           return fail("enter your name");
         }
-        if (store.users[username]) {
+        if (["__proto__", "constructor", "prototype"].includes(username) || owns(store.users, username)) {
           return fail("that username is taken (on this browser)");
         }
         store.users[username] = {
-          hash: await digest(username + ":" + body.password),
+          ...await credentials(body.password),
           profile: defaultProfile(String(body.name).trim(), String(body.email || "").trim()),
         };
         store.session = username;
@@ -534,15 +603,15 @@
       }
       if (route === "login") {
         const username = String(body.username || "").trim().toLowerCase();
-        const user = store.users[username];
-        if (!user || user.hash !== await digest(username + ":" + (body.password || ""))) {
+        const user = owns(store.users, username) ? store.users[username] : null;
+        if (!user || !(await verifyPassword(user, username, body.password || ""))) {
           return fail("wrong username or password");
         }
         store.session = username;
         writeStore(store);
         return { ok: true, profile: user.profile };
       }
-      const user = store.session && store.users[store.session];
+      const user = store.session && owns(store.users, store.session) && store.users[store.session];
       if (!user) {
         return fail("login required", { auth: false });
       }
@@ -556,7 +625,19 @@
         case "me":
           return { ok: true, profile };
         case "profile": {
-          for (const key of ["name", "email", "goal", "onboarded", "guide_done"]) {
+          if ("name" in body && (typeof body.name !== "string" || !body.name.trim() || body.name.length > 80)) {
+            return fail("name must contain 1–80 characters");
+          }
+          if ("email" in body && (typeof body.email !== "string" || body.email.length > 254 ||
+              (body.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(body.email)))) {
+            return fail("enter a valid email, or leave it blank");
+          }
+          for (const key of ["watchlist", "guide_done"]) {
+            if (key in body && (!Array.isArray(body[key]) || body[key].length > 100 || body[key].some((v) => typeof v !== "string"))) {
+              return fail("invalid " + key);
+            }
+          }
+          for (const key of ["name", "email", "onboarded", "guide_done"]) {
             if (key in body) {
               profile[key] = body[key];
             }
@@ -573,7 +654,28 @@
             const limits = profile.limits || limitsFor(2, profile.budget);
             for (const [key, value] of Object.entries(body.limits)) {
               if (key in limits && value !== "" && value !== null) {
-                limits[key] = typeof limits[key] === "number" ? num(value, key, 0, 1e9) : String(value).slice(0, 20);
+                const ranges = {
+                  budget: [1, 1e9], risk_pct: [0, 100], max_loss_per_trade_usd: [0, 1e9],
+                  max_daily_loss_usd: [0, 1e9], max_trades_per_day: [1, 100], min_reward_risk: [0.1, 20],
+                  cash_buffer_pct: [0, 99], max_position_pct: [1, 100], max_order_usd: [0, 1e9],
+                };
+                if (key in ranges) {
+                  const parsed = num(value, key, ...ranges[key]);
+                  if (key === "max_trades_per_day" && !Number.isInteger(parsed)) {
+                    return fail("trades per day must be a whole number");
+                  }
+                  limits[key] = parsed;
+                } else if (key === "default_target") {
+                  if (!["1R", "1.5R", "2R", "3R"].includes(value)) {
+                    return fail("invalid default target");
+                  }
+                  limits[key] = value;
+                } else {
+                  if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value)) {
+                    return fail("time must be HH:MM");
+                  }
+                  limits[key] = value;
+                }
               }
             }
             profile.limits = limits;
@@ -655,7 +757,7 @@
           return { ok: true, paper: await paperState(profile) };
         }
         case "goal": {
-          const tickers = String(body.tickers || "").split(/[,\s]+/).map((t) => t.trim().toUpperCase()).filter(Boolean);
+          const tickers = [...new Set(String(body.tickers || "").split(/[,\s]+/).map((t) => t.trim().toUpperCase()).filter(Boolean))];
           if (!tickers.length) {
             return fail("pick at least one ticker");
           }
@@ -688,12 +790,19 @@
           return { ok: true, data: body.action === "diff" ? copycat.diff[cik] : copycat.copy[cik] };
         }
         case "trade": {
-          const result = await trade(profile, store, body.mode, body.step, body.params || {});
+          const result = await trade(profile, store, body.mode, body.step, { ...body.params, run_id: body.run_id });
+          const session = user.trade;
+          if (session && body.mode === "demo" && body.step !== "scanner") {
+            if (result.ok && !(result.data && result.data.sizing && result.data.sizing.refusal)) {
+              session.completed.push(body.step);
+            }
+            result.run_id = session.id;
+          }
           save();
           return result;
         }
         case "trade/reset":
-          store.trade = {};
+          user.trade = {};
           save();
           return { ok: true };
         default:
@@ -702,6 +811,16 @@
     } catch (error) {
       return fail(error.message || String(error));
     }
+  }
+
+  let queue = Promise.resolve();
+  function api(path, body = {}) {
+    if (navigator.locks) {
+      return navigator.locks.request(STORE, () => route(path, body));
+    }
+    const next = queue.then(() => route(path, body));
+    queue = next.catch(() => {});
+    return next;
   }
 
   window.TradeTwinDemo = {

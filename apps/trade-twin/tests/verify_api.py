@@ -42,9 +42,13 @@ def free_port():
 class Client:
     def __init__(self, base):
         self.base = base
+        self.run_ids = {}
         self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
 
     def post(self, path, body=None, headers=None):
+        body = dict(body or {})
+        if path == "/api/trade" and body.get("step") != "entry":
+            body.setdefault("run_id", self.run_ids.get(body.get("mode")))
         request = urllib.request.Request(
             self.base + path,
             data=json.dumps(body or {}).encode(),
@@ -52,7 +56,10 @@ class Client:
         )
         try:
             with self.opener.open(request, timeout=120) as response:
-                return response.status, json.loads(response.read())
+                data = json.loads(response.read())
+                if data.get("run_id"):
+                    self.run_ids[body.get("mode")] = data["run_id"]
+                return response.status, data
         except urllib.error.HTTPError as err:
             return err.code, json.loads(err.read() or b"{}")
 
@@ -152,6 +159,7 @@ def end_to_end(data_dir):
         # Guard-rail: a 1R plan is refused for a profile whose minimum reward:risk is 1.5.
         alice.post("/api/trade", {"step": "entry", "mode": "demo", "params": {"symbol": "TSLA"}})
         alice.post("/api/trade", {"step": "exit", "mode": "demo", "params": {"stop_rule": "or-mid", "target_rule": "1R"}})
+        alice.post("/api/trade", {"step": "timemachine", "mode": "demo", "params": {"replays": 100}})
         status, refused = alice.post("/api/trade", {"step": "budget", "mode": "demo", "params": {}})
         check("1R plan refused under a 1.5 minimum reward:risk",
               not refused.get("ok") and "minimum" in (refused.get("data") or {}).get("sizing", {}).get("refusal", ""))
@@ -208,6 +216,23 @@ def end_to_end(data_dir):
             raw.sendall(b"POST /api/me HTTP/1.1\r\nHost: x\r\nContent-Length: abc\r\nConnection: close\r\n\r\n")
             reply = raw.recv(4096).decode("latin-1")
         check("bad Content-Length answered with 413", " 413 " in reply.split("\r\n", 1)[0], reply[:40])
+
+        for raw in (b"null", b"[]", b'{"budget":NaN}'):
+            request = urllib.request.Request(base + "/api/profile", data=raw,
+                                             headers={"Content-Type": "application/json"})
+            try:
+                response = alice.opener.open(request)
+                response.close()
+                code = response.status
+            except urllib.error.HTTPError as err:
+                code = err.code
+            check("invalid JSON shape rejected: " + raw.decode(), code == 400)
+        status, body = alice.post("/api/profile", {"name": []})
+        check("invalid name type rejected", not body.get("ok"))
+        status, body = alice.post("/api/profile", {"budget": True})
+        check("boolean budget rejected", not body.get("ok"))
+        status, body = alice.post("/api/profile", {"limits": {"max_position_pct": 101}})
+        check("over-100 percent allocation refused", not body.get("ok"))
 
         bob = Client(base)
         bob.post("/api/signup", {"username": "bob", "password": "another-pass-2", "name": "Bob"})

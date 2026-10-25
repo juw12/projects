@@ -29,7 +29,7 @@
     --top: env(safe-area-inset-top, 0px);
     --bottom: env(safe-area-inset-bottom, 0px);
   }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  * { min-width: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; background: var(--bg); color: var(--text); }
   body {
     font: 15px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
@@ -140,7 +140,7 @@
   canvas { display: block; width: 100%; }
   .bar { display: flex; height: 28px; border-radius: 9px; overflow: hidden; font-size: 11.5px; font-weight: 700; }
   .bar div { display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; }
-  .warn { background: rgba(245,179,1,.1); border: 1px solid rgba(245,179,1,.35); border-radius: 14px; padding: 11px 13px; font-size: 13.5px; margin: 10px 0; }
+  .warn { overflow-wrap: anywhere; background: rgba(245,179,1,.1); border: 1px solid rgba(245,179,1,.35); border-radius: 14px; padding: 11px 13px; font-size: 13.5px; margin: 10px 0; }
   .err { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.4); color: #fecaca; border-radius: 14px; padding: 11px 13px; font-size: 13.5px; margin: 10px 0; white-space: pre-wrap; }
   .ok { background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.35); border-radius: 14px; padding: 11px 13px; font-size: 13.5px; margin: 10px 0; }
   table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
@@ -292,23 +292,42 @@ function toast(message, ms = 2200) {
 let DEMO = false;
 
 async function detectServer() {
-  try {
-    const response = await fetch("api/health", { cache: "no-store" });
-    if (!response.ok) {
-      return false;
-    }
-    const health = await response.json();
-    return health && health.app === "trade-twin";
-  } catch (error) {
-    return false;
+  if (location.hostname.endsWith(".github.io")) {
+    return "demo";
   }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 6000);
+  try {
+    const response = await fetch("api/health", { cache: "no-store", signal: controller.signal });
+    if (response.status === 404 && localStorage.getItem("tt-runtime-mode") !== "server") {
+      return "demo";
+    }
+    if (response.ok && (await response.json()).app === "trade-twin") {
+      localStorage.setItem("tt-runtime-mode", "server");
+      return "server";
+    }
+  } catch (error) {
+    // A lost live connection must not masquerade as a different demo account.
+    if (localStorage.getItem("tt-runtime-mode") === "demo") {
+      return "demo";
+    }
+  } finally {
+    clearTimeout(timer);
+  }
+  return "unavailable";
 }
 
+let authEpoch = 0;
+
 async function api(path, body = {}) {
+  const requestEpoch = authEpoch;
   if (DEMO) {
     const result = await window.TradeTwinDemo.api(path, body);
+    if (requestEpoch !== authEpoch) {
+      return { ok: false, error: "Account changed; result discarded." };
+    }
     if (result && result.auth === false && state.profile) {
-      state.profile = null;
+      clearPrivateState();
       renderAuth();
     }
     return result;
@@ -330,8 +349,11 @@ async function api(path, body = {}) {
   } catch (error) {
     data = { ok: false, error: "unexpected server reply (" + response.status + ")" };
   }
+  if (requestEpoch !== authEpoch) {
+    return { ok: false, error: "Account changed; result discarded." };
+  }
   if (response.status === 401) {
-    state.profile = null;
+    clearPrivateState();
     renderAuth();
   }
   return data;
@@ -762,6 +784,16 @@ const state = {
   quotes: {},
 };
 
+function clearPrivateState() {
+  authEpoch += 1;
+  Object.assign(state, {
+    profile: null, paper: null, quotes: {}, newsCache: null, newsFilter: "ALL",
+    tradeResults: {}, tradeMode: "demo", tradeSymbol: "TSLA", tradeBusy: false,
+    investView: "portfolio", tab: "home", goalPrefill: null,
+  });
+  closeSheet();
+}
+
 const TABS = [
   ["home", "🏠", "Home"],
   ["invest", "📈", "Invest"],
@@ -774,7 +806,16 @@ async function boot() {
   if ("serviceWorker" in navigator && window.isSecureContext) {
     navigator.serviceWorker.register("sw.js").catch(() => {});
   }
-  DEMO = !(await detectServer());
+  const runtime = await detectServer();
+  if (runtime === "unavailable") {
+    $("#app").replaceChildren(h("div", { class: "screen" },
+      h("h1", {}, "Server unavailable"),
+      h("p", {}, "Your account has not been switched to a demo. Restart your Trade Twin server and check your connection."),
+      h("button", { class: "btn primary", onclick: () => location.reload() }, "Retry")));
+    return;
+  }
+  DEMO = runtime === "demo";
+  localStorage.setItem("tt-runtime-mode", runtime);
   if (DEMO) {
     state.demoMeta = await window.TradeTwinDemo.meta().catch(() => null);
   }
@@ -815,6 +856,10 @@ function helpFor(tab) {
 }
 
 function switchTab(id) {
+  if (state.tradeBusy) {
+    toast("Finish this trade check before changing screens.");
+    return;
+  }
   state.tab = id;
   history.replaceState(null, "", "#" + id);
   document.querySelectorAll("nav.tabs button").forEach((b) => b.classList.toggle("on", b.id === "tab-" + id));
@@ -822,6 +867,10 @@ function switchTab(id) {
   $("#screenTitle").textContent = titles[id];
   const main = $("#main");
   main.innerHTML = "";
+  if (DEMO && id !== "home") {
+    put(main, h("div", { class: "tiny muted", style: "margin:0 0 8px" },
+      "Snapshot demo · " + ((state.demoMeta || {}).market_as_of || "saved data") + " · browser-only profile"));
+  }
   window.scrollTo(0, 0);
   ({ home: renderHome, invest: renderInvest, trade: renderTrade, news: renderNews, me: renderMe })[id](main);
 }
@@ -863,6 +912,7 @@ function renderAuth(mode = "login") {
       put(errorSlot, errorBox(result.error));
       return;
     }
+    clearPrivateState();
     state.profile = result.profile;
     if (!state.profile.quiz) {
       renderOnboarding();
@@ -895,7 +945,7 @@ function renderAuth(mode = "login") {
       mode === "login" ? "New here? Create an account" : "I already have an account"),
     h("p", { class: "tiny muted center", style: "margin-top:20px" },
       DEMO
-        ? "Web demo: your account and practice portfolio stay in this browser. Practice money only — not financial advice."
+        ? "Browser-only demo profile, not a secure cloud account. Anyone with access to this browser can read its storage. Use a unique demo password. Clearing browser data removes this profile."
         : "Your account lives on your own computer. Practice money only — not financial advice.")));
 }
 
@@ -1016,6 +1066,7 @@ function renderBudgetStep(picks) {
 
 function profileCard(quiz, limits) {
   return h("div", {},
+    h("p", { class: "tiny muted" }, "Educational preferences quiz — not a validated personality test, suitability assessment or investment recommendation."),
     h("div", { class: "center" },
       h("div", { class: "archetype" }, quiz.emoji),
       h("h1", { style: "margin-top:10px" }, quiz.title),
@@ -1455,7 +1506,7 @@ function renderGoalResult(out, r) {
   put(out, 
     (r.warnings || []).map((w) => h("div", { class: "warn" }, "⚠️ " + w)),
     h("div", { class: "card" },
-      h("div", { class: "muted small" }, `Chance of reaching ${fmtCompact(r.goal)} in ${r.years} years`),
+      h("div", { class: "muted small" }, `Share of simulated paths reaching ${fmtCompact(r.goal)} in ${r.years} years`),
       h("div", { class: "big" }, h("span", { class: "pill " + tone, style: "font-size:30px;padding:4px 14px" }, fmtProb(pGoal))),
       h("p", { class: "small muted" }, `You'd put in ${fmtMoney(r.contributed, 0)} in total.`),
       canvas,
@@ -1467,15 +1518,16 @@ function renderGoalResult(out, r) {
     h("div", { class: "card" },
       h("h3", {}, "What the ride feels like"),
       h("div", { class: "kv" }, h("span", {}, "Chance you end with less than you put in"), h("b", {}, fmtProb(r.p_loss))),
-      h("div", { class: "kv" }, h("span", {}, "Typical worst drop along the way"), h("b", { class: "down" }, r.median_worst_drop + "%")),
-      h("div", { class: "kv" }, h("span", {}, "Bad-luck worst drop (1 in 20)"), h("b", { class: "down" }, r.bad_case_worst_drop + "%")),
+      h("div", { class: "kv" }, h("span", {}, "Typical investment drawdown (deposits excluded)"), h("b", { class: "down" }, r.median_worst_drop + "%")),
+      h("div", { class: "kv" }, h("span", {}, "5th-percentile investment drawdown"), h("b", { class: "down" }, r.bad_case_worst_drop + "%")),
       h("h3", { style: "margin-top:14px" }, "The history it's built from"),
       h("div", { class: "kv" }, h("span", {}, "Period"), h("b", {}, `${r.history.from} → ${r.history.to}`)),
       h("div", { class: "kv" }, h("span", {}, "Average yearly return (CAGR)"), h("b", {}, r.history.cagr_pct + "%")),
       h("div", { class: "kv" }, h("span", {}, "Yearly volatility"), h("b", {}, r.history.vol_pct + "%")),
       h("div", { class: "kv" }, h("span", {}, "Worst drawdown in history"), h("b", { class: "down" }, r.history.max_drawdown_pct + "%")),
       h("div", { class: "kv" }, h("span", {}, "Worst 12 months"), h("b", { class: "down" }, r.history.worst_12m_pct + "%")),
-      h("p", { class: "tiny muted" }, r.note)));
+      h("p", { class: "tiny muted" }, r.note),
+      (r.assumptions || []).map((assumption) => h("p", { class: "tiny muted" }, assumption))));
   const labels = r.bands.map((_, i) => "y" + i);
   afterPaint(() => fanChart(canvas, r.bands, labels, r.goal ? [{ v: r.goal, color: "#22c55e", label: "goal " + fmtCompact(r.goal) }] : [], { money: true, floorZero: true, height: 230 }));
 }
@@ -1483,7 +1535,7 @@ function renderGoalResult(out, r) {
 async function investCopy(body) {
   put(body, h("div", { class: "card" },
     h("div", { class: "between" }, h("h3", { style: "margin:0" }, "🧑‍💼 Copy a famous investor"), h("button", { class: "help", onclick: () => openGuide("copy") }, "?")),
-    h("p", { class: "muted small" }, "From their latest SEC 13F filing (up to ~45 days old). Copy into your practice portfolio."),
+    h("p", { class: "muted small" }, "Quarter-end holdings, not current positions. Filings are due within 45 days after quarter-end; the latest holdings may be much older. Check the dates below."),
     !state.profile.email ? h("div", { class: "warn" }, "Add your email in Me → Profile first: SEC requires every app user to identify themselves.") : null));
   const list = h("div", { class: "card" }, spinner());
   put(body, list);
@@ -1522,6 +1574,11 @@ async function openInvestor(filer) {
     return;
   }
   const c = copy.data;
+  const ageDays = c.as_of ? Math.floor((Date.now() - new Date(c.as_of + "T00:00:00Z")) / 86400000) : null;
+  put(body, h("div", { class: "warn" },
+    `Holdings as of ${c.as_of || "unknown"}; filed ${c.filed || "unknown"}. ` +
+    (ageDays !== null ? `${ageDays} days old. ` : "") +
+    "Not a current portfolio. Review independently before copying, even on paper."));
   put(body, h("p", { class: "tiny muted" }, c.source));
   put(body, h("div", { class: "card tight" }, h("h3", {}, "Top holdings (re-weighted to 100%)"),
     h("table", {}, h("tr", {}, h("th", {}, "Stock"), h("th", { class: "r" }, "Copy weight"), h("th", { class: "r" }, "% of fund")),
@@ -1626,27 +1683,48 @@ function drawStepper(stepper, detail) {
 }
 
 async function runTradeFlow(stepper, detail) {
+  if (state.tradeBusy) {
+    return;
+  }
+  state.tradeBusy = true;
   state.tradeResults = {};
   detail.innerHTML = "";
-  const limits = state.profile.limits || {};
+  const mode = state.tradeMode;
+  const limits = { ...state.profile.limits };
   const params = {
     entry: { symbol: state.tradeSymbol },
     exit: { stop_rule: "or-mid", target_rule: limits.default_target || "2R" },
     timemachine: { replays: 10000, seed: 19 },
   };
-  for (const [id] of TRADE_STEPS) {
-    state.tradeResults[id] = { cls: "busy", summary: id === "timemachine" ? "replaying 10,000 sessions…" : "working…" };
-    drawStepper(stepper, detail);
-    const result = await api("api/trade", { step: id, mode: state.tradeMode, params: params[id] || {} });
-    const judged = judgeTradeStep(id, result);
-    state.tradeResults[id] = { ...judged, result };
-    drawStepper(stepper, detail);
-    if (id === "timemachine" || judged.cls === "bad") {
-      showTradeDetail(id, detail);
+  const epoch = authEpoch;
+  const controls = [...document.querySelectorAll("#main button, #main input, #main select")];
+  const wasDisabled = controls.map((control) => control.disabled);
+  controls.forEach((control) => { control.disabled = true; });
+  let runId = null;
+  try {
+    for (const [id] of TRADE_STEPS) {
+      state.tradeResults[id] = { cls: "busy", summary: id === "timemachine" ? "replaying 10,000 sessions…" : "working…" };
+      drawStepper(stepper, detail);
+      const result = await api("api/trade", { step: id, mode, run_id: runId, params: params[id] || {} });
+      if (epoch !== authEpoch) {
+        return;
+      }
+      runId = result.run_id || runId;
+      const judged = judgeTradeStep(id, result);
+      state.tradeResults[id] = { ...judged, result };
+      drawStepper(stepper, detail);
+      if (id === "timemachine" || judged.cls === "bad") {
+        showTradeDetail(id, detail);
+      }
+      if (result.error || !result.ok || (judged.cls === "bad" && id !== "timemachine")) {
+        break;
+      }
     }
-    if (judged.cls === "bad" && id !== "timemachine") {
-      break;
-    }
+  } catch (error) {
+    put(detail, errorBox("Check stopped: " + error.message));
+  } finally {
+    state.tradeBusy = false;
+    controls.forEach((control, i) => { control.disabled = wasDisabled[i]; });
   }
 }
 
@@ -1675,11 +1753,14 @@ function judgeTradeStep(id, r) {
   }
   if (id === "risk") {
     const res = (d.results || [])[0] || {};
-    return { cls: d.block ? "bad" : "ok", summary: d.block ? "BLOCK — " + (res.reasons || []).join("; ") : "PASS — within all your limits" };
+    return { cls: d.block ? "bad" : "ok", summary: d.block ? "BLOCK — " + (res.reasons || []).join("; ") : "PASS — within configured limits, not an endorsement of the trade" };
   }
   if (id === "broker") {
     const t = Array.isArray(d) ? d[0] : null;
-    return t ? { cls: t.ready ? "ok" : "warn", summary: t.plain } : { cls: "warn", summary: "no ticket" };
+    const weakReplay = state.tradeResults.timemachine?.cls === "bad";
+    return t ? { cls: t.ready && !weakReplay ? "ok" : "warn",
+      summary: (weakReplay ? "Research only: replay leaned toward the stop. " : "Display-only paper plan: ") + t.plain }
+      : { cls: "warn", summary: "no ticket" };
   }
   return { cls: "ok", summary: "" };
 }
@@ -1701,10 +1782,14 @@ function showTradeDetail(id, detail) {
       h("div", { class: "between" }, h("h3", { style: "margin:0" }, "🔮 Time Machine"), h("button", { class: "help", onclick: () => openGuide("verdict") }, "?")),
       h("p", { style: "font-weight:700;font-size:16px" }, d.verdict),
       (d.verdict_notes || []).map((n) => h("p", { class: "small muted" }, n)),
-      h("div", { class: "bar" },
-        h("div", { style: `width:${100 * mc.p_target}%;background:var(--green);color:#04130a` }, "target " + fmtProb(mc.p_target)),
-        h("div", { style: `width:${100 * mc.p_stop}%;background:var(--red)` }, "stop " + fmtProb(mc.p_stop)),
-        h("div", { style: `width:${100 * mc.p_neither}%;background:var(--gray)` }, "neither " + fmtProb(mc.p_neither))),
+      h("div", { class: "bar", "aria-hidden": "true" },
+        h("div", { style: `width:${100 * mc.p_target}%;background:var(--green)` }),
+        h("div", { style: `width:${100 * mc.p_stop}%;background:var(--red)` }),
+        h("div", { style: `width:${100 * mc.p_neither}%;background:var(--gray)` })),
+      h("div", { class: "grid3", style: "margin-top:8px" },
+        h("div", {}, h("div", { class: "tiny muted" }, "Target first"), h("b", { class: "up" }, fmtProb(mc.p_target))),
+        h("div", {}, h("div", { class: "tiny muted" }, "Stop first"), h("b", { class: "down" }, fmtProb(mc.p_stop))),
+        h("div", {}, h("div", { class: "tiny muted" }, "Neither"), h("b", {}, fmtProb(mc.p_neither)))) ,
       h("p", { class: "tiny muted" }, `${mc.replays.toLocaleString()} replays from ${mc.pool_sessions} past sessions (${mc.pool_from} → ${mc.pool_to})`),
       fan,
       h("div", { class: "grid3" },
@@ -1930,18 +2015,40 @@ function renderMe(main) {
       }, "Save limits")),
     h("div", { class: "card" }, h("h3", {}, "Guide"), guideList()),
     h("div", { class: "card small muted" },
-      h("b", { style: "color:var(--text)" }, "About"),
+      h("b", { style: "color:var(--text)" }, "Trade Twin · v1.0.2"),
       h("p", {}, "Trade Twin is built on two free, MIT-licensed skill packs by Jake Schincariol (day-trader-skill and trader-skill). Data: Yahoo Finance (delayed, unofficial), SEC EDGAR."),
       h("p", {}, "Not financial advice. Practice money only. You can lose money investing; past performance and simulations do not guarantee future results.")),
     h("button", {
       class: "btn ghost",
       onclick: async () => {
-        await api("api/logout");
-        state.profile = null;
+        const result = await api("api/logout");
+        if (!result.ok) {
+          toast(result.error || "Could not log out. Check your connection.");
+          return;
+        }
+        clearPrivateState();
         renderAuth();
       },
     }, "Log out"));
 }
+
+window.addEventListener("storage", (event) => {
+  if (!DEMO || event.key !== "trade-twin-demo-v1") {
+    return;
+  }
+  try {
+    const before = event.oldValue ? JSON.parse(event.oldValue).session : null;
+    const after = event.newValue ? JSON.parse(event.newValue).session : null;
+    if (before !== after) {
+      clearPrivateState();
+      renderAuth();
+      toast("The browser profile changed in another tab. Please log in again.");
+    }
+  } catch (error) {
+    clearPrivateState();
+    renderAuth();
+  }
+});
 
 boot();
 </script>
