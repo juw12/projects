@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Crewroom — Mobile</title>
+<title>GlowRoom — Mobile</title>
 <meta name="theme-color" content="#0a0e14">
-<meta name="description" content="Crewroom mobile: watch and command your AI bot crew — live status, activity feed and goal dispatch.">
+<meta name="description" content="GlowRoom mobile: watch and command your AI bot crew — live status, activity feed and goal dispatch.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="icons/app-icon.svg">
 <link rel="apple-touch-icon" href="icons/app-icon.svg">
@@ -390,11 +390,12 @@ svg { display: block; }
     <circle cx="256" cy="92" r="22" fill="#f59e0b"/>
   </svg>
   <div class="brand">
-    <div class="brand-name" data-brand>Crewroom</div>
+    <div class="brand-name" data-brand>GlowRoom</div>
     <div class="brand-sub" id="brand-sub">Loading crew…</div>
   </div>
   <span class="pill" id="sim-pill" role="status"><span class="dot"></span><span id="sim-pill-text">SIM</span></span>
   <button class="icon-btn" id="pause-btn" aria-label="Pause simulation"><svg><use href="#i-pause"/></svg></button>
+  <button class="icon-btn" id="glow-apps-btn" type="button" data-glow-apps aria-label="Glow apps" title="Glow apps: Glow home, GlowChat and GlowRoom"></button>
 </header>
 
 <main class="main" id="main">
@@ -467,13 +468,14 @@ svg { display: block; }
     </div>
     <div class="section-title"><span>About</span></div>
     <div class="card about">
-      <b data-brand>Crewroom</b> is a control room for a crew of AI bots: watch who is working, follow every tool step, and dispatch goals.
+      <b data-brand>GlowRoom</b> is a control room for a crew of AI bots: watch who is working, follow every tool step, and dispatch goals.
       Goals you dispatch are done for real by <b>Glow AI</b> (free by default; sign in with your Glow account for stronger models, or use your own key in <b>AI brain</b>): Scout reads the live web, Byte runs real code, Pixel draws graphics. The optional <b>Run simulation</b> switch adds pretend background activity.
       <div class="links">
         <a href="./"><span>Open 3D office</span></a>
-        <a href="../glow/mobile.html">✦ Open Glow</a>
+        <a href="../chat/mobile.html">💬 Open GlowChat</a>
+        <a href="../">✦ Glow home</a>
         <a href="app.html">Install app</a>
-        <a href="../">All projects</a>
+        <a href="../../">All projects</a>
       </div>
       <div style="display:flex;gap:8px;margin-top:14px">
         <button class="btn btn-danger btn-sm" id="reset-btn">Reset all data</button>
@@ -499,6 +501,7 @@ svg { display: block; }
 <div class="toasts" id="toasts" aria-live="polite"></div>
 <canvas class="confetti" id="confetti"></canvas>
 
+<script src="../shared/glow-apps.js"></script>
 <script src="crew-engine.js"></script>
 <script>
 (function () {
@@ -507,7 +510,7 @@ svg { display: block; }
   // ============================================================
   // CONFIG
   // ============================================================
-  const BRAND = 'Crewroom';
+  const BRAND = 'GlowRoom';
   const STORAGE_KEY = 'crew-mobile-v2';
 
   // Names and colours match the desktop 3D office (index.html BOT_CONFIG).

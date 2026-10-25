@@ -1,6 +1,6 @@
 {
-  "name": "Crewroom",
-  "short_name": "Crewroom",
+  "name": "GlowRoom",
+  "short_name": "GlowRoom",
   "description": "Watch and command your AI bot crew in a live 3D office.",
   "start_url": "./index.html",
   "scope": "./",

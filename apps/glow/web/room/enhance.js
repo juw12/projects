@@ -1,10 +1,10 @@
-// Crewroom desktop enhancements.
+// GlowRoom desktop enhancements.
 // Hooks into the dashboard via window.__office (set in index.html) and the
 // 'office-event' CustomEvent fired for every processed bot event.
 (function () {
   'use strict';
 
-  const BRAND = 'Crewroom';
+  const BRAND = 'GlowRoom';
 
   const TEMPLATES = {
     leader: ['Plan this week\'s sprint', 'Summarise team progress', 'Unblock stalled tasks'],
@@ -84,15 +84,15 @@
       ai.addEventListener('click', () => window.CrewEngine && CrewEngine.openSettings());
       right.insertBefore(ai, results);
 
-      // Ecosystem switcher: jump to Glow (same account, same AI).
-      const glowLink = document.createElement('a');
+      // Glow app switcher (shared with Glow home and GlowChat): same account, same AI.
+      const glowLink = document.createElement('button');
+      glowLink.type = 'button';
       glowLink.className = 'cr-kbd-btn cr-glow-link';
-      glowLink.href = '../glow/';
-      glowLink.target = 'glow';
-      glowLink.rel = 'noopener';
-      glowLink.title = 'Open Glow — chat, council and arena with the same Glow account';
-      glowLink.innerHTML = '<i class="cr-glow-mark">✦</i>Glow';
+      glowLink.id = 'glow-apps-btn';
+      glowLink.title = 'Glow apps: Glow home, GlowChat and GlowRoom';
+      glowLink.innerHTML = '<i class="cr-glow-mark">✦</i>Glow apps';
       right.insertBefore(glowLink, ai);
+      if (window.GlowApps) window.GlowApps.mount(glowLink);
       updateAiButton();
     }
   }

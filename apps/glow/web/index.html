@@ -3,193 +3,105 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://js.puter.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://puter.com https://*.puter.com; font-src 'self' data:; frame-src https://puter.com https://*.puter.com; connect-src 'self' https: wss://*.puter.com http://localhost:* http://127.0.0.1:*">
-<meta name="description" content="Glow: explore ideas and shape plans with AI chat, a Council of agents, a Judge and side-by-side model comparisons. A free browser prototype.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'">
+<meta name="description" content="Glow: one home for your AI. GlowChat for conversations, councils and model arenas; GlowRoom for an AI crew that researches, codes and reports back. One free Glow account for every app.">
 <meta name="theme-color" content="#262624">
-<title>Glow — From a spark to something real</title>
-<link rel="stylesheet" href="./styles.css">
+<title>Glow — one home for your AI</title>
+<link rel="stylesheet" href="./home.css">
 <link rel="icon" type="image/svg+xml" href="./icons/app-icon.svg">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
 </head>
-<body class="web">
-<aside id="sidebar">
-  <div class="brand">Glow<span>.</span></div>
-  <button class="side-btn" id="new-chat-btn" type="button" title="New chat (Ctrl/⌘ K)">＋ New chat</button>
-  <button class="side-btn" id="new-council-btn" type="button">⚖ New council</button>
-  <button class="side-btn" id="new-arena-btn" type="button">⚔ New arena</button>
-  <input type="search" id="search" placeholder="Search chats…" aria-label="Search chats">
-  <div id="history"></div>
-  <div class="account-box" id="account-box">
-    <span class="account-label" id="account-label">👤 Guest</span>
-    <button class="link-btn" id="account-btn" type="button">Sign in</button>
+<body>
+<header class="top">
+  <a class="logo" href="./" aria-label="Glow home"><img src="./icons/app-icon.svg" alt="" width="34" height="34"><span>Glow</span></a>
+  <div class="top-right">
+    <span class="account-chip" id="account-chip">👤 Guest</span>
+    <button class="icon-btn" id="theme-btn" type="button" title="Light or dark">☀</button>
+    <button class="icon-btn" id="glow-apps-btn" type="button" data-glow-apps aria-label="Glow apps" title="Glow apps"></button>
   </div>
-  <a class="side-btn crewroom-link" id="crewroom-link" href="https://juwpegatron.github.io/projects/virtual-bots/" target="crewroom" rel="noopener" title="Crewroom: an AI crew that searches the web, runs code and reports back — powered by Glow. Anything typed in the message box becomes their mission.">🏢 Crewroom: hand it to the crew</a>
-  <button class="side-btn" id="settings-btn" type="button">⚙ Settings &amp; models</button>
-  <div class="side-foot">
-    <button class="link-btn" id="theme-btn" type="button">☀ Light</button>
-    · Free · <a href="https://github.com/juwpegatron/projects/tree/main/apps/glow">source</a>
-  </div>
-</aside>
+</header>
 
-<main id="main">
-  <div id="topbar">
-    <button id="menu-btn" type="button" aria-label="Menu">☰</button>
-    <span class="mobile-brand">Glow</span>
-    <span class="label" id="mode-label">Chat</span>
-    <div class="model-picker" id="model-picker">
-      <button type="button" id="model-picker-btn" class="model-picker-btn" aria-haspopup="dialog" aria-expanded="false" title="Choose a model">
-        <span id="model-picker-label">Model</span><span class="caret" aria-hidden="true">▾</span>
-      </button>
-      <div id="model-menu" class="model-menu hidden" role="dialog" aria-label="Choose a model">
-        <input type="search" id="model-search" placeholder="Search models…" aria-label="Search models" autocomplete="off">
-        <div id="model-list" class="model-list" role="listbox" aria-label="Models"></div>
-        <div id="model-menu-foot" class="model-menu-foot"></div>
+<main>
+  <section class="hero">
+    <p class="eyebrow">✦ The Glow ecosystem</p>
+    <h1>One home for your AI.</h1>
+    <p class="lede">Ask, plan and get things done with free AI. Use <b>GlowChat</b> to talk things through and <b>GlowRoom</b> to give bigger jobs to an AI crew. One Glow account works in every app.</p>
+
+    <form class="start" id="start-form" autocomplete="off">
+      <label class="sr-only" for="start-input">What do you want to do?</label>
+      <textarea id="start-input" rows="2" maxlength="2000" placeholder="What do you want to do? e.g. “Plan a 3-day trip to Bali” or “Compare the best budget laptops”"></textarea>
+      <div class="start-actions">
+        <button type="submit" class="btn primary" id="start-chat" data-target="chat">💬 Ask GlowChat</button>
+        <button type="button" class="btn" id="start-room" data-target="room">🏢 Give it to GlowRoom</button>
+        <span class="start-hint" id="start-hint">Quick questions → GlowChat · research, code and multi-step jobs → GlowRoom</span>
       </div>
-      <select id="chat-model" aria-label="Model" hidden></select>
+    </form>
+  </section>
+
+  <section class="apps" aria-label="Glow apps">
+    <article class="app-card chat">
+      <div class="app-icon" aria-hidden="true">💬</div>
+      <h2>GlowChat</h2>
+      <p>Chat with free AI right away, or pick any model. Personas, tickable plans, a Council with a Judge and a side-by-side Arena.</p>
+      <ul>
+        <li>Searchable model picker with favourites</li>
+        <li>Planner, Tutor, Coder, Writer and more</li>
+        <li>Share chats by link, export to Markdown</li>
+      </ul>
+      <div class="app-links">
+        <a class="btn primary" id="open-chat" href="./chat/">Open GlowChat</a>
+        <a class="btn ghost" href="./chat/mobile.html">Mobile</a>
+        <a class="btn ghost" href="./chat/app.html">Install</a>
+      </div>
+    </article>
+    <article class="app-card room">
+      <div class="app-icon" aria-hidden="true">🏢</div>
+      <h2>GlowRoom</h2>
+      <p>Give a goal to an AI crew in a live 3D office. They search the web, run code and report back with sources.</p>
+      <ul>
+        <li>Nova plans, Scout researches, Byte codes</li>
+        <li>Every step visible, results with sources</li>
+        <li>Continue any result as a chat in GlowChat</li>
+      </ul>
+      <div class="app-links">
+        <a class="btn primary" id="open-room" href="./room/">Open GlowRoom</a>
+        <a class="btn ghost" href="./room/mobile.html">Mobile</a>
+        <a class="btn ghost" href="./room/app.html">Install</a>
+      </div>
+    </article>
+  </section>
+
+  <section class="recent" id="recent" hidden>
+    <h2>Jump back in</h2>
+    <div class="recent-grid">
+      <div class="recent-col" id="recent-chats-col">
+        <h3>💬 Recent chats</h3>
+        <ul id="recent-chats"></ul>
+      </div>
+      <div class="recent-col" id="recent-missions-col">
+        <h3>🏢 Recent crew missions</h3>
+        <ul id="recent-missions"></ul>
+      </div>
     </div>
-    <span class="spacer"></span>
-    <span id="status"></span>
-    <button class="secondary small" id="share-btn" type="button" title="Copy a link that opens this chat (no account needed)">🔗 Share</button>
-    <button class="secondary small" id="export-btn" type="button" title="Export this conversation as Markdown">⤓ Export</button>
-    <button class="icon-btn" id="theme-toggle" type="button" title="Switch light / dark theme" aria-label="Switch light or dark theme">☀</button>
-    <button class="icon-btn help-btn" id="help-btn" type="button" title="Take the guided tour" aria-label="Take the guided tour">?</button>
-  </div>
-  <div id="setup-banner" class="hidden">
-    <span id="banner-text">You're in <b>Demo mode</b> (canned replies). Pick <b>Glow Free</b> in the model menu for real AI, or sign in for more models.</span>
-    <button class="primary" id="banner-signin" type="button">Sign in for free AI</button>
-    <button class="secondary small" id="banner-settings" type="button">Use my own key</button>
-  </div>
-  <div id="messages"></div>
-  <button id="jump-btn" class="jump-btn hidden" type="button" title="Jump to the latest message">↓ Latest</button>
-  <div id="council-controls" class="hidden">
-    <button class="secondary" id="council-continue-btn" type="button">Another round</button>
-    <button class="secondary" id="council-judge-btn" type="button">Ask the Judge</button>
-    <button class="secondary" id="council-stop-btn" type="button">Stop</button>
-  </div>
-  <div id="composer-wrap">
-    <div id="rate-notice" class="rate-notice hidden" role="status" aria-live="polite">
-      <span class="rate-icon" aria-hidden="true">⏳</span>
-      <span id="rate-text" class="rate-text"></span>
-      <button class="link-btn" id="rate-signin" type="button">Sign in for faster AI</button>
-      <button class="link-btn" id="rate-close" type="button" aria-label="Dismiss notice" title="Dismiss">✕</button>
+  </section>
+
+  <section class="account" aria-label="Your Glow account">
+    <div>
+      <h2>Your Glow account</h2>
+      <p id="account-text">You're using Glow as a guest. Sign in once with a free Puter account, in GlowChat or GlowRoom, for stronger models; it works in every Glow app.</p>
     </div>
-    <div id="improve-bar" class="improve-bar hidden" role="status">
-      <span>✨ Prompt improved. Review it, then press Enter to send.</span>
-      <button class="link-btn" id="improve-undo" type="button">Undo</button>
-    </div>
-    <div id="composer-tools" class="composer-tools">
-      <label for="persona-select" class="persona-label">Persona</label>
-      <select id="persona-select" aria-label="Persona"></select>
-      <span class="spacer"></span>
-      <span id="char-count" class="char-count" aria-live="off"></span>
-    </div>
-    <div id="pending-files" class="hidden"></div>
-    <div id="composer">
-      <button class="icon-btn" id="attach-btn" type="button" title="Attach text or code files" aria-label="Attach files">📎</button>
-      <input type="file" id="file-input" multiple hidden accept=".txt,.md,.csv,.json,.py,.js,.ts,.html,.css,.xml,.yaml,.yml,.log,.sql,.java,.c,.cpp,.h,.go,.rs,.rb,.php,.sh,text/*">
-      <textarea id="input" rows="1" placeholder="Message Glow…" aria-label="Message"></textarea>
-      <button class="icon-btn" id="improve-btn" type="button" title="Improve my prompt with AI" aria-label="Improve my prompt">✨</button>
-      <button class="icon-btn hidden" id="mic-btn" type="button" title="Speak instead of typing (uses your browser's speech recognition)" aria-label="Voice input">🎤</button>
-      <button class="secondary hidden" id="stop-btn" type="button">Stop</button>
-      <button class="primary" id="send-btn" type="button">Send</button>
-    </div>
-  </div>
+    <a class="btn" id="account-action" href="./chat/">Sign in in GlowChat</a>
+  </section>
 </main>
 
-<div class="modal-bg" id="settings-modal">
-  <div class="modal" role="dialog" aria-labelledby="settings-title">
-    <h3 id="settings-title">Settings &amp; models</h3>
+<footer class="foot">
+  <span>✦ Glow · free · chats stay in your browser</span>
+  <button class="link" id="install-btn" type="button" hidden>Install Glow</button>
+  <a class="link" href="../">All projects</a>
+</footer>
 
-    <h4>Account</h4>
-    <div class="row" style="margin-top:4px">
-      <span id="set-account-status" class="note">You're using Glow as a guest.</span>
-      <span class="spacer"></span>
-      <button class="secondary small" id="set-account-btn" type="button">Sign in</button>
-    </div>
-    <label class="note"><input type="checkbox" id="set-sync"> Sync my chats to my account (so they follow me to other devices)</label>
-    <p class="note">Sign-in uses <a href="https://puter.com" target="_blank" rel="noopener">Puter</a>, a free third-party account. Glow AI models run on your own free Puter allowance, so there are no API keys and no cost to you or to Glow. API keys you add below are never synced.</p>
-
-    <h4>About you &amp; how Glow should answer</h4>
-    <p class="note">Added to every chat, council and arena prompt. Example: “I'm a student in Batam. Explain simply and give examples in Indonesian Rupiah.”</p>
-    <textarea id="set-instructions" rows="3" maxlength="1500" placeholder="Optional custom instructions…"></textarea>
-    <label class="note"><input type="checkbox" id="set-followups"> Suggest follow-up questions after replies</label>
-
-    <h4>Appearance</h4>
-    <div class="row" style="margin-top:4px">
-      <label for="set-theme" class="note">Theme</label>
-      <select id="set-theme">
-        <option value="system">Match my device</option>
-        <option value="light">Light</option>
-        <option value="dark">Dark</option>
-      </select>
-      <span class="spacer"></span>
-      <button class="secondary small" id="tour-replay-btn" type="button">Replay the guided tour</button>
-    </div>
-
-    <h4>Your own AI keys (optional)</h4>
-    <p class="note">Keys, chats and votes are stored in this browser. Keys are only sent to the provider they belong to.</p>
-
-    <h4>1. OpenRouter: free cloud models</h4>
-    <p class="note">Sign up at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a> and create a key. Models marked <i>free</i> cost nothing (rate-limited).</p>
-    <input type="password" id="set-openrouter" placeholder="sk-or-…" autocomplete="off">
-    <label class="note"><input type="checkbox" id="set-paid"> Also show paid models (billed to your OpenRouter credit)</label>
-
-    <h4>2. Ollama: private models on your own computer</h4>
-    <p class="note">Install Ollama, then allow this site: <code>OLLAMA_ORIGINS=https://juwpegatron.github.io ollama serve</code></p>
-    <input type="url" id="set-ollama" placeholder="http://localhost:11434">
-
-    <h4>3. Any OpenAI-compatible API (optional)</h4>
-    <input type="url" id="set-custom-url" placeholder="https://api.example.com/v1">
-    <input type="password" id="set-custom-key" placeholder="API key" autocomplete="off" style="margin-top:6px">
-
-    <h4>Your data</h4>
-    <div class="row" style="margin-top:4px">
-      <button class="secondary" id="backup-btn" type="button">Back up everything</button>
-      <label class="file-btn">Restore backup<input type="file" id="import-input" accept="application/json"></label>
-      <button class="secondary" id="clear-btn" type="button">Delete everything</button>
-    </div>
-    <p class="note">Shortcuts: <code>Ctrl/⌘ K</code> new chat · <code>Esc</code> stop · <code>Shift+Enter</code> new line · paste or 📎 to attach files.</p>
-
-    <div class="row" style="justify-content:flex-end; margin-top:18px">
-      <button class="secondary" id="settings-close" type="button">Cancel</button>
-      <button class="primary" id="settings-save" type="button">Save &amp; load models</button>
-    </div>
-  </div>
-</div>
-
-<div id="welcome-screen" class="welcome-screen hidden" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
-  <div class="welcome-card">
-    <button class="icon-btn welcome-theme" id="welcome-theme" type="button" title="Switch light / dark theme" aria-label="Switch light or dark theme">☀</button>
-    <img class="welcome-logo" src="./icons/app-icon.svg" alt="" width="64" height="64">
-    <h1 id="welcome-title">Glow</h1>
-    <p class="welcome-tag">From a spark to something real.</p>
-    <button class="primary big" id="signin-btn" type="button">Sign in, free real AI</button>
-    <p class="note">GPT, Claude, Gemini, DeepSeek and more, with no API key. Uses your own free <a href="https://puter.com" target="_blank" rel="noopener">Puter</a> account, and your chats can sync across devices.</p>
-    <p class="signin-error hidden" id="signin-error" role="alert"></p>
-    <div class="divider"><span>or</span></div>
-    <button class="secondary big" id="guest-btn" type="button">Continue as guest</button>
-    <p class="note">Chat with free AI right away, no sign-up. You can also bring your own OpenRouter key or local Ollama. Everything stays in this browser, including chats and keys you already have.</p>
-  </div>
-</div>
-
-<div id="tour" class="tour hidden" aria-live="polite">
-  <div id="tour-spot" class="tour-spot"></div>
-  <div id="tour-card" class="tour-card" role="dialog" aria-labelledby="tour-title">
-    <div class="tour-step" id="tour-step"></div>
-    <h4 id="tour-title"></h4>
-    <p id="tour-text"></p>
-    <div class="tour-actions">
-      <button class="link-btn" id="tour-skip" type="button">Skip tour</button>
-      <span class="spacer"></span>
-      <button class="secondary small" id="tour-back" type="button">Back</button>
-      <button class="primary" id="tour-next" type="button">Next</button>
-    </div>
-  </div>
-</div>
-
-<div id="toast" class="toast" role="status" aria-live="polite"></div>
-
-<script src="./app.js"></script>
+<script src="./shared/glow-apps.js"></script>
+<script src="./home.js"></script>
 </body>
 </html>

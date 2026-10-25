@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 APP = Path(__file__).resolve().parent.parent
-WEB = APP / "web"
+WEB = APP / "web" / "chat"
 REPO = APP.parent.parent
 PAGES = ("index.html", "app.html", "mobile.html")
 
@@ -51,7 +51,7 @@ class V04Tests(unittest.TestCase):
 
     def test_offline_cache_bumped_for_new_assets(self):
         worker = (WEB / "sw.js").read_text(encoding="utf-8")
-        self.assertIn("const CACHE_NAME = 'glow-v6';", worker)
+        self.assertIn("const CACHE_NAME = 'glowchat-v1';", worker)
 
     def test_guests_get_keyless_free_ai(self):
         self.assertIn('const FREE_AI_URL = "https://text.pollinations.ai/openai";', self.script)
@@ -61,7 +61,7 @@ class V04Tests(unittest.TestCase):
     def test_catalog_version(self):
         apps = json.loads((REPO / "scripts/apps.json").read_text(encoding="utf-8"))["apps"]
         glow = next(app for app in apps if app["id"] == "glow")
-        self.assertEqual(glow["version"], "0.5.1")
+        self.assertEqual(glow["version"], "0.6.0")
         self.assertEqual(glow["name"], "Glow")
 
 
@@ -70,7 +70,7 @@ class GlowV05FeatureTests(unittest.TestCase):
     """v0.5: model picker, personas, checklists, fuse, improve, voice and share."""
 
     def setUp(self):
-        self.web = Path(__file__).resolve().parents[1] / "web"
+        self.web = Path(__file__).resolve().parents[1] / "web" / "chat"
         self.html = (self.web / "index.html").read_text(encoding="utf-8")
         self.js = (self.web / "app.js").read_text(encoding="utf-8")
 
@@ -98,22 +98,22 @@ class GlowCrewroomLinkTests(unittest.TestCase):
     """v0.5.1: Glow and Crewroom are connected both ways."""
 
     def setUp(self):
-        self.web = Path(__file__).resolve().parents[1] / "web"
+        self.web = Path(__file__).resolve().parents[1] / "web" / "chat"
         self.js = (self.web / "app.js").read_text(encoding="utf-8")
 
     def test_every_page_links_to_crewroom(self):
         for page in ("index.html", "app.html", "mobile.html"):
             html = (self.web / page).read_text(encoding="utf-8")
             self.assertIn('id="crewroom-link"', html, page)
-            self.assertIn("/projects/virtual-bots/", html, page)
+            self.assertIn('href="../room/', html, page)
 
     def test_shared_inbox_key_matches_crewroom(self):
-        crew = (self.web.parents[1] / "virtual-bots" / "web" / "crew-engine.js").read_text(encoding="utf-8")
+        crew = (self.web.parent / "room" / "crew-engine.js").read_text(encoding="utf-8")
         self.assertIn("'glow.inbox'", crew)
         self.assertIn('const CREWROOM_INBOX_KEY = "glow.inbox";', self.js)
 
     def test_glow_sends_missions_and_labels_results(self):
-        for needle in ("function askCrew", "Ask the crew", 'searchParams.set("goal"', 'source: "crewroom"', "🏢 Crewroom"):
+        for needle in ("function askCrew", "Ask GlowRoom", 'searchParams.set("goal"', 'source: "crewroom"', "🏢 GlowRoom"):
             self.assertIn(needle, self.js)
 
 if __name__ == "__main__":
