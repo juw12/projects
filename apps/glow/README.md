@@ -22,6 +22,7 @@ Static site, no backend, so hosting is free (GitHub Pages). Everything runs in t
 
 | Provider | Cost | Setup |
 |---|---|---|
+| Glow Free (default for guests) | Free | None: works right away via Pollinations' anonymous tier (GPT-OSS 20B, shared, rate-limited) |
 | Glow AI (sign in) | Free for you and for Glow | Click **Sign in**: a free [Puter](https://puter.com) account; GPT, Claude, Gemini, DeepSeek… with no key |
 | Demo | Free | None: offline canned replies to show every mode |
 | OpenRouter | Free models available | Paste a free key from openrouter.ai/keys in Settings |
@@ -45,7 +46,7 @@ Chats, settings and votes are stored in browser localStorage. API keys are store
 python apps/glow/tests/test_static_integrity.py
 python apps/glow/tests/verify_api.py
 ```
-In-browser self-test: open `web/index.html#selftest` (49 checks covering chat, council,
+In-browser self-test: open `web/index.html#selftest` (52 checks covering chat, council,
 judge, arena, voting, export, search, the v0.2.1 fixes, and v0.4 sign-in, guest mode, tour,
 theme, sync and UI, using a Puter test double so no real account is touched). Demos: `#demo-council`, `#demo-arena`.
 
@@ -77,3 +78,8 @@ Free OpenRouter models are rate-limited. Working prototype, not a production ser
 - **Theme**: follows the device by default; toggle in the top bar, welcome screen or sidebar, or choose System/Light/Dark in Settings.
 - **UI**: starter prompt cards, per-reply Copy, toast feedback, chat rename, glow accents, focus rings, message animations (reduced-motion respected). Chat error notices no longer disappear right after they appear.
 - **Honest limits**: Puter is a third-party service and needs a person to sign in (a popup); its free allowance is limited and set by Puter. If Puter can't be reached, guest mode keeps working.
+
+## v0.4.1 — real AI for guests, no sign-up
+- Guests now get real answers immediately: **Glow Free** (GPT-OSS 20B via Pollinations' anonymous tier, no key, no account) is the default model, so typing and pressing Enter works like a normal AI chat. Demo stays available.
+- Your own strong models (OpenRouter key, signed-in Glow AI, local Ollama) still take priority when connected.
+- Friendly messages when the free service is busy (it's shared and rate-limited; requests are retried automatically) or the network is down.
