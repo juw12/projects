@@ -1,0 +1,5 @@
+# Optional pipeline only — the web studio needs nothing.
+numpy>=1.24
+pillow>=10.0
+imageio-ffmpeg>=0.4.9
+edge-tts>=6.1

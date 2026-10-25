@@ -1,0 +1,123 @@
+/* Shortcraft sample projects. Plain data — edit freely.
+ * SAMPLES:START
+ */
+window.SC_SAMPLES = [
+  {
+    "id": "npi-gates-en",
+    "name": "5 gates every gadget passes (EN, editorial)",
+    "title": "5 gates every gadget passes before it ships",
+    "kicker": "From idea to shelf",
+    "template": "editorial",
+    "lang": "en",
+    "music": "calm",
+    "captions": true,
+    "credit": "Illustration · original artwork",
+    "scenes": [
+      {"headline": "5 gates every gadget passes before it ships", "icon": "🚪", "stat": "5", "statLabel": "gates before the shelf", "chip": "consumer electronics · NPI",
+       "narration": "Before any gadget reaches a store, it passes five gates. Most people never hear about them."},
+      {"label": "Design", "headline": "Design", "sub": "CAD models + simulation", "icon": "📐", "chip": "nothing physical yet",
+       "narration": "Step one: design. Engineers model every part in CAD, and simulate it, before anything is built."},
+      {"label": "EVT", "headline": "EVT", "sub": "Engineering Validation Test", "icon": "🔌", "stat": "Works?", "chip": "first prototypes",
+       "narration": "Step two: E.V.T., engineering validation. The first prototypes, often partly hand built. One question: does it work at all?"},
+      {"label": "DVT", "headline": "DVT", "sub": "Design Validation Test", "icon": "🌡️", "stat": "−30 to +60 °C", "statLabel": "typical outdoor camera rating", "chip": "drop · thermal · water",
+       "narration": "Step three: D.V.T., design validation. Now we try to break it. Drops, heat, cold, and water. Outdoor cameras are often rated from minus 30 to plus 60 degrees Celsius.",
+       "caption": "Step 3: DVT, design validation. Now we try to break it. Drops, heat, cold and water. Outdoor cameras are often rated −30 to +60 °C."},
+      {"label": "PVT", "headline": "PVT", "sub": "Production Validation Test", "icon": "🏭", "stat": "1000s", "statLabel": "units, all the same", "chip": "real line · real speed",
+       "narration": "Step four: P.V.T., production validation. The real factory line, at real speed. Can we build thousands, all the same?"},
+      {"label": "MP", "headline": "Mass Production", "sub": "MP", "icon": "🚚", "stat": "12+ months", "statLabel": "often, from idea to shelf", "chip": "timelines vary by product",
+       "narration": "Step five: mass production. Only now does it ship. The whole journey often takes a year or more."},
+      {"headline": "Which step surprised you?", "icon": "💬", "chip": "follow for part 2",
+       "narration": "I work at step three every day. Follow for what really happens inside a factory."}
+    ]
+  },
+  {
+    "id": "npi-gates-id",
+    "name": "5 gerbang sebelum gadget dijual (ID, editorial)",
+    "title": "5 gerbang sebelum gadget dijual",
+    "kicker": "Dari ide ke rak toko",
+    "template": "editorial",
+    "lang": "id",
+    "music": "calm",
+    "captions": true,
+    "credit": "Ilustrasi · karya orisinal",
+    "scenes": [
+      {"headline": "5 gerbang sebelum gadget dijual", "icon": "🚪", "stat": "5", "statLabel": "gerbang sebelum dijual", "chip": "elektronik konsumen · NPI",
+       "narration": "Sebelum gadget sampai di toko, ia harus melewati lima gerbang. Kebanyakan orang tidak pernah mendengarnya."},
+      {"label": "Desain", "headline": "Desain", "sub": "Model CAD + simulasi", "icon": "📐", "chip": "belum ada barang fisik",
+       "narration": "Tahap satu: desain. Insinyur memodelkan setiap komponen di CAD, dan mensimulasikannya, sebelum apa pun dibuat."},
+      {"label": "EVT", "headline": "EVT", "sub": "Engineering Validation Test", "icon": "🔌", "stat": "Berfungsi?", "chip": "prototipe pertama",
+       "narration": "Tahap dua: E V T, validasi engineering. Prototipe pertama, sering sebagian dirakit tangan. Satu pertanyaan: apakah ini berfungsi?"},
+      {"label": "DVT", "headline": "DVT", "sub": "Design Validation Test", "icon": "🌡️", "stat": "−30 s/d +60 °C", "statLabel": "rating umum kamera outdoor", "chip": "jatuh · suhu · air",
+       "narration": "Tahap tiga: D V T, validasi desain. Sekarang kami coba merusaknya. Dijatuhkan, dipanaskan, didinginkan, dan disemprot air. Kamera outdoor sering dirancang untuk minus tiga puluh sampai enam puluh derajat Celsius.",
+       "caption": "Tahap 3: DVT, validasi desain. Sekarang kami coba merusaknya. Dijatuhkan, dipanaskan, didinginkan, dan disemprot air. Kamera outdoor sering dirancang untuk −30 sampai +60 °C."},
+      {"label": "PVT", "headline": "PVT", "sub": "Production Validation Test", "icon": "🏭", "stat": "Ribuan", "statLabel": "unit, semuanya sama", "chip": "lini asli · kecepatan asli",
+       "narration": "Tahap empat: P V T, validasi produksi. Lini pabrik sungguhan, kecepatan sungguhan. Bisakah kita membuat ribuan unit, semuanya sama?"},
+      {"label": "MP", "headline": "Produksi Massal", "sub": "Mass Production (MP)", "icon": "🚚", "stat": "12+ bulan", "statLabel": "sering, dari ide ke rak", "chip": "tergantung produk",
+       "narration": "Tahap lima: produksi massal. Baru sekarang produk dikirim. Seluruh perjalanan ini sering memakan waktu setahun atau lebih."},
+      {"headline": "Tahap mana yang bikin kamu kaget?", "icon": "💬", "chip": "follow untuk part 2",
+       "narration": "Saya bekerja di tahap tiga setiap hari. Follow untuk melihat apa yang sebenarnya terjadi di dalam pabrik."}
+    ]
+  },
+  {
+    "id": "cctv-teardown-en",
+    "name": "What's inside an outdoor camera (EN, teardown)",
+    "title": "Outdoor security camera",
+    "kicker": "Teardown",
+    "template": "teardown",
+    "lang": "en",
+    "music": "dark",
+    "captions": true,
+    "scenes": [
+      {"headline": "What's inside?", "icon": "📷",
+       "narration": "This is an outdoor security camera. Let's open it up, layer by layer."},
+      {"headline": "Infrared LEDs", "icon": "🔴", "stat": "850 nm", "statLabel": "almost invisible to eyes",
+       "narration": "Under the front glass sits a ring of infrared LEDs. Their 850 nanometer light is almost invisible to you. But to the camera, the night turns bright.",
+       "caption": "Under the front glass sits a ring of infrared LEDs. Their 850 nm light is almost invisible to you. But to the camera, the night turns bright."},
+      {"headline": "IR foam ring", "icon": "⭕", "stat": "No glare", "statLabel": "blocks light leaking into the lens",
+       "narration": "Around the lens sits a small foam ring. Without it, infrared light bounces inside the glass, and the night image turns foggy white."},
+      {"headline": "IR-cut filter", "icon": "🌗", "stat": "Day / Night", "statLabel": "moved by a tiny magnet",
+       "narration": "Behind the lens, a tiny filter slides. By day, it blocks infrared, so colors look right. At night, it moves away. Click! That's the sound some cameras make at dusk."},
+      {"headline": "Sensor + main chip", "icon": "🧠", "stat": "≈330×", "statLabel": "166 MB/s raw → 0.5 MB/s", "chip": "4 MP · 30 fps · H.265 @ 4 Mbps",
+       "narration": "The sensor makes about 166 megabytes of raw video every second. The main chip squeezes it with H.265, roughly 300 times smaller.",
+       "caption": "The sensor makes about 166 MB of raw video every second. The main chip squeezes it with H.265, roughly 300× smaller."},
+      {"headline": "Aluminum housing", "icon": "🔥", "stat": "= Heat sink", "statLabel": "+ gasket + vent",
+       "narration": "All that work makes heat. So the aluminum housing doubles as a heat sink. A rubber gasket and a tiny vent keep the rain out."},
+      {"headline": "PoE cable", "icon": "🔌", "stat": "≤ 100 m", "statLabel": "data + power, one cable", "chip": "802.3af: up to ≈13 W at the camera",
+       "narration": "And one network cable carries both data and power, up to 100 meters. That's Power over Ethernet."},
+      {"headline": "What should we open next?", "icon": "💬", "stat": "10 parts · 1 job",
+       "narration": "Ten parts. One job: seeing through darkness and rain. What should we take apart next?"}
+    ]
+  },
+  {
+    "id": "cctv-teardown-id",
+    "name": "Bedah kamera CCTV outdoor (ID, teardown)",
+    "title": "Kamera CCTV outdoor",
+    "kicker": "Bedah produk",
+    "template": "teardown",
+    "lang": "id",
+    "music": "dark",
+    "captions": true,
+    "scenes": [
+      {"headline": "Apa isinya?", "icon": "📷",
+       "narration": "Ini kamera CCTV outdoor. Yuk, kita bedah, lapis demi lapis."},
+      {"headline": "LED inframerah", "icon": "🔴", "stat": "850 nm", "statLabel": "hampir tak terlihat mata",
+       "narration": "Di balik kaca depan, ada cincin lampu L E D inframerah. Cahayanya delapan ratus lima puluh nanometer, hampir tak terlihat mata. Tapi bagi kamera, malam jadi terang.",
+       "caption": "Di balik kaca depan ada cincin LED inframerah. Cahayanya 850 nm, hampir tak terlihat mata. Tapi bagi kamera, malam jadi terang."},
+      {"headline": "Busa isolasi IR", "icon": "⭕", "stat": "Anti-silau", "statLabel": "cegah cahaya bocor ke lensa",
+       "narration": "Di sekeliling lensa, ada cincin busa kecil. Tanpa busa ini, cahaya inframerah memantul di dalam kaca, dan gambar malam jadi putih berkabut."},
+      {"headline": "Filter IR-cut", "icon": "🌗", "stat": "Siang / Malam", "statLabel": "digeser magnet kecil",
+       "narration": "Di belakang lensa, ada filter kecil yang bisa bergeser. Siang hari, filter ini menahan inframerah, supaya warnanya akurat. Malam hari, filternya bergeser. Klik! Itu suara yang kadang terdengar dari CCTV saat senja."},
+      {"headline": "Sensor + chip utama", "icon": "🧠", "stat": "≈330×", "statLabel": "166 MB/s mentah → 0,5 MB/s", "chip": "4 MP · 30 fps · H.265 @ 4 Mbps",
+       "narration": "Sensornya menghasilkan sekitar seratus enam puluh enam megabait video mentah setiap detik. Chip utama memadatkannya dengan H dua enam lima, kira-kira tiga ratus kali lebih kecil.",
+       "caption": "Sensornya menghasilkan sekitar 166 MB video mentah setiap detik. Chip utama memadatkannya dengan H.265, kira-kira 300× lebih kecil."},
+      {"headline": "Rumah aluminium", "icon": "🔥", "stat": "= Pendingin", "statLabel": "+ gasket + ventilasi",
+       "narration": "Semua proses itu menghasilkan panas. Jadi, rumah aluminiumnya sekaligus jadi pendingin. Karet gasket dan ventilasi kecil menjaga air hujan tetap di luar."},
+      {"headline": "Kabel PoE", "icon": "🔌", "stat": "≤ 100 m", "statLabel": "data + listrik, satu kabel", "chip": "802.3af: hingga ≈13 W di kamera",
+       "narration": "Dan satu kabel LAN membawa data dan listrik sekaligus, sampai seratus meter. Namanya, Power over Ethernet.",
+       "caption": "Dan satu kabel LAN membawa data dan listrik sekaligus, sampai 100 meter. Namanya Power over Ethernet."},
+      {"headline": "Bedah apa berikutnya?", "icon": "💬", "stat": "10 komponen · 1 tugas",
+       "narration": "Sepuluh komponen. Satu tugas: melihat dalam gelap dan hujan. Produk apa yang harus kita bedah berikutnya?"}
+    ]
+  }
+];
+/* SAMPLES:END */

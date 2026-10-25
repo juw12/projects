@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Shortcraft — make faceless 9:16 explainer shorts in your browser: scenes, step tracker, captions, generated music and video export. No install, no login.">
+  <title>Shortcraft — faceless explainer shorts in your browser</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html">
+      <img src="icons/icon.svg" alt="" width="28" height="28">
+      <span>Shortcraft</span>
+    </a>
+    <div class="topbar-actions">
+      <a class="btn ghost" href="app.html?sample=npi-gates-en">Try a sample</a>
+      <a class="btn" href="app.html">Open studio</a>
+    </div>
+  </header>
+
+  <main class="landing">
+    <section class="hero">
+      <div>
+        <h1>Faceless explainer shorts, <span>made in your browser.</span></h1>
+        <p>Write 5–8 short scenes, pick a template, record your voice (or upload one) and export a 1080×1920 video
+          with burned-in captions and generated, copyright-free music. Built for TikTok, Reels and YouTube Shorts
+          in English and Bahasa Indonesia.</p>
+        <div class="cta-row">
+          <a class="btn primary" href="app.html">Open the studio</a>
+          <a class="btn ghost" href="app.html?sample=cctv-teardown-id">Contoh Bahasa Indonesia</a>
+        </div>
+      </div>
+      <div class="demo-row">
+        <video src="media/demo-editorial-en.mp4" poster="media/poster-editorial.jpg" controls playsinline preload="none"
+          aria-label="Demo: editorial template, English"></video>
+        <video src="media/demo-teardown-id.mp4" poster="media/poster-teardown.jpg" controls playsinline preload="none"
+          aria-label="Demo: teardown template, Bahasa Indonesia"></video>
+      </div>
+    </section>
+
+    <section class="features" aria-label="Features">
+      <div class="feature">
+        <h3>Two proven formats</h3>
+        <p>Editorial step-tracker (white, serif, numbered steps) and dark teardown with callout cards — the
+          styles behind fast-growing faceless explainer accounts.</p>
+      </div>
+      <div class="feature">
+        <h3>Your voice, natural</h3>
+        <p>Record each scene with your mic or upload clips. Scene timing follows the audio. Browser voice is
+          available for quick timing previews.</p>
+      </div>
+      <div class="feature">
+        <h3>Captions + music built in</h3>
+        <p>Short, punchy caption chunks with number highlights, plus soft generated music — no stock licenses
+          to worry about.</p>
+      </div>
+      <div class="feature">
+        <h3>Viral checklist</h3>
+        <p>Checks hook length, total ≤ 60 s, a concrete number and a closing question — the basics that keep
+          people watching and commenting.</p>
+      </div>
+      <div class="feature">
+        <h3>Post kit</h3>
+        <p>Generates a title, caption and hashtags (EN or ID) from your scenes, ready to paste.</p>
+      </div>
+      <div class="feature">
+        <h3>Private and offline-first</h3>
+        <p>No account, no server: projects live in your browser and export as JSON. Works on GitHub Pages.</p>
+      </div>
+    </section>
+
+    <section class="steps-list" aria-label="How it works">
+      <h2>How it works</h2>
+      <ol>
+        <li>Open the studio and load a sample, or start blank.</li>
+        <li>Edit each scene: headline, big number, emoji or image, and the narration.</li>
+        <li>Record your voice per scene (or upload clips), then press Play to check timing.</li>
+        <li>Export the video and copy the post kit. Post the same idea in EN and ID and compare retention.</li>
+      </ol>
+      <p>Want studio-grade neural voices or full-quality offline renders? See the optional Python pipeline in the
+        project's <code>pipeline/</code> folder.</p>
+    </section>
+
+    <p class="foot">Shortcraft by Juwen Lie · part of the <a href="../index.html">projects</a> monorepo.
+      Views and virality are never guaranteed — the tool makes good formats fast; the idea still has to be good.</p>
+  </main>
+</body>
+</html>

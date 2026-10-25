@@ -394,6 +394,30 @@
       "featured": true,
       "order": 5.7,
       "version": "1.0.0"
+    },
+    {
+      "id": "shortcraft",
+      "name": "Shortcraft",
+      "category": "Software",
+      "desc": "Make faceless 9:16 explainer shorts in the browser — captions, music and MP4 export",
+      "description": "A zero-install web studio for faceless explainer shorts in English and Bahasa Indonesia. Write hook &rarr; steps &rarr; CTA scenes, pick the editorial step-tracker or dark teardown template, record or upload your voice per scene (timing follows the audio) and export a 1080&times;1920 MP4 with burned-in captions and generated, copyright-free music. Includes a viral checklist, a post kit (title, caption, hashtags) and an optional Python pipeline for neural voiceovers and full renders. Grew out of four hand-rendered pilot videos (CCTV teardown and NPI &ldquo;5 gates&rdquo;, EN/ID). A working tool &mdash; it makes the format fast; it does not guarantee views.",
+      "tags": [
+        "video",
+        "Canvas",
+        "Web Audio",
+        "MediaRecorder",
+        "Bahasa Indonesia",
+        "content creation"
+      ],
+      "image": "shortcraft.png",
+      "image_alt": "Shortcraft: two 9:16 explainer frames, a light editorial step tracker and a dark CCTV teardown, next to the Shortcraft title",
+      "links": {
+        "app": "shortcraft/app.html",
+        "web": "shortcraft/",
+        "mobile": "shortcraft/mobile.html"
+      },
+      "featured": true,
+      "order": 5.6
     }
   ]
 }
