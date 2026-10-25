@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updatedAt": "2026-10-25T16:00:42.855Z",
+  "updatedAt": "2026-10-25T16:00:45.851Z",
   "settings": {
     "announcement": "",
     "hideSamples": false
@@ -83,5 +83,20 @@
       "filename": "guangyao-user-guide.pdf"
     }
   ],
-  "events": []
+  "events": [
+    {
+      "id": "e-mvo0lbtnj3i",
+      "title": "後台測試活動（將立即刪除）",
+      "date": "2026-12-01",
+      "time": "19:30",
+      "duration": "60 分鐘",
+      "type": "online",
+      "teacher": "",
+      "place": "",
+      "description": "",
+      "signupUrl": "",
+      "status": "draft",
+      "publishedAt": "2026-10-25T16:00:45.851Z"
+    }
+  ]
 }
