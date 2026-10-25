@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Virtual Bots Office</title>
+  <title>Crewroom — 3D Office</title>
   <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
   <link rel="apple-touch-icon" href="assets/icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
@@ -1367,13 +1367,15 @@
       background: var(--text-muted);
     }
   </style>
+  <link rel="stylesheet" href="enhance.css">
+  <link rel="stylesheet" href="cinema.css">
 </head>
 <body>
   <!-- Menu Bar -->
   <nav class="menubar">
     <div class="menubar-left">
-      <img src="assets/logo.svg" alt="Virtual Bots Office" class="menubar-logo">
-      <span class="menubar-title" data-i18n="app.title">Virtual Bots Office</span>
+      <img src="assets/logo.svg" alt="Crewroom" class="menubar-logo">
+      <span class="menubar-title" data-i18n="app.title">Crewroom</span>
     </div>
     <div class="menubar-right">
       <!-- View Menu -->
@@ -1504,10 +1506,10 @@
   <!-- Header (simplified) -->
   <header class="header">
     <div class="header-left">
-      <img src="assets/logo.svg" alt="Virtual Bots Office" class="logo">
+      <img src="assets/logo.svg" alt="Crewroom" class="logo">
       <div class="title-group">
-        <span class="title" data-i18n="app.title">Virtual Bots Office</span>
-        <span class="tagline" data-i18n="app.tagline">Agent Team Command Dashboard</span>
+        <span class="title" data-i18n="app.title">Crewroom</span>
+        <span class="tagline" data-i18n="app.tagline">Your AI crew, live</span>
       </div>
     </div>
     <div class="header-right">
@@ -1829,7 +1831,7 @@
         <div class="help-section">
           <div class="help-section-title" data-i18n="help.about">About</div>
           <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;" data-i18n="help.aboutText">
-            Virtual Bots Office is a real-time 3D visualization dashboard for monitoring AI agent teams. 
+            Crewroom is a real-time 3D visualization dashboard for monitoring AI agent teams. 
             It connects to OpenCode servers or runs in standalone simulation mode.
           </p>
         </div>
@@ -1855,8 +1857,8 @@
       currentLang: 'en',
       translations: {
         en: {
-          'app.title': 'Virtual Bots Office',
-          'app.tagline': 'Agent Team Command Dashboard',
+          'app.title': 'Crewroom',
+          'app.tagline': 'Your AI crew, live',
           'menu.view': 'View',
           'menu.theme': 'Theme',
           'menu.language': 'Language',
@@ -1938,7 +1940,7 @@
           'help.playback': 'Playback',
           'help.playPause': 'Play / Pause event feed',
           'help.about': 'About',
-          'help.aboutText': 'Virtual Bots Office is a real-time 3D visualization dashboard for monitoring AI agent teams. It connects to OpenCode servers or runs in standalone simulation mode.',
+          'help.aboutText': 'Crewroom is a real-time 3D visualization dashboard for monitoring AI agent teams. It connects to OpenCode servers or runs in standalone simulation mode.',
           'help.close': 'Close',
           'status.idle': 'Idle',
           'status.working': 'Working',
@@ -2037,7 +2039,7 @@
           'help.playback': '播放',
           'help.playPause': '播放 / 暫停事件饋送',
           'help.about': '關於',
-          'help.aboutText': 'Virtual Bots Office 是一個用於監控 AI 代理團隊的即時 3D 可視化儀表板。它可以連接到 OpenCode 伺服器或以獨立模擬模式運行。',
+          'help.aboutText': 'Crewroom 是一個用於監控 AI 代理團隊的即時 3D 可視化儀表板。它可以連接到 OpenCode 伺服器或以獨立模擬模式運行。',
           'help.close': '關閉',
           'status.idle': '閒置',
           'status.working': '工作中',
@@ -5250,6 +5252,11 @@
           if (nameplateData && botState) {
             const pos = botState.position || BOT_CONFIG[key].desk;
             nameplateData.sprite.position.set(pos.x, 3.2, pos.z);
+            // Sprites shrink with distance; scale with camera distance (clamped) so
+            // labels stay readable far away and don't balloon when zoomed in.
+            const camDist = this.camera.position.distanceTo(nameplateData.sprite.position);
+            const labelScale = Math.min(1.2, Math.max(0.15, camDist / 22));
+            nameplateData.sprite.scale.set(2.5 * labelScale, 0.8 * labelScale, 1);
           }
         });
 
@@ -6318,6 +6325,9 @@
           this.ui.updateJobTranscript(event);
           
           this.ui.updateStatus();
+
+          // Let the enhancement layer (enhance.js) react to live events.
+          window.dispatchEvent(new CustomEvent('office-event', { detail: event }));
         });
 
         this.feed.start();
@@ -6667,6 +6677,8 @@
       // Start the app
       app = new DashboardApp();
       window.dashboardApp = app;
+      window.__office = { state, BOT_CONFIG, app, I18N };
+      window.dispatchEvent(new CustomEvent('office-ready'));
 
       // Setup panel event listeners after app is created
       setTimeout(() => {
@@ -6708,5 +6720,8 @@
 
   })();
   </script>
+  <script src="crew-engine.js"></script>
+  <script src="enhance.js"></script>
+  <script src="cinema.js"></script>
 </body>
 </html>

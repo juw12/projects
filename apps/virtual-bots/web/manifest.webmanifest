@@ -1,7 +1,7 @@
 {
-  "name": "Virtual Bots",
-  "short_name": "Virtual Bots",
-  "description": "Command and watch your AI bots working in a live office.",
+  "name": "Crewroom",
+  "short_name": "Crewroom",
+  "description": "Watch and command your AI bot crew in a live 3D office.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
