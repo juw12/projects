@@ -1,0 +1,1349 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="光耀同行：發一光耀學習與社群平台概念。可安裝的桌面與行動 PWA，使用本機示範資料，非官方服務。">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="光耀同行">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="theme-color" content="#183e3c">
+  <title>光耀同行 — 發一光耀學習與社群平台 · 互動原型</title>
+  <style>
+    :root {
+      --ink: #203935;
+      --muted: #7b8982;
+      --green: #24655c;
+      --deep: #173f3c;
+      --mint: #e6efea;
+      --paper: #f6f7f3;
+      --line: #e5e9e3;
+      --gold: #e8b969;
+      --shadow: 0 8px 30px #1a3f3506;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", sans-serif; font-size: 14px; line-height: 1.6; }
+    button, input, select, textarea { font: inherit; }
+    button, a, select, summary { -webkit-tap-highlight-color: transparent; }
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: .55; }
+    button, a, input, textarea, select { outline-offset: 4px; }
+    :focus-visible { outline: 3px solid #bf8b36; }
+    a { color: var(--green); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { font-size: 28px; letter-spacing: .025em; margin-bottom: 6px; }
+    h2 { font-size: 18px; letter-spacing: .02em; margin-bottom: 16px; }
+    h3 { font-size: 16px; margin-bottom: 8px; }
+    p { margin-bottom: 12px; }
+    small, .muted { color: var(--muted); }
+    .icon { width: 21px; height: 21px; flex-shrink: 0; vertical-align: middle; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .skip { position: fixed; z-index: 100; top: -80px; left: 20px; background: white; padding: 12px; }
+    .skip:focus { top: 12px; }
+    .sidebar { position: fixed; inset: 0 auto 0 0; width: 238px; padding: 30px 20px 20px; background: #fff; border-right: 1px solid var(--line); z-index: 30; display: flex; flex-direction: column; overflow-y: auto; }
+    .brand { display: flex; align-items: center; gap: 12px; margin: 0 10px 34px; }
+    .brandmark { height: 43px; width: 43px; display: grid; place-items: center; border: 1px solid #d4b77e; border-radius: 50%; color: #b38b4c; background: #fbf8f1; }
+    .brandmark .icon { width: 28px; height: 28px; }
+    .brand strong { display: block; font-size: 22px; font-family: "Songti TC", Georgia, serif; font-weight: 800; letter-spacing: .15em; }
+    .brand small { display: block; font-size: 8.5px; letter-spacing: .08em; white-space: nowrap; }
+    .nav-group { margin: 16px 12px 6px; font-size: 10px; color: #99a59e; letter-spacing: .15em; }
+    .nav-item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 14px; color: #6d7d74; border: none; background: transparent; border-radius: 8px; text-align: left; margin-bottom: 3px; font-size: 13px; }
+    .nav-item:hover { background: #f4f7f3; color: var(--green); }
+    .nav-item.active { background: var(--mint); color: var(--green); font-weight: 650; }
+    .nav-item .count { margin-left: auto; font-size: 10px; background: white; color: var(--green); border-radius: 5px; padding: 0 6px; }
+    .sidebar-bottom { margin-top: auto; padding-top: 24px; }
+    .sidebar-note { padding: 16px; border-radius: 10px; background: #f8f7f0; font-size: 12px; }
+    .sidebar-note p { margin: 6px 0 0; color: #8b8d76; font-size: 11px; }
+    .sidebar-foot { display: flex; justify-content: space-between; margin: 16px 6px 0; font-size: 10px; color: #9aa59f; }
+    .workspace { margin-left: 238px; }
+    .topbar { min-height: 78px; border-bottom: 1px solid var(--line); background: #ffffffd9; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 14px 36px; }
+    .search-wrap { position: relative; display: flex; align-items: center; gap: 10px; max-width: 370px; flex: 1; color: #8d9a91; }
+    .search-wrap input { border: 0; outline: none; background: transparent; width: 100%; color: var(--ink); padding: 8px 0; }
+    .search-wrap input::placeholder { color: #9aa59e; font-size: 12px; }
+    .search-wrap kbd { font: inherit; font-size: 10px; padding: 0 6px; border: 1px solid var(--line); border-radius: 4px; }
+    .top-actions { display: flex; align-items: center; gap: 16px; }
+    .demo-pill { background: #faf4e8; color: #94713e; border: 1px solid #eee2c8; padding: 4px 9px; border-radius: 5px; font-size: 10px; white-space: nowrap; }
+    .icon-button { border: 0; background: none; display: inline-grid; place-items: center; width: 36px; height: 36px; color: var(--ink); border-radius: 8px; }
+    .icon-button:hover { background: var(--mint); }
+    .notification { position: relative; }
+    .notification:after { content: ''; position: absolute; width: 5px; height: 5px; background: #d79b60; border-radius: 50%; right: 8px; top: 6px; border: 2px solid white; box-sizing: content-box; }
+    .avatar { display: inline-grid; place-items: center; height: 38px; width: 38px; border-radius: 50%; background: #e4eadc; color: #557052; font-weight: 600; flex-shrink: 0; border: 3px solid #fff; }
+    .avatar.peach { background: #f3e2d5; color: #9f7151; }
+    .avatar.blue { background: #e0e9ee; color: #577c8b; }
+    .profile-button { display: flex; align-items: center; gap: 9px; border: 0; background: none; text-align: left; padding: 0; }
+    .profile-button strong { display: block; font-size: 12px; font-weight: 600; }
+    .profile-button small { display: block; font-size: 10px; }
+    main { max-width: 1500px; margin: auto; padding: 30px 36px 24px; min-height: calc(100vh - 78px); }
+    .page-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+    .page-head p { color: var(--muted); margin: 0; font-size: 12px; }
+    .eyebrow { text-transform: uppercase; font-size: 10px; font-weight: 600; letter-spacing: .18em; color: #92a89a; margin-bottom: 9px; }
+    .date-chip { display: flex; align-items: center; gap: 8px; color: #8a968d; font-size: 11px; }
+    .hero { position: relative; overflow: hidden; border-radius: 15px; background: var(--deep); color: #fff; padding: 30px 34px; min-height: 238px; margin-bottom: 23px; }
+    .hero h2 { font-family: "Songti TC", "Noto Serif TC", Georgia, serif; font-size: 31px; line-height: 1.55; letter-spacing: .12em; font-weight: 600; margin: 6px 0 10px; }
+    .hero p { font-size: 12px; color: #a8c2b7; margin: 0 0 19px; }
+    .hero-copy { position: relative; z-index: 2; max-width: 62%; }
+    .hero-art { position: absolute; right: 0; bottom: 0; width: 52%; height: 100%; opacity: .95; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--green); background: var(--green); color: white; border-radius: 7px; min-height: 38px; padding: 8px 15px; font-size: 12px; font-weight: 550; line-height: 1.5; }
+    .btn:hover { filter: brightness(1.08); text-decoration: none; }
+    .btn.secondary { background: #fff; color: var(--green); border-color: #dbe4dc; }
+    .btn.gold { background: #edc784; border-color: #edc784; color: #3a4b35; }
+    .btn.ghost { background: transparent; border-color: transparent; color: var(--green); padding-left: 0; padding-right: 0; }
+    .btn.danger { background: #fff3ed; color: #a35a3d; border-color: #edd6cc; }
+    .btn.small { padding: 5px 10px; min-height: 30px; font-size: 11px; }
+    .btn .icon { width: 16px; height: 16px; }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+    .stat { display: flex; align-items: center; gap: 14px; background: #fff; border: 1px solid var(--line); border-radius: 11px; padding: 19px 18px; box-shadow: var(--shadow); }
+    .stat-symbol { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: #edf3ed; color: #6c957d; flex-shrink: 0; }
+    .stat:nth-child(2) .stat-symbol { background: #f9f1e4; color: #c69b5b; }
+    .stat:nth-child(3) .stat-symbol { background: #eff0fa; color: #8b8db4; }
+    .stat:nth-child(4) .stat-symbol { background: #f7ebe5; color: #bf8b71; }
+    .stat-label { display: block; font-size: 11px; color: #8b968e; margin-bottom: 2px; }
+    .stat-value { font-size: 25px; line-height: 1.3; letter-spacing: -.02em; font-weight: 600; }
+    .stat-value small { font-size: 11px; font-weight: 400; margin-left: 5px; }
+    .two-col { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(280px, 1fr); gap: 24px; align-items: start; }
+    .equal-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+    .three-col { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+    .section-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .section-head h2 { margin: 0; }
+    .section-head a, .section-head button { font-size: 11px; }
+    .section-head .icon { width: 14px; height: 14px; }
+    .card { background: white; border: 1px solid var(--line); border-radius: 11px; overflow: hidden; box-shadow: var(--shadow); }
+    .card-pad { padding: 22px; }
+    .course-art { height: 137px; position: relative; overflow: hidden; display: grid; place-items: center; background: #e6ebe0; }
+    .course-art svg { width: 100%; height: 100%; }
+    .course-art .tag { position: absolute; top: 14px; left: 14px; background: #ffffffdd; color: #466451; }
+    .course-art .art-caption { position: absolute; left: 20px; bottom: 18px; font-size: 20px; font-family: "Songti TC", Georgia, serif; letter-spacing: .12em; color: #385c4c; }
+    .course-body { padding: 18px; }
+    .course-body h3 { font-size: 14px; margin: 7px 0; }
+    .meta { display: flex; align-items: center; gap: 12px; font-size: 10px; color: #859087; flex-wrap: wrap; }
+    .meta span { display: inline-flex; align-items: center; gap: 4px; }
+    .meta .icon { width: 12px; height: 12px; }
+    .progress { height: 5px; background: #ecf0e9; border-radius: 6px; overflow: hidden; margin: 9px 0; }
+    .progress > i { display: block; height: 100%; background: #63917b; border-radius: inherit; }
+    .progress-label { display: flex; justify-content: space-between; font-size: 10px; color: #87938a; }
+    .course-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; }
+    .tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; font-size: 10px; border-radius: 5px; background: #edf3ec; color: #5c7e61; white-space: nowrap; }
+    .tag.gold { background: #faf2e2; color: #aa8749; }
+    .tag.blue { background: #edf1f8; color: #647ca0; }
+    .tag.gray { background: #f1f2ef; color: #849087; }
+    .schedule-box { padding: 18px 20px 4px; }
+    .mini-calendar { display: flex; justify-content: space-between; padding: 0 0 17px; border-bottom: 1px solid var(--line); gap: 3px; }
+    .day { text-align: center; padding: 6px 8px; border-radius: 8px; font-size: 10px; color: #96a096; }
+    .day strong { display: block; color: #738174; font-size: 13px; margin-top: 5px; }
+    .day.selected { background: var(--green); color: #b8d4c6; }
+    .day.selected strong { color: white; }
+    .agenda-item { padding: 17px 0; border-bottom: 1px solid #eef1eb; display: flex; gap: 12px; align-items: start; }
+    .agenda-item:last-child { border: 0; }
+    .agenda-dot { margin-top: 6px; width: 6px; height: 6px; border-radius: 50%; background: #75a18a; flex-shrink: 0; }
+    .agenda-dot.orange { background: #d8ae76; }
+    .agenda-item h3 { font-size: 12px; margin: 5px 0; }
+    .agenda-item p { font-size: 10px; color: #919a91; margin: 0; }
+    .agenda-item .event-time { font-size: 10px; color: #7a8a7f; }
+    .space-top { margin-top: 26px; }
+    .community-strip { margin-top: 22px; border: 1px solid #e3e8dc; border-radius: 11px; padding: 18px 20px; background: #eef2e8; display: flex; align-items: center; gap: 16px; }
+    .stacked { display: flex; padding-right: 6px; }
+    .stacked .avatar { margin-right: -8px; width: 34px; height: 34px; font-size: 10px; border-color: #eef2e8; }
+    .community-strip h3 { font-size: 12px; margin: 0; }
+    .community-strip p { font-size: 10px; color: #87947f; margin: 2px 0 0; }
+    .community-strip .btn { margin-left: auto; white-space: nowrap; }
+    .callout { padding: 14px 17px; border: 1px solid #e4e8dd; background: #f5f7ee; border-radius: 8px; color: #6e8069; font-size: 12px; margin-bottom: 20px; }
+    .callout.warning { background: #fff8ec; border-color: #ecdfc6; color: #9a7a42; }
+    .footer { border-top: 1px solid var(--line); padding: 18px 0 0; margin-top: 30px; display: flex; justify-content: space-between; gap: 16px; color: #a0a99f; font-size: 10px; }
+    .tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--line); margin-bottom: 22px; overflow-x: auto; }
+    .tab { border: none; background: none; padding: 11px 16px; color: #8b988d; border-bottom: 2px solid transparent; white-space: nowrap; }
+    .tab.active { color: var(--green); border-bottom-color: var(--green); font-weight: 600; }
+    .filters { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+    .filter { border: 1px solid var(--line); background: white; color: #7e8d80; border-radius: 20px; padding: 6px 14px; font-size: 12px; }
+    .filter.active { background: var(--green); color: white; border-color: var(--green); }
+    .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; font-size: 12px; }
+    .field input, .field textarea, .field select { width: 100%; border: 1px solid #dce4da; border-radius: 7px; background: white; padding: 10px 12px; color: var(--ink); min-width: 0; }
+    .field textarea { min-height: 86px; resize: vertical; }
+    .check { display: flex; align-items: start; gap: 8px; margin: 14px 0; font-size: 12px; }
+    .check input { accent-color: var(--green); margin-top: 4px; }
+    .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; flex-wrap: wrap; }
+    .empty { padding: 38px 20px; text-align: center; color: #89988a; }
+    .empty .icon { width: 36px; height: 36px; margin-bottom: 10px; }
+    .list-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 15px 0; border-bottom: 1px solid var(--line); }
+    .list-row:last-child { border: none; }
+    .list-row p { margin: 0; font-size: 11px; color: var(--muted); }
+    .list-row h3 { font-size: 13px; margin: 0 0 4px; }
+    .row-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; white-space: nowrap; text-align: left; font-size: 12px; }
+    th { color: #8a988a; font-size: 10px; font-weight: 500; padding: 13px 15px; background: #f7f9f4; }
+    td { padding: 15px; border-bottom: 1px solid var(--line); }
+    .lesson-player { position: relative; min-height: 285px; background: #183f3a; color: #fff; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden; padding: 30px; text-align: center; }
+    .lesson-player .icon { width: 46px; height: 46px; color: #e6c081; }
+    .lesson-player p { color: #a6c0b1; font-size: 11px; max-width: 380px; }
+    .lesson-player .demo-pill { position: absolute; left: 14px; top: 14px; }
+    .lesson-row { width: 100%; border: none; border-bottom: 1px solid var(--line); background: white; padding: 16px; text-align: left; display: flex; gap: 10px; align-items: center; color: var(--ink); }
+    .lesson-row.active { background: #eef4ec; }
+    .lesson-row .number { width: 27px; height: 27px; border-radius: 50%; display: grid; place-items: center; background: #e8eee5; color: #76906e; font-size: 11px; flex-shrink: 0; }
+    .lesson-row strong { font-size: 12px; display: block; }
+    .lesson-row small { font-size: 10px; }
+    .question { margin: 22px 0; }
+    .question label { display: block; border: 1px solid var(--line); border-radius: 7px; padding: 10px; margin: 7px 0; cursor: pointer; }
+    .question input { accent-color: var(--green); margin-right: 7px; }
+    .event-card { display: flex; gap: 20px; align-items: center; padding: 22px; margin-bottom: 14px; }
+    .event-date { text-align: center; min-width: 62px; border: 1px solid var(--line); border-radius: 9px; padding: 8px; font-size: 11px; color: #9b9d80; }
+    .event-date strong { display: block; font-size: 26px; line-height: 1.3; color: var(--green); }
+    .event-card .event-info { flex: 1; }
+    .event-card h3 { margin: 6px 0; }
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+    .calendar-cell { background: #fff; min-height: 96px; padding: 8px; font-size: 11px; }
+    .calendar-cell.blank { background: #f6f8f3; }
+    .calendar-cell.heading { min-height: 30px; text-align: center; background: #edf2e9; }
+    .calendar-event { display: block; width: 100%; border: 0; border-radius: 4px; background: #e8f0e5; color: var(--green); text-align: left; font-size: 10px; padding: 4px; margin-top: 5px; overflow: hidden; }
+    .chat-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); min-height: 440px; }
+    .chat-rooms { border-right: 1px solid var(--line); padding: 16px; }
+    .chat-room { display: block; width: 100%; border: 0; background: transparent; text-align: left; padding: 14px 12px; border-radius: 8px; color: var(--ink); margin-bottom: 7px; }
+    .chat-room.active { background: #e9f0e6; }
+    .chat-room strong { display: block; font-size: 12px; }
+    .chat-room small { font-size: 10px; }
+    .chat-main { min-width: 0; display: flex; flex-direction: column; }
+    .chat-heading { padding: 18px 22px; border-bottom: 1px solid var(--line); }
+    .chat-heading h3 { margin: 0; }
+    .messages { padding: 20px; flex: 1; max-height: 420px; overflow-y: auto; }
+    .message { display: flex; align-items: start; gap: 8px; margin-bottom: 16px; }
+    .message.mine { flex-direction: row-reverse; }
+    .message .avatar { width: 32px; height: 32px; font-size: 11px; }
+    .bubble { background: #f2f5ee; padding: 10px 14px; border-radius: 0 10px 10px 10px; font-size: 12px; max-width: 85%; overflow-wrap: anywhere; }
+    .mine .bubble { background: #e4eee1; border-radius: 10px 0 10px 10px; }
+    .bubble small { display: block; font-size: 9px; margin-bottom: 3px; }
+    .chat-compose { display: flex; gap: 10px; padding: 16px; border-top: 1px solid var(--line); }
+    .chat-compose input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 7px; }
+    .certificate { text-align: center; padding: 32px 24px; border: 1px solid #d7c6a1; outline: 6px solid #f7f3e9; outline-offset: -11px; background: #fffef9; color: #365c49; }
+    .certificate .seal { font-size: 42px; color: #bd9e62; }
+    .certificate h3 { font-family: "Songti TC", Georgia, serif; font-size: 27px; letter-spacing: .16em; margin: 14px 0; }
+    .certificate .name { font-family: "Songti TC", Georgia, serif; font-size: 23px; margin: 20px; }
+    .certificate small { font-size: 10px; }
+    .badge-tile { text-align: center; padding: 20px 12px; }
+    .badge-symbol { width: 55px; height: 55px; border: 1px solid #e6d2a4; background: #fcf6e9; color: #b59557; border-radius: 50%; display: grid; place-items: center; margin: 0 auto 12px; }
+    .badge-symbol .icon { width: 27px; height: 27px; }
+    .badge-tile.locked { opacity: .48; }
+    .badge-tile h3 { font-size: 12px; margin: 5px 0; }
+    .badge-tile p { font-size: 10px; color: var(--muted); margin: 0; }
+    .project-visual { height: 160px; background: #e4eddf; position: relative; overflow: hidden; display: grid; place-items: center; }
+    .project-visual .icon { width: 65px; height: 65px; color: #7a9977; }
+    .project-visual:after { content: ''; width: 230px; height: 230px; border-radius: 50%; border: 1px solid #c8d8bc; position: absolute; right: -65px; bottom: -135px; box-shadow: 0 0 0 25px #d7e2cc55, 0 0 0 50px #d7e2cc33; }
+    .reward-visual { height: 150px; display: grid; place-items: center; font-size: 58px; background: #f4eee2; }
+    .reward-visual .icon { width: 64px; height: 64px; color: #a79169; stroke-width: 1; }
+    .notification-item { padding: 15px 0; border-bottom: 1px solid var(--line); }
+    .notification-item h3 { font-size: 14px; margin-bottom: 5px; }
+    .notification-item p { font-size: 12px; color: var(--muted); margin: 0; }
+    .timeline { border-left: 2px solid #dce7d7; padding-left: 22px; margin-left: 8px; }
+    .timeline-item { position: relative; margin-bottom: 22px; }
+    .timeline-item:before { content: ''; position: absolute; left: -28px; top: 7px; width: 8px; height: 8px; border-radius: 50%; background: #7c9c70; }
+    .timeline-item h3 { font-size: 13px; margin-bottom: 5px; }
+    .timeline-item p { font-size: 12px; color: var(--muted); }
+    dialog { width: min(580px, calc(100% - 32px)); max-height: 88vh; overflow-y: auto; border: 1px solid var(--line); border-radius: 15px; padding: 26px; color: var(--ink); box-shadow: 0 25px 100px #123b3033; }
+    dialog::backdrop { background: #142c295f; backdrop-filter: blur(4px); }
+    .dialog-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; gap: 15px; }
+    .dialog-head h2 { margin: 0; }
+    #toast { position: fixed; bottom: 26px; left: calc(50% + 100px); transform: translateX(-50%) translateY(100px); opacity: 0; visibility: hidden; background: #214f44; color: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 6px 30px #163d3025; z-index: 80; transition: transform .2s, opacity .2s; font-size: 13px; max-width: calc(100% - 30px); text-align: center; pointer-events: none; }
+    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
+    .mobile-menu { display: none; }
+    .balance { font-size: 36px; letter-spacing: -.04em; font-weight: 600; }
+    .privacy-setting { display: flex; align-items: start; justify-content: space-between; gap: 12px; margin: 12px 0; }
+    .privacy-setting p { font-size: 11px; color: var(--muted); }
+    .switch { appearance: none; width: 38px; height: 22px; border-radius: 12px; background: #d8e0d4; padding: 3px; cursor: pointer; flex-shrink: 0; }
+    .switch:before { content: ''; width: 16px; height: 16px; border-radius: 50%; background: white; display: block; transition: transform .15s; }
+    .switch:checked { background: var(--green); }
+    .switch:checked:before { transform: translateX(16px); }
+    .reference-link { overflow-wrap: anywhere; }
+    @media (min-width: 1550px) { .hero { min-height: 270px; } .hero h2 { font-size: 37px; } .course-art { height: 165px; } }
+    @media (max-width: 1180px) {
+      .sidebar { width: 210px; padding: 25px 14px 16px; }
+      .workspace { margin-left: 210px; }
+      .topbar { padding: 14px 24px; }
+      main { padding: 26px 24px; }
+      .stat { padding: 16px 12px; gap: 10px; }
+      .stat-symbol { width: 34px; height: 34px; }
+      .stat-value { font-size: 21px; }
+      .hero h2 { font-size: 27px; }
+      .two-col { grid-template-columns: minmax(0, 1.7fr) minmax(260px, 1fr); gap: 18px; }
+    }
+    @media (max-width: 1000px) {
+      .two-col { grid-template-columns: 1fr; }
+      .three-col { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .top-actions { gap: 8px; }
+      .topbar .demo-pill { display: none; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .stat-value { font-size: 26px; }
+    }
+    @media (max-width: 760px) {
+      .sidebar { transform: translateX(-100%); width: 236px; box-shadow: 12px 0 50px #133f3815; transition: transform .2s; }
+      .sidebar.open { transform: translateX(0); }
+      .workspace { margin-left: 0; }
+      .mobile-menu { display: inline-grid; }
+      .topbar { padding: 12px 16px; min-height: 68px; gap: 10px; }
+      .topbar .search-wrap { max-width: none; }
+      .search-wrap kbd, .profile-button .profile-copy { display: none; }
+      .top-actions { gap: 5px; }
+      main { padding: 24px 18px; }
+      h1 { font-size: 24px; }
+      .page-head { align-items: start; }
+      .date-chip { display: none; }
+      .hero { padding: 25px; min-height: 255px; }
+      .hero-copy { max-width: 88%; }
+      .hero h2 { font-size: 27px; }
+      .hero-art { width: 85%; opacity: .3; }
+      .stats { gap: 10px; margin-bottom: 24px; }
+      .stat { padding: 15px 12px; gap: 10px; }
+      .stat-label { font-size: 10px; }
+      .stat-value { font-size: 23px; }
+      .stat-symbol { width: 32px; height: 32px; }
+      .equal-col, .three-col { grid-template-columns: 1fr; }
+      .community-strip { flex-wrap: wrap; }
+      .community-strip .btn { margin-left: 0; }
+      .chat-layout { grid-template-columns: 1fr; }
+      .chat-rooms { border-right: 0; border-bottom: 1px solid var(--line); }
+      .chat-room { display: inline-block; width: auto; vertical-align: top; }
+      .event-card { flex-wrap: wrap; padding: 17px; gap: 13px; }
+      .event-card > .btn { margin-left: 75px; }
+      .event-card h3 { font-size: 14px; }
+      .calendar-cell { min-height: 85px; padding: 3px; }
+      .calendar-event { font-size: 9px; }
+      .footer { flex-direction: column; gap: 6px; }
+      #toast { left: 50%; width: max-content; }
+      .lesson-player { min-height: 230px; }
+      .card-pad { padding: 18px; }
+      .page-head > .btn { padding: 7px 10px; white-space: nowrap; }
+      .certificate h3 { font-size: 22px; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+    @media print {
+      .sidebar, .topbar, .footer, .btn, .tabs, .filters, #toast { display: none !important; }
+      .workspace { margin: 0; }
+      main { padding: 0; }
+      .card { break-inside: avoid; box-shadow: none; }
+    }
+    /* Mobile PWA shell: safe areas, touch targets and explicit local-only status. */
+    :root { --muted: #66796d; }
+    html { scroll-padding-bottom: 100px; }
+    .app-status { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; padding: 7px 36px; background: #ecf1e6; color: #526d54; font-size: 11px; border-bottom: 1px solid #dbe4d4; }
+    .app-status > div { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .app-status button { background: none; border: none; border-bottom: 1px solid #9baf8d; color: #315f47; padding: 2px 0; font-size: 11px; font-weight: 600; }
+    .app-status.offline { background: #fff1dc; color: #876238; }
+    .app-status small { color: inherit; }
+    .mobile-nav, .nav-overlay, .drawer-close { display: none; }
+    [hidden] { display: none !important; }
+    .stat-label, .meta, .progress-label, .event-time { color: #66786c; }
+    .eyebrow { color: #647d68; }
+    .hero .eyebrow { color: #b2c8b3; }
+    .settings-note { font-size: 12px; color: #6c7b67; padding: 12px; background: #f4f6ef; border-radius: 7px; }
+    .nav-group, .sidebar-foot, .footer, .date-chip, .empty { color: #62715e; }
+    .sidebar-note p, .community-strip p, .agenda-item p, .agenda-item .event-time { color: #64745d; }
+    .day { color: #5f735f; }
+    .day strong, th { color: #556d58; }
+    .tag.gray { color: #5a705d; }
+    .tag.gold { color: #80602d; }
+    .tag.blue { color: #4a6589; }
+    .tag { color: #476949; }
+    .demo-pill { color: #785928; }
+    .eyebrow, .stat-label, .meta, .progress-label { color: #566f5d; }
+    .tab { color: #5f735f; }
+    .filter { color: #5c705e; }
+    .filter.active { color: white; }
+    .lesson-player .demo-pill { background: #faf4e8; }
+    .install-steps { padding-left: 20px; color: #60775e; font-size: 13px; }
+    .install-steps li { margin: 10px 0; }
+    @media (max-width: 760px) {
+      body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+      body.drawer-open { overflow: hidden; }
+      .workspace { padding-top: env(safe-area-inset-top); }
+      .app-status { padding: 8px 16px; font-size: 10px; gap: 4px; }
+      .app-status > span { display: block; }
+      .app-status button { min-height: 32px; font-size: 11px; }
+      .app-status > div { gap: 14px; }
+      .topbar { gap: 6px; padding: 8px 12px; }
+      .mobile-nav { position: fixed; display: grid; grid-template-columns: repeat(5, 1fr); bottom: 0; left: 0; right: 0; padding: 7px 10px calc(7px + env(safe-area-inset-bottom)); background: #fffffff5; backdrop-filter: blur(18px); border-top: 1px solid #dce5d8; z-index: 25; box-shadow: 0 -4px 25px #1e3b3408; }
+      .mobile-nav button { min-height: 52px; border: none; border-radius: 9px; background: none; color: #6c7e6c; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 10px; }
+      .mobile-nav button[aria-current="page"] { color: #205b48; background: #edf3e7; font-weight: 650; }
+      .mobile-nav .icon { width: 22px; height: 22px; }
+      .nav-overlay { position: fixed; inset: 0; display: block; width: 100%; height: 100%; background: #102a255e; backdrop-filter: blur(2px); z-index: 28; border: none; }
+      .sidebar { padding-top: calc(20px + env(safe-area-inset-top)); padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+      .drawer-close { display: grid; margin-left: auto; margin-bottom: 10px; }
+      .btn, .filter, .tab, .icon-button, .profile-button, .nav-item { min-height: 44px; }
+      .icon-button { min-width: 44px; }
+      .course-foot .btn { min-height: 44px; }
+      .search-wrap input { font-size: 16px; }
+      .search-wrap input::placeholder { font-size: 11px; }
+      .field input, .field textarea, .field select, .chat-compose input { font-size: 16px; }
+      #toast { bottom: calc(90px + env(safe-area-inset-bottom)); }
+      dialog { max-height: calc(100dvh - 100px - env(safe-area-inset-top)); padding: 22px; }
+      .stat-value { font-size: 22px; }
+      .card-pad .stats { grid-template-columns: 1fr !important; }
+      .chat-compose { padding: 12px; }
+      .calendar-event { min-height: 35px; }
+    }
+    @media print { .app-status, .mobile-nav, .nav-overlay, .drawer-close { display: none !important; } body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">跳至主要內容</a>
+  <aside class="sidebar" id="sidebar" aria-label="主要導覽"></aside>
+  <button id="nav-overlay" class="nav-overlay" data-action="close-menu" aria-label="關閉主選單" hidden></button>
+  <div class="workspace" id="workspace">
+    <div id="app-status" class="app-status" role="status"><span>本機示範 · 不連接真實帳戶或金流</span><div><span id="network-state">檢查連線中</span><button type="button" data-pwa-action="install">安裝 App</button><button type="button" data-pwa-action="update" id="update-app" hidden>有新版・重新載入</button></div></div>
+    <header class="topbar" id="topbar"></header>
+    <main id="main" tabindex="-1"></main>
+  </div>
+  <nav id="mobile-nav" class="mobile-nav" aria-label="行動版快捷導覽"></nav>
+  <dialog id="modal" aria-labelledby="dialog-title"></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script>
+    'use strict';
+    const paths = {
+      sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+      home: '<path d="m3 10 9-7 9 7v10H3Z"/><path d="M9 20v-7h6v7"/>',
+      book: '<path d="M12 5C9 3 5 3 2 4v15c4-1 7-1 10 1 3-2 6-2 10-1V4c-3-1-7-1-10 1Zm0 0v15"/>',
+      calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 11h18m-13 4h1m6 0h1m-8 3h1"/>',
+      people: '<circle cx="9" cy="8" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3m2-16a3 3 0 0 1 0 6m4 10v-3a6 6 0 0 0-4-5"/>',
+      video: '<rect x="2" y="5" width="14" height="14" rx="3"/><path d="m16 10 6-4v12l-6-4"/>',
+      award: '<circle cx="12" cy="8" r="5"/><path d="m8 12-2 10 6-3 6 3-2-10m-6-4 1.3 1.5L14 6"/>',
+      heart: '<path d="M20.5 4.5a5.3 5.3 0 0 0-7.5 0L12 5.6l-1-1.1a5.3 5.3 0 0 0-7.5 7.5L12 21l8.5-9a5.3 5.3 0 0 0 0-7.5Z"/>',
+      gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v9h14v-9M12 8v13m0-13C8 8 5 7 6 4c1-3 6-1 6 4Zm0 0c4 0 7-1 6-4-1-3-6-1-6 4Z"/>',
+      share: '<circle cx="18" cy="4" r="3"/><circle cx="5" cy="12" r="3"/><circle cx="18" cy="20" r="3"/><path d="m8 10 7-4M8 14l7 4"/>',
+      info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/>',
+      shield: '<path d="m12 2 9 4v6c0 5-9 10-9 10S3 17 3 12V6Z"/><path d="m8 12 3 3 5-6"/>',
+      search: '<circle cx="10" cy="10" r="7"/><path d="m15 15 6 6"/>',
+      bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9m-9 13h6"/>',
+      arrow: '<path d="M4 12h16m-6-6 6 6-6 6"/>',
+      chevron: '<path d="m9 5 7 7-7 7"/>',
+      clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/>',
+      check: '<path d="m5 12 4 4L19 6"/>',
+      lock: '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V6a4 4 0 0 1 8 0v4m-4 5v2"/>',
+      play: '<circle cx="12" cy="12" r="10"/><path d="m10 7 7 5-7 5Z"/>',
+      download: '<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>',
+      pin: '<path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+      coin: '<circle cx="12" cy="12" r="9"/><path d="m12 6 2 4 4 2-4 2-2 4-2-4-4-2 4-2Z"/>',
+      leaf: '<path d="M20 3C8 2 2 9 5 16s17 5 15-13ZM3 22 16 9"/>',
+      message: '<path d="M21 11a9 9 0 0 1-13 8l-6 2 2-6A9 9 0 1 1 21 11Z"/><path d="M8 10h8m-8 4h5"/>',
+      plus: '<path d="M12 4v16M4 12h16"/>',
+      close: '<path d="m5 5 14 14M5 19 19 5"/>',
+      menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+      chart: '<path d="M3 3v18h18M7 17v-5m5 5V7m5 10V4"/>',
+      copy: '<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 5V3H3v13h2"/>',
+      file: '<path d="M5 2h9l5 5v15H5Zm9 0v6h5M8 12h8m-8 4h6"/>',
+      sprout: '<path d="M12 22V10C4 10 2 6 2 2c8 0 10 4 10 8Zm0 5c8 0 10-4 10-8-8 0-10 4-10 8Z"/>',
+      cup: '<path d="M5 3h14v5c0 5-3 7-7 7s-7-2-7-7Zm7 12v5m-5 2h10M5 5H2v4c0 2 2 3 4 3m13-7h3v4c0 2-2 3-4 3"/>',
+      bag: '<path d="M4 7h16l1 15H3Zm4 0V5a4 4 0 0 1 8 0v2"/>',
+      logout: '<path d="M10 3H3v18h7m4-16 7 7-7 7M7 12h14"/>'
+    };
+    const icon = name => `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${paths[name] || paths.sun}</svg>`;
+    const esc = value => String(value).replace(/[&<>"']/g, character => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[character]));
+    const format = value => Number(value).toLocaleString('zh-TW');
+    const money = value => `NT$ ${format(value)}`;
+    const storageKey = 'guangyao-v2:' + new URL('.', location.href).pathname;
+    const legacyStorageKey = 'guangyao-prototype-v1';
+    const initialState = () => ({
+      schemaVersion: 2,
+      revision: 0,
+      name: '林予安',
+      role: 'member',
+      signedIn: true,
+      points: 320,
+      lessons: {foundation: [0], practice: [], lead: []},
+      completed: [],
+      enrolled: ['foundation'],
+      registrations: [],
+      friends: ['徐子晴'],
+      requests: [],
+      messages: {},
+      groups: [],
+      poll: null,
+      redemptions: [],
+      donations: [],
+      events: [],
+      publicPortfolio: false,
+      leaderboard: false,
+      bio: '在學習中看見自己，在同行中練習善意。',
+      pointHistory: [{label: '示範帳戶起始積分', amount: 320}]
+    });
+    let state = initialState();
+    let recoveryWarning = '';
+    let persistenceAvailable = true;
+    let mutationQueue = Promise.resolve();
+    const ui = {courseFilter: 'all', eventFilter: 'all', calendar: false, communityTab: 'chat', room: 'beginner', lesson: 0, course: 'foundation', vaultTab: 'projects', portfolioTab: 'achievements'};
+    let storageWarningShown = false;
+    function save() {
+      try {
+        state.schemaVersion = 2;
+        state.revision = (state.revision || 0) + 1;
+        localStorage.setItem(storageKey, JSON.stringify(state));
+        persistenceAvailable = true;
+      } catch {
+        persistenceAvailable = false;
+        if (!storageWarningShown) {
+          toast('瀏覽器無法儲存；本次操作僅保留到頁面關閉。');
+          storageWarningShown = true;
+        }
+      }
+    }
+    const courses = [
+      {id: 'foundation', title: '認識光耀・從心出發', subtitle: '心的起點', category: '入門探索', level: 1, teacher: '陳老師', minutes: 36, color: 'green', previous: null, description: '透過三個短篇章，認識平台的學習路徑，練習傾聽與日常反思。課名、教師與教材皆為待審核的示範內容。', lessons: ['從認識開始，找到學習的方向', '傾聽與尊重：同行的第一步', '把一份善意，放進日常生活']},
+      {id: 'practice', title: '把善意帶進日常', subtitle: '日常的練習', category: '生活實踐', level: 2, teacher: '黃老師', minutes: 48, color: 'sand', previous: 'foundation', description: '從生活情境出發，將反思化為可持續的小行動。完成入門課程後解鎖。內容僅供產品流程展示。', lessons: ['看見生活裡的需要', '為行動留下真實紀錄', '服務之後的反思與分享']},
+      {id: 'lead', title: '同行帶領與服務', subtitle: '一起向前', category: '同行服務', level: 3, teacher: '李老師', minutes: 54, color: 'blue', previous: 'practice', description: '探索協作、活動安全與共同回顧。完成生活實踐後解鎖；完成課程不會自動取得管理權限。', lessons: ['共同規劃一場活動', '安全、同意與互相照顧', '帶領討論與整理成果']}
+    ];
+    const baseEvents = [
+      {id: 'e1', title: '日常裡的善意・線上共學', date: '2026-11-05', time: '19:30', duration: '60 分鐘', type: 'online', teacher: '陳老師', place: '線上教室（示範）', capacity: 30, occupied: 18, rank: 'all', description: '帶著一個生活中的小故事，練習傾聽與交流。請先閱讀課程講義。'},
+      {id: 'e2', title: '秋日淨山・讓善意走出去', date: '2026-11-07', time: '08:30', duration: '3 小時', type: 'social', teacher: '黃老師', place: '台北市・集合地點待主辦確認', capacity: 24, occupied: 20, rank: 'all', description: '環境整理與同行交流。請自備飲水與手套；正式活動需有保險、安全計畫及緊急聯絡窗口。'},
+      {id: 'e3', title: '靜心與反思・實體工作坊', date: '2026-11-12', time: '14:00', duration: '90 分鐘', type: 'offline', teacher: '李老師', place: '示範教室 A・實際地址待確認', capacity: 20, occupied: 12, rank: 'all', description: '一起整理學習筆記，練習將感受轉化為實際行動。這是一筆示範活動。'},
+      {id: 'e4', title: '服務帶領人・活動籌備會', date: '2026-11-15', time: '19:00', duration: '60 分鐘', type: 'online', teacher: '籌備團隊', place: '內部線上會議室', capacity: 12, occupied: 6, rank: 'organizer', description: '僅限經授權的活動幹部與管理員存取。討論志工分工、活動安全與行前準備。'}
+    ];
+    const projects = [
+      {id: 'p1', title: '讓學習，走進更多角落', subtitle: '社區共學支持計畫', target: 80000, received: 48600, allocated: 32000, spent: 21800, icon: 'book'},
+      {id: 'p2', title: '把一份溫暖，送到需要的地方', subtitle: '關懷物資與志工服務', target: 50000, received: 32500, allocated: 24000, spent: 15700, icon: 'heart'}
+    ];
+    const rewards = [
+      {id: 'r1', name: '光耀學習筆記本', description: '留住每一次思考與成長', cost: 200, stock: 30, icon: 'book'},
+      {id: 'r2', name: '同行環保提袋', description: '讓善意成為日常的陪伴', cost: 500, stock: 18, icon: 'bag'},
+      {id: 'r3', name: '共學工作坊體驗券', description: '為下一段探索預留位置', cost: 800, stock: 10, icon: 'gift'}
+    ];
+    function normalizeState(raw) {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return initialState();
+      const result = initialState();
+      const list = value => Array.isArray(value) ? value : [];
+      const textValue = (value, limit, fallback = '') => typeof value === 'string' ? value.slice(0, limit).trim() : fallback;
+      const unique = values => [...new Set(values)];
+      const courseIds = courses.map(course => course.id);
+      result.name = textValue(raw.name, 20, result.name) || result.name;
+      result.bio = textValue(raw.bio, 160, result.bio);
+      result.role = ['member', 'organizer', 'admin'].includes(raw.role) ? raw.role : 'member';
+      result.signedIn = typeof raw.signedIn === 'boolean' ? raw.signedIn : true;
+      if (!result.signedIn) result.role = 'member';
+      result.revision = Number.isSafeInteger(raw.revision) && raw.revision >= 0 ? raw.revision : 0;
+      for (const id of courseIds) {
+        result.lessons[id] = unique(list(raw.lessons?.[id]).filter(index => Number.isInteger(index) && index >= 0 && index < 3));
+      }
+      result.completed = [];
+      for (const course of courses) {
+        if (list(raw.completed).includes(course.id) && result.lessons[course.id].length === 3 && (!course.previous || result.completed.includes(course.previous))) {
+          result.completed.push(course.id);
+        }
+      }
+      result.enrolled = unique(['foundation', ...list(raw.enrolled).filter(id => courseIds.includes(id))]);
+      result.groups = list(raw.groups).slice(0, 100).filter(group => group && (group.id === 'friend-demo' || /^group-\d{10,17}$/.test(group.id)) && typeof group.title === 'string').map(group => ({
+        id: group.id,
+        title: textValue(group.title, 40) || '未命名示範群組',
+        members: group.id === 'friend-demo' ? '私人對話展示 · 對方不會收到' : '1 位本機示範成員'
+      })).filter((group, index, groups) => groups.findIndex(item => item.id === group.id) === index);
+      const roomIds = ['beginner', 'volunteer', ...result.groups.map(group => group.id)];
+      result.messages = {};
+      for (const id of roomIds) {
+        result.messages[id] = list(raw.messages?.[id]).slice(-200).filter(message => message && typeof message.text === 'string').map(message => ({
+          name: textValue(message.name, 20, result.name),
+          text: textValue(message.text, 500),
+          mine: true
+        }));
+      }
+      result.events = list(raw.events).slice(0, 200).filter(event => event && /^local-\d{10,17}$/.test(event.id) && /^2026-11-(0[1-9]|[12]\d|30)$/.test(event.date) && /^([01]\d|2[0-3]):[0-5]\d$/.test(event.time) && ['online', 'offline', 'social'].includes(event.type) && ['all', 'organizer'].includes(event.rank) && Number.isInteger(event.capacity) && event.capacity >= 1 && event.capacity <= 500).map(event => ({
+        id: event.id,
+        title: textValue(event.title, 60) || '未命名示範活動',
+        date: event.date,
+        time: event.time,
+        duration: textValue(event.duration, 20, '60 分鐘'),
+        type: event.type,
+        teacher: textValue(event.teacher, 30, '示範主持人'),
+        place: textValue(event.place, 100, '地點待確認'),
+        capacity: event.capacity,
+        occupied: 0,
+        rank: event.rank,
+        description: textValue(event.description, 1000)
+      })).filter((event, index, events) => events.findIndex(item => item.id === event.id) === index);
+      const eventIds = [...baseEvents, ...result.events].map(event => event.id);
+      result.registrations = unique(list(raw.registrations).filter(id => eventIds.includes(id)));
+      result.friends = ['徐子晴'];
+      result.requests = unique(list(raw.requests).filter(name => ['周以哲', '許宥恩', '王品涵'].includes(name)));
+      result.poll = [0, 1, 2].includes(raw.poll) ? raw.poll : null;
+      result.points = 320 + result.completed.length * 100;
+      result.pointHistory = [{label: '示範帳戶起始積分', amount: 320}, ...result.completed.map(id => ({label: `首次完成：${courses.find(course => course.id === id).title}`, amount: 100}))];
+      result.redemptions = [];
+      for (const entry of list(raw.redemptions).slice(0, 100)) {
+        const reward = rewards.find(item => item.id === entry?.reward);
+        if (!reward || result.points < reward.cost || result.redemptions.filter(item => item.reward === reward.id).length >= reward.stock) continue;
+        result.points -= reward.cost;
+        result.redemptions.push({id: `REDEEM-DEMO-${result.redemptions.length + 1}`, reward: reward.id});
+        result.pointHistory.push({label: `模擬兌換：${reward.name}`, amount: -reward.cost});
+      }
+      result.donations = list(raw.donations).slice(0, 500).filter(donation => donation && projects.some(project => project.id === donation.project) && Number.isInteger(donation.amount) && donation.amount >= 1 && donation.amount <= 100000).map((donation, index) => ({
+        id: `DON-DEMO-${String(index + 1).padStart(3, '0')}`,
+        project: donation.project,
+        amount: donation.amount,
+        anonymous: donation.anonymous !== false,
+        status: donation.status === 'reviewed' ? 'reviewed' : 'simulated'
+      }));
+      result.publicPortfolio = raw.publicPortfolio === true;
+      result.leaderboard = raw.leaderboard === true;
+      return result;
+    }
+    function loadState() {
+      try {
+        const current = localStorage.getItem(storageKey);
+        const legacy = current === null ? localStorage.getItem(legacyStorageKey) : null;
+        const raw = current ?? legacy;
+        if (raw === null) return state || initialState();
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Invalid stored record');
+        return normalizeState(parsed);
+      } catch (error) {
+        if (error instanceof SyntaxError || error.message === 'Invalid stored record') {
+          recoveryWarning = '本機紀錄格式異常，已使用安全初始值。原始儲存內容不會在你操作前被覆寫。';
+          return initialState();
+        }
+        persistenceAvailable = false;
+        return state || initialState();
+      }
+    }
+    function withMutationLock(task) {
+      const run = async () => {
+        if (persistenceAvailable) state = loadState();
+        await task();
+      };
+      const locked = () => navigator.locks ? navigator.locks.request(storageKey, run) : run();
+      mutationQueue = mutationQueue.then(locked, locked).catch(error => {
+        console.error('Demo action failed:', error);
+        toast('操作未完成，請重新載入後再試。沒有真實金流受到影響。');
+      });
+      return mutationQueue;
+    }
+    state = loadState();
+    const rooms = () => [
+      {id: 'beginner', title: '初學同行小組', members: '12 位示範成員'},
+      {id: 'volunteer', title: '週末志工交流', members: '8 位示範成員'},
+      ...state.groups
+    ];
+    const canManage = () => state.signedIn && ['admin', 'organizer'].includes(state.role);
+    const canAdmin = () => state.signedIn && state.role === 'admin';
+    const roleLabel = () => ({member: '一般學員', organizer: '活動幹部', admin: '管理員'})[state.role] || '一般學員';
+    const unlocked = course => !course.previous || state.completed.includes(course.previous);
+    const progress = course => state.completed.includes(course.id) ? 100 : Math.round((state.lessons[course.id] || []).length / course.lessons.length * 100);
+    const level = () => Math.min(state.completed.length + 1, 3);
+    const visibleEvents = () => [...baseEvents, ...state.events].filter(event => event.rank === 'all' || canManage()).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+    const eventType = type => ({online: '線上課程', offline: '實體課程', social: '社群活動'})[type];
+    const navItems = [
+      ['學習中心', 'home', 'home', '我的總覽'],
+      ['', 'courses', 'book', '探索課程'],
+      ['', 'schedule', 'calendar', '課程與活動'],
+      ['同行社群', 'community', 'people', '同行社群'],
+      ['', 'meetings', 'video', '會議與回顧'],
+      ['成長足跡', 'portfolio', 'award', '我的成就'],
+      ['', 'vault', 'heart', '善行寶庫'],
+      ['', 'rewards', 'gift', '積分好禮'],
+      ['', 'invite', 'share', '邀請同行'],
+      ['關於我們', 'about', 'sun', '認識光耀']
+    ];
+    const button = (label, action, extra = '', style = '') => `<button type="button" class="btn ${style}" data-action="${action}" ${extra}>${label}</button>`;
+    const navButton = (label, page, style = '') => button(label, 'navigate', `data-page="${page}"`, style);
+    function toast(message) {
+      const element = document.getElementById('toast');
+      element.textContent = message;
+      element.classList.add('show');
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => element.classList.remove('show'), 3600);
+    }
+    function modal(title, content) {
+      const element = document.getElementById('modal');
+      element.innerHTML = `<div class="dialog-head"><h2 id="dialog-title">${title}</h2><button class="icon-button" data-action="close" aria-label="關閉視窗">${icon('close')}</button></div>${content}`;
+      if (!element.open) element.showModal();
+    }
+    function closeModal() {
+      document.getElementById('modal').close();
+    }
+    function navigate(page) {
+      closeModal();
+      setNavigationOpen(false);
+      if (location.hash === `#${page}`) render();
+      else location.hash = page;
+      window.scrollTo({top: 0, behavior: 'instant'});
+    }
+    function pageHead(title, description, actions = '') {
+      return `<div class="page-head"><div><div class="eyebrow">FA YI GUANG YAO · TOGETHER IN GROWTH</div><h1>${title}</h1><p>${description}</p></div>${actions}</div>`;
+    }
+    function stat(label, value, symbol, suffix = '') {
+      return `<div class="stat"><div class="stat-symbol">${icon(symbol)}</div><div><span class="stat-label">${label}</span><div class="stat-value">${value}<small>${suffix}</small></div></div></div>`;
+    }
+    function heroArt() {
+      return `<svg class="hero-art" viewBox="0 0 550 270" preserveAspectRatio="xMaxYMax slice" aria-hidden="true"><defs><linearGradient id="mountain" x2="0" y2="1"><stop stop-color="#517b69"/><stop offset="1" stop-color="#345e53"/></linearGradient><linearGradient id="sunrise" x2="0" y2="1"><stop stop-color="#f4d99b"/><stop offset="1" stop-color="#bda369"/></linearGradient></defs><circle cx="368" cy="112" r="82" fill="none" stroke="#628575" opacity=".35"/><circle cx="368" cy="112" r="104" fill="none" stroke="#628575" opacity=".18"/><circle cx="368" cy="112" r="62" fill="url(#sunrise)"/><path d="M118 270 266 123 355 215 416 149 550 270Z" fill="#2d574c"/><path d="M202 270 352 148 448 232 502 190 550 237v33" fill="url(#mountain)"/><path d="M0 270c116-84 175-46 263-44s185-15 287-3v47" fill="#204b42"/><path d="M293 270c47-48 84-31 91-60 8-35-16-43-16-43" fill="none" stroke="#b4b48b" stroke-width="2" opacity=".7"/><path d="M450 55c8-8 12-8 20 0m5-13c5-5 9-5 14 0" stroke="#aec2a2" fill="none"/><path d="M510 270V152m0 70c-36-1-49-20-44-43 28 0 45 20 44 43m0-32c28-2 38-18 35-35-21 0-36 14-35 35" fill="#315b4b" stroke="#6e9073" opacity=".8"/><circle cx="264" cy="68" r="2" fill="#aabb90"/><circle cx="477" cy="112" r="2" fill="#aabb90"/></svg>`;
+    }
+    function courseArt(course) {
+      const colors = course.color === 'sand' ? ['#f0e8d8', '#b5a279', '#d1c4a6'] : course.color === 'blue' ? ['#e2ebed', '#8ea8ae', '#bdcfd0'] : ['#e5ebde', '#829c76', '#b4c5a3'];
+      return `<div class="course-art" style="background:${colors[0]}"><svg viewBox="0 0 400 140" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><circle cx="310" cy="38" r="35" fill="#fff" opacity=".6"/><path d="M145 140 250 41l115 99m-40 0 48-60 70 60" fill="${colors[2]}" opacity=".65"/><path d="M195 140c70-72 115-61 205-35v35" fill="${colors[1]}" opacity=".28"/><path d="M307 140V65m0 45c-28 0-38-15-36-34 23 0 37 15 36 34m0-22c22 0 30-14 28-28-18 0-30 13-28 28" fill="none" stroke="${colors[1]}" stroke-width="1.3"/><path d="M0 125h150" stroke="${colors[1]}" opacity=".25"/></svg><span class="tag">LEVEL 0${course.level}</span><span class="art-caption">${course.subtitle}</span></div>`;
+    }
+    function courseCard(course) {
+      const accessible = unlocked(course);
+      const done = state.completed.includes(course.id);
+      return `<article class="card">${courseArt(course)}<div class="course-body"><span class="eyebrow" style="font-size:9px">${course.category}</span><h3>${course.title}</h3><div class="meta"><span>${icon('people')}${course.teacher}</span><span>${icon('clock')}${course.minutes} 分鐘・3 單元</span></div><div style="margin-top:18px"><div class="progress-label"><span>${done ? '課程已完成' : accessible ? '學習進度' : '完成前一級課程後解鎖'}</span><span>${progress(course)}%</span></div><div class="progress"><i style="width:${progress(course)}%"></i></div></div><div class="course-foot"><span class="tag ${done ? 'gold' : 'gray'}">${done ? '已取得示範證書' : accessible ? '依自己的步調學習' : '循序進階'}</span>${button(`${icon(accessible ? 'arrow' : 'lock')}${accessible ? done ? '回顧課程' : '進入課程' : '查看課程'}`, 'open-course', `data-id="${course.id}"`, 'ghost small')}</div></div></article>`;
+    }
+    function homePage() {
+      const current = courses.find(course => !state.completed.includes(course.id)) || courses[0];
+      return `${pageHead(`你好，${esc(state.name.slice(-2))} <span style="color:#bf9d60;font-size:25px">☀</span>`, '每一份用心，都在讓世界更好一點。今天也一起向前。', `<div class="date-chip">${icon('calendar')}2026 年 11 月 · 示範日程</div>`)}
+        <section class="hero"><div class="hero-copy"><div class="eyebrow" style="color:#9fbaa7">LEARN · CONNECT · CONTRIBUTE</div><h2>把每一次學習，<br>化為向善的力量。</h2><p>在光耀同行，與志同道合的夥伴一起成長。</p>${button(`繼續我的學習 ${icon('arrow')}`, 'open-course', `data-id="${current.id}"`, 'gold')}</div>${heroArt()}</section>
+        <section class="stats" aria-label="個人成長概覽">${stat('我的學習等級', `Lv. ${level()}`, 'sprout', ['初學同行', '日常實踐', '同行服務'][level() - 1])}${stat('已完成課程', state.completed.length, 'book', `/ ${courses.length} 門`)}${stat('可用積分', format(state.points), 'coin', '點')}${stat('已報名活動', visibleEvents().filter(event => state.registrations.includes(event.id)).length, 'calendar', '場')}</section>
+        <div class="two-col"><section><div class="section-head"><h2>延續你的學習旅程</h2>${navButton(`探索全部 ${icon('arrow')}`, 'courses', 'ghost')}</div><div class="equal-col">${courseCard(current)}${courseCard(courses.find(course => course.id !== current.id) || courses[1])}</div><div class="community-strip"><div class="stacked"><span class="avatar">晴</span><span class="avatar peach">哲</span><span class="avatar blue">恩</span></div><div><h3>學習的路上，我們一起走。</h3><p>初學同行小組 · 分享你的第一個善意行動</p></div>${navButton(`加入討論 ${icon('arrow')}`, 'community', 'ghost')}</div></section>
+        <section><div class="section-head"><h2>接下來的相聚</h2>${navButton(`查看日程 ${icon('arrow')}`, 'schedule', 'ghost')}</div><div class="card schedule-box"><div class="mini-calendar">${['一', '二', '三', '四', '五', '六', '日'].map((day, index) => `<div class="day ${index === 3 ? 'selected' : ''}">${day}<strong>${index + 2}</strong></div>`).join('')}</div>${visibleEvents().slice(0, 3).map((event, index) => `<div class="agenda-item"><span class="agenda-dot ${index === 1 ? 'orange' : ''}"></span><div style="flex:1"><div class="event-time">11/${event.date.slice(-2)} · ${event.time} <span class="tag ${event.type === 'online' ? '' : 'gold'}" style="float:right">${eventType(event.type)}</span></div><h3>${event.title}</h3><p>${event.teacher} · ${event.place}</p>${button(`查看活動 ${icon('chevron')}`, 'event-detail', `data-id="${event.id}"`, 'ghost small')}</div></div>`).join('')}</div></section></div>
+        <div class="equal-col space-top"><section class="card card-pad"><div class="section-head"><h2>${icon('heart')} 善意，有跡可循</h2><span class="tag">透明公益 · 示範</span></div><p class="muted" style="font-size:12px">每一份支持都有去向。一起看見共學計畫的進展。</p><div class="progress-label"><span>社區共學支持計畫</span><span>${money(48600)} / ${money(80000)}</span></div><div class="progress"><i style="width:60.75%"></i></div>${navButton(`探索善行寶庫 ${icon('arrow')}`, 'vault', 'ghost')}</section><section class="card card-pad"><div class="section-head"><h2>${icon('gift')} 努力，值得被鼓勵</h2><span class="tag gold">積分好禮</span></div><p class="muted" style="font-size:12px">你有 ${format(state.points)} 點可用積分，為自己選一份學習的陪伴。</p><div style="display:flex;align-items:center;gap:15px"><div class="stat-symbol" style="background:#f8f1e5;color:#bca375">${icon('book')}</div><div><strong style="font-size:12px">光耀學習筆記本</strong><div style="font-size:10px;color:#9c906f">200 點 · 示範好禮</div></div>${navButton(`看看好禮 ${icon('arrow')}`, 'rewards', 'ghost')}</div></section></div>`;
+    }
+    function coursesPage() {
+      let filtered = courses;
+      if (ui.courseFilter === 'mine') filtered = courses.filter(course => state.enrolled.includes(course.id));
+      if (ui.courseFilter === 'unlocked') filtered = courses.filter(unlocked);
+      return `${pageHead('探索課程', '從認識到實踐，一步一步，走出自己的成長路徑。')}<div class="callout">${icon('info')} 課程名稱、教師及教材皆為流程示例，非發一光耀正式課綱。完成全部單元及測驗，才會解鎖下一級。</div><div class="filters">${[['all', '全部課程'], ['mine', '我的課程'], ['unlocked', '可開始學習']].map(([id, label]) => button(label, 'course-filter', `data-id="${id}"`, `filter ${ui.courseFilter === id ? 'active' : ''}`)).join('')}</div><div class="three-col">${filtered.map(courseCard).join('') || '<div class="empty">還沒有加入課程。先從入門課開始吧。</div>'}</div><section class="card card-pad space-top"><h2>你的進階路徑</h2><div class="three-col">${courses.map(course => `<div><span class="tag ${state.completed.includes(course.id) ? 'gold' : ''}">LEVEL 0${course.level}</span><h3 style="margin-top:12px">${course.category}</h3><p class="muted" style="font-size:12px">${state.completed.includes(course.id) ? '已完成 · 證書已加入個人成就' : unlocked(course) ? '已解鎖 · 完成單元與測驗後繼續進階' : '待解鎖 · 先完成上一級課程'}</p></div>`).join('')}</div></section>`;
+    }
+    function coursePage(id) {
+      const course = courses.find(item => item.id === id);
+      if (!course) return notFound();
+      if (ui.course !== id) ui.lesson = 0;
+      ui.course = id;
+      const accessible = unlocked(course);
+      const lessonIndex = Math.min(ui.lesson, course.lessons.length - 1);
+      const watched = state.lessons[id] || [];
+      const done = state.completed.includes(id);
+      return `${pageHead(course.title, `LEVEL 0${course.level} · ${course.teacher}（示範人物） · ${course.minutes} 分鐘`, navButton('返回課程', 'courses', 'secondary'))}${!accessible ? `<div class="callout warning">${icon('lock')} 此課程尚未解鎖。請先完成「${courses.find(item => item.id === course.previous).title}」的全部單元與測驗。</div>` : ''}<div class="two-col"><section><div class="lesson-player"><span class="demo-pill">課堂影片位置 · 非實際教材</span>${icon(accessible ? 'play' : 'lock')}<h2 style="margin:0">${course.lessons[lessonIndex]}</h2><p>正式版會串接經授權的教學影片與字幕。原型以預覽投影片展示播放流程，不計算真實觀看時數。</p>${button('預覽示範單元', 'play-lesson', `data-id="${id}" ${accessible ? '' : 'disabled'}`, 'gold')}</div><div class="card card-pad space-top"><h2>關於這堂課</h2><p class="muted" style="font-size:13px">${course.description}</p><div class="section-head space-top"><h3>課堂教材</h3><span class="tag gray">示範檔案</span></div><div class="list-row"><div class="row-left">${icon('file')}<div><h3>單元學習筆記與反思練習</h3><p>文字講義 · 可下載 · 非官方教材</p></div></div>${button(`${icon('download')}下載`, 'download-handout', `data-id="${id}" ${accessible ? '' : 'disabled'}`, 'secondary small')}</div><div class="callout" style="margin-top:20px;margin-bottom:0">本課程示範完成條件：3 個單元全部標記完成，且小測驗 2 題全對。首次通過可獲得 100 點示範積分。</div></div></section><aside><div class="card"><div class="card-pad"><div class="section-head"><h2>課程單元</h2><span class="tag">${watched.length} / 3</span></div><div class="progress"><i style="width:${progress(course)}%"></i></div></div>${course.lessons.map((lesson, index) => `<button class="lesson-row ${lessonIndex === index ? 'active' : ''}" data-action="select-lesson" data-index="${index}" ${accessible ? '' : 'disabled'}><span class="number">${watched.includes(index) ? icon('check') : index + 1}</span><span><strong>${lesson}</strong><small>示範教學 · ${Math.round(course.minutes / 3)} 分鐘</small></span></button>`).join('')}<div class="card-pad">${button(`${icon(done ? 'award' : 'check')}${done ? '查看我的證書' : '開始課後小測驗'}`, done ? 'navigate' : 'quiz', done ? 'data-page="portfolio"' : `data-id="${id}" ${accessible && watched.length === 3 ? '' : 'disabled'}`)}<p class="muted" style="font-size:10px;margin:12px 0 0">${done ? '已完成。重看課程不會重複獲得積分。' : '先完成全部單元，再挑戰小測驗。'}</p></div></div></aside></div>`;
+    }
+    function schedulePage() {
+      const events = visibleEvents().filter(event => ui.eventFilter === 'all' || event.type === ui.eventFilter || ui.eventFilter === 'mine' && state.registrations.includes(event.id));
+      const filters = [['all', '全部活動'], ['online', '線上'], ['offline', '實體'], ['social', '社群活動'], ['mine', '我的報名']];
+      let content;
+      if (ui.calendar) {
+        const cells = Array.from({length: 35}, (_, index) => {
+          const day = index + 1;
+          if (day > 30) return '<div class="calendar-cell blank"></div>';
+          const date = `2026-11-${String(day).padStart(2, '0')}`;
+          return `<div class="calendar-cell">${day}${events.filter(event => event.date === date).map(event => `<button class="calendar-event" data-action="event-detail" data-id="${event.id}">${event.time} ${esc(event.title)}</button>`).join('')}</div>`;
+        }).join('');
+        content = `<h2>2026 年 11 月 <small style="font-size:11px;font-weight:400">示範月份</small></h2><div class="calendar-grid">${['日', '一', '二', '三', '四', '五', '六'].map(day => `<div class="calendar-cell heading">${day}</div>`).join('')}${cells}</div>`;
+      } else {
+        content = events.map(event => `<article class="card event-card"><div class="event-date">${Number(event.date.slice(5, 7))} 月<strong>${event.date.slice(-2)}</strong></div><div class="event-info"><span class="tag ${event.type === 'online' ? '' : 'gold'}">${eventType(event.type)}</span> ${event.rank !== 'all' ? '<span class="tag gray">幹部限定</span>' : ''}${state.registrations.includes(event.id) ? '<span class="tag blue">已報名</span>' : ''}<h3>${esc(event.title)}</h3><div class="meta"><span>${icon('clock')}${esc(event.time)} · ${esc(event.duration)}</span><span>${icon('people')}${esc(event.teacher)}</span><span>${icon('pin')}${esc(event.place)}</span></div></div>${button(`活動詳情 ${icon('arrow')}`, 'event-detail', `data-id="${event.id}"`, 'secondary')}</article>`).join('') || '<div class="card empty">目前沒有符合的活動。可以切換篩選條件。</div>';
+      }
+      return `${pageHead('課程與活動', '線上相聚，實體同行。為值得的相遇，留一個位置。', canManage() ? button(`${icon('plus')}建立活動`, 'create-event') : '')}<div class="section-head"><div class="filters" style="margin-bottom:0">${filters.map(([id, label]) => button(label, 'event-filter', `data-id="${id}"`, `filter ${ui.eventFilter === id ? 'active' : ''}`)).join('')}</div>${button(`${icon(ui.calendar ? 'calendar' : 'chart')}${ui.calendar ? '清單檢視' : '月曆檢視'}`, 'calendar-toggle', '', 'secondary small')}</div><div class="callout">所有日程與教師均為示範。活動幹部與管理員可建立活動；幹部限定活動不會顯示給一般學員。正式環境需由伺服器驗證權限。</div>${content}`;
+    }
+    function communityPage() {
+      const tabs = [['chat', '群組討論'], ['friends', '我的好友'], ['poll', '社群投票'], ['board', '學習排行榜']];
+      let content = '';
+      if (ui.communityTab === 'chat') {
+        const room = rooms().find(item => item.id === ui.room) || rooms()[0];
+        const sample = room.id === 'beginner' ? [{name: '徐子晴', text: '今天的練習是「先聽完，再回應」。你們有什麼心得呢？'}, {name: '周以哲', text: '我試著在家人分享時放下手機，發現對話變得更專心了。'}] : room.id === 'volunteer' ? [{name: '黃老師', text: '週末活動記得先查看行前提醒。安全與彼此照顧最重要。'}] : [];
+        const messages = [...sample, ...(state.messages[room.id] || [])];
+        content = `<div class="callout">${icon('info')} 這是本機聊天展示，不會傳送給真人。請勿輸入個資；正式版需有檢舉、封鎖、審核與未成年人保護機制。</div><div class="card chat-layout"><aside class="chat-rooms"><div class="section-head"><h3 style="margin:0">我的群組</h3>${button(icon('plus'), 'create-group', 'aria-label="建立群組"', 'secondary small')}</div>${rooms().map(item => `<button class="chat-room ${item.id === room.id ? 'active' : ''}" data-action="room" data-id="${item.id}"><strong># ${esc(item.title)}</strong><small>${esc(item.members)}</small></button>`).join('')}</aside><section class="chat-main"><div class="chat-heading"><h3>${esc(room.title)}</h3><small>${esc(room.members)} · 互相尊重，安心交流</small></div><div class="messages" id="messages">${messages.map(message => `<div class="message ${message.mine ? 'mine' : ''}"><span class="avatar ${message.mine ? 'peach' : ''}">${esc(message.name.slice(-1))}</span><div class="bubble"><small>${esc(message.name)}${message.mine ? ' · 僅本機' : ' · 示範訊息'}</small>${esc(message.text)}</div></div>`).join('') || '<div class="empty">說聲你好，開啟這段同行。</div>'}</div><form class="chat-compose" data-form="message"><input aria-label="聊天訊息" name="message" placeholder="分享一個想法…（僅本機）" maxlength="500" required autocomplete="off"><button class="btn" type="submit">傳送 ${icon('arrow')}</button></form></section></div>`;
+      } else if (ui.communityTab === 'friends') {
+        content = `<div class="equal-col"><section class="card card-pad"><h2>我的好友 <span class="tag">${state.friends.length}</span></h2>${state.friends.map(name => `<div class="list-row"><div class="row-left"><span class="avatar">${esc(name.slice(-1))}</span><div><h3>${esc(name)}</h3><p>示範好友 · 不代表即時在線狀態</p></div></div>${button('聊天', 'friend-chat', `data-name="${esc(name)}"`, 'secondary small')}</div>`).join('')}</section><section class="card card-pad"><h2>一起學習的夥伴</h2>${['周以哲', '許宥恩', '王品涵'].map((name, index) => `<div class="list-row"><div class="row-left"><span class="avatar ${index % 2 ? 'blue' : 'peach'}">${name.slice(-1)}</span><div><h3>${name}</h3><p>示範學員 · 初學同行小組</p></div></div>${button(state.requests.includes(name) ? '已送出邀請' : '加為好友', 'add-friend', `data-name="${name}" ${state.requests.includes(name) ? 'disabled' : ''}`, 'secondary small')}</div>`).join('')}<p class="muted" style="font-size:11px;margin-top:16px">好友關係需對方接受；原型只記錄邀請，不會擅自建立關係。</p></section></div>`;
+      } else if (ui.communityTab === 'poll') {
+        const counts = [12, 8, 5].map((value, index) => value + (state.poll === index ? 1 : 0));
+        const total = counts.reduce((sum, value) => sum + value, 0);
+        content = `<section class="card card-pad" style="max-width:760px"><div class="section-head"><span class="tag">初學同行小組 · 示範投票</span><span class="muted" style="font-size:11px">基準 25 票 + 你的本機投票</span></div><h2>下一次共學，你想聊什麼？</h2><p class="muted">每人一票。選擇你最期待的主題，一起決定下次相聚的方向。</p>${['日常善行的實踐', '傾聽與家庭溝通', '志工服務經驗分享'].map((label, index) => `<div style="margin:20px 0"><div class="section-head" style="margin-bottom:5px"><strong style="font-size:13px">${label}</strong>${state.poll === null ? button('投一票', 'vote', `data-index="${index}"`, 'secondary small') : `<span class="tag ${state.poll === index ? 'gold' : 'gray'}">${state.poll === index ? '你的選擇 · ' : ''}${counts[index]} 票</span>`}</div><div class="progress"><i style="width:${counts[index] / total * 100}%"></i></div></div>`).join('')}</section>`;
+      } else {
+        const entries = [{name: '徐子晴', count: 8}, {name: '周以哲', count: 6}, {name: '許宥恩', count: 5}];
+        if (state.leaderboard) entries.push({name: state.name, count: state.completed.length});
+        entries.sort((a, b) => b.count - a.count);
+        content = `<div class="callout">排行榜只展示自願加入者的學習參與，不公開捐款金額，不代表道德、信仰或身分高低。其他名字與數據皆為示範。</div><section class="card card-pad"><div class="section-head"><h2>本月學習同行榜</h2><label class="check" style="margin:0"><input type="checkbox" data-setting="leaderboard" ${state.leaderboard ? 'checked' : ''}>自願顯示我的學習紀錄</label></div>${entries.map((entry, index) => `<div class="list-row"><div class="row-left"><span class="badge-symbol" style="width:32px;height:32px;margin:0">${index + 1}</span><span class="avatar">${esc(entry.name.slice(-1))}</span><strong>${esc(entry.name)}</strong></div><span>${entry.count} 門 <small>已完成課程</small></span></div>`).join('')}</section>`;
+      }
+      return `${pageHead('同行社群', '把一個人的體會，變成一群人的成長。')}<div class="tabs">${tabs.map(([id, label]) => `<button class="tab ${ui.communityTab === id ? 'active' : ''}" data-action="community-tab" data-id="${id}">${label}</button>`).join('')}</div>${content}`;
+    }
+    function meetingsPage() {
+      return `${pageHead('會議與回顧', '相聚時專注交流，結束後也能找回每一個重要時刻。', canManage() ? button(`${icon('plus')}安排線上會議`, 'create-event') : '')}<div class="callout warning">會議、錄影與摘要皆為介面示範，未串接視訊服務或 AI。正式錄影前需清楚告知、取得同意，並設定觀看權限與保存期限。</div><div class="two-col"><section><h2>即將開始</h2><article class="card card-pad"><span class="tag">線上共學 · 已排程</span><h2 style="margin-top:14px">日常裡的善意・線上共學</h2><div class="meta"><span>${icon('calendar')}11/05 19:30</span><span>${icon('people')}陳老師 · 示範主持人</span><span>${icon('clock')}60 分鐘</span></div><p class="muted" style="margin-top:18px">帶著一個生活中的小故事，在安心的空間裡互相聆聽。</p>${button(`${icon('video')}預覽會議室`, 'join-meeting', '', 'secondary')}</article><h2 class="space-top">過往會議</h2><article class="card card-pad"><div class="section-head"><span class="tag gray">示範歷史紀錄</span><small>2026/10/22 · 48 分鐘</small></div><h3>第一次同行：我們想成為怎樣的夥伴？</h3><p class="muted" style="font-size:12px">示範摘要：尊重不同的步調、練習完整傾聽，並為每週的小行動留下記錄。</p><div class="meta"><span>${icon('video')}錄影位置</span><span>${icon('file')}摘要與章節</span><span>${icon('lock')}小組成員可見</span></div><div class="form-actions" style="justify-content:flex-start">${button('查看回顧與摘要', 'meeting-history', '', 'secondary')}${button(`${icon('download')}下載示範摘要`, 'download-summary', '', 'ghost')}</div></article></section><aside class="card card-pad"><h2>安心相聚的約定</h2><div class="timeline"><div class="timeline-item"><h3>開始前：知情選擇</h3><p>說明錄影目的、範圍、保存時間與替代參與方式。</p></div><div class="timeline-item"><h3>進行中：清楚提示</h3><p>持續顯示錄影狀態，不在未告知情況下錄製。</p></div><div class="timeline-item"><h3>結束後：權限保護</h3><p>僅授權成員可以觀看，摘要先由主持人確認。</p></div></div></aside></div>`;
+    }
+    function certificateMarkup(course) {
+      return `<div class="certificate"><div class="seal">${icon('award')}</div><div class="eyebrow">GUANG YAO · LEARNING JOURNEY</div><h3>學習完成證明</h3><span class="tag gold">示範證書 · 非官方授證</span><div class="name">${esc(state.name)}</div><p style="font-size:12px">已完成「${course.title}」<br>全部示範單元與課後測驗</p><small>示範編號 GY-DEMO-${course.id.toUpperCase()}<br>此原型未連接正式發證及驗證服務</small></div>`;
+    }
+    function portfolioPage() {
+      const completedCourses = courses.filter(course => state.completed.includes(course.id));
+      return `${pageHead('我的成就', '每一段學習，每一次參與，都是值得留下的成長足跡。', button(`${icon('share')}預覽作品集`, 'portfolio-preview', '', 'secondary'))}<div class="two-col"><section><div class="card card-pad"><div class="row-left"><span class="avatar" style="width:64px;height:64px;font-size:23px">${esc(state.name.slice(-1))}</span><div><h2 style="margin:0">${esc(state.name)} <span class="tag">Lv. ${level()} · 學習等級</span></h2><p class="muted" style="font-size:12px;margin:5px 0">${esc(state.bio)}</p></div></div><div class="stats space-top" style="grid-template-columns:repeat(3,1fr);margin-bottom:0">${stat('完成課程', completedCourses.length, 'book')}${stat('參與報名', visibleEvents().filter(event => state.registrations.includes(event.id)).length, 'calendar')}${stat('示範證書', completedCourses.length, 'award')}</div></div><div class="section-head space-top"><h2>我的學習證書</h2><span class="muted" style="font-size:11px">可驗證的正式證書需另建發證服務</span></div>${completedCourses.length ? completedCourses.map(course => `<div class="card card-pad" style="margin-bottom:20px">${certificateMarkup(course)}<div class="form-actions">${button('查看證書資訊', 'certificate-info', `data-id="${course.id}"`, 'secondary')}${button(`${icon('download')}下載示範證書`, 'download-certificate', `data-id="${course.id}"`)}</div></div>`).join('') : `<div class="card empty">${icon('award')}<h3>你的第一張證書，從這裡開始</h3><p>完成入門課程與測驗後，就會出現在這裡。</p>${button('前往入門課', 'open-course', 'data-id="foundation"')}</div>`}<h2 class="space-top">成長徽章</h2><div class="three-col">${[['book', '學習起步', '完成第一門課程', completedCourses.length > 0], ['people', '主動同行', '報名第一場活動', state.registrations.length > 0], ['heart', '善意支持', '完成第一筆模擬支持', state.donations.length > 0]].map(([symbol, title, description, earned]) => `<div class="card badge-tile ${earned ? '' : 'locked'}"><div class="badge-symbol">${icon(symbol)}</div><h3>${title}</h3><p>${earned ? '已解鎖 · ' : ''}${description}</p></div>`).join('')}</div></section><aside><div class="card card-pad"><h2>作品集與隱私</h2><div class="privacy-setting"><div><strong style="font-size:12px">允許作品集預覽</strong><p>預設關閉。原型只會生成本機預覽，不會發布到網路。</p></div><input class="switch" type="checkbox" aria-label="允許作品集預覽" data-setting="publicPortfolio" ${state.publicPortfolio ? 'checked' : ''}></div><div class="privacy-setting"><div><strong style="font-size:12px">加入學習排行榜</strong><p>只分享學習完成數，不含捐款或私人聊天。</p></div><input class="switch" type="checkbox" aria-label="加入學習排行榜" data-setting="leaderboard" ${state.leaderboard ? 'checked' : ''}></div>${button('編輯個人資料', 'edit-profile', '', 'secondary')}<div class="callout warning" style="margin-top:20px;margin-bottom:0">「官方」發證需由機構授權。完成證明不等於學歷、專業證照或外部認證。</div></div></aside></div>`;
+    }
+    function vaultPage() {
+      const totalReceived = projects.reduce((sum, project) => sum + project.received, 0);
+      const totalAllocated = projects.reduce((sum, project) => sum + project.allocated, 0);
+      const totalSpent = projects.reduce((sum, project) => sum + project.spent, 0);
+      const content = ui.vaultTab === 'projects' ? `<div class="equal-col">${projects.map(project => `<article class="card"><div class="project-visual">${icon(project.icon)}</div><div class="card-pad"><span class="tag">${project.subtitle}</span><h2 style="margin-top:12px">${project.title}</h2><div class="progress-label"><span>示範已募集 ${money(project.received)}</span><span>目標 ${money(project.target)}</span></div><div class="progress"><i style="width:${project.received / project.target * 100}%"></i></div><div class="meta" style="margin-top:12px"><span>已配置 ${money(project.allocated)}</span><span>已支出 ${money(project.spent)}</span></div><div class="form-actions" style="justify-content:space-between">${button('查看透明紀錄', 'project-ledger', `data-id="${project.id}"`, 'secondary')}${button(`${icon('heart')}模擬支持`, 'donate', `data-id="${project.id}"`)}</div></div></article>`).join('')}</div>` : `<section class="card card-pad"><h2>我的模擬支持紀錄</h2>${state.donations.length ? `<div class="table-wrap"><table><thead><tr><th>編號</th><th>支持計畫</th><th>金額</th><th>狀態</th></tr></thead><tbody>${state.donations.map(donation => `<tr><td>${donation.id}</td><td>${projects.find(project => project.id === donation.project).subtitle}</td><td>${money(donation.amount)}</td><td><span class="tag gold">${donation.status === 'reviewed' ? '模擬覆核完成' : '模擬成功・未收款'}</span></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">還沒有模擬支持紀錄。這裡不會處理真實付款。</div>'}</section>`;
+      return `${pageHead('善行寶庫', '讓每一份善意，看得見去向，也看得見改變。')}<div class="callout warning">${icon('shield')} 示範公益專案與金額，未經審計；不是銀行、儲值或支付服務。所有支持操作不會扣款，也不構成可抵稅收據。模擬支持不會改動下方範例帳務總額。</div><div class="stats">${stat('示範已募集', format(totalReceived), 'heart', '元')}${stat('示範已配置', format(totalAllocated), 'file', '元')}${stat('示範已支出', format(totalSpent), 'chart', '元')}${stat('示範帳面餘額', format(totalReceived - totalSpent), 'shield', '元')}</div><div class="tabs">${[['projects', '支持計畫'], ['mine', '我的支持紀錄']].map(([id, label]) => `<button class="tab ${ui.vaultTab === id ? 'active' : ''}" data-action="vault-tab" data-id="${id}">${label}</button>`).join('')}</div>${content}<div class="card card-pad space-top"><h2>善行成長，不以金額衡量</h2><div class="three-col"><div><span class="tag">一份善意</span><p class="muted" style="font-size:12px;margin-top:10px">首次支持或參與服務，留下起點。</p></div><div><span class="tag gold">持續同行</span><p class="muted" style="font-size:12px;margin-top:10px">依多次經確認的參與紀錄解鎖，不與捐款金額掛鉤。</p></div><div><span class="tag blue">共同成長</span><p class="muted" style="font-size:12px;margin-top:10px">重視持續服務與反思，不以財力評價個人。</p></div></div><small>原型只實作首次模擬支持徽章；持續參與層級待正式規則確認。</small></div>`;
+    }
+    function rewardsPage() {
+      return `${pageHead('積分好禮', '鼓勵每一份投入，讓學習有一點小小的期待。')}<section class="hero" style="min-height:155px;padding:26px 30px"><div class="hero-copy"><div class="eyebrow">YOUR LEARNING POINTS</div><div class="balance">${format(state.points)} <span style="font-size:14px;font-weight:400">點可用積分</span></div><p style="margin:7px 0 0">首次完成每門示範課程可得 100 點。積分不是現金，不與捐款金額掛鉤。</p></div>${heroArt()}</section><div class="three-col">${rewards.map(reward => { const remaining = reward.stock - state.redemptions.filter(item => item.reward === reward.id).length; return `<article class="card"><div class="reward-visual">${icon(reward.icon)}</div><div class="card-pad"><h3>${reward.name}</h3><p class="muted" style="font-size:12px">${reward.description}</p><div class="section-head"><strong style="color:#b08e4b">${reward.cost} 點</strong><small>示範庫存 ${remaining}</small></div>${button(state.points < reward.cost ? '積分不足' : remaining < 1 ? '已兌換完畢' : '兌換好禮', 'redeem', `data-id="${reward.id}" ${state.points < reward.cost || remaining < 1 ? 'disabled' : ''}`, 'secondary')}</div></article>`; }).join('')}</div><div class="equal-col space-top"><section class="card card-pad"><h2>積分來源與兌換</h2><p class="muted" style="font-size:11px">依來源整理，不代表真實交易時間線。</p>${state.pointHistory.slice().reverse().map(entry => `<div class="list-row"><span style="font-size:12px">${esc(entry.label)}</span><strong style="color:${entry.amount > 0 ? '#548164' : '#a27f4a'}">${entry.amount > 0 ? '+' : ''}${entry.amount}</strong></div>`).join('')}</section><section class="card card-pad"><h2>我的兌換</h2>${state.redemptions.map(entry => `<div class="list-row"><div><h3>${rewards.find(reward => reward.id === entry.reward).name}</h3><p>${entry.id} · 本機示範，不會寄送</p></div><span class="tag gold">模擬已兌換</span></div>`).join('') || '<div class="empty">選一份好禮，為學習留個紀念。</div>'}</section></div>`;
+    }
+    function invitePage() {
+      return `${pageHead('邀請同行', '把值得的學習，分享給你在乎的人。')}<div class="two-col"><section><div class="hero"><div class="hero-copy" style="max-width:80%"><div class="eyebrow">GOOD THINGS GROW TOGETHER</div><h2>一份邀請，<br>開啟一段同行。</h2><p>不是比較誰邀請更多，而是讓更多人找到適合的學習。</p></div>${heroArt()}</div><div class="card card-pad"><h2>你的示範邀請連結</h2><label class="field"><span>無效示範網域，不會追蹤或計算真實推薦</span><input readonly value="https://example.invalid/guangyao/join?ref=GY-DEMO" aria-label="示範邀請連結"></label><div class="form-actions" style="justify-content:flex-start">${button(`${icon('copy')}複製示範邀請文案`, 'copy-invite')}${button('預覽受邀加入頁', 'invite-preview', '', 'secondary')}</div></div><div class="card card-pad space-top"><h2>推薦與獎勵，清楚分開</h2><div class="timeline"><div class="timeline-item"><h3>1. 分享邀請</h3><p>由朋友自主決定是否加入，不自動讀取聯絡人。</p></div><div class="timeline-item"><h3>2. 有效參與後確認</h3><p>正式版需有反濫用規則、推薦歸因期間與獎勵條款。</p></div><div class="timeline-item"><h3>3. 分開記錄點數與佣金</h3><p>單層推薦佣金如獲批准，將使用獨立帳務。公益捐款不計推薦佣金。</p></div></div></div></section><aside class="card card-pad"><span class="tag gold">規則待機構核准</span><h2 style="margin-top:14px">推廣夥伴計畫</h2><div class="balance">— <small style="font-size:12px">尚未啟用</small></div><p class="muted" style="font-size:12px">佣金比例、資格、稅務、退款扣回、最低撥款門檻與支付方式，需另行確認。原型不產生可提領收益。</p>${button('查看佣金示範流程', 'affiliate-info', '', 'secondary')}<div class="callout warning" style="margin-top:20px;margin-bottom:0">不採多層分潤，不承諾收入，不以付費、捐款或拉人取得管理權限。</div></aside></div>`;
+    }
+    function aboutPage() {
+      return `${pageHead('認識光耀', '從認識開始，讓每一次連結更有意義。')}<section class="hero" style="min-height:290px"><div class="hero-copy"><div class="eyebrow">FA YI GUANG YAO</div><h2>以學習照見自己，<br>以善意連結彼此。</h2><p>「光耀同行」是本次提案的產品暫名與設計文案，<br>非機構已核准的名稱、標語或官方網站。</p>${navButton(`開始探索課程 ${icon('arrow')}`, 'courses', 'gold')}</div>${heroArt()}</section><div class="three-col">${[['book', '學習', '影片、教材與測驗，建立循序漸進的學習體驗。'], ['people', '同行', '從課堂到社群，讓交流與互相支持自然發生。'], ['heart', '實踐', '以透明的參與紀錄，讓善意成為可持續的行動。']].map(([symbol, title, description]) => `<section class="card card-pad"><div class="stat-symbol">${icon(symbol)}</div><h2 style="margin-top:16px">${title}</h2><p class="muted" style="font-size:13px">${description}</p></section>`).join('')}</div><div class="equal-col space-top"><section class="card card-pad"><h2>機構介紹 · 待審核內容</h2><p class="muted">正式版將由發一光耀授權窗口提供與確認沿革、理念、師資、組織關係、服務據點與聯絡方式。不以產品示範文案代替官方敘述。</p><a class="btn secondary reference-link" href="https://www.iktcds.edu.tw/Chong-De-School/FaYi-GuangYao.htm" target="_blank" rel="noopener noreferrer">開啟使用者提供的介紹參考 ${icon('arrow')}</a></section><section class="card card-pad"><h2>下一步，讓想法成為服務</h2><p class="muted">這份原型展示整體體驗；正式建置前需確認機構授權、課程規則、隱私政策、公益主體與推薦獎勵制度。</p><a class="btn secondary" href="app-plan.html" target="_blank" rel="noopener">閱讀逐頁產品規劃 ${icon('arrow')}</a></section></div>`;
+    }
+    function adminPage() {
+      if (!canManage()) return `${pageHead('管理中心', '只有經授權的活動幹部與管理員可存取。')}<div class="card empty">${icon('lock')}<h2>目前沒有存取權限</h2><p>學習等級與管理權限分開。可透過右上角示範帳戶切換角色，測試不同視角。</p>${button('切換示範角色', 'account', '', 'secondary')}</div>`;
+      return `${pageHead(canAdmin() ? '管理中心' : '活動工作台', '權限與學習等級分開，讓每一份授權都有清楚邊界。', button(`${icon('plus')}建立活動`, 'create-event'))}<div class="callout warning">此處僅是前端角色展示，不是真實安全邊界。正式系統需由伺服器對每筆資料執行授權、稽核與敏感操作驗證。</div><div class="stats">${stat('示範課程', courses.length, 'book', '門')}${stat('可管理活動', visibleEvents().length, 'calendar', '場')}${stat('本機新增活動', state.events.length, 'plus', '場')}${stat('本機報名', state.registrations.length, 'people', '筆')}</div><section class="card card-pad"><h2>活動管理</h2><div class="table-wrap"><table><thead><tr><th>活動名稱</th><th>日期</th><th>可見範圍</th><th>狀態</th><th>操作</th></tr></thead><tbody>${visibleEvents().map(event => `<tr><td>${esc(event.title)}</td><td>${esc(event.date)}</td><td>${event.rank === 'all' ? '全體會員' : '幹部與管理員'}</td><td><span class="tag">${state.events.some(item => item.id === event.id) ? '本機已發布' : '示範活動'}</span></td><td>${button('檢視', 'event-detail', `data-id="${event.id}"`, 'secondary small')} ${state.events.some(item => item.id === event.id) ? button('取消活動', 'remove-event', `data-id="${event.id}"`, 'danger small') : ''}</td></tr>`).join('')}</tbody></table></div></section>${canAdmin() ? `<div class="equal-col space-top"><section class="card card-pad"><h2>權限與角色示範</h2><p class="muted" style="font-size:12px">角色切換只改變自己的原型視角，不會修改任何真實會員。</p>${[['一般學員', '學習、報名、社群互動與個人成就'], ['活動幹部', '新增及管理活動、進入幹部限定活動'], ['管理員', '包含活動管理及模擬財務覆核']].map(([name, description]) => `<div class="list-row"><div><h3>${name}</h3><p>${description}</p></div>${icon('shield')}</div>`).join('')}${button('測試角色視角', 'account', '', 'secondary')}</section><section class="card card-pad"><h2>模擬支持覆核</h2><p class="muted" style="font-size:12px">僅標記模擬紀錄，沒有金流對帳能力。正式版採經辦與覆核分離。</p>${state.donations.length ? state.donations.map(donation => `<div class="list-row"><div><h3>${donation.id} · ${money(donation.amount)}</h3><p>${projects.find(project => project.id === donation.project).subtitle}</p></div>${button(donation.status === 'reviewed' ? '已模擬覆核' : '模擬覆核', 'review-donation', `data-id="${donation.id}" ${donation.status === 'reviewed' ? 'disabled' : ''}`, 'secondary small')}</div>`).join('') : '<div class="empty">目前沒有本機模擬支持紀錄。</div>'}</section></div>` : ''}`;
+    }
+    function searchPage(query) {
+      const normalized = query.trim().toLowerCase();
+      const entries = [...navItems.map(([, page, symbol, title]) => ({title, page, symbol, description: '平台頁面'})), ...courses.map(course => ({title: course.title, page: `course/${course.id}`, symbol: 'book', description: `${course.teacher} · ${course.category}`})), ...visibleEvents().map(event => ({title: event.title, eventId: event.id, symbol: 'calendar', description: `${event.date} · ${event.teacher}`}))].filter(entry => !normalized || `${entry.title} ${entry.description}`.toLowerCase().includes(normalized));
+      return `${pageHead('搜尋結果', `「${esc(query)}」· 找到 ${entries.length} 個結果`)}<div class="card card-pad">${entries.map(entry => `<div class="list-row"><div class="row-left"><div class="stat-symbol">${icon(entry.symbol)}</div><div><h3>${esc(entry.title)}</h3><p>${esc(entry.description)}</p></div></div>${entry.eventId ? button('查看', 'event-detail', `data-id="${entry.eventId}"`, 'secondary small') : navButton('前往', entry.page, 'secondary small')}</div>`).join('') || '<div class="empty">沒有找到結果。試試「課程」、「善行」或「同行」。</div>'}</div>`;
+    }
+    function notFound() {
+      return `<div class="card empty"><h1>找不到這個頁面</h1><p>內容可能尚未加入原型。</p>${navButton('返回總覽', 'home')}</div>`;
+    }
+    function render() {
+      const route = location.hash.slice(1) || 'home';
+      const page = route.split('/')[0];
+      const activePage = page === 'course' ? 'courses' : page;
+      document.getElementById('sidebar').innerHTML = `<button type="button" class="icon-button drawer-close" data-action="close-menu" aria-label="關閉主選單">${icon('close')}</button><div class="brand"><span class="brandmark">${icon('sun')}</span><div><strong>光耀同行</strong><small>發一光耀 · 學習與成長</small></div></div><nav>${navItems.map(([group, id, symbol, label]) => `${group ? `<div class="nav-group">${group}</div>` : ''}<button class="nav-item ${activePage === id ? 'active' : ''}" data-action="navigate" data-page="${id}" ${activePage === id ? 'aria-current="page"' : ''}>${icon(symbol)}${label}${id === 'community' ? '<span class="count">2</span>' : ''}</button>`).join('')}${canManage() ? `<div class="nav-group">工作空間</div><button class="nav-item ${page === 'admin' ? 'active' : ''}" data-action="navigate" data-page="admin">${icon('shield')}${canAdmin() ? '管理中心' : '活動工作台'}</button>` : ''}</nav><div class="sidebar-bottom"><div class="sidebar-note">${icon('leaf')} 一起學習，一起成為更好的自己。<p>每一個微小的善意，都值得被看見。</p></div><div class="sidebar-foot"><span>PWA DEMO · V2.0</span><a href="app-plan.html" target="_blank" rel="noopener">產品藍圖 ↗</a></div></div>`;
+      document.getElementById('topbar').innerHTML = `<button class="icon-button mobile-menu" data-action="menu" aria-label="開啟或關閉導覽" aria-controls="sidebar" aria-expanded="false">${icon('menu')}</button><form class="search-wrap" data-form="search">${icon('search')}<input name="query" aria-label="搜尋課程、活動或頁面" placeholder="搜尋課程、活動或學習靈感…" maxlength="80" required><kbd>↵</kbd></form><div class="top-actions"><span class="demo-pill">互動原型 · 示範資料</span><button class="icon-button notification" data-action="notifications" aria-label="查看示範通知">${icon('bell')}</button><button class="profile-button" data-action="account" aria-label="帳戶與示範角色"><span class="avatar">${state.signedIn ? esc(state.name.slice(-1)) : '客'}</span><span class="profile-copy"><strong>${state.signedIn ? esc(state.name) : '訪客'}</strong><small>${state.signedIn ? roleLabel() : '登入示範帳戶'}</small></span><span style="color:#a1ada1;font-size:11px">⌄</span></button></div>`;
+      const pages = {home: homePage, courses: coursesPage, schedule: schedulePage, community: communityPage, meetings: meetingsPage, portfolio: portfolioPage, vault: vaultPage, rewards: rewardsPage, invite: invitePage, about: aboutPage, admin: adminPage};
+      let content;
+      if (!state.signedIn && !['about', 'invite'].includes(page)) {
+        content = `${pageHead('歡迎加入光耀同行', '從一份好奇開始，走進學習、交流與善意的日常。')}<section class="hero"><div class="hero-copy"><div class="eyebrow">YOUR JOURNEY STARTS HERE</div><h2>學習不只是一堂課，<br>也是一段同行。</h2><p>無需真實密碼，即可體驗此互動原型。</p>${button('進入示範帳戶', 'account', '', 'gold')}</div>${heroArt()}</section><div class="callout">這不是正式登入系統。不要輸入真實密碼或敏感資料。所有示範資料只儲存在這個瀏覽器。</div>${navButton('先認識光耀', 'about', 'secondary')}`;
+      } else if (page === 'course') {
+        content = coursePage(route.split('/')[1]);
+      } else if (page === 'search') {
+        let query = '';
+        try { query = decodeURIComponent(route.slice(7)); } catch { query = ''; }
+        content = searchPage(query);
+      } else {
+        content = (pages[page] || notFound)();
+      }
+      document.getElementById('main').innerHTML = `${content}<footer class="footer"><span>光耀同行 · 發一光耀學習與社群平台提案</span><span>未經機構授權的互動原型 · 不處理真實付款或正式發證 · <a href="app-plan.html" target="_blank" rel="noopener">逐頁規劃 ↗</a> · <a href="https://juwpegatron.github.io/portfolio/#projects" target="_blank" rel="noopener noreferrer">開發者作品集 ↗</a></span></footer>`;
+      document.querySelectorAll('.filter, .tab').forEach(element => element.setAttribute('aria-pressed', String(element.classList.contains('active'))));
+      renderMobileNavigation(activePage);
+      setNavigationOpen(document.getElementById('sidebar').classList.contains('open'), false);
+      document.dispatchEvent(new Event('guangyao:render'));
+      document.title = `${navItems.find(item => item[1] === activePage)?.[3] || '光耀同行'} — 光耀同行 · 互動原型`;
+    }
+    function downloadFile(filename, contents, type = 'text/plain;charset=utf-8') {
+      const blob = new Blob([contents], {type});
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      toast('已建立示範下載檔案。');
+    }
+    function accountModal() {
+      modal(state.signedIn ? '示範帳戶與角色' : '進入示範帳戶', `<div class="callout warning">沒有真實驗證，也不需要密碼。角色切換只供測試；所有資料保留在本機。登出不會刪除紀錄，共用裝置請使用「重設原型」。</div><form data-form="account"><label class="field"><span>示範顯示名稱</span><input name="name" value="${esc(state.name)}" maxlength="20" required></label><label class="field"><span>體驗角色</span><select name="role"><option value="member" ${state.role === 'member' ? 'selected' : ''}>一般學員 — 學習與社群</option><option value="organizer" ${state.role === 'organizer' ? 'selected' : ''}>活動幹部 — 管理活動</option><option value="admin" ${state.role === 'admin' ? 'selected' : ''}>管理員 — 活動與模擬覆核</option></select></label><div class="form-actions">${state.signedIn ? button(`${icon('logout')}登出示範`, 'logout', '', 'secondary') : ''}<button class="btn" type="submit">${state.signedIn ? '套用示範角色' : '登入示範'}</button></div></form><div style="border-top:1px solid var(--line);margin-top:22px;padding-top:16px;display:flex;align-items:center;justify-content:space-between;gap:15px"><small>可隨時清除本機練習紀錄，重新體驗。</small>${button('重設原型', 'reset', '', 'danger small')}</div>`);
+    }
+    function eventDetail(id) {
+      const event = visibleEvents().find(item => item.id === id);
+      if (!event) {
+        toast('找不到活動，或目前角色沒有權限。');
+        return;
+      }
+      const registered = state.registrations.includes(id);
+      const full = event.occupied + (registered ? 1 : 0) >= event.capacity;
+      modal('活動詳情', `<span class="tag ${event.type === 'online' ? '' : 'gold'}">${eventType(event.type)}</span> ${event.rank !== 'all' ? '<span class="tag gray">幹部限定</span>' : ''}<h2 style="margin-top:16px">${esc(event.title)}</h2><div class="list-row"><span>日期與時間</span><strong>${esc(event.date)} ${esc(event.time)}</strong></div><div class="list-row"><span>教師／主持人</span><strong>${esc(event.teacher)}</strong></div><div class="list-row"><span>地點</span><span style="font-size:12px">${esc(event.place)}</span></div><div class="list-row"><span>名額</span><span>${event.occupied + (registered ? 1 : 0)} / ${event.capacity} 人（示範）</span></div><p class="muted" style="margin-top:20px">${esc(event.description)}</p><div class="callout">報名只儲存在本機，並未通知主辦人。實體活動須另行確認地址、安全計畫與參與條款。</div><div class="form-actions">${button(registered ? '取消我的報名' : full ? '名額已滿' : '確認示範報名', 'register-event', `data-id="${id}" data-intent="${registered ? 'cancel' : 'register'}" ${full && !registered ? 'disabled' : ''}`, registered ? 'secondary' : '')}</div>`);
+    }
+    function createEventModal() {
+      if (!canManage()) {
+        toast('只有活動幹部或管理員可建立活動。');
+        return;
+      }
+      modal('建立示範活動', `<form data-form="create-event"><div class="callout">發布後只會出現在此瀏覽器。日期限制在示範月份 2026 年 11 月，方便在月曆檢查。</div><label class="field"><span>活動名稱</span><input name="title" maxlength="60" required placeholder="例如：週末共學與分享"></label><div class="equal-col"><label class="field"><span>日期</span><input type="date" name="date" min="2026-11-01" max="2026-11-30" value="2026-11-20" required></label><label class="field"><span>開始時間（台北時間）</span><input type="time" name="time" value="19:00" required></label></div><div class="equal-col"><label class="field"><span>活動類型</span><select name="type"><option value="online">線上課程／會議</option><option value="offline">實體課程</option><option value="social">社群活動</option></select></label><label class="field"><span>可見範圍</span><select name="rank"><option value="all">全體會員</option><option value="organizer">僅活動幹部與管理員</option></select></label></div><label class="field"><span>教師／主持人（示範名稱）</span><input name="teacher" maxlength="30" required placeholder="請填寫示範姓名"></label><label class="field"><span>地點／線上教室說明</span><input name="place" maxlength="100" required placeholder="不要輸入私人地址或真實會議密碼"></label><div class="equal-col"><label class="field"><span>名額上限</span><input type="number" name="capacity" min="1" max="500" step="1" value="20" required></label><label class="field"><span>時長（分鐘）</span><input type="number" name="duration" min="15" max="480" step="15" value="60" required></label></div><label class="field"><span>活動內容與準備事項</span><textarea name="description" maxlength="1000" required></textarea></label><div class="form-actions">${button('取消', 'close', '', 'secondary')}<button class="btn" type="submit">發布到本機原型</button></div></form>`);
+    }
+    function quizModal(id) {
+      const course = courses.find(item => item.id === id);
+      if (!course || !unlocked(course) || state.lessons[id].length !== 3) {
+        toast('請先完成這門課的全部單元。');
+        return;
+      }
+      modal('課後小測驗', `<span class="tag">${course.title} · 示範題目</span><p class="muted" style="font-size:12px;margin-top:12px">2 題全對即可通過，可不限次重試。正式題庫與通過標準由機構核定。</p><form data-form="quiz" data-course="${id}"><fieldset class="question" style="border:0;padding:0"><legend><strong>1. 在小組交流時，哪種做法最合適？</strong></legend><label><input type="radio" name="q1" value="a" required>立即打斷，告訴對方正確答案</label><label><input type="radio" name="q1" value="b">先完整傾聽，再尊重地回應</label><label><input type="radio" name="q1" value="c">未經同意分享對方的私人故事</label></fieldset><fieldset class="question" style="border:0;padding:0"><legend><strong>2. 關於學習與參與紀錄，哪一項正確？</strong></legend><label><input type="radio" name="q2" value="a" required>捐款越多就應自動取得管理權限</label><label><input type="radio" name="q2" value="b">未經同意公開所有人的資料</label><label><input type="radio" name="q2" value="c">尊重隱私，依實際完成條件記錄成長</label></fieldset><div id="quiz-feedback" role="status"></div><div class="form-actions"><button class="btn" type="submit">提交答案</button></div></form>`);
+    }
+    function donateModal(id) {
+      const project = projects.find(item => item.id === id);
+      if (!project) return;
+      modal('模擬支持計畫', `<span class="tag">${project.subtitle}</span><h3 style="margin-top:14px">${project.title}</h3><div class="callout warning">這不是真實捐款。沒有金流、卡號輸入或可抵稅收據，也不會將金額換算成學習積分。</div><form data-form="donate" data-project="${id}"><label class="field"><span>示範金額（新台幣）</span><input type="number" name="amount" min="1" max="100000" step="1" value="300" required></label><label class="check"><input type="checkbox" name="anonymous" checked>以匿名方式顯示支持（正式版預設隱私保護）</label><label class="check"><input type="checkbox" name="consent" required>我了解這只是本機模擬，並未捐出任何款項。</label><div class="form-actions"><button class="btn" type="submit">確認模擬支持</button></div></form>`);
+    }
+    function projectLedger(id) {
+      const project = projects.find(item => item.id === id);
+      if (!project) return;
+      modal('透明帳務 · 範例帳本', `<span class="tag">${project.subtitle}</span><div class="callout warning" style="margin-top:16px">以下帳目及附件是合成示範，沒有銀行對帳或獨立稽核。已配置是核准用途，不等於實際支出。</div><div class="list-row"><span>已募集</span><strong>${money(project.received)}</strong></div><div class="list-row"><span>已配置（含已支出）</span><strong>${money(project.allocated)}</strong></div><div class="list-row"><span>已支出</span><strong>${money(project.spent)}</strong></div><div class="list-row"><span>配置中尚未支出</span><strong>${money(project.allocated - project.spent)}</strong></div><div class="list-row"><span>尚未配置</span><strong>${money(project.received - project.allocated)}</strong></div><div class="list-row"><span>帳面餘額（已募集扣除已支出）</span><strong>${money(project.received - project.spent)}</strong></div><h3 class="space-top">範例支出明細</h3><div class="table-wrap"><table><thead><tr><th>日期</th><th>用途</th><th>金額</th></tr></thead><tbody><tr><td>2026/10/15</td><td>${id === 'p1' ? '學習用品與教材' : '關懷物資'}</td><td>${money(id === 'p1' ? 15800 : 12000)}</td></tr><tr><td>2026/10/22</td><td>${id === 'p1' ? '共學場地' : '物資運送'}</td><td>${money(id === 'p1' ? 6000 : 3700)}</td></tr></tbody></table></div><div class="form-actions">${button(`${icon('file')}查看示範支出憑證`, 'sample-receipt', `data-id="${id}"`, 'secondary')}${button('模擬支持', 'donate', `data-id="${id}"`)}</div>`);
+    }
+    function portfolioPreview() {
+      if (!state.publicPortfolio) {
+        toast('請先在「我的成就」開啟作品集預覽。');
+        return;
+      }
+      const complete = courses.filter(course => state.completed.includes(course.id));
+      modal('分享作品集 · 本機預覽', `<div class="callout">預覽不會發布到網路，也沒有公開網址。正式版會讓本人逐項選擇公開成就，並可隨時撤回。</div><div style="text-align:center;padding:16px"><span class="avatar" style="width:72px;height:72px;font-size:26px">${esc(state.name.slice(-1))}</span><h2 style="margin:15px 0 5px">${esc(state.name)} 的學習足跡</h2><p class="muted">${esc(state.bio)}</p><span class="tag">Lv. ${level()} · ${complete.length} 門已完成課程</span></div>${complete.map(course => `<div class="list-row"><div class="row-left">${icon('award')}<div><h3>${course.title}</h3><p>示範完成證明 · 非官方授證</p></div></div><span class="tag gold">已完成</span></div>`).join('') || '<div class="empty">還沒有可展示的課程證書。</div>'}<p class="muted" style="font-size:11px;margin-top:20px">不包含捐款金額、聊天訊息、好友名單或私人活動紀錄。</p>`);
+    }
+    function certificateDownload(id) {
+      const course = courses.find(item => item.id === id);
+      if (!course || !state.completed.includes(id)) return;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="850" viewBox="0 0 1200 850"><rect width="1200" height="850" fill="#fffdf6"/><rect x="35" y="35" width="1130" height="780" fill="none" stroke="#be9c61" stroke-width="2"/><rect x="48" y="48" width="1104" height="754" fill="none" stroke="#e3d5b7"/><g text-anchor="middle" font-family="sans-serif" fill="#285447"><text x="600" y="140" font-size="20" letter-spacing="8">GUANG YAO · LEARNING JOURNEY</text><text x="600" y="245" font-size="55">學習完成證明</text><text x="600" y="305" font-size="22" fill="#a27e3f">示範證書 · 非官方授證 · DEMO ONLY</text><text x="600" y="425" font-size="50">${esc(state.name)}</text><text x="600" y="510" font-size="27">已完成「${esc(course.title)}」</text><text x="600" y="560" font-size="24">全部示範單元與課後測驗</text><text x="600" y="680" font-size="18">GY-DEMO-${course.id.toUpperCase()}</text><text x="600" y="725" font-size="17" fill="#87917d">本證明僅展示產品概念，不構成機構認證、學歷或專業資格。</text></g></svg>`;
+      downloadFile(`GUANGYAO-DEMO-${id}.svg`, svg, 'image/svg+xml;charset=utf-8');
+    }
+    const publicActions = new Set(['navigate', 'menu', 'close-menu', 'account', 'close', 'reset', 'confirm-reset', 'copy-invite', 'invite-preview', 'affiliate-info', 'notifications']);
+    async function handleActionClick(event) {
+      const target = event.target.closest('[data-action]');
+      if (!target || target.disabled) return;
+      const action = target.dataset.action;
+      const id = target.dataset.id;
+      if (!state.signedIn && !publicActions.has(action)) {
+        accountModal();
+        return;
+      }
+      switch (action) {
+        case 'navigate':
+          navigate(target.dataset.page);
+          break;
+        case 'menu':
+          setNavigationOpen(!document.getElementById('sidebar').classList.contains('open'));
+          break;
+        case 'close-menu':
+          setNavigationOpen(false);
+          break;
+        case 'close':
+          closeModal();
+          break;
+        case 'account':
+          accountModal();
+          break;
+        case 'logout':
+          state.signedIn = false;
+          state.role = 'member';
+          save();
+          navigate('home');
+          toast('已離開示範帳戶。');
+          break;
+        case 'reset':
+          modal('重設本機原型？', `<p>這會清除本機的課程進度、聊天、報名、積分兌換、模擬支持及新增活動。沒有真實帳戶或雲端資料會受到影響。</p><div class="form-actions">${button('保留資料', 'close', '', 'secondary')}${button('確認重設', 'confirm-reset', '', 'danger')}</div>`);
+          break;
+        case 'confirm-reset':
+          state = initialState();
+          ui.lesson = 0;
+          ui.room = 'beginner';
+          ui.communityTab = 'chat';
+          ui.vaultTab = 'projects';
+          ui.eventFilter = 'all';
+          ui.calendar = false;
+          ui.courseFilter = 'all';
+          save();
+          navigate('home');
+          toast('已回到原始示範狀態。');
+          break;
+        case 'notifications':
+          modal('學習小提醒', `<span class="tag gray">以下皆為示範通知，不是即時訊息</span><div class="notification-item"><h3>為下一次共學，留一個位置</h3><p>11/05 19:30 · 日常裡的善意・線上共學</p>${navButton('查看日程', 'schedule', 'ghost')}</div><div class="notification-item"><h3>新的社群討論</h3><p>初學同行小組：分享你的第一個善意行動。</p>${navButton('前往社群', 'community', 'ghost')}</div>`);
+          break;
+        case 'open-course':
+          ui.lesson = 0;
+          ui.course = id;
+          navigate(`course/${id}`);
+          break;
+        case 'course-filter':
+          ui.courseFilter = id;
+          render();
+          break;
+        case 'select-lesson':
+          ui.lesson = Number(target.dataset.index);
+          render();
+          break;
+        case 'play-lesson': {
+          const course = courses.find(item => item.id === id);
+          if (!course || !unlocked(course)) break;
+          const notes = [
+            ['從一個小問題開始', '今天，你希望從學習中帶走什麼？給自己一分鐘，把期待寫下來。'],
+            ['先傾聽，再回應', '回想一次被好好聽見的經驗。下次交流時，練習不急著給答案。'],
+            ['讓善意成為小行動', '選一件今天做得到的小事。記錄你的行動與感受，不需要比較或評分。']
+          ];
+          const note = notes[ui.lesson];
+          modal('示範單元預覽', `<div class="lesson-player" style="min-height:240px">${icon('leaf')}<div class="eyebrow">UNIT 0${ui.lesson + 1} · DEMO SLIDE</div><h2>${note[0]}</h2><p>${note[1]}</p></div><p class="muted" style="font-size:12px;margin-top:16px">這是替代影片的示範投影片，不是正式教材。按下完成只記錄原型進度。</p><div class="form-actions">${button('標記單元完成', 'complete-lesson', `data-id="${id}" data-index="${ui.lesson}"`)}</div>`);
+          break;
+        }
+        case 'complete-lesson': {
+          const course = courses.find(item => item.id === id);
+          const index = Number(target.dataset.index);
+          if (!course || !unlocked(course) || index < 0 || index >= course.lessons.length) break;
+          if (!state.lessons[id].includes(index)) state.lessons[id].push(index);
+          if (!state.enrolled.includes(id)) state.enrolled.push(id);
+          save();
+          closeModal();
+          render();
+          toast(state.lessons[id].length === 3 ? '全部單元已完成，可以開始小測驗！' : '已記錄單元完成。繼續下一個單元吧。');
+          break;
+        }
+        case 'download-handout': {
+          const course = courses.find(item => item.id === id);
+          if (!course || !unlocked(course)) break;
+          downloadFile(`GUANGYAO-DEMO-${id}-notes.txt`, `光耀同行｜示範學習筆記\n${course.title}\n\n重要聲明：非官方教材。僅供互動原型測試。\n\n學習目標\n・尊重他人的步調與隱私。\n・記錄一個可以實踐的小行動。\n\n反思練習\n1. 今天讓我印象最深的一個想法是？\n2. 我希望練習哪一個小行動？\n3. 我如何在不公開他人隱私的前提下分享心得？\n\n正式課綱、教師與教材需由機構審核授權。`);
+          break;
+        }
+        case 'quiz':
+          quizModal(id);
+          break;
+        case 'event-filter':
+          ui.eventFilter = id;
+          render();
+          break;
+        case 'calendar-toggle':
+          ui.calendar = !ui.calendar;
+          render();
+          break;
+        case 'event-detail':
+          eventDetail(id);
+          break;
+        case 'register-event': {
+          const eventRecord = visibleEvents().find(item => item.id === id);
+          if (!eventRecord) break;
+          if (target.dataset.intent === 'cancel') {
+            state.registrations = state.registrations.filter(item => item !== id);
+            toast('已取消本機示範報名。');
+          } else if (state.registrations.includes(id)) {
+            toast('你已報名這場活動，沒有重複建立紀錄。');
+          } else if (eventRecord.occupied < eventRecord.capacity) {
+            state.registrations.push(id);
+            toast('示範報名成功，已加入你的活動紀錄。');
+          } else {
+            toast('此活動名額已滿。');
+            break;
+          }
+          save();
+          closeModal();
+          render();
+          break;
+        }
+        case 'create-event':
+          createEventModal();
+          break;
+        case 'remove-event':
+          if (canManage() && state.events.some(item => item.id === id)) modal('取消這場本機活動？', `<p>取消後將不再顯示於活動列表及月曆，相關本機報名也會移除。</p><div class="form-actions">${button('返回', 'close', '', 'secondary')}${button('確認取消活動', 'confirm-remove-event', `data-id="${id}"`, 'danger')}</div>`);
+          break;
+        case 'confirm-remove-event':
+          if (!canManage()) break;
+          state.events = state.events.filter(item => item.id !== id);
+          state.registrations = state.registrations.filter(item => item !== id);
+          save();
+          closeModal();
+          render();
+          toast('已取消本機活動。');
+          break;
+        case 'community-tab':
+          ui.communityTab = id;
+          render();
+          break;
+        case 'room':
+          ui.room = id;
+          render();
+          break;
+        case 'create-group':
+          modal('建立本機群組', `<form data-form="create-group"><label class="field"><span>群組名稱</span><input name="name" maxlength="30" required placeholder="例如：週末共學小組"></label><div class="callout">只建立你自己的本機示範群組，不會通知或加入任何真人。</div><div class="form-actions"><button class="btn" type="submit">建立群組</button></div></form>`);
+          break;
+        case 'add-friend':
+          if (!state.requests.includes(target.dataset.name)) state.requests.push(target.dataset.name);
+          save();
+          render();
+          toast('已記錄本機好友邀請；沒有傳送給真人。');
+          break;
+        case 'friend-chat': {
+          const name = target.dataset.name;
+          if (!state.friends.includes(name)) break;
+          const roomId = 'friend-demo';
+          if (!state.groups.some(group => group.id === roomId)) state.groups.push({id: roomId, title: `與 ${name} 的對話`, members: '私人對話展示 · 對方不會收到'});
+          ui.room = roomId;
+          ui.communityTab = 'chat';
+          save();
+          render();
+          break;
+        }
+        case 'vote':
+          if (state.poll !== null) break;
+          state.poll = Number(target.dataset.index);
+          save();
+          render();
+          toast('已記錄你的本機投票。');
+          break;
+        case 'join-meeting':
+          modal('會議室 · 介面預覽', `<div class="lesson-player">${icon('video')}<h2>日常裡的善意・線上共學</h2><p>沒有啟用攝影機或麥克風，也沒有連線到視訊服務。</p><span class="tag gold">目前未錄影</span></div><div class="callout" style="margin-top:18px">正式版的主持人需先取得錄影同意，參與者可選擇不開鏡頭，並由服務政策提供替代參與方式。</div><div class="form-actions">${button('離開預覽', 'close', '', 'secondary')}${button('查看歷史回顧範例', 'meeting-history')}</div>`);
+          break;
+        case 'meeting-history':
+          modal('會議回顧與摘要', `<span class="tag gray">2026/10/22 · 合成示範內容</span><h3 style="margin-top:16px">第一次同行：我們想成為怎樣的夥伴？</h3><div class="lesson-player" style="min-height:155px">${icon('video')}<p>錄影播放器位置 · 本原型沒有實際錄影</p></div><h3 class="space-top">章節與整理摘要</h3><div class="timeline"><div class="timeline-item"><h3>00:00 · 認識彼此的學習期待</h3><p>允許不同的起點與步調，不比較個人的信仰或善行。</p></div><div class="timeline-item"><h3>12:40 · 練習傾聽</h3><p>在回應之前先確認理解，不未經同意轉傳私人故事。</p></div><div class="timeline-item"><h3>31:20 · 本週的小行動</h3><p>選擇一件可完成的小事，下次一起分享反思。</p></div></div><div class="callout">正式版摘要需由主持人審閱；應提供修正、刪除及存取權限控管。</div>${button(`${icon('download')}下載示範摘要`, 'download-summary', '', 'secondary')}`);
+          break;
+        case 'download-summary':
+          downloadFile('GUANGYAO-DEMO-meeting-summary.txt', '光耀同行｜會議摘要範例\n此內容為合成示範，不是實際錄音或 AI 產生的會議紀錄。\n\n主題：第一次同行：我們想成為怎樣的夥伴？\n示範日期：2026/10/22\n\n00:00 認識彼此的學習期待\n允許不同起點與步調。\n\n12:40 練習傾聽\n先理解，不未經同意轉傳私人故事。\n\n31:20 本週的小行動\n選擇一件小事，下次分享反思。\n\n正式版需記錄錄影同意、主持人審核、存取權限與保存期限。');
+          break;
+        case 'edit-profile':
+          modal('編輯示範個人資料', `<form data-form="profile"><label class="field"><span>顯示名稱</span><input name="name" value="${esc(state.name)}" maxlength="20" required></label><label class="field"><span>個人簡介（不要填入敏感資訊）</span><textarea name="bio" maxlength="160">${esc(state.bio)}</textarea></label><div class="form-actions"><button class="btn" type="submit">儲存到本機</button></div></form>`);
+          break;
+        case 'portfolio-preview':
+          portfolioPreview();
+          break;
+        case 'certificate-info':
+          if (!state.completed.includes(id)) break;
+          modal('證書資訊 · 示範', `<div class="callout warning">這不是官方驗證頁。本機紀錄可被修改，不能作為外部認證依據。</div><div class="list-row"><span>持有人</span><strong>${esc(state.name)}</strong></div><div class="list-row"><span>示範編號</span><strong>GY-DEMO-${esc(id.toUpperCase())}</strong></div><div class="list-row"><span>狀態</span><span class="tag gold">示範完成 · 未官方授證</span></div><p class="muted" style="font-size:12px;margin-top:20px">正式版須使用唯一識別碼、簽發者資訊、授權簽章、簽發日期、撤銷狀態與公開驗證服務。QR code 只連到實際可用的驗證頁，不能以示範連結冒充。</p>`);
+          break;
+        case 'download-certificate':
+          certificateDownload(id);
+          break;
+        case 'vault-tab':
+          ui.vaultTab = id;
+          render();
+          break;
+        case 'donate':
+          donateModal(id);
+          break;
+        case 'project-ledger':
+          projectLedger(id);
+          break;
+        case 'sample-receipt':
+          modal('支出憑證 · 示範附件', `<div class="callout warning">這不是實際發票、收據或會計憑證，僅供示範附件檢視。</div><div class="certificate"><div class="eyebrow">SAMPLE DOCUMENT · NOT A RECEIPT</div><h3>用途說明範例</h3><p>${projects.find(project => project.id === id)?.subtitle || ''}</p><p class="muted">正式附件需有發票／收據日期、金額、用途、經辦、覆核與必要個資遮蔽。</p><span class="tag gold">SAMPLE · 無法律或財務效力</span></div><div class="form-actions">${button('返回透明帳務', 'project-ledger', `data-id="${id}"`, 'secondary')}</div>`);
+          break;
+        case 'review-donation': {
+          if (!canAdmin()) break;
+          const donation = state.donations.find(item => item.id === id);
+          if (!donation) break;
+          donation.status = 'reviewed';
+          save();
+          render();
+          toast('已標記模擬覆核；並未完成真實對帳。');
+          break;
+        }
+        case 'redeem': {
+          const reward = rewards.find(item => item.id === id);
+          if (!reward || state.points < reward.cost || state.redemptions.filter(item => item.reward === id).length >= reward.stock) break;
+          modal('確認兌換示範好禮', `<div class="reward-visual" style="border-radius:9px">${icon(reward.icon)}</div><h2 style="margin-top:20px">${reward.name}</h2><p>將扣除 ${reward.cost} 點示範積分，兌換後剩餘 ${state.points - reward.cost} 點。</p><div class="callout warning">沒有真實商品、寄送或兌換承諾。這只會修改本機示範積分。</div><div class="form-actions">${button('先不要', 'close', '', 'secondary')}${button('確認模擬兌換', 'confirm-redeem', `data-id="${id}"`)}</div>`);
+          break;
+        }
+        case 'confirm-redeem': {
+          const reward = rewards.find(item => item.id === id);
+          if (!reward) break;
+          if (state.points < reward.cost || state.redemptions.filter(item => item.reward === id).length >= reward.stock) {
+            closeModal();
+            render();
+            toast('積分或庫存已更新，目前無法兌換。沒有再次扣除積分。');
+            break;
+          }
+          state.points -= reward.cost;
+          state.redemptions.push({id: `REDEEM-DEMO-${state.redemptions.length + 1}`, reward: id});
+          state.pointHistory.push({label: `模擬兌換：${reward.name}`, amount: -reward.cost});
+          save();
+          closeModal();
+          render();
+          toast('示範兌換完成！已更新積分與庫存。');
+          break;
+        }
+        case 'copy-invite': {
+          const content = '一起加入光耀同行，開啟學習與善意的旅程。\n示範連結（不可註冊）：https://example.invalid/guangyao/join?ref=GY-DEMO\n此為未經機構授權的產品原型，不代表官方招募。';
+          try {
+            await navigator.clipboard.writeText(content);
+            toast('已複製示範邀請文案，含原型聲明。');
+          } catch {
+            modal('手動複製示範文案', `<label class="field"><span>瀏覽器不允許直接寫入剪貼簿，請選取並複製。</span><textarea readonly rows="7">${esc(content)}</textarea></label>`);
+          }
+          break;
+        }
+        case 'invite-preview':
+          modal('受邀加入頁 · 預覽', `<div class="lesson-player">${icon('people')}<h2>朋友邀請你，一起向前。</h2><p>學習、交流、參與活動，找到自己的成長步調。</p></div><div class="callout" style="margin-top:18px">示範推薦代碼 GY-DEMO。正式註冊需自主同意條款與隱私政策；不會自動訂閱行銷訊息。</div><div class="form-actions">${navButton('認識光耀', 'about', 'secondary')}${button('體驗示範帳戶', 'account')}</div>`);
+          break;
+        case 'affiliate-info':
+          modal('推廣佣金 · 規劃中的流程', `<div class="callout warning">尚未啟用，也沒有真實收益。僅規劃合法、機構核准的單層推薦，不包含公益捐款。</div><div class="timeline"><div class="timeline-item"><h3>待確認</h3><p>符合活動條款的有效推薦，待訂單付款與退款期確認。</p></div><div class="timeline-item"><h3>可結算</h3><p>通過反濫用、稅務及身分檢查，依核定費率計算。</p></div><div class="timeline-item"><h3>已支付／已沖回</h3><p>記錄實際付款狀態；退款或無效推薦以追加沖回處理，保留歷史。</p></div></div><p class="muted">費率、歸因期間、最低撥款額及地區限制均待確認。不承諾任何收益。</p>`);
+          break;
+      }
+    }
+    function handleFormSubmit(event) {
+      const form = event.target.closest('[data-form]');
+      if (!form) return;
+      event.preventDefault();
+      if (!form.reportValidity()) return;
+      const type = form.dataset.form;
+      const data = new FormData(form);
+      const value = key => String(data.get(key) || '').trim();
+      if (!state.signedIn && !['account', 'search'].includes(type)) {
+        accountModal();
+        return;
+      }
+      switch (type) {
+        case 'search':
+          navigate(`search/${encodeURIComponent(value('query'))}`);
+          break;
+        case 'account':
+          if (!value('name') || !['member', 'organizer', 'admin'].includes(value('role'))) return;
+          state.name = value('name');
+          state.role = value('role');
+          state.signedIn = true;
+          save();
+          closeModal();
+          render();
+          toast(`已切換為${roleLabel()}示範視角。`);
+          break;
+        case 'profile':
+          if (!value('name')) return;
+          state.name = value('name');
+          state.bio = value('bio');
+          save();
+          closeModal();
+          render();
+          toast('已儲存本機個人資料。');
+          break;
+        case 'quiz': {
+          const id = form.dataset.course;
+          const course = courses.find(item => item.id === id);
+          if (!course || !unlocked(course) || state.lessons[id].length !== 3) return;
+          const correct = (value('q1') === 'b' ? 1 : 0) + (value('q2') === 'c' ? 1 : 0);
+          if (correct !== 2) {
+            document.getElementById('quiz-feedback').innerHTML = `<div class="callout warning">答對 ${correct} / 2 題。再想一想：完整傾聽、尊重隱私，以及分開管理權限，是這份示範的重點。可以直接修改答案後重試。</div>`;
+            return;
+          }
+          const alreadyComplete = state.completed.includes(id);
+          if (!alreadyComplete) {
+            state.completed.push(id);
+            state.points += 100;
+            state.pointHistory.push({label: `首次完成：${course.title}`, amount: 100});
+          }
+          save();
+          render();
+          const next = courses.find(item => item.previous === id);
+          modal('完成了，給自己一點掌聲！', `<div style="text-align:center;padding:20px"><div class="badge-symbol" style="width:76px;height:76px">${icon('award')}</div><h2>小測驗 2 / 2 題全對</h2><p>「${course.title}」已完成。</p><span class="tag gold">${alreadyComplete ? '已通過 · 不重複發放積分' : '+100 點示範積分 · 示範證書已解鎖'}</span><p class="muted" style="font-size:12px;margin-top:16px">${next ? `下一級「${next.title}」已解鎖。` : '已走完這份示範的三段學習旅程。'}</p></div><div class="form-actions">${navButton('查看我的證書', 'portfolio', 'secondary')}${next ? button('前往下一級', 'open-course', `data-id="${next.id}"`) : navButton('探索活動', 'schedule')}</div>`);
+          break;
+        }
+        case 'create-event': {
+          if (!canManage()) return;
+          const capacity = Number(value('capacity'));
+          const duration = Number(value('duration'));
+          if (!value('title') || !value('teacher') || !value('place') || !value('description') || !Number.isInteger(capacity) || capacity < 1 || capacity > 500 || duration < 15 || duration > 480 || value('date') < '2026-11-01' || value('date') > '2026-11-30' || !['online', 'offline', 'social'].includes(value('type')) || !['all', 'organizer'].includes(value('rank'))) return;
+          state.events.push({id: `local-${Date.now()}`, title: value('title'), date: value('date'), time: value('time'), duration: `${duration} 分鐘`, type: value('type'), teacher: value('teacher'), place: value('place'), capacity, occupied: 0, rank: value('rank'), description: value('description')});
+          save();
+          closeModal();
+          render();
+          toast('活動已發布到本機原型，可於清單與月曆查看。');
+          break;
+        }
+        case 'create-group': {
+          if (!value('name')) return;
+          const id = `group-${Date.now()}`;
+          state.groups.push({id, title: value('name'), members: '1 位本機示範成員'});
+          ui.room = id;
+          ui.communityTab = 'chat';
+          save();
+          closeModal();
+          render();
+          toast('已建立本機群組。');
+          break;
+        }
+        case 'message':
+          if (!value('message') || !rooms().some(room => room.id === ui.room)) return;
+          if (!state.messages[ui.room]) state.messages[ui.room] = [];
+          state.messages[ui.room].push({name: state.name, text: value('message'), mine: true});
+          save();
+          render();
+          document.querySelector('.chat-compose input')?.focus();
+          document.getElementById('messages')?.scrollTo(0, 99999);
+          break;
+        case 'donate': {
+          const amount = Number(value('amount'));
+          const project = form.dataset.project;
+          if (!Number.isInteger(amount) || amount < 1 || amount > 100000 || !data.has('consent') || !projects.some(item => item.id === project)) return;
+          const id = `DON-DEMO-${String(state.donations.length + 1).padStart(3, '0')}`;
+          state.donations.push({id, project, amount, anonymous: data.has('anonymous'), status: 'simulated'});
+          save();
+          render();
+          modal('善意已記錄 · 僅模擬', `<div style="text-align:center;padding:24px"><div class="badge-symbol">${icon('heart')}</div><h2>${money(amount)}</h2><p>${projects.find(item => item.id === project).subtitle}</p><span class="tag gold">${id} · 沒有收款</span></div><div class="callout">模擬支持已加入「我的支持紀錄」，首次支持徽章也已解鎖。沒有發送或公開任何捐款資料。</div><div class="form-actions">${button('查看我的紀錄', 'donation-records')}</div>`);
+          break;
+        }
+      }
+    }
+    document.addEventListener('click', event => {
+      if (state.signedIn && event.target.closest('[data-action="donation-records"]')) {
+        ui.vaultTab = 'mine';
+        navigate('vault');
+      }
+      if (!event.target.closest('.sidebar') && !event.target.closest('[data-action="menu"]') && document.getElementById('sidebar').classList.contains('open')) setNavigationOpen(false);
+    });
+    document.addEventListener('change', event => {
+      const setting = event.target.dataset.setting;
+      if (!state.signedIn || !['publicPortfolio', 'leaderboard'].includes(setting)) return;
+      const checked = event.target.checked;
+      withMutationLock(() => {
+        if (!state.signedIn) return;
+        state[setting] = checked;
+        save();
+        render();
+        toast(setting === 'publicPortfolio' ? checked ? '已允許本機預覽；沒有發布到網路。' : '作品集預覽已關閉。' : checked ? '已自願加入示範學習榜。' : '已退出示範學習榜。');
+      });
+    });
+    document.getElementById('modal').addEventListener('click', event => {
+      const dialog = event.currentTarget;
+      const bounds = dialog.getBoundingClientRect();
+      if (event.target === dialog && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom)) closeModal();
+    });
+    window.addEventListener('hashchange', () => {
+      render();
+      document.getElementById('main').focus({preventScroll: true});
+    });
+    const mobileQuery = window.matchMedia('(max-width: 760px)');
+    function renderMobileNavigation(activePage) {
+      const shortcuts = [['home', 'home', '總覽'], ['courses', 'book', '學習'], ['schedule', 'calendar', '日程'], ['community', 'people', '社群'], ['portfolio', 'award', '我的']];
+      document.getElementById('mobile-nav').innerHTML = shortcuts.map(([page, symbol, label]) => `<button type="button" data-action="navigate" data-page="${page}" ${activePage === page ? 'aria-current="page"' : ''}>${icon(symbol)}<span>${label}</span></button>`).join('');
+    }
+    function setNavigationOpen(open, moveFocus = true) {
+      const sidebar = document.getElementById('sidebar');
+      const mobile = mobileQuery.matches;
+      const actualOpen = mobile && open;
+      sidebar.classList.toggle('open', actualOpen);
+      sidebar.inert = mobile && !actualOpen;
+      document.getElementById('workspace').inert = actualOpen;
+      document.getElementById('mobile-nav').inert = actualOpen;
+      document.getElementById('nav-overlay').hidden = !actualOpen;
+      document.querySelector('[data-action="menu"]')?.setAttribute('aria-expanded', String(actualOpen));
+      document.body.classList.toggle('drawer-open', actualOpen);
+      if (moveFocus) {
+        if (actualOpen) sidebar.querySelector('button')?.focus();
+        else if (sidebar.contains(document.activeElement)) document.querySelector('[data-action="menu"]')?.focus();
+      }
+    }
+    mobileQuery.addEventListener('change', () => setNavigationOpen(false));
+    document.addEventListener('keydown', event => {
+      const sidebar = document.getElementById('sidebar');
+      if (!mobileQuery.matches || !sidebar.classList.contains('open')) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setNavigationOpen(false);
+      } else if (event.key === 'Tab') {
+        const focusable = [...sidebar.querySelectorAll('button, a[href]')].filter(element => !element.disabled && element.getClientRects().length);
+        const first = focusable[0];
+        const last = focusable.at(-1);
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    });
+    const mutatingActions = new Set(['logout', 'confirm-reset', 'complete-lesson', 'register-event', 'confirm-remove-event', 'add-friend', 'friend-chat', 'vote', 'review-donation', 'confirm-redeem']);
+    document.addEventListener('click', event => {
+      const target = event.target.closest('[data-action]');
+      if (!target) return;
+      if (mutatingActions.has(target.dataset.action)) {
+        event.preventDefault();
+        const submittingForm = target.closest('form');
+        if (submittingForm) submittingForm.dataset.busy = 'true';
+        withMutationLock(() => handleActionClick(event));
+      } else {
+        handleActionClick(event);
+      }
+    });
+    document.addEventListener('submit', event => {
+      const form = event.target.closest('[data-form]');
+      if (!form) return;
+      event.preventDefault();
+      if (form.dataset.busy === 'true') return;
+      if (!form.reportValidity()) return;
+      form.dataset.busy = 'true';
+      withMutationLock(() => handleFormSubmit(event)).finally(() => {
+        if (form.isConnected) delete form.dataset.busy;
+      });
+    });
+    window.addEventListener('storage', event => {
+      if (event.key !== storageKey && event.key !== null) return;
+      state = event.newValue === null ? initialState() : loadState();
+      const editing = document.querySelector('dialog[open]') || document.activeElement?.matches('input, textarea, select');
+      if (editing) toast('另一個分頁已更新本機資料；送出時會重新檢查最新狀態。');
+      else render();
+    });
+    render();
+    if (recoveryWarning) toast(recoveryWarning);
+  </script>
+  <script src="pwa.js" defer></script>
+</body>
+</html>

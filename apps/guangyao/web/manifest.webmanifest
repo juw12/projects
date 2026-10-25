@@ -1,0 +1,32 @@
+{
+  "id": "./",
+  "name": "光耀同行 · 學習與社群（示範）",
+  "short_name": "光耀同行",
+  "description": "發一光耀學習與社群平台概念：本機示範、非官方服務，不處理真實帳戶或金流。",
+  "lang": "zh-Hant",
+  "dir": "ltr",
+  "start_url": "./index.html#home",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f7f3",
+  "theme_color": "#183e3c",
+  "categories": ["education", "social"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {"name": "我的學習", "url": "./index.html#courses"},
+    {"name": "課程與活動", "url": "./index.html#schedule"}
+  ]
+}

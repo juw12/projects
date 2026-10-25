@@ -40,7 +40,7 @@ START_RE = re.compile(r"^[ \t]*<!-- PROJECTS:MANAGED:START[^>]*-->", re.MULTILIN
 END_RE = re.compile(r"^[ \t]*<!-- PROJECTS:MANAGED:END -->", re.MULTILINE)
 
 CARD_INDENT = " " * 10
-CARD_SEP = "\n" + CARD_INDENT + "\n"
+CARD_SEP = "\n\n"
 
 
 def repo_root():
@@ -203,7 +203,7 @@ def render_note(app, today):
         f"id: {app['id']}\n"
         f"app: {app['id']}\n"
         "type: project\n"
-        "status: shipped\n"
+        f"status: {app.get('status', 'shipped')}\n"
         f"date: {today}\n"
         f"tags: {tags_yaml}\n"
         f"links: [{links_yaml}]\n"
