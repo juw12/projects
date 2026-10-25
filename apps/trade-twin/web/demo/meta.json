@@ -1,0 +1,5 @@
+{
+ "snapshot_taken": "2026-10-25",
+ "market_as_of": "2026-10-23 20:00 UTC",
+ "sources": "Yahoo Finance (delayed), SEC EDGAR 13F, Yahoo Finance RSS; TSLA replay from day-trader-skill fixtures"
+}

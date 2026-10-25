@@ -318,6 +318,30 @@
       "featured": true,
       "order": 5.5,
       "version": "1.1.0"
+    },
+    {
+      "id": "trade-twin",
+      "name": "Trade Twin",
+      "category": "Software",
+      "desc": "Invest and day-trade with a twin that replays 10,000 futures before you risk a dollar",
+      "description": "An iPhone-ready investing and day-trading companion. A 10-question personality test sets your type and guard-rails (max loss per trade, daily stop, reward:risk); paper trading at real delayed prices; a goal planner that simulates 10,000 futures from real monthly history; copy a famous investor&rsquo;s latest SEC 13F into a practice portfolio; a news feed; and a day-trade checklist whose Time Machine replays the session 10,000 times before you size the trade. Stdlib Python backend + installable PWA; the web build runs offline on a data snapshot. Practice money only &mdash; not financial advice.",
+      "tags": [
+        "Python",
+        "PWA",
+        "Monte Carlo",
+        "paper trading",
+        "SEC 13F",
+        "zero-dependency"
+      ],
+      "image": "trade-twin.png",
+      "image_alt": "Trade Twin on iPhone: the getting-started guide, a 10,000-future goal fan chart, and the day-trade checklist with the Time Machine verdict",
+      "links": {
+        "app": "trade-twin/",
+        "web": "trade-twin/web.html",
+        "mobile": "trade-twin/mobile.html"
+      },
+      "featured": true,
+      "order": 5.6
     }
   ]
 }

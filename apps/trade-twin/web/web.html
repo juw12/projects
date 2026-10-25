@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trade Twin — Web</title>
+<meta name="description" content="Trade Twin in the desktop browser: an investing and day-trading companion with a personality test, paper trading, 10,000-future goal planner, copy-an-investor and the day-trader-skill Time Machine.">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+  :root { --bg: #0b0f14; --card: #141a22; --line: #253041; --text: #e8eef5; --muted: #8a97a8; --blue: #4c8dff; --green: #22c55e; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 40px 28px; display: grid; grid-template-columns: 1fr 410px; gap: 48px; align-items: start; }
+  h1 { font-size: 42px; margin: 10px 0 6px; letter-spacing: -.8px; }
+  .lede { color: var(--muted); font-size: 18px; margin: 0 0 22px; }
+  .logo { width: 64px; height: 64px; border-radius: 16px; }
+  ul { padding-left: 20px; margin: 0 0 20px; }
+  li { margin: 7px 0; }
+  li b { color: var(--text); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; margin: 16px 0; color: var(--muted); font-size: 14.5px; }
+  .phone { width: 410px; height: 860px; border: 10px solid #1d2632; border-radius: 46px; overflow: hidden; background: #000; box-shadow: 0 30px 80px rgba(0,0,0,.55); position: sticky; top: 24px; }
+  .phone iframe { width: 100%; height: 100%; border: 0; }
+  a { color: var(--blue); }
+  .btns a { display: inline-block; margin: 6px 10px 0 0; padding: 10px 16px; border-radius: 12px; background: var(--blue); color: #fff; text-decoration: none; font-weight: 650; }
+  .btns a.ghost { background: transparent; border: 1px solid var(--line); color: var(--text); }
+  @media (max-width: 980px) { .wrap { grid-template-columns: 1fr; } .phone { position: static; margin: 0 auto; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <img class="logo" src="icons/icon-192.png" alt="Trade Twin icon">
+    <h1>Trade Twin</h1>
+    <p class="lede">An investing and day-trading companion that replays 10,000 futures before you risk a dollar — matched to your personality.</p>
+    <ul>
+      <li><b>Personality test</b> — 10 questions score your risk tolerance (1–5) and investor-vs-trader style, pick one of four types and set your guard-rails (max loss per trade, daily stop, reward:risk).</li>
+      <li><b>Goal planner</b> — 10,000 simulated futures for your funds, monthly contributions and goal, built from real monthly total-return history (block bootstrap). Warns when history is too short to be honest.</li>
+      <li><b>Paper trading</b> — fractional practice trades at real delayed prices, with a portfolio chart (Robinhood / Webull style).</li>
+      <li><b>Copy a famous investor</b> — reads a fund's latest SEC 13F (Buffett, Burry, Ackman…), shows what changed, copies it into your practice portfolio (eToro style, from public filings).</li>
+      <li><b>Day-trade checklist</b> — entry → exit → Time Machine (10,000 replays + history) → size → risk → ticket, powered by the open-source day-trader-skill.</li>
+      <li><b>News feed</b>, watchlist with sparklines, a built-in guide and help on every screen.</li>
+    </ul>
+    <div class="btns">
+      <a href="index.html">Open the app</a>
+      <a class="ghost" href="https://github.com/juwpegatron/projects/tree/main/apps/trade-twin" target="_blank" rel="noopener">Source</a>
+    </div>
+    <div class="card">
+      This web build runs entirely in your browser on a saved data snapshot (prices, 13F filings, news, a real TSLA trading morning).
+      Run <code>python apps/trade-twin/server.py --lan</code> for live data on your own phone. Practice money only — never places real orders. Not financial advice.
+      Built on Jake Schincariol's MIT-licensed <a href="https://github.com/Jakeschincariol/day-trader-skill" target="_blank" rel="noopener">day-trader-skill</a> and <a href="https://github.com/Jakeschincariol/trader-skill" target="_blank" rel="noopener">trader-skill</a>.
+    </div>
+  </div>
+  <div class="phone"><iframe src="index.html" title="Trade Twin app"></iframe></div>
+</div>
+</body>
+</html>

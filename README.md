@@ -12,6 +12,7 @@ runnable, deployable project.
 | [`apps/lingua`](apps/lingua) | Live-translated Teams captions in an always-on-top overlay | Python + tkinter native desktop app (Pillow, requests) |
 | [`apps/pips`](apps/pips) | "The Morning Paper" — always-on-top Pomodoro timer + soundscapes + live app-usage tracking + daily score + coaching | Python + tkinter desktop widget (stdlib only) |
 | [`apps/sweep`](apps/sweep) | The `/sweep` pipeline — validate, then sync the repo to GitHub and mirror a note to Obsidian | PowerShell helper + OpenCode slash command |
+| [`apps/trade-twin`](apps/trade-twin) | Invest and day-trade with a twin that replays 10,000 futures — personality test, paper trading, goal planner, copy a 13F, news | Zero-dependency Python stdlib server + installable PWA (offline web demo) |
 
 Each project follows the same shape:
 
@@ -40,6 +41,7 @@ apps/<name>/
 python apps/orbis/server/server.py
 python apps/peers/server/server.py
 python apps/house-of-articles/server/server.py
+python apps/trade-twin/server.py --lan
 ```
 
 Each server serves both its API and its `web/` front-end.
@@ -50,6 +52,7 @@ Each server serves both its API and its `web/` front-end.
 python apps/orbis/tests/verify_api.py
 python apps/peers/tests/verify_api.py
 python apps/house-of-articles/tests/verify_api.py
+python apps/trade-twin/tests/verify_api.py
 ```
 
 All tests are hermetic (temp database, free port) and exit `0` / `1`. You can
