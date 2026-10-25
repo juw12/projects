@@ -1,0 +1,1949 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Trade Twin">
+<meta name="theme-color" content="#0d1117">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Trade Twin — invest &amp; day-trade with 10,000 replays</title>
+<meta name="description" content="Trade Twin: a personality-matched investing and day-trading companion. Paper trading, 10,000-future goal planner, copy a famous investor's 13F, news feed and the day-trader-skill Time Machine.">
+<style>
+  :root {
+    --bg: #0b0f14;
+    --card: #141a22;
+    --card2: #1b2330;
+    --line: #253041;
+    --text: #e8eef5;
+    --muted: #8a97a8;
+    --green: #22c55e;
+    --red: #ef4444;
+    --blue: #4c8dff;
+    --amber: #f5b301;
+    --gray: #6b7280;
+    --top: env(safe-area-inset-top, 0px);
+    --bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font: 15px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    overscroll-behavior-y: none;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  input, select {
+    font-size: 16px;
+    background: var(--card2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 11px 12px;
+    width: 100%;
+    outline: none;
+  }
+  input:focus, select:focus { border-color: var(--blue); }
+  label.f { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border: 0; border-radius: 14px; padding: 13px 16px; font-weight: 650;
+    background: var(--card2); cursor: pointer; width: 100%;
+  }
+  .btn.primary { background: var(--blue); color: #fff; }
+  .btn.green { background: var(--green); color: #04130a; }
+  .btn.red { background: var(--red); color: #fff; }
+  .btn.ghost { background: transparent; border: 1px solid var(--line); }
+  .btn.small { padding: 8px 12px; width: auto; font-size: 14px; border-radius: 10px; }
+  .btn:disabled { opacity: .5; }
+  .row { display: flex; gap: 10px; align-items: center; }
+  .row > * { flex: 1; }
+  .between { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  .tiny { font-size: 11.5px; }
+  .up { color: var(--green); }
+  .down { color: var(--red); }
+  .center { text-align: center; }
+  h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -.3px; }
+  h2 { font-size: 20px; margin: 0 0 10px; }
+  h3 { font-size: 16px; margin: 0 0 8px; }
+  p { margin: 6px 0; }
+  a { color: var(--blue); }
+
+  /* layout */
+  #app { max-width: 560px; margin: 0 auto; min-height: 100vh; position: relative; }
+  header.top {
+    position: sticky; top: 0; z-index: 10;
+    padding: calc(var(--top) + 10px) 18px 10px;
+    background: rgba(11,15,20,.88); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  header.top .title { font-size: 22px; font-weight: 750; letter-spacing: -.3px; }
+  .avatar {
+    width: 34px; height: 34px; border-radius: 50%; background: var(--card2);
+    display: grid; place-items: center; font-weight: 700; border: 1px solid var(--line);
+  }
+  main { padding: 6px 16px calc(var(--bottom) + 96px); }
+  nav.tabs {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+    padding: 6px 8px calc(var(--bottom) + 6px);
+    background: rgba(14,19,26,.94); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid var(--line);
+    display: flex; justify-content: space-around;
+  }
+  nav.tabs button {
+    background: none; border: 0; color: var(--muted); font-size: 11px; font-weight: 600;
+    display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 10px; cursor: pointer;
+  }
+  nav.tabs button .ic { font-size: 22px; line-height: 1; filter: grayscale(1) opacity(.7); }
+  nav.tabs button.on { color: var(--text); }
+  nav.tabs button.on .ic { filter: none; }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 16px; margin: 12px 0; }
+  .card.tight { padding: 12px 14px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .stat { background: var(--card2); border-radius: 12px; padding: 10px 12px; }
+  .stat .k { font-size: 12px; color: var(--muted); }
+  .stat .v { font-size: 18px; font-weight: 700; margin-top: 2px; }
+  .big { font-size: 34px; font-weight: 750; letter-spacing: -.6px; }
+  .pill { display: inline-block; padding: 3px 9px; border-radius: 99px; font-size: 12px; font-weight: 700; }
+  .pill.green { background: rgba(34,197,94,.16); color: #4ade80; }
+  .pill.red { background: rgba(239,68,68,.16); color: #f87171; }
+  .pill.amber { background: rgba(245,179,1,.16); color: #fbbf24; }
+  .pill.blue { background: rgba(76,141,255,.16); color: #8db4ff; }
+  .pill.gray { background: rgba(107,114,128,.22); color: var(--muted); }
+  .chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 6px; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip {
+    flex: none; border: 1px solid var(--line); background: var(--card); color: var(--text);
+    border-radius: 99px; padding: 7px 13px; font-size: 13.5px; font-weight: 600; cursor: pointer;
+  }
+  .chip.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .seg { display: flex; background: var(--card2); border-radius: 12px; padding: 3px; gap: 3px; margin: 8px 0 4px; }
+  .seg button { flex: 1; border: 0; background: none; padding: 8px; border-radius: 9px; font-weight: 650; font-size: 14px; color: var(--muted); cursor: pointer; }
+  .seg button.on { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+
+  .list .item { display: flex; align-items: center; gap: 12px; padding: 12px 2px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .list .item:last-child { border-bottom: 0; }
+  .item .sym { font-weight: 700; }
+  .item .nm { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+  .item .px { text-align: right; min-width: 86px; }
+  .chg { display: inline-block; min-width: 70px; text-align: center; padding: 5px 8px; border-radius: 8px; font-weight: 700; font-size: 13px; }
+  .chg.up { background: var(--green); color: #04130a; }
+  .chg.down { background: var(--red); color: #fff; }
+  .chg.flat { background: var(--card2); color: var(--muted); }
+  canvas { display: block; width: 100%; }
+  .bar { display: flex; height: 28px; border-radius: 9px; overflow: hidden; font-size: 11.5px; font-weight: 700; }
+  .bar div { display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; }
+  .warn { background: rgba(245,179,1,.1); border: 1px solid rgba(245,179,1,.35); border-radius: 14px; padding: 11px 13px; font-size: 13.5px; margin: 10px 0; }
+  .err { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.4); color: #fecaca; border-radius: 14px; padding: 11px 13px; font-size: 13.5px; margin: 10px 0; white-space: pre-wrap; }
+  .ok { background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.35); border-radius: 14px; padding: 11px 13px; font-size: 13.5px; margin: 10px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  td, th { padding: 7px 4px; border-bottom: 1px solid var(--line); text-align: left; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; }
+  td.r, th.r { text-align: right; }
+  .spinner { width: 22px; height: 22px; border: 3px solid var(--line); border-top-color: var(--blue); border-radius: 50%; animation: spin .8s linear infinite; margin: 18px auto; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading { text-align: center; color: var(--muted); padding: 10px; font-size: 14px; }
+  .news { padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .news:last-child { border-bottom: 0; }
+  .news a { color: var(--text); text-decoration: none; font-weight: 650; }
+  .tag { font-size: 11px; color: var(--amber); margin-right: 6px; font-weight: 600; }
+  .stepper .st { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .stepper .st:last-child { border-bottom: 0; }
+  .stepper .dot { width: 26px; height: 26px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 800; background: var(--card2); color: var(--muted); }
+  .stepper .dot.ok { background: var(--green); color: #04130a; }
+  .stepper .dot.bad { background: var(--red); color: #fff; }
+  .stepper .dot.warn { background: var(--amber); color: #1a1300; }
+  .stepper .dot.busy { background: var(--blue); color: #fff; animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: .45; } }
+
+  /* sheets */
+  .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 50; display: none; }
+  .sheet-bg.show { display: block; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; max-width: 560px; margin: 0 auto;
+    background: var(--card); border-radius: 22px 22px 0 0; border-top: 1px solid var(--line);
+    max-height: 92vh; overflow-y: auto; padding: 8px 18px calc(var(--bottom) + 22px);
+    transform: translateY(110%); transition: transform .28s cubic-bezier(.2,.8,.2,1);
+  }
+  .sheet.show { transform: translateY(0); }
+  .grab { width: 40px; height: 5px; background: var(--line); border-radius: 3px; margin: 4px auto 12px; }
+  .toast {
+    position: fixed; left: 50%; top: calc(var(--top) + 12px); transform: translateX(-50%) translateY(-120px);
+    background: var(--card2); border: 1px solid var(--line); padding: 10px 16px; border-radius: 14px; z-index: 90;
+    transition: transform .25s; font-weight: 600; max-width: 90vw; box-shadow: 0 8px 24px rgba(0,0,0,.4);
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* auth + onboarding */
+  .screen { padding: calc(var(--top) + 30px) 22px calc(var(--bottom) + 30px); min-height: 100vh; display: flex; flex-direction: column; }
+  .logo { width: 76px; height: 76px; border-radius: 20px; margin: 10px 0 16px; }
+  .progress { height: 5px; background: var(--card2); border-radius: 3px; overflow: hidden; margin: 6px 0 18px; }
+  .progress div { height: 100%; background: var(--blue); transition: width .3s; }
+  .opt {
+    display: block; width: 100%; text-align: left; padding: 15px 16px; margin: 9px 0; border-radius: 16px;
+    background: var(--card); border: 1.5px solid var(--line); font-weight: 600; cursor: pointer;
+  }
+  .opt:active, .opt.on { border-color: var(--blue); background: rgba(76,141,255,.12); }
+  .meter { display: flex; gap: 5px; margin: 8px 0; }
+  .meter div { flex: 1; height: 9px; border-radius: 5px; background: var(--card2); }
+  .meter div.on { background: linear-gradient(90deg, var(--green), var(--amber)); }
+  .archetype { font-size: 54px; line-height: 1; }
+  .slide { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .dots { display: flex; justify-content: center; gap: 7px; margin: 16px 0; }
+  .dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+  .dots span.on { background: var(--text); }
+  .kv { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .kv:last-child { border-bottom: 0; }
+  .guide-item { display: flex; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .guide-item:last-child { border-bottom: 0; }
+  .guide-item .gi { font-size: 22px; width: 36px; height: 36px; display: grid; place-items: center; background: var(--card2); border-radius: 10px; flex: none; }
+  .article p, .article li { color: #cdd6e1; }
+  .article h3 { margin-top: 16px; }
+  .help { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line); background: var(--card2); color: var(--muted); font-weight: 800; font-size: 13px; cursor: pointer; flex: none; }
+  .fab-row { display: flex; gap: 10px; margin: 12px 0; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="sheet-bg" id="sheetBg"></div>
+<div class="sheet" id="sheet"></div>
+<div class="toast" id="toast"></div>
+
+<script src="demo.js"></script>
+<script>
+"use strict";
+
+/* =========================================================================
+   Small utilities
+   ========================================================================= */
+const $ = (sel, root = document) => root.querySelector(sel);
+
+function h(tag, attrs = {}, ...kids) {
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(attrs || {})) {
+    if (key === "class") {
+      node.className = value;
+    } else if (key === "style") {
+      node.setAttribute("style", value);
+    } else if (key.startsWith("on") && typeof value === "function") {
+      node.addEventListener(key.slice(2), value);
+    } else if (key === "html") {
+      node.innerHTML = value;
+    } else if (value !== undefined && value !== null && value !== false) {
+      node.setAttribute(key, value);
+    }
+  }
+  for (const kid of kids.flat(Infinity)) {
+    if (kid === null || kid === undefined || kid === false) {
+      continue;
+    }
+    node.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+  }
+  return node;
+}
+
+
+// Append children, skipping null/false and flattening arrays (DOM append would print "null").
+function put(parent, ...kids) {
+  for (const kid of kids.flat(Infinity)) {
+    if (kid === null || kid === undefined || kid === false) {
+      continue;
+    }
+    parent.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+  }
+  return parent;
+}
+
+const fmtMoney = (x, digits = 2) => (x === null || x === undefined || isNaN(x)) ? "—" :
+  (x < 0 ? "-" : "") + "$" + Math.abs(Number(x)).toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+const fmtCompact = (x) => {
+  if (x === null || x === undefined) {
+    return "—";
+  }
+  const a = Math.abs(x);
+  if (a >= 1e6) {
+    return "$" + (x / 1e6).toFixed(2) + "M";
+  }
+  if (a >= 1e4) {
+    return "$" + Math.round(x / 1e3) + "k";
+  }
+  return fmtMoney(x, 0);
+};
+const fmtPrice = (x) => (x === null || x === undefined) ? "—" : Number(x).toFixed(2);
+const fmtPct = (x, digits = 2) => (x === null || x === undefined || isNaN(x)) ? "—" : (x > 0 ? "+" : "") + Number(x).toFixed(digits) + "%";
+const fmtProb = (p) => (p === null || p === undefined) ? "—" : (100 * p).toFixed(1) + "%";
+const signClass = (x) => x > 0 ? "up" : x < 0 ? "down" : "";
+
+function toast(message, ms = 2200) {
+  const t = $("#toast");
+  t.textContent = message;
+  t.classList.add("show");
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => t.classList.remove("show"), ms);
+}
+
+let DEMO = false;
+
+async function detectServer() {
+  try {
+    const response = await fetch("api/health", { cache: "no-store" });
+    if (!response.ok) {
+      return false;
+    }
+    const health = await response.json();
+    return health && health.app === "trade-twin";
+  } catch (error) {
+    return false;
+  }
+}
+
+async function api(path, body = {}) {
+  if (DEMO) {
+    const result = await window.TradeTwinDemo.api(path, body);
+    if (result && result.auth === false && state.profile) {
+      state.profile = null;
+      renderAuth();
+    }
+    return result;
+  }
+  let response;
+  try {
+    response = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    return { ok: false, error: "Can't reach your Trade Twin server. Is it running on your Mac, and are you on the same Wi-Fi?" };
+  }
+  let data;
+  try {
+    data = await response.json();
+  } catch (error) {
+    data = { ok: false, error: "unexpected server reply (" + response.status + ")" };
+  }
+  if (response.status === 401) {
+    state.profile = null;
+    renderAuth();
+  }
+  return data;
+}
+
+const spinner = (label) => h("div", { class: "loading" }, h("div", { class: "spinner" }), label || "");
+const errorBox = (message) => h("div", { class: "err" }, message);
+
+/* =========================================================================
+   Charts (canvas, retina-aware, drawn after the node is visible)
+   ========================================================================= */
+function prepCanvas(canvas, height) {
+  const ratio = window.devicePixelRatio || 1;
+  const width = canvas.clientWidth || canvas.parentElement.clientWidth || 320;
+  canvas.width = width * ratio;
+  canvas.height = height * ratio;
+  canvas.style.height = height + "px";
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  ctx.font = "11px -apple-system, sans-serif";
+  return { ctx, width, height };
+}
+
+function afterPaint(fn) {
+  requestAnimationFrame(() => requestAnimationFrame(fn));
+}
+
+function lineChart(canvas, values, opts = {}) {
+  const height = opts.height || 180;
+  const { ctx, width } = prepCanvas(canvas, height);
+  if (!values || values.length < 2) {
+    ctx.fillStyle = "#8a97a8";
+    ctx.fillText("No chart data", 10, height / 2);
+    return;
+  }
+  const base = opts.baseline;
+  let lo = Math.min(...values, base ?? Infinity);
+  let hi = Math.max(...values, base ?? -Infinity);
+  if (hi === lo) {
+    hi += 1;
+    lo -= 1;
+  }
+  const pad = 8;
+  const x = (i) => (width - 2) * i / (values.length - 1) + 1;
+  const y = (v) => pad + (height - 2 * pad) * (hi - v) / (hi - lo);
+  const up = values[values.length - 1] >= (base ?? values[0]);
+  const color = opts.color || (up ? "#22c55e" : "#ef4444");
+  if (base !== undefined && base !== null) {
+    ctx.setLineDash([2, 4]);
+    ctx.strokeStyle = "#3b4757";
+    ctx.beginPath();
+    ctx.moveTo(0, y(base));
+    ctx.lineTo(width, y(base));
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  const gradient = ctx.createLinearGradient(0, 0, 0, height);
+  gradient.addColorStop(0, color + "55");
+  gradient.addColorStop(1, color + "00");
+  ctx.beginPath();
+  values.forEach((v, i) => (i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v))));
+  ctx.lineTo(x(values.length - 1), height);
+  ctx.lineTo(x(0), height);
+  ctx.closePath();
+  ctx.fillStyle = gradient;
+  ctx.fill();
+  ctx.beginPath();
+  values.forEach((v, i) => (i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v))));
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+function sparkline(values, up) {
+  const canvas = h("canvas", { style: "width:64px;height:30px" });
+  afterPaint(() => {
+    const ratio = window.devicePixelRatio || 1;
+    canvas.width = 64 * ratio;
+    canvas.height = 30 * ratio;
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    if (!values || values.length < 2) {
+      return;
+    }
+    const lo = Math.min(...values);
+    const hi = Math.max(...values) || lo + 1;
+    ctx.beginPath();
+    values.forEach((v, i) => {
+      const px = 62 * i / (values.length - 1) + 1;
+      const py = 3 + 24 * (hi - v) / ((hi - lo) || 1);
+      if (i) {
+        ctx.lineTo(px, py);
+      } else {
+        ctx.moveTo(px, py);
+      }
+    });
+    ctx.strokeStyle = up ? "#22c55e" : "#ef4444";
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+  });
+  return canvas;
+}
+
+function fanChart(canvas, bands, labels, levels = [], opts = {}) {
+  const height = opts.height || 220;
+  const { ctx, width } = prepCanvas(canvas, height);
+  const pad = { l: 50, r: 8, t: 10, b: 22 };
+  let lo = Math.min(...bands.map((b) => b[0]), ...levels.map((l) => l.v));
+  let hi = Math.max(...bands.map((b) => b[4]), ...levels.map((l) => l.v));
+  const margin = (hi - lo) * 0.06 || 1;
+  lo = opts.floorZero ? Math.max(0, lo - margin) : lo - margin;
+  hi += margin;
+  const x = (i) => pad.l + (width - pad.l - pad.r) * i / Math.max(1, bands.length - 1);
+  const y = (v) => pad.t + (height - pad.t - pad.b) * (hi - v) / (hi - lo);
+  ctx.strokeStyle = "#1f2935";
+  ctx.fillStyle = "#8a97a8";
+  for (let k = 0; k <= 4; k++) {
+    const v = lo + (hi - lo) * k / 4;
+    ctx.beginPath();
+    ctx.moveTo(pad.l, y(v));
+    ctx.lineTo(width - pad.r, y(v));
+    ctx.stroke();
+    ctx.fillText(opts.money ? fmtCompact(v) : v.toFixed(2), 2, y(v) + 4);
+  }
+  const step = Math.max(1, Math.ceil(labels.length / 6));
+  labels.forEach((label, i) => {
+    if (i % step === 0 || i === labels.length - 1) {
+      ctx.fillText(label, x(i) - 10, height - 5);
+    }
+  });
+  const band = (a, b, color) => {
+    ctx.beginPath();
+    bands.forEach((q, i) => (i ? ctx.lineTo(x(i), y(q[a])) : ctx.moveTo(x(i), y(q[a]))));
+    for (let i = bands.length - 1; i >= 0; i--) {
+      ctx.lineTo(x(i), y(bands[i][b]));
+    }
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+  };
+  band(0, 4, "rgba(76,141,255,.20)");
+  band(1, 3, "rgba(76,141,255,.42)");
+  ctx.beginPath();
+  bands.forEach((q, i) => (i ? ctx.lineTo(x(i), y(q[2])) : ctx.moveTo(x(i), y(q[2]))));
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 1.8;
+  ctx.stroke();
+  for (const level of levels) {
+    ctx.setLineDash([5, 4]);
+    ctx.strokeStyle = level.color;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(pad.l, y(level.v));
+    ctx.lineTo(width - pad.r, y(level.v));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = level.color;
+    ctx.fillText(level.label, width - pad.r - ctx.measureText(level.label).width - 2, y(level.v) - 4);
+  }
+}
+
+function histogram(canvas, hist, plan, height = 170) {
+  const { ctx, width } = prepCanvas(canvas, height);
+  const bins = hist.bins;
+  const max = Math.max(...bins);
+  const bw = (width - 4) / bins.length;
+  const xv = (v) => 2 + (width - 4) * (v - hist.lo) / (hist.hi - hist.lo);
+  bins.forEach((count, i) => {
+    const mid = hist.lo + (hist.hi - hist.lo) * (i + 0.5) / bins.length;
+    const bh = (height - 30) * count / max;
+    ctx.fillStyle = mid <= plan.stop ? "#ef4444" : mid >= plan.target ? "#22c55e" : "#4c8dff";
+    ctx.fillRect(2 + i * bw + 1, height - 18 - bh, bw - 2, bh);
+  });
+  ctx.fillStyle = "#8a97a8";
+  ctx.fillText(fmtPrice(hist.lo), 2, height - 4);
+  ctx.fillText(fmtPrice(hist.hi), width - 44, height - 4);
+  for (const [v, color, label] of [[plan.stop, "#f87171", "stop"], [plan.entry, "#e8eef5", "entry"], [plan.target, "#4ade80", "target"]]) {
+    if (v >= hist.lo && v <= hist.hi) {
+      ctx.strokeStyle = color;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(xv(v), 8);
+      ctx.lineTo(xv(v), height - 18);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = color;
+      ctx.fillText(label, xv(v) + 3, 16);
+    }
+  }
+}
+
+/* =========================================================================
+   Sheets (bottom modals)
+   ========================================================================= */
+function openSheet(...content) {
+  const sheet = $("#sheet");
+  sheet.innerHTML = "";
+  put(sheet, h("div", { class: "grab" }), ...content);
+  sheet.scrollTop = 0;
+  $("#sheetBg").classList.add("show");
+  requestAnimationFrame(() => sheet.classList.add("show"));
+  return sheet;
+}
+
+function closeSheet() {
+  $("#sheet").classList.remove("show");
+  $("#sheetBg").classList.remove("show");
+}
+
+$("#sheetBg").addEventListener("click", closeSheet);
+
+/* =========================================================================
+   Content: personality test + guide
+   ========================================================================= */
+const QUIZ = [
+  {
+    q: "How long until you'll need most of this money?",
+    options: [
+      { label: "Less than 3 years", risk: 1, flag: "need_money_soon" },
+      { label: "3 – 7 years", risk: 3 },
+      { label: "7 – 15 years", risk: 4 },
+      { label: "15+ years", risk: 5 },
+    ],
+  },
+  {
+    q: "Your investments drop 25% in one month. What do you do?",
+    options: [
+      { label: "Sell everything — I can't take it", risk: 1, flag: "panic_seller" },
+      { label: "Sell some to feel safer", risk: 2 },
+      { label: "Hold and wait it out", risk: 3 },
+      { label: "Buy a little more", risk: 4 },
+      { label: "Buy a lot more — it's on sale", risk: 5 },
+    ],
+  },
+  {
+    q: "Do you have an emergency fund (3+ months of expenses)?",
+    options: [
+      { label: "Yes, fully", risk: 4 },
+      { label: "Partly", risk: 3 },
+      { label: "Not yet", risk: 1, flag: "no_emergency_fund" },
+    ],
+  },
+  {
+    q: "How steady is your income?",
+    options: [
+      { label: "Very steady", risk: 5 },
+      { label: "Mostly steady", risk: 4 },
+      { label: "It varies a lot", risk: 2 },
+      { label: "No regular income right now", risk: 1 },
+    ],
+  },
+  {
+    q: "What's your experience so far?",
+    options: [
+      { label: "None — I'm brand new", risk: 2, style: 1, flag: "beginner" },
+      { label: "Funds / a retirement account", risk: 3, style: 2, flag: "beginner" },
+      { label: "I've bought individual stocks", risk: 4, style: 3 },
+      { label: "I've traded actively (days/weeks)", risk: 5, style: 5 },
+    ],
+  },
+  {
+    q: "On a weekday, how much time can you give the markets?",
+    options: [
+      { label: "A few minutes a month", style: 1 },
+      { label: "About an hour a week", style: 2 },
+      { label: "Around 30 minutes a day", style: 3 },
+      { label: "Hours while the market is open", style: 5 },
+    ],
+  },
+  {
+    q: "Which sounds most like you?",
+    options: [
+      { label: "Set it and forget it", style: 1 },
+      { label: "Grow steadily, check in monthly", style: 2 },
+      { label: "Find great companies before others do", style: 3.5 },
+      { label: "Catch today's move, be out by the close", style: 5 },
+    ],
+  },
+  {
+    q: "How do you like to make decisions?",
+    options: [
+      { label: "Simple rules — buy the whole market", style: 1 },
+      { label: "Follow investors I trust", style: 2.5 },
+      { label: "Research companies and their numbers", style: 3 },
+      { label: "Charts, momentum and news", style: 5 },
+    ],
+  },
+  {
+    q: "Pick one for $10,000 over the next year:",
+    options: [
+      { label: "Guaranteed +$300", risk: 1 },
+      { label: "Between –$500 and +$1,000", risk: 2 },
+      { label: "Between –$1,500 and +$2,500", risk: 3 },
+      { label: "Between –$3,000 and +$5,000", risk: 4 },
+      { label: "Between –$6,000 and +$10,000", risk: 5 },
+    ],
+  },
+  {
+    q: "A trade loses money. How do you feel?",
+    options: [
+      { label: "It would bother me for days", risk: 1, style: 1 },
+      { label: "I'd rather not trade at all", risk: 2, style: 1 },
+      { label: "Fine, if it was small and planned", risk: 4, style: 4 },
+      { label: "Part of the game — next one", risk: 5, style: 5 },
+    ],
+  },
+];
+
+const GUIDE = [
+  {
+    id: "start", icon: "🚀", title: "Getting started",
+    body: [
+      ["p", "Trade Twin has five tabs:"],
+      ["ul", [
+        "🏠 Home — your practice portfolio, watchlist and today's next step.",
+        "📈 Invest — goal planner (10,000 possible futures), copy a famous investor, and your paper portfolio.",
+        "⚡ Trade — the day-trade checklist: entry → exit → Time Machine → size → risk → ticket.",
+        "📰 News — headlines for everything you watch or hold.",
+        "👤 Me — your profile, personality result, limits and this guide.",
+      ]],
+      ["p", "Everything uses practice (paper) money. Trade Twin never sends a real order — it helps you decide, then you act in your own broker if you choose to."],
+    ],
+  },
+  {
+    id: "install", icon: "📱", title: "Install on your iPhone",
+    body: [
+      ["ol", [
+        "On your computer, run Trade Twin from the projects repo: double-click apps/trade-twin/“Start Trade Twin (iPhone).command” on a Mac, or run python apps/trade-twin/server.py --lan. It prints an address like http://192.168.1.20:8765.",
+        "Your iPhone must be on the same Wi-Fi. Open that address in Safari.",
+        "Tap the Share button → “Add to Home Screen” → Add.",
+        "Open Trade Twin from the Home Screen: it runs full-screen like an app, and you stay logged in.",
+      ]],
+      ["p", "If macOS asks whether Python may accept incoming connections, click Allow. The computer must be awake with the server running. The public web demo also installs to your Home Screen, but runs on a saved snapshot instead of live data."],
+      ["p", "Away from home: install Tailscale (free) on the Mac and iPhone and use the Mac's Tailscale address instead — no ports opened to the internet."],
+    ],
+  },
+  {
+    id: "profile", icon: "🧭", title: "Your profile & limits",
+    body: [
+      ["p", "The personality test scores two things: how much risk you can afford and stomach (1–5), and whether you lean long-term investor or active trader."],
+      ["p", "Your risk level sets your day-trading limits. For example, at level 3 you risk at most 0.75% of your budget on one trade (with $5,000 that's $37.50), stop for the day after 3× that, and need a reward of at least 1.5× the risk. Many professional traders use a similar ‘1% rule’."],
+      ["p", "These are guard-rails, not advice. You can retake the test or edit any limit in Me."],
+    ],
+  },
+  {
+    id: "paper", icon: "🧪", title: "Paper trading (practice money)",
+    body: [
+      ["p", "Like Webull's and moomoo's paper accounts: you start with virtual cash (default $10,000) and buy or sell at real, delayed prices. Fractional shares are allowed, so $50 of a $400 stock works."],
+      ["p", "Use it to test a strategy for a few months before risking real money. Reset it any time in Invest → Portfolio."],
+    ],
+  },
+  {
+    id: "goal", icon: "🎯", title: "Goal planner: 10,000 futures",
+    body: [
+      ["p", "Pick funds or stocks, a starting amount, a monthly contribution and a goal. Trade Twin builds 10,000 possible futures by stitching together random 12-month stretches of those investments' real history (with dividends)."],
+      ["p", "The fan chart shows the middle outcome (white line), the likely range (dark band, 25–75%) and the wide range (light band, 5–95%). ‘Chance of reaching goal’ counts how many of the 10,000 futures got there."],
+      ["p", "Short histories (under 20 years) usually miss a full crash and look too rosy — the app warns you. SPY goes back to 1993 and includes 2000–2002 and 2008."],
+    ],
+  },
+  {
+    id: "copy", icon: "🧑‍💼", title: "Copy a famous investor",
+    body: [
+      ["p", "Like eToro's CopyTrader, but from public filings: big US funds must file a 13F every quarter listing their US stock holdings. Trade Twin reads it from SEC EDGAR and turns the top positions into weights you can copy into your paper portfolio."],
+      ["p", "Important: 13Fs are filed up to 45 days after the quarter ends and show only long US stock positions — no shorts, cash or foreign shares. You see what they held, not what they hold today. Copying their picks does not copy their results."],
+      ["p", "SEC requires an email to identify each app user; add yours in Me → Profile."],
+    ],
+  },
+  {
+    id: "trade", icon: "⚡", title: "The day-trade checklist",
+    body: [
+      ["ol", [
+        "Entry: waits for the first 5-minute candle to close above the opening range (the high/low of the first 15 minutes).",
+        "Exit plan: sets your stop (default: the range midpoint) and target (a multiple ‘R’ of your risk) before you enter.",
+        "Time Machine: replays the rest of the day 10,000 times from the stock's own last ~60 sessions, plus how the same rule did on each past day.",
+        "Size: how many shares keep your loss at the stop within your max loss.",
+        "Risk check: PASS or BLOCK against all your limits.",
+        "Ticket: the exact bracket order in plain words, for your broker.",
+      ]],
+      ["p", "Demo mode replays a real TSLA morning (Oct 19, 2026) so you can learn any time. Live mode needs the market to be open."],
+    ],
+  },
+  {
+    id: "verdict", icon: "🔮", title: "Reading the Time Machine",
+    body: [
+      ["p", "The verdict compares how often the target was hit first against the break-even rate for your target. At 1R you need more than 50% of decided replays to hit the target; at 2R you need more than 33%."],
+      ["ul", [
+        "‘Close to a coin flip’ — no real edge; skipping is fine.",
+        "‘Leans toward the target/stop’ — 5–15 points of edge either way.",
+        "‘Strongly toward…’ — 15+ points.",
+      ]],
+      ["p", "It's a simulation from recent history, not a prediction. Earnings, news and halts can do what the last 60 days never did."],
+    ],
+  },
+  {
+    id: "news", icon: "📰", title: "Using the news feed",
+    body: [
+      ["p", "The feed pulls headlines for your watchlist and holdings and tags what moves stocks: earnings, guidance, deals, lawsuits. A ‘moving’ badge means the stock is up or down 3%+ today."],
+      ["p", "Tip: check news before any day trade. A stock reporting earnings the same day can gap far past a stop."],
+    ],
+  },
+  {
+    id: "safety", icon: "🛡️", title: "Safety & going real",
+    body: [
+      ["ul", [
+        "Trade Twin never places real orders and never asks for broker passwords.",
+        "Prices are free delayed quotes — check your broker before acting.",
+        "Most new day traders lose money. Prove a strategy on paper first, with a written plan.",
+        "US margin accounts can be limited by pattern-day-trader rules; check your broker's current rules before day trading.",
+        "Not financial, tax or legal advice. When in doubt, talk to a licensed professional.",
+      ]],
+    ],
+  },
+];
+
+/* =========================================================================
+   App state + routing
+   ========================================================================= */
+const state = {
+  profile: null,
+  tab: "home",
+  investView: "portfolio",
+  tradeMode: "demo",
+  tradeSymbol: "TSLA",
+  tradeResults: {},
+  newsFilter: "ALL",
+  newsCache: null,
+  paper: null,
+  quotes: {},
+};
+
+const TABS = [
+  ["home", "🏠", "Home"],
+  ["invest", "📈", "Invest"],
+  ["trade", "⚡", "Trade"],
+  ["news", "📰", "News"],
+  ["me", "👤", "Me"],
+];
+
+async function boot() {
+  if ("serviceWorker" in navigator && window.isSecureContext) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+  DEMO = !(await detectServer());
+  if (DEMO) {
+    state.demoMeta = await window.TradeTwinDemo.meta().catch(() => null);
+  }
+  const me = await api("api/me");
+  if (!me.ok) {
+    renderAuth();
+    return;
+  }
+  state.profile = me.profile;
+  if (!state.profile.quiz) {
+    renderOnboarding();
+    return;
+  }
+  const hashTab = location.hash.replace("#", "");
+  state.tab = TABS.some(([id]) => id === hashTab) ? hashTab : (state.profile.quiz.focus === "trade" ? "trade" : "home");
+  renderShell();
+}
+
+function renderShell() {
+  const app = $("#app");
+  app.innerHTML = "";
+  const initials = (state.profile.name || "?").split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+  put(app, 
+    h("header", { class: "top" },
+      h("div", { class: "title", id: "screenTitle" }, ""),
+      h("div", { class: "row", style: "flex:none;gap:8px" },
+        h("button", { class: "help", onclick: () => openGuide(helpFor(state.tab)) }, "?"),
+        h("div", { class: "avatar", onclick: () => switchTab("me") }, initials))),
+    h("main", { id: "main" }),
+    h("nav", { class: "tabs" },
+      TABS.map(([id, icon, label]) => h("button", { id: "tab-" + id, onclick: () => switchTab(id) },
+        h("span", { class: "ic" }, icon), label))));
+  switchTab(state.tab);
+}
+
+function helpFor(tab) {
+  return { home: "start", invest: "goal", trade: "trade", news: "news", me: "profile" }[tab] || "start";
+}
+
+function switchTab(id) {
+  state.tab = id;
+  history.replaceState(null, "", "#" + id);
+  document.querySelectorAll("nav.tabs button").forEach((b) => b.classList.toggle("on", b.id === "tab-" + id));
+  const titles = { home: "Home", invest: "Invest", trade: "Trade", news: "News", me: "Me" };
+  $("#screenTitle").textContent = titles[id];
+  const main = $("#main");
+  main.innerHTML = "";
+  window.scrollTo(0, 0);
+  ({ home: renderHome, invest: renderInvest, trade: renderTrade, news: renderNews, me: renderMe })[id](main);
+}
+
+
+function demoBanner() {
+  const meta = state.demoMeta || {};
+  return h("div", { class: "warn", style: "margin:10px 0" },
+    h("b", {}, "Web demo · "),
+    `prices from ${meta.market_as_of || "a recent snapshot"}, 5 famous investors, TSLA trade replay. `,
+    "For live data on your phone, run Trade Twin on your computer — ",
+    h("a", { href: "https://github.com/juwpegatron/projects/tree/main/apps/trade-twin", target: "_blank", rel: "noopener" }, "source & setup"),
+    ".");
+}
+
+/* =========================================================================
+   Auth
+   ========================================================================= */
+function renderAuth(mode = "login") {
+  const app = $("#app");
+  app.innerHTML = "";
+  const errorSlot = h("div");
+  const fields = {
+    name: h("input", { placeholder: "Your name", autocomplete: "name" }),
+    email: h("input", { placeholder: "you@example.com", type: "email", autocomplete: "email" }),
+    username: h("input", { placeholder: "username", autocapitalize: "none", autocomplete: "username" }),
+    password: h("input", { placeholder: "8+ characters", type: "password", autocomplete: mode === "login" ? "current-password" : "new-password" }),
+  };
+  const submit = async () => {
+    errorSlot.innerHTML = "";
+    const body = {
+      username: fields.username.value,
+      password: fields.password.value,
+      name: fields.name.value,
+      email: fields.email.value,
+    };
+    const result = await api(mode === "login" ? "api/login" : "api/signup", body);
+    if (!result.ok) {
+      put(errorSlot, errorBox(result.error));
+      return;
+    }
+    state.profile = result.profile;
+    if (!state.profile.quiz) {
+      renderOnboarding();
+    } else {
+      state.tab = "home";
+      renderShell();
+    }
+  };
+  fields.password.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      submit();
+    }
+  });
+  put(app, h("div", { class: "screen" },
+    h("img", { class: "logo", src: "icons/icon-192.png", alt: "" }),
+    h("h1", {}, mode === "login" ? "Welcome back" : "Create your account"),
+    h("p", { class: "muted" }, "Invest and day-trade with a twin that replays 10,000 futures before you risk a dollar."),
+    DEMO ? demoBanner() : null,
+    mode === "signup" ? [
+      h("label", { class: "f" }, "Name"), fields.name,
+      h("label", { class: "f" }, "Email (optional — needed to read SEC filings)"), fields.email,
+    ] : null,
+    h("label", { class: "f" }, "Username"), fields.username,
+    h("label", { class: "f" }, "Password"), fields.password,
+    errorSlot,
+    h("div", { style: "height:14px" }),
+    h("button", { class: "btn primary", onclick: submit }, mode === "login" ? "Log in" : "Create account"),
+    h("div", { style: "height:10px" }),
+    h("button", { class: "btn ghost", onclick: () => renderAuth(mode === "login" ? "signup" : "login") },
+      mode === "login" ? "New here? Create an account" : "I already have an account"),
+    h("p", { class: "tiny muted center", style: "margin-top:20px" },
+      DEMO
+        ? "Web demo: your account and practice portfolio stay in this browser. Practice money only — not financial advice."
+        : "Your account lives on your own computer. Practice money only — not financial advice.")));
+}
+
+/* =========================================================================
+   Onboarding: intro → personality test → budget → result
+   ========================================================================= */
+function renderOnboarding() {
+  const slides = [
+    ["👋", "Hi " + (state.profile.name || "there") + "!", "Trade Twin helps you invest for the long run and practice day trading — with practice money first."],
+    ["🔮", "Look before you leap", "Before any trade, your twin replays 10,000 possible outcomes from real price history and tells you the honest odds."],
+    ["🧭", "Made for you", "A 2-minute personality test sets your style and your risk limits. You can change everything later."],
+  ];
+  let index = 0;
+  const app = $("#app");
+  const draw = () => {
+    app.innerHTML = "";
+    const [emoji, title, text] = slides[index];
+    put(app, h("div", { class: "screen" },
+      h("div", { class: "slide center" },
+        h("div", { style: "font-size:72px" }, emoji),
+        h("h1", { style: "margin-top:16px" }, title),
+        h("p", { class: "muted", style: "font-size:17px" }, text)),
+      h("div", { class: "dots" }, slides.map((_, i) => h("span", { class: i === index ? "on" : "" }))),
+      h("button", {
+        class: "btn primary",
+        onclick: () => {
+          if (index < slides.length - 1) {
+            index += 1;
+            draw();
+          } else {
+            renderQuiz();
+          }
+        },
+      }, index < slides.length - 1 ? "Next" : "Take the personality test")));
+  };
+  draw();
+}
+
+function renderQuiz() {
+  const picks = new Array(QUIZ.length).fill(null);
+  let index = 0;
+  const app = $("#app");
+  const draw = () => {
+    app.innerHTML = "";
+    const question = QUIZ[index];
+    put(app, h("div", { class: "screen" },
+      h("div", { class: "between" },
+        h("button", { class: "btn small ghost", onclick: () => (index ? (index -= 1, draw()) : renderOnboarding()) }, "‹ Back"),
+        h("span", { class: "muted small" }, `${index + 1} of ${QUIZ.length}`)),
+      h("div", { class: "progress" }, h("div", { style: `width:${100 * (index + 1) / QUIZ.length}%` })),
+      h("h2", { style: "font-size:23px;margin:8px 0 14px" }, question.q),
+      question.options.map((option, i) => h("button", {
+        class: "opt" + (picks[index] === i ? " on" : ""),
+        onclick: () => {
+          picks[index] = i;
+          if (index < QUIZ.length - 1) {
+            index += 1;
+            draw();
+          } else {
+            renderBudgetStep(picks);
+          }
+        },
+      }, option.label))));
+  };
+  draw();
+}
+
+function renderBudgetStep(picks) {
+  const app = $("#app");
+  app.innerHTML = "";
+  const budget = h("input", { type: "number", inputmode: "decimal", value: state.profile.budget || 5000 });
+  const paper = h("input", { type: "number", inputmode: "decimal", value: 10000 });
+  const errorSlot = h("div");
+  put(app, h("div", { class: "screen" },
+    h("div", { class: "progress" }, h("div", { style: "width:100%" })),
+    h("h2", { style: "font-size:23px" }, "Last step: your numbers"),
+    h("label", { class: "f" }, "Money you'd actually trade or invest with ($)"),
+    budget,
+    h("p", { class: "tiny muted" }, "Used to size positions and set your max loss per trade. Stays on your Mac."),
+    h("label", { class: "f" }, "Practice (paper) money to start with ($)"),
+    paper,
+    errorSlot,
+    h("div", { style: "flex:1" }),
+    h("button", {
+      class: "btn primary",
+      onclick: async (event) => {
+        event.target.disabled = true;
+        const answers = { risk_points: [], style_points: [], flags: [] };
+        picks.forEach((pick, i) => {
+          const option = QUIZ[i].options[pick];
+          if (option.risk) {
+            answers.risk_points.push(option.risk);
+          }
+          if (option.style) {
+            answers.style_points.push(option.style);
+          }
+          if (option.flag) {
+            answers.flags.push(option.flag);
+          }
+        });
+        const saved = await api("api/profile", { budget: Number(budget.value) || 5000 });
+        if (!saved.ok) {
+          put(errorSlot, errorBox(saved.error));
+          event.target.disabled = false;
+          return;
+        }
+        const result = await api("api/quiz", { answers, paper_cash: Number(paper.value) || 10000 });
+        if (!result.ok) {
+          put(errorSlot, errorBox(result.error));
+          event.target.disabled = false;
+          return;
+        }
+        state.profile = result.profile;
+        renderQuizResult();
+      },
+    }, "See my result")));
+}
+
+function profileCard(quiz, limits) {
+  return h("div", {},
+    h("div", { class: "center" },
+      h("div", { class: "archetype" }, quiz.emoji),
+      h("h1", { style: "margin-top:10px" }, quiz.title),
+      h("p", { class: "muted" }, quiz.summary)),
+    h("div", { class: "card" },
+      h("div", { class: "between" }, h("b", {}, "Risk level"), h("span", { class: "pill blue" }, quiz.risk_level + " / 5")),
+      h("div", { class: "meter" }, [1, 2, 3, 4, 5].map((n) => h("div", { class: n <= quiz.risk_level ? "on" : "" }))),
+      h("div", { class: "between small muted" }, h("span", {}, "Long-term investor"), h("span", {}, "Active trader")),
+      h("div", { class: "meter" }, [1, 2, 3, 4, 5].map((n) => h("div", { class: n <= Math.round(quiz.style_score) ? "on" : "" })))),
+    (quiz.cautions || []).map((c) => h("div", { class: "warn" }, "⚠️ " + c)),
+    limits ? h("div", { class: "card" },
+      h("h3", {}, "Your guard-rails"),
+      h("div", { class: "kv" }, h("span", {}, "Max loss per trade"), h("b", {}, fmtMoney(limits.max_loss_per_trade_usd) + ` (${limits.risk_pct}%)`)),
+      h("div", { class: "kv" }, h("span", {}, "Stop trading for the day after"), h("b", {}, fmtMoney(limits.max_daily_loss_usd))),
+      h("div", { class: "kv" }, h("span", {}, "Trades per day"), h("b", {}, limits.max_trades_per_day)),
+      h("div", { class: "kv" }, h("span", {}, "Min reward : risk"), h("b", {}, limits.min_reward_risk + " : 1")),
+      h("div", { class: "kv" }, h("span", {}, "Largest single position"), h("b", {}, limits.max_position_pct + "% of budget"))) : null,
+    h("div", { class: "card" }, h("b", {}, "Your first step"), h("p", {}, quiz.suggest)));
+}
+
+function renderQuizResult() {
+  const app = $("#app");
+  app.innerHTML = "";
+  const quiz = state.profile.quiz;
+  put(app, h("div", { class: "screen" },
+    profileCard(quiz, state.profile.limits),
+    h("button", {
+      class: "btn primary",
+      onclick: async () => {
+        await api("api/profile", { onboarded: true });
+        state.tab = quiz.focus === "trade" ? "trade" : "home";
+        renderShell();
+        setTimeout(() => openGuide("start"), 400);
+      },
+    }, "Start using Trade Twin")));
+}
+
+/* =========================================================================
+   Guide
+   ========================================================================= */
+function articleBody(entry) {
+  return entry.body.map(([kind, content]) => {
+    if (kind === "p") {
+      return h("p", {}, content);
+    }
+    return h(kind, {}, content.map((line) => h("li", {}, line)));
+  });
+}
+
+function openGuide(id) {
+  const entry = GUIDE.find((g) => g.id === id) || GUIDE[0];
+  openSheet(h("div", { class: "article" },
+    h("div", { style: "font-size:40px" }, entry.icon),
+    h("h2", {}, entry.title),
+    articleBody(entry),
+    h("div", { style: "height:12px" }),
+    h("button", { class: "btn", onclick: () => openGuideList() }, "All guides"),
+    h("div", { style: "height:8px" }),
+    h("button", { class: "btn primary", onclick: closeSheet }, "Got it")));
+  if (state.profile && !(state.profile.guide_done || []).includes(id)) {
+    state.profile.guide_done = [...(state.profile.guide_done || []), id];
+    api("api/profile", { guide_done: state.profile.guide_done });
+  }
+}
+
+function guideList() {
+  const done = state.profile.guide_done || [];
+  return GUIDE.map((g) => h("div", { class: "guide-item", onclick: () => openGuide(g.id) },
+    h("div", { class: "gi" }, g.icon),
+    h("div", { style: "flex:1" }, h("b", {}, g.title)),
+    done.includes(g.id) ? h("span", { class: "pill green" }, "read") : h("span", { class: "muted" }, "›")));
+}
+
+function openGuideList() {
+  openSheet(h("h2", {}, "Guide"), guideList());
+}
+
+/* =========================================================================
+   Stock detail sheet (Robinhood-style)
+   ========================================================================= */
+async function openStock(symbol) {
+  symbol = symbol.toUpperCase();
+  const body = h("div", {}, spinner());
+  const sheet = openSheet(body);
+  let span = "1D";
+  const draw = async () => {
+    const result = await api("api/chart", { symbol, span });
+    body.innerHTML = "";
+    if (!result.ok) {
+      put(body, h("h2", {}, symbol), errorBox(result.error));
+      return;
+    }
+    const d = result.data;
+    const watching = state.profile.watchlist.includes(symbol);
+    const held = state.paper && state.paper.positions.find((p) => p.symbol === symbol);
+    const canvas = h("canvas");
+    put(body, 
+      h("div", { class: "between" },
+        h("div", {}, h("div", { class: "muted small" }, d.name), h("h2", { style: "margin:0" }, symbol)),
+        h("button", {
+          class: "btn small " + (watching ? "" : "ghost"),
+          onclick: async () => {
+            const list = watching ? state.profile.watchlist.filter((s) => s !== symbol) : [...state.profile.watchlist, symbol];
+            const saved = await api("api/profile", { watchlist: list });
+            if (saved.ok) {
+              state.profile = saved.profile;
+              toast(watching ? "Removed from watchlist" : "Added to watchlist");
+              draw();
+            }
+          },
+        }, watching ? "★ Watching" : "☆ Watch")),
+      h("div", { class: "big", style: "margin-top:8px" }, fmtMoney(d.price)),
+      h("div", { class: signClass(d.change) + " small", style: "font-weight:650" },
+        `${d.change >= 0 ? "+" : ""}${fmtMoney(d.change)} (${fmtPct(d.change_pct)}) `,
+        h("span", { class: "muted" }, { "1D": "today", "1W": "past week", "1M": "past month", "3M": "past 3 months", "1Y": "past year", "5Y": "past 5 years" }[span])),
+      canvas,
+      h("div", { class: "chips", style: "justify-content:space-between" },
+        ["1D", "1W", "1M", "3M", "1Y", "5Y"].map((s) => h("button", { class: "chip" + (s === span ? " on" : ""), onclick: () => { span = s; draw(); } }, s))),
+      held ? h("div", { class: "card tight" },
+        h("div", { class: "between" }, h("b", {}, "Your paper position"), h("span", { class: signClass(held.gain) }, fmtMoney(held.gain) + " " + fmtPct(held.gain_pct))),
+        h("div", { class: "muted small" }, `${held.qty} shares · avg ${fmtMoney(held.avg_cost)} · worth ${fmtMoney(held.value)}`)) : null,
+      h("div", { class: "fab-row" },
+        h("button", { class: "btn green", onclick: () => openOrder(symbol, "buy", d.price) }, "Buy"),
+        h("button", { class: "btn red", disabled: held ? null : "", onclick: () => openOrder(symbol, "sell", d.price, held) }, "Sell")),
+      h("div", { class: "fab-row" },
+        h("button", {
+          class: "btn",
+          onclick: () => {
+            closeSheet();
+            state.goalPrefill = symbol;
+            state.investView = "goal";
+            switchTab("invest");
+          },
+        }, "🎯 Simulate investing"),
+        h("button", {
+          class: "btn",
+          onclick: () => {
+            closeSheet();
+            state.tradeSymbol = symbol;
+            state.tradeMode = "live";
+            switchTab("trade");
+          },
+        }, "⚡ Plan a day trade")),
+      h("p", { class: "tiny muted" }, `${d.exchange || ""} · delayed quote · practice money only`),
+    );
+    afterPaint(() => lineChart(canvas, d.points.map((p) => p[1]), { baseline: span === "1D" ? d.prev : undefined, height: 200 }));
+  };
+  draw();
+  return sheet;
+}
+
+function openOrder(symbol, side, price, held) {
+  let byDollars = true;
+  const amount = h("input", { type: "number", inputmode: "decimal", placeholder: byDollars ? "Amount in $" : "Shares" });
+  const estimate = h("p", { class: "muted small" }, "");
+  const errorSlot = h("div");
+  const toggle = h("div", { class: "seg" },
+    h("button", { class: "on", onclick: (e) => setMode(true, e) }, "Dollars"),
+    h("button", { onclick: (e) => setMode(false, e) }, "Shares"));
+  function setMode(dollars, event) {
+    byDollars = dollars;
+    toggle.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b === event.target));
+    amount.placeholder = dollars ? "Amount in $" : "Shares";
+    update();
+  }
+  function update() {
+    const v = Number(amount.value) || 0;
+    estimate.textContent = byDollars
+      ? `≈ ${(v / price).toFixed(4)} shares at ${fmtMoney(price)}`
+      : `≈ ${fmtMoney(v * price)} at ${fmtMoney(price)}`;
+  }
+  amount.addEventListener("input", update);
+  openSheet(
+    h("h2", {}, `${side === "buy" ? "Buy" : "Sell"} ${symbol}`),
+    h("p", { class: "muted small" }, side === "buy"
+      ? `Paper cash available: ${fmtMoney(state.paper ? state.paper.cash : state.profile.paper.cash)}`
+      : `You hold ${held ? held.qty : 0} shares`),
+    toggle, amount, estimate, errorSlot,
+    h("button", {
+      class: "btn " + (side === "buy" ? "green" : "red"),
+      onclick: async (event) => {
+        event.target.disabled = true;
+        const v = Number(amount.value);
+        const result = await api("api/paper/order", byDollars ? { symbol, side, dollars: v } : { symbol, side, qty: v });
+        event.target.disabled = false;
+        if (!result.ok) {
+          errorSlot.innerHTML = "";
+          put(errorSlot, errorBox(result.error));
+          return;
+        }
+        state.paper = result.paper;
+        closeSheet();
+        toast(`Paper ${side}: ${result.fill.qty} ${symbol} @ ${fmtMoney(result.fill.price)}`);
+        switchTab(state.tab);
+      },
+    }, `Confirm paper ${side}`),
+    h("p", { class: "tiny muted center", style: "margin-top:10px" }, "Practice money. No real order is sent."));
+  setTimeout(() => amount.focus(), 300);
+}
+
+/* =========================================================================
+   Home
+   ========================================================================= */
+function nextStep() {
+  const done = state.profile.guide_done || [];
+  const p = state.paper;
+  const steps = [
+    [!done.includes("install"), "📱", "Put Trade Twin on your iPhone", () => openGuide("install")],
+    [p && p.positions.length === 0, "🧪", "Make your first paper investment", () => openStock(state.profile.quiz.focus === "trade" ? "SPY" : "SPY")],
+    [!state.profile.goal_ran, "🎯", "See 10,000 futures for your goal", () => { state.investView = "goal"; switchTab("invest"); }],
+    [state.profile.quiz.focus === "trade" && !done.includes("trade"), "⚡", "Learn the day-trade checklist", () => openGuide("trade")],
+    [!done.includes("copy"), "🧑‍💼", "Copy a famous investor (on paper)", () => { state.investView = "copy"; switchTab("invest"); }],
+  ];
+  return steps.find((s) => s[0]);
+}
+
+async function renderHome(main) {
+  const quiz = state.profile.quiz;
+  const portfolio = h("div", { class: "card" }, spinner());
+  const watch = h("div", { class: "card" }, spinner());
+  const greeting = new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 18 ? "Good afternoon" : "Good evening";
+  put(main, 
+    DEMO ? demoBanner() : null,
+    h("div", { class: "between", style: "margin-top:4px" },
+      h("div", {}, h("div", { class: "muted small" }, greeting), h("h2", { style: "margin:0" }, state.profile.name.split(" ")[0])),
+      h("span", { class: "pill blue", onclick: () => switchTab("me") }, quiz.emoji + " " + quiz.title)),
+    portfolio);
+  const step = nextStep();
+  if (step) {
+    put(main, h("div", { class: "card tight", onclick: step[3], style: "cursor:pointer" },
+      h("div", { class: "between" },
+        h("div", { class: "row", style: "gap:12px" }, h("div", { style: "font-size:26px;flex:none" }, step[1]),
+          h("div", {}, h("div", { class: "muted tiny" }, "NEXT STEP"), h("b", {}, step[2]))),
+        h("span", { class: "muted", style: "flex:none" }, "›"))));
+  }
+  put(main, watch);
+
+  const paperResult = await api("api/paper");
+  portfolio.innerHTML = "";
+  if (paperResult.ok) {
+    const p = (state.paper = paperResult.paper);
+    const canvas = h("canvas");
+    put(portfolio, 
+      h("div", { class: "muted small" }, "Practice portfolio"),
+      h("div", { class: "big" }, fmtMoney(p.value)),
+      h("div", { class: signClass(p.gain) + " small", style: "font-weight:650" }, `${p.gain >= 0 ? "+" : ""}${fmtMoney(p.gain)} (${fmtPct(p.gain_pct)}) all time`),
+      canvas,
+      h("div", { class: "between small muted" }, h("span", {}, "Buying power " + fmtMoney(p.cash)),
+        h("a", { href: "#invest", onclick: (e) => { e.preventDefault(); state.investView = "portfolio"; switchTab("invest"); } }, "Positions ›")));
+    const values = p.snapshots.map((s) => s[1]);
+    afterPaint(() => lineChart(canvas, values.length > 1 ? values : [p.start_cash, p.value], { baseline: p.start_cash, height: 110 }));
+  } else {
+    put(portfolio, errorBox(paperResult.error));
+  }
+
+  const addInput = h("input", { placeholder: "Add ticker (e.g. AMZN)", autocapitalize: "characters" });
+  const addTicker = async () => {
+    const symbol = addInput.value.trim().toUpperCase();
+    if (!symbol) {
+      return;
+    }
+    const saved = await api("api/profile", { watchlist: [...state.profile.watchlist, symbol] });
+    if (saved.ok) {
+      state.profile = saved.profile;
+      switchTab("home");
+    } else {
+      toast(saved.error);
+    }
+  };
+  addInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      addTicker();
+    }
+  });
+  const quoteResult = await api("api/quotes", { symbols: state.profile.watchlist });
+  watch.innerHTML = "";
+  put(watch, h("div", { class: "between" }, h("h3", { style: "margin:0" }, "Watchlist"), h("span", { class: "muted tiny" }, "delayed")));
+  if (!quoteResult.ok) {
+    put(watch, errorBox(quoteResult.error));
+    return;
+  }
+  const list = h("div", { class: "list" });
+  for (const symbol of state.profile.watchlist) {
+    const q = quoteResult.quotes[symbol];
+    if (!q) {
+      put(list, h("div", { class: "item" }, h("div", { class: "sym" }, symbol), h("div", { class: "muted small", style: "flex:1" }, quoteResult.errors[symbol] || "no data")));
+      continue;
+    }
+    const cls = q.change_pct > 0 ? "up" : q.change_pct < 0 ? "down" : "flat";
+    put(list, h("div", { class: "item", onclick: () => openStock(symbol) },
+      h("div", { style: "flex:1;min-width:0" }, h("div", { class: "sym" }, symbol), h("div", { class: "nm" }, q.name)),
+      sparkline(q.spark, q.change_pct >= 0),
+      h("div", { class: "px" }, h("div", { style: "font-weight:650" }, fmtPrice(q.price)), h("span", { class: "chg " + cls }, fmtPct(q.change_pct)))));
+  }
+  put(watch, list, h("div", { class: "row", style: "margin-top:10px" }, addInput, h("button", { class: "btn small primary", style: "flex:none", onclick: addTicker }, "Add")));
+}
+
+/* =========================================================================
+   Invest: portfolio · goal planner · copy an investor
+   ========================================================================= */
+function renderInvest(main) {
+  const views = [["portfolio", "Portfolio"], ["goal", "Goal planner"], ["copy", "Copy investor"]];
+  const body = h("div");
+  put(main, h("div", { class: "seg" },
+    views.map(([id, label]) => h("button", {
+      class: state.investView === id ? "on" : "",
+      onclick: () => {
+        state.investView = id;
+        switchTab("invest");
+      },
+    }, label))), body);
+  ({ portfolio: investPortfolio, goal: investGoal, copy: investCopy })[state.investView](body);
+}
+
+async function investPortfolio(body) {
+  put(body, spinner());
+  const result = await api("api/paper");
+  body.innerHTML = "";
+  if (!result.ok) {
+    put(body, errorBox(result.error));
+    return;
+  }
+  const p = (state.paper = result.paper);
+  put(body, h("div", { class: "card" },
+    h("div", { class: "muted small" }, "Practice portfolio value"),
+    h("div", { class: "big" }, fmtMoney(p.value)),
+    h("div", { class: signClass(p.gain), style: "font-weight:650" }, `${fmtMoney(p.gain)} (${fmtPct(p.gain_pct)})`),
+    h("div", { class: "grid2", style: "margin-top:12px" },
+      h("div", { class: "stat" }, h("div", { class: "k" }, "Cash"), h("div", { class: "v" }, fmtMoney(p.cash))),
+      h("div", { class: "stat" }, h("div", { class: "k" }, "Started with"), h("div", { class: "v" }, fmtMoney(p.start_cash, 0))))));
+
+  const search = h("input", { placeholder: "Find a stock or fund to buy (e.g. VTI)", autocapitalize: "characters" });
+  search.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && search.value.trim()) {
+      openStock(search.value.trim());
+    }
+  });
+  put(body, h("div", { class: "row" }, search, h("button", { class: "btn small primary", style: "flex:none", onclick: () => search.value.trim() && openStock(search.value.trim()) }, "Go")));
+
+  const positions = h("div", { class: "card" }, h("h3", {}, "Positions"));
+  if (!p.positions.length) {
+    put(positions, h("p", { class: "muted" }, "No positions yet. Search a ticker above, or copy a famous investor."));
+  } else {
+    const list = h("div", { class: "list" });
+    for (const pos of p.positions) {
+      put(list, h("div", { class: "item", onclick: () => openStock(pos.symbol) },
+        h("div", { style: "flex:1;min-width:0" }, h("div", { class: "sym" }, pos.symbol), h("div", { class: "nm" }, `${pos.qty} sh · avg ${fmtPrice(pos.avg_cost)}`)),
+        sparkline(pos.spark, (pos.day_pct || 0) >= 0),
+        h("div", { class: "px" }, h("div", { style: "font-weight:650" }, fmtMoney(pos.value)),
+          h("div", { class: signClass(pos.gain) + " small" }, fmtPct(pos.gain_pct)))));
+    }
+    put(positions, list);
+    const weights = p.positions.map((pos) => [pos.symbol, pos.value / (p.value || 1)]);
+    put(positions, h("div", { class: "bar", style: "margin-top:12px;height:12px" },
+      weights.map(([sym, w], i) => h("div", { title: sym, style: `width:${100 * w}%;background:hsl(${(i * 57) % 360},70%,55%)` })),
+      h("div", { style: `width:${100 * p.cash / (p.value || 1)}%;background:var(--gray)` })));
+    put(positions, h("div", { class: "tiny muted", style: "margin-top:6px" },
+      weights.map(([sym, w]) => `${sym} ${(100 * w).toFixed(0)}%`).join(" · ") + ` · cash ${(100 * p.cash / (p.value || 1)).toFixed(0)}%`));
+  }
+  put(body, positions);
+
+  if (p.history.length) {
+    put(body, h("div", { class: "card" }, h("h3", {}, "Activity"),
+      h("table", {}, p.history.slice(0, 15).map((t) => h("tr", {},
+        h("td", {}, h("span", { class: "pill " + (t.side === "buy" ? "green" : "red") }, t.side.toUpperCase())),
+        h("td", {}, h("b", {}, t.symbol), h("div", { class: "tiny muted" }, new Date(t.time).toLocaleDateString())),
+        h("td", { class: "r" }, fmtMoney(t.amount), h("div", { class: "tiny muted" }, `${t.qty} @ ${fmtPrice(t.price)}`)))))));
+  }
+  put(body, h("button", {
+    class: "btn ghost",
+    onclick: async () => {
+      const cash = prompt("Reset practice portfolio. Starting cash ($):", p.start_cash);
+      if (cash === null) {
+        return;
+      }
+      const reset = await api("api/paper/reset", { cash: Number(cash) || p.start_cash });
+      if (reset.ok) {
+        toast("Practice portfolio reset");
+        switchTab("invest");
+      }
+    },
+  }, "Reset practice portfolio"));
+}
+
+function investGoal(body) {
+  const goal = state.profile.goal || {};
+  const quiz = state.profile.quiz;
+  const suggested = { builder: "SPY, AGG", grower: "SPY", opportunist: "SPY, QQQ", trader: "QQQ" }[quiz.archetype] || "SPY";
+  const fields = {
+    tickers: h("input", { value: state.goalPrefill || goal.tickers || suggested, autocapitalize: "characters" }),
+    years: h("input", { type: "number", inputmode: "numeric", value: goal.years || 20 }),
+    initial: h("input", { type: "number", inputmode: "decimal", value: goal.initial ?? 1000 }),
+    monthly: h("input", { type: "number", inputmode: "decimal", value: goal.monthly ?? 200 }),
+    target: h("input", { type: "number", inputmode: "decimal", value: goal.target ?? 100000 }),
+  };
+  state.goalPrefill = null;
+  const out = h("div");
+  put(body, h("div", { class: "card" },
+    h("div", { class: "between" }, h("h3", { style: "margin:0" }, "🎯 Will I reach my goal?"), h("button", { class: "help", onclick: () => openGuide("goal") }, "?")),
+    h("p", { class: "muted small" }, "10,000 possible futures, built from real history. Your profile suggests: " + suggested),
+    h("label", { class: "f" }, "Invest in (tickers, comma-separated; equal weights)"), fields.tickers,
+    h("div", { class: "grid2" },
+      h("div", {}, h("label", { class: "f" }, "Start with ($)"), fields.initial),
+      h("div", {}, h("label", { class: "f" }, "Add every month ($)"), fields.monthly),
+      h("div", {}, h("label", { class: "f" }, "Years"), fields.years),
+      h("div", {}, h("label", { class: "f" }, "Goal ($)"), fields.target)),
+    h("div", { style: "height:12px" }),
+    h("button", {
+      class: "btn primary",
+      onclick: async (event) => {
+        event.target.disabled = true;
+        out.innerHTML = "";
+        put(out, spinner("Simulating 10,000 futures…"));
+        const result = await api("api/goal", {
+          tickers: fields.tickers.value,
+          years: Number(fields.years.value),
+          initial: Number(fields.initial.value),
+          monthly: Number(fields.monthly.value),
+          target: Number(fields.target.value),
+        });
+        event.target.disabled = false;
+        out.innerHTML = "";
+        if (!result.ok) {
+          put(out, errorBox(result.error));
+          return;
+        }
+        state.profile.goal_ran = true;
+        renderGoalResult(out, result.result);
+      },
+    }, "Run 10,000 futures")), out);
+}
+
+function renderGoalResult(out, r) {
+  const canvas = h("canvas");
+  const pGoal = r.p_goal;
+  const tone = pGoal === null ? "blue" : pGoal >= 0.8 ? "green" : pGoal >= 0.5 ? "amber" : "red";
+  put(out, 
+    (r.warnings || []).map((w) => h("div", { class: "warn" }, "⚠️ " + w)),
+    h("div", { class: "card" },
+      h("div", { class: "muted small" }, `Chance of reaching ${fmtCompact(r.goal)} in ${r.years} years`),
+      h("div", { class: "big" }, h("span", { class: "pill " + tone, style: "font-size:30px;padding:4px 14px" }, fmtProb(pGoal))),
+      h("p", { class: "small muted" }, `You'd put in ${fmtMoney(r.contributed, 0)} in total.`),
+      canvas,
+      h("div", { class: "tiny muted" }, "White: middle outcome · dark band: 25–75% · light band: 5–95%"),
+      h("div", { class: "grid3", style: "margin-top:12px" },
+        h("div", { class: "stat" }, h("div", { class: "k" }, "Bad case (5%)"), h("div", { class: "v" }, fmtCompact(r.p5))),
+        h("div", { class: "stat" }, h("div", { class: "k" }, "Middle"), h("div", { class: "v" }, fmtCompact(r.median))),
+        h("div", { class: "stat" }, h("div", { class: "k" }, "Good case (95%)"), h("div", { class: "v" }, fmtCompact(r.p95))))),
+    h("div", { class: "card" },
+      h("h3", {}, "What the ride feels like"),
+      h("div", { class: "kv" }, h("span", {}, "Chance you end with less than you put in"), h("b", {}, fmtProb(r.p_loss))),
+      h("div", { class: "kv" }, h("span", {}, "Typical worst drop along the way"), h("b", { class: "down" }, r.median_worst_drop + "%")),
+      h("div", { class: "kv" }, h("span", {}, "Bad-luck worst drop (1 in 20)"), h("b", { class: "down" }, r.bad_case_worst_drop + "%")),
+      h("h3", { style: "margin-top:14px" }, "The history it's built from"),
+      h("div", { class: "kv" }, h("span", {}, "Period"), h("b", {}, `${r.history.from} → ${r.history.to}`)),
+      h("div", { class: "kv" }, h("span", {}, "Average yearly return (CAGR)"), h("b", {}, r.history.cagr_pct + "%")),
+      h("div", { class: "kv" }, h("span", {}, "Yearly volatility"), h("b", {}, r.history.vol_pct + "%")),
+      h("div", { class: "kv" }, h("span", {}, "Worst drawdown in history"), h("b", { class: "down" }, r.history.max_drawdown_pct + "%")),
+      h("div", { class: "kv" }, h("span", {}, "Worst 12 months"), h("b", { class: "down" }, r.history.worst_12m_pct + "%")),
+      h("p", { class: "tiny muted" }, r.note)));
+  const labels = r.bands.map((_, i) => "y" + i);
+  afterPaint(() => fanChart(canvas, r.bands, labels, r.goal ? [{ v: r.goal, color: "#22c55e", label: "goal " + fmtCompact(r.goal) }] : [], { money: true, floorZero: true, height: 230 }));
+}
+
+async function investCopy(body) {
+  put(body, h("div", { class: "card" },
+    h("div", { class: "between" }, h("h3", { style: "margin:0" }, "🧑‍💼 Copy a famous investor"), h("button", { class: "help", onclick: () => openGuide("copy") }, "?")),
+    h("p", { class: "muted small" }, "From their latest SEC 13F filing (up to ~45 days old). Copy into your practice portfolio."),
+    !state.profile.email ? h("div", { class: "warn" }, "Add your email in Me → Profile first: SEC requires every app user to identify themselves.") : null));
+  const list = h("div", { class: "card" }, spinner());
+  put(body, list);
+  const result = await api("api/copycat", { action: "filers" });
+  list.innerHTML = "";
+  if (!result.filers) {
+    put(list, errorBox(result.error || "could not load investors"));
+    return;
+  }
+  const filter = h("input", { placeholder: "Search investors (Buffett, Burry, Ackman…)" });
+  const rows = h("div", { class: "list" });
+  const draw = () => {
+    rows.innerHTML = "";
+    const q = filter.value.toLowerCase();
+    for (const f of result.filers.filter((x) => (x.name + " " + x.person).toLowerCase().includes(q))) {
+      put(rows, h("div", { class: "item", onclick: () => openInvestor(f) },
+        h("div", { style: "flex:1;min-width:0" }, h("b", {}, f.person.split("(")[0].trim() || f.name), h("div", { class: "nm", style: "max-width:260px" }, f.name)),
+        h("span", { class: "muted" }, "›")));
+    }
+  };
+  filter.addEventListener("input", draw);
+  put(list, filter, rows);
+  draw();
+}
+
+async function openInvestor(filer) {
+  const body = h("div", {}, h("h2", {}, filer.person.split("(")[0].trim() || filer.name), h("p", { class: "muted small" }, filer.name), spinner("Reading their 13F from SEC EDGAR…"));
+  openSheet(body);
+  const [copy, diff] = await Promise.all([
+    api("api/copycat", { action: "copy", cik: filer.cik, top: 10 }),
+    api("api/copycat", { action: "diff", cik: filer.cik }),
+  ]);
+  body.lastChild.remove();
+  if (copy.error || !copy.data) {
+    put(body, errorBox(copy.error || copy.stderr || "could not read the filing"));
+    return;
+  }
+  const c = copy.data;
+  put(body, h("p", { class: "tiny muted" }, c.source));
+  put(body, h("div", { class: "card tight" }, h("h3", {}, "Top holdings (re-weighted to 100%)"),
+    h("table", {}, h("tr", {}, h("th", {}, "Stock"), h("th", { class: "r" }, "Copy weight"), h("th", { class: "r" }, "% of fund")),
+      c.weights.map((w) => h("tr", { onclick: () => openStock(w.ticker) },
+        h("td", {}, h("b", {}, w.ticker || "?"), h("div", { class: "tiny muted" }, w.name)),
+        h("td", { class: "r" }, w.weight.toFixed(1) + "%"),
+        h("td", { class: "r muted" }, w.pct_of_13f.toFixed(1) + "%"))))));
+  if (diff.data && diff.data.changes) {
+    const changes = diff.data.changes.filter((x) => ["NEW", "SOLD OUT", "ADDED", "TRIMMED"].includes(x.status)).slice(0, 12);
+    put(body, h("div", { class: "card tight" }, h("h3", {}, "Since last quarter"),
+      changes.length ? changes.map((x) => h("div", { class: "kv" },
+        h("span", {}, h("span", { class: "pill " + ({ NEW: "green", ADDED: "green", "SOLD OUT": "red", TRIMMED: "amber" }[x.status]) }, x.status), " ", x.ticker || x.issuer),
+        h("span", { class: "muted small" }, x.change_pct === null ? "" : fmtPct(x.change_pct, 0)))) : h("p", { class: "muted" }, "No changes.")));
+  }
+  const amount = h("input", { type: "number", inputmode: "decimal", value: Math.min(1000, Math.floor(state.paper ? state.paper.cash : 1000)) });
+  const status = h("div");
+  put(body, h("label", { class: "f" }, "Copy with practice money ($)"), amount, status,
+    h("button", {
+      class: "btn primary",
+      style: "margin-top:10px",
+      onclick: async (event) => {
+        event.target.disabled = true;
+        const weights = c.weights.filter((w) => w.ticker).map((w) => ({ ticker: w.ticker, weight: w.weight }));
+        const result = await api("api/paper/copy", { weights, amount: Number(amount.value), note: "copy " + filer.name });
+        event.target.disabled = false;
+        status.innerHTML = "";
+        if (!result.ok) {
+          put(status, errorBox(result.error));
+          return;
+        }
+        state.paper = result.paper;
+        put(status, h("div", { class: "ok" }, `Bought ${result.fills.length} positions with practice money.`),
+          result.errors.length ? errorBox(result.errors.join("\n")) : null);
+        toast("Copied into your practice portfolio");
+      },
+    }, "Copy into my practice portfolio"),
+    h("p", { class: "tiny muted" }, "Copying their picks does not copy their results. 13F data is delayed and partial."));
+}
+
+/* =========================================================================
+   Trade: the day-trade checklist (day-trader-skill)
+   ========================================================================= */
+const TRADE_STEPS = [
+  ["entry", "Entry", "Has the setup triggered?"],
+  ["exit", "Exit plan", "Stop and target, set before you enter"],
+  ["timemachine", "Time Machine", "10,000 replays + every past session"],
+  ["budget", "Size", "Shares that fit your max loss"],
+  ["risk", "Risk check", "PASS or BLOCK against your limits"],
+  ["broker", "Ticket", "The exact order, in plain words"],
+];
+
+function renderTrade(main) {
+  const quiz = state.profile.quiz;
+  const limits = state.profile.limits || {};
+  const symbol = h("input", { value: state.tradeSymbol, autocapitalize: "characters", style: "text-transform:uppercase;font-weight:700" });
+  const stepper = h("div", { class: "card stepper" });
+  const detail = h("div");
+  if (quiz.focus !== "trade") {
+    put(main, h("div", { class: "warn" }, `${quiz.emoji} Your profile leans investor. Day trading is optional — practice in Demo, and keep to paper money.`));
+  }
+  put(main, 
+    h("div", { class: "seg" },
+      [["demo", "Demo (TSLA replay)"], ["live", "Live market"]].map(([m, label]) => h("button", {
+        class: state.tradeMode === m ? "on" : "",
+        onclick: () => {
+          state.tradeMode = m;
+          if (m === "demo") {
+            state.tradeSymbol = "TSLA";
+          }
+          state.tradeResults = {};
+          switchTab("trade");
+        },
+      }, label))),
+    h("div", { class: "card" },
+      h("div", { class: "row" },
+        symbol,
+        h("button", {
+          class: "btn primary",
+          style: "flex:none;width:auto",
+          onclick: () => {
+            state.tradeSymbol = symbol.value.trim().toUpperCase() || "TSLA";
+            runTradeFlow(stepper, detail);
+          },
+        }, "▶ Run check")),
+      h("p", { class: "tiny muted", style: "margin-bottom:0" },
+        `Your limits: max loss ${fmtMoney(limits.max_loss_per_trade_usd)} per trade · target ${limits.default_target} · min R:R ${limits.min_reward_risk} · ${limits.max_trades_per_day} trades/day`),
+      state.tradeMode === "demo" ? h("p", { class: "tiny muted", style: "margin:4px 0 0" }, "Demo replays TSLA on Mon Oct 19, 2026 at 10:15 AM ET.") : null),
+    stepper, detail,
+    h("button", { class: "btn ghost", onclick: () => openScanner() }, "🔎 Scan for breakouts"));
+  drawStepper(stepper, detail);
+}
+
+function drawStepper(stepper, detail) {
+  stepper.innerHTML = "";
+  TRADE_STEPS.forEach(([id, label, hint], i) => {
+    const r = state.tradeResults[id];
+    const cls = r ? r.cls : "";
+    put(stepper, h("div", { class: "st", style: r ? "cursor:pointer" : "", onclick: () => r && showTradeDetail(id, detail) },
+      h("div", { class: "dot " + cls }, cls === "ok" ? "✓" : cls === "bad" ? "✕" : cls === "warn" ? "!" : i + 1),
+      h("div", { style: "flex:1;min-width:0" }, h("b", {}, label), h("div", { class: "small muted" }, r ? r.summary : hint))));
+  });
+}
+
+async function runTradeFlow(stepper, detail) {
+  state.tradeResults = {};
+  detail.innerHTML = "";
+  const limits = state.profile.limits || {};
+  const params = {
+    entry: { symbol: state.tradeSymbol },
+    exit: { stop_rule: "or-mid", target_rule: limits.default_target || "2R" },
+    timemachine: { replays: 10000, seed: 19 },
+  };
+  for (const [id] of TRADE_STEPS) {
+    state.tradeResults[id] = { cls: "busy", summary: id === "timemachine" ? "replaying 10,000 sessions…" : "working…" };
+    drawStepper(stepper, detail);
+    const result = await api("api/trade", { step: id, mode: state.tradeMode, params: params[id] || {} });
+    const judged = judgeTradeStep(id, result);
+    state.tradeResults[id] = { ...judged, result };
+    drawStepper(stepper, detail);
+    if (id === "timemachine" || judged.cls === "bad") {
+      showTradeDetail(id, detail);
+    }
+    if (judged.cls === "bad" && id !== "timemachine") {
+      break;
+    }
+  }
+}
+
+function judgeTradeStep(id, r) {
+  const d = r.data;
+  if (r.error) {
+    return { cls: "bad", summary: r.error };
+  }
+  if (!d) {
+    return { cls: "bad", summary: (r.stderr || "no result").split("\n")[0] };
+  }
+  if (id === "entry") {
+    const status = d.status || "";
+    return { cls: status === "triggered" ? "ok" : "bad", summary: `${status.toUpperCase()} — ${d.reason || ""}` };
+  }
+  if (id === "exit") {
+    return { cls: "ok", summary: `entry ${fmtPrice(d.entry)} · stop ${fmtPrice(d.stop)} · target ${fmtPrice(d.target)}` };
+  }
+  if (id === "timemachine") {
+    const v = d.verdict || "";
+    return { cls: /toward the stop/i.test(v) ? "bad" : /toward the target/i.test(v) ? "ok" : "warn", summary: v };
+  }
+  if (id === "budget") {
+    const s = d.sizing || {};
+    return s.refusal ? { cls: "bad", summary: s.refusal } : { cls: "ok", summary: `${s.qty} shares · ${fmtMoney(s.cost)} · max loss ${fmtMoney(s.max_loss)}` };
+  }
+  if (id === "risk") {
+    const res = (d.results || [])[0] || {};
+    return { cls: d.block ? "bad" : "ok", summary: d.block ? "BLOCK — " + (res.reasons || []).join("; ") : "PASS — within all your limits" };
+  }
+  if (id === "broker") {
+    const t = Array.isArray(d) ? d[0] : null;
+    return t ? { cls: t.ready ? "ok" : "warn", summary: t.plain } : { cls: "warn", summary: "no ticket" };
+  }
+  return { cls: "ok", summary: "" };
+}
+
+function showTradeDetail(id, detail) {
+  const entry = state.tradeResults[id];
+  detail.innerHTML = "";
+  if (!entry || !entry.result) {
+    return;
+  }
+  const d = entry.result.data;
+  if (id === "timemachine" && d && d.mc) {
+    const mc = d.mc;
+    const plan = d.plan;
+    const hist = d.history || {};
+    const fan = h("canvas");
+    const histo = h("canvas");
+    put(detail, h("div", { class: "card" },
+      h("div", { class: "between" }, h("h3", { style: "margin:0" }, "🔮 Time Machine"), h("button", { class: "help", onclick: () => openGuide("verdict") }, "?")),
+      h("p", { style: "font-weight:700;font-size:16px" }, d.verdict),
+      (d.verdict_notes || []).map((n) => h("p", { class: "small muted" }, n)),
+      h("div", { class: "bar" },
+        h("div", { style: `width:${100 * mc.p_target}%;background:var(--green);color:#04130a` }, "target " + fmtProb(mc.p_target)),
+        h("div", { style: `width:${100 * mc.p_stop}%;background:var(--red)` }, "stop " + fmtProb(mc.p_stop)),
+        h("div", { style: `width:${100 * mc.p_neither}%;background:var(--gray)` }, "neither " + fmtProb(mc.p_neither))),
+      h("p", { class: "tiny muted" }, `${mc.replays.toLocaleString()} replays from ${mc.pool_sessions} past sessions (${mc.pool_from} → ${mc.pool_to})`),
+      fan,
+      h("div", { class: "grid3" },
+        h("div", { class: "stat" }, h("div", { class: "k" }, "Entry"), h("div", { class: "v" }, fmtPrice(plan.entry))),
+        h("div", { class: "stat" }, h("div", { class: "k" }, "Stop"), h("div", { class: "v down" }, fmtPrice(plan.stop))),
+        h("div", { class: "stat" }, h("div", { class: "k" }, "Target"), h("div", { class: "v up" }, fmtPrice(plan.target)))),
+      h("h3", { style: "margin-top:14px" }, "Where the price ends at " + mc.until),
+      histo,
+      h("h3", { style: "margin-top:14px" }, "Same rule on every past day"),
+      h("div", { class: "grid3" },
+        h("div", { class: "stat" }, h("div", { class: "k" }, "Fired"), h("div", { class: "v" }, `${hist.triggered}/${hist.sessions}`)),
+        h("div", { class: "stat" }, h("div", { class: "k" }, "Hit target"), h("div", { class: "v up" }, hist.target)),
+        h("div", { class: "stat" }, h("div", { class: "k" }, "Hit stop"), h("div", { class: "v down" }, hist.stop))),
+      h("p", { class: "tiny muted" }, d.note)));
+    afterPaint(() => {
+      fanChart(fan, mc.bands, mc.band_times, [
+        { v: plan.target, color: "#22c55e", label: "target" },
+        { v: plan.entry, color: "#8a97a8", label: "entry" },
+        { v: plan.stop, color: "#ef4444", label: "stop" },
+      ], { height: 210 });
+      histogram(histo, mc.hist, plan);
+    });
+    return;
+  }
+  if (id === "broker" && Array.isArray(d)) {
+    put(detail, h("div", { class: "card" }, h("h3", {}, "🎫 Your order ticket"),
+      d.map((t) => h("div", {}, h("span", { class: "pill " + (t.ready ? "green" : "amber") }, t.ready ? "READY" : "NOT READY"),
+        h("p", { style: "font-weight:650" }, t.plain), h("p", { class: "small muted" }, t.why))),
+      (state.tradeResults.timemachine || {}).cls === "bad"
+        ? h("div", { class: "err" }, "🔮 The Time Machine leaned toward the stop for this plan. Most traders would skip it.")
+        : null,
+      h("div", { class: "warn" }, "Trade Twin never sends orders. Enter this bracket order in your own broker (paper account first) if you decide to take it.")));
+    return;
+  }
+  if (id === "risk" && d) {
+    put(detail, h("div", { class: "card" }, h("h3", {}, "🛡️ Risk check"),
+      (d.results || []).map((r) => h("div", {},
+        h("span", { class: "pill " + (r.verdict === "PASS" ? "green" : "red") }, r.verdict),
+        (r.reasons || []).map((x) => h("p", {}, "⛔ " + x)),
+        (r.info || []).map((x) => h("p", { class: "small muted" }, x))))));
+    return;
+  }
+  put(detail, h("div", { class: "card" },
+    h("h3", {}, TRADE_STEPS.find((s) => s[0] === id)[1]),
+    entry.cls === "bad" ? errorBox(entry.summary) : h("p", {}, entry.summary),
+    id === "entry" && entry.cls === "bad" ? h("p", { class: "small muted" },
+      state.tradeMode === "live" ? "Live entry needs an open market and a breakout above the first 15 minutes' range. Try Demo to learn the flow." : "") : null,
+    h("details", {}, h("summary", { class: "small muted" }, "raw data"), h("pre", { class: "tiny", style: "white-space:pre-wrap;overflow:auto;max-height:240px" },
+      d ? JSON.stringify(d, null, 2) : (entry.result.stderr || entry.result.error || "")))));
+}
+
+function openScanner() {
+  const symbols = h("input", { value: state.tradeMode === "demo" ? "" : state.profile.watchlist.join(","), placeholder: "AAPL,TSLA,NVDA" });
+  const out = h("div");
+  openSheet(
+    h("h2", {}, "🔎 Breakout scanner"),
+    h("p", { class: "muted small" }, state.tradeMode === "demo"
+      ? "Demo: 230 charts at 10:15 AM on Oct 19, 2026."
+      : "Live: which of these broke above their opening range today."),
+    state.tradeMode === "live" ? symbols : null,
+    h("div", { style: "height:10px" }),
+    h("button", {
+      class: "btn primary",
+      onclick: async (event) => {
+        event.target.disabled = true;
+        out.innerHTML = "";
+        put(out, spinner("Scanning…"));
+        const r = await api("api/trade", { step: "scanner", mode: state.tradeMode, params: { symbols: symbols.value } });
+        event.target.disabled = false;
+        out.innerHTML = "";
+        if (!r.data) {
+          put(out, errorBox(r.error || r.stderr || "scan failed"));
+          return;
+        }
+        put(out, h("p", { class: "small muted" }, `${r.data.hits.length} breakouts of ${r.data.scanned} scanned · ${r.data.as_of}`),
+          h("div", { class: "list" }, r.data.hits.slice(0, 60).map((hit) => h("div", {
+            class: "item",
+            onclick: () => {
+              if (state.tradeMode === "demo" && hit.symbol !== "TSLA") {
+                toast("Demo replay data is TSLA only — switch to Live for others");
+                return;
+              }
+              state.tradeSymbol = hit.symbol;
+              closeSheet();
+              switchTab("trade");
+            },
+          },
+            h("div", { style: "flex:1" }, h("b", {}, hit.symbol), h("div", { class: "nm" }, `broke out ${hit.at}`)),
+            h("div", { class: "px" }, fmtPrice(hit.price), h("div", { class: "tiny up" }, "+" + hit.pct_over + "% over"))))));
+      },
+    }, "Scan"), out);
+}
+
+/* =========================================================================
+   News
+   ========================================================================= */
+async function renderNews(main) {
+  const chips = h("div", { class: "chips" });
+  const feed = h("div", { class: "card" }, spinner("Loading headlines…"));
+  put(main, chips, feed);
+  if (!state.newsCache) {
+    const r = await api("api/news", { hours: 48 });
+    if (!r.data) {
+      feed.innerHTML = "";
+      put(feed, errorBox(r.error || r.stderr || "could not load news"));
+      return;
+    }
+    state.newsCache = r;
+  }
+  const r = state.newsCache;
+  const tickers = ["ALL", ...r.tickers];
+  const draw = () => {
+    chips.innerHTML = "";
+    tickers.forEach((t) => put(chips, h("button", { class: "chip" + (state.newsFilter === t ? " on" : ""), onclick: () => { state.newsFilter = t; draw(); } }, t)));
+    put(chips, h("button", { class: "chip", onclick: () => { state.newsCache = null; switchTab("news"); } }, "↻ Refresh"));
+    feed.innerHTML = "";
+    const moves = (r.data.moves || []).filter((m) => state.newsFilter === "ALL" || m.ticker === state.newsFilter);
+    if (moves.length) {
+      put(feed, h("div", { class: "chips" }, moves.map((m) => h("span", {
+        class: "pill " + (m.pct > 0 ? "green" : m.pct < 0 ? "red" : "gray"),
+        style: "flex:none;cursor:pointer",
+        onclick: () => openStock(m.ticker),
+      }, `${m.ticker} ${fmtPct(m.pct)}${m.moving ? " 🔥" : ""}`))));
+    }
+    const items = (r.data.items || []).filter((it) => state.newsFilter === "ALL" || (it.touches || [it.ticker]).includes(state.newsFilter));
+    if (!items.length) {
+      put(feed, h("p", { class: "muted" }, "No headlines in the last 48 hours."));
+    }
+    for (const it of items.slice(0, 80)) {
+      const when = new Date(it.time);
+      const ago = Math.max(1, Math.round((Date.now() - when) / 60000));
+      put(feed, h("div", { class: "news" },
+        h("div", { class: "tiny muted" }, `${(it.touches || [it.ticker]).join(", ")} · ${it.source} · ${ago < 60 ? ago + "m" : ago < 1440 ? Math.round(ago / 60) + "h" : Math.round(ago / 1440) + "d"} ago`),
+        h("a", { href: it.link, target: "_blank", rel: "noopener" }, it.title),
+        it.summary ? h("div", { class: "small muted", style: "margin-top:3px" }, it.summary.slice(0, 220)) : null,
+        h("div", {}, (it.tags || []).map((t) => h("span", { class: "tag" }, "#" + t)))));
+    }
+  };
+  draw();
+}
+
+/* =========================================================================
+   Me: profile, personality, limits, guide, install
+   ========================================================================= */
+function renderMe(main) {
+  const p = state.profile;
+  const quiz = p.quiz;
+  const limits = p.limits || {};
+  const name = h("input", { value: p.name || "" });
+  const email = h("input", { value: p.email || "", type: "email", placeholder: "you@example.com" });
+  const budget = h("input", { type: "number", inputmode: "decimal", value: p.budget });
+  const limitFields = {
+    max_loss_per_trade_usd: h("input", { type: "number", inputmode: "decimal", value: limits.max_loss_per_trade_usd }),
+    max_daily_loss_usd: h("input", { type: "number", inputmode: "decimal", value: limits.max_daily_loss_usd }),
+    max_trades_per_day: h("input", { type: "number", inputmode: "numeric", value: limits.max_trades_per_day }),
+    min_reward_risk: h("input", { type: "number", inputmode: "decimal", value: limits.min_reward_risk }),
+    default_target: h("select", {}, ["1R", "1.5R", "2R", "3R"].map((t) => h("option", { value: t, selected: limits.default_target === t ? "" : null }, t))),
+  };
+  put(main, 
+    h("div", { class: "card", onclick: () => openSheet(profileCard(quiz, limits), h("button", { class: "btn primary", onclick: closeSheet }, "Close")), style: "cursor:pointer" },
+      h("div", { class: "row", style: "gap:14px" },
+        h("div", { style: "font-size:44px;flex:none" }, quiz.emoji),
+        h("div", {}, h("div", { class: "muted tiny" }, "YOUR TYPE"), h("h2", { style: "margin:0" }, quiz.title),
+          h("div", { class: "small muted" }, `Risk ${quiz.risk_level}/5 · tap for details`)))),
+    h("button", { class: "btn", onclick: () => renderQuiz() }, "🔁 Retake personality test"),
+    h("div", { class: "card" },
+      h("h3", {}, "Profile"),
+      h("label", { class: "f" }, "Name"), name,
+      h("label", { class: "f" }, "Email (used only to identify you to SEC EDGAR)"), email,
+      h("div", { style: "height:10px" }),
+      h("button", {
+        class: "btn primary",
+        onclick: async () => {
+          const r = await api("api/profile", { name: name.value, email: email.value });
+          if (r.ok) {
+            state.profile = r.profile;
+            toast("Profile saved");
+          } else {
+            toast(r.error);
+          }
+        },
+      }, "Save profile")),
+    h("div", { class: "card" },
+      h("div", { class: "between" }, h("h3", { style: "margin:0" }, "Trading limits"), h("button", { class: "help", onclick: () => openGuide("profile") }, "?")),
+      h("p", { class: "small muted" }, "Set from your risk level. Changing the budget recalculates them."),
+      h("label", { class: "f" }, "Budget ($)"), budget,
+      h("button", {
+        class: "btn small",
+        style: "margin-top:8px",
+        onclick: async () => {
+          const r = await api("api/profile", { budget: Number(budget.value) });
+          if (r.ok) {
+            state.profile = r.profile;
+            toast("Limits recalculated");
+            switchTab("me");
+          } else {
+            toast(r.error);
+          }
+        },
+      }, "Apply budget & recalculate"),
+      h("div", { class: "grid2" },
+        h("div", {}, h("label", { class: "f" }, "Max loss / trade ($)"), limitFields.max_loss_per_trade_usd),
+        h("div", {}, h("label", { class: "f" }, "Max loss / day ($)"), limitFields.max_daily_loss_usd),
+        h("div", {}, h("label", { class: "f" }, "Trades per day"), limitFields.max_trades_per_day),
+        h("div", {}, h("label", { class: "f" }, "Min reward : risk"), limitFields.min_reward_risk),
+        h("div", {}, h("label", { class: "f" }, "Default target"), limitFields.default_target)),
+      h("div", { style: "height:10px" }),
+      h("button", {
+        class: "btn",
+        onclick: async () => {
+          const values = {};
+          for (const [key, input] of Object.entries(limitFields)) {
+            values[key] = input.value;
+          }
+          const r = await api("api/profile", { limits: values });
+          if (r.ok) {
+            state.profile = r.profile;
+            toast("Limits saved");
+          } else {
+            toast(r.error);
+          }
+        },
+      }, "Save limits")),
+    h("div", { class: "card" }, h("h3", {}, "Guide"), guideList()),
+    h("div", { class: "card small muted" },
+      h("b", { style: "color:var(--text)" }, "About"),
+      h("p", {}, "Trade Twin is built on two free, MIT-licensed skill packs by Jake Schincariol (day-trader-skill and trader-skill). Data: Yahoo Finance (delayed, unofficial), SEC EDGAR."),
+      h("p", {}, "Not financial advice. Practice money only. You can lose money investing; past performance and simulations do not guarantee future results.")),
+    h("button", {
+      class: "btn ghost",
+      onclick: async () => {
+        await api("api/logout");
+        state.profile = null;
+        renderAuth();
+      },
+    }, "Log out"));
+}
+
+boot();
+</script>
+</body>
+</html>
