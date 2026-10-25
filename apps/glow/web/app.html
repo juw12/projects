@@ -4,17 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https: http://localhost:* http://127.0.0.1:*">
-<meta name="description" content="Mufakat: free AI chat where models deliberate to consensus. Council of agents with a Judge, side-by-side Arena, second opinions. Runs in your browser.">
+<meta name="description" content="Glow: explore ideas and shape plans with AI chat, a Council of agents, a Judge and side-by-side model comparisons. A free browser prototype.">
 <meta name="theme-color" content="#262624">
-<title>Mufakat: many minds, one answer. Free AI council, arena and chat</title>
+<title>Glow</title>
 <link rel="stylesheet" href="./styles.css">
 <link rel="icon" type="image/svg+xml" href="./icons/app-icon.svg">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
 </head>
-<body class="web">
+<body class="app">
 <aside id="sidebar">
-  <div class="brand">Mufakat<span>.</span></div>
+  <div class="brand">Glow<span>.</span></div>
   <button class="side-btn" id="new-chat-btn" type="button" title="New chat (Ctrl/⌘ K)">＋ New chat</button>
   <button class="side-btn" id="new-council-btn" type="button">⚖ New council</button>
   <button class="side-btn" id="new-arena-btn" type="button">⚔ New arena</button>
@@ -23,13 +23,14 @@
   <button class="side-btn" id="settings-btn" type="button">⚙ Settings &amp; models</button>
   <div class="side-foot">
     <button class="link-btn" id="theme-btn" type="button">☀ Light</button>
-    · Free · <a href="https://github.com/juwpegatron/projects/tree/main/apps/mufakat">source</a>
+    · Free · <a href="https://github.com/juwpegatron/projects/tree/main/apps/glow">source</a>
   </div>
 </aside>
 
 <main id="main">
   <div id="topbar">
     <button id="menu-btn" type="button" aria-label="Menu">☰</button>
+    <span class="mobile-brand">Glow</span>
     <span class="label" id="mode-label">Chat</span>
     <select id="chat-model" aria-label="Model"></select>
     <span class="spacer"></span>
@@ -51,7 +52,7 @@
     <div id="composer">
       <button class="icon-btn" id="attach-btn" type="button" title="Attach text or code files" aria-label="Attach files">📎</button>
       <input type="file" id="file-input" multiple hidden accept=".txt,.md,.csv,.json,.py,.js,.ts,.html,.css,.xml,.yaml,.yml,.log,.sql,.java,.c,.cpp,.h,.go,.rs,.rb,.php,.sh,text/*">
-      <textarea id="input" rows="1" placeholder="Message Mufakat…" aria-label="Message"></textarea>
+      <textarea id="input" rows="1" placeholder="Message Glow…" aria-label="Message"></textarea>
       <button class="secondary hidden" id="stop-btn" type="button">Stop</button>
       <button class="primary" id="send-btn" type="button">Send</button>
     </div>

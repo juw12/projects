@@ -1,5 +1,5 @@
-// Mufakat service worker: offline app shell. AI requests always go to the network.
-const CACHE_NAME = 'mufakat-v3';
+// Glow service worker: offline app shell. AI requests always go to the network.
+const CACHE_NAME = 'glow-v1';
 const ASSETS_TO_CACHE = [
   './index.html',
   './app.html',
@@ -23,14 +23,14 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((names) => Promise.all(names.filter((n) => n !== CACHE_NAME).map((n) => caches.delete(n))))
+      .then((names) => Promise.all(names.filter((n) => n.startsWith('glow-') && n !== CACHE_NAME).map((n) => caches.delete(n))))
       .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
-  if (event.request.method !== 'GET' || url.origin !== self.location.origin) {
+  if (event.request.method !== 'GET' || url.origin !== self.location.origin || !url.href.startsWith(self.registration.scope)) {
     return; // AI provider calls are never cached
   }
   event.respondWith(

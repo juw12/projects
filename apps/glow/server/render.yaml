@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: mufakat
+    name: glow
     runtime: python
     plan: starter            # needed for the persistent disk that stores users and chats
     buildCommand: pip install -r requirements.txt
