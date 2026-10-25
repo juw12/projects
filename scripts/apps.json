@@ -345,11 +345,11 @@
       "version": "1.0.2"
     },
     {
-      "id": "mufakat",
-      "name": "Mufakat",
+      "id": "glow",
+      "name": "Glow",
       "category": "Software",
-      "desc": "Free AI chat where models deliberate before they answer: a Council of 2-3 agents reaches consensus and a Judge writes the verdict, an Arena compares models side by side, and any answer gets a one-click second opinion",
-      "description": "A free, browser-only AI chat built on <em>musyawarah untuk mufakat</em> &mdash; deliberate until consensus. <strong>Council</strong>: 2&ndash;3 agents (Engineer, Designer, Skeptic&hellip;) on different models debate and revise, then an impartial <strong>Judge</strong> writes the final answer with agreements, open points and confidence. <strong>Arena</strong>: one prompt, several models side by side, with a personal leaderboard from your votes. Plus one-click second opinions, file attachments, search, Markdown export and an installable PWA. Runs on free OpenRouter models, local Ollama or any OpenAI-compatible API; keys never leave the browser. Ships with an optional subscription server tested end to end.",
+      "desc": "From a spark to something real: explore ideas and shape plans with AI chat, a Council with a Judge, and side-by-side model comparisons",
+      "description": "<strong>Glow</strong> &mdash; from a spark to something real. A free browser prototype for exploring ideas and shaping plans with multiple AI perspectives. <strong>Council</strong>: 2&ndash;3 agents discuss and review a task; a Judge summarizes agreements, open questions and a final answer. <strong>Arena</strong>: compare models side by side and record your preferences. Includes second opinions, text/code attachments, chat search, Markdown export and an installable PWA. Supports free-tier OpenRouter models, local Ollama and compatible APIs. Chats are stored in your browser; prompts and credentials go to the provider you select. AI output still needs human verification.",
       "tags": [
         "multi-agent",
         "AI council",
@@ -358,16 +358,16 @@
         "Ollama",
         "PWA"
       ],
-      "image": "mufakat-hero.png",
-      "image_alt": "Mufakat council: Engineer, Designer and Skeptic agents deliberate and a Judge delivers the final verdict with confidence",
+      "image": "glow-hero.png",
+      "image_alt": "Glow council: Engineer, Designer and Skeptic agents deliberate and a Judge delivers the final verdict with confidence",
       "links": {
-        "app": "mufakat/app.html",
-        "web": "mufakat/",
-        "mobile": "mufakat/mobile.html"
+        "app": "glow/app.html",
+        "web": "glow/",
+        "mobile": "glow/mobile.html"
       },
       "featured": true,
       "order": 1.5,
-      "version": "0.2.1"
+      "version": "0.3.0"
     },
     {
       "id": "hookline",

@@ -1,8 +1,8 @@
-"""End-to-end test for the optional subscription server (apps/mufakat/server/app.py).
+"""End-to-end test for the optional subscription server (apps/glow/server/app.py).
 
 Runs it against a mock OpenAI-compatible provider and signed Stripe webhooks,
 using a temp database and free ports. Stdlib only.
-Run from the repo root:  python apps/mufakat/tests/verify_api.py
+Run from the repo root:  python apps/glow/tests/verify_api.py
 """
 import hashlib
 import hmac
@@ -148,7 +148,7 @@ def main():
 def run_tests():
     anon = Client()
     status, body, response = anon.request("GET", "/")
-    check("landing page served", status == 200 and "Mufakat" in body)
+    check("landing page served", status == 200 and "Glow" in body)
     check("security headers", "frame-ancestors 'none'" in response.getheader("Content-Security-Policy", ""))
     status, body, _ = anon.request("GET", "/api/me")
     check("anonymous /api/me", status == 200 and json.loads(body)["user"] is None)

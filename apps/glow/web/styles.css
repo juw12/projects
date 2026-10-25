@@ -176,3 +176,8 @@ details.thinking summary { cursor: pointer; font-style: italic; }
   .arena-grid { grid-template-columns: 1fr !important; }
   .msg { padding: 0 14px; }
 }
+
+.mobile-brand { display: none; font-weight: 650; }
+@media (max-width: 760px) {
+  .mobile-brand { display: inline; }
+}
