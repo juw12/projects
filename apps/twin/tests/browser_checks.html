@@ -99,7 +99,7 @@
     const keys = await caches.keys();
     check("unrelated app cache survives activation", keys.includes("other-app-keep-me"));
     check("old Twin cache cleaned", !keys.includes("tt-shell-v3"));
-    const current = keys.find((key) => key.startsWith("twin:") && key.endsWith(":1.2.0"));
+    const current = keys.find((key) => key.startsWith("twin:") && key.endsWith(":1.3.0"));
     const offline = await caches.open(current);
     const cached = await offline.keys();
     check("complete demo precached", ["demo.js", "theme.js", "theme.css", "demo/market.json", "demo/monthly.json", "demo/trade.json", "demo/news.json"].every((name) => cached.some((request) => request.url.split("?")[0].endsWith(name))));
