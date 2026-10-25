@@ -4,7 +4,12 @@
 "use strict";
 
 const $ = (id) => document.getElementById(id);
-const STORE_KEY = "mufakat.v1";
+const TEST_HASHES = ["#selftest", "#demo", "#demo-council", "#demo-arena"];
+const TEST_MODE = TEST_HASHES.includes(location.hash);
+// Demos and self-tests use their own sandbox so they never touch a visitor's saved chats or keys.
+const STORE_KEY = TEST_MODE ? "mufakat.sandbox" : "mufakat.v1";
+const MAX_CONTEXT_CHARS = 24000;
+const MAX_RETRIES = 3;
 const OPENROUTER_URL = "https://openrouter.ai/api/v1";
 const SYSTEM_PROMPT = "You are a helpful, accurate and thoughtful assistant. Format answers with Markdown.";
 const MAX_ATTACHMENT_CHARS = 100000;
@@ -174,8 +179,14 @@ async function loadModels() {
   $("setup-banner").classList.toggle("hidden", models.length > 1);
   refreshModelSelects();
 }
+const PREFERRED_MODEL_PATTERNS = [/llama-3\.3-70b/i, /deepseek-(chat|v3|r1)/i, /gemini/i, /qwen.*(72b|235b|32b)/i, /mistral-(small|medium|large)/i, /gpt-oss/i, /llama/i, /qwen/i];
+function modelRank(value) {
+  if (value.startsWith("ollama::")) return 0; // local models the user chose to install come first
+  const index = PREFERRED_MODEL_PATTERNS.findIndex((pattern) => pattern.test(value));
+  return index === -1 ? PREFERRED_MODEL_PATTERNS.length + 1 : index + 1;
+}
 function defaultModel(offset = 0) {
-  const real = models.slice(1);
+  const real = models.slice(1).slice().sort((a, b) => modelRank(a.value) - modelRank(b.value));
   if (!real.length) return models[0].value;
   return real[offset % real.length].value;
 }
@@ -201,9 +212,39 @@ function refreshModelSelects() {
 }
 
 /* ================= streaming ================= */
+function trimHistory(messages, maxChars = MAX_CONTEXT_CHARS) {
+  const kept = [];
+  let total = 0;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    total += messages[i].content.length;
+    if (total > maxChars && kept.length) break;
+    kept.unshift(messages[i]);
+  }
+  return kept;
+}
+function sleep(ms, signal) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener("abort", () => {
+      clearTimeout(timer);
+      reject(new DOMException("Aborted", "AbortError"));
+    }, { once: true });
+  });
+}
+async function fetchWithRetry(doFetch, signal, onWait = () => {}) {
+  for (let attempt = 0; ; attempt++) {
+    const response = await doFetch();
+    const retryable = response.status === 429 || response.status >= 500;
+    if (!retryable || attempt >= MAX_RETRIES) return response;
+    const header = Number(response.headers.get("retry-after"));
+    const waitMs = Number.isFinite(header) && header > 0 ? Math.min(header, 30) * 1000 : 2000 * 2 ** attempt;
+    onWait(Math.round(waitMs / 1000), attempt + 1);
+    await sleep(waitMs, signal);
+  }
+}
 async function streamReply(modelValue, system, messages, onText) {
   const { provider, model } = splitModel(modelValue);
-  const clean = messages.map((m) => ({ role: m.role, content: stripThinking(m.content) }));
+  const clean = trimHistory(messages.map((m) => ({ role: m.role, content: stripThinking(m.content) })));
   const controller = new AbortController();
   controllers.add(controller);
   try {
@@ -215,12 +256,16 @@ async function streamReply(modelValue, system, messages, onText) {
       headers["HTTP-Referer"] = location.origin;
       headers["X-Title"] = "Mufakat";
     }
-    const response = await fetch(`${config.base}/chat/completions`, {
-      method: "POST",
-      headers,
-      signal: controller.signal,
-      body: JSON.stringify({ model, stream: true, messages: [{ role: "system", content: system }, ...mergeRoles(clean)] }),
-    });
+    const body = JSON.stringify({ model, stream: true, messages: [{ role: "system", content: system }, ...mergeRoles(clean)] });
+    const previousStatus = $("status").textContent;
+    const response = await fetchWithRetry(
+      () => fetch(`${config.base}/chat/completions`, { method: "POST", headers, signal: controller.signal, body }),
+      controller.signal,
+      (seconds, attempt) => {
+        $("status").textContent = `Rate limited by the provider, retrying in ${seconds}s (${attempt}/${MAX_RETRIES})…`;
+      },
+    );
+    $("status").textContent = previousStatus;
     if (!response.ok) {
       const detail = await response.text().catch(() => "");
       throw new Error(friendlyError(response.status, detail));
@@ -586,7 +631,10 @@ async function secondOpinion() {
   if ($("send-btn").disabled) return "";
   const last = current.messages[current.messages.length - 1];
   const question = [...current.messages].reverse().find((m) => m.role === "user");
-  const reviewer = models.find((m) => m.value !== last.model && m.value !== "demo::demo") || models[0];
+  const realModels = models.filter((m) => m.value !== "demo::demo");
+  const reviewer = realModels.find((m) => m.value !== last.model)
+    || realModels.find((m) => m.value === last.model)
+    || models[0];
   const system = "You are a sharp, fair second-opinion reviewer. Check the answer below for errors, gaps and risks. Say what is right, what is wrong, and give a corrected or improved answer if needed. Be concise.";
   const history = [{ role: "user", content: `Question:\n${question ? question.content : ""}\n\nAnswer to review:\n${stripThinking(last.content)}` }];
   setBusy(true);
@@ -735,6 +783,9 @@ Other agents' and the human's messages appear as user messages prefixed with the
 Build on, refine, or challenge the latest points. Be concise and substantive; never repeat what was already said. Do not speak for other agents.
 When the group has reached a correct, complete answer and you agree with it, end your message with: CONSENSUS`;
 }
+function signalsConsensus(reply) {
+  return /\bCONSENSUS[\s.!*_)]*$/.test(stripThinking(reply));
+}
 function councilHistoryFor(conv, index) {
   return conv.messages
     .filter((m) => m.agent !== "judge")
@@ -760,7 +811,7 @@ async function runCouncil(conv, rounds) {
       if (!reply.trim()) break;
       conv.messages.push({ role: "assistant", agent: index, content: reply.trim() });
       persist(conv);
-      consensusStreak = stripThinking(reply).includes("CONSENSUS") ? consensusStreak + 1 : 0;
+      consensusStreak = signalsConsensus(reply) ? consensusStreak + 1 : 0;
       if (conv.stopOnConsensus && consensusStreak >= Math.max(1, conv.agents.length - 1)) break;
       index = (index + 1) % conv.agents.length;
     }
@@ -1241,6 +1292,21 @@ async function selfTest() {
   vote(0, 1);
   expect("arena: vote recorded on leaderboard", state.arenaStats["demo::demo"] && state.arenaStats["demo::demo"].games === 2 && state.arenaStats["demo::demo"].wins === 1);
 
+  expect("fix: self-test uses a sandbox, never the visitor's data", STORE_KEY === "mufakat.sandbox");
+  expect("fix: consensus only counts as a sign-off", signalsConsensus("Looks right. CONSENSUS") && signalsConsensus("Agreed.\n\n**CONSENSUS**") && !signalsConsensus("We have no CONSENSUS yet, keep going.") && !signalsConsensus("no consensus"));
+  const long = Array.from({ length: 40 }, (_, i) => ({ role: i % 2 ? "assistant" : "user", content: "x".repeat(1000) + i }));
+  const trimmed = trimHistory(long);
+  expect("fix: long history trimmed to recent context", trimmed.length < long.length && trimmed[trimmed.length - 1] === long[long.length - 1]);
+  let calls = 0;
+  const waits = [];
+  const fakeResponse = (status) => ({ status, headers: { get: () => "0.01" } });
+  const retried = await fetchWithRetry(async () => fakeResponse(++calls < 3 ? 429 : 200), new AbortController().signal, (s) => waits.push(s));
+  expect("fix: rate limits retried with backoff", retried.status === 200 && calls === 3 && waits.length === 2);
+  const savedModels = models;
+  models = [models[0], { value: "openrouter::z/odd-model:free", label: "odd" }, { value: "openrouter::meta-llama/llama-3.3-70b-instruct:free", label: "llama" }];
+  expect("fix: defaults prefer strong chat models", defaultModel(0) === "openrouter::meta-llama/llama-3.3-70b-instruct:free");
+  models = savedModels;
+
   const md = conversationMarkdown(state.conversations.find((c) => c.type === "council"));
   expect("export: markdown has judge + agents", md.includes("## Judge") && md.includes("## Engineer"));
   $("search").value = "picnic";
@@ -1283,8 +1349,8 @@ async function boot() {
     navigator.serviceWorker.register("./sw.js").catch(() => {});
   }
   const hash = location.hash;
-  if (["#selftest", "#demo", "#demo-council", "#demo-arena"].includes(hash)) {
-    localStorage.removeItem(STORE_KEY);
+  if (TEST_MODE) {
+    localStorage.removeItem(STORE_KEY); // sandbox key only
     state.conversations = [];
     state.arenaStats = {};
     models = models.slice(0, 1);
