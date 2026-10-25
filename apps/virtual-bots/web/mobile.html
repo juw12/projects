@@ -1,1321 +1,2001 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Virtual Bots - Mobile</title>
-  <meta name="theme-color" content="#0a0e14">
-  <meta name="description" content="Mobile roster and command view for Virtual Bots office simulation">
-  <style>
-    :root {
-      /* Midnight theme tokens - EXACT match to desktop */
-      --bg-primary: #0a0e14;
-      --bg-secondary: #111823;
-      --bg-tertiary: #1a2332;
-      --bg-panel: #151d2b;
-      --text-primary: #e8eef6;
-      --text-secondary: #94a3b8;
-      --text-muted: #64748b;
-      --accent-green: #10b981;
-      --accent-red: #ef4444;
-      --accent-amber: #f59e0b;
-      --accent-blue: #3b82f6;
-      --accent-purple: #8b5cf6;
-      --accent-pink: #ec4899;
-      --border-color: #2d3a4f;
-      --shadow-color: rgba(0, 0, 0, 0.3);
-      --font-mono: 'SF Mono', 'Fira Code', Consolas, monospace;
-      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      
-      /* Mobile layout */
-      --safe-bottom: env(safe-area-inset-bottom, 0px);
-      --tab-height: 56px;
-      --header-height: 48px;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    html, body {
-      height: 100%;
-      overflow: hidden;
-    }
-
-    body {
-      font-family: var(--font-sans);
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      font-size: 14px;
-      line-height: 1.5;
-    }
-
-    /* App shell */
-    .app-shell {
-      display: grid;
-      grid-template-rows: var(--header-height) 1fr var(--tab-height);
-      height: 100%;
-      padding-bottom: var(--safe-bottom);
-    }
-
-    /* Header */
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 16px;
-      background: var(--bg-secondary);
-      border-bottom: 1px solid var(--border-color);
-      flex-shrink: 0;
-    }
-
-    .header-title {
-      font-size: 16px;
-      font-weight: 600;
-      letter-spacing: -0.01em;
-    }
-
-    .header-status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 11px;
-      font-weight: 600;
-      padding: 4px 10px;
-      background: var(--bg-tertiary);
-      border-radius: 4px;
-      border: 1px solid var(--border-color);
-    }
-
-    .status-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--accent-green);
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-
-    /* Main content area */
-    .main {
-      overflow-y: auto;
-      overflow-x: hidden;
-      background: var(--bg-primary);
-    }
-
-    .tab-panel {
-      display: none;
-      min-height: 100%;
-    }
-
-    .tab-panel.active {
-      display: block;
-    }
-
-    /* Tab navigation */
-    .tab-bar {
-      display: flex;
-      background: var(--bg-secondary);
-      border-top: 1px solid var(--border-color);
-      padding-bottom: var(--safe-bottom);
-      flex-shrink: 0;
-    }
-
-    .tab-btn {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      padding: 8px 4px;
-      background: none;
-      border: none;
-      color: var(--text-muted);
-      font-size: 10px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: color 0.15s ease;
-      min-height: calc(var(--tab-height) - var(--safe-bottom));
-    }
-
-    .tab-btn.active {
-      color: var(--accent-blue);
-    }
-
-    .tab-btn:focus {
-      outline: 2px solid var(--accent-blue);
-      outline-offset: -2px;
-    }
-
-    .tab-icon {
-      font-size: 18px;
-      line-height: 1;
-    }
-
-    /* Bots tab */
-    .bots-list {
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .bot-card {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 14px;
-      background: var(--bg-panel);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-
-    .bot-card:active {
-      background: var(--bg-tertiary);
-      border-color: var(--accent-blue);
-    }
-
-    .bot-card.selected {
-      border-color: var(--accent-blue);
-      background: rgba(59, 130, 246, 0.1);
-    }
-
-    .bot-avatar {
-      width: 48px;
-      height: 48px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      font-weight: 700;
-      color: white;
-      flex-shrink: 0;
-    }
-
-    .bot-info {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .bot-name {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-primary);
-      margin-bottom: 2px;
-    }
-
-    .bot-role {
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-bottom: 6px;
-    }
-
-    .bot-status-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 10px;
-      font-weight: 600;
-      text-transform: uppercase;
-      padding: 2px 6px;
-      border-radius: 3px;
-    }
-
-    .status-badge.idle { background: rgba(100, 116, 139, 0.2); color: var(--text-muted); }
-    .status-badge.working { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
-    .status-badge.done { background: rgba(59, 130, 246, 0.2); color: var(--accent-blue); }
-    .status-badge.error { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
-
-    .status-dot-small {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-    }
-
-    .status-dot-small.idle { background: var(--text-muted); }
-    .status-dot-small.working { background: var(--accent-green); }
-    .status-dot-small.done { background: var(--accent-blue); }
-    .status-dot-small.error { background: var(--accent-red); }
-
-    .bot-progress {
-      width: 80px;
-      height: 4px;
-      background: var(--bg-tertiary);
-      border-radius: 2px;
-      overflow: hidden;
-    }
-
-    .bot-progress-bar {
-      height: 100%;
-      background: var(--accent-blue);
-      transition: width 0.3s ease;
-      border-radius: 2px;
-    }
-
-    .bot-progress-bar.working {
-      background: var(--accent-green);
-      animation: progress-pulse 1.5s ease-in-out infinite;
-    }
-
-    @keyframes progress-pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.6; }
-    }
-
-    /* Bot detail panel */
-    .bot-detail {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: var(--bg-primary);
-      z-index: 100;
-      display: none;
-      flex-direction: column;
-    }
-
-    .bot-detail.open {
-      display: flex;
-    }
-
-    .bot-detail-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 16px;
-      background: var(--bg-secondary);
-      border-bottom: 1px solid var(--border-color);
-      flex-shrink: 0;
-    }
-
-    .bot-detail-back {
-      background: none;
-      border: none;
-      color: var(--text-secondary);
-      font-size: 24px;
-      cursor: pointer;
-      padding: 4px;
-      min-width: 44px;
-      min-height: 44px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .bot-detail-title {
-      font-size: 18px;
-      font-weight: 600;
-    }
-
-    .bot-detail-content {
-      flex: 1;
-      overflow-y: auto;
-      padding: 16px;
-    }
-
-    .detail-section {
-      margin-bottom: 20px;
-    }
-
-    .detail-label {
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-muted);
-      margin-bottom: 8px;
-    }
-
-    .detail-value {
-      font-size: 14px;
-      color: var(--text-primary);
-      padding: 12px;
-      background: var(--bg-panel);
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-    }
-
-    .detail-goal-input {
-      width: 100%;
-      padding: 12px;
-      background: var(--bg-tertiary);
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      color: var(--text-primary);
-      font-family: var(--font-mono);
-      font-size: 13px;
-      resize: vertical;
-      min-height: 80px;
-    }
-
-    .detail-goal-input:focus {
-      outline: none;
-      border-color: var(--accent-blue);
-    }
-
-    .detail-send-btn {
-      width: 100%;
-      padding: 14px;
-      background: var(--accent-blue);
-      border: none;
-      border-radius: 6px;
-      color: white;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      margin-top: 12px;
-      transition: background 0.15s ease;
-    }
-
-    .detail-send-btn:hover:not(:disabled) {
-      background: #2563eb;
-    }
-
-    .detail-send-btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .tool-activity-list {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .tool-activity-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px;
-      background: var(--bg-tertiary);
-      border-radius: 6px;
-      font-size: 12px;
-    }
-
-    .tool-icon {
-      width: 28px;
-      height: 28px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--bg-panel);
-      border-radius: 4px;
-      font-size: 14px;
-    }
-
-    /* Activity tab */
-    .activity-feed {
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .activity-item {
-      padding: 12px;
-      background: var(--bg-panel);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      animation: slideIn 0.2s ease-out;
-    }
-
-    @keyframes slideIn {
-      from {
-        opacity: 0;
-        transform: translateX(-10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateX(0);
-      }
-    }
-
-    .activity-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 6px;
-    }
-
-    .activity-time {
-      font-size: 10px;
-      color: var(--text-muted);
-      font-family: var(--font-mono);
-    }
-
-    .activity-bot {
-      font-size: 12px;
-      font-weight: 600;
-    }
-
-    .activity-bot.leader { color: var(--accent-purple); }
-    .activity-bot.media { color: var(--accent-pink); }
-    .activity-bot.coder { color: var(--accent-blue); }
-    .activity-bot.tester { color: var(--accent-green); }
-    .activity-bot.checker { color: var(--accent-amber); }
-    .activity-bot.explore { color: var(--accent-purple); }
-
-    .activity-phase {
-      font-size: 9px;
-      font-weight: 600;
-      text-transform: uppercase;
-      padding: 2px 6px;
-      border-radius: 3px;
-      margin-left: auto;
-    }
-
-    .activity-phase.start { background: rgba(59, 130, 246, 0.2); color: var(--accent-blue); }
-    .activity-phase.tool { background: rgba(139, 92, 246, 0.2); color: var(--accent-purple); }
-    .activity-phase.end { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
-    .activity-phase.info { background: rgba(100, 116, 139, 0.2); color: var(--text-secondary); }
-    .activity-phase.error { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
-
-    .activity-detail {
-      font-size: 13px;
-      color: var(--text-secondary);
-      line-height: 1.4;
-    }
-
-    .activity-empty {
-      text-align: center;
-      padding: 40px 16px;
-      color: var(--text-muted);
-      font-size: 13px;
-    }
-
-    /* Command tab */
-    .command-panel {
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    .command-section {
-      background: var(--bg-panel);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 16px;
-    }
-
-    .command-label {
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-muted);
-      margin-bottom: 8px;
-    }
-
-    .command-select,
-    .command-input {
-      width: 100%;
-      padding: 12px;
-      background: var(--bg-tertiary);
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      color: var(--text-primary);
-      font-family: var(--font-sans);
-      font-size: 14px;
-    }
-
-    .command-select:focus,
-    .command-input:focus {
-      outline: none;
-      border-color: var(--accent-blue);
-    }
-
-    .command-input {
-      min-height: 100px;
-      resize: vertical;
-      font-family: var(--font-mono);
-      font-size: 13px;
-    }
-
-    .command-dispatch-btn {
-      width: 100%;
-      padding: 14px;
-      background: var(--accent-blue);
-      border: none;
-      border-radius: 6px;
-      color: white;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      margin-top: 12px;
-      transition: background 0.15s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-
-    .command-dispatch-btn:hover:not(:disabled) {
-      background: #2563eb;
-    }
-
-    .command-dispatch-btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .command-status {
-      padding: 12px;
-      background: var(--bg-tertiary);
-      border-radius: 6px;
-      font-size: 13px;
-      display: none;
-    }
-
-    .command-status.visible {
-      display: block;
-    }
-
-    .command-status.success {
-      color: var(--accent-green);
-      border: 1px solid var(--accent-green);
-    }
-
-    .command-status.error {
-      color: var(--accent-red);
-      border: 1px solid var(--accent-red);
-    }
-
-    /* About tab */
-    .about-panel {
-      padding: 16px;
-    }
-
-    .about-section {
-      margin-bottom: 24px;
-    }
-
-    .about-title {
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 12px;
-      color: var(--text-primary);
-    }
-
-    .about-text {
-      font-size: 14px;
-      line-height: 1.6;
-      color: var(--text-secondary);
-    }
-
-    .simulation-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      background: rgba(245, 158, 11, 0.15);
-      border: 1px solid var(--accent-amber);
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--accent-amber);
-      margin-top: 12px;
-    }
-
-    .simulation-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--accent-amber);
-      animation: pulse 1.5s ease-in-out infinite;
-    }
-
-    .about-features {
-      list-style: none;
-      margin-top: 12px;
-    }
-
-    .about-features li {
-      padding: 8px 0;
-      padding-left: 24px;
-      position: relative;
-      font-size: 13px;
-      color: var(--text-secondary);
-    }
-
-    .about-features li::before {
-      content: '\2713';
-      position: absolute;
-      left: 0;
-      color: var(--accent-green);
-      font-weight: 600;
-    }
-
-    .about-version {
-      font-size: 11px;
-      color: var(--text-muted);
-      font-family: var(--font-mono);
-      margin-top: 8px;
-    }
-
-    /* Utility */
-    .sr-only {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      padding: 0;
-      margin: -1px;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      white-space: nowrap;
-      border: 0;
-    }
-
-    /* Scrollbar */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: var(--bg-primary);
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: var(--border-color);
-      border-radius: 3px;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-      background: var(--text-muted);
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Crewroom — Mobile</title>
+<meta name="theme-color" content="#0a0e14">
+<meta name="description" content="Crewroom mobile: watch and command your AI bot crew — live status, activity feed and goal dispatch.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icons/app-icon.svg">
+<link rel="apple-touch-icon" href="icons/app-icon.svg">
+<style>
+:root {
+  --bg: #0a0e14;
+  --bg-2: #111823;
+  --panel: #151d2b;
+  --panel-2: #1a2332;
+  --line: #243045;
+  --line-2: #2d3a4f;
+  --text: #e8eef6;
+  --muted: #94a3b8;
+  --dim: #64748b;
+  --green: #10b981;
+  --red: #ef4444;
+  --amber: #f59e0b;
+  --blue: #3b82f6;
+  --purple: #8b5cf6;
+  --pink: #ec4899;
+  --accent: #6d7cff;
+  --accent-grad: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  --glass: rgba(17, 24, 35, .78);
+  --shadow: 0 10px 30px -12px rgba(0, 0, 0, .6);
+  --mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --tab-h: 64px;
+  --radius: 16px;
+}
+[data-theme="light"] {
+  --bg: #f4f6fb;
+  --bg-2: #eef1f7;
+  --panel: #ffffff;
+  --panel-2: #f3f5fa;
+  --line: #e2e7f0;
+  --line-2: #d3dae6;
+  --text: #0f172a;
+  --muted: #475569;
+  --dim: #94a3b8;
+  --glass: rgba(255, 255, 255, .82);
+  --shadow: 0 10px 30px -14px rgba(15, 23, 42, .25);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; background: var(--bg); }
+body {
+  font-family: var(--sans);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+  background:
+    radial-gradient(90% 50% at 100% 0%, rgba(139, 92, 246, .12), transparent 60%),
+    radial-gradient(80% 40% at 0% 0%, rgba(59, 130, 246, .10), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+}
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+input, textarea, select { font: inherit; color: inherit; }
+svg { display: block; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 10px; }
+
+/* ---------- Header ---------- */
+.header {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 12px;
+  padding: calc(10px + var(--safe-top)) 16px 10px;
+  background: var(--glass);
+  backdrop-filter: saturate(160%) blur(16px);
+  -webkit-backdrop-filter: saturate(160%) blur(16px);
+  border-bottom: 1px solid var(--line);
+}
+.brand-mark { width: 34px; height: 34px; flex: none; filter: drop-shadow(0 4px 12px rgba(99, 102, 241, .45)); }
+.brand { flex: 1; min-width: 0; }
+.brand-name { font-size: 18px; font-weight: 750; letter-spacing: -.02em; }
+.brand-sub { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: 600 11px/1 var(--mono); letter-spacing: .08em;
+  padding: 7px 10px; border-radius: 999px;
+  border: 1px solid var(--line-2); background: var(--panel);
+}
+.pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 0 rgba(16, 185, 129, .6); animation: ping 1.8s infinite; }
+.pill.paused .dot { background: var(--amber); animation: none; }
+@keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, .55); } 80%, 100% { box-shadow: 0 0 0 7px rgba(16, 185, 129, 0); } }
+.icon-btn {
+  width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center;
+  background: var(--panel); border: 1px solid var(--line-2);
+  transition: transform .12s, background .15s;
+}
+.icon-btn:active { transform: scale(.94); }
+.icon-btn svg { width: 18px; height: 18px; }
+
+/* ---------- Layout ---------- */
+.main { padding: 14px 14px calc(var(--tab-h) + var(--safe-bottom) + 24px); max-width: 760px; margin: 0 auto; }
+.view { display: none; animation: fadeUp .28s ease both; }
+.view.active { display: block; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.section-title { display: flex; align-items: center; justify-content: space-between; margin: 18px 4px 10px; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.section-title .link { font-size: 12px; text-transform: none; letter-spacing: 0; color: var(--accent); font-weight: 600; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+
+/* ---------- Overview ---------- */
+.overview { padding: 16px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; position: relative; overflow: hidden; }
+.overview::before { content: ''; position: absolute; inset: -40% -20% auto auto; width: 220px; height: 220px; background: radial-gradient(circle, rgba(139, 92, 246, .22), transparent 70%); pointer-events: none; }
+.kpi { position: relative; }
+.kpi-val { font-size: 26px; font-weight: 760; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.kpi-val small { font-size: 14px; color: var(--dim); font-weight: 600; }
+.kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-top: 2px; }
+.spark-wrap { grid-column: 1 / -1; display: flex; align-items: flex-end; gap: 12px; margin-top: 6px; }
+.spark-wrap canvas { flex: 1 1 0; min-width: 0; height: 46px; width: 100%; }
+.spark-meta { text-align: right; font: 600 11px/1.4 var(--mono); color: var(--muted); white-space: nowrap; }
+.spark-meta b { display: block; font-size: 16px; color: var(--text); }
+.load { grid-column: 1 / -1; height: 6px; border-radius: 99px; background: var(--panel-2); overflow: hidden; }
+.load > i { display: block; height: 100%; width: 0; background: var(--accent-grad); border-radius: inherit; transition: width .6s cubic-bezier(.2, .8, .2, 1); }
+
+/* ---------- Chips ---------- */
+.chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 4px; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none; display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 13px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  background: var(--panel); border: 1px solid var(--line-2); color: var(--muted);
+  transition: all .15s;
+}
+.chip .count { font: 600 11px var(--mono); padding: 1px 6px; border-radius: 99px; background: var(--panel-2); }
+.chip.active { color: #fff; background: var(--accent-grad); border-color: transparent; box-shadow: 0 6px 16px -8px rgba(99, 102, 241, .8); }
+.chip.active .count { background: rgba(255, 255, 255, .2); }
+.chip .swatch { width: 8px; height: 8px; border-radius: 50%; }
+
+/* ---------- Bot cards ---------- */
+.bots { display: grid; gap: 10px; }
+@media (min-width: 620px) { .bots { grid-template-columns: 1fr 1fr; } }
+.bot {
+  position: relative; display: flex; gap: 14px; align-items: center;
+  padding: 14px; text-align: left; width: 100%;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  transition: transform .14s, border-color .2s, box-shadow .2s;
+  overflow: hidden;
+}
+.bot::after { content: ''; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--c); opacity: 0; transition: opacity .2s; }
+.bot.working::after { opacity: 1; }
+.bot:active { transform: scale(.985); }
+.bot.flash { animation: flash .9s ease; }
+@keyframes flash { 0% { box-shadow: 0 0 0 0 var(--c); } 100% { box-shadow: 0 0 0 10px transparent; } }
+.avatar { position: relative; width: 56px; height: 56px; flex: none; }
+.avatar svg.ring { position: absolute; inset: 0; transform: rotate(-90deg); }
+.avatar .ring-bg { stroke: var(--line-2); }
+.avatar .ring-fg { stroke: var(--c); transition: stroke-dashoffset .6s cubic-bezier(.2, .8, .2, 1); stroke-linecap: round; }
+.avatar .face {
+  position: absolute; inset: 6px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--c) 70%, white), var(--c) 60%, color-mix(in srgb, var(--c) 70%, black));
+  color: #fff; font-weight: 800; font-size: 17px; letter-spacing: -.02em;
+  box-shadow: inset 0 -4px 10px rgba(0, 0, 0, .25);
+}
+.avatar .face svg { width: 26px; height: 26px; }
+.avatar .state-dot { position: absolute; right: 1px; bottom: 1px; width: 14px; height: 14px; border-radius: 50%; border: 3px solid var(--panel); background: var(--dim); }
+.working .state-dot { background: var(--green); }
+.error .state-dot { background: var(--red); }
+.paused-bot .state-dot { background: var(--amber); }
+.done .state-dot { background: var(--blue); }
+.bot-body { flex: 1; min-width: 0; }
+.bot-top { display: flex; align-items: baseline; gap: 8px; }
+.bot-name { font-size: 16px; font-weight: 720; }
+.bot-role { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bot-task { margin-top: 5px; font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bot-task.idle { color: var(--dim); font-style: italic; }
+.bot-meta { margin-top: 8px; display: flex; align-items: center; gap: 8px; font: 500 11px var(--mono); color: var(--muted); }
+.badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; font: 700 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; background: var(--panel-2); color: var(--muted); }
+.badge.working { background: rgba(16, 185, 129, .14); color: var(--green); }
+.badge.done { background: rgba(59, 130, 246, .14); color: var(--blue); }
+.badge.error { background: rgba(239, 68, 68, .14); color: var(--red); }
+.badge.paused { background: rgba(245, 158, 11, .14); color: var(--amber); }
+.tool { padding: 2px 7px; border-radius: 6px; border: 1px solid var(--line-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+.bot-meta .grow { flex: 1; }
+.quick {
+  width: 38px; height: 38px; flex: none; border-radius: 12px; display: grid; place-items: center;
+  background: var(--panel-2); border: 1px solid var(--line-2); color: var(--muted);
+}
+.quick svg { width: 18px; height: 18px; }
+.quick:active { transform: scale(.92); }
+.empty { padding: 34px 18px; text-align: center; color: var(--dim); font-size: 14px; }
+.empty svg { width: 42px; height: 42px; margin: 0 auto 10px; opacity: .6; }
+
+/* ---------- Activity ---------- */
+.search { display: flex; align-items: center; gap: 8px; padding: 0 12px; height: 44px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line-2); margin-bottom: 10px; }
+.search svg { width: 16px; height: 16px; color: var(--dim); }
+.search input { flex: 1; background: none; border: 0; outline: none; font-size: 15px; }
+.timeline { position: relative; margin-top: 8px; }
+.group-label { margin: 16px 4px 8px; font: 700 11px var(--mono); color: var(--dim); letter-spacing: .1em; text-transform: uppercase; }
+.ev { position: relative; display: flex; gap: 12px; padding: 10px 12px 10px 10px; border-radius: 12px; width: 100%; text-align: left; transition: background .15s; }
+.ev:active { background: var(--panel); }
+.ev-rail { position: relative; width: 28px; flex: none; display: flex; justify-content: center; }
+.ev-rail::before { content: ''; position: absolute; top: 30px; bottom: -12px; width: 2px; background: var(--line); }
+.ev:last-child .ev-rail::before { display: none; }
+.ev-icon { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--c); }
+.ev-icon svg { width: 15px; height: 15px; }
+.ev-body { flex: 1; min-width: 0; }
+.ev-head { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.ev-head b { color: var(--c); font-weight: 700; }
+.ev-head time { margin-left: auto; font: 500 11px var(--mono); color: var(--dim); }
+.ev-detail { margin-top: 3px; font-size: 14px; color: var(--text); line-height: 1.35; word-break: break-word; }
+.ev-tool { display: inline-block; margin-top: 5px; font: 500 11px var(--mono); color: var(--muted); padding: 2px 7px; border-radius: 6px; background: var(--panel-2); }
+.ev.new { animation: slideIn .35s ease both; }
+@keyframes slideIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+
+/* ---------- Command ---------- */
+.field-label { display: block; margin: 0 4px 8px; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.picker { display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 8px; scrollbar-width: none; }
+.picker::-webkit-scrollbar { display: none; }
+.pick { flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; width: 64px; font-size: 12px; color: var(--muted); }
+.pick .avatar { width: 52px; height: 52px; transition: transform .15s; }
+.pick .check { position: absolute; right: -2px; top: -2px; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; transform: scale(0); transition: transform .18s cubic-bezier(.3, 1.6, .5, 1); border: 2px solid var(--bg); }
+.pick .check svg { width: 11px; height: 11px; }
+.pick.on { color: var(--text); font-weight: 600; }
+.pick.on .check { transform: scale(1); }
+.pick.on .avatar { transform: translateY(-2px); }
+.pick.all .face { background: var(--accent-grad); }
+.composer { padding: 14px; margin-top: 6px; }
+.composer textarea { width: 100%; min-height: 96px; resize: none; background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 12px; padding: 12px; font-size: 15px; line-height: 1.45; outline: none; transition: border-color .15s; }
+.composer textarea:focus { border-color: var(--accent); }
+.composer-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+.counter { font: 500 11px var(--mono); color: var(--dim); }
+.segmented { display: inline-flex; padding: 3px; border-radius: 11px; background: var(--bg-2); border: 1px solid var(--line-2); }
+.segmented button { padding: 7px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.segmented button.on { background: var(--panel); color: var(--text); box-shadow: 0 2px 8px rgba(0, 0, 0, .2); }
+.segmented button.on[data-v="high"] { color: var(--red); }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 50px; padding: 0 20px; border-radius: 14px; font-size: 15px; font-weight: 700;
+  transition: transform .12s, filter .15s, opacity .15s;
+}
+.btn svg { width: 18px; height: 18px; }
+.btn:active { transform: scale(.98); }
+.btn-primary { width: 100%; margin-top: 12px; color: #fff; background: var(--accent-grad); box-shadow: 0 12px 26px -12px rgba(99, 102, 241, .9); }
+.btn-primary:disabled { opacity: .45; box-shadow: none; }
+.btn-ghost { background: var(--panel-2); border: 1px solid var(--line-2); }
+.btn-danger { color: var(--red); background: rgba(239, 68, 68, .1); border: 1px solid rgba(239, 68, 68, .3); }
+.btn-sm { height: 40px; padding: 0 14px; font-size: 14px; border-radius: 12px; }
+.queue-item { display: flex; gap: 12px; align-items: center; padding: 12px; }
+.queue-item + .queue-item { border-top: 1px solid var(--line); }
+.q-body { flex: 1; min-width: 0; }
+.q-goal { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.q-meta { margin-top: 4px; display: flex; gap: 8px; align-items: center; font: 500 11px var(--mono); color: var(--muted); }
+.q-bar { margin-top: 8px; height: 4px; border-radius: 99px; background: var(--panel-2); overflow: hidden; }
+.q-bar i { display: block; height: 100%; background: var(--c, var(--accent)); transition: width .5s; }
+.prio-high { color: var(--red); }
+
+/* ---------- Real AI ---------- */
+.ai-hint { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--muted); }
+.ai-hint .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+.ai-hint button { color: var(--accent); font-weight: 700; font-size: 12px; }
+.q-view { font: 700 12px var(--sans); color: var(--accent); padding: 6px 10px; border-radius: 9px; background: var(--panel-2); border: 1px solid var(--line-2); flex: none; }
+.queue-item.clickable { cursor: pointer; }
+.ex-prompts { display: grid; gap: 8px; margin-top: 12px; }
+.ex-prompts button { text-align: left; padding: 10px 12px; border-radius: 12px; background: var(--panel); border: 1px dashed var(--line-2); font-size: 13px; color: var(--muted); }
+.ex-prompts button b { color: var(--text); font-weight: 600; }
+
+/* ---------- Settings ---------- */
+.set-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
+.set-row + .set-row { border-top: 1px solid var(--line); }
+.set-row .label { flex: 1; }
+.set-row .label b { display: block; font-size: 15px; font-weight: 600; }
+.set-row .label span { font-size: 12px; color: var(--muted); }
+.switch { width: 50px; height: 30px; border-radius: 99px; background: var(--line-2); position: relative; transition: background .2s; flex: none; }
+.switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .3); transition: transform .22s cubic-bezier(.3, 1.4, .5, 1); }
+.switch[aria-checked="true"] { background: var(--green); }
+.switch[aria-checked="true"]::after { transform: translateX(20px); }
+.about { padding: 16px; font-size: 14px; line-height: 1.55; color: var(--muted); }
+.about b { color: var(--text); }
+.links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.links a { color: var(--text); text-decoration: none; font-size: 13px; font-weight: 600; padding: 9px 14px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line-2); }
+
+/* ---------- Tab bar ---------- */
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  height: calc(var(--tab-h) + var(--safe-bottom)); padding-bottom: var(--safe-bottom);
+  background: var(--glass);
+  backdrop-filter: saturate(160%) blur(18px);
+  -webkit-backdrop-filter: saturate(160%) blur(18px);
+  border-top: 1px solid var(--line);
+}
+.tab { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--dim); transition: color .15s; }
+.tab svg { width: 22px; height: 22px; transition: transform .2s; }
+.tab.active { color: var(--text); }
+.tab.active svg { color: var(--accent); transform: translateY(-1px); }
+.tab.active::before { content: ''; position: absolute; top: 0; width: 28px; height: 3px; border-radius: 0 0 3px 3px; background: var(--accent-grad); }
+.tab .badge-count { position: absolute; top: 8px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; background: var(--red); color: #fff; font: 700 10px/18px var(--mono); text-align: center; transform: scale(0); transition: transform .2s cubic-bezier(.3, 1.6, .5, 1); }
+.tab .badge-count.show { transform: scale(1); }
+
+/* ---------- Sheet ---------- */
+.backdrop { position: fixed; inset: 0; z-index: 40; background: rgba(2, 6, 12, .55); backdrop-filter: blur(2px); opacity: 0; pointer-events: none; transition: opacity .25s; }
+.backdrop.open { opacity: 1; pointer-events: auto; }
+.sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+  max-height: 88vh; display: flex; flex-direction: column;
+  background: var(--bg-2); border-top: 1px solid var(--line-2);
+  border-radius: 22px 22px 0 0; box-shadow: 0 -20px 50px -20px rgba(0, 0, 0, .7);
+  transform: translateY(105%); transition: transform .34s cubic-bezier(.2, .9, .2, 1);
+  max-width: 760px; margin: 0 auto;
+}
+.sheet.open { transform: translateY(0); }
+.sheet.dragging { transition: none; }
+.grabber { padding: 10px 0 4px; display: grid; place-items: center; cursor: grab; touch-action: none; }
+.grabber i { width: 40px; height: 5px; border-radius: 99px; background: var(--line-2); }
+.sheet-scroll { overflow-y: auto; padding: 4px 16px calc(20px + var(--safe-bottom)); }
+.sheet-head { display: flex; align-items: center; gap: 14px; padding: 6px 0 14px; }
+.sheet-head .avatar { width: 72px; height: 72px; }
+.sheet-head .face { font-size: 22px; }
+.sheet-title { font-size: 22px; font-weight: 760; letter-spacing: -.02em; }
+.sheet-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat { padding: 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); }
+.stat b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; margin-top: 12px; }
+.steps { padding: 6px 14px; }
+.step { display: flex; align-items: center; gap: 12px; padding: 9px 0; font-size: 14px; color: var(--muted); }
+.step + .step { border-top: 1px dashed var(--line); }
+.step .mark { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--line-2); flex: none; }
+.step .mark svg { width: 12px; height: 12px; }
+.step.done { color: var(--text); }
+.step.done .mark { background: var(--green); border-color: var(--green); color: #fff; }
+.step.active { color: var(--text); font-weight: 600; }
+.step.active .mark { border-color: var(--c); border-top-color: transparent; animation: spin .9s linear infinite; }
+.step.failed .mark { background: var(--red); border-color: var(--red); color: #fff; }
+.step code { margin-left: auto; font: 500 11px var(--mono); color: var(--dim); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.goal-box { padding: 14px; font-size: 15px; line-height: 1.45; }
+.goal-box .muted { color: var(--dim); font-style: italic; }
+
+/* ---------- Toasts ---------- */
+.toasts { position: fixed; z-index: 60; left: 50%; transform: translateX(-50%); top: calc(10px + var(--safe-top)); width: min(92vw, 420px); display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.toast { pointer-events: auto; display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line-2); box-shadow: var(--shadow); font-size: 14px; animation: toastIn .35s cubic-bezier(.2, .9, .3, 1.2) both; }
+.toast.out { animation: toastOut .25s ease forwards; }
+.toast .t-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c, var(--accent)); flex: none; }
+.toast button { margin-left: auto; font-weight: 700; color: var(--accent); font-size: 13px; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(-14px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes toastOut { to { opacity: 0; transform: translateY(-10px); } }
+
+/* ---------- Confetti ---------- */
+.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 70; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+</style>
 </head>
 <body>
-  <div class="app-shell">
-    <!-- Header -->
-    <header class="header">
-      <h1 class="header-title">Virtual Bots</h1>
-      <div class="header-status">
-        <span class="status-dot"></span>
-        <span id="header-status-text">LIVE</span>
-      </div>
-    </header>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="brandGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b82f6"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient>
+  </defs>
+  <symbol id="i-bots" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="4"/><path d="M12 8V4M9 14h.01M15 14h.01"/><circle cx="12" cy="3.5" r="1"/></g></symbol>
+  <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></g></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><g fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></g></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.8v14.4a1 1 0 0 0 1.5.86l11.5-7.2a1 1 0 0 0 0-1.72L8.5 3.94A1 1 0 0 0 7 4.8z" fill="currentColor"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-retry" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5.3M20 4v4h-4M20 12a8 8 0 0 1-14 5.3M4 20v-4h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></g></symbol>
+  <symbol id="i-start" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" fill="currentColor"/></symbol>
+  <symbol id="i-tool" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0 5 5L21 13l-8 8-3-3-6 3 3-6-3-3 8-8 1.7 1.3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4m0 0h11l-2 4 2 4H5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 8v5m0 3.5h.01M10.3 3.9 2.6 17.5A2 2 0 0 0 4.3 20.5h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-cube" viewBox="0 0 24 24"><path d="M12 2 3 7v10l9 5 9-5V7l-9-5zm0 0v20M3 7l9 5 9-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+</svg>
 
-    <!-- Main content -->
-    <main class="main" id="main-content">
-      <!-- Bots Tab -->
-      <section class="tab-panel active" id="tab-bots" role="tabpanel" aria-labelledby="btn-bots">
-        <div class="bots-list" id="bots-list">
-          <!-- Bot cards inserted by JS -->
-        </div>
-      </section>
-
-      <!-- Activity Tab -->
-      <section class="tab-panel" id="tab-activity" role="tabpanel" aria-labelledby="btn-activity">
-        <div class="activity-feed" id="activity-feed">
-          <div class="activity-empty">No activity yet. Events will appear here as bots work.</div>
-        </div>
-      </section>
-
-      <!-- Command Tab -->
-      <section class="tab-panel" id="tab-command" role="tabpanel" aria-labelledby="btn-command">
-        <div class="command-panel">
-          <div class="command-section">
-            <label class="command-label" for="cmd-bot-select">Select Bot</label>
-            <select class="command-select" id="cmd-bot-select">
-              <!-- Options inserted by JS -->
-            </select>
-          </div>
-
-          <div class="command-section">
-            <label class="command-label" for="cmd-goal-input">Goal</label>
-            <textarea class="command-input" id="cmd-goal-input" placeholder="Describe the task or objective..."></textarea>
-          </div>
-
-          <button class="command-dispatch-btn" id="cmd-dispatch-btn">
-            <span>&#9889;</span>
-            <span>Dispatch</span>
-          </button>
-
-          <div class="command-status" id="cmd-status"></div>
-        </div>
-      </section>
-
-      <!-- About Tab -->
-      <section class="tab-panel" id="tab-about" role="tabpanel" aria-labelledby="btn-about">
-        <div class="about-panel">
-          <div class="about-section">
-            <h2 class="about-title">About Virtual Bots</h2>
-            <p class="about-text">
-              Virtual Bots is a simulated office environment where AI agents collaborate on tasks. 
-              This mobile view provides a roster of active bots, real-time activity feed, and 
-              the ability to dispatch goals to your team.
-            </p>
-            
-            <div class="simulation-badge">
-              <span class="simulation-dot"></span>
-              <span>Simulation mode</span>
-            </div>
-            
-            <p class="about-text" style="margin-top: 12px;">
-              This is an offline demo simulation. It does not connect to a real backend or 
-              actual AI agents. All bot activity is procedurally generated to demonstrate 
-              the interface design.
-            </p>
-          </div>
-
-          <div class="about-section">
-            <h3 class="about-title">Features</h3>
-            <ul class="about-features">
-              <li>Bot roster with live status</li>
-              <li>Real-time activity feed</li>
-              <li>Goal dispatch system</li>
-              <li>Progress tracking</li>
-              <li>Simulated agent behaviors</li>
-            </ul>
-          </div>
-
-          <div class="about-section">
-            <h3 class="about-title">Theme</h3>
-            <p class="about-text">
-              Using the Midnight dark theme with high-contrast accent colors for accessibility.
-            </p>
-            <p class="about-version">v1.0.0 &middot; mobile.html</p>
-          </div>
-        </div>
-      </section>
-    </main>
-
-    <!-- Tab bar -->
-    <nav class="tab-bar" role="tablist" aria-label="Main navigation">
-      <button class="tab-btn active" id="btn-bots" role="tab" aria-selected="true" aria-controls="tab-bots" data-tab="bots">
-        <span class="tab-icon">&#128101;</span>
-        <span>Bots</span>
-      </button>
-      <button class="tab-btn" id="btn-activity" role="tab" aria-selected="false" aria-controls="tab-activity" data-tab="activity">
-        <span class="tab-icon">&#128203;</span>
-        <span>Activity</span>
-      </button>
-      <button class="tab-btn" id="btn-command" role="tab" aria-selected="false" aria-controls="tab-command" data-tab="command">
-        <span class="tab-icon">&#128230;</span>
-        <span>Command</span>
-      </button>
-      <button class="tab-btn" id="btn-about" role="tab" aria-selected="false" aria-controls="tab-about" data-tab="about">
-        <span class="tab-icon">&#128712;</span>
-        <span>About</span>
-      </button>
-    </nav>
+<header class="header">
+  <svg class="brand-mark" viewBox="0 0 512 512" aria-hidden="true">
+    <rect width="512" height="512" rx="120" fill="url(#brandGrad)"/>
+    <rect x="128" y="176" width="256" height="184" rx="56" fill="#0a0e14"/>
+    <circle cx="208" cy="268" r="24" fill="#10b981"/>
+    <circle cx="304" cy="268" r="24" fill="#10b981"/>
+    <rect x="244" y="96" width="24" height="72" rx="12" fill="#0a0e14"/>
+    <circle cx="256" cy="92" r="22" fill="#f59e0b"/>
+  </svg>
+  <div class="brand">
+    <div class="brand-name" data-brand>Crewroom</div>
+    <div class="brand-sub" id="brand-sub">Loading crew…</div>
   </div>
+  <span class="pill" id="sim-pill" role="status"><span class="dot"></span><span id="sim-pill-text">SIM</span></span>
+  <button class="icon-btn" id="pause-btn" aria-label="Pause simulation"><svg><use href="#i-pause"/></svg></button>
+</header>
 
-  <!-- Bot detail panel -->
-  <div class="bot-detail" id="bot-detail" role="dialog" aria-modal="true" aria-label="Bot details">
-    <div class="bot-detail-header">
-      <button class="bot-detail-back" id="bot-detail-back" aria-label="Go back">&#8592;</button>
-      <h2 class="bot-detail-title" id="bot-detail-name">Bot Name</h2>
-      <div style="width: 44px;"></div>
-    </div>
-    <div class="bot-detail-content">
-      <div class="detail-section">
-        <div class="detail-label">Role</div>
-        <div class="detail-value" id="bot-detail-role">-</div>
-      </div>
-
-      <div class="detail-section">
-        <div class="detail-label">Status</div>
-        <div class="detail-value" id="bot-detail-status">-</div>
-      </div>
-
-      <div class="detail-section">
-        <div class="detail-label">Current Goal</div>
-        <div class="detail-value" id="bot-detail-goal">No active goal</div>
-      </div>
-
-      <div class="detail-section">
-        <div class="detail-label">Recent Tool Activity</div>
-        <div class="tool-activity-list" id="bot-detail-tools">
-          <div class="tool-activity-item">No recent activity</div>
-        </div>
-      </div>
-
-      <div class="detail-section">
-        <div class="detail-label">Send New Goal</div>
-        <textarea class="detail-goal-input" id="bot-detail-goal-input" placeholder="Type a goal for this bot..."></textarea>
-        <button class="detail-send-btn" id="bot-detail-send-btn">Send Goal</button>
+<main class="main" id="main">
+  <!-- CREW -->
+  <section class="view active" id="view-crew" aria-label="Crew">
+    <div class="card overview">
+      <div class="kpi"><div class="kpi-val" id="kpi-working">0<small>/6</small></div><div class="kpi-label">Working</div></div>
+      <div class="kpi"><div class="kpi-val" id="kpi-done">0</div><div class="kpi-label">Tasks done</div></div>
+      <div class="kpi"><div class="kpi-val" id="kpi-queue">0</div><div class="kpi-label">In queue</div></div>
+      <div class="load" title="Crew load"><i id="load-bar"></i></div>
+      <div class="spark-wrap">
+        <canvas id="spark" height="46" aria-label="Events over the last two minutes"></canvas>
+        <div class="spark-meta"><b id="epm">0</b>events/min</div>
       </div>
     </div>
-  </div>
+    <div class="section-title"><span>Crew</span><button class="link" id="wake-all">Wake idle bots</button></div>
+    <div class="chips" id="crew-filters" role="tablist" aria-label="Filter bots"></div>
+    <div class="bots" id="bots" style="margin-top:10px"></div>
+  </section>
 
-  <script>
-  (function() {
-    'use strict';
+  <!-- ACTIVITY -->
+  <section class="view" id="view-activity" aria-label="Activity">
+    <label class="search"><svg><use href="#i-search"/></svg><input id="act-search" type="search" placeholder="Search activity, tools, goals…" autocomplete="off"></label>
+    <div class="chips" id="act-bot-filters" aria-label="Filter by bot"></div>
+    <div class="chips" id="act-phase-filters" style="margin-top:6px" aria-label="Filter by type"></div>
+    <div class="timeline" id="timeline"></div>
+  </section>
 
-    // ============================================
-    // BOT ROSTER - from desktop index.html
-    // ============================================
-    const BOTS = [
-      { id: 'leader', name: 'Leader', role: 'Team coordinator', color: '#8b5cf6', initials: 'LD' },
-      { id: 'media', name: 'Media', role: 'Content creator', color: '#ec4899', initials: 'MD' },
-      { id: 'coder', name: 'Coder', role: 'Software developer', color: '#3b82f6', initials: 'CD' },
-      { id: 'tester', name: 'Tester', role: 'QA engineer', color: '#10b981', initials: 'TS' },
-      { id: 'checker', name: 'Checker', role: 'Code reviewer', color: '#f59e0b', initials: 'CK' },
-      { id: 'explore', name: 'Explore', role: 'Research agent', color: '#8b5cf6', initials: 'EX' }
-    ];
+  <!-- DISPATCH -->
+  <section class="view" id="view-dispatch" aria-label="Dispatch">
+    <span class="field-label">Assign to</span>
+    <div class="picker" id="picker"></div>
+    <div class="card composer">
+      <textarea id="goal-input" maxlength="240" placeholder="What should the crew do? e.g. Write release notes for v2"></textarea>
+      <div class="chips" id="templates" style="margin-top:10px"></div>
+      <div class="composer-row">
+        <div class="segmented" id="priority" role="radiogroup" aria-label="Priority">
+          <button data-v="low">Low</button><button data-v="normal" class="on">Normal</button><button data-v="high">High</button>
+        </div>
+        <span class="counter" id="counter">0/240</span>
+      </div>
+      <button class="btn btn-primary" id="dispatch-btn" disabled><svg><use href="#i-send"/></svg><span id="dispatch-label">Dispatch</span></button>
+      <div class="ai-hint" id="ai-hint"></div>
+    </div>
+    <div class="ex-prompts" id="ex-prompts"></div>
+    <div class="section-title"><span>Goals &amp; results</span><span><button class="link" id="open-history">History</button> · <button class="link" id="clear-finished">Clear finished</button></span></div>
+    <div class="card" id="queue"></div>
+  </section>
 
-    // ============================================
-    // STATE MANAGEMENT
-    // ============================================
-    const STORAGE_KEY = 'virtual-bots-mobile-v1';
+  <!-- SETTINGS -->
+  <section class="view" id="view-settings" aria-label="Settings">
+    <div class="section-title" style="margin-top:4px"><span>AI brain</span></div>
+    <div class="card">
+      <div class="set-row"><div class="label"><b>Provider</b><span id="ai-provider-label">Free AI</span></div><button class="btn btn-ghost btn-sm" id="ai-configure">Configure</button></div>
+      <div class="set-row"><div class="label"><b>Results</b><span>Everything your crew has delivered</span></div><button class="btn btn-ghost btn-sm" id="ai-history">Open</button></div>
+    </div>
+    <div class="section-title"><span>Simulation</span></div>
+    <div class="card">
+      <div class="set-row"><div class="label"><b>Run simulation</b><span>Bots pick up work on their own</span></div><button class="switch" id="sw-sim" role="switch" aria-checked="true" aria-label="Run simulation"></button></div>
+      <div class="set-row"><div class="label"><b>Speed</b><span>How fast bots work</span></div>
+        <div class="segmented" id="speed"><button data-v="0.5">½×</button><button data-v="1" class="on">1×</button><button data-v="2">2×</button><button data-v="4">4×</button></div>
+      </div>
+      <div class="set-row"><div class="label"><b>Autonomous work</b><span>Idle bots start their own tasks</span></div><button class="switch" id="sw-auto" role="switch" aria-checked="true" aria-label="Autonomous work"></button></div>
+    </div>
+    <div class="section-title"><span>Experience</span></div>
+    <div class="card">
+      <div class="set-row"><div class="label"><b>Light theme</b><span>Switch between midnight and daylight</span></div><button class="switch" id="sw-theme" role="switch" aria-checked="false" aria-label="Light theme"></button></div>
+      <div class="set-row"><div class="label"><b>Haptics</b><span>Vibrate on completions and errors</span></div><button class="switch" id="sw-haptics" role="switch" aria-checked="true" aria-label="Haptics"></button></div>
+      <div class="set-row"><div class="label"><b>Notifications</b><span>Toasts when tasks finish</span></div><button class="switch" id="sw-toasts" role="switch" aria-checked="true" aria-label="Notifications"></button></div>
+    </div>
+    <div class="section-title"><span>About</span></div>
+    <div class="card about">
+      <b data-brand>Crewroom</b> is a control room for a crew of AI bots: watch who is working, follow every tool step, and dispatch goals.
+      Goals you dispatch are done for real by AI (free by default, or your own key in <b>AI brain</b>): Scout reads the live web, Byte runs real code, Pixel draws graphics. Ambient crew activity is simulated.
+      <div class="links">
+        <a href="./"><span>Open 3D office</span></a>
+        <a href="app.html">Install app</a>
+        <a href="../">All projects</a>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="btn btn-danger btn-sm" id="reset-btn">Reset all data</button>
+      </div>
+      <p style="margin-top:12px;font:500 11px var(--mono);color:var(--dim)">v3.0 · mobile · real AI</p>
+    </div>
+  </section>
+</main>
 
-    const defaultState = {
-      bots: {},
-      events: [],
-      goals: {},
-      lastActivity: Date.now()
-    };
+<nav class="tabbar" role="tablist" aria-label="Main">
+  <button class="tab active" data-view="crew" role="tab" aria-selected="true"><svg><use href="#i-bots"/></svg>Crew</button>
+  <button class="tab" data-view="activity" role="tab" aria-selected="false"><svg><use href="#i-activity"/></svg>Activity<span class="badge-count" id="badge-activity">0</span></button>
+  <button class="tab" data-view="dispatch" role="tab" aria-selected="false"><svg><use href="#i-send"/></svg>Dispatch<span class="badge-count" id="badge-queue" style="background:var(--accent)">0</span></button>
+  <button class="tab" data-view="settings" role="tab" aria-selected="false"><svg><use href="#i-settings"/></svg>Settings</button>
+</nav>
 
-    function loadState() {
-      try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          return { ...defaultState, ...parsed };
-        }
-      } catch (e) {
-        console.warn('Failed to load state:', e);
-      }
-      return { ...defaultState };
+<div class="backdrop" id="backdrop"></div>
+<section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+  <div class="grabber" id="grabber"><i></i></div>
+  <div class="sheet-scroll" id="sheet-body"></div>
+</section>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<canvas class="confetti" id="confetti"></canvas>
+
+<script src="crew-engine.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ============================================================
+  // CONFIG
+  // ============================================================
+  const BRAND = 'Crewroom';
+  const STORAGE_KEY = 'crew-mobile-v2';
+
+  // Names and colours match the desktop 3D office (index.html BOT_CONFIG).
+  const BOTS = [
+    {
+      id: 'leader', name: 'Nova', role: 'Team Lead', color: '#8b5cf6',
+      templates: ['Plan this week\'s sprint', 'Summarise team progress', 'Unblock stalled tasks'],
+      steps: ['read_board', 'plan', 'delegate', 'sync', 'report'],
+      autoTasks: ['Sprint planning', 'Prioritising backlog', 'Team sync', 'Weekly status report']
+    },
+    {
+      id: 'media', name: 'Pixel', role: 'Content Creator', color: '#ef4444',
+      templates: ['Design a launch banner', 'Write a product tweet', 'Make a demo GIF'],
+      steps: ['brief', 'moodboard', 'image_gen', 'edit', 'export'],
+      autoTasks: ['Hero image for landing page', 'Social media kit', 'Icon refresh', 'Blog cover art']
+    },
+    {
+      id: 'coder', name: 'Byte', role: 'Software Developer', color: '#3b82f6',
+      templates: ['Fix the login bug', 'Add dark mode', 'Refactor the API client'],
+      steps: ['read_file', 'plan', 'file_write', 'run_build', 'git_commit'],
+      autoTasks: ['Auth module', 'Search endpoint', 'Cache layer', 'Settings page']
+    },
+    {
+      id: 'tester', name: 'Probe', role: 'QA Engineer', color: '#10b981',
+      templates: ['Run regression tests', 'Write e2e tests for checkout', 'Check mobile layout'],
+      steps: ['setup_env', 'write_tests', 'run_tests', 'triage', 'report'],
+      autoTasks: ['Regression suite', 'Smoke tests', 'Load test', 'Accessibility audit']
+    },
+    {
+      id: 'checker', name: 'Sentinel', role: 'Code Reviewer', color: '#f59e0b',
+      templates: ['Review open pull requests', 'Security scan', 'Check code style'],
+      steps: ['fetch_diff', 'review_diff', 'lint', 'comment', 'approve'],
+      autoTasks: ['PR #142 review', 'Dependency audit', 'Lint sweep', 'Security review']
+    },
+    {
+      id: 'explore', name: 'Scout', role: 'Research Agent', color: '#ec4899',
+      templates: ['Compare 3 competitors', 'Find best charting library', 'Summarise latest AI papers'],
+      steps: ['web_search', 'read_page', 'extract', 'compare', 'summarise'],
+      autoTasks: ['Market scan', 'Library comparison', 'User feedback digest', 'Trend report']
     }
+  ];
+  const BOT = Object.fromEntries(BOTS.map(b => [b.id, b]));
 
-    function saveState() {
+  const GLOBAL_TEMPLATES = ['Ship release notes', 'Prepare a demo', 'Fix flaky tests', 'Research pricing'];
+
+  // ============================================================
+  // HELPERS
+  // ============================================================
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  const now = () => Date.now();
+  const rand = (min, max) => min + Math.random() * (max - min);
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  const uid = () => Math.random().toString(36).slice(2, 9);
+
+  function esc(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[ch]));
+  }
+
+  function fmtClock(ts) {
+    return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  }
+
+  function fmtDuration(ms) {
+    const s = Math.max(0, Math.round(ms / 1000));
+    if (s < 60) return s + 's';
+    const m = Math.floor(s / 60);
+    return m + 'm ' + String(s % 60).padStart(2, '0') + 's';
+  }
+
+  function relTime(ts) {
+    const d = (now() - ts) / 1000;
+    if (d < 10) return 'just now';
+    if (d < 60) return Math.floor(d) + 's ago';
+    if (d < 3600) return Math.floor(d / 60) + 'm ago';
+    return Math.floor(d / 3600) + 'h ago';
+  }
+
+  function icon(name) {
+    return `<svg><use href="#i-${name}"/></svg>`;
+  }
+
+  function avatarHtml(bot, pct, extraClass = '') {
+    const r = 25;
+    const circ = 2 * Math.PI * r;
+    const off = circ * (1 - Math.max(0, Math.min(1, pct || 0)));
+    return `
+      <div class="avatar ${extraClass}" style="--c:${bot.color}">
+        <svg class="ring" viewBox="0 0 56 56" width="100%" height="100%">
+          <circle class="ring-bg" cx="28" cy="28" r="${r}" fill="none" stroke-width="3"/>
+          <circle class="ring-fg" cx="28" cy="28" r="${r}" fill="none" stroke-width="3"
+            stroke-dasharray="${circ.toFixed(2)}" stroke-dashoffset="${off.toFixed(2)}"/>
+        </svg>
+        <div class="face">${esc(bot.name[0])}</div>
+        <span class="state-dot"></span>
+      </div>`;
+  }
+
+  // ============================================================
+  // STATE
+  // ============================================================
+  function freshBot(id) {
+    return {
+      id,
+      status: 'idle',          // idle | working | done | error
+      paused: false,
+      task: null,              // { id, title, steps[], stepIndex, startedAt, goalId }
+      completed: 0,
+      errors: 0,
+      totalMs: 0,
+      lastChange: now()
+    };
+  }
+
+  const defaults = {
+    bots: Object.fromEntries(BOTS.map(b => [b.id, freshBot(b.id)])),
+    events: [],
+    queue: [],
+    settings: { sim: true, speed: 1, auto: false, theme: 'dark', haptics: true, toasts: true },
+    view: 'crew',
+    seenEvents: 0
+  };
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return structuredClone(defaults);
+      const saved = JSON.parse(raw);
+      const merged = { ...structuredClone(defaults), ...saved };
+      merged.settings = { ...defaults.settings, ...(saved.settings || {}) };
+      BOTS.forEach(b => {
+        merged.bots[b.id] = { ...freshBot(b.id), ...(saved.bots?.[b.id] || {}) };
+      });
+      return merged;
+    } catch (err) {
+      console.warn('State reset:', err);
+      return structuredClone(defaults);
+    }
+  }
+
+  let state = loadState();
+  let saveTimer = null;
+
+  function save() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      } catch (e) {
-        console.warn('Failed to save state:', e);
+      } catch (err) {
+        console.warn('Save failed:', err);
+      }
+    }, 250);
+  }
+
+  const ui = {
+    crewFilter: 'all',
+    actBot: 'all',
+    actPhase: 'all',
+    actQuery: '',
+    pickSet: new Set(['coder']),
+    priority: 'normal',
+    sheetBot: null
+  };
+
+  // ============================================================
+  // EVENTS
+  // ============================================================
+  function emit(agent, phase, detail, tool, extra = {}) {
+    const ev = { id: uid(), ts: now(), agent, phase, detail, tool: tool || null, ...extra };
+    state.events.push(ev);
+    if (state.events.length > 300) {
+      state.events = state.events.slice(-300);
+    }
+    if (state.view !== 'activity') {
+      state.seenEvents = Math.min(state.seenEvents, state.events.length - 1);
+    } else {
+      state.seenEvents = state.events.length;
+    }
+    onEvent(ev);
+    save();
+    return ev;
+  }
+
+  // ============================================================
+  // SIMULATION ENGINE
+  // ============================================================
+  function startTask(botId, title, goalId) {
+    const bot = BOT[botId];
+    const bs = state.bots[botId];
+    bs.task = {
+      id: uid(),
+      title,
+      goalId: goalId || null,
+      steps: bot.steps.slice(),
+      stepIndex: 0,
+      startedAt: now(),
+      failed: false
+    };
+    bs.status = 'working';
+    bs.lastChange = now();
+    emit(botId, 'start', title, null, { goalId });
+    if (goalId) {
+      const q = state.queue.find(item => item.id === goalId);
+      if (q) {
+        q.assignments[botId] = 'running';
+        refreshGoalStatus(q);
       }
     }
+  }
 
-    let state = loadState();
+  function advance(botId) {
+    const bs = state.bots[botId];
+    const task = bs.task;
+    if (!task) return;
+    const tool = task.steps[task.stepIndex];
 
-    // Initialize bot states if not present
+    // Small chance a step fails, so users can see and fix errors.
+    if (Math.random() < 0.015) {
+      bs.status = 'error';
+      task.failed = true;
+      bs.errors++;
+      bs.lastChange = now();
+      emit(botId, 'error', `${tool} failed on “${task.title}”`, tool, { goalId: task.goalId });
+      return;
+    }
+
+    emit(botId, 'tool', describeStep(botId, tool, task.title), tool, { goalId: task.goalId });
+    task.stepIndex++;
+    if (task.stepIndex >= task.steps.length) {
+      finishTask(botId);
+    }
+  }
+
+  function describeStep(botId, tool, title) {
+    const verbs = {
+      read_board: 'Reading the board', plan: 'Planning approach', delegate: 'Delegating sub-tasks',
+      sync: 'Syncing with the team', report: 'Writing report', brief: 'Reading the brief',
+      moodboard: 'Building a moodboard', image_gen: 'Generating visuals', edit: 'Polishing the edit',
+      export: 'Exporting assets', read_file: 'Reading source files', file_write: 'Writing code',
+      run_build: 'Running the build', git_commit: 'Committing changes', setup_env: 'Setting up test env',
+      write_tests: 'Writing test cases', run_tests: 'Running tests', triage: 'Triaging failures',
+      fetch_diff: 'Fetching the diff', review_diff: 'Reviewing changes', lint: 'Linting',
+      comment: 'Leaving review notes', approve: 'Approving', web_search: 'Searching the web',
+      read_page: 'Reading sources', extract: 'Extracting key facts', compare: 'Comparing options',
+      summarise: 'Summarising findings', llm: 'Thinking', thinking: 'Thinking', read_url: 'Reading a source',
+      run_js: 'Running code', image_gen: 'Creating', plan: 'Planning'
+    };
+    return `${verbs[tool] || tool} — ${title}`;
+  }
+
+  function finishTask(botId) {
+    const bs = state.bots[botId];
+    const task = bs.task;
+    bs.status = 'done';
+    bs.completed++;
+    bs.totalMs += now() - task.startedAt;
+    bs.lastChange = now();
+    emit(botId, 'end', `Finished “${task.title}” in ${fmtDuration(now() - task.startedAt)}`, null, { goalId: task.goalId });
+    if (task.goalId) {
+      const q = state.queue.find(item => item.id === task.goalId);
+      if (q) {
+        q.assignments[botId] = 'done';
+        refreshGoalStatus(q);
+      }
+    }
+    bs.task = null;
+  }
+
+  function refreshGoalStatus(q) {
+    const values = Object.values(q.assignments);
+    if (values.every(v => v === 'done')) {
+      if (q.status !== 'done') {
+        q.status = 'done';
+        q.doneAt = now();
+        notify(`Goal complete: ${q.goal}`, '#10b981', { celebrate: true });
+      }
+    } else if (values.some(v => v === 'running' || v === 'done')) {
+      q.status = 'running';
+    } else if (values.every(v => v === 'cancelled')) {
+      q.status = 'cancelled';
+    }
+  }
+
+  function realRunStatus(q) {
+    const run = window.CrewEngine && CrewEngine.getRun(q.runId);
+    if (!run) return 'cancelled';
+    return { running: 'running', done: 'done', error: 'error', stopped: 'cancelled' }[run.status] || 'running';
+  }
+
+  function goalProgress(q) {
+    if (q.real) {
+      const run = CrewEngine.getRun(q.runId);
+      if (!run) return 0;
+      if (run.status !== 'running') return 1;
+      const total = run.steps.length + (run.mode === 'team' ? 2 : 0);
+      const done = run.steps.filter(s => s.status === 'done').length + (run.mode === 'team' && !run.planning ? 1 : 0);
+      return total ? Math.min(0.95, (done + 0.4) / total) : 0.1;
+    }
+    const ids = Object.keys(q.assignments);
+    if (!ids.length) return 0;
+    let total = 0;
+    ids.forEach(id => {
+      const s = q.assignments[id];
+      if (s === 'done') {
+        total += 1;
+      } else if (s === 'running') {
+        const t = state.bots[id].task;
+        if (t && t.goalId === q.id) total += t.stepIndex / t.steps.length;
+      }
+    });
+    return total / ids.length;
+  }
+
+  function nextQueuedFor(botId) {
+    const order = { high: 0, normal: 1, low: 2 };
+    return state.queue
+      .filter(q => q.assignments[botId] === 'queued')
+      .sort((a, b) => order[a.priority] - order[b.priority] || a.createdAt - b.createdAt)[0];
+  }
+
+  let lastTick = now();
+  function tick() {
+    const t = now();
+    const dt = (t - lastTick) / 1000;
+    lastTick = t;
+    if (!state.settings.sim) return;
+    const speed = state.settings.speed;
+
     BOTS.forEach(bot => {
-      if (!state.bots[bot.id]) {
-        state.bots[bot.id] = {
-          id: bot.id,
-          status: 'idle',
-          progress: 0,
-          currentGoal: null,
-          recentTools: []
-        };
+      const bs = state.bots[bot.id];
+      if (bs.paused) return;
+      if (bs.task && bs.task.real) return;
+
+      if (bs.status === 'working') {
+        // ~1 step every 1.6–3.5 s at 1×.
+        if (Math.random() < dt * speed / rand(1.6, 3.5)) advance(bot.id);
+      } else if (bs.status === 'done') {
+        if (t - bs.lastChange > 2500 / speed) {
+          bs.status = 'idle';
+          bs.lastChange = t;
+        }
+      } else if (bs.status === 'error') {
+        // Auto-retry after a while if the user hasn't stepped in.
+        if (t - bs.lastChange > 12000 / speed) retry(bot.id, true);
+      } else if (bs.status === 'idle') {
+        const q = nextQueuedFor(bot.id);
+        if (q) {
+          startTask(bot.id, q.goal, q.id);
+        } else if (state.settings.auto && Math.random() < dt * speed / 9) {
+          startTask(bot.id, pick(bot.autoTasks));
+        }
       }
     });
+    render();
+  }
 
-    // ============================================
-    // TAB NAVIGATION
-    // ============================================
-    const tabButtons = document.querySelectorAll('.tab-btn');
-    const tabPanels = document.querySelectorAll('.tab-panel');
+  function retry(botId, auto) {
+    const bs = state.bots[botId];
+    if (bs.status !== 'error' || !bs.task) return;
+    bs.status = 'working';
+    bs.task.failed = false;
+    bs.lastChange = now();
+    emit(botId, 'info', `${auto ? 'Auto-retrying' : 'Retrying'} ${bs.task.steps[bs.task.stepIndex]}`, bs.task.steps[bs.task.stepIndex]);
+  }
 
-    function switchTab(tabId) {
-      tabButtons.forEach(btn => {
-        const isActive = btn.dataset.tab === tabId;
-        btn.classList.toggle('active', isActive);
-        btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
-      });
-
-      tabPanels.forEach(panel => {
-        panel.classList.toggle('active', panel.id === 'tab-' + tabId);
-      });
-
-      // Save last tab
-      state.lastTab = tabId;
-      saveState();
+  function cancelTask(botId) {
+    const bs = state.bots[botId];
+    if (!bs.task) return;
+    const task = bs.task;
+    emit(botId, 'info', `Cancelled “${task.title}”`);
+    if (task.goalId) {
+      const q = state.queue.find(item => item.id === task.goalId);
+      if (q) {
+        q.assignments[botId] = 'cancelled';
+        refreshGoalStatus(q);
+      }
     }
+    bs.task = null;
+    bs.status = 'idle';
+    bs.lastChange = now();
+  }
 
-    tabButtons.forEach(btn => {
-      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  function togglePauseBot(botId) {
+    const bs = state.bots[botId];
+    bs.paused = !bs.paused;
+    emit(botId, 'info', bs.paused ? 'Paused by you' : 'Resumed');
+  }
+
+  function dispatch(botIds, goal, priority) {
+    const q = {
+      id: uid(),
+      goal,
+      priority,
+      createdAt: now(),
+      status: 'queued',
+      assignments: Object.fromEntries(botIds.map(id => [id, 'queued']))
+    };
+    const realMode = window.CrewEngine && CrewEngine.getSettings().realMode;
+    if (realMode) {
+      // Real AI run: one bot = solo, several/everyone = Nova plans the team.
+      const run = CrewEngine.start(goal, {
+        bots: botIds.length === BOTS.length ? [] : botIds,
+        meta: { queueId: q.id }
+      });
+      q.real = true;
+      q.runId = run.id;
+      q.status = 'running';
+      Object.keys(q.assignments).forEach(id => { q.assignments[id] = 'real'; });
+      state.queue.unshift(q);
+      save();
+      return q;
+    }
+    state.queue.unshift(q);
+    botIds.forEach(id => {
+      emit(id, 'info', `New goal queued: ${goal}`, null, { goalId: q.id });
+      // High-priority work interrupts an autonomous (non-goal) task.
+      const bs = state.bots[id];
+      if (priority === 'high' && bs.task && !bs.task.goalId) {
+        emit(id, 'info', `Parked “${bs.task.title}” for high-priority goal`);
+        bs.task = null;
+        bs.status = 'idle';
+      }
     });
+    save();
+    return q;
+  }
 
-    // Restore last tab
-    if (state.lastTab) {
-      switchTab(state.lastTab);
+  // ============================================================
+  // FEEDBACK: toasts, haptics, confetti
+  // ============================================================
+  function haptic(pattern) {
+    if (state.settings.haptics && navigator.vibrate) navigator.vibrate(pattern);
+  }
+
+  function notify(message, color, opts = {}) {
+    if (opts.celebrate) {
+      confetti();
+      haptic([20, 40, 20]);
     }
-
-    // ============================================
-    // BOT LIST RENDERING
-    // ============================================
-    const botsListEl = document.getElementById('bots-list');
-    const botDetailEl = document.getElementById('bot-detail');
-    const botDetailNameEl = document.getElementById('bot-detail-name');
-    const botDetailRoleEl = document.getElementById('bot-detail-role');
-    const botDetailStatusEl = document.getElementById('bot-detail-status');
-    const botDetailGoalEl = document.getElementById('bot-detail-goal');
-    const botDetailToolsEl = document.getElementById('bot-detail-tools');
-    const botDetailGoalInput = document.getElementById('bot-detail-goal-input');
-    const botDetailSendBtn = document.getElementById('bot-detail-send-btn');
-    const botDetailBackBtn = document.getElementById('bot-detail-back');
-
-    let selectedBotId = null;
-
-    function getStatusLabel(status) {
-      const labels = {
-        idle: 'Idle',
-        working: 'Working',
-        done: 'Complete',
-        error: 'Error'
-      };
-      return labels[status] || status;
+    if (!state.settings.toasts && !opts.force) return;
+    if (opts.key) {
+      document.querySelectorAll(`.toast[data-key="${opts.key}"]`).forEach(t => t.remove());
     }
-
-    function renderBots() {
-      botsListEl.innerHTML = '';
-
-      BOTS.forEach(bot => {
-        const botState = state.bots[bot.id] || { status: 'idle', progress: 0 };
-        const card = document.createElement('div');
-        card.className = 'bot-card' + (selectedBotId === bot.id ? ' selected' : '');
-        card.setAttribute('role', 'button');
-        card.setAttribute('tabindex', '0');
-        card.setAttribute('aria-label', bot.name + ' - ' + bot.role + ' - ' + getStatusLabel(botState.status));
-
-        card.innerHTML = `
-          <div class="bot-avatar" style="background: ${bot.color}">
-            ${bot.initials}
-          </div>
-          <div class="bot-info">
-            <div class="bot-name">${bot.name}</div>
-            <div class="bot-role">${bot.role}</div>
-            <div class="bot-status-row">
-              <span class="status-badge ${botState.status}">
-                <span class="status-dot-small ${botState.status}"></span>
-                ${getStatusLabel(botState.status)}
-              </span>
-              <div class="bot-progress">
-                <div class="bot-progress-bar ${botState.status === 'working' ? 'working' : ''}" style="width: ${botState.progress}%"></div>
-              </div>
-            </div>
-          </div>
-        `;
-
-        card.addEventListener('click', () => openBotDetail(bot.id));
-        card.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            openBotDetail(bot.id);
-          }
-        });
-
-        botsListEl.appendChild(card);
+    const el = document.createElement('div');
+    el.className = 'toast';
+    if (opts.key) el.dataset.key = opts.key;
+    el.style.setProperty('--c', color || 'var(--accent)');
+    el.innerHTML = `<span class="t-dot"></span><span>${esc(message)}</span>${opts.action ? `<button>${esc(opts.action.label)}</button>` : ''}`;
+    if (opts.action) {
+      el.querySelector('button').addEventListener('click', () => {
+        opts.action.run();
+        dismiss();
       });
     }
+    const box = $('#toasts');
+    box.prepend(el);
+    while (box.children.length > 3) box.lastChild.remove();
+    const timer = setTimeout(dismiss, opts.duration || 3200);
+    function dismiss() {
+      clearTimeout(timer);
+      el.classList.add('out');
+      setTimeout(() => el.remove(), 260);
+    }
+  }
 
-    // ============================================
-    // BOT DETAIL PANEL
-    // ============================================
-    function openBotDetail(botId) {
-      const bot = BOTS.find(b => b.id === botId);
-      const botState = state.bots[botId] || { status: 'idle', progress: 0, currentGoal: null, recentTools: [] };
+  function onEvent(ev) {
+    const bot = BOT[ev.agent];
+    if (ev.phase === 'error') {
+      haptic([60, 40, 60]);
+      notify(`${bot.name}: ${ev.detail}`, '#ef4444', {
+        force: true,
+        key: 'err-' + ev.agent,
+        duration: 5000,
+        action: ev.runId
+          ? { label: 'View', run: () => CrewEngine.openRun(ev.runId) }
+          : { label: 'Retry', run: () => { retry(ev.agent); render(); } }
+      });
+    } else if (ev.phase === 'end' && ev.goalId) {
+      haptic(15);
+      notify(`${bot.name} finished their part`, bot.color);
+    }
+    const card = document.querySelector(`.bot[data-id="${ev.agent}"]`);
+    if (card && (ev.phase === 'end' || ev.phase === 'start')) {
+      card.classList.remove('flash');
+      void card.offsetWidth;
+      card.classList.add('flash');
+    }
+  }
 
-      selectedBotId = botId;
-      botDetailNameEl.textContent = bot.name;
-      botDetailRoleEl.textContent = bot.role;
-      botDetailStatusEl.textContent = getStatusLabel(botState.status);
-      botDetailGoalEl.textContent = botState.currentGoal || 'No active goal';
-
-      // Render recent tool activity
-      if (botState.recentTools && botState.recentTools.length > 0) {
-        botDetailToolsEl.innerHTML = botState.recentTools.slice(0, 5).map(tool => `
-          <div class="tool-activity-item">
-            <div class="tool-icon">&#128736;</div>
-            <span>${tool}</span>
-          </div>
-        `).join('');
+  const confettiCanvas = $('#confetti');
+  function confetti() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const ctx = confettiCanvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    confettiCanvas.width = innerWidth * dpr;
+    confettiCanvas.height = innerHeight * dpr;
+    ctx.scale(dpr, dpr);
+    const colors = BOTS.map(b => b.color);
+    const parts = Array.from({ length: 90 }, () => ({
+      x: innerWidth / 2 + rand(-40, 40),
+      y: innerHeight * 0.35,
+      vx: rand(-6, 6),
+      vy: rand(-11, -4),
+      r: rand(3, 6),
+      a: rand(0, Math.PI),
+      va: rand(-.3, .3),
+      c: pick(colors)
+    }));
+    const start = performance.now();
+    (function frame(t) {
+      const elapsed = t - start;
+      ctx.clearRect(0, 0, innerWidth, innerHeight);
+      parts.forEach(p => {
+        p.vy += 0.32;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.a += p.va;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.a);
+        ctx.globalAlpha = Math.max(0, 1 - elapsed / 1600);
+        ctx.fillStyle = p.c;
+        ctx.fillRect(-p.r, -p.r / 2, p.r * 2, p.r);
+        ctx.restore();
+      });
+      if (elapsed < 1600) {
+        requestAnimationFrame(frame);
       } else {
-        botDetailToolsEl.innerHTML = '<div class="tool-activity-item">No recent activity</div>';
+        ctx.clearRect(0, 0, innerWidth, innerHeight);
       }
+    })(start);
+  }
 
-      botDetailEl.classList.add('open');
-      renderBots(); // Update selection highlight
+  // ============================================================
+  // RENDER: header + overview
+  // ============================================================
+  function botStatusKey(bs) {
+    if (bs.paused) return 'paused';
+    return bs.status;
+  }
+
+  function statusLabel(key) {
+    return { idle: 'Idle', working: 'Working', done: 'Done', error: 'Issue', paused: 'Paused' }[key] || key;
+  }
+
+  function botPct(bs) {
+    if (!bs.task) return bs.status === 'done' ? 1 : 0;
+    if (bs.task.real) return bs.task.steps.length / (bs.task.steps.length + 2);
+    return bs.task.stepIndex / bs.task.steps.length;
+  }
+
+  function renderHeader() {
+    const working = BOTS.filter(b => state.bots[b.id].status === 'working' && !state.bots[b.id].paused).length;
+    const issues = BOTS.filter(b => state.bots[b.id].status === 'error').length;
+    $('#brand-sub').textContent = `${BOTS.length} bots · ${working} working${issues ? ` · ${issues} need attention` : ''}`;
+    const pill = $('#sim-pill');
+    pill.classList.toggle('paused', !state.settings.sim);
+    $('#sim-pill-text').textContent = state.settings.sim ? `SIM ${state.settings.speed}×` : 'PAUSED';
+    const pb = $('#pause-btn');
+    pb.innerHTML = icon(state.settings.sim ? 'pause' : 'play');
+    pb.setAttribute('aria-label', state.settings.sim ? 'Pause simulation' : 'Resume simulation');
+  }
+
+  function renderOverview() {
+    const working = BOTS.filter(b => state.bots[b.id].status === 'working' && !state.bots[b.id].paused).length;
+    const done = BOTS.reduce((s, b) => s + state.bots[b.id].completed, 0);
+    const queued = state.queue.filter(q => {
+      const s = q.real ? realRunStatus(q) : q.status;
+      return s === 'queued' || s === 'running';
+    }).length;
+    $('#kpi-working').innerHTML = `${working}<small>/${BOTS.length}</small>`;
+    $('#kpi-done').textContent = done;
+    $('#kpi-queue').textContent = queued;
+    $('#load-bar').style.width = (working / BOTS.length * 100).toFixed(0) + '%';
+    drawSpark();
+  }
+
+  function drawSpark() {
+    const canvas = $('#spark');
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight || 46;
+    if (!w) return;
+    const dpr = window.devicePixelRatio || 1;
+    if (canvas.width !== Math.round(w * dpr)) {
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
     }
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
 
-    function closeBotDetail() {
-      botDetailEl.classList.remove('open');
-      selectedBotId = null;
-      botDetailGoalInput.value = '';
-      renderBots();
+    const buckets = 24;
+    const span = 120000;
+    const bucketMs = span / buckets;
+    const t = now();
+    const counts = new Array(buckets).fill(0);
+    let lastMinute = 0;
+    for (let i = state.events.length - 1; i >= 0; i--) {
+      const age = t - state.events[i].ts;
+      if (age > span) break;
+      counts[buckets - 1 - Math.floor(age / bucketMs)]++;
+      if (age <= 60000) lastMinute++;
     }
+    $('#epm').textContent = lastMinute;
 
-    botDetailBackBtn.addEventListener('click', closeBotDetail);
+    const max = Math.max(3, ...counts);
+    const step = w / (buckets - 1);
+    const pts = counts.map((c, i) => [i * step, h - 4 - (c / max) * (h - 10)]);
+    const grad = ctx.createLinearGradient(0, 0, w, 0);
+    grad.addColorStop(0, '#3b82f6');
+    grad.addColorStop(1, '#8b5cf6');
+    const fill = ctx.createLinearGradient(0, 0, 0, h);
+    fill.addColorStop(0, 'rgba(139,92,246,.35)');
+    fill.addColorStop(1, 'rgba(139,92,246,0)');
 
-    botDetailSendBtn.addEventListener('click', () => {
-      const goal = botDetailGoalInput.value.trim();
-      if (!goal || !selectedBotId) return;
-
-      dispatchGoal(selectedBotId, goal);
-      botDetailGoalInput.value = '';
-      closeBotDetail();
+    ctx.beginPath();
+    pts.forEach(([x, y], i) => {
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        const [px, py] = pts[i - 1];
+        const cx = (px + x) / 2;
+        ctx.bezierCurveTo(cx, py, cx, y, x, y);
+      }
     });
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.lineTo(w, h);
+    ctx.lineTo(0, h);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    const [lx, ly] = pts[pts.length - 1];
+    ctx.beginPath();
+    ctx.arc(lx - 2, ly, 3, 0, Math.PI * 2);
+    ctx.fillStyle = '#8b5cf6';
+    ctx.fill();
+  }
 
-    // ============================================
-    // ACTIVITY FEED
-    // ============================================
-    const activityFeedEl = document.getElementById('activity-feed');
-    const cmdBotSelect = document.getElementById('cmd-bot-select');
-    const cmdGoalInput = document.getElementById('cmd-goal-input');
-    const cmdDispatchBtn = document.getElementById('cmd-dispatch-btn');
-    const cmdStatusEl = document.getElementById('cmd-status');
+  // ============================================================
+  // RENDER: crew list
+  // ============================================================
+  const CREW_FILTERS = [
+    ['all', 'All'],
+    ['working', 'Working'],
+    ['idle', 'Idle'],
+    ['error', 'Issues'],
+    ['paused', 'Paused']
+  ];
 
-    function formatTime(isoString) {
-      const date = new Date(isoString);
-      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  function matchesCrewFilter(bs) {
+    const key = botStatusKey(bs);
+    if (ui.crewFilter === 'all') return true;
+    if (ui.crewFilter === 'idle') return key === 'idle' || key === 'done';
+    return key === ui.crewFilter;
+  }
+
+  function renderCrewFilters() {
+    const counts = {
+      all: BOTS.length,
+      working: BOTS.filter(b => botStatusKey(state.bots[b.id]) === 'working').length,
+      idle: BOTS.filter(b => ['idle', 'done'].includes(botStatusKey(state.bots[b.id]))).length,
+      error: BOTS.filter(b => botStatusKey(state.bots[b.id]) === 'error').length,
+      paused: BOTS.filter(b => state.bots[b.id].paused).length
+    };
+    $('#crew-filters').innerHTML = CREW_FILTERS.map(([key, label]) => `
+      <button class="chip ${ui.crewFilter === key ? 'active' : ''}" data-f="${key}" role="tab" aria-selected="${ui.crewFilter === key}">
+        ${label}<span class="count">${counts[key]}</span>
+      </button>`).join('');
+  }
+
+  function renderBots() {
+    const list = BOTS.filter(b => matchesCrewFilter(state.bots[b.id]));
+    if (!list.length) {
+      $('#bots').innerHTML = `<div class="empty">${icon('bots')}No bots match this filter.</div>`;
+      return;
     }
-
-    function getPhaseLabel(phase) {
-      const labels = {
-        start: 'Start',
-        tool: 'Tool',
-        end: 'End',
-        info: 'Info',
-        error: 'Error'
-      };
-      return labels[phase] || phase;
-    }
-
-    function renderActivity() {
-      if (state.events.length === 0) {
-        activityFeedEl.innerHTML = '<div class="activity-empty">No activity yet. Events will appear here as bots work.</div>';
-        return;
-      }
-
-      activityFeedEl.innerHTML = state.events.slice().reverse().slice(0, 50).map(event => {
-        const bot = BOTS.find(b => b.id === event.agent);
-        const botName = bot ? bot.name : event.agent;
-        return `
-          <div class="activity-item">
-            <div class="activity-header">
-              <span class="activity-time">${formatTime(event.ts)}</span>
-              <span class="activity-bot ${event.agent}">${botName}</span>
-              <span class="activity-phase ${event.phase}">${getPhaseLabel(event.phase)}</span>
+    $('#bots').innerHTML = list.map(bot => {
+      const bs = state.bots[bot.id];
+      const key = botStatusKey(bs);
+      const task = bs.task;
+      const step = task ? `${Math.min(task.stepIndex + 1, task.steps.length)}/${task.steps.length}` : '';
+      const tool = task ? task.steps[Math.min(task.stepIndex, task.steps.length - 1)] : '';
+      const taskText = task ? task.title : (bs.status === 'done' ? 'Just wrapped up a task' : 'Waiting for work');
+      return `
+        <div class="bot ${key} ${bs.paused ? 'paused-bot' : ''}" data-id="${bot.id}" style="--c:${bot.color}" role="button" tabindex="0"
+             aria-label="${esc(bot.name)}, ${esc(bot.role)}, ${statusLabel(key)}">
+          ${avatarHtml(bot, botPct(bs))}
+          <div class="bot-body">
+            <div class="bot-top"><span class="bot-name">${esc(bot.name)}</span><span class="bot-role">${esc(bot.role)}</span></div>
+            <div class="bot-task ${task ? '' : 'idle'}">${esc(taskText)}</div>
+            <div class="bot-meta">
+              <span class="badge ${key}">${statusLabel(key)}</span>
+              ${task ? `<span class="tool">${esc(tool)}</span><span>${step}</span>` : ''}
+              <span class="grow"></span>
+              ${task ? `<span>${fmtDuration(now() - task.startedAt)}</span>` : `<span>${bs.completed} done</span>`}
             </div>
-            <div class="activity-detail">${event.detail || ''}</div>
           </div>
-        `;
-      }).join('');
+          <button class="quick" data-quick="${bot.id}" aria-label="Give ${esc(bot.name)} a goal">${icon('plus')}</button>
+        </div>`;
+    }).join('');
+  }
+
+  // ============================================================
+  // RENDER: activity
+  // ============================================================
+  const PHASES = [
+    ['all', 'All'],
+    ['start', 'Started'],
+    ['tool', 'Tool steps'],
+    ['end', 'Finished'],
+    ['error', 'Errors'],
+    ['info', 'Notes']
+  ];
+  const PHASE_ICON = { start: 'start', tool: 'tool', end: 'flag', error: 'alert', info: 'send' };
+
+  function renderActivityFilters() {
+    $('#act-bot-filters').innerHTML =
+      `<button class="chip ${ui.actBot === 'all' ? 'active' : ''}" data-b="all">Everyone</button>` +
+      BOTS.map(b => `<button class="chip ${ui.actBot === b.id ? 'active' : ''}" data-b="${b.id}">
+        <span class="swatch" style="background:${b.color}"></span>${esc(b.name)}</button>`).join('');
+    $('#act-phase-filters').innerHTML = PHASES.map(([k, l]) =>
+      `<button class="chip ${ui.actPhase === k ? 'active' : ''}" data-p="${k}">${l}</button>`).join('');
+  }
+
+  let renderedEventIds = new Set();
+  function renderTimeline() {
+    const q = ui.actQuery.toLowerCase();
+    const items = state.events.slice().reverse().filter(ev => {
+      if (ui.actBot !== 'all' && ev.agent !== ui.actBot) return false;
+      if (ui.actPhase !== 'all' && ev.phase !== ui.actPhase) return false;
+      if (q && !(`${ev.detail} ${ev.tool || ''} ${BOT[ev.agent].name}`.toLowerCase().includes(q))) return false;
+      return true;
+    }).slice(0, 80);
+
+    if (!items.length) {
+      $('#timeline').innerHTML = `<div class="empty">${icon('activity')}Nothing here yet. Activity appears as the crew works.</div>`;
+      return;
     }
 
-    function addEvent(event) {
-      state.events.push({
-        ts: event.ts || new Date().toISOString(),
-        agent: event.agent,
-        phase: event.phase,
-        detail: event.detail || '',
-        tool: event.tool || null
-      });
-
-      // Keep only last 100 events
-      if (state.events.length > 100) {
-        state.events = state.events.slice(-100);
+    const groups = [];
+    let current = null;
+    items.forEach(ev => {
+      const age = now() - ev.ts;
+      const label = age < 60000 ? 'Last minute' : age < 600000 ? 'Last 10 minutes' : age < 3600000 ? 'Last hour' : 'Earlier';
+      if (!current || current.label !== label) {
+        current = { label, items: [] };
+        groups.push(current);
       }
-
-      // Update bot state
-      const botState = state.bots[event.agent] || { status: 'idle', progress: 0, recentTools: [] };
-
-      if (event.phase === 'start') {
-        botState.status = 'working';
-        botState.progress = 0;
-        botState.currentGoal = event.detail || 'Working on task';
-      } else if (event.phase === 'tool') {
-        botState.status = 'working';
-        botState.progress = Math.min(90, botState.progress + 15);
-        if (event.tool) {
-          botState.recentTools.unshift(event.tool + ': ' + (event.detail || ''));
-          botState.recentTools = botState.recentTools.slice(0, 5);
-        }
-      } else if (event.phase === 'end') {
-        botState.status = 'done';
-        botState.progress = 100;
-        if (event.detail) {
-          botState.currentGoal = event.detail;
-        }
-      } else if (event.phase === 'error') {
-        botState.status = 'error';
-      }
-
-      state.bots[event.agent] = botState;
-      state.lastActivity = Date.now();
-
-      saveState();
-      renderBots();
-      renderActivity();
-    }
-
-    // ============================================
-    // GOAL DISPATCH
-    // ============================================
-    function populateBotSelect() {
-      cmdBotSelect.innerHTML = BOTS.map(bot => 
-        `<option value="${bot.id}">${bot.name} - ${bot.role}</option>`
-      ).join('');
-    }
-
-    function dispatchGoal(botId, goal) {
-      const bot = BOTS.find(b => b.id === botId);
-      if (!bot) return;
-
-      // Add start event
-      addEvent({
-        ts: new Date().toISOString(),
-        agent: botId,
-        phase: 'start',
-        detail: goal
-      });
-
-      // Store goal
-      state.goals[botId] = {
-        goal: goal,
-        dispatchedAt: Date.now()
-      };
-      saveState();
-
-      // Show success
-      cmdStatusEl.textContent = 'Goal dispatched to ' + bot.name;
-      cmdStatusEl.className = 'command-status visible success';
-
-      setTimeout(() => {
-        cmdStatusEl.classList.remove('visible');
-      }, 3000);
-    }
-
-    cmdDispatchBtn.addEventListener('click', () => {
-      const botId = cmdBotSelect.value;
-      const goal = cmdGoalInput.value.trim();
-
-      if (!goal) {
-        cmdStatusEl.textContent = 'Please enter a goal';
-        cmdStatusEl.className = 'command-status visible error';
-        return;
-      }
-
-      dispatchGoal(botId, goal);
-      cmdGoalInput.value = '';
+      current.items.push(ev);
     });
 
-    // ============================================
-    // SIMULATION ENGINE
-    // ============================================
-    const SIMULATION_SCRIPT = [
-      // Standup sequence
-      { agent: 'leader', phase: 'start', detail: 'Daily standup initiating' },
-      { agent: 'media', phase: 'start', detail: 'Joining standup' },
-      { agent: 'coder', phase: 'start', detail: 'Joining standup' },
-      { agent: 'tester', phase: 'start', detail: 'Joining standup' },
-      { agent: 'checker', phase: 'start', detail: 'Joining standup' },
-      { agent: 'explore', phase: 'start', detail: 'Joining standup' },
-      { agent: 'leader', phase: 'tool', tool: 'standup', detail: 'Reviewing sprint progress' },
-      { agent: 'coder', phase: 'tool', tool: 'report', detail: 'Completed auth module' },
-      { agent: 'tester', phase: 'tool', tool: 'report', detail: 'Tests passing' },
-      { agent: 'leader', phase: 'end', detail: 'Standup complete' },
+    const fresh = new Set();
+    $('#timeline').innerHTML = groups.map(g => `
+      <div class="group-label">${g.label}</div>
+      ${g.items.map(ev => {
+        const bot = BOT[ev.agent];
+        const isNew = !renderedEventIds.has(ev.id);
+        fresh.add(ev.id);
+        const color = ev.phase === 'error' ? '#ef4444' : bot.color;
+        return `
+          <button class="ev ${isNew ? 'new' : ''}" data-open="${ev.agent}" ${ev.runId ? `data-run="${ev.runId}"` : ''} style="--c:${color}">
+            <span class="ev-rail"><span class="ev-icon">${icon(PHASE_ICON[ev.phase] || 'tool')}</span></span>
+            <span class="ev-body">
+              <span class="ev-head"><b style="color:${bot.color}">${esc(bot.name)}</b><span style="color:var(--dim)">${esc(statusVerb(ev.phase))}</span><time title="${fmtClock(ev.ts)}">${relTime(ev.ts)}</time></span>
+              <span class="ev-detail" style="display:block">${esc(ev.detail)}</span>
+              ${ev.tool ? `<span class="ev-tool">${esc(ev.tool)}</span>` : ''}
+            </span>
+          </button>`;
+      }).join('')}`).join('');
+    renderedEventIds = fresh;
+  }
 
-      // Work sequence
-      { agent: 'coder', phase: 'start', detail: 'Implementing new feature' },
-      { agent: 'coder', phase: 'tool', tool: 'file_write', detail: 'Writing authentication handlers' },
-      { agent: 'coder', phase: 'tool', tool: 'git_commit', detail: 'Commit: Add OAuth integration' },
-      { agent: 'tester', phase: 'start', detail: 'Writing test cases' },
-      { agent: 'tester', phase: 'tool', tool: 'run_tests', detail: 'Running unit tests' },
-      { agent: 'tester', phase: 'tool', tool: 'test_write', detail: 'Adding edge cases' },
-      { agent: 'checker', phase: 'start', detail: 'Code review initiated' },
-      { agent: 'checker', phase: 'tool', tool: 'review_diff', detail: 'Reviewing auth module' },
-      { agent: 'checker', phase: 'tool', tool: 'comment', detail: 'Suggested improvements' },
-      { agent: 'coder', phase: 'end', detail: 'Feature implementation complete' },
-      { agent: 'tester', phase: 'end', detail: 'All tests passing' },
-      { agent: 'checker', phase: 'end', detail: 'Review approved' },
+  function statusVerb(phase) {
+    return { start: 'started', tool: 'step', end: 'finished', error: 'hit an error', info: 'note' }[phase] || phase;
+  }
 
-      // Media/Explore work
-      { agent: 'media', phase: 'start', detail: 'Creating marketing assets' },
-      { agent: 'media', phase: 'tool', tool: 'image_gen', detail: 'Generating hero image' },
-      { agent: 'media', phase: 'tool', tool: 'copy_write', detail: 'Writing landing page copy' },
-      { agent: 'media', phase: 'end', detail: 'Assets delivered' },
+  // ============================================================
+  // RENDER: dispatch
+  // ============================================================
+  function renderPicker() {
+    const allOn = ui.pickSet.size === BOTS.length;
+    $('#picker').innerHTML =
+      `<button class="pick all ${allOn ? 'on' : ''}" data-pick="all" aria-pressed="${allOn}">
+         <div class="avatar" style="--c:#6d7cff"><div class="face">${icon('bots')}</div><span class="check">${icon('check')}</span></div>Everyone
+       </button>` +
+      BOTS.map(b => {
+        const on = ui.pickSet.has(b.id);
+        return `<button class="pick ${on ? 'on' : ''}" data-pick="${b.id}" aria-pressed="${on}">
+          <div class="avatar" style="--c:${b.color}"><div class="face">${esc(b.name[0])}</div><span class="check">${icon('check')}</span></div>${esc(b.name)}
+        </button>`;
+      }).join('');
 
-      { agent: 'explore', phase: 'start', detail: 'Researching best practices' },
-      { agent: 'explore', phase: 'tool', tool: 'web_search', detail: 'Searching OAuth patterns' },
-      { agent: 'explore', phase: 'tool', tool: 'summarize', detail: 'Compiled research notes' },
-      { agent: 'explore', phase: 'end', detail: 'Research complete' },
+    const pool = ui.pickSet.size === 1 ? BOT[[...ui.pickSet][0]].templates : GLOBAL_TEMPLATES;
+    $('#templates').innerHTML = pool.map(t => `<button class="chip" data-tpl="${esc(t)}">${esc(t)}</button>`).join('');
+    updateDispatchButton();
+  }
 
-      // Leader wrap-up
-      { agent: 'leader', phase: 'tool', tool: 'sync', detail: 'Team sync complete' },
-      { agent: 'leader', phase: 'end', detail: 'Sprint goals achieved' }
-    ];
+  function updateDispatchButton() {
+    const text = $('#goal-input').value.trim();
+    const n = ui.pickSet.size;
+    $('#counter').textContent = `${$('#goal-input').value.length}/240`;
+    $('#dispatch-btn').disabled = !text || !n;
+    $('#dispatch-label').textContent = n > 1 ? `Dispatch to ${n} bots` : n === 1 ? `Dispatch to ${BOT[[...ui.pickSet][0]].name}` : 'Pick a bot';
+  }
 
-    let simIndex = 0;
-    let simTimer = null;
+  function renderQueue() {
+    const box = $('#queue');
+    if (!state.queue.length) {
+      box.innerHTML = `<div class="empty">${icon('send')}No goals yet. Dispatch one above.</div>`;
+      return;
+    }
+    box.innerHTML = state.queue.slice(0, 20).map(q => {
+      const ids = Object.keys(q.assignments);
+      const pct = goalProgress(q);
+      const color = ids.length === 1 ? BOT[ids[0]].color : '#8b5cf6';
+      const status = q.real ? realRunStatus(q) : q.status;
+      const badge = { queued: 'idle', running: 'working', done: 'done', cancelled: 'paused', error: 'error' }[status];
+      return `
+        <div class="queue-item ${q.real ? 'clickable' : ''}" ${q.real ? `data-run="${q.runId}"` : ''}>
+          <div style="display:flex;margin-right:2px">${ids.slice(0, 3).map((id, i) =>
+            `<span style="width:26px;height:26px;border-radius:50%;background:${BOT[id].color};border:2px solid var(--panel);margin-left:${i ? -8 : 0}px;display:grid;place-items:center;font:800 11px var(--sans);color:#fff">${esc(BOT[id].name[0])}</span>`).join('')}
+            ${ids.length > 3 ? `<span style="font:600 11px var(--mono);color:var(--muted);align-self:center;margin-left:4px">+${ids.length - 3}</span>` : ''}
+          </div>
+          <div class="q-body">
+            <div class="q-goal">${esc(q.goal)}</div>
+            <div class="q-meta"><span class="badge ${badge}">${status}</span>${q.real ? '<span style="color:var(--accent)">AI</span>' : ''}${q.priority === 'high' ? '<span class="prio-high">● high</span>' : q.priority === 'low' ? '<span>low</span>' : ''}<span>${relTime(q.createdAt)}</span></div>
+            <div class="q-bar" style="--c:${color}"><i style="width:${(pct * 100).toFixed(0)}%"></i></div>
+          </div>
+          ${q.real ? `<button class="q-view" data-run="${q.runId}">${status === 'running' ? 'Live' : 'View'}</button>` : ''}
+          ${status === 'queued' || status === 'running' ? `<button class="quick" data-cancel="${q.id}" aria-label="Cancel goal">${icon('x')}</button>` : ''}
+        </div>`;
+    }).join('');
+  }
 
-    function runSimulation() {
-      if (simIndex >= SIMULATION_SCRIPT.length) {
-        // Loop back
-        simIndex = 0;
-        // Reset bot states for fresh loop
-        BOTS.forEach(bot => {
-          state.bots[bot.id] = { status: 'idle', progress: 0, currentGoal: null, recentTools: [] };
-        });
-        state.events = [];
-        saveState();
-        renderBots();
-        renderActivity();
+  function cancelGoal(goalId) {
+    const q = state.queue.find(item => item.id === goalId);
+    if (!q) return;
+    if (q.real) {
+      CrewEngine.stop(q.runId);
+      return;
+    }
+    Object.keys(q.assignments).forEach(id => {
+      const bs = state.bots[id];
+      if (bs.task && bs.task.goalId === goalId) {
+        cancelTask(id);
       }
+      if (q.assignments[id] !== 'done') q.assignments[id] = 'cancelled';
+    });
+    q.status = 'cancelled';
+    save();
+  }
 
-      const step = SIMULATION_SCRIPT[simIndex];
-      addEvent(step);
-      simIndex++;
+  // ============================================================
+  // RENDER: bot sheet
+  // ============================================================
+  function renderSheet() {
+    const id = ui.sheetBot;
+    if (!id) return;
+    const bot = BOT[id];
+    const bs = state.bots[id];
+    const key = botStatusKey(bs);
+    const task = bs.task;
+    const avg = bs.completed ? fmtDuration(bs.totalMs / bs.completed) : '—';
+    const recent = state.events.filter(e => e.agent === id).slice(-6).reverse();
+    const focused = document.activeElement && document.activeElement.id === 'sheet-goal';
+    const draft = focused ? null : ($('#sheet-goal')?.value || '');
 
-      // Variable delay for natural feel
-      const delay = 1500 + Math.random() * 2000;
-      simTimer = setTimeout(runSimulation, delay);
+    if (focused) {
+      // Don't rebuild the composer while the user is typing; refresh only live parts.
+      const live = $('#sheet-live');
+      if (live) live.innerHTML = sheetLive();
+      return;
     }
 
-    // ============================================
-    // INITIALIZATION
-    // ============================================
-    function init() {
-      renderBots();
-      renderActivity();
-      populateBotSelect();
+    $('#sheet-body').innerHTML = `
+      <div class="sheet-head" style="--c:${bot.color}">
+        ${avatarHtml(bot, botPct(bs))}
+        <div style="flex:1;min-width:0">
+          <div class="sheet-title" id="sheet-title">${esc(bot.name)}</div>
+          <div class="sheet-sub">${esc(bot.role)}</div>
+          <div style="margin-top:8px"><span class="badge ${key}">${statusLabel(key)}</span></div>
+        </div>
+        <button class="icon-btn" data-close aria-label="Close">${icon('x')}</button>
+      </div>
+      <div id="sheet-live">${sheetLive()}</div>
+      <div class="section-title"><span>Give a goal</span></div>
+      <div class="card composer">
+        <textarea id="sheet-goal" maxlength="240" placeholder="Ask ${esc(bot.name)} to…"></textarea>
+        <div class="chips" style="margin-top:10px">${bot.templates.map(t => `<button class="chip" data-stpl="${esc(t)}">${esc(t)}</button>`).join('')}</div>
+        <button class="btn btn-primary" id="sheet-send">${icon('send')}Send to ${esc(bot.name)}</button>
+      </div>
+      <div class="section-title"><span>Recent</span><button class="link" data-see-all="${id}">See all</button></div>
+      <div class="card" style="padding:4px 0">${recent.length ? recent.map(ev => `
+        <div class="step" style="padding:10px 14px;border-top:0">
+          <span class="ev-icon" style="--c:${ev.phase === 'error' ? '#ef4444' : bot.color};width:24px;height:24px">${icon(PHASE_ICON[ev.phase] || 'tool')}</span>
+          <span style="flex:1;min-width:0;color:var(--text);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(ev.detail)}</span>
+          <code>${relTime(ev.ts)}</code>
+        </div>`).join('') : '<div class="empty" style="padding:18px">No activity yet.</div>'}
+      </div>`;
+    if (draft) $('#sheet-goal').value = draft;
+  }
 
-      // Update header status
-      document.getElementById('header-status-text').textContent = 'SIM';
+  function sheetLive() {
+    const id = ui.sheetBot;
+    const bot = BOT[id];
+    const bs = state.bots[id];
+    const task = bs.task;
+    const avg = bs.completed ? fmtDuration(bs.totalMs / bs.completed) : '—';
+    const steps = task ? task.steps.map((s, i) => {
+      let cls = '';
+      let mark = '';
+      if (i < task.stepIndex) {
+        cls = 'done';
+        mark = icon('check');
+      } else if (i === task.stepIndex) {
+        cls = task.failed ? 'failed' : (bs.paused ? '' : 'active');
+        mark = task.failed ? icon('x') : '';
+      }
+      return `<div class="step ${cls}" style="--c:${bot.color}"><span class="mark">${mark}</span>${esc(describeStep(id, s, '').replace(/ — $/, ''))}<code>${esc(s)}</code></div>`;
+    }).join('') : '';
 
-      // Start simulation after 1 second
-      setTimeout(runSimulation, 1000);
+    return `
+      <div class="stat-grid">
+        <div class="stat"><b>${bs.completed}</b><span>Done</span></div>
+        <div class="stat"><b>${avg}</b><span>Avg time</span></div>
+        <div class="stat"><b style="color:${bs.errors ? 'var(--red)' : 'inherit'}">${bs.errors}</b><span>Errors</span></div>
+      </div>
+      <div class="actions">
+        ${task && task.real ? `<button class="btn btn-primary btn-sm" style="margin:0;width:auto" data-act="view">${icon('activity')}Watch live</button>` : `<button class="btn btn-ghost btn-sm" data-act="pause">${icon(bs.paused ? 'play' : 'pause')}${bs.paused ? 'Resume' : 'Pause'}</button>`}
+        ${bs.status === 'error' ? `<button class="btn btn-ghost btn-sm" data-act="retry" style="color:var(--amber)">${icon('retry')}Retry</button>` : ''}
+        ${task ? `<button class="btn btn-danger btn-sm" data-act="cancel">${icon('x')}Cancel</button>` : `<button class="btn btn-ghost btn-sm" data-act="wake">${icon('start')}Start work</button>`}
+      </div>
+      <div class="section-title"><span>Current task</span>${task ? `<span style="text-transform:none;letter-spacing:0;font:500 12px var(--mono)">${fmtDuration(now() - task.startedAt)}</span>` : ''}</div>
+      <div class="card">
+        <div class="goal-box">${task ? esc(task.title) : `<span class="muted">No active task — ${esc(bot.name)} is free.</span>`}</div>
+        ${task ? `<div class="steps" style="border-top:1px solid var(--line)">${steps}</div>` : ''}
+      </div>`;
+  }
 
-      // Persist state periodically
-      setInterval(saveState, 5000);
-    }
+  // ============================================================
+  // SHEET open/close + drag-to-dismiss
+  // ============================================================
+  function openSheet(botId) {
+    ui.sheetBot = botId;
+    $('#sheet-body').innerHTML = '';
+    renderSheet();
+    $('#sheet').classList.add('open');
+    $('#backdrop').classList.add('open');
+    haptic(8);
+  }
 
-    init();
+  function closeSheet() {
+    ui.sheetBot = null;
+    $('#sheet').classList.remove('open');
+    $('#backdrop').classList.remove('open');
+    $('#sheet').style.transform = '';
+  }
+
+  (function setupDrag() {
+    const sheet = $('#sheet');
+    let startY = null;
+    let dy = 0;
+    $('#grabber').addEventListener('pointerdown', e => {
+      startY = e.clientY;
+      dy = 0;
+      sheet.classList.add('dragging');
+      e.target.setPointerCapture(e.pointerId);
+    });
+    $('#grabber').addEventListener('pointermove', e => {
+      if (startY === null) return;
+      dy = Math.max(0, e.clientY - startY);
+      sheet.style.transform = `translateY(${dy}px)`;
+    });
+    const end = () => {
+      if (startY === null) return;
+      sheet.classList.remove('dragging');
+      startY = null;
+      if (dy > 110) {
+        closeSheet();
+      } else {
+        sheet.style.transform = '';
+      }
+    };
+    $('#grabber').addEventListener('pointerup', end);
+    $('#grabber').addEventListener('pointercancel', end);
   })();
-  </script>
-  <!--
-    SECTIONS:
-    1. Theme tokens - Midnight dark theme (exact match to desktop index.html)
-    2. Mobile layout - Fixed bottom tab bar, safe-area support, 44px+ tap targets
-    3. Bots tab - Roster grid with avatar, status, progress bar, detail panel
-    4. Activity tab - Reverse-chronological event feed with phase badges
-    5. Command tab - Bot selector, goal input, dispatch button
-    6. About tab - Description with persistent "Simulation mode" badge
-    7. State management - localStorage persistence under virtual-bots-mobile-v1
-    8. Simulation engine - Scripted event emitter driving bot statuses
-  -->
+
+  // ============================================================
+  // NAVIGATION
+  // ============================================================
+  function showView(view) {
+    state.view = view;
+    $$('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + view));
+    $$('.tab').forEach(t => {
+      const on = t.dataset.view === view;
+      t.classList.toggle('active', on);
+      t.setAttribute('aria-selected', on);
+    });
+    if (view === 'activity') {
+      state.seenEvents = state.events.length;
+    }
+    window.scrollTo({ top: 0 });
+    render();
+    save();
+  }
+
+  function renderBadges() {
+    const unread = Math.max(0, state.events.length - state.seenEvents);
+    const a = $('#badge-activity');
+    a.textContent = unread > 99 ? '99+' : unread;
+    a.classList.toggle('show', unread > 0 && state.view !== 'activity');
+    const active = state.queue.filter(q => {
+      const s = q.real ? realRunStatus(q) : q.status;
+      return s === 'queued' || s === 'running';
+    }).length;
+    const b = $('#badge-queue');
+    b.textContent = active;
+    b.classList.toggle('show', active > 0);
+  }
+
+  function renderSettings() {
+    const set = (id, on) => $(id).setAttribute('aria-checked', on ? 'true' : 'false');
+    set('#sw-sim', state.settings.sim);
+    set('#sw-auto', state.settings.auto);
+    set('#sw-theme', state.settings.theme === 'light');
+    set('#sw-haptics', state.settings.haptics);
+    set('#sw-toasts', state.settings.toasts);
+    $$('#speed button').forEach(b => b.classList.toggle('on', Number(b.dataset.v) === state.settings.speed));
+  }
+
+  function applyTheme() {
+    document.documentElement.dataset.theme = state.settings.theme;
+    $('meta[name="theme-color"]').setAttribute('content', state.settings.theme === 'light' ? '#f4f6fb' : '#0a0e14');
+  }
+
+  function render() {
+    renderHeader();
+    renderBadges();
+    if (state.view === 'crew') {
+      renderOverview();
+      renderCrewFilters();
+      renderBots();
+    } else if (state.view === 'activity') {
+      renderTimeline();
+    } else if (state.view === 'dispatch') {
+      renderQueue();
+    }
+    if (ui.sheetBot) renderSheet();
+  }
+
+  // ============================================================
+  // INPUT WIRING
+  // ============================================================
+  function wire() {
+    $$('.tab').forEach(t => t.addEventListener('click', () => {
+      haptic(5);
+      showView(t.dataset.view);
+    }));
+
+    $('#pause-btn').addEventListener('click', () => {
+      state.settings.sim = !state.settings.sim;
+      notify(state.settings.sim ? 'Simulation resumed' : 'Simulation paused', state.settings.sim ? '#10b981' : '#f59e0b', { force: true, duration: 1600 });
+      renderSettings();
+      render();
+      save();
+    });
+
+    $('#crew-filters').addEventListener('click', e => {
+      const chip = e.target.closest('[data-f]');
+      if (!chip) return;
+      ui.crewFilter = chip.dataset.f;
+      render();
+    });
+
+    $('#bots').addEventListener('click', e => {
+      const quick = e.target.closest('[data-quick]');
+      if (quick) {
+        e.stopPropagation();
+        ui.pickSet = new Set([quick.dataset.quick]);
+        renderPicker();
+        showView('dispatch');
+        setTimeout(() => $('#goal-input').focus(), 60);
+        return;
+      }
+      const card = e.target.closest('.bot');
+      if (card) openSheet(card.dataset.id);
+    });
+    $('#bots').addEventListener('keydown', e => {
+      const card = e.target.closest('.bot');
+      if (card && (e.key === 'Enter' || e.key === ' ')) {
+        e.preventDefault();
+        openSheet(card.dataset.id);
+      }
+    });
+
+    $('#wake-all').addEventListener('click', () => {
+      let woke = 0;
+      BOTS.forEach(b => {
+        const bs = state.bots[b.id];
+        if ((bs.status === 'idle' || bs.status === 'done') && !bs.paused) {
+          startTask(b.id, pick(b.autoTasks));
+          woke++;
+        }
+      });
+      notify(woke ? `Woke ${woke} bot${woke > 1 ? 's' : ''}` : 'Everyone is already busy', '#10b981', { force: true, duration: 1800 });
+      render();
+    });
+
+    // Activity filters
+    $('#act-bot-filters').addEventListener('click', e => {
+      const chip = e.target.closest('[data-b]');
+      if (!chip) return;
+      ui.actBot = chip.dataset.b;
+      renderActivityFilters();
+      renderTimeline();
+    });
+    $('#act-phase-filters').addEventListener('click', e => {
+      const chip = e.target.closest('[data-p]');
+      if (!chip) return;
+      ui.actPhase = chip.dataset.p;
+      renderActivityFilters();
+      renderTimeline();
+    });
+    $('#act-search').addEventListener('input', e => {
+      ui.actQuery = e.target.value.trim();
+      renderTimeline();
+    });
+    $('#timeline').addEventListener('click', e => {
+      const ev = e.target.closest('[data-open]');
+      if (!ev) return;
+      if (ev.dataset.run && window.CrewEngine && CrewEngine.getRun(ev.dataset.run)) {
+        CrewEngine.openRun(ev.dataset.run);
+      } else {
+        openSheet(ev.dataset.open);
+      }
+    });
+
+    // Dispatch
+    $('#picker').addEventListener('click', e => {
+      const p = e.target.closest('[data-pick]');
+      if (!p) return;
+      haptic(5);
+      const id = p.dataset.pick;
+      if (id === 'all') {
+        ui.pickSet = ui.pickSet.size === BOTS.length ? new Set() : new Set(BOTS.map(b => b.id));
+      } else if (ui.pickSet.has(id)) {
+        ui.pickSet.delete(id);
+      } else {
+        ui.pickSet.add(id);
+      }
+      renderPicker();
+    });
+    $('#templates').addEventListener('click', e => {
+      const t = e.target.closest('[data-tpl]');
+      if (!t) return;
+      $('#goal-input').value = t.dataset.tpl;
+      updateDispatchButton();
+      $('#goal-input').focus();
+    });
+    $('#goal-input').addEventListener('input', updateDispatchButton);
+    $('#goal-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) $('#dispatch-btn').click();
+    });
+    $('#priority').addEventListener('click', e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      ui.priority = b.dataset.v;
+      $$('#priority button').forEach(x => x.classList.toggle('on', x === b));
+    });
+    $('#dispatch-btn').addEventListener('click', () => {
+      const goal = $('#goal-input').value.trim();
+      if (!goal || !ui.pickSet.size) return;
+      const ids = [...ui.pickSet];
+      const q = dispatch(ids, goal, ui.priority);
+      $('#goal-input').value = '';
+      updateDispatchButton();
+      haptic(12);
+      if (q.real) {
+        CrewEngine.openRun(q.runId);
+      } else {
+        notify(`Dispatched to ${ids.length > 1 ? ids.length + ' bots' : BOT[ids[0]].name}`, ids.length === 1 ? BOT[ids[0]].color : '#8b5cf6', { force: true });
+      }
+      render();
+    });
+    $('#queue').addEventListener('click', e => {
+      const c = e.target.closest('[data-cancel]');
+      if (!c) {
+        const r = e.target.closest('[data-run]');
+        if (r) CrewEngine.openRun(r.dataset.run);
+        return;
+      }
+      cancelGoal(c.dataset.cancel);
+      notify('Goal cancelled', '#ef4444', { force: true, duration: 1600 });
+      render();
+    });
+    $('#open-history').addEventListener('click', () => CrewEngine.openHistory());
+    $('#ai-configure').addEventListener('click', () => CrewEngine.openSettings());
+    $('#ai-history').addEventListener('click', () => CrewEngine.openHistory());
+    $('#ai-hint').addEventListener('click', e => {
+      if (e.target.closest('button')) CrewEngine.openSettings();
+    });
+    $('#ex-prompts').addEventListener('click', e => {
+      const b = e.target.closest('[data-ex]');
+      if (!b) return;
+      const ex = EXAMPLES[Number(b.dataset.ex)];
+      ui.pickSet = new Set(ex.bots);
+      renderPicker();
+      $('#goal-input').value = ex.goal;
+      updateDispatchButton();
+      $('#goal-input').focus();
+    });
+
+    $('#clear-finished').addEventListener('click', () => {
+      state.queue = state.queue.filter(q => (q.real ? realRunStatus(q) : q.status) === 'queued' || (q.real ? realRunStatus(q) : q.status) === 'running');
+      save();
+      render();
+    });
+
+    // Sheet
+    $('#backdrop').addEventListener('click', closeSheet);
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && ui.sheetBot) closeSheet();
+    });
+    $('#sheet-body').addEventListener('click', e => {
+      const id = ui.sheetBot;
+      if (!id) return;
+      if (e.target.closest('[data-close]')) {
+        closeSheet();
+        return;
+      }
+      const act = e.target.closest('[data-act]');
+      if (act) {
+        haptic(8);
+        const a = act.dataset.act;
+        const bsNow = state.bots[id];
+        if (a === 'view' && bsNow.task?.real) {
+          closeSheet();
+          CrewEngine.openRun(bsNow.task.runId);
+          return;
+        }
+        if (a === 'cancel' && bsNow.task?.real) {
+          CrewEngine.stop(bsNow.task.runId);
+          return;
+        }
+        if (a === 'pause') togglePauseBot(id);
+        if (a === 'retry') retry(id);
+        if (a === 'cancel') cancelTask(id);
+        if (a === 'wake') startTask(id, pick(BOT[id].autoTasks));
+        save();
+        render();
+        return;
+      }
+      const tpl = e.target.closest('[data-stpl]');
+      if (tpl) {
+        $('#sheet-goal').value = tpl.dataset.stpl;
+        $('#sheet-goal').focus();
+        return;
+      }
+      const all = e.target.closest('[data-see-all]');
+      if (all) {
+        ui.actBot = all.dataset.seeAll;
+        closeSheet();
+        renderActivityFilters();
+        showView('activity');
+        return;
+      }
+      if (e.target.closest('#sheet-send')) {
+        const goal = $('#sheet-goal').value.trim();
+        if (!goal) {
+          $('#sheet-goal').focus();
+          return;
+        }
+        const q = dispatch([id], goal, 'normal');
+        $('#sheet-goal').value = '';
+        $('#sheet-goal').blur();
+        haptic(12);
+        if (q.real) {
+          closeSheet();
+          CrewEngine.openRun(q.runId);
+        } else {
+          notify(`Sent to ${BOT[id].name}`, BOT[id].color, { force: true });
+        }
+        render();
+      }
+    });
+
+    // Settings
+    const toggle = (sel, fn) => $(sel).addEventListener('click', () => {
+      fn();
+      haptic(5);
+      renderSettings();
+      render();
+      save();
+    });
+    toggle('#sw-sim', () => { state.settings.sim = !state.settings.sim; });
+    toggle('#sw-auto', () => { state.settings.auto = !state.settings.auto; });
+    toggle('#sw-haptics', () => { state.settings.haptics = !state.settings.haptics; });
+    toggle('#sw-toasts', () => { state.settings.toasts = !state.settings.toasts; });
+    toggle('#sw-theme', () => {
+      state.settings.theme = state.settings.theme === 'light' ? 'dark' : 'light';
+      applyTheme();
+    });
+    $('#speed').addEventListener('click', e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      state.settings.speed = Number(b.dataset.v);
+      renderSettings();
+      render();
+      save();
+    });
+    $('#reset-btn').addEventListener('click', () => {
+      if (!confirm('Reset all bots, activity and goals?')) return;
+      localStorage.removeItem(STORAGE_KEY);
+      state = structuredClone(defaults);
+      applyTheme();
+      renderSettings();
+      renderActivityFilters();
+      renderPicker();
+      seed();
+      render();
+      notify('Fresh start', '#10b981', { force: true });
+    });
+
+    window.addEventListener('resize', () => drawSpark());
+    document.addEventListener('visibilitychange', () => {
+      lastTick = now();
+    });
+  }
+
+  // ============================================================
+  // REAL AI BRIDGE: engine events drive the crew cards + activity feed
+  // ============================================================
+  const EXAMPLES = [
+    { bots: ['explore'], goal: 'What are the 3 best budget 3D printers right now? Compare price and print volume.', label: 'Research with live web sources' },
+    { bots: ['coder'], goal: 'Calculate the monthly payment and total interest for a $25,000 loan at 6.5% over 5 years, with an amortization summary per year.', label: 'Real code, actually executed' },
+    { bots: ['media'], goal: 'Design a minimalist SVG logo for a coffee shop called "Orbit Brew".', label: 'Graphic you can download' },
+    { bots: BOTS.map(b => b.id), goal: 'Plan a 3-day trip to Singapore on a mid-range budget with daily itinerary and estimated costs.', label: 'Whole crew: plan, research, review' }
+  ];
+
+  function renderAiHint() {
+    if (!window.CrewEngine) return;
+    const s = CrewEngine.getSettings();
+    $('#ai-hint').innerHTML = s.realMode
+      ? `<span class="dot"></span>Real AI · ${esc(CrewEngine.providerLabel())}<button>Change</button>`
+      : `<span class="dot" style="background:var(--amber)"></span>Demo mode (no real results)<button>Turn on AI</button>`;
+    $('#ai-provider-label').textContent = s.realMode ? CrewEngine.providerLabel() : 'Off — demo simulation only';
+    $('#ex-prompts').innerHTML = s.realMode
+      ? '<span class="field-label" style="margin-top:8px">Try</span>' + EXAMPLES.map((ex, i) =>
+          `<button data-ex="${i}"><b>${esc(ex.label)}</b><br>${esc(ex.goal)}</button>`).join('')
+      : '';
+  }
+
+  function goalIdForRun(runId) {
+    return state.queue.find(q => q.runId === runId)?.id || null;
+  }
+
+  function onRealBotEvent(ev) {
+    const bs = state.bots[ev.agent];
+    if (!bs) return;
+    const goalId = goalIdForRun(ev.runId);
+    const ensureTask = title => {
+      if (!bs.task || !bs.task.real || bs.task.runId !== ev.runId) {
+        bs.task = { id: uid(), title, steps: ['thinking'], stepIndex: 0, startedAt: now(), real: true, runId: ev.runId, goalId };
+      }
+      bs.status = 'working';
+      bs.paused = false;
+      bs.lastChange = now();
+    };
+    if (ev.phase === 'start') {
+      bs.task = null;
+      ensureTask(ev.detail);
+      emit(ev.agent, 'start', ev.detail, null, { goalId, runId: ev.runId });
+    } else if (ev.phase === 'tool') {
+      ensureTask(ev.detail);
+      const tool = ev.tool || 'llm';
+      if (bs.task.steps[bs.task.steps.length - 1] !== tool) bs.task.steps.push(tool);
+      bs.task.stepIndex = bs.task.steps.length - 1;
+      emit(ev.agent, 'tool', ev.detail, tool, { goalId, runId: ev.runId });
+    } else if (ev.phase === 'end') {
+      if (bs.task && bs.task.real) {
+        bs.completed++;
+        bs.totalMs += now() - bs.task.startedAt;
+      }
+      bs.task = null;
+      bs.status = 'done';
+      bs.lastChange = now();
+      emit(ev.agent, 'end', ev.detail, null, { goalId, runId: ev.runId });
+    } else if (ev.phase === 'error') {
+      bs.errors++;
+      emit(ev.agent, 'error', ev.detail, ev.tool, { goalId, runId: ev.runId });
+    }
+    render();
+  }
+
+  function onRealRunFinished(run) {
+    BOTS.forEach(b => {
+      const bs = state.bots[b.id];
+      if (bs.task && bs.task.real && bs.task.runId === run.id) {
+        bs.task = null;
+        bs.status = 'idle';
+        bs.lastChange = now();
+      }
+    });
+    const viewing = document.querySelector('.crx-drawer.open');
+    if (run.status === 'done') {
+      haptic([20, 40, 20]);
+      if (!viewing) {
+        notify(`Result ready: ${run.goal}`, '#10b981', {
+          force: true,
+          celebrate: true,
+          duration: 7000,
+          action: { label: 'View', run: () => CrewEngine.openRun(run.id) }
+        });
+      } else {
+        confetti();
+      }
+    } else if (run.status === 'error') {
+      notify(`Couldn't finish: ${run.error || 'error'}`, '#ef4444', {
+        force: true,
+        duration: 7000,
+        action: { label: 'View', run: () => CrewEngine.openRun(run.id) }
+      });
+    }
+    save();
+    render();
+  }
+
+  let queueRenderPending = false;
+  function onRealRunChanged() {
+    if (queueRenderPending) return;
+    queueRenderPending = true;
+    setTimeout(() => {
+      queueRenderPending = false;
+      if (state.view === 'dispatch') renderQueue();
+      renderBadges();
+    }, 400);
+  }
+
+  if (window.CrewEngine) {
+    CrewEngine.on('bot', onRealBotEvent);
+    CrewEngine.on('finished', onRealRunFinished);
+    CrewEngine.on('run', onRealRunChanged);
+    CrewEngine.on('settings', () => {
+      renderAiHint();
+      render();
+    });
+    // Real tasks can't survive a reload; free those bots.
+    BOTS.forEach(b => {
+      const bs = state.bots[b.id];
+      if (bs.task && bs.task.real) {
+        bs.task = null;
+        bs.status = 'idle';
+      }
+    });
+  }
+
+  // First-run: give the office some life so it never opens empty.
+  function seed() {
+    if (state.events.length) return;
+    ['leader', 'coder', 'explore'].forEach(id => startTask(id, pick(BOT[id].autoTasks)));
+  }
+
+  // ============================================================
+  // BOOT
+  // ============================================================
+  document.title = BRAND + ' — Mobile';
+  $$('[data-brand]').forEach(el => { el.textContent = BRAND; });
+  applyTheme();
+  wire();
+  renderSettings();
+  renderActivityFilters();
+  renderPicker();
+  renderAiHint();
+  seed();
+  showView(state.view || 'crew');
+  setInterval(tick, 500);
+  // Relative timestamps / timers refresh even when paused.
+  setInterval(() => {
+    if (!state.settings.sim) render();
+  }, 1000);
+
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+})();
+</script>
 </body>
 </html>
