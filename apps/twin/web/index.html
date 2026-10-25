@@ -13,8 +13,8 @@
 <link rel="manifest" href="manifest.webmanifest">
 <title>Twin — invest &amp; day-trade with 10,000 replays</title>
 <meta name="description" content="Twin: a personality-matched investing and day-trading companion. Paper trading, 10,000-future goal planner, copy a famous investor's 13F, news feed and the day-trader-skill Time Machine.">
-<script src="theme.js?v=1.2.0"></script>
-<link rel="stylesheet" href="theme.css?v=1.2.0">
+<script src="theme.js?v=1.3.0"></script>
+<link rel="stylesheet" href="theme.css?v=1.3.0">
 <style>
   :root {
     --bg: #0b0f14;
@@ -99,7 +99,7 @@
   }
   nav.tabs button {
     background: none; border: 0; color: var(--muted); font-size: 11px; font-weight: 600;
-    display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 10px; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 4px; cursor: pointer; flex: 1;
   }
   nav.tabs button .ic { font-size: 22px; line-height: 1; filter: grayscale(1) opacity(.7); }
   nav.tabs button.on { color: var(--text); }
@@ -218,7 +218,11 @@
 <div class="sheet" id="sheet" inert aria-hidden="true"></div>
 <div class="toast" id="toast"></div>
 
-<script src="demo.js?v=1.2.0"></script>
+<script src="demo.js?v=1.3.0"></script>
+<script src="pro.js?v=1.3.0"></script>
+<script src="pro-ui.js?v=1.3.0"></script>
+<script src="broker-ui.js?v=1.3.0"></script>
+<script src="academy.js?v=1.3.0"></script>
 <script>
 "use strict";
 
@@ -397,6 +401,9 @@ function setGuestActive(active) {
 }
 
 async function startGuest(reset = false) {
+  if (reset) {
+    proClearGuest();
+  }
   const result = await window.TwinDemo.guest(reset ? "api/guest/reset" : "api/guest/start");
   if (!result.ok) {
     toast(result.error || "Could not start the guest preview.");
@@ -416,6 +423,7 @@ async function leaveGuest() {
     return;
   }
   await window.TwinDemo.guest("api/logout");
+  proClearGuest();
   clearPrivateState();
   GUEST = false;
   setGuestActive(false);
@@ -450,7 +458,9 @@ window.addEventListener("resize", () => requestAnimationFrame(redrawCharts));
 
 function prepCanvas(canvas, height) {
   const ratio = window.devicePixelRatio || 1;
-  const width = canvas.clientWidth || canvas.parentElement.clientWidth || 320;
+  // A deferred draw can land after the user navigated away and the canvas was detached.
+  const parentWidth = canvas.parentElement ? canvas.parentElement.clientWidth : 0;
+  const width = canvas.clientWidth || parentWidth || 320;
   canvas.width = width * ratio;
   canvas.height = height * ratio;
   canvas.style.height = height + "px";
@@ -637,7 +647,9 @@ function histogram(canvas, hist, plan, height = 170) {
    Sheets (bottom modals)
    ========================================================================= */
 let sheetPreviousFocus = null;
+let sheetToken = 0;
 function openSheet(...content) {
+  const token = ++sheetToken;
   sheetPreviousFocus = document.activeElement;
   const sheet = $("#sheet");
   sheet.innerHTML = "";
@@ -651,11 +663,18 @@ function openSheet(...content) {
   sheet.setAttribute("aria-hidden", "false");
   sheet.scrollTop = 0;
   $("#sheetBg").classList.add("show");
-  requestAnimationFrame(() => { sheet.classList.add("show"); sheet.focus(); });
+  // A close that happens before this frame (fast submit, throttled frame) must win.
+  requestAnimationFrame(() => {
+    if (token === sheetToken) {
+      sheet.classList.add("show");
+      sheet.focus();
+    }
+  });
   return sheet;
 }
 
 function closeSheet() {
+  sheetToken += 1;
   $("#sheet").classList.remove("show");
   $("#sheet").inert = true;
   $("#sheet").setAttribute("aria-hidden", "true");
@@ -841,6 +860,27 @@ const GUIDE = [
     ],
   },
   {
+    id: "real", icon: "🏦", title: "Real trading with Alpaca",
+    body: [
+      ["p", "Twin can send real orders to your own Alpaca brokerage account (US stocks and ETFs). Alpaca holds your money and executes orders; Twin is not a broker and gives no advice."],
+      ["p", "It only works with Twin running on your computer. The public web/guest app never asks for keys. Create API keys in Alpaca's dashboard, then open Me → Real trading."],
+      ["p", "Start with Alpaca paper (fake money, real prices). Live mode needs your Twin password and typing REAL MONEY, has a $1,000 per-order cap by default (you can change it), and allows 3 live orders a day unless your trading limits say otherwise."],
+      ["p", "Every order is checked by Twin's server first (cash, cap, no short selling, valid prices), then shown for review. Live orders wait 3 seconds before you can confirm. The preview is single-use, so a double tap can't send two orders."],
+      ["p", "Keys are stored on your computer in Twin's data folder (owner-only file, not encrypted). Disconnect deletes them. Anyone who can sign in to your Twin account on your Wi-Fi could trade, so use a strong password."],
+      ["p", "Fast markets can fill stops and market orders worse than expected. Only trade money you can afford to lose."],
+    ],
+  },
+  {
+    id: "replay", icon: "⏪", title: "Replay Lab & order types",
+    body: [
+      ["p", "Replay Lab sends you back 3, 6 or 9 months with practice cash. Prices move one trading day at a time and future prices stay hidden."],
+      ["p", "Market buys or sells now. Limit: buy at or below / sell at or above your price. Stop: becomes a market order once the price crosses it. Stop-limit: once crossed, becomes a limit order. Trailing stop: follows the price by a set % and fires on a pullback (sell) or bounce (buy)."],
+      ["p", "Bracket: add a take-profit and a stop-loss to a buy. When one fills, the other is cancelled. The ticket shows your max loss and reward : risk before you place it."],
+      ["p", "Replay orders are checked once per day at the close. There are no intraday highs/lows, gaps, fees or partial fills, so real results can be worse."],
+      ["p", "Your score compares you with simply buying and holding SPY over the same days."],
+    ],
+  },
+  {
     id: "trade", icon: "⚡", title: "The day-trade checklist",
     body: [
       ["ol", [
@@ -877,7 +917,7 @@ const GUIDE = [
     id: "safety", icon: "🛡️", title: "Safety & going real",
     body: [
       ["ul", [
-        "Twin never places real orders and never asks for broker passwords.",
+        "Practice is the default. Real orders only go through your own Alpaca account on Twin running on your computer, after a preview you confirm. Never paste broker keys into a public website, and Twin never asks for your broker password.",
         "Prices are free delayed quotes — check your broker before acting.",
         "Most new day traders lose money. Prove a strategy on paper first, with a written plan.",
         "US margin accounts can be limited by pattern-day-trader rules; check your broker's current rules before day trading.",
@@ -895,6 +935,7 @@ const state = {
   tab: "home",
   investView: "portfolio",
   tradeMode: "demo",
+  tradeView: "checklist",
   tradeSymbol: "TSLA",
   tradeResults: {},
   newsFilter: "ALL",
@@ -907,7 +948,7 @@ function clearPrivateState() {
   authEpoch += 1;
   Object.assign(state, {
     profile: null, paper: null, quotes: {}, newsCache: null, newsFilter: "ALL",
-    tradeResults: {}, tradeMode: "demo", tradeSymbol: "TSLA", tradeBusy: false,
+    tradeResults: {}, tradeMode: "demo", tradeView: "checklist", tradeSymbol: "TSLA", tradeBusy: false,
     investView: "portfolio", tab: "home", goalPrefill: null,
   });
   closeSheet();
@@ -918,6 +959,7 @@ const TABS = [
   ["home", "🏠", "Home"],
   ["invest", "📈", "Invest"],
   ["trade", "⚡", "Trade"],
+  ["learn", "🎓", "Learn"],
   ["news", "📰", "News"],
   ["me", "👤", "Me"],
 ];
@@ -934,6 +976,20 @@ async function boot() {
   }
   if (resumeGuest) {
     DEMO = location.hostname.endsWith(".github.io") || readPreference("tt-runtime-mode") === "demo";
+    await startGuest();
+    return;
+  }
+  const params = new URLSearchParams(location.search);
+  if (params.has("guest") || location.hash === "#guest") {
+    // Shareable one-tap join link: skip the welcome screen and start a guest session.
+    params.delete("guest");
+    const query = params.toString();
+    history.replaceState(null, "", location.pathname + (query ? "?" + query : "") + "#home");
+    const joinRuntime = await detectServer();
+    DEMO = joinRuntime !== "server";
+    if (joinRuntime !== "unavailable") {
+      writePreference("tt-runtime-mode", joinRuntime);
+    }
     await startGuest();
     return;
   }
@@ -985,7 +1041,7 @@ function renderShell() {
 }
 
 function helpFor(tab) {
-  return { home: "start", invest: "goal", trade: "trade", news: "news", me: "profile" }[tab] || "start";
+  return { home: "start", invest: "goal", trade: "trade", learn: "replay", news: "news", me: "real" }[tab] || "start";
 }
 
 function switchTab(id) {
@@ -996,18 +1052,18 @@ function switchTab(id) {
   state.tab = id;
   history.replaceState(null, "", "#" + id);
   document.querySelectorAll("nav.tabs button").forEach((b) => b.classList.toggle("on", b.id === "tab-" + id));
-  const titles = { home: "Home", invest: "Invest", trade: "Trade", news: "News", me: "Me" };
+  const titles = { home: "Home", invest: "Invest", trade: "Trade", learn: "Learn", news: "News", me: "Me" };
   $("#screenTitle").textContent = titles[id];
   const main = $("#main");
   main.innerHTML = "";
-  if ((DEMO || GUEST) && id !== "home") {
+  if ((DEMO || GUEST) && !["home", "learn"].includes(id)) {
     put(main, h("div", { class: "tiny muted", style: "margin:0 0 8px" },
       (GUEST ? "Guest · snapshot · " : "Snapshot demo · ") +
       ((state.demoMeta || {}).market_as_of || "saved data") +
       (GUEST ? (state.guestStorage === "memory" ? " · memory only" : " · this tab only") : " · browser-only profile")));
   }
   window.scrollTo(0, 0);
-  ({ home: renderHome, invest: renderInvest, trade: renderTrade, news: renderNews, me: renderMe })[id](main);
+  ({ home: renderHome, invest: renderInvest, trade: renderTrade, learn: renderLearn, news: renderNews, me: renderMe })[id](main);
 }
 
 
@@ -1067,7 +1123,8 @@ function renderAuth(mode = "login") {
     h("p", { class: "muted" }, "Invest and day-trade with a twin that replays 10,000 futures before you risk a dollar."),
     h("div", { class: "guest-actions" },
       h("button", { class: "btn primary", id: "continue-guest", onclick: () => startGuest() }, "Continue as guest"),
-      h("p", { class: "tiny muted center" }, "No login, email or quiz required. $10,000 practice cash and dated sample data; never real trades.")),
+      h("p", { class: "tiny muted center" }, "No login, email or quiz required. $10,000 practice cash and dated sample data; never real trades."),
+      h("p", { class: "tiny muted center" }, "New in 1.3: Replay Lab, limit / stop / trailing orders, price alerts and Portfolio X-ray. Guests can save progress any time.")),
     appearanceControls(),
     DEMO ? h("p", { class: "tiny muted" }, "Saved profiles below are optional and stay in this browser.") :
       h("p", { class: "tiny muted" }, "Guest preview is offline snapshot data. Sign in below to use your server account."),
@@ -1289,124 +1346,9 @@ function openGuideList() {
 /* =========================================================================
    Stock detail sheet (Robinhood-style)
    ========================================================================= */
-async function openStock(symbol) {
-  symbol = symbol.toUpperCase();
-  const body = h("div", {}, spinner());
-  const sheet = openSheet(body);
-  let span = "1D";
-  const draw = async () => {
-    const result = await api("api/chart", { symbol, span });
-    body.innerHTML = "";
-    if (!result.ok) {
-      put(body, h("h2", {}, symbol), errorBox(result.error));
-      return;
-    }
-    const d = result.data;
-    const watching = state.profile.watchlist.includes(symbol);
-    const held = state.paper && state.paper.positions.find((p) => p.symbol === symbol);
-    const canvas = h("canvas");
-    put(body, 
-      h("div", { class: "between" },
-        h("div", {}, h("div", { class: "muted small" }, d.name), h("h2", { style: "margin:0" }, symbol)),
-        h("button", {
-          class: "btn small " + (watching ? "" : "ghost"),
-          onclick: async () => {
-            const list = watching ? state.profile.watchlist.filter((s) => s !== symbol) : [...state.profile.watchlist, symbol];
-            const saved = await api("api/profile", { watchlist: list });
-            if (saved.ok) {
-              state.profile = saved.profile;
-              toast(watching ? "Removed from watchlist" : "Added to watchlist");
-              draw();
-            }
-          },
-        }, watching ? "★ Watching" : "☆ Watch")),
-      h("div", { class: "big", style: "margin-top:8px" }, fmtMoney(d.price)),
-      h("div", { class: signClass(d.change) + " small", style: "font-weight:650" },
-        `${d.change >= 0 ? "+" : ""}${fmtMoney(d.change)} (${fmtPct(d.change_pct)}) `,
-        h("span", { class: "muted" }, { "1D": "today", "1W": "past week", "1M": "past month", "3M": "past 3 months", "1Y": "past year", "5Y": "past 5 years" }[span])),
-      canvas,
-      h("div", { class: "chips", style: "justify-content:space-between" },
-        ["1D", "1W", "1M", "3M", "1Y", "5Y"].map((s) => h("button", { class: "chip" + (s === span ? " on" : ""), onclick: () => { span = s; draw(); } }, s))),
-      held ? h("div", { class: "card tight" },
-        h("div", { class: "between" }, h("b", {}, "Your paper position"), h("span", { class: signClass(held.gain) }, fmtMoney(held.gain) + " " + fmtPct(held.gain_pct))),
-        h("div", { class: "muted small" }, `${held.qty} shares · avg ${fmtMoney(held.avg_cost)} · worth ${fmtMoney(held.value)}`)) : null,
-      h("div", { class: "fab-row" },
-        h("button", { class: "btn green", onclick: () => openOrder(symbol, "buy", d.price) }, "Buy"),
-        h("button", { class: "btn red", disabled: held ? null : "", onclick: () => openOrder(symbol, "sell", d.price, held) }, "Sell")),
-      h("div", { class: "fab-row" },
-        h("button", {
-          class: "btn",
-          onclick: () => {
-            closeSheet();
-            state.goalPrefill = symbol;
-            state.investView = "goal";
-            switchTab("invest");
-          },
-        }, "🎯 Simulate investing"),
-        h("button", {
-          class: "btn",
-          onclick: () => {
-            closeSheet();
-            state.tradeSymbol = GUEST || DEMO ? "TSLA" : symbol;
-            state.tradeMode = GUEST || DEMO ? "demo" : "live";
-            switchTab("trade");
-          },
-        }, GUEST || DEMO ? "Try TSLA replay" : "⚡ Plan a day trade")),
-      h("p", { class: "tiny muted" }, `${d.exchange || ""} · delayed quote · practice money only`),
-    );
-    afterPaint(() => lineChart(canvas, d.points.map((p) => p[1]), { baseline: span === "1D" ? d.prev : undefined, height: 200 }));
-  };
-  draw();
-  return sheet;
-}
-
-function openOrder(symbol, side, price, held) {
-  let byDollars = true;
-  const amount = h("input", { type: "number", inputmode: "decimal", placeholder: byDollars ? "Amount in $" : "Shares" });
-  const estimate = h("p", { class: "muted small" }, "");
-  const errorSlot = h("div");
-  const toggle = h("div", { class: "seg" },
-    h("button", { class: "on", onclick: (e) => setMode(true, e) }, "Dollars"),
-    h("button", { onclick: (e) => setMode(false, e) }, "Shares"));
-  function setMode(dollars, event) {
-    byDollars = dollars;
-    toggle.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b === event.target));
-    amount.placeholder = dollars ? "Amount in $" : "Shares";
-    update();
-  }
-  function update() {
-    const v = Number(amount.value) || 0;
-    estimate.textContent = byDollars
-      ? `≈ ${(v / price).toFixed(4)} shares at ${fmtMoney(price)}`
-      : `≈ ${fmtMoney(v * price)} at ${fmtMoney(price)}`;
-  }
-  amount.addEventListener("input", update);
-  openSheet(
-    h("h2", {}, `${side === "buy" ? "Buy" : "Sell"} ${symbol}`),
-    h("p", { class: "muted small" }, side === "buy"
-      ? `Paper cash available: ${fmtMoney(state.paper ? state.paper.cash : state.profile.paper.cash)}`
-      : `You hold ${held ? held.qty : 0} shares`),
-    toggle, amount, estimate, errorSlot,
-    h("button", {
-      class: "btn " + (side === "buy" ? "green" : "red"),
-      onclick: async (event) => {
-        event.target.disabled = true;
-        const v = Number(amount.value);
-        const result = await api("api/paper/order", byDollars ? { symbol, side, dollars: v } : { symbol, side, qty: v });
-        event.target.disabled = false;
-        if (!result.ok) {
-          errorSlot.innerHTML = "";
-          put(errorSlot, errorBox(result.error));
-          return;
-        }
-        state.paper = result.paper;
-        closeSheet();
-        toast(`Paper ${side}: ${result.fill.qty} ${symbol} @ ${fmtMoney(result.fill.price)}`);
-        switchTab(state.tab);
-      },
-    }, `Confirm paper ${side}`),
-    h("p", { class: "tiny muted center", style: "margin-top:10px" }, "Practice money. No real order is sent."));
-  setTimeout(() => amount.focus(), 300);
+// 1.3: scrub chart, indicators, alerts and the multi-type order ticket live in pro-ui.js.
+function openStock(symbol) {
+  return openStockPro(symbol);
 }
 
 /* =========================================================================
@@ -1450,12 +1392,18 @@ async function renderHome(main) {
           h("div", {}, h("div", { class: "muted tiny" }, "NEXT STEP"), h("b", {}, step[2]))),
         h("span", { class: "muted", style: "flex:none" }, "›"))));
   }
+  put(main, academyHomeCard());
   if (GUEST) {
     put(main, h("div", { class: "guest-actions" },
-      h("button", { class: "btn", onclick: () => { state.tradeMode = "demo"; state.tradeSymbol = "TSLA"; switchTab("trade"); } }, "Explore the TSLA replay"),
-      h("button", { class: "btn ghost", onclick: () => { state.investView = "copy"; switchTab("invest"); } }, "Explore investor holdings")));
+      h("button", { class: "btn primary", id: "home-replay", onclick: () => { state.tradeView = "replay"; switchTab("trade"); } }, "⏪ Beat the market in Replay Lab"),
+      h("div", { class: "row", style: "margin-top:8px" },
+        h("button", { class: "btn", onclick: () => { state.tradeView = "checklist"; state.tradeMode = "demo"; state.tradeSymbol = "TSLA"; switchTab("trade"); } }, "TSLA day-trade replay"),
+        h("button", { class: "btn ghost", onclick: () => { state.investView = "copy"; switchTab("invest"); } }, "Investor holdings")),
+      h("button", { class: "btn ghost", id: "home-save", style: "margin-top:8px", onclick: () => openSaveProgress() }, "💾 Save my progress")),
+      inviteCard());
   }
   put(main, watch);
+  moversCard().then((card) => put(main, card));
 
   const paperResult = await api("api/paper");
   portfolio.innerHTML = "";
@@ -1515,13 +1463,15 @@ async function renderHome(main) {
       h("div", { class: "px" }, h("div", { style: "font-weight:650" }, fmtPrice(q.price)), h("span", { class: "chg " + cls }, fmtPct(q.change_pct)))));
   }
   put(watch, list, h("div", { class: "row", style: "margin-top:10px" }, addInput, h("button", { class: "btn small primary", style: "flex:none", onclick: addTicker }, "Add")));
+  const watchPrices = Object.fromEntries(Object.entries(quoteResult.quotes).map(([symbol, q]) => [symbol, q.price]));
+  syncLiveOrders(watchPrices).catch(() => {});
 }
 
 /* =========================================================================
    Invest: portfolio · goal planner · copy an investor
    ========================================================================= */
 function renderInvest(main) {
-  const views = [["portfolio", "Portfolio"], ["goal", "Goal planner"], ["copy", "Copy investor"]];
+  const views = [["portfolio", "Practice"], ["real", "Real"], ["goal", "Goal"], ["copy", "Copy"]];
   const body = h("div");
   put(main, h("div", { class: "seg" },
     views.map(([id, label]) => h("button", {
@@ -1531,7 +1481,7 @@ function renderInvest(main) {
         switchTab("invest");
       },
     }, label))), body);
-  ({ portfolio: investPortfolio, goal: investGoal, copy: investCopy })[state.investView](body);
+  ({ portfolio: investPortfolio, real: investReal, goal: investGoal, copy: investCopy })[state.investView](body);
 }
 
 async function investPortfolio(body) {
@@ -1580,6 +1530,12 @@ async function investPortfolio(body) {
       weights.map(([sym, w]) => `${sym} ${(100 * w).toFixed(0)}%`).join(" · ") + ` · cash ${(100 * p.cash / (p.value || 1)).toFixed(0)}%`));
   }
   put(body, positions);
+  put(body, openOrdersCard(), xrayCard(p));
+  syncLiveOrders(Object.fromEntries(p.positions.map((pos) => [pos.symbol, pos.price]))).then((messages) => {
+    if (messages.length && state.tab === "invest" && state.investView === "portfolio") {
+      switchTab("invest");
+    }
+  }).catch(() => {});
 
   if (p.history.length) {
     put(body, h("div", { class: "card" }, h("h3", {}, "Activity"),
@@ -1800,7 +1756,23 @@ const TRADE_STEPS = [
   ["broker", "Ticket", "The exact order, in plain words"],
 ];
 
+function tradeViewSwitch() {
+  return h("div", { class: "seg", id: "trade-view" },
+    [["checklist", "⚡ Day-trade checklist"], ["replay", "⏪ Replay Lab"]].map(([id, label]) => h("button", {
+      class: state.tradeView === id ? "on" : "", "data-view": id,
+      onclick: () => {
+        state.tradeView = id;
+        switchTab("trade");
+      },
+    }, label)));
+}
+
 function renderTrade(main) {
+  put(main, tradeViewSwitch());
+  if (state.tradeView === "replay") {
+    renderReplay(main);
+    return;
+  }
   const quiz = state.profile.quiz;
   const limits = state.profile.limits || {};
   const symbol = h("input", { value: state.tradeSymbol, autocapitalize: "characters", readonly: state.tradeMode === "demo" ? "" : null, "aria-label": "Trade ticker", style: "text-transform:uppercase;font-weight:700" });
@@ -2123,12 +2095,17 @@ function renderMe(main) {
   put(main,
     h("div", { class: "card" }, h("h3", {}, "Appearance"), appearanceControls(),
       h("p", { class: "tiny muted" }, "System follows your device. Appearance is saved on this browser, separately from accounts.")),
+    brokerCard(),
     GUEST ? h("div", { class: "card" },
       h("h3", {}, "Guest session"),
       h("p", { class: "small muted" }, state.guestStorage === "memory"
         ? "Browser storage is unavailable. Changes last only until this page reloads."
         : "Practice changes are kept in this tab/session, not an account. Browser session restore may retain them. Leave guest or reset to erase them."),
       h("p", { class: "small muted" }, "Snapshot data only. No personal details needed; no server account is created."),
+      h("button", { class: "btn primary", id: "me-save", onclick: () => openSaveProgress() }, "💾 Save my progress"),
+      h("div", { style: "height:8px" }),
+      h("button", { class: "btn", onclick: () => shareText("Practice investing and day trading with me on Twin — no sign-up, practice money only:") }, "Invite a friend (guest link)"),
+      h("div", { style: "height:8px" }),
       h("button", { class: "btn ghost", onclick: () => {
         if (confirm("Reset this guest session? Practice trades, watchlist edits and quiz answers will be erased. Saved accounts are untouched.")) {
           startGuest(true);
@@ -2201,7 +2178,7 @@ function renderMe(main) {
       }, "Save limits")),
     h("div", { class: "card" }, h("h3", {}, "Guide"), guideList()),
     h("div", { class: "card small muted" },
-      h("b", { style: "color:var(--text)" }, "Twin · v1.2.0"),
+      h("b", { style: "color:var(--text)" }, "Twin · v1.3.0"),
       h("p", {}, "Twin is built on two free, MIT-licensed skill packs by Jake Schincariol (day-trader-skill and trader-skill). Data: Yahoo Finance (delayed, unofficial), SEC EDGAR."),
       h("p", {}, "Not financial advice. Practice money only. You can lose money investing; past performance and simulations do not guarantee future results.")),
     h("button", {

@@ -644,19 +644,11 @@
         return fail("Leave guest mode before signing in. Guest data never merges automatically.");
       }
       if (route === "signup") {
-        const username = String(body.username || "").trim().toLowerCase();
-        if (!/^[a-z0-9_.]{3,24}$/.test(username)) {
-          return fail("username: 3-24 letters, numbers, dot or underscore");
+        const problem = signupProblem(store, body);
+        if (problem) {
+          return fail(problem);
         }
-        if (String(body.password || "").length < 8) {
-          return fail("password must be at least 8 characters");
-        }
-        if (!String(body.name || "").trim()) {
-          return fail("enter your name");
-        }
-        if (["__proto__", "constructor", "prototype"].includes(username) || owns(store.users, username)) {
-          return fail("that username is taken (on this browser)");
-        }
+        const username = String(body.username).trim().toLowerCase();
         store.users[username] = {
           ...await credentials(body.password),
           profile: defaultProfile(String(body.name).trim(), String(body.email || "").trim()),
@@ -895,9 +887,64 @@
     return next;
   }
 
+  function signupProblem(store, body) {
+    const username = String(body.username || "").trim().toLowerCase();
+    if (!/^[a-z0-9_.]{3,24}$/.test(username)) {
+      return "username: 3-24 letters, numbers, dot or underscore";
+    }
+    if (String(body.password || "").length < 8) {
+      return "password must be at least 8 characters";
+    }
+    if (!String(body.name || "").trim()) {
+      return "enter your name";
+    }
+    if (["__proto__", "constructor", "prototype"].includes(username) || owns(store.users, username)) {
+      return "that username is taken (on this browser)";
+    }
+    return null;
+  }
+
+  // Turn the current guest session into a saved browser profile, keeping its practice
+  // portfolio, watchlist, goal and preferences. The guest session is removed afterwards.
+  async function saveGuest(body = {}) {
+    const run = async () => {
+      try {
+        const guestStore = readStore(true);
+        const guestUser = guestStore.session === "guest" && guestStore.users && guestStore.users.guest;
+        if (!guestUser) {
+          return fail("There is no guest session to save. Start a guest session first.");
+        }
+        const store = readStore(false);
+        const problem = signupProblem(store, body);
+        if (problem) {
+          return fail(problem);
+        }
+        const username = String(body.username).trim().toLowerCase();
+        const profile = JSON.parse(JSON.stringify(guestUser.profile));
+        delete profile.guest;
+        profile.name = String(body.name).trim();
+        profile.email = "";
+        profile.created = new Date().toISOString();
+        profile.saved_from_guest = true;
+        store.users[username] = { ...await credentials(body.password), profile };
+        store.session = username;
+        writeStore(store);
+        removeGuest();
+        return { ok: true, profile };
+      } catch (error) {
+        return fail(error.message || String(error));
+      }
+    };
+    if (navigator.locks) {
+      return navigator.locks.request(STORE, () => navigator.locks.request(GUEST_STORE, run));
+    }
+    return run();
+  }
+
   window.TwinDemo = {
     api: (path, body) => dispatch(path, body, false),
     guest: (path, body) => dispatch(path, body, true),
+    saveGuest,
     hasGuest: () => readStore(true).session === "guest",
     meta: () => load("meta"),
   };
