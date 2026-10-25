@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https: http://localhost:* http://127.0.0.1:*">
+<meta name="description" content="Mufakat: free AI chat where models deliberate to consensus. Council of agents with a Judge, side-by-side Arena, second opinions. Runs in your browser.">
+<meta name="theme-color" content="#262624">
+<title>Mufakat: many minds, one answer. Free AI council, arena and chat</title>
+<link rel="stylesheet" href="./styles.css">
+<link rel="icon" type="image/svg+xml" href="./icons/app-icon.svg">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+</head>
+<body class="web">
+<aside id="sidebar">
+  <div class="brand">Mufakat<span>.</span></div>
+  <button class="side-btn" id="new-chat-btn" type="button" title="New chat (Ctrl/⌘ K)">＋ New chat</button>
+  <button class="side-btn" id="new-council-btn" type="button">⚖ New council</button>
+  <button class="side-btn" id="new-arena-btn" type="button">⚔ New arena</button>
+  <input type="search" id="search" placeholder="Search chats…" aria-label="Search chats">
+  <div id="history"></div>
+  <button class="side-btn" id="settings-btn" type="button">⚙ Settings &amp; models</button>
+  <div class="side-foot">
+    <button class="link-btn" id="theme-btn" type="button">☀ Light</button>
+    · Free · <a href="https://github.com/juwpegatron/projects/tree/main/apps/mufakat">source</a>
+  </div>
+</aside>
+
+<main id="main">
+  <div id="topbar">
+    <button id="menu-btn" type="button" aria-label="Menu">☰</button>
+    <span class="label" id="mode-label">Chat</span>
+    <select id="chat-model" aria-label="Model"></select>
+    <span class="spacer"></span>
+    <span id="status"></span>
+    <button class="secondary small" id="export-btn" type="button" title="Export this conversation as Markdown">⤓ Export</button>
+  </div>
+  <div id="setup-banner" class="hidden">
+    You're in <b>Demo mode</b> (canned replies). For real AI at no cost, add a free OpenRouter key.
+    <button class="primary" id="banner-settings" type="button">Connect free AI</button>
+  </div>
+  <div id="messages"></div>
+  <div id="council-controls" class="hidden">
+    <button class="secondary" id="council-continue-btn" type="button">Another round</button>
+    <button class="secondary" id="council-judge-btn" type="button">Ask the Judge</button>
+    <button class="secondary" id="council-stop-btn" type="button">Stop</button>
+  </div>
+  <div id="composer-wrap">
+    <div id="pending-files" class="hidden"></div>
+    <div id="composer">
+      <button class="icon-btn" id="attach-btn" type="button" title="Attach text or code files" aria-label="Attach files">📎</button>
+      <input type="file" id="file-input" multiple hidden accept=".txt,.md,.csv,.json,.py,.js,.ts,.html,.css,.xml,.yaml,.yml,.log,.sql,.java,.c,.cpp,.h,.go,.rs,.rb,.php,.sh,text/*">
+      <textarea id="input" rows="1" placeholder="Message Mufakat…" aria-label="Message"></textarea>
+      <button class="secondary hidden" id="stop-btn" type="button">Stop</button>
+      <button class="primary" id="send-btn" type="button">Send</button>
+    </div>
+  </div>
+</main>
+
+<div class="modal-bg" id="settings-modal">
+  <div class="modal" role="dialog" aria-labelledby="settings-title">
+    <h3 id="settings-title">Settings &amp; models</h3>
+    <p class="note">Keys, chats and votes are stored only in this browser. Nothing is sent anywhere except the AI provider you choose.</p>
+
+    <h4>1. OpenRouter: free cloud models (recommended)</h4>
+    <p class="note">Sign up at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a> and create a key. Models marked <i>free</i> cost nothing (rate-limited).</p>
+    <input type="password" id="set-openrouter" placeholder="sk-or-…" autocomplete="off">
+    <label class="note"><input type="checkbox" id="set-paid"> Also show paid models (billed to your OpenRouter credit)</label>
+
+    <h4>2. Ollama: private models on your own computer</h4>
+    <p class="note">Install Ollama, then allow this site: <code>OLLAMA_ORIGINS=https://juwpegatron.github.io ollama serve</code></p>
+    <input type="url" id="set-ollama" placeholder="http://localhost:11434">
+
+    <h4>3. Any OpenAI-compatible API (optional)</h4>
+    <input type="url" id="set-custom-url" placeholder="https://api.example.com/v1">
+    <input type="password" id="set-custom-key" placeholder="API key" autocomplete="off" style="margin-top:6px">
+
+    <h4>Your data</h4>
+    <div class="row" style="margin-top:4px">
+      <button class="secondary" id="backup-btn" type="button">Back up everything</button>
+      <label class="file-btn">Restore backup<input type="file" id="import-input" accept="application/json"></label>
+      <button class="secondary" id="clear-btn" type="button">Delete everything</button>
+    </div>
+    <p class="note">Shortcuts: <code>Ctrl/⌘ K</code> new chat · <code>Esc</code> stop · <code>Shift+Enter</code> new line · paste or 📎 to attach files.</p>
+
+    <div class="row" style="justify-content:flex-end; margin-top:18px">
+      <button class="secondary" id="settings-close" type="button">Cancel</button>
+      <button class="primary" id="settings-save" type="button">Save &amp; load models</button>
+    </div>
+  </div>
+</div>
+
+<script src="./app.js"></script>
+</body>
+</html>
