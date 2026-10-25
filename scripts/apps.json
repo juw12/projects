@@ -4,14 +4,14 @@
     {
       "id": "orbis",
       "name": "Orbis",
-      "category": "Software",
+      "category": "Apps",
       "desc": "Communication, identity and protection in one app",
-      "description": "Communication, identity, and protection in one app: a zero-dependency Python backend + SQLite + static PWA for managing replies, commitments, summaries, and personal growth tracking. Offline-first.",
+      "description": "Offline-first personal hub for communication and growth &mdash; manage replies, commitments and summaries on a zero-dependency Python + SQLite backend.",
       "tags": [
         "Python",
         "SQLite",
         "PWA",
-        "zero-dependency"
+        "offline-first"
       ],
       "image": "orbis-abstract.jpg",
       "image_alt": "Abstract geometric visualization of communication and identity networks",
@@ -21,18 +21,18 @@
         "mobile": "orbis/app-mobile.html"
       },
       "featured": true,
-      "order": 1
+      "order": 12
     },
     {
       "id": "peers",
       "name": "Peers",
-      "category": "Software",
+      "category": "Apps",
       "desc": "Verified reviews across 32 categories — food, travel, market, AI tools, health and more",
-      "description": "Offline-first single-file PWA for verified reviews across 32 category &ldquo;modes&rdquo; &mdash; food, travel, market, AI tools, health, finance and more. Pick a category and the feed, explore, market and writing all scope to it, with a Use it / Wait / Skip scorecard built in.",
+      "description": "Offline-first review app across 32 categories, from food to AI tools, with a built-in Use it / Wait / Skip scorecard.",
       "tags": [
         "PWA",
-        "category modes",
-        "AI tools",
+        "reviews",
+        "32 categories",
         "offline-first"
       ],
       "image": "peers-feed.jpg",
@@ -56,19 +56,19 @@
         "mobile": "peers/mobile.html"
       },
       "featured": true,
-      "order": 2
+      "order": 13
     },
     {
       "id": "house-of-articles",
       "name": "House of Articles",
-      "category": "Product",
+      "category": "Apps",
       "desc": "Athlete-moment sneaker news + live market feed",
-      "description": "Athlete-moment sneaker news + live market feed. Static mobile and desktop prototypes driven by a versioned JSON data spine linking on-court moments to resale price moves.",
+      "description": "Sneaker news meets market data &mdash; links athletes&rsquo; on-court moments to resale price moves. Mobile and desktop prototypes.",
       "tags": [
-        "data modeling",
-        "prototypes",
+        "sneakers",
+        "market data",
         "JSON",
-        "market data"
+        "prototypes"
       ],
       "image": "hoa-hero.jpg",
       "image_alt": "House of Articles sneaker news and athlete moments feature",
@@ -86,19 +86,19 @@
         "mobile": "house-of-articles/"
       },
       "featured": true,
-      "order": 3
+      "order": 16
     },
     {
       "id": "hazel",
       "name": "Hazel",
-      "category": "Software",
+      "category": "Creator Tools",
       "desc": "Desktop studio for creators — generate a video from a prompt, refine it, fan it out to every platform, and keep your storage from overfilling",
-      "description": "Desktop studio for creators. Generate a video from a prompt &mdash; cast the characters, choose a talking or drama scene, set the length and size &mdash; then refine it in Hazel's built-in editor and deploy to every platform at once. Also bulk-uploads photos and videos to socials, and backs up and auto-manages memories so your storage never overfills.",
+      "description": "Desktop creator studio: generate a video from a prompt, refine it in the editor and publish to every platform at once &mdash; plus bulk uploads and automatic media backup.",
       "tags": [
-        "AI video generator",
+        "AI video",
         "multi-platform publish",
         "bulk upload",
-        "storage &amp; memories"
+        "backup"
       ],
       "image": "hazel-hero.svg",
       "image_alt": "Hazel studio generating a video from a prompt, with character casting, scene choice, length and size controls, a storyboard and a timeline",
@@ -108,21 +108,18 @@
         "mobile": "hazel/mobile.html"
       },
       "featured": true,
-      "order": 6
+      "order": 11
     },
     {
       "id": "sweep",
       "name": "Sweep",
-      "category": "Software",
+      "category": "AI",
       "desc": "Turn a plain-words idea into a checkable Build → Grow → Earn plan — then chat with Otto, an offline, approval-first AI operator (brand, site, posts, outreach, research, deck, insights, sheets) built to beat hosted builders on privacy and ownership",
-      "description": "Turn a rough app idea into a checkable Build &rarr; Grow &rarr; Earn plan &mdash; all local, offline and deterministic. A guided intake drafts your brief from plain words (no AI, no network); Sweep generates a capability matrix, a Definition of Done, a phased roadmap, Grow and Earn checklists, verification gates and a scaffold generator. Then run its built-in <strong>Operator</strong> (Otto) &mdash; a local, deterministic agent you actually <em>chat</em> with, organised into Overview / Create / Grow / Money / Data tabs. Otto drafts your brand kit (logo, palette, type), a one-page site, per-network posts with generated art, emails, customer outreach, a market-research brief, a pitch deck, a content calendar, a unified inbox, multi-sheet sales / stock / cost ledgers with an insights view and a plans table &mdash; all routed through an approval queue with a run log, undo, a credits meter and an autopilot toggle. Offline, encrypted at rest, fully exportable &mdash; you own everything, with no fee and no credit meter.",
+      "description": "Turns a rough app idea into a Build &rarr; Grow &rarr; Earn plan; its local agent Otto then drafts brand, site, posts and ledgers through an approval queue. Fully offline.",
       "tags": [
         "idea &rarr; plan",
-        "offline AI operator",
-        "chat + tabs cockpit",
-        "brand, site, posts",
+        "offline agent",
         "approval-first",
-        "insights + sheets",
         "exportable"
       ],
       "image": "sweep-hero.svg",
@@ -138,13 +135,13 @@
     {
       "id": "virtual-bots",
       "name": "Virtual Bots",
-      "category": "Software",
+      "category": "AI",
       "desc": "An office of AI bots you can watch and command — live activity, goals and progress across App, Web and Mobile",
-      "description": "An office of AI bots you can watch and command &mdash; each bot shows its role, live status and progress; a normalized activity feed streams every tool step, and you can dispatch new goals. Ships as an installable App, a desktop Web dashboard (with a 3D office) and a Mobile view; it runs as an offline simulation when no backend is attached.",
+      "description": "A live office of AI agents &mdash; watch each bot&rsquo;s role, status and tool steps, and dispatch new goals. Runs as an offline simulation without a backend.",
       "tags": [
         "AI agents",
         "live activity",
-        "App + Web + Mobile",
+        "3D office",
         "offline sim"
       ],
       "image": "virtual-bots-hero.svg",
@@ -155,19 +152,18 @@
         "mobile": "virtual-bots/mobile.html"
       },
       "featured": true,
-      "order": 8
+      "order": 6
     },
     {
       "id": "airiz-motor",
       "name": "Airiz Motor",
-      "category": "Software",
+      "category": "Automation",
       "desc": "Dependency-free browser console for AIRIZ motor testing — command library, serial console and macro notepad",
-      "description": "A dependency-free browser console that replaces the TeraTerm/CWD serial workflow for AIRIZ device motor testing &mdash; browse a categorised command library with live parameters, drive a dark serial console with scrollback and log saving, build and run test macros in a visual notepad, install it as an offline PWA, and try the whole UI in a hardware-free demo mode.",
+      "description": "Browser serial console that replaces TeraTerm for AIRIZ motor testing &mdash; command library, test macros, log saving and a hardware-free demo mode.",
       "tags": [
         "Web Serial",
-        "PWA",
-        "serial console",
         "macro runner",
+        "PWA",
         "offline demo"
       ],
       "image": "airiz-motor-hero.svg",
@@ -178,25 +174,19 @@
         "mobile": "airiz-motor/"
       },
       "featured": true,
-      "order": 9
+      "order": 1
     },
     {
       "id": "vertex",
       "name": "Vertex",
-      "category": "Software",
+      "category": "CAD &amp; 3D",
       "desc": "One local 3D app — build parts and export 3D files (STL/OBJ/glTF/3MF/DXF), repair models and plan assemblies in ANY 3D software, ask design questions, reverse-engineer scans, turn drawings into CAD, automate batches, and simulate",
-      "description": "Vertex is one local, offline, zero-dependency 3D app that unifies a parametric part builder with a universal 3D engineering copilot. Build geometry from parameters/primitives and export real 3D files (STL ascii+binary, OBJ, glTF 2.0, 3MF, DXF); read a host-agnostic ModelReport and get a typed Diagnosis of what is broken (failed fillets, broken references, dangling or circular dependencies, failed mates) with an ordered upstream-first Repair plan and an Assembly plan (base part + insert/mate steps + structural checks); ask questions about the design and get deterministic Answers with evidence (failed features, dependencies, mates, how-to); reverse-engineer a point scan into editable parametric CAD; turn a drawing spec into a model; run batch Automation (export / pattern / drawing sheets); and run deterministic simulations (kinematic assembly motion, mass properties, clearance/interference). A universal adapter layer covers Fusion, SOLIDWORKS, FreeCAD, Blender, Onshape, Rhino, SketchUp, Inventor, AutoCAD, CATIA, Solid Edge, Creo, Maya and open formats STEP/STL/OBJ/glTF/3MF/DXF. The geometry core is a pure function (identical input yields byte-identical output); every action passes a dry-run and review gate; with no CAD host attached it runs in a fully usable simulation mode and never writes to CAD. It complements cloud AI CAD copilots (like Vector) by staying local, open, deterministic, auditable and review-gated.",
+      "description": "Offline parametric CAD builder and engineering copilot: diagnoses broken models, plans repairs, checks clearance and motion, and exports STL, OBJ, glTF, 3MF and DXF.",
       "tags": [
-        "3D",
         "parametric CAD",
-        "3D file export",
-        "design Q&A",
-        "reverse engineering",
-        "drawing to CAD",
-        "automation",
+        "model repair",
         "simulation",
-        "offline-first",
-        "deterministic"
+        "offline-first"
       ],
       "image": "vertex-hero.svg",
       "image_alt": "Vertex: a dark 3D engineering workspace with a fitted part in a viewport, a ranked repair plan, a universal adapter strip (Fusion, SOLIDWORKS, FreeCAD, Blender, open formats) and review-gated export/apply steps",
@@ -206,61 +196,56 @@
         "mobile": "vertex/mobile.html"
       },
       "featured": true,
-      "order": 10
+      "order": 2
     },
     {
       "id": "soma",
       "name": "SOMA",
-      "category": "Public Software",
+      "category": "Tools I Use",
       "external": true,
       "url": "https://somacad.app/",
       "desc": "Open-source AI CAD — describe a part, your coding agent writes CadQuery, SOMA builds it",
-      "description": "SOMA is an open-source desktop CAD app where a coding agent does the CAD &mdash; you describe the part, the agent writes it as CadQuery Python, and SOMA rebuilds and shows the result on every change. Measure, mark up the view, tune parameters, step through history, run overhang and wall-thickness checks plus FEM analysis, then export STEP/STL/3MF/DXF with PDF drawings. Bring your own CLI agent (Claude Code, Codex, OpenCode, Gemini CLI). By Kai Jungsth&ouml;fel. GPL-3.0. Windows / macOS / Linux.",
+      "description": "Open-source desktop CAD where a coding agent writes CadQuery for you, with checks, FEM and STEP/STL/3MF export. By Kai Jungsth&ouml;fel (GPL-3.0).",
       "tags": [
         "AI CAD",
         "CadQuery",
         "open source",
-        "GPL-3.0",
         "3D printing"
       ],
       "image": "soma-hero.svg",
       "image_alt": "SOMA: a CadQuery code panel beside a rebuilt parametric part and a build log",
-      "order": 13
+      "order": 17
     },
     {
       "id": "vector",
       "name": "Vector",
-      "category": "Public Software",
+      "category": "Tools I Use",
       "external": true,
       "url": "https://heyvector.co/",
       "desc": "Engineering copilot that works inside Autodesk Fusion and SOLIDWORKS",
-      "description": "Vector is an AI engineering copilot for real hardware that runs inside your existing CAD &mdash; Autodesk Fusion (macOS / Windows) and SOLIDWORKS (Windows). It reads the open document, answers questions about the design, creates and edits native features through the host application's own API, repairs broken models end to end (failed fillets, broken references, features that stop rebuilding), and shows every change for review before it lands in your feature tree. By Vector Copilot LLC.",
+      "description": "AI engineering copilot inside Fusion and SOLIDWORKS &mdash; answers design questions, creates and repairs native features, and shows every change for review. By Vector Copilot LLC.",
       "tags": [
         "AI copilot",
-        "Autodesk Fusion",
+        "Fusion",
         "SOLIDWORKS",
-        "CAD repair",
-        "review-gated"
+        "CAD repair"
       ],
       "image": "vector-hero.svg",
       "image_alt": "Vector: connected Fusion and SOLIDWORKS integrations beside a chat panel showing a ranked repair plan",
-      "order": 14
+      "order": 18
     },
     {
       "id": "mbs-miniature",
       "name": "Marina Bay Sands Miniature",
-      "category": "3D Works",
+      "category": "CAD &amp; 3D",
       "work": true,
       "desc": "Agentic-CAD tabletop miniature — three curved glass towers joined by the boat-shaped SkyPark",
-      "description": "A tabletop miniature of Marina Bay Sands, modelled as parametric CadQuery by an AI agent in SOMA. Three curved glass hotel towers &mdash; bowed bay-facing facade, slight taper &mdash; stand in a straight row and are joined on top by the boat-shaped SkyPark, whose long cantilever curls upward like a ship's bow past the last tower. About 250 mm tall, Z-up on the z=0 ground plane, and driven entirely by twelve live parameters (tower height, width, depth and gap; facade bow; taper; SkyPark width, thickness, cantilever, tip rise and far-end overhang). Every edit rebuilds deterministically and exports to STEP and glTF.",
+      "description": "250 mm parametric miniature built in CadQuery by an AI agent in SOMA &mdash; three curved towers and a cantilevered SkyPark, driven by 12 parameters.",
       "tags": [
         "CadQuery",
         "parametric",
-        "SOMA",
         "agentic CAD",
-        "STEP",
-        "glTF",
-        "miniature"
+        "STEP"
       ],
       "image": "mbs-iso.png",
       "image_alt": "Marina Bay Sands miniature: three curved glass towers joined by the boat-shaped SkyPark with its upturned cantilever tip",
@@ -272,66 +257,59 @@
         }
       ],
       "files": "https://github.com/juwpegatron/projects/tree/main/outputs/mbs",
-      "order": 11
+      "order": 3
     },
     {
       "id": "eiffel-tower",
       "name": "Eiffel Tower",
-      "category": "3D Works",
+      "category": "CAD &amp; 3D",
       "work": true,
       "desc": "A 1:1000 solid Eiffel Tower, 330 mm tall, modelled with open CASCADE in Vector",
-      "description": "A simplified solid Eiffel Tower modelled at 1:1000 in millimetres, so the 330 mm miniature matches the real tower metre for metre: a 125 m base square, the first floor at 57.6 m, the second at 115.7 m, the third at 276 m and the antenna tip at 330 m. Four lofted legs splay from the base and merge into the tapering shaft, joined by elliptical arch plates; cut-back slabs mark each floor, topped by a lantern and a two-stage spire. Modelled programmatically with open CASCADE (OCP) in Vector and exported as STEP, with a triangulated STL preview. The iron lattice is not modelled &mdash; legs, arches, floors and spire are solid, and the whole part is one watertight solid (1,744-triangle preview).",
+      "description": "1:1000 solid miniature (330 mm) modelled in open CASCADE with Vector &mdash; lofted legs, arches, floors and spire as one watertight solid.",
       "tags": [
-        "Eiffel Tower",
-        "1:1000",
         "open CASCADE",
+        "1:1000",
         "STEP",
-        "STL",
-        "watertight",
-        "miniature"
+        "STL"
       ],
       "image": "eiffel-render.png",
       "image_alt": "Eiffel Tower: a 330 mm solid miniature rendered in three-quarter view on a dark background, showing the four splayed legs, arched base and spire",
       "files": "https://github.com/juwpegatron/projects/tree/main/outputs/eiffel",
-      "order": 12
+      "order": 4
     },
     {
       "id": "loka-translate",
-      "name": "Loka Translate",
-      "category": "Software",
+      "name": "Loka",
+      "category": "AI",
       "desc": "Private, local Windows translation for English, Chinese and Bahasa Indonesia — with light/dark themes",
-      "description": "An offline Windows translation desk for English, Simplified Chinese, Traditional Chinese and Bahasa Indonesia. Runs a local Ollama model with tone and context controls, glossary guidance, streaming output, alternative phrasings and English word-choice notes. Switch between light and dark themes without clearing text; only the appearance preference is remembered locally. OpenCC normalizes Chinese script; review warnings flag changed numbers, missing links and missing preferred terms. No cloud fallback, API fees or saved translation history. A working desktop prototype &mdash; not a claim of superior translation accuracy.",
+      "description": "Offline Windows translator for English, Chinese (Simplified/Traditional) and Bahasa Indonesia, powered by a local Ollama model with tone, glossary and review checks.",
       "tags": [
         "offline translation",
         "Ollama",
-        "Traditional Chinese",
-        "Bahasa Indonesia",
         "Windows",
-        "dark mode"
+        "multilingual"
       ],
       "image": "loka-translate.png",
-      "image_alt": "Loka Translate in dark mode: English and Traditional Chinese text, a Light mode toggle, context and a local model selector",
+      "image_alt": "Loka in dark mode: English and Traditional Chinese text, a Light mode toggle, context and a local model selector",
       "links": {
         "app": "loka-translate/"
       },
       "native": true,
       "featured": true,
-      "order": 5.5,
+      "order": 8,
       "version": "1.1.0"
     },
     {
       "id": "twin",
       "name": "Twin",
-      "category": "Software",
+      "category": "Apps",
       "desc": "Try investing research without login — guest practice mode, historical simulations and light/dark themes",
-      "description": "Twin (formerly Trade Twin) is an iPhone-ready practice investing and trading companion. Continue as guest without login, email or a mandatory quiz; explore a separate $10,000 practice portfolio, historical goal simulations, SEC 13F research and the TSLA replay. Saved System / Light / Dark appearance, theme-aware charts, optional assessment and guest reset controls. Old Trade Twin links redirect and saved profiles carry over. Guests use a dated snapshot; live delayed data requires the local Python backend. No real orders and no financial advice.",
+      "description": "Investing practice app: continue as a guest with a $10,000 paper portfolio, historical goal simulations and SEC 13F research. No real orders, no financial advice.",
       "tags": [
-        "Python",
-        "PWA",
-        "Monte Carlo",
         "paper trading",
+        "guest mode",
         "SEC 13F",
-        "zero-dependency"
+        "PWA"
       ],
       "image": "twin.png",
       "image_alt": "Twin v1.2: Continue as guest welcome screen, light-mode practice portfolio and dark-mode appearance settings",
@@ -341,21 +319,19 @@
         "mobile": "twin/mobile.html"
       },
       "featured": true,
-      "order": 5.6,
+      "order": 14,
       "version": "1.2.0"
     },
     {
       "id": "glow",
       "name": "Glow",
-      "category": "Software",
+      "category": "AI",
       "desc": "From a spark to something real: chat with free AI right away (no sign-up), sign in for more models, run a Council with a Judge, or compare models side by side",
-      "description": "<strong>Glow</strong> &mdash; from a spark to something real. Explore ideas and shape plans with multiple AI perspectives. <strong>Sign in</strong> with a free Puter account for real AI models (GPT, Claude, Gemini, DeepSeek) with no API key, and your chats sync across devices; or <strong>continue as a guest</strong> and chat with free AI right away (no sign-up, shared and rate-limited), your own OpenRouter key or local Ollama. <strong>Council</strong>: 2&ndash;3 agents discuss a task and a Judge summarizes agreements, open questions and a final answer. <strong>Arena</strong>: compare models side by side and vote. Includes a guided tour, light/dark themes, starter prompts, second opinions, attachments, search, Markdown export and an installable PWA. Signed-in AI uses each person's own free Puter allowance; AI output still needs human verification.",
+      "description": "Get several AI perspectives on one idea: a Council of agents debates while a Judge summarizes, or an Arena compares models side by side. Free AI for guests, no sign-up needed.",
       "tags": [
         "multi-agent",
-        "AI council",
         "model arena",
         "free AI sign-in",
-        "guided tour",
         "PWA"
       ],
       "image": "glow-hero.png",
@@ -366,20 +342,19 @@
         "mobile": "glow/mobile.html"
       },
       "featured": true,
-      "order": 1.5,
+      "order": 5,
       "version": "0.4.2"
     },
     {
       "id": "sped",
       "name": "Sped",
-      "category": "Software",
+      "category": "Creator Tools",
       "desc": "Sped-up, slowed and mashup edits of your own songs, exported as 9:16 MP4 shorts for TikTok, Reels and YouTube Shorts",
-      "description": "Sped (formerly Hookline) is a browser shorts studio for audio you upload: independent tempo/pitch, one-tap sped-up, slowed and mashup styles, and whole-track crossfades. Version 1.4 adds a CapCut-style editor (live 9:16 preview, multi-lane timeline, bottom toolbar on phones), beat-reactive visualizer, text and themes, per-platform safe zones and caption limits, and real-time 1080×1920 MP4 export with an optional silent version for adding the platform's licensed sound. Publishing notes are user declarations, not rights clearance; no licensed song catalogue, stem separation, auto-posting or virality prediction.",
+      "description": "Browser shorts studio for your own audio: sped-up, slowed and mashup styles, a CapCut-style 9:16 editor with captions, and 1080&times;1920 MP4 export for TikTok, Reels and Shorts.",
       "tags": [
         "Web Audio",
         "9:16 video export",
         "TikTok / Reels / Shorts",
-        "publishing notes",
         "PWA"
       ],
       "image": "sped.png",
@@ -390,22 +365,20 @@
         "mobile": "sped/mobile.html"
       },
       "featured": true,
-      "order": 5.7,
+      "order": 10,
       "version": "1.4.0"
     },
     {
       "id": "shortcraft",
       "name": "Shortcraft",
-      "category": "Software",
+      "category": "Creator Tools",
       "desc": "Make faceless 9:16 explainer shorts in the browser — captions, music, MP4 export, channel kit and publishing",
-      "description": "A zero-install web studio for faceless explainer shorts in English and Bahasa Indonesia. Write hook &rarr; steps &rarr; CTA scenes, pick the editorial step-tracker or dark teardown template, record or upload your voice per scene (timing follows the audio) and export a 1080&times;1920 MP4 with burned-in captions and generated, copyright-free music. Includes a viral checklist, a post kit (title, caption, hashtags) and an optional Python pipeline for neural voiceovers and full renders. New: a Channel Kit (one prompt &rarr; names, bios, 30-day plan, avatar and banner), direct YouTube upload and an opt-in autoposter for YouTube, TikTok and Instagram with a review-before-post queue. Grew out of four hand-rendered pilot videos (CCTV teardown and NPI &ldquo;5 gates&rdquo;, EN/ID). A working tool &mdash; it makes the format fast; it does not guarantee views.",
+      "description": "Browser studio for faceless explainer shorts in English and Bahasa Indonesia: write scenes, add voice, export a captioned 1080&times;1920 MP4 and post to YouTube, TikTok and Instagram.",
       "tags": [
         "video",
-        "Canvas",
-        "Web Audio",
-        "MediaRecorder",
-        "Bahasa Indonesia",
-        "content creation"
+        "captions",
+        "auto-post",
+        "Bahasa Indonesia"
       ],
       "image": "shortcraft.png",
       "image_alt": "Shortcraft: two 9:16 explainer frames, a light editorial step tracker and a dark CCTV teardown, next to the Shortcraft title",
@@ -415,14 +388,14 @@
         "mobile": "shortcraft/mobile.html"
       },
       "featured": true,
-      "order": 5.6
+      "order": 9
     },
     {
       "id": "guangyao",
       "name": "Guang Yao Together · 光耀同行",
-      "category": "Software",
+      "category": "Apps",
       "desc": "Unofficial learning and community concept for 發一光耀 — a responsive, installable PWA with local demonstration data",
-      "description": "An unofficial Traditional Chinese learning and community concept for 發一光耀. Explore level-based courses, quizzes, watermarked sample certificates, activities, community interactions, rewards and transparent-giving demonstrations. One responsive, installable PWA across App, Web and Mobile; real accounts, payments, live meetings and official certification are not connected.",
+      "description": "Unofficial Traditional Chinese learning and community concept for 發一光耀 &mdash; level-based courses, quizzes, activities and rewards in one installable PWA. Demo only: no real accounts or payments.",
       "tags": [
         "PWA",
         "learning &amp; community",
@@ -450,7 +423,7 @@
         "mobile": "guangyao/index.html#home"
       },
       "featured": true,
-      "order": 1.6,
+      "order": 15,
       "status": "frontend-pwa-demo",
       "version": "2.0.2",
       "note_tags": [
