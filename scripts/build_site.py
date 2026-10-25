@@ -80,7 +80,7 @@ def build_landing_apps(catalog):
 
 # Apps that were renamed: old site path -> the app's current id. A tiny redirect
 # stub is emitted at the old path so existing links/bookmarks keep working.
-REDIRECTS = {"productivity-widget": "pips", "ziris-motor": "airiz-motor"}
+REDIRECTS = {"ziris-motor": "airiz-motor"}
 
 
 def write_redirects(out_dir, catalog):
