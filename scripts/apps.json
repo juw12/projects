@@ -452,7 +452,14 @@
       "featured": true,
       "order": 1.6,
       "status": "frontend-pwa-demo",
-      "version": "2.0.2"
+      "version": "2.0.2",
+      "note_tags": [
+        "projects",
+        "education",
+        "community",
+        "pwa",
+        "prototype"
+      ]
     }
   ]
 }

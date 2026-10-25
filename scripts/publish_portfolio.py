@@ -146,7 +146,8 @@ def app_url(app, key):
 
 
 def render_note(app, today):
-    tags_yaml = "[" + ", ".join(unescape(t) for t in app["tags"]) + "]"
+    note_tags = app.get("note_tags") or app["tags"]
+    tags_yaml = "[" + ", ".join(unescape(t) for t in note_tags) + "]"
     if app.get("external"):
         return (
             "---\n"
