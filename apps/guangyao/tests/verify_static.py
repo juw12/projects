@@ -56,7 +56,7 @@ class StaticAppTests(unittest.TestCase):
         worker = (WEB / 'sw.js').read_text()
         block = re.search(r'const SHELL_FILES = \[(.*?)\];', worker, re.S).group(1)
         paths = re.findall(r"'([^']+)'", block)
-        self.assertEqual(len(paths), 6)
+        self.assertEqual(len(paths), 7)
         for relative in paths:
             self.assertTrue(relative.startswith('./'))
             self.assertTrue((WEB / relative).is_file())
@@ -67,8 +67,12 @@ class StaticAppTests(unittest.TestCase):
 
     def test_demo_boundaries_remain_visible(self):
         source = (WEB / 'index.html').read_text()
-        for required in ['本機示範', '非官方授證', '沒有收款', 'setNavigationOpen', 'withMutationLock', 'data-intent=', 'normalizeState']:
+        for required in ['本機示範', '非官方授證', '沒有收款', 'setNavigationOpen', 'withMutationLock', 'data-intent=', 'normalizeState', 'study.js', 'GY_PAGES', 'normalizeStudyState']:
             self.assertIn(required, source)
+        study = (WEB / 'study.js').read_text()
+        for required in ['LESSON_CONTENT', 'scheduleCard', 'localTutor', 'aiOptIn', '示範教材']:
+            self.assertIn(required, study)
+        self.assertNotIn('<script src="https://js.puter.com', source)
         self.assertIn('https://juwpegatron.github.io/portfolio/#projects', source)
         self.assertNotIn('api.stripe.com', source)
         self.assertNotIn('supabase.co', source)

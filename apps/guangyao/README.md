@@ -1,6 +1,6 @@
 # Guang Yao Together · 光耀同行
 
-**Unofficial 發一光耀 learning/community concept · frontend PWA demo · v2.0.2.**
+**Unofficial 發一光耀 learning/community concept · frontend PWA demo · v3.0.0.**
 
 One responsive, installable web app for desktop and phones. It uses fictional data and local storage. It does **not** authenticate real users, process donations, issue official credentials, send live chat messages, host meetings or pay affiliate commissions.
 
@@ -26,6 +26,17 @@ For mobile installation, use the deployed HTTPS URL in a supporting browser. iPh
 - Portfolio: <https://juwpegatron.github.io/portfolio/#projects>.
 
 The existence of these files does not prove that a push or deployment has succeeded. Check the remote commit and Pages workflow separately. The actual Obsidian vault has not been identified.
+
+## v3 study layer
+
+Version 3 adds a habit-forming study experience modelled on what works in leading study and AI apps (see `docs/competitive-analysis.md`):
+
+- **Interactive lessons:** short reading with zh-TW text-to-speech, multiple choice, cloze, tap-to-order and a private reflection. Immediate explanations, no hearts or lives.
+- **Spaced review:** every lesson creates flashcards scheduled with a simplified SM-2 algorithm (again/hard/good/easy, keyboard `Space` and `1`–`4`, 7-day forecast).
+- **Habits:** XP, daily goal (10/20/30 XP), streaks with up to two automatically earned streak freezes, focus timer and a 12-week heatmap.
+- **AI study buddy 光光:** an offline tutor that answers only from course passages with citations, admits when something is not covered, quizzes the learner and gives Socratic hints before answers. Optional cloud AI (Puter) requires explicit consent and falls back to the offline tutor.
+- **Community:** cooperative group weekly goal, shareable progress card (native share or PNG download) and ICS calendar export for registered events.
+- **Comfort:** light/dark/system theme, three text sizes, speech rate and goal settings, and a mobile bottom navigation with a due-card badge.
 
 ## Implemented demonstrations
 
@@ -61,7 +72,7 @@ Optional Chromium/WebKit browser regression tests are kept outside the default t
 python3 qa/browser_checks.py
 ```
 
-The browser suite starts its own loopback server and isolated browser contexts. It checks progression, registration, role views, local state, concurrent tabs, mobile layouts, offline loading, subpath deployment and update approval. It refreshes the sample screenshots under `docs/images/`. Physical-device installation, screen-reader conformance and real backend services are not validated by these browser tests.
+The browser suite starts its own loopback server and isolated browser contexts. It checks progression, registration, role views, local state, concurrent tabs, mobile layouts, offline loading, subpath deployment and update approval, plus the v3 lesson player, spaced review, streak/freeze rules, tutor retrieval and citations, AI consent gating, settings, sharing and calendar export in Chromium and WebKit. It refreshes the sample screenshots under `docs/images/`. Physical-device installation, screen-reader conformance, the live Puter cloud-AI service and real backend services are not validated by these browser tests.
 
 ## Before a real launch
 
