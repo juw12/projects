@@ -1277,6 +1277,9 @@
       }
     });
     commands.push({ group: 'Actions', label: 'Keyboard shortcuts', hint: '?', run: openShortcuts });
+    if (window.SweepStudio && typeof window.SweepStudio.paletteCommands === 'function') {
+      Array.prototype.push.apply(commands, window.SweepStudio.paletteCommands());
+    }
     return commands;
   }
 
@@ -1548,9 +1551,9 @@
       '</div>' +
       '<ul class="gate-features">' +
         '<li>' + check + 'Capability matrix &amp; Definition of Done</li>' +
-        '<li>' + check + 'Grow and Earn checklists with progress</li>' +
-        '<li>' + check + 'Scaffold files you can copy or download</li>' +
-        '<li>' + check + 'Otto drafts brand, site, posts &amp; outreach</li>' +
+        '<li>' + check + 'Spec Score grades your brief A–D with fixes</li>' +
+        '<li>' + check + 'Kiro-style requirements, design &amp; task board</li>' +
+        '<li>' + check + 'One-click handoff to Lovable, v0, Cursor, Claude Code</li>' +
       '</ul>';
     section.insertBefore(layout, card);
     layout.appendChild(hero);
