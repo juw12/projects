@@ -1,6 +1,8 @@
 // Glow: free, browser-only AI chat where models deliberate to consensus.
 // Modes: Chat · Council (2–3 agents + Judge) · Arena (side-by-side model vote).
-// No backend: local storage; prompts and credentials are sent to the chosen provider.
+// No Glow backend: chats live in local storage. Optional sign-in uses Puter (puter.com), whose
+// User-Pays model runs AI on each visitor's own free Puter allowance and can sync chats to their account.
+// Prompts and credentials are sent only to the provider the visitor chooses.
 "use strict";
 
 const $ = (id) => document.getElementById(id);
@@ -16,6 +18,24 @@ const OPENROUTER_URL = "https://openrouter.ai/api/v1";
 const SYSTEM_PROMPT = "You are a helpful, accurate and thoughtful assistant. Format answers with Markdown.";
 const MAX_ATTACHMENT_CHARS = 100000;
 const AGENT_COLORS = ["a", "b", "c"];
+const PUTER_SDK_URL = "https://js.puter.com/v2/";
+// Curated Glow AI models served through Puter, best general picks first. Retired ids are
+// filtered out against Puter's live catalogue when it is reachable.
+const PUTER_MODELS = [
+  ["gpt-5-mini", "GPT-5 mini"],
+  ["gemini-2.5-flash", "Gemini 2.5 Flash"],
+  ["claude-haiku-4-5", "Claude Haiku 4.5"],
+  ["deepseek-flash", "DeepSeek V4.1 Flash"],
+  ["gpt-5-nano", "GPT-5 nano (fastest, lightest)"],
+  ["gemini-2.5-flash-lite", "Gemini 2.5 Flash-Lite (light)"],
+  ["grok-4-1-fast-non-reasoning", "Grok 4.1 Fast"],
+  ["gpt-4o-mini", "GPT-4o mini"],
+  ["claude-sonnet-4-6", "Claude Sonnet 4.6 (premium, uses more allowance)"],
+];
+const CLOUD_PREFIX = "glow.sync.";
+const CLOUD_CHUNK_CHARS = 120000; // ≤ 360 KB per value even for 3-byte UTF-8 text (Puter limit 400 KB)
+const CLOUD_MAX_PARTS = 40;
+const CLOUD_PUSH_DELAY_MS = 4000;
 
 const state = loadState();
 let models = [];
@@ -23,6 +43,12 @@ let current = null;
 let pendingFiles = [];
 const controllers = new Set();
 let councilRunning = false;
+let puterSignedIn = false;
+let puterCatalogue = null;
+let puterPromise = null;
+let cloudTimer = null;
+let lastCloudPayload = "";
+let cloudBusy = false;
 
 /* ================= persistence ================= */
 function loadState() {
@@ -34,10 +60,15 @@ function loadState() {
       customUrl: "",
       customKey: "",
       lastModel: "demo::demo",
-      theme: "dark",
+      theme: "system",
+      account: "",
+      accountName: "",
+      cloudSync: true,
+      tourDone: false,
     },
     conversations: [],
     arenaStats: {},
+    deleted: {},
   };
   try {
     const saved = JSON.parse(localStorage.getItem(STORE_KEY));
@@ -46,6 +77,7 @@ function loadState() {
         settings: { ...defaults.settings, ...saved.settings },
         conversations: saved.conversations || [],
         arenaStats: saved.arenaStats || {},
+        deleted: saved.deleted || {},
       };
     }
   } catch (error) {
@@ -59,6 +91,7 @@ function saveState() {
   } catch (error) {
     console.warn("Could not save", error);
   }
+  scheduleCloudPush();
 }
 
 /* ================= markdown (escaped, safe) ================= */
@@ -134,15 +167,19 @@ async function fetchJson(url, headers = {}) {
 async function loadModels() {
   const s = state.settings;
   const list = [{ value: "demo::demo", label: "Demo agent (offline, canned replies)", short: "Demo", group: "Demo: no setup" }];
+  if (puterSignedIn) list.push(...(await puterModelOptions()));
   if (TEST_MODE) {
     models = list;
-    $("status").textContent = "Demo mode — no provider connected";
+    $("status").textContent = puterSignedIn ? "Glow AI (test double)" : "Demo mode — no provider connected";
+    $("banner-text").textContent = "This is a sandboxed demo. Your own chats and keys are untouched.";
     $("banner-settings").textContent = "Open Glow";
-    $("setup-banner").classList.remove("hidden");
+    $("banner-signin").classList.add("hidden");
+    $("setup-banner").classList.toggle("hidden", models.length > 1);
+    upgradeFromDemo();
     refreshModelSelects();
     return;
   }
-  const status = [];
+  const status = puterSignedIn ? [`Glow AI · ${list.length - 1} models`] : [];
   const jobs = [];
 
   if (s.openrouterKey) {
@@ -187,10 +224,22 @@ async function loadModels() {
   models = list;
   $("status").textContent = status.length ? status.join(" · ") : "Demo mode";
   $("setup-banner").classList.toggle("hidden", models.length > 1);
+  upgradeFromDemo();
   refreshModelSelects();
+}
+// When real models become available, stop defaulting new or empty chats to the demo bot.
+function upgradeFromDemo() {
+  if (models.length < 2) return;
+  if (!models.some((m) => m.value === state.settings.lastModel) || state.settings.lastModel === "demo::demo") {
+    state.settings.lastModel = defaultModel();
+  }
+  if (current && current.type === "chat" && !current.messages.length && !models.some((m) => m.value === current.model && m.value !== "demo::demo")) {
+    current.model = state.settings.lastModel;
+  }
 }
 const PREFERRED_MODEL_PATTERNS = [/llama-3\.3-70b/i, /deepseek-(chat|v3|r1)/i, /gemini/i, /qwen.*(72b|235b|32b)/i, /mistral-(small|medium|large)/i, /gpt-oss/i, /llama/i, /qwen/i];
 function modelRank(value) {
+  if (value.startsWith("puter::")) return -1 + PUTER_MODELS.findIndex(([id]) => `puter::${id}` === value) / 100;
   if (value.startsWith("ollama::")) return 0; // local models the user chose to install come first
   const index = PREFERRED_MODEL_PATTERNS.findIndex((pattern) => pattern.test(value));
   return index === -1 ? PREFERRED_MODEL_PATTERNS.length + 1 : index + 1;
@@ -259,6 +308,7 @@ async function streamReply(modelValue, system, messages, onText) {
   controllers.add(controller);
   try {
     if (provider === "demo") return await streamDemo(system, clean, onText, controller.signal);
+    if (provider === "puter") return await streamPuter(model, system, clean, onText, controller.signal);
     const config = providerConfig(provider);
     const headers = { "Content-Type": "application/json" };
     if (config.key) headers.Authorization = `Bearer ${config.key}`;
@@ -377,7 +427,7 @@ function demoText(system, messages) {
     const slot = system.match(/\[arena:(\d)\]/)[1];
     return `*(Demo answer ${"ABC"[slot]})* ${["Short and direct", "Detailed and structured", "Example-driven"][slot]} take on: *${prompt.slice(0, 120)}*`;
   }
-  return `**Demo mode:** no AI model is connected, so this is a canned reply.\n\nYou wrote: *${prompt.slice(0, 200)}*\n\nFor real answers at no cost:\n1. Create a free key at openrouter.ai/keys\n2. Open **Settings** and paste it\n3. Pick any model marked *free*`;
+  return `**Demo mode:** no AI model is connected, so this is a canned reply.\n\nYou wrote: *${prompt.slice(0, 200)}*\n\nFor real answers at no cost:\n1. Click **Sign in** in the sidebar for free Glow AI models (no key needed), or\n2. Add a free OpenRouter key in **Settings** and pick a model marked *free*`;
 }
 function streamDemo(system, messages, onText, signal) {
   const text = demoText(system, messages);
@@ -428,10 +478,15 @@ function renderHistory() {
     const title = document.createElement("span");
     title.className = "title";
     title.textContent = (MODE_ICONS[conv.type] || "") + conv.title;
+    title.title = "Double-click to rename";
     title.addEventListener("click", () => {
       stopAll();
       openConversation(conv);
       closeSidebar();
+    });
+    title.addEventListener("dblclick", () => {
+      const name = prompt("Rename this chat", conv.title);
+      if (name !== null) renameConversation(conv, name);
     });
     const del = document.createElement("button");
     del.className = "del";
@@ -440,6 +495,7 @@ function renderHistory() {
     del.textContent = "✕";
     del.addEventListener("click", () => {
       state.conversations = state.conversations.filter((c) => c !== conv);
+      state.deleted[conv.id] = Date.now(); // so cloud sync doesn't bring it back
       saveState();
       if (current === conv) newChat();
       else renderHistory();
@@ -514,8 +570,12 @@ function renderMessages() {
   const box = $("messages");
   box.innerHTML = "";
   if (current.type === "chat" && current.messages.length === 0) {
-    box.innerHTML = `<div class="welcome"><h2>From a spark to something real.</h2>
+    const starters = STARTERS.map((s, i) => `<button class="starter" type="button" data-starter="${i}">
+        <span class="starter-icon">${s.icon}</span><b>${escapeHtml(s.title)}</b><span>${escapeHtml(s.prompt)}</span></button>`).join("");
+    box.innerHTML = `<div class="welcome"><div class="welcome-glow" aria-hidden="true"></div>
+      <h2>From a spark to <span class="accent-text">something real.</span></h2>
       <p>Explore an idea, shape a plan, and get another perspective. Chat with a model, gather a <b>Council</b>, or compare answers in the <b>Arena</b>.</p>
+      <div class="starters">${starters}</div>
       <div class="welcome-actions"><button class="secondary" type="button" data-start="council">⚖ Start a council</button>
       <button class="secondary" type="button" data-start="arena">⚔ Open the arena</button></div></div>`;
     return;
@@ -525,7 +585,15 @@ function renderMessages() {
       renderUserBubble(m);
     } else {
       const who = agentDisplay(current, m);
-      messageElement(who.name, who.css, who.meta).innerHTML = renderReply(m.content);
+      const bubble = messageElement(who.name, who.css, who.meta);
+      bubble.innerHTML = renderReply(m.content);
+      const copy = document.createElement("button");
+      copy.type = "button";
+      copy.className = "msg-copy";
+      copy.title = "Copy this reply";
+      copy.textContent = "⧉ Copy";
+      copy.dataset.copyIndex = String(index);
+      bubble.parentElement.querySelector(".who").appendChild(copy);
     }
     if (current.type === "chat" && index === current.messages.length - 1) addChatActions();
   });
@@ -610,12 +678,65 @@ async function replyToChat() {
   if (reply) current.messages.push({ role: "assistant", content: reply, model: current.model });
   persist(current);
   setBusy(false);
-  renderMessages();
+  if (reply) renderMessages(); // on failure keep the error notice on screen
   return reply;
 }
 function copyLast() {
   const last = current.messages[current.messages.length - 1];
-  navigator.clipboard.writeText(stripThinking(last.content));
+  copyText(stripThinking(last.content));
+}
+function copyText(text, message = "Copied to clipboard") {
+  const done = () => toast(message);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text, done));
+  } else {
+    fallbackCopy(text, done);
+  }
+}
+function fallbackCopy(text, done) {
+  const area = document.createElement("textarea");
+  area.value = text;
+  area.setAttribute("readonly", "");
+  area.style.position = "fixed";
+  area.style.opacity = "0";
+  document.body.appendChild(area);
+  area.select();
+  try {
+    document.execCommand("copy");
+    done();
+  } catch {
+    toast("Couldn't copy. Select the text and copy it manually.");
+  }
+  area.remove();
+}
+let toastTimer = null;
+function toast(message) {
+  const box = $("toast");
+  box.textContent = message;
+  box.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => box.classList.remove("show"), 2200);
+}
+const STARTERS = [
+  { icon: "💡", title: "Brainstorm", prompt: "Give me 10 fresh ideas for a weekend side project I could finish in two days." },
+  { icon: "🗺", title: "Make a plan", prompt: "Turn this goal into a step-by-step plan with milestones: launch a small online shop in 30 days." },
+  { icon: "🔍", title: "Get a review", prompt: "Act as a tough but fair reviewer. What are the biggest risks in starting a food delivery app in my city?" },
+  { icon: "✍", title: "Explain simply", prompt: "Explain how large language models work, like I'm 12, with one everyday example." },
+];
+function useStarter(index) {
+  const starter = STARTERS[index];
+  if (!starter || !current || current.type !== "chat") return null;
+  $("input").value = starter.prompt;
+  autoSize();
+  return onSend();
+}
+function renameConversation(conv, name) {
+  const title = String(name || "").trim().slice(0, 60);
+  if (!title) return false;
+  conv.title = title;
+  persist(conv);
+  toast("Chat renamed");
+  return true;
 }
 function regenerate() {
   if ($("send-btn").disabled) return null;
@@ -652,7 +773,7 @@ async function secondOpinion() {
   if (reply) current.messages.push({ role: "assistant", agent: "critic", model: reviewer.value, content: reply });
   persist(current);
   setBusy(false);
-  renderMessages();
+  if (reply) renderMessages();
   return reply;
 }
 
@@ -1091,6 +1212,9 @@ function openSettings() {
   $("set-ollama").value = s.ollamaUrl;
   $("set-custom-url").value = s.customUrl;
   $("set-custom-key").value = s.customKey;
+  $("set-theme").value = s.theme;
+  $("set-sync").checked = s.cloudSync;
+  renderAccount();
   $("settings-modal").classList.add("open");
 }
 async function saveSettings() {
@@ -1100,6 +1224,7 @@ async function saveSettings() {
     ollamaUrl: $("set-ollama").value.trim() || "http://localhost:11434",
     customUrl: $("set-custom-url").value.trim(),
     customKey: $("set-custom-key").value.trim(),
+    cloudSync: $("set-sync").checked,
   });
   saveState();
   $("settings-modal").classList.remove("open");
@@ -1127,14 +1252,504 @@ function importAll(file) {
   };
   reader.readAsText(file);
 }
-function clearAll() {
-  if (!confirm("Delete all chats, votes and keys from this browser?")) return;
+async function clearAll() {
+  const synced = cloudReady();
+  const question = synced
+    ? "Delete all chats, votes and keys from this browser AND the synced copy in your account?"
+    : "Delete all chats, votes and keys from this browser?";
+  if (!confirm(question)) return;
+  clearTimeout(cloudTimer);
+  if (synced) await window.puter.kv.del(CLOUD_PREFIX + "meta").catch(() => {});
   localStorage.removeItem(STORE_KEY);
   location.reload();
 }
+
+/* ================= theme ================= */
+const systemLight = window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : { matches: false };
+function effectiveTheme() {
+  const choice = state.settings.theme;
+  if (choice === "light" || choice === "dark") return choice;
+  return systemLight.matches ? "light" : "dark";
+}
 function applyTheme() {
-  document.documentElement.dataset.theme = state.settings.theme;
-  $("theme-btn").textContent = state.settings.theme === "dark" ? "☀ Light" : "☾ Dark";
+  const theme = effectiveTheme();
+  document.documentElement.dataset.theme = theme;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = theme === "light" ? "#faf9f5" : "#262624";
+  const next = theme === "dark" ? "light" : "dark";
+  for (const id of ["theme-toggle", "welcome-theme"]) {
+    $(id).textContent = theme === "dark" ? "☀" : "☾";
+    $(id).title = `Switch to ${next} theme`;
+  }
+  $("theme-btn").textContent = theme === "dark" ? "☀ Light" : "☾ Dark";
+  $("set-theme").value = state.settings.theme;
+}
+function setTheme(choice) {
+  state.settings.theme = choice;
+  saveState();
+  applyTheme();
+}
+function toggleTheme() {
+  setTheme(effectiveTheme() === "dark" ? "light" : "dark");
+  toast(effectiveTheme() === "dark" ? "Dark theme on" : "Light theme on");
+}
+
+
+/* ================= Glow AI via Puter (sign-in) ================= */
+function ensurePuter() {
+  if (window.puter) return Promise.resolve(window.puter);
+  if (TEST_MODE) return Promise.reject(new Error("Puter is disabled in sandboxed demos."));
+  if (!puterPromise) {
+    puterPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = PUTER_SDK_URL;
+      script.async = true;
+      script.onload = () => (window.puter ? resolve(window.puter) : reject(new Error("Puter did not start.")));
+      script.onerror = () => {
+        puterPromise = null;
+        script.remove();
+        reject(new Error("Couldn't reach Puter. Check your connection or ad-blocker, then try again."));
+      };
+      document.head.appendChild(script);
+    });
+  }
+  return puterPromise;
+}
+function withTimeout(promise, ms, message) {
+  return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms))]);
+}
+function puterErrorText(error) {
+  if (!error) return "Glow AI (Puter) error.";
+  const inner = error.error && typeof error.error === "object" ? error.error : error;
+  const message = String(inner.message || inner.msg || (typeof error.error === "string" ? error.error : "") || error.message || error.msg || "");
+  const code = String(inner.code || error.code || "");
+  const both = `${code} ${message}`;
+  if (/insufficient|funds|quota|allowance|usage.?limit|credits|exceeded/i.test(both)) {
+    return "Your free Puter AI allowance is used up for now. Try a lighter model (GPT-5 nano or Flash-Lite), wait a while, or add your own key in Settings.";
+  }
+  if (/auth|unauthori[sz]ed|401|token/i.test(both)) return "Your sign-in has expired. Sign in again from the sidebar.";
+  if (/model.*(not|unavailable|unknown)|not.?found/i.test(both)) return "This Glow AI model isn't available right now. Pick another model.";
+  return `Glow AI (Puter) error: ${(message || code || "unknown problem").slice(0, 200)}`;
+}
+async function puterModelOptions() {
+  const sdk = window.puter;
+  if (!puterCatalogue && sdk && sdk.ai && typeof sdk.ai.listModels === "function") {
+    try {
+      const list = await withTimeout(sdk.ai.listModels(), 5000, "catalogue timeout");
+      const ids = new Set();
+      for (const m of Array.isArray(list) ? list : []) {
+        if (m && m.id) ids.add(m.id);
+        for (const alias of (m && m.aliases) || []) ids.add(alias);
+      }
+      if (ids.size) puterCatalogue = ids;
+    } catch {
+      // Catalogue unavailable: offer the curated list as-is.
+    }
+  }
+  const available = PUTER_MODELS.filter(([id]) => !puterCatalogue || puterCatalogue.has(id));
+  return (available.length ? available : PUTER_MODELS).map(([id, name]) => ({
+    value: `puter::${id}`,
+    label: name,
+    short: name.replace(/\s*\(.*\)$/, ""),
+    group: "Glow AI: free with your account",
+  }));
+}
+async function streamPuter(model, system, messages, onText, signal) {
+  let sdk;
+  try {
+    sdk = await ensurePuter();
+  } catch (error) {
+    throw new Error(error.message);
+  }
+  if (!sdk.auth.isSignedIn()) {
+    puterSignedIn = false;
+    renderAccount();
+    throw new Error("Sign in to use Glow AI models: click “Sign in” in the sidebar, or pick another model.");
+  }
+  const aborted = new Promise((_, reject) => {
+    if (signal.aborted) reject(new DOMException("Aborted", "AbortError"));
+    signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+  });
+  aborted.catch(() => {});
+  let response;
+  try {
+    response = await Promise.race([
+      sdk.ai.chat([{ role: "system", content: system }, ...mergeRoles(messages)], { model, stream: true, signal }),
+      aborted,
+    ]);
+  } catch (error) {
+    if (error && error.name === "AbortError") throw error;
+    throw new Error(puterErrorText(error));
+  }
+  if (!response || typeof response[Symbol.asyncIterator] !== "function") {
+    const text = String((response && response.message && response.message.content) || response || "");
+    onText(text);
+    return text;
+  }
+  const iterator = response[Symbol.asyncIterator]();
+  let full = "";
+  let thinking = false;
+  try {
+    while (true) {
+      let step;
+      try {
+        step = await Promise.race([iterator.next(), aborted]);
+      } catch (error) {
+        if (error && error.name === "AbortError") throw error;
+        throw new Error(puterErrorText(error));
+      }
+      if (step.done) break;
+      const part = step.value || {};
+      if (part.error) throw new Error(puterErrorText(part.error));
+      const type = part.type || "text";
+      const reasoning = typeof part.reasoning === "string" ? part.reasoning
+        : /^reasoning/.test(type) && typeof part.text === "string" ? part.text : "";
+      if (reasoning) {
+        if (!thinking) {
+          full += "<think>";
+          thinking = true;
+        }
+        full += reasoning;
+      } else if (type === "text" && typeof part.text === "string" && part.text) {
+        if (thinking) {
+          full += "</think>\n\n";
+          thinking = false;
+        }
+        full += part.text;
+      } else {
+        continue;
+      }
+      onText(full);
+    }
+  } finally {
+    if (signal.aborted && typeof iterator.return === "function") Promise.resolve(iterator.return()).catch(() => {});
+  }
+  if (thinking) full += "</think>";
+  return full;
+}
+
+/* ================= account: sign in, guest, sign out ================= */
+function renderAccount() {
+  const s = state.settings;
+  const box = $("account-box");
+  box.classList.toggle("signed-in", puterSignedIn);
+  let label;
+  let action;
+  let status;
+  if (puterSignedIn) {
+    label = s.accountName || "Signed in";
+    action = "Sign out";
+    status = `Signed in as ${s.accountName || "your Puter account"}. Glow AI models are ready.`;
+  } else if (s.account === "puter") {
+    label = "Signed out";
+    action = "Sign in";
+    status = "You're signed out. Sign in again to use Glow AI models and sync.";
+  } else {
+    label = "👤 Guest";
+    action = "Sign in";
+    status = "You're using Glow as a guest: demo replies or your own keys below.";
+  }
+  $("account-label").textContent = label;
+  $("account-label").title = puterSignedIn ? `Signed in with Puter as ${label}` : label;
+  $("account-btn").textContent = action;
+  $("set-account-status").textContent = status;
+  $("set-account-btn").textContent = action;
+  $("set-sync").disabled = !puterSignedIn;
+  $("banner-signin").classList.toggle("hidden", TEST_MODE || puterSignedIn);
+}
+function setSigninError(message) {
+  $("signin-error").textContent = message;
+  $("signin-error").classList.toggle("hidden", !message);
+}
+function signinFailureText(error) {
+  const code = error && (error.error || error.code);
+  if (code === "auth_window_closed") return "The sign-in window was closed. Try again, or continue as guest.";
+  if (code === "unsupported_origin") return "Sign-in needs Glow to be opened from its website, not a local file.";
+  return `Sign-in didn't finish: ${(error && (error.message || error.msg)) || "please try again"}.`;
+}
+async function signIn() {
+  setSigninError("");
+  $("signin-btn").disabled = true;
+  try {
+    const sdk = window.puter || (await ensurePuter());
+    // Called straight from the click so the Puter sign-in popup isn't blocked.
+    if (!sdk.auth.isSignedIn()) await sdk.auth.signIn();
+    const user = await Promise.resolve(sdk.auth.getUser()).catch(() => null);
+    puterSignedIn = true;
+    Object.assign(state.settings, { account: "puter", accountName: (user && user.username) || "Puter user" });
+    saveState();
+  } catch (error) {
+    setSigninError(signinFailureText(error));
+    if (!$("welcome-screen").classList.contains("hidden")) $("signin-btn").focus();
+    else showNoticeSafe(signinFailureText(error));
+    return false;
+  } finally {
+    $("signin-btn").disabled = false;
+  }
+  hideWelcome();
+  renderAccount();
+  toast(`Signed in as ${state.settings.accountName}`);
+  await loadModels();
+  if (current && current.type === "chat") fillSelect($("chat-model"), current.model);
+  await pullCloud();
+  maybeStartTour();
+  return true;
+}
+function continueAsGuest() {
+  Object.assign(state.settings, { account: "guest", accountName: "" });
+  saveState();
+  hideWelcome();
+  renderAccount();
+  maybeStartTour();
+}
+async function signOut() {
+  clearTimeout(cloudTimer);
+  if (cloudReady()) await pushCloud().catch(() => {});
+  try {
+    if (window.puter) await Promise.resolve(window.puter.auth.signOut());
+  } catch (error) {
+    console.warn("Puter sign-out failed", error);
+  }
+  puterSignedIn = false;
+  Object.assign(state.settings, { account: "guest", accountName: "" });
+  saveState();
+  renderAccount();
+  await loadModels();
+  if (current && current.type === "chat") fillSelect($("chat-model"), current.model);
+  showWelcome();
+}
+function onAccountButton() {
+  closeSidebar();
+  $("settings-modal").classList.remove("open");
+  if (puterSignedIn) signOut();
+  else showWelcome();
+}
+async function restorePuterSession() {
+  try {
+    const sdk = await withTimeout(ensurePuter(), 10000, "Puter is taking too long to load.");
+    puterSignedIn = !!sdk.auth.isSignedIn();
+    if (puterSignedIn) {
+      const user = await Promise.resolve(sdk.auth.getUser()).catch(() => null);
+      if (user && user.username) state.settings.accountName = user.username;
+    }
+  } catch (error) {
+    puterSignedIn = false;
+    console.warn(error);
+  }
+  renderAccount();
+  return puterSignedIn;
+}
+function showNoticeSafe(message) {
+  if (current && !(current.type !== "chat" && !current.started)) showNotice(message);
+  else alert(message);
+}
+
+/* ================= cloud sync (Puter key-value storage) ================= */
+function cloudReady() {
+  return puterSignedIn && state.settings.cloudSync && !!(window.puter && window.puter.kv);
+}
+function scheduleCloudPush() {
+  if (!cloudReady()) return;
+  clearTimeout(cloudTimer);
+  cloudTimer = setTimeout(() => pushCloud().catch((error) => console.warn("Sync failed", error)), CLOUD_PUSH_DELAY_MS);
+}
+function cloudBody(conversations) {
+  return JSON.stringify({ v: 1, conversations, arenaStats: state.arenaStats, deleted: state.deleted });
+}
+async function pushCloud() {
+  if (!cloudReady() || cloudBusy) return false;
+  let conversations = state.conversations.slice().sort((a, b) => (b.updated || 0) - (a.updated || 0));
+  let body = cloudBody(conversations);
+  while (Math.ceil(body.length / CLOUD_CHUNK_CHARS) > CLOUD_MAX_PARTS && conversations.length > 1) {
+    conversations = conversations.slice(0, Math.floor(conversations.length * 0.8));
+    body = cloudBody(conversations);
+  }
+  if (body === lastCloudPayload) return true;
+  cloudBusy = true;
+  try {
+    const parts = [];
+    for (let i = 0; i < body.length; i += CLOUD_CHUNK_CHARS) parts.push(body.slice(i, i + CLOUD_CHUNK_CHARS));
+    for (let i = 0; i < parts.length; i++) await window.puter.kv.set(`${CLOUD_PREFIX}${i}`, parts[i]);
+    await window.puter.kv.set(`${CLOUD_PREFIX}meta`, JSON.stringify({ parts: parts.length, updated: Date.now(), kept: conversations.length, total: state.conversations.length }));
+    lastCloudPayload = body;
+    $("status").textContent = conversations.length < state.conversations.length
+      ? `Synced your ${conversations.length} most recent chats (account storage limit)`
+      : "Chats synced to your account";
+    return true;
+  } finally {
+    cloudBusy = false;
+  }
+}
+async function pullCloud() {
+  if (!cloudReady()) return false;
+  try {
+    const metaText = await window.puter.kv.get(`${CLOUD_PREFIX}meta`);
+    if (metaText) {
+      const meta = typeof metaText === "string" ? JSON.parse(metaText) : metaText;
+      const parts = [];
+      for (let i = 0; i < meta.parts; i++) parts.push(await window.puter.kv.get(`${CLOUD_PREFIX}${i}`));
+      if (parts.every((p) => typeof p === "string")) mergeCloud(JSON.parse(parts.join("")));
+    }
+    await pushCloud();
+    return true;
+  } catch (error) {
+    console.warn("Could not sync", error);
+    $("status").textContent = "Couldn't sync chats right now; they're safe in this browser.";
+    return false;
+  }
+}
+function mergeCloud(data) {
+  const deleted = { ...(data.deleted || {}), ...state.deleted };
+  const byId = new Map();
+  for (const conv of [...state.conversations, ...(data.conversations || [])]) {
+    if (!conv || !conv.id || !conv.type || deleted[conv.id]) continue;
+    const existing = byId.get(conv.id);
+    if (!existing || (conv.updated || 0) > (existing.updated || 0)) byId.set(conv.id, conv);
+  }
+  const busy = councilRunning || $("send-btn").disabled;
+  if (current && busy && byId.has(current.id)) byId.set(current.id, current); // never swap a conversation mid-reply
+  state.conversations = [...byId.values()].sort((a, b) => (b.updated || 0) - (a.updated || 0));
+  state.deleted = Object.fromEntries(Object.entries(deleted).sort((a, b) => b[1] - a[1]).slice(0, 500));
+  for (const [model, stats] of Object.entries(data.arenaStats || {})) {
+    const mine = state.arenaStats[model];
+    if (!mine || (stats.games || 0) > (mine.games || 0)) state.arenaStats[model] = stats;
+  }
+  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  if (current) {
+    const fresh = state.conversations.find((c) => c.id === current.id);
+    if (fresh && fresh !== current && !busy) openConversation(fresh);
+  }
+  renderHistory();
+}
+
+/* ================= welcome screen ================= */
+function showWelcome() {
+  endTour(false);
+  setSigninError("");
+  $("welcome-screen").classList.remove("hidden");
+  ensurePuter().catch(() => {}); // preload so the sign-in popup opens instantly on click
+  $("signin-btn").focus();
+}
+function hideWelcome() {
+  $("welcome-screen").classList.add("hidden");
+}
+
+/* ================= guided tour ================= */
+const TOUR_STEPS = [
+  { title: "Welcome to Glow ✨", text: "A quick tour of the main controls. Use Next or the → key, Back or ←, and Esc to skip." },
+  { target: "#chat-model", title: "Pick a model", text: "Choose which AI answers. Signed in, you get Glow AI models such as GPT, Claude, Gemini and DeepSeek. Guests get Demo plus any keys they add." },
+  { target: "#composer", title: "Ask anything", text: "Type here and press Enter to send. Shift+Enter adds a new line; 📎 or paste attaches text and code files." },
+  { target: "#new-council-btn", sidebar: true, title: "Council ⚖", text: "2–3 agents with different roles debate until they agree, then a Judge writes the final answer." },
+  { target: "#new-arena-btn", sidebar: true, title: "Arena ⚔", text: "Ask several models the same question side by side, vote for the best and build your own leaderboard." },
+  { target: "#search", sidebar: true, title: "Your chats", text: "Every chat is saved and searchable here. When you're signed in they sync to your account too." },
+  { target: "#export-btn", title: "Export", text: "Download the current conversation as a Markdown file." },
+  { target: "#theme-toggle", title: "Light or dark", text: "Switch the theme any time. Glow follows your device until you pick one." },
+  { target: "#account-box", sidebar: true, title: "Your account", text: "See who's signed in, sign in to get free Glow AI, or sign out." },
+  { target: "#settings-btn", sidebar: true, title: "Settings & models", text: "Add your own OpenRouter, Ollama or OpenAI-compatible keys, change the theme and back up your data." },
+  { target: "#help-btn", title: "That's it!", text: "Press ? any time to replay this tour. Now go turn a spark into something real." },
+];
+const tour = { active: false, index: 0, steps: [] };
+function tourTarget(step) {
+  if (!step.target) return null;
+  const element = document.querySelector(step.target);
+  if (!element || element.classList.contains("hidden")) return null;
+  return element;
+}
+function isMobileLayout() {
+  return window.matchMedia ? window.matchMedia("(max-width: 760px)").matches : window.innerWidth <= 760;
+}
+function startTour() {
+  closeSidebar();
+  $("settings-modal").classList.remove("open");
+  hideWelcome();
+  tour.steps = TOUR_STEPS.filter((step) => {
+    if (!step.target) return true;
+    const element = tourTarget(step);
+    if (!element) return false;
+    if (step.sidebar && isMobileLayout()) return true; // shown by opening the sidebar
+    return element.getClientRects().length > 0 && getComputedStyle(element).display !== "none";
+  });
+  tour.active = true;
+  tour.index = 0;
+  $("tour").classList.remove("hidden");
+  renderTourStep();
+}
+function maybeStartTour() {
+  if (!state.settings.tourDone) startTour();
+}
+function endTour(markDone = true) {
+  if (!tour.active) return;
+  tour.active = false;
+  $("tour").classList.add("hidden");
+  closeSidebar();
+  if (markDone) {
+    state.settings.tourDone = true;
+    saveState();
+  }
+}
+function moveTour(delta) {
+  if (!tour.active) return;
+  const next = tour.index + delta;
+  if (next >= tour.steps.length) {
+    endTour();
+    return;
+  }
+  tour.index = Math.max(0, next);
+  renderTourStep();
+}
+function renderTourStep() {
+  const step = tour.steps[tour.index];
+  $("tour-step").textContent = `Step ${tour.index + 1} of ${tour.steps.length}`;
+  $("tour-title").textContent = step.title;
+  $("tour-text").textContent = step.text;
+  $("tour-back").disabled = tour.index === 0;
+  $("tour-next").textContent = tour.index === tour.steps.length - 1 ? "Finish" : "Next";
+  const needsSidebar = !!step.sidebar && isMobileLayout();
+  document.body.classList.toggle("sidebar-open", needsSidebar);
+  positionTour();
+  if (needsSidebar) setTimeout(positionTour, 230); // after the sidebar slides in
+  $("tour-next").focus();
+}
+function positionTour() {
+  if (!tour.active) return;
+  const step = tour.steps[tour.index];
+  const spot = $("tour-spot");
+  const card = $("tour-card");
+  const target = tourTarget(step);
+  const viewW = window.innerWidth;
+  const viewH = window.innerHeight;
+  const cardW = Math.min(340, viewW - 24);
+  const cardH = card.offsetHeight || 170;
+  if (!target) {
+    spot.classList.add("centered");
+    Object.assign(spot.style, { left: `${viewW / 2}px`, top: `${viewH / 2}px`, width: "0px", height: "0px" });
+    card.style.left = `${Math.max(12, (viewW - cardW) / 2)}px`;
+    card.style.top = `${Math.max(12, (viewH - cardH) / 2)}px`;
+    return;
+  }
+  spot.classList.remove("centered");
+  const rect = target.getBoundingClientRect();
+  const pad = 6;
+  const gap = 14;
+  Object.assign(spot.style, {
+    left: `${rect.left - pad}px`,
+    top: `${rect.top - pad}px`,
+    width: `${rect.width + pad * 2}px`,
+    height: `${rect.height + pad * 2}px`,
+  });
+  let left;
+  let top;
+  const fitsBeside = rect.right + pad + gap + cardW <= viewW - 12;
+  if (step.sidebar && !isMobileLayout() && fitsBeside) {
+    left = rect.right + pad + gap; // sidebar controls: card to the right
+    top = rect.top + rect.height / 2 - cardH / 2;
+  } else {
+    left = rect.left + rect.width / 2 - cardW / 2;
+    top = rect.bottom + pad + gap;
+    if (top + cardH > viewH - 12) top = rect.top - pad - gap - cardH;
+  }
+  card.style.left = `${Math.min(viewW - cardW - 12, Math.max(12, left))}px`;
+  card.style.top = `${Math.min(viewH - cardH - 12, Math.max(12, top))}px`;
 }
 
 /* ================= wiring ================= */
@@ -1176,14 +1791,39 @@ function wire() {
   document.addEventListener("click", (event) => {
     const target = event.target;
     if (target.classList.contains("copy-btn")) {
-      navigator.clipboard.writeText(target.nextElementSibling.textContent);
+      copyText(target.nextElementSibling.textContent, "Code copied");
       target.textContent = "Copied";
       setTimeout(() => (target.textContent = "Copy"), 1200);
     }
+    if (target.dataset.copyIndex && current) {
+      const message = current.messages[Number(target.dataset.copyIndex)];
+      if (message) copyText(stripThinking(message.content));
+    }
+    const starter = target.closest && target.closest("[data-starter]");
+    if (starter) useStarter(Number(starter.dataset.starter));
     if (target.dataset.start === "council") newCouncil();
     if (target.dataset.start === "arena") newArena();
   });
   document.addEventListener("keydown", (e) => {
+    if (tour.active) {
+      if (e.key === "Escape") endTour();
+      else if (e.key === "ArrowRight") moveTour(1);
+      else if (e.key === "ArrowLeft") moveTour(-1);
+      else return;
+      e.preventDefault();
+      return;
+    }
+    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || "");
+    if (e.key === "?" && !typing && !e.metaKey && !e.ctrlKey && $("welcome-screen").classList.contains("hidden")) {
+      e.preventDefault();
+      startTour();
+      return;
+    }
+    if (e.key === "/" && !typing && !e.metaKey && !e.ctrlKey && $("welcome-screen").classList.contains("hidden")) {
+      e.preventDefault();
+      $("input").focus();
+      return;
+    }
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
       e.preventDefault();
       stopAll();
@@ -1262,10 +1902,27 @@ function wire() {
     if (e.target.files[0]) importAll(e.target.files[0]);
   });
   $("clear-btn").addEventListener("click", clearAll);
-  $("theme-btn").addEventListener("click", () => {
-    state.settings.theme = state.settings.theme === "dark" ? "light" : "dark";
+  $("theme-btn").addEventListener("click", toggleTheme);
+  $("theme-toggle").addEventListener("click", toggleTheme);
+  $("welcome-theme").addEventListener("click", toggleTheme);
+  $("set-theme").addEventListener("change", () => setTheme($("set-theme").value));
+  if (systemLight.addEventListener) systemLight.addEventListener("change", applyTheme);
+  $("help-btn").addEventListener("click", startTour);
+  $("tour-replay-btn").addEventListener("click", startTour);
+  $("tour-next").addEventListener("click", () => moveTour(1));
+  $("tour-back").addEventListener("click", () => moveTour(-1));
+  $("tour-skip").addEventListener("click", () => endTour());
+  window.addEventListener("resize", positionTour);
+  $("signin-btn").addEventListener("click", signIn);
+  $("signin-btn").addEventListener("pointerenter", () => ensurePuter().catch(() => {}));
+  $("guest-btn").addEventListener("click", continueAsGuest);
+  $("account-btn").addEventListener("click", onAccountButton);
+  $("set-account-btn").addEventListener("click", onAccountButton);
+  $("banner-signin").addEventListener("click", showWelcome);
+  $("set-sync").addEventListener("change", () => {
+    state.settings.cloudSync = $("set-sync").checked;
     saveState();
-    applyTheme();
+    if (state.settings.cloudSync) pullCloud();
   });
 }
 
@@ -1334,6 +1991,154 @@ async function selfTest() {
   $("search").value = "";
   renderHistory();
 
+  newChat();
+  expect("ui: starter prompts on the empty chat", document.querySelectorAll(".starter").length === STARTERS.length);
+  await useStarter(0);
+  expect("ui: starter prompt sends a real chat", current.messages.length === 2 && current.messages[0].content === STARTERS[0].prompt);
+  expect("ui: every reply has its own Copy button", document.querySelectorAll(".msg-copy").length === current.messages.filter((m) => m.role === "assistant").length);
+  expect("ui: rename a chat", renameConversation(current, "  My renamed chat  ") && current.title === "My renamed chat" && !renameConversation(current, "   "));
+  toast("Hello");
+  expect("ui: toast feedback appears", $("toast").classList.contains("show") && $("toast").textContent === "Hello");
+
+  // ---- v0.4: theme, welcome, guest, guided tour, Glow AI sign-in (Puter test double), sync ----
+  const themeBefore = state.settings.theme;
+  setTheme("dark");
+  toggleTheme();
+  const savedTheme = JSON.parse(localStorage.getItem(STORE_KEY)).settings.theme;
+  expect("theme: toggle switches to light and is saved", document.documentElement.dataset.theme === "light" && savedTheme === "light" && $("theme-toggle").textContent === "☾");
+  setTheme("system");
+  expect("theme: 'match my device' follows the system setting", document.documentElement.dataset.theme === (systemLight.matches ? "light" : "dark"));
+  setTheme(themeBefore);
+
+  Object.assign(state.settings, { account: "", tourDone: false });
+  newChat();
+  showWelcome();
+  expect("welcome: sign-in and guest choices shown", !$("welcome-screen").classList.contains("hidden") && $("signin-btn").offsetParent !== null && $("guest-btn").offsetParent !== null);
+  $("guest-btn").click();
+  expect("guest: continue hides welcome and is remembered", $("welcome-screen").classList.contains("hidden") && state.settings.account === "guest" && $("account-label").textContent.includes("Guest"));
+  expect("tour: starts after the first choice", tour.active && !$("tour").classList.contains("hidden") && $("tour-title").textContent.includes("Welcome"));
+  moveTour(1);
+  const spotStyle = $("tour-spot").style;
+  const pickerRect = $("chat-model").getBoundingClientRect();
+  const spotLeft = parseFloat(spotStyle.left);
+  const spotTop = parseFloat(spotStyle.top);
+  expect("tour: spotlight frames the model picker", $("tour-title").textContent === "Pick a model"
+    && spotLeft <= pickerRect.left && spotLeft + parseFloat(spotStyle.width) >= pickerRect.right
+    && spotTop <= pickerRect.top && spotTop + parseFloat(spotStyle.height) >= pickerRect.bottom);
+  const tourCard = $("tour-card");
+  const cardLeft = parseFloat(tourCard.style.left);
+  const cardTop = parseFloat(tourCard.style.top);
+  expect("tour: card stays inside the window", cardLeft >= 0 && cardLeft + tourCard.offsetWidth <= innerWidth && cardTop >= 0 && cardTop + tourCard.offsetHeight <= innerHeight);
+  moveTour(-1);
+  expect("tour: Back returns to the previous step", tour.index === 0);
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
+  expect("tour: arrow keys navigate", tour.index === 1);
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+  expect("tour: Esc skips and is remembered", !tour.active && $("tour").classList.contains("hidden") && state.settings.tourDone === true);
+  $("help-btn").click();
+  const replayed = tour.active;
+  for (let i = 0; i < 20 && tour.active; i++) $("tour-next").click();
+  expect("tour: ? replays it and Finish closes it", replayed && !tour.active);
+
+  const kvStore = new Map();
+  const chatCalls = [];
+  let chatMode = "ok";
+  window.puter = {
+    auth: {
+      signedIn: false,
+      isSignedIn() {
+        return this.signedIn;
+      },
+      async signIn() {
+        this.signedIn = true;
+        return {};
+      },
+      async getUser() {
+        return { username: "glow_tester" };
+      },
+      async signOut() {
+        this.signedIn = false;
+      },
+    },
+    ai: {
+      async listModels() {
+        return [{ id: "gpt-5-mini" }, { id: "gemini-2.5-flash" }, { id: "claude-haiku-4-5-20251001", aliases: ["claude-haiku-4-5"] }, { id: "deepseek-flash" }];
+      },
+      async chat(messages, options) {
+        chatCalls.push({ messages, options });
+        if (chatMode === "quota") throw { success: false, error: { code: "insufficient_funds", message: "Insufficient funds" } };
+        const slow = chatMode === "slow";
+        return (async function* stream() {
+          yield { type: "reasoning", reasoning: "Thinking briefly" };
+          yield { type: "text", text: "Hello " };
+          if (slow) await new Promise((resolve) => setTimeout(resolve, 5000));
+          yield { type: "text", text: "from Glow AI" };
+        })();
+      },
+    },
+    kv: {
+      async set(key, value) {
+        kvStore.set(key, value);
+        return true;
+      },
+      async get(key) {
+        return kvStore.has(key) ? kvStore.get(key) : null;
+      },
+      async del(key) {
+        kvStore.delete(key);
+        return true;
+      },
+    },
+  };
+  const phoneChat = { id: "cloud1", type: "chat", title: "From my phone", messages: [{ role: "user", content: "hi from phone" }], updated: 1 };
+  kvStore.set(`${CLOUD_PREFIX}0`, JSON.stringify({ v: 1, conversations: [phoneChat], arenaStats: {}, deleted: {} }));
+  kvStore.set(`${CLOUD_PREFIX}meta`, JSON.stringify({ parts: 1 }));
+  showWelcome();
+  const signedIn = await signIn();
+  expect("sign in: account connects and shows the username", signedIn && puterSignedIn && $("account-label").textContent === "glow_tester" && $("welcome-screen").classList.contains("hidden"));
+  expect("sign in: Glow AI models listed, filtered by the live catalogue", models.some((m) => m.value === "puter::gpt-5-mini") && models.some((m) => m.value === "puter::claude-haiku-4-5") && !models.some((m) => m.value === "puter::gpt-4o-mini"));
+  expect("sync: chats from another device are merged in", state.conversations.some((c) => c.id === "cloud1"));
+  expect("sync: local chats are uploaded to the account", JSON.parse(kvStore.get(`${CLOUD_PREFIX}meta`)).parts >= 1 && kvStore.get(`${CLOUD_PREFIX}0`).includes("Plan a picnic"));
+
+  newChat();
+  expect("sign in: new chats default to a Glow AI model", $("chat-model").value === "puter::gpt-5-mini");
+  const aiReply = await sendChat("Say hello");
+  const lastCall = chatCalls[chatCalls.length - 1];
+  expect("glow ai: streams a reply through puter.ai.chat", aiReply.includes("Hello from Glow AI") && lastCall.options.stream === true && lastCall.options.model === "gpt-5-mini" && lastCall.messages[0].role === "system");
+  expect("glow ai: reasoning kept separate from the answer", aiReply.startsWith("<think>Thinking briefly</think>") && document.querySelector(".msg.assistant details.thinking") !== null);
+  chatMode = "quota";
+  await sendChat("Again please");
+  const notices = [...document.querySelectorAll(".msg.notice")];
+  expect("glow ai: used-up allowance explained in plain words", notices.length > 0 && notices[notices.length - 1].textContent.includes("allowance"));
+  chatMode = "slow";
+  const slowReply = sendChat("Take your time");
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  const stopStarted = Date.now();
+  stopAll();
+  await slowReply;
+  expect("glow ai: Stop ends a streaming reply at once", Date.now() - stopStarted < 1000 && !$("send-btn").disabled);
+  chatMode = "ok";
+
+  clearTimeout(cloudTimer);
+  const bigChat = { id: "big1", type: "chat", title: "Big", messages: [{ role: "user", content: "é".repeat(300000) }], updated: Date.now() };
+  state.conversations.push(bigChat);
+  await pushCloud();
+  const bigMeta = JSON.parse(kvStore.get(`${CLOUD_PREFIX}meta`));
+  const encoder = new TextEncoder();
+  const partsSmall = [...kvStore.values()].every((value) => encoder.encode(value).length <= 400000);
+  expect("sync: large data split into parts under Puter's 400 KB limit", bigMeta.parts >= 3 && partsSmall);
+  state.conversations = state.conversations.filter((c) => c !== bigChat);
+  state.deleted.cloud1 = Date.now();
+  mergeCloud({ conversations: [{ ...phoneChat, updated: 5 }] });
+  expect("sync: deleted chats stay deleted", !state.conversations.some((c) => c.id === "cloud1"));
+
+  await signOut();
+  expect("sign out: back to guest, Glow AI removed, welcome shown", !puterSignedIn && state.settings.account === "guest" && !models.some((m) => m.value.startsWith("puter::")) && !$("welcome-screen").classList.contains("hidden"));
+  hideWelcome();
+  clearTimeout(cloudTimer);
+  delete window.puter;
+  puterCatalogue = null;
+
   const failed = results.filter((r) => r.startsWith("FAIL"));
   document.body.dataset.selftest = failed.length ? "fail" : "pass";
   if (location.hash === "#demo") return;
@@ -1362,12 +2167,21 @@ async function demoArena() {
 async function boot() {
   applyTheme();
   wire();
+  renderAccount();
   await loadModels();
   newChat();
   if ("serviceWorker" in navigator && location.protocol === "https:") {
     navigator.serviceWorker.register("./sw.js").catch(() => {});
   }
   const hash = location.hash;
+  if (!TEST_MODE) {
+    if (!state.settings.account) showWelcome();
+    if (state.settings.account === "puter" && (await restorePuterSession())) {
+      await loadModels();
+      if (current && current.type === "chat") fillSelect($("chat-model"), current.model);
+      await pullCloud();
+    }
+  }
   if (TEST_MODE) {
     localStorage.removeItem(STORE_KEY); // sandbox key only
     state.conversations = [];

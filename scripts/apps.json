@@ -348,14 +348,14 @@
       "id": "glow",
       "name": "Glow",
       "category": "Software",
-      "desc": "From a spark to something real: explore ideas and shape plans with AI chat, a Council with a Judge, and side-by-side model comparisons",
-      "description": "<strong>Glow</strong> &mdash; from a spark to something real. A free browser prototype for exploring ideas and shaping plans with multiple AI perspectives. <strong>Council</strong>: 2&ndash;3 agents discuss and review a task; a Judge summarizes agreements, open questions and a final answer. <strong>Arena</strong>: compare models side by side and record your preferences. Includes second opinions, text/code attachments, chat search, Markdown export and an installable PWA. Supports free-tier OpenRouter models, local Ollama and compatible APIs. Chats are stored in your browser; prompts and credentials go to the provider you select. AI output still needs human verification.",
+      "desc": "From a spark to something real: sign in for free AI or continue as a guest, then chat, run a Council with a Judge, or compare models side by side",
+      "description": "<strong>Glow</strong> &mdash; from a spark to something real. Explore ideas and shape plans with multiple AI perspectives. <strong>Sign in</strong> with a free Puter account for real AI models (GPT, Claude, Gemini, DeepSeek) with no API key, and your chats sync across devices; or <strong>continue as a guest</strong> with demo replies, your own OpenRouter key or local Ollama. <strong>Council</strong>: 2&ndash;3 agents discuss a task and a Judge summarizes agreements, open questions and a final answer. <strong>Arena</strong>: compare models side by side and vote. Includes a guided tour, light/dark themes, starter prompts, second opinions, attachments, search, Markdown export and an installable PWA. Signed-in AI uses each person's own free Puter allowance; AI output still needs human verification.",
       "tags": [
         "multi-agent",
         "AI council",
         "model arena",
-        "free models",
-        "Ollama",
+        "free AI sign-in",
+        "guided tour",
         "PWA"
       ],
       "image": "glow-hero.png",
@@ -367,7 +367,7 @@
       },
       "featured": true,
       "order": 1.5,
-      "version": "0.3.0"
+      "version": "0.4.0"
     },
     {
       "id": "hookline",

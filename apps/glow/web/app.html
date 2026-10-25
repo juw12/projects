@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https: http://localhost:* http://127.0.0.1:*">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://js.puter.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://puter.com https://*.puter.com; font-src 'self' data:; frame-src https://puter.com https://*.puter.com; connect-src 'self' https: wss://*.puter.com http://localhost:* http://127.0.0.1:*">
 <meta name="description" content="Glow: explore ideas and shape plans with AI chat, a Council of agents, a Judge and side-by-side model comparisons. A free browser prototype.">
 <meta name="theme-color" content="#262624">
 <title>Glow</title>
@@ -20,6 +20,10 @@
   <button class="side-btn" id="new-arena-btn" type="button">⚔ New arena</button>
   <input type="search" id="search" placeholder="Search chats…" aria-label="Search chats">
   <div id="history"></div>
+  <div class="account-box" id="account-box">
+    <span class="account-label" id="account-label">👤 Guest</span>
+    <button class="link-btn" id="account-btn" type="button">Sign in</button>
+  </div>
   <button class="side-btn" id="settings-btn" type="button">⚙ Settings &amp; models</button>
   <div class="side-foot">
     <button class="link-btn" id="theme-btn" type="button">☀ Light</button>
@@ -36,10 +40,13 @@
     <span class="spacer"></span>
     <span id="status"></span>
     <button class="secondary small" id="export-btn" type="button" title="Export this conversation as Markdown">⤓ Export</button>
+    <button class="icon-btn" id="theme-toggle" type="button" title="Switch light / dark theme" aria-label="Switch light or dark theme">☀</button>
+    <button class="icon-btn help-btn" id="help-btn" type="button" title="Take the guided tour" aria-label="Take the guided tour">?</button>
   </div>
   <div id="setup-banner" class="hidden">
-    You're in <b>Demo mode</b> (canned replies). For real AI at no cost, add a free OpenRouter key.
-    <button class="primary" id="banner-settings" type="button">Connect free AI</button>
+    <span id="banner-text">You're a guest in <b>Demo mode</b> (canned replies). Sign in for free real AI with no API key, or use your own key.</span>
+    <button class="primary" id="banner-signin" type="button">Sign in for free AI</button>
+    <button class="secondary small" id="banner-settings" type="button">Use my own key</button>
   </div>
   <div id="messages"></div>
   <div id="council-controls" class="hidden">
@@ -62,9 +69,32 @@
 <div class="modal-bg" id="settings-modal">
   <div class="modal" role="dialog" aria-labelledby="settings-title">
     <h3 id="settings-title">Settings &amp; models</h3>
-    <p class="note">Keys, chats and votes are stored only in this browser. Nothing is sent anywhere except the AI provider you choose.</p>
 
-    <h4>1. OpenRouter: free cloud models (recommended)</h4>
+    <h4>Account</h4>
+    <div class="row" style="margin-top:4px">
+      <span id="set-account-status" class="note">You're using Glow as a guest.</span>
+      <span class="spacer"></span>
+      <button class="secondary small" id="set-account-btn" type="button">Sign in</button>
+    </div>
+    <label class="note"><input type="checkbox" id="set-sync"> Sync my chats to my account (so they follow me to other devices)</label>
+    <p class="note">Sign-in uses <a href="https://puter.com" target="_blank" rel="noopener">Puter</a>, a free third-party account. Glow AI models run on your own free Puter allowance, so there are no API keys and no cost to you or to Glow. API keys you add below are never synced.</p>
+
+    <h4>Appearance</h4>
+    <div class="row" style="margin-top:4px">
+      <label for="set-theme" class="note">Theme</label>
+      <select id="set-theme">
+        <option value="system">Match my device</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+      <span class="spacer"></span>
+      <button class="secondary small" id="tour-replay-btn" type="button">Replay the guided tour</button>
+    </div>
+
+    <h4>Your own AI keys (optional)</h4>
+    <p class="note">Keys, chats and votes are stored in this browser. Keys are only sent to the provider they belong to.</p>
+
+    <h4>1. OpenRouter: free cloud models</h4>
     <p class="note">Sign up at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a> and create a key. Models marked <i>free</i> cost nothing (rate-limited).</p>
     <input type="password" id="set-openrouter" placeholder="sk-or-…" autocomplete="off">
     <label class="note"><input type="checkbox" id="set-paid"> Also show paid models (billed to your OpenRouter credit)</label>
@@ -91,6 +121,38 @@
     </div>
   </div>
 </div>
+
+<div id="welcome-screen" class="welcome-screen hidden" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
+  <div class="welcome-card">
+    <button class="icon-btn welcome-theme" id="welcome-theme" type="button" title="Switch light / dark theme" aria-label="Switch light or dark theme">☀</button>
+    <img class="welcome-logo" src="./icons/app-icon.svg" alt="" width="64" height="64">
+    <h1 id="welcome-title">Glow</h1>
+    <p class="welcome-tag">From a spark to something real.</p>
+    <button class="primary big" id="signin-btn" type="button">Sign in, free real AI</button>
+    <p class="note">GPT, Claude, Gemini, DeepSeek and more, with no API key. Uses your own free <a href="https://puter.com" target="_blank" rel="noopener">Puter</a> account, and your chats can sync across devices.</p>
+    <p class="signin-error hidden" id="signin-error" role="alert"></p>
+    <div class="divider"><span>or</span></div>
+    <button class="secondary big" id="guest-btn" type="button">Continue as guest</button>
+    <p class="note">Try demo replies, or bring your own OpenRouter key or local Ollama. Everything stays in this browser, including chats and keys you already have.</p>
+  </div>
+</div>
+
+<div id="tour" class="tour hidden" aria-live="polite">
+  <div id="tour-spot" class="tour-spot"></div>
+  <div id="tour-card" class="tour-card" role="dialog" aria-labelledby="tour-title">
+    <div class="tour-step" id="tour-step"></div>
+    <h4 id="tour-title"></h4>
+    <p id="tour-text"></p>
+    <div class="tour-actions">
+      <button class="link-btn" id="tour-skip" type="button">Skip tour</button>
+      <span class="spacer"></span>
+      <button class="secondary small" id="tour-back" type="button">Back</button>
+      <button class="primary" id="tour-next" type="button">Next</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script src="./app.js"></script>
 </body>
