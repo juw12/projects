@@ -342,6 +342,31 @@
       },
       "featured": true,
       "order": 5.6
+    },
+    {
+      "id": "mufakat",
+      "name": "Mufakat",
+      "category": "Software",
+      "desc": "Free AI chat where models deliberate before they answer: a Council of 2-3 agents reaches consensus and a Judge writes the verdict, an Arena compares models side by side, and any answer gets a one-click second opinion",
+      "description": "A free, browser-only AI chat built on <em>musyawarah untuk mufakat</em> &mdash; deliberate until consensus. <strong>Council</strong>: 2&ndash;3 agents (Engineer, Designer, Skeptic&hellip;) on different models debate and revise, then an impartial <strong>Judge</strong> writes the final answer with agreements, open points and confidence. <strong>Arena</strong>: one prompt, several models side by side, with a personal leaderboard from your votes. Plus one-click second opinions, file attachments, search, Markdown export and an installable PWA. Runs on free OpenRouter models, local Ollama or any OpenAI-compatible API; keys never leave the browser. Ships with an optional subscription server tested end to end.",
+      "tags": [
+        "multi-agent",
+        "AI council",
+        "model arena",
+        "free models",
+        "Ollama",
+        "PWA"
+      ],
+      "image": "mufakat-hero.png",
+      "image_alt": "Mufakat council: Engineer, Designer and Skeptic agents deliberate and a Judge delivers the final verdict with confidence",
+      "links": {
+        "app": "mufakat/app.html",
+        "web": "mufakat/",
+        "mobile": "mufakat/mobile.html"
+      },
+      "featured": true,
+      "order": 1.5,
+      "version": "0.2.0"
     }
   ]
 }
