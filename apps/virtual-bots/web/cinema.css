@@ -205,3 +205,25 @@ body.cr-cinema > .sidebar { display: none !important; }
 @media (prefers-reduced-motion: reduce) {
   .cn-fx, .cn-step.running i, .cn-command.busy::before, .cr-dock .cr-chip.working::after { animation: none !important; }
 }
+
+/* Cinema mode: hide developer/demo controls that don't help a normal user.
+   They stay available in the classic layout ("Panels"). */
+body.cr-cinema .header .status-indicator,
+body.cr-cinema #play-pause,
+body.cr-cinema #recorded-toggle,
+body.cr-cinema .statusbar,
+body.cr-cinema .menu-item:has(> [data-menu="panels"]) {
+  display: none !important;
+}
+
+.cn-glow-dot {
+  display: inline-grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, #fbbf24, #ec4899);
+  color: #fff;
+  font-size: 9px;
+  vertical-align: -2px;
+}

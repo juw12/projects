@@ -134,18 +134,18 @@
     },
     {
       "id": "virtual-bots",
-      "name": "Virtual Bots",
+      "name": "Crewroom",
       "category": "AI",
-      "desc": "An office of AI bots you can watch and command — live activity, goals and progress across App, Web and Mobile",
-      "description": "A live office of AI agents &mdash; watch each bot&rsquo;s role, status and tool steps, and dispatch new goals. Runs as an offline simulation without a backend.",
+      "desc": "Give a goal to an AI crew in a live 3D office: they search the web, run code and report back with sources, powered by Glow AI",
+      "description": "An AI crew in a live 3D office &mdash; Nova plans, Scout reads the web, Byte runs real code, Sentinel fact-checks, and results come back with sources. Runs on Glow AI (free, no sign-up; one Glow account for both apps) and can continue any result as a chat in Glow.",
       "tags": [
         "AI agents",
-        "live activity",
         "3D office",
-        "offline sim"
+        "web research",
+        "Glow AI"
       ],
       "image": "virtual-bots-hero.svg",
-      "image_alt": "Virtual Bots Office dashboard: AI bots at their desks with live status, an activity feed and a command bar",
+      "image_alt": "Crewroom: an AI crew in a 3D office with speech bubbles, a mission timeline and a command bar",
       "links": {
         "app": "virtual-bots/app.html",
         "web": "virtual-bots/",

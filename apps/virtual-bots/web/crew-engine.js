@@ -7,7 +7,9 @@
 //   Sentinel (checker) reviews and fact-checks
 //   Pixel (media)    writes copy and draws SVG graphics
 //
-// AI provider: free Pollinations endpoint by default (no key), or bring your own key
+// AI provider: Glow AI by default — the same AI and account as the Glow app (same origin, so the
+// sign-in is shared). Guests get Glow Free instantly; signing in unlocks GPT-5 mini, Claude, Gemini…
+// Or bring your own key
 // (OpenAI, Anthropic, Google Gemini, OpenRouter, Groq, or any OpenAI-compatible server).
 // Web access: DuckDuckGo results + page reading via the Jina reader, Wikipedia as fallback.
 (function () {
@@ -19,13 +21,13 @@
   const MAX_RUNS = 30;
 
   const PROVIDERS = {
-    free: {
-      label: 'Free (no key) — Pollinations',
+    glow: {
+      label: 'Glow AI (default)',
       format: 'openai',
       url: 'https://text.pollinations.ai/openai',
       model: 'openai',
       needsKey: false,
-      note: 'Shared free model. Fine for trying things; slower and rate-limited.'
+      note: 'Works right away as Glow Free. Sign in with your Glow account for stronger models — one account for Glow and Crewroom.'
     },
     openai: {
       label: 'OpenAI',
@@ -128,6 +130,237 @@
     }
   }
 
+
+  // ==================================================================
+  // Glow link — Crewroom and Glow share one origin, so they share the Glow
+  // account (Puter sign-in), the chosen Glow model and a hand-off inbox.
+  // ==================================================================
+  const GLOW_STORE_KEY = 'mufakat.v1';      // Glow's own storage key (kept from its original name)
+  const GLOW_INBOX_KEY = 'glow.inbox';      // results handed from Crewroom to Glow
+  const PUTER_SDK_URL = 'https://js.puter.com/v2/';
+  const GLOW_MODELS = [
+    ['gpt-5-mini', 'GPT-5 mini'],
+    ['gemini-2.5-flash', 'Gemini 2.5 Flash'],
+    ['claude-haiku-4-5', 'Claude Haiku 4.5'],
+    ['deepseek-flash', 'DeepSeek V4.1 Flash'],
+    ['gpt-5-nano', 'GPT-5 nano (fastest)'],
+    ['grok-4-1-fast-non-reasoning', 'Grok 4.1 Fast'],
+    ['claude-sonnet-4-6', 'Claude Sonnet 4.6 (premium)']
+  ];
+  const GLOW_DEFAULT_MODEL = 'gpt-5-mini';
+  const glow = { signedIn: false, name: '', checking: false, notice: '' };
+  let puterPromise = null;
+
+  function glowUrl() {
+    return /mobile\.html$/.test(location.pathname) ? '../glow/mobile.html' : '../glow/';
+  }
+
+  function readGlowStore() {
+    try {
+      return JSON.parse(localStorage.getItem(GLOW_STORE_KEY)) || null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  // Update only Glow's account fields, leaving its chats and keys untouched.
+  function writeGlowAccount(account, name) {
+    try {
+      const store = readGlowStore() || { settings: {}, conversations: [], arenaStats: {}, deleted: {} };
+      store.settings = { ...(store.settings || {}), account, accountName: name };
+      localStorage.setItem(GLOW_STORE_KEY, JSON.stringify(store));
+    } catch (err) {
+      console.warn('[Crewroom] Could not update the Glow account', err);
+    }
+  }
+
+  function glowModel() {
+    const chosen = getSettings().model;
+    if (GLOW_MODELS.some(([id]) => id === chosen)) return chosen;
+    const last = (readGlowStore()?.settings?.lastModel) || '';
+    if (last.startsWith('puter::')) return last.slice(7);
+    return GLOW_DEFAULT_MODEL;
+  }
+
+  function glowModelName(id) {
+    const hit = GLOW_MODELS.find(([mid]) => mid === id);
+    return hit ? hit[1] : id;
+  }
+
+  function ensurePuter() {
+    if (window.puter) return Promise.resolve(window.puter);
+    if (!puterPromise) {
+      puterPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = PUTER_SDK_URL;
+        script.async = true;
+        script.onload = () => (window.puter ? resolve(window.puter) : reject(new Error('Glow sign-in did not start.')));
+        script.onerror = () => {
+          puterPromise = null;
+          script.remove();
+          reject(new Error("Couldn't reach Glow sign-in. Check your connection or ad-blocker."));
+        };
+        document.head.appendChild(script);
+      });
+    }
+    return puterPromise;
+  }
+
+  function withTimeout(promise, ms, message) {
+    return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms))]);
+  }
+
+  // Quietly pick up an existing Glow sign-in (only if this browser signed in to Glow before).
+  async function restoreGlowSession() {
+    const account = readGlowStore()?.settings?.account;
+    if (account !== 'puter') return false;
+    glow.checking = true;
+    try {
+      const sdk = await withTimeout(ensurePuter(), 10000, 'Glow sign-in is taking too long to load.');
+      glow.signedIn = !!sdk.auth.isSignedIn();
+      if (glow.signedIn) {
+        const user = await Promise.resolve(sdk.auth.getUser()).catch(() => null);
+        glow.name = (user && user.username) || readGlowStore()?.settings?.accountName || '';
+      }
+    } catch (err) {
+      glow.signedIn = false;
+    }
+    glow.checking = false;
+    emitter.dispatchEvent(new CustomEvent('settings'));
+    return glow.signedIn;
+  }
+
+  async function glowSignIn() {
+    const sdk = window.puter || (await ensurePuter());
+    if (!sdk.auth.isSignedIn()) await sdk.auth.signIn();
+    const user = await Promise.resolve(sdk.auth.getUser()).catch(() => null);
+    glow.signedIn = true;
+    glow.name = (user && user.username) || 'Glow user';
+    glow.notice = '';
+    writeGlowAccount('puter', glow.name);
+    emitter.dispatchEvent(new CustomEvent('settings'));
+  }
+
+  async function glowSignOut() {
+    try {
+      if (window.puter) await Promise.resolve(window.puter.auth.signOut());
+    } catch (err) {
+      console.warn('[Crewroom] Glow sign-out failed', err);
+    }
+    glow.signedIn = false;
+    glow.name = '';
+    writeGlowAccount('guest', '');
+    emitter.dispatchEvent(new CustomEvent('settings'));
+  }
+
+  function puterErrorText(error) {
+    const inner = (error && typeof error.error === 'object' && error.error) || error || {};
+    const both = `${inner.code || ''} ${inner.message || error?.message || ''}`;
+    if (/insufficient|funds|quota|allowance|usage.?limit|credits|exceeded/i.test(both)) return 'Your free Glow AI allowance is used up for now.';
+    if (/auth|unauthori[sz]ed|401|token/i.test(both)) return 'Your Glow sign-in expired.';
+    return 'Glow AI is unavailable right now.';
+  }
+
+  function mergeRoles(list) {
+    const out = [];
+    list.forEach(m => {
+      const last = out[out.length - 1];
+      if (last && last.role === m.role) {
+        last.content += '\n\n' + m.content;
+      } else {
+        out.push({ role: m.role, content: String(m.content || '') });
+      }
+    });
+    return out;
+  }
+
+  // Signed-in Glow AI through Puter (streams; reasoning parts are not shown).
+  async function chatGlowAccount({ system, messages, onToken, signal }) {
+    const sdk = await ensurePuter();
+    if (!sdk.auth.isSignedIn()) {
+      glow.signedIn = false;
+      throw new Error('Your Glow sign-in expired.');
+    }
+    const aborted = new Promise((_, reject) => {
+      if (signal?.aborted) reject(new DOMException('Aborted', 'AbortError'));
+      signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+    });
+    aborted.catch(() => {});
+    let response;
+    try {
+      response = await Promise.race([
+        withTimeout(sdk.ai.chat([{ role: 'system', content: system }, ...mergeRoles(messages)], { model: glowModel(), stream: true }), 45000, 'Glow AI took too long to answer.'),
+        aborted
+      ]);
+    } catch (err) {
+      if (err && err.name === 'AbortError') throw err;
+      throw new Error(puterErrorText(err));
+    }
+    if (!response || typeof response[Symbol.asyncIterator] !== 'function') {
+      const text = String(response?.message?.content || response || '');
+      if (!text.trim()) throw new Error('Glow AI returned an empty answer.');
+      onToken && onToken(text, text);
+      return text;
+    }
+    const iterator = response[Symbol.asyncIterator]();
+    let full = '';
+    while (true) {
+      const step = await Promise.race([withTimeout(iterator.next(), 45000, 'Glow AI stopped responding.'), aborted]);
+      if (step.done) break;
+      const part = step.value || {};
+      if (part.error) throw new Error(puterErrorText(part.error));
+      const type = part.type || 'text';
+      if (type === 'text' && typeof part.text === 'string' && part.text) {
+        full += part.text;
+        onToken && onToken(part.text, full);
+      }
+    }
+    if (!full.trim()) throw new Error('Glow AI returned an empty answer.');
+    return full;
+  }
+
+  // Hand a finished result to Glow as a new chat, so the user can keep talking about it there.
+  function sendToGlow(run) {
+    const answer = run.final || [...run.steps].reverse().find(s => s.output)?.output || '';
+    const sources = [];
+    run.steps.forEach(s => (s.artifacts || []).forEach(a => {
+      if (a.type === 'sources') a.items.forEach(item => sources.push(`- [${item.title}](${item.url})`));
+    }));
+    const who = run.mode === 'team' ? 'the whole crew' : (BOTS[run.steps[0]?.bot]?.name || 'the crew');
+    const body = `${answer}${sources.length ? '\n\n**Sources the crew read**\n' + [...new Set(sources)].slice(0, 12).join('\n') : ''}\n\n— From Crewroom: ${who} worked on this.`;
+    const conversation = {
+      id: 'crew-' + run.id,
+      type: 'chat',
+      title: run.goal.slice(0, 70),
+      messages: [
+        { role: 'user', content: run.goal },
+        { role: 'assistant', content: body }
+      ],
+      source: 'crewroom',
+      updated: Date.now()
+    };
+    let inbox = [];
+    try {
+      inbox = JSON.parse(localStorage.getItem(GLOW_INBOX_KEY) || '[]');
+    } catch (err) {
+      inbox = [];
+    }
+    if (!Array.isArray(inbox)) inbox = [];
+    inbox = inbox.filter(c => c && c.id !== conversation.id).concat(conversation).slice(-10);
+    localStorage.setItem(GLOW_INBOX_KEY, JSON.stringify(inbox));
+    window.open(glowUrl() + '#from-crewroom', 'glow');
+  }
+
+  function glowStatus() {
+    return {
+      signedIn: glow.signedIn,
+      name: glow.name,
+      checking: glow.checking,
+      model: glow.signedIn ? glowModelName(glowModel()) : 'Glow Free',
+      url: glowUrl()
+    };
+  }
+
   // ==================================================================
   // Settings
   // ==================================================================
@@ -138,7 +371,7 @@
     } catch (err) {
       saved = {};
     }
-    const provider = PROVIDERS[saved.provider] ? saved.provider : 'free';
+    const provider = saved.provider === 'free' ? 'glow' : (PROVIDERS[saved.provider] ? saved.provider : 'glow');
     const key = saved.rememberKey ? (saved.apiKey || '') : (sessionStorage.getItem(SESSION_KEY) || '');
     return {
       provider,
@@ -177,7 +410,8 @@
   function providerLabel() {
     const s = getSettings();
     const p = PROVIDERS[s.provider];
-    return s.provider === 'free' ? 'Free AI' : `${p.label} · ${s.model || p.model}`;
+    if (s.provider === 'glow') return glow.signedIn ? `Glow AI · ${glowModelName(glowModel())}` : 'Glow Free';
+    return `${p.label} · ${s.model || p.model}`;
   }
 
   function isReady() {
@@ -188,13 +422,23 @@
   // ==================================================================
   // LLM chat with streaming (OpenAI-compatible + Anthropic)
   // ==================================================================
-  async function chat({ system, messages, onToken, signal, maxTokens = 2000, temperature = 0.4, noStream = false, emptyRetries = 2 }) {
+  async function chat({ system, messages, onToken, signal, maxTokens = 2000, temperature = 0.4, noStream = false, emptyRetries = 2, glowFree = false }) {
     const s = getSettings();
     const p = PROVIDERS[s.provider];
+    if (s.provider === 'glow' && glow.signedIn && !glowFree) {
+      try {
+        return await chatGlowAccount({ system, messages, onToken, signal });
+      } catch (err) {
+        if (err && err.name === 'AbortError') throw err;
+        // Keep the crew working: fall back to Glow Free and tell the user why.
+        glow.notice = err.message + ' Using Glow Free for now.';
+        emitter.dispatchEvent(new CustomEvent('notice', { detail: glow.notice }));
+      }
+    }
     const url = (s.provider === 'custom' && s.baseUrl) ? s.baseUrl : p.url;
-    const model = s.model || p.model;
+    const model = s.provider === 'glow' ? p.model : (s.model || p.model);
     if (p.needsKey && !s.apiKey) {
-      throw new Error(`Add your ${p.label} API key in AI settings (or switch to the free provider).`);
+      throw new Error(`Add your ${p.label} API key in AI settings (or switch back to Glow AI).`);
     }
 
     let headers;
@@ -234,7 +478,7 @@
         detail = res.statusText;
       }
       if (/turnstile/i.test(detail) && /^(localhost|127\.)/.test(location.hostname)) {
-        throw new Error('The free AI does not accept requests from localhost. Open the live site (github.io), or add your own API key in AI settings.');
+        throw new Error('Glow Free does not accept requests from localhost. Open the live site (github.io), or add your own API key in AI settings.');
       }
       throw new Error(`AI provider error ${res.status}: ${detail}`);
     }
@@ -248,7 +492,7 @@
       if (!text.trim()) {
         if (emptyRetries > 0) {
           await sleep(3000);
-          return chat({ system, messages, onToken, signal, maxTokens, temperature, noStream: true, emptyRetries: emptyRetries - 1 });
+          return chat({ system, messages, onToken, signal, maxTokens, temperature, noStream: true, emptyRetries: emptyRetries - 1, glowFree: true });
         }
         throw new Error('The AI returned an empty answer. Try again, or pick another provider in AI settings.');
       }
@@ -294,7 +538,7 @@
     if (!full.trim()) {
       if (!noStream) {
         // Some free/shared endpoints occasionally return an empty stream; retry once without streaming.
-        return chat({ system, messages, onToken, signal, maxTokens, temperature, noStream: true });
+        return chat({ system, messages, onToken, signal, maxTokens, temperature, noStream: true, glowFree: true });
       }
       throw new Error('The AI returned an empty answer. Try again, or pick another provider in AI settings.');
     }
@@ -1080,6 +1324,15 @@
   .crx-badge.running::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor;animation:crx-blink 1s infinite}
   @keyframes crx-blink{50%{opacity:.25}}
   .crx-actions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+  .crx-glow{position:relative;border-radius:14px;padding:14px 14px 12px;margin:0 0 16px;background:linear-gradient(135deg,rgba(251,191,36,.14),rgba(236,72,153,.12) 55%,rgba(139,92,246,.14));border:1px solid rgba(251,191,36,.35)}
+  .crx-glow p{margin:6px 0 10px;font-size:13px;line-height:1.5;color:var(--crx-text,#e2e8f0)}
+  .crx-glow-h{display:flex;align-items:center;gap:8px;font-size:14px}
+  .crx-glow-h .crx-badge{margin-left:auto}
+  .crx-glow-logo{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:8px;background:linear-gradient(135deg,#fbbf24,#ec4899);color:#fff;font-size:13px}
+  .crx-glow .crx-field{margin-bottom:10px}
+  a.crx-btn{text-decoration:none;display:inline-flex;align-items:center}
+  .crx-btn.glow{background:linear-gradient(135deg,#f59e0b,#ec4899);border-color:transparent;color:#fff;font-weight:600}
+  .crx-btn.glow:hover{filter:brightness(1.08)}
   .crx-btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:9px;border:1px solid var(--crx-line,#2d3a4f);background:var(--crx-panel,#151d2b);color:inherit;font:600 13px/1 inherit;cursor:pointer}
   .crx-btn:hover{border-color:#6d7cff}
   .crx-btn.primary{background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-color:transparent;color:#fff}
@@ -1206,6 +1459,7 @@
     view = { type: 'settings' };
     openDrawer('AI settings');
     render();
+    if (getSettings().provider === 'glow' && !glow.signedIn) ensurePuter().catch(() => {});
   }
 
   function avatar(bot, size) {
@@ -1251,14 +1505,29 @@
   function settingsHtml() {
     const s = getSettings();
     const p = PROVIDERS[s.provider];
+    const isGlow = s.provider === 'glow';
+    const glowCard = !isGlow ? '' : `
+      <div class="crx-glow">
+        <div class="crx-glow-h"><span class="crx-glow-logo">✦</span><b>Glow AI</b><span class="crx-badge ${glow.signedIn ? 'done' : ''}">${glow.signedIn ? 'signed in' : 'guest'}</span></div>
+        <p>${glow.signedIn
+          ? `Signed in as <b>${esc(glow.name || 'your Glow account')}</b>. The crew uses your Glow models — the same account and allowance as the Glow app.`
+          : (glow.checking ? 'Checking your Glow account…' : 'Using <b>Glow Free</b> (no sign-up). Sign in with your Glow account for stronger models like GPT-5 mini, Claude and Gemini — one account for Glow and Crewroom.')}</p>
+        ${glow.signedIn ? `<div class="crx-field"><label>Glow model</label><select data-set="model">${GLOW_MODELS.map(([id, name]) => `<option value="${id}" ${id === glowModel() ? 'selected' : ''}>${esc(name)}</option>`).join('')}</select></div>` : ''}
+        ${glow.notice ? `<div class="crx-err">${esc(glow.notice)}</div>` : ''}
+        <div class="crx-actions" style="margin:0">
+          ${glow.signedIn ? '<button class="crx-btn" data-act="glow-signout">Sign out</button>' : '<button class="crx-btn primary" data-act="glow-signin">Sign in with Glow</button>'}
+          <a class="crx-btn" href="${glowUrl()}" target="glow" rel="noopener">Open Glow ↗</a>
+        </div>
+      </div>`;
     return `
-      <div class="crx-note">Your crew needs an AI model to think. <b>Free</b> works instantly with no account. For better, faster results add your own key — it is stored only in this browser and sent only to the provider you pick.</div>
+      <div class="crx-note">Your crew needs an AI model to think. <b>Glow AI</b> works instantly — no key, no sign-up. Prefer your own provider? Pick it below; keys stay in this browser and go only to that provider.</div>
+      ${glowCard}
       <div class="crx-field"><label>Provider</label>
         <select data-set="provider">${Object.entries(PROVIDERS).map(([k, v]) => `<option value="${k}" ${k === s.provider ? 'selected' : ''}>${esc(v.label)}</option>`).join('')}</select>
         <small>${esc(p.note)}</small></div>
       ${p.needsKey || s.provider === 'custom' ? `<div class="crx-field"><label>API key${p.needsKey ? '' : ' (optional)'}</label><input data-set="apiKey" type="password" autocomplete="off" placeholder="Paste key" value="${esc(s.apiKey)}"></div>
       <label class="crx-check"><input type="checkbox" data-set="rememberKey" ${s.rememberKey ? 'checked' : ''}> Remember key on this device (otherwise cleared when the tab closes)</label>` : ''}
-      <div class="crx-field"><label>Model</label><input data-set="model" placeholder="${esc(p.model)}" value="${esc(s.model)}"><small>Leave empty for the default (${esc(p.model)}).</small></div>
+      ${isGlow ? '' : `<div class="crx-field"><label>Model</label><input data-set="model" placeholder="${esc(p.model)}" value="${esc(s.model)}"><small>Leave empty for the default (${esc(p.model)}).</small></div>`}
       ${s.provider === 'custom' ? `<div class="crx-field"><label>Endpoint URL</label><input data-set="baseUrl" placeholder="${esc(p.url)}" value="${esc(s.baseUrl)}"></div>` : ''}
       <label class="crx-check"><input type="checkbox" data-set="webAccess" ${s.webAccess ? 'checked' : ''}> Let Scout search and read the live web</label>
       <label class="crx-check"><input type="checkbox" data-set="realMode" ${s.realMode ? 'checked' : ''}> Commands produce real AI results (off = demo simulation only)</label>
@@ -1307,6 +1576,7 @@
       <div class="crx-meta"><span class="crx-badge ${run.status}">${run.status}</span><span>${esc(run.provider)}</span><span>${elapsed}s</span>${run.parentId ? '<span>follow-up</span>' : ''}</div>
       <div class="crx-actions">
         ${run.status === 'running' ? '<button class="crx-btn danger" data-act="stop">■ Stop</button>' : '<button class="crx-btn" data-act="rerun">↻ Re-run</button>'}
+        ${run.status === 'done' ? '<button class="crx-btn glow" data-act="to-glow" title="Open this result as a chat in Glow">✦ Continue in Glow</button>' : ''}
         <button class="crx-btn" data-act="copy">Copy</button>
         <button class="crx-btn" data-act="download">Download .md</button>
         <button class="crx-btn" data-act="history">All results</button>
@@ -1406,6 +1676,19 @@
       openRun(followUp(run.id, q).id);
     }
     if (act === 'test') testConnection();
+    if (act === 'to-glow' && run) sendToGlow(run);
+    if (act === 'glow-signin') {
+      try {
+        await glowSignIn();
+      } catch (err) {
+        glow.notice = /closed/i.test(String(err?.message || err?.error || '')) ? 'The sign-in window was closed.' : "Sign-in didn't finish. Try again.";
+      }
+      render();
+    }
+    if (act === 'glow-signout') {
+      await glowSignOut();
+      render();
+    }
   }
 
   function toastIn(btn, text) {
@@ -1483,6 +1766,20 @@
     close,
     renderMarkdown,
     toMarkdown,
-    tools: { webSearch, readUrl, runJS, chat }
+    tools: { webSearch, readUrl, runJS, chat },
+    glow: {
+      status: glowStatus,
+      signIn: glowSignIn,
+      signOut: glowSignOut,
+      send: id => {
+        const run = getRun(id);
+        if (run) sendToGlow(run);
+      },
+      url: glowUrl
+    }
   };
+  // Pick up an existing Glow sign-in without blocking the page.
+  setTimeout(() => {
+    restoreGlowSession();
+  }, 300);
 })();
