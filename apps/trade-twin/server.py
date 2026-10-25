@@ -17,6 +17,7 @@ Set TRADE_TWIN_DATA to keep accounts somewhere else (the tests use a temp dir).
 import argparse
 import hashlib
 import hmac
+import math
 import json
 import os
 import random
@@ -47,6 +48,9 @@ SESSIONS_FILE = DATA / "sessions.json"
 
 SESSION_DAYS = 30
 LOCK = threading.RLock()
+# Routes that read-modify-write the profile run under LOCK so quick double taps can't lose updates.
+PROFILE_WRITE_PATHS = {"/api/profile", "/api/quiz", "/api/paper", "/api/paper/order",
+                       "/api/paper/copy", "/api/paper/reset"}
 
 # Demo mode replays the day-trader-skill README trade: TSLA, 2026-10-19, 10:15 ET.
 DEMO_NOW = "2026-10-19 10:15"
@@ -67,7 +71,7 @@ TOOL = {
 }
 
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 
 class AppError(Exception):
@@ -361,6 +365,25 @@ def save_json(path, data):
     tmp = path.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, indent=2))
     tmp.replace(path)
+
+
+def number(value, name, low=None, high=None, default=None):
+    """Parse a user-supplied number: finite, within [low, high], else a friendly AppError."""
+    if value in (None, ""):
+        if default is not None:
+            return default
+        raise AppError("%s is required" % name)
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        raise AppError("%s must be a number" % name)
+    if not math.isfinite(result):
+        raise AppError("%s must be a real number" % name)
+    if low is not None and result < low:
+        raise AppError("%s must be at least %s" % (name, low))
+    if high is not None and result > high:
+        raise AppError("%s must be at most %s" % (name, high))
+    return result
 
 
 def hash_password(password, salt):
@@ -664,16 +687,19 @@ def paper_state(profile):
 
 def paper_order(profile, symbol, side, dollars=None, qty=None, note=""):
     symbol = clean_symbol(symbol)
+    if side not in ("buy", "sell"):
+        raise AppError("side must be buy or sell")
     paper = profile["paper"]
+    # Validate the amount before any price lookup.
+    amount = number(dollars, "amount", low=0) if dollars not in (None, "") else None
+    shares = number(qty, "quantity", low=0, default=0.0) if amount is None else None
+    if not (amount or shares):
+        raise AppError("enter an amount")
     q = quote(symbol)
     price = q["price"]
     if not price:
         raise AppError("no price for %s" % symbol)
-    if dollars not in (None, ""):
-        qty = float(dollars) / price
-    qty = float(qty or 0)
-    if qty <= 0:
-        raise AppError("enter an amount")
+    qty = amount / price if amount is not None else shares
     pos = paper["positions"].get(symbol)
     if side == "buy":
         cost = qty * price
@@ -884,8 +910,9 @@ class Handler(BaseHTTPRequestHandler):
         return "tt_session=%s; Path=/; HttpOnly; SameSite=Lax; Max-Age=%d" % (token, max_age)
 
     def send_static(self, rel):
-        path = (STATIC / rel).resolve()
-        if not str(path).startswith(str(STATIC.resolve())) or not path.is_file():
+        root = STATIC.resolve()
+        path = (root / rel).resolve()
+        if root not in path.parents or not path.is_file() or path.name.startswith("."):
             self.send_json({"error": "not found"}, 404)
             return
         body = path.read_bytes()
@@ -911,8 +938,11 @@ class Handler(BaseHTTPRequestHandler):
         if origin and urllib.parse.urlparse(origin).netloc != self.headers.get("Host"):
             self.send_json({"error": "forbidden origin"}, 403)
             return
-        length = int(self.headers.get("Content-Length") or 0)
-        if length > 1_000_000:
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = -1
+        if length < 0 or length > 1_000_000:
             self.send_json({"error": "too large"}, 413)
             return
         try:
@@ -953,6 +983,13 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"ok": True}, cookie=self.session_cookie("", 0))
             return
 
+        if path in PROFILE_WRITE_PATHS:
+            with LOCK:
+                self.route_user(path, body, uid)
+        else:
+            self.route_user(path, body, uid)
+
+    def route_user(self, path, body, uid):
         profile = get_profile(uid)
 
         if path == "/api/me":
@@ -964,17 +1001,21 @@ class Handler(BaseHTTPRequestHandler):
             if "watchlist" in body:
                 profile["watchlist"] = list(dict.fromkeys(clean_symbol(s) for s in body["watchlist"]))[:40]
             if "budget" in body:
-                budget = float(body["budget"])
-                if budget <= 0:
-                    raise AppError("budget must be positive")
+                budget = number(body["budget"], "budget", low=1, high=1e9)
                 profile["budget"] = budget
                 level = (profile.get("quiz") or {}).get("risk_level", 2)
                 profile["limits"] = limits_for(level, budget)
             if "limits" in body and isinstance(body["limits"], dict):
                 limits = profile.get("limits") or limits_for(2, profile.get("budget", 5000))
                 for key, value in body["limits"].items():
-                    if key in limits and value not in (None, ""):
-                        limits[key] = type(limits[key])(value) if not isinstance(limits[key], str) else str(value)
+                    if key not in limits or value in (None, ""):
+                        continue
+                    if isinstance(limits[key], str):
+                        limits[key] = str(value)[:20]
+                    elif isinstance(limits[key], int) and not isinstance(limits[key], bool):
+                        limits[key] = int(round(number(value, key, low=0, high=1e9)))
+                    else:
+                        limits[key] = number(value, key, low=0, high=1e9)
                 profile["limits"] = limits
             put_profile(uid, profile)
             sync_trader_config(uid, profile)
@@ -984,7 +1025,7 @@ class Handler(BaseHTTPRequestHandler):
             profile["quiz"] = result
             profile["limits"] = limits_for(result["risk_level"], profile.get("budget", 5000))
             if body.get("paper_cash"):
-                cash = float(body["paper_cash"])
+                cash = number(body["paper_cash"], "practice money", low=100, high=1e9)
                 if not profile["paper"]["positions"] and not profile["paper"]["history"]:
                     profile["paper"]["cash"] = cash
                     profile["paper"]["start_cash"] = cash
@@ -1007,13 +1048,16 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"ok": True, "fill": fill, "paper": state})
         elif path == "/api/paper/copy":
             weights = body.get("weights") or []
-            amount = float(body.get("amount") or 0)
+            amount = number(body.get("amount"), "amount", default=0.0)
             if amount <= 0 or amount > profile["paper"]["cash"] + 0.005:
                 raise AppError("amount must be between $0 and your paper cash ($%.2f)" % profile["paper"]["cash"])
             fills, errors = [], []
-            total = sum(float(w["weight"]) for w in weights) or 1
+            weights = [w for w in weights if isinstance(w, dict) and w.get("ticker")]
             for w in weights:
-                dollars = amount * float(w["weight"]) / total
+                w["weight"] = number(w.get("weight"), "weight", low=0)
+            total = sum(w["weight"] for w in weights) or 1
+            for w in weights:
+                dollars = amount * w["weight"] / total
                 try:
                     fills.append(paper_order(profile, w["ticker"], "buy", dollars=dollars, note=body.get("note", "copy")))
                 except AppError as exc:
@@ -1022,7 +1066,8 @@ class Handler(BaseHTTPRequestHandler):
             put_profile(uid, profile)
             self.send_json({"ok": True, "fills": fills, "errors": errors, "paper": state})
         elif path == "/api/paper/reset":
-            cash = float(body.get("cash") or profile["paper"]["start_cash"])
+            cash = number(body.get("cash"), "practice money", low=100, high=1e9,
+                          default=float(profile["paper"]["start_cash"]))
             profile["paper"] = default_profile("", "")["paper"]
             profile["paper"]["cash"] = cash
             profile["paper"]["start_cash"] = cash
@@ -1031,19 +1076,21 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/goal":
             tickers = [clean_symbol(t) for t in re.split(r"[,\s]+", body.get("tickers") or "") if t]
             raw_weights = body.get("weights") or {}
-            weights = {t: float(raw_weights.get(t, 1)) for t in tickers}
-            years = max(1, min(40, int(body.get("years") or 20)))
+            weights = {t: number(raw_weights.get(t, 1), "weight", low=0) for t in tickers}
+            years = int(round(number(body.get("years"), "years", low=1, high=40, default=20.0)))
             result = goal_sim(
                 weights,
                 years,
-                float(body.get("initial") or 0),
-                float(body.get("monthly") or 0),
-                float(body.get("target") or 0),
+                number(body.get("initial"), "starting amount", low=0, high=1e10, default=0.0),
+                number(body.get("monthly"), "monthly amount", low=0, high=1e8, default=0.0),
+                number(body.get("target"), "goal", low=0, high=1e12, default=0.0),
                 paths=10000,
             )
-            profile["goal"] = {"tickers": ",".join(tickers), "years": years, "initial": body.get("initial"),
-                               "monthly": body.get("monthly"), "target": body.get("target")}
-            put_profile(uid, profile)
+            with LOCK:
+                fresh = get_profile(uid)  # the simulation is slow; don't overwrite trades made meanwhile
+                fresh["goal"] = {"tickers": ",".join(tickers), "years": years, "initial": body.get("initial"),
+                                 "monthly": body.get("monthly"), "target": body.get("target")}
+                put_profile(uid, fresh)
             self.send_json({"ok": True, "result": result})
         elif path == "/api/news":
             self.send_json(news_feed(uid, profile, body))

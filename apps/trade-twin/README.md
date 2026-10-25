@@ -49,7 +49,8 @@ python apps/trade-twin/tests/verify_api.py
 ```
 
 Hermetic (temp data dir, free port, no network): health + static files, accounts and isolation,
-personality → limits, the cross-site guard, the full demo trade flow, and unit tests for the
+personality → limits, the cross-site guard, input validation (NaN/∞/negative amounts, path
+traversal, malformed Content-Length), the full demo trade flow, and unit tests for the
 monthly-return gap handling and the goal simulator.
 
 ## Safety
@@ -57,6 +58,17 @@ monthly-return gap handling and the goal simulator.
 Practice money only — Trade Twin never places a real order and never asks for broker credentials.
 Quotes are delayed and unofficial; 13F data is up to ~45 days old and long-only. Simulations resample
 history and are not predictions. Not financial advice.
+
+## Changelog
+
+- **1.0.1** — Hardening pass: every numeric input (orders, copy amount, budget, limits, practice cash,
+  goal planner) is validated as a finite number within sane bounds, on the server and in the web demo
+  (a `NaN` order could previously corrupt paper cash); profile/paper updates are serialized so
+  double taps can't lose a trade, and the slow goal simulation no longer overwrites trades made
+  meanwhile; stricter static-file containment check; malformed `Content-Length` returns 413; the
+  service worker only caches successful same-origin responses; demo wording fixed ("stays in this
+  browser"). 10 new regression checks.
+- **1.0.0** — First release.
 
 ## Credits
 

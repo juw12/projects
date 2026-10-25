@@ -974,7 +974,7 @@ function renderBudgetStep(picks) {
     h("h2", { style: "font-size:23px" }, "Last step: your numbers"),
     h("label", { class: "f" }, "Money you'd actually trade or invest with ($)"),
     budget,
-    h("p", { class: "tiny muted" }, "Used to size positions and set your max loss per trade. Stays on your Mac."),
+    h("p", { class: "tiny muted" }, "Used to size positions and set your max loss per trade. " + (DEMO ? "Stays in this browser." : "Stays on your own computer.")),
     h("label", { class: "f" }, "Practice (paper) money to start with ($)"),
     paper,
     errorSlot,
