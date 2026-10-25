@@ -1,7 +1,7 @@
 {
   "name": "Trade Twin",
   "short_name": "Trade Twin",
-  "description": "Invest and day-trade with a twin that replays 10,000 futures before you risk a dollar.",
+  "description": "Try as a guest: practice portfolios, historical simulations and investor research. No login required; light, dark and system themes.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

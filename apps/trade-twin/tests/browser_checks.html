@@ -99,10 +99,10 @@
     const keys = await caches.keys();
     check("unrelated app cache survives activation", keys.includes("other-app-keep-me"));
     check("old Trade Twin cache cleaned", !keys.includes("tt-shell-v3"));
-    const current = keys.find((key) => key.startsWith("trade-twin:") && key.endsWith(":1.0.2"));
+    const current = keys.find((key) => key.startsWith("trade-twin:") && key.endsWith(":1.1.0"));
     const offline = await caches.open(current);
     const cached = await offline.keys();
-    check("complete demo precached", ["demo.js", "demo/market.json", "demo/monthly.json", "demo/trade.json", "demo/news.json"].every((name) => cached.some((request) => request.url.endsWith(name))));
+    check("complete demo precached", ["demo.js", "theme.js", "theme.css", "demo/market.json", "demo/monthly.json", "demo/trade.json", "demo/news.json"].every((name) => cached.some((request) => request.url.split("?")[0].endsWith(name))));
     // Real UI: caches must clear on logout; a server outage must never log in to a different demo.
     const frame = document.createElement("iframe");
     frame.style.cssText = "width:320px;height:820px;border:0";
@@ -118,7 +118,7 @@
     }
     doc.querySelector("input[autocomplete=username]").value = "alice";
     doc.querySelector("input[type=password]").value = "unique-demo-pass";
-    doc.querySelector("button.primary").click();
+    [...doc.querySelectorAll("button")].find((button) => button.textContent === "Log in").click();
     for (let i = 0; i < 80 && !doc.getElementById("tab-me"); i++) {
       await delay(50);
     }
@@ -151,6 +151,148 @@
     win.fetch = async () => { throw new Error("offline"); };
     await win.boot();
     check("offline server does not become demo account", doc.body.textContent.includes("Server unavailable"));
+    // Guest mode is a separate session store. Never disturb an existing saved profile.
+    const savedAccounts = localStorage.getItem(storageKey);
+    const guestStart = await window.TradeTwinDemo.guest("api/guest/start");
+    check("guest starts without credentials", guestStart.ok && guestStart.profile.guest && guestStart.profile.paper.cash === 10000);
+    check("guest isn't falsely assessed", guestStart.profile.quiz.unassessed === true);
+    check("guest doesn't alter account store", localStorage.getItem(storageKey) === savedAccounts);
+    const guestBuy = await window.TradeTwinDemo.guest("api/paper/order", { symbol: "AAPL", side: "buy", dollars: 500 });
+    check("guest practice orders work", guestBuy.ok && guestBuy.paper.cash === 9500);
+    const guestLogin = await window.TradeTwinDemo.guest("api/login", { username: "alice", password: "unique-demo-pass" });
+    check("guest cannot accidentally sign into account", !guestLogin.ok);
+    check("guest changes remain separate", localStorage.getItem(storageKey) === savedAccounts);
+    await window.TradeTwinDemo.guest("api/logout");
+    check("guest exit erases only guest data", !sessionStorage.getItem("trade-twin-guest-v1") && localStorage.getItem(storageKey) === savedAccounts);
+
+    // Restore fetch after the disconnected-server test above and reopen the real welcome UI.
+    frame.src = "index.html";
+    await new Promise((resolve) => { frame.onload = resolve; });
+    const guestWindow = frame.contentWindow;
+    const guestDoc = frame.contentDocument;
+    guestWindow.addEventListener("error", (event) => errors.push(event.message));
+    guestWindow.addEventListener("unhandledrejection", (event) => errors.push(String(event.reason)));
+    guestWindow.localStorage.setItem("tt-runtime-mode", "demo");
+    await guestWindow.boot();
+    check("welcome has guest entry", Boolean(guestDoc.getElementById("continue-guest")));
+    check("themes available before login", guestDoc.querySelectorAll("[data-theme-choice]").length === 3);
+    let guestNetworkPosts = 0;
+    const realGuestFetch = guestWindow.fetch.bind(guestWindow);
+    guestWindow.fetch = (url, options) => {
+      if (options?.method === "POST") guestNetworkPosts += 1;
+      return realGuestFetch(url, options);
+    };
+    guestDoc.getElementById("continue-guest").click();
+    for (let i = 0; i < 100 && !guestDoc.getElementById("tab-home"); i++) await delay(50);
+    check("guest enters dashboard immediately, no quiz", Boolean(guestDoc.getElementById("tab-home")) && !guestDoc.querySelector(".opt"));
+    check("guest makes no server mutation calls", guestNetworkPosts === 0);
+    check("guest snapshot clearly labelled", guestDoc.body.textContent.includes("Guest preview"));
+    await guestWindow.api("api/paper/order", { symbol: "SPY", side: "buy", dollars: 250 });
+    guestDoc.getElementById("tab-invest").click();
+    await delay(300);
+    const guestPosition = guestWindow.eval("state.paper.positions[0]");
+    check("guest UI shows practice position", guestPosition?.symbol === "SPY");
+    // New colours must apply to the actual charts, not just the page background.
+    guestDoc.getElementById("tab-home").click();
+    await delay(300);
+    const canvas = guestDoc.querySelector("canvas");
+    guestWindow.TradeTwinTheme.set("dark");
+    await delay(150);
+    const darkPixels = canvas.toDataURL();
+    const beforeTheme = JSON.stringify(guestWindow.eval("state.paper"));
+    guestWindow.TradeTwinTheme.set("light");
+    await delay(150);
+    check("light theme changes canvas rendering", darkPixels !== canvas.toDataURL());
+    check("theme doesn't change portfolio", JSON.stringify(guestWindow.eval("state.paper")) === beforeTheme);
+    check("light theme sets system controls", guestDoc.documentElement.style.colorScheme === "light");
+
+    function luminance(color) {
+      const values = color.startsWith("#")
+        ? color.slice(1).match(/../g).map((value) => parseInt(value, 16) / 255)
+        : color.match(/[\d.]+/g).slice(0, 3).map((value) => Number(value) / 255);
+      const linear = values.map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+      return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
+    }
+    function contrast(a, b) {
+      const x = luminance(a), y = luminance(b);
+      return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+    }
+    for (const choice of ["light", "dark"]) {
+      guestWindow.TradeTwinTheme.set(choice);
+      await delay(100);
+      const style = guestWindow.getComputedStyle(guestDoc.documentElement);
+      const variable = (name) => style.getPropertyValue(name).trim();
+      check(choice + " body text contrast", contrast(variable("--text"), variable("--bg")) >= 4.5);
+      check(choice + " muted text contrast", contrast(variable("--muted"), variable("--card")) >= 4.5);
+      check(choice + " gain text contrast", contrast(variable("--green"), variable("--card")) >= 4.5);
+      check(choice + " median chart line contrast", contrast(variable("--median"), variable("--card")) >= 4.5);
+      check(choice + " phone layout", guestDoc.documentElement.scrollWidth <= 320);
+    }
+    guestWindow.TradeTwinTheme.set("system");
+    check("system theme follows device", guestDoc.documentElement.dataset.theme === (guestWindow.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+    guestWindow.TradeTwinTheme.set("light");
+    frame.src = "index.html";
+    await new Promise((resolve) => { frame.onload = resolve; });
+    const reloadWindow = frame.contentWindow, reloadDoc = frame.contentDocument;
+    for (let i = 0; i < 100 && !reloadDoc.getElementById("tab-home"); i++) await delay(50);
+    check("guest resumes on reload without login", Boolean(reloadDoc.getElementById("tab-home")));
+    check("theme persists across reload", reloadDoc.documentElement.dataset.theme === "light");
+    const resumed = await reloadWindow.api("api/me");
+    check("guest practice state survives same-tab reload", resumed.profile.paper.cash === 9750);
+    reloadDoc.getElementById("tab-trade").click();
+    const live = [...reloadDoc.querySelectorAll("button")].find((button) => button.textContent.includes("Live market"));
+    check("live trading isn't offered to snapshot guests", live?.disabled);
+    reloadDoc.getElementById("tab-me").click();
+    const optional = [...reloadDoc.querySelectorAll("button")].find((button) => button.textContent === "Take optional assessment");
+    check("assessment remains optional in settings", Boolean(optional));
+    optional.click();
+    [...reloadDoc.querySelectorAll("button")].find((button) => button.textContent === "Skip for now").click();
+    check("guest can leave assessment without losing session", reloadWindow.eval("state.profile.guest") && Boolean(reloadDoc.getElementById("tab-me")));
+    reloadWindow.confirm = () => true;
+    [...reloadDoc.querySelectorAll("button")].find((button) => button.textContent === "Reset guest session").click();
+    await delay(300);
+    const resetGuest = await reloadWindow.api("api/me");
+    check("reset clears guest trades and assessment", resetGuest.profile.paper.cash === 10000 && resetGuest.profile.paper.history.length === 0 && resetGuest.profile.quiz.unassessed);
+    check("reset preserves named profiles", localStorage.getItem(storageKey) === savedAccounts);
+    reloadWindow.openGuide("start");
+    await delay(150);
+    check("help dialog has semantics and focus", reloadDoc.getElementById("sheet").getAttribute("role") === "dialog" && reloadDoc.activeElement.closest("#sheet"));
+    reloadDoc.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    check("Escape closes help and removes it from tab order", reloadDoc.getElementById("sheet").inert && !reloadDoc.getElementById("sheet").classList.contains("show"));
+    reloadDoc.getElementById("tab-me").click();
+    [...reloadDoc.querySelectorAll("button")].find((button) => button.textContent === "Leave guest / sign in").click();
+    await delay(250);
+    check("leave guest returns to welcome", Boolean(reloadDoc.getElementById("continue-guest")));
+    check("leaving removes guest data", !sessionStorage.getItem("trade-twin-guest-v1"));
+    check("leaving preserves saved accounts and theme", localStorage.getItem(storageKey) === savedAccounts && localStorage.getItem("trade-twin-theme") === "light");
+
+    // Guest access must also work without secure password APIs or browser storage.
+    Object.defineProperty(reloadWindow, "sessionStorage", { configurable: true, get() { throw new Error("storage denied"); } });
+    Object.defineProperty(reloadWindow, "crypto", { configurable: true, value: undefined });
+    await reloadWindow.startGuest();
+    check("memory-only guest works with storage blocked", reloadWindow.eval("state.profile.guest && state.guestStorage === 'memory'"));
+    reloadDoc.getElementById("tab-me").click();
+    check("memory-only lifetime is explained", reloadDoc.body.textContent.includes("until this page reloads"));
+    const guestGoal = await reloadWindow.api("api/goal", { tickers: "SPY", years: 1, initial: 1000, monthly: 100, target: 3000 });
+    check("guest goal planner runs", guestGoal.ok && guestGoal.result.paths === 10000);
+    let guestRun = null;
+    for (const step of ["entry", "exit", "timemachine", "budget", "risk", "broker"]) {
+      const response = await reloadWindow.api("api/trade", { mode: "demo", step, run_id: guestRun, params: { symbol: "TSLA", target_rule: "2R" } });
+      guestRun = response.run_id || guestRun;
+      check("guest replay pipeline without password APIs: " + step, response.ok);
+    }
+    const guestCopy = await reloadWindow.api("api/paper/copy", { amount: 1000, weights: [
+      { ticker: "AAPL", weight: 60 }, { ticker: "NO_DEMO_PRICE", weight: 40 },
+    ] });
+    check("partial guest copy leaves unused allocation in cash", guestCopy.ok && guestCopy.fills.length === 1 && guestCopy.errors.length === 1 && guestCopy.paper.cash === 9400);
+    await reloadWindow.openStock("AAPL");
+    await delay(300);
+    const replayLink = [...reloadDoc.querySelectorAll("button")].find((button) => button.textContent === "Try TSLA replay");
+    check("snapshot stock detail offers a valid replay, not fake live trading", Boolean(replayLink));
+    replayLink.click();
+    check("stock detail opens supported demo ticker", reloadWindow.eval('state.tradeMode === "demo" && state.tradeSymbol === "TSLA"'));
+
+
     check("no unhandled UI errors", errors.length === 0);
   } catch (error) {
     checks.push({ name: String(error.stack || error), pass: false });

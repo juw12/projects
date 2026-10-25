@@ -9,6 +9,19 @@ before you risk a dollar — matched to your personality.
 | **Web** (desktop) | https://juwpegatron.github.io/projects/trade-twin/web.html |
 | **Mobile** | https://juwpegatron.github.io/projects/trade-twin/mobile.html |
 
+## Try without signing in
+
+Open the app and choose **Continue as guest**. No account, email or assessment is required.
+Guests get a fresh $10,000 practice portfolio and the dated demo snapshot, including research,
+goal simulations and the TSLA replay. The optional assessment is in **Me**.
+
+- Guest data uses a separate tab/session store; it never changes a saved profile or server account.
+- Reloading the same tab resumes the trial. Browser session restore may also retain it.
+- **Me → Reset guest session** or **Leave guest / sign in** erases guest data after confirmation.
+- When storage is blocked, a labelled memory-only guest still works; reload then loses those changes.
+- Appearance: **System / Light / Dark** on the welcome page and under **Me → Appearance**.
+  It is saved independently of account data. Charts redraw without changing results.
+
 ## Features
 
 | Tab | What it does | Inspired by |
@@ -67,6 +80,14 @@ Quotes are delayed and unofficial; 13F reports describe quarter-end holdings and
 history and are not predictions. Not financial advice.
 
 ## Changelog
+
+- **1.1.0** — No-login, no-email guest trial with optional assessment; isolated session-only practice
+  data, reset/exit confirmations and memory-only fallback. Added saved system/light/dark appearance
+  on the welcome screen, app settings and desktop wrapper; canvas charts adapt to the palette.
+  Improved keyboard focus/dialog closing, reduced-motion support, readable text and touch targets.
+  Guest actions cannot switch to fake live trading; trial shortcuts use the supported replay.
+  Snapshot copying reports skipped positions and unspent cash rather than claiming a full copy.
+  Guest and theme cases are covered by the real-browser regression harness.
 
 - **1.0.2** — Cashflow-neutral drawdowns (deposits cannot hide losses); contiguous-history sampling
   without end-to-start wrap; duplicate tickers and invalid weights rejected; clearer model assumptions.

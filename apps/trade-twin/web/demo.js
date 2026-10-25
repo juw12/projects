@@ -13,6 +13,9 @@
 
 (function () {
   const STORE = "trade-twin-demo-v1";
+  const GUEST_STORE = "trade-twin-guest-v1";
+  let guestMemory = null;
+  let guestStorage = "tab";
   const cache = {};
 
   // ----------------------------------------------------------------- data
@@ -27,7 +30,22 @@
     return cache[name];
   }
 
-  function readStore() {
+  function readStore(guest = false) {
+    if (guest) {
+      try {
+        const saved = sessionStorage.getItem(GUEST_STORE);
+        if (saved) {
+          guestMemory = saved;
+        }
+      } catch (error) {
+        guestStorage = "memory";
+      }
+      try {
+        return JSON.parse(guestMemory) || { users: {}, session: null };
+      } catch (error) {
+        return { users: {}, session: null };
+      }
+    }
     try {
       return JSON.parse(localStorage.getItem(STORE)) || { users: {}, session: null };
     } catch (error) {
@@ -35,8 +53,42 @@
     }
   }
 
-  function writeStore(store) {
-    localStorage.setItem(STORE, JSON.stringify(store));
+  function writeStore(store, guest = false) {
+    const serialized = JSON.stringify(store);
+    if (guest) {
+      guestMemory = serialized;
+      try {
+        sessionStorage.setItem(GUEST_STORE, serialized);
+      } catch (error) {
+        guestStorage = "memory";
+      }
+      return;
+    }
+    localStorage.setItem(STORE, serialized);
+  }
+
+  function removeGuest() {
+    guestMemory = null;
+    try {
+      sessionStorage.removeItem(GUEST_STORE);
+      sessionStorage.removeItem("tt-guest-active");
+    } catch (error) {
+      // Memory-only guests can always leave without touching a saved account.
+    }
+  }
+
+  function newGuest() {
+    const profile = defaultProfile("Guest", "");
+    profile.guest = true;
+    profile.onboarded = true;
+    profile.quiz = {
+      archetype: "guest", title: "Practice defaults", emoji: "🧪", focus: "invest",
+      unassessed: true, risk_level: 2, style_score: 1, cautions: [],
+      summary: "No assessment taken. These are conservative example limits, not an assessment of you.",
+      suggest: "Try the goal planner or a TSLA replay. Take the optional assessment later in Me.",
+    };
+    profile.limits = limitsFor(2, profile.budget);
+    return { users: { guest: { profile } }, session: "guest" };
   }
 
   const owns = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
@@ -516,7 +568,7 @@
     if (step === "entry") {
       session.completed = [];
       session.target = null;
-      session.id = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString() + Math.random().toString();
+      session.id = window.crypto?.randomUUID ? crypto.randomUUID() : Date.now().toString() + Math.random().toString();
       session.config = JSON.stringify(limits);
     } else if (steps.includes(step)) {
       if (!params.run_id || params.run_id !== session.id || session.config !== JSON.stringify(limits)) {
@@ -575,10 +627,21 @@
   }
 
   // ------------------------------------------------------------ router
-  async function route(path, body = {}) {
+  async function route(path, body = {}, guest = false) {
     const route = path.replace(/^\/?api\//, "");
-    const store = readStore();
+    let store = readStore(guest);
+    const persist = () => writeStore(store, guest);
     try {
+      if (guest && (route === "guest/start" || route === "guest/reset")) {
+        if (route === "guest/reset" || !store.users?.guest || store.session !== "guest") {
+          store = newGuest();
+        }
+        persist();
+        return { ok: true, profile: store.users.guest.profile, guest_storage: guestStorage };
+      }
+      if (guest && ["login", "signup"].includes(route)) {
+        return fail("Leave guest mode before signing in. Guest data never merges automatically.");
+      }
       if (route === "signup") {
         const username = String(body.username || "").trim().toLowerCase();
         if (!/^[a-z0-9_.]{3,24}$/.test(username)) {
@@ -598,7 +661,7 @@
           profile: defaultProfile(String(body.name).trim(), String(body.email || "").trim()),
         };
         store.session = username;
-        writeStore(store);
+        persist();
         return { ok: true, profile: store.users[username].profile };
       }
       if (route === "login") {
@@ -608,7 +671,7 @@
           return fail("wrong username or password");
         }
         store.session = username;
-        writeStore(store);
+        persist();
         return { ok: true, profile: user.profile };
       }
       const user = store.session && owns(store.users, store.session) && store.users[store.session];
@@ -616,15 +679,22 @@
         return fail("login required", { auth: false });
       }
       const profile = user.profile;
-      const save = () => writeStore(store);
+      const save = persist;
       switch (route) {
         case "logout":
+          if (guest) {
+            removeGuest();
+            return { ok: true };
+          }
           store.session = null;
           save();
           return { ok: true };
         case "me":
           return { ok: true, profile };
         case "profile": {
+          if (guest && body.email) {
+            return fail("Guest mode does not need an email. Leave it blank.");
+          }
           if ("name" in body && (typeof body.name !== "string" || !body.name.trim() || body.name.length > 80)) {
             return fail("name must contain 1–80 characters");
           }
@@ -814,17 +884,20 @@
   }
 
   let queue = Promise.resolve();
-  function api(path, body = {}) {
+  function dispatch(path, body = {}, guest = false) {
+    const execute = () => route(path, body, guest);
     if (navigator.locks) {
-      return navigator.locks.request(STORE, () => route(path, body));
+      return navigator.locks.request(guest ? GUEST_STORE : STORE, execute);
     }
-    const next = queue.then(() => route(path, body));
+    const next = queue.then(execute);
     queue = next.catch(() => {});
     return next;
   }
 
   window.TradeTwinDemo = {
-    api,
+    api: (path, body) => dispatch(path, body, false),
+    guest: (path, body) => dispatch(path, body, true),
+    hasGuest: () => readStore(true).session === "guest",
     meta: () => load("meta"),
   };
 })();
