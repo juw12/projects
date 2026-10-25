@@ -1,11 +1,29 @@
 {
   "schema": 1,
-  "updatedAt": "2026-10-25T00:00:00Z",
+  "updatedAt": "2026-10-25T16:00:39.347Z",
   "settings": {
     "announcement": "",
     "hideSamples": false
   },
   "lessons": [],
-  "materials": [],
+  "materials": [
+    {
+      "id": "m-mvo0l62ubqi",
+      "title": "光耀同行使用手冊（學員版）",
+      "kind": "file",
+      "description": "一份可列印的操作說明：登入或訪客、每日學習流程、AI 學伴、安裝到手機。",
+      "notes": "光耀同行可以用 Puter 帳號登入，或以訪客身分使用。訪客的進度只存在這台裝置；登入後進度會跨裝置同步，並可使用完整 AI 學伴。\n每日目標可以選 10、20 或 30 XP。每連續學習 7 天會得到 1 個連續保護，最多 2 個，漏掉一天時會自動使用。\n每日複習按空白鍵翻面，用 1 到 4 評分。iPhone 用 Safari 的「加入主畫面」安裝；Android 用 Chrome 的「安裝應用程式」。",
+      "tags": [],
+      "status": "published",
+      "author": "juwpegatron",
+      "publishedAt": "2026-10-25T16:00:38.406Z",
+      "updatedAt": "2026-10-25T16:00:38.406Z",
+      "path": "files/2026/10/mvo0l4fo-guangyao-user-guide.pdf",
+      "commit": "2e40bbefae15364400d24e2ef56f47e56fe4fa96",
+      "size": 999283,
+      "mime": "application/pdf",
+      "filename": "guangyao-user-guide.pdf"
+    }
+  ],
   "events": []
 }
