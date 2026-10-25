@@ -30,9 +30,9 @@ def check(condition, message):
 def static_checks():
     for page in ("index.html", "web.html", "mobile.html"):
         html = (WEB / page).read_text(encoding="utf-8")
-        for script in ("engine.js", "demo.js", "recipes.js", "app.js"):
+        for script in ("engine.js", "demo.js", "recipes.js", "engine-client.js", "app.js"):
             check(f'src="{script}"' in html, f"{page} does not load {script}")
-        order = [html.find(f'src="{s}"') for s in ("engine.js", "demo.js", "recipes.js", "app.js")]
+        order = [html.find(f'src="{s}"') for s in ("engine.js", "demo.js", "recipes.js", "engine-client.js", "app.js")]
         check(order == sorted(order), f"{page} loads scripts out of order")
         for ref in re.findall(r'(?:href|src)="([^"]+)"', html):
             check(not ref.startswith("/"), f"{page}: absolute ref {ref}")
@@ -42,6 +42,9 @@ def static_checks():
     for entry in re.findall(r"'([^']+)'", sw.split("const SHELL = [", 1)[1].split("];", 1)[0]):
         if entry != "./":
             check((WEB / entry).exists(), f"sw.js caches missing file {entry}")
+    check("key.startsWith('hookline-v')" in sw, "service worker must not delete other apps' caches")
+    check("ignoreSearch: true" in sw, "offline demo query must resolve to cached shell")
+    check("ACTIVATE_UPDATE" in sw, "updates need explicit activation")
     manifest = json.loads((WEB / "manifest.webmanifest").read_text(encoding="utf-8"))
     for icon in manifest["icons"]:
         check((WEB / icon["src"]).exists(), f"manifest icon missing {icon['src']}")

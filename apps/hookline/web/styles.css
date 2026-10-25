@@ -745,3 +745,13 @@ input[type="range"] {
 body {
   overflow-x: hidden;
 }
+
+/* Native fieldset disabling keeps all newly rendered controls locked during jobs. */
+fieldset.layout { border: 0; padding: 0; margin: 0; min-width: 0; }
+#cancel-task { margin-bottom: 12px; }
+.slot-picker { display: grid; gap: 8px; margin-bottom: 12px; }
+.slot-picker label { display: grid; gap: 4px; font-size: 0.8rem; min-width: 0; }
+.slot-picker select { width: 100%; min-width: 0; }
+.dropzone input { display: block; width: 100%; max-width: 280px; font-size: 0.85rem; }
+input:disabled, select:disabled, button:disabled { opacity: 0.55; cursor: not-allowed; }
+[hidden] { display: none !important; }

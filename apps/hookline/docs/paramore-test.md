@@ -1,41 +1,65 @@
-# Test: Paramore — "That's What You Get", high + faster + nostalgic mashup
+# Paramore concept recipe — corrected verification scope (v1.1)
 
-**Request (verbatim intent):** remix Paramore *That's What You Get* — high,
-faster tempo, pitch up, with other nostalgic related songs remixed into it.
+**Requested direction:** “That's What You Get,” higher/faster, with nostalgic songs mixed in.
 
-## Remix decisions
+## Proposed arrangement, not a verified commercial-audio remix
 
-| Choice | Value | Why |
+| Source | Catalogue reference only | Proposed use |
 | --- | --- | --- |
-| Main | Paramore — That's What You Get (Riot!, 2007) | Reference 131 BPM, Ab major (Tunebat/Songdata; Mixgraph lists 87 BPM / Eb, a 2/3 reading — the recipe falls back to 131 if detection disagrees). |
-| Nostalgia layer 1 | Paramore — Misery Business (same album) | 173 BPM, Db major. Instantly recognisable riff → the intro. |
-| Nostalgia layer 2 | Fall Out Boy — Sugar, We're Goin Down (2005) | 162 BPM, D major. Same pop-punk era, same crowd. |
-| Tempo | 131 → **164 BPM** (×1.25) | Sped-up sweet spot; Misery Business (×0.95) and Sugar (×1.01) barely stretch, so they stay clean. |
-| Pitch | **+4 st**, independent of tempo | Ab major → C major exactly. A raw ×1.25 speed-up would be +3.86 st — "high", but 14 cents off any key, which clashes with the layers. |
-| Layer keys | Misery −1 st, Sugar −2 st | Key-matched to C; small shifts keep vocals natural. |
-| Arrangement | 2 bars Misery Business riff (filter-in) → 8 bars TWYG chorus → riser → 4 bars Sugar chorus → 4 bars TWYG (2nd half of hook) | Recognition in second 1, the main hook by ~3 s, a payoff switch, then back to the main hook for the loop. |
-| Length | 18 bars = 26.3 s | Inside the 12–35 s short-form window, ends on a bar line, tail folded into the start (seamless loop). |
-| FX | reverb 12 %, bass +3 dB, air +2 dB, ≈ −10 LUFS, −1 dBFS ceiling | Bright and punchy like sped-up edits; not washed out. |
+| Paramore — That's What You Get | 131 BPM, Ab major | Main track; +4 semitones, 164 BPM target |
+| Paramore — Misery Business | 173 BPM, Db major | 2-bar hook opening |
+| Fall Out Boy — Sugar, We're Goin Down | 162 BPM, D major | 4-bar hook switch |
 
-The tempo maths:
-\[ \frac{164}{131} = 1.252,\qquad \frac{164}{173} = 0.948,\qquad \frac{164}{162} = 1.012 \]
-\[ 12\log_2(1.252) = 3.89\ \text{st (raw speed-up)} \;\Rightarrow\; \text{use } +4\ \text{st with independent stretch} \]
+Sources disagree on these metadata. For example, 87 vs 131 BPM is **not** a
+half/double-time relationship. Do not silently substitute either value. The app
+now uses your detected/manually corrected tempo and key, warns about disagreement,
+and only adjusts octave convention when close to the reference.
 
-## Verification (synthetic stand-ins)
+Reference links (not proof of the uploaded recording's key/tempo):
+- https://tunebat.com/Info/That-s-What-You-Get-Paramore/1JdKrFyoU05abww0Zv0ayQ
+- https://songdata.io/album/71rziY9eLo1tA2dBMxrwhc/Riot-by-Paramore
+- https://www.mixgraph.io/tracks/paramore-thats-what-you-get
 
-The real recordings are copyrighted and not in this repo. The recipe was run
-end-to-end on synthesised stand-ins with the same tempos and keys
-(`tools/render_standin_demo.js`, test `Paramore recipe end-to-end`):
+At those proposed values:
+\[
+\frac{164}{131} \approx 1.252,\quad
+\frac{164}{173} \approx 0.948,\quad
+\frac{164}{162} \approx 1.012.
+\]
+\[
+18\times\frac{240}{164} \approx 26.341\text{ seconds}.
+\]
 
-- Detection: 131.0 BPM / Ab major, 86.5 (= 173 half-time) / Db major, 81.0 (= 162 half-time) / D major; hooks within 0.02 bars of each chorus downbeat.
-- Output: 18 bars, **26.341 s** (expected \(18 \times 240 / 164 = 26.341\)), C major, peak −1.00 dBFS, ≈ −10.9 LUFS.
-- An independent numpy/scipy onset-autocorrelation check reads the rendered file at **164.1 BPM**.
-- In-browser (headless Chrome, Web Worker path): demo → recipe → render in ~6 s total, render ~1.3 s; viral score 83/100 ("Good potential"; lowest factors: loop level-jump caused by the deliberate filtered intro, and energy lift).
+The full sequence is 2 bars Misery Business, 8 bars TWYG, 4 bars Sugar,
+4 bars TWYG. If the listed keys are correct, the main shift lands on C major,
+and the two layers need −1 and −2 semitones respectively. These are editable
+starting points, not promises of natural vocals or harmonic compatibility.
 
-## Run it on the real songs
+## What is actually tested
 
-1. Open Hookline and upload your copies of the three songs (MP3/M4A/WAV, any order — slots match on file names containing *that/what you get*, *misery*, *sugar/fall out*).
-2. Press **Apply test recipe**. Check each card's BPM/key/hook; use ×2/÷2 or pick another hook if a detection looks off.
-3. Listen, tweak (Fine-tune / Arrangement), **⬇ WAV**.
+- Synthetic original stand-ins at the listed tempos and keys, not recordings of
+  Paramore or Fall Out Boy. The source finder is checked against their known
+  synthetic chorus boundaries.
+- The recipe produces 18 bars, about 26.341 seconds; output tempo is re-analysed
+  and pitch/length independence is separately tested using tones.
+- Default approximate loudness target is now −14 LUFS, editable. The limiter
+  controls sample peaks, not intersample true peaks. There is no standards or
+  platform compliance certification.
+- Tests cover parameter bounds, wrong/missing tracks, short source regions,
+  malformed audio, portable recipe identity and restored worker sessions.
+- Browser checks exercise Web Workers, actual synthetic-WAV upload/decoding,
+  portable recipe import, cancellation/failure recovery, mobile and offline mode.
 
-Posting: use rights you hold, or the platform's licensed library version of the songs.
+**Unverified:** the actual recordings, hook choices by ear, perceptual mashup
+quality, real-device Safari/iOS behavior, licensing, and audience engagement.
+The previous “viral potential” number was not a validated prediction; 1.1
+replaces that label with an editing checklist and removes fabricated recognition
+scoring. Adding more songs is not evidence that people will recognize the result.
+
+## Using your recordings
+
+Upload the three recordings you have permission to use, select their slots,
+preview the estimated hooks, correct metadata and apply the recipe. Unique title
+matches can prefill slots; missing or ambiguous matches never fall back to upload
+order. Check the result before WAV export. A saved portable recipe contains
+source identities and edits but not audio or publication rights.
