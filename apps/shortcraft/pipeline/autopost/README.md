@@ -68,6 +68,20 @@ from the TikTok app; that is allowed, and you can add trending sounds there.
    a folder you sync `video.mp4` files to (S3, R2, your own server). Alternatively, use
    `mode: "resumable"` with a Facebook-Login app token.
 
+## 2b. Stay on trend (automatic)
+
+`python trends.py --out trends.json` builds a brief of what Indonesia is searching and reading right now:
+Google Trends daily searches for Indonesia plus tech-section RSS from CNN Indonesia and Antara. Each lead is
+scored for this channel's angle (prices, launches, discounts, paylater, gadgets). Feed the brief into
+`plan --llm` so scripts are built on current, real examples. Headlines are **leads, not facts**: every
+number in a script must link back to its source article, shown as the on-screen footnote (`scene.source`).
+
+The **Pop** template (`"template": "pop"`) has 7 animated layouts. Pick one per scene with `scene.layout`:
+`hook`, `price` (rolling price counter + stamp), `bars` (comparison bars), `chat` (excuse bubbles),
+`math` (typed calculation), `stamp` and `poll` (A/B + "komen A atau B"). It adds word-by-word captions,
+a progress bar and a source footnote. Voice per project: `"voiceConfig": {"name": "id-ID-GadisNeural",
+"rate": "+12%"}`. Keep Shorts under 60 s (`"scenePad": 0.35` tightens the gap between scenes).
+
 ## 3. Daily use
 
 ```bash
