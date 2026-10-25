@@ -1,38 +1,28 @@
-// Glow service worker: offline app shell. AI requests always go to the network.
-const CACHE_NAME = 'glow-v6';
-const ASSETS_TO_CACHE = [
-  './index.html',
-  './app.html',
-  './mobile.html',
-  './styles.css',
-  './app.js',
-  './manifest.webmanifest',
-  './icons/app-icon.svg',
-  './icons/icon-192.png',
-  './icons/icon-512.png'
-];
+// Glow home service worker. It also replaces the old Glow chat worker that used to live at
+// this path, so it removes only that worker's old 'glow-vN' caches. GlowChat (./chat/) and
+// GlowRoom (./room/) have their own workers; requests for them are left alone here.
+const CACHE_NAME = 'glowhome-v1';
+const ASSETS = ['./', './index.html', './home.css', './home.js', './manifest.webmanifest', './icons/app-icon.svg', './icons/icon-192.png', './shared/glow-apps.js'];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(ASSETS_TO_CACHE))
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((names) => Promise.all(names.filter((n) => n.startsWith('glow-') && n !== CACHE_NAME).map((n) => caches.delete(n))))
+      .then((names) => Promise.all(names
+        .filter((name) => (name.startsWith('glowhome-') && name !== CACHE_NAME) || /^glow-v\d+$/.test(name))
+        .map((name) => caches.delete(name))))
       .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
-  if (event.request.method !== 'GET' || url.origin !== self.location.origin || !url.href.startsWith(self.registration.scope)) {
-    return; // AI provider calls are never cached
-  }
+  const scope = self.registration.scope;
+  if (event.request.method !== 'GET' || url.origin !== self.location.origin || !url.href.startsWith(scope)) return;
+  if (url.href.startsWith(scope + 'chat/') || url.href.startsWith(scope + 'room/')) return;
   event.respondWith(
     fetch(event.request)
       .then((response) => {

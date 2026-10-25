@@ -1,8 +1,8 @@
 {
-  "name": "Glow \u2014 From a spark to something real",
+  "name": "Glow — one home for your AI",
   "short_name": "Glow",
-  "description": "Free AI chat where models deliberate to consensus: Council with a Judge, side-by-side Arena, second opinions.",
-  "start_url": "./app.html",
+  "description": "Glow home: start in GlowChat or GlowRoom with one free Glow account.",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#262624",
@@ -22,6 +22,18 @@
       "src": "./icons/app-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "GlowChat",
+      "url": "./chat/",
+      "description": "Chat, Council and Arena"
+    },
+    {
+      "name": "GlowRoom",
+      "url": "./room/",
+      "description": "Give a goal to the AI crew"
     }
   ]
 }

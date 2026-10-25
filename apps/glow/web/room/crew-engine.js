@@ -1,4 +1,4 @@
-// Crewroom engine: turns a goal into real work done by an AI crew, entirely in the browser.
+// GlowRoom engine: turns a goal into real work done by an AI crew, entirely in the browser.
 //
 //   Nova (leader)    plans the work and writes the final answer
 //   Scout (explore)  searches the live web and reads pages
@@ -7,7 +7,7 @@
 //   Sentinel (checker) reviews and fact-checks
 //   Pixel (media)    writes copy and draws SVG graphics
 //
-// AI provider: Glow AI by default — the same AI and account as the Glow app (same origin, so the
+// AI provider: Glow AI by default — the same AI and account as GlowChat (same origin, so the
 // sign-in is shared). Guests get Glow Free instantly; signing in unlocks GPT-5 mini, Claude, Gemini…
 // Or bring your own key
 // (OpenAI, Anthropic, Google Gemini, OpenRouter, Groq, or any OpenAI-compatible server).
@@ -27,7 +27,7 @@
       url: 'https://text.pollinations.ai/openai',
       model: 'openai',
       needsKey: false,
-      note: 'Works right away as Glow Free. Sign in with your Glow account for stronger models — one account for Glow and Crewroom.'
+      note: 'Works right away as Glow Free. Sign in with your Glow account for stronger models — one account for GlowChat and GlowRoom.'
     },
     openai: {
       label: 'OpenAI',
@@ -132,11 +132,11 @@
 
 
   // ==================================================================
-  // Glow link — Crewroom and Glow share one origin, so they share the Glow
+  // Glow link — GlowRoom and Glow share one origin, so they share the Glow
   // account (Puter sign-in), the chosen Glow model and a hand-off inbox.
   // ==================================================================
   const GLOW_STORE_KEY = 'mufakat.v1';      // Glow's own storage key (kept from its original name)
-  const GLOW_INBOX_KEY = 'glow.inbox';      // results handed from Crewroom to Glow
+  const GLOW_INBOX_KEY = 'glow.inbox';      // results handed from GlowRoom to Glow
   const PUTER_SDK_URL = 'https://js.puter.com/v2/';
   const GLOW_MODELS = [
     ['gpt-5-mini', 'GPT-5 mini'],
@@ -152,7 +152,7 @@
   let puterPromise = null;
 
   function glowUrl() {
-    return /mobile\.html$/.test(location.pathname) ? '../glow/mobile.html' : '../glow/';
+    return /mobile\.html$/.test(location.pathname) ? '../chat/mobile.html' : '../chat/';
   }
 
   function readGlowStore() {
@@ -170,7 +170,7 @@
       store.settings = { ...(store.settings || {}), account, accountName: name };
       localStorage.setItem(GLOW_STORE_KEY, JSON.stringify(store));
     } catch (err) {
-      console.warn('[Crewroom] Could not update the Glow account', err);
+      console.warn('[GlowRoom] Could not update the Glow account', err);
     }
   }
 
@@ -245,7 +245,7 @@
     try {
       if (window.puter) await Promise.resolve(window.puter.auth.signOut());
     } catch (err) {
-      console.warn('[Crewroom] Glow sign-out failed', err);
+      console.warn('[GlowRoom] Glow sign-out failed', err);
     }
     glow.signedIn = false;
     glow.name = '';
@@ -327,7 +327,7 @@
       if (a.type === 'sources') a.items.forEach(item => sources.push(`- [${item.title}](${item.url})`));
     }));
     const who = run.mode === 'team' ? 'the whole crew' : (BOTS[run.steps[0]?.bot]?.name || 'the crew');
-    const body = `${answer}${sources.length ? '\n\n**Sources the crew read**\n' + [...new Set(sources)].slice(0, 12).join('\n') : ''}\n\n— From Crewroom: ${who} worked on this.`;
+    const body = `${answer}${sources.length ? '\n\n**Sources the crew read**\n' + [...new Set(sources)].slice(0, 12).join('\n') : ''}\n\n— From GlowRoom: ${who} worked on this.`;
     const conversation = {
       id: 'crew-' + run.id,
       type: 'chat',
@@ -457,7 +457,7 @@
       body = { model, messages: [{ role: 'system', content: system }, ...messages], stream: !noStream, temperature };
       if (s.provider === 'openrouter') {
         headers['HTTP-Referer'] = location.origin;
-        headers['X-Title'] = 'Crewroom';
+        headers['X-Title'] = 'GlowRoom';
       }
     }
 
@@ -848,7 +848,7 @@
   function baseSystem(bot, extra) {
     const b = BOTS[bot];
     return [
-      `You are ${b.name}, the ${b.role} in an AI crew called Crewroom. You ${b.skill}.`,
+      `You are ${b.name}, the ${b.role} in an AI crew called GlowRoom. You ${b.skill}.`,
       'Be concrete and genuinely useful: give the actual result, not a description of what you would do.',
       'Use Markdown. Keep it focused.',
       `Today's date: ${new Date().toDateString()}.`,
@@ -1204,7 +1204,7 @@
   }
 
   function toMarkdown(run) {
-    const lines = [`# ${run.goal}`, '', `_Crewroom · ${new Date(run.createdAt).toLocaleString()} · ${run.provider}_`, ''];
+    const lines = [`# ${run.goal}`, '', `_GlowRoom · ${new Date(run.createdAt).toLocaleString()} · ${run.provider}_`, ''];
     if (run.final) lines.push(run.final, '');
     if (run.mode === 'team') {
       lines.push('---', '## Team work', '');
@@ -1510,13 +1510,13 @@
       <div class="crx-glow">
         <div class="crx-glow-h"><span class="crx-glow-logo">✦</span><b>Glow AI</b><span class="crx-badge ${glow.signedIn ? 'done' : ''}">${glow.signedIn ? 'signed in' : 'guest'}</span></div>
         <p>${glow.signedIn
-          ? `Signed in as <b>${esc(glow.name || 'your Glow account')}</b>. The crew uses your Glow models — the same account and allowance as the Glow app.`
-          : (glow.checking ? 'Checking your Glow account…' : 'Using <b>Glow Free</b> (no sign-up). Sign in with your Glow account for stronger models like GPT-5 mini, Claude and Gemini — one account for Glow and Crewroom.')}</p>
+          ? `Signed in as <b>${esc(glow.name || 'your Glow account')}</b>. The crew uses your Glow models — the same account and allowance as GlowChat.`
+          : (glow.checking ? 'Checking your Glow account…' : 'Using <b>Glow Free</b> (no sign-up). Sign in with your Glow account for stronger models like GPT-5 mini, Claude and Gemini — one account for GlowChat and GlowRoom.')}</p>
         ${glow.signedIn ? `<div class="crx-field"><label>Glow model</label><select data-set="model">${GLOW_MODELS.map(([id, name]) => `<option value="${id}" ${id === glowModel() ? 'selected' : ''}>${esc(name)}</option>`).join('')}</select></div>` : ''}
         ${glow.notice ? `<div class="crx-err">${esc(glow.notice)}</div>` : ''}
         <div class="crx-actions" style="margin:0">
           ${glow.signedIn ? '<button class="crx-btn" data-act="glow-signout">Sign out</button>' : '<button class="crx-btn primary" data-act="glow-signin">Sign in with Glow</button>'}
-          <a class="crx-btn" href="${glowUrl()}" target="glow" rel="noopener">Open Glow ↗</a>
+          <a class="crx-btn" href="${glowUrl()}" target="glow" rel="noopener">Open GlowChat ↗</a>
         </div>
       </div>`;
     return `
@@ -1576,7 +1576,7 @@
       <div class="crx-meta"><span class="crx-badge ${run.status}">${run.status}</span><span>${esc(run.provider)}</span><span>${elapsed}s</span>${run.parentId ? '<span>follow-up</span>' : ''}</div>
       <div class="crx-actions">
         ${run.status === 'running' ? '<button class="crx-btn danger" data-act="stop">■ Stop</button>' : '<button class="crx-btn" data-act="rerun">↻ Re-run</button>'}
-        ${run.status === 'done' ? '<button class="crx-btn glow" data-act="to-glow" title="Open this result as a chat in Glow">✦ Continue in Glow</button>' : ''}
+        ${run.status === 'done' ? '<button class="crx-btn glow" data-act="to-glow" title="Open this result as a chat in GlowChat">✦ Continue in GlowChat</button>' : ''}
         <button class="crx-btn" data-act="copy">Copy</button>
         <button class="crx-btn" data-act="download">Download .md</button>
         <button class="crx-btn" data-act="history">All results</button>
@@ -1655,7 +1655,7 @@
       const blob = new Blob([toMarkdown(run)], { type: 'text/markdown' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = 'crewroom-' + run.goal.slice(0, 40).replace(/[^\w]+/g, '-').toLowerCase() + '.md';
+      a.download = 'glowroom-' + run.goal.slice(0, 40).replace(/[^\w]+/g, '-').toLowerCase() + '.md';
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     }

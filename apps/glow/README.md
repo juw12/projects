@@ -1,10 +1,24 @@
 # Glow — From a spark to something real
 
-**Glow** is a free browser prototype for exploring ideas, developing plans and getting multiple AI perspectives. Chat, Council with a Judge, and Arena comparisons help you review proposals before acting. AI-suggested resources are not automatically browsed or verified; there is no autonomous building or execution.
+**Glow** is a small ecosystem of free browser AI apps that share one account:
 
-- **Web:** https://juwpegatron.github.io/projects/glow/
-- **App (installable PWA):** https://juwpegatron.github.io/projects/glow/app.html
-- **Mobile:** https://juwpegatron.github.io/projects/glow/mobile.html
+| App | What it is | Link |
+|---|---|---|
+| **Glow** (home) | Start here: one box to ask or delegate, recent chats and missions, all apps | https://juwpegatron.github.io/projects/glow/ |
+| **GlowChat** | Chat, Council with a Judge, and Arena comparisons to explore ideas and review plans | https://juwpegatron.github.io/projects/glow/chat/ |
+| **GlowRoom** | A virtual office of AI agents (formerly Crewroom) that research, write code and make media for a mission | https://juwpegatron.github.io/projects/glow/room/ |
+
+GlowChat installable app: `glow/chat/app.html`, mobile: `glow/chat/mobile.html`. GlowRoom: `glow/room/app.html`, `glow/room/mobile.html`.
+AI-suggested resources in GlowChat are not automatically browsed or verified; GlowChat does no autonomous building or execution (that is GlowRoom's job, and its results should still be reviewed).
+
+## v0.6.0 — the Glow ecosystem
+- **Glow home** (`web/index.html`): a quick-start box (💬 *Ask GlowChat* or 🏢 *Give it to GlowRoom*, with a hint when the request sounds like a job for the crew), **Jump back in** (recent GlowChat chats and GlowRoom missions), app cards with Open / Mobile / Install, and your account.
+- **GlowChat** (`web/chat/`) is the former Glow chat app. New launch links: `chat/?q=text` pre-fills the box, `chat/?open=<chat id>` reopens a chat.
+- **GlowRoom** (`web/room/`) is Crewroom, **moved** here (not copied) from `apps/virtual-bots`. Its saved crews, missions and settings keep the same browser storage keys.
+- **One switcher**: the ✦ Glow apps menu (`web/shared/glow-apps.js`) appears in GlowChat and GlowRoom on desktop and phone, and shows who is signed in.
+- **One account**: the Glow AI (Puter) sign-in is shared; GlowChat ↔ GlowRoom hand-offs work as in v0.5.1.
+- **Old links keep working**: `/virtual-bots/…` → `/glow/room/…`, `/glow/app.html` and `/glow/mobile.html` → GlowChat, `/mufakat/…` → GlowChat (query and hash kept).
+- **Cache fix**: Crewroom's service worker used to delete *every* cache on the site when it updated (including other apps' offline caches). GlowRoom now only removes its own (`glowroom-`/`crewroom-`). Each Glow app has its own cache (`glowhome-v1`, `glowchat-v1`, `glowroom-v1`).
 
 ## What it does that single-model chat apps don't
 | Mode | What happens |
@@ -32,7 +46,9 @@ Static site, no backend, so hosting is free (GitHub Pages). Everything runs in t
 Chats, settings and votes are stored in browser localStorage. API keys are stored there too and sent to the selected provider to authenticate requests. Prompts and attached text are sent to that provider; there is no hosted app backend in this prototype.
 
 ## Layout
-- `web/`: the free static app (deployed to Pages)
+- `web/index.html`: Glow home; `web/shared/`: the app switcher used by every Glow app
+- `web/chat/`: GlowChat, the free static chat app (deployed to Pages)
+- `web/room/`: GlowRoom, the AI agent office (formerly Crewroom, `apps/virtual-bots`)
 - `server/`: optional hosted tier with accounts, Free/Pro plans, Stripe subscriptions,
   per-user cost budgets and synced chats (`python apps/glow/server/app.py`). Its
   front-end currently ships Chat + 2-agent Council; Arena and Judge are web-app features
@@ -46,7 +62,7 @@ Chats, settings and votes are stored in browser localStorage. API keys are store
 python apps/glow/tests/test_static_integrity.py
 python apps/glow/tests/verify_api.py
 ```
-In-browser self-test: open `web/index.html#selftest` (94 checks covering chat, council,
+In-browser self-test: open `web/chat/index.html#selftest` (94 checks covering chat, council,
 judge, arena, voting, export, search, the v0.2.1 fixes, v0.4 sign-in, guest mode, tour,
 theme, sync and UI, and the v0.5 model picker, personas, checklists, Fuse, share links and Markdown, and the Crewroom link, using a Puter test double so no real account is touched). Demos: `#demo-council`, `#demo-arena`.
 
@@ -70,7 +86,7 @@ Free OpenRouter models are rate-limited. Working prototype, not a production ser
 - Glow cache cleanup is restricted to Glow, preserving other apps on the same origin.
 - Glow is a prototype brand chosen by the owner, not a unique or trademark-cleared name.
 
-## v0.5.1 — connected to Crewroom
+## v0.5.1 — connected to Crewroom (now GlowRoom)
 - **Glow → Crewroom**: the 🏢 Crewroom button in the sidebar hands whatever you typed to Crewroom's AI crew (web research, code, media) as their mission; **🏢 Ask the crew** under any reply sends the question plus Glow's answer so the crew can check and extend it.
 - **Crewroom → Glow**: finished crew results arrive in Glow as a chat marked 🏢, so you can keep asking about them. Both apps share one Glow account and the same Glow AI models.
 - Works because both apps live on the same site (shared browser storage); nothing goes through a server.

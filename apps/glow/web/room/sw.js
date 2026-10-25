@@ -1,7 +1,7 @@
-// Crewroom service worker: installable + offline.
+// GlowRoom service worker: installable + offline.
 // Pages are network-first (so updates ship immediately); static assets are cache-first.
 (function () {
-  var CACHE_NAME = 'crewroom-v5';
+  var CACHE_NAME = 'glowroom-v1';
   var SCOPE = self.registration.scope;
 
   function resolveUrl(path) {
@@ -20,7 +20,8 @@
     resolveUrl('./manifest.webmanifest'),
     resolveUrl('./icons/app-icon.svg'),
     resolveUrl('./assets/logo.svg'),
-    resolveUrl('./vendor/three.min.js')
+    resolveUrl('./vendor/three.min.js'),
+    resolveUrl('../shared/glow-apps.js')
   ];
 
   self.addEventListener('install', function (event) {
@@ -38,7 +39,9 @@
       caches.keys().then(function (keys) {
         return Promise.all(
           keys.filter(function (key) {
-            return key !== CACHE_NAME;
+            // Only this app's caches: every app on juwpegatron.github.io shares one origin.
+            var ours = key.indexOf('glowroom-') === 0 || key.indexOf('crewroom-') === 0;
+            return ours && key !== CACHE_NAME;
           }).map(function (key) {
             return caches.delete(key);
           })

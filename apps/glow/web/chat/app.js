@@ -790,7 +790,7 @@ function agentDisplay(conv, message) {
     const agent = conv.agents[message.agent];
     return { name: agent.name, css: `agent-${AGENT_COLORS[message.agent]}`, meta: modelLabel(agent.model) };
   }
-  if (message.source === "crewroom") return { name: "🏢 Crewroom", css: "assistant crewroom", meta: "AI crew" };
+  if (message.source === "crewroom") return { name: "🏢 GlowRoom", css: "assistant crewroom", meta: "AI crew" };
   return { name: "Glow", css: "assistant", meta: message.model ? modelLabel(message.model) : "" };
 }
 function renderMessages(force = false) {
@@ -903,7 +903,7 @@ function addChatActions() {
   const bar = document.createElement("div");
   bar.className = "msg-actions";
   const actions = last.role === "assistant"
-    ? [["Copy", copyLast], ["↻ Regenerate", regenerate], ["Second opinion", secondOpinion], ["🏢 Ask the crew", askCrew], ["✎ Edit question", editLast]]
+    ? [["Copy", copyLast], ["↻ Regenerate", regenerate], ["Second opinion", secondOpinion], ["🏢 Ask GlowRoom", askCrew], ["✎ Edit question", editLast]]
     : [["✎ Edit", editLast]];
   for (const [label, handler] of actions) {
     const button = document.createElement("button");
@@ -2021,13 +2021,14 @@ function hideWelcome() {
 
 /* ================= guided tour ================= */
 const TOUR_STEPS = [
-  { title: "Welcome to Glow ✨", text: "A quick tour of the main controls. Use Next or the → key, Back or ←, and Esc to skip." },
+  { title: "Welcome to GlowChat ✨", text: "A quick tour of the main controls. Use Next or the → key, Back or ←, and Esc to skip." },
   { target: "#model-picker-btn", title: "Pick a model", text: "Open this menu to search models, star your favorites and see what each is good at. Glow Free works right away; 🔒 models unlock with a free sign-in." },
   { target: "#composer", title: "Ask anything", text: "Type here and press Enter to send. Shift+Enter adds a new line; 📎 or paste attaches files, ✨ improves your prompt and 🎤 lets you speak." },
   { target: "#composer-tools", title: "Personas", text: "Switch how Glow answers: 🗺 Planner gives you a checklist you can tick off, plus 🎓 Tutor, 💻 Coder, ✍ Writer, 🔍 Critic and 🌐 Translator." },
   { target: "#new-council-btn", sidebar: true, title: "Council ⚖", text: "2–3 agents with different roles debate until they agree, then a Judge writes the final answer." },
   { target: "#new-arena-btn", sidebar: true, title: "Arena ⚔", text: "Ask several models the same question side by side, vote for the best and build your own leaderboard." },
-  { target: "#crewroom-link", sidebar: true, title: "Crewroom 🏢", text: "Hand bigger jobs to an AI crew that searches the web and runs code, powered by Glow. What you type becomes their mission (or press 🏢 Ask the crew under a reply), and their result comes back here as a chat." },
+  { target: "#crewroom-link", sidebar: true, title: "GlowRoom 🏢", text: "Hand bigger jobs to GlowRoom, the Glow app where an AI crew searches the web and runs code. What you type becomes their mission (or press 🏢 Ask GlowRoom under a reply), and their result comes back here as a chat." },
+  { target: "#glow-apps-btn", sidebar: true, title: "Glow apps", text: "GlowChat is part of Glow. Use this button to jump to Glow home or GlowRoom; one Glow account works in every app." },
   { target: "#search", sidebar: true, title: "Your chats", text: "Every chat is saved and searchable here. When you're signed in they sync to your account too." },
   { target: "#share-btn", title: "Share", text: "Copy a link that opens a copy of this chat for anyone, with no account and no server in between." },
   { target: "#export-btn", title: "Export", text: "Download the current conversation as a Markdown file." },
@@ -3246,17 +3247,17 @@ async function selfTest() {
   delete window.puter;
   puterCatalogue = null;
 
-  // Crewroom link: Glow → Crewroom missions and Crewroom → Glow results
-  expect("crewroom: sidebar link points to Crewroom", /virtual-bots\//.test($("crewroom-link").href));
+  // GlowRoom link: GlowChat → GlowRoom missions and GlowRoom → GlowChat results
+  expect("glowroom: sidebar link points to GlowRoom", /\/room\/(mobile\.html)?$/.test($("crewroom-link").href));
   const longGoal = crewroomGoal("Plan a bakery launch", "A".repeat(5000) + "\n\nFollow-ups:\n- What next?");
   const goalUrl = new URL(crewroomUrl("Compare 3 laptops"));
-  expect("crewroom: missions carry the question and Glow's answer within 2,000 characters",
+  expect("glowroom: missions carry the question and Glow's answer within 2,000 characters",
     longGoal.length <= CREWROOM_GOAL_MAX && longGoal.startsWith("Plan a bakery launch") && longGoal.includes("AAAA") && !longGoal.includes("Follow-ups")
     && goalUrl.searchParams.get("goal") === "Compare 3 laptops" && crewroomGoal("Just a question") === "Just a question");
   newChat();
   current.messages = [{ role: "user", content: "Best budget 3D printer?" }, { role: "assistant", content: "Try the Bambu A1 mini.", model: "demo::demo" }];
   renderMessages(true);
-  const crewButton = [...document.querySelectorAll(".msg-actions button")].find((b) => b.textContent.includes("Ask the crew"));
+  const crewButton = [...document.querySelectorAll(".msg-actions button")].find((b) => b.textContent.includes("Ask GlowRoom"));
   const realOpen = window.open;
   let openedUrl = "";
   window.open = (url) => {
@@ -3266,7 +3267,7 @@ async function selfTest() {
   if (crewButton) crewButton.click();
   window.open = realOpen;
   const openedGoal = openedUrl ? new URL(openedUrl).searchParams.get("goal") || "" : "";
-  expect("crewroom: 🏢 Ask the crew hands the question and answer to Crewroom", !!crewButton && openedGoal.startsWith("Best budget 3D printer?") && openedGoal.includes("Bambu A1 mini"));
+  expect("glowroom: 🏢 Ask GlowRoom hands the question and answer to GlowRoom", !!crewButton && openedGoal.startsWith("Best budget 3D printer?") && openedGoal.includes("Bambu A1 mini"));
   const crewCountBefore = state.conversations.length;
   const handed = mergeCrewroomItems([
     { id: "crew-selftest", title: "Printer research", messages: [{ role: "user", content: "Best budget 3D printer?" }, { role: "assistant", content: "**Bambu A1 mini** — sources below." }, { role: "system", content: "ignore me" }] },
@@ -3274,10 +3275,10 @@ async function selfTest() {
   ]);
   mergeCrewroomItems([{ id: "crew-selftest", title: "Printer research v2", messages: [{ role: "user", content: "q" }, { role: "assistant", content: "a" }] }]);
   if (handed) openConversation(handed);
-  expect("crewroom: results arrive as one tagged chat (no duplicates, no system text)",
+  expect("glowroom: results arrive as one tagged chat (no duplicates, no system text)",
     !!handed && handed.source === "crewroom" && handed.messages.length === 2 && handed.title === "Printer research v2"
     && state.conversations.length === crewCountBefore + 1 && [...document.querySelectorAll("#history .history-item .title")].some((t) => t.textContent.startsWith("🏢")));
-  expect("crewroom: replies from the crew are labelled Crewroom", document.querySelector("#messages").textContent.includes("🏢 Crewroom"));
+  expect("glowroom: replies from the crew are labelled GlowRoom", document.querySelector("#messages").textContent.includes("🏢 GlowRoom"));
   state.conversations = state.conversations.filter((c) => c.id !== "crew-selftest");
   renderHistory();
 
@@ -3307,10 +3308,10 @@ async function demoArena() {
 }
 
 
-/* ================= Crewroom link (same origin: shared account + hand-offs) ================= */
-// Crewroom (../virtual-bots/) uses Glow AI as its default model and hands finished results
+/* ================= GlowRoom link (same origin: shared account + hand-offs) ================= */
+// GlowRoom (../room/) uses Glow AI as its default model and hands finished results
 // to Glow through this inbox, so the user can keep talking about them here. Glow sends work the
-// other way with ?goal=, which Crewroom puts in its mission box.
+// other way with ?goal=, which GlowRoom puts in its mission box.
 const CREWROOM_INBOX_KEY = "glow.inbox";
 const CREWROOM_GOAL_MAX = 2000;
 function crewroomUrl(goal = "") {
@@ -3319,7 +3320,7 @@ function crewroomUrl(goal = "") {
   if (text) url.searchParams.set("goal", text.slice(0, CREWROOM_GOAL_MAX));
   return url.toString();
 }
-// Build a mission from a question and (optionally) Glow's answer, within Crewroom's 2,000-character limit.
+// Build a mission from a question and (optionally) Glow's answer, within GlowRoom's 2,000-character limit.
 function crewroomGoal(question, answer = "") {
   const ask = String(question || "").trim();
   const found = splitFollowUps(stripReasoning(String(answer || ""))).body.trim();
@@ -3332,7 +3333,7 @@ function crewroomGoal(question, answer = "") {
 function stripReasoning(text) {
   return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 }
-// Merge hand-offs from Crewroom into the chat list. Only plain user/assistant text is kept.
+// Merge hand-offs from GlowRoom into the chat list. Only plain user/assistant text is kept.
 function mergeCrewroomItems(items) {
   if (!Array.isArray(items) || !items.length) return null;
   let latest = null;
@@ -3349,7 +3350,7 @@ function mergeCrewroomItems(items) {
     const conv = existing || { id, type: "chat" };
     Object.assign(conv, {
       type: "chat",
-      title: String(item.title || "From Crewroom").slice(0, 80),
+      title: String(item.title || "From GlowRoom").slice(0, 80),
       messages,
       source: "crewroom",
       model: conv.model || state.settings.lastModel,
@@ -3394,7 +3395,26 @@ function askCrew() {
   while (questionIndex >= 0 && messages[questionIndex].role !== "user") questionIndex--;
   const question = questionIndex >= 0 ? messages[questionIndex].content : current.title;
   window.open(crewroomUrl(crewroomGoal(question, messages[answerIndex].content)), "crewroom");
-  toast("Opened Crewroom with this as the crew's mission");
+  toast("Opened GlowRoom with this as the crew's mission");
+}
+
+// Glow home can open GlowChat with a question ready (?q=) or jump back into a chat (?open=<id>).
+function applyLaunchParams() {
+  const params = new URLSearchParams(location.search);
+  const openId = params.get("open");
+  const question = params.get("q");
+  if (!openId && !question) return;
+  if (openId) {
+    const conv = state.conversations.find((c) => c.id === openId);
+    if (conv) openConversation(conv);
+  }
+  if (question) {
+    if (!current || current.messages.length) newChat();
+    $("input").value = question.slice(0, 4000);
+    $("input").dispatchEvent(new Event("input", { bubbles: true }));
+    $("input").focus();
+  }
+  history.replaceState(null, "", location.pathname + location.hash);
 }
 
 async function boot() {
@@ -3408,12 +3428,12 @@ async function boot() {
   if (handedOff) {
     openConversation(handedOff);
     if (location.hash === "#from-crewroom") history.replaceState(null, "", location.pathname);
-    toast("Result from Crewroom added to your chats");
+    toast("Result from GlowRoom added to your chats");
   }
   window.addEventListener("storage", (event) => {
     if (event.key !== CREWROOM_INBOX_KEY || !event.newValue) return;
     const conv = importCrewroomInbox();
-    if (conv) toast("New result from Crewroom is in your chats");
+    if (conv) toast("New result from GlowRoom is in your chats");
   });
   $("crewroom-link").addEventListener("click", openCrewroom);
   if ("serviceWorker" in navigator && location.protocol === "https:") {
@@ -3428,6 +3448,7 @@ async function boot() {
       if (current && current.type === "chat") fillSelect($("chat-model"), current.model);
       await pullCloud();
     }
+    applyLaunchParams();
   }
   if (TEST_MODE) {
     localStorage.removeItem(STORE_KEY); // sandbox key only

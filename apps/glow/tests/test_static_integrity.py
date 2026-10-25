@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 APP_DIR = Path(__file__).resolve().parent.parent
-WEB = APP_DIR / "web"
+WEB = APP_DIR / "web" / "chat"
 REPO = APP_DIR.parent.parent
 PAGES = ["index.html", "app.html", "mobile.html"]
 failures = []

@@ -133,28 +133,6 @@
       "order": 7
     },
     {
-      "id": "virtual-bots",
-      "name": "Crewroom",
-      "category": "AI",
-      "desc": "Give a goal to an AI crew in a live 3D office: they search the web, run code and report back with sources, powered by Glow AI",
-      "description": "An AI crew in a live 3D office &mdash; Nova plans, Scout reads the web, Byte runs real code, Sentinel fact-checks, and results come back with sources. Runs on Glow AI (free, no sign-up; one Glow account for both apps) and can continue any result as a chat in Glow.",
-      "tags": [
-        "AI agents",
-        "3D office",
-        "web research",
-        "Glow AI"
-      ],
-      "image": "virtual-bots-hero.svg",
-      "image_alt": "Crewroom: an AI crew in a 3D office with speech bubbles, a mission timeline and a command bar",
-      "links": {
-        "app": "virtual-bots/app.html",
-        "web": "virtual-bots/",
-        "mobile": "virtual-bots/mobile.html"
-      },
-      "featured": true,
-      "order": 6
-    },
-    {
       "id": "airiz-motor",
       "name": "Airiz Motor",
       "category": "Automation",
@@ -328,24 +306,26 @@
       "id": "glow",
       "name": "Glow",
       "category": "AI",
-      "desc": "From a spark to something real: chat with free AI right away (no sign-up), pick any model, use personas like Planner for tickable checklists, run a Council with a Judge, or compare and fuse models side by side",
-      "description": "Get several AI perspectives on one idea: pick any model from a searchable list, use personas like Planner for tickable checklists, let a Council debate while a Judge summarizes, or compare and fuse models in an Arena. Hand bigger jobs to Crewroom's AI crew and get the result back as a chat. Free AI for guests, no sign-up needed.",
+      "desc": "One home for your AI: GlowChat for chat, personas, a Council with a Judge and a model Arena; GlowRoom for an AI crew that researches, codes and reports back. One free Glow account, no sign-up needed to start",
+      "description": "<strong>Glow</strong> is a small AI ecosystem with one home and one account. <strong>GlowChat</strong>: chat with free AI right away, pick any model, use personas like Planner for tickable checklists, let a Council debate while a Judge summarizes, or compare and fuse models in an Arena. <strong>GlowRoom</strong>: give a goal to an AI crew in a live 3D office; they search the web, run code and report back with sources. Start from Glow home, switch apps from any app, and hand work between them. Free AI for guests, no sign-up needed.",
       "tags": [
-        "multi-agent",
+        "AI ecosystem",
+        "GlowChat",
+        "GlowRoom",
+        "AI agents",
         "model arena",
-        "free AI sign-in",
         "PWA"
       ],
       "image": "glow-hero.png",
-      "image_alt": "Glow council: Engineer, Designer and Skeptic agents deliberate and a Judge delivers the final verdict with confidence",
+      "image_alt": "Glow: GlowChat council with a Judge, part of the Glow ecosystem with GlowRoom",
       "links": {
-        "app": "glow/app.html",
+        "app": "glow/",
         "web": "glow/",
-        "mobile": "glow/mobile.html"
+        "mobile": "glow/"
       },
       "featured": true,
       "order": 5,
-      "version": "0.5.1"
+      "version": "0.6.0"
     },
     {
       "id": "sped",
