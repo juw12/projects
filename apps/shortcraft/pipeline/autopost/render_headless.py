@@ -43,7 +43,9 @@ def chrome_path():
 
 def make_voices(project, out_dir):
     """Neural voice per scene. A project can override the voice with
-    "voiceConfig": {"name": "id-ID-GadisNeural", "rate": "+0%", "pitch": "+0Hz"}."""
+    "voiceConfig": {"name": "id-ID-GadisNeural", "rate": "+0%", "pitch": "+0Hz"}.
+    Cloned voice (see voice_clone.py): "voiceConfig": {"provider": "elevenlabs", "speed": 1.08,
+    "stability": 0.45, "style": 0.25}; key/voice id come from env or secrets/."""
     tool = shutil.which("edge-tts") or str(Path(sys.executable).with_name("edge-tts"))
     voice, rate = VOICES.get(project.get("lang", "en"), VOICES["en"])
     pitch = "+0Hz"
@@ -51,14 +53,22 @@ def make_voices(project, out_dir):
     voice = override.get("name", voice)
     rate = override.get("rate", rate)
     pitch = override.get("pitch", pitch)
+    provider = override.get("provider", "edge")
+    clone_settings = {key: value for key, value in override.items() if key not in ("provider", "name", "rate", "pitch")}
+    if provider == "elevenlabs":
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import voice_clone
     files = []
     for i, scene in enumerate(project["scenes"]):
         text = (scene.get("narration") or "").strip()
         target = out_dir / f"scene_{i + 1:02d}.mp3"
         if text:
             raw_clip = out_dir / f"scene_{i + 1:02d}_raw.mp3"
-            subprocess.run([tool, "--voice", voice, f"--rate={rate}", f"--pitch={pitch}", "--text", text,
-                            "--write-media", str(raw_clip)], check=True, capture_output=True)
+            if provider == "elevenlabs":
+                voice_clone.synthesize(text, raw_clip, clone_settings)
+            else:
+                subprocess.run([tool, "--voice", voice, f"--rate={rate}", f"--pitch={pitch}", "--text", text,
+                                "--write-media", str(raw_clip)], check=True, capture_output=True)
             # trim the TTS engine's leading/trailing silence: tighter, more natural pacing
             subprocess.run([
                 imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-loglevel", "error", "-i", str(raw_clip), "-af",
