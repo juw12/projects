@@ -1504,6 +1504,59 @@
     if (button) button.style.display = inApp() ? 'inline-flex' : 'none';
   }
 
+  // ---------- visual chrome: brand mark + login hero ----------
+
+  function ensureBrandMark() {
+    const brand = $('.masthead-brand');
+    if (!brand || $('.brand-mark', brand)) return;
+    const text = document.createElement('div');
+    text.className = 'brand-text';
+    while (brand.firstChild) text.appendChild(brand.firstChild);
+    const mark = document.createElement('span');
+    mark.className = 'brand-mark';
+    mark.setAttribute('aria-hidden', 'true');
+    mark.innerHTML =
+      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M4 16c3.5-1 6-3.6 8-7.5" opacity=".55"/>' +
+        '<path d="M8 19c4.5-1.2 8-5 10.5-11"/>' +
+        '<polyline points="14.5 7.5 18.5 7.5 18.5 11.5"/>' +
+      '</svg>';
+    brand.appendChild(mark);
+    brand.appendChild(text);
+  }
+
+  function ensureGateHero() {
+    const section = document.getElementById('section-gate');
+    const card = section && $('.gate-card', section);
+    if (!card || $('.gate-layout', section)) return;
+    const layout = document.createElement('div');
+    layout.className = 'gate-layout';
+    const hero = document.createElement('div');
+    hero.className = 'gate-hero';
+    const check = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="8 12.5 11 15.5 16 9.5"/></svg>';
+    hero.innerHTML =
+      '<span class="gate-hero-kicker"><i></i>Offline · Encrypted · No AI calls</span>' +
+      '<h1>Turn a rough idea into a plan you can <em>check off</em>.</h1>' +
+      '<p class="gate-hero-lead">Describe your app in plain words. Sweep drafts the brief, builds a Build → Grow → Earn plan and the gates that prove it is done — all in your browser.</p>' +
+      '<div class="gate-flow" aria-hidden="true">' +
+        '<div class="flow-card"><div class="flow-step">Step 1</div><div class="flow-title">Idea</div>' +
+          '<div class="flow-idea">“a habit tracker with streaks for busy people”</div></div>' +
+        '<div class="flow-card"><div class="flow-step">Step 2</div><div class="flow-title">Plan</div>' +
+          '<div class="flow-bars"><span style="--w:72%"></span><span style="--w:45%"></span><span style="--w:28%"></span></div></div>' +
+        '<div class="flow-card"><div class="flow-step">Step 3</div><div class="flow-title">Verify</div>' +
+          '<ul class="flow-checks"><li class="on">Smoke gate</li><li class="on">Mobile layout</li><li>Ship it</li></ul></div>' +
+      '</div>' +
+      '<ul class="gate-features">' +
+        '<li>' + check + 'Capability matrix &amp; Definition of Done</li>' +
+        '<li>' + check + 'Grow and Earn checklists with progress</li>' +
+        '<li>' + check + 'Scaffold files you can copy or download</li>' +
+        '<li>' + check + 'Otto drafts brand, site, posts &amp; outreach</li>' +
+      '</ul>';
+    section.insertBefore(layout, card);
+    layout.appendChild(hero);
+    layout.appendChild(card);
+  }
+
   wrap('enterApp', syncShell);
   wrap('signOut', function () {
     setEditMode(null);
@@ -1517,6 +1570,8 @@
 
   // Boot: app.js already ran init(); re-render what is on screen so the
   // enhancements apply to the first paint as well.
+  ensureBrandMark();
+  ensureGateHero();
   ensurePaletteButton();
   ensureBriefChrome();
   syncShell();
