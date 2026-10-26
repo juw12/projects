@@ -322,6 +322,27 @@ def main():
         record("music comes back up when the guest mutes", bool(restored), f"music volume {host.js('__sync.engine.appliedVolume')}")
         guest.js("__sync.voice().setMuted(false)")
 
+        # Lock-screen / notification controls (Media Session API).
+        session = guest.wait_for("(function(){var m=__sync.mediaSession();return m && m.title === 'Smoke Beat' && m.state === 'playing' ? m : null;})()", timeout=5)
+        record("lock-screen controls show the song (Media Session)", bool(session), json.dumps(guest.js("__sync.mediaSession()")))
+
+        # A phone that sleeps or swaps Wi-Fi for mobile data loses *its own* link while the
+        # host is still there. It must rejoin as a guest, not fight the live host for the room.
+        guest.js("__sync.room().hostConn.close()")
+        back_in = guest.wait_for(
+            "(function(){var r=__sync.room();return !!r.hostConn && !r.isHost && r.state && r.state.members.length === 2;})()",
+            timeout=40, interval=0.5)
+        still_host = host.js("__sync.room().isHost")
+        time.sleep(3)
+        drift = measure(guest, "guest after reconnect", samples=4)
+        guest_status = guest.js("(document.querySelector('#conn') || {}).textContent")
+        if drift is None:
+            print("  guest sample after reconnect:", json.dumps(guest.js(SAMPLE)),
+                  json.dumps(guest.js("({kind: __sync.engine.kind, loading: __sync.engine.loading, err: __sync.engine.error, player: !!__sync.engine.player})")))
+        record("guest whose own link drops rejoins the live host", bool(back_in) and still_host is True and drift is not None and abs(drift) < 0.08,
+               f"host still host: {still_host}, guest drift {drift * 1000:+.0f} ms" if drift is not None else
+               f"rejoined={bool(back_in)} host={still_host} status={guest_status}")
+
         if not args.skip_youtube:
             host.js("__sync.room().intent({type:'enqueue', track:{id:'yt1', title:'Me at the zoo', artist:'jawed', duration:19, sources:{youtube:'jNQXAC9IVRw'}}})")
             time.sleep(0.5)
