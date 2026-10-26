@@ -15,12 +15,26 @@ export function pageDriver(page) {
     evaluate: (source, arg) => page.evaluate("(" + source + ")(" + JSON.stringify(arg) + ")"),
     goto: (url) => page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 }),
     back: () => page.goBack({ waitUntil: "domcontentloaded", timeout: 15000 }).catch(() => null),
-    info: async () => ({ url: page.url(), title: await page.title() }),
+    info: async () => {
+      // Reading the title fails while a page is still navigating; give it a moment and try again.
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        try {
+          return { url: page.url(), title: await page.title() };
+        } catch (error) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+      }
+      return { url: page.url(), title: "" };
+    },
     settle: async () => {
       await page.waitForNetworkIdle({ idleTime: 400, timeout: 5000 }).catch(() => {});
     },
     click: async (ref) => {
+      const navigation = page.waitForNavigation
+        ? page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 8000 }).catch(() => null)
+        : Promise.resolve(null);
       await page.click(selector(ref));
+      await navigation;
     },
     fill: async (ref, text) => {
       await page.$eval(selector(ref), (node) => {
@@ -128,7 +142,12 @@ export function createApp({ launch, connect }) {
     }
     const path = String((payload && payload.path) || "");
     if (!PATHS.has(path)) return json({ error: "Not found." }, 404, origin);
-    const result = await callSession(session, path, payload.body || null);
-    return json(result, result.status || 200, origin);
+    try {
+      const result = await callSession(session, path, payload.body || null);
+      return json(result, result.status || 200, origin);
+    } catch (error) {
+      console.error("glow-cloud call failed", path, String((error && error.stack) || error));
+      return json({ error: "The cloud browser had a problem with that step. Try again." }, 502, origin);
+    }
   };
 }
