@@ -20,6 +20,7 @@ import hashlib
 import hmac
 import math
 import json
+from concurrent.futures import ThreadPoolExecutor
 import os
 import random
 import re
@@ -37,6 +38,18 @@ import webbrowser
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+
+# Prefer IPv4 when a host has both: urllib tries addresses one by one (no "happy eyeballs"),
+# so a network with a broken IPv6 route would otherwise stall every market-data call.
+_original_getaddrinfo = socket.getaddrinfo
+
+
+def _ipv4_first_getaddrinfo(*args, **kwargs):
+    infos = _original_getaddrinfo(*args, **kwargs)
+    return sorted(infos, key=lambda info: info[0] != socket.AF_INET)
+
+
+socket.getaddrinfo = _ipv4_first_getaddrinfo
 
 APP_DIR = Path(__file__).resolve().parent
 DAY = APP_DIR / "vendor" / "day-trader-skill"
@@ -73,7 +86,7 @@ TOOL = {
 }
 
 
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 
 
 class AppError(Exception):
@@ -148,6 +161,100 @@ RANGES = {
 }
 
 
+# Some exchanges quote in minor units (pence, cents, agorot); Twin always uses the major unit.
+MINOR_UNITS = {"GBp": ("GBP", 100), "GBX": ("GBP", 100), "ZAc": ("ZAR", 100), "ILA": ("ILS", 100)}
+FX_FALLBACK = {}
+
+
+def fx_usd(currency):
+    """US dollars per one unit of `currency` (delayed Yahoo FX), cached for 10 minutes."""
+    currency = (currency or "USD").upper()
+    if currency == "USD":
+        return 1.0
+    if not re.fullmatch(r"[A-Z]{3}", currency):
+        raise AppError("unknown currency %s" % currency)
+    try:
+        # USDxxx=X keeps full precision (16,500 IDR); xxxUSD=X is rounded to 4 decimals by Yahoo.
+        doc = http_json("https://query2.finance.yahoo.com/v8/finance/chart/USD%s%%3DX?range=1d&interval=1d" % currency, ttl=600)
+        inverse = (((doc.get("chart") or {}).get("result") or [{}])[0].get("meta") or {}).get("regularMarketPrice")
+        rate = 1 / inverse if inverse else None
+    except AppError:
+        rate = None
+    if rate:
+        FX_FALLBACK[currency] = rate
+        return rate
+    if currency in FX_FALLBACK:
+        return FX_FALLBACK[currency]
+    raise AppError("no exchange rate for %s" % currency)
+
+
+SEARCH_TYPES = {"EQUITY": "Stock", "ETF": "ETF", "INDEX": "Index", "MUTUALFUND": "Fund"}
+
+
+def search(query):
+    """Find stocks, ETFs and indices on any exchange Yahoo Finance covers."""
+    query = (query or "").strip()
+    if not 1 <= len(query) <= 40:
+        raise AppError("type a company name or ticker")
+    url = "https://query2.finance.yahoo.com/v1/finance/search?" + urllib.parse.urlencode({
+        "q": query, "quotesCount": 15, "newsCount": 0, "listsCount": 0, "enableFuzzyQuery": "true",
+    })
+    doc = http_json(url, ttl=300)
+    results = []
+    for item in doc.get("quotes") or []:
+        kind = SEARCH_TYPES.get(item.get("quoteType"))
+        symbol = item.get("symbol")
+        if not kind or not symbol or not re.fullmatch(r"[A-Za-z0-9.\-^=]{1,12}", symbol):
+            continue
+        results.append({
+            "symbol": symbol.upper(),
+            "name": item.get("longname") or item.get("shortname") or symbol,
+            "exchange": item.get("exchDisp") or item.get("exchange"),
+            "type": kind,
+        })
+    return results[:12]
+
+
+WORLD_FILE = APP_DIR / "web" / "demo" / "world.json"
+_world_meta = {}
+
+
+def world_markets():
+    """The curated global universe with live quotes (snapshot values fill any gaps)."""
+    if not _world_meta:
+        data = json.loads(WORLD_FILE.read_text())
+        _world_meta.update({k: data[k] for k in ("universe", "indices", "quotes", "fx_usd", "snapshot_taken")})
+    symbols = [item["symbol"] for item in _world_meta["indices"] + _world_meta["universe"]]
+    live, errors = {}, {}
+
+    def fetch_one(symbol):
+        try:
+            return symbol, quote(symbol), None
+        except AppError as exc:
+            return symbol, None, str(exc)
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        for symbol, data, error in pool.map(fetch_one, symbols):
+            if data:
+                live[symbol] = data
+            else:
+                errors[symbol] = error
+                live[symbol] = dict(_world_meta["quotes"].get(symbol, {}), stale=True)
+    fx = dict(_world_meta["fx_usd"])
+    for item in _world_meta["universe"]:
+        q = live.get(item["symbol"]) or {}
+        if q.get("fx_usd") and not q.get("stale"):
+            fx[q.get("currency")] = q["fx_usd"]
+    return {
+        "universe": _world_meta["universe"],
+        "indices": _world_meta["indices"],
+        "quotes": live,
+        "fx_usd": fx,
+        "errors": errors,
+        "as_of": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+    }
+
+
 def clean_symbol(value):
     symbol = (value or "").strip().upper()
     if not re.fullmatch(r"[A-Z0-9.\-^=]{1,12}", symbol):
@@ -166,13 +273,18 @@ def chart(symbol, span="1D"):
         raise AppError("no data for %s" % symbol)
     result = result[0]
     meta = result.get("meta", {})
+    currency, divisor = MINOR_UNITS.get(meta.get("currency") or "USD", (meta.get("currency") or "USD", 1))
     stamps = result.get("timestamp") or []
     closes = ((result.get("indicators") or {}).get("quote") or [{}])[0].get("close") or []
-    points = [[t, round(c, 4)] for t, c in zip(stamps, closes) if c is not None]
-    price = meta.get("regularMarketPrice")
-    prev = meta.get("chartPreviousClose") if span == "1D" else (points[0][1] if points else None)
+    points = [[t, round(c / divisor, 4)] for t, c in zip(stamps, closes) if c is not None]
+
+    def major(value):
+        return value / divisor if value is not None else None
+
+    price = major(meta.get("regularMarketPrice"))
+    prev = major(meta.get("chartPreviousClose")) if span == "1D" else (points[0][1] if points else None)
     if span == "1D" and meta.get("previousClose"):
-        prev = meta.get("previousClose")
+        prev = major(meta.get("previousClose"))
     return {
         "symbol": symbol,
         "name": meta.get("longName") or meta.get("shortName") or symbol,
@@ -180,9 +292,16 @@ def chart(symbol, span="1D"):
         "prev": prev,
         "change": (price - prev) if price is not None and prev else None,
         "change_pct": ((price / prev - 1) * 100) if price is not None and prev else None,
-        "currency": meta.get("currency", "USD"),
+        "currency": currency,
+        "fx_usd": fx_usd(currency),
         "exchange": meta.get("fullExchangeName") or meta.get("exchangeName"),
+        "timezone": meta.get("exchangeTimezoneName"),
         "time": meta.get("regularMarketTime"),
+        "day_high": major(meta.get("regularMarketDayHigh")),
+        "day_low": major(meta.get("regularMarketDayLow")),
+        "high52": major(meta.get("fiftyTwoWeekHigh")),
+        "low52": major(meta.get("fiftyTwoWeekLow")),
+        "volume": meta.get("regularMarketVolume"),
         "span": span,
         "points": points,
     }
@@ -688,28 +807,39 @@ def trader_root(uid, mode):
 # ------------------------------------------------------------ paper trading
 
 def paper_value(paper, prices):
+    """Cash plus holdings in US dollars; `prices` are already converted to USD."""
     holdings = sum(pos["qty"] * prices.get(sym, pos["cost"] / max(pos["qty"], 1e-9)) for sym, pos in paper["positions"].items())
     return round(paper["cash"] + holdings, 2)
+
+
+def usd_price(q):
+    """A quote's price in US dollars (practice cash is kept in USD)."""
+    price = q.get("price")
+    rate = q.get("fx_usd") if q.get("fx_usd") is not None else fx_usd(q.get("currency"))
+    return price * rate if price is not None else None
 
 
 def paper_state(profile):
     paper = profile["paper"]
     symbols = list(paper["positions"])
     data = quotes(symbols) if symbols else {"quotes": {}, "errors": {}}
-    prices = {s: q["price"] for s, q in data["quotes"].items()}
+    prices = {s: usd_price(q) for s, q in data["quotes"].items() if q.get("price") is not None}
     rows = []
     for sym, pos in paper["positions"].items():
         q = data["quotes"].get(sym, {})
-        price = q.get("price") or pos["cost"] / pos["qty"]
+        price_usd = prices.get(sym) or pos["cost"] / pos["qty"]
         rows.append({
             "symbol": sym,
             "name": q.get("name", sym),
             "qty": round(pos["qty"], 6),
             "avg_cost": round(pos["cost"] / pos["qty"], 4),
-            "price": price,
-            "value": round(pos["qty"] * price, 2),
-            "gain": round(pos["qty"] * price - pos["cost"], 2),
-            "gain_pct": round((pos["qty"] * price / pos["cost"] - 1) * 100, 2) if pos["cost"] else 0,
+            "price": price_usd,
+            "local_price": q.get("price"),
+            "currency": q.get("currency", "USD"),
+            "fx_usd": q.get("fx_usd", 1.0),
+            "value": round(pos["qty"] * price_usd, 2),
+            "gain": round(pos["qty"] * price_usd - pos["cost"], 2),
+            "gain_pct": round((pos["qty"] * price_usd / pos["cost"] - 1) * 100, 2) if pos["cost"] else 0,
             "day_pct": q.get("change_pct"),
             "spark": q.get("spark", []),
         })
@@ -745,9 +875,10 @@ def paper_order(profile, symbol, side, dollars=None, qty=None, note=""):
     if not (amount or shares):
         raise AppError("enter an amount")
     q = quote(symbol)
-    price = q["price"]
-    if not price:
+    local_price = q["price"]
+    if not local_price:
         raise AppError("no price for %s" % symbol)
+    price = usd_price(q)  # practice cash is in USD; convert foreign listings at the delayed FX rate
     qty = amount / price if amount is not None else shares
     pos = paper["positions"].get(symbol)
     if side == "buy":
@@ -776,11 +907,14 @@ def paper_order(profile, symbol, side, dollars=None, qty=None, note=""):
         "side": side,
         "symbol": symbol,
         "qty": round(qty, 6),
-        "price": price,
+        "price": local_price,
+        "currency": q.get("currency", "USD"),
+        "fx_usd": q.get("fx_usd", 1.0),
         "amount": round(qty * price, 2),
         "note": note,
     })
-    return {"symbol": symbol, "side": side, "qty": round(qty, 6), "price": price, "amount": round(qty * price, 2)}
+    return {"symbol": symbol, "side": side, "qty": round(qty, 6), "price": local_price,
+            "currency": q.get("currency", "USD"), "fx_usd": q.get("fx_usd", 1.0), "amount": round(qty * price, 2)}
 
 
 # ------------------------------------------------------------ skill tools
@@ -1198,6 +1332,19 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"ok": True, **quotes(symbols)})
         elif path == "/api/chart":
             self.send_json({"ok": True, "data": chart(body.get("symbol"), body.get("span") or "1D")})
+        elif path == "/api/world":
+            self.send_json({"ok": True, **world_markets()})
+        elif path == "/api/search":
+            self.send_json({"ok": True, "results": search(body.get("q"))})
+        elif path == "/api/fx":
+            currencies = [str(c).upper() for c in (body.get("currencies") or [])][:30]
+            rates, errors = {"USD": 1.0}, {}
+            for currency in currencies:
+                try:
+                    rates[currency] = fx_usd(currency)
+                except AppError as exc:
+                    errors[currency] = str(exc)
+            self.send_json({"ok": True, "fx_usd": rates, "errors": errors})
         elif path == "/api/paper":
             state = paper_state(profile)
             put_profile(uid, profile)

@@ -26,16 +26,37 @@ goal simulations and the TSLA replay. The optional assessment is in **Me**.
 - Appearance: **System / Light / Dark** on the welcome page and under **Me → Appearance**.
   It is saved independently of account data. Charts redraw without changing results.
 
+## Stocks from any country
+
+Search by company, ticker or country from the search bar on **Home** or **Invest** — Toyota, ASML,
+Bank Central Asia, Samsung, Reliance, Petrobras, Nestlé and so on.
+
+- **Live server:** search reaches any stock, ETF, index or fund Yahoo Finance lists — dozens of
+  exchanges (Tokyo `7203.T`, Hong Kong `0700.HK`, Jakarta `BBCA.JK`, London `VOD.L`, Frankfurt `SAP.DE`,
+  Mumbai `RELIANCE.NS`, Toronto `RY.TO`, São Paulo `PETR4.SA`, Sydney `BHP.AX` …).
+- **Web demo:** a dated snapshot of 54 large stocks on 25+ exchanges plus 18 world indices
+  (`web/demo/world.json`, loaded only when needed).
+- Every stock page shows the flag, exchange, currency, **open / lunch break / closed** with local time,
+  the price in its own currency and ≈ in US dollars, day and 52-week ranges, and its US listing (ADR)
+  when there is one.
+- **World markets** (Home): market clocks, 18 indices with sparklines, biggest moves and a heatmap.
+- **Practice cash stays in USD.** Foreign orders convert at a delayed FX rate: $1,000 of Toyota at
+  ¥3,105 with 1 USD ≈ ¥157 buys ≈ 50.5 shares. Pence (GBp), South African cents and agorot are
+  converted to pounds, rand and shekels.
+- **Home currency** (Me → Currency): see totals ≈ in your own currency (25 currencies, e.g. IDR, EUR, INR, JPY).
+- **Portfolio X-ray** adds country and currency exposure.
+- Market hours follow each exchange's regular session and lunch break; public holidays are not modelled.
+
 ## Features
 
 | Tab | What it does | Inspired by |
 | --- | --- | --- |
-| Home | practice-portfolio value + chart, next-step coach, watchlist with sparklines, movers, Academy progress | Robinhood |
+| Home | global search, world-markets strip, practice-portfolio value (≈ home currency) + chart, next-step coach, watchlist with sparklines, movers, Academy progress | Robinhood, Yahoo Finance, Google Finance |
 | Invest | **Practice** (market / limit / stop / stop-limit / trailing orders, brackets, price alerts, portfolio X-ray), **Real** (optional Alpaca account), **goal planner** (10,000 simulated futures), **copy a famous investor's 13F** | Webull / moomoo paper, Acorns / Betterment goals, eToro CopyTrader |
 | Trade | entry → exit → **Time Machine** (10,000 replays + every past session) → size → risk → ticket; breakout scanner; **Replay Lab** (trade a hidden past session bar by bar) | day-trader-skill, TradingView replay |
 | Learn | **Twin Academy**: 3 levels × 4 interactive lessons, quizzes, points, streak, badges, completion card | Fidelity Learn, Duolingo-style levels |
 | News | headlines for watchlist + holdings, movers, tags | moomoo / Public feeds |
-| Me | profile, personality result, editable limits, guide, **Real trading** connection | Fidelity Learn |
+| Me | profile, personality result, editable limits, home currency, guide, **Real trading** connection | Fidelity Learn |
 
 **Stock page.** Scrub the chart with a finger to read any day's price and change; SMA / EMA / RSI
 overlays; the ticket previews cost, fees, risk and what happens if a stop or target hits.
@@ -65,8 +86,10 @@ Warns when the shared history is shorter than 20 years. Drawdowns use time-weigh
   cookies, stored in `apps/twin/data/` (git-ignored). Live delayed quotes (Yahoo Finance),
   SEC EDGAR 13Fs (needs your email as the SEC user agent), news, and the full skill tools.
 * **Web demo (GitHub Pages).** When no server answers, `web/demo.js` takes over: the same app runs
-  in the browser on a bundled snapshot (`web/demo/`: 16 tickers' prices and charts, 12 monthly
-  histories, five investors' 13Fs, a news snapshot and the TSLA replay). Accounts and the practice
+  in the browser on a bundled snapshot (`web/demo/`: 16 US tickers' prices and charts, 54 global
+  stocks + 18 indices + 25 FX rates in `world.json`, 12 monthly histories, five investors' 13Fs, a news
+  snapshot and the TSLA replay). Refresh the global snapshot with
+  `python apps/twin/scripts/world_snapshot.py` (`--check` validates it). Accounts and the practice
   portfolio stay in that browser's localStorage.
 
 ## Real trading (optional, local server only)
@@ -86,7 +109,10 @@ gets a server-side preview with a single-use confirmation (expires after 2 minut
 follow your trade limit (default 3); no short selling; account must be ACTIVE; **cancel all** button.
 Keys are stored on your computer in `data/users/<id>/broker.json` (owner-only permissions, **not
 encrypted**) and are never sent back to the browser. Use keys you can revoke; disconnecting deletes them.
-US stocks and ETFs only; Alpaca availability depends on your country. Tested against a mock Alpaca API,
+Alpaca trades **US-listed** stocks and ETFs only, so Twin blocks real orders for other exchanges and
+points to the US listing (ADR) when one exists. To own shares on other exchanges, use a broker that
+covers them — for example Interactive Brokers (175 markets in 40 countries, per IBKR) or a local broker —
+and practise those stocks in Twin first. Alpaca availability depends on your country. Tested against a mock Alpaca API,
 not a funded account — try paper first.
 
 ## Test
@@ -100,7 +126,8 @@ python apps/twin/tests/test_pro_engine.py    # order types, brackets, indicators
 Hermetic (temp data dir, free port, no network): health + static files, accounts and isolation,
 personality → limits, the cross-site guard, input validation (NaN/∞/negative amounts, path
 traversal, malformed Content-Length), the full demo trade flow, and unit tests for the
-monthly-return gap handling and the goal simulator.
+monthly-return gap handling, the goal simulator, FX conversion, minor-unit quotes (GBp → GBP) and
+foreign-currency practice orders. `verify_broker.py` also checks that non-US listings are refused.
 
 ## Safety
 
@@ -117,6 +144,12 @@ history and are not predictions. Not financial advice.
 
 ## Changelog
 
+- **1.4.0 — Twin Global.** Stocks from any country: universal search (company, ticker or country),
+  stock pages with exchange, currency, market status, ≈ USD, day/52-week ranges and US-listing hints;
+  **World markets** (clocks, 18 indices, movers, heatmap); FX-correct practice trading in USD; home
+  currency display (25 currencies); country + currency exposure in X-ray; refreshed Home with search
+  bar and world strip; real-money orders limited to US listings with guidance for other exchanges;
+  server prefers IPv4 so a broken IPv6 route can't stall quotes.
 - **1.3.0** — Guest invite link (`?guest`) and **Save my progress**; scrub-to-read stock charts with
   SMA/EMA/RSI; limit, stop, stop-limit and trailing orders with brackets (OCO); price alerts; portfolio
   X-ray; movers; **Replay Lab**; **Twin Academy** (Learn tab, 12 interactive lessons with quizzes,

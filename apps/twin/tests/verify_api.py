@@ -107,6 +107,54 @@ def unit_tests(data_dir):
     check("no emergency fund caps risk at 2 and blocks the trader type",
           quiz["risk_level"] == 2 and quiz["archetype"] != "trader", str(quiz))
 
+    print("unit: global listings + multi-currency practice")
+    fake_charts = {
+        "7203.T": {"currency": "JPY", "price": 3200.0, "prev": 3100.0, "exchange": "Tokyo"},
+        "VOD.L": {"currency": "GBp", "price": 120.0, "prev": 118.0, "exchange": "LSE"},
+    }
+    fake_fx = {"JPY": 160.0, "GBP": 0.8}  # USDxxx=X quotes: units of xxx per 1 USD
+
+    def fake_market(url, ttl=60):
+        for currency, inverse in fake_fx.items():
+            if "USD%s%%3DX" % currency in url:
+                return {"chart": {"result": [{"meta": {"regularMarketPrice": inverse}}]}}
+        for symbol, info in fake_charts.items():
+            if "/chart/%s?" % symbol in url:
+                return {"chart": {"result": [{
+                    "meta": {"currency": info["currency"], "regularMarketPrice": info["price"],
+                             "previousClose": info["prev"], "chartPreviousClose": info["prev"],
+                             "fullExchangeName": info["exchange"]},
+                    "timestamp": [1, 2],
+                    "indicators": {"quote": [{"close": [info["prev"], info["price"]]}]},
+                }]}}
+        raise server.AppError("no fake data for " + url)
+
+    server.http_json = fake_market
+    check("FX from the inverse pair: 1 JPY = 1/160 USD", abs(server.fx_usd("JPY") - 1 / 160) < 1e-12)
+    check("USD needs no conversion", server.fx_usd("usd") == 1.0)
+    vod = server.quote("VOD.L")
+    check("pence quotes become pounds (120 GBp -> 1.20 GBP)",
+          vod["currency"] == "GBP" and abs(vod["price"] - 1.2) < 1e-9 and abs(vod["prev"] - 1.18) < 1e-9, str(vod)[:200])
+    profile = {"paper": {"cash": 10000.0, "start_cash": 10000.0, "positions": {}, "history": []}}
+    fill = server.paper_order(profile, "7203.T", "buy", dollars=1000)
+    check("$1,000 of a ¥3,200 stock at 160 JPY/USD buys 50 shares",
+          abs(fill["qty"] - 50) < 1e-6 and fill["price"] == 3200.0 and fill["currency"] == "JPY", str(fill))
+    check("practice cash is debited in USD", abs(profile["paper"]["cash"] - 9000) < 1e-6)
+    server.paper_order(profile, "7203.T", "sell", qty=25)
+    state = server.paper_state(profile)
+    row = state["positions"][0]
+    check("position valued in USD with local price kept",
+          abs(row["value"] - 500) < 0.01 and row["local_price"] == 3200.0 and row["currency"] == "JPY", str(row)[:240])
+    check("portfolio total unchanged by round trip at the same price", abs(state["value"] - 10000) < 0.01, str(state["value"]))
+    server.paper_order(profile, "VOD.L", "buy", dollars=150)
+    check("$150 of VOD at £1.20 x 1.25 USD/GBP = 100 shares",
+          abs(profile["paper"]["positions"]["VOD.L"]["qty"] - 100) < 1e-6)
+    try:
+        server.paper_order(profile, "VOD.L", "sell", qty=101)
+        check("can't sell more than you hold", False)
+    except server.AppError:
+        check("can't sell more than you hold", True)
+
 
 def end_to_end(data_dir):
     print("end-to-end: server")
