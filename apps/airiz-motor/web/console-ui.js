@@ -303,7 +303,7 @@
       try {
         const sent = await api.sendCommand(commandDefinitions.get('ble-on').cmd);
         notify(sent
-          ? 'Bluetooth initialization command sent. Check the device response in the console; this is not a Bluetooth connection confirmation.'
+          ? 'Sent "diag ble on" (firmware Bluetooth test only). To control the device from a phone, use Phone remote \u2192 Start remote instead; the phone then sees AIRIZ-BT.'
           : 'Bluetooth command was not sent. Check the console.');
       } finally {
         bluetoothSending = false;
