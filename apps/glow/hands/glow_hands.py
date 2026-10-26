@@ -32,7 +32,7 @@ import time
 import urllib.parse
 from pathlib import Path
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 DEFAULT_PORT = 8765
 ALLOWED_ORIGINS = {"https://juw12.github.io", "https://juwpegatron.github.io"}
 LOCAL_ORIGIN = re.compile(r"^http://(127\.0\.0\.1|localhost)(:\d{1,5})?$")
@@ -40,6 +40,74 @@ MAX_BODY = 64 * 1024
 MAX_ELEMENTS = 120
 PAIR_COOLDOWN_SECONDS = 20
 PAIR_PROMPT_SECONDS = 60
+DEFAULT_PEERJS_URL = "https://juw12.github.io/projects/glow/shared/peerjs.min.js"
+
+BRIDGE_PAGE = r"""<!doctype html><meta charset="utf-8"><title>Glow Hands phone bridge</title>
+<script src="__PEERJS__"></script>
+<script>
+const CONFIG = __CONFIG__;
+const ALLOWED = new Set(["status", "observe", "act"]);
+const encoder = new TextEncoder();
+let peer = null;
+let connections = 0;
+async function macOf(nonce) {
+  const key = await crypto.subtle.importKey("raw", encoder.encode(CONFIG.secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(nonce));
+  return [...new Uint8Array(signature)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+function heartbeat() {
+  fetch("/bridge-heartbeat", { method: "POST", headers: { "Content-Type": "application/json", "X-Glow-Token": CONFIG.token },
+    body: JSON.stringify({ peerOpen: !!(peer && peer.open && !peer.disconnected), connections }) }).catch(() => {});
+}
+function start() {
+  peer = new Peer(CONFIG.peerId, { debug: 0 });
+  peer.on("open", heartbeat);
+  peer.on("disconnected", () => { heartbeat(); setTimeout(() => { if (peer && !peer.destroyed) peer.reconnect(); }, 3000); });
+  peer.on("error", (error) => {
+    heartbeat();
+    if (["unavailable-id", "network", "server-error", "socket-error", "socket-closed"].includes(error.type)) {
+      try { peer.destroy(); } catch (e) {}
+      setTimeout(start, 8000);
+    }
+  });
+  peer.on("connection", (conn) => {
+    const nonce = crypto.randomUUID() + crypto.randomUUID();
+    let authed = false;
+    conn.on("open", () => conn.send({ type: "challenge", nonce, app: "glow-hands", version: CONFIG.version }));
+    conn.on("close", () => { if (authed) { connections = Math.max(0, connections - 1); heartbeat(); } });
+    conn.on("data", async (message) => {
+      if (!message || typeof message !== "object") return;
+      if (!authed) {
+        const expected = await macOf(nonce);
+        if (message.type === "auth" && typeof message.mac === "string" && message.mac === expected) {
+          authed = true;
+          connections += 1;
+          heartbeat();
+          conn.send({ type: "ready" });
+        } else {
+          conn.send({ type: "denied" });
+          setTimeout(() => conn.close(), 200);
+        }
+        return;
+      }
+      if (message.type !== "call" || !ALLOWED.has(message.path)) return;
+      try {
+        const response = await fetch("/" + message.path, {
+          method: message.body ? "POST" : "GET",
+          headers: { "Content-Type": "application/json", "X-Glow-Token": CONFIG.token },
+          body: message.body ? JSON.stringify(message.body) : undefined,
+        });
+        const data = await response.json().catch(() => ({}));
+        conn.send({ type: "result", id: message.id, status: response.status, data });
+      } catch (error) {
+        conn.send({ type: "result", id: message.id, status: 502, data: { error: "Glow Hands on the PC did not answer." } });
+      }
+    });
+  });
+}
+start();
+setInterval(heartbeat, 20000);
+</script>"""
 RISKY_WORDS = re.compile(
     r"\b(submit|send|buy|pay|purchase|order|checkout|check out|place|confirm|delete|remove|transfer|post|publish|"
     r"book|reserve|subscribe|sign ?up|register|apply|donate|unsubscribe|cancel|withdraw|accept|agree|log ?out)\b",
@@ -163,13 +231,14 @@ class Browser:
         self._playwright = None
         self._context = None
         self.page = None
+        self._bridge_browser = None
+        self._bridge_page = None
 
     def ensure(self):
         if self.page and not self.page.is_closed():
             return self.page
         if self._context is None:
-            from playwright.sync_api import sync_playwright
-            self._playwright = sync_playwright().start()
+            self.start_playwright()
             options = {"headless": self.headless, "viewport": {"width": 1280, "height": 860}}
             if self.channel:
                 options["channel"] = self.channel
@@ -179,6 +248,25 @@ class Browser:
         pages = [page for page in self._context.pages if not page.is_closed()]
         self.page = pages[0] if pages else self._context.new_page()
         return self.page
+
+    def start_playwright(self):
+        if self._playwright is None:
+            from playwright.sync_api import sync_playwright
+            self._playwright = sync_playwright().start()
+        return self._playwright
+
+    def start_bridge(self, port, html):
+        """Runs the phone bridge page headless at http://127.0.0.1:<port>/bridge (served by a route, not the server)."""
+        url = f"http://127.0.0.1:{port}/bridge"
+        if self._bridge_page is None:
+            options = {"headless": True}
+            if self.channel:
+                options["channel"] = self.channel
+            self._bridge_browser = self.start_playwright().chromium.launch(**options)
+            self._bridge_page = self._bridge_browser.new_page()
+        self._bridge_page.unroute(url)
+        self._bridge_page.route(url, lambda route: route.fulfill(status=200, content_type="text/html", body=html))
+        self._bridge_page.goto(url, wait_until="commit", timeout=20000)
 
     def _guard_navigation(self, route):
         request = route.request
@@ -259,6 +347,12 @@ class Browser:
         return {"url": page.url, "title": page.title()}
 
     def close(self):
+        if self._bridge_browser is not None:
+            try:
+                self._bridge_browser.close()
+            finally:
+                self._bridge_browser = None
+                self._bridge_page = None
         if self._context is not None:
             try:
                 self._context.close()
@@ -270,7 +364,7 @@ class Browser:
             self._playwright = None
 
 
-def make_handler(browser, token, port, extra_origins, pair_test_answer=None):
+def make_handler(browser, token, port, extra_origins, pair_test_answer=None, confirm_pairing=False, phone=None):
     allowed_hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
     origins = ALLOWED_ORIGINS | set(extra_origins)
     pairing = {"blocked_until": 0.0}
@@ -339,6 +433,17 @@ def make_handler(browser, token, port, extra_origins, pair_test_answer=None):
             return data
 
         def do_GET(self):
+            if self.path == "/phone-link":
+                if not self.guard():
+                    return
+                if phone is None:
+                    self.send_json(404, {"error": "Phone access is turned off on this PC."})
+                    return
+                state = phone["state"]
+                ready = state["peerOpen"] and time.monotonic() - state["at"] < 45
+                self.send_json(200, {"peerId": phone["link"]["peerId"], "secret": phone["link"]["secret"],
+                                     "bridgeReady": ready, "connections": state["connections"]})
+                return
             if self.path == "/status":
                 if not self.guard(need_token=False):
                     return
@@ -356,6 +461,14 @@ def make_handler(browser, token, port, extra_origins, pair_test_answer=None):
                 self.pair()
                 return
             if not self.guard():
+                return
+            if self.path == "/bridge-heartbeat" and phone is not None:
+                data = self.read_json()
+                phone["state"].update(peerOpen=data.get("peerOpen") is True, connections=int(data.get("connections") or 0), at=time.monotonic())
+                self.send_json(200, {"ok": True})
+                return
+            if self.path == "/phone-link/reset" and phone is not None:
+                self.run(lambda: phone["reset"]())
                 return
             if self.path == "/act":
                 def act():
@@ -379,7 +492,8 @@ def make_handler(browser, token, port, extra_origins, pair_test_answer=None):
             if now < pairing["blocked_until"]:
                 self.send_json(429, {"error": "Pairing was just declined. Try again in a few seconds."})
                 return
-            if ask_to_pair(origin, pair_test_answer):
+            approved = ask_to_pair(origin, pair_test_answer) if (confirm_pairing or pair_test_answer is not None) else True
+            if approved:
                 self.log_message("paired a browser from %s", origin)
                 self.send_json(200, {"token": token, "url": f"http://127.0.0.1:{port}"})
             else:
@@ -409,6 +523,26 @@ def load_token(profile_dir, explicit):
     return token
 
 
+def load_phone_link(profile_dir, regenerate=False):
+    path = Path(profile_dir) / "phone-link.json"
+    if not regenerate and path.exists():
+        try:
+            link = json.loads(path.read_text(encoding="utf-8"))
+            if re.fullmatch(r"glowhands-[0-9a-f]{24}", link.get("peerId", "")) and len(link.get("secret", "")) >= 24:
+                return link
+        except (OSError, json.JSONDecodeError):
+            pass
+    link = {"peerId": "glowhands-" + secrets.token_hex(12), "secret": secrets.token_urlsafe(24)}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(link), encoding="utf-8")
+    return link
+
+
+def bridge_html(link, token, peerjs_url):
+    config = json.dumps({"peerId": link["peerId"], "secret": link["secret"], "token": token, "version": VERSION})
+    return BRIDGE_PAGE.replace("__PEERJS__", peerjs_url).replace("__CONFIG__", config.replace("</", "<\\/"))
+
+
 def default_profile():
     base = os.environ.get("LOCALAPPDATA") or os.path.join(Path.home(), ".local", "share")
     return os.path.join(base, "GlowHands")
@@ -424,6 +558,9 @@ def main(argv=None):
     parser.add_argument("--token", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--allow-origin", action="append", default=[], help="Extra web origin allowed to connect")
     parser.add_argument("--pair-test-answer", choices=["yes", "no"], default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--confirm-pairing", action="store_true", help="Ask with a Windows Yes/No prompt before a browser can connect")
+    parser.add_argument("--no-phone", action="store_true", help="Turn off control from your phone")
+    parser.add_argument("--peerjs-url", default=DEFAULT_PEERJS_URL, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     for stream in (sys.stdout, sys.stderr):
         try:
@@ -433,7 +570,25 @@ def main(argv=None):
 
     token = load_token(args.profile, args.token)
     browser = Browser(args.profile, headless=args.headless, channel=args.channel, allow_private=args.allow_private)
-    server = http.server.HTTPServer(("127.0.0.1", args.port), make_handler(browser, token, args.port, args.allow_origin, args.pair_test_answer))
+    phone = None
+    if not args.no_phone:
+        phone = {"link": load_phone_link(args.profile), "state": {"peerOpen": False, "connections": 0, "at": 0.0}}
+
+        def reset_phone_link():
+            phone["link"] = load_phone_link(args.profile, regenerate=True)
+            phone["state"].update(peerOpen=False, connections=0, at=0.0)
+            browser.start_bridge(args.port, bridge_html(phone["link"], token, args.peerjs_url))
+            return {"peerId": phone["link"]["peerId"], "secret": phone["link"]["secret"]}
+
+        phone["reset"] = reset_phone_link
+    server = http.server.HTTPServer(("127.0.0.1", args.port), make_handler(
+        browser, token, args.port, args.allow_origin, args.pair_test_answer, args.confirm_pairing, phone))
+    if phone is not None:
+        try:
+            browser.start_bridge(args.port, bridge_html(phone["link"], token, args.peerjs_url))
+            print("Phone access is on: link your phone from GlowLead > Glow Hands > Use from your phone.", flush=True)
+        except Exception as error:  # Phone access is optional; the PC features keep working.
+            print("Phone access could not start: " + str(error).splitlines()[0][:200], flush=True)
     print(f"Glow Hands {VERSION} is ready on http://127.0.0.1:{args.port}", flush=True)
     print(f"Pairing token: {token}", flush=True)
     print("In GlowLead open Glow Hands > Connect browser control, and paste the token. Press Ctrl+C to stop.", flush=True)
