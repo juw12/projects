@@ -77,6 +77,8 @@ def _mask(key_id):
 
 
 class Broker:
+    provider = "alpaca"
+
     def __init__(self, data_dir, ssl_ctx, load_json, save_json, quote_fn):
         self.data_dir = data_dir
         self.ssl_ctx = ssl_ctx
@@ -112,7 +114,7 @@ class Broker:
 
     def _config(self, uid):
         cfg = self.load_json(self._path(uid), None)
-        if not isinstance(cfg, dict) or not cfg.get("key_id") or not cfg.get("secret"):
+        if not isinstance(cfg, dict) or cfg.get("provider", "alpaca") != "alpaca" or not cfg.get("key_id") or not cfg.get("secret"):
             return None
         return cfg
 
@@ -155,7 +157,7 @@ class Broker:
         if not cfg:
             return {"connected": False, "live_phrase": LIVE_PHRASE}
         result = {
-            "connected": True, "mode": cfg.get("mode", "paper"), "key_hint": _mask(cfg.get("key_id")),
+            "connected": True, "provider": "alpaca", "mode": cfg.get("mode", "paper"), "key_hint": _mask(cfg.get("key_id")),
             "max_order_usd": cfg.get("max_order_usd"), "connected_at": cfg.get("connected_at"),
             "live_phrase": LIVE_PHRASE,
         }
@@ -283,7 +285,8 @@ class Broker:
         suffix = symbol.rsplit(".", 1)[1] if "." in symbol else ""
         if suffix in NON_US_SUFFIXES or re.search(r"\d", symbol):
             raise BrokerError("Alpaca trades US-listed stocks and ETFs only; %s is listed outside the US. "
-                              "Use its US listing (ADR) if it has one, or a broker that covers that exchange." % symbol)
+                              "Use its US listing (ADR) if it has one, or connect Interactive Brokers in Me → Real trading "
+                              "to trade it on its home exchange." % symbol)
         if not re.fullmatch(r"[A-Z][A-Z.]{0,9}", symbol):
             raise BrokerError("enter a valid US stock or ETF ticker")
         side = fields.get("side")
@@ -501,3 +504,70 @@ class Broker:
         cfg = self._require(uid)
         result = self._request(cfg, "DELETE", "/v2/orders")
         return {"cancelled": len(result) if isinstance(result, list) else 0}
+
+
+class BrokerRouter:
+    """One broker connection per Twin account: Alpaca (US listings) or Interactive Brokers (global)."""
+
+    PROVIDERS = ("alpaca", "ibkr")
+
+    def __init__(self, data_dir, ssl_ctx, load_json, save_json, quote_fn, fx_fn):
+        import ibkr  # local module; imported here so Alpaca-only installs never load it at import time
+
+        self.load_json = load_json
+        self.data_dir = data_dir
+        self.alpaca = Broker(data_dir, ssl_ctx, load_json, save_json, quote_fn)
+        self.ibkr = ibkr.IbkrBroker(data_dir, load_json, save_json, quote_fn, fx_fn)
+
+    def _active(self, uid):
+        cfg = self.load_json(self.data_dir / "users" / uid / "broker.json", None)
+        return self.ibkr if isinstance(cfg, dict) and cfg.get("provider") == "ibkr" else self.alpaca
+
+    def status(self, uid):
+        result = self._active(uid).status(uid)
+        result["providers"] = list(self.PROVIDERS)
+        return result
+
+    def connect(self, uid, provider="alpaca", key_id=None, secret=None, mode="paper", phrase="", max_order_usd=None,
+                password_ok=False):
+        if provider not in self.PROVIDERS:
+            raise BrokerError("unknown broker")
+        current = self._active(uid)
+        stored = self.load_json(self.data_dir / "users" / uid / "broker.json", None)
+        if isinstance(stored, dict) and current.provider != provider:
+            raise BrokerError("Disconnect %s first; Twin connects one broker at a time."
+                              % ("Interactive Brokers" if current.provider == "ibkr" else "Alpaca"))
+        if provider == "ibkr":
+            return self.ibkr.connect(uid, mode, phrase=phrase, max_order_usd=max_order_usd, password_ok=password_ok)
+        return self.alpaca.connect(uid, key_id, secret, mode, phrase=phrase, max_order_usd=max_order_usd,
+                                   password_ok=password_ok)
+
+    def disconnect(self, uid):
+        return self._active(uid).disconnect(uid)
+
+    def settings(self, uid, max_order_usd):
+        return self._active(uid).settings(uid, max_order_usd)
+
+    def positions(self, uid):
+        return self._active(uid).positions(uid)
+
+    def orders(self, uid, which="open"):
+        return self._active(uid).orders(uid, which)
+
+    def preview(self, uid, fields, limits=None):
+        return self._active(uid).preview(uid, fields, limits)
+
+    def place(self, uid, preview_id, confirm, limits=None):
+        return self._active(uid).place(uid, preview_id, confirm, limits)
+
+    def cancel(self, uid, order_id):
+        return self._active(uid).cancel(uid, order_id)
+
+    def cancel_all(self, uid):
+        return self._active(uid).cancel_all(uid)
+
+    def reply(self, uid, token, confirm, limits=None):
+        active = self._active(uid)
+        if not hasattr(active, "reply"):
+            raise BrokerError("Nothing to confirm.")
+        return active.reply(uid, token, confirm, limits)

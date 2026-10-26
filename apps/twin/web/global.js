@@ -1,8 +1,8 @@
 /* Twin Global (1.4): any stock, any exchange, any home currency.
  *
  * - Exchange metadata from Yahoo-style suffixes (7203.T, BBCA.JK, VOD.L …): country, flag,
- *   time zone, regular session hours and currency. Market open/closed status is computed in the
- *   browser from those hours (lunch breaks included, public holidays not).
+ *   time zone, regular session hours and currency. Market open/closed status uses real exchange
+ *   calendars (holidays, early closes, lunch breaks) from demo/calendars.json.
  * - Universal search (live server: every Yahoo listing; web demo: the bundled global snapshot).
  * - World markets screen, Home search bar + world strip, stock-page listing panel,
  *   portfolio exposure by country and currency, and a display-currency preference.
@@ -91,6 +91,19 @@ const TwinGlobal = (() => {
   const infoCache = {};
   let worldPromise = null;
   let fxTable = { USD: 1 };
+  let worldFxAsOf = null;
+  function setFxTime(stamp) {
+    if (!stamp) {
+      return;
+    }
+    const when = new Date(typeof stamp === "number" ? stamp * 1000 : String(stamp).replace(" UTC", "Z").replace(" ", "T"));
+    if (Number.isNaN(when.getTime())) {
+      return;
+    }
+    const sameDay = when.toDateString() === new Date().toDateString();
+    worldFxAsOf = when.toLocaleString([], sameDay ? { hour: "2-digit", minute: "2-digit" }
+      : { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  }
 
   // ------------------------------------------------------------------ listings
   function suffixOf(symbol) {
@@ -132,46 +145,127 @@ const TwinGlobal = (() => {
   }
 
   // ------------------------------------------------------------ market clock
+  // Real exchange calendars (holidays, early closes, session hours) from demo/calendars.json,
+  // built with the open-source exchange_calendars package. Until it loads, or for dates past
+  // its window, the hand-written weekday/hours table above is used.
+  let CAL = null;
+  let calPromise = null;
+  function loadCalendars() {
+    if (!calPromise) {
+      calPromise = fetch("demo/calendars.json", { cache: "no-cache" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          CAL = data && data.exchanges ? data : null;
+          return CAL;
+        })
+        .catch(() => null);
+    }
+    return calPromise;
+  }
+
   function localParts(date, zone) {
     const parts = new Intl.DateTimeFormat("en-US", {
-      timeZone: zone, weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+      timeZone: zone, weekday: "short", year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hourCycle: "h23",
     }).formatToParts(date);
     const get = (type) => (parts.find((p) => p.type === type) || {}).value;
     const dow = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(get("weekday"));
-    return { dow, minutes: Number(get("hour")) * 60 + Number(get("minute")), label: `${get("hour")}:${get("minute")}` };
+    return {
+      dow, ymd: `${get("year")}-${get("month")}-${get("day")}`,
+      minutes: Number(get("hour")) * 60 + Number(get("minute")), label: `${get("hour")}:${get("minute")}`,
+    };
   }
 
   const toMinutes = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
   const span = (mins) => (mins >= 60 ? `${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, "0")}m` : `${mins}m`);
+  const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  function addDays(ymd, days) {
+    const [y, m, d] = ymd.split("-").map(Number);
+    const t = new Date(Date.UTC(y, m - 1, d + days));
+    return { ymd: t.toISOString().slice(0, 10), dow: t.getUTCDay() };
+  }
+
+  function calendarFor(info) {
+    return CAL && CAL.exchanges ? CAL.exchanges[info.suffix] || null : null;
+  }
+
+  // The regular session on a local date, or null (weekend / holiday). `known` = calendar covered it.
+  function sessionOn(info, cal, ymd, dow) {
+    const covered = cal && ymd <= cal.valid_to && (!CAL.valid_from || ymd >= CAL.valid_from);
+    if (covered) {
+      // exchange_calendars weekmask starts on Monday.
+      const tradingDay = cal.weekmask[(dow + 6) % 7] === "1";
+      if (!tradingDay) {
+        return { known: true, session: null };
+      }
+      if (cal.holidays.includes(ymd)) {
+        return { known: true, session: null, holiday: true };
+      }
+      const open = (cal.late_open && cal.late_open[ymd]) || cal.open;
+      const close = (cal.early_close && cal.early_close[ymd]) || cal.close;
+      const lunchPair = cal.lunch || (info.lunchStart ? [info.lunchStart, info.lunchEnd] : null);
+      const lunch = lunchPair && toMinutes(lunchPair[0]) < toMinutes(close) ? lunchPair : null;
+      return {
+        known: true,
+        session: { open, close, lunch, early: Boolean(cal.early_close && cal.early_close[ymd]) },
+      };
+    }
+    if (!info.days.includes(dow)) {
+      return { known: false, session: null };
+    }
+    const lunch = info.lunchStart ? [info.lunchStart, info.lunchEnd] : null;
+    return { known: false, session: { open: info.open, close: info.close, lunch, early: false } };
+  }
 
   function marketStatus(symbol, now = new Date()) {
     const info = listing(symbol);
-    const local = localParts(now, info.zone);
-    const open = toMinutes(info.open);
-    const close = toMinutes(info.close);
-    const lunch = info.lunchStart ? [toMinutes(info.lunchStart), toMinutes(info.lunchEnd)] : null;
-    const tradingToday = info.days.includes(local.dow);
+    const cal = calendarFor(info);
+    const zone = (cal && cal.tz) || info.zone;
+    const local = localParts(now, zone);
     const m = local.minutes;
-    if (tradingToday && m >= open && m < close) {
-      if (lunch && m >= lunch[0] && m < lunch[1]) {
-        return { open: false, lunch: true, localTime: local.label, text: `Lunch break · reopens in ${span(lunch[1] - m)}` };
+    const today = sessionOn(info, cal, local.ymd, local.dow);
+    const base = { localTime: local.label, calendar: Boolean(cal), holidaysKnown: today.known };
+    if (today.session) {
+      const open = toMinutes(today.session.open);
+      const close = toMinutes(today.session.close);
+      const lunch = today.session.lunch ? today.session.lunch.map(toMinutes) : null;
+      if (m >= open && m < close) {
+        if (lunch && m >= lunch[0] && m < lunch[1]) {
+          return { ...base, open: false, lunch: true, text: `Lunch break · reopens in ${span(lunch[1] - m)}` };
+        }
+        const until = lunch && m < lunch[0] ? lunch[0] : close;
+        const what = until === close ? (today.session.early ? `closes early (${today.session.close})` : "closes") : "lunch";
+        return { ...base, open: true, early: today.session.early, text: `Open · ${what} in ${span(until - m)}` };
       }
-      const until = lunch && m < lunch[0] ? lunch[0] : close;
-      return { open: true, localTime: local.label, text: `Open · ${until === close ? "closes" : "lunch"} in ${span(until - m)}` };
     }
-    for (let d = 0; d < 8; d += 1) {
-      const day = (local.dow + d) % 7;
-      if (!info.days.includes(day)) {
+    for (let d = 0; d < 15; d += 1) {
+      const day = addDays(local.ymd, d);
+      const next = sessionOn(info, cal, day.ymd, day.dow);
+      if (!next.session) {
         continue;
       }
+      const open = toMinutes(next.session.open);
       if (d === 0 && m >= open) {
         continue;
       }
       const wait = d * 1440 + open - m;
-      const when = d === 0 ? "" : d === 1 ? " tomorrow" : ` ${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][day]}`;
-      return { open: false, localTime: local.label, text: `Closed · opens${when} ${info.open} (in ${span(wait)})` };
+      const when = d === 0 ? "" : d === 1 ? " tomorrow" : ` ${DOW[day.dow]}`;
+      const why = today.holiday ? "Closed · holiday" : "Closed";
+      return { ...base, open: false, holiday: Boolean(today.holiday), text: `${why} · opens${when} ${next.session.open} (in ${span(wait)})` };
     }
-    return { open: false, localTime: local.label, text: "Closed" };
+    return { ...base, open: false, holiday: Boolean(today.holiday), text: today.holiday ? "Closed · holiday" : "Closed" };
+  }
+
+  // Upcoming market holidays for an exchange (for the listing panel).
+  function upcomingHolidays(symbol, count = 3, now = new Date()) {
+    const info = listing(symbol);
+    const cal = calendarFor(info);
+    if (!cal) {
+      return [];
+    }
+    const today = localParts(now, cal.tz || info.zone).ymd;
+    return cal.holidays.filter((d) => d >= today).slice(0, count);
   }
 
   // ------------------------------------------------------------- currencies
@@ -240,6 +334,7 @@ const TwinGlobal = (() => {
     const result = await api("api/fx", { currencies: missing }).catch(() => null);
     if (result && result.ok) {
       fxTable = { ...result.fx_usd, ...fxTable };
+      setFxTime(result.as_of);
     }
     return fxTable;
   }
@@ -263,6 +358,7 @@ const TwinGlobal = (() => {
         }
         Object.values(result.quotes || {}).forEach(remember);
         fxTable = { ...result.fx_usd, ...fxTable };
+        setFxTime(result.fx_as_of || result.as_of);
         return result;
       });
     }
@@ -503,7 +599,7 @@ const TwinGlobal = (() => {
             title: `${s.name} ${fmtPct(s.q.change_pct)}`,
           }, h("span", { class: "g-tile-name" }, listing(s.symbol).flag, " ", s.name.split(" ")[0]), h("span", { class: "g-tile-pct" }, fmtPct(s.q.change_pct, 1)))))) : null,
         h("p", { class: "tiny muted" },
-          `${data.snapshot ? "Snapshot " + data.as_of : "Delayed quotes · " + data.as_of}. Market hours are regular sessions in local time; public holidays and auctions are not shown. Index levels in local points.`),
+          `${data.snapshot ? "Snapshot " + data.as_of : "Delayed quotes · " + data.as_of}. Open/closed uses each exchange's own holiday calendar and regular session (auctions not shown). Index levels in local points.`),
       );
     };
     const moverRow = (s) => h("button", { class: "g-mover", onclick: () => openSymbol(s.symbol) },
@@ -551,6 +647,33 @@ const TwinGlobal = (() => {
       h("div", { class: "range" }, h("i", { style: `left:${pos}%` })));
   }
 
+  // "FX as of 14:05" from the quote (server) or the snapshot time (web demo).
+  function fxLabel(d) {
+    const stamp = d && (d.fx_time || d.fxTime);
+    if (stamp) {
+      const when = new Date(typeof stamp === "number" ? stamp * 1000 : stamp);
+      if (!Number.isNaN(when.getTime())) {
+        return `exchange rate as of ${when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+      }
+    }
+    return worldFxAsOf ? `exchange rate as of ${worldFxAsOf}` : "latest exchange rate";
+  }
+
+  function holidayRow(symbol, status) {
+    const info = listing(symbol);
+    if (info.isIndex) {
+      return null;
+    }
+    const days = upcomingHolidays(symbol, 3);
+    const fmt = (ymd) => new Date(ymd + "T12:00:00Z").toLocaleDateString([], { day: "numeric", month: "short", timeZone: "UTC" });
+    if (!days.length) {
+      return status && status.calendar === false && CAL
+        ? h("div", { class: "tiny muted", style: "margin-top:6px" }, "Holiday calendar not available for this exchange — weekday hours only.")
+        : null;
+    }
+    return h("div", { class: "tiny muted", style: "margin-top:6px" }, `Next market holidays: ${days.map(fmt).join(" · ")}`);
+  }
+
   function listingPanel(symbol, d) {
     remember({ ...d, symbol });
     const info = listing(symbol);
@@ -565,13 +688,14 @@ const TwinGlobal = (() => {
         h("span", { class: "small" }, h("b", {}, d.exchange || info.exchange), ` · ${info.countryName}`),
         h("span", { class: "pill blue" }, currency),
         h("span", { class: "pill " + (status.open ? "green" : "") + " g-status", title: `Local time ${status.localTime}` }, status.text)),
-      shown ? h("div", { class: "tiny muted", style: "margin-top:4px" }, `≈ ${shown} per share at the delayed exchange rate`) : null,
+      shown ? h("div", { class: "tiny muted", style: "margin-top:4px" }, `≈ ${shown} per share · ${fxLabel(d)}`) : null,
       rangeBar("Day range", d.day_low, d.day_high, d.price, currency),
-      rangeBar("52-week range", d.low52, d.high52, d.price, currency));
+      rangeBar("52-week range", d.low52, d.high52, d.price, currency),
+      holidayRow(symbol, status));
     if (!info.us && !info.isIndex) {
       const note = h("div", { class: "g-real tiny" },
         h("b", {}, "Real money: "),
-        `Twin's Alpaca connection trades US listings only. To buy ${d.name || symbol} on ${d.exchange || info.exchange}, use a broker that covers that exchange — for example Interactive Brokers (175 markets in 40 countries, per IBKR) or a licensed local broker. Practice trading here works for any listing.`);
+        `Connect Interactive Brokers in Me → Real trading (on your own Twin server) to buy ${d.name || symbol} on ${d.exchange || info.exchange} — IBKR covers most major world exchanges; which ones you can trade depends on your country and market permissions. Alpaca stays US-only. Practice trading here works for any listing.`);
       usListingFor(symbol).then((us) => {
         if (us && note.isConnected) {
           put(note, " ", h("a", { href: "#", onclick: (event) => { event.preventDefault(); closeSheet(); setTimeout(() => openStockPro(us), 60); } }, `US listing: ${us} ›`));
@@ -630,7 +754,7 @@ const TwinGlobal = (() => {
       const code = displayCurrency();
       note.textContent = code === "USD"
         ? "Practice cash is kept in US dollars. Pick your home currency to also see values converted."
-        : (fxTable[code] ? `1 USD ≈ ${money(1 / fxTable[code], code, { digits: WHOLE_UNITS.has(code) ? 0 : 4 })} (delayed). Practice cash is still kept in US dollars.` : "Loading exchange rate…");
+        : (fxTable[code] ? `1 USD ≈ ${money(1 / fxTable[code], code, { digits: WHOLE_UNITS.has(code) ? 0 : 4 })} (${fxLabel({})}). Practice cash is still kept in US dollars.` : "Loading exchange rate…");
     };
     select.addEventListener("change", async () => {
       setDisplayCurrency(select.value);
@@ -701,8 +825,10 @@ const TwinGlobal = (() => {
   `;
   document.head.append(style);
 
+  loadCalendars();
+
   return {
-    listing, flag, regionOf, marketStatus, money, price, remember, info, displayCurrency, setDisplayCurrency,
+    listing, flag, regionOf, marketStatus, upcomingHolidays, loadCalendars, money, price, remember, info, displayCurrency, setDisplayCurrency,
     ensureFx, inDisplay, world, openSearch, openWorld, searchBar, worldStrip, listingPanel, exposure,
     currencyCard, REGIONS, COUNTRY, EXCHANGES,
   };

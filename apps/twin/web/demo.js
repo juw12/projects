@@ -20,9 +20,11 @@
   const cache = {};
 
   // ----------------------------------------------------------------- data
+  // world.json and its chart files are refreshed by the snapshot scripts: always revalidate them.
+  const FRESH = new Set(["world", "calendars"]);
   async function load(name) {
     if (!cache[name]) {
-      const response = await fetch("demo/" + name + ".json", { cache: "force-cache" });
+      const response = await fetch("demo/" + name + ".json", { cache: FRESH.has(name) ? "no-cache" : "force-cache" });
       if (!response.ok) {
         throw new Error("demo data missing: " + name);
       }
@@ -253,20 +255,34 @@
   }
 
   // ---------------------------------------------------------- market
-  // World snapshot (global stocks, indices, FX) is loaded only when a non-US symbol is needed.
+  // World snapshot (300+ stocks and ETFs, 30+ indices, FX), refreshed by scripts/world_snapshot.py.
   async function world() {
     return load("world");
   }
 
+  // One small chart file per symbol (must match chart_file() in scripts/world_snapshot.py).
+  const chartFile = (symbol) => symbol.replace(/[^A-Za-z0-9.\-]/g, "_") + ".json";
+  const chartCache = {};
+  async function worldChart(symbol) {
+    if (!chartCache[symbol]) {
+      chartCache[symbol] = fetch("demo/world/" + chartFile(symbol), { cache: "no-cache" })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
+    }
+    return chartCache[symbol];
+  }
+
   async function quote(symbol) {
-    const market = await load("market");
-    let q = market.quotes[symbol];
+    // Prefer the world snapshot; the older bundled US snapshot is the fallback.
+    const globalData = await world().catch(() => null);
+    let q = globalData && globalData.quotes[symbol];
     if (!q) {
-      const globalData = await world().catch(() => null);
-      q = globalData && globalData.quotes[symbol];
+      const market = await load("market");
+      q = market.quotes[symbol];
     }
     if (!q) {
-      throw new Error(`${symbol} is not in the web demo snapshot. Use Search to see the ~70 global stocks included offline, or run Twin on your computer to look up any listing on any exchange.`);
+      const count = globalData ? globalData.universe.length : 300;
+      throw new Error(`${symbol} is not in the web demo snapshot. Search covers ${count} stocks and ETFs offline; run Twin on your computer to look up any listing on any exchange.`);
     }
     return { currency: "USD", fx_usd: 1, ...q };
   }
@@ -301,19 +317,19 @@
     }
     const market = await load("market");
     const globalData = await world();
-    const rows = [
-      ...Object.values(market.quotes).map((item) => ({
-        symbol: item.symbol, name: item.name, exchange: item.exchange, country: "US",
-        type: ["SPY", "QQQ", "VTI", "AGG", "GLD"].includes(item.symbol) ? "ETF" : "Stock",
-      })),
-      ...globalData.universe.map((item) => ({
-        symbol: item.symbol, name: item.name, exchange: (globalData.quotes[item.symbol] || {}).exchange,
-        country: item.country, type: "Stock", sector: item.sector,
-      })),
-      ...globalData.indices.map((item) => ({
-        symbol: item.symbol, name: item.name, exchange: "Index", country: item.country, type: "Index",
-      })),
-    ];
+    const bySymbol = new Map();
+    Object.values(market.quotes).forEach((item) => bySymbol.set(item.symbol, {
+      symbol: item.symbol, name: item.name, exchange: item.exchange, country: "US",
+      type: ["SPY", "QQQ", "VTI", "AGG", "GLD"].includes(item.symbol) ? "ETF" : "Stock",
+    }));
+    globalData.universe.forEach((item) => bySymbol.set(item.symbol, {
+      symbol: item.symbol, name: item.name, exchange: (globalData.quotes[item.symbol] || {}).exchange,
+      country: item.country, type: item.sector === "ETF" ? "ETF" : "Stock", sector: item.sector,
+    }));
+    globalData.indices.forEach((item) => bySymbol.set(item.symbol, {
+      symbol: item.symbol, name: item.name, exchange: "Index", country: item.country, type: "Index",
+    }));
+    const rows = [...bySymbol.values()];
     const score = (row) => {
       const symbol = row.symbol.toLowerCase();
       const name = (row.name || "").toLowerCase();
@@ -848,18 +864,19 @@
           return { ok: true, quotes, errors };
         }
         case "chart": {
-          const market = await load("market");
           const sym = String(body.symbol || "").toUpperCase();
-          let charts = market.charts[sym];
+          const globalData = await world().catch(() => null);
+          let charts = globalData && globalData.quotes[sym] ? await worldChart(sym) : null;
           if (!charts) {
-            const globalData = await world().catch(() => null);
-            charts = globalData && globalData.charts[sym];
+            const market = await load("market");
+            charts = market.charts[sym];
           }
           if (!charts) {
             await quote(sym);
+            return fail(`no chart for ${sym} in the snapshot`);
           }
           const span = body.span || "1D";
-          const data = charts[span] || (span === "1W" ? charts["1M"] : span === "3M" || span === "5Y" ? charts["1Y"] : null) || charts["1D"];
+          const data = charts[span] || (span === "1W" ? charts["1M"] : span === "3M" ? charts["1Y"] : span === "5Y" ? charts["1Y"] : null) || charts["1D"];
           return { ok: true, data: { currency: "USD", fx_usd: 1, ...data } };
         }
         case "search": {
@@ -867,13 +884,13 @@
         }
         case "fx": {
           const globalData = await world();
-          return { ok: true, fx_usd: globalData.fx_usd, as_of: globalData.snapshot_taken };
+          return { ok: true, fx_usd: globalData.fx_usd, as_of: globalData.fx_as_of || globalData.snapshot_taken };
         }
         case "world": {
           const globalData = await world();
           return {
             ok: true, universe: globalData.universe, indices: globalData.indices, fx_usd: globalData.fx_usd,
-            as_of: globalData.snapshot_taken, quotes: globalData.quotes, snapshot: true,
+            as_of: globalData.snapshot_taken, fx_as_of: globalData.fx_as_of, quotes: globalData.quotes, snapshot: true,
           };
         }
         case "paper": {
@@ -974,9 +991,10 @@
           let charts = market.charts[symbol];
           let info = market.quotes[symbol];
           if (!charts) {
+            // 1.6: world charts live in one file per symbol (demo/world/<symbol>.json).
             const globalData = await world().catch(() => null);
-            charts = globalData && globalData.charts[symbol];
             info = globalData && globalData.quotes[symbol];
+            charts = info ? await worldChart(symbol) : null;
           }
           if (!charts || !charts["1Y"]) {
             return fail(`${symbol || "That ticker"} isn't in the offline snapshot. Try AAPL, MSFT, NVDA, TSLA, KO or SPY, or run Twin on your computer to research any listing.`);
