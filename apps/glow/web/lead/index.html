@@ -57,7 +57,7 @@
     <div class="sidebar-foot"><span class="online-dot" aria-hidden="true"></span> Browser-first workspace<p>History stays in this browser. AI requests go to your chosen provider. Keep this tab open while work runs.</p><a href="../">← All Glow apps</a></div>
   </aside>
   <main id="workspace" tabindex="-1">
-    <div class="workspace-label"><span>YOUR AI TEAM, WITH YOU IN CONTROL</span><span class="version-pill">GlowLead / 0.12</span></div>
+    <div class="workspace-label"><span>YOUR AI TEAM, WITH YOU IN CONTROL</span><span class="version-pill">GlowLead / 0.13</span></div>
     <section class="hero">
       <p class="eyebrow">From a spark to something real</p>
       <h1>Big idea.<br><span>Clear next steps.</span></h1>
@@ -117,10 +117,18 @@
 <dialog id="hands-dialog" aria-labelledby="hands-title">
   <form id="hands-form"><h2 id="hands-title">Connect Glow Hands</h2>
     <p class="helper">Glow Hands is a small program on your PC that lets GlowLead open sites, click, type and fill forms in its own browser window. You can watch and take over at any time.</p>
-    <button class="btn primary" id="hands-auto" type="button">Find &amp; connect automatically</button>
-    <p class="helper">Finds Glow Hands on this PC. Windows asks <b>"Allow this browser?"</b>; click Yes. No code to type. If your browser asks about local network access, allow it.</p>
+    <button class="btn primary" id="hands-auto" type="button">Connect to Glow Hands on this PC</button>
+    <p class="helper">One click: GlowLead finds Glow Hands on this PC and connects. Nothing to type. If your browser asks to allow local network access, allow it once.</p>
+    <section id="phone-link-box" class="phone-link-box" hidden>
+      <h3 class="setup-heading">Use from your phone</h3>
+      <p class="helper">Your phone's GlowLead can drive Glow Hands on this PC over an encrypted direct link. Show the QR code, scan it with your phone camera, done. Your PC must stay on with Glow Hands running.</p>
+      <div class="start-actions"><button class="btn primary small" id="phone-link-btn" type="button">Show QR code</button><button class="btn small" id="phone-link-copy" type="button">Copy link</button><button class="btn ghost small" id="phone-link-reset" type="button">Turn off old phone links</button></div>
+      <div id="phone-qr" class="phone-qr" aria-label="QR code to link your phone"></div>
+      <p id="phone-link-note" class="helper" role="status"></p>
+    </section>
+    <p class="helper phone-only">On a phone? Open GlowLead on your PC → <b>Connect browser control</b> → <b>Use from your phone</b>, then scan the QR code with this phone's camera.</p>
     <h3 class="setup-heading">New PC? Install in one step</h3>
-    <p class="helper">Press <b>Win + R</b>, paste this, press Enter. It installs Glow Hands, starts it at every login, and connects this site.</p>
+    <p class="helper">Press <b>Win + R</b>, paste this, press Enter. It installs Glow Hands, starts it at every login, and connects this browser automatically.</p>
     <div class="install-command"><code id="hands-install-command">powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/juw12/projects/main/apps/glow/hands/install-glow-hands.ps1 | iex"</code><button class="btn small" id="hands-copy-install" type="button">Copy</button></div>
     <details class="manual-pairing"><summary>Connect manually with a pairing code</summary>
     <label for="hands-url">Address</label>
