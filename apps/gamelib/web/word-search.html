@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Word Search</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg1: #1b2a4a;
+    --bg2: #0e1729;
+    --panel: rgba(255,255,255,0.06);
+    --ink: #eaf1ff;
+    --muted: #93a4c4;
+    --line: rgba(255,255,255,0.16);
+    --accent: #ffc53d;
+    --accent2: #57d0ff;
+    --good: #7cffb2;
+    --bad: #ff5a6a;
+    --cell: rgba(255,255,255,0.04);
+    --sel: #2b6cff;
+  }
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(1200px 800px at 50% -10%, #22365f 0%, var(--bg1) 45%, var(--bg2) 100%);
+    color: var(--ink);
+    font-family: "Segoe UI", "Trebuchet MS", Tahoma, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 14px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #app {
+    width: min(96vw, 620px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* ============ HEADER ============ */
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  h1 {
+    font-size: clamp(1.3rem, 5vw, 1.9rem);
+    letter-spacing: 2px;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 2px 12px rgba(87,208,255,0.35);
+  }
+  h1 span { color: var(--accent2); }
+  .best-tag {
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-align: right;
+    line-height: 1.35;
+  }
+  .best-tag b { color: var(--accent); font-weight: 700; }
+
+  /* ============ STATUS BAR ============ */
+  #status {
+    display: flex;
+    gap: 8px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 0.82rem;
+    backdrop-filter: blur(6px);
+  }
+  #status .stat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    text-align: center;
+  }
+  #status .stat .k { color: var(--muted); font-size: 0.62rem; letter-spacing: 1px; text-transform: uppercase; }
+  #status .stat .v { font-weight: 700; font-size: 1rem; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  /* ============ BOARD ============ */
+  #board-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 14px;
+    background: rgba(0,0,0,0.25);
+    box-shadow: 0 14px 44px rgba(0,0,0,0.45), inset 0 0 0 1px var(--line);
+    overflow: hidden;
+  }
+  #board {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    background: rgba(255,255,255,0.02);
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .cell {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(0.6rem, 2.6vw, 1.15rem);
+    font-weight: 700;
+    color: var(--ink);
+    cursor: pointer;
+    border-right: 1px solid rgba(255,255,255,0.07);
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    transition: background .08s ease, color .08s ease;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+  }
+  .cell.sel {
+    background: var(--sel) !important;
+    color: #fff !important;
+    box-shadow: inset 0 0 0 2px #bcd2ff;
+  }
+  .cell.trace {
+    background: rgba(87,208,255,0.28);
+    color: #fff;
+  }
+  .cell.flashbad {
+    background: rgba(255,90,106,0.55) !important;
+    color: #fff !important;
+  }
+
+  /* ============ WORD LIST ============ */
+  #wordlist {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px;
+    min-height: 54px;
+  }
+  .word {
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: .8px;
+    padding: 6px 11px;
+    border-radius: 999px;
+    background: rgba(87,208,255,0.12);
+    border: 1px solid rgba(87,208,255,0.28);
+    color: #cfeaff;
+    transition: all .2s ease;
+  }
+  .word.done {
+    text-decoration: line-through;
+    text-decoration-thickness: 2px;
+    opacity: 0.5;
+    background: rgba(124,255,178,0.10);
+    border-color: rgba(124,255,178,0.35);
+    color: var(--good);
+  }
+
+  /* ============ PICKERS ============ */
+  .picker-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .picker-label {
+    font-size: 0.64rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    min-width: 52px;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+  .chip {
+    font-family: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: .5px;
+    padding: 7px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    cursor: pointer;
+    transition: all .12s ease;
+  }
+  .chip:hover { background: rgba(255,255,255,0.13); }
+  .chip.active {
+    background: linear-gradient(135deg, var(--accent2), #2b6cff);
+    color: #04121f;
+    border-color: var(--accent2);
+    box-shadow: 0 3px 12px rgba(87,208,255,0.35);
+  }
+
+  /* ============ ACTIONS ============ */
+  #actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: .6px;
+    padding: 11px 18px;
+    border: none;
+    border-radius: 11px;
+    cursor: pointer;
+    color: #04121f;
+    background: linear-gradient(135deg, var(--accent), #ff9f1c);
+    box-shadow: 0 4px 0 rgba(0,0,0,.25);
+    transition: transform .06s ease, filter .15s ease;
+    user-select: none;
+  }
+  .btn:hover { filter: brightness(1.06); }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.25); }
+  .btn.ghost {
+    background: var(--panel);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    box-shadow: none;
+  }
+  .btn.ghost:hover { background: rgba(255,255,255,0.13); }
+  .hint-text { color: var(--muted); font-size: 0.68rem; flex: 1; text-align: right; }
+
+  /* ============ OVERLAY ============ */
+  #overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 20px;
+    text-align: center;
+    background: rgba(9,16,30,0.86);
+    backdrop-filter: blur(4px);
+    opacity: 1;
+    transition: opacity .25s ease;
+  }
+  #overlay.hidden { opacity: 0; pointer-events: none; }
+  #overlay h2 {
+    font-size: clamp(1.4rem, 6vw, 2.1rem);
+    color: var(--accent);
+    letter-spacing: 1px;
+    text-shadow: 0 3px 18px rgba(255,197,61,0.4);
+  }
+  #overlay p { color: var(--muted); font-size: 0.85rem; }
+  #overlay .big { color: #fff; font-size: 1.1rem; font-weight: 700; }
+  #overlay .btn { margin-top: 12px; padding: 12px 26px; font-size: 0.9rem; }
+  #overlay .newbest { color: var(--accent2); font-weight: 800; letter-spacing: 1px; }
+
+  /* ============ FOOTER ============ */
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.68rem;
+    letter-spacing: .5px;
+    line-height: 1.5;
+  }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 420px) {
+    #status .stat .v { font-size: 0.9rem; }
+    .btn { padding: 10px 13px; font-size: 0.72rem; }
+    .chip { padding: 6px 10px; font-size: 0.68rem; }
+    .word { font-size: 0.68rem; padding: 5px 9px; }
+    .hint-text { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>WORD <span>SEARCH</span></h1>
+    <div class="best-tag" id="bestTag"></div>
+  </header>
+
+  <div id="status">
+    <div class="stat"><span class="k">Theme</span><span class="v" id="statTheme">&mdash;</span></div>
+    <div class="stat"><span class="k">Time</span><span class="v" id="statTime">00:00</span></div>
+    <div class="stat"><span class="k">Found</span><span class="v" id="statFound">0/0</span></div>
+    <div class="stat"><span class="k">Score</span><span class="v" id="statScore">0</span></div>
+  </div>
+
+  <div id="board-wrap">
+    <div id="board"></div>
+
+    <!-- Win overlay -->
+    <div id="overlay" class="hidden">
+      <h2 id="ovTitle">All Found!</h2>
+      <p id="ovSub">Puzzle complete</p>
+      <div class="big" id="ovDetail"></div>
+      <p class="newbest" id="ovBest"></p>
+      <button class="btn" id="ovNew">New Puzzle</button>
+    </div>
+  </div>
+
+  <div id="wordlist"></div>
+
+  <div class="picker-row">
+    <span class="picker-label">Theme</span>
+    <div class="chips" id="themeChips"></div>
+  </div>
+
+  <div class="picker-row">
+    <span class="picker-label">Size</span>
+    <div class="chips" id="diffChips"></div>
+  </div>
+
+  <div id="actions">
+    <button class="btn" id="btnNew">New Puzzle</button>
+    <span class="hint-text" id="hintText">Drag across letters to select a word</span>
+  </div>
+
+  <footer>
+    Select letters by dragging horizontally, vertically or diagonally &middot; words may run forwards or backwards &middot; N = new puzzle
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONFIGURATION ============
+  var THEMES = {
+    Animals:  ["ELEPHANT","GIRAFFE","PENGUIN","DOLPHIN","TIGER","ZEBRA","MONKEY","RABBIT","FALCON","TURTLE","LION","BEAR","PANDA","KOALA","WHALE","OTTER"],
+    Fruits:   ["PINEAPPLE","STRAWBERRY","BLUEBERRY","WATERMELON","BANANA","ORANGE","GRAPE","MANGO","PAPAYA","CHERRY","LEMON","PEACH","MELON","KIWI","GUAVA","PLUM"],
+    Colors:   ["TURQUOISE","MAGENTA","CRIMSON","INDIGO","VIOLET","ORANGE","YELLOW","PURPLE","SILVER","GOLDEN","MAROON","BEIGE","TEAL","AMBER","CORAL","IVORY"],
+    Space:    ["ASTRONAUT","TELESCOPE","SATURN","MERCURY","JUPITER","NEBULA","GALAXY","COMET","METEOR","ORBIT","ROCKET","PLANET","COSMOS","LUNAR","SOLAR","VENUS"],
+    Sports:   ["BASKETBALL","VOLLEYBALL","SWIMMING","FOOTBALL","TENNIS","HOCKEY","BOXING","ROWING","CYCLING","SOCCER","GOLF","RUGBY","SKIING","SURFING","ARCHERY","JUDO"],
+    Nature:   ["MOUNTAIN","WATERFALL","RAINBOW","GLACIER","VOLCANO","FOREST","DESERT","ISLAND","CANYON","RIVER","OCEAN","CLOUD","STORM","MEADOW","VALLEY","THUNDER"]
+  };
+  var THEME_KEYS = ["Animals","Fruits","Colors","Space","Sports","Nature"];
+
+  var DIFFICULTY = {
+    easy:   { size: 10, words: 7,  label: "Easy" },
+    medium: { size: 12, words: 10, label: "Medium" },
+    hard:   { size: 15, words: 14, label: "Hard" }
+  };
+  var DIFF_KEYS = ["easy", "medium", "hard"];
+
+  var COLORS = ["#57d0ff","#ffc53d","#7cffb2","#ff8fb3","#c39bff","#ff9f6b","#6be0d0","#f6f36b"];
+  var BEST_KEY = "wordSearchBest";
+  var SAVE_KEY = "wordSearchSave";
+  var DIRS = [[0,1],[1,0],[1,1],[-1,1],[0,-1],[-1,0],[-1,-1],[1,-1]];
+  var ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+  var boardEl = document.getElementById("board");
+  var wordlistEl = document.getElementById("wordlist");
+  var overlay = document.getElementById("overlay");
+
+  // ============ GAME STATE ============
+  var size = 10;
+  var grid = [];            // array of chars, length size*size
+  var placedWords = [];     // [{ word, cells:[idx,...] }]
+  var foundWords = {};      // word -> true
+  var foundCells = {};      // idx -> true
+  var cellColor = {};       // word -> color
+  var colorCounter = 0;
+  var cellEls = [];
+
+  var theme = localStorage.getItem("wordSearchTheme") || "Animals";
+  if (!THEMES[theme]) theme = "Animals";
+  var difficulty = localStorage.getItem("wordSearchDiff") || "easy";
+  if (!DIFFICULTY[difficulty]) difficulty = "easy";
+
+  var score = 0;
+  var elapsed = 0;
+  var running = false;
+  var solved = false;
+  var startTime = 0;
+  var timerId = null;
+
+  var selecting = false;
+  var startIdx = -1;
+  var selPath = [];         // current preview path of indices
+  var foundCount = 0;
+
+  // ============ SOUND (WebAudio, no assets) ============
+  var actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = actx.createOscillator();
+      var g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  // ============ UTILITIES ============
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+  function fmtTime(ms) {
+    var s = Math.floor(ms / 1000);
+    var m = Math.floor(s / 60);
+    s = s % 60;
+    return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+  }
+  function rOf(i) { return Math.floor(i / size); }
+  function cOf(i) { return i % size; }
+
+  // ============ WORD PLACEMENT ENGINE ============
+  function canPlace(g, word, r, c, dr, dc) {
+    var endR = r + dr * (word.length - 1);
+    var endC = c + dc * (word.length - 1);
+    if (endR < 0 || endR >= size || endC < 0 || endC >= size) return false;
+    for (var k = 0; k < word.length; k++) {
+      var rr = r + dr * k, cc = c + dc * k;
+      var cur = g[rr * size + cc];
+      if (cur && cur !== word[k]) return false;
+    }
+    return true;
+  }
+
+  function placeWord(g, word, r, c, dr, dc) {
+    var cells = [];
+    for (var k = 0; k < word.length; k++) {
+      var rr = r + dr * k, cc = c + dc * k;
+      var idx = rr * size + cc;
+      g[idx] = word[k];
+      cells.push(idx);
+    }
+    return cells;
+  }
+
+  // Try to place a word along a random orientation; return cells or null.
+  function tryPlace(g, word, attempts) {
+    var last = word.length - 1;
+    for (var a = 0; a < attempts; a++) {
+      var d = DIRS[Math.floor(Math.random() * DIRS.length)];
+      var dr = d[0], dc = d[1];
+      // starting range that keeps the whole word inside the grid
+      var rMin = dr < 0 ? last : 0, rMax = dr > 0 ? size - 1 - last : size - 1;
+      var cMin = dc < 0 ? last : 0, cMax = dc > 0 ? size - 1 - last : size - 1;
+      if (rMin > rMax || cMin > cMax) continue;
+      var sr = rMin + Math.floor(Math.random() * (rMax - rMin + 1));
+      var sc = cMin + Math.floor(Math.random() * (cMax - cMin + 1));
+      if (canPlace(g, word, sr, sc, dr, dc)) {
+        return placeWord(g, word, sr, sc, dr, dc);
+      }
+    }
+    return null;
+  }
+
+  // Build a fresh puzzle for the current theme + difficulty.
+  function buildPuzzle() {
+    var cfg = DIFFICULTY[difficulty];
+    size = cfg.size;
+
+    // choose words that fit within the grid
+    var pool = THEMES[theme].filter(function (w) { return w.length <= size; });
+    pool = shuffle(pool.slice());
+    var picked = pool.slice(0, Math.min(cfg.words, pool.length));
+    picked.sort(function (a, b) { return b.length - a.length; });
+
+    var g = new Array(size * size).fill("");
+    var placed = [];
+
+    picked.forEach(function (word) {
+      var attempts = 60 + size * 4;
+      var cells = tryPlace(g, word, attempts);
+      if (cells) placed.push({ word: word, cells: cells });
+    });
+
+    // fill empty cells with random letters (basic English-ish weights)
+    for (var i = 0; i < g.length; i++) {
+      if (!g[i]) g[i] = ALPHA[Math.floor(Math.random() * 26)];
+    }
+
+    placedWords = placed;
+    grid = g;
+  }
+
+  // ============ RENDERING ============
+  function buildBoard() {
+    boardEl.innerHTML = "";
+    boardEl.style.gridTemplateColumns = "repeat(" + size + ", 1fr)";
+    boardEl.style.gridTemplateRows = "repeat(" + size + ", 1fr)";
+    cellEls = [];
+    for (var i = 0; i < size * size; i++) {
+      var d = document.createElement("div");
+      d.className = "cell";
+      d.dataset.i = i;
+      d.textContent = grid[i];
+      boardEl.appendChild(d);
+      cellEls.push(d);
+    }
+  }
+
+  function buildWordList() {
+    wordlistEl.innerHTML = "";
+    placedWords.forEach(function (p) {
+      var s = document.createElement("span");
+      s.className = "word";
+      s.dataset.word = p.word;
+      s.textContent = p.word;
+      wordlistEl.appendChild(s);
+    });
+  }
+
+  function refreshFoundStyles() {
+    // clear per-cell inline styles
+    for (var i = 0; i < cellEls.length; i++) {
+      var el = cellEls[i];
+      el.style.background = "";
+      el.style.color = "";
+      el.style.boxShadow = "";
+    }
+    // reapply found decorations
+    placedWords.forEach(function (p) {
+      if (!foundWords[p.word]) return;
+      var col = cellColor[p.word];
+      p.cells.forEach(function (idx) {
+        var el = cellEls[idx];
+        el.style.background = col + "55";
+        el.style.color = "#ffffff";
+        el.style.boxShadow = "inset 0 0 0 2px " + col;
+      });
+    });
+  }
+
+  // ============ SELECTION LOGIC ============
+  function lineCells(a, b) {
+    var r0 = rOf(a), c0 = cOf(a);
+    var r1 = rOf(b), c1 = cOf(b);
+    var dr = r1 === r0 ? 0 : (r1 > r0 ? 1 : -1);
+    var dc = c1 === c0 ? 0 : (c1 > c0 ? 1 : -1);
+    if (!(r0 === r1 || c0 === c1 || Math.abs(r1 - r0) === Math.abs(c1 - c0))) return null;
+    var len = Math.max(Math.abs(r1 - r0), Math.abs(c1 - c0));
+    var out = [];
+    for (var i = 0; i <= len; i++) out.push((r0 + dr * i) * size + (c0 + dc * i));
+    return out;
+  }
+
+  function clearSelClasses() {
+    for (var i = 0; i < selPath.length; i++) {
+      cellEls[selPath[i]].classList.remove("sel");
+    }
+  }
+
+  function paintSel(path) {
+    for (var i = 0; i < path.length; i++) {
+      cellEls[path[i]].classList.add("sel");
+    }
+  }
+
+  function idxFromPoint(x, y) {
+    var el = document.elementFromPoint(x, y);
+    if (!el) return -1;
+    if (el.classList && el.classList.contains("cell")) return parseInt(el.dataset.i, 10);
+    return -1;
+  }
+
+  function onDown(e) {
+    if (solved) return;
+    if (e.button !== undefined && e.button !== 0 && e.pointerType === "mouse") return;
+    var idx = idxFromPoint(e.clientX, e.clientY);
+    if (idx < 0) return;
+    selecting = true;
+    startIdx = idx;
+    clearSelClasses();
+    selPath = [idx];
+    paintSel(selPath);
+    beep(500, 0.03, "sine");
+    if (e.pointerId !== undefined && boardEl.setPointerCapture) {
+      try { boardEl.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+    e.preventDefault();
+  }
+
+  function onMove(e) {
+    if (!selecting) return;
+    var idx = idxFromPoint(e.clientX, e.clientY);
+    if (idx < 0) return;
+    var path = lineCells(startIdx, idx);
+    if (!path) return;
+    clearSelClasses();
+    selPath = path;
+    paintSel(selPath);
+    e.preventDefault();
+  }
+
+  function onUp(e) {
+    if (!selecting) return;
+    selecting = false;
+    finalizeSelection();
+  }
+
+  function reverseStr(s) {
+    return s.split("").reverse().join("");
+  }
+
+  function finalizeSelection() {
+    if (!selPath.length) return;
+    var letters = "";
+    for (var i = 0; i < selPath.length; i++) letters += grid[selPath[i]];
+    var rev = reverseStr(letters);
+
+    var match = null;
+    for (var w = 0; w < placedWords.length; w++) {
+      var word = placedWords[w].word;
+      if (!foundWords[word] && (word === letters || word === rev)) { match = word; break; }
+    }
+
+    if (match) {
+      markFound(match, selPath);
+    } else {
+      // invalid attempt: flash red, small penalty
+      var path = selPath.slice();
+      path.forEach(function (ix) { cellEls[ix].classList.add("flashbad"); });
+      beep(180, 0.14, "sawtooth");
+      setTimeout(function () {
+        path.forEach(function (ix) { cellEls[ix].classList.remove("flashbad"); });
+      }, 260);
+      clearSelClasses();
+      selPath = [];
+      if (score > 0) score = Math.max(0, score - 5);
+      document.getElementById("statScore").textContent = score;
+    }
+  }
+
+  function markFound(word, path) {
+    var col = COLORS[colorCounter % COLORS.length];
+    colorCounter++;
+    cellColor[word] = col;
+    foundWords[word] = true;
+    foundCount++;
+
+    // canonical cells belong to the placed entry
+    placedWords.forEach(function (p) {
+      if (p.word === word) p.cells.forEach(function (ix) { foundCells[ix] = true; });
+    });
+
+    clearSelClasses();
+    selPath = [];
+    refreshFoundStyles();
+
+    // strike-through chip
+    var chip = wordlistEl.querySelector('.word[data-word="' + word + '"]');
+    if (chip) chip.classList.add("done");
+
+    score += word.length * 10;
+    document.getElementById("statScore").textContent = score;
+    document.getElementById("statFound").textContent = foundCount + "/" + placedWords.length;
+
+    beep(720, 0.07, "square");
+    setTimeout(function () { beep(980, 0.09, "square"); }, 80);
+
+    saveProgress();
+    if (foundCount >= placedWords.length) win();
+  }
+
+  // ============ WIN ============
+  function win() {
+    solved = true;
+    running = false;
+    stopTimer();
+
+    beep(660, 0.1, "square");
+    setTimeout(function () { beep(880, 0.12, "square"); }, 110);
+    setTimeout(function () { beep(1180, 0.2, "square"); }, 240);
+
+    var timeBonus = Math.max(0, 600 - Math.floor(elapsed / 1000) * 3);
+    score += timeBonus;
+    document.getElementById("statScore").textContent = score;
+
+    var bestMap = loadBest();
+    var prev = bestMap[difficulty] || 0;
+    var isBest = prev === 0 || score > prev;
+    if (isBest) { bestMap[difficulty] = score; saveBest(bestMap); }
+    updateBestTag();
+
+    document.getElementById("ovSub").textContent = theme + " \u00b7 " + DIFFICULTY[difficulty].label;
+    document.getElementById("ovDetail").textContent =
+      "Score " + score + "  \u00b7  Time " + fmtTime(elapsed) + "  \u00b7  Words " + placedWords.length;
+    document.getElementById("ovBest").textContent =
+      isBest ? "\u2605 New best score!" : "Best: " + bestMap[difficulty];
+    overlay.classList.remove("hidden");
+
+    clearSave();
+  }
+
+  // ============ TIMER ============
+  function startTimer() {
+    if (timerId) return;
+    startTime = performance.now();
+    timerId = setInterval(tick, 250);
+    running = true;
+  }
+  function tick() {
+    if (running) {
+      var now = performance.now();
+      elapsed += now - startTime;
+      startTime = now;
+      document.getElementById("statTime").textContent = fmtTime(elapsed);
+    }
+  }
+  function stopTimer() {
+    if (timerId) { clearInterval(timerId); timerId = null; }
+  }
+
+  // ============ PERSISTENCE ============
+  function saveProgress() {
+    if (solved) return;
+    try {
+      var payload = {
+        theme: theme,
+        difficulty: difficulty,
+        size: size,
+        grid: grid.join(""),
+        words: placedWords,
+        found: Object.keys(foundWords),
+        foundCells: Object.keys(foundCells),
+        cellColor: cellColor,
+        colorCounter: colorCounter,
+        score: score,
+        elapsed: elapsed
+      };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+    } catch (e) {}
+  }
+  function clearSave() {
+    try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+  }
+  function loadSave() {
+    try {
+      var raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return null;
+      var data = JSON.parse(raw);
+      if (!data || data.theme !== theme || data.difficulty !== difficulty) return null;
+      if (!data.grid || !data.words || !data.words.length) return null;
+      return data;
+    } catch (e) { return null; }
+  }
+  function applySave(data) {
+    size = data.size;
+    grid = data.grid.split("");
+    placedWords = data.words;
+    foundWords = {};
+    foundCells = {};
+    (data.found || []).forEach(function (w) { foundWords[w] = true; });
+    (data.foundCells || []).forEach(function (ix) { foundCells[ix] = true; });
+    cellColor = data.cellColor || {};
+    colorCounter = data.colorCounter || 0;
+    score = data.score || 0;
+    elapsed = data.elapsed || 0;
+    foundCount = Object.keys(foundWords).length;
+    solved = false;
+
+    buildBoard();
+    buildWordList();
+    refreshFoundStyles();
+    wordlistEl.querySelectorAll(".word").forEach(function (c) {
+      if (foundWords[c.dataset.word]) c.classList.add("done");
+    });
+    document.getElementById("statTheme").textContent = theme;
+    document.getElementById("statFound").textContent = foundCount + "/" + placedWords.length;
+    document.getElementById("statScore").textContent = score;
+    document.getElementById("statTime").textContent = fmtTime(elapsed);
+    overlay.classList.add("hidden");
+    startTimer();
+  }
+
+  // ============ BEST SCORES ============
+  function loadBest() {
+    try { return JSON.parse(localStorage.getItem(BEST_KEY)) || {}; }
+    catch (e) { return {}; }
+  }
+  function saveBest(m) {
+    try { localStorage.setItem(BEST_KEY, JSON.stringify(m)); } catch (e) {}
+  }
+  function updateBestTag() {
+    var m = loadBest();
+    var parts = [];
+    DIFF_KEYS.forEach(function (d) {
+      if (m[d]) parts.push(DIFFICULTY[d].label + " " + m[d]);
+    });
+    document.getElementById("bestTag").innerHTML = parts.length
+      ? "Best<br><b>" + parts.join(" &middot; ") + "</b>"
+      : "";
+  }
+
+  // ============ NEW GAME ============
+  function newGame() {
+    stopTimer();
+    clearSave();
+    overlay.classList.add("hidden");
+
+    buildPuzzle();
+    foundWords = {};
+    foundCells = {};
+    cellColor = {};
+    colorCounter = 0;
+    foundCount = 0;
+    score = 0;
+    elapsed = 0;
+    solved = false;
+    selecting = false;
+    startIdx = -1;
+    selPath = [];
+
+    buildBoard();
+    buildWordList();
+    document.getElementById("statTheme").textContent = theme;
+    document.getElementById("statFound").textContent = "0/" + placedWords.length;
+    document.getElementById("statScore").textContent = "0";
+    document.getElementById("statTime").textContent = "00:00";
+
+    saveProgress();
+    startTimer();
+  }
+
+  // ============ PICKERS ============
+  function buildPickers() {
+    var themeChips = document.getElementById("themeChips");
+    themeChips.innerHTML = "";
+    THEME_KEYS.forEach(function (t) {
+      var b = document.createElement("button");
+      b.className = "chip" + (t === theme ? " active" : "");
+      b.textContent = t;
+      b.dataset.theme = t;
+      b.addEventListener("click", function () {
+        if (t === theme) return;
+        theme = t;
+        localStorage.setItem("wordSearchTheme", theme);
+        syncPickers();
+        beep(600, 0.05, "sine");
+        newGame();
+      });
+      themeChips.appendChild(b);
+    });
+
+    var diffChips = document.getElementById("diffChips");
+    diffChips.innerHTML = "";
+    DIFF_KEYS.forEach(function (d) {
+      var b = document.createElement("button");
+      b.className = "chip" + (d === difficulty ? " active" : "");
+      b.textContent = DIFFICULTY[d].label;
+      b.dataset.diff = d;
+      b.addEventListener("click", function () {
+        if (d === difficulty) return;
+        difficulty = d;
+        localStorage.setItem("wordSearchDiff", difficulty);
+        syncPickers();
+        beep(600, 0.05, "sine");
+        newGame();
+      });
+      diffChips.appendChild(b);
+    });
+  }
+  function syncPickers() {
+    document.querySelectorAll("#themeChips .chip").forEach(function (b) {
+      b.classList.toggle("active", b.dataset.theme === theme);
+    });
+    document.querySelectorAll("#diffChips .chip").forEach(function (b) {
+      b.classList.toggle("active", b.dataset.diff === difficulty);
+    });
+  }
+
+  // ============ INPUT EVENTS ============
+  boardEl.addEventListener("pointerdown", onDown);
+  boardEl.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
+  window.addEventListener("pointercancel", function () { selecting = false; clearSelClasses(); selPath = []; });
+  boardEl.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+  document.getElementById("btnNew").addEventListener("click", newGame);
+  document.getElementById("ovNew").addEventListener("click", newGame);
+
+  window.addEventListener("keydown", function (e) {
+    if (e.key === "n" || e.key === "N") { e.preventDefault(); newGame(); }
+  });
+
+  // reconnect audio on first interaction (mobile autoplay policies)
+  window.addEventListener("pointerdown", function onceAudio() {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+    } catch (e) {}
+    window.removeEventListener("pointerdown", onceAudio);
+  });
+
+  // ============ INITIALIZATION ============
+  buildPickers();
+  syncPickers();
+  updateBestTag();
+
+  var saved = loadSave();
+  if (saved) {
+    applySave(saved);
+  } else {
+    newGame();
+  }
+})();
+</script>
+</body>
+</html>

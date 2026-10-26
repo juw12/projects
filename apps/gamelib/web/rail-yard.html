@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Rail Yard</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: #10161d;
+    background-image:
+      radial-gradient(1200px 600px at 50% -10%, #23313f 0%, #10161d 60%),
+      repeating-linear-gradient(45deg, rgba(255,255,255,.012) 0 12px, transparent 12px 24px);
+    color: #e6edf3;
+    font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 14px;
+    touch-action: manipulation;
+  }
+  #app { width: min(100%, 980px); display: flex; flex-direction: column; gap: 12px; }
+
+  /* ============ TOP BAR ============ */
+  #topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .logo { font-size: 34px; filter: drop-shadow(0 2px 4px rgba(0,0,0,.5)); }
+  .brand h1 { font-size: 1.45rem; letter-spacing: 3px; color: #f2b34b; text-shadow: 0 2px 0 rgba(0,0,0,.35); }
+  .brand p { font-size: .72rem; color: #8fa3b0; letter-spacing: .4px; }
+  .stats { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    font-family: "Courier New", monospace; font-size: .8rem;
+    background: #1b242e; border: 1px solid #2c3a47; border-radius: 999px;
+    padding: 5px 11px; color: #b9c8d4; white-space: nowrap;
+  }
+  .chip b { color: #e6edf3; }
+  .chip.money { border-color: #4a5f2a; background: #1e2618; }
+  .chip.money b { color: #9ede5b; }
+
+  /* ============ STAGE / CANVAS ============ */
+  #stage {
+    position: relative; border-radius: 12px; overflow: hidden;
+    border: 3px solid #2c3a47;
+    box-shadow: 0 14px 40px rgba(0,0,0,.5), inset 0 0 40px rgba(0,0,0,.25);
+    background: #e7d9b8;
+  }
+  canvas { display: block; width: 100%; height: auto; touch-action: none; cursor: crosshair; }
+
+  /* ============ TOAST ============ */
+  .toast {
+    position: absolute; left: 50%; bottom: 14px; transform: translate(-50%, 12px);
+    background: rgba(16,22,29,.92); border: 1px solid #3a4b5a; color: #f2b34b;
+    font-family: "Courier New", monospace; font-size: .85rem; padding: 7px 16px;
+    border-radius: 8px; opacity: 0; pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+    white-space: nowrap; max-width: 94%; overflow: hidden; text-overflow: ellipsis;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  /* ============ TOOLBAR ============ */
+  #tools { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tool {
+    font-family: inherit; font-size: .82rem; color: #cfe0ec; background: #1b242e;
+    border: 1px solid #2c3a47; border-radius: 10px; padding: 8px 12px; cursor: pointer;
+    display: flex; align-items: center; gap: 7px; transition: all .12s ease;
+    user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  .tool .ic { font-size: 1rem; }
+  .tool .cost { font-family: "Courier New", monospace; font-size: .72rem; color: #7f93a2; }
+  .tool:hover { background: #24313d; border-color: #3c4d5c; }
+  .tool.active { background: #f2b34b; border-color: #f2b34b; color: #21170a; }
+  .tool.active .cost { color: #5b4718; }
+
+  /* ============ ACTIONS ============ */
+  #actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .act {
+    font-family: inherit; font-size: .85rem; font-weight: bold; letter-spacing: .5px;
+    color: #10161d; background: #7fc94f; border: none; border-radius: 10px;
+    padding: 9px 16px; cursor: pointer; box-shadow: 0 3px 0 rgba(0,0,0,.35);
+    transition: transform .05s ease, background .12s ease;
+    user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  .act:hover { background: #93d963; }
+  .act:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.35); }
+  .act.alt { background: #4a90d9; color: #06121d; }
+  .act.alt:hover { background: #61a4e8; }
+  .act.warn { background: #c0562b; color: #fff; }
+  .act.warn:hover { background: #d66536; }
+  .act.armed { background: #ffd23f; color: #2a1c00; }
+
+  /* ============ OBJECTIVES ============ */
+  #goals {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 8px; background: #151d25; border: 1px solid #232f3a;
+    border-radius: 12px; padding: 12px;
+  }
+  .goal { display: flex; flex-direction: column; gap: 5px; }
+  .goal-top { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+  .goal-top .gt { font-size: .76rem; color: #a9bcc9; }
+  .goal-top .gv { font-family: "Courier New", monospace; font-size: .74rem; color: #7f93a2; }
+  .goal.done .gt, .goal.done .gv { color: #9ede5b; }
+  .bar { height: 6px; border-radius: 4px; background: #263440; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg,#f2b34b,#9ede5b); transition: width .3s ease; }
+  .goal.done .bar i { background: #9ede5b; }
+
+  #hint { font-size: .74rem; color: #6f8492; line-height: 1.55; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 640px) {
+    .brand h1 { font-size: 1.1rem; letter-spacing: 2px; }
+    .brand p { display: none; }
+    .tool { font-size: .74rem; padding: 7px 9px; }
+    .tool .cost { display: none; }
+    #goals { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="topbar">
+    <div class="brand">
+      <span class="logo">&#128642;</span>
+      <div>
+        <h1>RAIL YARD</h1>
+        <p>Lay track &middot; run trains &middot; deliver passengers &amp; cargo</p>
+      </div>
+    </div>
+    <div class="stats" id="stats">
+      <span class="chip money">&#128176; <b id="sMoney">0</b></span>
+      <span class="chip">&#128230; <b id="sDelivered">0</b></span>
+      <span class="chip">&#128642; <b id="sTrains">0</b></span>
+      <span class="chip">&#127963; <b id="sStations">0</b></span>
+      <span class="chip">&#9989; <b id="sGoals">0/5</b></span>
+    </div>
+  </header>
+
+  <div id="stage">
+    <canvas id="game"></canvas>
+    <div id="toast" class="toast"></div>
+  </div>
+
+  <div id="tools">
+    <button class="tool active" data-tool="select"><span class="ic">&#128270;</span>Select<span class="cost">flip</span></button>
+    <button class="tool" data-tool="straight"><span class="ic">&#10134;</span>Straight<span class="cost">$20</span></button>
+    <button class="tool" data-tool="curve"><span class="ic">&#8617;</span>Curve<span class="cost">$25</span></button>
+    <button class="tool" data-tool="switch"><span class="ic">&#128256;</span>Switch<span class="cost">$70</span></button>
+    <button class="tool" data-tool="bridge"><span class="ic">&#127753;</span>Bridge<span class="cost">$90</span></button>
+    <button class="tool" data-tool="station"><span class="ic">&#127963;</span>Station<span class="cost">$250</span></button>
+    <button class="tool" data-tool="signal"><span class="ic">&#128678;</span>Signal<span class="cost">$45</span></button>
+    <button class="tool" data-tool="erase"><span class="ic">&#129533;</span>Erase<span class="cost">+50%</span></button>
+  </div>
+
+  <div id="actions">
+    <button class="act alt" id="btnRotate">&#8635; Rotate (R)</button>
+    <button class="act" id="btnTrain">&#128642; Deploy Train &middot; $350</button>
+    <button class="act alt" id="btnPause">&#9208; Pause</button>
+    <button class="act alt" id="btnSave">&#128190; Save</button>
+    <button class="act warn" id="btnReset">&#128465; Reset</button>
+  </div>
+
+  <div id="goals"></div>
+
+  <p id="hint">
+    Click the yard to build with the selected tool. Right-click = erase. Press <b>R</b> to rotate,
+    <b>1&ndash;8</b> to pick tools, <b>Space</b> to pause. Trains follow the rails automatically:
+    they load at stations and unload at the destination station for money. Click a <b>switch</b>
+    to flip its route, a <b>signal</b> to toggle red/green. Progress saves automatically.
+  </p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONFIG ============
+  var COLS = 14, ROWS = 9, CELL = 64;
+  var W = COLS * CELL, H = ROWS * CELL;
+
+  var TRAIN_SPEED = 86;      // px per second
+  var TRAIN_COST = 350;
+  var TRAIN_CAP = 3;
+  var START_MONEY = 1000;
+  var SAVE_KEY = "railYardSave.v1";
+
+  // Direction indices: 0=N 1=E 2=S 3=W
+  var VEC = [ { x: 0, y: -1 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 } ];
+
+  // Piece catalogue (base ports are canonical; rotation applied at runtime)
+  var PIECES = {
+    straight: { name: "Straight", cost: 20,  group: "track" },
+    curve:    { name: "Curve",    cost: 25,  group: "track" },
+    switch:   { name: "Switch",   cost: 70,  group: "track" },
+    bridge:   { name: "Bridge",   cost: 90,  group: "track" },
+    station:  { name: "Station",  cost: 250, group: "build" },
+    signal:   { name: "Signal",   cost: 45,  group: "build" }
+  };
+  var TRAIN_COLORS = ["#e0533d", "#3d7bd6", "#43a047", "#ef8f2a", "#9c4dd6", "#2fb5b0"];
+
+  // ============ STATE ============
+  var money, totalEarned, nextTrainId, tool, rot, paused, hover, dirty;
+  var stats, tiles, trains, goalDone, yardMaster;
+
+  function freshState() {
+    money = START_MONEY;
+    totalEarned = 0;
+    nextTrainId = 1;
+    tool = "select";
+    rot = 0;
+    paused = false;
+    hover = null;
+    dirty = false;
+    stats = { placed: 0, delivered: 0 };
+    tiles = new Map();
+    trains = [];
+    goalDone = {};
+    yardMaster = false;
+  }
+
+  var OBJECTIVES = [
+    { id: "track",    text: "Lay 20 track pieces",   goal: 20,   get: function () { return stats.placed; } },
+    { id: "stations", text: "Place 2 stations",      goal: 2,    get: function () { return stationTiles().length; } },
+    { id: "trains",   text: "Have 2 trains running", goal: 2,    get: function () { return trains.length; } },
+    { id: "deliver",  text: "Deliver 12 loads",      goal: 12,   get: function () { return stats.delivered; } },
+    { id: "earn",     text: "Earn $2000 total",      goal: 2000, get: function () { return totalEarned; } }
+  ];
+
+  // ============ DOM ============
+  var canvas = document.getElementById("game");
+  var ctx = canvas.getContext("2d");
+  var toastEl = document.getElementById("toast");
+  var goalsEl = document.getElementById("goals");
+  var btnRotate = document.getElementById("btnRotate");
+  var btnTrain = document.getElementById("btnTrain");
+  var btnPause = document.getElementById("btnPause");
+  var btnSave = document.getElementById("btnSave");
+  var btnReset = document.getElementById("btnReset");
+  var toolButtons = Array.prototype.slice.call(document.querySelectorAll(".tool"));
+  var hud = {
+    money: document.getElementById("sMoney"),
+    delivered: document.getElementById("sDelivered"),
+    trains: document.getElementById("sTrains"),
+    stations: document.getElementById("sStations"),
+    goals: document.getElementById("sGoals")
+  };
+
+  // ============ SOUND (WebAudio, no assets) ============
+  var actx = null;
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = actx.createOscillator();
+      var g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(vol == null ? 0.05 : vol, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  // ============ GRID / TILE HELPERS ============
+  function key(c, r) { return c + "," + r; }
+  function inBounds(c, r) { return c >= 0 && c < COLS && r >= 0 && r < ROWS; }
+  function getTile(c, r) { return tiles.get(key(c, r)) || null; }
+  function setTile(t) { tiles.set(key(t.c, t.r), t); }
+  function delTile(c, r) { tiles.delete(key(c, r)); }
+  function tileKeyOf(t) { return key(t.c, t.r); }
+  function rotD(i, times) { return (i + (times || 0)) % 4; }
+  function oppDir(i) { return (i + 2) % 4; }
+  function centerOf(c, r) { return { x: (c + 0.5) * CELL, y: (r + 0.5) * CELL }; }
+  function edgeMid(c, r, d) {
+    return { x: (c + 0.5) * CELL + VEC[d].x * CELL / 2, y: (r + 0.5) * CELL + VEC[d].y * CELL / 2 };
+  }
+  function stationTiles() {
+    var out = [];
+    tiles.forEach(function (t) { if (t.type === "station") out.push(t); });
+    return out;
+  }
+
+  // ============ TRACK MATH ============
+  function switchPorts(t) {
+    return { point: rotD(3, t.rot), a: rotD(1, t.rot), b: rotD(0, t.rot) };
+  }
+  // A tile's "routes" are pairs of connected ports.
+  function routesFor(t) {
+    if (t.type === "bridge") {
+      return [[rotD(1, t.rot), rotD(3, t.rot)], [rotD(0, t.rot), rotD(2, t.rot)]];
+    }
+    if (t.type === "switch") {
+      var s = switchPorts(t);
+      return [[s.point, s.a], [s.point, s.b]];
+    }
+    if (t.type === "curve") return [[rotD(1, t.rot), rotD(2, t.rot)]];
+    return [[rotD(1, t.rot), rotD(3, t.rot)]];  // straight / station / signal
+  }
+  function tilePorts(t) {
+    var s = new Set();
+    routesFor(t).forEach(function (p) { s.add(p[0]); s.add(p[1]); });
+    return s;
+  }
+  function computeExit(t, entry) {
+    if (!t) return null;
+    if (t.type === "switch") {
+      var sw = switchPorts(t);
+      if (entry === sw.point) return t.state ? sw.b : sw.a;
+      if (entry === sw.a || entry === sw.b) return sw.point;
+      return null;
+    }
+    if (t.type === "bridge") return oppDir(entry);
+    var routes = routesFor(t);
+    for (var i = 0; i < routes.length; i++) {
+      var a = routes[i][0], b = routes[i][1];
+      if (a === entry) return b;
+      if (b === entry) return a;
+    }
+    return null;
+  }
+  function bez(p0, p1, p2, t) {
+    var mt = 1 - t;
+    return { x: mt * mt * p0.x + 2 * mt * t * p1.x + t * t * p2.x,
+             y: mt * mt * p0.y + 2 * mt * t * p1.y + t * t * p2.y };
+  }
+  function bezTan(p0, p1, p2, t) {
+    var mt = 1 - t;
+    return { x: 2 * mt * (p1.x - p0.x) + 2 * t * (p2.x - p1.x),
+             y: 2 * mt * (p1.y - p0.y) + 2 * t * (p2.y - p1.y) };
+  }
+  function manhattan(a, b) { return Math.abs(a.c - b.c) + Math.abs(a.r - b.r); }
+
+  // ============ STATION SIM ============
+  function updateStations(dt) {
+    var stations = stationTiles();
+    for (var i = 0; i < stations.length; i++) {
+      var st = stations[i];
+      st.orders = st.orders || [];
+      if (st.orderTimer == null) st.orderTimer = 2 + Math.random() * 3;
+      st.orderTimer -= dt;
+      if (st.orderTimer <= 0) {
+        st.orderTimer = 3.5 + Math.random() * 3.5;
+        if (st.orders.length < 6 && stations.length > 1) {
+          var others = stations.filter(function (o) { return o !== st; });
+          var dest = others[(Math.random() * others.length) | 0];
+          st.orders.push({
+            dest: tileKeyOf(dest),
+            kind: Math.random() < 0.5 ? "pax" : "cargo",
+            fare: 25 + manhattan(st, dest) * 6
+          });
+        }
+      }
+    }
+  }
+
+  function serviceStation(train, tile) {
+    var here = tileKeyOf(tile);
+    var keys = new Set(stationTiles().map(tileKeyOf));
+    var earned = 0, delivered = 0;
+    train.cars = train.cars.filter(function (car) {
+      if (!keys.has(car.dest)) return false;                       // destination vanished -> lost
+      if (car.dest === here) { earned += car.fare; delivered++; return false; }
+      return true;
+    });
+    if (delivered > 0) {
+      money += earned; totalEarned += earned; stats.delivered += delivered;
+      beep(780, 0.12, "sine", 0.06);
+      toast("\uD83D\uDCE6 +$" + earned + "  (" + delivered + " delivered)");
+      dirty = true;
+    }
+    tile.orders = tile.orders || [];
+    while (train.cars.length < train.capacity && tile.orders.length) {
+      var o = tile.orders.shift();
+      if (o.dest === here) continue;
+      train.cars.push(o);
+    }
+    train.holdTimer = 1.1;
+    dirty = true;
+  }
+
+  // ============ TRAIN SIM ============
+  function makeTrain(cell, entry) {
+    var tr = {
+      id: nextTrainId++,
+      cell: { c: cell.c, r: cell.r },
+      entry: entry,
+      t: 0,
+      speed: TRAIN_SPEED,
+      color: TRAIN_COLORS[nextTrainId % TRAIN_COLORS.length],
+      cars: [],
+      capacity: TRAIN_CAP,
+      holdTimer: 0,
+      waiting: false,
+      trail: []
+    };
+    var p = trainPose(tr).pos;
+    for (var i = 0; i < 48; i++) tr.trail.push({ x: p.x, y: p.y });
+    return tr;
+  }
+
+  function trainPose(tr) {
+    var tile = getTile(tr.cell.c, tr.cell.r);
+    var exit = tile ? computeExit(tile, tr.entry) : null;
+    var p0 = edgeMid(tr.cell.c, tr.cell.r, tr.entry);
+    var p1 = centerOf(tr.cell.c, tr.cell.r);
+    var p2 = exit != null ? edgeMid(tr.cell.c, tr.cell.r, exit) : p0;
+    var tt = Math.max(0, Math.min(1, tr.t));
+    var pos = bez(p0, p1, p2, tt);
+    var d = bezTan(p0, p1, p2, tt);
+    var ang = Math.atan2(d.y, d.x);
+    if (!isFinite(ang) || (d.x === 0 && d.y === 0)) ang = 0;
+    return { pos: pos, ang: ang, exit: exit };
+  }
+
+  function occupiedByOther(c, r, self) {
+    for (var i = 0; i < trains.length; i++) {
+      var tr = trains[i];
+      if (tr === self) continue;
+      if (tr.cell.c === c && tr.cell.r === r) return true;
+    }
+    return false;
+  }
+
+  function updateTrain(tr, dt) {
+    if (tr.holdTimer > 0) { tr.holdTimer -= dt; tr.waiting = true; return; }
+
+    var tile = getTile(tr.cell.c, tr.cell.r);
+    if (!tile) { tr.waiting = true; return; }
+    if (tile.type === "signal" && tile.state === 1) { tr.waiting = true; return; }
+
+    var exit = computeExit(tile, tr.entry);
+    if (exit == null) {
+      var ports = Array.from(tilePorts(tile));               // re-rail if tile changed underneath
+      if (ports.length) { tr.entry = ports[0]; exit = computeExit(tile, tr.entry); }
+      if (exit == null) { tr.waiting = true; return; }
+    }
+
+    tr.waiting = false;
+    tr.t += tr.speed * dt / CELL;
+
+    if (tr.t >= 1) {
+      var nc = tr.cell.c + VEC[exit].x, nr = tr.cell.r + VEC[exit].y;
+      var ntile = getTile(nc, nr);
+      var entryPort = oppDir(exit);
+      var valid = ntile && tilePorts(ntile).has(entryPort);
+      var busy = occupiedByOther(nc, nr, tr);
+      if (valid && !busy) {
+        tr.cell = { c: nc, r: nr };
+        tr.entry = entryPort;
+        tr.t -= 1;
+        if (tr.t < 0) tr.t = 0;
+        if (ntile.type === "station") serviceStation(tr, ntile);
+      } else {
+        tr.t = 1;
+        tr.waiting = true;
+      }
+    }
+
+    var pose = trainPose(tr);                                // trail feeds the wagons behind
+    tr.trail.push({ x: pose.pos.x, y: pose.pos.y });
+    while (tr.trail.length > 64) tr.trail.shift();
+  }
+
+  function deployTrain() {
+    if (money < TRAIN_COST) { toast("Not enough money for a train"); beep(170, 0.2, "sawtooth", 0.05); return; }
+    var cell = null;
+    tiles.forEach(function (t) {
+      if (cell) return;
+      if (t.type === "station" || t.type === "signal") return;
+      if (occupiedByOther(t.c, t.r, null)) return;
+      cell = { c: t.c, r: t.r };
+    });
+    if (!cell) { toast("No free track to place a train"); beep(170, 0.2, "sawtooth", 0.05); return; }
+    money -= TRAIN_COST;
+    var tile = getTile(cell.c, cell.r);
+    var opts = [];
+    routesFor(tile).forEach(function (p) { opts.push(p[0], p[1]); });
+
+    // Launch the new train heading the SAME way as existing traffic so single-track
+    // loops queue instead of meeting head-on (which would deadlock the yard).
+    var refX = 0, refY = 0, hasRef = false;
+    if (trains.length > 0) {
+      var t0 = trains[0];
+      var tt = getTile(t0.cell.c, t0.cell.r);
+      var ex0 = tt ? computeExit(tt, t0.entry) : null;
+      if (ex0 != null) { refX = VEC[ex0].x; refY = VEC[ex0].y; hasRef = true; }
+    }
+    var entry = opts[0], bestScore = -Infinity;
+    for (var i = 0; i < opts.length; i++) {
+      var x = computeExit(tile, opts[i]);
+      if (x == null) continue;
+      if (!getTile(cell.c + VEC[x].x, cell.r + VEC[x].y)) continue;
+      var score = hasRef ? (VEC[x].x * refX + VEC[x].y * refY) : 1;
+      if (score > bestScore) { bestScore = score; entry = opts[i]; }
+    }
+    trains.push(makeTrain(cell, entry));
+    beep(520, 0.12, "triangle", 0.06);
+    toast("\uD83D\uDE82 Train deployed");
+    dirty = true;
+    updateHud(true);
+    updateGoals();
+  }
+
+  // ============ BUILD / ERASE ============
+  function costOf(type) { return PIECES[type].cost; }
+
+  function placeAt(c, r) {
+    if (!inBounds(c, r)) return;
+    if (tool === "select") {
+      var t = getTile(c, r);
+      if (t && (t.type === "switch" || t.type === "signal")) {
+        t.state = t.state ? 0 : 1;
+        beep(t.state ? 420 : 620, 0.06, "triangle", 0.05);
+        dirty = true;
+      }
+      return;
+    }
+    if (tool === "erase") { eraseAt(c, r); return; }
+
+    var def = PIECES[tool];
+    if (!def) return;
+    if (occupiedByOther(c, r, null)) { toast("Cell occupied by a train"); beep(180, 0.14, "sawtooth", 0.05); return; }
+
+    var existing = getTile(c, r);
+    var refund = existing ? Math.floor(costOf(existing.type) / 2) : 0;
+    if (money + refund < def.cost) { toast("Not enough money ($" + def.cost + ")"); beep(170, 0.18, "sawtooth", 0.05); return; }
+
+    money = money - def.cost + refund;
+    var tile = { c: c, r: r, type: tool, rot: rot, state: 0 };
+    if (tool === "station") { tile.orders = []; tile.orderTimer = 2; }
+    setTile(tile);
+    if (def.group === "track") stats.placed++;
+    beep(500, 0.05, "square", 0.04);
+    dirty = true;
+    updateHud(true);
+    updateGoals();
+  }
+
+  function eraseAt(c, r) {
+    var t = getTile(c, r);
+    if (!t) return;
+    if (occupiedByOther(c, r, null)) { toast("Can't erase under a train"); beep(180, 0.14, "sawtooth", 0.05); return; }
+    money += Math.floor(costOf(t.type) / 2);
+    delTile(c, r);
+    beep(300, 0.06, "triangle", 0.04);
+    dirty = true;
+    updateHud(true);
+  }
+
+  // ============ RENDER ============
+  function rrect(x, y, w, h, r) {
+    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); return; }
+    var rr = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x, y + h, rr);
+    ctx.arcTo(x, y + h, x, y, rr);
+    ctx.arcTo(x, y, x + w, y, rr);
+    ctx.closePath();
+  }
+
+  function strokePolyline(pts, w, color) {
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.strokeStyle = color; ctx.lineWidth = w; ctx.stroke();
+  }
+
+  function strokeRailLine(pts, offset, width, color) {
+    ctx.beginPath();
+    for (var i = 0; i < pts.length; i++) {
+      var p = pts[i], a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+      var dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+      var nx = -dy, ny = dx;
+      var ox = p.x + nx * offset, oy = p.y + ny * offset;
+      if (i === 0) ctx.moveTo(ox, oy); else ctx.lineTo(ox, oy);
+    }
+    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke();
+  }
+
+  function drawRoute(ax, ay, cx, cy, bx, by) {
+    var N = 14, pts = [];
+    for (var i = 0; i <= N; i++) {
+      var t = i / N, mt = 1 - t;
+      pts.push({ x: mt * mt * ax + 2 * mt * t * cx + t * t * bx,
+                 y: mt * mt * ay + 2 * mt * t * cy + t * t * by });
+    }
+    ctx.lineJoin = "round"; ctx.lineCap = "round";
+    strokePolyline(pts, 16, "#9c8a68");
+    strokePolyline(pts, 13, "#867357");
+
+    ctx.strokeStyle = "#6b4f35"; ctx.lineWidth = 4;
+    for (var s = 1; s < N; s += 2) {
+      var p = pts[s], a = pts[s - 1], b = pts[s + 1];
+      var dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+      var nx = -dy, ny = dx;
+      ctx.beginPath();
+      ctx.moveTo(p.x - nx * 7.5, p.y - ny * 7.5);
+      ctx.lineTo(p.x + nx * 7.5, p.y + ny * 7.5);
+      ctx.stroke();
+    }
+
+    strokeRailLine(pts, 4.2, 2.6, "#cfd8e2");
+    strokeRailLine(pts, -4.2, 2.6, "#cfd8e2");
+    strokeRailLine(pts, 4.2, 0.9, "#7d8894");
+    strokeRailLine(pts, -4.2, 0.9, "#7d8894");
+  }
+
+  function drawTile(t) {
+    var c = centerOf(t.c, t.r);
+    if (t.type === "bridge") {
+      var r0 = routesFor(t);
+      var a0 = edgeMid(t.c, t.r, r0[0][0]), b0 = edgeMid(t.c, t.r, r0[0][1]);
+      drawRoute(a0.x, a0.y, c.x, c.y, b0.x, b0.y);
+      ctx.fillStyle = "#6f5d42";                       // deck over the lower lane
+      rrect(c.x - 12, c.y - 10, 24, 20, 4); ctx.fill();
+      var a1 = edgeMid(t.c, t.r, r0[1][0]), b1 = edgeMid(t.c, t.r, r0[1][1]);
+      drawRoute(a1.x, a1.y, c.x, c.y, b1.x, b1.y);
+      return;
+    }
+    var routes = routesFor(t);
+    for (var i = 0; i < routes.length; i++) {
+      var a = edgeMid(t.c, t.r, routes[i][0]);
+      var b = edgeMid(t.c, t.r, routes[i][1]);
+      drawRoute(a.x, a.y, c.x, c.y, b.x, b.y);
+    }
+    if (t.type === "switch") {
+      var sw = switchPorts(t);
+      var e = edgeMid(t.c, t.r, t.state ? sw.b : sw.a);
+      var dx = e.x - c.x, dy = e.y - c.y, l = Math.hypot(dx, dy) || 1;
+      ctx.fillStyle = t.state ? "#ffd23f" : "#59d0ff";
+      ctx.beginPath(); ctx.arc(c.x + dx / l * 20, c.y + dy / l * 20, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,.4)"; ctx.lineWidth = 1.4; ctx.stroke();
+    }
+    if (t.type === "signal") {
+      var isH = (t.rot % 2) === 0;
+      var px = isH ? c.x : c.x + 15, py = isH ? c.y - 15 : c.y;
+      ctx.strokeStyle = "#3c4650"; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(px, py + 12); ctx.lineTo(px, py - 6); ctx.stroke();
+      ctx.fillStyle = t.state === 1 ? "#ff3b30" : "#33d15a";
+      ctx.beginPath(); ctx.arc(px, py - 10, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,.45)"; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,.35)";
+      ctx.beginPath(); ctx.arc(px - 1.6, py - 11.6, 1.8, 0, Math.PI * 2); ctx.fill();
+    }
+    if (t.type === "station") {
+      var h = (t.rot % 2) === 0;
+      ctx.fillStyle = "#cfc7b4";
+      if (h) { rrect(c.x - 22, c.y - 16, 44, 7, 3); ctx.fill(); }
+      else { rrect(c.x + 15, c.y - 22, 7, 44, 3); ctx.fill(); }
+      var hx = h ? c.x : c.x + 20, hy = h ? c.y - 23 : c.y;
+      ctx.fillStyle = "#c9563c"; rrect(hx - 12, hy - 8, 24, 15, 3); ctx.fill();
+      ctx.strokeStyle = "#7a2f1f"; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = "#8a3a27";
+      ctx.beginPath(); ctx.moveTo(hx - 14, hy - 8); ctx.lineTo(hx, hy - 19); ctx.lineTo(hx + 14, hy - 8); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#ffe9c4";
+      ctx.fillRect(hx - 5, hy - 3, 4, 5); ctx.fillRect(hx + 2, hy - 3, 4, 5);
+      var waiting = (t.orders || []).length;
+      if (waiting > 0) {
+        ctx.fillStyle = "#1b242e"; rrect(c.x - 9, c.y + 11, 18, 12, 5); ctx.fill();
+        ctx.fillStyle = "#ffd23f"; ctx.font = "bold 10px 'Courier New', monospace";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(String(waiting), c.x, c.y + 17.5);
+      }
+    }
+  }
+
+  function drawGround() {
+    ctx.fillStyle = "#e7d9b8";
+    ctx.fillRect(0, 0, W, H);
+    for (var r = 0; r < ROWS; r++) {
+      for (var c = 0; c < COLS; c++) {
+        var h = ((c * 73856093) ^ (r * 19349663)) >>> 0;
+        ctx.fillStyle = (h % 3 === 0) ? "rgba(120,150,80,.10)" : ((h % 3 === 1) ? "rgba(160,120,70,.07)" : "rgba(255,255,255,.05)");
+        ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
+      }
+    }
+    ctx.strokeStyle = "rgba(80,60,30,.14)"; ctx.lineWidth = 1;
+    for (var i = 0; i <= COLS; i++) { ctx.beginPath(); ctx.moveTo(i * CELL, 0); ctx.lineTo(i * CELL, H); ctx.stroke(); }
+    for (var j = 0; j <= ROWS; j++) { ctx.beginPath(); ctx.moveTo(0, j * CELL); ctx.lineTo(W, j * CELL); ctx.stroke(); }
+  }
+
+  function drawLoco(x, y, ang, color) {
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(ang);
+    ctx.fillStyle = "rgba(0,0,0,.22)"; rrect(-15, -7, 31, 20, 6); ctx.fill();
+    ctx.fillStyle = "#1b242e"; rrect(-17, -11, 34, 22, 7); ctx.fill();
+    ctx.fillStyle = color; rrect(-15, -9, 30, 18, 6); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.22)"; rrect(-13, -7, 26, 5, 3); ctx.fill();
+    ctx.fillStyle = "#0f1720"; rrect(6, -6, 8, 12, 3); ctx.fill();
+    ctx.fillStyle = "#bfe4ff"; rrect(7, -4.5, 5, 4, 1.5); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawWagon(x, y, ang, color) {
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(ang);
+    ctx.fillStyle = "#1b242e"; rrect(-11, -9, 22, 18, 5); ctx.fill();
+    ctx.fillStyle = color; rrect(-9, -7, 18, 14, 4); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.18)"; rrect(-7, -5, 14, 4, 2); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawTrain(tr) {
+    var pose = trainPose(tr);
+    var L = tr.trail.length;
+    var offs = [14, 28];
+    for (var i = 0; i < offs.length; i++) {
+      var idx = L - 1 - offs[i];
+      if (idx >= 0 && tr.trail[idx]) drawWagon(tr.trail[idx].x, tr.trail[idx].y, pose.ang, tr.color);
+    }
+    drawLoco(pose.pos.x, pose.pos.y, pose.ang, tr.color);
+    if (tr.cars.length > 0) {
+      ctx.fillStyle = "#1b242e"; rrect(pose.pos.x - 9, pose.pos.y - 28, 18, 13, 5); ctx.fill();
+      ctx.fillStyle = "#ffd23f"; ctx.font = "bold 10px 'Courier New', monospace";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(String(tr.cars.length), pose.pos.x, pose.pos.y - 21.5);
+    }
+    if (tr.waiting && tr.holdTimer <= 0) {
+      ctx.fillStyle = "rgba(255,60,48,.9)";
+      ctx.beginPath(); ctx.arc(pose.pos.x + 14, pose.pos.y - 16, 3, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  function drawTileGhost(t) {
+    var c = centerOf(t.c, t.r);
+    var routes = routesFor(t);
+    ctx.strokeStyle = "rgba(60,70,80,.5)"; ctx.lineWidth = 10; ctx.lineCap = "round";
+    for (var i = 0; i < routes.length; i++) {
+      var a = edgeMid(t.c, t.r, routes[i][0]);
+      var b = edgeMid(t.c, t.r, routes[i][1]);
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.quadraticCurveTo(c.x, c.y, b.x, b.y); ctx.stroke();
+    }
+  }
+
+  function drawGhost() {
+    if (!hover || !inBounds(hover.c, hover.r)) return;
+    var isErase = tool === "erase", isSelect = tool === "select";
+    ctx.save();
+    if (!isSelect && !isErase) {
+      ctx.globalAlpha = 0.55;
+      drawTileGhost({ c: hover.c, r: hover.r, type: tool, rot: rot, state: 0 });
+      ctx.globalAlpha = 1;
+    }
+    ctx.strokeStyle = isErase ? "#ff3b30" : (isSelect ? "#59d0ff" : "#1b242e");
+    ctx.lineWidth = 3;
+    rrect(hover.c * CELL + 2, hover.r * CELL + 2, CELL - 4, CELL - 4, 8);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+    drawGround();
+    tiles.forEach(drawTile);
+    drawGhost();
+    for (var i = 0; i < trains.length; i++) drawTrain(trains[i]);
+    if (paused) {
+      ctx.fillStyle = "rgba(10,15,20,.55)"; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.font = "bold 42px 'Courier New', monospace";
+      ctx.fillText("PAUSED", W / 2, H / 2 - 8);
+      ctx.font = "16px 'Courier New', monospace";
+      ctx.fillText("Press Space or Pause to resume", W / 2, H / 2 + 30);
+    }
+  }
+
+  // ============ UI ============
+  var toastTimer = null;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 2200);
+  }
+
+  var hudCache = {};
+  function updateHud(force) {
+    var v = { money: "$" + money, delivered: stats.delivered, trains: trains.length, stations: stationTiles().length };
+    if (force || hudCache.money !== v.money) { hud.money.textContent = v.money; hudCache.money = v.money; }
+    if (force || hudCache.delivered !== v.delivered) { hud.delivered.textContent = v.delivered; hudCache.delivered = v.delivered; }
+    if (force || hudCache.trains !== v.trains) { hud.trains.textContent = v.trains; hudCache.trains = v.trains; }
+    if (force || hudCache.stations !== v.stations) { hud.stations.textContent = v.stations; hudCache.stations = v.stations; }
+  }
+
+  var silentGoals = false;
+  function buildGoals() {
+    goalsEl.innerHTML = "";
+    OBJECTIVES.forEach(function (g) {
+      var row = document.createElement("div");
+      row.className = "goal";
+      row.dataset.goal = g.id;
+      row.innerHTML = '<div class="goal-top"><span class="gt"></span><span class="gv"></span></div><div class="bar"><i></i></div>';
+      row.querySelector(".gt").textContent = g.text;
+      goalsEl.appendChild(row);
+    });
+    updateGoals();
+  }
+
+  function updateGoals() {
+    var done = 0;
+    OBJECTIVES.forEach(function (g) {
+      var row = goalsEl.querySelector('[data-goal="' + g.id + '"]');
+      if (!row) return;
+      var raw = g.get();
+      var complete = raw >= g.goal;
+      if (complete) done++;
+      row.classList.toggle("done", complete);
+      row.querySelector(".gv").textContent = (complete ? "\u2713 " : "") + Math.min(raw, g.goal) + "/" + g.goal;
+      row.querySelector(".bar i").style.width = Math.round(Math.min(raw, g.goal) / g.goal * 100) + "%";
+      if (complete && !goalDone[g.id]) {
+        goalDone[g.id] = true;
+        dirty = true;
+        if (!silentGoals) { beep(900, 0.15, "sine", 0.06); toast("\u2705 " + g.text); }
+      }
+    });
+    hud.goals.textContent = done + "/" + OBJECTIVES.length;
+    if (done === OBJECTIVES.length && !yardMaster) {
+      yardMaster = true;
+      dirty = true;
+      if (!silentGoals) { beep(1046, 0.3, "sine", 0.07); toast("\uD83C\uDFC6 Yard Master! All objectives complete."); }
+    }
+  }
+
+  function setTool(t) {
+    tool = t;
+    toolButtons.forEach(function (b) { b.classList.toggle("active", b.dataset.tool === t); });
+    canvas.style.cursor = (t === "select") ? "pointer" : "crosshair";
+  }
+
+  function togglePause() {
+    paused = !paused;
+    btnPause.textContent = paused ? "\u25B6 Resume" : "\u23F8 Pause";
+    beep(paused ? 420 : 620, 0.07, "triangle", 0.05);
+  }
+
+  // ============ SAVE / LOAD / RESET ============
+  function serialize() {
+    var tl = [];
+    tiles.forEach(function (t) {
+      tl.push({ c: t.c, r: t.r, type: t.type, rot: t.rot, state: t.state,
+                orders: t.orders || [], orderTimer: t.orderTimer == null ? 2 : t.orderTimer });
+    });
+    var tn = trains.map(function (tr) {
+      return { cell: { c: tr.cell.c, r: tr.cell.r }, entry: tr.entry, t: tr.t, speed: tr.speed,
+               color: tr.color, cars: tr.cars, capacity: tr.capacity, holdTimer: tr.holdTimer };
+    });
+    return { v: 1, money: money, totalEarned: totalEarned, stats: stats, rot: rot,
+             tiles: tl, trains: tn, nextTrainId: nextTrainId, goalDone: goalDone, yardMaster: yardMaster };
+  }
+
+  function saveGame(silent) {
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(serialize()));
+      dirty = false;
+      if (!silent) toast("\uD83D\uDCBE Progress saved");
+    } catch (e) { if (!silent) toast("Save failed"); }
+  }
+
+  function loadGame() {
+    var raw = null;
+    try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { raw = null; }
+    if (!raw) return false;
+    var d = null;
+    try { d = JSON.parse(raw); } catch (e) { return false; }
+    if (!d || d.v !== 1 || !d.tiles) return false;
+    freshState();
+    money = typeof d.money === "number" ? d.money : START_MONEY;
+    totalEarned = d.totalEarned || 0;
+    stats = d.stats || { placed: 0, delivered: 0 };
+    nextTrainId = d.nextTrainId || 1;
+    rot = d.rot || 0;
+    goalDone = d.goalDone || {};
+    yardMaster = !!d.yardMaster;
+    d.tiles.forEach(function (t) {
+      if (!PIECES[t.type] || !inBounds(t.c, t.r)) return;
+      setTile({ c: t.c, r: t.r, type: t.type, rot: t.rot || 0, state: t.state || 0,
+                orders: t.orders || [], orderTimer: t.orderTimer == null ? 2 : t.orderTimer });
+    });
+    trains = (d.trains || []).map(function (s) {
+      if (!s.cell) return null;
+      var tr = { id: nextTrainId++, cell: { c: s.cell.c, r: s.cell.r }, entry: s.entry, t: s.t || 0,
+                 speed: s.speed || TRAIN_SPEED, color: s.color || TRAIN_COLORS[0],
+                 cars: s.cars || [], capacity: s.capacity || TRAIN_CAP, holdTimer: 0,
+                 waiting: false, trail: [] };
+      var p = trainPose(tr).pos;
+      for (var i = 0; i < 48; i++) tr.trail.push({ x: p.x, y: p.y });
+      return tr;
+    }).filter(function (x) { return x; });
+    return true;
+  }
+
+  function starterTile(c, r, type, rot) {
+    var t = { c: c, r: r, type: type, rot: rot, state: 0 };
+    if (type === "station") { t.orders = []; t.orderTimer = 2.5; }
+    return t;
+  }
+
+  function buildStarter() {
+    setTile(starterTile(3, 2, "curve", 0));       // connects E + S
+    setTile(starterTile(10, 2, "curve", 1));      // connects S + W
+    setTile(starterTile(10, 6, "curve", 2));      // connects W + N
+    setTile(starterTile(3, 6, "curve", 3));       // connects N + E
+    var c, r;
+    for (c = 4; c <= 9; c++) setTile(starterTile(c, 2, "straight", 0));
+    for (c = 4; c <= 9; c++) setTile(starterTile(c, 6, "straight", 0));
+    for (r = 3; r <= 5; r++) setTile(starterTile(3, r, "straight", 1));
+    for (r = 3; r <= 5; r++) setTile(starterTile(10, r, "straight", 1));
+    setTile(starterTile(6, 2, "station", 0));
+    setTile(starterTile(7, 6, "station", 0));
+    trains.push(makeTrain({ c: 4, r: 2 }, 3));    // heading East
+  }
+
+  function resetGame() {
+    freshState();
+    buildStarter();
+    money = START_MONEY;
+    saveGame(true);
+    updateHud(true);
+    updateGoals();
+    toast("Yard cleared \u2014 fresh start");
+  }
+
+  // ============ INPUT ============
+  function toGrid(ev) {
+    var rect = canvas.getBoundingClientRect();
+    var x = (ev.clientX - rect.left) * (W / rect.width);
+    var y = (ev.clientY - rect.top) * (H / rect.height);
+    return { c: Math.floor(x / CELL), r: Math.floor(y / CELL) };
+  }
+
+  canvas.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    if (e.button === 2) return;
+    var g = toGrid(e);
+    hover = inBounds(g.c, g.r) ? { c: g.c, r: g.r } : null;
+    placeAt(g.c, g.r);
+  });
+  canvas.addEventListener("pointermove", function (e) {
+    var g = toGrid(e);
+    hover = inBounds(g.c, g.r) ? { c: g.c, r: g.r } : null;
+  });
+  canvas.addEventListener("pointerleave", function () { hover = null; });
+  canvas.addEventListener("contextmenu", function (e) {
+    e.preventDefault();
+    var g = toGrid(e);
+    if (inBounds(g.c, g.r)) eraseAt(g.c, g.r);
+  });
+
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "KeyR" || e.key === "r" || e.key === "R") {
+      rot = (rot + 1) % 4; beep(600, 0.04, "triangle", 0.03); e.preventDefault(); return;
+    }
+    if (e.code === "Space" || e.key === " ") { togglePause(); e.preventDefault(); return; }
+    var map = { Digit1: "select", Digit2: "straight", Digit3: "curve", Digit4: "switch",
+                Digit5: "bridge", Digit6: "station", Digit7: "signal", Digit8: "erase" };
+    if (map[e.code]) { setTool(map[e.code]); e.preventDefault(); }
+  });
+
+  toolButtons.forEach(function (b) {
+    b.addEventListener("click", function () { setTool(b.dataset.tool); beep(660, 0.04, "square", 0.03); });
+  });
+  btnRotate.addEventListener("click", function () { rot = (rot + 1) % 4; beep(600, 0.04, "triangle", 0.03); });
+  btnTrain.addEventListener("click", deployTrain);
+  btnPause.addEventListener("click", togglePause);
+  btnSave.addEventListener("click", function () { saveGame(false); });
+
+  var resetArmed = false, resetTimer = null;
+  function disarmReset() {
+    resetArmed = false;
+    btnReset.classList.remove("armed");
+    btnReset.textContent = "\uD83D\uDDD1 Reset";
+    clearTimeout(resetTimer);
+  }
+  btnReset.addEventListener("click", function () {
+    if (!resetArmed) {
+      resetArmed = true;
+      btnReset.classList.add("armed");
+      btnReset.textContent = "Confirm reset?";
+      resetTimer = setTimeout(disarmReset, 3000);
+    } else {
+      disarmReset();
+      resetGame();
+    }
+  });
+
+  document.addEventListener("visibilitychange", function () { if (document.hidden && dirty) saveGame(true); });
+  window.addEventListener("beforeunload", function () { if (dirty) saveGame(true); });
+
+  // ============ MAIN LOOP ============
+  var lastTime = 0, saveAcc = 0;
+  function loop(now) {
+    if (!lastTime) lastTime = now;
+    var dt = Math.min(0.05, Math.max(0, (now - lastTime) / 1000));
+    lastTime = now;
+
+    if (!paused) {
+      updateStations(dt);
+      for (var i = 0; i < trains.length; i++) updateTrain(trains[i], dt);
+    }
+    render();
+
+    saveAcc += dt;
+    if (saveAcc > 6) { saveAcc = 0; if (dirty) saveGame(true); }
+    updateHud(false);
+
+    requestAnimationFrame(loop);
+  }
+
+  // ============ INIT ============
+  function init() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.textBaseline = "alphabetic";
+
+    freshState();
+    var loaded = loadGame();
+    if (!loaded) buildStarter();
+
+    silentGoals = true;
+    buildGoals();
+    silentGoals = false;
+
+    setTool("select");
+    updateHud(true);
+    requestAnimationFrame(loop);
+  }
+
+  init();
+})();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🧩 Jigsaw Puzzle</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #e8ecff 0%, #e6f7ff 50%, #fff0f6 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 12px;
+      touch-action: none;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(255, 255, 255, 0.92);
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: 0 10px 40px rgba(70, 90, 160, 0.15);
+      max-width: 560px;
+      width: 100%;
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 2rem;
+      color: #5a7dff;
+      margin-bottom: 6px;
+      text-shadow: 2px 2px 0 #fff;
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.9rem;
+      color: #8a90a8;
+      margin-bottom: 14px;
+    }
+
+    /* ============ HUD ============ */
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 10px 14px;
+      background: linear-gradient(135deg, #eef3ff, #f6f0ff);
+      border-radius: 12px;
+      font-size: 0.95rem;
+      color: #5b6180;
+    }
+
+    .hud span {
+      font-weight: 700;
+      color: #5a7dff;
+    }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(70, 90, 160, 0.10);
+      background: #f7f9ff;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    /* ============ SCREENS (Start / Win) ============ */
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.95);
+      transition: opacity 0.3s ease;
+      text-align: center;
+      padding: 16px;
+    }
+
+    .screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .screen-title {
+      font-size: 1.9rem;
+      color: #5a7dff;
+      margin-bottom: 6px;
+      text-shadow: 2px 2px 0 #fff;
+    }
+
+    .screen-subtitle {
+      font-size: 0.95rem;
+      color: #8a90a8;
+      margin-bottom: 18px;
+    }
+
+    .final-score {
+      font-size: 1.35rem;
+      color: #7a5cff;
+      margin-bottom: 6px;
+    }
+
+    .best-line {
+      font-size: 0.95rem;
+      color: #8a90a8;
+      margin-bottom: 18px;
+    }
+
+    /* ============ DIFFICULTY SELECTOR ============ */
+    .difficulty-container {
+      margin-bottom: 20px;
+    }
+
+    .difficulty-label {
+      font-size: 0.85rem;
+      color: #6b7290;
+      margin-bottom: 10px;
+    }
+
+    .difficulty-buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .difficulty-btn {
+      padding: 10px 18px;
+      border: 2px solid #d3dcff;
+      background: white;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      color: #5b6180;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-weight: 600;
+    }
+
+    .difficulty-btn:hover {
+      background: #f0f4ff;
+      transform: translateY(-2px);
+    }
+
+    .difficulty-btn.selected {
+      background: linear-gradient(135deg, #7a9bff, #5a7dff);
+      color: white;
+      border-color: #5a7dff;
+      box-shadow: 0 4px 12px rgba(90, 125, 255, 0.35);
+    }
+
+    /* ============ ACTION BUTTONS ============ */
+    .action-btn {
+      padding: 13px 30px;
+      background: linear-gradient(135deg, #7a9bff, #5a7dff);
+      color: white;
+      border: none;
+      border-radius: 25px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(90, 125, 255, 0.35);
+      margin: 4px;
+    }
+
+    .action-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(90, 125, 255, 0.45);
+    }
+
+    .action-btn:active {
+      transform: translateY(-1px);
+    }
+
+    .action-btn.ghost {
+      background: white;
+      color: #5a7dff;
+      border: 2px solid #d3dcff;
+      box-shadow: none;
+    }
+
+    /* ============ IN-GAME CONTROLS ============ */
+    .controls {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .ctrl-btn {
+      padding: 10px 16px;
+      border: 2px solid #d3dcff;
+      background: white;
+      border-radius: 18px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #5b6180;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .ctrl-btn:hover {
+      background: #f5f8ff;
+    }
+
+    .ctrl-btn:active {
+      transform: scale(0.96);
+    }
+
+    .ctrl-btn.on {
+      background: linear-gradient(135deg, #7a9bff, #5a7dff);
+      color: #fff;
+      border-color: #5a7dff;
+    }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 480px) {
+      .game-container {
+        padding: 12px;
+      }
+      .game-title {
+        font-size: 1.5rem;
+      }
+      .screen-title {
+        font-size: 1.5rem;
+      }
+      .difficulty-btn {
+        padding: 9px 14px;
+        font-size: 0.82rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">🧩 Jigsaw Puzzle</h1>
+    <p class="game-subtitle">Drag every piece into place!</p>
+
+    <div class="hud">
+      <div>⏱️ Time: <span id="timeText">0:00</span></div>
+      <div>🧩 Placed: <span id="placedText">0</span></div>
+      <div>🏆 Best: <span id="bestText">--:--</span></div>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="520" height="754"></canvas>
+
+      <!-- Start Screen -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">Jigsaw Puzzle</h2>
+        <p class="screen-subtitle">A fresh, hand-drawn scene every game.</p>
+
+        <div class="difficulty-container">
+          <p class="difficulty-label">Choose your challenge</p>
+          <div class="difficulty-buttons">
+            <button class="difficulty-btn selected" data-size="3">3 × 3</button>
+            <button class="difficulty-btn" data-size="4">4 × 4</button>
+            <button class="difficulty-btn" data-size="5">5 × 5</button>
+          </div>
+        </div>
+
+        <button class="action-btn" id="startBtn">Start Puzzle</button>
+        <p class="best-line" id="startBest">Best: --:--</p>
+      </div>
+
+      <!-- Win Screen -->
+      <div id="winScreen" class="screen hidden">
+        <h2 class="screen-title">Solved! 🎉</h2>
+        <p class="final-score">Time: <span id="finalTime">0:00</span></p>
+        <p class="best-line" id="winBest">Best: --:--</p>
+        <div>
+          <button class="action-btn" id="playAgainBtn">Play Again</button>
+          <button class="action-btn ghost" id="menuBtn">Change Size</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- In-game controls -->
+    <div class="controls">
+      <button class="ctrl-btn" id="newPictureBtn">🔄 New Picture</button>
+      <button class="ctrl-btn on" id="previewBtn">👁 Preview: On</button>
+    </div>
+  </div>
+
+  <script>
+    // ============ CONFIGURATION & CONSTANTS ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const CW = canvas.width;              // 520
+    const MARGIN = 20;
+    const BOARD = 480;                    // square board size
+    const BOARD_X = (CW - BOARD) / 2;     // 20
+    const BOARD_Y = 20;
+    const TRAY_TOP = BOARD_Y + BOARD + 24;
+    const TRAY_H = 210;
+
+    const SNAP_FACTOR = 0.35;             // auto-snap tolerance (fraction of piece size)
+
+    // ============ GAME STATE ============
+    let size = 3;                         // N x N
+    let pw = BOARD / size;                // piece width
+    let ph = pw;                          // piece height
+    let pad = 0;                          // tab padding around each piece
+    let pieces = [];                      // all pieces
+    let tabH = [];                        // horizontal tab signs [rows+1][cols]
+    let tabV = [];                        // vertical tab signs [rows][cols+1]
+    let placedCount = 0;
+    let totalPieces = 0;
+    let dragging = null;                  // piece being dragged
+    let dragOffset = { x: 0, y: 0 };
+    let zTop = 1;
+    let isPlaying = false;
+    let playStart = 0;
+    let elapsed = 0;
+    let showPreview = true;
+    let seed = 1;
+
+    const picture = document.createElement('canvas');
+    picture.width = BOARD;
+    picture.height = BOARD;
+    const pictx = picture.getContext('2d');
+
+    // ============ DOM ELEMENTS ============
+    const timeText = document.getElementById('timeText');
+    const placedText = document.getElementById('placedText');
+    const bestText = document.getElementById('bestText');
+    const startScreen = document.getElementById('startScreen');
+    const winScreen = document.getElementById('winScreen');
+    const startBtn = document.getElementById('startBtn');
+    const playAgainBtn = document.getElementById('playAgainBtn');
+    const menuBtn = document.getElementById('menuBtn');
+    const startBest = document.getElementById('startBest');
+    const winBest = document.getElementById('winBest');
+    const finalTime = document.getElementById('finalTime');
+    const difficultyBtns = document.querySelectorAll('.difficulty-btn');
+    const newPictureBtn = document.getElementById('newPictureBtn');
+    const previewBtn = document.getElementById('previewBtn');
+
+    // ============ AUDIO (WebAudio beep) ============
+    let actx = null;
+
+    function beep(freq, dur, type, vol) {
+      freq = freq || 440;
+      dur = dur || 0.09;
+      type = type || 'sine';
+      vol = vol || 0.14;
+      try {
+        if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+        if (actx.state === 'suspended') actx.resume();
+        const osc = actx.createOscillator();
+        const gain = actx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        osc.connect(gain);
+        gain.connect(actx.destination);
+        const t = actx.currentTime;
+        gain.gain.setValueAtTime(vol, t);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        osc.start(t);
+        osc.stop(t + dur + 0.03);
+      } catch (e) { /* audio not available */ }
+    }
+
+    function winMelody() {
+      const notes = [523, 659, 784, 1047];
+      notes.forEach((f, i) => setTimeout(() => beep(f, 0.18, 'triangle', 0.16), i * 130));
+    }
+
+    // ============ SEEDED RANDOM ============
+    function mulberry32(a) {
+      return function () {
+        a |= 0;
+        a = (a + 0x6D2B79F5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    // ============ PROCEDURAL ART ============
+    // Draws an original colourful landscape (sky, sun, clouds, hills, trees, meadow).
+    function drawPicture(g, S, seedVal) {
+      const rnd = mulberry32(seedVal);
+      const horizon = S * 0.60;
+
+      // --- Sky gradient ---
+      const sky = g.createLinearGradient(0, 0, 0, S);
+      sky.addColorStop(0.00, '#3aa7e0');
+      sky.addColorStop(0.42, '#8fd3f4');
+      sky.addColorStop(0.60, '#d7f0ff');
+      sky.addColorStop(0.66, '#ffe9b0');
+      sky.addColorStop(1.00, '#fff2c8');
+      g.fillStyle = sky;
+      g.fillRect(0, 0, S, S);
+
+      // --- Sun with glow ---
+      const sunX = S * (0.18 + rnd() * 0.64);
+      const sunY = S * (0.10 + rnd() * 0.10);
+      const sunR = S * 0.075;
+      const glow = g.createRadialGradient(sunX, sunY, sunR * 0.3, sunX, sunY, sunR * 3.2);
+      glow.addColorStop(0, 'rgba(255,247,200,0.95)');
+      glow.addColorStop(0.45, 'rgba(255,235,160,0.35)');
+      glow.addColorStop(1, 'rgba(255,235,160,0)');
+      g.fillStyle = glow;
+      g.beginPath();
+      g.arc(sunX, sunY, sunR * 3.2, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#fff3b0';
+      g.beginPath();
+      g.arc(sunX, sunY, sunR, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#ffe066';
+      g.beginPath();
+      g.arc(sunX, sunY, sunR * 0.8, 0, Math.PI * 2);
+      g.fill();
+
+      // --- Clouds ---
+      const cloudN = 3 + Math.floor(rnd() * 3);
+      for (let i = 0; i < cloudN; i++) {
+        drawCloud(g, rnd() * S, S * (0.07 + rnd() * 0.30), S * (0.05 + rnd() * 0.05));
+      }
+
+      // --- Birds ---
+      const birdN = 2 + Math.floor(rnd() * 3);
+      g.strokeStyle = 'rgba(40,60,80,0.7)';
+      g.lineWidth = Math.max(1.5, S * 0.004);
+      for (let i = 0; i < birdN; i++) {
+        const bx = rnd() * S;
+        const by = S * (0.10 + rnd() * 0.24);
+        const br = S * 0.02;
+        g.beginPath();
+        g.arc(bx - br, by, br, Math.PI * 1.05, Math.PI * 1.75);
+        g.stroke();
+        g.beginPath();
+        g.arc(bx + br, by, br, Math.PI * 1.25, Math.PI * 1.95);
+        g.stroke();
+      }
+
+      // --- Distant hills (layered) ---
+      drawHills(g, S, horizon + S * 0.02, S * 0.10, '#7fb069', 0.6);
+      drawHills(g, S, horizon + S * 0.06, S * 0.09, '#5c9e4a', 2.1);
+
+      // --- Foreground meadow ---
+      const meadow = g.createLinearGradient(0, horizon, 0, S);
+      meadow.addColorStop(0, '#6cc24a');
+      meadow.addColorStop(1, '#2f7d32');
+      g.fillStyle = meadow;
+      g.beginPath();
+      g.moveTo(0, S);
+      for (let x = 0; x <= S; x += 8) {
+        const y = (horizon + S * 0.14) + S * 0.03 * Math.sin(x * 0.02 + 1.0);
+        g.lineTo(x, y);
+      }
+      g.lineTo(S, S);
+      g.closePath();
+      g.fill();
+
+      // --- Trees ---
+      const treeN = 4 + Math.floor(rnd() * 4);
+      for (let i = 0; i < treeN; i++) {
+        const tx = S * (0.06 + rnd() * 0.88);
+        const baseY = horizon + S * 0.16 + rnd() * S * 0.30;
+        const th = S * (0.12 + rnd() * 0.14);
+        if (rnd() < 0.5) {
+          drawPine(g, tx, baseY, th, th * 0.55);
+        } else {
+          drawRoundTree(g, tx, baseY, th, th * 0.42);
+        }
+      }
+
+      // --- Bushes ---
+      for (let i = 0; i < 3; i++) {
+        const bx = S * (0.1 + rnd() * 0.8);
+        const by = horizon + S * 0.30 + rnd() * S * 0.22;
+        g.fillStyle = '#3f9142';
+        g.beginPath();
+        g.arc(bx, by, S * 0.035, 0, Math.PI * 2);
+        g.arc(bx + S * 0.035, by + S * 0.008, S * 0.028, 0, Math.PI * 2);
+        g.arc(bx - S * 0.035, by + S * 0.008, S * 0.026, 0, Math.PI * 2);
+        g.fill();
+      }
+
+      // --- Flowers ---
+      const flowerColors = ['#ff6b8a', '#ffd93d', '#ffffff', '#c084fc', '#ff9f43'];
+      for (let i = 0; i < 22; i++) {
+        const fx = rnd() * S;
+        const fy = horizon + S * 0.18 + rnd() * S * 0.36;
+        g.fillStyle = flowerColors[Math.floor(rnd() * flowerColors.length)];
+        g.beginPath();
+        g.arc(fx, fy, S * 0.006, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+
+    function drawHills(g, S, baseY, amp, color, phase) {
+      g.fillStyle = color;
+      g.beginPath();
+      g.moveTo(0, S);
+      for (let x = 0; x <= S; x += 8) {
+        const y = baseY - amp * Math.sin(x * 0.012 + phase) - amp * 0.45 * Math.sin(x * 0.03 + phase * 1.7);
+        g.lineTo(x, y);
+      }
+      g.lineTo(S, S);
+      g.closePath();
+      g.fill();
+    }
+
+    function drawCloud(g, x, y, s) {
+      g.fillStyle = 'rgba(255,255,255,0.92)';
+      g.beginPath();
+      g.arc(x, y, s, 0, Math.PI * 2);
+      g.arc(x + s * 0.9, y + s * 0.15, s * 0.75, 0, Math.PI * 2);
+      g.arc(x - s * 0.9, y + s * 0.2, s * 0.65, 0, Math.PI * 2);
+      g.arc(x + s * 0.1, y - s * 0.5, s * 0.6, 0, Math.PI * 2);
+      g.fill();
+    }
+
+    function drawPine(g, x, baseY, h, w) {
+      g.fillStyle = '#5b3a1e';
+      g.fillRect(x - w * 0.09, baseY - h * 0.18, w * 0.18, h * 0.18);
+      for (let i = 0; i < 3; i++) {
+        const ly = baseY - h * 0.12 - (h * 0.26) * i;
+        const tw = w * (1 - i * 0.24);
+        const th = h * 0.34;
+        g.fillStyle = i === 0 ? '#2e7d32' : (i === 1 ? '#388e3c' : '#43a047');
+        g.beginPath();
+        g.moveTo(x, ly - th);
+        g.lineTo(x - tw / 2, ly);
+        g.lineTo(x + tw / 2, ly);
+        g.closePath();
+        g.fill();
+      }
+    }
+
+    function drawRoundTree(g, x, baseY, h, r) {
+      g.fillStyle = '#6d4c2f';
+      g.fillRect(x - h * 0.03, baseY - h * 0.35, h * 0.06, h * 0.35);
+      g.fillStyle = '#2e8b57';
+      g.beginPath();
+      g.arc(x, baseY - h * 0.55, r, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#3cb371';
+      g.beginPath();
+      g.arc(x - r * 0.4, baseY - h * 0.62, r * 0.6, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#66d18a';
+      g.beginPath();
+      g.arc(x + r * 0.3, baseY - h * 0.5, r * 0.45, 0, Math.PI * 2);
+      g.fill();
+    }
+
+    // ============ JIGSAW EDGE PATH HELPERS ============
+    // Sign conventions: tabH = +1 bulges up (-y); tabV = +1 bulges right (+x).
+    function edgeTop(g, x, y, len, s) {
+      if (s === 0) { g.lineTo(x + len, y); return; }
+      const a = len * 0.22 * s;
+      g.lineTo(x + len * 0.40, y);
+      g.bezierCurveTo(x + len * 0.37, y, x + len * 0.36, y - a, x + len * 0.50, y - a);
+      g.bezierCurveTo(x + len * 0.64, y - a, x + len * 0.63, y, x + len * 0.60, y);
+      g.lineTo(x + len, y);
+    }
+
+    function edgeBottom(g, x, y, len, s) {
+      if (s === 0) { g.lineTo(x - len, y); return; }
+      const a = len * 0.22 * s;
+      g.lineTo(x - len * 0.40, y);
+      g.bezierCurveTo(x - len * 0.37, y, x - len * 0.36, y + a, x - len * 0.50, y + a);
+      g.bezierCurveTo(x - len * 0.64, y + a, x - len * 0.63, y, x - len * 0.60, y);
+      g.lineTo(x - len, y);
+    }
+
+    function edgeRight(g, x, y, len, s) {
+      if (s === 0) { g.lineTo(x, y + len); return; }
+      const a = len * 0.22 * s;
+      g.lineTo(x, y + len * 0.40);
+      g.bezierCurveTo(x, y + len * 0.37, x + a, y + len * 0.36, x + a, y + len * 0.50);
+      g.bezierCurveTo(x + a, y + len * 0.64, x, y + len * 0.63, x, y + len * 0.60);
+      g.lineTo(x, y + len);
+    }
+
+    function edgeLeftUp(g, x, y, len, s) {
+      if (s === 0) { g.lineTo(x, y - len); return; }
+      const a = len * 0.22 * s;
+      g.lineTo(x, y - len * 0.40);
+      g.bezierCurveTo(x, y - len * 0.37, x - a, y - len * 0.36, x - a, y - len * 0.50);
+      g.bezierCurveTo(x - a, y - len * 0.64, x, y - len * 0.63, x, y - len * 0.60);
+      g.lineTo(x, y - len);
+    }
+
+    // Trace a piece outline clockwise in its own local space (origin = piece top-left).
+    function tracePiece(g, r, c) {
+      g.beginPath();
+      g.moveTo(0, 0);
+      edgeTop(g, 0, 0, pw, tabH[r][c]);
+      edgeRight(g, pw, 0, ph, tabV[r][c + 1]);
+      edgeBottom(g, pw, ph, pw, -tabH[r + 1][c]);
+      edgeLeftUp(g, 0, ph, ph, -tabV[r][c]);
+      g.closePath();
+    }
+
+    // ============ PIECE GENERATION ============
+    function buildPieces() {
+      const N = size;
+      pw = BOARD / N;
+      ph = pw;
+      pad = Math.max(pw, ph) * 0.30;
+
+      // Random tab sign per internal edge, 0 on the border.
+      tabH = [];
+      for (let r = 0; r <= N; r++) {
+        const row = [];
+        for (let c = 0; c < N; c++) {
+          row.push((r === 0 || r === N) ? 0 : (Math.random() < 0.5 ? 1 : -1));
+        }
+        tabH.push(row);
+      }
+      tabV = [];
+      for (let r = 0; r < N; r++) {
+        const row = [];
+        for (let c = 0; c <= N; c++) {
+          row.push((c === 0 || c === N) ? 0 : (Math.random() < 0.5 ? 1 : -1));
+        }
+        tabV.push(row);
+      }
+
+      pieces = [];
+      placedCount = 0;
+      zTop = 1;
+
+      for (let r = 0; r < N; r++) {
+        for (let c = 0; c < N; c++) {
+          const cv = document.createElement('canvas');
+          cv.width = Math.ceil(pw + pad * 2);
+          cv.height = Math.ceil(ph + pad * 2);
+          const g = cv.getContext('2d');
+
+          g.save();
+          g.translate(pad, pad);
+          tracePiece(g, r, c);
+          g.clip();
+          g.drawImage(picture, -c * pw, -r * ph);
+          g.restore();
+
+          // Bevel: soft white highlight then dark outline.
+          g.save();
+          g.translate(pad, pad);
+          tracePiece(g, r, c);
+          g.lineJoin = 'round';
+          g.lineWidth = 3;
+          g.strokeStyle = 'rgba(255,255,255,0.45)';
+          g.stroke();
+          g.lineWidth = 1.1;
+          g.strokeStyle = 'rgba(20,25,50,0.40)';
+          g.stroke();
+          g.restore();
+
+          // Scatter into the tray.
+          const tx = MARGIN + Math.random() * (CW - MARGIN * 2 - pw);
+          const ty = TRAY_TOP + Math.random() * Math.max(4, TRAY_H - ph);
+
+          pieces.push({
+            r: r,
+            c: c,
+            canvas: cv,
+            pad: pad,
+            homeX: BOARD_X + c * pw,
+            homeY: BOARD_Y + r * ph,
+            x: tx,
+            y: ty,
+            placed: false,
+            z: zTop++,
+            ctx: g
+          });
+        }
+      }
+
+      totalPieces = N * N;
+      updateHud();
+    }
+
+    // ============ LAYOUT / HUD ============
+    function formatTime(sec) {
+      if (sec == null || isNaN(sec)) return '--:--';
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return m + ':' + (s < 10 ? '0' : '') + s;
+    }
+
+    function bestKey(n) { return 'jigsawBest_' + n; }
+
+    function getBest(n) {
+      const v = localStorage.getItem(bestKey(n));
+      return v == null ? null : parseFloat(v);
+    }
+
+    function setBest(n, t) {
+      localStorage.setItem(bestKey(n), String(t));
+    }
+
+    function updateHud() {
+      placedText.textContent = placedCount + '/' + totalPieces;
+      bestText.textContent = formatTime(getBest(size));
+      startBest.textContent = 'Best: ' + formatTime(getBest(size));
+    }
+
+    // ============ DRAWING / RENDER ============
+    function roundRectPath(g, x, y, w, h, r) {
+      if (g.roundRect) {
+        g.beginPath();
+        g.roundRect(x, y, w, h, r);
+        return;
+      }
+      g.beginPath();
+      g.moveTo(x + r, y);
+      g.arcTo(x + w, y, x + w, y + h, r);
+      g.arcTo(x + w, y + h, x, y + h, r);
+      g.arcTo(x, y + h, x, y, r);
+      g.arcTo(x, y, x + w, y, r);
+      g.closePath();
+    }
+
+    function drawPiece(p) {
+      ctx.save();
+      if (p === dragging) {
+        ctx.shadowColor = 'rgba(70,60,140,0.45)';
+        ctx.shadowBlur = 18;
+        ctx.shadowOffsetY = 8;
+      } else if (!p.placed) {
+        ctx.shadowColor = 'rgba(70,60,140,0.26)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetY = 3;
+      }
+      ctx.drawImage(p.canvas, Math.round(p.x - p.pad), Math.round(p.y - p.pad));
+      ctx.restore();
+    }
+
+    function render() {
+      // Background
+      ctx.fillStyle = '#f7f9ff';
+      ctx.fillRect(0, 0, CW, canvas.height);
+
+      // Board panel
+      roundRectPath(ctx, BOARD_X - 8, BOARD_Y - 8, BOARD + 16, BOARD + 16, 18);
+      ctx.fillStyle = '#e7eeff';
+      ctx.fill();
+
+      // Board inner
+      roundRectPath(ctx, BOARD_X, BOARD_Y, BOARD, BOARD, 12);
+      ctx.fillStyle = '#dfe9ff';
+      ctx.fill();
+
+      // Faint preview of the finished picture
+      if (showPreview) {
+        ctx.save();
+        roundRectPath(ctx, BOARD_X, BOARD_Y, BOARD, BOARD, 12);
+        ctx.clip();
+        ctx.globalAlpha = 0.18;
+        ctx.drawImage(picture, BOARD_X, BOARD_Y);
+        ctx.restore();
+      }
+
+      // Grid
+      ctx.save();
+      roundRectPath(ctx, BOARD_X, BOARD_Y, BOARD, BOARD, 12);
+      ctx.clip();
+      ctx.strokeStyle = 'rgba(120,140,220,0.25)';
+      ctx.lineWidth = 1;
+      for (let i = 1; i < size; i++) {
+        const gx = BOARD_X + i * pw;
+        ctx.beginPath();
+        ctx.moveTo(gx, BOARD_Y);
+        ctx.lineTo(gx, BOARD_Y + BOARD);
+        ctx.stroke();
+        const gy = BOARD_Y + i * ph;
+        ctx.beginPath();
+        ctx.moveTo(BOARD_X, gy);
+        ctx.lineTo(BOARD_X + BOARD, gy);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // Tray panel
+      roundRectPath(ctx, MARGIN, TRAY_TOP - 10, CW - MARGIN * 2, TRAY_H + 20, 18);
+      ctx.fillStyle = '#eef1fc';
+      ctx.fill();
+      ctx.fillStyle = '#a9b2d0';
+      ctx.font = '600 13px Segoe UI, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('Pieces', MARGIN + 12, TRAY_TOP + 4);
+
+      // Pieces (sorted by z so the active one is on top)
+      const sorted = pieces.slice().sort((a, b) => a.z - b.z);
+      for (let i = 0; i < sorted.length; i++) {
+        if (sorted[i] !== dragging) drawPiece(sorted[i]);
+      }
+      if (dragging) drawPiece(dragging);
+    }
+
+    // ============ RENDER LOOP / TIMER ============
+    function loop() {
+      if (isPlaying) {
+        elapsed = (performance.now() - playStart) / 1000;
+        timeText.textContent = formatTime(elapsed);
+      }
+      render();
+      requestAnimationFrame(loop);
+    }
+
+    // ============ INPUT (pointer = mouse + touch) ============
+    function getPos(e) {
+      const r = canvas.getBoundingClientRect();
+      return {
+        x: (e.clientX - r.left) * (canvas.width / r.width),
+        y: (e.clientY - r.top) * (canvas.height / r.height)
+      };
+    }
+
+    function pieceAt(px, py) {
+      let best = null;
+      for (let i = 0; i < pieces.length; i++) {
+        const p = pieces[i];
+        if (p.placed) continue;
+        const lx = Math.floor(px - (p.x - p.pad));
+        const ly = Math.floor(py - (p.y - p.pad));
+        if (lx < 0 || ly < 0 || lx >= p.canvas.width || ly >= p.canvas.height) continue;
+        let alpha = 0;
+        try {
+          alpha = p.ctx.getImageData(lx, ly, 1, 1).data[3];
+        } catch (err) {
+          alpha = 255; // fall back to bounding-box hit
+        }
+        if (alpha > 20 && (!best || p.z > best.z)) best = p;
+      }
+      return best;
+    }
+
+    canvas.addEventListener('pointerdown', function (e) {
+      if (!isPlaying) return;
+      e.preventDefault();
+      const pos = getPos(e);
+      const p = pieceAt(pos.x, pos.y);
+      if (!p) return;
+      dragging = p;
+      p.z = ++zTop;
+      dragOffset.x = pos.x - p.x;
+      dragOffset.y = pos.y - p.y;
+      if (canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId);
+      beep(320, 0.05, 'sine', 0.08);
+    });
+
+    canvas.addEventListener('pointermove', function (e) {
+      if (!dragging) return;
+      e.preventDefault();
+      const pos = getPos(e);
+      dragging.x = pos.x - dragOffset.x;
+      dragging.y = pos.y - dragOffset.y;
+    });
+
+    function endDrag(e) {
+      if (!dragging) return;
+      const p = dragging;
+      dragging = null;
+
+      const snapDist = pw * SNAP_FACTOR;
+      if (Math.abs(p.x - p.homeX) < snapDist && Math.abs(p.y - p.homeY) < snapDist) {
+        p.x = p.homeX;
+        p.y = p.homeY;
+        p.placed = true;
+        placedCount++;
+        beep(600 + placedCount * 22, 0.08, 'triangle', 0.13);
+        updateHud();
+        if (placedCount >= totalPieces) winGame();
+      }
+    }
+
+    canvas.addEventListener('pointerup', endDrag);
+    canvas.addEventListener('pointercancel', endDrag);
+
+    // ============ GAME FLOW ============
+    function startGame() {
+      seed = (Date.now() ^ (Math.random() * 0x7fffffff)) >>> 0;
+      pictx.clearRect(0, 0, BOARD, BOARD);
+      drawPicture(pictx, BOARD, seed);
+
+      buildPieces();
+
+      startScreen.classList.add('hidden');
+      winScreen.classList.add('hidden');
+      isPlaying = true;
+      elapsed = 0;
+      playStart = performance.now();
+      timeText.textContent = '0:00';
+      updateHud();
+    }
+
+    function winGame() {
+      isPlaying = false;
+      const t = (performance.now() - playStart) / 1000;
+      elapsed = t;
+      const prev = getBest(size);
+      if (prev == null || t < prev) {
+        setBest(size, t);
+        winBest.textContent = '🏆 New best time!';
+        beep(880, 0.14, 'square', 0.14);
+      } else {
+        winBest.textContent = 'Best: ' + formatTime(prev);
+      }
+      finalTime.textContent = formatTime(t);
+      updateHud();
+      winMelody();
+      winScreen.classList.remove('hidden');
+    }
+
+    // ============ UI WIRING ============
+    difficultyBtns.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        difficultyBtns.forEach(function (b) { b.classList.remove('selected'); });
+        btn.classList.add('selected');
+        size = parseInt(btn.dataset.size, 10);
+        updateHud();
+        beep(520, 0.05, 'sine', 0.08);
+      });
+    });
+
+    startBtn.addEventListener('click', startGame);
+    playAgainBtn.addEventListener('click', startGame);
+
+    menuBtn.addEventListener('click', function () {
+      winScreen.classList.add('hidden');
+      updateHud();
+      startScreen.classList.remove('hidden');
+    });
+
+    newPictureBtn.addEventListener('click', function () {
+      if (!isPlaying) return;
+      startGame();
+      beep(660, 0.06, 'triangle', 0.10);
+    });
+
+    previewBtn.addEventListener('click', function () {
+      showPreview = !showPreview;
+      previewBtn.textContent = '👁 Preview: ' + (showPreview ? 'On' : 'Off');
+      previewBtn.classList.toggle('on', showPreview);
+      beep(showPreview ? 700 : 400, 0.05, 'sine', 0.08);
+    });
+
+    // ============ INITIALIZATION ============
+    // Show a preview scene behind the start screen.
+    seed = (Date.now() ^ 0x1234567) >>> 0;
+    drawPicture(pictx, BOARD, seed);
+    updateHud();
+    loop();
+  </script>
+</body>
+</html>

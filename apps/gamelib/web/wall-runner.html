@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🏃 Wall Runner</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: radial-gradient(circle at 50% 0%, #241a4d 0%, #150f2e 55%, #0a0718 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+      overflow: hidden;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(22, 16, 44, 0.82);
+      border: 1px solid rgba(120, 200, 255, 0.16);
+      border-radius: 24px;
+      padding: 22px;
+      box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55), inset 0 0 60px rgba(80, 180, 255, 0.05);
+      max-width: 900px;
+      width: 100%;
+      backdrop-filter: blur(4px);
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.9rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      background: linear-gradient(90deg, #37e6ff 0%, #ff5f8f 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow: 0 0 24px rgba(55, 230, 255, 0.25);
+      margin-bottom: 4px;
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.82rem;
+      color: #8f8ab8;
+      letter-spacing: 1px;
+      margin-bottom: 14px;
+    }
+
+    /* ============ SCORE BOARD ============ */
+    .score-board {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      padding: 10px 18px;
+      background: linear-gradient(135deg, rgba(55, 230, 255, 0.08), rgba(255, 95, 143, 0.08));
+      border: 1px solid rgba(120, 200, 255, 0.12);
+      border-radius: 14px;
+      font-size: 0.95rem;
+      color: #b9b4d8;
+      letter-spacing: 1px;
+    }
+
+    .score-board span {
+      font-weight: 700;
+      color: #37e6ff;
+    }
+
+    .score-board .best span {
+      color: #ff5f8f;
+    }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 6px 26px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(120, 200, 255, 0.1);
+      background: #0a0718;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    /* ============ SCREENS (Start / Game Over) ============ */
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 24px;
+      background: radial-gradient(circle at 50% 40%, rgba(30, 22, 60, 0.86), rgba(8, 6, 20, 0.95));
+      transition: opacity 0.3s ease;
+      z-index: 3;
+    }
+
+    .screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .screen-title {
+      font-size: 2.1rem;
+      font-weight: 800;
+      letter-spacing: 3px;
+      background: linear-gradient(90deg, #37e6ff, #ff5f8f);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      margin-bottom: 8px;
+    }
+
+    .screen-subtitle {
+      font-size: 0.95rem;
+      color: #a7a1cc;
+      margin-bottom: 8px;
+      max-width: 460px;
+      line-height: 1.6;
+    }
+
+    .hint-keys {
+      font-size: 0.78rem;
+      color: #6f6a99;
+      letter-spacing: 1px;
+      margin-bottom: 22px;
+    }
+
+    .final-score {
+      font-size: 1.15rem;
+      color: #cfcaf0;
+      margin: 6px 0 4px;
+      letter-spacing: 1px;
+    }
+
+    .final-score span {
+      color: #37e6ff;
+      font-weight: 700;
+    }
+
+    .final-score.best span {
+      color: #ff5f8f;
+    }
+
+    /* ============ ACTION BUTTON ============ */
+    .action-btn {
+      margin-top: 14px;
+      padding: 13px 38px;
+      background: linear-gradient(135deg, #37e6ff, #ff5f8f);
+      color: #0a0718;
+      border: none;
+      border-radius: 26px;
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+      box-shadow: 0 6px 22px rgba(55, 230, 255, 0.28);
+    }
+
+    .action-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 30px rgba(255, 95, 143, 0.35);
+    }
+
+    .action-btn:active {
+      transform: translateY(-1px) scale(0.98);
+    }
+
+    /* ============ PAUSE OVERLAY ============ */
+    .pause-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(10, 7, 24, 0.72);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: 4px;
+      color: #37e6ff;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      z-index: 4;
+    }
+
+    .pause-overlay.visible {
+      opacity: 1;
+    }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 560px) {
+      .game-container { padding: 14px; border-radius: 18px; }
+      .game-title { font-size: 1.45rem; letter-spacing: 1px; }
+      .screen-title { font-size: 1.6rem; }
+      .screen-subtitle { font-size: 0.85rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">WALL RUNNER</h1>
+    <p class="game-subtitle">ONE BUTTON · INFINITE PARKOUR</p>
+
+    <div class="score-board">
+      <div>DISTANCE: <span id="score">0</span> m</div>
+      <div class="best">BEST: <span id="highScore">0</span> m</div>
+    </div>
+
+    <div class="canvas-wrapper" id="canvasWrapper">
+      <canvas id="gameCanvas" width="960" height="540"></canvas>
+
+      <!-- Start Screen -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">WALL RUNNER</h2>
+        <p class="screen-subtitle">
+          Sprint across the rooftops. Tap to jump — tap against a wall to
+          wall-run and wall-jump. Chain them to climb. Don't fall.
+        </p>
+        <p class="hint-keys">TAP / SPACE = JUMP &nbsp;•&nbsp; P = PAUSE</p>
+        <button class="action-btn" id="startBtn">START RUN</button>
+      </div>
+
+      <!-- Game Over Screen -->
+      <div id="gameOverScreen" class="screen hidden">
+        <h2 class="screen-title">CRASHED!</h2>
+        <p class="final-score">DISTANCE: <span id="finalScore">0</span> m</p>
+        <p class="final-score best">BEST: <span id="finalBest">0</span> m</p>
+        <button class="action-btn" id="playAgainBtn">RUN AGAIN</button>
+      </div>
+
+      <!-- Pause Overlay -->
+      <div id="pauseOverlay" class="pause-overlay">PAUSED</div>
+    </div>
+  </div>
+
+  <script>
+    // ============ GAME CONFIGURATION ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = 960;               // logical width
+    const H = 540;               // logical height
+
+    const GRAVITY = 2000;        // px / s^2
+    const RUN_SPEED = 300;       // base forward speed px / s
+    const ACCEL = 1600;          // horizontal ramp toward run speed
+    const JUMP_V = 660;          // ground jump impulse
+    const WALL_SLIDE = 70;       // slow slide speed while clinging
+    const WALLJUMP_V = 780;      // wall-jump vertical impulse
+    const WALLJUMP_PUSH = 380;   // wall-jump horizontal push away from wall
+    const WALLJUMP_LOCK = 0.30;  // seconds of preserved push after wall-jump
+    const MAX_FALL = 1500;
+
+    const PLAYER_W = 26;
+    const PLAYER_H = 36;
+    const SPIKE_W = 24;
+    const SPIKE_H = 22;
+    const KILL_Y = 780;          // fall below this = crash
+
+    // ============ GAME STATE ============
+    let blocks = [];
+    let spikes = [];
+    let particles = [];
+    let trail = [];
+
+    let px = 0, py = 0;          // player position (top-left)
+    let vx = 0, vy = 0;
+    let state = 'air';           // 'ground' | 'wall' | 'air'
+    let wallDir = 0;             // +1 wall on right, -1 wall on left
+    let onGround = false;
+    let wallJumpTimer = 0;       // preserves post-wall-jump velocity
+    let clingLock = 0;           // brief no-cling window after wall-jump
+
+    let genX = 0;                // generation cursor
+    let baseY = 410;             // current rooftop height baseline
+    let featureIndex = 0;
+
+    let cameraX = 0, cameraY = 0;
+    let shake = 0;
+    let timeAlive = 0;
+
+    let phase = 'start';         // 'start' | 'play' | 'over'
+    let running = false;
+    let paused = false;
+    let lastTime = 0;
+
+    let best = parseInt(localStorage.getItem('wallRunnerBest') || '0', 10) || 0;
+
+    // ============ DOM ELEMENTS ============
+    const scoreEl = document.getElementById('score');
+    const highScoreEl = document.getElementById('highScore');
+    const finalScoreEl = document.getElementById('finalScore');
+    const finalBestEl = document.getElementById('finalBest');
+    const startScreen = document.getElementById('startScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const canvasWrapper = document.getElementById('canvasWrapper');
+
+    highScoreEl.textContent = best;
+
+    // ============ AUDIO (WebAudio beeps) ============
+    let actx = null;
+
+    function audioResume() {
+      if (!actx) {
+        try {
+          actx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (e) {
+          actx = null;
+        }
+      }
+      if (actx && actx.state === 'suspended') {
+        actx.resume();
+      }
+    }
+
+    function beep(freq, dur, type, vol) {
+      type = type || 'square';
+      vol = vol === undefined ? 0.05 : vol;
+      if (!actx) return;
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(freq, actx.currentTime);
+      o.connect(g);
+      g.connect(actx.destination);
+      const t = actx.currentTime;
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.start(t);
+      o.stop(t + dur);
+    }
+
+    function sfxJump()     { beep(520, 0.09, 'square', 0.05); }
+    function sfxWallJump() { beep(760, 0.09, 'sawtooth', 0.05); }
+    function sfxLand()     { beep(200, 0.06, 'triangle', 0.04); }
+    function sfxCrash()    { beep(160, 0.35, 'sawtooth', 0.09); setTimeout(function () { beep(90, 0.4, 'square', 0.07); }, 90); }
+
+    // ============ SMALL HELPERS ============
+    function rand(a, b) { return a + Math.random() * (b - a); }
+    function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+    function hash(n) { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); }
+
+    function overlap(ax, ay, aw, ah, b) {
+      return ax < b.x + b.w && ax + aw > b.x && ay < b.y + b.h && ay + ah > b.y;
+    }
+
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(x, y, w, h, r);
+      } else {
+        r = Math.min(r, w / 2, h / 2);
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+      }
+    }
+
+    // ============ LEVEL GEOMETRY ============
+    function addBlock(x, y, w, h) { blocks.push({ x: x, y: y, w: w, h: h }); }
+    function addRoof(x, w, top) { addBlock(x, top, w, 900); }
+    function addSpikes(x, count, top) {
+      for (let i = 0; i < count; i++) {
+        spikes.push({ x: x + i * SPIKE_W, top: top });
+      }
+    }
+
+    // ============ WORLD RESET ============
+    function resetWorld() {
+      blocks = [];
+      spikes = [];
+      particles = [];
+      trail = [];
+      genX = 0;
+      baseY = 410;
+      featureIndex = 0;
+
+      // Safe starting rooftop
+      addRoof(0, 460, baseY);
+      genX = 460;
+
+      // Prime the pipeline
+      ensureWorld();
+    }
+
+    function ensureWorld() {
+      let guard = 0;
+      while (genX < cameraX + W + 700 && guard < 40) {
+        generateFeature();
+        guard++;
+      }
+    }
+
+    function generateFeature() {
+      featureIndex++;
+      const diff = clamp(px / 7000, 0, 1);
+      const gap = featureIndex < 3 ? rand(50, 85) : rand(70, 105 + diff * 70);
+      genX += gap;
+
+      const roll = Math.random();
+      if (featureIndex < 3) {
+        genFlat(diff, true);
+      } else if (roll < 0.30) {
+        genFlat(diff, false);
+      } else if (roll < 0.52) {
+        genStepUp();
+      } else if (roll < 0.70) {
+        genStepDown(diff);
+      } else if (roll < 0.87) {
+        genWallUp();
+      } else {
+        genChannel();
+      }
+    }
+
+    // Flat rooftop (sometimes spiked)
+    function genFlat(diff, easy) {
+      const w = easy ? rand(320, 420) : rand(220, 340);
+      const top = easy ? baseY : clamp(baseY + rand(-25, 25), 300, 470);
+      addRoof(genX, w, top);
+
+      if (!easy && diff > 0.12 && Math.random() < 0.22 + diff * 0.30) {
+        const count = 1 + Math.floor(Math.random() * (1 + Math.floor(diff * 2)));
+        const totalW = count * SPIKE_W;
+        if (w - totalW - 60 > 0) {
+          const sx = genX + 40 + Math.random() * (w - 60 - totalW);
+          addSpikes(sx, count, top);
+        }
+      }
+
+      genX += w;
+      baseY = top;
+    }
+
+    // Small upward step (jump or wall-run over the face)
+    function genStepUp() {
+      const w1 = rand(120, 170);
+      addRoof(genX, w1, baseY);
+      genX += w1;
+
+      const rise = rand(80, 110);
+      const top2 = clamp(baseY - rise, 250, 470);
+      const w2 = rand(230, 330);
+      addRoof(genX, w2, top2);
+      genX += w2;
+      baseY = top2;
+    }
+
+    // Drop across a gap
+    function genStepDown(diff) {
+      const w1 = rand(140, 200);
+      addRoof(genX, w1, baseY);
+      genX += w1;
+
+      genX += rand(80, 90 + diff * 70);
+
+      const top2 = clamp(baseY + rand(70, 150), 300, 480);
+      const w2 = rand(220, 320);
+      addRoof(genX, w2, top2);
+      genX += w2;
+      baseY = top2;
+    }
+
+    // Tall wall too high to jump — forces a wall-run + wall-jump climb
+    function genWallUp() {
+      const w1 = rand(120, 160);
+      addRoof(genX, w1, baseY);
+      genX += w1;
+
+      const rise = rand(140, 190);
+      const top2 = clamp(baseY - rise, 240, 460);
+      const w2 = rand(220, 320);
+      addRoof(genX, w2, top2);
+      genX += w2;
+      baseY = top2;
+    }
+
+    // Vertical shaft — chain wall-jumps to climb out
+    function genChannel() {
+      const wallW = 34;
+      const wallH = rand(220, 280);
+      const inner = 78;               // free space between inner wall faces
+      const floorW = rand(150, 190);
+      const fTop = baseY;
+
+      addRoof(genX, floorW, fTop);                                     // shaft floor
+      addBlock(genX + floorW, fTop - wallH, wallW, wallH + 60);        // right wall
+      addBlock(genX + floorW - inner - wallW, fTop - wallH, wallW, wallH - 150); // hanging left wall
+      const trW = rand(220, 300);
+      addBlock(genX + floorW + wallW, fTop - wallH, trW, 900);         // roof at the top
+
+      genX += floorW + wallW + trW;
+      baseY = fTop - wallH;
+    }
+
+    function cullWorld() {
+      const leftEdge = cameraX - 700;
+      blocks = blocks.filter(function (b) { return b.x + b.w > leftEdge; });
+      spikes = spikes.filter(function (s) { return s.x + SPIKE_W > leftEdge; });
+    }
+
+    // ============ PARTICLES ============
+    function spawnParticles(x, y, count, color, spread, up) {
+      for (let i = 0; i < count; i++) {
+        if (particles.length > 260) break;
+        particles.push({
+          x: x,
+          y: y,
+          vx: (Math.random() - 0.5) * spread,
+          vy: (Math.random() - 0.5) * spread - (up || 0),
+          life: 1,
+          size: rand(2, 5),
+          color: color
+        });
+      }
+    }
+
+    function updateParticles(dt) {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += 900 * dt;
+        p.life -= dt * 1.8;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+    }
+
+    // ============ INPUT ACTIONS ============
+    function groundJump() {
+      vy = -JUMP_V;
+      onGround = false;
+      state = 'air';
+      sfxJump();
+      spawnParticles(px + PLAYER_W / 2, py + PLAYER_H, 8, '#8ff6ff', 220, 60);
+    }
+
+    function wallJump() {
+      vy = -WALLJUMP_V;
+      vx = -wallDir * WALLJUMP_PUSH;
+      wallJumpTimer = WALLJUMP_LOCK;
+      clingLock = 0.16;
+      state = 'air';
+      wallDir = 0;
+      sfxWallJump();
+      spawnParticles(px + PLAYER_W / 2, py + PLAYER_H / 2, 10, '#ff5f8f', 260, 40);
+    }
+
+    function primary() {
+      audioResume();
+      if (phase === 'start' || phase === 'over') {
+        startGame();
+        return;
+      }
+      if (phase === 'play' && !paused) {
+        if (state === 'ground') {
+          groundJump();
+        } else if (state === 'wall') {
+          wallJump();
+        }
+      }
+    }
+
+    // ============ PHYSICS & UPDATE ============
+    function probeWall(x, y) {
+      const E = 5;
+      const yTop = y + 3;
+      const yBot = y + PLAYER_H - 3;
+      for (let i = 0; i < blocks.length; i++) {
+        const b = blocks[i];
+        if (yBot <= b.y + 2 || yTop >= b.y + b.h) continue; // no vertical overlap with side face
+        if (Math.abs((x + PLAYER_W) - b.x) <= E) return 1;   // wall on the right
+        if (Math.abs(x - (b.x + b.w)) <= E) return -1;       // wall on the left
+      }
+      return 0;
+    }
+
+    function update(dt) {
+      timeAlive += dt;
+
+      // --- vertical / horizontal intent based on current state ---
+      if (state === 'wall') {
+        vx = 0;
+        vy += GRAVITY * 0.22 * dt;
+        if (vy > WALL_SLIDE) vy = WALL_SLIDE;
+      } else {
+        vy += GRAVITY * dt;
+        if (vy > MAX_FALL) vy = MAX_FALL;
+
+        if (wallJumpTimer > 0) {
+          wallJumpTimer -= dt;
+        } else if (vx < RUN_SPEED) {
+          vx += ACCEL * dt;
+          if (vx > RUN_SPEED) vx = RUN_SPEED;
+        } else if (vx > RUN_SPEED) {
+          vx -= ACCEL * 0.5 * dt;
+          if (vx < RUN_SPEED) vx = RUN_SPEED;
+        }
+      }
+      if (clingLock > 0) clingLock -= dt;
+
+      // --- horizontal move + resolve ---
+      px += vx * dt;
+      for (let i = 0; i < blocks.length; i++) {
+        const b = blocks[i];
+        if (overlap(px, py, PLAYER_W, PLAYER_H, b)) {
+          if (vx > 0) {
+            px = b.x - PLAYER_W;
+          } else if (vx < 0) {
+            px = b.x + b.w;
+          }
+        }
+      }
+
+      // --- vertical move + resolve ---
+      onGround = false;
+      py += vy * dt;
+      for (let i = 0; i < blocks.length; i++) {
+        const b = blocks[i];
+        if (overlap(px, py, PLAYER_W, PLAYER_H, b)) {
+          if (vy > 0) {
+            py = b.y - PLAYER_H;
+            if (vy > 380) sfxLand();
+            vy = 0;
+            onGround = true;
+          } else if (vy < 0) {
+            py = b.y + b.h;
+            vy = 0;
+          }
+        }
+      }
+
+      // safety: never run off the left edge of the view
+      if (px < cameraX + 6) { px = cameraX + 6; if (vx < 0) vx = 0; }
+
+      // --- recompute state ---
+      const wd = probeWall(px, py);
+      if (wd !== 0 && clingLock <= 0) {
+        state = 'wall';
+        wallDir = wd;
+      } else if (onGround) {
+        state = 'ground';
+        wallDir = 0;
+      } else {
+        state = 'air';
+        wallDir = 0;
+      }
+
+      // --- spikes ---
+      for (let i = 0; i < spikes.length; i++) {
+        const s = spikes[i];
+        const sb = { x: s.x + 4, y: s.top - SPIKE_H + 4, w: SPIKE_W - 8, h: SPIKE_H - 4 };
+        if (overlap(px, py, PLAYER_W, PLAYER_H, sb)) {
+          crash();
+          return;
+        }
+      }
+
+      // --- fall out of the world ---
+      if (py > KILL_Y) {
+        crash();
+        return;
+      }
+
+      // --- trail + particles ---
+      trail.push({ x: px, y: py });
+      if (trail.length > 9) trail.shift();
+      updateParticles(dt);
+
+      // --- camera ---
+      const camTargetX = px - W * 0.30;
+      cameraX += (camTargetX - cameraX) * Math.min(1, dt * 8);
+      const camTargetY = clamp(py - H * 0.55, -80, 150);
+      cameraY += (camTargetY - cameraY) * Math.min(1, dt * 5);
+
+      // --- world streaming ---
+      ensureWorld();
+      cullWorld();
+
+      // --- HUD ---
+      const dist = Math.floor(px / 10);
+      scoreEl.textContent = dist;
+
+      if (shake > 0) shake = Math.max(0, shake - dt * 60);
+    }
+
+    // ============ RENDER ============
+    function drawSky() {
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, '#180f36');
+      g.addColorStop(0.45, '#4a2560');
+      g.addColorStop(0.74, '#b1466e');
+      g.addColorStop(1, '#ff9a5a');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      // sun glow low on the horizon
+      const sunX = W * 0.72;
+      const sunY = H * 0.66;
+      const sg = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 220);
+      sg.addColorStop(0, 'rgba(255, 220, 170, 0.9)');
+      sg.addColorStop(0.35, 'rgba(255, 150, 110, 0.35)');
+      sg.addColorStop(1, 'rgba(255, 120, 90, 0)');
+      ctx.fillStyle = sg;
+      ctx.beginPath();
+      ctx.arc(sunX, sunY, 220, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(255, 235, 200, 0.95)';
+      ctx.beginPath();
+      ctx.arc(sunX, sunY, 54, 0, Math.PI * 2);
+      ctx.fill();
+
+      // stars
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+      for (let i = 0; i < 46; i++) {
+        const sx = hash(i * 1.3) * W;
+        const sy = hash(i * 2.7) * (H * 0.5) - cameraY * 0.05;
+        const ss = hash(i * 5.1) * 1.6 + 0.4;
+        ctx.globalAlpha = 0.35 + hash(i * 9.1) * 0.5;
+        ctx.fillRect(sx, sy, ss, ss);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawSkyline(par, color, minH, maxH, spacing, windows) {
+      const off = ((cameraX * par) % spacing + spacing) % spacing;
+      const horizon = H * 0.74 - cameraY * par * 0.38;
+      const count = Math.ceil(W / spacing) + 2;
+      const baseSeed = Math.floor((cameraX * par) / spacing);
+
+      for (let i = 0; i < count; i++) {
+        const bx = i * spacing - off;
+        const seed = baseSeed + i;
+        const h = minH + hash(seed * 1.7) * (maxH - minH);
+        const w = spacing - 8;
+
+        ctx.fillStyle = color;
+        ctx.fillRect(bx, horizon - h, w, h + H);
+
+        if (windows) {
+          const cols = Math.max(2, Math.floor(w / 18));
+          const rows = Math.min(10, Math.max(2, Math.floor(h / 26)));
+          for (let cx = 0; cx < cols; cx++) {
+            for (let cy = 0; cy < rows; cy++) {
+              if (hash(seed * 3.3 + cx * 7.1 + cy * 13.7) > 0.74) {
+                ctx.fillStyle = 'rgba(255, 200, 130, ' + (0.18 + hash(seed + cx + cy) * 0.35) + ')';
+                ctx.fillRect(bx + 6 + cx * 18, horizon - h + 10 + cy * 26, 6, 10);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    function drawBlocks() {
+      const leftEdge = cameraX - 60;
+      const rightEdge = cameraX + W + 60;
+      for (let i = 0; i < blocks.length; i++) {
+        const b = blocks[i];
+        if (b.x + b.w < leftEdge || b.x > rightEdge) continue;
+
+        // body
+        const g = ctx.createLinearGradient(0, b.y, 0, b.y + 220);
+        g.addColorStop(0, '#241a42');
+        g.addColorStop(1, '#100b24');
+        ctx.fillStyle = g;
+        ctx.fillRect(b.x, b.y, b.w, b.h);
+
+        // side shading
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+        ctx.fillRect(b.x, b.y, 6, b.h);
+        ctx.fillRect(b.x + b.w - 6, b.y, 6, b.h);
+
+        // neon top edge
+        ctx.shadowColor = '#ff5f8f';
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = '#ff7aa2';
+        ctx.fillRect(b.x, b.y, b.w, 3);
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = 'rgba(55, 230, 255, 0.22)';
+        ctx.fillRect(b.x, b.y + 3, b.w, 1);
+
+        // faint horizontal banding
+        ctx.strokeStyle = 'rgba(120, 200, 255, 0.06)';
+        ctx.lineWidth = 1;
+        for (let yy = b.y + 26; yy < b.y + Math.min(b.h, 260); yy += 26) {
+          ctx.beginPath();
+          ctx.moveTo(b.x + 8, yy);
+          ctx.lineTo(b.x + b.w - 8, yy);
+          ctx.stroke();
+        }
+      }
+    }
+
+    function drawSpikes() {
+      const leftEdge = cameraX - 60;
+      const rightEdge = cameraX + W + 60;
+      ctx.shadowColor = '#ff2e55';
+      ctx.shadowBlur = 12;
+      for (let i = 0; i < spikes.length; i++) {
+        const s = spikes[i];
+        if (s.x + SPIKE_W < leftEdge || s.x > rightEdge) continue;
+        ctx.fillStyle = '#ff3b5c';
+        ctx.beginPath();
+        ctx.moveTo(s.x + 2, s.top);
+        ctx.lineTo(s.x + SPIKE_W / 2, s.top - SPIKE_H);
+        ctx.lineTo(s.x + SPIKE_W - 2, s.top);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+    }
+
+    function drawPlayer() {
+      // trail
+      for (let i = 0; i < trail.length; i++) {
+        const t = trail[i];
+        ctx.globalAlpha = (i / trail.length) * 0.30;
+        ctx.fillStyle = '#37e6ff';
+        roundRect(t.x, t.y, PLAYER_W, PLAYER_H, 9);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      // body glow
+      ctx.shadowColor = '#37e6ff';
+      ctx.shadowBlur = 18;
+      ctx.fillStyle = '#0b1e2a';
+      roundRect(px, py, PLAYER_W, PLAYER_H, 9);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // body fill
+      const g = ctx.createLinearGradient(px, py, px, py + PLAYER_H);
+      g.addColorStop(0, '#a6f7ff');
+      g.addColorStop(1, '#1fb6d8');
+      ctx.fillStyle = g;
+      roundRect(px + 2, py + 2, PLAYER_W - 4, PLAYER_H - 4, 7);
+      ctx.fill();
+
+      // scarf streaming behind
+      const wob = Math.sin(timeAlive * 15) * 4;
+      ctx.fillStyle = '#ff5f8f';
+      ctx.beginPath();
+      ctx.moveTo(px + 5, py + 11);
+      ctx.quadraticCurveTo(px - 18, py + 7 + wob, px - 28, py + 19 + wob * 1.4);
+      ctx.quadraticCurveTo(px - 14, py + 17, px + 5, py + 20);
+      ctx.closePath();
+      ctx.fill();
+
+      // facing eyes
+      const faceRight = wallDir <= 0;
+      const ex = faceRight ? px + PLAYER_W - 9 : px + 9;
+      ctx.fillStyle = '#0b1e2a';
+      ctx.beginPath();
+      ctx.arc(ex, py + 12, 2.4, 0, Math.PI * 2);
+      ctx.arc(ex - (faceRight ? -6 : 6), py + 12, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // grounded indicator spark
+      if (state === 'ground') {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.fillRect(px + 3, py + PLAYER_H - 2, PLAYER_W - 6, 2);
+      }
+    }
+
+    function drawParticles() {
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function render() {
+      drawSky();
+      drawSkyline(0.14, '#241a45', 90, 200, 140, false);
+      drawSkyline(0.32, '#160f30', 60, 150, 108, true);
+
+      const sx = shake > 0 ? (Math.random() - 0.5) * shake : 0;
+      const sy = shake > 0 ? (Math.random() - 0.5) * shake : 0;
+
+      ctx.save();
+      ctx.translate(-cameraX + sx, -cameraY + sy);
+      drawBlocks();
+      drawSpikes();
+      drawParticles();
+      drawPlayer();
+      ctx.restore();
+
+      // foreground haze near the bottom
+      const hz = ctx.createLinearGradient(0, H * 0.68, 0, H);
+      hz.addColorStop(0, 'rgba(255, 140, 100, 0)');
+      hz.addColorStop(1, 'rgba(255, 120, 90, 0.14)');
+      ctx.fillStyle = hz;
+      ctx.fillRect(0, H * 0.68, W, H * 0.32);
+    }
+
+    // ============ CAMERA / LAYOUT ============
+    function resizeCanvas() {
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    // ============ LIFECYCLE ============
+    function startGame() {
+      // place the player (and camera) before generating so streaming starts at spawn
+      px = 80;
+      cameraX = px - W * 0.30;
+      resetWorld();
+      py = baseY - PLAYER_H;
+      vx = RUN_SPEED;
+      vy = 0;
+      state = 'ground';
+      wallDir = 0;
+      onGround = true;
+      wallJumpTimer = 0;
+      clingLock = 0;
+      cameraY = clamp(py - H * 0.55, -80, 150);
+      shake = 0;
+      timeAlive = 0;
+      trail = [];
+
+      phase = 'play';
+      running = true;
+      paused = false;
+
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      pauseOverlay.classList.remove('visible');
+
+      scoreEl.textContent = 0;
+      lastTime = performance.now();
+      audioResume();
+    }
+
+    function crash() {
+      if (phase !== 'play') return;
+      phase = 'over';
+      running = false;
+      paused = false;
+      shake = 16;
+
+      spawnParticles(px + PLAYER_W / 2, py + PLAYER_H / 2, 26, '#ff5f8f', 460, 160);
+      spawnParticles(px + PLAYER_W / 2, py + PLAYER_H / 2, 16, '#ffd27a', 380, 120);
+      sfxCrash();
+
+      const dist = Math.floor(px / 10);
+      if (dist > best) {
+        best = dist;
+        localStorage.setItem('wallRunnerBest', String(best));
+        highScoreEl.textContent = best;
+      }
+
+      finalScoreEl.textContent = dist;
+      finalBestEl.textContent = best;
+      gameOverScreen.classList.remove('hidden');
+    }
+
+    function togglePause() {
+      if (phase !== 'play') return;
+      paused = !paused;
+      pauseOverlay.classList.toggle('visible', paused);
+      if (!paused) lastTime = performance.now();
+    }
+
+    // ============ GAME LOOP ============
+    function loop(currentTime) {
+      const dt = Math.min(0.033, (currentTime - lastTime) / 1000);
+      lastTime = currentTime;
+
+      if (phase === 'play' && !paused) {
+        update(dt);
+      } else {
+        updateParticles(dt);
+      }
+
+      render();
+      requestAnimationFrame(loop);
+    }
+
+    // ============ INPUT HANDLING ============
+    canvasWrapper.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      primary();
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (['Space', 'ArrowUp', 'KeyW', 'Enter'].indexOf(e.code) !== -1) {
+        e.preventDefault();
+        primary();
+      } else if (e.code === 'KeyP') {
+        e.preventDefault();
+        togglePause();
+      }
+    });
+
+    // keep pointer taps from scrolling on touch devices
+    document.addEventListener('touchstart', function (e) {
+      if (e.target === canvasWrapper || canvasWrapper.contains(e.target)) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('orientationchange', resizeCanvas);
+
+    // ============ INITIAL DRAW ============
+    resizeCanvas();
+    resetWorld();
+    px = 80;
+    py = baseY - PLAYER_H;
+    cameraX = px - W * 0.30;
+    cameraY = clamp(py - H * 0.55, -80, 150);
+    render();
+    lastTime = performance.now();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

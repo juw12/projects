@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>⛏️ Gem Digger</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --Earth0: #120d09;
+      --Earth1: #1d150e;
+      --Earth2: #2a1e14;
+      --Soil:   #7a4a24;
+      --SoilLo: #5c3517;
+      --Amber:  #ffb54a;
+      --AmberD: #e0862a;
+      --Jade:   #46d39a;
+      --Cyan:   #4fd6e8;
+      --Rose:   #ff6f9c;
+      --Ink:    #f5e9d8;
+      --Muted:  #b39a7d;
+    }
+
+    body {
+      font-family: 'Trebuchet MS', 'Segoe UI', Tahoma, sans-serif;
+      background:
+        radial-gradient(circle at 20% 0%, #2b1d12 0%, transparent 55%),
+        radial-gradient(circle at 85% 100%, #241a10 0%, transparent 50%),
+        linear-gradient(160deg, var(--Earth0), #0b0806);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+      color: var(--Ink);
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: linear-gradient(180deg, #241a12, #180f0a);
+      border: 2px solid #3d2a1a;
+      border-radius: 20px;
+      padding: 18px;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.75), inset 0 1px 0 #4a3320;
+      max-width: 620px;
+      width: 96%;
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.7rem;
+      letter-spacing: 3px;
+      font-weight: 800;
+      color: var(--Amber);
+      text-shadow: 0 2px 0 #7a4a10, 0 0 18px rgba(255, 181, 74, 0.35);
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.82rem;
+      color: var(--Muted);
+      margin: 4px 0 12px;
+      letter-spacing: 0.5px;
+    }
+
+    /* ============ SCORE BOARD ============ */
+    .score-board {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px 10px;
+      margin-bottom: 10px;
+      padding: 10px 14px;
+      background: linear-gradient(180deg, #1f160e, #170f09);
+      border: 1px solid #3a2716;
+      border-radius: 12px;
+      font-size: 0.82rem;
+      color: var(--Muted);
+    }
+
+    .score-board .cell { display: flex; justify-content: space-between; align-items: baseline; }
+    .score-board b { color: var(--Ink); font-weight: 700; letter-spacing: 0.5px; }
+    .score-board .amber b { color: var(--Amber); }
+    .score-board .jade b  { color: var(--Jade); }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid #3a2716;
+      background: #0c0805;
+      box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.9);
+    }
+
+    canvas { display: block; width: 100%; height: auto; image-rendering: auto; }
+
+    /* ============ OVERLAY SCREENS ============ */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+      background:
+        radial-gradient(circle at 50% 35%, rgba(60, 40, 22, 0.94), rgba(14, 9, 6, 0.97));
+      transition: opacity 0.28s ease;
+    }
+
+    .screen.hidden { opacity: 0; pointer-events: none; }
+
+    .screen-title {
+      font-size: 1.9rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      color: var(--Amber);
+      text-shadow: 0 2px 0 #6b3f0d, 0 0 22px rgba(255, 181, 74, 0.4);
+      margin-bottom: 6px;
+    }
+
+    .screen-subtitle { font-size: 0.9rem; color: var(--Muted); margin-bottom: 16px; max-width: 380px; line-height: 1.5; }
+    .screen-subtitle em { color: var(--Cyan); font-style: normal; }
+
+    .legend { font-size: 0.78rem; color: var(--Muted); line-height: 1.9; margin-bottom: 18px; }
+    .legend span { color: var(--Ink); font-weight: 700; }
+
+    .final-score { font-size: 1.2rem; color: var(--Jade); margin-bottom: 6px; font-weight: 700; }
+    .final-note { font-size: 0.82rem; color: var(--Muted); margin-bottom: 18px; }
+
+    /* ============ BUTTONS ============ */
+    .action-btn {
+      padding: 13px 30px;
+      background: linear-gradient(180deg, var(--Amber), var(--AmberD));
+      color: #2a1607;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.02rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      cursor: pointer;
+      box-shadow: 0 5px 0 #8a4e12, 0 8px 18px rgba(0, 0, 0, 0.5);
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+    .action-btn:hover { transform: translateY(-2px); box-shadow: 0 7px 0 #8a4e12, 0 10px 22px rgba(0, 0, 0, 0.55); }
+    .action-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #8a4e12; }
+
+    /* ============ PAUSE OVERLAY ============ */
+    .pause-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: rgba(10, 7, 4, 0.72);
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: 4px;
+      color: var(--Amber);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .pause-overlay.visible { opacity: 1; }
+
+    /* ============ TOUCH D-PAD ============ */
+    .dpad {
+      display: none;
+      margin: 14px auto 2px;
+      grid-template-columns: repeat(3, 58px);
+      grid-template-rows: repeat(3, 58px);
+      gap: 8px;
+      justify-content: center;
+    }
+    .dpad.visible { display: grid; }
+
+    .dbtn {
+      background: linear-gradient(180deg, #3a2716, #26190f);
+      border: 1px solid #54381f;
+      border-radius: 12px;
+      color: var(--Amber);
+      font-size: 1.35rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      box-shadow: 0 3px 0 #140d07;
+      transition: transform 0.08s ease, background 0.08s ease;
+    }
+    .dbtn:active, .dbtn.held { background: linear-gradient(180deg, #6b4520, #4a2f16); transform: translateY(2px); box-shadow: 0 1px 0 #140d07; }
+    .dbtn.up { grid-column: 2; grid-row: 1; }
+    .dbtn.left { grid-column: 1; grid-row: 2; }
+    .dbtn.right { grid-column: 3; grid-row: 2; }
+    .dbtn.down { grid-column: 2; grid-row: 3; }
+
+    .hint { display: none; text-align: center; font-size: 0.72rem; color: #7a6446; margin-top: 8px; }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 560px) {
+      .game-container { padding: 12px; }
+      .game-title { font-size: 1.35rem; }
+      .score-board { font-size: 0.72rem; padding: 8px 10px; grid-template-columns: repeat(3, 1fr); }
+      .hint { display: block; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">GEM DIGGER</h1>
+    <p class="game-subtitle">Dig deep · Grab the gems · Get back to the surface</p>
+
+    <!-- ============ HUD ============ -->
+    <div class="score-board">
+      <div class="cell"><span>Score</span><b id="score" class="amber">0</b></div>
+      <div class="cell"><span>Best</span><b id="best">0</b></div>
+      <div class="cell"><span>Level</span><b id="level">1</b></div>
+      <div class="cell"><span>Gems</span><b id="gems" class="jade">0</b></div>
+      <div class="cell"><span>Time</span><b id="time">90</b></div>
+      <div class="cell"><span>Lives</span><b id="lives">♥♥♥</b></div>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="576" height="480"></canvas>
+
+      <!-- ============ START SCREEN ============ -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">GEM DIGGER</h2>
+        <p class="screen-subtitle">Carve tunnels through the soil, collect every <em>gem</em>, then climb back to the surface before time runs out. Drop <em>boulders</em> on the burrowers to squash them.</p>
+        <div class="legend">
+          <span>⛏️ Arrows / WASD</span> — dig &amp; move<br>
+          <span>⬇ Dig under a boulder</span> — it falls<br>
+          <span>P / Space</span> — pause
+        </div>
+        <button class="action-btn" id="startBtn">START DIGGING</button>
+      </div>
+
+      <!-- ============ GAME OVER SCREEN ============ -->
+      <div id="gameOverScreen" class="screen hidden">
+        <h2 class="screen-title">BURIED!</h2>
+        <p class="final-score">Score: <span id="finalScore">0</span></p>
+        <p class="final-note" id="finalNote">Reached depth level 1</p>
+        <button class="action-btn" id="retryBtn">DIG AGAIN</button>
+      </div>
+
+      <!-- ============ PAUSE OVERLAY ============ -->
+      <div id="pauseOverlay" class="pause-overlay">PAUSED</div>
+    </div>
+
+    <!-- ============ TOUCH D-PAD ============ -->
+    <div class="dpad" id="dpad">
+      <button class="dbtn up"    data-dir="up">▲</button>
+      <button class="dbtn left"  data-dir="left">◀</button>
+      <button class="dbtn right" data-dir="right">▶</button>
+      <button class="dbtn down"  data-dir="down">▼</button>
+    </div>
+    <p class="hint">Dig with the arrows · tap to pause isn't needed — use the pad</p>
+  </div>
+
+  <script>
+    /* ============================================================
+       GEM DIGGER — original dig-and-collect arcade game
+       ============================================================ */
+
+    // ============ CANVAS & CONSTANTS ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const COLS = 18;
+    const ROWS = 15;
+    const TILE = canvas.width / COLS;      // 32px
+
+    // Terrain codes
+    const T_EMPTY   = 0;   // dug-out cave (walkable)
+    const T_SOIL    = 1;   // diggable dirt
+    const T_BEDROCK = 2;   // indestructible rock wall
+    const T_GEM     = 3;   // soil holding a gem
+
+    // Tuning
+    const PLAYER_STEP = 100;   // ms per grid step for the player
+    const ENEMY_STEP  = 300;   // ms per grid step for burrowers (scaled by level)
+    const ROCK_SPEED  = 9;     // tiles per second while a boulder falls
+    const ZERO = { x: 0, y: 0 };
+    const DIRS = {
+      up:    { x: 0, y: -1 },
+      down:  { x: 0, y: 1 },
+      left:  { x: -1, y: 0 },
+      right: { x: 1, y: 0 }
+    };
+
+    // ============ GAME STATE ============
+    let terrain = [];               // terrain[x][y]
+    let rocks = [];                 // { gx, gy, fy, falling }
+    let enemies = [];               // { gx, gy, px, py, stepT, wobble }
+    let particles = [];
+    let player = { gx: 2, gy: 0, px: 64, py: 0, facing: 1, invuln: 0 };
+
+    let startX = 2, exitX = COLS - 3;
+    let gemsLeft = 0, gemsTotal = 0;
+    let exitOpen = false;
+
+    let score = 0;
+    let best = parseInt(localStorage.getItem('gemDiggerBest') || '0', 10) || 0;
+    let lives = 3;
+    let level = 1;
+
+    let timeLeft = 90;
+    let levelTime = 90;
+
+    let state = 'menu';             // menu | playing | paused | clear | gameover
+    let clearTimer = 0;
+    let elapsed = 0;                // ms, drives idle animations
+    let shake = 0;
+
+    let playerAcc = 0;
+    let enemyAcc = 0;
+
+    // ============ INPUT ============
+    const held = [];                // ordered list of held direction names
+    let moveDir = { x: 0, y: 0 };
+
+    function pressDir(name) {
+      if (!DIRS[name]) return;
+      if (held.indexOf(name) === -1) held.push(name);
+      moveDir = DIRS[held[held.length - 1]];
+    }
+    function releaseDir(name) {
+      const i = held.indexOf(name);
+      if (i !== -1) held.splice(i, 1);
+      moveDir = held.length ? DIRS[held[held.length - 1]] : { x: 0, y: 0 };
+    }
+    function clearDirs() { held.length = 0; moveDir = { x: 0, y: 0 }; }
+
+    // ============ AUDIO (WebAudio beep) ============
+    let actx = null;
+    function audio() {
+      if (!actx) {
+        try { actx = new (window.AudioContext || window.webkitAudioContext)(); }
+        catch (e) { actx = null; }
+      }
+      if (actx && actx.state === 'suspended') { try { actx.resume(); } catch (e) {} }
+      return actx;
+    }
+    function beep(freq, dur, type, vol) {
+      const a = audio();
+      if (!a) return;
+      dur = dur || 0.08;
+      type = type || 'square';
+      vol = vol == null ? 0.05 : vol;
+      try {
+        const o = a.createOscillator();
+        const g = a.createGain();
+        o.type = type;
+        o.frequency.value = freq;
+        o.connect(g); g.connect(a.destination);
+        const t = a.currentTime;
+        g.gain.setValueAtTime(vol, t);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.start(t); o.stop(t + dur + 0.02);
+      } catch (e) {}
+    }
+    function sfx(kind) {
+      switch (kind) {
+        case 'dig':    beep(180 + Math.random() * 40, 0.05, 'sawtooth', 0.03); break;
+        case 'gem':    beep(880, 0.07, 'square', 0.05); setTimeout(() => beep(1320, 0.09, 'square', 0.05), 60); break;
+        case 'squash': beep(90, 0.18, 'sawtooth', 0.08); break;
+        case 'hurt':   beep(140, 0.28, 'triangle', 0.09); setTimeout(() => beep(90, 0.3, 'triangle', 0.08), 90); break;
+        case 'clear':  [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => beep(f, 0.12, 'square', 0.05), i * 90)); break;
+        case 'over':   [392, 330, 262, 196].forEach((f, i) => setTimeout(() => beep(f, 0.22, 'triangle', 0.07), i * 150)); break;
+        case 'time':   beep(300, 0.12, 'square', 0.06); break;
+      }
+    }
+
+    // ============ DETERMINISTIC NOISE (for soil speckles) ============
+    function hash(x, y) {
+      let n = (x * 374761393 + y * 668265263) | 0;
+      n = (n ^ (n >> 13)) * 1274126177;
+      return ((n ^ (n >> 16)) >>> 0) / 4294967296;
+    }
+
+    // ============ TERRAIN HELPERS ============
+    function inBounds(x, y) { return x >= 0 && x < COLS && y >= 0 && y < ROWS; }
+    function tAt(x, y) { return inBounds(x, y) ? terrain[x][y] : T_BEDROCK; }
+    function rockAt(x, y) {
+      for (let i = 0; i < rocks.length; i++) {
+        if (rocks[i].gx === x && rocks[i].gy === y) return rocks[i];
+      }
+      return null;
+    }
+    function enemyAt(x, y) {
+      for (let i = 0; i < enemies.length; i++) {
+        if (enemies[i].gx === x && enemies[i].gy === y) return enemies[i];
+      }
+      return null;
+    }
+
+    // ============ LEVEL GENERATION ============
+    function generateLevel() {
+      terrain = [];
+      for (let x = 0; x < COLS; x++) {
+        terrain[x] = [];
+        for (let y = 0; y < ROWS; y++) terrain[x][y] = T_SOIL;
+      }
+
+      // Surface row + solid bedrock frame
+      for (let x = 0; x < COLS; x++) terrain[x][0] = T_EMPTY;
+      for (let y = 0; y < ROWS; y++) { terrain[0][y] = T_BEDROCK; terrain[COLS - 1][y] = T_BEDROCK; }
+      for (let x = 0; x < COLS; x++) terrain[x][ROWS - 1] = T_BEDROCK;
+
+      // Carve the entry shaft so the player can start digging immediately
+      startX = 2;
+      for (let y = 0; y <= 1; y++) terrain[startX][y] = T_EMPTY;
+
+      exitX = COLS - 3;
+      terrain[exitX][0] = T_EMPTY;
+
+      rocks = [];
+      enemies = [];
+      particles = [];
+      exitOpen = false;
+
+      // ---- Gems ----
+      const gemCount = 6 + level * 2;
+      let placed = 0, guard = 0;
+      while (placed < gemCount && guard++ < 4000) {
+        const x = 1 + Math.floor(Math.random() * (COLS - 2));
+        const y = 2 + Math.floor(Math.random() * (ROWS - 4));
+        if (terrain[x][y] !== T_SOIL) continue;
+        if (Math.abs(x - startX) <= 1 && y <= 2) continue;
+        terrain[x][y] = T_GEM;
+        placed++;
+      }
+      gemsTotal = placed;
+      gemsLeft = placed;
+
+      // ---- Boulders (kept clear of gems so nothing gets boxed in) ----
+      const rockCount = 5 + level;
+      let rplaced = 0; guard = 0;
+      const nearGem = (x, y) =>
+        tAt(x + 1, y) === T_GEM || tAt(x - 1, y) === T_GEM ||
+        tAt(x, y + 1) === T_GEM || tAt(x, y - 1) === T_GEM;
+      while (rplaced < rockCount && guard++ < 4000) {
+        const x = 1 + Math.floor(Math.random() * (COLS - 2));
+        const y = 2 + Math.floor(Math.random() * (ROWS - 4));
+        if (tAt(x, y) !== T_SOIL) continue;
+        if (Math.abs(x - startX) <= 1 && y <= 3) continue;
+        if (nearGem(x, y)) continue;
+        if (rockAt(x, y)) continue;
+        terrain[x][y] = T_EMPTY;                 // boulder sits in a hollow
+        rocks.push({ gx: x, gy: y, fy: y, falling: false });
+        rplaced++;
+      }
+
+      // ---- Burrowers ----
+      const enemyCount = Math.min(4, 1 + Math.floor(level / 1.5));
+      let eplaced = 0; guard = 0;
+      while (eplaced < enemyCount && guard++ < 4000) {
+        const x = 2 + Math.floor(Math.random() * (COLS - 4));
+        const y = 6 + Math.floor(Math.random() * (ROWS - 8));
+        if (tAt(x, y) !== T_SOIL) continue;
+        if (Math.abs(x - startX) + y < 6) continue;
+        enemies.push({ gx: x, gy: y, px: x * TILE, py: y * TILE, stepT: 0, wobble: Math.random() * 6.28 });
+        eplaced++;
+      }
+
+      // ---- Player reset ----
+      player.gx = startX; player.gy = 0;
+      player.px = startX * TILE; player.py = 0;
+      player.facing = 1;
+      player.invuln = 1.6;
+
+      // ---- Timing ----
+      levelTime = Math.max(45, 90 - (level - 1) * 7);
+      timeLeft = levelTime;
+
+      playerAcc = 0;
+      enemyAcc = 0;
+      moveDir = { x: 0, y: 0 };
+    }
+
+    // ============ PARTICLES ============
+    function burst(gx, gy, color, n, spread) {
+      const cx = gx * TILE + TILE / 2;
+      const cy = gy * TILE + TILE / 2;
+      n = n || 8;
+      spread = spread || 4;
+      for (let i = 0; i < n; i++) {
+        particles.push({
+          x: cx, y: cy,
+          vx: (Math.random() - 0.5) * spread * 2,
+          vy: (Math.random() - 0.5) * spread * 2 - 1,
+          life: 1,
+          color: color,
+          size: 2 + Math.random() * 3
+        });
+      }
+    }
+    function updateParticles(dt) {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx * dt * 0.06;
+        p.y += p.vy * dt * 0.06;
+        p.vy += dt * 0.02;
+        p.life -= dt * 0.0022;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+    }
+    function drawParticles() {
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // ============ PLAYER LOGIC ============
+    function tryMovePlayer(dx, dy) {
+      const nx = player.gx + dx, ny = player.gy + dy;
+      if (!inBounds(nx, ny)) return false;
+      if (dx !== 0) player.facing = dx > 0 ? 1 : -1;
+
+      const t = terrain[nx][ny];
+      if (t === T_BEDROCK) return false;
+      if (rockAt(nx, ny)) return false;
+      if (enemyAt(nx, ny)) { playerHit(); return false; }
+
+      if (t === T_SOIL) {
+        terrain[nx][ny] = T_EMPTY;
+        score += 2;
+        sfx('dig');
+        if (Math.random() < 0.5) burst(nx, ny, '#6b4020', 3, 2);
+      } else if (t === T_GEM) {
+        terrain[nx][ny] = T_EMPTY;
+        gemsLeft--;
+        score += 25;
+        sfx('gem');
+        burst(nx, ny, '#4fd6e8', 10, 4);
+        if (gemsLeft <= 0) openExit();
+      }
+
+      player.gx = nx; player.gy = ny;
+      if (state === 'playing' && player.gy === 0 && player.gx === exitX && exitOpen) levelClear();
+      return true;
+    }
+
+    function openExit() {
+      exitOpen = true;
+      sfx('clear');
+      for (let i = 0; i < 14; i++) burst(exitX, 0, i % 2 ? '#46d39a' : '#ffb54a', 3, 5);
+    }
+
+    function playerHit() {
+      if (player.invuln > 0 || state !== 'playing') return;
+      lives--;
+      shake = 10;
+      sfx('hurt');
+      burst(player.gx, player.gy, '#ff6f9c', 16, 6);
+      if (lives <= 0) { gameOver(); return; }
+      player.gx = startX; player.gy = 0;
+      player.px = startX * TILE; player.py = 0;
+      player.invuln = 1.8;
+    }
+
+    // ============ ENEMY LOGIC ============
+    function enemyCanEnter(x, y) {
+      if (!inBounds(x, y)) return false;
+      if (terrain[x][y] === T_BEDROCK) return false;
+      if (terrain[x][y] === T_GEM) return false;   // burrowers never eat gems
+      if (rockAt(x, y)) return false;
+      return true;
+    }
+    function stepEnemy(e) {
+      const ddx = player.gx - e.gx;
+      const ddy = player.gy - e.gy;
+      const sx = Math.sign(ddx), sy = Math.sign(ddy);
+      let cands;
+      if (Math.abs(ddx) >= Math.abs(ddy)) {
+        cands = [[sx, 0], [0, sy], [0, -sy], [-sx, 0]];
+      } else {
+        cands = [[0, sy], [sx, 0], [-sx, 0], [0, -sy]];
+      }
+      // a little randomness so they can be lured and don't feel robotic
+      const jitter = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      for (let i = jitter.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = jitter[i]; jitter[i] = jitter[j]; jitter[j] = tmp;
+      }
+      cands = cands.concat(jitter);
+
+      for (let i = 0; i < cands.length; i++) {
+        const mx = cands[i][0], my = cands[i][1];
+        if (mx === 0 && my === 0) continue;
+        const nx = e.gx + mx, ny = e.gy + my;
+        if (!enemyCanEnter(nx, ny)) continue;
+        if (terrain[nx][ny] === T_SOIL) { terrain[nx][ny] = T_EMPTY; burst(nx, ny, '#5c3517', 3, 2); }
+        e.gx = nx; e.gy = ny;
+        if (nx === player.gx && ny === player.gy) { playerHit(); return; }
+        return;
+      }
+    }
+
+    // ============ BOULDER PHYSICS ============
+    function canRockFallInto(x, y) {
+      if (!inBounds(x, y)) return false;
+      if (terrain[x][y] !== T_EMPTY) return false;
+      // blocked by another settled boulder
+      for (let i = 0; i < rocks.length; i++) {
+        const r = rocks[i];
+        if (!r.falling && r.gx === x && r.gy === y) return false;
+      }
+      return true;
+    }
+    function updateRocks(dt) {
+      const step = ROCK_SPEED * dt / 1000;
+      for (let i = 0; i < rocks.length; i++) {
+        const r = rocks[i];
+        if (!r.falling) {
+          if (canRockFallInto(r.gx, r.gy + 1)) { r.falling = true; }
+          continue;
+        }
+        r.fy += step;
+        const next = r.gy + 1;
+        if (r.fy >= next) {
+          if (canRockFallInto(r.gx, next)) {
+            r.gy = next;
+            r.fy = next;
+            crushAt(r.gx, next);
+            if (Math.random() < 0.6) burst(r.gx, next + 0, '#7a7a8a', 2, 2);
+          } else {
+            // land: settle with a thud
+            const fell = r.gy + 1;
+            r.fy = r.gy;
+            r.falling = false;
+            burst(r.gx, r.gy, '#8a8a9a', 4, 3);
+            shake = Math.max(shake, 3);
+          }
+        }
+      }
+    }
+    function crushAt(x, y) {
+      const e = enemyAt(x, y);
+      if (e) {
+        enemies.splice(enemies.indexOf(e), 1);
+        score += 50;
+        sfx('squash');
+        burst(x, y, '#b06bd6', 14, 5);
+        shake = Math.max(shake, 6);
+      }
+      if (player.gx === x && player.gy === y) {
+        shake = 10;
+        playerHit();
+      }
+    }
+
+    // ============ FLOW ============
+    function newGame() {
+      score = 0;
+      lives = 3;
+      level = 1;
+      startLevel(level);
+      hideScreens();
+      sfx('clear');
+    }
+    function startLevel(n) {
+      level = n;
+      generateLevel();
+      state = 'playing';
+      clearTimer = 0;
+      hideScreens();
+      document.getElementById('pauseOverlay').classList.remove('visible');
+      updateHUD();
+    }
+    function levelClear() {
+      state = 'clear';
+      clearTimer = 1.1;
+      score += 100 + Math.floor(timeLeft) * 5;
+      sfx('clear');
+      for (let x = 0; x < COLS; x++) burst(x, 0, '#ffb54a', 2, 5);
+      updateHUD();
+    }
+    function timeUp() {
+      if (state !== 'playing') return;
+      lives--;
+      sfx('time');
+      shake = 8;
+      if (lives <= 0) { gameOver(); return; }
+      startLevel(level);
+    }
+    function gameOver() {
+      state = 'gameover';
+      sfx('over');
+      if (score > best) {
+        best = score;
+        localStorage.setItem('gemDiggerBest', String(best));
+      }
+      document.getElementById('finalScore').textContent = score;
+      document.getElementById('finalNote').textContent = 'Reached depth level ' + level + ' · Best ' + best;
+      document.getElementById('gameOverScreen').classList.remove('hidden');
+      document.getElementById('startScreen').classList.add('hidden');
+      updateHUD();
+    }
+    function hideScreens() {
+      document.getElementById('startScreen').classList.add('hidden');
+      document.getElementById('gameOverScreen').classList.add('hidden');
+    }
+
+    // ============ HUD ============
+    const elScore = document.getElementById('score');
+    const elBest = document.getElementById('best');
+    const elLevel = document.getElementById('level');
+    const elGems = document.getElementById('gems');
+    const elTime = document.getElementById('time');
+    const elLives = document.getElementById('lives');
+
+    function updateHUD() {
+      elScore.textContent = score;
+      elBest.textContent = best;
+      elLevel.textContent = level;
+      elGems.textContent = (gemsTotal - gemsLeft) + '/' + gemsTotal;
+      elTime.textContent = Math.max(0, Math.ceil(timeLeft));
+      elLives.textContent = lives > 0 ? '♥'.repeat(lives) : '—';
+    }
+
+    // ============ DRAWING: TILES ============
+    function soilColor(y) {
+      const l = Math.max(16, 34 - y * 1.15);
+      return 'hsl(27, 46%, ' + l + '%)';
+    }
+    function drawSoil(x, y) {
+      const px = x * TILE, py = y * TILE;
+      ctx.fillStyle = soilColor(y);
+      ctx.fillRect(px, py, TILE, TILE);
+      // speckle texture
+      ctx.fillStyle = 'rgba(0,0,0,0.16)';
+      for (let i = 0; i < 4; i++) {
+        const h1 = hash(x * 7 + i, y * 13 + i);
+        const h2 = hash(y * 5 + i, x * 11 + i);
+        ctx.fillRect(px + h1 * (TILE - 5), py + h2 * (TILE - 5), 2.4, 2.4);
+      }
+      ctx.fillStyle = 'rgba(255,220,160,0.06)';
+      ctx.fillRect(px, py, TILE, 2);
+      ctx.strokeStyle = 'rgba(0,0,0,0.14)';
+      ctx.strokeRect(px + 0.5, py + 0.5, TILE - 1, TILE - 1);
+    }
+    function drawBedrock(x, y) {
+      const px = x * TILE, py = y * TILE;
+      ctx.fillStyle = '#33333d';
+      ctx.fillRect(px, py, TILE, TILE);
+      ctx.fillStyle = '#43434f';
+      ctx.fillRect(px + 3, py + 3, TILE - 6, TILE - 6);
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.fillRect(px + 3, py + 3, TILE - 6, 3);
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+      ctx.strokeRect(px + 0.5, py + 0.5, TILE - 1, TILE - 1);
+    }
+    function drawCave(x, y) {
+      const px = x * TILE, py = y * TILE;
+      ctx.fillStyle = y === 0 ? '#241d16' : '#1a130d';
+      ctx.fillRect(px, py, TILE, TILE);
+      if (y > 0) {
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.fillRect(px, py, TILE, 3);
+      }
+    }
+    function drawGemShape(cx, cy, s, t, color) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      const g = ctx.createLinearGradient(0, -s, 0, s);
+      g.addColorStop(0, '#ffffff');
+      g.addColorStop(0.35, color);
+      g.addColorStop(1, '#1b6b78');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(0, -s);
+      ctx.lineTo(s * 0.85, -s * 0.2);
+      ctx.lineTo(0, s);
+      ctx.lineTo(-s * 0.85, -s * 0.2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      // facet line
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.85, -s * 0.2);
+      ctx.lineTo(s * 0.85, -s * 0.2);
+      ctx.moveTo(0, -s);
+      ctx.lineTo(0, s);
+      ctx.globalAlpha = 0.5;
+      ctx.stroke();
+      // sparkle
+      const tw = 0.5 + 0.5 * Math.sin(t * 0.006 + cx);
+      ctx.globalAlpha = tw;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(-s * 0.3, -s * 0.35, 1.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    }
+    function gemColor(x, y) {
+      const h = hash(x * 3, y * 5);
+      const palette = ['#4fd6e8', '#46d39a', '#ff6f9c', '#ffd23f', '#a78bfa'];
+      return palette[Math.floor(h * palette.length) % palette.length];
+    }
+
+    // ============ DRAWING: ENTITIES ============
+    function drawRock(r) {
+      const px = r.gx * TILE;
+      const py = r.fy * TILE;
+      const cx = px + TILE / 2, cy = py + TILE / 2;
+      const s = TILE * 0.44;
+      ctx.save();
+      ctx.translate(cx, cy);
+      const g = ctx.createRadialGradient(-s * 0.4, -s * 0.4, 2, 0, 0, s * 1.5);
+      g.addColorStop(0, '#9a9aa8');
+      g.addColorStop(0.6, '#6d6d7c');
+      g.addColorStop(1, '#41414c');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      const pts = 9;
+      for (let i = 0; i < pts; i++) {
+        const a = (i / pts) * Math.PI * 2;
+        const rad = s * (0.82 + hash(r.gx * 9 + i, r.gy * 4) * 0.28);
+        const xx = Math.cos(a) * rad, yy = Math.sin(a) * rad;
+        if (i === 0) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      // highlight + crack
+      ctx.fillStyle = 'rgba(255,255,255,0.28)';
+      ctx.beginPath();
+      ctx.arc(-s * 0.35, -s * 0.4, s * 0.22, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.1, -s * 0.5);
+      ctx.lineTo(s * 0.15, 0);
+      ctx.lineTo(-s * 0.05, s * 0.5);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawEnemy(e, t) {
+      const cx = e.px + TILE / 2;
+      const cy = e.py + TILE / 2 + Math.sin(t * 0.006 + e.wobble) * 1.5;
+      const r = TILE * 0.34;
+      ctx.save();
+      ctx.translate(cx, cy);
+      // body
+      const g = ctx.createRadialGradient(-r * 0.3, -r * 0.4, 1, 0, 0, r * 1.4);
+      g.addColorStop(0, '#c98fe8');
+      g.addColorStop(1, '#7a3fa6');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, r, r * 0.92, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // spikes
+      ctx.fillStyle = '#5c2d80';
+      for (let i = 0; i < 6; i++) {
+        const a = Math.PI * (0.15 + i * 0.14);
+        const bx = Math.cos(a) * r, by = -Math.abs(Math.sin(a)) * r * 0.9;
+        ctx.beginPath();
+        ctx.moveTo(bx - 2.5, by);
+        ctx.lineTo(bx, by - 5);
+        ctx.lineTo(bx + 2.5, by);
+        ctx.closePath();
+        ctx.fill();
+      }
+      // eyes
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(-r * 0.35, -r * 0.1, r * 0.3, 0, Math.PI * 2);
+      ctx.arc(r * 0.35, -r * 0.1, r * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      const ddx = Math.sign(player.gx - e.gx) * r * 0.12;
+      const ddy = Math.sign(player.gy - e.gy) * r * 0.12;
+      ctx.fillStyle = '#2a1030';
+      ctx.beginPath();
+      ctx.arc(-r * 0.35 + ddx, -r * 0.1 + ddy, r * 0.15, 0, Math.PI * 2);
+      ctx.arc(r * 0.35 + ddx, -r * 0.1 + ddy, r * 0.15, 0, Math.PI * 2);
+      ctx.fill();
+      // angry brow
+      ctx.strokeStyle = '#2a1030';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.6, -r * 0.45); ctx.lineTo(-r * 0.12, -r * 0.28);
+      ctx.moveTo(r * 0.6, -r * 0.45); ctx.lineTo(r * 0.12, -r * 0.28);
+      ctx.stroke();
+      // claws
+      ctx.strokeStyle = '#f0e3ff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.85, r * 0.35); ctx.lineTo(-r * 1.15, r * 0.75);
+      ctx.moveTo(r * 0.85, r * 0.35); ctx.lineTo(r * 1.15, r * 0.75);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawPlayer(t) {
+      const blink = player.invuln > 0 && Math.floor(t * 0.012) % 2 === 0;
+      if (blink) return;
+      const cx = player.px + TILE / 2;
+      const cy = player.py + TILE / 2;
+      const r = TILE * 0.34;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(player.facing, 1);
+      // body
+      const g = ctx.createLinearGradient(0, -r, 0, r);
+      g.addColorStop(0, '#ffb866');
+      g.addColorStop(1, '#d97b2b');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.ellipse(0, r * 0.2, r * 0.92, r * 0.95, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // boots
+      ctx.fillStyle = '#5a3517';
+      ctx.beginPath();
+      ctx.ellipse(-r * 0.4, r * 0.95, r * 0.32, r * 0.22, 0, 0, Math.PI * 2);
+      ctx.ellipse(r * 0.4, r * 0.95, r * 0.32, r * 0.22, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // hard hat
+      ctx.fillStyle = '#ffd23f';
+      ctx.beginPath();
+      ctx.arc(0, -r * 0.35, r * 0.82, Math.PI, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillRect(-r * 1.0, -r * 0.42, r * 2.0, r * 0.22);
+      // lamp
+      ctx.fillStyle = '#fff6c9';
+      ctx.beginPath();
+      ctx.arc(r * 0.45, -r * 0.5, r * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffd23f';
+      ctx.beginPath();
+      ctx.arc(r * 0.45, -r * 0.5, r * 0.12, 0, Math.PI * 2);
+      ctx.fill();
+      // eyes
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(r * 0.12, r * 0.02, r * 0.22, 0, Math.PI * 2);
+      ctx.arc(r * 0.6, r * 0.02, r * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#2a1a0c';
+      ctx.beginPath();
+      ctx.arc(r * 0.18, r * 0.04, r * 0.1, 0, Math.PI * 2);
+      ctx.arc(r * 0.64, r * 0.04, r * 0.1, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawExit(t) {
+      const px = exitX * TILE;
+      const py = 0;
+      const cx = px + TILE / 2;
+      // shaft walls into the ground
+      ctx.fillStyle = '#2c241c';
+      ctx.fillRect(px - 1, py, TILE + 2, TILE);
+      // pole
+      ctx.fillStyle = '#6a4a2a';
+      ctx.fillRect(cx - 1.5, py + 4, 3, TILE - 6);
+      // banner
+      const open = exitOpen;
+      ctx.fillStyle = open ? '#46d39a' : '#7a6a4a';
+      ctx.beginPath();
+      ctx.moveTo(cx + 1, py + 5);
+      ctx.lineTo(cx + 15, py + 10);
+      ctx.lineTo(cx + 1, py + 15);
+      ctx.closePath();
+      ctx.fill();
+      // pulse ring when open
+      if (open) {
+        const p = 0.5 + 0.5 * Math.sin(t * 0.008);
+        ctx.strokeStyle = 'rgba(70,211,154,' + (0.35 + p * 0.5) + ')';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cx, py + TILE * 0.55, TILE * 0.4 + p * 5, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    // ============ DRAW: FULL FRAME ============
+    function draw(t) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // screen shake
+      if (shake > 0) {
+        ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+      }
+
+      // ---- tiles + surface sky ----
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          const tt = terrain[x][y];
+          if (y === 0) {
+            const sky = ctx.createLinearGradient(0, 0, 0, TILE);
+            sky.addColorStop(0, '#3a4a63');
+            sky.addColorStop(1, '#6b7d95');
+            ctx.fillStyle = sky;
+            ctx.fillRect(x * TILE, 0, TILE, TILE);
+            if (tt === T_BEDROCK) drawBedrock(x, y);
+            continue;
+          }
+          if (tt === T_BEDROCK) drawBedrock(x, y);
+          else if (tt === T_EMPTY) drawCave(x, y);
+          else { drawSoil(x, y); if (tt === T_GEM) drawGemShape(x * TILE + TILE / 2, y * TILE + TILE / 2 + Math.sin(t * 0.004 + x) * 1.2, TILE * 0.24, t, gemColor(x, y)); }
+        }
+      }
+
+      // ---- exit marker ----
+      drawExit(t);
+
+      // ---- boulders ----
+      for (let i = 0; i < rocks.length; i++) drawRock(rocks[i]);
+
+      // ---- burrowers ----
+      for (let i = 0; i < enemies.length; i++) drawEnemy(enemies[i], t);
+
+      // ---- player ----
+      drawPlayer(t);
+
+      // ---- particles ----
+      drawParticles();
+
+      // ---- danger vignette ----
+      if (timeLeft < 15 && state === 'playing') {
+        const a = 0.12 + 0.1 * Math.sin(t * 0.01);
+        const vg = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, canvas.height * 0.35, canvas.width / 2, canvas.height / 2, canvas.height * 0.75);
+        vg.addColorStop(0, 'rgba(255,60,60,0)');
+        vg.addColorStop(1, 'rgba(255,40,40,' + a + ')');
+        ctx.fillStyle = vg;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
+      // ---- level clear toast ----
+      if (state === 'clear') {
+        ctx.fillStyle = 'rgba(10,7,4,0.55)';
+        ctx.fillRect(0, canvas.height / 2 - 46, canvas.width, 92);
+        ctx.fillStyle = '#46d39a';
+        ctx.font = 'bold 30px Trebuchet MS, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('LEVEL CLEAR!', canvas.width / 2, canvas.height / 2 + 2);
+        ctx.fillStyle = '#ffb54a';
+        ctx.font = 'bold 15px Trebuchet MS, sans-serif';
+        ctx.fillText('Descending to level ' + (level + 1), canvas.width / 2, canvas.height / 2 + 30);
+        ctx.textAlign = 'left';
+      }
+
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
+
+    // ============ MAIN LOOP ============
+    let lastTime = 0;
+
+    function loop(now) {
+      const dt = Math.min(50, now - lastTime || 16);
+      lastTime = now;
+      elapsed = now;
+
+      if (shake > 0) shake = Math.max(0, shake - dt * 0.04);
+
+      if (state === 'playing') {
+        // ---- timer ----
+        timeLeft -= dt / 1000;
+        if (timeLeft <= 0) { timeLeft = 0; updateHUD(); timeUp(); }
+
+        // ---- player step ----
+        playerAcc += dt;
+        const pStep = PLAYER_STEP;
+        while (playerAcc >= pStep) {
+          playerAcc -= pStep;
+          if (moveDir.x || moveDir.y) {
+            if (!tryMovePlayer(moveDir.x, moveDir.y)) { /* blocked this tick */ }
+          }
+        }
+
+        // ---- enemy steps ----
+        const eStep = Math.max(130, ENEMY_STEP - (level - 1) * 14);
+        enemyAcc += dt;
+        while (enemyAcc >= eStep) {
+          enemyAcc -= eStep;
+          for (let i = enemies.length - 1; i >= 0; i--) {
+            if (state !== 'playing') break;
+            stepEnemy(enemies[i]);
+          }
+        }
+
+        if (player.invuln > 0) player.invuln -= dt / 1000;
+
+        // ---- rocks ----
+        updateRocks(dt);
+
+        updateHUD();
+      } else if (state === 'clear') {
+        clearTimer -= dt / 1000;
+        if (player.invuln > 0) player.invuln -= dt / 1000;
+        if (clearTimer <= 0) startLevel(level + 1);
+      }
+
+      // ---- smooth interpolation toward grid targets ----
+      const k = Math.min(1, dt * 0.02);
+      const ek = Math.min(1, dt * 0.011);
+      player.px += (player.gx * TILE - player.px) * k;
+      player.py += (player.gy * TILE - player.py) * k;
+      for (let i = 0; i < enemies.length; i++) {
+        const e = enemies[i];
+        e.px += (e.gx * TILE - e.px) * ek;
+        e.py += (e.gy * TILE - e.py) * ek;
+      }
+
+      updateParticles(dt);
+      draw(now);
+      requestAnimationFrame(loop);
+    }
+
+    // ============ INPUT WIRING ============
+    const KEYMAP = {
+      ArrowUp: 'up', KeyW: 'up',
+      ArrowDown: 'down', KeyS: 'down',
+      ArrowLeft: 'left', KeyA: 'left',
+      ArrowRight: 'right', KeyD: 'right'
+    };
+
+    document.addEventListener('keydown', (e) => {
+      if (KEYMAP[e.code]) {
+        e.preventDefault();
+        pressDir(KEYMAP[e.code]);
+        return;
+      }
+      if (e.code === 'Space' || e.code === 'KeyP') {
+        e.preventDefault();
+        togglePause();
+        return;
+      }
+      if (e.code === 'Enter' && (state === 'menu' || state === 'gameover')) {
+        newGame();
+      }
+    });
+    document.addEventListener('keyup', (e) => {
+      if (KEYMAP[e.code]) { e.preventDefault(); releaseDir(KEYMAP[e.code]); }
+    });
+
+    function togglePause() {
+      if (state === 'playing') {
+        state = 'paused';
+        clearDirs();
+        document.getElementById('pauseOverlay').classList.add('visible');
+      } else if (state === 'paused') {
+        state = 'playing';
+        lastTime = performance.now();
+        document.getElementById('pauseOverlay').classList.remove('visible');
+      }
+    }
+
+    // ============ TOUCH D-PAD ============
+    const dpad = document.getElementById('dpad');
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+      dpad.classList.add('visible');
+    }
+    document.querySelectorAll('.dbtn').forEach((btn) => {
+      const dir = btn.dataset.dir;
+      const down = (e) => { e.preventDefault(); btn.classList.add('held'); pressDir(dir); };
+      const up = (e) => { e.preventDefault(); btn.classList.remove('held'); releaseDir(dir); };
+      btn.addEventListener('touchstart', down, { passive: false });
+      btn.addEventListener('touchend', up);
+      btn.addEventListener('touchcancel', up);
+      btn.addEventListener('mousedown', down);
+      btn.addEventListener('mouseup', up);
+      btn.addEventListener('mouseleave', up);
+    });
+
+    // ============ BUTTON WIRING ============
+    document.getElementById('startBtn').addEventListener('click', newGame);
+    document.getElementById('retryBtn').addEventListener('click', newGame);
+
+    // ============ BOOT ============
+    generateLevel();
+    state = 'menu';
+    updateHUD();
+    requestAnimationFrame((t) => { lastTime = t; loop(t); });
+  </script>
+</body>
+</html>

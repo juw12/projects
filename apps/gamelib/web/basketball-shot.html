@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Basketball Shot</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      min-height: 100%;
+      background: radial-gradient(circle at 50% 0%, #1e2a44 0%, #0e1526 65%, #070b14 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+      overflow: hidden;
+      touch-action: none;
+      padding: 12px;
+      color: #eaf1ff;
+    }
+
+    #app {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      width: min(96vw, 920px);
+    }
+
+    /* ============ BRAND BAR ============ */
+    #brand {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 0 6px;
+      letter-spacing: 1px;
+    }
+
+    #brand .name {
+      font-size: 21px;
+      font-weight: bold;
+      color: #ff9b3d;
+      text-shadow: 0 2px 0 rgba(0, 0, 0, .55);
+    }
+
+    #brand .tag {
+      font-size: 12px;
+      color: rgba(234, 241, 255, .55);
+    }
+
+    /* ============ GAME CANVAS ============ */
+    #game-wrap {
+      position: relative;
+      width: 100%;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, .6), inset 0 0 0 2px rgba(255, 155, 61, .25);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: #101a30;
+      cursor: crosshair;
+    }
+
+    #hint {
+      position: absolute;
+      bottom: 8px;
+      width: 100%;
+      text-align: center;
+      color: rgba(255, 255, 255, .5);
+      font-size: 12px;
+      letter-spacing: 1px;
+      pointer-events: none;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, .8);
+    }
+
+    /* ============ CONTROLS ============ */
+    #controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    #controls button {
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      padding: 9px 22px;
+      border: none;
+      border-radius: 9px;
+      cursor: pointer;
+      color: #131c30;
+      background: linear-gradient(180deg, #ffcf70, #ff9b3d);
+      box-shadow: 0 4px 0 #a5601a;
+      transition: transform .05s ease, filter .15s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #controls button:hover { filter: brightness(1.08); }
+    #controls button:active {
+      transform: translateY(2px);
+      box-shadow: 0 2px 0 #a5601a;
+    }
+
+    #btn-restart {
+      background: linear-gradient(180deg, #ff8a6b, #e8543a);
+      box-shadow: 0 4px 0 #8f2b17;
+      color: #fff;
+    }
+
+    #btn-restart:active { box-shadow: 0 2px 0 #8f2b17; }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 560px) {
+      #brand .name { font-size: 17px; }
+      #brand .tag { font-size: 11px; }
+      #controls button { padding: 8px 16px; font-size: 13px; }
+      #hint { font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="brand">
+    <span class="name">BASKETBALL SHOT</span>
+    <span class="tag">flick &amp; release to shoot</span>
+  </div>
+
+  <div id="game-wrap">
+    <canvas id="game" width="920" height="560"></canvas>
+    <div id="hint">Drag back from the ball &rarr; aim &amp; power &nbsp;|&nbsp; release to shoot &nbsp;|&nbsp; SPACE charge &nbsp;|&nbsp; R restart</div>
+  </div>
+
+  <div id="controls">
+    <button id="btn-pause" type="button">Pause</button>
+    <button id="btn-restart" type="button">Restart</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ SETUP ============
+  var canvas = document.getElementById("game");
+  var ctx = canvas.getContext("2d");
+  var W = canvas.width, H = canvas.height;
+
+  var STATE = { READY: 0, PLAYING: 1, OVER: 2 };
+  var state = STATE.READY;
+  var paused = false;
+  var frame = 0;
+
+  // ============ PHYSICS CONSTANTS ============
+  var GRAVITY = 0.44;          // px/frame^2 downward on ball
+  var MAX_POWER = 25;          // max launch speed
+  var MIN_POWER = 6;
+  var BALL_R = 15;
+  var DRAG_SCALE = 0.15;       // drag distance -> launch speed
+  var GROUND_Y = H - 46;
+  var RIM_R = 33;              // rim opening radius (fixed)
+
+  // Hoop geometry — moves & drifts farther as streaks climb
+  var hoop = { x: 700, y: 300, baseX: 700, baseY: 300, drift: 0, dirX: 1, dirY: 1 };
+
+  // Launch spots near the left, on the floor
+  var SHOOT_SPOTS = [150, 200, 260, 320];
+
+  // ============ GAME STATE VARS ============
+  var score = 0;
+  var best = Number(localStorage.getItem("basketballShotBest") || 0);
+  var timeLeft = 60;                 // seconds (timed mode)
+  var lastTime = performance.now();
+  var streak = 0;                    // consecutive makes
+  var multiplier = 1;                // hot-streak multiplier
+
+  // Shot bookkeeping
+  var shotsTaken = 0;
+  var shotsMade = 0;
+  var ball = { x: 200, y: GROUND_Y - BALL_R, homeX: 200, vx: 0, vy: 0, rot: 0, active: false, spin: 0 };
+  var launchX = 200;
+  var ballFlying = false;
+  var scoredThisShot = false;
+  var rimTouched = false;
+  var boardTouched = false;
+
+  // Aim input
+  var aiming = false;
+  var aimStart = null;
+  var aimCur = null;
+  var useKeyboardAim = false;
+
+  // FX
+  var netSwish = 0;            // net animation timer
+  var toast = null;            // floating score text {text, x, y, life, color}
+  var particles = [];
+  var hoopPulse = 0;
+  var shake = 0;
+  var trail = [];              // ball motion trail
+
+  // Difficulty of the moving hoop scales with streak
+  function hoopSpeed() { return 1.0 + Math.min(2.4, streak * 0.22); }
+  function driftTarget() { return Math.min(150, streak * 9); }
+
+  // ============ SOUND (WebAudio, no assets) ============
+  var actx = null;
+
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = actx.createOscillator();
+      var g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(vol || 0.06, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g);
+      g.connect(actx.destination);
+      o.start();
+      o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+
+  function chord(freqs, dur) {
+    freqs.forEach(function (f, i) {
+      setTimeout(function () { beep(f, dur, "triangle", 0.07); }, i * 60);
+    });
+  }
+
+  // ============ DOM ============
+  var btnPause = document.getElementById("btn-pause");
+  var btnRestart = document.getElementById("btn-restart");
+
+  function syncPause() { btnPause.textContent = paused ? "Play" : "Pause"; }
+
+  // ============ RESET / START ============
+  function resetBall() {
+    ball.homeX = SHOOT_SPOTS[Math.floor(Math.random() * SHOOT_SPOTS.length)];
+    ball.x = ball.homeX;
+    ball.y = GROUND_Y - BALL_R;
+    ball.vx = 0;
+    ball.vy = 0;
+    ball.rot = 0;
+    ball.spin = 0;
+    ball.active = false;
+    ballFlying = false;
+    scoredThisShot = false;
+    rimTouched = false;
+    boardTouched = false;
+    aiming = false;
+    aimStart = null;
+    aimCur = null;
+    trail = [];
+  }
+
+  function resetGame() {
+    state = STATE.PLAYING;
+    paused = false;
+    frame = 0;
+    score = 0;
+    streak = 0;
+    multiplier = 1;
+    shotsTaken = 0;
+    shotsMade = 0;
+    timeLeft = 60;
+    hoop.x = hoop.baseX;
+    hoop.y = hoop.baseY;
+    hoop.drift = 0;
+    hoop.dirX = 1;
+    hoop.dirY = 1;
+    netSwish = 0;
+    hoopPulse = 0;
+    shake = 0;
+    toast = null;
+    particles = [];
+    resetBall();
+    lastTime = performance.now();
+    syncPause();
+    beep(520, 0.08, "triangle", 0.06);
+  }
+
+  function endGame() {
+    if (state === STATE.OVER) return;
+    state = STATE.OVER;
+    frame = 0;
+    beep(180, 0.35, "sawtooth", 0.08);
+    if (score > best) {
+      best = score;
+      localStorage.setItem("basketballShotBest", String(best));
+    }
+  }
+
+  function togglePause() {
+    if (state === STATE.OVER) return;
+    paused = !paused;
+    lastTime = performance.now();
+    syncPause();
+    beep(paused ? 420 : 620, 0.07, "triangle");
+  }
+
+  btnPause.addEventListener("click", togglePause);
+  btnRestart.addEventListener("click", resetGame);
+
+  // ============ INPUT ============
+  function pointerPos(e) {
+    var r = canvas.getBoundingClientRect();
+    var cx = (e.touches ? e.touches[0].clientX : e.clientX);
+    var cy = (e.touches ? e.touches[0].clientY : e.clientY);
+    return { x: (cx - r.left) * (W / r.width), y: (cy - r.top) * (H / r.height) };
+  }
+
+  function beginAim(p) {
+    if (state !== STATE.PLAYING || paused) return;
+    if (ballFlying) return;
+    aiming = true;
+    aimStart = { x: ball.x, y: ball.y };
+    aimCur = p;
+    useKeyboardAim = false;
+  }
+
+  function updateAim(p) { if (aiming) aimCur = p; }
+
+  function endAim() {
+    if (!aiming) return;
+    aiming = false;
+    launchFromAim();
+  }
+
+  canvas.addEventListener("mousedown", function (e) { e.preventDefault(); beginAim(pointerPos(e)); });
+  window.addEventListener("mousemove", function (e) { if (aiming) updateAim(pointerPos(e)); });
+  window.addEventListener("mouseup", function (e) { if (aiming) { updateAim(pointerPos(e)); endAim(); } });
+
+  canvas.addEventListener("touchstart", function (e) { e.preventDefault(); beginAim(pointerPos(e)); }, { passive: false });
+  canvas.addEventListener("touchmove", function (e) { e.preventDefault(); updateAim(pointerPos(e)); }, { passive: false });
+  canvas.addEventListener("touchend", function (e) { e.preventDefault(); endAim(); }, { passive: false });
+
+  // Keyboard: hold Space to charge, release to shoot; R restart, P pause
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "KeyR") { e.preventDefault(); resetGame(); return; }
+    if (e.code === "KeyP" || e.key === "Escape") { e.preventDefault(); togglePause(); return; }
+    if ((state === STATE.READY || state === STATE.OVER) && (e.code === "Space" || e.code === "Enter")) {
+      e.preventDefault();
+      resetGame();
+      return;
+    }
+    if (e.code === "Space" && state === STATE.PLAYING && !paused && !ballFlying && !aiming) {
+      e.preventDefault();
+      aiming = true;
+      useKeyboardAim = true;
+      aimStart = { x: ball.x, y: ball.y };
+      aimCur = { x: ball.x - 60, y: ball.y - 150 };
+    }
+  });
+
+  window.addEventListener("keyup", function (e) {
+    if (e.code === "Space" && aiming && useKeyboardAim) { e.preventDefault(); endAim(); }
+  });
+
+  // ============ AIM / LAUNCH ============
+  function aimVector() {
+    if (!aiming || !aimStart || !aimCur) return null;
+    var dx = aimStart.x - aimCur.x;   // drag back = launch forward
+    var dy = aimStart.y - aimCur.y;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 6) return null;
+    var power = Math.min(MAX_POWER, MIN_POWER + dist * DRAG_SCALE);
+    var ang = Math.atan2(dy, dx);
+    return { vx: Math.cos(ang) * power, vy: Math.sin(ang) * power, power: power, dist: dist };
+  }
+
+  function launchFromAim() {
+    var v = aimVector();
+    if (!v) return;
+    ball.vx = v.vx;
+    ball.vy = v.vy;
+    ball.spin = v.vx * 0.02;
+    ballFlying = true;
+    ball.active = true;
+    launchX = ball.x;
+    scoredThisShot = false;
+    rimTouched = false;
+    boardTouched = false;
+    trail = [];
+    shotsTaken++;
+    beep(300 + v.power * 12, 0.12, "square", 0.07);
+    aimStart = null;
+    aimCur = null;
+    useKeyboardAim = false;
+  }
+
+  // ============ UPDATE ============
+  function update() {
+    frame++;
+
+    if (paused || state !== STATE.PLAYING) return;
+
+    // Timer (60-second timed mode)
+    timeLeft -= 1 / 60;
+    if (timeLeft <= 0) { timeLeft = 0; endGame(); return; }
+
+    // ---- Moving hoop: drifts farther & faster as streaks build ----
+    var spd = hoopSpeed();
+    var targetX = hoop.baseX + driftTarget();
+    var targetY = hoop.baseY;
+    hoop.x += (targetX - hoop.x) * 0.02;   // ease toward farther target
+    hoop.y += hoop.dirY * (0.9 * spd);
+    if (hoop.y > 360) { hoop.y = 360; hoop.dirY = -1; }
+    if (hoop.y < 150) { hoop.y = 150; hoop.dirY = 1; }
+
+    // Decay FX
+    if (netSwish > 0) netSwish--;
+    if (hoopPulse > 0) hoopPulse--;
+    if (shake > 0) shake *= 0.86;
+    updateParticles();
+
+    if (toast) {
+      toast.life--;
+      toast.y -= 0.8;
+      if (toast.life <= 0) toast = null;
+    }
+
+    // Ball physics
+    if (ballFlying) {
+      ball.vy += GRAVITY;
+      ball.x += ball.vx;
+      ball.y += ball.vy;
+      ball.rot += ball.spin;
+
+      trail.push({ x: ball.x, y: ball.y, life: 1 });
+      if (trail.length > 14) trail.shift();
+
+      var rimCx = hoop.x, rimCy = hoop.y;
+      var rimL = { x: rimCx - RIM_R, y: rimCy };
+      var rimR = { x: rimCx + RIM_R, y: rimCy };
+
+      // --- Backboard collision (vertical board behind rim) ---
+      var boardX = hoop.x + RIM_R + 6;
+      if (ball.x + BALL_R > boardX && ball.x < boardX + 14 &&
+          ball.y > rimCy - 120 && ball.y < rimCy + 8 && ball.vx > 0) {
+        ball.x = boardX - BALL_R;
+        ball.vx = -Math.abs(ball.vx) * 0.7;
+        boardTouched = true;
+        beep(240, 0.08, "square", 0.05);
+      }
+
+      // --- Rim collisions (both ends = circles) ---
+      collideCircle(rimL, 6);
+      collideCircle(rimR, 6);
+
+      // --- Scoring: ball falls through rim plane between the ends ---
+      if (!scoredThisShot && ball.vy > 0 &&
+          ball.x > rimL.x + 4 && ball.x < rimR.x - 4 &&
+          ball.y > rimCy && ball.y - ball.vy <= rimCy) {
+        awardScore(!rimTouched && !boardTouched);
+      }
+
+      // --- Ground ---
+      if (ball.y + BALL_R >= GROUND_Y) {
+        ball.y = GROUND_Y - BALL_R;
+        ball.vy = -ball.vy * 0.45;
+        ball.vx *= 0.7;
+        if (Math.abs(ball.vy) < 2.2) settleBall();
+      }
+
+      // --- Walls ---
+      if (ball.x - BALL_R < 0) { ball.x = BALL_R; ball.vx = -ball.vx * 0.6; }
+      if (ball.x + BALL_R > W) { ball.x = W - BALL_R; ball.vx = -ball.vx * 0.6; }
+    }
+  }
+
+  function collideCircle(c, rad) {
+    var dx = ball.x - c.x, dy = ball.y - c.y;
+    var d = Math.sqrt(dx * dx + dy * dy);
+    var minD = BALL_R + rad;
+    if (d < minD && d > 0.001) {
+      var nx = dx / d, ny = dy / d;
+      ball.x = c.x + nx * minD;
+      ball.y = c.y + ny * minD;
+      var dot = ball.vx * nx + ball.vy * ny;
+      ball.vx = (ball.vx - 2 * dot * nx) * 0.66;
+      ball.vy = (ball.vy - 2 * dot * ny) * 0.66;
+      if (!rimTouched) { rimTouched = true; beep(520, 0.06, "square", 0.05); }
+    }
+  }
+
+  // ============ SCORING ============
+  function awardScore(swish) {
+    scoredThisShot = true;
+    shotsMade++;
+    streak++;
+
+    // Hot-streak multiplier climbs every 3 makes, capped x5
+    multiplier = Math.min(5, 1 + Math.floor(streak / 3));
+
+    var base = 2;
+    if (launchX < 300) base = 3;             // deep shots = 3 points
+    var gained = base * multiplier;
+    if (swish) gained += 2;                  // swish bonus
+
+    score += gained;
+    if (score > best) {
+      best = score;
+      localStorage.setItem("basketballShotBest", String(best));
+    }
+
+    netSwish = 22;
+    hoopPulse = 26;
+    shake = swish ? 6 : 3;
+
+    var label = "+" + gained;
+    if (swish) label = "SWISH! +" + gained;
+    else if (base === 3) label = "3PT x" + multiplier + "  +" + gained;
+    else if (multiplier > 1) label = "x" + multiplier + "  +" + gained;
+
+    toast = {
+      text: label,
+      x: hoop.x,
+      y: hoop.y - 40,
+      life: 70,
+      color: swish ? "#7dffb0" : (base === 3 ? "#ffd24d" : "#ff9b3d")
+    };
+
+    spawnParticles(hoop.x, hoop.y, swish);
+    if (swish) chord([784, 988, 1319], 0.16);
+    else chord([659, 880], 0.13);
+  }
+
+  function settleBall() {
+    ballFlying = false;
+    ball.active = false;
+    if (!scoredThisShot) {
+      if (streak > 0 || multiplier > 1) {
+        streak = 0;
+        multiplier = 1;
+        toast = { text: "MISS", x: ball.x, y: ball.y - 30, life: 45, color: "#ff7a6b" };
+      }
+      beep(180, 0.12, "sine", 0.05);
+    }
+    setTimeout(function () {
+      if (state === STATE.PLAYING && !ballFlying) resetBall();
+    }, 400);
+  }
+
+  // ============ PARTICLES ============
+  function spawnParticles(x, y, big) {
+    var n = big ? 22 : 12;
+    var pal = big ? ["#7dffb0", "#fff09a", "#ffffff"] : ["#ffd24d", "#ff9b3d", "#ffffff"];
+    for (var i = 0; i < n; i++) {
+      particles.push({
+        x: x, y: y,
+        vx: (Math.random() - 0.5) * 7,
+        vy: (Math.random() - 1.1) * 6,
+        life: 1,
+        size: Math.random() * 4 + 2,
+        color: pal[i % 3]
+      });
+    }
+  }
+
+  function updateParticles() {
+    for (var i = particles.length - 1; i >= 0; i--) {
+      var p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.3;
+      p.life -= 0.025;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+    for (var j = trail.length - 1; j >= 0; j--) {
+      trail[j].life -= 0.06;
+      if (trail[j].life <= 0) trail.splice(j, 1);
+    }
+  }
+
+  // ============ DRAWING ============
+  function drawBackground() {
+    var g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#22315a");
+    g.addColorStop(0.55, "#141f3a");
+    g.addColorStop(1, "#0a1120");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // Spotlight from top
+    var sp = ctx.createRadialGradient(W * 0.62, -70, 40, W * 0.62, -70, 640);
+    sp.addColorStop(0, "rgba(150,200,255,0.18)");
+    sp.addColorStop(1, "rgba(150,200,255,0)");
+    ctx.fillStyle = sp;
+    ctx.fillRect(0, 0, W, H);
+
+    // Crowd dots backdrop
+    ctx.fillStyle = "rgba(255,255,255,0.035)";
+    for (var y = 40; y < 190; y += 26) {
+      for (var x = 20 + ((y / 26) % 2) * 13; x < W; x += 26) {
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  function drawFloor() {
+    ctx.fillStyle = "#8a5a2b";
+    ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
+
+    var fg = ctx.createLinearGradient(0, GROUND_Y, 0, H);
+    fg.addColorStop(0, "rgba(255,220,160,0.35)");
+    fg.addColorStop(1, "rgba(0,0,0,0.35)");
+    ctx.fillStyle = fg;
+    ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
+
+    // Floor planks
+    ctx.strokeStyle = "rgba(0,0,0,0.18)";
+    ctx.lineWidth = 2;
+    for (var x = 0; x < W; x += 60) {
+      ctx.beginPath();
+      ctx.moveTo(x, GROUND_Y);
+      ctx.lineTo(x - 30, H);
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle = "rgba(255,255,255,0.10)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, GROUND_Y + 1);
+    ctx.lineTo(W, GROUND_Y + 1);
+    ctx.stroke();
+
+    // 3-point arc line + marker
+    ctx.strokeStyle = "rgba(255,235,200,0.28)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(300, GROUND_Y, 300 - 60, Math.PI, Math.PI * 2, false);
+    ctx.stroke();
+
+    ctx.setLineDash([8, 8]);
+    ctx.beginPath();
+    ctx.moveTo(300, GROUND_Y);
+    ctx.lineTo(300, GROUND_Y + 34);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = "rgba(255,210,140,0.5)";
+    ctx.font = "bold 13px 'Trebuchet MS', sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("3PT", 300, GROUND_Y + 26);
+  }
+
+  function drawHoop() {
+    var cx = hoop.x, cy = hoop.y;
+    var pulse = hoopPulse > 0 ? hoopPulse / 26 : 0;
+    var boardX = cx + RIM_R + 6;
+
+    // Support pole from ceiling
+    ctx.strokeStyle = "#4a4a52";
+    ctx.lineWidth = 12;
+    ctx.beginPath();
+    ctx.moveTo(boardX + 12, cy - 90);
+    ctx.lineTo(W - 4, cy - 90);
+    ctx.stroke();
+
+    // Backboard
+    var by = cy - 118, bw = 12, bh = 118;
+    ctx.fillStyle = "rgba(230,240,255,0.22)";
+    ctx.fillRect(boardX, by, bw, bh);
+    ctx.strokeStyle = "#e9edf5";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(boardX, by, bw, bh);
+    ctx.strokeStyle = "#ff5d4d";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(boardX - 1, cy - 62, bw + 2, 54);
+
+    // Net (swings on score)
+    var swing = netSwish > 0 ? Math.sin(netSwish * 0.6) * (netSwish / 22) * 8 : 0;
+    var depth = 60;
+    ctx.strokeStyle = "rgba(255,255,255,0.75)";
+    ctx.lineWidth = 1.4;
+    var strands = 9;
+
+    if (pulse > 0) {
+      ctx.save();
+      ctx.globalAlpha = pulse;
+      ctx.fillStyle = "#ffd24d";
+      ctx.beginPath();
+      ctx.arc(cx - RIM_R, cy, 14 * pulse + 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx + RIM_R, cy, 14 * pulse + 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    for (var i = 0; i <= strands; i++) {
+      var t = i / strands;
+      var topX = cx - RIM_R + t * RIM_R * 2;
+      var botX = cx - RIM_R * 0.45 + t * RIM_R * 0.9 + swing;
+      ctx.beginPath();
+      ctx.moveTo(topX, cy);
+      ctx.quadraticCurveTo(topX + swing * 2, cy + depth * 0.6, botX, cy + depth);
+      ctx.stroke();
+    }
+
+    for (var r = 1; r <= 3; r++) {
+      var ry = cy + (depth / 4) * r;
+      var rw = RIM_R * (1 - r * 0.16) * 2;
+      var rx = cx - rw / 2 + swing * (r / 3);
+      ctx.beginPath();
+      ctx.moveTo(rx, ry);
+      ctx.quadraticCurveTo(rx + rw / 2, ry + 6, rx + rw, ry);
+      ctx.stroke();
+    }
+
+    // Rim ends + colored ring
+    ctx.strokeStyle = "#ff5d4d";
+    ctx.lineWidth = 7;
+    ctx.beginPath(); ctx.moveTo(cx - RIM_R, cy); ctx.lineTo(cx - RIM_R + 10, cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx + RIM_R - 10, cy); ctx.lineTo(cx + RIM_R, cy); ctx.stroke();
+
+    ctx.strokeStyle = "#ff8a3d";
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(cx - RIM_R + 8, cy);
+    ctx.quadraticCurveTo(cx, cy + 5, cx + RIM_R - 8, cy);
+    ctx.stroke();
+
+    ctx.fillStyle = "#ff5d4d";
+    ctx.beginPath(); ctx.arc(cx - RIM_R, cy, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + RIM_R, cy, 5, 0, Math.PI * 2); ctx.fill();
+  }
+
+  function drawTrail() {
+    for (var i = 0; i < trail.length; i++) {
+      var p = trail[i];
+      ctx.globalAlpha = p.life * 0.35;
+      ctx.fillStyle = "#ffab5a";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, BALL_R * (0.4 + p.life * 0.4), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawBall() {
+    ctx.save();
+    ctx.translate(ball.x, ball.y);
+    ctx.rotate(ball.rot);
+
+    ctx.shadowColor = "rgba(0,0,0,0.5)";
+    ctx.shadowBlur = 14;
+    ctx.shadowOffsetY = 4;
+
+    var bg = ctx.createRadialGradient(-5, -6, 3, 0, 0, BALL_R);
+    bg.addColorStop(0, "#ff9a4d");
+    bg.addColorStop(0.7, "#e2621f");
+    bg.addColorStop(1, "#a8420f");
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.arc(0, 0, BALL_R, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowColor = "transparent";
+
+    // Seams
+    ctx.strokeStyle = "#2a1206";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-BALL_R, 0); ctx.lineTo(BALL_R, 0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -BALL_R); ctx.lineTo(0, BALL_R); ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(0, 0, BALL_R, BALL_R * 0.55, Math.PI / 2, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(0, 0, BALL_R, BALL_R * 0.55, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // Ready ping ring
+    if (!ballFlying && state === STATE.PLAYING) {
+      ctx.strokeStyle = "rgba(255,235,180,0.35)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, BALL_R + 6 + Math.sin(frame * 0.1) * 2, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  function drawTrajectory() {
+    var v = aimVector();
+    if (!v) return;
+
+    var simX = ball.x, simY = ball.y, simVX = v.vx, simVY = v.vy;
+    ctx.save();
+    for (var i = 0; i < 60; i++) {
+      simVY += GRAVITY;
+      simX += simVX;
+      simY += simVY;
+      if (simY > GROUND_Y || simX > W) break;
+      var alpha = 1 - i / 60;
+      ctx.fillStyle = "rgba(255,210,140," + (alpha * 0.9) + ")";
+      var r = 2.5 + alpha * 2;
+      ctx.beginPath();
+      ctx.arc(simX, simY, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Power meter arc at ball
+    var pct = Math.min(1, v.power / MAX_POWER);
+    ctx.save();
+    ctx.strokeStyle = "rgba(0,0,0,0.35)";
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, BALL_R + 16, -Math.PI / 2, Math.PI * 1.5);
+    ctx.stroke();
+    var col = pct > 0.85 ? "#ff4d4d" : (pct > 0.6 ? "#ffd24d" : "#7dffb0");
+    ctx.strokeStyle = col;
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, BALL_R + 16, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+    ctx.stroke();
+    ctx.restore();
+
+    // Aim direction line
+    ctx.strokeStyle = "rgba(255,235,180,0.5)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 6]);
+    ctx.beginPath();
+    ctx.moveTo(ball.x, ball.y);
+    ctx.lineTo(ball.x + v.vx * 3, ball.y + v.vy * 3);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  function drawParticles() {
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      ctx.globalAlpha = p.life;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawHUD() {
+    ctx.textBaseline = "alphabetic";
+
+    // Score
+    ctx.textAlign = "left";
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fillRect(14, 12, 200, 66);
+    ctx.fillStyle = "#ff9b3d";
+    ctx.font = "bold 15px 'Trebuchet MS', sans-serif";
+    ctx.fillText("SCORE", 26, 36);
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 34px 'Trebuchet MS', sans-serif";
+    ctx.fillText(String(score), 26, 70);
+
+    // Best
+    ctx.textAlign = "right";
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fillRect(W - 200, 12, 186, 66);
+    ctx.fillStyle = "#ff9b3d";
+    ctx.font = "bold 15px 'Trebuchet MS', sans-serif";
+    ctx.fillText("BEST", W - 26, 36);
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 34px 'Trebuchet MS', sans-serif";
+    ctx.fillText(String(best), W - 26, 70);
+
+    // Timer (center)
+    ctx.textAlign = "center";
+    var tcol = timeLeft <= 10 ? "#ff5d4d" : "#eaf1ff";
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fillRect(W / 2 - 60, 12, 120, 66);
+    ctx.fillStyle = tcol;
+    ctx.font = "bold 40px 'Trebuchet MS', sans-serif";
+    ctx.fillText(Math.ceil(timeLeft) + "s", W / 2, 62);
+    if (timeLeft <= 10) {
+      ctx.fillStyle = "rgba(255,93,77," + (0.4 + 0.6 * Math.abs(Math.sin(frame * 0.15))) + ")";
+      ctx.font = "bold 13px 'Trebuchet MS', sans-serif";
+      ctx.fillText("HURRY!", W / 2, 90);
+    }
+
+    // Hot-streak indicator
+    if (streak >= 2) {
+      ctx.textAlign = "left";
+      ctx.fillStyle = "rgba(125,255,176," + (0.75 + 0.25 * Math.sin(frame * 0.2)) + ")";
+      ctx.font = "bold 20px 'Trebuchet MS', sans-serif";
+      ctx.fillText("HOT STREAK x" + multiplier + "  (" + streak + " in a row)", 26, 108);
+    }
+
+    // Accuracy
+    if (shotsTaken > 0) {
+      ctx.textAlign = "right";
+      ctx.fillStyle = "rgba(234,241,255,0.6)";
+      ctx.font = "14px 'Trebuchet MS', sans-serif";
+      ctx.fillText("Made " + shotsMade + " / " + shotsTaken, W - 26, 108);
+    }
+
+    // Floating toast
+    if (toast) {
+      ctx.globalAlpha = Math.min(1, toast.life / 30);
+      ctx.textAlign = "center";
+      ctx.fillStyle = toast.color;
+      ctx.font = "bold 30px 'Trebuchet MS', sans-serif";
+      ctx.strokeStyle = "rgba(0,0,0,0.6)";
+      ctx.lineWidth = 4;
+      ctx.strokeText(toast.text, toast.x, toast.y);
+      ctx.fillText(toast.text, toast.x, toast.y);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function drawPanel() {
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+
+    if (state === STATE.READY) {
+      ctx.fillStyle = "rgba(0,0,0,0.55)";
+      ctx.fillRect(0, H / 2 - 132, W, 254);
+      ctx.fillStyle = "#ff9b3d";
+      ctx.font = "bold 54px 'Trebuchet MS', sans-serif";
+      ctx.fillText("BASKETBALL SHOT", W / 2, H / 2 - 55);
+      ctx.fillStyle = "#fff";
+      ctx.font = "19px 'Trebuchet MS', sans-serif";
+      ctx.fillText("Drag back from the ball to set power & arc, release to shoot.", W / 2, H / 2 - 8);
+      ctx.fillStyle = "rgba(234,241,255,0.8)";
+      ctx.font = "16px 'Trebuchet MS', sans-serif";
+      ctx.fillText("Make consecutive shots to raise your HOT STREAK multiplier.", W / 2, H / 2 + 24);
+      ctx.fillText("The hoop drifts farther & faster as your streak climbs. Swish = bonus.", W / 2, H / 2 + 50);
+      ctx.fillStyle = "rgba(255,255,255," + (0.6 + 0.4 * Math.sin(frame * 0.12)) + ")";
+      ctx.font = "bold 18px 'Trebuchet MS', sans-serif";
+      ctx.fillText("Press SPACE / Enter to start  -  60s timed mode", W / 2, H / 2 + 90);
+      ctx.fillStyle = "rgba(234,241,255,0.55)";
+      ctx.font = "14px 'Trebuchet MS', sans-serif";
+      ctx.fillText("Best: " + best, W / 2, H / 2 + 116);
+    }
+
+    if (state === STATE.OVER) {
+      ctx.fillStyle = "rgba(0,0,0,0.62)";
+      ctx.fillRect(0, H / 2 - 140, W, 270);
+      ctx.fillStyle = "#ff5d4d";
+      ctx.font = "bold 50px 'Trebuchet MS', sans-serif";
+      ctx.fillText("TIME!", W / 2, H / 2 - 60);
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 34px 'Trebuchet MS', sans-serif";
+      ctx.fillText("Score: " + score, W / 2, H / 2 - 5);
+      ctx.font = "19px 'Trebuchet MS', sans-serif";
+      ctx.fillText("Best: " + best + "   |   Made " + shotsMade + " / " + shotsTaken, W / 2, H / 2 + 34);
+      var acc = shotsTaken ? Math.round((shotsMade / shotsTaken) * 100) : 0;
+      ctx.fillText("Accuracy: " + acc + "%", W / 2, H / 2 + 64);
+      ctx.fillStyle = "rgba(255,255,255," + (0.6 + 0.4 * Math.sin(frame * 0.12)) + ")";
+      ctx.font = "bold 18px 'Trebuchet MS', sans-serif";
+      ctx.fillText("SPACE / Enter or Restart to play again", W / 2, H / 2 + 104);
+    }
+
+    if (paused && state !== STATE.OVER) {
+      ctx.fillStyle = "rgba(0,0,0,0.6)";
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "#ff9b3d";
+      ctx.font = "bold 48px 'Trebuchet MS', sans-serif";
+      ctx.fillText("PAUSED", W / 2, H / 2 - 4);
+      ctx.fillStyle = "#fff";
+      ctx.font = "17px 'Trebuchet MS', sans-serif";
+      ctx.fillText("Press Play / P to resume", W / 2, H / 2 + 34);
+    }
+  }
+
+  function render() {
+    ctx.save();
+    if (shake > 0.4) {
+      ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+    }
+    drawBackground();
+    drawFloor();
+    drawHoop();
+    drawTrail();
+    drawTrajectory();
+    drawBall();
+    drawParticles();
+    ctx.restore();
+    drawHUD();
+    drawPanel();
+  }
+
+  // ============ LOOP ============
+  var raf = null;
+
+  function loop() {
+    update();
+    render();
+    raf = requestAnimationFrame(loop);
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      cancelAnimationFrame(raf);
+      raf = null;
+    } else if (!raf) {
+      lastTime = performance.now();
+      raf = requestAnimationFrame(loop);
+    }
+  });
+
+  // ============ BOOT ============
+  syncPause();
+  loop();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>BEACH HEAD — Coastal Defense</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #070a0d;
+    --panel: #111820;
+    --panel-2: #0c1116;
+    --line: #1e2a34;
+    --amber: #d9a441;
+    --amber-dim: #8a6a2c;
+    --ok: #6fae5a;
+    --danger: #c0392b;
+    --ink: #c7d2da;
+    --ink-dim: #6b7a86;
+  }
+
+  html, body { height: 100%; }
+
+  body {
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #12202b 0%, transparent 60%),
+      var(--bg);
+    color: var(--ink);
+    font-family: 'Consolas', 'SFMono-Regular', 'Courier New', monospace;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ============ LAYOUT ============ */
+  .wrap {
+    width: min(860px, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .title {
+    font-family: 'Impact', 'Haettenschweiler', 'Arial Narrow Bold', sans-serif;
+    font-size: clamp(1.4rem, 4.5vw, 2.1rem);
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: var(--amber);
+    text-align: center;
+    text-shadow: 0 2px 0 #000, 0 0 18px rgba(217,164,65,.28);
+  }
+  .title small {
+    display: block;
+    font-family: 'Consolas', monospace;
+    font-size: .58rem;
+    letter-spacing: 3px;
+    color: var(--ink-dim);
+    margin-top: 2px;
+    text-shadow: none;
+  }
+
+  /* ============ HUD ============ */
+  .hud {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+    gap: 6px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 10px;
+  }
+  .stat { text-align: center; }
+  .stat .k {
+    display: block;
+    font-size: .58rem;
+    letter-spacing: 1.5px;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+  }
+  .stat .v {
+    display: block;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--ink);
+    margin-top: 2px;
+  }
+  .stat .v.amber { color: var(--amber); }
+  .stat .v.ok { color: var(--ok); }
+  .stat .v.danger { color: #e86a5a; }
+
+  .hqbar {
+    height: 5px;
+    background: #201418;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .hqbar i {
+    display: block; height: 100%;
+    background: linear-gradient(90deg, #c0392b, #e08a3c);
+    transition: width .18s linear;
+  }
+
+  /* ============ STAGE ============ */
+  .stage {
+    position: relative;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+    background: #06090c;
+    box-shadow: 0 18px 44px rgba(0,0,0,.55), inset 0 0 60px rgba(0,0,0,.6);
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    touch-action: none;
+    cursor: crosshair;
+  }
+
+  /* ============ OVERLAYS ============ */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 14px;
+    padding: 22px;
+    background: radial-gradient(circle at 50% 40%, rgba(10,16,22,.92), rgba(4,6,9,.97));
+    backdrop-filter: blur(2px);
+    transition: opacity .25s ease;
+    z-index: 5;
+  }
+  .overlay.hidden { opacity: 0; pointer-events: none; }
+
+  .overlay h2 {
+    font-family: 'Impact', 'Haettenschweiler', sans-serif;
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    font-size: clamp(1.5rem, 5vw, 2.4rem);
+    color: var(--amber);
+    text-shadow: 0 2px 0 #000;
+  }
+  .overlay p {
+    font-size: .78rem;
+    line-height: 1.85;
+    color: var(--ink-dim);
+    max-width: 520px;
+  }
+  .overlay p b { color: var(--ink); font-weight: 700; }
+  .overlay .key {
+    color: var(--amber);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 0 5px;
+    font-size: .72rem;
+  }
+  .final {
+    display: flex; gap: 22px; flex-wrap: wrap; justify-content: center;
+    font-size: .8rem;
+  }
+  .final div span { display: block; color: var(--amber); font-size: 1.4rem; font-weight: 700; }
+
+  .btn {
+    font-family: 'Consolas', monospace;
+    font-size: .82rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #14100a;
+    background: linear-gradient(180deg, #e7b757, #c9922f);
+    border: none;
+    border-radius: 4px;
+    padding: 12px 30px;
+    cursor: pointer;
+    font-weight: 700;
+    box-shadow: 0 4px 0 #6f5118, 0 8px 18px rgba(0,0,0,.5);
+    transition: transform .08s ease, box-shadow .08s ease;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #6f5118; }
+
+  /* ============ BANNER ============ */
+  .banner {
+    position: absolute;
+    top: 42%;
+    left: 0; right: 0;
+    text-align: center;
+    font-family: 'Impact', 'Haettenschweiler', sans-serif;
+    font-size: clamp(1.3rem, 5vw, 2.2rem);
+    letter-spacing: 8px;
+    color: #f4e0b0;
+    text-shadow: 0 3px 0 #000, 0 0 24px rgba(217,164,65,.6);
+    pointer-events: none;
+    opacity: 0;
+    z-index: 4;
+  }
+  .banner.show { animation: bang 1.7s ease forwards; }
+  @keyframes bang {
+    0% { opacity: 0; transform: scale(1.35); letter-spacing: 20px; }
+    18% { opacity: 1; transform: scale(1); letter-spacing: 8px; }
+    75% { opacity: 1; }
+    100% { opacity: 0; transform: scale(1.04); }
+  }
+
+  /* ============ TOOLBAR ============ */
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px;
+  }
+  .tool {
+    flex: 1 1 96px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 8px 4px;
+    cursor: pointer;
+    color: var(--ink);
+    font-family: inherit;
+    transition: border-color .12s ease, background .12s ease, transform .08s ease;
+    user-select: none;
+  }
+  .tool:hover { border-color: var(--amber-dim); }
+  .tool:active { transform: translateY(1px); }
+  .tool.active {
+    border-color: var(--amber);
+    background: #1d1608;
+    box-shadow: inset 0 0 14px rgba(217,164,65,.18), 0 0 0 1px var(--amber-dim);
+  }
+  .tool.disabled { opacity: .38; cursor: not-allowed; }
+  .tool .ic { font-size: 1.15rem; line-height: 1; }
+  .tool .nm { font-size: .6rem; letter-spacing: 1px; text-transform: uppercase; }
+  .tool .cs { font-size: .62rem; color: var(--amber); font-weight: 700; }
+  .tool.action {
+    flex: 1 1 118px;
+    background: #14202a;
+    border-color: #234050;
+  }
+  .tool.action.primary {
+    background: linear-gradient(180deg, #2f6a3e, #23532f);
+    border-color: #3d8a52;
+    color: #dff3e2;
+  }
+  .tool.action.primary .cs, .tool.action.primary .nm { color: #cfeccd; }
+
+  .foot {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: .62rem;
+    color: var(--ink-dim);
+    letter-spacing: 1px;
+    padding: 0 4px 2px;
+  }
+  .foot b { color: var(--amber); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="title">Beach Head<small>Coastal Defense Command</small></h1>
+
+  <!-- ============ HUD ============ -->
+  <div class="hud">
+    <div class="stat"><span class="k">Score</span><span class="v" id="hScore">0</span></div>
+    <div class="stat"><span class="k">Wave</span><span class="v amber" id="hWave">0</span></div>
+    <div class="stat"><span class="k">Best Wave</span><span class="v" id="hBest">0</span></div>
+    <div class="stat"><span class="k">Credits</span><span class="v ok" id="hCredits">0</span></div>
+    <div class="stat"><span class="k">Ammo</span><span class="v" id="hAmmo">0</span></div>
+    <div class="stat" style="grid-column: span 2; min-width:120px;">
+      <span class="k">Headquarters</span>
+      <span class="v" id="hHq">100%</span>
+      <div class="hqbar"><i id="hqFill" style="width:100%"></i></div>
+    </div>
+  </div>
+
+  <!-- ============ STAGE ============ -->
+  <div class="stage">
+    <canvas id="game"></canvas>
+
+    <div class="banner" id="banner"></div>
+
+    <div class="overlay" id="startScreen">
+      <h2>Hold The Beach</h2>
+      <p>
+        Landing craft advance from the sea. <b>Destroy the transports before they
+        reach the shoreline and unload troops.</b><br>
+        Build a defense line, ration your <b>ammo</b>, and bank your <b>credits</b>.
+        Every landing that gets through costs your <b>headquarters</b>.<br>
+        <span class="key">1-4</span> select tool &nbsp; <span class="key">Click</span> place
+        &nbsp; <span class="key">Esc</span> cancel &nbsp; <span class="key">Space</span> next wave
+        &nbsp; <span class="key">P</span> pause
+      </p>
+      <button class="btn" id="startBtn">Deploy</button>
+    </div>
+
+    <div class="overlay hidden" id="gameOverScreen">
+      <h2>Beach Lost</h2>
+      <div class="final">
+        <div>Score<span id="fScore">0</span></div>
+        <div>Waves Held<span id="fWave">0</span></div>
+        <div>Best Wave<span id="fBest">0</span></div>
+      </div>
+      <button class="btn" id="againBtn">Defend Again</button>
+    </div>
+  </div>
+
+  <!-- ============ TOOLBAR ============ -->
+  <div class="toolbar" id="toolbar">
+    <button class="tool" data-tool="gun"><span class="ic">&#9650;</span><span class="nm">Gun Turret</span><span class="cs">60</span></button>
+    <button class="tool" data-tool="bunker"><span class="ic">&#9632;</span><span class="nm">Bunker</span><span class="cs">90</span></button>
+    <button class="tool" data-tool="mine"><span class="ic">&#10041;</span><span class="nm">Sea Mine</span><span class="cs">30</span></button>
+    <button class="tool" data-tool="wire"><span class="ic">&#9585;</span><span class="nm">Barbed Wire</span><span class="cs">20</span></button>
+    <button class="tool action" id="ammoBtn"><span class="ic">&#9679;</span><span class="nm">Ammo +100</span><span class="cs">40 cr</span></button>
+    <button class="tool action primary" id="waveBtn"><span class="ic">&#9876;</span><span class="nm">Start Wave</span><span class="cs" id="waveBtnSub">ready</span></button>
+    <button class="tool action" id="pauseBtn"><span class="ic">&#10073;&#10073;</span><span class="nm">Pause</span><span class="cs" id="soundSub">&#128266;</span></button>
+  </div>
+
+  <div class="foot">
+    <span>Sea <b>&#8594;</b> Beach <b>&#8594;</b> Your Line</span>
+    <span id="hint">Select a structure to build, then click the map.</span>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   BEACH HEAD — original coastal defense strategy
+   Single-file HTML5 / Canvas 2D. All art is procedural silhouette.
+   ============================================================ */
+
+/* ============ CONFIG ============ */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const CELL = 40, COLS = 20, ROWS = 14;
+const W = COLS * CELL, H = ROWS * CELL;          // 800 x 560
+canvas.width = W; canvas.height = H;
+
+const SEA_ROWS = 5, BEACH_ROWS = 8;              // rows 0-4 sea, 5-7 beach, 8-13 land
+const SEA_Y = SEA_ROWS * CELL;                   // 200  (shoreline)
+const BEACH_Y = BEACH_ROWS * CELL;               // 320  (land begins)
+const HQ = { x: W / 2, y: 508, w: 156, h: 54 };
+
+/* Buildable tools. zone = which map bands accept the structure. */
+const TOOLS = {
+  gun:    { name: 'Gun Turret',  cost: 60, zone: 'land',  hp: 110, range: 190, rate: 0.55, dmg: 24 },
+  bunker: { name: 'Bunker',      cost: 90, zone: 'land',  hp: 180, range: 122, rate: 0.18, dmg: 7  },
+  mine:   { name: 'Sea Mine',    cost: 30, zone: 'water', hp: 24,  blast: 62,  dmg: 165 },
+  wire:   { name: 'Barbed Wire', cost: 20, zone: 'beach', hp: 80,  slow: 0.42, dps: 10 }
+};
+const ENEMY_R = { transport: 22, troop: 10, plane: 26 };
+const AMMO_PACK = { amount: 100, cost: 40 };
+
+/* Deterministic background scatter (generated once). */
+const SCATTER = [];
+(function seedScatter() {
+  let s = 1337;
+  const rnd = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  for (let i = 0; i < 90; i++) {
+    SCATTER.push({ x: rnd() * W, y: rnd() * H, r: rnd() * 1.6 + 0.4, a: rnd() * 0.5 + 0.1 });
+  }
+})();
+
+/* ============ STATE ============ */
+let S;
+function freshState() {
+  return {
+    running: false, paused: false, over: false, muted: false,
+    credits: 320, ammo: 150, maxAmmo: 400,
+    wave: 0, waveActive: false, score: 0,
+    hq: 100, hqMax: 100,
+    best: parseInt(localStorage.getItem('beachheadBestWave') || '0', 10) || 0,
+    structures: [], enemies: [], bullets: [], bombs: [], particles: [], texts: [],
+    spawnQueue: [], spawnT: 0,
+    tool: null, hover: { x: -1, y: -1, inside: false },
+    time: 0, shake: 0, flash: 0, lastTs: 0
+  };
+}
+S = freshState();
+
+/* ============ DOM ============ */
+const el = {
+  score: document.getElementById('hScore'),
+  wave: document.getElementById('hWave'),
+  best: document.getElementById('hBest'),
+  credits: document.getElementById('hCredits'),
+  ammo: document.getElementById('hAmmo'),
+  hq: document.getElementById('hHq'),
+  hqFill: document.getElementById('hqFill'),
+  banner: document.getElementById('banner'),
+  start: document.getElementById('startScreen'),
+  over: document.getElementById('gameOverScreen'),
+  fScore: document.getElementById('fScore'),
+  fWave: document.getElementById('fWave'),
+  fBest: document.getElementById('fBest'),
+  startBtn: document.getElementById('startBtn'),
+  againBtn: document.getElementById('againBtn'),
+  ammoBtn: document.getElementById('ammoBtn'),
+  waveBtn: document.getElementById('waveBtn'),
+  waveBtnSub: document.getElementById('waveBtnSub'),
+  pauseBtn: document.getElementById('pauseBtn'),
+  soundSub: document.getElementById('soundSub'),
+  hint: document.getElementById('hint'),
+  tools: Array.from(document.querySelectorAll('.tool[data-tool]'))
+};
+
+/* ============ AUDIO ============ */
+let audioCtx = null;
+function beep(freq, dur, type, vol) {
+  if (S && S.muted) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    const t = audioCtx.currentTime;
+    osc.type = type || 'square';
+    osc.frequency.setValueAtTime(freq, t);
+    gain.gain.setValueAtTime(vol == null ? 0.05 : vol, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + (dur || 0.08));
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(t); osc.stop(t + (dur || 0.08) + 0.02);
+  } catch (e) { /* audio unavailable — silently ignore */ }
+}
+
+/* ============ HELPERS ============ */
+function rnd(a, b) { return a + Math.random() * (b - a); }
+function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+function dist(ax, ay, bx, by) { const dx = ax - bx, dy = ay - by; return Math.sqrt(dx * dx + dy * dy); }
+function zoneOfRow(row) { return row < SEA_ROWS ? 'sea' : row < BEACH_ROWS ? 'beach' : 'land'; }
+
+function addText(x, y, str, color, size) {
+  S.texts.push({ x, y, str, color: color || '#fff', size: size || 15, life: 1.25, max: 1.25 });
+}
+function burst(x, y, color, count, power) {
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2, sp = rnd(0.4, 1) * power;
+    S.particles.push({
+      x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+      life: rnd(0.3, 0.85), max: 0.85, color, size: rnd(1.5, 3.4)
+    });
+  }
+}
+function showBanner(text) {
+  el.banner.textContent = text;
+  el.banner.classList.remove('show');
+  void el.banner.offsetWidth;               // restart animation
+  el.banner.classList.add('show');
+}
+
+/* ============ CELL / PLACEMENT ============ */
+function isBlockedCell(cx, cy) {
+  // headquarters footprint
+  if (cx >= 8 && cx <= 11 && cy >= 12) return true;
+  return false;
+}
+function cellOccupied(cx, cy) {
+  return S.structures.some(s => s.cx === cx && s.cy === cy);
+}
+function toolAllowedAt(tool, cx, cy) {
+  const d = TOOLS[tool];
+  const z = zoneOfRow(cy);
+  if (d.zone === 'land' && z !== 'land') return false;
+  if (d.zone === 'beach' && z !== 'beach') return false;
+  if (d.zone === 'water' && z === 'land') return false;
+  if (isBlockedCell(cx, cy)) return false;
+  if (cellOccupied(cx, cy)) return false;
+  return true;
+}
+
+/* ============ STRUCTURES ============ */
+function addStructure(type, cx, cy) {
+  const d = TOOLS[type];
+  const x = cx * CELL + CELL / 2, y = cy * CELL + CELL / 2;
+  const s = {
+    type, cx, cy, x, y,
+    hp: d.hp, maxHp: d.hp, cd: rnd(0, 0.3),
+    angle: -Math.PI / 2, target: null, flash: 0
+  };
+  S.structures.push(s);
+  burst(x, y, '#c9a05a', 8, 40);
+  beep(type === 'mine' ? 220 : 340, 0.07, 'triangle', 0.05);
+  return s;
+}
+
+function structureInContact(e) {
+  let best = null, bd = 1e9;
+  for (const s of S.structures) {
+    const r = (s.type === 'wire') ? 26 : 20;
+    const d = dist(e.x, e.y, s.x, s.y);
+    if (d < r + 6 && d < bd) { bd = d; best = s; }
+  }
+  return best;
+}
+
+/* ============ ENEMY SPAWNING ============ */
+function spawnTransport(x) {
+  const hp = 110 + S.wave * 15;
+  S.enemies.push({
+    type: 'transport', x, y: -44, hp, maxHp: hp,
+    speed: 20 + Math.min(20, S.wave * 1.3), worth: 25,
+    bob: rnd(0, 6), wake: 0
+  });
+}
+function spawnTroop(x, y) {
+  const hp = 26 + S.wave * 3;
+  S.enemies.push({
+    type: 'troop', x, y, hp, maxHp: hp,
+    speed: 34 + Math.min(16, S.wave * 1.1), worth: 8,
+    slow: 1, step: rnd(0, 6)
+  });
+}
+function spawnPlane(side) {
+  const hp = 55 + S.wave * 7;
+  const y = rnd(240, H - 110);
+  const dir = side < 0 ? 1 : -1;
+  let tgt = null;
+  if (S.structures.length) tgt = S.structures[(Math.random() * S.structures.length) | 0];
+  S.enemies.push({
+    type: 'plane', x: side < 0 ? -70 : W + 70, y, hp, maxHp: hp,
+    vx: dir * (110 + Math.min(70, S.wave * 5)), worth: 40,
+    dropped: false, target: tgt
+  });
+}
+
+function startWave() {
+  if (!S.running || S.over || S.waveActive || S.paused) return;
+  S.wave++;
+  if (S.wave > S.best) {
+    S.best = S.wave;
+    localStorage.setItem('beachheadBestWave', S.best);
+  }
+  S.waveActive = true;
+  S.spawnT = 0;
+  S.spawnQueue = [];
+
+  const n = S.wave;
+  const nTransports = 2 + Math.round(n * 1.4);
+  const nPlanes = n >= 3 ? Math.floor((n - 2) / 2) + (n >= 7 ? 1 : 0) : 0;
+
+  let t = 1.0;
+  for (let i = 0; i < nTransports; i++) {
+    S.spawnQueue.push({ type: 'transport', t, x: rnd(70, W - 70) });
+    t += Math.max(0.65, 2.5 - n * 0.1);
+  }
+  for (let i = 0; i < nPlanes; i++) {
+    S.spawnQueue.push({ type: 'plane', t: 3.5 + i * 4.5, side: Math.random() < 0.5 ? -1 : 1 });
+  }
+  S.spawnQueue.sort((a, b) => a.t - b.t);
+
+  const stipend = 50 + n * 12;
+  S.credits += stipend;
+  addText(W / 2, 268, 'WAVE ' + n + '  +' + stipend + ' cr', '#f0cf7a', 24);
+  showBanner('WAVE ' + n);
+  beep(500, 0.13, 'square', 0.06);
+  setTimeout(() => beep(680, 0.16, 'square', 0.06), 130);
+  updateHud();
+}
+
+/* ============ COMBAT ============ */
+function nearestEnemyInRange(s) {
+  let best = null, bd = TOOLS[s.type].range;
+  for (const e of S.enemies) {
+    if (e.dead) continue;
+    const d = dist(s.x, s.y, e.x, e.y);
+    if (d < bd) { bd = d; best = e; }
+  }
+  return best;
+}
+
+function fireGun(s) {
+  const d = TOOLS[s.type];
+  S.ammo--;
+  s.cd = d.rate;
+  s.flash = 0.06;
+  const spd = 560;
+  const spread = (Math.random() - 0.5) * 0.09;
+  const a = s.angle + spread;
+  S.bullets.push({
+    x: s.x + Math.cos(a) * 16, y: s.y + Math.sin(a) * 16,
+    vx: Math.cos(a) * spd, vy: Math.sin(a) * spd,
+    dmg: d.dmg, life: 0.95
+  });
+  burst(s.x + Math.cos(a) * 18, s.y + Math.sin(a) * 18, '#ffd27a', 3, 26);
+  beep(s.type === 'gun' ? 300 : 540, 0.035, 'square', 0.028);
+}
+
+function detonateMine(s) {
+  const d = TOOLS[s.type];
+  burst(s.x, s.y, '#ff9a52', 26, 130);
+  burst(s.x, s.y, '#fff0c0', 10, 90);
+  S.shake = 7;
+  beep(90, 0.28, 'sawtooth', 0.08);
+  for (const e of S.enemies) {
+    if (e.dead) continue;
+    const dd = dist(s.x, s.y, e.x, e.y);
+    if (dd < d.blast + ENEMY_R[e.type]) hurtEnemy(e, d.dmg);
+  }
+  s.hp = 0;
+}
+
+function hurtEnemy(e, dmg) {
+  e.hp -= dmg;
+  e.hitFlash = 0.1;
+  if (e.hp <= 0 && !e.dead) killEnemy(e);
+}
+function killEnemy(e) {
+  e.dead = true;
+  S.score += e.worth;
+  const gain = Math.round(e.worth * 0.7);
+  S.credits += gain;
+  addText(e.x, e.y - 8, '+' + e.worth, '#9fe08c', 14);
+  const col = e.type === 'transport' ? '#ffb070' : e.type === 'plane' ? '#ffd27a' : '#e07070';
+  burst(e.x, e.y, col, e.type === 'transport' ? 24 : 12, e.type === 'transport' ? 120 : 70);
+  beep(e.type === 'transport' ? 150 : 260, 0.16, 'sawtooth', 0.06);
+  if (e.type === 'transport') S.shake = 5;
+  updateHud();
+}
+
+/* ============ UPDATE ============ */
+function update(dt) {
+  S.time += dt;
+  if (S.shake > 0) S.shake = Math.max(0, S.shake - dt * 26);
+  if (S.flash > 0) S.flash = Math.max(0, S.flash - dt * 3);
+
+  /* --- spawn queue --- */
+  if (S.waveActive) {
+    S.spawnT += dt;
+    while (S.spawnQueue.length && S.spawnQueue[0].t <= S.spawnT) {
+      const q = S.spawnQueue.shift();
+      if (q.type === 'transport') spawnTransport(q.x);
+      else spawnPlane(q.side);
+    }
+  }
+
+  /* --- reset per-frame troop slow (barbed wire re-applies it below) --- */
+  for (const e of S.enemies) { if (e.type === 'troop') e.slow = 1; }
+
+  /* --- structures --- */
+  for (const s of S.structures) {
+    if (s.flash > 0) s.flash -= dt;
+    if (s.type === 'gun' || s.type === 'bunker') {
+      s.cd -= dt;
+      const tgt = nearestEnemyInRange(s);
+      s.target = tgt;
+      if (tgt) {
+        const want = Math.atan2(tgt.y - s.y, tgt.x - s.x);
+        let diff = want - s.angle;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        s.angle += diff * Math.min(1, dt * 8);
+        if (s.cd <= 0 && S.ammo > 0) fireGun(s);
+      }
+    } else if (s.type === 'mine') {
+      for (const e of S.enemies) {
+        if (e.dead) continue;
+        if (dist(s.x, s.y, e.x, e.y) < 32 + ENEMY_R[e.type]) { detonateMine(s); break; }
+      }
+    } else if (s.type === 'wire') {
+      let touched = false;
+      for (const e of S.enemies) {
+        if (e.dead || e.type !== 'troop') continue;
+        if (dist(s.x, s.y, e.x, e.y) < 26) {
+          hurtEnemy(e, TOOLS.wire.dps * dt);
+          e.slow = Math.min(e.slow, TOOLS.wire.slow);
+          touched = true;
+        }
+      }
+      if (touched) s.flash = 0.05;
+    }
+  }
+
+  /* --- bullets --- */
+  for (const b of S.bullets) {
+    b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
+    if (b.x < -20 || b.x > W + 20 || b.y < -20 || b.y > H + 20) b.life = 0;
+    if (b.life <= 0) continue;
+    for (const e of S.enemies) {
+      if (e.dead) continue;
+      if (dist(b.x, b.y, e.x, e.y) < ENEMY_R[e.type] + 3) {
+        hurtEnemy(e, b.dmg);
+        burst(b.x, b.y, '#ffe6a8', 4, 40);
+        b.life = 0;
+        break;
+      }
+    }
+  }
+
+  /* --- enemies --- */
+  for (const e of S.enemies) {
+    if (e.dead) continue;
+    if (e.hitFlash > 0) e.hitFlash -= dt;
+
+    if (e.type === 'transport') {
+      e.y += e.speed * dt;
+      e.wake += dt;
+      if (e.y >= SEA_Y + 4) {
+        // landed — unload troops then withdraw
+        const n = 3;
+        for (let i = 0; i < n; i++) spawnTroop(e.x + (i - (n - 1) / 2) * 16, SEA_Y + 10);
+        addText(e.x, SEA_Y + 6, 'TROOPS LANDED!', '#ff9a52', 16);
+        burst(e.x, SEA_Y + 6, '#ffb070', 20, 90);
+        S.shake = 9; S.flash = 0.5;
+        beep(120, 0.3, 'sawtooth', 0.09);
+        e.dead = true;
+      }
+    } else if (e.type === 'troop') {
+      if (e.step !== undefined) e.step += dt * 7;
+      // wire slow/damage applied in the structures pass above
+      const atHQ = (e.y >= HQ.y - 22 && e.x > HQ.x - HQ.w / 2 - 6 && e.x < HQ.x + HQ.w / 2 + 6);
+      if (atHQ) {
+        S.hq -= 7 * dt;
+        S.shake = Math.max(S.shake, 2);
+        if (Math.random() < dt * 8) burst(e.x, HQ.y - 18, '#ff7a4a', 3, 40);
+      } else {
+        const blocker = structureInContact(e);
+        if (blocker) {
+          blocker.hp -= 15 * dt;
+          blocker.flash = 0.05;
+          if (Math.random() < dt * 6) burst(blocker.x, blocker.y, '#ffb070', 2, 30);
+          if (blocker.hp <= 0) destroyStructure(blocker);
+        } else {
+          e.y += e.speed * e.slow * dt;
+          e.x += Math.sin(S.time * 2 + e.step) * 6 * dt;
+        }
+      }
+    } else if (e.type === 'plane') {
+      e.x += e.vx * dt;
+      e.bobY = Math.sin(S.time * 3) * 3;
+      if (!e.dropped) {
+        const tx = e.target ? e.target.x : HQ.x;
+        if ((e.vx > 0 && e.x >= tx) || (e.vx < 0 && e.x <= tx)) {
+          e.dropped = true;
+          S.bombs.push({
+            x: e.x, y: e.y + 8, tx, ty: e.target ? e.target.y : HQ.y,
+            dmg: 46, radius: 48, life: 4, vx: e.vx * 0.55
+          });
+          beep(200, 0.1, 'triangle', 0.05);
+        }
+      }
+      if (e.x < -90 || e.x > W + 90) e.dead = true;
+    }
+  }
+
+  /* --- bombs --- */
+  for (const b of S.bombs) {
+    b.life -= dt;
+    b.x += b.vx * dt;
+    const dx = b.tx - b.x, dy = b.ty - b.y;
+    const d = Math.hypot(dx, dy) || 1;
+    const step = 240 * dt;
+    if (d <= step || b.life <= 0) {
+      b.x = b.tx; b.y = b.ty;
+      // explode
+      burst(b.x, b.y, '#ff9a52', 24, 130);
+      S.shake = 8;
+      beep(80, 0.3, 'sawtooth', 0.08);
+      for (const s of S.structures) {
+        if (dist(b.x, b.y, s.x, s.y) < b.radius + 14) {
+          s.hp -= b.dmg; s.flash = 0.08;
+          if (s.hp <= 0) destroyStructure(s);
+        }
+      }
+      if (b.x > HQ.x - HQ.w / 2 - 20 && b.x < HQ.x + HQ.w / 2 + 20 && b.y > HQ.y - 40) {
+        S.hq -= 8; S.flash = 0.4;
+      }
+      b.life = 0;
+    } else {
+      b.x += (dx / d) * step; b.y += (dy / d) * step;
+    }
+  }
+
+  /* --- particles --- */
+  for (const p of S.particles) {
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    p.vx *= 0.94; p.vy *= 0.94;
+    p.life -= dt;
+  }
+
+  /* --- floating texts --- */
+  for (const t of S.texts) { t.y -= 22 * dt; t.life -= dt; }
+
+  /* --- cull --- */
+  S.enemies = S.enemies.filter(e => !e.dead);
+  S.bullets = S.bullets.filter(b => b.life > 0);
+  S.bombs = S.bombs.filter(b => b.life > 0);
+  S.structures = S.structures.filter(s => s.hp > 0);
+  S.particles = S.particles.filter(p => p.life > 0);
+  S.texts = S.texts.filter(t => t.life > 0);
+
+  /* --- wave complete --- */
+  if (S.waveActive && S.spawnQueue.length === 0 && S.enemies.length === 0) {
+    S.waveActive = false;
+    const bonus = 40 + S.wave * 8;
+    S.credits += bonus; S.score += bonus;
+    addText(W / 2, 300, 'WAVE CLEARED  +' + bonus, '#f0cf7a', 24);
+    showBanner('WAVE CLEARED');
+    beep(600, 0.12, 'square', 0.06);
+    setTimeout(() => beep(820, 0.18, 'square', 0.06), 130);
+    updateHud();
+  }
+
+  /* --- defeat --- */
+  if (S.hq <= 0 && !S.over) {
+    S.hq = 0;
+    gameOver();
+  }
+  updateHud();
+}
+
+function destroyStructure(s) {
+  s.hp = 0;
+  burst(s.x, s.y, '#c9a05a', 16, 90);
+  burst(s.x, s.y, '#5a4a38', 10, 60);
+  addText(s.x, s.y - 10, 'LOST', '#e07070', 13);
+  beep(140, 0.2, 'sawtooth', 0.06);
+}
+
+/* ============================================================
+   DRAWING — silhouette style
+   ============================================================ */
+function drawBackground() {
+  // --- sea ---
+  const sg = ctx.createLinearGradient(0, 0, 0, SEA_Y);
+  sg.addColorStop(0, '#081525');
+  sg.addColorStop(1, '#12455a');
+  ctx.fillStyle = sg;
+  ctx.fillRect(0, 0, W, SEA_Y);
+
+  ctx.strokeStyle = 'rgba(120,195,215,0.10)';
+  ctx.lineWidth = 2;
+  const off = (S.time * 22) % 80;
+  for (let i = 0; i < 15; i++) {
+    const y = 12 + i * 13;
+    ctx.beginPath();
+    for (let x = -80; x < W + 80; x += 80) {
+      ctx.moveTo(x + off, y);
+      ctx.lineTo(x + off + 42, y);
+    }
+    ctx.stroke();
+  }
+
+  // --- beach ---
+  const bg = ctx.createLinearGradient(0, SEA_Y, 0, BEACH_Y);
+  bg.addColorStop(0, '#6d5c42');
+  bg.addColorStop(0.18, '#5c4d37');
+  bg.addColorStop(1, '#463a2b');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, SEA_Y, W, BEACH_Y - SEA_Y);
+
+  // wet sand sheen + foam lines
+  const shimmer = 0.26 + 0.12 * Math.sin(S.time * 2);
+  ctx.strokeStyle = 'rgba(205,232,236,' + shimmer.toFixed(3) + ')';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  for (let x = 0; x <= W; x += 16) ctx.lineTo(x, SEA_Y + Math.sin(x * 0.05 + S.time * 2) * 3);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(205,232,236,' + (shimmer * 0.55).toFixed(3) + ')';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let x = 0; x <= W; x += 16) ctx.lineTo(x, SEA_Y + 8 + Math.sin(x * 0.04 + S.time * 2.5) * 2);
+  ctx.stroke();
+
+  // --- land ---
+  const lg = ctx.createLinearGradient(0, BEACH_Y, 0, H);
+  lg.addColorStop(0, '#26301e');
+  lg.addColorStop(1, '#141b11');
+  ctx.fillStyle = lg;
+  ctx.fillRect(0, BEACH_Y, W, H - BEACH_Y);
+
+  // ridge line between beach and land
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.beginPath();
+  ctx.moveTo(0, BEACH_Y + 6);
+  for (let x = 0; x <= W; x += 24) ctx.lineTo(x, BEACH_Y + Math.sin(x * 0.04) * 4);
+  ctx.lineTo(W, BEACH_Y - 4); ctx.lineTo(0, BEACH_Y - 4);
+  ctx.closePath(); ctx.fill();
+
+  // --- scatter texture ---
+  for (const d of SCATTER) {
+    ctx.globalAlpha = d.a * 0.5;
+    ctx.fillStyle = d.y < SEA_Y ? '#7fd0e0' : d.y < BEACH_Y ? '#8c7857' : '#3e5033';
+    ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawBuildOverlay() {
+  if (!S.tool) return;
+  ctx.save();
+  ctx.globalAlpha = 0.13;
+  for (let cy = 0; cy < ROWS; cy++) {
+    for (let cx = 0; cx < COLS; cx++) {
+      if (toolAllowedAt(S.tool, cx, cy)) {
+        ctx.fillStyle = '#d9a441';
+        ctx.fillRect(cx * CELL + 2, cy * CELL + 2, CELL - 4, CELL - 4);
+      }
+    }
+  }
+  ctx.restore();
+
+  // hover ghost
+  const hx = S.hover.x, hy = S.hover.y;
+  if (S.hover.inside && hx >= 0 && hy >= 0) {
+    const ok = toolAllowedAt(S.tool, hx, hy);
+    const afford = S.credits >= TOOLS[S.tool].cost;
+    const good = ok && afford;
+    ctx.save();
+    ctx.globalAlpha = 0.5;
+    ctx.strokeStyle = good ? '#8fe08c' : '#e07070';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(hx * CELL + 1, hy * CELL + 1, CELL - 2, CELL - 2);
+    ctx.globalAlpha = 0.16;
+    ctx.fillStyle = good ? '#8fe08c' : '#e07070';
+    ctx.fillRect(hx * CELL + 1, hy * CELL + 1, CELL - 2, CELL - 2);
+    ctx.restore();
+    if (good) drawStructureShape(S.tool, hx * CELL + CELL / 2, hy * CELL + CELL / 2, -Math.PI / 2, 0.85);
+  }
+}
+
+function drawStructureShape(type, x, y, angle, alpha) {
+  ctx.save();
+  ctx.globalAlpha = alpha == null ? 1 : alpha;
+  ctx.translate(x, y);
+
+  if (type === 'gun' || type === 'bunker') {
+    const long = type === 'gun';
+    // shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath(); ctx.ellipse(2, 4, long ? 16 : 20, long ? 13 : 16, 0, 0, Math.PI * 2); ctx.fill();
+    // base
+    ctx.fillStyle = '#0b1016';
+    ctx.beginPath();
+    if (long) ctx.arc(0, 0, 15, 0, Math.PI * 2);
+    else ctx.rect(-19, -17, 38, 34);
+    ctx.fill();
+    // rim light
+    ctx.strokeStyle = '#2b3946';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    if (long) ctx.arc(0, 0, 15, 0, Math.PI * 2);
+    else ctx.rect(-19, -17, 38, 34);
+    ctx.stroke();
+    // barrel
+    ctx.save();
+    ctx.rotate(angle);
+    ctx.fillStyle = '#161f28';
+    const bl = long ? 26 : 18;
+    const bw = long ? 7 : 9;
+    ctx.fillRect(4, -bw / 2, bl, bw);
+    ctx.fillStyle = '#26333f';
+    ctx.fillRect(4 + bl - 4, -bw / 2 - 1, 4, bw + 2);
+    ctx.restore();
+    // dome
+    ctx.fillStyle = '#182029';
+    ctx.beginPath(); ctx.arc(0, 0, long ? 9 : 11, 0, Math.PI * 2); ctx.fill();
+  } else if (type === 'mine') {
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath(); ctx.ellipse(1, 3, 13, 9, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#0b1016';
+    ctx.beginPath(); ctx.arc(0, 0, 11, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#37474f'; ctx.lineWidth = 3;
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 + 0.2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * 8, Math.sin(a) * 8);
+      ctx.lineTo(Math.cos(a) * 16, Math.sin(a) * 16);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#2c3a44';
+    ctx.beginPath(); ctx.arc(-3, -3, 3.4, 0, Math.PI * 2); ctx.fill();
+  } else if (type === 'wire') {
+    ctx.strokeStyle = '#20262c'; ctx.lineWidth = 2.5;
+    ctx.fillStyle = '#20262c';
+    for (let row = -1; row <= 1; row++) {
+      const yy = row * 11;
+      ctx.beginPath();
+      for (let x = -18; x <= 18; x += 4) {
+        ctx.lineTo(x, yy + (Math.floor(x / 4) % 2 === 0 ? -4 : 4));
+      }
+      ctx.stroke();
+      // barbs
+      for (let x = -18; x <= 18; x += 9) {
+        const by = yy + (Math.floor(Math.round(x / 4)) % 2 === 0 ? -4 : 4);
+        ctx.beginPath(); ctx.moveTo(x - 3, by - 3); ctx.lineTo(x + 3, by + 3); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x - 3, by + 3); ctx.lineTo(x + 3, by - 3); ctx.stroke();
+      }
+    }
+  }
+  ctx.restore();
+}
+
+function drawStructures() {
+  for (const s of S.structures) {
+    if (s.type === 'mine') {
+      const bob = zoneOfRow(s.cy) === 'sea' ? Math.sin(S.time * 2 + s.cx) * 2 : 0;
+      drawStructureShape('mine', s.x, s.y + bob, 0, 1);
+    } else if (s.type === 'wire') {
+      drawStructureShape('wire', s.x, s.y, 0, s.flash > 0 ? 1 : 0.9);
+    } else {
+      drawStructureShape(s.type, s.x, s.y, s.angle, 1);
+      if (s.flash > 0) {
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = '#ffd27a';
+        ctx.beginPath(); ctx.arc(s.x + Math.cos(s.angle) * 20, s.y + Math.sin(s.angle) * 20, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
+    // hp bar if damaged
+    if (s.hp < s.maxHp) {
+      const w = s.type === 'wire' ? 30 : 26;
+      const p = clamp(s.hp / s.maxHp, 0, 1);
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(s.x - w / 2, s.y - 24, w, 4);
+      ctx.fillStyle = p > 0.5 ? '#6fae5a' : p > 0.25 ? '#d9a441' : '#c0392b';
+      ctx.fillRect(s.x - w / 2, s.y - 24, w * p, 4);
+    }
+  }
+}
+
+function drawEnemies() {
+  for (const e of S.enemies) {
+    ctx.save();
+    if (e.hitFlash > 0) { ctx.globalAlpha = 1; }
+
+    if (e.type === 'transport') {
+      const y = e.y;
+      // wake
+      ctx.strokeStyle = 'rgba(200,235,240,0.18)';
+      ctx.lineWidth = 2;
+      for (let i = 1; i <= 3; i++) {
+        ctx.beginPath();
+        ctx.arc(e.x, y - i * 12, 12 + i * 7, Math.PI * 1.15, Math.PI * 1.85);
+        ctx.stroke();
+      }
+      // hull shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.32)';
+      ctx.beginPath(); ctx.ellipse(e.x + 2, y + 4, 20, 13, 0, 0, Math.PI * 2); ctx.fill();
+      // hull (bow points down toward beach)
+      ctx.fillStyle = e.hitFlash > 0 ? '#5a2b22' : '#0d1319';
+      ctx.beginPath();
+      ctx.moveTo(e.x, y + 24);
+      ctx.lineTo(e.x - 17, y - 6);
+      ctx.lineTo(e.x - 12, y - 18);
+      ctx.lineTo(e.x + 12, y - 18);
+      ctx.lineTo(e.x + 17, y - 6);
+      ctx.closePath(); ctx.fill();
+      // deck
+      ctx.fillStyle = '#1c262f';
+      ctx.fillRect(e.x - 9, y - 12, 18, 16);
+      // ramp hint at bow
+      ctx.fillStyle = '#2b3946';
+      ctx.fillRect(e.x - 7, y + 14, 14, 4);
+      // rim light
+      ctx.strokeStyle = 'rgba(150,190,210,0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(e.x, y + 24); ctx.lineTo(e.x - 17, y - 6); ctx.lineTo(e.x - 12, y - 18);
+      ctx.stroke();
+    } else if (e.type === 'troop') {
+      const y = e.y;
+      const sw = Math.sin(e.step || 0) * 3;
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.beginPath(); ctx.ellipse(e.x, y + 10, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = e.hitFlash > 0 ? '#5a2b22' : '#0c1116';
+      // legs
+      ctx.fillRect(e.x - 4 + sw * 0.5, y + 2, 3, 7);
+      ctx.fillRect(e.x + 1 - sw * 0.5, y + 2, 3, 7);
+      // body
+      ctx.fillRect(e.x - 5, y - 6, 10, 10);
+      // rifle
+      ctx.fillRect(e.x + 3, y - 6, 2, 7);
+      // head + helmet
+      ctx.beginPath(); ctx.arc(e.x, y - 10, 4.4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(e.x, y - 11, 5.4, Math.PI, 0); ctx.fill();
+    } else if (e.type === 'plane') {
+      const y = e.y + (e.bobY || 0);
+      const dir = e.vx >= 0 ? 1 : -1;
+      ctx.fillStyle = 'rgba(0,0,0,0.28)';
+      ctx.beginPath(); ctx.ellipse(e.x + dir * -6, y + 16, 22, 6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.save();
+      ctx.translate(e.x, y);
+      ctx.scale(dir, 1);
+      ctx.fillStyle = e.hitFlash > 0 ? '#5a2b22' : '#0b1015';
+      // wings
+      ctx.beginPath();
+      ctx.moveTo(-6, 0); ctx.lineTo(6, -4); ctx.lineTo(10, 0); ctx.lineTo(6, 4);
+      ctx.closePath(); ctx.fill();
+      // fuselage
+      ctx.fillRect(-20, -3, 34, 6);
+      ctx.beginPath(); ctx.moveTo(14, -3); ctx.lineTo(22, 0); ctx.lineTo(14, 3); ctx.closePath(); ctx.fill();
+      // tail
+      ctx.beginPath(); ctx.moveTo(-20, -2); ctx.lineTo(-28, -6); ctx.lineTo(-20, -2); ctx.lineTo(-27, 4); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#1b2530';
+      ctx.fillRect(-2, -2, 8, 4);
+      ctx.restore();
+    }
+
+    // hp bar
+    if (e.hp < e.maxHp) {
+      const w = e.type === 'transport' ? 34 : e.type === 'plane' ? 30 : 18;
+      const p = clamp(e.hp / e.maxHp, 0, 1);
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(e.x - w / 2, e.y - (e.type === 'transport' ? 30 : 22), w, 4);
+      ctx.fillStyle = p > 0.5 ? '#e07070' : p > 0.25 ? '#e0a070' : '#ffd27a';
+      ctx.fillRect(e.x - w / 2, e.y - (e.type === 'transport' ? 30 : 22), w * p, 4);
+    }
+    ctx.restore();
+  }
+}
+
+function drawHQ() {
+  const hx = HQ.x, hy = HQ.y;
+  const p = clamp(S.hq / S.hqMax, 0, 1);
+  ctx.save();
+  // shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath(); ctx.ellipse(hx + 3, hy + 22, HQ.w / 2 + 6, 16, 0, 0, Math.PI * 2); ctx.fill();
+  // sandbag wall
+  ctx.fillStyle = '#3a3125';
+  ctx.fillRect(hx - HQ.w / 2, hy + 6, HQ.w, 26);
+  ctx.fillStyle = '#2b2419';
+  for (let i = 0; i < 6; i++) {
+    ctx.beginPath();
+    ctx.ellipse(hx - HQ.w / 2 + 14 + i * 25, hy + 19, 12, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // main blockhouse
+  ctx.fillStyle = '#0b1016';
+  ctx.beginPath();
+  ctx.moveTo(hx - HQ.w / 2 + 16, hy + 8);
+  ctx.lineTo(hx - HQ.w / 2 + 30, hy - 22);
+  ctx.lineTo(hx + HQ.w / 2 - 30, hy - 22);
+  ctx.lineTo(hx + HQ.w / 2 - 16, hy + 8);
+  ctx.closePath(); ctx.fill();
+  // slit
+  ctx.fillStyle = '#1c262f';
+  ctx.fillRect(hx - 34, hy - 12, 68, 8);
+  ctx.fillStyle = p > 0.4 ? '#d9a441' : '#c0392b';
+  ctx.fillRect(hx - 34, hy - 12, 68 * p, 8);
+  // rim
+  ctx.strokeStyle = '#2b3946'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(hx - HQ.w / 2 + 16, hy + 8);
+  ctx.lineTo(hx - HQ.w / 2 + 30, hy - 22);
+  ctx.lineTo(hx + HQ.w / 2 - 30, hy - 22);
+  ctx.stroke();
+  // flag pole (plain pennant — no insignia)
+  ctx.strokeStyle = '#2b3946'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(hx, hy - 22); ctx.lineTo(hx, hy - 52); ctx.stroke();
+  const wave = Math.sin(S.time * 4) * 3;
+  ctx.fillStyle = '#d9a441';
+  ctx.beginPath();
+  ctx.moveTo(hx, hy - 52);
+  ctx.lineTo(hx + 24, hy - 47 + wave);
+  ctx.lineTo(hx, hy - 40);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+function drawProjectiles() {
+  // bullets
+  ctx.strokeStyle = '#ffe6a8';
+  ctx.lineWidth = 2;
+  for (const b of S.bullets) {
+    ctx.beginPath();
+    ctx.moveTo(b.x, b.y);
+    ctx.lineTo(b.x - b.vx * 0.02, b.y - b.vy * 0.02);
+    ctx.stroke();
+  }
+  // bombs
+  for (const b of S.bombs) {
+    ctx.fillStyle = '#0b1016';
+    ctx.beginPath(); ctx.ellipse(b.x, b.y, 5, 8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,150,90,0.5)';
+    ctx.beginPath(); ctx.arc(b.x, b.y - 10, 3, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+function drawParticles() {
+  for (const p of S.particles) {
+    ctx.globalAlpha = clamp(p.life / p.max, 0, 1);
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawTexts() {
+  ctx.textAlign = 'center';
+  for (const t of S.texts) {
+    ctx.globalAlpha = clamp(t.life / t.max, 0, 1);
+    ctx.font = '700 ' + t.size + 'px Consolas, monospace';
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillText(t.str, t.x + 1, t.y + 1);
+    ctx.fillStyle = t.color;
+    ctx.fillText(t.str, t.x, t.y);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function render() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  ctx.save();
+  if (S.shake > 0) {
+    ctx.translate((Math.random() - 0.5) * S.shake, (Math.random() - 0.5) * S.shake);
+  }
+  drawBackground();
+  drawBuildOverlay();
+  drawHQ();
+  drawStructures();
+  drawProjectiles();
+  drawEnemies();
+  drawParticles();
+  drawTexts();
+  ctx.restore();
+
+  // damage flash vignette
+  if (S.flash > 0) {
+    ctx.fillStyle = 'rgba(180,40,20,' + (S.flash * 0.28).toFixed(3) + ')';
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+/* ============ HUD ============ */
+function updateHud() {
+  el.score.textContent = S.score;
+  el.wave.textContent = S.wave;
+  el.best.textContent = S.best;
+  el.credits.textContent = S.credits;
+  el.ammo.textContent = S.ammo;
+  const pct = Math.round(clamp(S.hq / S.hqMax, 0, 1) * 100);
+  el.hq.textContent = pct + '%';
+  el.hq.className = 'v ' + (pct > 60 ? 'ok' : pct > 30 ? 'amber' : 'danger');
+  el.hqFill.style.width = pct + '%';
+
+  el.tools.forEach(btn => {
+    const t = btn.dataset.tool;
+    const afford = S.credits >= TOOLS[t].cost;
+    btn.classList.toggle('disabled', !afford);
+    btn.classList.toggle('active', S.tool === t);
+  });
+  const canAmmo = S.credits >= AMMO_PACK.cost;
+  el.ammoBtn.classList.toggle('disabled', !canAmmo);
+  el.waveBtnSub.textContent = S.waveActive ? 'in progress' : (S.wave === 0 ? 'ready' : 'next');
+}
+
+/* ============ GAME FLOW ============ */
+function resetGame() {
+  S = freshState();
+  S.shake = 0;
+  updateHud();
+  el.tools.forEach(b => b.classList.remove('active'));
+}
+
+function startGame() {
+  resetGame();
+  S.running = true;
+  el.start.classList.add('hidden');
+  el.over.classList.add('hidden');
+  showBanner('DEPLOY DEFENSES');
+  el.hint.textContent = 'Build your line, then press START WAVE.';
+  S.lastTs = performance.now();
+  requestAnimationFrame(loop);
+  setTimeout(() => beep(400, 0.1, 'square', 0.05), 60);
+}
+
+function gameOver() {
+  S.running = false;
+  S.over = true;
+  S.waveActive = false;
+  el.fScore.textContent = S.score;
+  el.fWave.textContent = Math.max(0, S.wave - 1);
+  el.fBest.textContent = S.best;
+  el.over.classList.remove('hidden');
+  beep(200, 0.4, 'sawtooth', 0.07);
+  setTimeout(() => beep(120, 0.6, 'sawtooth', 0.07), 220);
+  updateHud();
+}
+
+function togglePause() {
+  if (!S.running || S.over) return;
+  S.paused = !S.paused;
+  el.pauseBtn.classList.toggle('active', S.paused);
+  el.hint.textContent = S.paused ? 'PAUSED' : 'Select a structure to build, then click the map.';
+  if (!S.paused) {
+    S.lastTs = performance.now();
+    requestAnimationFrame(loop);
+  }
+  beep(S.paused ? 300 : 420, 0.08, 'triangle', 0.045);
+}
+
+/* ============ MAIN LOOP ============ */
+function loop(ts) {
+  if (!S.running || S.paused || S.over) return;
+  let dt = (ts - S.lastTs) / 1000;
+  S.lastTs = ts;
+  if (!isFinite(dt) || dt < 0) dt = 0;
+  dt = Math.min(dt, 0.05);            // clamp big frame gaps
+  update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+
+/* ============ INPUT — POINTER ============ */
+function canvasPos(evt) {
+  const r = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / r.width;
+  const scaleY = canvas.height / r.height;
+  return { x: (evt.clientX - r.left) * scaleX, y: (evt.clientY - r.top) * scaleY };
+}
+
+canvas.addEventListener('pointermove', (e) => {
+  const p = canvasPos(e);
+  S.hover.inside = true;
+  S.hover.x = clamp(Math.floor(p.x / CELL), 0, COLS - 1);
+  S.hover.y = clamp(Math.floor(p.y / CELL), 0, ROWS - 1);
+});
+canvas.addEventListener('pointerleave', () => { S.hover.inside = false; });
+
+canvas.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  if (!S.running || S.paused || S.over) return;
+  const p = canvasPos(e);
+  const cx = Math.floor(p.x / CELL), cy = Math.floor(p.y / CELL);
+  if (cx < 0 || cx >= COLS || cy < 0 || cy >= ROWS) return;
+
+  if (!S.tool) {
+    // informational tap on empty ground
+    addText(p.x, p.y, 'SELECT A TOOL', '#8fa0ad', 12);
+    return;
+  }
+  const d = TOOLS[S.tool];
+  if (S.credits < d.cost) {
+    addText(p.x, p.y, 'NOT ENOUGH CR', '#e07070', 13);
+    beep(180, 0.08, 'square', 0.04);
+    return;
+  }
+  if (!toolAllowedAt(S.tool, cx, cy)) {
+    addText(p.x, p.y, 'BLOCKED', '#e07070', 13);
+    beep(180, 0.08, 'square', 0.04);
+    return;
+  }
+  S.credits -= d.cost;
+  addStructure(S.tool, cx, cy);
+  updateHud();
+});
+
+/* ============ INPUT — KEYBOARD ============ */
+document.addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
+
+  if (k === 'p') { togglePause(); return; }
+  if (k === 'm') { S.muted = !S.muted; el.soundSub.textContent = S.muted ? '\uD83D\uDD07' : '\uD83D\uDD0A'; return; }
+  if (!S.running || S.paused || S.over) return;
+
+  if (k === 'escape') { setTool(null); return; }
+  if (k === ' ') { startWave(); return; }
+
+  const map = { '1': 'gun', '2': 'bunker', '3': 'mine', '4': 'wire' };
+  if (map[k]) setTool(S.tool === map[k] ? null : map[k]);
+});
+
+/* ============ UI WIRING ============ */
+function setTool(tool) {
+  S.tool = tool;
+  updateHud();
+  el.hint.textContent = tool
+    ? TOOLS[tool].name + ' — click a highlighted cell to build (' + TOOLS[tool].cost + ' cr).'
+    : 'Select a structure to build, then click the map.';
+}
+
+el.tools.forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.classList.contains('disabled')) return;
+    setTool(S.tool === btn.dataset.tool ? null : btn.dataset.tool);
+  });
+});
+
+el.ammoBtn.addEventListener('click', () => {
+  if (!S.running || S.over) return;
+  if (S.credits < AMMO_PACK.cost) { beep(180, 0.08, 'square', 0.04); return; }
+  if (S.ammo >= S.maxAmmo) { addText(W / 2, H - 60, 'AMMO FULL', '#8fa0ad', 14); return; }
+  S.credits -= AMMO_PACK.cost;
+  S.ammo = Math.min(S.maxAmmo, S.ammo + AMMO_PACK.amount);
+  beep(660, 0.1, 'triangle', 0.05);
+  setTimeout(() => beep(880, 0.1, 'triangle', 0.05), 80);
+  updateHud();
+});
+
+el.waveBtn.addEventListener('click', () => startWave());
+el.pauseBtn.addEventListener('click', () => togglePause());
+el.startBtn.addEventListener('click', () => startGame());
+el.againBtn.addEventListener('click', () => startGame());
+
+/* ============ BOOT ============ */
+updateHud();
+el.best.textContent = S.best;
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Word Scramble</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg1: #1b2a4a;
+    --bg2: #0e1729;
+    --panel: rgba(255,255,255,0.06);
+    --ink: #eaf1ff;
+    --muted: #93a4c4;
+    --line: rgba(255,255,255,0.16);
+    --accent: #ffc53d;
+    --accent2: #57d0ff;
+    --good: #7cffb2;
+    --bad: #ff5a6a;
+  }
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(1200px 800px at 50% -10%, #22365f 0%, var(--bg1) 45%, var(--bg2) 100%);
+    color: var(--ink);
+    font-family: "Segoe UI", "Trebuchet MS", Tahoma, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 14px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #app {
+    width: min(96vw, 620px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* ============ HEADER ============ */
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  h1 {
+    font-size: clamp(1.25rem, 5vw, 1.9rem);
+    letter-spacing: 2px;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 2px 12px rgba(255,197,61,0.35);
+  }
+  h1 span { color: var(--accent); }
+  .best-tag {
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-align: right;
+    line-height: 1.35;
+  }
+  .best-tag b { color: var(--accent2); font-weight: 700; }
+
+  /* ============ STATUS BAR ============ */
+  #status {
+    display: flex;
+    gap: 8px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 0.82rem;
+  }
+  #status .stat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    text-align: center;
+  }
+  #status .stat .k { color: var(--muted); font-size: 0.62rem; letter-spacing: 1px; text-transform: uppercase; }
+  #status .stat .v { font-weight: 700; font-size: 1rem; color: var(--ink); font-variant-numeric: tabular-nums; }
+  #status .stat .v.hot { color: var(--accent); }
+
+  /* ============ TIMER BAR ============ */
+  #timerbar {
+    width: 100%;
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.08);
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+  #timerfill {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, var(--good), var(--accent2), var(--accent));
+    transition: width 0.12s linear;
+  }
+  #timerfill.warn { background: linear-gradient(90deg, var(--accent), var(--bad)); }
+
+  /* ============ BOARD PANEL ============ */
+  #board {
+    position: relative;
+    background: rgba(0,0,0,0.25);
+    border-radius: 14px;
+    padding: 16px;
+    min-height: 250px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    box-shadow: 0 14px 44px rgba(0,0,0,0.45), inset 0 0 0 1px var(--line);
+    overflow: hidden;
+  }
+  .board-label {
+    font-size: 0.62rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* ============ ANSWER SLOTS ============ */
+  #answer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    min-height: 56px;
+  }
+  .slot {
+    width: clamp(34px, 9vw, 48px);
+    height: clamp(34px, 9vw, 48px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    border: 2px dashed rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.03);
+    font-size: clamp(1rem, 4.5vw, 1.5rem);
+    font-weight: 800;
+    color: var(--ink);
+    cursor: pointer;
+    transition: transform .1s ease, background .12s ease, border-color .12s ease;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .slot.filled {
+    border-style: solid;
+    border-color: var(--accent2);
+    background: rgba(87,208,255,0.16);
+    cursor: pointer;
+  }
+  .slot.filled:hover { background: rgba(87,208,255,0.28); }
+  .slot.hinted {
+    border-color: var(--accent);
+    background: rgba(255,197,61,0.22);
+    color: var(--accent);
+  }
+  .slot.good { border-color: var(--good); background: rgba(124,255,178,0.3); color: #06130c; }
+  .slot.bad  { border-color: var(--bad);  background: rgba(255,90,106,0.32); color: #fff; }
+  #answer.shake { animation: shake .34s ease; }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-5px); }
+    80% { transform: translateX(5px); }
+  }
+  #answer.pop { animation: pop .28s ease; }
+  @keyframes pop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.06); }
+    100% { transform: scale(1); }
+  }
+
+  /* ============ SCRAMBLED TILES ============ */
+  #scramble {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 9px;
+    min-height: 56px;
+  }
+  .tile {
+    width: clamp(38px, 10vw, 52px);
+    height: clamp(38px, 10vw, 52px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 11px;
+    font-family: inherit;
+    font-size: clamp(1.1rem, 5vw, 1.6rem);
+    font-weight: 800;
+    color: #2a1a00;
+    background: linear-gradient(160deg, #ffe08a, var(--accent) 55%, #ff9f1c);
+    border: none;
+    box-shadow: 0 4px 0 #b57200, 0 6px 14px rgba(0,0,0,0.35);
+    cursor: pointer;
+    transition: transform .08s ease, opacity .15s ease, filter .12s ease;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .tile:hover { filter: brightness(1.07); transform: translateY(-1px); }
+  .tile:active { transform: translateY(3px); box-shadow: 0 1px 0 #b57200; }
+  .tile.used { opacity: 0.22; pointer-events: none; transform: scale(.92); box-shadow: none; }
+
+  /* ============ ON-SCREEN KEYBOARD ============ */
+  #keyboard {
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    gap: 5px;
+  }
+  #keyboard.off { display: none; }
+  .key {
+    font-family: inherit;
+    font-size: clamp(0.72rem, 3vw, 0.95rem);
+    font-weight: 700;
+    padding: 9px 0;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    cursor: pointer;
+    transition: background .1s ease, transform .06s ease;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .key:hover { background: rgba(255,255,255,0.13); }
+  .key:active { transform: translateY(1px); background: rgba(87,208,255,0.3); }
+  .key.wide { grid-column: span 2; font-size: 0.72rem; }
+
+  /* ============ ACTIONS ============ */
+  #actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: .6px;
+    padding: 11px 18px;
+    border: none;
+    border-radius: 11px;
+    cursor: pointer;
+    color: #04121f;
+    background: linear-gradient(135deg, var(--accent), #ff9f1c);
+    box-shadow: 0 4px 0 rgba(0,0,0,.25);
+    transition: transform .06s ease, filter .15s ease;
+    user-select: none;
+  }
+  .btn:hover { filter: brightness(1.06); }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.25); }
+  .btn.ghost {
+    background: var(--panel);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    box-shadow: none;
+  }
+  .btn.ghost:hover { background: rgba(255,255,255,0.13); }
+  .hint-text { color: var(--muted); font-size: 0.68rem; flex: 1; text-align: right; }
+
+  /* ============ PICKERS ============ */
+  .picker-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .picker-label { font-size: 0.64rem; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); min-width: 52px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+  .chip {
+    font-family: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: .5px;
+    padding: 7px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    cursor: pointer;
+    transition: all .12s ease;
+  }
+  .chip:hover { background: rgba(255,255,255,0.13); }
+  .chip.active {
+    background: linear-gradient(135deg, var(--accent2), #2b6cff);
+    color: #04121f;
+    border-color: var(--accent2);
+    box-shadow: 0 3px 12px rgba(87,208,255,0.35);
+  }
+
+  /* ============ OVERLAY ============ */
+  #overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 20px;
+    text-align: center;
+    background: rgba(9,16,30,0.9);
+    backdrop-filter: blur(4px);
+    opacity: 1;
+    transition: opacity .25s ease;
+  }
+  #overlay.hidden { opacity: 0; pointer-events: none; }
+  #overlay h2 {
+    font-size: clamp(1.4rem, 6vw, 2.1rem);
+    color: var(--accent);
+    letter-spacing: 1px;
+    text-shadow: 0 3px 18px rgba(255,197,61,0.4);
+  }
+  #overlay p { color: var(--muted); font-size: 0.85rem; max-width: 380px; }
+  #overlay .big { color: #fff; font-size: 1.1rem; font-weight: 700; }
+  #overlay .newbest { color: var(--accent2); font-weight: 800; letter-spacing: 1px; }
+  #overlay .btn { margin-top: 10px; padding: 12px 26px; font-size: 0.9rem; }
+
+  /* ============ FOOTER ============ */
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.68rem;
+    letter-spacing: .5px;
+    line-height: 1.5;
+  }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 460px) {
+    #status .stat .v { font-size: 0.9rem; }
+    .btn { padding: 10px 13px; font-size: 0.72rem; }
+    .chip { padding: 6px 10px; font-size: 0.68rem; }
+    .hint-text { display: none; }
+    #keyboard { grid-template-columns: repeat(7, 1fr); }
+    #board { padding: 12px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>WORD <span>SCRAMBLE</span></h1>
+    <div class="best-tag" id="bestTag"></div>
+  </header>
+
+  <div id="status">
+    <div class="stat"><span class="k">Score</span><span class="v" id="statScore">0</span></div>
+    <div class="stat"><span class="k">Streak</span><span class="v" id="statStreak">0</span></div>
+    <div class="stat"><span class="k">Solved</span><span class="v" id="statSolved">0</span></div>
+    <div class="stat"><span class="k">Time</span><span class="v" id="statTime">60</span></div>
+  </div>
+
+  <div id="timerbar"><div id="timerfill"></div></div>
+
+  <div id="board">
+    <div>
+      <div class="board-label">Your answer</div>
+      <div id="answer"></div>
+    </div>
+    <div>
+      <div class="board-label">Scrambled letters</div>
+      <div id="scramble"></div>
+    </div>
+
+    <!-- Overlay: start + round over -->
+    <div id="overlay">
+      <h2 id="ovTitle">Word Scramble</h2>
+      <p id="ovSub">Unscramble as many words as you can in 60 seconds. Tap tiles or type to build the word.</p>
+      <div class="big" id="ovDetail"></div>
+      <p class="newbest" id="ovBest"></p>
+      <div class="picker-row" id="ovPickRow">
+        <span class="picker-label">Length</span>
+        <div class="chips" id="ovChips"></div>
+      </div>
+      <button class="btn" id="ovStart">Start Round</button>
+    </div>
+  </div>
+
+  <div id="keyboard"></div>
+
+  <div id="actions">
+    <button class="btn" id="btnHint">Hint (-5)</button>
+    <button class="btn ghost" id="btnShuffle">Shuffle</button>
+    <button class="btn ghost" id="btnSkip">Skip</button>
+    <button class="btn ghost" id="btnRestart">Restart</button>
+    <span class="hint-text" id="hintText">Type letters or tap tiles &middot; Backspace to undo</span>
+  </div>
+
+  <footer>
+    Unscramble each word before the 60-second timer runs out &middot; longer words score more &middot; build a streak for bonus points &middot; Enter = submit &middot; Esc = hint
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ WORD LIST (built-in, no external file) ============
+  var WORDS = [
+    "WORD","GAME","PLAY","TREE","FIRE","GOLD","MOON","STAR","ROSE","BLUE",
+    "TIME","LOVE","FROG","WOLF","LION","BEAR","DUCK","KITE","LAMP","DOOR",
+    "BOOK","MILK","RAIN","SNOW","WIND","SAND","ROCK","LEAF","BOAT","SHIP",
+    "FISH","BIRD","CAKE","BELL","DRUM","KING","FARM","HAND","MASK","NEST",
+    "APPLE","HAPPY","HOUSE","WATER","MUSIC","LIGHT","DREAM","GREEN","CLOUD","BRAIN",
+    "CHAIR","TABLE","PLANT","SNAKE","TIGER","HORSE","BREAD","SUGAR","HONEY","PEACH",
+    "GRAPE","OCEAN","RIVER","STORM","MAGIC","PIANO","ROBOT","CROWN","SWORD","FLAME",
+    "GHOST","KNIFE","SPOON","BEACH","CLOCK","CANDY","SMILE","TRAIN","MOUSE","CABLE",
+    "ORANGE","BANANA","CASTLE","DRAGON","GARDEN","PLANET","SILVER","WINTER","YELLOW","FLOWER",
+    "FOREST","ISLAND","JUNGLE","MARKET","MONKEY","PENCIL","ROCKET","SCHOOL","SPIDER","SUMMER",
+    "TUNNEL","WIZARD","CAMERA","BRIDGE","CIRCUS","BUTTON","CACTUS","COOKIE","ENGINE","FALCON",
+    "GUITAR","HAMMER","ISLAND","JACKET","KETTLE","LIZARD","MIRROR","NEEDLE","OYSTER","PARROT",
+    "RAINBOW","DIAMOND","MACHINE","PICTURE","STATION","MONSTER","PANCAKE","WHISPER","BALLOON","CRYSTAL",
+    "DOLPHIN","FREEDOM","HARVEST","LANTERN","ORCHARD","PENGUIN","PYRAMID","SCIENCE","SPARKLE","THUNDER",
+    "VAMPIRE","VANILLA","WHISTLE","CAPTAIN","CHICKEN","COMPASS","CUPCAKE","EMERALD","FESTIVAL","GLACIER",
+    "ELEPHANT","MOUNTAIN","COMPUTER","DINOSAUR","SANDWICH","TREASURE","UMBRELLA","VACATION","BUTTERFLY","KEYBOARD",
+    "PAINTING","SUNSHINE","TELEGRAM","ADVENTURE","CHOCOLATE","CROCODILE","SNOWFLAKE","DETECTIVE","BLUEPRINT","FIREWORKS",
+    "TELEPHONE","TELESCOPE","WATERFALL","HURRICANE","PINEAPPLE","SUNFLOWER","LIGHTHOUSE","SKATEBOARD","STRAWBERRY","BASKETBALL"
+  ];
+
+  var BEST_KEY = "wordScrambleBest";
+  var DIFF_KEY = "wordScrambleDiff";
+  var ROUND_TIME = 60000;   // 60-second round
+  var HINT_COST = 5;
+
+  var DIFFICULTY = {
+    easy:   { min: 4, max: 5, label: "Easy",   sub: "4-5 letters" },
+    medium: { min: 6, max: 7, label: "Medium", sub: "6-7 letters" },
+    hard:   { min: 8, max: 99, label: "Hard",  sub: "8+ letters" }
+  };
+  var DIFF_KEYS = ["easy", "medium", "hard"];
+
+  var ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+  // ============ DOM ============
+  var answerEl   = document.getElementById("answer");
+  var scrambleEl = document.getElementById("scramble");
+  var keyboardEl = document.getElementById("keyboard");
+  var overlay    = document.getElementById("overlay");
+
+  // ============ GAME STATE ============
+  var difficulty = localStorage.getItem(DIFF_KEY) || "easy";
+  if (!DIFFICULTY[difficulty]) difficulty = "easy";
+
+  var pools = {};        // difficulty -> shuffled queue
+  var lastWord = "";
+
+  var target = "";       // current word
+  var tiles = [];        // [{ ch }]
+  var answer = [];       // ordered tile ids placed
+  var revealCount = 0;   // letters revealed by hints
+  var locked = false;    // input lock during transitions
+
+  var score = 0;
+  var streak = 0;
+  var bestStreak = 0;
+  var solved = 0;
+  var remaining = ROUND_TIME;
+  var lastTick = 0;
+  var timerId = null;
+  var running = false;
+
+  // ============ SOUND (WebAudio, no assets) ============
+  var actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = actx.createOscillator();
+      var g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+  function resumeAudio() {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+    } catch (e) {}
+  }
+
+  // ============ UTILITIES ============
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+  function fmtTime(ms) {
+    var s = Math.max(0, Math.ceil(ms / 1000));
+    var m = Math.floor(s / 60);
+    s = s % 60;
+    return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  // ============ WORD POOLS ============
+  function buildBuckets() {
+    var b = { easy: [], medium: [], hard: [] };
+    WORDS.forEach(function (w) {
+      w = String(w).toUpperCase();
+      if (w.length >= 4 && w.length <= 5) b.easy.push(w);
+      else if (w.length >= 6 && w.length <= 7) b.medium.push(w);
+      else if (w.length >= 8) b.hard.push(w);
+    });
+    // fill shuffled queues
+    DIFF_KEYS.forEach(function (k) { pools[k] = shuffle(b[k].slice()); });
+  }
+
+  function pickWord() {
+    var q = pools[difficulty];
+    if (!q || !q.length) {
+      // rebuild queue from the full list for this difficulty
+      pools[difficulty] = shuffle(WORDS.filter(function (w) {
+        var d = DIFFICULTY[difficulty];
+        return w.length >= d.min && w.length <= d.max;
+      }));
+      q = pools[difficulty];
+    }
+    var w = q.pop();
+    if (w === lastWord && q.length) {         // avoid immediate repeat
+      q.unshift(w);
+      w = q.pop();
+    }
+    lastWord = w;
+    return w;
+  }
+
+  // ============ SCRAMBLE ============
+  function scrambleLetters(word) {
+    var letters = word.split("");
+    if (letters.length < 2) return letters;
+    var out, tries = 0;
+    do {
+      out = shuffle(letters.slice());
+      tries++;
+    } while (out.join("") === word && tries < 30);
+    return out;
+  }
+
+  // ============ RENDER ============
+  function renderAnswer() {
+    answerEl.innerHTML = "";
+    for (var i = 0; i < target.length; i++) {
+      var slot = document.createElement("div");
+      slot.className = "slot";
+      slot.dataset.pos = i;
+      if (i < answer.length) {
+        slot.classList.add("filled");
+        slot.textContent = tiles[answer[i]].ch;
+        if (i < revealCount) slot.classList.add("hinted");
+      } else {
+        slot.textContent = "";
+      }
+      answerEl.appendChild(slot);
+    }
+  }
+
+  function renderTiles() {
+    scrambleEl.innerHTML = "";
+    for (var i = 0; i < tiles.length; i++) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "tile";
+      b.dataset.id = i;
+      b.textContent = tiles[i].ch;
+      if (answer.indexOf(i) !== -1) b.classList.add("used");
+      scrambleEl.appendChild(b);
+    }
+  }
+
+  function renderStats() {
+    document.getElementById("statScore").textContent = score;
+    var st = document.getElementById("statStreak");
+    st.textContent = streak;
+    st.classList.toggle("hot", streak >= 3);
+    document.getElementById("statSolved").textContent = solved;
+    document.getElementById("statTime").textContent = fmtTime(remaining);
+  }
+
+  function renderTimer() {
+    var pct = Math.max(0, Math.min(1, remaining / ROUND_TIME)) * 100;
+    var fill = document.getElementById("timerfill");
+    fill.style.width = pct + "%";
+    fill.classList.toggle("warn", remaining <= 15000);
+    document.getElementById("statTime").textContent = fmtTime(remaining);
+  }
+
+  function renderAll() { renderAnswer(); renderTiles(); renderStats(); renderTimer(); }
+
+  // ============ INPUT LOGIC ============
+  function placeTile(id) {
+    if (locked || !running) return;
+    if (answer.indexOf(id) !== -1) return;          // already placed
+    if (answer.length >= target.length) return;
+    answer.push(id);
+    beep(560, 0.03, "sine");
+    renderAnswer();
+    renderTiles();
+    if (answer.length === target.length) {
+      setTimeout(checkAnswer, 140);
+    }
+  }
+
+  function placeLetter(ch) {
+    if (locked || !running) return;
+    // find first unused tile with matching letter
+    for (var i = 0; i < tiles.length; i++) {
+      if (tiles[i].ch === ch && answer.indexOf(i) === -1) {
+        placeTile(i);
+        return;
+      }
+    }
+    beep(170, 0.09, "sawtooth");
+  }
+
+  function removeAt(pos) {
+    if (locked || pos < 0 || pos >= answer.length) return;
+    answer.splice(pos, 1);
+    beep(360, 0.03, "sine");
+    renderAnswer();
+    renderTiles();
+  }
+
+  function backspace() {
+    if (locked || !answer.length) return;
+    answer.pop();
+    beep(360, 0.03, "sine");
+    renderAnswer();
+    renderTiles();
+  }
+
+  // ============ CHECK ============
+  function currentGuess() {
+    var s = "";
+    for (var i = 0; i < answer.length; i++) s += tiles[answer[i]].ch;
+    return s;
+  }
+
+  function checkAnswer() {
+    if (locked) return;
+    if (answer.length !== target.length) return;
+    locked = true;
+    var guess = currentGuess();
+
+    if (guess === target) {
+      // success
+      var slots = answerEl.querySelectorAll(".slot");
+      for (var i = 0; i < slots.length; i++) slots[i].classList.add("good");
+      answerEl.classList.add("pop");
+      setTimeout(function () { answerEl.classList.remove("pop"); }, 300);
+
+      var bonus = streak * 2;
+      var gained = target.length * 10 + bonus;
+      score += gained;
+      streak++;
+      if (streak > bestStreak) bestStreak = streak;
+      solved++;
+      renderStats();
+
+      beep(660, 0.07, "square");
+      setTimeout(function () { beep(880, 0.08, "square"); }, 70);
+      setTimeout(function () { beep(1180, 0.11, "square"); }, 150);
+
+      setTimeout(function () {
+        locked = false;
+        if (running) nextWord();
+      }, 520);
+    } else {
+      // wrong
+      var bad = answerEl.querySelectorAll(".slot");
+      for (var k = 0; k < bad.length; k++) bad[k].classList.add("bad");
+      answerEl.classList.add("shake");
+      beep(160, 0.16, "sawtooth");
+      streak = 0;
+      renderStats();
+      setTimeout(function () {
+        answerEl.classList.remove("shake");
+        answer = [];
+        locked = false;
+        renderAnswer();
+        renderTiles();
+      }, 420);
+    }
+  }
+
+  // ============ WORD FLOW ============
+  function nextWord() {
+    target = pickWord();
+    tiles = scrambleLetters(target).map(function (ch) { return { ch: ch }; });
+    answer = [];
+    revealCount = 0;
+    locked = false;
+    renderAll();
+    beep(720, 0.04, "sine");
+  }
+
+  function useHint() {
+    if (locked || !running) return;
+    if (revealCount >= target.length) return;
+
+    // reveal one more leading letter; rebuild answer from scratch
+    revealCount++;
+    answer = [];
+    for (var pos = 0; pos < revealCount; pos++) {
+      var need = target.charAt(pos);
+      for (var i = 0; i < tiles.length; i++) {
+        if (tiles[i].ch === need && answer.indexOf(i) === -1) { answer.push(i); break; }
+      }
+    }
+    score = Math.max(0, score - HINT_COST);
+    renderStats();
+    renderAnswer();
+    renderTiles();
+    beep(880, 0.06, "sine");
+    if (answer.length === target.length) setTimeout(checkAnswer, 200);
+  }
+
+  function reshuffle() {
+    if (locked || !running) return;
+    // keep placed letters where they are; only shuffle the free tiles
+    var free = [];
+    for (var i = 0; i < tiles.length; i++) if (answer.indexOf(i) === -1) free.push(tiles[i]);
+    shuffle(free);
+    var fi = 0;
+    for (var j = 0; j < tiles.length; j++) if (answer.indexOf(j) === -1) tiles[j] = free[fi++];
+    renderTiles();
+    beep(500, 0.04, "sine");
+  }
+
+  function skipWord() {
+    if (locked || !running) return;
+    streak = 0;
+    renderStats();
+    beep(240, 0.12, "triangle");
+    nextWord();
+  }
+
+  // ============ TIMER ============
+  function startTimer() {
+    stopTimer();
+    lastTick = performance.now();
+    timerId = setInterval(function () {
+      var now = performance.now();
+      remaining -= now - lastTick;
+      lastTick = now;
+      if (remaining <= 0) {
+        remaining = 0;
+        renderTimer();
+        endRound();
+        return;
+      }
+      renderTimer();
+    }, 100);
+  }
+  function stopTimer() {
+    if (timerId) { clearInterval(timerId); timerId = null; }
+  }
+
+  // ============ ROUND CONTROL ============
+  function startRound() {
+    resumeAudio();
+    stopTimer();
+    score = 0;
+    streak = 0;
+    bestStreak = 0;
+    solved = 0;
+    remaining = ROUND_TIME;
+    locked = false;
+    running = true;
+    pools[difficulty] = shuffle(WORDS.filter(function (w) {
+      var d = DIFFICULTY[difficulty];
+      return w.length >= d.min && w.length <= d.max;
+    }));
+    lastWord = "";
+    overlay.classList.add("hidden");
+    renderTimer();
+    nextWord();
+    startTimer();
+  }
+
+  function endRound() {
+    running = false;
+    locked = true;
+    stopTimer();
+    beep(300, 0.2, "sawtooth");
+
+    var best = loadBest();
+    var isBest = score > best;
+    if (isBest) { localStorage.setItem(BEST_KEY, String(score)); }
+    updateBestTag();
+
+    document.getElementById("ovTitle").textContent = "Time's Up!";
+    document.getElementById("ovSub").textContent =
+      "Round over \u00b7 " + DIFFICULTY[difficulty].label + " (" + DIFFICULTY[difficulty].sub + ")";
+    document.getElementById("ovDetail").textContent =
+      "Score " + score + "  \u00b7  Solved " + solved + "  \u00b7  Best streak " + bestStreak;
+    document.getElementById("ovBest").textContent = isBest
+      ? "\u2605 New personal best!"
+      : (best > 0 ? "Best: " + best : "");
+    document.getElementById("ovStart").textContent = "Play Again";
+    document.getElementById("ovPickRow").style.display = "";
+    overlay.classList.remove("hidden");
+  }
+
+  // ============ PERSISTENCE ============
+  function loadBest() {
+    var v = parseInt(localStorage.getItem(BEST_KEY), 10);
+    return isNaN(v) ? 0 : v;
+  }
+  function updateBestTag() {
+    var best = loadBest();
+    document.getElementById("bestTag").innerHTML =
+      best > 0 ? "Best<br><b>" + best + "</b>" : "";
+  }
+
+  // ============ ON-SCREEN KEYBOARD ============
+  function buildKeyboard() {
+    keyboardEl.innerHTML = "";
+    ALPHA.forEach(function (ch) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "key";
+      b.textContent = ch;
+      b.dataset.letter = ch;
+      keyboardEl.appendChild(b);
+    });
+    var bs = document.createElement("button");
+    bs.type = "button";
+    bs.className = "key wide";
+    bs.textContent = "\u232B Clear";
+    bs.dataset.action = "backspace";
+    keyboardEl.appendChild(bs);
+
+    keyboardEl.addEventListener("click", function (e) {
+      var t = e.target.closest(".key");
+      if (!t) return;
+      if (t.dataset.letter) placeLetter(t.dataset.letter);
+      else if (t.dataset.action === "backspace") backspace();
+    });
+  }
+
+  // ============ PICKERS ============
+  function buildChips() {
+    var box = document.getElementById("ovChips");
+    box.innerHTML = "";
+    DIFF_KEYS.forEach(function (k) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip" + (k === difficulty ? " active" : "");
+      b.textContent = DIFFICULTY[k].label;
+      b.dataset.diff = k;
+      b.addEventListener("click", function () {
+        if (k === difficulty) return;
+        difficulty = k;
+        localStorage.setItem(DIFF_KEY, difficulty);
+        syncChips();
+        // refresh the board preview behind the overlay
+        target = pickWord();
+        tiles = scrambleLetters(target).map(function (ch) { return { ch: ch }; });
+        answer = [];
+        revealCount = 0;
+        renderAll();
+        beep(600, 0.05, "sine");
+      });
+      box.appendChild(b);
+    });
+  }
+  function syncChips() {
+    var chips = document.querySelectorAll("#ovChips .chip");
+    for (var i = 0; i < chips.length; i++) {
+      chips[i].classList.toggle("active", chips[i].dataset.diff === difficulty);
+    }
+  }
+
+  // ============ EVENTS ============
+  scrambleEl.addEventListener("click", function (e) {
+    var t = e.target.closest(".tile");
+    if (!t) return;
+    placeTile(parseInt(t.dataset.id, 10));
+  });
+
+  answerEl.addEventListener("click", function (e) {
+    var t = e.target.closest(".slot");
+    if (!t) return;
+    if (t.classList.contains("filled")) removeAt(parseInt(t.dataset.pos, 10));
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (!overlay.classList.contains("hidden")) {
+      if (e.key === "Enter") { e.preventDefault(); startRound(); }
+      return;
+    }
+    if (e.key === "Backspace") { e.preventDefault(); backspace(); return; }
+    if (e.key === "Enter") { e.preventDefault(); checkAnswer(); return; }
+    if (e.key === "Escape") { e.preventDefault(); useHint(); return; }
+    if (/^[a-zA-Z]$/.test(e.key)) { e.preventDefault(); placeLetter(e.key.toUpperCase()); }
+  });
+
+  document.getElementById("btnHint").addEventListener("click", useHint);
+  document.getElementById("btnShuffle").addEventListener("click", reshuffle);
+  document.getElementById("btnSkip").addEventListener("click", skipWord);
+  document.getElementById("btnRestart").addEventListener("click", startRound);
+  document.getElementById("ovStart").addEventListener("click", startRound);
+
+  window.addEventListener("pointerdown", function onceAudio() {
+    resumeAudio();
+    window.removeEventListener("pointerdown", onceAudio);
+  });
+
+  // ============ INITIALIZATION ============
+  buildBuckets();
+  buildKeyboard();
+  buildChips();
+  syncChips();
+  updateBestTag();
+
+  // preview board behind the start overlay
+  target = pickWord();
+  tiles = scrambleLetters(target).map(function (ch) { return { ch: ch }; });
+  answer = [];
+  revealCount = 0;
+  remaining = ROUND_TIME;
+  renderAll();
+})();
+</script>
+</body>
+</html>

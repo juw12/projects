@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🚁 Cave Flyer</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Trebuchet MS', 'Segoe UI', Tahoma, sans-serif;
+      background: radial-gradient(circle at 50% 20%, #3a2b1f 0%, #1a130d 60%, #0a0705 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+      color: #f0e6d2;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: linear-gradient(160deg, #2b2118, #1c150e);
+      border: 1px solid #5a4630;
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), inset 0 0 40px rgba(0, 0, 0, 0.5);
+      max-width: 560px;
+      width: 96%;
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.9rem;
+      letter-spacing: 3px;
+      color: #ffb454;
+      text-shadow: 0 0 12px rgba(255, 180, 84, 0.5);
+      margin-bottom: 4px;
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.8rem;
+      letter-spacing: 1px;
+      color: #9a8870;
+      margin-bottom: 14px;
+    }
+
+    /* ============ SCORE BOARD ============ */
+    .score-board {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding: 10px 16px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid #4a3a26;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      color: #b8a586;
+    }
+
+    .score-board span { font-weight: 700; color: #ffcf7a; }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+      background: #0a0705;
+    }
+
+    canvas { display: block; width: 100%; height: auto; }
+
+    /* ============ SCREENS (Start / Game Over) ============ */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+      background: rgba(12, 9, 6, 0.92);
+      transition: opacity 0.3s ease;
+    }
+
+    .screen.hidden { opacity: 0; pointer-events: none; }
+
+    .screen-title {
+      font-size: 1.9rem;
+      letter-spacing: 2px;
+      color: #ffb454;
+      text-shadow: 0 0 14px rgba(255, 180, 84, 0.5);
+      margin-bottom: 10px;
+    }
+
+    .screen-subtitle {
+      font-size: 0.9rem;
+      color: #9a8870;
+      margin-bottom: 22px;
+      line-height: 1.6;
+      max-width: 340px;
+    }
+
+    .final-score { font-size: 1.3rem; color: #ffcf7a; margin-bottom: 6px; }
+    .final-small { font-size: 0.9rem; color: #9a8870; margin-bottom: 18px; }
+
+    /* ============ BUTTONS ============ */
+    .action-btn {
+      padding: 13px 34px;
+      background: linear-gradient(135deg, #ffb454, #e08a24);
+      color: #201509;
+      border: none;
+      border-radius: 24px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 4px 14px rgba(224, 138, 36, 0.4);
+    }
+
+    .action-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(224, 138, 36, 0.55); }
+    .action-btn:active { transform: translateY(0); }
+
+    /* ============ PAUSE OVERLAY ============ */
+    .pause-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(12, 9, 6, 0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.8rem;
+      letter-spacing: 2px;
+      color: #ffb454;
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .pause-overlay.visible { opacity: 1; }
+
+    .hint {
+      text-align: center;
+      font-size: 0.78rem;
+      color: #7a6a54;
+      margin-top: 10px;
+      letter-spacing: 0.5px;
+    }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 480px) {
+      .game-container { padding: 12px; }
+      .game-title { font-size: 1.5rem; }
+      .screen-title { font-size: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">CAVE FLYER</h1>
+    <p class="game-subtitle">Thrust through the deep — don't hit the rock</p>
+
+    <div class="score-board">
+      <div>Distance: <span id="score">0</span> m</div>
+      <div>Best: <span id="highScore">0</span> m</div>
+      <div>Fuel: <span id="fuel">100</span>%</div>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="480" height="640"></canvas>
+
+      <!-- Start Screen -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">CAVE FLYER</h2>
+        <p class="screen-subtitle">
+          Hold <b>SPACE</b> / tap &amp; hold to fire the rotor and climb.<br />
+          Release to fall. Dodge stalactites &amp; walls.<br />
+          Grab ⚡ fuel cells to keep flying.
+        </p>
+        <button class="action-btn" id="startBtn">Launch</button>
+      </div>
+
+      <!-- Game Over Screen -->
+      <div id="gameOverScreen" class="screen hidden">
+        <h2 class="screen-title">CRASHED</h2>
+        <p class="final-score">Distance: <span id="finalScore">0</span> m</p>
+        <p class="final-small" id="newBest">Best: 0 m</p>
+        <button class="action-btn" id="playAgainBtn">Fly Again</button>
+      </div>
+
+      <!-- Pause Overlay -->
+      <div id="pauseOverlay" class="pause-overlay">⏸ PAUSED</div>
+    </div>
+
+    <p class="hint">SPACE / W = thrust &nbsp;•&nbsp; P = pause &nbsp;•&nbsp; Hold to climb</p>
+  </div>
+
+  <script>
+    // ============ GAME CONFIGURATION ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+
+    const GRAVITY = 0.34;        // downward pull
+    const LIFT = 0.62;           // thrust acceleration
+    const MAX_FALL = 8;          // terminal fall speed
+    const MAX_RISE = -8.5;       // terminal climb speed
+    const SCROLL_BASE = 2.6;     // world scroll px/frame
+    const SPEED_RAMP = 0.0012;   // scroll speed growth per distance
+    const FUEL_BURN = 0.045;     // fuel used per frame while thrusting
+    const FUEL_PICKUP = 26;      // fuel restored per cell
+
+    // ============ GAME STATE ============
+    let bird = { x: 120, y: H / 2, vy: 0, r: 15, rot: 0 };
+    let thrusting = false;
+    let scroll = SCROLL_BASE;
+    let distance = 0;
+    let fuel = 100;
+    let best = parseInt(localStorage.getItem('caveFlyerBest') || '0', 10);
+    let running = false;
+    let paused = false;
+    let crashed = false;
+
+    let worldX = 0;       // how far the world has scrolled (px)
+    let slats = [];       // stalactites: {x, base, h, w, dir}
+    let cells = [];       // fuel cells: {x, y, r, got, bob}
+    let particles = [];
+    let lastTime = 0;
+    let frame = 0;
+    let shake = 0;
+
+    // ============ DOM ELEMENTS ============
+    const scoreEl = document.getElementById('score');
+    const highScoreEl = document.getElementById('highScore');
+    const fuelEl = document.getElementById('fuel');
+    const finalScoreEl = document.getElementById('finalScore');
+    const newBestEl = document.getElementById('newBest');
+    const startScreen = document.getElementById('startScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const startBtn = document.getElementById('startBtn');
+    const playAgainBtn = document.getElementById('playAgainBtn');
+
+    highScoreEl.textContent = best;
+
+    // ============ AUDIO (WebAudio beep) ============
+    let actx = null;
+    function beep(freq, dur, type, vol) {
+      try {
+        if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = actx.createOscillator();
+        const g = actx.createGain();
+        o.type = type || 'square';
+        o.frequency.value = freq;
+        g.gain.value = vol || 0.06;
+        o.connect(g); g.connect(actx.destination);
+        const t = actx.currentTime;
+        g.gain.setValueAtTime(vol || 0.06, t);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.start(t); o.stop(t + dur);
+      } catch (e) { /* audio optional */ }
+    }
+
+    // ============ CAVE GENERATION ============
+    // Ceiling/floor are heightmaps keyed by absolute world column index.
+    // corridor shrinks as distance grows, forcing tighter flying.
+    const COL = 20; // px per cave column
+
+    function ceilingAt(i) {
+      // smooth layered sine noise, seeded by column index
+      const x = i * 0.07;
+      return (
+        Math.sin(x) * 60 +
+        Math.sin(x * 0.43 + 1.7) * 34 +
+        Math.sin(x * 0.17 + 4.1) * 48
+      );
+    }
+
+    function corridorHalfB(i) {
+      const shrink = Math.max(0, 1 - distance / 3600);
+      return 92 + 78 * shrink;
+    }
+
+    let ceilArr = {};
+    let floorArr = {};
+
+    function sampleCeil(i) {
+      if (ceilArr[i] === undefined) {
+        const mid = H / 2 + ceilingAt(i);
+        ceilArr[i] = mid - corridorHalfB(i);
+      }
+      return ceilArr[i];
+    }
+    function sampleFloor(i) {
+      if (floorArr[i] === undefined) {
+        const mid = H / 2 + ceilingAt(i);
+        floorArr[i] = mid + corridorHalfB(i);
+      }
+      return floorArr[i];
+    }
+
+    // ============ SPAWN ENTITIES ============
+    function spawnEntities() {
+      // stalactites hang from ceiling or spike up from floor, at the right edge
+      if (frame % 46 === 0 && distance > 120) {
+        const i = Math.floor((worldX + W + 30) / COL);
+        const fromCeil = Math.random() < 0.5;
+        const h = 46 + Math.random() * 70 + Math.min(90, distance / 40);
+        slats.push({
+          x: W + 30,
+          base: fromCeil ? sampleCeil(i) : sampleFloor(i),
+          h: h,
+          w: 16 + Math.random() * 16,
+          dir: fromCeil ? 1 : -1 // 1 = hangs down from ceiling
+        });
+      }
+      // fuel cells floating in the corridor
+      if (frame % 150 === 0 && distance > 60) {
+        const i = Math.floor((worldX + W + 30) / COL);
+        const mid = (sampleCeil(i) + sampleFloor(i)) / 2;
+        cells.push({ x: W + 30, y: mid + (Math.random() - 0.5) * 60, r: 11, bob: 0, got: false });
+      }
+    }
+
+    // ============ PARTICLES ============
+    function burst(x, y, col, n) {
+      for (let i = 0; i < n; i++) {
+        particles.push({
+          x: x, y: y,
+          vx: (Math.random() - 0.5) * 5,
+          vy: (Math.random() - 0.5) * 5,
+          life: 1, size: Math.random() * 4 + 1.5, col: col
+        });
+      }
+    }
+
+    function updateParticles(dt) {
+      particles = particles.filter(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.22;
+        p.life -= dt * 0.0026;
+        return p.life > 0;
+      });
+    }
+
+    function drawParticles() {
+      particles.forEach(p => {
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = p.col;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+    }
+
+    // ============ UPDATE ============
+    function update(dt) {
+      // speed ramps with distance
+      scroll = SCROLL_BASE + distance * SPEED_RAMP;
+      const step = scroll;
+
+      // distance / score
+      distance += step * 0.28;
+      scoreEl.textContent = Math.floor(distance);
+      fuelEl.textContent = Math.max(0, Math.round(fuel));
+
+      // physics
+      if (thrusting && fuel > 0) {
+        bird.vy += LIFT;
+        fuel = Math.max(0, fuel - FUEL_BURN);
+      } else {
+        bird.vy += GRAVITY;
+      }
+      // dead-engine extra fall when out of fuel
+      if (fuel <= 0) bird.vy += GRAVITY * 0.6;
+
+      bird.vy = Math.max(MAX_RISE, Math.min(MAX_FALL, bird.vy));
+      bird.y += bird.vy;
+
+      // rotor tilt angle
+      const targetRot = thrusting && fuel > 0 ? -0.28 : Math.min(0.5, bird.vy * 0.05);
+      bird.rot += (targetRot - bird.rot) * 0.15;
+
+      // exhaust particles
+      if (thrusting && fuel > 0 && frame % 2 === 0) {
+        particles.push({
+          x: bird.x - 12, y: bird.y + 8,
+          vx: -1.5 - Math.random() * 1.5,
+          vy: 1 + Math.random() * 2,
+          life: 1, size: Math.random() * 3 + 1, col: Math.random() < 0.5 ? '#ffb454' : '#ff7a1a'
+        });
+      }
+
+      // scroll cave: shift arrays left by building fresh tail, dropping head
+      const shift = step;
+      // We move world by regenerating; cheap approach: keep static arrays and
+      // scroll visually via an offset, but for collision we sample continuously.
+      worldX += shift;
+
+      // stalactites
+      slats.forEach(s => {
+        s.x -= shift;
+        // collision: rectangle hits bird circle (approx via AABB test)
+        const sy = s.dir === 1 ? s.base : s.base - s.h;
+        if (
+          bird.x + bird.r > s.x && bird.x - bird.r < s.x + s.w &&
+          bird.y + bird.r > sy && bird.y - bird.r < sy + s.h
+        ) {
+          crash();
+        }
+      });
+      slats = slats.filter(s => s.x + s.w > -40);
+
+      // fuel cells
+      cells.forEach(c => {
+        c.x -= shift;
+        c.bob += 0.1;
+        if (!c.got) {
+          const dx = (bird.x - c.x), dy = (bird.y - (c.y + Math.sin(c.bob) * 6));
+          if (dx * dx + dy * dy < (bird.r + c.r) * (bird.r + c.r)) {
+            c.got = true;
+            fuel = Math.min(100, fuel + FUEL_PICKUP);
+            burst(c.x, c.y, '#8ee6ff', 12);
+            beep(880, 0.12, 'sine', 0.07);
+          }
+        }
+      });
+      cells = cells.filter(c => c.x + c.r > -40 && !c.got);
+
+      // cave collision — sample columns around bird.x using scrolling offset
+      const colF = (worldX + bird.x) / COL;
+      const ci = Math.floor(colF);
+      const cf = colF - ci;
+      const c1 = sampleCeil(ci), c2 = sampleCeil(ci + 1);
+      const f1 = sampleFloor(ci), f2 = sampleFloor(ci + 1);
+      const ceilY = c1 + (c2 - c1) * cf;
+      const floorY = f1 + (f2 - f1) * cf;
+      if (bird.y - bird.r < ceilY || bird.y + bird.r > floorY) {
+        crash();
+      }
+      // out of vertical bounds (belt & suspenders)
+      if (bird.y < -40 || bird.y > H + 40) crash();
+
+      spawnEntities();
+      updateParticles(dt);
+      if (shake > 0) shake *= 0.9;
+    }
+
+    // ============ DRAW ============
+    function draw() {
+      ctx.save();
+      if (shake > 0.4) {
+        ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+      }
+
+      // background
+      const bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, '#1b130b');
+      bg.addColorStop(1, '#080503');
+      ctx.fillStyle = bg;
+      ctx.fillRect(-20, -20, W + 40, H + 40);
+
+      // faint background glow
+      const glow = ctx.createRadialGradient(W * 0.5, H * 0.5, 20, W * 0.5, H * 0.5, H * 0.7);
+      glow.addColorStop(0, 'rgba(255,180,84,0.06)');
+      glow.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, W, H);
+
+      // cave walls
+      drawCave();
+
+      // stalactites
+      slats.forEach(s => {
+        const sy = s.dir === 1 ? s.base : s.base - s.h;
+        const grad = ctx.createLinearGradient(s.x, sy, s.x, sy + s.h);
+        grad.addColorStop(0, '#4a3a26');
+        grad.addColorStop(1, '#2a2016');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        if (s.dir === 1) {
+          // hangs from ceiling, points down
+          ctx.moveTo(s.x, s.base);
+          ctx.lineTo(s.x + s.w, s.base);
+          ctx.lineTo(s.x + s.w / 2, s.base + s.h);
+        } else {
+          // points up from floor
+          ctx.moveTo(s.x, s.base);
+          ctx.lineTo(s.x + s.w, s.base);
+          ctx.lineTo(s.x + s.w / 2, s.base - s.h);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#6b5233';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      });
+
+      // fuel cells
+      cells.forEach(c => {
+        const yy = c.y + Math.sin(c.bob) * 6;
+        ctx.save();
+        ctx.shadowColor = '#8ee6ff';
+        ctx.shadowBlur = 16;
+        ctx.fillStyle = '#8ee6ff';
+        ctx.beginPath();
+        ctx.arc(c.x, yy, c.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        // lightning bolt
+        ctx.fillStyle = '#04212b';
+        ctx.beginPath();
+        ctx.moveTo(c.x + 2, yy - 6);
+        ctx.lineTo(c.x - 4, yy + 1);
+        ctx.lineTo(c.x, yy + 1);
+        ctx.lineTo(c.x - 2, yy + 6);
+        ctx.lineTo(c.x + 5, yy - 2);
+        ctx.lineTo(c.x + 1, yy - 2);
+        ctx.closePath();
+        ctx.fill();
+      });
+
+      // helicopter
+      ctx.save();
+      ctx.translate(bird.x, bird.y);
+      ctx.rotate(bird.rot);
+      // body
+      ctx.fillStyle = '#e08a24';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 15, 10, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // cockpit
+      ctx.fillStyle = '#8ee6ff';
+      ctx.beginPath();
+      ctx.arc(5, -2, 6, 0, Math.PI * 2);
+      ctx.fill();
+      // tail boom
+      ctx.fillStyle = '#c97718';
+      ctx.fillRect(-22, -3, 12, 5);
+      ctx.beginPath();
+      ctx.moveTo(-22, -9);
+      ctx.lineTo(-22, 3);
+      ctx.lineTo(-28, -3);
+      ctx.closePath();
+      ctx.fill();
+      // landing skids
+      ctx.strokeStyle = '#6b4a1c';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-8, 10); ctx.lineTo(-8, 14); ctx.lineTo(8, 14); ctx.lineTo(8, 10);
+      ctx.stroke();
+      // main rotor
+      const rotorW = thrusting && fuel > 0 ? 30 : 22;
+      const blur = (frame % 4 < 2) ? rotorW : rotorW * 0.35;
+      ctx.strokeStyle = 'rgba(220,220,220,0.85)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(-blur, -12); ctx.lineTo(blur, -12);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, -12); ctx.lineTo(0, -8);
+      ctx.stroke();
+      ctx.restore();
+
+      // fuel bar
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fillRect(12, 12, 130, 12);
+      ctx.fillStyle = fuel > 25 ? '#7ed957' : '#e04a24';
+      ctx.fillRect(12, 12, 130 * (fuel / 100), 12);
+      ctx.strokeStyle = '#4a3a26';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(12, 12, 130, 12);
+      ctx.fillStyle = '#c9b48f';
+      ctx.font = '10px Trebuchet MS';
+      ctx.fillText('FUEL', 12, 36);
+
+      drawParticles();
+      ctx.restore();
+    }
+
+    function drawCave() {
+      // ceiling shape
+      ctx.fillStyle = '#3a2c1d';
+      ctx.beginPath();
+      ctx.moveTo(-10, -10);
+      for (let px = -10; px <= W + 10; px += COL) {
+        const i = Math.floor((worldX + px) / COL);
+        const y = sampleCeil(i);
+        ctx.lineTo(px, y);
+      }
+      ctx.lineTo(W + 10, -10);
+      ctx.closePath();
+      ctx.fill();
+
+      // floor shape
+      ctx.beginPath();
+      ctx.moveTo(-10, H + 10);
+      for (let px = -10; px <= W + 10; px += COL) {
+        const i = Math.floor((worldX + px) / COL);
+        const y = sampleFloor(i);
+        ctx.lineTo(px, y);
+      }
+      ctx.lineTo(W + 10, H + 10);
+      ctx.closePath();
+      ctx.fill();
+
+      // edge highlights
+      ctx.strokeStyle = 'rgba(255,180,84,0.18)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let px = -10; px <= W + 10; px += COL) {
+        const i = Math.floor((worldX + px) / COL);
+        const y = sampleCeil(i);
+        if (px === -10) ctx.moveTo(px, y); else ctx.lineTo(px, y);
+      }
+      ctx.stroke();
+      ctx.beginPath();
+      for (let px = -10; px <= W + 10; px += COL) {
+        const i = Math.floor((worldX + px) / COL);
+        const y = sampleFloor(i);
+        if (px === -10) ctx.moveTo(px, y); else ctx.lineTo(px, y);
+      }
+      ctx.stroke();
+    }
+
+    // ============ GAME FLOW ============
+    function reset() {
+      bird = { x: 120, y: H / 2, vy: 0, r: 15, rot: 0 };
+      thrusting = false;
+      scroll = SCROLL_BASE;
+      distance = 0;
+      fuel = 100;
+      crashed = false;
+      worldX = 0;
+      ceilArr = {};
+      floorArr = {};
+      slats = [];
+      cells = [];
+      particles = [];
+      frame = 0;
+      shake = 0;
+      // pre-generate columns covering the viewport (lazy sampler would too,
+      // but this avoids a hitch on the first drawn frame)
+      for (let x = -COL * 2; x < W + COL * 4; x += COL) {
+        const i = Math.floor(x / COL);
+        const mid = H / 2 + ceilingAt(i);
+        const half = corridorHalfB(i);
+        ceilArr[i] = mid - half;
+        floorArr[i] = mid + half;
+      }
+      scoreEl.textContent = '0';
+      fuelEl.textContent = '100';
+    }
+
+    function startGame() {
+      reset();
+      running = true;
+      paused = false;
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      pauseOverlay.classList.remove('visible');
+      lastTime = performance.now();
+      beep(520, 0.12, 'square', 0.06);
+      requestAnimationFrame(loop);
+    }
+
+    function crash() {
+      if (crashed) return;
+      crashed = true;
+      running = false;
+      shake = 14;
+      burst(bird.x, bird.y, '#ff7a1a', 20);
+      burst(bird.x, bird.y, '#ffb454', 14);
+      beep(140, 0.4, 'sawtooth', 0.09);
+      const d = Math.floor(distance);
+      if (d > best) {
+        best = d;
+        localStorage.setItem('caveFlyerBest', String(best));
+        highScoreEl.textContent = best;
+        newBestEl.textContent = 'NEW BEST! ' + best + ' m';
+      } else {
+        newBestEl.textContent = 'Best: ' + best + ' m';
+      }
+      finalScoreEl.textContent = d;
+      setTimeout(() => gameOverScreen.classList.remove('hidden'), 500);
+    }
+
+    function togglePause() {
+      if (!running) return;
+      paused = !paused;
+      pauseOverlay.classList.toggle('visible', paused);
+      if (!paused) {
+        lastTime = performance.now();
+        requestAnimationFrame(loop);
+      }
+    }
+
+    // ============ MAIN LOOP ============
+    function loop(now) {
+      if (!running || paused) return;
+      const dt = Math.min(40, now - lastTime);
+      lastTime = now;
+      frame++;
+      update(dt);
+      draw();
+      if (running) requestAnimationFrame(loop);
+      else draw(); // final frame after crash
+    }
+
+    // ============ INPUT ============
+    function press() { if (running) thrusting = true; }
+    function release() { thrusting = false; }
+
+    function anyKeyThrust(code) {
+      return code === 'Space' || code === 'ArrowUp' || code === 'KeyW';
+    }
+    function tryStartOrPress(key) {
+      if (!running) {
+        if (!startScreen.classList.contains('hidden')) startGame();
+        return;
+      }
+      if (key) press();
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (['Space', 'ArrowUp', 'KeyW', 'KeyP'].includes(e.code)) e.preventDefault();
+      if (e.code === 'KeyP') { togglePause(); return; }
+      if (e.repeat) return;
+      if (anyKeyThrust(e.code)) tryStartOrPress(true);
+    });
+    document.addEventListener('keyup', (e) => { if (anyKeyThrust(e.code)) release(); });
+
+    // touch / mouse hold (tap to launch from the start screen)
+    const wrap = document.querySelector('.canvas-wrapper');
+    wrap.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (!running) { tryStartOrPress(false); return; }
+      press();
+    }, { passive: false });
+    wrap.addEventListener('touchend', (e) => { e.preventDefault(); release(); }, { passive: false });
+    wrap.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      if (!running) { tryStartOrPress(false); return; }
+      press();
+    });
+    window.addEventListener('mouseup', release);
+
+    startBtn.addEventListener('click', startGame);
+    playAgainBtn.addEventListener('click', startGame);
+
+    // ============ INITIAL DRAW ============
+    reset();
+    draw();
+  </script>
+</body>
+</html>

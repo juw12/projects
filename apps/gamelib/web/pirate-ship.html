@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🏴☠️ Pirate Ship</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Trebuchet MS', 'Segoe UI', Tahoma, sans-serif;
+      background: radial-gradient(circle at 30% 10%, #123b52 0%, #0a2233 55%, #061520 100%);
+      min-height: 100vh; display: flex; justify-content: center; align-items: center;
+      overflow: hidden; touch-action: none;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(12, 30, 44, 0.82); border: 2px solid #c9a24a; border-radius: 20px;
+      padding: 16px; max-width: 780px; width: 96%;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6), inset 0 0 40px rgba(201, 162, 74, 0.08);
+    }
+    .game-title {
+      text-align: center; font-size: 1.8rem; letter-spacing: 3px; color: #f2d48a;
+      text-shadow: 0 0 12px rgba(242, 212, 138, 0.45), 2px 2px 0 #08303f; margin-bottom: 4px;
+    }
+    .game-subtitle { text-align: center; font-size: 0.82rem; color: #7fa6b8; letter-spacing: 1px; margin-bottom: 10px; }
+
+    /* ============ HUD ============ */
+    .hud {
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+      padding: 8px 12px; background: linear-gradient(180deg, #12384d, #0c2635);
+      border: 1px solid #2e5b70; border-radius: 12px; margin-bottom: 10px;
+      font-size: 0.86rem; color: #cfe6ef;
+    }
+    .hud-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .hud-item b { color: #f2d48a; font-size: 1rem; }
+    .hud-item span.lbl { font-size: 0.62rem; letter-spacing: 1px; color: #6f97a8; }
+    .hull-bar { width: 110px; height: 10px; background: #1c3a49; border: 1px solid #3d6b80; border-radius: 6px; overflow: hidden; }
+    .hull-fill {
+      height: 100%; width: 100%; background: linear-gradient(90deg, #58c26a, #9be262);
+      transition: width 0.18s ease, background 0.3s ease;
+    }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid #2e5b70; background: #04121b; }
+    canvas { display: block; width: 100%; height: auto; }
+
+    /* ============ SCREENS (Start / Game Over) ============ */
+    .screen {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      justify-content: center; align-items: center; text-align: center; padding: 18px;
+      background: radial-gradient(circle at 50% 35%, rgba(9, 34, 48, 0.94), rgba(3, 12, 18, 0.97));
+      transition: opacity 0.3s ease; z-index: 5;
+    }
+    .screen.hidden { opacity: 0; pointer-events: none; }
+    .screen-title {
+      font-size: 1.9rem; letter-spacing: 2px; color: #f2d48a;
+      text-shadow: 0 0 14px rgba(242, 212, 138, 0.4); margin-bottom: 6px;
+    }
+    .screen-subtitle { font-size: 0.85rem; color: #8fb4c4; margin-bottom: 14px; max-width: 480px; line-height: 1.5; }
+    .final-score { font-size: 1.2rem; color: #9be262; margin-bottom: 6px; }
+    .final-line { font-size: 0.85rem; color: #8fb4c4; margin-bottom: 14px; }
+
+    /* ============ DIFFICULTY SELECTOR ============ */
+    .difficulty-label { text-align: center; font-size: 0.7rem; letter-spacing: 2px; color: #6f97a8; margin-bottom: 8px; }
+    .difficulty-buttons { display: flex; gap: 8px; justify-content: center; margin-bottom: 16px; }
+    .difficulty-btn {
+      padding: 8px 16px; border: 1px solid #3d6b80; background: #0e2a3a; border-radius: 18px;
+      font-size: 0.8rem; color: #a9cad6; cursor: pointer; transition: all 0.18s ease;
+    }
+    .difficulty-btn:hover { background: #16455c; transform: translateY(-2px); }
+    .difficulty-btn.selected {
+      background: linear-gradient(135deg, #d8b45c, #c9a24a); color: #10303f;
+      border-color: #f2d48a; font-weight: bold; box-shadow: 0 4px 14px rgba(201, 162, 74, 0.35);
+    }
+
+    /* ============ ACTION BUTTONS ============ */
+    .action-btn {
+      padding: 12px 30px; background: linear-gradient(135deg, #d8b45c, #b98a34); color: #10303f;
+      border: none; border-radius: 24px; font-size: 1rem; font-weight: bold; letter-spacing: 1px;
+      cursor: pointer; box-shadow: 0 6px 18px rgba(185, 138, 52, 0.35); transition: all 0.16s ease;
+    }
+    .action-btn:hover { transform: translateY(-2px); box-shadow: 0 9px 24px rgba(185, 138, 52, 0.45); }
+    .action-btn:active { transform: translateY(0); }
+    .keys-hint { margin-top: 12px; font-size: 0.7rem; color: #5d8296; line-height: 1.7; }
+    .keys-hint kbd { background: #14364a; border: 1px solid #35647a; border-radius: 4px; padding: 1px 6px; color: #cfe6ef; font-size: 0.68rem; }
+
+    /* ============ PAUSE / BANNER OVERLAY ============ */
+    .pause-overlay {
+      position: absolute; inset: 0; background: rgba(4, 18, 27, 0.72);
+      display: flex; justify-content: center; align-items: center;
+      font-size: 1.6rem; letter-spacing: 4px; color: #f2d48a; font-weight: bold;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 4;
+    }
+    .pause-overlay.visible { opacity: 1; }
+    .banner {
+      position: absolute; top: 14%; left: 0; right: 0; text-align: center;
+      font-size: 1.3rem; letter-spacing: 4px; color: #f2d48a;
+      text-shadow: 0 0 16px rgba(0,0,0,0.8); font-weight: bold;
+      opacity: 0; pointer-events: none; z-index: 3;
+    }
+    .banner.show { animation: bannerPop 2.1s ease forwards; }
+    @keyframes bannerPop {
+      0% { opacity: 0; transform: scale(0.7); } 18% { opacity: 1; transform: scale(1); }
+      78% { opacity: 1; } 100% { opacity: 0; transform: scale(1.05); }
+    }
+
+    /* ============ MOBILE CONTROLS ============ */
+    .mobile-controls { display: none; margin-top: 12px; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .mobile-controls.visible { display: grid; }
+    .control-btn {
+      background: linear-gradient(180deg, #16455c, #0d2a3a); border: 1px solid #3d6b80;
+      border-radius: 12px; font-size: 1.1rem; color: #cfe6ef; height: 52px; cursor: pointer;
+      display: flex; justify-content: center; align-items: center;
+      user-select: none; -webkit-tap-highlight-color: transparent;
+      transition: transform 0.1s ease, background 0.1s ease;
+    }
+    .control-btn:active { background: #1f5b76; transform: scale(0.95); }
+    .control-btn.fire { background: linear-gradient(180deg, #c9452e, #8f2a1a); border-color: #f0a08a; font-size: 0.85rem; letter-spacing: 1px; }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 560px) {
+      .game-container { padding: 10px; border-radius: 14px; }
+      .game-title { font-size: 1.25rem; letter-spacing: 2px; }
+      .game-subtitle { display: none; }
+      .hud { font-size: 0.72rem; padding: 6px 8px; }
+      .hull-bar { width: 72px; }
+      .mobile-controls { display: grid; }
+      .screen-title { font-size: 1.4rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">PIRATE SHIP</h1>
+    <p class="game-subtitle">Hunt the fleet. Sink the forts. Take the gold.</p>
+
+    <!-- ============ HUD ============ -->
+    <div class="hud">
+      <div class="hud-item"><span class="lbl">SCORE</span><b id="scoreEl">0</b></div>
+      <div class="hud-item"><span class="lbl">GOLD</span><b id="goldEl">0</b></div>
+      <div class="hud-item">
+        <span class="lbl">HULL</span>
+        <div class="hull-bar"><div class="hull-fill" id="hullFill"></div></div>
+      </div>
+      <div class="hud-item"><span class="lbl">SAIL</span><b id="sailEl">2</b></div>
+      <div class="hud-item"><span class="lbl">WAVE</span><b id="waveEl">1</b></div>
+      <div class="hud-item"><span class="lbl">BEST</span><b id="bestEl">0</b></div>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="740" height="480"></canvas>
+
+      <!-- Start Screen -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">Set Sail?</h2>
+        <p class="screen-subtitle">
+          Steer your ship, trim the sails, and fire the cannons broadside.
+          Ram and board weakened vessels, sink the sea forts, and gather gold.
+        </p>
+        <p class="difficulty-label">CHOOSE YOUR CREW</p>
+        <div class="difficulty-buttons">
+          <button class="difficulty-btn" data-diff="0">Ensign</button>
+          <button class="difficulty-btn selected" data-diff="1">Captain</button>
+          <button class="difficulty-btn" data-diff="2">Admiral</button>
+        </div>
+        <button class="action-btn" id="startBtn">Hoist the Colors</button>
+        <p class="keys-hint">
+          <kbd>A</kbd>/<kbd>D</kbd> steer &nbsp; <kbd>W</kbd>/<kbd>S</kbd> sail &nbsp;
+          <kbd>Space</kbd> cannons &nbsp; <kbd>P</kbd> pause
+        </p>
+      </div>
+
+      <!-- Game Over Screen -->
+      <div id="gameOverScreen" class="screen hidden">
+        <h2 class="screen-title">Ye Be Sunk!</h2>
+        <p class="final-score">Score: <span id="finalScore">0</span></p>
+        <p class="final-line" id="finalLine">Reached wave 1</p>
+        <button class="action-btn" id="playAgainBtn">Sail Again</button>
+      </div>
+
+      <!-- Pause Overlay -->
+      <div id="pauseOverlay" class="pause-overlay">PAUSED</div>
+
+      <!-- Wave Banner -->
+      <div id="banner" class="banner"></div>
+    </div>
+
+    <!-- Mobile Controls -->
+    <div class="mobile-controls" id="mobileControls">
+      <button class="control-btn" data-act="port">⟲ Port</button>
+      <button class="control-btn" data-act="sailUp">▲ Sail</button>
+      <button class="control-btn" data-act="starboard">Starboard ⟳</button>
+      <button class="control-btn" data-act="fire" style="grid-column: 1 / span 2;">FIRE BROADSIDE</button>
+      <button class="control-btn" data-act="sailDown">▼ Sail</button>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    // ============ GAME CONFIGURATION ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const WORLD = { w: 2200, h: 1600 };
+    const SAIL_SPEEDS = [55, 100, 150, 205];      // px/s forward by sail level
+    const SAIL_TURN   = [2.55, 2.0, 1.5, 1.05];   // rad/s turn rate by sail level
+    const CANNON_CD = 0.62;                        // player broadside cooldown (s)
+    const BALL_SPEED = 340;
+    const PLAYER_MAX_HULL = 100;
+
+    // ============ DOM ELEMENTS ============
+    const scoreEl    = document.getElementById('scoreEl');
+    const goldEl     = document.getElementById('goldEl');
+    const hullFill   = document.getElementById('hullFill');
+    const sailEl     = document.getElementById('sailEl');
+    const waveEl     = document.getElementById('waveEl');
+    const bestEl     = document.getElementById('bestEl');
+    const startScreen = document.getElementById('startScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const bannerEl   = document.getElementById('banner');
+    const startBtn   = document.getElementById('startBtn');
+    const playAgainBtn = document.getElementById('playAgainBtn');
+    const mobileControls = document.getElementById('mobileControls');
+    const difficultyBtns = document.querySelectorAll('.difficulty-btn');
+
+    // ============ GAME STATE ============
+    let player, enemies, forts, balls, pickups, particles, wakes;
+    let camera, keys, difficulty, wave, score, gold, best, state;
+    let spawnTimer, pendingSpawns, waveActive, waveCooldown, timeAcc;
+    let shake, flash, lastTime, accumulator;
+    const STEP = 1 / 60;
+
+    best = parseInt(localStorage.getItem('pirateShipBest') || '0', 10);
+    bestEl.textContent = best;
+
+    // ============ AUDIO (WebAudio beep) ============
+    let audioCtx = null;
+    function initAudio() {
+      if (audioCtx) return;
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) audioCtx = new AC();
+      } catch (e) { audioCtx = null; }
+    }
+    function beep(freq, dur, type, vol) {
+      if (!audioCtx) return;
+      type = type || 'square'; vol = vol == null ? 0.08 : vol;
+      try {
+        const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + dur);
+      } catch (e) { /* audio blocked — ignore */ }
+    }
+    const sfx = {
+      cannon: () => beep(180, 0.16, 'sawtooth', 0.09),
+      hit:    () => beep(90, 0.12, 'square', 0.07),
+      splash: () => beep(420, 0.05, 'triangle', 0.03),
+      boom:   () => { beep(70, 0.4, 'sawtooth', 0.12); beep(120, 0.3, 'square', 0.07); },
+      coin:   () => { beep(880, 0.07, 'square', 0.06); setTimeout(() => beep(1320, 0.09, 'square', 0.05), 60); },
+      repair: () => { beep(520, 0.1, 'sine', 0.08); setTimeout(() => beep(780, 0.14, 'sine', 0.07), 90); },
+      wave:   () => { beep(330, 0.18, 'square', 0.07); setTimeout(() => beep(494, 0.28, 'square', 0.07), 170); },
+      dead:   () => { beep(200, 0.5, 'sawtooth', 0.12); setTimeout(() => beep(120, 0.7, 'sawtooth', 0.1), 200); }
+    };
+
+    // ============ UTILITIES ============
+    const rand = (a, b) => a + Math.random() * (b - a);
+    const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+    function wrapAngle(a) { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; }
+    function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+
+    // ============ SPAWN HELPERS ============
+    function makeEnemy(nearX, nearY, hulk) {
+      const ang = rand(0, Math.PI * 2), rad = rand(520, 900);
+      const x = clamp(nearX + Math.cos(ang) * rad, 70, WORLD.w - 70);
+      const y = clamp(nearY + Math.sin(ang) * rad, 70, WORLD.h - 70);
+      const hp = 26 + wave * 5 + difficulty * 10 + (hulk ? 24 : 0);
+      return {
+        x: x, y: y, angle: rand(0, Math.PI * 2), speed: 0, sail: 1,
+        hull: hp, maxHull: hp, radius: hulk ? 24 : 18, hulk: !!hulk,
+        fireCd: rand(0.8, 2.0), aiTimer: rand(0, 1), dead: false, hitFlash: 0
+      };
+    }
+
+    function makeFort(x, y) {
+      const hp = 80 + wave * 16 + difficulty * 25;
+      return { x: x, y: y, hull: hp, maxHull: hp, radius: 34, fireCd: rand(1.2, 2.4), hitFlash: 0 };
+    }
+
+    function spawnPickup(x, y, kind, value) {
+      pickups.push({ x: x, y: y, kind: kind, value: value, life: 16, bob: rand(0, 6.28) });
+    }
+
+    function burst(x, y, color, count, power) {
+      for (let i = 0; i < count; i++) {
+        const a = rand(0, Math.PI * 2);
+        const s = rand(30, 140) * (power || 1);
+        particles.push({
+          x: x, y: y, vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+          life: rand(0.4, 1.0), max: 1, color: color, size: rand(1.6, 4)
+        });
+      }
+    }
+
+    // ============ WORLD / WAVE STATE RESET ============
+    function resetWorld() {
+      player = {
+        x: WORLD.w / 2, y: WORLD.h / 2, angle: -Math.PI / 2,
+        speed: 0, sail: 2, hull: PLAYER_MAX_HULL, radius: 18,
+        cannonCd: 0, hitFlash: 0, ramCd: 0
+      };
+      enemies = [];
+      forts = [];
+      balls = [];
+      pickups = [];
+      particles = [];
+      wakes = [];
+      camera = { x: player.x, y: player.y };
+      keys = { left: false, right: false, up: false, down: false, fire: false };
+      wave = 0; score = 0; gold = 0;
+      spawnTimer = 0; pendingSpawns = 0; waveActive = false; waveCooldown = 1.4;
+      timeAcc = 0; shake = 0; flash = 0;
+      updateHud();
+    }
+
+    function startWave() {
+      wave++;
+      waveEl.textContent = wave;
+      const power = difficulty;
+      const shipCount = 2 + Math.floor(wave * 0.7) + power;
+      const hulks = Math.floor(wave / 3) + (power > 1 ? 1 : 0);
+      pendingSpawns = shipCount;
+      spawnTimer = 0.18;
+      waveActive = true;
+      // Sea forts appear from wave 2, capped, replacing some ships
+      const fortCount = wave >= 2 ? Math.min(3, Math.floor((wave - 1) / 2) + (power > 0 ? 1 : 0)) : 0;
+      forts = [];
+      for (let i = 0; i < fortCount; i++) {
+        const fx = clamp(player.x + rand(-1, 1) * 700, 140, WORLD.w - 140);
+        const fy = clamp(player.y + rand(-1, 1) * 620, 140, WORLD.h - 140);
+        forts.push(makeFort(fx, fy));
+      }
+      showBanner('WAVE ' + wave);
+      sfx.wave();
+    }
+
+    function showBanner(text) {
+      bannerEl.textContent = text;
+      bannerEl.classList.remove('show');
+      void bannerEl.offsetWidth;
+      bannerEl.classList.add('show');
+    }
+
+    function updateHud() {
+      scoreEl.textContent = score;
+      goldEl.textContent = gold;
+      sailEl.textContent = player ? player.sail : 2;
+      const pct = player ? clamp(player.hull / PLAYER_MAX_HULL, 0, 1) : 1;
+      hullFill.style.width = (pct * 100) + '%';
+      hullFill.style.background = pct > 0.55
+        ? 'linear-gradient(90deg,#58c26a,#9be262)'
+        : pct > 0.28
+          ? 'linear-gradient(90deg,#e0a63a,#f2d48a)'
+          : 'linear-gradient(90deg,#c9452e,#f08a6a)';
+    }
+
+    // ============ FIRING ============
+    function fireBroadside(source, isPlayer) {
+      // Fires from both sides, perpendicular to heading.
+      const perp = source.angle + Math.PI / 2;
+      const spread = source.radius + 6;
+      for (const side of [-1, 1]) {
+        const a = perp + (side < 0 ? Math.PI : 0);
+        balls.push({
+          x: source.x + Math.cos(a) * spread, y: source.y + Math.sin(a) * spread,
+          vx: Math.cos(a) * BALL_SPEED, vy: Math.sin(a) * BALL_SPEED,
+          life: 1.5, fromPlayer: isPlayer,
+          dmg: isPlayer ? 9 : (7 + difficulty * 2 + Math.floor(wave / 3))
+        });
+      }
+      if (isPlayer) sfx.cannon(); else beep(140, 0.14, 'sawtooth', 0.05);
+    }
+
+    // ============ UPDATE: PLAYER ============
+    function updatePlayer(dt) {
+      // Steering — lower sail turns faster (speed vs agility trade-off)
+      let steer = 0;
+      if (keys.left) steer -= 1;
+      if (keys.right) steer += 1;
+      player.angle += steer * SAIL_TURN[player.sail] * dt;
+      player.angle = wrapAngle(player.angle);
+
+      // Sail trim
+      if (keys.up && player.sail < 3) player.sail = Math.min(3, player.sail + dt * 1.6);
+      if (keys.down && player.sail > 0) player.sail = Math.max(0, player.sail - dt * 1.6);
+
+      // Forward motion (accelerate toward target speed)
+      const target = SAIL_SPEEDS[Math.round(player.sail)];
+      player.speed += (target - player.speed) * Math.min(1, dt * 1.2);
+      player.x += Math.cos(player.angle) * player.speed * dt;
+      player.y += Math.sin(player.angle) * player.speed * dt;
+
+      // Bounds — soft bounce
+      if (player.x < 40) { player.x = 40; player.angle = Math.PI - player.angle; }
+      if (player.x > WORLD.w - 40) { player.x = WORLD.w - 40; player.angle = Math.PI - player.angle; }
+      if (player.y < 40) { player.y = 40; player.angle = -player.angle; }
+      if (player.y > WORLD.h - 40) { player.y = WORLD.h - 40; player.angle = -player.angle; }
+
+      // Cannons
+      if (player.cannonCd > 0) player.cannonCd -= dt;
+      if (keys.fire && player.cannonCd <= 0) {
+        fireBroadside(player, true);
+        player.cannonCd = CANNON_CD;
+      }
+      if (player.hitFlash > 0) player.hitFlash -= dt;
+      if (player.ramCd > 0) player.ramCd -= dt;
+
+      // Wake particles
+      if (player.speed > 40 && Math.random() < 0.5) {
+        const back = player.angle + Math.PI;
+        wakes.push({
+          x: player.x + Math.cos(back) * 16, y: player.y + Math.sin(back) * 16,
+          life: 1.1, r: 4, a: player.angle
+        });
+      }
+    }
+
+    // ============ UPDATE: ENEMIES ============
+    function updateEnemy(e, dt) {
+      if (e.hitFlash > 0) e.hitFlash -= dt;
+      const d = dist(e, player);
+      const toPlayer = Math.atan2(player.y - e.y, player.x - e.x);
+
+      // AI: keep a broadside distance, otherwise close in
+      let desired;
+      if (d > 360) {
+        desired = toPlayer;                       // close the gap
+        e.sailTarget = 2;
+      } else if (d < 220) {
+        desired = toPlayer + Math.PI;             // back off
+        e.sailTarget = 1;
+      } else {
+        desired = toPlayer + Math.PI / 2;         // circle to present broadside
+        e.sailTarget = 1.4;
+      }
+      e.aiTimer -= dt;
+      if (e.aiTimer <= 0) { e.aiTimer = rand(1.4, 2.8); e.circleFlip = !e.circleFlip; }
+      if (e.circleFlip) desired = toPlayer - Math.PI / 2;
+
+      const diffA = wrapAngle(desired - e.angle);
+      e.angle += clamp(diffA, -1.8 * dt, 1.8 * dt);
+      e.angle = wrapAngle(e.angle);
+
+      const tgt = SAIL_SPEEDS[Math.round(e.sailTarget || 1)];
+      e.speed += (tgt - e.speed) * Math.min(1, dt);
+      e.x += Math.cos(e.angle) * e.speed * dt;
+      e.y += Math.sin(e.angle) * e.speed * dt;
+      e.x = clamp(e.x, 40, WORLD.w - 40);
+      e.y = clamp(e.y, 40, WORLD.h - 40);
+
+      // Fire broadside when player is roughly abeam
+      e.fireCd -= dt;
+      const aimDelta = Math.abs(wrapAngle(toPlayer - e.angle));
+      if (e.fireCd <= 0 && d < 340 && aimDelta > 0.5 && aimDelta < 2.6) {
+        fireBroadside(e, false);
+        e.fireCd = rand(1.6, 2.6) - difficulty * 0.2;
+      }
+
+      if (e.speed > 40 && Math.random() < 0.28) {
+        const back = e.angle + Math.PI;
+        wakes.push({ x: e.x + Math.cos(back) * 14, y: e.y + Math.sin(back) * 14, life: 1.0, r: 3.5, a: e.angle });
+      }
+    }
+
+    // ============ UPDATE: FORTS ============
+    function updateFort(f, dt) {
+      if (f.hitFlash > 0) f.hitFlash -= dt;
+      f.fireCd -= dt;
+      const d = dist(f, player);
+      if (f.fireCd <= 0 && d < 520) {
+        const a = Math.atan2(player.y - f.y, player.x - f.x);
+        balls.push({
+          x: f.x, y: f.y, vx: Math.cos(a) * BALL_SPEED * 0.85, vy: Math.sin(a) * BALL_SPEED * 0.85,
+          life: 1.9, fromPlayer: false, dmg: 10 + difficulty * 3 + Math.floor(wave / 2), fort: true
+        });
+        beep(120, 0.2, 'square', 0.06);
+        f.fireCd = rand(2.0, 3.0) - difficulty * 0.15;
+      }
+    }
+
+    // ============ UPDATE: PROJECTILES / PICKUPS / FX ============
+    function updateBalls(dt) {
+      for (let i = balls.length - 1; i >= 0; i--) {
+        const b = balls[i];
+        b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
+        let gone = b.life <= 0;
+
+        if (!gone && b.fromPlayer) {
+          for (const e of enemies) {
+            if (!e.dead && dist(b, e) < e.radius + 4) {
+              damageEnemy(e, b.dmg);
+              gone = true; break;
+            }
+          }
+          if (!gone) {
+            for (const f of forts) {
+              if (dist(b, f) < f.radius + 4) { damageFort(f, b.dmg); gone = true; break; }
+            }
+          }
+        } else if (!gone) {
+          if (dist(b, player) < player.radius + 4) {
+            damagePlayer(b.dmg);
+            gone = true;
+          }
+        }
+        if (gone) {
+          burst(b.x, b.y, '#dfeaf0', 4, 0.5);
+          sfx.splash();
+          balls.splice(i, 1);
+        }
+      }
+    }
+
+    function updatePickups(dt) {
+      for (let i = pickups.length - 1; i >= 0; i--) {
+        const p = pickups[i];
+        p.life -= dt; p.bob += dt * 3;
+        if (p.life <= 0) { pickups.splice(i, 1); continue; }
+        if (dist(p, player) < player.radius + 14) {
+          if (p.kind === 'gold') {
+            gold += p.value; score += p.value * 2; sfx.coin();
+          } else {
+            player.hull = Math.min(PLAYER_MAX_HULL, player.hull + p.value);
+            sfx.repair();
+            burst(p.x, p.y, '#7fe08a', 10, 0.7);
+          }
+          updateHud();
+          pickups.splice(i, 1);
+        }
+      }
+    }
+
+    function updateParticles(dt) {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx * dt; p.y += p.vy * dt;
+        p.vx *= 0.96; p.vy *= 0.96;
+        p.life -= dt;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+      for (let i = wakes.length - 1; i >= 0; i--) {
+        const w = wakes[i];
+        w.life -= dt; w.r += dt * 14;
+        if (w.life <= 0) wakes.splice(i, 1);
+      }
+    }
+
+    // ============ DAMAGE / DESTRUCTION ============
+    function damageEnemy(e, dmg) {
+      e.hull -= dmg; e.hitFlash = 0.12;
+      burst(e.x, e.y, '#ffd08a', 5, 0.7); sfx.hit();
+      if (e.hull <= 0 && !e.dead) {
+        e.dead = true;
+        score += 100 + wave * 20;
+        burst(e.x, e.y, '#ff8a4a', 26, 1.6);
+        burst(e.x, e.y, '#4a3210', 14, 1.0);
+        sfx.boom();
+        shake = Math.max(shake, 9);
+        // Loot
+        const coins = e.hulk ? 4 : 2;
+        for (let i = 0; i < coins; i++) spawnPickup(e.x + rand(-18, 18), e.y + rand(-18, 18), 'gold', e.hulk ? 12 : 6);
+        if (Math.random() < (e.hulk ? 0.7 : 0.25)) spawnPickup(e.x, e.y, 'repair', 26);
+        updateHud();
+      }
+    }
+
+    function damageFort(f, dmg) {
+      f.hull -= dmg; f.hitFlash = 0.12;
+      burst(f.x, f.y, '#d8cbb0', 5, 0.6); sfx.hit();
+      if (f.hull <= 0) {
+        const idx = forts.indexOf(f);
+        if (idx >= 0) forts.splice(idx, 1);
+        score += 320 + wave * 30;
+        burst(f.x, f.y, '#c9a24a', 34, 1.8);
+        burst(f.x, f.y, '#6b6255', 20, 1.3);
+        sfx.boom(); shake = Math.max(shake, 14);
+        for (let i = 0; i < 6; i++) spawnPickup(f.x + rand(-26, 26), f.y + rand(-26, 26), 'gold', 14);
+        spawnPickup(f.x, f.y, 'repair', 34);
+        updateHud();
+      }
+    }
+
+    function damagePlayer(dmg) {
+      player.hull -= dmg; player.hitFlash = 0.22;
+      flash = 0.35; shake = Math.max(shake, 7);
+      burst(player.x, player.y, '#ff7a5a', 8, 0.9);
+      sfx.hit();
+      updateHud();
+      if (player.hull <= 0) gameOver();
+    }
+
+    // ============ COLLISIONS: RAM / BOARD ============
+    function handleRamming() {
+      for (const e of enemies) {
+        if (e.dead) continue;
+        const d = dist(player, e);
+        if (d < player.radius + e.radius) {
+          const relSpeed = player.speed;
+          if (relSpeed > 130 && player.ramCd <= 0) {
+            // Boarding ram: heavy damage to enemy, light to player
+            damageEnemy(e, 22 + Math.round(player.speed * 0.08));
+            score += 35;
+            damagePlayer(6);
+            player.ramCd = 0.7;
+            shake = Math.max(shake, 10);
+            // Push apart
+            const a = Math.atan2(e.y - player.y, e.x - player.x);
+            e.x += Math.cos(a) * 26; e.y += Math.sin(a) * 26;
+            player.x -= Math.cos(a) * 12; player.y -= Math.sin(a) * 12;
+          } else {
+            // Gentle bump — separate, tiny damage over time avoided
+            const a = Math.atan2(e.y - player.y, e.x - player.x);
+            e.x += Math.cos(a) * 1.5; e.y += Math.sin(a) * 1.5;
+            player.x -= Math.cos(a) * 1.5; player.y -= Math.sin(a) * 1.5;
+          }
+        }
+      }
+      for (const f of forts) {
+        const d = dist(player, f);
+        if (d < player.radius + f.radius) {
+          const a = Math.atan2(player.y - f.y, player.x - f.x);
+          player.x = f.x + Math.cos(a) * (player.radius + f.radius);
+          player.y = f.y + Math.sin(a) * (player.radius + f.radius);
+          if (player.speed > 120 && player.ramCd <= 0) {
+            damageFort(f, 12); damagePlayer(8); player.ramCd = 0.7;
+            shake = Math.max(shake, 10);
+          }
+        }
+      }
+    }
+
+    // ============ UPDATE: WAVE DIRECTOR ============
+    function updateWave(dt) {
+      const alive = enemies.filter(e => !e.dead).length;
+
+      if (waveActive) {
+        if (pendingSpawns > 0) {
+          spawnTimer -= dt;
+          if (spawnTimer <= 0) {
+            spawnTimer = rand(0.5, 1.2);
+            const hulk = (Math.random() < 0.28 && wave >= 3) || (wave >= 5 && Math.random() < 0.4);
+            enemies.push(makeEnemy(player.x, player.y, hulk));
+            pendingSpawns--;
+          }
+        }
+        if (pendingSpawns === 0 && alive === 0 && forts.length === 0) {
+          waveActive = false;
+          waveCooldown = 2.2;
+          player.hull = Math.min(PLAYER_MAX_HULL, player.hull + 8);
+          updateHud();
+          showBanner('WAVE CLEARED  +8 HULL');
+        }
+      } else {
+        waveCooldown -= dt;
+        if (waveCooldown <= 0) startWave();
+      }
+    }
+
+    // ============ MAIN UPDATE ============
+    function update(dt) {
+      timeAcc += dt;
+      updatePlayer(dt);
+      for (const e of enemies) if (!e.dead) updateEnemy(e, dt);
+      for (const f of forts) updateFort(f, dt);
+      updateBalls(dt);
+      updatePickups(dt);
+      updateParticles(dt);
+      handleRamming();
+      updateWave(dt);
+
+      // Cull dead enemies that finished their death frame
+      for (let i = enemies.length - 1; i >= 0; i--) if (enemies[i].dead) enemies.splice(i, 1);
+
+      // Camera follow (smooth)
+      camera.x += (player.x - camera.x) * Math.min(1, dt * 4);
+      camera.y += (player.y - camera.y) * Math.min(1, dt * 4);
+
+      if (shake > 0) shake = Math.max(0, shake - dt * 40);
+      if (flash > 0) flash = Math.max(0, flash - dt * 2.2);
+    }
+
+    // ============ DRAW: OCEAN ============
+    function drawOcean(camX, camY) {
+      const g = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      g.addColorStop(0, '#0e5069');
+      g.addColorStop(0.55, '#0b3a52');
+      g.addColorStop(1, '#062333');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Animated wave lines (world-anchored, time-scrolled)
+      ctx.strokeStyle = 'rgba(120, 200, 220, 0.10)';
+      ctx.lineWidth = 2;
+      const spacing = 46;
+      const startY = Math.floor((camY - canvas.height / 2) / spacing) * spacing;
+      for (let wy = startY; wy < camY + canvas.height / 2 + spacing; wy += spacing) {
+        ctx.beginPath();
+        for (let sx = 0; sx <= canvas.width; sx += 16) {
+          const wx = camX - canvas.width / 2 + sx;
+          const yy = wy - camY + canvas.height / 2
+            + Math.sin(wx * 0.012 + timeAcc * 1.4 + wy * 0.05) * 6
+            + Math.sin(wx * 0.03 - timeAcc * 0.8) * 3;
+          if (sx === 0) ctx.moveTo(sx, yy); else ctx.lineTo(sx, yy);
+        }
+        ctx.stroke();
+      }
+
+      // Glinting highlights
+      ctx.fillStyle = 'rgba(180, 235, 245, 0.06)';
+      for (let i = 0; i < 40; i++) {
+        const hx = ((i * 137 + timeAcc * 20) % (canvas.width + 80)) - 40;
+        const hy = ((i * 251) % (canvas.height + 60)) - 30
+          + Math.sin(timeAcc + i) * 8;
+        ctx.fillRect(hx, hy, 14, 2);
+      }
+    }
+
+    // ============ DRAW: SHIP ============
+    function drawShip(x, y, angle, scale, colors, opts) {
+      opts = opts || {};
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+      ctx.scale(scale, scale);
+
+      const L = 22, W = 11;
+
+      // Wake shadow
+      ctx.fillStyle = 'rgba(0, 20, 30, 0.28)';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, L * 1.1, W * 1.25, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Hull
+      ctx.beginPath();
+      ctx.moveTo(L, 0);
+      ctx.quadraticCurveTo(L * 0.4, W, -L * 0.7, W * 0.82);
+      ctx.quadraticCurveTo(-L * 0.95, 0, -L * 0.7, -W * 0.82);
+      ctx.quadraticCurveTo(L * 0.4, -W, L, 0);
+      ctx.closePath();
+      ctx.fillStyle = opts.hitFlash > 0 ? '#ffffff' : colors.hull;
+      ctx.fill();
+      ctx.lineWidth = 1.4;
+      ctx.strokeStyle = colors.trim;
+      ctx.stroke();
+
+      // Deck plank
+      ctx.beginPath();
+      ctx.moveTo(L * 0.7, 0);
+      ctx.lineTo(-L * 0.55, W * 0.5);
+      ctx.lineTo(-L * 0.55, -W * 0.5);
+      ctx.closePath();
+      ctx.fillStyle = colors.deck;
+      ctx.fill();
+
+      // Cannons (side dots)
+      ctx.fillStyle = '#241a10';
+      for (const sy of [-1, 1]) {
+        for (const cx of [-4, 4]) {
+          ctx.beginPath();
+          ctx.arc(cx, sy * (W * 0.72), 1.7, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Mast + sail (sail size reflects trim)
+      const sailAmt = opts.sailAmt == null ? 1 : opts.sailAmt;
+      ctx.fillStyle = '#5a3d1e';
+      ctx.fillRect(-1.2, -W * 0.5, 2.4, W);
+
+      ctx.beginPath();
+      ctx.ellipse(-1, 0, 5.5, (W * 1.15) * (0.45 + sailAmt * 0.55), 0, 0, Math.PI * 2);
+      ctx.fillStyle = opts.hitFlash > 0 ? '#ffffff' : colors.sail;
+      ctx.fill();
+      ctx.strokeStyle = colors.sailTrim;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Bowsprit
+      ctx.strokeStyle = '#3a2a14';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(L * 0.85, 0);
+      ctx.lineTo(L * 1.3, 0);
+      ctx.stroke();
+
+      // Stern flag
+      ctx.beginPath();
+      ctx.moveTo(-L * 0.85, 0);
+      ctx.lineTo(-L * 1.35, -5);
+      ctx.lineTo(-L * 0.85, -2.5);
+      ctx.closePath();
+      ctx.fillStyle = colors.flag;
+      ctx.fill();
+
+      // Player helm marker
+      if (opts.isPlayer) {
+        ctx.beginPath();
+        ctx.arc(1, 0, 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#f2d48a';
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // ============ DRAW: FORT ============
+    function drawFort(f, camX, camY) {
+      const sx = f.x - camX + canvas.width / 2;
+      const sy = f.y - camY + canvas.height / 2;
+      const r = f.radius;
+      ctx.save();
+      ctx.translate(sx, sy);
+
+      // Base rock
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
+        const rr = r * (i % 2 === 0 ? 1 : 0.88);
+        const px = Math.cos(a) * rr, py = Math.sin(a) * rr;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fillStyle = f.hitFlash > 0 ? '#ffffff' : '#7d7768';
+      ctx.fill();
+      ctx.strokeStyle = '#4f4a3f';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Inner tower
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 0.6, 0, Math.PI * 2);
+      ctx.fillStyle = f.hitFlash > 0 ? '#ffffff' : '#98907d';
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 0.32, 0, Math.PI * 2);
+      ctx.fillStyle = '#5b5142';
+      ctx.fill();
+
+      // Flag
+      ctx.beginPath();
+      ctx.moveTo(0, -r * 0.5);
+      ctx.lineTo(r * 0.9, -r * 0.85);
+      ctx.lineTo(0, -r * 0.72);
+      ctx.closePath();
+      ctx.fillStyle = '#c9452e';
+      ctx.fill();
+
+      // Health pip
+      const pct = clamp(f.hull / f.maxHull, 0, 1);
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(-r * 0.9, r + 8, r * 1.8, 5);
+      ctx.fillStyle = pct > 0.4 ? '#e0a63a' : '#c9452e';
+      ctx.fillRect(-r * 0.9, r + 8, r * 1.8 * pct, 5);
+      ctx.restore();
+    }
+
+    // ============ DRAW: MAIN SCENE ============
+    function draw() {
+      const camX = camera.x, camY = camera.y;
+      let ox = 0, oy = 0;
+      if (shake > 0) { ox = rand(-shake, shake) * 0.4; oy = rand(-shake, shake) * 0.4; }
+
+      ctx.save();
+      ctx.translate(ox, oy);
+      drawOcean(camX, camY);
+
+      // Wakes (under ships)
+      for (const w of wakes) {
+        const sx = w.x - camX + canvas.width / 2;
+        const sy = w.y - camY + canvas.height / 2;
+        ctx.globalAlpha = w.life * 0.28;
+        ctx.strokeStyle = '#cfeef5';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(sx, sy, w.r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+
+      // Forts
+      for (const f of forts) drawFort(f, camX, camY);
+
+      // Pickups
+      for (const p of pickups) {
+        const sx = p.x - camX + canvas.width / 2;
+        const sy = p.y - camY + canvas.height / 2 + Math.sin(p.bob) * 3;
+        const fade = p.life < 3 ? (Math.sin(p.life * 12) * 0.5 + 0.5) : 1;
+        ctx.globalAlpha = fade;
+        if (p.kind === 'gold') {
+          ctx.beginPath();
+          ctx.arc(sx, sy, 7, 0, Math.PI * 2);
+          ctx.fillStyle = '#f2c94c';
+          ctx.fill();
+          ctx.strokeStyle = '#b98a34';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.fillStyle = '#fff3c4';
+          ctx.beginPath();
+          ctx.arc(sx - 2, sy - 2, 2.2, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.fillStyle = '#e8e2d2';
+          ctx.fillRect(sx - 8, sy - 8, 16, 16);
+          ctx.strokeStyle = '#4a8c4a';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(sx, sy - 7); ctx.lineTo(sx, sy + 7);
+          ctx.moveTo(sx - 7, sy); ctx.lineTo(sx + 7, sy);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      // Enemies
+      for (const e of enemies) {
+        const sx = e.x - camX + canvas.width / 2;
+        const sy = e.y - camY + canvas.height / 2;
+        drawShip(sx, sy, e.angle, e.hulk ? 1.15 : 0.95,
+          { hull: '#6b2f22', deck: '#3d1c14', trim: '#c9452e', sail: '#d9cfc0', sailTrim: '#6b2f22', flag: '#e05a3a' },
+          { hitFlash: e.hitFlash, sailAmt: 0.8, isPlayer: false });
+        // Enemy hull bar
+        const pct = clamp(e.hull / e.maxHull, 0, 1);
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.fillRect(sx - 18, sy - (e.hulk ? 30 : 26), 36, 4);
+        ctx.fillStyle = pct > 0.5 ? '#e08a5a' : '#c9452e';
+        ctx.fillRect(sx - 18, sy - (e.hulk ? 30 : 26), 36 * pct, 4);
+      }
+
+      // Player
+      const psx = player.x - camX + canvas.width / 2;
+      const psy = player.y - camY + canvas.height / 2;
+      drawShip(psx, psy, player.angle, 1.05,
+        { hull: '#3a2a16', deck: '#6b4a24', trim: '#c9a24a', sail: '#f4efe2', sailTrim: '#b98a34', flag: '#1c1c1c' },
+        { hitFlash: player.hitFlash, sailAmt: player.sail / 3, isPlayer: true });
+
+      // Cannonballs
+      for (const b of balls) {
+        const sx = b.x - camX + canvas.width / 2;
+        const sy = b.y - camY + canvas.height / 2;
+        ctx.strokeStyle = b.fromPlayer ? 'rgba(242,212,138,0.4)' : 'rgba(255,140,110,0.4)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(sx - b.vx * 0.02, sy - b.vy * 0.02);
+        ctx.lineTo(sx, sy);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(sx, sy, b.fort ? 5 : 3.4, 0, Math.PI * 2);
+        ctx.fillStyle = b.fromPlayer ? '#2b2b2b' : '#3a1410';
+        ctx.fill();
+      }
+
+      // Particles
+      for (const p of particles) {
+        const sx = p.x - camX + canvas.width / 2;
+        const sy = p.y - camY + canvas.height / 2;
+        ctx.globalAlpha = clamp(p.life, 0, 1);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(sx, sy, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+
+      // Damage flash
+      if (flash > 0) {
+        ctx.fillStyle = 'rgba(200, 40, 20, ' + (flash * 0.4) + ')';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
+      // Off-screen enemy indicators
+      drawOffscreenMarkers(camX, camY);
+    }
+
+    function drawOffscreenMarkers(camX, camY) {
+      const cx = canvas.width / 2, cy = canvas.height / 2;
+      const targets = enemies.concat([]);
+      for (const e of targets) {
+        const sx = e.x - camX + cx, sy = e.y - camY + cy;
+        if (sx > 8 && sx < canvas.width - 8 && sy > 8 && sy < canvas.height - 8) continue;
+        const a = Math.atan2(e.y - camY, e.x - camX);
+        const px = cx + Math.cos(a) * (Math.min(cx, cy) - 16);
+        const py = cy + Math.sin(a) * (Math.min(cx, cy) - 16);
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate(a);
+        ctx.beginPath();
+        ctx.moveTo(7, 0); ctx.lineTo(-5, -5); ctx.lineTo(-5, 5);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(240, 120, 90, 0.75)';
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // ============ GAME LOOP ============
+    function loop(currentTime) {
+      if (state !== 'playing') return;
+      let dt = (currentTime - lastTime) / 1000;
+      lastTime = currentTime;
+      if (dt > 0.1) dt = 0.1; // clamp after tab switch
+      accumulator += dt;
+      let guard = 0;
+      while (accumulator >= STEP && guard < 5) { update(STEP); accumulator -= STEP; guard++; }
+      if (guard >= 5) accumulator = 0;
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // ============ STATE CONTROL ============
+    function startGame() {
+      initAudio();
+      resetWorld();
+      state = 'playing';
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      pauseOverlay.classList.remove('visible');
+      lastTime = performance.now();
+      accumulator = 0;
+      showBanner('SET SAIL');
+      requestAnimationFrame(loop);
+    }
+
+    function gameOver() {
+      state = 'over';
+      if (score > best) {
+        best = score;
+        localStorage.setItem('pirateShipBest', String(best));
+        bestEl.textContent = best;
+      }
+      document.getElementById('finalScore').textContent = score;
+      document.getElementById('finalLine').textContent =
+        'Reached wave ' + wave + '  ·  Gold plundered: ' + gold;
+      gameOverScreen.classList.remove('hidden');
+      sfx.dead();
+    }
+
+    function togglePause() {
+      if (state === 'playing') {
+        state = 'paused';
+        pauseOverlay.classList.add('visible');
+      } else if (state === 'paused') {
+        state = 'playing';
+        pauseOverlay.classList.remove('visible');
+        lastTime = performance.now();
+        requestAnimationFrame(loop);
+      }
+    }
+
+    // ============ INPUT: KEYBOARD ============
+    const GAME_KEYS = ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyA','KeyD','KeyW','KeyS','Space','KeyP','Escape'];
+    document.addEventListener('keydown', (e) => {
+      if (GAME_KEYS.indexOf(e.code) >= 0) e.preventDefault();
+      if (e.code === 'KeyP' || e.code === 'Escape') { togglePause(); return; }
+      if (state !== 'playing') {
+        if (e.code === 'Space' && (state === 'over' || state === 'menu')) startGame();
+        return;
+      }
+      switch (e.code) {
+        case 'ArrowLeft': case 'KeyA': keys.left = true; break;
+        case 'ArrowRight': case 'KeyD': keys.right = true; break;
+        case 'ArrowUp': case 'KeyW': keys.up = true; break;
+        case 'ArrowDown': case 'KeyS': keys.down = true; break;
+        case 'Space': keys.fire = true; break;
+      }
+    });
+    document.addEventListener('keyup', (e) => {
+      switch (e.code) {
+        case 'ArrowLeft': case 'KeyA': keys.left = false; break;
+        case 'ArrowRight': case 'KeyD': keys.right = false; break;
+        case 'ArrowUp': case 'KeyW': keys.up = false; break;
+        case 'ArrowDown': case 'KeyS': keys.down = false; break;
+        case 'Space': keys.fire = false; break;
+      }
+    });
+
+    // ============ INPUT: TOUCH CONTROLS ============
+    function bindHold(el, on, off) {
+      const start = (e) => { e.preventDefault(); if (state !== 'playing') return; on(); };
+      const end = (e) => { e.preventDefault(); off(); };
+      el.addEventListener('touchstart', start, { passive: false });
+      el.addEventListener('touchend', end, { passive: false });
+      el.addEventListener('touchcancel', end, { passive: false });
+      el.addEventListener('mousedown', start);
+      el.addEventListener('mouseup', end);
+      el.addEventListener('mouseleave', end);
+    }
+    document.querySelectorAll('.control-btn').forEach(btn => {
+      const act = btn.dataset.act;
+      switch (act) {
+        case 'port':      bindHold(btn, () => keys.left = true, () => keys.left = false); break;
+        case 'starboard': bindHold(btn, () => keys.right = true, () => keys.right = false); break;
+        case 'sailUp':    bindHold(btn, () => keys.up = true, () => keys.up = false); break;
+        case 'sailDown':  bindHold(btn, () => keys.down = true, () => keys.down = false); break;
+        case 'fire':      bindHold(btn, () => keys.fire = true, () => keys.fire = false); break;
+      }
+    });
+
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+      mobileControls.classList.add('visible');
+    }
+
+    // ============ DIFFICULTY SELECTION ============
+    difficulty = 1;
+    difficultyBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        difficultyBtns.forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        difficulty = parseInt(btn.dataset.diff, 10);
+        initAudio();
+      });
+    });
+
+    // ============ BUTTONS ============
+    startBtn.addEventListener('click', startGame);
+    playAgainBtn.addEventListener('click', startGame);
+
+    // ============ BOOT ============
+    state = 'menu';
+    resetWorld();
+    player.sail = 2;
+    // Draw a static preview scene on the menu
+    enemies.push(makeEnemy(player.x + 340, player.y - 120, false));
+    enemies.push(makeEnemy(player.x - 300, player.y + 160, false));
+    player = Object.assign(player, { x: WORLD.w / 2, y: WORLD.h / 2 });
+    camera.x = player.x; camera.y = player.y;
+    draw();
+  })();
+  </script>
+</body>
+</html>

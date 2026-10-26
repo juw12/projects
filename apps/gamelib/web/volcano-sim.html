@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Volcano Sim</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: #0b0a0e;
+    color: #e9e1d6;
+    font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  #app {
+    position: relative;
+    width: min(98vw, 1100px);
+    max-height: 98vh;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  /* ============ TOP BAR / TOOLBAR ============ */
+  #topbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 6px 8px;
+    background: rgba(20,16,18,.85);
+    border: 1px solid #35262a;
+    border-radius: 10px;
+  }
+  #topbar .brand {
+    font-weight: bold;
+    letter-spacing: 2px;
+    color: #ff8a4a;
+    font-size: 15px;
+    text-shadow: 0 0 10px rgba(255,90,20,.6);
+    margin-right: 6px;
+  }
+  .tool {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 10px;
+    background: rgba(40,30,32,.9);
+    border: 2px solid #4a3238;
+    border-radius: 8px;
+    color: #d9cfc4;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform .07s, border-color .12s, background .12s;
+  }
+  .tool:hover { background: rgba(60,42,44,.95); }
+  .tool:active { transform: translateY(2px); }
+  .tool.active {
+    border-color: #ff9a3c;
+    background: linear-gradient(#5a2f16, #3a1c0c);
+    color: #ffd9a8;
+    box-shadow: 0 0 12px rgba(255,120,30,.45);
+  }
+  .tool .k { font-size: 10px; opacity: .55; }
+  .spacer { flex: 1; }
+  .ctl {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    color: #b9a99a;
+    padding: 0 4px;
+  }
+  .ctl input[type=range] { width: 92px; accent-color: #ff8a3c; }
+  #resetBtn {
+    padding: 7px 16px;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    color: #2a1405;
+    background: linear-gradient(#ffb35c, #e07a20);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #8a4a12;
+    transition: transform .06s, box-shadow .06s;
+  }
+  #resetBtn:active { transform: translateY(3px); box-shadow: 0 1px 0 #8a4a12; }
+
+  /* ============ GAME WRAP ============ */
+  #game-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 15 / 8;
+    max-height: 78vh;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 16px 60px rgba(0,0,0,.75), inset 0 0 0 2px #2a1d20;
+    background: #10141c;
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  /* ============ HUD ============ */
+  #hud {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    font-size: 12.5px;
+  }
+  #hud .row { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
+  .chip {
+    background: rgba(14,10,12,.66);
+    border: 1px solid rgba(255,255,255,.13);
+    border-radius: 7px;
+    padding: 3px 9px;
+    font-weight: 600;
+    letter-spacing: .3px;
+    text-shadow: 0 1px 1px #000;
+  }
+  .chip b { color: #ff9a4a; }
+  #statusChip { margin-left: auto; }
+  #statusChip.hot { color: #ffb56a; border-color: rgba(255,120,40,.5); }
+
+  /* ============ TOAST ============ */
+  #toast {
+    position: absolute; left: 50%; top: 56%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,.74);
+    color: #ffd9a8;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 13px; font-weight: 600;
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s;
+    z-index: 12;
+  }
+  #toast.show { opacity: 1; }
+
+  @media (hover: none) and (pointer: coarse) {
+    #game-wrap { aspect-ratio: auto; height: 60vh; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ TOOLBAR ============ -->
+  <div id="topbar">
+    <span class="brand">VOLCANO SIM</span>
+    <button class="tool active" data-tool="raise">⛰ Raise <span class="k">1</span></button>
+    <button class="tool" data-tool="lower">⛏ Lower <span class="k">2</span></button>
+    <button class="tool" data-tool="lava">🔥 Lava <span class="k">3</span></button>
+    <button class="tool" data-tool="water">💧 Water <span class="k">4</span></button>
+    <button class="tool" data-tool="erupt">💥 Erupt <span class="k">5</span></button>
+    <span class="spacer"></span>
+    <label class="ctl">Brush <input type="range" id="brush" min="1" max="14" value="5"></label>
+    <label class="ctl">Chaos <input type="range" id="chaos" min="0" max="100" value="22"></label>
+    <button id="resetBtn">RESET</button>
+  </div>
+
+  <!-- ============ GAME ============ -->
+  <div id="game-wrap">
+    <canvas id="game" width="960" height="512"></canvas>
+
+    <div id="hud">
+      <div class="row">
+        <div class="chip">Lava <b id="lavaChip">0</b></div>
+        <div class="chip">Water <b id="waterChip">0</b></div>
+        <div class="chip">Rock <b id="rockChip">0</b></div>
+        <div class="chip" id="statusChip">CALM</div>
+      </div>
+      <div class="row">
+        <div class="chip" id="hintChip">Drag to shape the island</div>
+      </div>
+    </div>
+
+    <div id="toast"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ================================================================
+  //  VOLCANO SIM — an original volcanic-island relaxation sandbox
+  //  Sections: 1.Config 2.World 3.Sim 4.Particles 5.Input 6.Render
+  //            7.HUD 8.Audio 9.Boot
+  // ================================================================
+
+  // ============ 1. CONFIG ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const CELL = 8;
+  const COLS = canvas.width / CELL;   // 120
+  const ROWS = canvas.height / CELL;  // 64
+  const VW = canvas.width, VH = canvas.height;
+  const SEA = 12;                     // sea level, in rows from the bottom
+
+  const COOL = 0.055;                 // lava -> rock cooling rate (rows/sec)
+  const WATER_FLOW = 0.9;             // water mobility
+  const LAVA_FLOW = 0.34;             // lava viscosity (lower = slower)
+  const FLOW_PASSES = 2;              // relaxation passes per step
+  const STEP = 1 / 60;
+
+  const TOOLS = ["raise", "lower", "lava", "water", "erupt"];
+
+  // ============ 2. WORLD ============
+  // Column-height model. Per column x (0..COLS-1):
+  //   elev[x]  terrain elevation in rows from the bottom (float)
+  //   lava[x]  lava depth (rows) resting on the rock surface
+  //   water[x] water depth (rows) resting above the lava
+  //   heat[x]  0..1 glow / residual temperature
+  let elev = new Float32Array(COLS);
+  let lava = new Float32Array(COLS);
+  let water = new Float32Array(COLS);
+  let heat = new Float32Array(COLS);
+  let surf = new Float32Array(COLS);   // elev + lava + water (flow reference)
+
+  let lavaTotal = 0, waterTotal = 0, rockDelta = 0;
+  let time = 0;
+
+  function rowNoise(x) {
+    // smooth deterministic pseudo-noise for terrain texture
+    return Math.sin(x * 0.61) * 0.5 + Math.sin(x * 0.23 + 2.1) * 0.5;
+  }
+
+  function generateIsland(seed) {
+    const cx = COLS / 2;
+    for (let x = 0; x < COLS; x++) {
+      const t = (x - cx) / (COLS * 0.5);          // -1..1 across the map
+      const bump = Math.exp(-(t * t) * 5.5);       // central island mass
+      const ridge = 0.5 + 0.5 * Math.sin(x * 0.17) * Math.sin(x * 0.041 + 1.7);
+      let h = (SEA - 6) + bump * 30 + (ridge - 0.5) * 5 + rowNoise(x) * 1.4;
+      // carve a summit crater so eruptions have a vent
+      const ct = Math.abs(x - cx);
+      if (ct < 4) h -= (4 - ct) * 1.7;
+      elev[x] = Math.max(2, Math.min(ROWS - 3, h));
+      lava[x] = 0;
+      water[x] = Math.max(0, SEA - elev[x]);
+      heat[x] = 0;
+    }
+    lavaTotal = 0; waterTotal = 0; rockDelta = 0;
+  }
+
+  function columnOf(px) { return Math.max(0, Math.min(COLS - 1, Math.floor(px / CELL))); }
+
+  // ============ 3. SIMULATION ============
+  function computeSurfaces() {
+    for (let x = 0; x < COLS; x++) surf[x] = elev[x] + lava[x] + water[x];
+  }
+
+  // Cellular downhill relaxation: fluid moves toward the lowest neighbour.
+  function flowFluid(arr, mobility) {
+    for (let x = 0; x < COLS; x++) {
+      if (arr[x] <= 0.002) continue;
+      let best = -1, bestSurf = surf[x];
+      if (x > 0 && surf[x - 1] < bestSurf - 0.001) { best = x - 1; bestSurf = surf[x - 1]; }
+      if (x < COLS - 1 && surf[x + 1] < bestSurf - 0.001) { best = x + 1; bestSurf = surf[x + 1]; }
+      if (best < 0) continue;
+      const diff = surf[x] - bestSurf;
+      let move = Math.min(arr[x] * 0.5, diff * mobility, mobility * 1.6 * (1 / 60) * 60);
+      if (move > 0) {
+        arr[x] -= move;
+        arr[best] += move;
+        surf[x] -= move;
+        surf[best] += move;
+      }
+    }
+  }
+
+  function coolLava(dt) {
+    for (let x = 0; x < COLS; x++) {
+      if (lava[x] > 0) {
+        const c = Math.min(lava[x], COOL * dt * 60 * (1 / 60));
+        lava[x] -= c;
+        elev[x] += c;        // cooled lava becomes rock
+        rockDelta += c;
+        if (heat[x] < 1) heat[x] = Math.min(1, heat[x] + c * 4);
+      }
+      heat[x] *= Math.pow(0.35, dt * 60 * 0.02);
+      if (heat[x] < 0.001) heat[x] = 0;
+    }
+  }
+
+  // Lava meeting water: flash to steam + solid rock.
+  function quench() {
+    for (let x = 0; x < COLS; x++) {
+      if (lava[x] > 0.04 && water[x] > 0.04) {
+        const t = Math.min(lava[x], water[x]) * 0.5;
+        lava[x] -= t; water[x] -= t;
+        elev[x] += t * 0.6;
+        for (let i = 0; i < 3; i++) spawnParticle("steam", x * CELL + CELL / 2, (ROWS - elev[x] - 2) * CELL);
+        if (Math.random() < 0.4) {
+          for (let i = 0; i < 2; i++) spawnParticle("ember", x * CELL + CELL / 2, (ROWS - elev[x]) * CELL);
+        }
+      }
+    }
+  }
+
+  function emitAmbient(dt) {
+    const chaos = chaosLevel();
+    // smoke + embers above hot / lava columns
+    for (let x = 0; x < COLS; x++) {
+      if (lava[x] > 0.06) {
+        if (Math.random() < 0.10 + chaos * 0.35) {
+          spawnParticle("smoke", x * CELL + CELL / 2 + (Math.random() - 0.5) * 8,
+                        (ROWS - elev[x] - lava[x]) * CELL);
+        }
+        if (Math.random() < 0.05 + chaos * 0.20) {
+          spawnParticle("ember", x * CELL + CELL / 2, (ROWS - elev[x] - lava[x]) * CELL);
+        }
+      } else if (heat[x] > 0.25 && Math.random() < 0.05) {
+        spawnParticle("smoke", x * CELL + CELL / 2, (ROWS - elev[x]) * CELL);
+      }
+    }
+    // ash rain scales with chaos
+    if (Math.random() < chaos * 0.9) {
+      const n = 1 + Math.floor(chaos * 3);
+      for (let i = 0; i < n; i++) spawnAsh();
+    }
+    // automatic eruptions when chaotic
+    if (chaos > 0.05) {
+      if (Math.random() < chaos * chaos * 0.9 * dt * 60) {
+        doEruption(findPeak() + Math.floor((Math.random() - 0.5) * 6), 0.5 + chaos);
+      }
+    }
+  }
+
+  function findPeak() {
+    let best = 0, bx = Math.floor(COLS / 2);
+    for (let x = 6; x < COLS - 6; x++) if (elev[x] > best) { best = elev[x]; bx = x; }
+    return bx;
+  }
+
+  function doEruption(cx, power) {
+    cx = Math.max(1, Math.min(COLS - 2, cx));
+    const p = Math.min(1.6, power);
+    const spread = 3 + Math.round(p * 3);
+    for (let d = -spread; d <= spread; d++) {
+      const x = cx + d;
+      if (x < 0 || x >= COLS) continue;
+      const falloff = 1 - Math.abs(d) / (spread + 1);
+      const add = (0.8 + Math.random() * 1.6) * p * falloff;
+      lava[x] += add;
+      heat[x] = 1;
+    }
+    // burst of sparks + smoke at the vent
+    const topY = (ROWS - elev[cx] - lava[cx]) * CELL;
+    for (let i = 0; i < 30; i++) spawnParticle("spark", cx * CELL + CELL / 2, topY);
+    for (let i = 0; i < 18; i++) spawnParticle("smoke", cx * CELL + CELL / 2, topY - 6);
+    beep(70 + Math.random() * 40, 0.5, "sawtooth");
+    toast("Eruption!");
+  }
+
+  function step(dt) {
+    time += dt;
+    computeSurfaces();
+    for (let i = 0; i < FLOW_PASSES; i++) {
+      flowFluid(lava, LAVA_FLOW);
+      flowFluid(water, WATER_FLOW);
+    }
+    coolLava(dt);
+    quench();
+    emitAmbient(dt);
+    updateParticles(dt);
+    recomputeTotals();
+  }
+
+  function recomputeTotals() {
+    let lt = 0, wt = 0;
+    for (let x = 0; x < COLS; x++) { lt += lava[x]; wt += water[x]; }
+    lavaTotal = lt; waterTotal = wt;
+  }
+
+  // ============ 4. PARTICLES ============
+  let particles = [];
+  const P_CAP = 900;
+
+  function spawnParticle(type, x, y) {
+    if (particles.length > P_CAP) return;
+    const p = { type: type, x: x, y: y, vx: 0, vy: 0, life: 1, max: 1, size: 1, warm: 0 };
+    if (type === "smoke") {
+      p.vx = (Math.random() - 0.5) * 0.5;
+      p.vy = -0.35 - Math.random() * 0.5;
+      p.size = 3 + Math.random() * 4;
+      p.max = p.life = 1.6 + Math.random() * 1.4;
+      p.warm = Math.random();
+    } else if (type === "steam") {
+      p.vx = (Math.random() - 0.5) * 0.7;
+      p.vy = -1.1 - Math.random() * 0.9;
+      p.size = 2 + Math.random() * 3;
+      p.max = p.life = 1.0 + Math.random() * 0.8;
+    } else if (type === "ember") {
+      p.vx = (Math.random() - 0.5) * 1.4;
+      p.vy = -1.6 - Math.random() * 1.6;
+      p.size = 1.2 + Math.random() * 1.8;
+      p.max = p.life = 0.8 + Math.random() * 0.9;
+      p.warm = 1;
+    } else if (type === "spark") {
+      const a = Math.random() * Math.PI * 2;
+      const s = 1.5 + Math.random() * 4;
+      p.vx = Math.cos(a) * s;
+      p.vy = -Math.abs(Math.sin(a)) * s - 1;
+      p.size = 1 + Math.random() * 2;
+      p.max = p.life = 0.9 + Math.random() * 1.1;
+      p.warm = 1;
+    } else if (type === "ash") {
+      p.x = Math.random() * VW; p.y = -4;
+      p.vx = 0.25 + Math.random() * 0.5;
+      p.vy = 0.35 + Math.random() * 0.6;
+      p.size = 1 + Math.random() * 1.6;
+      p.max = p.life = 4 + Math.random() * 4;
+    }
+    particles.push(p);
+  }
+
+  function spawnAsh() { spawnParticle("ash", 0, 0); }
+
+  function updateParticles(dt) {
+    const f = dt * 60;
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      if (p.type === "ash") {
+        p.x += p.vx * f;
+        p.y += p.vy * f;
+        p.vy = Math.min(p.vy + 0.004 * f, 1.2);
+      } else {
+        p.x += p.vx * f;
+        p.y += p.vy * f;
+        p.vy += (p.type === "smoke" ? -0.004 : 0.05) * f; // smoke rises, embers fall
+        p.vx *= (1 - 0.02 * f);
+      }
+      p.life -= dt;
+      if (p.life <= 0 || p.y > VH + 20) particles.splice(i, 1);
+    }
+  }
+
+  // ============ 5. INPUT / TOOLS ============
+  let tool = "raise";
+  let brush = 5;
+  let painting = false;
+  let pointerCol = -1, pointerRow = -1;
+
+  const brushEl = document.getElementById("brush");
+  const chaosEl = document.getElementById("chaos");
+  brushEl.addEventListener("input", () => { brush = +brushEl.value; });
+  function chaosLevel() { return (+chaosEl.value) / 100; }
+
+  function setTool(t) {
+    if (TOOLS.indexOf(t) < 0) return;
+    tool = t;
+    document.querySelectorAll(".tool").forEach(b =>
+      b.classList.toggle("active", b.dataset.tool === t));
+    const names = { raise: "Raise terrain", lower: "Lower terrain", lava: "Pour lava",
+                    water: "Pour water", erupt: "Trigger eruption" };
+    document.getElementById("hintChip").textContent = names[t];
+  }
+  document.querySelectorAll(".tool").forEach(b =>
+    b.addEventListener("click", () => setTool(b.dataset.tool)));
+
+  function canvasPos(e) {
+    const r = canvas.getBoundingClientRect();
+    const cx = (e.touches ? e.touches[0].clientX : e.clientX);
+    const cy = (e.touches ? e.touches[0].clientY : e.clientY);
+    return {
+      x: (cx - r.left) / r.width * VW,
+      y: (cy - r.top) / r.height * VH
+    };
+  }
+
+  function applyBrush(col) {
+    const p = 0.9 * (1 + brush * 0.12);
+    for (let d = -brush; d <= brush; d++) {
+      const x = col + d;
+      if (x < 0 || x >= COLS) continue;
+      const falloff = 1 - Math.abs(d) / (brush + 1);
+      if (tool === "raise") {
+        elev[x] += 0.55 * p * falloff;
+        if (elev[x] > ROWS - 3) elev[x] = ROWS - 3;
+      } else if (tool === "lower") {
+        elev[x] -= 0.55 * p * falloff;
+        if (elev[x] < 1) elev[x] = 1;
+        // spill any fluid that no longer has ground under it
+        if (water[x] > 0.05 || lava[x] > 0.05) { /* flows on next step */ }
+      } else if (tool === "lava") {
+        lava[x] += 0.5 * p * falloff;
+        heat[x] = 1;
+      } else if (tool === "water") {
+        water[x] += 0.6 * p * falloff;
+      }
+    }
+    if (tool === "lava" || tool === "water") {
+      for (let d = -brush; d <= brush; d++) {
+        const x = col + d;
+        if (x < 0 || x >= COLS) continue;
+        if (Math.random() < 0.5) {
+          if (tool === "lava") spawnParticle("spark", x * CELL + CELL / 2, (ROWS - elev[x] - lava[x]) * CELL);
+          else spawnParticle("steam", x * CELL + CELL / 2, (ROWS - elev[x] - water[x]) * CELL);
+        }
+      }
+    }
+  }
+
+  function onDown(e) {
+    const p = canvasPos(e);
+    pointerCol = columnOf(p.x);
+    pointerRow = Math.floor(p.y / CELL);
+    if (tool === "erupt") {
+      doEruption(pointerCol, 0.9 + (1 - Math.abs(p.x / VW - 0.5)) * 0.6);
+      return;
+    }
+    painting = true;
+    applyBrush(pointerCol);
+    beep(tool === "lava" ? 180 : tool === "water" ? 520 : 300, 0.05, "triangle");
+  }
+  function onMove(e) {
+    const p = canvasPos(e);
+    pointerCol = columnOf(p.x);
+    pointerRow = Math.floor(p.y / CELL);
+    if (painting && tool !== "erupt") applyBrush(pointerCol);
+  }
+  function onUp() { painting = false; }
+
+  canvas.addEventListener("mousedown", onDown);
+  canvas.addEventListener("mousemove", onMove);
+  window.addEventListener("mouseup", onUp);
+  canvas.addEventListener("touchstart", e => { e.preventDefault(); onDown(e); }, { passive: false });
+  canvas.addEventListener("touchmove", e => { e.preventDefault(); onMove(e); }, { passive: false });
+  canvas.addEventListener("touchend", e => { e.preventDefault(); onUp(); }, { passive: false });
+  canvas.addEventListener("contextmenu", e => e.preventDefault());
+
+  document.addEventListener("keydown", e => {
+    if (e.code === "Digit1") setTool("raise");
+    else if (e.code === "Digit2") setTool("lower");
+    else if (e.code === "Digit3") setTool("lava");
+    else if (e.code === "Digit4") setTool("water");
+    else if (e.code === "Digit5") setTool("erupt");
+    else if (e.code === "KeyR") resetWorld();
+    else if (e.code === "Space") { e.preventDefault(); doEruption(findPeak(), 1.2); }
+  });
+
+  // ============ 6. RENDER ============
+  function mixColor(a, b, t) {
+    const r = Math.round(a[0] + (b[0] - a[0]) * t);
+    const g = Math.round(a[1] + (b[1] - a[1]) * t);
+    const bl = Math.round(a[2] + (b[2] - a[2]) * t);
+    return "rgb(" + r + "," + g + "," + bl + ")";
+  }
+
+  function drawSky() {
+    const chaos = chaosLevel();
+    const g = ctx.createLinearGradient(0, 0, 0, VH);
+    const warm = chaos * 0.55 + Math.min(0.5, lavaTotal * 0.004);
+    g.addColorStop(0, mixColor([24, 32, 58], [70, 22, 16], Math.min(1, warm)));
+    g.addColorStop(0.55, mixColor([58, 74, 104], [122, 54, 30], Math.min(1, warm)));
+    g.addColorStop(1, mixColor([150, 120, 110], [176, 92, 48], Math.min(1, warm * 0.8)));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, VW, VH);
+
+    // distant haze band
+    ctx.fillStyle = "rgba(255,180,120," + (0.03 + warm * 0.05) + ")";
+    ctx.fillRect(0, VH * 0.55, VW, 4);
+  }
+
+  function drawTerrain() {
+    for (let x = 0; x < COLS; x++) {
+      const e = elev[x];
+      const surfaceRow = ROWS - e;
+      const topY = surfaceRow * CELL;
+      const px = x * CELL;
+
+      // body of rock — vertical gradient approximated with bands
+      const h = VH - topY;
+      const grad = ctx.createLinearGradient(0, topY, 0, VH);
+      const warm = heat[x];
+      grad.addColorStop(0, mixColor([74, 62, 60], [180, 78, 34], warm * 0.6));
+      grad.addColorStop(0.35, mixColor([52, 44, 46], [110, 48, 26], warm * 0.4));
+      grad.addColorStop(1, "#131015");
+      ctx.fillStyle = grad;
+      ctx.fillRect(px, topY, CELL, h);
+
+      // surface highlight streak
+      ctx.fillStyle = "rgba(255,235,210," + (0.10 + warm * 0.35) + ")";
+      ctx.fillRect(px, topY, CELL, 1.5);
+    }
+  }
+
+  function drawWater() {
+    ctx.save();
+    for (let x = 0; x < COLS; x++) {
+      if (water[x] <= 0.02) continue;
+      const top = (ROWS - elev[x] - lava[x] - water[x]) * CELL;
+      const hgt = Math.max(1, water[x] * CELL);
+      const px = x * CELL;
+      const g = ctx.createLinearGradient(0, top, 0, top + hgt);
+      g.addColorStop(0, "rgba(120,200,235,0.75)");
+      g.addColorStop(1, "rgba(30,90,140,0.85)");
+      ctx.fillStyle = g;
+      ctx.fillRect(px, top, CELL, hgt);
+      // surface shimmer
+      ctx.fillStyle = "rgba(220,245,255," + (0.10 + 0.06 * Math.sin(time * 2 + x)) + ")";
+      ctx.fillRect(px, top, CELL, 1.2);
+    }
+    ctx.restore();
+  }
+
+  function drawLava() {
+    ctx.save();
+    // additive glow first
+    ctx.globalCompositeOperation = "lighter";
+    for (let x = 0; x < COLS; x++) {
+      if (lava[x] <= 0.02 && heat[x] <= 0.05) continue;
+      const top = (ROWS - elev[x] - lava[x]) * CELL;
+      const glowR = 14 + lava[x] * 4 + heat[x] * 18;
+      const cy = top + 1;
+      const g = ctx.createRadialGradient(x * CELL + CELL / 2, cy, 1, x * CELL + CELL / 2, cy, glowR);
+      const a = Math.min(0.4, 0.12 + lava[x] * 0.12 + heat[x] * 0.2);
+      g.addColorStop(0, "rgba(255,140,40," + a + ")");
+      g.addColorStop(1, "rgba(255,90,20,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x * CELL + CELL / 2, cy, glowR, 0, 6.283);
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = "source-over";
+
+    // solid lava body
+    for (let x = 0; x < COLS; x++) {
+      if (lava[x] <= 0.02) continue;
+      const top = (ROWS - elev[x] - lava[x]) * CELL;
+      const hgt = Math.max(1.5, lava[x] * CELL);
+      const flick = 0.5 + 0.5 * Math.sin(time * 6 + x * 0.7);
+      const hot = Math.max(flick, 0.4) * (0.6 + heat[x] * 0.4);
+      const c1 = mixColor([255, 90, 20], [255, 220, 130], hot);
+      const c2 = mixColor([150, 30, 10], [220, 90, 30], hot);
+      const g = ctx.createLinearGradient(0, top, 0, top + hgt);
+      g.addColorStop(0, c1);
+      g.addColorStop(1, c2);
+      ctx.fillStyle = g;
+      ctx.fillRect(x * CELL, top, CELL, hgt);
+      // crust cracks
+      ctx.fillStyle = "rgba(255,240,180," + (0.15 + hot * 0.5) + ")";
+      ctx.fillRect(x * CELL, top, CELL, 1);
+    }
+    ctx.restore();
+  }
+
+  function drawParticles() {
+    ctx.save();
+    for (const p of particles) {
+      const a = Math.max(0, Math.min(1, p.life / p.max));
+      if (p.type === "smoke") {
+        const c = mixColor([150, 150, 155], [70, 60, 62], p.warm * 0.6);
+        ctx.globalAlpha = a * 0.5;
+        ctx.fillStyle = c;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (1.6 - a * 0.6), 0, 6.283); ctx.fill();
+      } else if (p.type === "steam") {
+        ctx.globalAlpha = a * 0.55;
+        ctx.fillStyle = "#dfe8ee";
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 6.283); ctx.fill();
+      } else if (p.type === "ember") {
+        ctx.globalAlpha = a;
+        ctx.fillStyle = "#ff8a2a";
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 6.283); ctx.fill();
+      } else if (p.type === "spark") {
+        ctx.globalAlpha = a;
+        ctx.fillStyle = mixColor([255, 200, 90], [255, 80, 20], 1 - a);
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 6.283); ctx.fill();
+      } else if (p.type === "ash") {
+        ctx.globalAlpha = a * 0.55;
+        ctx.fillStyle = "#b8aFa6";
+        ctx.fillRect(p.x, p.y, p.size, p.size);
+      }
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  function drawBrush(faint) {
+    if (pointerCol < 0) return;
+    ctx.save();
+    ctx.globalAlpha = faint ? 0.18 : 0.5;
+    ctx.strokeStyle = "#ffd08a";
+    ctx.lineWidth = 1;
+    const x0 = (pointerCol - brush) * CELL;
+    const w = (brush * 2 + 1) * CELL;
+    ctx.strokeRect(x0 + 0.5, VH - 3.5, w - 1, 3);
+    ctx.restore();
+  }
+
+  function drawVignette() {
+    const g = ctx.createRadialGradient(VW / 2, VH / 2, VH * 0.35, VW / 2, VH / 2, VH * 0.85);
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(1, "rgba(0,0,0,0.4)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, VW, VH);
+  }
+
+  function render() {
+    drawSky();
+    drawTerrain();
+    drawWater();
+    drawLava();
+    drawParticles();
+    drawBrush(false);
+    drawVignette();
+  }
+
+  // ============ 7. HUD ============
+  const lavaChip = document.getElementById("lavaChip");
+  const waterChip = document.getElementById("waterChip");
+  const rockChip = document.getElementById("rockChip");
+  const statusChip = document.getElementById("statusChip");
+  const toastEl = document.getElementById("toast");
+  let toastTimer = null;
+
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove("show"), 1300);
+  }
+
+  let hudTick = 0;
+  function updateHUD() {
+    hudTick++;
+    if (hudTick % 8 !== 0) return;
+    lavaChip.textContent = lavaTotal.toFixed(0);
+    waterChip.textContent = waterTotal.toFixed(0);
+    rockChip.textContent = rockDelta.toFixed(0);
+    const chaos = chaosLevel();
+    const activity = Math.min(1, lavaTotal * 0.01 + chaos);
+    let label = "CALM", hot = false;
+    if (activity > 0.72) { label = "ERUPTING"; hot = true; }
+    else if (activity > 0.42) { label = "RESTLESS"; hot = true; }
+    else if (activity > 0.18) { label = "SMOLDERING"; }
+    statusChip.textContent = label;
+    statusChip.classList.toggle("hot", hot);
+  }
+
+  // ============ 8. AUDIO ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+
+  // ============ 9. BOOT ============
+  function resetWorld() {
+    generateIsland((Math.random() * 1e9) | 0);
+    particles = [];
+    painting = false;
+    recomputeTotals();
+    beep(240, 0.12, "sine");
+    toast("New island formed");
+  }
+  document.getElementById("resetBtn").addEventListener("click", resetWorld);
+
+  let last = performance.now();
+  let acc = 0;
+  function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    acc += dt;
+    while (acc >= STEP) {
+      step(STEP);
+      acc -= STEP;
+    }
+    render();
+    updateHUD();
+    requestAnimationFrame(loop);
+  }
+
+  generateIsland(12345);
+  setTool("raise");
+  recomputeTotals();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

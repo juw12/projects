@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>💡 Lights Out</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg-0: #0b1020;
+    --bg-1: #131a2f;
+    --panel: rgba(23, 31, 54, 0.86);
+    --panel-line: rgba(120, 180, 255, 0.16);
+    --text: #dbe7ff;
+    --muted: #8394b8;
+    --accent: #37e0c8;
+    --accent-2: #6aa8ff;
+    --off: #1a2138;
+    --off-edge: #263050;
+    --on: #ffb648;
+    --on-hot: #ffe9a8;
+    --on-glow: rgba(255, 182, 72, 0.55);
+    --cell: 62px;
+    --gap: 10px;
+    --radius: 14px;
+  }
+
+  body {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    background:
+      radial-gradient(900px 600px at 12% -10%, rgba(55, 224, 200, 0.14), transparent 60%),
+      radial-gradient(800px 620px at 100% 110%, rgba(106, 168, 255, 0.16), transparent 60%),
+      linear-gradient(160deg, var(--bg-1), var(--bg-0));
+  }
+
+  /* ============ GAME CONTAINER ============ */
+  .game-container {
+    width: 100%;
+    max-width: 560px;
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    border-radius: 22px;
+    padding: 22px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(6px);
+  }
+
+  /* ============ HEADER ============ */
+  .game-title {
+    text-align: center;
+    font-size: 1.9rem;
+    letter-spacing: 0.14em;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 0 18px rgba(55, 224, 200, 0.45);
+  }
+
+  .game-subtitle {
+    text-align: center;
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin: 6px 0 16px;
+    letter-spacing: 0.03em;
+  }
+
+  /* ============ STATS BOARD ============ */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .stat {
+    background: rgba(9, 14, 28, 0.7);
+    border: 1px solid var(--panel-line);
+    border-radius: 12px;
+    padding: 8px 6px;
+    text-align: center;
+  }
+
+  .stat-label {
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--muted);
+  }
+
+  .stat-value {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+  }
+
+  .stat-value.time { color: var(--accent-2); }
+
+  /* ============ TOOLBAR ============ */
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .size-group { display: flex; gap: 8px; }
+
+  .size-btn {
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--panel-line);
+    background: rgba(9, 14, 28, 0.6);
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s ease;
+  }
+
+  .size-btn:hover { color: var(--text); border-color: rgba(120, 180, 255, 0.4); }
+
+  .size-btn.selected {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #06131a;
+    border-color: transparent;
+    box-shadow: 0 6px 16px rgba(55, 224, 200, 0.3);
+  }
+
+  .tool-group { display: flex; gap: 8px; }
+
+  .tool-btn {
+    padding: 9px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--panel-line);
+    background: rgba(9, 14, 28, 0.6);
+    color: var(--text);
+    font-size: 0.84rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s ease;
+  }
+
+  .tool-btn:hover { border-color: rgba(120, 180, 255, 0.45); transform: translateY(-1px); }
+  .tool-btn:active { transform: translateY(0); }
+  .tool-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .tool-btn.primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #06131a;
+    border-color: transparent;
+  }
+
+  /* ============ BOARD ============ */
+  .board-wrap {
+    position: relative;
+    background: rgba(6, 10, 22, 0.66);
+    border: 1px solid var(--panel-line);
+    border-radius: 18px;
+    padding: 12px;
+  }
+
+  .board {
+    display: grid;
+    gap: var(--gap);
+    grid-template-columns: repeat(var(--n, 5), 1fr);
+    width: 100%;
+    aspect-ratio: 1 / 1;
+  }
+
+  .cell {
+    position: relative;
+    border: 1px solid var(--off-edge);
+    border-radius: 12px;
+    background: var(--off);
+    cursor: pointer;
+    transition: background 0.14s ease, box-shadow 0.22s ease, transform 0.08s ease;
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.45);
+    outline: none;
+  }
+
+  .cell::after {
+    content: "";
+    position: absolute;
+    inset: 22%;
+    border-radius: 50%;
+    background: var(--off-edge);
+    opacity: 0.55;
+    transition: all 0.2s ease;
+  }
+
+  .cell.on {
+    background: radial-gradient(circle at 40% 32%, var(--on-hot), var(--on) 68%);
+    border-color: var(--on);
+    box-shadow: 0 0 16px var(--on-glow), 0 0 34px rgba(255, 182, 72, 0.22);
+  }
+
+  .cell.on::after {
+    background: rgba(255, 255, 255, 0.85);
+    opacity: 0.4;
+    inset: 34%;
+  }
+
+  .cell:active { transform: scale(0.94); }
+
+  .cell.hint {
+    animation: hintPulse 0.55s ease-in-out 4;
+  }
+
+  .cell.pressed { animation: pressPop 0.2s ease; }
+
+  @keyframes pressPop {
+    0% { transform: scale(1); }
+    45% { transform: scale(0.9); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes hintPulse {
+    0%, 100% { box-shadow: inset 0 2px 6px rgba(0,0,0,0.45); border-color: var(--off-edge); }
+    50% { box-shadow: 0 0 20px 3px rgba(106, 168, 255, 0.9); border-color: var(--accent-2); }
+  }
+
+  /* ============ OVERLAYS ============ */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    border-radius: 18px;
+    background: rgba(7, 11, 22, 0.88);
+    text-align: center;
+    padding: 24px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s ease;
+    z-index: 20;
+  }
+
+  .overlay.visible { opacity: 1; pointer-events: auto; }
+
+  .overlay-title {
+    font-size: 1.7rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.05em;
+    text-shadow: 0 0 20px rgba(55, 224, 200, 0.45);
+  }
+
+  .overlay-text { font-size: 0.9rem; color: var(--muted); line-height: 1.5; max-width: 340px; }
+
+  .overlay-buttons { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+
+  .hidden { display: none !important; }
+
+  /* ============ FOOTER HINT ============ */
+  .footnote {
+    text-align: center;
+    font-size: 0.74rem;
+    color: var(--muted);
+    margin-top: 14px;
+    line-height: 1.5;
+  }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 520px) {
+    :root { --gap: 8px; }
+    .game-container { padding: 16px; border-radius: 18px; }
+    .game-title { font-size: 1.45rem; }
+    .stats { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .stat-value { font-size: 0.92rem; }
+    .toolbar { justify-content: center; }
+    .size-btn { padding: 7px 11px; font-size: 0.76rem; }
+    .tool-btn { padding: 8px 12px; font-size: 0.78rem; }
+  }
+
+  @media (max-width: 360px) {
+    .stat-label { font-size: 0.55rem; }
+    .stat-value { font-size: 0.82rem; }
+  }
+</style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">LIGHTS OUT</h1>
+    <p class="game-subtitle">Tap a tile to flip it and its four neighbours. Turn every light off.</p>
+
+    <div class="stats">
+      <div class="stat"><div class="stat-label">Moves</div><div class="stat-value" id="moves">0</div></div>
+      <div class="stat"><div class="stat-label">Best</div><div class="stat-value" id="bestMoves">–</div></div>
+      <div class="stat"><div class="stat-label">Time</div><div class="stat-value time" id="time">0:00</div></div>
+      <div class="stat"><div class="stat-label">Best Time</div><div class="stat-value time" id="bestTime">–</div></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="size-group" id="sizeGroup">
+        <button class="size-btn selected" data-size="5">5 × 5</button>
+        <button class="size-btn" data-size="6">6 × 6</button>
+        <button class="size-btn" data-size="7">7 × 7</button>
+      </div>
+      <div class="tool-group">
+        <button class="tool-btn" id="hintBtn">Hint (3)</button>
+        <button class="tool-btn primary" id="restartBtn">New Board</button>
+      </div>
+    </div>
+
+    <div class="board-wrap">
+      <div class="board" id="board" role="grid" aria-label="Lights Out board"></div>
+
+      <!-- Start Overlay -->
+      <div class="overlay visible" id="startOverlay">
+        <div class="overlay-title">Ready?</div>
+        <p class="overlay-text">Every board is generated from a solved state, so it can always be cleared. Fewer moves means a better score.</p>
+        <div class="overlay-buttons">
+          <button class="tool-btn primary" id="playBtn">Play</button>
+        </div>
+      </div>
+
+      <!-- Win Overlay -->
+      <div class="overlay" id="winOverlay">
+        <div class="overlay-title">Solved!</div>
+        <p class="overlay-text" id="winText">All lights out.</p>
+        <div class="overlay-buttons">
+          <button class="tool-btn primary" id="againBtn">Play Again</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="footnote">Click or tap a tile. Press <strong>H</strong> for a hint, <strong>R</strong> to restart.</p>
+  </div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // ============ CONFIGURATION ============
+    var SIZES = [5, 6, 7];
+    var HINT_LIMIT = 3;
+    var STORE_PREFIX = "lightsout";
+
+    // ============ GAME STATE ============
+    var size = 5;                 // current board dimension
+    var total = size * size;      // number of cells
+    var board = [];               // 0 = off, 1 = on
+    var solution = new Set();     // one valid set of presses that solves the board
+    var remaining = new Set();    // presses still required to reach a solved board
+    var moves = 0;
+    var hintsLeft = HINT_LIMIT;
+    var playing = false;          // board is interactive
+    var solved = false;
+    var startTs = 0;
+    var elapsed = 0;              // seconds
+    var timerId = null;
+    var hintTimer = null;
+
+    // ============ DOM ELEMENTS ============
+    var boardEl = document.getElementById("board");
+    var movesEl = document.getElementById("moves");
+    var bestMovesEl = document.getElementById("bestMoves");
+    var timeEl = document.getElementById("time");
+    var bestTimeEl = document.getElementById("bestTime");
+    var hintBtn = document.getElementById("hintBtn");
+    var restartBtn = document.getElementById("restartBtn");
+    var sizeGroup = document.getElementById("sizeGroup");
+    var startOverlay = document.getElementById("startOverlay");
+    var winOverlay = document.getElementById("winOverlay");
+    var winText = document.getElementById("winText");
+    var playBtn = document.getElementById("playBtn");
+    var againBtn = document.getElementById("againBtn");
+
+    // ============ AUDIO ============
+    var actx = null;
+
+    function beep(freq, dur, type, vol) {
+      try {
+        if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+        var o = actx.createOscillator();
+        var g = actx.createGain();
+        o.type = type || "sine";
+        o.frequency.value = freq;
+        g.gain.value = vol == null ? 0.06 : vol;
+        o.connect(g);
+        g.connect(actx.destination);
+        var t = actx.currentTime;
+        o.start(t);
+        g.gain.setValueAtTime(g.gain.value, t);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.stop(t + dur + 0.02);
+      } catch (e) { /* audio unavailable */ }
+    }
+
+    // ============ STORAGE ============
+    function storeKey(kind, n) { return STORE_PREFIX + "-" + kind + "-" + n; }
+
+    function loadNum(key) {
+      var v = parseInt(localStorage.getItem(key), 10);
+      return isNaN(v) ? null : v;
+    }
+
+    function saveNum(key, val) {
+      try { localStorage.setItem(key, String(val)); } catch (e) { /* ignore */ }
+    }
+
+    // ============ BOARD MATH ============
+    // Toggle a cell and its four orthogonal neighbours (in place).
+    function toggleAt(arr, idx, n) {
+      var r = Math.floor(idx / n);
+      var c = idx % n;
+      arr[idx] ^= 1;
+      if (r > 0) arr[idx - n] ^= 1;
+      if (r < n - 1) arr[idx + n] ^= 1;
+      if (c > 0) arr[idx - 1] ^= 1;
+      if (c < n - 1) arr[idx + 1] ^= 1;
+    }
+
+    // ============ GENERATION ============
+    // Build a solvable puzzle by pressing random tiles on an all-off board.
+    function generateBoard() {
+      total = size * size;
+      var next;
+      do {
+        next = new Set();
+        var presses = Math.max(3, Math.round(total * (0.32 + Math.random() * 0.28)));
+        for (var i = 0; i < presses; i++) {
+          var idx = Math.floor(Math.random() * total);
+          if (next.has(idx)) { next.delete(idx); } else { next.add(idx); }
+        }
+      } while (next.size === 0);
+
+      solution = next;
+      board = new Array(total).fill(0);
+      solution.forEach(function (idx) { toggleAt(board, idx, size); });
+
+      // Board must start with at least one light on.
+      if (board.every(function (v) { return v === 0; })) return generateBoard();
+    }
+
+    // ============ RENDER ============
+    function buildGrid() {
+      boardEl.style.setProperty("--n", size);
+      boardEl.innerHTML = "";
+      for (var i = 0; i < total; i++) {
+        var cell = document.createElement("button");
+        cell.type = "button";
+        cell.className = "cell";
+        cell.dataset.index = String(i);
+        cell.setAttribute("role", "gridcell");
+        boardEl.appendChild(cell);
+      }
+      paintCells();
+    }
+
+    function paintCells() {
+      var kids = boardEl.children;
+      for (var i = 0; i < kids.length; i++) {
+        var on = board[i] === 1;
+        var cls = kids[i].classList;
+        if (on) { cls.add("on"); } else { cls.remove("on"); }
+        kids[i].setAttribute("aria-label", "row " + (Math.floor(i / size) + 1) + " column " + (i % size + 1) + " " + (on ? "on" : "off"));
+      }
+    }
+
+    function updateStats() {
+      movesEl.textContent = moves;
+      var bm = loadNum(storeKey("best-moves", size));
+      bestMovesEl.textContent = bm == null ? "–" : bm;
+      var bt = loadNum(storeKey("best-time", size));
+      bestTimeEl.textContent = bt == null ? "–" : fmtTime(bt);
+      timeEl.textContent = fmtTime(elapsed);
+      hintBtn.textContent = "Hint (" + hintsLeft + ")";
+      hintBtn.disabled = !playing || hintsLeft <= 0;
+    }
+
+    function fmtTime(sec) {
+      var m = Math.floor(sec / 60);
+      var s = sec % 60;
+      return m + ":" + (s < 10 ? "0" : "") + s;
+    }
+
+    // ============ TIMER ============
+    function startTimer() {
+      if (timerId) return;
+      startTs = Date.now() - elapsed * 1000;
+      timerId = setInterval(function () {
+        elapsed = Math.floor((Date.now() - startTs) / 1000);
+        timeEl.textContent = fmtTime(elapsed);
+      }, 250);
+    }
+
+    function stopTimer() {
+      if (timerId) { clearInterval(timerId); timerId = null; }
+    }
+
+    function resetTimer() {
+      stopTimer();
+      elapsed = 0;
+      timeEl.textContent = fmtTime(0);
+    }
+
+    // ============ GAME FLOW ============
+    function newGame() {
+      generateBoard();
+      remaining = new Set(solution);
+      moves = 0;
+      hintsLeft = HINT_LIMIT;
+      solved = false;
+      playing = false;
+      resetTimer();
+      buildGrid();
+      updateStats();
+      winOverlay.classList.remove("visible");
+    }
+
+    function startPlay() {
+      playing = true;
+      startOverlay.classList.remove("visible");
+      startTimer();
+    }
+
+    function press(idx) {
+      if (!playing || solved) return;
+      if (elapsed === 0) startTimer();
+
+      toggleAt(board, idx, size);
+      moves++;
+      if (remaining.has(idx)) { remaining.delete(idx); } else { remaining.add(idx); }
+
+      // Audio feedback: warmer tone while lights remain, higher when clearing.
+      var onCount = board.reduce(function (a, v) { return a + v; }, 0);
+      beep(220 + onCount * 14, 0.08, "square", 0.05);
+
+      var el = boardEl.children[idx];
+      el.classList.remove("pressed");
+      void el.offsetWidth; // restart animation
+      el.classList.add("pressed");
+
+      paintCells();
+      updateStats();
+
+      if (board.every(function (v) { return v === 0; })) { win(); }
+    }
+
+    function win() {
+      solved = true;
+      playing = false;
+      stopTimer();
+
+      beep(660, 0.12, "triangle", 0.07);
+      setTimeout(function () { beep(880, 0.14, "triangle", 0.07); }, 120);
+      setTimeout(function () { beep(1180, 0.22, "triangle", 0.07); }, 260);
+
+      var bm = loadNum(storeKey("best-moves", size));
+      var bt = loadNum(storeKey("best-time", size));
+      var msg = "All lights out in " + moves + " moves and " + fmtTime(elapsed) + ".";
+      var record = false;
+
+      if (bm == null || moves < bm) { saveNum(storeKey("best-moves", size), moves); record = true; }
+      if (bt == null || elapsed < bt) { saveNum(storeKey("best-time", size), elapsed); record = true; }
+
+      if (record) {
+        msg += " New personal best!";
+        winOverlay.querySelector(".overlay-title").textContent = "New Record!";
+      } else {
+        winOverlay.querySelector(".overlay-title").textContent = "Solved!";
+      }
+      winText.textContent = msg;
+      updateStats();
+      winOverlay.classList.add("visible");
+    }
+
+    // ============ HINT ============
+    function useHint() {
+      if (!playing || hintsLeft <= 0 || solved) return;
+      if (remaining.size === 0) return;
+
+      var pick = null;
+      remaining.forEach(function (idx) { if (pick === null) pick = idx; });
+      if (pick === null) return;
+
+      hintsLeft--;
+      beep(1046, 0.14, "sine", 0.05);
+
+      var el = boardEl.children[pick];
+      el.classList.remove("hint");
+      void el.offsetWidth;
+      el.classList.add("hint");
+      if (hintTimer) clearTimeout(hintTimer);
+      hintTimer = setTimeout(function () { el.classList.remove("hint"); }, 2400);
+
+      updateStats();
+    }
+
+    // ============ CONTROLS ============
+    var lastTouchTs = 0;
+
+    boardEl.addEventListener("click", function (e) {
+      if (Date.now() - lastTouchTs < 500) return; // ignore synthetic click after touch
+      var cell = e.target.closest(".cell");
+      if (!cell) return;
+      press(parseInt(cell.dataset.index, 10));
+    });
+
+    boardEl.addEventListener("touchstart", function (e) {
+      var cell = e.target.closest(".cell");
+      if (!cell) return;
+      e.preventDefault();
+      lastTouchTs = Date.now();
+      press(parseInt(cell.dataset.index, 10));
+    }, { passive: false });
+
+    sizeGroup.addEventListener("click", function (e) {
+      var btn = e.target.closest(".size-btn");
+      if (!btn) return;
+      var n = parseInt(btn.dataset.size, 10);
+      if (n === size) return;
+      Array.prototype.forEach.call(sizeGroup.children, function (b) { b.classList.remove("selected"); });
+      btn.classList.add("selected");
+      size = n;
+      newGame();
+      startPlay();
+      beep(520, 0.08, "square", 0.045);
+    });
+
+    restartBtn.addEventListener("click", function () {
+      newGame();
+      startPlay();
+      beep(440, 0.09, "square", 0.05);
+    });
+
+    hintBtn.addEventListener("click", useHint);
+
+    playBtn.addEventListener("click", function () {
+      startPlay();
+      beep(600, 0.09, "sine", 0.05);
+    });
+
+    againBtn.addEventListener("click", function () {
+      newGame();
+      startPlay();
+      beep(600, 0.09, "sine", 0.05);
+    });
+
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "h" || e.key === "H") { useHint(); }
+      else if (e.key === "r" || e.key === "R") { newGame(); startPlay(); }
+    });
+
+    // Pause the timer when the tab is hidden (prevents runaway time).
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) { stopTimer(); }
+      else if (playing && !solved && elapsed > 0) { startTimer(); }
+    });
+
+    // ============ INITIALISE ============
+    newGame();
+    updateStats();
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🔺 Pyramid Hop</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Trebuchet MS', 'Segoe UI', Tahoma, sans-serif;
+      background: radial-gradient(circle at 50% 0%, #2a1e4a 0%, #16112b 45%, #0d0a1a 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+      color: #efe9ff;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(30, 22, 56, 0.72);
+      border: 1px solid rgba(150, 120, 255, 0.28);
+      border-radius: 22px;
+      padding: 18px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      max-width: 560px;
+      width: 96%;
+      backdrop-filter: blur(6px);
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.9rem;
+      letter-spacing: 3px;
+      color: #ffd166;
+      margin-bottom: 4px;
+      text-shadow: 0 0 18px rgba(255, 209, 102, 0.5);
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.82rem;
+      color: #a99fd0;
+      margin-bottom: 14px;
+      letter-spacing: 1px;
+    }
+
+    /* ============ HUD ============ */
+    .hud {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding: 10px 14px;
+      background: linear-gradient(135deg, rgba(90, 60, 160, 0.35), rgba(40, 28, 80, 0.5));
+      border: 1px solid rgba(150, 120, 255, 0.22);
+      border-radius: 12px;
+      font-size: 0.9rem;
+    }
+
+    .hud .stat {
+      color: #b9b0e0;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .hud .stat span {
+      color: #ffd166;
+    }
+
+    .target-wrap {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: #b9b0e0;
+      font-weight: 600;
+    }
+
+    .target-swatch {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      border: 2px solid rgba(255, 255, 255, 0.55);
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.25);
+      transition: background 0.3s ease;
+    }
+
+    .lives {
+      color: #ff6b8a;
+      letter-spacing: 2px;
+    }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 30%, #241a45 0%, #120d24 70%);
+      box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.6);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    /* ============ SCREENS (Overlays) ============ */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 24px;
+      background: rgba(14, 10, 28, 0.9);
+      transition: opacity 0.35s ease;
+    }
+
+    .screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .screen-title {
+      font-size: 1.9rem;
+      color: #ffd166;
+      margin-bottom: 8px;
+      letter-spacing: 2px;
+      text-shadow: 0 0 20px rgba(255, 209, 102, 0.45);
+    }
+
+    .screen-subtitle {
+      font-size: 0.86rem;
+      color: #a99fd0;
+      margin-bottom: 20px;
+      max-width: 340px;
+      line-height: 1.55;
+    }
+
+    .screen-subtitle b {
+      color: #9ee6ff;
+    }
+
+    .final-score {
+      font-size: 1.25rem;
+      color: #ffd166;
+      margin-bottom: 18px;
+    }
+
+    .final-score small {
+      display: block;
+      font-size: 0.8rem;
+      color: #a99fd0;
+      margin-top: 6px;
+    }
+
+    /* ============ ACTION BUTTONS ============ */
+    .action-btn {
+      padding: 13px 36px;
+      background: linear-gradient(135deg, #ffd166, #ff9f5a);
+      color: #2a1e4a;
+      border: none;
+      border-radius: 24px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 6px 20px rgba(255, 159, 90, 0.35);
+      font-family: inherit;
+    }
+
+    .action-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 26px rgba(255, 159, 90, 0.5);
+    }
+
+    .action-btn:active {
+      transform: translateY(-1px);
+    }
+
+    /* ============ PAUSE OVERLAY ============ */
+    .pause-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(14, 10, 28, 0.78);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.7rem;
+      color: #ffd166;
+      font-weight: 700;
+      letter-spacing: 2px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .pause-overlay.visible {
+      opacity: 1;
+    }
+
+    /* ============ MOBILE CONTROLS ============ */
+    .mobile-controls {
+      display: none;
+      margin-top: 14px;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .dpad {
+      display: grid;
+      grid-template-columns: repeat(3, 54px);
+      grid-template-rows: repeat(3, 54px);
+      gap: 8px;
+    }
+
+    .control-btn {
+      background: linear-gradient(135deg, rgba(120, 90, 200, 0.5), rgba(60, 42, 110, 0.7));
+      border: 2px solid rgba(150, 120, 255, 0.4);
+      border-radius: 14px;
+      font-size: 1.4rem;
+      color: #efe9ff;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: transform 0.1s ease, background 0.1s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      font-family: inherit;
+    }
+
+    .control-btn:active {
+      background: rgba(255, 209, 102, 0.4);
+      transform: scale(0.93);
+    }
+
+    .control-btn.ul { grid-column: 2; grid-row: 1; }
+    .control-btn.dl { grid-column: 1; grid-row: 2; }
+    .control-btn.ur { grid-column: 3; grid-row: 2; }
+    .control-btn.dr { grid-column: 2; grid-row: 3; }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 520px) {
+      .game-container { padding: 12px; }
+      .game-title { font-size: 1.45rem; letter-spacing: 2px; }
+      .hud { font-size: 0.78rem; padding: 8px 10px; }
+      .mobile-controls { display: flex; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">PYRAMID HOP</h1>
+    <p class="game-subtitle">Colour every cube to match the target</p>
+
+    <div class="hud">
+      <div class="stat">LVL <span id="hudLevel">1</span></div>
+      <div class="stat">SCORE <span id="hudScore">0</span></div>
+      <div class="stat">BEST <span id="hudBest">0</span></div>
+      <div class="target-wrap">GOAL <div class="target-swatch" id="targetSwatch"></div></div>
+      <div class="lives" id="hudLives">♥♥♥</div>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="520" height="520"></canvas>
+
+      <!-- Start Screen -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">PYRAMID HOP</h2>
+        <p class="screen-subtitle">
+          Hop a cube to cycle its colour. Turn <b>every cube</b> into the target colour.<br />
+          Dodge the rolling spheres &mdash; and never hop into a hole!<br />
+          Some cubes flicker in and out of existence.
+        </p>
+        <p class="screen-subtitle" style="margin-bottom:14px;">
+          <b>Arrows / WASD</b> to hop &nbsp;·&nbsp; <b>P</b> to pause
+        </p>
+        <button class="action-btn" id="startBtn">Start</button>
+      </div>
+
+      <!-- Level Complete Screen -->
+      <div id="levelScreen" class="screen hidden">
+        <h2 class="screen-title" id="levelTitle">Level Complete!</h2>
+        <p class="final-score" id="levelScore"></p>
+        <button class="action-btn" id="nextBtn">Next Level</button>
+      </div>
+
+      <!-- Game Over / Victory Screen -->
+      <div id="overScreen" class="screen hidden">
+        <h2 class="screen-title" id="overTitle">Game Over</h2>
+        <p class="final-score" id="overScore"></p>
+        <button class="action-btn" id="againBtn">Play Again</button>
+      </div>
+
+      <!-- Pause Overlay -->
+      <div id="pauseOverlay" class="pause-overlay">PAUSED</div>
+    </div>
+
+    <!-- Mobile Controls -->
+    <div class="mobile-controls" id="mobileControls">
+      <div class="dpad">
+        <button class="control-btn ul" data-dir="ul">⬉</button>
+        <button class="control-btn dl" data-dir="dl">⬋</button>
+        <button class="control-btn ur" data-dir="ur">⬈</button>
+        <button class="control-btn dr" data-dir="dr">⬊</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============ GAME CONFIGURATION ============
+    const CONFIG = {
+      COLS: 5,
+      ROWS: 5,
+      TILE_W: 88,        // width of one isometric tile (full diamond width)
+      TILE_H: 44,        // height of one isometric tile (full diamond height)
+      CUBE_H: 30,        // screen height of one stacked cube unit
+      HOP_MS: 165,       // duration of a hop
+      FALL_MS: 460,      // duration of a fall
+      ENEMY_MS: 620,     // enemy step interval
+      BLINK_MS: 1150,    // flicker period
+      START_LIVES: 3,
+      MAX_LEVEL: 8
+    };
+
+    // Colour palette: each entry has a lit top face and two shaded side faces.
+    const PALETTE = [
+      { name: 'rose', top: '#ff8fa3', left: '#d4617a', right: '#b44a63' },
+      { name: 'sky',  top: '#7ec8f0', left: '#559fc7', right: '#3f7fa3' },
+      { name: 'mint', top: '#8ee6b0', left: '#63bf89', right: '#4a9a6b' },
+      { name: 'gold', top: '#ffd166', left: '#d9a844', right: '#b48833' }
+    ];
+
+    // ============ CANVAS SETUP ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = 520, H = 520;
+    let originX = W / 2, originY = 220;
+
+    function setupCanvas() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      canvas.style.width = '100%';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    // ============ GAME STATE ============
+    let cubes = [];              // all cube objects for the level
+    let cubeMap = {};            // "x,y" -> cube object (existing cubes only)
+    let enemies = [];
+    let targetColor = 0;
+    let numColors = 2;
+
+    const player = {
+      gx: 0, gy: 0, h: 1,
+      ax: 0, ay: 0, az: 1,
+      fx: 0, fy: 0, fh: 1,
+      tx: 0, ty: 0, th: 1,
+      state: 'idle',            // idle | hop | fall | locked
+      t: 0,
+      invuln: 0,
+      face: 1
+    };
+
+    const game = {
+      level: 1,
+      score: 0,
+      best: parseInt(localStorage.getItem('pyramidHopBest') || '0', 10),
+      lives: CONFIG.START_LIVES,
+      running: false,
+      paused: false,
+      elapsed: 0,
+      enemyTimer: 0,
+      lastSafe: { x: 0, y: 0, h: 1 }
+    };
+
+    // ============ DOM ELEMENTS ============
+    const hudLevel = document.getElementById('hudLevel');
+    const hudScore = document.getElementById('hudScore');
+    const hudBest = document.getElementById('hudBest');
+    const hudLives = document.getElementById('hudLives');
+    const targetSwatch = document.getElementById('targetSwatch');
+    const startScreen = document.getElementById('startScreen');
+    const levelScreen = document.getElementById('levelScreen');
+    const levelTitle = document.getElementById('levelTitle');
+    const levelScore = document.getElementById('levelScore');
+    const overScreen = document.getElementById('overScreen');
+    const overTitle = document.getElementById('overTitle');
+    const overScore = document.getElementById('overScore');
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const startBtn = document.getElementById('startBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const againBtn = document.getElementById('againBtn');
+    const mobileControls = document.getElementById('mobileControls');
+
+    // ============ AUDIO (WebAudio beep) ============
+    let actx = null;
+    function initAudio() {
+      if (!actx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) { try { actx = new AC(); } catch (e) { actx = null; } }
+      }
+      if (actx && actx.state === 'suspended') actx.resume();
+    }
+    function beep(freq, dur, type, vol) {
+      if (!actx) return;
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || 'square';
+      o.frequency.value = freq;
+      const v = vol === undefined ? 0.05 : vol;
+      g.gain.setValueAtTime(v, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g);
+      g.connect(actx.destination);
+      o.start();
+      o.stop(actx.currentTime + dur);
+    }
+    function jingle(notes) {
+      notes.forEach((n, i) => setTimeout(() => beep(n, 0.18, 'triangle', 0.07), i * 110));
+    }
+
+    // ============ ISOMETRIC HELPERS ============
+    // Convert grid + height to screen space.
+    function iso(gx, gy, gz) {
+      return {
+        x: originX + (gx - gy) * (CONFIG.TILE_W / 2),
+        y: originY + (gx + gy) * (CONFIG.TILE_H / 2) - gz * CONFIG.CUBE_H
+      };
+    }
+
+    function computeOrigin() {
+      const span = CONFIG.COLS + CONFIG.ROWS - 2;      // max (x + y)
+      const boardH = span * (CONFIG.TILE_H / 2);
+      const maxH = 3 * CONFIG.CUBE_H;
+      originX = W / 2;
+      originY = (H - boardH) / 2 + maxH * 0.55;
+    }
+
+    function lerp(a, b, t) { return a + (b - a) * t; }
+
+    function shade(hex, amount) {
+      // Darken/lighten a hex colour by amount (-1..1)
+      const c = hex.replace('#', '');
+      let r = parseInt(c.substring(0, 2), 16);
+      let g = parseInt(c.substring(2, 4), 16);
+      let b = parseInt(c.substring(4, 6), 16);
+      const f = 1 + amount;
+      r = Math.max(0, Math.min(255, Math.round(r * f)));
+      g = Math.max(0, Math.min(255, Math.round(g * f)));
+      b = Math.max(0, Math.min(255, Math.round(b * f)));
+      return 'rgb(' + r + ',' + g + ',' + b + ')';
+    }
+
+    // ============ LEVEL GENERATION ============
+    function keyOf(x, y) { return x + ',' + y; }
+
+    function neighborsOf(x, y) {
+      return [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]];
+    }
+
+    function isConnected() {
+      const start = keyOf(0, 0);
+      if (!cubeMap[start]) return false;
+      const seen = {};
+      const stack = [[0, 0]];
+      seen[start] = true;
+      let count = 0;
+      while (stack.length) {
+        const [cx, cy] = stack.pop();
+        count++;
+        neighborsOf(cx, cy).forEach(([nx, ny]) => {
+          const k = keyOf(nx, ny);
+          if (cubeMap[k] && !seen[k]) { seen[k] = true; stack.push([nx, ny]); }
+        });
+      }
+      return count === Object.keys(cubeMap).length;
+    }
+
+    function buildLevel() {
+      cubes = [];
+      cubeMap = {};
+      enemies = [];
+
+      const N = CONFIG.COLS;
+      numColors = Math.min(2 + Math.floor(game.level / 2), PALETTE.length);
+
+      // --- Stepped pyramid heights (edge = 1, centre tallest) ---
+      for (let y = 0; y < N; y++) {
+        for (let x = 0; x < N; x++) {
+          const d = Math.min(x, y, N - 1 - x, N - 1 - y);
+          cubes.push({
+            x: x, y: y, h: d + 1,
+            color: 0, visible: true,
+            blink: false, phase: Math.random() * 6.28,
+            pop: 0
+          });
+        }
+      }
+      cubes.forEach(c => { cubeMap[keyOf(c.x, c.y)] = c; });
+
+      // --- Carve holes in the outer ring (keeps the interior solid) ---
+      const gapCount = game.level >= 2 ? Math.min(game.level - 1, 4) : 0;
+      const candidates = cubes.filter(c => {
+        const d = Math.min(c.x, c.y, N - 1 - c.x, N - 1 - c.y);
+        const nearStart = (c.x === 0 && c.y === 0) ||
+                          (c.x === 1 && c.y === 0) || (c.x === 0 && c.y === 1);
+        return d === 0 && !nearStart;
+      });
+      // Shuffle candidates deterministically-ish
+      for (let i = candidates.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = candidates[i]; candidates[i] = candidates[j]; candidates[j] = tmp;
+      }
+      let removed = 0;
+      for (const c of candidates) {
+        if (removed >= gapCount) break;
+        delete cubeMap[keyOf(c.x, c.y)];
+        if (isConnected()) {
+          removed++;
+        } else {
+          cubeMap[keyOf(c.x, c.y)] = c; // revert, would isolate the board
+        }
+      }
+      cubes = cubes.filter(c => cubeMap[keyOf(c.x, c.y)] === c);
+
+      // --- Target colour + starting colours ---
+      targetColor = Math.floor(Math.random() * numColors);
+      cubes.forEach(c => {
+        if (Math.random() < 0.72) {
+          // Bias away from the target so the player has work to do.
+          let pick;
+          do { pick = Math.floor(Math.random() * numColors); } while (pick === targetColor && numColors > 1);
+          c.color = pick;
+        } else {
+          c.color = Math.floor(Math.random() * numColors);
+        }
+      });
+
+      // --- Flickering cubes ---
+      if (game.level >= 2) {
+        const blinkCount = Math.min(game.level - 1, 3);
+        const blinkables = cubes.filter(c => !(c.x === 0 && c.y === 0));
+        for (let i = 0; i < blinkCount && blinkables.length; i++) {
+          const idx = Math.floor(Math.random() * blinkables.length);
+          blinkables[idx].blink = true;
+          blinkables.splice(idx, 1);
+        }
+      }
+
+      // --- Enemies ---
+      const enemyCount = Math.min(1 + Math.floor(game.level / 2), 4);
+      const spawnables = cubes.filter(c => c.h <= 2);
+      for (let i = 0; i < enemyCount && spawnables.length; i++) {
+        const c = spawnables[Math.floor(Math.random() * spawnables.length)];
+        const horiz = Math.random() < 0.5;
+        enemies.push({
+          x: c.x, y: c.y,
+          dx: horiz ? 1 : 0,
+          dy: horiz ? 0 : 1,
+          ax: c.x, ay: c.y, az: c.h,
+          spin: 0
+        });
+      }
+
+      // --- Reset player to the low corner ---
+      const start = cubeMap[keyOf(0, 0)] || cubes[0];
+      player.gx = start.x; player.gy = start.y; player.h = start.h;
+      player.ax = start.x; player.ay = start.y; player.az = start.h;
+      player.state = 'idle'; player.t = 0; player.invuln = 0;
+      game.lastSafe = { x: start.x, y: start.y, h: start.h };
+      game.enemyTimer = 0;
+      game.elapsed = 0;
+
+      updateHUD();
+    }
+
+    // ============ HUD ============
+    function updateHUD() {
+      hudLevel.textContent = game.level;
+      hudScore.textContent = game.score;
+      hudBest.textContent = game.best;
+      let hearts = '';
+      for (let i = 0; i < Math.max(0, game.lives); i++) hearts += '♥';
+      hudLives.textContent = hearts || '—';
+      targetSwatch.style.background = PALETTE[targetColor].top;
+      targetSwatch.style.boxShadow = '0 0 12px ' + PALETTE[targetColor].top;
+    }
+
+    // ============ PLAYER MOVEMENT ============
+    function startHop(dx, dy) {
+      if (player.state !== 'idle') return;
+      const nx = player.gx + dx;
+      const ny = player.gy + dy;
+
+      if (nx < 0 || ny < 0 || nx >= CONFIG.COLS || ny >= CONFIG.ROWS) {
+        beep(150, 0.08, 'sawtooth', 0.04);
+        return;
+      }
+
+      player.face = dx !== 0 ? Math.sign(dx) : player.face;
+      player.fx = player.gx; player.fy = player.gy; player.fh = player.h;
+      player.tx = nx; player.ty = ny;
+      player.t = 0;
+
+      const c = cubeMap[keyOf(nx, ny)];
+      if (c && c.visible) {
+        // Valid landing.
+        player.th = c.h;
+        player.state = 'hop';
+        beep(560 + Math.random() * 40, 0.07, 'square', 0.045);
+      } else {
+        // Hopping into a hole -> fall.
+        player.th = -3;
+        player.state = 'fall';
+        beep(200, 0.2, 'sawtooth', 0.05);
+      }
+    }
+
+    function land() {
+      player.state = 'idle';
+      player.h = player.th;
+      const c = cubeMap[keyOf(player.gx, player.gy)];
+      if (!c || !c.visible) { beginFall(); return; }
+
+      // Cycle the cube's colour.
+      c.color = (c.color + 1) % numColors;
+      c.pop = 1;
+
+      game.lastSafe = { x: player.gx, y: player.gy, h: player.h };
+
+      if (c.color === targetColor) {
+        game.score += 10;
+        beep(880, 0.1, 'triangle', 0.06);
+      } else {
+        beep(440, 0.05, 'square', 0.03);
+      }
+      updateHUD();
+      checkWin();
+    }
+
+    function beginFall() {
+      player.state = 'fall';
+      player.fx = player.ax; player.fy = player.ay; player.fh = player.az;
+      player.tx = player.gx; player.ty = player.gy; player.th = -3;
+      player.t = 0;
+    }
+
+    function afterFall() {
+      if (game.lives > 0) game.lives--;
+      beep(120, 0.3, 'sawtooth', 0.06);
+      updateHUD();
+      if (game.lives <= 0) { endGame(false); return; }
+      respawn();
+    }
+
+    function hit() {
+      if (player.invuln > 0 || !game.running) return;
+      if (game.lives > 0) game.lives--;
+      beep(110, 0.25, 'sawtooth', 0.07);
+      updateHUD();
+      if (game.lives <= 0) { endGame(false); return; }
+      player.invuln = 1.3;
+      respawn();
+    }
+
+    function respawn() {
+      let spot = cubeMap[keyOf(game.lastSafe.x, game.lastSafe.y)];
+      if (!spot || !spot.visible) {
+        // Fall back to any visible cube.
+        const valid = cubes.filter(c => c.visible);
+        spot = valid[Math.floor(Math.random() * valid.length)];
+        if (!spot) { endGame(false); return; }
+      }
+      player.gx = spot.x; player.gy = spot.y; player.h = spot.h;
+      player.ax = spot.x; player.ay = spot.y; player.az = spot.h + 1.2;
+      player.state = 'idle'; player.t = 0;
+      game.lastSafe = { x: spot.x, y: spot.y, h: spot.h };
+    }
+
+    // ============ WIN / LOSE ============
+    function checkWin() {
+      for (const c of cubes) {
+        if (c.removed) continue;
+        if (c.color !== targetColor) return;
+      }
+      levelComplete();
+    }
+
+    function levelComplete() {
+      game.running = false;
+      const bonus = 100 * game.level + Math.max(0, game.lives) * 25;
+      game.score += bonus;
+      if (game.score > game.best) {
+        game.best = game.score;
+        localStorage.setItem('pyramidHopBest', String(game.best));
+      }
+      updateHUD();
+      jingle([523, 659, 784, 1047]);
+
+      if (game.level >= CONFIG.MAX_LEVEL) {
+        overTitle.textContent = 'YOU WIN!';
+        overScore.innerHTML = 'All ' + CONFIG.MAX_LEVEL + ' pyramids conquered!<small>Final Score: ' +
+          game.score + ' · Best: ' + game.best + '</small>';
+        overScreen.classList.remove('hidden');
+      } else {
+        levelTitle.textContent = 'Level ' + game.level + ' Complete!';
+        levelScore.innerHTML = 'Bonus +' + bonus + '<small>Score: ' + game.score + '</small>';
+        levelScreen.classList.remove('hidden');
+      }
+    }
+
+    function endGame() {
+      game.running = false;
+      if (game.score > game.best) {
+        game.best = game.score;
+        localStorage.setItem('pyramidHopBest', String(game.best));
+      }
+      updateHUD();
+      overTitle.textContent = 'Game Over';
+      overScore.innerHTML = 'Score: ' + game.score + '<small>Best: ' + game.best + '</small>';
+      overScreen.classList.remove('hidden');
+    }
+
+    // ============ ENEMIES ============
+    function stepEnemies() {
+      enemies.forEach(e => {
+        const nx = e.x + e.dx;
+        const ny = e.y + e.dy;
+        const c = cubeMap[keyOf(nx, ny)];
+        if (!c || !c.visible) {
+          // Bounce off edge / hole.
+          e.dx = -e.dx;
+          e.dy = -e.dy;
+          const bx = e.x + e.dx;
+          const by = e.y + e.dy;
+          const bc = cubeMap[keyOf(bx, by)];
+          if (bc && bc.visible) { e.x = bx; e.y = by; }
+        } else {
+          e.x = nx; e.y = ny;
+        }
+      });
+    }
+
+    // ============ UPDATE ============
+    function update(dt) {
+      if (!game.running || game.paused) return;
+
+      game.elapsed += dt;
+
+      // --- Flicker cubes ---
+      cubes.forEach(c => {
+        if (c.blink) {
+          const on = Math.floor(game.elapsed / CONFIG.BLINK_MS + c.phase) % 2 === 0;
+          c.visible = on;
+        }
+        if (c.pop > 0) c.pop = Math.max(0, c.pop - dt * 0.006);
+      });
+
+      // --- Player animation ---
+      if (player.state === 'hop') {
+        player.t += dt / CONFIG.HOP_MS;
+        const e = Math.min(1, player.t);
+        player.ax = lerp(player.fx, player.tx, e);
+        player.ay = lerp(player.fy, player.ty, e);
+        player.az = lerp(player.fh, player.th, e) + Math.sin(e * Math.PI) * 0.95;
+        if (player.t >= 1) land();
+      } else if (player.state === 'fall') {
+        player.t += dt / CONFIG.FALL_MS;
+        const e = Math.min(1, player.t);
+        player.ax = lerp(player.fx, player.tx, e);
+        player.ay = lerp(player.fy, player.ty, e);
+        player.az = lerp(player.fh, -3, e * e);
+        if (player.t >= 1) afterFall();
+      } else {
+        const cur = cubeMap[keyOf(player.gx, player.gy)];
+        if (player.state === 'idle' && (!cur || !cur.visible)) {
+          beginFall();
+        }
+      }
+
+      if (player.invuln > 0) player.invuln = Math.max(0, player.invuln - dt / 1000);
+
+      // --- Enemies ---
+      game.enemyTimer += dt;
+      if (game.enemyTimer >= CONFIG.ENEMY_MS) {
+        game.enemyTimer -= CONFIG.ENEMY_MS;
+        stepEnemies();
+      }
+      enemies.forEach(e => {
+        e.ax = lerp(e.ax, e.x, 0.25);
+        e.ay = lerp(e.ay, e.y, 0.25);
+        const c = cubeMap[keyOf(e.x, e.y)];
+        const target = c ? c.h : e.az;
+        e.az = lerp(e.az, target, 0.25);
+        e.spin += dt * 0.006;
+      });
+
+      // --- Enemy collision ---
+      if (player.state === 'idle' || player.state === 'hop') {
+        for (const e of enemies) {
+          if (Math.round(e.x) === player.gx && Math.round(e.y) === player.gy) { hit(); break; }
+        }
+      }
+    }
+
+    // ============ RENDER ============
+    function poly(points, fill) {
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+      ctx.closePath();
+      ctx.fillStyle = fill;
+      ctx.fill();
+    }
+
+    function drawCube(c) {
+      const pal = PALETTE[c.color];
+      const depth = c.h * CONFIG.CUBE_H;
+      const pop = c.pop * 7;
+      const p = iso(c.x, c.y, c.h);
+      p.y -= pop;
+      const hw = CONFIG.TILE_W / 2;
+      const hh = CONFIG.TILE_H / 2;
+
+      const top = { x: p.x, y: p.y - hh };
+      const right = { x: p.x + hw, y: p.y };
+      const bottom = { x: p.x, y: p.y + hh };
+      const left = { x: p.x - hw, y: p.y };
+
+      const heightTint = (c.h - 1) * 0.02;
+
+      // Side faces (SW + SE)
+      poly([
+        left,
+        bottom,
+        { x: bottom.x, y: bottom.y + depth },
+        { x: left.x, y: left.y + depth }
+      ], shade(pal.left, heightTint - 0.05));
+
+      poly([
+        bottom,
+        right,
+        { x: right.x, y: right.y + depth },
+        { x: bottom.x, y: bottom.y + depth }
+      ], shade(pal.right, heightTint - 0.15));
+
+      // Top face
+      const topCol = pop > 1 ? shade(pal.top, 0.25) : shade(pal.top, heightTint + 0.05);
+      poly([top, right, bottom, left], topCol);
+
+      // Highlight edge on the top face
+      ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(left.x, left.y);
+      ctx.lineTo(top.x, top.y);
+      ctx.lineTo(right.x, right.y);
+      ctx.stroke();
+
+      // Blink warning ring
+      if (c.blink) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(top.x, top.y);
+        ctx.lineTo(right.x, right.y);
+        ctx.lineTo(bottom.x, bottom.y);
+        ctx.lineTo(left.x, left.y);
+        ctx.closePath();
+        ctx.stroke();
+      }
+
+      // A subtle "done" sparkle for cubes already at target.
+      if (c.color === targetColor) {
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y - 1, 2.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawPlayer() {
+      const p = iso(player.ax, player.ay, player.az);
+      const blinkHide = player.invuln > 0 && Math.floor(game.elapsed / 90) % 2 === 0;
+      if (blinkHide) return;
+
+      ctx.save();
+      // Shadow
+      const sc = iso(player.ax, player.ay, Math.max(0, Math.round(player.az)));
+      ctx.globalAlpha = player.state === 'fall' ? 0.15 : 0.35;
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.ellipse(sc.x, sc.y + 2, 16, 7, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = player.state === 'fall' ? Math.max(0, 1 - player.t) : 1;
+
+      // Body: rounded hero
+      const bw = 26, bh = 30;
+      const bx = p.x - bw / 2;
+      const by = p.y - bh - 4;
+      const grad = ctx.createLinearGradient(bx, by, bx, by + bh);
+      grad.addColorStop(0, '#c9b8ff');
+      grad.addColorStop(1, '#7a5cf0');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(bx, by, bw, bh, 9);
+      else ctx.rect(bx, by, bw, bh);
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(30,20,60,0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Visor / face
+      ctx.fillStyle = '#16112b';
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(bx + 3, by + 6, bw - 6, 14, 6);
+      else ctx.rect(bx + 3, by + 6, bw - 6, 14);
+      ctx.fill();
+
+      // Eyes
+      ctx.fillStyle = '#7ef9ff';
+      const ex = player.face >= 0 ? 2 : -2;
+      ctx.beginPath();
+      ctx.arc(bx + 9 + ex, by + 13, 2.6, 0, Math.PI * 2);
+      ctx.arc(bx + 17 + ex, by + 13, 2.6, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Little crown spike
+      ctx.fillStyle = '#ffd166';
+      ctx.beginPath();
+      ctx.moveTo(p.x - 7, by);
+      ctx.lineTo(p.x, by - 8);
+      ctx.lineTo(p.x + 7, by);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function drawEnemy(e) {
+      const p = iso(e.ax, e.ay, e.az);
+      const r = 15;
+
+      // Shadow
+      ctx.globalAlpha = 0.3;
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y + 3, r * 0.9, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      const cy = p.y - r - 3;
+      const grad = ctx.createRadialGradient(p.x - 5, cy - 6, 3, p.x, cy, r);
+      grad.addColorStop(0, '#ff9a9a');
+      grad.addColorStop(0.55, '#e13d5a');
+      grad.addColorStop(1, '#8c1c33');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(p.x, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Rolling seam lines
+      ctx.save();
+      ctx.translate(p.x, cy);
+      ctx.rotate(e.spin);
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-r + 3, 0);
+      ctx.lineTo(r - 3, 0);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(0, 0, r - 4, r * 0.5, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+
+      // Angry eyes
+      ctx.fillStyle = '#1a0f18';
+      ctx.beginPath();
+      ctx.arc(p.x - 5, cy - 2, 2.4, 0, Math.PI * 2);
+      ctx.arc(p.x + 5, cy - 2, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function render() {
+      // Background
+      const bg = ctx.createRadialGradient(W / 2, H * 0.25, 40, W / 2, H * 0.5, W * 0.8);
+      bg.addColorStop(0, '#2b2050');
+      bg.addColorStop(1, '#0d0a1a');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // Depth-sorted draw list
+      const items = [];
+      cubes.forEach(c => {
+        if (c.visible) items.push({ k: (c.x + c.y) * 2, order: 0, fn: drawCube, o: c });
+      });
+      enemies.forEach(e => {
+        items.push({ k: (e.ax + e.ay) * 2 + 1, order: 1, fn: drawEnemy, o: e });
+      });
+      items.push({ k: (player.ax + player.ay) * 2 + 1, order: 1, fn: drawPlayer, o: player });
+      items.sort((a, b) => (a.k - b.k) || (a.order - b.order));
+
+      items.forEach(it => it.fn(it.o));
+    }
+
+    // ============ MAIN LOOP ============
+    let lastTime = 0;
+    function gameLoop(now) {
+      if (!game.running) return;
+      const dt = Math.min(50, now - lastTime);
+      lastTime = now;
+      update(dt);
+      render();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function resumeLoop() {
+      lastTime = performance.now();
+      requestAnimationFrame(gameLoop);
+    }
+
+    // ============ GAME FLOW ============
+    function startGame() {
+      initAudio();
+      game.level = 1;
+      game.score = 0;
+      game.lives = CONFIG.START_LIVES;
+      game.running = true;
+      game.paused = false;
+      buildLevel();
+      startScreen.classList.add('hidden');
+      levelScreen.classList.add('hidden');
+      overScreen.classList.add('hidden');
+      pauseOverlay.classList.remove('visible');
+      resumeLoop();
+    }
+
+    function nextLevel() {
+      game.level++;
+      game.lives = Math.min(CONFIG.START_LIVES, game.lives + 1);
+      buildLevel();
+      levelScreen.classList.add('hidden');
+      game.running = true;
+      game.paused = false;
+      resumeLoop();
+    }
+
+    function togglePause() {
+      if (!game.running) return;
+      game.paused = !game.paused;
+      pauseOverlay.classList.toggle('visible', game.paused);
+      if (!game.paused) resumeLoop();
+    }
+
+    // ============ INPUT HANDLING ============
+    const DIRS = {
+      ul: [-1, 0],   // up-left
+      dr: [1, 0],    // down-right
+      ur: [0, -1],   // up-right
+      dl: [0, 1]     // down-left
+    };
+
+    document.addEventListener('keydown', e => {
+      const gameKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+                        'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyP', 'Space'];
+      if (gameKeys.indexOf(e.code) !== -1) e.preventDefault();
+
+      if (e.code === 'KeyP' || e.code === 'Space') { togglePause(); return; }
+      if (!game.running || game.paused) return;
+
+      switch (e.code) {
+        case 'ArrowUp': case 'KeyW': startHop(DIRS.ul[0], DIRS.ul[1]); break;
+        case 'ArrowDown': case 'KeyS': startHop(DIRS.dr[0], DIRS.dr[1]); break;
+        case 'ArrowRight': case 'KeyD': startHop(DIRS.ur[0], DIRS.ur[1]); break;
+        case 'ArrowLeft': case 'KeyA': startHop(DIRS.dl[0], DIRS.dl[1]); break;
+      }
+    });
+
+    function bindPad(btn) {
+      const dir = DIRS[btn.dataset.dir];
+      const go = e => {
+        e.preventDefault();
+        if (!game.running || game.paused) return;
+        startHop(dir[0], dir[1]);
+      };
+      btn.addEventListener('touchstart', go, { passive: false });
+      btn.addEventListener('mousedown', go);
+    }
+    document.querySelectorAll('.control-btn').forEach(bindPad);
+
+    startBtn.addEventListener('click', startGame);
+    nextBtn.addEventListener('click', nextLevel);
+    againBtn.addEventListener('click', startGame);
+
+    // ============ INIT ============
+    setupCanvas();
+    computeOrigin();
+    updateHUD();
+    // Build a preview level so the start screen sits over a real board.
+    buildLevel();
+    render();
+
+    // Show touch controls on touch devices.
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+      mobileControls.style.display = 'flex';
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Sandbox Kingdom</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: #16213c;
+    background-image:
+      radial-gradient(1200px 600px at 20% -10%, #24406e 0%, rgba(36,64,110,0) 60%),
+      radial-gradient(900px 500px at 90% 110%, #1d5a56 0%, rgba(29,90,86,0) 60%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+    color: #eef4ff;
+    padding: 12px;
+    touch-action: manipulation;
+  }
+  #app {
+    width: min(97vw, 1080px);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* ============ HEADER ============ */
+  #topbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 14px;
+  }
+  #title {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #ffe08a;
+    text-shadow: 0 2px 0 rgba(0,0,0,.45);
+  }
+  #title small {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 1px;
+    font-weight: 600;
+    color: #9fd0ff;
+    text-shadow: none;
+  }
+  #stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .stat {
+    background: rgba(10,20,40,.55);
+    border: 1px solid rgba(120,180,255,.25);
+    border-radius: 10px;
+    padding: 5px 11px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    white-space: nowrap;
+  }
+  .stat b { color: #ffe08a; }
+
+  /* ============ CANVAS WRAP ============ */
+  #game-wrap {
+    position: relative;
+    width: 100%;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 14px 40px rgba(0,0,0,.5), 0 0 0 2px rgba(120,180,255,.18) inset;
+    background: #3f9be0;
+  }
+  canvas { display: block; width: 100%; height: auto; cursor: crosshair; }
+
+  /* ============ TOAST ============ */
+  #toast {
+    position: absolute;
+    left: 50%;
+    bottom: 14px;
+    transform: translateX(-50%) translateY(12px);
+    background: rgba(6,14,30,.86);
+    border: 1px solid rgba(255,224,138,.4);
+    color: #ffe08a;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    padding: 8px 18px;
+    border-radius: 20px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ============ PALETTE ============ */
+  #panel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+  #palette { display: flex; flex-wrap: wrap; gap: 6px 14px; flex: 1 1 560px; }
+  .pal-group { display: flex; flex-direction: column; gap: 6px; }
+  .pal-label {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #7fb4e8;
+    text-transform: uppercase;
+  }
+  .pal-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tool {
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .3px;
+    color: #dfe9f7;
+    background: rgba(12,24,46,.72);
+    border: 1px solid rgba(120,180,255,.22);
+    border-radius: 9px;
+    padding: 7px 11px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background .12s ease, transform .06s ease, border-color .12s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tool:hover { background: rgba(30,58,100,.9); }
+  .tool:active { transform: translateY(1px); }
+  .tool.active {
+    background: linear-gradient(180deg, #ffd465, #f2a63b);
+    border-color: #ffe9ad;
+    color: #4a2c00;
+    box-shadow: 0 0 0 2px rgba(255,224,138,.35);
+  }
+  .tool .sw {
+    width: 14px; height: 14px; border-radius: 4px;
+    border: 1px solid rgba(0,0,0,.35);
+  }
+
+  /* ============ SIDE (goals + actions) ============ */
+  #side {
+    flex: 0 0 260px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .box {
+    background: rgba(10,20,40,.55);
+    border: 1px solid rgba(120,180,255,.22);
+    border-radius: 12px;
+    padding: 10px 12px;
+  }
+  .box h3 {
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #7fb4e8;
+    margin-bottom: 8px;
+  }
+  #goals { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+  #goals li { font-size: 13px; font-weight: 600; color: #c9d8ec; display: flex; gap: 8px; align-items: center; }
+  #goals li .mark { width: 16px; text-align: center; }
+  #goals li.done { color: #8ff0a8; text-decoration: line-through; opacity: .85; }
+  #actions { display: flex; flex-wrap: wrap; gap: 7px; }
+  #actions button {
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    color: #fff;
+    border: none;
+    border-radius: 9px;
+    padding: 9px 13px;
+    cursor: pointer;
+    background: #2f6fb8;
+    box-shadow: 0 3px 0 rgba(0,0,0,.28);
+    transition: background .12s ease, transform .06s ease;
+    flex: 1 1 auto;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #actions button:hover { background: #3b83d4; }
+  #actions button:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.28); }
+  #btn-save { background: #2f8a52; }
+  #btn-save:hover { background: #39a463; }
+  #btn-new { background: #a5432f; }
+  #btn-new:hover { background: #c2503a; }
+  #hint { font-size: 11px; line-height: 1.55; color: #8ea6c4; }
+  #hint b { color: #cfe0f5; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 760px) {
+    #side { flex: 1 1 100%; }
+    #title { font-size: 17px; }
+    .tool { padding: 8px 10px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ TOP BAR ============ -->
+  <div id="topbar">
+    <div id="title">👑 SANDBOX KINGDOM
+      <small>paint the land · raise a village · let it live</small>
+    </div>
+    <div id="stats">
+      <div class="stat">🪵 Wood <b id="s-wood">0</b></div>
+      <div class="stat">🍞 Food <b id="s-food">0</b></div>
+      <div class="stat">🧑‍🌾 People <b id="s-pop">0</b></div>
+      <div class="stat">🕒 <b id="s-time">06:00</b></div>
+    </div>
+  </div>
+
+  <!-- ============ CANVAS ============ -->
+  <div id="game-wrap">
+    <canvas id="game" width="1020" height="600"></canvas>
+    <div id="toast"></div>
+  </div>
+
+  <!-- ============ PANEL ============ -->
+  <div id="panel">
+    <div id="palette"></div>
+    <div id="side">
+      <div class="box">
+        <h3>Kingdom Goals</h3>
+        <ul id="goals"></ul>
+      </div>
+      <div class="box">
+        <div id="actions">
+          <button id="btn-save" type="button">💾 Save</button>
+          <button id="btn-load" type="button">📂 Load</button>
+          <button id="btn-new" type="button">🌍 New</button>
+        </div>
+        <div id="hint" style="margin-top:9px">
+          <b>Drag</b> on the map to paint. Keys <b>1–9</b> pick tools, <b>S</b> save, <b>L</b> load, <b>N</b> new.
+          Villagers gather <b>wood</b> in forests and <b>food</b> on farms; enough food grows your village.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONFIGURATION ============
+  const COLS = 34;
+  const ROWS = 20;
+  const DAY_LENGTH = 96;        // seconds for one full day/night cycle
+  const SAVE_KEY = "sandboxKingdomSave_v1";
+
+  // Tile type ids
+  const T = {
+    GRASS: 0, SAND: 1, WATER: 2, FOREST: 3, MOUNTAIN: 4,
+    ROAD: 5, HOUSE: 6, FARM: 7, WELL: 8
+  };
+
+  // Which tiles block villagers
+  const BLOCKED = {};
+  BLOCKED[T.WATER] = true;
+  BLOCKED[T.MOUNTAIN] = true;
+  BLOCKED[T.HOUSE] = true;
+  BLOCKED[T.WELL] = true;
+
+  // Tool palette definition (emoji + label + swatch color)
+  const GROUPS = [
+    {
+      label: "Terrain",
+      tools: [
+        { id: "grass",    kind: "tile", t: T.GRASS,    label: "Grass",    icon: "🌿", c: "#6cc04a" },
+        { id: "sand",     kind: "tile", t: T.SAND,     label: "Sand",     icon: "🏖️", c: "#e6d494" },
+        { id: "water",    kind: "tile", t: T.WATER,    label: "Water",    icon: "💧", c: "#3f9be0" },
+        { id: "forest",   kind: "tile", t: T.FOREST,   label: "Forest",   icon: "🌲", c: "#2f7d32" },
+        { id: "mountain", kind: "tile", t: T.MOUNTAIN, label: "Mountain", icon: "⛰️", c: "#b8b2a0" }
+      ]
+    },
+    {
+      label: "Build",
+      tools: [
+        { id: "road",  kind: "tile", t: T.ROAD,  label: "Road",  icon: "🛣️", c: "#c9b189" },
+        { id: "house", kind: "tile", t: T.HOUSE, label: "House", icon: "🏠", c: "#b5502f" },
+        { id: "farm",  kind: "tile", t: T.FARM,  label: "Farm",  icon: "🌾", c: "#8a5a3a" },
+        { id: "well",  kind: "tile", t: T.WELL,  label: "Well",  icon: "⛲", c: "#9aa0a0" }
+      ]
+    },
+    {
+      label: "Life",
+      tools: [
+        { id: "villager", kind: "villager", label: "Villager", icon: "🧑‍🌾", c: "#f0c090" },
+        { id: "erase",    kind: "erase",    label: "Clear",    icon: "🧽", c: "#7a8ba0" }
+      ]
+    }
+  ];
+
+  // ============ DOM REFERENCES ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const paletteEl = document.getElementById("palette");
+  const goalsEl = document.getElementById("goals");
+  const toastEl = document.getElementById("toast");
+  const sWood = document.getElementById("s-wood");
+  const sFood = document.getElementById("s-food");
+  const sPop = document.getElementById("s-pop");
+  const sTime = document.getElementById("s-time");
+  const btnSave = document.getElementById("btn-save");
+  const btnLoad = document.getElementById("btn-load");
+  const btnNew = document.getElementById("btn-new");
+
+  let viewW = canvas.width;
+  let viewH = canvas.height;
+  let tile = viewW / COLS;
+
+  // ============ AUDIO (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  // ============ GAME STATE ============
+  let grid = new Uint8Array(COLS * ROWS);
+  let villagers = [];
+  let wood = 0;
+  let food = 0;
+  let totalFood = 0;
+  let totalWood = 0;
+  let timeOfDay = 0.25;       // 0 = midnight, 0.5 = noon
+  let elapsed = 0;
+  let houseCount = 0;
+  let farmCount = 0;
+  let currentTool = GROUPS[0].tools[0];
+  let toastTimer = null;
+  let lastSpawn = 0;
+  let kingdomDone = false;
+  let tickAccum = 0;
+
+  const GOALS = [
+    { id: "house", text: "Build 3 Houses",   done: false },
+    { id: "farm",  text: "Plant 2 Farms",    done: false },
+    { id: "food",  text: "Gather 30 Food",   done: false },
+    { id: "pop",   text: "Grow to 5 People", done: false }
+  ];
+
+  // ============ HELPERS ============
+  function idx(x, y) { return y * COLS + x; }
+  function inBounds(x, y) { return x >= 0 && y >= 0 && x < COLS && y < ROWS; }
+  function tileAt(x, y) { return inBounds(x, y) ? grid[idx(x, y)] : T.MOUNTAIN; }
+  function setTile(x, y, v) { if (inBounds(x, y)) grid[idx(x, y)] = v; }
+  function passable(x, y) { return inBounds(x, y) && !BLOCKED[grid[idx(x, y)]]; }
+
+  // Deterministic pseudo-random per tile (for speckles / stars)
+  function hash(x, y) {
+    let n = x * 374761393 + y * 668265263;
+    n = (n ^ (n >> 13)) * 1274126177;
+    return ((n ^ (n >> 16)) >>> 0) / 4294967296;
+  }
+
+  // ============ WORLD GENERATION ============
+  function generateWorld() {
+    grid = new Uint8Array(COLS * ROWS); // all grass
+    villagers = [];
+    wood = 6;
+    food = 4;
+    totalFood = 0;
+    totalWood = 0;
+    timeOfDay = 0.25;
+    elapsed = 0;
+    kingdomDone = false;
+
+    // Lake with a sandy shore
+    const lx = 6 + Math.floor(Math.random() * 5);
+    const ly = 12 + Math.floor(Math.random() * 4);
+    const lr = 4.2;
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const d = Math.hypot(x - lx, y - ly);
+        if (d < lr) setTile(x, y, T.WATER);
+        else if (d < lr + 1.4) setTile(x, y, T.SAND);
+      }
+    }
+
+    // Forest clusters
+    scatter(T.FOREST, 3, 5, 2.2);
+    // Mountain ridge along the top
+    for (let x = 2; x < COLS - 2; x++) {
+      if (Math.random() < 0.5) {
+        const h = 1 + Math.floor(Math.random() * 2);
+        for (let y = 0; y < h; y++) setTile(x, y, T.MOUNTAIN);
+      }
+    }
+    // A starting path of road
+    for (let x = 14; x < 24; x++) setTile(x, 10, T.ROAD);
+
+    // Starting villagers near the middle
+    for (let i = 0; i < 2; i++) {
+      const sx = 15 + i * 2;
+      const sy = 12;
+      if (passable(sx, sy)) villagers.push(makeVillager(sx, sy));
+    }
+    countStructures();
+  }
+
+  function scatter(type, count, radiusTiles, spread) {
+    for (let i = 0; i < count; i++) {
+      const cx = 2 + Math.floor(Math.random() * (COLS - 4));
+      const cy = 2 + Math.floor(Math.random() * (ROWS - 4));
+      for (let y = cy - 3; y <= cy + 3; y++) {
+        for (let x = cx - 3; x <= cx + 3; x++) {
+          if (!inBounds(x, y)) continue;
+          if (Math.hypot(x - cx, y - cy) > spread) continue;
+          if (grid[idx(x, y)] === T.GRASS || grid[idx(x, y)] === T.SAND) {
+            setTile(x, y, type);
+          }
+        }
+      }
+    }
+  }
+
+  // ============ VILLAGERS ============
+  function makeVillager(x, y) {
+    return {
+      x: x + 0.5, y: y + 0.5,
+      tx: x, ty: y,
+      moving: false,
+      wait: 0.4 + Math.random() * 1.4,
+      bob: Math.random() * Math.PI * 2,
+      face: 1,
+      hue: Math.floor(Math.random() * 360)
+    };
+  }
+
+  function chooseTarget(v) {
+    const cx = Math.floor(v.x);
+    const cy = Math.floor(v.y);
+    const opts = [];
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        const nx = cx + dx, ny = cy + dy;
+        if (passable(nx, ny)) {
+          // Weight forests / farms a little higher so villagers seek work
+          const t = tileAt(nx, ny);
+          const w = (t === T.FOREST || t === T.FARM) ? 3 : 1;
+          for (let k = 0; k < w; k++) opts.push({ x: nx, y: ny });
+        }
+      }
+    }
+    if (!opts.length) { v.wait = 1; return; }
+    const pick = opts[Math.floor(Math.random() * opts.length)];
+    v.tx = pick.x;
+    v.ty = pick.y;
+    v.face = pick.x + 0.5 > v.x ? 1 : (pick.x + 0.5 < v.x ? -1 : v.face);
+    v.moving = true;
+  }
+
+  function updateVillagers(dt) {
+    for (let i = 0; i < villagers.length; i++) {
+      const v = villagers[i];
+      v.bob += dt * 6;
+
+      if (v.moving) {
+        const gx = v.tx + 0.5;
+        const gy = v.ty + 0.5;
+        const dx = gx - v.x;
+        const dy = gy - v.y;
+        const dist = Math.hypot(dx, dy);
+        const step = 1.7 * dt;
+        if (dist <= step) {
+          v.x = gx; v.y = gy;
+          v.moving = false;
+          v.wait = 0.5 + Math.random() * 1.8;
+        } else {
+          v.x += (dx / dist) * step;
+          v.y += (dy / dist) * step;
+        }
+      } else {
+        v.wait -= dt;
+        if (v.wait <= 0) chooseTarget(v);
+      }
+
+      // Gather from the tile the villager stands on
+      if (!v.moving) {
+        const tx = Math.floor(v.x);
+        const ty = Math.floor(v.y);
+        const t = tileAt(tx, ty);
+        if (t === T.FOREST) {
+          wood += dt * 0.45;
+          totalWood += dt * 0.45;
+        } else if (t === T.FARM) {
+          food += dt * 0.7;
+          totalFood += dt * 0.7;
+        }
+      }
+    }
+
+    // Population growth: spend food to welcome a new villager near a house
+    if (elapsed - lastSpawn > 12 && food >= 12 && houseCount > 0) {
+      const spots = [];
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          if (grid[idx(x, y)] === T.HOUSE) {
+            for (let dy = -1; dy <= 1; dy++) {
+              for (let dx = -1; dx <= 1; dx++) {
+                if (passable(x + dx, y + dy)) spots.push({ x: x + dx, y: y + dy });
+              }
+            }
+          }
+        }
+      }
+      if (spots.length && villagers.length < 40) {
+        const s = spots[Math.floor(Math.random() * spots.length)];
+        villagers.push(makeVillager(s.x, s.y));
+        food -= 12;
+        lastSpawn = elapsed;
+        beep(720, 0.14, "sine");
+        showToast("A new villager has arrived! 🎉");
+      }
+    }
+  }
+
+  // ============ STRUCTURE COUNTS ============
+  function countStructures() {
+    houseCount = 0;
+    farmCount = 0;
+    for (let i = 0; i < grid.length; i++) {
+      if (grid[i] === T.HOUSE) houseCount++;
+      else if (grid[i] === T.FARM) farmCount++;
+    }
+  }
+
+  // ============ GOALS ============
+  function buildGoalsUI() {
+    goalsEl.innerHTML = "";
+    GOALS.forEach(function (g) {
+      const li = document.createElement("li");
+      li.dataset.id = g.id;
+      li.innerHTML = '<span class="mark">◻</span><span>' + g.text + "</span>";
+      goalsEl.appendChild(li);
+    });
+  }
+
+  function updateGoals() {
+    setGoal("house", houseCount >= 3);
+    setGoal("farm", farmCount >= 2);
+    setGoal("food", totalFood >= 30);
+    setGoal("pop", villagers.length >= 5);
+
+    let all = true;
+    GOALS.forEach(function (g) { if (!g.done) all = false; });
+    if (all && !kingdomDone) {
+      kingdomDone = true;
+      beep(880, 0.12, "sine");
+      setTimeout(function () { beep(1180, 0.2, "sine"); }, 130);
+      showToast("👑 Your kingdom is thriving!");
+    }
+  }
+
+  function setGoal(id, done) {
+    const g = GOALS.find(function (x) { return x.id === id; });
+    if (!g || g.done === done) return;
+    g.done = done;
+    const li = goalsEl.querySelector('li[data-id="' + id + '"]');
+    if (!li) return;
+    li.classList.toggle("done", done);
+    li.querySelector(".mark").textContent = done ? "☑" : "◻";
+    if (done) beep(620, 0.09, "triangle");
+  }
+
+  // ============ TOAST ============
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 2200);
+  }
+
+  // ============ PALETTE UI ============
+  function buildPalette() {
+    paletteEl.innerHTML = "";
+    GROUPS.forEach(function (group) {
+      const wrap = document.createElement("div");
+      wrap.className = "pal-group";
+      const lab = document.createElement("div");
+      lab.className = "pal-label";
+      lab.textContent = group.label;
+      wrap.appendChild(lab);
+
+      const row = document.createElement("div");
+      row.className = "pal-row";
+      group.tools.forEach(function (tool) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "tool";
+        b.dataset.id = tool.id;
+        b.innerHTML = '<span class="sw" style="background:' + tool.c + '"></span>' +
+                      '<span>' + tool.icon + " " + tool.label + "</span>";
+        b.addEventListener("click", function () { selectTool(tool); });
+        row.appendChild(b);
+      });
+      wrap.appendChild(row);
+      paletteEl.appendChild(wrap);
+    });
+    syncToolButtons();
+  }
+
+  function selectTool(tool) {
+    currentTool = tool;
+    syncToolButtons();
+    beep(520, 0.05, "triangle");
+  }
+
+  function syncToolButtons() {
+    const btns = paletteEl.querySelectorAll(".tool");
+    for (let i = 0; i < btns.length; i++) {
+      btns[i].classList.toggle("active", btns[i].dataset.id === currentTool.id);
+    }
+  }
+
+  // ============ PAINTING ============
+  let painting = false;
+  let pointerPos = { x: -1, y: -1 };
+  let paintedThisStroke = {};
+
+  function pointerToTile(clientX, clientY) {
+    const r = canvas.getBoundingClientRect();
+    const sx = (clientX - r.left) / r.width;
+    const sy = (clientY - r.top) / r.height;
+    return {
+      x: Math.floor(sx * COLS),
+      y: Math.floor(sy * ROWS)
+    };
+  }
+
+  function applyTool(tx, ty) {
+    if (!inBounds(tx, ty)) return;
+    const key = tx + "," + ty;
+    if (paintedThisStroke[key]) return;
+    paintedThisStroke[key] = true;
+
+    if (currentTool.kind === "tile") {
+      if (tileAt(tx, ty) === currentTool.t) return;
+      setTile(tx, ty, currentTool.t);
+      countStructures();
+      beep(currentTool.t === T.WATER ? 300 : 440, 0.06, "square");
+    } else if (currentTool.kind === "erase") {
+      if (tileAt(tx, ty) === T.GRASS) return;
+      setTile(tx, ty, T.GRASS);
+      countStructures();
+      beep(240, 0.06, "square");
+    } else if (currentTool.kind === "villager") {
+      if (!passable(tx, ty) || villagers.length >= 40) return;
+      const occupied = villagers.some(function (v) {
+        return Math.floor(v.x) === tx && Math.floor(v.y) === ty;
+      });
+      if (occupied) return;
+      villagers.push(makeVillager(tx, ty));
+      beep(760, 0.1, "sine");
+    }
+  }
+
+  function startPaint(clientX, clientY) {
+    painting = true;
+    paintedThisStroke = {};
+    const p = pointerToTile(clientX, clientY);
+    pointerPos = p;
+    applyTool(p.x, p.y);
+  }
+
+  function movePaint(clientX, clientY) {
+    const p = pointerToTile(clientX, clientY);
+    pointerPos = p;
+    if (painting) applyTool(p.x, p.y);
+  }
+
+  canvas.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
+    startPaint(e.clientX, e.clientY);
+  });
+  canvas.addEventListener("pointermove", function (e) {
+    movePaint(e.clientX, e.clientY);
+  });
+  window.addEventListener("pointerup", function () { painting = false; });
+  canvas.addEventListener("pointerleave", function () { pointerPos = { x: -1, y: -1 }; });
+  canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+  // ============ KEYBOARD ============
+  const flatTools = [];
+  GROUPS.forEach(function (g) { g.tools.forEach(function (t) { flatTools.push(t); }); });
+
+  window.addEventListener("keydown", function (e) {
+    const k = e.key;
+    if (k >= "1" && k <= "9") {
+      const i = parseInt(k, 10) - 1;
+      if (flatTools[i]) selectTool(flatTools[i]);
+      return;
+    }
+    if (k === "s" || k === "S") { saveWorld(); return; }
+    if (k === "l" || k === "L") { loadWorld(); return; }
+    if (k === "n" || k === "N") { newWorld(); return; }
+  });
+
+  // ============ PERSISTENCE ============
+  function saveWorld() {
+    try {
+      const data = {
+        grid: Array.prototype.slice.call(grid),
+        villagers: villagers.map(function (v) {
+          return { x: v.x, y: v.y, hue: v.hue };
+        }),
+        wood: Math.round(wood * 10) / 10,
+        food: Math.round(food * 10) / 10,
+        totalFood: Math.round(totalFood * 10) / 10,
+        totalWood: Math.round(totalWood * 10) / 10,
+        timeOfDay: timeOfDay,
+        elapsed: elapsed,
+        goals: GOALS.map(function (g) { return g.done; }),
+        kingdomDone: kingdomDone
+      };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+      showToast("World saved 💾");
+      beep(660, 0.09, "sine");
+    } catch (err) {
+      showToast("Could not save (storage blocked)");
+    }
+  }
+
+  function loadWorld() {
+    let raw = null;
+    try { raw = localStorage.getItem(SAVE_KEY); } catch (err) { raw = null; }
+    if (!raw) { showToast("No saved world found"); return; }
+    try {
+      const data = JSON.parse(raw);
+      if (!data || !data.grid || data.grid.length !== COLS * ROWS) {
+        showToast("Save data is incompatible");
+        return;
+      }
+      grid = Uint8Array.from(data.grid);
+      villagers = (data.villagers || []).map(function (v) {
+        const nv = makeVillager(Math.floor(v.x), Math.floor(v.y));
+        nv.x = v.x; nv.y = v.y;
+        if (typeof v.hue === "number") nv.hue = v.hue;
+        return nv;
+      });
+      wood = data.wood || 0;
+      food = data.food || 0;
+      totalFood = data.totalFood || 0;
+      totalWood = data.totalWood || 0;
+      timeOfDay = typeof data.timeOfDay === "number" ? data.timeOfDay : 0.25;
+      elapsed = data.elapsed || 0;
+      kingdomDone = !!data.kingdomDone;
+      if (data.goals && data.goals.length === GOALS.length) {
+        GOALS.forEach(function (g, i) { g.done = data.goals[i]; });
+        // Re-sync UI marks without firing beeps
+        GOALS.forEach(function (g) {
+          const li = goalsEl.querySelector('li[data-id="' + g.id + '"]');
+          if (li) {
+            li.classList.toggle("done", g.done);
+            li.querySelector(".mark").textContent = g.done ? "☑" : "◻";
+          }
+        });
+      }
+      countStructures();
+      showToast("World loaded 📂");
+      beep(560, 0.09, "sine");
+    } catch (err) {
+      showToast("Save file was corrupted");
+    }
+  }
+
+  function newWorld() {
+    generateWorld();
+    GOALS.forEach(function (g) { g.done = false; });
+    const lis = goalsEl.querySelectorAll("li");
+    for (let i = 0; i < lis.length; i++) {
+      lis[i].classList.remove("done");
+      lis[i].querySelector(".mark").textContent = "◻";
+    }
+    showToast("A fresh world 🌍");
+    beep(400, 0.12, "triangle");
+  }
+
+  btnSave.addEventListener("click", saveWorld);
+  btnLoad.addEventListener("click", loadWorld);
+  btnNew.addEventListener("click", newWorld);
+
+  // ============ RESPONSIVE CANVAS ============
+  function resizeCanvas() {
+    const wrap = canvas.parentElement;
+    const cssW = Math.max(280, wrap.clientWidth);
+    // Keep an internal resolution close to CSS pixels for crisp drawing
+    viewW = Math.round(cssW);
+    viewH = Math.round(cssW * (ROWS / COLS));
+    canvas.width = viewW;
+    canvas.height = viewH;
+    tile = viewW / COLS;
+  }
+  window.addEventListener("resize", resizeCanvas);
+
+  // ============ SIMULATION ============
+  function updateSim(dt) {
+    timeOfDay = (timeOfDay + dt / DAY_LENGTH) % 1;
+    elapsed += dt;
+
+    // Villagers act a little slower than frame-rate for a relaxed feel
+    tickAccum += dt;
+    const step = 1 / 30;
+    while (tickAccum >= step) {
+      updateVillagers(step);
+      tickAccum -= step;
+    }
+
+    // Keep fractional resources readable
+    if (wood < 0) wood = 0;
+    if (food < 0) food = 0;
+
+    updateGoals();
+  }
+
+  // ============ RENDERING ============
+  function draw(e) {
+    ctx.clearRect(0, 0, viewW, viewH);
+    const now = elapsed;
+
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        drawTile(grid[idx(x, y)], x, y, now);
+      }
+    }
+
+    // Villagers
+    for (let i = 0; i < villagers.length; i++) drawVillager(villagers[i]);
+
+    // Day / night overlay
+    const darkness = nightAmount();
+    if (darkness > 0.01) {
+      ctx.fillStyle = "rgba(12,18,46," + (darkness * 0.62).toFixed(3) + ")";
+      ctx.fillRect(0, 0, viewW, viewH);
+      drawStars(darkness, now);
+      drawLights(darkness);
+    }
+
+    // Sun / moon indicator + clock band
+    drawSky();
+
+    // Cursor highlight
+    if (pointerPos.x >= 0 && pointerPos.y >= 0 && inBounds(pointerPos.x, pointerPos.y)) {
+      ctx.strokeStyle = "rgba(255,255,255,0.85)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(pointerPos.x * tile + 1, pointerPos.y * tile + 1, tile - 2, tile - 2);
+      ctx.strokeStyle = "rgba(255,224,138,0.9)";
+      ctx.strokeRect(pointerPos.x * tile + 3, pointerPos.y * tile + 3, tile - 6, tile - 6);
+    }
+  }
+
+  function drawTile(t, gx, gy, now) {
+    const px = gx * tile;
+    const py = gy * tile;
+    const s = tile;
+    const r = hash(gx, gy);
+
+    switch (t) {
+      case T.GRASS: {
+        ctx.fillStyle = "#6cc04a";
+        ctx.fillRect(px, py, s, s);
+        ctx.fillStyle = "#5aa83c";
+        for (let i = 0; i < 3; i++) {
+          const h1 = hash(gx * 7 + i, gy * 13 + i);
+          const h2 = hash(gx * 3 + i * 5, gy * 11 + i);
+          ctx.fillRect(px + h1 * s * 0.86, py + h2 * s * 0.86, Math.max(1, s * 0.09), Math.max(1, s * 0.09));
+        }
+        if (r > 0.93) { // tiny flower
+          ctx.fillStyle = "#ffe08a";
+          ctx.beginPath();
+          ctx.arc(px + s * 0.5, py + s * 0.5, s * 0.09, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      }
+      case T.SAND: {
+        ctx.fillStyle = "#e6d494";
+        ctx.fillRect(px, py, s, s);
+        ctx.fillStyle = "#d8c47e";
+        for (let i = 0; i < 4; i++) {
+          const h1 = hash(gx * 5 + i, gy * 9 + i * 3);
+          const h2 = hash(gx * 11 + i, gy * 4 + i);
+          ctx.fillRect(px + h1 * s * 0.9, py + h2 * s * 0.9, Math.max(1, s * 0.07), Math.max(1, s * 0.07));
+        }
+        break;
+      }
+      case T.WATER: {
+        ctx.fillStyle = "#3f9be0";
+        ctx.fillRect(px, py, s, s);
+        ctx.fillStyle = "rgba(255,255,255,0.22)";
+        const wob = Math.sin(now * 1.6 + gx * 0.6 + gy * 0.4) * s * 0.06;
+        ctx.fillRect(px + s * 0.15, py + s * 0.34 + wob, s * 0.7, Math.max(1, s * 0.07));
+        ctx.fillRect(px + s * 0.28, py + s * 0.66 - wob, s * 0.5, Math.max(1, s * 0.07));
+        ctx.fillStyle = "rgba(20,70,140,0.25)";
+        ctx.fillRect(px, py, s, Math.max(1, s * 0.05));
+        break;
+      }
+      case T.FOREST: {
+        ctx.fillStyle = "#6cc04a";
+        ctx.fillRect(px, py, s, s);
+        // trunk
+        ctx.fillStyle = "#7a5230";
+        ctx.fillRect(px + s * 0.44, py + s * 0.55, s * 0.12, s * 0.32);
+        // canopy
+        ctx.fillStyle = "#2f7d32";
+        ctx.beginPath();
+        ctx.arc(px + s * 0.5, py + s * 0.46, s * 0.32, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#3f9c40";
+        ctx.beginPath();
+        ctx.arc(px + s * 0.4, py + s * 0.38, s * 0.2, 0, Math.PI * 2);
+        ctx.arc(px + s * 0.62, py + s * 0.4, s * 0.16, 0, Math.PI * 2);
+        ctx.fill();
+        if (r > 0.6) { // berry
+          ctx.fillStyle = "#e04b4b";
+          ctx.beginPath();
+          ctx.arc(px + s * 0.62, py + s * 0.55, s * 0.06, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      }
+      case T.MOUNTAIN: {
+        ctx.fillStyle = "#8f8a7a";
+        ctx.fillRect(px, py, s, s);
+        ctx.fillStyle = "#b8b2a0";
+        ctx.beginPath();
+        ctx.moveTo(px + s * 0.1, py + s * 0.9);
+        ctx.lineTo(px + s * 0.5, py + s * 0.14);
+        ctx.lineTo(px + s * 0.9, py + s * 0.9);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#f2f4f7";
+        ctx.beginPath();
+        ctx.moveTo(px + s * 0.38, py + s * 0.4);
+        ctx.lineTo(px + s * 0.5, py + s * 0.14);
+        ctx.lineTo(px + s * 0.62, py + s * 0.4);
+        ctx.closePath();
+        ctx.fill();
+        break;
+      }
+      case T.ROAD: {
+        ctx.fillStyle = "#c9b189";
+        ctx.fillRect(px, py, s, s);
+        ctx.fillStyle = "rgba(120,95,60,0.35)";
+        ctx.fillRect(px, py, s, Math.max(1, s * 0.08));
+        ctx.fillRect(px, py + s - Math.max(1, s * 0.08), s, Math.max(1, s * 0.08));
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        ctx.fillRect(px + s * 0.44, py + s * 0.4, s * 0.12, s * 0.2);
+        break;
+      }
+      case T.HOUSE: {
+        ctx.fillStyle = "#6cc04a";
+        ctx.fillRect(px, py, s, s);
+        // walls
+        ctx.fillStyle = "#e8d4a8";
+        ctx.fillRect(px + s * 0.16, py + s * 0.42, s * 0.68, s * 0.44);
+        // roof
+        ctx.fillStyle = "#b5502f";
+        ctx.beginPath();
+        ctx.moveTo(px + s * 0.08, py + s * 0.44);
+        ctx.lineTo(px + s * 0.5, py + s * 0.1);
+        ctx.lineTo(px + s * 0.92, py + s * 0.44);
+        ctx.closePath();
+        ctx.fill();
+        // door
+        ctx.fillStyle = "#7a5230";
+        ctx.fillRect(px + s * 0.42, py + s * 0.6, s * 0.16, s * 0.26);
+        // window (lit at night handled in drawLights)
+        ctx.fillStyle = "#8fb8d8";
+        ctx.fillRect(px + s * 0.24, py + s * 0.56, s * 0.13, s * 0.13);
+        break;
+      }
+      case T.FARM: {
+        ctx.fillStyle = "#8a5a3a";
+        ctx.fillRect(px, py, s, s);
+        ctx.fillStyle = "#6f452c";
+        for (let i = 1; i < 4; i++) {
+          ctx.fillRect(px, py + (s * i / 4), s, Math.max(1, s * 0.05));
+        }
+        ctx.fillStyle = "#8fd14f";
+        for (let i = 0; i < 4; i++) {
+          const h1 = hash(gx * 3 + i, gy * 17 + i);
+          ctx.fillRect(px + s * (0.12 + i * 0.22), py + s * 0.18 + h1 * s * 0.12, Math.max(1, s * 0.08), s * 0.34);
+        }
+        break;
+      }
+      case T.WELL: {
+        ctx.fillStyle = "#6cc04a";
+        ctx.fillRect(px, py, s, s);
+        ctx.fillStyle = "#9aa0a0";
+        ctx.beginPath();
+        ctx.arc(px + s * 0.5, py + s * 0.58, s * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#1e2a3a";
+        ctx.beginPath();
+        ctx.arc(px + s * 0.5, py + s * 0.58, s * 0.17, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#7a5230";
+        ctx.fillRect(px + s * 0.18, py + s * 0.16, s * 0.1, s * 0.42);
+        ctx.fillRect(px + s * 0.72, py + s * 0.16, s * 0.1, s * 0.42);
+        ctx.fillStyle = "#b5502f";
+        ctx.beginPath();
+        ctx.moveTo(px + s * 0.1, py + s * 0.2);
+        ctx.lineTo(px + s * 0.5, py + s * 0.02);
+        ctx.lineTo(px + s * 0.9, py + s * 0.2);
+        ctx.closePath();
+        ctx.fill();
+        break;
+      }
+    }
+  }
+
+  function drawVillager(v) {
+    const cx = v.x * tile;
+    const cy = v.y * tile;
+    const s = tile;
+    const bob = Math.sin(v.bob) * s * 0.04;
+
+    // shadow
+    ctx.fillStyle = "rgba(0,0,0,0.22)";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + s * 0.36, s * 0.22, s * 0.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // body
+    ctx.fillStyle = "hsl(" + v.hue + ",60%,50%)";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + s * 0.12 + bob, s * 0.18, s * 0.22, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // head
+    ctx.fillStyle = "#f0c090";
+    ctx.beginPath();
+    ctx.arc(cx, cy - s * 0.16 + bob, s * 0.15, 0, Math.PI * 2);
+    ctx.fill();
+
+    // hat
+    ctx.fillStyle = "hsl(" + ((v.hue + 180) % 360) + ",55%,42%)";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy - s * 0.27 + bob, s * 0.18, s * 0.08, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // eyes (facing direction)
+    ctx.fillStyle = "#25303f";
+    const ex = v.face * s * 0.045;
+    ctx.beginPath();
+    ctx.arc(cx - s * 0.05 + ex, cy - s * 0.16 + bob, s * 0.022, 0, Math.PI * 2);
+    ctx.arc(cx + s * 0.05 + ex, cy - s * 0.16 + bob, s * 0.022, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function nightAmount() {
+    // sun: -1 at midnight, +1 at noon
+    const sun = Math.sin((timeOfDay - 0.25) * Math.PI * 2);
+    const daylight = (sun + 1) / 2;
+    return Math.max(0, 1 - daylight);
+  }
+
+  function drawStars(darkness, now) {
+    const count = Math.floor(60 * darkness);
+    ctx.fillStyle = "rgba(255,255,255," + (0.5 * darkness).toFixed(2) + ")";
+    for (let i = 0; i < count; i++) {
+      const h1 = hash(i * 3 + 1, i * 7 + 2);
+      const h2 = hash(i * 11 + 5, i * 5 + 3);
+      const tw = 0.5 + 0.5 * Math.sin(now * 2 + i);
+      const px = h1 * viewW;
+      const py = h2 * viewH;
+      const r = 0.6 + h2 * 1.4;
+      ctx.globalAlpha = (0.35 + 0.55 * tw) * darkness;
+      ctx.beginPath();
+      ctx.arc(px, py, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawLights(darkness) {
+    const glow = Math.min(1, darkness * 1.1);
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        if (grid[idx(x, y)] !== T.HOUSE) continue;
+        const px = x * tile;
+        const py = y * tile;
+        const s = tile;
+        ctx.fillStyle = "rgba(255,210,110," + (0.75 * glow).toFixed(2) + ")";
+        ctx.fillRect(px + s * 0.24, py + s * 0.56, s * 0.13, s * 0.13);
+        // warm halo
+        const grad = ctx.createRadialGradient(
+          px + s * 0.5, py + s * 0.62, s * 0.02,
+          px + s * 0.5, py + s * 0.62, s * 0.75
+        );
+        grad.addColorStop(0, "rgba(255,200,90," + (0.16 * glow).toFixed(2) + ")");
+        grad.addColorStop(1, "rgba(255,200,90,0)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(px - s * 0.3, py - s * 0.2, s * 1.6, s * 1.6);
+      }
+    }
+  }
+
+  function drawSky() {
+    // Sun/moon arc indicator in the top-right corner
+    const pad = Math.max(8, tile * 0.28);
+    const cx = viewW - pad - 16;
+    const cy = pad + 16;
+    const rad = Math.max(9, tile * 0.4);
+    const sun = Math.sin((timeOfDay - 0.25) * Math.PI * 2);
+    const isDay = sun > 0;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+    if (isDay) {
+      ctx.fillStyle = "#ffd34d";
+      ctx.fill();
+      ctx.strokeStyle = "#ffb020";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = "#dfe6f0";
+      ctx.fill();
+      ctx.fillStyle = "rgba(120,140,170,0.55)";
+      ctx.beginPath();
+      ctx.arc(cx + rad * 0.4, cy - rad * 0.3, rad * 0.75, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // ============ HUD ============
+  function updateHUD() {
+    sWood.textContent = Math.floor(wood);
+    sFood.textContent = Math.floor(food);
+    sPop.textContent = villagers.length;
+    const h = timeOfDay * 24;
+    const hh = Math.floor(h);
+    const mm = Math.floor((h - hh) * 60);
+    sTime.textContent = (hh < 10 ? "0" : "") + hh + ":" + (mm < 10 ? "0" : "") + mm;
+  }
+
+  // ============ MAIN LOOP ============
+  let raf = null;
+  let last = 0;
+
+  function loop(ts) {
+    if (!last) last = ts;
+    let dt = (ts - last) / 1000;
+    last = ts;
+    if (dt > 0.1) dt = 0.1; // clamp after tab switch
+
+    updateSim(dt);
+    draw();
+    updateHUD();
+    raf = requestAnimationFrame(loop);
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      cancelAnimationFrame(raf);
+      raf = null;
+    } else if (!raf) {
+      last = 0;
+      raf = requestAnimationFrame(loop);
+    }
+  });
+
+  window.addEventListener("beforeunload", function () {
+    // Best-effort autosave so a refresh keeps the kingdom
+    try {
+      const data = {
+        grid: Array.prototype.slice.call(grid),
+        villagers: villagers.map(function (v) { return { x: v.x, y: v.y, hue: v.hue }; }),
+        wood: wood, food: food, totalFood: totalFood, totalWood: totalWood,
+        timeOfDay: timeOfDay, elapsed: elapsed,
+        goals: GOALS.map(function (g) { return g.done; }),
+        kingdomDone: kingdomDone
+      };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    } catch (err) { /* ignore */ }
+  });
+
+  // ============ INIT ============
+  buildPalette();
+  buildGoalsUI();
+  resizeCanvas();
+  generateWorld();
+
+  // Auto-restore a previous world if one exists
+  (function autoRestore() {
+    let raw = null;
+    try { raw = localStorage.getItem(SAVE_KEY); } catch (err) { raw = null; }
+    if (raw) loadWorld();
+  })();
+
+  raf = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

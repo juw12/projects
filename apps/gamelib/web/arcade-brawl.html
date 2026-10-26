@@ -1,0 +1,1146 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>ARCADE BRAWL</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    background: #0b0510;
+    font-family: 'Courier New', Courier, monospace;
+    color: #fff;
+    overflow: hidden;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+      radial-gradient(circle at 50% 0%, #2a0d3a 0%, #12061b 45%, #050108 100%);
+  }
+
+  /* ============ SHELL ============ */
+  .wrap {
+    position: relative;
+    width: min(96vw, 980px);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    letter-spacing: 2px;
+    padding: 0 4px;
+  }
+  .logo {
+    font-size: clamp(16px, 3.4vw, 30px);
+    font-weight: bold;
+    color: #ffe14d;
+    text-shadow: 3px 3px 0 #e0218a, 6px 6px 0 rgba(0,0,0,.45);
+  }
+  .logo small { font-size: .5em; color: #7cf3ff; text-shadow: 2px 2px 0 #0b3b44; }
+  .hint { font-size: clamp(8px, 1.5vw, 12px); color: #a48bd0; letter-spacing: 1px; }
+
+  /* ============ SCREEN FRAME ============ */
+  .frame {
+    position: relative;
+    border: 3px solid #e0218a;
+    border-radius: 10px;
+    background: #000;
+    box-shadow: 0 0 0 3px #2b0b1e, 0 18px 50px rgba(224,33,138,.35), inset 0 0 60px rgba(124,243,255,.08);
+    overflow: hidden;
+  }
+  canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+
+  /* ============ SCANLINE FX ============ */
+  .scan {
+    position: absolute; inset: 0; pointer-events: none; z-index: 30;
+    background: repeating-linear-gradient(to bottom, rgba(0,0,0,.22) 0 1px, rgba(0,0,0,0) 1px 3px);
+    mix-blend-mode: multiply;
+  }
+
+  /* ============ OVERLAYS ============ */
+  .overlay {
+    position: absolute; inset: 0; z-index: 20;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 12px; text-align: center;
+    background: rgba(8,2,14,.88);
+    padding: 18px;
+    transition: opacity .25s ease;
+  }
+  .overlay.hide { opacity: 0; pointer-events: none; }
+  .ov-title {
+    font-size: clamp(24px, 6vw, 56px); font-weight: bold;
+    color: #ffe14d; letter-spacing: 4px;
+    text-shadow: 4px 4px 0 #e0218a, 8px 8px 0 rgba(0,0,0,.5);
+  }
+  .ov-sub { color: #7cf3ff; font-size: clamp(10px, 2vw, 15px); letter-spacing: 2px; }
+  .ov-body { color: #e3d3ff; font-size: clamp(10px, 1.9vw, 14px); line-height: 1.7; max-width: 620px; }
+  .ov-body b { color: #ffe14d; }
+
+  /* ============ BUTTONS ============ */
+  .btn {
+    font-family: inherit; cursor: pointer;
+    padding: 12px 26px; letter-spacing: 2px; font-weight: bold;
+    font-size: clamp(12px, 2.2vw, 16px);
+    color: #12061b; background: #ffe14d;
+    border: 3px solid #fff; border-radius: 6px;
+    box-shadow: 0 5px 0 #b8860b, 0 8px 18px rgba(0,0,0,.5);
+    transition: transform .08s ease, box-shadow .08s ease;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 7px 0 #b8860b, 0 10px 22px rgba(0,0,0,.55); }
+  .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #b8860b; }
+  .btn.alt { background: #7cf3ff; box-shadow: 0 5px 0 #117a86, 0 8px 18px rgba(0,0,0,.5); }
+  .btn.alt:hover { box-shadow: 0 7px 0 #117a86, 0 10px 22px rgba(0,0,0,.55); }
+  .btn.alt:active { box-shadow: 0 2px 0 #117a86; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+  /* ============ MODE PICKER ============ */
+  .modes { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .mode {
+    font-family: inherit; cursor: pointer; padding: 10px 18px;
+    letter-spacing: 1px; font-size: clamp(10px, 1.9vw, 13px);
+    color: #cbb6f0; background: #1a0b26;
+    border: 2px solid #4a2a6a; border-radius: 6px;
+  }
+  .mode.on { color: #12061b; background: #7cf3ff; border-color: #fff; font-weight: bold; }
+
+  /* ============ TOUCH CONTROLS ============ */
+  .touch { display: none; justify-content: space-between; align-items: flex-end; gap: 10px; }
+  .touch.show { display: flex; }
+  .pad { display: grid; grid-template-columns: repeat(3, 54px); grid-template-rows: repeat(3, 54px); gap: 6px; }
+  .tbtn {
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(124,243,255,.13); border: 2px solid #338b96;
+    color: #7cf3ff; border-radius: 8px; font-size: 18px; font-family: inherit;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tbtn:active { background: rgba(124,243,255,.35); }
+  .tbtn.up { grid-area: 1/2; } .tbtn.left { grid-area: 2/1; }
+  .tbtn.down { grid-area: 3/2; } .tbtn.right { grid-area: 2/3; }
+  .acts { display: grid; grid-template-columns: repeat(2, 62px); grid-template-rows: repeat(2, 62px); gap: 8px; }
+  .abtn {
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%; font-family: inherit; font-weight: bold; font-size: 13px;
+    color: #12061b; -webkit-tap-highlight-color: transparent;
+  }
+  .abtn:active { filter: brightness(1.25); }
+  .abtn.punch { background: #ffe14d; } .abtn.kick { background: #ff7a3d; }
+  .abtn.grab { background: #7cf3ff; } .abtn.pick { background: #9dff6b; }
+  @media (hover: none) and (pointer: coarse) { .touch.show { display: flex; } }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="logo">ARCADE <small>BRAWL</small></div>
+      <div class="hint" id="bestLabel">BEST 0</div>
+    </div>
+
+    <div class="frame">
+      <canvas id="game" width="800" height="450"></canvas>
+      <div class="scan"></div>
+
+      <!-- ============ START OVERLAY ============ -->
+      <div class="overlay" id="startOv">
+        <div class="ov-title">ARCADE BRAWL</div>
+        <div class="ov-sub">STREET JUSTICE // 3 STAGES</div>
+        <div class="modes">
+          <button class="mode on" data-mode="1">1 PLAYER</button>
+          <button class="mode" data-mode="2">2 PLAYERS (LOCAL)</button>
+        </div>
+        <div class="ov-body">
+          <b>P1</b> Move <b>W A S D</b> &middot; Punch <b>J</b> &middot; Kick <b>K</b> &middot; Grab/Throw <b>L</b> &middot; Pick up <b>U</b><br>
+          <b>P2</b> Move <b>Arrows</b> &middot; Punch <b>1</b> &middot; Kick <b>2</b> &middot; Grab/Throw <b>3</b> &middot; Pick up <b>4</b><br>
+          Grab a thug, then Punch to knee or Grab again to hurl them. Grab a bat or pipe from the street.
+        </div>
+        <div class="row">
+          <button class="btn" id="startBtn">START GAME</button>
+        </div>
+      </div>
+
+      <!-- ============ STAGE CLEAR OVERLAY ============ -->
+      <div class="overlay hide" id="stageOv">
+        <div class="ov-title" id="stageTitle">STAGE CLEAR</div>
+        <div class="ov-body" id="stageStat"></div>
+        <button class="btn alt" id="stageBtn">NEXT STAGE</button>
+      </div>
+
+      <!-- ============ GAME OVER OVERLAY ============ -->
+      <div class="overlay hide" id="overOv">
+        <div class="ov-title" id="overTitle">GAME OVER</div>
+        <div class="ov-body" id="overStat"></div>
+        <button class="btn" id="againBtn">PLAY AGAIN</button>
+      </div>
+
+      <!-- ============ PAUSE BADGE ============ -->
+      <div class="overlay hide" id="pauseOv" style="background:rgba(8,2,14,.6)">
+        <div class="ov-title" style="font-size:clamp(20px,5vw,40px)">PAUSED</div>
+        <div class="ov-sub">PRESS P TO RESUME</div>
+      </div>
+    </div>
+
+    <!-- ============ TOUCH CONTROLS (P1) ============ -->
+    <div class="touch" id="touch">
+      <div class="pad">
+        <button class="tbtn up"    data-k="up">&#9650;</button>
+        <button class="tbtn left"  data-k="left">&#9664;</button>
+        <button class="tbtn right" data-k="right">&#9654;</button>
+        <button class="tbtn down"  data-k="down">&#9660;</button>
+      </div>
+      <div class="acts">
+        <button class="abtn grab"  data-a="grab">GRAB</button>
+        <button class="abtn pick"  data-a="pick">PICK</button>
+        <button class="abtn punch" data-a="punch">PUNCH</button>
+        <button class="abtn kick"  data-a="kick">KICK</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+"use strict";
+// ============================================================
+// ARCADE BRAWL - original side-scrolling beat-'em-up
+// Canvas 2D pseudo-3D lane brawler. No external dependencies.
+// ============================================================
+// ============ CONFIGURATION ============
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width;
+const H = canvas.height;
+const LANE_TOP = 232;                 // far edge of walkable band (screen y)
+const LANE_BOT = 424;                 // near edge of walkable band (screen y)
+const LANE_DEPTH = LANE_BOT - LANE_TOP;
+const STAGE_W = 2600;                 // world width of every stage
+const FPS_STEP = 1000 / 60;           // fixed timestep
+const P_COLORS = [
+  { main: '#2f7bff', dark: '#12386f', skin: '#f2c09a', tag: '#8ec5ff' },
+  { main: '#27c06b', dark: '#0d5e33', skin: '#e8ab7e', tag: '#8effc0' }
+];
+const ENEMY_COLORS = [
+  { main: '#c0392b', dark: '#6b1c14', skin: '#d79b6e' },
+  { main: '#8e44ad', dark: '#4a2160', skin: '#c99067' },
+  { main: '#d97b1f', dark: '#7a4410', skin: '#e0b188' }
+];
+// ============ GAME STATE ============
+const G = {
+  mode: 1,                 // 1 = single player, 2 = local co-op
+  running: false,
+  paused: false,
+  over: false,
+  stage: 1,
+  maxStage: 3,
+  wave: 0,
+  wavesPerStage: 3,
+  bossActive: false,
+  bossDone: false,
+  spawnQueue: [],
+  spawnTimer: 0,
+  clearTimer: -1,
+  camera: 0,
+  shake: 0,
+  hitStop: 0,
+  time: 0,
+  flash: 0
+};
+let players = [];
+let enemies = [];
+let items = [];
+let fx = [];           // particles + floating text
+let highScore = parseInt(localStorage.getItem('arcadeBrawlBest') || '0', 10) || 0;
+// ============ AUDIO (WebAudio) ============
+let actx = null;
+function audioInit() {
+  if (actx) return;
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; }
+}
+function beep(freq, dur, type, vol, slideTo) {
+  if (!actx) return;
+  const t = actx.currentTime;
+  const osc = actx.createOscillator();
+  const gain = actx.createGain();
+  osc.type = type || 'square';
+  osc.frequency.setValueAtTime(freq, t);
+  if (slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), t + dur);
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(vol == null ? 0.08 : vol, t + 0.008);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  osc.connect(gain); gain.connect(actx.destination);
+  osc.start(t); osc.stop(t + dur + 0.02);
+}
+const SFX = {
+  punch:  () => beep(320, 0.07, 'square', 0.07, 150),
+  kick:   () => beep(200, 0.11, 'sawtooth', 0.08, 90),
+  hit:    () => beep(150, 0.16, 'square', 0.10, 60),
+  whiff:  () => beep(600, 0.05, 'sine', 0.03, 420),
+  grab:   () => beep(480, 0.09, 'triangle', 0.07, 700),
+  throw:  () => beep(700, 0.22, 'sawtooth', 0.09, 120),
+  pickup: () => { beep(660, 0.07, 'square', 0.07); setTimeout(() => beep(990, 0.09, 'square', 0.07), 70); },
+  down:   () => beep(120, 0.30, 'sawtooth', 0.10, 40),
+  hurt:   () => beep(260, 0.20, 'square', 0.09, 80),
+  coin:   () => { beep(880, 0.06, 'square', 0.06); setTimeout(() => beep(1320, 0.10, 'square', 0.06), 60); },
+  clear:  () => { [523,659,784,1047].forEach((f,i) => setTimeout(() => beep(f, 0.14, 'square', 0.07), i*120)); },
+  boss:   () => { [110,146,110,146,110,146,220].forEach((f,i) => setTimeout(() => beep(f, 0.16, 'sawtooth', 0.09), i*130)); },
+  over:   () => { [392,330,262,196].forEach((f,i) => setTimeout(() => beep(f, 0.28, 'triangle', 0.09), i*220)); }
+};
+// ============ INPUT ============
+const keys = Object.create(null);
+const pressed = Object.create(null);      // edge-triggered flags, consumed each frame
+function keyDown(code) { keys[code] = true; }
+function keyUp(code) { keys[code] = false; }
+function edge(code) { if (pressed[code]) { pressed[code] = false; return true; } return false; }
+const P1_CTRL = { up:'KeyW', down:'KeyS', left:'KeyA', right:'KeyD', punch:'KeyJ', kick:'KeyK', grab:'KeyL', pick:'KeyU' };
+const P2_CTRL = { up:'ArrowUp', down:'ArrowDown', left:'ArrowLeft', right:'ArrowRight',
+                  punch:'Digit1', kick:'Digit2', grab:'Digit3', pick:'Digit4' };
+document.addEventListener('keydown', (e) => {
+  const tracked = [].concat(Object.values(P1_CTRL), Object.values(P2_CTRL), ['KeyP','Space']);
+  if (tracked.indexOf(e.code) >= 0) e.preventDefault();
+  if (!keys[e.code]) pressed[e.code] = true;
+  keys[e.code] = true;
+  audioInit();
+  if (e.code === 'KeyP' && G.running && !G.over) togglePause();
+});
+document.addEventListener('keyup', (e) => { keys[e.code] = false; });
+window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+// ============ TOUCH INPUT (drives Player 1) ============
+const touchState = { up:false, down:false, left:false, right:false };
+const touch = document.getElementById('touch');
+if ('ontouchstart' in window || navigator.maxTouchPoints > 0) touch.classList.add('show');
+document.querySelectorAll('.tbtn').forEach((b) => {
+  const k = b.dataset.k;
+  const on  = (e) => { e.preventDefault(); touchState[k] = true; audioInit(); };
+  const off = (e) => { e.preventDefault(); touchState[k] = false; };
+  b.addEventListener('touchstart', on, {passive:false});
+  b.addEventListener('touchend', off, {passive:false});
+  b.addEventListener('touchcancel', off, {passive:false});
+  b.addEventListener('mousedown', on); b.addEventListener('mouseup', off);
+  b.addEventListener('mouseleave', off);
+});
+document.querySelectorAll('.abtn').forEach((b) => {
+  const a = b.dataset.a;
+  const fire = (e) => {
+    e.preventDefault(); audioInit();
+    if (a === 'punch') pressed[P1_CTRL.punch] = true;
+    if (a === 'kick')  pressed[P1_CTRL.kick]  = true;
+    if (a === 'grab')  pressed[P1_CTRL.grab]  = true;
+    if (a === 'pick')  pressed[P1_CTRL.pick]  = true;
+  };
+  b.addEventListener('touchstart', fire, {passive:false});
+  b.addEventListener('mousedown', fire);
+});
+// ============ HELPERS ============
+const clamp = (v, a, b) => v < a ? a : (v > b ? b : v);
+const rand = (a, b) => a + Math.random() * (b - a);
+const depthScale = (z) => 0.74 + z * 0.42;
+const screenY = (z) => LANE_TOP + z * LANE_DEPTH;
+function aabb(a, b) { return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom); }
+function makeBox(cx, cz, w, h) {
+  const sc = depthScale(cz), sy = screenY(cz);
+  return { left: cx - w * sc / 2, right: cx + w * sc / 2, top: sy - h * sc, bottom: sy };
+}
+// ============ SPAWNING ============
+function spawnWave() {
+  const stageBoost = (G.stage - 1);
+  const count = 2 + Math.min(4, G.wave) + (G.mode === 2 ? 1 : 0) + stageBoost;
+  const fromLeft = Math.random() < 0.5;
+  for (let i = 0; i < count; i++) {
+    G.spawnQueue.push({
+      delay: i * 34 + rand(0, 26),
+      kind: Math.random() < 0.32 + stageBoost * 0.08 ? 'heavy' : 'thug',
+      side: (i % 2 === 0) ? fromLeft : !fromLeft
+    });
+  }
+}
+function spawnBoss() {
+  G.bossActive = true;
+  SFX.boss();
+  const fromLeft = G.camera < STAGE_W / 2;
+  G.spawnQueue.push({ delay: 20, kind: 'boss', side: fromLeft });
+}
+function makeEnemy(spec) {
+  const side = spec.side;
+  const px = clamp(G.camera + W / 2, 300, STAGE_W - 300);
+  const x = clamp(px + (side ? -1 : 1) * (W / 2 + 60), 40, STAGE_W - 40);
+  const z = rand(0.18, 0.85);
+  const base = { x, z, vz: 0, facing: side ? 1 : -1, state: 'walk', timer: 0, atkCd: rand(0.4, 1.4),
+                 hitStop: 0, flash: 0, vx: 0, vy: 0, air: 0, grabbedBy: null, guard: 0 };
+  if (spec.kind === 'boss') {
+    return Object.assign(base, { kind:'boss', hp: 130 + (G.stage-1)*55, maxHp: 130 + (G.stage-1)*55,
+      speed: 0.72, dmg: 14, reach: 54, w: 40, h: 92, score: 500, big: true });
+  }
+  if (spec.kind === 'heavy') {
+    return Object.assign(base, { kind:'heavy', hp: 30 + (G.stage-1)*10, maxHp: 30 + (G.stage-1)*10,
+      speed: 0.62, dmg: 10, reach: 40, w: 30, h: 74, score: 150, big: false });
+  }
+  return Object.assign(base, { kind:'thug', hp: 16 + (G.stage-1)*6, maxHp: 16 + (G.stage-1)*6,
+    speed: 1.05, dmg: 7, reach: 36, w: 26, h: 68, score: 100, big: false });
+}
+// ============ PLAYERS ============
+function makePlayer(idx) {
+  const col = P_COLORS[idx];
+  return {
+    idx, x: 170 + idx * 42, z: 0.55, vx: 0, vz: 0, facing: 1,
+    hp: 100, maxHp: 100, lives: 3, score: 0,
+    state: 'idle', timer: 0, combo: 0, comboTimer: 0,
+    attack: null, attackTimer: 0, hitDone: false,
+    grabbing: null, invuln: 0, walkPhase: 0, hurt: 0, respawn: 0,
+    weapon: null, weaponUses: 0, dead: false, color: col, atkAnim: 0
+  };
+}
+function resetPlayer(p) {
+  p.hp = p.maxHp; p.lives = 3; p.score = 0; p.x = 170 + p.idx * 42; p.z = 0.55;
+  p.facing = 1; p.vx = p.vz = 0; p.state = 'idle'; p.timer = 0;
+  p.combo = 0; p.comboTimer = 0; p.attack = null; p.attackTimer = 0;
+  p.grabbing = null; p.invuln = 0; p.hurt = 0; p.respawn = 0;
+  p.weapon = null; p.weaponUses = 0; p.dead = false; p.atkAnim = 0;
+}
+// ============ GAME FLOW ============
+function startGame() {
+  audioInit();
+  players = [makePlayer(0)];
+  if (G.mode === 2) players.push(makePlayer(1));
+  enemies = []; items = []; fx = []; G.spawnQueue = [];
+  G.stage = 1; G.wave = 0; G.bossActive = false; G.bossDone = false; G.clearTimer = -1;
+  G.running = true; G.paused = false; G.over = false; G.camera = 0; G.shake = 0;
+  hideOverlay('startOv'); hideOverlay('stageOv'); hideOverlay('overOv'); hideOverlay('pauseOv');
+  beginStage(true);
+}
+function beginStage(first) {
+  G.wave = 0; G.bossActive = false; G.bossDone = false; G.clearTimer = -1;
+  G.camera = 0;
+  resizePlayers();
+  // scatter a couple of weapons
+  items = [];
+  for (let i = 0; i < 2; i++) items.push(makeItem(rand(300, 900) + i * 260, rand(0.3, 0.8)));
+  G.spawnQueue = [];
+  spawnWave();
+  beep(660, 0.1, 'square', 0.07, 990);
+  if (first) players.forEach(p => { p.dead = false; });
+}
+function nextStage() {
+  hideOverlay('stageOv');
+  G.stage++;
+  players.forEach((p) => { p.hp = p.maxHp; });
+  beginStage(false);
+  G.running = true; G.paused = false;
+}
+function resizePlayers() {
+  players.forEach((p, i) => { p.x = 150 + i * 46; p.z = 0.55; p.facing = 1; p.state = 'idle'; p.attack = null; p.grabbing = null; });
+}
+function togglePause() {
+  G.paused = !G.paused;
+  if (G.paused) showOverlay('pauseOv'); else hideOverlay('pauseOv');
+}
+function showOverlay(id) { document.getElementById(id).classList.remove('hide'); }
+function hideOverlay(id) { document.getElementById(id).classList.add('hide'); }
+function gameOver() {
+  G.over = true; G.running = false;
+  SFX.over();
+  const total = players.reduce((s, p) => s + p.score, 0);
+  if (total > highScore) { highScore = total; localStorage.setItem('arcadeBrawlBest', String(highScore)); }
+  document.getElementById('bestLabel').textContent = 'BEST ' + highScore;
+  document.getElementById('overTitle').textContent = 'GAME OVER';
+  document.getElementById('overStat').innerHTML = statLine(total);
+  showOverlay('overOv');
+}
+function stageClear() {
+  G.running = false;
+  SFX.clear();
+  const total = players.reduce((s, p) => s + p.score, 0);
+  if (G.stage >= G.maxStage) {
+    document.getElementById('stageTitle').textContent = 'YOU WIN!';
+    document.getElementById('stageBtn').textContent = 'PLAY AGAIN';
+    document.getElementById('stageStat').innerHTML = statLine(total) + '<br><b>All ' + G.maxStage + ' stages cleaned up.</b>';
+    G.over = true;
+    if (total > highScore) { highScore = total; localStorage.setItem('arcadeBrawlBest', String(highScore)); }
+    document.getElementById('bestLabel').textContent = 'BEST ' + highScore;
+  } else {
+    document.getElementById('stageTitle').textContent = 'STAGE ' + G.stage + ' CLEAR';
+    document.getElementById('stageBtn').textContent = 'NEXT STAGE';
+    document.getElementById('stageStat').innerHTML = statLine(total);
+  }
+  showOverlay('stageOv');
+}
+function statLine(total) {
+  return players.map((p) => '<b>P' + (p.idx + 1) + '</b> SCORE ' + p.score).join(' &middot; ') +
+         '<br>TOTAL <b>' + total + '</b> &middot; BEST <b>' + highScore + '</b>';
+}
+// ============ ITEMS (weapons) ============
+function makeItem(x, z) {
+  return { x, z, type: Math.random() < 0.5 ? 'bat' : 'pipe', taken: false, bob: rand(0, Math.PI * 2) };
+}
+// ============ FX ============
+function burst(x, z, color, n) {
+  for (let i = 0; i < (n || 8); i++) {
+    fx.push({ kind:'p', x, z, y: 0, vx: rand(-3, 3), vz: rand(-.4, .4),
+      life: 1, color, size: rand(2, 5) });
+  }
+}
+function floatText(x, z, text, color) {
+  fx.push({ kind:'t', x, z, life: 1, text, color: color || '#ffe14d' });
+}
+// ============ COMBAT ============
+function hurtEnemy(e, dmg, dir, kb, attacker) {
+  if (e.state === 'dead') return;
+  e.hp -= dmg; e.flash = 1; e.hitStop = 6;
+  e.x += dir * kb;
+  XShake(4);
+  SFX.hit();
+  burst(e.x, e.z, '#ffd166', 7);
+  if (attacker) attacker.score += Math.round(dmg);
+  if (e.hp <= 0) {
+    e.state = 'dead'; e.timer = 0; e.vx = dir * 3.2; e.vy = -5.2; e.air = 1;
+    SFX.down();
+    if (attacker) { attacker.score += e.score; floatText(e.x, e.z, '+' + e.score, '#ffe14d'); }
+    if (e.kind === 'boss') { G.bossActive = false; G.bossDone = true; }
+  } else {
+    e.state = 'hurt'; e.timer = 14;
+  }
+}
+function XShake(v) { G.shake = Math.max(G.shake, v); }
+function playerAttack(p, type) {
+  if (p.attack || p.grabbing || p.hurt > 0) return;
+  p.attack = type;
+  p.attackTimer = type === 'kick' ? 22 : 14;
+  p.hitDone = false;
+  p.atkAnim = 1;
+  const reach = type === 'kick' ? 60 : 44;
+  const dmg = (type === 'kick' ? 12 : 7) + (p.weapon ? (p.weapon === 'bat' ? 8 : 6) : 0) +
+              (p.combo >= 2 ? 4 : 0);
+  p.pendingHit = { reach, dmg, type };
+  p.weaponSwing = !!p.weapon;
+  if (p.weapon) { p.weaponUses--; if (p.weaponUses <= 0) { p.weapon = null; } }
+  if (type === 'kick') SFX.kick(); else SFX.punch();
+  if (!p.weapon) SFX.whiff();
+}
+function resolveAttack(p) {
+  const ph = p.pendingHit;
+  if (!ph || p.hitDone) return;
+  const hitFrame = ph.type === 'kick' ? 8 : 5;
+  if (p.attackTimer > (ph.type === 'kick' ? 22 - 8 : 14 - 5)) return; // wait until active frame
+  p.hitDone = true;
+  let connected = false;
+  for (const e of enemies) {
+    if (e.state === 'dead' || e.grabbedBy) continue;
+    const dx = (e.x - p.x) * p.facing;
+    const dz = Math.abs(e.z - p.z);
+    if (dx > -12 && dx < ph.reach && dz < 0.34) {
+      hurtEnemy(e, ph.dmg, p.facing, ph.type === 'kick' ? 16 : 7, p);
+      connected = true;
+    }
+  }
+  if (connected) {
+    p.combo++; p.comboTimer = 70;
+    if (p.combo === 3) floatText(p.x, p.z - 0.05, 'COMBO x3!', '#ff7a3d');
+    XShake(3);
+  } else {
+    p.combo = 0;
+  }
+}
+function tryGrab(p) {
+  if (p.grabbing) { throwGrabbed(p); return; }
+  if (p.attack || p.hurt > 0) return;
+  for (const e of enemies) {
+    if (e.state === 'dead' || e.kind === 'boss' || e.grabbedBy) continue;
+    const dx = (e.x - p.x) * p.facing;
+    if (dx > -8 && dx < 40 && Math.abs(e.z - p.z) < 0.30) {
+      p.grabbing = e; e.grabbedBy = p; e.state = 'grabbed';
+      p.state = 'grab'; SFX.grab(); XShake(2);
+      return;
+    }
+  }
+  SFX.whiff();
+}
+function throwGrabbed(p) {
+  const e = p.grabbing;
+  if (!e) return;
+  e.grabbedBy = null; p.grabbing = null; p.state = 'idle';
+  e.state = 'thrown'; e.timer = 0; e.vx = p.facing * 9.5; e.vy = -4.6; e.air = 1;
+  e.thrownBy = p; e.thrownHit = false;
+  SFX.throw(); XShake(6);
+}
+function kneeGrabbed(p) {
+  const e = p.grabbing;
+  if (!e) return;
+  hurtEnemy(e, 9, p.facing, 3, p);
+  if (e.hp <= 0) { e.grabbedBy = null; p.grabbing = null; p.state = 'idle'; }
+  XShake(3);
+}
+function hurtPlayer(p, dmg, dir) {
+  if (p.invuln > 0 || p.dead) return;
+  p.hp -= dmg; p.hurt = 18; p.invuln = 48;
+  p.x += dir * 14;
+  if (p.grabbing) { p.grabbing.grabbedBy = null; p.grabbing.state = 'walk'; p.grabbing = null; }
+  p.state = 'hurt';
+  SFX.hurt(); XShake(7); burst(p.x, p.z, '#ff5c8a', 9);
+  if (p.hp <= 0) {
+    p.hp = 0; p.dead = true; p.lives--; p.respawn = 90; p.state = 'down';
+    SFX.down();
+  }
+}
+// ============ UPDATE ============
+function updatePlayer(p) {
+  if (p.dead) { if (p.lives < 0) return; p.respawn--; if (p.respawn <= 0) respawnPlayer(p); return; }
+  if (p.invuln > 0) p.invuln--;
+  if (p.hurt > 0) p.hurt--;
+  if (p.comboTimer > 0) { p.comboTimer--; if (p.comboTimer === 0) p.combo = 0; }
+  if (p.atkAnim > 0) p.atkAnim -= 0.08;
+  const ctrl = p.idx === 0 ? P1_CTRL : P2_CTRL;
+  // attack timers
+  if (p.attack) {
+    p.attackTimer--;
+    resolveAttack(p);
+    if (p.attackTimer <= 0) { p.attack = null; p.pendingHit = null; }
+  }
+  // grab hold position
+  if (p.grabbing) {
+    const e = p.grabbing;
+    e.x = p.x + p.facing * 24;
+    e.z = clamp(p.z + 0.02, 0.1, 0.95);
+    e.facing = -p.facing;
+  }
+  // movement (disabled while attacking/hurt)
+  let mx = 0, mz = 0;
+  const canMove = !p.attack && p.hurt <= 0;
+  if (canMove) {
+    if (keys[ctrl.up]) mz -= 1;
+    if (keys[ctrl.down]) mz += 1;
+    if (keys[ctrl.left]) mx -= 1;
+    if (keys[ctrl.right]) mx += 1;
+    if (p.idx === 0) {
+      if (touchState.up) mz -= 1;
+      if (touchState.down) mz += 1;
+      if (touchState.left) mx -= 1;
+      if (touchState.right) mx += 1;
+    }
+  }
+  if (mx !== 0 || mz !== 0) {
+    const len = Math.hypot(mx, mz) || 1;
+    const spd = p.grabbing ? 1.4 : 2.75;
+    p.x += (mx / len) * spd;
+    p.z += (mz / len) * spd * 0.012;
+    if (mx !== 0) p.facing = mx > 0 ? 1 : -1;
+    if (!p.attack) p.state = 'walk';
+    p.walkPhase += 0.22;
+  } else if (!p.attack) {
+    p.state = p.grabbing ? 'grab' : 'idle';
+  }
+  // action edges
+  if (edge(ctrl.punch)) { if (p.grabbing) kneeGrabbed(p); else playerAttack(p, 'punch'); }
+  if (edge(ctrl.kick))  { if (p.grabbing) throwGrabbed(p); else playerAttack(p, 'kick'); }
+  if (edge(ctrl.grab))  tryGrab(p);
+  if (edge(ctrl.pick))  tryPickup(p);
+  // keep in world / lane
+  p.x = clamp(p.x, 20, STAGE_W - 20);
+  p.z = clamp(p.z, 0.07, 0.95);
+}
+function tryPickup(p) {
+  if (p.weapon) return;
+  for (const it of items) {
+    if (it.taken) continue;
+    if (Math.abs(it.x - p.x) < 34 && Math.abs(it.z - p.z) < 0.24) {
+      it.taken = true; p.weapon = it.type; p.weaponUses = it.type === 'bat' ? 6 : 8;
+      SFX.pickup(); floatText(p.x, p.z - 0.04, it.type.toUpperCase() + '!', '#9dff6b');
+      return;
+    }
+  }
+}
+function respawnPlayer(p) {
+  p.dead = false; p.hp = p.maxHp; p.state = 'idle'; p.hurt = 0; p.invuln = 120;
+  const alive = players.filter(q => !q.dead);
+  const anchor = alive.length ? alive[0] : null;
+  p.x = clamp((anchor ? anchor.x : G.camera + 150), 30, STAGE_W - 30);
+  p.z = 0.6; p.attack = null; p.grabbing = null;
+}
+function updateEnemy(e) {
+  if (e.flash > 0) e.flash -= 0.12;
+  if (e.hitStop > 0) { e.hitStop--; return; }
+  if (e.state === 'grabbed') return;
+  if (e.state === 'dead') {
+    e.timer++;
+    e.x += e.vx; e.z = clamp(e.z + e.vz * 0.02, 0.05, 0.98);
+    e.vx *= 0.92;
+    if (e.vx < 0.05 && e.vx > -0.05) e.vx = 0;
+    if (e.timer > 46) e.remove = true;
+    return;
+  }
+  if (e.state === 'hurt') {
+    e.timer--; e.x += e.vx * 0.4; e.vx *= 0.85;
+    if (e.timer <= 0) { e.state = 'walk'; e.vx = 0; }
+    return;
+  }
+  if (e.state === 'thrown') {
+    e.timer++;
+    e.x += e.vx; e.vy += 0.42; e.z = clamp(e.z + e.vy * 0.014, 0.05, 0.97);
+    if (e.timer > 6) {
+      for (const o of enemies) {
+        if (o === e || o.state === 'dead' || o.state === 'thrown' || o.grabbedBy) continue;
+        if (Math.abs(o.x - e.x) < 34 && Math.abs(o.z - e.z) < 0.2) {
+          hurtEnemy(o, 14, Math.sign(e.vx) || 1, 12, e.thrownBy);
+        }
+      }
+    }
+    if (e.timer > 12 && Math.abs(e.vx) < 0.6) {
+      hurtEnemy(e, 10, Math.sign(e.vx) || 1, 0, e.thrownBy);
+      if (e.state !== 'dead') { e.vx = 0; e.timer = 24; e.state = 'hurt'; }
+    }
+    e.vx *= 0.97;
+    return;
+  }
+  // windup then strike
+  if (e.state === 'attack') {
+    e.timer--;
+    if (e.timer === 8) SFX.whiff();
+    if (e.timer === 5) {
+      for (const p of players) {
+        if (p.dead) continue;
+        const dx = (p.x - e.x) * e.facing;
+        const dz = Math.abs(p.z - e.z);
+        if (dx > -12 && dx < e.reach && dz < 0.3) hurtPlayer(p, e.dmg, e.facing);
+      }
+    }
+    if (e.timer <= 0) { e.state = 'walk'; e.atkCd = rand(0.7, 1.6); }
+    return;
+  }
+  // default: walk toward nearest player
+  if (e.atkCd > 0) e.atkCd -= 1 / 60;
+  let target = null, best = 1e9;
+  for (const p of players) {
+    if (p.dead) continue;
+    const d = Math.abs(p.x - e.x) + Math.abs(p.z - e.z) * 120;
+    if (d < best) { best = d; target = p; }
+  }
+  if (!target) { e.state = 'idle'; return; }
+  const dx = target.x - e.x;
+  const dz = target.z - e.z;
+  e.facing = dx > 0 ? 1 : -1;
+  const nearX = Math.abs(dx) < e.reach - 4;
+  const nearZ = Math.abs(dz) < 0.10;
+  if (nearX && nearZ && e.atkCd <= 0) { e.state = 'attack'; e.timer = 20; return; }
+  if (!nearX) e.x += Math.sign(dx) * e.speed;
+  if (Math.abs(dz) > 0.04) e.z += Math.sign(dz) * Math.min(0.008, Math.abs(dz) * 0.02);
+  // soft separation so thugs do not stack
+  for (const o of enemies) {
+    if (o === e || o.state === 'dead' || o.state === 'thrown') continue;
+    if (Math.abs(o.x - e.x) < 18 && Math.abs(o.z - e.z) < 0.05) e.x -= Math.sign(dx) * 0.4;
+  }
+  e.walkPhase = (e.walkPhase || 0) + 0.18;
+  e.x = clamp(e.x, 12, STAGE_W - 12);
+  e.z = clamp(e.z, 0.07, 0.95);
+}
+function updateItems() {
+  for (const it of items) it.bob += 0.06;
+}
+function updateFX() {
+  for (const f of fx) {
+    if (f.kind === 'p') {
+      f.x += f.vx; f.z += f.vz; f.vy = (f.vy || 0) + 0.32; f.life -= 0.035;
+    } else {
+      f.z -= 0.0016; f.life -= 0.014;
+    }
+  }
+  fx = fx.filter(f => f.life > 0);
+}
+function updateCamera() {
+  const alive = players.filter(p => !p.dead);
+  const cx = alive.length ? alive.reduce((s, p) => s + p.x, 0) / alive.length : G.camera + W / 2;
+  // keep the party inside the stage bounds mirrored by a forward camera
+  const desired = clamp(cx - W / 2, 0, STAGE_W - W);
+  G.camera += (desired - G.camera) * 0.09;
+  if (G.shake > 0) G.shake *= 0.82;
+  if (G.shake < 0.4) G.shake = 0;
+}
+function update() {
+  G.time++;
+  if (G.hitStop > 0) { G.hitStop--; return; }
+  players.forEach(updatePlayer);
+  enemies.forEach(updateEnemy);
+  enemies = enemies.filter(e => !e.remove);
+  updateItems();
+  updateFX();
+  updateCamera();
+  // spawn queue
+  for (const spec of G.spawnQueue) spec.delay--;
+  while (G.spawnQueue.length && G.spawnQueue[0].delay <= 0) {
+    const spec = G.spawnQueue.shift();
+    enemies.push(makeEnemy(spec));
+  }
+  // wave progression
+  if (G.running) {
+    if (!G.bossActive && G.spawnQueue.length === 0 && enemies.filter(e => e.state !== 'dead').length === 0) {
+      if (G.clearTimer < 0) G.clearTimer = 60;
+    }
+    if (G.clearTimer > 0) {
+      G.clearTimer--;
+      if (G.clearTimer === 0) {
+        if (G.wave < G.wavesPerStage) { G.wave++; spawnWave(); G.clearTimer = -1; }
+        else if (!G.bossDone && !G.bossActive) { spawnBoss(); G.clearTimer = -1; }
+        else { stageClear(); }
+      }
+    }
+  }
+  // all players out of lives -> game over
+  if (G.running && players.every(p => p.dead && p.lives < 0)) gameOver();
+}
+// ============ RENDER ============
+function drawBackground() {
+  // sky
+  const sky = ctx.createLinearGradient(0, 0, 0, LANE_TOP + 40);
+  sky.addColorStop(0, '#1b0b2b');
+  sky.addColorStop(0.55, '#3a1250');
+  sky.addColorStop(1, '#7a2a5c');
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, LANE_TOP + 40);
+  // moon
+  ctx.fillStyle = 'rgba(255,241,180,.9)';
+  ctx.beginPath(); ctx.arc(W - 120, 70, 34, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,241,180,.14)';
+  ctx.beginPath(); ctx.arc(W - 120, 70, 60, 0, Math.PI * 2); ctx.fill();
+  // far skyline (slow parallax)
+  const off1 = -G.camera * 0.12;
+  ctx.fillStyle = '#160a24';
+  for (let i = 0, x = off1; x < W + 200; i++, x += 120) {
+    const bx = ((x % (W + 200)) + (W + 200)) % (W + 200) - 100;
+    const bh = 90 + ((i * 53) % 90);
+    ctx.fillRect(bx, LANE_TOP - bh, 90, bh + 60);
+  }
+  // near skyline (mid parallax) with windows
+  const off2 = -G.camera * 0.34;
+  for (let i = 0, x = off2; x < W + 220; i++, x += 150) {
+    const bx = ((x % (W + 220)) + (W + 220)) % (W + 220) - 110;
+    const bh = 120 + ((i * 71) % 110);
+    ctx.fillStyle = '#0e0616';
+    ctx.fillRect(bx, LANE_TOP - bh + 20, 118, bh + 40);
+    ctx.fillStyle = 'rgba(255,225,77,.55)';
+    for (let wy = LANE_TOP - bh + 40; wy < LANE_TOP + 10; wy += 26) {
+      for (let wx = bx + 14; wx < bx + 100; wx += 26) {
+        if (((wx + wy + i * 7) | 0) % 3 !== 0) ctx.fillRect(wx, wy, 10, 13);
+      }
+    }
+  }
+  // sidewalk
+  ctx.fillStyle = '#241726';
+  ctx.fillRect(0, LANE_TOP - 6, W, 6);
+  ctx.fillStyle = '#2c1c2f';
+  ctx.fillRect(0, LANE_TOP, W, LANE_DEPTH + 30);
+  // road band (perspective stripes)
+  for (let i = -1; i < 14; i++) {
+    const wx = (i * 210) - (G.camera % 210);
+    ctx.fillStyle = (i % 2 === 0) ? '#33203a' : '#2e1d34';
+    ctx.fillRect(wx, LANE_TOP + LANE_DEPTH * 0.55, 210, LANE_DEPTH * 0.5);
+  }
+  // lane depth guide lines
+  ctx.strokeStyle = 'rgba(124,243,255,.10)';
+  ctx.lineWidth = 1;
+  for (let d = 0; d <= 4; d++) {
+    const y = screenY(d / 4);
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+  // curb scatter (barrels & cans, world-locked)
+  ctx.save();
+  ctx.translate(-G.camera, 0);
+  for (let i = 0; i < 12; i++) {
+    const bx = 150 + i * 220;
+    if (bx < G.camera - 80 || bx > G.camera + W + 80) continue;
+    const bz = 0.12 + (i % 2) * 0.05;
+    const sy = screenY(bz);
+    ctx.fillStyle = i % 3 === 0 ? '#3f6b3f' : '#5a3f2a';
+    ctx.fillRect(bx, sy - 26, 18, 26);
+    ctx.fillStyle = 'rgba(255,255,255,.12)';
+    ctx.fillRect(bx + 2, sy - 24, 4, 22);
+  }
+  ctx.restore();
+  // ground shadow gradient
+  const grd = ctx.createLinearGradient(0, LANE_BOT - 40, 0, H);
+  grd.addColorStop(0, 'rgba(0,0,0,0)');
+  grd.addColorStop(1, 'rgba(0,0,0,.55)');
+  ctx.fillStyle = grd; ctx.fillRect(0, LANE_BOT - 40, W, H - LANE_BOT + 40);
+}
+function drawShadow(x, z, w) {
+  const sy = screenY(z), sc = depthScale(z);
+  ctx.fillStyle = 'rgba(0,0,0,.35)';
+  ctx.beginPath();
+  ctx.ellipse(x, sy, (w * sc) * 0.7, 5 * sc, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+function drawHumanoid(x, z, facing, col, opts) {
+  opts = opts || {};
+  const sy = screenY(z), sc = depthScale(z);
+  const walk = opts.walk || 0;
+  const swing = Math.sin(walk) * 6 * sc;
+  const bodyH = (opts.h || 58) * sc;
+  const bodyW = (opts.w || 22) * sc;
+  // legs
+  ctx.strokeStyle = col.dark; ctx.lineWidth = 5 * sc; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x, sy - bodyH * 0.42); ctx.lineTo(x - 5 * sc + swing, sy);
+  ctx.moveTo(x, sy - bodyH * 0.42); ctx.lineTo(x + 5 * sc - swing, sy);
+  ctx.stroke();
+  // torso
+  ctx.fillStyle = opts.flash ? '#ffffff' : col.main;
+  roundRect(x - bodyW / 2, sy - bodyH, bodyW, bodyH * 0.62, 5 * sc);
+  ctx.fill();
+  // belt
+  ctx.fillStyle = 'rgba(0,0,0,.35)';
+  ctx.fillRect(x - bodyW / 2, sy - bodyH * 0.44, bodyW, 4 * sc);
+  // arms
+  ctx.strokeStyle = opts.flash ? '#ffffff' : col.skin; ctx.lineWidth = 4.5 * sc;
+  const armY = sy - bodyH * 0.88;
+  const armFront = opts.armFront || 0;
+  ctx.beginPath();
+  ctx.moveTo(x, armY);
+  ctx.lineTo(x + facing * (10 * sc + armFront * 14 * sc), armY + (6 + armFront * 4) * sc);
+  ctx.moveTo(x, armY);
+  ctx.lineTo(x - facing * 10 * sc, armY + 8 * sc);
+  ctx.stroke();
+  // head
+  ctx.fillStyle = opts.flash ? '#ffffff' : col.skin;
+  ctx.beginPath(); ctx.arc(x + facing * 2 * sc, sy - bodyH - 8 * sc, 9 * sc, 0, Math.PI * 2); ctx.fill();
+  // hair / cap
+  ctx.fillStyle = opts.flash ? '#ffffff' : col.dark;
+  ctx.beginPath();
+  ctx.arc(x + facing * 2 * sc, sy - bodyH - 10 * sc, 9 * sc, Math.PI, Math.PI * 2);
+  ctx.fill();
+  // weapon in hand
+  if (opts.weapon) {
+    const wx = x + facing * (16 * sc + armFront * 16 * sc);
+    const wy = armY + (6 + armFront * 4) * sc;
+    ctx.save();
+    ctx.translate(wx, wy);
+    ctx.rotate(facing * (opts.weaponRot || 0.3));
+    ctx.fillStyle = opts.weapon === 'bat' ? '#c98a3c' : '#9aa7b0';
+    ctx.fillRect(-2 * sc, -26 * sc, 5 * sc, 30 * sc);
+    ctx.restore();
+  }
+}
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function drawEnemy(e) {
+  if (e.remove) return;
+  const x = e.x - G.camera;
+  if (x < -120 || x > W + 120) return;
+  const col = e.kind === 'boss'
+    ? { main: '#7d0f2a', dark: '#3d0715', skin: '#e0b088' }
+    : ENEMY_COLORS[(e.x | 0) % ENEMY_COLORS.length];
+  const flat = e.state === 'dead' || e.state === 'thrown';
+  drawShadow(x, e.z, e.w);
+  ctx.save();
+  if (flat) ctx.globalAlpha = clamp(1 - e.timer / 46, 0.15, 1);
+  let rot = 0;
+  if (e.state === 'dead') rot = Math.sign(e.vx || 1) * (e.timer / 46) * 1.4;
+  if (e.state === 'thrown') rot = Math.sign(e.vx || 1) * (e.timer / 14) * 1.2;
+  if (rot) { ctx.translate(x, screenY(e.z)); ctx.rotate(rot); ctx.translate(-x, -screenY(e.z)); }
+  let armFront = 0;
+  if (e.state === 'attack') armFront = 0.4 + Math.sin((20 - e.timer) * 0.4) * 0.6;
+  if (e.state === 'grabbed') armFront = 0.2;
+  drawHumanoid(x, e.z, e.facing, col, {
+    h: e.big ? 86 : e.h, w: e.w, walk: e.walkPhase || 0, flash: e.flash > 0.4,
+    armFront, weapon: e.weapon
+  });
+  ctx.restore();
+  // enemy health pip
+  if (e.state !== 'dead' && e.hp < e.maxHp) {
+    const bw = e.big ? 54 : 34, sy = screenY(e.z) - (e.big ? 104 : e.h * depthScale(e.z)) - 16;
+    ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(x - bw / 2 - 1, sy - 1, bw + 2, 6);
+    ctx.fillStyle = e.kind === 'boss' ? '#ff3b6b' : '#ffb020';
+    ctx.fillRect(x - bw / 2, sy, bw * clamp(e.hp / e.maxHp, 0, 1), 4);
+  }
+  if (e.kind === 'boss' && e.state !== 'dead') {
+    ctx.fillStyle = '#ff9db5'; ctx.font = 'bold 11px Courier New'; ctx.textAlign = 'center';
+    ctx.fillText('BOSS', x, screenY(e.z) - 112);
+  }
+  // grab prompt
+  if (e.state === 'grabbed') {
+    ctx.fillStyle = '#7cf3ff'; ctx.font = 'bold 10px Courier New'; ctx.textAlign = 'center';
+    ctx.fillText('HELD', x, screenY(e.z) - 96);
+  }
+}
+function drawPlayer(p) {
+  const x = p.x - G.camera;
+  if (x < -140 || x > W + 140) return;
+  drawShadow(x, p.z, 26);
+  ctx.save();
+  if (p.dead) ctx.globalAlpha = 0.4;
+  if (p.invuln > 0 && !p.dead && Math.floor(p.invuln / 4) % 2 === 0) ctx.globalAlpha = 0.45;
+  if (p.state === 'down') {
+    ctx.translate(x, screenY(p.z)); ctx.rotate(1.4); ctx.translate(-x, -screenY(p.z));
+  }
+  const attackArm = p.attack ? (p.attack === 'kick' ? 0.9 : 0.75) : 0;
+  const weaponRot = p.attack ? (p.attack === 'kick' ? -0.9 : -1.4) : 0.3;
+  drawHumanoid(x, p.z, p.facing, p.color, {
+    h: 60, w: 24, walk: p.state === 'walk' ? p.walkPhase : 0,
+    armFront: attackArm, weapon: p.weapon, weaponRot: weaponRot
+  });
+  ctx.restore();
+  // marker P1 / P2
+  ctx.fillStyle = p.color.tag;
+  ctx.font = 'bold 10px Courier New'; ctx.textAlign = 'center';
+  ctx.fillText('P' + (p.idx + 1), x, screenY(p.z) - 82);
+}
+function drawItem(it) {
+  if (it.taken) return;
+  const x = it.x - G.camera;
+  if (x < -60 || x > W + 60) return;
+  const sy = screenY(it.z) + Math.sin(it.bob) * 3;
+  drawShadow(x, it.z, 14);
+  ctx.save();
+  ctx.translate(x, sy);
+  ctx.rotate(0.35);
+  if (it.type === 'bat') {
+    ctx.fillStyle = '#c98a3c'; ctx.fillRect(-3, -24, 7, 30);
+    ctx.fillStyle = '#8a5a22'; ctx.fillRect(-4, 4, 9, 8);
+  } else {
+    ctx.fillStyle = '#9aa7b0'; ctx.fillRect(-2, -26, 5, 34);
+    ctx.fillStyle = '#6b7a85'; ctx.fillRect(-3, -26, 7, 5);
+  }
+  ctx.restore();
+  // sparkle
+  ctx.fillStyle = 'rgba(157,255,107,' + (0.5 + Math.sin(it.bob * 2) * 0.3) + ')';
+  ctx.beginPath(); ctx.arc(x, sy - 30, 2.4, 0, Math.PI * 2); ctx.fill();
+}
+function drawFX() {
+  for (const f of fx) {
+    const x = f.x - G.camera;
+    if (f.kind === 'p') {
+      ctx.globalAlpha = clamp(f.life, 0, 1);
+      ctx.fillStyle = f.color;
+      ctx.beginPath(); ctx.arc(x, screenY(f.z) - (f.vy ? 0 : 0), f.size, 0, Math.PI * 2); ctx.fill();
+    } else {
+      ctx.globalAlpha = clamp(f.life, 0, 1);
+      ctx.fillStyle = f.color;
+      ctx.font = 'bold 13px Courier New'; ctx.textAlign = 'center';
+      ctx.fillText(f.text, x, screenY(f.z) - 60 - (1 - f.life) * 22);
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+function drawHUD() {
+  ctx.textAlign = 'left';
+  players.forEach((p, i) => {
+    const bx = 12, by = 12 + i * 40;
+    // label
+    ctx.fillStyle = p.color.tag; ctx.font = 'bold 12px Courier New';
+    ctx.fillText('P' + (p.idx + 1) + '  ' + p.score, bx, by + 10);
+    // health bar
+    ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(bx, by + 16, 150, 12);
+    ctx.fillStyle = p.hp > 40 ? '#39d98a' : (p.hp > 18 ? '#ffd166' : '#ff4d6d');
+    ctx.fillRect(bx + 2, by + 18, 146 * clamp(p.hp / p.maxHp, 0, 1), 8);
+    ctx.strokeStyle = p.color.main; ctx.lineWidth = 1; ctx.strokeRect(bx + .5, by + 16.5, 149, 11);
+    // lives
+    ctx.fillStyle = p.color.main; ctx.font = 'bold 11px Courier New';
+    let lv = '';
+    for (let k = 0; k < Math.max(0, p.lives); k++) lv += 'â™¦';
+    ctx.fillText('LIVES ' + lv, bx, by + 38);
+    // weapon
+    if (p.weapon) {
+      ctx.fillStyle = '#9dff6b';
+      ctx.fillText(p.weapon.toUpperCase() + ' x' + p.weaponUses, bx + 92, by + 38);
+    }
+  });
+  // stage / wave / enemies
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#ffe14d'; ctx.font = 'bold 14px Courier New';
+  ctx.fillText('STAGE ' + G.stage + ' / ' + G.maxStage, W - 12, 24);
+  ctx.fillStyle = '#7cf3ff'; ctx.font = '12px Courier New';
+  const remaining = enemies.filter(e => e.state !== 'dead').length + G.spawnQueue.length;
+  const tag = G.bossActive ? 'BOSS FIGHT!' : ('WAVE ' + Math.max(1, G.wave) + '/' + G.wavesPerStage + '  THUGS ' + remaining);
+  ctx.fillText(tag, W - 12, 44);
+  // combo display
+  const pa = players[0];
+  if (pa && pa.combo > 1) {
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ff7a3d'; ctx.font = 'bold 22px Courier New';
+    ctx.fillText(pa.combo + ' HIT COMBO', W / 2, 40);
+  }
+  ctx.textAlign = 'left';
+}
+function render() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  if (G.shake > 0) {
+    ctx.translate((Math.random() - 0.5) * G.shake, (Math.random() - 0.5) * G.shake);
+  }
+  drawBackground();
+  // depth-sort all actors (far first)
+  const actors = [];
+  enemies.forEach(e => { if (!e.remove) actors.push({ z: e.z, t: 'e', o: e }); });
+  players.forEach(p => actors.push({ z: p.z, t: 'p', o: p }));
+  items.forEach(it => { if (!it.taken) actors.push({ z: it.z, t: 'i', o: it }); });
+  actors.sort((a, b) => a.z - b.z);
+  for (const a of actors) {
+    if (a.t === 'e') drawEnemy(a.o);
+    else if (a.t === 'p') drawPlayer(a.o);
+    else drawItem(a.o);
+  }
+  drawFX();
+  drawHUD();
+  // vignette
+  const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.95);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, 'rgba(0,0,0,.55)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+// ============ MAIN LOOP ============
+let last = performance.now();
+let acc = 0;
+function loop(now) {
+  requestAnimationFrame(loop);
+  const dt = Math.min(60, now - last);
+  last = now;
+  if (G.running && !G.paused && !G.over) {
+    acc += dt;
+    let guard = 0;
+    while (acc >= FPS_STEP && guard < 5) { update(); acc -= FPS_STEP; guard++; }
+    if (guard >= 5) acc = 0;
+  }
+  render();
+}
+// ============ UI WIRING ============
+document.getElementById('bestLabel').textContent = 'BEST ' + highScore;
+document.querySelectorAll('.mode').forEach((b) => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.mode').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    G.mode = parseInt(b.dataset.mode, 10);
+  });
+});
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('againBtn').addEventListener('click', () => { hideOverlay('overOv'); startGame(); });
+document.getElementById('stageBtn').addEventListener('click', () => {
+  if (G.stage >= G.maxStage) { hideOverlay('stageOv'); startGame(); }
+  else nextStage();
+});
+// idle attract scene so the canvas is never empty
+players = [makePlayer(0)];
+beginStageIdle();
+function beginStageIdle() {
+  G.running = false;
+  G.stage = 1;
+  items = [makeItem(360, 0.5), makeItem(520, 0.7)];
+  enemies = [
+    Object.assign(makeEnemy({ kind:'thug', side:false }), { x: 470, z: 0.5 }),
+    Object.assign(makeEnemy({ kind:'thug', side:false }), { x: 560, z: 0.72 })
+  ];
+  players[0].x = 300; players[0].z = 0.6;
+  G.camera = 0;
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
