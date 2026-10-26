@@ -1874,6 +1874,14 @@
       $("hands-url").value = hands.url;
       $("hands-token").value = hands.token;
       $("hands-test-result").textContent = message;
+      const onPhone = isPhone();
+      const dialog = $("hands-dialog");
+      dialog.classList.toggle("on-phone", onPhone);
+      $("hands-title").textContent = onPhone ? "Browser control from this phone" : "Connect Glow Hands";
+      // On a phone the PC-only steps are hidden and the cloud browser comes first.
+      if (onPhone && $("hands-title").nextElementSibling !== $("cloud-box")) {
+        $("hands-title").insertAdjacentElement("afterend", $("cloud-box"));
+      }
       const cloud = readCloud();
       $("cloud-token").value = cloud.token;
       $("cloud-key").value = cloud.key;
@@ -1929,7 +1937,7 @@
         return;
       }
       if (isPhone()) {
-        openHandsDialog("On a phone: link your PC (GlowLead on the PC → Connect browser control → Use from your phone → scan the QR code), or use the cloud browser below.");
+        openHandsDialog("");
         return;
       }
       $("hands-btn").disabled = true;
