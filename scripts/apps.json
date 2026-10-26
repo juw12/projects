@@ -490,6 +490,38 @@
    "featured": true,
    "order": 6,
    "version": "2.0.0"
+  },
+  {
+   "id": "sheetmint",
+   "name": "Sheetmint",
+   "category": "Creator Tools",
+   "desc": "Prompt a spreadsheet template, tweak it with words and themes, then sell it on a built-in marketplace with affiliates, content kits and creator guides",
+   "description": "Prompt-to-template studio and marketplace for Excel / Google Sheets: describe a sheet in English or Bahasa Indonesia, tweak it with words (&ldquo;add column Supplier&rdquo;, &ldquo;theme midnight&rdquo;), export a real .xlsx with live formulas and a dashboard, then publish it with a price and affiliate commission &mdash; with login, seller and affiliate dashboards, auto-generated content kits and creator guides.",
+   "tags": [
+    "Template marketplace",
+    "Excel / Sheets",
+    "Affiliate program",
+    "PWA",
+    "Python + SQLite"
+   ],
+   "note_tags": [
+    "template-marketplace",
+    "excel",
+    "google-sheets",
+    "affiliate",
+    "creator-economy",
+    "pwa",
+    "sqlite"
+   ],
+   "image": "sheetmint-hero.jpg",
+   "image_alt": "Sheetmint home: prompt a spreadsheet template, tweak it, sell it — prompt box with example prompts and the three-step prompt, tweak, sell flow",
+   "links": {
+    "app": "sheetmint/app.html",
+    "web": "sheetmint/web.html",
+    "mobile": "sheetmint/mobile.html"
+   },
+   "status": "shipped",
+   "order": 21
   }
  ]
 }
