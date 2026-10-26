@@ -12,20 +12,36 @@ powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/juw
 ```
 
 It finds or installs Python, installs Glow Hands into `%LOCALAPPDATA%\GlowHands`, picks a free port
-(8765-8770), starts it now and at every login, then opens GlowLead. Windows asks
-**"Glow Hands: allow this browser?"**. Click **Yes**, and that browser is connected for good:
-no address or code to type. Running the same command again updates Glow Hands and keeps the pairing.
+(8765-8770), starts it now and at every login, then opens GlowLead, which connects by itself. Nothing to
+type or approve outside the app. Running the same command again updates Glow Hands and keeps the pairing.
 
-Already installed? In GlowLead click **Connect browser control**; it finds Glow Hands and asks the same Yes/No.
+Already installed? In GlowLead click **Connect browser control**; it finds Glow Hands and connects in one click.
+(Your browser may ask once to allow local network access; that prompt comes from the browser, not Glow.)
 
-Why one Yes click remains: every app on `juw12.github.io` shares one web origin, including third-party
-games. The Windows prompt makes sure only you, at this PC, can let a page control the Glow Hands browser.
-Declining sets a 20-second cooldown so a page cannot spam prompts.
+## Use it from your phone
+
+On the PC: GlowLead > **Connect browser control** > **Show QR code**. Scan it with the phone camera and
+open the link. That phone is linked for good; missions you start on the phone that use the browser run in
+Glow Hands on the PC. The PC must be on, online, and running Glow Hands (it starts at login).
+
+How it works: Glow Hands runs a hidden helper page that waits for your phone on the free PeerJS service.
+The phone and PC then talk over an encrypted WebRTC connection (direct, or through PeerJS's relay when a
+network blocks direct links). The phone must prove it knows a secret from the QR code (HMAC challenge)
+before any command is passed on, and only `status`, `observe` and `act` are allowed. **Turn off old phone
+links** creates a new secret and disconnects every phone linked before.
+
+## Security trade-offs (please read)
+
+- All apps on `juw12.github.io` share one web origin and one browser storage. A page there (including any
+  third-party game in gamelib) could ask Glow Hands to connect or read a saved connection. Keep untrusted
+  code off that address, or start Glow Hands with `--confirm-pairing` to bring back the Windows Yes/No prompt.
+- Anyone who gets your phone link can control the Glow Hands browser. Share it only with your own phone;
+  use **Turn off old phone links** if it leaks.
+- Glow Hands still never types passwords, card numbers or one-time codes, uses its own browser profile, and
+  blocks local-network pages. Use `--no-phone` to turn phone access off.
 
 Manual option: run `python glow_hands.py --channel msedge` and paste the printed pairing code under
 "Connect manually with a pairing code".
-
-Phones cannot use Glow Hands: it runs on a PC, and phones cannot reach a program on your PC this way.
 
 ## Safety
 

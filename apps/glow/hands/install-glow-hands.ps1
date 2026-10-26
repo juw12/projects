@@ -1,6 +1,6 @@
 ﻿# Glow Hands one-step installer for Windows. No admin rights needed.
 # Use:  Win+R  ->  powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/juw12/projects/main/apps/glow/hands/install-glow-hands.ps1 | iex"
-# It installs into %LOCALAPPDATA%\GlowHands, starts at every login, and opens GlowLead to connect (click Yes on the prompt).
+# It installs into %LOCALAPPDATA%\GlowHands, starts at every login, and opens GlowLead, which connects automatically.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $sourceBase = 'https://raw.githubusercontent.com/juw12/projects/main/apps/glow/hands'
@@ -114,6 +114,6 @@ if (-not $ready) { throw "Glow Hands did not start. See $logFile" }
 
 Say "Installed. It starts automatically at every login (launcher: $launcher)."
 if ($env:GLOW_HANDS_NO_BROWSER -ne '1') {
-    Say 'Opening GlowLead to connect. Click YES on the Windows prompt "Glow Hands: allow this browser?".'
+    Say 'Opening GlowLead. It connects to Glow Hands automatically (allow local network access if your browser asks).'
     Start-Process $glowLeadUrl
 }
