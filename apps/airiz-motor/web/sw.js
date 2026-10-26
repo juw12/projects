@@ -1,6 +1,6 @@
 /* AIRIZ Control Center — versioned, scope-isolated offline shell. */
 const CACHE_PREFIX = 'airiz-control-' + encodeURIComponent(self.registration.scope) + '-';
-const CACHE_NAME = CACHE_PREFIX + 'v2.10-bluefy-open';
+const CACHE_NAME = CACHE_PREFIX + 'v2.11-iphone-launcher';
 const ASSETS = [
   './',
   './index.html',
@@ -11,6 +11,8 @@ const ASSETS = [
   './desktop-integration.js',
   './ble-protocol.js',
   './remote-ui.js',
+  './iphone.html',
+  './iphone.js',
   './data/bridge-files.js',
   './data/commands.js',
   './data/macros.js',
@@ -47,11 +49,13 @@ self.addEventListener('fetch', (event) => {
       || !url.href.startsWith(self.registration.scope)) return;
   event.respondWith((async () => {
     const cache = await caches.open(CACHE_NAME);
-    const cached = await cache.match(event.request);
-    if (cached) return cached;
     try {
-      return await fetch(event.request);
+      const response = await fetch(event.request, { cache: 'no-cache' });
+      if (response.ok && url.search === '') cache.put(event.request, response.clone());
+      return response;
     } catch (error) {
+      const cached = await cache.match(event.request, { ignoreSearch: event.request.mode === 'navigate' });
+      if (cached) return cached;
       if (event.request.mode === 'navigate') return cache.match('./index.html');
       return new Response('Offline asset unavailable', { status: 503 });
     }
