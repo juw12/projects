@@ -1,7 +1,7 @@
 // GlowRoom service worker: installable + offline.
 // Pages are network-first (so updates ship immediately); static assets are cache-first.
 (function () {
-  var CACHE_NAME = 'glowroom-v3';
+  var CACHE_NAME = 'glowroom-v4';
   var SCOPE = self.registration.scope;
 
   function resolveUrl(path) {

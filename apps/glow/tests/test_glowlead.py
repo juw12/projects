@@ -30,7 +30,7 @@ class GlowLeadTests(unittest.TestCase):
 
     def test_worker_cache_is_scoped(self):
         worker = (LEAD / "sw.js").read_text(encoding="utf-8")
-        self.assertIn("const CACHE_NAME = 'glowlead-v1';", worker)
+        self.assertIn("const CACHE_NAME = 'glowlead-v2';", worker)
         self.assertIn("name.startsWith('glowlead-')", worker)
         self.assertNotIn("caches.keys().then((names) => Promise.all(names.map", worker)
         home_worker = (WEB / "sw.js").read_text(encoding="utf-8")
@@ -58,6 +58,11 @@ class GlowLeadTests(unittest.TestCase):
         app = (WEB / "chat/app.js").read_text(encoding="utf-8")
         self.assertIn('item.source === "glowlead" ? "glowlead" : "crewroom"', app)
         self.assertIn('name: "👑 GlowLead"', app)
+
+    def test_engine_never_waits_forever(self):
+        engine = (WEB / "room/crew-engine.js").read_text(encoding="utf-8")
+        for needle in ("REQUEST_TIMEOUT_MS = 75000", "STALL_TIMEOUT_MS = 45000", "function requestTimer(", "timer.arm(STALL_TIMEOUT_MS)"):
+            self.assertIn(needle, engine)
 
     def test_engine_merges_missions_from_other_pages(self):
         engine = (WEB / "room/crew-engine.js").read_text(encoding="utf-8")

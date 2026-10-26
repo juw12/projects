@@ -119,6 +119,43 @@
     if (headerSeconds) return headerSeconds;
     return /free limit|rate limit|too many/i.test(detail || '') || status === 429 ? 15 : 0;
   }
+  // Shared free endpoints sometimes accept a request and then never answer. A timer per request
+  // (re-armed on every streamed chunk) aborts it so the crew can retry instead of freezing a mission.
+  const REQUEST_TIMEOUT_MS = 75000;
+  const STALL_TIMEOUT_MS = 45000;
+  function requestTimer(outer) {
+    const ctrl = new AbortController();
+    const state = { timedOut: false, timer: null };
+    const onOuter = () => ctrl.abort();
+    if (outer) {
+      if (outer.aborted) ctrl.abort();
+      else outer.addEventListener('abort', onOuter, { once: true });
+    }
+    return {
+      signal: ctrl.signal,
+      arm(ms) {
+        clearTimeout(state.timer);
+        state.timer = setTimeout(() => {
+          state.timedOut = true;
+          ctrl.abort();
+        }, ms);
+      },
+      done() {
+        clearTimeout(state.timer);
+        if (outer) outer.removeEventListener('abort', onOuter);
+      },
+      get timedOut() {
+        return state.timedOut;
+      }
+    };
+  }
+  function slowNotice(text) {
+    if (Date.now() - lastWaitNoticeAt < 25000) return;
+    lastWaitNoticeAt = Date.now();
+    emitter.dispatchEvent(new CustomEvent('notice', { detail: text }));
+  }
+  const TIMEOUT_MESSAGE = 'The AI did not answer in time. Try again in a minute, or sign in for faster Glow AI models.';
+
   function sleepUnlessAborted(ms, signal) {
     return new Promise((resolve, reject) => {
       if (signal && signal.aborted) return reject(new DOMException('Stopped', 'AbortError'));
@@ -505,8 +542,22 @@
 
     let res;
     let limitWaits = 0;
+    let timer = null;
     for (let attempt = 0; attempt < 4; attempt++) {
-      res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal });
+      if (timer) timer.done();
+      timer = requestTimer(signal);
+      timer.arm(REQUEST_TIMEOUT_MS);
+      try {
+        res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: timer.signal });
+      } catch (err) {
+        timer.done();
+        if (!timer.timedOut) throw err;
+        if (attempt < 2) {
+          slowNotice('The AI is slow to answer, so the request is being sent again…');
+          continue;
+        }
+        throw new Error(TIMEOUT_MESSAGE);
+      }
       if (res.ok) break;
       const retryAfter = Number(res.headers.get('retry-after')) || 0;
       let detail = '';
@@ -542,7 +593,16 @@
 
     const contentType = res.headers.get('content-type') || '';
     if (!res.body || contentType.includes('application/json')) {
-      const json = await res.json();
+      timer.arm(REQUEST_TIMEOUT_MS);
+      let json;
+      try {
+        json = await res.json();
+      } catch (err) {
+        timer.done();
+        if (timer.timedOut) throw new Error(TIMEOUT_MESSAGE);
+        throw err;
+      }
+      timer.done();
       const text = p.format === 'anthropic'
         ? (json.content || []).map(c => c.text || '').join('')
         : (json.choices?.[0]?.message?.content || '');
@@ -561,8 +621,21 @@
     const decoder = new TextDecoder();
     let buffer = '';
     let full = '';
+    let stalled = false;
     while (true) {
-      const { value, done } = await reader.read();
+      timer.arm(STALL_TIMEOUT_MS);
+      let chunk;
+      try {
+        chunk = await reader.read();
+      } catch (err) {
+        if (!timer.timedOut) {
+          timer.done();
+          throw err;
+        }
+        stalled = true; // the stream stopped sending: keep what arrived, or retry below
+        break;
+      }
+      const { value, done } = chunk;
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
@@ -592,9 +665,11 @@
         }
       }
     }
+    timer.done();
+    if (stalled && full.trim().length > 200) return full;
     if (!full.trim()) {
       if (!noStream) {
-        // Some free/shared endpoints occasionally return an empty stream; retry once without streaming.
+        // Some free/shared endpoints occasionally return an empty (or stalled) stream; retry once without streaming.
         return chatOnce({ system, messages, onToken, signal, maxTokens, temperature, noStream: true, glowFree: true });
       }
       throw new Error('The AI returned an empty answer. Try again, or pick another provider in AI settings.');
