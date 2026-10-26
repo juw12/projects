@@ -48,14 +48,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           sparse-checkout: apps/glow/hands
-      - uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: glow-hands-chromium-${{ runner.os }}-${{ runner.arch }}-playwright-1.55.0
       - name: Install Glow Hands (Linux installer)
         env:
           GLOW_HANDS_SOURCE: ${{ github.workspace }}/apps/glow/hands/glow_hands.py
           GLOW_HANDS_NO_SERVICE: '1'
+          GLOW_HANDS_BROWSER: chrome  # GitHub's Ubuntu runners already have Google Chrome: no download, no apt.
         run: bash apps/glow/hands/install-glow-hands-linux.sh
       - name: Cloud browser session
         env:
@@ -66,5 +63,5 @@ jobs:
           echo "::add-mask::$GLOW_HANDS_TOKEN"
           export GLOW_HANDS_TOKEN
           "$HOME/.local/share/GlowHands/venv/bin/python" -X utf8 "$HOME/.local/share/GlowHands/app/glow_hands.py" \
-            --headless --quiet --profile "$RUNNER_TEMP/glow-hands" \
+            --headless --quiet --channel chrome --profile "$RUNNER_TEMP/glow-hands" \
             --max-minutes "$MINUTES" --idle-minutes 8
