@@ -504,40 +504,6 @@
    ]
   },
   {
-   "id": "stackup",
-   "name": "Stackup",
-   "category": "Engineering",
-   "desc": "Tolerance stack-ups in seconds — worst case, RSS and Monte Carlo with Cpk, ppm and the biggest lever to tighten; offline, plus free Excel / Google Sheets workbook",
-   "description": "Offline tolerance stack-up studio for hardware engineers: worst case, RSS and Monte Carlo side by side, Cpk and ppm prediction, a variance Pareto with what-if, loop diagram and one-page PDF report &mdash; plus a free Excel / Google Sheets workbook.",
-   "summary": "Offline tolerance stack-up tool &mdash; worst case, RSS and Monte Carlo with Cpk/ppm prediction and a PDF report.",
-   "tags": [
-    "tolerance stack-up",
-    "Monte Carlo",
-    "Cpk",
-    "PWA",
-    "Excel / Sheets"
-   ],
-   "note_tags": [
-    "tolerance-stack-up",
-    "monte-carlo",
-    "cpk",
-    "pwa",
-    "excel",
-    "google-sheets",
-    "dvt"
-   ],
-   "image": "stackup-hero.jpg",
-   "image_alt": "Stackup tolerance stack-up studio: IPX7 gasket compression stack failing at Cpk 1.03 with worst case, RSS, Monte Carlo histogram and variance Pareto",
-   "links": {
-    "app": "stackup/app.html",
-    "web": "stackup/web.html",
-    "mobile": "stackup/mobile.html"
-   },
-   "status": "shipped",
-   "order": 20,
-   "portfolio_order": -10
-  },
-  {
    "id": "sync",
    "name": "Sync",
    "category": "Apps",
@@ -587,18 +553,18 @@
    "version": "2.0.0"
   },
   {
-   "id": "sheetmint",
-   "name": "Sheetmint",
+   "id": "mint",
+   "name": "Mint",
    "category": "Creator Tools",
-   "desc": "Prompt a spreadsheet template, tweak it with words and themes, then sell it on a built-in marketplace with affiliates, content kits and creator guides",
-   "description": "Prompt-to-template studio and marketplace for Excel / Google Sheets: describe a sheet in English or Bahasa Indonesia, tweak it with words (&ldquo;add column Supplier&rdquo;, &ldquo;theme midnight&rdquo;), export a real .xlsx with live formulas and a dashboard, then publish it with a price and affiliate commission &mdash; with login, seller and affiliate dashboards, auto-generated content kits and creator guides.",
+   "desc": "Prompt a spreadsheet template with AI, tweak it with words, and sell it — real accounts, orders paid straight to the seller, affiliate payouts and creator guides",
+   "description": "Live template marketplace for Excel / Google Sheets: describe a sheet in English or Bahasa Indonesia and Mint AI designs it, tweak it with words (&ldquo;add column Supplier&rdquo;), export a real .xlsx with live formulas and a dashboard, then sell it &mdash; buyers pay the seller directly via their own payment link (QRIS / e-wallet / card), the seller confirms the order reference and the file unlocks, with tracked affiliate commissions and payouts. Cloudflare Workers + SQLite Durable Object backend.",
    "summary": "Describe a spreadsheet, tweak it in plain words, export a working .xlsx and sell it on a built-in marketplace.",
    "tags": [
     "Template marketplace",
+    "Workers AI",
+    "Cloudflare Workers",
     "Excel / Sheets",
-    "Affiliate program",
-    "PWA",
-    "Python + SQLite"
+    "Affiliate program"
    ],
    "note_tags": [
     "template-marketplace",
@@ -606,15 +572,16 @@
     "google-sheets",
     "affiliate",
     "creator-economy",
-    "pwa",
-    "sqlite"
+    "cloudflare-workers",
+    "workers-ai",
+    "pwa"
    ],
-   "image": "sheetmint-hero.jpg",
-   "image_alt": "Sheetmint home: prompt a spreadsheet template, tweak it, sell it — prompt box with example prompts and the three-step prompt, tweak, sell flow",
+   "image": "mint-hero.jpg",
+   "image_alt": "Mint: prompt a spreadsheet template, tweak it, sell it — prompt box with Mint AI and the prompt, tweak, sell flow",
    "links": {
-    "app": "sheetmint/app.html",
-    "web": "sheetmint/web.html",
-    "mobile": "sheetmint/mobile.html"
+    "app": "mint/app.html",
+    "web": "mint/web.html",
+    "mobile": "mint/mobile.html"
    },
    "status": "shipped",
    "order": 21

@@ -1,0 +1,25 @@
+name = "mint-api"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+# Workers AI (free daily allocation) powers "Generate with Mint AI".
+[ai]
+binding = "AI"
+
+# All marketplace data lives in one SQLite-backed Durable Object (free plan).
+[[durable_objects.bindings]]
+name = "MINT_DB"
+class_name = "MintDB"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["MintDB"]
+
+[vars]
+ALLOWED_ORIGINS = "https://juw12.github.io,http://127.0.0.1:48714,http://localhost:48714"
+PLATFORM_FEE_PCT = "0"
+AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+AI_DAILY_LIMIT = "300"
+
+[observability]
+enabled = true

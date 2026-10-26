@@ -88,6 +88,7 @@ REDIRECTS = {
     "virtual-bots": "glow/room",
     "hookline": "sped",
     "trade-twin": "twin",
+    "sheetmint": "mint",
 }
 
 # Renamed installable apps whose old service worker must be retired at the old path.
@@ -103,6 +104,7 @@ LEGACY_WORKERS = {
         "start": "",
         "reload_clients": True,
     },
+    "sheetmint": {"cache_prefixes": ["sheetmint-"], "start": "app.html", "reload_clients": True},
 }
 
 

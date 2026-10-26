@@ -1,0 +1,16 @@
+# Local development / CI tests: same worker without the remote-only AI binding.
+name = "mint-api-local"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+[[durable_objects.bindings]]
+name = "MINT_DB"
+class_name = "MintDB"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["MintDB"]
+
+[vars]
+ALLOWED_ORIGINS = "http://127.0.0.1:48714,http://localhost:48714"
+PLATFORM_FEE_PCT = "10"

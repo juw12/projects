@@ -1,0 +1,85 @@
+# Move me to .github/workflows/mint-api.yml to enable automatic deploys:
+#   git mv apps/mint/cloud/github-workflow.yml .github/workflows/mint-api.yml
+name: Mint API (Cloudflare)
+
+# Tests apps/mint/cloud against a local workerd (wrangler dev) on every change, then deploys
+# the worker + its SQLite Durable Object to Cloudflare from main and smoke-tests the live API.
+# Deploying needs repository secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID;
+# without them the deploy is skipped.
+on:
+  push:
+    branches: [main]
+    paths: ['apps/mint/cloud/**', 'apps/mint/web/js/core.js', 'apps/mint/web/data/seed.json', '.github/workflows/mint-api.yml']
+  pull_request:
+    paths: ['apps/mint/cloud/**', 'apps/mint/web/js/core.js', 'apps/mint/web/data/seed.json', '.github/workflows/mint-api.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mint-api-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    defaults:
+      run:
+        working-directory: apps/mint/cloud
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install and bundle (dry run)
+        run: |
+          npm install --no-fund --no-audit
+          npx wrangler deploy --dry-run --outdir dist
+      - name: End-to-end API test on local workerd
+        run: |
+          npx wrangler dev --config wrangler.local.toml --port 8787 --ip 127.0.0.1 > dev.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:8787/api/health && break
+            sleep 1
+          done
+          node test/api_test.mjs http://127.0.0.1:8787 || (cat dev.log; exit 1)
+      - name: Decide whether to deploy
+        id: gate
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          elif [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "Cloudflare secrets are not set; skipping the deploy."
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Deploy the worker
+        if: steps.gate.outputs.deploy == 'true'
+        run: |
+          npx wrangler deploy 2>&1 | tee deploy.log
+          url="$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' deploy.log | head -n 1)"
+          echo "Deployed to: $url"
+          echo "MINT_API_URL=$url" >> "$GITHUB_ENV"
+      - name: Smoke test the live API
+        if: steps.gate.outputs.deploy == 'true'
+        run: |
+          test -n "$MINT_API_URL"
+          for attempt in 1 2 3 4 5 6; do
+            if curl -fsS -H "Origin: https://juw12.github.io" "$MINT_API_URL/api/health"; then
+              echo
+              break
+            fi
+            sleep 10
+          done
+          curl -fsS -H "Origin: https://juw12.github.io" "$MINT_API_URL/api/listings?free=1" | head -c 300
+          echo
+          echo "AI check:"
+          curl -sS -X POST -H "Origin: https://juw12.github.io" -H "Content-Type: application/json" \
+            -d '{"prompt":"weekly meal planner with calories"}' "$MINT_API_URL/api/ai/template" | head -c 600
+          echo
