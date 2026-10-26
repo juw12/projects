@@ -378,13 +378,18 @@ def main(argv=None):
     parser.add_argument("--token", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--allow-origin", action="append", default=[], help="Extra web origin allowed to connect")
     args = parser.parse_args(argv)
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="replace")  # Never crash on consoles that cannot show a character.
+        except (AttributeError, ValueError):
+            pass
 
     token = load_token(args.profile, args.token)
     browser = Browser(args.profile, headless=args.headless, channel=args.channel, allow_private=args.allow_private)
     server = http.server.HTTPServer(("127.0.0.1", args.port), make_handler(browser, token, args.port, args.allow_origin))
     print(f"Glow Hands {VERSION} is ready on http://127.0.0.1:{args.port}", flush=True)
     print(f"Pairing token: {token}", flush=True)
-    print("In GlowLead open Glow Hands → Connect, and paste the token. Press Ctrl+C to stop.", flush=True)
+    print("In GlowLead open Glow Hands > Connect browser control, and paste the token. Press Ctrl+C to stop.", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
