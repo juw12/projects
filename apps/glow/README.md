@@ -22,7 +22,10 @@ Found in real GlowLead runs on Glow Free:
   fails with "Failed to fetch" is sent again, and a stream cut off mid-answer ("network error") is asked again.
 - **No endless "writing…"**: a streamed answer that only sends keep-alive pings is dropped after 45 s without
   new text (4 minutes at most) and retried without streaming.
-- Self-test: 22 checks. Caches: `glowlead-v15`, `glowroom-v8`.
+- **GlowChat no longer spins forever**: each reply has a 75 s answer limit, 45 s without new text while
+  streaming, and 4 minutes in total; a stuck or dropped request is sent again once (a long partial answer is
+  kept), then a clear "press ↻ Regenerate" message. ■ Stop still cancels at once.
+- Self-test: 22 checks. Caches: `glowlead-v15`, `glowroom-v8`, `glowchat-v4`.
 
 ## v0.15.0 — Glow Android app and instant cloud browser
 
