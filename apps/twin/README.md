@@ -215,6 +215,9 @@ history and are not predictions. Not financial advice.
 
 ## Changelog
 
+- **1.5.2 — Updates show immediately.** The app page is fetched fresh when online (offline copy
+  still used without a connection), and the app reloads itself once when a new release takes over —
+  never while an order ticket or other sheet is open.
 - **1.5.1 — Design refresh.** New design system (`web/design.css`): calmer dark/light palettes,
   consistent type scale, buttons, inputs, chips and left-accent notices; a single line-icon set
   (`web/icons.js`) replaces emoji across the app; icon tab bar with accent indicator; Home quick

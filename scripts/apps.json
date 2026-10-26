@@ -320,13 +320,13 @@
    "image": "twin.png",
    "image_alt": "Twin v1.4: global stock search, Toyota stock page in yen with market status, world markets and order ticket",
    "links": {
-    "app": "twin/?v=1.5.1",
+    "app": "twin/?v=1.5.2",
     "web": "twin/web.html",
     "mobile": "twin/mobile.html"
    },
    "featured": true,
    "order": 14,
-   "version": "1.5.1"
+   "version": "1.5.2"
   },
   {
    "id": "glow",
