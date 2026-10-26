@@ -239,7 +239,12 @@
         // reset, firmware-update or radio-reconfiguration command is probed.
         const verified = this.waitFor(text => firmwareVersion(text), this.timeoutMs,
           'Bluetooth connected, but the AIRIZ text-command protocol was not confirmed. Motor controls remain disabled. Export diagnostics instead of guessing commands.');
-        await Promise.all([this.send(FIRMWARE_QUERY), verified]);
+        await Promise.all([
+          this.send(FIRMWARE_QUERY).catch(error => {
+            throw error && error.message ? error : stageError('write', error);
+          }),
+          verified
+        ]);
         this.firmwareVersion = firmwareVersion(this.probeText);
         // Give the bridge a moment to append its #AUTH# line after the version.
         const auth = await this.waitFor(text => authReply(text) || null, 600, 'no-auth').catch(() => null);
@@ -351,7 +356,11 @@
         lostHandler = onDisconnect;
         tx.addEventListener('characteristicvaluechanged', onValue);
         device.addEventListener('gattserverdisconnected', onLost);
-        await tx.startNotifications();
+        try {
+          await tx.startNotifications();
+        } catch (error) {
+          throw stageError('notifications', error);
+        }
       },
       async write(bytes) {
         for (const part of chunks(bytes, 20)) {
@@ -377,6 +386,46 @@
   }
 
   // Web Bluetooth chooser -> verified (and PIN-unlocked) port.
+  // Turns an error without a message (common in Bluefy/iOS) into one that says
+  // which step failed, so "Bluetooth connection failed" never hides the cause.
+  function stageError(stage, error) {
+    const name = error && error.name ? error.name : '';
+    const message = error && error.message ? error.message : '';
+    const detail = [name, message].filter(Boolean).join(': ') || String(error || 'unknown error');
+    const wrapped = new Error('Bluetooth ' + stage + ' failed (' + detail + ').');
+    wrapped.name = 'BluetoothStageError';
+    wrapped.stage = stage;
+    wrapped.cause = error;
+    return wrapped;
+  }
+
+  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+  // Connect and discover the UART service. iOS sometimes drops the first link or
+  // returns an empty service list right after connecting, so retry a few times.
+  async function connectGatt(device, attempts = 3) {
+    let lastError = null;
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      let stage = 'connect';
+      try {
+        const server = await device.gatt.connect();
+        stage = 'service discovery';
+        const service = await server.getPrimaryService(NUS_SERVICE);
+        stage = 'characteristic discovery';
+        const rx = await service.getCharacteristic(NUS_WRITE);
+        const tx = await service.getCharacteristic(NUS_NOTIFY);
+        return { rx, tx };
+      } catch (error) {
+        lastError = stageError(stage, error);
+        try {
+          if (device.gatt.connected) device.gatt.disconnect();
+        } catch (ignored) { /* Already gone */ }
+        if (attempt < attempts) await sleep(800 * attempt);
+      }
+    }
+    throw lastError;
+  }
+
   async function requestWebBluetoothPort(onDisconnect) {
     const bluetooth = root && root.navigator && root.navigator.bluetooth;
     if (!bluetooth) throw new Error(webBluetoothHelp());
@@ -384,10 +433,7 @@
     const device = await bluetooth.requestDevice(isIos()
       ? { acceptAllDevices: true, optionalServices: [NUS_SERVICE] }
       : { filters: [{ services: [NUS_SERVICE] }, { namePrefix: 'AIRIZ' }], optionalServices: [NUS_SERVICE] });
-    const server = await device.gatt.connect();
-    const service = await server.getPrimaryService(NUS_SERVICE);
-    const rx = await service.getCharacteristic(NUS_WRITE);
-    const tx = await service.getCharacteristic(NUS_NOTIFY);
+    const { rx, tx } = await connectGatt(device);
     const id = device.id || device.name;
     const port = new VerifiedSerialPort(webBluetoothLink(device, rx, tx), onDisconnect, 10000, {
       askPin,
@@ -414,6 +460,6 @@
     FIRMWARE_QUERY, SPP_UUID, NUS_SERVICE, NUS_WRITE, NUS_NOTIFY, HM10_SERVICE,
     MOTOR_STOP_USB, MOTOR_STOP_BRIDGE,
     normalizeUuid, discoverProfiles, customProfile, firmwareVersion, authReply, chunks,
-    VerifiedSerialPort, pinStore, askPin, requestWebBluetoothPort, webBluetoothHelp, isIos
+    VerifiedSerialPort, pinStore, askPin, requestWebBluetoothPort, webBluetoothHelp, isIos, stageError
   };
 }));

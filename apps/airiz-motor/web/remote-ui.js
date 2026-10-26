@@ -57,7 +57,8 @@
         if (iphoneButton) iphoneButton.focus();
         return;
       }
-      toast(error && error.message ? error.message : 'Bluetooth connection failed.');
+      const detail = error && (error.message || error.name) ? (error.message || error.name) : String(error);
+      toast('Bluetooth connection failed: ' + detail);
     } finally {
       bleConnecting = false;
       refresh();
