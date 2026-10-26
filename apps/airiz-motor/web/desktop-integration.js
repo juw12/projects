@@ -34,6 +34,7 @@
 
     initializeUpdates();
     initializeBluetoothCheck();
+    initializeBluetoothPicker();
     restoreConnectionAfterUpdate();
     host.getAppInfo().then(info => {
       document.title = 'AIRIZ Console — Windows ' + info.version;
@@ -193,6 +194,90 @@
 
   function hexKey(value) {
     return String(value).replace(/[^0-9a-f]/gi, '').toUpperCase().slice(-12);
+  }
+
+  // Device picker for "Connect Bluetooth" (AIRIZ-BT remote). Electron has no built-in
+  // Web Bluetooth chooser, so remote-ui.js announces the request and this dialog lists
+  // what main.cjs reports from 'select-bluetooth-device'.
+  function initializeBluetoothPicker() {
+    if (!navigator.bluetooth || typeof host.onBluetoothDevices !== 'function') return;
+    const dialog = document.createElement('dialog');
+    dialog.id = 'bluetooth-picker-dialog';
+    dialog.className = 'help-dialog bluetooth-check-dialog';
+    dialog.setAttribute('aria-labelledby', 'bluetooth-picker-title');
+    dialog.innerHTML = '<h2 id="bluetooth-picker-title">Connect Bluetooth</h2>'
+      + '<p>Choose <strong>AIRIZ-BT</strong>. If it is not listed, start it over USB first: '
+      + '<strong>Phone remote \u2192 Start remote</strong> (again after every power-up).</p>'
+      + '<p id="bluetooth-picker-status" class="bluetooth-check-result" role="status">Searching\u2026</p>'
+      + '<div id="bluetooth-picker-list" class="native-serial-list" role="group" aria-label="Bluetooth devices found"></div>'
+      + '<div class="desktop-update-actions"><button id="bluetooth-picker-cancel" class="btn btn-secondary">Cancel</button></div>';
+    document.body.append(dialog);
+    const list = dialog.querySelector('#bluetooth-picker-list');
+    const status = dialog.querySelector('#bluetooth-picker-status');
+    let pending = false;
+    let cancelWanted = false;
+
+    function close() {
+      pending = false;
+      if (dialog.open) dialog.close();
+    }
+
+    async function cancel() {
+      cancelWanted = true;
+      // Before the first device report there is no request to cancel yet; the next
+      // report is then answered with '' (see below).
+      if (await host.chooseBluetoothDevice('')) cancelWanted = false;
+      close();
+    }
+
+    window.addEventListener('airiz-bluetooth-request', () => {
+      pending = true;
+      cancelWanted = false;
+      list.replaceChildren();
+      status.textContent = 'Searching\u2026';
+      if (!dialog.open) dialog.showModal();
+    });
+    window.addEventListener('airiz-bluetooth-request-done', close);
+
+    host.onBluetoothDevices(devices => {
+      if (cancelWanted) {
+        cancelWanted = false;
+        host.chooseBluetoothDevice('');
+        return;
+      }
+      if (!pending) return; // the Bluetooth check handles its own scan
+      const sorted = [...devices].sort((first, second) => {
+        const firstAiriz = /^AIRIZ/i.test(first.name) ? 0 : 1;
+        const secondAiriz = /^AIRIZ/i.test(second.name) ? 0 : 1;
+        return firstAiriz - secondAiriz || Number(!first.name) - Number(!second.name);
+      });
+      status.textContent = sorted.length
+        ? 'Found ' + sorted.length + '. Click your AIRIZ-BT.'
+        : 'Searching\u2026';
+      list.replaceChildren();
+      for (const device of sorted) {
+        const choice = document.createElement('button');
+        choice.className = 'native-serial-port';
+        choice.dataset.bluetoothId = device.id;
+        const name = document.createElement('strong');
+        name.textContent = device.name || 'Unnamed device';
+        const details = document.createElement('span');
+        details.textContent = device.id;
+        choice.append(name, details);
+        choice.addEventListener('click', async () => {
+          status.textContent = 'Connecting to ' + (device.name || device.id) + '\u2026';
+          await host.chooseBluetoothDevice(device.id);
+          close();
+        });
+        list.append(choice);
+      }
+    });
+
+    dialog.querySelector('#bluetooth-picker-cancel').addEventListener('click', cancel);
+    dialog.addEventListener('cancel', event => {
+      event.preventDefault();
+      cancel();
+    });
   }
 
   function initializeBluetoothCheck() {
