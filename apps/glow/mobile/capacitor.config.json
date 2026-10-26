@@ -1,0 +1,9 @@
+{
+  "appId": "io.github.juw12.glow",
+  "appName": "Glow",
+  "webDir": "www",
+  "backgroundColor": "#f6f3ee",
+  "android": {
+    "allowMixedContent": false
+  }
+}
