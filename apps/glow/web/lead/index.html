@@ -44,6 +44,11 @@
       <p class="helper" id="memory-summary"></p>
       <button class="btn small" id="memory-btn" type="button">Edit memory</button>
     </section>
+    <section class="hands-panel" aria-labelledby="hands-heading">
+      <div class="section-heading"><h2 id="hands-heading">Glow Hands</h2><span class="counter" id="hands-status" data-state="not-set">NOT SET UP</span></div>
+      <p class="helper" id="hands-summary"></p>
+      <button class="btn small" id="hands-btn" type="button">Connect browser control</button>
+    </section>
     <section class="automation-panel" aria-labelledby="automation-heading">
       <div class="section-heading"><h2 id="automation-heading">Automations</h2><span class="counter" id="automation-count">0</span></div>
       <ul id="automation-list"></ul>
@@ -52,7 +57,7 @@
     <div class="sidebar-foot"><span class="online-dot" aria-hidden="true"></span> Browser-first workspace<p>History stays in this browser. AI requests go to your chosen provider. Keep this tab open while work runs.</p><a href="../">← All Glow apps</a></div>
   </aside>
   <main id="workspace" tabindex="-1">
-    <div class="workspace-label"><span>YOUR AI TEAM, WITH YOU IN CONTROL</span><span class="version-pill">GlowLead / 0.9</span></div>
+    <div class="workspace-label"><span>YOUR AI TEAM, WITH YOU IN CONTROL</span><span class="version-pill">GlowLead / 0.10</span></div>
     <section class="hero">
       <p class="eyebrow">From a spark to something real</p>
       <h1>Big idea.<br><span>Clear next steps.</span></h1>
@@ -72,6 +77,7 @@
         <div class="start-options">
           <label class="check"><input type="checkbox" id="lead-approve" checked> Review plan before work starts</label>
           <label class="check"><input type="checkbox" id="use-memory" checked> Use my memory</label>
+          <label class="check" title="Connect Glow Hands first"><input type="checkbox" id="allow-hands" disabled> Let Glow Hands use my browser (asks before submitting)</label>
           <label class="mode-field" for="execution-mode">Crew permissions <select id="execution-mode"><option value="research">Research &amp; drafting · no code execution</option><option value="code">Allow generated code to run</option></select></label>
         </div>
         <p id="mission-hint" class="helper">Planning sends your brief, and your memory when it is on, to AI. Research can read public web sources. Generated code runs only when you opt in; it can make network requests. Review sensitive tasks yourself.</p>
@@ -106,6 +112,23 @@
     <label for="memory-notes">Notes · one per line, up to 20</label>
     <textarea id="memory-notes" rows="4" placeholder="e.g. I own a Bambu A1 mini"></textarea>
     <div class="start-actions"><button class="btn primary" type="submit">Save memory</button><button class="btn" id="memory-cancel" type="button">Cancel</button><button class="btn ghost" id="memory-clear" type="button">Clear all</button></div>
+  </form>
+</dialog>
+<dialog id="hands-dialog" aria-labelledby="hands-title">
+  <form id="hands-form"><h2 id="hands-title">Connect Glow Hands</h2>
+    <p class="helper">Glow Hands is a small program on your PC that lets GlowLead open sites, click, type and fill forms in its own browser window. You can watch and take over at any time.</p>
+    <ol class="setup-steps">
+      <li>Install Python 3.10+ if needed.</li>
+      <li>Download <a href="https://github.com/juw12/projects/tree/main/apps/glow/hands" target="_blank" rel="noopener noreferrer">the Glow Hands folder</a> and double-click <code>start-glow-hands.cmd</code> (uses Microsoft Edge).</li>
+      <li>Paste the pairing token it prints below. If your browser asks to allow access to devices on your local network, allow it for this site.</li>
+    </ol>
+    <label for="hands-url">Address</label>
+    <input id="hands-url" value="http://127.0.0.1:8765" autocomplete="off">
+    <label for="hands-token">Pairing token</label>
+    <input id="hands-token" autocomplete="off" spellcheck="false" placeholder="Shown when Glow Hands starts">
+    <p class="helper"><b>It always asks you</b> before submitting, buying, sending, posting or deleting. It never types passwords, card numbers or codes; you type those in its window. It uses its own browser profile, and blocks local-network pages by default.</p>
+    <p id="hands-test-result" class="helper" role="status"></p>
+    <div class="start-actions"><button class="btn primary" type="submit">Save &amp; test</button><button class="btn" id="hands-cancel" type="button">Close</button></div>
   </form>
 </dialog>
 <dialog id="automation-dialog" aria-labelledby="automation-title">
