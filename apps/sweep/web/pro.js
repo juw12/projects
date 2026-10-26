@@ -352,7 +352,11 @@
           let lastError = null;
           const now = Date.now();
           const ready = chain.filter(function (entry) { return !(freeCooldown[entry.base] > now); });
-          const order = ready.length ? ready : chain;
+          let order = ready.length ? ready : chain;
+          if (options.freeStart && order.length > 1) {
+            const shift = options.freeStart % order.length;
+            order = order.slice(shift).concat(order.slice(0, shift));
+          }
           for (let index = 0; index < order.length; index++) {
             const entry = order[index];
             try {
@@ -486,18 +490,99 @@
   // Translates one generated spec file for people who read the plan in another language.
   // Structure the AI builder depends on (headings, ids like R1/T3, EARS keywords, code,
   // file paths, commands, [P] markers, checkboxes) is kept exactly.
-  async function translateSpecFile(filename, content, lang) {
+  // Spec vocabulary the AI must use consistently (users can add their own terms per project).
+  const SPEC_GLOSSARY = {
+    zh: {
+      'Requirements': '需求', 'User story': '用户故事', 'Acceptance criteria': '验收标准', 'Design': '设计',
+      'Tasks': '任务', 'Definition of Done': '完成标准', 'Out of scope': '不在范围内', 'Non-goals': '非目标',
+      'Success criteria': '成功标准', 'Edge cases': '边界情况', 'Data model': '数据模型', 'Introduction': '简介',
+      'streak': '连续天数', 'Primary user': '主要用户', 'Job to be done': '待完成的任务'
+    },
+    id: {
+      'Requirements': 'Kebutuhan', 'User story': 'Cerita pengguna', 'Acceptance criteria': 'Kriteria penerimaan',
+      'Design': 'Desain', 'Tasks': 'Tugas', 'Definition of Done': 'Definisi selesai', 'Out of scope': 'Di luar cakupan',
+      'Non-goals': 'Bukan tujuan', 'Success criteria': 'Kriteria sukses', 'Edge cases': 'Kasus tepi',
+      'Data model': 'Model data', 'Introduction': 'Pendahuluan', 'streak': 'streak (hari beruntun)',
+      'Primary user': 'Pengguna utama', 'Job to be done': 'Pekerjaan yang ingin diselesaikan'
+    }
+  };
+
+  function proseOnly(textValue) {
+    return String(textValue || '')
+      .replace(/```[\s\S]*?```/g, ' ')
+      .replace(/`[^`]*`/g, ' ')
+      .replace(/https?:\/\/\S+/g, ' ')
+      .replace(/\b(WHEN|THEN|IF|WHILE|WHERE|THE SYSTEM SHALL|SHALL)\b/g, ' ');
+  }
+
+  function countMatches(textValue, pattern) {
+    return (String(textValue || '').match(pattern) || []).length;
+  }
+
+  // Structural checks catch the failures free models make most often: dropped sections,
+  // translated ids or EARS keywords, untranslated output, truncation.
+  function validateTranslation(english, translated, lang) {
+    const problems = [];
+    const out = String(translated || '');
+    if (!out.trim()) return ['The answer was empty.'];
+    const ratio = out.length / Math.max(1, english.length);
+    if (ratio < 0.25) problems.push('The translation looks cut off (much shorter than the original).');
+    if (ratio > 3) problems.push('The translation is much longer than the original; translate only, do not add content.');
+    const headingsIn = countMatches(english, /^#{1,6}\s/gm);
+    const headingsOut = countMatches(out, /^#{1,6}\s/gm);
+    if (headingsOut < headingsIn) problems.push('Keep every heading: ' + headingsIn + ' in the original, ' + headingsOut + ' in the translation.');
+    if (countMatches(out, /^```/gm) !== countMatches(english, /^```/gm)) problems.push('Keep every code block exactly.');
+    const earsIn = countMatches(english, /THE SYSTEM SHALL/g);
+    if (countMatches(out, /THE SYSTEM SHALL/g) < earsIn) problems.push('Keep the EARS keywords "THE SYSTEM SHALL", "WHEN", "IF" in English capitals.');
+    const boxesIn = countMatches(english, /^\s*[-*] \[[ xX]\]/gm);
+    if (countMatches(out, /^\s*[-*] \[[ xX]\]/gm) < boxesIn) problems.push('Keep every checkbox line ("- [ ]").');
+    const ids = (english.match(/\b(?:R|T|AC|NFR)-?\d+(?:\.\d+)?\b/g) || []).filter(function (id, index, list) { return list.indexOf(id) === index; });
+    const lost = ids.filter(function (id) { return out.indexOf(id) === -1; });
+    if (lost.length) problems.push('Keep these ids unchanged: ' + lost.slice(0, 8).join(', ') + '.');
+    const prose = proseOnly(out);
+    if (lang === 'zh') {
+      const han = countMatches(prose, /[\u4e00-\u9fff]/g);
+      const latin = countMatches(prose, /[A-Za-z]/g);
+      if (han < 20 || han / Math.max(1, han + latin / 4) < 0.5) problems.push('Most of the text is still in English; translate the prose into Simplified Chinese.');
+    } else if (lang === 'id') {
+      const words = countMatches(prose.toLowerCase(), /\b(yang|dan|untuk|dengan|tidak|pengguna|akan|dari|ini|saat|sistem|harus)\b/g);
+      if (words < 5 || out.trim() === english.trim()) problems.push('Most of the text is still in English; translate the prose into Bahasa Indonesia.');
+    }
+    return problems;
+  }
+
+  // Translates one generated spec file for people who read the plan in another language.
+  // Structure the AI builder depends on (headings, ids like R1/T3, EARS keywords, code,
+  // file paths, commands, [P] markers, checkboxes) is kept exactly. Answers are checked; a
+  // failing answer is retried once on a different free service with the problems listed.
+  async function translateSpecFile(filename, content, lang, options) {
     const target = LANGUAGE_NAMES[lang] || lang;
+    const glossary = Object.assign({}, SPEC_GLOSSARY[lang] || {}, (options && options.glossary) || {});
+    const glossaryLines = Object.keys(glossary).map(function (term) { return '- ' + term + ' → ' + glossary[term]; }).join('\n');
     const system = [
       'You translate software specification files into ' + target + '.',
       'Translate prose, headings and list items. Keep Markdown structure, line breaks and checkbox syntax exactly.',
       'Do NOT translate: code blocks, inline code, file paths, URLs, shell commands, ids such as R1, T3, AC-2, [P] markers,',
       'or the EARS keywords WHEN / IF / WHILE / WHERE / THEN THE SYSTEM SHALL (keep those in English capitals so agents can parse them).',
-      'Keep product names and brand names unchanged.',
+      'Keep product names and brand names unchanged. Use natural, plain wording a native speaker would write.',
+      glossaryLines ? 'Always use this glossary:\n' + glossaryLines : '',
       'Reply with ONLY the translated file content, no commentary and no code fences around the whole answer.'
-    ].join('\n');
-    const answer = await aiComplete({ system: system, user: 'File: ' + filename + '\n---\n' + content, maxTokens: 4000 });
-    return stripFences(answer);
+    ].filter(Boolean).join('\n');
+    let user = 'File: ' + filename + '\n---\n' + content;
+    let best = null;
+    let bestProblems = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const answer = await aiComplete({ system: system, user: user, maxTokens: 4000, cache: attempt === 0, freeStart: attempt });
+      const text = stripFences(answer);
+      const problems = validateTranslation(content, text, lang);
+      if (!problems.length) return { text: text, problems: [] };
+      if (!best || problems.length < bestProblems.length) {
+        best = text;
+        bestProblems = problems;
+      }
+      user = 'File: ' + filename + '\n---\n' + content + '\n\n---\nA previous translation had these problems. Avoid them:\n- ' + problems.join('\n- ');
+    }
+    return { text: best, problems: bestProblems };
   }
 
   // =====================================================================
@@ -1251,6 +1336,7 @@
           trackChanges();
           lastFocusSync = 0;
           syncOnFocus();
+          openDirectPrompt();
         }, 300);
         return result;
       };
@@ -1296,16 +1382,49 @@
     return code.slice(0, 5) + '-' + code.slice(5);
   }
 
+  // Base URL for links that open Sweep on another device ("…/sweep/" rather than "…/sweep/index.html").
+  function shareBase() {
+    return location.href.split('#')[0].split('?')[0].replace(/index\.html$/, '');
+  }
+
+  // Compact v2 pairing secret: "2|expiry minutes (base36)|gist|passphrase|token".
+  // Hex gist ids are packed as base64url and the "github_pat_" prefix becomes "~",
+  // which keeps the QR roughly two versions smaller (bigger modules, easier to scan).
+  function packPairingSecret(token, passphrase, gistId, expiresAt) {
+    const gist = /^[0-9a-f]{32}$/.test(gistId || '')
+      ? '*' + bytesToBase64Url(new Uint8Array(gistId.match(/../g).map(function (pair) { return parseInt(pair, 16); })))
+      : (gistId || '');
+    const shortToken = token.indexOf('github_pat_') === 0 ? '~' + token.slice(11) : token;
+    return ['2', Math.ceil(expiresAt / 60000).toString(36), gist, passphrase, shortToken].join('|');
+  }
+
+  function unpackPairingSecret(secret) {
+    if (secret && typeof secret === 'object') return secret; // v1 links: { t, p, g, exp }
+    const parts = String(secret || '').split('|');
+    if (parts.length < 5 || parts[0] !== '2') return null;
+    let gist = parts[2];
+    if (gist.charAt(0) === '*') {
+      gist = Array.prototype.map.call(base64UrlToBytes(gist.slice(1)), function (byte) {
+        return ('0' + byte.toString(16)).slice(-2);
+      }).join('');
+    }
+    const token = parts.slice(4).join('|');
+    return {
+      t: token.charAt(0) === '~' ? 'github_pat_' + token.slice(1) : token,
+      p: parts[3],
+      g: gist,
+      exp: parseInt(parts[1], 36) * 60000
+    };
+  }
+
   async function createPairingLink() {
     const secrets = syncSecrets();
     const settings = syncSettings();
     const code = randomCode(10, PAIR_ALPHABET);
-    const envelope = await encryptPayload({
-      t: secrets.token,
-      p: secrets.passphrase,
-      g: settings.gistId || '',
-      exp: Date.now() + PAIR_TTL_MS
-    }, code);
+    const envelope = await encryptPayload(
+      packPairingSecret(secrets.token, secrets.passphrase, settings.gistId || '', Date.now() + PAIR_TTL_MS),
+      code
+    );
     // One compact base64url blob (salt 16 B | iv 12 B | ciphertext) keeps the link and QR small.
     const parsed = JSON.parse(envelope);
     const salt = fromBase64(parsed.salt);
@@ -1315,8 +1434,7 @@
     packed.set(salt, 0);
     packed.set(iv, salt.length);
     packed.set(data, salt.length + iv.length);
-    const base = location.href.split('#')[0].split('?')[0];
-    return { url: base + '#pair=' + bytesToBase64Url(packed), code: code };
+    return { url: shareBase() + '#pair=' + bytesToBase64Url(packed), code: code };
   }
 
   async function redeemPairing(payload, code) {
@@ -1341,6 +1459,11 @@
     } catch (error) {
       throw new Error(t('That code does not match. Check the code on the other device.'));
     }
+    try {
+      secret = unpackPairingSecret(secret);
+    } catch (error) {
+      secret = null;
+    }
     if (!secret || !secret.t || !secret.p) throw new Error(damaged);
     if (secret.exp && Date.now() > secret.exp) throw new Error(t('This link has expired. Create a new one on the other device.'));
     saveSyncSecrets({ token: secret.t, passphrase: secret.p }, true);
@@ -1350,6 +1473,13 @@
     settings.remember = true;
     saveSyncSettings(settings);
     return true;
+  }
+
+  // QR plus a "bigger" toggle: a larger code gives the phone camera more pixels per module.
+  function qrBlock(svg) {
+    return '<div class="sync-qr-wrap"><div class="sync-qr">' + svg + '</div>' +
+      '<button type="button" class="btn btn-text btn-sm sync-qr-zoom" data-pro="qr-zoom" aria-pressed="false">' +
+      esc(t('Show bigger QR')) + '</button></div>';
   }
 
   async function showLinkPanel() {
@@ -1362,7 +1492,7 @@
       const qr = window.SweepQR ? window.SweepQR.svg(pairing.url, { ecc: 'L', border: 4, label: t('QR code to link another device') }) : '';
       panel.innerHTML =
         '<div class="sync-link-grid">' +
-          (qr ? '<div class="sync-qr">' + qr + '</div>' : '') +
+          (qr ? qrBlock(qr) : '') +
           '<div class="sync-link-copy">' +
             '<p class="settings-note"><b>' + esc(t('On your phone: scan this code.')) + '</b> ' + esc(t('On a computer: open the link instead.')) + '</p>' +
             '<p class="settings-note">' + esc(t('Then type this one-time code:')) + '</p>' +
@@ -1459,6 +1589,379 @@
     if (!document.getElementById('settings-modal')) document.body.classList.remove('studio-modal-open');
     if (pairReturnFocus && document.contains(pairReturnFocus)) pairReturnFocus.focus();
     pairReturnFocus = null;
+  }
+
+  // =====================================================================
+  // No-account sync: direct device-to-device (WebRTC) and encrypted sync files
+  // =====================================================================
+  // Both paths use the same encryption and three-way merge as Gist sync. Direct sync uses the
+  // free PeerJS broker only to introduce the two browsers; the workspace then travels over an
+  // encrypted WebRTC data channel, additionally sealed with a one-time code that never leaves
+  // the link fragment. Sync files are the same encrypted envelope saved to disk.
+  const DIRECT_BASE_KEY = 'sweep_direct_base_v1';
+  const DIRECT_SNAPSHOT_KEY = 'sweep_direct_snapshot_v1';
+  const DIRECT_PENDING_KEY = 'sweep_direct_pending_v1';
+  const DIRECT_WAIT_MS = 10 * 60 * 1000;
+  const DIRECT_PEER_PREFIX = 'sweep-';
+  let peerLoader = null;
+  let directHost = null;
+
+  function loadPeerLibrary() {
+    if (window.Peer) return Promise.resolve(window.Peer);
+    if (peerLoader) return peerLoader;
+    peerLoader = new Promise(function (resolve, reject) {
+      const script = document.createElement('script');
+      script.src = 'vendor/peerjs.min.js';
+      script.async = true;
+      script.onload = function () {
+        if (window.Peer) resolve(window.Peer);
+        else reject(new Error(t('Could not start direct sync on this browser.')));
+      };
+      script.onerror = function () {
+        peerLoader = null;
+        reject(new Error(t('Could not start direct sync on this browser.')));
+      };
+      document.head.appendChild(script);
+    });
+    return peerLoader;
+  }
+
+  function localWorkspace() {
+    trackChanges();
+    return { projects: (state.projects || []).slice(), tombstones: tombstones() };
+  }
+
+  async function adoptWorkspace(local, merged) {
+    writeJson(localStorage, TOMBSTONE_KEY, merged.tombstones || {});
+    const changed = JSON.stringify(merged.projects) !== JSON.stringify(local.projects);
+    if (changed) {
+      state.projects = merged.projects;
+      suppressAutoPush = true;
+      try {
+        await window.saveState();
+      } finally {
+        suppressAutoPush = false;
+      }
+      trackChanges();
+      rerenderCurrentView();
+    }
+    return changed;
+  }
+
+  function saveDirectBase(projects) {
+    const base = {};
+    projects.forEach(function (project) {
+      base[project.id] = contentHash(project);
+    });
+    writeJson(localStorage, DIRECT_BASE_KEY, base);
+    const snapshot = {};
+    projects.forEach(function (project) {
+      snapshot[project.id] = project;
+    });
+    if (!writeJson(localStorage, DIRECT_SNAPSHOT_KEY, snapshot)) {
+      try {
+        localStorage.removeItem(DIRECT_SNAPSHOT_KEY);
+      } catch (error) {
+        /* storage unavailable */
+      }
+    }
+  }
+
+  function announceMerge(merged) {
+    (merged.conflicts || []).forEach(function (conflict) {
+      toast(t('“{name}” was edited on two devices — kept both versions', { name: conflict.name }));
+    });
+    const merges = merged.merges || [];
+    if (merges.length) {
+      rememberClashes(merges);
+      const clashCount = merges.reduce(function (sum, merge) { return sum + merge.clashes.length; }, 0);
+      if (!clashCount) toast(t('Merged edits to “{name}” from two devices', { name: merges[0].name }));
+    }
+  }
+
+  // Merge a workspace that arrived from another device (direct sync or a sync file).
+  async function mergeIncoming(remote) {
+    if (!remote || !Array.isArray(remote.projects)) throw new Error(t('That file is not a Sweep sync file.'));
+    const local = localWorkspace();
+    const base = readJson(localStorage, DIRECT_BASE_KEY, null);
+    const merged = mergeWorkspaces(local, remote, base, readJson(localStorage, DIRECT_SNAPSHOT_KEY, {}));
+    const changed = await adoptWorkspace(local, merged);
+    saveDirectBase(merged.projects);
+    announceMerge(merged);
+    return { merged: merged, changed: changed };
+  }
+
+  function swapClashSides(merges) {
+    return (merges || []).map(function (merge) {
+      return {
+        id: merge.id,
+        name: merge.name,
+        clashes: merge.clashes.map(function (clash) {
+          return Object.assign({}, clash, {
+            local: clash.remote,
+            remote: clash.local,
+            kept: clash.kept === 'local' ? 'remote' : 'local'
+          });
+        })
+      };
+    });
+  }
+
+  function directStatus(message, kind) {
+    const node = document.getElementById('direct-status');
+    if (!node) return;
+    node.textContent = message;
+    node.className = 'settings-status' + (kind ? ' ' + kind : '');
+  }
+
+  function stopDirectHost() {
+    if (!directHost) return;
+    clearTimeout(directHost.timer);
+    try {
+      directHost.peer.destroy();
+    } catch (error) {
+      /* already closed */
+    }
+    directHost = null;
+  }
+
+  async function startDirectHost() {
+    if (typeof state === 'undefined' || !state.workspace) throw new Error('Open a workspace first.');
+    stopDirectHost();
+    const Peer = await loadPeerLibrary();
+    const code = randomCode(10, PAIR_ALPHABET);
+    const peerId = DIRECT_PEER_PREFIX + randomCode(20, 'abcdefghijklmnopqrstuvwxyz0123456789');
+    const peer = new Peer(peerId, { debug: 0 });
+    await new Promise(function (resolve, reject) {
+      peer.on('open', resolve);
+      peer.on('error', function (error) { reject(new Error(t('Could not reach the direct sync service. Check your connection.') + ' (' + (error.type || error.message) + ')')); });
+      setTimeout(function () { reject(new Error(t('Could not reach the direct sync service. Check your connection.'))); }, 20000);
+    });
+    directHost = { peer: peer, code: code, timer: setTimeout(function () {
+      stopDirectHost();
+      directStatus(t('Direct sync stopped after 10 minutes. Start again when both devices are ready.'));
+    }, DIRECT_WAIT_MS) };
+    peer.on('connection', function (connection) {
+      connection.on('data', async function (message) {
+        if (!message || message.type !== 'hello') return;
+        try {
+          directStatus(t('Other device connected — merging…'));
+          const remote = await decryptPayload(message.payload, code);
+          const result = await mergeIncoming(remote);
+          const reply = await encryptPayload({ projects: result.merged.projects, tombstones: result.merged.tombstones }, code);
+          connection.send({ type: 'merged', payload: reply, merges: swapClashSides(result.merged.merges) });
+          directStatus('✓ ' + t('Synced with your other device · {count} project(s)', { count: result.merged.projects.length }), 'ok');
+          toast(t('Synced with your other device'));
+          const finished = directHost;
+          setTimeout(function () {
+            // Only close this session; the user may already have started a new one.
+            if (directHost === finished) stopDirectHost();
+          }, 3000);
+        } catch (error) {
+          connection.send({ type: 'error', message: error.message });
+          directStatus('✗ ' + error.message, 'error');
+        }
+      });
+    });
+    return { url: shareBase() + '#direct=' + peerId.slice(DIRECT_PEER_PREFIX.length) + '.' + code, code: code };
+  }
+
+  async function joinDirect(hostKey, code) {
+    if (typeof state === 'undefined' || !state.workspace) throw new Error('Open a workspace first.');
+    const Peer = await loadPeerLibrary();
+    const peer = new Peer({ debug: 0 });
+    try {
+      await new Promise(function (resolve, reject) {
+        peer.on('open', resolve);
+        peer.on('error', function (error) { reject(new Error(t('Could not reach the direct sync service. Check your connection.') + ' (' + (error.type || error.message) + ')')); });
+        setTimeout(function () { reject(new Error(t('Could not reach the direct sync service. Check your connection.'))); }, 20000);
+      });
+      const connection = peer.connect(DIRECT_PEER_PREFIX + hostKey, { reliable: true });
+      const local = localWorkspace();
+      const reply = await new Promise(function (resolve, reject) {
+        const timer = setTimeout(function () { reject(new Error(t('The other device did not answer. Keep its Sync screen open and try again.'))); }, 45000);
+        peer.on('error', function (error) {
+          clearTimeout(timer);
+          reject(new Error(error.type === 'peer-unavailable'
+            ? t('The other device is no longer waiting. Start direct sync there again.')
+            : t('Could not connect to the other device.') + ' (' + (error.type || error.message) + ')'));
+        });
+        connection.on('open', async function () {
+          connection.send({ type: 'hello', payload: await encryptPayload(local, code) });
+        });
+        connection.on('data', function (message) {
+          if (!message) return;
+          clearTimeout(timer);
+          if (message.type === 'error') reject(new Error(message.message));
+          else if (message.type === 'merged') resolve(message);
+        });
+      });
+      const merged = await decryptPayload(reply.payload, code);
+      // The host already merged both sides; adopt its result so both devices end identical.
+      const changed = await adoptWorkspace(localWorkspace(), merged);
+      saveDirectBase(merged.projects);
+      if (reply.merges && reply.merges.length) rememberClashes(reply.merges);
+      return { changed: changed, count: merged.projects.length };
+    } finally {
+      setTimeout(function () {
+        try {
+          peer.destroy();
+        } catch (error) {
+          /* already closed */
+        }
+      }, 1500);
+    }
+  }
+
+  async function showDirectPanel() {
+    const panel = document.getElementById('direct-panel');
+    if (!panel) return;
+    panel.hidden = false;
+    panel.innerHTML = '<p class="settings-note">' + esc(t('Starting direct sync…')) + '</p>';
+    try {
+      const host = await startDirectHost();
+      const qr = window.SweepQR ? window.SweepQR.svg(host.url, { ecc: 'M', border: 4, label: t('QR code to sync another device directly') }) : '';
+      panel.innerHTML =
+        '<div class="sync-link-grid">' +
+          (qr ? qrBlock(qr) : '') +
+          '<div class="sync-link-copy">' +
+            '<p class="settings-note"><b>' + esc(t('Scan this with your other device')) + '</b> ' + esc(t('(or open the link there). Keep this screen open until it says synced.')) + '</p>' +
+            '<div class="settings-actions"><button type="button" class="btn btn-secondary btn-sm" data-pro="sync-copy-link" data-link="' + esc(host.url) + '">' + esc(t('Copy link')) + '</button>' +
+              '<button type="button" class="btn btn-text btn-sm" data-pro="direct-stop">' + esc(t('Stop')) + '</button></div>' +
+            '<p class="settings-status" id="direct-status" role="status">' + esc(t('Waiting for your other device…')) + '</p>' +
+            '<p class="settings-note small">' + esc(t('Works while both devices are online. Your projects travel encrypted, device to device.')) + '</p>' +
+          '</div>' +
+        '</div>';
+    } catch (error) {
+      panel.innerHTML = '<p class="settings-status error">✗ ' + esc(error.message) + '</p>';
+    }
+  }
+
+  function captureDirectHash() {
+    const match = location.hash.match(/^#direct=([a-z0-9]{20})\.([A-Z2-9]{10})$/);
+    if (!match) return;
+    try {
+      sessionStorage.setItem(DIRECT_PENDING_KEY, JSON.stringify({ host: match[1], code: match[2] }));
+    } catch (error) {
+      /* storage unavailable */
+    }
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+
+  let directReturnFocus = null;
+  function openDirectPrompt() {
+    const pending = readJson(sessionStorage, DIRECT_PENDING_KEY, null);
+    if (!pending || document.getElementById('direct-modal')) return;
+    if (typeof state === 'undefined' || !state.workspace) return;
+    directReturnFocus = document.activeElement;
+    const modal = document.createElement('div');
+    modal.id = 'direct-modal';
+    modal.className = 'studio-modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'direct-title');
+    modal.innerHTML = '<div class="studio-modal-card settings-card">' +
+      '<button type="button" class="studio-modal-close" data-direct="close" aria-label="' + esc(t('Close')) + '">×</button>' +
+      '<h2 id="direct-title">' + esc(t('Sync with your other device?')) + '</h2>' +
+      '<p class="settings-note">' + esc(t('Your projects on both devices will be merged. Nothing is deleted unless you deleted it on one of them.')) + '</p>' +
+      '<div class="settings-actions"><button type="button" class="btn btn-primary btn-sm" data-direct="join">' + esc(t('Sync now')) + '</button>' +
+        '<button type="button" class="btn btn-text btn-sm" data-direct="close">' + esc(t('Cancel')) + '</button>' +
+        '<span class="settings-status" id="direct-join-status" role="status"></span></div>' +
+    '</div>';
+    document.body.appendChild(modal);
+    document.body.classList.add('studio-modal-open');
+    const status = modal.querySelector('#direct-join-status');
+    modal.addEventListener('click', async function (event) {
+      const action = event.target.closest('[data-direct]');
+      if (event.target === modal || (action && action.getAttribute('data-direct') === 'close')) {
+        closeDirectPrompt(true);
+        return;
+      }
+      if (!action || action.getAttribute('data-direct') !== 'join' || action.disabled) return;
+      action.disabled = true;
+      status.className = 'settings-status';
+      status.textContent = t('Connecting…');
+      try {
+        const result = await joinDirect(pending.host, pending.code);
+        status.className = 'settings-status ok';
+        status.textContent = '✓ ' + t('Synced with your other device · {count} project(s)', { count: result.count });
+        toast(t('Synced with your other device'));
+        setTimeout(function () { closeDirectPrompt(true); }, 1200);
+      } catch (error) {
+        action.disabled = false;
+        status.className = 'settings-status error';
+        status.textContent = '✗ ' + error.message;
+      }
+    });
+    modal.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') closeDirectPrompt(true);
+    });
+    modal.querySelector('[data-direct="join"]').focus();
+  }
+
+  function closeDirectPrompt(clearPending) {
+    const modal = document.getElementById('direct-modal');
+    if (clearPending) {
+      try {
+        sessionStorage.removeItem(DIRECT_PENDING_KEY);
+      } catch (error) {
+        /* storage unavailable */
+      }
+    }
+    if (!modal) return;
+    modal.remove();
+    if (!document.getElementById('settings-modal')) document.body.classList.remove('studio-modal-open');
+    if (directReturnFocus && document.contains(directReturnFocus)) directReturnFocus.focus();
+    directReturnFocus = null;
+  }
+
+  // ----- encrypted sync files -----
+  async function exportSyncFile(passphrase) {
+    if (!passphrase || passphrase.length < 6) throw new Error(t('Use a file passphrase of at least 6 characters.'));
+    const payload = await encryptPayload(Object.assign(localWorkspace(), { savedAt: Date.now() }), passphrase);
+    const day = new Date().toISOString().slice(0, 10);
+    const blob = new Blob([payload], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'sweep-sync-' + day + '.sweep';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+    return link.download;
+  }
+
+  async function importSyncFile(file, passphrase) {
+    if (!file) throw new Error(t('Choose a sync file first.'));
+    if (!passphrase) throw new Error(t('Enter the passphrase the file was saved with.'));
+    const text = await file.text();
+    let remote;
+    try {
+      remote = await decryptPayload(text, passphrase);
+    } catch (error) {
+      if (/Not a Sweep sync file|JSON/.test(error.message)) throw new Error(t('That file is not a Sweep sync file.'));
+      throw new Error(t('Wrong passphrase for this file.'));
+    }
+    return mergeIncoming(remote);
+  }
+
+  function noAccountHtml() {
+    const secrets = syncSecrets();
+    return '<div class="sync-noaccount">' +
+      '<h3>' + esc(t('No GitHub account?')) + '</h3>' +
+      '<p class="settings-note">' + esc(t('Sync two devices directly while both are open, or move an encrypted sync file (AirDrop, USB, email, a cloud drive). Same encryption and merge as above.')) + '</p>' +
+      '<div class="settings-actions"><button type="button" class="btn btn-secondary btn-sm" data-pro="direct-start">' + esc(t('Sync with another device now')) + '</button></div>' +
+      '<div id="direct-panel" class="sync-link-panel" hidden></div>' +
+      '<label class="settings-field"><span>' + esc(t('Sync file passphrase')) + '</span>' +
+        '<input type="password" id="sync-file-pass" autocomplete="new-password" value="' + esc(secrets.passphrase || '') + '"></label>' +
+      '<div class="settings-actions">' +
+        '<button type="button" class="btn btn-secondary btn-sm" data-pro="file-export">' + esc(t('Download sync file')) + '</button>' +
+        '<label class="btn btn-secondary btn-sm file-pick">' + esc(t('Open sync file')) +
+          '<input type="file" id="sync-file-input" accept=".sweep,application/json" hidden></label>' +
+        '<span class="settings-status" id="file-status" role="status"></span>' +
+      '</div>' +
+    '</div>';
   }
 
   // =====================================================================
@@ -1567,7 +2070,8 @@
         (configured ? '<button type="button" class="btn btn-secondary btn-sm" data-pro="sync-link">' + esc(t('Link another device')) + '</button>' : '') +
         (configured ? '<button type="button" class="btn btn-text btn-sm" data-pro="sync-disconnect">' + esc(t('Disconnect')) + '</button>' : '') +
         '<span class="settings-status" id="sync-status" role="status">' + esc(settings.lastSync ? t('Last synced {when}', { when: timeAgo(settings.lastSync) }).replace('{when}', timeAgo(settings.lastSync)) : t('Never synced')) + '</span></div>' +
-      '<div id="sync-link-panel" class="sync-link-panel" hidden></div>';
+      '<div id="sync-link-panel" class="sync-link-panel" hidden></div>' +
+      noAccountHtml();
   }
 
   function settingsBodyHtml() {
@@ -1665,7 +2169,25 @@
     node.className = 'settings-status' + (kind ? ' ' + kind : '');
   }
 
+  async function onSyncFileChosen(input) {
+    const file = input.files && input.files[0];
+    const field = document.getElementById('sync-file-pass');
+    setStatus('file-status', t('Merging…'));
+    try {
+      const result = await importSyncFile(file, field ? field.value : '');
+      setStatus('file-status', '✓ ' + t('Merged the sync file · {count} project(s)', { count: result.merged.projects.length }), 'ok');
+    } catch (error) {
+      setStatus('file-status', '✗ ' + error.message, 'error');
+    } finally {
+      input.value = '';
+    }
+  }
+
   function onSettingsChange(event) {
+    if (event.target && event.target.id === 'sync-file-input') {
+      onSyncFileChosen(event.target);
+      return;
+    }
     if (event.target.id === 'ai-provider') {
       const provider = PROVIDERS[event.target.value];
       document.getElementById('ai-key-row').hidden = !!provider.keyless;
@@ -1735,10 +2257,43 @@
       showLinkPanel();
       return;
     }
+    if (name === 'qr-zoom') {
+      const grid = action.closest('.sync-link-grid');
+      if (grid) {
+        const big = grid.classList.toggle('is-big');
+        action.setAttribute('aria-pressed', big ? 'true' : 'false');
+        action.textContent = big ? t('Show smaller QR') : t('Show bigger QR');
+        if (big) grid.scrollIntoView({ block: 'nearest' });
+      }
+      return;
+    }
     if (name === 'sync-copy-link') {
       const link = action.getAttribute('data-link');
       if (navigator.clipboard) {
         navigator.clipboard.writeText(link).then(function () { toast(t('Link copied')); });
+      }
+      return;
+    }
+    if (name === 'direct-start') {
+      showDirectPanel();
+      return;
+    }
+    if (name === 'direct-stop') {
+      stopDirectHost();
+      const panel = document.getElementById('direct-panel');
+      if (panel) {
+        panel.hidden = true;
+        panel.innerHTML = '';
+      }
+      return;
+    }
+    if (name === 'file-export') {
+      const field = document.getElementById('sync-file-pass');
+      try {
+        const fileName = await exportSyncFile(field ? field.value : '');
+        setStatus('file-status', '✓ ' + t('Saved {file} — open it on your other device with the same passphrase.', { file: fileName }), 'ok');
+      } catch (error) {
+        setStatus('file-status', '✗ ' + error.message, 'error');
       }
       return;
     }
@@ -1888,11 +2443,13 @@
   }
 
   capturePairingHash();
+  captureDirectHash();
 
   function init() {
     settingsButton();
     renderClashBanner();
     setTimeout(openPairPrompt, 400);
+    setTimeout(openDirectPrompt, 500);
     wrapPersistence();
     document.addEventListener('visibilitychange', syncOnFocus);
     document.addEventListener('keydown', trapFocus);
@@ -1918,6 +2475,8 @@
       sharpenBrief: sharpenBrief,
       improveSpecFile: improveSpecFile,
       translateSpecFile: translateSpecFile,
+      validateTranslation: validateTranslation,
+      glossary: SPEC_GLOSSARY,
       onChange: function (listener) { aiListeners.push(listener); },
       providers: PROVIDERS
     },
@@ -1933,6 +2492,12 @@
       redeemPairing: redeemPairing,
       openPairPrompt: openPairPrompt,
       generatePassphrase: generatePassphrase,
+      startDirect: startDirectHost,
+      joinDirect: joinDirect,
+      stopDirect: stopDirectHost,
+      exportFile: exportSyncFile,
+      importFile: importSyncFile,
+      mergeIncoming: mergeIncoming,
       encrypt: encryptPayload,
       decrypt: decryptPayload,
       onStatus: function (listener) { syncListeners.push(listener); }
