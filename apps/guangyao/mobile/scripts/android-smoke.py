@@ -85,6 +85,12 @@ def app_page():
 def main(apk):
     report = {"apk": Path(apk).name}
     adb("install", "-r", apk)
+
+    # A freshly booted emulator often has no working network for a minute or two.
+    def network_ready():
+        output = adb("shell", "ping", "-c", "1", "-W", "3", "juw12.github.io", check=False)
+        return " 0% packet loss" in output
+    report["emulator_network"] = bool(wait_for(network_ready, 300, "The emulator never got network access"))
     adb("shell", "am", "start", "-n", PACKAGE + "/.MainActivity")
     page = app_page()
     wait_for(lambda: page.evaluate("!!document.querySelector('.welcome')"), 60, "Welcome screen missing")
