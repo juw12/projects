@@ -54,7 +54,7 @@
 <path d="M2 17l10 5 10-5"></path>
 <path d="M2 12l10 5 10-5"></path>
 </svg>
-<h2 class="install-gate-title" id="install-gate-title">Install Airiz Console</h2>
+<h2 class="install-gate-title" id="install-gate-title">Install browser app (PWA)</h2>
 <p class="install-gate-desc" id="install-gate-desc">Get quick access and a cleaner, full-screen experience.</p>
 <div class="install-gate-actions">
 <button class="btn btn-primary btn-lg" id="btn-gate-install">Install</button>
@@ -67,13 +67,13 @@
 <header class="header">
 <div class="breadcrumb"><span>Workspace</span><span class="breadcrumb-slash">/</span><strong id="breadcrumb-view">Motor control</strong></div>
 <div class="header-meta"><span class="header-session"><span class="signal-dot"></span>LOCAL SESSION</span>
-<button aria-label="Install Airiz Console as app" class="theme-switcher" id="btn-install-app" title="Install app or view browser installation instructions">
+<button aria-label="Install browser app (PWA), not the Windows desktop installer" class="theme-switcher" id="btn-install-app" title="Browser app shortcut (PWA). Use Download installer for the Windows desktop app.">
 <svg class="theme-switcher-icon" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
 <polyline points="7 10 12 15 17 10"></polyline>
 <line x1="12" x2="12" y1="15" y2="3"></line>
 </svg>
-<span>Install app</span>
+<span>Browser install</span>
 </button>
 <button aria-label="Theme: System" class="theme-switcher" id="theme-toggle" title="Switch theme: Dark, Light, System">
 <svg class="theme-switcher-icon" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
@@ -87,7 +87,11 @@
 </button></div>
 </header>
 <!-- Status Bar -->
-<section class="page-intro"><div><div class="eyebrow">AIRIZ / CONTROL CENTER</div><h1 id="page-title">Motor control<span class="title-dot">.</span></h1><p id="page-description">Make your next move. Precision control for your device.</p></div><div class="session-time"><span class="eyebrow">SESSION TIME</span><span id="session-clock">00:00:00</span></div></section><div class="status-bar"><div class="connection-copy"><span class="connection-icon"><svg aria-hidden="true" class="ui-icon" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.65" viewbox="0 0 24 24"><path d="M9 3v4m6-4v4M7 7h10v4a5 5 0 0 1-10 0V7Zm5 9v5"></path></svg></span><div><strong>Device connection</strong><small id="transport-note">Connect over USB serial, or try the simulator.</small></div></div>
+<section class="page-intro"><div><div class="eyebrow">AIRIZ / CONTROL CENTER</div><h1 id="page-title">Motor control<span class="title-dot">.</span></h1><p id="page-description">Make your next move. Precision control for your device.</p></div><div class="session-time"><span class="eyebrow">SESSION TIME</span><span id="session-clock">00:00:00</span></div></section>
+<section aria-label="Download the Windows desktop app" class="desktop-download-banner" id="desktop-download-banner">
+<div class="desktop-download-copy"><span aria-hidden="true" class="desktop-download-mark">⊞</span><div><strong>Get the Windows desktop app</strong><p>Runs locally in its own window. No browser required. Windows x64 · unsigned first release.</p></div></div>
+<div class="desktop-download-actions"><a class="btn btn-primary" href="https://github.com/juwpegatron/projects/releases/download/airiz-desktop-v1.0.0/AIRIZ-Console-Setup-1.0.0-x64.exe" id="download-windows-installer">Download installer <span aria-hidden="true">↓</span></a><a class="btn btn-secondary" href="https://github.com/juwpegatron/projects/releases/download/airiz-desktop-v1.0.0/AIRIZ-Console-Portable-1.0.0-x64.exe" id="download-windows-portable">Portable app</a></div>
+</section><div class="status-bar"><div class="connection-copy"><span class="connection-icon"><svg aria-hidden="true" class="ui-icon" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.65" viewbox="0 0 24 24"><path d="M9 3v4m6-4v4M7 7h10v4a5 5 0 0 1-10 0V7Zm5 9v5"></path></svg></span><div><strong>Device connection</strong><small id="transport-note">Connect over USB serial, or try the simulator.</small></div></div>
 <div class="status-left">
 <button class="btn btn-primary" id="btn-connect"><svg aria-hidden="true" class="ui-icon" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.65" viewbox="0 0 24 24"><path d="M9 3v4m6-4v4M7 7h10v4a5 5 0 0 1-10 0V7Zm5 9v5"></path></svg><span>Connect device</span></button>
 <button class="btn btn-secondary" disabled="" id="btn-disconnect">Disconnect</button>
@@ -179,8 +183,6 @@
 <div class="console-controls"><select aria-label="Filter console messages" class="select" id="console-filter"><option value="all">All events</option><option value="command">Sent</option><option value="response">Received</option><option value="error">Errors</option></select>
 <button class="btn btn-sm" id="btn-clear">Clear</button>
 <button class="btn btn-sm" id="btn-save-log">Save Log</button>
-
-
 </div>
 </div>
 <div aria-label="Serial console output" aria-live="off" aria-relevant="additions" class="console-output" id="console-output" role="log" tabindex="0">
@@ -516,5 +518,5 @@
 <div aria-live="polite" class="ui-toast" hidden="" id="ui-toast" role="status"></div>
 <dialog class="help-dialog" id="shortcuts-dialog"><div class="dialog-heading"><h2>At your fingertips.</h2><button aria-label="Close keyboard help" class="btn" id="close-shortcuts">✕</button></div><p>Enable keyboard control on the jog pad first. Shortcuts only run in Motor control, outside text fields.</p><dl><div><dt>Pan reverse / forward</dt><dd><kbd>←</kbd> <kbd>→</kbd></dd></div><div><dt>Rising forward / reverse</dt><dd><kbd>↑</kbd> <kbd>↓</kbd></dd></div><div><dt>Lock manual jog + keyboard</dt><dd><kbd>Esc</kbd></dd></div><div><dt>Focus command input</dt><dd><kbd>/</kbd></dd></div><div><dt>Show this help</dt><dd><kbd>?</kbd></dd></div></dl><div class="help-warning">Escape blocks new jogs. It is NOT a hardware emergency stop. Each key press sends one finite jog; holding a key does not repeat.</div></dialog>
 <dialog class="help-dialog" id="arm-dialog"><div class="dialog-heading"><h2>Enable hardware jogging?</h2></div><p>Check that the mechanism is clear, the step counts are appropriate, and you can remove power safely if needed.</p><div class="help-warning">There is no documented motor-stop command. A jog runs for its requested step count. Locking the controller cannot cancel an in-flight move. Command-library and macro controls are separate from this jog lock.</div><div class="arm-dialog-actions"><button class="btn" id="cancel-arm">Keep locked</button><button class="btn btn-primary" id="confirm-arm">Enable manual jog</button></div></dialog>
-<script src="console-ui.js"></script></body>
+<script src="console-ui.js"></script><script src="desktop-integration.js"></script></body>
 </html>

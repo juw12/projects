@@ -1,6 +1,6 @@
 /* AIRIZ Control Center — versioned, scope-isolated offline shell. */
 const CACHE_PREFIX = 'airiz-control-' + encodeURIComponent(self.registration.scope) + '-';
-const CACHE_NAME = CACHE_PREFIX + 'v2.2-parity';
+const CACHE_NAME = CACHE_PREFIX + 'v2.3-desktop';
 const ASSETS = [
   './',
   './index.html',
@@ -8,6 +8,7 @@ const ASSETS = [
   './console-ui.css',
   './app.js',
   './console-ui.js',
+  './desktop-integration.js',
   './data/commands.js',
   './data/macros.js',
   './data/sounds.js',

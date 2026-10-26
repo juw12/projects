@@ -1,0 +1,68 @@
+{
+  "name": "airiz-console-desktop",
+  "version": "1.0.0",
+  "description": "AIRIZ offline motor, serial, camera and macro control console for Windows",
+  "productName": "AIRIZ Console",
+  "author": "AIRIZ",
+  "private": true,
+  "license": "UNLICENSED",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test tests/*.test.cjs",
+    "dist:win": "electron-builder --win nsis portable --x64 --publish never",
+    "test:packaged": "node tests/native-smoke.cjs"
+  },
+  "devDependencies": {
+    "electron": "45.0.0",
+    "electron-builder": "26.18.0",
+    "playwright-core": "1.60.0"
+  },
+  "build": {
+    "appId": "com.airiz.console",
+    "productName": "AIRIZ Console",
+    "asar": true,
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "security.cjs",
+      "serial-chooser.cjs",
+      "assets/app.ico",
+      {
+        "from": "../web",
+        "to": "web",
+        "filter": [
+          "**/*",
+          "!README.md"
+        ]
+      }
+    ],
+    "win": {
+      "icon": "assets/app.ico",
+      "executableName": "AIRIZ Console",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "AIRIZ Console",
+      "uninstallDisplayName": "AIRIZ Console",
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "AIRIZ-Console-Setup-${version}-x64.exe"
+    },
+    "portable": {
+      "artifactName": "AIRIZ-Console-Portable-${version}-x64.exe"
+    }
+  }
+}

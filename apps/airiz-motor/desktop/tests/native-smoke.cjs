@@ -1,0 +1,181 @@
+'use strict';
+
+const { _electron } = require('playwright-core');
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const fs = require('node:fs');
+
+const root = path.resolve(__dirname, '..');
+const executable = process.env.AIRIZ_EXE || path.join(root, 'dist', 'win-unpacked', 'AIRIZ Console.exe');
+const profile = process.env.AIRIZ_TEST_PROFILE || path.join(root, '.test-data', 'packaged-smoke');
+const reportFile = process.env.AIRIZ_TEST_REPORT || path.join(root, '.test-data', 'native-smoke-results.json');
+const checks = [];
+let runningApp = null;
+
+async function launch() {
+  const app = await _electron.launch({
+    executablePath: executable,
+    args: ['--airiz-data-dir=' + profile, '--use-fake-device-for-media-stream'],
+    timeout: 60000
+  });
+  runningApp = app;
+  await app.evaluate(({ dialog }) => {
+    globalThis.__dialogs = [];
+    dialog.showMessageBox = async (_window, options) => {
+      globalThis.__dialogs.push(options);
+      return { response: options.title === 'AIRIZ device media access' ? 1 : 0 };
+    };
+  });
+  return app;
+}
+
+async function record(name) {
+  checks.push(name);
+  console.log('PASS: ' + name);
+}
+
+(async () => {
+  fs.mkdirSync(path.dirname(reportFile), { recursive: true });
+  fs.rmSync(profile, { recursive: true, force: true });
+  let app = await launch();
+  let page = await app.firstWindow();
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.waitForFunction(() => window.airizDesktop && window.AirizConsole);
+  assert.equal(page.url(), 'airiz://app/');
+  const info = await page.evaluate(() => window.airizDesktop.getAppInfo());
+  assert.equal(info.packaged, true);
+  assert.equal(info.version, '1.0.0');
+  assert.equal(await page.locator('#desktop-download-banner').isVisible(), false);
+  assert.equal(await page.locator('#btn-install-app').isVisible(), false);
+  assert.deepEqual(await page.evaluate(() => ({ secure: isSecureContext, serial: !!navigator.serial, node: typeof require })), {
+    secure: true, serial: true, node: 'undefined'
+  });
+  const preferences = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.getLastWebPreferences());
+  assert.equal(preferences.nodeIntegration, false);
+  assert.equal(preferences.contextIsolation, true);
+  assert.equal(preferences.sandbox, true);
+  await record('Actual packaged Windows process loads bundled local UI with secure origin and sandboxed renderer');
+
+  await page.locator('#btn-connect').click();
+  await page.locator('#native-serial-dialog').waitFor({ state: 'visible' });
+  await page.locator('#native-serial-cancel').click();
+  await page.locator('#native-serial-dialog').waitFor({ state: 'hidden' });
+  assert.equal((await page.evaluate(() => AirizConsole.getStatus())).connected, false);
+  await app.evaluate(({ session, BrowserWindow }) => {
+    globalThis.__chosenPort = null;
+    session.defaultSession.emit('select-serial-port', { preventDefault() {} }, [
+      { portId: 'smoke-fake-port', portName: 'TEST ONLY', displayName: 'Synthetic selector check' }
+    ], BrowserWindow.getAllWindows()[0].webContents, selected => {globalThis.__chosenPort = selected;});
+  });
+  await page.locator('#native-serial-dialog').waitFor({ state: 'visible' });
+  assert.equal(await page.evaluate(() => airizDesktop.chooseSerialPort('not-a-real-id')), false);
+  await page.locator('[data-port-id="smoke-fake-port"]').click();
+  assert.equal(await app.evaluate(() => globalThis.__chosenPort), 'smoke-fake-port');
+  await record('Native serial chooser opens and cancels; synthetic selection works without opening physical hardware');
+
+  await page.locator('#btn-demo').click();
+  for (const direction of ['pan-fwd', 'rising-fwd', 'pan-rev', 'rising-rev']) {
+    await page.locator('[data-jog="' + direction + '"]').click();
+    await page.waitForTimeout(450);
+  }
+  assert.equal(await page.locator('#console-output .command').count(), 4);
+  await page.locator('#keyboard-toggle').click();
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(450);
+  assert.equal(await page.locator('#console-output .command').count(), 5);
+  await page.keyboard.press('Escape');
+  await record('Native demo pad, finite-jog commands and keyboard controls execute locally');
+
+  for (const view of ['console', 'camera', 'sfx', 'controller']) {
+    await page.locator('#tab-' + view).click();
+    assert.equal(await page.locator('#view-' + view).isVisible(), true);
+  }
+  await page.locator('#tab-sfx').click();
+  await page.locator('#sfx-search').fill('Chime');
+  await page.locator('.sfx-card[data-id="notify-chime"]').click();
+  await page.locator('#btn-sfx-stop').click();
+  await page.locator('#tab-camera').click();
+  await page.locator('#camera-mode-select').selectOption('auto');
+  await page.locator('#btn-camera-start').click();
+  await page.waitForFunction(() => document.getElementById('camera-preview').readyState >= 2, { timeout: 15000 });
+  await page.locator('#btn-camera-stop').click();
+  await record('Camera preview works with synthetic device; sound playback and all existing workspaces load');
+
+  await page.locator('#tab-controller').click();
+  const logPath = path.join(profile, 'native-export-check.txt');
+  await app.evaluate(({ session }, destination) => {
+    globalThis.__exportState = null;
+    session.defaultSession.once('will-download', (_event, item) => {
+      item.setSavePath(destination);
+      item.once('done', (_done, state) => {globalThis.__exportState = state;});
+    });
+  }, logPath);
+  await page.locator('#btn-save-log').click();
+  for (let attempt = 0; attempt < 30; attempt++) {
+    if (await app.evaluate(() => globalThis.__exportState === 'completed')) break;
+    await page.waitForTimeout(200);
+  }
+  assert.equal(await app.evaluate(() => globalThis.__exportState), 'completed');
+  assert.match(fs.readFileSync(logPath, 'utf8'), /diag motor pan forward/);
+  await record('Native log export writes a real file to the explicitly selected test directory');
+  await page.locator('#btn-disconnect').click();
+  await page.locator('#theme-toggle').click();
+  await page.evaluate(() => {
+    localStorage.setItem('airiz.macros.v1', JSON.stringify([
+      { id: 'native-persistence', name: 'Native persistence check', desc: 'test', params: [], steps: [] }
+    ]));
+  });
+  await app.close();
+  app = await launch();
+  page = await app.firstWindow();
+  page.on('pageerror', error => errors.push(error.message));
+  await page.waitForFunction(() => window.AirizConsole);
+  assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
+  await page.locator('#tab-console').click();
+  assert.match(await page.locator('#macro-select').innerText(), /Native persistence check/);
+  await page.context().route('https://**/*', route => route.abort());
+  await page.context().route('http://**/*', route => route.abort());
+  await page.reload();
+  await page.waitForFunction(() => window.AirizConsole);
+  await page.locator('#btn-demo').click();
+  await page.locator('[data-jog="pan-fwd"]').click();
+  assert.match(await page.locator('#console-output').innerText(), /diag motor pan forward 2 1/);
+  await record('Saved macros and theme survive a full app restart; bundled UI and demo reload with HTTP/HTTPS blocked');
+
+  await page.locator('#btn-disconnect').click();
+  await page.evaluate(() => {
+    window.__originalApi = window.AirizConsole;
+    window.AirizConsole = { getStatus: () => ({ connected: true, demoMode: false }) };
+  });
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close());
+  await page.waitForTimeout(500);
+  assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length), 1);
+  assert.equal(await app.evaluate(() => globalThis.__dialogs.at(-1).title), 'Finish the device session before closing');
+  await page.evaluate(() => { window.AirizConsole = window.__originalApi; });
+  await record('Active-device close warning defaults to keeping the app open; it never claims to stop a motor');
+
+  await page.locator('#theme-toggle').click();
+  await page.locator('#theme-toggle').click();
+  await page.locator('#btn-demo').click();
+  await page.locator('[data-jog="pan-fwd"]').click();
+  await page.waitForTimeout(4700);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  if (process.env.AIRIZ_SCREENSHOT) await page.screenshot({ path: process.env.AIRIZ_SCREENSHOT, fullPage: true });
+  assert.deepEqual(errors, []);
+  await app.close();
+  const report = {
+    result: 'passed', packaged: true, version: info.version, checks,
+    javascriptErrors: errors, physicalHardwareExercised: false,
+    installerWizardExecuted: false
+  };
+  fs.writeFileSync(reportFile, JSON.stringify(report, null, 2));
+  console.log(JSON.stringify(report, null, 2));
+})().catch(async error => {
+  console.error(error);
+  if (runningApp) {
+    await runningApp.evaluate(({ app }) => app.exit(1)).catch(() => {});
+    await runningApp.close().catch(() => {});
+  }
+  process.exitCode = 1;
+});
