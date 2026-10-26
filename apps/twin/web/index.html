@@ -13,8 +13,8 @@
 <link rel="manifest" href="manifest.webmanifest">
 <title>Twin — invest &amp; day-trade with 10,000 replays</title>
 <meta name="description" content="Twin: a personality-matched investing and day-trading companion. Paper trading, 10,000-future goal planner, copy a famous investor's 13F, news feed and the day-trader-skill Time Machine.">
-<script src="theme.js?v=1.3.0"></script>
-<link rel="stylesheet" href="theme.css?v=1.3.0">
+<script src="theme.js?v=1.4.0"></script>
+<link rel="stylesheet" href="theme.css?v=1.4.0">
 <style>
   :root {
     --bg: #0b0f14;
@@ -118,6 +118,10 @@
   .pill.red { background: rgba(239,68,68,.16); color: #f87171; }
   .pill.amber { background: rgba(245,179,1,.16); color: #fbbf24; }
   .pill.blue { background: rgba(76,141,255,.16); color: #8db4ff; }
+  .notice-chip { display: flex; align-items: flex-start; gap: 8px; margin: 8px 0 2px; padding: 8px 12px; border-radius: 12px;
+    background: var(--card2); border: 1px solid var(--line); font-size: 12px; color: var(--muted); line-height: 1.4; }
+  .notice-chip b { color: var(--text); }
+  .notice-dot { flex: none; width: 8px; height: 8px; margin-top: 4px; border-radius: 50%; background: var(--amber); }
   .pill.gray { background: rgba(107,114,128,.22); color: var(--muted); }
   .chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 6px; scrollbar-width: none; }
   .chips::-webkit-scrollbar { display: none; }
@@ -218,11 +222,12 @@
 <div class="sheet" id="sheet" inert aria-hidden="true"></div>
 <div class="toast" id="toast"></div>
 
-<script src="demo.js?v=1.3.0"></script>
-<script src="pro.js?v=1.3.0"></script>
-<script src="pro-ui.js?v=1.3.0"></script>
-<script src="broker-ui.js?v=1.3.0"></script>
-<script src="academy.js?v=1.3.0"></script>
+<script src="demo.js?v=1.4.0"></script>
+<script src="pro.js?v=1.4.0"></script>
+<script src="pro-ui.js?v=1.4.0"></script>
+<script src="broker-ui.js?v=1.4.0"></script>
+<script src="academy.js?v=1.4.0"></script>
+<script src="global.js?v=1.4.0"></script>
 <script>
 "use strict";
 
@@ -871,6 +876,15 @@ const GUIDE = [
     ],
   },
   {
+    id: "global", icon: "🌍", title: "Stocks from any country",
+    body: [
+      ["p", "Search any company by name, ticker or country. Twin running on your computer looks up listings on dozens of exchanges through Yahoo Finance (e.g. 7203.T Toyota in Tokyo, BBCA.JK Bank Central Asia in Jakarta, RELIANCE.NS in Mumbai, VOD.L in London). The web demo includes a snapshot of about 55 large companies on 25+ exchanges plus 18 world indices."],
+      ["p", "Prices show in the stock's own currency. Practice cash is in US dollars: when you buy a foreign stock, Twin converts at the delayed exchange rate, so currency moves change your result too. Pick a home currency in Me to see totals converted."],
+      ["p", "Market status (open, lunch break, closed) uses each exchange's regular hours in its local time. Public holidays are not shown."],
+      ["p", "Real money: Twin's Alpaca connection trades US-listed stocks and ETFs, which Alpaca offers to customers in many countries. For other exchanges use a broker that covers them, such as Interactive Brokers (175 markets in 40 countries, per IBKR) or a licensed local broker. Many big foreign companies also have US listings (ADRs), shown on their stock page."],
+    ],
+  },
+  {
     id: "replay", icon: "⏪", title: "Replay Lab & order types",
     body: [
       ["p", "Replay Lab sends you back 3, 6 or 9 months with practice cash. Prices move one trading day at a time and future prices stay hidden."],
@@ -1069,12 +1083,11 @@ function switchTab(id) {
 
 function demoBanner() {
   const meta = state.demoMeta || {};
-  return h("div", { class: "warn", style: "margin:10px 0" },
-    h("b", {}, GUEST ? "Guest preview · " : "Web demo · "),
-    `prices from ${meta.market_as_of || "a recent snapshot"}, 5 famous investors, TSLA trade replay. `,
-    "For live data on your phone, run Twin on your computer — ",
-    h("a", { href: "https://github.com/juwpegatron/projects/tree/main/apps/twin", target: "_blank", rel: "noopener" }, "source & setup"),
-    ".");
+  return h("div", { class: "notice-chip", role: "note" },
+    h("span", { class: "notice-dot" }),
+    h("span", {}, h("b", {}, GUEST ? "Guest preview" : "Web demo"),
+      ` · snapshot ${String(meta.market_as_of || "recent").replace(" 20:00 UTC", "")} · live data: run Twin on your computer — `,
+      h("a", { href: "https://github.com/juwpegatron/projects/tree/main/apps/twin", target: "_blank", rel: "noopener" }, "source & setup")));
 }
 
 /* =========================================================================
@@ -1383,7 +1396,9 @@ async function renderHome(main) {
     h("div", { class: "between", style: "margin-top:4px" },
       h("div", {}, h("div", { class: "muted small" }, greeting), h("h2", { style: "margin:0" }, state.profile.name.split(" ")[0])),
       h("span", { class: "pill blue", onclick: () => switchTab("me") }, quiz.emoji + " " + quiz.title)),
-    portfolio);
+    TwinGlobal.searchBar(),
+    portfolio,
+    TwinGlobal.worldStrip());
   const step = nextStep();
   if (step) {
     put(main, h("div", { class: "card tight", onclick: step[3], style: "cursor:pointer" },
@@ -1413,6 +1428,7 @@ async function renderHome(main) {
     put(portfolio, 
       h("div", { class: "muted small" }, "Practice portfolio"),
       h("div", { class: "big" }, fmtMoney(p.value)),
+      TwinGlobal.inDisplay(p.value) ? h("div", { class: "tiny muted", id: "home-display-value" }, `≈ ${TwinGlobal.inDisplay(p.value)}`) : null,
       h("div", { class: signClass(p.gain) + " small", style: "font-weight:650" }, `${p.gain >= 0 ? "+" : ""}${fmtMoney(p.gain)} (${fmtPct(p.gain_pct)}) all time`),
       canvas,
       h("div", { class: "between small muted" }, h("span", {}, "Buying power " + fmtMoney(p.cash)),
@@ -1501,22 +1517,16 @@ async function investPortfolio(body) {
       h("div", { class: "stat" }, h("div", { class: "k" }, "Cash"), h("div", { class: "v" }, fmtMoney(p.cash))),
       h("div", { class: "stat" }, h("div", { class: "k" }, "Started with"), h("div", { class: "v" }, fmtMoney(p.start_cash, 0))))));
 
-  const search = h("input", { placeholder: "Find a stock or fund to buy (e.g. VTI)", autocapitalize: "characters" });
-  search.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && search.value.trim()) {
-      openStock(search.value.trim());
-    }
-  });
-  put(body, h("div", { class: "row" }, search, h("button", { class: "btn small primary", style: "flex:none", onclick: () => search.value.trim() && openStock(search.value.trim()) }, "Go")));
+  put(body, TwinGlobal.searchBar());
 
   const positions = h("div", { class: "card" }, h("h3", {}, "Positions"));
   if (!p.positions.length) {
-    put(positions, h("p", { class: "muted" }, "No positions yet. Search a ticker above, or copy a famous investor."));
+    put(positions, h("p", { class: "muted" }, "No positions yet. Search any stock or ETF above — any exchange — or copy a famous investor."));
   } else {
     const list = h("div", { class: "list" });
     for (const pos of p.positions) {
       put(list, h("div", { class: "item", onclick: () => openStock(pos.symbol) },
-        h("div", { style: "flex:1;min-width:0" }, h("div", { class: "sym" }, pos.symbol), h("div", { class: "nm" }, `${pos.qty} sh · avg ${fmtPrice(pos.avg_cost)}`)),
+        h("div", { style: "flex:1;min-width:0" }, h("div", { class: "sym" }, pos.symbol), h("div", { class: "nm" }, `${pos.qty} sh · avg ${fmtMoney(pos.avg_cost)}`)),
         sparkline(pos.spark, (pos.day_pct || 0) >= 0),
         h("div", { class: "px" }, h("div", { style: "font-weight:650" }, fmtMoney(pos.value)),
           h("div", { class: signClass(pos.gain) + " small" }, fmtPct(pos.gain_pct)))));
@@ -2095,6 +2105,7 @@ function renderMe(main) {
   put(main,
     h("div", { class: "card" }, h("h3", {}, "Appearance"), appearanceControls(),
       h("p", { class: "tiny muted" }, "System follows your device. Appearance is saved on this browser, separately from accounts.")),
+    TwinGlobal.currencyCard(),
     brokerCard(),
     GUEST ? h("div", { class: "card" },
       h("h3", {}, "Guest session"),
@@ -2178,7 +2189,7 @@ function renderMe(main) {
       }, "Save limits")),
     h("div", { class: "card" }, h("h3", {}, "Guide"), guideList()),
     h("div", { class: "card small muted" },
-      h("b", { style: "color:var(--text)" }, "Twin · v1.3.0"),
+      h("b", { style: "color:var(--text)" }, "Twin · v1.4.0"),
       h("p", {}, "Twin is built on two free, MIT-licensed skill packs by Jake Schincariol (day-trader-skill and trader-skill). Data: Yahoo Finance (delayed, unofficial), SEC EDGAR."),
       h("p", {}, "Not financial advice. Practice money only. You can lose money investing; past performance and simulations do not guarantee future results.")),
     h("button", {

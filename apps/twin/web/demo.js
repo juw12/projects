@@ -253,13 +253,84 @@
   }
 
   // ---------------------------------------------------------- market
+  // World snapshot (global stocks, indices, FX) is loaded only when a non-US symbol is needed.
+  async function world() {
+    return load("world");
+  }
+
   async function quote(symbol) {
     const market = await load("market");
-    const q = market.quotes[symbol];
+    let q = market.quotes[symbol];
     if (!q) {
-      throw new Error(`${symbol} is not in the demo snapshot (has ${Object.keys(market.quotes).join(", ")}). Run Twin on your computer for any ticker.`);
+      const globalData = await world().catch(() => null);
+      q = globalData && globalData.quotes[symbol];
     }
-    return q;
+    if (!q) {
+      throw new Error(`${symbol} is not in the web demo snapshot. Use Search to see the ~70 global stocks included offline, or run Twin on your computer to look up any listing on any exchange.`);
+    }
+    return { currency: "USD", fx_usd: 1, ...q };
+  }
+
+  // Practice cash is kept in US dollars; foreign prices convert at the snapshot FX rate.
+  async function usdPrice(q) {
+    if (!q.currency || q.currency === "USD") {
+      return q.price;
+    }
+    let rate = q.fx_usd;
+    if (rate === undefined || rate === null) {
+      const globalData = await world();
+      rate = globalData.fx_usd[q.currency];
+    }
+    if (!(rate > 0)) {
+      throw new Error(`no exchange rate for ${q.currency} in the snapshot`);
+    }
+    return q.price * rate;
+  }
+
+  const COUNTRY_NAMES = {
+    US: "United States", GB: "United Kingdom", DE: "Germany", FR: "France", NL: "Netherlands", CH: "Switzerland",
+    DK: "Denmark", ES: "Spain", IT: "Italy", SE: "Sweden", JP: "Japan", HK: "Hong Kong", CN: "China", TW: "Taiwan",
+    KR: "South Korea", IN: "India", ID: "Indonesia", SG: "Singapore", MY: "Malaysia", TH: "Thailand", AU: "Australia",
+    CA: "Canada", BR: "Brazil", ZA: "South Africa", SA: "Saudi Arabia", EU: "Eurozone",
+  };
+
+  async function searchSnapshot(query) {
+    const q = String(query || "").trim().toLowerCase();
+    if (!q) {
+      throw new Error("type a company name or ticker");
+    }
+    const market = await load("market");
+    const globalData = await world();
+    const rows = [
+      ...Object.values(market.quotes).map((item) => ({
+        symbol: item.symbol, name: item.name, exchange: item.exchange, country: "US",
+        type: ["SPY", "QQQ", "VTI", "AGG", "GLD"].includes(item.symbol) ? "ETF" : "Stock",
+      })),
+      ...globalData.universe.map((item) => ({
+        symbol: item.symbol, name: item.name, exchange: (globalData.quotes[item.symbol] || {}).exchange,
+        country: item.country, type: "Stock", sector: item.sector,
+      })),
+      ...globalData.indices.map((item) => ({
+        symbol: item.symbol, name: item.name, exchange: "Index", country: item.country, type: "Index",
+      })),
+    ];
+    const score = (row) => {
+      const symbol = row.symbol.toLowerCase();
+      const name = (row.name || "").toLowerCase();
+      const haystack = [name, symbol, (row.exchange || "").toLowerCase(), (COUNTRY_NAMES[row.country] || "").toLowerCase(), (row.sector || "").toLowerCase()].join(" ");
+      if (symbol === q || symbol.split(".")[0] === q) {
+        return 0;
+      }
+      if (symbol.startsWith(q) || name.startsWith(q)) {
+        return 1;
+      }
+      if (name.split(/\s+/).some((word) => word.startsWith(q))) {
+        return 2;
+      }
+      return haystack.includes(q) ? 3 : 99;
+    };
+    return rows.map((row) => [score(row), row]).filter(([s]) => s < 99)
+      .sort((a, b) => a[0] - b[0] || a[1].name.localeCompare(b[1].name)).slice(0, 20).map(([, row]) => row);
   }
 
   async function paperState(profile) {
@@ -268,7 +339,7 @@
     let holdings = 0;
     for (const [sym, pos] of Object.entries(paper.positions)) {
       const q = await quote(sym).catch(() => null);
-      const price = q ? q.price : pos.cost / pos.qty;
+      const price = q ? await usdPrice(q).catch(() => pos.cost / pos.qty) : pos.cost / pos.qty;
       const value = pos.qty * price;
       holdings += value;
       rows.push({
@@ -277,6 +348,9 @@
         qty: Math.round(pos.qty * 1e6) / 1e6,
         avg_cost: pos.cost / pos.qty,
         price,
+        local_price: q ? q.price : null,
+        currency: q ? q.currency : "USD",
+        fx_usd: q ? q.fx_usd : 1,
         value: round2(value),
         gain: round2(value - pos.cost),
         gain_pct: pos.cost ? round2((value / pos.cost - 1) * 100) : 0,
@@ -333,7 +407,7 @@
   async function paperOrder(profile, symbol, side, dollars, qty, note) {
     symbol = String(symbol || "").trim().toUpperCase();
     const q = await quote(symbol);
-    const price = q.price;
+    const price = await usdPrice(q);
     if (dollars !== undefined && dollars !== null && dollars !== "") {
       qty = num(dollars, "amount", 0) / price;
     }
@@ -369,7 +443,10 @@
     } else {
       throw new Error("side must be buy or sell");
     }
-    const fill = { symbol, side, qty: Math.round(qty * 1e6) / 1e6, price, amount: round2(qty * price) };
+    const fill = {
+      symbol, side, qty: Math.round(qty * 1e6) / 1e6, price: q.price, currency: q.currency || "USD",
+      fx_usd: q.currency === "USD" ? 1 : price / q.price, amount: round2(qty * price),
+    };
     paper.history.push({ time: new Date().toISOString(), note: note || "", ...fill });
     return fill;
   }
@@ -773,11 +850,31 @@
         case "chart": {
           const market = await load("market");
           const sym = String(body.symbol || "").toUpperCase();
-          const charts = market.charts[sym];
+          let charts = market.charts[sym];
+          if (!charts) {
+            const globalData = await world().catch(() => null);
+            charts = globalData && globalData.charts[sym];
+          }
           if (!charts) {
             await quote(sym);
           }
-          return { ok: true, data: charts[body.span || "1D"] || charts["1D"] };
+          const span = body.span || "1D";
+          const data = charts[span] || (span === "1W" ? charts["1M"] : span === "3M" || span === "5Y" ? charts["1Y"] : null) || charts["1D"];
+          return { ok: true, data: { currency: "USD", fx_usd: 1, ...data } };
+        }
+        case "search": {
+          return { ok: true, results: await searchSnapshot(body.q), snapshot: true };
+        }
+        case "fx": {
+          const globalData = await world();
+          return { ok: true, fx_usd: globalData.fx_usd, as_of: globalData.snapshot_taken };
+        }
+        case "world": {
+          const globalData = await world();
+          return {
+            ok: true, universe: globalData.universe, indices: globalData.indices, fx_usd: globalData.fx_usd,
+            as_of: globalData.snapshot_taken, quotes: globalData.quotes, snapshot: true,
+          };
         }
         case "paper": {
           const paper = await paperState(profile);

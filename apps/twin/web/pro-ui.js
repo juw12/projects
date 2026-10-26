@@ -257,6 +257,9 @@ const TYPE_HELP = {
 // Shared ticket for the practice portfolio and Replay Lab.
 // cfg: { symbol, price, side, held, cash, equity, limits, where: "live"|"replay", submit(fields) -> Promise<{ok,error,message}> }
 function orderTicket(cfg) {
+  const currency = cfg.currency || "USD";
+  const fx = currency === "USD" ? 1 : (cfg.fx || 1);
+  const unit = currency === "USD" ? "$" : currency;
   let side = cfg.side || "buy";
   let type = "market";
   let byDollars = true;
@@ -302,7 +305,7 @@ function orderTicket(cfg) {
       class: byDollars === d ? "on" : "",
       onclick: () => {
         byDollars = d;
-        amount.placeholder = d ? "Amount in $" : "Shares";
+        amount.placeholder = d ? (currency === "USD" ? "Amount in $" : "Amount in US$ (practice cash)") : "Shares";
         redraw();
       },
     }, label)));
@@ -310,10 +313,10 @@ function orderTicket(cfg) {
   const drawFields = () => {
     const rows = [];
     if (type === "limit" || type === "stop_limit") {
-      rows.push(h("label", { class: "f" }, "Limit price ($)"), limit);
+      rows.push(h("label", { class: "f" }, `Limit price (${unit})`), limit);
     }
     if (type === "stop" || type === "stop_limit") {
-      rows.unshift(h("label", { class: "f" }, "Stop price ($)"), stop);
+      rows.unshift(h("label", { class: "f" }, `Stop price (${unit})`), stop);
     }
     if (type === "trailing") {
       rows.push(h("label", { class: "f" }, "Trail by (%)"), trail);
@@ -331,8 +334,8 @@ function orderTicket(cfg) {
         }),
         h("span", {}, "Add take-profit / stop-loss (bracket)")),
       bracketOn ? h("div", { class: "grid2" },
-        h("div", {}, h("label", { class: "f" }, "Take-profit ($)"), tp),
-        h("div", {}, h("label", { class: "f" }, "Stop-loss ($)"), sl)) : null) : null);
+        h("div", {}, h("label", { class: "f" }, `Take-profit (${unit})`), tp),
+        h("div", {}, h("label", { class: "f" }, `Stop-loss (${unit})`), sl)) : null) : null);
   };
   const fields = () => {
     const f = { symbol: cfg.symbol, side, type };
@@ -360,15 +363,18 @@ function orderTicket(cfg) {
     const f = fields();
     const value = Number(amount.value) || 0;
     const entry = Number(f.limit) || Number(f.stop) || cfg.price;
-    const shares = byDollars ? value / entry : value;
+    // Amounts are in US dollars (practice cash); prices are in the listing's own currency.
+    const shares = byDollars ? value / (entry * fx) : value;
+    const localCost = shares * entry;
     const rows = [
-      h("div", { class: "kv" }, h("span", { class: "muted" }, "Reference price"), h("b", {}, fmtMoney(cfg.price))),
+      h("div", { class: "kv" }, h("span", { class: "muted" }, "Reference price"),
+        h("b", {}, currency === "USD" ? fmtMoney(cfg.price) : `${TwinGlobal.price(cfg.price, currency)} ≈ ${fmtMoney(cfg.price * fx)}`)),
       h("div", { class: "kv" }, h("span", { class: "muted" }, "Estimated size"),
-        h("b", {}, value ? `${shares.toFixed(4)} sh ≈ ${fmtMoney(shares * entry)}` : "—")),
+        h("b", {}, value ? `${shares.toFixed(4)} sh ≈ ${currency === "USD" ? fmtMoney(localCost) : `${TwinGlobal.price(localCost, currency)} ≈ ${fmtMoney(localCost * fx)}`}` : "—")),
     ];
     const stopLevel = Number(f.stop_loss) || (side === "sell" ? null : null);
     if (side === "buy" && value && stopLevel && stopLevel < entry) {
-      const risk = (entry - stopLevel) * shares;
+      const risk = (entry - stopLevel) * shares * fx;
       const pctOfEquity = cfg.equity ? 100 * risk / cfg.equity : null;
       rows.push(h("div", { class: "kv" }, h("span", { class: "muted" }, "Max loss if stop fills"),
         h("b", { class: "down" }, `${fmtMoney(risk)}${pctOfEquity !== null ? ` (${pctOfEquity.toFixed(1)}% of account)` : ""}`)));
@@ -385,7 +391,7 @@ function orderTicket(cfg) {
     } else if (side === "buy" && value && !bracketOn && type !== "trailing") {
       rows.push(h("div", { class: "tiny muted", style: "margin-top:4px" }, "Tip: add a stop-loss to see your max loss before you trade."));
     }
-    if (side === "buy" && value && shares * entry > (cfg.cash || 0) + 0.005) {
+    if (side === "buy" && value && shares * entry * fx > (cfg.cash || 0) + 0.005) {
       rows.push(h("div", { class: "warn", style: "margin:6px 0 0" }, `More than your cash (${fmtMoney(cfg.cash)}). ${type === "market" ? "This order will be rejected." : "It will be rejected if cash is still short when it triggers."}`));
     }
     preview.replaceChildren(...rows);
@@ -473,7 +479,7 @@ async function submitLiveOrder(fields, price) {
       saveLiveBook(book);
     }
     closeSheet();
-    toast(`Practice ${order.side}: ${result.fill.qty} ${order.symbol} @ ${fmtMoney(result.fill.price)}${order.bracket ? " · bracket set" : ""}`);
+    toast(`Practice ${order.side}: ${result.fill.qty} ${order.symbol} @ ${TwinGlobal.price(result.fill.price, result.fill.currency)}${order.bracket ? " · bracket set" : ""}`);
     switchTab(state.tab);
     return { ok: true };
   }
@@ -533,7 +539,7 @@ async function syncLiveOrders(extraPrices = {}) {
       }
       state.paper = result.paper;
       book.orders[i] = { ...check.order, status: "filled", fill_price: result.fill.price, closed: now };
-      messages.push(`Filled: ${order.side} ${result.fill.qty} ${order.symbol} @ ${fmtMoney(result.fill.price)}`);
+      messages.push(`Filled: ${order.side} ${result.fill.qty} ${order.symbol} @ ${TwinGlobal.price(result.fill.price, result.fill.currency)}`);
       if (order.group) {
         for (const other of book.orders) {
           if (other.group === order.group && other.id !== order.id && other.status === "open") {
@@ -695,7 +701,10 @@ async function openStockPro(symbol) {
       put(body, h("h2", {}, symbol), errorBox(result.error));
       return;
     }
-    const d = result.data;
+    const d = TwinGlobal.remember({ ...result.data, symbol });
+    const cur = d.currency || TwinGlobal.listing(symbol).currency;
+    const isIndex = TwinGlobal.listing(symbol).isIndex;
+    const money = (value) => (isIndex ? Number(value).toLocaleString("en-US", { maximumFractionDigits: 2 }) : TwinGlobal.price(value, cur));
     const points = d.points || [];
     const closes = points.map((p) => p[1]);
     const times = points.map((p) => p[0]);
@@ -703,13 +712,13 @@ async function openStockPro(symbol) {
     const held = state.paper && state.paper.positions.find((p) => p.symbol === symbol);
     const activeAlerts = proRead("alerts", []).filter((a) => a.symbol === symbol && !a.triggered).length;
     const openOrders = liveBook().orders.filter((o) => o.symbol === symbol && o.status === "open").length;
-    const priceEl = h("div", { class: "big" }, fmtMoney(d.price));
+    const priceEl = h("div", { class: "big" }, money(d.price));
     const changeEl = h("div", { class: signClass(d.change) + " small", style: "font-weight:650" });
     const spanWord = { "1D": "today", "1W": "past week", "1M": "past month", "3M": "past 3 months", "1Y": "past year", "5Y": "past 5 years" }[span];
     const setChange = (value, base, label) => {
       const diff = value - base;
       changeEl.className = signClass(diff) + " small";
-      changeEl.replaceChildren(`${diff >= 0 ? "+" : ""}${fmtMoney(diff)} (${fmtPct(base ? 100 * diff / base : 0)}) `, h("span", { class: "muted" }, label));
+      changeEl.replaceChildren(`${diff >= 0 ? "+" : ""}${money(diff)} (${fmtPct(base ? 100 * diff / base : 0)}) `, h("span", { class: "muted" }, label));
     };
     const base = span === "1D" ? d.prev : closes[0];
     setChange(d.price, base, spanWord);
@@ -762,6 +771,7 @@ async function openStockPro(symbol) {
         ["1D", "1W", "1M", "3M", "1Y", "5Y"].map((s) => h("button", { class: "chip" + (s === span ? " on" : ""), onclick: () => { span = s; draw(); } }, s))),
       h("div", { class: "ind-row" }, indicatorChip("sma20", "SMA 20"), indicatorChip("sma50", "SMA 50"),
         h("span", { class: "tiny muted", style: "align-self:center" }, "Drag the chart to see any point")),
+      TwinGlobal.listingPanel(symbol, d),
       h("div", { class: "card tight" },
         h("div", { class: "between tiny muted" }, h("span", {}, "Low " + fmtPrice(lo)), h("span", {}, `Range in view (${span})`), h("span", {}, "High " + fmtPrice(hi))),
         h("div", { class: "range" }, h("i", { style: `left:${Math.max(0, Math.min(100, posPct))}%` })),
@@ -787,7 +797,7 @@ async function openStockPro(symbol) {
           switchTab("invest");
         },
       }, `${openOrders} open order${openOrders > 1 ? "s" : ""} for ${symbol} ›`)) : null,
-      h("div", { class: "fab-row" },
+      isIndex ? h("p", { class: "tiny muted" }, "Indices can't be bought directly — search for an index fund or ETF that tracks it.") : h("div", { class: "fab-row" },
         h("button", { class: "btn green", onclick: () => openOrderPro(symbol, "buy", d.price, held) }, "Buy"),
         h("button", { class: "btn red", disabled: held ? null : "", onclick: () => openOrderPro(symbol, "sell", d.price, held) }, "Sell")),
       h("div", { class: "fab-row" },
@@ -823,10 +833,10 @@ async function openStockPro(symbol) {
       series, baseline: span === "1D" ? d.prev : undefined, height: 210,
       onScrub: (index) => {
         if (index === null) {
-          priceEl.textContent = fmtMoney(d.price);
+          priceEl.textContent = money(d.price);
           setChange(d.price, base, spanWord);
         } else {
-          priceEl.textContent = fmtMoney(closes[index]);
+          priceEl.textContent = money(closes[index]);
           setChange(closes[index], base, fmtDay(times[index], span === "1D" || span === "1W"));
         }
       },
@@ -844,8 +854,10 @@ function openOrderPro(symbol, side, price, held) {
   const seg = h("div", { class: "seg", id: "account-switch" });
   let account = state.orderAccount || "practice";
   let status = null;
+  const listingInfo = TwinGlobal.listing(symbol);
+  const quoteInfo = TwinGlobal.info(symbol);
   const draw = () => {
-    const brokerOn = status && status.connected;
+    const brokerOn = status && status.connected && listingInfo.us;
     if (!brokerOn) {
       account = "practice";
     }
@@ -868,12 +880,15 @@ function openOrderPro(symbol, side, price, held) {
         submit: (fields) => submitBrokerOrder(fields),
       }));
     } else {
-      header.replaceChildren(`Practice cash ${fmtMoney(paper.cash)}${held ? ` · you hold ${held.qty} sh` : ""}`);
+      header.replaceChildren(`Practice cash ${fmtMoney(paper.cash)}${held ? ` · you hold ${held.qty} sh` : ""}${quoteInfo.currency !== "USD" && quoteInfo.fx_usd ? ` · 1 ${quoteInfo.currency} = ${fmtMoney(quoteInfo.fx_usd, quoteInfo.fx_usd < 0.01 ? 6 : 4)}` : ""}`);
       holder.replaceChildren(orderTicket({
         symbol, price, side, held: held ? held.qty : 0, cash: paper.cash, equity: paper.value || paper.cash,
-        limits: state.profile.limits, where: "live",
+        limits: state.profile.limits, where: "live", currency: quoteInfo.currency, fx: quoteInfo.fx_usd,
         submit: (fields) => submitLiveOrder(fields, price),
       }));
+      if (status && status.connected && !listingInfo.us) {
+        put(holder, h("p", { class: "tiny muted" }, `Alpaca trades US listings only, so ${symbol} (${listingInfo.exchange}) is practice-only here.`));
+      }
     }
   };
   draw();
@@ -898,6 +913,7 @@ function xrayCard(p) {
     h("div", { class: "legend", style: "flex-wrap:wrap" },
       alloc.classes.map((c) => h("span", {}, h("i", { style: `background:${colors[c.name] || "#888"}` }), `${c.name} ${c.pct.toFixed(0)}%`))),
     alloc.note ? h("div", { class: "warn" }, alloc.note) : null,
+    TwinGlobal.exposure(p.positions, p.cash),
     p.positions.length ? h("button", {
       class: "btn ghost", id: "xray-run",
       onclick: async (event) => {
