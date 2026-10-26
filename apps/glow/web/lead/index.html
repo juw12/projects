@@ -57,7 +57,7 @@
     <div class="sidebar-foot"><span class="online-dot" aria-hidden="true"></span> Browser-first workspace<p>History stays in this browser. AI requests go to your chosen provider. Keep this tab open while work runs.</p><a href="../">← All Glow apps</a></div>
   </aside>
   <main id="workspace" tabindex="-1">
-    <div class="workspace-label"><span>YOUR AI TEAM, WITH YOU IN CONTROL</span><span class="version-pill">GlowLead / 0.14.1</span></div>
+    <div class="workspace-label"><span>YOUR AI TEAM, WITH YOU IN CONTROL</span><span class="version-pill">GlowLead / 0.15</span></div>
     <section class="hero">
       <p class="eyebrow">From a spark to something real</p>
       <h1>Big idea.<br><span>Clear next steps.</span></h1>
@@ -116,6 +116,19 @@
 </dialog>
 <dialog id="hands-dialog" aria-labelledby="hands-title">
   <form id="hands-form"><h2 id="hands-title">Connect Glow Hands</h2>
+    <section id="app-box" class="phone-link-box" hidden>
+      <h3 class="setup-heading">This phone's browser</h3>
+      <p class="helper">Glow opens sites in a browser built into this app and clicks, types and fills forms there. You can watch, scroll and type passwords yourself. Nothing else to install.</p>
+      <div class="start-actions"><button class="btn primary small" id="app-use" type="button">Use this phone's browser</button><button class="btn small" id="app-show" type="button">Show browser</button></div>
+      <p id="app-note" class="helper" role="status"></p>
+    </section>
+    <section id="instant-box" class="phone-link-box" hidden>
+      <h3 class="setup-heading">Instant cloud browser</h3>
+      <p class="helper">A hidden browser in the cloud, ready in seconds. No account and no setup. It has no saved logins and stops after 10 minutes without use. Free cloud time is shared by everyone and limited each day.</p>
+      <div class="start-actions"><button class="btn primary small" id="instant-start" type="button">Start instant cloud browser</button><button class="btn small" id="instant-stop" type="button">Stop</button></div>
+      <p id="instant-note" class="helper" role="status"></p>
+    </section>
+    <p id="android-app-link" class="helper" hidden>On Android? <a href="https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk">Get the Glow app</a> to use this phone's own browser.</p>
     <p class="helper pc-only">Glow Hands is a small program on your PC that lets GlowLead open sites, click, type and fill forms in its own browser window. You can watch and take over at any time.</p>
     <button class="btn primary pc-only" id="hands-auto" type="button">Connect to Glow Hands on this PC</button>
     <p class="helper pc-only">One click: GlowLead finds Glow Hands on this PC and connects. Nothing to type. If your browser asks to allow local network access, allow it once.</p>
@@ -130,8 +143,9 @@
       <h3 class="setup-heading">Or use your PC's browser</h3>
       <p class="helper">On your PC open GlowLead → <b>Connect browser control</b> → <b>Show QR code</b>, then scan it with this phone's camera. Your PC must be on with Glow Hands running.</p>
     </section>
+    <details id="github-cloud" class="manual-pairing"><summary>Advanced: your own GitHub cloud browser</summary>
     <section id="cloud-box" class="phone-link-box">
-      <h3 class="setup-heading">No PC? Use a cloud browser</h3>
+      <h3 class="setup-heading">Your GitHub cloud browser</h3>
       <p class="helper">Starts a hidden browser on GitHub for up to 20 minutes (about 1 minute to start), then it stops by itself. It has no saved logins, and some sites show more CAPTCHAs. Keep it light; GitHub allows only modest use.</p>
       <details id="cloud-setup" class="manual-pairing"><summary>Set up once on this device</summary>
         <p class="helper"><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Make a GitHub token</a>: Repository access → <b>Only select repositories</b> → <b>projects</b>; Permissions → <b>Actions: Read and write</b>. Generate, copy, paste below.</p>
@@ -144,6 +158,7 @@
       <div class="start-actions"><button class="btn primary small" id="cloud-start" type="button">Start cloud browser</button><button class="btn small" id="cloud-stop" type="button">Stop</button><button class="btn ghost small" id="cloud-use-pc" type="button" hidden>Use my PC again</button></div>
       <p id="cloud-note" class="helper" role="status"></p>
     </section>
+    </details>
     <h3 class="setup-heading pc-only">New PC? Install in one step</h3>
     <p class="helper pc-only">Press <b>Win + R</b>, paste this, press Enter. It installs Glow Hands, starts it at every login, and connects this browser automatically.</p>
     <div class="install-command pc-only"><code id="hands-install-command">powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/juw12/projects/main/apps/glow/hands/install-glow-hands.ps1 | iex"</code><button class="btn small" id="hands-copy-install" type="button">Copy</button></div>
