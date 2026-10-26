@@ -136,11 +136,12 @@
    "id": "airiz-motor",
    "name": "Airiz Motor",
    "category": "Automation",
-   "desc": "Windows desktop app and browser console for AIRIZ motor testing, camera tools and macros",
-   "description": "Downloadable Windows console with a locally bundled controller, serial port chooser, camera tools, macros and offline demo. The browser and mobile-web editions remain available.",
+   "desc": "Windows, Android and browser console for AIRIZ motor testing: USB or Bluetooth jog, LEDs, camera tools and macros",
+   "description": "Downloadable Windows console with a locally bundled controller, serial port chooser, camera tools, macros and offline demo. Android app and on-device Bluetooth bridge add wireless pan, up/down and LED control. The browser and mobile-web editions remain available.",
    "tags": [
     "Windows app",
     "Web Serial",
+    "Bluetooth control",
     "macro runner",
     "offline demo"
    ],
