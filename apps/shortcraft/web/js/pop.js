@@ -529,22 +529,24 @@
         ctx.save();
         ctx.translate(W / 2, ry);
         ctx.scale(p, p);
-        var resultSize = 100;
-        setFont(ctx, "900", resultSize, P.black);
-        var textW = ctx.measureText(scene.result).width;
-        if (textW > W - 190) {
-          resultSize = Math.max(48, Math.floor(resultSize * (W - 190) / textW));
-          setFont(ctx, "900", resultSize, P.black);
-          textW = ctx.measureText(scene.result).width;
-        }
-        var w = textW + 90;
+        // fit the result on up to 2 lines; the pill grows with the text and never exceeds the frame
+        var resultFit = fitWrapped(ctx, scene.result, P.black, "900", 100, W - 190, 2, 44);
+        var lineGap = resultFit.size * 1.12;
+        setFont(ctx, "900", resultFit.size, P.black);
+        var textW = resultFit.lines.reduce(function (max, line) {
+          return Math.max(max, ctx.measureText(line).width);
+        }, 0);
+        var w = Math.min(W - 80, textW + 90);
+        var h = resultFit.lines.length * lineGap + 70;
         ctx.fillStyle = P.yellow;
-        roundRect(ctx, -w / 2, -85, w, 170, 40);
+        roundRect(ctx, -w / 2, -h / 2, w, h, 40);
         ctx.fill();
         ctx.fillStyle = "#14102A";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(scene.result, 0, 6);
+        resultFit.lines.forEach(function (line, i) {
+          ctx.fillText(line, 0, 6 + (i - (resultFit.lines.length - 1) / 2) * lineGap);
+        });
         ctx.restore();
       }
     }
