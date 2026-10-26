@@ -6,10 +6,11 @@
   var catalog = window.SyncCatalog;
   var Players = window.SyncPlayers;
   var config = window.SYNC_CONFIG || {};
-  var VERSION = '1.2.0';
+  var VERSION = '1.3.0';
   var TICK_MS = 250;
   var DUCK_LEVEL = 0.3;
-  var REACTIONS = ['🔥', '😍', '🙌', '💃', '😂', '🎉'];
+  var REACTIONS = ['❤️', '🔥', '😍', '🙌', '💃', '😂', '🎉'];
+  var PIP_CORNERS = ['br', 'bl', 'tr', 'tl'];
   var SERVICE_LABELS = { file: 'Shared file', youtube: 'YouTube', spotify: 'Spotify', apple: 'Apple Music' };
 
   var root = document.getElementById('app');
@@ -34,6 +35,7 @@
       duck: saved.duck !== false,
       volume: saved.volume != null ? saved.volume : 1,
       videoView: saved.videoView === true,
+      pipCorner: PIP_CORNERS.indexOf(saved.pipCorner) >= 0 ? saved.pipCorner : 'br',
       nudge: 0,
     };
   })();
@@ -45,6 +47,7 @@
       duck: prefs.duck,
       volume: prefs.volume,
       videoView: prefs.videoView,
+      pipCorner: prefs.pipCorner,
     }));
   }
 
@@ -73,6 +76,8 @@
     shuffle: '<path d="M16 4h4v4M4 20L20 4M20 16v4h-4M14.5 14.5L20 20M4 4l5 5"/>',
     copy: '<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
     playSmall: '<path d="M9 6.5v11l9-5.5z" fill="currentColor" stroke="none"/>',
+    grip: '<circle cx="9" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1.3" fill="currentColor" stroke="none"/>',
+    heart: '<path d="M12 20.5s-7.5-4.6-9.3-9.2C1.4 8 3.5 4.5 7 4.5c2 0 3.6 1.1 5 3 1.4-1.9 3-3 5-3 3.5 0 5.6 3.5 4.3 6.8-1.8 4.6-9.3 9.2-9.3 9.2z" fill="currentColor" stroke="none"/>',
   };
 
   function icon(name) {
@@ -348,19 +353,21 @@
       '    <button id="leave" class="icon" aria-label="Leave room" title="Leave room">' + icon('leave') + '</button>' +
       '  </header>' +
       '  <div id="video-pip-anchor" class="video-anchor pip" aria-hidden="true"></div>' +
-      '  <div id="video-float" class="video-float" hidden><div id="video-slot" class="video-slot"></div></div>' +
+      '  <div id="video-float" class="video-float" hidden><button id="pip-grip" class="pip-grip" type="button" aria-label="Drag to move the video" title="Drag to move"><span></span></button><div id="video-slot" class="video-slot"></div></div>' +
       '  <main class="room-grid">' +
       '    <aside class="panel queue-panel">' +
       '      <div class="panel-head"><h3>Up next<small id="queue-count"></small></h3><button class="add-open icon sm" aria-label="Add music" title="Add music">' + icon('plus') + '</button></div>' +
       '      <div class="panel-body"><ol id="queue" class="queue-list"></ol></div>' +
       '    </aside>' +
       '    <section class="stage">' +
-      '      <div class="art-wrap">' +
+      '      <div class="art-wrap" id="art-wrap">' +
       '        <div class="vinyl" aria-hidden="true"></div>' +
       '        <div id="media" class="media">' +
       '          <img id="art" alt="" hidden>' +
       '          <div id="art-empty" class="art-empty">' + icon('disc') + '</div>' +
       '        </div>' +
+      '        <div id="art-heart" class="art-heart" aria-hidden="true">' + icon('heart') + '</div>' +
+      '        <div id="swipe-hint" class="swipe-hint" aria-hidden="true"></div>' +
       '      </div>' +
       '      <div id="video-hero-anchor" class="video-anchor hero" aria-hidden="true"></div>' +
       '      <div class="np-titles"><h2 id="np-title">Nothing playing yet</h2><p id="np-artist">Add a song to get the party started</p></div>' +
@@ -369,7 +376,7 @@
       '      <div id="np-notice" class="notice" hidden></div>' +
       '      <div id="stage-cta" class="empty-cta"><button class="add-open accent">' + icon('plus') + 'Add music</button></div>' +
       '      <div id="player-ui" class="empty-cta" hidden>' +
-      '        <div class="progress"><span id="t-now">0:00</span><input id="seek" type="range" min="0" max="100" step="0.1" value="0" aria-label="Seek"><span id="t-total">0:00</span></div>' +
+      '        <div class="progress"><span id="t-now">0:00</span><div class="seek-wrap"><input id="seek" type="range" min="0" max="100" step="0.1" value="0" aria-label="Seek"><output id="scrub" class="scrub" hidden></output></div><span id="t-total">0:00</span></div>' +
       '        <div class="controls">' +
       '          <button id="prev" class="icon" aria-label="Previous">' + icon('prev') + '</button>' +
       '          <button id="play" class="play-btn" aria-label="Play">' + icon('play') + '</button>' +
@@ -398,13 +405,13 @@
       '        <form id="chat-form" class="chat-form"><input id="chat-input" placeholder="Say something…" maxlength="500" autocomplete="off"><button type="submit" class="primary" aria-label="Send">' + icon('send') + '</button></form></div>' +
       '    </aside>' +
       '  </main>' +
-      '  <div class="mini" id="mini"><span id="mini-art" class="q-art">' + icon('music') + '</span><div class="meta"><b id="mini-title"></b><span id="mini-artist"></span></div><button id="mini-play" aria-label="Play or pause">' + icon('play') + '</button></div>' +
-      '  <nav class="tabbar" aria-label="Room sections">' +
+      '  <div class="mini" id="mini" role="button" tabindex="0" aria-label="Open now playing"><span id="mini-art" class="q-art">' + icon('music') + '</span><div class="meta"><b id="mini-title"></b><span id="mini-artist"></span></div><button id="mini-play" aria-label="Play or pause">' + icon('play') + '</button><i class="mini-progress" aria-hidden="true"></i></div>' +
+      '  <nav class="tabbar" aria-label="Room sections"><span class="tab-ink" aria-hidden="true"></span>' +
       '    <button data-show="stage" class="active">' + icon('disc') + 'Playing</button>' +
       '    <button data-show="queue">' + icon('queue') + 'Queue</button>' +
       '    <button data-show="party">' + icon('users') + 'Party</button>' +
       '  </nav>' +
-      '  <dialog id="add-sheet" class="sheet">' +
+      '  <dialog id="add-sheet" class="sheet"><div class="sheet-grab" aria-hidden="true"></div>' +
       '    <div class="sheet-head"><h3>Add music</h3><button class="icon sm" id="add-close" aria-label="Close">' + icon('x') + '</button></div>' +
       '    <div class="sheet-body">' +
       '      <div class="segmented" role="tablist">' +
@@ -419,7 +426,7 @@
       '        <b>Drop audio files or tap to browse</b><small>Sent straight to everyone in the room and plays for all, no account needed. Only share music you have the rights to.</small></label></div>' +
       '    </div>' +
       '  </dialog>' +
-      '  <dialog id="settings" class="sheet settings">' +
+      '  <dialog id="settings" class="sheet settings"><div class="sheet-grab" aria-hidden="true"></div>' +
       '    <form method="dialog">' +
       '      <h3>Settings</h3>' +
       '      <label class="field"><span>I listen on</span><select id="set-service">' +
@@ -468,15 +475,29 @@
     var seek = $('#seek');
     seek.addEventListener('input', function () {
       seek.dataset.dragging = '1';
-      $('#t-now').textContent = core.formatTime(Number(seek.value));
+      var value = Number(seek.value);
+      var max = Number(seek.max) || 1;
+      var pct = Math.min(100, (value / max) * 100);
+      $('#t-now').textContent = core.formatTime(value);
+      seek.style.setProperty('--pct', pct.toFixed(2) + '%');
+      var scrub = $('#scrub');
+      scrub.textContent = core.formatTime(value);
+      scrub.style.left = pct.toFixed(2) + '%';
+      scrub.hidden = false;
     });
     seek.addEventListener('change', function () {
       delete seek.dataset.dragging;
+      $('#scrub').hidden = true;
+      haptic();
       room.intent({ type: 'seek', position: Number(seek.value) });
     });
 
     $all('.react').forEach(function (button) {
       button.onclick = function () {
+        haptic();
+        button.classList.remove('pop');
+        void button.offsetWidth;
+        button.classList.add('pop');
         room.react(button.dataset.emoji);
       };
     });
@@ -525,9 +546,7 @@
     });
     $all('.tabbar [data-show]').forEach(function (tab) {
       tab.onclick = function () {
-        $('.room').dataset.view = tab.dataset.show;
-        $all('.tabbar [data-show]').forEach(function (t) { t.classList.toggle('active', t === tab); });
-        placeVideo();
+        switchTab(tab.dataset.show);
       };
     });
     $('#view-toggle').onclick = function () {
@@ -545,9 +564,21 @@
       var anchorObserver = new ResizeObserver(placeVideo);
       $all('.video-anchor, .stage').forEach(function (el) { anchorObserver.observe(el); });
     }
-    $('#mini-play').onclick = function () {
+    $('#mini-play').onclick = function (event) {
+      event.stopPropagation();
+      haptic();
       $('#play').click();
     };
+    $('#mini').addEventListener('click', function () {
+      switchTab('stage');
+    });
+    $('#mini').addEventListener('keydown', function (event) {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        switchTab('stage');
+      }
+    });
+    wireInteractions();
 
     $('#search-form').onsubmit = function (event) {
       event.preventDefault();
@@ -843,6 +874,12 @@
     if (roomEl) {
       roomEl.classList.toggle('has-track', !!track);
     }
+    var trackKey = track ? track.id : '';
+    if (trackKey !== renderNowPlaying.lastKey) {
+      renderNowPlaying.lastKey = trackKey;
+      retrigger($('.np-titles'), 'swap');
+      retrigger($('#media'), 'swap');
+    }
     $('#np-title').textContent = track ? track.title : 'Nothing playing yet';
     $('#np-artist').textContent = track ? (track.artist || ' ') : 'Add a song to get the party started';
     $('#stage-cta').hidden = !!track;
@@ -1000,6 +1037,10 @@
     if (roomEl) {
       roomEl.classList.toggle('is-playing', !!(state.playing && currentTrack()));
     }
+    if (renderControls.lastPlaying !== !!state.playing) {
+      renderControls.lastPlaying = !!state.playing;
+      retrigger($('#play'), 'pop');
+    }
     $('#play').innerHTML = icon(state.playing ? 'pause' : 'play');
     $('#mini-play').innerHTML = icon(state.playing ? 'pause' : 'play');
     $('#play').setAttribute('aria-label', state.playing ? 'Pause' : 'Play');
@@ -1016,6 +1057,10 @@
   }
 
   function renderQueue() {
+    if (queueDrag) {
+      queueDrag.dirty = true;
+      return;
+    }
     var list = $('#queue');
     if (!list || !room || !room.state) {
       return;
@@ -1031,7 +1076,8 @@
     list.innerHTML = '';
     state.queue.forEach(function (track, index) {
       var item = document.createElement('li');
-      item.className = 'q-item' + (index === state.index ? ' current' : '') + (index < state.index ? ' played' : '');
+      item.className = 'q-item' + (index === state.index ? ' current' : '') + (index < state.index ? ' played' : '') + (allowed ? ' sortable' : '');
+      item.dataset.index = String(index);
       var mine = core.pickSource(track, { service: prefs.service, appleReady: Players.appleReady() });
       var wanted = prefs.service === 'auto' ? null : prefs.service;
       var missing = wanted && !track.sources.file && !track.sources[wanted] && !(wanted === 'apple' && !Players.appleConfigured());
@@ -1051,7 +1097,8 @@
         (missing ? '<button class="attach" type="button">+ ' + SERVICE_LABELS[wanted] + '</button>' : '') +
         (allowed && index !== state.index ? '<button class="play-this" type="button" aria-label="Play now" title="Play now">' + icon('playSmall') + '</button>' : '') +
         (allowed ? '<button class="remove" type="button" aria-label="Remove" title="Remove">' + icon('x') + '</button>' : '') +
-        '</div>';
+        '</div>' +
+        (allowed && state.queue.length > 1 ? '<button class="q-grip" type="button" aria-label="Drag to reorder" title="Drag to reorder">' + icon('grip') + '</button>' : '');
       var playThis = $('.play-this', item);
       if (playThis) {
         playThis.onclick = function () { room.intent({ type: 'select', index: index }); };
@@ -1141,7 +1188,10 @@
       return;
     }
     var line = document.createElement('div');
-    line.className = 'msg' + (mine ? ' mine' : '');
+    var previous = log.lastElementChild;
+    var continued = !!(previous && previous.dataset.name === name && !previous.classList.contains('system'));
+    line.className = 'msg' + (mine ? ' mine' : '') + (continued ? ' cont' : '');
+    line.dataset.name = name;
     line.innerHTML = '<b style="--h:' + hue(name) + '">' + esc(name) + '</b><span>' + esc(text) + '</span>';
     log.appendChild(line);
     log.scrollTop = log.scrollHeight;
@@ -1267,6 +1317,375 @@
      over it. The iframe is created once inside #video-float and never moved in the DOM (moving an
      iframe reloads it), so we position the float over whichever anchor is visible: the hero spot
      (Video view), a card under the controls (Cover view), or a mini window on the phone's other tabs. */
+  /* ================= interactions (gestures, haptics, motion) ================= */
+
+  var REDUCED_MOTION = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  var TAB_ORDER = ['stage', 'queue', 'party'];
+  var queueDrag = null;
+  var pipDrag = null;
+
+  function haptic(pattern) {
+    // Android browsers buzz; iOS Safari has no vibration API and ignores this.
+    if (navigator.vibrate && !REDUCED_MOTION) {
+      try {
+        navigator.vibrate(pattern || 8);
+      } catch (error) {
+        // unsupported or blocked: purely cosmetic
+      }
+    }
+  }
+
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function retrigger(el, className) {
+    if (!el) {
+      return;
+    }
+    el.classList.remove(className);
+    void el.offsetWidth; // restart the CSS animation
+    el.classList.add(className);
+  }
+
+  function isPhoneLayout() {
+    return !!(window.matchMedia && window.matchMedia('(max-width: 960px)').matches) ||
+      document.body.classList.contains('layout-mobile');
+  }
+
+  function switchTab(name) {
+    var roomEl = $('.room');
+    if (!roomEl || TAB_ORDER.indexOf(name) < 0) {
+      return;
+    }
+    if (roomEl.dataset.view !== name) {
+      haptic(6);
+    }
+    roomEl.dataset.view = name;
+    $all('.tabbar [data-show]').forEach(function (tab) {
+      var active = tab.dataset.show === name;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-current', active ? 'page' : 'false');
+    });
+    var tabbar = $('.tabbar');
+    if (tabbar) {
+      tabbar.style.setProperty('--tab', String(TAB_ORDER.indexOf(name)));
+    }
+    placeVideo();
+  }
+
+  function wireInteractions() {
+    wireArtGestures();
+    wireQueueDrag();
+    wirePipDrag();
+    $all('dialog.sheet').forEach(wireSheetDrag);
+  }
+
+  // Cover art: swipe left/right to skip (if you can control playback), double-tap to send a heart.
+  function wireArtGestures() {
+    var wrap = $('#art-wrap');
+    var media = $('#media');
+    var hint = $('#swipe-hint');
+    if (!wrap || !media || !hint) {
+      return;
+    }
+    var art = $('#art');
+    if (art) {
+      art.draggable = false;
+    }
+    var gesture = null;
+    var lastTap = 0;
+
+    wrap.addEventListener('pointerdown', function (event) {
+      if (event.button !== 0 || !currentTrack()) {
+        return;
+      }
+      gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, dx: 0, swiping: false };
+    });
+
+    wrap.addEventListener('pointermove', function (event) {
+      if (!gesture || event.pointerId !== gesture.id) {
+        return;
+      }
+      var dx = event.clientX - gesture.x;
+      var dy = event.clientY - gesture.y;
+      if (!gesture.swiping) {
+        if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.3 && canControl()) {
+          gesture.swiping = true;
+          wrap.setPointerCapture(event.pointerId);
+          media.classList.add('dragging');
+        } else if (Math.abs(dy) > 12) {
+          gesture = null; // vertical scroll wins
+          return;
+        } else {
+          return;
+        }
+      }
+      gesture.dx = dx;
+      media.style.transform = 'translateX(' + dx + 'px) rotate(' + (dx / 24).toFixed(2) + 'deg)';
+      hint.dataset.side = dx < 0 ? 'right' : 'left';
+      hint.innerHTML = dx < 0 ? 'Next' + icon('next') : icon('prev') + 'Previous';
+      hint.style.opacity = String(clamp(Math.abs(dx) / 90, 0, 1));
+    });
+
+    function finish(event) {
+      if (!gesture || event.pointerId !== gesture.id) {
+        return;
+      }
+      var done = gesture;
+      gesture = null;
+      hint.style.opacity = '0';
+      media.classList.remove('dragging');
+      if (done.swiping) {
+        var commit = event.type === 'pointerup' && Math.abs(done.dx) > Math.min(110, wrap.offsetWidth * 0.3);
+        if (commit) {
+          var direction = done.dx < 0 ? -1 : 1;
+          media.style.transform = 'translateX(' + (direction * wrap.offsetWidth * 1.2) + 'px) rotate(' + (direction * 14) + 'deg)';
+          media.style.opacity = '0';
+          haptic(12);
+          room.intent({ type: direction < 0 ? 'next' : 'prev' });
+          setTimeout(function () {
+            media.style.transform = '';
+            media.style.opacity = '';
+          }, 260);
+        } else {
+          media.style.transform = '';
+        }
+        return;
+      }
+      if (event.type !== 'pointerup') {
+        return;
+      }
+      var now = Date.now();
+      if (now - lastTap < 320) {
+        lastTap = 0;
+        sendLove();
+      } else {
+        lastTap = now;
+      }
+    }
+    wrap.addEventListener('pointerup', finish);
+    wrap.addEventListener('pointercancel', finish);
+  }
+
+  function sendLove() {
+    if (!room || !currentTrack()) {
+      return;
+    }
+    haptic([10, 40, 14]);
+    retrigger($('#art-heart'), 'show');
+    room.react('❤️');
+  }
+
+  // Queue: drag the grip to reorder (anyone who can control playback).
+  function wireQueueDrag() {
+    var list = $('#queue');
+    if (!list) {
+      return;
+    }
+    list.addEventListener('pointerdown', function (event) {
+      var grip = event.target.closest('.q-grip');
+      if (!grip || !canControl()) {
+        return;
+      }
+      event.preventDefault();
+      var item = grip.closest('.q-item');
+      var items = $all('.q-item', list);
+      var from = items.indexOf(item);
+      queueDrag = {
+        id: event.pointerId,
+        item: item,
+        items: items,
+        rects: items.map(function (el) { return el.getBoundingClientRect(); }),
+        from: from,
+        to: from,
+        startY: event.clientY,
+        dirty: false,
+      };
+      grip.setPointerCapture(event.pointerId);
+      item.classList.add('lifted');
+      list.classList.add('sorting');
+      haptic(10);
+    });
+
+    list.addEventListener('pointermove', function (event) {
+      var drag = queueDrag;
+      if (!drag || event.pointerId !== drag.id) {
+        return;
+      }
+      var dy = event.clientY - drag.startY;
+      var origin = drag.rects[drag.from];
+      var center = origin.top + origin.height / 2 + dy;
+      drag.item.style.transform = 'translateY(' + dy + 'px) scale(1.02)';
+      var to = drag.from;
+      drag.rects.forEach(function (rect, i) {
+        var middle = rect.top + rect.height / 2;
+        if (i > drag.from && center > middle) {
+          to = Math.max(to, i);
+        }
+        if (i < drag.from && center < middle) {
+          to = Math.min(to, i);
+        }
+      });
+      if (to !== drag.to) {
+        drag.to = to;
+        haptic(4);
+      }
+      var shift = origin.height + 2;
+      drag.items.forEach(function (el, i) {
+        if (el === drag.item) {
+          return;
+        }
+        var offset = 0;
+        if (drag.from < drag.to && i > drag.from && i <= drag.to) {
+          offset = -shift;
+        } else if (drag.from > drag.to && i >= drag.to && i < drag.from) {
+          offset = shift;
+        }
+        el.style.transform = offset ? 'translateY(' + offset + 'px)' : '';
+      });
+    });
+
+    function drop(event) {
+      var drag = queueDrag;
+      if (!drag || event.pointerId !== drag.id) {
+        return;
+      }
+      queueDrag = null;
+      list.classList.remove('sorting');
+      var moved = event.type === 'pointerup' && drag.to !== drag.from;
+      if (moved) {
+        // Reorder the DOM right away so the row lands where it was dropped; the state update re-renders it.
+        var target = drag.items[drag.to];
+        list.insertBefore(drag.item, drag.to > drag.from ? target.nextSibling : target);
+      }
+      drag.items.forEach(function (el) {
+        el.style.transform = '';
+        el.classList.remove('lifted');
+      });
+      if (moved) {
+        haptic(12);
+        room.intent({ type: 'move', from: drag.from, to: drag.to });
+      } else if (drag.dirty) {
+        renderQueue();
+      }
+    }
+    list.addEventListener('pointerup', drop);
+    list.addEventListener('pointercancel', drop);
+  }
+
+  // Phone mini video: drag the handle and it snaps to the nearest corner (remembered).
+  // The handle sits outside the 200x200 player so nothing is ever drawn over the video.
+  function wirePipDrag() {
+    var grip = $('#pip-grip');
+    var float = $('#video-float');
+    if (!grip || !float) {
+      return;
+    }
+    function settle() {
+      savePrefs();
+      float.classList.add('snapping');
+      placeVideo();
+      setTimeout(function () {
+        float.classList.remove('snapping');
+      }, 380);
+    }
+    grip.addEventListener('pointerdown', function (event) {
+      if (!float.classList.contains('is-pip')) {
+        return;
+      }
+      event.preventDefault();
+      var rect = float.getBoundingClientRect();
+      pipDrag = {
+        id: event.pointerId,
+        offsetX: event.clientX - rect.left,
+        offsetY: event.clientY - rect.top,
+        width: rect.width,
+        height: rect.height,
+      };
+      grip.setPointerCapture(event.pointerId);
+      float.classList.add('dragging');
+      haptic(8);
+    });
+    grip.addEventListener('pointermove', function (event) {
+      if (!pipDrag || event.pointerId !== pipDrag.id) {
+        return;
+      }
+      float.style.left = clamp(event.clientX - pipDrag.offsetX, 8, window.innerWidth - pipDrag.width - 8) + 'px';
+      float.style.top = clamp(event.clientY - pipDrag.offsetY, 8, window.innerHeight - pipDrag.height - 8) + 'px';
+    });
+    function release(event) {
+      if (!pipDrag || event.pointerId !== pipDrag.id) {
+        return;
+      }
+      var rect = float.getBoundingClientRect();
+      var centerX = rect.left + rect.width / 2;
+      var centerY = rect.top + rect.height / 2;
+      prefs.pipCorner = (centerY < window.innerHeight / 2 ? 't' : 'b') + (centerX < window.innerWidth / 2 ? 'l' : 'r');
+      pipDrag = null;
+      float.classList.remove('dragging');
+      haptic(10);
+      settle();
+    }
+    grip.addEventListener('pointerup', release);
+    grip.addEventListener('pointercancel', release);
+    grip.addEventListener('click', function (event) {
+      if (event.detail === 0) {
+        // keyboard: cycle through the corners
+        prefs.pipCorner = PIP_CORNERS[(PIP_CORNERS.indexOf(prefs.pipCorner) + 1) % PIP_CORNERS.length];
+        settle();
+      }
+    });
+  }
+
+  // Phone bottom sheets: drag the handle or header down to dismiss.
+  function wireSheetDrag(sheet) {
+    var handles = [$('.sheet-grab', sheet), $('.sheet-head', sheet)].filter(Boolean);
+    var drag = null;
+    function reset() {
+      sheet.style.transition = '';
+      sheet.style.transform = '';
+    }
+    sheet.addEventListener('close', reset);
+    handles.forEach(function (handle) {
+      handle.addEventListener('pointerdown', function (event) {
+        if (!isPhoneLayout() || event.target.closest('button')) {
+          return;
+        }
+        drag = { id: event.pointerId, y: event.clientY, t: Date.now(), dy: 0 };
+        handle.setPointerCapture(event.pointerId);
+        sheet.style.transition = 'none';
+      });
+      handle.addEventListener('pointermove', function (event) {
+        if (!drag || event.pointerId !== drag.id) {
+          return;
+        }
+        drag.dy = Math.max(0, event.clientY - drag.y);
+        sheet.style.transform = 'translateY(' + drag.dy + 'px)';
+      });
+      function end(event) {
+        if (!drag || event.pointerId !== drag.id) {
+          return;
+        }
+        var velocity = drag.dy / Math.max(1, Date.now() - drag.t);
+        var dismiss = drag.dy > 120 || (drag.dy > 40 && velocity > 0.6);
+        drag = null;
+        sheet.style.transition = 'transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1)';
+        if (dismiss) {
+          sheet.style.transform = 'translateY(100%)';
+          haptic(8);
+          setTimeout(function () {
+            sheet.close();
+          }, 220);
+        } else {
+          sheet.style.transform = '';
+        }
+      }
+      handle.addEventListener('pointerup', end);
+      handle.addEventListener('pointercancel', end);
+    });
+  }
+
   function applyVideoView() {
     var roomEl = $('.room');
     var toggle = $('#view-toggle');
@@ -1308,6 +1727,14 @@
     if (!float || !roomEl) {
       return;
     }
+    if (pipDrag) {
+      return; // the user is dragging the mini window; don't snap it back mid-gesture
+    }
+    var pipAnchor = $('#video-pip-anchor');
+    if (pipAnchor) {
+      pipAnchor.dataset.corner = prefs.pipCorner;
+    }
+    float.dataset.corner = prefs.pipCorner;
     var anchor = null;
     if (roomEl.classList.contains('yt')) {
       anchor = Array.prototype.filter.call($all('.video-anchor'), function (el) {
@@ -1422,6 +1849,10 @@
     }
     var pct = total ? Math.min(100, (Number(seek.value) / total) * 100) : 0;
     seek.style.setProperty('--pct', pct.toFixed(2) + '%');
+    var mini = $('#mini');
+    if (mini) {
+      mini.style.setProperty('--pct', pct.toFixed(2) + '%');
+    }
     $('#t-total').textContent = core.formatTime(total);
   }
 
