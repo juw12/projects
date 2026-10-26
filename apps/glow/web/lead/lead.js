@@ -395,7 +395,9 @@
       const value = JSON.parse(raw || "{}");
       if (value.mode === "app") return nativeBrowser() ? { mode: "app", host: "phone", url: "", token: "" } : fallback;
       if (value.mode === "service") {
-        return /^[\w-]{8,100}$/.test(value.session || "")
+        // No session yet is fine: the cloud browser opens at the first browser step.
+        if (!value.session) return { mode: "service", host: "cloud", session: null, url: "", token: "" };
+        return /^[\w-]{8,100}$/.test(value.session)
           ? { mode: "service", host: "cloud", session: value.session, url: "", token: "" } : fallback;
       }
       if (value.mode === "remote") {
@@ -608,10 +610,36 @@
     return String(window.GLOW_CLOUD_SERVICE_URL || CLOUD_SERVICE_URL || "").replace(/\/+$/, "");
   }
 
-  async function serviceCall(hands, path, body, signal) {
+  // The cloud browser opens only when a mission first needs it, and Cloudflare closes it after
+  // CLOUD_IDLE_MINUTES without use, so typing and planning don't spend the shared free browser time.
+  const CLOUD_IDLE_MINUTES = 5;
+  const CLOUD_IDLE_STATUS = { status: 200, ok: true, app: "glow-hands", mode: "cloud", paired: true, idle: true };
+
+  function saveServiceSession(session) {
+    if (readHands().mode !== "service") return;
+    localStorage.setItem(HANDS_KEY, JSON.stringify({ mode: "service", session: session || null }));
+  }
+
+  async function openCloudSession(signal) {
     let response;
     try {
-      response = await fetch(cloudServiceUrl() + "/v1/sessions/" + encodeURIComponent(hands.session) + "/call", {
+      response = await fetch(cloudServiceUrl() + "/v1/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}", signal });
+    } catch (error) {
+      if (error && error.name === "AbortError") throw error;
+      return { status: 503, error: "Can't reach the Glow cloud browser. Check your internet connection." };
+    }
+    const data = await response.json().catch(() => ({}));
+    if (response.status !== 200 || !data.session) {
+      return { status: response.status === 200 ? 503 : response.status, error: data.error || "The cloud browser couldn't start (error " + response.status + "). Try again in a minute." };
+    }
+    saveServiceSession(data.session);
+    return { status: 200, session: data.session };
+  }
+
+  async function postCloudCall(session, path, body, signal) {
+    let response;
+    try {
+      response = await fetch(cloudServiceUrl() + "/v1/sessions/" + encodeURIComponent(session) + "/call", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ path, body: body || null }),
@@ -625,31 +653,56 @@
     return { ...data, status: response.status };
   }
 
+  async function serviceCall(hands, path, body, signal) {
+    let session = hands.session;
+    if (!session) {
+      if (path === "status") return { ...CLOUD_IDLE_STATUS };
+      if (path === "close") return { status: 200, closed: true };
+      const opened = await openCloudSession(signal);
+      if (opened.status !== 200) return opened;
+      session = opened.session;
+    }
+    let result = await postCloudCall(session, path, body, signal);
+    if (result.status === 410) {
+      // The browser closed (idle time or today's free time ran out). Open a fresh one when a step needs it.
+      saveServiceSession(null);
+      if (path === "status") return { ...CLOUD_IDLE_STATUS };
+      if (path === "close") return { status: 200, closed: true };
+      const reopened = await openCloudSession(signal);
+      if (reopened.status !== 200) return reopened;
+      result = await postCloudCall(reopened.session, path, body, signal);
+      result.restarted = true;
+    }
+    return result;
+  }
+
   async function startInstantCloud(report = () => {}) {
     if (!cloudServiceUrl()) {
       report("The instant cloud browser isn't available yet.");
       return "unavailable";
     }
-    report("Starting the cloud browser…");
-    let response;
+    report("Connecting to the cloud browser…");
+    let available = false;
     try {
-      response = await fetch(cloudServiceUrl() + "/v1/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const response = await fetch(cloudServiceUrl() + "/v1/status");
+      const data = await response.json().catch(() => ({}));
+      available = response.ok && data.app === "glow-cloud";
     } catch (error) {
+      available = false;
+    }
+    if (!available) {
       report("Can't reach the Glow cloud browser. Check your internet connection.");
       return "failed";
-    }
-    const data = await response.json().catch(() => ({}));
-    if (response.status !== 200 || !data.session) {
-      report(data.error || "The cloud browser couldn't start (error " + response.status + "). Try again in a minute.");
-      return response.status === 429 ? "quota" : "failed";
     }
     const current = readHands();
     if (current.mode !== "service" && (current.mode === "remote" || current.token)) {
       localStorage.setItem(HANDS_PREVIOUS_KEY, localStorage.getItem(HANDS_KEY) || "");
     }
-    localStorage.setItem(HANDS_KEY, JSON.stringify({ mode: "service", session: data.session }));
+    if (current.mode !== "service") localStorage.setItem(HANDS_KEY, JSON.stringify({ mode: "service", session: null }));
     const state = await renderHands();
-    report(state === "paired" ? "✓ Cloud browser ready. It stops after 10 minutes without use." : "The cloud browser started but isn't answering yet. Try again.");
+    report(state === "paired"
+      ? "✓ Cloud browser ready. It opens when a mission needs it and stops after " + CLOUD_IDLE_MINUTES + " minutes without use."
+      : "The cloud browser isn't answering yet. Try again.");
     return state;
   }
 

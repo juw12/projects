@@ -26,7 +26,7 @@ Updates are installed the same way (same signing key, so your data stays).
 **Instant cloud browser (any phone, including iPhone):** GlowLead → Connect browser control → **Start instant
 cloud browser**. It runs on Cloudflare's free plan (`apps/glow/cloud/`), needs no account or token from you,
 and starts in a few seconds. Live at `https://glow-cloud.juw12.workers.dev`; every deploy runs a real mission check (`apps/glow/cloud/test/live_check.py`). Limits of the free plan, shared by everyone using it: 10 browser-minutes a day
-and 3 browsers at once; a session ends after 10 minutes without use. Fresh browser every time, no saved
+and 3 browsers at once; the browser opens only when a mission needs it and closes after 5 minutes without use. Fresh browser every time, no saved
 logins. Only GlowLead's own pages (and the app) may use the service.
 
 Deploying the service (maintainer, once): create a free Cloudflare account (no card), make an API token

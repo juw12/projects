@@ -10,6 +10,7 @@ import subprocess
 import sys
 import threading
 import unittest
+import urllib.request
 from pathlib import Path
 
 import test_glow_hands as base
@@ -51,12 +52,12 @@ class InstantCloudEndToEnd(unittest.TestCase):
         env = dict(os.environ, GLOW_PLAYWRIGHT_CORE=str(CORE), ALLOWED_ORIGINS=cls.web_url)
         cls.service = subprocess.Popen(
             [str(NODE), str(CLOUD / "test" / "local-server.mjs")],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env,
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, env=env,
         )
         line = cls.service.stdout.readline()
         if not line.startswith("READY "):
             cls.service.kill()
-            raise RuntimeError("Cloud service did not start: " + line + cls.service.stderr.read())
+            raise RuntimeError("Cloud service did not start: " + line)
         cls.service_url = "http://127.0.0.1:" + line.split()[1]
 
         cls.playwright = sync_playwright().start()
@@ -104,6 +105,7 @@ class InstantCloudEndToEnd(unittest.TestCase):
         self.assertEqual(page.locator("#hands-status").inner_text(), "CONNECTED · CLOUD")
         saved = json.loads(page.evaluate("localStorage.getItem('glowlead.hands.v1')"))
         self.assertEqual(saved["mode"], "service")
+        self.assertFalse(saved.get("session"), "No cloud browser (and no free time) is used until a mission needs it")
         page.click("#hands-cancel")
 
         page.evaluate("GlowLead.start('Order with the instant cloud browser', false, { allowHands: true })")
@@ -116,6 +118,8 @@ class InstantCloudEndToEnd(unittest.TestCase):
         self.assertIn("name=Instant+User", done["url"])
         self.assertIn("size=Large", done["url"])
 
+        saved = json.loads(page.evaluate("localStorage.getItem('glowlead.hands.v1')"))
+        self.assertTrue(saved.get("session"), "The mission opened a cloud browser")
         page.click("#hands-btn")
         page.click("#instant-stop")
         page.wait_for_function("document.getElementById('instant-note').textContent.includes('stopped')", timeout=20000)
@@ -140,6 +144,30 @@ class InstantCloudEndToEnd(unittest.TestCase):
         offline.click("#instant-start")
         offline.wait_for_function("document.getElementById('instant-note').textContent.includes(\"Can't reach\")", timeout=20000)
         self.assertNotEqual(offline.locator("#hands-status").inner_text(), "CONNECTED · CLOUD")
+
+    def test_ended_session_restarts_by_itself_and_daily_limit_is_explained(self):
+        page = self.phone([])
+        page.click("#hands-btn")
+        page.click("#instant-start")
+        page.wait_for_function("document.getElementById('hands-status').dataset.state === 'paired'", timeout=60000)
+        # A session that Cloudflare already closed (idle or out of free time).
+        page.evaluate("localStorage.setItem('glowlead.hands.v1', JSON.stringify({ mode: 'service', session: '00000000-0000-0000-0000-000000000000' }))")
+        restarted = page.evaluate("GlowLead.hands.call('act', { action: { action: 'goto', url: 'http://shop.test/form.html' } })")
+        self.assertEqual(restarted["status"], 200, restarted)
+        self.assertEqual(restarted["title"], "Test shop")
+        self.assertTrue(restarted.get("restarted"))
+        new_session = json.loads(page.evaluate("localStorage.getItem('glowlead.hands.v1')"))["session"]
+        self.assertNotEqual(new_session, "00000000-0000-0000-0000-000000000000")
+
+        # The daily free time runs out: the next session can't start, and the reason is shown.
+        page.evaluate("GlowLead.hands.call('close', {})")
+        page.evaluate("localStorage.setItem('glowlead.hands.v1', JSON.stringify({ mode: 'service', session: null }))")
+        no_proxy = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        no_proxy.open(self.service_url + "/__test/fail-next-launch", timeout=10)
+        limited = page.evaluate("GlowLead.hands.call('observe')")
+        self.assertEqual(limited["status"], 429)
+        self.assertIn("free cloud browser time", limited["error"])
+        self.assertEqual(page.evaluate("GlowLead.hands.call('status')")["status"], 200, "Status checks never start a browser")
 
     def test_without_a_service_the_instant_option_is_hidden(self):
         context = self.browser.new_context(**self.playwright.devices["iPhone 13"])
