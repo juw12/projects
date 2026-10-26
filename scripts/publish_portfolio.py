@@ -45,6 +45,29 @@ SUMMARY_SOFT_LIMIT = 130  # visible characters on a card
 CARD_SEP = "\n" + CARD_INDENT + "\n"
 
 
+DIRECT_DOWNLOAD_RE = re.compile(r"\.(exe|apk|msi|zip|dmg|7z)$", re.IGNORECASE)
+RELEASE_ASSET_RE = re.compile(r"^(https://github\.com/[^/]+/[^/]+)/releases/download/([^/]+)/[^/]+$")
+RAW_FILE_RE = re.compile(r"^(https://github\.com/[^/]+/[^/]+)/raw/(?:refs/heads/)?([^/]+)/(.+)$")
+
+
+def card_safe_url(url):
+    """Portfolio cards link to release/file pages instead of raw installers or archives.
+
+    Link scanners (e.g. LinkedIn's) treat pages with direct .exe/.apk/.zip links as risky;
+    the GitHub release or file page offers the same download one click later.
+    """
+    if not DIRECT_DOWNLOAD_RE.search(url):
+        return url
+    release = RELEASE_ASSET_RE.match(url)
+    if release:
+        return f"{release.group(1)}/releases/tag/{release.group(2)}"
+    raw_file = RAW_FILE_RE.match(url)
+    if raw_file:
+        folder = raw_file.group(3).rsplit("/", 1)[0] if "/" in raw_file.group(3) else ""
+        return f"{raw_file.group(1)}/tree/{raw_file.group(2)}/{folder}".rstrip("/")
+    return url
+
+
 def repo_root():
     return Path(__file__).resolve().parent.parent
 
@@ -112,7 +135,7 @@ def render_card(app):
             )
     elif app.get("native"):
         lines.append(
-            f'{ind}      <a class="project-link" href="{urljoin(SITE_BASE, app["links"]["app"])}" '
+            f'{ind}      <a class="project-link" href="{card_safe_url(urljoin(SITE_BASE, app["links"]["app"]))}" '
             f'target="_blank" rel="noopener noreferrer">Windows app</a>'
         )
         lines.append(
@@ -123,22 +146,26 @@ def render_card(app):
         # Apps made of several parts (e.g. an ecosystem) name each link instead of App/Web/Mobile.
         for card_link in app["card_links"]:
             lines.append(
-                f'{ind}      <a class="project-link" href="{urljoin(SITE_BASE, card_link["path"])}" '
+                f'{ind}      <a class="project-link" href="{card_safe_url(urljoin(SITE_BASE, card_link["path"]))}" '
                 f'target="_blank" rel="noopener noreferrer">{card_link["label"]}</a>'
             )
     else:
         for label, key in (("App", "app"), ("Web", "web"), ("Mobile", "mobile")):
             lines.append(
-                f'{ind}      <a class="project-link" href="{urljoin(SITE_BASE, app["links"][key])}" '
+                f'{ind}      <a class="project-link" href="{card_safe_url(urljoin(SITE_BASE, app["links"][key]))}" '
                 f'target="_blank" rel="noopener noreferrer">{label}</a>'
             )
     # Optional supplementary links, including CAD packages and print notes.
+    used_hrefs = set(re.findall(r'href="([^"]+)"', "\n".join(lines)))
     for extra_link in app.get("extra_links", []):
         url = extra_link["url"]
+        if card_safe_url(url) in used_hrefs:
+            continue  # already linked on this card (e.g. a download that now points to its folder)
         if not url.startswith(("https://", "http://")):
             raise ValueError(f"Supplementary links must use HTTP(S): {url!r}")
+        used_hrefs.add(card_safe_url(url))
         lines.append(
-            f'{ind}      <a class="project-link" href="{escape(url, quote=True)}" '
+            f'{ind}      <a class="project-link" href="{escape(card_safe_url(url), quote=True)}" '
             f'target="_blank" rel="noopener noreferrer">{escape(extra_link["label"])}</a>'
         )
     lines.append(f"{ind}    </div>")
