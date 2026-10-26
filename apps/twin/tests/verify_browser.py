@@ -24,8 +24,8 @@ APP = Path(__file__).resolve().parent.parent
 class BrowserProfile(tempfile.TemporaryDirectory):
     """Chrome helper processes can briefly flush files after the parent exits.
 
-    Retry only ENOTEMPTY from that teardown race. Never suppress browser test
-    failures or unrelated filesystem errors, and keep the cleanup retry bounded.
+    Retry ENOTEMPTY and Windows handle-release races after process-tree shutdown.
+    Persistent permissions errors still raise; retries never hide a test failure.
     """
 
     def cleanup(self):
@@ -34,7 +34,8 @@ class BrowserProfile(tempfile.TemporaryDirectory):
                 super().cleanup()
                 return
             except OSError as error:
-                if error.errno != errno.ENOTEMPTY or attempt == 7:
+                transient = error.errno == errno.ENOTEMPTY or getattr(error, 'winerror', None) in (5, 32)
+                if not transient or attempt == 7:
                     raise
                 time.sleep(0.15 * (attempt + 1))
 
@@ -50,7 +51,10 @@ def accept_report(latest, report, report_lock, finished):
 
 def main():
     browser = next((path for path in [
+        os.environ.get('TWIN_TEST_BROWSER'),
         shutil.which('google-chrome'), shutil.which('chromium'), shutil.which('chromium-browser'),
+        str(Path(os.environ.get('PROGRAMFILES', '')) / 'Google/Chrome/Application/chrome.exe'),
+        str(Path(os.environ.get('PROGRAMFILES(X86)', '')) / 'Microsoft/Edge/Application/msedge.exe'),
         '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
     ] if path and Path(path).is_file()), None)
     if not browser:
@@ -102,6 +106,10 @@ def main():
                 with report_lock:
                     report = dict(latest)
             finally:
+                if os.name == 'nt':
+                    # Only the isolated test browser's tree, never a normal profile.
+                    subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'],
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
                 process.terminate()
                 try:
                     process.wait(timeout=5)

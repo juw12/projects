@@ -80,6 +80,31 @@ Warns when the shared history is shorter than 20 years. Drawdowns use time-weigh
 
 ## Two ways to run
 
+### New in 1.4.1: Strategy Lab
+
+Open a stock page and choose **Strategy Lab · test against buy & hold**. Works in the
+offline demo, guest mode and local-server app, with no LLM subscription or API key.
+
+- Compare 10-, 20- and 50-session moving-average rules on the first 60% of daily
+  observations after a shared warmup. Freeze the best net-return rule, then test it
+  on the remaining 40%; the holdout never selects the period.
+- Signals execute at the **following observation's close**, not the close that
+  created the signal. The strategy and buy-and-hold benchmark both pay configurable
+  fees and adverse slippage on entry and exit.
+- See net return, worst drawdown, completed trades, time invested and both equity
+  curves. Copy a reproducible report containing the input history, settings and trades.
+- Snapshot dates and data limitations are visible. Current exchange-local-date bars
+  are excluded in server mode. Insufficient or invalid history is refused, not replaced
+  with a fabricated result.
+
+This is an educational **single chronological holdout**, not a multi-window walk-forward
+study, AI research team, forecast or proof of profitability. It uses price returns in the
+listing currency and omits dividends, tax, cash interest, FX performance, liquidity and
+partial fills. Repeatedly selecting tickers/settings after seeing results can overfit.
+The lab never submits orders or changes the practice portfolio.
+
+### Run the app
+
 * **Live (your computer + phone).** `python apps/twin/server.py --lan` (or double-click
   `Start Twin (iPhone).command` on a Mac). Open the printed address on your phone (same
   Wi-Fi) → Share → Add to Home Screen. Accounts are salted PBKDF2 hashes with HttpOnly session
@@ -105,10 +130,13 @@ asks for keys.
 
 Safeguards: paper is the default; live needs your Twin password and typing `REAL MONEY`; every order
 gets a server-side preview with a single-use confirmation (expires after 2 minutes, live adds a
-3-second hold); per-order cap (paper $25,000, live $1,000 by default, adjustable); live orders per day
-follow your trade limit (default 3); no short selling; account must be ACTIVE; **cancel all** button.
-Keys are stored on your computer in `data/users/<id>/broker.json` (owner-only permissions, **not
-encrypted**) and are never sent back to the browser. Use keys you can revoke; disconnecting deletes them.
+3-second browser pause); per-order cap (paper $25,000, live $1,000 by default, adjustable); live buy
+submission attempts per UTC day follow your trade limit (default 3); no-short position checks;
+account must be ACTIVE; **cancel all** button.
+Keys are stored on your computer in `data/users/<id>/broker.json` (**not encrypted**;
+owner-only permissions on POSIX, but Windows ACLs are not configured or verified) and are
+never sent back to the browser. Use paper keys on a trusted computer. Use keys you can revoke;
+disconnecting deletes them.
 Alpaca trades **US-listed** stocks and ETFs only, so Twin blocks real orders for other exchanges and
 points to the US listing (ADR) when one exists. To own shares on other exchanges, use a broker that
 covers them — for example Interactive Brokers (175 markets in 40 countries, per IBKR) or a local broker —
@@ -121,6 +149,9 @@ not a funded account — try paper first.
 python apps/twin/tests/verify_api.py
 python apps/twin/tests/verify_broker.py      # real-trading bridge against a mock Alpaca
 python apps/twin/tests/test_pro_engine.py    # order types, brackets, indicators, replay (needs node)
+python -m unittest discover -s apps/twin/tests -p 'test_*.py'
+node --test apps/twin/tests/strategy_lab.test.js
+python apps/twin/tests/verify_browser.py     # isolated Chrome/Chromium/Edge, including phone-width lab UI
 ```
 
 Hermetic (temp data dir, free port, no network): health + static files, accounts and isolation,
@@ -128,6 +159,25 @@ personality → limits, the cross-site guard, input validation (NaN/∞/negative
 traversal, malformed Content-Length), the full demo trade flow, and unit tests for the
 monthly-return gap handling, the goal simulator, FX conversion, minor-unit quotes (GBp → GBP) and
 foreign-currency practice orders. `verify_broker.py` also checks that non-US listings are refused.
+
+### Submission-time safeguards (1.4.1)
+
+Broker confirmation now rechecks the current account block/status, buying power, estimated
+order cap, holdings, current profile limits and attached-stop planned risk. An over-limit
+live bracket is refused rather than merely warned about. Invalid bracket direction and
+nonfinite quote/account values cannot silently bypass the relevant checks.
+
+Live **buy submission attempts** reserve daily capacity before network I/O, serialized within
+one server process. Unknown outcomes and rejected submissions conservatively consume capacity;
+the error includes the client order ID and asks you to check Alpaca before retrying. The counter
+survives reconnect/disconnect and restarts and resets on the next UTC date. Long-position exits
+are not blocked by this entry cap. Reconnecting invalidates old previews, even in the same mode.
+
+These are not guaranteed loss or execution limits. Orders without an attached stop explicitly
+warn that planned stop-loss risk cannot be checked. Gaps/slippage can exceed a stop estimate;
+delayed quotes are not firm execution prices. Daily portfolio loss, aggregate pending-order
+exposure, cross-process locking and orders placed outside this Twin user are not covered.
+Keep to one server process per data directory and test with paper accounts first.
 
 ## Safety
 
@@ -143,6 +193,14 @@ Quotes are delayed and unofficial; 13F reports describe quarter-end holdings and
 history and are not predictions. Not financial advice.
 
 ## Changelog
+
+- **1.4.1 — Evidence and submission guards (local upgrade).** Strategy Lab with a
+  chronological holdout, next-close execution, cost-aware buy-and-hold comparison and
+  reproducible reports; submit-time broker validation, persistent entry-attempt reservations,
+  hard planned bracket-risk refusals and reconnect invalidation. Added deterministic engine,
+  concurrency, HTTP and real-browser regressions. Broker tests now stub market quotes instead
+  of accidentally reaching Yahoo. Windows credential-permission limitations are explicit.
+  See [comparison, scope and remaining work](docs/TRADINGAGENTS-COMPARISON.md).
 
 - **1.4.0 — Twin Global.** Stocks from any country: universal search (company, ticker or country),
   stock pages with exchange, currency, market status, ≈ USD, day/52-week ranges and US-listing hints;
