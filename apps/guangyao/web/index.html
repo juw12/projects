@@ -1052,7 +1052,7 @@
       const route = location.hash.slice(1) || 'home';
       const page = route.split('/')[0];
       const activePage = page === 'course' ? 'courses' : page;
-      document.getElementById('sidebar').innerHTML = `<button type="button" class="icon-button drawer-close" data-action="close-menu" aria-label="關閉主選單">${icon('close')}</button><div class="brand"><span class="brandmark">${icon('sun')}</span><div><strong>光耀同行</strong><small>發一光耀 · 學習與成長</small></div></div><nav>${navItems.map(([group, id, symbol, label]) => `${group ? `<div class="nav-group">${group}</div>` : ''}<button class="nav-item ${activePage === id ? 'active' : ''}" data-action="navigate" data-page="${id}" ${activePage === id ? 'aria-current="page"' : ''}>${icon(symbol)}${label}${(window.GY_NAV_BADGE && window.GY_NAV_BADGE(id)) || (id === 'community' ? '<span class="count">2</span>' : '')}</button>`).join('')}${canManage() ? `<div class="nav-group">工作空間</div><button class="nav-item ${page === 'admin' ? 'active' : ''}" data-action="navigate" data-page="admin">${icon('shield')}${canAdmin() ? '管理中心' : '活動工作台'}</button>` : ''}</nav><div class="sidebar-bottom"><div class="sidebar-note">${icon('leaf')} 一起學習，一起成為更好的自己。<p>每一個微小的善意，都值得被看見。</p></div><div class="sidebar-foot"><span>光耀同行 · V4.0</span><a href="app-plan.html" target="_blank" rel="noopener">產品藍圖 ↗</a></div></div>`;
+      document.getElementById('sidebar').innerHTML = `<button type="button" class="icon-button drawer-close" data-action="close-menu" aria-label="關閉主選單">${icon('close')}</button><div class="brand"><span class="brandmark">${icon('sun')}</span><div><strong>光耀同行</strong><small>發一光耀 · 學習與成長</small></div></div><nav>${navItems.map(([group, id, symbol, label]) => `${group ? `<div class="nav-group">${group}</div>` : ''}<button class="nav-item ${activePage === id ? 'active' : ''}" data-action="navigate" data-page="${id}" ${activePage === id ? 'aria-current="page"' : ''}>${icon(symbol)}${label}${(window.GY_NAV_BADGE && window.GY_NAV_BADGE(id)) || (id === 'community' ? '<span class="count">2</span>' : '')}</button>`).join('')}${canManage() ? `<div class="nav-group">工作空間</div><button class="nav-item ${page === 'admin' ? 'active' : ''}" data-action="navigate" data-page="admin">${icon('shield')}${canAdmin() ? '管理中心' : '活動工作台'}</button>` : ''}</nav><div class="sidebar-bottom"><div class="sidebar-note">${icon('leaf')} 一起學習，一起成為更好的自己。<p>每一個微小的善意，都值得被看見。</p></div><div class="sidebar-foot"><span>光耀同行 · V4.1</span><a href="app-plan.html" target="_blank" rel="noopener">產品藍圖 ↗</a></div></div>`;
       document.getElementById('topbar').innerHTML = `<button class="icon-button mobile-menu" data-action="menu" aria-label="開啟或關閉導覽" aria-controls="sidebar" aria-expanded="false">${icon('menu')}</button><form class="search-wrap" data-form="search">${icon('search')}<input name="query" aria-label="搜尋課程、活動或頁面" placeholder="搜尋課程、活動或學習靈感…" maxlength="80" required><kbd>↵</kbd></form><div class="top-actions">${window.GY_ACCOUNT_PILL ? window.GY_ACCOUNT_PILL() : ''}<button class="icon-button notification" data-action="notifications" aria-label="查看示範通知">${icon('bell')}</button><button class="profile-button" data-action="account" aria-label="帳戶"><span class="avatar">${state.signedIn ? esc(state.name.slice(-1)) : '客'}</span><span class="profile-copy"><strong>${state.signedIn ? esc(state.name) : '尚未登入'}</strong><small>${window.GY_ACCOUNT_LABEL ? window.GY_ACCOUNT_LABEL() : ''}</small></span><span style="color:#a1ada1;font-size:11px">⌄</span></button></div>`;
       const pages = {home: homePage, courses: coursesPage, schedule: schedulePage, community: communityPage, meetings: meetingsPage, portfolio: portfolioPage, vault: vaultPage, rewards: rewardsPage, invite: invitePage, about: aboutPage, admin: adminPage, ...(window.GY_PAGES || {})};
       let content;
@@ -1076,6 +1076,12 @@
     }
     function downloadFile(filename, contents, type = 'text/plain;charset=utf-8') {
       const blob = new Blob([contents], {type});
+      if (window.GY_NATIVE?.isApp) {
+        window.GY_NATIVE.shareFile(filename, blob).then(shared => {
+          if (shared) toast('已開啟分享，可存到行事曆或檔案。');
+        }).catch(() => toast('無法開啟分享，請稍後再試。'));
+        return;
+      }
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
