@@ -61,12 +61,33 @@ class WindowsDesktopTests(unittest.TestCase):
         self.assertEqual(publisher.app_url(entry, 'app'), entry['links']['app'])
         self.assertNotIn('projects/https://', publisher.render_card(entry))
 
+    def test_updater_uses_the_airiz_channel_and_idle_install_policy(self):
+        expected = 'https://juwpegatron.github.io/projects/airiz-motor/updates/windows/'
+        self.assertEqual(self.package['build']['publish'][0]['url'], expected)
+        controller = (DESKTOP / 'update-controller.cjs').read_text(encoding='utf-8')
+        self.assertIn(expected, controller)
+        self.assertIn('updater.autoDownload = false', controller)
+        self.assertIn('updater.autoInstallOnAppQuit = false', controller)
+        self.assertIn('updater.allowDowngrade = false', controller)
+        self.assertIn('prepareForInstall()', controller)
+        self.assertNotIn('verifyUpdateCodeSignature =', controller)
+
+    def test_release_feed_matches_the_current_desktop_version(self):
+        manifest = json.loads((WEB / 'updates/windows/latest.yml').read_text(encoding='utf-8'))
+        release = json.loads((WEB / 'updates/windows/release.json').read_text(encoding='utf-8'))
+        self.assertEqual(manifest['version'], self.version)
+        self.assertEqual(release['version'], self.version)
+        self.assertEqual(manifest['files'][0]['url'], release['installer']['url'])
+        self.assertEqual(manifest['files'][0]['sha512'], release['installer']['sha512'])
+        self.assertEqual(manifest['files'][0]['size'], release['installer']['size'])
+        self.assertTrue(release['installer']['url'].startswith(self.release))
+
     def test_browser_and_desktop_adapters_are_explicitly_separate(self):
         app = (WEB / 'app.js').read_text(encoding='utf-8')
         integration = (WEB / 'desktop-integration.js').read_text(encoding='utf-8')
         worker = (WEB / 'sw.js').read_text(encoding='utf-8')
         self.assertIn('if (window.airizDesktop) return;', app)
-        self.assertIn('if (!host) return;', integration)
+        self.assertIn('if (!host) {', integration)
         self.assertIn("'./desktop-integration.js'", worker)
         self.assertIn('cameraRecording:', app)
         self.assertIn('sessionActive:', app)

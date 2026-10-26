@@ -14,6 +14,7 @@
   
   const state = {
     // Serial
+    updatePending: false,
     port: null,
     reader: null,
     writer: null,
@@ -305,13 +306,16 @@
   // ========================================================================
   
   async function handleConnect() {
+    if (state.updatePending) return;
     if (!('serial' in navigator)) {
       logToConsole('Web Serial is unavailable. Use Chrome or Edge on localhost/HTTPS, or choose Try demo.', 'warning');
       return;
     }
     
     try {
-      state.port = await navigator.serial.requestPort();
+      const selectedPort = await navigator.serial.requestPort();
+      if (state.updatePending) return;
+      state.port = selectedPort;
       state.baudRate = parseInt(elements.baudSelect.value, 10);
       
       await state.port.open({
@@ -385,6 +389,7 @@
   }
 
   function toggleDemoMode() {
+    if (state.updatePending) return;
     if (state.demoMode) {
       state.demoMode = false;
       disconnect();
@@ -474,6 +479,7 @@
   // ========================================================================
   
   async function sendLine(line) {
+    if (state.updatePending) return false;
     if (!state.connected) {
       logToConsole('Not connected', 'error');
       return false;
@@ -1467,6 +1473,7 @@
   // ========================================================================
   
   async function handleRunMacro() {
+    if (state.updatePending) return;
     if (state.macroRunning) return;
     if (!state.currentMacro || state.currentSteps.length === 0) {
       logToConsole('No macro selected or empty steps', 'warning');
@@ -3933,10 +3940,20 @@
         macroRunning: state.macroRunning,
         baudRate: state.baudRate,
         cameraRecording: !!cameraState.recorder && cameraState.recorder.state !== 'inactive',
-        sessionActive: cameraState.sessionActive
+        sessionActive: cameraState.sessionActive,
+        audioCaptureActive: state.capture.active
       });
     },
-    sendCommand: sendLine
+    sendCommand: sendLine,
+    prepareForUpdate() {
+      if (state.port || state.macroRunning || state.capture.active || cameraState.sessionActive
+          || (cameraState.recorder && cameraState.recorder.state !== 'inactive')) return false;
+      state.updatePending = true;
+      return true;
+    },
+    cancelPreparedUpdate() {
+      state.updatePending = false;
+    }
   });
 
   if (document.readyState === 'loading') {

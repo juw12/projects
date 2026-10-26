@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const crypto = require('node:crypto');
 const { isAppUrl, resolveAsset, canOpenExternal } = require('./security.cjs');
 const { createSerialChooser } = require('./serial-chooser.cjs');
+const { createUpdateController } = require('./update-controller.cjs');
 
 protocol.registerSchemesAsPrivileged([{
   scheme: 'airiz',
@@ -30,6 +31,7 @@ if (profileArgument) {
 
 let mainWindow = null;
 let chooser = null;
+let updates = null;
 let closeConfirmed = false;
 let closeDialogPending = false;
 const webRoot = app.isPackaged ? path.join(__dirname, 'web') : path.resolve(__dirname, '../web');
@@ -199,23 +201,81 @@ async function createWindow() {
 
   ipcMain.handle('airiz:app-info', event => {
     if (!trustedSender(event)) throw new Error('Untrusted sender');
-    return { version: app.getVersion(), platform: process.platform, packaged: app.isPackaged, offline: true };
+    return { version: app.getVersion(), platform: process.platform, packaged: app.isPackaged, offline: true, portable: !!process.env.PORTABLE_EXECUTABLE_FILE };
   });
   ipcMain.handle('airiz:serial-choice', (event, id) => {
     if (!trustedSender(event) || typeof id !== 'string' || id.length > 256) return false;
     return chooser.choose(event.sender, id);
   });
 
+  const { autoUpdater } = require('electron-updater');
+  updates = createUpdateController({
+    updater: autoUpdater,
+    currentVersion: app.getVersion(),
+    packaged: app.isPackaged,
+    portable: !!process.env.PORTABLE_EXECUTABLE_FILE,
+    publish: state => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('airiz:update-state', state);
+    },
+    getDeviceState: () => mainWindow.webContents.executeJavaScript('window.AirizConsole?.getStatus?.() || null'),
+    confirmInstall: async version => {
+      const answer = await dialog.showMessageBox(mainWindow, {
+        type: 'question', title: 'Install AIRIZ update?',
+        message: 'Install AIRIZ Console ' + version + ' now?',
+        detail: 'The app will close and reopen after the installer. Finish all device motion first: closing or disconnecting does not stop an already-issued move. This release is unsigned and Windows may show a publisher warning.',
+        buttons: ['Not now', 'Install and restart'], defaultId: 0, cancelId: 0, noLink: true
+      });
+      return answer.response === 1;
+    },
+    prepareForInstall: async () => {
+      const ready = await mainWindow.webContents.executeJavaScript('window.AirizConsole?.prepareForUpdate?.() === true');
+      if (ready) {
+        chooser.cancel();
+        closeConfirmed = true;
+      }
+      return ready;
+    },
+    abortInstall: async () => {
+      closeConfirmed = false;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        await mainWindow.webContents.executeJavaScript('window.AirizConsole?.cancelPreparedUpdate?.()');
+      }
+    },
+    openPortable: url => {
+      if (canOpenExternal(url)) return shell.openExternal(url);
+      throw new Error('Unexpected portable update URL.');
+    }
+  });
+  for (const [channel, action] of [
+    ['airiz:update-state', () => updates.snapshot()],
+    ['airiz:update-check', () => updates.check()],
+    ['airiz:update-download', () => updates.download()],
+    ['airiz:update-install', () => updates.install()]
+  ]) {
+    ipcMain.handle(channel, event => {
+      if (!trustedSender(event)) throw new Error('Untrusted update request.');
+      return action();
+    });
+  }
+  if (app.isPackaged) {
+    setTimeout(() => updates.check(), 5000).unref();
+    setInterval(() => updates.check(), 6 * 60 * 60 * 1000).unref();
+  }
+
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { label: 'File', submenu: [{ label: 'Close AIRIZ Console', accelerator: 'Alt+F4', click: () => mainWindow.close() }] },
     { label: 'Edit', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
     { label: 'View', submenu: [{ role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { type: 'separator' }, { role: 'togglefullscreen' }] },
     { label: 'Help', submenu: [
+      { label: 'Check for updates…', click: () => {
+        mainWindow.webContents.send('airiz:show-updates');
+        updates.check();
+      } },
       { label: 'About AIRIZ Console', click: () => dialog.showMessageBox(mainWindow, {
         title: 'AIRIZ Console', message: 'AIRIZ Console ' + app.getVersion(),
         detail: 'Windows desktop edition. The full interface is bundled locally.\n\nHardware control requires a compatible connected device. UI locking is not a hardware emergency stop.'
       }) },
-      { label: 'Release notes and downloads', click: () => shell.openExternal('https://github.com/juwpegatron/projects/releases/tag/airiz-desktop-v1.0.0') }
+      { label: 'Release notes and downloads', click: () => shell.openExternal('https://github.com/juwpegatron/projects/releases/tag/airiz-desktop-v' + app.getVersion()) }
     ] }
   ]));
   await mainWindow.loadURL('airiz://app/');

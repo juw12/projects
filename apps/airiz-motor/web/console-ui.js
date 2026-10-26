@@ -27,7 +27,7 @@
     let keyboardEnabled = false;
     let busy = false;
     let lastConnection = '';
-    let lastMacroRunning = false;
+    let bluetoothSending = false;
     let toastTimeout;
     let animationTimeout;
     let transmitted = 0;
@@ -111,26 +111,33 @@
       updateAvailability();
     }
 
+    function unlockJog() {
+      armed = api.getStatus().connected;
+      $('arm-jog').checked = armed;
+      setKeyboard(armed && localStorage.getItem('airiz.keyboard.enabled') !== '0');
+      updateAvailability();
+    }
+
     function updateAvailability() {
       const status = api.getStatus();
-      const canJog = currentView === 'controller' && status.connected
-        && (status.demoMode || armed) && !status.macroRunning && !busy;
-      jogButtons.forEach((button) => { button.disabled = !canJog; });
-      $('arm-jog').disabled = !status.connected || status.demoMode || status.macroRunning;
-      $('keyboard-toggle').disabled = !status.connected || status.macroRunning;
+      const canJog = currentView === 'controller' && status.connected && armed
+        && !status.macroRunning && !busy;
+      jogButtons.forEach(button => { button.disabled = !canJog; });
+      $('arm-jog').disabled = !status.connected;
+      $('keyboard-toggle').disabled = !status.connected;
       $('btn-send-raw').disabled = !status.connected;
-      $('arm-title').textContent = status.demoMode
-        ? 'Safe simulation'
-        : armed ? 'Hardware jog enabled' : 'Hardware jog locked';
-      $('arm-description').textContent = status.macroRunning
-        ? 'Macro running. Manual jogging is temporarily unavailable.'
-        : status.demoMode
-          ? 'Demo only. Commands are simulated in this browser; no device is moving.'
-          : armed
-            ? 'Check the command preview before each jog. Press Esc to block new jog commands.'
-            : status.connected
-              ? 'Review your bench setup, then enable manual jogging. Other command tools remain separate.'
-              : 'Connect a device, then enable manual jogging. Demo mode needs no hardware.';
+      $('btn-bluetooth-on').disabled = !status.connected || status.macroRunning || bluetoothSending;
+      $('arm-title').textContent = !status.connected ? 'Connect to enable jogging'
+        : armed ? (status.demoMode ? 'Demo jog enabled' : 'Jog enabled') : 'Jog manually locked';
+      $('arm-description').textContent = !status.connected
+        ? 'Connecting enables the jog pad and arrow keys. No motion is sent automatically.'
+        : status.macroRunning
+          ? 'Macro running: manual jogs are temporarily paused. Your jog and keyboard settings are kept.'
+          : !armed
+            ? 'Click this switch or Keyboard on to unlock. Locking prevents new jogs only.'
+            : status.demoMode
+              ? 'Simulated device only. One click or arrow-key press sends one finite jog. No hardware moves.'
+              : 'Ready after connection. One click or arrow-key press sends one finite jog. Tab changes and focus loss do not lock it.';
     }
 
     function refreshStatus() {
@@ -138,8 +145,8 @@
       const connectionKey = String(status.connected) + ':' + String(status.demoMode);
       if (connectionKey !== lastConnection) {
         lastConnection = connectionKey;
-        lockJog();
-        if ($('arm-dialog').open) $('arm-dialog').close();
+        if (status.connected) unlockJog();
+        else lockJog();
         $('sidebar-status').textContent = status.demoMode && status.connected
           ? 'Demo · no hardware'
           : status.connected ? 'USB serial connected' : 'Waiting for connection';
@@ -156,16 +163,14 @@
         }
         if (status.demoMode && status.connected) notify('Demo is ready. Try the jog pad — no hardware required.');
       }
-      if (status.macroRunning && !lastMacroRunning) lockJog();
-      lastMacroRunning = status.macroRunning;
       updateAvailability();
     }
 
     async function jog(direction) {
       const status = api.getStatus();
       if (busy || currentView !== 'controller' || !status.connected || status.macroRunning) return;
-      if (!status.demoMode && !armed) {
-        notify('Enable hardware jogging before moving the device.');
+      if (!armed) {
+        notify('Jog is manually locked. Click the switch or Keyboard on to unlock.');
         return;
       }
       previewDirection = direction;
@@ -208,7 +213,6 @@
 
     function showView(view) {
       if (!views[view]) view = 'controller';
-      if (currentView !== view) lockJog();
       currentView = view;
       for (const name of Object.keys(views)) {
         $('view-' + name).hidden = name !== view;
@@ -269,43 +273,41 @@
     }));
 
     $('arm-jog').addEventListener('change', () => {
-      if (!$('arm-jog').checked) {
-        lockJog(true);
-        return;
-      }
-      $('arm-jog').checked = false;
-      const status = api.getStatus();
-      if (status.connected && !status.demoMode && !status.macroRunning) $('arm-dialog').showModal();
-    });
-    $('cancel-arm').addEventListener('click', () => $('arm-dialog').close());
-    $('confirm-arm').addEventListener('click', () => {
-      const status = api.getStatus();
-      armed = status.connected && !status.demoMode && !status.macroRunning && currentView === 'controller';
-      $('arm-jog').checked = armed;
-      $('arm-dialog').close();
-      updateAvailability();
-      if (armed) notify('Manual hardware jog enabled. Confirm step counts before each move.');
+      if ($('arm-jog').checked) unlockJog();
+      else lockJog(true);
     });
     $('keyboard-toggle').addEventListener('click', () => {
-      const status = api.getStatus();
-      if (!status.connected) return;
-      if (!status.demoMode && !armed) {
-        notify('Enable hardware jogging before enabling keyboard control.');
-        return;
+      if (!api.getStatus().connected) return;
+      const next = !keyboardEnabled;
+      if (next) {
+        armed = true;
+        $('arm-jog').checked = true;
       }
-      setKeyboard(!keyboardEnabled);
-      notify(keyboardEnabled ? 'Arrow keys jog once per press. Esc locks manual control.' : 'Keyboard jogging is off.');
+      localStorage.setItem('airiz.keyboard.enabled', next ? '1' : '0');
+      setKeyboard(next);
+      updateAvailability();
+      notify(next ? 'Arrow keys are ready on the Motor control view. One press sends one finite jog.' : 'Keyboard jogging is off. The jog pad remains available.');
     });
     $('btn-disconnect').addEventListener('click', () => lockJog(), true);
-    window.addEventListener('blur', () => lockJog());
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) lockJog();
+    // No focus, visibility, view-change or macro-start auto-lock. Key events still
+    // require the active controller view, focused app and no editing field/dialog.
+    $('btn-bluetooth-on').addEventListener('click', async () => {
+      const status = api.getStatus();
+      if (!status.connected || status.macroRunning || bluetoothSending) return;
+      bluetoothSending = true;
+      updateAvailability();
+      try {
+        const sent = await api.sendCommand(commandDefinitions.get('ble-on').cmd);
+        notify(sent
+          ? 'Bluetooth initialization command sent. Check the device response in the console; this is not a Bluetooth connection confirmation.'
+          : 'Bluetooth command was not sent. Check the console.');
+      } finally {
+        bluetoothSending = false;
+        updateAvailability();
+      }
     });
-    $('btn-run-macro').addEventListener('click', () => lockJog(), true);
-    $('btn-install-app').addEventListener('click', () => lockJog(), true);
 
     function openHelp() {
-      lockJog();
       $('shortcuts-dialog').showModal();
     }
     $('btn-shortcuts').addEventListener('click', openHelp);
@@ -313,6 +315,7 @@
     $('close-shortcuts').addEventListener('click', () => $('shortcuts-dialog').close());
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
+        if (document.querySelector('dialog[open]')) return;
         lockJog(keyboardEnabled || armed);
         return;
       }
@@ -336,7 +339,8 @@
         ArrowLeft: 'pan-rev',
         ArrowRight: 'pan-fwd'
       };
-      if (keyboardEnabled && currentView === 'controller' && directions[event.key]) {
+      if (keyboardEnabled && armed && document.hasFocus() && !document.hidden
+          && currentView === 'controller' && directions[event.key]) {
         event.preventDefault();
         jog(directions[event.key]);
       }

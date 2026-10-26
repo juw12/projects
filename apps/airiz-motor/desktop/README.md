@@ -8,8 +8,8 @@ is required to use the installed app or its hardware-free demo.
 
 ## Downloads
 
-The first Windows x64 release is published under the app-specific tag
-`airiz-desktop-v1.0.0` in this repository's Releases section.
+Windows x64 releases are published under the app-specific tag
+`airiz-desktop-v1.1.0` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -17,7 +17,7 @@ The first Windows x64 release is published under the app-specific tag
   per-user application-data profile by default; it is not a browser profile.
 - **SHA-256 checksums** accompany the release artifacts.
 
-The initial release is **unsigned**. Windows can show an unknown-publisher or
+This preview release is **unsigned**. Windows can show an unknown-publisher or
 SmartScreen warning. A signing certificate is required to ship a signed build;
 no certificate or verified-publisher status is implied.
 
@@ -35,8 +35,21 @@ no certificate or verified-publisher status is implied.
 
 Browser and desktop storage are separate. Existing custom browser macros are not
 automatically copied from Chrome/Edge. The six bundled macro templates are present
-in both editions. This first release uses manual downloads for app updates; it does
-not silently replace itself or add a background updater.
+in both editions. Starting with 1.1.0, the installed edition checks the dedicated AIRIZ release
+channel on startup and every six hours. Use Updates or Help → Check for updates
+for a manual check. Downloads require a click; installation requires confirmation
+and an idle console. Updates never install merely because the app quits.
+
+Version 1.0.0 has no updater and needs a one-time manual installation of 1.1.0.
+Portable builds can check for newer versions and open the correct portable download,
+but replacement is manual. The installer updater does not overwrite a portable app.
+
+The channel uses HTTPS and SHA-512 verification; existing signature verification
+is left enabled. These unsigned builds have no configured publisher certificate.
+The private per-app feed avoids selecting another application's release from this
+multi-app repository. Publishing a new numeric AIRIZ desktop version triggers the
+release-feed workflow, which verifies artifact hashes, prevents feed downgrades,
+updates the download links and dispatches the Pages deployment.
 
 ## Device safety
 
@@ -84,3 +97,22 @@ verification scripts avoid modifying the operator's normal desktop workspace.
 
 Release packaging intentionally does not include development dependencies, test
 profiles, source-repository credentials or the rest of the monorepo.
+
+
+## Fast control policy in 1.1.0
+
+Connecting enables finite jogs immediately and enables keyboard jogging by default.
+An explicit keyboard-off preference is remembered. No motion is sent merely by
+connecting or unlocking. Changing workspace, losing focus, opening help, or running
+a macro does not change the enabled setting. Macro activity temporarily prevents
+manual command interleaving and controls resume afterwards.
+
+Arrow keys work only in the focused Motor control view, outside input fields and
+modal dialogs; held-key repeat is ignored. Manual Lock and Escape still block new
+jogs. The switch or Keyboard on restores access with one click. There is still no
+hardware emergency-stop command.
+
+The direct Bluetooth on button reuses the documented `diag ble on` command and
+reports dispatch, not a confirmed Bluetooth connection. It initializes the NXP
+IW612/BlueZ controller through the existing serial link. A phone-control BLE GATT
+service/characteristic protocol is not documented by this command and is not invented.

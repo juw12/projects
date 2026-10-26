@@ -1,0 +1,52 @@
+name: Publish AIRIZ update feed
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published AIRIZ desktop version tag
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: airiz-update-feed
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'airiz-desktop-v')
+    runs-on: ubuntu-latest
+    env:
+      AIRIZ_RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify executable hashes and update only the AIRIZ channel
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python apps/airiz-motor/desktop/scripts/sync_release_feed.py --tag "$AIRIZ_RELEASE_TAG"
+      - name: Commit metadata without overwriting concurrent work
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/airiz-motor/web/updates/windows scripts/apps.json
+          if ! git diff --cached --quiet; then
+            git commit -m "airiz: refresh desktop update feed for $AIRIZ_RELEASE_TAG"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+      - name: Deploy the channel through the existing Pages workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --ref main
