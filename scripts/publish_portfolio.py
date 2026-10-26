@@ -154,7 +154,10 @@ def portfolio_sort_key(app):
 
 def render_block(apps):
     ordered = sorted(apps, key=portfolio_sort_key)
-    cards = CARD_SEP.join(render_card(a) for a in ordered if a.get("listed", True))
+    cards = CARD_SEP.join(
+        render_card(a) for a in ordered
+        if a.get("listed", True) and a.get("portfolio", True)
+    )
     return START_MARKER + "\n" + cards + "\n" + END_MARKER
 
 

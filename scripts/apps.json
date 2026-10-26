@@ -1,5 +1,5 @@
 {
- "_comment": "Single source of truth for the software apps shipped by this monorepo. Consumed by scripts/build_site.py (GitHub Pages landing page + deploy copy list) and scripts/publish_portfolio.py (portfolio cards + Obsidian notes). `summary` is the one-line portfolio-card copy (HTML-ready, keep it under ~120 visible characters so cards stay even); `description` is the full copy shown in the card's Details view and the Obsidian note (HTML-ready); `desc` is the short landing-page blurb. Optional `portfolio_order` overrides `order` for the portfolio card sequence only (engineering tools first, third-party tools last) without changing the landing page. `links` are relative to the deployed site root (https://juw12.github.io/projects/<rel>). Extra fields `image_alt`, `project_id`, `label` (thumbnail aria-label) and `desc` reproduce the live markup verbatim.",
+ "_comment": "Single source of truth for the software apps shipped by this monorepo. Consumed by scripts/build_site.py (GitHub Pages landing page + deploy copy list) and scripts/publish_portfolio.py (portfolio cards + Obsidian notes). `summary` is the one-line portfolio-card copy (HTML-ready, keep it under ~120 visible characters so cards stay even); `description` is the full copy shown in the card's Details view and the Obsidian note (HTML-ready); `desc` is the short landing-page blurb. Optional `portfolio_order` overrides `order` for the portfolio card sequence only (the lowest values are the featured cards shown first); `portfolio: false` keeps an app off the portfolio without changing the landing page or notes. `links` are relative to the deployed site root (https://juw12.github.io/projects/<rel>). Extra fields `image_alt`, `project_id`, `label` (thumbnail aria-label) and `desc` reproduce the live markup verbatim.",
  "apps": [
   {
    "id": "orbis",
@@ -160,6 +160,7 @@
    },
    "featured": true,
    "order": 1,
+   "portfolio_order": -6,
    "card_links": [
     {
      "label": "Windows app",
@@ -204,7 +205,8 @@
     "mobile": "vertex/mobile.html"
    },
    "featured": true,
-   "order": 2
+   "order": 2,
+   "portfolio_order": -7
   },
   {
    "id": "soma",
@@ -224,7 +226,7 @@
    "image": "soma-hero.svg",
    "image_alt": "SOMA: a CadQuery code panel beside a rebuilt parametric part and a build log",
    "order": 18,
-   "portfolio_order": 900
+   "portfolio": false
   },
   {
    "id": "vector",
@@ -244,7 +246,7 @@
    "image": "vector-hero.svg",
    "image_alt": "Vector: connected Fusion and SOLIDWORKS integrations beside a chat panel showing a ranked repair plan",
    "order": 19,
-   "portfolio_order": 901
+   "portfolio": false
   },
   {
    "id": "3d-models-library",
@@ -268,6 +270,7 @@
    "image_alt": "Kobo-chan: a 100 mm solid figurine revised for Form 3, shown from the front and three-quarter view",
    "files": "https://github.com/juw12/projects/tree/main/outputs/3d-models",
    "order": 3,
+   "portfolio_order": -8,
    "anchor_id": "models-3d-library",
    "thumbnails": [
     {
@@ -341,6 +344,7 @@
    },
    "featured": true,
    "order": 14,
+   "portfolio_order": -4,
    "version": "1.5.2"
   },
   {
@@ -385,6 +389,7 @@
    ],
    "featured": true,
    "order": 5,
+   "portfolio_order": -5,
    "version": "0.7.2"
   },
   {
@@ -530,7 +535,7 @@
    },
    "status": "shipped",
    "order": 20,
-   "portfolio_order": -4
+   "portfolio_order": -10
   },
   {
    "id": "sync",
@@ -665,7 +670,7 @@
    },
    "status": "shipped",
    "order": 22,
-   "portfolio_order": -3
+   "portfolio_order": -9
   }
  ]
 }
