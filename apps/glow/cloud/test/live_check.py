@@ -19,14 +19,18 @@ def post(path, body, attempts=3):
             SERVICE + path,
             data=json.dumps(body).encode(),
             method="POST",
-            headers={"Content-Type": "application/json", "Origin": ORIGIN},
+            headers={"Content-Type": "application/json", "Origin": ORIGIN, "User-Agent": "glow-live-check/1.0"},
         )
         started = time.time()
         try:
             with urllib.request.urlopen(request, timeout=90) as response:
                 return response.status, json.loads(response.read()), time.time() - started
         except urllib.error.HTTPError as error:
-            return error.code, json.loads(error.read() or b"{}"), time.time() - started
+            raw = error.read() or b"{}"
+            try:
+                return error.code, json.loads(raw), time.time() - started
+            except ValueError:
+                return error.code, {"error": raw.decode("utf-8", "replace")[:300]}, time.time() - started
         except Exception as error:
             print(f"  {path}: attempt {attempt + 1} failed: {error!r}")
             time.sleep(3)
