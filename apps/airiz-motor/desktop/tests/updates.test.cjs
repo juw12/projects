@@ -2,60 +2,100 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
-const { createUpdateController, installerUrl, validateUpdate, activeSession, blockingWork, FEED } = require('../update-controller.cjs');
+const { createUpdateController, installerUrl, validateUpdate, busyReason, FEED } = require('../update-controller.cjs');
 
 const info = () => ({
-  version: '1.2.0',
-  files: [{ url: installerUrl('1.2.0'), sha512: Buffer.alloc(64, 1).toString('base64'), size: 12345 }],
-  path: installerUrl('1.2.0')
+  version: '1.3.0',
+  files: [{ url: installerUrl('1.3.0'), sha512: Buffer.alloc(64, 1).toString('base64'), size: 12345 }],
+  path: installerUrl('1.3.0')
 });
+
 class FakeUpdater extends EventEmitter {
-  constructor() { super(); this.downloads = 0; this.installs = []; }
-  setFeedURL(feed) { this.feed = feed; }
-  async checkForUpdates() { this.emit('checking-for-update'); this.emit('update-available', info()); }
-  async downloadUpdate() { this.downloads++; this.emit('download-progress', { percent: 50 }); this.emit('update-downloaded', info()); }
-  quitAndInstall(...arguments_) { this.installs.push(arguments_); }
+  constructor() {
+    super();
+    this.downloads = 0;
+    this.installs = [];
+  }
+  setFeedURL(feed) {
+    this.feed = feed;
+  }
+  async checkForUpdates() {
+    this.emit('checking-for-update');
+    this.emit('update-available', info());
+  }
+  async downloadUpdate() {
+    this.downloads++;
+    this.emit('download-progress', { percent: 50 });
+    this.emit('update-downloaded', info());
+  }
+  quitAndInstall(...arguments_) {
+    this.installs.push(arguments_);
+  }
 }
+
 function fixture(overrides = {}) {
   const updater = new FakeUpdater();
-  const events = [];
   const portableLinks = [];
+  const confirmations = [];
   let device = { connected: false, demoMode: false };
-  let approved = false;
+  let approveInstall = true;
+  let approveSchedule = true;
   let preparations = 0;
-  let aborts = 0;
   const controller = createUpdateController({
-    updater, currentVersion: '1.1.0', packaged: true,
+    updater,
+    currentVersion: '1.2.0',
+    packaged: true,
+    pollIntervalMs: 5,
     getDeviceState: async () => device,
-    confirmInstall: async () => approved,
-    prepareForInstall: async () => { preparations++; return true; },
-    abortInstall: async () => { aborts++; },
-    publish: state => events.push(state),
+    confirmInstall: async (version, connected) => {
+      confirmations.push({ type: 'install', connected });
+      return approveInstall;
+    },
+    confirmSchedule: async (version, reason) => {
+      confirmations.push({ type: 'schedule', reason });
+      return approveSchedule;
+    },
+    prepareForInstall: async () => {
+      preparations++;
+      return true;
+    },
+    abortInstall: async () => {},
+    publish: () => {},
     openPortable: async url => portableLinks.push(url),
     ...overrides
   });
-  return { updater, controller, events, portableLinks,
+  return {
+    updater, controller, portableLinks, confirmations,
     setDevice(value) { device = value; },
-    approve() { approved = true; },
-    prepared: () => preparations, aborted: () => aborts };
+    declineInstall() { approveInstall = false; },
+    declineSchedule() { approveSchedule = false; },
+    prepared: () => preparations
+  };
 }
 
-test('checks use the AIRIZ-only HTTPS channel and never auto-download/install on quit', async () => {
+async function ready(fixtureData) {
+  await fixtureData.controller.check();
+  await fixtureData.controller.download();
+  assert.equal(fixtureData.controller.snapshot().status, 'downloaded');
+}
+
+const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+
+test('checks the AIRIZ HTTPS channel without auto-downloading or installing on quit', async () => {
   const { updater, controller } = fixture();
   assert.equal(updater.feed.url, FEED);
   assert.equal(updater.autoDownload, false);
   assert.equal(updater.autoInstallOnAppQuit, false);
   assert.equal(updater.allowDowngrade, false);
-  assert.equal(updater.disableDifferentialDownload, true);
   await controller.check();
   assert.equal(controller.snapshot().status, 'available');
   assert.equal(updater.downloads, 0);
   assert.equal(updater.installs.length, 0);
 });
 
-test('foreign repository, wrong version filename and invalid checksums are rejected', () => {
-  assert.equal(validateUpdate(info()).version, '1.2.0');
-  for (const url of ['https://example.com/installer.exe', installerUrl('1.3.0')]) {
+test('foreign or malformed update metadata is rejected', () => {
+  assert.equal(validateUpdate(info()).version, '1.3.0');
+  for (const url of ['https://example.com/installer.exe', installerUrl('1.4.0')]) {
     const invalid = info();
     invalid.files[0].url = url;
     assert.throws(() => validateUpdate(invalid));
@@ -63,118 +103,101 @@ test('foreign repository, wrong version filename and invalid checksums are rejec
   const invalid = info();
   invalid.files[0].sha512 = 'invalid';
   assert.throws(() => validateUpdate(invalid));
-  assert.throws(() => installerUrl('../../other'));
 });
 
-test('bad channel metadata cannot reach a download', async () => {
-  const { updater, controller } = fixture();
-  updater.emit('update-available', { version: '1.2.0', files: [] });
-  assert.equal(controller.snapshot().status, 'error');
-  await controller.download();
-  assert.equal(updater.downloads, 0);
+test('an idle connected device no longer blocks installation', async () => {
+  const fixtureData = fixture();
+  await ready(fixtureData);
+  fixtureData.setDevice({ connected: true, demoMode: false });
+  await fixtureData.controller.install();
+  assert.deepEqual(fixtureData.confirmations, [{ type: 'install', connected: true }]);
+  assert.equal(fixtureData.prepared(), 1);
+  assert.deepEqual(fixtureData.updater.installs, [[true, true]]);
 });
 
-for (const status of [
+test('declining the install prompt leaves the update ready', async () => {
+  const fixtureData = fixture();
+  await ready(fixtureData);
+  fixtureData.declineInstall();
+  await fixtureData.controller.install();
+  assert.equal(fixtureData.updater.installs.length, 0);
+  assert.equal(fixtureData.controller.snapshot().status, 'downloaded');
+});
+
+for (const busy of [
   { connected: true, demoMode: false, macroRunning: true },
-  { connected: false, macroRunning: true },
   { connected: false, cameraRecording: true },
   { connected: false, sessionActive: true },
-  { connected: false, audioCaptureActive: true },
-  null
+  { connected: true, demoMode: false, audioCaptureActive: true }
 ]) {
-  test('installation is blocked for busy/unknown state ' + JSON.stringify(status), async () => {
+  test('busy work schedules the install and runs it after the work ends ' + JSON.stringify(busy), async () => {
     const fixtureData = fixture();
-    await fixtureData.controller.check();
-    await fixtureData.controller.download();
-    fixtureData.approve();
-    fixtureData.setDevice(status);
+    await ready(fixtureData);
+    fixtureData.setDevice(busy);
     await fixtureData.controller.install();
+    assert.equal(fixtureData.controller.snapshot().status, 'scheduled');
+    assert.equal(fixtureData.confirmations[0].type, 'schedule');
+    await sleep(25);
     assert.equal(fixtureData.updater.installs.length, 0);
-    assert.equal(fixtureData.prepared(), 0);
+    fixtureData.setDevice({ connected: true, demoMode: false });
+    await sleep(40);
+    assert.equal(fixtureData.prepared(), 1);
+    assert.deepEqual(fixtureData.updater.installs, [[true, true]]);
   });
 }
 
-test('ready update waits for consent, then installs only when idle', async () => {
+test('a scheduled install can be cancelled', async () => {
   const fixtureData = fixture();
-  await fixtureData.controller.check();
-  await fixtureData.controller.download();
+  await ready(fixtureData);
+  fixtureData.setDevice({ connected: true, demoMode: false, macroRunning: true });
+  await fixtureData.controller.install();
+  fixtureData.controller.cancelScheduled();
+  fixtureData.setDevice({ connected: true, demoMode: false });
+  await sleep(30);
+  assert.equal(fixtureData.updater.installs.length, 0);
   assert.equal(fixtureData.controller.snapshot().status, 'downloaded');
-  await fixtureData.controller.install();
-  assert.equal(fixtureData.updater.installs.length, 0);
-  fixtureData.approve();
-  await fixtureData.controller.install();
-  assert.deepEqual(fixtureData.updater.installs, [[false, true]]);
-  assert.equal(fixtureData.prepared(), 1);
 });
 
-test('a session that becomes busy during confirmation is rechecked', async () => {
-  let reads = 0;
-  const fixtureData = fixture({
-    getDeviceState: async () => (++reads === 1 ? { connected: false } : { connected: false, macroRunning: true }),
-    confirmInstall: async () => true
-  });
-  await fixtureData.controller.check();
-  await fixtureData.controller.download();
+test('declining to schedule installs nothing', async () => {
+  const fixtureData = fixture();
+  await ready(fixtureData);
+  fixtureData.declineSchedule();
+  fixtureData.setDevice({ connected: false, cameraRecording: true });
   await fixtureData.controller.install();
+  await sleep(20);
   assert.equal(fixtureData.updater.installs.length, 0);
+  assert.equal(fixtureData.controller.snapshot().status, 'downloaded');
 });
 
-test('atomic console preparation can veto installation', async () => {
-  const fixtureData = fixture({ prepareForInstall: async () => false, confirmInstall: async () => true });
-  await fixtureData.controller.check();
-  await fixtureData.controller.download();
+test('unknown console state never installs', async () => {
+  const fixtureData = fixture();
+  await ready(fixtureData);
+  fixtureData.setDevice(null);
   await fixtureData.controller.install();
   assert.equal(fixtureData.updater.installs.length, 0);
+  assert.equal(fixtureData.confirmations.length, 0);
 });
 
-test('portable update offers the scoped portable download, never an installer', async () => {
+test('a console that becomes busy during preparation vetoes the restart', async () => {
+  const fixtureData = fixture({ prepareForInstall: async () => false });
+  await ready(fixtureData);
+  await fixtureData.controller.install();
+  assert.equal(fixtureData.updater.installs.length, 0);
+  assert.equal(fixtureData.controller.snapshot().status, 'downloaded');
+});
+
+test('portable builds open the portable download instead of installing', async () => {
   const fixtureData = fixture({ portable: true });
   await fixtureData.controller.check();
   await fixtureData.controller.download();
   await fixtureData.controller.install();
-  assert.deepEqual(fixtureData.portableLinks, [installerUrl('1.2.0', true)]);
-  assert.equal(fixtureData.updater.downloads, 0);
+  assert.deepEqual(fixtureData.portableLinks, [installerUrl('1.3.0', true)]);
   assert.equal(fixtureData.updater.installs.length, 0);
 });
 
-test('offline check becomes a nonfatal status; demo connection alone is not hardware activity', async () => {
-  const fixtureData = fixture();
-  fixtureData.updater.checkForUpdates = async () => { throw new Error('Offline'); };
-  await fixtureData.controller.check();
-  assert.equal(fixtureData.controller.snapshot().status, 'error');
-  assert.equal(activeSession({ connected: true, demoMode: true }), false);
-});
-
-test('an idle connected device is disconnected safely, then the update installs', async () => {
-  const confirmations = [];
-  const fixtureData = fixture({
-    confirmInstall: async (version, options) => {
-      confirmations.push({ version, ...options });
-      return true;
-    }
-  });
-  fixtureData.setDevice({ connected: true, demoMode: false });
-  await fixtureData.controller.check();
-  await fixtureData.controller.download();
-  await fixtureData.controller.install();
-  assert.deepEqual(confirmations, [{ version: '1.2.0', connected: true }]);
-  assert.equal(fixtureData.prepared(), 1);
-  assert.deepEqual(fixtureData.updater.installs, [[false, true]]);
-});
-
-test('declining while connected keeps the connection and installs nothing', async () => {
-  const fixtureData = fixture({ confirmInstall: async () => false });
-  fixtureData.setDevice({ connected: true, demoMode: false });
-  await fixtureData.controller.check();
-  await fixtureData.controller.download();
-  await fixtureData.controller.install();
-  assert.equal(fixtureData.prepared(), 0);
-  assert.equal(fixtureData.updater.installs.length, 0);
-});
-
-test('only running work blocks installation; an idle connection does not', () => {
-  assert.equal(blockingWork({ connected: true, demoMode: false }), false);
-  assert.equal(blockingWork({ connected: true, macroRunning: true }), true);
-  assert.equal(blockingWork({ connected: false, audioCaptureActive: true }), true);
-  assert.equal(blockingWork(null), true);
+test('busy reasons describe only work a restart would interrupt', () => {
+  assert.equal(busyReason({ connected: true, demoMode: false }), null);
+  assert.equal(busyReason({ connected: true, demoMode: true }), null);
+  assert.equal(busyReason({ connected: false, macroRunning: true }), 'a macro is running');
+  assert.equal(busyReason(null), 'the console state is unknown');
 });

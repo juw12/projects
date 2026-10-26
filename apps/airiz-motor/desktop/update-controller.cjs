@@ -23,29 +23,32 @@ function validateUpdate(info) {
   return info;
 }
 
-function activeSession(status) {
-  if (!status || typeof status.connected !== 'boolean') return true;
-  return !!((status.connected && !status.demoMode) || status.macroRunning
-    || status.cameraRecording || status.sessionActive || status.audioCaptureActive);
-}
-
-// Work that must finish before installing. An idle device connection is not
-// included: the console closes it safely as part of the install.
-function blockingWork(status) {
-  if (!status || typeof status.connected !== 'boolean') return true;
-  return !!(status.macroRunning || status.cameraRecording || status.sessionActive || status.audioCaptureActive);
+// Work that a restart would interrupt. A plain idle device connection is NOT
+// busy: the console closes the port, installs, restarts and reconnects.
+function busyReason(status) {
+  if (!status || typeof status.connected !== 'boolean') return 'the console state is unknown';
+  if (status.macroRunning) return 'a macro is running';
+  if (status.cameraRecording) return 'a camera recording is running';
+  if (status.audioCaptureActive) return 'a device audio transfer is running';
+  if (status.sessionActive) return 'a camera session is open';
+  return null;
 }
 
 function createUpdateController(options) {
-  const { updater, getDeviceState, confirmInstall, prepareForInstall, abortInstall, publish,
-    currentVersion, portable = false, packaged = true, openPortable } = options;
+  const {
+    updater, getDeviceState, confirmInstall, confirmSchedule, prepareForInstall, abortInstall,
+    publish, currentVersion, portable = false, packaged = true, openPortable,
+    pollIntervalMs = 3000
+  } = options;
   let candidate = null;
   let downloaded = false;
   let checking = false;
+  let scheduleTimer = null;
   let state = {
     status: packaged ? 'idle' : 'development', currentVersion, availableVersion: null,
     portable, percent: 0,
-    message: packaged ? 'Updates are checked on startup and every six hours. Installation is always your choice.'
+    message: packaged
+      ? 'Updates are checked on startup and every six hours. You can install while connected; the device reconnects after restart.'
       : 'Updates are available in the packaged Windows app.'
   };
   const snapshot = () => ({ ...state });
@@ -53,7 +56,12 @@ function createUpdateController(options) {
     state = { ...state, status, message, ...extra };
     publish(snapshot());
   }
+  function stopSchedule() {
+    if (scheduleTimer) clearInterval(scheduleTimer);
+    scheduleTimer = null;
+  }
   function fail(error) {
+    stopSchedule();
     if (state.status === 'installing') Promise.resolve(abortInstall()).catch(() => {});
     change('error', error?.message || String(error));
   }
@@ -64,8 +72,6 @@ function createUpdateController(options) {
   updater.allowDowngrade = false;
   updater.disableDifferentialDownload = true;
   updater.setFeedURL({ provider: 'generic', url: FEED, channel: 'latest' });
-  // Keep electron-updater's checksum/signature verification enabled. No custom
-  // signature bypass is installed. The current unsigned build has no publisherName.
   updater.on('checking-for-update', () => change('checking', 'Checking the AIRIZ desktop release channel…'));
   updater.on('update-available', info => {
     try {
@@ -73,7 +79,7 @@ function createUpdateController(options) {
       downloaded = false;
       change('available', portable
         ? 'A newer portable app is available. Download it and replace your portable executable manually.'
-        : 'An update is available. Download it now, then install when your device session is finished.',
+        : 'An update is available. You can download it while the device stays connected.',
       { availableVersion: info.version, percent: 0 });
     } catch (error) {
       candidate = null;
@@ -93,7 +99,7 @@ function createUpdateController(options) {
     try {
       candidate = validateUpdate(info);
       downloaded = true;
-      change('downloaded', 'Update verified and ready. Finish device, macro and recording sessions before installing.',
+      change('downloaded', 'Update verified and ready. Install now; a connected device reconnects automatically after restart.',
         { availableVersion: info.version, percent: 100 });
     } catch (error) {
       downloaded = false;
@@ -103,7 +109,7 @@ function createUpdateController(options) {
   updater.on('error', fail);
 
   async function check() {
-    if (!packaged || checking || ['downloading', 'downloaded', 'installing'].includes(state.status)) return snapshot();
+    if (!packaged || checking || ['downloading', 'downloaded', 'scheduled', 'installing'].includes(state.status)) return snapshot();
     checking = true;
     try {
       await updater.checkForUpdates();
@@ -131,22 +137,49 @@ function createUpdateController(options) {
     return snapshot();
   }
 
+  async function runInstall() {
+    stopSchedule();
+    change('installing', 'Closing the device connection safely and installing the update…');
+    const prepared = await prepareForInstall();
+    if (!prepared) {
+      change('downloaded', 'The console became busy, so the update was not installed. Try again when the macro or recording finishes.');
+      return snapshot();
+    }
+    // Silent install keeps the user's chosen folder and relaunches the app.
+    updater.quitAndInstall(true, true);
+    return snapshot();
+  }
+
   async function install() {
-    if (portable || !downloaded || state.status !== 'downloaded') return snapshot();
+    if (portable || !downloaded || !['downloaded', 'scheduled'].includes(state.status)) return snapshot();
     try {
-      const deviceState = await getDeviceState();
-      if (blockingWork(deviceState)) {
-        change('downloaded', 'Installation waits for running macros, recordings and capture sessions to finish. A connected device is disconnected automatically.');
+      const status = await getDeviceState();
+      const reason = busyReason(status);
+      if (reason === 'the console state is unknown') {
+        change('downloaded', 'Installation paused: ' + reason + '. Reopen the Updates panel and try again.');
         return snapshot();
       }
-      const connected = !!(deviceState.connected && !deviceState.demoMode);
-      if (!await confirmInstall(candidate.version, { connected })) return snapshot();
-      if (blockingWork(await getDeviceState()) || !await prepareForInstall()) {
-        change('downloaded', 'The console became busy. Finish the macro, recording or capture session before installing.');
+      const connected = Boolean(status.connected && !status.demoMode);
+      if (reason) {
+        if (state.status === 'scheduled') return snapshot();
+        if (!await confirmSchedule(candidate.version, reason)) return snapshot();
+        change('scheduled', 'Update scheduled: it installs automatically when ' + reason.replace(/^an? /, 'the ') + ' finishes. The device reconnects after restart.');
+        scheduleTimer = setInterval(async () => {
+          try {
+            const current = await getDeviceState();
+            if (!busyReason(current)) await runInstall();
+          } catch (error) {
+            fail(error);
+          }
+        }, pollIntervalMs);
         return snapshot();
       }
-      change('installing', 'Closing AIRIZ to run the verified update installer…');
-      updater.quitAndInstall(false, true);
+      if (!await confirmInstall(candidate.version, connected)) return snapshot();
+      if (busyReason(await getDeviceState())) {
+        change('downloaded', 'The console became busy during confirmation. Use Install again to schedule it.');
+        return snapshot();
+      }
+      return await runInstall();
     } catch (error) {
       await Promise.resolve(abortInstall()).catch(() => {});
       fail(error);
@@ -154,7 +187,14 @@ function createUpdateController(options) {
     return snapshot();
   }
 
-  return { snapshot, check, download, install };
+  function cancelScheduled() {
+    if (state.status !== 'scheduled') return snapshot();
+    stopSchedule();
+    change('downloaded', 'Scheduled installation cancelled. The verified update remains ready.');
+    return snapshot();
+  }
+
+  return { snapshot, check, download, install, cancelScheduled };
 }
 
-module.exports = { FEED, installerUrl, validateUpdate, activeSession, blockingWork, createUpdateController };
+module.exports = { FEED, installerUrl, validateUpdate, busyReason, createUpdateController };
