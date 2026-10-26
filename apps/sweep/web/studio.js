@@ -43,6 +43,10 @@
     return !!(state.workspace && gate && gate.style.display === 'none');
   }
 
+  function t(text, vars) {
+    return window.SweepI18n ? window.SweepI18n.t(text, vars) : text;
+  }
+
   function persist(project) {
     if (project && !isDemo(project)) saveState();
   }
@@ -517,8 +521,167 @@
       percent: tasks.length ? Math.round((done.length / tasks.length) * 100) : 0,
       hoursTotal: hoursTotal,
       hoursLeft: hoursLeft,
-      next: next
+      next: next,
+      project: project
     };
+  }
+
+  // ---------- time tracking (actual hours per task + calibrated pace) ----------
+
+  const SESSION_CAP_MS = 6 * 3600 * 1000;
+
+  function timeLog(project) {
+    if (!project.timeLog) project.timeLog = {};
+    return project.timeLog;
+  }
+
+  function taskTime(project, key) {
+    return (project && project.timeLog && project.timeLog[key]) || null;
+  }
+
+  function runningMs(entry, now) {
+    return entry && entry.runningSince ? Math.max(0, Math.min(now - entry.runningSince, SESSION_CAP_MS)) : 0;
+  }
+
+  function spentHours(project, key, now) {
+    const entry = taskTime(project, key);
+    if (!entry) return 0;
+    return ((entry.spentMs || 0) + runningMs(entry, now || Date.now())) / 3600000;
+  }
+
+  function startTimer(project, key) {
+    const log = timeLog(project);
+    const entry = log[key] || (log[key] = { spentMs: 0 });
+    if (!entry.runningSince) entry.runningSince = Date.now();
+    if (!entry.startedAt) entry.startedAt = Date.now();
+  }
+
+  function stopTimer(project, key) {
+    const entry = taskTime(project, key);
+    if (entry && entry.runningSince) {
+      entry.spentMs = (entry.spentMs || 0) + runningMs(entry, Date.now());
+      delete entry.runningSince;
+    }
+  }
+
+  function setSpentHours(project, key, hours) {
+    const log = timeLog(project);
+    const entry = log[key] || (log[key] = { spentMs: 0 });
+    entry.spentMs = Math.round(Math.max(0, Math.min(hours, 500)) * 3600000);
+    delete entry.runningSince;
+    entry.manual = true;
+  }
+
+  function formatClock(ms) {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const pad = function (value) { return (value < 10 ? '0' : '') + value; };
+    return hours ? hours + ':' + pad(minutes) + ':' + pad(seconds) : minutes + ':' + pad(seconds);
+  }
+
+  function roundHours(hours) {
+    return Math.round(hours * 10) / 10;
+  }
+
+  // Pace = actual ÷ estimate over finished, tracked tasks.
+  function paceOver(projects) {
+    let estimate = 0;
+    let actual = 0;
+    let count = 0;
+    projects.forEach(function (project) {
+      if (!project || !project.timeLog) return;
+      boardSummary(project).tasks.forEach(function (task) {
+        if (task.status !== 'done') return;
+        const hours = spentHours(project, task.key);
+        if (hours < 0.05) return;
+        estimate += task.hours;
+        actual += hours;
+        count += 1;
+      });
+    });
+    return { count: count, estimate: estimate, actual: actual, ratio: count && estimate ? actual / estimate : null };
+  }
+
+  function paceFor(project) {
+    const own = paceOver([project]);
+    if (own.count >= 2) return Object.assign(own, { scope: 'project' });
+    const everyone = (state.projects || []).slice();
+    if (everyone.indexOf(project) === -1) everyone.push(project);
+    const all = paceOver(everyone);
+    if (all.count >= 3) return Object.assign(all, { scope: 'all' });
+    return null;
+  }
+
+  function trackedHours(project) {
+    if (!project.timeLog) return 0;
+    return Object.keys(project.timeLog).reduce(function (sum, key) { return sum + spentHours(project, key); }, 0);
+  }
+
+  let timerTicker = null;
+  function ensureTicker() {
+    if (timerTicker) return;
+    timerTicker = setInterval(function () {
+      const clocks = document.querySelectorAll('.timer-value[data-since]');
+      if (!clocks.length) return;
+      const now = Date.now();
+      clocks.forEach(function (clock) {
+        const since = Number(clock.getAttribute('data-since'));
+        const base = Number(clock.getAttribute('data-base')) || 0;
+        clock.textContent = formatClock(base + Math.min(now - since, SESSION_CAP_MS));
+      });
+    }, 1000);
+  }
+
+  function timeControlHtml(task, board) {
+    const project = board.project;
+    const entry = taskTime(project, task.key);
+    if (ui.editingTime === task.key) {
+      return '<span class="task-time-edit"><input type="number" class="time-input" step="0.25" min="0" inputmode="decimal" data-time-key="' + task.key + '" value="' + roundHours(spentHours(project, task.key)) + '" aria-label="' + esc(t('Hours spent')) + '"><span class="time-unit">h</span></span>';
+    }
+    if (task.status === 'doing') {
+      const running = !!(entry && entry.runningSince);
+      const base = entry ? entry.spentMs || 0 : 0;
+      const shown = base + runningMs(entry, Date.now());
+      return '<button type="button" class="task-timer' + (running ? ' running' : '') + '" data-timer="' + (running ? 'pause' : 'resume') + '" aria-label="' + esc(running ? t('Pause timer') : t('Resume timer')) + '" title="' + esc(running ? t('Pause timer') : t('Resume timer')) + '">' +
+        '<span class="timer-icon" aria-hidden="true">' + (running ? '❚❚' : '▶') + '</span>' +
+        '<span class="timer-value"' + (running ? ' data-since="' + entry.runningSince + '" data-base="' + base + '"' : '') + '>' + formatClock(shown) + '</span></button>' +
+        '<button type="button" class="task-time-log" data-timer="edit" aria-label="' + esc(t('Log time')) + '" title="' + esc(t('Log time')) + '">✎</button>';
+    }
+    if (task.status === 'done') {
+      const hours = spentHours(project, task.key);
+      return hours >= 0.05
+        ? '<button type="button" class="task-actual" data-timer="edit" title="' + esc(t('Log time')) + '"><b>' + roundHours(hours) + ' h</b> ' + esc(t('actual')) + '</button>'
+        : '<button type="button" class="task-actual empty" data-timer="edit">' + esc(t('Log time')) + '</button>';
+    }
+    return '';
+  }
+
+  function timePanelHtml(project) {
+    const board = boardSummary(project);
+    const rows = board.tasks.filter(function (task) { return spentHours(project, task.key) >= 0.05; });
+    const pace = paceFor(project);
+    const head = '<div class="time-panel-head"><span class="studio-kicker">' + esc(t('Time tracking')) + '</span>' +
+      (rows.length ? '<span class="time-total">' + esc(t('Tracked')) + ' <b>' + roundHours(trackedHours(project)) + ' h</b></span>' : '') + '</div>';
+    if (!rows.length) {
+      return '<section class="time-panel">' + head + '<p class="studio-foot">' + esc(t('No tracked tasks yet. Move a task to Doing to start its timer.')) + '</p></section>';
+    }
+    const maxHours = rows.reduce(function (max, task) { return Math.max(max, task.hours, spentHours(project, task.key)); }, 0.5);
+    return '<section class="time-panel">' + head +
+      '<table class="time-table"><thead><tr><th scope="col">' + esc(t('Task')) + '</th><th scope="col">' + esc(t('Estimate')) + '</th><th scope="col">' + esc(t('Actual')) + '</th><th scope="col">' + esc(t('Difference')) + '</th></tr></thead><tbody>' +
+      rows.map(function (task) {
+        const actual = spentHours(project, task.key);
+        const diff = actual - task.hours;
+        return '<tr><th scope="row"><span class="task-id">' + task.id + '</span> ' + esc(task.title) + '</th>' +
+          '<td>' + task.hours + ' h</td>' +
+          '<td><span class="time-bar"><i class="est" style="width:' + Math.round((task.hours / maxHours) * 100) + '%"></i><i class="act" style="width:' + Math.round((actual / maxHours) * 100) + '%"></i></span>' + roundHours(actual) + ' h' + (task.status === 'doing' ? ' …' : '') + '</td>' +
+          '<td class="' + (diff > 0.05 ? 'over' : diff < -0.05 ? 'under' : '') + '">' + (diff > 0 ? '+' : '') + roundHours(diff) + ' h</td></tr>';
+      }).join('') +
+      '</tbody></table>' +
+      (pace ? '<p class="time-pace">' + esc(t('Your pace')) + ': <b>' + pace.ratio.toFixed(2) + '×</b> ' + esc(t('estimate')) + ' · ' + pace.count + ' ' + esc(t('tasks')) + (pace.scope === 'all' ? ' · ' + esc(t('all projects')) : '') + '</p>' : '') +
+      '<p class="studio-foot">' + esc(t('Timers run while a task is in Doing. Sessions longer than 6 h are capped — edit the hours if needed.')) + '</p>' +
+    '</section>';
   }
 
   function formatHours(hours) {
@@ -653,6 +816,8 @@
         const parts = [task.id + (task.parallel ? ' [P]' : ''), task.title, 'c' + task.complexity, '~' + task.hours + ' h'];
         if (task.deps.length) parts.push('after ' + task.deps.join(', '));
         if (task.reqs.length) parts.push('covers ' + task.reqs.join(', '));
+        const actual = spentHours(project, task.key);
+        if (actual >= 0.05) parts.push('actual ' + roundHours(actual) + ' h');
         lines.push('- ' + box + ' ' + parts.join(' · '));
       });
       lines.push('');
@@ -741,6 +906,17 @@
   }
 
   function specFiles(project) {
+    const files = generatedSpecFiles(project);
+    if (project.aiSpecs) {
+      Object.keys(project.aiSpecs).forEach(function (name) {
+        const override = project.aiSpecs[name];
+        if (files[name] !== undefined && override && override.content) files[name] = override.content;
+      });
+    }
+    return files;
+  }
+
+  function generatedSpecFiles(project) {
     return {
       'specs/requirements.md': requirementsMarkdown(project),
       'specs/design.md': designMarkdown(project),
@@ -1345,6 +1521,22 @@
     planSection.insertAdjacentElement('afterend', section);
 
     section.addEventListener('click', onStudioClick);
+    section.addEventListener('keydown', function (event) {
+      const input = event.target.closest && event.target.closest('.time-input');
+      if (!input) return;
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        commitTimeInput(input);
+      }
+      if (event.key === 'Escape') {
+        ui.editingTime = null;
+        renderStudio(state.currentProject);
+      }
+    });
+    section.addEventListener('focusout', function (event) {
+      const input = event.target.closest && event.target.closest('.time-input');
+      if (input && ui.editingTime === input.getAttribute('data-time-key')) commitTimeInput(input);
+    });
     section.addEventListener('input', function (event) {
       if (event.target.id === 'handoff-prompt' && state.currentProject) {
         ui.promptDrafts[state.currentProject.id] = event.target.value;
@@ -1373,6 +1565,7 @@
   function renderStudio(project) {
     ensureStudioSection();
     if (!project) return;
+    ensureTicker();
     document.getElementById('studio-title').textContent = project.name;
     document.getElementById('studio-sub').textContent = project.oneLiner || '';
     renderStudioSummary(project);
@@ -1398,6 +1591,14 @@
     }
   }
 
+  function paceLineHtml(project, board) {
+    const pace = paceFor(project);
+    if (!pace) return '';
+    const ratio = Math.max(0.25, Math.min(4, pace.ratio));
+    return '<p class="estimate-pace">' + esc(t('Your pace')) + ': <b>' + ratio.toFixed(1) + '×</b> ' + esc(t('estimate')) +
+      ' → <b>' + formatHours(board.hoursLeft * ratio) + '</b> · ' + pace.count + ' ' + esc(t('Tracked').toLowerCase()) + '</p>';
+  }
+
   function renderStudioSummary(project) {
     const score = scoreSpec(project);
     const board = boardSummary(project);
@@ -1409,7 +1610,7 @@
           '<span class="score-ring-wrap">' + scoreRing(score.score, 96, score.grade) +
             '<span class="score-number"><b>' + score.score + '</b><small>/100</small></span></span>' +
           '<div><span class="studio-kicker">Spec score</span><h3>Grade ' + score.grade + '</h3>' +
-          '<p>' + (score.strengths.length ? esc(score.strengths.join(' · ')) : 'Tighten the brief to raise it.') + '</p></div>' +
+          '<p>' + (score.strengths.length ? esc(score.strengths.map(function (item) { return t(item); }).join(' · ')) : esc(t('Tighten the brief to raise it.'))) + '</p></div>' +
         '</div>' +
         '<div class="score-parts">' +
           score.parts.map(function (part) {
@@ -1423,12 +1624,14 @@
             }).join('') + '</ul>' +
             (score.issues.length > 3 ? '<button type="button" class="btn btn-text btn-sm score-more" data-studio="all-issues">+' + (score.issues.length - 3) + ' more suggestions</button>' : '')
           : '<p class="score-clean">No suggestions — this brief is ready to hand to a builder.</p>') +
+        (window.SweepPro ? '<button type="button" class="btn btn-secondary btn-sm ai-btn" data-studio="ai-sharpen"><span aria-hidden="true">✨</span> ' + esc(t('Sharpen with AI')) + '</button>' : '') +
       '</div>' +
       '<div class="studio-card estimate-card">' +
         '<span class="studio-kicker">Build estimate</span>' +
         '<div class="estimate-big"><b>' + board.total + '</b> tasks <span>· ' + formatHours(board.hoursTotal) + '</span></div>' +
         '<div class="estimate-progress"><i style="width:' + board.percent + '%"></i></div>' +
         '<p class="estimate-line">' + board.done + ' done · ' + formatHours(board.hoursLeft) + ' left (rough, single developer)</p>' +
+        paceLineHtml(project, board) +
         (board.next
           ? '<div class="estimate-next"><span class="studio-kicker">Next up</span><b>' + esc(board.next.id) + '</b> ' + esc(board.next.title) +
             '<button type="button" class="btn btn-secondary btn-sm" data-studio="start-next">' + (board.next.status === 'doing' ? 'Mark done' : 'Start') + '</button></div>'
@@ -1462,7 +1665,8 @@
           (tasks.length ? tasks.map(function (task) { return taskCardHtml(task, board); }).join('') : '<div class="board-empty">Drop tasks here</div>') +
         '</div></div>';
     }).join('') + '</div>' +
-    '<p class="studio-foot">Drag cards between columns, or use the arrows. Tasks unlock when the tasks they depend on are done.</p>';
+    '<p class="studio-foot">Drag cards between columns, or use the arrows. Tasks unlock when the tasks they depend on are done.</p>' +
+    timePanelHtml(project);
   }
 
   function taskCardHtml(task, board) {
@@ -1484,6 +1688,7 @@
       '</div>' +
       '<p class="task-title">' + esc(task.title) + '</p>' +
       '<div class="task-foot">' + dots + '<span class="task-hours">~' + task.hours + ' h</span>' + deps + '</div>' +
+      (task.status !== 'todo' || ui.editingTime === task.key ? '<div class="task-time">' + timeControlHtml(task, board) + '</div>' : '') +
       '<div class="task-move">' +
         (task.status !== 'todo' ? '<button type="button" data-move="back" aria-label="Move ' + task.id + ' back">←</button>' : '') +
         (task.status !== 'done' ? '<button type="button" data-move="forward" aria-label="Move ' + task.id + ' forward">→</button>' : '') +
@@ -1512,12 +1717,16 @@
       '</nav>' +
       '<div class="spec-viewer">' +
         '<div class="spec-toolbar">' +
-          '<span class="spec-path">' + esc(ui.specFile) + '</span>' +
+          '<span class="spec-path">' + esc(ui.specFile) +
+            (project.aiSpecs && project.aiSpecs[ui.specFile] ? ' <span class="ai-badge" title="' + esc(project.aiSpecs[ui.specFile].model || '') + '">' + esc(t('AI-edited')) + '</span>' : '') +
+          '</span>' +
           '<div class="spec-tools">' +
             (isMarkdown
               ? '<div class="seg"><button type="button" data-spec-mode="preview" class="' + (ui.specMode === 'preview' ? 'active' : '') + '">Preview</button>' +
                 '<button type="button" data-spec-mode="raw" class="' + (ui.specMode === 'raw' ? 'active' : '') + '">Markdown</button></div>'
               : '') +
+            (window.SweepPro ? '<button type="button" class="btn btn-secondary btn-sm ai-btn" data-studio="ai-spec"><span aria-hidden="true">✨</span> ' + esc(t('Improve with AI')) + '</button>' : '') +
+            (project.aiSpecs && project.aiSpecs[ui.specFile] ? '<button type="button" class="btn btn-text btn-sm" data-studio="ai-revert">' + esc(t('Revert to generated')) + '</button>' : '') +
             '<button type="button" class="btn btn-secondary btn-sm" data-studio="copy-spec">Copy</button>' +
             '<button type="button" class="btn btn-secondary btn-sm" data-studio="download-spec">Download</button>' +
           '</div>' +
@@ -1777,6 +1986,12 @@
     } else {
       board[key] = status;
     }
+    if (status === 'doing') {
+      startTimer(project, key);
+    } else {
+      stopTimer(project, key);
+    }
+    if (status === 'done') timeLog(project)[key] = Object.assign(timeLog(project)[key] || { spentMs: 0 }, { doneAt: Date.now() });
     persist(project);
     const after = boardSummary(project);
     renderStudio(project);
@@ -1828,6 +2043,184 @@
     });
   }
 
+  // ---------- timer + AI handlers ----------
+
+  function onTimerAction(project, key, action) {
+    if (action === 'pause') stopTimer(project, key);
+    if (action === 'resume') startTimer(project, key);
+    if (action === 'edit') {
+      ui.editingTime = key;
+      renderStudio(project);
+      const input = document.querySelector('.time-input[data-time-key="' + key + '"]');
+      if (input) {
+        input.focus();
+        input.select();
+      }
+      return;
+    }
+    persist(project);
+    renderStudio(project);
+  }
+
+  function commitTimeInput(input) {
+    const project = state.currentProject;
+    if (!project || !input) return;
+    const key = input.getAttribute('data-time-key');
+    const hours = parseFloat(String(input.value).replace(',', '.'));
+    if (Number.isFinite(hours)) setSpentHours(project, key, hours);
+    ui.editingTime = null;
+    persist(project);
+    renderStudio(project);
+  }
+
+  function aiBusy(button, busy) {
+    if (!button) return;
+    if (busy) {
+      button.dataset.label = button.innerHTML;
+      button.disabled = true;
+      button.innerHTML = '<span class="ai-spinner" aria-hidden="true"></span> ' + esc(t('Thinking…'));
+    } else {
+      button.disabled = false;
+      if (button.dataset.label) button.innerHTML = button.dataset.label;
+    }
+  }
+
+  function requireAi() {
+    if (!window.SweepPro) return false;
+    if (window.SweepPro.ai.ready()) return true;
+    showToast(t('Set up AI in Settings first'));
+    window.SweepPro.openSettings('ai');
+    return false;
+  }
+
+  const AI_FIELD_LABELS = {
+    oneLiner: 'One-liner',
+    problem: 'Problem',
+    targetUser: 'Target user',
+    jtbd: 'Job-to-be-done',
+    successChecks: 'Success Criteria',
+    nonGoals: 'Non-goals',
+    overlap: 'Overlap'
+  };
+
+  async function aiSharpen(project, button) {
+    if (!requireAi()) return;
+    aiBusy(button, true);
+    try {
+      const issues = scoreSpec(project).issues.map(function (issue) { return issue.message + ' (' + issue.fix + ')'; });
+      const suggestion = await window.SweepPro.ai.sharpenBrief(project, issues);
+      showAiReview(project, suggestion);
+    } catch (error) {
+      showToast(t('AI could not answer') + ': ' + error.message);
+    } finally {
+      aiBusy(button, false);
+    }
+  }
+
+  function showAiReview(project, suggestion) {
+    closeAiReview();
+    const rows = Object.keys(AI_FIELD_LABELS).filter(function (field) {
+      if (!(field in suggestion)) return false;
+      const before = field === 'successChecks' ? (project.successChecks || []).join('\n') : String(project[field] || '');
+      const after = field === 'successChecks' ? suggestion.successChecks.join('\n') : suggestion[field];
+      return before.trim() !== String(after).trim();
+    });
+    const modal = document.createElement('div');
+    modal.id = 'ai-review-modal';
+    modal.className = 'studio-modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'ai-review-title');
+    const value = function (field, source) {
+      if (field === 'successChecks') {
+        const list = source === 'old' ? (project.successChecks || []) : suggestion.successChecks;
+        return '<ul>' + list.map(function (item) { return '<li>' + esc(item) + '</li>'; }).join('') + '</ul>';
+      }
+      return esc(source === 'old' ? project[field] || '—' : suggestion[field]);
+    };
+    modal.innerHTML =
+      '<div class="studio-modal-card ai-review-card">' +
+        '<button type="button" class="studio-modal-close" aria-label="' + esc(t('Close')) + '" data-ai-review="close">×</button>' +
+        '<span class="studio-kicker">' + esc(t('AI assist')) + '</span>' +
+        '<h2 id="ai-review-title">' + esc(t('AI suggestions for your brief')) + '</h2>' +
+        '<p class="studio-foot">' + esc(t('Review each change, then apply.')) + '</p>' +
+        (rows.length
+          ? '<div class="ai-diff">' + rows.map(function (field) {
+              return '<label class="ai-diff-row"><input type="checkbox" checked data-ai-field="' + field + '">' +
+                '<span class="ai-diff-body"><b>' + esc(t(AI_FIELD_LABELS[field])) + '</b>' +
+                '<span class="ai-old" data-no-i18n><em>' + esc(t('Current')) + '</em>' + value(field, 'old') + '</span>' +
+                '<span class="ai-new" data-no-i18n><em>' + esc(t('Suggested')) + '</em>' + value(field, 'new') + '</span></span></label>';
+            }).join('') + '</div>'
+          : '<p class="score-clean">' + esc(t('No suggestions — this brief is ready to hand to a builder.')) + '</p>') +
+        '<div class="shared-actions">' +
+          (rows.length ? '<button type="button" class="btn btn-primary" data-ai-review="apply">' + esc(t('Apply changes')) + '</button>' : '') +
+          '<button type="button" class="btn btn-secondary" data-ai-review="close">' + esc(t('Cancel')) + '</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(modal);
+    document.body.classList.add('studio-modal-open');
+    modal.addEventListener('click', function (event) {
+      if (event.target === modal) closeAiReview();
+      const button = event.target.closest('[data-ai-review]');
+      if (!button) return;
+      if (button.getAttribute('data-ai-review') === 'close') closeAiReview();
+      if (button.getAttribute('data-ai-review') === 'apply') {
+        const chosen = Array.prototype.map.call(modal.querySelectorAll('[data-ai-field]:checked'), function (box) {
+          return box.getAttribute('data-ai-field');
+        });
+        applyAiSuggestion(project, suggestion, chosen);
+        closeAiReview();
+      }
+    });
+    modal.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') closeAiReview();
+    });
+    const primary = modal.querySelector('[data-ai-review="apply"]') || modal.querySelector('[data-ai-review="close"]');
+    if (primary) primary.focus();
+  }
+
+  function closeAiReview() {
+    const modal = document.getElementById('ai-review-modal');
+    if (modal) modal.remove();
+    if (!document.querySelector('.studio-modal')) document.body.classList.remove('studio-modal-open');
+  }
+
+  function applyAiSuggestion(project, suggestion, fields) {
+    if (!fields.length) return;
+    let target = project;
+    if (isDemo(project) && window.SweepEnhance && window.SweepEnhance.duplicateProject) {
+      target = window.SweepEnhance.duplicateProject(project, { name: project.name, quiet: true });
+    }
+    const before = scoreSpec(target).score;
+    fields.forEach(function (field) {
+      target[field] = field === 'successChecks' ? suggestion.successChecks.slice() : suggestion[field];
+    });
+    if (target !== project && typeof openProject === 'function') openProject(target.id);
+    state.currentProject = target;
+    persist(target);
+    renderStudio(target);
+    showToast(t('Brief updated with AI suggestions') + ' · ' + t('Spec Score') + ' ' + before + ' → ' + scoreSpec(target).score);
+  }
+
+  async function aiImproveSpec(project, button) {
+    if (!requireAi()) return;
+    const file = ui.specFile;
+    aiBusy(button, true);
+    try {
+      const base = generatedSpecFiles(project)[file];
+      const improved = await window.SweepPro.ai.improveSpecFile(project, file, base);
+      if (!project.aiSpecs) project.aiSpecs = {};
+      const settings = window.SweepPro.ai.settings();
+      project.aiSpecs[file] = { content: improved, at: new Date().toISOString(), model: settings.provider + ' · ' + settings.model };
+      persist(project);
+      renderStudio(project);
+      showToast(t('AI-edited') + ': ' + file);
+    } catch (error) {
+      showToast(t('AI could not answer') + ': ' + error.message);
+      aiBusy(button, false);
+    }
+  }
+
   function onStudioClick(event) {
     const project = state.currentProject;
     if (!project) return;
@@ -1835,6 +2228,12 @@
     if (tab) {
       ui.tab = tab.getAttribute('data-tab');
       renderStudio(project);
+      return;
+    }
+    const timer = event.target.closest('[data-timer]');
+    if (timer) {
+      const timerCard = timer.closest('.task-card');
+      if (timerCard) onTimerAction(project, timerCard.getAttribute('data-task'), timer.getAttribute('data-timer'));
       return;
     }
     const move = event.target.closest('[data-move]');
@@ -1881,6 +2280,14 @@
       openProject(copy.id);
       navigateTo('studio');
       showToast('Demo copied to your projects');
+    }
+    if (name === 'ai-sharpen') aiSharpen(project, action);
+    if (name === 'ai-spec') aiImproveSpec(project, action);
+    if (name === 'ai-revert') {
+      if (project.aiSpecs) delete project.aiSpecs[ui.specFile];
+      persist(project);
+      renderStudio(project);
+      showToast(t('Reverted to the generated version'));
     }
     if (name === 'copy-spec') copyText(specFiles(project)[ui.specFile], 'Copied ' + ui.specFile);
     if (name === 'download-spec') downloadText(ui.specFile.split('/').pop(), specFiles(project)[ui.specFile]);
@@ -2120,6 +2527,16 @@
   }
   checkShareHash();
 
+  // Re-render the Studio when the interface language changes, so strings built with t() update too.
+  if (window.SweepI18n && window.SweepI18n.onChange) {
+    window.SweepI18n.onChange(function () {
+      const studioSection = document.getElementById('section-studio');
+      if (studioSection && studioSection.classList.contains('active') && state.currentProject) {
+        renderStudio(state.currentProject);
+      }
+    });
+  }
+
   window.SweepStudio = {
     scoreSpec: scoreSpec,
     buildTasks: buildTasks,
@@ -2155,6 +2572,7 @@
           }
         });
       });
+      if (window.SweepPro) Array.prototype.push.apply(commands, window.SweepPro.paletteCommands());
       return commands;
     }
   };
