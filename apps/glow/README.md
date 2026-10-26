@@ -12,6 +12,9 @@
 GlowChat installable app: `glow/chat/app.html`, mobile: `glow/chat/mobile.html`. GlowRoom: `glow/room/app.html`, `glow/room/mobile.html`.
 AI-suggested resources in GlowChat are not automatically browsed or verified; GlowChat does no autonomous building or execution (that is GlowRoom's job, and its results should still be reviewed).
 
+## v0.7.1 — no more endless waiting
+Found in a real GlowLead run: a Glow Free request was accepted but never answered, so Nova (and GlowLead) waited forever. Every AI request from GlowRoom/GlowLead now has a 75 s answer timeout and a 45 s stall timeout while streaming; a stuck request is sent again (with a notice) and finally fails with a clear message instead of hanging. GlowLead also scrolls to its progress when a goal arrives from Glow home. Caches: `glowroom-v4`, `glowlead-v2`.
+
 ## v0.7.0 — GlowLead, the lead of the Glow apps
 A "boss bot" orchestrator, like using one bot to direct Claude Code and Codex, but for the Glow apps (`web/lead/`):
 - **Plan → delegate → check → report.** GlowLead turns one goal into 1–4 steps plus 2–4 concrete *done-criteria*, then hands each step to the right worker: **💬 GlowChat** (one model writes/explains), **⚖ GlowChat Council** (Builder, Critic, Judge) or the **🏢 GlowRoom crew** (live web research, code, sources). It never does the work itself.
