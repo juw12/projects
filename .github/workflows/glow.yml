@@ -1,0 +1,36 @@
+name: Glow regression checks
+
+on:
+  push:
+    paths: ['apps/glow/**', '.github/workflows/glow.yml']
+  pull_request:
+    paths: ['apps/glow/**', '.github/workflows/glow.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  glow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Static regressions
+        run: |
+          python -X utf8 apps/glow/tests/test_glowlead.py
+          python -X utf8 apps/glow/tests/test_rename.py
+          python -X utf8 apps/glow/tests/test_static_integrity.py
+          python -X utf8 apps/glow/tests/test_v04_account_tour.py
+      - name: Install browser test tools (not app dependencies)
+        run: |
+          python -m pip install playwright==1.55.0
+          python -m playwright install --with-deps chromium
+      - name: Hermetic browser regressions
+        run: python -X utf8 apps/glow/tests/test_mission_control_browser.py
+      - name: Validate Pages build
+        run: |
+          python -X utf8 scripts/build_site.py
+          python -X utf8 scripts/check_site.py

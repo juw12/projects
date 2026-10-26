@@ -12,6 +12,58 @@
 GlowChat installable app: `glow/chat/app.html`, mobile: `glow/chat/mobile.html`. GlowRoom: `glow/room/app.html`, `glow/room/mobile.html`.
 AI-suggested resources in GlowChat are not automatically browsed or verified; GlowChat does no autonomous building or execution (that is GlowRoom's job, and its results should still be reviewed).
 
+## v0.8.0 — GlowLead mission control
+
+GlowLead's existing orchestrator is upgraded, not replaced by a fork of Dots.
+[invisible_dots](https://github.com/feder-cr/invisible_dots) informed the ideas of visible
+work state, approvals and persistent work. No Dots source, branding or VM runtime is included.
+
+- **Task-oriented UI:** responsive mission dashboard, progress counts, searchable/filterable
+  history, active mission highlighting, light/dark themes, keyboard focus and reduced-motion styles.
+- **Editable approval:** plan review is on by default, including goals handed over from Glow
+  home. Edit step titles, instructions, worker assignments and done-criteria before approving.
+  Planning itself still sends the brief to the configured AI provider.
+- **Permission-aware delegation:** research/drafting mode excludes the crew's `coder` and
+  `tester` workers. Generated code execution requires explicit opt-in for each new mission.
+  Reusing a mission or playbook resets this permission to off. This is not a VM sandbox or
+  per-tool approval system; allowed code still runs in the existing network-capable browser worker.
+- **Recovery:** checkpoints at planning, delegation, retry, review and completion; interrupted
+  runs offer an explicit resume. Completed steps are retained. Unfinished requests may repeat
+  after recovery, so no exactly-once guarantee is claimed. Browser Web Locks prevent two
+  GlowLead execution loops from running at once across same-origin tabs. Use HTTPS or localhost
+  in a modern browser. Direct GlowChat/GlowRoom runs are separate from this lock.
+- **Reusable work:** up to 12 locally saved playbooks, fresh planning on reuse, and full Markdown
+  mission exports containing criteria, worker output, source records and an activity trail.
+  The newest 50 missions and last 80 activity entries per mission are retained. Export important
+  work before older history rotates out or clearing browser storage.
+- **Honest results:** omitted, malformed or non-boolean review fields no longer pass criteria.
+  Empty responses are failures. A successful unrelated crew step cannot hide failed research,
+  including a failed researcher inside an otherwise completed crew mission. Source cards come
+  from recorded tool artifacts, not URLs invented in a final report. Collected sources and AI
+  review are not independent verification.
+- **Storage transparency:** quota failures show a persistent warning and preserve in-memory
+  work for export, rather than silently discarding most history. Browser-local storage is still
+  not a cross-device sync service. Keep the tab open for execution; background scheduling,
+  autonomous computer control and VM isolation are not provided.
+
+### Upgrade checks
+
+The optional Playwright suite (`tests/test_mission_control_browser.py`) blocks external requests
+and uses deterministic provider stubs; it also runs the original 21 browser self-checks with the
+real crew engine loaded. It covers approvals, edits, interruption/reload, duplicate tabs,
+permission routing, malformed reviews, failed research, exports, playbooks, storage failures,
+and responsive layouts. This verifies orchestration and UI behavior, not live provider quality,
+free-tier availability, or real-world research accuracy.
+
+```bash
+python -m pip install playwright==1.55.0
+python -m playwright install chromium
+python -X utf8 apps/glow/tests/test_mission_control_browser.py
+```
+
+Glow itself still has no new runtime dependencies or build step. The scoped Glow workflow
+runs static regressions, browser tests, and the existing Pages build/validation on changes.
+
 ## v0.7.2 — no made-up answers when research fails
 Found in a real GlowLead run: Glow Free sent an empty reply while Nova was planning, the whole GlowRoom mission failed, GlowLead moved on, and GlowChat then invented products and review links that the check passed. Now:
 - **GlowRoom keeps going**: an empty AI reply is retried after a short wait (12 s, then 30 s); if Nova's planner still can't answer, the crew uses its standard plan, and if Nova can't write the summary, you get the team's own work instead of an error.
