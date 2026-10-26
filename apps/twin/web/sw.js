@@ -1,5 +1,5 @@
 // Twin 1.6.0: own cache only; offline shell; live demo data network-first; API never cached.
-// Market data (world snapshot, chart files, calendars) can change on any deploy: network first, cache as fallback.
+// Market data (world snapshot, chart files, calendars) refreshes hourly: network first, cache as fallback.
 const PREFIX = "twin:" + self.registration.scope + ":";
 const SHELL = PREFIX + "1.6.0";
 const FILES = [

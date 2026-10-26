@@ -20,7 +20,7 @@
   const cache = {};
 
   // ----------------------------------------------------------------- data
-  // world.json and its chart files are refreshed by the snapshot scripts: always revalidate them.
+  // world.json and its chart files are refreshed hourly on GitHub Pages: always revalidate them.
   const FRESH = new Set(["world", "calendars"]);
   async function load(name) {
     if (!cache[name]) {
@@ -255,7 +255,7 @@
   }
 
   // ---------------------------------------------------------- market
-  // World snapshot (300+ stocks and ETFs, 30+ indices, FX), refreshed by scripts/world_snapshot.py.
+  // World snapshot (300+ stocks and ETFs, 30+ indices, FX), refreshed hourly on GitHub Pages.
   async function world() {
     return load("world");
   }
@@ -273,7 +273,7 @@
   }
 
   async function quote(symbol) {
-    // Prefer the world snapshot; the older bundled US snapshot is the fallback.
+    // Prefer the hourly world snapshot; the older bundled US snapshot is the fallback.
     const globalData = await world().catch(() => null);
     let q = globalData && globalData.quotes[symbol];
     if (!q) {
@@ -991,7 +991,7 @@
           let charts = market.charts[symbol];
           let info = market.quotes[symbol];
           if (!charts) {
-            // 1.6: world charts live in one file per symbol (demo/world/<symbol>.json).
+            // 1.6: world charts live in one file per symbol (demo/world/<symbol>.json), refreshed hourly.
             const globalData = await world().catch(() => null);
             info = globalData && globalData.quotes[symbol];
             charts = info ? await worldChart(symbol) : null;
