@@ -1,0 +1,146 @@
+name: Glow Android app
+
+# Builds the Glow Android app (GlowLead + the built-in browser Glow Hands drives), tests it on an emulator
+# against a real public form, and publishes the signed APK to the "glow-android" release from main.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/glow/mobile/**'
+      - 'apps/glow/web/lead/**'
+      - 'apps/glow/web/shared/**'
+      - 'apps/glow/web/room/crew-engine.js'
+      - '.github/workflows/glow-android.yml'
+  pull_request:
+    paths:
+      - 'apps/glow/mobile/**'
+      - 'apps/glow/web/lead/**'
+      - 'apps/glow/web/shared/**'
+      - '.github/workflows/glow-android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: glow-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/glow/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Bundle GlowLead and prepare the Android project
+        run: |
+          npm install --no-fund --no-audit
+          npm run build
+          npm run android:prepare
+      - name: Restore the signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.GLOW_ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::GLOW_ANDROID_KEYSTORE_BASE64 is not set; only the debug APK will be built."
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/glow-signing.p12"
+          echo "GLOW_ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/glow-signing.p12" >> "$GITHUB_ENV"
+      - name: Build signed release and debug APKs
+        env:
+          GLOW_ANDROID_SIGNING_PASSWORD: ${{ secrets.GLOW_ANDROID_SIGNING_PASSWORD }}
+        run: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew assembleRelease assembleDebug --no-daemon
+      - name: Verify signature and name the packages
+        run: |
+          mkdir -p dist
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist/Glow-debug.apk
+          if [ -n "${GLOW_ANDROID_KEYSTORE_PATH:-}" ]; then
+            cp android/app/build/outputs/apk/release/app-release.apk dist/Glow-android.apk
+            APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -n 1)
+            "$APKSIGNER" verify --print-certs dist/Glow-android.apk > dist/android-signature.txt
+            grep -qi "$(tr -d '\r\n' < android-certificate-sha256.txt)" dist/android-signature.txt
+          fi
+          ls -la dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Glow-Android
+          path: apps/glow/mobile/dist
+          retention-days: 14
+
+  emulator:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Glow-Android
+          path: apps/glow/mobile/dist
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install websocket-client
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Drive the built-in browser on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          script: python apps/glow/mobile/scripts/android-e2e.py apps/glow/mobile/dist/Glow-debug.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Glow-Android-emulator
+          path: |
+            apps/glow/mobile/dist/*.png
+            apps/glow/mobile/dist/*.json
+            apps/glow/mobile/dist/*.txt
+          retention-days: 7
+
+  publish:
+    needs: [build, emulator]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Glow-Android
+          path: dist
+      - name: Publish the APK to the glow-android release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          test -f dist/Glow-android.apk || { echo "::error::No signed APK was built."; exit 1; }
+          NOTES="Glow for Android: GlowLead with its own built-in browser that Glow Hands drives on the phone. Built from ${GITHUB_SHA::7}. Install: open Glow-android.apk on your phone and allow installing from your browser."
+          if gh release view glow-android --repo "$REPO" > /dev/null 2>&1; then
+            gh release upload glow-android dist/Glow-android.apk --clobber --repo "$REPO"
+            gh release edit glow-android --notes "$NOTES" --repo "$REPO"
+          else
+            gh release create glow-android dist/Glow-android.apk --title "Glow for Android" --notes "$NOTES" --target "$GITHUB_SHA" --repo "$REPO"
+          fi

@@ -1,0 +1,16 @@
+# Glow instant cloud browser
+
+A Cloudflare Worker that gives GlowLead a short-lived hidden browser (Cloudflare Browser Rendering) and drives
+it through the shared Glow Hands core, with the same safety rules as Glow Hands on a PC.
+
+API (only `ALLOWED_ORIGINS` may call it):
+
+- `GET /v1/status`
+- `POST /v1/sessions` starts a browser (kept 10 minutes after the last call)
+- `POST /v1/sessions/<id>/call` with `{ "path": "status" | "observe" | "act" | "close", "body": {...} }`
+
+Errors are explained to the phone: 429 when the shared free daily browser time is used up, 503 when no
+browser is available, 410 when a session has ended.
+
+Test locally with a real Chromium: `GLOW_PLAYWRIGHT_CORE=<playwright-core package> node --test test/service.test.js`.
+Deploy: `.github/workflows/glow-cloud-worker.yml` (needs `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`).
