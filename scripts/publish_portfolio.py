@@ -220,7 +220,7 @@ def render_note(app, today):
         ", ".join(f'"{app_url(app, k)}"' for k in ("app", "web", "mobile"))
         + f', "apps/{app["id"]}/"'
     )
-    return (
+    note = (
         "---\n"
         f"id: {app['id']}\n"
         f"app: {app['id']}\n"
@@ -237,6 +237,17 @@ def render_note(app, today):
         f"- **Mobile** \u2014 {app_url(app, 'mobile')}\n\n"
         f"Monorepo: {REPO_URL} (`apps/{app['id']}/`)\n"
     )
+    standard_urls = {app_url(app, key) for key in ("app", "web", "mobile")}
+    extra_links = [
+        link for link in app.get("card_links", [])
+        if urljoin(SITE_BASE, link["path"]) not in standard_urls
+    ]
+    if extra_links:
+        note += "\n## More links\n\n" + "".join(
+            f"- **{link['label']}** \u2014 {urljoin(SITE_BASE, link['path'])}\n"
+            for link in extra_links
+        )
+    return note
 
 
 def write_notes(vault, apps, today, dry_run):
