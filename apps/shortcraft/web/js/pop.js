@@ -8,6 +8,7 @@
  *   math   — typed equation lines + highlighted result (scene.lines, scene.result)
  *   stamp  — big quote + rubber stamp that slams in (scene.quote, scene.stamp)
  *   poll   — A/B options + "comment A or B" call to action (scene.options)
+ * Theme: project.palette overrides colours (bg1, bg2, yellow, pink, cyan, green, ...).
  * Shared layers: moving gradient background, top progress bar, brand pill,
  * word-by-word karaoke captions, and a source footnote (scene.source / project.source).
  * Registers itself in window.SC_TEMPLATES; engine.renderFrame dispatches to it.
@@ -31,6 +32,18 @@
     black: "'Arial Black', 'Helvetica Neue', Arial, sans-serif",
     sans: "'Helvetica Neue', Arial, sans-serif"
   };
+
+
+  // Per-project colour theme: project.palette = {bg1, bg2, yellow, pink, cyan, green, ...}
+  // overrides the defaults above; reset on every frame so projects never leak into each other.
+  var DEFAULT_P = Object.assign({}, P);
+  var THEME_KEYS = ["bg1", "bg2", "ink", "soft", "faint", "yellow", "pink", "cyan", "green", "card"];
+
+  function applyPalette(palette) {
+    THEME_KEYS.forEach(function (key) {
+      P[key] = palette && typeof palette[key] === "string" ? palette[key] : DEFAULT_P[key];
+    });
+  }
 
   // ---------------------------------------------------------------- helpers
   function clamp(x, a, b) {
@@ -486,13 +499,22 @@
     var y = headline(ctx, scene.headline || "", 300, local, { size: 72, maxLines: 2 }) + 70;
     var lines = scene.lines || [];
     var perLine = Math.max(0.6, (item.voDur * 0.45) / Math.max(1, lines.length));
+    var mono = "'Menlo','Courier New',monospace";
+    var lineSize = 72;
+    setFont(ctx, "800", lineSize, mono);
+    var widest = lines.reduce(function (max, line) {
+      return Math.max(max, ctx.measureText(line).width);
+    }, 0);
+    if (widest > W - 120) {
+      lineSize = Math.max(40, Math.floor(lineSize * (W - 120) / widest));
+    }
     lines.forEach(function (line, i) {
       var start = 0.4 + i * perLine;
       var chars = Math.floor(line.length * progress(local, start, perLine * 0.7));
       if (chars <= 0) {
         return;
       }
-      setFont(ctx, "800", 72, "'Menlo','Courier New',monospace");
+      setFont(ctx, "800", lineSize, mono);
       ctx.fillStyle = P.ink;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -507,8 +529,15 @@
         ctx.save();
         ctx.translate(W / 2, ry);
         ctx.scale(p, p);
-        setFont(ctx, "900", 100, P.black);
-        var w = ctx.measureText(scene.result).width + 90;
+        var resultSize = 100;
+        setFont(ctx, "900", resultSize, P.black);
+        var textW = ctx.measureText(scene.result).width;
+        if (textW > W - 190) {
+          resultSize = Math.max(48, Math.floor(resultSize * (W - 190) / textW));
+          setFont(ctx, "900", resultSize, P.black);
+          textW = ctx.measureText(scene.result).width;
+        }
+        var w = textW + 90;
         ctx.fillStyle = P.yellow;
         roundRect(ctx, -w / 2, -85, w, 170, 40);
         ctx.fill();
@@ -523,15 +552,28 @@
   };
 
   LAYOUTS.stamp = function (ctx, scene, item, local) {
+    var quote = scene.quote || scene.headline || "";
+    var top = scene.icon ? 760 : 600;
+    var subH = scene.sub ? 2 * 46 * 1.25 : 0;
+    var stampBottomLimit = 1360; // stamp centre; captions start ~1500
+    var quoteSize = 104;
+    while (quoteSize > 64) {
+      var fit = fitWrapped(ctx, quote, P.black, "900", quoteSize, W - 140, 4, 48);
+      var bottom = top + fit.lines.length * fit.size * 1.12 + 40 + subH + 150;
+      if (bottom <= stampBottomLimit) {
+        break;
+      }
+      quoteSize -= 8;
+    }
     emoji(ctx, scene.icon, W / 2, 470, 200, local, 0.05);
-    var y = headline(ctx, scene.quote || scene.headline || "", scene.icon ? 760 : 600, local, { size: 104, maxLines: 4, color: P.ink });
+    var y = headline(ctx, quote, top, local, { size: quoteSize, maxLines: 4, color: P.ink });
     y = subline(ctx, scene.sub, y + 40, local, 0.5);
     if (scene.stamp) {
       var ps = progress(local, 0.9, 0.22);
       if (ps > 0) {
         var s = 1 + (1 - easeOut(ps)) * 2.2;
         ctx.save();
-        ctx.translate(W / 2, Math.min(y + 170, 1340));
+        ctx.translate(W / 2, Math.min(y + 150, stampBottomLimit));
         ctx.rotate(-0.12);
         ctx.scale(s, s);
         ctx.globalAlpha = clamp(ps * 2, 0, 1);
@@ -594,6 +636,7 @@
 
   // ---------------------------------------------------------------- frame
   function drawPop(ctx, project, timeline, t, assets, SC) {
+    applyPalette(project.palette);
     var item = SC.sceneAt(timeline, t);
     var scene = item.scene;
     var local = t - item.start;
