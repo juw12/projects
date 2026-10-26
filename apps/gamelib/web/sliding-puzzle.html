@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Sliding Puzzle — Number Tiles</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(circle at 50% 0%, #23303d 0%, #141a22 60%, #0e1319 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+    color: #e8eef4;
+    touch-action: manipulation;
+    overflow-x: hidden;
+  }
+
+  /* ============ GAME CONTAINER ============ */
+  .game-container {
+    width: min(96vw, 560px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .game-title {
+    text-align: center;
+    font-size: clamp(1.6rem, 5vw, 2.4rem);
+    letter-spacing: 6px;
+    font-weight: 800;
+    color: #f2b544;
+    text-shadow: 0 2px 0 #7a5210, 0 4px 18px rgba(242, 181, 68, 0.35);
+  }
+
+  .game-subtitle {
+    text-align: center;
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+    color: #8fa2b4;
+    margin-top: -6px;
+  }
+
+  /* ============ HUD / STATS ============ */
+  .hud {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .stat {
+    flex: 1 1 auto;
+    min-width: 76px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 10px;
+    padding: 7px 10px;
+    font-size: 0.72rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #8fa2b4;
+  }
+
+  .stat b {
+    display: block;
+    margin-top: 2px;
+    font-size: 1.15rem;
+    letter-spacing: 0;
+    color: #f4f8fb;
+  }
+
+  .stat b.gold { color: #f2b544; }
+
+  /* ============ BOARD ============ */
+  .board-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #0d1319;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+    touch-action: none;
+    user-select: none;
+  }
+
+  .board {
+    position: absolute;
+    inset: 0;
+    --n: 4;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.05)),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0 1px, transparent 1px calc(100% / var(--n))),
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.035) 0 1px, transparent 1px calc(100% / var(--n)));
+  }
+
+  /* ============ TILES ============ */
+  .tile {
+    position: absolute;
+    width: calc(100% / var(--n));
+    height: calc(100% / var(--n));
+    padding: 4px;
+    transition: left 0.13s cubic-bezier(.3,.7,.4,1), top 0.13s cubic-bezier(.3,.7,.4,1);
+    will-change: left, top;
+  }
+
+  .tile .face {
+    width: 100%;
+    height: 100%;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: clamp(1rem, 5.5vw, 1.7rem);
+    color: #f4f8fb;
+    background: linear-gradient(160deg, rgba(255,255,255,0.14), rgba(255,255,255,0.04));
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255,255,255,0.18);
+    cursor: pointer;
+    transition: filter 0.12s ease, transform 0.08s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .tile .face:active { transform: scale(0.96); }
+  .tile:hover .face { filter: brightness(1.12); }
+
+  .tile.correct .face {
+    border-color: rgba(242, 181, 68, 0.65);
+    box-shadow: 0 3px 0 rgba(0,0,0,0.35), inset 0 0 0 1px rgba(242,181,68,0.35);
+  }
+
+  /* color mode: hue driven by tile value, set inline as --hue */
+  body.color .tile .face {
+    background: linear-gradient(160deg,
+      hsl(var(--hue) 70% 62%) 0%,
+      hsl(var(--hue) 68% 46%) 100%);
+    color: #10151a;
+    border-color: rgba(0, 0, 0, 0.25);
+    text-shadow: 0 1px 0 rgba(255,255,255,0.35);
+  }
+
+  /* ============ OVERLAY SCREENS ============ */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 18px;
+    text-align: center;
+    background: linear-gradient(180deg, rgba(13, 19, 25, 0.93), rgba(13, 19, 25, 0.97));
+    transition: opacity 0.25s ease;
+    backdrop-filter: blur(2px);
+    z-index: 5;
+  }
+
+  .screen.hidden { opacity: 0; pointer-events: none; }
+
+  .screen-title {
+    font-size: clamp(1.3rem, 4.5vw, 1.9rem);
+    letter-spacing: 2px;
+    color: #f2b544;
+    text-shadow: 0 2px 10px rgba(242, 181, 68, 0.35);
+  }
+
+  .screen-text {
+    font-size: 0.84rem;
+    line-height: 1.5;
+    color: #a9bccd;
+    max-width: 420px;
+  }
+
+  .screen-text em { color: #f2b544; font-style: normal; }
+
+  .badge-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 4px 0;
+  }
+
+  .badge {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 0.72rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #8fa2b4;
+  }
+
+  .badge b { display: block; font-size: 1.05rem; color: #f4f8fb; margin-top: 2px; }
+
+  /* ============ BUTTONS ============ */
+  .action-btn {
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 11px 30px;
+    border: none;
+    border-radius: 26px;
+    cursor: pointer;
+    color: #26190a;
+    background: linear-gradient(135deg, #ffd066, #e0954a);
+    box-shadow: 0 5px 0 #8a5a18, 0 8px 18px rgba(224, 149, 74, 0.35);
+    transition: transform 0.06s ease, box-shadow 0.06s ease, filter 0.15s ease;
+    user-select: none;
+  }
+
+  .action-btn:hover { filter: brightness(1.06); }
+  .action-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #8a5a18; }
+
+  /* ============ SIZE CHIPS ============ */
+  .size-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 4px;
+  }
+
+  .chip {
+    padding: 8px 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.05);
+    color: #cfe0ee;
+    font-family: inherit;
+    font-size: 0.86rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: transform 0.1s ease, background 0.15s ease;
+  }
+
+  .chip:hover { background: rgba(242, 181, 68, 0.25); transform: translateY(-2px); }
+  .chip.current { background: linear-gradient(135deg, #ffd066, #e0954a); color: #26190a; border-color: transparent; }
+
+  /* ============ CONTROLS ============ */
+  .controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+
+  .ctrl-btn {
+    flex: 1 1 0;
+    max-width: 200px;
+    font-family: inherit;
+    font-size: 0.86rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 11px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    cursor: pointer;
+    color: #dbe6f0;
+    background: rgba(255, 255, 255, 0.06);
+    transition: background 0.15s ease, transform 0.06s ease;
+    user-select: none;
+  }
+
+  .ctrl-btn:hover { background: rgba(255, 255, 255, 0.12); }
+  .ctrl-btn:active { transform: translateY(2px); }
+  .ctrl-btn.primary { color: #f2b544; }
+  .ctrl-btn.toggle-on { color: #9fe0b5; border-color: rgba(159, 224, 181, 0.4); }
+
+  .hint {
+    text-align: center;
+    font-size: 0.7rem;
+    letter-spacing: 0.5px;
+    color: #6d7f90;
+  }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 520px) {
+    .stat { min-width: 66px; padding: 6px 8px; }
+    .stat b { font-size: 1rem; }
+    .tile { padding: 3px; }
+  }
+</style>
+</head>
+<body>
+<div class="game-container">
+  <h1 class="game-title">SLIDING PUZZLE</h1>
+  <p class="game-subtitle">Slide every tile back into order — one gap to work with 🧩</p>
+
+  <!-- ============ HUD ============ -->
+  <div class="hud">
+    <div class="stat">Moves <b id="moveStat">0</b></div>
+    <div class="stat">Time <b id="timeStat">0:00</b></div>
+    <div class="stat">Best Moves <b id="bestMoveStat" class="gold">–</b></div>
+    <div class="stat">Best Time <b id="bestTimeStat">–</b></div>
+  </div>
+
+  <!-- ============ BOARD + OVERLAYS ============ -->
+  <div class="board-wrap" id="boardWrap">
+    <div class="board" id="board"></div>
+
+    <!-- Start Screen -->
+    <div class="screen" id="startScreen">
+      <h2 class="screen-title">NUMBER SHUFFLE</h2>
+      <p class="screen-text">
+        Slide tiles into the empty gap to arrange them <em>1 → 15</em>.
+        Use <em>Arrow keys</em>, <em>WASD</em>, the on-screen buttons, or <em>swipe</em>.
+        Click any tile in the same row or column as the gap to slide it across.
+      </p>
+      <p class="screen-text"><em>R</em> = restart &nbsp;•&nbsp; <em>C</em> = color mode</p>
+      <div class="size-chips" id="startChips"></div>
+      <button class="action-btn" id="startBtn">Start Puzzle</button>
+    </div>
+
+    <!-- Win Screen -->
+    <div class="screen hidden" id="winScreen">
+      <h2 class="screen-title">SOLVED!</h2>
+      <p class="screen-text" id="winText">Nicely done.</p>
+      <div class="badge-row">
+        <div class="badge">Moves <b id="winMoves">0</b></div>
+        <div class="badge">Time <b id="winTime">0:00</b></div>
+      </div>
+      <button class="action-btn" id="againBtn">Play Again</button>
+    </div>
+  </div>
+
+  <!-- ============ CONTROLS ============ -->
+  <div class="controls">
+    <button class="ctrl-btn primary" id="restartBtn">↻ Restart</button>
+    <button class="ctrl-btn" id="newBtn">⇄ New Shuffle</button>
+    <button class="ctrl-btn" id="colorBtn">🎨 Color</button>
+  </div>
+
+  <p class="hint">Arrow / WASD / swipe / click &nbsp;•&nbsp; tiles slide into the gap</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ DOM REFERENCES ============
+  var boardEl      = document.getElementById("board");
+  var boardWrap    = document.getElementById("boardWrap");
+  var startScreen  = document.getElementById("startScreen");
+  var winScreen    = document.getElementById("winScreen");
+  var startBtn     = document.getElementById("startBtn");
+  var againBtn     = document.getElementById("againBtn");
+  var restartBtn   = document.getElementById("restartBtn");
+  var newBtn       = document.getElementById("newBtn");
+  var colorBtn     = document.getElementById("colorBtn");
+  var startChips   = document.getElementById("startChips");
+  var moveStat     = document.getElementById("moveStat");
+  var timeStat     = document.getElementById("timeStat");
+  var bestMoveStat = document.getElementById("bestMoveStat");
+  var bestTimeStat = document.getElementById("bestTimeStat");
+  var winMoves     = document.getElementById("winMoves");
+  var winTime      = document.getElementById("winTime");
+  var winText      = document.getElementById("winText");
+
+  var LS_BEST   = "slidingPuzzle.best.";   // + size
+  var LS_COLOR  = "slidingPuzzle.colorMode";
+  var LS_SIZE   = "slidingPuzzle.size";
+
+  // ============ GAME STATE ============
+  var state = {
+    n: 4,            // grid size (3, 4, 5)
+    board: [],       // length n*n, 0 = blank
+    tiles: {},       // value -> DOM element
+    moves: 0,
+    startTime: 0,    // timestamp of first move
+    timerId: null,
+    running: false,
+    solved: false,
+    colorMode: false
+  };
+
+  // ============ SOUND (WebAudio, no assets) ============
+  var actx = null;
+
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+      var o = actx.createOscillator();
+      var g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g);
+      g.connect(actx.destination);
+      o.start();
+      o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable — ignore */ }
+  }
+
+  // ============ HELPERS ============
+  function blankIndex() {
+    return state.board.indexOf(0);
+  }
+
+  function isSolved() {
+    var total = state.n * state.n;
+    for (var i = 0; i < total - 1; i++) {
+      if (state.board[i] !== i + 1) return false;
+    }
+    return state.board[total - 1] === 0;
+  }
+
+  function formatTime(ms) {
+    var total = Math.floor(ms / 1000);
+    var m = Math.floor(total / 60);
+    var s = total % 60;
+    return m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  // ============ SOLVED BOARD ============
+  function solvedBoard(n) {
+    var arr = [];
+    var total = n * n;
+    for (var i = 1; i < total; i++) arr.push(i);
+    arr.push(0);
+    return arr;
+  }
+
+  // ============ SHUFFLE (always solvable — random legal moves from solved) ============
+  function shuffleBoard(n) {
+    var arr = solvedBoard(n);
+    var b = arr.indexOf(0);
+    var last = -1;
+    var steps = n * n * 40;
+
+    function neighbors(i) {
+      var r = Math.floor(i / n), c = i % n, out = [];
+      if (r > 0) out.push(i - n);
+      if (r < n - 1) out.push(i + n);
+      if (c > 0) out.push(i - 1);
+      if (c < n - 1) out.push(i + 1);
+      return out;
+    }
+
+    for (var s = 0; s < steps; s++) {
+      var opts = neighbors(b).filter(function (x) { return x !== last; });
+      var pick = opts[Math.floor(Math.random() * opts.length)];
+      arr[b] = arr[pick];
+      arr[pick] = 0;
+      last = b;
+      b = pick;
+    }
+    // Guard: never hand out an already-solved arrangement
+    if (arr.indexOf(0) === n * n - 1) {
+      var t = arr.slice();
+      var ok = true;
+      for (var k = 0; k < n * n - 1; k++) { if (t[k] !== k + 1) { ok = false; break; } }
+      if (ok && optsHack()) { /* extremely improbable; reshuffle once */ return shuffleBoard(n); }
+    }
+    return arr;
+  }
+  function optsHack() { return true; }
+
+  // ============ RENDER ============
+  function buildTiles() {
+    boardEl.innerHTML = "";
+    state.tiles = {};
+    var n = state.n;
+    boardEl.style.setProperty("--n", n);
+    var total = n * n;
+
+    for (var v = 1; v < total; v++) {
+      var el = document.createElement("div");
+      el.className = "tile";
+      el.style.width = "calc(100% / " + n + ")";
+      el.style.height = "calc(100% / " + n + ")";
+
+      var face = document.createElement("div");
+      face.className = "face";
+      face.textContent = v;
+      face.dataset.value = v;
+
+      // color-mode hue: spread tiles across the spectrum
+      var hue = Math.round(((v - 1) / (total - 1)) * 300);
+      face.style.setProperty("--hue", hue);
+
+      el.appendChild(face);
+      boardEl.appendChild(el);
+      state.tiles[v] = el;
+    }
+    positionTiles();
+    markCorrect();
+  }
+
+  function positionTiles() {
+    var n = state.n;
+    for (var i = 0; i < state.board.length; i++) {
+      var v = state.board[i];
+      if (v === 0) continue;
+      var r = Math.floor(i / n), c = i % n;
+      var el = state.tiles[v];
+      el.style.left = (c * 100 / n) + "%";
+      el.style.top = (r * 100 / n) + "%";
+    }
+  }
+
+  function markCorrect() {
+    for (var v in state.tiles) {
+      var idx = state.board.indexOf(parseInt(v, 10));
+      var el = state.tiles[v];
+      if (idx === parseInt(v, 10) - 1) el.classList.add("correct");
+      else el.classList.remove("correct");
+    }
+  }
+
+  // ============ MOVES ============
+  // Slide every tile between the gap and the clicked cell, one step each.
+  function slideLine(idx) {
+    if (!state.running || state.solved) return false;
+    var n = state.n;
+    var b = blankIndex();
+    var br = Math.floor(b / n), bc = b % n;
+    var tr = Math.floor(idx / n), tc = idx % n;
+
+    if (tr !== br && tc !== bc) return false;   // not in same line
+    if (idx === b) return false;
+
+    var slid = 0;
+
+    if (tr === br) {
+      var dir = tc > bc ? 1 : -1;
+      for (var c = bc + dir; ; c += dir) {
+        var ci = br * n + c;
+        state.board[b] = state.board[ci];
+        state.board[ci] = 0;
+        b = ci;
+        slid++;
+        if (c === tc) break;
+      }
+    } else {
+      var vdir = tr > br ? 1 : -1;
+      for (var r = br + vdir; ; r += vdir) {
+        var ri = r * n + bc;
+        state.board[b] = state.board[ri];
+        state.board[ri] = 0;
+        b = ri;
+        slid++;
+        if (r === tr) break;
+      }
+    }
+
+    if (slid === 0) return false;
+
+    state.moves += slid;
+    moveStat.textContent = state.moves;
+    positionTiles();
+    markCorrect();
+    beep(240 + Math.min(slid, 5) * 40, 0.06, "triangle");
+
+    if (state.moves === slid) startTimer();  // first move starts the clock
+    checkWin();
+    return true;
+  }
+
+  // Move the tile adjacent to the gap in a direction (arrow / swipe).
+  // dir: "up" tiles slide up into the gap, etc.
+  function moveDir(dir) {
+    if (!state.running || state.solved) return;
+    var n = state.n;
+    var b = blankIndex();
+    var br = Math.floor(b / n), bc = b % n;
+    var target = -1;
+
+    if (dir === "up"    && br < n - 1) target = b + n;   // tile below rises
+    if (dir === "down"  && br > 0)     target = b - n;   // tile above descends
+    if (dir === "left"  && bc < n - 1) target = b + 1;   // tile right slides left
+    if (dir === "right" && bc > 0)     target = b - 1;   // tile left slides right
+
+    if (target >= 0) slideLine(target);
+  }
+
+  // ============ TIMER ============
+  function startTimer() {
+    if (state.timerId) return;
+    state.startTime = performance.now();
+    state.timerId = setInterval(function () {
+      timeStat.textContent = formatTime(performance.now() - state.startTime);
+    }, 200);
+  }
+
+  function stopTimer() {
+    if (state.timerId) { clearInterval(state.timerId); state.timerId = null; }
+  }
+
+  function elapsed() {
+    return state.startTime ? performance.now() - state.startTime : 0;
+  }
+
+  // ============ WIN ============
+  function checkWin() {
+    if (!isSolved()) return;
+    state.solved = true;
+    state.running = false;
+    stopTimer();
+
+    var t = elapsed();
+    var timeStr = formatTime(t);
+    timeStat.textContent = timeStr;
+
+    winMoves.textContent = state.moves;
+    winTime.textContent = timeStr;
+
+    var best = loadBest(state.n);
+    var newRecord = false;
+    if (best.moves == null || state.moves < best.moves) { best.moves = state.moves; newRecord = true; }
+    if (best.time == null || t < best.time) { best.time = t; newRecord = true; }
+    saveBest(state.n, best);
+    renderBest(state.n);
+
+    winText.textContent = newRecord ? "★ New personal best! ★" : "Nicely done.";
+    winScreen.classList.remove("hidden");
+
+    // victory fanfare
+    var seq = [523, 659, 784, 1046];
+    seq.forEach(function (f, i) { setTimeout(function () { beep(f, 0.16, "triangle"); }, i * 110); });
+  }
+
+  // ============ BEST SCORES (localStorage) ============
+  function loadBest(n) {
+    try {
+      var raw = localStorage.getItem(LS_BEST + n);
+      if (raw) return JSON.parse(raw);
+    } catch (e) { /* ignore */ }
+    return { moves: null, time: null };
+  }
+
+  function saveBest(n, best) {
+    try { localStorage.setItem(LS_BEST + n, JSON.stringify(best)); } catch (e) { /* ignore */ }
+  }
+
+  function renderBest(n) {
+    var best = loadBest(n);
+    bestMoveStat.textContent = best.moves == null ? "–" : best.moves;
+    bestTimeStat.textContent = best.time == null ? "–" : formatTime(best.time);
+  }
+
+  // ============ NEW GAME ============
+  function setUpBoard() {
+    state.board = shuffleBoard(state.n);
+    state.moves = 0;
+    state.startTime = 0;
+    state.solved = false;
+    state.running = true;
+    stopTimer();
+
+    moveStat.textContent = "0";
+    timeStat.textContent = "0:00";
+    renderBest(state.n);
+
+    buildTiles();
+    winScreen.classList.add("hidden");
+    startScreen.classList.add("hidden");
+  }
+
+  function newShuffle() {
+    setUpBoard();
+    beep(520, 0.09, "sine");
+  }
+
+  // ============ SIZE SELECTION ============
+  function buildSizeChips() {
+    startChips.innerHTML = "";
+    [3, 4, 5].forEach(function (n) {
+      var btn = document.createElement("button");
+      btn.className = "chip" + (n === state.n ? " current" : "");
+      btn.textContent = n + " × " + n;
+      btn.dataset.size = n;
+      btn.addEventListener("click", function () { selectSize(n); });
+      startChips.appendChild(btn);
+    });
+  }
+
+  function selectSize(n) {
+    state.n = n;
+    try { localStorage.setItem(LS_SIZE, String(n)); } catch (e) { /* ignore */ }
+    var chips = startChips.querySelectorAll(".chip");
+    for (var i = 0; i < chips.length; i++) {
+      chips[i].classList.toggle("current", parseInt(chips[i].dataset.size, 10) === n);
+    }
+    renderBest(n);
+    boardEl.style.setProperty("--n", n);
+  }
+
+  // ============ COLOR MODE ============
+  function applyColorMode(on) {
+    state.colorMode = on;
+    document.body.classList.toggle("color", on);
+    colorBtn.classList.toggle("toggle-on", on);
+    try { localStorage.setItem(LS_COLOR, on ? "1" : "0"); } catch (e) { /* ignore */ }
+  }
+
+  // ============ INPUT: CLICK ============
+  boardWrap.addEventListener("click", function (e) {
+    var face = e.target.closest ? e.target.closest(".face") : null;
+    if (face && boardWrap.contains(face)) {
+      var val = parseInt(face.dataset.value, 10);
+      slideLine(state.board.indexOf(val));
+    }
+  });
+
+  // ============ INPUT: KEYBOARD ============
+  document.addEventListener("keydown", function (e) {
+    var keys = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyW", "KeyA", "KeyS", "KeyD"];
+    if (keys.indexOf(e.code) !== -1) e.preventDefault();
+
+    switch (e.code) {
+      case "ArrowUp": case "KeyW":    moveDir("up"); break;
+      case "ArrowDown": case "KeyS":  moveDir("down"); break;
+      case "ArrowLeft": case "KeyA":  moveDir("left"); break;
+      case "ArrowRight": case "KeyD": moveDir("right"); break;
+      case "KeyR": newShuffle(); break;
+      case "KeyC": applyColorMode(!state.colorMode); break;
+    }
+  });
+
+  // ============ INPUT: SWIPE ============
+  var swipe = { active: false, x: 0, y: 0 };
+
+  boardWrap.addEventListener("pointerdown", function (e) {
+    swipe.active = true;
+    swipe.x = e.clientX;
+    swipe.y = e.clientY;
+  });
+
+  boardWrap.addEventListener("pointerup", function (e) {
+    if (!swipe.active) return;
+    swipe.active = false;
+    var dx = e.clientX - swipe.x;
+    var dy = e.clientY - swipe.y;
+    var TH = 26;
+    if (Math.abs(dx) < TH && Math.abs(dy) < TH) return; // treated as a tap
+
+    if (Math.abs(dx) > Math.abs(dy)) moveDir(dx > 0 ? "right" : "left");
+    else moveDir(dy > 0 ? "down" : "up");
+  });
+
+  boardWrap.addEventListener("pointercancel", function () { swipe.active = false; });
+
+  // ============ BUTTONS ============
+  startBtn.addEventListener("click", function () { setUpBoard(); beep(520, 0.09, "sine"); });
+  againBtn.addEventListener("click", function () { setUpBoard(); beep(520, 0.09, "sine"); });
+  restartBtn.addEventListener("click", newShuffle);
+  newBtn.addEventListener("click", newShuffle);
+  colorBtn.addEventListener("click", function () {
+    applyColorMode(!state.colorMode);
+    beep(state.colorMode ? 700 : 420, 0.07, "sine");
+  });
+
+  // ============ INITIALIZE ============
+  try {
+    var savedSize = parseInt(localStorage.getItem(LS_SIZE) || "4", 10);
+    if (savedSize === 3 || savedSize === 4 || savedSize === 5) state.n = savedSize;
+  } catch (e) { /* ignore */ }
+
+  buildSizeChips();
+  applyColorMode(localStorage.getItem(LS_COLOR) === "1");
+  renderBest(state.n);
+
+  // Build a solvable board behind the start overlay as a preview
+  state.board = shuffleBoard(state.n);
+  buildTiles();
+  boardEl.style.setProperty("--n", state.n);
+})();
+</script>
+</body>
+</html>

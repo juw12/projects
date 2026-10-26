@@ -1,0 +1,1260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Domination</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background:
+      radial-gradient(1200px 700px at 20% -10%, #12233d 0%, rgba(18,35,61,0) 60%),
+      radial-gradient(1000px 800px at 100% 110%, #1a1430 0%, rgba(26,20,48,0) 55%),
+      #070b13;
+    color: #e8eef7;
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 14px;
+    touch-action: manipulation;
+  }
+  #app { width: min(1380px, 100%); display: flex; flex-direction: column; gap: 12px; }
+
+  /* ============ HEADER ============ */
+  #topbar { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  #title {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(1.5rem, 3.4vw, 2.3rem);
+    letter-spacing: 6px; font-weight: 700; color: #e8c34a;
+    text-shadow: 0 2px 0 #2a1f04, 0 0 26px rgba(232,195,74,.25);
+  }
+  #tagline { color: #8ba0b8; font-size: .78rem; letter-spacing: 3px; text-transform: uppercase; }
+
+  /* ============ LAYOUT ============ */
+  #layout { display: flex; gap: 12px; align-items: stretch; }
+
+  /* ============ CANVAS WRAP ============ */
+  #game-wrap {
+    position: relative; flex: 1 1 auto; min-width: 0;
+    border-radius: 12px; overflow: hidden;
+    border: 1px solid rgba(232,195,74,.28);
+    box-shadow: 0 18px 50px rgba(0,0,0,.6), inset 0 0 0 1px rgba(255,255,255,.03);
+    background: #071129;
+  }
+  canvas { display: block; width: 100%; height: auto; cursor: pointer; }
+
+  /* ============ HUD ============ */
+  #hud {
+    position: absolute; top: 10px; left: 10px;
+    padding: 8px 14px; border-radius: 8px;
+    background: rgba(6,11,20,.82); border-left: 4px solid #4f9dff;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: .82rem; letter-spacing: .5px; color: #dfeaf8;
+    pointer-events: none; backdrop-filter: blur(2px);
+  }
+
+  /* ============ SCREENS (Start / Result) ============ */
+  .screen {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px; text-align: center;
+    padding: 24px; transition: opacity .3s ease; z-index: 5;
+    background: radial-gradient(circle at 50% 40%, rgba(10,18,32,.9), rgba(4,7,14,.97));
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen h2 {
+    font-family: Georgia, serif; font-size: clamp(1.6rem, 4vw, 2.6rem);
+    letter-spacing: 4px; color: #e8c34a; text-shadow: 0 3px 0 #241a03;
+  }
+  .screen p { color: #b5c6da; font-size: .95rem; max-width: 470px; line-height: 1.5; }
+  .res-win { color: #4ade80 !important; }
+  .res-lose { color: #ff6b6b !important; }
+
+  .opp-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  .opp-label { color: #8ba0b8; font-size: .8rem; letter-spacing: 2px; text-transform: uppercase; }
+  .opp-btn {
+    font-family: inherit; padding: 9px 18px; border-radius: 8px;
+    border: 1px solid rgba(232,195,74,.4); background: rgba(255,255,255,.05);
+    color: #dfeaf8; font-size: .9rem; cursor: pointer; transition: all .15s ease;
+  }
+  .opp-btn:hover { background: rgba(232,195,74,.15); }
+  .opp-btn.selected { background: #e8c34a; color: #241a03; font-weight: 700; border-color: #e8c34a; }
+
+  .action-btn {
+    font-family: inherit; padding: 13px 34px; border: none; border-radius: 10px;
+    font-size: 1rem; font-weight: 700; letter-spacing: 2px; color: #241a03;
+    background: linear-gradient(180deg, #f2d15f, #d9a927);
+    box-shadow: 0 5px 0 #7a5c10; cursor: pointer;
+    transition: transform .05s ease, box-shadow .05s ease;
+  }
+  .action-btn:hover { filter: brightness(1.06); }
+  .action-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #7a5c10; }
+  .action-btn.ghost {
+    background: transparent; color: #dfeaf8; border: 1px solid rgba(255,255,255,.25);
+    box-shadow: none; font-weight: 600;
+  }
+  .action-btn.ghost:hover { background: rgba(255,255,255,.07); }
+  #resStats { font-family: Consolas, monospace; font-size: .9rem; color: #cfe0f2;
+    display: flex; flex-direction: column; gap: 4px; }
+  #resStats b { color: #e8c34a; }
+
+  /* ============ SIDE PANEL ============ */
+  #panel {
+    flex: 0 0 344px; display: flex; flex-direction: column; gap: 9px;
+    background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.07);
+    border-radius: 12px; padding: 12px; max-height: 640px; overflow-y: auto;
+  }
+  .section-title {
+    font-size: .68rem; letter-spacing: 2px; text-transform: uppercase;
+    color: #8ba0b8; border-bottom: 1px solid rgba(255,255,255,.08);
+    padding-bottom: 4px; margin-top: 4px;
+  }
+
+  /* players */
+  .prow {
+    display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+    border-radius: 7px; font-size: .84rem; background: rgba(255,255,255,.02);
+    border: 1px solid transparent;
+  }
+  .prow.active { background: rgba(232,195,74,.1); border-color: rgba(232,195,74,.4); }
+  .prow.dead { opacity: .38; text-decoration: line-through; }
+  .dot { width: 13px; height: 13px; border-radius: 50%; box-shadow: 0 0 8px currentColor; flex: 0 0 auto; }
+  .pname { flex: 1 1 auto; }
+  .pstat { font-family: Consolas, monospace; font-size: .72rem; color: #9db2c8; }
+
+  /* continents */
+  .crow { display: flex; align-items: center; gap: 8px; font-size: .8rem; padding: 3px 4px; }
+  .crow > span:first-child { flex: 1 1 auto; }
+  .cbon { font-family: Consolas, monospace; color: #e8c34a; font-size: .74rem; }
+  .cown { font-size: .74rem; color: #9db2c8; min-width: 62px; text-align: right; }
+
+  /* cards */
+  #cards { display: flex; flex-wrap: wrap; gap: 5px; min-height: 26px; }
+  .card {
+    font-size: .7rem; padding: 3px 7px; border-radius: 5px;
+    background: rgba(232,195,74,.14); border: 1px solid rgba(232,195,74,.4);
+    color: #f0dc9a; font-family: Consolas, monospace;
+  }
+  .muted { color: #6d829a; font-size: .78rem; font-style: italic; }
+
+  /* action buttons */
+  #actions { display: flex; gap: 8px; }
+  #phaseBtn, #tradeBtn {
+    flex: 1 1 0; font-family: inherit; padding: 11px 8px; border-radius: 8px;
+    border: none; font-size: .82rem; font-weight: 700; letter-spacing: 1px;
+    cursor: pointer; transition: all .12s ease;
+  }
+  #phaseBtn { background: linear-gradient(180deg,#4f9dff,#2f6fd0); color: #fff; box-shadow: 0 3px 0 #1d4d94; }
+  #tradeBtn { background: linear-gradient(180deg,#f2d15f,#d9a927); color: #241a03; box-shadow: 0 3px 0 #7a5c10; }
+  #phaseBtn:disabled, #tradeBtn:disabled { opacity: .35; cursor: not-allowed; box-shadow: none; }
+
+  /* log */
+  #log {
+    flex: 1 1 auto; min-height: 110px; max-height: 190px; overflow-y: auto;
+    background: rgba(0,0,0,.28); border-radius: 8px; padding: 8px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: .72rem; line-height: 1.45; color: #b7c8db;
+  }
+  .lrow { padding: 1px 0; border-bottom: 1px solid rgba(255,255,255,.04); }
+  .lrow:first-child { color: #e8c34a; }
+  #legend { font-size: .68rem; color: #6d829a; line-height: 1.5; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 980px) {
+    #layout { flex-direction: column; }
+    #panel { flex: 1 1 auto; max-height: none; }
+    #log { max-height: 150px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="topbar">
+    <div id="title">DOMINATION</div>
+    <div id="tagline">Conquer the world &middot; 2&ndash;4 kingdoms</div>
+  </div>
+
+  <div id="layout">
+    <div id="game-wrap">
+      <canvas id="game" width="1000" height="640"></canvas>
+      <div id="hud">Ready</div>
+
+      <!-- Start Screen -->
+      <div id="startScreen" class="screen">
+        <h2>DOMINATION</h2>
+        <p>Command a kingdom, deploy reinforcements, and march your armies across the world.
+           Win dice battles, seize territories, and own the map to rule all.</p>
+        <div class="opp-row">
+          <span class="opp-label">Rival Kingdoms</span>
+          <button class="opp-btn" data-opp="1">1 CPU</button>
+          <button class="opp-btn selected" data-opp="2">2 CPU</button>
+          <button class="opp-btn" data-opp="3">3 CPU</button>
+        </div>
+        <button class="action-btn" id="startBtn">Begin Conquest</button>
+        <div id="startStats" class="muted"></div>
+      </div>
+
+      <!-- Result Screen -->
+      <div id="resultScreen" class="screen hidden">
+        <h2 id="resTitle">VICTORY</h2>
+        <p id="resMsg"></p>
+        <div id="resStats"></div>
+        <div class="opp-row">
+          <button class="action-btn" id="playAgainBtn">Play Again</button>
+          <button class="action-btn ghost" id="setupBtn">Change Setup</button>
+        </div>
+      </div>
+    </div>
+
+    <aside id="panel">
+      <div class="section-title">Kingdoms</div>
+      <div id="players"></div>
+      <div class="section-title">Continents</div>
+      <div id="conts"></div>
+      <div class="section-title">War Cards</div>
+      <div id="cards"><span class="muted">No war cards</span></div>
+      <div id="actions">
+        <button id="phaseBtn">Deploy</button>
+        <button id="tradeBtn">Trade Cards</button>
+      </div>
+      <div class="section-title">War Log</div>
+      <div id="log"></div>
+      <div id="legend">Place armies &rarr; attack neighbours &rarr; fortify &rarr; end turn.
+        Click your territory to select, then a highlighted target.</div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONFIGURATION ============
+  const MAP_W = 1000, MAP_H = 640;
+  const COLS = 50, ROWS = 32, CELL = 20;
+
+  const CONTINENTS = [
+    { name: "Norvale", cx: 230, cy: 150, rx: 172, ry: 104, count: 4,
+      names: ["Frosthaven", "Greymoor", "Coldspire", "Ravenrock"] },
+    { name: "Sunreach", cx: 712, cy: 138, rx: 182, ry: 100, count: 5,
+      names: ["Goldport", "Emberfall", "Sunspire", "Dunewatch", "Amberholme"] },
+    { name: "Verdania", cx: 452, cy: 330, rx: 152, ry: 96, count: 5,
+      names: ["Greenholt", "Thornfield", "Mossvale", "Elmwood", "Brookmere"] },
+    { name: "Ashmoor", cx: 240, cy: 492, rx: 172, ry: 100, count: 5,
+      names: ["Cinderfell", "Ashgate", "Sootridge", "Blackvein", "Charhollow"] },
+    { name: "Krystal Isles", cx: 748, cy: 486, rx: 166, ry: 104, count: 5,
+      names: ["Pearlcliff", "Tidecrest", "Coralbay", "Wavemist", "Sapphire Shoal"] }
+  ];
+
+  const PLAYER_DEFS = [
+    { name: "You", color: "#4f9dff", human: true },
+    { name: "Crimson", color: "#ff5a5a" },
+    { name: "Verdant", color: "#3fcf7a" },
+    { name: "Amethyst", color: "#c07bff" }
+  ];
+
+  const SET_VALUES = [4, 6, 8, 10, 12, 15, 20, 25, 30, 35, 40, 45, 50];
+  const CARD_TYPES = ["infantry", "cavalry", "artillery"];
+  const CARD_ICON = { infantry: "\uD83D\uDEE1", cavalry: "\uD83D\uDC0E", artillery: "\uD83D\uDCA5" };
+
+  // ============ CANVAS & DOM ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const hud = document.getElementById("hud");
+  const playersEl = document.getElementById("players");
+  const contsEl = document.getElementById("conts");
+  const cardsEl = document.getElementById("cards");
+  const logEl = document.getElementById("log");
+  const phaseBtn = document.getElementById("phaseBtn");
+  const tradeBtn = document.getElementById("tradeBtn");
+  const startScreen = document.getElementById("startScreen");
+  const resultScreen = document.getElementById("resultScreen");
+  const startStats = document.getElementById("startStats");
+
+  // ============ AUDIO (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+
+  // ============ SMALL HELPERS ============
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function shuffle(arr, rand) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+    }
+    return arr;
+  }
+  function later(fn, ms) { return setTimeout(fn, ms); }
+  function rollDice(n) {
+    const d = [];
+    for (let i = 0; i < n; i++) d.push(1 + Math.floor(Math.random() * 6));
+    d.sort(function (a, b) { return b - a; });
+    return d;
+  }
+  function bonusOf(ci) { return Math.max(2, CONTINENTS[ci].count - 2); }
+
+  // ============ MAP STATE ============
+  let terr = [];          // territory objects
+  let cellOwner = null;   // territory index per grid cell, -1 = water
+  let frames = 0;
+  let hover = -1;
+  let lastMouse = { x: -999, y: -999 };
+
+  // ============ MAP GENERATION (grid Voronoi per continent) ============
+  function scatterSeeds(ct, count, rand) {
+    const seeds = [];
+    const area = Math.PI * ct.rx * ct.ry;
+    let minD = Math.sqrt(area / count) * 0.62;
+    let tries = 0;
+    while (seeds.length < count && tries < 5000) {
+      tries++;
+      const a = rand() * Math.PI * 2;
+      const r = Math.sqrt(rand());
+      const x = ct.cx + Math.cos(a) * ct.rx * r * 0.92;
+      const y = ct.cy + Math.sin(a) * ct.ry * r * 0.92;
+      let ok = true;
+      for (let i = 0; i < seeds.length; i++) {
+        const dx = seeds[i].x - x, dy = seeds[i].y - y;
+        if (Math.sqrt(dx * dx + dy * dy) < minD) { ok = false; break; }
+      }
+      if (ok) seeds.push({ x: x, y: y });
+      if (tries % 900 === 0) minD *= 0.85;
+    }
+    while (seeds.length < count) {
+      seeds.push({ x: ct.cx + (rand() - 0.5) * ct.rx * 0.6,
+                   y: ct.cy + (rand() - 0.5) * ct.ry * 0.6 });
+    }
+    return seeds;
+  }
+
+  function buildPaths(t) {
+    const fp = new Path2D();
+    for (let i = 0; i < t.cells.length; i++) {
+      const idx = t.cells[i];
+      const col = idx % COLS, row = (idx / COLS) | 0;
+      fp.rect(col * CELL, row * CELL, CELL, CELL);
+    }
+    t.fillPath = fp;
+    const bp = new Path2D();
+    for (let i = 0; i < t.cells.length; i++) {
+      const idx = t.cells[i];
+      const col = idx % COLS, row = (idx / COLS) | 0;
+      const x = col * CELL, y = row * CELL;
+      if (row === 0 || cellOwner[idx - COLS] !== t.id) { bp.moveTo(x, y); bp.lineTo(x + CELL, y); }
+      if (row === ROWS - 1 || cellOwner[idx + COLS] !== t.id) { bp.moveTo(x, y + CELL); bp.lineTo(x + CELL, y + CELL); }
+      if (col === 0 || cellOwner[idx - 1] !== t.id) { bp.moveTo(x, y); bp.lineTo(x, y + CELL); }
+      if (col === COLS - 1 || cellOwner[idx + 1] !== t.id) { bp.moveTo(x + CELL, y); bp.lineTo(x + CELL, y + CELL); }
+    }
+    t.borderPath = bp;
+  }
+
+  function genMap(rand) {
+    terr = [];
+    cellOwner = new Int16Array(COLS * ROWS).fill(-1);
+    const cellCont = new Int8Array(COLS * ROWS).fill(-1);
+
+    // 1) assign each cell to a continent (ellipse regions)
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const x = c * CELL + CELL / 2, y = r * CELL + CELL / 2;
+        let best = -1, bd = 1e9;
+        for (let i = 0; i < CONTINENTS.length; i++) {
+          const ct = CONTINENTS[i];
+          const dx = (x - ct.cx) / ct.rx, dy = (y - ct.cy) / ct.ry;
+          const d = dx * dx + dy * dy;
+          if (d <= 1 && d < bd) { bd = d; best = i; }
+        }
+        cellCont[r * COLS + c] = best;
+      }
+    }
+
+    // 2) seed + create territories
+    CONTINENTS.forEach(function (ct, ci) {
+      const seeds = scatterSeeds(ct, ct.count, rand);
+      ct._ids = [];
+      seeds.forEach(function (s, k) {
+        const id = terr.length;
+        ct._ids.push(id);
+        terr.push({
+          id: id, name: ct.names[k] || (ct.name + " " + (k + 1)), cont: ci,
+          cells: [], cx: s.x, cy: s.y, owner: -1, armies: 0,
+          neighbors: [], borderPath: null, fillPath: null
+        });
+      });
+    });
+
+    // 3) assign each land cell to nearest seed of its continent
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const idx = r * COLS + c;
+        const ci = cellCont[idx];
+        if (ci < 0) continue;
+        const x = c * CELL + CELL / 2, y = r * CELL + CELL / 2;
+        let best = -1, bd = 1e9;
+        const ids = CONTINENTS[ci]._ids;
+        for (let i = 0; i < ids.length; i++) {
+          const s = terr[ids[i]];
+          const dx = s.cx - x, dy = s.cy - y;
+          const d = dx * dx + dy * dy;
+          if (d < bd) { bd = d; best = ids[i]; }
+        }
+        if (best >= 0) { cellOwner[idx] = best; terr[best].cells.push(idx); }
+      }
+    }
+
+    // 4) recompute centroids from actual cells
+    terr.forEach(function (t) {
+      if (!t.cells.length) return;
+      let sx = 0, sy = 0;
+      for (let i = 0; i < t.cells.length; i++) {
+        const idx = t.cells[i];
+        sx += (idx % COLS) * CELL + CELL / 2;
+        sy += ((idx / COLS) | 0) * CELL + CELL / 2;
+      }
+      t.cx = sx / t.cells.length;
+      t.cy = sy / t.cells.length;
+    });
+
+    // 5) adjacency from shared cell edges
+    const nb = terr.map(function () { return new Set(); });
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const idx = r * COLS + c;
+        const a = cellOwner[idx];
+        if (a < 0) continue;
+        if (c < COLS - 1) {
+          const b = cellOwner[idx + 1];
+          if (b >= 0 && b !== a) { nb[a].add(b); nb[b].add(a); }
+        }
+        if (r < ROWS - 1) {
+          const b = cellOwner[idx + COLS];
+          if (b >= 0 && b !== a) { nb[a].add(b); nb[b].add(a); }
+        }
+      }
+    }
+    terr.forEach(function (t) { t.neighbors = Array.from(nb[t.id]); });
+
+    // 6) precompute draw paths
+    terr.forEach(buildPaths);
+  }
+
+  // ============ GAME STATE ============
+  const G = {
+    players: [], currents: 0, phase: "place", pool: 0, selected: null,
+    conqueredThisTurn: false, tradedSets: 0, turnCount: 1, numOpp: 2,
+    gameOver: false, flash: null, log: []
+  };
+  function cur() { return G.players[G.currents]; }
+  function log(msg) {
+    G.log.push(msg);
+    if (G.log.length > 80) G.log.shift();
+  }
+
+  // ============ SETUP ============
+  function countAll() {
+    const a = new Array(G.players.length).fill(0);
+    for (let i = 0; i < terr.length; i++) {
+      const o = terr[i].owner;
+      if (o >= 0) a[o]++;
+    }
+    return a;
+  }
+
+  function assignTerritories(rand) {
+    const n = G.players.length;
+    const order = terr.map(function (t) { return t.id; });
+    shuffle(order, rand);
+    order.forEach(function (ti, i) {
+      terr[ti].owner = i % n;
+      terr[ti].armies = 1;
+    });
+    // extra starting armies equal to holdings (avg ~2 per territory)
+    G.players.forEach(function (p) {
+      const own = terr.filter(function (t) { return t.owner === p.id; });
+      let extra = own.length;
+      while (extra > 0) {
+        const t = own[Math.floor(rand() * own.length)];
+        t.armies++;
+        extra--;
+      }
+    });
+  }
+
+  function newGame(numOpp) {
+    G.numOpp = numOpp;
+    G.players = [];
+    for (let i = 0; i < numOpp + 1; i++) {
+      const d = PLAYER_DEFS[i];
+      G.players.push({ id: i, name: d.name, color: d.color,
+        human: !!d.human, alive: true, cards: [] });
+    }
+    const rand = mulberry32((Date.now() ^ 0x9e3779b9) >>> 0);
+    genMap(rand);
+    assignTerritories(rand);
+
+    G.currents = 0; G.phase = "place"; G.pool = 0; G.selected = null;
+    G.conqueredThisTurn = false; G.tradedSets = 0; G.turnCount = 1;
+    G.gameOver = false; G.flash = null; G.log = [];
+    log("The banners rise. " + G.players.length + " kingdoms march to war.");
+
+    startScreen.classList.add("hidden");
+    resultScreen.classList.add("hidden");
+    startTurn();
+  }
+
+  // ============ TURN FLOW ============
+  function continentOwner(ci) {
+    let o = -2, any = false;
+    for (let i = 0; i < terr.length; i++) {
+      if (terr[i].cont !== ci) continue;
+      any = true;
+      if (o === -2) o = terr[i].owner;
+      else if (o !== terr[i].owner) return -1;
+    }
+    return any ? o : -1;
+  }
+
+  function reinforcementsFor(p) {
+    let count = 0;
+    for (let i = 0; i < terr.length; i++) if (terr[i].owner === p.id) count++;
+    // income scales with empire size so the leader can snowball
+    let r = Math.max(3, Math.floor(count / 2));
+    for (let ci = 0; ci < CONTINENTS.length; ci++) {
+      if (continentOwner(ci) === p.id) r += bonusOf(ci);
+    }
+    return r;
+  }
+
+  // Sudden death: if no one has conquered the world by the turn limit,
+  // the largest empire (territories, then armies) is declared victor.
+  const SUDDEN_DEATH_TURN = 50;
+  function suddenDeath() {
+    const counts = countAll();
+    let best = -1, bestScore = -1;
+    for (let i = 0; i < G.players.length; i++) {
+      if (!G.players[i].alive) continue;
+      let armies = 0;
+      for (let j = 0; j < terr.length; j++) if (terr[j].owner === i) armies += terr[j].armies;
+      const score = counts[i] * 1000 + armies;
+      if (score > bestScore) { bestScore = score; best = i; }
+    }
+    if (best >= 0) {
+      log("Time is up! " + G.players[best].name + " holds the largest empire.");
+      endGame(G.players[best]);
+    }
+  }
+
+  function startTurn() {
+    if (G.gameOver) return;
+    if (G.turnCount > SUDDEN_DEATH_TURN) { suddenDeath(); return; }
+    const p = cur();
+    if (!p.alive) { endTurn(); return; }
+    G.phase = "place";
+    G.pool = reinforcementsFor(p);
+    G.selected = null;
+    G.conqueredThisTurn = false;
+    log("\u2014 " + p.name + "'s turn (" + G.pool + " reinforcements) \u2014");
+    updatePanel();
+    render();
+    if (!p.human) later(cpuTurn, 550);
+  }
+
+  function endTurn() {
+    if (G.gameOver) return;
+    G.selected = null;
+    G.flash = null;
+    let n = G.currents, guard = 0;
+    do {
+      n = (n + 1) % G.players.length;
+      guard++;
+    } while (!G.players[n].alive && guard < G.players.length + 2);
+    G.currents = n;
+    if (n === 0) G.turnCount++;
+    updatePanel();
+    render();
+    later(startTurn, 260);
+  }
+
+  function endPhaseBtn() {
+    if (G.gameOver || !cur().human) return;
+    if (G.phase === "place") {
+      if (G.pool === 0) G.phase = "attack";
+    } else if (G.phase === "attack") {
+      G.phase = "fortify";
+      log("Fortification phase \u2014 move armies between your lands.");
+      beep(560, 0.07, "triangle");
+    } else if (G.phase === "fortify") {
+      endTurn();
+      return;
+    }
+    G.selected = null;
+    updatePanel();
+    render();
+  }
+
+  // ============ ARMY PLACEMENT ============
+  function placeArmies(idx, n, silent) {
+    terr[idx].armies += n;
+    G.pool -= n;
+    if (!silent) beep(620, 0.06, "square");
+  }
+
+  // ============ COMBAT ============
+  function updateAlive() {
+    const alive = G.players.filter(function (p) { return p.alive; });
+    if (alive.length <= 1) return;
+    const counts = countAll();
+    G.players.forEach(function (p) {
+      if (p.alive && counts[p.id] === 0) {
+        p.alive = false;
+        log("\u2620 " + p.name + " has been eliminated.");
+        beep(170, 0.32, "sawtooth");
+      }
+    });
+    const alive2 = G.players.filter(function (p) { return p.alive; });
+    if (!G.players[0].alive) { endGame(alive2[0]); return; }
+    if (alive2.length === 1) endGame(alive2[0]);
+  }
+
+  function resolveBattle(a, b) {
+    const A = terr[a], B = terr[b];
+    if (A.armies < 2 || A.owner === B.owner || A.neighbors.indexOf(b) < 0) {
+      return { conquered: false };
+    }
+    const a0 = A.armies, d0 = B.armies;
+    let rounds = 0;
+    // each round removes at least one army, so the battle always terminates
+    while (A.armies > 1 && B.armies > 0 && rounds < 200000) {
+      rounds++;
+      const na = Math.min(3, A.armies - 1);
+      const nd = Math.min(2, B.armies);
+      const ad = rollDice(na), dd = rollDice(nd);
+      const pairs = Math.min(na, nd);
+      for (let i = 0; i < pairs; i++) {
+        if (ad[i] > dd[i]) B.armies--;
+        else A.armies--;
+      }
+    }
+    const attacker = G.players[A.owner];
+    const conquered = B.armies <= 0;
+    if (conquered) {
+      const mover = A.armies - 1;
+      B.owner = A.owner;
+      B.armies = mover;
+      A.armies = 1;
+      log(attacker.name + " storms " + B.name + "! " + mover + " armies advance.");
+      beep(880, 0.13, "square");
+      G.flash = { idx: b, until: performance.now() + 450, dur: 450 };
+      if (!G.conqueredThisTurn) {
+        G.conqueredThisTurn = true;
+        attacker.cards.push(makeCard());
+        log(attacker.name + " draws a war card.");
+      }
+      updateAlive();
+    } else {
+      log(attacker.name + " assaults " + B.name + ": " + (a0 - A.armies) +
+          " lost vs " + (d0 - B.armies) + " enemy lost.");
+      beep(300, 0.07, "sawtooth");
+      G.flash = { idx: b, until: performance.now() + 240, dur: 240 };
+      updateAlive();
+    }
+    return { conquered: conquered };
+  }
+
+  function fortifyMove(from, to) {
+    const A = terr[from], B = terr[to];
+    if (A.owner !== B.owner || A.armies < 2 || A.neighbors.indexOf(to) < 0) return false;
+    const mv = A.armies - 1;
+    A.armies = 1;
+    B.armies += mv;
+    log(G.players[A.owner].name + " moves " + mv + " armies " + A.name + " \u2192 " + B.name + ".");
+    beep(500, 0.06, "triangle");
+    return true;
+  }
+
+  // ============ WAR CARDS ============
+  function makeCard() {
+    const type = CARD_TYPES[Math.floor(Math.random() * CARD_TYPES.length)];
+    const t = terr[Math.floor(Math.random() * terr.length)];
+    return { type: type, terr: t.name };
+  }
+
+  function findSet(cards) {
+    const n = cards.length;
+    for (let i = 0; i < n - 2; i++) {
+      for (let j = i + 1; j < n - 1; j++) {
+        for (let k = j + 1; k < n; k++) {
+          const s = new Set([cards[i].type, cards[j].type, cards[k].type]);
+          if (s.size === 1 || s.size === 3) return [i, j, k];
+        }
+      }
+    }
+    return null;
+  }
+
+  function doTrade(p, idxs) {
+    const bonus = SET_VALUES[Math.min(G.tradedSets, SET_VALUES.length - 1)];
+    G.tradedSets++;
+    const chosen = idxs.map(function (i) { return p.cards[i]; });
+    idxs.slice().sort(function (a, b) { return b - a; })
+         .forEach(function (i) { p.cards.splice(i, 1); });
+    let extra = 0;
+    chosen.forEach(function (c) {
+      for (let i = 0; i < terr.length; i++) {
+        if (terr[i].name === c.terr && terr[i].owner === p.id) { extra += 2; break; }
+      }
+    });
+    G.pool += bonus + extra;
+    log(p.name + " trades 3 cards for " + (bonus + extra) + " armies.");
+    beep(700, 0.1, "triangle");
+    updatePanel();
+  }
+
+  function tradeBtnClick() {
+    if (G.gameOver || !cur().human || G.phase !== "place") return;
+    const p = G.players[0];
+    const set = findSet(p.cards);
+    if (set) { doTrade(p, set); render(); }
+    else beep(200, 0.08, "sawtooth");
+  }
+
+  // ============ AI ============
+  // Pick a committed war front: the enemy territory we are closest to cracking,
+  // along with our own strongest territory bordering it (the spearhead).
+  function pickFocus(p) {
+    let best = null, bestVal = -1e9;
+    for (let i = 0; i < terr.length; i++) {
+      const t = terr[i];
+      if (t.owner !== p.id) continue;
+      for (let j = 0; j < t.neighbors.length; j++) {
+        const nt = terr[t.neighbors[j]];
+        if (nt.owner === p.id) continue;
+        let adj = 0, from = -1, max = -1;
+        for (let k = 0; k < nt.neighbors.length; k++) {
+          const c = terr[nt.neighbors[k]];
+          if (c.owner === p.id) { adj++; if (c.armies > max) { max = c.armies; from = c.id; } }
+        }
+        if (from < 0) continue;
+        let sameCont = 0, total = 0;
+        for (let k = 0; k < terr.length; k++) {
+          if (terr[k].cont === nt.cont) { total++; if (terr[k].owner === p.id) sameCont++; }
+        }
+        let val = (max - nt.armies) * 1.2 - nt.armies * 0.25 + adj * 0.8;
+        if (sameCont >= total - 1) val += 5;      // favour completing a continent
+        val += Math.random() * 0.8;
+        if (val > bestVal) { bestVal = val; best = { to: nt.id, from: from }; }
+      }
+    }
+    return best;
+  }
+
+  function chooseReinforceTarget(p) {
+    const f = pickFocus(p);
+    if (f) return f.from;
+    const pool = terr.filter(function (t) { return t.owner === p.id; });
+    return pool.length ? pool[Math.floor(Math.random() * pool.length)].id : -1;
+  }
+
+  function bestAttack(p) {
+    let best = null, bestScore = -1e9;
+    for (let i = 0; i < terr.length; i++) {
+      const t = terr[i];
+      if (t.owner !== p.id || t.armies < 2) continue;
+      for (let j = 0; j < t.neighbors.length; j++) {
+        const nid = t.neighbors[j];
+        const nt = terr[nid];
+        if (nt.owner === p.id) continue;
+        if (t.armies <= nt.armies) continue;   // only attack when stronger
+        let score = t.armies - nt.armies * 1.1 + Math.random() * 0.5;
+        if (score > bestScore) { bestScore = score; best = { from: t.id, to: nid }; }
+      }
+    }
+    return best;
+  }
+
+  function cpuTurn() {
+    const p = cur();
+    if (!p || p.human || !p.alive || G.gameOver) return;
+    let guard = 0;
+    while (guard++ < 30) {
+      const s = findSet(p.cards);
+      if (!s) break;
+      doTrade(p, s);
+    }
+    const placed = G.pool;
+    p._focus = pickFocus(p);          // commit to one front for the whole turn
+    let g2 = 0;
+    while (G.pool > 0 && g2++ < 200) {
+      let idx = -1;
+      if (p._focus && terr[p._focus.from].owner === p.id) idx = p._focus.from;
+      else idx = chooseReinforceTarget(p);
+      if (idx < 0) break;
+      placeArmies(idx, 1, true);
+    }
+    if (placed > 0) log(p.name + " masses " + placed + " armies on the frontier.");
+    render(); updatePanel();
+    later(function () {
+      if (G.gameOver || !cur().alive || cur().human) return;
+      G.phase = "attack";
+      updatePanel();
+      cpuAttackLoop(0);
+    }, 520);
+  }
+
+  function cpuAttackLoop(count) {
+    if (G.gameOver) return;
+    const p = cur();
+    if (!p || p.human || !p.alive) return;
+    if (count > 80) { cpuFortifyTurn(); return; }
+    // drive the committed spearhead, otherwise take a clear opportunistic fight
+    const focus = pickFocus(p);
+    let plan = null;
+    if (focus && terr[focus.from].owner === p.id && terr[focus.from].armies > terr[focus.to].armies) {
+      plan = { from: focus.from, to: focus.to };
+    } else {
+      plan = bestAttack(p);
+    }
+    if (!plan) { cpuFortifyTurn(); return; }
+    const res = resolveBattle(plan.from, plan.to);
+    render(); updatePanel();
+    if (G.gameOver) return;
+    if (!cur().alive) { later(endTurn, 650); return; }
+    later(function () { cpuAttackLoop(count + 1); }, res.conquered ? 600 : 420);
+  }
+
+  function cpuFortifyTurn() {
+    const p = cur();
+    if (G.gameOver || !p || p.human || !p.alive) return;
+    G.phase = "fortify";
+    updatePanel();
+    let best = null, bestScore = 0;
+    for (let i = 0; i < terr.length; i++) {
+      const t = terr[i];
+      if (t.owner !== p.id || t.armies < 3) continue;
+      for (let j = 0; j < t.neighbors.length; j++) {
+        const nid = t.neighbors[j];
+        const nt = terr[nid];
+        if (nt.owner !== p.id) continue;
+        const isBorder = nt.neighbors.some(function (m) { return terr[m].owner !== p.id; });
+        if (!isBorder) continue;
+        const score = t.armies - nt.armies;
+        if (score > bestScore) { bestScore = score; best = { from: t.id, to: nid }; }
+      }
+    }
+    if (best) fortifyMove(best.from, best.to);
+    render(); updatePanel();
+    later(endTurn, 620);
+  }
+
+  // ============ RENDERING ============
+  let waterGrad = null, vignette = null;
+
+  function drawWater() {
+    if (!waterGrad) {
+      waterGrad = ctx.createLinearGradient(0, 0, MAP_W, MAP_H);
+      waterGrad.addColorStop(0, "#0a1830");
+      waterGrad.addColorStop(0.5, "#0d2340");
+      waterGrad.addColorStop(1, "#081120");
+      vignette = ctx.createRadialGradient(MAP_W / 2, MAP_H / 2, 200, MAP_W / 2, MAP_H / 2, 720);
+      vignette.addColorStop(0, "rgba(0,0,0,0)");
+      vignette.addColorStop(1, "rgba(0,0,0,0.55)");
+    }
+    ctx.fillStyle = waterGrad;
+    ctx.fillRect(0, 0, MAP_W, MAP_H);
+
+    for (let i = 0; i < CONTINENTS.length; i++) {
+      const ct = CONTINENTS[i];
+      const R = Math.max(ct.rx, ct.ry) * 1.45;
+      const g = ctx.createRadialGradient(ct.cx, ct.cy, Math.min(ct.rx, ct.ry) * 0.3, ct.cx, ct.cy, R);
+      g.addColorStop(0, "rgba(90,150,210,0.16)");
+      g.addColorStop(1, "rgba(90,150,210,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(ct.cx, ct.cy, R, 0, Math.PI * 2); ctx.fill();
+    }
+
+    ctx.fillStyle = "rgba(255,255,255,0.05)";
+    for (let x = 20; x < MAP_W; x += 40) {
+      for (let y = 20; y < MAP_H; y += 40) {
+        ctx.beginPath(); ctx.arc(x, y, 1.2, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, MAP_W, MAP_H);
+  }
+
+  function drawHighlights() {
+    if (!G.players.length) return;
+    if (G.selected != null && G.selected < terr.length) {
+      const t = terr[G.selected];
+      const pulse = 0.5 + 0.5 * Math.sin(frames * 0.12);
+      ctx.fillStyle = "rgba(255,255,255," + (0.09 + 0.08 * pulse) + ")";
+      ctx.fill(t.fillPath);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "rgba(255,235,140," + (0.6 + 0.4 * pulse) + ")";
+      ctx.stroke(t.borderPath);
+      for (let j = 0; j < t.neighbors.length; j++) {
+        const nt = terr[t.neighbors[j]];
+        if (G.phase === "attack" && nt.owner !== t.owner) {
+          ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255,90,90,0.9)";
+          ctx.stroke(nt.borderPath);
+        } else if (G.phase === "fortify" && nt.owner === t.owner) {
+          ctx.lineWidth = 3; ctx.strokeStyle = "rgba(120,220,255,0.9)";
+          ctx.stroke(nt.borderPath);
+        }
+      }
+    }
+    if (hover >= 0 && hover < terr.length) {
+      ctx.lineWidth = 2; ctx.strokeStyle = "rgba(255,255,255,0.5)";
+      ctx.stroke(terr[hover].borderPath);
+    }
+  }
+
+  function drawContinentLabels() {
+    ctx.save();
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = "bold 24px Georgia, serif";
+    ctx.fillStyle = "rgba(240,246,255,0.10)";
+    for (let ci = 0; ci < CONTINENTS.length; ci++) {
+      let sx = 0, sy = 0, n = 0;
+      for (let i = 0; i < terr.length; i++) {
+        if (terr[i].cont === ci) { sx += terr[i].cx; sy += terr[i].cy; n++; }
+      }
+      if (n) ctx.fillText(CONTINENTS[ci].name.toUpperCase(), sx / n, sy / n);
+    }
+    ctx.restore();
+  }
+
+  function drawBadge(t) {
+    ctx.beginPath();
+    ctx.arc(t.cx, t.cy, 13, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(8,14,24,0.85)";
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = t.owner >= 0 ? G.players[t.owner].color : "#66788c";
+    ctx.stroke();
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 14px Consolas, monospace";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(String(t.armies), t.cx, t.cy + 1);
+  }
+
+  function drawFlash() {
+    if (!G.flash) return;
+    const now = performance.now();
+    if (now >= G.flash.until) { G.flash = null; return; }
+    const k = (G.flash.until - now) / G.flash.dur;
+    const t = terr[G.flash.idx];
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, Math.min(1, k)) * 0.55;
+    ctx.fillStyle = "#ff5a5a";
+    ctx.fill(t.fillPath);
+    ctx.restore();
+  }
+
+  function drawTooltip() {
+    if (hover < 0 || hover >= terr.length || !G.players.length) return;
+    const t = terr[hover];
+    const lines = [
+      t.name,
+      (t.owner >= 0 ? G.players[t.owner].name : "Neutral") + " \u00B7 " + t.armies + " armies",
+      CONTINENTS[t.cont].name
+    ];
+    ctx.save();
+    ctx.font = "bold 14px Consolas, monospace";
+    let w = 0;
+    for (let i = 0; i < lines.length; i++) w = Math.max(w, ctx.measureText(lines[i]).width);
+    const bw = w + 20, bh = lines.length * 18 + 14;
+    let bx = lastMouse.x + 16, by = lastMouse.y + 16;
+    if (bx + bw > MAP_W) bx = lastMouse.x - bw - 16;
+    if (by + bh > MAP_H) by = lastMouse.y - bh - 16;
+    ctx.fillStyle = "rgba(8,14,24,0.94)";
+    ctx.strokeStyle = "rgba(232,195,74,0.6)";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.rect(bx, by, bw, bh); ctx.fill(); ctx.stroke();
+    ctx.textAlign = "left"; ctx.textBaseline = "top";
+    for (let i = 0; i < lines.length; i++) {
+      ctx.fillStyle = i === 0 ? "#e8c34a" : "#cfe0f2";
+      ctx.fillText(lines[i], bx + 10, by + 8 + i * 18);
+    }
+    ctx.restore();
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, MAP_W, MAP_H);
+    drawWater();
+
+    for (let i = 0; i < terr.length; i++) {
+      const t = terr[i];
+      ctx.fillStyle = (t.owner >= 0 && G.players[t.owner]) ? G.players[t.owner].color : "#33455c";
+      ctx.fill(t.fillPath);
+    }
+
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(8,14,24,0.65)";
+    for (let i = 0; i < terr.length; i++) ctx.stroke(terr[i].borderPath);
+
+    drawHighlights();
+    drawContinentLabels();
+    if (G.players.length) {
+      for (let i = 0; i < terr.length; i++) drawBadge(terr[i]);
+    }
+    drawFlash();
+    drawTooltip();
+  }
+
+  // ============ PANEL ============
+  function updatePanel() {
+    if (!G.players.length) return;
+    const p = cur();
+    const ph = G.phase === "place" ? ("Deploy " + G.pool)
+             : G.phase === "attack" ? "Attack" : "Fortify";
+    hud.textContent = G.gameOver ? "Game over"
+      : ("Turn " + G.turnCount + " \u00B7 " + p.name + " \u00B7 " + ph);
+    hud.style.borderLeftColor = p.color;
+
+    const counts = countAll();
+    playersEl.innerHTML = G.players.map(function (pl) {
+      let armies = 0;
+      for (let i = 0; i < terr.length; i++) if (terr[i].owner === pl.id) armies += terr[i].armies;
+      const cls = "prow" + (pl.alive ? "" : " dead") +
+        (pl.id === G.currents && !G.gameOver ? " active" : "");
+      return '<div class="' + cls + '">' +
+        '<span class="dot" style="background:' + pl.color + '"></span>' +
+        '<span class="pname">' + pl.name + (pl.human ? " (You)" : "") + '</span>' +
+        '<span class="pstat">' + counts[pl.id] + ' terr \u00B7 ' + armies + ' armies</span></div>';
+    }).join("");
+
+    contsEl.innerHTML = CONTINENTS.map(function (ct, ci) {
+      const o = continentOwner(ci);
+      const tag = o >= 0
+        ? '<span style="color:' + G.players[o].color + '">' + G.players[o].name + '</span>'
+        : "\u2014";
+      return '<div class="crow"><span>' + ct.name + '</span>' +
+        '<span class="cbon">+' + bonusOf(ci) + '</span>' +
+        '<span class="cown">' + tag + '</span></div>';
+    }).join("");
+
+    const pc = G.players[0];
+    cardsEl.innerHTML = pc.cards.length
+      ? pc.cards.map(function (c) {
+          return '<span class="card">' + CARD_ICON[c.type] + " " + c.terr + '</span>';
+        }).join("")
+      : '<span class="muted">No war cards</span>';
+
+    const isHuman = p.human && !G.gameOver;
+    if (G.phase === "place") {
+      phaseBtn.textContent = "Deploy " + G.pool + " armies";
+      phaseBtn.disabled = true;
+    } else if (G.phase === "attack") {
+      phaseBtn.textContent = "End Attacks \u2192";
+      phaseBtn.disabled = !isHuman;
+    } else {
+      phaseBtn.textContent = "End Turn \u2714";
+      phaseBtn.disabled = !isHuman;
+    }
+    tradeBtn.disabled = !(isHuman && G.phase === "place" && !!findSet(pc.cards));
+
+    logEl.innerHTML = G.log.slice(-14).map(function (l) {
+      return '<div class="lrow">' + l + '</div>';
+    }).join("");
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function updateStartStats() {
+    const wins = Number(localStorage.getItem("dominationWins") || 0);
+    const games = Number(localStorage.getItem("dominationGames") || 0);
+    startStats.textContent = "Victories: " + wins + " / " + games;
+  }
+
+  // ============ END GAME ============
+  function endGame(winner) {
+    if (G.gameOver) return;
+    G.gameOver = true;
+    G.selected = null;
+    const humanWon = !!(winner && winner.human);
+    let wins = Number(localStorage.getItem("dominationWins") || 0);
+    let games = Number(localStorage.getItem("dominationGames") || 0);
+    games++;
+    if (humanWon) wins++;
+    localStorage.setItem("dominationWins", String(wins));
+    localStorage.setItem("dominationGames", String(games));
+
+    document.getElementById("resTitle").textContent = humanWon ? "VICTORY" : "DEFEAT";
+    document.getElementById("resTitle").className = humanWon ? "res-win" : "res-lose";
+    document.getElementById("resMsg").textContent = humanWon
+      ? (winner.name + " rule the world.")
+      : (winner.name + " has conquered the world.");
+    const counts = countAll();
+    document.getElementById("resStats").innerHTML =
+      "<div>Territories held: <b>" + counts[0] + "</b> / " + terr.length + "</div>" +
+      "<div>Turns taken: <b>" + G.turnCount + "</b></div>" +
+      "<div>Victories: <b>" + wins + "</b> / " + games + "</div>";
+    resultScreen.classList.remove("hidden");
+    beep(humanWon ? 880 : 150, humanWon ? 0.4 : 0.5, humanWon ? "sine" : "sawtooth");
+    updateStartStats();
+    updatePanel();
+    render();
+  }
+
+  // ============ INPUT ============
+  function canvasPos(clientX, clientY) {
+    const r = canvas.getBoundingClientRect();
+    return {
+      x: (clientX - r.left) * (MAP_W / r.width),
+      y: (clientY - r.top) * (MAP_H / r.height)
+    };
+  }
+  function territoryAt(x, y) {
+    if (!cellOwner) return -1;
+    const col = Math.floor(x / CELL), row = Math.floor(y / CELL);
+    if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return -1;
+    return cellOwner[row * COLS + col];
+  }
+
+  function handleAttackClick(tIdx) {
+    const t = terr[tIdx], p = G.players[0];
+    if (t.owner === p.id) {
+      if (t.armies > 1) { G.selected = tIdx; beep(600, 0.05, "square"); }
+      else beep(200, 0.06, "sawtooth");
+      return;
+    }
+    if (G.selected == null) { beep(200, 0.06, "sawtooth"); return; }
+    const from = terr[G.selected];
+    if (from.owner !== p.id || from.armies < 2 || from.neighbors.indexOf(tIdx) < 0) {
+      beep(200, 0.06, "sawtooth"); return;
+    }
+    resolveBattle(G.selected, tIdx);
+    if (from.owner !== p.id || from.armies < 2) G.selected = null;
+  }
+
+  function handleFortifyClick(tIdx) {
+    const t = terr[tIdx], p = G.players[0];
+    if (t.owner !== p.id) { beep(200, 0.06, "sawtooth"); return; }
+    if (G.selected == null) {
+      if (t.armies > 1) { G.selected = tIdx; beep(600, 0.05, "square"); }
+      else beep(200, 0.06, "sawtooth");
+      return;
+    }
+    if (G.selected === tIdx) { G.selected = null; return; }
+    const from = terr[G.selected];
+    if (from.neighbors.indexOf(tIdx) < 0) {
+      if (t.armies > 1) G.selected = tIdx; else beep(200, 0.06, "sawtooth");
+      return;
+    }
+    if (fortifyMove(G.selected, tIdx)) G.selected = null;
+  }
+
+  function onMapClick(x, y) {
+    if (!G.players.length || G.gameOver) return;
+    const p = cur();
+    if (!p || !p.human) return;
+    const tIdx = territoryAt(x, y);
+    if (tIdx < 0) { G.selected = null; render(); return; }
+    const t = terr[tIdx];
+
+    if (G.phase === "place") {
+      if (t.owner === p.id && G.pool > 0) {
+        placeArmies(tIdx, 1);
+        if (G.pool <= 0) {
+          G.phase = "attack";
+          log("All reinforcements deployed \u2014 attack your neighbours!");
+          beep(700, 0.1, "triangle");
+        }
+      } else {
+        beep(200, 0.06, "sawtooth");
+      }
+      G.selected = null;
+    } else if (G.phase === "attack") {
+      handleAttackClick(tIdx);
+    } else {
+      handleFortifyClick(tIdx);
+    }
+    updatePanel();
+    render();
+  }
+
+  canvas.addEventListener("mousemove", function (e) {
+    const pos = canvasPos(e.clientX, e.clientY);
+    lastMouse = pos;
+    const idx = territoryAt(pos.x, pos.y);
+    if (idx !== hover) hover = idx;
+  });
+  canvas.addEventListener("mouseleave", function () { hover = -1; });
+  canvas.addEventListener("click", function (e) {
+    const pos = canvasPos(e.clientX, e.clientY);
+    onMapClick(pos.x, pos.y);
+  });
+  canvas.addEventListener("touchstart", function (e) {
+    e.preventDefault();
+    const touch = e.changedTouches[0];
+    const pos = canvasPos(touch.clientX, touch.clientY);
+    lastMouse = pos;
+    hover = territoryAt(pos.x, pos.y);
+    onMapClick(pos.x, pos.y);
+  }, { passive: false });
+
+  // ============ UI WIRING ============
+  let chosenOpp = 2;
+  const oppBtns = Array.prototype.slice.call(document.querySelectorAll(".opp-btn"));
+  oppBtns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      oppBtns.forEach(function (o) { o.classList.remove("selected"); });
+      b.classList.add("selected");
+      chosenOpp = parseInt(b.dataset.opp, 10);
+      beep(500, 0.05, "square");
+    });
+  });
+
+  document.getElementById("startBtn").addEventListener("click", function () { newGame(chosenOpp); });
+  document.getElementById("playAgainBtn").addEventListener("click", function () { newGame(G.numOpp); });
+  document.getElementById("setupBtn").addEventListener("click", function () {
+    resultScreen.classList.add("hidden");
+    startScreen.classList.remove("hidden");
+    updateStartStats();
+  });
+  phaseBtn.addEventListener("click", endPhaseBtn);
+  tradeBtn.addEventListener("click", tradeBtnClick);
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") { G.selected = null; render(); }
+  });
+
+  // ============ BOOT ============
+  let rafId = null;
+  function loop() {
+    frames++;
+    render();
+    rafId = requestAnimationFrame(loop);
+  }
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { cancelAnimationFrame(rafId); rafId = null; }
+    else if (!rafId) { rafId = requestAnimationFrame(loop); }
+  });
+
+  genMap(mulberry32(0xC0FFEE));   // preview map behind the start screen
+  updateStartStats();
+  loop();
+})();
+</script>
+</body>
+</html>

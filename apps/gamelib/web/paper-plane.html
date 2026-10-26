@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Paper Plane</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      font-family: 'Trebuchet MS', 'Segoe UI', Tahoma, Verdana, sans-serif;
+      background: radial-gradient(circle at 30% 20%, #eaf6fb 0%, #cfe6f2 45%, #b6d4e6 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ============ GAME SHELL ============ */
+    .game-container {
+      position: relative;
+      width: min(100vw, 1100px);
+      height: min(100vh, 680px);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 18px 60px rgba(31, 70, 100, 0.28);
+      background: #cfe6f2;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ============ HUD ============ */
+    .hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 14px 18px;
+      pointer-events: none;
+      font-size: 0.95rem;
+      color: #20455c;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+    }
+
+    .hud .block {
+      background: rgba(255, 255, 255, 0.55);
+      backdrop-filter: blur(4px);
+      border-radius: 12px;
+      padding: 8px 14px;
+      line-height: 1.35;
+      box-shadow: 0 3px 10px rgba(31, 70, 100, 0.12);
+    }
+
+    .hud .val {
+      font-weight: 700;
+      color: #12688f;
+      font-size: 1.15rem;
+    }
+
+    .hud .label {
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #5b8296;
+    }
+
+    .hud .right {
+      text-align: right;
+    }
+
+    /* ============ OVERLAYS ============ */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 24px;
+      background: radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.94), rgba(214, 235, 246, 0.93));
+      transition: opacity 0.35s ease;
+      z-index: 5;
+    }
+
+    .screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .screen-title {
+      font-size: clamp(1.8rem, 6vw, 3rem);
+      color: #12688f;
+      letter-spacing: 0.02em;
+      margin-bottom: 6px;
+      text-shadow: 2px 2px 0 rgba(255, 255, 255, 0.8);
+    }
+
+    .screen-subtitle {
+      font-size: clamp(0.85rem, 2.6vw, 1.05rem);
+      color: #5b8296;
+      max-width: 460px;
+      line-height: 1.6;
+      margin-bottom: 10px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px 18px;
+      margin: 14px 0 22px;
+      font-size: 0.86rem;
+      color: #33586c;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .dot.clip { background: #e0a33c; }
+    .dot.up { background: #7fd0b4; }
+    .dot.bird { background: #55627a; }
+    .dot.blimp { background: #d97a7a; }
+
+    .stat-row {
+      display: flex;
+      gap: 28px;
+      margin: 6px 0 20px;
+    }
+
+    .stat-row .stat .big {
+      font-size: clamp(1.6rem, 6vw, 2.4rem);
+      font-weight: 700;
+      color: #12688f;
+    }
+
+    .stat-row .stat .tiny {
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #6b93a6;
+    }
+
+    .action-btn {
+      padding: 14px 38px;
+      background: linear-gradient(135deg, #38a3c9, #12688f);
+      color: #f4fbff;
+      border: none;
+      border-radius: 30px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 8px 22px rgba(18, 104, 143, 0.35);
+    }
+
+    .action-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 28px rgba(18, 104, 143, 0.42);
+    }
+
+    .action-btn:active {
+      transform: translateY(-1px);
+    }
+
+    .hint {
+      position: absolute;
+      bottom: 16px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 0.8rem;
+      color: #4d7688;
+      pointer-events: none;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+    }
+
+    .hint.hidden {
+      opacity: 0;
+    }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 520px) {
+      .hud { padding: 10px 12px; font-size: 0.82rem; }
+      .hud .val { font-size: 1rem; }
+      .game-container { border-radius: 0; width: 100vw; height: 100vh; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- HUD -->
+    <div class="hud">
+      <div class="block">
+        <div class="label">Distance</div>
+        <div class="val"><span id="distEl">0</span> m</div>
+      </div>
+      <div class="block right">
+        <div class="label">Best</div>
+        <div class="val"><span id="bestEl">0</span> m</div>
+      </div>
+      <div class="block">
+        <div class="label">Paperclips</div>
+        <div class="val">📎 <span id="clipEl">0</span></div>
+      </div>
+    </div>
+
+    <!-- Start Screen -->
+    <div id="startScreen" class="screen">
+      <h1 class="screen-title">Paper Plane</h1>
+      <p class="screen-subtitle">Throw your folded glider into the warm city sky. Ride the thermals between rooftops, keep clear of the traffic, and see how far the wind will carry you.</p>
+      <div class="legend">
+        <span><i class="dot up"></i> Chimney / vent updraft</span>
+        <span><i class="dot clip"></i> Paperclip bonus</span>
+        <span><i class="dot bird"></i> Birds</span>
+        <span><i class="dot blimp"></i> Blimps</span>
+      </div>
+      <button class="action-btn" id="startBtn">Launch</button>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="gameOverScreen" class="screen hidden">
+      <h2 class="screen-title" id="overTitle">Glide Over</h2>
+      <p class="screen-subtitle" id="overMsg">The wind set you down. Try another throw.</p>
+      <div class="stat-row">
+        <div class="stat">
+          <div class="big" id="finalDist">0</div>
+          <div class="tiny">meters</div>
+        </div>
+        <div class="stat">
+          <div class="big" id="finalClips">0</div>
+          <div class="tiny">clips</div>
+        </div>
+        <div class="stat">
+          <div class="big" id="finalBest">0</div>
+          <div class="tiny">best</div>
+        </div>
+      </div>
+      <button class="action-btn" id="againBtn">Throw Again</button>
+    </div>
+
+    <div class="hint hidden" id="hint">Hold to lift &middot; Release to dive</div>
+  </div>
+
+  <script>
+    'use strict';
+
+    // ============ CANVAS & VIEW ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    let VW = 900, VH = 620, DPR = 1;
+    let groundY = 0;
+
+    // ============ DOM ELEMENTS ============
+    const distEl = document.getElementById('distEl');
+    const bestEl = document.getElementById('bestEl');
+    const clipEl = document.getElementById('clipEl');
+    const startScreen = document.getElementById('startScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const overTitle = document.getElementById('overTitle');
+    const overMsg = document.getElementById('overMsg');
+    const finalDist = document.getElementById('finalDist');
+    const finalClips = document.getElementById('finalClips');
+    const finalBest = document.getElementById('finalBest');
+    const startBtn = document.getElementById('startBtn');
+    const againBtn = document.getElementById('againBtn');
+    const hint = document.getElementById('hint');
+
+    // ============ AUDIO (WebAudio, tiny beeps) ============
+    let audioCtx = null;
+    function initAudio() {
+      if (audioCtx) return;
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) audioCtx = new AC();
+      } catch (e) { audioCtx = null; }
+    }
+    function beep(freq, dur, type, vol) {
+      if (!audioCtx) return;
+      freq = freq || 440;
+      dur = dur || 0.08;
+      type = type || 'sine';
+      vol = (vol === undefined) ? 0.14 : vol;
+      try {
+        const t = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, t);
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(t);
+        osc.stop(t + dur + 0.02);
+      } catch (e) { /* ignore */ }
+    }
+
+    // ============ CONSTANTS ============
+    const GRAVITY = 520;        // px/s^2 pulling down
+    const LIFT = 940;           // px/s^2 upward while holding
+    const DIVE = 300;           // extra downward while not holding
+    const VY_MIN = -430;
+    const VY_MAX = 540;
+    const BASE_SPEED = 205;     // px/s forward
+    const MAX_SPEED = 350;
+    const M_PER_PX = 1 / 8;     // world px -> meters
+    const CLIP_BONUS = 12;      // meters per paperclip
+    const PLANE_R = 13;
+    const BEST_KEY = 'paperPlaneBest';
+
+    // ============ GAME STATE ============
+    let running = false;
+    let over = false;
+    let elapsed = 0;
+    let speed = BASE_SPEED;
+    let startWorldX = 0;
+    let clips = 0;
+
+    const plane = { x: 0, y: 0, vy: 0, angle: 0 };
+
+    let buildings = [];
+    let updrafts = [];   // {x, topY, bottomY, w, wobble}
+    let clipsArr = [];   // {x, y, taken}
+    let birds = [];      // {x, y, baseY, phase, amp, r}
+    let blimps = [];     // {x, y, rx, ry, drift}
+    let puffs = [];      // {x, y, vy, life, r}
+    let particles = [];  // burst effects
+
+    let nextSegX = 0;
+    let best = parseInt(localStorage.getItem(BEST_KEY) || '0', 10) || 0;
+    bestEl.textContent = best;
+
+    // ============ RESPONSIVE SIZING ============
+    function resize() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      DPR = Math.min(window.devicePixelRatio || 1, 2);
+      VW = Math.max(320, Math.round(rect.width));
+      VH = Math.max(280, Math.round(rect.height));
+      canvas.width = Math.round(VW * DPR);
+      canvas.height = Math.round(VH * DPR);
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      groundY = VH - Math.max(56, VH * 0.12);
+    }
+    window.addEventListener('resize', resize);
+
+    // ============ HELPERS ============
+    function rand(a, b) { return a + Math.random() * (b - a); }
+    function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+
+    // ============ WORLD GENERATION ============
+    function spawnSegment(x) {
+      const w = rand(80, 170);
+      const top = groundY - rand(50, Math.min(230, VH * 0.42));
+      const hue = Math.round(rand(196, 226));
+      const b = { x: x, w: w, top: top, hue: hue, lit: rand(0.9, 1.06), windows: [] };
+      // windows
+      const cols = Math.max(2, Math.floor(w / 26));
+      const rows = Math.max(2, Math.floor((groundY - top) / 30));
+      for (let c = 0; c < cols; c++) {
+        for (let r = 0; r < rows; r++) {
+          if (Math.random() < 0.5) {
+            b.windows.push({
+              x: x + 10 + c * ((w - 20) / cols),
+              y: top + 14 + r * ((groundY - top) / rows),
+              on: Math.random() < 0.55
+            });
+          }
+        }
+      }
+      buildings.push(b);
+
+      // Chimney / air-vent updraft on some rooftops
+      if (Math.random() < 0.62) {
+        const cx = x + w * rand(0.25, 0.75);
+        const isVent = Math.random() < 0.5;
+        const colH = rand(150, 260);
+        updrafts.push({
+          x: cx,
+          bottomY: top + 4,
+          topY: top - colH,
+          w: isVent ? 42 : 54,
+          vent: isVent,
+          wobble: Math.random() * Math.PI * 2
+        });
+      }
+
+      // Paperclip cluster
+      if (Math.random() < 0.7) {
+        const cy = top - rand(40, 190);
+        const n = Math.floor(rand(1, 4));
+        for (let i = 0; i < n; i++) {
+          clipsArr.push({
+            x: x + w * 0.5 + i * 26 + rand(-6, 6),
+            y: clamp(cy + rand(-14, 14), 40, groundY - 60),
+            taken: false,
+            phase: Math.random() * Math.PI * 2
+          });
+        }
+      }
+
+      // Hazards
+      const roll = Math.random();
+      if (roll < 0.5) {
+        birds.push({
+          x: x + w + rand(120, 320),
+          baseY: rand(70, groundY - 150),
+          phase: Math.random() * Math.PI * 2,
+          amp: rand(16, 46),
+          spd: rand(1.8, 3.2),
+          r: 12,
+          dir: Math.random() < 0.5 ? 1 : -1
+        });
+      } else if (roll < 0.72) {
+        blimps.push({
+          x: x + w + rand(160, 340),
+          y: rand(90, Math.max(130, groundY - 220)),
+          rx: rand(46, 64),
+          ry: rand(20, 28),
+          drift: rand(-14, 14)
+        });
+      }
+    }
+
+    function ensureAhead() {
+      const limit = plane.x + VW + 500;
+      let guard = 0;
+      while (nextSegX < limit && guard++ < 24) {
+        spawnSegment(nextSegX);
+        nextSegX += rand(230, 400);
+      }
+    }
+
+    function cull() {
+      const behind = plane.x - VW * 0.6 - 260;
+      buildings = buildings.filter(function (b) { return b.x + b.w > behind; });
+      updrafts = updrafts.filter(function (u) { return u.x + u.w > behind; });
+      clipsArr = clipsArr.filter(function (c) { return !c.taken && c.x > behind; });
+      birds = birds.filter(function (b) { return b.x > behind - 120; });
+      blimps = blimps.filter(function (b) { return b.x + b.rx > behind - 160; });
+    }
+
+    // ============ RESET / START / OVER ============
+    function resetGame() {
+      elapsed = 0;
+      speed = BASE_SPEED;
+      clips = 0;
+      plane.x = 0;
+      plane.y = clamp(VH * 0.42, 60, groundY - 120);
+      plane.vy = -60;
+      plane.angle = -0.1;
+      startWorldX = plane.x;
+      nextSegX = plane.x + 240;
+      buildings = []; updrafts = []; clipsArr = []; birds = []; blimps = [];
+      puffs = []; particles = [];
+      clipEl.textContent = '0';
+      distEl.textContent = '0';
+      ensureAhead();
+    }
+
+    function startGame() {
+      initAudio();
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+      resize();
+      resetGame();
+      running = true;
+      over = false;
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      hint.classList.remove('hidden');
+      beep(520, 0.1, 'triangle', 0.12);
+      lastT = performance.now();
+      requestAnimationFrame(loop);
+    }
+
+    function endGame(reason) {
+      if (!running) return;
+      running = false;
+      over = true;
+      const dist = distance();
+      if (dist > best) {
+        best = Math.floor(dist);
+        try { localStorage.setItem(BEST_KEY, String(best)); } catch (e) {}
+        bestEl.textContent = best;
+      }
+      finalDist.textContent = Math.floor(dist);
+      finalClips.textContent = clips;
+      finalBest.textContent = best;
+      if (reason === 'ground') {
+        overTitle.textContent = 'Soft Landing';
+        overMsg.textContent = 'The wind set you down. Try another throw.';
+      } else {
+        overTitle.textContent = 'Bump!';
+        overMsg.textContent = 'You clipped something in the air. Fold a fresh plane.';
+      }
+      hint.classList.add('hidden');
+      gameOverScreen.classList.remove('hidden');
+      beep(reason === 'ground' ? 300 : 180, 0.22, 'sawtooth', 0.14);
+      beep(150, 0.3, 'sine', 0.1);
+    }
+
+    function distance() {
+      return (plane.x - startWorldX) * M_PER_PX;
+    }
+
+    // ============ INPUT ============
+    let holding = false;
+    function pressDown() {
+      if (!running) return;
+      holding = true;
+    }
+    function pressUp() {
+      holding = false;
+    }
+    canvas.addEventListener('mousedown', function (e) { e.preventDefault(); pressDown(); });
+    window.addEventListener('mouseup', function () { pressUp(); });
+    canvas.addEventListener('touchstart', function (e) { e.preventDefault(); initAudio(); if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); pressDown(); }, { passive: false });
+    window.addEventListener('touchend', function (e) { pressUp(); });
+    window.addEventListener('touchcancel', function () { pressUp(); });
+    window.addEventListener('keydown', function (e) {
+      if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
+        e.preventDefault();
+        if (!running && over) { startGame(); return; }
+        if (startScreen && !startScreen.classList.contains('hidden')) { startGame(); return; }
+        pressDown();
+      }
+    });
+    window.addEventListener('keyup', function (e) {
+      if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') pressUp();
+    });
+    startBtn.addEventListener('click', startGame);
+    againBtn.addEventListener('click', startGame);
+
+    // ============ EFFECTS ============
+    function burst(x, y, color, n) {
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const s = rand(40, 160);
+        particles.push({
+          x: x, y: y,
+          vx: Math.cos(a) * s,
+          vy: Math.sin(a) * s - 40,
+          life: 1, color: color, size: rand(2, 5)
+        });
+      }
+    }
+
+    // ============ UPDATE ============
+    function update(dt) {
+      elapsed += dt;
+      speed = Math.min(MAX_SPEED, BASE_SPEED + elapsed * 3.2);
+
+      // forward motion
+      plane.x += speed * dt;
+
+      // vertical dynamics
+      let acc = GRAVITY;
+      if (holding) acc -= LIFT;
+      else acc += DIVE;
+
+      // updrafts
+      let inUp = false;
+      for (let i = 0; i < updrafts.length; i++) {
+        const u = updrafts[i];
+        const half = u.w * 0.5;
+        if (Math.abs(plane.x - u.x) < half + PLANE_R &&
+            plane.y < u.bottomY + 24 && plane.y > u.topY - 30) {
+          inUp = true;
+          const strength = 1500 * (1 - Math.abs(plane.x - u.x) / (half + PLANE_R) * 0.5);
+          acc -= strength;
+          break;
+        }
+      }
+
+      plane.vy += acc * dt;
+      plane.vy = clamp(plane.vy, VY_MIN, VY_MAX);
+      plane.y += plane.vy * dt;
+
+      // ceiling is soft
+      if (plane.y < 26) { plane.y = 26; if (plane.vy < 0) plane.vy *= -0.2; }
+
+      // nose angle eases toward velocity
+      const targetAngle = clamp(plane.vy * 0.0015, -0.42, 0.5);
+      plane.angle += (targetAngle - plane.angle) * Math.min(1, dt * 8);
+
+      // updraft puff trails
+      if (inUp && Math.random() < 0.5) {
+        puffs.push({ x: plane.x - rand(-8, 8), y: plane.y + rand(0, 16), vy: rand(60, 140), life: 0.6, r: rand(3, 7) });
+      }
+
+      // keep world populated
+      ensureAhead();
+
+      // hazard motion
+      for (let i = 0; i < birds.length; i++) {
+        const b = birds[i];
+        b.phase += dt * b.spd * 2.2;
+        b.x -= (34 + b.spd * 12) * dt;
+      }
+      for (let i = 0; i < blimps.length; i++) {
+        const bl = blimps[i];
+        bl.x -= (16 + Math.abs(bl.drift)) * dt;
+        bl.y += Math.sin(elapsed * 0.8 + bl.rx) * 6 * dt;
+      }
+
+      // paperclip pickup
+      for (let i = 0; i < clipsArr.length; i++) {
+        const c = clipsArr[i];
+        if (c.taken) continue;
+        const dx = (c.x - plane.x), dy = (c.y - plane.y);
+        if (dx * dx + dy * dy < (PLANE_R + 12) * (PLANE_R + 12)) {
+          c.taken = true;
+          clips++;
+          clipEl.textContent = clips;
+          burst(c.x, c.y, '#e0a33c', 10);
+          beep(880 + Math.min(clips, 8) * 40, 0.07, 'square', 0.1);
+        }
+      }
+
+      // hazard collision
+      for (let i = 0; i < birds.length; i++) {
+        const b = birds[i];
+        const byy = b.baseY + Math.sin(b.phase) * b.amp;
+        const dx = b.x - plane.x, dy = byy - plane.y;
+        if (dx * dx + dy * dy < (PLANE_R + b.r) * (PLANE_R + b.r)) { endGame('bird'); return; }
+      }
+      for (let i = 0; i < blimps.length; i++) {
+        const bl = blimps[i];
+        // ellipse collision
+        const nx = (plane.x - bl.x) / (bl.rx + PLANE_R);
+        const ny = (plane.y - bl.y) / (bl.ry + PLANE_R);
+        if (nx * nx + ny * ny < 1) { endGame('blimp'); return; }
+      }
+
+      // ground
+      if (plane.y + PLANE_R >= groundY) {
+        plane.y = groundY - PLANE_R;
+        endGame('ground');
+        return;
+      }
+
+      // effects
+      puffs = puffs.filter(function (p) { p.y += p.vy * dt; p.life -= dt; return p.life > 0 && p.x > plane.x - VW * 0.6; });
+      particles = particles.filter(function (p) {
+        p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 320 * dt; p.life -= dt * 1.6;
+        return p.life > 0;
+      });
+
+      cull();
+
+      // HUD
+      distEl.textContent = Math.floor(distance());
+    }
+
+    // ============ DRAW ============
+    function drawSky() {
+      const g = ctx.createLinearGradient(0, 0, 0, VH);
+      g.addColorStop(0, '#bfe6f5');
+      g.addColorStop(0.55, '#dcf1f8');
+      g.addColorStop(1, '#f3f0e6');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, VW, VH);
+
+      // soft sun
+      const sunX = VW * 0.78, sunY = VH * 0.22;
+      const sg = ctx.createRadialGradient(sunX, sunY, 4, sunX, sunY, VH * 0.42);
+      sg.addColorStop(0, 'rgba(255,246,214,0.9)');
+      sg.addColorStop(0.4, 'rgba(255,240,205,0.35)');
+      sg.addColorStop(1, 'rgba(255,240,205,0)');
+      ctx.fillStyle = sg;
+      ctx.fillRect(0, 0, VW, VH);
+
+      // drifting clouds (parallax)
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      const parallax = 0.15;
+      for (let i = 0; i < 6; i++) {
+        const cw = 120 + i * 40;
+        let cx = ((i * 337 - plane.x * parallax) % (VW + 400));
+        if (cx < -400) cx += VW + 400;
+        const cy = 50 + (i % 3) * 60;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, cw * 0.5, 22, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx + cw * 0.3, cy + 6, cw * 0.34, 16, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawBuildings() {
+      const cam = plane.x - VW * 0.3;
+      for (let i = 0; i < buildings.length; i++) {
+        const b = buildings[i];
+        const sx = b.x - cam;
+        if (sx > VW + 40 || sx + b.w < -40) continue;
+        const h = groundY - b.top;
+        // body
+        ctx.fillStyle = 'hsl(' + b.hue + ',34%,' + Math.round(78 * b.lit) + '%)';
+        ctx.fillRect(sx, b.top, b.w, h);
+        // roof edge
+        ctx.fillStyle = 'hsl(' + b.hue + ',30%,' + Math.round(64 * b.lit) + '%)';
+        ctx.fillRect(sx, b.top, b.w, 5);
+        // side shade
+        ctx.fillStyle = 'rgba(40,70,95,0.07)';
+        ctx.fillRect(sx + b.w - 10, b.top, 10, h);
+        // windows
+        for (let w = 0; w < b.windows.length; w++) {
+          const win = b.windows[w];
+          ctx.fillStyle = win.on ? 'rgba(255,236,178,0.85)' : 'rgba(120,160,185,0.35)';
+          ctx.fillRect(win.x - cam, win.y, 9, 12);
+        }
+      }
+      // ground
+      const gg = ctx.createLinearGradient(0, groundY - 6, 0, VH);
+      gg.addColorStop(0, '#b9d3a8');
+      gg.addColorStop(1, '#8fb886');
+      ctx.fillStyle = gg;
+      ctx.fillRect(0, groundY, VW, VH - groundY);
+      ctx.fillStyle = 'rgba(255,255,255,0.25)';
+      ctx.fillRect(0, groundY, VW, 3);
+    }
+
+    function drawUpdrafts() {
+      const cam = plane.x - VW * 0.3;
+      for (let i = 0; i < updrafts.length; i++) {
+        const u = updrafts[i];
+        const sx = u.x - cam;
+        if (sx > VW + 80 || sx < -80) continue;
+        const h = u.bottomY - u.topY;
+        const g = ctx.createLinearGradient(0, u.topY, 0, u.bottomY);
+        g.addColorStop(0, 'rgba(127,208,180,0)');
+        g.addColorStop(1, 'rgba(127,208,180,0.28)');
+        ctx.fillStyle = g;
+        const wob = Math.sin(elapsed * 2 + u.wobble) * 6;
+        ctx.beginPath();
+        ctx.moveTo(sx - u.w * 0.5, u.bottomY);
+        ctx.quadraticCurveTo(sx + wob * 0.4, (u.topY + u.bottomY) / 2, sx - u.w * 0.32, u.topY);
+        ctx.lineTo(sx + u.w * 0.32, u.topY);
+        ctx.quadraticCurveTo(sx + wob * 0.4, (u.topY + u.bottomY) / 2, sx + u.w * 0.5, u.bottomY);
+        ctx.closePath();
+        ctx.fill();
+        // source marker
+        ctx.fillStyle = u.vent ? 'rgba(120,170,180,0.95)' : 'rgba(170,140,120,0.95)';
+        ctx.fillRect(sx - u.w * 0.22, u.bottomY - 12, u.w * 0.44, 12);
+      }
+    }
+
+    function drawClips() {
+      const cam = plane.x - VW * 0.3;
+      for (let i = 0; i < clipsArr.length; i++) {
+        const c = clipsArr[i];
+        if (c.taken) continue;
+        const sx = c.x - cam;
+        if (sx > VW + 40 || sx < -40) continue;
+        const bob = Math.sin(elapsed * 3 + c.phase) * 4;
+        ctx.save();
+        ctx.translate(sx, c.y + bob);
+        ctx.rotate(Math.sin(elapsed * 1.5 + c.phase) * 0.5);
+        ctx.strokeStyle = '#e0a33c';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-5, 6);
+        ctx.lineTo(-5, -2);
+        ctx.arc(0, -2, 5, Math.PI, 0, false);
+        ctx.lineTo(5, 6);
+        ctx.arc(0, 6, 5, 0, Math.PI, false);
+        ctx.arc(0, -1, 2.5, Math.PI, 0, false);
+        ctx.stroke();
+        ctx.restore();
+        // glow
+        ctx.fillStyle = 'rgba(224,163,60,0.14)';
+        ctx.beginPath();
+        ctx.arc(sx, c.y + bob, 14, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawHazards() {
+      const cam = plane.x - VW * 0.3;
+      // birds
+      for (let i = 0; i < birds.length; i++) {
+        const b = birds[i];
+        const sx = b.x - cam;
+        const sy = b.baseY + Math.sin(b.phase) * b.amp;
+        if (sx > VW + 60 || sx < -60) continue;
+        const flap = Math.sin(elapsed * 14 + b.phase) * 0.6;
+        ctx.strokeStyle = '#55627a';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.quadraticCurveTo(sx - 10, sy - 8 - flap * 8, sx - 18, sy - 2);
+        ctx.moveTo(sx, sy);
+        ctx.quadraticCurveTo(sx + 10, sy - 8 - flap * 8, sx + 18, sy - 2);
+        ctx.stroke();
+        ctx.fillStyle = '#55627a';
+        ctx.beginPath();
+        ctx.ellipse(sx, sy, 4, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // blimps
+      for (let i = 0; i < blimps.length; i++) {
+        const bl = blimps[i];
+        const sx = bl.x - cam;
+        if (sx > VW + 120 || sx < -120) continue;
+        ctx.fillStyle = '#d97a7a';
+        ctx.beginPath();
+        ctx.ellipse(sx, bl.y, bl.rx, bl.ry, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        ctx.beginPath();
+        ctx.ellipse(sx - bl.rx * 0.3, bl.y - bl.ry * 0.35, bl.rx * 0.4, bl.ry * 0.35, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+        // gondola
+        ctx.fillStyle = 'rgba(90,70,70,0.9)';
+        ctx.fillRect(sx - 10, bl.y + bl.ry - 2, 20, 8);
+        ctx.strokeStyle = 'rgba(90,70,70,0.7)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(sx - 8, bl.y + bl.ry); ctx.lineTo(sx - 6, bl.y + bl.ry - 2);
+        ctx.moveTo(sx + 8, bl.y + bl.ry); ctx.lineTo(sx + 6, bl.y + bl.ry - 2);
+        ctx.stroke();
+      }
+    }
+
+    function drawPlane() {
+      const px = VW * 0.3;
+      const py = plane.y;
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(plane.angle);
+
+      // shadow/glow
+      ctx.fillStyle = 'rgba(18,104,143,0.10)';
+      ctx.beginPath();
+      ctx.ellipse(-4, 4, 16, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // lower wing
+      ctx.fillStyle = '#dfeaf2';
+      ctx.beginPath();
+      ctx.moveTo(18, 0);
+      ctx.lineTo(-12, 9);
+      ctx.lineTo(-2, 0);
+      ctx.closePath();
+      ctx.fill();
+
+      // upper wing
+      ctx.fillStyle = '#fbfdff';
+      ctx.beginPath();
+      ctx.moveTo(18, 0);
+      ctx.lineTo(-12, -9);
+      ctx.lineTo(-2, 0);
+      ctx.closePath();
+      ctx.fill();
+
+      // keel / fold
+      ctx.strokeStyle = '#a9c4d6';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(18, 0);
+      ctx.lineTo(-12, 0);
+      ctx.stroke();
+
+      // tail flick
+      ctx.fillStyle = '#cfe0ea';
+      ctx.beginPath();
+      ctx.moveTo(-12, -9);
+      ctx.lineTo(-16, 0);
+      ctx.lineTo(-12, 9);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.restore();
+
+      // motion streak
+      if (plane.vy < -40) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(px - 22, py + 10);
+        ctx.lineTo(px - 34, py + 16);
+        ctx.stroke();
+      }
+    }
+
+    function drawEffects() {
+      const cam = plane.x - VW * 0.3;
+      for (let i = 0; i < puffs.length; i++) {
+        const p = puffs[i];
+        ctx.fillStyle = 'rgba(180,230,215,' + (p.life * 0.5) + ')';
+        ctx.beginPath();
+        ctx.arc(p.x - cam, p.y, p.r * (1 + (1 - p.life)), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x - cam, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function draw() {
+      drawSky();
+      drawUpdrafts();
+      drawBuildings();
+      drawClips();
+      drawHazards();
+      drawEffects();
+      drawPlane();
+    }
+
+    // ============ MAIN LOOP ============
+    let lastT = 0;
+    function loop(now) {
+      if (!running) return;
+      let dt = (now - lastT) / 1000;
+      lastT = now;
+      if (dt > 0.05) dt = 0.05; // clamp long frames
+      update(dt);
+      draw();
+      if (running) requestAnimationFrame(loop);
+    }
+
+    // ============ BOOT ============
+    resize();
+    resetGame();
+    draw();
+  </script>
+</body>
+</html>

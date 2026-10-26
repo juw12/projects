@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>CAVE RUNNER</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(circle at 50% 20%, #241b2f 0%, #120d1a 60%, #08060d 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Courier New", monospace;
+    overflow: hidden;
+    touch-action: manipulation;
+    padding: 12px;
+  }
+  #app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: min(96vw, 960px);
+  }
+
+  /* ============ GAME WRAP ============ */
+  #game-wrap {
+    position: relative;
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 14px 50px rgba(0,0,0,.65), 0 0 0 2px rgba(120,90,160,.35);
+  }
+  canvas { display: block; width: 100%; height: auto; background: #120d1a; }
+
+  #hint {
+    position: absolute;
+    bottom: 8px;
+    width: 100%;
+    text-align: center;
+    color: rgba(255,255,255,.6);
+    font-size: 12px;
+    letter-spacing: 1px;
+    pointer-events: none;
+    text-shadow: 0 1px 3px rgba(0,0,0,.7);
+  }
+
+  /* ============ CONTROLS ============ */
+  #controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  #controls button {
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    padding: 9px 22px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #f4ecff;
+    background: #5b3d8a;
+    box-shadow: 0 4px 0 rgba(0,0,0,.4);
+    transition: transform .05s ease, background .15s ease;
+    user-select: none;
+  }
+  #controls button:hover { background: #6f4ca8; }
+  #controls button:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.4); }
+  #btn-restart { background: #a8456b; }
+  #btn-restart:hover { background: #c25580; }
+
+  /* ============ TOUCH BUTTONS ============ */
+  #touch {
+    display: flex;
+    gap: 14px;
+    width: 100%;
+    justify-content: center;
+  }
+  #touch button {
+    flex: 1;
+    max-width: 240px;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    padding: 18px 10px;
+    border: none;
+    border-radius: 12px;
+    color: #f4ecff;
+    background: rgba(91,61,138,.55);
+    box-shadow: 0 4px 0 rgba(0,0,0,.4);
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+  }
+  #touch button:active { background: rgba(140,100,200,.8); transform: translateY(2px); }
+  @media (hover: hover) and (pointer: fine) {
+    #touch { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="game-wrap">
+    <canvas id="game" width="900" height="480"></canvas>
+    <div id="hint">SPACE / UP = jump (x2) &nbsp;|&nbsp; DOWN = duck &nbsp;|&nbsp; P = pause &nbsp;|&nbsp; R = restart</div>
+  </div>
+  <div id="controls">
+    <button id="btn-pause" type="button">Pause</button>
+    <button id="btn-restart" type="button">Restart</button>
+  </div>
+  <div id="touch">
+    <button id="touch-duck" type="button">DUCK</button>
+    <button id="touch-jump" type="button">JUMP</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CANVAS & CONSTANTS ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;
+  const H = canvas.height;
+
+  const GROUND_H = 64;          // floor thickness
+  const CEIL_H = 56;            // ceiling thickness
+  const FLOOR_Y = H - GROUND_H; // top of the floor
+
+  const GRAVITY = 0.62;
+  const JUMP_V = -12.0;
+  const DJUMP_V = -10.2;
+  const MAX_FALL = 16;
+
+  const RUNNER_X = 190;
+  const STAND_H = 46;
+  const STAND_W = 30;
+  const DUCK_H = 26;
+
+  const BASE_SPEED = 5.2;       // px/frame at start
+  const MAX_SPEED = 12.5;
+  const SPEED_RAMP = 0.0016;    // per frame
+
+  const STATE = { READY: 0, PLAYING: 1, OVER: 2 };
+
+  // ============ GAME STATE ============
+  let state = STATE.READY;
+  let paused = false;
+  let frames = 0;
+  let speed = BASE_SPEED;
+  let distance = 0;             // raw px travelled (score)
+  let gems = 0;
+  let best = Number(localStorage.getItem("caveRunnerBest") || 0);
+
+  let obstacles = [];           // {type,x,y,w,h,passed}
+  let gemList = [];             // {x,y,got,pulse}
+  let particles = [];           // {x,y,vx,vy,life,col}
+  let spawnTimer = 70;
+  let camShake = 0;
+
+  // Runner
+  const runner = {
+    x: RUNNER_X,
+    y: FLOOR_Y - STAND_H,
+    vy: 0,
+    onGround: true,
+    jumps: 0,               // jumps used
+    ducking: false,
+    rot: 0,
+    legPhase: 0,
+    dead: false
+  };
+
+  // Parallax layers (scroll offsets)
+  let bgFar = 0, bgMid = 0, bgNear = 0;
+
+  function scoreValue() {
+    return Math.floor(distance / 10) + gems * 15;
+  }
+
+  // ============ AUDIO (WebAudio beep) ============
+  let actx = null;
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      const v = (vol === undefined) ? 0.06 : vol;
+      g.gain.setValueAtTime(v, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+
+  // ============ DOM CONTROLS ============
+  const btnPause = document.getElementById("btn-pause");
+  const btnRestart = document.getElementById("btn-restart");
+  const touchJump = document.getElementById("touch-jump");
+  const touchDuck = document.getElementById("touch-duck");
+
+  function syncPauseButton() { btnPause.textContent = paused ? "Play" : "Pause"; }
+
+  function togglePause() {
+    if (state === STATE.OVER) return;
+    paused = !paused;
+    syncPauseButton();
+    beep(paused ? 400 : 640, 0.07, "triangle");
+  }
+
+  function reset() {
+    state = STATE.READY;
+    paused = false;
+    frames = 0;
+    speed = BASE_SPEED;
+    distance = 0;
+    gems = 0;
+    obstacles = [];
+    gemList = [];
+    particles = [];
+    spawnTimer = 70;
+    camShake = 0;
+    bgFar = bgMid = bgNear = 0;
+    runner.y = FLOOR_Y - STAND_H;
+    runner.vy = 0;
+    runner.onGround = true;
+    runner.jumps = 0;
+    runner.ducking = false;
+    runner.rot = 0;
+    runner.dead = false;
+    syncPauseButton();
+  }
+
+  btnPause.addEventListener("click", togglePause);
+  btnRestart.addEventListener("click", reset);
+
+  // ============ INPUT ============
+  function doJump() {
+    if (paused) return;
+    if (state === STATE.READY) {
+      state = STATE.PLAYING;
+      runner.vy = JUMP_V; runner.jumps = 1; runner.onGround = false;
+      beep(520, 0.09, "square");
+      return;
+    }
+    if (state === STATE.OVER) { if (frames > 30) reset(); return; }
+    if (state !== STATE.PLAYING) return;
+
+    if (runner.jumps < 2) {
+      runner.vy = runner.jumps === 0 ? JUMP_V : DJUMP_V;
+      runner.jumps++;
+      runner.onGround = false;
+      // double-jump puff
+      puff(runner.x, runner.y + STAND_H, "#b98cff", 8);
+      beep(runner.jumps === 2 ? 780 : 520, 0.09, "square");
+    }
+  }
+
+  function setDuck(on) {
+    if (state === STATE.PLAYING) runner.ducking = on;
+    else runner.ducking = false;
+  }
+
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "KeyP" || e.key === "p" || e.key === "P" || e.key === "Escape") {
+      e.preventDefault(); togglePause(); return;
+    }
+    if (e.code === "KeyR" || e.key === "r" || e.key === "R") {
+      e.preventDefault(); reset(); return;
+    }
+    if (e.code === "Space" || e.code === "ArrowUp" || e.code === "KeyW" || e.key === " ") {
+      e.preventDefault(); doJump(); return;
+    }
+    if (e.code === "ArrowDown" || e.code === "KeyS") {
+      e.preventDefault(); setDuck(true); return;
+    }
+  });
+  window.addEventListener("keyup", function (e) {
+    if (e.code === "ArrowDown" || e.code === "KeyS") setDuck(false);
+  });
+
+  // ---- Touch / mouse on canvas: tap = jump, swipe-down = duck ----
+  let touchStartY = 0, touchStartT = 0, duckingViaTouch = false;
+  canvas.addEventListener("mousedown", function (e) { e.preventDefault(); doJump(); });
+  canvas.addEventListener("touchstart", function (e) {
+    e.preventDefault();
+    const t = e.changedTouches[0];
+    touchStartY = t.clientY; touchStartT = performance.now();
+    duckingViaTouch = false;
+  }, { passive: false });
+  canvas.addEventListener("touchmove", function (e) {
+    if (state !== STATE.PLAYING) return;
+    const t = e.changedTouches[0];
+    if (t.clientY - touchStartY > 34) {
+      duckingViaTouch = true;
+      setDuck(true);
+    }
+  }, { passive: false });
+  canvas.addEventListener("touchend", function (e) {
+    e.preventDefault();
+    if (duckingViaTouch) { setDuck(false); duckingViaTouch = false; return; }
+    const dt = performance.now() - touchStartT;
+    if (dt < 260) doJump();
+  }, { passive: false });
+
+  // ---- On-screen buttons ----
+  function bindHold(btn, on, off) {
+    btn.addEventListener("touchstart", function (e) { e.preventDefault(); on(); }, { passive: false });
+    btn.addEventListener("touchend", function (e) { e.preventDefault(); if (off) off(); }, { passive: false });
+    btn.addEventListener("mousedown", function (e) { e.preventDefault(); on(); });
+    btn.addEventListener("mouseup", function (e) { e.preventDefault(); if (off) off(); });
+    btn.addEventListener("mouseleave", function () { if (off) off(); });
+  }
+  bindHold(touchJump, doJump, null);
+  bindHold(touchDuck, function () { setDuck(true); }, function () { setDuck(false); });
+
+  // ============ SPAWNING ============
+  function puff(x, y, col, n) {
+    for (let i = 0; i < n; i++) {
+      particles.push({
+        x: x, y: y,
+        vx: (Math.random() - 0.5) * 5,
+        vy: (Math.random() - 0.5) * 5 - 1,
+        life: 1, col: col, r: 1.5 + Math.random() * 3
+      });
+    }
+  }
+
+  function spawnObstacle() {
+    const r = Math.random();
+    // difficulty scales spacing; as speed rises, patterns get harder
+    const hard = Math.min(1, (speed - BASE_SPEED) / (MAX_SPEED - BASE_SPEED));
+
+    if (r < 0.40) {
+      // stalagmite (ground spike) -> jump
+      const h = 42 + Math.random() * 40;
+      obstacles.push({ type: "stalag", x: W + 40, y: FLOOR_Y - h, w: 30 + Math.random() * 12, h: h, passed: false });
+    } else if (r < 0.66) {
+      // pit (gap in floor) -> jump over; width scales with difficulty
+      const w = 60 + Math.random() * 40 + hard * 44;
+      obstacles.push({ type: "pit", x: W + 40, y: FLOOR_Y, w: w, h: GROUND_H, passed: false });
+    } else if (r < 0.90) {
+      // stalactite (hanging low from ceiling) -> duck; clears only while ducking
+      const h = 316 + Math.random() * 10;
+      obstacles.push({ type: "stalac", x: W + 40, y: CEIL_H, w: 28 + Math.random() * 12, h: h, passed: false });
+    } else {
+      // double stalagmite pair -> needs double jump spacing
+      const h1 = 40 + Math.random() * 22;
+      const gapx = 84 + Math.random() * 30;
+      obstacles.push({ type: "stalag", x: W + 40, y: FLOOR_Y - h1, w: 26, h: h1, passed: false });
+      obstacles.push({ type: "stalag", x: W + 40 + gapx, y: FLOOR_Y - h1 - 4, w: 26, h: h1 + 4, passed: false });
+    }
+
+    // randomly sprinkle gems near the challenge
+    if (Math.random() < 0.72) {
+      const gy = 300 + Math.random() * 60; // always within jump-reach band
+      const n = 1 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < n; i++) {
+        gemList.push({ x: W + 90 + i * 36, y: gy, got: false, pulse: Math.random() * 6.28 });
+      }
+    }
+
+    // distance-based spacing: gap (in px) shrinks as difficulty rises,
+    // so faster speeds also mean denser obstacles -> real ramp
+    const gapPx = (700 - hard * 230) * (0.85 + Math.random() * 0.3);
+    spawnTimer = Math.max(26, gapPx / speed);
+  }
+
+  // ============ COLLISION HELPERS ============
+  function runnerBox() {
+    const h = runner.ducking ? DUCK_H : STAND_H;
+    return { x: runner.x - STAND_W / 2, y: runner.y, w: STAND_W, h: h };
+  }
+
+  function overlap(a, b) {
+    return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  }
+
+  // ============ UPDATE ============
+  function update() {
+    frames++;
+    bgFar = (bgFar - 0.35) % 400;
+    bgMid = (bgMid - 1.1) % 320;
+    bgNear = (bgNear - 2.4) % 260;
+
+    if (camShake > 0) camShake *= 0.88;
+
+    // particles always animate
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx; p.y += p.vy; p.vy += 0.22; p.life -= 0.035;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+
+    if (state === STATE.READY) {
+      runner.legPhase += 0.18;
+      return;
+    }
+    if (state === STATE.OVER) {
+      // let dead runner tumble a little then settle on floor
+      if (!runner.onGround) {
+        runner.vy = Math.min(runner.vy + GRAVITY, MAX_FALL);
+        runner.y += runner.vy;
+        runner.rot += 0.14;
+        if (runner.y >= FLOOR_Y - STAND_H) { runner.y = FLOOR_Y - STAND_H; runner.onGround = true; runner.rot = Math.min(runner.rot, 1.5); }
+      }
+      return;
+    }
+
+    // ---- Playing ----
+    speed = Math.min(MAX_SPEED, speed + SPEED_RAMP);
+    distance += speed;
+    runner.legPhase += 0.12 + speed * 0.02;
+
+    // vertical physics
+    runner.vy = Math.min(runner.vy + GRAVITY, MAX_FALL);
+    runner.y += runner.vy;
+
+    if (runner.y >= FLOOR_Y - (runner.ducking ? DUCK_H : STAND_H)) {
+      // landed (only if not over a pit)
+      runner.y = FLOOR_Y - (runner.ducking ? DUCK_H : STAND_H);
+      runner.vy = 0;
+      runner.onGround = true;
+      runner.jumps = 0;
+    } else {
+      runner.onGround = false;
+    }
+    runner.rot = runner.onGround ? 0 : Math.max(-0.35, Math.min(0.5, runner.vy * 0.03));
+
+    const rb = runnerBox();
+
+    // spawn
+    spawnTimer -= 1;
+    if (spawnTimer <= 0) spawnObstacle();
+
+    // move + test obstacles
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+      const o = obstacles[i];
+      o.x -= speed;
+
+      if (o.type === "pit") {
+        // fell into pit? only when on the ground level and horizontally inside
+        if (runner.onGround && runner.x > o.x - 4 && runner.x < o.x + o.w + 4) {
+          // over the gap while grounded -> fall
+          gameOver(); return;
+        }
+      } else if (o.type === "stalac") {
+        if (overlap(rb, o)) { gameOver(); return; }
+      } else {
+        // stalagmite: solid-ish, must be above it
+        if (overlap(rb, o)) { gameOver(); return; }
+      }
+
+      if (!o.passed && o.x + o.w < runner.x - STAND_W / 2) {
+        o.passed = true;
+        beep(300 + Math.random() * 60, 0.04, "sine", 0.03);
+      }
+      if (o.x + o.w < -60) obstacles.splice(i, 1);
+    }
+
+    // gems
+    for (let i = gemList.length - 1; i >= 0; i--) {
+      const g = gemList[i];
+      g.x -= speed;
+      g.pulse += 0.15;
+      if (!g.got && overlap(rb, { x: g.x - 9, y: g.y - 9, w: 18, h: 18 })) {
+        g.got = true;
+        gems++;
+        puff(g.x, g.y, "#63e6ff", 10);
+        beep(920, 0.08, "sine", 0.06);
+      }
+      if (g.x < -30 || g.got) gemList.splice(i, 1);
+    }
+
+    // ceiling: hitting the top is fine physically but stalactites kill; keep runner from going through ceiling
+    if (runner.y < CEIL_H) { runner.y = CEIL_H; runner.vy = Math.max(runner.vy, 0); }
+  }
+
+  function gameOver() {
+    if (state === STATE.OVER) return;
+    state = STATE.OVER;
+    runner.dead = true;
+    runner.ducking = false;
+    frames = 0;
+    camShake = 16;
+    puff(runner.x, runner.y + STAND_H, "#ff6b6b", 24);
+    beep(150, 0.3, "sawtooth", 0.09);
+    const s = scoreValue();
+    if (s > best) { best = s; localStorage.setItem("caveRunnerBest", String(best)); }
+  }
+
+  // ============ RENDERING ============
+  function drawCaveBackground() {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#1b1226");
+    g.addColorStop(0.5, "#241935");
+    g.addColorStop(1, "#160f20");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // far stalactite silhouettes
+    ctx.fillStyle = "rgba(70,48,102,0.55)";
+    for (let x = bgFar % 400 - 100; x < W + 120; x += 400) {
+      for (let k = 0; k < 5; k++) {
+        const sx = x + k * 82;
+        const sw = 40, sh = 60 + ((k * 37) % 70);
+        ctx.beginPath();
+        ctx.moveTo(sx, 0); ctx.lineTo(sx + sw, 0); ctx.lineTo(sx + sw / 2, sh);
+        ctx.closePath(); ctx.fill();
+      }
+    }
+    // mid stalagmites
+    ctx.fillStyle = "rgba(96,66,140,0.5)";
+    for (let x = bgMid % 320 - 80; x < W + 100; x += 320) {
+      for (let k = 0; k < 4; k++) {
+        const sx = x + k * 88;
+        const sw = 46, sh = 70 + ((k * 53) % 80);
+        ctx.beginPath();
+        ctx.moveTo(sx, H); ctx.lineTo(sx + sw, H); ctx.lineTo(sx + sw / 2, H - sh);
+        ctx.closePath(); ctx.fill();
+      }
+    }
+    // near-tint layer
+    ctx.fillStyle = "rgba(40,26,60,0.35)";
+    for (let x = bgNear % 260 - 70; x < W + 90; x += 260) {
+      const sw = 60, sh = 90;
+      ctx.beginPath();
+      ctx.moveTo(x, 0); ctx.lineTo(x + sw, 0); ctx.lineTo(x + sw / 2, sh);
+      ctx.closePath(); ctx.fill();
+    }
+
+    // glowing torch lights along ceiling
+    const tw = (frames * 1.5) % (W + 200);
+    for (let i = 0; i < 4; i++) {
+      const lx = (i * 300 + W - tw + 300) % (W + 300) - 100;
+      const flick = 0.7 + 0.3 * Math.sin(frames * 0.2 + i);
+      const rg = ctx.createRadialGradient(lx, CEIL_H, 2, lx, CEIL_H, 90);
+      rg.addColorStop(0, "rgba(255,180,90," + (0.35 * flick) + ")");
+      rg.addColorStop(1, "rgba(255,140,60,0)");
+      ctx.fillStyle = rg;
+      ctx.beginPath(); ctx.arc(lx, CEIL_H, 90, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "rgba(255,200,120," + (0.7 * flick) + ")";
+      ctx.beginPath(); ctx.arc(lx, CEIL_H, 4, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  function drawCeilingFloor() {
+    // ceiling
+    ctx.fillStyle = "#2c1e40";
+    ctx.fillRect(0, 0, W, CEIL_H);
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fillRect(0, CEIL_H - 6, W, 6);
+    // jagged ceiling teeth
+    ctx.fillStyle = "#2c1e40";
+    for (let x = -(bgNear % 46); x < W + 60; x += 46) {
+      ctx.beginPath();
+      ctx.moveTo(x, CEIL_H); ctx.lineTo(x + 20, CEIL_H);
+      ctx.lineTo(x + 10, CEIL_H + 12);
+      ctx.closePath(); ctx.fill();
+    }
+
+    // floor
+    ctx.fillStyle = "#382a4d";
+    ctx.fillRect(0, FLOOR_Y, W, GROUND_H);
+    const fg = ctx.createLinearGradient(0, FLOOR_Y, 0, H);
+    fg.addColorStop(0, "rgba(140,96,190,0.35)");
+    fg.addColorStop(1, "rgba(20,12,30,0.9)");
+    ctx.fillStyle = fg;
+    ctx.fillRect(0, FLOOR_Y, W, GROUND_H);
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
+    ctx.fillRect(0, FLOOR_Y, W, 4);
+    // floor rock texture
+    ctx.fillStyle = "rgba(90,64,130,0.5)";
+    for (let x = -(bgNear * 1.4 % 40); x < W + 40; x += 40) {
+      ctx.fillRect(x, FLOOR_Y + 16, 18, 5);
+      ctx.fillRect(x + 12, FLOOR_Y + 34, 22, 5);
+    }
+  }
+
+  function drawObstacles() {
+    for (const o of obstacles) {
+      if (o.type === "pit") {
+        // dark gap punched through the floor
+        ctx.fillStyle = "#08060d";
+        ctx.fillRect(o.x, FLOOR_Y, o.w, GROUND_H);
+        // edge highlights
+        ctx.fillStyle = "rgba(160,110,220,0.5)";
+        ctx.fillRect(o.x, FLOOR_Y, 3, GROUND_H);
+        ctx.fillRect(o.x + o.w - 3, FLOOR_Y, 3, GROUND_H);
+        // danger glow at the lip
+        const pg = ctx.createLinearGradient(o.x, FLOOR_Y, o.x + o.w, FLOOR_Y);
+        pg.addColorStop(0, "rgba(255,80,80,0.0)");
+        pg.addColorStop(0.5, "rgba(255,80,80,0.18)");
+        pg.addColorStop(1, "rgba(255,80,80,0.0)");
+        ctx.fillStyle = pg;
+        ctx.fillRect(o.x, FLOOR_Y - 3, o.w, 6);
+      } else if (o.type === "stalac") {
+        // stalactite hanging from ceiling
+        const grad = ctx.createLinearGradient(o.x, o.y, o.x + o.w, o.y + o.h);
+        grad.addColorStop(0, "#6d54a0");
+        grad.addColorStop(0.5, "#8b6dcc");
+        grad.addColorStop(1, "#4c3777");
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(o.x, o.y);
+        ctx.lineTo(o.x + o.w, o.y);
+        ctx.lineTo(o.x + o.w / 2, o.y + o.h);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = 2; ctx.stroke();
+      } else {
+        // stalagmite spike on floor
+        const grad = ctx.createLinearGradient(o.x, o.y + o.h, o.x, o.y);
+        grad.addColorStop(0, "#4c3777");
+        grad.addColorStop(0.5, "#8b6dcc");
+        grad.addColorStop(1, "#a98ce6");
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(o.x, o.y + o.h);
+        ctx.lineTo(o.x + o.w, o.y + o.h);
+        ctx.lineTo(o.x + o.w / 2, o.y);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = 2; ctx.stroke();
+        // sparkle tip
+        ctx.fillStyle = "rgba(220,200,255,0.8)";
+        ctx.beginPath(); ctx.arc(o.x + o.w / 2, o.y + 3, 2.4, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  }
+
+  function drawGems() {
+    for (const g of gemList) {
+      if (g.got) continue;
+      const bob = Math.sin(g.pulse) * 4;
+      ctx.save();
+      ctx.translate(g.x, g.y + bob);
+      // glow
+      const rg = ctx.createRadialGradient(0, 0, 1, 0, 0, 22);
+      rg.addColorStop(0, "rgba(99,230,255,0.55)");
+      rg.addColorStop(1, "rgba(99,230,255,0)");
+      ctx.fillStyle = rg;
+      ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.fill();
+      // diamond
+      const s = 9;
+      ctx.beginPath();
+      ctx.moveTo(0, -s); ctx.lineTo(s, 0); ctx.lineTo(0, s); ctx.lineTo(-s, 0);
+      ctx.closePath();
+      const gg = ctx.createLinearGradient(-s, -s, s, s);
+      gg.addColorStop(0, "#bff4ff");
+      gg.addColorStop(0.5, "#4fd2ff");
+      gg.addColorStop(1, "#1f8fd6");
+      ctx.fillStyle = gg; ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.85)"; ctx.lineWidth = 1.4; ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,0.8)";
+      ctx.beginPath(); ctx.moveTo(-2, -4); ctx.lineTo(3, -4); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function drawRunner() {
+    const h = runner.ducking ? DUCK_H : STAND_H;
+    const y = runner.y;
+    ctx.save();
+    ctx.translate(runner.x, y); // origin = top-left of hitbox roughly
+    ctx.rotate(runner.rot);
+
+    const w = STAND_W;
+
+    // shadow
+    ctx.save();
+    ctx.globalAlpha = 0.28;
+    ctx.fillStyle = "#000";
+    ctx.beginPath(); ctx.ellipse(w / 2, FLOOR_Y - y + 2, 18, 6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    // body (cloaked explorer)
+    const bodyGrad = ctx.createLinearGradient(0, 0, w, h);
+    bodyGrad.addColorStop(0, "#ffd36b");
+    bodyGrad.addColorStop(1, "#e8933a");
+    ctx.fillStyle = bodyGrad;
+    roundRect(0, 0, w, h, 8);
+    ctx.fill();
+    ctx.strokeStyle = "#7a4410"; ctx.lineWidth = 2;
+    roundRect(0, 0, w, h, 8); ctx.stroke();
+
+    // chest emblem
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.beginPath(); ctx.arc(w / 2, h * 0.42, 4.5, 0, Math.PI * 2); ctx.fill();
+
+    // head / helmet
+    const hx = w / 2, hy = runner.ducking ? 8 : 8;
+    ctx.fillStyle = "#6fc3ff";
+    ctx.beginPath(); ctx.arc(hx, hy, 10, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#2b6d99"; ctx.lineWidth = 2; ctx.stroke();
+    // visor
+    ctx.fillStyle = "#123";
+    ctx.beginPath(); ctx.arc(hx + 2, hy, 8, -0.9, 0.9); ctx.fill();
+    // eye glint
+    ctx.fillStyle = "#bff4ff";
+    ctx.beginPath(); ctx.arc(hx + 5, hy - 2, 1.8, 0, Math.PI * 2); ctx.fill();
+
+    // legs (animate when grounded, tuck when airborne)
+    ctx.fillStyle = "#7a4410";
+    if (runner.onGround && !runner.dead) {
+      const swing = Math.sin(runner.legPhase) * 7;
+      ctx.fillRect(w * 0.18, h - 2 + swing, 7, 8);
+      ctx.fillRect(w * 0.58, h - 2 - swing, 7, 8);
+    } else {
+      ctx.fillRect(w * 0.14, h - 2, 7, 6);
+      ctx.fillRect(w * 0.58, h - 2, 7, 6);
+    }
+
+    // arm
+    ctx.fillStyle = "#e8933a";
+    ctx.fillRect(-5, h * 0.35, 6, 10);
+
+    ctx.restore();
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function drawParticles() {
+    for (const p of particles) {
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.col;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawHUD() {
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 26px 'Courier New', monospace";
+    ctx.fillText(String(scoreValue()), 22, 38);
+    ctx.font = "13px 'Courier New', monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.65)";
+    ctx.fillText("DISTANCE", 22, 56);
+
+    // gems counter (top-right)
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#63e6ff";
+    ctx.font = "bold 22px 'Courier New', monospace";
+    ctx.fillText("◆ " + gems, W - 22, 36);
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    ctx.font = "12px 'Courier New', monospace";
+    ctx.fillText("GEMS", W - 22, 54);
+
+    // speed bar
+    const sw = 150;
+    ctx.fillStyle = "rgba(255,255,255,0.15)";
+    ctx.fillRect(W - sw - 22, 66, sw, 8);
+    const fill = (speed - BASE_SPEED) / (MAX_SPEED - BASE_SPEED);
+    const sg = ctx.createLinearGradient(W - sw - 22, 0, W - 22, 0);
+    sg.addColorStop(0, "#7be0ff"); sg.addColorStop(1, "#ff6b6b");
+    ctx.fillStyle = sg;
+    ctx.fillRect(W - sw - 22, 66, sw * Math.min(1, fill), 8);
+  }
+
+  function drawPanel() {
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+
+    if (state === STATE.READY) {
+      ctx.fillStyle = "rgba(10,6,18,0.72)";
+      ctx.fillRect(0, H / 2 - 120, W, 240);
+      ctx.fillStyle = "#ffd36b";
+      ctx.font = "bold 52px 'Courier New', monospace";
+      ctx.fillText("CAVE RUNNER", W / 2, H / 2 - 52);
+      ctx.fillStyle = "#bff4ff";
+      ctx.font = "17px 'Courier New', monospace";
+      ctx.fillText("Auto-run through the cave — jump the spikes, duck the stone teeth", W / 2, H / 2 - 12);
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.font = "16px 'Courier New', monospace";
+      ctx.fillText("SPACE / UP = jump (double-jump in air)", W / 2, H / 2 + 24);
+      ctx.fillText("DOWN = duck  •  collect gems ◆", W / 2, H / 2 + 50);
+      ctx.fillStyle = "rgba(255,211,107,0.9)";
+      ctx.font = "15px 'Courier New', monospace";
+      ctx.fillText("Best: " + best, W / 2, H / 2 + 88);
+      ctx.fillStyle = "rgba(255,255,255," + (0.55 + 0.45 * Math.sin(frames * 0.12)) + ")";
+      ctx.font = "18px 'Courier New', monospace";
+      ctx.fillText("PRESS SPACE / TAP TO START", W / 2, H / 2 + 118);
+    }
+
+    if (state === STATE.OVER) {
+      ctx.fillStyle = "rgba(10,6,18,0.78)";
+      ctx.fillRect(0, H / 2 - 120, W, 250);
+      ctx.fillStyle = "#ff6b6b";
+      ctx.font = "bold 46px 'Courier New', monospace";
+      ctx.fillText("GAME OVER", W / 2, H / 2 - 50);
+      ctx.fillStyle = "#fff";
+      ctx.font = "24px 'Courier New', monospace";
+      ctx.fillText("Score: " + scoreValue(), W / 2, H / 2 - 2);
+      ctx.font = "16px 'Courier New', monospace";
+      ctx.fillStyle = "rgba(255,255,255,0.8)";
+      ctx.fillText("Distance " + Math.floor(distance / 10) + "  •  Gems " + gems, W / 2, H / 2 + 30);
+      ctx.fillStyle = "#ffd36b";
+      ctx.font = "19px 'Courier New', monospace";
+      ctx.fillText("Best: " + best, W / 2, H / 2 + 66);
+      if (frames > 30) {
+        ctx.fillStyle = "rgba(255,255,255," + (0.6 + 0.4 * Math.sin(frames * 0.15)) + ")";
+        ctx.font = "17px 'Courier New', monospace";
+        ctx.fillText("Tap / Space or Restart to play again", W / 2, H / 2 + 104);
+      }
+    }
+
+    if (paused && state !== STATE.OVER) {
+      ctx.fillStyle = "rgba(6,4,10,0.68)";
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 46px 'Courier New', monospace";
+      ctx.fillText("PAUSED", W / 2, H / 2 - 6);
+      ctx.font = "17px 'Courier New', monospace";
+      ctx.fillText("Press Play / P to resume", W / 2, H / 2 + 32);
+    }
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.save();
+    if (camShake > 0.4) {
+      ctx.translate((Math.random() - 0.5) * camShake, (Math.random() - 0.5) * camShake);
+    }
+    drawCaveBackground();
+    drawCeilingFloor();
+    drawObstacles();
+    drawGems();
+    drawRunner();
+    drawParticles();
+    ctx.restore();
+    drawHUD();
+    drawPanel();
+  }
+
+  // ============ LOOP ============
+  let raf = null;
+  function loop() {
+    if (!paused) update();
+    render();
+    raf = requestAnimationFrame(loop);
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+    } else if (!raf) {
+      raf = requestAnimationFrame(loop);
+    }
+  });
+
+  // ============ BOOT ============
+  syncPauseButton();
+  loop();
+})();
+</script>
+</body>
+</html>

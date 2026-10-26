@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Happy Harvest</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --green: #6fbf3b;
+    --green-dk: #4e9427;
+    --soil: #8a5a34;
+    --soil-dk: #6d4324;
+    --sky: #bfe6ff;
+    --gold: #f2b134;
+    --gold-dk: #c8891f;
+    --wood: #a9713f;
+    --wood-dk: #7d5129;
+    --ink: #3c2f22;
+    --panel: #fffaf0;
+  }
+
+  html, body {
+    min-height: 100%;
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, Verdana, sans-serif;
+    background: linear-gradient(180deg, #a7dbff 0%, #d8f0ff 35%, #f6f0d8 100%);
+    color: var(--ink);
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  body {
+    display: flex;
+    justify-content: center;
+    padding: 12px;
+  }
+
+  /* ============ APP SHELL ============ */
+  #app {
+    width: min(1080px, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* ============ HUD ============ */
+  #hud {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    background: linear-gradient(180deg, #ffffff, #fdf3df);
+    border: 3px solid var(--wood);
+    border-radius: 16px;
+    padding: 10px 14px;
+    box-shadow: 0 6px 0 var(--wood-dk), 0 10px 22px rgba(0,0,0,.15);
+  }
+
+  .brand {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    color: var(--green-dk);
+    text-shadow: 1px 1px 0 #fff;
+    margin-right: 4px;
+  }
+
+  .stat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 16px;
+    font-weight: 700;
+    background: #fff6e2;
+    border: 2px solid #e8d4a8;
+    border-radius: 10px;
+    padding: 5px 10px;
+  }
+
+  .stat.level { flex-direction: column; align-items: flex-start; gap: 3px; }
+
+  .xpbar {
+    width: 130px;
+    height: 9px;
+    background: #e6dcc4;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid #d3c6a4;
+  }
+  .xpbar > i {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--gold), #ffd76b);
+    transition: width .3s ease;
+  }
+
+  #btn-restart {
+    margin-left: auto;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    background: #c0562b;
+    border: none;
+    border-radius: 10px;
+    padding: 8px 16px;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #8f3d1c;
+    transition: transform .05s ease, background .15s ease;
+  }
+  #btn-restart:hover { background: #d66536; }
+  #btn-restart:active { transform: translateY(2px); box-shadow: 0 2px 0 #8f3d1c; }
+  #btn-restart.armed { background: #a01f1f; box-shadow: 0 4px 0 #6d1414; }
+
+  /* ============ INVENTORY STRIP ============ */
+  #invStrip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 0;
+  }
+  .chip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 700;
+    background: rgba(255,255,255,.75);
+    border: 2px solid #e3d8bd;
+    border-radius: 20px;
+    padding: 3px 10px;
+  }
+  .chip.empty { opacity: .55; font-weight: 600; }
+
+  /* ============ LAYOUT ============ */
+  main {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  #farmPanel { flex: 1 1 auto; min-width: 0; }
+
+  #sidePanel {
+    flex: 0 0 320px;
+    max-width: 320px;
+    background: var(--panel);
+    border: 3px solid var(--wood);
+    border-radius: 16px;
+    box-shadow: 0 6px 0 var(--wood-dk), 0 10px 22px rgba(0,0,0,.12);
+    overflow: hidden;
+  }
+
+  /* ============ TOOLBAR ============ */
+  #toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(180deg, #fff, #f6ecd6);
+    border: 3px solid var(--wood);
+    border-radius: 16px;
+    padding: 8px 10px;
+    margin-bottom: 12px;
+    box-shadow: 0 5px 0 var(--wood-dk);
+  }
+
+  #seedBar { display: flex; flex-wrap: wrap; gap: 6px; }
+
+  .seed-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    min-width: 62px;
+    padding: 5px 8px;
+    border: 2px solid #d8caa6;
+    background: #fffdf6;
+    border-radius: 10px;
+    cursor: pointer;
+    color: var(--ink);
+    transition: transform .08s ease, background .15s ease, border-color .15s ease;
+  }
+  .seed-btn .em { font-size: 20px; line-height: 1; }
+  .seed-btn .pr { color: var(--gold-dk); }
+  .seed-btn:hover { background: #fff3d6; }
+  .seed-btn.active {
+    background: linear-gradient(180deg, #cdf0b0, #a7e07f);
+    border-color: var(--green-dk);
+    transform: translateY(-2px);
+  }
+  .seed-btn.locked {
+    opacity: .5;
+    cursor: not-allowed;
+    filter: grayscale(.6);
+  }
+
+  .tools { display: flex; gap: 6px; }
+  .tools button {
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    color: #fff;
+    background: var(--green);
+    box-shadow: 0 4px 0 var(--green-dk);
+    transition: transform .05s ease, background .15s ease;
+  }
+  .tools button:hover { background: #7fd04a; }
+  .tools button:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--green-dk); }
+
+  /* ============ FARM GRID ============ */
+  #farm {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    padding: 12px;
+    background:
+      radial-gradient(circle at 20% 15%, rgba(255,255,255,.14), transparent 45%),
+      repeating-linear-gradient(45deg, #7a4e2c 0 10px, #74492a 10px 20px);
+    border: 4px solid var(--soil-dk);
+    border-radius: 18px;
+    box-shadow: inset 0 0 40px rgba(0,0,0,.28), 0 8px 0 #4f3018;
+  }
+
+  .tile {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    border-radius: 12px;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform .08s ease, box-shadow .15s ease, background .2s ease;
+    overflow: hidden;
+  }
+  .tile.unlocked {
+    background: linear-gradient(180deg, #9c6a3f 0%, #855633 60%, #6f4526 100%);
+    box-shadow: inset 0 3px 0 rgba(255,255,255,.18), inset 0 -4px 0 rgba(0,0,0,.22);
+  }
+  .tile.unlocked:hover { transform: translateY(-2px); }
+  .tile.unlocked:active { transform: translateY(0) scale(.97); }
+
+  .tile.empty { background: linear-gradient(180deg, #a2744a, #7c5030); }
+  .tile.ready { box-shadow: 0 0 0 3px var(--gold), 0 0 16px rgba(242,177,52,.8); animation: pulse 1.2s infinite; }
+
+  @keyframes pulse {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.18); }
+  }
+
+  .tile.locked {
+    background: repeating-linear-gradient(45deg, #5c5c5c 0 8px, #656565 8px 16px);
+    box-shadow: inset 0 0 0 2px rgba(0,0,0,.35);
+    cursor: pointer;
+  }
+
+  .tile-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+  }
+
+  .growth { font-size: clamp(22px, 5.2vw, 42px); line-height: 1; display: block; filter: drop-shadow(0 2px 2px rgba(0,0,0,.35)); transition: transform .25s ease; }
+  .growth.ready { animation: bob 1s infinite ease-in-out; }
+  @keyframes bob { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-4px) scale(1.08); } }
+
+  .prod { position: absolute; top: 4px; right: 6px; font-size: clamp(14px, 3vw, 20px); animation: bob .9s infinite; }
+
+  .plus { font-size: clamp(20px, 4.5vw, 34px); color: rgba(255,255,255,.35); font-weight: 700; }
+  .lock { font-size: clamp(18px, 4vw, 30px); }
+  .cost { font-size: 11px; font-weight: 700; color: #ffe9a8; text-shadow: 0 1px 2px #000; }
+
+  .drop { position: absolute; left: 5px; top: 4px; font-size: 14px; }
+
+  .pbar {
+    width: 74%;
+    height: 7px;
+    background: rgba(0,0,0,.32);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .pbar > i { display: block; height: 100%; background: linear-gradient(90deg, #8fe05a, #f2e14a); transition: width .35s linear; }
+
+  .tag {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    color: #fff;
+    background: rgba(0,0,0,.45);
+    border-radius: 6px;
+    padding: 1px 5px;
+  }
+  .tag.feed { background: rgba(200,120,20,.85); }
+
+  /* ============ SIDE PANEL TABS ============ */
+  .tabs { display: flex; background: var(--wood); }
+  .tabs button {
+    flex: 1;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    padding: 11px 4px;
+    border: none;
+    cursor: pointer;
+    color: #ffe9c9;
+    background: transparent;
+    border-bottom: 3px solid transparent;
+    transition: background .15s ease, color .15s ease;
+  }
+  .tabs button:hover { background: rgba(255,255,255,.12); }
+  .tabs button.active { background: var(--panel); color: var(--wood-dk); border-bottom-color: var(--gold); }
+
+  .tab { display: none; padding: 10px; max-height: 62vh; overflow-y: auto; }
+  .tab.active { display: block; }
+
+  .sec-title {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #9a7a4e;
+    margin: 12px 2px 6px;
+  }
+  .sec-title:first-child { margin-top: 2px; }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    border: 2px solid #eee0c4;
+    border-radius: 12px;
+    padding: 7px 9px;
+    margin-bottom: 7px;
+  }
+  .row .em { font-size: 24px; line-height: 1; }
+  .row .info { flex: 1; min-width: 0; }
+  .row .nm { font-size: 14px; font-weight: 800; }
+  .row .ds { font-size: 11px; color: #8a7a5f; }
+  .row button {
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    color: #fff;
+    background: var(--green);
+    border: none;
+    border-radius: 9px;
+    padding: 7px 11px;
+    cursor: pointer;
+    box-shadow: 0 3px 0 var(--green-dk);
+    white-space: nowrap;
+    transition: transform .05s ease, background .15s ease;
+  }
+  .row button:hover { background: #7fd04a; }
+  .row button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--green-dk); }
+  .row button:disabled { background: #bdb4a2; box-shadow: 0 3px 0 #948c7c; cursor: not-allowed; opacity: .8; }
+  .row button.buy { background: var(--gold); box-shadow: 0 3px 0 var(--gold-dk); color: #4a3608; }
+  .row button.buy:hover { background: #ffca4d; }
+  .row button.sell { background: #7a9bd6; box-shadow: 0 3px 0 #4f6ea6; }
+  .row button.sell:hover { background: #93b0e4; }
+  .row.owned { background: #eefae6; border-color: #bfe3a8; }
+  .row.want { background: #fff8e6; border-color: #f0dca4; }
+
+  .order-card {
+    background: #fff;
+    border: 2px solid #eee0c4;
+    border-radius: 12px;
+    padding: 9px;
+    margin-bottom: 9px;
+  }
+  .order-items { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .order-item {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 13px;
+    font-weight: 800;
+    background: #f4efe0;
+    border-radius: 8px;
+    padding: 4px 8px;
+  }
+  .order-item.ok { background: #d9f2c4; }
+  .order-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .reward { font-size: 13px; font-weight: 800; color: var(--gold-dk); }
+
+  #toast {
+    position: fixed;
+    left: 50%;
+    bottom: 26px;
+    transform: translateX(-50%) translateY(30px);
+    background: rgba(40,28,14,.94);
+    color: #fff6e0;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 11px 20px;
+    border-radius: 12px;
+    border: 2px solid var(--gold);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease, transform .2s ease;
+    z-index: 50;
+    max-width: 90vw;
+    text-align: center;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 820px) {
+    main { flex-direction: column; }
+    #sidePanel { flex: 1 1 auto; max-width: none; width: 100%; }
+    .tab { max-height: none; }
+    #farm { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 460px) {
+    body { padding: 8px; }
+    .brand { font-size: 17px; }
+    .stat { font-size: 14px; }
+    .xpbar { width: 96px; }
+    #toolbar { justify-content: center; }
+    .tools { width: 100%; justify-content: center; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ HUD ============ -->
+  <header id="hud">
+    <div class="brand">🌻 Happy Harvest</div>
+    <div class="stat">🪙 <span id="coins">0</span></div>
+    <div class="stat level">
+      <span>⭐ Lv <span id="level">1</span></span>
+      <div class="xpbar"><i id="xpfill"></i></div>
+    </div>
+    <div class="stat">🧺 <span id="barnCount">0</span></div>
+    <button id="btn-restart" type="button">Restart</button>
+  </header>
+
+  <div id="invStrip"></div>
+
+  <!-- ============ MAIN ============ -->
+  <main>
+    <section id="farmPanel">
+      <div id="toolbar">
+        <div id="seedBar"></div>
+        <div class="tools">
+          <button id="btnWaterAll" type="button">💧 Water All</button>
+          <button id="btnHarvestAll" type="button">🧺 Harvest All</button>
+        </div>
+      </div>
+      <div id="farm"></div>
+    </section>
+
+    <aside id="sidePanel">
+      <div class="tabs">
+        <button type="button" data-tab="shop" class="active">🛒 Shop</button>
+        <button type="button" data-tab="orders">📋 Orders</button>
+        <button type="button" data-tab="barn">🎒 Barn</button>
+      </div>
+      <div id="tab-shop" class="tab active"></div>
+      <div id="tab-orders" class="tab"></div>
+      <div id="tab-barn" class="tab"></div>
+    </aside>
+  </main>
+
+  <div id="toast"></div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ GAME DATA ============
+  var SAVE_KEY = "happyHarvestSave";
+  var BASE_UNLOCKED = 6;
+  var GRID_TILES = 12;
+  var UNLOCK_COSTS = [60, 130, 220, 360, 560, 900];
+
+  // Crops: seed = coin cost to plant, growBase = seconds, sell = coin value of 1 unit
+  var CROPS = {
+    wheat:      { name: "Wheat",      emoji: "🌾", seed: 8,   growBase: 15,  sell: 20,  xp: 2,  level: 1 },
+    carrot:     { name: "Carrot",     emoji: "🥕", seed: 16,  growBase: 30,  sell: 36,  xp: 3,  level: 1 },
+    tomato:     { name: "Tomato",     emoji: "🍅", seed: 28,  growBase: 50,  sell: 58,  xp: 5,  level: 2 },
+    corn:       { name: "Corn",       emoji: "🌽", seed: 45,  growBase: 80,  sell: 92,  xp: 7,  level: 3 },
+    strawberry: { name: "Strawberry", emoji: "🍓", seed: 75,  growBase: 130, sell: 152, xp: 10, level: 4 },
+    pumpkin:    { name: "Pumpkin",    emoji: "🎃", seed: 120, growBase: 220, sell: 250, xp: 15, level: 6 }
+  };
+
+  // Animal products (indexed by product key)
+  var PRODUCTS = {
+    egg:  { name: "Egg",  emoji: "🥚", sell: 26 },
+    milk: { name: "Milk", emoji: "🥛", sell: 62 },
+    wool: { name: "Wool", emoji: "🧶", sell: 98 }
+  };
+
+  // Animals: cost = coin cost, feed = wheat units needed, time = seconds to produce
+  var ANIMALS = {
+    chicken: { name: "Chicken", emoji: "🐔", cost: 60,  feed: 1, time: 20, product: "egg",  xp: 3 },
+    cow:     { name: "Cow",     emoji: "🐄", cost: 190, feed: 2, time: 45, product: "milk", xp: 6 },
+    sheep:   { name: "Sheep",   emoji: "🐑", cost: 330, feed: 3, time: 70, product: "wool", xp: 9 }
+  };
+
+  // One-time buildings with passive bonuses
+  var BUILDINGS = {
+    watertower:  { name: "Water Tower",  emoji: "🚰", cost: 420, desc: "-15% crop grow time" },
+    marketstall: { name: "Market Stall", emoji: "🏪", cost: 700, desc: "+15% order rewards" },
+    greenhouse:  { name: "Greenhouse",   emoji: "🏡", cost: 950, desc: "-20% animal produce time" }
+  };
+
+  // ============ SOUND (WebAudio, no assets) ============
+  var actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = actx.createOscillator();
+      var g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  // ============ GAME STATE ============
+  var state = null;
+  var selectedSeed = "wheat";
+  var tileEls = [];
+  var activeTab = "shop";
+  var restartArmed = false;
+
+  // ============ DOM ELEMENTS ============
+  var coinsEl = document.getElementById("coins");
+  var levelEl = document.getElementById("level");
+  var xpfillEl = document.getElementById("xpfill");
+  var barnCountEl = document.getElementById("barnCount");
+  var invStripEl = document.getElementById("invStrip");
+  var seedBarEl = document.getElementById("seedBar");
+  var farmEl = document.getElementById("farm");
+  var tabShop = document.getElementById("tab-shop");
+  var tabOrders = document.getElementById("tab-orders");
+  var tabBarn = document.getElementById("tab-barn");
+  var toastEl = document.getElementById("toast");
+  var btnRestart = document.getElementById("btn-restart");
+
+  // ============ HELPERS ============
+  function getItem(key) { return CROPS[key] || PRODUCTS[key]; }
+
+  function emptyInv() {
+    var inv = {};
+    Object.keys(CROPS).forEach(function (k) { inv[k] = 0; });
+    Object.keys(PRODUCTS).forEach(function (k) { inv[k] = 0; });
+    return inv;
+  }
+
+  function newTiles() {
+    var t = [];
+    for (var i = 0; i < GRID_TILES; i++) t.push({ kind: "empty" });
+    return t;
+  }
+
+  function unlockCostFor(i) { return UNLOCK_COSTS[i - BASE_UNLOCKED]; }
+
+  function xpNeeded(level) { return 60 + (level - 1) * 55; }
+
+  function growMs(cropKey) {
+    var mult = state.buildings.watertower ? 0.85 : 1;
+    return CROPS[cropKey].growBase * 1000 * mult;
+  }
+
+  function produceMs(animalKey) {
+    var mult = state.buildings.greenhouse ? 0.8 : 1;
+    return ANIMALS[animalKey].time * 1000 * mult;
+  }
+
+  function countItems() {
+    var n = 0;
+    Object.keys(state.inv).forEach(function (k) { n += state.inv[k]; });
+    return n;
+  }
+
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { toastEl.classList.remove("show"); }, 1900);
+  }
+
+  // ============ SAVE / LOAD ============
+  function save() {
+    try {
+      state.lastSeen = Date.now();
+      localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    } catch (e) { /* storage unavailable, ignore */ }
+  }
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return false;
+      var s = JSON.parse(raw);
+      if (!s || s.version !== 1 || !s.tiles || s.tiles.length !== GRID_TILES) return false;
+      state = s;
+      // Defensive fill for forward compatibility
+      if (!state.inv) state.inv = emptyInv();
+      Object.keys(CROPS).forEach(function (k) { if (typeof state.inv[k] !== "number") state.inv[k] = 0; });
+      Object.keys(PRODUCTS).forEach(function (k) { if (typeof state.inv[k] !== "number") state.inv[k] = 0; });
+      if (!state.buildings) state.buildings = { watertower: false, marketstall: false, greenhouse: false };
+      if (typeof state.unlockedCount !== "number") state.unlockedCount = BASE_UNLOCKED;
+      if (!Array.isArray(state.orders) || !state.orders.length) regenerateOrders(true);
+      while (state.orders.length < 3) state.orders.push(makeOrder());
+      return true;
+    } catch (e) { return false; }
+  }
+
+  function newGame() {
+    state = {
+      version: 1,
+      coins: 160,
+      xp: 0,
+      level: 1,
+      unlockedCount: BASE_UNLOCKED,
+      tiles: newTiles(),
+      inv: emptyInv(),
+      orders: [],
+      buildings: { watertower: false, marketstall: false, greenhouse: false },
+      harvests: 0,
+      lastSeen: Date.now()
+    };
+    state.tiles[0] = { kind: "crop", crop: "wheat", plantedAt: Date.now() - 16000, growMs: growMs("wheat"), watered: false };
+    while (state.orders.length < 3) state.orders.push(makeOrder());
+    selectedSeed = "wheat";
+  }
+
+  // ============ OFFLINE GROWTH REPORT ============
+  function offlineReport() {
+    var now = Date.now();
+    var ready = 0, producing = 0;
+    state.tiles.forEach(function (t) {
+      if (t.kind === "crop" && now - t.plantedAt >= t.growMs) ready++;
+      if (t.kind === "animal" && t.producing && now - t.fedAt >= t.durMs) producing++;
+    });
+    if (ready || producing) {
+      var msg = "Welcome back! ";
+      if (ready) msg += ready + " crop" + (ready > 1 ? "s" : "") + " ready";
+      if (ready && producing) msg += " & ";
+      if (producing) msg += producing + " animal product" + (producing > 1 ? "s" : "") + " ready";
+      toast(msg);
+    }
+  }
+
+  // ============ ORDERS ============
+  function makeOrder() {
+    var pool = [];
+    Object.keys(CROPS).forEach(function (k) { if (CROPS[k].level <= state.level) pool.push(k); });
+    Object.keys(PRODUCTS).forEach(function (k) { pool.push(k); });
+    var n = Math.random() < 0.5 ? 1 : 2;
+    var chosen = [];
+    while (chosen.length < n && pool.length) {
+      chosen.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    }
+    var items = chosen.map(function (k) {
+      var isProd = !!PRODUCTS[k];
+      var qty = isProd ? 1 + Math.floor(Math.random() * 2) : 1 + Math.floor(Math.random() * 3);
+      return { item: k, qty: qty };
+    });
+    var base = 0;
+    items.forEach(function (it) { base += getItem(it.item).sell * it.qty; });
+    var mult = state.buildings.marketstall ? 1.15 : 1;
+    var coins = Math.round(base * 1.6 * mult) + 5;
+    var xp = 3 + Math.floor(base / 22);
+    return { id: "o" + Math.random().toString(36).slice(2, 8), items: items, coins: coins, xp: xp };
+  }
+
+  function regenerateOrders(clear) {
+    if (clear) state.orders = [];
+    while (state.orders.length < 3) state.orders.push(makeOrder());
+  }
+
+  function orderSatisfied(order) {
+    return order.items.every(function (it) { return state.inv[it.item] >= it.qty; });
+  }
+
+  function deliverOrder(id) {
+    var idx = -1;
+    for (var i = 0; i < state.orders.length; i++) if (state.orders[i].id === id) { idx = i; break; }
+    if (idx < 0) return;
+    var order = state.orders[idx];
+    if (!orderSatisfied(order)) { toast("You don't have those goods yet."); beep(200, 0.12, "sawtooth"); return; }
+    order.items.forEach(function (it) { state.inv[it.item] -= it.qty; });
+    state.coins += order.coins;
+    addXp(order.xp);
+    state.orders[idx] = makeOrder();
+    beep(1046, 0.12, "sine");
+    toast("Order delivered! +" + order.coins + " 🪙");
+    renderAll();
+    save();
+  }
+
+  // ============ ECONOMY ACTIONS ============
+  function addXp(n) {
+    state.xp += n;
+    while (state.xp >= xpNeeded(state.level)) {
+      state.xp -= xpNeeded(state.level);
+      state.level++;
+      state.coins += 40 + state.level * 10;
+      beep(1200, 0.14, "triangle");
+      toast("⭐ Level " + state.level + "! +" + (40 + state.level * 10) + " 🪙");
+      regenerateOrders(false);
+    }
+  }
+
+  function plantSeed(i) {
+    var t = state.tiles[i];
+    if (t.kind !== "empty") return;
+    var c = CROPS[selectedSeed];
+    if (!c) { toast("Pick a seed first."); return; }
+    if (c.level > state.level) { toast("Reach level " + c.level + " to plant " + c.name + "."); beep(200, 0.12, "sawtooth"); return; }
+    if (state.coins < c.seed) { toast("Not enough coins for " + c.name + " seeds."); beep(200, 0.12, "sawtooth"); return; }
+    state.coins -= c.seed;
+    t.kind = "crop";
+    t.crop = selectedSeed;
+    t.plantedAt = Date.now();
+    t.growMs = growMs(selectedSeed);
+    t.watered = false;
+    addXp(1);
+    beep(520, 0.07, "triangle");
+    renderAll();
+    save();
+  }
+
+  function waterCrop(i) {
+    var t = state.tiles[i];
+    if (t.kind !== "crop") return;
+    if (t.watered) return;
+    if (Date.now() - t.plantedAt >= t.growMs) return;
+    t.watered = true;
+    t.plantedAt = Date.now() - (t.growMs - t.growMs * 0.5); // halve remaining grow time
+    beep(760, 0.09, "sine");
+    renderAll();
+    save();
+  }
+
+  function harvestCrop(i) {
+    var t = state.tiles[i];
+    if (t.kind !== "crop") return;
+    if (Date.now() - t.plantedAt < t.growMs) return;
+    state.inv[t.crop] += 1;
+    state.harvests++;
+    addXp(CROPS[t.crop].xp);
+    state.tiles[i] = { kind: "empty" };
+    beep(880, 0.1, "sine");
+    renderAll();
+    save();
+  }
+
+  function buyAnimal(key) {
+    var a = ANIMALS[key];
+    if (state.coins < a.cost) { toast("Not enough coins for a " + a.name + "."); beep(200, 0.12, "sawtooth"); return; }
+    var idx = -1;
+    for (var i = 0; i < state.unlockedCount; i++) if (state.tiles[i].kind === "empty") { idx = i; break; }
+    if (idx < 0) { toast("No empty plot! Expand your farm or free a plot."); beep(200, 0.12, "sawtooth"); return; }
+    state.coins -= a.cost;
+    state.tiles[idx] = { kind: "animal", animal: key, producing: false, fedAt: 0, durMs: produceMs(key) };
+    addXp(2);
+    beep(440, 0.1, "square");
+    toast(a.name + " moved in! 🎉");
+    renderAll();
+    save();
+  }
+
+  function feedAnimal(i) {
+    var t = state.tiles[i];
+    if (t.kind !== "animal" || t.producing) return;
+    var a = ANIMALS[t.animal];
+    if (state.inv.wheat < a.feed) { toast("Need " + a.feed + " 🌾 wheat to feed the " + a.name + "."); beep(200, 0.12, "sawtooth"); return; }
+    state.inv.wheat -= a.feed;
+    t.producing = true;
+    t.fedAt = Date.now();
+    t.durMs = produceMs(t.animal);
+    beep(600, 0.09, "triangle");
+    renderAll();
+    save();
+  }
+
+  function collectAnimal(i) {
+    var t = state.tiles[i];
+    if (t.kind !== "animal" || !t.producing) return;
+    if (Date.now() - t.fedAt < t.durMs) return;
+    var a = ANIMALS[t.animal];
+    state.inv[a.product] += 1;
+    state.harvests++;
+    addXp(a.xp);
+    t.producing = false;
+    t.fedAt = 0;
+    beep(980, 0.11, "sine");
+    toast(a.name + " gave you " + PRODUCTS[a.product].emoji + "!");
+    renderAll();
+    save();
+  }
+
+  function sellItem(key) {
+    var qty = state.inv[key];
+    if (qty <= 0) return;
+    var gain = getItem(key).sell * qty;
+    state.coins += gain;
+    state.inv[key] = 0;
+    beep(700, 0.09, "triangle");
+    toast("Sold " + qty + "× " + getItem(key).emoji + " for " + gain + " 🪙");
+    renderAll();
+    save();
+  }
+
+  function buyBuilding(key) {
+    var b = BUILDINGS[key];
+    if (state.buildings[key]) return;
+    if (state.coins < b.cost) { toast("Not enough coins for the " + b.name + "."); beep(200, 0.12, "sawtooth"); return; }
+    state.coins -= b.cost;
+    state.buildings[key] = true;
+    addXp(8);
+    beep(1046, 0.13, "triangle");
+    toast(b.emoji + " " + b.name + " built! " + b.desc);
+    // Recompute active growth timers so new bonus applies going forward
+    var now = Date.now();
+    state.tiles.forEach(function (t) {
+      if (t.kind === "crop" && now - t.plantedAt < t.growMs) {
+        var prog = (now - t.plantedAt) / t.growMs;
+        t.growMs = growMs(t.crop);
+        t.plantedAt = now - prog * t.growMs;
+      }
+    });
+    renderAll();
+    save();
+  }
+
+  function expandFarm() {
+    if (state.unlockedCount >= GRID_TILES) { toast("Your farm is fully expanded!"); return; }
+    var cost = unlockCostFor(state.unlockedCount);
+    if (state.coins < cost) { toast("Need " + cost + " 🪙 to expand."); beep(200, 0.12, "sawtooth"); return; }
+    state.coins -= cost;
+    state.unlockedCount++;
+    addXp(5);
+    beep(520, 0.12, "square");
+    toast("Farm expanded! +1 plot 🌱");
+    renderAll();
+    save();
+  }
+
+  // ============ TOOLS ============
+  function waterAll() {
+    var now = Date.now(); var n = 0;
+    state.tiles.forEach(function (t) {
+      if (t.kind === "crop" && !t.watered && now - t.plantedAt < t.growMs) {
+        t.watered = true;
+        t.plantedAt = now - (t.growMs - t.growMs * 0.5);
+        n++;
+      }
+    });
+    if (n) { beep(760, 0.1, "sine"); toast("Watered " + n + " plot" + (n > 1 ? "s" : "") + " 💧"); save(); }
+    else toast("Nothing needs watering right now.");
+    renderAll();
+  }
+
+  function harvestAll() {
+    var now = Date.now(); var n = 0;
+    for (var i = 0; i < state.tiles.length; i++) {
+      var t = state.tiles[i];
+      if (t.kind === "crop" && now - t.plantedAt >= t.growMs) {
+        state.inv[t.crop] += 1; state.harvests++; addXp(CROPS[t.crop].xp);
+        state.tiles[i] = { kind: "empty" }; n++;
+      } else if (t.kind === "animal" && t.producing && now - t.fedAt >= t.durMs) {
+        var a = ANIMALS[t.animal];
+        state.inv[a.product] += 1; state.harvests++; addXp(a.xp);
+        t.producing = false; t.fedAt = 0; n++;
+      }
+    }
+    if (n) { beep(880, 0.12, "sine"); toast("Collected " + n + " item" + (n > 1 ? "s" : "") + "! 🧺"); save(); }
+    else toast("Nothing is ready to collect yet.");
+    renderAll();
+  }
+
+  // ============ TILE INTERACTION ============
+  function onTileClick(i) {
+    var now = Date.now();
+    if (i >= state.unlockedCount) {
+      if (i === state.unlockedCount) expandFarm();
+      else toast("Expand earlier plots first.");
+      return;
+    }
+    var t = state.tiles[i];
+    if (t.kind === "empty") { plantSeed(i); return; }
+    if (t.kind === "crop") {
+      if (now - t.plantedAt >= t.growMs) { harvestCrop(i); return; }
+      if (!t.watered) { waterCrop(i); return; }
+      toast(CROPS[t.crop].name + " is growing… " + Math.ceil((t.growMs - (now - t.plantedAt)) / 1000) + "s left.");
+      return;
+    }
+    if (t.kind === "animal") {
+      if (t.producing) {
+        if (now - t.fedAt >= t.durMs) collectAnimal(i);
+        else toast("Your " + ANIMALS[t.animal].name + " is busy…");
+      } else {
+        feedAnimal(i);
+      }
+    }
+  }
+
+  // ============ RENDERING: TILES ============
+  function buildFarm() {
+    farmEl.innerHTML = "";
+    tileEls = [];
+    for (var i = 0; i < GRID_TILES; i++) {
+      (function (idx) {
+        var el = document.createElement("div");
+        el.className = "tile";
+        el.addEventListener("click", function () { onTileClick(idx); });
+        farmEl.appendChild(el);
+        tileEls.push(el);
+      })(i);
+    }
+  }
+
+  function updateTile(i) {
+    var el = tileEls[i];
+    if (!el) return;
+    var t = state.tiles[i];
+    var now = Date.now();
+
+    if (i >= state.unlockedCount) {
+      el.className = "tile locked";
+      var here = (i === state.unlockedCount);
+      el.innerHTML = '<div class="tile-inner"><span class="lock">🔒</span>' +
+        (here ? '<span class="cost">🪙 ' + unlockCostFor(i) + '</span>' : '<span class="cost">locked</span>') +
+        '</div>';
+      return;
+    }
+
+    if (t.kind === "empty") {
+      el.className = "tile unlocked empty";
+      el.innerHTML = '<div class="tile-inner"><span class="plus">＋</span></div>';
+      return;
+    }
+
+    if (t.kind === "crop") {
+      var c = CROPS[t.crop];
+      var prog = Math.min(1, (now - t.plantedAt) / t.growMs);
+      var ready = prog >= 1;
+      var stage;
+      if (ready) stage = '<span class="growth ready">' + c.emoji + '</span>';
+      else if (prog < 0.25) stage = '<span class="growth" style="transform:scale(.55);opacity:.9">🌱</span>';
+      else if (prog < 0.6) stage = '<span class="growth" style="transform:scale(.72)">🌿</span>';
+      else stage = '<span class="growth" style="transform:scale(.88)">' + c.emoji + '</span>';
+      el.className = "tile unlocked" + (ready ? " ready" : "");
+      el.innerHTML = '<div class="tile-inner">' + stage +
+        (t.watered ? '<span class="drop">💧</span>' : '') +
+        (ready ? '<span class="tag">HARVEST</span>'
+               : '<div class="pbar"><i style="width:' + Math.round(prog * 100) + '%"></i></div>') +
+        '</div>';
+      return;
+    }
+
+    if (t.kind === "animal") {
+      var a = ANIMALS[t.animal];
+      if (t.producing) {
+        var p = Math.min(1, (now - t.fedAt) / t.durMs);
+        var prodReady = p >= 1;
+        el.className = "tile unlocked" + (prodReady ? " ready" : "");
+        el.innerHTML = '<div class="tile-inner">' +
+          '<span class="growth" style="transform:scale(' + (0.9 + 0.1 * p) + ')">' + a.emoji + '</span>' +
+          (prodReady ? '<span class="prod">' + PRODUCTS[a.product].emoji + '</span><span class="tag">COLLECT</span>'
+                     : '<div class="pbar"><i style="width:' + Math.round(p * 100) + '%"></i></div>') +
+          '</div>';
+      } else {
+        el.className = "tile unlocked";
+        el.innerHTML = '<div class="tile-inner">' +
+          '<span class="growth">' + a.emoji + '</span>' +
+          '<span class="tag feed">FEED ' + a.feed + '🌾</span>' +
+          '</div>';
+      }
+    }
+  }
+
+  function updateFarm() {
+    for (var i = 0; i < GRID_TILES; i++) updateTile(i);
+  }
+
+  // ============ RENDERING: HUD ============
+  function updateHud() {
+    coinsEl.textContent = state.coins;
+    levelEl.textContent = state.level;
+    var need = xpNeeded(state.level);
+    xpfillEl.style.width = Math.min(100, Math.round((state.xp / need) * 100)) + "%";
+    barnCountEl.textContent = countItems();
+  }
+
+  function updateInvStrip() {
+    var html = "";
+    var keys = Object.keys(state.inv).filter(function (k) { return state.inv[k] > 0; });
+    if (!keys.length) {
+      invStripEl.innerHTML = '<div class="chip empty">Barn empty — plant something! 🌱</div>';
+      return;
+    }
+    keys.forEach(function (k) { html += '<div class="chip">' + getItem(k).emoji + " " + state.inv[k] + '</div>'; });
+    invStripEl.innerHTML = html;
+  }
+
+  // ============ RENDERING: SEED BAR ============
+  function updateSeedBar() {
+    var html = "";
+    Object.keys(CROPS).forEach(function (k) {
+      var c = CROPS[k];
+      var locked = c.level > state.level;
+      html += '<button type="button" class="seed-btn' + (k === selectedSeed ? " active" : "") + (locked ? " locked" : "") +
+        '" data-seed="' + k + '">' +
+        '<span class="em">' + (locked ? "🔒" : c.emoji) + '</span>' +
+        '<span>' + (locked ? "Lv " + c.level : c.name) + '</span>' +
+        '<span class="pr">🪙 ' + c.seed + '</span>' +
+        '</button>';
+    });
+    seedBarEl.innerHTML = html;
+    Array.prototype.forEach.call(seedBarEl.querySelectorAll(".seed-btn"), function (b) {
+      b.addEventListener("click", function () {
+        var k = b.dataset.seed;
+        if (CROPS[k].level > state.level) { toast("Reach level " + CROPS[k].level + " to unlock " + CROPS[k].name + "."); beep(200, 0.1, "sawtooth"); return; }
+        selectedSeed = k;
+        beep(500, 0.05, "triangle");
+        updateSeedBar();
+      });
+    });
+  }
+
+  // ============ RENDERING: SHOP ============
+  function renderShop() {
+    var html = "";
+
+    html += '<div class="sec-title">Animals</div>';
+    Object.keys(ANIMALS).forEach(function (k) {
+      var a = ANIMALS[k];
+      var can = state.coins >= a.cost;
+      html += '<div class="row"><span class="em">' + a.emoji + '</span>' +
+        '<div class="info"><div class="nm">' + a.name + '</div><div class="ds">Feeds on ' + a.feed + '🌾 → ' +
+        PRODUCTS[a.product].emoji + ' every ' + a.time + 's</div></div>' +
+        '<button class="buy" data-buy-animal="' + k + '"' + (can ? "" : " disabled") + '>🪙 ' + a.cost + '</button></div>';
+    });
+
+    html += '<div class="sec-title">Buildings</div>';
+    Object.keys(BUILDINGS).forEach(function (k) {
+      var b = BUILDINGS[k];
+      var owned = state.buildings[k];
+      var can = state.coins >= b.cost;
+      html += '<div class="row' + (owned ? " owned" : "") + '"><span class="em">' + b.emoji + '</span>' +
+        '<div class="info"><div class="nm">' + b.name + '</div><div class="ds">' + b.desc + '</div></div>' +
+        (owned ? '<button disabled>Owned</button>' : '<button class="buy" data-buy-building="' + k + '"' + (can ? "" : " disabled") + '>🪙 ' + b.cost + '</button>') +
+        '</div>';
+    });
+
+    html += '<div class="sec-title">Land</div>';
+    var full = state.unlockedCount >= GRID_TILES;
+    var cost = full ? 0 : unlockCostFor(state.unlockedCount);
+    html += '<div class="row' + (full ? " owned" : "") + '"><span class="em">🟫</span>' +
+      '<div class="info"><div class="nm">Farm Plots</div><div class="ds">' + state.unlockedCount + ' / ' + GRID_TILES + ' unlocked</div></div>' +
+      (full ? '<button disabled>Maxed</button>'
+            : '<button class="buy" data-expand="1"' + (state.coins >= cost ? "" : " disabled") + '>🪙 ' + cost + '</button>') +
+      '</div>';
+
+    tabShop.innerHTML = html;
+    Array.prototype.forEach.call(tabShop.querySelectorAll("[data-buy-animal]"), function (b) {
+      b.addEventListener("click", function () { buyAnimal(b.dataset.buyAnimal); });
+    });
+    Array.prototype.forEach.call(tabShop.querySelectorAll("[data-buy-building]"), function (b) {
+      b.addEventListener("click", function () { buyBuilding(b.dataset.buyBuilding); });
+    });
+    var exp = tabShop.querySelector("[data-expand]");
+    if (exp) exp.addEventListener("click", expandFarm);
+  }
+
+  // ============ RENDERING: ORDERS ============
+  function renderOrders() {
+    var html = "";
+    state.orders.forEach(function (o) {
+      var ok = orderSatisfied(o);
+      html += '<div class="order-card"><div class="order-items">';
+      o.items.forEach(function (it) {
+        var have = state.inv[it.item];
+        html += '<div class="order-item' + (have >= it.qty ? " ok" : "") + '">' +
+          getItem(it.item).emoji + ' ×' + it.qty + ' <small>(' + have + ')</small></div>';
+      });
+      html += '</div><div class="order-foot">' +
+        '<span class="reward">🪙 ' + o.coins + ' &nbsp;+⭐' + o.xp + '</span>' +
+        '<button' + (ok ? "" : " disabled") + ' data-deliver="' + o.id + '">Deliver</button>' +
+        '</div></div>';
+    });
+    tabOrders.innerHTML = html;
+    Array.prototype.forEach.call(tabOrders.querySelectorAll("[data-deliver]"), function (b) {
+      b.addEventListener("click", function () { deliverOrder(b.dataset.deliver); });
+    });
+  }
+
+  // ============ RENDERING: BARN (inventory + sell) ============
+  function renderBarn() {
+    var html = '<div class="sec-title">Goods</div>';
+    var any = false;
+    Object.keys(state.inv).forEach(function (k) {
+      if (state.inv[k] <= 0) return;
+      any = true;
+      var it = getItem(k);
+      html += '<div class="row"><span class="em">' + it.emoji + '</span>' +
+        '<div class="info"><div class="nm">' + it.name + ' ×' + state.inv[k] + '</div>' +
+        '<div class="ds">' + (k === "wheat" ? "Animal feed 🌾" : "Sells for 🪙 " + it.sell + " each") + '</div></div>' +
+        '<button class="sell" data-sell="' + k + '">Sell ' + (it.sell * state.inv[k]) + '</button></div>';
+    });
+    if (!any) html += '<div class="row"><div class="info"><div class="ds">Your barn is empty. Harvest crops and collect animal goods to fill it.</div></div></div>';
+
+    html += '<div class="sec-title">Stats</div>';
+    html += '<div class="row"><span class="em">🧺</span><div class="info"><div class="nm">Total harvests</div>' +
+      '<div class="ds">' + state.harvests + '</div></div></div>';
+
+    tabBarn.innerHTML = html;
+    Array.prototype.forEach.call(tabBarn.querySelectorAll("[data-sell]"), function (b) {
+      b.addEventListener("click", function () { sellItem(b.dataset.sell); });
+    });
+  }
+
+  function renderPanels() {
+    if (activeTab === "shop") renderShop();
+    else if (activeTab === "orders") renderOrders();
+    else renderBarn();
+  }
+
+  // ============ MASTER RENDER ============
+  function renderAll() {
+    updateHud();
+    updateInvStrip();
+    updateSeedBar();
+    updateFarm();
+    renderPanels();
+  }
+
+  // ============ TABS ============
+  Array.prototype.forEach.call(document.querySelectorAll(".tabs button"), function (b) {
+    b.addEventListener("click", function () {
+      activeTab = b.dataset.tab;
+      Array.prototype.forEach.call(document.querySelectorAll(".tabs button"), function (x) {
+        x.classList.toggle("active", x === b);
+      });
+      tabShop.classList.toggle("active", activeTab === "shop");
+      tabOrders.classList.toggle("active", activeTab === "orders");
+      tabBarn.classList.toggle("active", activeTab === "barn");
+      renderPanels();
+      beep(480, 0.05, "triangle");
+    });
+  });
+
+  // ============ BUTTONS ============
+  document.getElementById("btnWaterAll").addEventListener("click", waterAll);
+  document.getElementById("btnHarvestAll").addEventListener("click", harvestAll);
+
+  btnRestart.addEventListener("click", function () {
+    if (!restartArmed) {
+      restartArmed = true;
+      btnRestart.textContent = "Sure? Tap again";
+      btnRestart.classList.add("armed");
+      beep(320, 0.1, "sawtooth");
+      setTimeout(function () {
+        restartArmed = false;
+        btnRestart.textContent = "Restart";
+        btnRestart.classList.remove("armed");
+      }, 3000);
+      return;
+    }
+    restartArmed = false;
+    btnRestart.textContent = "Restart";
+    btnRestart.classList.remove("armed");
+    newGame();
+    renderAll();
+    save();
+    toast("Fresh farm started! 🌱");
+    beep(660, 0.12, "square");
+  });
+
+  // ============ TICK LOOP (real-time growth) ============
+  setInterval(function () {
+    updateFarm();
+    updateHud();
+  }, 400);
+
+  // Periodic autosave
+  setInterval(save, 5000);
+
+  // Save when leaving / hiding
+  window.addEventListener("beforeunload", save);
+  document.addEventListener("visibilitychange", function () { if (document.hidden) save(); });
+
+  // ============ BOOT ============
+  if (!load()) {
+    newGame();
+    save();
+  } else {
+    offlineReport();
+  }
+  buildFarm();
+  renderAll();
+})();
+</script>
+</body>
+</html>

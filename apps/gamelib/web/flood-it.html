@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Flood-It</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(circle at 50% 0%, #2b3a67 0%, #1a2238 55%, #10162a 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    padding: 14px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ============ LAYOUT ============ */
+  #app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: min(96vw, 560px);
+  }
+  #title {
+    color: #fff;
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: 3px;
+    text-shadow: 0 3px 0 rgba(0,0,0,.35);
+  }
+  #title span { color: #ffd166; }
+
+  /* ============ STATS BAR ============ */
+  #stats {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    gap: 8px;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 12px;
+    padding: 10px 14px;
+    color: #cfd8ff;
+    font-size: .95rem;
+  }
+  #stats b { color: #fff; font-size: 1.05rem; }
+  #stats .low b { color: #ff6b6b; }
+  #stats .good b { color: #6bff9e; }
+
+  /* ============ BOARD ============ */
+  #board-wrap {
+    position: relative;
+    width: 100%;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 14px 40px rgba(0,0,0,.45), inset 0 0 0 3px rgba(255,255,255,.06);
+    background: #10162a;
+  }
+  canvas { display: block; width: 100%; height: auto; cursor: pointer; }
+
+  /* ============ OVERLAYS (start / win / lose) ============ */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    text-align: center;
+    padding: 24px;
+    background: rgba(16, 22, 42, .93);
+    transition: opacity .25s ease;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen h2 {
+    font-size: 2rem;
+    color: #fff;
+    letter-spacing: 2px;
+    text-shadow: 0 3px 0 rgba(0,0,0,.4);
+  }
+  .screen p { color: #b9c4ee; font-size: .95rem; line-height: 1.5; max-width: 340px; }
+  .screen .big { font-size: 1.15rem; color: #ffd166; font-weight: 700; }
+
+  /* ============ DIFFICULTY SELECTOR ============ */
+  .diff-row { display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap; justify-content: center; }
+  .diff-btn {
+    padding: 9px 16px;
+    border: 2px solid rgba(255,255,255,.2);
+    background: rgba(255,255,255,.06);
+    color: #cfd8ff;
+    border-radius: 20px;
+    font-size: .85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s ease;
+    font-family: inherit;
+  }
+  .diff-btn:hover { background: rgba(255,255,255,.15); }
+  .diff-btn.selected {
+    background: linear-gradient(135deg, #ffd166, #ffb03a);
+    color: #3a2a00;
+    border-color: #ffd166;
+  }
+
+  /* ============ ACTION BUTTONS ============ */
+  .action-btn {
+    padding: 13px 34px;
+    margin-top: 8px;
+    border: none;
+    border-radius: 26px;
+    background: linear-gradient(135deg, #6c8cff, #4a64ff);
+    color: #fff;
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    font-family: inherit;
+    box-shadow: 0 6px 0 #2f3fb0, 0 10px 24px rgba(74,100,255,.4);
+    transition: transform .06s ease, box-shadow .06s ease;
+  }
+  .action-btn:hover { filter: brightness(1.08); }
+  .action-btn:active { transform: translateY(3px); box-shadow: 0 3px 0 #2f3fb0; }
+
+  /* ============ PALETTE ============ */
+  #palette {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .swatch {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    border: 3px solid rgba(255,255,255,.18);
+    cursor: pointer;
+    position: relative;
+    transition: transform .1s ease, box-shadow .1s ease;
+    box-shadow: 0 5px 0 rgba(0,0,0,.35);
+  }
+  .swatch:hover { transform: translateY(-3px); }
+  .swatch:active { transform: translateY(1px); box-shadow: 0 2px 0 rgba(0,0,0,.35); }
+  .swatch.active { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.35), 0 5px 0 rgba(0,0,0,.35); }
+  .swatch.disabled { opacity: .35; pointer-events: none; }
+  #hint { color: #7f8cc4; font-size: .78rem; letter-spacing: .5px; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 420px) {
+    #title { font-size: 1.3rem; letter-spacing: 2px; }
+    .swatch { width: 44px; height: 44px; border-radius: 12px; }
+    .screen h2 { font-size: 1.6rem; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="title">FLOOD<span>-IT</span></div>
+
+  <div id="stats">
+    <div>Moves used: <b id="used">0</b></div>
+    <div id="remainWrap">Remaining: <b id="remain">0</b></div>
+    <div>Best: <b id="best">-</b></div>
+  </div>
+
+  <div id="board-wrap">
+    <canvas id="game" width="520" height="520"></canvas>
+
+    <!-- Start Screen -->
+    <div id="startScreen" class="screen">
+      <h2>FLOOD-IT</h2>
+      <p>Flood the whole board from the <b>top-left</b> corner until every cell is one color. Each tap changes your region's color and absorbs adjacent matching cells — win before the moves run out.</p>
+      <div class="diff-row" id="diffRow">
+        <button class="diff-btn selected" data-size="10">10 &times; 10 &middot; 25</button>
+        <button class="diff-btn" data-size="14">14 &times; 14 &middot; 28</button>
+        <button class="diff-btn" data-size="18">18 &times; 18 &middot; 32</button>
+      </div>
+      <button class="action-btn" id="startBtn">Start Game</button>
+    </div>
+
+    <!-- Win Screen -->
+    <div id="winScreen" class="screen hidden">
+      <h2>🎉 You Win!</h2>
+      <p class="big" id="winText">Board flooded!</p>
+      <button class="action-btn" id="winAgainBtn">Play Again</button>
+    </div>
+
+    <!-- Lose Screen -->
+    <div id="loseScreen" class="screen hidden">
+      <h2>Out of Moves</h2>
+      <p class="big" id="loseText">Not flooded this time.</p>
+      <button class="action-btn" id="loseAgainBtn">Try Again</button>
+    </div>
+  </div>
+
+  <div id="palette"></div>
+  <div id="hint">Tap a color to flood your region &nbsp;|&nbsp; number keys 1-6 also work</div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONFIGURATION ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const CANVAS_SIZE = canvas.width;
+
+  // Six flood colors (index 0..5)
+  const COLORS = ["#ff5d5d", "#ffb03a", "#ffe14d", "#5ddc7a", "#4aa3ff", "#b06bff"];
+
+  // Difficulty presets: grid size -> move limit
+  const DIFFICULTY = {
+    10: { size: 10, limit: 25 },
+    14: { size: 14, limit: 28 },
+    18: { size: 18, limit: 32 }
+  };
+  let diffSize = 10;
+
+  const STATE = { READY: 0, PLAYING: 1, WIN: 2, LOSE: 3 };
+
+  // ============ GAME STATE ============
+  let state = STATE.READY;
+  let grid = [];          // grid[y][x] = color index
+  let region = [];        // boolean mask of the currently flooded region
+  let regionSize = 0;     // number of flooded cells
+  let movesUsed = 0;
+  let moveLimit = 25;
+  let gridSize = 10;
+  let cell = 52;          // pixel size of a cell
+  let lastColor = -1;     // color of the flooded region (for active swatch)
+
+  const bestKey = "floodItBest"; // best = fewest moves to win (per-board not stored, overall)
+
+  // ============ DOM ELEMENTS ============
+  const usedEl = document.getElementById("used");
+  const remainEl = document.getElementById("remain");
+  const bestEl = document.getElementById("best");
+  const remainWrap = document.getElementById("remainWrap");
+  const paletteEl = document.getElementById("palette");
+  const startScreen = document.getElementById("startScreen");
+  const winScreen = document.getElementById("winScreen");
+  const loseScreen = document.getElementById("loseScreen");
+  const winText = document.getElementById("winText");
+  const loseText = document.getElementById("loseText");
+  const startBtn = document.getElementById("startBtn");
+  const winAgainBtn = document.getElementById("winAgainBtn");
+  const loseAgainBtn = document.getElementById("loseAgainBtn");
+  const diffBtns = Array.prototype.slice.call(document.querySelectorAll(".diff-btn"));
+
+  let best = Number(localStorage.getItem(bestKey) || 0);
+
+  // -------- Sound (WebAudio, no assets) --------
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  // ============ PALETTE ============
+  function buildPalette() {
+    paletteEl.innerHTML = "";
+    COLORS.forEach(function (c, i) {
+      const b = document.createElement("button");
+      b.className = "swatch";
+      b.style.background = c;
+      b.dataset.color = String(i);
+      b.setAttribute("aria-label", "color " + (i + 1));
+      b.addEventListener("click", function () { playMove(i); });
+      paletteEl.appendChild(b);
+    });
+  }
+  function syncPalette() {
+    const swatches = paletteEl.children;
+    for (let i = 0; i < swatches.length; i++) {
+      swatches[i].classList.toggle("active", state === STATE.PLAYING && i === lastColor);
+      // can't pick the color your region already is
+      const dead = state !== STATE.PLAYING || i === lastColor;
+      swatches[i].classList.toggle("disabled", dead);
+    }
+  }
+
+  // ============ BOARD SETUP ============
+  function setDifficulty(size) {
+    if (!DIFFICULTY[size]) return;
+    diffSize = size;
+    diffBtns.forEach(function (b) {
+      b.classList.toggle("selected", Number(b.dataset.size) === size);
+    });
+    if (state === STATE.READY) {
+      setupBoard(size);
+      draw();
+    }
+  }
+
+  function setupBoard(size) {
+    gridSize = size;
+    cell = CANVAS_SIZE / size;
+    moveLimit = DIFFICULTY[size].limit;
+    movesUsed = 0;
+    lastColor = -1;
+
+    // random board, 6 colors
+    grid = [];
+    for (let y = 0; y < size; y++) {
+      const row = [];
+      for (let x = 0; x < size; x++) {
+        row.push(Math.floor(Math.random() * COLORS.length));
+      }
+      grid.push(row);
+    }
+    // avoid a trivially monochrome board
+    grid[0][0] = Math.floor(Math.random() * COLORS.length);
+
+    flood();
+    updateHud();
+  }
+
+  // ============ FLOOD FILL ============
+  // Recompute the connected region of same-colored cells touching top-left.
+  function flood() {
+    const n = gridSize;
+    const target = grid[0][0];
+    const seen = [];
+    for (let y = 0; y < n; y++) {
+      const row = [];
+      for (let x = 0; x < n; x++) row.push(false);
+      seen.push(row);
+    }
+
+    const stack = [[0, 0]];
+    seen[0][0] = true;
+    let count = 0;
+
+    while (stack.length) {
+      const p = stack.pop();
+      const x = p[0], y = p[1];
+      count++;
+      // four neighbours
+      if (x > 0     && !seen[y][x - 1] && grid[y][x - 1] === target) { seen[y][x - 1] = true; stack.push([x - 1, y]); }
+      if (x < n - 1 && !seen[y][x + 1] && grid[y][x + 1] === target) { seen[y][x + 1] = true; stack.push([x + 1, y]); }
+      if (y > 0     && !seen[y - 1][x] && grid[y - 1][x] === target) { seen[y - 1][x] = true; stack.push([x, y - 1]); }
+      if (y < n - 1 && !seen[y + 1][x] && grid[y + 1][x] === target) { seen[y + 1][x] = true; stack.push([x, y + 1]); }
+    }
+
+    region = seen;
+    regionSize = count;
+    lastColor = target;
+  }
+
+  // ============ MOVE ============
+  function playMove(colorIndex) {
+    if (state !== STATE.PLAYING) return;
+    if (colorIndex === lastColor) return; // no-op move
+
+    // recolor every cell in the flooded region
+    const n = gridSize;
+    for (let y = 0; y < n; y++) {
+      for (let x = 0; x < n; x++) {
+        if (region[y][x]) grid[y][x] = colorIndex;
+      }
+    }
+
+    // region grows to absorb newly-adjacent matching cells
+    flood();
+    movesUsed++;
+    beep(420 + colorIndex * 90, 0.07, "sine");
+    updateHud();
+
+    if (regionSize === n * n) {
+      win();
+    } else if (movesUsed >= moveLimit) {
+      lose();
+    } else {
+      syncPalette();
+    }
+  }
+
+  // ============ HUD ============
+  function updateHud() {
+    usedEl.textContent = movesUsed;
+    const remain = Math.max(0, moveLimit - movesUsed);
+    remainEl.textContent = remain;
+    remainWrap.classList.toggle("low", remain <= 5);
+    remainWrap.classList.toggle("good", remain > 5);
+    bestEl.textContent = best > 0 ? best : "-";
+  }
+
+  // ============ END STATES ============
+  function win() {
+    state = STATE.WIN;
+    if (best === 0 || movesUsed < best) {
+      best = movesUsed;
+      localStorage.setItem(bestKey, String(best));
+    }
+    updateHud();
+    syncPalette();
+    winText.textContent = "Flooded in " + movesUsed + " / " + moveLimit + " moves!";
+    winScreen.classList.remove("hidden");
+    beep(660, 0.1, "square");
+    setTimeout(function () { beep(880, 0.14, "sine"); }, 120);
+    draw();
+  }
+
+  function lose() {
+    state = STATE.LOSE;
+    syncPalette();
+    loseText.textContent = "Used all " + moveLimit + " moves — " +
+      regionSize + " / " + (gridSize * gridSize) + " cells flooded.";
+    loseScreen.classList.remove("hidden");
+    beep(200, 0.28, "sawtooth");
+    draw();
+  }
+
+  function reset(size) {
+    state = STATE.PLAYING;
+    setupBoard(size || diffSize);
+    startScreen.classList.add("hidden");
+    winScreen.classList.add("hidden");
+    loseScreen.classList.add("hidden");
+    syncPalette();
+    draw();
+  }
+
+  // ============ INPUT ============
+  startBtn.addEventListener("click", function () { reset(); });
+  winAgainBtn.addEventListener("click", function () { reset(); });
+  loseAgainBtn.addEventListener("click", function () { reset(); });
+
+  diffBtns.forEach(function (b) {
+    b.addEventListener("click", function () { setDifficulty(Number(b.dataset.size)); });
+  });
+
+  // number keys 1-6 map to palette colors
+  window.addEventListener("keydown", function (e) {
+    if (state !== STATE.PLAYING) {
+      if (e.key === "Enter" || e.key === " ") {
+        if (state === STATE.READY || state === STATE.WIN || state === STATE.LOSE) {
+          e.preventDefault();
+          reset();
+        }
+      }
+      return;
+    }
+    const n = parseInt(e.key, 10);
+    if (n >= 1 && n <= COLORS.length) playMove(n - 1);
+  });
+
+  // tapping the board floods with the most common neighbor color (fallback)
+  canvas.addEventListener("click", function () {
+    if (state !== STATE.PLAYING) return;
+    // pick the color that borders the flooded region most often
+    const n = gridSize;
+    const counts = new Array(COLORS.length).fill(0);
+    for (let y = 0; y < n; y++) {
+      for (let x = 0; x < n; x++) {
+        if (!region[y][x]) continue;
+        if (x > 0     && !region[y][x - 1]) counts[grid[y][x - 1]]++;
+        if (x < n - 1 && !region[y][x + 1]) counts[grid[y][x + 1]]++;
+        if (y > 0     && !region[y - 1][x]) counts[grid[y - 1][x]]++;
+        if (y < n - 1 && !region[y + 1][x]) counts[grid[y + 1][x]]++;
+      }
+    }
+    let bestC = -1, bestN = -1;
+    for (let i = 0; i < counts.length; i++) {
+      if (i !== lastColor && counts[i] > bestN) { bestN = counts[i]; bestC = i; }
+    }
+    if (bestC >= 0) playMove(bestC);
+  });
+
+  // ============ DRAWING ============
+  function draw() {
+    ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+    const n = gridSize;
+    for (let y = 0; y < n; y++) {
+      for (let x = 0; x < n; x++) {
+        const px = x * cell;
+        const py = y * cell;
+        ctx.fillStyle = COLORS[grid[y][x]];
+        ctx.fillRect(px, py, cell + 0.5, cell + 0.5);
+
+        // subtle inner border for readability on large grids
+        if (cell > 12) {
+          ctx.strokeStyle = "rgba(0,0,0,0.12)";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(px + 0.5, py + 0.5, cell - 1, cell - 1);
+        }
+      }
+    }
+
+    // outline the flooded region so the player sees their territory
+    ctx.strokeStyle = "rgba(255,255,255,0.95)";
+    ctx.lineWidth = Math.max(2, cell * 0.09);
+    ctx.beginPath();
+    for (let y = 0; y < n; y++) {
+      for (let x = 0; x < n; x++) {
+        if (!region[y][x]) continue;
+        const px = x * cell, py = y * cell;
+        if (y === 0     || !region[y - 1][x]) { ctx.moveTo(px, py);            ctx.lineTo(px + cell, py); }
+        if (y === n - 1 || !region[y + 1][x]) { ctx.moveTo(px, py + cell);     ctx.lineTo(px + cell, py + cell); }
+        if (x === 0     || !region[y][x - 1]) { ctx.moveTo(px, py);            ctx.lineTo(px, py + cell); }
+        if (x === n - 1 || !region[y][x + 1]) { ctx.moveTo(px + cell, py);     ctx.lineTo(px + cell, py + cell); }
+      }
+    }
+    ctx.stroke();
+
+    // small marker on the origin cell
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.beginPath();
+    ctx.arc(cell / 2, cell / 2, Math.max(2, cell * 0.12), 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // ============ INITIALIZATION ============
+  buildPalette();
+  setDifficulty(10);   // builds a READY board and draws it
+  updateHud();
+  syncPalette();
+})();
+</script>
+</body>
+</html>

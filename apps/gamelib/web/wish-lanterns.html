@@ -1,0 +1,670 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🏮 Wish Lanterns</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: radial-gradient(circle at 50% 18%, #1b2350 0%, #0d1230 45%, #05060f 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      color: #f4ecd8;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      width: min(920px, 96vw);
+      max-height: 96vh;
+      padding: 18px 18px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .game-title {
+      text-align: center;
+      font-size: 1.7rem;
+      letter-spacing: 4px;
+      font-weight: 500;
+      color: #ffe6a8;
+      text-shadow: 0 0 18px rgba(255, 196, 92, 0.65), 0 0 40px rgba(255, 150, 60, 0.35);
+    }
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.82rem;
+      letter-spacing: 2px;
+      color: #9fa8d6;
+      margin-top: -4px;
+      text-transform: uppercase;
+    }
+    /* ============ TOOLBAR ============ */
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 14px 22px;
+      padding: 10px 16px;
+      background: rgba(24, 30, 64, 0.72);
+      border: 1px solid rgba(160, 180, 255, 0.16);
+      border-radius: 16px;
+      backdrop-filter: blur(6px);
+    }
+    .ctrl {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.78rem;
+      letter-spacing: 1px;
+      color: #c3cbf2;
+      text-transform: uppercase;
+    }
+    .ctrl input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 120px;
+      height: 4px;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #3a4683, #ffcf6b);
+      outline: none;
+      cursor: pointer;
+    }
+    .ctrl input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #ffe6a8;
+      box-shadow: 0 0 10px rgba(255, 200, 100, 0.9);
+      cursor: pointer;
+    }
+    .ctrl input[type="range"]::-moz-range-thumb {
+      width: 15px;
+      height: 15px;
+      border: none;
+      border-radius: 50%;
+      background: #ffe6a8;
+      box-shadow: 0 0 10px rgba(255, 200, 100, 0.9);
+      cursor: pointer;
+    }
+    .value-pill {
+      min-width: 40px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+      color: #ffe6a8;
+    }
+    .tool-btn {
+      padding: 8px 18px;
+      border: 1px solid rgba(255, 214, 130, 0.45);
+      background: rgba(255, 200, 90, 0.1);
+      color: #ffe6a8;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .tool-btn:hover {
+      background: rgba(255, 200, 90, 0.24);
+      box-shadow: 0 0 16px rgba(255, 190, 90, 0.4);
+      transform: translateY(-1px);
+    }
+    .tool-btn:active { transform: translateY(0); }
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid rgba(150, 170, 255, 0.14);
+      box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55), inset 0 0 60px rgba(20, 30, 80, 0.5);
+      flex: 1;
+      min-height: 300px;
+    }
+    canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+    /* ============ WISH BAR ============ */
+    .wish-bar { display: flex; gap: 10px; align-items: center; }
+    .wish-bar input[type="text"] {
+      flex: 1;
+      padding: 11px 16px;
+      border-radius: 22px;
+      border: 1px solid rgba(160, 180, 255, 0.24);
+      background: rgba(20, 26, 56, 0.85);
+      color: #f4ecd8;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .wish-bar input[type="text"]::placeholder { color: #6f79ac; font-style: italic; }
+    .wish-bar input[type="text"]:focus {
+      border-color: rgba(255, 210, 120, 0.6);
+      box-shadow: 0 0 18px rgba(255, 200, 100, 0.25);
+    }
+    .release-btn {
+      padding: 11px 22px;
+      border: none;
+      border-radius: 22px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+      color: #2a1c05;
+      background: linear-gradient(135deg, #ffe6a8, #ffb347);
+      box-shadow: 0 0 20px rgba(255, 180, 70, 0.45);
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .release-btn:hover { transform: translateY(-2px); box-shadow: 0 0 28px rgba(255, 190, 80, 0.7); }
+    .release-btn:active { transform: translateY(0); }
+    /* ============ WISH LOG ============ */
+    .wish-log {
+      font-size: 0.72rem;
+      letter-spacing: 0.5px;
+      color: #8993c4;
+      text-align: center;
+      min-height: 16px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .wish-log em { color: #ffe6a8; font-style: italic; }
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 560px) {
+      .game-title { font-size: 1.25rem; letter-spacing: 2px; }
+      .toolbar { gap: 10px 14px; padding: 8px 10px; }
+      .ctrl input[type="range"] { width: 84px; }
+      .ctrl { font-size: 0.68rem; }
+      .wish-bar input[type="text"] { font-size: 0.82rem; padding: 10px 13px; }
+      .release-btn { padding: 10px 15px; font-size: 0.72rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">WISH LANTERNS</h1>
+    <p class="game-subtitle">Release a light over the still water</p>
+    <!-- ============ TOOLBAR ============ -->
+    <div class="toolbar">
+      <label class="ctrl">
+        Wind
+        <input type="range" id="windSlider" min="-100" max="100" value="18" />
+        <span class="value-pill" id="windValue">&#8594; 18</span>
+      </label>
+      <label class="ctrl">
+        Warmth
+        <input type="range" id="tempSlider" min="0" max="100" value="55" />
+        <span class="value-pill" id="tempValue">55</span>
+      </label>
+      <button class="tool-btn" id="resetBtn">Reset Sky</button>
+    </div>
+    <!-- ============ CANVAS ============ -->
+    <div class="canvas-wrapper">
+      <canvas id="skyCanvas"></canvas>
+    </div>
+    <!-- ============ WISH BAR ============ -->
+    <div class="wish-bar">
+      <input type="text" id="wishInput" maxlength="70" placeholder="Whisper a wish, then send it up..." />
+      <button class="release-btn" id="releaseBtn">Release</button>
+    </div>
+    <div class="wish-log" id="wishLog"></div>
+  </div>
+  <script>
+    // ============ CONFIGURATION ============
+    const STORAGE_KEY = 'wishLanterns';
+    const MAX_LANTERNS = 60;
+    const HORIZON_RATIO = 0.6;   // sky occupies top 60%, water below
+    const LANTERN_TINTS = [
+      { core: '#fff2c4', body: '#ffb347', glow: '255,180,80' },
+      { core: '#ffe0e0', body: '#ff7a9c', glow: '255,120,150' },
+      { core: '#dcf5ff', body: '#6fc7e8', glow: '110,200,235' },
+      { core: '#e9ffe0', body: '#9ed86b', glow: '150,215,110' },
+      { core: '#f3e6ff', body: '#b48ce0', glow: '180,140,225' }
+    ];
+    // ============ DOM ELEMENTS ============
+    const canvas = document.getElementById('skyCanvas');
+    const ctx = canvas.getContext('2d');
+    const windSlider = document.getElementById('windSlider');
+    const tempSlider = document.getElementById('tempSlider');
+    const windValue = document.getElementById('windValue');
+    const tempValue = document.getElementById('tempValue');
+    const resetBtn = document.getElementById('resetBtn');
+    const wishInput = document.getElementById('wishInput');
+    const releaseBtn = document.getElementById('releaseBtn');
+    const wishLog = document.getElementById('wishLog');
+    // ============ STATE ============
+    let W = 800, H = 600, dpr = 1;
+    let horizon = H * HORIZON_RATIO;
+    const lanterns = [];
+    const stars = [];
+    const ripples = [];
+    let wind = 0.18;          // -1 .. 1
+    let warmth = 0.55;        // 0 .. 1
+    let lastTime = performance.now();
+    // ============ AUDIO (soft chime) ============
+    let audioCtx = null;
+    function ensureAudio() {
+      if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        audioCtx = new AC();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    }
+    // A gentle two-note bell so every release feels ceremonial
+    function playChime() {
+      const ac = ensureAudio();
+      if (!ac) return;
+      const scale = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5];
+      const base = scale[Math.floor(Math.random() * scale.length)];
+      const now = ac.currentTime;
+      const master = ac.createGain();
+      master.gain.setValueAtTime(0.0001, now);
+      master.gain.exponentialRampToValueAtTime(0.14, now + 0.04);
+      master.gain.exponentialRampToValueAtTime(0.0001, now + 2.4);
+      master.connect(ac.destination);
+      [base, base * 1.5].forEach((freq, i) => {
+        const osc = ac.createOscillator();
+        const g = ac.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+        g.gain.setValueAtTime(i === 0 ? 1 : 0.4, now);
+        osc.connect(g).connect(master);
+        osc.start(now);
+        osc.stop(now + 2.5);
+      });
+    }
+    // ============ RESPONSIVE CANVAS ============
+    function resize() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      W = Math.max(320, Math.floor(rect.width));
+      H = Math.max(300, Math.floor(rect.height));
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      horizon = H * HORIZON_RATIO;
+      buildStars();
+    }
+    // ============ STARS ============
+    function buildStars() {
+      stars.length = 0;
+      const count = Math.round((W * horizon) / 4200);
+      for (let i = 0; i < count; i++) {
+        stars.push({
+          x: Math.random() * W,
+          y: Math.random() * horizon * 0.94,
+          r: Math.random() * 1.4 + 0.3,
+          phase: Math.random() * Math.PI * 2,
+          speed: 0.6 + Math.random() * 1.6
+        });
+      }
+    }
+    // ============ LANTERN ============
+    function spawnLantern(x, y, wishText, silent) {
+      if (lanterns.length >= MAX_LANTERNS) lanterns.shift();
+      const tint = LANTERN_TINTS[Math.floor(Math.random() * LANTERN_TINTS.length)];
+      lanterns.push({
+        x: Math.max(18, Math.min(W - 18, x)),
+        y: Math.min(y, horizon - 12),
+        vy: -(0.25 + warmth * 0.7),      // warmth lifts lanterns faster
+        sway: Math.random() * Math.PI * 2,
+        swayAmp: 0.5 + Math.random() * 0.9,
+        size: 11 + Math.random() * 6,
+        tint: tint,
+        wish: wishText || '',
+        life: 1,
+        seed: Math.random() * 100
+      });
+      if (!silent) playChime();
+    }
+    // ============ WISH PERSISTENCE ============
+    function loadWishes() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+      catch (e) { return []; }
+    }
+    function saveWish(text) {
+      if (!text) return;
+      const list = loadWishes();
+      list.unshift({ text: text, ts: Date.now() });
+      if (list.length > 200) list.length = 200;
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch (e) {}
+      renderWishLog();
+    }
+    function renderWishLog() {
+      const list = loadWishes();
+      if (!list.length) {
+        wishLog.innerHTML = 'No wishes offered yet - the sky is waiting.';
+        return;
+      }
+      const recent = list[0];
+      wishLog.innerHTML = list.length + ' wish' + (list.length > 1 ? 'es' : '') +
+        ' kept  &middot;  last: <em>' + escapeHtml(recent.text) + '</em> ' + timeAgo(recent.ts);
+    }
+    function timeAgo(ts) {
+      const s = Math.floor((Date.now() - ts) / 1000);
+      if (s < 60) return 'just now';
+      if (s < 3600) return Math.floor(s / 60) + 'm ago';
+      if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+      return Math.floor(s / 86400) + 'd ago';
+    }
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+    // ============ UPDATE ============
+    function update(dt) {
+      // Lanterns rise on convection, drift on wind, bob gently
+      for (let i = lanterns.length - 1; i >= 0; i--) {
+        const l = lanterns[i];
+        l.y += l.vy * dt * 0.06;
+        l.sway += dt * 0.002 * (1 + l.swayAmp);
+        l.x += (wind * 0.95 + Math.sin(l.sway + l.seed) * 0.28 * l.swayAmp) * dt * 0.06;
+        l.life = Math.min(1, (l.y - 8) / 70);   // fade near the top of the sky
+        if (l.y < -30 || l.x < -80 || l.x > W + 80) lanterns.splice(i, 1);
+      }
+      // Gentle ripple rings low over the water
+      if (Math.random() < 0.02 && lanterns.length) {
+        const l = lanterns[Math.floor(Math.random() * lanterns.length)];
+        ripples.push({ x: l.x, y: horizon + (horizon - l.y) * 0.25 + 6, r: 2, life: 1 });
+      }
+      for (let i = ripples.length - 1; i >= 0; i--) {
+        ripples[i].r += dt * 0.03;
+        ripples[i].life -= dt * 0.0006;
+        if (ripples[i].life <= 0) ripples.splice(i, 1);
+      }
+    }
+    // ============ DRAW ============
+    function draw(now) {
+      const t = now * 0.001;
+      drawSky();
+      drawStars(t);
+      drawMoon();
+      drawReflections(t);
+      drawWater(t);
+      lanterns.forEach(function (l) { drawLantern(l, t); });
+      drawRipples();
+      drawVignette();
+    }
+    function drawSky() {
+      const g = ctx.createLinearGradient(0, 0, 0, horizon);
+      g.addColorStop(0, '#0a0f2e');
+      g.addColorStop(0.55, '#1b2450');
+      g.addColorStop(1, '#3a3468');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, horizon);
+    }
+    function drawStars(t) {
+      for (const s of stars) {
+        ctx.globalAlpha = 0.55 + 0.45 * Math.sin(t * s.speed + s.phase);
+        ctx.fillStyle = '#dfe6ff';
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+    function drawMoon() {
+      const mx = W * 0.8, my = horizon * 0.26, mr = Math.min(W, H) * 0.045 + 14;
+      const glow = ctx.createRadialGradient(mx, my, mr * 0.4, mx, my, mr * 4);
+      glow.addColorStop(0, 'rgba(255,240,200,0.35)');
+      glow.addColorStop(1, 'rgba(255,240,200,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(mx, my, mr * 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff6dd';
+      ctx.beginPath();
+      ctx.arc(mx, my, mr, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(230,215,170,0.5)';   // soft craters
+      ctx.beginPath();
+      ctx.arc(mx - mr * 0.3, my - mr * 0.2, mr * 0.18, 0, Math.PI * 2);
+      ctx.arc(mx + mr * 0.25, my + mr * 0.3, mr * 0.13, 0, Math.PI * 2);
+      ctx.arc(mx + mr * 0.1, my - mr * 0.4, mr * 0.1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    function drawWater(t) {
+      const g = ctx.createLinearGradient(0, horizon, 0, H);
+      g.addColorStop(0, '#141a3d');
+      g.addColorStop(0.4, '#0d1230');
+      g.addColorStop(1, '#05060f');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, horizon, W, H - horizon);
+      // horizontal shimmer lines
+      const lines = Math.round((H - horizon) / 9);
+      for (let i = 0; i < lines; i++) {
+        const y = horizon + (i + 0.5) * ((H - horizon) / lines);
+        ctx.globalAlpha = 0.05 + (1 - i / lines) * 0.05;
+        ctx.strokeStyle = '#7f9be0';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        const wob = Math.sin(t * 0.8 + i) * 12;
+        ctx.moveTo(wob, y);
+        ctx.lineTo(W + wob, y);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      // moon's reflection
+      const mx = W * 0.8;
+      const mr = Math.min(W, H) * 0.045 + 14;
+      const mrGrad = ctx.createLinearGradient(0, horizon, 0, H);
+      mrGrad.addColorStop(0, 'rgba(255,240,200,0.28)');
+      mrGrad.addColorStop(1, 'rgba(255,240,200,0)');
+      ctx.fillStyle = mrGrad;
+      for (let i = 0; i < 22; i++) {
+        const y = horizon + i * 8 + 4;
+        if (y > H) break;
+        const w = mr * (1.4 - i * 0.045) + Math.sin(t * 1.5 + i) * 4;
+        ctx.globalAlpha = 0.5 * (1 - i / 22);
+        ctx.fillRect(mx - w / 2, y, w, 3);
+      }
+      ctx.globalAlpha = 1;
+    }
+    // Mirrored glow for each lantern, distorted by wind and shimmer
+    function drawReflections(t) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, horizon, W, H - horizon);
+      ctx.clip();
+      for (const l of lanterns) {
+        const swayX = l.x + wind * (H - l.y) * 0.12;
+        const tint = l.tint.glow;
+        const spread = l.size * (1 + (l.y / horizon) * 1.2);
+        const baseY = horizon + 6;
+        const g = ctx.createRadialGradient(swayX, baseY, 0, swayX, baseY, spread * 5);
+        g.addColorStop(0, 'rgba(' + tint + ',' + (0.34 * l.life) + ')');
+        g.addColorStop(0.4, 'rgba(' + tint + ',' + (0.12 * l.life) + ')');
+        g.addColorStop(1, 'rgba(' + tint + ',0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.ellipse(swayX, baseY + 14, spread * 1.6, spread * 4.2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // vertical reflection streaks
+        for (let i = 0; i < 6; i++) {
+          const y = baseY + i * 9;
+          if (y > H) break;
+          ctx.globalAlpha = (0.22 - i * 0.03) * l.life;
+          ctx.fillStyle = 'rgb(' + tint + ')';
+          const w = l.size * (0.9 - i * 0.09) + Math.sin(t * 2 + i + l.seed) * 2.5;
+          ctx.fillRect(swayX - w / 2 + wind * i * 1.5, y, w, 2.4);
+        }
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+    }
+    function drawLantern(l, t) {
+      const flick = 0.82 + 0.18 * Math.sin(t * 6 + l.seed * 3);
+      const size = l.size;
+      const tint = l.tint.glow;
+      // outer glow
+      const glow = ctx.createRadialGradient(l.x, l.y, size * 0.2, l.x, l.y, size * 6);
+      glow.addColorStop(0, 'rgba(' + tint + ',' + (0.5 * l.life * flick) + ')');
+      glow.addColorStop(0.35, 'rgba(' + tint + ',' + (0.18 * l.life) + ')');
+      glow.addColorStop(1, 'rgba(' + tint + ',0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(l.x, l.y, size * 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = l.life;
+      // balloon body
+      ctx.fillStyle = l.tint.body;
+      ctx.beginPath();
+      ctx.moveTo(l.x - size, l.y + size * 0.2);
+      ctx.quadraticCurveTo(l.x - size * 1.1, l.y - size * 1.2, l.x, l.y - size * 1.35);
+      ctx.quadraticCurveTo(l.x + size * 1.1, l.y - size * 1.2, l.x + size, l.y + size * 0.2);
+      ctx.quadraticCurveTo(l.x + size * 0.5, l.y + size * 0.95, l.x, l.y + size * 0.95);
+      ctx.quadraticCurveTo(l.x - size * 0.5, l.y + size * 0.95, l.x - size, l.y + size * 0.2);
+      ctx.closePath();
+      ctx.fill();
+      // inner warm core
+      const core = ctx.createRadialGradient(l.x, l.y + size * 0.1, 1, l.x, l.y + size * 0.1, size * 1.1);
+      core.addColorStop(0, 'rgba(' + tint + ',' + (0.95 * flick) + ')');
+      core.addColorStop(0.6, 'rgba(' + tint + ',0.35)');
+      core.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = core;
+      ctx.beginPath();
+      ctx.arc(l.x, l.y + size * 0.1, size * 1.05, 0, Math.PI * 2);
+      ctx.fill();
+      // bright rim highlight
+      ctx.strokeStyle = 'rgba(255,245,210,' + (0.5 * l.life) + ')';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      // little flame
+      ctx.fillStyle = 'rgba(255,250,220,0.95)';
+      ctx.beginPath();
+      ctx.moveTo(l.x, l.y + size * 0.75);
+      ctx.quadraticCurveTo(l.x - size * 0.22, l.y + size * 0.3, l.x, l.y + size * 0.05);
+      ctx.quadraticCurveTo(l.x + size * 0.22, l.y + size * 0.3, l.x, l.y + size * 0.75);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    function drawRipples() {
+      for (const r of ripples) {
+        ctx.globalAlpha = r.life * 0.35;
+        ctx.strokeStyle = '#9fb4ff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse(r.x, r.y, r.r * 1.8, r.r * 0.5, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+    function drawVignette() {
+      const g = ctx.createRadialGradient(
+        W / 2, H * 0.45, Math.min(W, H) * 0.3,
+        W / 2, H * 0.5, Math.max(W, H) * 0.75
+      );
+      g.addColorStop(0, 'rgba(0,0,0,0)');
+      g.addColorStop(1, 'rgba(0,0,0,0.45)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+    // ============ MAIN LOOP ============
+    function loop(now) {
+      const dt = Math.min(48, now - lastTime);
+      lastTime = now;
+      update(dt);
+      draw(now);
+      requestAnimationFrame(loop);
+    }
+    // ============ INPUT HANDLING ============
+    function pointerToScene(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return {
+        x: (clientX - rect.left) * (W / rect.width),
+        y: (clientY - rect.top) * (H / rect.height)
+      };
+    }
+    // Pointer (mouse + touch unified) - release a lantern where you touch the sky
+    function handleRelease(e) {
+      e.preventDefault();
+      ensureAudio();
+      const p = pointerToScene(e);
+      const text = wishInput.value.trim();
+      if (text) saveWish(text);
+      spawnLantern(p.x, Math.min(p.y, horizon - 6), text);
+      wishInput.value = '';
+    }
+    canvas.addEventListener('mousedown', handleRelease);
+    canvas.addEventListener('touchstart', handleRelease, { passive: false });
+    function releaseFromBar() {
+      ensureAudio();
+      const text = wishInput.value.trim();
+      if (text) saveWish(text);
+      spawnLantern(W * (0.3 + Math.random() * 0.4), horizon - 20, text);
+      wishInput.value = '';
+      wishInput.focus();
+    }
+    releaseBtn.addEventListener('click', releaseFromBar);
+    wishInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') releaseFromBar();
+    });
+    // Space recalls a saved wish and releases it from a random spot
+    document.addEventListener('keydown', function (e) {
+      if (e.code === 'Space' && document.activeElement !== wishInput) {
+        e.preventDefault();
+        const list = loadWishes();
+        const text = list.length ? list[Math.floor(Math.random() * list.length)].text : '';
+        ensureAudio();
+        spawnLantern(W * (0.2 + Math.random() * 0.6), horizon - 20, text);
+      }
+    });
+    // ============ CONTROLS ============
+    function windLabel(v) {
+      const n = Math.round(v);
+      if (n > 55) return '\u2192\u2192 ' + n;
+      if (n > 12) return '\u2192 ' + n;
+      if (n < -55) return '\u2190\u2190 ' + n;
+      if (n < -12) return '\u2190 ' + n;
+      return '\u00b7 ' + n;
+    }
+    windSlider.addEventListener('input', function () {
+      wind = parseInt(windSlider.value) / 100;
+      windValue.textContent = windLabel(windSlider.value);
+    });
+    tempSlider.addEventListener('input', function () {
+      warmth = parseInt(tempSlider.value) / 100;
+      tempValue.textContent = tempSlider.value;
+    });
+    // Reset sky: clear lanterns/ripples and repopulate stars
+    resetBtn.addEventListener('click', function () {
+      lanterns.length = 0;
+      ripples.length = 0;
+      buildStars();
+    });
+    // ============ INIT ============
+    function init() {
+      windValue.textContent = windLabel(windSlider.value);
+      tempValue.textContent = tempSlider.value;
+      wind = parseInt(windSlider.value) / 100;
+      warmth = parseInt(tempSlider.value) / 100;
+      resize();
+      renderWishLog();
+      // A few drifting lanterns to open the scene, reusing saved wishes if any
+      const saved = loadWishes();
+      for (let i = 0; i < 4; i++) {
+        const text = saved.length ? saved[i % saved.length].text : '';
+        spawnLantern(W * (0.15 + Math.random() * 0.7), horizon - 40 - Math.random() * (horizon * 0.5), text, true);
+      }
+      window.addEventListener('resize', resize);
+      requestAnimationFrame(loop);
+    }
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>Trench War</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    background: radial-gradient(130% 120% at 50% 0%, #2b2029 0%, #1a1512 55%, #0c0a09 100%);
+    min-height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    touch-action: none;
+    font-family: "Consolas", "Courier New", monospace;
+    color: #d8cfc2;
+    padding: 10px;
+  }
+
+  /* ============ LAYOUT ============ */
+  #app { display: flex; flex-direction: column; gap: 8px; width: min(96vw, 960px); }
+
+  /* ============ HUD ============ */
+  #hud {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 8px 18px;
+    padding: 9px 14px;
+    background: linear-gradient(180deg, #241d18, #191410);
+    border: 1px solid #3a2d22;
+    border-radius: 10px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 4px 14px rgba(0,0,0,.55);
+  }
+  .hud-item { display: flex; align-items: baseline; gap: 7px; }
+  .hud-item .k { font-size: 10.5px; letter-spacing: 1.6px; color: #7d6b58; }
+  .hud-item .v { font-size: 18px; font-weight: bold; color: #e8c98a; text-shadow: 0 0 8px rgba(232,201,138,.3); min-width: 26px; }
+  #hud-turn .v { color: #8fd0e6; }
+  #hud-turn.red .v { color: #f0917a; }
+  .hud-item.right { margin-left: auto; }
+
+  .pips { display: flex; gap: 5px; }
+  .pip { width: 12px; height: 12px; border-radius: 3px; background: #2c231b; border: 1px solid #4a3a2b; }
+  .pip.b { background: linear-gradient(180deg,#7fc9e0,#3d8ba5); border-color: #6fb1c8; }
+  .pip.r { background: linear-gradient(180deg,#f0a189,#c0563c); border-color: #c87f6f; }
+
+  /* ============ STAGE ============ */
+  #stage {
+    position: relative; width: 100%;
+    border-radius: 12px; overflow: hidden;
+    border: 1px solid #33281f;
+    box-shadow: 0 14px 50px rgba(0,0,0,.65);
+  }
+  canvas { display: block; width: 100%; height: auto; background: #1c1613; cursor: crosshair; }
+  canvas.aiming { cursor: none; }
+
+  /* ============ OVERLAYS ============ */
+  .overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    text-align: center;
+    background: radial-gradient(120% 120% at 50% 30%, rgba(28,22,17,.91), rgba(10,8,6,.97));
+    transition: opacity .25s ease;
+    padding: 18px;
+  }
+  .overlay.hidden { opacity: 0; pointer-events: none; }
+
+  .brand {
+    font-size: clamp(28px, 6.2vw, 56px); letter-spacing: 6px; font-weight: bold;
+    color: #f0e6d6; text-shadow: 0 0 20px rgba(232,150,80,.35), 0 4px 0 #000;
+    margin-bottom: 2px;
+  }
+  .brand .accent { color: #e0834a; text-shadow: 0 0 20px rgba(224,131,74,.55), 0 4px 0 #000; }
+  .tagline { font-size: 12px; letter-spacing: 3px; color: #8a7863; margin-bottom: 20px; }
+
+  .keys {
+    display: grid; grid-template-columns: auto auto; gap: 5px 16px;
+    font-size: 12.5px; color: #a89b88; margin-bottom: 20px; text-align: left;
+  }
+  .keys b { color: #e8c98a; }
+
+  .option-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .option-row .label { font-size: 11px; letter-spacing: 1.6px; color: #7d6b58; margin-right: 4px; }
+  .opt {
+    font-family: inherit; font-size: 12.5px; letter-spacing: 1px; padding: 8px 16px;
+    color: #e0d6c6; background: linear-gradient(180deg, #2e241c, #201a14);
+    border: 1px solid #46382a; border-radius: 8px; cursor: pointer; user-select: none;
+    transition: background .12s ease, border-color .12s ease;
+  }
+  .opt:hover { background: linear-gradient(180deg, #3a2e23, #262019); }
+  .opt.active { background: linear-gradient(180deg, #e8c98a, #cfa858); color: #1a1208; border-color: #e8c98a; font-weight: bold; }
+
+  .action-btn {
+    font-family: inherit; font-size: 15px; font-weight: bold; letter-spacing: 2px;
+    padding: 13px 42px; color: #1a1208;
+    background: linear-gradient(180deg, #f2d78f, #d8ab4c);
+    border: none; border-radius: 9px; cursor: pointer;
+    box-shadow: 0 5px 0 #8a6a20, 0 8px 22px rgba(232,201,138,.22);
+    transition: transform .06s ease, box-shadow .1s ease, background .15s ease;
+    user-select: none; margin-top: 6px;
+  }
+  .action-btn:hover { background: linear-gradient(180deg, #ffe9ad, #e6bc5c); }
+  .action-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #8a6a20; }
+
+  .final { font-size: clamp(24px, 5vw, 40px); font-weight: bold; color: #e8c98a; text-shadow: 0 0 16px rgba(232,201,138,.45); margin: 6px 0 4px; }
+  .meta { font-size: 12.5px; color: #8f8172; margin-bottom: 18px; letter-spacing: 1px; }
+  .big-score { font-size: 11px; letter-spacing: 3px; color: #8a7863; }
+
+  /* ============ CONTROL BAR ============ */
+  #controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 10px; }
+  #controls button {
+    font-family: inherit; font-size: 13px; letter-spacing: 1px; padding: 9px 18px;
+    color: #e2d8c8; background: linear-gradient(180deg, #332a21, #221b15);
+    border: 1px solid #46382a; border-radius: 8px; cursor: pointer;
+    transition: background .12s ease, transform .05s ease, border-color .12s ease; user-select: none;
+  }
+  #controls button:hover { background: linear-gradient(180deg, #3f3428, #28211a); border-color: #5b4a37; }
+  #controls button:active { transform: translateY(1px); }
+  #btn-fire {
+    color: #1a1208; font-weight: bold; background: linear-gradient(180deg, #f0b96a, #d07a34);
+    border-color: #e0834a; padding: 9px 34px;
+  }
+  #btn-fire:hover { background: linear-gradient(180deg, #ffcb80, #e08a3f); }
+  #btn-fire:disabled { opacity: .4; cursor: default; background: linear-gradient(180deg,#3a3028,#241d17); color:#6b5c4b; border-color:#3a2d22; }
+  #btn-restart { color: #f0a189; border-color: #5a3a33; }
+  #hint { text-align: center; font-size: 11px; letter-spacing: 1px; color: #6b5c4b; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 640px) {
+    #hud { gap: 6px 12px; padding: 7px 10px; }
+    .hud-item .v { font-size: 15px; }
+    .hud-item.right { margin-left: 0; }
+    #hint { font-size: 10px; }
+    .keys { font-size: 11.5px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ HUD ============ -->
+  <header id="hud">
+    <div class="hud-item" id="hud-turn"><span class="k">TURN</span><span class="v">BLUE</span></div>
+    <div class="hud-item"><span class="k">GUN</span><span class="v" id="hud-gun">1/3</span></div>
+    <div class="hud-item"><span class="k">ANGLE</span><span class="v" id="hud-angle">45</span></div>
+    <div class="hud-item"><span class="k">POWER</span><span class="v" id="hud-power">70</span></div>
+    <div class="hud-item"><span class="k">WIND</span><span class="v" id="hud-wind">0</span></div>
+    <div class="hud-item right"><span class="k">ROUNDS</span><span class="pips" id="hud-pips"></span></div>
+  </header>
+
+  <!-- ============ STAGE ============ -->
+  <div id="stage">
+    <canvas id="game" width="900" height="600"></canvas>
+
+    <!-- Start screen -->
+    <div id="ov-start" class="overlay">
+      <div class="brand">TRENCH <span class="accent">WAR</span></div>
+      <div class="tagline">ARTILLERY DUEL &middot; 1914</div>
+      <div class="option-row">
+        <span class="label">MODE</span>
+        <button class="opt mode active" data-mode="1p" type="button">1 Player</button>
+        <button class="opt mode" data-mode="2p" type="button">2 Players</button>
+      </div>
+      <div class="option-row">
+        <span class="label">FOE</span>
+        <button class="opt diff" data-diff="recruit" type="button">Recruit</button>
+        <button class="opt diff active" data-diff="regular" type="button">Regular</button>
+        <button class="opt diff" data-diff="veteran" type="button">Veteran</button>
+      </div>
+      <div class="keys">
+        <span><b>&uarr; / &darr;</b></span><span>raise / lower barrel</span>
+        <span><b>&larr; / &rarr;</b></span><span>charge / ease powder</span>
+        <span><b>DRAG</b></span><span>aim with the mouse or finger</span>
+        <span><b>SPACE / ENTER</b></span><span>fire the gun</span>
+        <span><b>P</b></span><span>pause</span>
+        <span><b>R</b></span><span>restart</span>
+      </div>
+      <button id="btn-start" class="action-btn" type="button">TO ARMS</button>
+    </div>
+
+    <!-- Match over screen -->
+    <div id="ov-over" class="overlay hidden">
+      <div class="brand" style="font-size:clamp(24px,5vw,42px)" id="over-title">BLUE <span class="accent">PREVAILS</span></div>
+      <div class="big-score">MATCH RESULT</div>
+      <div class="final" id="over-final">2 &ndash; 0</div>
+      <div class="meta" id="over-meta"></div>
+      <button id="btn-again" class="action-btn" type="button">AGAIN</button>
+    </div>
+
+    <!-- Pause screen -->
+    <div id="ov-pause" class="overlay hidden">
+      <div class="brand" style="font-size:clamp(24px,5vw,42px)">PAUSED</div>
+      <div class="tagline">PRESS P OR RESUME</div>
+      <button id="btn-resume" class="action-btn" type="button">RESUME</button>
+    </div>
+  </div>
+
+  <!-- ============ CONTROL BAR ============ -->
+  <div id="controls">
+    <button id="btn-fire" type="button">FIRE</button>
+    <button id="btn-pause" type="button">Pause</button>
+    <button id="btn-restart" type="button">Restart</button>
+  </div>
+
+  <p id="hint">&uarr;&darr; angle &middot; &larr;&rarr; power &middot; drag to aim &middot; SPACE to fire &middot; P pause &middot; R restart</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONFIGURATION ============
+  var canvas = document.getElementById("game");
+  var ctx = canvas.getContext("2d");
+  var W = canvas.width;
+  var H = canvas.height;
+  var TAU = Math.PI * 2;
+
+  var GRAV = 360;                 // px / s^2
+  var WIND_ACC = 90;              // max horizontal px / s^2
+  var BASE_SPEED = 150;           // muzzle speed at power 0
+  var PER_POWER = 4.8;            // extra px / s per power unit
+  var GUNS_PER_TEAM = 3;
+  var GUN_HP = 100;
+  var BLAST_R = 46;               // explosion radius (px)
+  var BLAST_DMG = 130;            // damage at the centre
+  var DIRECT_BONUS = 45;          // extra damage for a direct hit
+  var CRATER_R = 42;              // terrain carve radius
+  var NEED_WINS = 2;              // best of 3
+
+  var DIFF = {
+    recruit: { label: "Recruit", elevErr: 11, powErr: 15 },
+    regular: { label: "Regular", elevErr: 5, powErr: 7 },
+    veteran: { label: "Veteran", elevErr: 2, powErr: 3 }
+  };
+
+  // ============ GAME STATE ============
+  var PHASE = { AIM: 0, FLY: 1, THINK: 2, SETTLE: 3, OVER: 4 };
+  var phase = PHASE.AIM;
+  var paused = false;
+
+  var mode = "1p";                                  // "1p" | "2p"
+  var diff = localStorage.getItem("trenchWarDiff") || "regular";
+  if (!DIFF[diff]) diff = "regular";
+
+  var savedWins = { b: 0, r: 0 };
+  try {
+    var raw = JSON.parse(localStorage.getItem("trenchWarWins") || "null");
+    if (raw && typeof raw.b === "number" && typeof raw.r === "number") savedWins = raw;
+  } catch (e) { /* corrupt save, start fresh */ }
+
+  var terrain = new Float32Array(W);                // surface Y per pixel column
+  var hills1 = new Float32Array(W);
+  var hills2 = new Float32Array(W);
+
+  var teams = [];
+  var current = 0;                                  // active team index
+  var gunOrder = [];                                // turn queue of {team, gun}
+  var orderPos = 0;
+  var wind = 0;
+  var windAx = 0;
+
+  var shell = null;
+  var particles = [];
+  var shake = 0;
+  var banner = null;                                // { text, sub, t, max, col }
+  var aiTimer = 0;
+  var settleTimer = 0;
+  var gameTime = 0;
+
+  var roundNo = 1;
+  var wins = { b: 0, r: 0 };
+
+  // aim state for the human gun
+  var aim = { elev: 45, power: 70 };
+  var dragging = false;
+  var pointerPos = { x: W / 2, y: H / 2 };
+
+  var keys = Object.create(null);
+
+  // ============ MATH HELPERS ============
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function rand(a, b) { return a + Math.random() * (b - a); }
+  function dist(ax, ay, bx, by) { var dx = bx - ax, dy = by - ay; return Math.sqrt(dx * dx + dy * dy); }
+
+  // Rounded-rect path helper (avoids relying on ctx.roundRect)
+  function rr(x, y, w, h, r) {
+    r = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  // ============ SOUND (WebAudio, no assets) ============
+  var actx = null;
+  function ensureAudio() {
+    if (!actx) {
+      try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; }
+    }
+    if (actx && actx.state === "suspended") { try { actx.resume(); } catch (e) {} }
+  }
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!actx) return;
+      var o = actx.createOscillator();
+      var g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.setValueAtTime(freq, actx.currentTime);
+      g.gain.setValueAtTime(vol || 0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+  function fireSound() {
+    beep(150, 0.16, "sawtooth", 0.07);
+    beep(70, 0.24, "square", 0.05);
+  }
+  function boomSound() {
+    beep(90, 0.26, "sawtooth", 0.09);
+    beep(210, 0.09, "square", 0.04);
+  }
+
+  // ============ DOM REFERENCES ============
+  var hudTurn = document.getElementById("hud-turn");
+  var hudTurnV = hudTurn.querySelector(".v");
+  var hudGun = document.getElementById("hud-gun");
+  var hudAngle = document.getElementById("hud-angle");
+  var hudPower = document.getElementById("hud-power");
+  var hudWind = document.getElementById("hud-wind");
+  var hudPips = document.getElementById("hud-pips");
+  var ovStart = document.getElementById("ov-start");
+  var ovOver = document.getElementById("ov-over");
+  var ovPause = document.getElementById("ov-pause");
+  var overTitle = document.getElementById("over-title");
+  var overFinal = document.getElementById("over-final");
+  var overMeta = document.getElementById("over-meta");
+  var btnFire = document.getElementById("btn-fire");
+  var btnPause = document.getElementById("btn-pause");
+  var modeButtons = Array.prototype.slice.call(document.querySelectorAll(".opt.mode"));
+  var diffButtons = Array.prototype.slice.call(document.querySelectorAll(".opt.diff"));
+
+  var TEAM_COL = ["#7fc9e0", "#f0a189"];
+  var TEAM_DARK = ["#2b5d70", "#7a3a29"];
+  var TEAM_NAME = ["BLUE", "RED"];
+
+  function syncHUD() {
+    var t = teams[current] || teams[0];
+    hudTurnV.textContent = TEAM_NAME[current] || "BLUE";
+    hudTurn.className = "hud-item" + (current === 1 ? " red" : "");
+    var g = t ? t.guns.indexOf(currentGun()) + 1 : 1;
+    var alive = t ? t.guns.filter(function (x) { return x.alive; }).length : 0;
+    hudGun.textContent = Math.max(1, g) + "/" + alive;
+    hudAngle.textContent = Math.round(aim.elev);
+    hudPower.textContent = Math.round(aim.power);
+    hudWind.textContent = (wind < 0 ? "\u25c0 " : (wind > 0 ? "\u25b6 " : "")) + Math.abs(Math.round(wind * 100));
+    hudPips.innerHTML = "";
+    var total = NEED_WINS;
+    for (var i = 0; i < total; i++) {
+      var pb = document.createElement("span");
+      pb.className = "pip" + (i < wins.b ? " b" : "");
+      hudPips.appendChild(pb);
+    }
+    var sep = document.createElement("span");
+    sep.style.color = "#6b5c4b";
+    sep.style.fontSize = "11px";
+    sep.textContent = "\u2013";
+    sep.style.padding = "0 2px";
+    hudPips.appendChild(sep);
+    for (var j = 0; j < total; j++) {
+      var pr = document.createElement("span");
+      pr.className = "pip" + (j < wins.r ? " r" : "");
+      hudPips.appendChild(pr);
+    }
+    var human = isHumanTurn();
+    btnFire.disabled = !(human && phase === PHASE.AIM && !paused);
+  }
+  function syncModeButtons() {
+    modeButtons.forEach(function (b) { b.classList.toggle("active", b.dataset.mode === mode); });
+    diffButtons.forEach(function (b) { b.classList.toggle("active", b.dataset.diff === diff); });
+  }
+
+  // ============ TERRAIN ============
+  function genTerrain() {
+    var seedA = rand(0, 100), seedB = rand(0, 100);
+    var base = H * 0.60;
+    for (var x = 0; x < W; x++) {
+      var n = Math.sin(x * 0.0062 + seedA) * 44 +
+              Math.sin(x * 0.0171 + seedB) * 20 +
+              Math.sin(x * 0.0431 + seedA * 1.7) * 8;
+      // gentle plateau on the extreme flanks so the guns have ground
+      var edge = Math.min(x, W - x) / (W * 0.16);
+      var flat = clamp(edge, 0, 1);
+      terrain[x] = clamp(base - n * (0.35 + 0.65 * flat), H * 0.26, H * 0.92);
+    }
+  }
+  function genHills() {
+    var sa = rand(0, 100), sb = rand(0, 100);
+    for (var x = 0; x < W; x++) {
+      hills1[x] = H * 0.50 - (Math.sin(x * 0.0041 + sa) * 30 + Math.sin(x * 0.0113 + sb) * 16);
+      hills2[x] = H * 0.57 - (Math.sin(x * 0.0067 + sb) * 22 + Math.sin(x * 0.0203 + sa) * 12);
+    }
+  }
+  function surfaceAt(x) {
+    var i = clamp(Math.round(x), 0, W - 1);
+    return terrain[i];
+  }
+  function carve(cx, cy, radius) {
+    var x0 = Math.max(0, Math.floor(cx - radius));
+    var x1 = Math.min(W - 1, Math.ceil(cx + radius));
+    for (var x = x0; x <= x1; x++) {
+      var dx = x - cx;
+      var d2 = radius * radius - dx * dx;
+      if (d2 <= 0) continue;
+      var dy = Math.sqrt(d2);
+      var newSurface = cy + dy;
+      if (newSurface > terrain[x]) terrain[x] = Math.min(newSurface, H - 2);
+    }
+    // small rim lip so craters read clearly
+    for (var lx = x0; lx <= x1; lx++) {
+      var ddx = lx - cx;
+      if (Math.abs(ddx) > radius - 4 && Math.abs(ddx) < radius + 6) {
+        terrain[lx] = Math.max(H * 0.22, terrain[lx] - 2.5);
+      }
+    }
+  }
+
+  // ============ GUNS ============
+  function makeGun(team, x) {
+    var g = {
+      team: team, x: x, y: surfaceAt(x),
+      elev: 45, hp: GUN_HP, maxHp: GUN_HP, alive: true,
+      flash: 0, recoil: 0, seed: rand(0, TAU)
+    };
+    return g;
+  }
+  function buildGuns() {
+    teams = [
+      { name: "BLUE", guns: [], cursor: 0 },
+      { name: "RED", guns: [], cursor: 0 }
+    ];
+    var xs = [0.075, 0.155, 0.235];
+    for (var i = 0; i < GUNS_PER_TEAM; i++) {
+      teams[0].guns.push(makeGun(0, W * xs[i]));
+      teams[1].guns.push(makeGun(1, W * (1 - xs[i])));
+    }
+  }
+  function settleGuns() {
+    for (var t = 0; t < 2; t++) {
+      for (var i = 0; i < teams[t].guns.length; i++) {
+        var g = teams[t].guns[i];
+        g.y = surfaceAt(g.x);
+      }
+    }
+  }
+  function currentGun() {
+    var e = gunOrder[orderPos];
+    if (!e) return teams[current].guns[0];
+    return e.gun;
+  }
+  function isHumanTurn() {
+    if (mode === "2p") return true;
+    return current === 0;
+  }
+  function muzzlePos(g) {
+    var dirSign = g.team === 0 ? 1 : -1;
+    var rad = g.elev * Math.PI / 180;
+    var len = 34;
+    return { x: g.x + dirSign * Math.cos(rad) * len, y: (g.y - 10) - Math.sin(rad) * len };
+  }
+
+  // ============ TURN FLOW ============
+  function buildOrder() {
+    gunOrder = [];
+    for (var i = 0; i < GUNS_PER_TEAM; i++) {
+      for (var t = 0; t < 2; t++) gunOrder.push({ team: t, gun: teams[t].guns[i] });
+    }
+    orderPos = -1;
+    nextTurn(true);
+  }
+  function nextTurn(first) {
+    var guard = 0;
+    while (guard++ < 20) {
+      orderPos++;
+      if (orderPos >= gunOrder.length) {
+        // prune dead guns and start a fresh rotation
+        gunOrder = gunOrder.filter(function (e) { return e.gun.alive; });
+        if (gunOrder.length === 0) return;
+        orderPos = 0;
+      }
+      var e = gunOrder[orderPos];
+      if (e && e.gun.alive) break;
+    }
+    var g = currentGun();
+    current = g.team;
+    if (!first) wind = rand(-1, 1);
+    windAx = wind * WIND_ACC;
+    aim.elev = clamp(g.elev, 8, 86);
+    aim.power = 70;
+    phase = PHASE.AIM;
+    if (!isHumanTurn()) {
+      phase = PHASE.THINK;
+      aiTimer = rand(0.55, 1.0);
+    }
+    syncHUD();
+  }
+  function fireGun() {
+    if (phase !== PHASE.AIM || paused) return;
+    var g = currentGun();
+    if (!g || !g.alive) return;
+    if (!isHumanTurn()) return;
+    g.elev = clamp(aim.elev, 1, 89);
+    launch(g, g.elev, aim.power);
+  }
+  function launch(g, elev, power) {
+    var m = muzzlePos({ x: g.x, y: g.y, team: g.team, elev: elev });
+    var dirSign = g.team === 0 ? 1 : -1;
+    var rad = elev * Math.PI / 180;
+    var speed = BASE_SPEED + power * PER_POWER;
+    shell = {
+      x: m.x, y: m.y,
+      vx: dirSign * Math.cos(rad) * speed,
+      vy: -Math.sin(rad) * speed,
+      r: 3.2, owner: g.team, trail: [], life: 14
+    };
+    g.recoil = 1;
+    g.flash = 0.12;
+    shake = Math.min(shake + 4, 12);
+    fireSound();
+    phase = PHASE.FLY;
+    syncHUD();
+  }
+
+  // ============ AI ============
+  function simMinDist(g, elev, power, tx, ty) {
+    var m = muzzlePos({ x: g.x, y: g.y, team: g.team, elev: elev });
+    var dirSign = g.team === 0 ? 1 : -1;
+    var rad = elev * Math.PI / 180;
+    var speed = BASE_SPEED + power * PER_POWER;
+    var vx = dirSign * Math.cos(rad) * speed;
+    var vy = -Math.sin(rad) * speed;
+    var x = m.x, y = m.y, dt = 1 / 40, t = 0, minD = 1e9;
+    while (t < 14) {
+      vy += GRAV * dt; vx += windAx * dt;
+      x += vx * dt; y += vy * dt; t += dt;
+      if (x < -60 || x > W + 60 || y > H + 60) break;
+      var d = dist(x, y, tx, ty);
+      if (d < minD) minD = d;
+      if (y >= surfaceAt(x)) break;
+    }
+    return minD;
+  }
+  function aiAim() {
+    var g = currentGun();
+    var foeTeam = 1 - g.team;
+    var targets = teams[foeTeam].guns.filter(function (x) { return x.alive; });
+    if (!g || targets.length === 0) return;
+    // pick the nearest living target
+    var target = targets[0], bestD = 1e9;
+    for (var i = 0; i < targets.length; i++) {
+      var d = Math.abs(targets[i].x - g.x);
+      if (d < bestD) { bestD = d; target = targets[i]; }
+    }
+    var best = null, bestScore = 1e9;
+    for (var elev = 12; elev <= 84; elev += 3) {
+      for (var power = 15; power <= 100; power += 4) {
+        var s = simMinDist(g, elev, power, target.x, target.y - 8);
+        if (s < bestScore) { bestScore = s; best = { elev: elev, power: power }; }
+      }
+    }
+    if (!best) best = { elev: 45, power: 70 };
+    var d2 = DIFF[diff];
+    best.elev = clamp(best.elev + rand(-d2.elevErr, d2.elevErr), 4, 88);
+    best.power = clamp(best.power + rand(-d2.powErr, d2.powErr), 8, 100);
+    g.elev = best.elev;
+    aim.elev = best.elev;
+    aim.power = best.power;
+    syncHUD();
+    launch(g, best.elev, best.power);
+  }
+
+  // ============ SHELL / EXPLOSION ============
+  function explode(x, y) {
+    carve(x, y, CRATER_R);
+    addBoom(x, y, 22);
+    boomSound();
+    shake = Math.min(shake + 10, 20);
+    // damage every gun in blast range
+    for (var t = 0; t < 2; t++) {
+      for (var i = 0; i < teams[t].guns.length; i++) {
+        var g = teams[t].guns[i];
+        if (!g.alive) continue;
+        var d = dist(x, y, g.x, g.y - 8);
+        if (d < BLAST_R) {
+          var dmg = (1 - d / BLAST_R) * BLAST_DMG;
+          if (d < 14) dmg += DIRECT_BONUS;
+          damageGun(g, dmg, x, y);
+        }
+      }
+    }
+  }
+  function damageGun(g, dmg, sx, sy) {
+    g.hp -= dmg;
+    g.flash = 0.16;
+    spawnSparks(sx, sy, 8, TEAM_COL[g.team]);
+    if (g.hp <= 0) {
+      g.hp = 0;
+      g.alive = false;
+      addBoom(g.x, g.y - 8, 26);
+      boomSound();
+      shake = Math.min(shake + 12, 24);
+      beep(120, 0.4, "sawtooth", 0.07);
+    } else {
+      beep(240, 0.06, "square", 0.03);
+    }
+  }
+  function updateShell(dt) {
+    if (!shell) { phase = PHASE.SETTLE; settleTimer = 0.5; return; }
+    shell.life -= dt;
+    var speed = Math.sqrt(shell.vx * shell.vx + shell.vy * shell.vy);
+    var steps = Math.max(1, Math.ceil(speed * dt / 5));
+    var hit = false;
+    for (var k = 0; k < steps && !hit; k++) {
+      var sdt = dt / steps;
+      shell.vy += GRAV * sdt;
+      shell.vx += windAx * sdt;
+      shell.x += shell.vx * sdt;
+      shell.y += shell.vy * sdt;
+
+      if (shell.x < 0 || shell.x > W) { hit = true; break; }        // flew off-map
+      // ground contact
+      if (shell.y >= surfaceAt(shell.x)) { hit = true; break; }
+      // direct gun hit
+      for (var t = 0; t < 2; t++) {
+        for (var i = 0; i < teams[t].guns.length; i++) {
+          var g = teams[t].guns[i];
+          if (!g.alive) continue;
+          if (dist(shell.x, shell.y, g.x, g.y - 8) < 13) { hit = true; break; }
+        }
+        if (hit) break;
+      }
+    }
+    shell.trail.push({ x: shell.x, y: shell.y });
+    if (shell.trail.length > 26) shell.trail.shift();
+
+    if (hit || shell.life <= 0) {
+      var ex = shell.x, ey = Math.min(shell.y, surfaceAt(shell.x));
+      if (shell.x >= 0 && shell.x <= W) explode(ex, ey);
+      else explosionFlash(ex, ey);
+      shell = null;
+      phase = PHASE.SETTLE;
+      settleTimer = 0.75;
+    }
+  }
+  function explosionFlash(x, y) { spawnSparks(clamp(x, 0, W), clamp(y, 0, H), 6, "#e8c98a"); }
+
+  // ============ PARTICLES ============
+  function spawnSparks(x, y, n, col) {
+    for (var i = 0; i < n; i++) {
+      var a = rand(0, TAU), sp = rand(50, 210);
+      particles.push({
+        x: x, y: y,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: rand(0.25, 0.6), max: 0.6, col: col, size: rand(1.5, 3.2), drag: 0.9, grav: 220
+      });
+    }
+  }
+  function addBoom(x, y, n) {
+    var cols = ["#f2d78f", "#e0834a", "#b0402a"];
+    for (var i = 0; i < n; i++) {
+      var a = rand(0, TAU), sp = rand(40, 280);
+      particles.push({
+        x: x, y: y,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: rand(0.3, 0.85), max: 0.85,
+        col: cols[Math.floor(rand(0, cols.length))], size: rand(2.5, 6), drag: 0.86, grav: 120
+      });
+    }
+    for (var s = 0; s < n * 0.7; s++) {
+      var sa = rand(0, TAU), ssp = rand(10, 80);
+      particles.push({
+        x: x, y: y,
+        vx: Math.cos(sa) * ssp, vy: Math.sin(sa) * ssp - 16,
+        life: rand(0.6, 1.4), max: 1.4, col: "#4a3d31",
+        size: rand(5, 11), drag: 0.94, grav: -14
+      });
+    }
+  }
+  function updateParticles(dt) {
+    for (var i = particles.length - 1; i >= 0; i--) {
+      var p = particles[i];
+      p.vy += p.grav * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      var dg = Math.pow(p.drag, dt * 60);
+      p.vx *= dg; p.vy *= dg;
+      p.life -= dt;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+  }
+
+  // ============ ROUND / MATCH FLOW ============
+  function checkRoundEnd() {
+    var alive = [
+      teams[0].guns.filter(function (g) { return g.alive; }).length,
+      teams[1].guns.filter(function (g) { return g.alive; }).length
+    ];
+    if (alive[0] > 0 && alive[1] > 0) return false;
+    var winner = null;
+    if (alive[0] > 0) winner = 0;
+    else if (alive[1] > 0) winner = 1;
+    if (winner !== null) wins[winner === 0 ? "b" : "r"]++;
+    roundResult(winner);
+    return true;
+  }
+  function roundResult(winner) {
+    phase = PHASE.OVER;
+    var msg = winner === null ? "MUTUAL RUIN" : (TEAM_NAME[winner] + " HOLDS THE LINE");
+    banner = {
+      text: "ROUND " + roundNo + " OVER",
+      sub: msg,
+      t: 2.6, max: 2.6, col: winner === null ? "#e8c98a" : TEAM_COL[winner]
+    };
+    beep(600, 0.14, "triangle", 0.05);
+    beep(900, 0.2, "triangle", 0.045);
+    if (wins.b >= NEED_WINS || wins.r >= NEED_WINS) {
+      window.setTimeout(showMatchOver, 1700);
+    } else {
+      window.setTimeout(function () { if (!paused) startRound(roundNo + 1); }, 2400);
+    }
+    syncHUD();
+  }
+  function showMatchOver() {
+    if (paused) return;
+    var winner = wins.b >= NEED_WINS ? 0 : 1;
+    overTitle.innerHTML = TEAM_NAME[winner] + " <span class=\"accent\">PREVAILS</span>";
+    overOver.querySelector(".big-score").textContent = winner === 0 ? "BLUE VICTORIOUS" : "RED VICTORIOUS";
+    overFinal.textContent = wins.b + " \u2013 " + wins.r;
+    savedWins[winner === 0 ? "b" : "r"]++;
+    try { localStorage.setItem("trenchWarWins", JSON.stringify(savedWins)); } catch (e) {}
+    overMeta.textContent = "CAREER \u00b7 BLUE " + savedWins.b + "  \u2013  " + savedWins.r + " RED \u00b7 " + DIFF[diff].label.toUpperCase() + " \u00b7 " + (mode === "2p" ? "2P" : "1P");
+    ovOver.classList.remove("hidden");
+    beep(180, 0.4, "sawtooth", 0.07);
+  }
+  function startRound(n) {
+    roundNo = n;
+    phase = PHASE.AIM;
+    shell = null;
+    particles = [];
+    banner = null;
+    shake = 0;
+    genTerrain();
+    buildGuns();
+    wind = rand(-1, 1);
+    windAx = wind * WIND_ACC;
+    buildOrder();
+    syncHUD();
+  }
+  function startMatch() {
+    ensureAudio();
+    wins = { b: 0, r: 0 };
+    roundNo = 1;
+    paused = false;
+    ovStart.classList.add("hidden");
+    ovOver.classList.add("hidden");
+    ovPause.classList.add("hidden");
+    genHills();
+    startRound(1);
+    syncHUD();
+  }
+  function togglePause() {
+    if (phase === PHASE.OVER && wins.b < NEED_WINS && wins.r < NEED_WINS) return;
+    paused = !paused;
+    ovPause.classList.toggle("hidden", !paused);
+    btnPause.textContent = paused ? "Resume" : "Pause";
+    beep(paused ? 420 : 620, 0.08, "triangle", 0.04);
+    syncHUD();
+  }
+
+  // ============ UPDATE ============
+  function update(dt) {
+    gameTime += dt;
+    updateParticles(dt);
+    if (shake > 0) shake = Math.max(0, shake - dt * 40);
+    for (var t = 0; t < 2; t++) {
+      for (var i = 0; i < teams[t].guns.length; i++) {
+        var g = teams[t].guns[i];
+        if (g.flash > 0) g.flash -= dt;
+        if (g.recoil > 0) g.recoil = Math.max(0, g.recoil - dt * 3);
+      }
+    }
+    if (banner) {
+      banner.t -= dt;
+      if (banner.t <= 0) banner = null;
+    }
+
+    if (phase === PHASE.FLY) {
+      updateShell(dt);
+    } else if (phase === PHASE.SETTLE) {
+      settleTimer -= dt;
+      if (settleTimer <= 0) {
+        settleGuns();
+        if (!checkRoundEnd()) {
+          if (!paused) nextTurn(false);
+        }
+      }
+    } else if (phase === PHASE.THINK) {
+      aiTimer -= dt;
+      if (aiTimer <= 0) aiAim();
+    }
+  }
+
+  // ============ DRAWING ============
+  function drawSky() {
+    var g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#221a25");
+    g.addColorStop(0.42, "#4a2f2c");
+    g.addColorStop(0.68, "#93502f");
+    g.addColorStop(0.82, "#cf8244");
+    g.addColorStop(1, "#5c3822");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // low sun
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    var sg = ctx.createRadialGradient(W * 0.62, H * 0.66, 6, W * 0.62, H * 0.66, 130);
+    sg.addColorStop(0, "rgba(255,224,160,0.9)");
+    sg.addColorStop(1, "rgba(255,180,90,0)");
+    ctx.fillStyle = sg;
+    ctx.beginPath(); ctx.arc(W * 0.62, H * 0.66, 130, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 0.7;
+    ctx.fillStyle = "#ffe0a0";
+    ctx.beginPath(); ctx.arc(W * 0.62, H * 0.66, 26, 0, TAU); ctx.fill();
+    ctx.restore();
+
+    // drifting smoke haze
+    ctx.save();
+    ctx.globalAlpha = 0.06;
+    ctx.fillStyle = "#1a1310";
+    for (var i = 0; i < 5; i++) {
+      var cx = ((i * 220 + gameTime * 6) % (W + 300)) - 150;
+      ctx.beginPath();
+      ctx.ellipse(cx, H * 0.42 + i * 12, 160, 34, 0, 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+  function drawHills(arr, col) {
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    for (var x = 0; x < W; x += 4) ctx.lineTo(x, arr[x]);
+    ctx.lineTo(W, arr[W - 1]);
+    ctx.lineTo(W, H);
+    ctx.closePath();
+    ctx.fill();
+  }
+  function drawTerrain() {
+    ctx.fillStyle = "#160f0b";
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    for (var x = 0; x < W; x += 2) ctx.lineTo(x, terrain[x]);
+    ctx.lineTo(W, terrain[W - 1]);
+    ctx.lineTo(W, H);
+    ctx.closePath();
+    ctx.fill();
+
+    // warm rim light along the crest
+    ctx.strokeStyle = "rgba(224,131,74,0.5)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, terrain[0]);
+    for (var x2 = 2; x2 < W; x2 += 2) ctx.lineTo(x2, terrain[x2]);
+    ctx.stroke();
+
+    // barbed-wire stakes dotted along the line
+    ctx.strokeStyle = "rgba(10,7,5,0.9)";
+    ctx.lineWidth = 1.5;
+    for (var sx = 30; sx < W; sx += 66) {
+      var sy = terrain[sx];
+      ctx.beginPath();
+      ctx.moveTo(sx, sy); ctx.lineTo(sx, sy - 14);
+      ctx.moveTo(sx - 8, sy - 12); ctx.lineTo(sx + 8, sy - 12);
+      ctx.stroke();
+    }
+  }
+  function drawTrenches() {
+    ctx.strokeStyle = "rgba(20,13,9,0.85)";
+    ctx.lineWidth = 3;
+    for (var side = 0; side < 2; side++) {
+      var x0 = side === 0 ? W * 0.02 : W * 0.86;
+      for (var k = 0; k < 3; k++) {
+        var bx = x0 + k * 30;
+        var by = surfaceAt(bx) + 6;
+        ctx.beginPath();
+        ctx.moveTo(bx, by);
+        ctx.lineTo(bx + 22, by + 3);
+        ctx.stroke();
+      }
+    }
+  }
+  function drawGun(g) {
+    if (!g.alive) return;
+    var dir = g.team === 0 ? 1 : -1;
+    var rad = g.elev * Math.PI / 180;
+    var rec = g.recoil * 7;
+    ctx.save();
+    ctx.translate(g.x, g.y);
+
+    // breech / carriage silhouette
+    ctx.fillStyle = "#0b0806";
+    rr(-16, -20, 32, 18, 3); ctx.fill();
+    ctx.beginPath(); ctx.arc(-7, -2, 10, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(-7, -2, 4, 0, TAU); ctx.stroke();
+
+    // barrel
+    ctx.save();
+    ctx.translate(0, -12);
+    ctx.scale(dir, 1);
+    ctx.rotate(-rad);
+    ctx.fillStyle = "#0b0806";
+    rr(-6, -4, 42 - rec, 8, 3); ctx.fill();
+    ctx.fillStyle = "#0b0806";
+    ctx.fillRect(32 - rec, -6, 5, 12);
+    ctx.restore();
+
+    // muzzle flash
+    if (g.flash > 0) {
+      var m = muzzlePos(g);
+      ctx.save();
+      ctx.globalAlpha = clamp(g.flash / 0.12, 0, 1);
+      ctx.fillStyle = "#ffe6a8";
+      ctx.beginPath();
+      ctx.arc(m.x - g.x, m.y - g.y, 12, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // team rim light
+    ctx.strokeStyle = TEAM_COL[g.team];
+    ctx.globalAlpha = 0.85;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(-16, -20);
+    ctx.lineTo(16, -20);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // health bar
+    var ratio = clamp(g.hp / g.maxHp, 0, 1);
+    var bw = 34, bh = 4;
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillRect(-bw / 2 - 1, -38, bw + 2, bh + 2);
+    ctx.fillStyle = ratio > 0.5 ? "#8fe38a" : (ratio > 0.25 ? "#e8c98a" : "#ff6b6b");
+    ctx.fillRect(-bw / 2, -37, bw * ratio, bh);
+
+    // active marker
+    if (g === currentGun() && phase !== PHASE.OVER) {
+      ctx.strokeStyle = TEAM_COL[g.team];
+      ctx.globalAlpha = 0.5 + 0.4 * Math.sin(gameTime * 6);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, -10, 30, 0, TAU);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
+  function drawAimGuide() {
+    if (phase !== PHASE.AIM || !isHumanTurn()) return;
+    var g = currentGun();
+    if (!g || !g.alive) return;
+    var m = muzzlePos({ x: g.x, y: g.y, team: g.team, elev: aim.elev });
+    var dir = g.team === 0 ? 1 : -1;
+    var rad = aim.elev * Math.PI / 180;
+    var speed = BASE_SPEED + aim.power * PER_POWER;
+    var vx = dir * Math.cos(rad) * speed;
+    var vy = -Math.sin(rad) * speed;
+    var x = m.x, y = m.y, dt = 1 / 30, t = 0;
+
+    ctx.save();
+    ctx.setLineDash([5, 7]);
+    ctx.strokeStyle = "rgba(232,201,138,0.55)";
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    while (t < 12) {
+      vy += GRAV * dt; vx += windAx * dt;
+      x += vx * dt; y += vy * dt; t += dt;
+      if (x < -40 || x > W + 40 || y > H + 40) break;
+      ctx.lineTo(x, y);
+      if (y >= surfaceAt(x)) break;
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // elevation arc at the muzzle
+    ctx.save();
+    ctx.strokeStyle = "rgba(232,201,138,0.35)";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(g.x, g.y - 10);
+    ctx.lineTo(g.x + dir * 46, g.y - 10);
+    ctx.stroke();
+    ctx.restore();
+  }
+  function drawShell() {
+    if (!shell) return;
+    for (var j = 0; j < shell.trail.length; j++) {
+      var t = shell.trail[j];
+      var a = (j / shell.trail.length) * 0.45;
+      ctx.fillStyle = "rgba(255,200,140," + a + ")";
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, 1.4 + j / shell.trail.length * 1.6, 0, TAU);
+      ctx.fill();
+    }
+    ctx.save();
+    ctx.shadowColor = "#ffd48a";
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = "#fff4d6";
+    ctx.beginPath(); ctx.arc(shell.x, shell.y, shell.r, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#e0834a";
+    ctx.beginPath(); ctx.arc(shell.x, shell.y, shell.r * 0.55, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+  function drawParticlesFx() {
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      ctx.globalAlpha = clamp(p.life / p.max, 0, 1);
+      ctx.fillStyle = p.col;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, TAU);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  function drawWind() {
+    ctx.save();
+    ctx.translate(W / 2, 30);
+    ctx.font = "bold 14px 'Consolas','Courier New',monospace";
+    ctx.textAlign = "center";
+    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    ctx.fillText("WIND", 1, 1);
+    ctx.fillStyle = "#d8cfc2";
+    ctx.fillText("WIND", 0, 0);
+    var strength = Math.abs(wind);
+    var dir = wind < 0 ? -1 : (wind > 0 ? 1 : 0);
+    if (dir !== 0) {
+      ctx.strokeStyle = "rgba(232,201,138," + (0.35 + strength * 0.55) + ")";
+      ctx.lineWidth = 2;
+      var len = 16 + strength * 34;
+      ctx.beginPath();
+      ctx.moveTo(-dir * len / 2, 16);
+      ctx.lineTo(dir * len / 2, 16);
+      ctx.lineTo(dir * len / 2 - dir * 6, 12);
+      ctx.moveTo(dir * len / 2, 16);
+      ctx.lineTo(dir * len / 2 - dir * 6, 20);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function drawBanner() {
+    if (!banner) return;
+    var a = clamp(banner.t > banner.max - 0.5 ? (banner.max - banner.t) / 0.5 : banner.t / 0.6, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "bold 40px 'Consolas','Courier New',monospace";
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillText(banner.text, W / 2 + 2, H * 0.34 + 2);
+    ctx.fillStyle = "#f0e6d6";
+    ctx.fillText(banner.text, W / 2, H * 0.34);
+    ctx.font = "bold 20px 'Consolas','Courier New',monospace";
+    ctx.fillStyle = banner.col || "#e8c98a";
+    ctx.fillText(banner.sub || "", W / 2, H * 0.34 + 38);
+    ctx.restore();
+  }
+  function drawTurnTag() {
+    if (phase === PHASE.OVER) return;
+    ctx.save();
+    ctx.font = "bold 15px 'Consolas','Courier New',monospace";
+    ctx.fillStyle = TEAM_COL[current];
+    ctx.textAlign = "left";
+    ctx.fillText(TEAM_NAME[current] + " TO FIRE" + (isHumanTurn() ? "" : " \u00b7 ENEMY"), 16, H - 16);
+    ctx.restore();
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.save();
+    if (shake > 0.3) ctx.translate(rand(-shake, shake), rand(-shake, shake));
+    drawSky();
+    drawHills(hills1, "rgba(24,16,18,0.72)");
+    drawHills(hills2, "rgba(16,11,12,0.85)");
+    drawTerrain();
+    drawTrenches();
+    for (var t = 0; t < 2; t++) {
+      for (var i = 0; i < teams[t].guns.length; i++) drawGun(teams[t].guns[i]);
+    }
+    drawAimGuide();
+    drawShell();
+    drawParticlesFx();
+    ctx.restore();
+    drawWind();
+    drawTurnTag();
+    drawBanner();
+  }
+
+  // ============ INPUT ============
+  function toCanvas(clientX, clientY) {
+    var rect = canvas.getBoundingClientRect();
+    return { x: (clientX - rect.left) * (W / rect.width), y: (clientY - rect.top) * (H / rect.height) };
+  }
+  function applyDragPoint(px, py) {
+    var g = currentGun();
+    if (!g) return;
+    var dir = g.team === 0 ? 1 : -1;
+    var ox = g.x, oy = g.y - 10;
+    var dx = (px - ox) * dir;
+    var dy = (oy - py);
+    if (dx < 1) dx = 1;
+    var elev = Math.atan2(Math.max(0, dy), dx) * 180 / Math.PI;
+    aim.elev = clamp(elev, 1, 89);
+    var reach = Math.sqrt(dx * dx + dy * dy);
+    aim.power = clamp((reach - 30) / 340 * 100, 5, 100);
+    syncHUD();
+  }
+
+  window.addEventListener("keydown", function (e) {
+    var c = e.code;
+    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "Enter", "KeyP", "KeyR"].indexOf(c) >= 0) e.preventDefault();
+    ensureAudio();
+    keys[c] = true;
+
+    if (c === "KeyP" || e.key === "Escape") { togglePause(); return; }
+    if (c === "KeyR") { startMatch(); return; }
+    if ((c === "Enter") && (phase === PHASE.OVER || !ovStart.classList.contains("hidden"))) { startMatch(); return; }
+    if (c === "Space" || c === "Enter") { fireGun(); return; }
+    if (phase !== PHASE.AIM || !isHumanTurn() || paused) return;
+    if (c === "ArrowUp") { aim.elev = clamp(aim.elev + 1, 1, 89); syncHUD(); }
+    if (c === "ArrowDown") { aim.elev = clamp(aim.elev - 1, 1, 89); syncHUD(); }
+    if (c === "ArrowRight") { aim.power = clamp(aim.power + 1, 5, 100); syncHUD(); }
+    if (c === "ArrowLeft") { aim.power = clamp(aim.power - 1, 5, 100); syncHUD(); }
+  });
+  window.addEventListener("keyup", function (e) { keys[e.code] = false; });
+  window.addEventListener("blur", function () { keys = Object.create(null); dragging = false; canvas.classList.remove("aiming"); });
+
+  // keyboard hold-repeat for finer control
+  var holdTimer = 0;
+  function holdRepeat(dt) {
+    if (phase !== PHASE.AIM || !isHumanTurn() || paused) return;
+    holdTimer += dt;
+    if (holdTimer < 0.06) return;
+    holdTimer = 0;
+    if (keys["ArrowUp"]) aim.elev = clamp(aim.elev + 1, 1, 89);
+    if (keys["ArrowDown"]) aim.elev = clamp(aim.elev - 1, 1, 89);
+    if (keys["ArrowRight"]) aim.power = clamp(aim.power + 1, 5, 100);
+    if (keys["ArrowLeft"]) aim.power = clamp(aim.power - 1, 5, 100);
+    syncHUD();
+  }
+
+  // ---- Pointer (mouse + touch unify via pointer events) ----
+  canvas.addEventListener("pointerdown", function (e) {
+    ensureAudio();
+    if (phase !== PHASE.AIM || !isHumanTurn() || paused) return;
+    dragging = true;
+    canvas.classList.add("aiming");
+    canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
+    var pos = toCanvas(e.clientX, e.clientY);
+    applyDragPoint(pos.x, pos.y);
+  });
+  canvas.addEventListener("pointermove", function (e) {
+    var pos = toCanvas(e.clientX, e.clientY);
+    pointerPos = pos;
+    if (dragging) applyDragPoint(pos.x, pos.y);
+  });
+  function endDrag() { dragging = false; canvas.classList.remove("aiming"); }
+  canvas.addEventListener("pointerup", endDrag);
+  canvas.addEventListener("pointercancel", endDrag);
+  canvas.addEventListener("pointerleave", function () { if (dragging) endDrag(); });
+  canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+  // Buttons
+  document.getElementById("btn-start").addEventListener("click", startMatch);
+  document.getElementById("btn-again").addEventListener("click", startMatch);
+  document.getElementById("btn-resume").addEventListener("click", togglePause);
+  btnPause.addEventListener("click", togglePause);
+  document.getElementById("btn-restart").addEventListener("click", startMatch);
+  btnFire.addEventListener("click", fireGun);
+  modeButtons.forEach(function (b) {
+    b.addEventListener("click", function () {
+      mode = b.dataset.mode;
+      syncModeButtons();
+      if (phase === PHASE.OVER) startMatch();
+    });
+  });
+  diffButtons.forEach(function (b) {
+    b.addEventListener("click", function () {
+      diff = b.dataset.diff;
+      localStorage.setItem("trenchWarDiff", diff);
+      syncModeButtons();
+    });
+  });
+
+  // ============ MAIN LOOP ============
+  var last = 0;
+  var raf = 0;
+  function loop(now) {
+    if (!last) last = now;
+    var dt = (now - last) / 1000;
+    last = now;
+    if (dt > 0.05) dt = 0.05;
+
+    if (!paused) {
+      holdRepeat(dt);
+      update(dt);
+    }
+    render();
+    raf = requestAnimationFrame(loop);
+  }
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { cancelAnimationFrame(raf); raf = 0; last = 0; }
+    else if (!raf) { raf = requestAnimationFrame(loop); }
+  });
+
+  // ============ BOOT ============
+  syncModeButtons();
+  genHills();
+  genTerrain();
+  buildGuns();
+  teams[0].guns.forEach(function (g, i) { g.elev = 40 + i * 5; teams[1].guns[i].elev = 40 + i * 5; });
+  wind = 0; windAx = 0;
+  current = 0;
+  gunOrder = [{ team: 0, gun: teams[0].guns[0] }, { team: 1, gun: teams[1].guns[0] }];
+  orderPos = 0;
+  phase = PHASE.OVER;   // idle on the title screen until the match begins
+  syncHUD();
+  render();
+  raf = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

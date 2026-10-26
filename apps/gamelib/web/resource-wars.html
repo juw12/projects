@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>⚔️ Resource Wars</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg1: #14161f;
+    --bg2: #1e2230;
+    --panel: rgba(255,255,255,0.06);
+    --line: rgba(255,255,255,0.12);
+    --txt: #e7ecf5;
+    --dim: #93a0b8;
+    --p1: #37c6ff;
+    --p2: #ff5d6c;
+    --wood: #b6864e;
+    --gold: #ffce4a;
+    --stone: #9fb0c2;
+    --ok: #48e08a;
+  }
+
+  html, body { height: 100%; }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: radial-gradient(1200px 700px at 50% -10%, #1c2333 0%, var(--bg1) 60%, #0c0e14 100%);
+    color: var(--txt);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ============ GAME CONTAINER ============ */
+  .game-container {
+    width: 96vw;
+    max-width: 980px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 14px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+  }
+
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .game-title {
+    font-size: 1.15rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #fff;
+    text-shadow: 0 2px 10px rgba(55,198,255,0.35);
+  }
+  .game-title b { color: var(--p2); }
+
+  .hud {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 0.78rem;
+  }
+  .chip {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .chip i { font-style: normal; opacity: 0.85; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .d-wood { background: var(--wood); }
+  .d-gold { background: var(--gold); }
+  .d-stone { background: var(--stone); }
+  #valWood { color: var(--wood); font-weight: 700; }
+  #valGold { color: var(--gold); font-weight: 700; }
+  #valStone { color: var(--stone); font-weight: 700; }
+  #valWins { color: var(--ok); font-weight: 700; }
+
+  /* ============ CANVAS ============ */
+  .canvas-wrapper {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: #0e1119;
+  }
+  canvas { display: block; width: 100%; height: auto; cursor: crosshair; }
+
+  /* ============ COMMAND BAR ============ */
+  .cmdbar {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .cmd-btn {
+    flex: 1 1 150px;
+    background: linear-gradient(180deg, #2b3244, #222a3a);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--txt);
+    padding: 9px 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    transition: transform .12s ease, background .12s ease, border-color .12s ease;
+    user-select: none;
+  }
+  .cmd-btn:hover { transform: translateY(-2px); border-color: rgba(55,198,255,0.5); }
+  .cmd-btn:active { transform: translateY(0); }
+  .cmd-btn small { display: block; font-weight: 400; color: var(--dim); font-size: 0.68rem; margin-top: 3px; }
+  .cmd-btn.armed { border-color: var(--ok); background: linear-gradient(180deg, #1f4a37, #17392b); }
+  .cmd-btn.disabled { opacity: 0.45; cursor: not-allowed; }
+  .spacer { flex: 0 0 auto; }
+
+  .hint { font-size: 0.7rem; color: var(--dim); margin-top: 8px; text-align: center; }
+
+  /* ============ OVERLAYS ============ */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 20px;
+    background: rgba(10,12,18,0.92);
+    backdrop-filter: blur(3px);
+    transition: opacity .25s ease;
+    z-index: 5;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen-title { font-size: 2rem; color: #fff; letter-spacing: 1px; margin-bottom: 6px; text-shadow: 0 4px 18px rgba(255,93,108,.4); }
+  .screen-subtitle { font-size: 0.92rem; color: var(--dim); margin-bottom: 18px; max-width: 460px; line-height: 1.5; }
+  .final-stat { font-size: 1.05rem; color: var(--txt); margin-bottom: 6px; }
+  .action-btn {
+    padding: 13px 34px;
+    background: linear-gradient(135deg, var(--p1), #2f7bff);
+    color: #04121f;
+    border: none;
+    border-radius: 26px;
+    font-size: 1.02rem;
+    font-weight: 800;
+    letter-spacing: .5px;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(55,198,255,0.35);
+    transition: transform .15s ease, box-shadow .15s ease;
+    margin-top: 10px;
+  }
+  .action-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(55,198,255,0.5); }
+  .action-btn.alt { background: linear-gradient(135deg, var(--p2), #b3313d); color: #fff; box-shadow: 0 8px 24px rgba(255,93,108,0.35); }
+  .legend { display: flex; gap: 14px; margin-top: 16px; font-size: 0.74rem; color: var(--dim); flex-wrap: wrap; justify-content: center; }
+  .legend span { display: flex; align-items: center; gap: 6px; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 620px) {
+    .game-title { font-size: 0.95rem; }
+    .cmd-btn { flex: 1 1 44%; font-size: 0.72rem; }
+    .hud { font-size: 0.68rem; }
+    .chip { padding: 4px 7px; }
+    .screen-title { font-size: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+<div class="game-container">
+  <!-- ============ TOP BAR / HUD ============ -->
+  <div class="topbar">
+    <div class="game-title">⚔️ Resource <b>Wars</b></div>
+    <div class="hud">
+      <div class="chip"><span class="dot d-wood"></span>Wood <span id="valWood">0</span></div>
+      <div class="chip"><span class="dot d-gold"></span>Gold <span id="valGold">0</span></div>
+      <div class="chip"><span class="dot d-stone"></span>Stone <span id="valStone">0</span></div>
+      <div class="chip"><i>Units</i> <span id="valUnits">0</span></div>
+      <div class="chip"><i>Base</i> <span id="valBase">100%</span></div>
+      <div class="chip"><i>Enemy</i> <span id="valEnemy">100%</span></div>
+      <div class="chip"><i>Wins</i> <span id="valWins">0</span></div>
+    </div>
+  </div>
+
+  <!-- ============ CANVAS ============ -->
+  <div class="canvas-wrapper">
+    <canvas id="gameCanvas" width="960" height="600"></canvas>
+
+    <!-- Start overlay -->
+    <div id="startScreen" class="screen">
+      <h2 class="screen-title">Resource Wars</h2>
+      <p class="screen-subtitle">
+        Gather wood, gold and stone. Build a workforce, raise an army,
+        fortify your base — then march across the field and <b>destroy the enemy base</b>.
+      </p>
+      <div class="legend">
+        <span><span class="dot d-wood"></span>Wood — workers &amp; soldiers</span>
+        <span><span class="dot d-gold"></span>Gold — soldiers</span>
+        <span><span class="dot d-stone"></span>Stone — towers</span>
+      </div>
+      <button class="action-btn" id="startBtn">Start Skirmish</button>
+      <div class="hint" style="margin-top:14px">Left-click / drag to select · Right-click (or tap) to command · Right-click a tree/gold/mine to assign a worker</div>
+    </div>
+
+    <!-- End overlay -->
+    <div id="endScreen" class="screen hidden">
+      <h2 class="screen-title" id="endTitle">Victory</h2>
+      <p class="screen-subtitle" id="endSub">The enemy base lies in ruins.</p>
+      <div class="final-stat" id="endStat"></div>
+      <div class="final-stat" id="endWins"></div>
+      <button class="action-btn" id="restartBtn">Play Again</button>
+    </div>
+  </div>
+
+  <!-- ============ COMMAND BAR ============ -->
+  <div class="cmdbar">
+    <button class="cmd-btn" id="btnWorker">Train Worker<small>50 wood · gathers resources</small></button>
+    <button class="cmd-btn" id="btnSoldier">Train Soldier<small>30 wood + 40 gold · attacks</small></button>
+    <button class="cmd-btn" id="btnTower">Build Tower<small>40 wood + 50 stone · auto-defends</small></button>
+    <span class="spacer"></span>
+    <button class="cmd-btn" id="btnPause">Pause<small>Space</small></button>
+  </div>
+  <div class="hint" id="hint">Select a worker, then right-click a resource node to gather. Select soldiers and right-click the enemy base to attack.</div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ GAME CONFIGURATION ============
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const CX = W / 2;
+
+  const COST = {
+    worker:  { wood: 50, gold: 0,  stone: 0 },
+    soldier: { wood: 30, gold: 40, stone: 0 },
+    tower:   { wood: 40, gold: 0,  stone: 50 }
+  };
+  const GATHER_INTERVAL = 1.0;   // seconds per harvest tick
+  const GATHER_AMOUNT = 5;       // resources per tick
+  const CARRY_MAX = 15;
+  const ENEMY_SPAWN_EVERY = 5.5; // seconds between enemy reinforcements
+  const WIN_TARGET = 1;          // destroy 1 enemy base per match
+
+  // ============ GAME STATE ============
+  let state = 'menu';            // menu | playing | paused | over
+  let resources = { wood: 0, gold: 0, stone: 0 };
+  let nodes = [];
+  let units = [];
+  let buildings = [];
+  let projectiles = [];
+  let particles = [];
+  let selection = [];
+  let box = null;                // {x0,y0,x1,y1} active drag box
+  let pointerDown = false, dragStart = null, dragMoved = false;
+  let armed = null;              // 'tower' placement mode
+  let enemySpawnT = 0;
+  let enemyWave = 0;
+  let elapsed = 0;
+  let uid = 1;
+  let wins = parseInt(localStorage.getItem('resourceWarsWins') || '0', 10) || 0;
+  let lastTime = 0;
+
+  // ============ DOM ELEMENTS ============
+  const el = {
+    wood: document.getElementById('valWood'),
+    gold: document.getElementById('valGold'),
+    stone: document.getElementById('valStone'),
+    units: document.getElementById('valUnits'),
+    base: document.getElementById('valBase'),
+    enemy: document.getElementById('valEnemy'),
+    wins: document.getElementById('valWins'),
+    startScreen: document.getElementById('startScreen'),
+    endScreen: document.getElementById('endScreen'),
+    endTitle: document.getElementById('endTitle'),
+    endSub: document.getElementById('endSub'),
+    endStat: document.getElementById('endStat'),
+    endWins: document.getElementById('endWins'),
+    startBtn: document.getElementById('startBtn'),
+    restartBtn: document.getElementById('restartBtn'),
+    btnWorker: document.getElementById('btnWorker'),
+    btnSoldier: document.getElementById('btnSoldier'),
+    btnTower: document.getElementById('btnTower'),
+    btnPause: document.getElementById('btnPause'),
+    hint: document.getElementById('hint')
+  };
+
+  // ============ AUDIO (WebAudio beep) ============
+  let audioCtx = null;
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        audioCtx = new AC();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = type || 'square';
+      o.frequency.value = freq || 440;
+      g.gain.value = vol == null ? 0.05 : vol;
+      o.connect(g); g.connect(audioCtx.destination);
+      const t = audioCtx.currentTime;
+      o.start(t);
+      g.gain.setValueAtTime(g.gain.value, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + (dur || 0.08));
+      o.stop(t + (dur || 0.08) + 0.02);
+    } catch (e) { /* audio is optional */ }
+  }
+
+  // ============ HELPERS ============
+  function dist(a, b) { const dx = a.x - b.x, dy = a.y - b.y; return Math.sqrt(dx * dx + dy * dy); }
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function rnd(a, b) { return a + Math.random() * (b - a); }
+  function canAfford(c) { return resources.wood >= c.wood && resources.gold >= c.gold && resources.stone >= c.stone; }
+  function spend(c) { resources.wood -= c.wood; resources.gold -= c.gold; resources.stone -= c.stone; }
+
+  function burst(x, y, color, n) {
+    for (let i = 0; i < (n || 8); i++) {
+      const a = Math.random() * Math.PI * 2, s = rnd(30, 150);
+      particles.push({ x: x, y: y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rnd(0.35, 0.8), max: 0.8, color: color, size: rnd(1.5, 3.5) });
+    }
+  }
+
+  // ============ WORLD SETUP ============
+  function makeBuilding(x, y, team, type) {
+    const base = type === 'base';
+    return {
+      id: uid++, kind: 'building', type: type, x: x, y: y, team: team,
+      r: base ? 34 : 18,
+      hp: base ? 900 : 320, maxHp: base ? 900 : 320,
+      range: base ? 0 : 170, atkCd: 0, atkDelay: 0.9, dmg: 16,
+      flash: 0
+    };
+  }
+
+  function makeNode(x, y, type, amount) {
+    return { id: uid++, kind: 'node', x: x, y: y, type: type, amount: amount, max: amount, r: 17 };
+  }
+
+  function makeUnit(x, y, team, type) {
+    const soldier = type === 'soldier';
+    return {
+      id: uid++, kind: 'unit', type: type, team: team, x: x, y: y, r: soldier ? 11 : 9,
+      hp: soldier ? 130 : 60, maxHp: soldier ? 130 : 60,
+      speed: soldier ? 78 : 68,
+      range: soldier ? 26 : 0, atkCd: 0, atkDelay: soldier ? 0.85 : 0, dmg: soldier ? 18 : 0,
+      state: 'idle', tx: x, ty: y, target: null, node: null, carry: 0, carryType: null,
+      gatherT: 0, flash: 0, bob: Math.random() * 6.28
+    };
+  }
+
+  function buildWorld() {
+    nodes = []; units = []; buildings = []; projectiles = []; particles = []; selection = [];
+    enemySpawnT = 4; enemyWave = 0; elapsed = 0;
+    resources = { wood: 150, gold: 90, stone: 60 };
+
+    // Bases: player (left) vs enemy (right)
+    buildings.push(makeBuilding(105, H / 2, 1, 'base'));
+    buildings.push(makeBuilding(W - 105, H / 2, 2, 'base'));
+
+    // Resource field (mirrored-ish so both sides contest the middle)
+    const layout = [
+      [250, 110, 'wood', 220], [250, 490, 'wood', 220], [330, 300, 'wood', 260],
+      [455, 165, 'gold', 160], [455, 435, 'gold', 160],
+      [620, 300, 'stone', 200],
+      [700, 120, 'wood', 200], [700, 480, 'wood', 200],
+      [820, 200, 'gold', 140], [820, 400, 'gold', 140]
+    ];
+    layout.forEach(function (n) { nodes.push(makeNode(n[0], n[1], n[2], n[3])); });
+
+    // Starting units: two workers for the player
+    units.push(makeUnit(160, H / 2 - 30, 1, 'worker'));
+    units.push(makeUnit(160, H / 2 + 30, 1, 'worker'));
+  }
+
+  // ============ SELECTION & COMMANDS ============
+  function selectAt(x, y, additive) {
+    let pick = null, best = 26;
+    for (let i = 0; i < units.length; i++) {
+      const u = units[i];
+      if (u.team !== 1) continue;
+      const d = dist(u, { x: x, y: y });
+      if (d < best) { best = d; pick = u; }
+    }
+    if (!pick) {
+      for (let i = 0; i < buildings.length; i++) {
+        const b = buildings[i];
+        if (b.team !== 1) continue;
+        if (dist(b, { x: x, y: y }) < b.r + 6) { pick = b; break; }
+      }
+    }
+    if (!additive) selection = [];
+    if (pick) {
+      if (selection.indexOf(pick) === -1) selection.push(pick);
+      else if (additive) selection.splice(selection.indexOf(pick), 1);
+      beep(720, 0.05, 'sine', 0.04);
+    }
+    updateHint();
+  }
+
+  function unitsInBox(b) {
+    const x0 = Math.min(b.x0, b.x1), x1 = Math.max(b.x0, b.x1);
+    const y0 = Math.min(b.y0, b.y1), y1 = Math.max(b.y0, b.y1);
+    return units.filter(function (u) {
+      return u.team === 1 && u.x >= x0 && u.x <= x1 && u.y >= y0 && u.y <= y1;
+    });
+  }
+
+  function enemyAt(x, y) {
+    for (let i = 0; i < units.length; i++) {
+      const u = units[i];
+      if (u.team === 2 && dist(u, { x: x, y: y }) < u.r + 8) return u;
+    }
+    for (let i = 0; i < buildings.length; i++) {
+      const b = buildings[i];
+      if (b.team === 2 && dist(b, { x: x, y: y }) < b.r + 8) return b;
+    }
+    return null;
+  }
+
+  function nodeAt(x, y) {
+    for (let i = 0; i < nodes.length; i++) {
+      if (dist(nodes[i], { x: x, y: y }) < nodes[i].r + 10) return nodes[i];
+    }
+    return null;
+  }
+
+  function command(x, y) {
+    const mine = selection.filter(function (s) { return s.kind === 'unit'; });
+    if (!mine.length) return;
+
+    if (armed === 'tower') { return; } // tower placement handled elsewhere
+
+    const foe = enemyAt(x, y);
+    const node = nodeAt(x, y);
+
+    if (foe) {
+      mine.forEach(function (u) { u.state = 'attack'; u.target = foe; u.node = null; });
+      beep(220, 0.1, 'sawtooth', 0.05);
+      burst(foe.x, foe.y, '#ff5d6c', 6);
+    } else if (node) {
+      let assigned = false;
+      mine.forEach(function (u) {
+        if (u.type === 'worker') { u.state = 'gather'; u.node = node; u.target = null; assigned = true; }
+      });
+      if (!assigned) mine.forEach(function (u) { u.state = 'move'; u.tx = x; u.ty = y; u.target = null; });
+      beep(520, 0.07, 'triangle', 0.045);
+    } else {
+      mine.forEach(function (u) { u.state = 'move'; u.tx = x; u.ty = y; u.target = null; u.node = null; });
+      beep(400, 0.05, 'sine', 0.035);
+    }
+    updateHint();
+  }
+
+  function updateHint() {
+    if (armed === 'tower') { el.hint.textContent = 'Click a spot on your side of the field to place the tower (right of the line is blocked).'; return; }
+    const u = selection.filter(function (s) { return s.kind === 'unit'; });
+    if (!u.length) { el.hint.textContent = 'Drag or click to select units. Right-click (or tap after selecting) to command.'; return; }
+    const workers = u.filter(function (s) { return s.type === 'worker'; }).length;
+    const soldiers = u.length - workers;
+    el.hint.textContent = 'Selected ' + u.length + ' unit(s) — ' + workers + ' worker, ' + soldiers + ' soldier. Right-click a node to gather or an enemy to attack.';
+  }
+
+  // ============ SPAWNING ============
+  function trainWorker() {
+    if (!canAfford(COST.worker)) { flashCost(el.btnWorker); beep(140, 0.12, 'square', 0.05); return; }
+    spend(COST.worker);
+    const b = playerBase();
+    const u = makeUnit(b.x + rnd(-20, 20), b.y + rnd(-40, 40), 1, 'worker');
+    units.push(u);
+    beep(660, 0.09, 'triangle', 0.05);
+    burst(u.x, u.y, '#37c6ff', 8);
+  }
+
+  function trainSoldier() {
+    if (!canAfford(COST.soldier)) { flashCost(el.btnSoldier); beep(140, 0.12, 'square', 0.05); return; }
+    spend(COST.soldier);
+    const b = playerBase();
+    const u = makeUnit(b.x + rnd(-16, 16), b.y + rnd(-40, 40), 1, 'soldier');
+    units.push(u);
+    beep(520, 0.1, 'square', 0.05);
+    burst(u.x, u.y, '#ffce4a', 8);
+  }
+
+  function playerBase() { return buildings.filter(function (b) { return b.team === 1 && b.type === 'base'; })[0]; }
+
+  function flashCost(btn) {
+    btn.classList.add('disabled');
+    setTimeout(function () { btn.classList.remove('disabled'); }, 220);
+  }
+
+  function placeTower(x, y) {
+    if (x > CX) { beep(140, 0.1, 'square', 0.05); el.hint.textContent = 'Towers must be built on your half of the field.'; return false; }
+    if (!canAfford(COST.tower)) { flashCost(el.btnTower); beep(140, 0.12, 'square', 0.05); return false; }
+    let tooClose = false;
+    buildings.forEach(function (b) { if (dist(b, { x: x, y: y }) < b.r + 24) tooClose = true; });
+    if (tooClose) { beep(140, 0.1, 'square', 0.05); return false; }
+    spend(COST.tower);
+    buildings.push(makeBuilding(x, y, 1, 'tower'));
+    beep(300, 0.16, 'sawtooth', 0.06);
+    burst(x, y, '#9fb0c2', 12);
+    return true;
+  }
+
+  // ============ COMBAT ============
+  function damage(e, amount, srcTeam) {
+    e.hp -= amount;
+    e.flash = 0.18;
+    if (e.kind === 'building') burst(e.x, e.y, '#ffffff', 3); else burst(e.x, e.y, '#ffb3bb', 2);
+    if (e.hp <= 0) {
+      if (e.kind === 'unit') {
+        e.dead = true;
+        burst(e.x, e.y, e.team === 1 ? '#37c6ff' : '#ff5d6c', 14);
+        beep(e.team === 1 ? 160 : 300, 0.12, 'sawtooth', 0.05);
+      } else {
+        e.dead = true;
+        burst(e.x, e.y, '#ffce4a', 26);
+        beep(90, 0.4, 'sawtooth', 0.09);
+        if (e.type === 'base') {
+          if (e.team === 2) endGame(true); else endGame(false);
+        }
+      }
+    }
+  }
+
+  function nearestFoe(e) {
+    let best = null, bd = Infinity;
+    for (let i = 0; i < units.length; i++) {
+      const u = units[i];
+      if (u.team === e.team || u.dead) continue;
+      const d = dist(e, u); if (d < bd) { bd = d; best = u; }
+    }
+    if (!best) {
+      for (let i = 0; i < buildings.length; i++) {
+        const b = buildings[i];
+        if (b.team === e.team || b.dead) continue;
+        const d = dist(e, b); if (d < bd) { bd = d; best = b; }
+      }
+    }
+    return best;
+  }
+
+  function tryAttack(u, dt) {
+    u.atkCd -= dt;
+    if (u.atkCd > 0) return;
+    const t = u.target;
+    if (!t || t.dead) return;
+    if (dist(u, t) <= u.range + t.r) {
+      u.atkCd = u.atkDelay;
+      damage(t, u.dmg, u.team);
+    }
+  }
+
+  // ============ UPDATE ============
+  function update(dt) {
+    elapsed += dt;
+
+    // --- Player-controlled / autonomous units ---
+    for (let i = 0; i < units.length; i++) {
+      const u = units[i];
+      if (u.dead) continue;
+      u.bob += dt * 6;
+      if (u.flash > 0) u.flash -= dt;
+
+      // Workers auto-gather if idle next to a node & assigned none
+      if (u.state === 'idle' && u.type === 'worker' && u.team === 1) { /* stay put, player must assign */ }
+
+      if (u.state === 'move') {
+        moveTo(u, u.tx, u.ty, dt);
+        if (dist(u, { x: u.tx, y: u.ty }) < 6) u.state = 'idle';
+      } else if (u.state === 'gather' && u.node) {
+        const n = u.node;
+        if (n.dead || n.amount <= 0) { u.node = null; u.state = 'idle'; continue; }
+        if (u.carry >= CARRY_MAX || n.amount <= 0) {
+          u.state = 'return';
+        } else if (moveTo(u, n.x + (u.x < n.x ? -14 : 14), n.y, dt)) {
+          u.gatherT += dt;
+          if (u.gatherT >= GATHER_INTERVAL) {
+            u.gatherT = 0;
+            const take = Math.min(GATHER_AMOUNT, n.amount, CARRY_MAX - u.carry);
+            n.amount -= take; u.carry += take; u.carryType = n.type;
+            burst(n.x, n.y, nodeColor(n.type), 3);
+            beep(880, 0.03, 'sine', 0.02);
+            if (n.amount <= 0) { n.dead = true; u.node = null; u.state = u.carry > 0 ? 'return' : 'idle'; }
+            else if (u.carry >= CARRY_MAX) u.state = 'return';
+          }
+        }
+      } else if (u.state === 'return') {
+        const b = playerBase();
+        if (!b || b.dead) { u.state = 'idle'; continue; }
+        if (moveTo(u, b.x + (u.x < b.x ? -30 : 30), b.y + 24, dt)) {
+          if (u.carry > 0) {
+            resources[u.carryType] += u.carry;
+            burst(b.x, b.y, nodeColor(u.carryType), 6);
+            beep(980, 0.05, 'triangle', 0.03);
+            u.carry = 0; u.carryType = null;
+          }
+          if (u.node && !u.node.dead) u.state = 'gather'; else u.state = 'idle';
+        }
+      } else if (u.state === 'attack') {
+        let t = u.target;
+        // Enemy AI soldiers re-acquire when idle-ish
+        if (!t || t.dead) { t = nearestFoe(u); u.target = t; }
+        if (!t) { u.state = 'idle'; continue; }
+        const reach = u.range + t.r;
+        if (dist(u, t) > reach - 4) moveTo(u, t.x, t.y, dt);
+        tryAttack(u, dt);
+      } else if (u.state === 'idle') {
+        if (u.team === 2) {
+          const t = nearestFoe(u);
+          if (t) { u.target = t; u.state = 'attack'; }
+        }
+      }
+      u.x = clamp(u.x, 12, W - 12); u.y = clamp(u.y, 12, H - 12);
+    }
+
+    // --- Towers fire ---
+    for (let i = 0; i < buildings.length; i++) {
+      const b = buildings[i];
+      if (b.dead) continue;
+      if (b.flash > 0) b.flash -= dt;
+      if (b.type !== 'tower') continue;
+      b.atkCd -= dt;
+      if (b.atkCd > 0) continue;
+      let best = null, bd = b.range;
+      for (let j = 0; j < units.length; j++) {
+        const u = units[j];
+        if (u.team === b.team || u.dead) continue;
+        const d = dist(b, u); if (d < bd) { bd = d; best = u; }
+      }
+      if (best) {
+        b.atkCd = b.atkDelay;
+        projectiles.push({ x: b.x, y: b.y, tx: best.x, ty: best.y, target: best, speed: 420, dmg: b.dmg, team: b.team });
+        beep(1200, 0.03, 'square', 0.025);
+      }
+    }
+
+    // --- Enemy AI: reinforcements + scaling waves ---
+    if (state === 'playing') {
+      const ebase = buildings.filter(function (b) { return b.team === 2 && b.type === 'base' && !b.dead; })[0];
+      if (ebase) {
+        enemySpawnT -= dt;
+        const interval = Math.max(2.6, ENEMY_SPAWN_EVERY - enemyWave * 0.25);
+        if (enemySpawnT <= 0) {
+          enemySpawnT = interval;
+          enemyWave++;
+          const count = 1 + Math.floor(enemyWave / 4);
+          for (let k = 0; k < count; k++) {
+            const u = makeUnit(ebase.x - 20 + rnd(-14, 14), ebase.y + rnd(-40, 40), 2, 'soldier');
+            units.push(u);
+            burst(u.x, u.y, '#ff5d6c', 6);
+          }
+          beep(180, 0.14, 'sawtooth', 0.05);
+        }
+        // Occasional enemy tower for pressure
+        if (enemyWave > 0 && enemyWave % 5 === 0 && !ebase._towered) {
+          ebase._towered = true;
+          buildings.push(makeBuilding(ebase.x - 150, ebase.y + rnd(-120, 120), 2, 'tower'));
+        }
+      }
+    }
+
+    // --- Projectiles ---
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      const p = projectiles[i];
+      if (p.target && !p.target.dead) { p.tx = p.target.x; p.ty = p.target.y; }
+      const dx = p.tx - p.x, dy = p.ty - p.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
+      const step = p.speed * dt;
+      if (d <= step) {
+        if (p.target && !p.target.dead) damage(p.target, p.dmg, p.team);
+        burst(p.tx, p.ty, '#9fe8ff', 4);
+        projectiles.splice(i, 1);
+      } else {
+        p.x += dx / d * step; p.y += dy / d * step;
+      }
+    }
+
+    // --- Particles ---
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const pt = particles[i];
+      pt.x += pt.vx * dt; pt.y += pt.vy * dt;
+      pt.vx *= 0.94; pt.vy *= 0.94;
+      pt.life -= dt;
+      if (pt.life <= 0) particles.splice(i, 1);
+    }
+
+    // --- Cleanup ---
+    units = units.filter(function (u) { return !u.dead; });
+    buildings = buildings.filter(function (b) { return !b.dead; });
+    nodes = nodes.filter(function (n) { return !n.dead; });
+    selection = selection.filter(function (s) { return !s.dead; });
+
+    // detach dead targets/nodes
+    for (let i = 0; i < units.length; i++) {
+      const u = units[i];
+      if (u.target && u.target.dead) u.target = null;
+      if (u.node && u.node.dead) u.node = null;
+    }
+  }
+
+  // Move a unit toward (x,y). Returns true if it arrived this frame.
+  function moveTo(u, x, y, dt) {
+    const dx = x - u.x, dy = y - u.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d < 3) return true;
+    const step = u.speed * dt;
+    if (d <= step) { u.x = x; u.y = y; return true; }
+    u.x += dx / d * step; u.y += dy / d * step;
+    return false;
+  }
+
+  // ============ RENDERING ============
+  function nodeColor(t) { return t === 'wood' ? '#b6864e' : (t === 'gold' ? '#ffce4a' : '#9fb0c2'); }
+
+  function draw() {
+    // Ground
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#1b2432'); g.addColorStop(1, '#121722');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    // Grid
+    ctx.strokeStyle = 'rgba(120,150,190,0.10)'; ctx.lineWidth = 1;
+    for (let x = 0; x <= W; x += 48) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    for (let y = 0; y <= H; y += 48) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+    // Midline (your half / enemy half)
+    ctx.save();
+    ctx.setLineDash([10, 12]);
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(CX, 0); ctx.lineTo(CX, H); ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = 'rgba(55,198,255,0.06)'; ctx.fillRect(0, 0, CX, H);
+    ctx.fillStyle = 'rgba(255,93,108,0.06)'; ctx.fillRect(CX, 0, CX, H);
+
+    // Resource nodes
+    for (let i = 0; i < nodes.length; i++) drawNode(nodes[i]);
+
+    // Buildings
+    for (let i = 0; i < buildings.length; i++) drawBuilding(buildings[i]);
+
+    // Selection rings (under units)
+    for (let i = 0; i < selection.length; i++) {
+      const s = selection[i];
+      ctx.strokeStyle = '#48e08a'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(s.x, s.y, (s.r || 14) + 5, 0, 6.2832); ctx.stroke();
+    }
+
+    // Units
+    for (let i = 0; i < units.length; i++) drawUnit(units[i]);
+
+    // Projectiles
+    for (let i = 0; i < projectiles.length; i++) {
+      const p = projectiles[i];
+      ctx.fillStyle = p.team === 1 ? '#37c6ff' : '#ff5d6c';
+      ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, 6.2832); ctx.fill();
+    }
+
+    // Particles
+    for (let i = 0; i < particles.length; i++) {
+      const pt = particles[i];
+      ctx.globalAlpha = Math.max(0, pt.life / pt.max);
+      ctx.fillStyle = pt.color;
+      ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.size, 0, 6.2832); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Drag-select box
+    if (box) {
+      const x = Math.min(box.x0, box.x1), y = Math.min(box.y0, box.y1);
+      const w = Math.abs(box.x1 - box.x0), h = Math.abs(box.y1 - box.y0);
+      ctx.fillStyle = 'rgba(72,224,138,0.12)'; ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = '#48e08a'; ctx.lineWidth = 1.5; ctx.strokeRect(x, y, w, h);
+    }
+
+    // Tower placement preview
+    if (armed === 'tower' && dragStart) {
+      const ok = dragStart.x <= CX;
+      ctx.globalAlpha = 0.6;
+      ctx.strokeStyle = ok ? '#48e08a' : '#ff5d6c'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(dragStart.x, dragStart.y, 170, 0, 6.2832); ctx.stroke();
+      ctx.fillStyle = ok ? '#9fb0c2' : '#ff5d6c';
+      ctx.fillRect(dragStart.x - 18, dragStart.y - 18, 36, 36);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function drawNode(n) {
+    const c = nodeColor(n.type);
+    // base pad
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    ctx.beginPath(); ctx.ellipse(n.x, n.y + 6, n.r + 4, (n.r + 4) * 0.5, 0, 0, 6.2832); ctx.fill();
+
+    if (n.type === 'wood') {
+      ctx.fillStyle = '#5a3b1f';
+      ctx.fillRect(n.x - 4, n.y - 4, 8, 16);
+      ctx.fillStyle = c;
+      ctx.beginPath(); ctx.arc(n.x, n.y - 6, n.r * 0.85, 0, 6.2832); ctx.fill();
+      ctx.fillStyle = '#7fc86a';
+      ctx.beginPath(); ctx.arc(n.x - 5, n.y - 9, n.r * 0.5, 0, 6.2832); ctx.fill();
+    } else if (n.type === 'gold') {
+      ctx.fillStyle = c;
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r * 0.8, 0, 6.2832); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.beginPath(); ctx.arc(n.x - 5, n.y - 5, n.r * 0.26, 0, 6.2832); ctx.fill();
+    } else {
+      ctx.fillStyle = c;
+      ctx.beginPath();
+      ctx.moveTo(n.x, n.y - n.r); ctx.lineTo(n.x + n.r, n.y + n.r * 0.6);
+      ctx.lineTo(n.x - n.r, n.y + n.r * 0.6); ctx.closePath(); ctx.fill();
+    }
+
+    // amount bar
+    const pct = n.amount / n.max;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(n.x - 16, n.y + n.r + 4, 32, 4);
+    ctx.fillStyle = c;
+    ctx.fillRect(n.x - 16, n.y + n.r + 4, 32 * pct, 4);
+  }
+
+  function drawBuilding(b) {
+    const col = b.team === 1 ? '#37c6ff' : '#ff5d6c';
+    ctx.save();
+    ctx.translate(b.x, b.y);
+
+    // shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath(); ctx.ellipse(0, b.r * 0.7, b.r, b.r * 0.45, 0, 0, 6.2832); ctx.fill();
+
+    if (b.type === 'base') {
+      ctx.fillStyle = b.flash > 0 ? '#ffffff' : '#2a3446';
+      ctx.strokeStyle = col; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.rect(-b.r, -b.r, b.r * 2, b.r * 2); ctx.fill(); ctx.stroke();
+      // banner
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.moveTo(0, -b.r - 26); ctx.lineTo(26, -b.r - 14); ctx.lineTo(0, -b.r - 2); ctx.closePath(); ctx.fill();
+      ctx.fillRect(-1.5, -b.r - 30, 3, 30);
+      // core
+      ctx.fillStyle = col; ctx.globalAlpha = 0.75;
+      ctx.beginPath(); ctx.arc(0, 0, b.r * 0.4, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.fillStyle = b.flash > 0 ? '#ffffff' : '#33405a';
+      ctx.strokeStyle = col; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.rect(-b.r, -b.r, b.r * 2, b.r * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(0, 0, 5, 0, 6.2832); ctx.fill();
+    }
+    ctx.restore();
+
+    // hp bar
+    const pct = clamp(b.hp / b.maxHp, 0, 1);
+    const bw = b.type === 'base' ? 62 : 40;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(b.x - bw / 2, b.y - b.r - 12, bw, 6);
+    ctx.fillStyle = pct > 0.5 ? '#48e08a' : (pct > 0.25 ? '#ffce4a' : '#ff5d6c');
+    ctx.fillRect(b.x - bw / 2, b.y - b.r - 12, bw * pct, 6);
+  }
+
+  function drawUnit(u) {
+    const col = u.team === 1 ? '#37c6ff' : '#ff5d6c';
+    const bob = Math.sin(u.bob) * (u.state === 'move' ? 1.4 : 0.5);
+    ctx.save();
+    ctx.translate(u.x, u.y + bob);
+
+    // shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath(); ctx.ellipse(0, u.r * 0.9, u.r * 0.9, u.r * 0.4, 0, 0, 6.2832); ctx.fill();
+
+    // body
+    ctx.fillStyle = u.flash > 0 ? '#ffffff' : (u.team === 1 ? '#1f3b52' : '#4a1f26');
+    ctx.strokeStyle = col; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, 0, u.r, 0, 6.2832); ctx.fill(); ctx.stroke();
+
+    if (u.type === 'worker') {
+      // pickaxe-ish mark
+      ctx.strokeStyle = col; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(-4, 4); ctx.lineTo(4, -4); ctx.stroke();
+    } else {
+      // helmet crest
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(0, -u.r * 0.2, u.r * 0.55, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(u.r - 1, -2, 5, 2);
+    }
+
+    // carry indicator
+    if (u.carry > 0 && u.carryType) {
+      ctx.fillStyle = nodeColor(u.carryType);
+      ctx.beginPath(); ctx.arc(0, -u.r - 5, 3.5, 0, 6.2832); ctx.fill();
+    }
+    ctx.restore();
+
+    // hp bar (only when damaged)
+    if (u.hp < u.maxHp) {
+      const pct = clamp(u.hp / u.maxHp, 0, 1);
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(u.x - 12, u.y - u.r - 9, 24, 4);
+      ctx.fillStyle = pct > 0.5 ? '#48e08a' : (pct > 0.25 ? '#ffce4a' : '#ff5d6c');
+      ctx.fillRect(u.x - 12, u.y - u.r - 9, 24 * pct, 4);
+    }
+  }
+
+  // ============ HUD ============
+  function updateHUD() {
+    el.wood.textContent = Math.floor(resources.wood);
+    el.gold.textContent = Math.floor(resources.gold);
+    el.stone.textContent = Math.floor(resources.stone);
+    const mine = units.filter(function (u) { return u.team === 1; });
+    el.units.textContent = mine.length;
+    const pb = playerBase();
+    el.base.textContent = pb ? Math.max(0, Math.round(pb.hp / pb.maxHp * 100)) + '%' : '0%';
+    const eb = buildings.filter(function (b) { return b.team === 2 && b.type === 'base' && !b.dead; })[0];
+    el.enemy.textContent = eb ? Math.max(0, Math.round(eb.hp / eb.maxHp * 100)) + '%' : '0%';
+    el.wins.textContent = wins;
+
+    el.btnWorker.classList.toggle('disabled', !canAfford(COST.worker));
+    el.btnSoldier.classList.toggle('disabled', !canAfford(COST.soldier));
+    el.btnTower.classList.toggle('disabled', !canAfford(COST.tower));
+    document.querySelectorAll('.cmd-btn').forEach(function (b) { if (b.dataset.armed === '1') b.classList.remove('armed'); });
+    if (armed) el.btnTower.classList.add('armed');
+  }
+
+  // ============ LOOP ============
+  function loop(t) {
+    if (state !== 'playing') return;
+    if (!lastTime) lastTime = t;
+    let dt = (t - lastTime) / 1000;
+    lastTime = t;
+    if (dt > 0.05) dt = 0.05; // clamp for stability
+
+    update(dt);
+    draw();
+    updateHUD();
+    requestAnimationFrame(loop);
+  }
+
+  // ============ GAME FLOW ============
+  function startGame() {
+    buildWorld();
+    state = 'playing';
+    selection = []; box = null; armed = null;
+    lastTime = 0;
+    el.startScreen.classList.add('hidden');
+    el.endScreen.classList.add('hidden');
+    el.btnPause.textContent = 'Pause';
+    el.btnPause.innerHTML = 'Pause<small>Space</small>';
+    updateHint();
+    updateHUD();
+    beep(520, 0.08, 'triangle', 0.05);
+    setTimeout(function () { beep(780, 0.1, 'triangle', 0.05); }, 90);
+    requestAnimationFrame(loop);
+  }
+
+  function endGame(win) {
+    if (state === 'over') return;
+    state = 'over';
+    if (win) {
+      wins += WIN_TARGET;
+      localStorage.setItem('resourceWarsWins', String(wins));
+      el.endTitle.textContent = 'Victory!';
+      el.endTitle.style.color = '#48e08a';
+      el.endSub.textContent = 'The enemy base is rubble. Your resource empire dominates the field.';
+      el.endStat.textContent = 'Match time: ' + elapsed.toFixed(0) + 's · Enemy waves weathered: ' + enemyWave;
+      beep(660, 0.14, 'triangle', 0.07);
+      setTimeout(function () { beep(880, 0.2, 'triangle', 0.07); }, 150);
+    } else {
+      el.endTitle.textContent = 'Defeat';
+      el.endTitle.style.color = '#ff5d6c';
+      el.endSub.textContent = 'Your base has fallen. Rebuild, rebalance your economy, and try again.';
+      el.endStat.textContent = 'Match time: ' + elapsed.toFixed(0) + 's · Enemy waves survived: ' + enemyWave;
+      beep(200, 0.3, 'sawtooth', 0.07);
+    }
+    el.endWins.textContent = 'Total victories: ' + wins;
+    el.endScreen.classList.remove('hidden');
+    updateHUD();
+  }
+
+  function togglePause() {
+    if (state === 'playing') {
+      state = 'paused';
+      el.btnPause.innerHTML = 'Resume<small>Space</small>';
+      el.hint.textContent = 'Paused — press Space or the button to resume.';
+    } else if (state === 'paused') {
+      state = 'playing';
+      lastTime = 0;
+      el.btnPause.innerHTML = 'Pause<small>Space</small>';
+      updateHint();
+      requestAnimationFrame(loop);
+    }
+  }
+
+  // ============ POINTER MAPPING ============
+  function pos(e) {
+    const r = canvas.getBoundingClientRect();
+    const p = (e.touches && e.touches[0]) ? e.touches[0] : e;
+    return { x: (p.clientX - r.left) * (W / r.width), y: (p.clientY - r.top) * (H / r.height) };
+  }
+
+  // ============ INPUT ============
+  function onDown(e) {
+    if (state !== 'playing') return;
+    if (e.button === 2) return;
+    const p = pos(e);
+    pointerDown = true; dragMoved = false;
+    dragStart = { x: p.x, y: p.y };
+    box = { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
+  }
+
+  function onMove(e) {
+    if (state !== 'playing') return;
+    const p = pos(e);
+    if (armed === 'tower') { dragStart = dragStart || { x: p.x, y: p.y }; dragStart.x = p.x; dragStart.y = p.y; }
+    if (!pointerDown || !box) return;
+    box.x1 = p.x; box.y1 = p.y;
+    if (Math.abs(box.x1 - box.x0) > 5 || Math.abs(box.y1 - box.y0) > 5) dragMoved = true;
+  }
+
+  function onUp(e) {
+    if (state !== 'playing') { pointerDown = false; return; }
+    pointerDown = false;
+    if (!dragStart) return;
+    const p = armed === 'tower' ? { x: dragStart.x, y: dragStart.y } : pos(e);
+
+    if (armed === 'tower') {
+      if (placeTower(p.x, p.y)) { armed = null; }
+      box = null; dragStart = null; updateHUD(); updateHint();
+      return;
+    }
+
+    if (box && dragMoved) {
+      const picked = unitsInBox(box);
+      selection = picked;
+      beep(700, 0.05, 'sine', 0.03);
+    } else {
+      selectAt(dragStart.x, dragStart.y, !!(e.shiftKey));
+    }
+    box = null; dragStart = null;
+    updateHUD(); updateHint();
+  }
+
+  function onContext(e) {
+    e.preventDefault();
+    if (state !== 'playing') return;
+    const p = pos(e);
+    if (armed === 'tower') { placeTower(p.x, p.y); armed = null; updateHUD(); updateHint(); return; }
+    command(p.x, p.y);
+  }
+
+  // Mouse
+  canvas.addEventListener('mousedown', onDown);
+  canvas.addEventListener('mousemove', onMove);
+  canvas.addEventListener('mouseup', onUp);
+  canvas.addEventListener('contextmenu', onContext);
+  canvas.addEventListener('mouseleave', function () { pointerDown = false; box = null; });
+
+  // Touch (drag = box select, tap = select/command)
+  canvas.addEventListener('touchstart', function (e) { e.preventDefault(); onDown(e); }, { passive: false });
+  canvas.addEventListener('touchmove', function (e) { e.preventDefault(); onMove(e); }, { passive: false });
+  canvas.addEventListener('touchend', function (e) {
+    e.preventDefault();
+    pointerDown = false;
+    if (armed === 'tower') { if (placeTower(dragStart.x, dragStart.y)) armed = null; box = null; dragStart = null; updateHUD(); updateHint(); return; }
+    if (box && dragMoved) {
+      selection = unitsInBox(box);
+      beep(700, 0.05, 'sine', 0.03);
+    } else if (dragStart) {
+      // tap: select own unit, else command the current selection
+      let own = null, best = 26;
+      for (let i = 0; i < units.length; i++) {
+        const u = units[i];
+        if (u.team !== 1) continue;
+        const d = dist(u, dragStart); if (d < best) { best = d; own = u; }
+      }
+      if (own) selectAt(dragStart.x, dragStart.y, false);
+      else command(dragStart.x, dragStart.y);
+    }
+    box = null; dragStart = null;
+    updateHUD(); updateHint();
+  }, { passive: false });
+
+  // Buttons
+  el.startBtn.addEventListener('click', function () { startGame(); });
+  el.restartBtn.addEventListener('click', function () { startGame(); });
+  el.btnWorker.addEventListener('click', function () { trainWorker(); updateHUD(); });
+  el.btnSoldier.addEventListener('click', function () { trainSoldier(); updateHUD(); });
+  el.btnTower.addEventListener('click', function () {
+    armed = (armed === 'tower') ? null : 'tower';
+    el.btnTower.dataset.armed = armed ? '1' : '0';
+    updateHUD(); updateHint();
+  });
+  el.btnPause.addEventListener('click', togglePause);
+
+  // Keyboard
+  document.addEventListener('keydown', function (e) {
+    if (e.code === 'Space') { e.preventDefault(); if (state === 'playing' || state === 'paused') togglePause(); }
+    if (e.code === 'Escape') { armed = null; updateHUD(); updateHint(); }
+    if (state !== 'playing') return;
+    if (e.code === 'Digit1') { trainWorker(); updateHUD(); }
+    if (e.code === 'Digit2') { trainSoldier(); updateHUD(); }
+    if (e.code === 'Digit3') { armed = armed ? null : 'tower'; updateHUD(); updateHint(); }
+    if (e.code === 'KeyA') {
+      // select all soldiers
+      selection = units.filter(function (u) { return u.team === 1 && u.type === 'soldier'; });
+      updateHint(); updateHUD();
+    }
+  });
+
+  // ============ INIT ============
+  buildWorld();
+  draw();
+  updateHUD();
+  el.wins.textContent = wins;
+})();
+</script>
+</body>
+</html>

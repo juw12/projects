@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🌊 Flood Run</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(160deg, #0b1a2b 0%, #123047 55%, #1c4a63 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+      color: #e8f4fb;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(9, 24, 38, 0.92);
+      border: 1px solid rgba(120, 200, 235, 0.25);
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+      max-width: 900px;
+      width: 96%;
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.9rem;
+      letter-spacing: 2px;
+      color: #7fe0ff;
+      text-shadow: 0 0 18px rgba(80, 200, 255, 0.5);
+      margin-bottom: 4px;
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #7f9db0;
+      letter-spacing: 1px;
+      margin-bottom: 14px;
+    }
+
+    /* ============ SCORE DISPLAY ============ */
+    .score-board {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+      padding: 10px 16px;
+      background: rgba(20, 52, 74, 0.75);
+      border-radius: 12px;
+      font-size: 0.95rem;
+      color: #9fc4d8;
+    }
+
+    .score-board b {
+      color: #7fe0ff;
+      font-weight: 700;
+    }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.5);
+      background: #08131f;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      touch-action: none;
+    }
+
+    /* ============ SCREENS (Start / Game Over) ============ */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+      background: radial-gradient(circle at 50% 40%, rgba(10, 34, 52, 0.82), rgba(4, 12, 20, 0.96));
+      transition: opacity 0.3s ease;
+    }
+
+    .screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .screen-title {
+      font-size: 2rem;
+      color: #7fe0ff;
+      letter-spacing: 2px;
+      margin-bottom: 6px;
+      text-shadow: 0 0 20px rgba(80, 200, 255, 0.45);
+    }
+
+    .screen-subtitle {
+      font-size: 0.95rem;
+      color: #9fc4d8;
+      max-width: 460px;
+      line-height: 1.6;
+      margin-bottom: 22px;
+    }
+
+    .final-score {
+      font-size: 1.25rem;
+      color: #ffd479;
+      margin-bottom: 6px;
+    }
+
+    /* ============ ACTION BUTTONS ============ */
+    .action-btn {
+      padding: 13px 34px;
+      background: linear-gradient(135deg, #35c6f4, #1c85c4);
+      color: #04202f;
+      border: none;
+      border-radius: 26px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(53, 198, 244, 0.35);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .action-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 26px rgba(53, 198, 244, 0.5);
+    }
+
+    .action-btn:active {
+      transform: translateY(0);
+    }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 560px) {
+      .game-container { padding: 12px; }
+      .game-title { font-size: 1.35rem; }
+      .screen-title { font-size: 1.5rem; }
+      .screen-subtitle { font-size: 0.85rem; }
+      .action-btn { padding: 12px 26px; font-size: 0.95rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">🌊 FLOOD RUN</h1>
+    <p class="game-subtitle">Outrun the rising water — jump the rooftops, grab the crates</p>
+
+    <div class="score-board">
+      <div>Score: <b id="score">0</b></div>
+      <div>Crates: <b id="crates">0</b></div>
+      <div>Best: <b id="highScore">0</b></div>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="900" height="500"></canvas>
+
+      <!-- Start Screen -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">THE WATER IS COMING</h2>
+        <p class="screen-subtitle">
+          You run automatically. Jump between rooftops of different heights,
+          cross the gaps, and collect crates for bonus points.<br />
+          The flood rises and the pace quickens — fall in and it's over.
+        </p>
+        <button class="action-btn" id="startBtn">START RUN</button>
+      </div>
+
+      <!-- Game Over Screen -->
+      <div id="gameOverScreen" class="screen hidden">
+        <h2 class="screen-title">SWEPT AWAY</h2>
+        <p class="final-score">Score: <b id="finalScore">0</b></p>
+        <p class="final-score" id="newBest" style="display:none">🏆 New Best!</p>
+        <p class="screen-subtitle" id="causeLine">The flood caught you.</p>
+        <button class="action-btn" id="playAgainBtn">RUN AGAIN</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============ GAME CONFIGURATION ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;                 // 900 logical width
+    const H = canvas.height;                // 500 logical height
+
+    const GRAVITY = 2100;                   // px / s^2
+    const JUMP_VELOCITY = -770;             // instant upward impulse
+    const PLAYER_W = 24;
+    const PLAYER_H = 32;
+    const PLAYER_SCREEN_X = 230;            // fixed horizontal anchor
+    const MIN_TOP = 130;                    // highest roof (smallest y)
+    const MAX_TOP = 400;                    // lowest roof (closest to water)
+    const WATER_FLOOR = H + 40;             // where water starts (below screen)
+
+    // ============ GAME STATE ============
+    let platforms = [];
+    let crates = [];
+    let rain = [];
+    let particles = [];
+
+    let player = { x: 120, y: 380, vy: 0, grounded: true, top: 380, run: 0 };
+    let camX = 0;
+    let waterY = WATER_FLOOR;
+    let elapsed = 0;
+    let difficulty = 0;
+    let runSpeed = 0;
+    let score = 0;
+    let crateCount = 0;
+    let cursorX = 0;
+    let cursorTop = 380;
+    let bestScore = parseInt(localStorage.getItem('floodRunBest') || '0', 10);
+
+    let running = false;
+    let dead = false;
+    let lastTime = 0;
+    let shake = 0;
+
+    // ============ DOM ELEMENTS ============
+    const scoreEl = document.getElementById('score');
+    const cratesEl = document.getElementById('crates');
+    const highScoreEl = document.getElementById('highScore');
+    const finalScoreEl = document.getElementById('finalScore');
+    const newBestEl = document.getElementById('newBest');
+    const causeLineEl = document.getElementById('causeLine');
+    const startScreen = document.getElementById('startScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const startBtn = document.getElementById('startBtn');
+    const playAgainBtn = document.getElementById('playAgainBtn');
+
+    highScoreEl.textContent = bestScore;
+
+    // ============ AUDIO (WebAudio beep) ============
+    let audioCtx = null;
+
+    function beep(freq, duration, type, volume) {
+      try {
+        if (!audioCtx) {
+          const Ctor = window.AudioContext || window.webkitAudioContext;
+          if (!Ctor) return;
+          audioCtx = new Ctor();
+        }
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type || 'square';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(volume || 0.06, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) { /* audio is optional, never block the game */ }
+    }
+
+    // ============ HELPERS ============
+    function rand(min, max) { return min + Math.random() * (max - min); }
+    function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+
+    // ============ WORLD GENERATION ============
+    function resetWorld() {
+      platforms = [];
+      crates = [];
+      particles = [];
+      rain = [];
+      player = { x: 120, y: 380, vy: 0, grounded: true, top: 380, run: 0 };
+      camX = 0;
+      waterY = WATER_FLOOR;
+      elapsed = 0;
+      difficulty = 0;
+      runSpeed = 250;
+      score = 0;
+      crateCount = 0;
+      shake = 0;
+      cursorX = 400;
+      cursorTop = 380;
+
+      // Safe starting rooftop
+      platforms.push({ x: -320, w: 720, top: 380, visited: true });
+
+      // Build rain field in screen space
+      for (let i = 0; i < 70; i++) {
+        rain.push({ x: Math.random() * W, y: Math.random() * H, len: rand(8, 20), spd: rand(500, 820) });
+      }
+
+      // Pre-fill the runway ahead
+      while (cursorX < W + 600) spawnPlatform();
+    }
+
+    function spawnPlatform() {
+      const gap = 60 + Math.random() * (70 + difficulty * 120);
+      const delta = (Math.random() * 2 - 1) * (45 + difficulty * 45);
+      let top = clamp(cursorTop + delta, MIN_TOP, MAX_TOP);
+      // Keep every step reachable (max climb ~120px)
+      top = clamp(top, cursorTop - 95, cursorTop + 95);
+      const w = Math.max(100, 120 + Math.random() * (200 - difficulty * 85));
+
+      const p = { x: cursorX + gap, w: w, top: top, visited: false };
+      platforms.push(p);
+
+      // Occasionally place a crate on top
+      if (Math.random() < 0.45 && w > 130) {
+        const size = 20;
+        crates.push({ x: p.x + rand(30, w - 50), y: top - size, s: size, taken: false });
+      }
+
+      cursorX = p.x + p.w;
+      cursorTop = top;
+    }
+
+    // ============ PARTICLES ============
+    function burst(x, y, color, n) {
+      for (let i = 0; i < (n || 10); i++) {
+        particles.push({
+          x: x, y: y,
+          vx: (Math.random() - 0.5) * 260,
+          vy: (Math.random() - 0.9) * 260,
+          life: 1,
+          size: rand(2, 5),
+          color: color
+        });
+      }
+    }
+
+    // ============ INPUT ============
+    function jump() {
+      if (!running || dead) return;
+      if (player.grounded) {
+        player.vy = JUMP_VELOCITY;
+        player.grounded = false;
+        beep(520, 0.09, 'square', 0.05);
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (['Space', 'ArrowUp', 'KeyW', 'Enter'].includes(e.code)) {
+        e.preventDefault();
+        if (!running) {
+          if (e.code !== 'Enter') startGame();
+        } else {
+          jump();
+        }
+      }
+    });
+
+    canvas.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      jump();
+    });
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    startBtn.addEventListener('click', startGame);
+    playAgainBtn.addEventListener('click', startGame);
+
+    // ============ GAME FLOW ============
+    function startGame() {
+      resetWorld();
+      running = true;
+      dead = false;
+      scoreEl.textContent = '0';
+      cratesEl.textContent = '0';
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      newBestEl.style.display = 'none';
+      lastTime = performance.now();
+      beep(660, 0.12, 'triangle', 0.06);
+      requestAnimationFrame(loop);
+    }
+
+    function gameOver(cause) {
+      if (dead) return;
+      dead = true;
+      running = false;
+      shake = 14;
+      beep(160, 0.35, 'sawtooth', 0.09);
+
+      const isBest = score > bestScore;
+      if (isBest) {
+        bestScore = score;
+        localStorage.setItem('floodRunBest', String(bestScore));
+        highScoreEl.textContent = bestScore;
+        newBestEl.style.display = 'block';
+      }
+      finalScoreEl.textContent = score;
+      causeLineEl.textContent = cause;
+      gameOverScreen.classList.remove('hidden');
+    }
+
+    // ============ UPDATE ============
+    function update(dt) {
+      elapsed += dt;
+      difficulty = Math.min(1, elapsed / 70);
+      runSpeed = 250 + difficulty * 270;
+
+      // Water keeps rising, faster as the run drags on
+      waterY -= (17 + difficulty * 58) * dt;
+      waterY = Math.max(waterY, MIN_TOP - 30);
+
+      // ---- Horizontal run (automatic) ----
+      player.x += runSpeed * dt;
+      player.run += runSpeed * dt;
+
+      // ---- Vertical physics ----
+      if (player.grounded) {
+        const p = platformUnder(player.x + PLAYER_W / 2);
+        if (p && Math.abs(p.top - player.top) < 1) {
+          player.y = p.top;                       // stick to roof surface
+        } else {
+          player.grounded = false;                // ran off an edge
+          player.vy = 0;
+        }
+      }
+
+      if (!player.grounded) {
+        const prevFeet = player.y;
+        player.vy += GRAVITY * dt;
+        player.y += player.vy * dt;
+
+        if (player.vy > 0) {
+          for (let i = 0; i < platforms.length; i++) {
+            const p = platforms[i];
+            const overlapX = (player.x + PLAYER_W) > p.x && player.x < (p.x + p.w);
+            if (overlapX && prevFeet <= p.top + 1 && player.y >= p.top) {
+              // Landed
+              player.y = p.top;
+              player.vy = 0;
+              player.grounded = true;
+
+              // Height reward: going higher than the last roof pays off
+              if (p.top < player.top) {
+                score += Math.floor((player.top - p.top) / 2);
+              }
+              player.top = p.top;
+              beep(440, 0.06, 'square', 0.04);
+              burst(player.x + PLAYER_W / 2, p.top, '#cfe8f5', 5);
+
+              // Recycle platforms that are far behind
+              break;
+            }
+          }
+        }
+      }
+
+      // ---- Score from distance ----
+      score = Math.max(score, Math.floor(player.x * 0.08) + crateCount * 25);
+
+      // ---- Crates ----
+      for (let i = 0; i < crates.length; i++) {
+        const c = crates[i];
+        if (c.taken) continue;
+        const hit = (player.x + PLAYER_W > c.x && player.x < c.x + c.s &&
+                     player.y - PLAYER_H < c.y + c.s && player.y > c.y);
+        if (hit) {
+          c.taken = true;
+          crateCount += 1;
+          score += 25;
+          beep(880, 0.1, 'triangle', 0.06);
+          burst(c.x + c.s / 2, c.y + c.s / 2, '#ffd479', 12);
+        }
+      }
+
+      // ---- Extend the world ahead ----
+      camX = player.x - PLAYER_SCREEN_X;
+      while (cursorX < camX + W + 700) spawnPlatform();
+
+      // Prune behind the camera
+      if (platforms.length > 40) {
+        platforms = platforms.filter(p => p.x + p.w > camX - 400);
+        crates = crates.filter(c => c.x > camX - 400);
+      }
+
+      // ---- Rain ----
+      for (let i = 0; i < rain.length; i++) {
+        const d = rain[i];
+        d.y += d.spd * dt;
+        d.x -= d.spd * 0.28 * dt;
+        if (d.y > H) { d.y = -20; d.x = Math.random() * (W + 120); }
+      }
+
+      // ---- Particles ----
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const pt = particles[i];
+        pt.x += pt.vx * dt;
+        pt.y += pt.vy * dt;
+        pt.vy += 900 * dt;
+        pt.life -= dt * 1.6;
+        if (pt.life <= 0) particles.splice(i, 1);
+      }
+      if (shake > 0) shake = Math.max(0, shake - dt * 40);
+
+      // ---- HUD ----
+      scoreEl.textContent = score;
+      cratesEl.textContent = crateCount;
+
+      // ---- Death checks ----
+      if (player.y > waterY) {
+        gameOver('You fell into the flood.');
+        return;
+      }
+      if (player.grounded && player.top > waterY) {
+        gameOver('The water rose over your rooftop.');
+        return;
+      }
+      if (player.y > H + 120) {
+        gameOver('You fell into the flood.');
+      }
+    }
+
+    function platformUnder(worldX) {
+      for (let i = 0; i < platforms.length; i++) {
+        const p = platforms[i];
+        if (worldX >= p.x && worldX <= p.x + p.w) return p;
+      }
+      return null;
+    }
+
+    // ============ DRAW ============
+    function drawSky() {
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      const storm = difficulty;
+      g.addColorStop(0, `rgb(${18 - storm * 8}, ${40 - storm * 16}, ${66 - storm * 20})`);
+      g.addColorStop(0.55, `rgb(${34 - storm * 10}, ${68 - storm * 20}, ${96 - storm * 24})`);
+      g.addColorStop(1, `rgb(${72 - storm * 16}, ${112 - storm * 30}, ${140 - storm * 30})`);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      // Pale sun behind the clouds
+      ctx.globalAlpha = 0.28;
+      ctx.fillStyle = '#ffe9b0';
+      ctx.beginPath();
+      ctx.arc(W - 150, 90, 46, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    function drawBuilding(p) {
+      const sx = p.x - camX;
+      if (sx > W + 40 || sx + p.w < -40) return;
+
+      // Tower body down to the bottom of the frame
+      const bodyG = ctx.createLinearGradient(sx, p.top, sx, H);
+      bodyG.addColorStop(0, '#20323f');
+      bodyG.addColorStop(1, '#101c26');
+      ctx.fillStyle = bodyG;
+      ctx.fillRect(sx, p.top, p.w, H - p.top);
+
+      // Windows
+      ctx.fillStyle = 'rgba(255, 214, 130, 0.30)';
+      const cols = Math.max(2, Math.floor(p.w / 46));
+      const stepX = p.w / cols;
+      for (let r = 0; r < 6; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (((r * 7 + c * 13 + Math.floor(p.x)) % 5) === 0) continue;
+          const wx = sx + c * stepX + stepX * 0.22;
+          const wy = p.top + 26 + r * 44;
+          if (wy > H - 14) continue;
+          ctx.fillRect(wx, wy, stepX * 0.5, 22);
+        }
+      }
+
+      // Rooftop cap / surface
+      ctx.fillStyle = '#33566d';
+      ctx.fillRect(sx, p.top - 7, p.w, 7);
+      ctx.fillStyle = '#66a7c4';
+      ctx.fillRect(sx, p.top - 7, p.w, 2.5);
+
+      // Small parapet lip on the right edge
+      ctx.fillStyle = '#264454';
+      ctx.fillRect(sx + p.w - 5, p.top - 16, 5, 16);
+    }
+
+    function drawCrate(c) {
+      if (c.taken) return;
+      const sx = c.x - camX;
+      if (sx > W + 30 || sx + c.s < -30) return;
+      const bob = Math.sin(elapsed * 4 + c.x) * 1.5;
+      const y = c.y + bob;
+
+      ctx.fillStyle = '#a9702f';
+      ctx.fillRect(sx, y, c.s, c.s);
+      ctx.fillStyle = '#c78c42';
+      ctx.fillRect(sx + 2, y + 2, c.s - 4, c.s - 4);
+      ctx.strokeStyle = '#6d4519';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(sx + 2, y + 2); ctx.lineTo(sx + c.s - 2, y + c.s - 2);
+      ctx.moveTo(sx + c.s - 2, y + 2); ctx.lineTo(sx + 2, y + c.s - 2);
+      ctx.stroke();
+    }
+
+    function drawPlayer() {
+      const sx = player.x - camX;
+      const feet = player.y;
+      const bodyY = feet - PLAYER_H;
+
+      // Shadow on the roof
+      if (player.grounded) {
+        ctx.fillStyle = 'rgba(0,0,0,0.30)';
+        ctx.beginPath();
+        ctx.ellipse(sx + PLAYER_W / 2, feet + 2, PLAYER_W * 0.7, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Legs (running cycle when grounded)
+      const swing = player.grounded ? Math.sin(player.x * 0.09) * 7 : -4;
+      ctx.strokeStyle = '#17364a';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(sx + 8, feet - 10);
+      ctx.lineTo(sx + 8 + swing, feet);
+      ctx.moveTo(sx + 16, feet - 10);
+      ctx.lineTo(sx + 16 - swing, feet);
+      ctx.stroke();
+
+      // Torso
+      ctx.fillStyle = '#ff6b4a';
+      ctx.beginPath();
+      ctx.roundRect(sx + 3, bodyY + 8, PLAYER_W - 6, PLAYER_H - 18, 5);
+      ctx.fill();
+
+      // Head
+      ctx.fillStyle = '#ffd9b0';
+      ctx.beginPath();
+      ctx.arc(sx + PLAYER_W / 2, bodyY + 7, 8, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Cap
+      ctx.fillStyle = '#2a6f95';
+      ctx.beginPath();
+      ctx.arc(sx + PLAYER_W / 2, bodyY + 5, 8, Math.PI, 0);
+      ctx.fill();
+      ctx.fillRect(sx + PLAYER_W / 2 - 1, bodyY + 4, 12, 3);
+    }
+
+    function drawWater() {
+      const surface = waterY;
+      if (surface >= H) return;
+
+      // Translucent flood body
+      const g = ctx.createLinearGradient(0, surface, 0, H);
+      g.addColorStop(0, 'rgba(46, 140, 190, 0.72)');
+      g.addColorStop(0.5, 'rgba(24, 96, 148, 0.86)');
+      g.addColorStop(1, 'rgba(10, 46, 80, 0.96)');
+      ctx.fillStyle = g;
+
+      ctx.beginPath();
+      ctx.moveTo(0, surface);
+      for (let x = 0; x <= W; x += 20) {
+        const y = surface + Math.sin((x * 0.02) + elapsed * 3.2) * 4
+                          + Math.sin((x * 0.05) - elapsed * 2.1) * 2.5;
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(W, H);
+      ctx.lineTo(0, H);
+      ctx.closePath();
+      ctx.fill();
+
+      // Foam crest
+      ctx.strokeStyle = 'rgba(190, 240, 255, 0.85)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (let x = 0; x <= W; x += 20) {
+        const y = surface + Math.sin((x * 0.02) + elapsed * 3.2) * 4
+                          + Math.sin((x * 0.05) - elapsed * 2.1) * 2.5;
+        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Debris flecks riding the surface
+      ctx.fillStyle = 'rgba(220, 240, 250, 0.35)';
+      for (let i = 0; i < 12; i++) {
+        const px = ((i * 137 + elapsed * 60) % (W + 40)) - 20;
+        const py = surface + 12 + (i % 4) * 16;
+        ctx.fillRect(px, py, 10, 2);
+      }
+    }
+
+    function drawRain() {
+      ctx.strokeStyle = 'rgba(180, 220, 240, 0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let i = 0; i < rain.length; i++) {
+        const d = rain[i];
+        ctx.moveTo(d.x, d.y);
+        ctx.lineTo(d.x - d.len * 0.28, d.y + d.len);
+      }
+      ctx.stroke();
+    }
+
+    function drawParticles() {
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x - camX, p.y, p.size, p.size);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawHUD() {
+      // Flood pressure meter
+      const ratio = clamp(1 - (waterY / WATER_FLOOR), 0, 1);
+      ctx.fillStyle = 'rgba(6, 18, 28, 0.6)';
+      ctx.fillRect(16, 16, 210, 18);
+      ctx.fillStyle = '#1c4a63';
+      ctx.fillRect(18, 18, 206, 14);
+      ctx.fillStyle = ratio > 0.7 ? '#ff5a5a' : (ratio > 0.4 ? '#ffb347' : '#4fc3f7');
+      ctx.fillRect(18, 18, 206 * ratio, 14);
+      ctx.fillStyle = '#dff2ff';
+      ctx.font = 'bold 11px Segoe UI, sans-serif';
+      ctx.fillText('FLOOD LEVEL', 24, 29);
+
+      const dist = Math.floor(player.x / 10);
+      ctx.font = 'bold 14px Segoe UI, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillStyle = 'rgba(230, 245, 255, 0.85)';
+      ctx.fillText(dist + ' m', W - 18, 30);
+      ctx.textAlign = 'left';
+    }
+
+    function draw() {
+      ctx.save();
+      if (shake > 0) {
+        ctx.translate(rand(-shake, shake) * 0.4, rand(-shake, shake) * 0.4);
+      }
+
+      drawSky();
+      for (let i = 0; i < platforms.length; i++) drawBuilding(platforms[i]);
+      for (let i = 0; i < crates.length; i++) drawCrate(crates[i]);
+      drawPlayer();
+      drawParticles();
+      drawWater();
+      drawRain();
+      drawHUD();
+
+      ctx.restore();
+    }
+
+    // ============ MAIN LOOP ============
+    function loop(now) {
+      const dt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+
+      if (running) update(dt);
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // ============ INITIALISE ============
+    resetWorld();
+    draw();
+  </script>
+</body>
+</html>

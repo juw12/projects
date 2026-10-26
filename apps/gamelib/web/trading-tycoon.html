@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Trading Tycoon</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(1200px 800px at 20% -10%, #12203a 0%, #080d18 55%, #05070d 100%);
+    color: #dfe7f2;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 14px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  :root {
+    --panel: rgba(255,255,255,.045);
+    --panel-brd: rgba(255,255,255,.09);
+    --gold: #f5c451;
+    --green: #37d67a;
+    --red: #ff5c6c;
+    --muted: #7d8ba3;
+    --ink: #e7eefb;
+  }
+  .mono { font-family: "Courier New", ui-monospace, monospace; }
+
+  /* ============ LAYOUT ============ */
+  #app {
+    width: min(1080px, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .topbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 18px;
+    padding: 12px 16px;
+    background: var(--panel);
+    border: 1px solid var(--panel-brd);
+    border-radius: 14px;
+    backdrop-filter: blur(6px);
+  }
+  .brand {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: .5px;
+    color: var(--gold);
+    margin-right: auto;
+    text-shadow: 0 2px 14px rgba(245,196,81,.25);
+  }
+  .brand small {
+    display: block;
+    font-family: "Segoe UI", sans-serif;
+    font-size: .62rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 400;
+  }
+  .stat { display: flex; flex-direction: column; line-height: 1.15; }
+  .stat .k { font-size: .62rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  .stat .v { font-size: 1.05rem; font-weight: 700; font-family: "Courier New", monospace; }
+  .v.gold { color: var(--gold); }
+  .v.green { color: var(--green); }
+
+  .goalbar {
+    flex-basis: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: .72rem;
+    color: var(--muted);
+  }
+  .goalbar .track {
+    flex: 1;
+    height: 8px;
+    background: rgba(255,255,255,.08);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .goalbar .fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #37d67a, #f5c451);
+    transition: width .25s ease;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr);
+    gap: 12px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-brd);
+    border-radius: 14px;
+    padding: 12px;
+  }
+  .panel h2 {
+    font-size: .68rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 700;
+    margin-bottom: 9px;
+  }
+
+  /* ============ CHART ============ */
+  .chartpanel { display: flex; flex-direction: column; }
+  .goodtabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .goodtab {
+    flex: 1;
+    min-width: 92px;
+    padding: 7px 8px;
+    border: 1px solid var(--panel-brd);
+    background: rgba(255,255,255,.03);
+    color: var(--ink);
+    border-radius: 9px;
+    cursor: pointer;
+    font-size: .76rem;
+    font-weight: 600;
+    transition: all .15s ease;
+    white-space: nowrap;
+  }
+  .goodtab:hover { background: rgba(255,255,255,.09); }
+  .goodtab.active { background: rgba(245,196,81,.16); border-color: var(--gold); color: var(--gold); }
+  #chart {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.15));
+    cursor: crosshair;
+    touch-action: none;
+  }
+
+  /* ============ MARKETS / TRAVEL ============ */
+  .markettabs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .markettab {
+    flex: 1 1 46%;
+    padding: 8px;
+    border-radius: 9px;
+    border: 1px solid var(--panel-brd);
+    background: rgba(255,255,255,.03);
+    color: var(--ink);
+    cursor: pointer;
+    font-size: .74rem;
+    font-weight: 600;
+    text-align: left;
+    transition: all .15s ease;
+  }
+  .markettab small { display: block; color: var(--muted); font-weight: 400; font-size: .62rem; }
+  .markettab:hover { background: rgba(255,255,255,.09); }
+  .markettab.current { border-color: var(--gold); background: rgba(245,196,81,.12); cursor: default; }
+  .markettab.current small { color: var(--gold); }
+
+  /* ============ GOODS TRADE TABLE ============ */
+  .amtrow { display: flex; align-items: center; gap: 6px; margin-bottom: 9px; }
+  .amtrow .lab { font-size: .66rem; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+  .amtbtn {
+    padding: 4px 10px; border-radius: 7px; cursor: pointer; font-weight: 700;
+    border: 1px solid var(--panel-brd); background: rgba(255,255,255,.03);
+    color: var(--ink); font-size: .72rem; font-family: "Courier New", monospace;
+  }
+  .amtbtn.active { background: var(--gold); color: #10131a; border-color: var(--gold); }
+
+  .goodrow {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px;
+    border-radius: 10px;
+    background: rgba(255,255,255,.025);
+    border: 1px solid rgba(255,255,255,.05);
+    margin-bottom: 6px;
+  }
+  .goodrow .gname { font-size: .8rem; font-weight: 600; line-height: 1.15; }
+  .goodrow .gname small { display: block; color: var(--muted); font-size: .62rem; font-weight: 400; }
+  .goodrow .gprice { font-family: "Courier New", monospace; font-size: .86rem; font-weight: 700; text-align: right; }
+  .goodrow .gprice small { display: block; font-size: .6rem; font-weight: 400; }
+  .trend.up { color: var(--green); }
+  .trend.down { color: var(--red); }
+  .trend.flat { color: var(--muted); }
+  .gbtns { display: flex; gap: 5px; }
+  .gbtn {
+    padding: 6px 10px; border-radius: 8px; border: none; cursor: pointer;
+    font-size: .7rem; font-weight: 700; color: #0c1017; transition: all .12s ease;
+  }
+  .gbtn.buy { background: #37d67a; }
+  .gbtn.buy:hover { background: #5ce68f; }
+  .gbtn.sell { background: #ff8189; }
+  .gbtn.sell:hover { background: #ff9ea4; }
+  .gbtn:disabled { opacity: .35; cursor: not-allowed; }
+
+  /* ============ UPGRADES ============ */
+  .upgrow {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 8px; border-radius: 10px;
+    background: rgba(255,255,255,.025);
+    border: 1px solid rgba(255,255,255,.05);
+    margin-bottom: 6px;
+  }
+  .upgrow .utxt { flex: 1; font-size: .76rem; line-height: 1.2; }
+  .upgrow .utxt small { display: block; color: var(--muted); font-size: .62rem; }
+  .upgrow .lvl { font-family: "Courier New", monospace; font-size: .7rem; color: var(--gold); }
+  .upgbtn {
+    padding: 6px 10px; border-radius: 8px; border: 1px solid var(--gold);
+    background: rgba(245,196,81,.14); color: var(--gold);
+    font-size: .68rem; font-weight: 700; cursor: pointer; white-space: nowrap;
+  }
+  .upgbtn:hover { background: rgba(245,196,81,.28); }
+  .upgbtn:disabled { opacity: .35; cursor: not-allowed; }
+  .upgbtn.maxed { border-color: var(--muted); color: var(--muted); background: transparent; }
+
+  /* ============ EVENTS / LOG ============ */
+  #eventLog { display: flex; flex-direction: column; gap: 4px; min-height: 30px; }
+  .evt { font-size: .71rem; color: #c7d3e6; padding: 4px 7px; border-radius: 7px; background: rgba(255,255,255,.03); border-left: 3px solid var(--gold); }
+  .evt .d { color: var(--muted); font-family: "Courier New", monospace; margin-right: 5px; }
+  .evt.bad { border-left-color: var(--red); }
+  .evt.good { border-left-color: var(--green); }
+
+  /* ============ CONTROLS ============ */
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; }
+  .ctl {
+    padding: 9px 16px; border-radius: 10px; border: 1px solid var(--panel-brd);
+    background: rgba(255,255,255,.05); color: var(--ink); cursor: pointer;
+    font-size: .78rem; font-weight: 700; transition: all .15s ease;
+  }
+  .ctl:hover { background: rgba(255,255,255,.12); }
+  .ctl.primary { background: rgba(245,196,81,.16); border-color: var(--gold); color: var(--gold); }
+  .ctl.danger { border-color: rgba(255,92,108,.5); color: #ff9aa4; }
+  .spacer { margin-left: auto; }
+  #flash { min-height: 18px; font-size: .76rem; font-family: "Courier New", monospace; text-align: center; }
+  #flash.ok { color: var(--green); }
+  #flash.no { color: var(--red); }
+
+  /* ============ OVERLAY SCREENS ============ */
+  #overlay {
+    position: fixed; inset: 0; display: none;
+    justify-content: center; align-items: center;
+    background: rgba(4,7,12,.82); z-index: 20; padding: 20px;
+  }
+  #overlay.show { display: flex; }
+  .card {
+    background: linear-gradient(180deg, #13203a, #0a1120);
+    border: 1px solid var(--panel-brd); border-radius: 18px;
+    padding: 30px 34px; text-align: center; max-width: 440px;
+    box-shadow: 0 30px 80px rgba(0,0,0,.6);
+  }
+  .card h2 { font-family: Georgia, serif; font-size: 1.9rem; color: var(--gold); margin-bottom: 8px; }
+  .card p { color: var(--muted); font-size: .88rem; margin-bottom: 8px; }
+  .card .big { font-family: "Courier New", monospace; font-size: 1.4rem; color: var(--green); margin: 12px 0; }
+  .card ul { text-align: left; display: inline-block; color: var(--muted); font-size: .8rem; margin: 10px 0 18px; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 860px) {
+    .grid { grid-template-columns: 1fr; }
+    .brand { font-size: 1.25rem; }
+    .stat .v { font-size: .95rem; }
+  }
+  @media (max-width: 460px) {
+    body { padding: 8px; }
+    .topbar { padding: 10px; gap: 8px 12px; }
+    .goodrow { grid-template-columns: auto 1fr auto; grid-template-areas: "n n p" "b b b"; }
+    .goodrow .gbtns { grid-column: 1 / -1; }
+    .gbtn { flex: 1; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ============ TOP BAR ============ -->
+  <div class="topbar">
+    <div class="brand">Trading Tycoon<small>Merchant Empire</small></div>
+    <div class="stat"><span class="k">Cash</span><span class="v gold mono" id="sCash">0</span></div>
+    <div class="stat"><span class="k">Net Worth</span><span class="v green mono" id="sNet">0</span></div>
+    <div class="stat"><span class="k">Cargo</span><span class="v mono" id="sCargo">0/0</span></div>
+    <div class="stat"><span class="k">Day</span><span class="v mono" id="sDay">1</span></div>
+    <div class="goalbar">
+      <span id="sGoalLab">Goal 0 / 0</span>
+      <div class="track"><div class="fill" id="sGoalFill"></div></div>
+    </div>
+  </div>
+
+  <!-- ============ MAIN GRID ============ -->
+  <div class="grid">
+    <div class="panel chartpanel">
+      <h2>Market Chart</h2>
+      <div class="goodtabs" id="goodTabs"></div>
+      <canvas id="chart" width="900" height="330"></canvas>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="panel">
+        <h2>Travel</h2>
+        <div class="markettabs" id="marketTabs"></div>
+      </div>
+      <div class="panel">
+        <h2>Trade Desk — <span id="curMarket" style="color:var(--gold)"></span></h2>
+        <div class="amtrow" id="amtRow">
+          <span class="lab">Amount</span>
+        </div>
+        <div id="goodsList"></div>
+      </div>
+      <div class="panel">
+        <h2>Upgrades</h2>
+        <div id="upgradeList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ EVENTS + CONTROLS ============ -->
+  <div class="grid" style="grid-template-columns: 1.55fr 1fr;">
+    <div class="panel">
+      <h2>Market News</h2>
+      <div id="eventLog"></div>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column;gap:10px;">
+      <h2>Controls</h2>
+      <div class="controls">
+        <button class="ctl primary" id="btnPause">Pause Time</button>
+        <button class="ctl" id="btnWait">Wait a Day</button>
+        <button class="ctl danger" id="btnRestart">Restart</button>
+      </div>
+      <div id="flash"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ RESULT OVERLAY ============ -->
+<div id="overlay">
+  <div class="card">
+    <h2 id="ovTitle">You Win!</h2>
+    <p id="ovSub"></p>
+    <div class="big" id="ovScore"></div>
+    <ul id="ovStats"></ul>
+    <button class="ctl primary" id="ovBtn">Play Again</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ==================================================================
+     SECTION: CONFIG & CONSTANTS
+     ================================================================== */
+  const SAVE_KEY = "tradingTycoon.v1";
+  const GOAL = 25000;              // net worth needed to win
+  const START_CASH = 1500;
+  const BASE_CAPACITY = 12;        // cargo units at upgrade level 0
+  const TICK_MS = 1900;            // real ms per in-game day
+  const HIST_MAX = 90;             // price points kept for the chart
+  const MAX_BARGE = 6, MAX_LICENSE = 4, MAX_SAIL = 4;
+
+  const GOODS = [
+    { name: "Grain", icon: "\u{1F33E}", base: 22,  vol: 0.035 },
+    { name: "Silk",  icon: "\u{1F9F5}", base: 85,  vol: 0.050 },
+    { name: "Spice", icon: "\u{1F336}\u{FE0F}", base: 160, vol: 0.070 },
+    { name: "Gems",  icon: "\u{1F48E}", base: 420, vol: 0.090 }
+  ];
+
+  const MARKETS = [
+    { name: "Aurora Bay", col: "#4cc9f0", mod: [0.85, 1.15, 1.00, 1.10] },
+    { name: "Coralport",  col: "#ff6b6b", mod: [1.10, 0.88, 1.30, 0.90] },
+    { name: "Ironhold",   col: "#ffd166", mod: [1.30, 1.00, 0.88, 1.20] },
+    { name: "Mistvale",   col: "#b388ff", mod: [1.00, 1.42, 0.80, 0.85] }
+  ];
+
+  const UPGRADES = [
+    { key: "barge",   name: "Cargo Barge",  desc: "+12 cargo capacity",           base: 400, mul: 1.9, max: MAX_BARGE },
+    { key: "license", name: "Trade License", desc: "Lower buy/sell commission",   base: 300, mul: 2.1, max: MAX_LICENSE },
+    { key: "sail",    name: "Swift Sails",  desc: "Cheaper & faster travel",      base: 280, mul: 2.0, max: MAX_SAIL }
+  ];
+
+  const AMOUNTS = [1, 5, 10, "MAX"];
+
+  /* ==================================================================
+     SECTION: STATE & PERSISTENCE
+     ================================================================== */
+  let state = null;
+
+  function freshPrices() {
+    const p = [];
+    for (let m = 0; m < MARKETS.length; m++) {
+      const row = [];
+      for (let g = 0; g < GOODS.length; g++) {
+        const target = GOODS[g].base * MARKETS[m].mod[g];
+        row.push(target * (0.88 + Math.random() * 0.24));
+      }
+      p.push(row);
+    }
+    return p;
+  }
+
+  function freshHistory(prices) {
+    const h = [];
+    for (let m = 0; m < MARKETS.length; m++) {
+      const row = [];
+      for (let g = 0; g < GOODS.length; g++) {
+        const arr = [];
+        for (let i = 0; i < 40; i++) arr.push(prices[m][g] * (0.97 + Math.random() * 0.06));
+        row.push(arr);
+      }
+      h.push(row);
+    }
+    return h;
+  }
+
+  function freshShock() {
+    const s = [];
+    for (let m = 0; m < MARKETS.length; m++) s.push([1, 1, 1, 1]);
+    return s;
+  }
+
+  function newState() {
+    const prices = freshPrices();
+    return {
+      day: 1,
+      cash: START_CASH,
+      market: 0,
+      selectedGood: 0,
+      amountIdx: 0,
+      inventory: [0, 0, 0, 0],
+      spentTotal: 0,
+      earnedTotal: 0,
+      prices: prices,
+      history: freshHistory(prices),
+      shock: freshShock(),
+      upgrades: { barge: 0, license: 0, sail: 0 },
+      events: [],
+      paused: false,
+      won: false
+    };
+  }
+
+  function save() {
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }
+    catch (e) { /* storage unavailable — play continues in memory */ }
+  }
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return null;
+      const s = JSON.parse(raw);
+      if (!s || !s.prices || !s.inventory || s.prices.length !== MARKETS.length) return null;
+      // defensive defaults for older/partial saves
+      s.shock = s.shock || freshShock();
+      s.events = s.events || [];
+      s.history = s.history || freshHistory(s.prices);
+      s.amountIdx = s.amountIdx || 0;
+      s.upgrades = s.upgrades || { barge: 0, license: 0, sail: 0 };
+      s.selectedGood = s.selectedGood || 0;
+      s.spentTotal = s.spentTotal || 0;
+      s.earnedTotal = s.earnedTotal || 0;
+      return s;
+    } catch (e) { return null; }
+  }
+
+  /* ==================================================================
+     SECTION: AUDIO (WebAudio, no assets)
+     ================================================================== */
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "sine";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.06, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+  function sOk()    { beep(720, 0.07, "triangle"); }
+  function sCoin()  { beep(980, 0.09, "sine"); setTimeout(function () { beep(1320, 0.09, "sine"); }, 70); }
+  function sNo()    { beep(150, 0.16, "sawtooth"); }
+  function sEvent() { beep(520, 0.1, "square"); }
+  function sWin()   { [523, 659, 784, 1046].forEach(function (f, i) { setTimeout(function () { beep(f, 0.18, "triangle"); }, i * 130); }); }
+
+  /* ==================================================================
+     SECTION: DERIVED VALUES
+     ================================================================== */
+  function pricing() {
+    return {
+      cap: BASE_CAPACITY + state.upgrades.barge * 12,
+      fee: Math.max(0.01, 0.06 - state.upgrades.license * 0.012),
+      travelCost: Math.round(70 * (1 - state.upgrades.sail * 0.16)),
+      travelDays: Math.max(1, 4 - state.upgrades.sail)
+    };
+  }
+  function cargoUsed() {
+    let n = 0;
+    for (let g = 0; g < GOODS.length; g++) n += state.inventory[g];
+    return n;
+  }
+  function netWorth() {
+    let v = state.cash;
+    for (let g = 0; g < GOODS.length; g++) v += state.inventory[g] * state.prices[state.market][g];
+    return v;
+  }
+  function upgradeCost(u) { return Math.round(u.base * Math.pow(u.mul, state.upgrades[u.key])); }
+  function fmt(n) { return Math.round(n).toLocaleString("en-US"); }
+
+  /* ==================================================================
+     SECTION: PRICE ENGINE (random walk + mean reversion + shocks)
+     ================================================================== */
+  function tickPrices() {
+    for (let m = 0; m < MARKETS.length; m++) {
+      for (let g = 0; g < GOODS.length; g++) {
+        const target = GOODS[g].base * MARKETS[m].mod[g];
+        let p = state.prices[m][g];
+        p += (target - p) * 0.028;                              // pull toward fair value
+        p *= 1 + (Math.random() * 2 - 1) * GOODS[g].vol;         // random walk
+        state.shock[m][g] += (1 - state.shock[m][g]) * 0.22;     // decay event shock
+        p *= state.shock[m][g];
+        p = Math.max(target * 0.35, Math.min(target * 2.9, p));
+        state.prices[m][g] = p;
+
+        const hist = state.history[m][g];
+        hist.push(p);
+        while (hist.length > HIST_MAX) hist.shift();
+      }
+    }
+  }
+
+  function randomEvent() {
+    if (Math.random() > 0.15) return;
+    const goodIdx = Math.floor(Math.random() * GOODS.length);
+    const mktIdx = Math.floor(Math.random() * MARKETS.length);
+    const good = GOODS[goodIdx];
+    const mkt = MARKETS[mktIdx];
+    const good2 = Math.random() < 0.5;
+    state.shock[mktIdx][goodIdx] = good2 ? 1.35 : 0.72;
+    pushEvent("Day " + state.day + " — " + good.name + " " +
+      (good2 ? "demand surges" : "floods the market") + " in " + mkt.name,
+      good2 ? "good" : "bad");
+    sEvent();
+  }
+
+  function pushEvent(text, kind) {
+    state.events.unshift({ text: text, kind: kind || "" });
+    if (state.events.length > 6) state.events.pop();
+  }
+
+  /* ==================================================================
+     SECTION: TRADING
+     ================================================================== */
+  function buyQty(g) {
+    const p = pricing();
+    const price = state.prices[state.market][g] * (1 + p.fee);
+    const afford = Math.floor(state.cash / price);
+    const space = p.cap - cargoUsed();
+    let want = state.amountIdx === AMOUNTS.length - 1 ? afford : AMOUNTS[state.amountIdx];
+    return Math.max(0, Math.min(want, afford, space));
+  }
+
+  function sellQty(g) {
+    const owned = state.inventory[g];
+    const want = state.amountIdx === AMOUNTS.length - 1 ? owned : AMOUNTS[state.amountIdx];
+    return Math.max(0, Math.min(want, owned));
+  }
+
+  function doBuy(g) {
+    const p = pricing();
+    const qty = buyQty(g);
+    if (qty <= 0) { flash("Not enough cash or cargo space.", "no"); sNo(); return; }
+    const price = state.prices[state.market][g] * (1 + p.fee);
+    state.cash -= price * qty;
+    state.inventory[g] += qty;
+    state.spentTotal += price * qty;
+    flash("Bought " + qty + " " + GOODS[g].name + " @ " + fmt(price), "ok");
+    sOk(); afterAction();
+  }
+
+  function doSell(g) {
+    const p = pricing();
+    const qty = sellQty(g);
+    if (qty <= 0) { flash("You have none to sell.", "no"); sNo(); return; }
+    const price = state.prices[state.market][g] * (1 - p.fee);
+    state.cash += price * qty;
+    state.inventory[g] -= qty;
+    state.earnedTotal += price * qty;
+    flash("Sold " + qty + " " + GOODS[g].name + " @ " + fmt(price), "ok");
+    sCoin(); afterAction();
+  }
+
+  function afterAction() {
+    if (!state.won && netWorth() >= GOAL) {
+      state.won = true;
+      save();
+      showOverlay(true);
+      sWin();
+      return;
+    }
+    save();
+  }
+
+  function doTravel(m) {
+    if (m === state.market) return;
+    const p = pricing();
+    if (state.cash < p.travelCost) { flash("Cannot afford the voyage cost.", "no"); sNo(); return; }
+    state.cash -= p.travelCost;
+    state.market = m;
+    pushEvent("Day " + state.day + " — sailed to " + MARKETS[m].name + " (-" + fmt(p.travelCost) + "g)", "");
+    for (let i = 0; i < p.travelDays; i++) { state.day++; tickPrices(); randomEvent(); }
+    flash("Arrived at " + MARKETS[m].name + ".", "ok");
+    beep(300, 0.14, "triangle");
+    save();
+  }
+
+  function doUpgrade(u) {
+    if (state.upgrades[u.key] >= u.max) return;
+    const cost = upgradeCost(u);
+    if (state.cash < cost) { flash("Not enough gold for " + u.name + ".", "no"); sNo(); return; }
+    state.cash -= cost;
+    state.upgrades[u.key]++;
+    pushEvent("Day " + state.day + " — upgraded " + u.name + " to Lv." + state.upgrades[u.key], "good");
+    flash(u.name + " upgraded!", "ok");
+    sCoin(); afterAction();
+  }
+
+  function flash(msg, kind) {
+    flashEl.textContent = msg;
+    flashEl.className = kind || "";
+    clearTimeout(flash._t);
+    flash._t = setTimeout(function () { flashEl.textContent = ""; flashEl.className = ""; }, 2200);
+  }
+
+  /* ==================================================================
+     SECTION: UI (static build + per-frame update)
+     ================================================================== */
+  const goodTabsEl = document.getElementById("goodTabs");
+  const marketTabsEl = document.getElementById("marketTabs");
+  const goodsListEl = document.getElementById("goodsList");
+  const upgradeListEl = document.getElementById("upgradeList");
+  const amtRowEl = document.getElementById("amtRow");
+  const eventLogEl = document.getElementById("eventLog");
+  const flashEl = document.getElementById("flash");
+
+  const refs = { goodTabs: [], marketTabs: [], goodRows: [], upgRows: [], amtBtns: [] };
+
+  function buildUI() {
+    // -- good selector tabs
+    GOODS.forEach(function (gd, i) {
+      const b = document.createElement("button");
+      b.className = "goodtab";
+      b.type = "button";
+      b.textContent = gd.icon + " " + gd.name;
+      b.addEventListener("click", function () { state.selectedGood = i; save(); });
+      goodTabsEl.appendChild(b);
+      refs.goodTabs.push(b);
+    });
+
+    // -- market / travel tabs
+    MARKETS.forEach(function (mk, i) {
+      const b = document.createElement("button");
+      b.className = "markettab";
+      b.type = "button";
+      b.innerHTML = '<span>' + mk.name + '</span><small></small>';
+      b.addEventListener("click", function () { doTravel(i); });
+      marketTabsEl.appendChild(b);
+      refs.marketTabs.push(b);
+    });
+
+    // -- amount buttons
+    AMOUNTS.forEach(function (a, i) {
+      const b = document.createElement("button");
+      b.className = "amtbtn";
+      b.type = "button";
+      b.textContent = a === "MAX" ? "MAX" : String(a);
+      b.addEventListener("click", function () { state.amountIdx = i; save(); });
+      amtRowEl.appendChild(b);
+      refs.amtBtns.push(b);
+    });
+
+    // -- goods trade rows
+    GOODS.forEach(function (gd, i) {
+      const row = document.createElement("div");
+      row.className = "goodrow";
+      row.innerHTML =
+        '<div class="gname">' + gd.icon + ' ' + gd.name + '<small class="owned"></small></div>' +
+        '<div class="gprice"><span class="p"></span><small class="trend"></small></div>' +
+        '<div class="gbtns">' +
+          '<button class="gbtn buy" type="button">Buy</button>' +
+          '<button class="gbtn sell" type="button">Sell</button>' +
+        '</div>';
+      row.querySelector(".buy").addEventListener("click", function () { doBuy(i); });
+      row.querySelector(".sell").addEventListener("click", function () { doSell(i); });
+      goodsListEl.appendChild(row);
+      refs.goodRows.push({
+        el: row,
+        owned: row.querySelector(".owned"),
+        price: row.querySelector(".p"),
+        trend: row.querySelector(".trend"),
+        buy: row.querySelector(".buy"),
+        sell: row.querySelector(".sell")
+      });
+    });
+
+    // -- upgrade rows
+    UPGRADES.forEach(function (u) {
+      const row = document.createElement("div");
+      row.className = "upgrow";
+      row.innerHTML =
+        '<div class="utxt">' + u.name + '<small>' + u.desc + '</small></div>' +
+        '<div class="lvl"></div>' +
+        '<button class="upgbtn" type="button"></button>';
+      const btn = row.querySelector(".upgbtn");
+      btn.addEventListener("click", function () { doUpgrade(u); });
+      upgradeListEl.appendChild(row);
+      refs.upgRows.push({ u: u, lvl: row.querySelector(".lvl"), btn: btn });
+    });
+  }
+
+  /* ==================================================================
+     SECTION: UI UPDATE
+     ================================================================== */
+  const sCash = document.getElementById("sCash");
+  const sNet = document.getElementById("sNet");
+  const sCargo = document.getElementById("sCargo");
+  const sDay = document.getElementById("sDay");
+  const sGoalLab = document.getElementById("sGoalLab");
+  const sGoalFill = document.getElementById("sGoalFill");
+  const curMarketEl = document.getElementById("curMarket");
+
+  function updateUI() {
+    const p = pricing();
+    const net = netWorth();
+
+    sCash.textContent = fmt(state.cash) + "g";
+    sNet.textContent = fmt(net) + "g";
+    sCargo.textContent = cargoUsed() + "/" + p.cap;
+    sDay.textContent = state.day;
+    const pct = Math.max(0, Math.min(100, (net / GOAL) * 100));
+    sGoalFill.style.width = pct.toFixed(1) + "%";
+    sGoalLab.textContent = "Goal " + fmt(Math.min(net, GOAL)) + " / " + fmt(GOAL) + "g";
+    curMarketEl.textContent = MARKETS[state.market].name;
+
+    // good tabs
+    refs.goodTabs.forEach(function (b, i) {
+      b.classList.toggle("active", i === state.selectedGood);
+    });
+
+    // market tabs
+    refs.marketTabs.forEach(function (b, i) {
+      const cur = i === state.market;
+      b.classList.toggle("current", cur);
+      const sm = b.querySelector("small");
+      sm.textContent = cur ? "you are here" : "sail " + fmt(p.travelCost) + "g · " + p.travelDays + "d";
+    });
+
+    // amount buttons
+    refs.amtBtns.forEach(function (b, i) { b.classList.toggle("active", i === state.amountIdx); });
+
+    // trade rows
+    refs.goodRows.forEach(function (r, i) {
+      const price = state.prices[state.market][i];
+      const hist = state.history[state.market][i];
+      const prev = hist.length > 1 ? hist[hist.length - 2] : price;
+      const chg = prev > 0 ? ((price - prev) / prev) * 100 : 0;
+
+      r.owned.textContent = "held " + state.inventory[i];
+      r.price.textContent = fmt(price) + "g";
+      r.trend.textContent = (chg >= 0 ? "\u25B2 +" : "\u25BC ") + chg.toFixed(1) + "%";
+      r.trend.className = "trend " + (chg > 0.05 ? "up" : chg < -0.05 ? "down" : "flat");
+
+      r.buy.disabled = buyQty(i) <= 0;
+      r.sell.disabled = state.inventory[i] <= 0;
+    });
+
+    // upgrades
+    refs.upgRows.forEach(function (r) {
+      const maxed = state.upgrades[r.u.key] >= r.u.max;
+      r.lvl.textContent = "Lv." + state.upgrades[r.u.key] + "/" + r.u.max;
+      if (maxed) {
+        r.btn.textContent = "MAX";
+        r.btn.disabled = true;
+        r.btn.className = "upgbtn maxed";
+      } else {
+        const cost = upgradeCost(r.u);
+        r.btn.textContent = fmt(cost) + "g";
+        r.btn.disabled = state.cash < cost;
+        r.btn.className = "upgbtn";
+      }
+    });
+
+    // event log
+    if (refs._evtSig !== state.events.length + ":" + (state.events[0] ? state.events[0].text : "")) {
+      refs._evtSig = state.events.length + ":" + (state.events[0] ? state.events[0].text : "");
+      eventLogEl.innerHTML = "";
+      if (state.events.length === 0) {
+        eventLogEl.innerHTML = '<div class="evt">Markets are calm. Buy low, sell high.</div>';
+      } else {
+        state.events.forEach(function (e) {
+          const d = document.createElement("div");
+          d.className = "evt" + (e.kind ? " " + e.kind : "");
+          d.textContent = e.text;
+          eventLogEl.appendChild(d);
+        });
+      }
+    }
+  }
+
+  /* ==================================================================
+     SECTION: CHART RENDER (Canvas 2D)
+     ================================================================== */
+  const canvas = document.getElementById("chart");
+  const ctx = canvas.getContext("2d");
+  const CW = canvas.width, CH = canvas.height;
+  const PAD = { l: 58, r: 16, t: 40, b: 26 };
+  let pointer = { x: -1, y: -1, active: false };
+
+  function drawChart() {
+    const g = state.selectedGood;
+    const plotW = CW - PAD.l - PAD.r;
+    const plotH = CH - PAD.t - PAD.b;
+
+    // background
+    ctx.clearRect(0, 0, CW, CH);
+    const bg = ctx.createLinearGradient(0, 0, 0, CH);
+    bg.addColorStop(0, "rgba(255,255,255,0.03)");
+    bg.addColorStop(1, "rgba(0,0,0,0.18)");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, CW, CH);
+
+    // find range across all markets for this good
+    let min = Infinity, max = -Infinity, n = 0;
+    for (let m = 0; m < MARKETS.length; m++) {
+      const arr = state.history[m][g];
+      n = Math.max(n, arr.length);
+      for (let i = 0; i < arr.length; i++) {
+        if (arr[i] < min) min = arr[i];
+        if (arr[i] > max) max = arr[i];
+      }
+    }
+    if (!isFinite(min) || min === max) { min = 0; max = 1; }
+    const padV = (max - min) * 0.1;
+    min -= padV; max += padV;
+
+    const plotX = PAD.l, plotY = PAD.t;
+    function X(i) { return plotX + (n <= 1 ? 0 : (i / (n - 1)) * plotW); }
+    function Y(v) { return plotY + (1 - (v - min) / (max - min)) * plotH; }
+
+    // grid + y labels
+    ctx.strokeStyle = "rgba(255,255,255,0.07)";
+    ctx.fillStyle = "#7d8ba3";
+    ctx.font = "11px 'Courier New', monospace";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = plotY + (plotH / 4) * i;
+      ctx.beginPath(); ctx.moveTo(plotX, y); ctx.lineTo(plotX + plotW, y); ctx.stroke();
+      const val = max - ((max - min) / 4) * i;
+      ctx.fillText(fmt(val), plotX - 8, y);
+    }
+
+    // x labels (days)
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    const startDay = Math.max(1, state.day - (n - 1));
+    for (let i = 0; i <= 4; i++) {
+      const idx = Math.round((n - 1) * (i / 4));
+      ctx.fillText("d" + (startDay + idx), X(idx), plotY + plotH + 6);
+    }
+
+    // market lines
+    for (let m = 0; m < MARKETS.length; m++) {
+      const arr = state.history[m][g];
+      if (arr.length < 2) continue;
+      const cur = m === state.market;
+      ctx.beginPath();
+      for (let i = 0; i < arr.length; i++) {
+        const px = X(i), py = Y(arr[i]);
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.strokeStyle = MARKETS[m].col;
+      ctx.globalAlpha = cur ? 1 : 0.4;
+      ctx.lineWidth = cur ? 2.6 : 1.3;
+      if (cur) { ctx.shadowColor = MARKETS[m].col; ctx.shadowBlur = 8; }
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+
+      // current price dot + label for active market
+      if (cur) {
+        const last = arr[arr.length - 1];
+        ctx.fillStyle = MARKETS[m].col;
+        ctx.beginPath(); ctx.arc(X(arr.length - 1), Y(last), 4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 12px 'Courier New', monospace";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "bottom";
+        ctx.fillText(fmt(last) + "g", X(arr.length - 1) - 8, Y(last) - 6);
+      }
+    }
+
+    // legend
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.font = "11px 'Courier New', monospace";
+    let lx = plotX + 2, ly = 14;
+    for (let m = 0; m < MARKETS.length; m++) {
+      ctx.fillStyle = MARKETS[m].col;
+      ctx.globalAlpha = m === state.market ? 1 : 0.5;
+      ctx.fillRect(lx, ly - 5, 9, 10);
+      ctx.fillStyle = "#c7d3e6";
+      ctx.fillText(MARKETS[m].name, lx + 13, ly + 1);
+      lx += 13 + ctx.measureText(MARKETS[m].name).width + 18;
+      ctx.globalAlpha = 1;
+    }
+
+    // title
+    ctx.fillStyle = "#f5c451";
+    ctx.font = "bold 15px 'Courier New', monospace";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText(GOODS[g].icon + "  " + GOODS[g].name + " — price history", plotX, 6);
+
+    // crosshair tooltip (mouse / touch)
+    if (pointer.active && n > 1 && pointer.x >= plotX && pointer.x <= plotX + plotW) {
+      const idx = Math.round(((pointer.x - plotX) / plotW) * (n - 1));
+      const cx = X(idx);
+      ctx.strokeStyle = "rgba(255,255,255,0.25)";
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(cx, plotY); ctx.lineTo(cx, plotY + plotH); ctx.stroke();
+      ctx.setLineDash([]);
+      let ty = plotY + 4;
+      ctx.font = "12px 'Courier New', monospace";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      for (let m = 0; m < MARKETS.length; m++) {
+        const arr = state.history[m][g];
+        if (idx >= arr.length) continue;
+        ctx.fillStyle = MARKETS[m].col;
+        ctx.fillText(MARKETS[m].name + ": " + fmt(arr[idx]) + "g", cx + 8, ty);
+        ty += 15;
+      }
+    }
+  }
+
+  /* ==================================================================
+     SECTION: GAME LOOP
+     ================================================================== */
+  let acc = 0, lastT = 0, raf = null;
+
+  function loop(t) {
+    raf = requestAnimationFrame(loop);
+    if (!lastT) lastT = t;
+    const dt = t - lastT;
+    lastT = t;
+
+    if (!state.paused && !state.won) {
+      acc += dt;
+      while (acc >= TICK_MS) {
+        acc -= TICK_MS;
+        state.day++;
+        tickPrices();
+        randomEvent();
+        if (state.day % 30 === 0) save();
+      }
+    }
+    updateUI();
+    drawChart();
+  }
+
+  /* ==================================================================
+     SECTION: INPUT & CONTROL HANDLERS
+     ================================================================== */
+  const btnPause = document.getElementById("btnPause");
+  const btnWait = document.getElementById("btnWait");
+  const btnRestart = document.getElementById("btnRestart");
+  const overlay = document.getElementById("overlay");
+  const ovTitle = document.getElementById("ovTitle");
+  const ovSub = document.getElementById("ovSub");
+  const ovScore = document.getElementById("ovScore");
+  const ovStats = document.getElementById("ovStats");
+  const ovBtn = document.getElementById("ovBtn");
+
+  function syncPauseBtn() { btnPause.textContent = state.paused ? "Resume Time" : "Pause Time"; }
+
+  function togglePause() {
+    if (state.won) return;
+    state.paused = !state.paused;
+    syncPauseBtn();
+    beep(state.paused ? 380 : 620, 0.07, "triangle");
+    save();
+  }
+
+  function waitDay() {
+    if (state.won) return;
+    state.day++;
+    tickPrices();
+    randomEvent();
+    save();
+  }
+
+  function showOverlay(win) {
+    ovTitle.textContent = win ? "Empire Secured!" : "Voyage Reset";
+    ovSub.textContent = win
+      ? "Your trading network reached the goal net worth."
+      : "You chose to start a fresh ledger.";
+    ovScore.textContent = fmt(netWorth()) + "g";
+    const tiles = GOODS.map(function (gd, i) {
+      return "<li>" + gd.icon + " " + gd.name + " held: <b>" + state.inventory[i] + "</b></li>";
+    }).join("");
+    ovStats.innerHTML =
+      "<li>Reached on day <b>" + state.day + "</b></li>" +
+      "<li>Barge Lv." + state.upgrades.barge +
+      " · License Lv." + state.upgrades.license +
+      " · Sails Lv." + state.upgrades.sail + "</li>" +
+      tiles;
+    ovBtn.textContent = win ? "Play Again" : "New Game";
+    overlay.classList.add("show");
+  }
+
+  function restart() {
+    try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+    state = newState();
+    acc = 0; lastT = 0;
+    pointer.active = false;
+    syncPauseBtn();
+    overlay.classList.remove("show");
+    flashEl.textContent = "";
+    pushEvent("Day 1 — a new merchant sets sail with " + fmt(START_CASH) + "g", "good");
+    save();
+  }
+
+  btnPause.addEventListener("click", togglePause);
+  btnWait.addEventListener("click", waitDay);
+  btnRestart.addEventListener("click", function () { showOverlay(false); });
+  ovBtn.addEventListener("click", restart);
+
+  // chart pointer (mouse + touch)
+  function canvasPoint(clientX, clientY) {
+    const r = canvas.getBoundingClientRect();
+    return {
+      x: (clientX - r.left) * (CW / r.width),
+      y: (clientY - r.top) * (CH / r.height)
+    };
+  }
+  canvas.addEventListener("mousemove", function (e) {
+    const pt = canvasPoint(e.clientX, e.clientY);
+    pointer.x = pt.x; pointer.y = pt.y; pointer.active = true;
+  });
+  canvas.addEventListener("mouseleave", function () { pointer.active = false; });
+  canvas.addEventListener("touchstart", function (e) {
+    const t = e.touches[0];
+    const pt = canvasPoint(t.clientX, t.clientY);
+    pointer.x = pt.x; pointer.y = pt.y; pointer.active = true;
+  }, { passive: true });
+  canvas.addEventListener("touchmove", function (e) {
+    const t = e.touches[0];
+    const pt = canvasPoint(t.clientX, t.clientY);
+    pointer.x = pt.x; pointer.y = pt.y; pointer.active = true;
+  }, { passive: true });
+  canvas.addEventListener("touchend", function () { pointer.active = false; });
+
+  // keyboard shortcuts
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "Space") { e.preventDefault(); togglePause(); return; }
+    if (e.code === "KeyR") { e.preventDefault(); showOverlay(false); return; }
+    if (e.code === "KeyW") { e.preventDefault(); waitDay(); return; }
+    if (e.key >= "1" && e.key <= "4") {
+      const idx = parseInt(e.key, 10) - 1;
+      if (idx < GOODS.length) { state.selectedGood = idx; save(); }
+    }
+  });
+
+  // pause simulation when tab hidden
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { cancelAnimationFrame(raf); raf = null; lastT = 0; }
+    else if (!raf) { raf = requestAnimationFrame(loop); }
+  });
+
+  /* ==================================================================
+     SECTION: INIT
+     ================================================================== */
+  buildUI();
+  state = load();
+  if (!state) {
+    state = newState();
+    pushEvent("Day 1 — a new merchant sets sail with " + fmt(START_CASH) + "g", "good");
+  }
+  syncPauseBtn();
+  overlay.classList.remove("show");
+  raf = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

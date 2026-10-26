@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Traffic Jam — Slide Puzzle</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 50% 0%, #2b3244 0%, #171a24 55%, #0e1016 100%);
+    color: #eef2f8;
+    padding: 14px;
+    touch-action: manipulation;
+  }
+
+  /* ============ LAYOUT ============ */
+  #app {
+    width: min(96vw, 560px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .game-title {
+    text-align: center;
+    font-size: clamp(1.5rem, 6vw, 2.1rem);
+    letter-spacing: 3px;
+    font-weight: 800;
+    text-transform: uppercase;
+    background: linear-gradient(90deg, #ffd23f, #ff8c42, #e63946);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 2px 0 rgba(0, 0, 0, .25);
+  }
+
+  .game-subtitle {
+    text-align: center;
+    font-size: .82rem;
+    letter-spacing: 1px;
+    color: #8b96ac;
+    margin-top: -6px;
+  }
+
+  /* ============ HUD ============ */
+  .hud {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, #232838, #1c2130);
+    border: 1px solid #333c52;
+    border-radius: 14px;
+    font-size: .85rem;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04);
+  }
+
+  .hud .stat {
+    text-align: center;
+    flex: 1;
+  }
+
+  .hud .stat b {
+    display: block;
+    font-size: 1.15rem;
+    color: #ffd23f;
+    letter-spacing: 1px;
+  }
+
+  .hud .stat span {
+    color: #7c879c;
+    font-size: .68rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+
+  /* ============ BOARD ============ */
+  .board-wrap {
+    position: relative;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 16px 46px rgba(0, 0, 0, .55), inset 0 0 0 1px rgba(255, 255, 255, .05);
+    background: #10131b;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    touch-action: none;
+    cursor: grab;
+  }
+
+  canvas.grabbing {
+    cursor: grabbing;
+  }
+
+  /* ============ SCREENS / OVERLAYS ============ */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 22px;
+    text-align: center;
+    background: rgba(12, 15, 22, .93);
+    backdrop-filter: blur(3px);
+    transition: opacity .25s ease;
+  }
+
+  .screen.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .screen-title {
+    font-size: clamp(1.4rem, 6vw, 2rem);
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #ffd23f;
+  }
+
+  .screen-subtitle {
+    font-size: .88rem;
+    color: #b7c0d2;
+    max-width: 340px;
+    line-height: 1.5;
+  }
+
+  .screen-hint {
+    font-size: .78rem;
+    color: #7c879c;
+    max-width: 360px;
+    line-height: 1.6;
+  }
+
+  .big-result {
+    font-size: 1.35rem;
+    color: #eef2f8;
+  }
+
+  .big-result b {
+    color: #5bd66c;
+  }
+
+  /* ============ BUTTONS ============ */
+  .btn {
+    font-family: inherit;
+    font-size: .95rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 11px 26px;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    color: #1b1200;
+    background: linear-gradient(135deg, #ffd23f, #ff9d2f);
+    box-shadow: 0 5px 16px rgba(255, 160, 40, .35);
+    transition: transform .08s ease, filter .15s ease;
+    user-select: none;
+  }
+
+  .btn:hover { filter: brightness(1.08); }
+  .btn:active { transform: translateY(2px); }
+
+  .btn.ghost {
+    background: linear-gradient(135deg, #2f3749, #262d3d);
+    color: #cfd7e6;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .35);
+    border: 1px solid #3a4459;
+  }
+
+  .btn.ghost:hover { filter: brightness(1.15); }
+
+  .btn:disabled {
+    opacity: .4;
+    cursor: default;
+    filter: grayscale(.4);
+  }
+
+  /* ============ CONTROL BAR ============ */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+
+  .controls .btn {
+    padding: 9px 18px;
+    font-size: .82rem;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1 class="game-title">Traffic Jam</h1>
+  <p class="game-subtitle">Slide the blocks — free the red car</p>
+
+  <div class="hud">
+    <div class="stat"><b id="hudLevel">1 / 13</b><span>Level</span></div>
+    <div class="stat"><b id="hudMoves">0</b><span>Moves</span></div>
+    <div class="stat"><b id="hudBest">—</b><span>Best</span></div>
+  </div>
+
+  <div class="board-wrap">
+    <canvas id="board" width="524" height="480"></canvas>
+
+    <!-- Start Screen -->
+    <div id="startScreen" class="screen">
+      <h2 class="screen-title">Ready to drive?</h2>
+      <p class="screen-subtitle">
+        Cars and trucks are jammed in the lot. Slide them along their
+        length to open a lane so the red car can reach the exit on the right.
+      </p>
+      <p class="screen-hint">
+        Drag a vehicle to slide it, or tap the side you want it to move toward.
+        No turning — blocks only move back and forth along their own axis.
+      </p>
+      <button class="btn" id="startBtn" type="button">Start Game</button>
+    </div>
+
+    <!-- Win Screen -->
+    <div id="winScreen" class="screen hidden">
+      <h2 class="screen-title" id="winTitle">Level Cleared!</h2>
+      <p class="big-result" id="winResult">Moves: <b>0</b></p>
+      <p class="screen-subtitle" id="winSubtitle"></p>
+      <button class="btn" id="nextBtn" type="button">Next Level</button>
+      <button class="btn ghost" id="replayBtn" type="button">Replay Level</button>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn ghost" id="undoBtn" type="button">↶ Undo</button>
+    <button class="btn ghost" id="resetBtn" type="button">⟳ Reset Level</button>
+    <button class="btn ghost" id="prevBtn" type="button">◀ Prev</button>
+    <button class="btn ghost" id="nextLvBtn" type="button">Next ▶</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============ CONSTANTS & LEVEL DATA ============ */
+  const N = 6;                 // grid is N x N
+  const CELL = 80;             // pixels per cell
+  const BOARD = N * CELL;      // drawable square edge
+  const EXIT_ROW = 2;          // red car must reach the right edge of this row
+  const RED = 0;               // index of the red car in every level
+
+  // Each level: list of [x, y, len, dir] ; index 0 is the RED car.
+  // dir is 'h' (moves horizontally) or 'v' (moves vertically).
+  const LEVELS = [
+    [[0, 2, 2, 'h'], [2, 2, 2, 'v']],
+    [[0, 2, 2, 'h'], [2, 2, 2, 'v'], [3, 0, 2, 'v'], [4, 3, 2, 'v'], [5, 0, 2, 'v']],
+    [[0, 2, 2, 'h'], [2, 1, 3, 'v'], [4, 2, 2, 'v']],
+    [[0, 2, 2, 'h'], [2, 0, 2, 'v'], [2, 2, 2, 'v'], [3, 3, 2, 'v'], [4, 0, 3, 'v'], [5, 0, 2, 'v']],
+    [[0, 2, 2, 'h'], [2, 0, 3, 'v'], [3, 3, 3, 'v'], [4, 0, 2, 'v'], [4, 3, 2, 'v'], [5, 1, 3, 'v']],
+    [[0, 2, 2, 'h'], [2, 0, 2, 'v'], [2, 2, 2, 'v'], [3, 4, 2, 'h'], [3, 2, 2, 'v'], [4, 0, 2, 'v'], [5, 4, 2, 'v']],
+    [[0, 2, 2, 'h'], [2, 0, 2, 'v'], [2, 2, 2, 'v'], [3, 0, 2, 'v'], [3, 2, 3, 'v'], [4, 0, 2, 'v'], [4, 4, 2, 'v'], [5, 0, 3, 'v'], [0, 0, 2, 'v']],
+    [[0, 2, 2, 'h'], [2, 2, 2, 'v'], [3, 3, 3, 'h'], [3, 0, 2, 'v'], [5, 0, 3, 'v'], [4, 4, 2, 'v']],
+    [[0, 2, 2, 'h'], [2, 1, 2, 'v'], [2, 3, 3, 'v'], [3, 0, 2, 'v'], [3, 2, 2, 'v'], [4, 0, 3, 'v'], [5, 1, 2, 'v'], [0, 0, 2, 'v'], [5, 3, 2, 'v']],
+    [[0, 2, 2, 'h'], [2, 1, 2, 'v'], [2, 3, 2, 'v'], [3, 1, 3, 'v'], [4, 0, 2, 'v'], [4, 2, 2, 'v'], [5, 0, 3, 'v'], [0, 4, 2, 'h']],
+    [[0, 2, 2, 'h'], [2, 2, 2, 'v'], [2, 4, 2, 'h'], [3, 0, 3, 'v'], [4, 0, 2, 'v'], [4, 2, 2, 'v'], [5, 4, 2, 'v'], [0, 0, 2, 'v']],
+    [[0, 2, 2, 'h'], [2, 2, 2, 'v'], [3, 2, 2, 'v'], [4, 2, 2, 'v'], [2, 4, 2, 'v'], [3, 4, 2, 'v'], [4, 4, 2, 'v'], [5, 2, 3, 'v']],
+    [[0, 2, 2, 'h'], [2, 2, 2, 'v'], [3, 2, 2, 'v'], [3, 4, 2, 'h'], [5, 0, 2, 'v'], [5, 2, 3, 'v'], [4, 0, 3, 'v'], [0, 4, 2, 'h']]
+  ];
+
+  const CAR_COLORS = ['#e63946', '#38b6ff', '#5bd66c', '#b06bff', '#ff8c42',
+    '#ff5c8a', '#38d4c6', '#9aa7b0', '#7ec8e3', '#e0c341', '#f06ab5'];
+
+  /* ============ DOM ELEMENTS ============ */
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const hudLevel = document.getElementById('hudLevel');
+  const hudMoves = document.getElementById('hudMoves');
+  const hudBest = document.getElementById('hudBest');
+  const startScreen = document.getElementById('startScreen');
+  const winScreen = document.getElementById('winScreen');
+  const winTitle = document.getElementById('winTitle');
+  const winResult = document.getElementById('winResult');
+  const winSubtitle = document.getElementById('winSubtitle');
+  const startBtn = document.getElementById('startBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const replayBtn = document.getElementById('replayBtn');
+  const undoBtn = document.getElementById('undoBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextLvBtn = document.getElementById('nextLvBtn');
+
+  /* ============ SAVE / PROGRESS ============ */
+  const SAVE_KEY = 'trafficJamSave';
+  let save = loadSave();
+
+  function loadSave() {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (d && typeof d === 'object') {
+          return { unlocked: d.unlocked || 1, best: d.best || {} };
+        }
+      }
+    } catch (e) { /* ignore corrupt save */ }
+    return { unlocked: 1, best: {} };
+  }
+
+  function persist() {
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* storage off */ }
+  }
+
+  /* ============ SOUND (WebAudio, no assets) ============ */
+  let actx = null;
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || 'square';
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(vol || 0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+
+  /* ============ GAME STATE ============ */
+  let level = 1;              // 1-based
+  let pieces = [];            // { x, y, len, dir, cx, cy, color }
+  let undoStack = [];
+  let moves = 0;
+  let locked = true;          // blocks input until game started / not on overlay
+  let exiting = false;        // red-car drive-out animation running
+  let drag = null;            // active drag descriptor
+
+  /* ============ BOARD HELPERS ============ */
+  function buildGrid() {
+    const g = [];
+    for (let y = 0; y < N; y++) {
+      g.push(new Array(N).fill(-1));
+    }
+    pieces.forEach(function (p, i) {
+      for (let k = 0; k < p.len; k++) {
+        const gx = p.dir === 'h' ? p.x + k : p.x;
+        const gy = p.dir === 'v' ? p.y + k : p.y;
+        g[gy][gx] = i;
+      }
+    });
+    return g;
+  }
+
+  // Free slide range for piece i: min & max value of its origin along its axis.
+  function slideRange(i) {
+    const grid = buildGrid();
+    const p = pieces[i];
+    const horizontal = p.dir === 'h';
+    const origin = horizontal ? p.x : p.y;
+    const cross = horizontal ? p.y : p.x;
+
+    let min = origin;
+    for (let c = origin - 1; c >= 0; c--) {
+      const gx = horizontal ? c : cross;
+      const gy = horizontal ? cross : c;
+      if (grid[gy][gx] === -1 || grid[gy][gx] === i) { min = c; } else { break; }
+    }
+    let max = origin;
+    for (let c = origin + 1; c + p.len - 1 < N; c++) {
+      const gx = horizontal ? c + p.len - 1 : cross;
+      const gy = horizontal ? cross : c + p.len - 1;
+      if (grid[gy][gx] === -1 || grid[gy][gx] === i) { max = c; } else { break; }
+    }
+    return { min: min, max: max };
+  }
+
+  /* ============ LEVEL LOADING ============ */
+  function loadLevel(n) {
+    level = Math.max(1, Math.min(LEVELS.length, n));
+    const data = LEVELS[level - 1];
+    pieces = data.map(function (d, i) {
+      return {
+        x: d[0], y: d[1], len: d[2], dir: d[3],
+        cx: d[0], cy: d[1],
+        color: CAR_COLORS[i % CAR_COLORS.length]
+      };
+    });
+    pieces[RED].color = CAR_COLORS[0];
+    undoStack = [];
+    moves = 0;
+    exiting = false;
+    drag = null;
+    winScreen.classList.add('hidden');
+    updateHUD();
+    updateButtons();
+  }
+
+  function updateHUD() {
+    hudLevel.textContent = level + ' / ' + LEVELS.length;
+    hudMoves.textContent = moves;
+    const b = save.best[level];
+    hudBest.textContent = (b === undefined) ? '—' : b;
+  }
+
+  function updateButtons() {
+    undoBtn.disabled = locked || undoStack.length === 0 || exiting;
+    prevBtn.disabled = level <= 1;
+    nextLvBtn.disabled = level >= Math.min(LEVELS.length, save.unlocked);
+  }
+
+  /* ============ MOVES & UNDO ============ */
+  function commitMove(i, nx, ny) {
+    const p = pieces[i];
+    if (p.x === nx && p.y === ny) return false;
+    undoStack.push({ i: i, x: p.x, y: p.y, moves: moves });
+    p.x = nx;
+    p.y = ny;
+    moves++;
+    beep(440 + (i % 4) * 60, 0.05, 'triangle', 0.04);
+    updateHUD();
+    updateButtons();
+    checkWin();
+    return true;
+  }
+
+  function undo() {
+    if (locked || exiting || undoStack.length === 0) return;
+    const e = undoStack.pop();
+    const p = pieces[e.i];
+    p.x = e.x;
+    p.y = e.y;
+    moves = e.moves;
+    beep(300, 0.05, 'sine', 0.04);
+    updateHUD();
+    updateButtons();
+  }
+
+  function resetLevel() {
+    if (exiting) return;
+    loadLevel(level);
+    beep(330, 0.07, 'sine', 0.04);
+  }
+
+  /* ============ WIN CONDITION ============ */
+  function checkWin() {
+    if (pieces[RED].x === N - 2) {
+      exiting = true;
+      drag = null;
+      beep(660, 0.12, 'square', 0.06);
+      setTimeout(function () { beep(880, 0.14, 'square', 0.06); }, 130);
+      updateButtons();
+    }
+  }
+
+  function finishWin() {
+    exiting = false;
+    const b = save.best[level];
+    const isRecord = (b === undefined || moves < b);
+    if (isRecord) { save.best[level] = moves; }
+    if (level >= save.unlocked && level < LEVELS.length) {
+      save.unlocked = level + 1;
+    }
+    persist();
+    updateHUD();
+    updateButtons();
+
+    const last = level >= LEVELS.length;
+    winTitle.textContent = last ? 'All Levels Cleared!' : 'Level Cleared!';
+    winResult.innerHTML = 'Moves: <b>' + moves + '</b>';
+    if (isRecord) {
+      winSubtitle.textContent = b === undefined ? 'First solve on this level!' : 'New best score!';
+    } else {
+      winSubtitle.textContent = 'Best so far: ' + b + ' moves.';
+    }
+    nextBtn.textContent = last ? 'Back to Level 1' : 'Next Level';
+    winScreen.classList.remove('hidden');
+  }
+
+  /* ============ INPUT (drag + tap) ============ */
+  function pointerBoard(e) {
+    const rect = canvas.getBoundingClientRect();
+    const sx = canvas.width / rect.width;
+    const sy = canvas.height / rect.height;
+    return {
+      bx: (e.clientX - rect.left) * sx,
+      by: (e.clientY - rect.top) * sy
+    };
+  }
+
+  function pieceAt(bx, by) {
+    const gx = Math.floor(bx / CELL);
+    const gy = Math.floor(by / CELL);
+    if (gx < 0 || gx >= N || gy < 0 || gy >= N) return -1;
+    const grid = buildGrid();
+    return grid[gy][gx];
+  }
+
+  canvas.addEventListener('pointerdown', function (e) {
+    if (locked || exiting) return;
+    const pt = pointerBoard(e);
+    const i = pieceAt(pt.bx, pt.by);
+    if (i < 0) return;
+    const p = pieces[i];
+    const range = slideRange(i);
+    drag = {
+      i: i,
+      pointerId: e.pointerId,
+      startBx: pt.bx,
+      startBy: pt.by,
+      startX: p.x,
+      startY: p.y,
+      snapped: 0,
+      moved: false,
+      range: range
+    };
+    canvas.classList.add('grabbing');
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    e.preventDefault();
+  });
+
+  canvas.addEventListener('pointermove', function (e) {
+    if (!drag || e.pointerId !== drag.pointerId || exiting) return;
+    const p = pieces[drag.i];
+    const horizontal = p.dir === 'h';
+    const pt = pointerBoard(e);
+    const rawCells = horizontal
+      ? (pt.bx - drag.startBx) / CELL
+      : (pt.by - drag.startBy) / CELL;
+    const origin = horizontal ? drag.startX : drag.startY;
+    const loOff = drag.range.min - origin;
+    const hiOff = drag.range.max - origin;
+    let off = Math.round(rawCells);
+    off = Math.max(loOff, Math.min(hiOff, off));
+    drag.snapped = off;
+    if (off !== 0) drag.moved = true;
+    if (horizontal) { p.cx = drag.startX + off; }
+    else { p.cy = drag.startY + off; }
+    e.preventDefault();
+  });
+
+  function endDrag(e) {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    const d = drag;
+    drag = null;
+    canvas.classList.remove('grabbing');
+    const p = pieces[d.i];
+
+    if (d.snapped !== 0) {
+      // Commit the slide
+      if (p.dir === 'h') { commitMove(d.i, d.startX + d.snapped, d.startY); }
+      else { commitMove(d.i, d.startX, d.startY + d.snapped); }
+    } else if (!d.moved) {
+      // Treated as a tap: nudge one cell toward the tapped side
+      handleTap(d, e);
+    } else {
+      // Dragged but snapped back to origin
+      p.cx = d.startX;
+      p.cy = d.startY;
+    }
+    updateButtons();
+  }
+
+  function handleTap(d, e) {
+    const p = pieces[d.i];
+    const horizontal = p.dir === 'h';
+    const pt = pointerBoard(e);
+    const center = horizontal ? (d.startX + p.len / 2) : (d.startY + p.len / 2);
+    const tapPos = horizontal ? (pt.bx / CELL) : (pt.by / CELL);
+    let dir = tapPos >= center ? 1 : -1;
+
+    const tryMove = function (step) {
+      const origin = horizontal ? p.x : p.y;
+      const target = origin + step;
+      if (target < d.range.min || target > d.range.max) return false;
+      if (horizontal) { commitMove(d.i, target, p.y); } else { commitMove(d.i, p.x, target); }
+      return true;
+    };
+
+    if (!tryMove(dir)) { tryMove(-dir); }
+    p.cx = p.x;
+    p.cy = p.y;
+  }
+
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+
+  /* ============ RENDERING ============ */
+  function roundRect(x, y, w, h, r) {
+    const rr = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x, y + h, rr);
+    ctx.arcTo(x, y + h, x, y, rr);
+    ctx.arcTo(x, y, x + w, y, rr);
+    ctx.closePath();
+  }
+
+  function drawBackdrop() {
+    // Asphalt field
+    const g = ctx.createLinearGradient(0, 0, 0, BOARD);
+    g.addColorStop(0, '#2a3040');
+    g.addColorStop(1, '#1a1f2b');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, BOARD, BOARD);
+
+    // Cell grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.055)';
+    ctx.lineWidth = 1;
+    for (let i = 1; i < N; i++) {
+      ctx.beginPath(); ctx.moveTo(i * CELL, 0); ctx.lineTo(i * CELL, BOARD); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i * CELL); ctx.lineTo(BOARD, i * CELL); ctx.stroke();
+    }
+
+    // Exit lane glow behind the goal row
+    const eg = ctx.createLinearGradient(BOARD - CELL, 0, BOARD, 0);
+    eg.addColorStop(0, 'rgba(91,214,108,0)');
+    eg.addColorStop(1, 'rgba(91,214,108,0.16)');
+    ctx.fillStyle = eg;
+    ctx.fillRect(BOARD - CELL, EXIT_ROW * CELL, CELL, CELL);
+
+    // Frame border with an opening on the exit row
+    ctx.strokeStyle = '#4a5570';
+    ctx.lineWidth = 7;
+    ctx.lineCap = 'round';
+    const inset = 3.5;
+    ctx.beginPath(); ctx.moveTo(inset, inset); ctx.lineTo(BOARD - inset, inset); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(inset, inset); ctx.lineTo(inset, BOARD - inset); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(inset, BOARD - inset); ctx.lineTo(BOARD - inset, BOARD - inset); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(BOARD - inset, inset); ctx.lineTo(BOARD - inset, EXIT_ROW * CELL); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(BOARD - inset, (EXIT_ROW + 1) * CELL); ctx.lineTo(BOARD - inset, BOARD - inset); ctx.stroke();
+
+    // Checkered exit strip + arrow
+    const ex = BOARD - 24;
+    const ey = EXIT_ROW * CELL + 6;
+    const eh = CELL - 12;
+    const sq = eh / 4;
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 2; c++) {
+        ctx.fillStyle = ((r + c) % 2 === 0) ? '#e9eef7' : '#44506c';
+        ctx.fillRect(ex + c * sq, ey + r * sq, sq, sq);
+      }
+    }
+    // Arrow
+    ctx.fillStyle = '#ffd23f';
+    const ay = EXIT_ROW * CELL + CELL / 2;
+    ctx.beginPath();
+    ctx.moveTo(BOARD + 6, ay - 16);
+    ctx.lineTo(BOARD + 30, ay);
+    ctx.lineTo(BOARD + 6, ay + 16);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#8b96ac';
+    ctx.font = 'bold 11px Trebuchet MS, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('EXIT', BOARD + 20, ay + 34);
+  }
+
+  function drawVehicle(p, isRed) {
+    const px = p.cx * CELL;
+    const py = p.cy * CELL;
+    const w = (p.dir === 'h' ? p.len : 1) * CELL;
+    const h = (p.dir === 'v' ? p.len : 1) * CELL;
+    const inset = 6;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    roundRect(px + inset + 2, py + inset + 4, w - inset * 2, h - inset * 2, 14);
+    ctx.fill();
+
+    // Body
+    const bg = ctx.createLinearGradient(px, py, px + (p.dir === 'v' ? w : 0), py + h);
+    bg.addColorStop(0, lighten(p.color, 0.28));
+    bg.addColorStop(1, lighten(p.color, -0.14));
+    ctx.fillStyle = bg;
+    roundRect(px + inset, py + inset, w - inset * 2, h - inset * 2, 14);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Roof / cabin panel
+    const cabInset = 20;
+    ctx.fillStyle = 'rgba(15,20,32,0.28)';
+    roundRect(px + cabInset, py + cabInset, w - cabInset * 2, h - cabInset * 2, 10);
+    ctx.fill();
+
+    // Windshield stripe near the leading edge (facing the exit direction for red)
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+    if (p.dir === 'h') {
+      roundRect(px + w - 30, py + inset + 6, 14, h - inset * 2 - 12, 6);
+      ctx.fill();
+    } else {
+      roundRect(px + inset + 6, py + h - 30, w - inset * 2 - 12, 14, 6);
+      ctx.fill();
+    }
+
+    // Headlights at both ends
+    ctx.fillStyle = '#ffe9a8';
+    if (p.dir === 'h') {
+      ctx.beginPath(); ctx.arc(px + inset + 7, py + inset + 7, 3.4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(px + inset + 7, py + h - inset - 7, 3.4, 0, Math.PI * 2); ctx.fill();
+    } else {
+      ctx.beginPath(); ctx.arc(px + inset + 7, py + inset + 7, 3.4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(px + w - inset - 7, py + inset + 7, 3.4, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Wheels along the long edges
+    ctx.fillStyle = '#12151c';
+    const wheel = 12;
+    const off = 10;
+    if (p.dir === 'h') {
+      [px + 20, px + w - 20 - wheel].forEach(function (wx) {
+        roundRect(wx, py + off, wheel, 8, 3); ctx.fill();
+        roundRect(wx, py + h - off - 8, wheel, 8, 3); ctx.fill();
+      });
+    } else {
+      [py + 20, py + h - 20 - wheel].forEach(function (wy) {
+        roundRect(px + off, wy, 8, wheel, 3); ctx.fill();
+        roundRect(px + w - off - 8, wy, 8, wheel, 3); ctx.fill();
+      });
+    }
+
+    // Red car: direction chevrons pointing right
+    if (isRed) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      const cyMid = py + h / 2;
+      [px + 24, px + w - 40].forEach(function (cx0, idx) {
+        ctx.beginPath();
+        ctx.moveTo(cx0, cyMid - 8);
+        ctx.lineTo(cx0 + 9, cyMid);
+        ctx.lineTo(cx0, cyMid + 8);
+        ctx.stroke();
+      });
+    }
+  }
+
+  function lighten(hex, amt) {
+    const c = hex.replace('#', '');
+    let r = parseInt(c.substring(0, 2), 16);
+    let g = parseInt(c.substring(2, 4), 16);
+    let b = parseInt(c.substring(4, 6), 16);
+    if (amt >= 0) {
+      r = Math.round(r + (255 - r) * amt);
+      g = Math.round(g + (255 - g) * amt);
+      b = Math.round(b + (255 - b) * amt);
+    } else {
+      const f = 1 + amt;
+      r = Math.round(r * f); g = Math.round(g * f); b = Math.round(b * f);
+    }
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawBackdrop();
+    // Draw non-red first, red last (stays on top)
+    pieces.forEach(function (p, i) { if (i !== RED) drawVehicle(p, false); });
+    if (pieces[RED]) drawVehicle(pieces[RED], true);
+  }
+
+  /* ============ ANIMATION LOOP ============ */
+  function tick() {
+    pieces.forEach(function (p, i) {
+      const isDragged = drag && drag.i === i;
+      const isExitingRed = exiting && i === RED;
+      if (!isDragged && !isExitingRed) {
+        p.cx += (p.x - p.cx) * 0.28;
+        if (Math.abs(p.x - p.cx) < 0.002) p.cx = p.x;
+        p.cy += (p.y - p.cy) * 0.28;
+        if (Math.abs(p.y - p.cy) < 0.002) p.cy = p.y;
+      }
+    });
+
+    if (exiting && pieces[RED]) {
+      pieces[RED].cx += 0.14;
+      if (pieces[RED].cx >= 6.6 && !pieces[RED]._done) {
+        pieces[RED]._done = true;
+        finishWin();
+        pieces[RED]._done = false;
+      }
+    }
+
+    render();
+    requestAnimationFrame(tick);
+  }
+
+  /* ============ BUTTON WIRING ============ */
+  startBtn.addEventListener('click', function () {
+    locked = false;
+    startScreen.classList.add('hidden');
+    loadLevel(1);
+    updateButtons();
+    beep(520, 0.09, 'square', 0.05);
+  });
+
+  nextBtn.addEventListener('click', function () {
+    winScreen.classList.add('hidden');
+    if (level >= LEVELS.length) { loadLevel(1); }
+    else { loadLevel(level + 1); }
+    updateButtons();
+  });
+
+  replayBtn.addEventListener('click', function () {
+    winScreen.classList.add('hidden');
+    loadLevel(level);
+    updateButtons();
+  });
+
+  undoBtn.addEventListener('click', undo);
+  resetBtn.addEventListener('click', resetLevel);
+
+  prevBtn.addEventListener('click', function () {
+    if (exiting || level <= 1) return;
+    loadLevel(level - 1);
+    updateButtons();
+  });
+
+  nextLvBtn.addEventListener('click', function () {
+    if (exiting) return;
+    const maxUnlocked = Math.min(LEVELS.length, save.unlocked);
+    if (level >= maxUnlocked) return;
+    loadLevel(level + 1);
+    updateButtons();
+  });
+
+  window.addEventListener('keydown', function (e) {
+    if (e.key === 'z' || e.key === 'Z') { undo(); }
+    else if (e.key === 'r' || e.key === 'R') { resetLevel(); }
+  });
+
+  /* ============ BOOT ============ */
+  loadLevel(1);
+  updateButtons();
+  tick();
+})();
+</script>
+</body>
+</html>

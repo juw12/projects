@@ -1,0 +1,1179 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>ðŸ›« Airport Tycoon</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #dbeafe 0%, #eef6ff 45%, #f7fbff 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 16px;
+      touch-action: manipulation;
+    }
+    /* ============ LAYOUT ============ */
+    .game-container {
+      background: rgba(255, 255, 255, 0.94);
+      border-radius: 22px;
+      padding: 18px;
+      box-shadow: 0 14px 48px rgba(30, 60, 110, 0.2);
+      max-width: 860px;
+      width: 100%;
+    }
+    .game-title {
+      text-align: center;
+      font-size: 1.75rem;
+      color: #245e9c;
+      margin-bottom: 2px;
+      text-shadow: 2px 2px 0 #e9f2ff;
+    }
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.82rem;
+      color: #7c8ba6;
+      margin-bottom: 12px;
+    }
+    /* ============ HUD ============ */
+    .hud {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+      gap: 7px;
+      margin-bottom: 10px;
+    }
+    .hud-cell {
+      background: linear-gradient(135deg, #f1f7ff, #e4eeff);
+      border-radius: 10px;
+      padding: 6px 8px;
+      text-align: center;
+      border: 1px solid #d5e5fb;
+    }
+    .hud-cell .label { font-size: 0.63rem; color: #8299b8; text-transform: uppercase; letter-spacing: 0.4px; }
+    .hud-cell .value { font-size: 1.05rem; font-weight: 700; color: #245e9c; }
+    .hud-cell .value.good { color: #1f9d55; }
+    .hud-cell .value.warn { color: #c9781f; }
+    .hud-cell .value.bad  { color: #cf4444; }
+    /* ============ OBJECTIVE BAR ============ */
+    .objective {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(135deg, #fff7e4, #ffeec6);
+      border: 1px solid #ffe1a4;
+      border-radius: 10px;
+      padding: 7px 12px;
+      font-size: 0.8rem;
+      color: #9a6a12;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    .objective .reward { color: #1f9d55; }
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 6px 22px rgba(30, 60, 110, 0.16);
+      background: #86c06a;
+      cursor: crosshair;
+    }
+    canvas { display: block; width: 100%; height: auto; }
+    /* ============ TOOLBAR ============ */
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 11px;
+      justify-content: center;
+    }
+    .tool-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 70px;
+      padding: 7px 9px;
+      border: 2px solid #d5e5fb;
+      background: #fff;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-size: 0.7rem;
+      color: #55688a;
+      font-weight: 600;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tool-btn .ico { font-size: 1.3rem; line-height: 1; margin-bottom: 2px; }
+    .tool-btn .cost { font-size: 0.62rem; color: #90a2bf; font-weight: 500; }
+    .tool-btn:hover { transform: translateY(-2px); border-color: #a9c6f0; }
+    .tool-btn.selected {
+      background: linear-gradient(135deg, #4f8ae0, #245e9c);
+      color: #fff;
+      border-color: #245e9c;
+      box-shadow: 0 5px 14px rgba(36, 94, 156, 0.35);
+    }
+    .tool-btn.selected .cost { color: #d6e6ff; }
+    /* ============ ACTION BUTTONS ============ */
+    .actions {
+      display: flex;
+      gap: 9px;
+      justify-content: center;
+      margin-top: 11px;
+      flex-wrap: wrap;
+    }
+    .action-btn {
+      padding: 9px 22px;
+      background: linear-gradient(135deg, #4f8ae0, #245e9c);
+      color: #fff;
+      border: none;
+      border-radius: 22px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      box-shadow: 0 4px 12px rgba(36, 94, 156, 0.3);
+    }
+    .action-btn:hover { transform: translateY(-2px); }
+    .action-btn:active { transform: translateY(0); }
+    .action-btn.ghost {
+      background: #fff;
+      color: #245e9c;
+      border: 2px solid #b6ccf2;
+      box-shadow: none;
+    }
+    /* ============ BANNER ============ */
+    .banner {
+      margin-top: 11px;
+      text-align: center;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #9a6a12;
+      background: linear-gradient(135deg, #fff6e0, #ffeec2);
+      border: 1px solid #ffe0a0;
+      border-radius: 12px;
+      padding: 9px;
+      opacity: 0;
+      transition: opacity 0.35s ease;
+      min-height: 18px;
+    }
+    .banner.show { opacity: 1; }
+    /* ============ SCREENS (Start / Over) ============ */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+      background: rgba(240, 247, 255, 0.96);
+      transition: opacity 0.3s ease;
+      z-index: 5;
+    }
+    .screen.hidden { opacity: 0; pointer-events: none; }
+    .screen-title {
+      font-size: 1.7rem;
+      color: #245e9c;
+      margin-bottom: 8px;
+      text-shadow: 2px 2px 0 #fff;
+    }
+    .screen-text {
+      font-size: 0.86rem;
+      color: #5a6b85;
+      line-height: 1.6;
+      max-width: 480px;
+      margin-bottom: 16px;
+    }
+    .screen-text b { color: #245e9c; }
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 560px) {
+      .game-title { font-size: 1.35rem; }
+      .game-container { padding: 11px; }
+      .tool-btn { min-width: 56px; padding: 5px; font-size: 0.6rem; }
+      .tool-btn .ico { font-size: 1.05rem; }
+      .screen-text { font-size: 0.78rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">ðŸ›« Airport Tycoon</h1>
+    <p class="game-subtitle">Build the field â€¢ route the traffic â€¢ grow the hub</p>
+    <!-- ============ HUD ============ -->
+    <div class="hud">
+      <div class="hud-cell"><div class="label">Cash</div><div class="value" id="hudCash">$0</div></div>
+      <div class="hud-cell"><div class="label">Day</div><div class="value" id="hudDay">1</div></div>
+      <div class="hud-cell"><div class="label">Flights</div><div class="value" id="hudFlights">0</div></div>
+      <div class="hud-cell"><div class="label">Passengers</div><div class="value" id="hudPax">0</div></div>
+      <div class="hud-cell"><div class="label">Reputation</div><div class="value" id="hudRep">80%</div></div>
+      <div class="hud-cell"><div class="label">Weather</div><div class="value" id="hudWeather">Clear</div></div>
+    </div>
+    <!-- ============ OBJECTIVE ============ -->
+    <div class="objective">
+      <span id="objText">Daily objectiveâ€¦</span>
+      <span class="reward" id="objReward">+$0</span>
+    </div>
+    <!-- ============ CANVAS ============ -->
+    <div class="canvas-wrapper" id="canvasWrap">
+      <canvas id="gameCanvas" width="768" height="512"></canvas>
+      <!-- Start screen -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">Welcome, Director âœˆï¸</h2>
+        <p class="screen-text">
+          You run a small regional field. <b>Build runways</b> for aircraft to land,
+          <b>taxiways</b> to move them, and <b>gates</b> to park and load passengers.
+          Add a <b>control tower</b> to raise traffic and cut delays.<br><br>
+          Every flight earns <b>landing fees</b>, <b>ticket revenue</b> and <b>departure fees</b>.
+          Keep aircraft moving â€” long holding queues hurt your reputation.<br><br>
+          <b>Click / drag</b> on the field to build with the selected tool.
+        </p>
+        <button class="action-btn" id="startBtn">Start Operating</button>
+      </div>
+      <!-- Game over / win screen -->
+      <div id="overScreen" class="screen hidden">
+        <h2 class="screen-title" id="overTitle">Airport Closed</h2>
+        <p class="screen-text" id="overText"></p>
+        <button class="action-btn" id="againBtn">Run It Again</button>
+      </div>
+    </div>
+    <!-- ============ TOOLBAR ============ -->
+    <div class="toolbar" id="toolbar">
+      <button class="tool-btn" data-tool="runway"><span class="ico">ðŸ›«</span><span>Runway</span><span class="cost">$400</span></button>
+      <button class="tool-btn selected" data-tool="taxiway"><span class="ico">ðŸ›£ï¸</span><span>Taxiway</span><span class="cost">$80</span></button>
+      <button class="tool-btn" data-tool="gate"><span class="ico">ðŸ›ƒ</span><span>Gate</span><span class="cost">$900</span></button>
+      <button class="tool-btn" data-tool="tower"><span class="ico">ðŸ—¼</span><span>Tower</span><span class="cost">$1500</span></button>
+      <button class="tool-btn" data-tool="bulldoze"><span class="ico">ðŸšœ</span><span>Bulldoze</span><span class="cost">$50</span></button>
+    </div>
+    <!-- ============ ACTIONS ============ -->
+    <div class="actions">
+      <button class="action-btn" id="restartBtn">â†» New Airport</button>
+      <button class="action-btn ghost" id="saveBtn">ðŸ’¾ Save</button>
+      <button class="action-btn ghost" id="pauseBtn">â¸ Pause</button>
+    </div>
+    <div class="banner" id="banner"></div>
+  </div>
+  <script>
+// ==== CONFIG ====
+    const CELL = 32;
+    const COLS = 24;
+    const ROWS = 16;
+    const W = COLS * CELL;   // 768
+    const H = ROWS * CELL;   // 512
+    const START_CASH = 6000;
+    const DAY_SECONDS = 32;          // real seconds per operating day
+    const SCHED_STEP = 0.2;          // traffic scheduler cadence
+    const DIVERT_TIME = 26;          // seconds a holding aircraft will wait
+    const REP_START = 80;
+    const WIN_FLIGHTS = 60;          // complete this many flights to reach hub status
+    // Tile types
+    const T = { EMPTY: 0, RUNWAY: 1, TAXIWAY: 2, GATE: 3, TOWER: 4 };
+    const BUILD = {
+      runway:   { type: T.RUNWAY,  cost: 400,  label: 'Runway' },
+      taxiway:  { type: T.TAXIWAY, cost: 80,   label: 'Taxiway' },
+      gate:     { type: T.GATE,    cost: 900,  label: 'Gate' },
+      tower:    { type: T.TOWER,   cost: 1500, label: 'Tower' },
+      bulldoze: { type: -1,        cost: 50,   label: 'Bulldoze' }
+    };
+    // Aircraft classes (original, generic)
+    const PLANE_TYPES = [
+      { name: 'Light',  pax: 40,  fee: 130, dep: 90,  speed: 78, dwell: 6,  weight: 50, color: '#7ec8e3', size: 1.0 },
+      { name: 'Narrow', pax: 150, fee: 280, dep: 170, speed: 64, dwell: 9,  weight: 34, color: '#eef2f6', size: 1.4 },
+      { name: 'Wide',   pax: 320, fee: 520, dep: 300, speed: 50, dwell: 13, weight: 16, color: '#d7dde4', size: 1.85 }
+    ];
+    const WEATHERS = {
+      Clear:  { speed: 1.0, landing: true,  traffic: 0.85, color: '#4f9ee8' },
+      Cloudy: { speed: 1.0, landing: true,  traffic: 0.95, color: '#8b98a6' },
+      Rain:   { speed: 0.8, landing: true,  traffic: 1.05, color: '#5a7fa8' },
+      Fog:    { speed: 0.65, landing: true, traffic: 1.35, color: '#a7adb4' },
+      Storm:  { speed: 0.5, landing: false, traffic: 2.1,  color: '#3d4b5c' }
+    };
+    const WEATHER_POOL = ['Clear', 'Clear', 'Cloudy', 'Rain', 'Fog', 'Storm'];
+    const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+// ==== STATE ====
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    let grid = [];                  // grid[y][x] = tile type
+    let cash = START_CASH;
+    let reputation = REP_START;
+    let day = 1;
+    let dayTimer = 0;
+    let weather = 'Clear';
+    let planes = [];
+    let flightCounter = 1;
+    let flightsCompleted = 0;
+    let passengersServed = 0;
+    let dailyFlights = 0;
+    let dailyEarned = 0;
+    let delayedFlights = 0;
+    let objective = null;
+    let runways = [];               // detected runway groups
+    let runwayByCell = {};          // "x,y" -> runway
+    let busyRunways = new Set();    // runway keys in use
+    let occupiedGates = new Set();  // "x,y" gate keys in use
+    let currentTool = 'taxiway';
+    let hover = { x: -1, y: -1 };
+    let isPainting = false;
+    let paused = false;
+    let running = false;
+    let over = false;
+    let lastTime = 0;
+    let schedTimer = 0;
+    let spawnTimer = 3;
+    let hudTimer = 0;
+    let clock = 0;                  // animation clock
+// ==== DOM ====
+    const hudCash = document.getElementById('hudCash');
+    const hudDay = document.getElementById('hudDay');
+    const hudFlights = document.getElementById('hudFlights');
+    const hudPax = document.getElementById('hudPax');
+    const hudRep = document.getElementById('hudRep');
+    const hudWeather = document.getElementById('hudWeather');
+    const objText = document.getElementById('objText');
+    const objReward = document.getElementById('objReward');
+    const banner = document.getElementById('banner');
+    const startScreen = document.getElementById('startScreen');
+    const overScreen = document.getElementById('overScreen');
+    const overTitle = document.getElementById('overTitle');
+    const overText = document.getElementById('overText');
+    const startBtn = document.getElementById('startBtn');
+    const againBtn = document.getElementById('againBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const toolBtns = document.querySelectorAll('.tool-btn');
+// ==== AUDIO (WebAudio beep) ====
+    let audioCtx = null;
+    function beep(freq = 440, dur = 0.08, type = 'sine', vol = 0.05) {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.value = vol;
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+        osc.stop(audioCtx.currentTime + dur);
+      } catch (e) { /* audio optional */ }
+    }
+// ==== HELPERS ====
+    function inBounds(x, y) { return x >= 0 && x < COLS && y >= 0 && y < ROWS; }
+    function cellKey(x, y) { return x + ',' + y; }
+    function typeAt(x, y) { return inBounds(x, y) ? grid[y][x] : -1; }
+    function emptyGrid() {
+      const g = [];
+      for (let y = 0; y < ROWS; y++) g.push(new Array(COLS).fill(T.EMPTY));
+      return g;
+    }
+    function countTiles(type) {
+      let n = 0;
+      for (let y = 0; y < ROWS; y++)
+        for (let x = 0; x < COLS; x++) if (grid[y][x] === type) n++;
+      return n;
+    }
+// ==== RUNWAY DETECTION  (contiguous straight runs of length >= 3) ====
+    function addRunway(cells, orient) {
+      const key = cells[0].x + ',' + cells[0].y + '|' + orient + '|' + cells.length;
+      const rw = { key, cells, orient };
+      runways.push(rw);
+      cells.forEach(c => { runwayByCell[cellKey(c.x, c.y)] = rw; });
+    }
+    function recomputeRunways() {
+      runways = [];
+      runwayByCell = {};
+      // horizontal runs
+      for (let y = 0; y < ROWS; y++) {
+        let x = 0;
+        while (x < COLS) {
+          if (grid[y][x] === T.RUNWAY) {
+            const x0 = x;
+            while (x < COLS && grid[y][x] === T.RUNWAY) x++;
+            const len = x - x0;
+            if (len >= 3) {
+              const cells = [];
+              for (let i = x0; i < x; i++) cells.push({ x: i, y });
+              addRunway(cells, 'h');
+            }
+          } else x++;
+        }
+      }
+      // vertical runs
+      for (let x = 0; x < COLS; x++) {
+        let y = 0;
+        while (y < ROWS) {
+          if (grid[y][x] === T.RUNWAY && !runwayByCell[cellKey(x, y)]) {
+            const y0 = y;
+            while (y < ROWS && grid[y][x] === T.RUNWAY) y++;
+            const len = y - y0;
+            if (len >= 3) {
+              const cells = [];
+              for (let i = y0; i < y; i++) cells.push({ x, y: i });
+              addRunway(cells, 'v');
+            }
+          } else y++;
+        }
+      }
+      busyRunways = new Set();
+    }
+    function pickFreeRunway() {
+      let best = null;
+      for (const rw of runways) {
+        if (busyRunways.has(rw.key)) continue;
+        if (!best || rw.cells.length > best.cells.length) best = rw;
+      }
+      return best;
+    }
+    function towerCount() { return countTiles(T.TOWER); }
+// ==== PATHFINDING (BFS over taxiway / runway / gate network) ====
+    function bfs(start, goalTest) {
+      const q = [start];
+      const seen = new Set([cellKey(start.x, start.y)]);
+      const prev = {};
+      while (q.length) {
+        const c = q.shift();
+        if (!(c.x === start.x && c.y === start.y) && goalTest(c)) {
+          const path = [];
+          let cur = c;
+          while (cur) { path.unshift(cur); cur = prev[cellKey(cur.x, cur.y)]; }
+          return path;
+        }
+        for (const [dx, dy] of DIRS) {
+          const nx = c.x + dx, ny = c.y + dy;
+          if (!inBounds(nx, ny)) continue;
+          const t = grid[ny][nx];
+          if (t !== T.TAXIWAY && t !== T.RUNWAY && t !== T.GATE) continue;
+          const k = cellKey(nx, ny);
+          if (seen.has(k)) continue;
+          seen.add(k);
+          prev[k] = { x: c.x, y: c.y };
+          q.push({ x: nx, y: ny });
+        }
+      }
+      return null;
+    }
+// ==== AIRCRAFT MOVEMENT PRIMITIVES ====
+    function setPath(p, cells) {
+      p.path = cells;
+      p.idx = 1;
+      p.cx = cells[0].x; p.cy = cells[0].y;
+      p.prog = 0;
+      if (cells.length > 1) { p.tx = cells[1].x; p.ty = cells[1].y; }
+      else { p.tx = p.cx; p.ty = p.cy; }
+      p.x = (p.cx + 0.5) * CELL;
+      p.y = (p.cy + 0.5) * CELL;
+    }
+    // returns true when the whole path has been traversed
+    function stepMove(p, dtSec, speed) {
+      if (!p.path || p.idx >= p.path.length) return true;
+      p.prog += (speed * dtSec) / CELL;
+      while (p.prog >= 1 && p.idx < p.path.length) {
+        p.prog -= 1;
+        p.cx = p.tx; p.cy = p.ty;
+        p.idx++;
+        if (p.idx < p.path.length) { p.tx = p.path[p.idx].x; p.ty = p.path[p.idx].y; }
+      }
+      if (p.idx >= p.path.length) {
+        p.x = (p.cx + 0.5) * CELL;
+        p.y = (p.cy + 0.5) * CELL;
+        return true;
+      }
+      const t = Math.min(p.prog, 1);
+      p.x = (p.cx + (p.tx - p.cx) * t + 0.5) * CELL;
+      p.y = (p.cy + (p.ty - p.cy) * t + 0.5) * CELL;
+      p.angle = Math.atan2(p.ty - p.cy, p.tx - p.cx);
+      return false;
+    }
+// ==== AIRCRAFT LIFECYCLE ====
+    function pickPlaneType() {
+      let total = 0;
+      for (const t of PLANE_TYPES) total += t.weight;
+      let r = Math.random() * total;
+      for (const t of PLANE_TYPES) { r -= t.weight; if (r <= 0) return t; }
+      return PLANE_TYPES[0];
+    }
+    function spawnFlight() {
+      const holding = planes.filter(p => p.state === 'hold').length;
+      const maxHolding = 4 + towerCount() * 2;
+      if (holding >= maxHolding) return;
+      const type = pickPlaneType();
+      planes.push({
+        type,
+        state: 'hold',
+        wait: 0,
+        dwell: 0,
+        path: null, idx: 0, cx: 0, cy: 0, tx: 0, ty: 0, prog: 0,
+        x: -40, y: -40,
+        angle: 0,
+        gateKey: null,
+        runwayKey: null,
+        flight: 'PF' + String(flightCounter++).padStart(3, '0')
+      });
+    }
+    function startLanding(p, rw) {
+      const c0 = rw.cells[0], c1 = rw.cells[1];
+      const approach = { x: c0.x + (c0.x - c1.x), y: c0.y + (c0.y - c1.y) };
+      setPath(p, [approach].concat(rw.cells));
+      p.state = 'land';
+    }
+    function assignGate(p) {
+      const start = { x: p.cx, y: p.cy };
+      const path = bfs(start, c => grid[c.y][c.x] === T.GATE && !occupiedGates.has(cellKey(c.x, c.y)));
+      if (!path) return false;
+      const g = path[path.length - 1];
+      occupiedGates.add(cellKey(g.x, g.y));
+      p.gateKey = cellKey(g.x, g.y);
+      setPath(p, path);
+      p.state = 'taxi';
+      return true;
+    }
+    function assignRunwayOut(p) {
+      const rw = pickFreeRunway();
+      if (!rw) return false;
+      const path = bfs({ x: p.cx, y: p.cy }, c => {
+        const t = grid[c.y][c.x];
+        if (t !== T.RUNWAY) return false;
+        const r = runwayByCell[cellKey(c.x, c.y)];
+        return r && !busyRunways.has(r.key);
+      });
+      if (!path) return false;
+      const rc = path[path.length - 1];
+      const r = runwayByCell[cellKey(rc.x, rc.y)];
+      busyRunways.add(r.key);
+      p.runwayKey = r.key;
+      if (p.gateKey) { occupiedGates.delete(p.gateKey); p.gateKey = null; }
+      setPath(p, path);
+      p.state = 'taxiOut';
+      return true;
+    }
+    function startTakeoff(p) {
+      const rc = { x: p.cx, y: p.cy };
+      const r = runwayByCell[cellKey(rc.x, rc.y)];
+      if (!r) { p.state = 'gone'; return; }
+      const idx = r.cells.findIndex(c => c.x === rc.x && c.y === rc.y);
+      const fwd = r.cells.length - 1 - idx;
+      const back = idx;
+      const tour = (fwd >= back)
+        ? r.cells.slice(idx)
+        : r.cells.slice(0, idx + 1).slice().reverse();
+      const last = tour[tour.length - 1];
+      const prev = tour.length > 1 ? tour[tour.length - 2] : { x: last.x - 1, y: last.y };
+      const off = { x: last.x + (last.x - prev.x), y: last.y + (last.y - prev.y) };
+      const cells = [{ x: p.cx, y: p.cy }].concat(tour.slice(1)).concat([off]);
+      setPath(p, cells);
+      p.state = 'takeoff';
+    }
+    function divert(p, reason) {
+      p.state = 'gone';
+      delayedFlights++;
+      reputation = Math.max(0, reputation - 4);
+      beep(150, 0.18, 'sawtooth', 0.05);
+      showBanner('âš ï¸ ' + p.flight + ' ' + reason + ' â€” reputation hit');
+    }
+    function weatherSpeed() { return WEATHERS[weather].speed; }
+    function weatherAllowsLanding() { return WEATHERS[weather].landing; }
+    function updatePlane(p, dt) {
+      switch (p.state) {
+        case 'hold': {
+          p.wait += dt;
+          if (p.wait > DIVERT_TIME) divert(p, 'diverted to another field');
+          break;
+        }
+        case 'land': {
+          if (stepMove(p, dt, p.type.speed * weatherSpeed() * 0.9)) {
+            // touchdown complete
+            busyRunways.delete(p.runwayKey);
+            p.runwayKey = null;
+            cash += p.type.fee;
+            dailyEarned += p.type.fee;
+            beep(520, 0.08, 'triangle', 0.045);
+            if (!assignGate(p)) p.state = 'awaitGate';
+          }
+          break;
+        }
+        case 'awaitGate': {
+          p.wait += dt;
+          reputation = Math.max(0, reputation - dt * 0.25);
+          break;
+        }
+        case 'taxi': {
+          if (stepMove(p, dt, p.type.speed * weatherSpeed() * 1.4)) {
+            p.state = 'gate';
+            p.dwell = p.type.dwell;
+            p.wait = 0;
+          }
+          break;
+        }
+        case 'gate': {
+          if (p.dwell > 0) {
+            p.dwell -= dt;
+            if (p.dwell <= 0) {
+              const rev = p.type.pax * 7;
+              cash += rev;
+              dailyEarned += rev;
+              passengersServed += p.type.pax;
+              beep(680, 0.06, 'sine', 0.035);
+            }
+          } else {
+            p.wait += dt;
+            if (p.wait > 6) reputation = Math.max(0, reputation - dt * 0.2);
+          }
+          break;
+        }
+        case 'taxiOut': {
+          if (stepMove(p, dt, p.type.speed * weatherSpeed() * 1.35)) startTakeoff(p);
+          break;
+        }
+        case 'takeoff': {
+          if (stepMove(p, dt, p.type.speed * weatherSpeed() * 1.1)) {
+            busyRunways.delete(p.runwayKey);
+            p.runwayKey = null;
+            cash += p.type.dep;
+            dailyEarned += p.type.dep;
+            flightsCompleted++;
+            dailyFlights++;
+            reputation = Math.min(100, reputation + 1);
+            beep(760, 0.09, 'square', 0.04);
+            p.state = 'gone';
+          }
+          break;
+        }
+      }
+    }
+// ==== TRAFFIC SCHEDULER ====
+    function scheduler() {
+      // holding -> clear for landing
+      if (weatherAllowsLanding()) {
+        for (const p of planes) {
+          if (p.state !== 'hold') continue;
+          const rw = pickFreeRunway();
+          if (!rw) break;
+          busyRunways.add(rw.key);
+          p.runwayKey = rw.key;
+          startLanding(p, rw);
+        }
+      }
+      // aircraft waiting for a gate
+      for (const p of planes) {
+        if (p.state === 'awaitGate') {
+          if (assignGate(p)) p.wait = 0;
+        }
+      }
+      // loaded aircraft ready to push back
+      for (const p of planes) {
+        if (p.state === 'gate' && p.dwell <= 0) assignRunwayOut(p);
+      }
+    }
+    function spawnTick(dt) {
+      spawnTimer -= dt;
+      if (spawnTimer > 0) return;
+      const towers = towerCount();
+      const base = Math.max(3.2, 7.5 - towers * 1.15);
+      const repFactor = reputation < 45 ? 1.4 : 1;
+      spawnTimer = base * WEATHERS[weather].traffic * repFactor * (0.85 + Math.random() * 0.4);
+      if (!over) spawnFlight();
+    }
+// ==== DAY CYCLE / OBJECTIVES ====
+    function rollWeather() {
+      weather = WEATHER_POOL[Math.floor(Math.random() * WEATHER_POOL.length)];
+    }
+    function newObjective() {
+      const roll = Math.random();
+      if (roll < 0.5) {
+        const target = 2 + Math.floor(day * 0.7);
+        objective = { text: 'Complete ' + target + ' flights today', key: 'flights', target, reward: 400 + day * 70 };
+      } else if (roll < 0.8) {
+        const target = 1200 + day * 550;
+        objective = { text: 'Earn $' + target + ' in revenue today', key: 'earn', target, reward: 450 + day * 80 };
+      } else {
+        const target = 2 + Math.floor(day * 0.5);
+        objective = { text: 'Serve ' + target + ' aircraft today', key: 'flights', target, reward: 500 + day * 75 };
+      }
+      renderObjective();
+    }
+    function objectiveProgress() {
+      if (!objective) return 0;
+      return objective.key === 'earn' ? dailyEarned : dailyFlights;
+    }
+    function renderObjective() {
+      if (!objective) return;
+      const prog = Math.min(objectiveProgress(), objective.target);
+      objText.textContent = 'ðŸŽ¯ ' + objective.text + '  (' + Math.floor(prog) + '/' + objective.target + ')';
+      objReward.textContent = '+$' + objective.reward;
+    }
+    function dailyUpkeep() {
+      const cost = countTiles(T.RUNWAY) * 8 + countTiles(T.TAXIWAY) * 2 +
+                   countTiles(T.GATE) * 12 + countTiles(T.TOWER) * 45;
+      cash -= cost;
+      return cost;
+    }
+    function endDay() {
+      const upkeep = dailyUpkeep();
+      let msg = 'ðŸŒ… Day ' + day + ' ended. Operating costs âˆ’$' + upkeep + '.';
+      let bonus = 0;
+      if (objective && objectiveProgress() >= objective.target) {
+        bonus = objective.reward;
+        cash += bonus;
+        reputation = Math.min(100, reputation + 3);
+        msg = 'âœ… Objective met! Bonus +$' + bonus + '. ' + msg;
+        beep(600, 0.1, 'square', 0.06);
+        setTimeout(() => beep(820, 0.14, 'square', 0.06), 120);
+      } else {
+        reputation = Math.max(0, reputation - 5);
+        msg = 'âŒ Objective missed. Reputation âˆ’5. ' + msg;
+        beep(200, 0.16, 'sawtooth', 0.05);
+      }
+      day++;
+      dayTimer = 0;
+      dailyFlights = 0;
+      dailyEarned = 0;
+      rollWeather();
+      newObjective();
+      showBanner(msg);
+      updateHUD();
+      autoSave();
+    }
+// ==== BUILD / INPUT ====
+    function placeAt(x, y) {
+      if (!inBounds(x, y)) return;
+      const def = BUILD[currentTool];
+      const cur = grid[y][x];
+      if (currentTool === 'bulldoze') {
+        if (cur === T.EMPTY) return;
+        cash -= def.cost;
+        grid[y][x] = T.EMPTY;
+        recomputeRunways();
+        beep(170, 0.07, 'sawtooth', 0.045);
+      } else {
+        if (cur === def.type) return;
+        if (cash < def.cost) {
+          beep(120, 0.12, 'square', 0.05);
+          showBanner('Not enough cash for ' + def.label + ' ($' + def.cost + ')');
+          return;
+        }
+        cash -= def.cost;
+        grid[y][x] = def.type;
+        recomputeRunways();
+        beep(def.type === T.RUNWAY ? 300 : def.type === T.TOWER ? 480 : 400, 0.06, 'triangle', 0.045);
+      }
+      updateHUD();
+      autoSave();
+    }
+    function canvasPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const cx = (e.clientX !== undefined ? e.clientX : e.touches[0].clientX) - rect.left;
+      const cy = (e.clientY !== undefined ? e.clientY : e.touches[0].clientY) - rect.top;
+      return { x: Math.floor(cx / rect.width * COLS), y: Math.floor(cy / rect.height * ROWS) };
+    }
+    function onDown(e) {
+      e.preventDefault();
+      if (!running || paused || over) return;
+      isPainting = true;
+      const p = canvasPos(e);
+      hover = p;
+      placeAt(p.x, p.y);
+    }
+    function onMove(e) {
+      const p = canvasPos(e);
+      hover = p;
+      if (isPainting && running && !paused && !over) placeAt(p.x, p.y);
+    }
+    function onUp() { isPainting = false; }
+    canvas.addEventListener('mousedown', onDown);
+    canvas.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    canvas.addEventListener('mouseleave', () => { hover = { x: -1, y: -1 }; isPainting = false; });
+    canvas.addEventListener('touchstart', onDown, { passive: false });
+    canvas.addEventListener('touchmove', (e) => { e.preventDefault(); onMove(e); }, { passive: false });
+    canvas.addEventListener('touchend', onUp);
+    toolBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        toolBtns.forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        currentTool = btn.dataset.tool;
+        beep(540, 0.05, 'sine', 0.04);
+      });
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'KeyP') { togglePause(); }
+      else if (e.code === 'KeyR') { newAirport(); }
+    });
+// ==== HUD / BANNER ====
+    function updateHUD() {
+      hudCash.textContent = '$' + Math.round(cash);
+      hudCash.className = 'value ' + (cash < 0 ? 'bad' : cash < 800 ? 'warn' : '');
+      hudDay.textContent = day;
+      hudFlights.textContent = flightsCompleted;
+      hudPax.textContent = passengersServed.toLocaleString();
+      const r = Math.round(reputation);
+      hudRep.textContent = r + '%';
+      hudRep.className = 'value ' + (r >= 65 ? 'good' : r >= 35 ? 'warn' : 'bad');
+      hudWeather.textContent = weather;
+      hudWeather.style.color = WEATHERS[weather].color;
+      renderObjective();
+    }
+    let bannerTimer = null;
+    function showBanner(msg) {
+      banner.textContent = msg;
+      banner.classList.add('show');
+      clearTimeout(bannerTimer);
+      bannerTimer = setTimeout(() => banner.classList.remove('show'), 3400);
+    }
+// ==== RENDER ====
+    function draw() {
+      // grass base with subtle mowing stripes
+      ctx.fillStyle = '#86c06a';
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = 'rgba(255,255,255,0.05)';
+      for (let y = 0; y < ROWS; y += 2) ctx.fillRect(0, y * CELL, W, CELL);
+      for (let y = 0; y < ROWS; y++)
+        for (let x = 0; x < COLS; x++)
+          drawTile(x, y, grid[y][x]);
+      // aircraft (ground)
+      for (const p of planes) {
+        if (p.state === 'hold' || p.state === 'gone') continue;
+        drawPlane(p.x, p.y, p.angle, p.type, p.type.size * CELL * 0.34);
+        if (p.state === 'gate') {
+          ctx.font = '9px Segoe UI, sans-serif';
+          ctx.fillStyle = '#245e9c';
+          ctx.textAlign = 'center';
+          ctx.fillText(p.dwell > 0 ? 'â—¼' + Math.ceil(p.dwell) + 's' : 'â‡¢', p.x, p.y - CELL * 0.5);
+          ctx.textAlign = 'left';
+        }
+      }
+      // hover highlight
+      if (running && !paused && !over && inBounds(hover.x, hover.y)) {
+        ctx.strokeStyle = 'rgba(36, 94, 156, 0.9)';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(hover.x * CELL + 2, hover.y * CELL + 2, CELL - 4, CELL - 4);
+      }
+      drawApproachPanel();
+      drawWeatherBadge();
+      if (paused && running) {
+        ctx.fillStyle = 'rgba(240,247,255,0.6)';
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = '#245e9c';
+        ctx.font = 'bold 34px Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('â¸ Paused', W / 2, H / 2);
+        ctx.textAlign = 'left';
+      }
+    }
+    function drawTile(x, y, t) {
+      const px = x * CELL, py = y * CELL;
+      if (t === T.RUNWAY) {
+        ctx.fillStyle = '#3a3f45';
+        ctx.fillRect(px, py, CELL, CELL);
+        ctx.fillStyle = '#4a5057';
+        ctx.fillRect(px + 1, py + 1, CELL - 2, CELL - 2);
+        const rw = runwayByCell[cellKey(x, y)];
+        const orient = rw ? rw.orient : 'h';
+        ctx.strokeStyle = 'rgba(240, 240, 240, 0.85)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([7, 7]);
+        ctx.beginPath();
+        if (orient === 'h') { ctx.moveTo(px, py + CELL / 2); ctx.lineTo(px + CELL, py + CELL / 2); }
+        else { ctx.moveTo(px + CELL / 2, py); ctx.lineTo(px + CELL / 2, py + CELL); }
+        ctx.stroke();
+        ctx.setLineDash([]);
+      } else if (t === T.TAXIWAY) {
+        ctx.fillStyle = '#7d848c';
+        ctx.fillRect(px, py, CELL, CELL);
+        ctx.fillStyle = '#8f969e';
+        ctx.fillRect(px + 2, py + 2, CELL - 4, CELL - 4);
+        ctx.strokeStyle = 'rgba(250, 208, 60, 0.9)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(px + 4, py + CELL / 2);
+        ctx.lineTo(px + CELL - 4, py + CELL / 2);
+        ctx.stroke();
+      } else if (t === T.GATE) {
+        // apron pad
+        ctx.fillStyle = '#9aa1a9';
+        ctx.fillRect(px, py, CELL, CELL);
+        // terminal building
+        ctx.fillStyle = '#2f7ac0';
+        ctx.fillRect(px + 3, py + 3, CELL - 6, CELL - 12);
+        ctx.fillStyle = '#4f9ee8';
+        ctx.fillRect(px + 3, py + 3, CELL - 6, 6);
+        // windows
+        ctx.fillStyle = 'rgba(255,255,240,0.85)';
+        for (let i = 0; i < 3; i++) ctx.fillRect(px + 6 + i * 8, py + 9, 5, 4);
+        // gate number
+        ctx.fillStyle = '#dbe8ff';
+        ctx.font = 'bold 9px Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        const occupied = occupiedGates.has(cellKey(x, y));
+        ctx.fillText(occupied ? 'â–®' : 'â–¯', px + CELL / 2, py + CELL - 3);
+        ctx.textAlign = 'left';
+      } else if (t === T.TOWER) {
+        ctx.fillStyle = 'rgba(0,0,0,0.10)';
+        ctx.beginPath(); ctx.ellipse(px + CELL / 2, py + CELL - 5, 11, 5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#6d7680';
+        ctx.fillRect(px + CELL / 2 - 3, py + 12, 6, CELL - 17);
+        ctx.fillStyle = '#e7edf3';
+        ctx.fillRect(px + CELL / 2 - 9, py + 5, 18, 9);
+        ctx.fillStyle = '#4f9ee8';
+        ctx.fillRect(px + CELL / 2 - 9, py + 5, 18, 3);
+        // beacon
+        const blink = (Math.sin(clock * 4) + 1) / 2;
+        ctx.fillStyle = 'rgba(255, 90, 90, ' + (0.35 + blink * 0.65) + ')';
+        ctx.beginPath(); ctx.arc(px + CELL / 2, py + 16, 2.6, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    function drawPlane(cx, cy, angle, type, size) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(angle);
+      const s = size;
+      // shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.18)';
+      ctx.beginPath(); ctx.ellipse(2, 3, s * 1.15, s * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+      // fuselage
+      ctx.fillStyle = type.color;
+      ctx.beginPath(); ctx.ellipse(0, 0, s * 1.25, s * 0.42, 0, 0, Math.PI * 2); ctx.fill();
+      // wings
+      ctx.fillStyle = '#9fb2c4';
+      ctx.beginPath();
+      ctx.moveTo(s * 0.15, 0);
+      ctx.lineTo(-s * 0.35, -s * 1.05);
+      ctx.lineTo(s * 0.25, -s * 1.05);
+      ctx.lineTo(s * 0.55, 0);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(s * 0.15, 0);
+      ctx.lineTo(-s * 0.35, s * 1.05);
+      ctx.lineTo(s * 0.25, s * 1.05);
+      ctx.lineTo(s * 0.55, 0);
+      ctx.closePath(); ctx.fill();
+      // tail
+      ctx.fillStyle = '#7f92a6';
+      ctx.beginPath();
+      ctx.moveTo(-s * 1.0, 0);
+      ctx.lineTo(-s * 1.35, -s * 0.55);
+      ctx.lineTo(-s * 1.05, 0);
+      ctx.closePath(); ctx.fill();
+      // cockpit
+      ctx.fillStyle = '#28394d';
+      ctx.beginPath(); ctx.ellipse(s * 1.0, 0, s * 0.3, s * 0.24, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+    function drawApproachPanel() {
+      const px = W - 186, py = 8, pw = 178, ph = 66;
+      ctx.fillStyle = 'rgba(20, 40, 70, 0.72)';
+      ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 10); ctx.fill();
+      ctx.fillStyle = '#bfe0ff';
+      ctx.font = 'bold 11px Segoe UI, sans-serif';
+      ctx.fillText('APPROACH', px + 10, py + 17);
+      const holding = planes.filter(p => p.state === 'hold');
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 18px Segoe UI, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(holding.length + ' âœˆ', px + pw - 10, py + 20);
+      ctx.textAlign = 'left';
+      holding.slice(0, 5).forEach((p, i) => {
+        const hx = px + 22 + i * 30;
+        const hy = py + 44 + Math.sin(clock * 2 + i) * 3;
+        const col = p.wait > DIVERT_TIME * 0.6 ? '#ffb0b0' : '#cfe6ff';
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.moveTo(hx, hy - 5);
+        ctx.lineTo(hx + 9, hy + 5);
+        ctx.lineTo(hx - 9, hy + 5);
+        ctx.closePath(); ctx.fill();
+      });
+      if (holding.length === 0) {
+        ctx.fillStyle = 'rgba(200,220,240,0.55)';
+        ctx.font = '10px Segoe UI, sans-serif';
+        ctx.fillText('airspace clear', px + 14, py + 46);
+      }
+    }
+    function drawWeatherBadge() {
+      const wDef = WEATHERS[weather];
+      ctx.fillStyle = 'rgba(20, 40, 70, 0.6)';
+      ctx.beginPath(); ctx.roundRect(10, 8, 132, 26, 8); ctx.fill();
+      ctx.fillStyle = wDef.color === '#3d4b5c' ? '#b8c6d8' : '#ffffff';
+      ctx.font = 'bold 12px Segoe UI, sans-serif';
+      const icon = weather === 'Clear' ? 'â˜€' : weather === 'Cloudy' ? 'â˜' : weather === 'Rain' ? 'ðŸŒ§' : weather === 'Fog' ? 'ðŸŒ«' : 'â›ˆ';
+      ctx.fillText(icon + ' ' + weather + '  D' + day, 20, 25);
+    }
+// ==== MAIN LOOP ====
+    function loop(now) {
+      const dt = Math.min(0.05, (now - lastTime) / 1000 || 0);
+      lastTime = now;
+      clock += dt;
+      if (running && !paused && !over) {
+        dayTimer += dt;
+        if (dayTimer >= DAY_SECONDS) endDay();
+        schedTimer += dt;
+        if (schedTimer >= SCHED_STEP) { schedTimer = 0; scheduler(); }
+        spawnTick(dt);
+        for (const p of planes) updatePlane(p, dt);
+        planes = planes.filter(p => p.state !== 'gone');
+        // reputation floor -> shut down
+        if (reputation <= 0) endGame('Reputation collapsed â€” carriers pulled out of your field.');
+        // victory
+        if (flightsCompleted >= WIN_FLIGHTS) {
+          over = true;
+          overTitle.textContent = 'Mega Hub Achieved! ðŸ†';
+          overText.textContent = 'You handled ' + flightsCompleted + ' flights, served ' +
+            passengersServed.toLocaleString() + ' passengers and banked $' + Math.round(cash) +
+            ' by day ' + day + '. Outstanding operations!';
+          overScreen.classList.remove('hidden');
+          beep(660, 0.12, 'square', 0.07);
+          setTimeout(() => beep(880, 0.16, 'square', 0.07), 140);
+          setTimeout(() => beep(1100, 0.24, 'square', 0.07), 300);
+        }
+        hudTimer += dt;
+        if (hudTimer > 0.2) { hudTimer = 0; updateHUD(); }
+      }
+      draw();
+      requestAnimationFrame(loop);
+    }
+// ==== SAVE / LOAD ====
+    const SAVE_KEY = 'airportTycoonSave_v1';
+    function autoSave() {
+      try {
+        const data = {
+          grid: grid.map(row => row.slice()),
+          cash: Math.round(cash),
+          reputation: Math.round(reputation),
+          day,
+          flightsCompleted,
+          passengersServed,
+          weather,
+          objective,
+          dailyFlights,
+          dailyEarned
+        };
+        localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+      } catch (e) { /* storage optional */ }
+    }
+    function loadSave() {
+      try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (!raw) return false;
+        const d = JSON.parse(raw);
+        if (!d || !Array.isArray(d.grid) || d.grid.length !== ROWS) return false;
+        grid = d.grid.map(row => row.slice());
+        cash = typeof d.cash === 'number' ? d.cash : START_CASH;
+        reputation = typeof d.reputation === 'number' ? d.reputation : REP_START;
+        day = d.day || 1;
+        flightsCompleted = d.flightsCompleted || 0;
+        passengersServed = d.passengersServed || 0;
+        weather = d.weather || 'Clear';
+        dailyFlights = d.dailyFlights || 0;
+        dailyEarned = d.dailyEarned || 0;
+        objective = d.objective || null;
+        recomputeRunways();
+        if (!objective) newObjective();
+        return true;
+      } catch (e) { return false; }
+    }
+// ==== NEW GAME / SEED AIRPORT ====
+    function clearTransient() {
+      planes = [];
+      busyRunways = new Set();
+      occupiedGates = new Set();
+      schedTimer = 0;
+      spawnTimer = 3;
+      dayTimer = 0;
+      flightCounter = 1;
+    }
+    function seedAirport() {
+      // starter runway (horizontal, row 3)
+      for (let x = 1; x <= 9; x++) grid[3][x] = T.RUNWAY;
+      // taxiway down from runway end then across to the apron
+      grid[4][9] = T.TAXIWAY; grid[5][9] = T.TAXIWAY; grid[6][9] = T.TAXIWAY;
+      grid[6][8] = T.TAXIWAY; grid[6][7] = T.TAXIWAY; grid[6][6] = T.TAXIWAY; grid[6][5] = T.TAXIWAY;
+      // gates along the apron
+      grid[7][5] = T.GATE; grid[7][6] = T.GATE; grid[7][7] = T.GATE;
+      // control tower
+      grid[6][13] = T.TOWER;
+      recomputeRunways();
+    }
+    function newAirport(keepSave) {
+      grid = emptyGrid();
+      cash = START_CASH;
+      reputation = REP_START;
+      day = 1;
+      weather = 'Clear';
+      flightsCompleted = 0;
+      passengersServed = 0;
+      dailyFlights = 0;
+      dailyEarned = 0;
+      delayedFlights = 0;
+      over = false;
+      paused = false;
+      hover = { x: -1, y: -1 };
+      clearTransient();
+      seedAirport();
+      newObjective();
+      updateHUD();
+      overScreen.classList.add('hidden');
+      pauseBtn.textContent = 'â¸ Pause';
+      if (!keepSave) autoSave();
+      showBanner('ðŸ›©ï¸ Regional field online. Traffic inbound â€” keep them moving!');
+      beep(420, 0.1, 'sine', 0.05);
+    }
+    function endGame(reason) {
+      over = true;
+      overTitle.textContent = 'Airport Closed âœ–';
+      overText.textContent = reason + ' Final tally: ' + flightsCompleted + ' flights, ' +
+        passengersServed.toLocaleString() + ' passengers, $' + Math.round(cash) + ' cash on day ' + day + '.';
+      overScreen.classList.remove('hidden');
+      beep(220, 0.25, 'sawtooth', 0.06);
+      setTimeout(() => beep(160, 0.35, 'sawtooth', 0.06), 200);
+      autoSave();
+    }
+    function togglePause() {
+      if (!running || over) return;
+      paused = !paused;
+      pauseBtn.textContent = paused ? 'â–¶ Resume' : 'â¸ Pause';
+    }
+// ==== INIT ====
+    function init() {
+      const loaded = loadSave();
+      if (!loaded) {
+        grid = emptyGrid();
+        seedAirport();
+        newObjective();
+      }
+      updateHUD();
+      lastTime = performance.now();
+      startBtn.addEventListener('click', () => {
+        running = true;
+        startScreen.classList.add('hidden');
+        if (!loaded) showBanner('ðŸ›©ï¸ Regional field online. Traffic inbound â€” keep them moving!');
+        beep(560, 0.09, 'sine', 0.05);
+      });
+      againBtn.addEventListener('click', () => {
+        running = true;
+        startScreen.classList.add('hidden');
+        newAirport();
+      });
+      restartBtn.addEventListener('click', () => {
+        running = true;
+        startScreen.classList.add('hidden');
+        newAirport();
+      });
+      saveBtn.addEventListener('click', () => {
+        autoSave();
+        showBanner('ðŸ’¾ Airport state saved.');
+        beep(700, 0.08, 'sine', 0.05);
+      });
+      pauseBtn.addEventListener('click', togglePause);
+      requestAnimationFrame(loop);
+    }
+    init();
+  </script>
+</body>
+</html>

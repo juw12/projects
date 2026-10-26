@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0" />
+  <title>🏍️ ENDURO — Dirt Bike Racing</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --ink: #241a12;
+      --dirt: #7a4a24;
+      --dirt-dark: #4d2c14;
+      --sand: #d9a15b;
+      --accent: #ff7a1a;
+      --accent-2: #ffb347;
+      --sky-1: #1d2b3a;
+      --sky-2: #6a4a5c;
+      --sky-3: #e78a4e;
+      --paper: #f4e6d2;
+    }
+
+    body {
+      font-family: 'Trebuchet MS', 'Segoe UI', Tahoma, sans-serif;
+      background: radial-gradient(circle at 50% 0%, #2a2119 0%, #14100c 70%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+      color: var(--paper);
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      width: 96%;
+      max-width: 980px;
+      background: rgba(20, 15, 10, 0.72);
+      border: 2px solid rgba(255, 122, 26, 0.35);
+      border-radius: 18px;
+      padding: 14px;
+      box-shadow: 0 18px 60px rgba(0, 0, 0, 0.6), inset 0 0 40px rgba(255, 122, 26, 0.05);
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.7rem;
+      letter-spacing: 6px;
+      color: var(--accent-2);
+      text-transform: uppercase;
+      text-shadow: 0 2px 0 #7a3c00, 0 0 22px rgba(255, 122, 26, 0.45);
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.72rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #a58c74;
+      margin-bottom: 10px;
+    }
+
+    /* ============ HUD ============ */
+    .hud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: space-between;
+      padding: 8px 10px;
+      background: linear-gradient(180deg, rgba(58, 40, 24, 0.9), rgba(34, 23, 14, 0.9));
+      border: 1px solid rgba(255, 122, 26, 0.25);
+      border-radius: 10px;
+      margin-bottom: 10px;
+      font-size: 0.82rem;
+      letter-spacing: 1px;
+    }
+
+    .hud .cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 62px;
+    }
+
+    .hud .label {
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #9c7f63;
+    }
+
+    .hud .val {
+      font-weight: bold;
+      color: var(--accent-2);
+      font-size: 1rem;
+    }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 2px solid rgba(255, 122, 26, 0.3);
+      background: #101820;
+      box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.6);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      image-rendering: auto;
+    }
+
+    /* ============ SCREENS & OVERLAYS ============ */
+    .screen {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      text-align: center; padding: 20px;
+      background: radial-gradient(circle at 50% 40%, rgba(40, 26, 14, 0.94), rgba(12, 9, 6, 0.97));
+      transition: opacity 0.3s ease; z-index: 5;
+    }
+
+    .screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .screen-title {
+      font-size: clamp(1.5rem, 4vw, 2.4rem);
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: var(--accent);
+      text-shadow: 0 3px 0 #6b3200;
+      margin-bottom: 6px;
+    }
+
+    .screen-sub {
+      font-size: 0.85rem;
+      color: #b79b80;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+      max-width: 520px;
+      line-height: 1.5;
+    }
+
+    .stats {
+      display: flex;
+      gap: 18px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .stat {
+      background: rgba(255, 122, 26, 0.08); border: 1px solid rgba(255, 122, 26, 0.3);
+      border-radius: 10px; padding: 8px 16px; min-width: 96px;
+    }
+
+    .stat .k {
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #a58c74;
+    }
+
+    .stat .v {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: var(--paper);
+    }
+
+    .action-btn {
+      padding: 13px 40px; background: linear-gradient(135deg, var(--accent), #c74e07);
+      color: #fff; border: none; border-radius: 30px; font-size: 1.05rem; font-weight: bold;
+      letter-spacing: 3px; text-transform: uppercase; cursor: pointer;
+      box-shadow: 0 6px 0 #7a3200, 0 10px 24px rgba(0, 0, 0, 0.5);
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .action-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 0 #7a3200, 0 12px 28px rgba(0, 0, 0, 0.55);
+    }
+
+    .action-btn:active {
+      transform: translateY(3px);
+      box-shadow: 0 3px 0 #7a3200;
+    }
+
+    .keys {
+      margin-top: 18px;
+      font-size: 0.72rem;
+      color: #94806b;
+      letter-spacing: 1px;
+      line-height: 1.7;
+    }
+
+    .keys b { color: var(--accent-2); }
+
+    .pause-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: rgba(10, 7, 4, 0.78);
+      font-size: 2rem;
+      letter-spacing: 8px;
+      color: var(--accent-2);
+      text-transform: uppercase;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      z-index: 6;
+    }
+
+    .pause-overlay.visible { opacity: 1; }
+
+    .toast {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-14px);
+      background: rgba(255, 122, 26, 0.92);
+      color: #1a0f05;
+      font-weight: bold;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      font-size: 0.8rem;
+      padding: 7px 18px;
+      border-radius: 20px;
+      opacity: 0;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      pointer-events: none;
+      z-index: 7;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ============ TOUCH CONTROLS ============ */
+    .touch-controls {
+      display: none;
+      margin-top: 12px;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .touch-controls.visible { display: flex; }
+
+    .pad {
+      display: flex;
+      gap: 10px;
+    }
+
+    .tbtn {
+      width: 74px;
+      height: 62px;
+      border-radius: 14px;
+      border: 2px solid rgba(255, 122, 26, 0.45);
+      background: linear-gradient(180deg, #3a2716, #241710);
+      color: var(--accent-2);
+      font-size: 1.35rem;
+      font-weight: bold;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: none;
+    }
+
+    .tbtn:active,
+    .tbtn.on { background: linear-gradient(180deg, var(--accent), #b34605); color: #fff; transform: scale(0.95); }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 560px) {
+      .game-title { font-size: 1.15rem; letter-spacing: 3px; }
+      .hud { font-size: 0.7rem; }
+      .hud .cell { min-width: 50px; }
+      .tbtn { width: 58px; height: 54px; font-size: 1.1rem; }
+      .touch-controls.visible { display: flex; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">🏍️ Enduro</h1>
+    <p class="game-subtitle">Dirt bike enduro racing — throttle, lean, land clean</p>
+
+    <!-- ============ HUD ============ -->
+    <div class="hud">
+      <div class="cell"><span class="label">Lap</span><span class="val" id="hudLap">1/3</span></div>
+      <div class="cell"><span class="label">Time</span><span class="val" id="hudTime">0:00.0</span></div>
+      <div class="cell"><span class="label">Best Lap</span><span class="val" id="hudBest">--:--</span></div>
+      <div class="cell"><span class="label">Position</span><span class="val" id="hudPos">1/4</span></div>
+      <div class="cell"><span class="label">Speed</span><span class="val" id="hudSpeed">0</span></div>
+      <div class="cell"><span class="label">Cp</span><span class="val" id="hudCp">0/3</span></div>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="960" height="480"></canvas>
+
+      <!-- Start Screen -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">Enduro</h2>
+        <p class="screen-sub">
+          3 laps of rough terrain. Throttle over hills, launch off ramps, and
+          control your flips in the air. Land with your wheels aligned to the
+          slope — bad landings cost time. Beat the rivals and the clock.
+        </p>
+        <div class="stats">
+          <div class="stat"><div class="k">Best Lap</div><div class="v" id="startBest">--:--</div></div>
+          <div class="stat"><div class="k">Laps</div><div class="v">3</div></div>
+        </div>
+        <button class="action-btn" id="startBtn">Ride</button>
+        <div class="keys">
+          <b>↑/W</b> Throttle &nbsp;·&nbsp; <b>↓/S</b> Brake &nbsp;·&nbsp;
+          <b>←/A</b> Lean back &nbsp;·&nbsp; <b>→/D</b> Lean forward &nbsp;·&nbsp;
+          <b>P</b> Pause<br />
+          In the air: throttle/lean-back = backflip · brake/lean-forward = frontflip
+        </div>
+      </div>
+
+      <!-- Finish Screen -->
+      <div id="finishScreen" class="screen hidden">
+        <h2 class="screen-title" id="finishTitle">Race Over</h2>
+        <p class="screen-sub" id="finishSub">Nice riding.</p>
+        <div class="stats">
+          <div class="stat"><div class="k">Position</div><div class="v" id="finPos">--</div></div>
+          <div class="stat"><div class="k">Total Time</div><div class="v" id="finTotal">--:--</div></div>
+          <div class="stat"><div class="k">Best Lap</div><div class="v" id="finBest">--:--</div></div>
+          <div class="stat"><div class="k">Wipeouts</div><div class="v" id="finCrash">0</div></div>
+        </div>
+        <button class="action-btn" id="restartBtn">Ride Again</button>
+      </div>
+
+      <div id="pauseOverlay" class="pause-overlay">Paused</div>
+      <div id="toast" class="toast"></div>
+    </div>
+
+    <!-- ============ TOUCH CONTROLS ============ -->
+    <div class="touch-controls" id="touchControls">
+      <div class="pad">
+        <button class="tbtn" data-act="left">↺</button>
+        <button class="tbtn" data-act="right">↻</button>
+      </div>
+      <div class="pad">
+        <button class="tbtn" data-act="brake">⛔</button>
+        <button class="tbtn" data-act="throttle">⚡</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ============ GAME CONFIGURATION ============ */
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+
+    const TL = 6000;            // track length per lap (world units)
+    const GROUND_BASE = 360;    // baseline ground height on canvas
+    const TOTAL_LAPS = 3;
+    const NUM_RIVALS = 3;
+
+    // Bike physics constants
+    const WHEEL_R = 12;
+    const WHEELBASE = 48;
+    const MMASS = 1;
+    const INERTIA = 700;
+    const GRAV = 1800;
+    const K_SPRING = 3000;
+    const K_DAMP = 85;
+    const MAX_FN = 50000;
+    const ENGINE = 2600;
+    const BRAKE = 5200;
+    const ROLL = 18;
+    const AIR_TORQUE = 4.6;
+    const LEAN = 4.2;
+    const FIXED_DT = 1 / 300;
+
+    const CP_XS = [TL * 0.25, TL * 0.5, TL * 0.75]; // checkpoints per lap
+
+    /* ============ DOM ELEMENTS ============ */
+    const hudLap = document.getElementById('hudLap');
+    const hudTime = document.getElementById('hudTime');
+    const hudBest = document.getElementById('hudBest');
+    const hudPos = document.getElementById('hudPos');
+    const hudSpeed = document.getElementById('hudSpeed');
+    const hudCp = document.getElementById('hudCp');
+    const startScreen = document.getElementById('startScreen');
+    const finishScreen = document.getElementById('finishScreen');
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const toastEl = document.getElementById('toast');
+    const startBtn = document.getElementById('startBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const startBest = document.getElementById('startBest');
+    const finPos = document.getElementById('finPos');
+    const finTotal = document.getElementById('finTotal');
+    const finBest = document.getElementById('finBest');
+    const finCrash = document.getElementById('finCrash');
+    const touchControls = document.getElementById('touchControls');
+
+    /* ============ GAME STATE ============ */
+    let state = 'menu';         // menu | countdown | racing | finished
+    let paused = false;
+    let raceTime = 0;
+    let lapStart = 0;
+    let bestLap = loadBest();
+    let crashes = 0;
+    let startedAt = 0;
+    let toastTimer = 0;
+
+    const cam = { x: 0, y: 0 };
+
+    const input = { throttle: false, brake: false, left: false, right: false };
+
+    const player = {
+      x: 40, y: 0, vx: 0, vy: 0, angle: 0, angVel: 0,
+      grounded: false, airTime: 0, wipe: false, wipeT: 0, lap: 0, cp: 0
+    };
+
+    let rivals = [];
+
+    /* ============ AUDIO ============ */
+    let actx = null;
+    function audioReady() {
+      try {
+        if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+        if (actx.state === 'suspended') actx.resume();
+      } catch (e) { /* audio unavailable */ }
+    }
+    function beep(freq, dur, type, vol) {
+      if (!actx) return;
+      try {
+        const o = actx.createOscillator();
+        const g = actx.createGain();
+        o.type = type || 'square';
+        o.frequency.value = freq;
+        g.gain.value = vol || 0.05;
+        g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + (dur || 0.08));
+        o.connect(g);
+        g.connect(actx.destination);
+        o.start();
+        o.stop(actx.currentTime + (dur || 0.08));
+      } catch (e) { /* ignore */ }
+    }
+
+    /* ============ UTILITIES ============ */
+    function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
+    function normAngle(a) {
+      while (a > Math.PI) a -= Math.PI * 2;
+      while (a < -Math.PI) a += Math.PI * 2;
+      return a;
+    }
+    function fmtTime(t) {
+      if (t == null || !isFinite(t)) return '--:--';
+      const m = Math.floor(t / 60);
+      const s = Math.floor(t % 60);
+      const d = Math.floor((t * 10) % 10);
+      return m + ':' + String(s).padStart(2, '0') + '.' + d;
+    }
+    function loadBest() {
+      const raw = localStorage.getItem('enduroBestLap');
+      const n = raw == null ? null : parseFloat(raw);
+      return (n == null || isNaN(n)) ? null : n;
+    }
+    function saveBest(t) {
+      bestLap = t;
+      try { localStorage.setItem('enduroBestLap', String(t)); } catch (e) { /* ignore */ }
+    }
+
+    /* ============ TERRAIN ============ */
+    // Periodic per-lap surface so the world wraps seamlessly.
+    function terrainY(x) {
+      const t = (x / TL) * Math.PI * 2;
+      let y = Math.sin(t * 3 + 0.6) * 48
+            + Math.sin(t * 7 + 1.2) * 26
+            + Math.sin(t * 13 + 2.4) * 13
+            + Math.sin(t * 21 + 0.3) * 6;
+      // Two launch ramps per lap (periodic, edge-safe).
+      const xm = ((x % TL) + TL) % TL;
+      y += -72 * Math.exp(-Math.pow(xm - 1500, 2) / (2 * 190 * 190));
+      y += -72 * Math.exp(-Math.pow(xm - 4200, 2) / (2 * 170 * 170));
+      return GROUND_BASE + y;
+    }
+    function terrainSlope(x) {
+      return (terrainY(x + 2) - terrainY(x - 2)) / 4;
+    }
+
+    /* ============ RIVALS ============ */
+    function makeRivals() {
+      const setup = [
+        { x: 140, col: '#5ea9ff', top: 430, skill: 0.9 },
+        { x: 200, col: '#b06bff', top: 405, skill: 1.0 },
+        { x: 260, col: '#38d6a8', top: 455, skill: 0.8 }
+      ];
+      rivals = [];
+      for (let i = 0; i < NUM_RIVALS; i++) {
+        const s = setup[i];
+        rivals.push({
+          x: s.x, y: terrainY(s.x) - WHEEL_R, angle: 0, speed: 120,
+          col: s.col, top: s.top, lap: 0, wipe: false, wipeT: 0
+        });
+      }
+    }
+
+    function updateRival(r, dt) {
+      const s = terrainSlope(r.x);
+      if (!r.wipe) {
+        let target = r.top * (1 - clamp(s * 0.4, -0.55, 0.55));
+        target = Math.max(70, target);
+        r.speed += (target - r.speed) * Math.min(1, 1.6 * dt);
+        r.x += r.speed * dt;
+        if (Math.random() < 0.09 * dt) {   // occasional rival mistake
+          r.wipe = true;
+          r.wipeT = 0.7 + Math.random() * 0.7;
+        }
+      } else {
+        r.speed *= (1 - 3 * dt);
+        r.x += r.speed * dt;
+        r.wipeT -= dt;
+        if (r.wipeT <= 0) r.wipe = false;
+      }
+      r.y = terrainY(r.x) - WHEEL_R - 2;
+      r.angle = Math.atan(terrainSlope(r.x));
+      if (r.x >= TL) { r.x -= TL; r.lap++; }
+    }
+
+    /* ============ PLAYER PHYSICS ============ */
+    function startWipeout() {
+      player.wipe = true;
+      player.wipeT = 1.1;
+      player.angVel = (Math.random() < 0.5 ? -1 : 1) * (6 + Math.random() * 4);
+      crashes++;
+      beep(110, 0.25, 'sawtooth', 0.09);
+      showToast('Wipeout!');
+    }
+
+    function recoverWipeout() {
+      player.wipe = false;
+      player.angVel = 0;
+      player.vy = 0;
+      player.vx *= 0.3;
+      player.angle = Math.atan(terrainSlope(player.x));
+      player.y = terrainY(player.x) - WHEEL_R;
+      player.airTime = 0;
+    }
+
+    function playerStep(dt) {
+      // Gravity
+      player.vy += GRAV * dt;
+
+      // Air / ground rotation control
+      if (!player.wipe) {
+        const groundedFactor = player.grounded ? 0.3 : 1;
+        let tq = 0;
+        if (input.throttle) tq -= AIR_TORQUE;
+        if (input.brake) tq += AIR_TORQUE;
+        if (input.left) tq -= LEAN;
+        if (input.right) tq += LEAN;
+        player.angVel += tq * groundedFactor * dt;
+      }
+
+      // Wheel contact resolution
+      const ca = Math.cos(player.angle), sa = Math.sin(player.angle);
+      const half = WHEELBASE / 2;
+      const wheels = [
+        { x: player.x + ca * half, y: player.y + sa * half, rx: ca * half, ry: sa * half, rear: false },
+        { x: player.x - ca * half, y: player.y - sa * half, rx: -ca * half, ry: -sa * half, rear: true }
+      ];
+
+      let anyContact = false;
+      for (let i = 0; i < wheels.length; i++) {
+        const w = wheels[i];
+        const gy = terrainY(w.x);
+        let pen = (w.y + WHEEL_R) - gy;
+        if (pen <= 0) continue;
+        anyContact = true;
+        pen = Math.min(pen, 40);
+
+        const s = terrainSlope(w.x);
+        const len = Math.hypot(s, 1);
+        const nx = s / len, ny = -1 / len;     // surface normal (points up)
+        const tx = -ny, ty = nx;                // tangent (points forward)
+
+        const wvx = player.vx - player.angVel * w.ry;
+        const wvy = player.vy + player.angVel * w.rx;
+        const vn = wvx * nx + wvy * ny;
+        const vt = wvx * tx + wvy * ty;
+
+        let fn = pen * K_SPRING - vn * K_DAMP;
+        fn = clamp(fn, 0, MAX_FN);
+
+        let ft = -vt * ROLL;
+        if (!player.wipe) {
+          if (input.brake) {
+            const b = Math.min(BRAKE, Math.abs(vt) * MMASS / dt);
+            ft += -Math.sign(vt) * b;
+          } else if (input.throttle && w.rear) {
+            ft += ENGINE;
+          }
+        }
+        ft = clamp(ft, -9000, 9000);
+
+        const fx = nx * fn + tx * ft;
+        const fy = ny * fn + ty * ft;
+        player.vx += fx / MMASS * dt;
+        player.vy += fy / MMASS * dt;
+        player.angVel += (w.rx * fy - w.ry * fx) / INERTIA * dt;
+
+        // Gentle positional correction to resist sinking
+        player.x += nx * pen * 0.35;
+        player.y += ny * pen * 0.35;
+      }
+
+      // Integrate
+      player.x += player.vx * dt;
+      player.y += player.vy * dt;
+      player.angle += player.angVel * dt;
+
+      // Damping & clamps
+      player.angVel *= (1 - (anyContact ? 4.5 : 0.8) * dt);
+      player.vx *= (1 - 0.22 * dt);
+      player.vx = clamp(player.vx, -900, 2300);
+      player.vy = clamp(player.vy, -2600, 2600);
+      player.angVel = clamp(player.angVel, -13, 13);
+
+      // Landing alignment check
+      if (anyContact && player.airTime > 0.28 && !player.wipe) {
+        const slopeAngle = Math.atan(terrainSlope(player.x));
+        const diff = normAngle(player.angle - slopeAngle);
+        if (Math.abs(diff) > 1.1) startWipeout();
+      }
+
+      player.grounded = anyContact;
+      player.airTime = anyContact ? 0 : player.airTime + dt;
+    }
+
+    /* ============ LAP / CHECKPOINT TRACKING ============ */
+    function checkProgress(dt) {
+      // Checkpoints within the current lap
+      if (player.cp < CP_XS.length && player.x >= CP_XS[player.cp]) {
+        player.cp++;
+        beep(880, 0.09, 'square', 0.06);
+        showToast('Checkpoint ' + player.cp + '/' + CP_XS.length);
+      }
+      // Lap completion on wrap
+      if (player.x >= TL) {
+        player.x -= TL;
+        const lt = raceTime - lapStart;
+        lapStart = raceTime;
+        if (bestLap == null || lt < bestLap) {
+          saveBest(lt);
+          showToast('New best lap ' + fmtTime(lt));
+          beep(1200, 0.14, 'triangle', 0.07);
+        } else {
+          showToast('Lap ' + fmtTime(lt));
+        }
+        player.lap++;
+        player.cp = 0;
+        if (player.lap >= TOTAL_LAPS) finishRace();
+      }
+    }
+
+    /* ============ POSITIONING ============ */
+    function playerProgress() { return player.lap * TL + player.x; }
+    function standings() {
+      const list = [{ name: 'YOU', prog: playerProgress(), you: true }];
+      rivals.forEach(function (r, i) {
+        list.push({ name: 'R' + (i + 1), prog: r.lap * TL + r.x, you: false });
+      });
+      list.sort(function (a, b) { return b.prog - a.prog; });
+      return list;
+    }
+
+    /* ============ RACE FLOW ============ */
+    function resetRace() {
+      raceTime = 0;
+      lapStart = 0;
+      crashes = 0;
+      player.x = 40;
+      player.y = terrainY(40) - WHEEL_R;
+      player.vx = 0; player.vy = 0; player.angle = 0; player.angVel = 0;
+      player.grounded = false; player.airTime = 0;
+      player.wipe = false; player.wipeT = 0; player.lap = 0; player.cp = 0;
+      makeRivals();
+      cam.x = player.x - W * 0.34;
+      cam.y = player.y - H * 0.55;
+      input.throttle = input.brake = input.left = input.right = false;
+    }
+
+    function startRace() {
+      audioReady();
+      resetRace();
+      state = 'racing';
+      paused = false;
+      startScreen.classList.add('hidden');
+      finishScreen.classList.add('hidden');
+      pauseOverlay.classList.remove('visible');
+      startedAt = performance.now();
+      beep(660, 0.12, 'square', 0.06);
+      setTimeout(function () { beep(990, 0.16, 'square', 0.06); }, 130);
+      requestAnimationFrame(loop);
+    }
+
+    function finishRace() {
+      state = 'finished';
+      beep(880, 0.15, 'triangle', 0.07);
+      setTimeout(function () { beep(1320, 0.25, 'triangle', 0.07); }, 150);
+      const order = standings();
+      const pos = order.findIndex(function (e) { return e.you; }) + 1;
+      finPos.textContent = pos + '/4';
+      finTotal.textContent = fmtTime(raceTime);
+      finBest.textContent = fmtTime(bestLap);
+      finCrash.textContent = String(crashes);
+      document.getElementById('finishTitle').textContent = pos === 1 ? 'Victory!' : 'Race Over';
+      document.getElementById('finishSub').textContent =
+        pos === 1 ? 'You took the checkered flag.' : 'Finished P' + pos + '. Push harder next run.';
+      finishScreen.classList.remove('hidden');
+    }
+
+    function togglePause() {
+      if (state !== 'racing') return;
+      paused = !paused;
+      pauseOverlay.classList.toggle('visible', paused);
+      if (!paused) {
+        startedAt = performance.now();
+        requestAnimationFrame(loop);
+      }
+    }
+
+    /* ============ TOAST ============ */
+    function showToast(msg) {
+      toastEl.textContent = msg;
+      toastEl.classList.add('show');
+      toastTimer = 1.6;
+    }
+
+    /* ============ RENDERING ============ */
+    function drawSky() {
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, '#16202c');
+      g.addColorStop(0.45, '#4a3547');
+      g.addColorStop(0.75, '#a85f3c');
+      g.addColorStop(1, '#e7904f');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      // Sun
+      ctx.fillStyle = 'rgba(255, 190, 110, 0.9)';
+      ctx.beginPath();
+      ctx.arc(W * 0.78 - cam.x * 0.02, H * 0.42, 42, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255, 220, 160, 0.25)';
+      ctx.beginPath();
+      ctx.arc(W * 0.78 - cam.x * 0.02, H * 0.42, 70, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawParallax() {
+      // Far ridge
+      ctx.fillStyle = '#2c2436';
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      for (let sx = 0; sx <= W; sx += 16) {
+        const wx = cam.x * 0.28 + sx;
+        const y = 300 - cam.y * 0.15 + Math.sin(wx * 0.004) * 40 + Math.sin(wx * 0.011 + 2) * 18;
+        ctx.lineTo(sx, y);
+      }
+      ctx.lineTo(W, H);
+      ctx.closePath();
+      ctx.fill();
+
+      // Near ridge
+      ctx.fillStyle = '#3d2b2b';
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      for (let sx = 0; sx <= W; sx += 12) {
+        const wx = cam.x * 0.55 + sx;
+        const y = 350 - cam.y * 0.3 + Math.sin(wx * 0.007 + 1) * 30 + Math.sin(wx * 0.017) * 12;
+        ctx.lineTo(sx, y);
+      }
+      ctx.lineTo(W, H);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function drawTerrain() {
+      // Ground body
+      ctx.beginPath();
+      ctx.moveTo(-40, H + 200);
+      for (let sx = -40; sx <= W + 40; sx += 8) {
+        const wx = cam.x + sx;
+        ctx.lineTo(sx, terrainY(wx) - cam.y);
+      }
+      ctx.lineTo(W + 40, H + 200);
+      ctx.closePath();
+      const g = ctx.createLinearGradient(0, cam.y + 150, 0, H);
+      g.addColorStop(0, '#6b431f');
+      g.addColorStop(1, '#2c1a0c');
+      ctx.fillStyle = g;
+      ctx.fill();
+
+      // Grass / crust line
+      ctx.beginPath();
+      for (let sx = -40; sx <= W + 40; sx += 8) {
+        const wx = cam.x + sx;
+        const y = terrainY(wx) - cam.y;
+        if (sx === -40) ctx.moveTo(sx, y); else ctx.lineTo(sx, y);
+      }
+      ctx.strokeStyle = '#8a5a2b';
+      ctx.lineWidth = 5;
+      ctx.stroke();
+      ctx.strokeStyle = '#c98a3f';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    function drawGates() {
+      // Finish line at x = 0 / TL boundary
+      const fx = 0 - cam.x;
+      const fy = terrainY(0) - cam.y;
+      drawGate(fx, fy, '#ffffff', '#111');
+
+      // Checkpoints
+      for (let i = 0; i < CP_XS.length; i++) {
+        const cx = CP_XS[i] - cam.x;
+        if (cx < -60 || cx > W + 60) continue;
+        const cy = terrainY(CP_XS[i]) - cam.y;
+        const passed = player.cp > i;
+        drawGate(cx, cy, passed ? '#7bd66b' : '#ff7a1a', '#2a1a0c');
+      }
+    }
+
+    function drawGate(x, y, col, dark) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.fillStyle = '#3a2716';
+      ctx.fillRect(-3, -70, 6, 70);
+      ctx.fillStyle = col;
+      ctx.fillRect(0, -66, 26, 18);
+      ctx.fillStyle = dark;
+      ctx.font = 'bold 12px Trebuchet MS';
+      ctx.fillText('▲', 4, -53);
+      ctx.restore();
+    }
+
+    function drawWheel(dx, dy) {
+      ctx.beginPath();
+      ctx.arc(dx, dy, WHEEL_R, 0, Math.PI * 2);
+      ctx.fillStyle = '#15110d';
+      ctx.fill();
+      ctx.strokeStyle = '#4a4a4a';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(dx, dy, WHEEL_R * 0.45, 0, Math.PI * 2);
+      ctx.fillStyle = '#8a8a8a';
+      ctx.fill();
+    }
+
+    function drawBike(x, y, angle, col, isPlayer) {
+      ctx.save();
+      ctx.translate(x - cam.x, y - cam.y);
+      ctx.rotate(angle);
+      const half = WHEELBASE / 2;
+
+      // Shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.beginPath();
+      ctx.ellipse(0, WHEEL_R + 4, WHEELBASE * 0.75, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      drawWheel(-half, 0);
+      drawWheel(half, 0);
+
+      // Frame + swingarm
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 3;
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-half, 0);
+      ctx.lineTo(-4, -12);
+      ctx.lineTo(half, 0);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-half, 0);
+      ctx.lineTo(-2, 2);
+      ctx.stroke();
+
+      // Fork
+      ctx.strokeStyle = '#dddddd';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(4, -14);
+      ctx.lineTo(half, 0);
+      ctx.stroke();
+
+      // Rider
+      ctx.fillStyle = isPlayer ? '#ffffff' : '#1c1c1c';
+      ctx.beginPath();
+      ctx.arc(-2, -26, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(-2, -22);
+      ctx.lineTo(2, -10);
+      ctx.stroke();
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(-2, -22);
+      ctx.lineTo(-10, -20);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    function draw() {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      drawSky();
+      drawParallax();
+      drawGates();
+      drawTerrain();
+
+      // Rivals
+      for (let i = 0; i < rivals.length; i++) {
+        const r = rivals[i];
+        drawBike(r.x, r.y, r.angle, r.col, false);
+      }
+      // Player
+      drawBike(player.x, player.y, player.angle, '#ff7a1a', true);
+
+      // Air flip indicator
+      if (!player.grounded && state === 'racing') {
+        ctx.save();
+        ctx.translate(player.x - cam.x, player.y - cam.y - 46);
+        ctx.rotate(player.angle);
+        ctx.strokeStyle = 'rgba(255, 179, 71, 0.9)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, 14, -0.6, 0.6);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(24, 0);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    /* ============ HUD UPDATE ============ */
+    function updateHud() {
+      hudLap.textContent = Math.min(player.lap + 1, TOTAL_LAPS) + '/' + TOTAL_LAPS;
+      hudTime.textContent = fmtTime(raceTime);
+      hudBest.textContent = fmtTime(bestLap);
+      hudSpeed.textContent = String(Math.max(0, Math.round(player.vx * 0.12)));
+      hudCp.textContent = player.cp + '/' + CP_XS.length;
+      const order = standings();
+      const pos = order.findIndex(function (e) { return e.you; }) + 1;
+      hudPos.textContent = pos + '/4';
+    }
+
+    /* ============ MAIN LOOP ============ */
+    let acc = 0;
+    function loop(now) {
+      if (paused || state === 'finished') return;
+      if (state !== 'racing') return;
+
+      const frameDt = Math.min(0.05, (now - startedAt) / 1000);
+      startedAt = now;
+
+      // Fixed-step physics
+      acc += frameDt;
+      let steps = 0;
+      while (acc >= FIXED_DT && steps < 20) {
+        playerStep(FIXED_DT);
+        for (let i = 0; i < rivals.length; i++) updateRival(rivals[i], FIXED_DT);
+        if (player.wipe) {
+          player.wipeT -= FIXED_DT;
+          if (player.wipeT <= 0) recoverWipeout();
+        }
+        checkProgress(FIXED_DT);
+        raceTime += FIXED_DT;
+        acc -= FIXED_DT;
+        steps++;
+      }
+      if (steps >= 20) acc = 0;
+
+      // Camera follow
+      const camTargetX = player.x - W * 0.34;
+      const camTargetY = player.y - H * 0.55;
+      cam.x += (camTargetX - cam.x) * Math.min(1, 6 * frameDt);
+      cam.y += (camTargetY - cam.y) * Math.min(1, 5 * frameDt);
+
+      // Toast countdown
+      if (toastTimer > 0) {
+        toastTimer -= frameDt;
+        if (toastTimer <= 0) toastEl.classList.remove('show');
+      }
+
+      draw();
+      updateHud();
+      requestAnimationFrame(loop);
+    }
+
+    /* ============ INPUT — KEYBOARD ============ */
+    document.addEventListener('keydown', function (e) {
+      const keys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyP'];
+      if (keys.indexOf(e.code) >= 0) e.preventDefault();
+      audioReady();
+
+      switch (e.code) {
+        case 'ArrowUp': case 'KeyW': input.throttle = true; break;
+        case 'ArrowDown': case 'KeyS': input.brake = true; break;
+        case 'ArrowLeft': case 'KeyA': input.left = true; break;
+        case 'ArrowRight': case 'KeyD': input.right = true; break;
+        case 'KeyP': case 'Space': togglePause(); break;
+      }
+    });
+
+    document.addEventListener('keyup', function (e) {
+      switch (e.code) {
+        case 'ArrowUp': case 'KeyW': input.throttle = false; break;
+        case 'ArrowDown': case 'KeyS': input.brake = false; break;
+        case 'ArrowLeft': case 'KeyA': input.left = false; break;
+        case 'ArrowRight': case 'KeyD': input.right = false; break;
+      }
+    });
+
+    /* ============ INPUT — TOUCH ============ */
+    function bindTouch() {
+      document.querySelectorAll('.tbtn').forEach(function (btn) {
+        const act = btn.dataset.act;
+        const on = function (e) {
+          e.preventDefault();
+          audioReady();
+          if (state === 'menu') startRace();
+          btn.classList.add('on');
+          if (act === 'throttle') input.throttle = true;
+          if (act === 'brake') input.brake = true;
+          if (act === 'left') input.left = true;
+          if (act === 'right') input.right = true;
+        };
+        const off = function (e) {
+          if (e) e.preventDefault();
+          btn.classList.remove('on');
+          if (act === 'throttle') input.throttle = false;
+          if (act === 'brake') input.brake = false;
+          if (act === 'left') input.left = false;
+          if (act === 'right') input.right = false;
+        };
+        btn.addEventListener('touchstart', on, { passive: false });
+        btn.addEventListener('touchend', off, { passive: false });
+        btn.addEventListener('touchcancel', off, { passive: false });
+        btn.addEventListener('mousedown', on);
+        btn.addEventListener('mouseup', off);
+        btn.addEventListener('mouseleave', off);
+      });
+    }
+
+    /* ============ BOOT ============ */
+    function boot() {
+      startBest.textContent = fmtTime(bestLap);
+      if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+        touchControls.classList.add('visible');
+      }
+      bindTouch();
+      startBtn.addEventListener('click', startRace);
+      restartBtn.addEventListener('click', startRace);
+      document.addEventListener('visibilitychange', function () {
+        if (document.hidden && state === 'racing' && !paused) togglePause();
+      });
+      resetRace();
+      draw();
+      updateHud();
+    }
+
+    boot();
+  </script>
+</body>
+</html>

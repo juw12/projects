@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Hangman</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(circle at 50% 0%, #2b3a55 0%, #1a2233 70%, #121826 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+    padding: 14px;
+    color: #e8eef7;
+  }
+
+  /* ============ GAME CONTAINER ============ */
+  .game-container {
+    position: relative;
+    width: min(96vw, 620px);
+    background: linear-gradient(160deg, #223049, #1b2436);
+    border: 1px solid rgba(255, 255, 255, .08);
+    border-radius: 20px;
+    padding: 18px 18px 22px;
+    box-shadow: 0 18px 60px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .06);
+    overflow: hidden;
+  }
+
+  .game-title {
+    text-align: center;
+    font-size: 1.9rem;
+    letter-spacing: 2px;
+    color: #ffd479;
+    text-shadow: 0 2px 10px rgba(255, 180, 60, .35);
+    margin-bottom: 2px;
+  }
+
+  .game-subtitle {
+    text-align: center;
+    font-size: .82rem;
+    letter-spacing: 1px;
+    color: #7f8ea8;
+    margin-bottom: 14px;
+  }
+
+  /* ============ SCORE BOARD ============ */
+  .score-board {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 10px 14px;
+    background: rgba(0, 0, 0, .25);
+    border-radius: 12px;
+    font-size: .85rem;
+    letter-spacing: .5px;
+    color: #a9b7cc;
+  }
+  .score-board b { color: #ffd479; font-size: 1rem; }
+
+  /* ============ CANVAS ============ */
+  .canvas-wrapper {
+    position: relative;
+    border-radius: 14px;
+    overflow: hidden;
+    background: linear-gradient(180deg, #101725, #0c121d);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .05), 0 6px 20px rgba(0, 0, 0, .4);
+  }
+  canvas { display: block; width: 100%; height: auto; }
+
+  /* ============ WORD DISPLAY ============ */
+  .word-area { margin: 14px 0 6px; text-align: center; }
+
+  .word-hint {
+    font-size: .72rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #6f7f99;
+    margin-bottom: 8px;
+  }
+  .word-hint span { color: #7fd1ff; }
+
+  .word {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    min-height: 48px;
+  }
+  .slot {
+    width: 30px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    font-weight: bold;
+    color: #ffd479;
+    border-bottom: 3px solid #41506b;
+    transition: color .2s ease, border-color .2s ease;
+  }
+  .slot.filled { border-color: #ffd479; animation: pop .25s ease; }
+  .slot.revealed { color: #ff8f8f; border-color: #ff8f8f; }
+
+  @keyframes pop { 0% { transform: scale(.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+  /* ============ ON-SCREEN KEYBOARD ============ */
+  .keyboard {
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    gap: 6px;
+    margin: 12px 0 10px;
+  }
+  .key {
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: bold;
+    padding: 10px 0;
+    border: none;
+    border-radius: 8px;
+    background: #33415c;
+    color: #dbe6f5;
+    cursor: pointer;
+    box-shadow: 0 3px 0 rgba(0, 0, 0, .35);
+    transition: transform .06s ease, background .15s ease, color .15s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .key:hover:not(:disabled) { background: #43567a; }
+  .key:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0, 0, 0, .35); }
+  .key.correct { background: #2f8f5b; color: #eaffef; box-shadow: 0 3px 0 rgba(0, 0, 0, .3); }
+  .key.wrong { background: #8f3540; color: #ffdfe3; box-shadow: 0 3px 0 rgba(0, 0, 0, .3); }
+  .key:disabled { cursor: default; opacity: .95; }
+
+  /* ============ CONTROLS ============ */
+  .controls { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+  .action-btn {
+    font-family: inherit;
+    font-size: .95rem;
+    font-weight: bold;
+    letter-spacing: 1px;
+    padding: 11px 26px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    color: #241a00;
+    background: linear-gradient(180deg, #ffdd85, #f5b942);
+    box-shadow: 0 4px 0 rgba(0, 0, 0, .35);
+    transition: transform .06s ease, filter .15s ease;
+  }
+  .action-btn:hover { filter: brightness(1.07); }
+  .action-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0, 0, 0, .35); }
+  .action-btn.ghost {
+    background: #33415c;
+    color: #dbe6f5;
+    box-shadow: 0 4px 0 rgba(0, 0, 0, .35);
+  }
+
+  /* ============ SCREENS (Start / Win / Lose) ============ */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 22px;
+    background: rgba(14, 20, 32, .97);
+    border-radius: 20px;
+    transition: opacity .3s ease;
+    z-index: 5;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+
+  .screen-title {
+    font-size: 1.8rem;
+    letter-spacing: 2px;
+    color: #ffd479;
+    margin-bottom: 6px;
+  }
+  .screen-title.bad { color: #ff8f8f; }
+  .screen-title.good { color: #7be0a0; }
+
+  .screen-subtitle { font-size: .9rem; color: #8b9ab2; margin-bottom: 16px; letter-spacing: .5px; }
+
+  .reveal-word {
+    font-size: 1.3rem;
+    letter-spacing: 3px;
+    color: #ff8f8f;
+    font-weight: bold;
+    margin: 4px 0 12px;
+  }
+  .stat-line { font-size: .9rem; color: #a9b7cc; margin-bottom: 16px; }
+  .stat-line b { color: #ffd479; }
+
+  /* ============ OPTION GROUPS ============ */
+  .opt-group { margin-bottom: 14px; width: 100%; }
+  .opt-label {
+    font-size: .7rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #6f7f99;
+    margin-bottom: 8px;
+  }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; }
+  .chip {
+    font-family: inherit;
+    font-size: .78rem;
+    letter-spacing: .5px;
+    padding: 7px 14px;
+    border: 1px solid #3c4c69;
+    border-radius: 20px;
+    background: transparent;
+    color: #a9b7cc;
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+  .chip:hover { border-color: #5a7199; color: #dbe6f5; }
+  .chip.selected {
+    background: linear-gradient(180deg, #ffdd85, #f5b942);
+    color: #241a00;
+    border-color: #f5b942;
+    font-weight: bold;
+  }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 520px) {
+    .game-title { font-size: 1.5rem; }
+    .game-container { padding: 14px 12px 18px; }
+    .keyboard { grid-template-columns: repeat(7, 1fr); gap: 5px; }
+    .key { font-size: .9rem; padding: 9px 0; }
+    .slot { width: 24px; height: 36px; font-size: 1.3rem; }
+    .screen-title { font-size: 1.4rem; }
+  }
+</style>
+</head>
+<body>
+<div class="game-container">
+  <h1 class="game-title">HANGMAN</h1>
+  <p class="game-subtitle">Guess the hidden word - 6 wrong letters and the figure is complete</p>
+
+  <div class="score-board">
+    <div>Streak: <b id="streak">0</b></div>
+    <div>Wins: <b id="wins">0</b></div>
+    <div>Best Streak: <b id="bestStreak">0</b></div>
+  </div>
+
+  <div class="canvas-wrapper">
+    <canvas id="game" width="440" height="320"></canvas>
+  </div>
+
+  <div class="word-area">
+    <p class="word-hint">Category: <span id="catLabel">Any</span> &middot; Wrong: <span id="wrongLabel">0</span> / 6</p>
+    <div class="word" id="word"></div>
+  </div>
+
+  <div class="keyboard" id="keyboard"></div>
+
+  <div class="controls">
+    <button class="action-btn ghost" id="newWordBtn" type="button">New Word</button>
+  </div>
+
+  <!-- ============ START SCREEN ============ -->
+  <div id="startScreen" class="screen">
+    <h2 class="screen-title">Ready to Play?</h2>
+    <p class="screen-subtitle">Pick a category and difficulty</p>
+
+    <div class="opt-group">
+      <p class="opt-label">Category</p>
+      <div class="chip-row" id="categoryRow"></div>
+    </div>
+
+    <div class="opt-group">
+      <p class="opt-label">Difficulty (word length)</p>
+      <div class="chip-row" id="difficultyRow">
+        <button class="chip" data-diff="easy" type="button">Easy (3-4)</button>
+        <button class="chip selected" data-diff="normal" type="button">Normal (5-6)</button>
+        <button class="chip" data-diff="hard" type="button">Hard (7+)</button>
+      </div>
+    </div>
+
+    <button class="action-btn" id="startBtn" type="button">Start Game</button>
+  </div>
+
+  <!-- ============ RESULT SCREEN ============ -->
+  <div id="resultScreen" class="screen hidden">
+    <h2 class="screen-title" id="resultTitle">You Win!</h2>
+    <p class="screen-subtitle" id="resultSub">Nice guessing!</p>
+    <p class="reveal-word hidden" id="revealWord"></p>
+    <p class="stat-line" id="resultStats"></p>
+    <button class="action-btn" id="resultBtn" type="button">Next Word</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONFIGURATION ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;
+  const H = canvas.height;
+  const MAX_WRONG = 6;
+  const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+  // Word bank: every category has short, medium and long words
+  const WORDS = {
+    Animals: ["CAT", "DOG", "FOX", "OWL", "LION", "BEAR", "WOLF", "TIGER", "HORSE", "PANDA",
+      "KOALA", "OTTER", "ELEPHANT", "GIRAFFE", "PENGUIN", "DOLPHIN", "KANGAROO", "FLAMINGO"],
+    Fruits: ["FIG", "KIWI", "PEAR", "PLUM", "LIME", "APPLE", "GRAPE", "MANGO", "LEMON", "PEACH",
+      "BANANA", "CHERRY", "PAPAYA", "AVOCADO", "PINEAPPLE", "BLUEBERRY", "RASPBERRY", "TANGERINE"],
+    Countries: ["CUBA", "IRAN", "IRAQ", "PERU", "CHAD", "LAOS", "JAPAN", "CHILE", "KENYA", "NEPAL",
+      "BRAZIL", "CANADA", "FRANCE", "MEXICO", "GERMANY", "PORTUGAL", "THAILAND", "ARGENTINA"],
+    Space: ["SUN", "MARS", "MOON", "STAR", "ORBIT", "COMET", "EARTH", "VENUS", "PLUTO", "SATURN",
+      "NEBULA", "GALAXY", "ROCKET", "METEOR", "JUPITER", "NEPTUNE", "ASTEROID", "TELESCOPE"],
+    Sports: ["GOLF", "SWIM", "JUDO", "POLO", "RUGBY", "TENNIS", "SOCCER", "BOXING", "HOCKEY",
+      "ROWING", "CRICKET", "SKATING", "BASEBALL", "CYCLING", "ARCHERY", "WRESTLING", "GYMNASTICS"]
+  };
+  const CATEGORIES = ["Any"].concat(Object.keys(WORDS));
+
+  const DIFFS = {
+    easy: { min: 3, max: 4, label: "Easy" },
+    normal: { min: 5, max: 6, label: "Normal" },
+    hard: { min: 7, max: 99, label: "Hard" }
+  };
+
+  // ============ GAME STATE ============
+  const STATE = { READY: 0, PLAYING: 1, OVER: 2 };
+  let state = STATE.READY;
+
+  let category = localStorage.getItem("hangmanCat") || "Any";
+  if (CATEGORIES.indexOf(category) === -1) category = "Any";
+  let diff = localStorage.getItem("hangmanDiff") || "normal";
+  if (!DIFFS[diff]) diff = "normal";
+
+  let word = "";
+  let guessed = {};        // letter -> true
+  let wrong = 0;
+  let solved = false;
+
+  let streak = Number(localStorage.getItem("hangmanStreak") || 0);
+  let wins = Number(localStorage.getItem("hangmanWins") || 0);
+  let bestStreak = Number(localStorage.getItem("hangmanBest") || 0);
+
+  // ============ DOM ELEMENTS ============
+  const wordEl = document.getElementById("word");
+  const keyboardEl = document.getElementById("keyboard");
+  const catLabel = document.getElementById("catLabel");
+  const wrongLabel = document.getElementById("wrongLabel");
+  const streakEl = document.getElementById("streak");
+  const winsEl = document.getElementById("wins");
+  const bestStreakEl = document.getElementById("bestStreak");
+  const startScreen = document.getElementById("startScreen");
+  const resultScreen = document.getElementById("resultScreen");
+  const resultTitle = document.getElementById("resultTitle");
+  const resultSub = document.getElementById("resultSub");
+  const resultStats = document.getElementById("resultStats");
+  const revealWord = document.getElementById("revealWord");
+  const resultBtn = document.getElementById("resultBtn");
+  const startBtn = document.getElementById("startBtn");
+  const newWordBtn = document.getElementById("newWordBtn");
+  const categoryRow = document.getElementById("categoryRow");
+  const difficultyRow = document.getElementById("difficultyRow");
+
+  // ============ SOUND (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.07, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+  function fanfare() {
+    [523, 659, 784, 1046].forEach(function (f, i) {
+      setTimeout(function () { beep(f, 0.16, "triangle"); }, i * 110);
+    });
+  }
+
+  // ============ OPTION CHIPS ============
+  function syncChips() {
+    Array.prototype.forEach.call(categoryRow.children, function (b) {
+      b.classList.toggle("selected", b.dataset.cat === category);
+    });
+    Array.prototype.forEach.call(difficultyRow.children, function (b) {
+      b.classList.toggle("selected", b.dataset.diff === diff);
+    });
+  }
+
+  CATEGORIES.forEach(function (c) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip";
+    b.dataset.cat = c;
+    b.textContent = c;
+    b.addEventListener("click", function () {
+      category = c;
+      localStorage.setItem("hangmanCat", c);
+      syncChips();
+      beep(700, 0.05, "triangle");
+    });
+    categoryRow.appendChild(b);
+  });
+
+  Array.prototype.forEach.call(difficultyRow.children, function (b) {
+    b.addEventListener("click", function () {
+      diff = b.dataset.diff;
+      localStorage.setItem("hangmanDiff", diff);
+      syncChips();
+      beep(700, 0.05, "triangle");
+    });
+  });
+
+  // ============ KEYBOARD BUILD ============
+  ALPHABET.forEach(function (ch) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "key";
+    b.textContent = ch;
+    b.dataset.letter = ch;
+    b.addEventListener("click", function () { guess(ch); });
+    keyboardEl.appendChild(b);
+  });
+  function keyEl(ch) {
+    return keyboardEl.querySelector('[data-letter="' + ch + '"]');
+  }
+
+  // ============ WORD SELECTION ============
+  function poolFor(cat, d) {
+    const names = cat === "Any" ? Object.keys(WORDS) : [cat];
+    const range = DIFFS[d];
+    let pool = [];
+    names.forEach(function (n) {
+      WORDS[n].forEach(function (w) {
+        if (w.length >= range.min && w.length <= range.max) pool.push(w);
+      });
+    });
+    // Fallback: if a category is too restrictive, relax to all lengths
+    if (pool.length === 0) {
+      names.forEach(function (n) { pool = pool.concat(WORDS[n]); });
+    }
+    return pool;
+  }
+
+  function pickWord() {
+    const pool = poolFor(category, diff);
+    let next = pool[Math.floor(Math.random() * pool.length)];
+    // Avoid repeating the exact same word twice in a row
+    let guard = 0;
+    while (next === word && pool.length > 1 && guard++ < 20) {
+      next = pool[Math.floor(Math.random() * pool.length)];
+    }
+    return next;
+  }
+
+  // ============ RENDER HELPERS ============
+  function renderWord(reveal) {
+    wordEl.innerHTML = "";
+    for (let i = 0; i < word.length; i++) {
+      const ch = word[i];
+      const slot = document.createElement("div");
+      const shown = guessed[ch] || reveal;
+      slot.className = "slot";
+      if (shown) {
+        slot.textContent = ch;
+        slot.classList.add(guessed[ch] ? "filled" : "revealed");
+      } else {
+        slot.textContent = "";
+      }
+      wordEl.appendChild(slot);
+    }
+  }
+
+  function updateStats() {
+    streakEl.textContent = streak;
+    winsEl.textContent = wins;
+    bestStreakEl.textContent = bestStreak;
+    catLabel.textContent = category;
+    wrongLabel.textContent = wrong;
+  }
+
+  function markKey(ch, correct) {
+    const el = keyEl(ch);
+    if (!el) return;
+    el.disabled = true;
+    el.classList.add(correct ? "correct" : "wrong");
+  }
+
+  function resetKeyboard() {
+    Array.prototype.forEach.call(keyboardEl.children, function (el) {
+      el.disabled = false;
+      el.classList.remove("correct", "wrong");
+    });
+  }
+
+  // ============ GALLOWS DRAWING (original art) ============
+  const GROUND_Y = 272;
+  const POLE_X = 118;
+  const BEAM_RIGHT = 268;
+  const HEAD_CX = 268;
+  const HEAD_CY = 104;
+  const HEAD_R = 26;
+
+  function line(x1, y1, x2, y2, w, color) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = w;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  }
+
+  function drawGallows() {
+    // Backdrop
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#101725");
+    g.addColorStop(1, "#0a0f18");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // Soft moon glow
+    const mg = ctx.createRadialGradient(360, 70, 6, 360, 70, 90);
+    mg.addColorStop(0, "rgba(255, 214, 120, .22)");
+    mg.addColorStop(1, "rgba(255, 214, 120, 0)");
+    ctx.fillStyle = mg;
+    ctx.fillRect(250, 0, 200, 180);
+    ctx.fillStyle = "#2c3750";
+    ctx.beginPath();
+    ctx.arc(360, 70, 26, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Ground
+    line(40, GROUND_Y, 400, GROUND_Y, 6, "#3a4761");
+    ctx.fillStyle = "rgba(255,255,255,.03)";
+    ctx.fillRect(0, GROUND_Y + 3, W, H - GROUND_Y);
+
+    // Wooden gallows (fixed structure)
+    const wood = "#b9863f";
+    const woodDark = "#8a5f26";
+    line(POLE_X, GROUND_Y, POLE_X, 46, 12, wood);          // vertical post
+    line(POLE_X - 20, GROUND_Y, POLE_X + 20, GROUND_Y, 14, woodDark); // base foot
+    line(POLE_X, 50, BEAM_RIGHT + 8, 50, 12, wood);        // top beam
+    line(POLE_X, 62, POLE_X + 34, 50, 8, woodDark);        // diagonal brace
+
+    // Rope + noose loop
+    line(HEAD_CX, 56, HEAD_CX, HEAD_CY - HEAD_R + 2, 4, "#d9c39a");
+    ctx.strokeStyle = "#d9c39a";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(HEAD_CX, HEAD_CY - HEAD_R + 4, 9, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  function drawFigure() {
+    const skin = "#f2c9a0";
+    const ink = "#f2c9a0";
+
+    if (wrong >= 1) { // head
+      ctx.fillStyle = skin;
+      ctx.beginPath();
+      ctx.arc(HEAD_CX, HEAD_CY, HEAD_R, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#c99a6d";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = "#5a3b1e";
+      ctx.beginPath();
+      ctx.arc(HEAD_CX - 8, HEAD_CY - 4, 2.6, 0, Math.PI * 2);
+      ctx.arc(HEAD_CX + 8, HEAD_CY - 4, 2.6, 0, Math.PI * 2);
+      ctx.fill();
+      // worried mouth
+      ctx.strokeStyle = "#5a3b1e";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(HEAD_CX, HEAD_CY + 12, 7, Math.PI, 0);
+      ctx.stroke();
+    }
+    if (wrong >= 2) { // torso
+      line(HEAD_CX, HEAD_CY + HEAD_R, HEAD_CX, 210, 7, ink);
+    }
+    if (wrong >= 3) { // left arm
+      line(HEAD_CX, 150, HEAD_CX - 42, 178, 6, ink);
+    }
+    if (wrong >= 4) { // right arm
+      line(HEAD_CX, 150, HEAD_CX + 42, 178, 6, ink);
+    }
+    if (wrong >= 5) { // left leg
+      line(HEAD_CX, 210, HEAD_CX - 30, 258, 6, ink);
+    }
+    if (wrong >= 6) { // right leg
+      line(HEAD_CX, 210, HEAD_CX + 30, 258, 6, ink);
+    }
+  }
+
+  function render() {
+    drawGallows();
+    drawFigure();
+  }
+
+  // ============ GAME FLOW ============
+  function startWord() {
+    word = pickWord();
+    guessed = {};
+    wrong = 0;
+    solved = false;
+    state = STATE.PLAYING;
+    resetKeyboard();
+    renderWord(false);
+    updateStats();
+    render();
+    startScreen.classList.add("hidden");
+    resultScreen.classList.add("hidden");
+  }
+
+  function guess(ch) {
+    if (state !== STATE.PLAYING) return;
+    if (guessed[ch]) return;
+    guessed[ch] = true;
+
+    if (word.indexOf(ch) !== -1) {
+      markKey(ch, true);
+      beep(720, 0.09, "triangle");
+      renderWord(false);
+      if (word.split("").every(function (c) { return guessed[c]; })) {
+        win();
+      }
+    } else {
+      markKey(ch, false);
+      wrong++;
+      updateStats();
+      render();
+      beep(180, 0.18, "sawtooth");
+      if (wrong >= MAX_WRONG) lose();
+    }
+  }
+
+  function win() {
+    state = STATE.OVER;
+    solved = true;
+    streak++;
+    wins++;
+    if (streak > bestStreak) {
+      bestStreak = streak;
+      localStorage.setItem("hangmanBest", String(bestStreak));
+    }
+    localStorage.setItem("hangmanStreak", String(streak));
+    localStorage.setItem("hangmanWins", String(wins));
+    updateStats();
+    fanfare();
+    showResult(true);
+  }
+
+  function lose() {
+    state = STATE.OVER;
+    streak = 0;
+    localStorage.setItem("hangmanStreak", "0");
+    updateStats();
+    renderWord(true); // reveal the word on the board too
+    showResult(false);
+  }
+
+  function showResult(good) {
+    resultTitle.textContent = good ? "You Win!" : "You Lose";
+    resultTitle.className = "screen-title " + (good ? "good" : "bad");
+    resultSub.textContent = good
+      ? "The word was guessed with " + (MAX_WRONG - wrong) + " lives to spare."
+      : "Out of lives - the figure is complete.";
+
+    if (good) {
+      revealWord.classList.add("hidden");
+      revealWord.textContent = "";
+    } else {
+      revealWord.classList.remove("hidden");
+      revealWord.textContent = word;
+    }
+
+    resultStats.innerHTML = "Streak <b>" + streak + "</b> &nbsp;&middot;&nbsp; Wins <b>" + wins +
+      "</b> &nbsp;&middot;&nbsp; Best <b>" + bestStreak + "</b>";
+    resultBtn.textContent = good ? "Next Word" : "Try Again";
+    resultScreen.classList.remove("hidden");
+  }
+
+  // ============ INPUT ============
+  document.addEventListener("keydown", function (e) {
+    // Physical A-Z keyboard while playing
+    if (state === STATE.PLAYING && /^[a-zA-Z]$/.test(e.key)) {
+      e.preventDefault();
+      guess(e.key.toUpperCase());
+      return;
+    }
+    if (e.code === "Enter" || e.code === "Space") {
+      e.preventDefault();
+      if (state === STATE.READY || state === STATE.OVER) startWord();
+    }
+  });
+
+  startBtn.addEventListener("click", startWord);
+  newWordBtn.addEventListener("click", startWord); // works from start screen and mid-round
+  resultBtn.addEventListener("click", startWord);
+
+  // ============ INITIAL PAINT ============
+  syncChips();
+  updateStats();
+  wordEl.innerHTML = '<div class="slot"></div>'; // placeholder dash before start
+  render();
+})();
+</script>
+</body>
+</html>

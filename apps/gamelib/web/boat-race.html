@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🚤 Boat Race</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: radial-gradient(circle at 50% 0%, #14415f 0%, #0a2338 55%, #061726 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+      color: #e6f6ff;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(8, 30, 48, 0.82);
+      border: 1px solid rgba(90, 200, 255, 0.18);
+      border-radius: 22px;
+      padding: 18px 20px 14px;
+      box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      width: 96%;
+      max-width: 880px;
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.7rem;
+      letter-spacing: 4px;
+      font-weight: 800;
+      color: #7ff0ff;
+      text-shadow: 0 0 14px rgba(50, 210, 255, 0.45), 0 2px 0 rgba(0, 0, 0, 0.5);
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.78rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #79a6bf;
+      margin: 4px 0 12px;
+    }
+
+    /* ============ HUD ============ */
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding: 9px 14px;
+      background: linear-gradient(135deg, rgba(20, 70, 105, 0.9), rgba(10, 40, 62, 0.9));
+      border: 1px solid rgba(90, 200, 255, 0.16);
+      border-radius: 12px;
+    }
+
+    .hud-item {
+      font-size: 0.66rem;
+      letter-spacing: 1.4px;
+      color: #6f9cb5;
+      text-transform: uppercase;
+      text-align: center;
+      flex: 1;
+    }
+
+    .hud-item span {
+      display: block;
+      margin-top: 2px;
+      font-size: 0.98rem;
+      font-weight: 700;
+      color: #c8f4ff;
+      text-shadow: 0 0 8px rgba(60, 210, 255, 0.35);
+    }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+      background: #0a2a42;
+      line-height: 0;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 16px;
+    }
+
+    /* ============ SCREENS (Start / Result) ============ */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      padding: 20px;
+      text-align: center;
+      background: radial-gradient(circle at 50% 40%, rgba(10, 45, 70, 0.94), rgba(4, 16, 26, 0.97));
+      transition: opacity 0.3s ease;
+    }
+
+    .screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .screen-title {
+      font-size: 1.6rem;
+      letter-spacing: 3px;
+      color: #7ff0ff;
+      text-shadow: 0 0 16px rgba(50, 210, 255, 0.4);
+    }
+
+    .screen-subtitle {
+      font-size: 0.86rem;
+      color: #8fb8cf;
+      max-width: 520px;
+      line-height: 1.5;
+    }
+
+    .legend {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+      font-size: 0.74rem;
+      color: #9dc3d6;
+      margin-top: 2px;
+    }
+
+    .legend b { color: #d9f4ff; }
+
+    .key-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      justify-content: center;
+      margin-top: 4px;
+    }
+
+    kbd {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(150, 220, 255, 0.25);
+      border-bottom-width: 2px;
+      border-radius: 6px;
+      padding: 2px 7px;
+      font-size: 0.72rem;
+      color: #d6f2ff;
+      font-family: inherit;
+    }
+
+    /* ============ ACTION BUTTONS ============ */
+    .action-btn {
+      margin-top: 10px;
+      padding: 12px 34px;
+      background: linear-gradient(135deg, #22d3ee, #0e7490);
+      color: #04202c;
+      border: none;
+      border-radius: 24px;
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(34, 211, 238, 0.35);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .action-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 9px 24px rgba(34, 211, 238, 0.5);
+    }
+
+    .action-btn:active { transform: translateY(0); }
+
+    /* ============ RESULT LIST ============ */
+    .standings {
+      list-style: none;
+      width: 100%;
+      max-width: 380px;
+      margin-top: 6px;
+      border-top: 1px solid rgba(120, 200, 240, 0.18);
+      padding-top: 8px;
+    }
+
+    .standings li {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.82rem;
+      padding: 4px 6px;
+      color: #b9dced;
+      border-radius: 6px;
+    }
+
+    .standings li.you {
+      background: rgba(34, 211, 238, 0.14);
+      color: #eaffff;
+      font-weight: 700;
+    }
+
+    .standings li .pos { color: #f4d58d; font-weight: 700; width: 28px; }
+
+    /* ============ PAUSE OVERLAY ============ */
+    .pause-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(3, 16, 26, 0.72);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.7rem;
+      letter-spacing: 6px;
+      color: #7ff0ff;
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease;
+    }
+
+    .pause-overlay.visible { opacity: 1; }
+
+    /* ============ FLASH MESSAGE ============ */
+    .flash {
+      position: absolute;
+      top: 16%;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 1.5rem;
+      letter-spacing: 4px;
+      font-weight: 800;
+      color: #fff;
+      text-shadow: 0 0 18px rgba(60, 220, 255, 0.9);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+
+    .flash.show { opacity: 1; }
+
+    /* ============ TOUCH CONTROLS ============ */
+    .touch-controls {
+      display: none;
+      margin-top: 12px;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .touch-controls.visible { display: flex; }
+
+    .pad { display: flex; gap: 8px; }
+
+    .tbtn {
+      width: 62px;
+      height: 52px;
+      border-radius: 12px;
+      border: 1px solid rgba(120, 220, 255, 0.3);
+      background: linear-gradient(135deg, rgba(25, 80, 115, 0.95), rgba(10, 45, 70, 0.95));
+      color: #bff0ff;
+      font-size: 1.15rem;
+      font-weight: 700;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: none;
+      cursor: pointer;
+    }
+
+    .tbtn.boost {
+      font-size: 0.72rem;
+      letter-spacing: 1px;
+      color: #ffe08a;
+      border-color: rgba(255, 210, 100, 0.4);
+    }
+
+    .tbtn:active { background: rgba(60, 160, 205, 0.95); transform: scale(0.94); }
+
+    /* ============ HINT ============ */
+    .hint {
+      margin-top: 10px;
+      text-align: center;
+      font-size: 0.68rem;
+      letter-spacing: 1px;
+      color: #5f8ba3;
+    }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 700px) {
+      .game-title { font-size: 1.25rem; letter-spacing: 2px; }
+      .hud-item span { font-size: 0.82rem; }
+      .tbtn { width: 54px; height: 46px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">🚤 BOAT RACE</h1>
+    <p class="game-subtitle">Harbor Grand Prix &middot; 3 Laps</p>
+
+    <!-- ============ HUD ============ -->
+    <div class="hud">
+      <div class="hud-item">Lap<span id="hudLap">1/3</span></div>
+      <div class="hud-item">Pos<span id="hudPos">1/4</span></div>
+      <div class="hud-item">Time<span id="hudTime">0:00.0</span></div>
+      <div class="hud-item">Best<span id="hudBest">--</span></div>
+      <div class="hud-item">Speed<span id="hudSpeed">0</span></div>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="820" height="520"></canvas>
+
+      <!-- Start Screen -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">HARBOR GRAND PRIX</h2>
+        <p class="screen-subtitle">
+          Steer your powerboat around the course and pass every buoy gate
+          <b>in order</b>. Three laps, four boats, one winner.
+        </p>
+        <div class="legend">
+          <span><b>Throttle</b> ↑ / W</span>
+          <span><b>Brake</b> ↓ / S</span>
+          <span><b>Steer</b> ← → / A D</span>
+          <span><b>Boost</b> Space</span>
+          <span><b>Pause</b> P / Esc</span>
+        </div>
+        <div class="key-row">
+          <kbd>Hold ↑ to accelerate</kbd><kbd>Tap BOOST when the meter is full</kbd>
+        </div>
+        <button class="action-btn" id="startBtn">START RACE</button>
+      </div>
+
+      <!-- Result Screen -->
+      <div id="resultScreen" class="screen hidden">
+        <h2 class="screen-title">🏁 RACE FINISHED</h2>
+        <p class="final-line">Position: <b id="resPos">-</b></p>
+        <p class="final-line">Total Time: <b id="resTime">-</b></p>
+        <p class="final-line">Best Lap: <b id="resBest">-</b></p>
+        <ul class="standings" id="resList"></ul>
+        <button class="action-btn" id="restartBtn">RACE AGAIN</button>
+      </div>
+
+      <!-- Pause Overlay -->
+      <div id="pauseOverlay" class="pause-overlay">⏸ PAUSED</div>
+
+      <!-- Flash Message -->
+      <div id="flash" class="flash"></div>
+    </div>
+
+    <!-- Touch Controls -->
+    <div class="touch-controls" id="touchControls">
+      <div class="pad">
+        <button class="tbtn" data-act="left">◀</button>
+        <button class="tbtn" data-act="right">▶</button>
+      </div>
+      <div class="pad">
+        <button class="tbtn" data-act="brake">▼</button>
+        <button class="tbtn" data-act="throttle">▲</button>
+        <button class="tbtn boost" data-act="boost">BOOST</button>
+      </div>
+    </div>
+
+    <p class="hint">Move with arrows / WASD &middot; Space = Boost &middot; P = Pause</p>
+  </div>
+
+  <script>
+    // ============ GAME CONFIGURATION ============
+    const W = 820, H = 520;
+    const CX = W / 2, CY = H / 2;
+    const OUT = { ax: 392, ay: 246 };   // outer shore ellipse
+    const IN  = { ax: 152, ay: 80 };    // inner island ellipse
+    const TAU = Math.PI * 2;
+    const GATES = 8;                    // gate 0 = start/finish line
+    const LAPS = 3;
+    const BOAT_R = 11;
+
+    const ACCEL = 200;   // px/s^2
+    const DRAG  = 1.0;
+    const BRAKE = 285;
+    const TURN  = 2.9;   // rad/s at speed
+    const BASE_MAX = 200;
+
+    const GATE_ANGS = [];
+    for (let i = 0; i < GATES; i++) GATE_ANGS.push(i * TAU / GATES);
+
+    // ============ DOM ELEMENTS ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const hudLap = document.getElementById('hudLap');
+    const hudPos = document.getElementById('hudPos');
+    const hudTime = document.getElementById('hudTime');
+    const hudBest = document.getElementById('hudBest');
+    const hudSpeed = document.getElementById('hudSpeed');
+    const startScreen = document.getElementById('startScreen');
+    const resultScreen = document.getElementById('resultScreen');
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const flashEl = document.getElementById('flash');
+    const startBtn = document.getElementById('startBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const touchControls = document.getElementById('touchControls');
+    const resPos = document.getElementById('resPos');
+    const resTime = document.getElementById('resTime');
+    const resBest = document.getElementById('resBest');
+    const resList = document.getElementById('resList');
+
+    // ============ AUDIO (WebAudio beep) ============
+    let AC = null;
+    function beep(freq, dur, type, vol) {
+      freq = freq || 520; dur = dur || 0.07; type = type || 'square'; vol = vol || 0.05;
+      try {
+        if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+        if (AC.state === 'suspended') AC.resume();
+        const o = AC.createOscillator();
+        const g = AC.createGain();
+        o.type = type;
+        o.frequency.value = freq;
+        g.gain.value = vol;
+        o.connect(g);
+        g.connect(AC.destination);
+        o.start();
+        g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime + dur);
+        o.stop(AC.currentTime + dur);
+      } catch (e) { /* audio unavailable — game still runs */ }
+    }
+
+    // ============ GAME STATE ============
+    let boats = [];
+    let player = null;
+    let particles = [];
+    let state = 'start';        // start | countdown | racing | paused | over
+    let waveT = 0;              // water animation clock (s)
+    let raceTimeMs = 0;
+    let countdown = 0;
+    let lastTick = 9;
+    let bestLap = null;
+    let lastFrame = 0;
+    let racePos = 1;
+
+    try {
+      const stored = parseFloat(localStorage.getItem('boatRaceBestLap'));
+      if (!isNaN(stored) && stored > 0) bestLap = stored;
+    } catch (e) { /* storage blocked */ }
+
+    // ============ INPUT ============
+    const input = { left: false, right: false, throttle: false, brake: false, boost: false };
+
+    // ============ TRACK MATH ============
+    function trackPoint(angle, k) {
+      const ax = IN.ax + (OUT.ax - IN.ax) * k;
+      const ay = IN.ay + (OUT.ay - IN.ay) * k;
+      return { x: CX + ax * Math.cos(angle), y: CY + ay * Math.sin(angle) };
+    }
+
+    function trackTangent(angle, k) {
+      const ax = IN.ax + (OUT.ax - IN.ax) * k;
+      const ay = IN.ay + (OUT.ay - IN.ay) * k;
+      return Math.atan2(ay * Math.cos(angle), -ax * Math.sin(angle));
+    }
+
+    function fOut(x, y) {
+      const dx = (x - CX) / OUT.ax, dy = (y - CY) / OUT.ay;
+      return dx * dx + dy * dy;
+    }
+
+    function fIn(x, y) {
+      const dx = (x - CX) / IN.ax, dy = (y - CY) / IN.ay;
+      return dx * dx + dy * dy;
+    }
+
+    function angOf(x, y) {
+      return Math.atan2((y - CY) / OUT.ay, (x - CX) / OUT.ax);
+    }
+
+    function normAngle(a) {
+      while (a > Math.PI) a -= TAU;
+      while (a < -Math.PI) a += TAU;
+      return a;
+    }
+
+    function lerp(a, b, t) { return a + (b - a) * t; }
+
+    function fmt(ms) {
+      if (ms === null || ms === undefined) return '--';
+      const s = ms / 1000;
+      const m = Math.floor(s / 60);
+      const r = s - m * 60;
+      return m + ':' + (r < 10 ? '0' : '') + r.toFixed(1);
+    }
+
+    // ============ BOAT SETUP ============
+    const GRID = [
+      { name: 'YOU',        lane: 0.50, ang: 0.10, color: '#22d3ee', dark: '#0b4a5c', ai: false, speed: BASE_MAX },
+      { name: 'Sea Wolf',   lane: 0.22, ang: 0.10, color: '#ef4444', dark: '#5c1414', ai: true,  speed: 174 },
+      { name: 'Riptide',    lane: 0.78, ang: 0.10, color: '#facc15', dark: '#6b5510', ai: true,  speed: 170 },
+      { name: 'Tidal Fury', lane: 0.50, ang: 0.21, color: '#a78bfa', dark: '#3b2a72', ai: true,  speed: 181 }
+    ];
+
+    function makeBoat(cfg) {
+      const p = trackPoint(cfg.ang, cfg.lane);
+      const b = {
+        name: cfg.name,
+        color: cfg.color,
+        dark: cfg.dark,
+        isPlayer: !cfg.ai,
+        lane: cfg.lane,
+        x: p.x,
+        y: p.y,
+        heading: trackTangent(cfg.ang, cfg.lane),
+        speed: 0,
+        steer: 0,
+        throttle: 0,
+        brake: 0,
+        maxSpeed: cfg.speed,
+        seed: Math.random() * TAU,
+        wake: [],
+        lapsDone: 0,
+        nextCp: 1,
+        prevAng: angOf(p.x, p.y),
+        prog: 0,
+        lapStartMs: 0,
+        finishTime: null,
+        finished: false,
+        boostT: 0,
+        boostMeter: 0.5
+      };
+      return b;
+    }
+
+    function buildBoats() {
+      boats = GRID.map(makeBoat);
+      player = boats[0];
+    }
+
+    // ============ PARTICLES ============
+    function addSpray(x, y, vx, vy, life, size, color) {
+      particles.push({ x: x, y: y, vx: vx, vy: vy, life: life, max: life, size: size, color: color, drag: 2.2 });
+    }
+
+    function spawnWakeSpray(b) {
+      const back = -16;
+      const bx = b.x + Math.cos(b.heading) * back;
+      const by = b.y + Math.sin(b.heading) * back;
+      const spread = 0.55;
+      for (let i = 0; i < 2; i++) {
+        const a = b.heading + Math.PI + (Math.random() - 0.5) * spread;
+        const sp = 20 + Math.random() * 55;
+        addSpray(bx + (Math.random() - 0.5) * 8, by + (Math.random() - 0.5) * 8,
+          Math.cos(a) * sp - Math.cos(b.heading) * b.speed * 0.12,
+          Math.sin(a) * sp - Math.sin(b.heading) * b.speed * 0.12,
+          0.45 + Math.random() * 0.3, 2 + Math.random() * 3,
+          b.boostT > 0 ? 'rgba(180,250,255,' : 'rgba(235,250,255,');
+      }
+    }
+
+    function spawnBowSpray(b) {
+      const bx = b.x + Math.cos(b.heading) * 15;
+      const by = b.y + Math.sin(b.heading) * 15;
+      for (let i = 0; i < 2; i++) {
+        const side = i === 0 ? 1 : -1;
+        const a = b.heading + side * (Math.PI / 2);
+        const sp = 25 + Math.random() * 45;
+        addSpray(bx, by, Math.cos(a) * sp, Math.sin(a) * sp, 0.35 + Math.random() * 0.25,
+          1.5 + Math.random() * 2.5, 'rgba(255,255,255,');
+      }
+    }
+
+    function updateParticles(dt) {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        const k = Math.max(0, 1 - p.drag * dt);
+        p.vx *= k;
+        p.vy *= k;
+        p.life -= dt;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+    }
+
+    function drawParticles() {
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        const a = Math.max(0, p.life / p.max);
+        ctx.fillStyle = p.color + a.toFixed(2) + ')';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * (0.5 + a * 0.6), 0, TAU);
+        ctx.fill();
+      }
+    }
+
+    // ============ FLASH MESSAGE ============
+    let flashTimer = null;
+    function flash(msg) {
+      flashEl.textContent = msg;
+      flashEl.classList.add('show');
+      if (flashTimer) clearTimeout(flashTimer);
+      flashTimer = setTimeout(function () { flashEl.classList.remove('show'); }, 950);
+    }
+
+    // ============ BOAT CONTROL ============
+    function applyInput(b, dt) {
+      if (b.isPlayer) {
+        b.throttle = input.throttle ? 1 : 0;
+        b.brake = input.brake ? 1 : 0;
+        b.steer = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+        if (input.boost && b.boostMeter >= 0.5 && b.boostT <= 0) {
+          b.boostT = 1.3;
+          b.boostMeter -= 0.5;
+          beep(880, 0.2, 'sawtooth', 0.06);
+          flash('BOOST!');
+        }
+      } else {
+        aiControl(b);
+      }
+    }
+
+    function aiControl(b) {
+      const a = angOf(b.x, b.y);
+      const look = 0.30 + Math.min(1, b.speed / b.maxSpeed) * 0.13;
+      const tgt = trackPoint(a + look, b.lane);
+      const desired = Math.atan2(tgt.y - b.y, tgt.x - b.x);
+      const diff = normAngle(desired - b.heading);
+      b.steer = Math.max(-1, Math.min(1, diff * 2.3));
+      const sharp = Math.min(1, Math.abs(diff) * 1.7);
+      b.throttle = 1 - sharp * 0.55;
+      b.brake = 0;
+      b.maxSpeed = GRID[boats.indexOf(b)].speed + Math.sin(waveT * 0.6 + b.seed) * 5;
+    }
+
+    // ============ PHYSICS ============
+    function physics(b, dt) {
+      const boosting = b.boostT > 0;
+      const maxS = b.maxSpeed * (boosting ? 1.45 : 1);
+      const acc = ACCEL * (boosting ? 1.9 : 1);
+
+      if (b.brake) b.speed -= BRAKE * dt;
+      else b.speed += b.throttle * acc * dt;
+
+      b.speed -= DRAG * b.speed * dt;
+      if (b.speed > maxS) b.speed = Math.max(maxS, b.speed - 420 * dt);
+      if (b.speed < -70) b.speed = -70;
+
+      const sf = 0.22 + 0.78 * Math.min(1, Math.abs(b.speed) / 110);
+      b.heading += b.steer * TURN * sf * dt * (b.speed < 0 ? -1 : 1);
+      b.heading += Math.sin(waveT * 2.0 + b.seed) * 0.22 * dt;
+
+      b.x += Math.cos(b.heading) * b.speed * dt;
+      b.y += Math.sin(b.heading) * b.speed * dt;
+
+      if (b.boostT > 0) b.boostT -= dt;
+      b.boostMeter = Math.min(1, b.boostMeter + dt * 0.09);
+
+      clampToWater(b);
+
+      // chop zones near each gate line
+      const a = angOf(b.x, b.y);
+      let chop = false;
+      for (let i = 0; i < GATES; i++) {
+        if (Math.abs(normAngle(a - GATE_ANGS[i])) < 0.045) { chop = true; break; }
+      }
+      if (chop) {
+        b.speed *= (1 - 0.9 * dt);
+        b.heading += (Math.random() - 0.5) * 1.0 * dt;
+        if (Math.random() < 0.5) spawnBowSpray(b);
+      }
+    }
+
+    function clampToWater(b) {
+      let hit = false;
+      const fo = fOut(b.x, b.y);
+      if (fo > 1) {
+        const s = 1 / Math.sqrt(fo);
+        b.x = CX + (b.x - CX) * s;
+        b.y = CY + (b.y - CY) * s;
+        hit = true;
+      }
+      const fi = Math.max(0.0001, fIn(b.x, b.y));
+      if (fi < 1) {
+        const s = 1 / Math.sqrt(fi);
+        b.x = CX + (b.x - CX) * s;
+        b.y = CY + (b.y - CY) * s;
+        hit = true;
+      }
+      if (hit) {
+        if (b.speed > 40) {
+          for (let i = 0; i < 3; i++) spawnBowSpray(b);
+        }
+        b.speed *= 0.55;
+      }
+    }
+
+    // ============ RACE LOGIC ============
+    function angleLogic(b) {
+      const a = angOf(b.x, b.y);
+      let d = normAngle(a - b.prevAng);
+      if (d > 0) b.prog += d;
+
+      const target = GATE_ANGS[b.nextCp];
+      const tt = normAngle(target - b.prevAng);
+      if (d > 0 && tt > 0 && tt <= d) onGate(b);
+
+      b.prevAng = a;
+    }
+
+    function onGate(b) {
+      if (b.nextCp === 0) {
+        // crossed the start/finish line — a lap is complete
+        b.lapsDone++;
+        if (b.isPlayer) {
+          const lapMs = raceTimeMs - b.lapStartMs;
+          b.lapStartMs = raceTimeMs;
+          if (bestLap === null || lapMs < bestLap) {
+            bestLap = lapMs;
+            try { localStorage.setItem('boatRaceBestLap', String(bestLap)); } catch (e) { }
+            beep(1250, 0.16, 'sine', 0.07);
+          } else {
+            beep(720, 0.12, 'sine', 0.05);
+          }
+          if (b.lapsDone >= LAPS) {
+            b.finished = true;
+            b.finishTime = raceTimeMs;
+            beep(1500, 0.4, 'sine', 0.08);
+            endRace();
+            return;
+          }
+          flash('LAP ' + Math.min(b.lapsDone + 1, LAPS) + ' / ' + LAPS);
+          b.boostMeter = Math.min(1, b.boostMeter + 0.3);
+        } else {
+          b.lapStartMs = raceTimeMs;
+          if (b.lapsDone >= LAPS) { b.finished = true; b.finishTime = raceTimeMs; }
+        }
+        b.nextCp = 1;
+      } else {
+        b.nextCp = (b.nextCp + 1) % GATES;
+        if (b.isPlayer) {
+          beep(980, 0.07, 'square', 0.05);
+          b.boostMeter = Math.min(1, b.boostMeter + 0.25);
+          for (let i = 0; i < 4; i++) {
+            const g = trackPoint(GATE_ANGS[b.nextCp], 0.5);
+            addSpray(g.x, g.y, (Math.random() - 0.5) * 90, (Math.random() - 0.5) * 90, 0.5, 3, 'rgba(120,240,255,');
+          }
+        }
+      }
+    }
+
+    function computeRanks() {
+      const order = boats.slice().sort(function (a, b) {
+        if (a.finished && b.finished) return a.finishTime - b.finishTime;
+        if (a.finished) return -1;
+        if (b.finished) return 1;
+        return b.prog - a.prog;
+      });
+      return order;
+    }
+
+    // ============ RACE FLOW ============
+    function startRace() {
+      buildBoats();
+      particles = [];
+      raceTimeMs = 0;
+      countdown = 3.2;
+      lastTick = 9;
+      state = 'countdown';
+      startScreen.classList.add('hidden');
+      resultScreen.classList.add('hidden');
+      pauseOverlay.classList.remove('visible');
+      for (let i = 0; i < boats.length; i++) boats[i].lapStartMs = 0;
+      flash('GET READY');
+      beep(420, 0.12, 'square', 0.05);
+      if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { } }
+    }
+
+    function endRace() {
+      state = 'over';
+      const order = computeRanks();
+      const idx = order.indexOf(player);
+      racePos = idx + 1;
+
+      resPos.textContent = racePos + ' / ' + boats.length;
+      resTime.textContent = fmt(player.finishTime);
+      resBest.textContent = fmt(bestLap);
+
+      resList.innerHTML = '';
+      order.forEach(function (b, i) {
+        const li = document.createElement('li');
+        if (b.isPlayer) li.className = 'you';
+        const status = b.finished ? fmt(b.finishTime) : 'lap ' + Math.min(b.lapsDone + 1, LAPS);
+        li.innerHTML = '<span class="pos">' + (i + 1) + '</span><span>' + b.name +
+          '</span><span>' + status + '</span>';
+        resList.appendChild(li);
+      });
+
+      resultScreen.classList.remove('hidden');
+    }
+
+    function togglePause() {
+      if (state === 'racing') {
+        state = 'paused';
+        pauseOverlay.classList.add('visible');
+      } else if (state === 'paused') {
+        state = 'racing';
+        pauseOverlay.classList.remove('visible');
+        lastFrame = performance.now();
+      }
+    }
+
+    // ============ UPDATE LOOP ============
+    function update(dt) {
+      waveT += dt;
+      updateParticles(dt);
+
+      if (state === 'countdown') {
+        countdown -= dt;
+        const whole = Math.ceil(countdown);
+        if (whole !== lastTick && whole > 0) { lastTick = whole; beep(600, 0.09, 'square', 0.05); }
+        if (countdown <= 0) {
+          state = 'racing';
+          raceTimeMs = 0;
+          for (let i = 0; i < boats.length; i++) boats[i].lapStartMs = 0;
+          beep(1050, 0.28, 'sine', 0.08);
+          flash('GO!');
+        }
+        return;
+      }
+
+      if (state !== 'racing') return;
+
+      raceTimeMs += dt * 1000;
+
+      for (let i = 0; i < boats.length; i++) {
+        const b = boats[i];
+        applyInput(b, dt);
+        physics(b, dt);
+        angleLogic(b);
+
+        // wake trail
+        b.wake.push({ x: b.x, y: b.y });
+        if (b.wake.length > 24) b.wake.shift();
+
+        // spray
+        const spd = Math.abs(b.speed);
+        if (spd > 55 && Math.random() < 0.75) spawnWakeSpray(b);
+        if (spd > 130 && Math.random() < 0.5) spawnBowSpray(b);
+        if (b.boostT > 0) {
+          for (let k = 0; k < 2; k++) spawnWakeSpray(b);
+        }
+      }
+
+      const order = computeRanks();
+      racePos = order.indexOf(player) + 1;
+    }
+
+    // ============ DRAW HELPERS ============
+    function drawWater() {
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, '#0b3a5b');
+      g.addColorStop(0.5, '#0f5179');
+      g.addColorStop(1, '#082b46');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      // drifting wave strokes
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 12; i++) {
+        ctx.strokeStyle = 'rgba(190, 240, 255, 0.055)';
+        ctx.beginPath();
+        for (let x = 0; x <= W; x += 20) {
+          const y = 18 + i * 44 + Math.sin(x * 0.018 + waveT * 1.15 + i) * 6;
+          if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+
+      // sun glints
+      ctx.fillStyle = 'rgba(180, 245, 255, 0.05)';
+      for (let i = 0; i < 30; i++) {
+        const x = (i * 137 + Math.sin(waveT * 0.7 + i) * 40 + W) % W;
+        const y = (i * 83 + Math.cos(waveT * 0.5 + i * 2) * 30 + H) % H;
+        ctx.fillRect(x, y, 10, 2);
+      }
+    }
+
+    function drawLand() {
+      // shoreline ring (sand) around the outside of the course
+      ctx.beginPath();
+      ctx.rect(0, 0, W, H);
+      ctx.ellipse(CX, CY, OUT.ax, OUT.ay, 0, 0, TAU);
+      ctx.fillStyle = '#d8c39a';
+      ctx.fill('evenodd');
+
+      // greenery further out
+      ctx.beginPath();
+      ctx.rect(0, 0, W, H);
+      ctx.ellipse(CX, CY, OUT.ax + 16, OUT.ay + 16, 0, 0, TAU);
+      ctx.fillStyle = '#2f7d5b';
+      ctx.fill('evenodd');
+
+      // island
+      ctx.beginPath();
+      ctx.ellipse(CX, CY, IN.ax, IN.ay, 0, 0, TAU);
+      ctx.fillStyle = '#d8c39a';
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.ellipse(CX, CY, IN.ax - 15, IN.ay - 13, 0, 0, TAU);
+      ctx.fillStyle = '#2f7d5b';
+      ctx.fill();
+
+      // lighthouse landmark on the island
+      ctx.save();
+      ctx.translate(CX, CY);
+      ctx.fillStyle = '#f3f4f6';
+      ctx.beginPath();
+      ctx.moveTo(-9, 16);
+      ctx.lineTo(-6, -16);
+      ctx.lineTo(6, -16);
+      ctx.lineTo(9, 16);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#dc2626';
+      ctx.fillRect(-6.5, -10, 13, 6);
+      ctx.fillRect(-7.2, -2, 14.4, 6);
+      ctx.fillStyle = '#1f2937';
+      ctx.fillRect(-7, -22, 14, 6);
+      const beam = 0.5 + 0.5 * Math.sin(waveT * 2);
+      ctx.fillStyle = 'rgba(255, 236, 140, ' + (0.25 + beam * 0.4) + ')';
+      ctx.beginPath();
+      ctx.arc(0, -19, 5, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawBuoy(x, y, main, dark) {
+      const bob = Math.sin(waveT * 3 + x * 0.05) * 2;
+      const yy = y + bob;
+      // shadow
+      ctx.fillStyle = 'rgba(0, 20, 35, 0.35)';
+      ctx.beginPath();
+      ctx.ellipse(x, y + 6, 9, 4, 0, 0, TAU);
+      ctx.fill();
+      // body
+      ctx.fillStyle = main;
+      ctx.beginPath();
+      ctx.moveTo(x - 7, yy + 6);
+      ctx.quadraticCurveTo(x - 9, yy - 4, x, yy - 9);
+      ctx.quadraticCurveTo(x + 9, yy - 4, x + 7, yy + 6);
+      ctx.closePath();
+      ctx.fill();
+      // band
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.fillRect(x - 7.4, yy - 1, 14.8, 3);
+      // cap + mast
+      ctx.fillStyle = dark;
+      ctx.beginPath();
+      ctx.arc(x, yy - 9, 3.4, 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle = dark;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(x, yy - 11);
+      ctx.lineTo(x, yy - 19);
+      ctx.stroke();
+      ctx.fillStyle = '#ffb703';
+      ctx.beginPath();
+      ctx.moveTo(x, yy - 19);
+      ctx.lineTo(x + 9, yy - 16);
+      ctx.lineTo(x, yy - 13);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function drawGates() {
+      for (let i = 0; i < GATES; i++) {
+        const ang = GATE_ANGS[i];
+        const pIn = trackPoint(ang, 0.02);
+        const pOut = trackPoint(ang, 0.98);
+        const isNext = (player && i === player.nextCp && state === 'racing');
+        const isFinish = (i === 0);
+
+        // chop arcs across the gate
+        ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+        ctx.lineWidth = 2;
+        for (let k = 0; k < 3; k++) {
+          const off = 14 + k * 12;
+          const a1 = trackPoint(ang + off / 200, 0.14);
+          const a2 = trackPoint(ang + off / 200, 0.86);
+          ctx.beginPath();
+          ctx.moveTo(a1.x, a1.y);
+          ctx.quadraticCurveTo(lerp(a1.x, a2.x, 0.5) + Math.sin(waveT * 2 + k) * 4,
+            lerp(a1.y, a2.y, 0.5) + 5, a2.x, a2.y);
+          ctx.stroke();
+        }
+
+        // gate line
+        ctx.save();
+        ctx.setLineDash([9, 9]);
+        ctx.lineWidth = isNext ? 3.5 : 2;
+        ctx.strokeStyle = isNext ? 'rgba(60, 235, 255, 0.95)'
+          : (isFinish ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.26)');
+        if (isNext) { ctx.shadowColor = 'rgba(60,235,255,0.9)'; ctx.shadowBlur = 14; }
+        ctx.beginPath();
+        ctx.moveTo(pIn.x, pIn.y);
+        ctx.lineTo(pOut.x, pOut.y);
+        ctx.stroke();
+        ctx.restore();
+
+        if (isFinish) drawFinishLine();
+        else {
+          drawBuoy(pIn.x, pIn.y, '#facc15', '#a16207');
+          drawBuoy(pOut.x, pOut.y, '#facc15', '#a16207');
+        }
+
+        if (isNext) {
+          const c = trackPoint(ang, 0.5);
+          const pulse = 12 + Math.sin(waveT * 6) * 4;
+          ctx.strokeStyle = 'rgba(90, 240, 255, 0.6)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, pulse, 0, TAU);
+          ctx.stroke();
+        }
+      }
+    }
+
+    function drawFinishLine() {
+      const pIn = trackPoint(0, 0.03);
+      const pOut = trackPoint(0, 0.97);
+      const n = 14;
+      ctx.lineWidth = 10;
+      for (let i = 0; i < n; i++) {
+        const x1 = lerp(pIn.x, pOut.x, i / n), y1 = lerp(pIn.y, pOut.y, i / n);
+        const x2 = lerp(pIn.x, pOut.x, (i + 1) / n), y2 = lerp(pIn.y, pOut.y, (i + 1) / n);
+        ctx.strokeStyle = (i % 2) ? '#ffffff' : '#0b0b0b';
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      }
+      drawBuoy(pIn.x, pIn.y, '#ef4444', '#7f1d1d');
+      drawBuoy(pOut.x, pOut.y, '#ef4444', '#7f1d1d');
+    }
+
+    function drawWakes() {
+      for (let i = 0; i < boats.length; i++) {
+        const w = boats[i].wake;
+        if (w.length < 2) continue;
+        ctx.lineCap = 'round';
+        for (let j = 1; j < w.length; j++) {
+          const t = j / w.length;
+          ctx.strokeStyle = 'rgba(200, 244, 255, ' + (0.22 * t).toFixed(3) + ')';
+          ctx.lineWidth = 1 + t * 8;
+          ctx.beginPath();
+          ctx.moveTo(w[j - 1].x, w[j - 1].y);
+          ctx.lineTo(w[j].x, w[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    function drawBoat(b) {
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      ctx.rotate(b.heading);
+
+      // hull shadow in water
+      ctx.fillStyle = 'rgba(2, 22, 36, 0.4)';
+      ctx.beginPath();
+      ctx.ellipse(1, 2, 20, 10, 0, 0, TAU);
+      ctx.fill();
+
+      // boost flame
+      if (b.boostT > 0) {
+        const fl = 14 + Math.random() * 12;
+        ctx.fillStyle = 'rgba(140, 240, 255, 0.85)';
+        ctx.beginPath();
+        ctx.moveTo(-20, -3);
+        ctx.lineTo(-20 - fl, 0);
+        ctx.lineTo(-20, 3);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // hull
+      ctx.fillStyle = b.dark;
+      ctx.beginPath();
+      ctx.moveTo(18, 0);
+      ctx.quadraticCurveTo(6, -10, -13, -8);
+      ctx.lineTo(-16, 0);
+      ctx.lineTo(-13, 8);
+      ctx.quadraticCurveTo(6, 10, 18, 0);
+      ctx.closePath();
+      ctx.fill();
+
+      // deck
+      ctx.fillStyle = b.color;
+      ctx.beginPath();
+      ctx.moveTo(15, 0);
+      ctx.quadraticCurveTo(6, -7, -11, -6);
+      ctx.lineTo(-12, 0);
+      ctx.lineTo(-11, 6);
+      ctx.quadraticCurveTo(6, 7, 15, 0);
+      ctx.closePath();
+      ctx.fill();
+
+      // racing stripe
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.fillRect(-9, -1.6, 22, 1.4);
+      ctx.fillRect(-9, 0.4, 22, 1.4);
+
+      // cockpit + windscreen
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.ellipse(-2, 0, 5, 4, 0, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(180,240,255,0.9)';
+      ctx.beginPath();
+      ctx.ellipse(5, 0, 3, 3.2, 0, 0, TAU);
+      ctx.fill();
+
+      // outboard motor
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(-21, -2.5, 7, 5);
+      ctx.fillRect(-16, -1.4, 3, 2.8);
+
+      ctx.restore();
+
+      // player marker
+      if (b.isPlayer) {
+        const pulse = 6 + Math.sin(waveT * 5) * 2;
+        ctx.strokeStyle = 'rgba(120, 240, 255, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, 22 + pulse * 0.3, 0, TAU);
+        ctx.stroke();
+      }
+    }
+
+    function drawArrow() {
+      if (!player || state !== 'racing') return;
+      const tgt = trackPoint(GATE_ANGS[player.nextCp], 0.5);
+      const ang = Math.atan2(tgt.y - player.y, tgt.x - player.x);
+      const d = Math.hypot(tgt.x - player.x, tgt.y - player.y);
+      if (d < 60) return;
+      const ax = player.x + Math.cos(ang) * 34;
+      const ay = player.y + Math.sin(ang) * 34;
+      ctx.save();
+      ctx.translate(ax, ay);
+      ctx.rotate(ang);
+      ctx.fillStyle = 'rgba(120, 245, 255, ' + (0.55 + 0.35 * Math.sin(waveT * 7)) + ')';
+      ctx.beginPath();
+      ctx.moveTo(12, 0);
+      ctx.lineTo(-8, -8);
+      ctx.lineTo(-3, 0);
+      ctx.lineTo(-8, 8);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawCountdown() {
+      if (state !== 'countdown') return;
+      const n = Math.ceil(countdown);
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = 'bold 110px Segoe UI, sans-serif';
+      ctx.fillStyle = 'rgba(120, 240, 255, 0.92)';
+      ctx.shadowColor = 'rgba(60, 220, 255, 0.8)';
+      ctx.shadowBlur = 26;
+      ctx.fillText(n > 0 ? String(n) : 'GO', CX, CY);
+      ctx.restore();
+    }
+
+    function draw() {
+      drawWater();
+      drawLand();
+      drawGates();
+      drawWakes();
+
+      for (let i = 1; i < boats.length; i++) drawBoat(boats[i]);
+      drawBoat(boats[0]);
+
+      drawParticles();
+      drawArrow();
+      drawCountdown();
+
+      // vignette
+      const vg = ctx.createRadialGradient(CX, CY, 200, CX, CY, 520);
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, 'rgba(0,8,16,0.45)');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // ============ HUD ============
+    function updateHud() {
+      if (!player) return;
+      const lap = Math.min(player.lapsDone + 1, LAPS);
+      hudLap.textContent = lap + '/' + LAPS;
+      hudPos.textContent = racePos + '/' + boats.length;
+      hudTime.textContent = fmt(raceTimeMs);
+      hudBest.textContent = fmt(bestLap);
+      hudSpeed.textContent = String(Math.round(Math.abs(player.speed)));
+    }
+
+    // ============ MAIN LOOP ============
+    function loop(now) {
+      if (!lastFrame) lastFrame = now;
+      let dt = (now - lastFrame) / 1000;
+      lastFrame = now;
+      if (dt > 0.05) dt = 0.05;
+
+      update(dt);
+      draw();
+      updateHud();
+
+      requestAnimationFrame(loop);
+    }
+
+    // ============ KEYBOARD INPUT ============
+    document.addEventListener('keydown', function (e) {
+      const keys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space',
+        'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyP', 'Escape', 'Enter'];
+      if (keys.indexOf(e.code) !== -1) e.preventDefault();
+
+      if (e.code === 'KeyP' || e.code === 'Escape') { togglePause(); return; }
+
+      if (e.code === 'Enter' && (state === 'start' || state === 'over')) { startRace(); return; }
+
+      if (state !== 'racing' && state !== 'countdown') return;
+
+      switch (e.code) {
+        case 'ArrowUp': case 'KeyW': input.throttle = true; break;
+        case 'ArrowDown': case 'KeyS': input.brake = true; break;
+        case 'ArrowLeft': case 'KeyA': input.left = true; break;
+        case 'ArrowRight': case 'KeyD': input.right = true; break;
+        case 'Space': input.boost = true; break;
+      }
+    });
+
+    document.addEventListener('keyup', function (e) {
+      switch (e.code) {
+        case 'ArrowUp': case 'KeyW': input.throttle = false; break;
+        case 'ArrowDown': case 'KeyS': input.brake = false; break;
+        case 'ArrowLeft': case 'KeyA': input.left = false; break;
+        case 'ArrowRight': case 'KeyD': input.right = false; break;
+        case 'Space': input.boost = false; break;
+      }
+    });
+
+    // ============ TOUCH INPUT ============
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+      touchControls.classList.add('visible');
+    }
+
+    document.querySelectorAll('.tbtn').forEach(function (btn) {
+      const act = btn.dataset.act;
+      const on = function (e) { e.preventDefault(); input[act] = true; };
+      const off = function (e) { e.preventDefault(); input[act] = false; };
+
+      btn.addEventListener('touchstart', on, { passive: false });
+      btn.addEventListener('touchend', off, { passive: false });
+      btn.addEventListener('touchcancel', off, { passive: false });
+      btn.addEventListener('mousedown', on);
+      btn.addEventListener('mouseup', off);
+      btn.addEventListener('mouseleave', off);
+      btn.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    });
+
+    // ============ BUTTON LISTENERS ============
+    startBtn.addEventListener('click', startRace);
+    restartBtn.addEventListener('click', startRace);
+
+    // ============ INITIAL DRAW ============
+    buildBoats();
+    draw();
+    updateHud();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

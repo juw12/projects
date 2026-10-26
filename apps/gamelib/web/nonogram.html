@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🧩 Nonogram</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    min-height: 100%;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #e9e2f7 0%, #f3ecff 45%, #ffe9f3 100%);
+    color: #574b63;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 14px;
+    touch-action: manipulation;
+  }
+
+  /* ============ APP SHELL ============ */
+  .app {
+    width: min(96vw, 760px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .title {
+    text-align: center;
+    font-size: 1.9rem;
+    letter-spacing: 1px;
+    color: #a06cc7;
+    text-shadow: 2px 2px 0 #fff;
+  }
+
+  .subtitle {
+    text-align: center;
+    font-size: 0.82rem;
+    color: #9a8fa8;
+    margin-top: -6px;
+  }
+
+  /* ============ HUD ============ */
+  .hud {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.86);
+    border-radius: 14px;
+    box-shadow: 0 4px 18px rgba(120, 90, 160, 0.12);
+    font-size: 0.9rem;
+  }
+
+  .hud .stat { color: #8d81a0; }
+  .hud .stat b { color: #a06cc7; font-variant-numeric: tabular-nums; }
+
+  .chip {
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #f1e9fb;
+    color: #8d6fb0;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  /* ============ BOARD ============ */
+  .board-area {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    width: 100%;
+    overflow: auto;
+    padding: 4px;
+  }
+
+  #board {
+    display: grid;
+    width: max-content;
+    margin: 0 auto;
+    background: rgba(255, 255, 255, 0.55);
+    border-radius: 12px;
+    padding: 6px;
+    box-shadow: 0 8px 26px rgba(130, 95, 175, 0.16);
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+
+  /* --- clue areas --- */
+  .row-clue {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: calc(var(--cell) * 0.18);
+    padding-right: calc(var(--cell) * 0.22);
+  }
+  .col-clue {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    gap: calc(var(--cell) * 0.14);
+    padding-bottom: calc(var(--cell) * 0.22);
+  }
+  .row-clue .clue,
+  .col-clue .clue {
+    font-size: calc(var(--cell) * 0.6);
+    font-weight: 700;
+    line-height: 1;
+    color: #6f6183;
+    min-width: calc(var(--cell) * 0.55);
+    text-align: center;
+    transition: color 0.15s ease, opacity 0.15s ease;
+  }
+  .row-clue .clue.active,
+  .col-clue .clue.active { color: #ff6b8a; }
+  .row-clue.done .clue,
+  .col-clue.done .clue {
+    color: #c9bcd9;
+    text-decoration: line-through;
+  }
+
+  /* --- grid cells --- */
+  .cell {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--cell);
+    height: var(--cell);
+    background: #ffffff;
+    border-right: 1px solid #e7ddf2;
+    border-bottom: 1px solid #e7ddf2;
+    cursor: pointer;
+    transition: background 0.1s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cell.b5 { border-right: 2px solid #b7a6cd; }
+  .cell.b5b { border-bottom: 2px solid #b7a6cd; }
+
+  .cell:hover:not(.filled):not(.mark) { background: #f6f0fc; }
+
+  .cell.filled {
+    background: linear-gradient(135deg, #ffc2d2, #ff8fa3);
+    box-shadow: inset 0 0 calc(var(--cell) * 0.16) rgba(255, 255, 255, 0.55);
+  }
+  .cell.mark::before {
+    content: '✕';
+    font-size: calc(var(--cell) * 0.6);
+    font-weight: 700;
+    line-height: 1;
+    color: #c3b0d3;
+  }
+  .cell.wrong {
+    background: #ffd9d9;
+    box-shadow: inset 0 0 0 2px #ec5b5b;
+    animation: shake 0.32s ease;
+  }
+  .cell.flash {
+    background: #d6f5e0;
+    box-shadow: inset 0 0 0 2px #43b06a;
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-2px); }
+    75% { transform: translateX(2px); }
+  }
+
+  /* ============ CONTROLS ============ */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .btn {
+    font-family: inherit;
+    font-size: 0.88rem;
+    font-weight: 600;
+    padding: 9px 16px;
+    border: 2px solid #ddd0ee;
+    background: #fff;
+    color: #6f6183;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+  }
+  .btn:hover { background: #f7f1ff; transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn.primary {
+    background: linear-gradient(135deg, #b98fe0, #a06cc7);
+    color: #fff;
+    border-color: #a06cc7;
+    box-shadow: 0 4px 12px rgba(160, 108, 199, 0.32);
+  }
+  .btn.primary:hover { background: linear-gradient(135deg, #c49fe8, #ac79d2); }
+  .btn.on {
+    background: linear-gradient(135deg, #ffb3c6, #ff8fa3);
+    color: #fff;
+    border-color: #ff8fa3;
+  }
+
+  /* ============ OVERLAYS ============ */
+  .screen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(60, 40, 80, 0.42);
+    backdrop-filter: blur(4px);
+    padding: 20px;
+    z-index: 20;
+    transition: opacity 0.25s ease;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+
+  .card {
+    width: min(92vw, 400px);
+    background: #fff;
+    border-radius: 22px;
+    padding: 26px 24px;
+    text-align: center;
+    box-shadow: 0 18px 50px rgba(70, 40, 100, 0.32);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .card h2 {
+    font-size: 1.6rem;
+    color: #a06cc7;
+    text-shadow: 1px 1px 0 #f3ecff;
+  }
+  .card p { font-size: 0.86rem; color: #8d81a0; line-height: 1.5; }
+
+  .size-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .size-btn {
+    font-family: inherit;
+    font-size: 0.88rem;
+    font-weight: 600;
+    padding: 10px 16px;
+    border: 2px solid #ddd0ee;
+    background: #fff;
+    color: #6f6183;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .size-btn:hover { background: #f7f1ff; }
+  .size-btn.selected {
+    background: linear-gradient(135deg, #b98fe0, #a06cc7);
+    color: #fff;
+    border-color: #a06cc7;
+    box-shadow: 0 4px 12px rgba(160, 108, 199, 0.32);
+  }
+
+  #preview {
+    border-radius: 10px;
+    background: #faf7ff;
+    padding: 6px;
+    box-shadow: inset 0 0 0 1px #e7ddf2;
+    image-rendering: pixelated;
+  }
+
+  .result-line { font-size: 1.15rem; font-weight: 700; color: #a06cc7; }
+  .result-line small { display: block; font-size: 0.8rem; font-weight: 600; color: #9a8fa8; margin-top: 4px; }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    font-size: 0.74rem;
+    color: #9a8fa8;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+  @media (max-width: 480px) {
+    .title { font-size: 1.5rem; }
+    .hud { font-size: 0.8rem; }
+    .btn { padding: 8px 13px; font-size: 0.82rem; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1 class="title">🧩 Nonogram</h1>
+  <p class="subtitle">Picross / Griddler — paint the hidden picture</p>
+
+  <!-- ============ HUD ============ -->
+  <div class="hud">
+    <div class="stat">Time: <b id="time">0:00</b></div>
+    <div class="stat">Best: <b id="best">--:--</b></div>
+    <div class="stat">Size: <b id="sizeLabel">10×10</b></div>
+    <div class="chip" id="modeChip">Brush: Fill</div>
+  </div>
+
+  <!-- ============ BOARD ============ -->
+  <div class="board-area" id="boardArea">
+    <div id="board"></div>
+  </div>
+
+  <!-- ============ CONTROLS ============ -->
+  <div class="controls">
+    <button class="btn primary" id="btnNew" type="button">New Puzzle</button>
+    <button class="btn" id="btnUndo" type="button">Undo</button>
+    <button class="btn" id="btnCheck" type="button">Check</button>
+    <button class="btn" id="btnMark" type="button">Mark Mode</button>
+    <button class="btn" id="btnMenu" type="button">Menu</button>
+  </div>
+
+  <div class="legend">
+    <span><i class="swatch" style="background:linear-gradient(135deg,#ffc2d2,#ff8fa3)"></i> filled</span>
+    <span><i class="swatch" style="background:#fff;border:1px solid #e7ddf2"></i> empty</span>
+    <span>✕ = ruled out</span>
+    <span>right-click / long-press = ✕</span>
+  </div>
+</div>
+
+<!-- ============ START SCREEN ============ -->
+<div class="screen" id="startScreen">
+  <div class="card">
+    <h2>Nonogram</h2>
+    <p>Fill cells so each row and column matches its number clues.
+       Numbers describe blocks of filled cells, in order, with at least one gap between them.</p>
+    <p style="font-weight:600;color:#6f6183;">Choose a grid size</p>
+    <div class="size-row">
+      <button class="size-btn" data-size="5" type="button">5 × 5</button>
+      <button class="size-btn selected" data-size="10" type="button">10 × 10</button>
+      <button class="size-btn" data-size="15" type="button">15 × 15</button>
+    </div>
+    <button class="btn primary" id="btnStart" type="button">Start Puzzle</button>
+  </div>
+</div>
+
+<!-- ============ WIN SCREEN ============ -->
+<div class="screen hidden" id="winScreen">
+  <div class="card">
+    <h2>Solved! 🎉</h2>
+    <canvas id="preview" width="200" height="200"></canvas>
+    <div class="result-line">
+      <span id="winTime">0:00</span>
+      <small id="winBest">Best: --:--</small>
+    </div>
+    <div class="size-row" style="margin-top:4px;">
+      <button class="btn primary" id="btnAgain" type="button">Play Again</button>
+      <button class="btn" id="btnWinMenu" type="button">Menu</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONFIGURATION & STATE ============
+  const EMPTY = 0, FILL = 1, MARK = 2;
+  const SIZES = [5, 10, 15];
+
+  let size = 10;                 // current grid dimension
+  let solution = [];             // solution[y][x] -> 0/1
+  let state = [];                // state[y][x] -> EMPTY / FILL / MARK
+  let rowClues = [];             // rowClues[y] -> array of run lengths ([0] if empty)
+  let colClues = [];             // colClues[x] -> array of run lengths
+
+  let cellEls = [];              // cellEls[y][x] -> DOM node
+  let rowClueEls = [];           // row clue containers
+  let colClueEls = [];           // column clue containers
+
+  let markMode = false;          // brush mode: false = fill, true = mark (X)
+  let dragging = false;
+  let dragPaint = EMPTY;
+  let locked = false;            // true while the win overlay is up
+  let undoStack = [];            // {x, y, from}
+
+  let startTime = 0;             // ms when the timer started (0 = not started)
+  let elapsed = 0;               // accumulated ms
+  let timerId = null;
+
+  // ============ SOUND (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "sine";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+  function melody() {
+    const notes = [523, 659, 784, 1046];
+    notes.forEach(function (f, i) {
+      setTimeout(function () { beep(f, 0.18, "triangle"); }, i * 130);
+    });
+  }
+
+  // ============ DOM REFERENCES ============
+  const boardEl = document.getElementById("board");
+  const boardArea = document.getElementById("boardArea");
+  const timeEl = document.getElementById("time");
+  const bestEl = document.getElementById("best");
+  const sizeLabelEl = document.getElementById("sizeLabel");
+  const modeChip = document.getElementById("modeChip");
+  const startScreen = document.getElementById("startScreen");
+  const winScreen = document.getElementById("winScreen");
+  const previewCanvas = document.getElementById("preview");
+  const winTimeEl = document.getElementById("winTime");
+  const winBestEl = document.getElementById("winBest");
+  const btnNew = document.getElementById("btnNew");
+  const btnUndo = document.getElementById("btnUndo");
+  const btnCheck = document.getElementById("btnCheck");
+  const btnMark = document.getElementById("btnMark");
+  const btnMenu = document.getElementById("btnMenu");
+  const btnStart = document.getElementById("btnStart");
+  const btnAgain = document.getElementById("btnAgain");
+  const btnWinMenu = document.getElementById("btnWinMenu");
+
+  // ============ HAND-MADE 5×5 PATTERNS ============
+  const PATTERNS5 = [
+    ["01010", "11111", "11111", "01110", "00100"], // heart
+    ["00100", "01110", "11111", "11111", "01110"], // big diamond
+    ["00100", "00100", "11111", "00100", "00100"], // plus
+    ["00100", "01110", "10101", "00100", "00100"], // arrow
+    ["00100", "01110", "11111", "10101", "10101"], // house
+    ["01010", "00000", "10001", "01110", "00000"]  // face
+  ];
+
+  // ============ PUZZLE GENERATION ============
+  function emptyGrid(n, v) {
+    const g = [];
+    for (let y = 0; y < n; y++) {
+      g.push(new Array(n).fill(v || 0));
+    }
+    return g;
+  }
+
+  // Build a random, always-solvable picture (mirrored horizontally for niceness).
+  function generatePicture(n) {
+    if (n === 5) {
+      const p = PATTERNS5[Math.floor(Math.random() * PATTERNS5.length)];
+      return p.map(function (row) {
+        return row.split("").map(function (c) { return c === "1" ? 1 : 0; });
+      });
+    }
+
+    const g = emptyGrid(n, 0);
+    const density = n === 10 ? 0.44 : 0.40;
+    const half = Math.ceil(n / 2);
+
+    for (let y = 0; y < n; y++) {
+      for (let x = 0; x < half; x++) {
+        if (Math.random() < density) {
+          g[y][x] = 1;
+          g[y][n - 1 - x] = 1;
+        }
+      }
+    }
+
+    // Guarantee a non-trivial picture: at least ~n filled cells, not almost full.
+    let count = countFilled(g, n);
+    let guard = 0;
+    while (count < n && guard++ < 400) {
+      const y = Math.floor(Math.random() * n);
+      const x = Math.floor(Math.random() * half);
+      if (!g[y][x]) { g[y][x] = 1; g[y][n - 1 - x] = 1; count += (x === n - 1 - x) ? 1 : 2; }
+    }
+    guard = 0;
+    while (count > n * n * 0.78 && guard++ < 400) {
+      const y = Math.floor(Math.random() * n);
+      const x = Math.floor(Math.random() * half);
+      if (g[y][x]) { g[y][x] = 0; g[y][n - 1 - x] = 0; count -= 2; }
+    }
+    return g;
+  }
+
+  function countFilled(g, n) {
+    let c = 0;
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (g[y][x]) c++;
+    return c;
+  }
+
+  // Turn a picture into row/column run-length clues.
+  function computeClues(line) {
+    const runs = [];
+    let c = 0;
+    for (let i = 0; i < line.length; i++) {
+      if (line[i]) { c++; }
+      else if (c) { runs.push(c); c = 0; }
+    }
+    if (c) runs.push(c);
+    return runs.length ? runs : [0];
+  }
+
+  // ============ BUILD THE BOARD DOM ============
+  function buildBoard() {
+    const n = size;
+    const maxRowRuns = Math.max.apply(null, rowClues.map(function (r) { return r.length; }));
+    const maxColRuns = Math.max.apply(null, colClues.map(function (c) { return c.length; }));
+
+    boardEl.innerHTML = "";
+    boardEl.style.gridTemplateColumns =
+      "repeat(" + maxRowRuns + ", var(--cluew)) repeat(" + n + ", var(--cell))";
+    boardEl.style.gridTemplateRows =
+      "repeat(" + maxColRuns + ", var(--clueh)) repeat(" + n + ", var(--cell))";
+
+    cellEls = [];
+    rowClueEls = [];
+    colClueEls = [];
+
+    // --- row clue containers ---
+    for (let y = 0; y < n; y++) {
+      const el = document.createElement("div");
+      el.className = "row-clue";
+      el.style.gridRow = (maxColRuns + 1 + y);
+      el.style.gridColumn = "1 / span " + maxRowRuns;
+      rowClues[y].forEach(function (v) {
+        const s = document.createElement("span");
+        s.className = "clue";
+        s.textContent = v;
+        el.appendChild(s);
+      });
+      boardEl.appendChild(el);
+      rowClueEls.push(el);
+    }
+
+    // --- column clue containers ---
+    for (let x = 0; x < n; x++) {
+      const el = document.createElement("div");
+      el.className = "col-clue";
+      el.style.gridColumn = (maxRowRuns + 1 + x);
+      el.style.gridRow = "1 / span " + maxColRuns;
+      colClues[x].forEach(function (v) {
+        const s = document.createElement("span");
+        s.className = "clue";
+        s.textContent = v;
+        el.appendChild(s);
+      });
+      boardEl.appendChild(el);
+      colClueEls.push(el);
+    }
+
+    // --- cells ---
+    for (let y = 0; y < n; y++) {
+      cellEls.push([]);
+      for (let x = 0; x < n; x++) {
+        const c = document.createElement("div");
+        c.className = "cell";
+        if ((x + 1) % 5 === 0 && x !== n - 1) c.classList.add("b5");
+        if ((y + 1) % 5 === 0 && y !== n - 1) c.classList.add("b5b");
+        c.style.gridRow = (maxColRuns + 1 + y);
+        c.style.gridColumn = (maxRowRuns + 1 + x);
+        c.dataset.x = x;
+        c.dataset.y = y;
+        boardEl.appendChild(c);
+        cellEls[y].push(c);
+      }
+    }
+    layout();
+  }
+
+  // Compute a responsive cell size and apply CSS variables.
+  function layout() {
+    const n = size;
+    const maxRowRuns = Math.max.apply(null, rowClues.map(function (r) { return r.length; }));
+    const maxColRuns = Math.max.apply(null, colClues.map(function (c) { return c.length; }));
+
+    const availW = Math.max(240, boardArea.clientWidth - 24);
+    const availH = Math.max(240, window.innerHeight - 250);
+
+    const byW = Math.floor(availW / (n + maxRowRuns * 1.15));
+    const byH = Math.floor(availH / (n + maxColRuns * 0.9));
+    let cell = Math.min(byW, byH, 40);
+    cell = Math.max(cell, 13);
+
+    boardEl.style.setProperty("--cell", cell + "px");
+    boardEl.style.setProperty("--cluew", Math.round(cell * 1.15) + "px");
+    boardEl.style.setProperty("--clueh", Math.round(cell * 0.9) + "px");
+  }
+
+  // ============ RENDERING A SINGLE CELL ============
+  function renderCell(x, y) {
+    const el = cellEls[y][x];
+    el.classList.remove("filled", "mark", "wrong", "flash");
+    if (state[y][x] === FILL) el.classList.add("filled");
+    else if (state[y][x] === MARK) el.classList.add("mark");
+  }
+
+  // ============ CLUE FEEDBACK ============
+  function runsOf(stateLine) {
+    const runs = [];
+    let c = 0;
+    for (let i = 0; i < stateLine.length; i++) {
+      if (stateLine[i]) c++;
+      else if (c) { runs.push(c); c = 0; }
+    }
+    if (c) runs.push(c);
+    return runs;
+  }
+
+  function arraysEqual(a, b) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
+  }
+
+  function paintClue(container, clues, runs) {
+    const spans = container.children;
+    let done;
+    if (clues.length === 1 && clues[0] === 0) done = runs.length === 0;
+    else done = arraysEqual(clues, runs);
+
+    container.classList.toggle("done", done);
+
+    for (let i = 0; i < spans.length; i++) spans[i].classList.remove("active");
+    if (done) return;
+
+    // Greedy partial credit: mark a clue when a run of the same length is found.
+    let ri = 0;
+    for (let ci = 0; ci < clues.length && ri < runs.length; ci++) {
+      while (ri < runs.length && runs[ri] !== clues[ci]) ri++;
+      if (ri < runs.length && runs[ri] === clues[ci]) {
+        if (spans[ci]) spans[ci].classList.add("active");
+        ri++;
+      }
+    }
+  }
+
+  function updateRowClue(y) {
+    const line = [];
+    for (let x = 0; x < size; x++) line.push(state[y][x] === FILL ? 1 : 0);
+    paintClue(rowClueEls[y], rowClues[y], runsOf(line));
+  }
+
+  function updateColClue(x) {
+    const line = [];
+    for (let y = 0; y < size; y++) line.push(state[y][x] === FILL ? 1 : 0);
+    paintClue(colClueEls[x], colClues[x], runsOf(line));
+  }
+
+  function updateAllClues() {
+    for (let y = 0; y < size; y++) updateRowClue(y);
+    for (let x = 0; x < size; x++) updateColClue(x);
+  }
+
+  // ============ CELL MUTATION ============
+  function setCell(x, y, value) {
+    if (locked || state[y][x] === value) return;
+    undoStack.push({ x: x, y: y, from: state[y][x] });
+    state[y][x] = value;
+    renderCell(x, y);
+    updateRowClue(y);
+    updateColClue(x);
+    startTimerIfNeeded();
+    if (value === FILL) beep(720, 0.04, "sine");
+    else if (value === MARK) beep(430, 0.04, "triangle");
+
+    if (isSolved()) win();
+  }
+
+  function isSolved() {
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const need = solution[y][x] === 1;
+        const has = state[y][x] === FILL;
+        if (need !== has) return false;
+      }
+    }
+    return true;
+  }
+
+  // ============ INPUT ============
+  function choosePaint(x, y, isRight) {
+    const cur = state[y][x];
+    if (isRight || markMode) {
+      return cur === MARK ? EMPTY : MARK;
+    }
+    return cur === FILL ? EMPTY : FILL;
+  }
+
+  function onDown(x, y, isRight) {
+    if (locked) return;
+    const value = choosePaint(x, y, isRight);
+    setCell(x, y, value);
+    dragging = true;
+    dragPaint = value;
+  }
+
+  function onEnter(x, y) {
+    if (!dragging || locked) return;
+    setCell(x, y, dragPaint);
+  }
+
+  // Pointer handling on the board (mouse + touch + pen).
+  boardEl.addEventListener("pointerdown", function (e) {
+    const el = e.target.closest(".cell");
+    if (!el) return;
+    e.preventDefault();
+    onDown(parseInt(el.dataset.x, 10), parseInt(el.dataset.y, 10), e.button === 2);
+  });
+
+  boardEl.addEventListener("pointermove", function (e) {
+    if (!dragging) return;
+    const el = e.target.closest(".cell");
+    if (!el) return;
+    onEnter(parseInt(el.dataset.x, 10), parseInt(el.dataset.y, 10));
+  });
+
+  window.addEventListener("pointerup", function () { dragging = false; });
+  window.addEventListener("pointercancel", function () { dragging = false; });
+
+  boardEl.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+  // Long-press on touch = mark (X).
+  let pressTimer = null;
+  let longPressed = false;
+  boardEl.addEventListener("touchstart", function (e) {
+    const el = e.target.closest(".cell");
+    if (!el) return;
+    longPressed = false;
+    const x = parseInt(el.dataset.x, 10);
+    const y = parseInt(el.dataset.y, 10);
+    pressTimer = setTimeout(function () {
+      longPressed = true;
+      dragging = false;
+      if (!locked) {
+        undoStack.push({ x: x, y: y, from: state[y][x] });
+        state[y][x] = state[y][x] === MARK ? EMPTY : MARK;
+        renderCell(x, y); updateRowClue(y); updateColClue(x);
+        startTimerIfNeeded();
+        beep(430, 0.05, "triangle");
+        if (isSolved()) win();
+      }
+    }, 420);
+  }, { passive: true });
+
+  boardEl.addEventListener("touchend", function () {
+    clearTimeout(pressTimer);
+  });
+
+  // ============ TIMER ============
+  function formatTime(ms) {
+    const total = Math.floor(ms / 1000);
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  function startTimerIfNeeded() {
+    if (startTime) return;
+    startTime = Date.now();
+    if (!timerId) {
+      timerId = setInterval(function () {
+        elapsed = startTime ? (Date.now() - startTime) : 0;
+        timeEl.textContent = formatTime(elapsed);
+      }, 250);
+    }
+  }
+
+  function stopTimer() {
+    if (timerId) { clearInterval(timerId); timerId = null; }
+    if (startTime) elapsed = Date.now() - startTime;
+    else elapsed = 0;
+    timeEl.textContent = formatTime(elapsed);
+  }
+
+  function resetTimer() {
+    stopTimer();
+    startTime = 0;
+    elapsed = 0;
+    timeEl.textContent = "0:00";
+  }
+
+  // ============ BEST TIME (localStorage per size) ============
+  function bestKey() { return "nonogramBest" + size; }
+
+  function loadBest() {
+    const v = localStorage.getItem(bestKey());
+    return v ? Number(v) : null;
+  }
+
+  function showBest() {
+    const b = loadBest();
+    bestEl.textContent = b == null ? "--:--" : formatTime(b);
+  }
+
+  // ============ CHECK (flag wrong filled cells) ============
+  function checkErrors() {
+    if (locked) return;
+    let wrong = 0;
+    const wrongCells = [];
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        if (state[y][x] === FILL && solution[y][x] !== 1) {
+          cellEls[y][x].classList.add("wrong");
+          wrong++;
+          wrongCells.push(cellEls[y][x]);
+        } else if (state[y][x] === FILL) {
+          cellEls[y][x].classList.add("flash");
+        }
+      }
+    }
+    if (wrong > 0) {
+      beep(190, 0.2, "sawtooth");
+      setTimeout(function () {
+        wrongCells.forEach(function (el) { el.classList.remove("wrong"); });
+      }, 1300);
+    } else {
+      beep(880, 0.12, "triangle");
+    }
+    setTimeout(function () {
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++)
+          cellEls[y][x].classList.remove("flash");
+    }, 600);
+  }
+
+  // ============ UNDO ============
+  function undo() {
+    if (locked || !undoStack.length) { beep(220, 0.06, "sine"); return; }
+    const a = undoStack.pop();
+    state[a.y][a.x] = a.from;
+    renderCell(a.x, a.y);
+    updateRowClue(a.y);
+    updateColClue(a.x);
+    beep(520, 0.05, "sine");
+  }
+
+  // ============ NEW PUZZLE ============
+  function newPuzzle(newSize) {
+    if (newSize) size = newSize;
+    sizeLabelEl.textContent = size + "×" + size;
+
+    solution = generatePicture(size);
+    state = emptyGrid(size, EMPTY);
+
+    rowClues = [];
+    for (let y = 0; y < size; y++) rowClues.push(computeClues(solution[y]));
+    colClues = [];
+    for (let x = 0; x < size; x++) {
+      const col = [];
+      for (let y = 0; y < size; y++) col.push(solution[y][x]);
+      colClues.push(computeClues(col));
+    }
+
+    undoStack = [];
+    locked = false;
+    dragging = false;
+    resetTimer();
+    showBest();
+    buildBoard();
+    updateAllClues();
+  }
+
+  // ============ WIN ============
+  function win() {
+    if (locked) return;
+    locked = true;
+    stopTimer();
+    melody();
+
+    const b = loadBest();
+    let isBest = false;
+    if (b == null || elapsed < b) {
+      localStorage.setItem(bestKey(), String(elapsed));
+      isBest = true;
+    }
+    showBest();
+
+    winTimeEl.textContent = "Time " + formatTime(elapsed);
+    winBestEl.textContent = isBest ? "New best time! 🏆" : "Best: " + formatTime(loadBest());
+
+    drawPreview();
+    winScreen.classList.remove("hidden");
+  }
+
+  function drawPreview() {
+    const ctx = previewCanvas.getContext("2d");
+    const pad = 8;
+    const box = previewCanvas.width - pad * 2;
+    const cs = box / size;
+    ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        ctx.fillStyle = solution[y][x] ? "#ff8fa3" : "#f1ecf9";
+        ctx.fillRect(pad + x * cs, pad + y * cs, Math.ceil(cs) - 1, Math.ceil(cs) - 1);
+      }
+    }
+  }
+
+  // ============ MARK MODE TOGGLE ============
+  function setMarkMode(on) {
+    markMode = on;
+    btnMark.classList.toggle("on", markMode);
+    modeChip.textContent = "Brush: " + (markMode ? "✕ Mark" : "Fill");
+  }
+
+  // ============ BUTTON WIRING ============
+  btnNew.addEventListener("click", function () { newPuzzle(); beep(660, 0.06, "triangle"); });
+  btnUndo.addEventListener("click", undo);
+  btnCheck.addEventListener("click", checkErrors);
+  btnMark.addEventListener("click", function () {
+    setMarkMode(!markMode);
+    beep(markMode ? 500 : 700, 0.06, "triangle");
+  });
+  btnMenu.addEventListener("click", function () {
+    stopTimer();
+    winScreen.classList.add("hidden");
+    startScreen.classList.remove("hidden");
+    locked = true;
+  });
+
+  btnStart.addEventListener("click", function () {
+    const sel = document.querySelector(".size-btn.selected");
+    const chosen = sel ? parseInt(sel.dataset.size, 10) : 10;
+    startScreen.classList.add("hidden");
+    newPuzzle(chosen);
+    beep(740, 0.09, "triangle");
+  });
+
+  btnAgain.addEventListener("click", function () {
+    winScreen.classList.add("hidden");
+    newPuzzle();
+    beep(740, 0.09, "triangle");
+  });
+  btnWinMenu.addEventListener("click", function () {
+    winScreen.classList.add("hidden");
+    startScreen.classList.remove("hidden");
+  });
+
+  document.querySelectorAll(".size-btn").forEach(function (b) {
+    b.addEventListener("click", function () {
+      document.querySelectorAll(".size-btn").forEach(function (o) { o.classList.remove("selected"); });
+      b.classList.add("selected");
+      beep(620, 0.05, "sine");
+    });
+  });
+
+  // ============ KEYBOARD SHORTCUTS ============
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "KeyU") { e.preventDefault(); undo(); }
+    else if (e.code === "KeyC") { e.preventDefault(); checkErrors(); }
+    else if (e.code === "KeyM") { e.preventDefault(); setMarkMode(!markMode); }
+    else if (e.code === "KeyN") { e.preventDefault(); newPuzzle(); }
+  });
+
+  // ============ RESIZE ============
+  let resizeTimer = null;
+  window.addEventListener("resize", function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () {
+      if (cellEls.length) layout();
+    }, 120);
+  });
+
+  // ============ INITIAL PAINT ============
+  sizeLabelEl.textContent = size + "×" + size;
+  setMarkMode(false);
+  showBest();
+  timeEl.textContent = "0:00";
+  locked = true; // waits for the start screen
+
+  // Prepare a static board behind the start overlay too (nice preview of UI).
+  solution = generatePicture(size);
+  state = emptyGrid(size, EMPTY);
+  rowClues = [];
+  for (let y = 0; y < size; y++) rowClues.push(computeClues(solution[y]));
+  colClues = [];
+  for (let x = 0; x < size; x++) {
+    const col = [];
+    for (let y = 0; y < size; y++) col.push(solution[y][x]);
+    colClues.push(computeClues(col));
+  }
+  buildBoard();
+  updateAllClues();
+})();
+</script>
+</body>
+</html>
