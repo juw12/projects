@@ -154,7 +154,7 @@ handle() {
 stop_bridge() {
   say "advertise off"
   say "quit"
-  kill $HOLDER $TIMER 2>/dev/null
+  kill $HOLDER $TIMER $PAIRER 2>/dev/null
   killall bluetoothctl 2>/dev/null
   log "bridge stopped"
 }
@@ -167,9 +167,28 @@ while true; do sleep 3600; done > $D/in &
 HOLDER=$!
 bluetoothctl < $D/in > $D/out 2>&1 &
 sleep 2
+# bluetoothctl prints pairing questions ("Accept pairing (yes/no):", "Confirm
+# passkey ... (yes/no):") without a newline and then waits; unanswered, the
+# iPhone link stalls and drops after ~30 s. Answer them automatically.
+(
+  while [ ! -f $D/stop ]; do
+    usleep 300000
+    if tail -c 400 $D/out 2>/dev/null | tail -n 1 | grep -q "(yes/no)"; then
+      echo "yes" > $D/in
+      log "pairing request accepted"
+      sleep 1
+    fi
+  done
+) &
+PAIRER=$!
 # The GAP device name (what iPhones show after the first connection) defaults to
 # "BlueZ x.y"; make it match the advertised name.
 say "system-alias AIRIZ-BT"
+# iPhones ask to pair (bond) after connecting. Use "Just Works" pairing and
+# accept it automatically (see pair_watcher); commands stay protected by the PIN.
+say "agent off"
+say "agent NoInputNoOutput"
+say "default-agent"
 say "menu gatt"
 say "register-service $NUS"
 say "yes"
