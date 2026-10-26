@@ -9,6 +9,15 @@ contextBridge.exposeInMainWorld('airizDesktop', {
   checkForUpdates: () => ipcRenderer.invoke('airiz:update-check'),
   downloadUpdate: () => ipcRenderer.invoke('airiz:update-download'),
   installUpdate: () => ipcRenderer.invoke('airiz:update-install'),
+  cancelScheduledUpdate: () => ipcRenderer.invoke('airiz:update-cancel-schedule'),
+  takePendingReconnect: () => ipcRenderer.invoke('airiz:take-pending-reconnect'),
+  chooseBluetoothDevice: id => ipcRenderer.invoke('airiz:bluetooth-choice', id),
+  onBluetoothDevices: callback => {
+    if (typeof callback !== 'function') throw new TypeError('A callback is required');
+    const listener = (_event, devices) => callback(devices);
+    ipcRenderer.on('airiz:bluetooth-devices', listener);
+    return () => ipcRenderer.removeListener('airiz:bluetooth-devices', listener);
+  },
   onUpdateState: callback => {
     const listener = (_event, state) => callback(state);
     ipcRenderer.on('airiz:update-state', listener);

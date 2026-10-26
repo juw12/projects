@@ -7,6 +7,7 @@ const crypto = require('node:crypto');
 const { isAppUrl, resolveAsset, canOpenExternal } = require('./security.cjs');
 const { createSerialChooser } = require('./serial-chooser.cjs');
 const { createUpdateController } = require('./update-controller.cjs');
+const { createGrantStore } = require('./device-grants.cjs');
 
 protocol.registerSchemesAsPrivileged([{
   scheme: 'airiz',
@@ -32,6 +33,8 @@ if (profileArgument) {
 let mainWindow = null;
 let chooser = null;
 let updates = null;
+let grants = null;
+let bluetoothCallback = null;
 let closeConfirmed = false;
 let closeDialogPending = false;
 const webRoot = app.isPackaged ? path.join(__dirname, 'web') : path.resolve(__dirname, '../web');
@@ -100,7 +103,7 @@ async function closeSafely(event) {
 }
 
 function configurePermissions(appSession) {
-  const allowed = new Set(['serial', 'media', 'fileSystem', 'clipboard-sanitized-write', 'fullscreen']);
+  const allowed = new Set(['serial', 'bluetooth', 'media', 'fileSystem', 'clipboard-sanitized-write', 'fullscreen']);
   const approvedMedia = new Set();
   appSession.setPermissionCheckHandler((contents, permission, origin, details) => {
     const trusted = contents === mainWindow?.webContents && allowed.has(permission)
@@ -181,7 +184,35 @@ async function createWindow() {
     }
   });
   configurePermissions(session.defaultSession);
-  chooser = createSerialChooser(session.defaultSession, () => mainWindow);
+  grants = createGrantStore(app.getPath('userData'));
+  // Only ports the user explicitly chose before are reopened automatically.
+  session.defaultSession.setDevicePermissionHandler(details => {
+    return details.deviceType === 'serial' && isAppUrl(details.origin) && grants.allows(details.device);
+  });
+  chooser = createSerialChooser(session.defaultSession, () => mainWindow, port => grants.remember(port));
+
+  // Web Bluetooth device picker for the in-app Bluetooth check.
+  mainWindow.webContents.on('select-bluetooth-device', (event, devices, callback) => {
+    event.preventDefault();
+    bluetoothCallback = callback;
+    mainWindow.webContents.send('airiz:bluetooth-devices', devices.slice(0, 200).map(device => ({
+      id: String(device.deviceId),
+      name: String(device.deviceName || '')
+    })));
+  });
+  session.defaultSession.setBluetoothPairingHandler(async (details, callback) => {
+    if (details.pairingKind === 'providePin') {
+      callback({ confirmed: false });
+      return;
+    }
+    const answer = await dialog.showMessageBox(mainWindow, {
+      type: 'question', title: 'Pair Bluetooth device?',
+      message: 'Pair with the selected Bluetooth device?',
+      detail: details.pin ? 'Confirm this PIN matches the device: ' + details.pin : 'Only pair with your own AIRIZ device.',
+      buttons: ['Cancel', 'Pair'], defaultId: 0, cancelId: 0, noLink: true
+    });
+    callback({ confirmed: answer.response === 1 });
+  });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (canOpenExternal(url)) shell.openExternal(url);
@@ -194,7 +225,11 @@ async function createWindow() {
     }
   });
   mainWindow.webContents.on('will-attach-webview', event => event.preventDefault());
-  mainWindow.webContents.on('render-process-gone', () => chooser.cancel());
+  mainWindow.webContents.on('render-process-gone', () => {
+    chooser.cancel();
+    if (bluetoothCallback) bluetoothCallback('');
+    bluetoothCallback = null;
+  });
   mainWindow.on('close', closeSafely);
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.on('closed', () => { mainWindow = null; });
@@ -202,6 +237,17 @@ async function createWindow() {
   ipcMain.handle('airiz:app-info', event => {
     if (!trustedSender(event)) throw new Error('Untrusted sender');
     return { version: app.getVersion(), platform: process.platform, packaged: app.isPackaged, offline: true, portable: !!process.env.PORTABLE_EXECUTABLE_FILE };
+  });
+  ipcMain.handle('airiz:bluetooth-choice', (event, id) => {
+    if (!trustedSender(event) || typeof id !== 'string' || id.length > 256 || !bluetoothCallback) return false;
+    const callback = bluetoothCallback;
+    bluetoothCallback = null;
+    callback(id);
+    return true;
+  });
+  ipcMain.handle('airiz:take-pending-reconnect', event => {
+    if (!trustedSender(event)) throw new Error('Untrusted sender');
+    return grants.takePendingReconnect();
   });
   ipcMain.handle('airiz:serial-choice', (event, id) => {
     if (!trustedSender(event) || typeof id !== 'string' || id.length > 256) return false;
@@ -218,26 +264,34 @@ async function createWindow() {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('airiz:update-state', state);
     },
     getDeviceState: () => mainWindow.webContents.executeJavaScript('window.AirizConsole?.getStatus?.() || null'),
-    confirmInstall: async (version, { connected = false } = {}) => {
+    confirmInstall: async (version, connected) => {
       const answer = await dialog.showMessageBox(mainWindow, {
         type: 'question', title: 'Install AIRIZ update?',
         message: 'Install AIRIZ Console ' + version + ' now?',
         detail: (connected
-          ? 'The device will be disconnected safely first. Reconnect it after AIRIZ reopens. '
-          : '')
-          + 'The app will close and reopen after the installer. Finish all device motion first: closing or disconnecting does not stop an already-issued move. This release is unsigned and Windows may show a publisher warning.',
-        buttons: ['Not now', connected ? 'Disconnect, install and restart' : 'Install and restart'],
-        defaultId: 0, cancelId: 0, noLink: true
+          ? 'The device connection closes briefly, the update installs, and the app restarts and reconnects to the same device automatically. '
+          : 'The app installs the update and restarts automatically. ')
+          + 'Finish any motion in progress first: closing the port does not stop an already-issued move. This release is unsigned.',
+        buttons: ['Not now', 'Install and restart'], defaultId: 1, cancelId: 0, noLink: true
+      });
+      return answer.response === 1;
+    },
+    confirmSchedule: async (version, reason) => {
+      const answer = await dialog.showMessageBox(mainWindow, {
+        type: 'question', title: 'Install AIRIZ update when finished?',
+        message: 'Install ' + version + ' automatically when ' + reason.replace(/^an? /, 'the ') + ' finishes?',
+        detail: 'You can keep working. When it finishes, the app installs the update, restarts and reconnects to the same device.',
+        buttons: ['Not now', 'Install when finished'], defaultId: 1, cancelId: 0, noLink: true
       });
       return answer.response === 1;
     },
     prepareForInstall: async () => {
-      const ready = await mainWindow.webContents.executeJavaScript('Promise.resolve(window.AirizConsole?.prepareForUpdate?.()).then(result => result === true)');
-      if (ready) {
-        chooser.cancel();
-        closeConfirmed = true;
-      }
-      return ready;
+      const result = await mainWindow.webContents.executeJavaScript('window.AirizConsole?.prepareForUpdate?.() || null');
+      if (!result || result.ready !== true) return false;
+      if (result.reconnect) grants.savePendingReconnect(result.reconnect);
+      chooser.cancel();
+      closeConfirmed = true;
+      return true;
     },
     abortInstall: async () => {
       closeConfirmed = false;
@@ -254,7 +308,8 @@ async function createWindow() {
     ['airiz:update-state', () => updates.snapshot()],
     ['airiz:update-check', () => updates.check()],
     ['airiz:update-download', () => updates.download()],
-    ['airiz:update-install', () => updates.install()]
+    ['airiz:update-install', () => updates.install()],
+    ['airiz:update-cancel-schedule', () => updates.cancelScheduled()]
   ]) {
     ipcMain.handle(channel, event => {
       if (!trustedSender(event)) throw new Error('Untrusted update request.');

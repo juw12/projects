@@ -320,41 +320,39 @@
       logToConsole('Web Serial is unavailable. Use Chrome or Edge on localhost/HTTPS, or choose Try demo.', 'warning');
       return;
     }
-    
     try {
       const selectedPort = await navigator.serial.requestPort();
       if (state.updatePending) return;
-      state.port = selectedPort;
-      state.baudRate = parseInt(elements.baudSelect.value, 10);
-      
-      await state.port.open({
-        baudRate: state.baudRate,
-        transportLabel: state.port?.transportLabel || (window.airizMobile ? 'Bluetooth' : 'USB serial'),
-        deviceFirmware: state.port?.firmwareVersion || null,
-        dataBits: 8,
-        stopBits: 1,
-        parity: 'none',
-        flowControl: 'none'
-      });
-      
-      state.connected = true;
-      state.demoMode = false;
-      updateConnectionUI(true, false);
-      
-      logToConsole(state.port.transportLabel ? `Connected via ${state.port.transportLabel}` : `Connected at ${state.baudRate} baud`, 'welcome');
-      
-      // Start read loop
-      state.readLoopActive = true;
-      readLoop();
-      
-      // Send initial blank to get prompt
-      await sendLine('');
-      
+      await openSerialPort(selectedPort, parseInt(elements.baudSelect.value, 10));
     } catch (error) {
       if (error.name !== 'AbortError') {
         logToConsole(`Connection error: ${error.message}`, 'error');
       }
     }
+  }
+
+  async function openSerialPort(port, baudRate) {
+    state.port = port;
+    state.baudRate = baudRate;
+    try {
+      await state.port.open({
+        baudRate: state.baudRate,
+        dataBits: 8,
+        stopBits: 1,
+        parity: 'none',
+        flowControl: 'none'
+      });
+    } catch (error) {
+      state.port = null;
+      throw error;
+    }
+    state.connected = true;
+    state.demoMode = false;
+    updateConnectionUI(true, false);
+    logToConsole(state.port.transportLabel ? `Connected via ${state.port.transportLabel}` : `Connected at ${state.baudRate} baud`, 'welcome');
+    state.readLoopActive = true;
+    readLoop();
+    await sendLine('');
   }
 
   async function handleDisconnect() {
@@ -3961,14 +3959,41 @@
     sendCommand: sendLine,
     async prepareForUpdate() {
       if (state.macroRunning || state.capture.active || cameraState.sessionActive
-          || (cameraState.recorder && cameraState.recorder.state !== 'inactive')) return false;
-      // Block new connections, jogs and commands, then close an idle serial port safely.
+          || (cameraState.recorder && cameraState.recorder.state !== 'inactive')) {
+        return { ready: false };
+      }
+      let reconnect = null;
+      if (state.port && state.connected && !state.demoMode) {
+        const info = typeof state.port.getInfo === 'function' ? state.port.getInfo() : {};
+        reconnect = {
+          baudRate: state.baudRate,
+          usbVendorId: info.usbVendorId,
+          usbProductId: info.usbProductId
+        };
+      }
       state.updatePending = true;
-      if (state.port || (state.connected && !state.demoMode)) {
-        logToConsole('Disconnecting the device to install the update…', 'warning');
+      if (state.port || state.demoMode) {
+        logToConsole('Closing the connection for the update. It reconnects automatically after restart.', 'warning');
         await disconnect();
       }
-      return !state.port;
+      return { ready: true, reconnect };
+    },
+    async reconnectAfterUpdate(request) {
+      if (state.connected || state.updatePending || !navigator.serial || !navigator.serial.getPorts) {
+        return { ok: false, reason: 'Reconnect is unavailable right now.' };
+      }
+      const ports = (await navigator.serial.getPorts()).filter(port => {
+        const info = typeof port.getInfo === 'function' ? port.getInfo() : {};
+        return (request.usbVendorId == null || info.usbVendorId === request.usbVendorId)
+          && (request.usbProductId == null || info.usbProductId === request.usbProductId);
+      });
+      if (ports.length !== 1) {
+        return { ok: false, reason: ports.length ? 'More than one remembered device matches.' : 'The device was not found. Is it plugged in?' };
+      }
+      const option = [...elements.baudSelect.options].some(item => item.value === String(request.baudRate));
+      if (option) elements.baudSelect.value = String(request.baudRate);
+      await openSerialPort(ports[0], request.baudRate);
+      return { ok: true };
     },
     cancelPreparedUpdate() {
       state.updatePending = false;

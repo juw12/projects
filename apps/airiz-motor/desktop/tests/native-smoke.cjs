@@ -10,6 +10,7 @@ const executable = process.env.AIRIZ_EXE || path.join(root, 'dist', 'win-unpacke
 const profile = process.env.AIRIZ_TEST_PROFILE || path.join(root, '.test-data', 'packaged-smoke');
 const reportFile = process.env.AIRIZ_TEST_REPORT || path.join(root, '.test-data', 'native-smoke-results.json');
 const checks = [];
+let bluetoothDevicesListed = 0;
 let runningApp = null;
 
 async function launch() {
@@ -93,6 +94,32 @@ async function record(name) {
   await page.locator('#desktop-update-close').click();
   await record('Native auto-ready jog/keyboard, Bluetooth initialization and update panel work');
 
+  assert.equal(await page.locator('#btn-bluetooth-check').isVisible(), true);
+  await page.locator('#btn-bluetooth-check').click();
+  await page.locator('#bluetooth-check-dialog').waitFor({ state: 'visible' });
+  await page.waitForFunction(() => document.getElementById('bt-step-2').dataset.state !== 'wait', { timeout: 15000 });
+  let devicesListed = 0;
+  for (let attempt = 0; attempt < 20; attempt++) {
+    devicesListed = await page.locator('#bluetooth-device-list [data-bluetooth-id]').count();
+    const finished = await page.locator('#bluetooth-check-result').innerText();
+    if (devicesListed > 0 || finished) break;
+    await page.waitForTimeout(500);
+  }
+  if (!(await page.locator('#bluetooth-check-result').innerText())) await page.locator('#bluetooth-check-cancel').click();
+  await page.waitForFunction(() => document.getElementById('bluetooth-check-result').dataset.result, { timeout: 15000 });
+  assert.equal(await page.locator('#bluetooth-check-result').getAttribute('data-result'), 'not-selected');
+  assert.equal(await page.locator('#bt-step-1').getAttribute('data-state'), 'skip');
+  await page.locator('#bluetooth-check-close').click();
+  bluetoothDevicesListed = devicesListed;
+  await record('Bluetooth check runs inside the app (demo: radio step skipped), lists ' + devicesListed + ' nearby devices and cancels without pairing');
+
+  const prepared = await page.evaluate(() => window.AirizConsole.prepareForUpdate());
+  assert.deepEqual(prepared, { ready: true, reconnect: null });
+  assert.equal(await page.evaluate(() => window.AirizConsole.getStatus().connected), false);
+  await page.evaluate(() => window.AirizConsole.cancelPreparedUpdate());
+  await page.locator('#btn-demo').click();
+  await record('Update preparation closes the active session itself instead of requiring a manual disconnect');
+
   for (const view of ['console', 'camera', 'sfx', 'controller']) {
     await page.locator('#tab-' + view).click();
     assert.equal(await page.locator('#view-' + view).isVisible(), true);
@@ -133,6 +160,9 @@ async function record(name) {
     ]));
   });
   await app.close();
+  fs.writeFileSync(path.join(profile, 'pending-reconnect.json'), JSON.stringify({
+    baudRate: 115200, usbVendorId: 4660, usbProductId: 22136, expiresAt: Date.now() + 600000
+  }));
   app = await launch();
   page = await app.firstWindow();
   page.on('pageerror', error => errors.push(error.message));
@@ -148,6 +178,8 @@ async function record(name) {
   await page.locator('[data-jog="pan-fwd"]').click();
   assert.match(await page.locator('#console-output').innerText(), /diag motor pan forward 2 1/);
   await record('Saved macros and theme survive a full app restart; bundled UI and demo reload with HTTP/HTTPS blocked');
+  assert.equal(fs.existsSync(path.join(profile, 'pending-reconnect.json')), false);
+  await record('Post-update reconnect request is consumed once on restart (no matching test device, so it falls back safely)');
 
   await page.locator('#btn-disconnect').click();
   await page.evaluate(() => {
@@ -172,7 +204,7 @@ async function record(name) {
   await app.close();
   const report = {
     result: 'passed', packaged: true, version: info.version, checks,
-    javascriptErrors: errors, physicalHardwareExercised: false,
+    bluetoothDevicesListed, javascriptErrors: errors, physicalHardwareExercised: false,
     installerWizardExecuted: false
   };
   fs.writeFileSync(reportFile, JSON.stringify(report, null, 2));

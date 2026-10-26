@@ -2,7 +2,7 @@
 
 const { publicPort, isAppUrl } = require('./security.cjs');
 
-function createSerialChooser(session, getWindow) {
+function createSerialChooser(session, getWindow, onChosen = () => {}) {
   let pending = null;
 
   function sendPorts() {
@@ -24,6 +24,7 @@ function createSerialChooser(session, getWindow) {
     if (portId !== '' && !pending.ports.has(portId)) return false;
     const request = pending;
     pending = null;
+    if (portId !== '') onChosen(request.ports.get(portId));
     request.callback(portId);
     return true;
   }

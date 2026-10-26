@@ -53,24 +53,36 @@ let server;
   assert.equal(state.status, 'available', state.message);
   state = await page.evaluate(() => airizDesktop.downloadUpdate());
   assert.equal(state.status, 'downloaded', state.message);
+  await application.evaluate(({ dialog }) => {
+    globalThis.__updatePromptTitles = [];
+    dialog.showMessageBox = async (_window, options) => {
+      globalThis.__updatePrompts++;
+      globalThis.__updatePromptTitles.push(options.title);
+      return { response: 0 };
+    };
+  });
   await page.evaluate(() => {
     window.__savedApi = AirizConsole;
-    window.AirizConsole = { getStatus: () => ({ connected: true, demoMode: false }) };
+    window.AirizConsole = { ...window.__savedApi, getStatus: () => ({ connected: true, demoMode: false }) };
   });
   state = await page.evaluate(() => airizDesktop.installUpdate());
-  assert.match(state.message, /blocked/);
-  assert.equal(await application.evaluate(() => globalThis.__updatePrompts), 0);
+  assert.equal(await application.evaluate(() => globalThis.__updatePromptTitles.at(-1)), 'Install AIRIZ update?');
+  assert.equal(state.status, 'downloaded');
+  await page.evaluate(() => {
+    window.AirizConsole = { ...window.__savedApi, getStatus: () => ({ connected: true, demoMode: false, macroRunning: true }) };
+  });
+  state = await page.evaluate(() => airizDesktop.installUpdate());
+  assert.equal(await application.evaluate(() => globalThis.__updatePromptTitles.at(-1)), 'Install AIRIZ update when finished?');
+  assert.equal(state.status, 'downloaded');
   await page.evaluate(() => { window.AirizConsole = window.__savedApi; });
-  await page.evaluate(() => airizDesktop.installUpdate());
-  assert.equal(await application.evaluate(() => globalThis.__updatePrompts), 1);
   assert.equal(await application.evaluate(() => globalThis.__updateInstallCalls), 0);
   const report = {
     result: 'passed',
     checks: [
       'Real electron-updater parsed the feed and detected the published 1.0.0 installer using a simulated 0.9.0 current version.',
       'The actual official executable was downloaded and passed the updater checksum/signature-policy pipeline.',
-      'Installation was blocked before confirmation while the simulated device session was active.',
-      'An idle-session installation request required confirmation; cancelling did not install or quit.',
+      'With a device connected, installation is offered directly (no manual disconnect); cancelling did not install or quit.',
+      'With a macro running, the app offers to install automatically when it finishes; declining installed nothing.',
       'No installer was executed.'
     ],
     fixture_version: '1.0.0', simulated_current_version: '0.9.0', actual_installer_executed: false

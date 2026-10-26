@@ -33,6 +33,8 @@
     document.getElementById('btn-install-app').hidden = true;
 
     initializeUpdates();
+    initializeBluetoothCheck();
+    restoreConnectionAfterUpdate();
     host.getAppInfo().then(info => {
       document.title = 'AIRIZ Console — Windows ' + info.version;
       const badge = document.querySelector('.header-session');
@@ -110,10 +112,11 @@
     modal.innerHTML = '<h2 id="desktop-updates-title">AIRIZ updates</h2>'
       + '<p id="desktop-update-version"></p><p id="desktop-update-message" role="status"></p>'
       + '<progress id="desktop-update-progress" max="100" value="0" hidden></progress>'
-      + '<p class="desktop-update-note">Checks run automatically. Installing disconnects an idle device safely; it waits for running macros, recordings and capture sessions. Updates never install on quit. Portable builds require manual replacement.</p>'
+      + '<p class="desktop-update-note">Checks run automatically. You can install while connected: the port closes briefly and reconnects after restart. During a macro or recording, the install waits until it finishes. Portable builds require manual replacement.</p>'
       + '<div class="desktop-update-actions"><button id="desktop-update-check" class="btn">Check now</button>'
       + '<button id="desktop-update-download" class="btn btn-primary" hidden>Download update</button>'
       + '<button id="desktop-update-install" class="btn btn-primary" hidden>Install and restart</button>'
+      + '<button id="desktop-update-cancel-schedule" class="btn btn-secondary" hidden>Cancel scheduled install</button>'
       + '<button id="desktop-update-close" class="btn btn-secondary">Close</button></div>';
     document.body.append(modal);
     const $ = id => document.getElementById(id);
@@ -128,9 +131,11 @@
       $('desktop-update-download').hidden = state.status !== 'available';
       $('desktop-update-download').textContent = state.portable ? 'Download portable app' : 'Download update';
       $('desktop-update-install').hidden = state.status !== 'downloaded';
+      $('desktop-update-cancel-schedule').hidden = state.status !== 'scheduled';
       button.textContent = state.status === 'available' ? 'Update available'
         : state.status === 'downloading' ? 'Downloading ' + Math.round(state.percent || 0) + '%'
-        : state.status === 'downloaded' ? 'Install update' : 'Updates';
+        : state.status === 'downloaded' ? 'Install update'
+        : state.status === 'scheduled' ? 'Update scheduled' : 'Updates';
       document.body.inert = state.status === 'installing';
     }
     function open() {
@@ -142,9 +147,258 @@
     $('desktop-update-check').addEventListener('click', () => host.checkForUpdates().then(render));
     $('desktop-update-download').addEventListener('click', () => host.downloadUpdate().then(render));
     $('desktop-update-install').addEventListener('click', () => host.installUpdate().then(render));
+    $('desktop-update-cancel-schedule').addEventListener('click', () => host.cancelScheduledUpdate().then(render));
     host.onUpdateState(render);
     host.onShowUpdates(open);
     host.getUpdateState().then(render);
+  }
+
+  function notify(text) {
+    const toast = document.getElementById('ui-toast');
+    if (!toast) return;
+    toast.textContent = text;
+    toast.hidden = false;
+    setTimeout(() => { toast.hidden = true; }, 6000);
+  }
+
+  async function restoreConnectionAfterUpdate() {
+    const pending = await host.takePendingReconnect();
+    if (!pending) return;
+    await new Promise(resolve => setTimeout(resolve, 800));
+    notify('Updated. Reconnecting to your device…');
+    try {
+      const result = await window.AirizConsole.reconnectAfterUpdate(pending);
+      notify(result.ok ? 'Reconnected after the update.' : 'Could not reconnect automatically: ' + result.reason + ' Use Connect device.');
+    } catch (error) {
+      notify('Could not reconnect automatically: ' + error.message + ' Use Connect device.');
+    }
+  }
+
+  const NUS_SERVICE = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+  const NUS_WRITE = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+  const NUS_NOTIFY = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+  const HM10_SERVICE = '0000ffe0-0000-1000-8000-00805f9b34fb';
+  const HM10_CHARACTERISTIC = '0000ffe1-0000-1000-8000-00805f9b34fb';
+  const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+
+  function framedVersion(text) {
+    for (const match of text.matchAll(/#INFO#([\s\S]{0,512}?)#END#/g)) {
+      const block = match[1].trim();
+      const direct = /^v?(\d+(?:\.\d+){2,3})$/i.exec(block);
+      const labeled = /\b(?:firmware|software|version|sw)\b[^\r\n]{0,30}?\b(\d+(?:\.\d+){2,3})\b/i.exec(block);
+      if (direct || labeled) return (direct || labeled)[1];
+    }
+    return null;
+  }
+
+  function hexKey(value) {
+    return String(value).replace(/[^0-9a-f]/gi, '').toUpperCase().slice(-12);
+  }
+
+  function initializeBluetoothCheck() {
+    const anchorButton = document.getElementById('btn-bluetooth-on');
+    if (!anchorButton || !navigator.bluetooth) return;
+    const button = document.createElement('button');
+    button.id = 'btn-bluetooth-check';
+    button.className = 'btn btn-secondary';
+    button.textContent = 'Bluetooth check';
+    button.title = 'Turn on the device radio through the current connection, scan with this PC and verify a Bluetooth command channel.';
+    anchorButton.after(button);
+
+    const dialog = document.createElement('dialog');
+    dialog.id = 'bluetooth-check-dialog';
+    dialog.className = 'help-dialog bluetooth-check-dialog';
+    dialog.setAttribute('aria-labelledby', 'bluetooth-check-title');
+    dialog.innerHTML = '<h2 id="bluetooth-check-title">Bluetooth check</h2>'
+      + '<p>Your USB connection stays open. No motor command is sent.</p>'
+      + '<ol class="bluetooth-steps">'
+      + '<li id="bt-step-1" data-state="wait"><strong>Turn on device Bluetooth</strong><span>Waiting</span></li>'
+      + '<li id="bt-step-2" data-state="wait"><strong>Scan with this PC</strong><span>Waiting</span></li>'
+      + '<li id="bt-step-3" data-state="wait"><strong>Verify command channel</strong><span>Waiting</span></li>'
+      + '</ol>'
+      + '<div id="bluetooth-device-list" class="native-serial-list" role="group" aria-label="Bluetooth devices found"></div>'
+      + '<p id="bluetooth-check-result" class="bluetooth-check-result" role="status"></p>'
+      + '<div class="desktop-update-actions"><button id="bluetooth-check-export" class="btn" disabled>Export results</button>'
+      + '<button id="bluetooth-check-cancel" class="btn btn-secondary">Cancel scan</button>'
+      + '<button id="bluetooth-check-close" class="btn btn-secondary">Close</button></div>';
+    document.body.append(dialog);
+    const $ = id => document.getElementById(id);
+    let running = false;
+    let scanning = false;
+    let controllerKeys = [];
+    let report = null;
+
+    function setStep(number, stateName, text) {
+      const item = $('bt-step-' + number);
+      item.dataset.state = stateName;
+      item.querySelector('span').textContent = text;
+      report.steps.push({ step: number, state: stateName, detail: text });
+    }
+
+    function finish(result, message) {
+      report.result = result;
+      report.finishedAt = new Date().toISOString();
+      $('bluetooth-check-result').textContent = message;
+      $('bluetooth-check-result').dataset.result = result;
+      $('bluetooth-check-export').disabled = false;
+      $('bluetooth-check-cancel').hidden = true;
+      running = false;
+      scanning = false;
+    }
+
+    host.onBluetoothDevices(devices => {
+      if (!scanning) return;
+      const list = $('bluetooth-device-list');
+      list.replaceChildren();
+      const sorted = [...devices].sort((first, second) => {
+        const firstMatch = controllerKeys.includes(hexKey(first.id)) ? 0 : 1;
+        const secondMatch = controllerKeys.includes(hexKey(second.id)) ? 0 : 1;
+        return firstMatch - secondMatch || Number(!first.name) - Number(!second.name);
+      });
+      for (const device of sorted) {
+        const choice = document.createElement('button');
+        choice.className = 'native-serial-port';
+        choice.dataset.bluetoothId = device.id;
+        const name = document.createElement('strong');
+        const likely = controllerKeys.includes(hexKey(device.id));
+        name.textContent = (device.name || 'Unnamed device') + (likely ? '  ★ matches the device controller' : '');
+        const details = document.createElement('span');
+        details.textContent = device.id;
+        choice.append(name, details);
+        choice.addEventListener('click', () => host.chooseBluetoothDevice(device.id));
+        list.append(choice);
+      }
+    });
+
+    async function cancelScan() {
+      if (scanning) await host.chooseBluetoothDevice('');
+    }
+
+    async function runCheck() {
+      if (running) return;
+      running = true;
+      controllerKeys = [];
+      report = { app: document.title, startedAt: new Date().toISOString(), steps: [], motorCommandsSent: false };
+      for (const number of [1, 2, 3]) {
+        $('bt-step-' + number).dataset.state = 'wait';
+        $('bt-step-' + number).querySelector('span').textContent = 'Waiting';
+      }
+      $('bluetooth-device-list').replaceChildren();
+      $('bluetooth-check-result').textContent = '';
+      $('bluetooth-check-export').disabled = true;
+      $('bluetooth-check-cancel').hidden = false;
+      if (!dialog.open) dialog.showModal();
+
+      const status = window.AirizConsole.getStatus();
+      if (status.macroRunning) {
+        setStep(1, 'skip', 'A macro is running, so the radio command was skipped.');
+      } else if (status.connected && !status.demoMode) {
+        setStep(1, 'run', 'Sending diag ble on through the current connection…');
+        const output = document.getElementById('console-output');
+        const startLength = output.textContent.length;
+        const sent = await window.AirizConsole.sendCommand('diag ble on');
+        await sleep(8000);
+        const reply = output.textContent.slice(startLength);
+        const addresses = [...new Set((reply.match(/(?:[0-9A-F]{2}:){5}[0-9A-F]{2}/gi) || []).map(item => item.toUpperCase()))];
+        controllerKeys = addresses.map(hexKey);
+        const confirmed = Boolean(sent) && /pegaDiag_BleOn|#INFO#0#END#/.test(reply);
+        report.radio = { sent: Boolean(sent), confirmed, controllerAddresses: addresses, reply: reply.slice(-3000) };
+        setStep(1, confirmed ? 'pass' : 'warn', confirmed
+          ? 'Device reports Bluetooth on' + (addresses.length ? ' · controller ' + addresses.join(', ') : '')
+          : 'No confirmation from the device. Continuing with the scan.');
+      } else {
+        setStep(1, 'skip', status.demoMode ? 'Demo mode: no radio command sent.' : 'Not connected over USB: assuming the device radio is already on.');
+      }
+
+      setStep(2, 'run', 'Scanning… choose your AIRIZ device from the list below.');
+      scanning = true;
+      let device;
+      try {
+        device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [NUS_SERVICE, HM10_SERVICE] });
+      } catch (error) {
+        scanning = false;
+        setStep(2, 'fail', error.name === 'NotFoundError' ? 'No device selected.' : error.message);
+        finish('not-selected', 'No Bluetooth device was selected. If AIRIZ never appears, its radio is not advertising Bluetooth LE.');
+        return;
+      }
+      scanning = false;
+      $('bluetooth-device-list').replaceChildren();
+      report.device = { id: device.id, name: device.name || null, matchesController: controllerKeys.includes(hexKey(device.id)) };
+      setStep(2, 'pass', 'Selected ' + (device.name || device.id));
+
+      setStep(3, 'run', 'Connecting and looking for a command service…');
+      try {
+        const server = await device.gatt.connect();
+        let profile = null;
+        for (const [name, service, writeId, notifyId] of [
+          ['Nordic UART', NUS_SERVICE, NUS_WRITE, NUS_NOTIFY],
+          ['HM-10 UART', HM10_SERVICE, HM10_CHARACTERISTIC, HM10_CHARACTERISTIC]
+        ]) {
+          try {
+            profile = { name, service: await server.getPrimaryService(service), writeId, notifyId };
+            break;
+          } catch {
+            // Try the next known command profile.
+          }
+        }
+        if (!profile) {
+          device.gatt.disconnect();
+          setStep(3, 'fail', 'Connected, but no Bluetooth command service was found.');
+          finish('no-command-service', 'Bluetooth connects, but the device firmware exposes no command service. Phone motor control needs a firmware Bluetooth command (UART) service.');
+          return;
+        }
+        const writer = await profile.service.getCharacteristic(profile.writeId);
+        const notifier = await profile.service.getCharacteristic(profile.notifyId);
+        let reply = '';
+        notifier.addEventListener('characteristicvaluechanged', event => {
+          reply += new TextDecoder().decode(event.target.value);
+        });
+        await notifier.startNotifications();
+        const bytes = new TextEncoder().encode('diag ver sw\r\n');
+        for (let offset = 0; offset < bytes.length; offset += 20) {
+          const part = bytes.slice(offset, offset + 20);
+          if (writer.properties.write) await writer.writeValueWithResponse(part);
+          else await writer.writeValueWithoutResponse(part);
+        }
+        await sleep(4000);
+        device.gatt.disconnect();
+        const version = framedVersion(reply);
+        report.commandChannel = { profile: profile.name, reply: reply.slice(-2000), verifiedVersion: version };
+        if (version) {
+          setStep(3, 'pass', profile.name + ' answered with firmware ' + version);
+          finish('verified', 'Bluetooth command channel verified. The phone app can control this device.');
+        } else {
+          setStep(3, 'fail', profile.name + ' found, but there was no valid firmware reply.');
+          finish('unverified-channel', 'A Bluetooth serial service exists but did not answer like the AIRIZ console. Export the results for diagnosis.');
+        }
+      } catch (error) {
+        try { device.gatt.disconnect(); } catch { /* already disconnected */ }
+        setStep(3, 'fail', error.message);
+        finish('connection-failed', 'Could not connect to the selected device: ' + error.message);
+      }
+    }
+
+    button.addEventListener('click', runCheck);
+    $('bluetooth-check-cancel').addEventListener('click', cancelScan);
+    $('bluetooth-check-close').addEventListener('click', async () => {
+      await cancelScan();
+      dialog.close();
+    });
+    dialog.addEventListener('cancel', async event => {
+      event.preventDefault();
+      await cancelScan();
+      dialog.close();
+    });
+    $('bluetooth-check-export').addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'airiz-bluetooth-check.json';
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initializeDesktop);

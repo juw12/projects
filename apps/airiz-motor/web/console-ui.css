@@ -606,3 +606,16 @@ body.console-redesign { color-scheme: inherit; }
 .desktop-update-note { font-size: 10px !important; color: var(--color-text-muted); }
 #desktop-update-progress { width: 100%; margin-top: 14px; accent-color: var(--color-accent); }
 #desktop-updates-title { font-size: 22px; font-weight: 500; }
+
+.bluetooth-check-dialog h2 { font-size: 21px; font-weight: 500; }
+.bluetooth-steps { list-style: none; display: flex; flex-direction: column; gap: 8px; margin: 16px 0; padding: 0; }
+.bluetooth-steps li { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1px solid var(--color-border); border-left-width: 3px; border-radius: 6px; }
+.bluetooth-steps li strong { font-size: 12px; font-weight: 550; }
+.bluetooth-steps li span { font-size: 11px; color: var(--color-text-muted); overflow-wrap: anywhere; }
+.bluetooth-steps li[data-state="run"] { border-left-color: var(--color-accent); }
+.bluetooth-steps li[data-state="pass"] { border-left-color: var(--color-success); }
+.bluetooth-steps li[data-state="warn"], .bluetooth-steps li[data-state="skip"] { border-left-color: var(--color-warning); }
+.bluetooth-steps li[data-state="fail"] { border-left-color: var(--color-danger); }
+.bluetooth-check-result { font-size: 12px; font-weight: 500; }
+.bluetooth-check-result[data-result="verified"] { color: var(--color-success); }
+.bluetooth-check-result[data-result]:not([data-result="verified"]) { color: var(--color-warning); }
