@@ -318,10 +318,48 @@ def js_checks():
         check("conditionalFormatting" in sheets, "conditional formatting present")
 
 
+def store_checks():
+    print("store listing and legal pages")
+    store = os.path.join(BASE, "store")
+    with open(os.path.join(store, "README.md"), encoding="utf-8") as handle:
+        listing = handle.read()
+    blocks = re.findall(r"\*\*([^*]+)\*\*[^`*]*?```\n(.*?)\n```", listing, re.S)
+    limits = {"App name": 30, "Nama aplikasi": 30, "Short description": 80, "Deskripsi singkat": 80,
+              "Full description": 4000, "Deskripsi lengkap": 4000}
+    seen = set()
+    for label, text in blocks:
+        for key, limit in limits.items():
+            if label.startswith(key):
+                seen.add(key)
+                check(len(text) <= limit, "%s is %d/%d characters" % (key, len(text), limit))
+    check(seen == set(limits), "all store text blocks found " + str(sorted(set(limits) - seen)))
+    sizes = {
+        "graphics/icon-512.png": (512, 512),
+        "graphics/feature-graphic-1024x500.png": (1024, 500),
+    }
+    for name in ["01-market", "02-template", "03-create", "04-guides"]:
+        sizes["screenshots/%s.png" % name] = (1080, 1920)
+    for rel, expected in sizes.items():
+        path = os.path.join(store, rel)
+        with open(path, "rb") as handle:
+            header = handle.read(24)
+        width = int.from_bytes(header[16:20], "big")
+        height = int.from_bytes(header[20:24], "big")
+        check((width, height) == expected, "%s is %dx%d" % (rel, width, height))
+    delete_page = read("delete-account.html")
+    check("auth/login" in delete_page and "me/delete" in delete_page, "delete-account.html signs in and deletes")
+    check("mailto:" in delete_page, "delete-account.html offers an email route")
+    privacy = read("privacy.html")
+    for phrase in ["delete-account.html", "3 × 24 hours", "outside Indonesia", "Your rights", "Children"]:
+        check(phrase in privacy, "privacy covers: " + phrase)
+    check("delete-account.html" in read("sw.js"), "service worker caches delete-account.html")
+
+
 def main():
     static_checks()
     cloud_checks()
     seed_checks()
+    store_checks()
     try:
         js_checks()
     except Exception as error:
