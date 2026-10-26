@@ -1,6 +1,6 @@
 /* AIRIZ Control Center — versioned, scope-isolated offline shell. */
 const CACHE_PREFIX = 'airiz-control-' + encodeURIComponent(self.registration.scope) + '-';
-const CACHE_NAME = CACHE_PREFIX + 'v2.13-ios-acked-writes';
+const CACHE_NAME = CACHE_PREFIX + 'v2.14-phone-camera';
 const ASSETS = [
   './',
   './index.html',
@@ -11,6 +11,8 @@ const ASSETS = [
   './desktop-integration.js',
   './ble-protocol.js',
   './remote-ui.js',
+  './camera-relay.js',
+  './vendor/peerjs.min.js',
   './iphone.html',
   './iphone.js',
   './data/bridge-files.js',
