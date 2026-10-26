@@ -39,6 +39,9 @@ def post(path, body, attempts=3):
 
 def main():
     code, started, seconds = post("/v1/sessions", {})
+    if code == 429:
+        print("::warning::Live check skipped: today's free cloud browser time is used up (" + started.get("error", "") + ")")
+        return
     assert code == 200, (code, started)
     print(f"session started in {seconds:.1f}s")
     session = started["session"]

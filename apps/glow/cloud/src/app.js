@@ -7,7 +7,7 @@ const Core = globalThis.GlowHandsCore || coreModule.default || coreModule;
 const SESSION = /^[0-9a-zA-Z-]{8,80}$/;
 const PATHS = new Set(["status", "observe", "act", "close"]);
 const MAX_BODY = 64 * 1024;
-const KEEP_ALIVE_MS = 10 * 60 * 1000;
+const KEEP_ALIVE_MS = 5 * 60 * 1000;
 
 function withTimeout(promise, ms, label) {
   let timer;

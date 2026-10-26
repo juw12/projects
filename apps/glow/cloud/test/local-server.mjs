@@ -10,6 +10,13 @@ const handle = createApp(provider);
 const env = { ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || "" };
 
 const server = http.createServer(async (incoming, outgoing) => {
+  if (incoming.url === "/__test/fail-next-launch") {
+    // Test-only switch: make the next browser launch fail like Cloudflare's daily limit.
+    provider.failNextLaunch = "429 Too Many Requests: browser time limit exceeded";
+    outgoing.writeHead(204, { "Access-Control-Allow-Origin": "*" });
+    outgoing.end();
+    return;
+  }
   const chunks = [];
   for await (const chunk of incoming) chunks.push(chunk);
   const headers = new Headers();
