@@ -556,8 +556,8 @@
    "id": "mint",
    "name": "Mint",
    "category": "Creator Tools",
-   "desc": "Prompt a spreadsheet template with AI, tweak it with words, and sell it — real accounts, orders paid straight to the seller, affiliate payouts and creator guides",
-   "description": "Live template marketplace for Excel / Google Sheets: describe a sheet in English or Bahasa Indonesia and Mint AI designs it, tweak it with words (&ldquo;add column Supplier&rdquo;), export a real .xlsx with live formulas and a dashboard, then sell it &mdash; buyers pay the seller directly via their own payment link (QRIS / e-wallet / card), the seller confirms the order reference and the file unlocks, with tracked affiliate commissions and payouts. Cloudflare Workers + SQLite Durable Object backend.",
+   "desc": "Prompt a spreadsheet template with AI, tweak it with words, and sell it — real accounts, orders paid straight to the seller, affiliate payouts, Android app and iPhone home-screen app",
+   "description": "Live template marketplace for Excel / Google Sheets: describe a sheet in English or Bahasa Indonesia and Mint AI designs it, tweak it with words (&ldquo;add column Supplier&rdquo;), export a real .xlsx with live formulas and a dashboard, then sell it &mdash; buyers pay the seller directly via their own payment link (QRIS / e-wallet / card), the seller confirms the order reference and the file unlocks, with tracked affiliate commissions and payouts. Recovery codes, formula-free previews of paid templates, listing reports and order badges; Android app (APK) and iPhone Add to Home Screen. Cloudflare Workers + SQLite Durable Object backend.",
    "summary": "Describe a spreadsheet, tweak it in plain words, export a working .xlsx and sell it on a built-in marketplace.",
    "tags": [
     "Template marketplace",
@@ -574,7 +574,9 @@
     "creator-economy",
     "cloudflare-workers",
     "workers-ai",
-    "pwa"
+    "pwa",
+    "android",
+    "capacitor"
    ],
    "image": "mint-hero.jpg",
    "image_alt": "Mint: prompt a spreadsheet template, tweak it, sell it — prompt box with Mint AI and the prompt, tweak, sell flow",

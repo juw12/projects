@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Privacy — Mint</title>
+  <meta name="theme-color" content="#0f9d76">
+  <link rel="icon" href="icons/app-icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="app.css">
+  <style>
+    .legal { max-width: 760px; margin: 0 auto; padding: 28px 20px 60px; line-height: 1.65; }
+    .legal h2 { margin-top: 28px; }
+    .legal li { margin: 4px 0; }
+  </style>
+</head>
+<body>
+  <main class="legal">
+    <p><a href="app.html">← Back to Mint</a></p>
+    <h1>Privacy</h1>
+    <p class="muted small">Last updated 26 October 2026. Plain-language summary written for Mint; not reviewed by a lawyer.</p>
+    <h2>What Mint stores</h2>
+    <ul>
+      <li><strong>Account:</strong> your name, email, a salted PBKDF2 hash of your password and a SHA-256 hash of your recovery code. Mint never sees or stores the password or code itself.</li>
+      <li><strong>Marketplace data:</strong> drafts, listings (including your payment link), orders, reviews, reports, affiliate links and click counts.</li>
+      <li><strong>Payout details</strong> you choose to enter, shown only to sellers who owe you an affiliate commission.</li>
+      <li><strong>Sign-in sessions:</strong> a random token kept in your browser’s local storage; the server keeps only its hash.</li>
+      <li><strong>Abuse protection:</strong> your network address is used briefly for rate limits (sign-up, login, clicks) and is not stored with your account.</li>
+    </ul>
+    <h2>Who sees what</h2>
+    <ul>
+      <li>When you order a paid template, the seller sees your name, email and order reference so they can match your payment.</li>
+      <li>Your public name appears on listings you sell and reviews you write.</li>
+      <li>Payments happen on the seller’s own checkout (for example Lynk.id, Saweria, PayPal). Mint never receives card or bank data; that checkout’s own privacy policy applies.</li>
+      <li>Mint AI prompts are sent to Cloudflare Workers AI to generate a template and are not used to identify you.</li>
+    </ul>
+    <h2>Where it lives</h2>
+    <p>The website is hosted on GitHub Pages; the Mint API and database run on Cloudflare Workers / Durable Objects. No ads, no analytics trackers, no selling of data.</p>
+    <h2>Your choices</h2>
+    <ul>
+      <li>Edit your name and payout details in <em>Account</em>.</li>
+      <li><strong>Delete your account</strong> in <em>Account → Delete account</em>. This removes your login, drafts, affiliate links, payout details and sessions and takes your listings off the market. Order records stay so buyers and sellers keep their purchase history, shown as “Deleted user”.</li>
+      <li>Offline mode keeps data only in your browser; clear it in <em>Account</em>.</li>
+    </ul>
+    <p class="muted small">Questions or requests: contact the maker through <a href="https://juw12.github.io/portfolio/" rel="noopener">juw12.github.io/portfolio</a>.</p>
+  </main>
+</body>
+</html>

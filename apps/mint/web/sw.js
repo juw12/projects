@@ -1,7 +1,7 @@
 /* Mint service worker — app shell cache. API calls (api/...) always go to the network. */
-var CACHE = "mint-v2.0.0";
+var CACHE = "mint-v2.1.0";
 var SHELL = [
-  "./", "index.html", "app.html", "web.html", "mobile.html", "app.css",
+  "./", "index.html", "app.html", "web.html", "mobile.html", "privacy.html", "terms.html", "app.css",
   "js/core.js", "js/xlsx.js", "js/guides.js", "js/store.js", "js/app.js",
   "data/seed.json", "manifest.webmanifest", "icons/app-icon.svg", "icons/icon-192.png",
   "icons/icon-512.png", "icons/apple-touch-icon.png"

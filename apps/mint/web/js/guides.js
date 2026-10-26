@@ -87,6 +87,18 @@
         "<li>If an affiliate referred the sale, Mint shows the commission you owe and their payout details. Pay them, then tap <em>Mark paid</em>.</li></ol>" +
         "<p>Mint never holds your money, so there\u2019s no payout delay. Free templates unlock instantly.</p>" +
         "<p><strong>Tips:</strong> use a payment page that shows the amount (so buyers can\u2019t underpay), confirm orders at least daily, and reject orders that never arrive \u2014 the buyer can simply order again.</p>"
+    },
+    {
+      slug: "phone",
+      icon: "\ud83d\udcf2",
+      title: "Install Mint on your phone",
+      summary: "Android app, iPhone home-screen app, same account everywhere.",
+      body:
+        "<p><strong>Android:</strong> download <a href=\"https://github.com/juw12/projects/releases/download/mint-android/Mint-android.apk\" rel=\"noopener\">Mint-android.apk</a>, open it and allow installs from your browser (Android asks once). Or in Chrome tap \u22ee \u2192 <em>Install app</em>.</p>" +
+        "<p><strong>iPhone / iPad:</strong> open Mint in <strong>Safari</strong>, tap <em>Share</em> \u2192 <em>Add to Home Screen</em>. It opens full-screen with its own icon. (An App Store version needs an Apple developer account, so it isn\u2019t there yet.)</p>" +
+        "<p><strong>Same Mint, same account.</strong> The apps load the live site, so new features arrive without updating, and your drafts, library, sales and affiliate links follow you between phone and computer.</p>" +
+        "<p><strong>Downloads on the phone:</strong> in the Android app, <em>Download .xlsx</em> opens the share sheet \u2014 save to Files or Drive, or open it straight in Excel or Google Sheets.</p>" +
+        "<p><strong>Badges:</strong> a red number on <em>Sell</em> means orders to confirm or commissions to pay; on <em>Library</em> it means an order still waiting for your payment.</p>"
     }
   ];
 })(typeof globalThis !== "undefined" ? globalThis : this);

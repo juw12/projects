@@ -39,24 +39,29 @@ promote with a generated content kit → buyer pays the seller → file unlocks.
 ## Status
 
 - **Live:**
-  - the PWA on GitHub Pages;
-  - the API on Cloudflare: Worker plus a SQLite Durable Object, Workers AI;
-  - accounts that work across devices;
-  - the marketplace, orders, affiliate ledger and payouts;
-  - Mint AI generation, the content kit and guides.
+  - the PWA on GitHub Pages, plus an Android app (Capacitor shell, `Mint-android.apk` on the
+    `mint-android` release) and an iPhone home-screen app (Add to Home Screen);
+  - the API on Cloudflare: Worker plus a SQLite Durable Object, Workers AI (deploy pending, see README);
+  - accounts that work across devices, with recovery codes, password change and account deletion;
+  - the marketplace, orders (expire after 14 days), affiliate ledger and payouts;
+  - formula-free previews of paid templates, listing reports with auto-hide, notification badges;
+  - Mint AI generation, the content kit, 7 guides, Privacy and Terms pages.
 - **Verified:**
-  - 17 end-to-end API checks on local `workerd`.
-  - A 24-check real-browser flow with three separate profiles (seller, affiliate, buyer): AI-less
-    prompt → tweak → publish with required payment link → affiliate link and payout details →
-    buyer order with reference → checkout tab → seller confirms → .xlsx download → review → ledger
-    → commission paid → offline fallback.
+  - 23 end-to-end API checks on local `workerd` (incl. recovery, password change, delete, reports,
+    counts, preview stripping).
+  - A 40-check real-browser flow with separate seller, affiliate and buyer profiles: publish →
+    preview + report → affiliate link → order → badges → confirm → .xlsx download → review → ledger
+    → commission paid → change password → forgot password with recovery code → delete account →
+    install page → offline fallback.
   - 160 static and JS-core checks.
-  - Exported xlsx files recalculate correctly in openpyxl and `formulas`.
+  - The Android APK is built and signed locally; it has not been run on a physical phone.
 
 ## Next decisions
 
 1. **Automatic payments.** Midtrans or Xendit (QRIS, VA, e-wallet) or Stripe Connect. Wire the
    provider webhook to the order-confirm path for instant unlock, and Mint can then collect a fee.
 2. **Fee.** Stay at 0% to attract sellers, or turn on 5–10% once payments are automatic.
-3. **Email.** Add a provider (Resend, Mailchannels) for password reset and order notifications.
-4. **Custom domain** (for example mint.id-style) and a privacy and terms page before marketing.
+3. **Email / push.** Add a provider (Resend, Mailchannels) for order notifications and email-based
+   recovery; badges cover in-app notice today.
+4. **Store listings.** Google Play ($25 once) and the App Store (Apple Developer, $99/year + Xcode).
+5. **Custom domain** and a lawyer review of the Privacy and Terms pages before marketing.
