@@ -218,17 +218,21 @@ async function createWindow() {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('airiz:update-state', state);
     },
     getDeviceState: () => mainWindow.webContents.executeJavaScript('window.AirizConsole?.getStatus?.() || null'),
-    confirmInstall: async version => {
+    confirmInstall: async (version, { connected = false } = {}) => {
       const answer = await dialog.showMessageBox(mainWindow, {
         type: 'question', title: 'Install AIRIZ update?',
         message: 'Install AIRIZ Console ' + version + ' now?',
-        detail: 'The app will close and reopen after the installer. Finish all device motion first: closing or disconnecting does not stop an already-issued move. This release is unsigned and Windows may show a publisher warning.',
-        buttons: ['Not now', 'Install and restart'], defaultId: 0, cancelId: 0, noLink: true
+        detail: (connected
+          ? 'The device will be disconnected safely first. Reconnect it after AIRIZ reopens. '
+          : '')
+          + 'The app will close and reopen after the installer. Finish all device motion first: closing or disconnecting does not stop an already-issued move. This release is unsigned and Windows may show a publisher warning.',
+        buttons: ['Not now', connected ? 'Disconnect, install and restart' : 'Install and restart'],
+        defaultId: 0, cancelId: 0, noLink: true
       });
       return answer.response === 1;
     },
     prepareForInstall: async () => {
-      const ready = await mainWindow.webContents.executeJavaScript('window.AirizConsole?.prepareForUpdate?.() === true');
+      const ready = await mainWindow.webContents.executeJavaScript('Promise.resolve(window.AirizConsole?.prepareForUpdate?.()).then(result => result === true)');
       if (ready) {
         chooser.cancel();
         closeConfirmed = true;

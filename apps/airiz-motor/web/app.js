@@ -3959,11 +3959,16 @@
       });
     },
     sendCommand: sendLine,
-    prepareForUpdate() {
-      if (state.port || state.macroRunning || state.capture.active || cameraState.sessionActive
+    async prepareForUpdate() {
+      if (state.macroRunning || state.capture.active || cameraState.sessionActive
           || (cameraState.recorder && cameraState.recorder.state !== 'inactive')) return false;
+      // Block new connections, jogs and commands, then close an idle serial port safely.
       state.updatePending = true;
-      return true;
+      if (state.port || (state.connected && !state.demoMode)) {
+        logToConsole('Disconnecting the device to install the update…', 'warning');
+        await disconnect();
+      }
+      return !state.port;
     },
     cancelPreparedUpdate() {
       state.updatePending = false;

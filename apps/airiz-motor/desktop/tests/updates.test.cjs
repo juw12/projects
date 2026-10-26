@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
-const { createUpdateController, installerUrl, validateUpdate, activeSession, FEED } = require('../update-controller.cjs');
+const { createUpdateController, installerUrl, validateUpdate, activeSession, blockingWork, FEED } = require('../update-controller.cjs');
 
 const info = () => ({
   version: '1.2.0',
@@ -75,7 +75,7 @@ test('bad channel metadata cannot reach a download', async () => {
 });
 
 for (const status of [
-  { connected: true, demoMode: false },
+  { connected: true, demoMode: false, macroRunning: true },
   { connected: false, macroRunning: true },
   { connected: false, cameraRecording: true },
   { connected: false, sessionActive: true },
@@ -110,7 +110,7 @@ test('ready update waits for consent, then installs only when idle', async () =>
 test('a session that becomes busy during confirmation is rechecked', async () => {
   let reads = 0;
   const fixtureData = fixture({
-    getDeviceState: async () => (++reads === 1 ? { connected: false } : { connected: true, demoMode: false }),
+    getDeviceState: async () => (++reads === 1 ? { connected: false } : { connected: false, macroRunning: true }),
     confirmInstall: async () => true
   });
   await fixtureData.controller.check();
@@ -143,4 +143,38 @@ test('offline check becomes a nonfatal status; demo connection alone is not hard
   await fixtureData.controller.check();
   assert.equal(fixtureData.controller.snapshot().status, 'error');
   assert.equal(activeSession({ connected: true, demoMode: true }), false);
+});
+
+test('an idle connected device is disconnected safely, then the update installs', async () => {
+  const confirmations = [];
+  const fixtureData = fixture({
+    confirmInstall: async (version, options) => {
+      confirmations.push({ version, ...options });
+      return true;
+    }
+  });
+  fixtureData.setDevice({ connected: true, demoMode: false });
+  await fixtureData.controller.check();
+  await fixtureData.controller.download();
+  await fixtureData.controller.install();
+  assert.deepEqual(confirmations, [{ version: '1.2.0', connected: true }]);
+  assert.equal(fixtureData.prepared(), 1);
+  assert.deepEqual(fixtureData.updater.installs, [[false, true]]);
+});
+
+test('declining while connected keeps the connection and installs nothing', async () => {
+  const fixtureData = fixture({ confirmInstall: async () => false });
+  fixtureData.setDevice({ connected: true, demoMode: false });
+  await fixtureData.controller.check();
+  await fixtureData.controller.download();
+  await fixtureData.controller.install();
+  assert.equal(fixtureData.prepared(), 0);
+  assert.equal(fixtureData.updater.installs.length, 0);
+});
+
+test('only running work blocks installation; an idle connection does not', () => {
+  assert.equal(blockingWork({ connected: true, demoMode: false }), false);
+  assert.equal(blockingWork({ connected: true, macroRunning: true }), true);
+  assert.equal(blockingWork({ connected: false, audioCaptureActive: true }), true);
+  assert.equal(blockingWork(null), true);
 });
