@@ -57,7 +57,7 @@
     <div class="sidebar-foot"><span class="online-dot" aria-hidden="true"></span> Browser-first workspace<p>History stays in this browser. AI requests go to your chosen provider. Keep this tab open while work runs.</p><a href="../">← All Glow apps</a></div>
   </aside>
   <main id="workspace" tabindex="-1">
-    <div class="workspace-label"><span>YOUR AI TEAM, WITH YOU IN CONTROL</span><span class="version-pill">GlowLead / 0.13</span></div>
+    <div class="workspace-label"><span>YOUR AI TEAM, WITH YOU IN CONTROL</span><span class="version-pill">GlowLead / 0.14</span></div>
     <section class="hero">
       <p class="eyebrow">From a spark to something real</p>
       <h1>Big idea.<br><span>Clear next steps.</span></h1>
@@ -127,6 +127,19 @@
       <p id="phone-link-note" class="helper" role="status"></p>
     </section>
     <p class="helper phone-only">On a phone? Open GlowLead on your PC → <b>Connect browser control</b> → <b>Use from your phone</b>, then scan the QR code with this phone's camera.</p>
+    <section id="cloud-box" class="phone-link-box">
+      <h3 class="setup-heading">No PC? Use a cloud browser</h3>
+      <p class="helper">Starts a hidden browser on GitHub for up to 20 minutes (about 1 minute to start), then it stops by itself. It has no saved logins, and some sites show more CAPTCHAs. Keep it light; GitHub allows only modest use.</p>
+      <details id="cloud-setup" class="manual-pairing"><summary>Set up once on this device</summary>
+        <label for="cloud-token">GitHub token (Actions: read &amp; write, only the projects repo)</label>
+        <input id="cloud-token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…">
+        <label for="cloud-key">Cloud key (from your setup link)</label>
+        <input id="cloud-key" type="password" autocomplete="off" spellcheck="false">
+        <div class="start-actions"><button class="btn small" id="cloud-save" type="button">Save on this device</button><button class="btn ghost small" id="cloud-forget" type="button">Forget</button></div>
+      </details>
+      <div class="start-actions"><button class="btn primary small" id="cloud-start" type="button">Start cloud browser</button><button class="btn small" id="cloud-stop" type="button">Stop</button><button class="btn ghost small" id="cloud-use-pc" type="button" hidden>Use my PC again</button></div>
+      <p id="cloud-note" class="helper" role="status"></p>
+    </section>
     <h3 class="setup-heading">New PC? Install in one step</h3>
     <p class="helper">Press <b>Win + R</b>, paste this, press Enter. It installs Glow Hands, starts it at every login, and connects this browser automatically.</p>
     <div class="install-command"><code id="hands-install-command">powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/juw12/projects/main/apps/glow/hands/install-glow-hands.ps1 | iex"</code><button class="btn small" id="hands-copy-install" type="button">Copy</button></div>
