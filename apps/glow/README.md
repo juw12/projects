@@ -12,6 +12,15 @@
 GlowChat installable app: `glow/chat/app.html`, mobile: `glow/chat/mobile.html`. GlowRoom: `glow/room/app.html`, `glow/room/mobile.html`.
 AI-suggested resources in GlowChat are not automatically browsed or verified; GlowChat does no autonomous building or execution (that is GlowRoom's job, and its results should still be reviewed).
 
+## v0.15.5 — prices and budgets are looked up, not guessed
+
+Found in a real GlowLead run: for "used Honda Vario or new Yamaha Gear, budget Rp 18 juta" the planner used only
+a Council debate, and the answer stated invented prices, warranty terms and a 4% loan rate that the check
+passed as "up to date". Now a goal that mentions prices, budgets or money amounts (Rp, juta, USD…) or
+latest/current facts always gets a **🏢 GlowRoom "Check current facts and prices" step first**, and the check
+treats numbers without live sources as estimates (criteria that need current facts can't pass on guesses).
+Self-test: 23 checks. Cache: `glowlead-v16`.
+
 ## v0.15.4 — finished work is never lost to a flaky connection
 
 Found in real GlowLead runs on Glow Free:

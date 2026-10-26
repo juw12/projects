@@ -233,6 +233,22 @@
     return [{ worker: "chat", title: "Do it", task: goal }];
   }
 
+  // Prices, budgets, money amounts and "latest/current" facts change and must be looked up, not recalled.
+  const FACTS_HINT = /(\bRp\.?\s?\d|\bIDR\b|\bUSD\b|\$\s?\d|\b\d+([.,]\d+)?\s?(juta|jt|ribu|rb|million|k)\b|\b(price|prices|pricing|harga|cost|costs|biaya|budget|anggaran|latest|terbaru|current|today|news|202\d)\b)/i;
+
+  function ensureResearch(steps, goal) {
+    if (!FACTS_HINT.test(goal) || steps.some((s) => s.worker === "room")) return steps;
+    const research = {
+      worker: "room",
+      title: "Check current facts and prices",
+      task: `Look up the current, real facts this goal depends on (prices, specs, terms, availability) with source links: ${goal}. Report the numbers you found and say clearly what you could not confirm.`,
+      autoResearch: true,
+    };
+    const withResearch = [research, ...steps];
+    while (withResearch.length > MAX_STEPS) withResearch.splice(withResearch.length - 2, 1); // keep the research and the final step
+    return withResearch;
+  }
+
   function parsePlan(text, goal) {
     const json = extractJson(text);
     let steps = Array.isArray(json && json.steps) ? json.steps : [];
@@ -247,6 +263,7 @@
     let criteria = Array.isArray(json && json.criteria) ? json.criteria.map((c) => clip(c, 200)).filter(Boolean).slice(0, 5) : [];
     const planned = steps.length > 0;
     if (!planned) steps = fallbackPlan(goal);
+    steps = ensureResearch(steps, goal);
     if (!criteria.length) criteria = ["Directly answers: " + clip(goal, 140), "Concrete and usable, not generic"];
     return { summary: clip((json && json.summary) || "", 300), criteria, steps, planned };
   }
@@ -256,6 +273,7 @@
     "You are GlowLead, the team lead. Your team has finished the steps below.",
     "1) Write the final deliverable for the user in Markdown. Lead with the answer. Keep the team's facts, numbers and source links; remove repetition; do not describe the process.",
     "Never add facts, products, prices, ratings or links that are not in the team's work. If the team's work notes that live research FAILED, any criterion that needs current, sourced or checked facts is NOT met, and the deliverable must say the facts were not checked live.",
+    "Only numbers that come from the GlowRoom crew's live research (with sources) count as checked. If no live research was done, label prices, rates, specs and other numbers as estimates to verify, and any criterion that needs current, up-to-date or sourced facts is NOT met.",
     '2) On the very last line write CHECK: followed by JSON {"met":[true or false for each done-criterion, in order],"missing":"what is still missing, or empty"}.',
   ].join("\n");
 
@@ -1242,7 +1260,7 @@
       if (error && error.name === "AbortError") return finish(lead, "stopped");
       // Planning failed (e.g. the free AI is busy): fall back to a simple plan instead of giving up.
       lead.criteria = ["Directly answers: " + clip(lead.goal, 140), "Concrete and usable, not generic"];
-      lead.steps = fallbackPlan(lead.goal).map((s) => ({ ...s, status: "queued", output: "" }));
+      lead.steps = ensureResearch(fallbackPlan(lead.goal), lead.goal).map((s) => ({ ...s, status: "queued", output: "" }));
       lead.note = "Planned with a simple default because the planner was busy.";
     } finally {
       delete controllers[lead.id];
@@ -2566,6 +2584,14 @@
     const headings = [...document.querySelectorAll("#lead-run h3")].map((h) => h.textContent).join(" | ");
     expect("research: the report is marked 'not checked live' with no criterion passed, also in GlowChat",
       failing.lead.unverified === true && failing.lead.met.every((m) => m === false) && headings.includes("Not checked live") && failLast.includes("were not checked"));
+
+    // Goals that depend on prices or other changing facts always get live research first
+    const budgetPlan = parsePlan('{"steps":[{"worker":"council","title":"Decide","task":"Pick one"}]}', "Buy a used Honda Vario or a new Yamaha Gear, budget Rp 18 juta");
+    const poemPlan = parsePlan('{"steps":[{"worker":"chat","title":"Write","task":"Write it"}]}', "Write a poem about rain");
+    const fullPlan = parsePlan('{"steps":[' + [1, 2, 3, 4].map((n) => '{"worker":"chat","title":"S' + n + '","task":"t"}').join(",") + ']}', "Cheapest flights Batam to Bali next month, price in USD");
+    expect("facts: a budget/price goal gets a GlowRoom research step first, other goals do not",
+      budgetPlan.steps[0].worker === "room" && budgetPlan.steps[1].worker === "council" && poemPlan.steps.length === 1 && poemPlan.steps[0].worker === "chat" &&
+      fullPlan.steps.length === 4 && fullPlan.steps[0].worker === "room" && fullPlan.steps[3].title === "S4");
 
     // The final check fails: the finished work is still delivered, marked as not checked
     backend.chat = async ({ system }) => {
