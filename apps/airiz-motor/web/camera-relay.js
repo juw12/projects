@@ -266,13 +266,38 @@
     stopWatching(true);
   });
 
-  // On phones the local camera list only shows the phone's own cameras, so put the
-  // viewer first and say so.
-  const phone = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || !!window.airizMobile;
-  if (phone) {
+  // On phones the local camera list only shows the phone's own cameras, so the viewer
+  // goes straight under the page title (above the download banners and the connection
+  // card) whenever the Camera workspace is open, and the PC-only share controls are hidden.
+  const userAgent = navigator.userAgent;
+  const touchMac = /Macintosh/i.test(userAgent) && navigator.maxTouchPoints > 1; // iPad "desktop" mode
+  const smallTouchScreen = window.matchMedia
+    && window.matchMedia('(pointer: coarse)').matches
+    && Math.min(window.screen.width, window.screen.height) < 900;
+  const phone = /iPhone|iPad|iPod|Android/i.test(userAgent) || touchMac || smallTouchScreen || !!window.airizMobile;
+  if (phone && !window.airizDesktop) {
     els.section.classList.add('camera-relay-phone');
-    const panel = $('camera-panel-content');
-    if (panel) panel.prepend(els.section);
-    setStatus('To see the AIRIZ camera: on the PC, Camera → Start Preview → Share to phone, then enter the code here.');
+    const shareRow = els.share.closest('.camera-relay-row');
+    if (shareRow) shareRow.hidden = true;
+    els.linkRow.hidden = true;
+    const hint = els.section.querySelector('.camera-relay-hint');
+    if (hint) {
+      hint.textContent = 'Watch the AIRIZ camera here. On the PC: Camera \u2192 Start Preview \u2192 Share to phone, '
+        + 'then enter the 6-digit code below (or just open the link the PC shares).';
+    }
+    const intro = document.querySelector('.page-intro');
+    const cameraView = $('view-camera');
+    if (intro && cameraView) {
+      intro.after(els.section);
+      const syncVisibility = () => {
+        els.section.hidden = cameraView.hidden;
+      };
+      syncVisibility();
+      new MutationObserver(syncVisibility).observe(cameraView, { attributes: true, attributeFilter: ['hidden'] });
+    } else {
+      const panel = $('camera-panel-content');
+      if (panel) panel.prepend(els.section);
+    }
+    setStatus('');
   }
 })();
