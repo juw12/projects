@@ -377,4 +377,8 @@ dialog .check input { width: 18px; height: 18px; flex: 0 0 18px; margin: 0; padd
 .phone-qr:empty { display: none; }
 .phone-qr svg { width: 100%; height: auto; background: #fff; border-radius: 10px; padding: 6px; }
 .phone-only { display: none; }
+.phone-only-box { display: none; }
+#hands-dialog.on-phone .pc-only { display: none; }
+#hands-dialog.on-phone .phone-only-box { display: block; }
+#hands-dialog { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 @media (pointer: coarse) and (max-width: 820px) { .phone-only { display: block; } }

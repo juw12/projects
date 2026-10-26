@@ -57,7 +57,7 @@
     <div class="sidebar-foot"><span class="online-dot" aria-hidden="true"></span> Browser-first workspace<p>History stays in this browser. AI requests go to your chosen provider. Keep this tab open while work runs.</p><a href="../">← All Glow apps</a></div>
   </aside>
   <main id="workspace" tabindex="-1">
-    <div class="workspace-label"><span>YOUR AI TEAM, WITH YOU IN CONTROL</span><span class="version-pill">GlowLead / 0.14</span></div>
+    <div class="workspace-label"><span>YOUR AI TEAM, WITH YOU IN CONTROL</span><span class="version-pill">GlowLead / 0.14.1</span></div>
     <section class="hero">
       <p class="eyebrow">From a spark to something real</p>
       <h1>Big idea.<br><span>Clear next steps.</span></h1>
@@ -116,9 +116,9 @@
 </dialog>
 <dialog id="hands-dialog" aria-labelledby="hands-title">
   <form id="hands-form"><h2 id="hands-title">Connect Glow Hands</h2>
-    <p class="helper">Glow Hands is a small program on your PC that lets GlowLead open sites, click, type and fill forms in its own browser window. You can watch and take over at any time.</p>
-    <button class="btn primary" id="hands-auto" type="button">Connect to Glow Hands on this PC</button>
-    <p class="helper">One click: GlowLead finds Glow Hands on this PC and connects. Nothing to type. If your browser asks to allow local network access, allow it once.</p>
+    <p class="helper pc-only">Glow Hands is a small program on your PC that lets GlowLead open sites, click, type and fill forms in its own browser window. You can watch and take over at any time.</p>
+    <button class="btn primary pc-only" id="hands-auto" type="button">Connect to Glow Hands on this PC</button>
+    <p class="helper pc-only">One click: GlowLead finds Glow Hands on this PC and connects. Nothing to type. If your browser asks to allow local network access, allow it once.</p>
     <section id="phone-link-box" class="phone-link-box" hidden>
       <h3 class="setup-heading">Use from your phone</h3>
       <p class="helper">Your phone's GlowLead can drive Glow Hands on this PC over an encrypted direct link. Show the QR code, scan it with your phone camera, done. Your PC must stay on with Glow Hands running.</p>
@@ -126,11 +126,15 @@
       <div id="phone-qr" class="phone-qr" aria-label="QR code to link your phone"></div>
       <p id="phone-link-note" class="helper" role="status"></p>
     </section>
-    <p class="helper phone-only">On a phone? Open GlowLead on your PC → <b>Connect browser control</b> → <b>Use from your phone</b>, then scan the QR code with this phone's camera.</p>
+    <section id="phone-pc-box" class="phone-link-box phone-only-box">
+      <h3 class="setup-heading">Or use your PC's browser</h3>
+      <p class="helper">On your PC open GlowLead → <b>Connect browser control</b> → <b>Show QR code</b>, then scan it with this phone's camera. Your PC must be on with Glow Hands running.</p>
+    </section>
     <section id="cloud-box" class="phone-link-box">
       <h3 class="setup-heading">No PC? Use a cloud browser</h3>
       <p class="helper">Starts a hidden browser on GitHub for up to 20 minutes (about 1 minute to start), then it stops by itself. It has no saved logins, and some sites show more CAPTCHAs. Keep it light; GitHub allows only modest use.</p>
       <details id="cloud-setup" class="manual-pairing"><summary>Set up once on this device</summary>
+        <p class="helper"><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Make a GitHub token</a>: Repository access → <b>Only select repositories</b> → <b>projects</b>; Permissions → <b>Actions: Read and write</b>. Generate, copy, paste below.</p>
         <label for="cloud-token">GitHub token (Actions: read &amp; write, only the projects repo)</label>
         <input id="cloud-token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…">
         <label for="cloud-key">Cloud key (from your setup link)</label>
@@ -140,10 +144,10 @@
       <div class="start-actions"><button class="btn primary small" id="cloud-start" type="button">Start cloud browser</button><button class="btn small" id="cloud-stop" type="button">Stop</button><button class="btn ghost small" id="cloud-use-pc" type="button" hidden>Use my PC again</button></div>
       <p id="cloud-note" class="helper" role="status"></p>
     </section>
-    <h3 class="setup-heading">New PC? Install in one step</h3>
-    <p class="helper">Press <b>Win + R</b>, paste this, press Enter. It installs Glow Hands, starts it at every login, and connects this browser automatically.</p>
-    <div class="install-command"><code id="hands-install-command">powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/juw12/projects/main/apps/glow/hands/install-glow-hands.ps1 | iex"</code><button class="btn small" id="hands-copy-install" type="button">Copy</button></div>
-    <details class="manual-pairing"><summary>Connect manually with a pairing code</summary>
+    <h3 class="setup-heading pc-only">New PC? Install in one step</h3>
+    <p class="helper pc-only">Press <b>Win + R</b>, paste this, press Enter. It installs Glow Hands, starts it at every login, and connects this browser automatically.</p>
+    <div class="install-command pc-only"><code id="hands-install-command">powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/juw12/projects/main/apps/glow/hands/install-glow-hands.ps1 | iex"</code><button class="btn small" id="hands-copy-install" type="button">Copy</button></div>
+    <details class="manual-pairing pc-only"><summary>Connect manually with a pairing code</summary>
     <label for="hands-url">Address</label>
     <input id="hands-url" value="http://127.0.0.1:8765" autocomplete="off">
     <label for="hands-token">Pairing token</label>
@@ -151,7 +155,7 @@
     </details>
     <p class="helper"><b>It always asks you</b> before submitting, buying, sending, posting or deleting. It never types passwords, card numbers or codes; you type those in its window. It uses its own browser profile, and blocks local-network pages by default.</p>
     <p id="hands-test-result" class="helper" role="status"></p>
-    <div class="start-actions"><button class="btn" type="submit">Save &amp; test code</button><button class="btn" id="hands-cancel" type="button">Close</button></div>
+    <div class="start-actions"><button class="btn pc-only" type="submit">Save &amp; test code</button><button class="btn" id="hands-cancel" type="button">Close</button></div>
   </form>
 </dialog>
 <dialog id="automation-dialog" aria-labelledby="automation-title">
