@@ -532,17 +532,18 @@
    "id": "fade",
    "name": "Fade",
    "category": "Apps",
-   "desc": "Book barbers, watch haircut shorts and earn commission when your short sends a booking",
-   "description": "Barber marketplace with haircut shorts: book barbers who work part-time at several shops, pay, tip and rate, follow trending barbers, shops and creators, and earn 5&ndash;10% commission by tagging them as featured or sponsored.",
-   "summary": "Barber marketplace with haircut shorts &mdash; book, pay and tip barbers, and earn commission when your short drives a booking.",
+   "desc": "Book barbers, watch haircut shorts and pay them directly: free, online, 0% fees",
+   "description": "Barber marketplace with haircut shorts, now live on the decentralised Fade Network: real accounts, end-to-end encrypted bookings and DMs, direct payments (PayPal, Venmo, Cash App, Stripe links, bank/QR, Lightning) with a 0% fee, push reminders, on-device video optimising, moderation, and 5&ndash;10% creator commissions when a short sends a booking.",
+   "summary": "Barber marketplace with haircut shorts &mdash; now live and free: book barbers, pay them directly with 0% fees, and earn commission when your short drives a booking.",
    "tags": [
     "PWA",
+    "Nostr",
+    "direct payments",
     "haircut shorts",
-    "creator commissions",
-    "Python + SQLite"
+    "creator commissions"
    ],
    "image": "fade.png",
-   "image_alt": "Fade 2.0 screens: home with trending barbers, a haircut short with a paid-partnership tag, and creator earnings, using fictional demo data",
+   "image_alt": "Fade screens: home with trending barbers, a haircut short with a paid-partnership tag, and creator earnings, using fictional demo data",
    "links": {
     "app": "fade/",
     "web": "fade/web.html",
@@ -550,7 +551,7 @@
    },
    "featured": true,
    "order": 6,
-   "version": "2.0.0"
+   "version": "3.0.0"
   },
   {
    "id": "mint",

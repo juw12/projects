@@ -17,7 +17,7 @@ window.SEED = {
    "rating": 4.9,
    "reviews": 812,
    "hue": 42,
-   "hours": "09:00â€“22:00",
+   "hours": "09:00–22:00",
    "amenities": [
     "Espresso bar",
     "Hot towel",
@@ -58,7 +58,7 @@ window.SEED = {
    "rating": 4.7,
    "reviews": 1630,
    "hue": 200,
-   "hours": "10:00â€“21:00",
+   "hours": "10:00–21:00",
    "amenities": [
     "Walk-ins",
     "AC",
@@ -97,7 +97,7 @@ window.SEED = {
    "rating": 4.85,
    "reviews": 944,
    "hue": 280,
-   "hours": "11:00â€“23:00",
+   "hours": "11:00–23:00",
    "amenities": [
     "Craft coffee",
     "Vinyl lounge",
@@ -137,7 +137,7 @@ window.SEED = {
    "rating": 4.8,
    "reviews": 601,
    "hue": 160,
-   "hours": "08:00â€“21:00",
+   "hours": "08:00–21:00",
    "amenities": [
     "Express lane",
     "Shoe shine",
@@ -177,7 +177,7 @@ window.SEED = {
    "rating": 4.75,
    "reviews": 2210,
    "hue": 15,
-   "hours": "08:00â€“20:00",
+   "hours": "08:00–20:00",
    "amenities": [
     "Classic shaves",
     "Kids friendly",
@@ -216,7 +216,7 @@ window.SEED = {
    "rating": 4.82,
    "reviews": 520,
    "hue": 320,
-   "hours": "10:00â€“22:00",
+   "hours": "10:00–22:00",
    "amenities": [
     "Sea view",
     "Smoothie bar",
@@ -255,7 +255,7 @@ window.SEED = {
    "rating": 4.86,
    "reviews": 1320,
    "hue": 230,
-   "hours": "09:00â€“20:00",
+   "hours": "09:00–20:00",
    "amenities": [
     "Craft beer",
     "Hot towel",
@@ -294,7 +294,7 @@ window.SEED = {
    "rating": 4.9,
    "reviews": 3010,
    "hue": 0,
-   "hours": "08:00â€“22:00",
+   "hours": "08:00–22:00",
    "amenities": [
     "Walk-ins",
     "Big screen sports",
@@ -333,7 +333,7 @@ window.SEED = {
    "rating": 4.88,
    "reviews": 870,
    "hue": 110,
-   "hours": "09:00â€“21:00",
+   "hours": "09:00–21:00",
    "amenities": [
     "Generator backup",
     "Afrobeats DJ",
@@ -372,7 +372,7 @@ window.SEED = {
    "rating": 4.93,
    "reviews": 640,
    "hue": 340,
-   "hours": "11:00â€“21:00",
+   "hours": "11:00–21:00",
    "amenities": [
     "Head spa",
     "Tea service",
@@ -565,7 +565,7 @@ window.SEED = {
    ],
    "rating": 4.95,
    "reviews": 860,
-   "bio": "Scissor-over-comb specialist. Textured crops, mullets, short cuts for every hair type. Consults are free â€” DM me a photo.",
+   "bio": "Scissor-over-comb specialist. Textured crops, mullets, short cuts for every hair type. Consults are free — DM me a photo.",
    "tags": [
     "Textured crop",
     "Mullet",
@@ -1015,7 +1015,7 @@ window.SEED = {
     },
     {
      "id": "f2",
-     "title": "First haircut ðŸŽ‰",
+     "title": "First haircut 🎉",
      "style": "curly",
      "hue": 50,
      "likes": 3400
@@ -1058,7 +1058,7 @@ window.SEED = {
    ],
    "rating": 4.92,
    "reviews": 210,
-   "bio": "Rising star ðŸš€ Freestyle designs, color, and anything creative. Weekdays at PIK, Sunday nights at Kings.",
+   "bio": "Rising star 🚀 Freestyle designs, color, and anything creative. Weekdays at PIK, Sunday nights at Kings.",
    "tags": [
     "Designs",
     "Color",
@@ -1177,7 +1177,7 @@ window.SEED = {
    ],
    "rating": 4.96,
    "reviews": 1500,
-   "bio": "Waves on deck ðŸŒŠ 360s, burst fades, beard dye. Lagos based, travels for shows.",
+   "bio": "Waves on deck 🌊 360s, burst fades, beard dye. Lagos based, travels for shows.",
    "tags": [
     "Waves",
     "Burst fade",
@@ -1391,7 +1391,7 @@ window.SEED = {
    ],
    "rating": 4.98,
    "reviews": 2600,
-   "bio": "Braids, starter locs, retwists and designs. Harlem Crown Wedâ€“Sun.",
+   "bio": "Braids, starter locs, retwists and designs. Harlem Crown Wed–Sun.",
    "tags": [
     "Braids",
     "Locs",
@@ -1589,9 +1589,9 @@ window.SEED = {
  "products": [
   {
    "id": "pr1",
-   "name": "Matte Clay â€” Strong Hold",
+   "name": "Matte Clay — Strong Hold",
    "price": 16,
-   "emoji": "ðŸ«™",
+   "emoji": "🫙",
    "cat": "Styling",
    "sellerType": "barber",
    "sellerId": "b1",
@@ -1603,9 +1603,9 @@ window.SEED = {
   },
   {
    "id": "pr2",
-   "name": "Beard Oil â€” Oud & Cedar",
+   "name": "Beard Oil — Oud & Cedar",
    "price": 14,
-   "emoji": "ðŸ§´",
+   "emoji": "🧴",
    "cat": "Beard",
    "sellerType": "barber",
    "sellerId": "b3",
@@ -1619,7 +1619,7 @@ window.SEED = {
    "id": "pr3",
    "name": "Sea Salt Texture Spray",
    "price": 12,
-   "emoji": "ðŸŒŠ",
+   "emoji": "🌊",
    "cat": "Styling",
    "sellerType": "barber",
    "sellerId": "b2",
@@ -1633,7 +1633,7 @@ window.SEED = {
    "id": "pr4",
    "name": "Kings Lounge Pomade",
    "price": 20,
-   "emoji": "ðŸ‘‘",
+   "emoji": "👑",
    "cat": "Styling",
    "sellerType": "place",
    "sellerId": "p1",
@@ -1647,7 +1647,7 @@ window.SEED = {
    "id": "pr5",
    "name": "360 Wave Brush Kit",
    "price": 24,
-   "emoji": "ðŸª®",
+   "emoji": "🪮",
    "cat": "Tools",
    "sellerType": "barber",
    "sellerId": "b6",
@@ -1661,7 +1661,7 @@ window.SEED = {
    "id": "pr6",
    "name": "Scalp Detox Shampoo",
    "price": 18,
-   "emoji": "ðŸ«§",
+   "emoji": "🫧",
    "cat": "Care",
    "sellerType": "place",
    "sellerId": "p4",
@@ -1675,7 +1675,7 @@ window.SEED = {
    "id": "pr7",
    "name": "Perm Care Curl Cream",
    "price": 22,
-   "emoji": "ðŸŒ€",
+   "emoji": "🌀",
    "cat": "Care",
    "sellerType": "barber",
    "sellerId": "b4",
@@ -1689,7 +1689,7 @@ window.SEED = {
    "id": "pr8",
    "name": "Fadeline Silk Durag",
    "price": 15,
-   "emoji": "ðŸ§£",
+   "emoji": "🧣",
    "cat": "Merch",
    "sellerType": "place",
    "sellerId": "p3",
@@ -1703,7 +1703,7 @@ window.SEED = {
    "id": "pr9",
    "name": "Pro Detail Trimmer",
    "price": 69,
-   "emoji": "âœ‚ï¸",
+   "emoji": "✂️",
    "cat": "Tools",
    "sellerType": "place",
    "sellerId": "p2",
@@ -1717,7 +1717,7 @@ window.SEED = {
    "id": "pr10",
    "name": "Color Lock Toner",
    "price": 19,
-   "emoji": "ðŸŽ¨",
+   "emoji": "🎨",
    "cat": "Care",
    "sellerType": "barber",
    "sellerId": "b10",
@@ -1731,7 +1731,7 @@ window.SEED = {
    "id": "pr11",
    "name": "Loc Retwist Gel",
    "price": 17,
-   "emoji": "ðŸ’§",
+   "emoji": "💧",
    "cat": "Care",
    "sellerType": "barber",
    "sellerId": "b8",
@@ -1743,9 +1743,9 @@ window.SEED = {
   },
   {
    "id": "pr12",
-   "name": "Aftershave Balm â€” Classic",
+   "name": "Aftershave Balm — Classic",
    "price": 13,
-   "emoji": "ðŸƒ",
+   "emoji": "🍃",
    "cat": "Beard",
    "sellerType": "place",
    "sellerId": "p5",
@@ -1765,7 +1765,7 @@ window.SEED = {
    "messages": [
     {
      "from": "me",
-     "text": "Bro the fade last time was crazy ðŸ”¥",
+     "text": "Bro the fade last time was crazy 🔥",
      "ago": 1560
     },
     {
@@ -1775,7 +1775,7 @@ window.SEED = {
     },
     {
      "from": "b1",
-     "text": "Btw a slot just opened Thursday at Kemang if that’s closer for you ðŸ‘€",
+     "text": "Btw a slot just opened Thursday at Kemang if that’s closer for you 👀",
      "ago": 14
     }
    ]
@@ -1814,7 +1814,7 @@ window.SEED = {
     },
     {
      "from": "b3",
-     "text": "Blok M has 3 open chairs tonight after 7 â€” come thru ðŸ’ˆ",
+     "text": "Blok M has 3 open chairs tonight after 7 — come thru 💈",
      "ago": 42
     },
     {
@@ -1835,7 +1835,7 @@ window.SEED = {
    "messages": [
     {
      "from": "b7",
-     "text": "Guest spot in Jakarta next month â€” who’s got a chair? ðŸ‡¬ðŸ‡§âœˆï¸ðŸ‡®ðŸ‡©",
+     "text": "Guest spot in Jakarta next month — who’s got a chair? 🇬🇧✈️🇮🇩",
      "ago": 300
     },
     {
@@ -1845,7 +1845,7 @@ window.SEED = {
     },
     {
      "from": "b8",
-     "text": "Love seeing the community grow ðŸ’œ",
+     "text": "Love seeing the community grow 💜",
      "ago": 30
     }
    ]
@@ -1861,7 +1861,7 @@ window.SEED = {
    "messages": [
     {
      "from": "b8",
-     "text": "Moisture first, always ðŸ’§",
+     "text": "Moisture first, always 💧",
      "ago": 400
     }
    ]
@@ -1877,7 +1877,7 @@ window.SEED = {
    "messages": [
     {
      "from": "b6",
-     "text": "Wave check Wednesday â€” post your pics ðŸŒŠ",
+     "text": "Wave check Wednesday — post your pics 🌊",
      "ago": 200
     }
    ]
@@ -1910,7 +1910,7 @@ window.SEED = {
    "messages": [
     {
      "from": "Kings Lounge",
-     "text": "Friday: free espresso tasting for members â˜•",
+     "text": "Friday: free espresso tasting for members ☕",
      "ago": 600
     }
    ]
@@ -2427,7 +2427,7 @@ window.SEED = {
    "authorType": "barber",
    "authorId": "b5",
    "category": "Cut reveal",
-   "caption": "First haircut ðŸŽ‰ ✂️ #curly #jakarta",
+   "caption": "First haircut 🎉 ✂️ #curly #jakarta",
    "media": {
     "kind": "art",
     "style": "curly",
@@ -2713,5 +2713,5 @@ window.SEED = {
    ]
   }
  ],
- "version": "2.0.0"
+ "version": "3.0.0"
 };

@@ -1,14 +1,20 @@
 /* Fade service worker: network-first for the app shell, offline fallback from cache.
  * API calls and uploaded media are never cached here. */
-const CACHE = 'fade-v2.0.0';
+const CACHE = 'fade-v3.0.0';
 const SHELL = [
   './',
   './index.html',
   './web.html',
   './mobile.html',
-  './app.js?v=2.0.0',
-  './data.js?v=2.0.0',
-  './styles.css?v=2.0.0',
+  './vendor/nostr.bundle.js?v=3.0.0',
+  './vendor/qrcode.js?v=3.0.0',
+  './config.js?v=3.0.0',
+  './net.js?v=3.0.0',
+  './transcode.js?v=3.0.0',
+  './netui.js?v=3.0.0',
+  './app.js?v=3.0.0',
+  './data.js?v=3.0.0',
+  './styles.css?v=3.0.0',
   './manifest.webmanifest',
   './icons/icon.svg',
   './icons/icon-192.png',
@@ -31,7 +37,7 @@ self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin || url.pathname.includes('/api/') || url.pathname.includes('/media/')) return;
+  if (url.origin !== self.location.origin || url.pathname.includes('/api/') || url.pathname.includes('/media/') || url.pathname.includes('/ntfy') || url.pathname.includes('/blossom')) return;
   event.respondWith(
     fetch(request)
       .then((response) => {

@@ -52,7 +52,7 @@ except ImportError:  # pragma: no cover - Python < 3.9
     ZoneInfo = None
 
 APP_NAME = "fade"
-APP_VERSION = "2.0.0"
+APP_VERSION = "3.0.0"
 
 BASE_DIR = Path(__file__).resolve().parent
 WEB_DIR = BASE_DIR.parent / "web"

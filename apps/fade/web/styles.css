@@ -706,3 +706,11 @@ body.mobile .phone { width: 100vw; height: 100dvh; border-radius: 0; border: 0; 
 .web-side li { display: flex; gap: 10px; padding: 7px 0; color: #d8d8e0; font-size: 15px; }
 .web-side li b { color: var(--acc); }
 .web-side .links { display: flex; gap: 10px; margin-top: 22px; }
+
+/* Fade Network (v3) */
+.card.on { outline: 2px solid var(--acc); outline-offset: -2px; }
+.qr-box { background: #fff; border-radius: 14px; padding: 12px; display: grid; place-items: center; margin: 10px auto; width: max-content; }
+.qr-box img, .qr-box svg, .qr-box canvas { display: block; width: 220px; height: 220px; image-rendering: pixelated; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+.net-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--hot); margin-right: 6px; vertical-align: middle; }
+.net-dot.ok { background: var(--ok); }
