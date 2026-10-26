@@ -99,7 +99,7 @@
     const keys = await caches.keys();
     check("unrelated app cache survives activation", keys.includes("other-app-keep-me"));
     check("old Twin cache cleaned", !keys.includes("tt-shell-v3"));
-    const current = keys.find((key) => key.startsWith("twin:") && key.endsWith(":1.4.1"));
+    const current = keys.find((key) => key.startsWith("twin:") && key.endsWith(":1.5.0"));
     const offline = await caches.open(current);
     const cached = await offline.keys();
     check("complete demo precached", ["demo.js", "theme.js", "theme.css", "demo/market.json", "demo/monthly.json", "demo/trade.json", "demo/news.json"].every((name) => cached.some((request) => request.url.split("?")[0].endsWith(name))));
@@ -323,7 +323,65 @@
     const copied = JSON.parse(reportField.value);
     check("report fallback contains replayable inputs and ledger", copied.data.points.length >= 120 && copied.strategy.trades.length > 0 && copied.source.symbol === "AAPL");
     check("Strategy Lab never changes practice positions or cash", paperBeforeLab === JSON.stringify((await reloadWindow.api("api/me")).profile.paper));
-    check("Strategy Lab engine is available in offline shell cache", cached.some((request) => request.url.includes("strategy-lab.js?v=1.4.1")));
+    check("Strategy Lab engine is available in offline shell cache", cached.some((request) => request.url.includes("strategy-lab.js?v=1.5.0")));
+    reloadWindow.closeSheet();
+
+    // TwinAgent: Trade tab view and stock sheet, in the same guest at phone width.
+    const paperBeforeAgent = JSON.stringify((await reloadWindow.api("api/me")).profile.paper);
+    reloadDoc.getElementById("tab-trade").click();
+    await delay(150);
+    const agentTab = reloadDoc.querySelector('#trade-view button[data-view="agent"]');
+    check("Trade tab offers TwinAgent", Boolean(agentTab));
+    agentTab.click();
+    await delay(150);
+    const waitFor = async (test, tries = 80) => {
+      for (let i = 0; i < tries && !test(); i++) {
+        await delay(50);
+      }
+      return test();
+    };
+    reloadDoc.querySelector('input[aria-label="TwinAgent ticker"]').value = "AAPL";
+    reloadDoc.getElementById("twinagent-run").click();
+    await waitFor(() => reloadDoc.querySelector("#twinagent-output #ta-rating"));
+    const agentOut = reloadDoc.getElementById("twinagent-output");
+    const rating = agentOut.querySelector("#ta-rating");
+    check("TwinAgent produces a typed rating", rating && ["Buy", "Overweight", "Hold", "Underweight", "Sell", "No call"].includes(rating.textContent));
+    check("TwinAgent shows all five analysts", agentOut.querySelectorAll("details[data-agent]").length === 5);
+    check("TwinAgent shows bull vs bear debate", Boolean(agentOut.querySelector("#ta-debate")) && agentOut.textContent.includes("Bull case") && agentOut.textContent.includes("Bear case"));
+    check("TwinAgent shows walk-forward scorecard", agentOut.querySelector("#ta-scorecard") && agentOut.textContent.includes("Buy & hold"));
+    check("TwinAgent cites dated evidence", agentOut.textContent.includes("Historical demo snapshot") && agentOut.textContent.includes("filed"));
+    check("TwinAgent states it never places orders", agentOut.textContent.includes("never places orders"));
+    check("TwinAgent fits phone width", reloadDoc.documentElement.scrollWidth <= 320);
+    await waitFor(() => reloadDoc.querySelector("#twinagent-journal .order-row"));
+    check("TwinAgent call saved to journal", reloadWindow.proRead("twinagent", []).length === 1 && Boolean(reloadDoc.querySelector("#twinagent-journal .order-row")));
+    reloadDoc.getElementById("twinagent-run").click();
+    await waitFor(() => reloadDoc.querySelector("#twinagent-output #ta-rating"));
+    await delay(100);
+    check("identical evidence is not journaled twice", reloadWindow.proRead("twinagent", []).length === 1);
+    const ticketButton = reloadDoc.getElementById("ta-open-ticket");
+    if (ticketButton) {
+      ticketButton.click();
+      await delay(150);
+      const sheet = reloadDoc.getElementById("sheet");
+      const amountField = sheet.querySelector('input[aria-label="Order amount"]');
+      const bracket = sheet.querySelector('input[type="checkbox"]');
+      check("practice ticket opens pre-filled for review", amountField && Number(amountField.value) > 0 && bracket && bracket.checked);
+      reloadWindow.closeSheet();
+    } else {
+      check("risk gate explains why no ticket", agentOut.querySelector("#ta-risk").textContent.length > 40);
+    }
+    check("TwinAgent never changes practice cash or positions", paperBeforeAgent === JSON.stringify((await reloadWindow.api("api/me")).profile.paper));
+    reloadDoc.querySelector('input[aria-label="TwinAgent ticker"]').value = "ZZZZ";
+    reloadDoc.getElementById("twinagent-run").click();
+    await waitFor(() => reloadDoc.getElementById("twinagent-output").textContent.includes("offline snapshot"));
+    check("unknown ticker gives a clear error, not a fake report", reloadDoc.getElementById("twinagent-output").textContent.includes("isn't in the offline snapshot") && !reloadDoc.querySelector("#twinagent-output #ta-rating"));
+    await reloadWindow.openStock("MSFT");
+    await delay(150);
+    reloadDoc.getElementById("stock-twinagent").click();
+    await waitFor(() => reloadDoc.querySelector("#sheet #ta-rating"));
+    check("stock page opens a TwinAgent report", Boolean(reloadDoc.querySelector("#sheet #ta-rating")) && reloadDoc.getElementById("sheet").textContent.includes("MSFT"));
+    check("TwinAgent sheet fits phone width", reloadDoc.documentElement.scrollWidth <= 320);
+    check("TwinAgent engine and fundamentals cached offline", ["twinagent.js?v=1.5.0", "twinagent-ui.js?v=1.5.0", "demo/fundamentals.json"].every((name) => cached.some((request) => request.url.includes(name))));
     reloadWindow.closeSheet();
 
 

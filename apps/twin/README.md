@@ -78,7 +78,27 @@ rebalanced monthly) over 10,000 paths. Reports the chance of reaching the goal, 
 outcomes, the chance of ending below what you put in and the worst drop along the way.
 Warns when the shared history is shorter than 20 years. Drawdowns use time-weighted unit value, excluding deposits. Values are nominal and omit inflation, tax, transaction costs and slippage.
 
-## Two ways to run
+## TwinAgent research team (1.5)
+
+**Trade → 🤖 TwinAgent**, or **🤖 TwinAgent research report** on any stock page. Five analysts
+(trend, SEC-filed fundamentals, risk, relevance-screened headlines, famous investors' 13Fs) argue
+a bull and a bear case from cited, dated evidence. A portfolio manager weighs them into
+Buy / Overweight / Hold / Underweight / Sell, and a risk gate built from *your* limits sizes the
+idea or blocks it. Analysts without fresh evidence abstain; too little evidence means **No call**.
+
+- **Free and repeatable:** no AI subscription; the same evidence always gives the same report
+  (fingerprinted). Copy it as JSON or Markdown.
+- **No hindsight:** every input is filtered to the analysis time; filings count only from their
+  SEC filing date. Leak tests prove later data cannot change a report.
+- **Tested on history:** a walk-forward scorecard replays the price evidence month by month over
+  decades against buy-and-hold and an equal-exposure baseline. In the bundled data it cut the worst
+  drop for 10 of 12 tickers but beat buy-and-hold growth for only 1, with no statistically reliable
+  forecasting edge, so reports call it a risk lens, not a forecast.
+- **Never trades:** a positive verdict only pre-fills the practice ticket for you to review.
+- **Journal:** calls are saved and later scored against SPY from the first close after the call.
+
+Method, full results and the TradingAgents comparison: [docs/TWINAGENT.md](docs/TWINAGENT.md).
+
 
 ### New in 1.4.1: Strategy Lab
 
@@ -150,7 +170,8 @@ python apps/twin/tests/verify_api.py
 python apps/twin/tests/verify_broker.py      # real-trading bridge against a mock Alpaca
 python apps/twin/tests/test_pro_engine.py    # order types, brackets, indicators, replay (needs node)
 python -m unittest discover -s apps/twin/tests -p 'test_*.py'
-node --test apps/twin/tests/strategy_lab.test.js
+node --test apps/twin/tests/strategy_lab.test.js apps/twin/tests/twinagent.test.js
+python apps/twin/tests/test_twinagent_server.py
 python apps/twin/tests/verify_browser.py     # isolated Chrome/Chromium/Edge, including phone-width lab UI
 ```
 
@@ -193,6 +214,13 @@ Quotes are delayed and unofficial; 13F reports describe quarter-end holdings and
 history and are not predictions. Not financial advice.
 
 ## Changelog
+
+- **1.5.0 — TwinAgent.** Multi-analyst research team with bull/bear debate, portfolio manager and
+  profile-driven risk gate; point-in-time evidence (SEC filing dates, timestamped headlines, 13F
+  filed dates) with leak tests; relevance-screened headline tone; one-off accounting flags;
+  monthly walk-forward scorecard vs buy-and-hold and equal exposure, with stability halves;
+  journal scored against SPY; pre-filled practice tickets (never auto-submitted); offline demo
+  fundamentals for 11 stocks from SEC filings; `/api/twinagent/evidence` on the local server.
 
 - **1.4.1 — Evidence and submission guards (local upgrade).** Strategy Lab with a
   chronological holdout, next-close execution, cost-aware buy-and-hold comparison and
