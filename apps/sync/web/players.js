@@ -294,7 +294,7 @@
       document.addEventListener('musickitloaded', function () {
         Promise.resolve(window.MusicKit.configure({
           developerToken: config.appleDeveloperToken,
-          app: { name: 'Sync', build: '1.3.0' },
+          app: { name: 'Sync', build: '1.4.0' },
         })).then(function () {
           resolve(window.MusicKit.getInstance());
         }, reject);

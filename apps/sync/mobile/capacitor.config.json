@@ -1,0 +1,24 @@
+{
+  "appId": "io.github.juw12.sync",
+  "appName": "Sync",
+  "webDir": "shell",
+  "backgroundColor": "#090b10",
+  "server": {
+    "url": "https://juw12.github.io/projects/sync/",
+    "errorPath": "offline.html"
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#090b10"
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "initialViewportFitValueHint": "cover",
+      "style": "DARK"
+    }
+  }
+}

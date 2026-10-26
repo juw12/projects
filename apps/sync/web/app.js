@@ -6,7 +6,7 @@
   var catalog = window.SyncCatalog;
   var Players = window.SyncPlayers;
   var config = window.SYNC_CONFIG || {};
-  var VERSION = '1.3.0';
+  var VERSION = '1.4.0';
   var TICK_MS = 250;
   var DUCK_LEVEL = 0.3;
   var REACTIONS = ['❤️', '🔥', '😍', '🙌', '💃', '😂', '🎉'];
@@ -135,8 +135,29 @@
     }, action ? 12000 : 4200);
   }
 
+  /* ---------- native app shell (Capacitor iOS / Android) ---------- */
+
+  // The Sync app loads this same site; Capacitor injects window.Capacitor first.
+  var NATIVE = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' &&
+    window.Capacitor.isNativePlatform());
+  var PUBLIC_URL = 'https://juw12.github.io/projects/sync/';
+
+  function nativeCall(plugin, method, options) {
+    if (!NATIVE || typeof window.Capacitor.nativePromise !== 'function') {
+      return Promise.reject(new Error('Not running in the Sync app'));
+    }
+    return window.Capacitor.nativePromise(plugin, method, options || {});
+  }
+
+  function nativeListen(plugin, eventName, callback) {
+    if (NATIVE && typeof window.Capacitor.addListener === 'function') {
+      window.Capacitor.addListener(plugin, eventName, callback);
+    }
+  }
+
   function inviteLink(code) {
-    return location.origin + location.pathname + '?room=' + code;
+    var base = NATIVE ? PUBLIC_URL : location.origin + location.pathname;
+    return base + '?room=' + code;
   }
 
   function myId() {
@@ -337,6 +358,7 @@
       room = null;
     }
     lastMembers = null;
+    clearMediaSession();
   }
 
   function renderRoomShell(code) {
@@ -449,6 +471,15 @@
   function wireRoom(code) {
     $('#invite').onclick = function () {
       var link = inviteLink(code);
+      if (NATIVE) {
+        nativeCall('Share', 'share', {
+          title: 'Listen with me on Sync',
+          text: 'Join my Sync room ' + code,
+          url: link,
+          dialogTitle: 'Invite friends',
+        }).catch(function () {});
+        return;
+      }
       if (navigator.share && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
         navigator.share({ title: 'Listen with me on Sync', text: 'Join my Sync room ' + code, url: link }).catch(function () {});
         return;
@@ -1325,8 +1356,16 @@
   var pipDrag = null;
 
   function haptic(pattern) {
+    if (REDUCED_MOTION) {
+      return;
+    }
+    if (NATIVE) {
+      var strong = Array.isArray(pattern) || (pattern || 8) > 12;
+      nativeCall('Haptics', 'impact', { style: strong ? 'MEDIUM' : 'LIGHT' }).catch(function () {});
+      return;
+    }
     // Android browsers buzz; iOS Safari has no vibration API and ignores this.
-    if (navigator.vibrate && !REDUCED_MOTION) {
+    if (navigator.vibrate) {
       try {
         navigator.vibrate(pattern || 8);
       } catch (error) {
@@ -1867,6 +1906,7 @@
     var expected = core.expectedPosition(state, room.hostNow());
     var duration = (player && !engine.loading && player.duration && player.duration()) || (track && track.duration) || 0;
     updateProgress(expected, duration);
+    updateMediaSession(track, state, expected, duration);
 
     if (!track) {
       setSync('', '');
@@ -1979,16 +2019,167 @@
     setSync(Math.abs(drift) <= caps.softThreshold ? 'good' : 'warn', 'In sync · ' + (ms > 0 ? '+' : '') + ms + ' ms');
   }
 
+  // Back from the lock screen / another app / a dead network: reconnect at once
+  // instead of waiting for the next retry (phones freeze background tabs).
+  function resumeRoom() {
+    if (room && typeof room.resume === 'function') {
+      room.resume();
+    }
+    tick();
+  }
+
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) {
-      tick();
+      resumeRoom();
     }
   });
+  window.addEventListener('online', resumeRoom);
+
+  /* ---------- lock screen / notification controls (Media Session API) ---------- */
+
+  var mediaSessionKey = null;
+  var mediaSessionWired = false;
+  var lastPositionUpdate = 0;
+
+  function wireMediaSession() {
+    if (mediaSessionWired || !('mediaSession' in navigator)) {
+      return;
+    }
+    mediaSessionWired = true;
+    var handlers = {
+      play: function () {
+        if (canControl()) {
+          room.intent({ type: 'play' });
+        }
+      },
+      pause: function () {
+        if (canControl()) {
+          room.intent({ type: 'pause' });
+        }
+      },
+      nexttrack: function () {
+        if (canControl()) {
+          room.intent({ type: 'next' });
+        }
+      },
+      previoustrack: function () {
+        if (canControl()) {
+          room.intent({ type: 'prev' });
+        }
+      },
+      seekto: function (details) {
+        if (canControl() && details && typeof details.seekTime === 'number') {
+          room.intent({ type: 'seek', position: details.seekTime });
+        }
+      },
+    };
+    Object.keys(handlers).forEach(function (action) {
+      try {
+        navigator.mediaSession.setActionHandler(action, handlers[action]);
+      } catch (error) {
+        // this action is not supported by the browser
+      }
+    });
+  }
+
+  function updateMediaSession(track, state, position, duration) {
+    if (!('mediaSession' in navigator)) {
+      return;
+    }
+    wireMediaSession();
+    var key = track ? track.id : '';
+    if (key !== mediaSessionKey) {
+      mediaSessionKey = key;
+      if (track && window.MediaMetadata) {
+        var artwork = [];
+        if (track.artwork) {
+          artwork = [
+            { src: track.artwork.replace('600x600', '256x256'), sizes: '256x256', type: 'image/jpeg' },
+            { src: track.artwork, sizes: '600x600', type: 'image/jpeg' },
+          ];
+        }
+        navigator.mediaSession.metadata = new window.MediaMetadata({
+          title: track.title || 'Sync',
+          artist: track.artist || '',
+          album: 'Sync · Room ' + (room ? room.code : ''),
+          artwork: artwork,
+        });
+      } else {
+        navigator.mediaSession.metadata = null;
+      }
+    }
+    navigator.mediaSession.playbackState = track ? (state.playing ? 'playing' : 'paused') : 'none';
+    var now = performance.now();
+    if (track && duration > 0 && navigator.mediaSession.setPositionState && now - lastPositionUpdate > 1000) {
+      lastPositionUpdate = now;
+      try {
+        navigator.mediaSession.setPositionState({
+          duration: duration,
+          playbackRate: 1,
+          position: clamp(position, 0, duration),
+        });
+      } catch (error) {
+        // position outside the duration while a song is loading
+      }
+    }
+  }
+
+  function clearMediaSession() {
+    mediaSessionKey = null;
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = null;
+      navigator.mediaSession.playbackState = 'none';
+    }
+  }
+
+  /* ---------- native app: back button, deep links, resume ---------- */
+
+  function handleBackButton() {
+    var openDialog = document.querySelector('dialog[open]');
+    if (openDialog) {
+      openDialog.close();
+      return;
+    }
+    var roomEl = $('.room');
+    if (roomEl && roomEl.dataset.view && roomEl.dataset.view !== 'stage') {
+      switchTab('stage');
+      return;
+    }
+    if (room) {
+      // Like Spotify: Back leaves the app but keeps the room (and music) going.
+      nativeCall('App', 'minimizeApp').catch(function () {});
+      return;
+    }
+    nativeCall('App', 'exitApp').catch(function () {});
+  }
+
+  function openFromLink(url) {
+    var match = /[?&]room=([A-Za-z0-9]{4,8})/.exec(url || '');
+    var code = match ? core.normalizeCode(match[1]) : '';
+    if (!code || (room && room.code === code)) {
+      return;
+    }
+    renderLanding(code);
+  }
+
+  function wireNativeShell() {
+    if (!NATIVE) {
+      return;
+    }
+    document.documentElement.classList.add('native-app', 'native-' + window.Capacitor.getPlatform());
+    nativeListen('App', 'backButton', handleBackButton);
+    nativeListen('App', 'appUrlOpen', function (event) {
+      openFromLink(event && event.url);
+    });
+    nativeListen('App', 'resume', resumeRoom);
+    nativeCall('StatusBar', 'setStyle', { style: 'DARK' }).catch(function () {});
+  }
 
   /* ---------- service worker (installable app + offline shell) ---------- */
 
   function registerWorker() {
-    if (!('serviceWorker' in navigator) || location.protocol !== 'https:') {
+    // The native app always loads the live site, so it skips the offline cache.
+    if (NATIVE || !('serviceWorker' in navigator) || location.protocol !== 'https:') {
       return;
     }
     navigator.serviceWorker.register('sw.js').then(function (registration) {
@@ -2022,6 +2213,16 @@
 
   window.__sync = {
     version: VERSION,
+    native: NATIVE,
+    mediaSession: function () {
+      return 'mediaSession' in navigator && navigator.mediaSession.metadata
+        ? {
+          title: navigator.mediaSession.metadata.title,
+          artist: navigator.mediaSession.metadata.artist,
+          state: navigator.mediaSession.playbackState,
+        }
+        : null;
+    },
     room: function () { return room; },
     voice: function () { return voice; },
     engine: engine,
@@ -2034,6 +2235,7 @@
   };
 
   var params = new URLSearchParams(location.search);
+  wireNativeShell();
   renderLanding(core.normalizeCode(params.get('room')));
   registerWorker();
 })();
