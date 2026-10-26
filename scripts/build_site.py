@@ -281,6 +281,7 @@ def generate_index(out_dir, repo_name, apps):
     }}
     .variants {{
       display: flex;
+      flex-wrap: wrap;
       gap: 10px;
       margin-top: 20px;
     }}

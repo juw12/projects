@@ -16,6 +16,14 @@ runnable, deployable project.
 | [`apps/sped`](apps/sped) | Sped (formerly Hookline): shorts studio — sped-up/slowed/mashup edits, live 9:16 preview and timeline, MP4 export for TikTok, Reels and Shorts | Zero-dependency browser DSP + Canvas/MediaRecorder + Web Workers + offline PWA |
 | [`apps/sync`](apps/sync) | Sync: listen to music together in real time from anywhere, with Spotify, Apple Music, YouTube and shared files in one room, plus voice chat that lowers the music | Static PWA, peer-to-peer WebRTC (PeerJS), no server |
 
+## Companion repositories
+
+| Project | Repository | Purpose |
+| --- | --- | --- |
+| [Guang Yao Together](apps/guangyao) | [guangyao-content](https://github.com/juwpegatron/guangyao-content) | Published lessons, materials and events, managed through the app's admin console. |
+
+Guang Yao's content stays in its separate public repository; existing content URLs and publishing workflows are unchanged.
+
 Each project follows the same shape:
 
 ```
