@@ -51,7 +51,7 @@ class V04Tests(unittest.TestCase):
 
     def test_offline_cache_bumped_for_new_assets(self):
         worker = (WEB / "sw.js").read_text(encoding="utf-8")
-        self.assertIn("const CACHE_NAME = 'glowchat-v2';", worker)
+        self.assertIn("const CACHE_NAME = 'glowchat-v3';", worker)
 
     def test_guests_get_keyless_free_ai(self):
         self.assertIn('const FREE_AI_URL = "https://text.pollinations.ai/openai";', self.script)
@@ -61,7 +61,7 @@ class V04Tests(unittest.TestCase):
     def test_catalog_version(self):
         apps = json.loads((REPO / "scripts/apps.json").read_text(encoding="utf-8"))["apps"]
         glow = next(app for app in apps if app["id"] == "glow")
-        self.assertEqual(glow["version"], "0.6.1")
+        self.assertEqual(glow["version"], "0.7.0")
         self.assertEqual(glow["name"], "Glow")
 
 
@@ -113,7 +113,7 @@ class GlowCrewroomLinkTests(unittest.TestCase):
         self.assertIn('const CREWROOM_INBOX_KEY = "glow.inbox";', self.js)
 
     def test_glow_sends_missions_and_labels_results(self):
-        for needle in ("function askCrew", "Ask GlowRoom", 'searchParams.set("goal"', 'source: "crewroom"', "🏢 GlowRoom"):
+        for needle in ("function askCrew", "Ask GlowRoom", 'searchParams.set("goal"', '"glowlead" : "crewroom"', "🏢 GlowRoom"):
             self.assertIn(needle, self.js)
 
 if __name__ == "__main__":

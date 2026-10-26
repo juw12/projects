@@ -7,9 +7,21 @@
 | **Glow** (home) | Start here: one box to ask or delegate, recent chats and missions, all apps | https://juwpegatron.github.io/projects/glow/ |
 | **GlowChat** | Chat, Council with a Judge, and Arena comparisons to explore ideas and review plans | https://juwpegatron.github.io/projects/glow/chat/ |
 | **GlowRoom** | A virtual office of AI agents (formerly Crewroom) that research, write code and make media for a mission | https://juwpegatron.github.io/projects/glow/room/ |
+| **GlowLead** 👑 | The AI lead (orchestrator) and owner of GlowRoom: plans a goal, delegates the steps to GlowChat and the GlowRoom crew, checks the work and reports | https://juwpegatron.github.io/projects/glow/lead/ |
 
 GlowChat installable app: `glow/chat/app.html`, mobile: `glow/chat/mobile.html`. GlowRoom: `glow/room/app.html`, `glow/room/mobile.html`.
 AI-suggested resources in GlowChat are not automatically browsed or verified; GlowChat does no autonomous building or execution (that is GlowRoom's job, and its results should still be reviewed).
+
+## v0.7.0 — GlowLead, the lead of the Glow apps
+A "boss bot" orchestrator, like using one bot to direct Claude Code and Codex, but for the Glow apps (`web/lead/`):
+- **Plan → delegate → check → report.** GlowLead turns one goal into 1–4 steps plus 2–4 concrete *done-criteria*, then hands each step to the right worker: **💬 GlowChat** (one model writes/explains), **⚖ GlowChat Council** (Builder, Critic, Judge) or the **🏢 GlowRoom crew** (live web research, code, sources). It never does the work itself.
+- **It checks the work.** A review compares the team's output with the done-criteria (✓/✗ per criterion). If something is missing it runs one fix-up round, then checks again, and writes the final report.
+- **You stay in charge**: tick *Show me the plan first* to approve the plan before anything runs; ■ Stop at any time; ↻ Try again for failed steps.
+- **It controls GlowChat**: every lead becomes one 👑 chat in GlowChat (plan, each worker's output and the checked report), so you can keep asking there. GlowChat's sidebar has *👑 GlowLead: let it lead the job* (what you typed becomes the goal).
+- **It owns GlowRoom**: crew missions it starts are saved in GlowRoom's own results with a 👑, GlowRoom shows *👑 Owner: GlowLead* in its header (desktop and phone), and the engine now merges missions saved by another page instead of overwriting them.
+- Glow home has a third start button (*👑 Let GlowLead run it*) and a GlowLead card; the app switcher lists GlowLead.
+- Works for guests on Glow Free (each AI call may wait ~30 s for the shared limit, so a 3-step lead takes a few minutes); signed-in Glow AI is much faster.
+- Self-test: `web/lead/index.html#selftest` (17 checks with a stubbed AI: planning, routing, Council, GlowRoom hand-off, fix-up round, approval, stop, GlowChat hand-off, escaping). Static tests: `tests/test_glowlead.py`.
 
 ## v0.6.1 — fixes from a real end-to-end run
 Tested as a first-time visitor on the live site (portfolio → Glow home → GlowChat → GlowRoom → back) with the real free AI:
@@ -59,6 +71,7 @@ Chats, settings and votes are stored in browser localStorage. API keys are store
 - `web/index.html`: Glow home; `web/shared/`: the app switcher used by every Glow app
 - `web/chat/`: GlowChat, the free static chat app (deployed to Pages)
 - `web/room/`: GlowRoom, the AI agent office (formerly Crewroom, `apps/virtual-bots`)
+- `web/lead/`: GlowLead, the lead/orchestrator that plans, delegates to GlowChat and GlowRoom, and checks
 - `server/`: optional hosted tier with accounts, Free/Pro plans, Stripe subscriptions,
   per-user cost budgets and synced chats (`python apps/glow/server/app.py`). Its
   front-end currently ships Chat + 2-agent Council; Arena and Judge are web-app features

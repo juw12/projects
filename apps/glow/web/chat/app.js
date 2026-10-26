@@ -808,6 +808,7 @@ function agentDisplay(conv, message) {
     return { name: agent.name, css: `agent-${AGENT_COLORS[message.agent]}`, meta: modelLabel(agent.model) };
   }
   if (message.source === "crewroom") return { name: "🏢 GlowRoom", css: "assistant crewroom", meta: "AI crew" };
+  if (message.source === "glowlead") return { name: "👑 GlowLead", css: "assistant crewroom glowlead", meta: "AI lead" };
   return { name: "Glow", css: "assistant", meta: message.model ? modelLabel(message.model) : "" };
 }
 function renderMessages(force = false) {
@@ -3275,6 +3276,8 @@ async function selfTest() {
 
   // GlowRoom link: GlowChat → GlowRoom missions and GlowRoom → GlowChat results
   expect("glowroom: sidebar link points to GlowRoom", /\/room\/(mobile\.html)?$/.test($("crewroom-link").href));
+  const leadUrl = new URL(glowLeadUrl("Plan my bakery launch"));
+  expect("glowlead: sidebar link hands what you typed to GlowLead", /\/lead\/$/.test($("glowlead-link").href) && leadUrl.searchParams.get("goal") === "Plan my bakery launch" && leadUrl.searchParams.get("go") === "1");
   const longGoal = crewroomGoal("Plan a bakery launch", "A".repeat(5000) + "\n\nFollow-ups:\n- What next?");
   const goalUrl = new URL(crewroomUrl("Compare 3 laptops"));
   expect("glowroom: missions carry the question and Glow's answer within 2,000 characters",
@@ -3306,6 +3309,10 @@ async function selfTest() {
     !!handed && handed.source === "crewroom" && handed.messages.length === 2 && handed.title === "Printer research v2"
     && state.conversations.length === crewCountBefore + 1 && [...document.querySelectorAll("#history .history-item .title")].some((t) => t.textContent.startsWith("🏢")));
   expect("glowroom: replies from the crew are labelled GlowRoom", document.querySelector("#messages").textContent.includes("🏢 GlowRoom"));
+  const fromLead = mergeCrewroomItems([{ id: "lead-test", title: "👑 Bakery plan", messages: [{ role: "user", content: "Open a bakery" }, { role: "assistant", content: "Plan ready." }], source: "glowlead" }]);
+  if (fromLead) openConversation(fromLead);
+  expect("glowlead: chats from GlowLead keep their 👑 label",
+    !!fromLead && fromLead.source === "glowlead" && fromLead.messages[1].source === "glowlead" && document.querySelector("#messages").textContent.includes("👑 GlowLead"));
   state.conversations = state.conversations.filter((c) => c.id !== "crew-selftest");
   renderHistory();
 
@@ -3341,6 +3348,25 @@ async function demoArena() {
 // other way with ?goal=, which GlowRoom puts in its mission box.
 const CREWROOM_INBOX_KEY = "glow.inbox";
 const CREWROOM_GOAL_MAX = 2000;
+// GlowLead (../lead/) plans a goal, delegates to GlowChat and GlowRoom, checks and reports back.
+function glowLeadUrl(goal = "") {
+  const url = new URL($("glowlead-link").href);
+  const text = String(goal || "").trim();
+  if (text) {
+    url.searchParams.set("goal", text.slice(0, CREWROOM_GOAL_MAX));
+    url.searchParams.set("go", "1");
+  }
+  return url.toString();
+}
+function openGlowLead(event) {
+  const typed = $("input").value.trim();
+  if (!typed) return; // plain link: just open GlowLead
+  event.preventDefault();
+  window.open(glowLeadUrl(typed), "glowlead");
+  $("input").value = "";
+  $("input").dispatchEvent(new Event("input", { bubbles: true }));
+  toast("👑 GlowLead is planning it");
+}
 function crewroomUrl(goal = "") {
   const url = new URL($("crewroom-link").href);
   const text = String(goal || "").trim();
@@ -3369,10 +3395,11 @@ function mergeCrewroomItems(items) {
   let latest = null;
   for (const item of items) {
     if (!item || typeof item.id !== "string" || !Array.isArray(item.messages)) continue;
+    const source = item.source === "glowlead" ? "glowlead" : "crewroom";
     const messages = item.messages
       .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
       .map((m) => (m.role === "assistant"
-        ? { role: "assistant", content: m.content.slice(0, 200000), source: "crewroom" }
+        ? { role: "assistant", content: m.content.slice(0, 200000), source }
         : { role: "user", content: m.content.slice(0, 200000) }));
     if (!messages.length) continue;
     const id = item.id.slice(0, 120);
@@ -3380,9 +3407,9 @@ function mergeCrewroomItems(items) {
     const conv = existing || { id, type: "chat" };
     Object.assign(conv, {
       type: "chat",
-      title: String(item.title || "From GlowRoom").slice(0, 80),
+      title: String(item.title || (source === "glowlead" ? "From GlowLead" : "From GlowRoom")).slice(0, 80),
       messages,
-      source: "crewroom",
+      source,
       model: conv.model || state.settings.lastModel,
       updated: Date.now(),
     });
@@ -3482,6 +3509,7 @@ async function boot() {
     if (conv) toast("New result from GlowRoom is in your chats");
   });
   $("crewroom-link").addEventListener("click", openCrewroom);
+  $("glowlead-link").addEventListener("click", openGlowLead);
   if ("serviceWorker" in navigator && location.protocol === "https:") {
     navigator.serviceWorker.register("./sw.js").catch(() => {});
   }

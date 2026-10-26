@@ -59,6 +59,16 @@
     btn.textContent = 'Panels';
     btn.addEventListener('click', () => setCinema(!document.body.classList.contains('cr-cinema')));
     right.insertBefore(btn, right.firstChild);
+    // GlowLead owns GlowRoom: it can hand whole goals to this crew and checks their work.
+    const owner = document.createElement('a');
+    owner.id = 'cn-owner';
+    owner.className = 'cr-kbd-btn cn-owner';
+    owner.href = '../lead/';
+    owner.target = 'glowlead';
+    owner.rel = 'noopener';
+    owner.title = 'GlowLead owns GlowRoom: give it a whole goal and it plans, hands steps to this crew and GlowChat, then checks the work';
+    owner.textContent = '👑 Owner: GlowLead';
+    right.insertBefore(owner, right.firstChild);
   }
 
   function railHeader() {
@@ -274,7 +284,7 @@
     }
     const running = run.status === 'running';
     el.innerHTML = `
-      <span class="cn-goal" title="${esc(run.goal.slice(0, 600))}">${esc(Engine.goalTitle ? Engine.goalTitle(run.goal) : run.goal)}</span>
+      <span class="cn-goal" title="${esc(run.goal.slice(0, 600))}">${run.meta && run.meta.from === 'glowlead' ? '👑 ' : ''}${esc(Engine.goalTitle ? Engine.goalTitle(run.goal) : run.goal)}</span>
       <span class="cn-steps">${chips.join('<span class="cn-arrow">›</span>')}</span>
       <span class="cn-time">${running ? secs + 's' : (run.status === 'done' ? '✓ ' + secs + 's' : run.status)}</span>
       ${running ? `<button class="cn-mbtn ${ui.follow ? 'on' : ''}" data-m="follow" title="Camera follows the active bot">🎥 Follow</button><button class="cn-mbtn stop" data-m="stop">■ Stop</button>` : ''}

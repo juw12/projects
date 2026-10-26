@@ -46,6 +46,7 @@
   // ---- app links: phones open the mobile builds ----
   const chatPage = onPhone ? "./chat/mobile.html" : "./chat/";
   const roomPage = onPhone ? "./room/mobile.html" : "./room/";
+  const leadPage = "./lead/";
   $("open-chat").href = chatPage;
   $("open-room").href = roomPage;
 
@@ -85,11 +86,11 @@
   }
   function launch(target) {
     const text = $("start-input").value.trim();
-    const page = target === "room" ? roomPage : chatPage;
+    const page = target === "room" ? roomPage : target === "lead" ? leadPage : chatPage;
     const url = new URL(page, location.href);
     if (text) {
-      url.searchParams.set(target === "room" ? "goal" : "q", text.slice(0, 2000));
-      url.searchParams.set(target === "room" ? "go" : "send", "1");
+      url.searchParams.set(target === "chat" ? "q" : "goal", text.slice(0, 2000));
+      url.searchParams.set(target === "chat" ? "send" : "go", "1");
     }
     location.href = url.toString();
   }
@@ -105,6 +106,7 @@
     launch("chat");
   });
   $("start-room").addEventListener("click", () => launch("room"));
+  $("start-lead").addEventListener("click", () => launch("lead"));
 
   // ---- jump back in ----
   function timeAgo(timestamp) {
