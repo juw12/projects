@@ -129,6 +129,8 @@
     return 'Request failed (' + status + '). ' + String(detail || '').slice(0, 160);
   }
 
+  const activeAiControllers = new Set();
+
   async function aiComplete(options) {
     const settings = aiSettings();
     const provider = PROVIDERS[settings.provider];
@@ -139,7 +141,12 @@
     if (!base) throw new Error(t('Set up AI in Settings first'));
 
     const controller = new AbortController();
-    const timer = setTimeout(function () { controller.abort(); }, options.timeoutMs || 90000);
+    activeAiControllers.add(controller);
+    let timedOut = false;
+    const timer = setTimeout(function () {
+      timedOut = true;
+      controller.abort();
+    }, options.timeoutMs || 90000);
     let url;
     let init;
     if (provider.kind === 'anthropic') {
@@ -202,11 +209,22 @@
       if (!String(textOut).trim()) throw new Error('The model returned an empty answer.');
       return String(textOut);
     } catch (error) {
-      if (error.name === 'AbortError') throw new Error('The AI request timed out.');
+      if (error.name === 'AbortError') {
+        const cancelled = new Error(timedOut ? t('The AI request timed out.') : t('Cancelled'));
+        cancelled.cancelled = !timedOut;
+        throw cancelled;
+      }
       throw error;
     } finally {
       clearTimeout(timer);
+      activeAiControllers.delete(controller);
     }
+  }
+
+  function cancelAi() {
+    activeAiControllers.forEach(function (controller) {
+      controller.abort();
+    });
   }
 
   function stripFences(textValue) {
@@ -293,6 +311,7 @@
   const SYNC_SETTINGS_KEY = 'sweep_sync_v1';
   const SYNC_SECRET_KEY = 'sweep_sync_secret_v1';
   const TOMBSTONE_KEY = 'sweep_tombstones_v1';
+  const BASE_KEY = 'sweep_sync_base_v1';
   const GIST_FILE = 'sweep-sync.json';
   const GIST_DESCRIPTION = 'Sweep sync (encrypted)';
   const GITHUB_API = 'https://api.github.com';
@@ -435,6 +454,36 @@
     return readJson(localStorage, TOMBSTONE_KEY, {});
   }
 
+  // Short content hash per project, remembered at each successful sync. Comparing both sides
+  // against it tells "only one device edited" (safe to take the newer) from "both edited"
+  // (a real conflict: keep both versions instead of silently dropping one).
+  function contentHash(project) {
+    const text = projectFingerprint(project);
+    let h1 = 0xdeadbeef;
+    let h2 = 0x41c6ce57;
+    for (let i = 0; i < text.length; i++) {
+      const code = text.charCodeAt(i);
+      h1 = Math.imul(h1 ^ code, 2654435761);
+      h2 = Math.imul(h2 ^ code, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return (h2 >>> 0).toString(36) + (h1 >>> 0).toString(36);
+  }
+
+  function syncBase() {
+    return readJson(localStorage, BASE_KEY, {});
+  }
+
+  function conflictCopy(project, stamp) {
+    const copy = JSON.parse(JSON.stringify(project));
+    copy.id = 'p' + stamp.toString(36) + Math.random().toString(36).slice(2, 8);
+    copy.name = (project.name || t('Untitled')) + ' (' + t('conflict copy') + ')';
+    copy.conflictOf = project.id;
+    copy.updatedAt = stamp;
+    return copy;
+  }
+
   function trackChanges() {
     if (typeof state === 'undefined' || !Array.isArray(state.projects)) return;
     const now = Date.now();
@@ -463,12 +512,17 @@
     knownIds = currentIds;
   }
 
-  function mergeWorkspaces(local, remote) {
+  function mergeWorkspaces(local, remote, base) {
     const stones = Object.assign({}, remote.tombstones || {});
     Object.keys(local.tombstones || {}).forEach(function (id) {
       stones[id] = Math.max(stones[id] || 0, local.tombstones[id]);
     });
     const byId = {};
+    const remoteById = {};
+    const conflicts = [];
+    (remote.projects || []).forEach(function (project) {
+      if (project && project.id) remoteById[project.id] = project;
+    });
     function consider(project) {
       if (!project || !project.id) return;
       const existing = byId[project.id];
@@ -476,6 +530,22 @@
     }
     (remote.projects || []).forEach(consider);
     (local.projects || []).forEach(consider);
+    if (base) {
+      const stamp = Date.now();
+      (local.projects || []).forEach(function (mine, index) {
+        if (!mine || !mine.id) return;
+        const theirs = remoteById[mine.id];
+        const known = base[mine.id];
+        if (!theirs || !known) return;
+        const mineHash = contentHash(mine);
+        const theirsHash = contentHash(theirs);
+        if (mineHash === theirsHash || mineHash === known || theirsHash === known) return;
+        const loser = byId[mine.id] === mine ? theirs : mine;
+        const copy = conflictCopy(loser, stamp + index);
+        byId[copy.id] = copy;
+        conflicts.push({ id: mine.id, name: mine.name, copyId: copy.id });
+      });
+    }
     const projects = Object.keys(byId).map(function (id) { return byId[id]; }).filter(function (project) {
       return !(stones[project.id] && stones[project.id] >= (project.updatedAt || 0));
     });
@@ -488,7 +558,7 @@
       if (ib === -1) return 1;
       return ia - ib;
     });
-    return { projects: projects, tombstones: stones };
+    return { projects: projects, tombstones: stones, conflicts: conflicts };
   }
 
   let syncing = null;
@@ -538,7 +608,7 @@
         const content = await gistContent(gist);
         if (content) {
           const remote = await decryptPayload(content, secrets.passphrase);
-          merged = mergeWorkspaces(local, remote);
+          merged = mergeWorkspaces(local, remote, syncBase());
         }
       }
       writeJson(localStorage, TOMBSTONE_KEY, merged.tombstones);
@@ -569,7 +639,15 @@
       settings.gistId = saved.id || (gist && gist.id) || settings.gistId;
       settings.lastSync = Date.now();
       saveSyncSettings(settings);
-      const result = { phase: 'done', pulled: changedLocally, count: merged.projects.length, at: settings.lastSync };
+      const nextBase = {};
+      merged.projects.forEach(function (project) {
+        nextBase[project.id] = contentHash(project);
+      });
+      writeJson(localStorage, BASE_KEY, nextBase);
+      (merged.conflicts || []).forEach(function (conflict) {
+        toast(t('“{name}” was edited on two devices — kept both versions', { name: conflict.name }));
+      });
+      const result = { phase: 'done', pulled: changedLocally, count: merged.projects.length, at: settings.lastSync, conflicts: (merged.conflicts || []).length };
       notifySync(result);
       if (options && options.announce) toast(t('Last synced {when}', { when: timeAgo(settings.lastSync) }).replace('{when}', timeAgo(settings.lastSync)));
       return result;
@@ -919,10 +997,104 @@
     return commands;
   }
 
+  // =====================================================================
+  // Dialog focus trap — Tab / Shift+Tab stay inside the open modal dialog.
+  // =====================================================================
+  const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+  function openDialog() {
+    const dialogs = Array.prototype.filter.call(
+      document.querySelectorAll('[role="dialog"][aria-modal="true"]'),
+      function (dialog) {
+        return dialog.getClientRects().length && getComputedStyle(dialog).visibility !== 'hidden';
+      }
+    );
+    return dialogs[dialogs.length - 1] || null;
+  }
+
+  function trapFocus(event) {
+    if (event.key !== 'Tab') return;
+    const dialog = openDialog();
+    if (!dialog) return;
+    const focusables = Array.prototype.filter.call(dialog.querySelectorAll(FOCUSABLE), function (element) {
+      return element.getClientRects().length;
+    });
+    if (!focusables.length) {
+      event.preventDefault();
+      return;
+    }
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    const active = document.activeElement;
+    if (!dialog.contains(active)) {
+      event.preventDefault();
+      first.focus();
+    } else if (event.shiftKey && active === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  // =====================================================================
+  // Offline support + "new version ready" prompt for the main app pages.
+  // =====================================================================
+  function showUpdateBanner() {
+    if (document.getElementById('sweep-update-banner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'sweep-update-banner';
+    banner.className = 'update-banner';
+    banner.setAttribute('role', 'status');
+    banner.innerHTML =
+      '<span>' + esc(t('A new version of Sweep is ready.')) + '</span>' +
+      '<button type="button" class="btn btn-primary btn-sm" data-update="reload">' + esc(t('Reload')) + '</button>' +
+      '<button type="button" class="btn btn-text btn-sm" data-update="later">' + esc(t('Later')) + '</button>';
+    banner.addEventListener('click', function (event) {
+      const action = event.target.closest('[data-update]');
+      if (!action) return;
+      if (action.getAttribute('data-update') === 'reload') {
+        location.reload();
+      } else {
+        banner.remove();
+      }
+    });
+    document.body.appendChild(banner);
+  }
+
+  function registerServiceWorker() {
+    if (!('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (hadController) showUpdateBanner();
+    });
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('./sw.js').then(function (registration) {
+        // Check for a newer version when the app comes back to the foreground.
+        document.addEventListener('visibilitychange', function () {
+          if (document.visibilityState === 'visible') registration.update().catch(function () {});
+        });
+      }).catch(function () {
+        /* offline support unavailable (private mode, unsupported browser) */
+      });
+    });
+  }
+
   function init() {
     settingsButton();
     wrapPersistence();
     document.addEventListener('visibilitychange', syncOnFocus);
+    document.addEventListener('keydown', trapFocus);
+    registerServiceWorker();
+    if (window.SweepI18n && window.SweepI18n.onChange) {
+      // Re-render the current view so text built in JavaScript (dates, counts) follows the language.
+      window.SweepI18n.onChange(function () {
+        if (typeof state !== 'undefined' && state.workspace) {
+          rerenderCurrentView();
+        }
+      });
+    }
   }
 
   window.SweepPro = {
@@ -932,6 +1104,7 @@
       ready: aiReady,
       settings: aiSettings,
       complete: aiComplete,
+      cancel: cancelAi,
       sharpenBrief: sharpenBrief,
       improveSpecFile: improveSpecFile,
       onChange: function (listener) { aiListeners.push(listener); },
@@ -941,6 +1114,7 @@
       now: syncNow,
       configured: syncConfigured,
       merge: mergeWorkspaces,
+      hash: contentHash,
       encrypt: encryptPayload,
       decrypt: decryptPayload,
       onStatus: function (listener) { syncListeners.push(listener); }
