@@ -456,7 +456,7 @@
       updateAiButton();
       const drawerOpen = document.querySelector('.crx-drawer.open');
       if (run.status === 'done' && !drawerOpen && !(run.meta && run.meta.autoOpen)) {
-        toast(`<b style="--c:#10b981">Result ready</b> · ${esc(run.goal)} — <a href="#" data-open-run="${run.id}" style="color:#8b9cff">View</a>`, '#10b981', true);
+        toast(`<b style="--c:#10b981">Result ready</b> · ${esc(CrewEngine.goalTitle(run.goal))} — <a href="#" data-open-run="${run.id}" style="color:#8b9cff">View</a>`, '#10b981', true);
       } else if (run.status === 'error') {
         toast(`<b>Couldn't finish</b> · ${esc(run.error || '')}`, '#ef4444', true);
       }

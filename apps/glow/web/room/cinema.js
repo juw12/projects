@@ -274,7 +274,7 @@
     }
     const running = run.status === 'running';
     el.innerHTML = `
-      <span class="cn-goal" title="${esc(run.goal)}">${esc(run.goal)}</span>
+      <span class="cn-goal" title="${esc(run.goal.slice(0, 600))}">${esc(Engine.goalTitle ? Engine.goalTitle(run.goal) : run.goal)}</span>
       <span class="cn-steps">${chips.join('<span class="cn-arrow">›</span>')}</span>
       <span class="cn-time">${running ? secs + 's' : (run.status === 'done' ? '✓ ' + secs + 's' : run.status)}</span>
       ${running ? `<button class="cn-mbtn ${ui.follow ? 'on' : ''}" data-m="follow" title="Camera follows the active bot">🎥 Follow</button><button class="cn-mbtn stop" data-m="stop">■ Stop</button>` : ''}
@@ -538,7 +538,8 @@
     buildCommandBar();
     wire();
     setTimeout(keepRailHeader, 300);
-    const sharedGoal = new URLSearchParams(location.search).get('goal');
+    const launch = new URLSearchParams(location.search);
+    const sharedGoal = launch.get('goal');
     if (sharedGoal) {
       localStorage.setItem(WELCOME_KEY, '1');
       const input = document.getElementById('cn-input');
@@ -546,6 +547,12 @@
         input.value = sharedGoal.slice(0, 2000);
         input.dispatchEvent(new Event('input'));
         input.focus();
+        input.setSelectionRange(0, 0);
+        input.scrollTop = 0;
+      }
+      // Coming from Glow home or GlowChat with "go": the user already chose to hand it over, so start right away.
+      if (launch.get('go') === '1') {
+        setTimeout(() => document.getElementById('cn-send')?.click(), 700);
       }
       history.replaceState(null, '', location.pathname + location.hash);
     } else {

@@ -1,7 +1,7 @@
 // Glow home service worker. It also replaces the old Glow chat worker that used to live at
 // this path, so it removes only that worker's old 'glow-vN' caches. GlowChat (./chat/) and
 // GlowRoom (./room/) have their own workers; requests for them are left alone here.
-const CACHE_NAME = 'glowhome-v1';
+const CACHE_NAME = 'glowhome-v2';
 const ASSETS = ['./', './index.html', './home.css', './home.js', './manifest.webmanifest', './icons/app-icon.svg', './icons/icon-192.png', './shared/glow-apps.js'];
 
 self.addEventListener('install', (event) => {

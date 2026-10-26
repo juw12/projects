@@ -307,7 +307,7 @@
       "name": "Glow",
       "category": "AI",
       "desc": "One home for your AI: GlowChat for chat, personas, a Council with a Judge and a model Arena; GlowRoom for an AI crew that researches, codes and reports back. One free Glow account, no sign-up needed to start",
-      "description": "<strong>Glow</strong> is a small AI ecosystem with one home and one account. <strong>GlowChat</strong>: chat with free AI right away, pick any model, use personas like Planner for tickable checklists, let a Council debate while a Judge summarizes, or compare and fuse models in an Arena. <strong>GlowRoom</strong>: give a goal to an AI crew in a live 3D office; they search the web, run code and report back with sources. Start from Glow home, switch apps from any app, and hand work between them. Free AI for guests, no sign-up needed.",
+      "description": "One home, one free account, two AI apps. <strong>GlowChat</strong>: chat with any model, personas, a Council with a Judge and a side-by-side Arena. <strong>GlowRoom</strong>: hand a goal to an AI crew that searches the web, runs code and reports back with sources. Free for guests, no sign-up needed.",
       "tags": [
         "AI ecosystem",
         "GlowChat",
@@ -323,9 +323,23 @@
         "web": "glow/",
         "mobile": "glow/"
       },
+      "card_links": [
+        {
+          "label": "Glow home",
+          "path": "glow/"
+        },
+        {
+          "label": "GlowChat",
+          "path": "glow/chat/"
+        },
+        {
+          "label": "GlowRoom",
+          "path": "glow/room/"
+        }
+      ],
       "featured": true,
       "order": 5,
-      "version": "0.6.0"
+      "version": "0.6.1"
     },
     {
       "id": "sped",

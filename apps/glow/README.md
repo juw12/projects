@@ -11,6 +11,16 @@
 GlowChat installable app: `glow/chat/app.html`, mobile: `glow/chat/mobile.html`. GlowRoom: `glow/room/app.html`, `glow/room/mobile.html`.
 AI-suggested resources in GlowChat are not automatically browsed or verified; GlowChat does no autonomous building or execution (that is GlowRoom's job, and its results should still be reviewed).
 
+## v0.6.1 — fixes from a real end-to-end run
+Tested as a first-time visitor on the live site (portfolio → Glow home → GlowChat → GlowRoom → back) with the real free AI:
+- **GlowRoom missions no longer fail on Glow Free.** The shared free AI allows about one reply every 30 s and answered the crew's back-to-back calls with "402 Free limit… Retry after N s", which ended the mission. GlowRoom now sends Glow Free calls one at a time and waits out the stated time (with a notice); GlowChat does the same, so Council and quick follow-ups work for guests too.
+- **Asking from Glow home answers right away**: no sign-in wall or 15-step tour first; first-timers are answered as guests (sign in any time).
+- **Hand-offs start by themselves**: "Give it to GlowRoom" and "🏢 Ask GlowRoom" start the crew immediately; the mission box shows the start of the question.
+- **GlowRoom on phones accepts hand-offs** (it ignored `?goal=` and cut missions at 240 characters).
+- **Short mission titles** (first line of the goal) in results, toasts, history and Glow home, instead of the whole pasted answer.
+- Crew members that hit an error no longer stay "working".
+- Portfolio card links are named Glow home / GlowChat / GlowRoom. Caches: `glowhome-v2`, `glowchat-v2`, `glowroom-v2`.
+
 ## v0.6.0 — the Glow ecosystem
 - **Glow home** (`web/index.html`): a quick-start box (💬 *Ask GlowChat* or 🏢 *Give it to GlowRoom*, with a hint when the request sounds like a job for the crew), **Jump back in** (recent GlowChat chats and GlowRoom missions), app cards with Open / Mobile / Install, and your account.
 - **GlowChat** (`web/chat/`) is the former Glow chat app. New launch links: `chat/?q=text` pre-fills the box, `chat/?open=<chat id>` reopens a chat.

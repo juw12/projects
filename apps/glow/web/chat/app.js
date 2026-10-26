@@ -400,9 +400,26 @@ function sleep(ms, signal) {
     }, { once: true });
   });
 }
+// Glow Free (shared, anonymous) answers HTTP 402 "Free limit reached … Retry after N s" when replies come too fast.
+async function freeLimitWaitMs(response) {
+  if (response.status !== 402) return 0;
+  const text = await response.clone().text().catch(() => "");
+  const stated = /retry after\s+(\d+)\s*s/i.exec(text);
+  if (stated) return (Math.min(Number(stated[1]), 60) + 1) * 1000;
+  return /free limit/i.test(text) ? 16000 : 0;
+}
 async function fetchWithRetry(doFetch, signal, onWait = () => {}) {
+  let limitWaits = 0;
   for (let attempt = 0; ; attempt++) {
     const response = await doFetch();
+    const limitMs = await freeLimitWaitMs(response);
+    if (limitMs && limitWaits < 5) {
+      limitWaits += 1;
+      attempt -= 1; // the shared free limit doesn't use up the normal retries
+      onWait(Math.round(limitMs / 1000), limitWaits);
+      await sleep(limitMs, signal);
+      continue;
+    }
     const retryable = response.status === 429 || response.status >= 500;
     if (!retryable || attempt >= MAX_RETRIES) return response;
     const header = Number(response.headers.get("retry-after"));
@@ -593,7 +610,7 @@ function splitFollowUps(text) {
 }
 function friendlyError(status, detail, provider = "") {
   if (provider === "free") {
-    if (status === 429 || status >= 500) return "The free guest AI is busy right now. Wait a few seconds and press ↻ Regenerate, or sign in for faster Glow AI models.";
+    if (status === 402 || status === 429 || status >= 500) return "The free guest AI is busy right now. Wait a few seconds and press ↻ Regenerate, or sign in for faster Glow AI models.";
     return `The free guest AI couldn't answer (error ${status}). Try again, or sign in for Glow AI models.`;
   }
   if (status === 401) return "The API key was rejected. Check it in Settings.";
@@ -2867,6 +2884,15 @@ async function selfTest() {
   const fakeResponse = (status) => ({ status, headers: { get: () => "0.01" } });
   const retried = await fetchWithRetry(async () => fakeResponse(++calls < 3 ? 429 : 200), new AbortController().signal, (s) => waits.push(s));
   expect("fix: rate limits retried with backoff", retried.status === 200 && calls === 3 && waits.length === 2);
+  // Glow Free's shared limit answers 402 "Retry after N s": wait it out; a real 402 (no credit) is returned at once.
+  const limited = (body) => ({ status: 402, headers: { get: () => null }, clone: () => ({ text: async () => body }) });
+  let freeCalls = 0;
+  const freeWaits = [];
+  const waitedOut = await fetchWithRetry(async () => (++freeCalls < 2 ? limited('{"error":"Free limit reached: 1 reply every 30 seconds per IP. Retry after 0s"}') : fakeResponse(200)), new AbortController().signal, (s) => freeWaits.push(s));
+  let creditCalls = 0;
+  const noCredit = await fetchWithRetry(async () => { creditCalls += 1; return limited('{"error":"Insufficient credits"}'); }, new AbortController().signal, () => {});
+  expect("free limit: 402 'Retry after' is waited out, other 402s are not retried",
+    waitedOut.status === 200 && freeCalls === 2 && freeWaits.length === 1 && noCredit.status === 402 && creditCalls === 1);
   const savedModels = models;
   models = [models[0], { value: "openrouter::z/odd-model:free", label: "odd" }, { value: "openrouter::meta-llama/llama-3.3-70b-instruct:free", label: "llama" }];
   expect("fix: defaults prefer strong chat models", defaultModel(0) === "openrouter::meta-llama/llama-3.3-70b-instruct:free");
@@ -3253,7 +3279,8 @@ async function selfTest() {
   const goalUrl = new URL(crewroomUrl("Compare 3 laptops"));
   expect("glowroom: missions carry the question and Glow's answer within 2,000 characters",
     longGoal.length <= CREWROOM_GOAL_MAX && longGoal.startsWith("Plan a bakery launch") && longGoal.includes("AAAA") && !longGoal.includes("Follow-ups")
-    && goalUrl.searchParams.get("goal") === "Compare 3 laptops" && crewroomGoal("Just a question") === "Just a question");
+    && goalUrl.searchParams.get("goal") === "Compare 3 laptops" && goalUrl.searchParams.get("go") === "1"
+    && crewroomGoal("Just a question") === "Just a question" && longGoal.includes("GlowChat's first answer"));
   newChat();
   current.messages = [{ role: "user", content: "Best budget 3D printer?" }, { role: "assistant", content: "Try the Bambu A1 mini.", model: "demo::demo" }];
   renderMessages(true);
@@ -3317,7 +3344,10 @@ const CREWROOM_GOAL_MAX = 2000;
 function crewroomUrl(goal = "") {
   const url = new URL($("crewroom-link").href);
   const text = String(goal || "").trim();
-  if (text) url.searchParams.set("goal", text.slice(0, CREWROOM_GOAL_MAX));
+  if (text) {
+    url.searchParams.set("goal", text.slice(0, CREWROOM_GOAL_MAX));
+    url.searchParams.set("go", "1");
+  }
   return url.toString();
 }
 // Build a mission from a question and (optionally) Glow's answer, within GlowRoom's 2,000-character limit.
@@ -3325,7 +3355,7 @@ function crewroomGoal(question, answer = "") {
   const ask = String(question || "").trim();
   const found = splitFollowUps(stripReasoning(String(answer || ""))).body.trim();
   if (!found) return ask.slice(0, CREWROOM_GOAL_MAX);
-  const head = `${ask.slice(0, 600)}\n\nGlow's first answer (check it, research further and improve it):\n`;
+  const head = `${ask.slice(0, 600)}\n\nGlowChat's first answer (check it, research further and improve it):\n`;
   const room = CREWROOM_GOAL_MAX - head.length;
   const excerpt = found.length > room ? found.slice(0, Math.max(0, room - 1)).trimEnd() + "…" : found;
   return head + excerpt;
@@ -3399,11 +3429,16 @@ function askCrew() {
 }
 
 // Glow home can open GlowChat with a question ready (?q=) or jump back into a chat (?open=<id>).
+function launchSendsQuestion() {
+  const params = new URLSearchParams(location.search);
+  return params.get("send") === "1" && !!(params.get("q") || "").trim();
+}
 function applyLaunchParams() {
   const params = new URLSearchParams(location.search);
   const openId = params.get("open");
   const question = params.get("q");
   if (!openId && !question) return;
+  const sendNow = launchSendsQuestion();
   if (openId) {
     const conv = state.conversations.find((c) => c.id === openId);
     if (conv) openConversation(conv);
@@ -3415,6 +3450,17 @@ function applyLaunchParams() {
     $("input").focus();
   }
   history.replaceState(null, "", location.pathname + location.hash);
+  if (question && sendNow) {
+    if (!state.settings.account) {
+      // They already asked from Glow home: answer first as a guest; the tour can wait for another visit.
+      Object.assign(state.settings, { account: "guest", accountName: "" });
+      saveState();
+      hideWelcome();
+      renderAccount();
+      toast("Answering as a guest with free AI. Sign in any time for more models.");
+    }
+    setTimeout(() => onSend(), 0);
+  }
 }
 
 async function boot() {
@@ -3442,7 +3488,7 @@ async function boot() {
   const hash = location.hash;
   if (!TEST_MODE) {
     await importSharedFromHash();
-    if (!state.settings.account) showWelcome();
+    if (!state.settings.account && !launchSendsQuestion()) showWelcome();
     if (state.settings.account === "puter" && (await restorePuterSession())) {
       await loadModels();
       if (current && current.type === "chat") fillSelect($("chat-model"), current.model);

@@ -429,13 +429,13 @@ svg { display: block; }
     <span class="field-label">Assign to</span>
     <div class="picker" id="picker"></div>
     <div class="card composer">
-      <textarea id="goal-input" maxlength="240" placeholder="What should the crew do? e.g. Write release notes for v2"></textarea>
+      <textarea id="goal-input" maxlength="2000" placeholder="What should the crew do? e.g. Write release notes for v2"></textarea>
       <div class="chips" id="templates" style="margin-top:10px"></div>
       <div class="composer-row">
         <div class="segmented" id="priority" role="radiogroup" aria-label="Priority">
           <button data-v="low">Low</button><button data-v="normal" class="on">Normal</button><button data-v="high">High</button>
         </div>
-        <span class="counter" id="counter">0/240</span>
+        <span class="counter" id="counter">0/2000</span>
       </div>
       <button class="btn btn-primary" id="dispatch-btn" disabled><svg><use href="#i-send"/></svg><span id="dispatch-label">Dispatch</span></button>
       <div class="ai-hint" id="ai-hint"></div>
@@ -1315,7 +1315,7 @@ svg { display: block; }
   function updateDispatchButton() {
     const text = $('#goal-input').value.trim();
     const n = ui.pickSet.size;
-    $('#counter').textContent = `${$('#goal-input').value.length}/240`;
+    $('#counter').textContent = `${$('#goal-input').value.length}/2000`;
     $('#dispatch-btn').disabled = !text || !n;
     $('#dispatch-label').textContent = n > 1 ? `Dispatch to ${n} bots` : n === 1 ? `Dispatch to ${BOT[[...ui.pickSet][0]].name}` : 'Pick a bot';
   }
@@ -1990,6 +1990,23 @@ svg { display: block; }
   renderAiHint();
   seed();
   showView(state.view || 'crew');
+  // A mission handed over from Glow home or GlowChat (?goal=…, optional go=1 to start it at once).
+  (function acceptHandoff() {
+    const launch = new URLSearchParams(location.search);
+    const goal = (launch.get('goal') || '').trim();
+    if (!goal) return;
+    history.replaceState(null, '', location.pathname + location.hash);
+    ui.pickSet = new Set(BOTS.map(b => b.id));
+    renderPicker();
+    showView('dispatch');
+    $('#goal-input').value = goal.slice(0, 2000);
+    updateDispatchButton();
+    if (launch.get('go') === '1') {
+      setTimeout(() => $('#dispatch-btn').click(), 500);
+    } else {
+      $('#goal-input').focus();
+    }
+  })();
   setInterval(tick, 500);
   // Relative timestamps / timers refresh even when paused.
   setInterval(() => {

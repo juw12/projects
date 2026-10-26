@@ -73,6 +73,7 @@ def build_landing_apps(catalog):
             "name": app["name"],
             "desc": app["desc"],
             "links": ([("Windows app", links["app"])] if app.get("native") else
+                      [(c["label"], c["path"]) for c in app["card_links"]] if app.get("card_links") else
                       [("App", links["app"]), ("Web", links["web"]), ("Mobile", links["mobile"])]),
         })
     return landing
