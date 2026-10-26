@@ -23,7 +23,7 @@ AI-suggested resources in GlowChat are not automatically browsed or verified; Gl
   (Apple requires a paid developer account); use the cloud browser instead.
 - **Instant cloud browser** (`cloud/`): a hidden browser on Cloudflare's free plan that GlowLead starts with one
   tap, without a GitHub token or any setup. Shared free limit of 10 browser-minutes a day and 3 browsers at
-  once; fresh browser every time (no saved logins). It appears in GlowLead once the service is deployed.
+  once; fresh browser every time (no saved logins). Live since 0.15.1, so iPhone users can run browser missions from Safari.
 - Shared Glow Hands core (`web/shared/hands-core.js`) so the app, the cloud service and Glow Hands on a PC use
   the same page reading, actions and safety checks. The GitHub cloud browser moved under **Advanced**.
 - Guide: [hands/CLOUD.md](hands/CLOUD.md).
