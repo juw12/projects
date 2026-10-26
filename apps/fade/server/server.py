@@ -20,6 +20,10 @@ What is real here:
   * follows / followers, DMs and communities
   * creator commissions for featured / sponsored tags (approval, attribution,
     pending -> earned -> paid, self-referral blocked)
+  * moderation: reports (auto-hide at 3 reporters), moderator console (--admin EMAIL),
+    bans, verification, blocked-word filter, comments
+  * push: in-app notifications + ntfy pushes to each user's private topic, 2 h reminders
+  * video transcoding with ffmpeg when installed (720p H.264, faststart, poster)
 
 What is simulated: the card processor. Cards are stored as brand + last 4 only and
 "charged" into a ledger. Plug a real processor (e.g. Stripe Connect) into
@@ -38,9 +42,12 @@ import mimetypes
 import os
 import re
 import secrets
+import shutil
 import sqlite3
+import subprocess
 import threading
 import time
+import urllib.request
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -52,7 +59,7 @@ except ImportError:  # pragma: no cover - Python < 3.9
     ZoneInfo = None
 
 APP_NAME = "fade"
-APP_VERSION = "3.0.0"
+APP_VERSION = "3.1.0"
 
 BASE_DIR = Path(__file__).resolve().parent
 WEB_DIR = BASE_DIR.parent / "web"
@@ -348,10 +355,406 @@ class Store:
 # ---------------------------------------------------------------------------
 # Domain service
 # ---------------------------------------------------------------------------
-class Fade:
-    def __init__(self, store: Store):
+# ---------------------------------------------------------------------------
+# Moderation, push notifications and video transcoding
+# ---------------------------------------------------------------------------
+REPORT_REASONS = ("spam", "nudity", "violence", "harassment", "hate", "impersonation", "not-haircut", "other")
+AUTO_HIDE_REPORTS = 3
+BLOCKED_WORDS = ("nigger", "faggot", "kill yourself", "kys", "child porn", "cp link")  # same list as web/net.js
+REMINDER_LEAD_HOURS = 2
+SWEEP_SECONDS = 60
+TRANSCODE_TIMEOUT_S = 300
+TRANSCODE_MAX_SECONDS = 60
+TRANSCODE_MAX_W, TRANSCODE_MAX_H = 720, 1280
+MOD_ACTIONS = ("hide", "unhide", "keep", "ban", "unban", "verify", "unverify", "dismiss")
+
+
+class SafetyMixin:
+    """Reports + moderator console, ntfy push + in-app notifications, server-side ffmpeg transcoding."""
+
+    def setup_safety(self, admins=(), ntfy=None, public_url="", ffmpeg="auto"):
+        self.admins = {email.strip().lower() for email in admins if email and email.strip()}
+        self.ntfy = (ntfy or "").rstrip("/") or None
+        self.public_url = (public_url or "").rstrip("/")
+        if ffmpeg == "auto":
+            self.ffmpeg = shutil.which("ffmpeg")
+        elif ffmpeg in (None, "", "off"):
+            self.ffmpeg = None
+        else:
+            self.ffmpeg = ffmpeg
+        self.push_log = []  # last pushes (for tests / diagnostics)
+
+    # ----- text rules -----
+    @staticmethod
+    def ensure_clean(value, label="text"):
+        lower = (value or "").lower()
+        if any(word in lower for word in BLOCKED_WORDS):
+            raise ApiError(400, f"That {label} breaks the community guidelines")
+
+    # ----- moderation state -----
+    def mod_doc(self):
+        doc = self.s.get("meta", "mod")
+        if not doc:
+            doc = {"hidden": {}, "kept": {}, "banned": {}}
+        for key in ("hidden", "kept", "banned"):
+            doc.setdefault(key, {})
+        return doc
+
+    def is_admin(self, user):
+        return bool(user) and (user.get("email", "").lower() in self.admins or bool(user.get("admin")))
+
+    def is_banned(self, user_or_id):
+        user_id = user_or_id["id"] if isinstance(user_or_id, dict) else user_or_id
+        return bool(user_id) and user_id in self.mod_doc()["banned"]
+
+    def ensure_active(self, user):
+        if self.is_banned(user):
+            raise ApiError(403, "This account is suspended for breaking the community guidelines")
+
+    def resolve_target(self, target):
+        """Accepts 'short:ID', 'comment:ID', 'user:ID', 'barber:ID', 'place:ID' or a bare id."""
+        target = str(target or "").strip()
+        kinds = ("short", "comment", "user", "barber", "place")
+        if ":" in target and target.split(":", 1)[0] in kinds:
+            kind, doc_id = target.split(":", 1)
+            candidates = [(kind, doc_id)]
+        else:
+            candidates = [(kind, target) for kind in kinds]
+        for kind, doc_id in candidates:
+            doc = self.s.get(kind, doc_id)
+            if not doc:
+                continue
+            if kind == "short":
+                owner, preview = doc.get("userId"), doc.get("caption", "")
+            elif kind == "comment":
+                owner, preview = doc.get("userId"), doc.get("text", "")
+            elif kind == "user":
+                owner, preview = doc["id"], doc.get("name", "")
+            else:
+                owner, preview = doc.get("ownerId"), doc.get("name", "")
+            return {"key": f"{kind}:{doc_id}", "kind": kind, "id": doc_id, "doc": doc, "ownerId": owner, "preview": preview[:140]}
+        raise ApiError(404, "Nothing to report there")
+
+    def is_hidden(self, kind, doc_id):
+        return f"{kind}:{doc_id}" in self.mod_doc()["hidden"]
+
+    def report(self, user, body):
+        self.ensure_active(user)
+        reason = body.get("reason")
+        if reason not in REPORT_REASONS:
+            raise ApiError(400, "Pick a reason")
+        note = text_field(body, "note", 300, required=False)
+        with self.s.lock:
+            info = self.resolve_target(body.get("target"))
+            if info["ownerId"] == user["id"]:
+                raise ApiError(400, "You can't report your own content")
+            reports = [r for r in self.s.all("report") if r["target"] == info["key"] and r["status"] == "open"]
+            if any(r["reporterId"] == user["id"] for r in reports):
+                return {"ok": True, "duplicate": True, "reports": len(reports)}
+            doc = {
+                "id": new_id("rp"), "target": info["key"], "targetUserId": info["ownerId"], "reporterId": user["id"],
+                "reason": reason, "note": note, "status": "open", "createdAt": now_ts(),
+            }
+            self.s.put("report", doc["id"], doc)
+            reports.append(doc)
+            mod = self.mod_doc()
+            reporters = {r["reporterId"] for r in reports}
+            hidden = False
+            if len(reporters) >= AUTO_HIDE_REPORTS and info["key"] not in mod["kept"] and info["key"] not in mod["hidden"]:
+                mod["hidden"][info["key"]] = now_ts()
+                self.s.put("meta", "mod", mod)
+                hidden = True
+            self.s.commit()
+        if hidden and info["ownerId"]:
+            self.notify(info["ownerId"], "Content hidden for review",
+                        f"Your {info['kind']} was reported by {len(reporters)} people and is hidden until a moderator reviews it.", "/me")
+        for admin in self.admin_users():
+            self.notify(admin["id"], "New report 🛡️", f"{reason}: {info['preview'][:80]}", "/admin")
+        return {"ok": True, "reports": len(reporters), "hidden": hidden}
+
+    def admin_users(self):
+        return [u for u in self.s.all("user") if self.is_admin(u)]
+
+    def mod_queue(self, user):
+        if not self.is_admin(user):
+            raise ApiError(403, "Moderators only")
+        mod = self.mod_doc()
+        grouped = {}
+        for report in self.s.all("report"):
+            if report["status"] != "open":
+                continue
+            grouped.setdefault(report["target"], []).append(report)
+        queue = []
+        for key, reports in grouped.items():
+            try:
+                info = self.resolve_target(key)
+                preview = {"type": info["kind"], "text": info["preview"]}
+            except ApiError:
+                preview = {"type": key.split(":", 1)[0], "text": "(deleted)"}
+                info = {"ownerId": reports[0].get("targetUserId")}
+            queue.append({
+                "target": key, "reports": sorted(reports, key=lambda r: r["createdAt"]),
+                "reporters": len({r["reporterId"] for r in reports}), "hidden": key in mod["hidden"], "kept": key in mod["kept"],
+                "targetPk": info.get("ownerId"), "banned": bool(info.get("ownerId")) and info["ownerId"] in mod["banned"],
+                "preview": preview,
+            })
+        queue.sort(key=lambda q: (-q["reporters"], -q["reports"][-1]["createdAt"]))
+        return {"queue": queue, "banned": sorted(mod["banned"].keys())}
+
+    def moderate(self, user, body):
+        if not self.is_admin(user):
+            raise ApiError(403, "Moderators only")
+        action = body.get("action")
+        target = str(body.get("target") or "")
+        if action not in MOD_ACTIONS:
+            raise ApiError(400, "unknown moderation action")
+        with self.s.lock:
+            mod = self.mod_doc()
+            if action == "dismiss":
+                report = self.s.get("report", target)
+                if not report:
+                    raise ApiError(404, "report not found")
+                report["status"] = "dismissed"
+                self.s.put("report", report["id"], report)
+            elif action in ("ban", "unban"):
+                banned_id = target.split(":", 1)[1] if target.startswith("user:") else target
+                if not self.s.get("user", banned_id):
+                    raise ApiError(404, "user not found")
+                if action == "ban":
+                    if banned_id == user["id"]:
+                        raise ApiError(400, "You can't ban yourself")
+                    mod["banned"][banned_id] = now_ts()
+                    self.s.db.execute("DELETE FROM sessions WHERE user_id = ?", (banned_id,))
+                else:
+                    mod["banned"].pop(banned_id, None)
+            elif action in ("verify", "unverify"):
+                info = self.resolve_target(target)
+                if info["kind"] not in ("barber", "place"):
+                    raise ApiError(400, "Only barbers and shops can be verified")
+                info["doc"]["verified"] = action == "verify"
+                self.s.put(info["kind"], info["id"], info["doc"])
+            else:
+                key = self.resolve_target(target)["key"] if action != "unhide" else target
+                if action == "hide":
+                    mod["hidden"][key] = now_ts()
+                    mod["kept"].pop(key, None)
+                elif action == "unhide":
+                    mod["hidden"].pop(key, None)
+                elif action == "keep":
+                    mod["hidden"].pop(key, None)
+                    mod["kept"][key] = now_ts()
+                if action in ("hide", "keep"):
+                    for report in self.s.all("report"):
+                        if report["target"] == key and report["status"] == "open":
+                            report["status"] = "resolved"
+                            report["resolution"] = action
+                            self.s.put("report", report["id"], report)
+            self.s.put("meta", "mod", mod)
+            self.s.commit()
+        return {"ok": True}
+
+    # ----- comments -----
+    def add_comment(self, user, body):
+        self.ensure_active(user)
+        short_id = text_field(body, "shortId", 40)
+        text = text_field(body, "text", 500)
+        self.ensure_clean(text, "comment")
+        with self.s.lock:
+            short = self.s.get("short", short_id)
+            if not short or self.is_hidden("short", short_id):
+                raise ApiError(404, "short not found")
+            comment = {
+                "id": new_id("cm_"), "shortId": short_id, "userId": user["id"], "name": user["name"],
+                "hue": user.get("hue", 200), "text": text, "createdAt": now_ts(),
+            }
+            self.s.put("comment", comment["id"], comment)
+            self.s.commit()
+        if short.get("userId") and short["userId"] != user["id"]:
+            self.notify(short["userId"], f"{user['name']} commented", text[:120], "/user/me")
+        return {"comment": comment}
+
+    def delete_comment(self, user, comment_id):
+        with self.s.lock:
+            comment = self.s.get("comment", comment_id)
+            if not comment:
+                raise ApiError(404, "comment not found")
+            short = self.s.get("short", comment["shortId"]) or {}
+            if user["id"] not in (comment["userId"], short.get("userId")) and not self.is_admin(user):
+                raise ApiError(403, "You can only delete your own comments or comments on your shorts")
+            self.s.delete("comment", comment_id)
+            self.s.commit()
+        return {"ok": True}
+
+    def visible_comments(self, user, short_ids):
+        mod = self.mod_doc()
+        out = []
+        for comment in self.s.all("comment"):
+            if comment["shortId"] not in short_ids or f"comment:{comment['id']}" in mod["hidden"] or comment["userId"] in mod["banned"]:
+                continue
+            out.append({
+                "id": comment["id"], "shortId": comment["shortId"], "by": comment["userId"], "name": comment["name"],
+                "hue": comment.get("hue", 200), "text": comment["text"], "at": comment["createdAt"],
+                "mine": comment["userId"] == user["id"],
+            })
+        return sorted(out, key=lambda c: c["at"])
+
+    # ----- push notifications -----
+    @staticmethod
+    def new_topic():
+        return f"fade-{secrets.token_hex(10)}"
+
+    def notify(self, user_id, title, message, click="/", tags=None):
+        """In-app notification + ntfy push to the user's private topic (non-blocking)."""
+        if not user_id:
+            return None
+        recipient = self.s.get("user", user_id)
+        if not recipient or recipient.get("seed"):
+            return None
+        doc = {
+            "id": new_id("nt"), "userId": user_id, "title": title[:120], "message": message[:300],
+            "click": click, "createdAt": now_ts(), "read": False,
+        }
+        with self.s.lock:
+            self.s.put("notif", doc["id"], doc)
+            self.s.commit()
+        topic = recipient.get("notify")
+        if self.ntfy and topic and recipient.get("pushOn", True):
+            payload = {"topic": topic, "title": doc["title"], "message": doc["message"], "tags": tags or ["scissors"]}
+            if self.public_url:
+                payload["click"] = f"{self.public_url}/#{click}"
+            threading.Thread(target=self._send_push, args=(payload,), daemon=True).start()
+        return doc
+
+    def _send_push(self, payload):
+        data = json.dumps(payload).encode("utf-8")
+        request = urllib.request.Request(self.ntfy, data=data, method="POST", headers={"Content-Type": "application/json"})
+        status = 0
+        try:
+            with urllib.request.urlopen(request, timeout=8) as response:
+                status = response.status
+        except Exception as err:  # network errors must never break the app
+            status = getattr(err, "code", -1)
+        self.push_log.append({"topic": payload["topic"], "title": payload["title"], "status": status, "t": now_ts()})
+        del self.push_log[:-200]
+
+    def notifications_for(self, user):
+        mine = [n for n in self.s.all("notif") if n["userId"] == user["id"]]
+        return sorted(mine, key=lambda n: -n["createdAt"])[:50]
+
+    def mark_read(self, user):
+        with self.s.lock:
+            for notif in self.s.all("notif"):
+                if notif["userId"] == user["id"] and not notif["read"]:
+                    notif["read"] = True
+                    self.s.put("notif", notif["id"], notif)
+            self.s.commit()
+        return {"ok": True}
+
+    def update_push(self, user, body):
+        with self.s.lock:
+            fresh = self.s.get("user", user["id"])
+            if body.get("rotate"):
+                fresh["notify"] = self.new_topic()
+            if "pushOn" in body:
+                fresh["pushOn"] = bool(body["pushOn"])
+            self.save_user(fresh)
+            self.s.commit()
+        return {"notify": fresh["notify"], "pushOn": fresh.get("pushOn", True)}
+
+    def booking_parties(self, booking):
+        barber = self.s.get("barber", booking["barberId"]) or {}
+        place = self.s.get("place", booking["placeId"]) or {}
+        return barber, place
+
+    def sweep(self):
+        """Background duties: 2 h reminders (sent at the right time, so reschedules/cancels stay correct)."""
+        now = datetime.now(timezone.utc)
+        due = []
+        with self.s.lock:
+            for booking in self.s.all("booking"):
+                if booking.get("status") != "upcoming" or booking.get("reminded"):
+                    continue
+                place = self.s.get("place", booking["placeId"])
+                if not place:
+                    continue
+                start = booking_start_utc(booking, place)
+                if start - timedelta(hours=REMINDER_LEAD_HOURS) <= now < start:
+                    booking["reminded"] = True
+                    self.s.put("booking", booking["id"], booking)
+                    due.append((booking, place))
+            if due:
+                self.s.commit()
+        for booking, place in due:
+            barber = self.s.get("barber", booking["barberId"]) or {}
+            when = f"{int(booking['time']):02d}:{int(round((booking['time'] % 1) * 60)):02d}"
+            self.notify(booking["userId"], "Your cut is in 2 hours ✂️",
+                        f"{booking['serviceName']} with {barber.get('name', 'your barber')} at {place.get('name', '')}, {when}", "/bookings", ["alarm_clock"])
+            if barber.get("ownerId"):
+                self.notify(barber["ownerId"], "Client in 2 hours", f"{booking['customerName']} · {booking['serviceName']} at {when}", "/pro", ["alarm_clock"])
+        return len(due)
+
+    def start_sweeper(self):
+        def loop():
+            while True:
+                time.sleep(SWEEP_SECONDS)
+                try:
+                    self.sweep()
+                except Exception:  # pragma: no cover - keep the loop alive
+                    pass
+        threading.Thread(target=loop, daemon=True).start()
+
+    # ----- video transcoding (ffmpeg, optional) -----
+    def queue_transcode(self, short):
+        threading.Thread(target=self._transcode, args=(short["id"],), daemon=True).start()
+
+    def _transcode(self, short_id):
+        short = self.s.get("short", short_id)
+        if not short:
+            return
+        source = self.s.media_dir / Path(short["media"]["url"]).name
+        target = self.s.media_dir / f"{short_id}_720.mp4"
+        poster = self.s.media_dir / f"{short_id}.jpg"
+        scale = (f"scale='min({TRANSCODE_MAX_W},iw)':'min({TRANSCODE_MAX_H},ih)':force_original_aspect_ratio=decrease,"
+                 "scale=trunc(iw/2)*2:trunc(ih/2)*2")
+        command = [
+            self.ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(source), "-t", str(TRANSCODE_MAX_SECONDS),
+            "-vf", scale, "-c:v", "libx264", "-preset", "veryfast", "-crf", "26", "-maxrate", "2500k", "-bufsize", "5000k",
+            "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", str(target),
+        ]
+        error = None
+        try:
+            result = subprocess.run(command, capture_output=True, timeout=TRANSCODE_TIMEOUT_S)
+            if result.returncode != 0 or not target.exists() or target.stat().st_size == 0:
+                error = (result.stderr or b"").decode("utf-8", "replace")[-300:] or "ffmpeg failed"
+            elif not short["media"].get("poster"):
+                subprocess.run([self.ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-ss", "0.5", "-i", str(target),
+                                "-frames:v", "1", "-vf", "scale=360:-2", str(poster)], capture_output=True, timeout=60)
+        except (OSError, subprocess.TimeoutExpired) as err:
+            error = str(err)
+        with self.s.lock:
+            short = self.s.get("short", short_id)
+            if not short:
+                return
+            media = short["media"]
+            media["processing"] = False
+            if error:
+                media["transcodeError"] = error
+                target.unlink(missing_ok=True)
+            else:
+                if source != target:
+                    source.unlink(missing_ok=True)
+                media.update({"url": f"/media/{target.name}", "type": "video/mp4", "transcoded": True})
+                if not media.get("poster") and poster.exists():
+                    media["poster"] = f"/media/{poster.name}"
+            self.s.put("short", short_id, short)
+            self.s.commit()
+
+
+class Fade(SafetyMixin):
+    def __init__(self, store: Store, **safety):
         self.s = store
         self.auth_hits = {}
+        self.setup_safety(**safety)
 
     # ----- lookups -----
     def barber(self, barber_id):
@@ -452,6 +855,7 @@ class Fade:
             raise ApiError(400, "Password must be at least 8 characters")
         if role not in ("customer", "barber", "owner"):
             raise ApiError(400, "role must be customer, barber or owner")
+        self.ensure_clean(name, "name")
         with self.s.lock:
             if self.s.db.execute("SELECT 1 FROM emails WHERE email = ?", (email,)).fetchone():
                 raise ApiError(409, "An account with this email already exists")
@@ -471,6 +875,7 @@ class Fade:
                 "joined": ["g1", "g2"], "claimed": {}, "referrals": 0, "creatorPaid": 0.0,
                 "bio": "", "followers": 0, "barberId": None, "placeId": None, "createdAt": now_ts(),
                 "location": {"lat": -6.225, "lng": 106.809, "label": "Senopati, Jakarta"},
+                "notify": self.new_topic(), "pushOn": True,
             }
             if role == "barber":
                 user["barberId"] = self.create_barber(user, body.get("barber") or {})
@@ -630,7 +1035,11 @@ class Fade:
             self.add_boost(place["id"], 5)
             self.save_user(user)
             self.s.commit()
-            return {"booking": booking, "earned": earned}
+        when = f"{key} {int(t):02d}:{int(round((t % 1) * 60)):02d}"
+        self.notify(user["id"], "You're booked ✂️", f"{service['name']} with {barber['name']} · {when}", "/bookings")
+        if barber.get("ownerId"):
+            self.notify(barber["ownerId"], "New booking ✂️", f"{user['name']} · {service['name']} · {when}", "/pro")
+        return {"booking": booking, "earned": earned}
 
     def owned_booking(self, user, booking_id, as_barber=False):
         booking = self.s.get("booking", booking_id)
@@ -664,7 +1073,10 @@ class Fade:
             self.s.put("booking", booking["id"], booking)
             self.save_user(user)
             self.s.commit()
-            return {"refunded": refunded, "free": free}
+        barber = self.s.get("barber", booking["barberId"]) or {}
+        if barber.get("ownerId"):
+            self.notify(barber["ownerId"], "Booking cancelled", f"{user['name']} cancelled {booking['serviceName']} on {booking['date']}", "/pro")
+        return {"refunded": refunded, "free": free}
 
     def reschedule_booking(self, user, booking_id, body):
         with self.s.lock:
@@ -678,10 +1090,12 @@ class Fade:
             t = number_field(body, "time", 0, 24)
             place_id = text_field(body, "placeId", 40)
             self.validate_slot(user, barber, service, key, t, place_id, exclude_id=booking["id"])
-            booking.update({"date": key, "time": t, "placeId": place_id})
+            booking.update({"date": key, "time": t, "placeId": place_id, "reminded": False})
             self.s.put("booking", booking["id"], booking)
             self.s.commit()
-            return {"booking": booking}
+        if barber.get("ownerId"):
+            self.notify(barber["ownerId"], "Booking moved", f"{user['name']} moved {booking['serviceName']} to {key}", "/pro")
+        return {"booking": booking}
 
     def complete(self, booking, in_person_label="Paid at shop (in person)"):
         """Finish a booking: settle the in-person balance and release creator commission."""
@@ -701,6 +1115,7 @@ class Fade:
                 commission["status"] = "earned"
                 commission["earnedAt"] = now_ts()
                 self.s.put("commission", commission["id"], commission)
+                self.notify(commission["creatorId"], "Commission earned 💸", f"${commission['amount']:.2f} from a booking your short sent", "/creator")
         self.s.put("booking", booking["id"], booking)
 
     def barber_complete(self, user, booking_id):
@@ -710,7 +1125,8 @@ class Fade:
                 raise ApiError(400, "Booking is not upcoming")
             self.complete(booking, "Paid at shop")
             self.s.commit()
-            return {"booking": booking}
+        self.notify(booking["userId"], "How was your cut? ⭐", f"Rate {booking['serviceName']} and leave a tip if you like", "/bookings")
+        return {"booking": booking}
 
     def auto_complete(self):
         """Bookings whose end time has passed (in the place's timezone) complete automatically."""
@@ -869,11 +1285,13 @@ class Fade:
         return doc.get("ownerId") if doc else None
 
     def upload_short(self, user, meta, content_type, data):
+        self.ensure_active(user)
         if content_type not in UPLOAD_TYPES:
             raise ApiError(415, "Upload an MP4, WebM, MOV, JPG, PNG or WebP")
         if not data:
             raise ApiError(400, "empty upload")
         caption = text_field(meta, "caption", 300)
+        self.ensure_clean(caption, "caption")
         category = meta.get("category")
         if category not in SHORT_CATEGORIES:
             raise ApiError(400, "Pick what the short is about (haircut-related categories only)")
@@ -905,12 +1323,21 @@ class Fade:
             "caption": caption, "category": category, "tags": tags,
             "media": {"kind": "video" if content_type.startswith("video/") else "image",
                       "url": f"/media/{file_name}", "type": content_type, "poster": poster,
-                      "duration": meta.get("duration")},
+                      "duration": meta.get("duration"), "optimized": bool(meta.get("optimized"))},
             "likes": 0, "views": 0, "shares": 0, "conversions": 0, "likedBy": [], "createdAt": now_ts(),
         }
+        transcode = short["media"]["kind"] == "video" and bool(self.ffmpeg) and not meta.get("optimized")
+        if transcode:
+            short["media"]["processing"] = True
         with self.s.lock:
             self.s.put("short", short_id, short)
             self.s.commit()
+        if transcode:
+            self.queue_transcode(short)
+        for tag in tags:
+            owner = self.tag_owner(tag)
+            if tag["status"] == "pending" and owner:
+                self.notify(owner, "You were tagged in a short", f"{user['name']} tagged you ({tag['kind']}) — approve it in Fade", "/pro")
         return {"short": self.public_short(short, user)}
 
     def short_action(self, user, short_id, action):
@@ -960,9 +1387,14 @@ class Fade:
             self.s.commit()
             return {"ok": True}
 
-    def public_short(self, short, user):
+    def public_short(self, short, user, comment_counts=None):
         doc = {key: value for key, value in short.items() if key != "likedBy"}
         doc["likedByMe"] = bool(user) and user["id"] in short.get("likedBy", [])
+        doc["ownerPk"] = short.get("userId")
+        if comment_counts is not None:
+            doc["comments"] = comment_counts.get(short["id"], 0)
+        if self.is_hidden("short", short["id"]):
+            doc["hidden"] = True
         return doc
 
     def find_tag(self, short, kind, target_id):
@@ -986,6 +1418,7 @@ class Fade:
             "createdAt": now_ts(),
         }
         self.s.put("commission", commission["id"], commission)
+        self.notify(commission["creatorId"], "Your short sent a booking 🔥", f"${commission['amount']:.2f} commission pending until the cut is done", "/creator")
         short["conversions"] = short.get("conversions", 0) + 1
         self.s.put("short", short["id"], short)
         return commission
@@ -1081,7 +1514,9 @@ class Fade:
         return {"threadId": thread_id}
 
     def post_message(self, user, thread_id, body):
+        self.ensure_active(user)
         text = text_field(body, "text", 1000)
+        self.ensure_clean(text, "message")
         with self.s.lock:
             thread = self.s.get("thread", thread_id)
             if not thread or not self.visible_thread(user, thread):
@@ -1100,7 +1535,12 @@ class Fade:
             thread["messages"] = thread["messages"][-300:]
             self.s.put("thread", thread_id, thread)
             self.s.commit()
-            return {"ok": True}
+        if thread["type"] == "dm":
+            barber = self.s.get("barber", thread["barberId"]) or {}
+            recipient = thread["userId"] if is_barber_side else barber.get("ownerId")
+            if recipient and recipient != user["id"]:
+                self.notify(recipient, f"Message from {user['name']}", text[:120], "/chat")
+        return {"ok": True}
 
     def membership(self, user, thread_id, join):
         with self.s.lock:
@@ -1333,7 +1773,21 @@ class Fade:
             if thread["type"] == "group":
                 copy["joined"] = thread["id"] in user.get("joined", [])
             threads.append(copy)
-        shorts = sorted(self.s.all("short"), key=lambda s: -s["createdAt"])[:300]
+        mod = self.mod_doc()
+        admin = self.is_admin(user)
+        if not user.get("notify"):
+            with self.s.lock:
+                user["notify"] = self.new_topic()
+                self.save_user(user)
+                self.s.commit()
+        shorts = [s for s in self.s.all("short")
+                  if s.get("userId") == user["id"] or admin
+                  or (f"short:{s['id']}" not in mod["hidden"] and s.get("userId") not in mod["banned"])]
+        shorts = sorted(shorts, key=lambda s: -s["createdAt"])[:300]
+        comments = self.visible_comments(user, {s["id"] for s in shorts})
+        comment_counts = {}
+        for comment in comments:
+            comment_counts[comment["shortId"]] = comment_counts.get(comment["shortId"], 0) + 1
         barbers = []
         for barber in self.s.all("barber"):
             copy = dict(barber)
@@ -1348,9 +1802,12 @@ class Fade:
         owed = [c for c in self.s.all("commission")
                 if (c["payerType"] == "barber" and c["payerId"] == my_barber) or (c["payerType"] == "place" and c["payerId"] == my_place)]
         private = {key: value for key, value in user.items() if key not in ("salt", "pw")}
+        private["admin"] = admin
+        private["suspended"] = user["id"] in mod["banned"]
         private["followers"] = user.get("followers", 0) + counts.get(f"user:{user['id']}", 0)
         return {
-            "server": {"app": APP_NAME, "version": APP_VERSION, "time": now_ts()},
+            "server": {"app": APP_NAME, "version": APP_VERSION, "time": now_ts(), "ntfy": self.ntfy or "",
+                       "push": bool(self.ntfy), "transcode": bool(self.ffmpeg)},
             "user": private,
             "barbers": sorted(barbers, key=lambda b: b["id"]),
             "places": sorted(places, key=lambda p: p["id"]),
@@ -1359,7 +1816,10 @@ class Fade:
             "txns": sorted([t for t in self.s.all("txn") if t["userId"] == user["id"]], key=lambda t: t["date"], reverse=True)[:100],
             "orders": [o for o in self.s.all("order") if o["userId"] == user["id"]],
             "threads": threads,
-            "shorts": [self.public_short(s, user) for s in shorts],
+            "shorts": [self.public_short(s, user, comment_counts) for s in shorts],
+            "comments": comments,
+            "notifications": self.notifications_for(user),
+            "moderation": {"isAdmin": admin, "openReports": sum(1 for r in self.s.all("report") if r["status"] == "open") if admin else 0},
             "creators": creators,
             "commissions": [c for c in self.s.all("commission") if c["creatorId"] == user["id"]],
             "commissionsOwed": owed,
@@ -1578,6 +2038,46 @@ def r_place(app, req, user, m):
     return app.save_place(user, req.json())
 
 
+@route("POST", r"/api/report")
+def r_report(app, req, user, m):
+    return app.report(user, req.json())
+
+
+@route("GET", r"/api/mod")
+def r_mod_queue(app, req, user, m):
+    return app.mod_queue(user)
+
+
+@route("POST", r"/api/mod")
+def r_moderate(app, req, user, m):
+    return app.moderate(user, req.json())
+
+
+@route("POST", r"/api/comments")
+def r_comment(app, req, user, m):
+    return app.add_comment(user, req.json())
+
+
+@route("DELETE", r"/api/comments/([\w-]+)")
+def r_delete_comment(app, req, user, m):
+    return app.delete_comment(user, m.group(1))
+
+
+@route("GET", r"/api/notifications")
+def r_notifications(app, req, user, m):
+    return {"notifications": app.notifications_for(user)}
+
+
+@route("POST", r"/api/notifications/read")
+def r_notifications_read(app, req, user, m):
+    return app.mark_read(user)
+
+
+@route("PUT", r"/api/me/push")
+def r_push_settings(app, req, user, m):
+    return app.update_push(user, req.json())
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "Fade/" + APP_VERSION
     app: Fade = None
@@ -1662,6 +2162,8 @@ class Handler(BaseHTTPRequestHandler):
                 user = self.app.user_by_token(self.token())
                 if auth and not user:
                     raise ApiError(401, "Please log in")
+                if user and method != "GET" and not path.endswith("/auth/logout") and self.app.is_banned(user):
+                    raise ApiError(403, "This account is suspended for breaking the community guidelines")
                 return self.send_json(200, func(self.app, self, user, match))
             raise ApiError(404, "not found")
         except ApiError as err:
@@ -1735,10 +2237,12 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
 
-def make_server(host, port, data_dir, quiet=False):
+def make_server(host, port, data_dir, quiet=False, admins=(), ntfy=None, public_url="", ffmpeg="off", sweeper=False):
     store = Store(Path(data_dir))
-    Handler.app = Fade(store)
+    Handler.app = Fade(store, admins=admins, ntfy=ntfy, public_url=public_url, ffmpeg=ffmpeg)
     Handler.quiet = quiet
+    if sweeper:
+        Handler.app.start_sweeper()
     return ThreadingHTTPServer((host, port), Handler)
 
 
@@ -1748,9 +2252,23 @@ def main():
     parser.add_argument("--port", type=int, default=8790)
     parser.add_argument("--data", default=os.environ.get("FADE_DATA") or str(BASE_DIR / "data"))
     parser.add_argument("--quiet", action="store_true")
+    parser.add_argument("--admin", action="append", default=[], metavar="EMAIL",
+                        help="moderator account email (repeatable; also FADE_ADMINS=a@x,b@y)")
+    parser.add_argument("--ntfy", default=os.environ.get("FADE_NTFY", "https://ntfy.sh"),
+                        help="ntfy server for push notifications ('off' to disable)")
+    parser.add_argument("--public-url", default=os.environ.get("FADE_PUBLIC_URL", ""),
+                        help="public https URL of this server, used for links in push notifications")
+    parser.add_argument("--ffmpeg", default=os.environ.get("FADE_FFMPEG", "auto"),
+                        help="ffmpeg binary for server-side transcoding ('auto' = from PATH, 'off' to disable)")
     args = parser.parse_args()
-    server = make_server(args.host, args.port, args.data, args.quiet)
+    admins = args.admin + [e for e in os.environ.get("FADE_ADMINS", "").split(",") if e.strip()]
+    ntfy = None if args.ntfy.lower() == "off" else args.ntfy
+    server = make_server(args.host, args.port, args.data, args.quiet, admins=admins, ntfy=ntfy,
+                         public_url=args.public_url, ffmpeg=args.ffmpeg, sweeper=True)
+    app = Handler.app
     print(f"Fade {APP_VERSION} running on http://{args.host}:{args.port}/  (data: {args.data})")
+    print(f"  moderators: {', '.join(sorted(app.admins)) or 'none (add --admin you@example.com)'}")
+    print(f"  push: {app.ntfy or 'off'} · transcoding: {app.ffmpeg or 'off (ffmpeg not found; browsers still optimise uploads)'}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
