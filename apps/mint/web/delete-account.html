@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Delete your Mint account</title>
+  <meta name="description" content="How to delete your Mint account and what data is removed or kept.">
+  <meta name="theme-color" content="#0f9d76">
+  <link rel="icon" href="icons/app-icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="app.css">
+  <style>
+    .legal { max-width: 760px; margin: 0 auto; padding: 28px 20px 60px; line-height: 1.65; }
+    .legal h2 { margin-top: 28px; }
+    .legal li { margin: 4px 0; }
+    .legal form { display: grid; gap: 10px; max-width: 420px; margin-top: 12px; }
+    .legal input { padding: 10px 12px; border-radius: 10px; border: 1px solid #c9d6d0; font: inherit; }
+    .legal button { padding: 11px 14px; border-radius: 10px; border: 0; background: #c0392b; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+    .legal button[disabled] { opacity: .6; cursor: wait; }
+    .legal .status { min-height: 1.5em; font-weight: 600; }
+    .legal .status.ok { color: #0f7a5c; }
+    .legal .status.err { color: #c0392b; }
+  </style>
+</head>
+<body>
+  <main class="legal">
+    <p><a href="app.html">← Back to Mint</a></p>
+    <h1>Delete your Mint account</h1>
+    <p>Mint (by Juwen Lie) lets you delete your account at any time, from the app or from this page. You do not need the app installed.</p>
+
+    <h2>Option 1 — in the app</h2>
+    <ol>
+      <li>Open Mint and sign in.</li>
+      <li>Go to <em>Account</em> and scroll to <em>Delete account</em>.</li>
+      <li>Enter your password and confirm.</li>
+    </ol>
+
+    <h2>Option 2 — right here</h2>
+    <p>Sign in with the email and password of the account you want to delete. This cannot be undone.</p>
+    <form id="delete-form" autocomplete="on">
+      <input name="email" type="email" placeholder="Email" required autocomplete="username">
+      <input name="password" type="password" placeholder="Password" required autocomplete="current-password">
+      <label class="small"><input name="confirm" type="checkbox" required> I understand my account will be permanently deleted.</label>
+      <button type="submit">Delete my account</button>
+      <p class="status" id="delete-status" role="status" aria-live="polite"></p>
+    </form>
+
+    <h2>Option 3 — by email</h2>
+    <p>Forgot your password and lost your recovery code? Email <a href="mailto:juwen12006@gmail.com?subject=Mint%20account%20deletion">juwen12006@gmail.com</a> from the address you signed up with, with the subject “Mint account deletion”. Requests are handled within 14 days.</p>
+
+    <h2>What is deleted</h2>
+    <ul>
+      <li>Your login: email, name, password hash and recovery-code hash (replaced with an anonymous placeholder).</li>
+      <li>Your drafts, affiliate links, payout details, connected payment-provider keys, push-notification subscriptions and all sign-in sessions.</li>
+      <li>Your listings are taken off the market and their payment links removed. Pending orders are cancelled.</li>
+    </ul>
+    <p>Deletion is immediate. Encrypted platform backups (Cloudflare) roll over within 30 days.</p>
+
+    <h2>What is kept, and why</h2>
+    <ul>
+      <li>Completed order records (reference, template, price, date) stay so the other party keeps their purchase or sales history. Your name on them shows as “Deleted user”.</li>
+      <li>Reviews you wrote stay, shown as “Deleted user”.</li>
+      <li>Templates you bought are no longer accessible to you after deletion; download any files you want to keep first.</li>
+    </ul>
+    <p class="muted small">See the <a href="privacy.html">Privacy policy</a> for everything Mint stores.</p>
+  </main>
+  <script>
+    (function () {
+      var API = "https://mint-api.juw12.workers.dev";
+      var form = document.getElementById("delete-form");
+      var statusLine = document.getElementById("delete-status");
+      var button = form.querySelector("button");
+
+      function show(message, kind) {
+        statusLine.textContent = message;
+        statusLine.className = "status " + (kind || "");
+      }
+
+      function post(path, body, token) {
+        var headers = { "Content-Type": "application/json" };
+        if (token) {
+          headers.Authorization = "Bearer " + token;
+        }
+        return fetch(API + "/api/" + path, {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify(body),
+          credentials: "omit"
+        }).then(function (res) {
+          return res.json().catch(function () { return {}; }).then(function (data) {
+            if (!res.ok) {
+              throw new Error(data.error || ("Request failed (" + res.status + ")"));
+            }
+            return data;
+          });
+        });
+      }
+
+      form.addEventListener("submit", function (event) {
+        event.preventDefault();
+        var email = form.email.value.trim();
+        var password = form.password.value;
+        if (!form.confirm.checked) {
+          show("Tick the box to confirm.", "err");
+          return;
+        }
+        button.disabled = true;
+        show("Signing in…");
+        post("auth/login", { email: email, password: password })
+          .then(function (session) {
+            show("Deleting account…");
+            return post("me/delete", { password: password }, session.token);
+          })
+          .then(function () {
+            form.reset();
+            show("Your Mint account has been deleted.", "ok");
+            try {
+              localStorage.removeItem("mint.token");
+            } catch (e) {}
+          })
+          .catch(function (error) {
+            show(error.message || "Something went wrong. Try again or email us.", "err");
+          })
+          .then(function () {
+            button.disabled = false;
+          });
+      });
+    })();
+  </script>
+</body>
+</html>

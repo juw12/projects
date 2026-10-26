@@ -17,7 +17,11 @@
   <main class="legal">
     <p><a href="app.html">← Back to Mint</a></p>
     <h1>Privacy</h1>
-    <p class="muted small">Last updated 26 October 2026. Plain-language summary written for Mint; not reviewed by a lawyer.</p>
+    <p class="muted small">Last updated 27 October 2026. Plain-language policy written for Mint with Indonesia’s Personal Data Protection Law (UU No. 27 Tahun 2022) in mind; not yet reviewed by a lawyer.</p>
+
+    <h2>Who is responsible</h2>
+    <p>Mint is a personal project run by Juwen Lie, Batam, Indonesia (the data controller). Contact: <a href="mailto:juwen12006@gmail.com?subject=Mint%20privacy">juwen12006@gmail.com</a>.</p>
+
     <h2>What Mint stores</h2>
     <ul>
       <li><strong>Account:</strong> your name, email, a salted PBKDF2 hash of your password and a SHA-256 hash of your recovery code. Mint never sees or stores the password or code itself.</li>
@@ -28,22 +32,51 @@
       <li><strong>Sign-in sessions:</strong> a random token kept in your browser’s local storage; the server keeps only its hash.</li>
       <li><strong>Abuse protection:</strong> your network address is used briefly for rate limits (sign-up, login, clicks) and is not stored with your account.</li>
     </ul>
+    <p>Mint does not collect location, contacts, photos, device identifiers for advertising, or card or bank numbers.</p>
+
+    <h2>Why, and on what basis</h2>
+    <ul>
+      <li><strong>To run your account and the marketplace</strong> (sign-in, listings, orders, unlocking files, affiliate tracking): needed to provide the service you asked for.</li>
+      <li><strong>Notifications and automatic payments:</strong> only with your consent — you switch them on and can switch them off at any time.</li>
+      <li><strong>Security and abuse prevention</strong> (rate limits, reports): legitimate interest in keeping Mint safe.</li>
+    </ul>
+    <p>No ads, no analytics trackers, no profiling, no selling or renting of data.</p>
+
     <h2>Who sees what</h2>
     <ul>
       <li>When you order a paid template, the seller sees your name, email and order reference so they can match your payment.</li>
       <li>Your public name appears on listings you sell and reviews you write.</li>
-      <li>Payments happen on the seller’s own checkout (for example Lynk.id, Saweria, PayPal). Mint never receives card or bank data; that checkout’s own privacy policy applies.</li>
+      <li>Payments happen on the seller’s own checkout: a payment link (for example Lynk.id, Saweria, PayPal) or the seller’s own Midtrans, Xendit or Stripe account. Mint never receives card or bank data; it only reads whether an order is paid. That provider’s privacy policy applies to the payment.</li>
       <li>Mint AI prompts are sent to Cloudflare Workers AI to generate a template and are not used to identify you.</li>
     </ul>
-    <h2>Where it lives</h2>
-    <p>The website is hosted on GitHub Pages; the Mint API and database run on Cloudflare Workers / Durable Objects. No ads, no analytics trackers, no selling of data.</p>
-    <h2>Your choices</h2>
+
+    <h2>Where it lives (transfers outside Indonesia)</h2>
+    <p>The website is hosted on GitHub Pages (United States) and the Mint API and database run on Cloudflare Workers / Durable Objects, which may process data in data centres outside Indonesia. These providers apply their own security safeguards and data-processing terms. All traffic is encrypted in transit (HTTPS).</p>
+
+    <h2>How long it is kept</h2>
     <ul>
-      <li>Edit your name and payout details in <em>Account</em>.</li>
-      <li><strong>Delete your account</strong> in <em>Account → Delete account</em>. This removes your login, drafts, affiliate links, payout details and sessions and takes your listings off the market. Order records stay so buyers and sellers keep their purchase history, shown as “Deleted user”.</li>
-      <li>Offline mode keeps data only in your browser; clear it in <em>Account</em>.</li>
+      <li>Account data: while your account exists. Deleting your account removes it immediately; Cloudflare’s rolling backups expire within 30 days.</li>
+      <li>Sign-in sessions: until you log out or they expire. Rate-limit records: minutes to hours.</li>
+      <li>Pending orders expire after 14 days. Completed order records are kept so both sides keep their purchase or sales history; after account deletion they show “Deleted user”.</li>
     </ul>
-    <p class="muted small">Questions or requests: contact the maker through <a href="https://juw12.github.io/portfolio/" rel="noopener">juw12.github.io/portfolio</a>.</p>
+
+    <h2>Your rights</h2>
+    <p>You can ask to access, correct, update or get a copy of your personal data; withdraw consent; object to or restrict processing; and have your data deleted.</p>
+    <ul>
+      <li>Edit your name and payout details in <em>Account</em>. Switch notifications and automatic payments off in <em>Account</em> and <em>Sell</em>.</li>
+      <li><strong>Delete your account</strong> in <em>Account → Delete account</em>, or on the web at <a href="delete-account.html">Delete your account</a>, even without the app.</li>
+      <li>Offline mode keeps data only in your browser; clear it in <em>Account</em>.</li>
+      <li>For anything else, email <a href="mailto:juwen12006@gmail.com?subject=Mint%20privacy%20request">juwen12006@gmail.com</a>. Requests are answered within 14 days (3 × 24 hours for urgent security issues).</li>
+    </ul>
+
+    <h2>Security and breaches</h2>
+    <p>Passwords are hashed, payment keys encrypted, sessions stored as hashes and access is rate-limited. If a breach affects your personal data, Mint will tell affected users and the authorities in writing within 3 × 24 hours of finding out, as UU PDP requires.</p>
+
+    <h2>Children</h2>
+    <p>Mint is not meant for children under 13. Users under 18 should use Mint, and especially buy or sell, only with a parent’s or guardian’s permission.</p>
+
+    <h2>Changes</h2>
+    <p>Material changes are announced in the app before they take effect. The date at the top shows the latest version.</p>
   </main>
 </body>
 </html>
