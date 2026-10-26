@@ -6,7 +6,7 @@
   var catalog = window.SyncCatalog;
   var Players = window.SyncPlayers;
   var config = window.SYNC_CONFIG || {};
-  var VERSION = '1.0.0';
+  var VERSION = '1.1.0';
   var TICK_MS = 250;
   var DUCK_LEVEL = 0.3;
   var REACTIONS = ['🔥', '😍', '🙌', '💃', '😂', '🎉'];
@@ -44,6 +44,38 @@
       duck: prefs.duck,
       volume: prefs.volume,
     }));
+  }
+
+  /* ---------- icons (inline SVG, stroke = currentColor) ---------- */
+
+  var ICON_PATHS = {
+    play: '<path d="M8 5.6v12.8a1 1 0 0 0 1.5.86l10.6-6.4a1 1 0 0 0 0-1.72L9.5 4.74A1 1 0 0 0 8 5.6z" fill="currentColor" stroke="none"/>',
+    pause: '<rect x="6" y="5" width="4" height="14" rx="1.2" fill="currentColor" stroke="none"/><rect x="14" y="5" width="4" height="14" rx="1.2" fill="currentColor" stroke="none"/>',
+    prev: '<path d="M18 6.5v11a1 1 0 0 1-1.55.83L9 13v4.5" fill="none"/><path d="M18 6.5v11a1 1 0 0 1-1.55.83L9.6 12.8a1 1 0 0 1 0-1.6l6.85-4.53A1 1 0 0 1 18 6.5z" fill="currentColor" stroke="none"/><rect x="5.5" y="6" width="2.4" height="12" rx="1" fill="currentColor" stroke="none"/>',
+    next: '<path d="M6 6.5v11a1 1 0 0 0 1.55.83l6.85-4.53a1 1 0 0 0 0-1.6L7.55 5.67A1 1 0 0 0 6 6.5z" fill="currentColor" stroke="none"/><rect x="16.1" y="6" width="2.4" height="12" rx="1" fill="currentColor" stroke="none"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    settings: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
+    leave: '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H3"/>',
+    link: '<path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.2 1.2"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.2-1.2"/>',
+    mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>',
+    micOff: '<path d="M15 9.5V6a3 3 0 0 0-5.7-1.3M9 9v2a3 3 0 0 0 4.9 2.3M5.5 11a6.5 6.5 0 0 0 10.4 5.2M18.5 11a6.4 6.4 0 0 1-.5 2.4M12 17.5V21M3 3l18 18"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+    upload: '<path d="M12 15V4M7 9l5-5 5 5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>',
+    queue: '<path d="M4 6h12M4 12h12M4 18h7"/><circle cx="18" cy="17" r="2.5"/><path d="M20.5 17V9l-2.5-1"/>',
+    users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M21.5 20a6.5 6.5 0 0 0-4-6"/>',
+    disc: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/>',
+    x: '<path d="M6 6l12 12M18 6L6 18"/>',
+    music: '<path d="M9 18V5.5l11-2V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
+    send: '<path d="M21 3L10 14M21 3l-6.5 18-4.5-7-7-4.5z"/>',
+    globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+    shuffle: '<path d="M16 4h4v4M4 20L20 4M20 16v4h-4M14.5 14.5L20 20M4 4l5 5"/>',
+    copy: '<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
+    playSmall: '<path d="M9 6.5v11l9-5.5z" fill="currentColor" stroke="none"/>',
+  };
+
+  function icon(name) {
+    return '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICON_PATHS[name] || '') + '</svg>';
   }
 
   /* ---------- helpers ---------- */
@@ -118,42 +150,55 @@
     stopRoom();
     document.title = 'Sync — listen together, live';
     root.innerHTML =
-      '<main class="landing">' +
-      '  <section class="hero">' +
-      '    <div class="brand"><span class="logo-mark" aria-hidden="true"></span><h1>Sync</h1></div>' +
-      '    <p class="tagline">Listen together in real time, from anywhere.</p>' +
-      '    <ul class="pitch">' +
-      '      <li><span>🎧</span>Same song, same second, different cities. No shared Wi-Fi or Bluetooth.</li>' +
-      '      <li><span>🔀</span>Spotify, Apple Music and YouTube listeners in one room.</li>' +
-      '      <li><span>🎙️</span>Voice chat that lowers the music while friends talk.</li>' +
-      '    </ul>' +
-      '  </section>' +
-      '  <section class="card join-card">' +
-      (prefillCode ? '<p class="invite-note">You were invited to room <b>' + esc(prefillCode) + '</b></p>' : '') +
-      '    <label class="field"><span>Your name</span><input id="name" maxlength="40" autocomplete="nickname" placeholder="e.g. Maya"></label>' +
-      '    <label class="field"><span>I listen on</span>' +
-      '      <select id="service">' +
-      '        <option value="auto">Anything that works (free)</option>' +
-      '        <option value="spotify">Spotify</option>' +
-      '        <option value="apple">Apple Music</option>' +
-      '        <option value="youtube">YouTube / YouTube Music</option>' +
-      '      </select></label>' +
+      '<div class="ambient" aria-hidden="true"><span></span><span></span><span></span></div>' +
+      '<div class="landing">' +
+      '  <nav class="landing-nav">' +
+      '    <span class="brand"><span class="logo" aria-hidden="true"></span>Sync</span>' +
+      '    <a class="src" href="https://github.com/juwpegatron/projects/tree/main/apps/sync" target="_blank" rel="noopener">Source</a>' +
+      '  </nav>' +
+      '  <main class="landing-main">' +
+      '    <section>' +
+      '      <p class="eyebrow">Real-time listening rooms</p>' +
+      '      <h1 class="headline">Same song.<br>Same second.<br><em>Anywhere.</em></h1>' +
+      '      <p class="lede">Start a room, send the link, and hear every beat together, even if you’re in different cities. No account, no app, no shared Wi-Fi.</p>' +
+      '      <div class="join-card">' +
+      (prefillCode ? '<p class="invite-note">You’re invited to room <b>' + esc(prefillCode) + '</b></p>' : '') +
+      '        <div class="split">' +
+      '          <label class="field"><span>Your name</span><input id="name" maxlength="40" autocomplete="nickname" placeholder="Maya"></label>' +
+      '          <label class="field"><span>I listen on</span>' +
+      '            <select id="service">' +
+      '              <option value="auto">Anything</option>' +
+      '              <option value="spotify">Spotify</option>' +
+      '              <option value="apple">Apple Music</option>' +
+      '              <option value="youtube">YouTube</option>' +
+      '            </select></label>' +
+      '        </div>' +
       (prefillCode
-        ? '    <button id="join-invite" class="primary big">Join room ' + esc(prefillCode) + '</button>' +
-          '    <div class="or"><span>or</span></div>' +
-          '    <button id="create" class="ghost">Start my own room</button>'
-        : '    <button id="create" class="primary big">Start a room</button>' +
-          '    <div class="or"><span>or join a friend</span></div>' +
-          '    <form id="join-form" class="row"><input id="code" placeholder="Room code" maxlength="12" autocapitalize="characters" autocomplete="off" spellcheck="false"><button type="submit">Join</button></form>') +
-      '    <p class="fine">No account or install. Music, voice and chat go directly between browsers.</p>' +
-      '  </section>' +
-      '  <section class="how">' +
-      '    <div><b>1</b><p>Start a room and send the invite link.</p></div>' +
-      '    <div><b>2</b><p>Search a song, paste a link or share your own file.</p></div>' +
-      '    <div><b>3</b><p>Everyone hears it at the same moment. Join voice to talk over it.</p></div>' +
-      '  </section>' +
-      '  <footer class="foot">Sync ' + VERSION + ' · <a href="https://github.com/juwpegatron/projects/tree/main/apps/sync" target="_blank" rel="noopener">Source</a></footer>' +
-      '</main>' +
+        ? '        <button id="join-invite" class="accent big">Join room ' + esc(prefillCode) + '</button>' +
+          '        <button id="create" class="ghost">or start your own room</button>'
+        : '        <button id="create" class="accent big">Start a room</button>' +
+          '        <div class="or">or join a friend</div>' +
+          '        <form id="join-form" class="row"><input id="code" class="code-input" placeholder="Room code" maxlength="12" autocapitalize="characters" autocomplete="off" spellcheck="false"><button type="submit">Join</button></form>') +
+      '      </div>' +
+      '      <ul class="features">' +
+      '        <li>' + icon('shuffle') + 'Spotify, Apple Music &amp; YouTube in one room</li>' +
+      '        <li>' + icon('mic') + 'Voice chat that lowers the music</li>' +
+      '        <li>' + icon('upload') + 'Share your own tracks</li>' +
+      '      </ul>' +
+      '    </section>' +
+      '    <div class="hero-visual" aria-hidden="true">' +
+      '      <div class="ring"></div><div class="ring"></div>' +
+      '      <div class="record"></div>' +
+      '      <div class="listener l1"><span class="av" style="--h:340">M</span><div>Maya<small>Jakarta · 0:42</small></div><span class="bars"><b></b><b></b><b></b></span></div>' +
+      '      <div class="listener l2"><span class="av" style="--h:200">K</span><div>Kenji<small>Tokyo · 0:42</small></div><span class="bars"><b></b><b></b><b></b></span></div>' +
+      '      <div class="listener l3"><span class="av" style="--h:40">L</span><div>Lena<small>Berlin · 0:42</small></div><span class="bars"><b></b><b></b><b></b></span></div>' +
+      '    </div>' +
+      '  </main>' +
+      '  <footer class="landing-foot">' +
+      '    <span><b>1</b> Start a room</span><span><b>2</b> Share the link</span><span><b>3</b> Press play together</span>' +
+      '    <span>Sync ' + VERSION + '</span>' +
+      '  </footer>' +
+      '</div>' +
       '<div id="toasts" class="toasts" aria-live="polite"></div>';
 
     $('#name').value = prefs.name;
@@ -228,7 +273,7 @@
     room.on('status', function (status) {
       var pill = $('#conn');
       if (pill) {
-        pill.className = 'pill ' + status.level;
+        pill.className = 'status ' + status.level;
         pill.textContent = status.text;
       }
     });
@@ -289,62 +334,87 @@
 
   function renderRoomShell(code) {
     root.innerHTML =
-      '<div class="room">' +
+      '<div class="room" data-view="stage">' +
+      '  <div class="ambient" aria-hidden="true"><span></span><span></span><span></span></div>' +
       '  <header class="topbar">' +
-      '    <div class="brand small"><span class="logo-mark" aria-hidden="true"></span><b>Sync</b></div>' +
-      '    <button id="invite" class="code-chip" title="Copy invite link">Room <b>' + esc(code) + '</b><span>Invite</span></button>' +
+      '    <span class="brand"><span class="logo" aria-hidden="true"></span><span class="word">Sync</span></span>' +
+      '    <button id="invite" class="room-chip" title="Copy invite link"><span class="code">' + esc(code) + '</span><span class="copy">' + icon('link') + 'Invite</span></button>' +
+      '    <span class="spacer"></span>' +
       '    <div id="avatars" class="avatars"></div>' +
-      '    <span id="conn" class="pill warn">Connecting…</span>' +
-      '    <button id="settings-btn" class="icon-btn" aria-label="Settings" title="Settings">⚙</button>' +
-      '    <button id="leave" class="icon-btn" aria-label="Leave room" title="Leave room">✕</button>' +
+      '    <span id="conn" class="status warn">Connecting</span>' +
+      '    <button id="settings-btn" class="icon" aria-label="Settings" title="Settings">' + icon('settings') + '</button>' +
+      '    <button id="leave" class="icon" aria-label="Leave room" title="Leave room">' + icon('leave') + '</button>' +
       '  </header>' +
-      '  <section class="stage card">' +
-      '    <div id="media" class="media">' +
-      '      <img id="art" alt="" hidden>' +
-      '      <div id="art-empty" class="art-empty"><span class="logo-mark big" aria-hidden="true"></span></div>' +
-      '      <div id="video-slot" class="video-slot"></div>' +
-      '      <div id="reactions" class="reactions" aria-hidden="true"></div>' +
-      '    </div>' +
-      '    <div class="np-info">' +
-      '      <div class="np-titles"><h2 id="np-title">Nothing playing yet</h2><p id="np-artist" class="muted">Add a song below to get the party started</p></div>' +
-      '      <div class="np-badges"><span id="np-source" class="badge" hidden></span><span id="sync-pill" class="pill" hidden></span></div>' +
+      '  <main class="room-grid">' +
+      '    <aside class="panel queue-panel">' +
+      '      <div class="panel-head"><h3>Up next<small id="queue-count"></small></h3><button class="add-open icon sm" aria-label="Add music" title="Add music">' + icon('plus') + '</button></div>' +
+      '      <div class="panel-body"><ol id="queue" class="queue-list"></ol></div>' +
+      '    </aside>' +
+      '    <section class="stage">' +
+      '      <div class="art-wrap">' +
+      '        <div class="vinyl" aria-hidden="true"></div>' +
+      '        <div id="media" class="media">' +
+      '          <img id="art" alt="" hidden>' +
+      '          <div id="art-empty" class="art-empty">' + icon('disc') + '</div>' +
+      '          <div id="video-slot" class="video-slot"></div>' +
+      '        </div>' +
+      '        <div id="reactions" class="reactions" aria-hidden="true"></div>' +
+      '      </div>' +
+      '      <div class="np-titles"><h2 id="np-title">Nothing playing yet</h2><p id="np-artist">Add a song to get the party started</p></div>' +
+      '      <div class="np-badges"><span id="np-source" class="badge" hidden></span><span id="sync-pill" class="badge" hidden></span></div>' +
       '      <div id="embed-slot" class="embed-slot"></div>' +
       '      <div id="np-notice" class="notice" hidden></div>' +
-      '      <div class="progress"><span id="t-now">0:00</span><input id="seek" type="range" min="0" max="100" step="0.1" value="0" aria-label="Seek"><span id="t-total">0:00</span></div>' +
-      '      <div class="controls">' +
-      '        <button id="prev" class="round" aria-label="Previous">⏮</button>' +
-      '        <button id="play" class="round primary big-round" aria-label="Play">▶</button>' +
-      '        <button id="next" class="round" aria-label="Next">⏭</button>' +
-      '      </div>' +
-      '      <div class="react-bar">' + REACTIONS.map(function (e) {
+      '      <div id="stage-cta" class="empty-cta"><button class="add-open accent">' + icon('plus') + 'Add music</button></div>' +
+      '      <div id="player-ui" class="empty-cta" hidden>' +
+      '        <div class="progress"><span id="t-now">0:00</span><input id="seek" type="range" min="0" max="100" step="0.1" value="0" aria-label="Seek"><span id="t-total">0:00</span></div>' +
+      '        <div class="controls">' +
+      '          <button id="prev" class="icon" aria-label="Previous">' + icon('prev') + '</button>' +
+      '          <button id="play" class="play-btn" aria-label="Play">' + icon('play') + '</button>' +
+      '          <button id="next" class="icon" aria-label="Next">' + icon('next') + '</button>' +
+      '        </div>' +
+      '        <div class="under">' +
+      '          <div class="react-bar">' + REACTIONS.map(function (e) {
         return '<button class="react" data-emoji="' + e + '" aria-label="React ' + e + '">' + e + '</button>';
       }).join('') + '</div>' +
-      '      <div class="fine-tune"><span>My timing</span><button data-nudge="-0.1" aria-label="Play earlier">−0.1s</button><b id="nudge-val">0.0s</b><button data-nudge="0.1" aria-label="Play later">+0.1s</button></div>' +
+      '          <div class="fine-tune" title="Nudge your playback if your version of the song starts earlier or later">Timing<button data-nudge="-0.1" aria-label="Play earlier">−0.1</button><b id="nudge-val">0.0s</b><button data-nudge="0.1" aria-label="Play later">+0.1</button></div>' +
+      '        </div>' +
+      '      </div>' +
+      '    </section>' +
+      '    <aside class="panel party-panel">' +
+      '      <div class="panel-head"><h3>Party<small id="party-count"></small></h3></div>' +
+      '      <div class="voice-card">' +
+      '        <div class="voice-row"><button id="voice-btn" class="primary">' + icon('mic') + 'Join voice</button><button id="mute-btn" hidden>' + icon('mic') + 'Mute</button></div>' +
+      '        <label class="toggle"><span>Lower music when friends talk</span><input id="duck" type="checkbox"></label>' +
+      '        <p class="fine" id="voice-hint">Headphones recommended so your mic doesn’t pick up the music.</p>' +
+      '      </div>' +
+      '      <ul id="members" class="members"></ul>' +
+      '      <div class="divider"></div>' +
+      '      <div class="chat"><div id="chat-log" class="chat-log" aria-live="polite"></div>' +
+      '        <form id="chat-form" class="chat-form"><input id="chat-input" placeholder="Say something…" maxlength="500" autocomplete="off"><button type="submit" class="primary" aria-label="Send">' + icon('send') + '</button></form></div>' +
+      '    </aside>' +
+      '  </main>' +
+      '  <div class="mini" id="mini"><span id="mini-art" class="q-art">' + icon('music') + '</span><div class="meta"><b id="mini-title"></b><span id="mini-artist"></span></div><button id="mini-play" aria-label="Play or pause">' + icon('play') + '</button></div>' +
+      '  <nav class="tabbar" aria-label="Room sections">' +
+      '    <button data-show="stage" class="active">' + icon('disc') + 'Playing</button>' +
+      '    <button data-show="queue">' + icon('queue') + 'Queue</button>' +
+      '    <button data-show="party">' + icon('users') + 'Party</button>' +
+      '  </nav>' +
+      '  <dialog id="add-sheet" class="sheet">' +
+      '    <div class="sheet-head"><h3>Add music</h3><button class="icon sm" id="add-close" aria-label="Close">' + icon('x') + '</button></div>' +
+      '    <div class="sheet-body">' +
+      '      <div class="segmented" role="tablist">' +
+      '        <button role="tab" data-tab="search" class="active">Search</button>' +
+      '        <button role="tab" data-tab="link">Paste link</button>' +
+      '        <button role="tab" data-tab="upload">Your file</button>' +
+      '      </div>' +
+      '      <div data-pane="search"><form id="search-form" class="search-box">' + icon('search') + '<input id="search-q" placeholder="Songs or artists" autocomplete="off"><button type="submit" class="primary">Search</button></form><div id="results" class="results"></div></div>' +
+      '      <div data-pane="link" hidden><form id="link-form" class="search-box">' + icon('link') + '<input id="link-input" placeholder="Spotify, Apple Music or YouTube link" autocomplete="off"><button type="submit" class="primary">Add</button></form>' +
+      '        <p class="fine" style="margin-top:10px">Sync finds the same song on other services when it can, so everyone hears it on the service they use.</p></div>' +
+      '      <div data-pane="upload" hidden><label class="drop" id="drop"><input id="file-input" type="file" accept="audio/*" multiple hidden>' + icon('upload') +
+      '        <b>Drop audio files or tap to browse</b><small>Sent straight to everyone in the room and plays for all, no account needed. Only share music you have the rights to.</small></label></div>' +
       '    </div>' +
-      '  </section>' +
-      '  <section class="add card">' +
-      '    <div class="tabs" role="tablist">' +
-      '      <button role="tab" data-tab="search" class="active">Search</button>' +
-      '      <button role="tab" data-tab="link">Paste link</button>' +
-      '      <button role="tab" data-tab="upload">Share a file</button>' +
-      '    </div>' +
-      '    <div data-pane="search"><form id="search-form" class="row"><input id="search-q" placeholder="Search songs or artists" autocomplete="off"><button type="submit">Search</button></form><div id="results" class="results"></div></div>' +
-      '    <div data-pane="link" hidden><form id="link-form" class="row"><input id="link-input" placeholder="Spotify, Apple Music or YouTube song link" autocomplete="off"><button type="submit">Add</button></form>' +
-      '      <p class="fine">Sync finds the same song on other services when it can, so everyone hears it on the service they use.</p></div>' +
-      '    <div data-pane="upload" hidden><label class="drop" id="drop"><input id="file-input" type="file" accept="audio/*" multiple hidden>' +
-      '      <b>Drop audio files or tap to browse</b><small>Your own music. It’s sent straight to everyone in the room and plays for all, no account needed. Only share music you have the rights to.</small></label></div>' +
-      '  </section>' +
-      '  <section class="queue card"><h3>Up next <span id="queue-count" class="muted"></span></h3><ol id="queue" class="queue-list"></ol></section>' +
-      '  <aside class="party card">' +
-      '    <h3>Party</h3>' +
-      '    <div class="voice-row"><button id="voice-btn" class="primary">🎙️ Join voice</button><button id="mute-btn" hidden>Mute</button></div>' +
-      '    <label class="toggle"><input id="duck" type="checkbox"><span>Lower music when friends talk</span></label>' +
-      '    <p class="fine" id="voice-hint">Headphones recommended so your mic doesn’t pick up the music.</p>' +
-      '    <ul id="members" class="members"></ul>' +
-      '    <div class="chat"><div id="chat-log" class="chat-log" aria-live="polite"></div>' +
-      '      <form id="chat-form" class="row"><input id="chat-input" placeholder="Say something…" maxlength="500" autocomplete="off"><button type="submit">Send</button></form></div>' +
-      '  </aside>' +
-      '  <dialog id="settings" class="sheet">' +
+      '  </dialog>' +
+      '  <dialog id="settings" class="sheet settings">' +
       '    <form method="dialog">' +
       '      <h3>Settings</h3>' +
       '      <label class="field"><span>I listen on</span><select id="set-service">' +
@@ -354,11 +424,11 @@
       '      <label class="field"><span>Volume</span><input id="set-volume" type="range" min="0" max="1" step="0.05"></label>' +
       '      <label class="field" id="dj-field"><span>Who can control playback</span><select id="set-dj"><option value="everyone">Everyone</option><option value="host">Only me (host)</option></select></label>' +
       '      <p class="fine">Spotify plays full songs if you’re logged in to Spotify Premium in this browser, otherwise 30-second previews. Volume and auto-lowering don’t work in the Spotify player.</p>' +
-      '      <p class="fine">Privacy: there’s no Sync server. Room state, chat, voice and shared files go directly between browsers. A public matchmaking server only introduces the browsers to each other.</p>' +
+      '      <p class="fine">Privacy: there’s no Sync server. Room state, chat, voice and shared files go directly between browsers.</p>' +
       '      <div class="row end"><button value="close" class="primary">Done</button></div>' +
       '    </form>' +
       '  </dialog>' +
-      '  <div id="gesture" class="gesture" hidden><button id="gesture-btn" class="primary big">🔊 Tap to start audio</button><p>Your browser needs one tap before it plays sound.</p></div>' +
+      '  <div id="gesture" class="gesture" hidden><button id="gesture-btn" class="accent big">Tap to start audio</button><p>Your browser needs one tap before it plays sound.</p></div>' +
       '  <div id="toasts" class="toasts" aria-live="polite"></div>' +
       '</div>';
     wireRoom(code);
@@ -413,12 +483,50 @@
       };
     });
 
-    $all('[data-tab]').forEach(function (tab) {
+    $all('.segmented [data-tab]').forEach(function (tab) {
       tab.onclick = function () {
-        $all('[data-tab]').forEach(function (t) { t.classList.toggle('active', t === tab); });
+        $all('.segmented [data-tab]').forEach(function (t) { t.classList.toggle('active', t === tab); });
         $all('[data-pane]').forEach(function (pane) { pane.hidden = pane.dataset.pane !== tab.dataset.tab; });
+        var input = $('[data-pane="' + tab.dataset.tab + '"] input:not([type=file])');
+        if (input) {
+          input.focus();
+        }
       };
     });
+    var sheet = $('#add-sheet');
+    root.addEventListener('click', function (event) {
+      var opener = event.target.closest && event.target.closest('.add-open');
+      if (opener) {
+        if (sheet.showModal) {
+          sheet.showModal();
+        } else {
+          sheet.setAttribute('open', '');
+        }
+        setTimeout(function () {
+          var first = $('#search-q');
+          if (first && !$('[data-pane="search"]').hidden) {
+            first.focus();
+          }
+        }, 50);
+      }
+    });
+    $('#add-close').onclick = function () {
+      sheet.close();
+    };
+    sheet.addEventListener('click', function (event) {
+      if (event.target === sheet) {
+        sheet.close(); // click on the backdrop
+      }
+    });
+    $all('.tabbar [data-show]').forEach(function (tab) {
+      tab.onclick = function () {
+        $('.room').dataset.view = tab.dataset.show;
+        $all('.tabbar [data-show]').forEach(function (t) { t.classList.toggle('active', t === tab); });
+      };
+    });
+    $('#mini-play').onclick = function () {
+      $('#play').click();
+    };
 
     $('#search-form').onsubmit = function (event) {
       event.preventDefault();
@@ -597,8 +705,12 @@
     catalog.resolveLink(text).then(function (track) {
       room.intent({ type: 'enqueue', track: track });
       var found = Object.keys(track.sources).map(function (s) { return SERVICE_LABELS[s]; });
-      toast('Added “' + track.title + '” · available on ' + found.join(', '), 'good');
+      toast('Added “' + track.title + '” · on ' + found.join(', '), 'good');
       $('#link-input').value = '';
+      var sheetEl = $('#add-sheet');
+      if (sheetEl && sheetEl.open) {
+        sheetEl.close();
+      }
     }, function (error) {
       toast(error.message || 'Could not read that link.', 'bad');
     }).finally(function () {
@@ -706,8 +818,14 @@
 
   function renderNowPlaying() {
     var track = currentTrack();
+    var roomEl = $('.room');
+    if (roomEl) {
+      roomEl.classList.toggle('has-track', !!track);
+    }
     $('#np-title').textContent = track ? track.title : 'Nothing playing yet';
-    $('#np-artist').textContent = track ? (track.artist || ' ') : 'Add a song below to get the party started';
+    $('#np-artist').textContent = track ? (track.artist || ' ') : 'Add a song to get the party started';
+    $('#stage-cta').hidden = !!track;
+    $('#player-ui').hidden = !track;
     var art = $('#art');
     if (track && track.artwork) {
       if (art.getAttribute('src') !== track.artwork) {
@@ -719,14 +837,152 @@
       art.removeAttribute('src');
     }
     $('#art-empty').hidden = !!(track && track.artwork);
+    $('#mini-title').textContent = track ? track.title : '';
+    $('#mini-artist').textContent = track ? (track.artist || '') : '';
+    var mini = $('#mini-art');
+    mini.outerHTML = track && track.artwork
+      ? '<img id="mini-art" src="' + esc(track.artwork.replace('600x600', '120x120')) + '" alt="">'
+      : '<span id="mini-art" class="q-art">' + icon('music') + '</span>';
+    applyTint(track);
+  }
+
+  /* ---------- ambient tint from cover art ---------- */
+
+  var tintCache = {};
+  var tintKey = null;
+
+  function setTint(rgb) {
+    var roomEl = $('.room');
+    if (!roomEl || !rgb) {
+      return;
+    }
+    var hsl = rgbToHsl(rgb[0], rgb[1], rgb[2]);
+    var sat = Math.max(55, Math.min(90, hsl[1]));
+    var light = Math.max(52, Math.min(66, hsl[2]));
+    document.documentElement.style.setProperty('--tint', 'hsl(' + hsl[0] + ' ' + sat + '% ' + light + '%)');
+    document.documentElement.style.setProperty('--tint-2', 'hsl(' + ((hsl[0] + 48) % 360) + ' ' + sat + '% ' + (light - 6) + '%)');
+  }
+
+  function rgbToHsl(r, g, b) {
+    r /= 255;
+    g /= 255;
+    b /= 255;
+    var max = Math.max(r, g, b);
+    var min = Math.min(r, g, b);
+    var h = 0;
+    var s = 0;
+    var l = (max + min) / 2;
+    if (max !== min) {
+      var d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === r) {
+        h = (g - b) / d + (g < b ? 6 : 0);
+      } else if (max === g) {
+        h = (b - r) / d + 2;
+      } else {
+        h = (r - g) / d + 4;
+      }
+      h *= 60;
+    }
+    return [Math.round(h), Math.round(s * 100), Math.round(l * 100)];
+  }
+
+  // Most vivid average colour of the artwork (saturated pixels weigh more).
+  function sampleArtwork(url) {
+    return new Promise(function (resolve) {
+      var img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = function () {
+        try {
+          var canvas = document.createElement('canvas');
+          canvas.width = 24;
+          canvas.height = 24;
+          var ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, 24, 24);
+          var data = ctx.getImageData(0, 0, 24, 24).data;
+          var total = [0, 0, 0];
+          var weight = 0;
+          for (var i = 0; i < data.length; i += 4) {
+            var max = Math.max(data[i], data[i + 1], data[i + 2]);
+            var min = Math.min(data[i], data[i + 1], data[i + 2]);
+            var w = (max - min) / 255 + 0.05;
+            if (max < 25) {
+              w *= 0.2;
+            }
+            total[0] += data[i] * w;
+            total[1] += data[i + 1] * w;
+            total[2] += data[i + 2] * w;
+            weight += w;
+          }
+          resolve([total[0] / weight, total[1] / weight, total[2] / weight]);
+        } catch (error) {
+          resolve(null);
+        }
+      };
+      img.onerror = function () {
+        resolve(null);
+      };
+      img.src = url;
+    });
+  }
+
+  function applyTint(track) {
+    var key = track ? (track.artwork || track.id) : 'none';
+    if (key === tintKey) {
+      return;
+    }
+    tintKey = key;
+    if (!track) {
+      document.documentElement.style.removeProperty('--tint');
+      document.documentElement.style.removeProperty('--tint-2');
+      return;
+    }
+    var fallback = function () {
+      var h = hue(track.title + track.artist);
+      var rgbFromHue = hslToRgb(h, 75, 60);
+      setTint(rgbFromHue);
+    };
+    if (!track.artwork) {
+      fallback();
+      return;
+    }
+    if (tintCache[track.artwork]) {
+      setTint(tintCache[track.artwork]);
+      return;
+    }
+    sampleArtwork(track.artwork.replace('600x600', '100x100')).then(function (rgb) {
+      if (tintKey !== key) {
+        return;
+      }
+      if (rgb) {
+        tintCache[track.artwork] = rgb;
+        setTint(rgb);
+      } else {
+        fallback();
+      }
+    });
+  }
+
+  function hslToRgb(h, s, l) {
+    s /= 100;
+    l /= 100;
+    var k = function (n) { return (n + h / 30) % 12; };
+    var a = s * Math.min(l, 1 - l);
+    var f = function (n) { return l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))); };
+    return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
   }
 
   function renderControls() {
     var state = room.state;
     var allowed = canControl();
-    $('#play').textContent = state.playing ? '⏸' : '▶';
+    var roomEl = $('.room');
+    if (roomEl) {
+      roomEl.classList.toggle('is-playing', !!(state.playing && currentTrack()));
+    }
+    $('#play').innerHTML = icon(state.playing ? 'pause' : 'play');
+    $('#mini-play').innerHTML = icon(state.playing ? 'pause' : 'play');
     $('#play').setAttribute('aria-label', state.playing ? 'Pause' : 'Play');
-    ['#play', '#prev', '#next', '#seek'].forEach(function (sel) {
+    ['#play', '#prev', '#next', '#seek', '#mini-play'].forEach(function (sel) {
       $(sel).disabled = !allowed || !currentTrack();
     });
     $('#play').title = allowed ? '' : 'The host controls playback';
@@ -744,9 +1000,10 @@
       return;
     }
     var state = room.state;
-    $('#queue-count').textContent = state.queue.length ? state.queue.length + ' song' + (state.queue.length > 1 ? 's' : '') : '';
+    $('#queue-count').textContent = state.queue.length ? String(state.queue.length) : '';
     if (!state.queue.length) {
-      list.innerHTML = '<li class="empty">The queue is empty. Search, paste a link or share a file to add a song.</li>';
+      list.innerHTML = '<li class="empty">' + icon('music') + '<span>Nothing queued yet.<br>Search a song, paste a link or share a file.</span>' +
+        '<button class="add-open primary">' + icon('plus') + 'Add music</button></li>';
       return;
     }
     var allowed = canControl();
@@ -760,19 +1017,19 @@
       var fileState = '';
       if (track.sources.file && room) {
         var progress = room.fileProgress(track.sources.file.fileId);
-        fileState = progress >= 1 ? '' : progress > 0 ? ' · downloading ' + Math.round(progress * 100) + '%' : '';
+        fileState = progress >= 1 ? '' : progress > 0 ? ' · ' + Math.round(progress * 100) + '%' : '';
       }
       item.innerHTML =
         '<span class="q-num">' + (index === state.index && state.playing ? '<i class="eq"><b></b><b></b><b></b></i>' : index + 1) + '</span>' +
-        (track.artwork ? '<img src="' + esc(track.artwork.replace('600x600', '120x120')) + '" alt="" loading="lazy">' : '<span class="q-art"></span>') +
+        (track.artwork ? '<img src="' + esc(track.artwork.replace('600x600', '120x120')) + '" alt="" loading="lazy">' : '<span class="q-art">' + icon('music') + '</span>') +
         '<div class="q-meta"><b>' + esc(track.title) + '</b><span>' + esc(track.artist || '') +
-        (track.addedBy ? ' · added by ' + esc(track.addedBy) : '') + esc(fileState) + '</span>' +
+        (track.addedBy ? ' · ' + esc(track.addedBy) : '') + esc(fileState) + '</span>' +
         '<div class="chips">' + sourceChips(track) +
         (mine ? '' : '<span class="chip chip-missing">No source for you</span>') + '</div></div>' +
-        '<div class="q-actions">' +
-        (missing ? '<button class="mini attach" type="button">+ ' + SERVICE_LABELS[wanted] + ' link</button>' : '') +
-        (allowed && index !== state.index ? '<button class="mini play-this" type="button" aria-label="Play now">▶</button>' : '') +
-        (allowed ? '<button class="mini remove" type="button" aria-label="Remove">✕</button>' : '') +
+        '<div class="q-actions' + (missing ? ' always' : '') + '">' +
+        (missing ? '<button class="attach" type="button">+ ' + SERVICE_LABELS[wanted] + '</button>' : '') +
+        (allowed && index !== state.index ? '<button class="play-this" type="button" aria-label="Play now" title="Play now">' + icon('playSmall') + '</button>' : '') +
+        (allowed ? '<button class="remove" type="button" aria-label="Remove" title="Remove">' + icon('x') + '</button>' : '') +
         '</div>';
       var playThis = $('.play-this', item);
       if (playThis) {
@@ -820,15 +1077,16 @@
   function renderMembers() {
     var state = room.state;
     var speaking = voice ? voice.speaking : new Set();
-    $('#avatars').innerHTML = state.members.slice(0, 6).map(function (m) {
-      return '<span class="avatar' + (speaking.has(m.id) ? ' speaking' : '') + '" style="--h:' + hue(m.id) + '" title="' + esc(m.name) + '">' + esc(initials(m.name)) + '</span>';
-    }).join('') + (state.members.length > 6 ? '<span class="avatar more">+' + (state.members.length - 6) + '</span>' : '');
+    $('#party-count').textContent = String(state.members.length);
+    $('#avatars').innerHTML = state.members.slice(0, 5).map(function (m) {
+      return '<span class="av' + (speaking.has(m.id) ? ' speaking' : '') + '" style="--h:' + hue(m.id) + '" title="' + esc(m.name) + '">' + esc(initials(m.name)) + '</span>';
+    }).join('') + (state.members.length > 5 ? '<span class="av more">+' + (state.members.length - 5) + '</span>' : '');
     $('#members').innerHTML = state.members.map(function (m) {
       return '<li data-id="' + esc(m.id) + '" class="' + (speaking.has(m.id) ? 'speaking' : '') + '">' +
-        '<span class="avatar" style="--h:' + hue(m.id) + '">' + esc(initials(m.name)) + '</span>' +
-        '<span class="m-name">' + esc(m.name) + (m.id === myId() ? ' <em>(you)</em>' : '') + '</span>' +
-        (m.id === state.hostId ? '<span class="tag-host" title="Host">host</span>' : '') +
-        (m.voice ? '<span class="m-voice" title="In voice">🎙️</span>' : '') +
+        '<span class="av" style="--h:' + hue(m.id) + '">' + esc(initials(m.name)) + '</span>' +
+        '<span class="m-name">' + esc(m.name) + (m.id === myId() ? ' <em>you</em>' : '') + '</span>' +
+        (m.id === state.hostId ? '<span class="tag-host" title="Host">Host</span>' : '') +
+        (m.voice ? '<span class="m-voice" title="In voice">' + icon('mic') + '</span>' : '') +
         '</li>';
     }).join('');
   }
@@ -843,10 +1101,10 @@
     if (!voice || !$('#voice-btn')) {
       return;
     }
-    $('#voice-btn').textContent = voice.on ? 'Leave voice' : '🎙️ Join voice';
-    $('#voice-btn').classList.toggle('primary', !voice.on);
+    $('#voice-btn').innerHTML = voice.on ? icon('leave') + 'Leave voice' : icon('mic') + 'Join voice';
+    $('#voice-btn').className = voice.on ? '' : 'primary';
     $('#mute-btn').hidden = !voice.on;
-    $('#mute-btn').textContent = voice.muted ? 'Unmute' : 'Mute';
+    $('#mute-btn').innerHTML = voice.muted ? icon('micOff') + 'Unmute' : icon('mic') + 'Mute';
     $('#mute-btn').classList.toggle('danger', voice.muted);
     var peers = voice.connectedPeers().length;
     $('#voice-hint').textContent = voice.on
@@ -863,7 +1121,7 @@
     }
     var line = document.createElement('div');
     line.className = 'msg' + (mine ? ' mine' : '');
-    line.innerHTML = '<b style="--h:' + hue(name) + '">' + esc(name) + '</b> ' + esc(text);
+    line.innerHTML = '<b style="--h:' + hue(name) + '">' + esc(name) + '</b><span>' + esc(text) + '</span>';
     log.appendChild(line);
     log.scrollTop = log.scrollHeight;
   }
@@ -1001,7 +1259,7 @@
       return;
     }
     pill.hidden = !text;
-    pill.className = 'pill ' + level;
+    pill.className = 'badge ' + level;
     pill.textContent = text;
   }
 
@@ -1058,6 +1316,8 @@
       seek.value = Math.min(position, total || 0);
       $('#t-now').textContent = core.formatTime(position);
     }
+    var pct = total ? Math.min(100, (Number(seek.value) / total) * 100) : 0;
+    seek.style.setProperty('--pct', pct.toFixed(2) + '%');
     $('#t-total').textContent = core.formatTime(total);
   }
 
