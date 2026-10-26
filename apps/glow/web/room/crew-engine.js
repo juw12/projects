@@ -566,7 +566,14 @@
         res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: timer.signal });
       } catch (err) {
         timer.done();
-        if (!timer.timedOut) throw err;
+        if (!timer.timedOut) {
+          const dropped = err && err.name === 'TypeError' && !(signal && signal.aborted);
+          if (!dropped || attempt >= 2) throw err;
+          // The connection dropped (e.g. reset by the network): wait a moment and send it again.
+          slowNotice('The connection to the AI dropped, so the request is being sent again…');
+          await sleepUnlessAborted(3000, signal);
+          continue;
+        }
         if (attempt < 2) {
           slowNotice('The AI is slow to answer, so the request is being sent again…');
           continue;
@@ -655,11 +662,12 @@
       try {
         chunk = await reader.read();
       } catch (err) {
-        if (!timer.timedOut) {
+        const dropped = err && err.name === 'TypeError' && !(signal && signal.aborted);
+        if (!timer.timedOut && !dropped) {
           timer.done();
           throw err;
         }
-        stalled = true; // the stream stopped sending: keep what arrived, or retry below
+        stalled = true; // the stream stopped or the connection dropped: keep what arrived, or retry below
         break;
       }
       const { value, done } = chunk;
@@ -695,6 +703,7 @@
     }
     timer.done();
     if (stalled && full.trim().length > 200) return full;
+    if (stalled) full = ''; // too little arrived before the stream broke off: ask again below
     if (!full.trim()) {
       if (emptyRetries > 0) {
         // Some free/shared endpoints occasionally return an empty (or stalled) stream; wait, then retry without streaming.
