@@ -1,10 +1,19 @@
 # 3D Models Library
 
-40 printable landmark miniatures. Each one is modelled as code (parametric CadQuery) and
-exported as a single watertight solid, sized for FDM printing (PLA, 0.4 mm nozzle,
-120-150 mm tall, standing flat on the print bed).
+41 landmark and character miniatures, with CAD and 3D-printing exports.
 
-Every folder holds:
+**New: [Kobo-chan — Formlabs Form 3 revision](kobochan/).** A 100 mm solid figurine
+with strengthened crown hairs, checked STL and colored STEP exports, an optional
+25-degree unsupported orientation, a preview, source code and a verification report.
+PreForm resin selection, support generation, layer review and a test print are still
+required; this is not a validated native PreForm job.
+
+The earlier collection was developed primarily as parametric CadQuery models for
+FDM printing (PLA, 0.4 mm nozzle, typically 120–150 mm tall). Kobo-chan uses
+OpenCASCADE and targets a resin workflow instead. Do not apply one model's printer,
+material, orientation or support assumptions to the entire library.
+
+Download formats, where provided:
 
 - `<name>.stl` — for printing
 - `<name>.step` — for CAD
@@ -24,9 +33,12 @@ Every folder holds:
 `guangzhou_ctf_finance_centre`, `tianjin_ctf_finance_centre`, `citic_tower`,
 `taipei_101`, `petronas_towers`
 
-## Characters (5)
+## Characters (6)
 
 `snoopy`, `gundam_rx78_2`, `gundam_zaku_ii`, `gundam_unicorn`, `gundam_exia`
+
+- [`kobochan`](kobochan/) — 100 mm Form 3 geometry revision; supports and resin setup
+  must be checked in PreForm. [Complete download](kobochan/kobochan_form3_package.zip).
 
 ## Earlier works
 
