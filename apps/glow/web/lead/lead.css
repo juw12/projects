@@ -347,3 +347,18 @@ dialog .check { margin-top: 14px; display: flex; }
 
 dialog .check { display: flex; align-items: center; justify-content: flex-start; gap: 10px; margin: 14px 0 0; font-size: 13px; }
 dialog .check input { width: 18px; height: 18px; flex: 0 0 18px; margin: 0; padding: 0; }
+
+/* Glow Hands */
+.hands-panel .btn { width: 100%; }
+#hands-summary { margin: 0 0 10px; }
+#hands-status[data-state="paired"] { color: var(--room); border-color: var(--room); }
+#hands-status[data-state="wrong-token"], #hands-status[data-state="offline"] { color: var(--gold); }
+.check input:disabled + * , .check:has(input:disabled) { opacity: .6; cursor: not-allowed; }
+.action-approval { margin: 10px 0 0 40px; padding: 12px 14px; border: 1px solid var(--gold); border-left-width: 3px; border-radius: 10px; background: color-mix(in srgb, var(--gold) 8%, var(--bg)); display: grid; gap: 6px; font-size: 13px; }
+.action-approval span { color: var(--text); overflow-wrap: anywhere; }
+.action-approval div { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.setup-steps { font-size: 13px; line-height: 1.7; padding-left: 20px; margin: 10px 0; }
+.setup-steps code { font-size: 12px; }
+@media (max-width: 720px) {
+  .action-approval { margin-left: 0; }
+}
