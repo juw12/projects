@@ -6,7 +6,7 @@ it through the shared Glow Hands core, with the same safety rules as Glow Hands 
 API (only `ALLOWED_ORIGINS` may call it):
 
 - `GET /v1/status`
-- `POST /v1/sessions` starts a browser (kept 10 minutes after the last call)
+- `POST /v1/sessions` starts a browser (kept 5 minutes after the last call; GlowLead opens it at the first browser step)
 - `POST /v1/sessions/<id>/call` with `{ "path": "status" | "observe" | "act" | "close", "body": {...} }`
 
 Errors are explained to the phone: 429 when the shared free daily browser time is used up, 503 when no
