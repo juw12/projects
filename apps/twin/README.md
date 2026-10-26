@@ -7,9 +7,9 @@ before you risk a dollar — matched to your personality.
 
 | | |
 | --- | --- |
-| **App** (installable PWA) | https://juwpegatron.github.io/projects/twin/ |
-| **Web** (desktop) | https://juwpegatron.github.io/projects/twin/web.html |
-| **Mobile** | https://juwpegatron.github.io/projects/twin/mobile.html |
+| **App** (installable PWA) | https://juw12.github.io/projects/twin/ |
+| **Web** (desktop) | https://juw12.github.io/projects/twin/web.html |
+| **Mobile** | https://juw12.github.io/projects/twin/mobile.html |
 
 ## Try without signing in
 

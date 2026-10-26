@@ -33,8 +33,8 @@ function canOpenExternal(value) {
   try {
     const url = new URL(value);
     if (url.protocol !== 'https:' || url.username || url.password) return false;
-    return (url.hostname === 'github.com' && url.pathname.startsWith('/juwpegatron/projects/'))
-      || (url.hostname === 'juwpegatron.github.io' && url.pathname.startsWith('/projects/airiz-motor/'));
+    return (url.hostname === 'github.com' && url.pathname.startsWith('/juw12/projects/'))
+      || (url.hostname === 'juw12.github.io' && url.pathname.startsWith('/projects/airiz-motor/'));
   } catch {
     return false;
   }

@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🪨 Worry Stones</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(160deg, #dfeae9 0%, #f0ece2 55%, #efe2cc 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      border-radius: 22px;
+      padding: 18px;
+      box-shadow: 0 18px 50px rgba(90, 80, 60, 0.18);
+      max-width: 470px;
+      width: 100%;
+    }
+
+    .game-title {
+      text-align: center;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 1.85rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: #6d6455;
+      margin-bottom: 4px;
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.82rem;
+      color: #98917f;
+      margin-bottom: 14px;
+      line-height: 1.4;
+    }
+
+    /* ============ HUD / TOOLBAR ============ */
+    .hud {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      background: linear-gradient(135deg, #f7f4ec, #eef2ee);
+      border-radius: 12px;
+    }
+
+    .stat {
+      font-size: 0.78rem;
+      color: #8d8574;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.25;
+    }
+
+    .stat b {
+      font-size: 1rem;
+      color: #6d6455;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .hud-spacer {
+      flex: 1;
+    }
+
+    .btn {
+      border: none;
+      cursor: pointer;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 20px;
+      color: #fff;
+      background: linear-gradient(135deg, #9fb7ae, #7f968c);
+      box-shadow: 0 3px 10px rgba(120, 140, 130, 0.3);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      user-select: none;
+    }
+
+    .btn:hover { transform: translateY(-2px); }
+
+    .btn:active { transform: translateY(0); }
+
+    .btn.ghost {
+      color: #7a7262;
+      background: #fff;
+      border: 1px solid #e0d9cb;
+      box-shadow: none;
+    }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 6px 20px rgba(90, 80, 60, 0.15);
+      background: #cfe3ea;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      cursor: grab;
+    }
+
+    canvas.dragging {
+      cursor: grabbing;
+    }
+
+    /* ============ STONE TRAY ============ */
+    .tray {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+
+    .stone-btn {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 13px 8px 8px;
+      border-radius: 14px;
+      border: 1px solid #e3dccd;
+      background: #fff;
+      color: #7a7262;
+      font-size: 0.76rem;
+      font-weight: 600;
+      cursor: grab;
+      user-select: none;
+      touch-action: none;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .stone-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(120, 105, 80, 0.18);
+    }
+
+    .stone-btn .dot {
+      display: block;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #dcd5c7, #a19684);
+      box-shadow: inset -1px -2px 3px rgba(80, 70, 55, 0.35);
+    }
+
+    .tray-hint {
+      text-align: center;
+      font-size: 0.7rem;
+      color: #aaa290;
+      margin-top: 10px;
+    }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 480px) {
+      .game-container { padding: 12px; border-radius: 16px; }
+      .game-title { font-size: 1.5rem; }
+      .hud { gap: 6px; padding: 8px 10px; }
+      .btn { padding: 7px 11px; font-size: 0.72rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">🪨 Worry Stones</h1>
+    <p class="game-subtitle">Drag stones onto the sand and build a calm cairn.<br />No rush, no losing — just let them settle.</p>
+
+    <!-- ============ TOOLBAR ============ -->
+    <div class="hud">
+      <div class="stat">Height<b id="heightEl">0</b></div>
+      <div class="stat">Stones<b id="countEl">0</b></div>
+      <div class="stat">Best<b id="bestEl">0</b></div>
+      <div class="hud-spacer"></div>
+      <button class="btn ghost" id="gustBtn">Breeze</button>
+      <button class="btn" id="resetBtn">Reset</button>
+    </div>
+
+    <!-- ============ CANVAS ============ -->
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="440" height="600"></canvas>
+    </div>
+
+    <!-- ============ STONE TRAY ============ -->
+    <div class="tray" id="tray">
+      <button class="stone-btn" data-r="10" data-flat="1">
+        <span class="dot" style="width:12px;height:12px;"></span>Pebble
+      </button>
+      <button class="stone-btn" data-r="14" data-flat="0.8">
+        <span class="dot" style="width:17px;height:14px;"></span>Stone
+      </button>
+      <button class="stone-btn" data-r="17" data-flat="0.66">
+        <span class="dot" style="width:20px;height:13px;"></span>Slab
+      </button>
+      <button class="stone-btn" data-r="22" data-flat="0.88">
+        <span class="dot" style="width:26px;height:23px;"></span>Boulder
+      </button>
+    </div>
+
+    <p class="tray-hint">Drag from the tray, or grab a stone already on the beach.</p>
+  </div>
+
+  <script>
+    // ============ CANVAS & WORLD ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+    const HORIZON_Y = Math.round(H * 0.66);
+    const GROUND_Y = Math.round(H * 0.82);
+
+    // ============ STONE PALETTE ============
+    const STONE_COLORS = [
+      ['#ded7ca', '#a89d8b'],
+      ['#d3c9b6', '#9c9182'],
+      ['#e3dccd', '#b1a795'],
+      ['#c7bfb0', '#8f8577'],
+      ['#d9d0bf', '#a79d8c'],
+      ['#c6cbc9', '#8f9695'],
+      ['#e0d3bf', '#ab9a80']
+    ];
+
+    // ============ STATE ============
+    let stones = [];
+    let drag = null;              // active drag record
+    let best = parseInt(localStorage.getItem('worryStonesBest') || '0', 10);
+    let time = 0;                 // seconds, for waves/breeze
+    let lastBeepAt = 0;
+    let gustTimer = 0;
+    let sparkles = [];
+
+    // ============ DOM ============
+    const heightEl = document.getElementById('heightEl');
+    const countEl = document.getElementById('countEl');
+    const bestEl = document.getElementById('bestEl');
+    const gustBtn = document.getElementById('gustBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    bestEl.textContent = best;
+
+    // ============ AUDIO (WebAudio beep) ============
+    let audioCtx = null;
+
+    function beep(freq, dur, type, vol) {
+      try {
+        if (!audioCtx) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return;
+          audioCtx = new AC();
+        }
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type || 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+        gain.gain.setValueAtTime(vol || 0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + (dur || 0.12));
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + (dur || 0.12));
+      } catch (e) { /* audio is optional */ }
+    }
+
+    function settleTone(y) {
+      const now = performance.now();
+      if (now - lastBeepAt < 70) return;
+      lastBeepAt = now;
+      const ratio = Math.min(1, Math.max(0, (GROUND_Y - y) / GROUND_Y));
+      beep(180 + ratio * 320, 0.16, 'sine', 0.09);
+    }
+
+    // ============ STONE FACTORY ============
+    function makeStone(x, y, r, flat) {
+      const pair = STONE_COLORS[(Math.random() * STONE_COLORS.length) | 0];
+      return {
+        x: x, y: y,
+        vx: 0, vy: 0,
+        r: r,
+        flat: Math.max(0.55, flat),
+        ang: (Math.random() - 0.5) * 0.5,
+        va: 0,
+        seed: Math.random() * 100,
+        hi: pair[0],
+        lo: pair[1],
+        settled: false,
+        settledFor: 0
+      };
+    }
+
+    // ============ POINTER COORDINATES ============
+    function toCanvas(e) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: (e.clientX - rect.left) * (W / rect.width),
+        y: (e.clientY - rect.top) * (H / rect.height)
+      };
+    }
+
+    function insideCanvas(p) {
+      return p.x >= -6 && p.x <= W + 6 && p.y >= -6 && p.y <= H + 6;
+    }
+
+    // ============ PHYSICS ============
+    function physics(dt) {
+      const gravity = 1500;
+      const step = Math.min(dt, 1 / 60);
+
+      // integrate
+      for (let i = 0; i < stones.length; i++) {
+        const s = stones[i];
+        if (drag && drag.stone === s) continue;
+        s.vy += gravity * step;
+        s.vx *= 0.999;
+        s.vy *= 0.999;
+        s.x += s.vx * step;
+        s.y += s.vy * step;
+        s.ang += s.va * step;
+        s.va *= 0.97;
+
+        // walls
+        if (s.x - s.r < 0) { s.x = s.r; s.vx = Math.abs(s.vx) * 0.3; }
+        if (s.x + s.r > W) { s.x = W - s.r; s.vx = -Math.abs(s.vx) * 0.3; }
+
+        // sand
+        if (s.y + s.r > GROUND_Y) {
+          s.y = GROUND_Y - s.r;
+          if (s.vy > 140) settleTone(s.y);
+          if (s.vy > 0) s.vy = -s.vy * 0.1;
+          s.vx *= 0.85;
+          s.va *= 0.85;
+        }
+      }
+
+      // pairwise collisions (a few relaxation passes for stability)
+      for (let pass = 0; pass < 4; pass++) {
+        for (let i = 0; i < stones.length; i++) {
+          for (let j = i + 1; j < stones.length; j++) {
+            const a = stones[i];
+            const b = stones[j];
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const d = Math.hypot(dx, dy) || 0.0001;
+            const min = a.r + b.r;
+            if (d >= min) continue;
+
+            const nx = dx / d;
+            const ny = dy / d;
+            const overlap = min - d;
+            const ma = a.r * a.r;
+            const mb = b.r * b.r;
+            const total = ma + mb;
+            const aFixed = drag && drag.stone === a;
+            const bFixed = drag && drag.stone === b;
+
+            if (!aFixed && !bFixed) {
+              const shareA = overlap * (mb / total);
+              const shareB = overlap * (ma / total);
+              a.x -= nx * shareA; a.y -= ny * shareA;
+              b.x += nx * shareB; b.y += ny * shareB;
+            } else if (aFixed && !bFixed) {
+              b.x += nx * overlap; b.y += ny * overlap;
+            } else if (!aFixed && bFixed) {
+              a.x -= nx * overlap; a.y -= ny * overlap;
+            }
+
+            // impulse along normal
+            const rvx = b.vx - a.vx;
+            const rvy = b.vy - a.vy;
+            const vn = rvx * nx + rvy * ny;
+            if (vn < 0) {
+              const rest = 0.1;
+              const jm = -(1 + rest) * vn / (1 / ma + 1 / mb);
+              if (!(drag && drag.stone === a)) { a.vx -= jm * nx / ma; a.vy -= jm * ny / ma; }
+              if (!(drag && drag.stone === b)) { b.vx += jm * nx / mb; b.vy += jm * ny / mb; }
+              if (vn < -140) settleTone((a.y + b.y) / 2);
+            }
+          }
+        }
+      }
+
+      // calm: clamp micro-drift and track settling
+      for (let i = 0; i < stones.length; i++) {
+        const s = stones[i];
+        if (drag && drag.stone === s) continue;
+        if (Math.hypot(s.vx, s.vy) < 3 && s.y + s.r >= GROUND_Y - 2) {
+          s.vx = 0; s.vy = 0;
+          s.va *= 0.8;
+        }
+        if (Math.hypot(s.vx, s.vy) < 6) {
+          s.settledFor += step;
+          if (s.settledFor > 0.25) s.settled = true;
+        } else {
+          s.settledFor = 0;
+          s.settled = false;
+        }
+      }
+    }
+
+    // ============ SCORING ============
+    function updateStats() {
+      let topY = GROUND_Y;
+      for (let i = 0; i < stones.length; i++) {
+        topY = Math.min(topY, stones[i].y - stones[i].r);
+      }
+      const height = Math.max(0, Math.round((GROUND_Y - topY) / 2));
+      heightEl.textContent = height;
+      countEl.textContent = stones.length;
+
+      if (height > best) {
+        best = height;
+        localStorage.setItem('worryStonesBest', String(best));
+        bestEl.textContent = best;
+        beep(660, 0.22, 'triangle', 0.1);
+      }
+    }
+
+    // ============ SPAWNING / INPUT ============
+    function beginDrag(stone, pointerId, isNew) {
+      drag = {
+        stone: stone,
+        pointerId: pointerId,
+        lastX: stone.x,
+        lastY: stone.y,
+        vx: 0,
+        vy: 0,
+        isNew: isNew
+      };
+      canvas.classList.add('dragging');
+    }
+
+    canvas.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      if (drag) return;
+      const p = toCanvas(e);
+      // pick topmost stone under the pointer
+      for (let i = stones.length - 1; i >= 0; i--) {
+        const s = stones[i];
+        if (Math.hypot(p.x - s.x, p.y - s.y) < s.r + 8) {
+          canvas.setPointerCapture(e.pointerId);
+          beginDrag(s, e.pointerId, false);
+          beep(320, 0.07, 'sine', 0.06);
+          break;
+        }
+      }
+    });
+
+    document.querySelectorAll('.stone-btn').forEach((btn) => {
+      btn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        if (drag) return;
+        const r = parseFloat(btn.dataset.r);
+        const flat = parseFloat(btn.dataset.flat);
+        const p = toCanvas(e);
+        const cx = Math.min(W - r, Math.max(r, p.x));
+        const cy = Math.min(H - r, Math.max(r, p.y));
+        const stone = makeStone(cx, cy, r, flat);
+        stones.push(stone);
+        beginDrag(stone, e.pointerId, true);
+        beep(520, 0.06, 'sine', 0.06);
+      });
+    });
+
+    function moveDrag(e) {
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      const p = toCanvas(e);
+      const s = drag.stone;
+      drag.vx = p.x - drag.lastX;
+      drag.vy = p.y - drag.lastY;
+      drag.lastX = p.x;
+      drag.lastY = p.y;
+      s.x = Math.min(W - s.r, Math.max(s.r, p.x));
+      s.y = Math.min(H - s.r, Math.max(s.r, p.y));
+      s.va *= 0.9;
+      s.settled = false;
+      s.settledFor = 0;
+    }
+
+    function endDrag(e) {
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      const s = drag.stone;
+      const p = toCanvas(e);
+
+      if (drag.isNew && !insideCanvas(p)) {
+        // dropped outside — quietly remove it
+        stones = stones.filter(function (x) { return x !== s; });
+      } else {
+        s.vx = Math.max(-420, Math.min(420, drag.vx * 26));
+        s.vy = Math.max(-420, Math.min(420, drag.vy * 26));
+        s.va = (Math.random() - 0.5) * 0.6;
+      }
+
+      drag = null;
+      canvas.classList.remove('dragging');
+      updateStats();
+    }
+
+    window.addEventListener('pointermove', moveDrag, { passive: false });
+    window.addEventListener('pointerup', endDrag);
+    window.addEventListener('pointercancel', endDrag);
+
+    // ============ BREEZE (soft nudge) ============
+    function gust() {
+      for (let i = 0; i < stones.length; i++) {
+        const s = stones[i];
+        s.vx += (Math.random() - 0.5) * 150;
+        s.settled = false;
+        s.settledFor = 0;
+      }
+      gustTimer = 1.1;
+      for (let i = 0; i < 26; i++) {
+        sparkles.push({
+          x: Math.random() * W,
+          y: HORIZON_Y + Math.random() * (GROUND_Y - HORIZON_Y),
+          life: 1 + Math.random(),
+          spd: 40 + Math.random() * 90
+        });
+      }
+      beep(240, 0.5, 'sine', 0.05);
+    }
+
+    // ============ RESET ============
+    function reset() {
+      stones = [];
+      sparkles = [];
+      drag = null;
+      canvas.classList.remove('dragging');
+      updateStats();
+      beep(300, 0.12, 'sine', 0.07);
+    }
+
+    gustBtn.addEventListener('click', gust);
+    resetBtn.addEventListener('click', reset);
+
+    // ============ RENDERING: BACKGROUND ============
+    function drawSkyAndSea() {
+      // sky
+      const sky = ctx.createLinearGradient(0, 0, 0, HORIZON_Y);
+      sky.addColorStop(0, '#cfe1e8');
+      sky.addColorStop(0.6, '#e6ecdf');
+      sky.addColorStop(1, '#f2ecdb');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, HORIZON_Y);
+
+      // soft sun haze
+      const haze = ctx.createRadialGradient(W * 0.78, HORIZON_Y * 0.32, 10, W * 0.78, HORIZON_Y * 0.32, H * 0.34);
+      haze.addColorStop(0, 'rgba(255, 250, 230, 0.85)');
+      haze.addColorStop(1, 'rgba(255, 250, 230, 0)');
+      ctx.fillStyle = haze;
+      ctx.fillRect(0, 0, W, HORIZON_Y);
+
+      // sea
+      const sea = ctx.createLinearGradient(0, HORIZON_Y, 0, GROUND_Y);
+      sea.addColorStop(0, '#a9c8cd');
+      sea.addColorStop(1, '#c3d6d3');
+      ctx.fillStyle = sea;
+      ctx.fillRect(0, HORIZON_Y, W, GROUND_Y - HORIZON_Y);
+
+      // gentle waves
+      ctx.lineWidth = 1.4;
+      for (let band = 0; band < 3; band++) {
+        const y0 = HORIZON_Y + 8 + band * 16;
+        ctx.beginPath();
+        for (let x = 0; x <= W; x += 8) {
+          const y = y0 + Math.sin((x * 0.03) + time * (1 + band * 0.35) + band) * 3;
+          if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = 'rgba(255, 255, 255, ' + (0.35 - band * 0.08) + ')';
+        ctx.stroke();
+      }
+
+      // wet sand line
+      ctx.fillStyle = 'rgba(190, 175, 145, 0.45)';
+      ctx.fillRect(0, GROUND_Y - 6, W, 6);
+    }
+
+    function drawSand() {
+      const sand = ctx.createLinearGradient(0, GROUND_Y, 0, H);
+      sand.addColorStop(0, '#ece0c8');
+      sand.addColorStop(1, '#d6c4a2');
+      ctx.fillStyle = sand;
+      ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
+
+      // grain speckles (deterministic)
+      ctx.fillStyle = 'rgba(150, 130, 100, 0.25)';
+      for (let i = 0; i < 90; i++) {
+        const gx = (Math.sin(i * 12.9898) * 43758.5 % 1 + 1) % 1;
+        const gy = (Math.sin(i * 78.233) * 12543.7 % 1 + 1) % 1;
+        const px = gx * W;
+        const py = GROUND_Y + 8 + gy * (H - GROUND_Y - 8);
+        ctx.fillRect(px, py, 1.6, 1.2);
+      }
+    }
+
+    function drawBreeze() {
+      for (let i = sparkles.length - 1; i >= 0; i--) {
+        const s = sparkles[i];
+        s.x += s.spd * 0.016 + gustTimer * 60;
+        s.life -= 0.012;
+        if (s.life <= 0 || s.x > W + 20) { sparkles.splice(i, 1); continue; }
+        ctx.globalAlpha = Math.max(0, s.life * 0.35);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y);
+        ctx.lineTo(s.x + 14, s.y);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      if (gustTimer > 0) { gustTimer -= 0.016; if (gustTimer < 0) gustTimer = 0; }
+    }
+
+    // ============ RENDERING: STONES ============
+    function drawStone(s) {
+      ctx.save();
+      ctx.translate(s.x, s.y);
+      ctx.rotate(s.ang);
+
+      // contact shadow on the sand
+      if (s.y + s.r > GROUND_Y - 26) {
+        ctx.beginPath();
+        ctx.ellipse(3, s.r * 0.7, s.r * 1.05, s.r * 0.34, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(110, 95, 70, 0.16)';
+        ctx.fill();
+      }
+
+      // body outline
+      const g = ctx.createRadialGradient(-s.r * 0.32, -s.r * 0.4, s.r * 0.12, 0, 0, s.r * 1.25);
+      g.addColorStop(0, s.hi);
+      g.addColorStop(1, s.lo);
+
+      ctx.beginPath();
+      const N = 12;
+      for (let i = 0; i <= N; i++) {
+        const a = (i / N) * Math.PI * 2;
+        const n = 1 + 0.085 * Math.sin(s.seed + i * 2.3) + 0.045 * Math.sin(s.seed * 1.7 + i * 3.1);
+        const rx = s.r * 1.02 * n;
+        const ry = s.r * s.flat * 1.02 * n;
+        const px = Math.cos(a) * rx;
+        const py = Math.sin(a) * ry;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fillStyle = g;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(95, 82, 64, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // highlight
+      ctx.beginPath();
+      ctx.ellipse(-s.r * 0.28, -s.r * 0.36, s.r * 0.34, s.r * 0.2 * s.flat, -0.4, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.fill();
+
+      // speckles
+      ctx.fillStyle = 'rgba(90, 78, 60, 0.22)';
+      for (let k = 0; k < 3; k++) {
+        const sa = s.seed + k * 2.1;
+        const sx2 = Math.cos(sa) * s.r * 0.45;
+        const sy2 = Math.sin(sa * 1.5) * s.r * s.flat * 0.4;
+        ctx.beginPath();
+        ctx.arc(sx2, sy2, 1.1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    // ============ RENDER ============
+    function render() {
+      ctx.clearRect(0, 0, W, H);
+      drawSkyAndSea();
+      drawSand();
+      drawBreeze();
+
+      for (let i = 0; i < stones.length; i++) {
+        if (drag && drag.stone === stones[i]) continue;
+        drawStone(stones[i]);
+      }
+
+      // dragged stone on top with a soft glow
+      if (drag && drag.stone) {
+        ctx.save();
+        ctx.shadowColor = 'rgba(255, 245, 210, 0.9)';
+        ctx.shadowBlur = 16;
+        drawStone(drag.stone);
+        ctx.restore();
+      }
+
+      // cairn marker line at current top
+      let topY = GROUND_Y;
+      for (let i = 0; i < stones.length; i++) topY = Math.min(topY, stones[i].y - stones[i].r);
+      if (stones.length > 0) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+        ctx.setLineDash([5, 6]);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, topY);
+        ctx.lineTo(W, topY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
+    // ============ MAIN LOOP ============
+    let lastTime = 0;
+    let accumulator = 0;
+    const FIXED = 1 / 60;
+
+    function loop(now) {
+      if (!lastTime) lastTime = now;
+      let dt = (now - lastTime) / 1000;
+      lastTime = now;
+      if (dt > 0.05) dt = 0.05;
+      time += dt;
+
+      accumulator += dt;
+      let guard = 0;
+      while (accumulator >= FIXED && guard < 6) {
+        physics(FIXED);
+        accumulator -= FIXED;
+        guard++;
+      }
+      if (guard >= 6) accumulator = 0;
+
+      updateStats();
+      render();
+      requestAnimationFrame(loop);
+    }
+
+    // ============ INITIAL SCENE ============
+    // a couple of pre-placed stones so the beach is not empty
+    stones.push(makeStone(W * 0.42, GROUND_Y - 24, 24, 0.85));
+    stones.push(makeStone(W * 0.62, GROUND_Y - 14, 14, 0.8));
+    stones[0].settled = true;
+    stones[1].settled = true;
+    updateStats();
+
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

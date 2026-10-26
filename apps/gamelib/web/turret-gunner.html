@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🔫 Turret Gunner</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: radial-gradient(circle at 50% 30%, #1b2735 0%, #090a0f 80%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+      color: #e8eef7;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(18, 24, 34, 0.92);
+      border: 1px solid #2a3a52;
+      border-radius: 20px;
+      padding: 18px;
+      box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6), inset 0 0 40px rgba(60, 180, 255, 0.06);
+      max-width: 560px;
+      width: 95%;
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.7rem;
+      letter-spacing: 2px;
+      color: #57e0ff;
+      margin-bottom: 4px;
+      text-shadow: 0 0 16px rgba(87, 224, 255, 0.5);
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.8rem;
+      color: #7f93ab;
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+
+    /* ============ SCORE / HEAT BAR ============ */
+    .score-board {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      padding: 8px 14px;
+      background: rgba(30, 42, 60, 0.8);
+      border: 1px solid #2a3a52;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      color: #a9bdd4;
+    }
+
+    .score-board span { font-weight: 700; color: #57e0ff; }
+
+    .heat-track {
+      height: 10px;
+      border-radius: 6px;
+      background: rgba(30, 42, 60, 0.9);
+      border: 1px solid #2a3a52;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .heat-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 6px;
+      background: linear-gradient(90deg, #37d67a, #ffd93d 60%, #ff4d4d);
+      transition: width 0.06s linear;
+    }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 50%, #16202e 0%, #0a0f16 100%);
+      box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.7);
+    }
+
+    canvas { display: block; width: 100%; height: auto; cursor: crosshair; }
+
+    /* ============ SCREENS (overlays) ============ */
+    .screen {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+      background: rgba(9, 12, 18, 0.9);
+      backdrop-filter: blur(3px);
+      transition: opacity 0.25s ease;
+    }
+
+    .screen.hidden { opacity: 0; pointer-events: none; }
+
+    .screen-title {
+      font-size: 1.8rem;
+      color: #57e0ff;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+      text-shadow: 0 0 18px rgba(87, 224, 255, 0.5);
+    }
+
+    .screen-subtitle { font-size: 0.9rem; color: #93a7bd; margin-bottom: 20px; line-height: 1.5; }
+    .final-score { font-size: 1.3rem; color: #ffd93d; margin-bottom: 10px; }
+    .final-score span { color: #57e0ff; font-weight: 700; }
+
+    /* ============ BUTTONS ============ */
+    .action-btn {
+      padding: 13px 34px;
+      background: linear-gradient(135deg, #2bb6d9, #1a7fb0);
+      color: #fff;
+      border: none;
+      border-radius: 24px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 4px 18px rgba(43, 182, 217, 0.35);
+    }
+    .action-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(43, 182, 217, 0.5); }
+    .action-btn:active { transform: translateY(0); }
+
+    /* ============ UPGRADE PICKER ============ */
+    .upgrade-container { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 10px; }
+    .upgrade-card {
+      width: 120px;
+      padding: 14px 10px;
+      background: rgba(30, 42, 60, 0.95);
+      border: 2px solid #2a3a52;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .upgrade-card:hover { transform: translateY(-3px); border-color: #57e0ff; box-shadow: 0 6px 20px rgba(87, 224, 255, 0.25); }
+    .upgrade-icon { font-size: 1.8rem; margin-bottom: 6px; }
+    .upgrade-name { font-size: 0.85rem; color: #57e0ff; font-weight: 700; margin-bottom: 4px; }
+    .upgrade-desc { font-size: 0.7rem; color: #8fa4bb; line-height: 1.35; }
+
+    /* ============ HINT BAR ============ */
+    .hint-bar {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+      font-size: 0.72rem;
+      color: #6f8399;
+      letter-spacing: 0.5px;
+    }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 480px) {
+      .game-container { padding: 12px; }
+      .game-title { font-size: 1.3rem; }
+      .upgrade-card { width: 92px; padding: 10px 6px; }
+      .hint-bar { font-size: 0.62rem; }
+    }
+  </style>
+</head>
+<body>
+  <!-- ============ MAIN GAME CONTAINER ============ -->
+  <div class="game-container">
+    <h1 class="game-title">TURRET GUNNER</h1>
+    <p class="game-subtitle">Hold the line. Do not let them overrun you.</p>
+
+    <div class="score-board">
+      <div>Score: <span id="score">0</span></div>
+      <div>Wave: <span id="wave">1</span></div>
+      <div>Best: <span id="highScore">0</span></div>
+    </div>
+
+    <div class="heat-track"><div class="heat-fill" id="heatFill"></div></div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="520" height="520"></canvas>
+
+      <!-- Start Screen -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">DEFEND THE CORE</h2>
+        <p class="screen-subtitle">
+          Aim with the mouse &amp; click to fire.<br />
+          R = reload &nbsp;•&nbsp; P = pause &nbsp;•&nbsp; watch the heat bar!
+        </p>
+        <button class="action-btn" id="startBtn">START</button>
+      </div>
+
+      <!-- Upgrade Screen (between waves) -->
+      <div id="upgradeScreen" class="screen hidden">
+        <h2 class="screen-title">WAVE CLEARED</h2>
+        <p class="screen-subtitle">Choose an upgrade, gunner.</p>
+        <div class="upgrade-container" id="upgradeContainer"></div>
+      </div>
+
+      <!-- Game Over Screen -->
+      <div id="gameOverScreen" class="screen hidden">
+        <h2 class="screen-title">OVERRUN</h2>
+        <p class="final-score">Score: <span id="finalScore">0</span></p>
+        <p class="final-score">Best Wave: <span id="finalWave">1</span></p>
+        <button class="action-btn" id="playAgainBtn">PLAY AGAIN</button>
+      </div>
+
+      <!-- Pause Overlay -->
+      <div id="pauseOverlay" class="screen hidden">
+        <h2 class="screen-title">PAUSED</h2>
+        <p class="screen-subtitle">Press P to resume</p>
+      </div>
+    </div>
+
+    <div class="hint-bar">
+      <span>🖱️ Aim &amp; fire</span>
+      <span>🔁 R to reload</span>
+      <span>📱 Tap to aim/fire</span>
+    </div>
+  </div>
+
+  <script>
+    // ============ GAME CONFIGURATION ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+    const CX = W / 2;
+    const CY = H / 2;
+
+    // ============ GAME STATE ============
+    let score = 0;
+    let wave = 1;
+    let highScore = parseInt(localStorage.getItem('turretHighScore') || '0', 10);
+    let bestWave = parseInt(localStorage.getItem('turretBestWave') || '1', 10);
+
+    let enemies = [];
+    let bullets = [];
+    let particles = [];
+    let pickups = [];
+
+    let aimAngle = -Math.PI / 2;
+    let mouseX = CX, mouseY = 0;
+
+    // Gun mechanics
+    let heat = 0;                 // 0..100
+    let overheated = false;
+    let ammo = 15;                // rounds per magazine
+    let magazine = 15;
+    let reloading = false;
+    let reloadTimer = 0;          // ms
+    const RELOAD_TIME = 1200;
+
+    // Upgradable stats
+    let fireRate = 150;           // ms between shots
+    let heatPerShot = 7;
+    let bulletDamage = 1;
+    let reloadSpeed = RELOAD_TIME;
+    let pierce = 1;               // enemies a bullet can pass
+
+    let lastShot = 0;
+    let spawnTimer = 0;
+    let spawnInterval = 1100;     // ms
+    let enemiesThisWave = 8;
+    let spawnedThisWave = 0;
+    let waveActive = false;
+
+    let isRunning = false;
+    let isPaused = false;
+    let pickingUpgrade = false;
+    let lastTime = 0;
+    let elapsed = 0;
+    let shake = 0;
+
+    // ============ DOM ELEMENTS ============
+    const scoreEl = document.getElementById('score');
+    const waveEl = document.getElementById('wave');
+    const highScoreEl = document.getElementById('highScore');
+    const heatFill = document.getElementById('heatFill');
+    const finalScoreEl = document.getElementById('finalScore');
+    const finalWaveEl = document.getElementById('finalWave');
+    const startScreen = document.getElementById('startScreen');
+    const upgradeScreen = document.getElementById('upgradeScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const startBtn = document.getElementById('startBtn');
+    const playAgainBtn = document.getElementById('playAgainBtn');
+    const upgradeContainer = document.getElementById('upgradeContainer');
+
+    highScoreEl.textContent = highScore;
+
+    // ============ AUDIO (WEBAUDIO BEEP) ============
+    let audioCtx = null;
+    function beep(freq, duration, type, gain) {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        osc.type = type || 'square';
+        osc.frequency.value = freq;
+        g.gain.value = gain != null ? gain : 0.05;
+        osc.connect(g); g.connect(audioCtx.destination);
+        osc.start();
+        g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + (duration || 0.08));
+        osc.stop(audioCtx.currentTime + (duration || 0.08));
+      } catch (e) { /* audio optional */ }
+    }
+
+    // ============ ENEMY TYPES ============
+    const ENEMY_TYPES = [
+      { name: 'grunt',  color: '#ff5c5c', radius: 12, speed: 1.5, hp: 2, points: 10 },
+      { name: 'runner', color: '#ffb020', radius: 9,  speed: 2.6, hp: 1, points: 15 },
+      { name: 'tank',   color: '#a06bff', radius: 18, speed: 1.0, hp: 6, points: 30 }
+    ];
+
+    // ============ HELPER FUNCTIONS ============
+    function rand(a, b) { return a + Math.random() * (b - a); }
+
+    function spawnEnemy() {
+      // Spawn just outside a random edge, converge toward center
+      const edge = Math.floor(Math.random() * 4);
+      let x, y;
+      const margin = 40;
+      if (edge === 0) { x = rand(0, W); y = -margin; }
+      else if (edge === 1) { x = W + margin; y = rand(0, H); }
+      else if (edge === 2) { x = rand(0, W); y = H + margin; }
+      else { x = -margin; y = rand(0, H); }
+
+      // Type weighting scales with wave
+      let pool = [ENEMY_TYPES[0]];
+      if (wave >= 2) pool.push(ENEMY_TYPES[1]);
+      if (wave >= 4) pool.push(ENEMY_TYPES[2]);
+      const t = pool[Math.floor(Math.random() * pool.length)];
+
+      const hpBonus = Math.floor((wave - 1) / 2);
+      enemies.push({
+        x, y,
+        radius: t.radius,
+        speed: t.speed * (1 + (wave - 1) * 0.06),
+        hp: t.hp + hpBonus,
+        maxHp: t.hp + hpBonus,
+        color: t.color,
+        points: t.points,
+        wobble: Math.random() * Math.PI * 2
+      });
+    }
+
+    function spawnPickup(x, y) {
+      const KR = Math.random();
+      const kind = KR < 0.5 ? 'ammo' : (KR < 0.8 ? 'coolant' : 'bonus');
+      pickups.push({ x, y, kind, life: 9000, r: 11 });
+    }
+
+    function addParticles(x, y, color, count, spd) {
+      for (let i = 0; i < (count || 8); i++) {
+        const a = Math.random() * Math.PI * 2;
+        const s = rand(1, spd || 4);
+        particles.push({
+          x, y,
+          vx: Math.cos(a) * s,
+          vy: Math.sin(a) * s,
+          life: 1,
+          color,
+          size: rand(1.5, 3.5)
+        });
+      }
+    }
+
+    // ============ FIRE WEAPON ============
+    function fire(now) {
+      if (reloading || overheated) return;
+      if (now - lastShot < fireRate) return;
+      if (ammo <= 0) { startReload(); return; }
+
+      lastShot = now;
+      ammo--;
+      heat += heatPerShot;
+      beep(720, 0.05, 'square', 0.04);
+
+      const muzzleDist = 26;
+      const bx = CX + Math.cos(aimAngle) * muzzleDist;
+      const by = CY + Math.sin(aimAngle) * muzzleDist;
+      const spread = rand(-0.03, 0.03);
+      bullets.push({
+        x: bx, y: by,
+        vx: Math.cos(aimAngle + spread) * 9,
+        vy: Math.sin(aimAngle + spread) * 9,
+        life: 90,
+        dmg: bulletDamage,
+        pierce: pierce,
+        hit: []
+      });
+
+      if (heat >= 100) { heat = 100; overheated = true; beep(180, 0.35, 'sawtooth', 0.06); }
+      updateHeatUI();
+    }
+
+    function startReload() {
+      if (reloading || ammo === magazine) return;
+      reloading = true;
+      reloadTimer = reloadSpeed;
+      beep(320, 0.1, 'sine', 0.05);
+    }
+
+    // ============ UPDATE ============
+    function update(dt) {
+      elapsed += dt;
+
+      // Aim from mouse
+      aimAngle = Math.atan2(mouseY - CY, mouseX - CX);
+
+      // Cooling / heat
+      if (!overheated) {
+        heat = Math.max(0, heat - dt * 0.012);
+      } else {
+        heat = Math.max(0, heat - dt * 0.02);
+        if (heat <= 0) { overheated = false; beep(500, 0.1, 'sine', 0.04); }
+      }
+      updateHeatUI();
+
+      // Auto-shoot while mouse held
+      if (isFiring) fire(elapsed);
+
+      // Reload timer
+      if (reloading) {
+        reloadTimer -= dt;
+        if (reloadTimer <= 0) {
+          reloading = false;
+          ammo = magazine;
+          beep(600, 0.12, 'sine', 0.05);
+        }
+      }
+
+      // Spawn enemies during active wave
+      if (waveActive && spawnedThisWave < enemiesThisWave) {
+        spawnTimer -= dt;
+        if (spawnTimer <= 0) {
+          spawnEnemy();
+          spawnedThisWave++;
+          spawnTimer = Math.max(260, spawnInterval - wave * 40);
+        }
+      }
+
+      // Update bullets
+      bullets = bullets.filter(b => {
+        b.x += b.vx; b.y += b.vy; b.life--;
+        if (b.x < 0 || b.x > W || b.y < 0 || b.y > H || b.life <= 0) return false;
+
+        for (const e of enemies) {
+          if (b.hit.includes(e)) continue;
+          const d = Math.hypot(e.x - b.x, e.y - b.y);
+          if (d < e.radius) {
+            e.hp -= b.dmg;
+            b.hit.push(e);
+            addParticles(b.x, b.y, '#ffe27a', 5, 3);
+            beep(900, 0.03, 'square', 0.03);
+            b.pierce--;
+            if (b.pierce <= 0) return false;
+          }
+        }
+        return true;
+      });
+
+      // Resolve dead enemies
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
+        if (e.hp <= 0) {
+          addParticles(e.x, e.y, e.color, 14, 6);
+          score += e.points;
+          scoreEl.textContent = score;
+          if (Math.random() < 0.18) spawnPickup(e.x, e.y);
+          enemies.splice(i, 1);
+          beep(240, 0.09, 'sawtooth', 0.05);
+        }
+      }
+
+      // Move enemies toward core
+      for (const e of enemies) {
+        const ang = Math.atan2(CY - e.y, CX - e.x);
+        e.wobble += 0.08;
+        const wob = Math.sin(e.wobble) * 0.35;
+        const step = e.speed;
+        e.x += Math.cos(ang + wob) * step;
+        e.y += Math.sin(ang + wob) * step;
+
+        // Reached core?
+        if (Math.hypot(e.x - CX, e.y - CY) < 30) {
+          coreHit();
+          enemies.splice(enemies.indexOf(e), 1);
+          break;
+        }
+      }
+
+      // Pickups drift toward the core; collected on arrival
+      pickups = pickups.filter(p => {
+        p.life -= dt;
+        if (p.life <= 0) return false;
+        const pang = Math.atan2(CY - p.y, CX - p.x);
+        p.x += Math.cos(pang) * 0.9;
+        p.y += Math.sin(pang) * 0.9;
+        if (Math.hypot(p.x - CX, p.y - CY) < 30) {
+          if (p.kind === 'ammo') ammo = Math.min(magazine, ammo + 8);
+          else if (p.kind === 'coolant') { heat = 0; overheated = false; updateHeatUI(); }
+          else { score += 50; scoreEl.textContent = score; }
+          beep(p.kind === 'bonus' ? 980 : 640, 0.1, 'sine', 0.05);
+          addParticles(p.x, p.y, '#57e0ff', 8, 4);
+          return false;
+        }
+        return true;
+      });
+
+      // Particles
+      particles = particles.filter(p => {
+        p.x += p.vx; p.y += p.vy;
+        p.vx *= 0.96; p.vy *= 0.96;
+        p.life -= dt * 0.004;
+        return p.life > 0;
+      });
+
+      if (shake > 0) shake = Math.max(0, shake - dt * 0.02);
+
+      // Wave complete?
+      if (waveActive && spawnedThisWave >= enemiesThisWave && enemies.length === 0) {
+        waveComplete();
+      }
+    }
+
+    function coreHit() {
+      shake = 16;
+      addParticles(CX + rand(-20, 20), CY + rand(-20, 20), '#ff4d4d', 20, 7);
+      beep(120, 0.4, 'sawtooth', 0.08);
+      // Losing a hit ends the run (core integrity = overrun)
+      gameOver();
+    }
+
+    function updateHeatUI() {
+      heatFill.style.width = heat.toFixed(0) + '%';
+    }
+
+    // ============ WAVE FLOW ============
+    function startWave() {
+      waveActive = true;
+      spawnedThisWave = 0;
+      spawnTimer = 500;
+      enemiesThisWave = 6 + wave * 3;
+      waveEl.textContent = wave;
+      beep(520, 0.18, 'sine', 0.05);
+    }
+
+    function waveComplete() {
+      waveActive = false;
+      score += 25 * wave;
+      scoreEl.textContent = score;
+      // Offer upgrades
+      showUpgrades();
+    }
+
+    function showUpgrades() {
+      pickingUpgrade = true;
+      const options = [
+        { icon: '🔥', name: 'Rapid Fire', desc: 'Fire 15% faster', apply: () => { fireRate = Math.max(60, fireRate * 0.85); } },
+        { icon: '❄️', name: 'Coolant', desc: 'Gun heats 25% slower', apply: () => { heatPerShot = Math.max(2, heatPerShot * 0.75); } },
+        { icon: '💥', name: 'Heavy Rounds', desc: '+1 bullet damage', apply: () => { bulletDamage += 1; } },
+        { icon: '🔁', name: 'Fast Hands', desc: 'Reload 25% faster', apply: () => { reloadSpeed = Math.max(400, reloadSpeed * 0.75); } },
+        { icon: '🎯', name: 'Piercing', desc: 'Bullets pierce +1 enemy', apply: () => { pierce += 1; } },
+        { icon: '📦', name: 'Big Mag', desc: '+5 magazine size', apply: () => { magazine += 5; ammo = magazine; } }
+      ];
+      // pick 3 distinct
+      const chosen = [];
+      const pool = options.slice();
+      for (let i = 0; i < 3 && pool.length; i++) {
+        const idx = Math.floor(Math.random() * pool.length);
+        chosen.push(pool.splice(idx, 1)[0]);
+      }
+
+      upgradeContainer.innerHTML = '';
+      chosen.forEach(opt => {
+        const card = document.createElement('div');
+        card.className = 'upgrade-card';
+        card.innerHTML = '<div class="upgrade-icon">' + opt.icon + '</div>' +
+                         '<div class="upgrade-name">' + opt.name + '</div>' +
+                         '<div class="upgrade-desc">' + opt.desc + '</div>';
+        card.addEventListener('click', () => chooseUpgrade(opt));
+        upgradeContainer.appendChild(card);
+      });
+      upgradeScreen.classList.remove('hidden');
+    }
+
+    function chooseUpgrade(opt) {
+      opt.apply();
+      beep(760, 0.12, 'sine', 0.05);
+      upgradeScreen.classList.add('hidden');
+      pickingUpgrade = false;
+      wave++;
+      startWave();
+    }
+
+    // ============ DRAW ============
+    function draw() {
+      ctx.save();
+      if (shake > 0) ctx.translate(rand(-shake, shake) * 0.4, rand(-shake, shake) * 0.4);
+
+      // Background
+      const bg = ctx.createRadialGradient(CX, CY, 40, CX, CY, W * 0.7);
+      bg.addColorStop(0, '#16202e');
+      bg.addColorStop(1, '#080c12');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // Grid rings
+      ctx.strokeStyle = 'rgba(80, 180, 255, 0.08)';
+      ctx.lineWidth = 1;
+      for (let r = 60; r < W; r += 60) {
+        ctx.beginPath();
+        ctx.arc(CX, CY, r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // Pickups
+      for (const p of pickups) {
+        const blink = p.life < 2500 && Math.floor(p.life / 150) % 2 === 0;
+        if (blink) continue;
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = p.kind === 'ammo' ? '#ffd93d' : (p.kind === 'coolant' ? '#57e0ff' : '#8effc1');
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#0a0f16';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(p.kind === 'ammo' ? 'A' : (p.kind === 'coolant' ? 'C' : '★'), p.x, p.y + 1);
+        ctx.globalAlpha = 1;
+      }
+
+      // Bullets
+      for (const b of bullets) {
+        ctx.strokeStyle = '#ffe27a';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(b.x, b.y);
+        ctx.lineTo(b.x - b.vx * 1.6, b.y - b.vy * 1.6);
+        ctx.stroke();
+      }
+
+      // Enemies
+      for (const e of enemies) {
+        ctx.fillStyle = e.color;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
+        ctx.fill();
+        // eye toward core
+        const ea = Math.atan2(CY - e.y, CX - e.x);
+        ctx.fillStyle = '#0a0f16';
+        ctx.beginPath();
+        ctx.arc(e.x + Math.cos(ea) * e.radius * 0.35, e.y + Math.sin(ea) * e.radius * 0.35, e.radius * 0.28, 0, Math.PI * 2);
+        ctx.fill();
+        // hp bar
+        if (e.hp < e.maxHp) {
+          const bw = e.radius * 2;
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
+          ctx.fillRect(e.x - bw / 2, e.y - e.radius - 8, bw, 3);
+          ctx.fillStyle = '#37d67a';
+          ctx.fillRect(e.x - bw / 2, e.y - e.radius - 8, bw * (e.hp / e.maxHp), 3);
+        }
+      }
+
+      // Base / core
+      ctx.fillStyle = 'rgba(87, 224, 255, 0.12)';
+      ctx.beginPath();
+      ctx.arc(CX, CY, 34, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#2bb6d9';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(CX, CY, 30, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Turret barrel
+      ctx.save();
+      ctx.translate(CX, CY);
+      ctx.rotate(aimAngle);
+      const heatGlow = heat / 100;
+      ctx.fillStyle = 'rgba(' + Math.round(140 + heatGlow * 115) + ', ' + Math.round(200 - heatGlow * 90) + ', 255, 1)';
+      ctx.fillRect(0, -5, 30, 10);
+      ctx.fillStyle = '#57e0ff';
+      ctx.fillRect(28, -7, 8, 14);
+      ctx.restore();
+
+      // Turret base hub
+      ctx.fillStyle = '#1a7fb0';
+      ctx.beginPath();
+      ctx.arc(CX, CY, 16, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#57e0ff';
+      ctx.beginPath();
+      ctx.arc(CX, CY, 8, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Crosshair
+      ctx.strokeStyle = 'rgba(87, 224, 255, 0.85)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(mouseX, mouseY, 12, 0, Math.PI * 2);
+      ctx.moveTo(mouseX - 18, mouseY); ctx.lineTo(mouseX - 6, mouseY);
+      ctx.moveTo(mouseX + 6, mouseY); ctx.lineTo(mouseX + 18, mouseY);
+      ctx.moveTo(mouseX, mouseY - 18); ctx.lineTo(mouseX, mouseY - 6);
+      ctx.moveTo(mouseX, mouseY + 6); ctx.lineTo(mouseX, mouseY + 18);
+      ctx.stroke();
+
+      // Particles
+      for (const p of particles) {
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      // In-canvas status (heat + ammo + reload)
+      drawHUD();
+
+      ctx.restore();
+    }
+
+    function drawHUD() {
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.font = 'bold 13px Consolas, monospace';
+      // Ammo
+      ctx.fillStyle = reloading ? '#ffb020' : '#e8eef7';
+      ctx.fillText(reloading ? 'RELOADING…' : ('AMMO ' + ammo + '/' + magazine), 12, 12);
+      // Overheat warning
+      if (overheated) {
+        ctx.fillStyle = '#ff4d4d';
+        ctx.fillText('OVERHEATED!', 12, 30);
+      }
+    }
+
+    // ============ GAME OVER ============
+    function gameOver() {
+      isRunning = false;
+      waveActive = false;
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('turretHighScore', highScore);
+      }
+      if (wave > bestWave) {
+        bestWave = wave;
+        localStorage.setItem('turretBestWave', bestWave);
+      }
+      highScoreEl.textContent = highScore;
+      finalScoreEl.textContent = score;
+      finalWaveEl.textContent = wave;
+      gameOverScreen.classList.remove('hidden');
+    }
+
+    // ============ RESET & START ============
+    function resetGame() {
+      score = 0; wave = 1;
+      enemies = []; bullets = []; particles = []; pickups = [];
+      heat = 0; overheated = false; reloading = false; reloadTimer = 0;
+      ammo = 15; magazine = 15;
+      fireRate = 150; heatPerShot = 7; bulletDamage = 1; pierce = 1; reloadSpeed = RELOAD_TIME;
+      lastShot = 0; elapsed = 0; shake = 0;
+      scoreEl.textContent = '0';
+      waveEl.textContent = '1';
+      updateHeatUI();
+    }
+
+    function startGame() {
+      resetGame();
+      isRunning = true;
+      isPaused = false;
+      pickingUpgrade = false;
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      upgradeScreen.classList.add('hidden');
+      pauseOverlay.classList.add('hidden');
+      startWave();
+      lastTime = performance.now();
+      requestAnimationFrame(loop);
+    }
+
+    function togglePause() {
+      if (!isRunning || pickingUpgrade) return;
+      isPaused = !isPaused;
+      pauseOverlay.classList.toggle('hidden', !isPaused);
+      if (!isPaused) { lastTime = performance.now(); requestAnimationFrame(loop); }
+    }
+
+    // ============ MAIN LOOP ============
+    function loop(now) {
+      if (!isRunning || isPaused) return;
+      const dt = Math.min(50, now - lastTime);
+      lastTime = now;
+      if (!pickingUpgrade) update(dt);
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // ============ INPUT ============
+    let isFiring = false;
+
+    function canvasPos(clientX, clientY) {
+      const r = canvas.getBoundingClientRect();
+      return {
+        x: (clientX - r.left) / r.width * W,
+        y: (clientY - r.top) / r.height * H
+      };
+    }
+
+    canvas.addEventListener('mousemove', (e) => {
+      const p = canvasPos(e.clientX, e.clientY);
+      mouseX = p.x; mouseY = p.y;
+    });
+
+    canvas.addEventListener('mousedown', (e) => {
+      if (!isRunning || isPaused || pickingUpgrade) return;
+      const p = canvasPos(e.clientX, e.clientY);
+      mouseX = p.x; mouseY = p.y;
+      isFiring = true;
+      fire(elapsed);
+    });
+
+    window.addEventListener('mouseup', () => { isFiring = false; });
+
+    // Touch support
+    canvas.addEventListener('touchstart', (e) => {
+      if (!isRunning || isPaused || pickingUpgrade) return;
+      e.preventDefault();
+      const t = e.touches[0];
+      const p = canvasPos(t.clientX, t.clientY);
+      mouseX = p.x; mouseY = p.y;
+      aimAngle = Math.atan2(mouseY - CY, mouseX - CX);
+      isFiring = true;
+      fire(elapsed);
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+      if (!isRunning || isPaused || pickingUpgrade) return;
+      e.preventDefault();
+      const t = e.touches[0];
+      const p = canvasPos(t.clientX, t.clientY);
+      mouseX = p.x; mouseY = p.y;
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      isFiring = false;
+    }, { passive: false });
+
+    // Keyboard
+    document.addEventListener('keydown', (e) => {
+      if (['KeyR', 'KeyP', 'Space'].includes(e.code)) e.preventDefault();
+      if (e.code === 'KeyR') { if (isRunning && !isPaused && !pickingUpgrade) startReload(); }
+      if (e.code === 'KeyP') togglePause();
+    });
+
+    // Buttons
+    startBtn.addEventListener('click', startGame);
+    playAgainBtn.addEventListener('click', startGame);
+
+    // ============ INITIAL DRAW ============
+    (function initDraw() {
+      mouseX = CX; mouseY = 60;
+      draw();
+    })();
+  </script>
+</body>
+</html>

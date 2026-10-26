@@ -1,0 +1,1794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Big Two (大老二)</title>
+    <style>
+        /* =====================================================
+           CSS VARIABLES & RESET
+           ===================================================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        :root {
+            /* Casino felt colors */
+            --felt-dark: #1a472a;
+            --felt-medium: #2d5a3d;
+            --felt-light: #3d6b4f;
+            --felt-vignette: rgba(0, 0, 0, 0.4);
+            
+            /* Card colors */
+            --card-bg: #fefefe;
+            --card-shadow: rgba(0, 0, 0, 0.3);
+            --card-border: #ddd;
+            --red-suit: #c41e3a;
+            --black-suit: #1a1a1a;
+            
+            /* UI colors */
+            --ui-bg: rgba(255, 255, 255, 0.1);
+            --ui-border: rgba(255, 255, 255, 0.2);
+            --text-light: #f0f0f0;
+            --text-dim: #b0b0b0;
+            --highlight: #ffd700;
+            --selected-glow: rgba(255, 215, 0, 0.6);
+            
+            /* Button colors */
+            --btn-play: #4CAF50;
+            --btn-play-hover: #45a049;
+            --btn-pass: #f44336;
+            --btn-pass-hover: #da190b;
+            --btn-sort: #2196F3;
+            --btn-sort-hover: #1976D2;
+            --btn-disabled: #666;
+            
+            /* Dimensions */
+            --card-width: 70px;
+            --card-height: 100px;
+            --card-radius: 6px;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: radial-gradient(ellipse at center, var(--felt-medium) 0%, var(--felt-dark) 70%, #0d2818 100%);
+            min-height: 100vh;
+            color: var(--text-light);
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* =====================================================
+           LAYOUT
+           ===================================================== */
+        .game-container {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            grid-template-rows: auto minmax(0, 1fr) auto;
+            height: 100vh;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 10px;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background: var(--ui-bg);
+            border-radius: 10px;
+            border: 1px solid var(--ui-border);
+            margin-bottom: 10px;
+        }
+
+        .game-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--highlight);
+        }
+
+        .turn-indicator {
+            background: var(--felt-light);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .turn-indicator.active {
+            background: var(--highlight);
+            color: #000;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .help-btn {
+            background: var(--ui-bg);
+            border: 1px solid var(--ui-border);
+            color: var(--text-light);
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .help-btn:hover {
+            background: var(--felt-light);
+        }
+
+        /* Difficulty selector */
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .difficulty-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--ui-bg);
+            border: 1px solid var(--ui-border);
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 0.9rem;
+        }
+
+        .difficulty-label {
+            color: var(--text-dim);
+            white-space: nowrap;
+        }
+
+        .difficulty-select {
+            background: var(--felt-light);
+            color: var(--text-light);
+            border: 1px solid var(--ui-border);
+            border-radius: 5px;
+            padding: 5px 8px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .difficulty-select:hover,
+        .difficulty-select:focus {
+            border-color: var(--highlight);
+        }
+
+        .difficulty-select option {
+            background: var(--felt-dark);
+            color: var(--text-light);
+        }
+
+        /* Main table area */
+        .table-area {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+            grid-template-rows: auto minmax(0, 2fr) minmax(0, 1fr);
+            gap: 10px;
+            position: relative;
+            min-height: 0;
+        }
+
+        /* Player positions */
+        .player-seat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+            min-width: 0;
+            transition: all 0.3s ease;
+        }
+
+        .player-seat.active {
+            background: rgba(255, 215, 0, 0.1);
+            border-radius: 10px;
+        }
+
+        .player-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--felt-light);
+            border: 3px solid var(--ui-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+            position: relative;
+        }
+
+        .player-avatar.thinking::after {
+            content: '💭';
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            font-size: 1.2rem;
+            animation: float 1s infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        .player-name {
+            font-weight: bold;
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+
+        .player-cards-count {
+            background: var(--ui-bg);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            border: 1px solid var(--ui-border);
+        }
+
+        .card-back {
+            width: 26px;
+            height: 36px;
+            background: linear-gradient(135deg, #1a3a5c 0%, #2d5a7c 50%, #1a3a5c 100%);
+            border: 1px solid #fff;
+            border-radius: 3px;
+            display: inline-block;
+            margin-left: -14px;
+            box-shadow: 1px 1px 3px var(--card-shadow);
+            flex: 0 0 auto;
+        }
+
+        .card-back:first-child {
+            margin-left: 0;
+        }
+
+        /* Bot card-back rows sit in a compact single overlapped row */
+        [id^="card-backs-"] {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 36px;
+            max-width: 100%;
+        }
+
+        /* Center table */
+        .center-table {
+            grid-column: 2;
+            grid-row: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            padding: 20px;
+            border: 2px solid var(--ui-border);
+        }
+
+        .last-play-info {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            color: var(--text-dim);
+        }
+
+        .last-play-info .player-name {
+            color: var(--highlight);
+            font-size: 1rem;
+        }
+
+        .played-cards {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            justify-content: center;
+            min-height: 110px;
+            align-items: center;
+        }
+
+        .pass-indicator {
+            font-size: 1.5rem;
+            color: var(--btn-pass);
+            font-weight: bold;
+            padding: 10px 20px;
+            background: rgba(244, 67, 54, 0.2);
+            border-radius: 8px;
+            border: 2px solid var(--btn-pass);
+        }
+
+        /* Message log */
+        .message-log {
+            grid-column: 2;
+            grid-row: 3;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 10px;
+            min-height: 0;
+            overflow-y: auto;
+            font-size: 0.8rem;
+            border: 1px solid var(--ui-border);
+        }
+
+        .message-log::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .message-log::-webkit-scrollbar-thumb {
+            background: var(--felt-light);
+            border-radius: 3px;
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+            padding: 3px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .log-entry.highlight {
+            color: var(--highlight);
+        }
+
+        /* Human player area */
+        .human-area {
+            grid-column: 1;
+            grid-row: 3;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            min-height: 0;
+        }
+
+        /* Player's hand */
+        .player-hand {
+            display: flex;
+            justify-content: safe center;
+            align-items: flex-end;
+            gap: 0;
+            padding: 34px 20px 20px;
+            min-height: 160px;
+            min-width: 0;
+            overflow-x: auto;
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        .player-hand::-webkit-scrollbar {
+            height: 8px;
+        }
+
+        .player-hand::-webkit-scrollbar-thumb {
+            background: var(--felt-light);
+            border-radius: 4px;
+        }
+
+        /* Individual card */
+        .card {
+            width: var(--card-width);
+            height: var(--card-height);
+            flex: 0 0 auto;
+            background: var(--card-bg);
+            border-radius: var(--card-radius);
+            border: 1px solid var(--card-border);
+            box-shadow: 2px 2px 8px var(--card-shadow);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 5px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            margin-left: -18px;
+            font-size: 1.1rem;
+        }
+
+        .card:first-child {
+            margin-left: 0;
+        }
+
+        .card:hover {
+            transform: translateY(-15px);
+            z-index: 10;
+        }
+
+        .card.selected {
+            transform: translateY(-25px);
+            box-shadow: 0 0 15px var(--selected-glow);
+            border: 2px solid var(--highlight);
+            z-index: 20;
+        }
+
+        .card.red {
+            color: var(--red-suit);
+        }
+
+        .card.black {
+            color: var(--black-suit);
+        }
+
+        .card-top, .card-bottom {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            line-height: 1;
+        }
+
+        .card-bottom {
+            transform: rotate(180deg);
+        }
+
+        .card-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2rem;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .control-btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .control-btn:disabled {
+            background: var(--btn-disabled);
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        .btn-play {
+            background: var(--btn-play);
+            color: white;
+        }
+
+        .btn-play:not(:disabled):hover {
+            background: var(--btn-play-hover);
+            transform: translateY(-2px);
+        }
+
+        .btn-pass {
+            background: var(--btn-pass);
+            color: white;
+        }
+
+        .btn-pass:not(:disabled):hover {
+            background: var(--btn-pass-hover);
+            transform: translateY(-2px);
+        }
+
+        .btn-sort {
+            background: var(--btn-sort);
+            color: white;
+        }
+
+        .btn-sort:not(:disabled):hover {
+            background: var(--btn-sort-hover);
+            transform: translateY(-2px);
+        }
+
+        /* =====================================================
+           MODALS
+           ===================================================== */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, var(--felt-medium) 0%, var(--felt-dark) 100%);
+            border: 3px solid var(--highlight);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            text-align: center;
+        }
+
+        .modal-title {
+            font-size: 2rem;
+            color: var(--highlight);
+            margin-bottom: 20px;
+        }
+
+        .modal-text {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 25px;
+            color: var(--text-light);
+        }
+
+        .rules-section {
+            text-align: left;
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+        }
+
+        .rules-section h3 {
+            color: var(--highlight);
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+
+        .rules-section ul {
+            list-style: none;
+            padding-left: 10px;
+        }
+
+        .rules-section li {
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .rules-section li::before {
+            content: '▸';
+            position: absolute;
+            left: 0;
+            color: var(--highlight);
+        }
+
+        .modal-close {
+            background: var(--btn-play);
+            color: white;
+            border: none;
+            padding: 12px 40px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        .modal-close:hover {
+            background: var(--btn-play-hover);
+        }
+
+        /* Win screen */
+        .win-screen {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+
+        .win-screen.win {
+            color: #4CAF50;
+        }
+
+        .win-screen.lose {
+            color: #f44336;
+        }
+
+        /* =====================================================
+           RESPONSIVE
+           ===================================================== */
+        @media (max-width: 768px) {
+            :root {
+                --card-width: 50px;
+                --card-height: 72px;
+            }
+
+            .card {
+                font-size: 0.8rem;
+                margin-left: -16px;
+            }
+
+            .card-center {
+                font-size: 1.5rem;
+            }
+
+            .table-area {
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr);
+                gap: 6px;
+            }
+
+            .player-avatar {
+                width: 45px;
+                height: 45px;
+                font-size: 1.3rem;
+                margin-bottom: 5px;
+            }
+
+            .player-name {
+                font-size: 0.8rem;
+            }
+
+            .player-cards-count {
+                font-size: 0.72rem;
+                padding: 3px 8px;
+            }
+
+            .card-back {
+                width: 16px;
+                height: 23px;
+                margin-left: -10px;
+            }
+
+            [id^="card-backs-"] {
+                min-height: 23px;
+                overflow: hidden;
+            }
+
+            .header {
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+
+            .game-title {
+                font-size: 1.2rem;
+            }
+
+            .controls {
+                gap: 10px;
+            }
+
+            .control-btn {
+                padding: 10px 20px;
+                font-size: 0.9rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            :root {
+                --card-width: 42px;
+                --card-height: 60px;
+            }
+
+            .card {
+                font-size: 0.7rem;
+                padding: 3px;
+                margin-left: -14px;
+            }
+
+            .card-center {
+                font-size: 1.2rem;
+            }
+
+            .game-container {
+                padding: 5px;
+            }
+
+            .player-hand {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="game-title">🎴 Big Two (大老二)</div>
+            <div class="turn-indicator" id="turnIndicator">Waiting to start...</div>
+            <div class="header-right">
+                <label class="difficulty-control" for="difficultySelect">
+                    <span class="difficulty-label">🤖 Difficulty</span>
+                    <select id="difficultySelect" class="difficulty-select" title="Bot difficulty">
+                        <option value="easy">Easy</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </label>
+                <button class="help-btn" id="helpBtn">📖 Rules</button>
+            </div>
+        </header>
+
+        <!-- Main Table -->
+        <div class="table-area">
+            <!-- Top Bot -->
+            <div class="player-seat" id="seat-1">
+                <div class="player-avatar" id="avatar-1">🤖</div>
+                <div class="player-name" id="name-1">Alice</div>
+                <div class="player-cards-count" id="cards-1">13 cards</div>
+                <div id="card-backs-1" style="margin-top: 8px;"></div>
+            </div>
+
+            <!-- Left Bot -->
+            <div class="player-seat" id="seat-2">
+                <div class="player-avatar" id="avatar-2">🤖</div>
+                <div class="player-name" id="name-2">Bob</div>
+                <div class="player-cards-count" id="cards-2">13 cards</div>
+                <div id="card-backs-2" style="margin-top: 8px;"></div>
+            </div>
+
+            <!-- Center Table -->
+            <div class="center-table">
+                <div class="last-play-info" id="lastPlayInfo">
+                    <span class="player-name">No plays yet</span>
+                </div>
+                <div class="played-cards" id="playedCards"></div>
+            </div>
+
+            <!-- Right Bot -->
+            <div class="player-seat" id="seat-3">
+                <div class="player-avatar" id="avatar-3">🤖</div>
+                <div class="player-name" id="name-3">Cara</div>
+                <div class="player-cards-count" id="cards-3">13 cards</div>
+                <div id="card-backs-3" style="margin-top: 8px;"></div>
+            </div>
+
+            <!-- Message Log -->
+            <div class="message-log" id="messageLog"></div>
+        </div>
+
+        <!-- Human Player Area -->
+        <div class="human-area">
+            <div class="player-seat" id="seat-0" style="flex-direction: row; gap: 15px;">
+                <div class="player-avatar" id="avatar-0">👤</div>
+                <div>
+                    <div class="player-name" id="name-0">You</div>
+                    <div class="player-cards-count" id="cards-0">13 cards</div>
+                </div>
+            </div>
+            <div class="player-hand" id="playerHand"></div>
+            <div class="controls">
+                <button class="control-btn btn-play" id="playBtn">Play Selected</button>
+                <button class="control-btn btn-pass" id="passBtn">Pass</button>
+                <button class="control-btn btn-sort" id="sortBtn">Sort: Rank</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rules Modal -->
+    <div class="modal-overlay" id="rulesModal">
+        <div class="modal-content">
+            <h2 class="modal-title">📖 Game Rules</h2>
+            <div class="modal-text">
+                <div class="rules-section">
+                    <h3>Card Ranking (low → high)</h3>
+                    <ul>
+                        <li>3 < 4 < 5 < 6 < 7 < 8 < 9 < 10 < J < Q < K < A < 2</li>
+                        <li>Suits: ♦ < ♣ < ♥ < ♠</li>
+                    </ul>
+                </div>
+                <div class="rules-section">
+                    <h3>Valid Plays</h3>
+                    <ul>
+                        <li><strong>Single:</strong> 1 card</li>
+                        <li><strong>Pair:</strong> 2 cards of same rank</li>
+                        <li><strong>Triple:</strong> 3 cards of same rank</li>
+                        <li><strong>Straight:</strong> 5 consecutive ranks (no 2)</li>
+                        <li><strong>Flush:</strong> 5 cards same suit</li>
+                        <li><strong>Full House:</strong> Triple + Pair</li>
+                        <li><strong>Four of a Kind:</strong> 4 same rank + 1 kicker</li>
+                        <li><strong>Straight Flush:</strong> 5 consecutive same suit (no 2)</li>
+                    </ul>
+                </div>
+                <div class="rules-section">
+                    <h3>Five-Card Hand Ranking</h3>
+                    <ul>
+                        <li>Straight < Flush < Full House < Four of a Kind < Straight Flush</li>
+                    </ul>
+                </div>
+                <div class="rules-section">
+                    <h3>Game Flow</h3>
+                    <ul>
+                        <li>Player with 3♦ leads first (must include 3♦)</li>
+                        <li>Each player must match the number of cards</li>
+                        <li>Play higher than current to win the trick</li>
+                        <li>First to empty hand wins!</li>
+                    </ul>
+                </div>
+            </div>
+            <button class="modal-close" id="rulesClose">Got it!</button>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div class="modal-overlay" id="gameOverModal">
+        <div class="modal-content">
+            <div class="win-screen" id="winScreen"></div>
+            <div class="modal-text" id="gameOverText"></div>
+            <button class="modal-close" id="playAgainBtn">🔄 Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // =====================================================
+        // CONSTANTS & DATA STRUCTURES
+        // =====================================================
+        const SUITS = ['♦', '♣', '♥', '♠'];
+        const SUIT_VALUES = { '♦': 0, '♣': 1, '♥': 2, '♠': 3 };
+        const RANKS = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
+        const RANK_VALUES = {
+            '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10,
+            'J': 11, 'Q': 12, 'K': 13, 'A': 14, '2': 15
+        };
+
+        const BOT_NAMES = ['Alice', 'Bob', 'Cara'];
+        const HAND_TYPES = {
+            SINGLE: 'single',
+            PAIR: 'pair',
+            TRIPLE: 'triple',
+            STRAIGHT: 'straight',
+            FLUSH: 'flush',
+            FULL_HOUSE: 'fullhouse',
+            FOUR_OF_KIND: 'fourofkind',
+            STRAIGHT_FLUSH: 'straightflush'
+        };
+
+        const HAND_CATEGORY_VALUE = {
+            [HAND_TYPES.STRAIGHT]: 1,
+            [HAND_TYPES.FLUSH]: 2,
+            [HAND_TYPES.FULL_HOUSE]: 3,
+            [HAND_TYPES.FOUR_OF_KIND]: 4,
+            [HAND_TYPES.STRAIGHT_FLUSH]: 5
+        };
+
+        // =====================================================
+        // GAME STATE
+        // =====================================================
+        let gameState = {
+            players: [],
+            currentPlayer: 0,
+            currentPlay: null,
+            trickLeader: null,
+            consecutivePasses: 0,
+            gameStarted: false,
+            gameOver: false,
+            sortMode: 'rank',
+            difficulty: 'medium'
+        };
+
+        // =====================================================
+        // CARD UTILITIES
+        // =====================================================
+        function createDeck() {
+            const deck = [];
+            for (const suit of SUITS) {
+                for (const rank of RANKS) {
+                    deck.push({
+                        suit,
+                        rank,
+                        suitValue: SUIT_VALUES[suit],
+                        rankValue: RANK_VALUES[rank],
+                        strength: RANK_VALUES[rank] * 4 + SUIT_VALUES[suit]
+                    });
+                }
+            }
+            return deck;
+        }
+
+        function shuffleDeck(deck) {
+            const shuffled = [...deck];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        function sortCards(cards, mode = 'rank') {
+            return [...cards].sort((a, b) => {
+                if (mode === 'rank') {
+                    if (b.rankValue !== a.rankValue) return b.rankValue - a.rankValue;
+                    return b.suitValue - a.suitValue;
+                } else {
+                    if (b.suitValue !== a.suitValue) return b.suitValue - a.suitValue;
+                    return b.rankValue - a.rankValue;
+                }
+            });
+        }
+
+        function cardToString(card) {
+            return `${card.rank}${card.suit}`;
+        }
+
+        function findThreeOfDiamonds(players) {
+            for (let i = 0; i < players.length; i++) {
+                for (const card of players[i].hand) {
+                    if (card.rank === '3' && card.suit === '♦') {
+                        return i;
+                    }
+                }
+            }
+            return 0;
+        }
+
+        // =====================================================
+        // HAND EVALUATION
+        // =====================================================
+        function evaluateHand(cards) {
+            if (!cards || cards.length === 0) return null;
+
+            const n = cards.length;
+            const sorted = sortCards(cards, 'rank');
+
+            if (n === 1) {
+                return { type: HAND_TYPES.SINGLE, cards: sorted, value: sorted[0].strength };
+            }
+
+            if (n === 2) {
+                if (sorted[0].rank === sorted[1].rank) {
+                    const highSuit = Math.max(sorted[0].suitValue, sorted[1].suitValue);
+                    return {
+                        type: HAND_TYPES.PAIR,
+                        cards: sorted,
+                        rankValue: sorted[0].rankValue,
+                        value: sorted[0].rankValue * 100 + highSuit
+                    };
+                }
+                return null;
+            }
+
+            if (n === 3) {
+                if (sorted[0].rank === sorted[1].rank && sorted[1].rank === sorted[2].rank) {
+                    return {
+                        type: HAND_TYPES.TRIPLE,
+                        cards: sorted,
+                        rankValue: sorted[0].rankValue,
+                        value: sorted[0].rankValue
+                    };
+                }
+                return null;
+            }
+
+            if (n === 5) {
+                return evaluateFiveCardHand(sorted);
+            }
+
+            return null;
+        }
+
+        function evaluateFiveCardHand(cards) {
+            const isFlush = cards.every(c => c.suit === cards[0].suit);
+            const rankCounts = {};
+            for (const card of cards) {
+                rankCounts[card.rankValue] = (rankCounts[card.rankValue] || 0) + 1;
+            }
+
+            const counts = Object.values(rankCounts).sort((a, b) => b - a);
+            const isStraight = checkStraight(cards);
+
+            // Straight Flush
+            if (isStraight && isFlush) {
+                const highCard = Math.max(...cards.map(c => c.rankValue));
+                return {
+                    type: HAND_TYPES.STRAIGHT_FLUSH,
+                    cards,
+                    categoryValue: HAND_CATEGORY_VALUE[HAND_TYPES.STRAIGHT_FLUSH],
+                    value: highCard,
+                    highCard
+                };
+            }
+
+            // Four of a Kind
+            if (counts[0] === 4) {
+                const quadRank = parseInt(Object.keys(rankCounts).find(k => rankCounts[k] === 4));
+                return {
+                    type: HAND_TYPES.FOUR_OF_KIND,
+                    cards,
+                    categoryValue: HAND_CATEGORY_VALUE[HAND_TYPES.FOUR_OF_KIND],
+                    rankValue: quadRank,
+                    value: quadRank
+                };
+            }
+
+            // Full House
+            if (counts[0] === 3 && counts[1] === 2) {
+                const tripleRank = parseInt(Object.keys(rankCounts).find(k => rankCounts[k] === 3));
+                return {
+                    type: HAND_TYPES.FULL_HOUSE,
+                    cards,
+                    categoryValue: HAND_CATEGORY_VALUE[HAND_TYPES.FULL_HOUSE],
+                    rankValue: tripleRank,
+                    value: tripleRank
+                };
+            }
+
+            // Flush
+            if (isFlush) {
+                const sortedByRank = [...cards].sort((a, b) => b.rankValue - a.rankValue);
+                return {
+                    type: HAND_TYPES.FLUSH,
+                    cards: sortedByRank,
+                    categoryValue: HAND_CATEGORY_VALUE[HAND_TYPES.FLUSH],
+                    value: sortedByRank[0].rankValue * 10000 + sortedByRank[1].rankValue * 100 +
+                           sortedByRank[2].rankValue * 10 + sortedByRank[3].rankValue +
+                           sortedByRank[4].rankValue / 100,
+                    highCards: sortedByRank.map(c => c.rankValue)
+                };
+            }
+
+            // Straight
+            if (isStraight) {
+                const highCard = Math.max(...cards.map(c => c.rankValue));
+                return {
+                    type: HAND_TYPES.STRAIGHT,
+                    cards,
+                    categoryValue: HAND_CATEGORY_VALUE[HAND_TYPES.STRAIGHT],
+                    value: highCard,
+                    highCard
+                };
+            }
+
+            return null;
+        }
+
+        function checkStraight(cards) {
+            if (cards.length !== 5) return false;
+            const ranks = [...new Set(cards.map(c => c.rankValue))].sort((a, b) => a - b);
+            if (ranks.length !== 5) return false;
+            if (ranks.includes(15)) return false; // No 2s in straights
+            for (let i = 1; i < ranks.length; i++) {
+                if (ranks[i] !== ranks[i - 1] + 1) return false;
+            }
+            return true;
+        }
+
+        // =====================================================
+        // PLAY VALIDATION & COMPARISON
+        // =====================================================
+        function canPlayHand(newHandEval, currentPlay, playerHand, isFirstPlay = false, mustIncludeCard = null) {
+            if (!newHandEval) return false;
+
+            // First play of game - must include specific card
+            if (isFirstPlay && mustIncludeCard) {
+                const hasCard = newHandEval.cards.some(c =>
+                    c.rank === mustIncludeCard.rank && c.suit === mustIncludeCard.suit
+                );
+                if (!hasCard) return false;
+            }
+
+            // No current play - any valid hand is ok
+            if (!currentPlay) return true;
+
+            // Must match card count
+            if (newHandEval.cards.length !== currentPlay.cards.length) return false;
+
+            // Must beat current play
+            return handBeats(newHandEval, currentPlay);
+        }
+
+        function handBeats(newHand, currentHand) {
+            if (!newHand || !currentHand) return false;
+
+            // Same type comparison
+            if (newHand.type === currentHand.type) {
+                if (newHand.type === HAND_TYPES.SINGLE) {
+                    return newHand.value > currentHand.value;
+                }
+                if (newHand.type === HAND_TYPES.PAIR) {
+                    if (newHand.rankValue !== currentHand.rankValue) {
+                        return newHand.rankValue > currentHand.rankValue;
+                    }
+                    const newHighSuit = Math.max(...newHand.cards.map(c => c.suitValue));
+                    const currentHighSuit = Math.max(...currentHand.cards.map(c => c.suitValue));
+                    return newHighSuit > currentHighSuit;
+                }
+                if (newHand.type === HAND_TYPES.TRIPLE) {
+                    return newHand.rankValue > currentHand.rankValue;
+                }
+                // Five-card hands of same category
+                if (newHand.categoryValue === currentHand.categoryValue) {
+                    if (newHand.type === HAND_TYPES.FLUSH) {
+                        const newHC = newHand.highCards;
+                        const curHC = currentHand.highCards;
+                        for (let i = 0; i < 5; i++) {
+                            if (newHC[i] !== curHC[i]) return newHC[i] > curHC[i];
+                        }
+                        const newSuit = newHand.cards[0].suitValue;
+                        const curSuit = currentHand.cards[0].suitValue;
+                        return newSuit > curSuit;
+                    }
+                    return newHand.value > currentHand.value;
+                }
+            }
+
+            // Four of a Kind or Straight Flush beats lower categories
+            if (newHand.categoryValue >= 4 && currentHand.categoryValue < 4) {
+                return true;
+            }
+
+            return false;
+        }
+
+        function getValidPlays(hand, currentPlay, isFirstPlay = false, mustIncludeCard = null) {
+            const validPlays = [];
+
+            // Singles
+            for (const card of hand) {
+                if (isFirstPlay && mustIncludeCard) {
+                    if (card.rank !== mustIncludeCard.rank || card.suit !== mustIncludeCard.suit) {
+                        continue;
+                    }
+                }
+                const evalResult = evaluateHand([card]);
+                if (canPlayHand(evalResult, currentPlay, hand, isFirstPlay, mustIncludeCard)) {
+                    validPlays.push(evalResult);
+                }
+            }
+
+            // Pairs
+            const rankGroups = {};
+            for (const card of hand) {
+                if (!rankGroups[card.rankValue]) rankGroups[card.rankValue] = [];
+                rankGroups[card.rankValue].push(card);
+            }
+
+            for (const rankValue of Object.keys(rankGroups)) {
+                const cards = rankGroups[rankValue];
+                if (cards.length >= 2) {
+                    const combinations = getCombinations(cards, 2);
+                    for (const combo of combinations) {
+                        if (isFirstPlay && mustIncludeCard) {
+                            const hasCard = combo.some(c =>
+                                c.rank === mustIncludeCard.rank && c.suit === mustIncludeCard.suit
+                            );
+                            if (!hasCard) continue;
+                        }
+                        const evalResult = evaluateHand(combo);
+                        if (canPlayHand(evalResult, currentPlay, hand, isFirstPlay, mustIncludeCard)) {
+                            validPlays.push(evalResult);
+                        }
+                    }
+                }
+            }
+
+            // Triples
+            for (const rankValue of Object.keys(rankGroups)) {
+                const cards = rankGroups[rankValue];
+                if (cards.length >= 3) {
+                    const combinations = getCombinations(cards, 3);
+                    for (const combo of combinations) {
+                        if (isFirstPlay && mustIncludeCard) {
+                            const hasCard = combo.some(c =>
+                                c.rank === mustIncludeCard.rank && c.suit === mustIncludeCard.suit
+                            );
+                            if (!hasCard) continue;
+                        }
+                        const evalResult = evaluateHand(combo);
+                        if (canPlayHand(evalResult, currentPlay, hand, isFirstPlay, mustIncludeCard)) {
+                            validPlays.push(evalResult);
+                        }
+                    }
+                }
+            }
+
+            // Five-card hands
+            if (hand.length >= 5) {
+                const fiveCardCombos = getCombinations(hand, 5);
+                for (const combo of fiveCardCombos) {
+                    if (isFirstPlay && mustIncludeCard) {
+                        const hasCard = combo.some(c =>
+                            c.rank === mustIncludeCard.rank && c.suit === mustIncludeCard.suit
+                        );
+                        if (!hasCard) continue;
+                    }
+                    const evalResult = evaluateHand(combo);
+                    if (evalResult && canPlayHand(evalResult, currentPlay, hand, isFirstPlay, mustIncludeCard)) {
+                        validPlays.push(evalResult);
+                    }
+                }
+            }
+
+            return validPlays;
+        }
+
+        function getCombinations(arr, k) {
+            if (k === 0) return [[]];
+            if (arr.length === 0) return [];
+            const [first, ...rest] = arr;
+            const withFirst = getCombinations(rest, k - 1).map(c => [first, ...c]);
+            const withoutFirst = getCombinations(rest, k);
+            return [...withFirst, ...withoutFirst];
+        }
+
+        // =====================================================
+        // BOT AI
+        // =====================================================
+        function botChoosePlay(botIndex, hand, currentPlay, isFirstPlay, mustIncludeCard) {
+            const difficulty = gameState.difficulty || 'medium';
+            const validPlays = getValidPlays(hand, currentPlay, isFirstPlay, mustIncludeCard);
+
+            if (validPlays.length === 0) {
+                return null;
+            }
+
+            // Take a winning (hand-emptying) move. Easy bots sometimes miss it.
+            const winningPlay = validPlays.find(p => p.cards.length === hand.length);
+            if (winningPlay && (difficulty !== 'easy' || Math.random() < 0.6)) {
+                return winningPlay;
+            }
+
+            // Leading a fresh trick vs following the current play
+            if (!currentPlay) {
+                return chooseLeadPlay(validPlays, hand, difficulty);
+            }
+            return chooseFollowPlay(botIndex, validPlays, currentPlay, hand, difficulty);
+        }
+
+        // Smallest remaining hand among the other active players (opponent threat level)
+        function minOpponentCards(botIndex) {
+            let min = Infinity;
+            gameState.players.forEach((p, i) => {
+                if (i !== botIndex && p.hand.length > 0) min = Math.min(min, p.hand.length);
+            });
+            return min;
+        }
+
+        // Bot leads a new trick
+        function chooseLeadPlay(validPlays, hand, difficulty) {
+            const byValue = arr => [...arr].sort((a, b) => a.value - b.value);
+            const singles = validPlays.filter(p => p.type === HAND_TYPES.SINGLE);
+            const pairs = validPlays.filter(p => p.type === HAND_TYPES.PAIR);
+            const triples = validPlays.filter(p => p.type === HAND_TYPES.TRIPLE);
+            const fives = validPlays.filter(p => p.cards.length === 5);
+
+            // Easy: lead any low random play (often wasteful)
+            if (difficulty === 'easy') {
+                const small = validPlays.filter(p => p.cards.length <= 3);
+                const pool = small.length ? small : validPlays;
+                return pool[Math.floor(Math.random() * pool.length)];
+            }
+
+            // Hard: dump the cheapest non-2 group to shed cards fast
+            if (difficulty === 'hard') {
+                const lowSingle = byValue(singles).find(p => p.cards[0].rankValue < 15);
+                if (lowSingle) return lowSingle;
+
+                const lowPair = byValue(pairs).find(p => p.rankValue < 15);
+                if (lowPair && hand.length <= 9) return lowPair;
+
+                const lowTriple = byValue(triples)[0];
+                if (lowTriple) return lowTriple;
+
+                const plainFive = byValue(fives).find(p =>
+                    p.type === HAND_TYPES.STRAIGHT || p.type === HAND_TYPES.FLUSH);
+                if (plainFive) return plainFive;
+
+                if (fives.length) return byValue(fives)[0];
+                if (singles.length) return byValue(singles)[0];
+                if (pairs.length) return byValue(pairs)[0];
+                return validPlays[0];
+            }
+
+            // Medium: low singles first, then pairs/triples, keeping 2s aside
+            const lowSingle = byValue(singles).find(p => p.cards[0].rankValue < 15);
+            if (lowSingle) return lowSingle;
+
+            if (pairs.length) {
+                const pr = byValue(pairs);
+                return pr.find(p => p.rankValue < 15) || pr[0];
+            }
+            if (triples.length) return byValue(triples)[0];
+            if (singles.length) return byValue(singles)[0];
+            return byValue(validPlays)[0];
+        }
+
+        // Bot follows the current play; returns null to pass
+        function chooseFollowPlay(botIndex, validPlays, currentPlay, hand, difficulty) {
+            const isBomb = p => p.type === HAND_TYPES.FOUR_OF_KIND || p.type === HAND_TYPES.STRAIGHT_FLUSH;
+            const sameType = validPlays.filter(p => p.type === currentPlay.type);
+            const bombs = validPlays.filter(p => p.type !== currentPlay.type);
+
+            // Easy: sometimes gives up the trick, otherwise plays something cheap
+            if (difficulty === 'easy') {
+                if (Math.random() < 0.35) return null;
+                const pool = [...validPlays].sort((a, b) => a.value - b.value);
+                return pool[Math.floor(Math.random() * Math.min(2, pool.length))];
+            }
+
+            // Prefer matching the current type over spending a bomb
+            let pool = sameType.length ? sameType : bombs;
+
+            if (difficulty === 'hard') {
+                const threat = minOpponentCards(botIndex) <= 3;
+                // Hold 2s in reserve on a single unless an opponent is about to go out
+                if (currentPlay.cards.length === 1 && !threat) {
+                    const nonTwo = pool.filter(p => p.cards[0].rankValue < 15);
+                    if (nonTwo.length) pool = nonTwo;
+                }
+                // Never spend a bomb while a normal beat exists
+                if (sameType.length && bombs.length) pool = sameType;
+            }
+
+            return [...pool].sort((a, b) => a.value - b.value)[0];
+        }
+
+        // =====================================================
+        // GAME LOGIC
+        // =====================================================
+        function initGame() {
+            const deck = shuffleDeck(createDeck());
+            const players = [];
+
+            // Deal 13 cards to each player
+            for (let i = 0; i < 4; i++) {
+                players.push({
+                    id: i,
+                    name: i === 0 ? 'You' : BOT_NAMES[i - 1],
+                    isBot: i !== 0,
+                    hand: deck.slice(i * 13, (i + 1) * 13),
+                    hasPassed: false
+                });
+            }
+
+            // Sort human hand
+            players[0].hand = sortCards(players[0].hand, gameState.sortMode);
+
+            // Find who has 3♦
+            const firstPlayer = findThreeOfDiamonds(players);
+
+            gameState = {
+                players,
+                currentPlayer: firstPlayer,
+                currentPlay: null,
+                trickLeader: null,
+                consecutivePasses: 0,
+                gameStarted: true,
+                gameOver: false,
+                sortMode: gameState.sortMode,
+                difficulty: gameState.difficulty || 'medium',
+                isFirstPlayOfGame: true,
+                mustIncludeCard: { rank: '3', suit: '♦' }
+            };
+
+            updateUI();
+            logMessage(`Game started! ${players[firstPlayer].name} has 3♦ and leads first.`);
+
+            // If bot starts, trigger bot turn
+            if (gameState.players[gameState.currentPlayer].isBot) {
+                setTimeout(botTurn, 1000);
+            }
+        }
+
+        function nextPlayer() {
+            gameState.currentPlayer = (gameState.currentPlayer + 1) % 4;
+        }
+
+        function playCards(playerIndex, cards) {
+            const player = gameState.players[playerIndex];
+            const evalResult = evaluateHand(cards);
+
+            if (!evalResult) {
+                logMessage(`${player.name} tried to play invalid hand!`);
+                return false;
+            }
+
+            // Check if this is valid
+            const canPlay = canPlayHand(
+                evalResult,
+                gameState.currentPlay,
+                player.hand,
+                gameState.isFirstPlayOfGame,
+                gameState.mustIncludeCard
+            );
+
+            if (!canPlay) {
+                logMessage(`${player.name}'s play doesn't beat current!`);
+                return false;
+            }
+
+            // Remove cards from hand
+            const cardStrs = cards.map(c => cardToString(c));
+            player.hand = player.hand.filter(c => !cardStrs.includes(cardToString(c)));
+
+            // Update game state
+            gameState.currentPlay = {
+                ...evalResult,
+                playerIndex,
+                playerName: player.name
+            };
+            gameState.trickLeader = playerIndex;
+            gameState.consecutivePasses = 0;
+
+            // Reset pass status for all players
+            for (const p of gameState.players) {
+                p.hasPassed = false;
+            }
+
+            logMessage(`${player.name} plays ${getHandDescription(evalResult)}`, true);
+
+            // Check win condition
+            if (player.hand.length === 0) {
+                endGame(playerIndex);
+                return true;
+            }
+
+            // First play of game is done
+            if (gameState.isFirstPlayOfGame) {
+                gameState.isFirstPlayOfGame = false;
+                gameState.mustIncludeCard = null;
+            }
+
+            nextPlayer();
+            updateUI();
+
+            // If next player is bot, trigger bot turn
+            if (gameState.players[gameState.currentPlayer].isBot) {
+                setTimeout(botTurn, 700 + Math.random() * 500);
+            }
+
+            return true;
+        }
+
+        function passTurn(playerIndex) {
+            const player = gameState.players[playerIndex];
+            player.hasPassed = true;
+            gameState.consecutivePasses++;
+
+            logMessage(`${player.name} passes`);
+
+            // Check if trick is over (everyone else passed)
+            const activePlayers = gameState.players.filter((p, i) => i !== gameState.trickLeader && !p.hasPassed);
+
+            if (activePlayers.length === 0 || gameState.consecutivePasses >= 3) {
+                // Trick winner leads next
+                logMessage(`${gameState.players[gameState.trickLeader].name} wins the trick!`, true);
+                gameState.currentPlay = null;
+                gameState.currentPlayer = gameState.trickLeader;
+                gameState.consecutivePasses = 0;
+
+                // Reset pass status
+                for (const p of gameState.players) {
+                    p.hasPassed = false;
+                }
+            } else {
+                nextPlayer();
+            }
+
+            updateUI();
+
+            // If next player is bot, trigger bot turn
+            if (gameState.players[gameState.currentPlayer].isBot && !gameState.gameOver) {
+                setTimeout(botTurn, 700 + Math.random() * 500);
+            }
+        }
+
+        function botTurn() {
+            if (gameState.gameOver) return;
+
+            const botIndex = gameState.currentPlayer;
+            const bot = gameState.players[botIndex];
+            if (!bot || !bot.isBot) return;
+            setPlayerThinking(botIndex, true);
+
+            setTimeout(() => {
+                // Guard against state changes while "thinking"
+                if (gameState.gameOver || gameState.currentPlayer !== botIndex) {
+                    setPlayerThinking(botIndex, false);
+                    return;
+                }
+                setPlayerThinking(botIndex, false);
+
+                const isLeading = !gameState.currentPlay || gameState.trickLeader === botIndex;
+
+                // Decide a play (botChoosePlay returns null when it elects to pass)
+                const chosenPlay = botChoosePlay(
+                    botIndex,
+                    bot.hand,
+                    gameState.currentPlay,
+                    gameState.isFirstPlayOfGame,
+                    gameState.mustIncludeCard
+                );
+
+                if (chosenPlay) {
+                    playCards(botIndex, chosenPlay.cards);
+                } else if (isLeading) {
+                    // A leader must play something: fall back to its lowest card
+                    const sorted = sortCards(bot.hand, 'rank');
+                    const fallback = sorted[sorted.length - 1];
+                    playCards(botIndex, [fallback]);
+                } else {
+                    passTurn(botIndex);
+                }
+            }, 500 + Math.random() * 700);
+        }
+
+        function endGame(winnerIndex) {
+            gameState.gameOver = true;
+            const winner = gameState.players[winnerIndex];
+
+            const winScreen = document.getElementById('winScreen');
+            const gameOverText = document.getElementById('gameOverText');
+
+            if (winnerIndex === 0) {
+                winScreen.textContent = '🎉 You Win!';
+                winScreen.className = 'win-screen win';
+                gameOverText.textContent = 'Congratulations! You cleared all your cards first!';
+            } else {
+                winScreen.textContent = '😢 Game Over';
+                winScreen.className = 'win-screen lose';
+                gameOverText.textContent = `${winner.name} won the game! Better luck next time.`;
+            }
+
+            document.getElementById('gameOverModal').classList.add('active');
+            logMessage(`Game over! ${winner.name} wins!`, true);
+        }
+
+        // =====================================================
+        // UI RENDERING
+        // =====================================================
+        function renderCard(card, isSelected = false, onClick = null) {
+            const cardEl = document.createElement('div');
+            cardEl.className = `card ${['♦', '♥'].includes(card.suit) ? 'red' : 'black'}${isSelected ? ' selected' : ''}`;
+            cardEl.innerHTML = `
+                <div class="card-top">
+                    <span>${card.rank}</span>
+                    <span>${card.suit}</span>
+                </div>
+                <div class="card-center">${card.suit}</div>
+                <div class="card-bottom">
+                    <span>${card.rank}</span>
+                    <span>${card.suit}</span>
+                </div>
+            `;
+
+            if (onClick) {
+                cardEl.addEventListener('click', onClick);
+            }
+
+            return cardEl;
+        }
+
+        function renderCardBack() {
+            const back = document.createElement('div');
+            back.className = 'card-back';
+            return back;
+        }
+
+        function updateUI() {
+            // Update turn indicator
+            const currentPlayer = gameState.players[gameState.currentPlayer];
+            const turnIndicator = document.getElementById('turnIndicator');
+            turnIndicator.textContent = `${currentPlayer.name}'s turn`;
+            turnIndicator.className = `turn-indicator ${!currentPlayer.isBot ? 'active' : ''}`;
+
+            // Update player seats
+            for (let i = 0; i < 4; i++) {
+                const player = gameState.players[i];
+                const seat = document.getElementById(`seat-${i}`);
+                seat.className = `player-seat ${i === gameState.currentPlayer && !player.isBot ? 'active' : ''}`;
+
+                document.getElementById(`name-${i}`).textContent = player.name;
+                document.getElementById(`cards-${i}`).textContent = `${player.hand.length} card${player.hand.length !== 1 ? 's' : ''}`;
+
+                // Render card backs for bots (human seat has no card-backs container)
+                const cardBacksContainer = document.getElementById(`card-backs-${i}`);
+                if (cardBacksContainer) {
+                    cardBacksContainer.innerHTML = '';
+                    if (player.isBot) {
+                        const numBacks = Math.min(player.hand.length, 13);
+                        for (let j = 0; j < numBacks; j++) {
+                            cardBacksContainer.appendChild(renderCardBack());
+                        }
+                    }
+                }
+
+                // Thinking indicator
+                const avatar = document.getElementById(`avatar-${i}`);
+                avatar.className = `player-avatar ${player.isBot && i === gameState.currentPlayer && !gameState.gameOver ? 'thinking' : ''}`;
+            }
+
+            // Render human hand
+            const handContainer = document.getElementById('playerHand');
+            handContainer.innerHTML = '';
+            const humanHand = gameState.players[0].hand;
+
+            humanHand.forEach((card, index) => {
+                const cardEl = renderCard(card, card.selected, () => toggleCardSelection(index));
+                handContainer.appendChild(cardEl);
+            });
+
+            // Update buttons
+            const playBtn = document.getElementById('playBtn');
+            const passBtn = document.getElementById('passBtn');
+            const isHumanTurn = gameState.currentPlayer === 0 && !gameState.gameOver;
+            const isLeading = !gameState.currentPlay || gameState.trickLeader === 0;
+
+            playBtn.disabled = !isHumanTurn;
+            passBtn.disabled = !isHumanTurn || isLeading;
+
+            // Render played cards
+            const playedCardsContainer = document.getElementById('playedCards');
+            playedCardsContainer.innerHTML = '';
+
+            if (gameState.currentPlay) {
+                document.getElementById('lastPlayInfo').innerHTML = `
+                    <span class="player-name">${gameState.currentPlay.playerName}</span> played<br>
+                    <small>${getHandDescription(gameState.currentPlay)}</small>
+                `;
+
+                gameState.currentPlay.cards.forEach(card => {
+                    playedCardsContainer.appendChild(renderCard(card));
+                });
+            } else {
+                document.getElementById('lastPlayInfo').innerHTML = '<span class="player-name">New trick</span><br><small>Anyone can lead</small>';
+            }
+        }
+
+        function getHandDescription(play) {
+            if (!play) return '';
+
+            const typeNames = {
+                [HAND_TYPES.SINGLE]: 'Single',
+                [HAND_TYPES.PAIR]: 'Pair',
+                [HAND_TYPES.TRIPLE]: 'Triple',
+                [HAND_TYPES.STRAIGHT]: 'Straight',
+                [HAND_TYPES.FLUSH]: 'Flush',
+                [HAND_TYPES.FULL_HOUSE]: 'Full House',
+                [HAND_TYPES.FOUR_OF_KIND]: 'Four of a Kind',
+                [HAND_TYPES.STRAIGHT_FLUSH]: 'Straight Flush'
+            };
+
+            return typeNames[play.type] || 'Unknown';
+        }
+
+        function toggleCardSelection(index) {
+            if (gameState.currentPlayer !== 0 || gameState.gameOver) return;
+
+            gameState.players[0].hand[index].selected = !gameState.players[0].hand[index].selected;
+            updateUI();
+        }
+
+        function getSelectedCards() {
+            return gameState.players[0].hand.filter(c => c.selected);
+        }
+
+        function clearSelectedCards() {
+            gameState.players[0].hand.forEach(c => c.selected = false);
+        }
+
+        function logMessage(message, highlight = false) {
+            const log = document.getElementById('messageLog');
+            const entry = document.createElement('div');
+            entry.className = `log-entry${highlight ? ' highlight' : ''}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            log.insertBefore(entry, log.firstChild);
+
+            // Keep only last 50 messages
+            while (log.children.length > 50) {
+                log.removeChild(log.lastChild);
+            }
+        }
+
+        function setPlayerThinking(playerIndex, thinking) {
+            const avatar = document.getElementById(`avatar-${playerIndex}`);
+            if (thinking) {
+                avatar.classList.add('thinking');
+            } else {
+                avatar.classList.remove('thinking');
+            }
+        }
+
+        // =====================================================
+        // EVENT HANDLERS
+        // =====================================================
+        function setupEventListeners() {
+            document.getElementById('playBtn').addEventListener('click', () => {
+                if (gameState.currentPlayer !== 0 || gameState.gameOver) return;
+
+                const selectedCards = getSelectedCards();
+                if (selectedCards.length === 0) {
+                    logMessage('Select cards to play!');
+                    return;
+                }
+
+                const evalResult = evaluateHand(selectedCards);
+                if (!evalResult) {
+                    logMessage('Invalid hand combination!');
+                    return;
+                }
+
+                const canPlay = canPlayHand(
+                    evalResult,
+                    gameState.currentPlay,
+                    gameState.players[0].hand,
+                    gameState.isFirstPlayOfGame,
+                    gameState.mustIncludeCard
+                );
+
+                if (!canPlay) {
+                    logMessage("That doesn't beat the current play!");
+                    return;
+                }
+
+                playCards(0, selectedCards);
+                clearSelectedCards();
+            });
+
+            document.getElementById('passBtn').addEventListener('click', () => {
+                if (gameState.currentPlayer !== 0 || gameState.gameOver) return;
+                if (!gameState.currentPlay || gameState.trickLeader === 0) return;
+
+                passTurn(0);
+                clearSelectedCards();
+            });
+
+            document.getElementById('sortBtn').addEventListener('click', () => {
+                gameState.sortMode = gameState.sortMode === 'rank' ? 'suit' : 'rank';
+                gameState.players[0].hand = sortCards(gameState.players[0].hand, gameState.sortMode);
+                document.getElementById('sortBtn').textContent = `Sort: ${gameState.sortMode === 'rank' ? 'Rank' : 'Suit'}`;
+                clearSelectedCards();
+                updateUI();
+            });
+
+            document.getElementById('helpBtn').addEventListener('click', () => {
+                document.getElementById('rulesModal').classList.add('active');
+            });
+
+            document.getElementById('difficultySelect').addEventListener('change', (e) => {
+                gameState.difficulty = e.target.value;
+                logMessage(`Bot difficulty set to ${e.target.value}.`, true);
+            });
+
+            document.getElementById('rulesClose').addEventListener('click', () => {
+                document.getElementById('rulesModal').classList.remove('active');
+            });
+
+            document.getElementById('playAgainBtn').addEventListener('click', () => {
+                document.getElementById('gameOverModal').classList.remove('active');
+                document.getElementById('messageLog').innerHTML = '';
+                initGame();
+            });
+
+            // Close modals on overlay click
+            document.querySelectorAll('.modal-overlay').forEach(overlay => {
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) {
+                        overlay.classList.remove('active');
+                    }
+                });
+            });
+        }
+
+        // =====================================================
+        // INITIALIZATION
+        // =====================================================
+        function init() {
+            setupEventListeners();
+            initGame();
+        }
+
+        // Start the game when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    </script>
+</body>
+</html>

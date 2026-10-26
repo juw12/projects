@@ -2,9 +2,9 @@
 
 *Formerly **Fadeline** (v1).*
 
-[Open app](https://juwpegatron.github.io/projects/fade/) ·
-[Web](https://juwpegatron.github.io/projects/fade/web.html) ·
-[Mobile](https://juwpegatron.github.io/projects/fade/mobile.html)
+[Open app](https://juw12.github.io/projects/fade/) ·
+[Web](https://juw12.github.io/projects/fade/web.html) ·
+[Mobile](https://juw12.github.io/projects/fade/mobile.html)
 
 Fade is a barber marketplace and a short-video app in one. You can find a barber
 from a 15-second cut, book the same slot at whichever shop they work in that day,

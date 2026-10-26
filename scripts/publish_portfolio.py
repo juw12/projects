@@ -25,8 +25,8 @@ from html import escape, unescape
 from pathlib import Path
 from urllib.parse import urljoin
 
-SITE_BASE = "https://juwpegatron.github.io/projects/"
-REPO_URL = "https://github.com/juwpegatron/projects"
+SITE_BASE = "https://juw12.github.io/projects/"
+REPO_URL = "https://github.com/juw12/projects"
 PUSH_MESSAGE = "chore(projects): sync project cards from apps.json"
 
 START_MARKER = (
@@ -140,7 +140,7 @@ def render_card(app):
 
 
 def render_block(apps):
-    cards = CARD_SEP.join(render_card(a) for a in apps)
+    cards = CARD_SEP.join(render_card(a) for a in apps if a.get("listed", True))
     return START_MARKER + "\n" + cards + "\n" + END_MARKER
 
 
@@ -243,6 +243,8 @@ def write_notes(vault, apps, today, dry_run):
     out_dir = vault / "Portfolio" / "Projects"
     written = []
     for app in apps:
+        if not app.get("listed", True):
+            continue
         note = out_dir / f"{app['name']}.md"
         content = render_note(app, today)
         written.append(note)

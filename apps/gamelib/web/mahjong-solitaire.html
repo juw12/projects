@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Mahjong Solitaire &mdash; Turtle</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(circle at 30% 8%, #12604a 0%, #0a3b2d 55%, #052018 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    color: #f2f7f3; padding: 12px;
+    touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  }
+  #app { width: min(97vw, 820px); display: flex; flex-direction: column; gap: 10px; }
+
+  /* ============ HEADER / INFO CHIPS ============ */
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .title {
+    font-size: clamp(1.1rem, 3.6vw, 1.65rem); letter-spacing: 1px; color: #ffe4a3;
+    text-shadow: 0 2px 0 rgba(0,0,0,.4);
+  }
+  .chips { display: flex; gap: 8px; font-size: clamp(.68rem, 2.3vw, .86rem); }
+  .chip {
+    background: rgba(0,0,0,.32); border: 1px solid rgba(255,255,255,.14);
+    border-radius: 10px; padding: 5px 10px; text-align: center; min-width: 68px;
+  }
+  .chip b { display: block; color: #ffe4a3; font-size: 1.08em; }
+
+  /* ============ BOARD WRAP ============ */
+  #game-wrap {
+    position: relative; border-radius: 14px; overflow: hidden;
+    box-shadow: 0 14px 48px rgba(0,0,0,.55);
+    border: 2px solid rgba(255,255,255,.08);
+    background: #082620;
+  }
+  canvas { display: block; width: 100%; height: auto; cursor: pointer; }
+
+  /* ============ TOAST ============ */
+  .toast {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,.78); color: #ffe4a3; padding: 8px 16px; border-radius: 20px;
+    font-size: .85rem; opacity: 0; transition: opacity .25s ease; pointer-events: none; z-index: 6;
+  }
+  .toast.show { opacity: 1; }
+
+  /* ============ OVERLAY SCREENS ============ */
+  .screen {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 12px; text-align: center;
+    padding: 24px; background: rgba(4, 24, 18, .94); backdrop-filter: blur(3px);
+    transition: opacity .3s ease; z-index: 5;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen-title { font-size: clamp(1.5rem, 6vw, 2.4rem); color: #ffe4a3; text-shadow: 0 3px 0 rgba(0,0,0,.4); }
+  .screen-subtitle { font-size: clamp(.85rem, 3vw, 1.05rem); color: #bfe6d3; max-width: 500px; line-height: 1.5; }
+  .screen .rules { font-size: clamp(.72rem, 2.5vw, .85rem); color: rgba(255,255,255,.62); max-width: 520px; line-height: 1.6; }
+  .mode-buttons { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .final-score { font-size: clamp(1.05rem, 3.6vw, 1.35rem); color: #fff; line-height: 1.7; }
+  .final-score b { color: #ffe4a3; }
+
+  /* ============ BUTTONS ============ */
+  button {
+    font-family: inherit; font-size: clamp(.8rem, 2.6vw, .95rem); font-weight: bold;
+    letter-spacing: .5px; padding: 10px 20px; border: none; border-radius: 10px;
+    cursor: pointer; color: #08281a; background: #ffe4a3;
+    box-shadow: 0 4px 0 rgba(0,0,0,.32);
+    transition: transform .06s ease, background .15s ease, opacity .15s ease;
+    user-select: none;
+  }
+  button:hover { background: #fff0c6; }
+  button:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.32); }
+  .btn-alt { background: #a9d6c0; }
+  .btn-alt:hover { background: #c3e6d4; }
+  .btn-sel { background: linear-gradient(135deg, #ffe4a3, #f0c860); outline: 2px solid #fff; }
+
+  /* ============ CONTROLS ============ */
+  #controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <h1 class="title">&#127982; Mahjong Solitaire</h1>
+    <div class="chips">
+      <div class="chip">Time<b id="timeVal">0:00</b></div>
+      <div class="chip">Tiles<b id="leftVal">0</b></div>
+      <div class="chip">Best<b id="bestVal">--:--</b></div>
+    </div>
+  </div>
+
+  <div id="game-wrap">
+    <canvas id="cv" width="700" height="348"></canvas>
+    <div class="toast" id="toast"></div>
+
+    <!-- ============ START SCREEN ============ -->
+    <div id="startScreen" class="screen">
+      <h2 class="screen-title">Mahjong Solitaire</h2>
+      <p class="screen-subtitle">Clear the turtle-shaped stack by matching free pairs of identical tiles.</p>
+      <div class="mode-buttons">
+        <button type="button" data-diff="easy">Easy &middot; 76</button>
+        <button type="button" class="btn-alt" data-diff="normal">Normal &middot; 112</button>
+        <button type="button" class="btn-alt" data-diff="hard">Hard &middot; 120</button>
+      </div>
+      <p class="rules">
+        A tile is <b>free</b> when nothing rests on top of it and either its left or right side is open.
+        Tap two free tiles with the same shape &amp; color to remove them. Clear every tile to win.
+        Use <b>Hint</b> to reveal a pair and <b>Shuffle</b> (or an automatic shuffle) when you get stuck.
+        Boards are always generated solvable. Best (lowest) time is saved per difficulty.
+      </p>
+    </div>
+
+    <!-- ============ WIN SCREEN ============ -->
+    <div id="winScreen" class="screen hidden">
+      <h2 class="screen-title" id="winTitle">Cleared!</h2>
+      <p class="final-score" id="winDetail"></p>
+      <div class="mode-buttons">
+        <button type="button" id="btnAgain">Play Again</button>
+        <button type="button" class="btn-alt" id="btnMenu">Change Difficulty</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="controls">
+    <button type="button" id="btnHint">Hint</button>
+    <button type="button" class="btn-alt" id="btnShuffle">Shuffle</button>
+    <button type="button" class="btn-alt" id="btnRestart">Restart</button>
+    <button type="button" class="btn-alt" id="btnNew" style="display:none">New</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============================================================
+     SECTION: CONSTANTS & CONFIG
+     ============================================================ */
+  const TS = 42;            // tile size in internal pixels
+  const MINX = -1;          // left-most grid column (head sticks out)
+  const COLS = 16;          // x range -1..14
+  const ROWS = 7;           // y range 0..6
+  const MAXL = 3;           // number of stacked layers
+  const LIFT = 13;          // pixel lift per layer
+  const DEPTH = 5;          // fake-3D tile thickness
+  const PAD = 14;           // board padding
+  const BOARD_W = PAD * 2 + COLS * TS;
+  const BOARD_H = PAD * 2 + ROWS * TS + (MAXL - 1) * LIFT;
+  const LS_KEY = "mahjongBestV1";
+
+  const COLORS = ["#d64545", "#e8912a", "#2f9e6e", "#3f7fd6", "#9a5bd6"];
+  const NUM_FACES = 30;     // 6 shapes x 5 colors
+
+  /* ============================================================
+     SECTION: BOARD LAYOUT (turtle shape, original arrangement)
+     ============================================================ */
+  const LAYOUT = [];
+  function addRows(layer, rows) {
+    rows.forEach(function (r) {
+      for (let x = r[1]; x <= r[2]; x++) LAYOUT.push({ x: x, y: r[0], l: layer });
+    });
+  }
+  // Layer 0: rounded shell body
+  addRows(0, [[0, 3, 10], [1, 2, 11], [2, 1, 12], [3, 1, 12], [4, 1, 12], [5, 2, 11], [6, 3, 10]]);
+  // Head (left) and tail (right)
+  LAYOUT.push({ x: -1, y: 3, l: 0 }, { x: 0, y: 3, l: 0 });
+  LAYOUT.push({ x: 13, y: 3, l: 0 }, { x: 14, y: 3, l: 0 });
+  // Layer 1: shell plateau
+  addRows(1, [[2, 3, 10], [3, 2, 11], [4, 2, 11], [5, 3, 10]]);
+  // Layer 2: crown
+  addRows(2, [[3, 5, 8], [4, 5, 8]]);
+
+  const DIFF_LAYERS = { easy: [0], normal: [0, 1], hard: [0, 1, 2] };
+
+  /* ============================================================
+     SECTION: STATE
+     ============================================================ */
+  let tiles = [];           // active tiles for current game
+  let tileByKey = {};       // key -> tile
+  let occ = new Set();      // occupancy keys of live tiles
+  let selectedId = null;
+  let hintIds = [];
+  let diff = "normal";
+  let over = true;
+  let runs = false;         // timer running
+  let seconds = 0;
+  let timerHandle = null;
+  let best = {};            // {easy, normal, hard} -> seconds
+  let toastTimer = null;
+  let pulse = 0;
+
+  /* ============================================================
+     SECTION: AUDIO (WebAudio, no assets)
+     ============================================================ */
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "sine";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.07, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+
+  /* ============================================================
+     SECTION: LOCAL STORAGE
+     ============================================================ */
+  function loadData() {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw) best = Object.assign(best, JSON.parse(raw));
+    } catch (e) { /* ignore */ }
+  }
+  function saveData() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(best)); } catch (e) {}
+  }
+
+  /* ============================================================
+     SECTION: DOM & HELPERS
+     ============================================================ */
+  const cv = document.getElementById("cv");
+  const ctx = cv.getContext("2d");
+  const els = {
+    timeVal: document.getElementById("timeVal"),
+    leftVal: document.getElementById("leftVal"),
+    bestVal: document.getElementById("bestVal"),
+    toast: document.getElementById("toast"),
+    startScreen: document.getElementById("startScreen"),
+    winScreen: document.getElementById("winScreen"),
+    winTitle: document.getElementById("winTitle"),
+    winDetail: document.getElementById("winDetail"),
+    btnHint: document.getElementById("btnHint"),
+    btnShuffle: document.getElementById("btnShuffle"),
+    btnRestart: document.getElementById("btnRestart"),
+    btnAgain: document.getElementById("btnAgain"),
+    btnMenu: document.getElementById("btnMenu")
+  };
+
+  const K = function (x, y, l) { return x + "," + y + "," + l; };
+
+  function shuffleArr(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = (Math.random() * (i + 1)) | 0;
+      const t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  function fmt(sec) {
+    const m = Math.floor(sec / 60), s = sec % 60;
+    return m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  function toast(text) {
+    els.toast.textContent = text;
+    els.toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { els.toast.classList.remove("show"); }, 1400);
+  }
+
+  function rr(c, x, y, w, h, r) {
+    if (c.roundRect) { c.beginPath(); c.roundRect(x, y, w, h, r); return; }
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r);
+    c.arcTo(x, y, x + w, y, r);
+    c.closePath();
+  }
+
+  /* ============================================================
+     SECTION: FREE-TILE & SOLVABILITY LOGIC
+     ============================================================ */
+  // A tile is free when uncovered and its left OR right side is open.
+  function isFreeKey(key, occupancy, info) {
+    const it = info[key];
+    const x = it.x, y = it.y, l = it.l;
+    for (let ll = l + 1; ll < MAXL; ll++) if (occupancy.has(K(x, y, ll))) return false;
+    let left = false, right = false;
+    for (let ll = 0; ll < MAXL; ll++) {
+      if (occupancy.has(K(x - 1, y, ll))) left = true;
+      if (occupancy.has(K(x + 1, y, ll))) right = true;
+    }
+    return !(left && right);
+  }
+
+  function isFree(t) {
+    return !t.removed && isFreeKey(t.key, occ, tileByKey);
+  }
+
+  function findFreePair() {
+    const byFace = {};
+    for (let i = 0; i < tiles.length; i++) {
+      const t = tiles[i];
+      if (t.removed || !isFree(t)) continue;
+      (byFace[t.face] = byFace[t.face] || []).push(t.id);
+    }
+    for (const f in byFace) if (byFace[f].length >= 2) return [byFace[f][0], byFace[f][1]];
+    return null;
+  }
+
+  /* ============================================================
+     SECTION: GAME GENERATION
+     ============================================================ */
+  function freeKeys(set, map) {
+    const res = [];
+    set.forEach(function (key) { if (isFreeKey(key, set, map)) res.push(key); });
+    return res;
+  }
+
+  // Reverse construction: repeatedly pair off two currently-free positions and
+  // hand them the same face. The order they are produced in is itself a valid
+  // removal order, so any board built here is guaranteed solvable.
+  // `tokens` holds one entry per pair to place (face ids, repeats allowed).
+  function constructFaces(positions, tokens) {
+    const map = {};
+    positions.forEach(function (p) { map[K(p.x, p.y, p.l)] = { x: p.x, y: p.y, l: p.l }; });
+    for (let attempt = 0; attempt < 300; attempt++) {
+      const set = new Set(positions.map(function (p) { return K(p.x, p.y, p.l); }));
+      const pool = tokens.slice();
+      shuffleArr(pool);
+      const assign = {};
+      let ok = true;
+      while (set.size > 0) {
+        const fr = freeKeys(set, map);
+        if (fr.length < 2) { ok = false; break; }   // awkward corners: retry
+        shuffleArr(fr);
+        const f = pool.pop();
+        assign[fr[0]] = f; assign[fr[1]] = f;
+        set.delete(fr[0]); set.delete(fr[1]);
+      }
+      if (ok) return assign;
+    }
+    return null;
+  }
+
+  function buildBoard(level) {
+    const layers = DIFF_LAYERS[level];
+    const positions = LAYOUT.filter(function (p) { return layers.indexOf(p.l) >= 0; });
+    const typeCount = positions.length / 4;      // layout counts are multiples of 4
+
+    // Choose face types, two pairs (four copies) of each.
+    const ids = shuffleArr(Array.from({ length: NUM_FACES }, function (_, i) { return i; })).slice(0, typeCount);
+    const tokens = [];
+    ids.forEach(function (f) { tokens.push(f, f); });
+
+    let assign = constructFaces(positions, tokens);
+    if (!assign) { // extremely unlikely fallback: a plain even deal
+      const flat = [];
+      tokens.forEach(function (f) { flat.push(f, f); });
+      shuffleArr(flat);
+      assign = {};
+      positions.forEach(function (p, i) { assign[K(p.x, p.y, p.l)] = flat[i]; });
+    }
+
+    tiles = positions.map(function (p, i) {
+      return { id: i, x: p.x, y: p.y, l: p.l, face: assign[K(p.x, p.y, p.l)], removed: false, key: K(p.x, p.y, p.l) };
+    });
+    tileByKey = {};
+    occ = new Set();
+    tiles.forEach(function (t) { tileByKey[t.key] = t; occ.add(t.key); });
+    selectedId = null;
+    hintIds = [];
+  }
+
+  // Re-lay the remaining tiles, preserving their exact face counts, so the
+  // remainder is solvable again. Face counts are always even during play.
+  function shuffleRemaining() {
+    const rem = tiles.filter(function (t) { return !t.removed; });
+    if (rem.length === 0) return false;
+    const positions = rem.map(function (t) { return { x: t.x, y: t.y, l: t.l }; });
+    const counts = {};
+    rem.forEach(function (t) { counts[t.face] = (counts[t.face] || 0) + 1; });
+    const tokens = [];
+    for (const f in counts) {
+      const pairs = counts[f] / 2;
+      for (let i = 0; i < pairs; i++) tokens.push(+f);
+    }
+    const assign = constructFaces(positions, tokens);
+    if (!assign) return false;
+    rem.forEach(function (t) { t.face = assign[K(t.x, t.y, t.l)]; });
+    selectedId = null;
+    hintIds = [];
+    return true;
+  }
+
+  /* ============================================================
+     SECTION: RENDERING (canvas)
+     ============================================================ */
+  function tileRect(t) {
+    return {
+      x: PAD + (t.x - MINX) * TS,
+      y: PAD + t.y * TS - t.l * LIFT,
+      w: TS, h: TS
+    };
+  }
+
+  function drawOrder() {
+    return tiles.slice().sort(function (a, b) {
+      return a.l - b.l || a.y - b.y || a.x - b.x;
+    });
+  }
+
+  function star(c, pts, R, ri) {
+    for (let i = 0; i < pts * 2; i++) {
+      const a = -Math.PI / 2 + i * Math.PI / pts;
+      const rad = i % 2 ? ri : R;
+      const px = Math.cos(a) * rad, py = Math.sin(a) * rad;
+      if (i) c.lineTo(px, py); else c.moveTo(px, py);
+    }
+    c.closePath();
+  }
+
+  function shapePath(c, shape, r) {
+    switch (shape) {
+      case 0: c.arc(0, 0, r, 0, Math.PI * 2); break;
+      case 1: rr(c, -r * 0.92, -r * 0.92, r * 1.84, r * 1.84, r * 0.3); break;
+      case 2: c.moveTo(0, -r); c.lineTo(r * 0.95, r * 0.75); c.lineTo(-r * 0.95, r * 0.75); c.closePath(); break;
+      case 3: c.moveTo(0, -r); c.lineTo(r, 0); c.lineTo(0, r); c.lineTo(-r, 0); c.closePath(); break;
+      case 4: star(c, 5, r, r * 0.45); break;
+      default:
+        for (let i = 0; i < 6; i++) {
+          const a = -Math.PI / 2 + i * Math.PI / 3;
+          const px = Math.cos(a) * r, py = Math.sin(a) * r;
+          if (i) c.lineTo(px, py); else c.moveTo(px, py);
+        }
+        c.closePath();
+    }
+  }
+
+  function drawSymbol(cx, cy, r, face) {
+    const shape = Math.floor(face / 5), color = COLORS[face % 5];
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.beginPath();
+    shapePath(ctx, shape, r);
+    ctx.lineJoin = "round"; ctx.lineCap = "round";
+    ctx.lineWidth = r * 0.34; ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.stroke();
+    ctx.fillStyle = color; ctx.fill();
+    ctx.lineWidth = 1.2; ctx.strokeStyle = "rgba(50,36,12,0.3)"; ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawTile(t) {
+    const r = tileRect(t);
+    const free = isFree(t);
+
+    // drop shadow
+    ctx.fillStyle = "rgba(0,0,0,0.32)";
+    rr(ctx, r.x + 3, r.y + DEPTH + 4, TS, TS, 7); ctx.fill();
+    // tile thickness (side)
+    ctx.fillStyle = "#b9a86a";
+    rr(ctx, r.x + 2, r.y + DEPTH, TS, TS, 7); ctx.fill();
+    // face
+    const gg = ctx.createLinearGradient(r.x, r.y, r.x, r.y + TS);
+    gg.addColorStop(0, "#fffdf5"); gg.addColorStop(1, "#ece1c8");
+    ctx.fillStyle = gg;
+    rr(ctx, r.x + 1, r.y + 1, TS - 2, TS - 2, 6); ctx.fill();
+    ctx.strokeStyle = "rgba(150,128,74,0.55)"; ctx.lineWidth = 1;
+    rr(ctx, r.x + 1, r.y + 1, TS - 2, TS - 2, 6); ctx.stroke();
+
+    // subtle highlight on selectable tiles
+    if (free && t.id !== selectedId) {
+      ctx.strokeStyle = "rgba(120,225,190,0.5)"; ctx.lineWidth = 2;
+      rr(ctx, r.x + 2.5, r.y + 2.5, TS - 5, TS - 5, 5); ctx.stroke();
+    }
+
+    // face symbol
+    drawSymbol(r.x + TS / 2, r.y + TS / 2, TS * 0.3, t.face);
+
+    // selection glow
+    if (t.id === selectedId) {
+      const a = 0.55 + 0.35 * Math.sin(pulse / 220);
+      ctx.strokeStyle = "rgba(255,205,70," + a.toFixed(2) + ")";
+      ctx.lineWidth = 3.5;
+      rr(ctx, r.x + 1, r.y + 1, TS - 2, TS - 2, 6); ctx.stroke();
+    }
+    // hint glow
+    if (hintIds.indexOf(t.id) >= 0) {
+      const a = 0.5 + 0.4 * Math.sin(pulse / 180);
+      ctx.strokeStyle = "rgba(90,210,255," + a.toFixed(2) + ")";
+      ctx.lineWidth = 3;
+      rr(ctx, r.x + 1, r.y + 1, TS - 2, TS - 2, 6); ctx.stroke();
+    }
+  }
+
+  function draw() {
+    const bg = ctx.createLinearGradient(0, 0, 0, BOARD_H);
+    bg.addColorStop(0, "#0e4536"); bg.addColorStop(1, "#062018");
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, BOARD_W, BOARD_H);
+    const order = drawOrder();
+    for (let i = 0; i < order.length; i++) {
+      if (!order[i].removed) drawTile(order[i]);
+    }
+  }
+
+  function refreshHud() {
+    let left = 0;
+    for (let i = 0; i < tiles.length; i++) if (!tiles[i].removed) left++;
+    els.leftVal.textContent = left;
+    els.timeVal.textContent = fmt(seconds);
+    els.bestVal.textContent = best[diff] != null ? fmt(best[diff]) : "--:--";
+  }
+
+  function render() { draw(); refreshHud(); }
+
+  /* ============================================================
+     SECTION: ANIMATION LOOP (for pulsing highlights)
+     ============================================================ */
+  let rafId = null;
+  function loop(ts) {
+    pulse = ts;
+    if (selectedId != null || hintIds.length) draw();
+    rafId = requestAnimationFrame(loop);
+  }
+  function startLoop() { if (!rafId) rafId = requestAnimationFrame(loop); }
+  function stopLoop() { if (rafId) { cancelAnimationFrame(rafId); rafId = null; } }
+
+  /* ============================================================
+     SECTION: TIMER
+     ============================================================ */
+  function startTimer() {
+    stopTimer();
+    runs = true;
+    timerHandle = setInterval(function () { seconds++; els.timeVal.textContent = fmt(seconds); }, 1000);
+  }
+  function stopTimer() { runs = false; if (timerHandle) { clearInterval(timerHandle); timerHandle = null; } }
+
+  /* ============================================================
+     SECTION: GAME FLOW
+     ============================================================ */
+  function newGame(level) {
+    diff = level || diff;
+    buildBoard(diff);
+    seconds = 0;
+    over = false;
+    els.winScreen.classList.add("hidden");
+    els.startScreen.classList.add("hidden");
+    render();
+    startTimer();
+    startLoop();
+    beep(560, 0.09, "triangle");
+    if (!findFreePair()) { shuffleRemaining(); toast("No opening moves \u2014 reshuffled."); render(); }
+  }
+
+  function backToMenu() {
+    stopTimer();
+    over = true;
+    els.winScreen.classList.add("hidden");
+    els.startScreen.classList.remove("hidden");
+    render();
+  }
+
+  function win() {
+    over = true;
+    stopTimer();
+    stopLoop();
+    const isBest = best[diff] == null || seconds < best[diff];
+    if (isBest) { best[diff] = seconds; saveData(); }
+    beep(880, 0.12, "sine");
+    setTimeout(function () { beep(1180, 0.16, "sine"); }, 120);
+    setTimeout(function () { beep(1480, 0.2, "sine"); }, 260);
+    els.winTitle.textContent = isBest ? "New Best!" : "Cleared!";
+    els.winDetail.innerHTML =
+      "Difficulty: <b>" + diff.toUpperCase() + "</b><br>" +
+      "Time: <b>" + fmt(seconds) + "</b><br>" +
+      "Best (" + diff + "): <b>" + fmt(best[diff]) + "</b>";
+    render();
+    els.winScreen.classList.remove("hidden");
+  }
+
+  function removePair(a, b) {
+    a.removed = true; b.removed = true;
+    occ.delete(a.key); occ.delete(b.key);
+    hintIds = [];
+    selectedId = null;
+    beep(720, 0.08, "square");
+    render();
+
+    if (occ.size === 0) { win(); return; }
+    if (!findFreePair()) {
+      toast("No moves left \u2014 shuffling!");
+      if (shuffleRemaining()) render();
+      else toast("Shuffle failed \u2014 restart to continue.");
+    }
+  }
+
+  /* ============================================================
+     SECTION: INPUT (pointer = mouse + touch)
+     ============================================================ */
+  function hitTest(mx, my) {
+    const order = drawOrder();
+    for (let i = order.length - 1; i >= 0; i--) {
+      const t = order[i];
+      if (t.removed) continue;
+      const r = tileRect(t);
+      if (mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h) return t;
+    }
+    return null;
+  }
+
+  function pointerPos(e) {
+    const box = cv.getBoundingClientRect();
+    return {
+      x: (e.clientX - box.left) * (BOARD_W / box.width),
+      y: (e.clientY - box.top) * (BOARD_H / box.height)
+    };
+  }
+
+  cv.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    if (over || !runs) return;
+    const p = pointerPos(e);
+    const t = hitTest(p.x, p.y);
+    if (!t) { selectedId = null; draw(); return; }
+
+    if (!isFree(t)) {
+      beep(220, 0.09, "sawtooth");
+      toast("That tile is blocked.");
+      return;
+    }
+    if (selectedId === t.id) { selectedId = null; beep(380, 0.05, "sine"); draw(); return; }
+
+    if (selectedId != null) {
+      const s = tiles[selectedId];
+      if (s.face === t.face && isFree(s)) { removePair(s, t); return; }
+      // different face -> reselect the new tile
+      selectedId = t.id;
+      beep(460, 0.06, "sine");
+      draw();
+      return;
+    }
+    selectedId = t.id;
+    hintIds = [];
+    beep(520, 0.06, "sine");
+    draw();
+  });
+
+  /* ============================================================
+     SECTION: CONTROLS
+     ============================================================ */
+  els.btnHint.addEventListener("click", function () {
+    if (over) return;
+    const pair = findFreePair();
+    if (!pair) { toast("No free pair \u2014 try Shuffle."); beep(220, 0.1, "sawtooth"); return; }
+    hintIds = pair;
+    selectedId = null;
+    beep(660, 0.07, "triangle");
+    draw();
+    setTimeout(function () { hintIds = []; draw(); }, 1800);
+  });
+
+  els.btnShuffle.addEventListener("click", function () {
+    if (over) return;
+    if (shuffleRemaining()) {
+      beep(600, 0.08, "triangle");
+      render();
+      toast("Tiles reshuffled.");
+    } else {
+      toast("Could not reshuffle.");
+    }
+  });
+
+  els.btnRestart.addEventListener("click", function () {
+    if (over) { newGame(diff); } else { beep(420, 0.07, "triangle"); newGame(diff); }
+  });
+
+  els.btnAgain.addEventListener("click", function () { newGame(diff); });
+  els.btnMenu.addEventListener("click", function () {
+    els.winScreen.classList.add("hidden");
+    els.startScreen.classList.remove("hidden");
+    over = true;
+    stopTimer();
+    render();
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll("[data-diff]"), function (btn) {
+    btn.addEventListener("click", function () { newGame(btn.getAttribute("data-diff")); });
+  });
+
+  document.addEventListener("keydown", function (e) {
+    const k = e.key.toLowerCase();
+    if (k === "h") els.btnHint.click();
+    else if (k === "s") els.btnShuffle.click();
+    else if (k === "r") els.btnRestart.click();
+  });
+
+  /* ============================================================
+     SECTION: INIT
+     ============================================================ */
+  loadData();
+  // Show a static preview board behind the start overlay.
+  buildBoard(diff);
+  over = true;
+  refreshHud();
+  draw();
+})();
+</script>
+</body>
+</html>

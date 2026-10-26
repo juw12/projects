@@ -5,7 +5,7 @@ aliases:
   - 發一光耀平台概念
 type: project
 status: public-beta
-version: "4.0.0"
+version: "4.0.1"
 tags:
   - projects
   - education
@@ -13,14 +13,14 @@ tags:
   - pwa
   - portfolio
 organization_approval: pending
-github_repository: https://github.com/juwpegatron/projects/tree/main/apps/guangyao
-public_deployment: https://juwpegatron.github.io/projects/guangyao/
+github_repository: https://github.com/juw12/projects/tree/main/apps/guangyao
+public_deployment: https://juw12.github.io/projects/guangyao/
 portfolio_publication: pending
 ---
 
 # 光耀同行
 
-> An unofficial learning/community app for 發一光耀. Since v4.0.0 it is a public beta: real Puter accounts with cloud sync (or guest mode), an AI study companion, and a GitHub-backed admin console for publishing materials. It is not an official institutional service.
+> An unofficial learning/community app for 發一光耀. Since v4.0.1 it is a public beta: real Puter accounts with cloud sync (or guest mode), an AI study companion, and a GitHub-backed admin console for publishing materials. It is not an official institutional service.
 
 ## Project overview
 
@@ -42,7 +42,7 @@ Charitable funds, participation points and affiliate commissions require separat
 - Manual GitHub Pages workflow, regression checks, and desktop/mobile previews.
 - This Obsidian-ready note and the portfolio copy below.
 
-The app and generated portfolio card have been prepared in local copies of juwpegatron/projects and juwpegatron/portfolio. The Obsidian vault is still unconfirmed. Local integration is not proof of a successful push or public deployment; verify those separately.
+The app and generated portfolio card have been prepared in local copies of juw12/projects and juw12/portfolio. The Obsidian vault is still unconfirmed. Local integration is not proof of a successful push or public deployment; verify those separately.
 
 ## v3.0.0 study layer (October 2026)
 
@@ -57,10 +57,10 @@ Benchmarked against Duolingo, Anki, Quizlet, Brilliant, NotebookLM, Khanmigo/Cha
 
 Limits: sample (non-official) lesson content, local-only progress, retrieval-based tutor, live cloud AI and physical devices untested, no learning-outcome study yet.
 
-## v4.0.0 "make it real" (October 2026)
+## v4.0.1 "make it real" (October 2026)
 
 - **Accounts:** welcome screen with *Sign in with Puter* or *Continue as guest*. Signed-in progress (lessons, XP, streaks, cards, journal, registrations) syncs through per-user `puter.kv` and merges without losing data; guests never contact Puter.
-- **Admin console** (`admin.html`): GitHub collaborators on the public `juwpegatron/guangyao-content` repository log in with a token and publish materials (≤ 20 MB), lessons (text, YouTube, up to 5 questions, reflection, flashcards, attachments), events with signup links and a home announcement. Every change is a commit. See `admin-guide.md`.
+- **Admin console** (`admin.html`): GitHub collaborators on the public `juw12/projects` repository log in with a token and publish materials (≤ 20 MB), lessons (text, YouTube, up to 5 questions, reflection, flashcards, attachments), events with signup links and a home announcement. Every change is a commit. See `admin-guide.md`.
 - **Learner delivery:** sanitized catalog (drafts hidden, HTTPS/YouTube/path validation), commit-pinned jsDelivr file links, 5-minute refresh. Official lessons use the same player, review and journal as the built-in course.
 - **AI study companion 光光:** streamed `puter.ai.chat` answers for signed-in learners, grounded in course text and admin material notes, with chat history, hint-first tutoring, AI-made flashcards, an "offline only" switch and a privacy toggle for learner context. Guests use the offline retrieval tutor.
 - **Guidance:** first-visit tour, in-app 使用指南 page with FAQ and privacy, sign-out with shared-device reset.

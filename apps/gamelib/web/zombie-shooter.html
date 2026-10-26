@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Zombie Shooter</title>
+<style>
+  html,body{ margin:0; height:100%; background:#0a0f0a; color:#e5e7eb;
+    font-family:system-ui,Segoe UI,Roboto,sans-serif; overflow:hidden; }
+  #wrap{ position:fixed; inset:0; }
+  canvas{ display:block; width:100%; height:100%; touch-action:none; cursor:crosshair; }
+  .hud{ position:absolute; top:10px; left:0; right:0; display:flex; justify-content:space-between;
+    padding:0 16px; font:700 15px system-ui; text-shadow:0 2px 6px #000; pointer-events:none; }
+  .overlay{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:12px; background:rgba(4,8,4,.82); text-align:center; padding:20px; }
+  .overlay.hidden{ display:none; }
+  h1{ margin:0; font-size:clamp(26px,6vw,48px); letter-spacing:2px; color:#4ade80; }
+  button{ font:inherit; font-weight:700; padding:12px 26px; border:0; border-radius:999px;
+    background:linear-gradient(135deg,#4ade80,#16a34a); color:#052e16; cursor:pointer; }
+  p{ max-width:34ch; opacity:.85; margin:0; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div class="hud"><span id="hWave">Wave 1</span><span id="hScore">Score 0</span><span id="hHp">HP 100</span></div>
+  <div class="overlay" id="start">
+    <h1>ZOMBIE SHOOTER</h1>
+    <p>WASD / arrows to move, mouse to aim and hold to shoot. Survive the waves as long as you can.</p>
+    <button id="b1">Start</button>
+  </div>
+  <div class="overlay hidden" id="over">
+    <h1>You Died</h1>
+    <p id="oT"></p>
+    <button id="b2">Retry</button>
+  </div>
+</div>
+<script>
+/* ===== Zombie Shooter - top-down arena survival ===== */
+(function(){
+  "use strict";
+  const cv=document.getElementById("c"), ctx=cv.getContext("2d");
+  const startEl=document.getElementById("start"), overEl=document.getElementById("over"), oT=document.getElementById("oT");
+  const hWave=document.getElementById("hWave"), hScore=document.getElementById("hScore"), hHp=document.getElementById("hHp");
+  let W=0,H=0,DPR=1;
+  function resize(){
+    DPR=Math.min(window.devicePixelRatio||1,2);
+    W=cv.clientWidth; H=cv.clientHeight;
+    cv.width=W*DPR; cv.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener("resize",resize);
+
+  let AC=null;
+  function beep(f,d,t,v){ try{ if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)();
+    const o=AC.createOscillator(),g=AC.createGain(); o.type=t||"square"; o.frequency.value=f; g.gain.value=v||0.04;
+    o.connect(g); g.connect(AC.destination); o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime+(d||0.08)); o.stop(AC.currentTime+(d||0.08)); }catch(e){} }
+
+  const BEST="zombie.best";
+  let best=+(localStorage.getItem(BEST)||0);
+  const keys={}, mouse={x:0,y:0,down:false};
+  let running=false, player, zs, bl, kills, wave, score, hp, spawnT, waveT, reloadT;
+
+  function reset(){
+    player={x:W/2,y:H/2,r:16,spd:3,hpFull:100};
+    zs=[]; bl=[]; kills=0; wave=1; score=0; hp=100; spawnT=1; waveT=0; reloadT=0;
+    mouse.x=W/2; mouse.y=H/2;
+  }
+  function spawn(){
+    const a=Math.random()*Math.PI*2, rad=Math.max(W,H)*0.6+60;
+    zs.push({ x:W/2+Math.cos(a)*rad, y:H/2+Math.sin(a)*rad, r:14,
+      spd:0.6+wave*0.05+Math.random()*0.4, hp:Math.ceil(wave*0.6)+1 });
+  }
+  function shoot(){
+    if(!running||reloadT>0) return;
+    reloadT=0.14;
+    const dx=mouse.x-player.x, dy=mouse.y-player.y, l=Math.hypot(dx,dy)||1;
+    bl.push({ x:player.x, y:player.y, vx:dx/l*11, vy:dy/l*11, life:60 });
+    beep(700,0.05,"square",0.03);
+  }
+  function update(dt){
+    if(!running) return;
+    let mx=0,my=0;
+    if(keys["w"]||keys["arrowup"]) my--;
+    if(keys["s"]||keys["arrowdown"]) my++;
+    if(keys["a"]||keys["arrowleft"]) mx--;
+    if(keys["d"]||keys["arrowright"]) mx++;
+    const l=Math.hypot(mx,my)||1;
+    player.x+=mx/l*player.spd*60*dt; player.y+=my/l*player.spd*60*dt;
+    player.x=Math.max(player.r,Math.min(W-player.r,player.x));
+    player.y=Math.max(player.r,Math.min(H-player.r,player.y));
+
+    if(reloadT>0) reloadT-=dt;
+    if(mouse.down) shoot();
+
+    waveT+=dt; spawnT-=dt;
+    if(spawnT<=0){ spawn(); spawnT=Math.max(0.35, 1.2-wave*0.06); }
+    if(waveT>16){ waveT=0; wave++; beep(400,0.2,"sine",0.05); }
+
+    for(const b of bl){ b.x+=b.vx; b.y+=b.vy; b.life--; }
+    bl=bl.filter(b=>b.life>0 && b.x>-20 && b.x<W+20 && b.y>-20 && b.y<H+20);
+
+    for(const z of zs){
+      const dx=player.x-z.x, dy=player.y-z.y, ll=Math.hypot(dx,dy)||1;
+      z.x+=dx/ll*z.spd*60*dt; z.y+=dy/ll*z.spd*60*dt;
+      if(ll<z.r+player.r) hp-=0.5*60*dt;
+    }
+    for(const z of zs) for(const b of bl){
+      if(b.dead) continue;
+      if(Math.hypot(z.x-b.x, z.y-b.y)<z.r+4){
+        z.hp--; b.dead=true; beep(300,0.05,"square",0.03);
+        if(z.hp<=0){ z.dead=true; kills++; score+=10; }
+      }
+    }
+    zs=zs.filter(z=>!z.dead); bl=bl.filter(b=>!b.dead);
+
+    hHp.textContent="HP "+Math.max(0,Math.round(hp));
+    hScore.textContent="Score "+score+" (best "+best+")";
+    hWave.textContent="Wave "+wave;
+    if(hp<=0) die();
+  }
+  function die(){
+    running=false;
+    if(score>best){ best=score; localStorage.setItem(BEST,best); }
+    oT.textContent="Wave "+wave+"  \u2022  Score "+score+"  \u2022  Kills "+kills+"  \u2022  Best "+best;
+    overEl.classList.remove("hidden");
+  }
+  function draw(){
+    ctx.fillStyle="#0a0f0a"; ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle="#12241a"; ctx.lineWidth=1;
+    for(let x=0;x<W;x+=60){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for(let y=0;y<H;y+=60){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+    for(const z of zs){
+      ctx.fillStyle="#4ade80"; ctx.beginPath(); ctx.arc(z.x,z.y,z.r,0,7); ctx.fill();
+      ctx.fillStyle="#052e16";
+      ctx.beginPath(); ctx.arc(z.x-4,z.y-3,2.5,0,7); ctx.arc(z.x+4,z.y-3,2.5,0,7); ctx.fill();
+    }
+    ctx.fillStyle="#fde047";
+    for(const b of bl){ ctx.beginPath(); ctx.arc(b.x,b.y,3,0,7); ctx.fill(); }
+
+    ctx.fillStyle="#60a5fa"; ctx.beginPath(); ctx.arc(player.x,player.y,player.r,0,7); ctx.fill();
+    const dx=mouse.x-player.x, dy=mouse.y-player.y, l=Math.hypot(dx,dy)||1;
+    ctx.strokeStyle="#cbd5e1"; ctx.lineWidth=5;
+    ctx.beginPath(); ctx.moveTo(player.x,player.y); ctx.lineTo(player.x+dx/l*22, player.y+dy/l*22); ctx.stroke();
+
+    ctx.strokeStyle="#f87171"; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(mouse.x,mouse.y,9,0,7);
+    ctx.moveTo(mouse.x-14,mouse.y); ctx.lineTo(mouse.x+14,mouse.y);
+    ctx.moveTo(mouse.x,mouse.y-14); ctx.lineTo(mouse.x,mouse.y+14); ctx.stroke();
+  }
+  let last=0;
+  function loop(ts){
+    const dt=Math.min(0.05,(ts-last)/1000||0); last=ts;
+    update(dt); draw(); requestAnimationFrame(loop);
+  }
+
+  window.addEventListener("keydown",function(e){
+    const k=e.key.toLowerCase(); keys[k]=true;
+    if(["arrowup","arrowdown","arrowleft","arrowright"," "].indexOf(k)>=0) e.preventDefault();
+  });
+  window.addEventListener("keyup",function(e){ keys[e.key.toLowerCase()]=false; });
+  cv.addEventListener("pointermove",function(e){ const r=cv.getBoundingClientRect(); mouse.x=e.clientX-r.left; mouse.y=e.clientY-r.top; });
+  cv.addEventListener("pointerdown",function(e){ mouse.down=true; const r=cv.getBoundingClientRect(); mouse.x=e.clientX-r.left; mouse.y=e.clientY-r.top; });
+  window.addEventListener("pointerup",function(){ mouse.down=false; });
+
+  function newGame(){
+    resize(); reset(); running=true;
+    startEl.classList.add("hidden"); overEl.classList.add("hidden");
+    if(!AC){ try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+  }
+  document.getElementById("b1").onclick=newGame;
+  document.getElementById("b2").onclick=newGame;
+
+  resize(); reset(); requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>City Skyline</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: #0b1226;
+    background-image:
+      radial-gradient(1200px 600px at 18% -10%, #24345e 0%, rgba(36,52,94,0) 60%),
+      radial-gradient(900px 500px at 92% 112%, #4a2350 0%, rgba(74,35,80,0) 60%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+    color: #eef4ff;
+    padding: 12px;
+    touch-action: manipulation;
+  }
+  #app { width: min(97vw, 1080px); display: flex; flex-direction: column; gap: 10px; }
+
+  /* ============ HEADER ============ */
+  #topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; }
+  #title {
+    font-size: 20px; font-weight: 800; letter-spacing: 2px;
+    color: #ffd98a; text-shadow: 0 2px 0 rgba(0,0,0,.45);
+  }
+  #title small {
+    display: block; font-size: 11px; letter-spacing: 1px; font-weight: 600;
+    color: #9fd0ff; text-shadow: none;
+  }
+  #stats { display: flex; flex-wrap: wrap; gap: 8px; }
+  .stat {
+    background: rgba(10,20,40,.55);
+    border: 1px solid rgba(120,180,255,.25);
+    border-radius: 10px; padding: 5px 11px;
+    font-size: 13px; font-weight: 700; letter-spacing: .5px; white-space: nowrap;
+  }
+  .stat b { color: #ffd98a; }
+
+  /* ============ CANVAS WRAP ============ */
+  #game-wrap {
+    position: relative; width: 100%; border-radius: 14px; overflow: hidden;
+    box-shadow: 0 14px 40px rgba(0,0,0,.5), 0 0 0 2px rgba(120,180,255,.18) inset;
+    background: #101a34;
+  }
+  canvas { display: block; width: 100%; height: auto; cursor: crosshair; touch-action: none; }
+
+  /* ============ TOAST ============ */
+  #toast {
+    position: absolute; left: 50%; bottom: 14px;
+    transform: translateX(-50%) translateY(12px);
+    background: rgba(6,14,30,.86);
+    border: 1px solid rgba(255,217,138,.4);
+    color: #ffd98a; font-size: 13px; font-weight: 700; letter-spacing: .5px;
+    padding: 8px 18px; border-radius: 20px; opacity: 0; pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ============ PANEL ============ */
+  #panel { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; justify-content: space-between; }
+  #palette { display: flex; flex-wrap: wrap; gap: 6px 16px; flex: 1 1 560px; }
+  .pal-group { display: flex; flex-direction: column; gap: 6px; }
+  .pal-label {
+    font-size: 10px; font-weight: 800; letter-spacing: 2px;
+    color: #7fb4e8; text-transform: uppercase;
+  }
+  .pal-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tool {
+    font-family: inherit; font-size: 12px; font-weight: 700; letter-spacing: .3px;
+    color: #dfe9f7; background: rgba(12,24,46,.72);
+    border: 1px solid rgba(120,180,255,.22); border-radius: 9px;
+    padding: 7px 11px; cursor: pointer; display: flex; align-items: center; gap: 6px;
+    transition: background .12s ease, transform .06s ease, border-color .12s ease;
+    user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  .tool:hover { background: rgba(30,58,100,.9); }
+  .tool:active { transform: translateY(1px); }
+  .tool.active {
+    background: linear-gradient(180deg, #ffd465, #f2a63b);
+    border-color: #ffe9ad; color: #4a2c00;
+    box-shadow: 0 0 0 2px rgba(255,224,138,.35);
+  }
+  .tool .sw { width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(0,0,0,.35); }
+
+  /* ============ SIDE ============ */
+  #side { flex: 0 0 260px; display: flex; flex-direction: column; gap: 10px; }
+  .box { background: rgba(10,20,40,.55); border: 1px solid rgba(120,180,255,.22); border-radius: 12px; padding: 10px 12px; }
+  .box h3 { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #7fb4e8; margin-bottom: 8px; }
+  #actions { display: flex; flex-wrap: wrap; gap: 7px; }
+  #actions button {
+    font-family: inherit; font-size: 12px; font-weight: 700; letter-spacing: .5px;
+    color: #fff; border: none; border-radius: 9px; padding: 9px 13px; cursor: pointer;
+    background: #2f6fb8; box-shadow: 0 3px 0 rgba(0,0,0,.28);
+    transition: background .12s ease, transform .06s ease; flex: 1 1 auto;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #actions button:hover { background: #3b83d4; }
+  #actions button:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.28); }
+  #btn-save { background: #2f8a52; } #btn-save:hover { background: #39a463; }
+  #btn-rand { background: #7a4bb8; } #btn-rand:hover { background: #8f5dd1; }
+  #btn-new { background: #a5432f; } #btn-new:hover { background: #c2503a; }
+  #hint { font-size: 11px; line-height: 1.55; color: #8ea6c4; }
+  #hint b { color: #cfe0f5; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 760px) {
+    #side { flex: 1 1 100%; }
+    #title { font-size: 17px; }
+    .tool { padding: 8px 10px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ TOP BAR ============ -->
+  <div id="topbar">
+    <div id="title">🏙️ CITY SKYLINE
+      <small>build towers · light the windows · watch the river glow</small>
+    </div>
+    <div id="stats">
+      <div class="stat">🏢 Towers <b id="s-count">0</b></div>
+      <div class="stat">🌆 <b id="s-theme">Auto</b></div>
+      <div class="stat">🕒 <b id="s-time">20:00</b></div>
+    </div>
+  </div>
+
+  <!-- ============ CANVAS ============ -->
+  <div id="game-wrap">
+    <canvas id="game" width="1040" height="620"></canvas>
+    <div id="toast"></div>
+  </div>
+
+  <!-- ============ PANEL ============ -->
+  <div id="panel">
+    <div id="palette"></div>
+    <div id="side">
+      <div class="box">
+        <h3>Scene</h3>
+        <div id="actions">
+          <button id="btn-save" type="button">💾 Save</button>
+          <button id="btn-load" type="button">📂 Load</button>
+          <button id="btn-rand" type="button">🎲 Random</button>
+          <button id="btn-new" type="button">🌃 Clear</button>
+        </div>
+        <div id="hint" style="margin-top:9px">
+          <b>Click the ground</b> to raise a tower, then <b>drag up/down</b> to size it.
+          Pick the <b>Raise</b> tool to reshape any building, <b>Move</b> to slide it,
+          or drop a <b>Ferris wheel</b>, <b>Bridge</b> or <b>Antenna</b>.
+          Change the mood with the <b>sky themes</b>. Keys <b>1–7</b> tools, <b>S</b> save, <b>L</b> load.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONFIGURATION ============
+  const SAVE_KEY = "citySkylineSave_v1";
+  const DAY_LENGTH = 120;        // seconds for a full day/night cycle (Auto theme)
+  const HORIZON = 0.62;          // fraction of canvas height where the river starts
+
+  // Building archetypes: how each silhouette is shaped
+  const KINDS = ["flat", "stepped", "spire", "dome", "twin"];
+
+  // Sky themes — each defines gradient stops, silhouette colour and water tint
+  const THEMES = {
+    auto: null, // handled by the day/night cycle
+    sunset: {
+      label: "Sunset",
+      sky:   ["#2a1747", "#7c3466", "#d4664a", "#ffbe6d"],
+      sil:   "#1b1030", sil2: "#3a2352",
+      win:   [255, 205, 130], water: ["#c26a4e", "#3a1c38"]
+    },
+    neon: {
+      label: "Neon",
+      sky:   ["#0a0220", "#240b44", "#4d0f6b", "#8a1a6e"],
+      sil:   "#06001a", sil2: "#2a0a48",
+      win:   [255, 120, 220], water: ["#3a0f5a", "#100227"]
+    },
+    fog: {
+      label: "Fog",
+      sky:   ["#7f95a8", "#a8bac6", "#c9d6de", "#e4ecf0"],
+      sil:   "#5b6e7c", sil2: "#8195a2",
+      win:   [255, 214, 150], water: ["#9fb2bd", "#6d8391"]
+    },
+    midnight: {
+      label: "Midnight",
+      sky:   ["#01030d", "#061029", "#0d2148", "#1c3a6e"],
+      sil:   "#02040c", sil2: "#16233f",
+      win:   [255, 200, 120], water: ["#123055", "#040b1c"]
+    }
+  };
+  const THEME_ORDER = ["auto", "sunset", "neon", "fog", "midnight"];
+
+  // Day (used by Auto at noon) and Night (used by Auto at midnight) palettes
+  const AUTO_DAY = {
+    sky: ["#5aa6dd", "#8cc6ee", "#bfe2f7", "#e6f4ff"],
+    sil: "#33465e", sil2: "#4d6280", win: [255, 210, 150], water: ["#7fb6dd", "#3f6f9c"]
+  };
+  const AUTO_NIGHT = {
+    sky: ["#01030d", "#061029", "#0d2148", "#1c3a6e"],
+    sil: "#02040c", sil2: "#16233f", win: [255, 200, 120], water: ["#123055", "#040b1c"]
+  };
+
+  // ============ DOM REFERENCES ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const paletteEl = document.getElementById("palette");
+  const toastEl = document.getElementById("toast");
+  const sCount = document.getElementById("s-count");
+  const sTheme = document.getElementById("s-theme");
+  const sTime = document.getElementById("s-time");
+  const btnSave = document.getElementById("btn-save");
+  const btnLoad = document.getElementById("btn-load");
+  const btnRand = document.getElementById("btn-rand");
+  const btnNew = document.getElementById("btn-new");
+
+  let viewW = canvas.width;
+  let viewH = canvas.height;
+
+  // ============ AUDIO (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  // ============ GAME STATE ============
+  let buildings = [];        // { x, w, h, kind, seed, antenna }
+  let bridges = [];          // { x, w }
+  let ferris = [];           // { x, r }
+  let theme = "auto";        // current theme key
+  let timeOfDay = 0.83;      // 0 midnight, 0.5 noon, 0.25 dawn, 0.75 dusk
+  let elapsed = 0;
+  let currentTool = "build";
+  let toastTimer = null;
+
+  // ============ HELPERS ============
+  function hash(a, b) {
+    let n = Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263) + 1013904223;
+    n = (n ^ (n >> 13)) * 1274126177;
+    return ((n ^ (n >> 16)) >>> 0) / 4294967296;
+  }
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function hexToRgb(h) {
+    const n = parseInt(h.slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function mixHex(a, b, t) {
+    const A = hexToRgb(a), B = hexToRgb(b);
+    return "rgb(" + Math.round(lerp(A[0], B[0], t)) + "," +
+                    Math.round(lerp(A[1], B[1], t)) + "," +
+                    Math.round(lerp(A[2], B[2], t)) + ")";
+  }
+
+  // Night factor 0 (noon) .. 1 (midnight)
+  function nightAmount() {
+    const sun = Math.sin((timeOfDay - 0.25) * Math.PI * 2);
+    return clamp(1 - (sun + 1) / 2, 0, 1);
+  }
+
+  // Resolve current palette (theme object with resolved values)
+  function palette() {
+    if (theme === "auto") {
+      const n = nightAmount();
+      const d = AUTO_DAY, k = AUTO_NIGHT;
+      return {
+        label: "Auto",
+        sky: d.sky.map(function (c, i) { return mixHex(c, k.sky[i], n); }),
+        sil: mixHex(d.sil, k.sil, n),
+        sil2: mixHex(d.sil2, k.sil2, n),
+        win: [
+          Math.round(lerp(d.win[0], k.win[0], n)),
+          Math.round(lerp(d.win[1], k.win[1], n)),
+          Math.round(lerp(d.win[2], k.win[2], n))
+        ],
+        water: [mixHex(d.water[0], k.water[0], n), mixHex(d.water[1], k.water[1], n)]
+      };
+    }
+    const t = THEMES[theme];
+    return {
+      label: t.label, sky: t.sky, sil: t.sil, sil2: t.sil2,
+      win: t.win, water: [t.water[0], t.water[1]]
+    };
+  }
+
+  // ============ TOAST ============
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 2000);
+  }
+
+  // ============ PALETTE UI ============
+  const GROUPS = [
+    {
+      label: "Build",
+      tools: [
+        { id: "build",    icon: "🏗️", label: "Build",  sw: "#8fb4e0" },
+        { id: "raise",    icon: "↕️", label: "Raise",  sw: "#ffd465" },
+        { id: "move",     icon: "↔️", label: "Move",   sw: "#9fe0c0" },
+        { id: "remove",   icon: "🧽", label: "Remove", sw: "#e08a8a" }
+      ]
+    },
+    {
+      label: "Decor",
+      tools: [
+        { id: "ferris",  icon: "🎡", label: "Ferris",  sw: "#e07ad0" },
+        { id: "bridge",  icon: "🌉", label: "Bridge",  sw: "#c9b189" },
+        { id: "antenna", icon: "📡", label: "Antenna", sw: "#a0e0ff" }
+      ]
+    }
+  ];
+
+  function buildPalette() {
+    paletteEl.innerHTML = "";
+    GROUPS.forEach(function (group) {
+      const wrap = document.createElement("div");
+      wrap.className = "pal-group";
+      const lab = document.createElement("div");
+      lab.className = "pal-label";
+      lab.textContent = group.label;
+      wrap.appendChild(lab);
+      const row = document.createElement("div");
+      row.className = "pal-row";
+      group.tools.forEach(function (tool) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "tool";
+        b.dataset.id = tool.id;
+        b.innerHTML = '<span class="sw" style="background:' + tool.sw + '"></span>' +
+                      '<span>' + tool.icon + " " + tool.label + "</span>";
+        b.addEventListener("click", function () { selectTool(tool.id); });
+        row.appendChild(b);
+      });
+      wrap.appendChild(row);
+      paletteEl.appendChild(wrap);
+    });
+
+    // Sky theme selector group
+    const tWrap = document.createElement("div");
+    tWrap.className = "pal-group";
+    const tLab = document.createElement("div");
+    tLab.className = "pal-label";
+    tLab.textContent = "Sky";
+    tWrap.appendChild(tLab);
+    const tRow = document.createElement("div");
+    tRow.className = "pal-row";
+    THEME_ORDER.forEach(function (key) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "tool theme-btn";
+      b.dataset.theme = key;
+      b.textContent = key === "auto" ? "🌗 Auto" : "🎨 " + THEMES[key].label;
+      b.addEventListener("click", function () { setTheme(key); });
+      tRow.appendChild(b);
+    });
+    tWrap.appendChild(tRow);
+    paletteEl.appendChild(tWrap);
+    syncToolButtons();
+  }
+
+  function selectTool(id) {
+    currentTool = id;
+    syncToolButtons();
+    beep(520, 0.05, "triangle");
+  }
+
+  function setTheme(key) {
+    theme = key;
+    syncToolButtons();
+    sTheme.textContent = key === "auto" ? "Auto" : THEMES[key].label;
+    beep(440, 0.08, "sine");
+    showToast((key === "auto" ? "Auto" : THEMES[key].label) + " sky ☁️");
+  }
+
+  function syncToolButtons() {
+    const btns = paletteEl.querySelectorAll(".tool");
+    for (let i = 0; i < btns.length; i++) {
+      if (btns[i].dataset.theme) {
+        btns[i].classList.toggle("active", btns[i].dataset.theme === theme);
+      } else {
+        btns[i].classList.toggle("active", btns[i].dataset.id === currentTool);
+      }
+    }
+  }
+
+  // ============ BUILDING FACTORY ============
+  function makeBuilding(nx, w, h, kind) {
+    return {
+      x: clamp(nx, 0.02, 0.98),
+      w: w || (0.05 + Math.random() * 0.05),
+      h: h || (0.16 + Math.random() * 0.30),
+      kind: kind == null ? Math.floor(Math.random() * KINDS.length) : kind,
+      seed: Math.floor(Math.random() * 99999),
+      antenna: false
+    };
+  }
+
+  function pxOf(b) { return b.x * viewW; }
+  function topOf(b) { return viewH * HORIZON - b.h * viewH; }
+
+  function buildingAt(px) {
+    // topmost (highest, so drawn last) building containing px
+    let found = null;
+    for (let i = 0; i < buildings.length; i++) {
+      const b = buildings[i];
+      const half = (b.w * viewW) / 2;
+      const cx = pxOf(b);
+      if (px >= cx - half && px <= cx + half) {
+        if (!found || b.h > found.h) found = b;
+      }
+    }
+    return found;
+  }
+
+  // ============ POINTER INTERACTION ============
+  let dragging = false;
+  let dragMode = null;         // "raise" | "move" | "new"
+  let dragBuilding = null;
+  let dragStartY = 0;
+  let dragStartH = 0;
+  let dragStartX = 0;
+  let dragStartNx = 0;
+
+  function canvasPos(clientX, clientY) {
+    const r = canvas.getBoundingClientRect();
+    return {
+      x: (clientX - r.left) / r.width * viewW,
+      y: (clientY - r.top) / r.height * viewH
+    };
+  }
+  function groundY() { return viewH * HORIZON; }
+
+  function onDown(clientX, clientY) {
+    const p = canvasPos(clientX, clientY);
+    const hit = buildingAt(p.x);
+
+    if (currentTool === "build") {
+      if (hit) {
+        dragBuilding = hit;
+        dragMode = "raise";
+        dragStartY = p.y; dragStartH = hit.h;
+      } else if (p.y > groundY() - viewH * 0.02) {
+        // New building on the ground
+        const b = makeBuilding(p.x / viewW, null, 0.10, null);
+        buildings.push(b);
+        dragBuilding = b; dragMode = "raise";
+        dragStartY = p.y; dragStartH = b.h;
+        beep(600, 0.06, "square");
+      }
+      return;
+    }
+    if (currentTool === "raise" && hit) {
+      dragBuilding = hit; dragMode = "raise";
+      dragStartY = p.y; dragStartH = hit.h;
+      return;
+    }
+    if (currentTool === "move" && hit) {
+      dragBuilding = hit; dragMode = "move";
+      dragStartX = p.x; dragStartNx = hit.x;
+      return;
+    }
+    if (currentTool === "remove" && hit) {
+      buildings.splice(buildings.indexOf(hit), 1);
+      beep(220, 0.08, "square");
+      showToast("Tower removed");
+      return;
+    }
+    if (currentTool === "ferris") {
+      ferris = [{ x: clamp(p.x / viewW, 0.06, 0.94), r: 0.085 }];
+      beep(880, 0.1, "sine");
+      showToast("Ferris wheel placed 🎡");
+      return;
+    }
+    if (currentTool === "bridge" && p.y > groundY()) {
+      bridges.push({ x: clamp(p.x / viewW, 0.08, 0.92), w: 0.13 });
+      beep(380, 0.12, "triangle");
+      showToast("Bridge built 🌉");
+      return;
+    }
+    if (currentTool === "antenna" && hit) {
+      hit.antenna = !hit.antenna;
+      beep(hit.antenna ? 990 : 330, 0.08, "sine");
+      return;
+    }
+    // Clicking an empty area with decor tools clears that decor type
+    if (currentTool === "ferris") ferris = [];
+  }
+
+  function onMove(clientX, clientY) {
+    if (!dragBuilding || !dragMode) return;
+    const p = canvasPos(clientX, clientY);
+    if (dragMode === "raise") {
+      const dh = (dragStartY - p.y) / viewH;
+      dragBuilding.h = clamp(dragStartH + dh, 0.05, 0.78);
+    } else if (dragMode === "move") {
+      const dx = (p.x - dragStartX) / viewW;
+      dragBuilding.x = clamp(dragStartNx + dx, 0.02, 0.98);
+    }
+  }
+
+  function onUp() {
+    if (dragging && dragBuilding) beep(500, 0.04, "triangle");
+    dragging = false; dragMode = null; dragBuilding = null;
+  }
+
+  canvas.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    dragging = true;
+    canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
+    onDown(e.clientX, e.clientY);
+  });
+  canvas.addEventListener("pointermove", function (e) {
+    if (dragging) onMove(e.clientX, e.clientY);
+  });
+  window.addEventListener("pointerup", onUp);
+  canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+  // ============ KEYBOARD ============
+  const flatTools = [];
+  GROUPS.forEach(function (g) { g.tools.forEach(function (t) { flatTools.push(t.id); }); });
+  window.addEventListener("keydown", function (e) {
+    const k = e.key;
+    if (k >= "1" && k <= "9") {
+      const i = parseInt(k, 10) - 1;
+      if (flatTools[i]) selectTool(flatTools[i]);
+      return;
+    }
+    if (k === "s" || k === "S") { saveCity(); return; }
+    if (k === "l" || k === "L") { loadCity(); return; }
+    if (k === "n" || k === "N") { clearCity(); return; }
+    if (k === "t" || k === "T") {
+      const i = (THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length;
+      setTheme(THEME_ORDER[i]);
+    }
+  });
+
+  // ============ GENERATION ============
+  function randomSkyline() {
+    buildings = [];
+    const n = 9 + Math.floor(Math.random() * 8);
+    for (let i = 0; i < n; i++) {
+      const nx = 0.05 + (i + Math.random() * 0.7) / n * 0.9;
+      const tall = Math.random() < 0.25;
+      const b = makeBuilding(nx,
+        0.045 + Math.random() * 0.05,
+        tall ? 0.42 + Math.random() * 0.30 : 0.12 + Math.random() * 0.26,
+        Math.floor(Math.random() * KINDS.length));
+      b.antenna = tall && Math.random() < 0.6;
+      buildings.push(b);
+    }
+    buildings.sort(function (a, b) { return a.h - b.h; });
+    bridges = (Math.random() < 0.6) ? [{ x: 0.3 + Math.random() * 0.4, w: 0.13 }] : [];
+    ferris = (Math.random() < 0.5) ? [{ x: 0.15 + Math.random() * 0.7, r: 0.085 }] : [];
+  }
+
+  function clearCity() {
+    buildings = []; bridges = []; ferris = [];
+    beep(300, 0.14, "triangle");
+    showToast("A blank horizon 🌃");
+  }
+
+  // ============ PERSISTENCE ============
+  function saveCity() {
+    try {
+      const data = {
+        buildings: buildings, bridges: bridges, ferris: ferris,
+        theme: theme, timeOfDay: timeOfDay
+      };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+      showToast("Skyline saved 💾");
+      beep(660, 0.09, "sine");
+    } catch (err) { showToast("Could not save (storage blocked)"); }
+  }
+
+  function loadCity() {
+    let raw = null;
+    try { raw = localStorage.getItem(SAVE_KEY); } catch (err) { raw = null; }
+    if (!raw) { showToast("No saved skyline found"); return; }
+    try {
+      const d = JSON.parse(raw);
+      if (!d || !Array.isArray(d.buildings)) { showToast("Save data is incompatible"); return; }
+      buildings = d.buildings.map(function (b) {
+        return {
+          x: clamp(b.x, 0.02, 0.98), w: clamp(b.w, 0.02, 0.2),
+          h: clamp(b.h, 0.05, 0.78), kind: clamp(b.kind | 0, 0, KINDS.length - 1),
+          seed: b.seed | 0, antenna: !!b.antenna
+        };
+      });
+      bridges = Array.isArray(d.bridges) ? d.bridges : [];
+      ferris = Array.isArray(d.ferris) ? d.ferris : [];
+      if (d.theme && THEMES[d.theme] !== undefined || d.theme === "auto") theme = d.theme;
+      if (typeof d.timeOfDay === "number") timeOfDay = d.timeOfDay;
+      sTheme.textContent = theme === "auto" ? "Auto" : THEMES[theme].label;
+      syncToolButtons();
+      showToast("Skyline loaded 📂");
+      beep(560, 0.09, "sine");
+    } catch (err) { showToast("Save file was corrupted"); }
+  }
+
+  btnSave.addEventListener("click", saveCity);
+  btnLoad.addEventListener("click", loadCity);
+  btnRand.addEventListener("click", function () { randomSkyline(); beep(700, 0.1, "sine"); showToast("New skyline 🎲"); });
+  btnNew.addEventListener("click", clearCity);
+
+  // ============ RESPONSIVE CANVAS ============
+  function resizeCanvas() {
+    const wrap = canvas.parentElement;
+    const cssW = Math.max(280, wrap.clientWidth);
+    viewW = Math.round(cssW);
+    viewH = Math.round(cssW * (620 / 1040));
+    canvas.width = viewW;
+    canvas.height = viewH;
+  }
+  window.addEventListener("resize", resizeCanvas);
+
+  // ============ RENDER: SKY ============
+  function drawSky(pal, now) {
+    const g = ctx.createLinearGradient(0, 0, 0, viewH * HORIZON);
+    for (let i = 0; i < pal.sky.length; i++) {
+      g.addColorStop(i / (pal.sky.length - 1), pal.sky[i]);
+    }
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, viewW, viewH);
+
+    const night = nightAmount();
+    if (theme === "fog") {
+      // soft haze band
+      const fg = ctx.createLinearGradient(0, viewH * 0.2, 0, viewH * HORIZON);
+      fg.addColorStop(0, "rgba(230,238,242,0)");
+      fg.addColorStop(1, "rgba(230,238,242,0.75)");
+      ctx.fillStyle = fg;
+      ctx.fillRect(0, 0, viewW, viewH * HORIZON);
+    } else if (night > 0.15) {
+      drawStars(night, now);
+    }
+    // Sun / moon
+    if (theme !== "fog") drawCelestial(now);
+  }
+
+  function drawStars(night, now) {
+    const count = Math.floor(90 * night);
+    ctx.fillStyle = "#ffffff";
+    for (let i = 0; i < count; i++) {
+      const h1 = hash(i * 3 + 1, i * 7 + 2);
+      const h2 = hash(i * 11 + 5, i * 5 + 3);
+      const tw = 0.5 + 0.5 * Math.sin(now * 2 + i);
+      ctx.globalAlpha = (0.3 + 0.6 * tw) * night;
+      ctx.beginPath();
+      ctx.arc(h1 * viewW, h2 * viewH * 0.55, 0.6 + h2 * 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawCelestial(now) {
+    // sun/moon travel an arc based on timeOfDay
+    const ang = (timeOfDay - 0.25) * Math.PI * 2;
+    const sun = Math.sin(ang);
+    const isDay = sun > 0;
+    const x = viewW * (0.5 + 0.42 * Math.cos(ang + Math.PI));
+    const y = viewH * (0.30 - 0.20 * sun);
+    const r = Math.max(12, viewW * 0.018);
+    ctx.save();
+    if (isDay) {
+      const glow = ctx.createRadialGradient(x, y, r * 0.4, x, y, r * 4);
+      glow.addColorStop(0, "rgba(255,220,140,0.55)");
+      glow.addColorStop(1, "rgba(255,220,140,0)");
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.arc(x, y, r * 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ffe08a";
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    } else {
+      ctx.fillStyle = "#e6ecf5";
+      ctx.beginPath(); ctx.arc(x, y, r * 0.9, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "rgba(150,170,200,0.5)";
+      ctx.beginPath(); ctx.arc(x + r * 0.35, y - r * 0.3, r * 0.66, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // ============ RENDER: DISTANT PARALLAX LAYER ============
+  function drawFarLayer(pal, now) {
+    const baseY = viewH * HORIZON;
+    ctx.save();
+    ctx.globalAlpha = 0.42;
+    ctx.fillStyle = pal.sil2;
+    const step = viewW / 26;
+    for (let i = 0; i < 30; i++) {
+      const h = (0.05 + hash(i * 13, 7) * 0.14) * viewH;
+      const w = step * (0.7 + hash(i * 5, 3) * 0.5);
+      ctx.fillRect(i * step - step, baseY - h, w, h + 2);
+    }
+    ctx.restore();
+  }
+
+  // ============ RENDER: BUILDINGS ============
+  function buildingPath(b) {
+    // Returns nothing; draws silhouette fill path for the archetype
+    const cx = pxOf(b);
+    const w = b.w * viewW;
+    const top = topOf(b);
+    const base = viewH * HORIZON;
+    const left = cx - w / 2;
+    const right = cx + w / 2;
+
+    ctx.beginPath();
+    if (b.kind === 0) {            // flat tower
+      ctx.rect(left, top, w, base - top);
+    } else if (b.kind === 1) {     // stepped / setback
+      const cut = w * 0.22;
+      const mid = top + (base - top) * 0.3;
+      ctx.moveTo(left, base);
+      ctx.lineTo(left, mid);
+      ctx.lineTo(left + cut, mid);
+      ctx.lineTo(left + cut, top);
+      ctx.lineTo(right - cut, top);
+      ctx.lineTo(right - cut, mid);
+      ctx.lineTo(right, mid);
+      ctx.lineTo(right, base);
+      ctx.closePath();
+    } else if (b.kind === 2) {     // spire
+      const crown = w * 0.30;
+      const mast = top + (base - top) * 0.16;
+      ctx.moveTo(left, base);
+      ctx.lineTo(left, mast);
+      ctx.lineTo(left + w / 2 - crown / 2, mast);
+      ctx.lineTo(left + w / 2, top);
+      ctx.lineTo(left + w / 2 + crown / 2, mast);
+      ctx.lineTo(right, mast);
+      ctx.lineTo(right, base);
+      ctx.closePath();
+    } else if (b.kind === 3) {     // dome
+      ctx.moveTo(left, base);
+      ctx.lineTo(left, top + w * 0.35);
+      ctx.arc(cx, top + w * 0.35, w / 2, Math.PI, 0, false);
+      ctx.lineTo(right, base);
+      ctx.closePath();
+    } else {                       // twin
+      const gap = w * 0.16;
+      ctx.rect(left, top + (base - top) * 0.14, (w - gap) / 2, base - top);
+      ctx.rect(cx + gap / 2, top, (w - gap) / 2, base - top);
+    }
+  }
+
+  function drawBuildingBody(b, pal) {
+    buildingPath(b);
+    const g = ctx.createLinearGradient(0, topOf(b), 0, viewH * HORIZON);
+    g.addColorStop(0, pal.sil2);
+    g.addColorStop(1, pal.sil);
+    ctx.fillStyle = g;
+    ctx.fill();
+
+    // antenna mast
+    if (b.antenna) {
+      const cx = pxOf(b);
+      const top = topOf(b);
+      ctx.strokeStyle = pal.sil;
+      ctx.lineWidth = Math.max(1.5, viewW * 0.0018);
+      ctx.beginPath();
+      ctx.moveTo(cx, top);
+      ctx.lineTo(cx, top - viewH * 0.06);
+      ctx.stroke();
+      // beacon
+      const blink = (Math.sin(elapsed * 4 + b.seed) > 0.4) ? 1 : 0.25;
+      ctx.fillStyle = "rgba(255,80,80," + blink + ")";
+      ctx.beginPath();
+      ctx.arc(cx, top - viewH * 0.06, Math.max(1.5, viewW * 0.0035), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawWindows(b, pal, night, inReflection) {
+    const cx = pxOf(b);
+    const w = b.w * viewW;
+    const top = topOf(b);
+    const base = viewH * HORIZON;
+    const cols = Math.max(2, Math.floor(w / (viewW * 0.014)));
+    const rows = Math.max(2, Math.floor((base - top) / (viewH * 0.028)));
+    const padX = w / cols, padY = (base - top) / rows;
+    const ww = padX * 0.5, wh = padY * 0.45;
+    const neon = theme === "neon";
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const rnd = hash(b.seed + c * 31, r * 17 + 3);
+        const lit = rnd < (0.18 + night * 0.62);
+        let x = cx - w / 2 + c * padX + padX * 0.25;
+        let y = top + r * padY + padY * 0.28;
+        if (lit) {
+          const flick = 0.7 + 0.3 * Math.sin(elapsed * 3 + rnd * 40);
+          if (neon) {
+            const hue = Math.floor(rnd * 360);
+            ctx.fillStyle = "hsla(" + hue + ",95%,65%," + (0.5 + night * 0.45) * flick + ")";
+          } else {
+            ctx.fillStyle = "rgba(" + pal.win[0] + "," + pal.win[1] + "," + pal.win[2] + "," +
+                            (0.45 + night * 0.5) * flick.toFixed(3) + ")";
+          }
+          ctx.fillRect(x, y, ww, wh);
+        } else if (!inReflection) {
+          ctx.fillStyle = "rgba(20,32,54,0.55)";
+          ctx.fillRect(x, y, ww, wh);
+        }
+      }
+    }
+  }
+
+  function drawFerris(pal, night) {
+    ferris.forEach(function (f) {
+      const cx = f.x * viewW;
+      const cy = viewH * HORIZON - f.r * viewH;
+      const rad = f.r * viewH;
+      const spokes = 10;
+      const rot = elapsed * 0.5 + (f.x * 10);
+      // support
+      ctx.strokeStyle = pal.sil;
+      ctx.lineWidth = Math.max(2, viewW * 0.0028);
+      ctx.beginPath();
+      ctx.moveTo(cx - rad * 0.5, viewH * HORIZON);
+      ctx.lineTo(cx, cy);
+      ctx.lineTo(cx + rad * 0.5, viewH * HORIZON);
+      ctx.stroke();
+      // rim
+      ctx.beginPath();
+      ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+      ctx.lineWidth = Math.max(1.5, viewW * 0.0018);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx, cy, rad * 0.9, 0, Math.PI * 2);
+      ctx.stroke();
+      for (let i = 0; i < spokes; i++) {
+        const a = rot + i * (Math.PI * 2 / spokes);
+        const gx = cx + Math.cos(a) * rad;
+        const gy = cy + Math.sin(a) * rad;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(gx, gy);
+        ctx.stroke();
+        // lit gondola
+        const on = Math.sin(elapsed * 2 + i * 1.7) > -0.3;
+        ctx.fillStyle = (night > 0.3 && on)
+          ? "rgba(" + pal.win[0] + "," + pal.win[1] + "," + pal.win[2] + ",0.95)"
+          : pal.sil2;
+        ctx.beginPath();
+        ctx.arc(gx, gy, Math.max(2, rad * 0.09), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // hub
+      ctx.fillStyle = pal.sil2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, Math.max(2, rad * 0.06), 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  // ============ RENDER: RIVER & REFLECTION ============
+  function drawRiver(pal, now) {
+    const baseY = viewH * HORIZON;
+    const g = ctx.createLinearGradient(0, baseY, 0, viewH);
+    g.addColorStop(0, pal.water[0]);
+    g.addColorStop(1, pal.water[1]);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, baseY, viewW, viewH - baseY);
+  }
+
+  function drawReflection(pal, night, now) {
+    const baseY = viewH * HORIZON;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, baseY, viewW, viewH - baseY);
+    ctx.clip();
+    ctx.globalAlpha = 0.34;
+    ctx.translate(0, baseY * 2);
+    ctx.scale(1, -1);
+    ctx.translate(0, -viewH * 0.02); // tiny offset for a natural gap
+    buildings.forEach(function (b) {
+      drawBuildingBody(b, pal);
+      drawWindows(b, pal, night, true);
+    });
+    ctx.restore();
+
+    // horizontal shimmer streaks over the water
+    ctx.save();
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = "#ffffff";
+    for (let i = 0; i < 7; i++) {
+      const y = baseY + ((i + 0.5) / 7) * (viewH - baseY);
+      const wob = Math.sin(now * 1.4 + i) * viewW * 0.02;
+      ctx.fillRect(wob, y, viewW, Math.max(1, viewH * 0.004));
+    }
+    ctx.restore();
+  }
+
+  function drawBridges(pal, night) {
+    const baseY = viewH * HORIZON;
+    bridges.forEach(function (br) {
+      const cx = br.x * viewW;
+      const w = br.w * viewW;
+      const deck = baseY + (viewH - baseY) * 0.42;
+      ctx.strokeStyle = pal.sil;
+      ctx.lineWidth = Math.max(3, viewW * 0.004);
+      ctx.beginPath();
+      ctx.moveTo(cx - w / 2, deck);
+      ctx.lineTo(cx + w / 2, deck);
+      ctx.stroke();
+      // arch
+      ctx.beginPath();
+      ctx.arc(cx, deck, w * 0.34, Math.PI, 0, false);
+      ctx.lineWidth = Math.max(2, viewW * 0.0026);
+      ctx.stroke();
+      // pylons
+      ctx.beginPath();
+      ctx.moveTo(cx - w / 2, deck);
+      ctx.lineTo(cx - w / 2, deck + viewH * 0.05);
+      ctx.moveTo(cx + w / 2, deck);
+      ctx.lineTo(cx + w / 2, deck + viewH * 0.05);
+      ctx.stroke();
+      // lamps
+      if (night > 0.25) {
+        ctx.fillStyle = "rgba(" + pal.win[0] + "," + pal.win[1] + "," + pal.win[2] + ",0.9)";
+        for (let i = 0; i <= 4; i++) {
+          ctx.beginPath();
+          ctx.arc(cx - w / 2 + (w * i / 4), deck - viewH * 0.012, Math.max(1.5, viewW * 0.003), 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    });
+  }
+
+  // ============ MAIN DRAW ============
+  function draw(now) {
+    const pal = palette();
+    const night = nightAmount();
+
+    ctx.clearRect(0, 0, viewW, viewH);
+    drawSky(pal, now);
+    drawFarLayer(pal, now);
+    drawRiver(pal, now);
+
+    // Warm city glow behind the skyline at night
+    if (night > 0.2 && theme !== "fog") {
+      const baseY = viewH * HORIZON;
+      const glow = ctx.createRadialGradient(viewW / 2, baseY, viewW * 0.05,
+                                            viewW / 2, baseY, viewW * 0.6);
+      glow.addColorStop(0, "rgba(255,180,90," + (0.12 * night).toFixed(3) + ")");
+      glow.addColorStop(1, "rgba(255,180,90,0)");
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, baseY - viewH * 0.5, viewW, viewH * 0.5);
+    }
+
+    drawReflection(pal, night, now);
+
+    // Buildings back-to-front so nearer/taller ones overlap naturally
+    buildings.forEach(function (b) {
+      drawBuildingBody(b, pal);
+      drawWindows(b, pal, night, false);
+    });
+
+    drawBridges(pal, night);
+    drawFerris(pal, night);
+
+    if (theme === "fog") {
+      const fg = ctx.createLinearGradient(0, viewH * 0.35, 0, viewH);
+      fg.addColorStop(0, "rgba(224,234,240,0)");
+      fg.addColorStop(1, "rgba(224,234,240,0.42)");
+      ctx.fillStyle = fg;
+      ctx.fillRect(0, 0, viewW, viewH);
+    }
+  }
+
+  // ============ HUD ============
+  function updateHUD() {
+    sCount.textContent = buildings.length;
+    const h = ((timeOfDay + 0.5) % 1) * 24; // 0.5 => noon => 12:00
+    const hh = Math.floor(h);
+    const mm = Math.floor((h - hh) * 60);
+    sTime.textContent = (hh < 10 ? "0" : "") + hh + ":" + (mm < 10 ? "0" : "") + mm;
+  }
+
+  // ============ MAIN LOOP ============
+  let raf = null;
+  let last = 0;
+  function loop(ts) {
+    if (!last) last = ts;
+    let dt = (ts - last) / 1000;
+    last = ts;
+    if (dt > 0.1) dt = 0.1;
+    elapsed += dt;
+    if (theme === "auto") timeOfDay = (timeOfDay + dt / DAY_LENGTH) % 1;
+    draw(elapsed);
+    updateHUD();
+    raf = requestAnimationFrame(loop);
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { cancelAnimationFrame(raf); raf = null; }
+    else if (!raf) { last = 0; raf = requestAnimationFrame(loop); }
+  });
+
+  window.addEventListener("beforeunload", function () {
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        buildings: buildings, bridges: bridges, ferris: ferris,
+        theme: theme, timeOfDay: timeOfDay
+      }));
+    } catch (err) { /* ignore */ }
+  });
+
+  // ============ INIT ============
+  buildPalette();
+  resizeCanvas();
+
+  (function init() {
+    let restored = false;
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (d && Array.isArray(d.buildings)) {
+          buildings = d.buildings;
+          bridges = Array.isArray(d.bridges) ? d.bridges : [];
+          ferris = Array.isArray(d.ferris) ? d.ferris : [];
+          if (d.theme && (THEMES[d.theme] !== undefined || d.theme === "auto")) theme = d.theme;
+          if (typeof d.timeOfDay === "number") timeOfDay = d.timeOfDay;
+          restored = true;
+          sTheme.textContent = theme === "auto" ? "Auto" : THEMES[theme].label;
+        }
+      }
+    } catch (err) { restored = false; }
+    if (!restored) randomSkyline();
+    syncToolButtons();
+  })();
+
+  raf = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

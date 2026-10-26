@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Planet Forge</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: #05060f;
+    background-image:
+      radial-gradient(1100px 700px at 15% -10%, #17224d 0%, rgba(23,34,77,0) 62%),
+      radial-gradient(900px 620px at 92% 112%, #2a1346 0%, rgba(42,19,70,0) 60%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+    color: #e8eefc;
+    padding: 12px;
+    touch-action: manipulation;
+  }
+  #app {
+    width: min(97vw, 1080px);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* ============ HEADER ============ */
+  #topbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 14px;
+  }
+  #title {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #ffd479;
+    text-shadow: 0 2px 0 rgba(0,0,0,.5);
+  }
+  #title small {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 1px;
+    font-weight: 600;
+    color: #9ec2ff;
+    text-shadow: none;
+  }
+  #stats { display: flex; flex-wrap: wrap; gap: 8px; }
+  .stat {
+    background: rgba(10,16,38,.62);
+    border: 1px solid rgba(130,170,255,.25);
+    border-radius: 10px;
+    padding: 5px 11px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .4px;
+    white-space: nowrap;
+  }
+  .stat b { color: #ffd479; }
+
+  /* ============ CANVAS WRAP ============ */
+  #game-wrap {
+    position: relative;
+    width: 100%;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 16px 44px rgba(0,0,0,.6), 0 0 0 2px rgba(130,170,255,.16) inset;
+    background: #05060f;
+  }
+  canvas { display: block; width: 100%; height: auto; cursor: crosshair; }
+
+  /* ============ TOAST ============ */
+  #toast {
+    position: absolute;
+    left: 50%;
+    bottom: 14px;
+    transform: translateX(-50%) translateY(12px);
+    background: rgba(6,10,26,.88);
+    border: 1px solid rgba(255,212,121,.4);
+    color: #ffd479;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .4px;
+    padding: 8px 18px;
+    border-radius: 20px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ============ PANEL ============ */
+  #panel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+  #palette { display: flex; flex-wrap: wrap; gap: 6px 16px; flex: 1 1 520px; }
+  .pal-group { display: flex; flex-direction: column; gap: 6px; }
+  .pal-label {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #7f9fdd;
+    text-transform: uppercase;
+  }
+  .pal-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tool {
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .3px;
+    color: #dfe7f7;
+    background: rgba(12,20,44,.75);
+    border: 1px solid rgba(130,170,255,.22);
+    border-radius: 9px;
+    padding: 7px 11px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background .12s ease, transform .06s ease, border-color .12s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tool:hover { background: rgba(30,48,96,.92); }
+  .tool:active { transform: translateY(1px); }
+  .tool.active {
+    background: linear-gradient(180deg, #ffd465, #ef9f31);
+    border-color: #ffe9ad;
+    color: #40290a;
+    box-shadow: 0 0 0 2px rgba(255,212,121,.35);
+  }
+  .tool .sw { width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(0,0,0,.4); }
+
+  /* ============ SIDE ============ */
+  #side { flex: 0 0 268px; display: flex; flex-direction: column; gap: 10px; }
+  .box {
+    background: rgba(10,16,38,.62);
+    border: 1px solid rgba(130,170,255,.22);
+    border-radius: 12px;
+    padding: 10px 12px;
+  }
+  .box h3 {
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #7f9fdd;
+    margin-bottom: 8px;
+  }
+  .row { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+  .seg {
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    color: #dfe7f7;
+    background: rgba(12,20,44,.75);
+    border: 1px solid rgba(130,170,255,.22);
+    border-radius: 8px;
+    padding: 7px 11px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .seg.active { background: linear-gradient(180deg,#8fb6ff,#5b86e0); border-color:#cfe0ff; color:#0a1330; }
+  .chk { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: #cdd9f0; cursor: pointer; }
+  .chk input { width: 16px; height: 16px; accent-color: #ffb347; }
+  .ctl { display: flex; flex-direction: column; gap: 3px; margin-top: 9px; }
+  .ctl:first-child { margin-top: 0; }
+  .ctl label { font-size: 11.5px; font-weight: 700; color: #a9bde0; display: flex; justify-content: space-between; }
+  .ctl label span { color: #ffd479; }
+  input[type=range] { width: 100%; accent-color: #ffb347; background: transparent; }
+
+  #lifebar {
+    height: 12px;
+    border-radius: 7px;
+    background: rgba(8,14,32,.9);
+    border: 1px solid rgba(130,170,255,.22);
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  #lifefill {
+    height: 100%;
+    width: 0%;
+    border-radius: 7px;
+    background: linear-gradient(90deg, #4f7f3a, #7ed957, #b6f06a);
+    transition: width .2s ease, background .2s ease;
+  }
+  #lifestatus { font-size: 13px; font-weight: 800; color: #cfe6a8; margin-top: 7px; }
+  #lifenote { font-size: 11px; line-height: 1.5; color: #8ea6c8; margin-top: 4px; }
+
+  #actions { display: flex; flex-wrap: wrap; gap: 7px; }
+  #actions button {
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .4px;
+    color: #fff;
+    border: none;
+    border-radius: 9px;
+    padding: 9px 13px;
+    cursor: pointer;
+    background: #33569e;
+    box-shadow: 0 3px 0 rgba(0,0,0,.3);
+    transition: background .12s ease, transform .06s ease;
+    flex: 1 1 auto;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #actions button:hover { background: #3f68bd; }
+  #actions button:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.3); }
+  #btn-save { background: #2f7d4f; }
+  #btn-save:hover { background: #389a60; }
+  #btn-new { background: #a04a34; }
+  #btn-new:hover { background: #c05a40; }
+  #hint { font-size: 11px; line-height: 1.55; color: #8ea6c4; margin-top: 9px; }
+  #hint b { color: #cfe0f5; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 760px) {
+    #side { flex: 1 1 100%; }
+    #title { font-size: 17px; }
+    .tool { padding: 8px 10px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ TOP BAR ============ -->
+  <div id="topbar">
+    <div id="title">🪐 PLANET FORGE
+      <small>sculpt a world · spin it · let life decide</small>
+    </div>
+    <div id="stats">
+      <div class="stat">🪐 <b id="s-size">Medium</b></div>
+      <div class="stat">🌡️ <b id="s-temp">15</b>°C</div>
+      <div class="stat">💨 <b id="s-atmo">65</b>%</div>
+      <div class="stat">🧬 Life <b id="s-life">0</b>%</div>
+    </div>
+  </div>
+
+  <!-- ============ CANVAS ============ -->
+  <div id="game-wrap">
+    <canvas id="game" width="960" height="600"></canvas>
+    <div id="toast"></div>
+  </div>
+
+  <!-- ============ PANEL ============ -->
+  <div id="panel">
+    <div id="palette"></div>
+    <div id="side">
+
+      <div class="box">
+        <h3>Planet</h3>
+        <div class="row" id="sizeRow">
+          <button type="button" class="seg" data-size="small">Small</button>
+          <button type="button" class="seg active" data-size="medium">Medium</button>
+          <button type="button" class="seg" data-size="large">Large</button>
+        </div>
+        <div class="row" style="margin-top:9px">
+          <label class="chk"><input type="checkbox" id="chk-moon"> 🌙 Moon</label>
+          <label class="chk"><input type="checkbox" id="chk-rings"> 💫 Rings</label>
+        </div>
+      </div>
+
+      <div class="box">
+        <h3>Environment</h3>
+        <div class="ctl">
+          <label>Atmosphere <span id="v-atmo">65%</span></label>
+          <input type="range" id="r-atmo" min="0" max="100" value="65">
+        </div>
+        <div class="ctl">
+          <label>Temperature <span id="v-temp">15°C</span></label>
+          <input type="range" id="r-temp" min="-40" max="60" value="15">
+        </div>
+        <div class="ctl">
+          <label>Spin speed <span id="v-spin">Normal</span></label>
+          <input type="range" id="r-spin" min="0" max="100" value="35">
+        </div>
+        <div class="row" style="margin-top:9px">
+          <button type="button" class="seg active" id="btn-pause">⏸ Pause</button>
+        </div>
+      </div>
+
+      <div class="box">
+        <h3>Biosphere</h3>
+        <div id="lifebar"><div id="lifefill"></div></div>
+        <div id="lifestatus">Barren world</div>
+        <div id="lifenote">Add ocean and forests, then tune temperature and atmosphere.</div>
+      </div>
+
+      <div class="box">
+        <div id="actions">
+          <button id="btn-save" type="button">💾 Save</button>
+          <button id="btn-load" type="button">📂 Load</button>
+          <button id="btn-new" type="button">🎲 New</button>
+        </div>
+        <div id="hint">
+          <b>Drag on the planet</b> to paint. <b>Drag empty space</b> to spin. Keys <b>1–8</b> pick tools,
+          <b>Space</b> pauses, <b>S</b> saves, <b>L</b> loads, <b>N</b> makes a new world.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONFIGURATION ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;
+  const H = canvas.height;
+  const CX = W / 2;
+  const CY = H / 2 - 6;
+  const SAVE_KEY = "planetForgeSave_v1";
+
+  // Planet presets: texture resolution + on-screen radius
+  const SIZES = {
+    small:  { cols: 24, rows: 12, G: 210, drawR: 138, label: "Small"  },
+    medium: { cols: 40, rows: 20, G: 288, drawR: 172, label: "Medium" },
+    large:  { cols: 64, rows: 32, G: 330, drawR: 196, label: "Large"  }
+  };
+
+  // Biome ids
+  const T = { OCEAN: 0, PLAINS: 1, FOREST: 2, DESERT: 3, ICE: 4, MOUNTAIN: 5, RIVER: 6, VOLCANO: 7 };
+
+  // Base colours per biome (r, g, b)
+  const BIOME_COLOR = [
+    [24, 78, 142],   // ocean
+    [122, 172, 88],  // plains
+    [56, 132, 60],   // forest
+    [208, 176, 106], // desert
+    [226, 242, 250], // ice
+    [140, 128, 112], // mountain
+    [58, 150, 222],  // river
+    [66, 44, 36]     // volcano
+  ];
+
+  // Tool palette
+  const GROUPS = [
+    {
+      label: "Biomes",
+      tools: [
+        { id: "ocean",    kind: "biome", t: T.OCEAN,    label: "Ocean",    icon: "🌊", c: "#1a5c9e" },
+        { id: "plains",   kind: "biome", t: T.PLAINS,   label: "Plains",   icon: "🌿", c: "#7aac58" },
+        { id: "forest",   kind: "biome", t: T.FOREST,   label: "Forest",   icon: "🌲", c: "#388434" },
+        { id: "desert",   kind: "biome", t: T.DESERT,   label: "Desert",   icon: "🏜️", c: "#d0b06a" },
+        { id: "ice",      kind: "biome", t: T.ICE,      label: "Ice",      icon: "❄️", c: "#e2f2fa" },
+        { id: "mountain", kind: "biome", t: T.MOUNTAIN, label: "Mountain", icon: "⛰️", c: "#8c8070" }
+      ]
+    },
+    {
+      label: "Features",
+      tools: [
+        { id: "river",   kind: "river",   t: T.RIVER,   label: "River",   icon: "🏞️", c: "#3a96de" },
+        { id: "volcano", kind: "volcano", t: T.VOLCANO, label: "Volcano", icon: "🌋", c: "#4a3028" }
+      ]
+    }
+  ];
+
+  // ============ DOM REFERENCES ============
+  const paletteEl = document.getElementById("palette");
+  const toastEl = document.getElementById("toast");
+  const sSize = document.getElementById("s-size");
+  const sTemp = document.getElementById("s-temp");
+  const sAtmo = document.getElementById("s-atmo");
+  const sLife = document.getElementById("s-life");
+  const vAtmo = document.getElementById("v-atmo");
+  const vTemp = document.getElementById("v-temp");
+  const vSpin = document.getElementById("v-spin");
+  const rAtmo = document.getElementById("r-atmo");
+  const rTemp = document.getElementById("r-temp");
+  const rSpin = document.getElementById("r-spin");
+  const lifeFill = document.getElementById("lifefill");
+  const lifeStatus = document.getElementById("lifestatus");
+  const lifeNote = document.getElementById("lifenote");
+  const chkMoon = document.getElementById("chk-moon");
+  const chkRings = document.getElementById("chk-rings");
+  const btnPause = document.getElementById("btn-pause");
+  const btnSave = document.getElementById("btn-save");
+  const btnLoad = document.getElementById("btn-load");
+  const btnNew = document.getElementById("btn-new");
+
+  // ============ AUDIO (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "sine";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.045, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  // ============ STATE ============
+  let sizeKey = "medium";
+  let cols, rows, G, drawR;
+  let biome;          // Uint8Array of biome ids
+  let clouds;         // Float32Array 0..1 cloud density (equirect)
+  let colR, colG, colB; // baked per-cell colours with variation
+
+  let spin = 0.6;             // planet yaw (radians)
+  let cloudShift = 0;         // drifting longitude offset (radians)
+  let tilt = -0.42;           // axial tilt
+  let paused = false;
+  let spinSpeed = 0.35;       // 0..1 -> rad/s mapping
+  let atmosphere = 65;        // 0..100
+  let temperature = 15;       // -40..60
+  let moonOn = false;
+  let ringsOn = false;
+  let moonAngle = 0;
+  let elapsed = 0;
+  let life = 0;
+
+  let currentTool = GROUPS[0].tools[0];
+  let pointer = { x: -1, y: -1 };
+  let painting = false;
+  let spinning = false;
+  let spinGrabX = 0;
+  let lastCell = null;
+  let toastTimer = null;
+
+  // Fixed starfield
+  const STARS = [];
+  for (let i = 0; i < 220; i++) {
+    STARS.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      r: 0.4 + Math.random() * 1.5,
+      tw: Math.random() * Math.PI * 2,
+      hue: Math.random() < 0.2 ? 200 + Math.random() * 60 : 0
+    });
+  }
+
+  // Offscreen globe buffer
+  const globe = document.createElement("canvas");
+  const gctx = globe.getContext("2d");
+  let gImg = null;
+
+  // ============ NOISE HELPERS ============
+  function hash3(x, y, z) {
+    let n = x * 374761393 + y * 668265263 + z * 1274126177;
+    n = (n ^ (n >> 13)) * 1274126177;
+    return ((n ^ (n >> 16)) >>> 0) / 4294967296;
+  }
+  function vnoise3(x, y, z) {
+    const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+    const xf = x - xi, yf = y - yi, zf = z - zi;
+    const u = xf * xf * (3 - 2 * xf);
+    const v = yf * yf * (3 - 2 * yf);
+    const w = zf * zf * (3 - 2 * zf);
+    const c000 = hash3(xi, yi, zi),       c100 = hash3(xi + 1, yi, zi);
+    const c010 = hash3(xi, yi + 1, zi),   c110 = hash3(xi + 1, yi + 1, zi);
+    const c001 = hash3(xi, yi, zi + 1),   c101 = hash3(xi + 1, yi, zi + 1);
+    const c011 = hash3(xi, yi + 1, zi + 1), c111 = hash3(xi + 1, yi + 1, zi + 1);
+    const x00 = c000 + (c100 - c000) * u, x10 = c010 + (c110 - c010) * u;
+    const x01 = c001 + (c101 - c001) * u, x11 = c011 + (c111 - c011) * u;
+    const y0 = x00 + (x10 - x00) * v, y1 = x01 + (x11 - x01) * v;
+    return y0 + (y1 - y0) * w;
+  }
+  function fbm3(x, y, z, oct) {
+    let amp = 0.5, f = 1, sum = 0, norm = 0;
+    for (let i = 0; i < oct; i++) {
+      sum += amp * vnoise3(x * f, y * f, z * f);
+      norm += amp; amp *= 0.5; f *= 2;
+    }
+    return sum / norm;
+  }
+
+  // ============ WORLD GENERATION ============
+  function generatePlanet() {
+    const cells = cols * rows;
+    biome = new Uint8Array(cells);
+    clouds = new Float32Array(cells);
+    const elev = new Float32Array(cells);
+    const seedOff = Math.random() * 1000;
+    let eMin = 1e9, eMax = -1e9, cMin = 1e9, cMax = -1e9;
+
+    // Pass 1 — elevation + cloud noise on the sphere (seam-free)
+    for (let row = 0; row < rows; row++) {
+      const latR = (90 - (row + 0.5) / rows * 180) * Math.PI / 180;
+      const cl = Math.cos(latR), sl = Math.sin(latR);
+      for (let col = 0; col < cols; col++) {
+        const lonR = ((col + 0.5) / cols * 360) * Math.PI / 180;
+        const nx = cl * Math.cos(lonR), ny = sl, nz = cl * Math.sin(lonR);
+        const i = row * cols + col;
+        const e = fbm3(nx * 2.4 + seedOff, ny * 2.4, nz * 2.4, 5);
+        const c = fbm3(nx * 2.0 + 300 + seedOff, ny * 2.0, nz * 2.0 + 17, 4);
+        elev[i] = e; clouds[i] = c;
+        if (e < eMin) eMin = e; if (e > eMax) eMax = e;
+        if (c < cMin) cMin = c; if (c > cMax) cMax = c;
+      }
+    }
+    const eSpan = (eMax - eMin) || 1, cSpan = (cMax - cMin) || 1;
+    for (let i = 0; i < cells; i++) {
+      elev[i] = (elev[i] - eMin) / eSpan;
+      clouds[i] = (clouds[i] - cMin) / cSpan;
+    }
+
+    // Pass 2 — biomes by latitude + elevation
+    const seaLevel = 0.5;
+    for (let row = 0; row < rows; row++) {
+      const lat = 90 - (row + 0.5) / rows * 180;
+      const absLat = Math.abs(lat);
+      for (let col = 0; col < cols; col++) {
+        const i = row * cols + col;
+        const e = elev[i];
+        if (e < seaLevel) { biome[i] = T.OCEAN; continue; }
+        if (absLat > 68) { biome[i] = T.ICE; continue; }
+        if (e > seaLevel + 0.2) { biome[i] = T.MOUNTAIN; continue; }
+        if (absLat > 54) { biome[i] = T.ICE; continue; }
+        // warm belt -> desert, otherwise forest
+        const warm = 1 - absLat / 90 + (elev[(row * 13 + col * 7) % cells] - 0.5) * 0.4;
+        biome[i] = warm > 0.62 ? T.DESERT : (e > seaLevel + 0.06 ? T.MOUNTAIN : T.FOREST);
+      }
+    }
+
+    carveRivers(elev, seaLevel);
+    scatterVolcanoes();
+    bakeColors();
+  }
+
+  function carveRivers(elev, seaLevel) {
+    const seeds = Math.max(3, Math.round(cols / 8));
+    for (let s = 0; s < seeds; s++) {
+      // pick a high land cell to start from
+      let col = 0, row = 0, best = -1;
+      for (let k = 0; k < 160; k++) {
+        const cc = Math.floor(Math.random() * cols);
+        const rr = Math.floor(Math.random() * rows);
+        const i = rr * cols + cc;
+        if (biome[i] === T.OCEAN || biome[i] === T.ICE) continue;
+        if (elev[i] > best) { best = elev[i]; col = cc; row = rr; }
+      }
+      let steps = 0;
+      while (steps < 44) {
+        const i = row * cols + col;
+        if (biome[i] === T.OCEAN) break;
+        if (biome[i] !== T.MOUNTAIN) biome[i] = T.RIVER;
+        let bd = 1e9, bc = col, br = row;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            if (!dx && !dy) continue;
+            const nc = ((col + dx) % cols + cols) % cols;
+            const nr = row + dy;
+            if (nr < 0 || nr >= rows) continue;
+            const e2 = elev[nr * cols + nc];
+            if (e2 < bd) { bd = e2; bc = nc; br = nr; }
+          }
+        }
+        if (bd >= elev[i] - 0.0008 && Math.random() < 0.25) {
+          col = ((col + (Math.random() < 0.5 ? -1 : 1)) % cols + cols) % cols;
+        } else { col = bc; row = br; }
+        steps++;
+      }
+    }
+  }
+
+  function scatterVolcanoes() {
+    const n = Math.max(2, Math.round(cols / 12));
+    for (let s = 0; s < n; s++) {
+      for (let k = 0; k < 60; k++) {
+        const cc = Math.floor(Math.random() * cols);
+        const rr = Math.floor(Math.random() * rows);
+        const i = rr * cols + cc;
+        if (biome[i] === T.OCEAN || biome[i] === T.RIVER || biome[i] === T.ICE) continue;
+        biome[i] = T.VOLCANO;
+        break;
+      }
+    }
+  }
+
+  // Bake per-cell colours (base colour + deterministic variation) for fast sampling
+  function bakeColors() {
+    const cells = cols * rows;
+    colR = new Float32Array(cells);
+    colG = new Float32Array(cells);
+    colB = new Float32Array(cells);
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const i = row * cols + col;
+        const base = BIOME_COLOR[biome[i]];
+        const j = 0.9 + hash3(col * 7 + 1, row * 13 + 3, i) * 0.22;
+        colR[i] = base[0] * j;
+        colG[i] = base[1] * j;
+        colB[i] = base[2] * j;
+      }
+    }
+  }
+
+  // ============ SPHERE <-> TEXTURE MAPPING ============
+  // Screen point (inside planet) -> texture cell. Returns null when outside.
+  function pickCell(sx, sy) {
+    const dx = (sx - CX) / drawR;
+    const dy = (sy - CY) / drawR;
+    const r2 = dx * dx + dy * dy;
+    if (r2 > 1) return null;
+    const z = Math.sqrt(1 - r2);
+    const cosA = Math.cos(spin), sinA = Math.sin(spin);
+    const cosP = Math.cos(tilt), sinP = Math.sin(tilt);
+    const y1 = -dy * cosP - z * sinP;
+    const z1 = -dy * sinP + z * cosP;
+    const x1 = dx;
+    const x2 = x1 * cosA + z1 * sinA;
+    const z2 = -x1 * sinA + z1 * cosA;
+    const lat = Math.asin(Math.max(-1, Math.min(1, y1)));
+    const lon = Math.atan2(x2, z2);
+    const v = 0.5 - lat / Math.PI;
+    const u = (lon + Math.PI) / (2 * Math.PI);
+    let col = Math.floor(u * cols); col = ((col % cols) + cols) % cols;
+    let row = Math.floor(v * rows); row = Math.max(0, Math.min(rows - 1, row));
+    return { col: col, row: row };
+  }
+
+  // ============ PAINTING ============
+  function setCell(col, row, t) {
+    const c = ((col % cols) + cols) % cols;
+    const r = Math.max(0, Math.min(rows - 1, row));
+    biome[r * cols + c] = t;
+  }
+
+  function paintDisc(col, row, radius, t) {
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        if (dx * dx + dy * dy > radius * radius) continue;
+        setCell(col + dx, row + dy, t);
+      }
+    }
+  }
+
+  function drawLineCells(a, b, t) {
+    const dist = Math.abs(b.col - a.col) + Math.abs(b.row - a.row);
+    const steps = Math.max(1, dist);
+    for (let i = 0; i <= steps; i++) {
+      const col = Math.round(a.col + (b.col - a.col) * (i / steps));
+      const row = Math.round(a.row + (b.row - a.row) * (i / steps));
+      setCell(col, row, t);
+    }
+  }
+
+  function applyBrush(sx, sy) {
+    const cell = pickCell(sx, sy);
+    if (!cell) { lastCell = null; return; }
+
+    if (currentTool.kind === "river") {
+      if (lastCell) drawLineCells(lastCell, cell, T.RIVER);
+      else setCell(cell.col, cell.row, T.RIVER);
+      lastCell = cell;
+    } else if (currentTool.kind === "volcano") {
+      setCell(cell.col, cell.row, T.VOLCANO);
+      lastCell = cell;
+    } else {
+      const radius = Math.max(1, Math.round(cols / 20));
+      paintDisc(cell.col, cell.row, radius, currentTool.t);
+      lastCell = cell;
+    }
+    bakeColors();
+    updateLife();
+  }
+
+  // ============ LIFE MODEL ============
+  function updateLife() {
+    const total = cols * rows;
+    let ocean = 0, veg = 0, land = 0;
+    for (let i = 0; i < total; i++) {
+      const b = biome[i];
+      if (b === T.OCEAN) { ocean++; continue; }
+      land++;
+      if (b === T.FOREST || b === T.PLAINS) veg++;
+    }
+    const oceanFrac = ocean / total;
+    const landFrac = land / total;
+    const vegFrac = veg / total;
+
+    // Temperature: optimum near 14 °C
+    const tf = Math.exp(-Math.pow((temperature - 14) / 22, 2));
+
+    // Atmosphere: needs some air, too much is a greenhouse
+    let af;
+    if (atmosphere < 6) af = (atmosphere / 6) * 0.12;
+    else af = 1 - Math.pow(Math.min(1, Math.abs(atmosphere - 62) / 62), 2.2);
+    af = Math.max(0, Math.min(1, af));
+
+    // Water: too little or too much both hurt
+    let wf = 1;
+    if (oceanFrac < 0.12) wf = (oceanFrac / 0.12) * 0.6;
+    else if (oceanFrac > 0.9) wf = Math.max(0, (1 - oceanFrac) / 0.1);
+
+    // Land + vegetation
+    const lf = Math.min(1, landFrac / 0.25);
+    const vf = Math.min(1, vegFrac / 0.12);
+
+    let v = 100 * tf * af * wf * lf * (0.3 + 0.7 * vf);
+    v = Math.max(0, Math.min(100, v));
+    life = Math.round(v);
+    sLife.textContent = life;
+    lifeFill.style.width = life + "%";
+
+    let status, note, grad;
+    if (life < 4) {
+      status = "☠️ Barren world"; note = "Nothing can survive here yet.";
+      grad = "linear-gradient(90deg,#5a3636,#8a4a4a)";
+    } else if (life < 18) {
+      status = "🦠 Microbial life"; note = "Hardy microbes cling to the surface.";
+      grad = "linear-gradient(90deg,#5a4a2a,#9a7a3a)";
+    } else if (life < 40) {
+      status = "🌱 Simple plants"; note = "Mosses and lichens take hold.";
+      grad = "linear-gradient(90deg,#3f6b2e,#7fa845)";
+    } else if (life < 65) {
+      status = "🌲 Diverse flora"; note = "Forests spread across the continents.";
+      grad = "linear-gradient(90deg,#2f7a3a,#6fd06a)";
+    } else if (life < 85) {
+      status = "🦌 Thriving animals"; note = "A rich biosphere hums with life.";
+      grad = "linear-gradient(90deg,#2f8f4a,#8ce87a)";
+    } else {
+      status = "🌍 Cradle of life"; note = "This world is a garden. Keep it safe!";
+      grad = "linear-gradient(90deg,#2f9f6a,#b6f06a)";
+    }
+    lifeStatus.textContent = status;
+    lifeNote.textContent = note;
+    lifeFill.style.background = grad;
+  }
+
+  // ============ GLOBE RENDERING (per-pixel sphere) ============
+  let gAccum = 0;
+  function renderGlobe() {
+    const data = gImg.data;
+    const c = G / 2;
+    const R = G / 2 - 1;
+    const cosA = Math.cos(spin), sinA = Math.sin(spin);
+    const cosP = Math.cos(tilt), sinP = Math.sin(tilt);
+    const atm = Math.max(0, Math.min(1, atmosphere / 100));
+    const cloudStrength = 0.28 + 0.55 * atm;
+    const cloudOff = cloudShift;
+
+    // Light direction in view space (from upper-left, slightly toward camera)
+    let Lx = -0.58, Ly = 0.44, Lz = 0.68;
+    const Llen = Math.sqrt(Lx * Lx + Ly * Ly + Lz * Lz);
+    Lx /= Llen; Ly /= Llen; Lz /= Llen;
+
+    const rowLast = rows - 1;
+
+    for (let py = 0; py < G; py++) {
+      for (let px = 0; px < G; px++) {
+        const idx = (py * G + px) * 4;
+        const dx = (px + 0.5 - c) / R;
+        const dy = (py + 0.5 - c) / R;
+        const r2 = dx * dx + dy * dy;
+        if (r2 > 1) { data[idx + 3] = 0; continue; }
+
+        const z = Math.sqrt(1 - r2);
+        const nxv = dx, nyv = -dy, nzv = z;
+
+        // Axial tilt (pitch about X)
+        const y1 = nyv * cosP - nzv * sinP;
+        const z1 = nyv * sinP + nzv * cosP;
+        // Yaw (spin about Y)
+        const x2 = nxv * cosA + z1 * sinA;
+        const z2 = -nxv * sinA + z1 * cosA;
+        const y2 = y1;
+
+        const lat = Math.asin(y2 < -1 ? -1 : (y2 > 1 ? 1 : y2));
+        const lon = Math.atan2(x2, z2);
+
+        let v = 0.5 - lat / Math.PI;
+        let u = (lon + Math.PI) * 0.15915494309189535; // /(2*pi)
+
+        // Bilinear colour sample (longitude wraps)
+        const fx = u * cols - 0.5, fy = v * rows - 0.5;
+        let x0 = Math.floor(fx), y0 = Math.floor(fy);
+        const tx = fx - x0, ty = fy - y0;
+        let x1 = x0 + 1, y1c = y0 + 1;
+        x0 = ((x0 % cols) + cols) % cols;
+        x1 = ((x1 % cols) + cols) % cols;
+        if (y0 < 0) y0 = 0; else if (y0 > rowLast) y0 = rowLast;
+        if (y1c < 0) y1c = 0; else if (y1c > rowLast) y1c = rowLast;
+        const rA = y0 * cols, rB = y1c * cols;
+        const a00 = rA + x0, a10 = rA + x1, a01 = rB + x0, a11 = rB + x1;
+        const w00 = (1 - tx) * (1 - ty), w10 = tx * (1 - ty);
+        const w01 = (1 - tx) * ty, w11 = tx * ty;
+
+        let cr = colR[a00] * w00 + colR[a10] * w10 + colR[a01] * w01 + colR[a11] * w11;
+        let cg = colG[a00] * w00 + colG[a10] * w10 + colG[a01] * w01 + colG[a11] * w11;
+        let cb = colB[a00] * w00 + colB[a10] * w10 + colB[a01] * w01 + colB[a11] * w11;
+
+        // Diffuse lighting (fixed sun -> moving terminator)
+        let diff = nxv * Lx + nyv * Ly + nzv * Lz;
+        if (diff < 0) diff = 0;
+        const lit = Math.pow(diff, 0.9);
+        const shade = 0.13 + 0.97 * lit;
+
+        cr *= shade; cg *= shade; cb *= shade;
+
+        // Volcano emissive glow
+        const nid = biome[y0 * cols + x0];
+        if (nid === T.VOLCANO) {
+          const gv = 0.55 + 0.45 * lit;
+          cr += 210 * gv; cg += 70 * gv; cb += 20 * gv;
+        }
+
+        // Clouds (drifting layer, nearest sample)
+        let uc = u + cloudOff * 0.15915494309189535;
+        uc -= Math.floor(uc);
+        let ccol = Math.floor(uc * cols); ccol = ((ccol % cols) + cols) % cols;
+        const cval = clouds[y0 * cols + ccol];
+        let ca = (cval - 0.62) / 0.3;
+        if (ca < 0) ca = 0; else if (ca > 1) ca = 1;
+        ca *= cloudStrength;
+        if (ca > 0) {
+          const cl = 0.09 + 0.91 * lit;
+          cr = cr * (1 - ca) + 244 * ca * cl;
+          cg = cg * (1 - ca) + 246 * ca * cl;
+          cb = cb * (1 - ca) + 255 * ca * cl;
+        }
+
+        // Atmosphere rim glow
+        const rim = Math.pow(1 - z, 3) * atm;
+        cr += rim * 55; cg += rim * 110; cb += rim * 200;
+
+        data[idx]     = cr < 0 ? 0 : (cr > 255 ? 255 : cr);
+        data[idx + 1] = cg < 0 ? 0 : (cg > 255 ? 255 : cg);
+        data[idx + 2] = cb < 0 ? 0 : (cb > 255 ? 255 : cb);
+        data[idx + 3] = 255;
+      }
+    }
+    gctx.putImageData(gImg, 0, 0);
+  }
+
+  // ============ BACKGROUND / DECOR ============
+  function drawSpace(now) {
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, "#070a1c");
+    bg.addColorStop(1, "#0c0a20");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    for (let i = 0; i < STARS.length; i++) {
+      const s = STARS[i];
+      const tw = 0.55 + 0.45 * Math.sin(now * 1.6 + s.tw);
+      ctx.globalAlpha = 0.35 + 0.55 * tw;
+      ctx.fillStyle = s.hue ? "hsl(" + s.hue + ",80%,80%)" : "#ffffff";
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Sun glow in the upper-left (matches light direction)
+    const sx = CX - W * 0.34, sy = CY - H * 0.42;
+    const sg = ctx.createRadialGradient(sx, sy, 4, sx, sy, H * 0.7);
+    sg.addColorStop(0, "rgba(255,236,180,0.85)");
+    sg.addColorStop(0.12, "rgba(255,200,120,0.30)");
+    sg.addColorStop(1, "rgba(255,180,90,0)");
+    ctx.fillStyle = sg;
+    ctx.beginPath();
+    ctx.arc(sx, sy, H * 0.7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,248,220,0.95)";
+    ctx.beginPath();
+    ctx.arc(sx, sy, 12, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawHalo() {
+    const atm = Math.max(0, Math.min(1, atmosphere / 100));
+    const hg = ctx.createRadialGradient(CX, CY, drawR * 0.92, CX, CY, drawR * 1.34);
+    hg.addColorStop(0, "rgba(120,190,255," + (0.34 * atm).toFixed(3) + ")");
+    hg.addColorStop(1, "rgba(120,190,255,0)");
+    ctx.fillStyle = hg;
+    ctx.beginPath();
+    ctx.arc(CX, CY, drawR * 1.34, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawRings(front) {
+    if (!ringsOn) return;
+    const rx = drawR * 1.58, ry = drawR * 0.44;
+    ctx.save();
+    if (front) {
+      ctx.beginPath();
+      ctx.rect(0, CY, W, H - CY);
+      ctx.clip();
+    } else {
+      ctx.beginPath();
+      ctx.rect(0, 0, W, CY);
+      ctx.clip();
+    }
+    const bands = [
+      { f: 0.98, w: 5, col: "rgba(214,196,158,0.75)" },
+      { f: 1.10, w: 9, col: "rgba(150,178,214,0.62)" },
+      { f: 1.24, w: 4, col: "rgba(196,176,224,0.55)" },
+      { f: 1.40, w: 2, col: "rgba(120,150,190,0.40)" }
+    ];
+    for (let i = 0; i < bands.length; i++) {
+      const b = bands[i];
+      ctx.beginPath();
+      ctx.ellipse(CX, CY, rx * b.f, ry * b.f, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = b.col;
+      ctx.lineWidth = b.w;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawMoon() {
+    if (!moonOn) return;
+    const orbitX = drawR * 2.05;
+    const orbitY = drawR * 0.85;
+    const mx = CX + Math.cos(moonAngle) * orbitX;
+    const my = CY + Math.sin(moonAngle) * orbitY * 0.5 - drawR * 0.15;
+    const depth = Math.sin(moonAngle);
+    const mr = Math.max(9, drawR * 0.16);
+    ctx.save();
+    ctx.globalAlpha = depth < 0 ? 0.85 : 1;
+    // lit side faces the sun (upper-left)
+    const mg = ctx.createRadialGradient(mx - mr * 0.4, my - mr * 0.4, mr * 0.1, mx, my, mr);
+    mg.addColorStop(0, "#e8e6df");
+    mg.addColorStop(0.6, "#b9b6ad");
+    mg.addColorStop(1, "#5c5a54");
+    ctx.fillStyle = mg;
+    ctx.beginPath();
+    ctx.arc(mx, my, mr, 0, Math.PI * 2);
+    ctx.fill();
+    // craters
+    ctx.fillStyle = "rgba(90,88,82,0.55)";
+    ctx.beginPath();
+    ctx.arc(mx + mr * 0.25, my - mr * 0.15, mr * 0.22, 0, Math.PI * 2);
+    ctx.arc(mx - mr * 0.3, my + mr * 0.28, mr * 0.16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawCursor() {
+    if (pointer.x < 0) return;
+    const dx = pointer.x - CX, dy = pointer.y - CY;
+    if (dx * dx + dy * dy > drawR * drawR) return;
+    const r = Math.max(4, drawR * (Math.max(1, Math.round(cols / 20)) / cols) * 3.4);
+    ctx.strokeStyle = "rgba(255,255,255,0.85)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(pointer.x, pointer.y, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(255,212,121,0.9)";
+    ctx.beginPath();
+    ctx.arc(pointer.x, pointer.y, r + 3, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // ============ MAIN DRAW ============
+  function draw(now) {
+    drawSpace(now);
+    drawRings(false);
+    drawHalo();
+    ctx.drawImage(globe, CX - drawR, CY - drawR, drawR * 2, drawR * 2);
+    drawRings(true);
+    drawMoon();
+    drawCursor();
+
+    // small live caption
+    ctx.font = "12px 'Trebuchet MS', sans-serif";
+    ctx.fillStyle = "rgba(180,200,235,0.75)";
+    ctx.textAlign = "left";
+    ctx.fillText(paused ? "⏸ paused" : "▶ spinning · " + currentTool.icon + " " + currentTool.label, 14, H - 14);
+  }
+
+  // ============ UI BUILD ============
+  function buildPalette() {
+    paletteEl.innerHTML = "";
+    GROUPS.forEach(function (group) {
+      const wrap = document.createElement("div");
+      wrap.className = "pal-group";
+      const lab = document.createElement("div");
+      lab.className = "pal-label";
+      lab.textContent = group.label;
+      wrap.appendChild(lab);
+      const row = document.createElement("div");
+      row.className = "pal-row";
+      group.tools.forEach(function (tool) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "tool";
+        b.dataset.id = tool.id;
+        b.innerHTML = '<span class="sw" style="background:' + tool.c + '"></span><span>' +
+                      tool.icon + " " + tool.label + "</span>";
+        b.addEventListener("click", function () { selectTool(tool); });
+        row.appendChild(b);
+      });
+      wrap.appendChild(row);
+      paletteEl.appendChild(wrap);
+    });
+    syncToolButtons();
+  }
+
+  function selectTool(tool) {
+    currentTool = tool;
+    syncToolButtons();
+    beep(540, 0.05, "triangle");
+  }
+
+  function syncToolButtons() {
+    const btns = paletteEl.querySelectorAll(".tool");
+    for (let i = 0; i < btns.length; i++) {
+      btns[i].classList.toggle("active", btns[i].dataset.id === currentTool.id);
+    }
+  }
+
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 2200);
+  }
+
+  function setSize(key, quiet) {
+    sizeKey = key;
+    const cfg = SIZES[key];
+    cols = cfg.cols; rows = cfg.rows; G = cfg.G; drawR = cfg.drawR;
+    globe.width = G; globe.height = G;
+    gImg = gctx.createImageData(G, G);
+    sSize.textContent = cfg.label;
+    const btns = document.querySelectorAll("#sizeRow .seg");
+    for (let i = 0; i < btns.length; i++) {
+      btns[i].classList.toggle("active", btns[i].dataset.size === key);
+    }
+    generatePlanet();
+    updateLife();
+    if (!quiet) showToast(cfg.label + " world forged 🪐");
+  }
+
+  // ============ INPUT ============
+  function canvasPos(e) {
+    const r = canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - r.left) / r.width * W,
+      y: (e.clientY - r.top) / r.height * H
+    };
+  }
+
+  function insidePlanet(p) {
+    const dx = p.x - CX, dy = p.y - CY;
+    return dx * dx + dy * dy <= drawR * drawR;
+  }
+
+  canvas.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
+    const p = canvasPos(e);
+    pointer = p;
+    if (insidePlanet(p)) {
+      painting = true;
+      lastCell = null;
+      applyBrush(p.x, p.y);
+      beep(currentTool.kind === "volcano" ? 180 : 320, 0.05, "square");
+    } else {
+      spinning = true;
+      spinGrabX = p.x;
+    }
+  });
+
+  canvas.addEventListener("pointermove", function (e) {
+    const p = canvasPos(e);
+    pointer = p;
+    if (painting) applyBrush(p.x, p.y);
+    else if (spinning) {
+      spin += (p.x - spinGrabX) * 0.01;
+      spinGrabX = p.x;
+    }
+  });
+
+  window.addEventListener("pointerup", function () {
+    painting = false;
+    spinning = false;
+    lastCell = null;
+  });
+  canvas.addEventListener("pointerleave", function () { pointer = { x: -1, y: -1 }; });
+  canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+  // Keyboard shortcuts
+  const flatTools = [];
+  GROUPS.forEach(function (g) { g.tools.forEach(function (t) { flatTools.push(t); }); });
+
+  window.addEventListener("keydown", function (e) {
+    const k = e.key;
+    if (k >= "1" && k <= "8") {
+      const i = parseInt(k, 10) - 1;
+      if (flatTools[i]) selectTool(flatTools[i]);
+      return;
+    }
+    if (k === " ") { e.preventDefault(); togglePause(); return; }
+    if (k === "s" || k === "S") { saveWorld(); return; }
+    if (k === "l" || k === "L") { loadWorld(); return; }
+    if (k === "n" || k === "N") { newWorld(); return; }
+    if (k === "ArrowLeft") { spin -= 0.08; return; }
+    if (k === "ArrowRight") { spin += 0.08; return; }
+  });
+
+  // Environment controls
+  rAtmo.addEventListener("input", function () {
+    atmosphere = parseInt(rAtmo.value, 10);
+    vAtmo.textContent = atmosphere + "%";
+    sAtmo.textContent = atmosphere;
+    updateLife();
+  });
+  rTemp.addEventListener("input", function () {
+    temperature = parseInt(rTemp.value, 10);
+    vTemp.textContent = temperature + "°C";
+    sTemp.textContent = temperature;
+    updateLife();
+  });
+  rSpin.addEventListener("input", function () {
+    const val = parseInt(rSpin.value, 10);
+    spinSpeed = val / 100;
+    vSpin.textContent = val === 0 ? "Still" : (val < 30 ? "Slow" : (val < 65 ? "Normal" : "Fast"));
+  });
+
+  chkMoon.addEventListener("change", function () {
+    moonOn = chkMoon.checked;
+    beep(moonOn ? 700 : 420, 0.08, "sine");
+  });
+  chkRings.addEventListener("change", function () {
+    ringsOn = chkRings.checked;
+    beep(ringsOn ? 820 : 380, 0.08, "sine");
+  });
+
+  btnPause.addEventListener("click", togglePause);
+  function togglePause() {
+    paused = !paused;
+    btnPause.textContent = paused ? "▶ Spin" : "⏸ Pause";
+    btnPause.classList.toggle("active", !paused);
+  }
+
+  document.querySelectorAll("#sizeRow .seg").forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (b.dataset.size === sizeKey) return;
+      setSize(b.dataset.size);
+      beep(500, 0.09, "triangle");
+    });
+  });
+
+  // ============ PERSISTENCE ============
+  function saveWorld() {
+    try {
+      const data = {
+        v: 1,
+        sizeKey: sizeKey,
+        biome: Array.prototype.slice.call(biome),
+        clouds: Array.prototype.slice.call(clouds),
+        spin: spin,
+        atmosphere: atmosphere,
+        temperature: temperature,
+        spinSpeedVal: parseInt(rSpin.value, 10),
+        moon: moonOn,
+        rings: ringsOn
+      };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+      showToast("Design saved 💾");
+      beep(660, 0.09, "sine");
+    } catch (err) {
+      showToast("Could not save (storage blocked)");
+    }
+  }
+
+  function loadWorld() {
+    let raw = null;
+    try { raw = localStorage.getItem(SAVE_KEY); } catch (err) { raw = null; }
+    if (!raw) { showToast("No saved design found"); return; }
+    let data;
+    try { data = JSON.parse(raw); } catch (err) { showToast("Save file was corrupted"); return; }
+    if (!data || !data.biome || !SIZES[data.sizeKey]) { showToast("Save data is incompatible"); return; }
+
+    applySave(data);
+    showToast("Design loaded 📂");
+    beep(560, 0.09, "sine");
+  }
+
+  function applySave(data) {
+    const cfg = SIZES[data.sizeKey];
+    if (data.sizeKey !== sizeKey) {
+      setSize(data.sizeKey, true);
+    }
+    if (data.biome.length !== cols * rows) { showToast("Save size mismatch — regenerated"); generatePlanet(); }
+    else {
+      biome = Uint8Array.from(data.biome);
+      if (data.clouds && data.clouds.length === cols * rows) clouds = Float32Array.from(data.clouds);
+      else { for (let i = 0; i < clouds.length; i++) clouds[i] = Math.random() * 0.5; }
+      bakeColors();
+    }
+    spin = typeof data.spin === "number" ? data.spin : 0.6;
+    atmosphere = typeof data.atmosphere === "number" ? data.atmosphere : 65;
+    temperature = typeof data.temperature === "number" ? data.temperature : 15;
+    moonOn = !!data.moon;
+    ringsOn = !!data.rings;
+
+    rAtmo.value = atmosphere; vAtmo.textContent = atmosphere + "%"; sAtmo.textContent = atmosphere;
+    rTemp.value = temperature; vTemp.textContent = temperature + "°C"; sTemp.textContent = temperature;
+    if (typeof data.spinSpeedVal === "number") {
+      rSpin.value = data.spinSpeedVal;
+      spinSpeed = data.spinSpeedVal / 100;
+      vSpin.textContent = data.spinSpeedVal === 0 ? "Still" : (data.spinSpeedVal < 30 ? "Slow" : (data.spinSpeedVal < 65 ? "Normal" : "Fast"));
+    }
+    chkMoon.checked = moonOn;
+    chkRings.checked = ringsOn;
+    updateLife();
+  }
+
+  function newWorld() {
+    generatePlanet();
+    atmosphere = 55 + Math.round(Math.random() * 30);
+    temperature = -5 + Math.round(Math.random() * 45);
+    rAtmo.value = atmosphere; vAtmo.textContent = atmosphere + "%"; sAtmo.textContent = atmosphere;
+    rTemp.value = temperature; vTemp.textContent = temperature + "°C"; sTemp.textContent = temperature;
+    updateLife();
+    showToast("A fresh world 🎲");
+    beep(420, 0.12, "triangle");
+  }
+
+  btnSave.addEventListener("click", saveWorld);
+  btnLoad.addEventListener("click", loadWorld);
+  btnNew.addEventListener("click", newWorld);
+
+  // ============ MAIN LOOP ============
+  let raf = null;
+  let last = 0;
+
+  function loop(ts) {
+    if (!last) last = ts;
+    let dt = (ts - last) / 1000;
+    last = ts;
+    if (dt > 0.1) dt = 0.1;
+    elapsed += dt;
+
+    if (!paused) {
+      spin += dt * spinSpeed * 1.4;
+      cloudShift += dt * 0.16;
+    }
+    moonAngle += dt * 0.35;
+
+    // Render the sphere at a calm 30 fps, draw every frame
+    gAccum += dt;
+    if (gAccum >= 1 / 30) { gAccum = 0; renderGlobe(); }
+
+    draw(elapsed);
+    raf = requestAnimationFrame(loop);
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { cancelAnimationFrame(raf); raf = null; }
+    else if (!raf) { last = 0; raf = requestAnimationFrame(loop); }
+  });
+
+  window.addEventListener("beforeunload", function () {
+    try {
+      const data = {
+        v: 1, sizeKey: sizeKey,
+        biome: Array.prototype.slice.call(biome),
+        clouds: Array.prototype.slice.call(clouds),
+        spin: spin, atmosphere: atmosphere, temperature: temperature,
+        spinSpeedVal: parseInt(rSpin.value, 10), moon: moonOn, rings: ringsOn
+      };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    } catch (err) { /* ignore */ }
+  });
+
+  // ============ INIT ============
+  buildPalette();
+  setSize("medium", true);
+  renderGlobe();
+
+  (function autoRestore() {
+    let raw = null;
+    try { raw = localStorage.getItem(SAVE_KEY); } catch (err) { raw = null; }
+    if (!raw) return;
+    try {
+      const data = JSON.parse(raw);
+      if (data && data.biome && SIZES[data.sizeKey]) applySave(data);
+    } catch (err) { /* ignore bad save */ }
+  })();
+
+  raf = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

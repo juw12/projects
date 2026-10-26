@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>🌱 Garden Grow</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --sky-top: #d6f0e2; --sky-bot: #f3f6e3; --ink: #4a5d52; --soft: #7d9285;
+    --panel: rgba(255, 255, 255, 0.72); --panel-solid: #fbfdf7;
+    --accent: #8fc9a3; --accent-deep: #5fa87c; --gold: #e8c26a; --rose: #e79aa6;
+    --shadow: 0 12px 34px rgba(74, 93, 82, 0.14);
+  }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Trebuchet MS', 'Segoe UI', Verdana, sans-serif;
+    color: var(--ink); background: linear-gradient(180deg, var(--sky-top), var(--sky-bot));
+    min-height: 100vh; display: flex; justify-content: center; align-items: flex-start;
+    overflow-y: auto; touch-action: manipulation; transition: background 3s linear;
+  }
+  body.night {
+    background: linear-gradient(180deg, #2b3a52, #465873);
+    --ink: #e9efe6; --soft: #b9c7bd; --panel: rgba(38, 51, 68, 0.72); --panel-solid: #2f3d52;
+  }
+
+  /* ============ SHELL ============ */
+  .shell { width: 100%; max-width: 960px; padding: 18px 16px 40px; position: relative; z-index: 2; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  h1.title { font-size: clamp(1.4rem, 4vw, 2rem); color: var(--accent-deep); letter-spacing: 0.5px; text-shadow: 0 2px 0 rgba(255,255,255,0.5); }
+  body.night h1.title { color: #a9e6c1; text-shadow: none; }
+  .clock { font-size: 0.85rem; color: var(--soft); background: var(--panel); padding: 6px 12px; border-radius: 20px; box-shadow: var(--shadow); white-space: nowrap; }
+
+  /* ============ HUD ============ */
+  .hud { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .stat { flex: 1 1 120px; background: var(--panel); border-radius: 14px; padding: 10px 14px; box-shadow: var(--shadow); backdrop-filter: blur(6px); }
+  .stat .label { font-size: 0.72rem; color: var(--soft); text-transform: uppercase; letter-spacing: 0.6px; }
+  .stat .value { font-size: 1.25rem; font-weight: 700; color: var(--accent-deep); }
+  body.night .stat .value { color: #a9e6c1; }
+
+  /* ============ GARDEN GRID ============ */
+  .garden-wrap { position: relative; border-radius: 20px; padding: 22px 16px 16px; background: var(--panel); box-shadow: var(--shadow); backdrop-filter: blur(6px); overflow: hidden; }
+  .garden-wrap::before { content: ''; position: absolute; inset: 0; background-image: radial-gradient(rgba(143,201,163,0.18) 1px, transparent 1px); background-size: 22px 22px; pointer-events: none; }
+  .garden { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 12px; position: relative; z-index: 1; }
+  .plot {
+    position: relative; aspect-ratio: 1 / 1; border-radius: 16px;
+    background: linear-gradient(180deg, #e7d9bd, #cbb896); border: 3px solid #b49b73;
+    cursor: pointer; overflow: hidden; display: flex; align-items: flex-end; justify-content: center;
+    transition: transform 0.12s ease, box-shadow 0.12s ease; user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  body.night .plot { background: linear-gradient(180deg, #3b4a5e, #2c394a); border-color: #55677e; }
+  .plot:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(74,93,82,0.22); }
+  .plant { font-size: 2.6rem; line-height: 1; transform-origin: bottom center; transition: transform 0.4s ease; filter: drop-shadow(0 3px 2px rgba(0,0,0,0.12)); margin-bottom: 6px; }
+  .plot.mature { animation: sway 2.4s ease-in-out infinite; }
+  .plot.mature::after { content: '✨'; position: absolute; top: 6px; right: 8px; font-size: 1rem; animation: twinkle 1.4s ease-in-out infinite; }
+  @keyframes sway { 0%,100% { transform: rotate(-1.5deg); } 50% { transform: rotate(1.5deg); } }
+  @keyframes twinkle { 0%,100% { opacity: 0.4; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.15); } }
+  .plot .bar { position: absolute; left: 8px; right: 8px; bottom: 6px; height: 7px; border-radius: 5px; background: rgba(0,0,0,0.16); overflow: hidden; }
+  .plot .bar > i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #8fc9a3, #5fa87c); border-radius: 5px; transition: width 0.3s linear; }
+  .plot .bar.ripe > i { background: linear-gradient(90deg, #f0d488, #e8c26a); }
+  .decor { position: absolute; bottom: 4px; left: 6px; font-size: 1rem; pointer-events: none; }
+  .plot .hint { position: absolute; top: 6px; left: 8px; font-size: 0.62rem; color: #7d6f52; background: rgba(255,255,255,0.7); border-radius: 8px; padding: 1px 6px; }
+  body.night .plot .hint { color: #d8e2d4; background: rgba(0,0,0,0.35); }
+
+  /* ============ SHOP ============ */
+  .shop { margin-top: 18px; background: var(--panel); border-radius: 18px; padding: 16px; box-shadow: var(--shadow); backdrop-filter: blur(6px); }
+  .shop h2, .log h2, .milestones h2 { font-size: 1rem; color: var(--accent-deep); margin-bottom: 10px; letter-spacing: 0.4px; }
+  body.night .shop h2, body.night .log h2, body.night .milestones h2 { color: #a9e6c1; }
+  .shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .buy {
+    display: flex; flex-direction: column; gap: 4px; background: var(--panel-solid);
+    border: 2px solid rgba(143,201,163,0.4); border-radius: 14px; padding: 10px 12px;
+    cursor: pointer; text-align: left; color: inherit; font-family: inherit;
+    transition: transform 0.12s ease, border-color 0.12s ease;
+  }
+  .buy:hover { transform: translateY(-2px); border-color: var(--accent-deep); }
+  .buy .b-name { font-weight: 700; font-size: 0.92rem; }
+  .buy .b-desc { font-size: 0.72rem; color: var(--soft); line-height: 1.25; }
+  .buy .b-cost { font-size: 0.78rem; font-weight: 700; color: var(--gold); margin-top: 2px; }
+  .buy:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+  /* ============ MILESTONES + LOG ============ */
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 18px; }
+  @media (max-width: 620px) { .cols { grid-template-columns: 1fr; } }
+  .milestones, .log { background: var(--panel); border-radius: 18px; padding: 16px; box-shadow: var(--shadow); backdrop-filter: blur(6px); }
+  .ms { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; padding: 6px 0; color: var(--soft); border-bottom: 1px dashed rgba(143,201,163,0.3); }
+  .ms:last-child { border-bottom: none; }
+  .ms.done { color: var(--accent-deep); font-weight: 700; }
+  body.night .ms.done { color: #a9e6c1; }
+  .ms .dot { width: 18px; text-align: center; }
+  #log { font-size: 0.78rem; color: var(--soft); max-height: 180px; overflow-y: auto; display: flex; flex-direction: column-reverse; gap: 3px; }
+  #log div { padding: 2px 0; }
+
+  /* ============ OVERLAY ============ */
+  .overlay { position: fixed; inset: 0; background: rgba(43, 58, 52, 0.55); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+  .overlay.show { opacity: 1; pointer-events: auto; }
+  .card { background: var(--panel-solid); border-radius: 22px; padding: 28px 26px; max-width: 420px; width: 100%; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.3); animation: pop 0.35s ease; }
+  @keyframes pop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .card h2 { font-size: 1.6rem; color: var(--accent-deep); margin-bottom: 8px; }
+  body.night .card h2 { color: #5fa87c; }
+  body.night .card { color: #e9efe6; }
+  .card p { font-size: 0.92rem; color: var(--soft); margin-bottom: 14px; line-height: 1.45; }
+  body.night .card p { color: #b9c7bd; }
+  .btn {
+    display: inline-block; padding: 12px 30px; margin: 6px 4px 0;
+    background: linear-gradient(135deg, #9fd6b2, #5fa87c); color: #fff; border: none;
+    border-radius: 24px; font-size: 1rem; font-weight: 700; font-family: inherit;
+    cursor: pointer; box-shadow: 0 6px 16px rgba(95,168,124,0.4); transition: transform 0.15s ease;
+  }
+  .btn:hover { transform: translateY(-2px); }
+  .btn.ghost { background: transparent; color: var(--soft); box-shadow: none; border: 2px solid rgba(143,201,163,0.4); }
+  .away-list { text-align: left; background: rgba(143,201,163,0.12); border-radius: 12px; padding: 12px 16px; font-size: 0.85rem; color: var(--ink); margin-bottom: 10px; }
+
+  /* ============ FOOTER CONTROLS ============ */
+  .foot { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+  .foot button { padding: 9px 18px; border-radius: 20px; font-size: 0.82rem; font-family: inherit; background: var(--panel); border: 2px solid rgba(143,201,163,0.4); color: var(--soft); cursor: pointer; box-shadow: var(--shadow); }
+  .foot button:hover { color: var(--accent-deep); border-color: var(--accent-deep); }
+
+  /* ============ DECOR PICKER ============ */
+  .decor-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+  .decor-row button { font-size: 1.5rem; padding: 6px 10px; border-radius: 12px; background: var(--panel-solid); border: 2px solid rgba(143,201,163,0.4); cursor: pointer; }
+  .decor-row button:hover { border-color: var(--accent-deep); }
+  .fade-msg {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: rgba(95,168,124,0.95);
+    color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 0.85rem; font-weight: 600;
+    z-index: 80; opacity: 0; transition: opacity 0.3s ease; pointer-events: none; box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+  }
+  .fade-msg.show { opacity: 1; }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topbar">
+      <h1 class="title">🌱 Garden Grow</h1>
+      <div class="clock" id="clock">☀️ Day 1 · 06:00</div>
+    </div>
+
+    <!-- ============ HUD ============ -->
+    <div class="hud">
+      <div class="stat"><div class="label">Coins</div><div class="value" id="coins">0</div></div>
+      <div class="stat"><div class="label">Plots</div><div class="value" id="plotCount">4</div></div>
+      <div class="stat"><div class="label">Sprinklers</div><div class="value" id="sprinklers">0</div></div>
+      <div class="stat"><div class="label">Harvested</div><div class="value" id="harvested">0</div></div>
+    </div>
+
+    <!-- ============ GARDEN GRID ============ -->
+    <div class="garden-wrap">
+      <div class="garden" id="garden"></div>
+    </div>
+
+    <!-- ============ SHOP ============ -->
+    <div class="shop">
+      <h2>🛒 Garden Shop</h2>
+      <div class="shop-grid" id="shop"></div>
+    </div>
+
+    <!-- ============ MILESTONES + LOG ============ -->
+    <div class="cols">
+      <div class="milestones">
+        <h2>🏆 Milestones</h2>
+        <div id="milestones"></div>
+      </div>
+      <div class="log">
+        <h2>📜 Garden Log</h2>
+        <div id="log"></div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <button id="decorateBtn">🎨 Decorate</button>
+      <button id="saveBtn">💾 Save</button>
+      <button id="resetBtn">🔄 Restart</button>
+    </div>
+  </div>
+
+  <!-- ============ WELCOME OVERLAY ============ -->
+  <div class="overlay show" id="welcomeOverlay">
+    <div class="card">
+      <h2>Welcome to Your Garden</h2>
+      <p>Plant seeds, water them, and watch them grow. Harvest ripe plants for coins, then expand your garden with more plots, upgrades, and sprinklers.</p>
+      <p style="font-size:0.82rem">The garden keeps growing while you're away. Relax and enjoy. 🌿</p>
+      <button class="btn" id="startBtn">Start Gardening</button>
+    </div>
+  </div>
+
+  <!-- ============ AWAY OVERLAY ============ -->
+  <div class="overlay" id="awayOverlay">
+    <div class="card">
+      <h2>🌙 Welcome Back</h2>
+      <p>Your garden grew while you were away:</p>
+      <div class="away-list" id="awayList"></div>
+      <button class="btn" id="awayBtn">Collect</button>
+    </div>
+  </div>
+
+  <!-- ============ DECOR OVERLAY ============ -->
+  <div class="overlay" id="decorOverlay">
+    <div class="card">
+      <h2>🎨 Decorations</h2>
+      <p>Pick a decoration, then tap any plot to place it there.</p>
+      <div class="decor-row" id="decorRow"></div>
+      <button class="btn ghost" id="decorClose" style="margin-top:14px">Done</button>
+    </div>
+  </div>
+
+  <div class="fade-msg" id="fadeMsg"></div>
+
+<script>
+// ============ GAME CONFIGURATION ============
+const GROW_TIME = 24;          // seconds for a seed to fully mature (base)
+const WATER_BOOST = 0.45;      // watering instantly adds this fraction of growth
+const SAVE_KEY = 'gardenGrowSave_v1';
+const DAY_LENGTH = 90;         // seconds per in-game day
+const PLANT_TYPES = [
+  { emoji: '🥕', name: 'Carrot', value: 8 },
+  { emoji: '🍓', name: 'Berry', value: 12 },
+  { emoji: '🌻', name: 'Sunflower', value: 18 },
+  { emoji: '🍅', name: 'Tomato', value: 26 },
+  { emoji: '🎃', name: 'Pumpkin', value: 40 },
+  { emoji: '🌷', name: 'Tulip', value: 55 }
+];
+const SHOP_ITEMS = [
+  { id: 'plot', name: '🧱 New Plot', desc: 'Add another planting plot.', base: 60, growth: 1.65 },
+  { id: 'seed', name: '🌰 Seed Pack', desc: 'Best unlocked seed, ready to plant.', base: 14, growth: 1.28 },
+  { id: 'water', name: '💧 Watering Can', desc: '+25% growth speed per level.', base: 40, growth: 1.55 },
+  { id: 'sprinkler', name: '🚿 Sprinkler', desc: 'Auto-waters a random plot every 5s.', base: 120, growth: 1.6 },
+  { id: 'fert', name: '🌿 Fertilizer', desc: '+15% harvest value per level.', base: 90, growth: 1.7 },
+  { id: 'prestige', name: '🌳 Garden Wisdom', desc: '+40% idle earn rate per level.', base: 200, growth: 1.9 }
+];
+const DECORS = ['🪨', '🌼', '🍄', '🐌', '🦋', '⛲', '🏮', '🌿'];
+const MILESTONES = [
+  { id: 'h1', label: 'Harvest your first plant', check: s => s.harvested >= 1 },
+  { id: 'h10', label: 'Harvest 10 plants', check: s => s.harvested >= 10 },
+  { id: 'h50', label: 'Harvest 50 plants', check: s => s.harvested >= 50 },
+  { id: 'c500', label: 'Earn 500 coins', check: s => s.totalCoins >= 500 },
+  { id: 'c2500', label: 'Earn 2,500 coins', check: s => s.totalCoins >= 2500 },
+  { id: 'p8', label: 'Own 8 plots', check: s => s.plots.length >= 8 },
+  { id: 'p12', label: 'Own 12 plots', check: s => s.plots.length >= 12 },
+  { id: 'spr', label: 'Install a sprinkler', check: s => s.sprinklers >= 1 },
+  { id: 'wisdom', label: 'Reach Garden Wisdom Lv 1', check: s => s.prestige >= 1 },
+  { id: 'night', label: 'See the garden at night', check: s => s.sawNight }
+];
+
+// ============ GAME STATE ============
+let state = null;
+let decorMode = false;
+let activeDecor = DECORS[0];
+let lastTick = performance.now();
+let sprinkleTimer = 0;
+let unlockedSeed = 0;
+let saveDirty = false;
+
+// ============ DOM ELEMENTS ============
+const el = id => document.getElementById(id);
+const gardenEl = el('garden');
+const shopEl = el('shop');
+const logEl = el('log');
+const msEl = el('milestones');
+const coinsEl = el('coins');
+const plotCountEl = el('plotCount');
+const sprinklersEl = el('sprinklers');
+const harvestedEl = el('harvested');
+const clockEl = el('clock');
+const welcomeOverlay = el('welcomeOverlay');
+const awayOverlay = el('awayOverlay');
+const awayList = el('awayList');
+const decorOverlay = el('decorOverlay');
+const fadeMsg = el('fadeMsg');
+
+// ============ AUDIO (WebAudio beep) ============
+let audioCtx = null;
+function beep(freq = 440, dur = 0.08, type = 'sine', vol = 0.06) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + dur);
+  } catch (e) { /* audio unavailable */ }
+}
+
+// ============ PERSISTENCE ============
+function defaultState() {
+  return {
+    coins: 12,
+    totalCoins: 0,
+    harvested: 0,
+    level: { plot: 0, seed: 0, water: 0, sprinkler: 0, fert: 0, prestige: 0 },
+    sprinklers: 0,
+    plots: [
+      { plant: null, growth: 0, watered: false, decor: null },
+      { plant: null, growth: 0, watered: false, decor: null },
+      { plant: null, growth: 0, watered: false, decor: null },
+      { plant: null, growth: 0, watered: false, decor: null }
+    ],
+    milestones: {},
+    sawNight: false,
+    planted: 0,
+    lastSeen: Date.now()
+  };
+}
+
+function save() {
+  try {
+    state.lastSeen = Date.now();
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    saveDirty = false;
+  } catch (e) { /* storage unavailable */ }
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.plots)) return null;
+    return parsed;
+  } catch (e) { return null; }
+}
+
+// ============ HELPERS ============
+function plantTier() {
+  // Higher tiers unlock with total coins earned & harvested count.
+  let tier = 0;
+  const score = state.totalCoins + state.harvested * 20;
+  if (score >= 1500) tier = 5;
+  else if (score >= 700) tier = 4;
+  else if (score >= 300) tier = 3;
+  else if (score >= 120) tier = 2;
+  else if (score >= 40) tier = 1;
+  return tier;
+}
+function growthRate() {
+  // water upgrade speeds up growth
+  return 1 + state.level.water * 0.25;
+}
+function harvestValue(tier) {
+  return Math.round(PLANT_TYPES[tier].value * (1 + state.level.fert * 0.15));
+}
+function shopCost(item) {
+  const lvl = state.level[item.id] || 0;
+  return Math.round(item.base * Math.pow(item.growth, lvl));
+}
+function log(text) {
+  const d = document.createElement('div');
+  d.textContent = text;
+  logEl.prepend(d);
+  while (logEl.children.length > 40) logEl.lastChild.remove();
+}
+function showMsg(text) {
+  fadeMsg.textContent = text;
+  fadeMsg.classList.add('show');
+  clearTimeout(fadeMsg._t);
+  fadeMsg._t = setTimeout(() => fadeMsg.classList.remove('show'), 1400);
+}
+
+// ============ GARDEN RENDERING ============
+function renderGarden() {
+  const needed = state.plots.length;
+  // reuse existing plot nodes if possible
+  while (gardenEl.children.length < needed) {
+    const div = document.createElement('div');
+    div.className = 'plot';
+    gardenEl.appendChild(div);
+  }
+  for (let i = 0; i < gardenEl.children.length; i++) {
+    const node = gardenEl.children[i];
+    const plot = state.plots[i];
+    if (!plot) { node.style.display = 'none'; continue; }
+    node.style.display = '';
+    node.dataset.i = i;
+    node.classList.toggle('mature', !!(plot.plant !== null && plot.growth >= 1));
+    // build inner content
+    let html = '';
+    if (plot.decor) html += '<span class="decor">' + plot.decor + '</span>';
+    if (plot.plant === null) {
+      html += '<span class="hint">tap</span>';
+      html += '<span class="plant" style="opacity:0.35;font-size:1.6rem">🌰</span>';
+    } else {
+      const pct = Math.min(100, Math.round(plot.growth * 100));
+      const ripe = plot.growth >= 1;
+      const emoji = PLANT_TYPES[plot.plant].emoji;
+      // scale plant by growth
+      const scale = 0.55 + Math.min(0.45, plot.growth * 0.45);
+      html += '<span class="plant" style="transform:scale(' + scale.toFixed(2) + ')">' + emoji + '</span>';
+      html += '<span class="bar ' + (ripe ? 'ripe' : '') + '"><i style="width:' + pct + '%"></i></span>';
+      if (plot.watered && !ripe) html += '<span class="hint">watered</span>';
+    }
+    node.innerHTML = html;
+  }
+}
+
+function renderShop() {
+  shopEl.innerHTML = '';
+  SHOP_ITEMS.forEach(item => {
+    const cost = shopCost(item);
+    const btn = document.createElement('button');
+    btn.className = 'buy';
+    btn.disabled = state.coins < cost;
+    let extra = '';
+    if (item.id === 'plot') extra = 'Owned: ' + state.plots.length;
+    else if (item.id === 'sprinkler') extra = 'Owned: ' + state.sprinklers;
+    else extra = 'Lv ' + (state.level[item.id] || 0);
+    btn.innerHTML =
+      '<span class="b-name">' + item.name + '</span>' +
+      '<span class="b-desc">' + item.desc + '</span>' +
+      '<span class="b-cost">💰 ' + cost + ' · ' + extra + '</span>';
+    btn.addEventListener('click', () => buy(item));
+    shopEl.appendChild(btn);
+  });
+}
+
+function renderHud() {
+  coinsEl.textContent = Math.floor(state.coins).toLocaleString();
+  plotCountEl.textContent = state.plots.length;
+  sprinklersEl.textContent = state.sprinklers;
+  harvestedEl.textContent = state.harvested;
+}
+
+function renderMilestones() {
+  let html = '';
+  MILESTONES.forEach(m => {
+    const done = state.milestones[m.id];
+    html += '<div class="ms ' + (done ? 'done' : '') + '"><span class="dot">' + (done ? '✅' : '⬜') + '</span>' + m.label + '</div>';
+  });
+  msEl.innerHTML = html;
+}
+
+function renderAll() {
+  renderGarden();
+  renderShop();
+  renderHud();
+  renderMilestones();
+}
+
+// ============ GAMEPLAY ACTIONS ============
+function plantSeed(i) {
+  const plot = state.plots[i];
+  if (!plot || plot.plant !== null) return;
+  const tier = plantTier();
+  plot.plant = tier;
+  plot.growth = 0;
+  plot.watered = false;
+  state.planted++;
+  beep(520 + tier * 40, 0.09, 'triangle');
+  log('Planted a ' + PLANT_TYPES[tier].name + '.');
+  autoSave();
+  renderGarden();
+}
+
+function waterPlot(i) {
+  const plot = state.plots[i];
+  if (!plot || plot.plant === null || plot.growth >= 1) return;
+  if (plot.watered) { showMsg('Already watered 💧'); return; }
+  plot.watered = true;
+  plot.growth = Math.min(1, plot.growth + WATER_BOOST);
+  beep(660, 0.1, 'sine', 0.05);
+  log('Watered a ' + PLANT_TYPES[plot.plant].name + '.');
+  autoSave();
+  renderGarden();
+}
+
+function harvestPlot(i) {
+  const plot = state.plots[i];
+  if (!plot || plot.plant === null || plot.growth < 1) return;
+  const val = harvestValue(plot.plant);
+  state.coins += val;
+  state.totalCoins += val;
+  state.harvested++;
+  log('Harvested ' + PLANT_TYPES[plot.plant].name + ' for 💰' + val + '.');
+  beep(720, 0.09, 'triangle', 0.07);
+  setTimeout(() => beep(960, 0.1, 'triangle', 0.06), 90);
+  plot.plant = null; plot.growth = 0; plot.watered = false;
+  checkMilestones();
+  autoSave();
+  renderAll();
+}
+
+function onPlotClick(e) {
+  const node = e.target.closest('.plot');
+  if (!node || node.dataset.i === undefined) return;
+  const i = parseInt(node.dataset.i);
+  const plot = state.plots[i];
+  if (!plot) return;
+  if (decorMode) {
+    plot.decor = (plot.decor === activeDecor) ? null : activeDecor;
+    beep(440, 0.06, 'square', 0.04);
+    autoSave();
+    renderGarden();
+    return;
+  }
+  if (plot.plant === null) plantSeed(i);
+  else if (plot.growth >= 1) harvestPlot(i);
+  else waterPlot(i);
+}
+
+// ============ SHOP PURCHASES ============
+function buy(item) {
+  const cost = shopCost(item);
+  if (state.coins < cost) { showMsg('Not enough coins 💰'); return; }
+  state.coins -= cost;
+  if (item.id === 'plot') {
+    state.plots.push({ plant: null, growth: 0, watered: false, decor: null });
+    log('Bought a new plot. (' + state.plots.length + ' total)');
+  } else if (item.id === 'sprinkler') {
+    state.sprinklers++;
+    log('Installed a sprinkler. (' + state.sprinklers + ' total)');
+  } else {
+    state.level[item.id] = (state.level[item.id] || 0) + 1;
+    log('Upgraded ' + item.name + ' to Lv ' + state.level[item.id] + '.');
+  }
+  beep(600, 0.08, 'sine', 0.06);
+  setTimeout(() => beep(820, 0.1, 'sine', 0.05), 80);
+  checkMilestones();
+  autoSave();
+  renderAll();
+}
+
+// ============ GROWTH SIMULATION ============
+function tick(dt) {
+  // dt in seconds
+  const rate = growthRate();
+  state.plots.forEach((plot, i) => {
+    if (plot.plant === null || plot.growth >= 1) return;
+    let speed = 1 / GROW_TIME * rate;
+    if (plot.watered) speed *= 1.6; // watered plants grow faster
+    plot.growth = Math.min(1, plot.growth + speed * dt);
+    if (plot.growth >= 1) {
+      beep(520, 0.07, 'sine', 0.04);
+      log(PLANT_TYPES[plot.plant].name + ' is ready to harvest! ✨');
+    }
+  });
+
+  // Sprinklers auto-water a random growing plot
+  if (state.sprinklers > 0) {
+    sprinkleTimer += dt;
+    const interval = Math.max(1.2, 5 / state.sprinklers);
+    if (sprinkleTimer >= interval) {
+      sprinkleTimer = 0;
+      const candidates = state.plots
+        .map((p, idx) => (p.plant !== null && p.growth < 1 && !p.watered ? idx : -1))
+        .filter(idx => idx >= 0);
+      if (candidates.length) {
+        const pick = candidates[Math.floor(Math.random() * candidates.length)];
+        state.plots[pick].watered = true;
+        state.plots[pick].growth = Math.min(1, state.plots[pick].growth + WATER_BOOST * 0.6);
+      }
+    }
+  }
+}
+
+function idleEarn(dt) {
+  // passive coin trickle from growing plants + wisdom upgrade
+  let growing = 0;
+  state.plots.forEach(p => { if (p.plant !== null) growing++; });
+  if (growing === 0) return 0;
+  const perSec = growing * 0.02 * (1 + state.level.prestige * 0.4);
+  const earned = perSec * dt;
+  state.coins += earned;
+  state.totalCoins += earned;
+  return earned;
+}
+
+// ============ DAY / NIGHT CYCLE ============
+function dayPhase() {
+  const t = (performance.now() / 1000) / DAY_LENGTH;
+  const cycle = t % 1; // 0..1
+  const hour = ((cycle * 24) + 6) % 24;
+  return { cycle, hour };
+}
+function updateClock() {
+  const { hour } = dayPhase();
+  const hh = String(Math.floor(hour)).padStart(2, '0');
+  const mm = String(Math.floor((hour % 1) * 60)).padStart(2, '0');
+  const day = Math.floor((performance.now() / 1000) / DAY_LENGTH) + 1;
+  const isNight = hour < 6 || hour >= 19;
+  clockEl.textContent = (isNight ? '🌙' : '☀️') + ' Day ' + day + ' · ' + hh + ':' + mm;
+  document.body.classList.toggle('night', isNight);
+  if (isNight && !state.sawNight) {
+    state.sawNight = true;
+    log('Night falls over the garden. 🌙');
+    checkMilestones();
+    autoSave();
+  }
+}
+
+// ============ MILESTONES ============
+function checkMilestones() {
+  let changed = false;
+  MILESTONES.forEach(m => {
+    if (!state.milestones[m.id] && m.check(state)) {
+      state.milestones[m.id] = true;
+      changed = true;
+      log('🏆 Milestone: ' + m.label);
+      beep(880, 0.12, 'triangle', 0.07);
+      setTimeout(() => beep(1180, 0.15, 'triangle', 0.06), 120);
+    }
+  });
+  if (changed) renderMilestones();
+}
+
+// ============ IDLE / AWAY ============
+function simulateAway(seconds) {
+  // cap at 8 hours of idle time
+  seconds = Math.min(seconds, 8 * 3600);
+  if (seconds < 30) return null;
+  const before = { coins: state.coins, harvested: state.harvested };
+
+  // advance growth
+  const rate = growthRate();
+  let matured = 0;
+  state.plots.forEach(plot => {
+    if (plot.plant === null || plot.growth >= 1) return;
+    plot.growth = Math.min(1, plot.growth + (1 / GROW_TIME) * rate * seconds * 0.5);
+    if (plot.growth >= 1) matured++;
+  });
+  // idle coins
+  const gained = idleEarn(seconds);
+  state.coins += gained;
+  const totalGained = state.coins - before.coins;
+
+  return {
+    seconds,
+    coins: Math.floor(totalGained),
+    matured
+  };
+}
+
+// ============ AUTOSAVE ============
+let autoSaveTimer = 0;
+function autoSave() { saveDirty = true; }
+function maybeAutoSave(dt) {
+  autoSaveTimer += dt;
+  if (autoSaveTimer >= 8) { autoSaveTimer = 0; if (saveDirty) save(); }
+}
+
+// ============ MAIN LOOP ============
+function loop(now) {
+  const dt = Math.min(0.25, (now - lastTick) / 1000);
+  lastTick = now;
+
+  const coinsBefore = Math.floor(state.coins);
+  tick(dt);
+  idleEarn(dt);
+  maybeAutoSave(dt);
+  updateClock();
+
+  // only re-render garden when something visually changes
+  gardenEl.querySelectorAll('.plot').forEach((node, i) => {
+    const plot = state.plots[i];
+    if (!plot || plot.plant === null) return;
+    const bar = node.querySelector('.bar > i');
+    if (bar) bar.style.width = Math.min(100, Math.round(plot.growth * 100)) + '%';
+    const wasMature = node.classList.contains('mature');
+    const isMature = plot.growth >= 1;
+    if (!wasMature && isMature) {
+      node.classList.add('mature');
+      const p = node.querySelector('.bar'); if (p) p.classList.add('ripe');
+      const plant = node.querySelector('.plant'); if (plant) plant.style.transform = 'scale(1)';
+    }
+  });
+
+  // periodic full HUD refresh
+  if (Math.floor(now / 500) !== Math.floor((now - dt * 1000) / 500)) {
+    renderHud();
+    renderShop();
+  }
+  if (Math.floor(state.coins) !== coinsBefore) {
+    coinsEl.textContent = Math.floor(state.coins).toLocaleString();
+  }
+
+  requestAnimationFrame(loop);
+}
+
+// ============ OVERLAY WIRING ============
+function buildDecorRow() {
+  const row = el('decorRow');
+  row.innerHTML = '';
+  DECORS.forEach(d => {
+    const b = document.createElement('button');
+    b.textContent = d;
+    if (d === activeDecor) b.style.borderColor = 'var(--accent-deep)';
+    b.addEventListener('click', () => {
+      activeDecor = d;
+      decorMode = true;
+      buildDecorRow();
+      beep(500, 0.06, 'sine', 0.04);
+    });
+    row.appendChild(b);
+  });
+}
+
+// Event delegation: one listener on the garden grid handles every plot,
+// including plots added later when the garden expands.
+gardenEl.addEventListener('click', onPlotClick);
+
+// ============ INIT ============
+function startGame(withSave) {
+  if (withSave) {
+    const loaded = load();
+    state = Object.assign(defaultState(), loaded);
+    // ensure fields exist for old saves
+    state.level = Object.assign(defaultState().level, state.level || {});
+    state.milestones = state.milestones || {};
+    // idle sim while away
+    const awaySec = Math.max(0, (Date.now() - (state.lastSeen || Date.now())) / 1000);
+    const result = simulateAway(awaySec);
+    if (result && (result.coins > 0 || result.matured > 0)) {
+      let html = '';
+      if (result.coins > 0) html += '<div>💰 Earned <b>' + result.coins.toLocaleString() + '</b> coins from idle growth.</div>';
+      if (result.matured > 0) html += '<div>✨ <b>' + result.matured + '</b> plant(s) matured while away.</div>';
+      html += '<div style="color:var(--soft);margin-top:6px">Away for ' + formatAway(result.seconds) + '.</div>';
+      awayList.innerHTML = html;
+      awayOverlay.classList.add('show');
+    }
+  } else {
+    state = defaultState();
+    log('A fresh garden awaits. Tap a plot to plant a seed!');
+  }
+  renderAll();
+  lastTick = performance.now();
+}
+
+function formatAway(sec) {
+  sec = Math.floor(sec);
+  if (sec < 60) return sec + 's';
+  if (sec < 3600) return Math.floor(sec / 60) + 'm';
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  return h + 'h ' + m + 'm';
+}
+
+function resetGame() {
+  if (!confirm('Restart your garden from scratch? All progress will be lost.')) return;
+  try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+  state = defaultState();
+  renderAll();
+  log('Garden restarted. 🌱');
+  showMsg('Fresh start!');
+  save();
+}
+
+// ============ EVENT LISTENERS ============
+el('startBtn').addEventListener('click', () => {
+  welcomeOverlay.classList.remove('show');
+  beep(660, 0.12, 'triangle', 0.06);
+  startGame(true);
+});
+el('awayBtn').addEventListener('click', () => {
+  awayOverlay.classList.remove('show');
+  beep(720, 0.1, 'triangle', 0.06);
+  save();
+});
+el('decorateBtn').addEventListener('click', () => {
+  buildDecorRow();
+  decorOverlay.classList.add('show');
+});
+el('decorClose').addEventListener('click', () => {
+  decorOverlay.classList.remove('show');
+  decorMode = false;
+});
+el('saveBtn').addEventListener('click', () => { save(); showMsg('Garden saved 💾'); beep(600, 0.08); });
+el('resetBtn').addEventListener('click', resetGame);
+
+// save on leaving
+window.addEventListener('beforeunload', () => { if (state) save(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && state) save();
+  else if (!document.hidden && state) lastTick = performance.now();
+});
+
+// keyboard shortcut: S to save
+document.addEventListener('keydown', e => {
+  if (e.key === 's' || e.key === 'S') { if (state) { save(); showMsg('Garden saved 💾'); } }
+});
+
+// ============ BOOT ============
+(function boot() {
+  // preload a state so minimap/render doesn't crash before start
+  state = defaultState();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

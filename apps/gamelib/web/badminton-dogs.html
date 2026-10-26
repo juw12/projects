@@ -1,0 +1,1873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dogminton - Badminton with Dogs!</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      background: #1a1a2e;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow: hidden;
+    }
+    #gameContainer {
+      position: relative;
+      width: 100%;
+      max-width: 1280px;
+      aspect-ratio: 16 / 9;
+    }
+    #gameCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 50%, #90EE90 50%, #228B22 100%);
+      border-radius: 8px;
+      box-shadow: 0 0 30px rgba(0,0,0,0.5);
+    }
+    #ui {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.85);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      pointer-events: auto;
+      border-radius: 8px;
+      z-index: 100;
+    }
+    .hidden {
+      display: none !important;
+    }
+    h1 {
+      font-size: clamp(2rem, 5vw, 4rem);
+      margin-bottom: 1rem;
+      text-shadow: 3px 3px 6px rgba(0,0,0,0.5);
+      color: #FFD700;
+    }
+    h2 {
+      font-size: clamp(1.5rem, 4vw, 2.5rem);
+      margin-bottom: 1.5rem;
+      color: #FFD700;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    }
+    .btn {
+      padding: 1rem 2.5rem;
+      font-size: 1.3rem;
+      background: linear-gradient(135deg, #FF6B6B, #EE5A5A);
+      color: white;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      margin: 0.5rem;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 15px rgba(255,107,107,0.4);
+      min-width: 250px;
+    }
+    .btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 20px rgba(255,107,107,0.6);
+    }
+    .btn-small {
+      padding: 0.6rem 1.5rem;
+      font-size: 1rem;
+      min-width: auto;
+    }
+    .btn-secondary {
+      background: linear-gradient(135deg, #6B7FFF, #5A6BEE);
+      box-shadow: 0 4px 15px rgba(107,127,255,0.4);
+    }
+    .btn-back {
+      background: linear-gradient(135deg, #888, #666);
+      box-shadow: 0 4px 15px rgba(136,136,136,0.4);
+    }
+    .controls {
+      background: rgba(255,255,255,0.95);
+      color: #333;
+      padding: 1.5rem;
+      border-radius: 10px;
+      margin-top: 1.5rem;
+      text-align: left;
+      max-width: 450px;
+    }
+    .controls h3 {
+      margin-bottom: 0.5rem;
+      color: #333;
+    }
+    .controls p {
+      margin: 0.3rem 0;
+      font-size: 0.9rem;
+    }
+    .controls-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+    .control-column {
+      text-align: left;
+    }
+    .control-column h4 {
+      color: #555;
+      margin-bottom: 0.3rem;
+      font-size: 0.95rem;
+    }
+    .key {
+      display: inline-block;
+      background: #333;
+      color: white;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.8rem;
+      margin: 0 0.15rem;
+    }
+    #scoreboard {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 0.5rem 2rem;
+      border-radius: 50px;
+      font-size: 1.3rem;
+      font-weight: bold;
+      display: flex;
+      gap: 2rem;
+      z-index: 50;
+    }
+    #pauseBtn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      pointer-events: auto;
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      background: rgba(0,0,0,0.6);
+      color: white;
+      border: 2px solid white;
+      border-radius: 20px;
+      cursor: pointer;
+      z-index: 50;
+    }
+    #pauseBtn:hover {
+      background: rgba(0,0,0,0.8);
+    }
+    #message {
+      position: absolute;
+      top: 30%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 3rem;
+      font-weight: bold;
+      text-shadow: 3px 3px 6px rgba(0,0,0,0.5);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s;
+      z-index: 40;
+    }
+    #message.show {
+      opacity: 1;
+    }
+    /* Character selection cards */
+    .char-select-container {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin: 1rem 0;
+      max-width: 900px;
+    }
+    .char-card {
+      background: rgba(255,255,255,0.1);
+      border: 3px solid transparent;
+      border-radius: 12px;
+      padding: 1rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+      width: 180px;
+    }
+    .char-card:hover {
+      background: rgba(255,255,255,0.2);
+      transform: translateY(-5px);
+    }
+    .char-card.selected {
+      border-color: #FFD700;
+      background: rgba(255,215,0,0.2);
+      box-shadow: 0 0 20px rgba(255,215,0,0.4);
+    }
+    .char-preview {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 0.5rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+    }
+    .char-name {
+      font-weight: bold;
+      font-size: 1.1rem;
+      margin-bottom: 0.3rem;
+    }
+    .char-breed {
+      font-size: 0.85rem;
+      color: #aaa;
+      margin-bottom: 0.5rem;
+    }
+    .char-skill {
+      font-size: 0.8rem;
+      color: #FFD700;
+      line-height: 1.2;
+    }
+    /* Cooldown indicator */
+    .cooldown-bar {
+      position: absolute;
+      bottom: 20px;
+      width: 100px;
+      height: 8px;
+      background: rgba(0,0,0,0.5);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .cooldown-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #00ff88, #00cc6a);
+      width: 100%;
+      transition: width 0.1s linear;
+    }
+    .cooldown-fill.ready {
+      background: linear-gradient(90deg, #00ff88, #00cc6a);
+    }
+    .cooldown-fill.charging {
+      background: linear-gradient(90deg, #ff6b6b, #ee5a5a);
+    }
+    #hud {
+      position: absolute;
+      bottom: 15px;
+      left: 0;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      padding: 0 30px;
+      pointer-events: none;
+      z-index: 40;
+    }
+    .player-hud {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .player-name {
+      font-size: 0.9rem;
+      font-weight: bold;
+      color: white;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    }
+    .skill-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(0,0,0,0.6);
+      padding: 0.3rem 0.8rem;
+      border-radius: 20px;
+    }
+    .skill-key {
+      background: #FFD700;
+      color: #333;
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      font-family: monospace;
+      font-size: 0.75rem;
+      font-weight: bold;
+    }
+    .skill-name {
+      color: white;
+      font-size: 0.8rem;
+    }
+    /* Difficulty buttons */
+    .diff-select {
+      display: flex;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    .diff-btn {
+      padding: 0.8rem 1.5rem;
+      font-size: 1.1rem;
+      background: rgba(255,255,255,0.1);
+      border: 2px solid rgba(255,255,255,0.3);
+      color: white;
+      border-radius: 25px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .diff-btn:hover {
+      background: rgba(255,255,255,0.2);
+    }
+    .diff-btn.selected {
+      border-color: #FFD700;
+      background: rgba(255,215,0,0.3);
+      color: #FFD700;
+    }
+    .diff-btn.easy.selected { border-color: #4CAF50; background: rgba(76,175,80,0.3); color: #4CAF50; }
+    .diff-btn.medium.selected { border-color: #FF9800; background: rgba(255,152,0,0.3); color: #FF9800; }
+    .diff-btn.hard.selected { border-color: #f44336; background: rgba(244,67,54,0.3); color: #f44336; }
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <canvas id="gameCanvas" width="960" height="540"></canvas>
+    <div id="ui">
+      <div id="scoreboard" class="hidden">
+        <span id="p1Score">🐕 0</span>
+        <span id="p2Score">0 🐕</span>
+      </div>
+      <button id="pauseBtn" class="hidden">⏸️ Pause</button>
+      <div id="message"></div>
+      
+      <!-- HUD for skills -->
+      <div id="hud" class="hidden">
+        <div class="player-hud">
+          <span class="player-name" id="p1Name">Player 1</span>
+          <div class="skill-indicator">
+            <span class="skill-key" id="p1SkillKey">SPACE</span>
+            <span class="skill-name" id="p1SkillName">Power Smash</span>
+          </div>
+          <div class="cooldown-bar"><div class="cooldown-fill ready" id="p1Cooldown"></div></div>
+        </div>
+        <div class="player-hud">
+          <span class="player-name" id="p2Name">Player 2</span>
+          <div class="skill-indicator">
+            <span class="skill-key" id="p2SkillKey">SHIFT</span>
+            <span class="skill-name" id="p2SkillName">Power Smash</span>
+          </div>
+          <div class="cooldown-bar"><div class="cooldown-fill ready" id="p2Cooldown"></div></div>
+        </div>
+      </div>
+      
+      <!-- Title Screen -->
+      <div id="titleScreen" class="overlay">
+        <h1>🏸 Dogminton 🏸</h1>
+        <p style="font-size: 1.2rem; margin-bottom: 1rem;">Badminton Battle of the Dogs!</p>
+        <button class="btn" id="startBtn">🎮 Start Game</button>
+      </div>
+      
+      <!-- Mode Select -->
+      <div id="modeScreen" class="overlay hidden">
+        <h2>Select Mode</h2>
+        <button class="btn" id="mode1P">👤 1 Player (vs Bot)</button>
+        <button class="btn" id="mode2P">👥 2 Players (Local)</button>
+        <button class="btn btn-back" id="modeBack">← Back</button>
+      </div>
+      
+      <!-- Difficulty Select (1P only) -->
+      <div id="diffScreen" class="overlay hidden">
+        <h2>Select Difficulty</h2>
+        <div class="diff-select">
+          <button class="diff-btn easy" data-diff="easy">🌱 Easy</button>
+          <button class="diff-btn medium selected" data-diff="medium">⚔️ Medium</button>
+          <button class="diff-btn hard" data-diff="hard">🔥 Hard</button>
+        </div>
+        <button class="btn" id="diffNext">Next: Choose Your Dog →</button>
+        <button class="btn btn-back" id="diffBack">← Back</button>
+      </div>
+      
+      <!-- Character Select P1 -->
+      <div id="charScreenP1" class="overlay hidden">
+        <h2>Player 1: Choose Your Dog</h2>
+        <div class="char-select-container" id="charContainerP1"></div>
+        <button class="btn btn-back" id="charBackP1">← Back</button>
+      </div>
+      
+      <!-- Character Select P2 -->
+      <div id="charScreenP2" class="overlay hidden">
+        <h2>Player 2: Choose Your Dog</h2>
+        <div class="char-select-container" id="charContainerP2"></div>
+        <button class="btn btn-back" id="charBackP2">← Back</button>
+      </div>
+      
+      <!-- Controls Screen -->
+      <div id="controlsScreen" class="overlay hidden">
+        <h2>🎮 Controls</h2>
+        <div class="controls">
+          <div class="controls-grid">
+            <div class="control-column">
+              <h4 style="color: #FF6B6B;">Player 1 (Left)</h4>
+              <p><span class="key">A</span> <span class="key">D</span> - Move</p>
+              <p><span class="key">W</span> - Jump</p>
+              <p><span class="key">Space</span> - Special Skill</p>
+            </div>
+            <div class="control-column" id="p2Controls">
+              <h4 style="color: #6B7FFF;">Player 2 (Right)</h4>
+              <p><span class="key">←</span> <span class="key">→</span> - Move</p>
+              <p><span class="key">↑</span> - Jump</p>
+              <p><span class="key">Shift</span> - Special Skill</p>
+            </div>
+          </div>
+          <p style="margin-top: 1rem; font-size: 0.95rem; color: #FFD166;">Hits are AUTOMATIC whenever the shuttle is above your dog!</p>
+          <p style="margin-top: 0.5rem; font-size: 0.85rem; color: #666;">Hit it once - get it over the net. First to 11 points wins!</p>
+        </div>
+        <button class="btn" id="readyBtn">▶️ Let's Play!</button>
+      </div>
+      
+      <!-- Pause Screen -->
+      <div id="pauseScreen" class="overlay hidden">
+        <h1>⏸️ Paused</h1>
+        <button class="btn" id="resumeBtn">▶️ Resume</button>
+        <button class="btn btn-secondary" id="changeSetupBtn">⚙️ Change Setup</button>
+        <button class="btn btn-back" id="quitBtn">🚪 Quit to Title</button>
+      </div>
+      
+      <!-- Game Over Screen -->
+      <div id="gameOverScreen" class="overlay hidden">
+        <h1 id="gameOverTitle">🏆 Game Over!</h1>
+        <p id="gameOverMessage" style="font-size: 1.5rem; margin-bottom: 1rem;"></p>
+        <button class="btn" id="restartBtn">🔄 Play Again</button>
+        <button class="btn btn-back" id="titleBtn">🏠 Title Screen</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================
+    // GAME CONFIGURATION - SLOWER SHUTTLE
+    // ============================================
+    const CANVAS_WIDTH = 960;
+    const CANVAS_HEIGHT = 540;
+    const GROUND_Y = 450;
+    const NET_X = CANVAS_WIDTH / 2;
+    const NET_HEIGHT = 120; // shorter net, proportionate to the dogs and clearable
+    const NET_TOP = GROUND_Y - NET_HEIGHT;
+    const WIN_SCORE = 11;
+    
+    // Physics constants - SLOWER for better rallies
+    const GRAVITY = 0.5;
+    const SHUTTLE_DRAG = 1;       // no per-frame drag (launch velocity is aim-assisted below)
+    const SHUTTLE_GRAVITY = 0.35; // gravity pulls the shuttle into a slow, readable arc
+    const MAX_SHUTTLE_SPEED = 20; // safety cap
+    
+    // Dog constants
+    const DOG_WIDTH = 70;
+    const DOG_HEIGHT = 90;
+    const MOVE_SPEED = 5;
+    const DASH_SPEED = 14;
+    const JUMP_FORCE = -12;
+    const SUPER_JUMP_FORCE = -21;
+    const HIT_RANGE = 80;
+    const LONG_REACH_RANGE = 170;
+    
+    // Court boundaries
+    const COURT_LEFT = 50;
+    const COURT_RIGHT = CANVAS_WIDTH - 50;
+    const OUT_LEFT = 20;
+    const OUT_RIGHT = CANVAS_WIDTH - 20;
+    
+    // ============================================
+    // DOG BREEDS WITH SKILLS
+    // ============================================
+    const DOG_BREEDS = {
+      rex: {
+        name: 'Rex',
+        breed: 'Bulldog',
+        emoji: '🐕',
+        color: '#8B6914',
+        earColor: '#5C4008',
+        bodyShape: 'stocky',
+        earType: 'floppy',
+        skill: 'Power Smash',
+        skillDesc: 'Next hit is a devastating smash!',
+        cooldown: 3000,
+        iconColor: '#8B6914'
+      },
+      luna: {
+        name: 'Luna',
+        breed: 'Greyhound',
+        emoji: '🐕‍🦺',
+        color: '#A0A0A0',
+        earColor: '#707070',
+        bodyShape: 'lean',
+        earType: 'pointy',
+        skill: 'Quick Dash',
+        skillDesc: 'Burst of speed for 0.35s!',
+        cooldown: 2500,
+        iconColor: '#A0A0A0'
+      },
+      milo: {
+        name: 'Milo',
+        breed: 'Poodle',
+        emoji: '🩱',
+        color: '#F5F5F5',
+        earColor: '#E0E0E0',
+        bodyShape: 'fluffy',
+        earType: 'floppy',
+        skill: 'Super Jump',
+        skillDesc: 'Massive jump with float!',
+        cooldown: 3000,
+        iconColor: '#F5F5F5'
+      },
+      coco: {
+        name: 'Coco',
+        breed: 'Corgi',
+        emoji: '🦊',
+        color: '#D4A574',
+        earColor: '#8B6914',
+        bodyShape: 'short',
+        earType: 'big',
+        skill: 'Long Reach',
+        skillDesc: 'Extended hit range for 2s!',
+        cooldown: 3000,
+        iconColor: '#D4A574'
+      }
+    };
+    
+    // ============================================
+    // GAME STATE
+    // ============================================
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    let gameState = 'title'; // title, mode, difficulty, charP1, charP2, controls, playing, paused, gameover
+    let gameMode = '1p'; // '1p' or '2p'
+    let difficulty = 'medium'; // 'easy', 'medium', 'hard'
+    let lastTime = 0;
+    let deltaTime = 0;
+    let accumulator = 0;        // fixed-timestep accumulator
+    const FIXED_DT = 1000 / 60; // simulate at a constant 60Hz regardless of display refresh
+    
+    // Audio context
+    let audioCtx = null;
+    
+    // Score
+    let p1Score = 0;
+    let p2Score = 0;
+    let server = 'p1';
+    let lastHitter = null; // 'p1' | 'p2' | null - enforces "one hit per side" badminton rule
+    
+    // Selected dogs
+    let p1Dog = null;
+    let p2Dog = null;
+    
+    // Input state - P1 and P2 separate
+    const keysP1 = { left: false, right: false, jump: false, hit: false, skill: false };
+    const keysP2 = { left: false, right: false, jump: false, hit: false, skill: false };
+    
+    // ============================================
+    // GAME OBJECTS
+    // ============================================
+    
+    // Player 1 (left side)
+    const player1 = {
+      x: 200,
+      y: GROUND_Y,
+      vx: 0,
+      vy: 0,
+      width: DOG_WIDTH,
+      height: DOG_HEIGHT,
+      isJumping: false,
+      isSwinging: false,
+      swingTimer: 0,
+      swingDuration: 200,
+      facing: 1,
+      courtSide: 'left',
+      // Skill state
+      skillActive: false,
+      skillTimer: 0,
+      skillCooldown: 0,
+      skillMaxCooldown: 3000,
+      breed: null
+    };
+    
+    // Player 2 / AI (right side)
+    const player2 = {
+      x: CANVAS_WIDTH - 200,
+      y: GROUND_Y,
+      vx: 0,
+      vy: 0,
+      width: DOG_WIDTH,
+      height: DOG_HEIGHT,
+      isJumping: false,
+      isSwinging: false,
+      swingTimer: 0,
+      swingDuration: 200,
+      facing: -1,
+      courtSide: 'right',
+      isAI: true,
+      reactionDelay: 200,
+      moveError: 30,
+      targetX: CANVAS_WIDTH - 200,
+      aiTimer: 0,
+      // Skill state
+      skillActive: false,
+      skillTimer: 0,
+      skillCooldown: 0,
+      skillMaxCooldown: 3000,
+      breed: null
+    };
+    
+    // Shuttlecock
+    const shuttle = {
+      x: CANVAS_WIDTH / 2,
+      y: 200,
+      vx: 0,
+      vy: 0,
+      radius: 8,
+      inPlay: false,
+      trail: []
+    };
+    
+    // Particles
+    let particles = [];
+    
+    // ============================================
+    // AUDIO SYSTEM
+    // ============================================
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+    
+    function playHitSound() {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+      osc.start(audioCtx.currentTime);
+      osc.stop(audioCtx.currentTime + 0.1);
+    }
+    
+    function playSmashSound() {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+      osc.start(audioCtx.currentTime);
+      osc.stop(audioCtx.currentTime + 0.15);
+    }
+    
+    function playPointSound() {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(523, audioCtx.currentTime);
+      osc.frequency.setValueAtTime(659, audioCtx.currentTime + 0.1);
+      osc.frequency.setValueAtTime(784, audioCtx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+      osc.start(audioCtx.currentTime);
+      osc.stop(audioCtx.currentTime + 0.4);
+    }
+    
+    function playWinSound() {
+      if (!audioCtx) return;
+      const notes = [523, 659, 784, 1047];
+      notes.forEach((freq, i) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.15);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime + i * 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.15 + 0.3);
+        osc.start(audioCtx.currentTime + i * 0.15);
+        osc.stop(audioCtx.currentTime + i * 0.15 + 0.3);
+      });
+    }
+    
+    function playSkillSound() {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1760, audioCtx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+      osc.start(audioCtx.currentTime);
+      osc.stop(audioCtx.currentTime + 0.3);
+    }
+    
+    // ============================================
+    // INPUT HANDLING - SEPARATE P1 AND P2
+    // ============================================
+    document.addEventListener('keydown', (e) => {
+      // Stop the page scrolling on space/arrows while playing
+      if (gameState === 'playing' && ['Space','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.code)) {
+        e.preventDefault();
+      }
+      
+      // Player 1: A/D = move, W = jump, Space = special skill
+      if (e.code === 'KeyA') keysP1.left = true;
+      if (e.code === 'KeyD') keysP1.right = true;
+      if (e.code === 'KeyW') {
+        if (!keysP1.jump && player1.y >= GROUND_Y && gameState === 'playing') {
+          if (player1.skillActive && player1.breed === 'milo') {
+            // Super jump already active
+          } else {
+            player1.vy = JUMP_FORCE;
+            player1.isJumping = true;
+          }
+        }
+        keysP1.jump = true;
+      }
+      if (e.code === 'Space') {
+        if (!keysP1.skill && gameState === 'playing') {
+          activateSkill(player1, 'p1');
+        }
+        keysP1.skill = true;
+      }
+      
+      // Player 2: Arrow keys = move/jump, Shift = special skill
+      if (e.code === 'ArrowLeft') keysP2.left = true;
+      if (e.code === 'ArrowRight') keysP2.right = true;
+      if (e.code === 'ArrowUp') {
+        if (!keysP2.jump && player2.y >= GROUND_Y && gameState === 'playing') {
+          if (player2.skillActive && player2.breed === 'milo') {
+            // Super jump already active
+          } else {
+            player2.vy = JUMP_FORCE;
+            player2.isJumping = true;
+          }
+        }
+        keysP2.jump = true;
+      }
+      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+        if (!keysP2.skill && gameState === 'playing' && gameMode === '2p') {
+          activateSkill(player2, 'p2');
+        }
+        keysP2.skill = true;
+      }
+      
+      if (e.code === 'Escape') {
+        togglePause();
+      }
+    });
+    
+    document.addEventListener('keyup', (e) => {
+      if (e.code === 'KeyA') keysP1.left = false;
+      if (e.code === 'KeyD') keysP1.right = false;
+      if (e.code === 'KeyW') keysP1.jump = false;
+      if (e.code === 'Space') keysP1.skill = false;
+      
+      if (e.code === 'ArrowLeft') keysP2.left = false;
+      if (e.code === 'ArrowRight') keysP2.right = false;
+      if (e.code === 'ArrowUp') keysP2.jump = false;
+      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') keysP2.skill = false;
+    });
+    
+    // ============================================
+    // CHARACTER SELECTION UI
+    // ============================================
+    function createCharCards(containerId, onSelect) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = '';
+      
+      Object.keys(DOG_BREEDS).forEach(key => {
+        const dog = DOG_BREEDS[key];
+        const card = document.createElement('div');
+        card.className = 'char-card';
+        card.innerHTML = `
+          <div class="char-preview" style="background: ${dog.iconColor}22;">${dog.emoji}</div>
+          <div class="char-name">${dog.name}</div>
+          <div class="char-breed">${dog.breed}</div>
+          <div class="char-skill">⚡ ${dog.skill}<br>${dog.skillDesc}</div>
+        `;
+        card.addEventListener('click', () => {
+          document.querySelectorAll(`#${containerId} .char-card`).forEach(c => c.classList.remove('selected'));
+          card.classList.add('selected');
+          onSelect(key);
+        });
+        container.appendChild(card);
+      });
+    }
+    
+    // ============================================
+    // SKILL SYSTEM
+    // ============================================
+    function activateSkill(dog, playerKey) {
+      if (dog.skillCooldown > 0 || dog.skillActive) return;
+      
+      dog.skillActive = true;
+      dog.skillTimer = 0;
+      playSkillSound();
+      
+      const breed = DOG_BREEDS[dog.breed];
+      showMessage(`${breed.name}: ${breed.skill}!`);
+      
+      // Apply skill effects immediately
+      if (dog.breed === 'milo') {
+        // Super Jump - instant upward boost
+        dog.vy = SUPER_JUMP_FORCE;
+        dog.isJumping = true;
+      } else if (dog.breed === 'luna') {
+        // Quick Dash - will be applied in update
+        dog.dashing = true;
+        dog.dashTimer = 350;
+      }
+    }
+    
+    function updateSkills(dt, dog) {
+      if (dog.skillActive) {
+        dog.skillTimer += dt;
+        
+        const breed = DOG_BREEDS[dog.breed];
+        
+        // Check skill duration
+        let skillDuration = 0;
+        if (dog.breed === 'rex') skillDuration = 1500;   // window to land a power smash
+        else if (dog.breed === 'coco') skillDuration = 2000;
+        else if (dog.breed === 'luna') skillDuration = 500;
+        else skillDuration = 300; // milo: super-jump impulse
+        
+        if (dog.skillTimer >= skillDuration) {
+          dog.skillActive = false;
+          if (dog.breed === 'luna') dog.dashing = false;
+          dog.skillCooldown = breed.cooldown;
+          dog.skillMaxCooldown = breed.cooldown;
+        }
+      }
+      
+      // Update cooldown
+      if (dog.skillCooldown > 0) {
+        dog.skillCooldown -= dt;
+        if (dog.skillCooldown < 0) dog.skillCooldown = 0;
+      }
+    }
+    
+    function getHitRange(dog) {
+      if (dog.skillActive && dog.breed === 'coco') {
+        return LONG_REACH_RANGE;
+      }
+      return HIT_RANGE;
+    }
+    
+    function getMoveSpeed(dog) {
+      if (dog.dashing && dog.breed === 'luna') {
+        return DASH_SPEED;
+      }
+      return MOVE_SPEED;
+    }
+    
+    // ============================================
+    // GAME LOGIC
+    // ============================================
+    
+    function resetPositions() {
+      player1.x = 200;
+      player1.y = GROUND_Y;
+      player1.vy = 0;
+      player1.isJumping = false;
+      player1.isSwinging = false;
+      player1.skillActive = false;
+      player1.skillTimer = 0;
+      player1.skillCooldown = 0;
+      player1.dashing = false;
+      
+      player2.x = CANVAS_WIDTH - 200;
+      player2.y = GROUND_Y;
+      player2.vy = 0;
+      player2.isJumping = false;
+      player2.isSwinging = false;
+      player2.skillActive = false;
+      player2.skillTimer = 0;
+      player2.skillCooldown = 0;
+      player2.dashing = false;
+      player2.aiTimer = 0;
+      
+      shuttle.x = CANVAS_WIDTH / 2;
+      shuttle.y = 200;
+      shuttle.vx = 0;
+      shuttle.vy = 0;
+      shuttle.inPlay = false;
+      shuttle.trail = [];
+      lastHitter = null;
+      
+      particles = [];
+    }
+    
+    function applyDogBreed(dog, breedKey) {
+      dog.breed = breedKey;
+      const breed = DOG_BREEDS[breedKey];
+      dog.skillMaxCooldown = breed.cooldown;
+    }
+    
+    // Aim-assisted launch: given a start point and a target landing X, compute the
+    // velocity that reaches it with an arc that clears the net. This makes every hit
+    // land inside the opponent's court regardless of where the dog is standing.
+    function launchShuttle(fromX, fromY, targetX, vUp) {
+      const g = SHUTTLE_GRAVITY;
+      const t1 = vUp / g;                                       // time to apex
+      const apexY = fromY - (vUp * vUp) / (2 * g);              // apex height
+      const t2 = Math.sqrt(Math.max(0.001, 2 * (GROUND_Y - apexY) / g)); // fall time
+      const T = t1 + t2;                                        // total flight time
+      shuttle.vx = (targetX - fromX) / T;
+      shuttle.vy = -vUp;
+    }
+    
+    function serveShuttle(who) {
+      shuttle.inPlay = true;
+      const server = who === 'p1' ? player1 : player2;
+      const dir = who === 'p1' ? 1 : -1;
+      
+      // SLOWER serve velocities
+      shuttle.x = who === 'p1' ? player1.x + 40 : player2.x - 40;
+      shuttle.y = who === 'p1' ? player1.y - 60 : player2.y - 60;
+      launchShuttle(shuttle.x, shuttle.y, who === 'p1' ? NET_X + 180 : NET_X - 180, 9);
+      shuttle.trail = [];
+      lastHitter = who;       // the server cannot touch it again until it crosses the net
+    }
+    
+    function tryHit(dog, isP1) {
+      if (dog.isSwinging) return;
+      if (!shuttle.inPlay) return;
+      
+      const side = isP1 ? 'p1' : 'p2';
+      
+      // Badminton rule: a side may hit the shuttle only ONCE until it crosses the net
+      if (lastHitter === side) return;
+      
+      // A dog can only hit the shuttle while it is still on its own side of the net
+      if (side === 'p1' && shuttle.x > NET_X) return;
+      if (side === 'p2' && shuttle.x < NET_X) return;
+      
+      const dx = shuttle.x - dog.x;
+      const dy = shuttle.y - (dog.y - 50);
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const hitRange = getHitRange(dog);
+      
+      if (dist < hitRange) {
+        dog.isSwinging = true;
+        dog.swingTimer = dog.swingDuration;
+        lastHitter = side;
+        
+        const isSmash = dog.skillActive && dog.breed === 'rex';
+        
+        // Aim-assisted launch: pick a landing spot on the opponent's court and
+        // compute a velocity that reaches it while clearing the net.
+        const baseTarget = isP1 ? NET_X + 220 : NET_X - 220; // ~middle of opponent court
+        let targetX = baseTarget + (Math.random() - 0.5) * 140;
+        let vUp = 9;
+        if (isSmash) {
+          // POWER SMASH: flatter + faster arc, lands deep - hard to return
+          vUp = 6.5;
+          targetX = baseTarget + (isP1 ? 120 : -120);
+          playSmashSound();
+          // consume the skill on use so it is a one-shot power hit
+          dog.skillActive = false;
+          dog.skillTimer = 0;
+          dog.skillCooldown = dog.skillMaxCooldown;
+        }
+        // keep the landing inside the opponent's court
+        if (isP1) targetX = Math.max(NET_X + 80, Math.min(COURT_RIGHT - 40, targetX));
+        else      targetX = Math.max(COURT_LEFT + 40, Math.min(NET_X - 80, targetX));
+        launchShuttle(shuttle.x, shuttle.y, targetX, vUp);
+        
+        playHitSound();
+        createHitParticles(shuttle.x, shuttle.y, isP1 ? player1.breed : player2.breed);
+        
+        const hitter = isP1 ? 'Player 1' : (gameMode === '1p' ? 'Bot' : 'Player 2');
+        showMessage(isSmash ? '💥 SMASH!' : `${hitter} Hits!`);
+      }
+    }
+    
+    function createHitParticles(x, y, breedKey) {
+      const breed = DOG_BREEDS[breedKey];
+      const color = breed.iconColor;
+      for (let i = 0; i < 8; i++) {
+        particles.push({
+          x, y,
+          vx: (Math.random() - 0.5) * 8,
+          vy: (Math.random() - 0.5) * 8,
+          life: 300,
+          color,
+          size: 3 + Math.random() * 4
+        });
+      }
+    }
+    
+    // Automatic hit: fires whenever the shuttle is above the dog and on its side.
+    // The player never presses a "hit" key - the dog swings by itself.
+    function autoHit(dog, isP1) {
+      if (!shuttle.inPlay) return;
+      const side = isP1 ? 'p1' : 'p2';
+      if (lastHitter === side) return;   // already hit this rally, must let it cross
+      if (dog.isSwinging) return;        // still mid-swing
+      if (side === 'p1' && shuttle.x > NET_X) return;  // only hit on own side
+      if (side === 'p2' && shuttle.x < NET_X) return;
+      tryHit(dog, isP1);                 // tryHit performs the "above the dog" range check
+    }
+    
+    function updatePlayer1(dt) {
+      const speed = getMoveSpeed(player1);
+      
+      if (keysP1.left && player1.x > COURT_LEFT) {
+        player1.x -= speed;
+        player1.facing = -1;
+      }
+      if (keysP1.right && player1.x < NET_X - 40) {
+        player1.x += speed;
+        player1.facing = 1;
+      }
+      
+      // Gravity - integrate first, then clamp to ground (so a fresh jump isn't cancelled)
+      // Milo's Super Jump floats (reduced gravity) while rising.
+      player1.vy += (player1.breed === 'milo' && player1.skillActive && player1.vy < 0) ? GRAVITY * 0.45 : GRAVITY;
+      player1.y += player1.vy;
+      if (player1.y >= GROUND_Y) {
+        player1.y = GROUND_Y;
+        player1.vy = 0;
+        player1.isJumping = false;
+      }
+      
+      // Swing timer
+      if (player1.isSwinging) {
+        player1.swingTimer -= dt;
+        if (player1.swingTimer <= 0) player1.isSwinging = false;
+      }
+      
+      updateSkills(dt, player1);
+      autoHit(player1, true);
+    }
+    
+    function updatePlayer2(dt) {
+      if (gameMode === '1p') {
+        updateAI(dt);
+        return;
+      }
+      
+      const speed = getMoveSpeed(player2);
+      
+      if (keysP2.left && player2.x > NET_X + 40) {
+        player2.x -= speed;
+        player2.facing = -1;
+      }
+      if (keysP2.right && player2.x < COURT_RIGHT) {
+        player2.x += speed;
+        player2.facing = 1;
+      }
+      
+      // Gravity - integrate first, then clamp to ground (so a fresh jump isn't cancelled)
+      // Milo's Super Jump floats (reduced gravity) while rising.
+      player2.vy += (player2.breed === 'milo' && player2.skillActive && player2.vy < 0) ? GRAVITY * 0.45 : GRAVITY;
+      player2.y += player2.vy;
+      if (player2.y >= GROUND_Y) {
+        player2.y = GROUND_Y;
+        player2.vy = 0;
+        player2.isJumping = false;
+      }
+      
+      // Swing timer
+      if (player2.isSwinging) {
+        player2.swingTimer -= dt;
+        if (player2.swingTimer <= 0) player2.isSwinging = false;
+      }
+      
+      updateSkills(dt, player2);
+      autoHit(player2, false);
+    }
+    
+    function updateAI(dt) {
+      if (!shuttle.inPlay) return;
+      
+      // Difficulty settings
+      let reactionDelay, moveError, accuracy;
+      switch (difficulty) {
+        case 'easy':
+          reactionDelay = 350;
+          moveError = 80;
+          accuracy = 0.08;
+          break;
+        case 'hard':
+          reactionDelay = 80;
+          moveError = 15;
+          accuracy = 0.25;
+          break;
+        default: // medium
+          reactionDelay = 200;
+          moveError = 35;
+          accuracy = 0.15;
+      }
+      
+      // Reaction delay
+      player2.aiTimer += dt;
+      if (player2.aiTimer < reactionDelay) return;
+      
+      // Predict landing
+      let predictedX = shuttle.x;
+      if (shuttle.vx !== 0 && shuttle.vy > 0) {
+        const timeToGround = Math.abs((GROUND_Y - shuttle.y) / (shuttle.vy || 1));
+        predictedX = shuttle.x + shuttle.vx * timeToGround * 10;
+      }
+      
+      // Add error based on difficulty
+      if (Math.random() < 0.03) {
+        player2.targetX = Math.max(NET_X + 40, Math.min(COURT_RIGHT, 
+          predictedX + (Math.random() - 0.5) * moveError * 2));
+      }
+      
+      // Move toward target
+      const dx = player2.targetX - player2.x;
+      const aiSpeed = difficulty === 'hard' ? MOVE_SPEED * 0.95 : 
+                      difficulty === 'easy' ? MOVE_SPEED * 0.6 : MOVE_SPEED * 0.85;
+      
+      if (Math.abs(dx) > 10) {
+        player2.x += Math.sign(dx) * aiSpeed;
+        player2.facing = Math.sign(dx);
+      }
+      
+      // Keep on side
+      player2.x = Math.max(NET_X + 40, Math.min(COURT_RIGHT, player2.x));
+      
+      // Gravity - integrate first, then clamp to ground
+      // Milo's Super Jump floats (reduced gravity) while rising.
+      player2.vy += (player2.breed === 'milo' && player2.skillActive && player2.vy < 0) ? GRAVITY * 0.45 : GRAVITY;
+      player2.y += player2.vy;
+      if (player2.y >= GROUND_Y) {
+        player2.y = GROUND_Y;
+        player2.vy = 0;
+        player2.isJumping = false;
+      }
+      
+      // AI swing timer
+      if (player2.isSwinging) {
+        player2.swingTimer -= dt;
+        if (player2.swingTimer <= 0) player2.isSwinging = false;
+      }
+      // Automatic hit - difficulty is expressed through movement speed & reaction,
+      // not through a random miss chance.
+      autoHit(player2, false);
+      
+      // Target update
+      if (shuttle.vx > 0 && shuttle.x > NET_X) {
+        player2.targetX = Math.min(COURT_RIGHT, shuttle.x + 50);
+      } else if (shuttle.x > NET_X) {
+        player2.targetX = NET_X + 100;
+      }
+    }
+    
+    function updateShuttle(dt) {
+      if (!shuttle.inPlay) return;
+      
+      // Trail
+      shuttle.trail.push({ x: shuttle.x, y: shuttle.y, alpha: 1 });
+      if (shuttle.trail.length > 10) shuttle.trail.shift();
+      
+      // Physics: gravity only. Launch velocity is aim-assisted, so the shuttle
+      // travels a predictable, slow arc instead of decaying drag.
+      shuttle.vy += SHUTTLE_GRAVITY;
+      shuttle.x += shuttle.vx;
+      shuttle.y += shuttle.vy;
+      
+      // Trail alpha
+      shuttle.trail.forEach((t, i) => {
+        t.alpha = (i + 1) / shuttle.trail.length;
+      });
+      
+      // Ground collision
+      if (shuttle.y >= GROUND_Y - 5) {
+        shuttle.y = GROUND_Y - 5;
+        shuttle.inPlay = false;
+        
+        if (shuttle.x < NET_X) {
+          p2Score++;
+          showMessage('Player 2 Scores!');
+          playPointSound();
+          server = 'p2';
+          if (p2Score >= WIN_SCORE) {
+            endGame('p2');
+            return;
+          }
+        } else {
+          p1Score++;
+          showMessage('Player 1 Scores!');
+          playPointSound();
+          server = 'p1';
+          if (p1Score >= WIN_SCORE) {
+            endGame('p1');
+            return;
+          }
+        }
+        updateScoreboard();
+        setTimeout(() => serveShuttle(server), 1500);
+      }
+      
+      // Out of bounds - whoever hit it out loses the rally (opponent scores)
+      if (shuttle.x < OUT_LEFT || shuttle.x > OUT_RIGHT) {
+        shuttle.inPlay = false;
+        const winner = lastHitter === 'p1' ? 'p2' : 'p1';
+        if (winner === 'p1') { p1Score++; } else { p2Score++; }
+        const winnerName = winner === 'p1'
+          ? (gameMode === '1p' ? 'You' : 'Player 1')
+          : (gameMode === '1p' ? 'Bot' : 'Player 2');
+        showMessage(`Out! Point ${winnerName}`);
+        playPointSound();
+        server = winner;
+        updateScoreboard();
+        if (p1Score >= WIN_SCORE) { endGame('p1'); return; }
+        if (p2Score >= WIN_SCORE) { endGame('p2'); return; }
+        setTimeout(() => serveShuttle(server), 1500);
+      }
+      
+      // Net collision - fires only when the shuttle actually touches the net mesh,
+      // i.e. BELOW the top of the net. Hitting the net is a fault: the shuttle drops
+      // straight down on the hitter's side, so the opponent wins the point.
+      if (Math.abs(shuttle.x - NET_X) < 8 && shuttle.y > NET_TOP && shuttle.y < GROUND_Y) {
+        shuttle.x = shuttle.x < NET_X ? NET_X - 8 : NET_X + 8;
+        shuttle.vx = 0;
+        shuttle.vy = Math.max(shuttle.vy, 2);
+        playHitSound();
+        showMessage('Net!');
+      }
+    }
+    
+    function updateParticles(dt) {
+      particles = particles.filter(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += GRAVITY * 0.5;
+        p.life -= dt;
+        p.size *= 0.95;
+        return p.life > 0;
+      });
+    }
+    
+    function updateScoreboard() {
+      const p1Name = gameMode === '1p' ? 'You' : p1Dog ? DOG_BREEDS[p1Dog].name : 'P1';
+      const p2Name = gameMode === '1p' ? 'Bot' : p2Dog ? DOG_BREEDS[p2Dog].name : 'P2';
+      document.getElementById('p1Score').textContent = `${p1Name}: ${p1Score}`;
+      document.getElementById('p2Score').textContent = `${p2Name}: ${p2Score}`;
+    }
+    
+    function showMessage(text) {
+      const msg = document.getElementById('message');
+      msg.textContent = text;
+      msg.classList.add('show');
+      setTimeout(() => msg.classList.remove('show'), 1000);
+    }
+    
+    function togglePause() {
+      if (gameState === 'playing') {
+        gameState = 'paused';
+        document.getElementById('pauseScreen').classList.remove('hidden');
+      } else if (gameState === 'paused') {
+        gameState = 'playing';
+        document.getElementById('pauseScreen').classList.add('hidden');
+        lastTime = performance.now();
+        accumulator = 0;
+        requestAnimationFrame(gameLoop);
+      }
+    }
+    
+    function endGame(winner) {
+      gameState = 'gameover';
+      const screen = document.getElementById('gameOverScreen');
+      const title = document.getElementById('gameOverTitle');
+      const msg = document.getElementById('gameOverMessage');
+      
+      playWinSound();
+      
+      const winnerName = winner === 'p1' 
+        ? (gameMode === '1p' ? 'You' : 'Player 1')
+        : (gameMode === '1p' ? 'Bot' : 'Player 2');
+      
+      if (winner === 'p1') {
+        title.textContent = '🏆 Victory!';
+        msg.textContent = `${winnerName} wins ${p1Score}-${p2Score}!`;
+      } else {
+        title.textContent = gameMode === '1p' ? '😢 Defeat' : '🏆 Player 2 Wins!';
+        msg.textContent = `${winnerName} wins ${p2Score}-${p1Score}!`;
+      }
+      
+      screen.classList.remove('hidden');
+    }
+    
+    function startMatch() {
+      initAudio();
+      p1Score = 0;
+      p2Score = 0;
+      server = 'p1';
+      updateScoreboard();
+      resetPositions();
+      gameState = 'playing';
+      
+      // Hide all overlays
+      document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
+      document.getElementById('scoreboard').classList.remove('hidden');
+      document.getElementById('pauseBtn').classList.remove('hidden');
+      document.getElementById('hud').classList.remove('hidden');
+      
+      // Show P2 controls only in 2P mode
+      document.getElementById('p2Controls').classList.toggle('hidden', gameMode === '1p');
+      
+      // Setup HUD
+      const p1Breed = DOG_BREEDS[p1Dog];
+      const p2Breed = DOG_BREEDS[p2Dog];
+      document.getElementById('p1Name').textContent = gameMode === '1p' ? 'You' : p1Breed.name;
+      document.getElementById('p2Name').textContent = gameMode === '1p' ? 'Bot' : p2Breed.name;
+      document.getElementById('p1SkillName').textContent = p1Breed.skill;
+      document.getElementById('p2SkillName').textContent = p2Breed.skill;
+      document.getElementById('p1Cooldown').style.width = '100%';
+      document.getElementById('p2Cooldown').style.width = '100%';
+      
+      lastTime = performance.now();
+      accumulator = 0;
+      requestAnimationFrame(gameLoop);
+      
+      setTimeout(() => {
+        showMessage('Ready?');
+        setTimeout(() => showMessage('Go!'), 800);
+        setTimeout(() => serveShuttle(server), 1200);
+      }, 500);
+    }
+    
+    // ============================================
+    // RENDERING
+    // ============================================
+    
+    function drawCourt() {
+      // Sky
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+      skyGrad.addColorStop(0, '#87CEEB');
+      skyGrad.addColorStop(1, '#E0F6FF');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, GROUND_Y);
+      
+      // Ground
+      const groundGrad = ctx.createLinearGradient(0, GROUND_Y, 0, CANVAS_HEIGHT);
+      groundGrad.addColorStop(0, '#90EE90');
+      groundGrad.addColorStop(1, '#228B22');
+      ctx.fillStyle = groundGrad;
+      ctx.fillRect(0, GROUND_Y, CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_Y);
+      
+      // Court lines
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(COURT_LEFT, GROUND_Y);
+      ctx.lineTo(COURT_RIGHT, GROUND_Y);
+      ctx.stroke();
+      
+      // Center line
+      ctx.setLineDash([10, 5]);
+      ctx.beginPath();
+      ctx.moveTo(NET_X, GROUND_Y);
+      ctx.lineTo(NET_X, GROUND_Y + 20);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      // Net posts
+      ctx.fillStyle = '#654321';
+      ctx.fillRect(NET_X - 5, NET_TOP, 10, NET_HEIGHT);
+      
+      // Net
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let y = NET_TOP; y < GROUND_Y; y += 8) {
+        ctx.moveTo(NET_X - 4, y);
+        ctx.lineTo(NET_X + 4, y);
+      }
+      ctx.stroke();
+      
+      ctx.beginPath();
+      ctx.moveTo(NET_X - 4, NET_TOP);
+      ctx.lineTo(NET_X - 4, GROUND_Y);
+      ctx.moveTo(NET_X + 4, NET_TOP);
+      ctx.lineTo(NET_X + 4, GROUND_Y);
+      ctx.stroke();
+    }
+    
+    function drawDog(dog, isP1) {
+      ctx.save();
+      ctx.translate(dog.x, dog.y);
+      ctx.scale(dog.facing, 1);
+      
+      const breed = DOG_BREEDS[dog.breed];
+      const bodyY = -50;
+      
+      // Shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.2)';
+      ctx.beginPath();
+      ctx.ellipse(0, 5, 30, 10, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Skill aura - visible ring while a skill is active
+      if (dog.skillActive) {
+        ctx.globalAlpha = 0.85;
+        ctx.strokeStyle = breed.iconColor;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, -50, 48, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+      
+      // Tail - varies by breed
+      ctx.fillStyle = breed.color;
+      ctx.beginPath();
+      if (breed.bodyShape === 'short') {
+        // Corgi stubby tail
+        ctx.moveTo(-25, bodyY + 5);
+        ctx.quadraticCurveTo(-35, bodyY, -30, bodyY + 10);
+        ctx.fill();
+      } else {
+        ctx.moveTo(-25, bodyY + 10);
+        ctx.quadraticCurveTo(-40, bodyY - 10, -35, bodyY - 25);
+        ctx.quadraticCurveTo(-20, bodyY - 15, -15, bodyY + 10);
+        ctx.fill();
+      }
+      
+      // Legs
+      ctx.fillStyle = breed.earColor;
+      if (breed.bodyShape === 'short') {
+        // Corgi short legs
+        ctx.fillRect(-20, bodyY + 25, 12, 20);
+        ctx.fillRect(8, bodyY + 25, 12, 20);
+        ctx.fillRect(-8, bodyY + 25, 12, 20);
+        ctx.fillRect(18, bodyY + 25, 12, 20);
+      } else if (breed.bodyShape === 'lean') {
+        // Greyhound thin legs
+        ctx.fillRect(-18, bodyY + 20, 8, 35);
+        ctx.fillRect(10, bodyY + 20, 8, 35);
+        ctx.fillRect(-6, bodyY + 20, 8, 35);
+        ctx.fillRect(20, bodyY + 20, 8, 35);
+      } else {
+        ctx.fillRect(-20, bodyY + 20, 12, 30);
+        ctx.fillRect(8, bodyY + 20, 12, 30);
+        ctx.fillRect(-8, bodyY + 20, 12, 30);
+        ctx.fillRect(18, bodyY + 20, 12, 30);
+      }
+      
+      // Body
+      ctx.fillStyle = breed.color;
+      ctx.beginPath();
+      if (breed.bodyShape === 'stocky') {
+        // Bulldog stocky
+        ctx.ellipse(-5, bodyY, 40, 28, 0, 0, Math.PI * 2);
+      } else if (breed.bodyShape === 'lean') {
+        // Greyhound lean
+        ctx.ellipse(-5, bodyY, 30, 20, 0, 0, Math.PI * 2);
+      } else if (breed.bodyShape === 'fluffy') {
+        // Poodle fluffy
+        ctx.ellipse(-5, bodyY, 35, 28, 0, 0, Math.PI * 2);
+      } else {
+        ctx.ellipse(-5, bodyY, 35, 25, 0, 0, Math.PI * 2);
+      }
+      ctx.fill();
+      
+      // Neck
+      ctx.fillStyle = breed.color;
+      ctx.beginPath();
+      ctx.ellipse(15, bodyY - 15, 15, 18, -0.3, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Head
+      ctx.fillStyle = breed.color;
+      ctx.beginPath();
+      if (breed.bodyShape === 'stocky') {
+        // Bulldog flat face
+        ctx.ellipse(25, bodyY - 35, 24, 22, 0, 0, Math.PI * 2);
+      } else if (breed.bodyShape === 'lean') {
+        // Greyhound long snout
+        ctx.ellipse(28, bodyY - 35, 20, 16, 0, 0, Math.PI * 2);
+      } else {
+        ctx.ellipse(25, bodyY - 35, 22, 20, 0, 0, Math.PI * 2);
+      }
+      ctx.fill();
+      
+      // Snout
+      ctx.fillStyle = breed.earColor;
+      ctx.beginPath();
+      if (breed.bodyShape === 'stocky') {
+        ctx.ellipse(40, bodyY - 28, 14, 12, 0, 0, Math.PI * 2);
+      } else if (breed.bodyShape === 'lean') {
+        ctx.ellipse(45, bodyY - 32, 12, 8, 0, 0, Math.PI * 2);
+      } else {
+        ctx.ellipse(42, bodyY - 30, 12, 10, 0, 0, Math.PI * 2);
+      }
+      ctx.fill();
+      
+      // Nose
+      ctx.fillStyle = '#333';
+      ctx.beginPath();
+      const noseX = breed.bodyShape === 'stocky' ? 48 : breed.bodyShape === 'lean' ? 54 : 50;
+      ctx.arc(noseX, bodyY - (breed.bodyShape === 'stocky' ? 28 : 32), 4, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Eye
+      ctx.fillStyle = '#333';
+      ctx.beginPath();
+      ctx.arc(30, bodyY - 40, 4, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Eye highlight
+      ctx.fillStyle = 'white';
+      ctx.beginPath();
+      ctx.arc(31, bodyY - 41, 2, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Ear
+      ctx.fillStyle = breed.earColor;
+      ctx.beginPath();
+      if (breed.earType === 'floppy') {
+        ctx.moveTo(15, bodyY - 50);
+        ctx.quadraticCurveTo(5, bodyY - 60, 8, bodyY - 45);
+        ctx.quadraticCurveTo(18, bodyY - 48, 20, bodyY - 50);
+      } else if (breed.earType === 'big') {
+        // Corgi big ears
+        ctx.moveTo(12, bodyY - 52);
+        ctx.lineTo(0, bodyY - 75);
+        ctx.lineTo(20, bodyY - 55);
+      } else {
+        // Pointy
+        ctx.moveTo(15, bodyY - 50);
+        ctx.lineTo(5, bodyY - 70);
+        ctx.lineTo(20, bodyY - 52);
+      }
+      ctx.fill();
+      
+      // Poodle topknot
+      if (breed.bodyShape === 'fluffy') {
+        ctx.fillStyle = breed.color;
+        ctx.beginPath();
+        ctx.arc(22, bodyY - 55, 10, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      // Racket arm
+      ctx.fillStyle = breed.earColor;
+      ctx.beginPath();
+      ctx.arc(10, bodyY + 5, 8, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Racket
+      ctx.save();
+      if (dog.isSwinging) {
+        const swingProgress = 1 - (dog.swingTimer / dog.swingDuration);
+        ctx.rotate(swingProgress * Math.PI - Math.PI / 4);
+      }
+      ctx.translate(20, bodyY + 10);
+      
+      // Handle
+      ctx.strokeStyle = '#8B4513';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, 25);
+      ctx.stroke();
+      
+      // Head
+      ctx.strokeStyle = '#CD5C5C';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.ellipse(0, -10, 18, 22, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // Strings
+      ctx.strokeStyle = 'rgba(205,92,92,0.5)';
+      ctx.lineWidth = 1;
+      for (let i = -15; i <= 15; i += 6) {
+        ctx.beginPath();
+        ctx.moveTo(i, -25);
+        ctx.lineTo(i, 5);
+        ctx.stroke();
+      }
+      for (let i = -18; i <= 18; i += 6) {
+        ctx.beginPath();
+        ctx.moveTo(-15, i);
+        ctx.lineTo(15, i);
+        ctx.stroke();
+      }
+      
+      ctx.restore();
+      ctx.restore();
+    }
+    
+    function drawShuttle() {
+      if (!shuttle.inPlay && shuttle.y < 100) return;
+      
+      // Trail
+      shuttle.trail.forEach((t, i) => {
+        const alpha = t.alpha * 0.3;
+        ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, shuttle.radius * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      
+      const x = shuttle.x;
+      const y = shuttle.y;
+      
+      // Cork
+      ctx.fillStyle = '#F5DEB3';
+      ctx.beginPath();
+      ctx.ellipse(x, y + 3, 6, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Feathers
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.strokeStyle = '#DDD';
+      ctx.lineWidth = 1;
+      
+      for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2;
+        const fx = x + Math.cos(angle) * 10;
+        const fy = y - 10 + Math.sin(angle) * 5;
+        
+        ctx.beginPath();
+        ctx.moveTo(x, y - 5);
+        ctx.quadraticCurveTo(fx, fy - 8, fx, fy - 15);
+        ctx.quadraticCurveTo(fx * 0.9, fy - 10, x, y - 5);
+        ctx.fill();
+        ctx.stroke();
+      }
+      
+      // Band
+      ctx.strokeStyle = '#FF6B6B';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y - 5, 5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    
+    function drawParticles() {
+      particles.forEach(p => {
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.life / 300;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+    }
+    
+    function updateCooldownUI() {
+      // P1
+      const p1Pct = player1.skillCooldown > 0 
+        ? (1 - player1.skillCooldown / player1.skillMaxCooldown) * 100 
+        : 100;
+      const p1Bar = document.getElementById('p1Cooldown');
+      p1Bar.style.width = `${p1Pct}%`;
+      p1Bar.className = 'cooldown-fill ' + (p1Pct >= 100 ? 'ready' : 'charging');
+      
+      // P2
+      const p2Pct = player2.skillCooldown > 0 
+        ? (1 - player2.skillCooldown / player2.skillMaxCooldown) * 100 
+        : 100;
+      const p2Bar = document.getElementById('p2Cooldown');
+      p2Bar.style.width = `${p2Pct}%`;
+      p2Bar.className = 'cooldown-fill ' + (p2Pct >= 100 ? 'ready' : 'charging');
+    }
+    
+    function render() {
+      ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      
+      drawCourt();
+      drawShuttle();
+      drawDog(player1, true);
+      drawDog(player2, false);
+      drawParticles();
+      
+      if (gameState === 'playing') {
+        updateCooldownUI();
+      }
+    }
+    
+    // ============================================
+    // GAME LOOP
+    // ============================================
+    
+    function gameLoop(currentTime) {
+      if (gameState !== 'playing') return;
+      
+      deltaTime = currentTime - lastTime;
+      lastTime = currentTime;
+      if (deltaTime > 100) deltaTime = 100; // clamp big gaps (e.g. tab switch)
+      
+      // Fixed-timestep simulation at a constant 60Hz so the shuttle speed is the
+      // SAME on 60Hz, 120Hz and 144Hz displays (per-frame physics would run fast).
+      accumulator += deltaTime;
+      let steps = 0;
+      while (accumulator >= FIXED_DT && steps < 5) {
+        updatePlayer1(FIXED_DT);
+        updatePlayer2(FIXED_DT);
+        updateShuttle(FIXED_DT);
+        updateParticles(FIXED_DT);
+        accumulator -= FIXED_DT;
+        steps++;
+      }
+      render();
+      
+      requestAnimationFrame(gameLoop);
+    }
+    
+    // ============================================
+    // MENU NAVIGATION
+    // ============================================
+    
+    let selectedP1 = 'rex';
+    let selectedP2 = 'coco';
+    
+    function showScreen(screenId) {
+      document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
+      if (screenId) {
+        document.getElementById(screenId).classList.remove('hidden');
+      }
+    }
+    
+    // Title screen start
+    document.getElementById('startBtn').addEventListener('click', () => {
+      showScreen('modeScreen');
+    });
+    
+    // Mode selection
+    document.getElementById('mode1P').addEventListener('click', () => {
+      gameMode = '1p';
+      showScreen('diffScreen');
+    });
+    document.getElementById('mode2P').addEventListener('click', () => {
+      gameMode = '2p';
+      showScreen('charScreenP1');
+    });
+    document.getElementById('modeBack').addEventListener('click', () => {
+      showScreen('titleScreen');
+    });
+    
+    // Difficulty selection
+    document.querySelectorAll('.diff-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected'));
+        e.target.classList.add('selected');
+        difficulty = e.target.dataset.diff;
+      });
+    });
+    document.getElementById('diffNext').addEventListener('click', () => {
+      showScreen('charScreenP1');
+    });
+    document.getElementById('diffBack').addEventListener('click', () => {
+      showScreen('modeScreen');
+    });
+    
+    // Character selection
+    createCharCards('charContainerP1', (key) => { selectedP1 = key; });
+    createCharCards('charContainerP2', (key) => { selectedP2 = key; });
+    
+    document.getElementById('charBackP1').addEventListener('click', () => {
+      showScreen(gameMode === '1p' ? 'diffScreen' : 'modeScreen');
+    });
+    document.getElementById('charBackP2').addEventListener('click', () => {
+      showScreen('charScreenP1');
+    });
+    
+    // After P1 selects, go to P2 or controls
+    document.getElementById('charScreenP1').querySelector('.char-select-container')
+      .addEventListener('click', (e) => {
+        if (e.target.closest('.char-card')) {
+          setTimeout(() => {
+            if (gameMode === '1p') {
+              p1Dog = selectedP1;
+              p2Dog = Object.keys(DOG_BREEDS)[Math.floor(Math.random() * 4)];
+              showScreen('controlsScreen');
+            } else {
+              showScreen('charScreenP2');
+            }
+          }, 200);
+        }
+      }, true);
+    
+    document.getElementById('charScreenP2').querySelector('.char-select-container')
+      .addEventListener('click', (e) => {
+        if (e.target.closest('.char-card')) {
+          setTimeout(() => {
+            p1Dog = selectedP1;
+            p2Dog = selectedP2;
+            showScreen('controlsScreen');
+          }, 200);
+        }
+      }, true);
+    
+    // Ready to play
+    document.getElementById('readyBtn').addEventListener('click', () => {
+      applyDogBreed(player1, p1Dog);
+      applyDogBreed(player2, p2Dog);
+      player2.isAI = (gameMode === '1p');
+      startMatch();
+    });
+    
+    // Pause menu
+    document.getElementById('pauseBtn').addEventListener('click', togglePause);
+    document.getElementById('resumeBtn').addEventListener('click', togglePause);
+    document.getElementById('changeSetupBtn').addEventListener('click', () => {
+      document.getElementById('pauseScreen').classList.add('hidden');
+      showScreen('modeScreen');
+      gameState = 'mode';
+    });
+    document.getElementById('quitBtn').addEventListener('click', () => {
+      document.getElementById('pauseScreen').classList.add('hidden');
+      showScreen('titleScreen');
+      gameState = 'title';
+    });
+    
+    // Game over
+    document.getElementById('restartBtn').addEventListener('click', () => {
+      document.getElementById('gameOverScreen').classList.add('hidden');
+      applyDogBreed(player1, p1Dog);
+      applyDogBreed(player2, p2Dog);
+      startMatch();
+    });
+    document.getElementById('titleBtn').addEventListener('click', () => {
+      document.getElementById('gameOverScreen').classList.add('hidden');
+      showScreen('titleScreen');
+      gameState = 'title';
+    });
+    
+    // Initial render
+    drawCourt();
+    player1.breed = 'rex';
+    player2.breed = 'coco';
+    drawDog(player1, true);
+    drawDog(player2, false);
+  </script>
+</body>
+</html>

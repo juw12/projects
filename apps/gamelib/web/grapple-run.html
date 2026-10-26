@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Grapple Run</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: #0c0620;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Courier New", monospace;
+    overflow: hidden;
+    touch-action: manipulation;
+    padding: 12px;
+  }
+
+  /* ============ LAYOUT ============ */
+  #app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: min(96vw, 940px);
+  }
+  #game-wrap {
+    position: relative;
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 12px 48px rgba(0,0,0,.55), 0 0 0 2px rgba(125,243,255,.18);
+  }
+  canvas { display: block; width: 100%; height: auto; background: #160b2e; cursor: crosshair; }
+
+  /* ============ HINT ============ */
+  #hint {
+    position: absolute;
+    bottom: 6px;
+    width: 100%;
+    text-align: center;
+    color: rgba(180,240,255,.75);
+    font-size: 11px;
+    letter-spacing: 1px;
+    pointer-events: none;
+    text-shadow: 0 1px 2px rgba(0,0,0,.6);
+  }
+
+  /* ============ CONTROLS ============ */
+  #controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; }
+  #controls button {
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    padding: 9px 22px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #04121a;
+    background: #7df3ff;
+    box-shadow: 0 4px 0 rgba(0,0,0,.3);
+    transition: transform .05s ease, background .15s ease;
+    user-select: none;
+  }
+  #controls button:hover { background: #a6f7ff; }
+  #controls button:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.3); }
+  #btn-restart { background: #ff6b8a; color: #fff; }
+  #btn-restart:hover { background: #ff8aa3; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="game-wrap">
+    <canvas id="game" width="900" height="480"></canvas>
+    <div id="hint">HOLD SPACE / CLICK / TAP to grapple &nbsp;|&nbsp; P = pause &nbsp;|&nbsp; R = restart</div>
+  </div>
+  <div id="controls">
+    <button id="btn-pause" type="button">Pause</button>
+    <button id="btn-restart" type="button">Restart</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CANVAS & CONSTANTS ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;    // 900
+  const H = canvas.height;   // 480
+  const GROUND_Y = H - 26;   // hitting the ground = you fell = game over
+
+  // Momentum / swing feel
+  const GRAVITY      = 0.50;   // downward pull (grows a little with speed)
+  const AIR_DRAG     = 0.9935; // light drag so free flight stays controllable
+  const FORWARD_ACCEL= 0.055;  // always-on forward drift (keeps the run endless)
+  const PUMP         = 0.16;   // tangential push while swinging -> gains speed
+  const REEL         = 1.5;    // rope shortens each frame -> "zip" forward
+  const MIN_ROPE     = 70;
+  const MAX_ROPE     = 300;
+  const GRAB_DIST    = 420;    // max grapple range
+  const PLAYER_R     = 13;
+  const HOOK_SPEED   = 46;     // grapnel travel speed (px/frame)
+
+  const STATE = { READY: 0, PLAYING: 1, OVER: 2 };
+
+  // ============ GAME STATE ============
+  let state = STATE.READY;
+  let paused = false;
+  let frames = 0;
+  let shake = 0;
+  let inputHeld = false;
+
+  const p = { x: 120, y: 200, vx: 0, vy: 0, ang: 0 };
+  const grapple = { attached: false, hook: false, hx: 0, hy: 0, ax: 0, ay: 0, len: 0, anchor: null };
+
+  let anchors = [], hazards = [], orbs = [], parts = [], trail = [];
+  let camX = 0;
+  let lastAnchorX = 180;
+  let distance = 0, lastX = 0, orbsGot = 0, score = 0, mul = 1;
+  let best = Number(localStorage.getItem("grappleRunBest") || 0);
+
+  // ============ HELPERS ============
+  function rand(a, b) { return a + Math.random() * (b - a); }
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function sx(worldX) { return worldX - camX; }
+
+  // ============ SOUND (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      const v = (vol == null) ? 0.05 : vol;
+      g.gain.setValueAtTime(v, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  // ============ WORLD GENERATION (procedural) ============
+  function makeHazard(x, y) {
+    const saw = Math.random() < 0.6;
+    return {
+      x: x, y: y,
+      type: saw ? "saw" : "spike",
+      r: saw ? 20 : 18,
+      rot: Math.random() * 6,
+      spin: (Math.random() < 0.5 ? -1 : 1) * (0.05 + Math.random() * 0.06)
+    };
+  }
+
+  function genAhead() {
+    const horizon = camX + W + 500;
+    while (lastAnchorX < horizon) {
+      const ax = lastAnchorX + rand(190, 320);
+      const ay = rand(70, 205);
+      anchors.push({ x: ax, y: ay });
+      lastAnchorX = ax;
+
+      // orb arc placed under/in front of the node so a good swing collects them
+      if (Math.random() < 0.78) {
+        const n = 3 + ((Math.random() * 3) | 0);
+        const ox = ax + rand(-20, 70);
+        const oy = ay + rand(90, 150);
+        for (let i = 0; i < n; i++) {
+          orbs.push({ x: ox + i * 34, y: oy + Math.sin(i * 0.9) * 22, ph: Math.random() * 6 });
+        }
+      }
+
+      // hazard density ramps up with distance travelled
+      const chance = Math.min(0.35 + distance / 9000, 0.95);
+      const count = (Math.random() < chance) ? (Math.random() < 0.35 ? 2 : 1) : 0;
+      for (let i = 0; i < count; i++) {
+        hazards.push(makeHazard(ax + rand(-40, 210), rand(250, GROUND_Y - 34)));
+      }
+    }
+  }
+
+  function cleanup() {
+    const cull = camX - 250;
+    anchors = anchors.filter(function (a) { return a.x > cull; });
+    orbs = orbs.filter(function (o) { return o.x > cull; });
+    hazards = hazards.filter(function (h) { return h.x > cull; });
+  }
+
+  // ============ GRAPPLE ============
+  function findTarget() {
+    let bestA = null, bestScore = Infinity;
+    for (let i = 0; i < anchors.length; i++) {
+      const a = anchors[i];
+      if (a.x < p.x + 20) continue;          // must be ahead
+      if (a.x - p.x > GRAB_DIST) continue;   // must be in range
+      if (a.y > p.y - 20) continue;          // must be above
+      const d = Math.hypot(a.x - p.x, a.y - p.y) - (a.x - p.x) * 0.35;
+      if (d < bestScore) { bestScore = d; bestA = a; }
+    }
+    return bestA;
+  }
+
+  function tryFire() {
+    if (state !== STATE.PLAYING) return;
+    if (grapple.attached || grapple.hook) return;
+    const t = findTarget();
+    if (!t) { beep(200, 0.05, "square", 0.035); return; }
+    grapple.hook = true;
+    grapple.hx = p.x; grapple.hy = p.y;
+    grapple.ax = t.x; grapple.ay = t.y;
+    grapple.anchor = t;
+    beep(880, 0.06, "sawtooth", 0.045);
+  }
+
+  function updateHook() {
+    if (!grapple.hook) return;
+    const dx = grapple.ax - grapple.hx;
+    const dy = grapple.ay - grapple.hy;
+    const d = Math.hypot(dx, dy);
+    if (d < HOOK_SPEED) {
+      grapple.hx = grapple.ax; grapple.hy = grapple.ay;
+      grapple.hook = false;
+      grapple.attached = true;
+      grapple.len = clamp(Math.hypot(p.x - grapple.ax, p.y - grapple.ay), MIN_ROPE, MAX_ROPE);
+      beep(1240, 0.05, "square", 0.05);
+    } else {
+      grapple.hx += dx / d * HOOK_SPEED;
+      grapple.hy += dy / d * HOOK_SPEED;
+    }
+  }
+
+  function release() {
+    if (grapple.attached) {
+      grapple.attached = false;
+      p.vy -= 1.2; // snappy upward pop so the launch feels rewarding
+      beep(520, 0.06, "triangle", 0.045);
+    }
+    grapple.hook = false;
+  }
+
+  // ============ PHYSICS ============
+  function physics() {
+    const g = GRAVITY * (1 + 0.35 * (mul - 1));
+
+    // gravity + always-on forward drift
+    p.vy += g;
+    p.vx += FORWARD_ACCEL * mul;
+
+    if (grapple.attached) {
+      const ax = grapple.ax, ay = grapple.ay;
+      let dx = p.x - ax, dy = p.y - ay;
+      let d = Math.hypot(dx, dy) || 1;
+
+      // tangential pump in the forward direction -> builds a satisfying swing
+      let tx = -dy / d, ty = dx / d;
+      if (tx < 0) { tx = -tx; ty = -ty; }
+      p.vx += tx * PUMP * mul;
+      p.vy += ty * PUMP * mul;
+
+      // reel the rope in -> zip forward & gain energy
+      grapple.len = Math.max(MIN_ROPE, grapple.len - REEL);
+    } else {
+      // light drag so free flight stays controllable
+      p.vx *= AIR_DRAG;
+      p.vy *= AIR_DRAG;
+    }
+
+    p.x += p.vx;
+    p.y += p.vy;
+
+    // pendulum constraint
+    if (grapple.attached) {
+      let dx = p.x - grapple.ax, dy = p.y - grapple.ay;
+      let d = Math.hypot(dx, dy) || 1;
+      if (d > grapple.len) {
+        const rx = dx / d, ry = dy / d;
+        p.x = grapple.ax + rx * grapple.len;
+        p.y = grapple.ay + ry * grapple.len;
+        const radial = p.vx * rx + p.vy * ry; // remove outward component
+        if (radial > 0) { p.vx -= rx * radial; p.vy -= ry * radial; }
+      }
+    }
+
+    // lean toward the direction of travel
+    p.ang = Math.atan2(p.vy, Math.max(p.vx, 0.001)) * 0.5;
+
+    // ceiling clamp
+    if (p.y < PLAYER_R) { p.y = PLAYER_R; if (p.vy < 0) p.vy = 0; }
+    // ground = fall = game over
+    if (p.y + PLAYER_R >= GROUND_Y) { p.y = GROUND_Y - PLAYER_R; gameOver(); }
+  }
+
+  function camera() {
+    const target = p.x - W * 0.33;
+    camX += (target - camX) * 0.14;
+  }
+
+  // ============ COLLISION ============
+  function collide() {
+    for (let i = orbs.length - 1; i >= 0; i--) {
+      const o = orbs[i];
+      if (Math.hypot(o.x - p.x, o.y - p.y) < PLAYER_R + 18) {
+        orbs.splice(i, 1);
+        orbsGot++;
+        burst(o.x, o.y, "#ff4fd8", 10, 3.2);
+        beep(980 + Math.min(orbsGot, 12) * 24, 0.06, "sine", 0.045);
+      }
+    }
+    for (let i = 0; i < hazards.length; i++) {
+      const h = hazards[i];
+      if (Math.hypot(h.x - p.x, h.y - p.y) < PLAYER_R + h.r - 4) { gameOver(); return; }
+    }
+  }
+
+  // ============ PARTICLES ============
+  function burst(x, y, color, n, spd) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const s = spd * (0.4 + Math.random());
+      parts.push({ x: x, y: y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 1, color: color, size: 2 + Math.random() * 3 });
+    }
+  }
+  function updateParts() {
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const q = parts[i];
+      q.x += q.vx; q.y += q.vy;
+      q.vy += 0.15; q.vx *= 0.97; q.life -= 0.03;
+      if (q.life <= 0) parts.splice(i, 1);
+    }
+  }
+
+  // ============ UPDATE ============
+  function update() {
+    frames++;
+
+    if (state === STATE.PLAYING) {
+      mul = 1 + Math.min(distance / 7000, 1.5); // speed ramp up to 2.5x
+
+      physics();
+      updateHook();
+      camera();
+      genAhead();
+      cleanup();
+      collide();
+
+      distance += Math.max(0, p.x - lastX);
+      lastX = p.x;
+      score = Math.floor(distance / 12) + orbsGot * 20;
+
+      trail.push({ x: p.x, y: p.y });
+      if (trail.length > 22) trail.shift();
+    } else if (state === STATE.OVER) {
+      // keep drifting / tumbling a moment after death
+      p.vy += GRAVITY;
+      p.vx *= 0.99;
+      p.x += p.vx; p.y += p.vy;
+      p.ang += 0.06;
+      camera();
+    } else {
+      // READY: gentle hover so the world looks alive
+      p.y = 200 + Math.sin(frames * 0.06) * 8;
+      camX = 0;
+      genAhead();
+    }
+
+    updateParts();
+    if (shake > 0.5) shake *= 0.88; else shake = 0;
+  }
+
+  function gameOver() {
+    if (state === STATE.OVER) return;
+    state = STATE.OVER;
+    frames = 0;
+    shake = 16;
+    grapple.attached = false;
+    grapple.hook = false;
+    burst(p.x, p.y, "#ffd166", 18, 4.5);
+    beep(150, 0.35, "sawtooth", 0.07);
+    if (score > best) {
+      best = score;
+      localStorage.setItem("grappleRunBest", String(best));
+    }
+  }
+
+  function reset() {
+    state = STATE.READY;
+    paused = false;
+    frames = 0;
+    shake = 0;
+    inputHeld = false;
+    p.x = 120; p.y = 200; p.vx = 0; p.vy = 0; p.ang = 0;
+    grapple.attached = false; grapple.hook = false; grapple.anchor = null;
+    anchors = []; hazards = []; orbs = []; parts = []; trail = [];
+    camX = 0; lastAnchorX = 180;
+    distance = 0; lastX = 0; orbsGot = 0; score = 0; mul = 1;
+    genAhead();
+    syncPauseButton();
+  }
+
+  function start() {
+    reset();
+    state = STATE.PLAYING;
+    p.vx = 2.2; p.vy = -1.5;
+    lastX = p.x;
+    beep(640, 0.08, "square", 0.05);
+  }
+
+  // ============ DRAWING ============
+  function skyline(par, spacing, hMin, hMax, color) {
+    const off = camX * par;
+    const i0 = Math.floor(off / spacing) - 1;
+    const n = Math.ceil(W / spacing) + 3;
+    ctx.fillStyle = color;
+    for (let i = i0; i < i0 + n; i++) {
+      const x = i * spacing - off;
+      const r = Math.abs(Math.sin(i * 12.9898) * 43758.5453);
+      const frac = r - Math.floor(r);
+      const hh = hMin + frac * (hMax - hMin);
+      ctx.fillRect(x, GROUND_Y - hh, spacing - 8, hh);
+      // a few lit windows
+      ctx.fillStyle = "rgba(125,243,255,0.16)";
+      for (let wy = GROUND_Y - hh + 14; wy < GROUND_Y - 18; wy += 22) {
+        for (let wx = x + 8; wx < x + spacing - 16; wx += 18) {
+          if (((wx + wy) | 0) % 7 < 3) ctx.fillRect(wx, wy, 5, 8);
+        }
+      }
+      ctx.fillStyle = color;
+    }
+  }
+
+  function drawBackground() {
+    const g = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+    g.addColorStop(0, "#160b2e");
+    g.addColorStop(0.55, "#3a1a55");
+    g.addColorStop(1, "#8a3b63");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // horizon glow
+    const hg = ctx.createRadialGradient(W * 0.72, GROUND_Y, 10, W * 0.72, GROUND_Y, 360);
+    hg.addColorStop(0, "rgba(255,140,90,0.42)");
+    hg.addColorStop(1, "rgba(255,140,90,0)");
+    ctx.fillStyle = hg;
+    ctx.fillRect(0, 0, W, H);
+
+    // stars (very slight parallax)
+    for (let i = 0; i < 64; i++) {
+      let x = (i * 137.5 - camX * 0.03) % W;
+      if (x < 0) x += W;
+      const y = (i * 91.7) % (GROUND_Y * 0.6);
+      const tw = 0.5 + 0.5 * Math.sin(frames * 0.05 + i);
+      ctx.globalAlpha = 0.2 + tw * 0.5;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(x, y, 1.6, 1.6);
+    }
+    ctx.globalAlpha = 1;
+
+    skyline(0.15, 130, 110, 230, "rgba(30,16,60,0.85)");
+    skyline(0.35, 86, 70, 160, "rgba(18,9,42,0.95)");
+
+    // ground strip
+    ctx.fillStyle = "#0d0720";
+    ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
+    ctx.fillStyle = "rgba(90,220,255,0.85)";
+    ctx.fillRect(0, GROUND_Y, W, 2.5);
+    ctx.fillStyle = "rgba(90,220,255,0.22)";
+    const off = camX % 40;
+    for (let x = -off; x < W; x += 40) ctx.fillRect(x, GROUND_Y + 9, 20, 2);
+  }
+
+  function drawOrbs() {
+    for (let i = 0; i < orbs.length; i++) {
+      const o = orbs[i];
+      const x = sx(o.x), y = o.y;
+      const pulse = 1 + Math.sin(frames * 0.08 + o.ph) * 0.15;
+      const gg = ctx.createRadialGradient(x, y, 1, x, y, 20 * pulse);
+      gg.addColorStop(0, "rgba(255,79,216,0.55)");
+      gg.addColorStop(1, "rgba(255,79,216,0)");
+      ctx.fillStyle = gg;
+      ctx.beginPath(); ctx.arc(x, y, 20 * pulse, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ff4fd8";
+      ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ffe6fb";
+      ctx.beginPath(); ctx.arc(x - 2, y - 2, 2.5, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  function drawHazards() {
+    for (let i = 0; i < hazards.length; i++) {
+      const h = hazards[i];
+      h.rot += h.spin;
+      const x = sx(h.x), y = h.y;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(h.rot);
+      ctx.fillStyle = "#ff4d5e";
+      if (h.type === "saw") {
+        for (let k = 0; k < 8; k++) {
+          ctx.rotate(Math.PI / 4);
+          ctx.beginPath();
+          ctx.moveTo(0, 0); ctx.lineTo(-5, -h.r - 7); ctx.lineTo(5, -h.r - 7);
+          ctx.closePath(); ctx.fill();
+        }
+        ctx.fillStyle = "#2a0d16";
+        ctx.beginPath(); ctx.arc(0, 0, h.r, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#ff8090";
+        ctx.beginPath(); ctx.arc(0, 0, h.r * 0.5, 0, Math.PI * 2); ctx.fill();
+      } else {
+        for (let k = 0; k < 10; k++) {
+          ctx.rotate(Math.PI / 5);
+          ctx.beginPath();
+          ctx.moveTo(-4, h.r); ctx.lineTo(0, h.r + 8); ctx.lineTo(4, h.r);
+          ctx.closePath(); ctx.fill();
+        }
+        ctx.fillStyle = "#3a0f1c";
+        ctx.beginPath(); ctx.arc(0, 0, h.r, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#ffb0bb";
+        ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawAnchors() {
+    const tgt = (state === STATE.PLAYING && !grapple.attached && !grapple.hook) ? findTarget() : null;
+    for (let i = 0; i < anchors.length; i++) {
+      const a = anchors[i];
+      const x = sx(a.x), y = a.y;
+
+      const gg = ctx.createRadialGradient(x, y, 2, x, y, 44);
+      gg.addColorStop(0, "rgba(90,230,255,0.5)");
+      gg.addColorStop(1, "rgba(90,230,255,0)");
+      ctx.fillStyle = gg;
+      ctx.beginPath(); ctx.arc(x, y, 44, 0, Math.PI * 2); ctx.fill();
+
+      // reticle hint on the anchor you would grab next
+      if (a === tgt) {
+        const pr = 20 + Math.sin(frames * 0.18) * 3;
+        ctx.strokeStyle = "rgba(255,209,102,0.85)";
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(x, y, pr, 0, Math.PI * 2); ctx.stroke();
+      }
+
+      ctx.strokeStyle = "#7df3ff";
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(x, y, 13, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = "#e9ffff";
+      ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
+
+      ctx.strokeStyle = "rgba(125,243,255,0.5)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x - 20, y); ctx.lineTo(x - 13, y);
+      ctx.moveTo(x + 13, y); ctx.lineTo(x + 20, y);
+      ctx.stroke();
+    }
+  }
+
+  function drawRope() {
+    if (grapple.attached) {
+      const px = sx(p.x), py = p.y;
+      const ax = sx(grapple.ax), ay = grapple.ay;
+      ctx.strokeStyle = "rgba(125,243,255,0.9)";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(ax, ay); ctx.stroke();
+      ctx.strokeStyle = "rgba(255,255,255,0.35)";
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(ax, ay); ctx.stroke();
+    } else if (grapple.hook) {
+      const px = sx(p.x), py = p.y, hx = sx(grapple.hx), hy = grapple.hy;
+      ctx.strokeStyle = "rgba(125,243,255,0.45)";
+      ctx.setLineDash([7, 7]);
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(hx, hy); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#bff8ff";
+      ctx.beginPath(); ctx.arc(hx, hy, 4.5, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  function drawTrail() {
+    for (let i = 0; i < trail.length; i++) {
+      const t = trail[i];
+      const k = i / trail.length;
+      ctx.fillStyle = "rgba(255,209,102," + (k * 0.35) + ")";
+      ctx.beginPath();
+      ctx.arc(sx(t.x), t.y, PLAYER_R * (0.3 + 0.7 * k), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawPlayer() {
+    if (state === STATE.OVER && p.y > GROUND_Y) return;
+    const x = sx(p.x), y = p.y;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(p.ang);
+
+    // scarf
+    ctx.strokeStyle = "#5ad2ff";
+    ctx.lineWidth = 4;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(-4, 0);
+    ctx.quadraticCurveTo(-20, 6 + Math.sin(frames * 0.4) * 4, -34, -2 + Math.sin(frames * 0.4 + 1) * 5);
+    ctx.stroke();
+
+    // body
+    ctx.fillStyle = "#ffd166";
+    ctx.beginPath(); ctx.arc(0, 0, PLAYER_R, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#c98a1a";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // visor
+    ctx.fillStyle = "#16233a";
+    ctx.beginPath(); ctx.arc(3, -1, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#7df3ff";
+    ctx.beginPath(); ctx.arc(5, -2, 2.2, 0, Math.PI * 2); ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawParts() {
+    for (let i = 0; i < parts.length; i++) {
+      const q = parts[i];
+      ctx.globalAlpha = Math.max(q.life, 0);
+      ctx.fillStyle = q.color;
+      ctx.beginPath(); ctx.arc(sx(q.x), q.y, q.size, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawHUD() {
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.font = "bold 22px 'Courier New', monospace";
+    ctx.fillText(Math.floor(distance / 12) + " m", 20, 16);
+    ctx.fillStyle = "rgba(255,120,220,0.95)";
+    ctx.font = "14px 'Courier New', monospace";
+    ctx.fillText("ORBS " + orbsGot, 20, 44);
+
+    ctx.textAlign = "right";
+    ctx.fillStyle = "rgba(125,243,255,0.9)";
+    ctx.fillText("BEST " + best, W - 20, 16);
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.fillText("SCORE " + score, W - 20, 38);
+
+    // speed meter
+    const bw = 140, bh = 6, bx = W - 20 - bw, by = 62;
+    ctx.fillStyle = "rgba(255,255,255,0.15)";
+    ctx.fillRect(bx, by, bw, bh);
+    const sp = clamp((p.vx / 9), 0, 1);
+    ctx.fillStyle = sp > 0.75 ? "#ff6b8a" : "#7df3ff";
+    ctx.fillRect(bx, by, bw * sp, bh);
+  }
+
+  function plate(x, y, w, h) {
+    ctx.fillStyle = "rgba(8,4,20,0.74)";
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = "rgba(125,243,255,0.35)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, w, h);
+  }
+
+  function drawPanels() {
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+
+    if (state === STATE.READY) {
+      plate(W / 2 - 290, H / 2 - 122, 580, 252);
+      ctx.fillStyle = "#7df3ff";
+      ctx.font = "bold 46px 'Courier New', monospace";
+      ctx.fillText("GRAPPLE RUN", W / 2, H / 2 - 62);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "16px 'Courier New', monospace";
+      ctx.fillText("HOLD SPACE / CLICK / TAP to fire a grapple at a node", W / 2, H / 2 - 24);
+      ctx.fillStyle = "rgba(255,255,255,0.8)";
+      ctx.fillText("Swing to build momentum - release to fly forward", W / 2, H / 2 + 6);
+      ctx.fillStyle = "rgba(255,120,220,0.95)";
+      ctx.fillText("Grab pink orbs - dodge the red hazards", W / 2, H / 2 + 34);
+      ctx.fillStyle = "rgba(125,243,255,0.95)";
+      ctx.fillText("Best: " + best, W / 2, H / 2 + 68);
+      ctx.fillStyle = "rgba(255,255,255," + (0.5 + 0.5 * Math.sin(frames * 0.12)) + ")";
+      ctx.font = "15px 'Courier New', monospace";
+      ctx.fillText("Press any key / tap to start", W / 2, H / 2 + 104);
+    }
+
+    if (state === STATE.OVER) {
+      plate(W / 2 - 260, H / 2 - 122, 520, 244);
+      ctx.fillStyle = "#ff6b8a";
+      ctx.font = "bold 42px 'Courier New', monospace";
+      ctx.fillText("GAME OVER", W / 2, H / 2 - 56);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "20px 'Courier New', monospace";
+      ctx.fillText("Score: " + score, W / 2, H / 2 - 8);
+      ctx.font = "15px 'Courier New', monospace";
+      ctx.fillStyle = "rgba(255,255,255,0.82)";
+      ctx.fillText("Distance " + Math.floor(distance / 12) + " m    Orbs " + orbsGot, W / 2, H / 2 + 24);
+      ctx.fillStyle = "rgba(125,243,255,0.95)";
+      ctx.fillText("Best: " + best, W / 2, H / 2 + 52);
+      if (frames > 30) {
+        ctx.fillStyle = "rgba(255,255,255," + (0.5 + 0.5 * Math.sin(frames * 0.15)) + ")";
+        ctx.font = "15px 'Courier New', monospace";
+        ctx.fillText("Tap / Space or Restart to play again", W / 2, H / 2 + 92);
+      }
+    }
+
+    if (paused && state !== STATE.OVER) {
+      ctx.fillStyle = "rgba(0,0,0,0.6)";
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 46px 'Courier New', monospace";
+      ctx.fillText("PAUSED", W / 2, H / 2);
+      ctx.font = "16px 'Courier New', monospace";
+      ctx.fillText("Press Play / P to resume", W / 2, H / 2 + 34);
+    }
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.save();
+    if (shake > 0.5) {
+      ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+    }
+    drawBackground();
+    drawOrbs();
+    drawHazards();
+    drawTrail();
+    drawAnchors();
+    drawRope();
+    drawPlayer();
+    drawParts();
+    ctx.restore();
+    drawHUD();
+    drawPanels();
+  }
+
+  // ============ MAIN LOOP (fixed timestep, refresh-rate safe) ============
+  const STEP = 1000 / 60;
+  let lastT = 0, acc = 0, raf = null;
+
+  function loop(t) {
+    if (!lastT) lastT = t;
+    let dt = t - lastT;
+    lastT = t;
+    if (dt > 100) dt = 100;
+
+    if (!paused) {
+      acc += dt;
+      let guard = 0;
+      while (acc >= STEP && guard < 5) { update(); acc -= STEP; guard++; }
+      if (guard >= 5) acc = 0;
+    }
+    render();
+    raf = requestAnimationFrame(loop);
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+    } else if (!raf) {
+      lastT = 0; acc = 0;
+      raf = requestAnimationFrame(loop);
+    }
+  });
+
+  // ============ CONTROLS ============
+  const btnPause = document.getElementById("btn-pause");
+  const btnRestart = document.getElementById("btn-restart");
+
+  function syncPauseButton() { btnPause.textContent = paused ? "Play" : "Pause"; }
+
+  function togglePause() {
+    if (state === STATE.OVER) return;
+    paused = !paused;
+    lastT = 0; acc = 0;
+    syncPauseButton();
+    beep(paused ? 420 : 620, 0.07, "triangle", 0.045);
+  }
+
+  btnPause.addEventListener("click", togglePause);
+  btnRestart.addEventListener("click", reset);
+
+  // ---- input state ----
+  function press() {
+    if (paused) return;
+    inputHeld = true;
+    if (state === STATE.READY) { start(); return; }
+    if (state === STATE.OVER) { if (frames > 30) reset(); return; }
+    tryFire();
+  }
+  function releaseInput() {
+    inputHeld = false;
+    if (state === STATE.PLAYING) release();
+  }
+
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "KeyP" || e.key === "p" || e.key === "P" || e.key === "Escape") {
+      e.preventDefault(); togglePause(); return;
+    }
+    if (e.code === "KeyR" || e.key === "r" || e.key === "R") {
+      e.preventDefault(); reset(); return;
+    }
+    if (e.code === "Space" || e.code === "ArrowUp" || e.code === "KeyW" || e.code === "KeyJ") {
+      e.preventDefault();
+      if (!e.repeat) press();
+    }
+  });
+  window.addEventListener("keyup", function (e) {
+    if (e.code === "Space" || e.code === "ArrowUp" || e.code === "KeyW" || e.code === "KeyJ") {
+      releaseInput();
+    }
+  });
+
+  canvas.addEventListener("mousedown", function (e) { e.preventDefault(); press(); });
+  window.addEventListener("mouseup", releaseInput);
+  canvas.addEventListener("touchstart", function (e) { e.preventDefault(); press(); }, { passive: false });
+  window.addEventListener("touchend", function (e) { e.preventDefault(); releaseInput(); }, { passive: false });
+  canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+  // ============ BOOT ============
+  syncPauseButton();
+  genAhead();
+  raf = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
