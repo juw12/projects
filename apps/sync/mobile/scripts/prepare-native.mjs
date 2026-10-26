@@ -47,6 +47,28 @@ run(['sync', platform]);
 if (platform === 'android') {
   const android = path.join(root, 'android');
 
+  // Background playback service + lock-screen controls (native/android/*.java), registered in MainActivity.
+  const javaDir = path.join(android, 'app/src/main/java', ...config.appId.split('.'));
+  fs.mkdirSync(javaDir, { recursive: true });
+  for (const name of ['SyncPlaybackService.java', 'SyncPlaybackPlugin.java']) {
+    const source = fs.readFileSync(path.join(root, 'native/android', name), 'utf8')
+      .replace(/^package [^;]+;/m, 'package ' + config.appId + ';');
+    fs.writeFileSync(path.join(javaDir, name), source);
+  }
+  fs.writeFileSync(path.join(javaDir, 'MainActivity.java'), `package ${config.appId};
+
+import android.os.Bundle;
+import com.getcapacitor.BridgeActivity;
+
+public class MainActivity extends BridgeActivity {
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(SyncPlaybackPlugin.class);
+        super.onCreate(savedInstanceState);
+    }
+}
+`);
+
   // Microphone for voice chat; invite links open in the app.
   edit(path.join(android, 'app/src/main/AndroidManifest.xml'), (manifest) => {
     let text = manifest.replace('android:allowBackup="true"', 'android:allowBackup="false"');
@@ -54,11 +76,21 @@ if (platform === 'android') {
       'android.permission.INTERNET',
       'android.permission.RECORD_AUDIO',
       'android.permission.MODIFY_AUDIO_SETTINGS',
+      'android.permission.WAKE_LOCK',
+      'android.permission.FOREGROUND_SERVICE',
+      'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK',
+      'android.permission.FOREGROUND_SERVICE_MICROPHONE',
+      'android.permission.POST_NOTIFICATIONS',
     ];
     for (const permission of permissions) {
       if (!text.includes(permission)) {
         text = text.replace('</manifest>', `    <uses-permission android:name="${permission}" />\n</manifest>`);
       }
+    }
+    if (!text.includes('SyncPlaybackService')) {
+      text = text.replace('</application>',
+        '    <service android:name=".SyncPlaybackService" android:exported="false"' +
+        ' android:foregroundServiceType="mediaPlayback|microphone" />\n    </application>');
     }
     if (!text.includes('android.hardware.microphone')) {
       text = text.replace('</manifest>', '    <uses-feature android:name="android.hardware.microphone" android:required="false" />\n</manifest>');
@@ -135,6 +167,23 @@ if (platform === 'android') {
       if (!text.includes('<key>' + key + '</key>')) {
         text = text.replace(/<\/dict>\s*<\/plist>\s*$/, '\t<key>' + key + '</key>\n\t' + value + '\n</dict>\n</plist>\n');
       }
+    }
+    return text;
+  });
+
+  // Playback audio session: keeps music going on the lock screen and with the silent switch on,
+  // and makes Sync the "Now Playing" app (WebKit switches to play-and-record for voice chat).
+  edit(path.join(target, 'AppDelegate.swift'), (swift) => {
+    let text = swift;
+    if (!text.includes('import AVFoundation')) {
+      text = text.replace('import UIKit', 'import UIKit\nimport AVFoundation');
+    }
+    if (!text.includes('AVAudioSession')) {
+      const hook = /(didFinishLaunchingWithOptions[^{]*\{\n)/;
+      if (!hook.test(text)) {
+        throw new Error('AppDelegate.swift layout changed: launch hook not found');
+      }
+      text = text.replace(hook, '$1        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [])\n');
     }
     return text;
   });
