@@ -6,7 +6,7 @@ A downloadable Windows x64 desktop edition now bundles this entire console local
 It is not a website shortcut and does not require Chrome, Edge, Node or Python to run.
 Installer and portable preview builds are available at:
 
-https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.2.1
+https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.2.2
 
 The initial binaries are unsigned. The packaged app was tested with demo/synthetic
 hardware; real-device bench validation is still required. Browser and mobile-web
@@ -188,3 +188,12 @@ Simulates device behavior:
 ## License
 
 Part of the PEGAAi OpenCode project.
+
+## Phone control (Bluetooth remote)
+
+1. Connect the device over USB in the console → **Phone remote** → **Start remote** (shows a PIN).
+2. iPhone: free **Bluefy** browser → open this site → **Connect Bluetooth** → AIRIZ-BT → PIN.
+   Android: AIRIZ Mobile app or Chrome.
+3. **Stop motor** (or Esc) halts a move. Repeat step 1 after every power-up (firmware cannot auto-start it).
+
+Details: `bluetooth-bridge/README.md`.

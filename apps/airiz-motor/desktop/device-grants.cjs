@@ -6,12 +6,21 @@ const path = require('node:path');
 const MAX_GRANTS = 10;
 const RECONNECT_WINDOW_MS = 15 * 60 * 1000;
 
+// The serial chooser reports camelCase fields (vendorId, deviceInstanceId), but
+// Electron's device-permission check passes snake_case ones (device_instance_id,
+// often without vendor/product IDs). Accept both, or real ports never reopen.
 function identity(device) {
+  const pick = (...keys) => {
+    for (const key of keys) {
+      if (device?.[key] !== undefined && device?.[key] !== null && device?.[key] !== '') return String(device[key]);
+    }
+    return '';
+  };
   return {
-    vendorId: String(device?.vendorId ?? ''),
-    productId: String(device?.productId ?? ''),
-    serialNumber: String(device?.serialNumber ?? ''),
-    deviceInstanceId: String(device?.deviceInstanceId ?? '')
+    vendorId: pick('vendorId', 'vendor_id'),
+    productId: pick('productId', 'product_id'),
+    serialNumber: pick('serialNumber', 'serial_number'),
+    deviceInstanceId: pick('deviceInstanceId', 'device_instance_id')
   };
 }
 

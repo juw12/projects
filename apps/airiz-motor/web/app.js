@@ -42,8 +42,12 @@
     userMacros: [],
 
     audioAutoSave: true,
+    outputMuted: false,
     capture: { active: false, chunks: [], tail: '', sentinel: '', done: false, resolve: null }
   };
+
+  // Listeners for raw device output (Phone remote setup reads the bridge PIN).
+  const outputListeners = new Set();
 
   // ========================================================================
   // DOM ELEMENTS
@@ -212,6 +216,13 @@
         }
       });
     }
+
+    window.addEventListener('airiz-port-lost', event => {
+      if (state.port && event.detail === state.port) {
+        logToConsole('Bluetooth connection lost', 'warning');
+        disconnect();
+      }
+    });
 
     elements.baudSelect.addEventListener('change', handleBaudChange);
     elements.btnDemo.addEventListener('click', toggleDemoMode);
@@ -444,6 +455,9 @@
             if (done) break;
             if (value) {
               const text = decoder.decode(value);
+              for (const listener of outputListeners) {
+                try { listener(text); } catch (listenerError) { console.error(listenerError); }
+              }
 
               if (state.capture.active) {
                 state.capture.chunks.push(text);
@@ -458,7 +472,7 @@
                 } else {
                   state.capture.tail = probe.slice(-(state.capture.sentinel.length - 1));
                 }
-              } else {
+              } else if (!state.outputMuted) {
                 appendToConsole(text, 'response');
               }
 
@@ -488,7 +502,8 @@
   // SEND COMMANDS
   // ========================================================================
   
-  async function sendLine(line) {
+  async function sendLine(line, options) {
+    const quiet = !!(options && options.quiet);
     if (state.updatePending) return false;
     if (!state.connected) {
       logToConsole('Not connected', 'error');
@@ -514,7 +529,7 @@
       writer = state.port.writable.getWriter();
       const data = new TextEncoder().encode(line + '\r\n');
       await writer.write(data);
-      appendToConsole(`> ${line}`, 'command');
+      if (!quiet) appendToConsole(`> ${line}`, 'command');
     } catch (error) {
       logToConsole(`Send error: ${error.message}`, 'error');
       return false;
@@ -1644,6 +1659,18 @@
   function handleStopMacro() {
     if (!state.macroRunning) return;
     state.macroStop = true;
+    stopMotor();
+  }
+
+  // Real motor stop: the motor driver runs each move from a kernel timer and
+  // halts it when 0 is written to its status attribute. Over the Bluetooth
+  // remote the bridge's own "stop" command does the same.
+  const MOTOR_STOP_USB = 'echo 0 > /sys/devices/platform/soc/soc:motor/status';
+  async function stopMotor() {
+    if (!state.connected) return false;
+    state.macroStop = true;
+    const command = state.port && state.port.stopCommand ? state.port.stopCommand : MOTOR_STOP_USB;
+    return sendLine(command);
   }
 
   // ========================================================================
@@ -3951,12 +3978,25 @@
         baudRate: state.baudRate,
         transportLabel: state.port?.transportLabel || (window.airizMobile ? 'Bluetooth' : 'USB serial'),
         deviceFirmware: state.port?.firmwareVersion || null,
+        bluetoothRemote: !!state.port?.bridge,
         cameraRecording: !!cameraState.recorder && cameraState.recorder.state !== 'inactive',
         sessionActive: cameraState.sessionActive,
         audioCaptureActive: state.capture.active
       });
     },
     sendCommand: sendLine,
+    stopMotor,
+    setOutputMuted(muted) {
+      state.outputMuted = !!muted;
+    },
+    onOutput(listener) {
+      outputListeners.add(listener);
+      return () => outputListeners.delete(listener);
+    },
+    async connectPort(port) {
+      if (state.connected || state.updatePending) throw new Error('Disconnect first.');
+      await openSerialPort(port, state.baudRate);
+    },
     async prepareForUpdate() {
       if (state.macroRunning || state.capture.active || cameraState.sessionActive
           || (cameraState.recorder && cameraState.recorder.state !== 'inactive')) {

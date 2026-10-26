@@ -1,22 +1,49 @@
-# AIRIZ Bluetooth command bridge (temporary)
+# AIRIZ Bluetooth remote (bridge v2)
 
-Current firmware (0.0.0.3) powers Bluetooth with `diag ble on` but offers no command
-channel. This bridge adds one **until the next reboot**, without modifying firmware:
+The stock firmware (0.0.0.3) powers the Bluetooth radio with `diag ble on` but has
+no command service. This bridge adds one without changing the firmware:
 
-- starts a private D-Bus (`/tmp/airiz/bus`) whose policy lets BlueZ host an app service
-  (the stock bus policy blocks it), restarts `bluetoothd` on it;
-- advertises **AIRIZ-BT** with a Nordic-UART-style service (`6e400001-…`), the profile
-  the AIRIZ phone app looks for;
-- runs only allow-listed commands and returns their output as notifications:
-  `diag ver sw`, `diag motor pan|rising forward|reverse X Y` (pan X 1–17, rising X 1–30,
-  Y 1–99999), `diag spotled|irled on|off|duty 0–100`, `diag led[_r|_g|_b] on|off`.
-  Anything else is answered with `#ERR#not allowed…#END#`.
-- stops itself after the lifetime (default 1 h). Log: `/tmp/airiz/bridge.log`.
+* private D-Bus + `bluetoothd` restart, `bluetoothctl` as GATT server
+* Nordic UART service, advertised as **AIRIZ-BT**
+  (RX `6e400002…` write, TX `6e400003…` notify, 20-byte chunks)
+* allow-list: `diag ver sw`, `diag motor pan|rising forward|reverse PERIOD STEPS`
+  (pan 1–17, rising 1–30), `diag motor info`, spot/IR LED on/off/duty, status LEDs
+* **PIN**: 6 digits in `/data/airiz/pin`. After every Bluetooth connection the client
+  must send `auth <PIN>` before motor/LED commands run. Without it only
+  `diag ver sw` and the motor stop are accepted. 5 wrong PINs lock it for 60 s.
+* **Stop**: `stop` (or `diag motor stop`) writes `0` to
+  `/sys/devices/platform/soc/soc:motor/status`; the motor driver stops the
+  timer-driven move at once (verified: a 400-step pan stopped at step 184).
+* Installed in `/data/airiz` (persistent flash), so after a reboot only
+  `sh /data/airiz/start.sh` is needed — the console's **Phone remote** button does
+  this over USB. Runs until power-off (`start.sh SECONDS` for a time limit).
 
-Start it from a PC with the device on USB (close the console app's connection first):
+## Why it cannot start by itself after a reboot
 
-    python start_bridge.py COM4 3600
+The root filesystem is a read-only squashfs. The boot scripts (`/etc/init.d/rcS`,
+`startZiris`) only read `/data/usbmode` as a value, root's home is the RAM disk
+`/tmp`, and no boot step executes anything from `/data` or `/other`. Auto-start
+needs a firmware change (e.g. one line in `startZiris`: `[ -x /data/airiz/start.sh ] && sh /data/airiz/start.sh &`).
 
-**Security:** no pairing or PIN. Anyone in range can send the allow-listed commands
-while it runs. The proper fix is a firmware-side BLE service plus a D-Bus policy entry.
-Physical stop: power/USB unplug. There is no documented motor-stop command.
+## Use
+
+* **Console (web or Windows app) over USB** → *Phone remote* → *Start remote* → PIN is shown.
+* Or from a PC: `python start_bridge.py COM4` (installs/updates and starts; prints the PIN;
+  `--new-pin` makes a new PIN).
+* **iPhone**: install the free *Bluefy – Web BLE Browser*, open
+  `https://juw12.github.io/projects/airiz-motor/`, *Connect Bluetooth*, choose AIRIZ-BT,
+  enter the PIN. (Safari has no Web Bluetooth.)
+* **Android**: AIRIZ Mobile app, or Chrome on the same website.
+
+## Files
+
+| File | Purpose |
+| --- | --- |
+| `bridge.sh` | GATT server loop, PIN check, allow-list, stop |
+| `start.sh` | radio on, private bus, bluetoothd, starts the bridge, prints `#AIRIZBT#ready#PIN=…#END#` |
+| `stop.sh` | stops the bridge (`#AIRIZBT#stopped#END#`) |
+| `bus.conf` | permissive private D-Bus policy (system bus policy blocks GATT registration) |
+| `start_bridge.py` | PC installer/launcher over the USB console |
+
+After editing any of these, run `python ../tools/gen_bridge_files.py` so the web
+console embeds the new version.

@@ -1,6 +1,6 @@
 /* AIRIZ Control Center — versioned, scope-isolated offline shell. */
 const CACHE_PREFIX = 'airiz-control-' + encodeURIComponent(self.registration.scope) + '-';
-const CACHE_NAME = CACHE_PREFIX + 'v2.8-ble-bridge';
+const CACHE_NAME = CACHE_PREFIX + 'v2.9-phone-remote';
 const ASSETS = [
   './',
   './index.html',
@@ -9,6 +9,9 @@ const ASSETS = [
   './app.js',
   './console-ui.js',
   './desktop-integration.js',
+  './ble-protocol.js',
+  './remote-ui.js',
+  './data/bridge-files.js',
   './data/commands.js',
   './data/macros.js',
   './data/sounds.js',

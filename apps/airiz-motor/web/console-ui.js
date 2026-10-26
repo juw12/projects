@@ -321,6 +321,8 @@
       if (event.key === 'Escape') {
         if (document.querySelector('dialog[open]')) return;
         lockJog(keyboardEnabled || armed);
+        // Escape also halts a move in progress (motor driver stop).
+        if (api.getStatus().connected && typeof api.stopMotor === 'function') api.stopMotor();
         return;
       }
       if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;

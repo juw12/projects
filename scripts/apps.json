@@ -142,8 +142,8 @@
    "name": "Airiz Motor",
    "category": "Automation",
    "desc": "Windows, Android and browser console for AIRIZ motor testing: USB or Bluetooth jog, LEDs, camera tools and macros",
-   "description": "Downloadable Windows console with a locally bundled controller, serial port chooser, camera tools, macros and offline demo. Android app and on-device Bluetooth bridge add wireless pan, up/down and LED control. The browser and mobile-web editions remain available.",
-   "summary": "Windows, Android and web console for AIRIZ motor testing &mdash; USB or Bluetooth jog, LEDs, camera tools and macros.",
+   "description": "Downloadable Windows console with a locally bundled controller, serial port chooser, camera tools, macros and offline demo. A PIN-protected on-device Bluetooth remote adds wireless pan, up/down, LED control and a real motor stop from Android or iPhone (Bluefy). The browser and mobile-web editions remain available.",
+   "summary": "Windows, Android, iPhone and web console for AIRIZ motor testing &mdash; USB or PIN-protected Bluetooth jog, motor stop, LEDs, camera tools and macros.",
    "tags": [
     "Windows app",
     "Web Serial",
@@ -154,7 +154,7 @@
    "image": "airiz-motor-hero.svg",
    "image_alt": "Airiz Motor Test Console dashboard: command library, serial console and macro notepad for AIRIZ device motor testing",
    "links": {
-    "app": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.2.1/AIRIZ-Console-Setup-1.2.1-x64.exe",
+    "app": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.2.2/AIRIZ-Console-Setup-1.2.2-x64.exe",
     "web": "airiz-motor/",
     "mobile": "airiz-motor/"
    },
@@ -163,7 +163,7 @@
    "card_links": [
     {
      "label": "Windows app",
-     "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.2.1/AIRIZ-Console-Setup-1.2.1-x64.exe"
+     "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.2.2/AIRIZ-Console-Setup-1.2.2-x64.exe"
     },
     {
      "label": "Web",
@@ -175,11 +175,11 @@
     },
     {
      "label": "Android app",
-     "path": "https://github.com/juw12/projects/releases/download/airiz-mobile-v1.0.1/AIRIZ-Mobile-1.0.1-android.apk"
+     "path": "https://github.com/juw12/projects/releases/download/airiz-mobile-v1.0.2/AIRIZ-Mobile-1.0.2-android.apk"
     },
     {
-     "label": "iPhone build",
-     "path": "https://github.com/juw12/projects/releases/tag/airiz-mobile-v1.0.1"
+     "label": "iPhone (Bluefy)",
+     "path": "https://apps.apple.com/app/id1492822055"
     }
    ]
   },
