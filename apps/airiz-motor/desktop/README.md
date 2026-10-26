@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.1.1` in this repository's Releases section.
+`airiz-desktop-v1.1.2` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -41,6 +41,15 @@ for a manual check. Downloads require a click; installation requires confirmatio
 and an idle console. Updates never install merely because the app quits.
 
 Version 1.0.0 has no updater and needs a one-time manual installation of the latest release.
+
+### 1.1.2 install while connected
+
+From 1.1.2, **Install and restart** no longer requires a manual disconnect. If a device
+is connected and idle, the confirmation offers **Disconnect, install and restart**,
+closes the serial port safely and installs. Running macros, recordings and capture
+sessions still block installation. Reconnect the device after AIRIZ reopens. This
+applies to updates installed *from* 1.1.2 or later; 1.1.0 and 1.1.1 still require a
+manual disconnect once.
 
 ### 1.1.1 update-channel migration
 
