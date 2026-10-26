@@ -56,7 +56,7 @@ class StaticAppTests(unittest.TestCase):
         worker = (WEB / 'sw.js').read_text()
         block = re.search(r'const SHELL_FILES = \[(.*?)\];', worker, re.S).group(1)
         paths = re.findall(r"'([^']+)'", block)
-        self.assertEqual(len(paths), 7)
+        self.assertEqual(len(paths), 9)
         for relative in paths:
             self.assertTrue(relative.startswith('./'))
             self.assertTrue((WEB / relative).is_file())
@@ -67,22 +67,44 @@ class StaticAppTests(unittest.TestCase):
 
     def test_demo_boundaries_remain_visible(self):
         source = (WEB / 'index.html').read_text()
-        for required in ['本機示範', '非官方授證', '沒有收款', 'setNavigationOpen', 'withMutationLock', 'data-intent=', 'normalizeState', 'study.js', 'GY_PAGES', 'normalizeStudyState']:
+        for required in ['非官方', '非官方授證', '沒有收款', 'setNavigationOpen', 'withMutationLock', 'data-intent=', 'normalizeState', 'GY_PAGES', 'normalizeStudyState', 'GY_WELCOME', 'admin.html']:
             self.assertIn(required, source)
+        scripts = re.findall(r'<script src="([^"]+)" defer>', source)
+        self.assertEqual(scripts, ['catalog.js', 'study.js', 'account.js', 'pwa.js'])
         study = (WEB / 'study.js').read_text()
-        for required in ['LESSON_CONTENT', 'scheduleCard', 'localTutor', 'aiOptIn', '示範教材']:
+        for required in ['LESSON_CONTENT', 'scheduleCard', 'localTutor', 'registerOfficialLessons', 'COMPANION_RULES', 'aiAvailable', '示範教材', '官方教材']:
             self.assertIn(required, study)
+        account = (WEB / 'account.js').read_text()
+        for required in ['puterSignIn', 'startAsGuest', 'mergeStates', 'puter.kv', 'guidePage', 'libraryPage', 'maybeStartTour']:
+            self.assertIn(required, account)
         self.assertNotIn('<script src="https://js.puter.com', source)
         self.assertIn('https://juwpegatron.github.io/portfolio/#projects', source)
         self.assertNotIn('api.stripe.com', source)
         self.assertNotIn('supabase.co', source)
+
+    def test_admin_console_and_content_store(self):
+        admin_page = (WEB / 'admin.html').read_text()
+        self.assertIn('<meta name="robots" content="noindex">', admin_page)
+        self.assertEqual(re.findall(r'<script src="([^"]+)"', admin_page), ['catalog.js', 'admin.js'])
+        admin = (WEB / 'admin.js').read_text()
+        for required in ['permissions.push', 'sessionStorage', 'saveCatalog', 'maxFileBytes', '/contents/', 'utf8ToBase64']:
+            self.assertIn(required, admin)
+        catalog = (WEB / 'catalog.js').read_text()
+        self.assertIn("owner: 'juwpegatron'", catalog)
+        self.assertIn("repo: 'guangyao-content'", catalog)
+        self.assertIn('cdn.jsdelivr.net/gh/', catalog)
+        # No credential may ever be committed with the app.
+        for path in WEB.rglob('*'):
+            if path.suffix in {'.html', '.js', '.json', '.webmanifest'}:
+                content = path.read_text(encoding='utf-8')
+                self.assertIsNone(re.search(r'gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}', content), path.name)
 
     def test_catalog_and_generated_note_status(self):
         catalog = json.loads((REPOSITORY / 'scripts/apps.json').read_text())['apps']
         entries = [entry for entry in catalog if entry['id'] == 'guangyao']
         self.assertEqual(len(entries), 1)
         app = entries[0]
-        self.assertEqual(app['status'], 'frontend-pwa-demo')
+        self.assertEqual(app['status'], 'public-beta')
         self.assertIn('unofficial', app['description'].lower())
         for reference in app['links'].values():
             path = urlsplit(reference).path.removeprefix('guangyao/')
@@ -94,7 +116,7 @@ class StaticAppTests(unittest.TestCase):
         publisher = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(publisher)
         note = publisher.render_note(app, '2026-10-25')
-        self.assertIn('status: frontend-pwa-demo', note)
+        self.assertIn('status: public-beta', note)
         self.assertNotIn('status: shipped', note)
         ordinary = dict(app)
         ordinary.pop('status')

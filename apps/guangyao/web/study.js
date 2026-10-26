@@ -159,6 +159,26 @@ const LESSON_CONTENT = {
 };
 window.GY_LESSONS = LESSON_CONTENT;
 
+/* Lessons published by admins (catalog.js) join the same table under official:<id> keys. */
+const OFFICIAL_KEY = /^official:[a-z0-9][a-z0-9-]{0,47}$/;
+const OFFICIAL_CARD = /^official:[a-z0-9][a-z0-9-]{0,47}#\d{1,2}$/;
+const CUSTOM_CARD = /^custom:[a-z0-9]{4,24}$/;
+/* Retrieval index for the study companion; rebuilt whenever lessons or materials change. */
+var corpusCache = null;
+const lessonQuestions = content => content?.mcqs || (content?.mcq ? [content.mcq] : []);
+function registerOfficialLessons() {
+  if (!window.GY_CATALOG) return;
+  const live = window.GY_CATALOG.live;
+  for (const key of Object.keys(LESSON_CONTENT)) {
+    if (key.startsWith('official:')) delete LESSON_CONTENT[key];
+  }
+  for (const lesson of live.lessons) {
+    LESSON_CONTENT[`official:${lesson.id}`] = window.GY_CATALOG.lessonContent(lesson, live.materials);
+  }
+  corpusCache = null;
+}
+registerOfficialLessons();
+
 /* ------------------------------------------------------------------ *
  * Dates, ids and study-state normalisation
  * ------------------------------------------------------------------ */
@@ -194,6 +214,9 @@ function daysBetween(fromKey, toKey) {
 const isDateKey = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
 const lessonKey = (courseId, index) => `${courseId}:${index}`;
 const lessonTitle = key => {
+  if (LESSON_CONTENT[key]?.title) return LESSON_CONTENT[key].title;
+  if (OFFICIAL_KEY.test(key)) return '已下架的教材';
+  if (String(key).startsWith('material:')) return window.GY_CATALOG?.live.materials.find(item => `material:${item.id}` === key)?.title || '教材';
   const [courseId, index] = key.split(':');
   const course = courses.find(item => item.id === courseId);
   return course ? course.lessons[Number(index)] : key;
@@ -217,7 +240,9 @@ function defaultStudy() {
     focusByDay: {},
     journal: [],
     tutorLog: [],
-    settings: {theme: 'system', textSize: 'normal', speechRate: 1, aiOptIn: false}
+    customCards: {},
+    officialDone: [],
+    settings: {theme: 'system', textSize: 'normal', speechRate: 1, aiOptIn: false, offlineOnly: false, aiContext: true}
   };
 }
 
@@ -238,9 +263,16 @@ function normalizeStudyState(raw, root) {
   study.freezes = Number.isInteger(source.freezes) ? Math.min(Math.max(source.freezes, 0), 2) : 0;
   study.frozenDays = [...new Set((Array.isArray(source.frozenDays) ? source.frozenDays : []).filter(key => isDateKey(key) && key >= earliest && key < day))].slice(-30);
   study.milestones = [...new Set((Array.isArray(source.milestones) ? source.milestones : []).filter(value => Number.isInteger(value) && value > 0 && value <= 5000))].slice(-50);
+  for (const [id, card] of Object.entries(source.customCards || {}).slice(0, 300)) {
+    if (!CUSTOM_CARD.test(id) || !card || typeof card.front !== 'string' || typeof card.back !== 'string' || !card.front.trim() || !card.back.trim()) continue;
+    study.customCards[id] = {front: card.front.trim().slice(0, 160), back: card.back.trim().slice(0, 300), source: typeof card.source === 'string' ? card.source.slice(0, 80) : ''};
+  }
+  study.officialDone = [...new Set((Array.isArray(source.officialDone) ? source.officialDone : []).filter(id => typeof id === 'string' && OFFICIAL_KEY.test(`official:${id}`)))].slice(-300);
   const validCards = new Set(Object.keys(LESSON_CONTENT).flatMap(cardIdsFor));
+  // Official cards survive even while the catalog is still loading; unknown ones are skipped at review time.
+  const keepCard = id => validCards.has(id) || OFFICIAL_CARD.test(id) || Boolean(study.customCards[id]);
   for (const [id, card] of Object.entries(source.cards || {})) {
-    if (!validCards.has(id) || !card || typeof card !== 'object') continue;
+    if (!keepCard(id) || !card || typeof card !== 'object') continue;
     study.cards[id] = {
       due: isDateKey(card.due) ? card.due : day,
       interval: Number.isInteger(card.interval) && card.interval >= 0 && card.interval <= 3650 ? card.interval : 0,
@@ -250,8 +282,8 @@ function normalizeStudyState(raw, root) {
     };
   }
   for (const [key, entry] of Object.entries(source.mastery || {})) {
-    if (!LESSON_CONTENT[key] || !entry || typeof entry !== 'object') continue;
-    const total = Number.isInteger(entry.total) ? Math.min(Math.max(entry.total, 0), 3) : 0;
+    if (!(LESSON_CONTENT[key] || OFFICIAL_KEY.test(key)) || !entry || typeof entry !== 'object') continue;
+    const total = Number.isInteger(entry.total) ? Math.min(Math.max(entry.total, 0), 10) : 0;
     const correct = Number.isInteger(entry.correct) ? Math.min(Math.max(entry.correct, 0), total) : 0;
     if (total > 0) study.mastery[key] = {correct, total};
   }
@@ -264,7 +296,7 @@ function normalizeStudyState(raw, root) {
       }
     }
   }
-  study.journal = (Array.isArray(source.journal) ? source.journal : []).filter(entry => entry && isDateKey(entry.date) && LESSON_CONTENT[entry.lesson] && typeof entry.text === 'string').slice(-100).map(entry => ({date: entry.date, lesson: entry.lesson, text: entry.text.slice(0, 500)}));
+  study.journal = (Array.isArray(source.journal) ? source.journal : []).filter(entry => entry && isDateKey(entry.date) && (LESSON_CONTENT[entry.lesson] || OFFICIAL_KEY.test(entry.lesson)) && typeof entry.text === 'string').slice(-100).map(entry => ({date: entry.date, lesson: entry.lesson, text: entry.text.slice(0, 500)}));
   applyFreezesTo(study, day);
   study.tutorLog = (Array.isArray(source.tutorLog) ? source.tutorLog : []).filter(entry => entry && ['user', 'tutor'].includes(entry.role) && typeof entry.text === 'string').slice(-40).map(entry => ({role: entry.role, text: entry.text.slice(0, 1200), source: typeof entry.source === 'string' ? entry.source.slice(0, 80) : '', mode: entry.mode === 'cloud' ? 'cloud' : 'local'}));
   const settings = source.settings || {};
@@ -272,6 +304,8 @@ function normalizeStudyState(raw, root) {
   if (['normal', 'large', 'xl'].includes(settings.textSize)) study.settings.textSize = settings.textSize;
   if ([0.8, 1, 1.2].includes(settings.speechRate)) study.settings.speechRate = settings.speechRate;
   study.settings.aiOptIn = settings.aiOptIn === true;
+  study.settings.offlineOnly = settings.offlineOnly === true;
+  study.settings.aiContext = settings.aiContext !== false;
   return study;
 }
 window.normalizeStudyState = normalizeStudyState;
@@ -350,7 +384,7 @@ function xpThisWeek() {
   for (let offset = 0; offset < 7; offset += 1) total += study().xpByDay[addDays(today(), -offset)] || 0;
   return total;
 }
-const dueCards = () => Object.entries(study().cards).filter(([, card]) => card.due <= today()).map(([id]) => id);
+const dueCards = () => Object.entries(study().cards).filter(([id, card]) => card.due <= today() && cardContent(id)).map(([id]) => id);
 
 /* ------------------------------------------------------------------ *
  * Spaced repetition (simplified SM-2)
@@ -384,10 +418,15 @@ function previewInterval(card, rating) {
   return days === 0 ? '今天' : `${days} 天`;
 }
 function cardContent(id) {
+  if (id.startsWith('custom:')) {
+    const card = study().customCards[id];
+    return card ? {key: '', front: card.front, back: card.back, source: card.source || '我的閃卡'} : null;
+  }
   const [key, index] = id.split('#');
-  const [front, back] = LESSON_CONTENT[key].cards[Number(index)];
-  return {key, front, back};
+  const pair = LESSON_CONTENT[key]?.cards?.[Number(index)];
+  return pair ? {key, front: pair[0], back: pair[1], source: lessonTitle(key)} : null;
 }
+const reviewableCards = () => Object.entries(study().cards).filter(([id]) => cardContent(id));
 
 /* ------------------------------------------------------------------ *
  * Icons, settings and theme
@@ -479,16 +518,17 @@ function startLesson(courseId, index) {
   const content = LESSON_CONTENT[key];
   if (!content) return;
   const seed = [...key].reduce((sum, character) => sum + character.charCodeAt(0), 0);
+  const questions = lessonQuestions(content);
   session = {
     courseId,
     index,
     key,
     step: 0,
-    steps: ['read', 'mcq', 'cloze', 'order', 'reflect', 'done'],
+    steps: ['read', ...questions.map((_, position) => `mcq${position}`), ...(content.cloze ? ['cloze'] : []), ...(content.order ? ['order'] : []), ...(content.reflect ? ['reflect'] : []), 'done'],
     results: {},
     answered: false,
-    mcqOrder: shuffled(content.mcq.options, seed),
-    orderPool: shuffled(content.order.items, seed + 7),
+    mcqOrders: questions.map((question, position) => shuffled(question.options, seed + position * 13)),
+    orderPool: content.order ? shuffled(content.order.items, seed + 7) : [],
     orderPicked: [],
     reflection: '',
     finished: false,
@@ -504,7 +544,7 @@ function lessonShell(body, footer) {
   const element = document.getElementById('modal');
   element.classList.add('lesson-dialog');
   element.innerHTML = `<div class="lesson-top"><button class="icon-button" data-action="close" aria-label="離開課程">${icon('close')}</button><div class="lesson-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(progress)}" aria-label="課程進度"><i style="width:${progress}%"></i></div><span class="lesson-count">${Math.min(session.step + 1, totalSteps)}/${totalSteps}</span></div>
-    <div class="eyebrow">LESSON · 示範教材</div><h2 id="dialog-title" class="lesson-title">${esc(title)}</h2>
+    <div class="eyebrow">LESSON · ${LESSON_CONTENT[session.key]?.official ? '官方教材' : '示範教材'}</div><h2 id="dialog-title" class="lesson-title">${esc(title)}</h2>
     <div class="lesson-body" aria-live="polite">${body}</div><div class="lesson-footer">${footer}</div>`;
   if (!element.open) element.showModal();
   element.querySelector('.lesson-body input, .lesson-body textarea, .lesson-footer .btn')?.focus({preventScroll: true});
@@ -520,17 +560,21 @@ function renderLessonStep() {
   const result = session.results[kind];
   const continueButton = button(`繼續 ${icon('arrow')}`, 'lesson-next', '', 'gold wide');
   if (kind === 'read') {
+    const video = content.video ? `<div class="video-embed"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(content.video)}" title="課程影片" loading="lazy" allow="encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>` : '';
+    const attachments = (content.attachments || []).length ? `<div class="attachments"><strong>附件教材</strong>${content.attachments.map(item => `<a class="chip" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">${icon('book')} ${esc(item.title)}</a>`).join('')}</div>` : '';
     lessonShell(
-      `<div class="reading">${content.reading.map(paragraph => `<p>${esc(paragraph)}</p>`).join('')}</div><button type="button" class="btn secondary small" data-action="lesson-speak">${icon('speaker')}朗讀課文</button>`,
+      `${video}<div class="reading">${content.reading.map(paragraph => `<p>${esc(paragraph)}</p>`).join('')}</div>${attachments}<button type="button" class="btn secondary small" data-action="lesson-speak">${icon('speaker')}朗讀課文</button>`,
       continueButton
     );
-  } else if (kind === 'mcq') {
-    const options = session.mcqOrder.map(({item, index}) => {
-      const optionState = !session.answered ? '' : index === content.mcq.answer ? 'correct' : result?.choice === index ? 'wrong' : '';
+  } else if (kind.startsWith('mcq')) {
+    const position = Number(kind.slice(3));
+    const question = lessonQuestions(content)[position];
+    const options = session.mcqOrders[position].map(({item, index}) => {
+      const optionState = !session.answered ? '' : index === question.answer ? 'correct' : result?.choice === index ? 'wrong' : '';
       return `<button type="button" class="option ${optionState}" data-action="lesson-choose" data-index="${index}" ${session.answered ? 'disabled' : ''}>${esc(item)}</button>`;
     }).join('');
     lessonShell(
-      `<p class="prompt">${esc(content.mcq.question)}</p><div class="options">${options}</div>${session.answered ? feedbackBox(result.correct, content.mcq.explain, content.mcq.options[content.mcq.answer]) : ''}`,
+      `<p class="prompt">${esc(question.question)}</p><div class="options">${options}</div>${session.answered ? feedbackBox(result.correct, question.explain, question.options[question.answer]) : ''}`,
       session.answered ? continueButton : '<span class="muted">選一個答案</span>'
     );
   } else if (kind === 'cloze') {
@@ -551,24 +595,26 @@ function renderLessonStep() {
       button(`完成練習 ${icon('arrow')}`, 'lesson-finish', '', 'gold wide')
     );
   } else {
-    const graded = ['mcq', 'cloze', 'order'];
+    const graded = gradedSteps(session);
     const correct = graded.filter(name => session.results[name]?.correct).length;
-    const perfect = correct === graded.length;
+    const perfect = graded.length > 0 && correct === graded.length;
     const reflectionXp = session.reflection.trim() ? XP.reflection : 0;
     const earned = XP.lesson + (perfect ? XP.perfect : 0) + reflectionXp;
     session.earned = earned;
     lessonShell(
-      `<div class="lesson-complete"><div class="badge-symbol big">${icon(perfect ? 'award' : 'check')}</div><h3>${perfect ? '全部答對！' : '練習完成'}</h3><p>答對 ${correct} / ${graded.length} 題 · 獲得 <strong>${earned} XP</strong>${perfect ? '（含全對加成）' : ''}${reflectionXp ? ' · 含反思 +2' : ''}</p><p class="muted">本課 ${cardIdsFor(session.key).length} 張閃卡已加入「每日複習」。沒有生命值限制，答錯也能繼續學。</p></div>`,
+      `<div class="lesson-complete"><div class="badge-symbol big">${icon(perfect ? 'award' : 'check')}</div><h3>${perfect ? '全部答對！' : '練習完成'}</h3><p>${graded.length ? `答對 ${correct} / ${graded.length} 題 · ` : ''}獲得 <strong>${earned} XP</strong>${perfect ? '（含全對加成）' : ''}${reflectionXp ? ' · 含反思 +2' : ''}</p><p class="muted">本課 ${cardIdsFor(session.key).length} 張閃卡已加入「每日複習」。沒有生命值限制，答錯也能繼續學。</p></div>`,
       button(`${icon('check')}完成並收下 XP`, 'complete-lesson', `data-id="${session.courseId}" data-index="${session.index}"`, 'gold wide')
     );
   }
 }
 
+const gradedSteps = snapshot => snapshot.steps.filter(step => step.startsWith('mcq') || step === 'cloze' || step === 'order');
 async function finishLessonRewards(snapshot) {
   await withMutationLock(() => {
     const data = study();
-    const graded = ['mcq', 'cloze', 'order'];
-    data.mastery[snapshot.key] = {correct: graded.filter(name => snapshot.results[name]?.correct).length, total: graded.length};
+    const graded = gradedSteps(snapshot);
+    if (graded.length) data.mastery[snapshot.key] = {correct: graded.filter(name => snapshot.results[name]?.correct).length, total: graded.length};
+    if (snapshot.courseId === 'official' && !data.officialDone.includes(String(snapshot.index))) data.officialDone.push(String(snapshot.index));
     for (const id of cardIdsFor(snapshot.key)) {
       if (!data.cards[id]) data.cards[id] = freshCard(today());
     }
@@ -576,6 +622,7 @@ async function finishLessonRewards(snapshot) {
     data.journal = data.journal.slice(-100);
     const message = awardXp(snapshot.earned);
     save();
+    if (snapshot.courseId === 'official') closeModal();
     render();
     toast(`+${snapshot.earned} XP${message ? ' · ' + message : ''}`);
   });
@@ -597,10 +644,19 @@ document.addEventListener('click', event => {
 }, true);
 
 document.addEventListener('click', event => {
+  const target = event.target.closest('[data-action="play-official"]');
+  if (!target || target.disabled) return;
+  event.preventDefault();
+  if (!state.signedIn) return;
+  if (LESSON_CONTENT[`official:${target.dataset.id}`]) startLesson('official', target.dataset.id);
+  else toast('這份教材已更新或下架，請重新整理。');
+});
+
+document.addEventListener('click', event => {
   const target = event.target.closest('[data-action]');
   if (!target || target.disabled) return;
   const action = target.dataset.action;
-  if (action === 'complete-lesson' && session?.finished && !session.awarded && target.dataset.id === session.courseId && Number(target.dataset.index) === session.index) {
+  if (action === 'complete-lesson' && session?.finished && !session.awarded && target.dataset.id === session.courseId && String(target.dataset.index) === String(session.index)) {
     session.awarded = true;
     const snapshot = session;
     document.getElementById('modal').classList.remove('lesson-dialog');
@@ -615,10 +671,13 @@ document.addEventListener('click', event => {
     stopSpeaking();
     session.step += 1;
     session.answered = false;
+    if (session.steps[session.step] === 'done') session.finished = true;
     renderLessonStep();
   } else if (action === 'lesson-choose' && !session.answered) {
     const choice = Number(target.dataset.index);
-    session.results.mcq = {choice, correct: choice === content.mcq.answer};
+    const kind = session.steps[session.step];
+    const question = lessonQuestions(content)[Number(kind.slice(3))];
+    session.results[kind] = {choice, correct: choice === question.answer};
     session.answered = true;
     renderLessonStep();
   } else if (action === 'lesson-pick' && !session.answered) {
@@ -655,11 +714,11 @@ let reviewDoneToday = 0;
 function reviewPage() {
   const due = dueCards();
   if (!reviewQueue.length || reviewQueue.some(id => !study().cards[id])) reviewQueue = due;
-  reviewQueue = reviewQueue.filter(id => study().cards[id]);
-  const total = Object.keys(study().cards).length;
+  reviewQueue = reviewQueue.filter(id => study().cards[id] && cardContent(id));
+  const total = reviewableCards().length;
   const forecast = Array.from({length: 7}, (_, offset) => {
     const day = addDays(today(), offset);
-    const count = Object.values(study().cards).filter(card => offset === 0 ? card.due <= day : card.due === day).length;
+    const count = reviewableCards().filter(([, card]) => offset === 0 ? card.due <= day : card.due === day).length;
     return {day, count};
   });
   const maxForecast = Math.max(1, ...forecast.map(entry => entry.count));
@@ -672,11 +731,11 @@ function reviewPage() {
   } else {
     const id = reviewQueue[0];
     const card = study().cards[id];
-    const {key, front, back} = cardContent(id);
+    const {front, back, source: cardSource} = cardContent(id);
     const ratings = [['again', '重來', 'danger'], ['hard', '困難', 'secondary'], ['good', '良好', ''], ['easy', '簡單', 'secondary']];
-    content = `<div class="flashcard ${reviewRevealed ? 'revealed' : ''}"><div class="flash-meta"><span class="tag">${esc(lessonTitle(key))}</span><span class="muted">剩下 ${reviewQueue.length} 張</span></div><p class="flash-front">${esc(front)}</p>${reviewRevealed ? `<hr><p class="flash-back">${esc(back)}</p>` : ''}<div class="flash-actions">${reviewRevealed ? ratings.map(([rating, label, style]) => button(`${label}<small>${previewInterval(card, rating)}</small>`, 'review-rate', `data-rating="${rating}" data-card="${esc(id)}"`, `rate ${style}`)).join('') : button('顯示答案', 'review-reveal', '', 'gold wide') + `<button type="button" class="btn ghost small" data-action="review-speak" aria-label="朗讀題目">${icon('speaker')}</button>`}</div></div><p class="muted" style="font-size:11px;margin-top:12px">鍵盤：空白鍵翻面，1–4 評分。依你的評分安排下次複習時間（簡化 SM-2 演算法）。</p>`;
+    content = `<div class="flashcard ${reviewRevealed ? 'revealed' : ''}"><div class="flash-meta"><span class="tag">${esc(cardSource)}</span><span class="muted">剩下 ${reviewQueue.length} 張</span></div><p class="flash-front">${esc(front)}</p>${reviewRevealed ? `<hr><p class="flash-back">${esc(back)}</p>` : ''}<div class="flash-actions">${reviewRevealed ? ratings.map(([rating, label, style]) => button(`${label}<small>${previewInterval(card, rating)}</small>`, 'review-rate', `data-rating="${rating}" data-card="${esc(id)}"`, `rate ${style}`)).join('') : button('顯示答案', 'review-reveal', '', 'gold wide') + `<button type="button" class="btn ghost small" data-action="review-speak" aria-label="朗讀題目">${icon('speaker')}</button>`}</div></div><p class="muted" style="font-size:11px;margin-top:12px">鍵盤：空白鍵翻面，1–4 評分。依你的評分安排下次複習時間（簡化 SM-2 演算法）。</p>`;
   }
-  return `${pageHead('每日複習', '在快要忘記的時候複習，記得最久。')}<div class="two-col"><section>${content}</section><aside class="card card-pad"><h2>未來 7 天</h2>${forecastBars}<div class="list-row"><span>閃卡總數</span><strong>${total}</strong></div><div class="list-row"><span>今天到期</span><strong>${due.length}</strong></div><div class="list-row"><span>已熟記（間隔 ≥ 21 天）</span><strong>${Object.values(study().cards).filter(card => card.interval >= 21).length}</strong></div></aside></div>`;
+  return `${pageHead('每日複習', '在快要忘記的時候複習，記得最久。')}<div class="two-col"><section>${content}</section><aside class="card card-pad"><h2>未來 7 天</h2>${forecastBars}<div class="list-row"><span>閃卡總數</span><strong>${total}</strong></div><div class="list-row"><span>今天到期</span><strong>${due.length}</strong></div><div class="list-row"><span>已熟記（間隔 ≥ 21 天）</span><strong>${reviewableCards().filter(([, card]) => card.interval >= 21).length}</strong></div></aside></div>`;
 }
 
 async function rateCard(id, rating) {
@@ -713,6 +772,7 @@ let tutorScope = 'all';
 let tutorBusy = false;
 let pendingQuiz = null;
 const PUTER_SDK_URL = 'https://js.puter.com/v2/';
+const AI_MODEL = 'gpt-5-mini';
 let puterPromise = null;
 
 const STOP_CHARACTERS = /[\s，。、！？「」『』：；（）()…,.!?:;"'\-什麼怎麼樣該要我你妳他她的是嗎呢吧了時做如何請問一下有沒能可以會]/g;
@@ -723,17 +783,29 @@ function bigrams(text) {
   if (clean.length === 1) grams.add(clean);
   return grams;
 }
-/* Corpus of citable passages: readings, summary, flashcards and each lesson's real-life scenario. */
-let corpusCache = null;
+
+/* Citable passages: lesson readings, summaries, scenarios, flashcards and admin material notes. */
+function materialPassages() {
+  const materials = window.GY_CATALOG ? window.GY_CATALOG.live.materials : [];
+  const passages = [];
+  for (const material of materials) {
+    const body = [material.title, material.description, material.notes].filter(Boolean).join('\n');
+    for (const sentence of body.split(/(?<=[。！？!?])|\n+/).map(item => item.trim()).filter(item => item.length >= 4)) {
+      passages.push({key: `material:${material.id}`, sentence: sentence.slice(0, 220)});
+    }
+  }
+  return passages.slice(0, 3000);
+}
 function corpus() {
   if (corpusCache) return corpusCache;
   const passages = [];
   for (const [key, content] of Object.entries(LESSON_CONTENT)) {
-    const scenario = `${content.mcq.question}${content.mcq.options[content.mcq.answer]}。${content.mcq.explain}`;
-    for (const sentence of [...content.reading, content.summary, scenario, ...content.cards.map(([front, back]) => `${front}${back}`)]) {
-      passages.push({key, sentence, grams: bigrams(sentence)});
+    const scenarios = lessonQuestions(content).map(question => `${question.question}${question.options[question.answer]}。${question.explain || ''}`);
+    for (const sentence of [...content.reading, content.summary, ...scenarios, ...content.cards.map(([front, back]) => `${front}${back}`)]) {
+      if (sentence) passages.push({key, sentence, grams: bigrams(sentence)});
     }
   }
+  for (const passage of materialPassages()) passages.push({...passage, grams: bigrams(passage.sentence)});
   const documentFrequency = new Map();
   for (const passage of passages) {
     for (const gram of passage.grams) documentFrequency.set(gram, (documentFrequency.get(gram) || 0) + 1);
@@ -742,19 +814,23 @@ function corpus() {
   corpusCache = {passages, idf};
   return corpusCache;
 }
+document.addEventListener('guangyao:catalog', () => {
+  registerOfficialLessons();
+  if (state.study) state.study = normalizeStudyState(state.study, state);
+});
+
+const lessonKeys = () => Object.keys(LESSON_CONTENT);
 function scopedLessons() {
-  const keys = Object.keys(LESSON_CONTENT);
-  return tutorScope === 'all' ? keys : keys.filter(key => key === tutorScope);
+  return tutorScope === 'all' || !LESSON_CONTENT[tutorScope] ? lessonKeys() : [tutorScope];
 }
 function retrieve(question, limit = 2) {
   const questionGrams = bigrams(question);
   if (!questionGrams.size) return [];
   const {passages, idf} = corpus();
-  const scopes = new Set(scopedLessons());
   const maximum = [...questionGrams].reduce((sum, gram) => sum + idf(gram), 0);
   const scored = [];
   for (const passage of passages) {
-    if (!scopes.has(passage.key)) continue;
+    if (tutorScope !== 'all' && passage.key !== tutorScope) continue;
     let weight = 0;
     for (const gram of questionGrams) {
       if (passage.grams.has(gram)) weight += idf(gram);
@@ -772,10 +848,22 @@ function retrieve(question, limit = 2) {
   return results;
 }
 function pickLessonForQuiz() {
-  const keys = scopedLessons();
+  const keys = scopedLessons().filter(key => LESSON_CONTENT[key].cards.length);
   const studied = keys.filter(key => cardIdsFor(key).some(id => study().cards[id]));
   const pool = studied.length ? studied : keys;
   return pool[(xpToday() + study().tutorLog.length) % pool.length];
+}
+function summaryFor(key) {
+  if (LESSON_CONTENT[key]) return LESSON_CONTENT[key].summary;
+  const material = window.GY_CATALOG?.live.materials.find(item => `material:${item.id}` === key);
+  return material ? (material.description || material.notes).slice(0, 160) : '';
+}
+function excerptsFor(key, limit = 1500) {
+  if (LESSON_CONTENT[key]) {
+    const content = LESSON_CONTENT[key];
+    return [...content.reading, `重點：${content.summary}`, ...content.cards.map(([front, back]) => `${front} ${back}`)].join('\n').slice(0, limit);
+  }
+  return corpus().passages.filter(passage => passage.key === key).map(passage => passage.sentence).join('\n').slice(0, limit);
 }
 
 function localTutor(question) {
@@ -808,9 +896,12 @@ function localTutor(question) {
     pendingQuiz = {key, front, back};
     return {text: `來一題：${front}\n（用自己的話回答；說「提示」可以得到線索。）`, source: lessonTitle(key)};
   }
+  if (/計畫|計劃|今天.*(學|複習)什麼|學習安排/.test(text)) {
+    return {text: localPlan(), source: ''};
+  }
   if (/總結|摘要|重點|summary/.test(text)) {
-    const keys = tutorScope === 'all' ? [retrieve(text, 1)[0]?.key || pickLessonForQuiz()] : [tutorScope];
-    return {text: `重點整理：${LESSON_CONTENT[keys[0]].summary}`, source: lessonTitle(keys[0])};
+    const key = tutorScope === 'all' ? (retrieve(text, 1)[0]?.key || pickLessonForQuiz()) : tutorScope;
+    return {text: `重點整理：${summaryFor(key)}`, source: lessonTitle(key)};
   }
   if (/閃卡|flashcard/.test(text)) {
     return {text: '__ADD_CARDS__', source: ''};
@@ -823,9 +914,29 @@ function localTutor(question) {
     return {text: '課程內容裡找不到和這個問題直接相關的段落，我不想亂猜。可以換個說法、選擇特定課程，或請教帶領老師。', source: ''};
   }
   const key = hits[0].key;
-  const follow = LESSON_CONTENT[key].reflect;
+  const follow = LESSON_CONTENT[key]?.reflect || '你會怎麼把這段內容用在自己的生活裡？';
   const sameLesson = hits.filter(hit => hit.key === key);
   return {text: `${sameLesson.map(hit => hit.sentence).join('\n')}\n\n想一想：${follow}`, source: lessonTitle(key)};
+}
+
+/* Next unfinished lesson: newest official lessons first, then the sample learning path. */
+function nextLessonSuggestion() {
+  const official = Object.entries(LESSON_CONTENT).find(([key]) => key.startsWith('official:') && !study().officialDone.includes(key.slice(9)));
+  if (official) return {title: official[1].title, action: `data-action="play-official" data-id="${esc(official[0].slice(9))}"`};
+  const course = courses.find(item => unlocked(item) && !state.completed.includes(item.id));
+  if (!course) return null;
+  const index = [0, 1, 2].find(position => !(state.lessons[course.id] || []).includes(position));
+  return index === undefined ? null : {title: course.lessons[index], action: `data-action="open-lesson-direct" data-id="${course.id}" data-index="${index}"`};
+}
+function localPlan() {
+  const due = dueCards().length;
+  const next = nextLessonSuggestion();
+  const remaining = Math.max(0, study().dailyGoal - xpToday());
+  const steps = [];
+  if (due) steps.push(`1. 先複習 ${due} 張到期閃卡（約 ${Math.max(1, Math.ceil(due / 4))} 分鐘），趁快忘記時複習最有效。`);
+  if (next) steps.push(`${steps.length + 1}. 上一堂新課：〈${next.title}〉（約 3–5 分鐘）。`);
+  steps.push(`${steps.length + 1}. 用一句話寫下今天的心得，或開 10 分鐘專注計時。`);
+  return `今天的學習計畫（${remaining ? `還差 ${remaining} XP 達成目標` : '今日目標已達成，輕鬆複習就好'}）：\n${steps.join('\n')}`;
 }
 
 function ensurePuter() {
@@ -846,55 +957,176 @@ function ensurePuter() {
   }
   return puterPromise;
 }
+window.GY_PUTER = ensurePuter;
 
-async function cloudTutor(question) {
+/* AI companion (signed-in Puter accounts). Guests keep the offline tutor above. */
+const aiAvailable = () => state.account?.mode === 'puter' && !study().settings.offlineOnly;
+const COMPANION_RULES = `你是「光光」，光耀同行學習平台的 AI 學伴。
+- 一律使用繁體中文，語氣溫暖、簡潔，適合各年齡層。
+- 課程相關問題只根據「課程與教材摘錄」回答，並在重點後用〈出處標題〉標註；摘錄沒有的內容就坦白說不知道，建議詢問帶領老師，絕不編造。
+- 學習方法、時間安排、鼓勵與反思可以用一般常識回答，但要說明那不是課程內容。
+- 不代表任何機構發言，不提供宗教教義的權威解釋，也不提供醫療、法律或財務建議。
+- 出題時一次只出一題，先不給答案；使用者回答後再批改：先肯定做得好的地方，再補充，最後附上參考答案與出處。
+- 使用者要求直接給答案時，先給一個提示，再問他要不要看答案。
+- 回答盡量在 200 字以內；學習計畫用條列，最多 3 步。`;
+
+function learnerContext() {
+  if (!study().settings.aiContext) return '（使用者選擇不分享學習進度）';
+  const data = study();
+  const recent = Object.keys(data.mastery).slice(-5).map(lessonTitle);
+  const weak = Object.entries(data.mastery).filter(([, entry]) => entry.total && entry.correct / entry.total < 0.67).map(([key]) => lessonTitle(key)).slice(0, 5);
+  const next = nextLessonSuggestion();
+  return [
+    `稱呼：${state.name}`,
+    `連續學習 ${currentStreak()} 天；今日 ${xpToday()} / ${data.dailyGoal} XP`,
+    `今天到期的閃卡：${dueCards().length} 張`,
+    recent.length ? `最近完成：${recent.join('、')}` : '還沒有完成任何單元',
+    weak.length ? `答錯較多、可以加強：${weak.join('、')}` : '',
+    next ? `建議下一課：${next.title}` : ''
+  ].filter(Boolean).join('\n');
+}
+
+async function streamChat(messages, onDelta) {
   const sdk = await ensurePuter();
   if (sdk.auth && typeof sdk.auth.isSignedIn === 'function' && !sdk.auth.isSignedIn()) {
-    await sdk.auth.signIn();
+    throw new Error('Puter 登入已失效，請到「帳戶」重新登入');
   }
-  const hits = retrieve(question, 4);
-  const excerpts = hits.length ? hits.map(hit => `〈${lessonTitle(hit.key)}〉${hit.sentence}`).join('\n') : '（沒有找到相關課程摘錄）';
-  const system = '你是「光光」，光耀同行學習平台的學習夥伴。只根據使用者提供的課程摘錄回答，使用繁體中文，簡潔溫和。每個重點後用〈課名〉標示出處。若摘錄沒有答案，就說不知道並建議詢問帶領老師，不要編造。不提供宗教教義的權威解釋。採蘇格拉底式引導：先給提示或反問，不直接說出測驗答案。';
   const response = await Promise.race([
-    sdk.ai.chat([{role: 'system', content: system}, {role: 'user', content: `課程摘錄：\n${excerpts}\n\n問題：${question}`}]),
-    new Promise((_, reject) => setTimeout(() => reject(new Error('雲端 AI 回應逾時。')), 45000))
+    sdk.ai.chat(messages, {model: AI_MODEL, stream: true}),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('AI 回應逾時')), 45000))
   ]);
-  const text = typeof response === 'string' ? response : String(response?.message?.content || response?.text || '');
-  if (!text.trim()) throw new Error('雲端 AI 沒有回應內容。');
-  return {text: text.trim().slice(0, 1200), source: hits[0] ? lessonTitle(hits[0].key) : '', mode: 'cloud'};
+  let text = '';
+  if (response && typeof response[Symbol.asyncIterator] === 'function') {
+    for await (const part of response) {
+      const delta = typeof part === 'string' ? part : part?.text || '';
+      if (delta) {
+        text += delta;
+        if (onDelta) onDelta(text);
+      }
+    }
+  } else {
+    text = typeof response === 'string' ? response : String(response?.message?.content || response?.text || '');
+    if (onDelta) onDelta(text);
+  }
+  if (!text.trim()) throw new Error('AI 沒有回應內容');
+  return text.trim();
+}
+function showLive(text) {
+  const element = document.getElementById('tutor-live');
+  if (element) {
+    element.textContent = text;
+    document.getElementById('tutor-messages')?.scrollTo(0, 1e6);
+  }
+}
+function detectIntent(text) {
+  if (/考考我|出題|測驗|quiz/i.test(text)) return 'quiz';
+  if (/閃卡|flashcard/i.test(text)) return 'cards';
+  if (/計畫|計劃|今天.*(學|複習)什麼|學習安排/.test(text)) return 'plan';
+  if (/簡單|白話|聽不懂|舉例/.test(text)) return 'simple';
+  if (/總結|摘要|重點/.test(text)) return 'summary';
+  return 'ask';
+}
+
+const CHIP_PROMPTS = {
+  '用簡單的話解釋': '請用小學生也聽得懂的方式，加上一個生活例子，解釋剛剛討論的內容（若還沒討論，就解釋這一課的重點）。',
+  '總結重點': '請用 3 點條列整理這一課的重點，每點一句話並標出處。',
+  '給我提示': '請針對剛剛的題目給我一個提示，不要直接說答案；如果還沒有題目，就給我一個學好這一課的小提示。'
+};
+async function aiReply(question, intent) {
+  let key = '';
+  let excerpts = '';
+  let instruction = question;
+  if (intent === 'quiz') {
+    key = pickLessonForQuiz();
+    excerpts = `〈${lessonTitle(key)}〉\n${excerptsFor(key)}`;
+    instruction = '請根據摘錄出一題考我（簡答或選擇題，一次一題），先不要給答案。';
+  } else if (intent === 'plan') {
+    excerpts = '（學習計畫不需要課程摘錄）';
+    instruction = '請根據我的學習進度，安排今天 15 分鐘內可完成的學習計畫（最多 3 步，說明為什麼），並鼓勵我。';
+  } else if (CHIP_PROMPTS[question]) {
+    // A bare chip refers to the topic just discussed (or the chosen scope), not to its own words.
+    const lastSource = [...study().tutorLog].reverse().find(entry => entry.role === 'tutor' && entry.source)?.source;
+    key = (tutorScope !== 'all' && tutorScope) || [...lessonKeys(), ...corpus().passages.map(passage => passage.key)].find(item => lessonTitle(item) === lastSource) || pickLessonForQuiz();
+    excerpts = `〈${lessonTitle(key)}〉\n${excerptsFor(key)}`;
+    instruction = CHIP_PROMPTS[question];
+  } else {
+    const hits = retrieve(question, 5);
+    key = hits[0]?.key || (tutorScope !== 'all' ? tutorScope : '');
+    excerpts = hits.length ? hits.map(hit => `〈${lessonTitle(hit.key)}〉${hit.sentence}`).join('\n') : (key ? `〈${lessonTitle(key)}〉\n${excerptsFor(key)}` : '（沒有找到直接相關的摘錄）');
+    if (intent === 'simple') instruction = `請用小學生也聽得懂的方式，加上一個生活例子解釋：${question}`;
+    if (intent === 'summary') instruction = `請用 3 點條列整理重點：${question}`;
+  }
+  const history = study().tutorLog.slice(-9, -1).map(entry => ({role: entry.role === 'user' ? 'user' : 'assistant', content: entry.text.slice(0, 600)}));
+  const messages = [
+    {role: 'system', content: COMPANION_RULES},
+    {role: 'system', content: `學員進度：\n${learnerContext()}\n\n課程與教材摘錄：\n${excerpts}`},
+    ...history,
+    {role: 'user', content: instruction}
+  ];
+  const text = await streamChat(messages, showLive);
+  return {text: text.slice(0, 2000), source: key ? lessonTitle(key) : '', mode: 'cloud'};
+}
+
+async function aiFlashcards(topic) {
+  const key = tutorScope !== 'all' ? tutorScope : (retrieve(topic.replace(/整理成|做成|閃卡/g, ''), 1)[0]?.key || pickLessonForQuiz());
+  const messages = [
+    {role: 'system', content: `${COMPANION_RULES}\n這次只輸出 JSON，不要任何其他文字。`},
+    {role: 'user', content: `根據以下內容做 3 到 5 張繁體中文問答閃卡。只輸出 JSON 陣列，格式：[{"front":"問題","back":"答案"}]。\n內容〈${lessonTitle(key)}〉：\n${excerptsFor(key)}`}
+  ];
+  const raw = await streamChat(messages);
+  let parsed = [];
+  try {
+    parsed = JSON.parse((raw.match(/\[[\s\S]*\]/) || ['[]'])[0]);
+  } catch {
+    parsed = [];
+  }
+  const cards = (Array.isArray(parsed) ? parsed : []).filter(card => card && typeof card.front === 'string' && typeof card.back === 'string' && card.front.trim() && card.back.trim()).slice(0, 5).map(card => ({front: card.front.trim().slice(0, 160), back: card.back.trim().slice(0, 300), source: lessonTitle(key)}));
+  if (!cards.length) throw new Error('AI 沒有產生可用的閃卡');
+  return {text: `已建立 ${cards.length} 張閃卡並加入每日複習：\n${cards.map(card => `• ${card.front}`).join('\n')}`, source: lessonTitle(key), mode: 'cloud', newCards: cards};
 }
 
 function tutorPage() {
   const log = study().tutorLog;
-  const scopeOptions = `<option value="all" ${tutorScope === 'all' ? 'selected' : ''}>全部課程</option>${Object.keys(LESSON_CONTENT).map(key => `<option value="${key}" ${tutorScope === key ? 'selected' : ''}>${esc(lessonTitle(key))}</option>`).join('')}`;
-  const messages = log.length ? log.map(entry => `<div class="message ${entry.role === 'user' ? 'mine' : ''}"><span class="avatar ${entry.role === 'user' ? 'peach' : ''}">${entry.role === 'user' ? esc(state.name.slice(-1)) : '光'}</span><div class="bubble"><small>${entry.role === 'user' ? '你' : `光光 · ${entry.mode === 'cloud' ? '雲端 AI' : '離線學伴'}`}</small>${esc(entry.text).replace(/\n/g, '<br>')}${entry.source ? `<span class="cite">出處：〈${esc(entry.source)}〉</span>` : ''}</div></div>`).join('') : `<div class="empty">${icon('spark')}<h3>嗨，我是光光</h3><p>我只根據課程內容回答並標出出處；找不到就會老實說。試試下面的按鈕。</p></div>`;
-  const chips = ['考考我', '總結重點', '給我提示', '什麼是先詢問再協助？', '做成閃卡'].map(text => `<button type="button" class="chip" data-action="tutor-chip" data-text="${esc(text)}">${esc(text)}</button>`).join('');
-  const cloud = study().settings.aiOptIn;
-  return `${pageHead('AI 學伴 · 光光', '有出處的回答、引導式提問，陪你真正想懂。')}
-    <div class="callout">${icon('shield')} 預設為<strong>離線學伴</strong>：只在此裝置比對課程內容，不傳送任何資料。${cloud ? '已開啟雲端 AI（Puter，第三方服務）；問題與相關課程摘錄會送出處理。' : ''}</div>
-    <div class="card tutor-card"><div class="tutor-head"><label class="field" style="margin:0;flex:1"><span>提問範圍</span><select data-setting-tutor-scope aria-label="提問範圍">${scopeOptions}</select></label><label class="check" style="margin:0"><input type="checkbox" data-setting-ai ${cloud ? 'checked' : ''}>使用雲端 AI（選用）</label>${button('清除對話', 'tutor-clear', log.length ? '' : 'disabled', 'ghost small')}</div>
-    <div class="messages tutor-messages" id="tutor-messages">${messages}${tutorBusy ? '<div class="message"><span class="avatar">光</span><div class="bubble typing">思考中…</div></div>' : ''}</div>
+  const ai = aiAvailable();
+  const puterAccount = state.account?.mode === 'puter';
+  const lessonOptions = lessonKeys().map(key => `<option value="${esc(key)}" ${tutorScope === key ? 'selected' : ''}>${esc(lessonTitle(key))}</option>`).join('');
+  const materialOptions = (window.GY_CATALOG ? window.GY_CATALOG.live.materials : []).filter(item => item.description || item.notes).map(item => `<option value="material:${esc(item.id)}" ${tutorScope === `material:${item.id}` ? 'selected' : ''}>${esc(item.title)}</option>`).join('');
+  const scopeOptions = `<option value="all" ${tutorScope === 'all' ? 'selected' : ''}>全部課程與教材</option><optgroup label="課程">${lessonOptions}</optgroup>${materialOptions ? `<optgroup label="教材">${materialOptions}</optgroup>` : ''}`;
+  const messages = log.length ? log.map(entry => `<div class="message ${entry.role === 'user' ? 'mine' : ''}"><span class="avatar ${entry.role === 'user' ? 'peach' : ''}">${entry.role === 'user' ? esc(state.name.slice(-1)) : '光'}</span><div class="bubble"><small>${entry.role === 'user' ? '你' : `光光 · ${entry.mode === 'cloud' ? 'AI 學伴' : '離線學伴'}`}</small>${esc(entry.text).replace(/\n/g, '<br>')}${entry.source ? `<span class="cite">出處：〈${esc(entry.source)}〉</span>` : ''}</div></div>`).join('') : `<div class="empty">${icon('spark')}<h3>嗨，我是光光</h3><p>${ai ? '你的 AI 學伴：可以自由提問、請我出題批改、排學習計畫，或把課程整理成閃卡。課程問題我會標出處。' : '我只根據課程內容回答並標出出處；找不到就會老實說。試試下面的按鈕。'}</p></div>`;
+  const chips = [['考考我', 'quiz'], ['用簡單的話解釋', 'simple'], ['幫我排今天的學習計畫', 'plan'], ['整理成閃卡', 'cards'], ['總結重點', 'summary'], ['給我提示', 'ask']].map(([label, intent]) => `<button type="button" class="chip" data-action="tutor-chip" data-intent="${intent}" data-text="${esc(label)}">${esc(label)}</button>`).join('');
+  const status = ai
+    ? `<div class="callout ai-on">${icon('spark')} <div><strong>AI 學伴已啟用</strong>（透過你的 Puter 帳號 ${esc(state.account.username || '')}）。課程問題會引用出處；你的問題與相關摘錄會送到 Puter 的 AI 服務處理，請勿輸入敏感個資。</div></div>`
+    : puterAccount
+      ? `<div class="callout">${icon('shield')} 目前為<strong>離線模式</strong>：只在此裝置比對課程內容，不傳送任何資料。</div>`
+      : `<div class="callout ai-cta">${icon('spark')} <div><strong>訪客模式使用離線學伴</strong>：只比對此裝置上的課程內容。登入免費的 Puter 帳號即可解鎖 <strong>AI 學伴</strong>——自由對話、出題與批改、學習計畫、AI 做閃卡，並同步你的進度。</div>${button('登入解鎖 AI 學伴', 'puter-signin', '', 'small')}</div>`;
+  const toggles = puterAccount ? `<label class="check" style="margin:0"><input type="checkbox" data-setting-offline ${study().settings.offlineOnly ? 'checked' : ''}>只用離線模式</label><label class="check" style="margin:0"><input type="checkbox" data-setting-ai-context ${study().settings.aiContext ? 'checked' : ''}>讓學伴參考我的進度</label>` : '';
+  return `${pageHead('AI 學伴 · 光光', ai ? '會出題、會批改、會排計畫，而且回答有出處。' : '有出處的回答、引導式提問，陪你真正想懂。')}
+    ${status}
+    <div class="card tutor-card"><div class="tutor-head"><label class="field" style="margin:0;flex:1"><span>提問範圍</span><select data-setting-tutor-scope aria-label="提問範圍">${scopeOptions}</select></label>${toggles}${button('清除對話', 'tutor-clear', log.length ? '' : 'disabled', 'ghost small')}</div>
+    <div class="messages tutor-messages" id="tutor-messages">${messages}${tutorBusy ? '<div class="message"><span class="avatar">光</span><div class="bubble"><small>光光 · AI 學伴</small><span id="tutor-live" class="typing">思考中…</span></div></div>' : ''}</div>
     <div class="chips">${chips}</div>
-    <form class="chat-compose" data-form="tutor"><input name="question" aria-label="問光光" placeholder="問一個關於課程的問題…" maxlength="300" required autocomplete="off" ${tutorBusy ? 'disabled' : ''}><button class="btn" type="submit" ${tutorBusy ? 'disabled' : ''}>送出 ${icon('arrow')}</button></form></div>
-    <p class="muted" style="font-size:11px;margin-top:10px">光光不會直接說出測驗答案，會先給提示。AI 可能出錯，請以課程與老師說明為準。</p>`;
+    <form class="chat-compose" data-form="tutor"><input name="question" aria-label="問光光" placeholder="${ai ? '問任何學習上的問題…' : '問一個關於課程的問題…'}" maxlength="500" required autocomplete="off" ${tutorBusy ? 'disabled' : ''}><button class="btn" type="submit" ${tutorBusy ? 'disabled' : ''}>送出 ${icon('arrow')}</button></form></div>
+    <p class="muted" style="font-size:11px;margin-top:10px">光光不會直接說出測驗答案，會先給提示。AI 可能出錯，請以課程、教材與老師說明為準。</p>`;
 }
 
-async function askTutor(question) {
-  const text = question.trim().slice(0, 300);
+async function askTutor(question, intent) {
+  const text = question.trim().slice(0, 500);
   if (!text || tutorBusy) return;
+  const kind = intent || detectIntent(text);
+  const useAi = aiAvailable() && !(pendingQuiz && kind === 'ask');
   let reply;
-  const useCloud = study().settings.aiOptIn && !/考考我|測驗|出題|閃卡/.test(text) && !pendingQuiz;
-  if (useCloud) {
+  if (useAi) {
     tutorBusy = true;
     await withMutationLock(() => {
-      study().tutorLog.push({role: 'user', text, source: '', mode: 'local'});
+      study().tutorLog.push({role: 'user', text, source: '', mode: 'cloud'});
       save();
     });
     render();
     try {
-      reply = await cloudTutor(text);
+      reply = kind === 'cards' ? await aiFlashcards(text) : await aiReply(text, kind);
     } catch (error) {
-      reply = {...localTutor(text), text: `（雲端 AI 無法使用：${error.message}，改用離線學伴）\n${localTutor(text).text}`};
+      const offline = localTutor(text);
+      reply = offline.text === '__ADD_CARDS__' ? offline : {...offline, text: `（AI 學伴暫時無法使用：${error.message}。以下是離線回答）\n${offline.text}`};
     }
     tutorBusy = false;
   } else {
@@ -902,17 +1134,22 @@ async function askTutor(question) {
   }
   await withMutationLock(() => {
     const data = study();
-    if (!useCloud) data.tutorLog.push({role: 'user', text, source: '', mode: 'local'});
+    if (!useAi) data.tutorLog.push({role: 'user', text, source: '', mode: 'local'});
     if (reply.text === '__ADD_CARDS__') {
-      const keys = tutorScope === 'all' ? [pickLessonForQuiz()] : [tutorScope];
+      const key = tutorScope !== 'all' && LESSON_CONTENT[tutorScope] ? tutorScope : pickLessonForQuiz();
       let added = 0;
-      for (const id of cardIdsFor(keys[0])) {
+      for (const id of cardIdsFor(key)) {
         if (!data.cards[id]) {
           data.cards[id] = freshCard(today());
           added += 1;
         }
       }
-      reply = {text: added ? `已把〈${lessonTitle(keys[0])}〉的 ${added} 張閃卡加入每日複習。` : `〈${lessonTitle(keys[0])}〉的閃卡已經在複習清單裡了。`, source: lessonTitle(keys[0])};
+      reply = {text: added ? `已把〈${lessonTitle(key)}〉的 ${added} 張閃卡加入每日複習。` : `〈${lessonTitle(key)}〉的閃卡已經在複習清單裡了。`, source: lessonTitle(key)};
+    }
+    for (const card of reply.newCards || []) {
+      const id = `custom:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+      data.customCards[id] = card;
+      data.cards[id] = freshCard(today());
     }
     data.tutorLog.push({role: 'tutor', text: reply.text, source: reply.source || '', mode: reply.mode || 'local'});
     data.tutorLog = data.tutorLog.slice(-40);
@@ -1169,7 +1406,7 @@ document.addEventListener('click', event => {
     const id = reviewQueue[0];
     if (id) speak(cardContent(id).front);
   } else if (action === 'tutor-chip') {
-    askTutor(target.dataset.text);
+    askTutor(target.dataset.text, target.dataset.intent);
   } else if (action === 'tutor-clear') {
     withMutationLock(() => {
       study().tutorLog = [];
@@ -1248,34 +1485,22 @@ document.addEventListener('submit', event => {
 
 document.addEventListener('change', event => {
   if (event.target.matches('[data-setting-tutor-scope]')) {
-    tutorScope = Object.keys(LESSON_CONTENT).includes(event.target.value) ? event.target.value : 'all';
+    const value = event.target.value;
+    const materialIds = (window.GY_CATALOG ? window.GY_CATALOG.live.materials : []).map(item => `material:${item.id}`);
+    tutorScope = LESSON_CONTENT[value] || materialIds.includes(value) ? value : 'all';
     pendingQuiz = null;
     render();
-  } else if (event.target.matches('[data-setting-ai]')) {
-    const enabled = event.target.checked;
-    if (enabled) {
-      event.target.checked = false;
-      modal('開啟雲端 AI？', `<p>雲端 AI 透過 <strong>Puter</strong>（第三方服務）執行，需要免費的 Puter 帳號，費用由你的 Puter 免費額度支付。</p><ul class="install-steps"><li>你的問題和相關的課程摘錄會傳送到 Puter 與其 AI 供應商。</li><li>請勿輸入個人、宗教、健康或財務等敏感資訊。</li><li>AI 可能出錯；光光會被要求只依課程回答並標示出處。</li><li>可隨時關閉，關閉後立即改回離線學伴。</li></ul><div class="form-actions">${button('先不要', 'close', '', 'secondary')}${button('我了解，開啟', 'ai-confirm')}</div>`);
-    } else {
-      withMutationLock(() => {
-        study().settings.aiOptIn = false;
-        save();
-        render();
-        toast('已關閉雲端 AI，改用離線學伴。');
-      });
-    }
+  } else if (event.target.matches('[data-setting-offline], [data-setting-ai-context]')) {
+    const offline = event.target.matches('[data-setting-offline]');
+    const checked = event.target.checked;
+    withMutationLock(() => {
+      study().settings[offline ? 'offlineOnly' : 'aiContext'] = checked;
+      save();
+      render();
+      toast(offline ? (checked ? '已改用離線學伴，不傳送任何資料。' : '已啟用 AI 學伴。') : (checked ? 'AI 學伴會參考你的學習進度。' : 'AI 學伴不會收到你的學習進度。'));
+    });
   }
-});
-document.addEventListener('click', event => {
-  if (!event.target.closest('[data-action="ai-confirm"]') || !state.signedIn) return;
-  withMutationLock(() => {
-    study().settings.aiOptIn = true;
-    save();
-    closeModal();
-    render();
-    toast('已開啟雲端 AI。第一次提問時會請你登入 Puter。');
-  });
 });
 
 window.GY_PAGES = {review: reviewPage, tutor: tutorPage, stats: statsPage};
-window.GY_STUDY = {today, addDays, scheduleCard, currentStreak, longestStreak, dueCards, retrieve, localTutor, icsFor, normalizeStudyState, xpToday};
+window.GY_STUDY = {today, addDays, scheduleCard, currentStreak, longestStreak, dueCards, retrieve, localTutor, localPlan, icsFor, normalizeStudyState, xpToday, nextLessonSuggestion, registerOfficialLessons, cardContent};

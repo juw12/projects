@@ -28,3 +28,7 @@ What popular study and AI-learning apps do well, what 光耀同行 adopted, and 
 - The offline tutor is a keyword/bigram retriever, not a language model. The optional cloud AI uses Puter's browser SDK and was not exercised against the live service in automated tests.
 - "Better than" claims require real-user retention and learning-outcome studies; none have been run.
 - Physical phones, screen readers and real classroom use have not been validated.
+
+## v4 follow-up: AI companion
+
+Version 4 turns the opt-in cloud tutor into a default companion for signed-in learners (Puter AI, learner's own quota), keeping the NotebookLM-style grounding (answers only from course text and admin material notes, honest "not covered") and Khanmigo/Study-Mode-style hint-first tutoring. Guests keep the offline retrieval tutor, so the app still works without an account or network.

@@ -4,8 +4,8 @@ aliases:
   - Guang Yao Together
   - 發一光耀平台概念
 type: project
-status: frontend-pwa-demo
-version: "3.0.0"
+status: public-beta
+version: "4.0.0"
 tags:
   - projects
   - education
@@ -14,13 +14,13 @@ tags:
   - portfolio
 organization_approval: pending
 github_repository: https://github.com/juwpegatron/projects/tree/main/apps/guangyao
-public_deployment: pending
+public_deployment: https://juwpegatron.github.io/projects/guangyao/
 portfolio_publication: pending
 ---
 
 # 光耀同行
 
-> An unofficial learning/community product concept for 發一光耀. The current delivery is a responsive, installable PWA frontend with local demonstration data—not an operational institutional service.
+> An unofficial learning/community app for 發一光耀. Since v4.0.0 it is a public beta: real Puter accounts with cloud sync (or guest mode), an AI study companion, and a GitHub-backed admin console for publishing materials. It is not an official institutional service.
 
 ## Project overview
 
@@ -56,6 +56,17 @@ Benchmarked against Duolingo, Anki, Quizlet, Brilliant, NotebookLM, Khanmigo/Cha
 - Browser regression suite extended for the study layer in Chromium and WebKit.
 
 Limits: sample (non-official) lesson content, local-only progress, retrieval-based tutor, live cloud AI and physical devices untested, no learning-outcome study yet.
+
+## v4.0.0 "make it real" (October 2026)
+
+- **Accounts:** welcome screen with *Sign in with Puter* or *Continue as guest*. Signed-in progress (lessons, XP, streaks, cards, journal, registrations) syncs through per-user `puter.kv` and merges without losing data; guests never contact Puter.
+- **Admin console** (`admin.html`): GitHub collaborators on the public `juwpegatron/guangyao-content` repository log in with a token and publish materials (≤ 20 MB), lessons (text, YouTube, up to 5 questions, reflection, flashcards, attachments), events with signup links and a home announcement. Every change is a commit. See `admin-guide.md`.
+- **Learner delivery:** sanitized catalog (drafts hidden, HTTPS/YouTube/path validation), commit-pinned jsDelivr file links, 5-minute refresh. Official lessons use the same player, review and journal as the built-in course.
+- **AI study companion 光光:** streamed `puter.ai.chat` answers for signed-in learners, grounded in course text and admin material notes, with chat history, hint-first tutoring, AI-made flashcards, an "offline only" switch and a privacy toggle for learner context. Guests use the offline retrieval tutor.
+- **Guidance:** first-visit tour, in-app 使用指南 page with FAQ and privacy, sign-out with shared-device reset.
+- First real content published through the live console: the learner user guide PDF and a "新手導覽" lesson.
+
+Limits: a real Puter sign-in and AI call could not be completed headlessly (Puter requires an interactive account popup) and need a check on a phone; the content repository is public; points, giving, chat, meetings and referrals remain demonstrations.
 
 ## Requirements map
 

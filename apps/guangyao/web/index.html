@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="description" content="光耀同行：發一光耀學習與社群平台概念。可安裝的桌面與行動 PWA，使用本機示範資料，非官方服務。">
+  <meta name="description" content="光耀同行：發一光耀學習與社群平台。可安裝的桌面與行動 PWA：Puter 帳號登入或訪客使用、管理員發布教材、AI 學伴、間隔複習。非官方服務。">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="光耀同行">
@@ -532,6 +532,98 @@
     html[data-theme="dark"] .eyebrow, html[data-theme="dark"] .stat-label, html[data-theme="dark"] .meta, html[data-theme="dark"] .progress-label, html[data-theme="dark"] .nav-group, html[data-theme="dark"] .muted, html[data-theme="dark"] small { color: var(--muted); }
     html[data-theme="dark"] .icon-button, html[data-theme="dark"] .profile-button, html[data-theme="dark"] a { color: var(--ink); }
     html[data-theme="dark"] .btn.ghost, html[data-theme="dark"] .section-head a { color: #8fd6b2; }
+
+    /* ---------- v4: accounts, official content, guide, AI companion ---------- */
+    button.demo-pill { cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-family: inherit; }
+    .demo-pill .icon { width: 13px; height: 13px; }
+    .demo-pill.synced { background: #e9f3ee; color: #2f6b4b; border-color: #cfe3d6; }
+    .demo-pill.warn { background: #fbefe6; color: #9a5a2b; border-color: #f0d6c2; }
+    .welcome { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(280px, 1fr); gap: 22px; align-items: start; max-width: 1080px; margin: 10px auto 0; }
+    .welcome-card { background: linear-gradient(160deg, #183e3c, #24655c); color: #f3f6ef; border-radius: 16px; padding: 38px 36px; box-shadow: var(--shadow); }
+    .welcome-card h1 { font-family: Georgia, "Songti TC", serif; font-weight: 500; font-size: clamp(30px, 4vw, 44px); margin: 10px 0 8px; letter-spacing: -.02em; color: #fff; }
+    .welcome-card .eyebrow { color: #a9c7b4; margin-top: 18px; }
+    .welcome-lead { color: #d6e4da; font-size: 15px; max-width: 520px; }
+    .brandmark.big { height: 58px; width: 58px; }
+    .brandmark.big .icon { width: 28px; height: 28px; }
+    .welcome-options { display: grid; gap: 12px; margin-top: 24px; }
+    .welcome-options.compact { margin-top: 14px; }
+    .welcome-option { display: flex; gap: 14px; align-items: flex-start; text-align: left; padding: 16px 18px; border-radius: 12px; border: 1px solid #ffffff33; background: #ffffff14; color: #f6f8f3; font: inherit; cursor: pointer; transition: transform .15s, background .15s; }
+    .welcome-option:hover { background: #ffffff22; transform: translateY(-1px); }
+    .welcome-option.primary { background: #f0c879; color: #2b2410; border-color: #f0c879; }
+    .welcome-option.primary:hover { background: #f4d390; }
+    .welcome-option .icon { width: 26px; height: 26px; flex: none; margin-top: 2px; }
+    .welcome-option strong { display: block; font-size: 16px; margin-bottom: 3px; }
+    .welcome-option small { display: block; font-size: 12.5px; line-height: 1.55; opacity: .88; }
+    .welcome-option:disabled { opacity: .7; cursor: progress; }
+    .welcome-error { margin: 14px 0 0; padding: 10px 12px; border-radius: 8px; background: #fbe9e3; color: #8c3b22; font-size: 13px; }
+    .welcome-links { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 22px; font-size: 13px; }
+    .welcome-links a { color: #e9f1ea; display: inline-flex; align-items: center; gap: 5px; text-underline-offset: 3px; }
+    .welcome-links .icon { width: 15px; height: 15px; }
+    .welcome-compare td, .welcome-compare th { font-size: 12.5px; white-space: normal; }
+    .welcome-compare td:not(:first-child), .welcome-compare th:not(:first-child) { text-align: center; white-space: nowrap; }
+    .welcome-option small { color: inherit; }
+    .welcome-option:not(.primary) small { color: #e2ece5; opacity: 1; }
+    .account-status { display: flex; gap: 12px; align-items: center; padding: 14px; border-radius: 10px; border: 1px solid var(--line); margin-bottom: 16px; }
+    .account-status > .icon { width: 26px; height: 26px; color: var(--green); flex: none; }
+    .account-status > div { flex: 1; min-width: 0; }
+    .account-status strong { display: block; font-size: 14px; }
+    .account-status small { color: var(--muted); font-size: 12px; }
+    .account-status.puter { background: #eef6f1; }
+    .account-status.guest { background: #faf6ec; }
+    .account-footer { border-top: 1px solid var(--line); margin-top: 22px; padding-top: 16px; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+    .official-lesson h3 { margin: 12px 0 6px; font-size: 16px; }
+    .official-lesson .muted { font-size: 12.5px; min-height: 38px; }
+    .badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 14px; }
+    .badges span { font-size: 11px; padding: 3px 8px; border-radius: 999px; background: var(--mint); color: var(--green); }
+    .material-row { gap: 14px; align-items: center; }
+    .material-row h3 { margin: 0 0 2px; font-size: 14px; }
+    .material-row p { margin: 0; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+    .callout.announcement { background: #fdf6e6; border-color: #f0dfb6; color: #7b5d22; font-size: 13px; }
+    .official-strip { margin-bottom: 20px; }
+    .announcement-line { margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; background: #fdf6e6; color: #7b5d22; font-size: 13px; display: flex; gap: 8px; align-items: center; }
+    .new-lessons { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+    .new-lesson { display: flex; gap: 12px; align-items: center; text-align: left; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); font: inherit; color: var(--ink); cursor: pointer; }
+    .new-lesson:hover { border-color: var(--green); }
+    .new-lesson > .icon { width: 30px; height: 30px; padding: 7px; border-radius: 50%; background: var(--green); color: #fff; flex: none; }
+    .new-lesson strong { display: block; font-size: 14px; }
+    .new-lesson small { color: var(--muted); font-size: 11.5px; }
+    .video-embed { position: relative; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: #0f1f1d; margin-bottom: 16px; }
+    .video-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    .attachments { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 14px 0; font-size: 13px; }
+    .attachments a.chip { text-decoration: none; display: inline-flex; gap: 5px; align-items: center; }
+    .attachments .icon { width: 14px; height: 14px; }
+    .callout.ai-on, .callout.ai-cta { display: flex; gap: 12px; align-items: center; font-size: 13px; }
+    .callout.ai-on { background: #eaf4ef; border-color: #cde4d6; color: #2f5f4a; }
+    .callout.ai-cta { background: #fdf6e6; border-color: #f0dfb6; color: #6f5420; flex-wrap: wrap; }
+    .callout.ai-cta > div, .callout.ai-on > div { flex: 1; min-width: 220px; }
+    .callout.ai-on > .icon, .callout.ai-cta > .icon { width: 22px; height: 22px; flex: none; }
+    .guide-step { display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px dashed var(--line); }
+    .guide-step:last-of-type { border-bottom: 0; }
+    .guide-step h3 { margin: 0 0 4px; font-size: 14.5px; }
+    .guide-step p { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.7; }
+    .guide-number { flex: none; min-width: 30px; height: 30px; padding: 0 8px; border-radius: 15px; display: grid; place-items: center; background: var(--mint); color: var(--green); font-weight: 650; font-size: 12px; }
+    .guide h2 { display: flex; align-items: center; gap: 8px; }
+    .faq { border-bottom: 1px solid var(--line); padding: 10px 0; }
+    .faq summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+    .faq p { font-size: 13px; color: var(--muted); margin: 8px 0 2px; line-height: 1.7; }
+    .tour { text-align: center; }
+    .tour h2 { margin: 12px 0 8px; }
+    .tour p, .tour-list { color: var(--muted); font-size: 14px; }
+    .tour form { text-align: left; }
+    .tour-list { text-align: left; max-width: 360px; margin: 10px auto; line-height: 2; }
+    .tour-hero { width: 64px; height: 64px; margin: 6px auto 0; border-radius: 50%; display: grid; place-items: center; background: var(--mint); color: var(--green); }
+    .tour-hero .icon { width: 30px; height: 30px; }
+    .tour-dots { display: flex; justify-content: center; gap: 6px; }
+    .tour-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+    .tour-dots i.on { background: var(--green); width: 20px; border-radius: 4px; }
+    .typing { white-space: pre-wrap; }
+    html[data-theme="dark"] .account-status.puter, html[data-theme="dark"] .callout.ai-on { background: #17302a; color: var(--ink); border-color: var(--line); }
+    html[data-theme="dark"] .account-status.guest, html[data-theme="dark"] .callout.ai-cta, html[data-theme="dark"] .callout.announcement, html[data-theme="dark"] .announcement-line { background: #2a2617; color: #f0dfb6; border-color: #3d3520; }
+    html[data-theme="dark"] .new-lesson { background: #152422; }
+    @media (max-width: 900px) {
+      .welcome { grid-template-columns: 1fr; }
+      .welcome-card { padding: 28px 22px; }
+    }
   </style>
 </head>
 <body>
@@ -539,7 +631,7 @@
   <aside class="sidebar" id="sidebar" aria-label="主要導覽"></aside>
   <button id="nav-overlay" class="nav-overlay" data-action="close-menu" aria-label="關閉主選單" hidden></button>
   <div class="workspace" id="workspace">
-    <div id="app-status" class="app-status" role="status"><span>本機示範 · 不連接真實帳戶或金流</span><div><span id="network-state">檢查連線中</span><button type="button" data-pwa-action="install">安裝 App</button><button type="button" data-pwa-action="update" id="update-app" hidden>有新版・重新載入</button></div></div>
+    <div id="app-status" class="app-status" role="status"><span id="account-status">非官方平台 · 積分、公益與社群為示範功能</span><div><span id="network-state">檢查連線中</span><button type="button" data-pwa-action="install">安裝 App</button><button type="button" data-pwa-action="update" id="update-app" hidden>有新版・重新載入</button></div></div>
     <header class="topbar" id="topbar"></header>
     <main id="main" tabindex="-1"></main>
   </div>
@@ -594,9 +686,10 @@
     const initialState = () => ({
       schemaVersion: 2,
       revision: 0,
-      name: '林予安',
+      name: '學員',
       role: 'member',
-      signedIn: true,
+      signedIn: false,
+      account: {mode: 'none', username: '', syncedAt: ''},
       points: 320,
       lessons: {foundation: [0], practice: [], lead: []},
       completed: [],
@@ -613,7 +706,7 @@
       publicPortfolio: false,
       leaderboard: false,
       bio: '在學習中看見自己，在同行中練習善意。',
-      pointHistory: [{label: '示範帳戶起始積分', amount: 320}],
+      pointHistory: [{label: '新手見面禮（示範積分）', amount: 320}],
       study: null
     });
     let state = initialState();
@@ -628,6 +721,7 @@
         state.revision = (state.revision || 0) + 1;
         localStorage.setItem(storageKey, JSON.stringify(state));
         persistenceAvailable = true;
+        window.dispatchEvent(new Event('guangyao:saved'));
       } catch {
         persistenceAvailable = false;
         if (!storageWarningShown) {
@@ -665,9 +759,16 @@
       const courseIds = courses.map(course => course.id);
       result.name = textValue(raw.name, 20, result.name) || result.name;
       result.bio = textValue(raw.bio, 160, result.bio);
-      result.role = ['member', 'organizer', 'admin'].includes(raw.role) ? raw.role : 'member';
-      result.signedIn = typeof raw.signedIn === 'boolean' ? raw.signedIn : true;
-      if (!result.signedIn) result.role = 'member';
+      // Staff roles now live in the separate admin console; the learner app is always a member view.
+      result.role = 'member';
+      result.signedIn = raw.signedIn === true;
+      const accountMode = ['guest', 'puter'].includes(raw.account?.mode) ? raw.account.mode : (result.signedIn ? 'guest' : 'none');
+      result.account = {
+        mode: result.signedIn ? accountMode : (accountMode === 'puter' ? 'puter' : 'none'),
+        username: textValue(raw.account?.username, 40),
+        syncedAt: typeof raw.account?.syncedAt === 'string' && !Number.isNaN(Date.parse(raw.account.syncedAt)) ? raw.account.syncedAt : ''
+      };
+      if (result.account.mode === 'none') result.account.username = '';
       result.revision = Number.isSafeInteger(raw.revision) && raw.revision >= 0 ? raw.revision : 0;
       for (const id of courseIds) {
         result.lessons[id] = unique(list(raw.lessons?.[id]).filter(index => Number.isInteger(index) && index >= 0 && index < 3));
@@ -708,12 +809,12 @@
         description: textValue(event.description, 1000)
       })).filter((event, index, events) => events.findIndex(item => item.id === event.id) === index);
       const eventIds = [...baseEvents, ...result.events].map(event => event.id);
-      result.registrations = unique(list(raw.registrations).filter(id => eventIds.includes(id)));
+      result.registrations = unique(list(raw.registrations).filter(id => eventIds.includes(id) || /^pub-[a-z0-9][a-z0-9-]{0,47}$/.test(id))).slice(0, 300);
       result.friends = ['徐子晴'];
       result.requests = unique(list(raw.requests).filter(name => ['周以哲', '許宥恩', '王品涵'].includes(name)));
       result.poll = [0, 1, 2].includes(raw.poll) ? raw.poll : null;
       result.points = 320 + result.completed.length * 100;
-      result.pointHistory = [{label: '示範帳戶起始積分', amount: 320}, ...result.completed.map(id => ({label: `首次完成：${courses.find(course => course.id === id).title}`, amount: 100}))];
+      result.pointHistory = [{label: '新手見面禮（示範積分）', amount: 320}, ...result.completed.map(id => ({label: `首次完成：${courses.find(course => course.id === id).title}`, amount: 100}))];
       result.redemptions = [];
       for (const entry of list(raw.redemptions).slice(0, 100)) {
         const reward = rewards.find(item => item.id === entry?.reward);
@@ -776,11 +877,15 @@
     const unlocked = course => !course.previous || state.completed.includes(course.previous);
     const progress = course => state.completed.includes(course.id) ? 100 : Math.round((state.lessons[course.id] || []).length / course.lessons.length * 100);
     const level = () => Math.min(state.completed.length + 1, 3);
-    const visibleEvents = () => [...baseEvents, ...state.events].filter(event => event.rank === 'all' || canManage()).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+    const publishedEvents = () => (window.GY_CATALOG ? window.GY_CATALOG.live.events : []).map(event => ({...event, id: `pub-${event.id}`, rank: 'all', capacity: 0, occupied: 0, published: true}));
+    const showSamples = () => !(window.GY_CATALOG && window.GY_CATALOG.live.settings.hideSamples);
+    const visibleEvents = () => [...publishedEvents(), ...(showSamples() ? baseEvents : []), ...state.events].filter(event => event.rank === 'all' || canManage()).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+    const eventBadge = event => event.published ? '<span class="tag blue">正式公告</span>' : '<span class="tag gray">示範</span>';
     const eventType = type => ({online: '線上課程', offline: '實體課程', social: '社群活動'})[type];
     const navItems = [
       ['學習中心', 'home', 'home', '我的總覽'],
       ['', 'courses', 'book', '探索課程'],
+      ['', 'library', 'library', '官方教材'],
       ['', 'review', 'layers', '每日複習'],
       ['', 'tutor', 'spark', 'AI 學伴'],
       ['', 'stats', 'chart', '學習數據'],
@@ -791,7 +896,8 @@
       ['', 'vault', 'heart', '善行寶庫'],
       ['', 'rewards', 'gift', '積分好禮'],
       ['', 'invite', 'share', '邀請同行'],
-      ['關於我們', 'about', 'sun', '認識光耀']
+      ['關於我們', 'guide', 'compass', '使用指南'],
+      ['', 'about', 'sun', '認識光耀']
     ];
     const button = (label, action, extra = '', style = '') => `<button type="button" class="btn ${style}" data-action="${action}" ${extra}>${label}</button>`;
     const navButton = (label, page, style = '') => button(label, 'navigate', `data-page="${page}"`, style);
@@ -837,18 +943,18 @@
     }
     function homePage() {
       const current = courses.find(course => !state.completed.includes(course.id)) || courses[0];
-      return `${pageHead(`你好，${esc(state.name.slice(-2))} <span style="color:#bf9d60;font-size:25px">☀</span>`, '每一份用心，都在讓世界更好一點。今天也一起向前。', `<div class="date-chip">${icon('calendar')}2026 年 11 月 · 示範日程</div>`)}
+      return `${pageHead(`你好，${esc(state.name.slice(-2))} <span style="color:#bf9d60;font-size:25px">☀</span>`, '每一份用心，都在讓世界更好一點。今天也一起向前。', `<div class="date-chip">${icon('calendar')}${new Date().toLocaleDateString('zh-TW', {year: 'numeric', month: 'long', day: 'numeric', weekday: 'short'})}</div>`)}
         <section class="hero"><div class="hero-copy"><div class="eyebrow" style="color:#9fbaa7">LEARN · CONNECT · CONTRIBUTE</div><h2>把每一次學習，<br>化為向善的力量。</h2><p>在光耀同行，與志同道合的夥伴一起成長。</p>${button(`繼續我的學習 ${icon('arrow')}`, 'open-course', `data-id="${current.id}"`, 'gold')}</div>${heroArt()}</section>
         <section class="stats" aria-label="個人成長概覽">${stat('我的學習等級', `Lv. ${level()}`, 'sprout', ['初學同行', '日常實踐', '同行服務'][level() - 1])}${stat('已完成課程', state.completed.length, 'book', `/ ${courses.length} 門`)}${stat('可用積分', format(state.points), 'coin', '點')}${stat('已報名活動', visibleEvents().filter(event => state.registrations.includes(event.id)).length, 'calendar', '場')}</section>
         <div class="two-col"><section><div class="section-head"><h2>延續你的學習旅程</h2>${navButton(`探索全部 ${icon('arrow')}`, 'courses', 'ghost')}</div><div class="equal-col">${courseCard(current)}${courseCard(courses.find(course => course.id !== current.id) || courses[1])}</div><div class="community-strip"><div class="stacked"><span class="avatar">晴</span><span class="avatar peach">哲</span><span class="avatar blue">恩</span></div><div><h3>學習的路上，我們一起走。</h3><p>初學同行小組 · 分享你的第一個善意行動</p></div>${navButton(`加入討論 ${icon('arrow')}`, 'community', 'ghost')}</div></section>
-        <section><div class="section-head"><h2>接下來的相聚</h2>${navButton(`查看日程 ${icon('arrow')}`, 'schedule', 'ghost')}</div><div class="card schedule-box"><div class="mini-calendar">${['一', '二', '三', '四', '五', '六', '日'].map((day, index) => `<div class="day ${index === 3 ? 'selected' : ''}">${day}<strong>${index + 2}</strong></div>`).join('')}</div>${visibleEvents().slice(0, 3).map((event, index) => `<div class="agenda-item"><span class="agenda-dot ${index === 1 ? 'orange' : ''}"></span><div style="flex:1"><div class="event-time">11/${event.date.slice(-2)} · ${event.time} <span class="tag ${event.type === 'online' ? '' : 'gold'}" style="float:right">${eventType(event.type)}</span></div><h3>${event.title}</h3><p>${event.teacher} · ${event.place}</p>${button(`查看活動 ${icon('chevron')}`, 'event-detail', `data-id="${event.id}"`, 'ghost small')}</div></div>`).join('')}</div></section></div>
+        <section><div class="section-head"><h2>接下來的相聚</h2>${navButton(`查看日程 ${icon('arrow')}`, 'schedule', 'ghost')}</div><div class="card schedule-box"><div class="mini-calendar">${['一', '二', '三', '四', '五', '六', '日'].map((day, index) => `<div class="day ${index === 3 ? 'selected' : ''}">${day}<strong>${index + 2}</strong></div>`).join('')}</div>${visibleEvents().slice(0, 3).map((event, index) => `<div class="agenda-item"><span class="agenda-dot ${index === 1 ? 'orange' : ''}"></span><div style="flex:1"><div class="event-time">${Number(event.date.slice(5, 7))}/${event.date.slice(-2)} · ${event.time} <span class="tag ${event.type === 'online' ? '' : 'gold'}" style="float:right">${eventType(event.type)}</span></div><h3>${esc(event.title)}</h3><p>${esc(event.teacher || '主持人待公布')} · ${esc(event.place || '地點待公布')}</p>${button(`查看活動 ${icon('chevron')}`, 'event-detail', `data-id="${event.id}"`, 'ghost small')}</div></div>`).join('')}</div></section></div>
         <div class="equal-col space-top"><section class="card card-pad"><div class="section-head"><h2>${icon('heart')} 善意，有跡可循</h2><span class="tag">透明公益 · 示範</span></div><p class="muted" style="font-size:12px">每一份支持都有去向。一起看見共學計畫的進展。</p><div class="progress-label"><span>社區共學支持計畫</span><span>${money(48600)} / ${money(80000)}</span></div><div class="progress"><i style="width:60.75%"></i></div>${navButton(`探索善行寶庫 ${icon('arrow')}`, 'vault', 'ghost')}</section><section class="card card-pad"><div class="section-head"><h2>${icon('gift')} 努力，值得被鼓勵</h2><span class="tag gold">積分好禮</span></div><p class="muted" style="font-size:12px">你有 ${format(state.points)} 點可用積分，為自己選一份學習的陪伴。</p><div style="display:flex;align-items:center;gap:15px"><div class="stat-symbol" style="background:#f8f1e5;color:#bca375">${icon('book')}</div><div><strong style="font-size:12px">光耀學習筆記本</strong><div style="font-size:10px;color:#9c906f">200 點 · 示範好禮</div></div>${navButton(`看看好禮 ${icon('arrow')}`, 'rewards', 'ghost')}</div></section></div>`;
     }
     function coursesPage() {
       let filtered = courses;
       if (ui.courseFilter === 'mine') filtered = courses.filter(course => state.enrolled.includes(course.id));
       if (ui.courseFilter === 'unlocked') filtered = courses.filter(unlocked);
-      return `${pageHead('探索課程', '從認識到實踐，一步一步，走出自己的成長路徑。')}<div class="callout">${icon('info')} 課程名稱、教師及教材皆為流程示例，非發一光耀正式課綱。完成全部單元及測驗，才會解鎖下一級。</div><div class="filters">${[['all', '全部課程'], ['mine', '我的課程'], ['unlocked', '可開始學習']].map(([id, label]) => button(label, 'course-filter', `data-id="${id}"`, `filter ${ui.courseFilter === id ? 'active' : ''}`)).join('')}</div><div class="three-col">${filtered.map(courseCard).join('') || '<div class="empty">還沒有加入課程。先從入門課開始吧。</div>'}</div><section class="card card-pad space-top"><h2>你的進階路徑</h2><div class="three-col">${courses.map(course => `<div><span class="tag ${state.completed.includes(course.id) ? 'gold' : ''}">LEVEL 0${course.level}</span><h3 style="margin-top:12px">${course.category}</h3><p class="muted" style="font-size:12px">${state.completed.includes(course.id) ? '已完成 · 證書已加入個人成就' : unlocked(course) ? '已解鎖 · 完成單元與測驗後繼續進階' : '待解鎖 · 先完成上一級課程'}</p></div>`).join('')}</div></section>`;
+      return `${pageHead('探索課程', '從認識到實踐，一步一步，走出自己的成長路徑。')}<div class="callout">${icon('info')} 入門示範課程：課名、教師與內容為流程示例，非發一光耀正式課綱。完成全部單元及測驗，才會解鎖下一級。</div><div class="filters">${[['all', '全部課程'], ['mine', '我的課程'], ['unlocked', '可開始學習']].map(([id, label]) => button(label, 'course-filter', `data-id="${id}"`, `filter ${ui.courseFilter === id ? 'active' : ''}`)).join('')}</div><div class="three-col">${filtered.map(courseCard).join('') || '<div class="empty">還沒有加入課程。先從入門課開始吧。</div>'}</div><section class="card card-pad space-top"><h2>你的進階路徑</h2><div class="three-col">${courses.map(course => `<div><span class="tag ${state.completed.includes(course.id) ? 'gold' : ''}">LEVEL 0${course.level}</span><h3 style="margin-top:12px">${course.category}</h3><p class="muted" style="font-size:12px">${state.completed.includes(course.id) ? '已完成 · 證書已加入個人成就' : unlocked(course) ? '已解鎖 · 完成單元與測驗後繼續進階' : '待解鎖 · 先完成上一級課程'}</p></div>`).join('')}</div></section>`;
     }
     function coursePage(id) {
       const course = courses.find(item => item.id === id);
@@ -866,17 +972,22 @@
       const filters = [['all', '全部活動'], ['online', '線上'], ['offline', '實體'], ['social', '社群活動'], ['mine', '我的報名']];
       let content;
       if (ui.calendar) {
-        const cells = Array.from({length: 35}, (_, index) => {
-          const day = index + 1;
-          if (day > 30) return '<div class="calendar-cell blank"></div>';
-          const date = `2026-11-${String(day).padStart(2, '0')}`;
+        const now = new Date();
+        const month = ui.month || events.find(event => event.date >= now.toISOString().slice(0, 10))?.date.slice(0, 7) || events[0]?.date.slice(0, 7) || now.toISOString().slice(0, 7);
+        const [year, monthNumber] = month.split('-').map(Number);
+        const leading = new Date(year, monthNumber - 1, 1).getDay();
+        const daysInMonth = new Date(year, monthNumber, 0).getDate();
+        const cells = Array.from({length: Math.ceil((leading + daysInMonth) / 7) * 7}, (_, index) => {
+          const day = index - leading + 1;
+          if (day < 1 || day > daysInMonth) return '<div class="calendar-cell blank"></div>';
+          const date = `${month}-${String(day).padStart(2, '0')}`;
           return `<div class="calendar-cell">${day}${events.filter(event => event.date === date).map(event => `<button class="calendar-event" data-action="event-detail" data-id="${event.id}">${event.time} ${esc(event.title)}</button>`).join('')}</div>`;
         }).join('');
-        content = `<h2>2026 年 11 月 <small style="font-size:11px;font-weight:400">示範月份</small></h2><div class="calendar-grid">${['日', '一', '二', '三', '四', '五', '六'].map(day => `<div class="calendar-cell heading">${day}</div>`).join('')}${cells}</div>`;
+        content = `<div class="section-head"><h2>${year} 年 ${monthNumber} 月</h2><div>${button('‹ 上個月', 'calendar-month', `data-month="${month}" data-step="-1"`, 'secondary small')} ${button('下個月 ›', 'calendar-month', `data-month="${month}" data-step="1"`, 'secondary small')}</div></div><div class="calendar-grid">${['日', '一', '二', '三', '四', '五', '六'].map(day => `<div class="calendar-cell heading">${day}</div>`).join('')}${cells}</div>`;
       } else {
-        content = events.map(event => `<article class="card event-card"><div class="event-date">${Number(event.date.slice(5, 7))} 月<strong>${event.date.slice(-2)}</strong></div><div class="event-info"><span class="tag ${event.type === 'online' ? '' : 'gold'}">${eventType(event.type)}</span> ${event.rank !== 'all' ? '<span class="tag gray">幹部限定</span>' : ''}${state.registrations.includes(event.id) ? '<span class="tag blue">已報名</span>' : ''}<h3>${esc(event.title)}</h3><div class="meta"><span>${icon('clock')}${esc(event.time)} · ${esc(event.duration)}</span><span>${icon('people')}${esc(event.teacher)}</span><span>${icon('pin')}${esc(event.place)}</span></div></div>${button(`活動詳情 ${icon('arrow')}`, 'event-detail', `data-id="${event.id}"`, 'secondary')}</article>`).join('') || '<div class="card empty">目前沒有符合的活動。可以切換篩選條件。</div>';
+        content = events.map(event => `<article class="card event-card"><div class="event-date">${Number(event.date.slice(5, 7))} 月<strong>${event.date.slice(-2)}</strong></div><div class="event-info"><span class="tag ${event.type === 'online' ? '' : 'gold'}">${eventType(event.type)}</span> ${eventBadge(event)}${state.registrations.includes(event.id) ? '<span class="tag blue">我的行程</span>' : ''}<h3>${esc(event.title)}</h3><div class="meta"><span>${icon('clock')}${esc(event.time)} · ${esc(event.duration)}</span><span>${icon('people')}${esc(event.teacher)}</span><span>${icon('pin')}${esc(event.place)}</span></div></div>${button(`活動詳情 ${icon('arrow')}`, 'event-detail', `data-id="${event.id}"`, 'secondary')}</article>`).join('') || '<div class="card empty">目前沒有符合的活動。可以切換篩選條件。</div>';
       }
-      return `${pageHead('課程與活動', '線上相聚，實體同行。為值得的相遇，留一個位置。', canManage() ? button(`${icon('plus')}建立活動`, 'create-event') : '')}<div class="section-head"><div class="filters" style="margin-bottom:0">${filters.map(([id, label]) => button(label, 'event-filter', `data-id="${id}"`, `filter ${ui.eventFilter === id ? 'active' : ''}`)).join('')}</div>${button(`${icon(ui.calendar ? 'calendar' : 'chart')}${ui.calendar ? '清單檢視' : '月曆檢視'}`, 'calendar-toggle', '', 'secondary small')}</div><div class="callout">所有日程與教師均為示範。活動幹部與管理員可建立活動；幹部限定活動不會顯示給一般學員。正式環境需由伺服器驗證權限。</div>${content}`;
+      return `${pageHead('課程與活動', '線上相聚，實體同行。為值得的相遇，留一個位置。')}<div class="section-head"><div class="filters" style="margin-bottom:0">${filters.map(([id, label]) => button(label, 'event-filter', `data-id="${id}"`, `filter ${ui.eventFilter === id ? 'active' : ''}`)).join('')}</div>${button(`${icon(ui.calendar ? 'calendar' : 'chart')}${ui.calendar ? '清單檢視' : '月曆檢視'}`, 'calendar-toggle', '', 'secondary small')}</div><div class="callout">標示「正式公告」的活動由管理員在後台發布；標示「示範」的是範例資料${showSamples() ? '' : '（已由管理員隱藏）'}。正式報名請依各活動的報名連結。</div>${content}`;
     }
     function communityPage() {
       const tabs = [['chat', '群組討論'], ['friends', '我的好友'], ['poll', '社群投票'], ['board', '學習排行榜']];
@@ -927,8 +1038,7 @@
       return `${pageHead('認識光耀', '從認識開始，讓每一次連結更有意義。')}<section class="hero" style="min-height:290px"><div class="hero-copy"><div class="eyebrow">FA YI GUANG YAO</div><h2>以學習照見自己，<br>以善意連結彼此。</h2><p>「光耀同行」是本次提案的產品暫名與設計文案，<br>非機構已核准的名稱、標語或官方網站。</p>${navButton(`開始探索課程 ${icon('arrow')}`, 'courses', 'gold')}</div>${heroArt()}</section><div class="three-col">${[['book', '學習', '影片、教材與測驗，建立循序漸進的學習體驗。'], ['people', '同行', '從課堂到社群，讓交流與互相支持自然發生。'], ['heart', '實踐', '以透明的參與紀錄，讓善意成為可持續的行動。']].map(([symbol, title, description]) => `<section class="card card-pad"><div class="stat-symbol">${icon(symbol)}</div><h2 style="margin-top:16px">${title}</h2><p class="muted" style="font-size:13px">${description}</p></section>`).join('')}</div><div class="equal-col space-top"><section class="card card-pad"><h2>機構介紹 · 待審核內容</h2><p class="muted">正式版將由發一光耀授權窗口提供與確認沿革、理念、師資、組織關係、服務據點與聯絡方式。不以產品示範文案代替官方敘述。</p><a class="btn secondary reference-link" href="https://www.iktcds.edu.tw/Chong-De-School/FaYi-GuangYao.htm" target="_blank" rel="noopener noreferrer">開啟使用者提供的介紹參考 ${icon('arrow')}</a></section><section class="card card-pad"><h2>下一步，讓想法成為服務</h2><p class="muted">這份原型展示整體體驗；正式建置前需確認機構授權、課程規則、隱私政策、公益主體與推薦獎勵制度。</p><a class="btn secondary" href="app-plan.html" target="_blank" rel="noopener">閱讀逐頁產品規劃 ${icon('arrow')}</a></section></div>`;
     }
     function adminPage() {
-      if (!canManage()) return `${pageHead('管理中心', '只有經授權的活動幹部與管理員可存取。')}<div class="card empty">${icon('lock')}<h2>目前沒有存取權限</h2><p>學習等級與管理權限分開。可透過右上角示範帳戶切換角色，測試不同視角。</p>${button('切換示範角色', 'account', '', 'secondary')}</div>`;
-      return `${pageHead(canAdmin() ? '管理中心' : '活動工作台', '權限與學習等級分開，讓每一份授權都有清楚邊界。', button(`${icon('plus')}建立活動`, 'create-event'))}<div class="callout warning">此處僅是前端角色展示，不是真實安全邊界。正式系統需由伺服器對每筆資料執行授權、稽核與敏感操作驗證。</div><div class="stats">${stat('示範課程', courses.length, 'book', '門')}${stat('可管理活動', visibleEvents().length, 'calendar', '場')}${stat('本機新增活動', state.events.length, 'plus', '場')}${stat('本機報名', state.registrations.length, 'people', '筆')}</div><section class="card card-pad"><h2>活動管理</h2><div class="table-wrap"><table><thead><tr><th>活動名稱</th><th>日期</th><th>可見範圍</th><th>狀態</th><th>操作</th></tr></thead><tbody>${visibleEvents().map(event => `<tr><td>${esc(event.title)}</td><td>${esc(event.date)}</td><td>${event.rank === 'all' ? '全體會員' : '幹部與管理員'}</td><td><span class="tag">${state.events.some(item => item.id === event.id) ? '本機已發布' : '示範活動'}</span></td><td>${button('檢視', 'event-detail', `data-id="${event.id}"`, 'secondary small')} ${state.events.some(item => item.id === event.id) ? button('取消活動', 'remove-event', `data-id="${event.id}"`, 'danger small') : ''}</td></tr>`).join('')}</tbody></table></div></section>${canAdmin() ? `<div class="equal-col space-top"><section class="card card-pad"><h2>權限與角色示範</h2><p class="muted" style="font-size:12px">角色切換只改變自己的原型視角，不會修改任何真實會員。</p>${[['一般學員', '學習、報名、社群互動與個人成就'], ['活動幹部', '新增及管理活動、進入幹部限定活動'], ['管理員', '包含活動管理及模擬財務覆核']].map(([name, description]) => `<div class="list-row"><div><h3>${name}</h3><p>${description}</p></div>${icon('shield')}</div>`).join('')}${button('測試角色視角', 'account', '', 'secondary')}</section><section class="card card-pad"><h2>模擬支持覆核</h2><p class="muted" style="font-size:12px">僅標記模擬紀錄，沒有金流對帳能力。正式版採經辦與覆核分離。</p>${state.donations.length ? state.donations.map(donation => `<div class="list-row"><div><h3>${donation.id} · ${money(donation.amount)}</h3><p>${projects.find(project => project.id === donation.project).subtitle}</p></div>${button(donation.status === 'reviewed' ? '已模擬覆核' : '模擬覆核', 'review-donation', `data-id="${donation.id}" ${donation.status === 'reviewed' ? 'disabled' : ''}`, 'secondary small')}</div>`).join('') : '<div class="empty">目前沒有本機模擬支持紀錄。</div>'}</section></div>` : ''}`;
+      return `${pageHead('管理員後台', '上傳教材、發布課程與活動，請使用專屬的管理員登入。')}<div class="card empty">${icon('shield')}<h2>管理員請從專屬後台登入</h2><p>學員帳戶與管理權限分開。管理員使用 GitHub 協作者權杖登入後台，發布的教材、課程與活動會出現在每位學員的 App 裡。</p><a class="btn" href="admin.html">前往管理員登入 ${icon('arrow')}</a></div>`;
     }
     function searchPage(query) {
       const normalized = query.trim().toLowerCase();
@@ -942,12 +1052,12 @@
       const route = location.hash.slice(1) || 'home';
       const page = route.split('/')[0];
       const activePage = page === 'course' ? 'courses' : page;
-      document.getElementById('sidebar').innerHTML = `<button type="button" class="icon-button drawer-close" data-action="close-menu" aria-label="關閉主選單">${icon('close')}</button><div class="brand"><span class="brandmark">${icon('sun')}</span><div><strong>光耀同行</strong><small>發一光耀 · 學習與成長</small></div></div><nav>${navItems.map(([group, id, symbol, label]) => `${group ? `<div class="nav-group">${group}</div>` : ''}<button class="nav-item ${activePage === id ? 'active' : ''}" data-action="navigate" data-page="${id}" ${activePage === id ? 'aria-current="page"' : ''}>${icon(symbol)}${label}${(window.GY_NAV_BADGE && window.GY_NAV_BADGE(id)) || (id === 'community' ? '<span class="count">2</span>' : '')}</button>`).join('')}${canManage() ? `<div class="nav-group">工作空間</div><button class="nav-item ${page === 'admin' ? 'active' : ''}" data-action="navigate" data-page="admin">${icon('shield')}${canAdmin() ? '管理中心' : '活動工作台'}</button>` : ''}</nav><div class="sidebar-bottom"><div class="sidebar-note">${icon('leaf')} 一起學習，一起成為更好的自己。<p>每一個微小的善意，都值得被看見。</p></div><div class="sidebar-foot"><span>PWA DEMO · V3.0</span><a href="app-plan.html" target="_blank" rel="noopener">產品藍圖 ↗</a></div></div>`;
-      document.getElementById('topbar').innerHTML = `<button class="icon-button mobile-menu" data-action="menu" aria-label="開啟或關閉導覽" aria-controls="sidebar" aria-expanded="false">${icon('menu')}</button><form class="search-wrap" data-form="search">${icon('search')}<input name="query" aria-label="搜尋課程、活動或頁面" placeholder="搜尋課程、活動或學習靈感…" maxlength="80" required><kbd>↵</kbd></form><div class="top-actions"><span class="demo-pill">互動原型 · 示範資料</span><button class="icon-button notification" data-action="notifications" aria-label="查看示範通知">${icon('bell')}</button><button class="profile-button" data-action="account" aria-label="帳戶與示範角色"><span class="avatar">${state.signedIn ? esc(state.name.slice(-1)) : '客'}</span><span class="profile-copy"><strong>${state.signedIn ? esc(state.name) : '訪客'}</strong><small>${state.signedIn ? roleLabel() : '登入示範帳戶'}</small></span><span style="color:#a1ada1;font-size:11px">⌄</span></button></div>`;
+      document.getElementById('sidebar').innerHTML = `<button type="button" class="icon-button drawer-close" data-action="close-menu" aria-label="關閉主選單">${icon('close')}</button><div class="brand"><span class="brandmark">${icon('sun')}</span><div><strong>光耀同行</strong><small>發一光耀 · 學習與成長</small></div></div><nav>${navItems.map(([group, id, symbol, label]) => `${group ? `<div class="nav-group">${group}</div>` : ''}<button class="nav-item ${activePage === id ? 'active' : ''}" data-action="navigate" data-page="${id}" ${activePage === id ? 'aria-current="page"' : ''}>${icon(symbol)}${label}${(window.GY_NAV_BADGE && window.GY_NAV_BADGE(id)) || (id === 'community' ? '<span class="count">2</span>' : '')}</button>`).join('')}${canManage() ? `<div class="nav-group">工作空間</div><button class="nav-item ${page === 'admin' ? 'active' : ''}" data-action="navigate" data-page="admin">${icon('shield')}${canAdmin() ? '管理中心' : '活動工作台'}</button>` : ''}</nav><div class="sidebar-bottom"><div class="sidebar-note">${icon('leaf')} 一起學習，一起成為更好的自己。<p>每一個微小的善意，都值得被看見。</p></div><div class="sidebar-foot"><span>光耀同行 · V4.0</span><a href="app-plan.html" target="_blank" rel="noopener">產品藍圖 ↗</a></div></div>`;
+      document.getElementById('topbar').innerHTML = `<button class="icon-button mobile-menu" data-action="menu" aria-label="開啟或關閉導覽" aria-controls="sidebar" aria-expanded="false">${icon('menu')}</button><form class="search-wrap" data-form="search">${icon('search')}<input name="query" aria-label="搜尋課程、活動或頁面" placeholder="搜尋課程、活動或學習靈感…" maxlength="80" required><kbd>↵</kbd></form><div class="top-actions">${window.GY_ACCOUNT_PILL ? window.GY_ACCOUNT_PILL() : ''}<button class="icon-button notification" data-action="notifications" aria-label="查看示範通知">${icon('bell')}</button><button class="profile-button" data-action="account" aria-label="帳戶"><span class="avatar">${state.signedIn ? esc(state.name.slice(-1)) : '客'}</span><span class="profile-copy"><strong>${state.signedIn ? esc(state.name) : '尚未登入'}</strong><small>${window.GY_ACCOUNT_LABEL ? window.GY_ACCOUNT_LABEL() : ''}</small></span><span style="color:#a1ada1;font-size:11px">⌄</span></button></div>`;
       const pages = {home: homePage, courses: coursesPage, schedule: schedulePage, community: communityPage, meetings: meetingsPage, portfolio: portfolioPage, vault: vaultPage, rewards: rewardsPage, invite: invitePage, about: aboutPage, admin: adminPage, ...(window.GY_PAGES || {})};
       let content;
-      if (!state.signedIn && !['about', 'invite'].includes(page)) {
-        content = `${pageHead('歡迎加入光耀同行', '從一份好奇開始，走進學習、交流與善意的日常。')}<section class="hero"><div class="hero-copy"><div class="eyebrow">YOUR JOURNEY STARTS HERE</div><h2>學習不只是一堂課，<br>也是一段同行。</h2><p>無需真實密碼，即可體驗此互動原型。</p>${button('進入示範帳戶', 'account', '', 'gold')}</div>${heroArt()}</section><div class="callout">這不是正式登入系統。不要輸入真實密碼或敏感資料。所有示範資料只儲存在這個瀏覽器。</div>${navButton('先認識光耀', 'about', 'secondary')}`;
+      if (!state.signedIn && !['about', 'invite', 'guide'].includes(page)) {
+        content = window.GY_WELCOME ? window.GY_WELCOME() : `${pageHead('歡迎加入光耀同行', '從一份好奇開始，走進學習、交流與善意的日常。')}<section class="hero"><div class="hero-copy"><div class="eyebrow">YOUR JOURNEY STARTS HERE</div><h2>學習不只是一堂課，<br>也是一段同行。</h2><p>無需真實密碼，即可體驗此互動原型。</p>${button('進入示範帳戶', 'account', '', 'gold')}</div>${heroArt()}</section><div class="callout">這不是正式登入系統。不要輸入真實密碼或敏感資料。所有示範資料只儲存在這個瀏覽器。</div>${navButton('先認識光耀', 'about', 'secondary')}`;
       } else if (page === 'course') {
         content = coursePage(route.split('/')[1]);
       } else if (page === 'search') {
@@ -957,12 +1067,12 @@
       } else {
         content = (pages[page] || notFound)();
       }
-      document.getElementById('main').innerHTML = `${content}<footer class="footer"><span>光耀同行 · 發一光耀學習與社群平台提案</span><span>未經機構授權的互動原型 · 不處理真實付款或正式發證 · <a href="app-plan.html" target="_blank" rel="noopener">逐頁規劃 ↗</a> · <a href="https://juwpegatron.github.io/portfolio/#projects" target="_blank" rel="noopener noreferrer">開發者作品集 ↗</a></span></footer>`;
+      document.getElementById('main').innerHTML = `${content}<footer class="footer"><span>光耀同行 · 發一光耀學習與社群平台</span><span>非官方平台 · 不處理真實付款或正式發證 · <a href="#guide">使用指南</a> · <a href="admin.html">管理員登入</a> · <a href="app-plan.html" target="_blank" rel="noopener">產品規劃 ↗</a> · <a href="https://juwpegatron.github.io/portfolio/#projects" target="_blank" rel="noopener noreferrer">開發者作品集 ↗</a></span></footer>`;
       document.querySelectorAll('.filter, .tab').forEach(element => element.setAttribute('aria-pressed', String(element.classList.contains('active'))));
       renderMobileNavigation(activePage);
       setNavigationOpen(document.getElementById('sidebar').classList.contains('open'), false);
       document.dispatchEvent(new Event('guangyao:render'));
-      document.title = `${navItems.find(item => item[1] === activePage)?.[3] || '光耀同行'} — 光耀同行 · 互動原型`;
+      document.title = `${navItems.find(item => item[1] === activePage)?.[3] || '光耀同行'} — 光耀同行`;
     }
     function downloadFile(filename, contents, type = 'text/plain;charset=utf-8') {
       const blob = new Blob([contents], {type});
@@ -986,8 +1096,11 @@
         return;
       }
       const registered = state.registrations.includes(id);
-      const full = event.occupied + (registered ? 1 : 0) >= event.capacity;
-      modal('活動詳情', `<span class="tag ${event.type === 'online' ? '' : 'gold'}">${eventType(event.type)}</span> ${event.rank !== 'all' ? '<span class="tag gray">幹部限定</span>' : ''}<h2 style="margin-top:16px">${esc(event.title)}</h2><div class="list-row"><span>日期與時間</span><strong>${esc(event.date)} ${esc(event.time)}</strong></div><div class="list-row"><span>教師／主持人</span><strong>${esc(event.teacher)}</strong></div><div class="list-row"><span>地點</span><span style="font-size:12px">${esc(event.place)}</span></div><div class="list-row"><span>名額</span><span>${event.occupied + (registered ? 1 : 0)} / ${event.capacity} 人（示範）</span></div><p class="muted" style="margin-top:20px">${esc(event.description)}</p><div class="callout">報名只儲存在本機，並未通知主辦人。實體活動須另行確認地址、安全計畫與參與條款。</div><div class="form-actions">${button(registered ? '取消我的報名' : full ? '名額已滿' : '確認示範報名', 'register-event', `data-id="${id}" data-intent="${registered ? 'cancel' : 'register'}" ${full && !registered ? 'disabled' : ''}`, registered ? 'secondary' : '')}</div>`);
+      const full = event.capacity > 0 && event.occupied + (registered ? 1 : 0) >= event.capacity;
+      const capacityRow = event.capacity > 0 ? `<div class="list-row"><span>名額</span><span>${event.occupied + (registered ? 1 : 0)} / ${event.capacity} 人（示範）</span></div>` : '';
+      const signup = event.signupUrl ? `<a class="btn gold" href="${esc(event.signupUrl)}" target="_blank" rel="noopener noreferrer">前往主辦方報名 ${icon('arrow')}</a>` : '';
+      const notice = event.published ? '這是管理員公告的活動。「加入我的行程」只記在你自己的紀錄裡；正式報名請使用主辦方提供的報名連結或聯絡窗口。' : '這是示範活動：報名只儲存在本機，並未通知主辦人。';
+      modal('活動詳情', `<span class="tag ${event.type === 'online' ? '' : 'gold'}">${eventType(event.type)}</span> ${eventBadge(event)}<h2 style="margin-top:16px">${esc(event.title)}</h2><div class="list-row"><span>日期與時間</span><strong>${esc(event.date)} ${esc(event.time)} · ${esc(event.duration)}</strong></div><div class="list-row"><span>教師／主持人</span><strong>${esc(event.teacher || '待公布')}</strong></div><div class="list-row"><span>地點</span><span style="font-size:12px">${esc(event.place || '待公布')}</span></div>${capacityRow}<p class="muted" style="margin-top:20px;white-space:pre-line">${esc(event.description)}</p><div class="callout">${notice}</div><div class="form-actions">${signup}${button(registered ? '從我的行程移除' : full ? '名額已滿' : (event.published ? '加入我的行程' : '確認示範報名'), 'register-event', `data-id="${id}" data-intent="${registered ? 'cancel' : 'register'}" ${full && !registered ? 'disabled' : ''}`, registered ? 'secondary' : '')}</div>`);
     }
     function createEventModal() {
       if (!canManage()) {
@@ -1055,14 +1168,16 @@
           accountModal();
           break;
         case 'logout':
+          if (window.GY_SIGN_OUT) {
+            window.GY_SIGN_OUT();
+            break;
+          }
           state.signedIn = false;
-          state.role = 'member';
           save();
           navigate('home');
-          toast('已離開示範帳戶。');
           break;
         case 'reset':
-          modal('重設本機原型？', `<p>這會清除本機的課程進度、聊天、報名、積分兌換、模擬支持及新增活動。沒有真實帳戶或雲端資料會受到影響。</p><div class="form-actions">${button('保留資料', 'close', '', 'secondary')}${button('確認重設', 'confirm-reset', '', 'danger')}</div>`);
+          modal('清除此裝置上的紀錄？', `<p>這會清除此裝置上的課程進度、閃卡、聊天、報名與兌換紀錄，並回到歡迎畫面。已登入帳戶的雲端同步副本不會被刪除，下次登入會再同步回來。</p><div class="form-actions">${button('保留資料', 'close', '', 'secondary')}${button('確認重設', 'confirm-reset', '', 'danger')}</div>`);
           break;
         case 'confirm-reset':
           state = initialState();
@@ -1075,7 +1190,7 @@
           ui.courseFilter = 'all';
           save();
           navigate('home');
-          toast('已回到原始示範狀態。');
+          toast('已清除此裝置上的紀錄。');
           break;
         case 'notifications':
           modal('學習小提醒', `<span class="tag gray">以下皆為示範通知，不是即時訊息</span><div class="notification-item"><h3>為下一次共學，留一個位置</h3><p>11/05 19:30 · 日常裡的善意・線上共學</p>${navButton('查看日程', 'schedule', 'ghost')}</div><div class="notification-item"><h3>新的社群討論</h3><p>初學同行小組：分享你的第一個善意行動。</p>${navButton('前往社群', 'community', 'ghost')}</div>`);
@@ -1134,6 +1249,14 @@
           ui.calendar = !ui.calendar;
           render();
           break;
+        case 'calendar-month': {
+          const [year, month] = String(target.dataset.month || '').split('-').map(Number);
+          if (!year || !month) break;
+          const next = new Date(year, month - 1 + Number(target.dataset.step || 0), 1);
+          ui.month = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`;
+          render();
+          break;
+        }
         case 'event-detail':
           eventDetail(id);
           break;
@@ -1142,12 +1265,12 @@
           if (!eventRecord) break;
           if (target.dataset.intent === 'cancel') {
             state.registrations = state.registrations.filter(item => item !== id);
-            toast('已取消本機示範報名。');
+            toast('已從我的行程移除。');
           } else if (state.registrations.includes(id)) {
             toast('你已報名這場活動，沒有重複建立紀錄。');
-          } else if (eventRecord.occupied < eventRecord.capacity) {
+          } else if (!eventRecord.capacity || eventRecord.occupied < eventRecord.capacity) {
             state.registrations.push(id);
-            toast('示範報名成功，已加入你的活動紀錄。');
+            toast(eventRecord.published ? '已加入我的行程。正式報名請使用主辦方連結。' : '示範報名成功，已加入你的活動紀錄。');
           } else {
             toast('此活動名額已滿。');
             break;
@@ -1311,14 +1434,12 @@
           navigate(`search/${encodeURIComponent(value('query'))}`);
           break;
         case 'account':
-          if (!value('name') || !['member', 'organizer', 'admin'].includes(value('role'))) return;
+          if (!value('name') || !state.signedIn) return;
           state.name = value('name');
-          state.role = value('role');
-          state.signedIn = true;
           save();
           closeModal();
           render();
-          toast(`已切換為${roleLabel()}示範視角。`);
+          toast('顯示名稱已更新。');
           break;
         case 'profile':
           if (!value('name')) return;
@@ -1501,7 +1622,9 @@
       if (recoveryWarning) toast(recoveryWarning);
     });
   </script>
+  <script src="catalog.js" defer></script>
   <script src="study.js" defer></script>
+  <script src="account.js" defer></script>
   <script src="pwa.js" defer></script>
 </body>
 </html>
