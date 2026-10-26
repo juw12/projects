@@ -202,12 +202,17 @@ def main():
             ({"symbol": "SPY", "side": "buy", "type": "market", "dollars": 30000}, "above your max per order"),
             ({"symbol": "../etc", "side": "buy", "type": "market", "dollars": 10}, "valid US stock"),
             ({"symbol": "SPY", "side": "buy", "type": "trailing", "qty": 1, "trail_pct": 80}, "trail %"),
+            ({"symbol": "VOD.L", "side": "buy", "type": "market", "dollars": 50}, "listed outside the US"),
+            ({"symbol": "7203.T", "side": "buy", "type": "market", "dollars": 50}, "listed outside the US"),
+            ({"symbol": "BBCA.JK", "side": "buy", "type": "market", "dollars": 50}, "listed outside the US"),
         ]
         for order, message in bad:
             r = c.post("/api/broker/preview", {"order": order})
             check("blocks: " + message, not r.get("ok") and message in r.get("error", ""), r.get("error"))
         r = c.post("/api/broker/preview", {"order": {"symbol": "AAPL", "side": "sell", "type": "limit", "qty": 5, "limit": 250}})
         check("selling shares you hold is allowed", r.get("ok"), r.get("error"))
+        r = c.post("/api/broker/preview", {"order": {"symbol": "BRK.B", "side": "buy", "type": "market", "dollars": 50}})
+        check("US share classes (BRK.B) still allowed", r.get("ok"), r.get("error"))
 
         print("Orders")
         r = c.post("/api/broker/portfolio")

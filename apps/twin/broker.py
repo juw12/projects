@@ -33,6 +33,14 @@ DEFAULT_MAX_ORDER = {"paper": 25000.0, "live": 1000.0}
 LIVE_DEFAULT_DAILY_ORDERS = 3
 
 
+# Yahoo-style exchange suffixes for listings outside the US (US share classes use one letter: BRK.B).
+NON_US_SUFFIXES = {
+    "L", "T", "HK", "SS", "SZ", "NS", "BO", "KS", "KQ", "TW", "TWO", "AX", "TO", "V", "CN", "NE",
+    "DE", "F", "PA", "AS", "SW", "MI", "MC", "ST", "CO", "HE", "OL", "IC", "JK", "SI", "KL", "BK",
+    "SA", "MX", "JO", "TA", "SR", "QA", "AE", "IS", "NZ", "VI", "BR", "LS", "IR", "WA", "PR", "BD", "AT",
+}
+
+
 class BrokerError(Exception):
     pass
 
@@ -231,6 +239,10 @@ class Broker:
     # ---------------------------------------------------------------- orders
     def build_order(self, fields):
         symbol = str(fields.get("symbol") or "").strip().upper()
+        suffix = symbol.rsplit(".", 1)[1] if "." in symbol else ""
+        if suffix in NON_US_SUFFIXES or re.search(r"\d", symbol):
+            raise BrokerError("Alpaca trades US-listed stocks and ETFs only; %s is listed outside the US. "
+                              "Use its US listing (ADR) if it has one, or a broker that covers that exchange." % symbol)
         if not re.fullmatch(r"[A-Z][A-Z.]{0,9}", symbol):
             raise BrokerError("enter a valid US stock or ETF ticker")
         side = fields.get("side")
