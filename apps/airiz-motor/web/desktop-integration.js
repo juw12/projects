@@ -1,6 +1,7 @@
 /* Optional Windows host integration. The same UI remains usable in a browser. */
 (() => {
   'use strict';
+  if (window.airizMobile) return;
   const host = window.airizDesktop;
   if (!host) {
     async function refreshDesktopLinks() {

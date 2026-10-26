@@ -1,0 +1,22 @@
+{
+  "appId": "io.github.juwpegatron.airiz.mobile",
+  "appName": "AIRIZ Mobile",
+  "webDir": "www",
+  "backgroundColor": "#0d1117",
+  "android": {
+    "allowMixedContent": false
+  },
+  "ios": {
+    "contentInset": "automatic"
+  },
+  "plugins": {
+    "BluetoothLe": {
+      "displayStrings": {
+        "scanning": "Scanning for your device…",
+        "cancel": "Cancel",
+        "availableDevices": "Bluetooth devices",
+        "noDeviceFound": "No BLE device found. Enable device Bluetooth from the USB console first."
+      }
+    }
+  }
+}

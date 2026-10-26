@@ -204,6 +204,15 @@
     // Serial controls
     elements.btnConnect.addEventListener('click', handleConnect);
     elements.btnDisconnect.addEventListener('click', handleDisconnect);
+    if (navigator.serial && typeof navigator.serial.addEventListener === 'function') {
+      navigator.serial.addEventListener('disconnect', event => {
+        if (state.port && (event.target === state.port || event.port === state.port)) {
+          logToConsole('Device connection lost', 'warning');
+          disconnect();
+        }
+      });
+    }
+
     elements.baudSelect.addEventListener('change', handleBaudChange);
     elements.btnDemo.addEventListener('click', toggleDemoMode);
     
@@ -320,6 +329,8 @@
       
       await state.port.open({
         baudRate: state.baudRate,
+        transportLabel: state.port?.transportLabel || (window.airizMobile ? 'Bluetooth' : 'USB serial'),
+        deviceFirmware: state.port?.firmwareVersion || null,
         dataBits: 8,
         stopBits: 1,
         parity: 'none',
@@ -330,7 +341,7 @@
       state.demoMode = false;
       updateConnectionUI(true, false);
       
-      logToConsole(`Connected at ${state.baudRate} baud`, 'welcome');
+      logToConsole(state.port.transportLabel ? `Connected via ${state.port.transportLabel}` : `Connected at ${state.baudRate} baud`, 'welcome');
       
       // Start read loop
       state.readLoopActive = true;
@@ -426,11 +437,12 @@
     
     try {
       while (state.readLoopActive && state.port && state.port.readable) {
-        state.reader = state.port.readable.getReader();
+        const reader = state.port.readable.getReader();
+        state.reader = reader;
         
         try {
           while (state.readLoopActive) {
-            const { value, done } = await state.reader.read();
+            const { value, done } = await reader.read();
             if (done) break;
             if (value) {
               const text = decoder.decode(value);
@@ -463,8 +475,8 @@
             throw error;
           }
         } finally {
-          state.reader.releaseLock();
-          state.reader = null;
+          reader.releaseLock();
+          if (state.reader === reader) state.reader = null;
         }
       }
     } catch (error) {
@@ -1672,7 +1684,7 @@
   // ========================================================================
   
   function registerServiceWorker() {
-    if (window.airizDesktop) return; // Desktop assets are packaged, not fetched from the website.
+    if (window.airizDesktop || window.airizMobile) return; // Native assets are packaged, not fetched from the website.
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js')
         .then(reg => console.log('SW registered:', reg.scope))
@@ -1687,7 +1699,7 @@
   function setupInstallPrompt() {
     const button = elements.btnInstallApp;
     if (!button) return;
-    if (window.airizDesktop) {
+    if (window.airizDesktop || window.airizMobile) {
       button.hidden = true;
       return;
     }
@@ -3939,6 +3951,8 @@
         demoMode: state.demoMode,
         macroRunning: state.macroRunning,
         baudRate: state.baudRate,
+        transportLabel: state.port?.transportLabel || (window.airizMobile ? 'Bluetooth' : 'USB serial'),
+        deviceFirmware: state.port?.firmwareVersion || null,
         cameraRecording: !!cameraState.recorder && cameraState.recorder.state !== 'inactive',
         sessionActive: cameraState.sessionActive,
         audioCaptureActive: state.capture.active

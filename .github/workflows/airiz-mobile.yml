@@ -1,0 +1,126 @@
+name: AIRIZ mobile apps
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/airiz-motor/mobile/**'
+      - '.github/workflows/airiz-mobile.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/airiz-motor/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/airiz-motor/mobile/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install and validate transport logic
+        run: |
+          npm ci --no-fund
+          npm test
+          npm run build
+          npm run android:prepare
+      - name: Restore private signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.AIRIZ_ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import base64, os
+          value = os.environ.get('KEYSTORE_BASE64')
+          if not value:
+              raise SystemExit('Android signing key is not configured.')
+          destination = Path(os.environ['RUNNER_TEMP']) / 'airiz-android-signing.p12'
+          destination.write_bytes(base64.b64decode(value))
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write('AIRIZ_ANDROID_KEYSTORE_PATH=' + str(destination) + '\n')
+          PY
+      - name: Build installable signed Android APK
+        env:
+          AIRIZ_ANDROID_SIGNING_PASSWORD: ${{ secrets.AIRIZ_ANDROID_SIGNING_PASSWORD }}
+        run: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew assembleRelease --no-daemon
+      - name: Verify and name Android package
+        run: |
+          mkdir -p dist
+          VERSION=$(node -p "JSON.parse(require('fs').readFileSync('package.json')).version")
+          cp android/app/build/outputs/apk/release/app-release.apk "dist/AIRIZ-Mobile-${VERSION}-android.apk"
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -n 1)
+          "$APKSIGNER" verify --verbose --print-certs "dist/AIRIZ-Mobile-${VERSION}-android.apk" > dist/android-signature.txt
+          EXPECTED=$(cat android-certificate-sha256.txt | tr -d '\r\n')
+          grep -qi "$EXPECTED" dist/android-signature.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AIRIZ-Android
+          path: |
+            apps/airiz-motor/mobile/dist/*.apk
+            apps/airiz-motor/mobile/dist/android-signature.txt
+          retention-days: 3
+          if-no-files-found: error
+
+  ios:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: apps/airiz-motor/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/airiz-motor/mobile/package-lock.json
+      - name: Build shared UI and native iOS project
+        run: |
+          npm ci --no-fund
+          npm test
+          npm run build
+          npm run ios:prepare
+      - name: Compile real iPhone build without pretending it is signed
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build-device CODE_SIGNING_ALLOWED=NO build
+          VERSION=$(node -p "JSON.parse(require('fs').readFileSync('package.json')).version")
+          mkdir -p dist/Payload
+          cp -R build-device/Build/Products/Release-iphoneos/App.app dist/Payload/App.app
+          cd dist
+          zip -qry "AIRIZ-Mobile-${VERSION}-ios-UNSIGNED.ipa" Payload
+          rm -rf Payload
+      - name: Compile and launch simulator UI
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build-simulator CODE_SIGNING_ALLOWED=NO build
+          DEVICE=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for a in d["devices"].values() for x in a if x["isAvailable"] and x["name"].startswith("iPhone")))')
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl install "$DEVICE" build-simulator/Build/Products/Debug-iphonesimulator/App.app
+          xcrun simctl launch "$DEVICE" io.github.juwpegatron.airiz.mobile
+          sleep 8
+          xcrun simctl io "$DEVICE" screenshot dist/airiz-iphone-simulator.png
+      - name: Package iOS project for legitimate signing
+        run: |
+          VERSION=$(node -p "JSON.parse(require('fs').readFileSync('package.json')).version")
+          zip -qry "dist/AIRIZ-Mobile-${VERSION}-ios-project.zip" ios package.json package-lock.json capacitor.config.json src scripts assets native README.md -x 'ios/App/App/public/*' 'ios/**/xcuserdata/*' 'ios/**/.build/*'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AIRIZ-iOS-unsigned
+          path: |
+            apps/airiz-motor/mobile/dist/*.ipa
+            apps/airiz-motor/mobile/dist/*.zip
+            apps/airiz-motor/mobile/dist/*.png
+          retention-days: 3
+          if-no-files-found: error
