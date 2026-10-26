@@ -337,6 +337,14 @@
 </div>
 </div>
 <div aria-live="polite" class="camera-status" id="camera-status"></div>
+<section aria-label="Phone camera viewer" class="camera-relay" id="camera-relay">
+<h3 class="camera-still-title">Phone viewer</h3>
+<p class="camera-relay-hint">See the AIRIZ camera on a phone. PC: Start Preview with the AIRIZ camera, then <strong>Share to phone</strong>. Phone: enter the code and tap <strong>Watch</strong>.</p>
+<div class="camera-relay-row"><button class="btn btn-sm btn-primary" id="btn-relay-share" type="button">Share to phone</button><button class="btn btn-sm btn-danger" disabled="" id="btn-relay-stop" type="button">Stop sharing</button><strong aria-label="Share code" class="camera-relay-code" id="relay-share-code"></strong><span class="camera-relay-viewers" id="relay-viewers"></span></div>
+<div class="camera-relay-row"><input aria-label="Share code from the PC" autocomplete="off" class="input camera-relay-input" id="relay-view-code" inputmode="numeric" maxlength="6" pattern="[0-9]*" placeholder="Code from PC"/><button class="btn btn-sm btn-primary" id="btn-relay-view" type="button">Watch</button><button class="btn btn-sm" disabled="" id="btn-relay-view-stop" type="button">Stop</button></div>
+<video autoplay="" class="camera-relay-video" hidden="" id="relay-remote-video" muted="" playsinline=""></video>
+<div aria-live="polite" class="camera-relay-status" id="relay-status"></div>
+</section>
 <div class="camera-diagnostic hidden" id="camera-diagnostic"></div>
 <!-- Still Capture Section -->
 <div class="camera-still-capture">
@@ -521,5 +529,5 @@
 <script src="app.js"></script>
 <div aria-live="polite" class="ui-toast" hidden="" id="ui-toast" role="status"></div>
 <dialog class="help-dialog" id="shortcuts-dialog"><div class="dialog-heading"><h2>At your fingertips.</h2><button aria-label="Close keyboard help" class="btn" id="close-shortcuts">✕</button></div><p>Arrow-key jogging is ready after connection by default. It only runs in the focused Motor control view, outside fields and dialogs. You can turn keyboard control off with one click.</p><dl><div><dt>Pan reverse / forward</dt><dd><kbd>←</kbd> <kbd>→</kbd></dd></div><div><dt>Rising forward / reverse</dt><dd><kbd>↑</kbd> <kbd>↓</kbd></dd></div><div><dt>Lock jog + stop motor</dt><dd><kbd>Esc</kbd></dd></div><div><dt>Focus command input</dt><dd><kbd>/</kbd></dd></div><div><dt>Show this help</dt><dd><kbd>?</kbd></dd></div></dl><div class="help-warning">Escape blocks new jogs and sends a motor stop (the driver halts the current move). It is a software stop, not a safety-rated emergency stop or power cut-off. Each key press sends one finite jog; holding a key does not repeat.</div></dialog>
-<script src="console-ui.js"></script><script src="data/bridge-files.js"></script><script src="remote-ui.js"></script><script src="desktop-integration.js"></script></body>
+<script src="console-ui.js"></script><script src="data/bridge-files.js"></script><script src="remote-ui.js"></script><script src="vendor/peerjs.min.js"></script><script src="camera-relay.js"></script><script src="desktop-integration.js"></script></body>
 </html>
