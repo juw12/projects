@@ -96,7 +96,13 @@ def main(apk):
     assert "THIS PHONE" in label, label
     report["label"] = label
 
-    opened = call(page, "act", {"action": {"action": "goto", "url": FORM_URL}})
+    opened = {}
+    for attempt in range(18):
+        # A freshly booted emulator can take a while before DNS works; retry network errors only.
+        opened = call(page, "act", {"action": {"action": "goto", "url": FORM_URL}})
+        if opened.get("status") == 200 or "net::ERR_" not in str(opened.get("error", "")):
+            break
+        time.sleep(10)
     assert opened.get("status") == 200, opened
     seen = call(page, "observe")
     assert seen.get("status") == 200 and seen.get("elements"), seen
