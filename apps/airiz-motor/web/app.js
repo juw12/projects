@@ -1665,6 +1665,7 @@
   // ========================================================================
   
   function registerServiceWorker() {
+    if (window.airizDesktop) return; // Desktop assets are packaged, not fetched from the website.
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js')
         .then(reg => console.log('SW registered:', reg.scope))
@@ -1679,6 +1680,10 @@
   function setupInstallPrompt() {
     const button = elements.btnInstallApp;
     if (!button) return;
+    if (window.airizDesktop) {
+      button.hidden = true;
+      return;
+    }
     const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
     button.hidden = !!standalone;
     button.title = 'Install app or view browser installation instructions';
@@ -3926,7 +3931,9 @@
         connected: state.connected,
         demoMode: state.demoMode,
         macroRunning: state.macroRunning,
-        baudRate: state.baudRate
+        baudRate: state.baudRate,
+        cameraRecording: !!cameraState.recorder && cameraState.recorder.state !== 'inactive',
+        sessionActive: cameraState.sessionActive
       });
     },
     sendCommand: sendLine

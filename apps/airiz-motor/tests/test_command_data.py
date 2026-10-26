@@ -265,13 +265,22 @@ def main():
         txt = p.read_text(encoding="utf-8")
         for ref in re.findall(r'(?:href|src)\s*=\s*(["\'])(.*?)\1', txt):
             r = ref[1]
-            if r.startswith("/") or r.startswith("//") or re.match(r"^[a-z]+://", r):
+            desktop_download = (
+                p.name == "index.html"
+                and re.fullmatch(
+                    r"https://github\.com/juwpegatron/projects/releases/download/"
+                    r"airiz-desktop-v(?P<version>\d+\.\d+\.\d+)/"
+                    r"AIRIZ-Console-(Setup|Portable)-(?P=version)-x64\.exe",
+                    r,
+                )
+            )
+            if (r.startswith("/") or re.match(r"^[a-z]+://", r)) and not desktop_download:
                 offenders.append(f"{p.name}: {r}")
         if re.search(r"onclick\s*=", txt):
             offenders.append(f"{p.name}: inline onclick")
         if re.search(r"(unpkg|jsdelivr|cdnjs|googleapis)", txt):
             offenders.append(f"{p.name}: external CDN reference")
-    check(not offenders, "no absolute-root refs / CDNs / inline handlers"
+    check(not offenders, "no absolute-root refs / CDNs / inline handlers; only explicit AIRIZ desktop release links allowed"
           + ("" if not offenders else f" — {offenders}"))
 
     print("\n" + "=" * 52)
