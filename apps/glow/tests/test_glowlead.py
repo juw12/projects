@@ -28,9 +28,19 @@ class GlowLeadTests(unittest.TestCase):
             self.assertIn(needle, script)
         self.assertIn("const MAX_STEPS = 4;", script)
 
+    def test_failed_research_is_never_hidden(self):
+        script = (LEAD / "lead.js").read_text(encoding="utf-8")
+        for needle in ("function failedResearch", "Do not invent", "research FAILED", "lead.unverified",
+                       "Not checked live", "Redo the live research", "sends the mission again"):
+            self.assertIn(needle, script)
+        engine = (WEB / "room" / "crew-engine.js").read_text(encoding="utf-8")
+        for needle in ("function waitAfterEmpty", "Planner busy, so Nova uses a standard plan",
+                       "Nova could not write a summary"):
+            self.assertIn(needle, engine)
+
     def test_worker_cache_is_scoped(self):
         worker = (LEAD / "sw.js").read_text(encoding="utf-8")
-        self.assertIn("const CACHE_NAME = 'glowlead-v2';", worker)
+        self.assertIn("const CACHE_NAME = 'glowlead-v3';", worker)
         self.assertIn("name.startsWith('glowlead-')", worker)
         self.assertNotIn("caches.keys().then((names) => Promise.all(names.map", worker)
         home_worker = (WEB / "sw.js").read_text(encoding="utf-8")
