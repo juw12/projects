@@ -12,6 +12,19 @@
 GlowChat installable app: `glow/chat/app.html`, mobile: `glow/chat/mobile.html`. GlowRoom: `glow/room/app.html`, `glow/room/mobile.html`.
 AI-suggested resources in GlowChat are not automatically browsed or verified; GlowChat does no autonomous building or execution (that is GlowRoom's job, and its results should still be reviewed).
 
+## v0.12.0 — one-step install and one-click connect for Glow Hands
+
+- **Install on any Windows PC with one command** (Win+R): `hands/install-glow-hands.ps1` installs Python if
+  needed, Glow Hands, auto-start at login, and opens GlowLead to connect. Re-running updates in place and keeps
+  the pairing.
+- **No code to type:** GlowLead finds Glow Hands on ports 8765-8770 and asks it to pair; Glow Hands shows a
+  Windows "Allow this browser?" prompt and only shares its code after Yes. Declines cool down for 20 s.
+  Discovery only runs after you click Connect (or arrive from the installer), so other visitors never get
+  local-network prompts. An older Glow Hands is detected and you are told to update it.
+- Fixed: Glow Hands crashed at startup on Windows consoles that cannot print the arrow character.
+- Tests: 7 new pairing checks (approve, decline, wrong site/host, cooldown, installer hand-off, outdated
+  companion) plus a real run of the installer upgrading an existing install on Windows.
+
 ## v0.11.0 — free scheduled missions on GitHub Actions
 
 `runner/run_missions.py` and `.github/workflows/glow-scheduled.yml` run GlowLead missions every day
