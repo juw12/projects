@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.2.1` in this repository's Releases section.
+`airiz-desktop-v1.2.2` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -161,6 +161,17 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.2.2: Phone remote, PIN, motor stop and real USB ports
+
+* **Fix:** real USB serial ports could not be opened in 1.2.0–1.2.1 ("Failed to open
+  serial port"). Electron's permission check reports `device_instance_id`, the grant
+  store only knew `deviceInstanceId`. Verified with the AIRIZ on COM4.
+* **Phone remote** (USB): installs the Bluetooth bridge in `/data/airiz` on the device,
+  starts it and shows a 6-digit PIN. Start it again after each power-up.
+* **Stop motor** button and Esc: stops a move in progress (motor driver
+  `status` = 0; over Bluetooth the bridge `stop` command). Macro Stop also stops the motor.
+* Bluetooth clients must enter the PIN; wrong PINs are rejected, 5 in a row lock for 60 s.
 
 ## 1.2.1: Bluetooth check accepts real firmware replies
 
