@@ -1,6 +1,6 @@
 {
   "name": "airiz-console-desktop",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "AIRIZ offline motor, serial, camera and macro control console for Windows",
   "productName": "AIRIZ Console",
   "author": "AIRIZ",
@@ -31,13 +31,15 @@
       "preload.cjs",
       "security.cjs",
       "serial-chooser.cjs",
+      "update-controller.cjs",
       "assets/app.ico",
       {
         "from": "../web",
         "to": "web",
         "filter": [
           "**/*",
-          "!README.md"
+          "!README.md",
+          "!updates/**"
         ]
       }
     ],
@@ -63,6 +65,15 @@
     },
     "portable": {
       "artifactName": "AIRIZ-Console-Portable-${version}-x64.exe"
-    }
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://juwpegatron.github.io/projects/airiz-motor/updates/windows/"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "6.8.11"
   }
 }

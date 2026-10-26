@@ -1,0 +1,17 @@
+{
+  "version": "1.1.0",
+  "releaseDate": "2026-10-26T05:47:05.603129+00:00",
+  "releasePage": "https://github.com/juwpegatron/projects/releases/tag/airiz-desktop-v1.1.0",
+  "installer": {
+    "url": "https://github.com/juwpegatron/projects/releases/download/airiz-desktop-v1.1.0/AIRIZ-Console-Setup-1.1.0-x64.exe",
+    "size": 121834788,
+    "sha256": "04ed81e27d58cf1dee344e183504afd46262ce7ef8b8c9064878e7c3142d4996",
+    "sha512": "RKNKBQVeeye+sXw50DIBqg+Z8pIV/IuXSQ2pLb8pJG/N3djoT950D4aZLhuVp8AhMknsmMPlf0ZPvA33PgFmNQ=="
+  },
+  "portable": {
+    "url": "https://github.com/juwpegatron/projects/releases/download/airiz-desktop-v1.1.0/AIRIZ-Console-Portable-1.1.0-x64.exe",
+    "size": 110843245,
+    "sha256": "4d5cca54a7afb9a8fc4ab170095cf71375105f359a5b49425a1ed5cec57fbb27",
+    "sha512": "hLd8aTyM72hxMJTk7WQE+csvAcXjEdYHx+gdDKOFf6zxZv0MFZDFjZ3I2jsXGqugIAIax5jC2p2Sq4z5We2tkw=="
+  }
+}

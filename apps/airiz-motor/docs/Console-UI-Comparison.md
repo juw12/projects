@@ -101,3 +101,16 @@ serial-port chooser, restricted local IPC and a guarded close flow. The page and
 project catalog link to the actual release executables, not just the website.
 The interface and all firmware definitions remain shared with the browser edition.
 Desktop packaging details and test boundaries are documented with its source.
+
+
+## 1.1.0 user-requested revision
+
+The earlier confirmation and focus/tab auto-lock behavior is superseded: connecting
+now enables jogs and, by default, arrow-key control. Manual Lock/Escape and normal
+connected/busy/input/dialog guards remain. No command is sent automatically on
+connection. Explicit keyboard-off preferences persist.
+
+Installed Windows builds now have startup/periodic update checks and a guarded,
+user-approved installer flow. Active device, macro, recording and capture sessions
+prevent installation; the console atomically rejects new commands while installing.
+The original Bluetooth-on command also has a direct connection-bar shortcut.

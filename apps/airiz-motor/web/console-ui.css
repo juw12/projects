@@ -601,3 +601,8 @@ body.console-redesign { color-scheme: inherit; }
   .desktop-download-actions { width: 100%; }
   .desktop-download-actions a { justify-content: center; flex: 1; }
 }
+
+.desktop-update-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.desktop-update-note { font-size: 10px !important; color: var(--color-text-muted); }
+#desktop-update-progress { width: 100%; margin-top: 14px; accent-color: var(--color-accent); }
+#desktop-updates-title { font-size: 22px; font-weight: 500; }

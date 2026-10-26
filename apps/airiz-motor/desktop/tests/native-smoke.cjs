@@ -16,7 +16,8 @@ async function launch() {
   const app = await _electron.launch({
     executablePath: executable,
     args: ['--airiz-data-dir=' + profile, '--use-fake-device-for-media-stream'],
-    timeout: 60000
+    timeout: 60000,
+    env: { ...process.env, LOCALAPPDATA: path.join(profile, 'update-cache') }
   });
   runningApp = app;
   await app.evaluate(({ dialog }) => {
@@ -45,7 +46,7 @@ async function record(name) {
   assert.equal(page.url(), 'airiz://app/');
   const info = await page.evaluate(() => window.airizDesktop.getAppInfo());
   assert.equal(info.packaged, true);
-  assert.equal(info.version, '1.0.0');
+  assert.equal(info.version, JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version);
   assert.equal(await page.locator('#desktop-download-banner').isVisible(), false);
   assert.equal(await page.locator('#btn-install-app').isVisible(), false);
   assert.deepEqual(await page.evaluate(() => ({ secure: isSecureContext, serial: !!navigator.serial, node: typeof require })), {
@@ -80,12 +81,17 @@ async function record(name) {
     await page.waitForTimeout(450);
   }
   assert.equal(await page.locator('#console-output .command').count(), 4);
-  await page.locator('#keyboard-toggle').click();
+  assert.equal(await page.locator('#keyboard-toggle').getAttribute('aria-pressed'), 'true');
   await page.keyboard.press('ArrowRight');
   await page.waitForTimeout(450);
   assert.equal(await page.locator('#console-output .command').count(), 5);
   await page.keyboard.press('Escape');
-  await record('Native demo pad, finite-jog commands and keyboard controls execute locally');
+  await page.locator('#btn-bluetooth-on').click();
+  assert.match(await page.locator('#console-output .command').last().innerText(), /diag ble on/);
+  await page.locator('#btn-app-updates').click();
+  assert.equal(await page.locator('#desktop-updates-dialog').isVisible(), true);
+  await page.locator('#desktop-update-close').click();
+  await record('Native auto-ready jog/keyboard, Bluetooth initialization and update panel work');
 
   for (const view of ['console', 'camera', 'sfx', 'controller']) {
     await page.locator('#tab-' + view).click();
