@@ -110,7 +110,7 @@
     modal.innerHTML = '<h2 id="desktop-updates-title">AIRIZ updates</h2>'
       + '<p id="desktop-update-version"></p><p id="desktop-update-message" role="status"></p>'
       + '<progress id="desktop-update-progress" max="100" value="0" hidden></progress>'
-      + '<p class="desktop-update-note">Checks run automatically. Updates never install on quit or restart an active device session. Portable builds require manual replacement.</p>'
+      + '<p class="desktop-update-note">Checks run automatically. Installing disconnects an idle device safely; it waits for running macros, recordings and capture sessions. Updates never install on quit. Portable builds require manual replacement.</p>'
       + '<div class="desktop-update-actions"><button id="desktop-update-check" class="btn">Check now</button>'
       + '<button id="desktop-update-download" class="btn btn-primary" hidden>Download update</button>'
       + '<button id="desktop-update-install" class="btn btn-primary" hidden>Install and restart</button>'

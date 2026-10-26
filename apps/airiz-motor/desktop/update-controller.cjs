@@ -29,6 +29,13 @@ function activeSession(status) {
     || status.cameraRecording || status.sessionActive || status.audioCaptureActive);
 }
 
+// Work that must finish before installing. An idle device connection is not
+// included: the console closes it safely as part of the install.
+function blockingWork(status) {
+  if (!status || typeof status.connected !== 'boolean') return true;
+  return !!(status.macroRunning || status.cameraRecording || status.sessionActive || status.audioCaptureActive);
+}
+
 function createUpdateController(options) {
   const { updater, getDeviceState, confirmInstall, prepareForInstall, abortInstall, publish,
     currentVersion, portable = false, packaged = true, openPortable } = options;
@@ -127,13 +134,15 @@ function createUpdateController(options) {
   async function install() {
     if (portable || !downloaded || state.status !== 'downloaded') return snapshot();
     try {
-      if (activeSession(await getDeviceState())) {
-        change('downloaded', 'Installation blocked: disconnect the device and finish macros, recordings and sessions first.');
+      const deviceState = await getDeviceState();
+      if (blockingWork(deviceState)) {
+        change('downloaded', 'Installation waits for running macros, recordings and capture sessions to finish. A connected device is disconnected automatically.');
         return snapshot();
       }
-      if (!await confirmInstall(candidate.version)) return snapshot();
-      if (activeSession(await getDeviceState()) || !await prepareForInstall()) {
-        change('downloaded', 'The console became busy. Finish the active session before installing.');
+      const connected = !!(deviceState.connected && !deviceState.demoMode);
+      if (!await confirmInstall(candidate.version, { connected })) return snapshot();
+      if (blockingWork(await getDeviceState()) || !await prepareForInstall()) {
+        change('downloaded', 'The console became busy. Finish the macro, recording or capture session before installing.');
         return snapshot();
       }
       change('installing', 'Closing AIRIZ to run the verified update installer…');
@@ -148,4 +157,4 @@ function createUpdateController(options) {
   return { snapshot, check, download, install };
 }
 
-module.exports = { FEED, installerUrl, validateUpdate, activeSession, createUpdateController };
+module.exports = { FEED, installerUrl, validateUpdate, activeSession, blockingWork, createUpdateController };
