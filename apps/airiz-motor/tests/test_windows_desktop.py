@@ -86,7 +86,7 @@ class WindowsDesktopTests(unittest.TestCase):
         app = (WEB / 'app.js').read_text(encoding='utf-8')
         integration = (WEB / 'desktop-integration.js').read_text(encoding='utf-8')
         worker = (WEB / 'sw.js').read_text(encoding='utf-8')
-        self.assertIn('if (window.airizDesktop) return;', app)
+        self.assertIn('if (window.airizDesktop || window.airizMobile) return;', app)
         self.assertIn('if (!host) {', integration)
         self.assertIn("'./desktop-integration.js'", worker)
         self.assertIn('cameraRecording:', app)
