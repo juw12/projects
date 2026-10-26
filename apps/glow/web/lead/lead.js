@@ -1284,8 +1284,8 @@
       lead.status = "checking";
       record(lead, "Reviewing the output against your done-criteria");
       render(lead);
-      let review = await reviewWork(lead, signal);
-      if (review.met.some((m) => m !== true) && !lead.fixed) {
+      let review = await safeReview(lead, signal);
+      if (!review.failed && review.met.some((m) => m !== true) && !lead.fixed) {
         // One fix-up round: hand what is missing back to GlowChat, then check again.
         lead.fixed = true;
         const research = failedResearch(lead)[0];
@@ -1309,7 +1309,7 @@
         if (research && lead.steps[lead.steps.length - 1].status === "done") research.redone = true;
         lead.status = "checking";
         render(lead);
-        review = await reviewWork(lead, signal);
+        review = await safeReview(lead, signal);
       }
       lead.report = review.report || lead.steps.filter((s) => s.output).map((s) => s.output).pop() || "";
       // Success in a different crew step cannot erase unresolved failed research.
@@ -1330,6 +1330,23 @@
       return finish(lead, "error");
     } finally {
       delete controllers[lead.id];
+    }
+  }
+
+  // The final check is the last AI call: if it fails (dropped connection, busy free AI…), keep the
+  // team's finished work and deliver it marked "not checked" instead of ending the mission with nothing.
+  async function safeReview(lead, signal) {
+    try {
+      return await reviewWork(lead, signal);
+    } catch (error) {
+      if (error && error.name === "AbortError") throw error;
+      const outputs = lead.steps.filter((s) => s.output);
+      const report = outputs.length > 1
+        ? outputs.map((s) => `### ${WORKERS[s.worker].name}: ${s.title}\n\n${s.output}`).join("\n\n")
+        : (outputs[0] ? outputs[0].output : "");
+      lead.note = `The final check couldn't run (${clip(error && error.message, 120) || "AI error"}), so this is the team's work as it is, not checked against your done-criteria.`;
+      record(lead, "Final check failed: delivering the team's work unchecked");
+      return { report, met: lead.criteria.map(() => null), checked: false, missing: "", failed: true };
     }
   }
 
@@ -2549,6 +2566,25 @@
     const headings = [...document.querySelectorAll("#lead-run h3")].map((h) => h.textContent).join(" | ");
     expect("research: the report is marked 'not checked live' with no criterion passed, also in GlowChat",
       failing.lead.unverified === true && failing.lead.met.every((m) => m === false) && headings.includes("Not checked live") && failLast.includes("were not checked"));
+
+    // The final check fails: the finished work is still delivered, marked as not checked
+    backend.chat = async ({ system }) => {
+      await sleep(2);
+      if (system === PLAN_SYSTEM) {
+        return '{"summary":"s","criteria":["Has a poem"],"steps":[{"worker":"chat","title":"Write","task":"Write a poem about rain"}]}';
+      }
+      if (system === REVIEW_SYSTEM) throw new TypeError("network error");
+      return "Rain on the roof, a quiet song.";
+    };
+    const unchecked = startLead("Write a poem about rain", false);
+    await unchecked.done;
+    if (unchecked.lead.status === "awaiting") {
+      document.querySelector("#approve-btn").click();
+      for (let i = 0; i < 300 && unchecked.lead.status !== "done" && unchecked.lead.status !== "error"; i++) await sleep(10);
+    }
+    expect("check fails: the team's work is still delivered as an unchecked report, not lost",
+      unchecked.lead.status === "done" && unchecked.lead.report.includes("Rain on the roof") && unchecked.lead.checked === false &&
+      !unchecked.lead.fixed && /final check couldn't run/.test(unchecked.lead.note || ""));
 
     // Stop
     backend.chat = (options) => new Promise((resolve, reject) => {
