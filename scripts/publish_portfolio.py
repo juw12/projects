@@ -147,8 +147,14 @@ def render_card(app):
     return "\n".join(lines)
 
 
+def portfolio_sort_key(app):
+    """Card position on the portfolio: `portfolio_order` if set, else the catalog `order`."""
+    return app.get("portfolio_order", app.get("order", 0))
+
+
 def render_block(apps):
-    cards = CARD_SEP.join(render_card(a) for a in apps if a.get("listed", True))
+    ordered = sorted(apps, key=portfolio_sort_key)
+    cards = CARD_SEP.join(render_card(a) for a in ordered if a.get("listed", True))
     return START_MARKER + "\n" + cards + "\n" + END_MARKER
 
 
