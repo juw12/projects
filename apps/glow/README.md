@@ -12,6 +12,109 @@
 GlowChat installable app: `glow/chat/app.html`, mobile: `glow/chat/mobile.html`. GlowRoom: `glow/room/app.html`, `glow/room/mobile.html`.
 AI-suggested resources in GlowChat are not automatically browsed or verified; GlowChat does no autonomous building or execution (that is GlowRoom's job, and its results should still be reviewed).
 
+## v0.11.0 — free scheduled missions on GitHub Actions
+
+`runner/run_missions.py` and `.github/workflows/glow-scheduled.yml` run GlowLead missions every day
+for free on this public repository: the real GlowLead page in a hidden browser, using Glow Free (no key).
+Missions live in the private `GLOW_MISSIONS` secret; reports are a run artifact (kept 30 days) with an
+optional issue comment for phone notifications. No browser control or code execution in scheduled runs.
+Verified with a live Glow Free run (plan → GlowChat → AI review, about 1.2 minutes) and 5 runner tests.
+Setup and privacy notes: `runner/README.md`.
+
+## v0.10.0 — Glow Hands: browser control
+
+GlowLead can now act on websites through **Glow Hands** (`hands/`), a small program on your PC:
+open pages, click, type, choose options and fill forms in its own visible browser window.
+
+- New **🖱 Glow Hands** worker, offered to the planner only when a mission ticks *Let Glow Hands use
+  my browser* and the companion is connected. Off by default; never enabled by automations.
+- One action per turn from a numbered list of the page's controls; up to 15 actions per step.
+- **Approval gate enforced by the companion itself:** risky clicks (submit, buy, pay, send, post,
+  delete, sign up...) and Enter in forms are refused until you press Approve in GlowLead. Decline
+  and Stop work at any point. It never types passwords, card numbers or one-time codes.
+- Pairing token, localhost-only listener, origin and Host checks, separate browser profile, and
+  local-network pages blocked by default. See `hands/README.md`.
+- Tests: 14 new checks with a real browser, including GlowLead's page driving the real companion
+  to fill a real form, submitting only after the UI approval, a declined submit never being sent,
+  refusal of passwords, Stop during approval, and token/origin/Host/scheme/private-network checks.
+  Real websites and free-model reliability on multi-page tasks were not tested.
+
+## v0.9.0 — memory, skills, automations and follow-ups
+
+Closes the most practical gaps with always-on agents that a browser-first app can honestly close.
+
+- **Memory:** tell GlowLead about yourself once (role, location, budget, tone, notes). It is
+  snapshotted into each mission's plan and worker briefs when *Use my memory* is on, and shown as
+  a badge and in exports. Stored only in this browser; it is sent to your AI provider when used.
+- **Skills:** *Save as skill* on a finished mission stores its approved plan. Reusing the skill
+  skips re-planning (no planner call) but still shows the plan for review by default.
+- **Automations:** repeat any brief or skill daily, on weekdays, or weekly at a set time. Plan
+  approval stays on by default and code execution stays off unless ticked. A Web Lock ensures a
+  due run starts in only one tab. Missed runs catch up **once** when Glow is next open, never as
+  a burst. Optional browser notifications for approvals, results and problems.
+  **Limit:** automations run only while a Glow tab is open on that device; this is not a cloud
+  scheduler, and nothing runs while the browser or PC is off.
+- **Follow-ups:** ask a follow-up under any report; GlowLead plans a new mission with the earlier
+  goal and result as context, linked back to it.
+- Invalid stored memory or automation entries are ignored rather than breaking the page.
+
+Checks: the hermetic Playwright suite grows to 31 tests (memory on/off reaching planner and
+workers, follow-up context, skill reuse without re-planning, schedule maths across daily/weekday/
+weekly, single catch-up with approval and notification, one-tab-only runs, create/pause/resume/
+delete, invalid storage, mobile layout). Live provider behaviour remains untested.
+
+## v0.8.0 — GlowLead mission control
+
+GlowLead's existing orchestrator is upgraded, not replaced by a fork of Dots.
+[invisible_dots](https://github.com/feder-cr/invisible_dots) informed the ideas of visible
+work state, approvals and persistent work. No Dots source, branding or VM runtime is included.
+
+- **Task-oriented UI:** responsive mission dashboard, progress counts, searchable/filterable
+  history, active mission highlighting, light/dark themes, keyboard focus and reduced-motion styles.
+- **Editable approval:** plan review is on by default, including goals handed over from Glow
+  home. Edit step titles, instructions, worker assignments and done-criteria before approving.
+  Planning itself still sends the brief to the configured AI provider.
+- **Permission-aware delegation:** research/drafting mode excludes the crew's `coder` and
+  `tester` workers. Generated code execution requires explicit opt-in for each new mission.
+  Reusing a mission or playbook resets this permission to off. This is not a VM sandbox or
+  per-tool approval system; allowed code still runs in the existing network-capable browser worker.
+- **Recovery:** checkpoints at planning, delegation, retry, review and completion; interrupted
+  runs offer an explicit resume. Completed steps are retained. Unfinished requests may repeat
+  after recovery, so no exactly-once guarantee is claimed. Browser Web Locks prevent two
+  GlowLead execution loops from running at once across same-origin tabs. Use HTTPS or localhost
+  in a modern browser. Direct GlowChat/GlowRoom runs are separate from this lock.
+- **Reusable work:** up to 12 locally saved playbooks, fresh planning on reuse, and full Markdown
+  mission exports containing criteria, worker output, source records and an activity trail.
+  The newest 50 missions and last 80 activity entries per mission are retained. Export important
+  work before older history rotates out or clearing browser storage.
+- **Honest results:** omitted, malformed or non-boolean review fields no longer pass criteria.
+  Empty responses are failures. A successful unrelated crew step cannot hide failed research,
+  including a failed researcher inside an otherwise completed crew mission. Source cards come
+  from recorded tool artifacts, not URLs invented in a final report. Collected sources and AI
+  review are not independent verification.
+- **Storage transparency:** quota failures show a persistent warning and preserve in-memory
+  work for export, rather than silently discarding most history. Browser-local storage is still
+  not a cross-device sync service. Keep the tab open for execution; background scheduling,
+  autonomous computer control and VM isolation are not provided.
+
+### Upgrade checks
+
+The optional Playwright suite (`tests/test_mission_control_browser.py`) blocks external requests
+and uses deterministic provider stubs; it also runs the original 21 browser self-checks with the
+real crew engine loaded. It covers approvals, edits, interruption/reload, duplicate tabs,
+permission routing, malformed reviews, failed research, exports, playbooks, storage failures,
+and responsive layouts. This verifies orchestration and UI behavior, not live provider quality,
+free-tier availability, or real-world research accuracy.
+
+```bash
+python -m pip install playwright==1.55.0
+python -m playwright install chromium
+python -X utf8 apps/glow/tests/test_mission_control_browser.py
+```
+
+Glow itself still has no new runtime dependencies or build step. The scoped Glow workflow
+runs static regressions, browser tests, and the existing Pages build/validation on changes.
+
 ## v0.7.2 — no made-up answers when research fails
 Found in a real GlowLead run: Glow Free sent an empty reply while Nova was planning, the whole GlowRoom mission failed, GlowLead moved on, and GlowChat then invented products and review links that the check passed. Now:
 - **GlowRoom keeps going**: an empty AI reply is retried after a short wait (12 s, then 30 s); if Nova's planner still can't answer, the crew uses its standard plan, and if Nova can't write the summary, you get the team's own work instead of an error.
