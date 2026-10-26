@@ -167,6 +167,9 @@ while true; do sleep 3600; done > $D/in &
 HOLDER=$!
 bluetoothctl < $D/in > $D/out 2>&1 &
 sleep 2
+# The GAP device name (what iPhones show after the first connection) defaults to
+# "BlueZ x.y"; make it match the advertised name.
+say "system-alias AIRIZ-BT"
 say "menu gatt"
 say "register-service $NUS"
 say "yes"
