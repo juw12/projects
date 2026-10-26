@@ -12,6 +12,10 @@ What the native shell adds on top of the website:
 - invite links (`https://juw12.github.io/projects/sync/?room=…`) can open the app; resume reconnects at once
 - iPhone: background audio mode + microphone prompt for voice chat; Android: microphone permission
 - an offline screen (`shell/offline.html`) instead of a browser error
+- Android: a foreground playback service (`native/android/SyncPlaybackService.java`) while you are in a room.
+  Android 14+ freezes background apps without one, which would stop the music and drop the room. It also
+  shows the lock-screen / notification player (prev, play/pause, next, seek) that the WebView cannot.
+- iPhone: the `.playback` audio session, so music keeps going on the lock screen and with the silent switch on
 
 The web app detects the shell through `window.Capacitor` (see `NATIVE` in `../web/app.js`).
 
@@ -28,8 +32,12 @@ Release signing reads `SYNC_ANDROID_KEYSTORE_PATH`, `SYNC_ANDROID_SIGNING_PASSWO
 `SYNC_ANDROID_KEY_ALIAS` (PKCS#12). CI uses the developer key stored for Glow (alias `glow`). Keep using the
 same key: Android only installs updates signed with it.
 
-`scripts/android-e2e.py` installs the debug APK on an emulator, attaches to the WebView over DevTools and checks
-the native bridge/plugins, native detection in the web app, haptics, and opening a real room.
+`scripts/android-e2e.py` installs the debug APK on an emulator, attaches to the WebView over DevTools, and has a
+desktop Chrome join the app's room as a friend. It checks the native bridge, music in the background and with the
+screen off (friend still connected), the playback service and lock-screen player, media keys pausing/resuming the
+whole room, and voice chat between the app and the desktop.
+
+`../tools/native_bridge_test.py` runs the web half locally in desktop Chrome with a fake Capacitor bridge.
 
 ## Install
 
