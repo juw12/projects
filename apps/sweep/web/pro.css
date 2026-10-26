@@ -180,3 +180,38 @@
   font-size: 14px;
 }
 .update-banner .btn { min-height: 36px; }
+
+/* ----- round 3: sync setup, device linking, clash review, spec language ----- */
+.sync-steps { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 13.5px; color: var(--color-ink-light); line-height: 1.5; }
+.input-with-button { display: flex; gap: 8px; align-items: stretch; }
+.input-with-button input { flex: 1; min-width: 0; }
+.sync-link-panel { margin-top: 6px; padding: 14px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-white); }
+.sync-link-grid { display: grid; grid-template-columns: 240px 1fr; gap: 16px; align-items: center; }
+.sync-qr { background: #ffffff; padding: 6px; border-radius: 10px; border: 1px solid var(--color-border-light); }
+.sync-qr svg { display: block; width: 100%; height: auto; }
+.sync-link-copy { display: grid; gap: 8px; min-width: 0; }
+.pair-code { margin: 0; font: 700 26px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.08em; color: var(--color-ink); }
+@media (max-width: 520px) {
+  .sync-link-grid { grid-template-columns: 1fr; }
+  .sync-qr { width: min(280px, 100%); margin: 0 auto; }
+}
+.clash-banner { gap: 10px; }
+.clash-card { max-width: 680px; }
+.clash-card h2 { margin: 0 0 8px; font-family: var(--font-heading); font-size: 24px; }
+.clash-list { display: grid; gap: 14px; margin: 14px 0 6px; max-height: 58vh; overflow: auto; }
+.clash-project h3 { margin: 0 0 8px; font: 700 15px var(--font-ui); }
+.clash-field { margin: 0 0 10px; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 10px; display: grid; gap: 8px; }
+.clash-field legend { padding: 0 4px; font: 700 12.5px var(--font-ui); color: var(--color-ink-light); }
+.clash-option { display: grid; grid-template-columns: 20px 110px 1fr; gap: 8px; align-items: start; padding: 8px; border-radius: 8px; background: var(--color-border-light); cursor: pointer; }
+.clash-option:has(input:checked) { background: var(--ok-tint); box-shadow: inset 0 0 0 1px var(--color-productive); }
+.clash-option input { width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--color-accent); }
+.clash-side { font: 700 12px var(--font-ui); color: var(--color-ink-light); }
+.clash-value { font-size: 13.5px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--color-ink); }
+@media (max-width: 520px) {
+  .clash-option { grid-template-columns: 20px 1fr; }
+  .clash-value { grid-column: 2; }
+}
+.spec-lang button { min-width: 40px; }
+.spec-lang-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; font-size: 13.5px; line-height: 1.45; background: var(--accent-tint); color: var(--color-ink); }
+.spec-lang-note.ok { background: var(--ok-tint); }
+.spec-lang-note .ai-btn { margin-top: 0; }
