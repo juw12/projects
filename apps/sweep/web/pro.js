@@ -1,0 +1,955 @@
+/* Sweep Pro — Settings (language, AI assist, cross-device sync).
+ *
+ * AI assist: optional. A free keyless provider (Pollinations, shared + rate-limited) or the
+ * user's own key for OpenRouter, OpenAI, Anthropic, Groq or any OpenAI-compatible endpoint.
+ * Calls go straight from the browser to the chosen provider; Sweep has no server.
+ *
+ * Sync: the workspace is encrypted in the browser (PBKDF2 → AES-GCM) with a sync passphrase,
+ * then stored in a private GitHub Gist owned by the user. Projects merge by id; the newest
+ * edit wins and deletions travel as tombstones.
+ */
+(function () {
+  'use strict';
+
+  const t = function (text, vars) {
+    return window.SweepI18n ? window.SweepI18n.t(text, vars) : text;
+  };
+
+  // ---------- small helpers ----------
+  function esc(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function toast(message) {
+    if (typeof showToast === 'function') showToast(message);
+  }
+
+  function readJson(storage, key, fallback) {
+    try {
+      const raw = storage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (error) {
+      return fallback;
+    }
+  }
+
+  function writeJson(storage, key, value) {
+    try {
+      storage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      /* storage full or unavailable */
+    }
+  }
+
+  function sleep(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
+  }
+
+  function timeAgo(timestamp) {
+    if (!timestamp) return t('Never synced');
+    const seconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
+    const lang = window.SweepI18n ? window.SweepI18n.getLanguage() : 'en';
+    try {
+      const formatter = new Intl.RelativeTimeFormat(lang === 'zh' ? 'zh-Hans' : lang, { numeric: 'auto' });
+      if (seconds < 60) return formatter.format(-seconds, 'second');
+      if (seconds < 3600) return formatter.format(-Math.round(seconds / 60), 'minute');
+      if (seconds < 86400) return formatter.format(-Math.round(seconds / 3600), 'hour');
+      return formatter.format(-Math.round(seconds / 86400), 'day');
+    } catch (error) {
+      return Math.round(seconds / 60) + ' min ago';
+    }
+  }
+
+  // =====================================================================
+  // AI assist
+  // =====================================================================
+  const AI_SETTINGS_KEY = 'sweep_ai_v1';
+  const AI_KEY_KEY = 'sweep_ai_key_v1';
+  const PROVIDERS = {
+    free: { label: 'Free (no key, shared & rate-limited)', base: 'https://text.pollinations.ai/openai', model: 'openai-fast', kind: 'openai', keyless: true },
+    openrouter: { label: 'OpenRouter', base: 'https://openrouter.ai/api/v1', model: 'openrouter/auto', kind: 'openai', keyUrl: 'https://openrouter.ai/keys' },
+    openai: { label: 'OpenAI', base: 'https://api.openai.com/v1', model: 'gpt-5-mini', kind: 'openai', keyUrl: 'https://platform.openai.com/api-keys' },
+    anthropic: { label: 'Anthropic (Claude)', base: 'https://api.anthropic.com/v1', model: 'claude-haiku-4-5', kind: 'anthropic', keyUrl: 'https://console.anthropic.com/settings/keys' },
+    groq: { label: 'Groq', base: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile', kind: 'openai', keyUrl: 'https://console.groq.com/keys' },
+    custom: { label: 'Custom (OpenAI-compatible)', base: '', model: '', kind: 'openai' }
+  };
+
+  function aiSettings() {
+    const saved = readJson(localStorage, AI_SETTINGS_KEY, {});
+    const provider = PROVIDERS[saved.provider] ? saved.provider : 'free';
+    return {
+      provider: provider,
+      model: saved.model || PROVIDERS[provider].model,
+      base: saved.base || '',
+      remember: saved.remember !== false
+    };
+  }
+
+  function aiKey() {
+    try {
+      return localStorage.getItem(AI_KEY_KEY) || sessionStorage.getItem(AI_KEY_KEY) || '';
+    } catch (error) {
+      return '';
+    }
+  }
+
+  function saveAiSettings(next, key) {
+    writeJson(localStorage, AI_SETTINGS_KEY, {
+      provider: next.provider,
+      model: next.model,
+      base: next.base,
+      remember: next.remember
+    });
+    try {
+      localStorage.removeItem(AI_KEY_KEY);
+      sessionStorage.removeItem(AI_KEY_KEY);
+      if (key) (next.remember ? localStorage : sessionStorage).setItem(AI_KEY_KEY, key);
+    } catch (error) {
+      /* storage unavailable */
+    }
+  }
+
+  function aiReady() {
+    const settings = aiSettings();
+    const provider = PROVIDERS[settings.provider];
+    if (provider.keyless) return true;
+    if (settings.provider === 'custom' && !settings.base) return false;
+    return !!aiKey() || settings.provider === 'custom';
+  }
+
+  function friendlyAiError(status, detail) {
+    if (status === 401 || status === 403) return 'The provider rejected the API key (' + status + ').';
+    if (status === 404) return 'Model or endpoint not found (404). Check the model name in Settings.';
+    if (status === 429) return 'The provider is rate-limiting requests (429). Wait a moment and try again.';
+    if (status >= 500) return 'The provider had an error (' + status + '). Try again shortly.';
+    return 'Request failed (' + status + '). ' + String(detail || '').slice(0, 160);
+  }
+
+  async function aiComplete(options) {
+    const settings = aiSettings();
+    const provider = PROVIDERS[settings.provider];
+    const key = aiKey();
+    const base = (settings.provider === 'custom' ? settings.base : provider.base).replace(/\/$/, '');
+    const model = settings.model || provider.model;
+    if (!provider.keyless && settings.provider !== 'custom' && !key) throw new Error(t('Set up AI in Settings first'));
+    if (!base) throw new Error(t('Set up AI in Settings first'));
+
+    const controller = new AbortController();
+    const timer = setTimeout(function () { controller.abort(); }, options.timeoutMs || 90000);
+    let url;
+    let init;
+    if (provider.kind === 'anthropic') {
+      url = base + '/messages';
+      init = {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: model,
+          max_tokens: options.maxTokens || 2400,
+          system: options.system,
+          messages: [{ role: 'user', content: options.user }]
+        })
+      };
+    } else {
+      url = base + '/chat/completions';
+      const headers = { 'Content-Type': 'application/json' };
+      if (key) headers.Authorization = 'Bearer ' + key;
+      if (settings.provider === 'openrouter') {
+        headers['HTTP-Referer'] = location.origin;
+        headers['X-Title'] = 'Sweep';
+      }
+      init = {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            { role: 'system', content: options.system },
+            { role: 'user', content: options.user }
+          ]
+        })
+      };
+    }
+    init.signal = controller.signal;
+
+    try {
+      let response;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        response = await fetch(url, init);
+        const retryable = response.status === 429 || response.status >= 500;
+        if (!retryable || attempt === 2) break;
+        const header = Number(response.headers.get('retry-after'));
+        const wait = Number.isFinite(header) && header > 0 ? Math.min(header, 10) * 1000 : 1500 * Math.pow(2, attempt);
+        await sleep(wait);
+      }
+      if (!response.ok) {
+        const detail = await response.text().catch(function () { return ''; });
+        throw new Error(friendlyAiError(response.status, detail));
+      }
+      const data = await response.json();
+      const textOut = provider.kind === 'anthropic'
+        ? (data.content || []).map(function (part) { return part.text || ''; }).join('')
+        : (((data.choices || [])[0] || {}).message || {}).content || '';
+      if (!String(textOut).trim()) throw new Error('The model returned an empty answer.');
+      return String(textOut);
+    } catch (error) {
+      if (error.name === 'AbortError') throw new Error('The AI request timed out.');
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  function stripFences(textValue) {
+    const value = String(textValue || '').trim();
+    const fenced = value.match(/^```[a-zA-Z0-9-]*\n([\s\S]*?)\n```$/);
+    return fenced ? fenced[1].trim() : value;
+  }
+
+  function extractJson(textValue) {
+    const cleaned = stripFences(textValue);
+    try {
+      return JSON.parse(cleaned);
+    } catch (error) {
+      const start = cleaned.indexOf('{');
+      const end = cleaned.lastIndexOf('}');
+      if (start !== -1 && end > start) return JSON.parse(cleaned.slice(start, end + 1));
+      throw new Error('The AI answer was not valid JSON.');
+    }
+  }
+
+  function languageInstruction() {
+    return 'Write in the same language as the brief (if the brief mixes languages, use the language of the problem statement).';
+  }
+
+  async function sharpenBrief(project, issues) {
+    const brief = {
+      name: project.name,
+      oneLiner: project.oneLiner,
+      problem: project.problem,
+      targetUser: project.targetUser,
+      jtbd: project.jtbd,
+      successChecks: project.successChecks || [],
+      nonGoals: project.nonGoals,
+      overlap: project.overlap
+    };
+    const system = [
+      'You are a senior product manager who writes small, testable app briefs for indie builders.',
+      'Improve the brief so it scores higher on clarity, testability, scope and user focus.',
+      'Rules: keep the product idea and name; do not add big new features; be concrete and short.',
+      'successChecks: 3-5 items, each an action plus a visible result a stranger can verify in a minute.',
+      'jtbd must follow "When ..., I want ..., so I can ..." (or the natural equivalent in the brief\'s language).',
+      'targetUser: a specific group with a qualifier. nonGoals: 2-4 items separated by "; ". overlap: name real alternatives people use today and how this differs.',
+      languageInstruction(),
+      'Reply with ONLY a JSON object with keys: oneLiner, problem, targetUser, jtbd, successChecks (array of strings), nonGoals, overlap.'
+    ].join('\n');
+    const user = 'Current brief (JSON):\n' + JSON.stringify(brief, null, 2) +
+      '\n\nSpec Score issues to fix:\n' + (issues.length ? issues.map(function (issue) { return '- ' + issue; }).join('\n') : '- none, just tighten wording');
+    const answer = await aiComplete({ system: system, user: user, maxTokens: 1600 });
+    const parsed = extractJson(answer);
+    const out = {};
+    ['oneLiner', 'problem', 'targetUser', 'jtbd', 'nonGoals', 'overlap'].forEach(function (field) {
+      if (typeof parsed[field] === 'string' && parsed[field].trim()) out[field] = parsed[field].trim().slice(0, 2000);
+    });
+    if (Array.isArray(parsed.successChecks)) {
+      const checks = parsed.successChecks.map(function (item) { return String(item).trim(); }).filter(Boolean).slice(0, 6);
+      if (checks.length) out.successChecks = checks;
+    }
+    if (!Object.keys(out).length) throw new Error('The AI answer had no usable fields.');
+    return out;
+  }
+
+  async function improveSpecFile(project, filename, content) {
+    const system = [
+      'You are a senior product engineer improving a spec file that an AI coding agent will follow.',
+      'Make it more specific, testable and unambiguous. Keep the same file purpose, structure and headings.',
+      filename === 'specs/requirements.md'
+        ? 'Keep EARS acceptance criteria ("WHEN ... THEN THE SYSTEM SHALL ...", "IF ... THEN THE SYSTEM SHALL ..."), add missing edge cases and error states.'
+        : 'Keep task ids, dependencies and [P] markers if present.',
+      'Do not invent features beyond the brief; non-goals stay out of scope. Stay concise.',
+      languageInstruction(),
+      'Reply with ONLY the complete improved file content, no commentary and no code fences.'
+    ].join('\n');
+    const user = 'Brief: ' + project.name + ' — ' + (project.oneLiner || '') +
+      '\nTarget user: ' + (project.targetUser || '') +
+      '\nNon-goals: ' + (project.nonGoals || '') +
+      '\n\nFile: ' + filename + '\n---\n' + content;
+    const answer = await aiComplete({ system: system, user: user, maxTokens: 3200 });
+    return stripFences(answer);
+  }
+
+  // =====================================================================
+  // Sync (encrypted GitHub Gist)
+  // =====================================================================
+  const SYNC_SETTINGS_KEY = 'sweep_sync_v1';
+  const SYNC_SECRET_KEY = 'sweep_sync_secret_v1';
+  const TOMBSTONE_KEY = 'sweep_tombstones_v1';
+  const GIST_FILE = 'sweep-sync.json';
+  const GIST_DESCRIPTION = 'Sweep sync (encrypted)';
+  const GITHUB_API = 'https://api.github.com';
+  const PBKDF2_ITERATIONS = 250000;
+
+  function syncSettings() {
+    return readJson(localStorage, SYNC_SETTINGS_KEY, { gistId: '', auto: true, lastSync: 0, remember: true });
+  }
+
+  function saveSyncSettings(settings) {
+    writeJson(localStorage, SYNC_SETTINGS_KEY, settings);
+  }
+
+  function syncSecrets() {
+    return readJson(localStorage, SYNC_SECRET_KEY, null) || readJson(sessionStorage, SYNC_SECRET_KEY, { token: '', passphrase: '' });
+  }
+
+  function saveSyncSecrets(secrets, remember) {
+    try {
+      localStorage.removeItem(SYNC_SECRET_KEY);
+      sessionStorage.removeItem(SYNC_SECRET_KEY);
+    } catch (error) {
+      /* storage unavailable */
+    }
+    if (secrets.token || secrets.passphrase) writeJson(remember ? localStorage : sessionStorage, SYNC_SECRET_KEY, secrets);
+  }
+
+  function syncConfigured() {
+    const secrets = syncSecrets();
+    return !!(secrets.token && secrets.passphrase);
+  }
+
+  function toBase64(bytes) {
+    let binary = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    return btoa(binary);
+  }
+
+  function fromBase64(value) {
+    const binary = atob(value);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+
+  async function deriveKey(passphrase, salt) {
+    const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt: salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+      material,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    );
+  }
+
+  async function encryptPayload(object, passphrase) {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const key = await deriveKey(passphrase, salt);
+    const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, new TextEncoder().encode(JSON.stringify(object)));
+    return JSON.stringify({
+      v: 1,
+      app: 'sweep',
+      kdf: 'PBKDF2-SHA256-' + PBKDF2_ITERATIONS,
+      salt: toBase64(salt),
+      iv: toBase64(iv),
+      data: toBase64(new Uint8Array(cipher))
+    });
+  }
+
+  async function decryptPayload(textValue, passphrase) {
+    const envelope = JSON.parse(textValue);
+    if (!envelope || envelope.app !== 'sweep' || envelope.v !== 1) throw new Error('Not a Sweep sync file');
+    const key = await deriveKey(passphrase, fromBase64(envelope.salt));
+    try {
+      const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromBase64(envelope.iv) }, key, fromBase64(envelope.data));
+      return JSON.parse(new TextDecoder().decode(plain));
+    } catch (error) {
+      throw new Error(t('Wrong sync passphrase for this gist'));
+    }
+  }
+
+  async function github(path, options) {
+    const secrets = syncSecrets();
+    const init = Object.assign({ method: 'GET' }, options || {});
+    init.headers = Object.assign({
+      Accept: 'application/vnd.github+json',
+      Authorization: 'Bearer ' + secrets.token,
+      'X-GitHub-Api-Version': '2022-11-28'
+    }, init.body ? { 'Content-Type': 'application/json' } : {});
+    const response = await fetch(GITHUB_API + path, init);
+    if (response.status === 401) throw new Error('GitHub rejected the token (401).');
+    if (response.status === 403) throw new Error('The token lacks the Gists permission, or GitHub is rate-limiting (403).');
+    if (!response.ok && response.status !== 404) throw new Error('GitHub error ' + response.status);
+    return response;
+  }
+
+  async function findGist() {
+    const settings = syncSettings();
+    if (settings.gistId) {
+      const response = await github('/gists/' + settings.gistId);
+      if (response.ok) return response.json();
+    }
+    const listResponse = await github('/gists?per_page=100');
+    if (!listResponse.ok) return null;
+    const list = await listResponse.json();
+    const match = (list || []).find(function (gist) {
+      return gist.description === GIST_DESCRIPTION && gist.files && gist.files[GIST_FILE];
+    });
+    if (!match) return null;
+    const full = await github('/gists/' + match.id);
+    return full.ok ? full.json() : null;
+  }
+
+  async function gistContent(gist) {
+    const file = gist.files && gist.files[GIST_FILE];
+    if (!file) return null;
+    if (file.truncated && file.raw_url) {
+      const raw = await fetch(file.raw_url);
+      return raw.text();
+    }
+    return file.content;
+  }
+
+  // ----- change tracking: updatedAt stamps + tombstones -----
+  const fingerprints = new Map();
+  let knownIds = null;
+
+  function projectFingerprint(project) {
+    const copy = Object.assign({}, project);
+    delete copy.updatedAt;
+    return JSON.stringify(copy);
+  }
+
+  function tombstones() {
+    return readJson(localStorage, TOMBSTONE_KEY, {});
+  }
+
+  function trackChanges() {
+    if (typeof state === 'undefined' || !Array.isArray(state.projects)) return;
+    const now = Date.now();
+    const currentIds = new Set();
+    state.projects.forEach(function (project) {
+      if (!project || !project.id) return;
+      currentIds.add(project.id);
+      const print = projectFingerprint(project);
+      const previous = fingerprints.get(project.id);
+      if (previous !== undefined && previous !== print) project.updatedAt = now;
+      if (previous === undefined && !project.updatedAt) project.updatedAt = Date.parse(project.createdAt || '') || now;
+      fingerprints.set(project.id, print);
+    });
+    if (knownIds) {
+      const stones = tombstones();
+      let changed = false;
+      knownIds.forEach(function (id) {
+        if (!currentIds.has(id)) {
+          stones[id] = now;
+          fingerprints.delete(id);
+          changed = true;
+        }
+      });
+      if (changed) writeJson(localStorage, TOMBSTONE_KEY, stones);
+    }
+    knownIds = currentIds;
+  }
+
+  function mergeWorkspaces(local, remote) {
+    const stones = Object.assign({}, remote.tombstones || {});
+    Object.keys(local.tombstones || {}).forEach(function (id) {
+      stones[id] = Math.max(stones[id] || 0, local.tombstones[id]);
+    });
+    const byId = {};
+    function consider(project) {
+      if (!project || !project.id) return;
+      const existing = byId[project.id];
+      if (!existing || (project.updatedAt || 0) > (existing.updatedAt || 0)) byId[project.id] = project;
+    }
+    (remote.projects || []).forEach(consider);
+    (local.projects || []).forEach(consider);
+    const projects = Object.keys(byId).map(function (id) { return byId[id]; }).filter(function (project) {
+      return !(stones[project.id] && stones[project.id] >= (project.updatedAt || 0));
+    });
+    const order = (local.projects || []).map(function (project) { return project.id; });
+    projects.sort(function (a, b) {
+      const ia = order.indexOf(a.id);
+      const ib = order.indexOf(b.id);
+      if (ia === -1 && ib === -1) return (b.updatedAt || 0) - (a.updatedAt || 0);
+      if (ia === -1) return -1;
+      if (ib === -1) return 1;
+      return ia - ib;
+    });
+    return { projects: projects, tombstones: stones };
+  }
+
+  let syncing = null;
+  let suppressAutoPush = false;
+  const syncListeners = [];
+
+  function notifySync(status) {
+    syncListeners.forEach(function (listener) {
+      try {
+        listener(status);
+      } catch (error) {
+        /* listener failed */
+      }
+    });
+  }
+
+  function rerenderCurrentView() {
+    try {
+      const current = state.currentProject && state.projects.find(function (project) { return project.id === state.currentProject.id; });
+      if (state.currentProject && current) state.currentProject = current;
+      const visible = Array.prototype.find.call(document.querySelectorAll('main section[id^="section-"]'), function (section) {
+        return section.style.display !== 'none' && section.id !== 'section-gate';
+      });
+      const view = visible ? visible.id.replace('section-', '') : 'catalog';
+      if (typeof navigateTo === 'function' && view !== 'brief') {
+        navigateTo(view === 'plan' && !state.currentProject ? 'catalog' : view);
+      } else if (typeof renderCatalog === 'function') {
+        renderCatalog();
+      }
+    } catch (error) {
+      /* best-effort refresh */
+    }
+  }
+
+  async function syncNow(options) {
+    if (syncing) return syncing;
+    if (!syncConfigured()) throw new Error('Add a GitHub token and a sync passphrase first.');
+    if (typeof state === 'undefined' || !state.workspace) throw new Error('Open a workspace first.');
+    syncing = (async function () {
+      notifySync({ phase: 'syncing' });
+      const secrets = syncSecrets();
+      trackChanges();
+      const local = { projects: (state.projects || []).slice(), tombstones: tombstones() };
+      const gist = await findGist();
+      let merged = local;
+      if (gist) {
+        const content = await gistContent(gist);
+        if (content) {
+          const remote = await decryptPayload(content, secrets.passphrase);
+          merged = mergeWorkspaces(local, remote);
+        }
+      }
+      writeJson(localStorage, TOMBSTONE_KEY, merged.tombstones);
+      const changedLocally = JSON.stringify(merged.projects) !== JSON.stringify(local.projects);
+      if (changedLocally) {
+        state.projects = merged.projects;
+        suppressAutoPush = true;
+        try {
+          await window.saveState();
+        } finally {
+          suppressAutoPush = false;
+        }
+        trackChanges();
+        rerenderCurrentView();
+      }
+      const payload = await encryptPayload({
+        projects: merged.projects,
+        tombstones: merged.tombstones,
+        savedAt: Date.now()
+      }, secrets.passphrase);
+      const body = JSON.stringify(gist
+        ? { files: { [GIST_FILE]: { content: payload } } }
+        : { description: GIST_DESCRIPTION, public: false, files: { [GIST_FILE]: { content: payload } } });
+      const saveResponse = await github(gist ? '/gists/' + gist.id : '/gists', { method: gist ? 'PATCH' : 'POST', body: body });
+      if (!saveResponse.ok) throw new Error('GitHub error ' + saveResponse.status);
+      const saved = await saveResponse.json();
+      const settings = syncSettings();
+      settings.gistId = saved.id || (gist && gist.id) || settings.gistId;
+      settings.lastSync = Date.now();
+      saveSyncSettings(settings);
+      const result = { phase: 'done', pulled: changedLocally, count: merged.projects.length, at: settings.lastSync };
+      notifySync(result);
+      if (options && options.announce) toast(t('Last synced {when}', { when: timeAgo(settings.lastSync) }).replace('{when}', timeAgo(settings.lastSync)));
+      return result;
+    })();
+    try {
+      return await syncing;
+    } catch (error) {
+      notifySync({ phase: 'error', message: error.message });
+      throw error;
+    } finally {
+      syncing = null;
+    }
+  }
+
+  let autoTimer = null;
+  function scheduleAutoSync() {
+    if (suppressAutoPush || !syncConfigured() || !syncSettings().auto) return;
+    clearTimeout(autoTimer);
+    autoTimer = setTimeout(function () {
+      syncNow().catch(function (error) {
+        toast('Sync: ' + error.message);
+      });
+    }, 4000);
+  }
+
+  let lastFocusSync = 0;
+  function syncOnFocus() {
+    if (document.visibilityState !== 'visible' || !syncConfigured() || !syncSettings().auto) return;
+    if (typeof state === 'undefined' || !state.workspace) return;
+    if (Date.now() - lastFocusSync < 60000) return;
+    lastFocusSync = Date.now();
+    syncNow().catch(function () { /* surfaced in Settings */ });
+  }
+
+  function wrapPersistence() {
+    if (typeof window.saveState !== 'function' || window.saveState.__sweepPro) return;
+    const original = window.saveState;
+    const wrapped = async function () {
+      trackChanges();
+      const result = await original.apply(this, arguments);
+      scheduleAutoSync();
+      return result;
+    };
+    wrapped.__sweepPro = true;
+    window.saveState = wrapped;
+
+    if (typeof window.enterApp === 'function' && !window.enterApp.__sweepPro) {
+      const originalEnter = window.enterApp;
+      const wrappedEnter = function () {
+        const result = originalEnter.apply(this, arguments);
+        setTimeout(function () {
+          knownIds = null;
+          trackChanges();
+          lastFocusSync = 0;
+          syncOnFocus();
+        }, 300);
+        return result;
+      };
+      wrappedEnter.__sweepPro = true;
+      window.enterApp = wrappedEnter;
+    }
+  }
+
+  // =====================================================================
+  // Settings modal
+  // =====================================================================
+  const ui = { tab: 'language' };
+
+  function settingsButton() {
+    const toggle = document.getElementById('theme-toggle');
+    if (!toggle || document.getElementById('settings-btn')) return;
+    const button = document.createElement('button');
+    button.className = 'icon-btn';
+    button.id = 'settings-btn';
+    button.type = 'button';
+    button.setAttribute('aria-label', 'Settings');
+    button.setAttribute('title', 'Settings');
+    button.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
+    button.addEventListener('click', function () { openSettings(); });
+    toggle.parentNode.insertBefore(button, toggle);
+  }
+
+  function languageTabHtml() {
+    const current = window.SweepI18n ? window.SweepI18n.getLanguage() : 'en';
+    const languages = window.SweepI18n ? window.SweepI18n.languages : [{ code: 'en', label: 'English' }];
+    return '<h3>' + esc(t('Interface language')) + '</h3>' +
+      '<div class="lang-options" role="radiogroup" aria-label="' + esc(t('Interface language')) + '">' +
+        languages.map(function (language) {
+          return '<button type="button" role="radio" class="lang-option' + (language.code === current ? ' active' : '') + '" aria-checked="' + (language.code === current) + '" data-lang="' + language.code + '" data-no-i18n>' +
+            esc(language.label) + '</button>';
+        }).join('') +
+      '</div>' +
+      '<p class="settings-note">' + esc(t('Your briefs, plans and specs stay in the language you write them in.')) + '</p>';
+  }
+
+  function aiTabHtml() {
+    const settings = aiSettings();
+    const provider = PROVIDERS[settings.provider];
+    return '<h3>' + esc(t('AI assist')) + '</h3>' +
+      '<p class="settings-note">' + esc(t('AI is optional. Sweep works fully offline without it.')) + '</p>' +
+      '<label class="settings-field"><span>' + esc(t('Provider')) + '</span>' +
+        '<select id="ai-provider">' + Object.keys(PROVIDERS).map(function (id) {
+          return '<option value="' + id + '"' + (id === settings.provider ? ' selected' : '') + '>' + esc(t(PROVIDERS[id].label)) + '</option>';
+        }).join('') + '</select></label>' +
+      '<div id="ai-key-row"' + (provider.keyless ? ' hidden' : '') + '>' +
+        '<label class="settings-field"><span>' + esc(t('API key')) + (provider.keyUrl ? ' · <a href="' + provider.keyUrl + '" target="_blank" rel="noopener">get one ↗</a>' : '') + '</span>' +
+          '<input type="password" id="ai-key" autocomplete="off" spellcheck="false" value="' + esc(aiKey()) + '" placeholder="sk-…"></label>' +
+        '<label class="settings-check"><input type="checkbox" id="ai-remember"' + (settings.remember ? ' checked' : '') + '> ' + esc(t('Remember the key on this device')) + '</label>' +
+        '<p class="settings-note small">' + esc(t('Off: the key is kept only until you close this tab.')) + '</p>' +
+      '</div>' +
+      '<label class="settings-field" id="ai-base-row"' + (settings.provider === 'custom' ? '' : ' hidden') + '><span>' + esc(t('Base URL')) + '</span>' +
+        '<input type="text" id="ai-base" spellcheck="false" value="' + esc(settings.base) + '" placeholder="https://api.example.com/v1"></label>' +
+      '<label class="settings-field"><span>' + esc(t('Model')) + '</span>' +
+        '<input type="text" id="ai-model" spellcheck="false" value="' + esc(settings.model) + '" placeholder="' + esc(provider.model || 'model-id') + '"></label>' +
+      '<div class="settings-actions"><button type="button" class="btn btn-secondary btn-sm" data-pro="ai-test">' + esc(t('Test connection')) + '</button>' +
+        '<button type="button" class="btn btn-primary btn-sm" data-pro="ai-save">' + esc(t('Save')) + '</button>' +
+        '<span class="settings-status" id="ai-status" role="status"></span></div>' +
+      '<p class="settings-note small">' + esc(t('Your key is sent only to the provider you pick, straight from your browser. Sweep has no server.')) + '</p>';
+  }
+
+  function syncTabHtml() {
+    const settings = syncSettings();
+    const secrets = syncSecrets();
+    return '<h3>' + esc(t('Sync across devices')) + '</h3>' +
+      '<p class="settings-note">' + esc(t('Your workspace is encrypted with your sync passphrase, then saved to a private GitHub Gist you own. Use the same token and passphrase on another device to sync.')) + '</p>' +
+      '<label class="settings-field"><span>' + esc(t('GitHub token')) + ' · <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">create ↗</a></span>' +
+        '<input type="password" id="sync-token" autocomplete="off" spellcheck="false" value="' + esc(secrets.token) + '" placeholder="github_pat_…"></label>' +
+      '<p class="settings-note small">' + esc(t('Create a token with only the “Gists” permission.')) + '</p>' +
+      '<label class="settings-field"><span>' + esc(t('Sync passphrase')) + '</span>' +
+        '<input type="password" id="sync-pass" autocomplete="new-password" value="' + esc(secrets.passphrase) + '"></label>' +
+      '<p class="settings-note small">' + esc(t('Never leaves this device. Without it the gist is unreadable.')) + '</p>' +
+      '<label class="settings-check"><input type="checkbox" id="sync-remember"' + (settings.remember !== false ? ' checked' : '') + '> ' + esc(t('Remember the key on this device')) + '</label>' +
+      '<label class="settings-check"><input type="checkbox" id="sync-auto"' + (settings.auto !== false ? ' checked' : '') + '> ' + esc(t('Sync automatically')) + '</label>' +
+      '<div class="settings-actions"><button type="button" class="btn btn-primary btn-sm" data-pro="sync-now">' + esc(t('Sync now')) + '</button>' +
+        (syncConfigured() ? '<button type="button" class="btn btn-text btn-sm" data-pro="sync-disconnect">' + esc(t('Disconnect')) + '</button>' : '') +
+        '<span class="settings-status" id="sync-status" role="status">' + esc(settings.lastSync ? t('Last synced {when}', { when: timeAgo(settings.lastSync) }).replace('{when}', timeAgo(settings.lastSync)) : t('Never synced')) + '</span></div>';
+  }
+
+  function settingsBodyHtml() {
+    if (ui.tab === 'ai') return aiTabHtml();
+    if (ui.tab === 'sync') return syncTabHtml();
+    return languageTabHtml();
+  }
+
+  function renderSettings() {
+    const modal = document.getElementById('settings-modal');
+    if (!modal) return;
+    modal.querySelectorAll('[data-settings-tab]').forEach(function (button) {
+      const active = button.getAttribute('data-settings-tab') === ui.tab;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', String(active));
+    });
+    modal.querySelector('.settings-body').innerHTML = settingsBodyHtml();
+  }
+
+  function closeSettings() {
+    const modal = document.getElementById('settings-modal');
+    if (modal) modal.remove();
+    document.body.classList.remove('studio-modal-open');
+    const trigger = document.getElementById('settings-btn');
+    if (trigger) trigger.focus();
+  }
+
+  function openSettings(tab) {
+    if (tab) ui.tab = tab;
+    closeSettings();
+    const modal = document.createElement('div');
+    modal.id = 'settings-modal';
+    modal.className = 'studio-modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'settings-title');
+    modal.innerHTML =
+      '<div class="studio-modal-card settings-card">' +
+        '<button type="button" class="studio-modal-close" aria-label="' + esc(t('Close')) + '" data-pro="close">×</button>' +
+        '<h2 id="settings-title">' + esc(t('Settings')) + '</h2>' +
+        '<div class="settings-tabs" role="tablist">' +
+          '<button type="button" role="tab" data-settings-tab="language">' + esc(t('Language')) + '</button>' +
+          '<button type="button" role="tab" data-settings-tab="ai">' + esc(t('AI assist')) + '</button>' +
+          '<button type="button" role="tab" data-settings-tab="sync">' + esc(t('Sync')) + '</button>' +
+        '</div>' +
+        '<div class="settings-body" role="tabpanel"></div>' +
+      '</div>';
+    document.body.appendChild(modal);
+    document.body.classList.add('studio-modal-open');
+    renderSettings();
+    modal.addEventListener('click', onSettingsClick);
+    modal.addEventListener('change', onSettingsChange);
+    modal.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') closeSettings();
+    });
+    const first = modal.querySelector('[data-settings-tab].active');
+    if (first) first.focus();
+  }
+
+  function readAiForm() {
+    const provider = document.getElementById('ai-provider').value;
+    return {
+      settings: {
+        provider: provider,
+        model: document.getElementById('ai-model').value.trim() || PROVIDERS[provider].model,
+        base: (document.getElementById('ai-base') || {}).value ? document.getElementById('ai-base').value.trim() : '',
+        remember: !!(document.getElementById('ai-remember') || {}).checked
+      },
+      key: ((document.getElementById('ai-key') || {}).value || '').trim()
+    };
+  }
+
+  function readSyncForm() {
+    return {
+      token: document.getElementById('sync-token').value.trim(),
+      passphrase: document.getElementById('sync-pass').value,
+      remember: document.getElementById('sync-remember').checked,
+      auto: document.getElementById('sync-auto').checked
+    };
+  }
+
+  function persistSyncForm() {
+    const form = readSyncForm();
+    saveSyncSecrets({ token: form.token, passphrase: form.passphrase }, form.remember);
+    const settings = syncSettings();
+    settings.remember = form.remember;
+    settings.auto = form.auto;
+    saveSyncSettings(settings);
+  }
+
+  function setStatus(id, message, kind) {
+    const node = document.getElementById(id);
+    if (!node) return;
+    node.textContent = message;
+    node.className = 'settings-status' + (kind ? ' ' + kind : '');
+  }
+
+  function onSettingsChange(event) {
+    if (event.target.id === 'ai-provider') {
+      const provider = PROVIDERS[event.target.value];
+      document.getElementById('ai-key-row').hidden = !!provider.keyless;
+      document.getElementById('ai-base-row').hidden = event.target.value !== 'custom';
+      const model = document.getElementById('ai-model');
+      model.value = provider.model;
+      model.placeholder = provider.model || 'model-id';
+    }
+    if (event.target.id && event.target.id.indexOf('sync-') === 0) persistSyncForm();
+  }
+
+  async function onSettingsClick(event) {
+    const modal = document.getElementById('settings-modal');
+    if (event.target === modal) {
+      closeSettings();
+      return;
+    }
+    const tab = event.target.closest('[data-settings-tab]');
+    if (tab) {
+      ui.tab = tab.getAttribute('data-settings-tab');
+      renderSettings();
+      return;
+    }
+    const lang = event.target.closest('[data-lang]');
+    if (lang && window.SweepI18n) {
+      window.SweepI18n.setLanguage(lang.getAttribute('data-lang'));
+      openSettings('language');
+      return;
+    }
+    const action = event.target.closest('[data-pro]');
+    if (!action) return;
+    const name = action.getAttribute('data-pro');
+    if (name === 'close') closeSettings();
+    if (name === 'ai-save') {
+      const form = readAiForm();
+      saveAiSettings(form.settings, form.key);
+      setStatus('ai-status', '✓ ' + t('Save'), 'ok');
+      notifyAi();
+    }
+    if (name === 'ai-test') {
+      const form = readAiForm();
+      saveAiSettings(form.settings, form.key);
+      notifyAi();
+      setStatus('ai-status', t('Testing…'));
+      action.disabled = true;
+      try {
+        const reply = await aiComplete({ system: 'Reply with exactly: OK', user: 'Say OK', maxTokens: 20, timeoutMs: 45000 });
+        setStatus('ai-status', '✓ ' + t('Connected') + ' · ' + reply.trim().slice(0, 24), 'ok');
+      } catch (error) {
+        setStatus('ai-status', '✗ ' + error.message, 'error');
+      } finally {
+        action.disabled = false;
+      }
+    }
+    if (name === 'sync-now') {
+      persistSyncForm();
+      setStatus('sync-status', t('Syncing…'));
+      action.disabled = true;
+      try {
+        const result = await syncNow();
+        setStatus('sync-status', '✓ ' + t('Last synced {when}', { when: timeAgo(result.at) }).replace('{when}', timeAgo(result.at)) + ' · ' + result.count + ' ' + (result.count === 1 ? 'project' : 'projects'), 'ok');
+      } catch (error) {
+        setStatus('sync-status', '✗ ' + error.message, 'error');
+      } finally {
+        action.disabled = false;
+      }
+    }
+    if (name === 'sync-disconnect') {
+      saveSyncSecrets({ token: '', passphrase: '' }, false);
+      const settings = syncSettings();
+      settings.gistId = '';
+      settings.lastSync = 0;
+      saveSyncSettings(settings);
+      renderSettings();
+    }
+  }
+
+  const aiListeners = [];
+  function notifyAi() {
+    aiListeners.forEach(function (listener) {
+      try {
+        listener();
+      } catch (error) {
+        /* listener failed */
+      }
+    });
+  }
+
+  function paletteCommands() {
+    const commands = [
+      { group: 'Actions', label: t('Settings'), hint: '', run: function () { openSettings(); } },
+      { group: 'Actions', label: t('Settings') + ' · ' + t('AI assist'), hint: '', run: function () { openSettings('ai'); } },
+      { group: 'Actions', label: t('Settings') + ' · ' + t('Sync'), hint: '', run: function () { openSettings('sync'); } }
+    ];
+    (window.SweepI18n ? window.SweepI18n.languages : []).forEach(function (language) {
+      commands.push({
+        group: 'Actions',
+        label: t('Language') + ' · ' + language.label,
+        hint: '',
+        run: function () { window.SweepI18n.setLanguage(language.code); }
+      });
+    });
+    if (syncConfigured()) {
+      commands.push({
+        group: 'Actions',
+        label: t('Sync now'),
+        hint: '',
+        run: function () {
+          syncNow({ announce: true }).catch(function (error) { toast('Sync: ' + error.message); });
+        }
+      });
+    }
+    return commands;
+  }
+
+  function init() {
+    settingsButton();
+    wrapPersistence();
+    document.addEventListener('visibilitychange', syncOnFocus);
+  }
+
+  window.SweepPro = {
+    openSettings: openSettings,
+    paletteCommands: paletteCommands,
+    ai: {
+      ready: aiReady,
+      settings: aiSettings,
+      complete: aiComplete,
+      sharpenBrief: sharpenBrief,
+      improveSpecFile: improveSpecFile,
+      onChange: function (listener) { aiListeners.push(listener); },
+      providers: PROVIDERS
+    },
+    sync: {
+      now: syncNow,
+      configured: syncConfigured,
+      merge: mergeWorkspaces,
+      encrypt: encryptPayload,
+      decrypt: decryptPayload,
+      onStatus: function (listener) { syncListeners.push(listener); }
+    }
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();

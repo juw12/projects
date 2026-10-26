@@ -55,9 +55,36 @@ from the plan's Studio strip, the **Studio** nav tab, or the command palette.
   progress or Operator data), 1200×630 share-card PNG, "Planned with Sweep"
   README badge. Opening a link shows a preview with "Remix into my workspace".
 - **Templates** — six high-scoring starter briefs in the catalog, one-click remix.
+- **Time tracking** — moving a task to Doing starts a timer (pause/resume on the
+  card, 6 h cap per session, "Log time" for manual hours). Done cards show actual
+  hours, a Time tracking table compares estimate vs actual, and after ≥2 tracked
+  tasks (or ≥3 across projects) the Build estimate shows your calibrated pace.
+  `tasks.md` includes actual hours.
 
 Remove the two tags from `index.html` / `mobile.html` to disable; the core app
 does not depend on it.
+
+### Languages, AI assist, sync (`web/i18n.js` + `web/pro.js` + `web/pro.css`)
+
+All optional and opened from the gear icon in the header (**Settings**).
+
+- **Language** — English, 简体中文, Bahasa Indonesia. Auto-detected from the
+  browser, saved in `localStorage` (`sweep_lang_v1`). `i18n.js` translates the
+  interface only (text, placeholders, aria-labels); briefs, plans and specs stay
+  in the language they were written in. Exposes `window.SweepI18n`.
+- **AI assist** — "✨ Sharpen with AI" on the Spec Score card (per-field diff to
+  review before applying) and "✨ Improve with AI" on spec files (marked
+  AI-edited, revertible). Providers: free (Pollinations, no key, shared and
+  rate-limited), OpenRouter, OpenAI, Anthropic, Groq, or any OpenAI-compatible
+  endpoint with your own key. Keys stay in this browser (session-only unless
+  "remember" is ticked); requests go straight from the browser to the provider.
+- **Sync** — end-to-end encrypted (PBKDF2-SHA256 → AES-GCM, passphrase never
+  leaves the device) to a private GitHub Gist (`sweep-sync.json`) using a
+  fine-grained token with Gists read/write. Merges per project, newest edit wins;
+  deletions sync as tombstones. Auto-syncs after edits and on focus.
+
+Remove the `i18n.js` / `pro.js` / `pro.css` tags to disable; Studio and the core
+app fall back to English and offline-only behaviour.
 
 ### Visual theme (`web/theme.css`)
 
