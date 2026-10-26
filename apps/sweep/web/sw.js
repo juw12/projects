@@ -1,7 +1,7 @@
 // Sweep Service Worker — Offline-first caching
 // Network-first for HTML/navigation, cache-first for static assets
 
-const CACHE_NAME = 'sweep-v13-pro';
+const CACHE_NAME = 'sweep-v14-polish';
 const ASSETS_TO_CACHE = [
   './app.html',
   './index.html',
@@ -70,13 +70,13 @@ self.addEventListener('fetch', function(event) {
     return;
   }
   
-  // Check if request is within our scope
-  if (!url.pathname.startsWith(SCOPE) && !url.pathname.endsWith(SCOPE)) {
-    // For root scope, check if it's a relative path
-    const relativePath = url.pathname.replace(SCOPE, '');
-    if (!relativePath.startsWith('/') && !relativePath.startsWith('./')) {
-      return;
-    }
+  // Only same-origin files inside this app's scope. Cross-origin calls (GitHub sync, AI
+  // providers, CDNs) must always go to the network — caching them would serve stale data.
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+  if (typeof SCOPE === 'string' && SCOPE.indexOf('http') === 0 && request.url.indexOf(SCOPE) !== 0) {
+    return;
   }
   
   // Network-first for HTML pages and navigation

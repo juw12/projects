@@ -2077,10 +2077,13 @@
     if (!button) return;
     if (busy) {
       button.dataset.label = button.innerHTML;
-      button.disabled = true;
-      button.innerHTML = '<span class="ai-spinner" aria-hidden="true"></span> ' + esc(t('Thinking…'));
+      button.dataset.busy = '1';
+      button.setAttribute('aria-busy', 'true');
+      button.innerHTML = '<span class="ai-spinner" aria-hidden="true"></span> ' + esc(t('Thinking…')) +
+        ' <span class="ai-cancel">· ' + esc(t('Cancel')) + '</span>';
     } else {
-      button.disabled = false;
+      delete button.dataset.busy;
+      button.removeAttribute('aria-busy');
       if (button.dataset.label) button.innerHTML = button.dataset.label;
     }
   }
@@ -2111,7 +2114,7 @@
       const suggestion = await window.SweepPro.ai.sharpenBrief(project, issues);
       showAiReview(project, suggestion);
     } catch (error) {
-      showToast(t('AI could not answer') + ': ' + error.message);
+      showToast(error.cancelled ? t('Cancelled') : t('AI could not answer') + ': ' + error.message);
     } finally {
       aiBusy(button, false);
     }
@@ -2216,7 +2219,7 @@
       renderStudio(project);
       showToast(t('AI-edited') + ': ' + file);
     } catch (error) {
-      showToast(t('AI could not answer') + ': ' + error.message);
+      showToast(error.cancelled ? t('Cancelled') : t('AI could not answer') + ': ' + error.message);
       aiBusy(button, false);
     }
   }
@@ -2263,6 +2266,10 @@
     const action = event.target.closest('[data-studio]');
     if (!action) return;
     const name = action.getAttribute('data-studio');
+    if (action.dataset.busy === '1') {
+      if (window.SweepPro) window.SweepPro.ai.cancel();
+      return;
+    }
     if (name === 'back') navigateTo('plan');
     if (name === 'pack') downloadSpecPack(project);
     if (name === 'share') {

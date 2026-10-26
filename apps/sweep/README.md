@@ -71,17 +71,25 @@ All optional and opened from the gear icon in the header (**Settings**).
 - **Language** — English, 简体中文, Bahasa Indonesia. Auto-detected from the
   browser, saved in `localStorage` (`sweep_lang_v1`). `i18n.js` translates the
   interface only (text, placeholders, aria-labels); briefs, plans and specs stay
-  in the language they were written in. Exposes `window.SweepI18n`.
+  in the language they were written in. Covers every view (Operator, guide, verify,
+  palette, dialogs); paragraphs with inline markup are translated whole, and dates
+  follow the chosen language. Exposes `window.SweepI18n`.
 - **AI assist** — "✨ Sharpen with AI" on the Spec Score card (per-field diff to
   review before applying) and "✨ Improve with AI" on spec files (marked
   AI-edited, revertible). Providers: free (Pollinations, no key, shared and
   rate-limited), OpenRouter, OpenAI, Anthropic, Groq, or any OpenAI-compatible
   endpoint with your own key. Keys stay in this browser (session-only unless
   "remember" is ticked); requests go straight from the browser to the provider.
+  A running request can be cancelled from the same button.
 - **Sync** — end-to-end encrypted (PBKDF2-SHA256 → AES-GCM, passphrase never
   leaves the device) to a private GitHub Gist (`sweep-sync.json`) using a
-  fine-grained token with Gists read/write. Merges per project, newest edit wins;
-  deletions sync as tombstones. Auto-syncs after edits and on focus.
+  fine-grained token with Gists read/write. Merges per project: if only one device
+  changed a project, that version wins; if both did, both are kept (the older one as
+  "… (conflict copy)") so no edit is lost. Deletions sync as tombstones. Auto-syncs
+  after edits and on focus.
+- **Offline + updates** — the main app registers `web/sw.js` (same-origin files only;
+  GitHub/AI calls always hit the network) and shows "A new version is ready — Reload"
+  when a deploy lands while the app is open. Dialogs keep keyboard focus inside.
 
 Remove the `i18n.js` / `pro.js` / `pro.css` tags to disable; Studio and the core
 app fall back to English and offline-only behaviour.
