@@ -19,6 +19,8 @@ Requires: Python 3.10+ and `pip install playwright`. Use `--channel msedge` (Win
 `--channel chrome` to reuse an installed browser, or run `python -m playwright install chromium`.
 """
 import argparse
+import base64
+import hashlib
 import hmac
 import http.server
 import ipaddress
@@ -28,11 +30,12 @@ import re
 import secrets
 import socket
 import sys
+import threading
 import time
 import urllib.parse
 from pathlib import Path
 
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 DEFAULT_PORT = 8765
 ALLOWED_ORIGINS = {"https://juw12.github.io", "https://juwpegatron.github.io"}
 LOCAL_ORIGIN = re.compile(r"^http://(127\.0\.0\.1|localhost)(:\d{1,5})?$")
@@ -41,6 +44,7 @@ MAX_ELEMENTS = 120
 PAIR_COOLDOWN_SECONDS = 20
 PAIR_PROMPT_SECONDS = 60
 DEFAULT_PEERJS_URL = "https://juw12.github.io/projects/glow/shared/peerjs.min.js"
+GLOWLEAD_URL = "https://juw12.github.io/projects/glow/lead/"
 
 BRIDGE_PAGE = r"""<!doctype html><meta charset="utf-8"><title>Glow Hands phone bridge</title>
 <script src="__PEERJS__"></script>
@@ -364,7 +368,8 @@ class Browser:
             self._playwright = None
 
 
-def make_handler(browser, token, port, extra_origins, pair_test_answer=None, confirm_pairing=False, phone=None):
+def make_handler(browser, token, port, extra_origins, pair_test_answer=None, confirm_pairing=False, phone=None,
+                 activity=None, quiet=False):
     allowed_hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
     origins = ALLOWED_ORIGINS | set(extra_origins)
     pairing = {"blocked_until": 0.0}
@@ -373,7 +378,8 @@ def make_handler(browser, token, port, extra_origins, pair_test_answer=None, con
         server_version = "GlowHands/" + VERSION
 
         def log_message(self, fmt, *args):
-            sys.stderr.write("[glow-hands] " + (fmt % args) + "\n")
+            if not quiet:
+                sys.stderr.write("[glow-hands] " + (fmt % args) + "\n")
 
         def origin_allowed(self):
             origin = self.headers.get("Origin")
@@ -402,6 +408,8 @@ def make_handler(browser, token, port, extra_origins, pair_test_answer=None, con
             if need_token and not hmac.compare_digest(self.headers.get("X-Glow-Token", ""), token):
                 self.send_json(401, {"error": "Wrong or missing pairing token."})
                 return False
+            if need_token and activity is not None and self.path != "/bridge-heartbeat":
+                activity["at"] = time.monotonic()
             return True
 
         def do_OPTIONS(self):
@@ -468,6 +476,9 @@ def make_handler(browser, token, port, extra_origins, pair_test_answer=None, con
                 self.send_json(200, {"ok": True})
                 return
             if self.path == "/phone-link/reset" and phone is not None:
+                if phone.get("reset") is None:
+                    self.send_json(409, {"error": "This is a cloud session; its link ends when the session stops."})
+                    return
                 self.run(lambda: phone["reset"]())
                 return
             if self.path == "/act":
@@ -538,6 +549,23 @@ def load_phone_link(profile_dir, regenerate=False):
     return link
 
 
+CLOUD_NONCE = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
+
+
+def cloud_link(key, nonce):
+    """Phone link for a short-lived cloud session. GlowLead on the phone derives the same values from the
+    cloud key it holds, so the peer id and secret never appear in public logs or workflow inputs."""
+    if len(key or "") < 24:
+        raise ValueError("The cloud key is missing or too short.")
+    if not CLOUD_NONCE.match(nonce or ""):
+        raise ValueError("The cloud session id is not valid.")
+    def tag(label):
+        return hmac.new(key.encode("utf-8"), (label + nonce).encode("utf-8"), hashlib.sha256).digest()
+    peer_id = "glowhands-" + tag("glow-cloud-peer:").hex()[:24]
+    secret = base64.urlsafe_b64encode(tag("glow-cloud-secret:")).decode("ascii").rstrip("=")[:32]
+    return {"peerId": peer_id, "secret": secret}
+
+
 def bridge_html(link, token, peerjs_url):
     config = json.dumps({"peerId": link["peerId"], "secret": link["secret"], "token": token, "version": VERSION})
     return BRIDGE_PAGE.replace("__PEERJS__", peerjs_url).replace("__CONFIG__", config.replace("</", "<\\/"))
@@ -561,6 +589,11 @@ def main(argv=None):
     parser.add_argument("--confirm-pairing", action="store_true", help="Ask with a Windows Yes/No prompt before a browser can connect")
     parser.add_argument("--no-phone", action="store_true", help="Turn off control from your phone")
     parser.add_argument("--peerjs-url", default=DEFAULT_PEERJS_URL, help=argparse.SUPPRESS)
+    parser.add_argument("--max-minutes", type=float, default=0, help="Stop by itself after this many minutes (cloud sessions)")
+    parser.add_argument("--idle-minutes", type=float, default=0, help="Stop by itself after this many minutes without use")
+    parser.add_argument("--quiet", action="store_true", help="Don't print the pairing token or request lines (for shared logs)")
+    parser.add_argument("--show-phone-link", action="store_true", help="Print the phone link (and a QR code) for this machine, then exit")
+    parser.add_argument("--app-url", default=GLOWLEAD_URL, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     for stream in (sys.stdout, sys.stderr):
         try:
@@ -568,11 +601,27 @@ def main(argv=None):
         except (AttributeError, ValueError):
             pass
 
-    token = load_token(args.profile, args.token)
-    browser = Browser(args.profile, headless=args.headless, channel=args.channel, allow_private=args.allow_private)
+    if args.show_phone_link:
+        print_phone_link(load_phone_link(args.profile), args.app_url)
+        return
+
+    cloud_key = os.environ.get("GLOW_CLOUD_KEY", "")
+    cloud_nonce = os.environ.get("GLOW_CLOUD_NONCE", "")
+    cloud = bool(cloud_key or cloud_nonce)
+    quiet = args.quiet or cloud
+    if cloud and args.no_phone:
+        parser.error("A cloud session needs phone access; remove --no-phone.")
+    headless = args.headless or needs_headless()
+    token = load_token(args.profile, args.token or os.environ.get("GLOW_HANDS_TOKEN"))
+    browser = Browser(args.profile, headless=headless, channel=args.channel, allow_private=args.allow_private)
     phone = None
-    if not args.no_phone:
-        phone = {"link": load_phone_link(args.profile), "state": {"peerOpen": False, "connections": 0, "at": 0.0}}
+    if cloud:
+        try:
+            phone = {"link": cloud_link(cloud_key, cloud_nonce), "reset": None}
+        except ValueError as error:
+            parser.error(str(error))
+    elif not args.no_phone:
+        phone = {"link": load_phone_link(args.profile)}
 
         def reset_phone_link():
             phone["link"] = load_phone_link(args.profile, regenerate=True)
@@ -581,17 +630,26 @@ def main(argv=None):
             return {"peerId": phone["link"]["peerId"], "secret": phone["link"]["secret"]}
 
         phone["reset"] = reset_phone_link
+    if phone is not None:
+        phone["state"] = {"peerOpen": False, "connections": 0, "at": 0.0}
+    activity = {"at": time.monotonic()}
     server = http.server.HTTPServer(("127.0.0.1", args.port), make_handler(
-        browser, token, args.port, args.allow_origin, args.pair_test_answer, args.confirm_pairing, phone))
+        browser, token, args.port, args.allow_origin, args.pair_test_answer, args.confirm_pairing, phone,
+        activity=activity, quiet=quiet))
     if phone is not None:
         try:
             browser.start_bridge(args.port, bridge_html(phone["link"], token, args.peerjs_url))
-            print("Phone access is on: link your phone from GlowLead > Glow Hands > Use from your phone.", flush=True)
+            if cloud:
+                print("Cloud session is on: your phone connects by itself.", flush=True)
+            else:
+                print("Phone access is on: link your phone from GlowLead > Glow Hands > Use from your phone.", flush=True)
         except Exception as error:  # Phone access is optional; the PC features keep working.
             print("Phone access could not start: " + str(error).splitlines()[0][:200], flush=True)
-    print(f"Glow Hands {VERSION} is ready on http://127.0.0.1:{args.port}", flush=True)
-    print(f"Pairing token: {token}", flush=True)
-    print("In GlowLead open Glow Hands > Connect browser control, and paste the token. Press Ctrl+C to stop.", flush=True)
+    start_watchdog(server, activity, args.max_minutes, args.idle_minutes)
+    print(f"Glow Hands {VERSION} is ready on http://127.0.0.1:{args.port}" + (" (headless)" if headless else ""), flush=True)
+    if not quiet:
+        print(f"Pairing token: {token}", flush=True)
+        print("In GlowLead open Glow Hands > Connect browser control, and paste the token. Press Ctrl+C to stop.", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -599,6 +657,53 @@ def main(argv=None):
     finally:
         server.server_close()
         browser.close()
+        print("Glow Hands stopped.", flush=True)
+
+
+def needs_headless():
+    """Servers and cloud machines have no screen; a visible browser window cannot open there."""
+    return sys.platform.startswith("linux") and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+
+
+def start_watchdog(server, activity, max_minutes, idle_minutes):
+    if not max_minutes and not idle_minutes:
+        return None
+    started = time.monotonic()
+
+    def watch():
+        while True:
+            time.sleep(5)
+            now = time.monotonic()
+            if max_minutes and now - started >= max_minutes * 60:
+                print(f"Time limit of {max_minutes:g} minutes reached; stopping.", flush=True)
+                break
+            if idle_minutes and now - activity["at"] >= idle_minutes * 60:
+                print(f"Not used for {idle_minutes:g} minutes; stopping.", flush=True)
+                break
+        server.shutdown()
+
+    thread = threading.Thread(target=watch, name="glow-hands-watchdog", daemon=True)
+    thread.start()
+    return thread
+
+
+def phone_link_url(link, app_url=None, host=None):
+    url = (app_url or GLOWLEAD_URL) + "#phone=" + link["peerId"] + "." + link["secret"]
+    return url + "&host=server" if host == "server" else url
+
+
+def print_phone_link(link, app_url=None):
+    url = phone_link_url(link, app_url, host=None if sys.platform == "win32" else "server")
+    try:
+        import qrcode  # Optional: `pip install qrcode` shows a scannable code in the terminal.
+        code = qrcode.QRCode(border=1)
+        code.add_data(url)
+        code.make(fit=True)
+        code.print_ascii(invert=True)
+    except ImportError:
+        pass
+    print("Open this link on your phone (keep it private; anyone with it can use this browser):", flush=True)
+    print(url, flush=True)
 
 
 if __name__ == "__main__":
