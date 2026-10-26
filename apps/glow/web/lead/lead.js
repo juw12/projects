@@ -14,6 +14,11 @@
   const MAX_LEADS = 50;
   const TEMPLATES_KEY = TEST_MODE ? "glowlead.templates.selftest" : "glowlead.templates.v1";
   const RUN_LOCK = TEST_MODE ? "glowlead.runner.selftest" : "glowlead.runner";
+  const MEMORY_KEY = TEST_MODE ? "glowlead.memory.selftest" : "glowlead.memory.v1";
+  const AUTOMATIONS_KEY = TEST_MODE ? "glowlead.automations.selftest" : "glowlead.automations.v1";
+  const SCHEDULER_LOCK = TEST_MODE ? "glowlead.scheduler.selftest" : "glowlead.scheduler";
+  const MAX_AUTOMATIONS = 10;
+  const SCHEDULER_MS = 30000;
   const ACTIVE = ["planning", "working", "checking"];
   const ATTENTION = ["awaiting", "interrupted", "stopped", "error"];
   const SAFE_BOTS = ["leader", "explore", "checker", "media"];
@@ -63,6 +68,8 @@
   let storageHealthy = true;
   let templates = readTemplates();
   let lastAnnouncement = "";
+  let pendingSkill = null;
+  let skillSource = null;
 
   // ------------------------------------------------------------------ storage
   function readStoredLeads() {
@@ -266,9 +273,20 @@
     return lead.steps.slice(0, uptoIndex).filter((s) => s.worker === "room" && (s.status === "error" || s.researchFailed) && !s.redone);
   }
 
+  function backgroundFor(lead) {
+    let text = "";
+    if (lead.memorySnapshot) {
+      text += "\n\nWhat the user asked GlowLead to remember (their preferences and context, not verified facts):\n" + clip(lead.memorySnapshot, 1500);
+    }
+    if (lead.context) {
+      text += "\n\nThis is a follow-up. Earlier mission and its result:\n" + clip(lead.context, 3500);
+    }
+    return text;
+  }
+
   function contextFrom(lead, uptoIndex) {
     const done = lead.steps.slice(0, uptoIndex).filter((s) => s.output);
-    let context = "";
+    let context = backgroundFor(lead);
     if (done.length) {
       context += "\n\nWork already done by the team:\n" + done
         .map((s) => `### ${WORKERS[s.worker].name}: ${s.title}\n${clip(s.output, CONTEXT_PER_STEP)}`)
@@ -414,8 +432,10 @@
     render(lead);
     try {
       const permission = lead.allowCode ? "Code execution is allowed in the crew's browser worker." : "Code execution is NOT allowed. The crew may research and draft code as text, but must not promise to execute or test it.";
-      const text = await ask(PLAN_SYSTEM + "\n" + permission, `Goal: ${lead.goal}`, controller.signal, 900);
-      const parsed = parsePlan(text, lead.goal);
+      const parsed = lead.presetPlan
+        ? { summary: "Using your saved skill: " + (lead.skillName || "saved plan"), criteria: lead.presetPlan.criteria, steps: lead.presetPlan.steps }
+        : parsePlan(await ask(PLAN_SYSTEM + "\n" + permission, `Goal: ${lead.goal}${backgroundFor(lead)}`, controller.signal, 900), lead.goal);
+      if (lead.presetPlan) record(lead, "Reused the plan saved in skill: " + (lead.skillName || "saved plan"));
       lead.summary = parsed.summary;
       lead.criteria = parsed.criteria;
       lead.steps = parsed.steps.map((s) => ({ ...s, status: "queued", output: "" }));
@@ -432,6 +452,7 @@
       lead.status = "awaiting";
       record(lead, "Plan ready — waiting for your approval");
       render(lead);
+      notify(lead, "awaiting");
       return null;
     }
     return work(lead);
@@ -544,6 +565,7 @@
     render(lead);
     renderHistory();
     if (status === "done" && !TEST_MODE) toast("👑 GlowLead finished: the report is below and in GlowChat.");
+    notify(lead, status);
     return lead;
   }
 
@@ -554,8 +576,15 @@
       toast("Finish or stop the current mission before starting another.");
       return null;
     }
+    const memory = options.useMemory === false ? "" : memoryText();
+    const preset = validPlan(options.presetPlan);
     const lead = { id: uid(), goal: text.slice(0, 2000), approve: !!approve, allowCode: options.allowCode === true,
-      status: "planning", createdAt: Date.now(), criteria: [], steps: [], report: "", events: [] };
+      status: "planning", createdAt: Date.now(), criteria: [], steps: [], report: "", events: [],
+      memorySnapshot: memory, context: clip(options.context || "", 4000), parentId: options.parentId || null,
+      parentGoal: clip(options.parentGoal || "", 160), presetPlan: preset, skillName: preset ? clip(options.skillName || "", 60) : "",
+      automationId: options.automationId || null, automationName: clip(options.automationName || "", 60), catchUp: options.catchUp === true };
+    if (lead.catchUp) lead.events.push({ at: Date.now(), text: "Catch-up run: the scheduled time passed while Glow was closed" });
+    if (lead.automationId) lead.events.push({ at: Date.now(), text: "Started by automation: " + (lead.automationName || "scheduled mission") });
     const done = exclusively(lead, async () => {
       leads.unshift(lead);
       shownId = lead.id;
@@ -625,12 +654,194 @@
     }
   }
 
+  // ------------------------------------------------------------------ memory, skills, automations, notifications
+  function readMemory() {
+    try {
+      const value = JSON.parse(localStorage.getItem(MEMORY_KEY) || "{}");
+      return {
+        about: typeof value.about === "string" ? value.about.slice(0, 1500) : "",
+        notes: Array.isArray(value.notes) ? value.notes.filter((note) => typeof note === "string" && note.trim()).map((note) => note.slice(0, 200)).slice(0, 20) : [],
+      };
+    } catch (error) {
+      return { about: "", notes: [] };
+    }
+  }
+
+  function memoryText() {
+    const memory = readMemory();
+    const parts = [];
+    if (memory.about.trim()) parts.push(memory.about.trim());
+    if (memory.notes.length) parts.push(memory.notes.map((note) => "- " + note.trim()).join("\n"));
+    return parts.join("\n");
+  }
+
+  function saveMemory(memory) {
+    try {
+      localStorage.setItem(MEMORY_KEY, JSON.stringify(memory));
+      renderMemory();
+      return true;
+    } catch (error) {
+      toast("Memory was not saved: browser storage is unavailable or full.");
+      return false;
+    }
+  }
+
+  function renderMemory() {
+    const memory = readMemory();
+    const filled = !!(memory.about.trim() || memory.notes.length);
+    if ($("memory-count")) $("memory-count").textContent = filled ? `${memory.notes.length} NOTES` : "EMPTY";
+    if ($("memory-summary")) {
+      $("memory-summary").textContent = filled
+        ? clip(memory.about.trim() || memory.notes[0], 110)
+        : "Tell GlowLead about you once: role, location, budget, tone. It is added to plans when “Use my memory” is on.";
+    }
+  }
+
+  function validPlan(plan) {
+    if (!plan || !Array.isArray(plan.steps) || !Array.isArray(plan.criteria)) return null;
+    const steps = plan.steps.filter((step) => step && Object.hasOwn(WORKERS, step.worker) && typeof step.task === "string" && step.task.trim())
+      .slice(0, MAX_STEPS)
+      .map((step) => ({ worker: step.worker, title: clip(String(step.title || step.task), 80), task: clip(step.task, 1500) }));
+    const criteria = plan.criteria.filter((item) => typeof item === "string" && item.trim()).map((item) => clip(item, 200)).slice(0, 5);
+    return steps.length && criteria.length ? { steps, criteria } : null;
+  }
+
+  function planFrom(lead) {
+    return validPlan({ criteria: lead.criteria, steps: lead.steps.filter((step) => !step.fixup) });
+  }
+
+  function notify(lead, status) {
+    if (TEST_MODE || !("Notification" in window) || Notification.permission !== "granted") return;
+    if (!lead.automationId && document.visibilityState === "visible") return;
+    const label = { awaiting: "Plan needs your approval", done: "Mission finished", error: "Mission needs attention", stopped: "Mission stopped" }[status];
+    if (!label) return;
+    try {
+      const note = new Notification("GlowLead · " + label, { body: clip(lead.goal.split("\n")[0], 120), tag: "glowlead-" + lead.id });
+      note.onclick = () => {
+        window.focus();
+        shownId = lead.id;
+        render(lead);
+      };
+    } catch (error) { /* Some browsers only allow notifications from a service worker. */ }
+  }
+
+  function readAutomations() {
+    try {
+      const list = JSON.parse(localStorage.getItem(AUTOMATIONS_KEY) || "[]");
+      if (!Array.isArray(list)) return [];
+      return list.filter((item) => item && typeof item.id === "string" && typeof item.goal === "string" && item.goal.trim() &&
+        ["daily", "weekdays", "weekly"].includes(item.cadence) && /^\d{2}:\d{2}$/.test(item.time || "")).slice(0, MAX_AUTOMATIONS)
+        .map((item) => ({ ...item, name: clip(item.name || item.goal, 60), weekday: Number(item.weekday) || 0,
+          enabled: item.enabled !== false, approve: item.approve !== false, allowCode: item.allowCode === true,
+          plan: validPlan(item.plan), nextRunAt: Number(item.nextRunAt) || 0 }));
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function persistAutomations(list) {
+    try {
+      localStorage.setItem(AUTOMATIONS_KEY, JSON.stringify(list));
+      renderAutomations();
+      return true;
+    } catch (error) {
+      toast("Automation was not saved: browser storage is unavailable or full.");
+      return false;
+    }
+  }
+
+  function nextRunAfter(automation, from) {
+    const [hours, minutes] = automation.time.split(":").map(Number);
+    const start = new Date(from);
+    for (let offset = 0; offset <= 8; offset++) {
+      const candidate = new Date(start.getFullYear(), start.getMonth(), start.getDate() + offset, hours, minutes, 0, 0);
+      const day = candidate.getDay();
+      const matches = automation.cadence === "daily" || (automation.cadence === "weekdays" && day >= 1 && day <= 5) ||
+        (automation.cadence === "weekly" && day === Number(automation.weekday));
+      if (matches && candidate.getTime() > from) return candidate.getTime();
+    }
+    return from + 86400000;
+  }
+
+  function cadenceLabel(item) {
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    if (item.cadence === "weekly") return `Every ${days[item.weekday]} ${item.time}`;
+    return (item.cadence === "weekdays" ? "Weekdays " : "Daily ") + item.time;
+  }
+
+  function renderAutomations() {
+    const list = $("automation-list");
+    if (!list) return;
+    const items = readAutomations();
+    if ($("automation-count")) $("automation-count").textContent = items.filter((item) => item.enabled).length;
+    list.innerHTML = items.length ? items.map((item) => `<li class="automation ${item.enabled ? "" : "paused"}">
+      <div><b>${esc(item.name)}</b><small>${esc(cadenceLabel(item))} · ${item.enabled ? "next " + esc(new Date(item.nextRunAt).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" })) : "paused"}${item.approve ? " · asks first" : ""}</small></div>
+      <div class="automation-actions">
+        <button type="button" data-run-automation="${esc(item.id)}">Run now</button>
+        <button type="button" data-toggle-automation="${esc(item.id)}">${item.enabled ? "Pause" : "Resume"}</button>
+        <button type="button" data-delete-automation="${esc(item.id)}" aria-label="Delete automation ${esc(item.name)}">×</button>
+      </div></li>`).join("") : '<li class="empty-library">Repeat a brief daily, on weekdays or weekly.</li>';
+  }
+
+  async function runDueAutomations(now = Date.now()) {
+    if (executing || !navigator.locks) return null;
+    const state = await navigator.locks.query();
+    if (state.held.some((lock) => lock.name === RUN_LOCK)) return null;
+    let claimed = null;
+    await navigator.locks.request(SCHEDULER_LOCK, { ifAvailable: true }, async (lock) => {
+      if (!lock) return;
+      const items = readAutomations();
+      const due = items.filter((item) => item.enabled && item.nextRunAt && item.nextRunAt <= now)
+        .sort((a, b) => a.nextRunAt - b.nextRunAt)[0];
+      if (!due) return;
+      const catchUp = now - due.nextRunAt > 10 * 60000;
+      due.lastRunAt = now;
+      due.nextRunAt = nextRunAfter(due, now); // One catch-up run, never a burst of missed runs.
+      if (persistAutomations(items)) claimed = { ...due, catchUp };
+    });
+    if (!claimed) return null;
+    return startLead(claimed.goal, claimed.approve, {
+      allowCode: claimed.allowCode,
+      automationId: claimed.id,
+      automationName: claimed.name,
+      presetPlan: claimed.plan,
+      skillName: claimed.plan ? claimed.name : "",
+      catchUp: claimed.catchUp,
+    });
+  }
+
+  function followUp(lead, question) {
+    const text = String(question || "").trim();
+    if (!text) return null;
+    return startLead(text, $("lead-approve") ? $("lead-approve").checked : true, {
+      context: `Earlier mission: ${lead.goal}\nEarlier result:\n${clip(lead.report, 3500)}`,
+      parentId: lead.id,
+      parentGoal: lead.goal.split("\n")[0],
+    });
+  }
+
+  function setPendingSkill(template) {
+    pendingSkill = template && template.plan ? template : null;
+    if ($("skill-chip")) $("skill-chip").hidden = !pendingSkill;
+    if ($("skill-chip-text") && pendingSkill) $("skill-chip-text").textContent = `Using the saved plan from “${pendingSkill.name}”. You still review it before work starts.`;
+  }
+
+  function missionBadges(lead) {
+    const badges = [];
+    if (lead.automationId) badges.push(`⟳ ${lead.catchUp ? "Catch-up · " : ""}${esc(lead.automationName || "Automation")}`);
+    if (lead.parentId) badges.push(`↳ Follow-up to: ${esc(clip(lead.parentGoal, 70))}`);
+    if (lead.skillName) badges.push(`✧ Skill: ${esc(lead.skillName)}`);
+    if (lead.memorySnapshot) badges.push("◎ Memory used");
+    return badges.length ? `<div class="mission-badges">${badges.map((badge) => `<span>${badge}</span>`).join("")}</div>` : "";
+  }
+
   // ------------------------------------------------------------------ local playbooks, evidence and export
   function readTemplates() {
     try {
       const list = JSON.parse(localStorage.getItem(TEMPLATES_KEY) || "[]");
       return Array.isArray(list) ? list.filter((item) => item && typeof item.id === "string" &&
-        typeof item.name === "string" && typeof item.goal === "string").slice(0, 12) : [];
+        typeof item.name === "string" && typeof item.goal === "string").slice(0, 12)
+        .map((item) => ({ ...item, plan: validPlan(item.plan) })) : [];
     } catch (error) {
       return [];
     }
@@ -640,7 +851,7 @@
     const box = $("saved-templates");
     if (!box) return;
     box.innerHTML = templates.length ? templates.map((item) => `<div class="saved-template">
-      <button type="button" data-template="${esc(item.id)}" title="Use this playbook">✧ ${esc(item.name)}</button>
+      <button type="button" data-template="${esc(item.id)}" title="${item.plan ? "Reuse this skill and its saved plan" : "Use this playbook"}">${item.plan ? "◆" : "✧"} ${esc(item.name)}${item.plan ? ' <span class="skill-tag">SKILL</span>' : ""}</button>
       <button type="button" data-delete-template="${esc(item.id)}" aria-label="Delete playbook ${esc(item.name)}">×</button>
     </div>`).join("") : '<p class="empty-library">Your repeatable work starts here.</p>';
   }
@@ -685,6 +896,8 @@
       `Status: ${step.status}\n\n${step.task}\n\n${step.output || step.error || "No output yet."}`).join("\n\n");
     const activity = (lead.events || []).map((event) => `- ${new Date(event.at).toISOString()} — ${event.text}`).join("\n");
     return `# ${lead.goal}\n\nStatus: ${lead.status}\nCrew code execution: ${lead.allowCode ? "allowed" : "not allowed"}` +
+      `\nMemory used: ${lead.memorySnapshot ? "yes" : "no"}${lead.parentId ? "\nFollow-up to: " + lead.parentGoal : ""}` +
+      `${lead.automationId ? "\nAutomation: " + lead.automationName : ""}${lead.skillName ? "\nSkill: " + lead.skillName : ""}` +
       `\n\n## Result\n\n${lead.report || "No final report yet."}\n\n` +
       `${lead.unverified ? "WARNING: Not checked live. Required research failed.\n\n" : ""}` +
       `AI review is not independent verification.\n\n## Done-criteria\n\n${checks}` +
@@ -776,7 +989,7 @@
       return `<li class="${state}"><span class="mark">${mark}</span><span>${esc(c)}</span></li>`;
     }).join("");
     let html = `<div class="run-head">
-        <div><p class="eyebrow">MISSION BRIEF</p><h2>${esc(clip(lead.goal.split("\n")[0], 140))}</h2><div class="status" id="lead-status"><b>${esc(statusLine)}</b>${lead.summary ? " · " + esc(lead.summary) : ""}</div></div>
+        <div><p class="eyebrow">MISSION BRIEF</p><h2>${esc(clip(lead.goal.split("\n")[0], 140))}</h2><div class="status" id="lead-status"><b>${esc(statusLine)}</b>${lead.summary ? " · " + esc(lead.summary) : ""}</div>${missionBadges(lead)}</div>
         <div class="run-actions">
           ${lead.status === "awaiting" ? '<button class="btn gold" type="button" id="approve-btn">✓ Approve plan &amp; run</button>' : ""}
           ${busy || lead.status === "awaiting" ? '<button class="btn small" type="button" id="stop-btn">■ Stop</button>' : ""}
@@ -802,7 +1015,14 @@
           <a class="btn primary small" href="../chat/?open=lead-${esc(lead.id)}" target="_blank" rel="noopener">💬 Continue in GlowChat</a>
           <button class="btn small" type="button" id="copy-btn">Copy</button>
           <button class="btn small" type="button" id="download-btn">Download .md</button>
-        </div></div></div>`;
+          ${planFrom(lead) ? '<button class="btn small" type="button" id="skill-btn">Save as skill</button>' : ""}
+          <button class="btn small" type="button" id="automate-mission">Repeat on a schedule</button>
+        </div></div>
+        <form class="followup" id="followup-form" autocomplete="off">
+          <label for="followup-input">Ask a follow-up</label>
+          <div><input id="followup-input" maxlength="1000" placeholder="e.g. Make it cheaper, or turn this into a checklist"><button class="btn primary small" type="submit">Ask ↗</button></div>
+          <small>GlowLead plans a new mission with this result as context.</small>
+        </form></div>`;
     }
     const sources = missionSources(lead);
     if (sources.length) html += `<div class="block"><h3>Collected sources · ${sources.length}</h3><p class="helper">Recorded by the crew's search tools, not independently verified. Check the original pages.</p><ul class="source-list">${sources.map((item) => `<li><a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">${esc(item.title)} ↗</a><small>${esc(new URL(item.url).hostname)}</small></li>`).join("")}</ul></div>`;
@@ -834,6 +1054,21 @@
       navigator.clipboard && navigator.clipboard.writeText(lead.report).then(() => toast("Copied"), () => toast("Couldn't copy"));
     });
     on("download-btn", () => downloadMission(lead));
+    on("skill-btn", () => {
+      skillSource = lead;
+      $("template-title").textContent = "Save as a reusable skill";
+      $("template-name").value = clip(lead.goal.split("\n")[0], 60);
+      $("template-dialog").showModal();
+    });
+    on("automate-mission", () => openAutomationDialog(lead.goal, planFrom(lead)));
+    const followForm = $("followup-form");
+    if (followForm) {
+      followForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const started = followUp(lead, $("followup-input").value);
+        if (started) setTimeout(() => $("lead-run").scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+      });
+    }
   }
 
   function needsAttention(lead) {
@@ -916,7 +1151,14 @@
         $("lead-input").focus();
         return;
       }
-      const started = startLead(goal, $("lead-approve").checked, { allowCode: $("execution-mode").value === "code" });
+      const skill = pendingSkill;
+      const started = startLead(goal, $("lead-approve").checked, {
+        allowCode: $("execution-mode").value === "code",
+        useMemory: $("use-memory").checked,
+        presetPlan: skill ? skill.plan : null,
+        skillName: skill ? skill.name : "",
+      });
+      if (started) setPendingSkill(null);
       if (started) {
         started.done.then(() => {
           if (leads.some((item) => item.id === started.lead.id)) $("lead-input").value = "";
@@ -954,6 +1196,7 @@
     $("mission-search").addEventListener("input", renderHistory);
     $("mission-filter").addEventListener("change", renderHistory);
     $("new-mission").addEventListener("click", () => {
+      setPendingSkill(null);
       $("lead-input").value = "";
       $("lead-approve").checked = true;
       $("execution-mode").value = "research";
@@ -966,6 +1209,8 @@
         $("lead-input").focus();
         return;
       }
+      skillSource = null;
+      $("template-title").textContent = "Save a playbook";
       $("template-name").value = clip($("lead-input").value.split("\n")[0], 60);
       $("template-dialog").showModal();
       $("template-name").focus();
@@ -980,9 +1225,13 @@
         toast("You have 12 playbooks. Delete one before saving another.");
         return;
       }
-      if (persistTemplates([{ id: uid(), name: name.slice(0, 60), goal: $("lead-input").value.trim().slice(0, 2000) }, ...current])) {
+      const entry = skillSource
+        ? { id: uid(), name: name.slice(0, 60), goal: skillSource.goal.slice(0, 2000), plan: planFrom(skillSource) }
+        : { id: uid(), name: name.slice(0, 60), goal: $("lead-input").value.trim().slice(0, 2000) };
+      if (persistTemplates([entry, ...current])) {
         $("template-dialog").close();
-        toast("Playbook saved in this browser.");
+        toast(entry.plan ? "Skill saved: next time GlowLead reuses this approved plan." : "Playbook saved in this browser.");
+        skillSource = null;
       }
     });
     $("saved-templates").addEventListener("click", (event) => {
@@ -997,8 +1246,111 @@
         $("lead-input").value = template.goal;
         $("lead-approve").checked = true;
         $("execution-mode").value = "research";
+        setPendingSkill(template);
         $("lead-input").focus();
       }
+    });
+    $("skill-chip-clear").addEventListener("click", () => setPendingSkill(null));
+
+    // Memory
+    $("memory-btn").addEventListener("click", () => {
+      const memory = readMemory();
+      $("memory-about").value = memory.about;
+      $("memory-notes").value = memory.notes.join("\n");
+      $("memory-dialog").showModal();
+      $("memory-about").focus();
+    });
+    $("memory-cancel").addEventListener("click", () => $("memory-dialog").close());
+    $("memory-clear").addEventListener("click", () => {
+      if (saveMemory({ about: "", notes: [] })) {
+        $("memory-dialog").close();
+        toast("Memory cleared.");
+      }
+    });
+    $("memory-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const notes = $("memory-notes").value.split("\n").map((note) => note.trim()).filter(Boolean);
+      if (notes.length > 20 || notes.some((note) => note.length > 200)) {
+        toast("Use up to 20 notes, each no longer than 200 characters.");
+        return;
+      }
+      if (saveMemory({ about: $("memory-about").value.trim().slice(0, 1500), notes })) {
+        $("memory-dialog").close();
+        toast("Memory saved in this browser.");
+      }
+    });
+
+    // Automations
+    $("automate-btn").addEventListener("click", () => {
+      if (!$("lead-input").value.trim()) {
+        toast("Write the brief you want repeated first.");
+        $("lead-input").focus();
+        return;
+      }
+      openAutomationDialog($("lead-input").value.trim(), pendingSkill ? pendingSkill.plan : null);
+    });
+    $("automation-cadence").addEventListener("change", () => {
+      $("automation-weekday-field").hidden = $("automation-cadence").value !== "weekly";
+    });
+    $("automation-cancel").addEventListener("click", () => $("automation-dialog").close());
+    $("notify-btn").addEventListener("click", async () => {
+      if (!("Notification" in window)) {
+        toast("This browser does not support notifications.");
+        return;
+      }
+      const permission = await Notification.requestPermission();
+      renderNotifyState();
+      toast(permission === "granted" ? "Notifications on." : "Notifications are blocked in this browser.");
+    });
+    $("automation-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const items = readAutomations();
+      if (items.length >= MAX_AUTOMATIONS) {
+        toast("You have 10 automations. Delete one before adding another.");
+        return;
+      }
+      const draft = $("automation-dialog").draft || {};
+      const automation = {
+        id: uid(),
+        name: $("automation-name").value.trim().slice(0, 60) || clip(draft.goal, 60),
+        goal: String(draft.goal || "").slice(0, 2000),
+        plan: validPlan(draft.plan),
+        cadence: $("automation-cadence").value,
+        time: $("automation-time").value || "08:00",
+        weekday: Number($("automation-weekday").value),
+        approve: $("automation-approve").checked,
+        allowCode: $("automation-code").checked,
+        enabled: true,
+        createdAt: Date.now(),
+      };
+      if (!automation.goal.trim()) return;
+      automation.nextRunAt = nextRunAfter(automation, Date.now());
+      if (persistAutomations([automation, ...items])) {
+        $("automation-dialog").close();
+        toast(`Automation saved · ${cadenceLabel(automation)}.`);
+      }
+    });
+    $("automation-list").addEventListener("click", (event) => {
+      const items = readAutomations();
+      const run = event.target.closest("[data-run-automation]");
+      const toggle = event.target.closest("[data-toggle-automation]");
+      const remove = event.target.closest("[data-delete-automation]");
+      if (remove) {
+        persistAutomations(items.filter((item) => item.id !== remove.dataset.deleteAutomation));
+        return;
+      }
+      const targetId = run ? run.dataset.runAutomation : toggle ? toggle.dataset.toggleAutomation : "";
+      const target = items.find((item) => item.id === targetId);
+      if (!target) return;
+      if (toggle) {
+        target.enabled = !target.enabled;
+        if (target.enabled) target.nextRunAt = nextRunAfter(target, Date.now());
+        persistAutomations(items);
+        return;
+      }
+      target.enabled = true;
+      target.nextRunAt = Date.now();
+      if (persistAutomations(items)) runDueAutomations().catch(() => {});
     });
     window.addEventListener("storage", (event) => {
       if (event.key === LEADS_KEY && !executing) refreshStoredState();
@@ -1006,11 +1358,36 @@
         templates = readTemplates();
         renderTemplates();
       }
+      if (event.key === MEMORY_KEY) renderMemory();
+      if (event.key === AUTOMATIONS_KEY) renderAutomations();
     });
     if (window.CrewEngine) {
       window.CrewEngine.on("settings", renderAccount);
       window.CrewEngine.on("notice", (message) => toast("✦ " + message));
     }
+  }
+
+  function openAutomationDialog(goal, plan) {
+    $("automation-dialog").draft = { goal, plan };
+    $("automation-name").value = clip(String(goal).split("\n")[0], 60);
+    $("automation-cadence").value = "daily";
+    $("automation-time").value = "08:00";
+    $("automation-weekday").value = String(new Date().getDay());
+    $("automation-weekday-field").hidden = true;
+    $("automation-approve").checked = true;
+    $("automation-code").checked = false;
+    $("automation-plan-note").hidden = !validPlan(plan);
+    renderNotifyState();
+    $("automation-dialog").showModal();
+    $("automation-name").focus();
+  }
+
+  function renderNotifyState() {
+    const button = $("notify-btn");
+    if (!button) return;
+    const state = "Notification" in window ? Notification.permission : "unsupported";
+    button.textContent = state === "granted" ? "✓ Notifications on" : state === "denied" ? "Notifications blocked" : "Turn on notifications";
+    button.disabled = state === "granted" || state === "denied" || state === "unsupported";
   }
 
   async function refreshStoredState() {
@@ -1030,7 +1407,16 @@
     renderAccount();
     renderHistory();
     renderTemplates();
+    renderMemory();
+    renderAutomations();
     if (!TEST_MODE) {
+      const tick = () => runDueAutomations().catch(() => {});
+      setTimeout(tick, 1200);
+      setInterval(tick, SCHEDULER_MS);
+      window.addEventListener("focus", tick);
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") tick();
+      });
       refreshStoredState().catch(() => {});
       window.addEventListener("focus", () => refreshStoredState().catch(() => {}));
       setInterval(() => {
@@ -1226,6 +1612,11 @@
     parsePlan,
     parseReview,
     missionMarkdown,
+    followUp,
+    nextRunAfter,
+    runDueAutomations,
+    readAutomations,
+    memoryText,
     collectSources,
     WORKERS,
   };

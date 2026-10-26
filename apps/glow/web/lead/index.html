@@ -39,10 +39,20 @@
       <div id="saved-templates"></div>
       <p class="helper">Save a useful brief. Reuse it with a fresh plan, not an old answer.</p>
     </section>
+    <section class="memory-panel" aria-labelledby="memory-heading">
+      <div class="section-heading"><h2 id="memory-heading">Memory</h2><span class="counter" id="memory-count">EMPTY</span></div>
+      <p class="helper" id="memory-summary"></p>
+      <button class="btn small" id="memory-btn" type="button">Edit memory</button>
+    </section>
+    <section class="automation-panel" aria-labelledby="automation-heading">
+      <div class="section-heading"><h2 id="automation-heading">Automations</h2><span class="counter" id="automation-count">0</span></div>
+      <ul id="automation-list"></ul>
+      <p class="helper">Runs while a Glow tab is open. A missed run catches up once when you come back. Not a cloud scheduler.</p>
+    </section>
     <div class="sidebar-foot"><span class="online-dot" aria-hidden="true"></span> Browser-first workspace<p>History stays in this browser. AI requests go to your chosen provider. Keep this tab open while work runs.</p><a href="../">← All Glow apps</a></div>
   </aside>
   <main id="workspace" tabindex="-1">
-    <div class="workspace-label"><span>YOUR AI TEAM, WITH YOU IN CONTROL</span><span class="version-pill">GlowLead / 0.8</span></div>
+    <div class="workspace-label"><span>YOUR AI TEAM, WITH YOU IN CONTROL</span><span class="version-pill">GlowLead / 0.9</span></div>
     <section class="hero">
       <p class="eyebrow">From a spark to something real</p>
       <h1>Big idea.<br><span>Clear next steps.</span></h1>
@@ -58,12 +68,14 @@
       <form class="start" id="lead-form" autocomplete="off">
         <label class="sr-only" for="lead-input">Mission brief</label>
         <textarea id="lead-input" rows="3" maxlength="2000" placeholder="Describe the outcome, constraints and what a great result looks like…" aria-describedby="mission-hint"></textarea>
+        <p class="skill-chip" id="skill-chip" hidden><span id="skill-chip-text"></span><button type="button" id="skill-chip-clear" aria-label="Stop using the saved plan">×</button></p>
         <div class="start-options">
           <label class="check"><input type="checkbox" id="lead-approve" checked> Review plan before work starts</label>
+          <label class="check"><input type="checkbox" id="use-memory" checked> Use my memory</label>
           <label class="mode-field" for="execution-mode">Crew permissions <select id="execution-mode"><option value="research">Research &amp; drafting · no code execution</option><option value="code">Allow generated code to run</option></select></label>
         </div>
-        <p id="mission-hint" class="helper">Planning sends your brief to AI. Research can read public web sources. Generated code runs only when you opt in; it can make network requests. Review sensitive tasks yourself.</p>
-        <div class="start-actions"><button type="submit" class="btn primary" id="lead-go">Plan my mission <span aria-hidden="true">↗</span></button><button class="btn ghost" id="save-template" type="button">Save as playbook</button></div>
+        <p id="mission-hint" class="helper">Planning sends your brief, and your memory when it is on, to AI. Research can read public web sources. Generated code runs only when you opt in; it can make network requests. Review sensitive tasks yourself.</p>
+        <div class="start-actions"><button type="submit" class="btn primary" id="lead-go">Plan my mission <span aria-hidden="true">↗</span></button><button class="btn ghost" id="save-template" type="button">Save as playbook</button><button class="btn ghost" id="automate-btn" type="button">Automate…</button></div>
         <div class="examples" id="examples" aria-label="Starter playbooks">
           <button type="button" class="chip" data-goal="Research three options for a first 3D printer. Compare current prices and sources, identify unknowns, and recommend one for a beginner with a small desk.">Research &amp; compare</button>
           <button type="button" class="chip" data-goal="Turn my small bakery idea into a 30-day launch plan. List assumptions, a rough budget in rupiah, milestones and the first three actions.">Plan a launch</button>
@@ -85,6 +97,32 @@
 </div>
 <dialog id="template-dialog" aria-labelledby="template-title">
   <form id="template-form"><h2 id="template-title">Save a playbook</h2><p class="helper">Stores this brief locally. No keys or provider settings are included.</p><label for="template-name">Playbook name</label><input id="template-name" maxlength="60" required placeholder="e.g. Compare a purchase"><div class="start-actions"><button class="btn primary" type="submit">Save playbook</button><button class="btn" id="template-cancel" type="button">Cancel</button></div></form>
+</dialog>
+<dialog id="memory-dialog" aria-labelledby="memory-title">
+  <form id="memory-form"><h2 id="memory-title">What should GlowLead remember?</h2>
+    <p class="helper">Stored only in this browser. Added to plans and worker briefs when “Use my memory” is on, so it is sent to your AI provider. Do not store passwords or private IDs.</p>
+    <label for="memory-about">About you</label>
+    <textarea id="memory-about" rows="4" maxlength="1500" placeholder="e.g. Mechanical engineer in Batam. Budgets in rupiah. Prefer short, practical answers."></textarea>
+    <label for="memory-notes">Notes · one per line, up to 20</label>
+    <textarea id="memory-notes" rows="4" placeholder="e.g. I own a Bambu A1 mini"></textarea>
+    <div class="start-actions"><button class="btn primary" type="submit">Save memory</button><button class="btn" id="memory-cancel" type="button">Cancel</button><button class="btn ghost" id="memory-clear" type="button">Clear all</button></div>
+  </form>
+</dialog>
+<dialog id="automation-dialog" aria-labelledby="automation-title">
+  <form id="automation-form"><h2 id="automation-title">Repeat this mission</h2>
+    <p class="helper">Runs while a Glow tab is open on this device. If the time passes while Glow is closed, it runs once when you come back.</p>
+    <p class="helper" id="automation-plan-note" hidden>◆ Reuses this approved plan each time instead of planning from scratch.</p>
+    <label for="automation-name">Name</label>
+    <input id="automation-name" maxlength="60" required>
+    <div class="edit-row">
+      <label for="automation-cadence">Repeat<select id="automation-cadence"><option value="daily">Every day</option><option value="weekdays">Weekdays</option><option value="weekly">Once a week</option></select></label>
+      <label for="automation-time">Time<input id="automation-time" type="time" value="08:00" required></label>
+    </div>
+    <label id="automation-weekday-field" for="automation-weekday" hidden>Day<select id="automation-weekday"><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="0">Sunday</option></select></label>
+    <label class="check"><input type="checkbox" id="automation-approve" checked> Ask me to approve the plan each time</label>
+    <label class="check"><input type="checkbox" id="automation-code"> Allow generated code to run</label>
+    <div class="start-actions"><button class="btn primary" type="submit">Save automation</button><button class="btn" id="automation-cancel" type="button">Cancel</button><button class="btn ghost" id="notify-btn" type="button">Turn on notifications</button></div>
+  </form>
 </dialog>
 <script src="../shared/glow-apps.js"></script>
 <script src="../room/crew-engine.js"></script>

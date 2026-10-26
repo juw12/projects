@@ -112,7 +112,7 @@ class MissionControlBrowserTests(unittest.TestCase):
         self.page.wait_for_function("GlowLead.leads.length > 0")
 
     def wait_done(self):
-        self.page.wait_for_function("GlowLead.leads[0].status === 'done'", timeout=20000)
+        self.page.wait_for_function("GlowLead.leads[0] && GlowLead.leads[0].status === 'done'", timeout=20000)
 
     def test_original_21_self_checks(self):
         self.open(real_engine=True)
@@ -363,6 +363,175 @@ class MissionControlBrowserTests(unittest.TestCase):
         exported = self.page.evaluate("GlowLead.missionMarkdown(GlowLead.leads[0])")
         self.assertIn("No final report yet", exported)
         self.assertIn("waiting for your approval", exported)
+
+
+
+    # ---------------------------------------------------------------- v0.9: memory, follow-ups, skills, automations
+    def seed(self, key, value, only_if_missing=True):
+        guard = "if (!localStorage.getItem(k)) " if only_if_missing else ""
+        self.context.add_init_script(
+            "(() => { if (location.protocol !== 'http:') return; const k = " + json.dumps(key) + "; " + guard +
+            "localStorage.setItem(k, " + json.dumps(json.dumps(value)) + "); })();")
+
+    def test_memory_reaches_planner_and_workers_and_can_be_turned_off(self):
+        self.open()
+        self.page.click("#memory-btn")
+        self.page.fill("#memory-about", "Engineer in Batam. Budgets in rupiah.")
+        self.page.fill("#memory-notes", "Owns a Bambu A1 mini")
+        self.page.click("#memory-form button[type=submit]")
+        self.assertIn("Batam", self.page.locator("#memory-summary").inner_text())
+        self.page.uncheck("#lead-approve")
+        self.page.fill("#lead-input", "Plan a weekend project")
+        self.page.click("#lead-go")
+        self.wait_done()
+        plan_prompt = self.page.evaluate("__calls.find(call => call.kind === 'plan').content")
+        work_prompt = self.page.evaluate("__calls.find(call => call.kind === 'work').content")
+        for prompt in (plan_prompt, work_prompt):
+            self.assertIn("Budgets in rupiah", prompt)
+            self.assertIn("Bambu A1 mini", prompt)
+        self.assertIn("Memory used", self.page.locator("#lead-run").text_content())
+        self.page.evaluate("__calls.length = 0")
+        self.page.uncheck("#use-memory")
+        self.page.fill("#lead-input", "Another mission")
+        self.page.click("#lead-go")
+        self.page.wait_for_function("GlowLead.leads.length === 2 && GlowLead.leads[0].status === 'done'")
+        self.assertNotIn("rupiah", self.page.evaluate("__calls.map(call => call.content).join(' ')"))
+
+    def test_follow_up_carries_previous_result(self):
+        self.open()
+        self.start("Draft a bakery plan")
+        self.wait_done()
+        self.page.uncheck("#lead-approve")
+        self.page.fill("#followup-input", "Make it cheaper")
+        self.page.click("#followup-form button[type=submit]")
+        self.page.wait_for_function("GlowLead.leads.length === 2 && GlowLead.leads[0].status === 'done'")
+        follow = self.page.evaluate("GlowLead.leads[0]")
+        self.assertEqual(follow["goal"], "Make it cheaper")
+        self.assertEqual(follow["parentId"], self.page.evaluate("GlowLead.leads[1].id"))
+        plan_prompt = self.page.evaluate("__calls.filter(call => call.kind === 'plan').pop().content")
+        self.assertIn("Draft a bakery plan", plan_prompt)
+        self.assertIn("A clear result", plan_prompt)
+        self.assertIn("Follow-up to", self.page.locator("#lead-run").text_content())
+
+    def test_skill_reuses_approved_plan_without_replanning(self):
+        self.open()
+        self.start("Compare two printers")
+        self.wait_done()
+        self.page.click("#skill-btn")
+        self.page.fill("#template-name", "Printer compare")
+        self.page.click("#template-form button[type=submit]")
+        self.assertEqual(self.page.locator(".skill-tag").count(), 1)
+        self.page.evaluate("__calls.length = 0")
+        self.page.click("[data-template]")
+        self.assertTrue(self.page.locator("#skill-chip").is_visible())
+        self.page.click("#lead-go")
+        self.page.wait_for_selector("#approve-btn:enabled")
+        self.assertEqual(self.page.evaluate("__calls.filter(call => call.kind === 'plan').length"), 0)
+        self.assertEqual(self.page.evaluate("GlowLead.leads[0].skillName"), "Printer compare")
+        self.assertEqual(self.page.locator("#edit-title-0").input_value(), "Draft the result")
+        self.assertFalse(self.page.locator("#skill-chip").is_visible())
+
+    def test_next_run_calculation(self):
+        self.open()
+        result = self.page.evaluate("""() => {
+          const monday = new Date(2026, 9, 26, 9, 0).getTime();
+          const friday = new Date(2026, 9, 30, 9, 0).getTime();
+          const at = (a, from) => new Date(GlowLead.nextRunAfter(a, from)).toString();
+          return {
+            daily: at({cadence: 'daily', time: '08:00'}, monday) === new Date(2026, 9, 27, 8, 0).toString(),
+            laterToday: at({cadence: 'daily', time: '10:00'}, monday) === new Date(2026, 9, 26, 10, 0).toString(),
+            weekdays: at({cadence: 'weekdays', time: '08:00'}, friday) === new Date(2026, 10, 2, 8, 0).toString(),
+            weekly: at({cadence: 'weekly', weekday: 3, time: '07:30'}, monday) === new Date(2026, 9, 28, 7, 30).toString(),
+          };
+        }""")
+        self.assertEqual(result, {"daily": True, "laterToday": True, "weekdays": True, "weekly": True})
+
+    def test_missed_automation_catches_up_once_and_asks_for_approval(self):
+        self.context.add_init_script("""
+          window.__notes = [];
+          window.Notification = class {
+            constructor(title, options) { window.__notes.push({ title, body: options.body }); }
+            static get permission() { return 'granted'; }
+            static requestPermission() { return Promise.resolve('granted'); }
+          };""")
+        automation = {"id": "auto1", "name": "Morning fares", "goal": "Check fares to Lisbon", "cadence": "daily",
+                      "time": "08:00", "enabled": True, "approve": True, "nextRunAt": 1000}
+        self.seed("glowlead.automations.v1", [automation])
+        self.open()
+        self.page.wait_for_function("GlowLead.leads.length === 1 && GlowLead.leads[0].status === 'awaiting'", timeout=10000)
+        lead = self.page.evaluate("GlowLead.leads[0]")
+        self.assertTrue(lead["catchUp"])
+        self.assertEqual(lead["automationId"], "auto1")
+        self.assertGreater(self.page.evaluate("GlowLead.readAutomations()[0].nextRunAt"), self.page.evaluate("Date.now()"))
+        self.assertIsNone(self.page.evaluate("GlowLead.runDueAutomations()"))
+        self.page.wait_for_timeout(300)
+        self.assertEqual(self.page.evaluate("GlowLead.leads.length"), 1)
+        self.assertIn("approval", self.page.evaluate("__notes[0].title"))
+        self.assertIn("Catch-up", self.page.locator("#lead-run").text_content())
+
+    def test_due_automation_runs_in_only_one_tab(self):
+        automation = {"id": "auto2", "name": "Shared", "goal": "One run only", "cadence": "daily",
+                      "time": "08:00", "enabled": True, "approve": True, "nextRunAt": 1000}
+        self.seed("glowlead.automations.v1", [automation])
+        self.context.route("**/crew-engine.js", lambda route: route.fulfill(content_type="application/javascript", body=ENGINE_STUB))
+        pages = [self.page, self.context.new_page()]
+        for page in pages:
+            page.goto(self.url + "/lead/")
+        for page in pages:
+            page.wait_for_function("!!window.GlowLead")
+        self.page.wait_for_timeout(3000)
+        stored = self.page.evaluate("JSON.parse(localStorage.getItem('glowlead.v1') || '[]').length")
+        self.assertEqual(stored, 1)
+
+    def test_create_pause_resume_and_delete_automation(self):
+        self.open()
+        self.page.fill("#lead-input", "Summarise new 3D printing news")
+        self.page.click("#automate-btn")
+        self.assertTrue(self.page.locator("#automation-approve").is_checked())
+        self.assertFalse(self.page.locator("#automation-code").is_checked())
+        self.page.select_option("#automation-cadence", "weekly")
+        self.assertTrue(self.page.locator("#automation-weekday").is_visible())
+        self.page.fill("#automation-time", "07:30")
+        self.page.click("#automation-form button[type=submit]")
+        saved = self.page.evaluate("GlowLead.readAutomations()")
+        self.assertEqual(len(saved), 1)
+        self.assertEqual(saved[0]["cadence"], "weekly")
+        self.assertGreater(saved[0]["nextRunAt"], self.page.evaluate("Date.now()"))
+        self.assertEqual(self.page.locator("#automation-count").inner_text(), "1")
+        self.page.click("[data-toggle-automation]")
+        self.assertFalse(self.page.evaluate("GlowLead.readAutomations()[0].enabled"))
+        self.page.click("[data-toggle-automation]")
+        self.assertTrue(self.page.evaluate("GlowLead.readAutomations()[0].enabled"))
+        self.page.click("[data-delete-automation]")
+        self.assertEqual(self.page.evaluate("GlowLead.readAutomations().length"), 0)
+
+    def test_run_now_starts_with_saved_plan_and_permissions(self):
+        self.open()
+        self.start("Compare two printers")
+        self.wait_done()
+        self.page.click("#automate-mission")
+        self.assertTrue(self.page.locator("#automation-plan-note").is_visible())
+        self.page.click("#automation-form button[type=submit]")
+        self.page.evaluate("__calls.length = 0")
+        self.page.click("[data-run-automation]")
+        self.page.wait_for_function("GlowLead.leads.length === 2 && GlowLead.leads[0].status === 'awaiting'")
+        self.assertEqual(self.page.evaluate("__calls.filter(call => call.kind === 'plan').length"), 0)
+        self.assertFalse(self.page.evaluate("GlowLead.leads[0].allowCode"))
+
+    def test_invalid_stored_automations_and_memory_are_ignored(self):
+        self.seed("glowlead.automations.v1", [{"id": 5}, {"id": "x", "goal": "g", "cadence": "hourly", "time": "08:00"}, "junk"])
+        self.seed("glowlead.memory.v1", {"about": 42, "notes": [1, None, "valid note"]})
+        self.open()
+        self.assertEqual(self.page.evaluate("GlowLead.readAutomations().length"), 0)
+        self.assertEqual(self.page.evaluate("GlowLead.memoryText()"), "- valid note")
+
+    def test_mobile_run_view_with_follow_up_has_no_overflow(self):
+        self.open()
+        self.page.set_viewport_size({"width": 375, "height": 812})
+        self.start("Draft a bakery plan")
+        self.wait_done()
+        self.assertTrue(self.page.locator("#followup-input").is_visible())
+        self.assertTrue(self.page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
 
 
 if __name__ == "__main__":
