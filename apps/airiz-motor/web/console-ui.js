@@ -10,7 +10,7 @@
     const views = {
       controller: ['Motor control', 'Make your next move. Precision control for your device.'],
       console: ['Commands & macros', 'Your complete command library and repeatable test workflows.'],
-      camera: ['Camera workspace', 'Preview, capture, and inspect your device camera.'],
+      camera: window.airizMobile ? ['Phone camera', 'Local phone-camera preview, not video over Bluetooth.'] : ['Camera workspace', 'Preview, capture, and inspect your device camera.'],
       sfx: ['Sound laboratory', 'Explore synthesized sounds, playback, and audio experiments.']
     };
     const commandDefinitions = new Map(
@@ -149,12 +149,14 @@
         else lockJog();
         $('sidebar-status').textContent = status.demoMode && status.connected
           ? 'Demo · no hardware'
-          : status.connected ? 'USB serial connected' : 'Waiting for connection';
+          : status.connected ? (status.transportLabel || 'USB serial') + ' connected' : 'Waiting for connection';
         $('transport-note').textContent = status.demoMode && status.connected
           ? 'Simulator active. No commands are sent to hardware.'
           : status.connected
-            ? status.baudRate.toLocaleString() + ' baud · 8N1 · USB serial'
-            : 'Connect over USB serial, or try the simulator.';
+            ? (status.transportLabel?.startsWith('Bluetooth')
+              ? status.transportLabel + (status.deviceFirmware ? ' · FW ' + status.deviceFirmware : '')
+              : status.baudRate.toLocaleString() + ' baud · 8N1 · USB serial')
+            : window.airizMobile ? 'Discover and verify a Bluetooth command channel, or try Demo.' : 'Connect over USB serial, or try the simulator.';
         $('motion-mode').textContent = status.demoMode && status.connected ? 'DEMO / SIMULATED' : 'MANUAL JOG';
         $('stage-state').textContent = status.demoMode && status.connected
           ? 'SIMULATOR READY' : status.connected ? 'SERIAL CONNECTED' : 'STANDBY';
