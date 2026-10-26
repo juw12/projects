@@ -87,7 +87,10 @@
     const text = $("start-input").value.trim();
     const page = target === "room" ? roomPage : chatPage;
     const url = new URL(page, location.href);
-    if (text) url.searchParams.set(target === "room" ? "goal" : "q", text.slice(0, 2000));
+    if (text) {
+      url.searchParams.set(target === "room" ? "goal" : "q", text.slice(0, 2000));
+      url.searchParams.set(target === "room" ? "go" : "send", "1");
+    }
     location.href = url.toString();
   }
   $("start-input").addEventListener("input", suggest);
@@ -160,7 +163,7 @@
     missionList.replaceChildren();
     for (const run of runs) {
       const status = run.status === "done" ? "✓ " : run.status === "running" ? "⏳ " : "";
-      missionList.appendChild(listItem(new URL(roomPage, location.href).toString(), status + run.goal.slice(0, 90), timeAgo(run.createdAt)));
+      missionList.appendChild(listItem(new URL(roomPage, location.href).toString(), status + (run.goal.split("\n").find((line) => line.trim()) || "").replace(/\*\*/g, "").trim().slice(0, 90), timeAgo(run.createdAt)));
     }
     if (!runs.length) missionList.appendChild(emptyItem("No missions yet. Give GlowRoom a goal above."));
 

@@ -106,6 +106,13 @@ def render_card(app):
             f'{ind}      <a class="project-link" href="{REPO_URL}/tree/main/apps/{app["id"]}" '
             f'target="_blank" rel="noopener noreferrer">Source</a>'
         )
+    elif app.get("card_links"):
+        # Apps made of several parts (e.g. an ecosystem) name each link instead of App/Web/Mobile.
+        for card_link in app["card_links"]:
+            lines.append(
+                f'{ind}      <a class="project-link" href="{SITE_BASE}{card_link["path"]}" '
+                f'target="_blank" rel="noopener noreferrer">{card_link["label"]}</a>'
+            )
     else:
         for label, key in (("App", "app"), ("Web", "web"), ("Mobile", "mobile")):
             lines.append(
