@@ -1,0 +1,19 @@
+{
+  "appId": "io.github.juw12.mint",
+  "appName": "Mint",
+  "webDir": "www",
+  "backgroundColor": "#0f9d76",
+  "appendUserAgent": "MintApp/1.0",
+  "server": {
+    "url": "https://juw12.github.io/projects/mint/app.html",
+    "errorPath": "offline.html",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "ios": {
+    "contentInset": "never",
+    "scheme": "Mint"
+  }
+}

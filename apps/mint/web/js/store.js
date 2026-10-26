@@ -86,13 +86,45 @@
     return data.user;
   }
 
+  // register / recover hand back a one-time recovery code; the UI shows it once.
+  ApiStore.prototype.session = function (data) {
+    this.lastRecoveryCode = data.recoveryCode || "";
+    return keepSession(data);
+  };
+
   function enc(id) {
     return encodeURIComponent(id);
   }
 
-  ApiStore.prototype.me = function () { return this.call("GET", "me").then(function (d) { return d.user; }); };
-  ApiStore.prototype.register = function (email, name, password) { return this.call("POST", "auth/register", { email: email, name: name, password: password }).then(keepSession); };
-  ApiStore.prototype.login = function (email, password) { return this.call("POST", "auth/login", { email: email, password: password }).then(keepSession); };
+  ApiStore.prototype.me = function () {
+    var self = this;
+    return this.call("GET", "me").then(function (d) {
+      self.counts = d.counts || null;
+      self.hasRecoveryCode = !!d.hasRecoveryCode;
+      return d.user;
+    });
+  };
+  ApiStore.prototype.register = function (email, name, password) {
+    var self = this;
+    return this.call("POST", "auth/register", { email: email, name: name, password: password }).then(function (d) { return self.session(d); });
+  };
+  ApiStore.prototype.login = function (email, password) {
+    var self = this;
+    return this.call("POST", "auth/login", { email: email, password: password }).then(function (d) { return self.session(d); });
+  };
+  ApiStore.prototype.recover = function (email, recoveryCode, newPassword) {
+    var self = this;
+    return this.call("POST", "auth/recover", { email: email, recoveryCode: recoveryCode, newPassword: newPassword }).then(function (d) { return self.session(d); });
+  };
+  ApiStore.prototype.changePassword = function (currentPassword, newPassword) { return this.call("POST", "me/password", { currentPassword: currentPassword, newPassword: newPassword }); };
+  ApiStore.prototype.newRecoveryCode = function (password) { return this.call("POST", "me/recovery-code", { password: password }).then(function (d) { return d.recoveryCode; }); };
+  ApiStore.prototype.deleteAccount = function (password) {
+    return this.call("POST", "me/delete", { password: password }).then(function (d) {
+      localStorage.removeItem(TOKEN_KEY);
+      return d;
+    });
+  };
+  ApiStore.prototype.report = function (id, reason) { return this.call("POST", "listings/" + enc(id) + "/report", { reason: reason }); };
   ApiStore.prototype.logout = function () {
     return this.call("POST", "auth/logout", {}).catch(function () {}).then(function () {
       localStorage.removeItem(TOKEN_KEY);
@@ -651,6 +683,16 @@
   LocalStore.prototype.aiTemplate = function () {
     return fail(503, "Mint AI needs a connection");
   };
+
+  function needsLive() {
+    return fail(503, "Mint is offline right now \u2014 try again when it shows Live");
+  }
+
+  LocalStore.prototype.recover = needsLive;
+  LocalStore.prototype.changePassword = needsLive;
+  LocalStore.prototype.newRecoveryCode = needsLive;
+  LocalStore.prototype.deleteAccount = needsLive;
+  LocalStore.prototype.report = needsLive;
 
   LocalStore.prototype.reset = function () {
     localStorage.removeItem(KEY);
