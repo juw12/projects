@@ -154,6 +154,12 @@
     lastWaitNoticeAt = Date.now();
     emitter.dispatchEvent(new CustomEvent('notice', { detail: text }));
   }
+  // An empty reply from the shared Glow Free AI usually means it is busy: wait a bit before asking again.
+  function waitAfterEmpty(settings, retriesLeft, signal) {
+    const seconds = settings.provider === 'glow' ? (retriesLeft > 1 ? 12 : 30) : 3;
+    slowNotice(`The AI sent an empty reply, so the crew asks again in ${seconds} s…`);
+    return sleepUnlessAborted(seconds * 1000, signal);
+  }
   const TIMEOUT_MESSAGE = 'The AI did not answer in time. Try again in a minute, or sign in for faster Glow AI models.';
 
   function sleepUnlessAborted(ms, signal) {
@@ -608,7 +614,7 @@
         : (json.choices?.[0]?.message?.content || '');
       if (!text.trim()) {
         if (emptyRetries > 0) {
-          await sleep(3000);
+          await waitAfterEmpty(s, emptyRetries, signal);
           return chatOnce({ system, messages, onToken, signal, maxTokens, temperature, noStream: true, emptyRetries: emptyRetries - 1, glowFree: true });
         }
         throw new Error('The AI returned an empty answer. Try again, or pick another provider in AI settings.');
@@ -668,9 +674,10 @@
     timer.done();
     if (stalled && full.trim().length > 200) return full;
     if (!full.trim()) {
-      if (!noStream) {
-        // Some free/shared endpoints occasionally return an empty (or stalled) stream; retry once without streaming.
-        return chatOnce({ system, messages, onToken, signal, maxTokens, temperature, noStream: true, glowFree: true });
+      if (emptyRetries > 0) {
+        // Some free/shared endpoints occasionally return an empty (or stalled) stream; wait, then retry without streaming.
+        await waitAfterEmpty(s, emptyRetries, signal);
+        return chatOnce({ system, messages, onToken, signal, maxTokens, temperature, noStream: true, emptyRetries: emptyRetries - 1, glowFree: true });
       }
       throw new Error('The AI returned an empty answer. Try again, or pick another provider in AI settings.');
     }
@@ -971,13 +978,21 @@
       'Do NOT add a final summary step — you write the final answer yourself afterwards.',
       'Reply with JSON only: {"steps":[{"bot":"explore","task":"..."}]}'
     ].join('\n');
-    const text = await chat({
-      system,
-      messages: [{ role: 'user', content: run.goal + (run.context ? '\n\nContext from earlier work:\n' + truncate(run.context, 2000) : '') }],
-      signal,
-      temperature: 0.2,
-      maxTokens: 600
-    });
+    let text = '';
+    try {
+      text = await chat({
+        system,
+        messages: [{ role: 'user', content: run.goal + (run.context ? '\n\nContext from earlier work:\n' + truncate(run.context, 2000) : '') }],
+        signal,
+        temperature: 0.2,
+        maxTokens: 600
+      });
+    } catch (err) {
+      if (err.name === 'AbortError' || /API key/.test(err.message)) throw err;
+      // The planner didn't answer (busy free AI, empty reply…): use the built-in plan instead of giving up.
+      botEvent(run, 'leader', 'tool', 'Planner busy, so Nova uses a standard plan', 'plan');
+      run.planNote = err.message;
+    }
     const json = extractJson(text);
     let steps = (json && Array.isArray(json.steps)) ? json.steps : [];
     steps = steps
@@ -1304,6 +1319,12 @@
           },
           signal,
           maxTokens: 3000
+        }).catch(err => {
+          if (err.name === 'AbortError' || /API key/.test(err.message)) throw err;
+          // Nova couldn't write the summary: hand over the team's own work rather than nothing.
+          run.final = '_Nova could not write a summary (' + err.message + '), so here is the team\'s work as it is._\n\n' +
+            run.steps.filter(s => s.output).map(s => `### ${BOTS[s.bot].name}\n${s.output}`).join('\n\n');
+          changed(run);
         });
         run.writingFinal = false;
         const realSources = [];
