@@ -1,0 +1,14 @@
+{
+  "name": "mint-api",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --config wrangler.local.toml --port 8787",
+    "deploy": "wrangler deploy",
+    "test:api": "node test/api_test.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
