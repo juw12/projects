@@ -26,7 +26,7 @@
   <section class="hero">
     <p class="eyebrow">✦ The Glow ecosystem</p>
     <h1>One home for your AI.</h1>
-    <p class="lede">Ask, plan and get things done with free AI. Use <b>GlowChat</b> to talk things through and <b>GlowRoom</b> to give bigger jobs to an AI crew. One Glow account works in every app.</p>
+    <p class="lede">Ask, plan and get things done with free AI. Use <b>GlowChat</b> to talk things through, <b>GlowRoom</b> to give jobs to an AI crew, and <b>GlowLead</b> to lead whole goals across both. One Glow account works in every app.</p>
 
     <form class="start" id="start-form" autocomplete="off">
       <label class="sr-only" for="start-input">What do you want to do?</label>
@@ -34,12 +34,26 @@
       <div class="start-actions">
         <button type="submit" class="btn primary" id="start-chat" data-target="chat">💬 Ask GlowChat</button>
         <button type="button" class="btn" id="start-room" data-target="room">🏢 Give it to GlowRoom</button>
-        <span class="start-hint" id="start-hint">Quick questions → GlowChat · research, code and multi-step jobs → GlowRoom</span>
+        <button type="button" class="btn" id="start-lead" data-target="lead">👑 Let GlowLead run it</button>
+        <span class="start-hint" id="start-hint">Quick questions → GlowChat · research and code → GlowRoom · big goals with several parts → GlowLead</span>
       </div>
     </form>
   </section>
 
   <section class="apps" aria-label="Glow apps">
+    <article class="app-card lead">
+      <div class="app-icon" aria-hidden="true">👑</div>
+      <h2>GlowLead</h2>
+      <p>Your AI lead and the owner of GlowRoom. Give one goal: it plans the steps, hands each to GlowChat, a Council or the GlowRoom crew, checks the work against clear done-criteria and reports back.</p>
+      <ul>
+        <li>Plan → delegate → check → report</li>
+        <li>Approve the plan first, or let it run</li>
+        <li>Every lead becomes a chat in GlowChat</li>
+      </ul>
+      <div class="app-links">
+        <a class="btn primary" id="open-lead" href="./lead/">Open GlowLead</a>
+      </div>
+    </article>
     <article class="app-card chat">
       <div class="app-icon" aria-hidden="true">💬</div>
       <h2>GlowChat</h2>
