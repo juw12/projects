@@ -2,78 +2,15 @@
 // Run: GLOW_PLAYWRIGHT_CORE=<path to playwright-core package> node --test apps/glow/cloud/test/
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
-import { randomUUID } from "node:crypto";
 import { createApp } from "../src/app.js";
+import { createTestProvider } from "./playwright-provider.mjs";
 
 const corePath = process.env.GLOW_PLAYWRIGHT_CORE;
-const FORM = `<!doctype html><title>Test shop</title><h1>Checkout</h1>
-<form action="/done.html" method="get">
-<label for="name">Full name</label><input id="name" name="name">
-<label for="size">Size</label><select id="size" name="size"><option>Small</option><option>Large</option></select>
-<label for="pw">Password</label><input id="pw" type="password" name="pw">
-<button type="submit">Place order</button></form>`;
-const DONE = "<!doctype html><title>Done</title><h1>Order received</h1>";
 const ORIGIN = "https://juw12.github.io";
 const ENV = { ALLOWED_ORIGINS: "https://juw12.github.io,https://localhost" };
 
-function adaptPage(page) {
-  return {
-    evaluate: (expression) => page.evaluate(expression),
-    goto: (url, options) => page.goto(url, options),
-    goBack: (options) => page.goBack(options),
-    url: () => page.url(),
-    title: () => page.title(),
-    waitForNetworkIdle: ({ timeout }) => page.waitForLoadState("networkidle", { timeout }),
-    click: (selector) => page.click(selector),
-    $eval: (selector, fn) => page.$eval(selector, fn),
-    type: (selector, text) => page.type(selector, text),
-    keyboard: { press: (key) => page.keyboard.press(key) },
-    mouse: { wheel: ({ deltaY }) => page.mouse.wheel(0, deltaY) },
-    setViewport: ({ width, height }) => page.setViewportSize({ width, height }),
-  };
-}
-
 test("Glow cloud browser service", { skip: !corePath && "Set GLOW_PLAYWRIGHT_CORE to run" }, async (t) => {
-  const { chromium } = createRequire(import.meta.url)(corePath);
-  const browser = await chromium.launch();
-  const sessions = new Map();
-  let failNextLaunch = null;
-  const provider = {
-    launch: async () => {
-      if (failNextLaunch) {
-        const message = failNextLaunch;
-        failNextLaunch = null;
-        throw new Error(message);
-      }
-      const context = await browser.newContext();
-      // A public-looking shop served in-process (the service refuses private addresses).
-      await context.route("http://shop.test/**", (route) => route.fulfill({
-        contentType: "text/html",
-        body: new URL(route.request().url()).pathname.startsWith("/done.html") ? DONE : FORM,
-      }));
-      const id = randomUUID();
-      sessions.set(id, context);
-      return {
-        newPage: async () => adaptPage(await context.newPage()),
-        sessionId: () => id,
-        disconnect: async () => {},
-      };
-    },
-    connect: async (id) => {
-      const context = sessions.get(id);
-      if (!context) throw new Error("Unable to connect to existing session");
-      return {
-        pages: async () => context.pages().map(adaptPage),
-        newPage: async () => adaptPage(await context.newPage()),
-        disconnect: async () => {},
-        close: async () => {
-          sessions.delete(id);
-          await context.close();
-        },
-      };
-    },
-  };
+  const provider = await createTestProvider(corePath);
   const handle = createApp(provider);
   const send = async (path, body, origin = ORIGIN, method = "POST") => {
     const headers = { "Content-Type": "application/json" };
@@ -84,7 +21,7 @@ test("Glow cloud browser service", { skip: !corePath && "Set GLOW_PLAYWRIGHT_COR
     return { status: response.status, data: await response.json().catch(() => ({})), headers: response.headers };
   };
   t.after(async () => {
-    await browser.close();
+    await provider.close();
   });
 
   await t.test("only GlowLead's own sites may use it", async () => {
@@ -131,11 +68,11 @@ test("Glow cloud browser service", { skip: !corePath && "Set GLOW_PLAYWRIGHT_COR
   await t.test("unknown sessions and daily limits are explained", async () => {
     assert.equal((await send("/v1/sessions/00000000-0000-0000-0000-000000000000/call", { path: "status" })).status, 410);
     assert.equal((await send("/v1/sessions/bad id!/call", { path: "status" })).status, 400);
-    failNextLaunch = "429 Too Many Requests: browser time limit exceeded";
+    provider.failNextLaunch = "429 Too Many Requests: browser time limit exceeded";
     const quota = await send("/v1/sessions");
     assert.equal(quota.status, 429);
     assert.match(quota.data.error, /free cloud browser time/i);
-    failNextLaunch = "Browser unavailable";
+    provider.failNextLaunch = "Browser unavailable";
     assert.equal((await send("/v1/sessions")).status, 503);
   });
 });

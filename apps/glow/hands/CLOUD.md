@@ -14,6 +14,27 @@ phone link (WebRTC through PeerJS) as "Use from your phone".
 Both browsers are hidden. You can't "take over" to type a password, and some sites show more CAPTCHAs to
 cloud machines. GlowLead still asks you before submitting, buying, sending, posting or deleting.
 
+## No setup at all: Android app or instant cloud browser (v0.15)
+
+**Android phone:** install Glow for Android (the `Glow-android.apk` asset of the
+[`glow-android` release](https://github.com/juw12/projects/releases/tag/glow-android); allow "install unknown
+apps" for your browser when asked). The app has its own browser built in, so missions run on the phone with
+no PC and no cloud. The browser opens as a panel over GlowLead; tap **Bigger** to watch or type yourself,
+**Hide** to put it away. Signing in to Puter inside the app may not work on every phone; guest use works.
+Updates are installed the same way (same signing key, so your data stays).
+
+**Instant cloud browser (any phone, including iPhone):** GlowLead → Connect browser control → **Start instant
+cloud browser**. It runs on Cloudflare's free plan (`apps/glow/cloud/`), needs no account or token from you,
+and starts in a few seconds. Limits of the free plan, shared by everyone using it: 10 browser-minutes a day
+and 3 browsers at once; a session ends after 10 minutes without use. Fresh browser every time, no saved
+logins. Only GlowLead's own pages (and the app) may use the service.
+
+Deploying the service (maintainer, once): create a free Cloudflare account (no card), make an API token
+with the **Edit Cloudflare Workers** template plus **Account → Browser Rendering → Edit**, and add repository
+secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. The workflow
+`.github/workflows/glow-cloud-worker.yml` then deploys on every change to `apps/glow/cloud/`, and the
+service address goes into `CLOUD_SERVICE_URL` in `web/lead/lead.js`.
+
 ## Cloud browser on GitHub (option 4)
 
 One-time setup, about 3 minutes:
