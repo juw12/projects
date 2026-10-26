@@ -1046,3 +1046,13 @@ body.layout-mobile .hero-visual { width: min(80%, 360px); order: -1; }
   .media.swap, .np-titles.swap, .msg, .react.pop, .play-btn.pop svg.i, .sheet[open] { animation: none !important; }
   .tab-ink, .media, .video-float.snapping { transition: none !important; }
 }
+
+/* ---------- v1.4: notch / status-bar insets (0 in normal browsers; real in the app and home-screen PWA) ---------- */
+.topbar { padding-top: calc(14px + env(safe-area-inset-top)); }
+.landing-nav { padding-top: calc(22px + env(safe-area-inset-top)); }
+.topbar, .landing-nav { padding-left: max(20px, env(safe-area-inset-left)); padding-right: max(20px, env(safe-area-inset-right)); }
+@media (max-width: 960px) {
+  .topbar { padding-top: calc(12px + env(safe-area-inset-top)); padding-left: max(14px, env(safe-area-inset-left)); padding-right: max(14px, env(safe-area-inset-right)); }
+}
+/* In the app there is no browser chrome: stop rubber-band overscroll from dragging the whole UI. */
+.native-app body { overscroll-behavior: none; }

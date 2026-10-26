@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Sync</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #090b10; color: #e8eaf0;
+      font: 16px/1.5 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; }
+    main { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 14px; padding: 24px; text-align: center; box-sizing: border-box; }
+    .logo { width: 72px; height: 48px; position: relative; }
+    .logo span { position: absolute; top: 0; width: 44px; height: 44px; border-radius: 50%; border: 6px solid; box-sizing: border-box; }
+    .logo span:first-child { left: 0; border-color: #22d3ee; }
+    .logo span:last-child { right: 0; border-color: #a78bfa; }
+    h1 { margin: 6px 0 0; font-size: 1.3rem; }
+    p { margin: 0; color: #9aa3b2; max-width: 300px; }
+    button { margin-top: 10px; border: 0; border-radius: 999px; padding: 12px 26px; font: inherit; font-weight: 600;
+      background: #e8eaf0; color: #090b10; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="logo" aria-hidden="true"><span></span><span></span></div>
+    <h1>You're offline</h1>
+    <p>Sync needs the internet to listen with friends. Check Wi-Fi or mobile data and try again.</p>
+    <button onclick="location.href='https://juw12.github.io/projects/sync/'">Try again</button>
+  </main>
+  <script>
+    window.addEventListener('online', function () {
+      location.href = 'https://juw12.github.io/projects/sync/';
+    });
+  </script>
+</body>
+</html>

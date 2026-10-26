@@ -46,6 +46,10 @@
     return null;
   }
 
+  var CLAIM_TRIES_BEFORE_PROBE = 1; // a taken host ID usually means the host is alive: check right away
+  var PROBE_MS = 6000;              // how long a guest probe may take before claiming again
+  var PENDING_CONNECT_MS = 5000;    // one host connection attempt in flight at a time
+
   function wait(ms) {
     return new Promise(function (resolve) { setTimeout(resolve, ms); });
   }
@@ -146,8 +150,14 @@
       if (error.type === 'unavailable-id') {
         peer.destroy();
         if (previousState) {
-          // The old host's ID is still registered; it frees up within seconds.
-          self.retryClaim(previousState, attempt || 1);
+          // The old host's ID is still registered. Usually it frees up within seconds,
+          // but if it stays taken the host may still be there and only *our* link dropped
+          // (phone slept, Wi-Fi -> mobile data). Then rejoin as a guest instead.
+          if ((attempt || 1) >= CLAIM_TRIES_BEFORE_PROBE) {
+            self.probeHostThenClaim(previousState, attempt || 1);
+          } else {
+            self.retryClaim(previousState, attempt || 1);
+          }
         } else {
           self.emit('code-taken', self.code);
         }
@@ -349,8 +359,21 @@
     if (this.closed || !this.peer || this.peer.destroyed) {
       return;
     }
+    if (this.pendingConn && performance.now() - this.pendingAt < PENDING_CONNECT_MS) {
+      return; // an attempt is still in flight
+    }
     var conn = this.peer.connect(hostPeerId(this.code), { reliable: true });
+    this.pendingConn = conn;
+    this.pendingAt = performance.now();
     conn.on('open', function () {
+      if (self.pendingConn === conn) {
+        self.pendingConn = null;
+      }
+      if (self.hostConn && self.hostConn !== conn) {
+        conn.close(); // a newer link already won
+        return;
+      }
+      self.claimProbe = null;
       self.hostConn = conn;
       self.everConnected = true;
       self.migrating = false;
@@ -365,12 +388,18 @@
       self.onGuestMessage(msg);
     });
     conn.on('close', function () {
+      if (self.pendingConn === conn) {
+        self.pendingConn = null;
+      }
       if (self.hostConn === conn) {
         self.hostConn = null;
         self.onHostLost();
       }
     });
     conn.on('error', function () {
+      if (self.pendingConn === conn) {
+        self.pendingConn = null;
+      }
       if (self.hostConn === conn) {
         self.hostConn = null;
         self.onHostLost();
@@ -548,6 +577,7 @@
       return;
     }
     if (tries > 20) {
+      this.migrating = false; // let resume() rejoin as a guest later
       this.emit('status', { level: 'bad', text: 'Could not take over the room' });
       return;
     }
@@ -560,6 +590,10 @@
 
   Room.prototype.retryConnect = function (attempt) {
     var self = this;
+    if (!attempt) {
+      this.retryToken = (this.retryToken || 0) + 1; // a fresh loop replaces any older one
+    }
+    var token = this.retryToken;
     if (this.closed || this.hostConn) {
       return;
     }
@@ -568,11 +602,61 @@
       return;
     }
     setTimeout(function () {
-      if (!self.hostConn && !self.closed) {
+      if (token === self.retryToken && !self.hostConn && !self.closed) {
         self.connectToHost();
         self.retryConnect(attempt + 1);
       }
     }, 2000);
+  };
+
+  // Our claim on the host ID keeps failing: try to reach the room as a guest first.
+  Room.prototype.probeHostThenClaim = function (previousState, attempt) {
+    var self = this;
+    if (this.closed) {
+      return;
+    }
+    this.claimProbe = { state: previousState, attempt: attempt };
+    this.emit('status', { level: 'warn', text: 'Reconnecting…' });
+    this.joinAsGuest();
+    setTimeout(function () {
+      var probe = self.claimProbe;
+      if (self.closed || self.hostConn || !probe) {
+        return;
+      }
+      self.claimProbe = null;
+      if (self.peer) {
+        self.peer.destroy();
+        self.peer = null;
+      }
+      self.retryClaim(probe.state, probe.attempt);
+    }, PROBE_MS);
+  };
+
+  // Called when the app comes back to the foreground or the network returns.
+  Room.prototype.resume = function () {
+    if (this.closed) {
+      return;
+    }
+    var peer = this.peer;
+    if (peer && !peer.destroyed && peer.disconnected) {
+      try {
+        peer.reconnect(); // signaling only; open WebRTC links keep working
+      } catch (error) {
+        // reconnect throws if the peer was destroyed meanwhile
+      }
+    }
+    if (this.isHost || this.hostConn || this.claimProbe) {
+      return;
+    }
+    if (this.migrating && !peer) {
+      return; // we are claiming the host ID right now
+    }
+    if (!peer || peer.destroyed) {
+      this.joinAsGuest();
+    } else {
+      this.connectToHost();
+    }
+    this.retryConnect(0);
   };
 
   /* ================= actions (both roles) ================= */
