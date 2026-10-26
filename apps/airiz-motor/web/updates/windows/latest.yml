@@ -1,14 +1,14 @@
 {
-  "version": "1.2.2",
+  "version": "1.2.3",
   "files": [
     {
-      "url": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.2.2/AIRIZ-Console-Setup-1.2.2-x64.exe",
-      "sha512": "9q9o4RRq5rtpRxz6tlV42cpKC2qbgQuW5oZZdFOLWp5y6lmTyqRxM6VCy7u8R1MAN4A1Eqvlu/0LrLzpAx8SQg==",
-      "size": 121852353
+      "url": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.2.3/AIRIZ-Console-Setup-1.2.3-x64.exe",
+      "sha512": "ZoNuwU2YyBXRi5bF8BOQKrEbC8tBX4kItAH0HbhXBSDtCln/klJ28MOGhIvVz4/O0TfzL53JcS/3lIPrCkWvRQ==",
+      "size": 121880181
     }
   ],
-  "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.2.2/AIRIZ-Console-Setup-1.2.2-x64.exe",
-  "sha512": "9q9o4RRq5rtpRxz6tlV42cpKC2qbgQuW5oZZdFOLWp5y6lmTyqRxM6VCy7u8R1MAN4A1Eqvlu/0LrLzpAx8SQg==",
-  "releaseDate": "2026-10-26T11:05:13.270413+00:00",
-  "releaseName": "AIRIZ Console 1.2.2"
+  "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.2.3/AIRIZ-Console-Setup-1.2.3-x64.exe",
+  "sha512": "ZoNuwU2YyBXRi5bF8BOQKrEbC8tBX4kItAH0HbhXBSDtCln/klJ28MOGhIvVz4/O0TfzL53JcS/3lIPrCkWvRQ==",
+  "releaseDate": "2026-10-26T13:01:19.742524+00:00",
+  "releaseName": "AIRIZ Console 1.2.3"
 }

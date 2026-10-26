@@ -661,3 +661,4 @@ body.console-redesign { color-scheme: inherit; }
 .camera-relay-input { width: 9em; font-size: 1.1rem; letter-spacing: 0.15em; }
 .camera-relay-video { width: 100%; max-height: 70vh; background: #000; border-radius: 8px; margin-top: 6px; }
 .camera-relay-phone { border-color: var(--accent, #2f81f7); }
+.camera-relay-link { flex: 1 1 260px; min-width: 0; font-size: 0.85rem; }

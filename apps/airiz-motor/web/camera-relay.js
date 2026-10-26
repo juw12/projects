@@ -17,6 +17,7 @@
   const MAX_SEND_HEIGHT = 720;
   const MAX_SEND_BITRATE = 1500000;
   const CONNECT_TIMEOUT_MS = 20000;
+  const PUBLIC_WATCH_URL = 'https://juw12.github.io/projects/airiz-motor/watch.html';
 
   const els = {
     section: $('camera-relay'),
@@ -28,6 +29,10 @@
     watch: $('btn-relay-view'),
     stopWatch: $('btn-relay-view-stop'),
     video: $('relay-remote-video'),
+    linkRow: $('relay-link-row'),
+    link: $('relay-share-link'),
+    copy: $('btn-relay-copy'),
+    nativeShare: $('btn-relay-native-share'),
     status: $('relay-status')
   };
   if (!els.section) return;
@@ -52,10 +57,35 @@
     return String(value[0] % 1000000).padStart(6, '0');
   }
 
+  // Link people can open to watch (view only). The desktop app runs from airiz://,
+  // so it always hands out the public website address.
+  function watchLink(code) {
+    const base = /^https?:$/.test(location.protocol) ? new URL('watch.html', location.href).href : PUBLIC_WATCH_URL;
+    return base + '#' + code;
+  }
+
+  async function copyLink() {
+    const text = els.link.value;
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (error) {
+      els.link.select();
+      document.execCommand('copy');
+    }
+    setStatus('Link copied. Anyone with it can watch while sharing is on (view only).');
+  }
+
+  async function nativeShare() {
+    try {
+      await navigator.share({ title: 'AIRIZ camera (live)', text: 'Live AIRIZ camera view', url: els.link.value });
+    } catch (error) { /* User closed the share sheet */ }
+  }
+
   function updateViewerCount() {
     const count = sharer.calls.size;
     els.viewers.textContent = sharer.peer
-      ? (count ? `${count} phone${count > 1 ? 's' : ''} watching` : 'Waiting for a phone…')
+      ? (count ? `${count} watching` : 'Waiting for viewers…')
       : '';
   }
 
@@ -91,8 +121,11 @@
 
     peer.on('open', () => {
       els.code.textContent = code;
+      els.link.value = watchLink(code);
+      els.linkRow.hidden = false;
+      els.nativeShare.hidden = typeof navigator.share !== 'function';
       els.stopShare.disabled = false;
-      setStatus('On the phone: Camera → enter this code → Watch. Keep this page open.');
+      setStatus('Send the link, or enter the code on the phone (Camera → Watch). Keep this window open while sharing.');
       updateViewerCount();
     });
     peer.on('connection', connection => {
@@ -139,6 +172,8 @@
     sharer.peer = null;
     sharer.code = null;
     els.code.textContent = '';
+    els.link.value = '';
+    els.linkRow.hidden = true;
     els.share.disabled = false;
     els.stopShare.disabled = true;
     updateViewerCount();
@@ -218,6 +253,8 @@
   }
 
   els.share.addEventListener('click', () => startSharing());
+  els.copy.addEventListener('click', copyLink);
+  els.nativeShare.addEventListener('click', nativeShare);
   els.stopShare.addEventListener('click', () => stopSharing(false));
   els.watch.addEventListener('click', startWatching);
   els.stopWatch.addEventListener('click', () => stopWatching(false));

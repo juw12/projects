@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.2.2` in this repository's Releases section.
+`airiz-desktop-v1.2.3` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -161,6 +161,17 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.2.3: Share the AIRIZ camera to phones (live link)
+
+* **Camera → Share to phone**: relays the AIRIZ USB camera to phones and other people.
+  Shows a 6-digit code and a view-only link (`watch.html#code`) with **Copy link**.
+  Video goes peer-to-peer over WebRTC; the free PeerJS service only introduces the
+  peers (and relays via its TURN server when a network blocks direct links).
+  Capped at 720p / 1.5 Mbit/s. Sharing stops when the preview stops.
+* The app's network policy now allows only the PeerJS signalling server in addition to itself.
+* Bundles the latest Bluetooth bridge for **Phone remote**: auto-accepts iPhone pairing
+  (fixes iPhones disconnecting after ~30 s), Bluetooth name AIRIZ-BT, acknowledged writes on iOS.
 
 ## 1.2.2: Phone remote, PIN, motor stop and real USB ports
 

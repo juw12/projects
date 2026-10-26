@@ -58,7 +58,9 @@ function buildCsp() {
   return [
     "default-src 'self'", "script-src 'self' " + hashes.join(' '),
     "style-src 'self' 'unsafe-inline'", "img-src 'self' blob: data:",
-    "media-src 'self' blob:", "connect-src 'self'", "object-src 'none'",
+    "media-src 'self' blob:",
+    // Phone camera viewer: PeerJS signalling only (video goes peer-to-peer over WebRTC).
+    "connect-src 'self' https://0.peerjs.com wss://0.peerjs.com", "object-src 'none'",
     "base-uri 'none'", "frame-src 'none'", "form-action 'none'"
   ].join('; ');
 }
@@ -124,7 +126,8 @@ function configurePermissions(appSession) {
       const result = await dialog.showMessageBox(mainWindow, {
         type: 'question', title: 'AIRIZ device media access',
         message: 'Allow access to ' + kinds + '?',
-        detail: 'Media stays in this local console unless you explicitly save or export it.',
+        detail: 'Media stays in this local console unless you explicitly save or export it, '
+          + 'or choose Camera → Share to phone (live view for people with the link).',
         buttons: ['Deny', 'Allow'], defaultId: 0, cancelId: 0, noLink: true
       });
       if (result.response === 1) {
