@@ -11,11 +11,42 @@
   const installButton = document.querySelector('[data-pwa-action="install"]');
   const updateButton = document.getElementById('update-app');
   const installed = () => standalone.matches || navigator.standalone === true;
+  // Inside the iPhone/Android app shell (Capacitor) the page is the same site; only a few things differ.
+  const nativeApp = /GuangYaoApp\//.test(navigator.userAgent) || Boolean(window.Capacitor?.isNativePlatform?.());
+  const ANDROID_APK_URL = 'https://github.com/juw12/projects/releases/download/guangyao-android/GuangYao-android.apk';
+
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  window.GY_NATIVE = {
+    isApp: nativeApp,
+    androidApkUrl: ANDROID_APK_URL,
+    // Saves a generated file (progress card, calendar entry) and opens the phone's share sheet.
+    async shareFile(filename, blob, title) {
+      const plugins = window.Capacitor?.Plugins;
+      if (!nativeApp || !plugins?.Filesystem || !plugins?.Share) return false;
+      const written = await plugins.Filesystem.writeFile({path: filename, data: await blobToBase64(blob), directory: 'CACHE'});
+      try {
+        await plugins.Share.share({title: title || filename, files: [written.uri], dialogTitle: title || '分享'});
+      } catch (error) {
+        if (!/cancel/i.test(String(error?.message || error))) throw error;
+      }
+      return true;
+    }
+  };
+  document.documentElement.classList.toggle('native-app', nativeApp);
 
   function updateStatus() {
     banner.classList.toggle('offline', !navigator.onLine);
-    networkLabel.textContent = navigator.onLine ? '瀏覽器連線模式' : '離線模式 · 僅本機示範';
+    networkLabel.textContent = navigator.onLine ? (nativeApp ? '光耀同行 App' : '瀏覽器連線模式') : '離線模式 · 僅本機示範';
     installButton.textContent = installed() ? '已安裝 · 使用說明' : installPrompt ? '安裝 App' : '安裝說明';
+    installButton.hidden = nativeApp;
   }
 
   function installationHelp() {
@@ -29,7 +60,7 @@
       <div class="callout warning">${warning}</div>
       <ol class="install-steps">
         <li><strong>iPhone / iPad：</strong>使用 Safari 開啟 HTTPS 網站，點「分享」→「加入主畫面」。若顯示「以網頁 App 開啟」，請啟用。</li>
-        <li><strong>Android：</strong>使用 Chrome 開啟網站。若出現安裝選項，可選「安裝應用程式」；否則查看瀏覽器選單。</li>
+        <li><strong>Android App：</strong><a href="${ANDROID_APK_URL}" target="_blank" rel="noopener">下載 GuangYao-android.apk</a>，在手機上開啟並允許安裝。也可以用 Chrome 選單「安裝應用程式」。</li>
         <li><strong>電腦：</strong>支援的瀏覽器會在網址列或選單提供安裝選項。沒有安裝功能時仍可直接使用網頁。</li>
       </ol>
       <div class="settings-note"><strong>離線範圍：</strong>首次載入完成後，可離線開啟已快取的 App 外殼與示範流程。真實影片、帳戶、聊天、付款、外部參考頁及跨裝置同步尚未接入。資料只在此瀏覽器／安裝實例；手機與電腦不會同步。</div>
