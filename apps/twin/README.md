@@ -34,15 +34,15 @@ Bank Central Asia, Samsung, Reliance, Petrobras, Nestlé and so on.
 - **Live server:** search reaches any stock, ETF, index or fund Yahoo Finance lists — dozens of
   exchanges (Tokyo `7203.T`, Hong Kong `0700.HK`, Jakarta `BBCA.JK`, London `VOD.L`, Frankfurt `SAP.DE`,
   Mumbai `RELIANCE.NS`, Toronto `RY.TO`, São Paulo `PETR4.SA`, Sydney `BHP.AX` …).
-- **Web demo:** about 280 large stocks and ETFs on 35+ exchanges plus 34 world indices from a **dated
-  snapshot** (`web/demo/world.json` + one chart file per symbol in `web/demo/world/`, loaded only when
-  needed); its time is shown in the app. `scripts/world_snapshot.py` refreshes it (last good data kept on failures).
+- **Web demo:** about 280 large stocks and ETFs on 35+ exchanges plus 34 world indices, **refreshed
+  hourly** by GitHub Actions (`web/demo/world.json` + one chart file per symbol in `web/demo/world/`,
+  loaded only when needed). If a refresh fails, the last good data stays and its time is shown.
 - Every stock page shows the flag, exchange, currency, **open / lunch break / closed** with local time,
   the price in its own currency and ≈ in US dollars, day and 52-week ranges, and its US listing (ADR)
   when there is one.
 - **World markets** (Home): market clocks, 34 indices with sparklines, biggest moves and a heatmap.
 - **Practice cash stays in USD.** Foreign orders convert at the FX rate shown with its "as of" time
-  (re-fetched every 60 s on your own server, from the snapshot in the web demo): $1,000 of Toyota at
+  (re-fetched every 60 s on your own server, hourly in the web demo): $1,000 of Toyota at
   ¥3,105 with 1 USD ≈ ¥157 buys ≈ 50.5 shares. Pence (GBp), South African cents and agorot are
   converted to pounds, rand and shekels.
 - **Home currency** (Me → Currency): see totals ≈ in your own currency (25 currencies, e.g. IDR, EUR, INR, JPY).
@@ -139,10 +139,9 @@ The lab never submits orders or changes the practice portfolio.
 * **Web demo (GitHub Pages).** When no server answers, `web/demo.js` takes over: the same app runs
   in the browser on bundled data (`web/demo/`: 16 US tickers' prices and charts, ~280 global stocks/ETFs
   + 34 indices + 30 FX rates in `world.json` with per-symbol charts in `world/`, exchange calendars,
-  12 monthly histories, five investors' 13Fs, a news snapshot and the TSLA replay). Re-run
-  `scripts/world_snapshot.py` and `scripts/market_calendars.py` and commit to refresh it (`--check`
-  validates; if Yahoo throttles, the last good data is kept). An hourly GitHub Actions refresh is
-  prepared but not enabled yet. Accounts
+  12 monthly histories, five investors' 13Fs, a news snapshot and the TSLA replay). The Pages workflow
+  re-runs `scripts/world_snapshot.py` and `scripts/market_calendars.py` every hour (best effort — if
+  Yahoo throttles, the committed data is kept). Run them yourself with `--check` to validate. Accounts
   and the practice portfolio stay in that browser's localStorage.
 
 ## Real trading (optional, local server only)
@@ -245,8 +244,8 @@ history and are not predictions. Not financial advice.
 
 ## Changelog
 
-- **1.6.0 — Limits fixed.** Web demo now ~280 stocks/ETFs on 35+ exchanges + 34 indices, from a dated
-  snapshot with a per-symbol chart for every listing (refresh scripts keep the last good data on
+- **1.6.0 — Limits fixed.** Web demo now ~280 stocks/ETFs on 35+ exchanges + 34 indices, refreshed
+  **hourly** by GitHub Actions with a per-symbol chart for every listing (last good data kept on
   failures); **real exchange calendars** (holidays, early closes, late opens for 38 exchanges, "next
   market holidays" on stock pages); FX re-fetched every **60 s** on the server with an "as of" time on
   stock pages and the currency card; **Interactive Brokers** bridge (Client Portal Gateway) for real
