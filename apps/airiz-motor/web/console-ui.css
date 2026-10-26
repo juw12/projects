@@ -660,5 +660,7 @@ body.console-redesign { color-scheme: inherit; }
 .camera-relay-viewers, .camera-relay-status { font-size: 0.85rem; opacity: 0.85; }
 .camera-relay-input { width: 9em; font-size: 1.1rem; letter-spacing: 0.15em; }
 .camera-relay-video { width: 100%; max-height: 70vh; background: #000; border-radius: 8px; margin-top: 6px; }
-.camera-relay-phone { border-color: var(--accent, #2f81f7); }
+.camera-relay-phone { border-color: var(--accent, #2f81f7); margin: 0 0 14px; background: var(--surface, rgba(255,255,255,0.03)); }
+.camera-relay[hidden], .camera-relay-row[hidden] { display: none !important; }
 .camera-relay-link { flex: 1 1 260px; min-width: 0; font-size: 0.85rem; }
+.camera-relay-phone .camera-relay-input { flex: 1 1 9em; width: auto; letter-spacing: 0.08em; }
