@@ -449,6 +449,24 @@
     "community",
     "pwa",
     "beta"
+   ],
+   "card_links": [
+    {
+     "label": "App",
+     "path": "guangyao/index.html"
+    },
+    {
+     "label": "Web",
+     "path": "guangyao/"
+    },
+    {
+     "label": "Mobile",
+     "path": "guangyao/index.html#home"
+    },
+    {
+     "label": "Content repository",
+     "path": "https://github.com/juwpegatron/guangyao-content"
+    }
    ]
   },
   {
