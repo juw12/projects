@@ -194,7 +194,7 @@ async function createWindow() {
   });
   chooser = createSerialChooser(session.defaultSession, () => mainWindow, port => grants.remember(port));
 
-  // Web Bluetooth device picker for the in-app Bluetooth check.
+  // Web Bluetooth device picker: Connect Bluetooth (AIRIZ-BT remote) and the Bluetooth check.
   mainWindow.webContents.on('select-bluetooth-device', (event, devices, callback) => {
     event.preventDefault();
     bluetoothCallback = callback;
