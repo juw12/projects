@@ -25,9 +25,9 @@ test('asset paths stay inside the bundled web root', () => {
 });
 
 test('external navigation is restricted to the app website and repository', () => {
-  assert.equal(canOpenExternal('https://github.com/juwpegatron/projects/releases'), true);
-  assert.equal(canOpenExternal('https://juwpegatron.github.io/projects/airiz-motor/'), true);
-  for (const url of ['file:///C:/Windows', 'http://github.com/juwpegatron/projects/', 'https://github.com/another/repo', 'https://example.com/']) {
+  assert.equal(canOpenExternal('https://github.com/juw12/projects/releases'), true);
+  assert.equal(canOpenExternal('https://juw12.github.io/projects/airiz-motor/'), true);
+  for (const url of ['file:///C:/Windows', 'http://github.com/juw12/projects/', 'https://github.com/another/repo', 'https://example.com/']) {
     assert.equal(canOpenExternal(url), false, url);
   }
 });

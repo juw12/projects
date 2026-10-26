@@ -136,6 +136,7 @@
           <li>Token name 填「光耀同行後台」，Expiration 建議 90 天。</li>
           <li>Repository access 選 <em>Only select repositories</em> → <code>${esc(CONFIG.repo)}</code>。</li>
           <li>Permissions → Repository permissions → <em>Contents</em> 設為 <strong>Read and write</strong>。</li>
+          <li>此權限涵蓋整個 Projects 儲存庫，不限於教材資料夾；請只授予可信任的維護者。</li>
           <li>按 Generate token，複製後貼到上方。</li>
         </ol>
         <p style="margin:12px 0 4px"><strong>其他管理員</strong>：</p>
@@ -379,7 +380,7 @@
     document.getElementById('upload-progress')?.style.setProperty('width', '35%');
     const content = await fileToBase64(file);
     document.getElementById('upload-progress')?.style.setProperty('width', '60%');
-    const result = await api(`${REPO_PATH}/contents/${path.split('/').map(encodeURIComponent).join('/')}`, {
+    const result = await api(`${REPO_PATH}/contents/${CONFIG.contentPath}/${path.split('/').map(encodeURIComponent).join('/')}`, {
       method: 'PUT',
       body: {message: `Upload ${file.name} (by ${user.login})`, content, branch: CONFIG.branch}
     });
@@ -473,8 +474,8 @@
     if (!item) return;
     if (collection === 'materials' && item.kind === 'file') {
       try {
-        const file = await api(`${REPO_PATH}/contents/${item.path.split('/').map(encodeURIComponent).join('/')}?ref=${CONFIG.branch}`);
-        await api(`${REPO_PATH}/contents/${item.path.split('/').map(encodeURIComponent).join('/')}`, {method: 'DELETE', body: {message: `Delete ${item.filename} (by ${user.login})`, sha: file.sha, branch: CONFIG.branch}});
+        const file = await api(`${REPO_PATH}/contents/${CONFIG.contentPath}/${item.path.split('/').map(encodeURIComponent).join('/')}?ref=${CONFIG.branch}`);
+        await api(`${REPO_PATH}/contents/${CONFIG.contentPath}/${item.path.split('/').map(encodeURIComponent).join('/')}`, {method: 'DELETE', body: {message: `Delete ${item.filename} (by ${user.login})`, sha: file.sha, branch: CONFIG.branch}});
       } catch (error) {
         if (error.status !== 404) throw error;
       }

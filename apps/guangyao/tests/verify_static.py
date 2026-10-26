@@ -78,7 +78,7 @@ class StaticAppTests(unittest.TestCase):
         for required in ['puterSignIn', 'startAsGuest', 'mergeStates', 'puter.kv', 'guidePage', 'libraryPage', 'maybeStartTour']:
             self.assertIn(required, account)
         self.assertNotIn('<script src="https://js.puter.com', source)
-        self.assertIn('https://juwpegatron.github.io/portfolio/#projects', source)
+        self.assertIn('https://juw12.github.io/portfolio/#projects', source)
         self.assertNotIn('api.stripe.com', source)
         self.assertNotIn('supabase.co', source)
 
@@ -90,14 +90,30 @@ class StaticAppTests(unittest.TestCase):
         for required in ['permissions.push', 'sessionStorage', 'saveCatalog', 'maxFileBytes', '/contents/', 'utf8ToBase64']:
             self.assertIn(required, admin)
         catalog = (WEB / 'catalog.js').read_text()
-        self.assertIn("owner: 'juwpegatron'", catalog)
-        self.assertIn("repo: 'guangyao-content'", catalog)
+        self.assertIn("owner: 'juw12'", catalog)
+        self.assertIn("repo: 'projects'", catalog)
+        self.assertIn("contentPath: 'content/guangyao'", catalog)
+        self.assertIn("catalogPath: 'content/guangyao/catalog.json'", catalog)
         self.assertIn('cdn.jsdelivr.net/gh/', catalog)
         # No credential may ever be committed with the app.
         for path in WEB.rglob('*'):
             if path.suffix in {'.html', '.js', '.json', '.webmanifest'}:
                 content = path.read_text(encoding='utf-8')
                 self.assertIsNone(re.search(r'gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}', content), path.name)
+
+    def test_migrated_content_files_exist(self):
+        content_root = REPOSITORY / 'content' / 'guangyao'
+        catalog = json.loads((content_root / 'catalog.json').read_text(encoding='utf-8'))
+        for material in catalog.get('materials', []):
+            if material.get('kind') != 'file':
+                continue
+            path = (content_root / material['path']).resolve()
+            self.assertTrue(path.is_relative_to(content_root.resolve()))
+            self.assertTrue(path.is_file())
+            self.assertRegex(material['commit'], r'^[0-9a-f]{40}$')
+        admin = (WEB / 'admin.js').read_text(encoding='utf-8')
+        self.assertIn('${CONFIG.contentPath}/${path.split', admin)
+        self.assertIn('${CONFIG.contentPath}/${item.path.split', admin)
 
     def test_catalog_and_generated_note_status(self):
         catalog = json.loads((REPOSITORY / 'scripts/apps.json').read_text())['apps']

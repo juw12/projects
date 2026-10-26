@@ -28,7 +28,7 @@ light/dark. Every Operator artifact is produced **offline — no network, no LLM
 encrypted at rest.
 
 - Open it: `apps/sweep/web/index.html` (works from `file://` — no server).
-- Live: https://juwpegatron.github.io/projects/sweep/
+- Live: https://juw12.github.io/projects/sweep/
 - Spec: [`docs/BRIEF.md`](docs/BRIEF.md) · PRD: [`docs/Sweep-App-Plan.md`](docs/Sweep-App-Plan.md)
 - Zero deps, no network: all state lives in `localStorage`; the workspace gate
   encrypts local data with WebCrypto (PBKDF2 → AES-GCM) when available, otherwise
@@ -114,7 +114,7 @@ global render functions instead of rewriting them.
    exit `0`.
 2. Stages everything (`git add -A`).
 3. Commits with a message (yours, or a timestamped default).
-4. Pushes to `origin` (`github.com/juwpegatron/projects`).
+4. Pushes to `origin` (`github.com/juw12/projects`).
 5. Writes a note to the Obsidian vault (`Update Log/<date> <repo>.md`).
 6. Prints a JSON report: repo, branch, commit, changed count, push status, note path.
 

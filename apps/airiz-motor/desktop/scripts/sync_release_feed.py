@@ -12,8 +12,8 @@ import re
 
 REPO = Path(__file__).resolve().parents[4]
 WEB = REPO / 'apps' / 'airiz-motor' / 'web'
-API = 'https://api.github.com/repos/juwpegatron/projects'
-DOWNLOADS = 'https://github.com/juwpegatron/projects/releases/download/'
+API = 'https://api.github.com/repos/juw12/projects'
+DOWNLOADS = 'https://github.com/juw12/projects/releases/download/'
 
 
 def version_tuple(version):
@@ -123,7 +123,7 @@ def sync(tag, local_dist=None):
     }
     catalog = {
         'version': version, 'releaseDate': release_date,
-        'releasePage': 'https://github.com/juwpegatron/projects/releases/tag/' + tag,
+        'releasePage': 'https://github.com/juw12/projects/releases/tag/' + tag,
         **assets,
     }
     feed_dir.mkdir(parents=True, exist_ok=True)

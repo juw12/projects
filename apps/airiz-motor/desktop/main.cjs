@@ -275,7 +275,7 @@ async function createWindow() {
         title: 'AIRIZ Console', message: 'AIRIZ Console ' + app.getVersion(),
         detail: 'Windows desktop edition. The full interface is bundled locally.\n\nHardware control requires a compatible connected device. UI locking is not a hardware emergency stop.'
       }) },
-      { label: 'Release notes and downloads', click: () => shell.openExternal('https://github.com/juwpegatron/projects/releases/tag/airiz-desktop-v' + app.getVersion()) }
+      { label: 'Release notes and downloads', click: () => shell.openExternal('https://github.com/juw12/projects/releases/tag/airiz-desktop-v' + app.getVersion()) }
     ] }
   ]));
   await mainWindow.loadURL('airiz://app/');

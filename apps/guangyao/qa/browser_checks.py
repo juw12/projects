@@ -26,7 +26,7 @@ class DemoHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         if urlsplit(self.path).path.endswith('/sw.js') and self.release_override:
-            content = (ROOT / 'sw.js').read_text().replace("'4.0.0'", "'4.0.1-test'")
+            content = (ROOT / 'sw.js').read_text().replace("'4.0.1'", "'4.0.2-test'")
             payload = content.encode()
             self.send_response(200)
             self.send_header('Content-Type', 'text/javascript; charset=utf-8')
@@ -709,7 +709,7 @@ def pwa_and_updates(browser, base):
     page.once('dialog', lambda dialog: dialog.accept())
     with page.expect_navigation(wait_until='domcontentloaded'):
         page.locator('#update-app').click()
-    page.wait_for_function('caches.keys().then(keys => keys.some(key => key.endsWith("4.0.1-test")))')
+    page.wait_for_function('caches.keys().then(keys => keys.some(key => key.endsWith("4.0.2-test")))')
     assert shell_key not in page.evaluate('caches.keys()')
     passed('Updates wait for confirmation; approved update activates and clears only its scoped old cache')
     DemoHandler.release_override = False
@@ -792,7 +792,7 @@ def content_flows(browser, base, engine):
     rows = page.locator('.material-row')
     assert rows.count() == 1, rows.count()
     href = rows.first.locator('a').get_attribute('href')
-    assert href == 'https://cdn.jsdelivr.net/gh/juwpegatron/guangyao-content@' + 'a' * 40 + '/files/2026/11/abc-handbook.pdf', href
+    assert href == 'https://cdn.jsdelivr.net/gh/juw12/projects@' + 'a' * 40 + '/content/guangyao/files/2026/11/abc-handbook.pdf', href
     assert rows.first.locator('a').get_attribute('rel') == 'noopener noreferrer'
     passed(f'{engine}: official library hides drafts, rejects javascript: and path-traversal materials, escapes titles and links commit-pinned files')
 
@@ -956,9 +956,9 @@ class MockGitHub:
             return route.fulfill(status=401, json={'message': 'Bad credentials'})
         if path == '/user':
             return route.fulfill(json={'login': 'admin-tester', 'name': '測試管理員'})
-        if path == '/repos/juwpegatron/guangyao-content':
+        if path == '/repos/juw12/projects':
             return route.fulfill(json={'permissions': {'push': token == 'good-token'}})
-        prefix = '/repos/juwpegatron/guangyao-content/contents/'
+        prefix = '/repos/juw12/projects/contents/content/guangyao/'
         if not path.startswith(prefix):
             return route.fulfill(status=404, json={'message': 'Not Found'})
         name = unquote(path[len(prefix):])
@@ -1104,7 +1104,7 @@ def admin_flows(browser, base, engine):
     expect(page.locator('.notice.ok')).to_contain_text('已刪除')
     assert material['path'] not in github.files
     assert github.catalog['materials'] == [] and github.catalog['lessons'][0]['materials'] == []
-    assert ('DELETE', f'/repos/juwpegatron/guangyao-content/contents/{material["path"]}') in [(method, unquote(path)) for method, path in github.requests]
+    assert ('DELETE', f'/repos/juw12/projects/contents/content/guangyao/{material["path"]}') in [(method, unquote(path)) for method, path in github.requests]
     page.click('#logout')
     assert page.evaluate("sessionStorage.getItem('guangyao-admin-token') === null")
     assert not errors, errors

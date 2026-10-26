@@ -1291,7 +1291,7 @@ function shareCardCanvas() {
   context.fillText('一起學習，一起成為更好的自己。', 90, 770);
   context.font = '400 28px sans-serif';
   context.fillStyle = '#9fbaa7';
-  context.fillText('非官方示範 · juwpegatron.github.io/projects/guangyao', 90, 980);
+  context.fillText('非官方示範 · juw12.github.io/projects/guangyao', 90, 980);
   return canvas;
 }
 async function shareProgress() {

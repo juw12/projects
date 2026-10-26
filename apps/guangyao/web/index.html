@@ -1067,7 +1067,7 @@
       } else {
         content = (pages[page] || notFound)();
       }
-      document.getElementById('main').innerHTML = `${content}<footer class="footer"><span>光耀同行 · 發一光耀學習與社群平台</span><span>非官方平台 · 不處理真實付款或正式發證 · <a href="#guide">使用指南</a> · <a href="admin.html">管理員登入</a> · <a href="app-plan.html" target="_blank" rel="noopener">產品規劃 ↗</a> · <a href="https://juwpegatron.github.io/portfolio/#projects" target="_blank" rel="noopener noreferrer">開發者作品集 ↗</a></span></footer>`;
+      document.getElementById('main').innerHTML = `${content}<footer class="footer"><span>光耀同行 · 發一光耀學習與社群平台</span><span>非官方平台 · 不處理真實付款或正式發證 · <a href="#guide">使用指南</a> · <a href="admin.html">管理員登入</a> · <a href="app-plan.html" target="_blank" rel="noopener">產品規劃 ↗</a> · <a href="https://juw12.github.io/portfolio/#projects" target="_blank" rel="noopener noreferrer">開發者作品集 ↗</a></span></footer>`;
       document.querySelectorAll('.filter, .tab').forEach(element => element.setAttribute('aria-pressed', String(element.classList.contains('active'))));
       renderMobileNavigation(activePage);
       setNavigationOpen(document.getElementById('sidebar').classList.contains('open'), false);

@@ -201,6 +201,6 @@ All Vertex operations are deterministic:
 
 ## Getting Help
 
-Open the live app at `https://juwpegatron.github.io/projects/vertex/app.html`,
+Open the live app at `https://juw12.github.io/projects/vertex/app.html`,
 or run it locally by opening `apps/vertex/web/app.html` in a browser
 (no server required — Vertex works fully offline).

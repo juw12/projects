@@ -9,7 +9,7 @@
   const PENDING_REMIX_KEY = 'sweep_pending_remix_v1';
   const STUDIO_TABS = ['board', 'spec', 'handoff', 'share'];
   const HOURS_BY_COMPLEXITY = { 1: 1, 2: 2.5, 3: 5, 4: 8, 5: 13 };
-  const APP_URL = 'https://juwpegatron.github.io/projects/sweep/';
+  const APP_URL = 'https://juw12.github.io/projects/sweep/';
 
   const ui = {
     tab: 'board',
@@ -1947,7 +1947,7 @@
 
     context.fillStyle = '#7a746a';
     context.font = '500 18px ' + sans;
-    context.fillText('Free, offline idea → spec → build plan  ·  juwpegatron.github.io/projects/sweep', 70, 586);
+    context.fillText('Free, offline idea → spec → build plan  ·  juw12.github.io/projects/sweep', 70, 586);
   }
 
   function roundRect(context, x, y, width, height, radius) {

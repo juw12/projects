@@ -19,7 +19,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.workbook.defined_name import DefinedName
 from openpyxl.worksheet.datavalidation import DataValidation
 
-APP_URL = "https://juwpegatron.github.io/projects/stackup/"
+APP_URL = "https://juw12.github.io/projects/stackup/"
 FIRST_ROW = 12
 ROW_COUNT = 20
 LAST_ROW = FIRST_ROW + ROW_COUNT - 1

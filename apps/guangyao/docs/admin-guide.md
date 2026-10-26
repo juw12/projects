@@ -1,18 +1,18 @@
 # 光耀同行 · 管理員指南 (Admin guide)
 
-管理員後台：<https://juwpegatron.github.io/projects/guangyao/admin.html>
-內容庫：<https://github.com/juwpegatron/guangyao-content>（**公開**，請勿上傳個人或內部資料）
+管理員後台：<https://juw12.github.io/projects/guangyao/admin.html>
+內容庫：<https://github.com/juw12/projects/tree/main/content/guangyao>（**公開**，請勿上傳個人或內部資料）
 
 ## 1. 成為管理員（只需做一次）
 
-1. 擁有者到 `guangyao-content` → Settings → Collaborators → **Add people**，輸入對方的 GitHub 帳號。
+1. 擁有者到 `projects` → Settings → Collaborators → **Add people**，輸入對方的 GitHub 帳號。
 2. 對方到 GitHub 通知或電子郵件接受邀請。
 
 ## 2. 建立權杖 (token)
 
-**擁有者 (juwpegatron)**：建議用 fine-grained token。
+**擁有者 (juw12)**：建議用 fine-grained token。
 GitHub → Settings → Developer settings → Personal access tokens → **Fine-grained tokens** → Generate new token：
-- Repository access: *Only select repositories* → `guangyao-content`
+- Repository access: *Only select repositories* → `projects`
 - Permissions → Repository → **Contents: Read and write**
 - 設定到期日（例如 90 天）
 
@@ -42,3 +42,10 @@ GitHub → Settings → Developer settings → Personal access tokens → **Fine
 ## 5. 內容格式（給開發者）
 
 `catalog.json`（version 1）包含 `settings`、`materials`、`lessons`、`events`。檔案路徑必須在 `files/` 之下；學員端只接受 `https:` 連結與 YouTube 影片 ID，並會過濾草稿與格式錯誤的項目。檔案以固定 commit 的 jsDelivr 網址提供下載。
+
+## 儲存位置與權限
+
+目錄：`content/guangyao/catalog.json`。附件：`content/guangyao/files/`。
+目錄中的附件路徑仍以 `files/` 開頭，由應用程式加上內容資料夾前綴。
+管理員的寫入權限涵蓋整個 `juw12/projects`，不是只有內容資料夾；請只邀請可信任的維護者。
+舊內容庫的 fine-grained token 必須重新授權到 `juw12/projects`。
