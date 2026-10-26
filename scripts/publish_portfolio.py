@@ -21,7 +21,7 @@ import re
 import shutil
 import subprocess
 from datetime import date, datetime
-from html import unescape
+from html import escape, unescape
 from pathlib import Path
 
 SITE_BASE = "https://juwpegatron.github.io/projects/"
@@ -57,8 +57,12 @@ def load_apps(root=None):
 def render_card(app):
     ind = CARD_INDENT
     pid = f' data-project-id="{app["project_id"]}"' if app.get("project_id") else ""
+    anchor_id = app.get("anchor_id")
+    if anchor_id and not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]*", anchor_id):
+        raise ValueError(f"Invalid portfolio anchor: {anchor_id!r}")
+    anchor = f' id="{anchor_id}"' if anchor_id else ""
     lines = [
-        f'{ind}<article class="project-card" data-category="{app["category"]}"{pid}>',
+        f'{ind}<article class="project-card" data-category="{app["category"]}"{pid}{anchor}>',
         f'{ind}  <img src="./assets/projects/{app["image"]}" alt="{app["image_alt"]}" '
         f'class="project-card-image" loading="lazy" decoding="async">',
     ]
@@ -119,6 +123,15 @@ def render_card(app):
                 f'{ind}      <a class="project-link" href="{SITE_BASE}{app["links"][key]}" '
                 f'target="_blank" rel="noopener noreferrer">{label}</a>'
             )
+    # Optional supplementary links, including CAD packages and print notes.
+    for extra_link in app.get("extra_links", []):
+        url = extra_link["url"]
+        if not url.startswith(("https://", "http://")):
+            raise ValueError(f"Supplementary links must use HTTP(S): {url!r}")
+        lines.append(
+            f'{ind}      <a class="project-link" href="{escape(url, quote=True)}" '
+            f'target="_blank" rel="noopener noreferrer">{escape(extra_link["label"])}</a>'
+        )
     lines.append(f"{ind}    </div>")
     lines.append(f"{ind}  </div>")
     lines.append(f"{ind}</article>")
