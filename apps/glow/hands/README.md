@@ -30,6 +30,15 @@ network blocks direct links). The phone must prove it knows a secret from the QR
 before any command is passed on, and only `status`, `observe` and `act` are allowed. **Turn off old phone
 links** creates a new secret and disconnects every phone linked before.
 
+## When your PC is off
+
+- **Cloud browser:** tap **Start cloud browser** in GlowLead on your phone. It runs Glow Hands on GitHub
+  Actions for up to 20 minutes, then stops by itself.
+- **Always-on server:** run Glow Hands on a free Oracle Cloud VM (or any Linux box) with
+  `install-glow-hands-linux.sh`, then scan the QR code it prints.
+
+Setup and trade-offs: [CLOUD.md](CLOUD.md).
+
 ## Security trade-offs (please read)
 
 - All apps on `juw12.github.io` share one web origin and one browser storage. A page there (including any
