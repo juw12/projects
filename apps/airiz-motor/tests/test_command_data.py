@@ -274,7 +274,18 @@ def main():
                     r,
                 )
             )
-            if (r.startswith("/") or re.match(r"^[a-z]+://", r)) and not desktop_download:
+            mobile_download = (
+                p.name == "index.html" and (
+                    re.fullmatch(
+                        r"https://github\.com/juw12/projects/releases/download/"
+                        r"airiz-mobile-v(?P<version>\d+\.\d+\.\d+)/"
+                        r"AIRIZ-Mobile-(?P=version)-(android\.apk|ios-UNSIGNED\.ipa)", r
+                    ) or re.fullmatch(
+                        r"https://github\.com/juw12/projects/releases/tag/airiz-mobile-v\d+\.\d+\.\d+", r
+                    )
+                )
+            )
+            if (r.startswith("/") or re.match(r"^[a-z]+://", r)) and not (desktop_download or mobile_download):
                 offenders.append(f"{p.name}: {r}")
         if re.search(r"onclick\s*=", txt):
             offenders.append(f"{p.name}: inline onclick")

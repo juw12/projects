@@ -1,0 +1,4 @@
+{
+  "_note": "Public in a public repository. For private briefs use the GLOW_MISSIONS secret instead. days are UTC weekdays.",
+  "missions": []
+}
