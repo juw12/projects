@@ -490,6 +490,29 @@
    "featured": true,
    "order": 17,
    "version": "1.0.0"
+  },
+  {
+   "id": "fade",
+   "name": "Fade",
+   "category": "Apps",
+   "desc": "Book barbers, watch haircut shorts and earn commission when your short sends a booking",
+   "description": "Barber marketplace with haircut shorts: book barbers who work part-time at several shops, pay, tip and rate, follow trending barbers, shops and creators, and earn 5&ndash;10% commission by tagging them as featured or sponsored.",
+   "tags": [
+    "PWA",
+    "haircut shorts",
+    "creator commissions",
+    "Python + SQLite"
+   ],
+   "image": "fade.png",
+   "image_alt": "Fade 2.0 screens: home with trending barbers, a haircut short with a paid-partnership tag, and creator earnings, using fictional demo data",
+   "links": {
+    "app": "fade/",
+    "web": "fade/web.html",
+    "mobile": "fade/mobile.html"
+   },
+   "featured": true,
+   "order": 6,
+   "version": "2.0.0"
   }
  ]
 }
