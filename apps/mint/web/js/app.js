@@ -813,6 +813,14 @@
         buyArea = "<p class=\"note\">This is your listing.</p><a class=\"btn block\" href=\"#/kit/" + encodeURIComponent(l.id) + "\">\ud83d\udce3 Content kit</a>";
       } else if (owned) {
         buyArea = "<p class=\"okline\">\u2714 In your library</p><button class=\"btn primary block\" data-dl=\"xlsx\">\u2b07 Download .xlsx</button><button class=\"btn block\" data-dl=\"csv\">\u2b07 CSV</button>";
+      } else if (l.pendingOrder && l.pendingOrder.autoPay) {
+        var ao = l.pendingOrder;
+        buyArea = "<div class=\"orderbox\" data-autopay-order><p class=\"small\"><strong>Order " + esc(ao.ref) + "</strong> \u2014 waiting for payment</p>" +
+          "<p class=\"small\">Pay " + esc(money(ao.price, ao.currency)) + " on the seller\u2019s secure checkout. The template unlocks automatically a few seconds after you pay.</p>" +
+          (ao.payUrl ? "<a class=\"btn primary block\" href=\"" + esc(ao.payUrl) + "\" target=\"_blank\" rel=\"noopener noreferrer\">Pay now \u2197</a>" : "") +
+          "<button class=\"btn block\" data-check-order=\"" + esc(ao.id) + "\">I\u2019ve paid \u2014 check now</button>" +
+          "<button class=\"btn ghost block small\" data-cancel-order=\"" + esc(ao.id) + "\">Cancel order</button></div>";
+        pollPayment(id, ao.id);
       } else if (l.pendingOrder) {
         var po = l.pendingOrder;
         buyArea = "<div class=\"orderbox\"><p class=\"small\"><strong>Order " + esc(po.ref) + "</strong> \u2014 waiting for payment</p>" +
@@ -867,7 +875,7 @@
               } else if (NATIVE && res.paymentUrl) {
                 openExternal(res.paymentUrl);
               }
-              toast("Order " + res.order.ref + " created \u2014 pay on the seller\u2019s checkout and add the reference");
+              toast(res.order.autoPay ? "Order " + res.order.ref + " created \u2014 finish paying on the checkout; it unlocks automatically" : "Order " + res.order.ref + " created \u2014 pay on the seller\u2019s checkout and add the reference");
             }
             refreshCounts(true);
             viewItem(id, {});
@@ -875,6 +883,24 @@
             if (payWindow) {
               payWindow.close();
             }
+            toast(errorMessage(err), "bad");
+          });
+        } else if (b.dataset.checkOrder) {
+          b.disabled = true;
+          b.textContent = "Checking\u2026";
+          store.orderAction(b.dataset.checkOrder, "check").then(function (o) {
+            if (o.status === "paid") {
+              toast("Payment confirmed \u2014 it\u2019s in your library \ud83c\udf89");
+              refreshCounts(true);
+              viewItem(id, {});
+            } else {
+              b.disabled = false;
+              b.textContent = "I\u2019ve paid \u2014 check now";
+              toast("Not paid yet \u2014 finish on the checkout page, then check again");
+            }
+          }).catch(function (err) {
+            b.disabled = false;
+            b.textContent = "I\u2019ve paid \u2014 check now";
             toast(errorMessage(err), "bad");
           });
         } else if (b.hasAttribute("data-report")) {
@@ -934,6 +960,42 @@
   }
 
   // --- Library
+  // While an automatic-payment order is open on the item page, re-check it every few seconds
+  // (the buyer usually pays in another tab or app) for up to 10 minutes.
+  var pollState = { order: null, timer: null };
+  function pollPayment(listingId, orderId) {
+    if (pollState.order === orderId) {
+      return;
+    }
+    clearTimeout(pollState.timer);
+    pollState.order = orderId;
+    var started = Date.now();
+    function tick() {
+      var r = route();
+      if (pollState.order !== orderId || r.parts[0] !== "item" || r.parts[1] !== listingId || Date.now() - started > 600000) {
+        pollState.order = null;
+        return;
+      }
+      if (document.visibilityState !== "visible") {
+        pollState.timer = setTimeout(tick, 5000);
+        return;
+      }
+      store.orderAction(orderId, "check").then(function (o) {
+        if (o.status === "paid") {
+          pollState.order = null;
+          toast("Payment confirmed \u2014 it\u2019s in your library \ud83c\udf89");
+          refreshCounts(true);
+          viewItem(listingId, {});
+        } else {
+          pollState.timer = setTimeout(tick, 6000);
+        }
+      }).catch(function () {
+        pollState.timer = setTimeout(tick, 15000);
+      });
+    }
+    pollState.timer = setTimeout(tick, 6000);
+  }
+
   function viewLibrary() {
     if (!user) {
       return loginWall("Your library", "Templates you buy or claim appear here.");
@@ -949,8 +1011,9 @@
         return "<div class=\"row\"><div><strong>" + esc(o.title) + "</strong> <span class=\"pill" + (o.status === "pending" ? " warn" : "") + "\">" + (o.status === "pending" ? "waiting for seller" : o.status) + "</span>" +
           "<div class=\"muted small\">" + esc(o.ref) + " \u00b7 " + esc(money(o.price, o.currency)) + " \u00b7 " + esc(o.sellerName) + "</div></div>" +
           "<div class=\"rowact\">" + (o.paymentUrl ? "<a class=\"btn small primary\" href=\"" + esc(o.paymentUrl) + "\" target=\"_blank\" rel=\"noopener noreferrer\">Pay \u2197</a>" : "") +
+          (o.autoPay && o.status === "pending" ? "<button class=\"btn small\" data-libcheck=\"" + esc(o.id) + "\">Check payment</button>" : "") +
           "<a class=\"btn small\" href=\"#/item/" + encodeURIComponent(o.listingId) + "\">View</a></div></div>";
-      }).join("") + "</div><p class=\"muted small\">Paid already? The seller confirms your payment using the reference \u2014 the template then appears below.</p>";
+      }).join("") + "</div><p class=\"muted small\">Paid already? Instant-checkout orders unlock automatically (or tap Check payment); for payment-link orders the seller confirms using the reference.</p>";
     }).catch(function () {});
     store.library().then(function (items) {
       var el = document.getElementById("lib");
@@ -964,6 +1027,19 @@
           "<button class=\"btn small\" data-lib=\"remix\" data-i=\"" + i + "\" title=\"Copy into the Studio for personal edits\">Customize</button><a class=\"btn small ghost\" href=\"#/item/" + encodeURIComponent(it.listingId) + "\">View</a></div></div>";
       }).join("") + "</div><p class=\"muted small\">Purchased templates are licensed for your own use. Re-selling someone else\u2019s template is not allowed.</p>";
       view.onclick = function (e) {
+        var c = e.target.closest("button[data-libcheck]");
+        if (c) {
+          store.orderAction(c.dataset.libcheck, "check").then(function (o) {
+            toast(o.status === "paid" ? "Payment confirmed \ud83c\udf89" : "Not paid yet");
+            if (o.status === "paid") {
+              refreshCounts(true);
+              viewLibrary();
+            }
+          }).catch(function (err) {
+            toast(errorMessage(err), "bad");
+          });
+          return;
+        }
         var b = e.target.closest("button[data-lib]");
         if (!b) {
           return;
@@ -1021,7 +1097,7 @@
           "<div class=\"muted small\">" + esc(p.title) + " \u00b7 " + esc(p.ref) + " \u00b7 " + (p.affiliatePayout ? "pay to: " + esc(p.affiliatePayout) : "affiliate hasn\u2019t added payout details yet") + "</div></div>" +
           (p.commissionPaid ? "" : "<div class=\"rowact\"><button class=\"btn small\" data-order=\"" + esc(p.id) + "\" data-act=\"commission-paid\">Mark paid</button></div>") + "</div>";
       }).join("") + "</div>" + (owed.length ? "" : "") : "";
-      document.getElementById("sellBody").innerHTML = "<div class=\"kpis\">" + kpis + "</div>" + pendingHtml +
+      document.getElementById("sellBody").innerHTML = "<div class=\"kpis\">" + kpis + "</div>" + autoPayPanel() + pendingHtml +
         "<h2>Listings</h2>" + (s.listings.length ? "<div class=\"list\">" + s.listings.map(function (l) {
           return "<div class=\"row\"><div><strong>" + esc(l.title) + "</strong> <span class=\"pill " + (l.status === "live" ? "on" : "") + "\">" + l.status + "</span><div class=\"muted small\">" + esc(priceLabel(l)) + " \u00b7 " + l.sales + " sold \u00b7 affiliate " + l.commissionPct + "% \u00b7 net " + esc(money(l.net, l.currency)) + "</div></div>" +
             "<div class=\"rowact\"><a class=\"btn small\" href=\"#/item/" + encodeURIComponent(l.id) + "\">View</a><a class=\"btn small\" href=\"#/kit/" + encodeURIComponent(l.id) + "\">Content kit</a>" +
@@ -1041,6 +1117,17 @@
       view.onclick = function (e) {
         var b = e.target.closest("button");
         if (!b) {
+          return;
+        }
+        if (b.hasAttribute("data-paydisconnect")) {
+          if (window.confirm("Turn off automatic payments? Listings without a payment link stop accepting new orders.")) {
+            store.disconnectPayments().then(function () {
+              toast("Automatic payments turned off");
+              viewSell();
+            }).catch(function (err) {
+              toast(errorMessage(err), "bad");
+            });
+          }
           return;
         }
         if (b.dataset.order) {
@@ -1074,6 +1161,21 @@
       };
       view.onsubmit = function (e) {
         var f = e.target;
+        if (f.hasAttribute("data-payconnect")) {
+          e.preventDefault();
+          var btn = f.querySelector("button[type=submit]");
+          btn.disabled = true;
+          btn.textContent = "Checking the key\u2026";
+          store.connectPayments(f.provider.value, f.secretKey.value.trim()).then(function (res) {
+            toast(res.account.label + " connected \u2014 orders now unlock automatically");
+            viewSell();
+          }).catch(function (err) {
+            btn.disabled = false;
+            btn.textContent = "Connect";
+            toast(errorMessage(err), "bad");
+          });
+          return;
+        }
         if (!f.hasAttribute("data-editform")) {
           return;
         }
@@ -1092,6 +1194,31 @@
     }).catch(function (err) {
       document.getElementById("sellBody").innerHTML = "<p class=\"bad\">" + esc(errorMessage(err)) + "</p>";
     });
+  }
+
+  function autoPayPanel() {
+    if (store.mode !== "cloud" || !store.autoPayEnabled) {
+      return "";
+    }
+    var acc = store.autoPay;
+    if (acc) {
+      return "<div class=\"panel autopay on\" data-autopay><h2>\u26a1 Automatic payments: " + esc(acc.label) + (acc.sandbox ? " <span class=\"pill warn\">test mode</span>" : " <span class=\"pill on\">live</span>") + "</h2>" +
+        "<p class=\"small\">Buyers pay on your " + esc(acc.label) + " checkout (" + esc(acc.methods) + "). Mint checks the payment with " + esc(acc.label) + " and unlocks the file instantly \u2014 nothing to confirm by hand. Money goes straight to your account." +
+        (acc.currencies ? " Works for listings in " + esc(acc.currencies.join(", ")) + "; other listings keep using your payment link." : "") + "</p>" +
+        "<p class=\"muted small\">Key " + esc(acc.keyHint) + " \u00b7 stored encrypted, used only to create checkouts and read their status.</p>" +
+        "<button class=\"btn small ghost danger\" data-paydisconnect>Disconnect</button></div>";
+    }
+    var providers = store.payProviders || [];
+    return "<details class=\"panel autopay\" data-autopay><summary><strong>\u26a1 Get paid automatically</strong> <span class=\"muted small\">\u2014 QRIS, e-wallets, VA and cards; files unlock the moment buyers pay</span></summary>" +
+      "<p class=\"small\">Connect your own payment account. Buyers pay on its secure checkout, Mint confirms the payment directly with the provider and unlocks the template instantly. The money goes to you, not to Mint.</p>" +
+      "<form data-payconnect><div class=\"two\"><label>Provider<select name=\"provider\">" + providers.map(function (p) {
+        return "<option value=\"" + esc(p.id) + "\">" + esc(p.label) + " \u2014 " + esc(p.methods) + "</option>";
+      }).join("") + "</select></label>" +
+      "<label>Secret / server key<input name=\"secretKey\" required autocomplete=\"off\" spellcheck=\"false\" placeholder=\"Mid-server-\u2026 \u00b7 xnd_production_\u2026 \u00b7 sk_live_\u2026\"></label></div>" +
+      "<ul class=\"muted small\">" + providers.map(function (p) {
+        return "<li><strong>" + esc(p.label) + ":</strong> " + esc(p.keyHelp) + (p.currencies ? " (" + esc(p.currencies.join(", ")) + ")" : " (most currencies)") + "</li>";
+      }).join("") + "<li>Try it first with a sandbox / test key \u2014 Mint shows \u201ctest mode\u201d until you switch to a live key.</li></ul>" +
+      "<button class=\"btn primary\" type=\"submit\">Connect</button></form></details>";
   }
 
   // --- Publish
@@ -1115,7 +1242,7 @@
         }).join("") + "</select></label><label>Tags (comma separated)<input name=\"tags\" placeholder=\"budget, finance, rupiah\"></label></div>" +
         "<div class=\"two\"><label>Price (" + spec.currency + ") \u2014 0 = free<input name=\"price\" type=\"number\" min=\"0\" step=\"any\" value=\"" + suggested + "\"></label>" +
         "<label>Affiliate commission: <output id=\"commOut\">25%</output><input name=\"commission\" type=\"range\" min=\"0\" max=\"50\" step=\"5\" value=\"25\"></label></div>" +
-        "<label>Your payment link <span class=\"muted small\">(required for paid templates)</span><input name=\"paymentUrl\" type=\"url\" placeholder=\"https://lynk.id/\u2026 \u00b7 saweria.co/\u2026 \u00b7 Stripe/PayPal/Gumroad link\"></label>" +
+        "<label>Your payment link <span class=\"muted small\">" + (store.autoPay && (!store.autoPay.currencies || store.autoPay.currencies.indexOf(spec.currency) !== -1) ? "(optional \u2014 automatic payments via " + esc(store.autoPay.label) + " are on)" : "(required for paid templates \u2014 or turn on automatic payments under Sell)") + "</span><input name=\"paymentUrl\" type=\"url\" placeholder=\"https://lynk.id/\u2026 \u00b7 saweria.co/\u2026 \u00b7 Stripe/PayPal/Gumroad link\"></label>" +
         "<p class=\"muted small\">Buyers pay you directly there and add their order reference; you confirm in your dashboard and they get the file. Mint never holds your money.</p>" +
         "<p class=\"muted small\">Platform fee " + store.feePct + "%. Example on a sale of <span id=\"exPrice\"></span>: affiliate gets <span id=\"exAff\"></span>, you keep <span id=\"exNet\"></span> (or <span id=\"exNet2\"></span> without an affiliate).</p>" +
         "<button class=\"btn primary\" type=\"submit\">\ud83d\ude80 Publish to market</button></form>" +
@@ -1453,6 +1580,89 @@
     };
   }
 
+  function pushSupported() {
+    return !NATIVE && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  }
+
+  function urlBase64ToBytes(text) {
+    var s = text.replace(/-/g, "+").replace(/_/g, "/");
+    var raw = atob(s + "===".slice((s.length + 3) % 4));
+    var out = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i += 1) {
+      out[i] = raw.charCodeAt(i);
+    }
+    return out;
+  }
+
+  function notificationsPanel() {
+    var push;
+    if (NATIVE) {
+      push = "<p class=\"muted small\">Phone notifications aren\u2019t available inside the Android app yet. Open Mint in Chrome (or install it from Chrome) and switch them on there.</p>";
+    } else if (!store.push) {
+      push = "<p class=\"muted small\">Push notifications aren\u2019t switched on for this Mint server yet.</p>";
+    } else if (!pushSupported()) {
+      push = "<p class=\"muted small\">This browser can\u2019t show notifications. On iPhone, add Mint to your Home Screen first (iOS 16.4+), then turn them on from the Home Screen app.</p>";
+    } else {
+      push = "<div id=\"pushState\" class=\"small\">Checking this device\u2026</div>";
+    }
+    var mail = store.email ?
+      "<label class=\"checkline\"><input type=\"checkbox\" data-notify-email" + (store.notifyEmail ? " checked" : "") + "> Email me about orders, payments and commissions</label>" :
+      "<p class=\"muted small\">Email notifications will appear here once Mint\u2019s email sender is set up.</p>";
+    return "<div class=\"panel\" data-notify><h2>\ud83d\udd14 Notifications</h2><p class=\"muted small\">New orders to confirm, payments received, templates unlocked and commissions paid.</p>" + push + mail + "</div>";
+  }
+
+  function refreshPushState() {
+    var el = document.getElementById("pushState");
+    if (!el) {
+      return;
+    }
+    navigator.serviceWorker.ready.then(function (reg) {
+      return reg.pushManager.getSubscription();
+    }).then(function (sub) {
+      if (!document.getElementById("pushState")) {
+        return;
+      }
+      if (Notification.permission === "denied") {
+        el.innerHTML = "Notifications are blocked for Mint in this browser\u2019s site settings.";
+      } else if (sub) {
+        el.innerHTML = "\u2714 On for this device. <button class=\"btn small ghost\" data-push-off>Turn off</button>";
+      } else {
+        el.innerHTML = "<button class=\"btn small primary\" data-push-on>Turn on notifications on this device</button>";
+      }
+    }).catch(function () {
+      el.innerHTML = "<button class=\"btn small primary\" data-push-on>Turn on notifications on this device</button>";
+    });
+  }
+
+  function enablePush() {
+    return Notification.requestPermission().then(function (permission) {
+      if (permission !== "granted") {
+        throw new Error("Notifications were not allowed");
+      }
+      return navigator.serviceWorker.ready;
+    }).then(function (reg) {
+      return reg.pushManager.getSubscription().then(function (existing) {
+        return existing || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToBytes(store.vapidPublicKey) });
+      });
+    }).then(function (sub) {
+      return store.pushSubscribe(sub.toJSON(), true);
+    });
+  }
+
+  function disablePush() {
+    return navigator.serviceWorker.ready.then(function (reg) {
+      return reg.pushManager.getSubscription();
+    }).then(function (sub) {
+      if (!sub) {
+        return null;
+      }
+      var endpoint = sub.endpoint;
+      return sub.unsubscribe().then(function () {
+        return store.pushUnsubscribe(endpoint);
+      });
+    });
+  }
+
   function securityPanels() {
     var codeText = store.hasRecoveryCode ?
       "You have a recovery code. Lost it? Make a new one \u2014 the old one stops working." :
@@ -1606,7 +1816,7 @@
       "<form class=\"panel\" data-profile><h2>Profile & payouts</h2><label>Display name<input name=\"name\" maxlength=\"60\" required value=\"" + esc(user.name) + "\"></label>" +
       "<label>Affiliate payout details<input name=\"payout\" maxlength=\"300\" value=\"" + esc(user.payoutInfo || "") + "\" placeholder=\"BCA 1234567 a.n. Name \u00b7 GoPay 0812\u2026 \u00b7 PayPal email\"></label>" +
       "<button class=\"btn\" type=\"submit\">Save</button></form>" +
-      (store.mode === "cloud" ? securityPanels() : "") +
+      (store.mode === "cloud" ? notificationsPanel() + securityPanels() : "") +
       (NATIVE ? "" : "<div class=\"panel\"><h2>\ud83d\udcf2 Mint on your phone</h2><p class=\"muted small\">Android app, iPhone home-screen app, or install from your browser.</p><a class=\"btn\" href=\"#/install\">Get the app</a></div>") +
       "<form class=\"panel\" data-ai><h2>Advanced: your own AI model</h2><p class=\"muted small\">Mint AI is built in. If you prefer your own OpenAI-compatible model, add it here \u2014 the key stays in this browser and is sent only to that endpoint.</p>" +
       "<label>Endpoint<input name=\"endpoint\" placeholder=\"https://api.openai.com/v1\" value=\"" + esc(cfg.endpoint || "") + "\"></label>" +
@@ -1615,6 +1825,26 @@
     view.onclick = function (e) {
       var b = e.target.closest("button");
       if (!b) {
+        return;
+      }
+      if (b.hasAttribute("data-push-on")) {
+        b.disabled = true;
+        enablePush().then(function () {
+          toast("Notifications on \u2014 a test notification is on its way");
+          refreshPushState();
+        }).catch(function (err) {
+          b.disabled = false;
+          toast(errorMessage(err), "bad");
+        });
+        return;
+      }
+      if (b.hasAttribute("data-push-off")) {
+        disablePush().then(function () {
+          toast("Notifications off for this device");
+          refreshPushState();
+        }).catch(function (err) {
+          toast(errorMessage(err), "bad");
+        });
         return;
       }
       if (b.hasAttribute("data-logout")) {
@@ -1629,6 +1859,16 @@
           user = null;
           renderHeader();
           go("#/");
+        });
+      }
+    };
+    refreshPushState();
+    view.onchange = function (e) {
+      if (e.target.hasAttribute("data-notify-email")) {
+        store.setNotifyEmail(e.target.checked).then(function (d) {
+          toast(d.notifyEmail ? "Email notifications on" : "Email notifications off");
+        }).catch(function (err) {
+          toast(errorMessage(err), "bad");
         });
       }
     };

@@ -3,6 +3,8 @@
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import crypto from "node:crypto";
+import { startMockServices, VALID_KEYS } from "./mock_services.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 await import(path.join(here, "../../web/js/core.js"));
@@ -11,6 +13,69 @@ const Core = globalThis.MintCore;
 const BASE = (process.argv[2] || "http://127.0.0.1:8787").replace(/\/$/, "");
 const ORIGIN = "http://127.0.0.1:48714";
 let passed = 0;
+const mock = await startMockServices(8799);
+
+// A fake browser push subscription (P-256 key + auth secret) so the test can decrypt what Mint sends.
+function fakeSubscription(name) {
+  const ecdh = crypto.createECDH("prime256v1");
+  ecdh.generateKeys();
+  const auth = crypto.randomBytes(16);
+  return {
+    ecdh,
+    auth,
+    json: {
+      endpoint: "http://127.0.0.1:8799/push/" + name,
+      keys: { p256dh: ecdh.getPublicKey().toString("base64url"), auth: auth.toString("base64url") },
+    },
+  };
+}
+
+// RFC 8291 decryption + RFC 8292 VAPID check of one captured push.
+function openPush(capture, sub, vapidPublicKey) {
+  const auth = capture.headers.authorization || "";
+  const m = auth.match(/^vapid t=([^,]+), k=(.+)$/);
+  assert.ok(m, "VAPID Authorization header");
+  assert.equal(m[2], vapidPublicKey);
+  const [h, c, s] = m[1].split(".");
+  const pub = Buffer.from(vapidPublicKey, "base64url");
+  const key = crypto.createPublicKey({
+    key: { kty: "EC", crv: "P-256", x: pub.subarray(1, 33).toString("base64url"), y: pub.subarray(33, 65).toString("base64url") },
+    format: "jwk",
+  });
+  assert.ok(crypto.verify("sha256", Buffer.from(h + "." + c), { key, dsaEncoding: "ieee-p1363" }, Buffer.from(s, "base64url")), "VAPID JWT signature");
+  const claims = JSON.parse(Buffer.from(c, "base64url").toString());
+  assert.equal(claims.aud, "http://127.0.0.1:8799");
+  assert.equal(capture.headers["content-encoding"], "aes128gcm");
+  const body = capture.body;
+  const salt = body.subarray(0, 16);
+  const idlen = body[20];
+  const asPublic = body.subarray(21, 21 + idlen);
+  const ciphertext = body.subarray(21 + idlen);
+  const uaPublic = sub.ecdh.getPublicKey();
+  const secret = sub.ecdh.computeSecret(asPublic);
+  const info = Buffer.concat([Buffer.from("WebPush: info\0"), uaPublic, asPublic]);
+  const ikm = Buffer.from(crypto.hkdfSync("sha256", secret, sub.auth, info, 32));
+  const cek = Buffer.from(crypto.hkdfSync("sha256", ikm, salt, Buffer.from("Content-Encoding: aes128gcm\0"), 16));
+  const nonce = Buffer.from(crypto.hkdfSync("sha256", ikm, salt, Buffer.from("Content-Encoding: nonce\0"), 12));
+  const decipher = crypto.createDecipheriv("aes-128-gcm", cek, nonce);
+  decipher.setAuthTag(ciphertext.subarray(ciphertext.length - 16));
+  const plain = Buffer.concat([decipher.update(ciphertext.subarray(0, ciphertext.length - 16)), decipher.final()]);
+  assert.equal(plain[plain.length - 1], 2, "last-record padding delimiter");
+  return JSON.parse(plain.subarray(0, plain.length - 1).toString());
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function waitFor(fn, label, timeout = 5000) {
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    const value = fn();
+    if (value) {
+      return value;
+    }
+    await sleep(100);
+  }
+  throw new Error("timed out waiting for " + label);
+}
 
 function ok(name) {
   passed += 1;
@@ -354,6 +419,140 @@ r = await api("GET", "library", { token: buyer2.token });
 assert.ok(r.data.items.some((i) => i.listingId === leaverListing.id || i.id === leaverListing.id || i.title === "Leaver freebie"));
 ok("delete account: login gone, listings removed, buyers keep their copy");
 
+// ---- notifications: Web Push subscriptions (decrypted and signature-checked here) + email
+r = await api("GET", "health");
+assert.equal(r.data.push, true);
+assert.equal(r.data.email, true);
+assert.equal(r.data.autoPay, true);
+const vapidKey = r.data.vapidPublicKey;
+assert.equal(Buffer.from(vapidKey, "base64url").length, 65);
+const sellerSub = fakeSubscription("seller");
+const buyer2Sub = fakeSubscription("buyer2");
+const affSub = fakeSubscription("aff");
+r = await api("POST", "push/subscribe", { token: seller.token, body: { subscription: { endpoint: "https://x.example/p", keys: { p256dh: "bad", auth: "bad" } } } });
+assert.equal(r.status, 400);
+r = await api("POST", "push/subscribe", { token: seller.token, body: { subscription: sellerSub.json, test: true } });
+assert.equal(r.status, 200, JSON.stringify(r.data));
+assert.equal(r.data.devices, 1);
+let pushed = await waitFor(() => mock.state.pushes.find((p) => p.endpoint.endsWith("/push/seller")), "welcome push");
+let message = openPush(pushed, sellerSub, vapidKey);
+assert.match(message.title, /notifications are on/);
+await api("POST", "push/subscribe", { token: buyer2.token, body: { subscription: buyer2Sub.json } });
+await api("POST", "push/subscribe", { token: affiliate.token, body: { subscription: affSub.json } });
+r = await api("GET", "me", { token: seller.token });
+assert.equal(r.data.pushDevices, 1);
+assert.equal(r.data.notifyEmail, true);
+ok("push subscribe: invalid rejected, VAPID-signed aes128gcm push decrypts on the device side");
+
+mock.state.pushes.length = 0;
+mock.state.emails.length = 0;
+r = await api("POST", `listings/${listing.id}/order`, { token: buyer2.token, body: {} });
+const manualOrder = r.data.order;
+pushed = await waitFor(() => mock.state.pushes.find((p) => p.endpoint.endsWith("/push/seller")), "new-order push");
+message = openPush(pushed, sellerSub, vapidKey);
+assert.equal(message.title, "New order " + manualOrder.ref);
+assert.match(message.url, /#\/sell$/);
+let mail = await waitFor(() => mock.state.emails.find((e) => e.to[0] === email("seller")), "new-order email");
+assert.equal(mail.subject, "New order " + manualOrder.ref);
+await api("POST", `orders/${manualOrder.id}/confirm`, { token: seller.token, body: {} });
+pushed = await waitFor(() => mock.state.pushes.find((p) => p.endpoint.endsWith("/push/buyer2")), "paid push");
+message = openPush(pushed, buyer2Sub, vapidKey);
+assert.match(message.title, /^Ready to download/);
+r = await api("POST", "me/notifications", { token: buyer2.token, body: { email: false } });
+assert.equal(r.data.notifyEmail, false);
+ok("seller is notified of new orders (push + email), buyer when payment is confirmed; email opt-out saved");
+
+// ---- automatic payments on the seller's own provider account
+r = await api("GET", "me/payments", { token: seller.token });
+assert.equal(r.data.enabled, true);
+assert.equal(r.data.account, null);
+r = await api("POST", "me/payments", { token: seller.token, body: { provider: "midtrans", secretKey: "not-a-key" } });
+assert.equal(r.status, 400);
+r = await api("POST", "me/payments", { token: seller.token, body: { provider: "midtrans", secretKey: "SB-Mid-server-wrong-key-000000" } });
+assert.equal(r.status, 400);
+assert.match(r.data.error, /rejected/);
+r = await api("POST", "me/payments", { token: seller.token, body: { provider: "midtrans", secretKey: VALID_KEYS.midtrans } });
+assert.equal(r.status, 200, JSON.stringify(r.data));
+assert.equal(r.data.account.provider, "midtrans");
+assert.equal(r.data.account.sandbox, true);
+assert.equal(r.data.account.keyHint, "…" + VALID_KEYS.midtrans.slice(-4));
+assert.ok(!JSON.stringify(r.data).includes(VALID_KEYS.midtrans), "secret key is never sent back");
+ok("connect Midtrans: format check, key validated with the provider, only a hint is returned");
+
+const autoSpec = Core.generate("expense tracker in rupiah").spec;
+r = await api("POST", "listings", {
+  token: seller.token,
+  body: { title: "Auto Pay Tracker", description: "Instant unlock", category: "Finance", tags: [], price: 25000, currency: "IDR", commissionPct: 20, spec: autoSpec },
+});
+assert.equal(r.status, 201, "paid listing without a payment link is allowed once automatic payments are on: " + JSON.stringify(r.data));
+const autoListing = r.data.listing;
+assert.equal(autoListing.autoPay, "midtrans");
+r = await api("GET", `listings/${autoListing.id}`);
+assert.match(r.data.listing.paymentHost, /Midtrans/);
+mock.state.pushes.length = 0;
+r = await api("POST", `listings/${autoListing.id}/order`, { token: buyer2.token, body: { returnUrl: "https://evil.example/steal" } });
+assert.equal(r.status, 201, JSON.stringify(r.data));
+const autoOrder = r.data.order;
+assert.equal(autoOrder.autoPay, "midtrans");
+assert.match(r.data.paymentUrl, /\/checkout\/midtrans\//);
+const tx = mock.state.midtrans[autoOrder.id];
+assert.equal(tx.gross, 25000);
+assert.equal(tx.body.callbacks.finish, "http://127.0.0.1:48714/app.html#/item/" + autoListing.id, "return URL stays on the app (no open redirect)");
+assert.equal(mock.state.notifyUrls[autoOrder.id], BASE + "/api/pay/notify/midtrans");
+r = await api("POST", `orders/${autoOrder.id}/check`, { token: buyer2.token, body: {} });
+assert.equal(r.data.order.status, "pending");
+// A forged "settlement" webhook does nothing: Mint re-checks with the provider API.
+await fetch(BASE + "/api/pay/notify/midtrans", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ order_id: autoOrder.id, transaction_status: "settlement" }) });
+r = await api("GET", "orders", { token: buyer2.token });
+assert.equal(r.data.orders.find((o) => o.id === autoOrder.id).status, "pending", "forged webhook is ignored");
+// The buyer pays on Midtrans; Midtrans calls the notification URL.
+mock.pay("midtrans", autoOrder.id);
+await fetch(mock.state.notifyUrls[autoOrder.id], { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ order_id: autoOrder.id, transaction_status: "settlement", status_code: "200", gross_amount: "25000.00" }) });
+r = await api("GET", "library", { token: buyer2.token });
+assert.ok(r.data.items.some((i) => i.listingId === autoListing.id), "unlocked without the seller doing anything");
+pushed = await waitFor(() => mock.state.pushes.find((p) => p.endpoint.endsWith("/push/seller") && openPush(p, sellerSub, vapidKey).title.startsWith("Sold")), "sold push");
+r = await api("GET", "seller", { token: seller.token });
+assert.ok(!r.data.pending.some((p) => p.id === autoOrder.id), "nothing left for the seller to confirm");
+ok("Midtrans: checkout on the seller's account, forged webhook ignored, real payment unlocks instantly + seller notified");
+
+r = await api("POST", "me/payments/disconnect", { token: seller.token, body: {} });
+assert.equal(r.data.account, null);
+r = await api("POST", "me/payments", { token: seller.token, body: { provider: "xendit", secretKey: VALID_KEYS.xendit } });
+assert.equal(r.status, 200, JSON.stringify(r.data));
+r = await api("POST", `listings/${autoListing.id}/order`, { token: affiliate.token, body: {} });
+const xenditOrder = r.data.order;
+assert.equal(xenditOrder.autoPay, "xendit");
+const invoiceId = Object.keys(mock.state.xendit).find((k) => mock.state.xendit[k].external_id === xenditOrder.id);
+assert.equal(mock.state.xendit[invoiceId].amount, 25000);
+mock.pay("xendit", invoiceId);
+r = await api("POST", `orders/${xenditOrder.id}/check`, { token: affiliate.token, body: {} });
+assert.equal(r.data.order.status, "paid");
+ok("Xendit: invoice on the seller's account, buyer's 'check payment' unlocks after the provider says PAID");
+
+r = await api("POST", "me/payments", { token: seller.token, body: { provider: "stripe", secretKey: VALID_KEYS.stripe } });
+assert.equal(r.data.account.provider, "stripe");
+r = await api("POST", "listings", {
+  token: seller.token,
+  body: { title: "Stripe Planner", description: "USD", category: "Personal", tags: [], price: 9.5, currency: "USD", commissionPct: 0, spec: autoSpec },
+});
+const usdListing = r.data.listing;
+r = await api("POST", `listings/${usdListing.id}/order`, { token: buyer2.token, body: {} });
+const stripeOrder = r.data.order;
+const sessionId = Object.keys(mock.state.stripe).find((k) => mock.state.stripe[k].client_reference_id === stripeOrder.id);
+assert.equal(mock.state.stripe[sessionId].amount_total, 950);
+assert.equal(mock.state.stripe[sessionId].currency, "usd");
+mock.pay("stripe", sessionId);
+r = await api("GET", `listings/${usdListing.id}`, { token: buyer2.token });
+assert.equal(r.data.listing.owned, true, "returning to the item page re-checks and unlocks");
+ok("Stripe: Checkout Session in cents, returning to the listing auto-confirms payment");
+
+r = await api("POST", "me/payments/disconnect", { token: seller.token, body: {} });
+r = await api("POST", `listings/${usdListing.id}/order`, { token: affiliate.token, body: {} });
+assert.equal(r.status, 400, "no payment method left → orders refused");
+r = await api("POST", `listings/${usdListing.id}/republish`, { token: seller.token, body: {} });
+assert.equal(r.status, 400);
+ok("disconnecting automatic payments stops new orders on listings without a payment link");
+
 // ---- AI endpoint (no binding locally → 503; live → spec)
 r = await api("POST", "ai/template", { token: buyer.token, body: { prompt: "habit tracker" } });
 assert.ok([200, 503, 429].includes(r.status), "ai status " + r.status);
@@ -382,4 +581,5 @@ for (let i = 0; i < 12; i += 1) {
 assert.ok(limited);
 ok("login attempts are rate limited");
 
+await mock.close();
 console.log(`\nPASSED ${passed} checks against ${BASE}`);

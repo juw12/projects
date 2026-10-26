@@ -41,15 +41,18 @@ promote with a generated content kit → buyer pays the seller → file unlocks.
 - **Live:**
   - the PWA on GitHub Pages, plus an Android app (Capacitor shell, `Mint-android.apk` on the
     `mint-android` release) and an iPhone home-screen app (Add to Home Screen);
-  - the API on Cloudflare: Worker plus a SQLite Durable Object, Workers AI (deploy pending, see README);
+  - the API on Cloudflare (https://mint-api.juw12.workers.dev): Worker plus a SQLite Durable Object, Workers AI;
   - accounts that work across devices, with recovery codes, password change and account deletion;
   - the marketplace, orders (expire after 14 days), affiliate ledger and payouts;
+  - automatic payments on the seller's own Midtrans / Xendit / Stripe account (instant unlock);
+  - Web Push notifications (VAPID) and optional Resend email;
   - formula-free previews of paid templates, listing reports with auto-hide, notification badges;
   - Mint AI generation, the content kit, 7 guides, Privacy and Terms pages.
 - **Verified:**
-  - 23 end-to-end API checks on local `workerd` (incl. recovery, password change, delete, reports,
-    counts, preview stripping).
-  - A 40-check real-browser flow with separate seller, affiliate and buyer profiles: publish →
+  - 30 end-to-end API checks on local `workerd` with provider/push/email mocks (incl. recovery, deletion,
+    reports, preview stripping, forged-webhook rejection, Midtrans/Xendit/Stripe unlocks, decrypted pushes).
+  - Live: real Midtrans/Xendit/Stripe APIs reached for key validation; push sent through FCM.
+  - A 47-check real-browser flow (incl. connecting Midtrans and an instant-checkout purchase) with separate seller, affiliate and buyer profiles: publish →
     preview + report → affiliate link → order → badges → confirm → .xlsx download → review → ledger
     → commission paid → change password → forgot password with recovery code → delete account →
     install page → offline fallback.
@@ -58,10 +61,8 @@ promote with a generated content kit → buyer pays the seller → file unlocks.
 
 ## Next decisions
 
-1. **Automatic payments.** Midtrans or Xendit (QRIS, VA, e-wallet) or Stripe Connect. Wire the
-   provider webhook to the order-confirm path for instant unlock, and Mint can then collect a fee.
-2. **Fee.** Stay at 0% to attract sellers, or turn on 5–10% once payments are automatic.
-3. **Email / push.** Add a provider (Resend, Mailchannels) for order notifications and email-based
-   recovery; badges cover in-app notice today.
+1. **First real sale with automatic payments** (a seller connects a live Midtrans/Xendit key).
+2. **Fee.** Stay at 0%, or move to a marketplace product (xenPlatform / Stripe Connect) to take 5–10%.
+3. **Email.** Add a Resend key + verified domain to switch on order emails.
 4. **Store listings.** Google Play ($25 once) and the App Store (Apple Developer, $99/year + Xcode).
 5. **Custom domain** and a lawyer review of the Privacy and Terms pages before marketing.
