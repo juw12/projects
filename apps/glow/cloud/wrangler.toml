@@ -1,0 +1,10 @@
+name = "glow-cloud"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+[browser]
+binding = "BROWSER"
+
+[vars]
+ALLOWED_ORIGINS = "https://juw12.github.io,https://localhost,capacitor://localhost"
