@@ -425,9 +425,18 @@
     // Comments + reports on shorts and profiles
     // -----------------------------------------------------------------------
     let COMMENTS = null;
+    const LOCAL_BLOCKED_WORDS = ['nigger', 'faggot', 'kill yourself', 'kys', 'child porn', 'cp link'];
+    const myId = () => S().user.pk || S().user.id;
+
+    // Comments/reports work in all three modes: Fade Network (relays), a Fade server, or the offline demo.
+    function commentsFor(shortId) {
+      if (API.net) return N().commentsFor(shortId);
+      if (API.on) return (S().comments || []).filter((c) => c.shortId === shortId);
+      return (S().localComments || []).filter((c) => c.shortId === shortId);
+    }
 
     function commentsHTML() {
-      const list = N().commentsFor(COMMENTS.shortId);
+      const list = commentsFor(COMMENTS.shortId);
       return `
         <div class="sheet-head"><h2 class="grow">Comments · ${list.length}</h2><button class="iconbtn" data-act="closeSheet">${icon('x')}</button></div>
         <div class="mt12">${list.map((c) => `
@@ -453,13 +462,15 @@
     }
 
     function reelButtons(sh) {
+      const own = sh.byMe || (sh.ownerPk && sh.ownerPk === myId());
+      const count = API.on ? sh.comments || 0 : commentsFor(sh.id).length;
       return `
-        <button data-act="netComments" data-sid="${sh.id}" aria-label="Comments"><span class="rb">${icon('chat', 22)}</span><span class="cnt">${compact(sh.comments || 0)}</span></button>
-        ${sh.ownerPk !== S().user.pk ? `<button data-act="netReport" data-target="${sh.id}" data-pk="${sh.ownerPk || ''}" aria-label="Report short"><span class="rb">${icon('flag', 20)}</span>Report</button>` : ''}`;
+        <button data-act="netComments" data-sid="${sh.id}" aria-label="Comments"><span class="rb">${icon('chat', 22)}</span><span class="cnt">${compact(count)}</span></button>
+        ${own ? '' : `<button data-act="netReport" data-target="${sh.id}" data-pk="${sh.ownerPk || ''}" aria-label="Report short"><span class="rb">${icon('flag', 20)}</span>Report</button>`}`;
     }
 
     function profileMenu(target, pk) {
-      if (!pk || pk === S().user.pk) return '';
+      if (!pk || pk === myId()) return '';
       return `<button class="btn xs" data-act="netReport" data-target="${esc(target)}" data-pk="${esc(pk)}">${icon('flag', 13)} Report</button>`;
     }
 
@@ -480,11 +491,32 @@
         const input = $('#cm-text');
         const value = input ? input.value.trim() : '';
         if (!value) return;
-        await API.req('POST', '/api/comments', { shortId: COMMENTS.shortId, text: value });
-        setSheet(commentsHTML());
+        try {
+          if (API.on) {
+            await API.req('POST', '/api/comments', { shortId: COMMENTS.shortId, text: value });
+            if (!API.net) await pull();
+          } else {
+            if (LOCAL_BLOCKED_WORDS.some((word) => value.toLowerCase().includes(word))) throw new Error('That comment breaks the community guidelines');
+            const s = S();
+            s.localComments = [...(s.localComments || []), {
+              id: `lc${Date.now().toString(36)}`, shortId: COMMENTS.shortId, by: 'me', name: s.user.name, hue: s.user.hue,
+              text: value, at: Date.now() / 1000, mine: true,
+            }];
+            ctx.save();
+          }
+          setSheet(commentsHTML());
+        } catch (err) {
+          toast(err.message);
+        }
       },
       netDelComment: async (el) => {
-        await API.req('DELETE', `/api/comments/${el.dataset.id}`);
+        if (API.on) {
+          await API.req('DELETE', `/api/comments/${el.dataset.id}`);
+          if (!API.net) await pull();
+        } else {
+          S().localComments = (S().localComments || []).filter((c) => c.id !== el.dataset.id);
+          ctx.save();
+        }
         setSheet(commentsHTML());
       },
       netReport: (el) => {
@@ -496,9 +528,27 @@
         setSheet(reportHTML());
       },
       netReportSubmit: async () => {
-        await API.req('POST', '/api/report', { target: REPORT.target, pk: REPORT.pk, reason: REPORT.reason, note: ($('#rp-note') || {}).value || '' });
-        closeSheet();
-        toast('Thanks — a moderator will review it');
+        const note = ($('#rp-note') || {}).value || '';
+        try {
+          if (API.on) {
+            const result = await API.req('POST', '/api/report', { target: REPORT.target, pk: REPORT.pk, reason: REPORT.reason, note });
+            if (!API.net) await pull();
+            closeSheet();
+            toast(result && result.hidden ? 'Thanks — it’s hidden while a moderator reviews it' : 'Thanks — a moderator will review it');
+          } else {
+            // Offline demo: there is no shared moderator, so the report hides the content on this device.
+            const s = S();
+            s.localReports = [...(s.localReports || []), { target: REPORT.target, reason: REPORT.reason, note, at: Date.now() }];
+            s.shorts = s.shorts.filter((sh) => sh.id !== REPORT.target);
+            s.localComments = (s.localComments || []).filter((c) => c.id !== REPORT.target);
+            ctx.save();
+            closeSheet();
+            toast('Thanks — hidden on this device');
+          }
+          refresh();
+        } catch (err) {
+          toast(err.message);
+        }
       },
       netBlock: (el) => {
         const list = new Set(blocked());
@@ -612,12 +662,35 @@
         <p class="xs muted mt12">Prices in Fade are shown in USD. Payment links open your provider with the amount filled in where supported.</p>`;
     };
 
+    function recentNotifications() {
+      if (API.net) return [];
+      const list = API.on ? S().notifications || [] : S().localNotifs || [];
+      return list.slice(0, 30);
+    }
+
     VIEWS.notifications = function () {
-      const topic = N().topic();
+      const topic = API.net ? N().topic() : API.on ? S().user.notify || null : null;
+      const base = API.net ? N().ntfyBase() : ((S().serverInfo || {}).ntfy || 'https://ntfy.sh');
       const permission = typeof Notification === 'undefined' ? 'unsupported' : Notification.permission;
-      const web = topic ? `${N().ntfyBase()}/${topic}` : '';
+      const web = topic ? `${base}/${topic}` : '';
+      const recent = recentNotifications();
+      if (API.on && !API.net && recent.some((n) => !n.read)) {
+        API.req('POST', '/api/notifications/read').then(() => recent.forEach((n) => { n.read = true; })).catch(() => {});
+      }
+      const recentHTML = !API.net ? `
+        <h2 class="sec">Recent</h2>
+        ${recent.map((n) => `<button class="listitem" data-act="go" data-to="${esc(n.click || '/')}" style="width:100%;text-align:left"><span class="grow"><b class="small">${n.read ? '' : '<span class="net-dot ok"></span>'}${esc(n.title)}</b><div class="xs muted">${esc(n.message)} · ${ago(n.createdAt * 1000)}</div></span></button>`).join('') || '<div class="empty">Nothing yet — bookings, comments, tags and reminders show up here</div>'}` : '';
+      if (!API.on) {
+        return `
+          ${pageHead('Notifications')}
+          <div class="card small" style="line-height:1.5">In the offline demo, booking confirmations and the reminder 2 h before your cut appear here and as device alerts while Fade is open. On the Fade Network or a Fade server they also arrive as push notifications when the app is closed.</div>
+          <div class="listitem mt12"><span class="grow"><b class="small">Device alerts</b><div class="xs muted">${permission === 'granted' ? 'On' : permission === 'denied' ? 'Blocked in browser settings' : permission === 'unsupported' ? 'Not supported here' : 'Off'}</div></span>
+            ${permission === 'default' ? '<button class="btn xs primary" data-act="netNotifyOn">Turn on</button>' : ''}</div>
+          ${recentHTML}`;
+      }
       return `
         ${pageHead('Notifications')}
+        ${recentHTML}
         <div class="card small" style="line-height:1.5">Fade sends booking requests, confirmations, payments, reminders 2 h before your cut, tags and DMs through <b>ntfy</b> — free, no account.</div>
         <h2 class="sec">On this device</h2>
         <div class="listitem"><span class="grow"><b class="small">Alerts while Fade is open</b><div class="xs muted">${permission === 'granted' ? 'On' : permission === 'denied' ? 'Blocked in browser settings' : permission === 'unsupported' ? 'Not supported here' : 'Off'}</div></span>
@@ -657,9 +730,27 @@
         <button class="btn ghost block mt12 hot" data-act="netDelete">Delete my account</button>`;
     };
 
+    let MODQ = { loaded: false, loading: false, queue: [] };
+
+    async function loadModQueue() {
+      if (MODQ.loading) return;
+      MODQ.loading = true;
+      try {
+        const data = await API.req('GET', '/api/mod');
+        MODQ = { loaded: true, loading: false, queue: data.queue || [] };
+      } catch (err) {
+        MODQ = { loaded: true, loading: false, queue: [] };
+        toast(err.message);
+      }
+      if (ctx.activeRoute && ctx.activeRoute() === 'admin') refresh();
+      else if (location.hash.startsWith('#/admin')) refresh();
+    }
+
     VIEWS.admin = function () {
-      if (!N().isAdmin()) return `${pageHead('Moderation')}<div class="empty">Moderators only</div>`;
-      const queue = N().modQueue();
+      const isAdmin = API.net ? N().isAdmin() : API.on && !!S().user.admin;
+      if (!isAdmin) return `${pageHead('Moderation')}<div class="empty">${API.on ? 'Moderators only' : 'Moderation runs on the Fade Network or on your own Fade server (python server/server.py --admin you@example.com).'}</div>`;
+      if (!API.net && !MODQ.loaded) loadModQueue();
+      const queue = API.net ? N().modQueue() : MODQ.queue;
       const s = S();
       return `
         ${pageHead('Moderation')}
@@ -739,7 +830,7 @@
         toast(result === 'granted' ? 'Alerts on' : 'Alerts are blocked');
         refresh();
       },
-      netRotateTopic: () => act(() => API.req('PUT', '/api/me', { rotateNotify: true }), 'New private topic — re-subscribe in the ntfy app'),
+      netRotateTopic: () => act(() => (API.net ? API.req('PUT', '/api/me', { rotateNotify: true }) : API.req('PUT', '/api/me/push', { rotate: true })), 'New private topic — re-subscribe in the ntfy app'),
       netShowKey: () => {
         if (!window.confirm('Your secret key gives full control of your account. Only reveal it somewhere private. Continue?')) return;
         openSheet(`
@@ -763,7 +854,13 @@
         ctx.logoutLocal();
         toast('Account deleted');
       },
-      netMod: (el) => act(() => API.req('POST', '/api/mod', { action: el.dataset.a, target: el.dataset.t }), 'Done'),
+      netMod: async (el) => {
+        await act(() => API.req('POST', '/api/mod', { action: el.dataset.a, target: el.dataset.t }), 'Done');
+        if (!API.net) {
+          MODQ.loaded = false;
+          loadModQueue();
+        }
+      },
       netKeyLogin: async () => {
         const key = window.prompt('Paste your secret key (nsec1… or 64-character hex)');
         if (!key) return;
@@ -822,6 +919,63 @@
         <button class="btn ghost block mt8" data-act="netGoDemo">Explore the offline demo</button>`;
     }
 
+    // Me-page entries for server / offline modes (the Fade Network has its own account section).
+    function meSafetyItems(item) {
+      const unread = API.on ? (S().notifications || []).filter((n) => !n.read).length : (S().localNotifs || []).filter((n) => !n.read).length;
+      return `${item('bell', 'Notifications', '/notifications', unread ? `${unread} new` : 'Bookings, comments, reminders')}
+        ${API.on && S().user.admin ? item('shield', 'Moderation', '/admin', `${(S().moderation || {}).openReports || 0} open reports`) : ''}`;
+    }
+
+    // Server mode: toast + device alert for notifications that arrived since the last sync.
+    function onServerState(st) {
+      const list = st.notifications || [];
+      const key = `fade.seenNotif.${st.user.id}`;
+      const seen = Number(localStorage.getItem(key) || 0);
+      const newest = list.reduce((max, n) => Math.max(max, n.createdAt), seen);
+      if (seen) {
+        list.filter((n) => n.createdAt > seen && !n.read).slice(0, 3).forEach((n) => deviceAlert(n.title, n.message));
+      }
+      localStorage.setItem(key, String(newest || Date.now() / 1000));
+    }
+
+    function deviceAlert(title, message) {
+      toast(`${title}: ${message}`.slice(0, 140));
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.hidden) {
+        try {
+          new Notification(title, { body: message, icon: 'icons/icon-192.png' });
+        } catch (err) {
+          // some browsers only allow notifications from a service worker
+        }
+      }
+    }
+
+    // Offline demo: local notification feed + 2 h reminders while the app is open.
+    function localNotify(title, message, click = '/bookings') {
+      const s = S();
+      s.localNotifs = [{ id: `ln${Date.now().toString(36)}`, title, message, click, createdAt: Date.now() / 1000, read: false }, ...(s.localNotifs || [])].slice(0, 50);
+      ctx.save();
+      deviceAlert(title, message);
+    }
+
+    function localDuties() {
+      if (API.on || !S() || !S().bookings) return;
+      const now = Date.now();
+      let changed = false;
+      S().bookings.forEach((bk) => {
+        if (bk.status !== 'upcoming' || bk.reminded) return;
+        const place = placeById(bk.placeId);
+        if (!place || !ctx.placeTimeToDate) return;
+        const start = ctx.placeTimeToDate(place, bk.date, bk.time).getTime();
+        if (start - 2 * 3600 * 1000 <= now && now < start) {
+          bk.reminded = true;
+          changed = true;
+          const b = barberById(bk.barberId);
+          localNotify('Your cut is in 2 hours ✂️', `${bk.serviceName} with ${b ? b.name : 'your barber'} at ${place.name}, ${fmtTime(bk.time)}`);
+        }
+      });
+      if (changed) ctx.save();
+    }
+
     function authExtras(signup) {
       return `
         <p class="xs muted mt8" style="line-height:1.45">${signup ? 'Your email + password create your private key on this device. Fade never sees or stores them — use the same ones to log in anywhere.' : 'Same email and password you signed up with.'}</p>
@@ -866,6 +1020,7 @@
 
     return {
       openPay, checkoutHTML, successExtra, statusLabel, bookingCardExtra, rateTipNote, afterRate, cancelMessage,
+      meSafetyItems, onServerState, localNotify, localDuties, commentsFor,
       studioPanel, ownerPanel, creatorPanel, reelButtons, profileMenu, meAccountItems, meAppSection, authExtras,
       homeEmpty, checkout, blocked, orderRow,
     };

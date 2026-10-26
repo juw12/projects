@@ -1,20 +1,20 @@
 /* Fade service worker: network-first for the app shell, offline fallback from cache.
  * API calls and uploaded media are never cached here. */
-const CACHE = 'fade-v3.0.0';
+const CACHE = 'fade-v3.1.0';
 const SHELL = [
   './',
   './index.html',
   './web.html',
   './mobile.html',
-  './vendor/nostr.bundle.js?v=3.0.0',
-  './vendor/qrcode.js?v=3.0.0',
-  './config.js?v=3.0.0',
-  './net.js?v=3.0.0',
-  './transcode.js?v=3.0.0',
-  './netui.js?v=3.0.0',
-  './app.js?v=3.0.0',
-  './data.js?v=3.0.0',
-  './styles.css?v=3.0.0',
+  './vendor/nostr.bundle.js?v=3.1.0',
+  './vendor/qrcode.js?v=3.1.0',
+  './config.js?v=3.1.0',
+  './net.js?v=3.1.0',
+  './transcode.js?v=3.1.0',
+  './netui.js?v=3.1.0',
+  './app.js?v=3.1.0',
+  './data.js?v=3.1.0',
+  './styles.css?v=3.1.0',
   './manifest.webmanifest',
   './icons/icon.svg',
   './icons/icon-192.png',

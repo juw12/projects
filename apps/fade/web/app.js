@@ -8,7 +8,7 @@
   'use strict';
 
   const SEED = window.SEED;
-  const VERSION = '3.0.0';
+  const VERSION = '3.1.0';
   const LOCAL_KEY = 'fade.state';
   const REMOTE_KEY = 'fade.remote';
   const STATE_VERSION = 1;
@@ -1602,7 +1602,7 @@
           <div class="row gap8">
             <button class="btn sm" data-act="dm" data-id="${b.id}" aria-label="Message ${esc(b.name)}">${icon('chat', 16)}</button>
             <button class="btn sm ${following ? '' : 'violet'}" data-act="follow" data-type="barber" data-id="${b.id}">${following ? 'Following' : 'Follow'}</button>
-            ${API.net && NETUI ? NETUI.profileMenu(b.id, b.ownerPk) : ''}
+            ${NETUI ? NETUI.profileMenu(b.id, b.ownerPk || b.ownerId) : ''}
           </div>
         </div>
         <h1 class="mt12">${esc(b.name)} ${b.verified ? verifiedBadge : ''}</h1>
@@ -1738,7 +1738,7 @@
         <div class="row gap6 wrap mt12">${p.amenities.map((a) => `<span class="tag">${esc(a)}</span>`).join('')}</div>
         <div class="row gap8 mt12">
           <button class="btn sm ${isFollowing('place', p.id) ? '' : 'violet'}" data-act="follow" data-type="place" data-id="${p.id}">${isFollowing('place', p.id) ? 'Following' : 'Follow'}</button>
-          ${API.net && NETUI ? NETUI.profileMenu(p.id, p.ownerPk) : ''}
+          ${NETUI ? NETUI.profileMenu(p.id, p.ownerPk || p.ownerId) : ''}
           <a class="btn sm grow" href="${directionsUrl(p)}" target="_blank" rel="noopener">${icon('nav', 16)} Directions</a>
           ${group ? `<button class="btn sm grow" data-act="go" data-to="/thread/${group.id}">${icon('users', 16)} Community</button>` : ''}
         </div>
@@ -2015,6 +2015,7 @@
     S.boosts[b.id] = boostOf(b.id) + 10;
     S.boosts[place.id] = boostOf(place.id) + 5;
     save();
+    if (NETUI) NETUI.localNotify("You're booked ✂️", `${svc.name} with ${b.name} · ${fmtDate(BK.date)} ${fmtTime(BK.time)}`);
     BK.resultId = bk.id;
     BK.earned = earned;
     BK.step = 3;
@@ -2341,6 +2342,11 @@
         : u.location && u.location.label ? u.location : S.user.location && S.user.location.label ? S.user.location : { ...DEFAULT_LOCATION },
       pk: u.pk, npub: u.npub, pay: u.pay || {}, notify: u.notify || null, admin: !!u.admin,
     };
+    S.comments = st.comments || [];
+    S.notifications = st.notifications || [];
+    S.moderation = st.moderation || {};
+    S.serverInfo = st.server || {};
+    if (!API.net && NETUI) NETUI.onServerState(st);
     S.places = st.places;
     S.barbers = st.barbers;
     S.products = st.products;
@@ -2349,8 +2355,8 @@
     S.txns = st.txns;
     S.orders = st.orders;
     S.threads = st.threads.map((t) => normalizeThread(t, u));
-    const blockedPks = API.net && NETUI ? new Set(NETUI.blocked()) : new Set();
-    S.shorts = st.shorts.filter((sh) => !blockedPks.has(sh.ownerPk)).map((sh) => ({ ...sh, createdAt: sh.createdAt * 1000 }));
+    const blockedPks = NETUI ? new Set(NETUI.blocked()) : new Set();
+    S.shorts = st.shorts.filter((sh) => !blockedPks.has(sh.ownerPk || sh.userId)).map((sh) => ({ ...sh, createdAt: sh.createdAt * 1000 }));
     S.rent = st.rent || [];
     S.netReviews = st.reviews || [];
     S.following = u.following || [];
@@ -2724,7 +2730,7 @@
           ${target.barber ? `<button data-act="dm" data-id="${target.barber.id}" aria-label="Ask the barber"><span class="rb">${icon('chat', 22)}</span>Ask</button>` : ''}
           <button class="${saved ? 'liked' : ''}" data-act="save" data-sid="${sh.id}" aria-label="Save"><span class="rb">${icon('bookmark', 22)}</span>Save</button>
           <button data-act="shareShort" data-sid="${sh.id}" aria-label="Share"><span class="rb">${icon('share', 22)}</span><span class="cnt">${compact(sh.shares)}</span></button>
-          ${API.net && NETUI ? NETUI.reelButtons(sh) : ''}
+          ${NETUI ? NETUI.reelButtons(sh) : ''}
           ${mine ? `<button data-act="deleteShort" data-sid="${sh.id}" aria-label="Delete short"><span class="rb">${icon('trash', 20)}</span>Delete</button>` : ''}
         </div>
         <div class="meta">
@@ -3022,7 +3028,7 @@
         let file = UP.file;
         let type = UP.type;
         let share = 1;
-        if (API.net && UP.kind === 'video' && window.FadeTranscode) {
+        if (UP.kind === 'video' && window.FadeTranscode) {
           try {
             const optimized = await window.FadeTranscode.optimize(UP.file, (f) => paint(f * 0.5, `Optimizing video for fast playback… ${Math.round(f * 100)}%`));
             if (optimized) {
@@ -3056,8 +3062,29 @@
     }
     const id = uid('sh');
     const key = `short:${id}`;
+    let localFile = UP.file;
+    let localType = UP.type;
+    if (UP.kind === 'video' && window.FadeTranscode) {
+      UP.busy = true;
+      setSheet(uploadHTML());
+      try {
+        const optimized = await window.FadeTranscode.optimize(UP.file, (f) => {
+          const note = $('#up-stage');
+          if (note) note.textContent = `Optimizing video for fast playback… ${Math.round(f * 100)}%`;
+          const bar = $('#sheet-root .progress > span');
+          if (bar) bar.style.width = `${Math.round(f * 100)}%`;
+        });
+        if (optimized) {
+          localFile = optimized.blob;
+          localType = optimized.type;
+        }
+      } catch (err) {
+        // keep the original file
+      }
+      if (!UP) return;
+    }
     try {
-      await Media.put(key, UP.file);
+      await Media.put(key, localFile);
     } catch (err) {
       toast('Could not save the video on this device (storage full or private browsing)');
       return;
@@ -3067,7 +3094,7 @@
     const short = {
       id, authorType, authorId, byMe: true, caption, category: UP.category,
       tags: UP.tags.map((t) => ({ ...t, status: 'pending' })),
-      media: { kind: UP.kind, key, type: UP.type, poster: UP.poster, duration: UP.duration },
+      media: { kind: UP.kind, key, type: localType, poster: UP.poster, duration: UP.duration },
       likes: 0, views: 0, shares: 0, conversions: 0, createdAt: Date.now(), likedByMe: false,
     };
     S.shorts.unshift(short);
@@ -3587,6 +3614,7 @@
       ${item('calendar', 'Bookings', '/bookings')}
       ${item('bag', 'Shop', '/shop', S.orders.length ? `${S.orders.length} order${S.orders.length > 1 ? 's' : ''}` : 'Products from your barbers')}
       ${item('trophy', 'Leaderboards', '/ranks')}
+      ${!API.net && NETUI ? NETUI.meSafetyItems(item) : ''}
 
       <div class="label">Switch mode</div>
       <div class="seg">
@@ -5159,6 +5187,11 @@
 
   window.addEventListener('offline', () => toast('You’re offline — showing saved data'));
 
+  // Offline demo: local reminders 2 h before a cut while the app is open.
+  setInterval(() => {
+    if (NETUI && S && !API.on) NETUI.localDuties();
+  }, 60 * 1000);
+
   // Server mode: keep chats, bookings and earnings fresh.
   let polling = false;
   setInterval(async () => {
@@ -5189,7 +5222,7 @@
     NETUI = window.FadeNetUI({
       API, VIEWS, ACTIONS, $, esc, money, icon, avatar, barberAvatar, pageHead, toast, openSheet, setSheet, closeSheet,
       go, refresh, pull, remoteDo, barberById, placeById, fmtDate, fmtTime, whenLabel, firstName, confetti, compact, ago,
-      placeCover, refNoteHTML, shareLink, logoutLocal, activeRef,
+      placeCover, refNoteHTML, shareLink, logoutLocal, activeRef, placeTimeToDate,
       state: () => S,
       save: () => save(),
       cartDelivery: () => CART.delivery,

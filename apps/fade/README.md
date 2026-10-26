@@ -1,4 +1,4 @@
-# Fade 3.0: book barbers, watch haircut shorts, earn as a creator, now live on the Fade Network
+# Fade 3.1: book barbers, watch haircut shorts, earn as a creator, now live on the Fade Network
 
 *Formerly **Fadeline** (v1). 2.0 added shorts and commissions; 3.0 puts it online for free.*
 
@@ -72,8 +72,22 @@ fee) with editable Tue–Sat 10:00–18:00 shifts. Opening a shop later upgrades
 |---|---|---|
 | **Fade Network (default)** | Open the GitHub Pages link | Real multi-user app on public relays. Starts empty until real barbers join. |
 | **Offline demo** | `?offline` (or "Explore the offline demo" on the welcome screen) | Fictional barbers, shops and creators on one device; nothing leaves the browser. |
-| **Self-hosted server** | `python server/server.py` → <http://127.0.0.1:8790/> | 2.0 REST server with SQLite, still supported. |
+| **Self-hosted server** | `python server/server.py --admin you@example.com` → <http://127.0.0.1:8790/> | REST server with SQLite: accounts, bookings, shorts, plus moderation, push and transcoding (below). |
 | **Local devnet** | `python server/devnet.py` → <http://127.0.0.1:8797/app/?devnet=1> | A stdlib relay + Blossom + ntfy on one port for offline development and tests. |
+
+### Moderation, push notifications and video transcoding: in every mode
+
+| | Fade Network | Self-hosted server | Offline demo |
+|---|---|---|---|
+| **Moderation** | NIP-56 reports, auto-hide at 3 reporters, moderator console for keys in `web/config.js` | `/api/report`, auto-hide at 3 reporters, moderator console for `--admin EMAIL` accounts (hide / keep / ban / verify / dismiss); banned accounts become read-only and are signed out; blocked-word filter on names, captions, comments and messages | Report hides the item on this device; local comments with the same word filter |
+| **Comments** | signed events | stored on the server; authors, short owners and moderators can delete | stored on the device |
+| **Push** | ntfy to each account's private topic + 2 h reminders | in-app notification feed + ntfy pushes (`--ntfy`, default ntfy.sh, `off` to disable) for bookings, cancellations, DMs, comments, tags, commissions and reports; a background sweeper sends the 2 h reminder at the right time (reschedules/cancels stay correct) | local feed + device alerts and the 2 h reminder while the app is open |
+| **Transcoding** | in the browser (≤ 720×1280, 2.5 Mbps, 60 s) | in the browser, plus server-side ffmpeg for anything not already optimised (H.264 720p, faststart, poster frame; auto-detected, `--ffmpeg PATH` or `off`) | in the browser before saving |
+
+```bash
+python apps/fade/server/server.py --admin you@example.com --public-url https://fade.example.com
+python apps/fade/tests/verify_safety.py     # 62 checks (65 with a real ffmpeg on PATH or FADE_TEST_FFMPEG)
+```
 
 URL overrides: `?ns=` (namespace), `?relays=wss://a,wss://b`, `?blossom=`, `?ntfy=`,
 `?admins=<hex,...>`, `?profile=` (separate local identity per tab), `?sse=0`.
@@ -82,6 +96,7 @@ URL overrides: `?ns=` (namespace), `?relays=wss://a,wss://b`, `?blossom=`, `?ntf
 python apps/fade/tests/test_static.py       # bundle integrity (136 checks)
 python apps/fade/tests/verify_devnet.py     # relay / Blossom / ntfy protocol checks
 python apps/fade/tests/verify_api.py        # 130 checks against the self-hosted server
+python apps/fade/tests/verify_safety.py     # moderation, push, transcoding on the server
 python apps/fade/server/devnet.py           # local network for development
 ```
 
@@ -104,6 +119,7 @@ relays, and 70 offline-demo checks.
   and back up the secret key from *Account & privacy*.
 - Booking contents are encrypted, but relays can see *that* two accounts share a
   booking record (the `p` tags), and timestamps.
-- Moderation is community + moderator based, not proactive scanning.
+- Moderation is community + moderator based, not automatic image/video scanning. In the offline demo a report only hides content on that device.
+- Server-side transcoding needs ffmpeg installed on the server; without it, uploads are still optimised in the browser (browsers without MediaRecorder upload the original).
 - The network starts empty. The offline demo's barbers, shops, creators and reviews
   are fictional.
