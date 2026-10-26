@@ -87,6 +87,16 @@ SCHEMA_HINT = """Return ONLY JSON: {"title": str, "kicker": str, "template": "ed
 last = question CTA. Only state facts you are confident are true; prefer typical/approximate wording."""
 
 
+YT_SCRIPT_RULES = (
+    " Script rules (from the yt-script skill): scene 1 narration is the hook - it echoes the title, opens a"
+    " question the viewer cannot close, and says 'you'/'kamu' early. Also return \"hookOptions\": five more"
+    " alternative hook lines, each built on a different formula (statistic, mistake, contrarian flip,"
+    " comparison, warning, question, direct address). No greeting, channel intro or subscribe pitch."
+    " Answer the hook explicitly before the last scene. The last scene asks for exactly one thing."
+    " Never invent a number; every scene that states a statistic must carry a \"source\" field."
+)
+
+
 def llm_project(topic, lang, cfg):
     llm = cfg.get("llm") or {}
     key = llm.get("api_key")
@@ -96,7 +106,8 @@ def llm_project(topic, lang, cfg):
     body = {
         "model": llm.get("model", "gpt-4o-mini"),
         "messages": [
-            {"role": "system", "content": "You write faceless 9:16 explainer short scripts. " + SCHEMA_HINT % lang},
+            {"role": "system", "content": "You write faceless 9:16 explainer short scripts. " + SCHEMA_HINT % lang
+             + YT_SCRIPT_RULES},
             {"role": "user", "content": f"Topic: {topic}\nLanguage: {language}\nAudience: curious general public."},
         ],
         "temperature": 0.6,
@@ -136,7 +147,37 @@ def cmd_plan(cfg, args):
         save_json(item / "project.json", project)
         save_json(item / "post.json", post_meta(project))
         print(f"planned {item}")
+        if args.llm:
+            import script_check
+
+            report = script_check.check_project(project, project.get("title"))
+            for rank, hook in enumerate(report["top_hooks"], start=1):
+                print(f"  hook #{rank}: {hook['verdict']} {hook['band']} ({hook['formula']}) {hook['hook']}")
+            if report["failed"]:
+                print(f"  script gates to fix before render: {', '.join(report['failed'])}")
     print("Review each project.json (open it in the studio via Import JSON), then set \"approved\": true in post.json.")
+
+
+# ----------------------------------------------------------------------------- check
+def cmd_check(cfg, args):
+    """Run the /yt-script gates (script_check.py) on queued projects or given project files."""
+    import script_check
+
+    paths = [Path(p) for p in args.projects]
+    if not paths:
+        for ch in cfg["channels"]:
+            if args.channel and ch["name"] != args.channel:
+                continue
+            paths += sorted(channel_dir(cfg, ch["name"]).glob("*/project.json"))
+    failed = 0
+    for path in paths:
+        project = load_json(path)
+        report = script_check.check_project(project, script_check.find_title(path, project))
+        print(f"\n== {path}")
+        script_check.print_report(report)
+        failed += 0 if report["ok"] else 1
+    print(f"\n{len(paths) - failed}/{len(paths)} projects pass the script gates")
+    return failed
 
 
 # ----------------------------------------------------------------------------- render
@@ -262,14 +303,23 @@ def main():
     p.add_argument("--channel", required=True)
     p.add_argument("--topics", required=True)
     p.add_argument("--llm", action="store_true")
+    c = sub.add_parser("check", help="yt-script gates on project.json files (hook score, intro, one ask, sources)")
+    c.add_argument("projects", nargs="*")
+    c.add_argument("--channel")
     r = sub.add_parser("render")
     r.add_argument("--channel")
     u = sub.add_parser("run")
     u.add_argument("--dry-run", action="store_true")
     sub.add_parser("status")
     args = parser.parse_args()
+    if args.cmd == "check" and args.projects:
+        # explicit files need no config; resolve before load_config() changes directory
+        args.projects = [str(Path(p).resolve()) for p in args.projects]
+        sys.exit(1 if cmd_check({"channels": []}, args) else 0)
     cfg = load_config(args.config)
-    {"auth": cmd_auth, "plan": cmd_plan, "render": cmd_render, "run": cmd_run, "status": cmd_status}[args.cmd](cfg, args)
+    commands = {"auth": cmd_auth, "plan": cmd_plan, "check": cmd_check, "render": cmd_render, "run": cmd_run,
+                "status": cmd_status}
+    sys.exit(1 if commands[args.cmd](cfg, args) else 0)
 
 
 if __name__ == "__main__":
