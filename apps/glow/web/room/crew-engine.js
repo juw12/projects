@@ -123,6 +123,8 @@
   // (re-armed on every streamed chunk) aborts it so the crew can retry instead of freezing a mission.
   const REQUEST_TIMEOUT_MS = 75000;
   const STALL_TIMEOUT_MS = 45000;
+  // A stream that keeps sending keep-alive pings but no text, or that runs far too long, is also stuck.
+  const STREAM_MAX_MS = 240000;
   function requestTimer(outer) {
     const ctrl = new AbortController();
     const state = { timedOut: false, timer: null };
@@ -635,7 +637,19 @@
     let buffer = '';
     let full = '';
     let stalled = false;
+    const streamStartedAt = Date.now();
+    let lastProgressAt = Date.now();
     while (true) {
+      const now = Date.now();
+      if (now - lastProgressAt > STALL_TIMEOUT_MS || now - streamStartedAt > STREAM_MAX_MS) {
+        stalled = true; // only pings and no new text (or far too long): stop waiting
+        try {
+          reader.cancel();
+        } catch (err) {
+          // already closed
+        }
+        break;
+      }
       timer.arm(STALL_TIMEOUT_MS);
       let chunk;
       try {
@@ -674,6 +688,7 @@
         }
         if (delta) {
           full += delta;
+          lastProgressAt = Date.now();
           onToken && onToken(delta, full);
         }
       }
