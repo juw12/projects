@@ -184,7 +184,7 @@
   function framedVersion(text) {
     for (const match of text.matchAll(/#INFO#([\s\S]{0,512}?)#END#/g)) {
       const block = match[1].trim();
-      const direct = /^v?(\d+(?:\.\d+){2,3})$/i.exec(block);
+      const direct = /^(?:\d+:)?v?(\d+(?:\.\d+){2,3})$/i.exec(block);
       const labeled = /\b(?:firmware|software|version|sw)\b[^\r\n]{0,30}?\b(\d+(?:\.\d+){2,3})\b/i.exec(block);
       if (direct || labeled) return (direct || labeled)[1];
     }

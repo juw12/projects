@@ -97,3 +97,8 @@ test('connection loss makes the stream unavailable and emits one disconnect', as
   await port.close();
   assert.equal(lost, 1);
 });
+
+test('real AIRIZ firmware reply with a status prefix is accepted', () => {
+  assert.equal(firmwareVersion('diag ver sw\r\n#INFO#0:0.0.0.3#END#\r\n~ # '), '0.0.0.3');
+  assert.equal(firmwareVersion('#INFO#0#END#'), null);
+});
