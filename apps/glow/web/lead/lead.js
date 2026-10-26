@@ -236,6 +236,19 @@
   // Prices, budgets, money amounts and "latest/current" facts change and must be looked up, not recalled.
   const FACTS_HINT = /(\bRp\.?\s?\d|\bIDR\b|\bUSD\b|\$\s?\d|\b\d+([.,]\d+)?\s?(juta|jt|ribu|rb|million|k)\b|\b(price|prices|pricing|harga|cost|costs|biaya|budget|anggaran|latest|terbaru|current|today|news|202\d)\b)/i;
 
+  // Goals that must act on a website (open it, click, fill in, log in, submit). Without browser control the
+  // team can only describe such a result, so GlowLead turns browser control on when it is connected, or says
+  // plainly that it is off (found in a real run: the crew invented a form's confirmation page).
+  const BROWSER_HINT = /\b(use|using|open|with|via|pakai|gunakan)\s+(the\s+|a\s+|my\s+)?(web\s?)?(browser|glow hands)\b|\b(fill|filling)\s+(in|out)\b|\bisi(kan)?\s+(form|formulir)\b|\b(submit|log\s?in|sign\s?in|sign\s?up|register|daftar|click|klik|checkout|book|order|pesan|type)\b[^.\n]{0,100}(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|id|org|net|io|co)\b|\b(website|web site|site|situs|page|halaman|form|formulir)\b)|(https?:\/\/|www\.)\S+[^.\n]{0,120}\b(fill|submit|click|klik|log\s?in|sign\s?up|register|daftar|order|book|type|isi)\b/i;
+  let handsState = "not-set";
+
+  // An explicit choice wins; otherwise a website goal uses browser control when it is connected
+  // (never for unattended automations: they must opt in when they are created).
+  function handsAllowed(goal, options) {
+    if (typeof options.allowHands === "boolean") return options.allowHands;
+    return !options.automationId && BROWSER_HINT.test(goal) && handsState === "paired";
+  }
+
   function ensureResearch(steps, goal) {
     if (!FACTS_HINT.test(goal) || steps.some((s) => s.worker === "room")) return steps;
     const research = {
@@ -1042,6 +1055,7 @@
       : { paired: "CONNECTED", "wrong-token": "WRONG TOKEN", offline: "OFFLINE", "not-set": "NOT SET UP" }[state];
     chip.textContent = label;
     chip.dataset.state = state;
+    handsState = state;
     if ($("allow-hands")) {
       $("allow-hands").disabled = state !== "paired";
       if (state !== "paired") $("allow-hands").checked = false;
@@ -1247,7 +1261,9 @@
       const permission = lead.allowCode ? "Code execution is allowed in the crew's browser worker." : "Code execution is NOT allowed. The crew may research and draft code as text, but must not promise to execute or test it.";
       const handsLine = lead.allowHands
         ? '\nAlso available: "browser" = Glow Hands: a real browser window on the user\'s PC that opens sites, clicks, types and fills forms. Use it ONLY when a step must act on a website (fill a form, use a web app, check something behind the user\'s login). It asks the user before submitting anything. Workers may be "chat|council|room|browser".'
-        : "";
+        : lead.needsBrowser
+          ? "\nBrowser control is OFF for this mission: no worker can open websites, click, type or submit forms. Plan steps that prepare everything and give the user exact steps to do the website part themselves. No step may claim or imitate a website action or its result (no invented confirmation pages)."
+          : "";
       const parsed = lead.presetPlan
         ? { summary: "Using your saved skill: " + (lead.skillName || "saved plan"), criteria: lead.presetPlan.criteria, steps: lead.presetPlan.steps.map((s) => ({ ...s })) }
         : parsePlan(await ask(PLAN_SYSTEM + "\n" + permission + handsLine, `Goal: ${lead.goal}${backgroundFor(lead)}`, controller.signal, 900), lead.goal);
@@ -1416,8 +1432,11 @@
       status: "planning", createdAt: Date.now(), criteria: [], steps: [], report: "", events: [],
       memorySnapshot: memory, context: clip(options.context || "", 4000), parentId: options.parentId || null,
       parentGoal: clip(options.parentGoal || "", 160), presetPlan: preset, skillName: preset ? clip(options.skillName || "", 60) : "",
-      allowHands: options.allowHands === true,
+      allowHands: handsAllowed(text, options),
+      needsBrowser: BROWSER_HINT.test(text),
       automationId: options.automationId || null, automationName: clip(options.automationName || "", 60), catchUp: options.catchUp === true };
+    if (lead.needsBrowser && lead.allowHands && typeof options.allowHands !== "boolean") lead.events.push({ at: Date.now(), text: "Browser control turned on: the goal asks to use a website (it still asks before submitting)" });
+    if (lead.needsBrowser && !lead.allowHands) lead.events.push({ at: Date.now(), text: "The goal asks to use a website, but browser control is off" });
     if (lead.catchUp) lead.events.push({ at: Date.now(), text: "Catch-up run: the scheduled time passed while Glow was closed" });
     if (lead.automationId) lead.events.push({ at: Date.now(), text: "Started by automation: " + (lead.automationName || "scheduled mission") });
     const done = exclusively(lead, async () => {
@@ -1842,6 +1861,7 @@
       </div>`;
     html += `<div class="run-progress"><progress value="${doneCount}" max="${Math.max(1, lead.steps.length)}" aria-label="Completed mission steps"></progress><span>${doneCount} / ${lead.steps.length} steps complete · ${lead.allowCode ? "Code allowed" : "No code execution"}</span></div>`;
     if (lead.note) html += `<p class="note">${esc(lead.note)}</p>`;
+    if (lead.needsBrowser && !lead.allowHands) html += `<p class="note" id="hands-off-note">🖱 This goal asks GlowLead to use a website, but browser control is off, so the team can only prepare it and tell you the steps. To let GlowLead do it: open <b>Connect browser control</b> → <b>Start instant cloud browser</b> (free, nothing to install), then run the mission again.</p>`;
     if (lead.criteria.length && lead.status !== "awaiting") html += `<div class="block"><h3>Done when</h3><ul class="criteria" id="criteria">${criteria}</ul></div>`;
     if (lead.steps.length && lead.status !== "awaiting") html += `<div class="block"><h3>Plan · who does what</h3><ol class="steps" id="steps">${lead.steps.map((s, i) => stepHtml(lead, s, i)).join("")}</ol></div>`;
     if (lead.status === "awaiting") html += planEditorHtml(lead);
@@ -2010,6 +2030,12 @@
         });
         setTimeout(() => $("lead-run").scrollIntoView({ behavior: "smooth", block: "start" }), 100);
       }
+    });
+    let handsTouched = false;
+    $("allow-hands").addEventListener("change", () => { handsTouched = true; });
+    $("lead-input").addEventListener("input", () => {
+      const box = $("allow-hands");
+      if (!handsTouched && !box.disabled && !box.checked && BROWSER_HINT.test($("lead-input").value)) box.checked = true;
     });
     $("lead-input").addEventListener("keydown", (event) => {
       if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) $("lead-form").requestSubmit();
@@ -2441,8 +2467,11 @@
     if (goal && !TEST_MODE) {
       history.replaceState(null, "", location.pathname + location.hash);
       if (params.get("go") === "1") {
-        startLead(goal, true);
-        setTimeout(() => $("lead-run").scrollIntoView({ behavior: "smooth", block: "start" }), 150);
+        const handsKnown = BROWSER_HINT.test(goal) ? renderHands().catch(() => null) : Promise.resolve();
+        handsKnown.then(() => {
+          startLead(goal, true);
+          setTimeout(() => $("lead-run").scrollIntoView({ behavior: "smooth", block: "start" }), 150);
+        });
       }
       else $("lead-input").value = goal.slice(0, 2000);
     }
@@ -2592,6 +2621,22 @@
     expect("facts: a budget/price goal gets a GlowRoom research step first, other goals do not",
       budgetPlan.steps[0].worker === "room" && budgetPlan.steps[1].worker === "council" && poemPlan.steps.length === 1 && poemPlan.steps[0].worker === "chat" &&
       fullPlan.steps.length === 4 && fullPlan.steps[0].worker === "room" && fullPlan.steps[3].title === "S4");
+
+    // Website goals use browser control when it is connected, and never silently fall back to imitating it
+    const savedHandsState = handsState;
+    const formGoal = "Use the browser to open https://httpbin.org/forms/post, fill in my name and submit the order";
+    handsState = "paired";
+    const pairedAuto = handsAllowed(formGoal, {}) && !handsAllowed("Write a poem about rain", {}) &&
+      !handsAllowed(formGoal, { allowHands: false }) && !handsAllowed(formGoal, { automationId: "a1" });
+    handsState = "offline";
+    const offlineAuto = !handsAllowed(formGoal, {});
+    handsState = savedHandsState;
+    const hinted = ["Log in to tokopedia.com and check my orders", "isi formulir pendaftaran di website kampus", "Fill out the contact form on my website"]
+      .every((goal) => BROWSER_HINT.test(goal));
+    const plain = ["Used Honda Vario 125 vs new Yamaha Gear 125, budget Rp 18 juta", "Compare prices on tokopedia.com and shopee.co.id", "How do I book a flight cheaply?"]
+      .every((goal) => !BROWSER_HINT.test(goal));
+    expect("browser: website goals turn on connected browser control (not for automations or an explicit no), other goals don't",
+      pairedAuto && offlineAuto && hinted && plain);
 
     // The final check fails: the finished work is still delivered, marked as not checked
     backend.chat = async ({ system }) => {

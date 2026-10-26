@@ -12,6 +12,21 @@
 GlowChat installable app: `glow/chat/app.html`, mobile: `glow/chat/mobile.html`. GlowRoom: `glow/room/app.html`, `glow/room/mobile.html`.
 AI-suggested resources in GlowChat are not automatically browsed or verified; GlowChat does no autonomous building or execution (that is GlowRoom's job, and its results should still be reviewed).
 
+## v0.15.6 — website goals use the browser, or say plainly that they can't
+
+Found in a real GlowLead run on the live site with the instant cloud browser connected: "Use the browser to open
+httpbin.org/forms/post, fill in my name and submit the order" started from Glow home ran without browser control
+(only the GlowLead checkbox turns it on), so the GlowRoom crew **invented** the form's confirmation page and the
+mission ended "done".
+- A goal that must act on a website (use the browser, open/click/log in/fill in/submit/register/order on a site or
+  URL; also Indonesian: *pakai browser*, *isi formulir*, *daftar*…) now **turns on browser control automatically when
+  it is connected** (instant cloud browser, the Glow app's own browser, or Glow Hands on a PC). Submitting still needs
+  your tap. Unattended automations and an explicit "off" are left alone. In GlowLead the checkbox ticks itself
+  as you type such a goal.
+- When browser control is not connected, the planner is told no worker can open websites and must not imitate a
+  website result, and the mission shows how to connect it (Connect browser control → Start instant cloud browser).
+- Self-test: 24 checks. Cache: `glowlead-v17`.
+
 ## v0.15.5 — prices and budgets are looked up, not guessed
 
 Found in a real GlowLead run: for "used Honda Vario or new Yamaha Gear, budget Rp 18 juta" the planner used only
