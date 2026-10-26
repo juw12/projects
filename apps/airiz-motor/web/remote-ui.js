@@ -32,29 +32,112 @@
 
   // ------------------------------------------------------------ Connect Bluetooth (website only)
   const bleButton = $('btn-connect-ble');
-  if (bleButton && !native) {
-    bleButton.hidden = false;
-    bleButton.addEventListener('click', async () => {
-      if (api.getStatus().connected) return;
-      if (!navigator.bluetooth) {
-        toast(ble.webBluetoothHelp());
+  let bleConnecting = false;
+
+  async function connectBluetooth(options = {}) {
+    if (api.getStatus().connected || bleConnecting) return;
+    if (!navigator.bluetooth) {
+      toast(ble.webBluetoothHelp());
+      return;
+    }
+    bleConnecting = true;
+    if (bleButton) bleButton.disabled = true;
+    try {
+      toast('Choose AIRIZ-BT. No motor command is sent while connecting.');
+      const port = await ble.requestWebBluetoothPort(lost => {
+        window.dispatchEvent(new CustomEvent('airiz-port-lost', { detail: lost }));
+      });
+      await api.connectPort(port);
+      toast(port.bridge ? 'Bluetooth remote unlocked. Motor controls are ready.' : 'Bluetooth connected.');
+    } catch (error) {
+      if (error && (error.name === 'NotFoundError' || error.name === 'AbortError')) return;
+      if (options.auto && error && error.name === 'SecurityError') {
+        // Browser wants a tap before showing the Bluetooth chooser.
+        toast('Tap "Connect AIRIZ" to choose AIRIZ-BT.');
+        if (iphoneButton) iphoneButton.focus();
         return;
       }
-      bleButton.disabled = true;
+      toast(error && error.message ? error.message : 'Bluetooth connection failed.');
+    } finally {
+      bleConnecting = false;
+      refresh();
+    }
+  }
+
+  if (bleButton && !native) {
+    bleButton.hidden = false;
+    bleButton.addEventListener('click', () => connectBluetooth());
+  }
+
+  // ------------------------------------------------------------ iPhone button (Bluefy)
+  // Inside Bluefy (or any browser with Web Bluetooth) the button connects directly.
+  // In Safari it opens this page in Bluefy; only if Bluefy does not open (not
+  // installed) does it fall back to the App Store page.
+  const iphoneButton = $('iphone-bluefy');
+  const BLUEFY_OPEN = 'bluefy://open?url=';
+  const BLUEFY_SEEN_KEY = 'airiz.bluefyInstalled';
+  const CONNECT_PARAM = 'ble';
+
+  function connectUrl() {
+    return location.origin + location.pathname + '?' + CONNECT_PARAM + '=connect';
+  }
+
+  function openInBluefy(storeUrl) {
+    let leftPage = false;
+    const markLeft = () => {
+      leftPage = true;
       try {
-        toast('Choose AIRIZ-BT. No motor command is sent while connecting.');
-        const port = await ble.requestWebBluetoothPort(lost => {
-          window.dispatchEvent(new CustomEvent('airiz-port-lost', { detail: lost }));
-        });
-        await api.connectPort(port);
-        toast(port.bridge ? 'Bluetooth remote unlocked. Motor controls are ready.' : 'Bluetooth connected.');
-      } catch (error) {
-        if (error && (error.name === 'NotFoundError' || error.name === 'AbortError')) return;
-        toast(error && error.message ? error.message : 'Bluetooth connection failed.');
-      } finally {
-        refresh();
+        localStorage.setItem(BLUEFY_SEEN_KEY, '1');
+      } catch (error) { /* private mode */ }
+    };
+    const onVisibility = () => {
+      if (document.hidden) markLeft();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', markLeft, { once: true });
+    toast('Opening Bluefy…');
+    window.location.assign(BLUEFY_OPEN + connectUrl());
+
+    let knownInstalled = false;
+    try {
+      knownInstalled = localStorage.getItem(BLUEFY_SEEN_KEY) === '1';
+    } catch (error) { /* private mode */ }
+    // Bluefy opened before on this phone: never bounce to the store.
+    if (knownInstalled) return;
+    setTimeout(() => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      if (!leftPage && !document.hidden) window.location.assign(storeUrl);
+    }, 2500);
+  }
+
+  if (iphoneButton && !native) {
+    const inBluefy = !!navigator.bluetooth && ble.isIos();
+    if (inBluefy) {
+      iphoneButton.textContent = 'Connect AIRIZ';
+      iphoneButton.title = 'Connect to the AIRIZ Bluetooth remote (AIRIZ-BT) and enter its PIN.';
+      iphoneButton.removeAttribute('target');
+    }
+    iphoneButton.addEventListener('click', event => {
+      if (inBluefy) {
+        event.preventDefault();
+        connectBluetooth();
+        return;
       }
+      if (!ble.isIos()) return; // PC/Android without Web Bluetooth: show the store page
+      event.preventDefault();
+      openInBluefy(iphoneButton.href);
     });
+  }
+
+  // Opened from Safari via bluefy://open?url=…?ble=connect → start connecting.
+  const params = new URLSearchParams(location.search);
+  if (!native && params.get(CONNECT_PARAM) === 'connect') {
+    params.delete(CONNECT_PARAM);
+    const query = params.toString();
+    history.replaceState(null, '', location.pathname + (query ? '?' + query : '') + location.hash);
+    if (navigator.bluetooth) {
+      setTimeout(() => connectBluetooth({ auto: true }), 600);
+    }
   }
 
   // ------------------------------------------------------------ Phone remote (USB)
