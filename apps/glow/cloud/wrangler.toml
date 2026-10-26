@@ -8,3 +8,6 @@ binding = "BROWSER"
 
 [vars]
 ALLOWED_ORIGINS = "https://juw12.github.io,https://localhost,capacitor://localhost"
+
+[observability]
+enabled = true
