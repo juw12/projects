@@ -38,9 +38,16 @@ class GlowLeadTests(unittest.TestCase):
                        "Nova could not write a summary"):
             self.assertIn(needle, engine)
 
+    def test_glow_free_always_gets_an_answer(self):
+        # Glow Free runs a reasoning model: at default effort it often thinks, then sends no answer text,
+        # and identical requests are cached, so an unchanged retry repeats the same empty reply.
+        engine = (WEB / "room" / "crew-engine.js").read_text(encoding="utf-8")
+        self.assertIn("body.reasoning_effort = 'low';", engine)
+        self.assertIn("if (emptyRetries < 2) body.seed = Math.floor(Math.random() * 1e9);", engine)
+
     def test_worker_cache_is_scoped(self):
         worker = (LEAD / "sw.js").read_text(encoding="utf-8")
-        self.assertIn("const CACHE_NAME = 'glowlead-v13';", worker)
+        self.assertIn("const CACHE_NAME = 'glowlead-v14';", worker)
         self.assertIn("name.startsWith('glowlead-')", worker)
         self.assertNotIn("caches.keys().then((names) => Promise.all(names.map", worker)
         home_worker = (WEB / "sw.js").read_text(encoding="utf-8")
