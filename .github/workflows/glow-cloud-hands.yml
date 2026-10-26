@@ -1,0 +1,70 @@
+name: Glow Hands cloud browser
+
+# Started on demand from GlowLead on your phone ("Start cloud browser"). It runs Glow Hands with a hidden
+# browser for a short session, then stops by itself. Nothing secret is printed: the phone and this job
+# both derive the private link from the GLOW_CLOUD_KEY secret and the public session id.
+# Keep sessions short and occasional; GitHub's terms limit Actions to light, project-related use.
+on:
+  workflow_dispatch:
+    inputs:
+      session:
+        description: 'Session id made by GlowLead (letters, digits, - or _)'
+        required: true
+      minutes:
+        description: 'Stop after this many minutes (5-30)'
+        required: false
+        default: '20'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: glow-cloud-hands
+  cancel-in-progress: true
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      SESSION: ${{ github.event.inputs.session }}
+      MINUTES: ${{ github.event.inputs.minutes }}
+    steps:
+      - name: Check request
+        env:
+          GLOW_CLOUD_KEY: ${{ secrets.GLOW_CLOUD_KEY }}
+        run: |
+          if [ "${#GLOW_CLOUD_KEY}" -lt 24 ]; then
+            echo "::error::The GLOW_CLOUD_KEY secret is missing. See apps/glow/hands/CLOUD.md."
+            exit 1
+          fi
+          if ! [[ "$SESSION" =~ ^[A-Za-z0-9_-]{16,64}$ ]]; then
+            echo "::error::Invalid session id."
+            exit 1
+          fi
+          if ! [[ "$MINUTES" =~ ^[0-9]{1,2}$ ]] || [ "$MINUTES" -lt 5 ] || [ "$MINUTES" -gt 30 ]; then
+            echo "MINUTES=20" >> "$GITHUB_ENV"
+          fi
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: apps/glow/hands
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: glow-hands-chromium-${{ runner.os }}-${{ runner.arch }}-playwright-1.55.0
+      - name: Install Glow Hands (Linux installer)
+        env:
+          GLOW_HANDS_SOURCE: ${{ github.workspace }}/apps/glow/hands/glow_hands.py
+          GLOW_HANDS_NO_SERVICE: '1'
+        run: bash apps/glow/hands/install-glow-hands-linux.sh
+      - name: Cloud browser session
+        env:
+          GLOW_CLOUD_KEY: ${{ secrets.GLOW_CLOUD_KEY }}
+          GLOW_CLOUD_NONCE: ${{ github.event.inputs.session }}
+        run: |
+          GLOW_HANDS_TOKEN="$(openssl rand -hex 24)"
+          echo "::add-mask::$GLOW_HANDS_TOKEN"
+          export GLOW_HANDS_TOKEN
+          "$HOME/.local/share/GlowHands/venv/bin/python" -X utf8 "$HOME/.local/share/GlowHands/app/glow_hands.py" \
+            --headless --quiet --profile "$RUNNER_TEMP/glow-hands" \
+            --max-minutes "$MINUTES" --idle-minutes 8

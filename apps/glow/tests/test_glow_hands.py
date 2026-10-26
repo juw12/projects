@@ -678,5 +678,227 @@ class PhoneLinkEndToEnd(unittest.TestCase):
         new_phone.wait_for_function("document.getElementById('hands-status').dataset.state === 'paired'", timeout=40000)
 
 
+CLOUD_KEY = "cloud-key-for-tests-0123456789abcdef"
+
+
+def start_cloud_companion(port, profile, nonce, peerjs_url, *extra):
+    env = os.environ.copy()
+    env.update(GLOW_CLOUD_KEY=CLOUD_KEY, GLOW_CLOUD_NONCE=nonce)
+    process = subprocess.Popen(
+        [sys.executable, str(COMPANION), "--port", str(port), "--profile", profile, "--headless", "--token", TOKEN,
+         "--allow-private", "--peerjs-url", peerjs_url, *extra],
+        env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    deadline = time.time() + 15
+    while time.time() < deadline:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+                return process
+        except OSError:
+            time.sleep(0.1)
+    process.kill()
+    raise RuntimeError("Cloud Glow Hands did not start: " + process.stderr.read()[-800:])
+
+
+class CloudLinkTests(unittest.TestCase):
+    def test_cloud_link_is_deterministic_and_valid(self):
+        sys.path.insert(0, str(COMPANION.parent))
+        import glow_hands
+        first = glow_hands.cloud_link(CLOUD_KEY, "session-abcdefghijkl")
+        self.assertEqual(first, glow_hands.cloud_link(CLOUD_KEY, "session-abcdefghijkl"))
+        self.assertNotEqual(first, glow_hands.cloud_link(CLOUD_KEY, "session-abcdefghijkm"))
+        self.assertNotEqual(first, glow_hands.cloud_link(CLOUD_KEY + "x", "session-abcdefghijkl"))
+        self.assertRegex(first["peerId"], r"^glowhands-[0-9a-f]{24}$")
+        self.assertRegex(first["secret"], r"^[\w-]{32}$")
+        for bad_nonce in ("short", "has space in it 123", "x" * 65, "semi;colon-0123456789"):
+            with self.assertRaises(ValueError):
+                glow_hands.cloud_link(CLOUD_KEY, bad_nonce)
+        with self.assertRaises(ValueError):
+            glow_hands.cloud_link("too-short", "session-abcdefghijkl")
+
+    def test_show_phone_link_prints_the_saved_link(self):
+        profile = tempfile.mkdtemp(prefix="glow-show-")
+        output = subprocess.run([sys.executable, str(COMPANION), "--profile", profile, "--show-phone-link"],
+                                capture_output=True, text=True, timeout=30).stdout
+        saved = json.loads((Path(profile) / "phone-link.json").read_text(encoding="utf-8"))
+        self.assertIn("https://juw12.github.io/projects/glow/lead/#phone=" + saved["peerId"] + "." + saved["secret"], output)
+
+    def test_linux_installer_is_valid_bash(self):
+        import shutil
+        git = shutil.which("git")
+        candidates = [str(Path(git).resolve().parents[1] / "bin" / "bash.exe")] if git and os.name == "nt" else []
+        candidates += [r"C:\Program Files\Git\bin\bash.exe", "/bin/bash", "/usr/bin/bash"]
+        bash = next((path for path in candidates if os.path.exists(path)), None)
+        if not bash:
+            self.skipTest("bash is not available")
+        script = APP / "hands" / "install-glow-hands-linux.sh"
+        self.assertNotIn(b"\r\n", script.read_bytes(), "The Linux installer must use LF line endings")
+        result = subprocess.run([bash, "-n", str(script)], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+
+@unittest.skipUnless(HAVE_PLAYWRIGHT, "Install the optional Playwright test dependency to run Glow Hands checks")
+class CloudSessionTests(unittest.TestCase):
+    def test_cloud_session_is_quiet_fixed_and_stops_by_itself(self):
+        port = free_port()
+        nonce = "quiet-session-0123456789"
+        process = start_cloud_companion(port, tempfile.mkdtemp(prefix="glow-cloud-"), nonce,
+                                        "http://127.0.0.1:9/none.js", "--max-minutes", "0.05")
+        try:
+            sys.path.insert(0, str(COMPANION.parent))
+            import glow_hands
+            expected = glow_hands.cloud_link(CLOUD_KEY, nonce)
+            status, link, _ = call(port, "GET", "/phone-link")
+            self.assertEqual((status, link["peerId"], link["secret"]), (200, expected["peerId"], expected["secret"]))
+            self.assertEqual(call(port, "POST", "/phone-link/reset", {})[0], 409)
+            process.wait(timeout=40)
+        finally:
+            if process.poll() is None:
+                process.kill()
+        output = process.stdout.read() + process.stderr.read()
+        process.stdout.close()
+        process.stderr.close()
+        self.assertIn("Time limit", output)
+        for secret in (TOKEN, expected["peerId"], expected["secret"], CLOUD_KEY):
+            self.assertNotIn(secret, output, "Cloud logs are public; nothing secret may be printed")
+        self.assertNotIn("GET /phone-link", output)
+
+    def test_idle_session_stops(self):
+        port = free_port()
+        process = start_cloud_companion(port, tempfile.mkdtemp(prefix="glow-idle-"), "idle-session-0123456789",
+                                        "http://127.0.0.1:9/none.js", "--idle-minutes", "0.05")
+        try:
+            process.wait(timeout=40)
+        finally:
+            if process.poll() is None:
+                process.kill()
+            output = process.stdout.read()
+            process.stdout.close()
+            process.stderr.close()
+        self.assertIn("Not used for", output)
+
+
+@unittest.skipUnless(HAVE_PLAYWRIGHT, "Install the optional Playwright test dependency to run Glow Hands checks")
+class CloudBrowserEndToEnd(unittest.TestCase):
+    """The phone taps Start cloud browser; a (faked) GitHub starts Glow Hands with the phone's session id;
+    the phone connects over the real PeerJS service and runs a mission with approval."""
+
+    @classmethod
+    def setUpClass(cls):
+        from playwright.sync_api import sync_playwright
+
+        class QuietStatic(http.server.SimpleHTTPRequestHandler):
+            def log_message(self, *_args):
+                pass
+
+        cls.site = http.server.ThreadingHTTPServer(("127.0.0.1", 0), SiteHandler)
+        threading.Thread(target=cls.site.serve_forever, daemon=True).start()
+        cls.site_url = f"http://127.0.0.1:{cls.site.server_port}"
+        cls.web = http.server.ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(QuietStatic, directory=str(APP / "web")))
+        threading.Thread(target=cls.web.serve_forever, daemon=True).start()
+        cls.web_url = f"http://127.0.0.1:{cls.web.server_port}"
+        cls.playwright = sync_playwright().start()
+        cls.browser = cls.playwright.chromium.launch()
+        cls.processes = []
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.browser.close()
+        cls.playwright.stop()
+        for process in cls.processes:
+            if process.poll() is None:
+                process.terminate()
+                process.wait(timeout=10)
+            process.stdout.close()
+            process.stderr.close()
+        for server in (cls.site, cls.web):
+            server.shutdown()
+            server.server_close()
+
+    def test_phone_starts_cloud_browser_runs_mission_and_stops(self):
+        github = {"dispatch": None, "cancelled": [], "auth": None}
+        port = free_port()
+
+        def fake_github(route):
+            request = route.request
+            github["auth"] = request.headers.get("authorization")
+            if request.method == "POST" and request.url.endswith("/actions/workflows/glow-cloud-hands.yml/dispatches"):
+                body = json.loads(request.post_data)
+                github["dispatch"] = body
+                self.assertEqual(body["ref"], "main")
+                type(self).processes.append(start_cloud_companion(
+                    port, tempfile.mkdtemp(prefix="glow-cloud-e2e-"), body["inputs"]["session"],
+                    self.web_url + "/shared/peerjs.min.js"))
+                route.fulfill(status=204, body="")
+            elif request.method == "GET" and "/actions/workflows/glow-cloud-hands.yml/runs?status=in_progress" in request.url:
+                route.fulfill(status=200, content_type="application/json", body=json.dumps({"workflow_runs": [{"id": 4242}]}))
+            elif request.method == "GET" and "/runs?status=queued" in request.url:
+                route.fulfill(status=200, content_type="application/json", body=json.dumps({"workflow_runs": []}))
+            elif request.method == "POST" and request.url.endswith("/actions/runs/4242/cancel"):
+                github["cancelled"].append(4242)
+                route.fulfill(status=202, content_type="application/json", body="{}")
+            else:
+                route.fulfill(status=404, content_type="application/json", body="{}")
+
+        script = [
+            {"action": "goto", "url": self.site_url + "/form.html"},
+            {"action": "type", "name": "Full name", "text": "Cloud User"},
+            {"action": "click", "name": "Place order"},
+            {"action": "done", "summary": "Ordered from the cloud browser."},
+        ]
+        context = self.browser.new_context(**self.playwright.devices["iPhone 13"])
+        self.addCleanup(context.close)
+        context.route("**/crew-engine.js", lambda route: route.fulfill(content_type="application/javascript", body=E2E_ENGINE_STUB))
+        context.route("https://api.github.com/**", fake_github)
+        context.add_init_script("window.__config = " + json.dumps({"plan": BROWSER_PLAN, "script": script}) + ";")
+        phone = context.new_page()
+
+        # Setup link carries the cloud key; the token is pasted once.
+        phone.goto(self.web_url + "/lead/#cloud=" + CLOUD_KEY)
+        self.assertNotIn(CLOUD_KEY, phone.url, "The key must be removed from the address bar")
+        phone.wait_for_selector("#hands-dialog[open]", timeout=10000)
+        self.assertEqual(phone.locator("#cloud-key").input_value(), CLOUD_KEY)
+        phone.fill("#cloud-token", "github_pat_test_token")
+        phone.click("#cloud-start")
+        phone.wait_for_function("document.getElementById('hands-status').dataset.state === 'paired'", timeout=120000)
+        self.assertEqual(phone.locator("#hands-status").inner_text(), "CONNECTED · CLOUD")
+        self.assertEqual(github["auth"], "Bearer github_pat_test_token")
+        self.assertRegex(github["dispatch"]["inputs"]["session"], r"^[A-Za-z0-9_-]{16,64}$")
+        self.assertEqual(github["dispatch"]["inputs"]["minutes"], "20")
+        saved = json.loads(phone.evaluate("localStorage.getItem('glowlead.hands.v1')"))
+        self.assertEqual((saved["mode"], saved["host"]), ("remote", "cloud"))
+        self.assertNotIn(saved["secret"], json.dumps(github["dispatch"]), "The link secret never goes to GitHub")
+        phone.click("#hands-cancel")
+
+        phone.evaluate("GlowLead.start('Order with the cloud browser', false, { allowHands: true })")
+        phone.wait_for_selector("#approve-action", timeout=60000)
+        self.assertEqual(call(port, "GET", "/observe")[1]["title"], "Test shop", "Nothing submitted before approval")
+        phone.click("#approve-action")
+        phone.wait_for_function("GlowLead.leads[0] && GlowLead.leads[0].status === 'done'", timeout=60000)
+        done = call(port, "GET", "/observe")[1]
+        self.assertIn("name=Cloud+User", done["url"])
+
+        phone.click("#hands-btn")
+        phone.click("#cloud-stop")
+        phone.wait_for_function("document.getElementById('cloud-note').textContent.includes('stopped')", timeout=20000)
+        self.assertEqual(github["cancelled"], [4242])
+        self.assertIsNone(phone.evaluate("localStorage.getItem('glowlead.hands.v1')"), "No earlier link to restore")
+
+    def test_missing_setup_and_bad_token_are_explained(self):
+        context = self.browser.new_context(**self.playwright.devices["iPhone 13"])
+        self.addCleanup(context.close)
+        context.route("**/crew-engine.js", lambda route: route.fulfill(content_type="application/javascript", body=E2E_ENGINE_STUB))
+        context.route("https://api.github.com/**", lambda route: route.fulfill(status=401, content_type="application/json", body="{}"))
+        phone = context.new_page()
+        phone.goto(self.web_url + "/lead/")
+        phone.click("#hands-btn")
+        phone.click("#cloud-start")
+        phone.wait_for_function("document.getElementById('cloud-note').textContent.includes('Set up the cloud browser first')", timeout=10000)
+        phone.fill("#cloud-token", "github_pat_wrong")
+        phone.fill("#cloud-key", CLOUD_KEY)
+        phone.click("#cloud-start")
+        phone.wait_for_function("document.getElementById('cloud-note').textContent.includes('didn\\'t accept the token')", timeout=10000)
+        self.assertNotEqual(phone.locator("#hands-status").inner_text(), "CONNECTED · CLOUD")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

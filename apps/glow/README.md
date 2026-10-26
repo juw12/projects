@@ -12,6 +12,20 @@
 GlowChat installable app: `glow/chat/app.html`, mobile: `glow/chat/mobile.html`. GlowRoom: `glow/room/app.html`, `glow/room/mobile.html`.
 AI-suggested resources in GlowChat are not automatically browsed or verified; GlowChat does no autonomous building or execution (that is GlowRoom's job, and its results should still be reviewed).
 
+## v0.14.0 — Glow Hands without your PC
+
+- **Cloud browser:** on your phone, GlowLead → Connect browser control → **Start cloud browser**. A hidden
+  Glow Hands starts on GitHub Actions (`.github/workflows/glow-cloud-hands.yml`) in about a minute and stops
+  after 20 minutes, or 8 minutes without use. The private link is derived on both sides from the
+  `GLOW_CLOUD_KEY` secret, so nothing secret appears in the public run. It needs a fine-grained GitHub
+  token with Actions read/write (stored only on that phone).
+- **Always-on server:** `apps/glow/hands/install-glow-hands-linux.sh` sets up Glow Hands on a free Oracle Cloud VM,
+  a Raspberry Pi or any Ubuntu machine, starts it at boot and prints a phone QR code. Status shows
+  **CONNECTED · SERVER**.
+- Glow Hands 0.4.0: `--max-minutes`, `--idle-minutes`, `--quiet`, `--show-phone-link`; headless by default
+  on Linux machines without a screen.
+- Guide: [hands/CLOUD.md](hands/CLOUD.md).
+
 ## v0.13.0 — connect inside the app, and use Glow Hands from your phone
 
 - **No Windows prompt:** Connect browser control connects in one click inside GlowLead, and the installer
