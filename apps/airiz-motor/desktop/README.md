@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.1.0` in this repository's Releases section.
+`airiz-desktop-v1.1.1` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -40,7 +40,21 @@ channel on startup and every six hours. Use Updates or Help → Check for update
 for a manual check. Downloads require a click; installation requires confirmation
 and an idle console. Updates never install merely because the app quits.
 
-Version 1.0.0 has no updater and needs a one-time manual installation of 1.1.0.
+Version 1.0.0 has no updater and needs a one-time manual installation of the latest release.
+
+### 1.1.1 update-channel migration
+
+The repository moved from `juwpegatron` to `juw12`. Version 1.1.1 checks
+`https://juw12.github.io/projects/airiz-motor/updates/windows/` and downloads from
+`juw12/projects` releases. Installed 1.1.0 builds still check the former
+`juwpegatron.github.io` address, so a compatibility feed there offers 1.1.1 using
+the former release-download address, which GitHub redirects to `juw12/projects`.
+The installer binary and SHA-512 hash are identical in both feeds.
+
+Keep the compatibility feed until existing 1.1.0 installations have updated, and
+never create a new `juwpegatron/projects` repository: that would break the
+release-download redirect required by 1.1.0. Version 1.1.1 makes no other
+functional changes.
 Portable builds can check for newer versions and open the correct portable download,
 but replacement is manual. The installer updater does not overwrite a portable app.
 
