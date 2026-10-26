@@ -315,3 +315,35 @@ dialog .start-actions { margin-top: 20px; }
   .top-right { gap: 4px; }
   .top-right .btn.small { white-space: nowrap; min-height: 40px; padding: 6px 8px; }
 }
+
+/* v0.9 — memory, skills, automations and follow-ups */
+.memory-panel .btn { width: 100%; }
+#memory-summary { margin: 0 0 10px; overflow-wrap: anywhere; }
+#automation-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.automation { border: 1px solid var(--border); border-radius: 9px; padding: 9px 10px; background: var(--card); }
+.automation.paused { opacity: .65; }
+.automation b { display: block; font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+.automation small { display: block; font-size: 10px; color: var(--muted); margin-top: 3px; }
+.automation-actions { display: flex; gap: 5px; margin-top: 8px; }
+.automation-actions button { flex: 1; min-height: 32px; font-size: 11px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 7px; cursor: pointer; }
+.automation-actions button:last-child { flex: 0 0 34px; }
+.skill-tag { font-size: 9px; letter-spacing: .08em; color: var(--gold); border: 1px solid var(--gold); border-radius: 5px; padding: 0 4px; margin-left: 4px; }
+.skill-chip { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--card); border: 1px solid var(--gold); border-radius: 9px; padding: 8px 10px; font-size: 12px; margin: 0 0 12px; }
+.skill-chip button { border: 0; background: transparent; color: var(--text); font-size: 18px; cursor: pointer; min-width: 32px; min-height: 32px; }
+.mission-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.mission-badges span { font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 3px 9px; background: var(--bg); overflow-wrap: anywhere; }
+.followup { margin-top: 14px; display: grid; gap: 6px; }
+.followup label { font-size: 12px; font-weight: 600; }
+.followup > div { display: flex; gap: 8px; }
+.followup input { flex: 1; min-width: 0; font-size: 13px; }
+.followup small { font-size: 11px; color: var(--muted); }
+dialog textarea, dialog select { width: 100%; }
+dialog .edit-row label { margin-top: 16px; }
+dialog .edit-row select, dialog .edit-row input { margin-top: 8px; }
+dialog .check { margin-top: 14px; display: flex; }
+@media (max-width: 720px) {
+  .followup > div { flex-direction: column; }
+}
+
+dialog .check { display: flex; align-items: center; justify-content: flex-start; gap: 10px; margin: 14px 0 0; font-size: 13px; }
+dialog .check input { width: 18px; height: 18px; flex: 0 0 18px; margin: 0; padding: 0; }
