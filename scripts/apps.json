@@ -1,5 +1,5 @@
 {
- "_comment": "Single source of truth for the software apps shipped by this monorepo. Consumed by scripts/build_site.py (GitHub Pages landing page + deploy copy list) and scripts/publish_portfolio.py (portfolio cards + Obsidian notes). `description` is the full portfolio-card copy (HTML-ready); `desc` is the short landing-page blurb. `links` are relative to the deployed site root (https://juw12.github.io/projects/<rel>). Extra fields `image_alt`, `project_id`, `label` (thumbnail aria-label) and `desc` reproduce the live markup verbatim.",
+ "_comment": "Single source of truth for the software apps shipped by this monorepo. Consumed by scripts/build_site.py (GitHub Pages landing page + deploy copy list) and scripts/publish_portfolio.py (portfolio cards + Obsidian notes). `summary` is the one-line portfolio-card copy (HTML-ready, keep it under ~120 visible characters so cards stay even); `description` is the full copy shown in the card's Details view and the Obsidian note (HTML-ready); `desc` is the short landing-page blurb. `links` are relative to the deployed site root (https://juw12.github.io/projects/<rel>). Extra fields `image_alt`, `project_id`, `label` (thumbnail aria-label) and `desc` reproduce the live markup verbatim.",
  "apps": [
   {
    "id": "orbis",
@@ -7,6 +7,7 @@
    "category": "Apps",
    "desc": "Communication, identity and protection in one app",
    "description": "Offline-first personal hub for communication and growth &mdash; manage replies, commitments and summaries on a zero-dependency Python + SQLite backend.",
+   "summary": "Offline-first personal hub for replies, commitments and summaries on a zero-dependency Python + SQLite backend.",
    "tags": [
     "Python",
     "SQLite",
@@ -29,6 +30,7 @@
    "category": "Apps",
    "desc": "Verified reviews across 32 categories — food, travel, market, AI tools, health and more",
    "description": "Offline-first review app across 32 categories, from food to AI tools, with a built-in Use it / Wait / Skip scorecard.",
+   "summary": "Offline-first review app across 32 categories, from food to AI tools, with a quick Use it / Wait / Skip scorecard.",
    "tags": [
     "PWA",
     "reviews",
@@ -64,6 +66,7 @@
    "category": "Apps",
    "desc": "Athlete-moment sneaker news + live market feed",
    "description": "Sneaker news meets market data &mdash; links athletes&rsquo; on-court moments to resale price moves. Mobile and desktop prototypes.",
+   "summary": "Sneaker news meets market data &mdash; links athletes&rsquo; on-court moments to resale price moves.",
    "tags": [
     "sneakers",
     "market data",
@@ -94,6 +97,7 @@
    "category": "Creator Tools",
    "desc": "Desktop studio for creators — generate a video from a prompt, refine it, fan it out to every platform, and keep your storage from overfilling",
    "description": "Desktop creator studio: generate a video from a prompt, refine it in the editor and publish to every platform at once &mdash; plus bulk uploads and automatic media backup.",
+   "summary": "Desktop creator studio: generate a video from a prompt, refine it and publish to every platform at once.",
    "tags": [
     "AI video",
     "multi-platform publish",
@@ -116,6 +120,7 @@
    "category": "AI",
    "desc": "Turn a plain-words idea into a scored spec (Kiro-style requirements, design, tasks), a drag-and-drop task board and a Build → Grow → Earn plan — hand it to Lovable, v0, Cursor or Claude Code in one click, share remix links, and let Otto, an offline approval-first AI operator, draft brand, site, posts and outreach",
    "description": "Turns a rough app idea into a scored spec, a task board and a Build &rarr; Grow &rarr; Earn plan, then hands it to Lovable, v0, Cursor or Claude Code in one click. Its local agent Otto drafts brand, site and posts. Fully offline.",
+   "summary": "Turns a rough app idea into a scored spec, task board and launch plan, then hands it to Cursor, v0 or Claude Code.",
    "tags": [
     "spec score",
     "task board",
@@ -138,6 +143,7 @@
    "category": "Automation",
    "desc": "Windows, Android and browser console for AIRIZ motor testing: USB or Bluetooth jog, LEDs, camera tools and macros",
    "description": "Downloadable Windows console with a locally bundled controller, serial port chooser, camera tools, macros and offline demo. Android app and on-device Bluetooth bridge add wireless pan, up/down and LED control. The browser and mobile-web editions remain available.",
+   "summary": "Windows, Android and web console for AIRIZ motor testing &mdash; USB or Bluetooth jog, LEDs, camera tools and macros.",
    "tags": [
     "Windows app",
     "Web Serial",
@@ -183,6 +189,7 @@
    "category": "CAD &amp; 3D",
    "desc": "One local 3D app — build parts and export 3D files (STL/OBJ/glTF/3MF/DXF), repair models and plan assemblies in ANY 3D software, ask design questions, reverse-engineer scans, turn drawings into CAD, automate batches, and simulate",
    "description": "Offline parametric CAD builder and engineering copilot: diagnoses broken models, plans repairs, checks clearance and motion, and exports STL, OBJ, glTF, 3MF and DXF.",
+   "summary": "Offline parametric CAD and engineering copilot that repairs models, checks clearances and exports STL, 3MF and DXF.",
    "tags": [
     "parametric CAD",
     "model repair",
@@ -207,6 +214,7 @@
    "url": "https://somacad.app/",
    "desc": "Open-source AI CAD — describe a part, your coding agent writes CadQuery, SOMA builds it",
    "description": "Open-source desktop CAD where a coding agent writes CadQuery for you, with checks, FEM and STEP/STL/3MF export. By Kai Jungsth&ouml;fel (GPL-3.0).",
+   "summary": "Open-source AI CAD by Kai Jungsth&ouml;fel &mdash; a coding agent writes CadQuery, SOMA builds, checks and exports it.",
    "tags": [
     "AI CAD",
     "CadQuery",
@@ -225,6 +233,7 @@
    "url": "https://heyvector.co/",
    "desc": "Engineering copilot that works inside Autodesk Fusion and SOLIDWORKS",
    "description": "AI engineering copilot inside Fusion and SOLIDWORKS &mdash; answers design questions, creates and repairs native features, and shows every change for review. By Vector Copilot LLC.",
+   "summary": "AI engineering copilot for Fusion and SOLIDWORKS by Vector Copilot LLC that builds and repairs native features.",
    "tags": [
     "AI copilot",
     "Fusion",
@@ -242,6 +251,7 @@
    "work": true,
    "desc": "41 landmark and character miniatures, including a checked 100 mm Kobo-chan geometry revision for Formlabs Form 3.",
    "description": "41 landmark and character miniatures &mdash; world wonders, skyscrapers, Snoopy, Mobile Suits, Marina Bay Sands and the Eiffel Tower. New: a 100&nbsp;mm Kobo-chan figurine revised for Formlabs Form 3, with strengthened crown hairs, checked STL and colored STEP files, a suggested orientation and print notes. PreForm supports, resin settings and a test print are still required.",
+   "summary": "41 landmark and character miniatures as STL/STEP, including a 100&nbsp;mm Kobo-chan figurine revised for Form 3 SLA.",
    "tags": [
     "CadQuery",
     "SOMA",
@@ -286,6 +296,7 @@
    "category": "AI",
    "desc": "Private, local Windows translation for English, Chinese and Bahasa Indonesia — with light/dark themes",
    "description": "Offline Windows translator for English, Chinese (Simplified/Traditional) and Bahasa Indonesia, powered by a local Ollama model with tone, glossary and review checks.",
+   "summary": "Private, offline Windows translator for English, Chinese and Bahasa Indonesia, running on a local Ollama model.",
    "tags": [
     "offline translation",
     "Ollama",
@@ -308,6 +319,7 @@
    "category": "Apps",
    "desc": "TwinAgent research team, stocks from any country, multi-currency practice, lessons, Replay Lab and optional real trading",
    "description": "Twin is an iPhone-ready investing and trading companion with a clean, professional design (1.5.1: new design system, line icons, dark and light themes) that updates itself the moment a new version ships (1.5.2). New in 1.5: TwinAgent, a free research team of five analysts (trend, SEC-filed fundamentals, risk, relevance-screened headlines, famous investors' 13Fs) that argue a bull and bear case from cited, dated evidence; a portfolio manager rates the stock and a risk gate built from your own limits sizes or blocks the idea. No AI subscription, the same evidence always gives the same report, future data is filtered out, and a walk-forward scorecard tests the price evidence over decades against buy-and-hold. Search stocks by company, ticker or country — Tokyo, Hong Kong, Jakarta, London, Frankfurt, Mumbai, Toronto, São Paulo, Sydney and more — with exchange, currency, market hours, ≈ USD price and US-listing hints on every stock page. World markets shows market clocks, 18 indices, movers and a heatmap; practice trades in a separate $10,000 USD portfolio convert foreign prices at delayed FX rates, and totals can be shown in your home currency (25 currencies). Continue as guest or share a ?guest link; market, limit, stop, stop-limit and trailing orders with brackets, price alerts, scrub charts with SMA/EMA/RSI, portfolio X-ray with country and currency exposure, a bar-by-bar Replay Lab and 12 Twin Academy lessons. The local server searches any Yahoo Finance listing; the web demo uses a dated snapshot of 54 global stocks on 25+ exchanges. Optional real trading through your own Alpaca account (US listings only) on the local server. Not financial advice.",
+   "summary": "Investing companion with a five-analyst AI research team, global stock search, paper trading and a replay lab.",
    "tags": [
     "TwinAgent",
     "multi-agent research",
@@ -335,6 +347,7 @@
    "category": "AI",
    "desc": "One home for your AI: GlowLead plans goals and runs the other apps; GlowChat for chat, personas, a Council with a Judge and a model Arena; GlowRoom for an AI crew that researches, codes and reports back. One free Glow account, no sign-up needed to start",
    "description": "One home, one free account, three AI apps. <strong>GlowLead</strong>: give one goal and the AI lead plans it, hands each step to GlowChat or the GlowRoom crew, checks the work against clear done-criteria and reports back. <strong>GlowChat</strong>: chat with any model, personas, a Council with a Judge and an Arena. <strong>GlowRoom</strong>: an AI crew that searches the web, runs code and cites sources. Free for guests.",
+   "summary": "Three AI apps on one free account &mdash; GlowLead plans goals, GlowChat compares models, GlowRoom researches and codes.",
    "tags": [
     "AI ecosystem",
     "GlowLead",
@@ -378,6 +391,7 @@
    "category": "Creator Tools",
    "desc": "Sped-up, slowed and mashup edits of your own songs, exported as 9:16 MP4 shorts for TikTok, Reels and YouTube Shorts",
    "description": "Browser shorts studio for your own audio: sped-up, slowed and mashup styles, a CapCut-style 9:16 editor with captions, and 1080&times;1920 MP4 export for TikTok, Reels and Shorts.",
+   "summary": "Turns your own songs into sped-up, slowed or mashup 9:16 shorts with captions for TikTok, Reels and Shorts.",
    "tags": [
     "Web Audio",
     "9:16 video export",
@@ -401,6 +415,7 @@
    "category": "Creator Tools",
    "desc": "Make faceless 9:16 explainer shorts in the browser — captions, music, MP4 export, channel kit and publishing",
    "description": "Browser studio for faceless explainer shorts in English and Bahasa Indonesia: write scenes, add voice, export a captioned 1080&times;1920 MP4 and post to YouTube, TikTok and Instagram.",
+   "summary": "Browser studio for faceless explainer shorts &mdash; script, voice, captions and 1080&times;1920 MP4 export with auto-posting.",
    "tags": [
     "video",
     "captions",
@@ -423,6 +438,7 @@
    "category": "Apps",
    "desc": "Unofficial learning app for 發一光耀 — sign in or continue as a guest, admin-published lessons and materials, an AI study companion, spaced review and streaks in one installable PWA",
    "description": "An unofficial Traditional Chinese learning app for 發一光耀. Learners sign in with a free Puter account (progress syncs across devices) or continue as a guest; admins publish lessons, quizzes, handouts and events from a dedicated admin console backed by a versioned content repository. Includes an AI study companion that cites lessons and materials, quizzes, plans and makes flashcards, plus interactive lessons, spaced-repetition review, streaks, a usage guide and offline support. Points, giving and chat remain demos; no payments or official certification.",
+   "summary": "Unofficial Traditional Chinese learning app for 發一光耀 with lessons, an AI study companion and spaced review.",
    "tags": [
     "PWA",
     "accounts + guest mode",
@@ -486,6 +502,7 @@
    "category": "Engineering",
    "desc": "Tolerance stack-ups in seconds — worst case, RSS and Monte Carlo with Cpk, ppm and the biggest lever to tighten; offline, plus free Excel / Google Sheets workbook",
    "description": "Offline tolerance stack-up studio for hardware engineers: worst case, RSS and Monte Carlo side by side, Cpk and ppm prediction, a variance Pareto with what-if, loop diagram and one-page PDF report &mdash; plus a free Excel / Google Sheets workbook.",
+   "summary": "Offline tolerance stack-up tool &mdash; worst case, RSS and Monte Carlo with Cpk/ppm prediction and a PDF report.",
    "tags": [
     "tolerance stack-up",
     "Monte Carlo",
@@ -518,6 +535,7 @@
    "category": "Apps",
    "desc": "Listen to music together in real time from anywhere: Spotify, Apple Music and YouTube listeners in one room, shared files, and voice chat that lowers the music when friends talk",
    "description": "<strong>Sync</strong> lets friends hear the same song at the same second from anywhere, with no shared Wi-Fi or Bluetooth. Spotify, Apple Music and YouTube listeners share one room, each hearing it on their own service. You can also share your own audio files peer-to-peer, and voice chat lowers the music while friends talk. No account or server: rooms run browser-to-browser over WebRTC.",
+   "summary": "Listen to music together in real time across Spotify, Apple Music and YouTube, with voice chat and no account.",
    "tags": [
     "WebRTC",
     "real-time sync",
@@ -542,6 +560,7 @@
    "category": "Apps",
    "desc": "Book barbers, watch haircut shorts and earn commission when your short sends a booking",
    "description": "Barber marketplace with haircut shorts: book barbers who work part-time at several shops, pay, tip and rate, follow trending barbers, shops and creators, and earn 5&ndash;10% commission by tagging them as featured or sponsored.",
+   "summary": "Barber marketplace with haircut shorts &mdash; book, pay and tip barbers, and earn commission when your short drives a booking.",
    "tags": [
     "PWA",
     "haircut shorts",
@@ -565,6 +584,7 @@
    "category": "Creator Tools",
    "desc": "Prompt a spreadsheet template, tweak it with words and themes, then sell it on a built-in marketplace with affiliates, content kits and creator guides",
    "description": "Prompt-to-template studio and marketplace for Excel / Google Sheets: describe a sheet in English or Bahasa Indonesia, tweak it with words (&ldquo;add column Supplier&rdquo;, &ldquo;theme midnight&rdquo;), export a real .xlsx with live formulas and a dashboard, then publish it with a price and affiliate commission &mdash; with login, seller and affiliate dashboards, auto-generated content kits and creator guides.",
+   "summary": "Describe a spreadsheet, tweak it in plain words, export a working .xlsx and sell it on a built-in marketplace.",
    "tags": [
     "Template marketplace",
     "Excel / Sheets",
@@ -597,6 +617,7 @@
    "category": "Apps",
    "desc": "Browser games, kept available by direct link without a public showcase card.",
    "description": "A collection of browser games maintained inside Projects.",
+   "summary": "A collection of browser games maintained inside Projects.",
    "tags": [
     "browser games",
     "JavaScript"
@@ -615,6 +636,7 @@
    "category": "Engineering",
    "desc": "Mechanical R&D workspace — NPI flow, review checklists, issue log, 11 engineering calculators and an optional LAN file vault; offline PWA",
    "description": "Offline-first workspace for hardware/mechanical R&amp;D: NPI task flow, OK/NG/NA review checklists, issue log and one-page project report, 11 calculators (Cpk, x&#772; &minus; 3&sigma;, torque window, stack-up, snap-fit, thermal pad, IEC openings, &Delta;E) and an optional stdlib-only file vault server. Ships with generic demo data; real content loads from a private data pack.",
+   "summary": "Offline workspace for mechanical R&amp;D &mdash; NPI task flow, review checklists, issue log and 11 engineering calculators.",
    "tags": [
     "NPI",
     "checklists",
