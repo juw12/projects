@@ -147,12 +147,18 @@ jobs:
           xcrun simctl bootstatus "$DEVICE" -b
           xcrun simctl install "$DEVICE" build-simulator/Build/Products/Debug-iphonesimulator/App.app
           xcrun simctl launch "$DEVICE" io.github.juwpegatron.airiz.mobile
-          sleep 8
+          sleep 30
           xcrun simctl io "$DEVICE" screenshot dist/airiz-iphone-simulator.png
       - name: Package iOS project for legitimate signing
         run: |
           VERSION=$(node -p "JSON.parse(require('fs').readFileSync('package.json')).version")
-          zip -qry "dist/AIRIZ-Mobile-${VERSION}-ios-project.zip" ios package.json package-lock.json capacitor.config.json src scripts assets native README.md -x 'ios/App/App/public/*' 'ios/**/xcuserdata/*' 'ios/**/.build/*'
+          SOURCE="$RUNNER_TEMP/airiz-mobile-source"
+          mkdir -p "$SOURCE/mobile" "$SOURCE/web"
+          rsync -a --exclude node_modules --exclude android --exclude dist --exclude 'build-*' --exclude '.test-data' --exclude xcuserdata --exclude .build ./ "$SOURCE/mobile/"
+          rsync -a ../web/ "$SOURCE/web/"
+          DESTINATION="$PWD/dist/AIRIZ-Mobile-${VERSION}-ios-project.zip"
+          cd "$SOURCE"
+          zip -qry "$DESTINATION" mobile web
       - uses: actions/upload-artifact@v4
         with:
           name: AIRIZ-iOS-unsigned
