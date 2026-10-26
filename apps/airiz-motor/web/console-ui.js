@@ -127,9 +127,9 @@
       $('keyboard-toggle').disabled = !status.connected;
       $('btn-send-raw').disabled = !status.connected;
       $('btn-bluetooth-on').disabled = !status.connected || status.macroRunning || bluetoothSending;
-      $('arm-title').textContent = !status.connected ? 'Connect to enable jogging'
+      const armTitle = !status.connected ? 'Connect to enable jogging'
         : armed ? (status.demoMode ? 'Demo jog enabled' : 'Jog enabled') : 'Jog manually locked';
-      $('arm-description').textContent = !status.connected
+      const armDescription = !status.connected
         ? 'Connecting enables the jog pad and arrow keys. No motion is sent automatically.'
         : status.macroRunning
           ? 'Macro running: manual jogs are temporarily paused. Your jog and keyboard settings are kept.'
@@ -138,6 +138,8 @@
             : status.demoMode
               ? 'Simulated device only. One click or arrow-key press sends one finite jog. No hardware moves.'
               : 'Ready after connection. One click or arrow-key press sends one finite jog. Tab changes and focus loss do not lock it.';
+      if ($('arm-title').textContent !== armTitle) $('arm-title').textContent = armTitle;
+      if ($('arm-description').textContent !== armDescription) $('arm-description').textContent = armDescription;
     }
 
     function refreshStatus() {

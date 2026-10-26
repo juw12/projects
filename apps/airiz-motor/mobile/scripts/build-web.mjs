@@ -11,6 +11,8 @@ fs.rmSync(output, { recursive: true, force: true });
 fs.cpSync(source, output, { recursive: true, filter: name => !name.includes(path.sep + 'updates') && !name.endsWith('README.md') });
 await build({ entryPoints: [path.join(root, 'src/mobile-bridge.mjs')], outfile: path.join(output, 'mobile-bridge.js'), bundle: true, format: 'iife', target: ['safari16', 'chrome100'], minify: false });
 let html = fs.readFileSync(path.join(output, 'index.html'), 'utf8').replace(/\r\n/g, '\n');
+html = html.replace('<html ', '<html class="mobile-native" ');
+html = html.replace(/(<body[^>]*>)/, '$1<div id="mobile-starting" role="status">Starting AIRIZ Mobile…</div>');
 html = html.replace('<script src="data/commands.js">', '<script src="mobile-bridge.js"></script>\n<script src="data/commands.js">');
 html = html.replace('width=device-width, initial-scale=1.0', 'width=device-width, initial-scale=1.0, viewport-fit=cover');
 const hashes = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)]

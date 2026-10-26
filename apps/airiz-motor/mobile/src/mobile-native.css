@@ -1,5 +1,5 @@
 html.mobile-native body.console-redesign { min-width: 320px; }
-.mobile-native .sidebar { padding-top: max(0px, env(safe-area-inset-top)); height: calc(60px + env(safe-area-inset-top)); }
+@media (max-width: 580px) { .mobile-native .sidebar { padding-top: max(0px, env(safe-area-inset-top)); height: calc(60px + env(safe-area-inset-top)); } }
 .mobile-native .app-container { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
 .mobile-native #desktop-download-banner, .mobile-native #mobile-download-banner,
 .mobile-native #btn-install-app, .mobile-native #baud-select, .mobile-native #btn-bluetooth-on { display: none !important; }
@@ -27,3 +27,5 @@ html.mobile-native body.console-redesign { min-width: 320px; }
   .mobile-native .jog-explainer { text-align: center; }
   .mobile-native .keyboard-toggle { margin-left: auto; margin-right: auto; }
 }
+
+#mobile-starting { position: fixed; inset: 0; z-index: 5000; display: grid; place-items: center; padding: 28px; background: #0d1117; color: #c0ee96; font: 15px system-ui, sans-serif; text-align: center; }
