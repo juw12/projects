@@ -12,6 +12,15 @@
 GlowChat installable app: `glow/chat/app.html`, mobile: `glow/chat/mobile.html`. GlowRoom: `glow/room/app.html`, `glow/room/mobile.html`.
 AI-suggested resources in GlowChat are not automatically browsed or verified; GlowChat does no autonomous building or execution (that is GlowRoom's job, and its results should still be reviewed).
 
+## v0.11.0 — free scheduled missions on GitHub Actions
+
+`runner/run_missions.py` and `.github/workflows/glow-scheduled.yml` run GlowLead missions every day
+for free on this public repository: the real GlowLead page in a hidden browser, using Glow Free (no key).
+Missions live in the private `GLOW_MISSIONS` secret; reports are a run artifact (kept 30 days) with an
+optional issue comment for phone notifications. No browser control or code execution in scheduled runs.
+Verified with a live Glow Free run (plan → GlowChat → AI review, about 1.2 minutes) and 5 runner tests.
+Setup and privacy notes: `runner/README.md`.
+
 ## v0.10.0 — Glow Hands: browser control
 
 GlowLead can now act on websites through **Glow Hands** (`hands/`), a small program on your PC:
