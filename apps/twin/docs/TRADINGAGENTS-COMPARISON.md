@@ -1,4 +1,6 @@
-# Twin versus TradingAgents: code review and local upgrade
+# Twin versus TradingAgents: code review and upgrades
+
+> **Update (1.5.0):** Twin now includes [TwinAgent](TWINAGENT.md), its own multi-analyst research team with debate, manager, risk gate, point-in-time evidence and a walk-forward scorecard. The comparison table there supersedes the research row below.
 
 ## Bottom line
 
@@ -30,7 +32,7 @@ Primary reference sources:
 - [TradingAgents decision-grid backtest scope](https://github.com/TauricResearch/TradingAgents/blob/e8f5503e9b86d5c2710b0c76b1f686703968c9df/tradingagents/backtest.py)
 - [TradingAgents portfolio manager](https://github.com/TauricResearch/TradingAgents/blob/e8f5503e9b86d5c2710b0c76b1f686703968c9df/tradingagents/agents/managers/portfolio_manager.py)
 - [TradingAgents structured schemas](https://github.com/TauricResearch/TradingAgents/blob/e8f5503e9b86d5c2710b0c76b1f686703968c9df/tradingagents/agents/schemas.py)
-- [Original Twin](https://github.com/juwpegatron/projects/tree/8cc4610c6355ef3ea6baccfe0128003d304fec4e/apps/twin)
+- [Original Twin](https://github.com/juw12/projects/tree/8cc4610c6355ef3ea6baccfe0128003d304fec4e/apps/twin)
 
 No TradingAgents source code was copied into Twin.
 
@@ -89,4 +91,4 @@ The delivery includes the final test output separately. The POSIX permission ass
 
 ## Delivery status
 
-This is a local working-copy upgrade. Nothing was pushed to GitHub, the public Pages app was not changed, and no trading account was connected. Preserve the existing vendor licensing/attribution when merging. Review the patch, run the included tests, and trial only with paper trading before any consideration of live use.
+Published with Twin 1.5.0. No trading account was connected during development or testing. Preserve the existing vendor licensing/attribution when merging. Review the patch, run the included tests, and trial only with paper trading before any consideration of live use.

@@ -82,7 +82,7 @@ function proWrite(kind, value) {
   }
 }
 function proClearGuest() {
-  for (const kind of ["orders", "alerts", "replay", "academy"]) {
+  for (const kind of ["orders", "alerts", "replay", "academy", "twinagent"]) {
     const key = proKey(kind, "guest");
     proMemory.delete(key);
     try {
@@ -94,7 +94,7 @@ function proClearGuest() {
 }
 // Move guest-only data (orders, alerts, replay) into a freshly saved profile.
 function proAdoptGuest(newScope) {
-  for (const kind of ["orders", "alerts", "replay", "academy"]) {
+  for (const kind of ["orders", "alerts", "replay", "academy", "twinagent"]) {
     let raw = proMemory.get(proKey(kind, "guest"));
     try {
       raw = sessionStorage.getItem(proKey(kind, "guest")) || raw;
@@ -270,6 +270,15 @@ function orderTicket(cfg) {
   const trail = h("input", { type: "number", inputmode: "decimal", placeholder: "Trail % (e.g. 8)", "aria-label": "Trail percent" });
   const tp = h("input", { type: "number", inputmode: "decimal", placeholder: "Take-profit price", "aria-label": "Take-profit price" });
   const sl = h("input", { type: "number", inputmode: "decimal", placeholder: "Stop-loss price", "aria-label": "Stop-loss price" });
+  // TwinAgent can suggest values; the user still reviews and submits the ticket.
+  if (cfg.prefill && side === "buy") {
+    amount.value = cfg.prefill.dollars ?? "";
+    if (cfg.prefill.take_profit && cfg.prefill.stop_loss) {
+      bracketOn = true;
+      tp.value = cfg.prefill.take_profit;
+      sl.value = cfg.prefill.stop_loss;
+    }
+  }
   const fieldsBox = h("div");
   const bracketBox = h("div");
   const preview = h("div", { class: "preview" });
@@ -820,6 +829,7 @@ async function openStockPro(symbol) {
             switchTab("trade");
           },
         }, GUEST || DEMO ? "Try TSLA replay" : "⚡ Plan a day trade")),
+      h("button", { class: "btn primary", id: "stock-twinagent", onclick: () => openTwinAgent(symbol) }, "🤖 TwinAgent research report"),
       h("button", { class: "btn", onclick: () => openStrategyLab(symbol) }, "Strategy Lab · test against buy & hold"),
       h("button", {
         class: "btn ghost",
@@ -848,7 +858,7 @@ async function openStockPro(symbol) {
   return sheet;
 }
 
-function openOrderPro(symbol, side, price, held) {
+function openOrderPro(symbol, side, price, held, prefill = null) {
   const paper = state.paper || state.profile.paper || {};
   const holder = h("div");
   const header = h("p", { class: "muted small" });
@@ -885,6 +895,7 @@ function openOrderPro(symbol, side, price, held) {
       holder.replaceChildren(orderTicket({
         symbol, price, side, held: held ? held.qty : 0, cash: paper.cash, equity: paper.value || paper.cash,
         limits: state.profile.limits, where: "live", currency: quoteInfo.currency, fx: quoteInfo.fx_usd,
+        prefill,
         submit: (fields) => submitLiveOrder(fields, price),
       }));
       if (status && status.connected && !listingInfo.us) {
