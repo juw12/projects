@@ -33,11 +33,12 @@ jobs:
           python -X utf8 apps/glow/tests/test_mission_control_browser.py
           python -X utf8 apps/glow/tests/test_glow_hands.py
           python -X utf8 apps/glow/tests/test_glow_app_hands.py
+          python -X utf8 apps/glow/tests/test_glow_instant_cloud.py
           python -X utf8 apps/glow/tests/test_glow_runner.py
       - name: Instant cloud browser service (real Chromium via Playwright core)
         run: |
-          export GLOW_PLAYWRIGHT_CORE="$(python -c 'import os, playwright; print(os.path.join(os.path.dirname(playwright.__file__), "driver", "package"))')"
-          node --test apps/glow/cloud/test/service.test.js
+          driver="$(python -c 'import os, playwright; print(os.path.join(os.path.dirname(playwright.__file__), "driver"))')"
+          GLOW_PLAYWRIGHT_CORE="$driver/package" "$driver/node" --test apps/glow/cloud/test/service.test.js
       - name: Validate Pages build
         run: |
           python -X utf8 scripts/build_site.py

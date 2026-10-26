@@ -12,6 +12,22 @@
 GlowChat installable app: `glow/chat/app.html`, mobile: `glow/chat/mobile.html`. GlowRoom: `glow/room/app.html`, `glow/room/mobile.html`.
 AI-suggested resources in GlowChat are not automatically browsed or verified; GlowChat does no autonomous building or execution (that is GlowRoom's job, and its results should still be reviewed).
 
+## v0.15.0 — Glow Android app and instant cloud browser
+
+- **Glow for Android** (`mobile/`): GlowLead as an app with its own built-in browser, so browser missions run
+  on the phone itself with no PC, no cloud and no setup. The browser opens as a panel over GlowLead
+  (**Bigger** / **Hide**); you can watch, scroll and type passwords yourself. Same safety rules as Glow Hands:
+  web pages only, no local-network addresses, password fields left to you, and a tap to approve before
+  submitting, buying, sending, posting or deleting. Download: the `Glow-android.apk` asset of the
+  [`glow-android` release](https://github.com/juw12/projects/releases/tag/glow-android). iPhone: not available
+  (Apple requires a paid developer account); use the cloud browser instead.
+- **Instant cloud browser** (`cloud/`): a hidden browser on Cloudflare's free plan that GlowLead starts with one
+  tap, without a GitHub token or any setup. Shared free limit of 10 browser-minutes a day and 3 browsers at
+  once; fresh browser every time (no saved logins). It appears in GlowLead once the service is deployed.
+- Shared Glow Hands core (`web/shared/hands-core.js`) so the app, the cloud service and Glow Hands on a PC use
+  the same page reading, actions and safety checks. The GitHub cloud browser moved under **Advanced**.
+- Guide: [hands/CLOUD.md](hands/CLOUD.md).
+
 ## v0.14.0 — Glow Hands without your PC
 
 - **Cloud browser:** on your phone, GlowLead → Connect browser control → **Start cloud browser**. A hidden
