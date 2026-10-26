@@ -16,10 +16,13 @@ then runs the yt-script rules as gates, adapted for Shorts:
     one_ask     the video asks for one thing (comment OR subscribe OR share ...), not three
     sourced     every scene that speaks a statistic carries a `source`
     runtime     estimate at 150 words per minute (the upstream rule); warn above 60 s
+    placeholders  no TODO / {{...}} left from a template (blocks the render)
+    package     yt-package title lint >= 70 (length, number, caps, cover text not repeating the title)
 
     python3 script_check.py project.json [--title "..."] [--json]
     python3 script_check.py --hook "satu baris hook"
     python3 script_check.py --hooks hooks.txt          # rank options, one per line
+    python3 script_check.py --titles titles.txt --cover "BILANG ATAU DIEM?"   # yt-package title lint
 
 Project keys: "scriptCheck": "gate" (default: fail on no_intro/on_screen/one_ask/sourced),
 "strict" (also fail on hook and title), "warn" (never fail) or false (skip).
@@ -35,7 +38,7 @@ HERE = Path(__file__).resolve().parent
 VENDOR = HERE / "vendor" / "yt_script"
 WPM = 150
 HOOK_PASS = 55
-OBJECTIVE_GATES = ("no_intro", "on_screen", "one_ask", "sourced")
+OBJECTIVE_GATES = ("no_intro", "on_screen", "one_ask", "sourced", "placeholders")
 HEURISTIC_GATES = ("hook", "title")
 
 # ----------------------------------------------------------------------------- Indonesian lexicon
@@ -94,7 +97,9 @@ ASKS = {
     "link": r"\b(cek link|klik link|link di|di deskripsi|di bio)\b",
     "watch": r"\b(tonton|nonton) (video|part|episode)\b",
 }
-STATISTIC = re.compile(r"\d+\s?%|\b\d{2,}\b|" + NUMBER_WORDS_ID, re.I)
+PLACEHOLDER = re.compile(r"\bTODO\b|\{\{[^}]*\}\}")
+FUTURE_TIME = r"(?!\s*(?:detik|menit|jam|hari|minggu|bulan|tahun)\s+(?:lagi|ke depan|kemudian))"
+STATISTIC = re.compile(r"\d+\s?%|\b\d{2,}\b" + FUTURE_TIME + r"|(?:" + NUMBER_WORDS_ID + r")" + FUTURE_TIME, re.I)
 STOPWORDS = {"mending", "yang", "atau", "kata", "riset", "aja", "dan", "ini", "itu", "kamu", "aku", "kita",
              "dari", "untuk", "buat", "dengan", "nggak", "gak", "tidak", "lebih", "sama", "bisa", "ternyata",
              "the", "and", "your", "with", "this", "that", "what", "which"}
@@ -142,6 +147,31 @@ def score_hook(text):
         "hook": text.strip(), "properties": parts, "verdict": verdict, "band": HOOKSCORE.band(verdict),
         "formula": formula, "matched": matched, "weakest": weakest, "fix": HOOKSCORE.FIX[weakest],
     }
+
+
+# ----------------------------------------------------------------------------- title + cover (yt-package)
+TITLE_STOP_ID = {"yang", "atau", "dan", "di", "ke", "dari", "ini", "itu", "aku", "kamu", "kita", "aja", "sih",
+                 "kok", "gimana", "kenapa", "apa", "mending", "buat", "untuk", "jadi", "kata"}
+TITLE_VAGUE_ID = {"gila", "parah", "keren", "terbaik", "rahasia", "dahsyat", "viral", "wajib", "banget"}
+
+
+def load_title_linter():
+    spec = importlib.util.spec_from_file_location("yt_title", HERE / "vendor" / "yt_package" / "title.py")
+    title_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(title_module)
+    title_module.STOP = set(title_module.STOP) | TITLE_STOP_ID
+    title_module.VAGUE = set(title_module.VAGUE) | TITLE_VAGUE_ID
+    return title_module
+
+
+TITLE_LINTER = load_title_linter()
+
+
+def score_title(title, cover_text=None):
+    """yt-package's title.py: truncation, caps, vague words, a number, front-loading, cover duplication."""
+    result = TITLE_LINTER.check(title, cover_text)
+    result["issues"] = [{"issue": key, "detail": detail} for key, detail in result["issues"]]
+    return result
 
 
 def first_sentence(text):
@@ -210,6 +240,16 @@ def check_project(project, title=None):
     gates.append(gate("sourced", not unsourced, f"statistic without a source in scene(s) {unsourced}"
                       if unsourced else "every spoken statistic has a source"))
 
+    leftovers = [i + 1 for i, scene in enumerate(scenes)
+                 if PLACEHOLDER.search(json.dumps(scene, ensure_ascii=False))]
+    gates.append(gate("placeholders", not leftovers, f"TODO/{{{{...}}}} left in scene(s) {leftovers}"
+                      if leftovers else "no template placeholders left"))
+
+    if title:
+        package = score_title(title, project.get("coverText"))
+        gates.append(gate("package", package["score"] >= 70, f"title {package['score']}/100: "
+                          + ("; ".join(i["issue"] + " - " + i["detail"] for i in package["issues"]) or "clean")))
+
     word_count = len(re.findall(r"\w+", full_script))
     seconds = round(word_count / WPM * 60, 1)
     gates.append(gate("runtime", seconds <= 60, f"{word_count} words = about {seconds} s at {WPM} wpm"))
@@ -270,6 +310,19 @@ def main(argv):
     if not argv:
         print(__doc__)
         return 1
+    if argv[0] in ("--title", "--titles"):
+        titles = [argv[1]] if argv[0] == "--title" else [
+            line for line in Path(argv[1]).read_text(encoding="utf-8").splitlines() if line.strip()]
+        cover = argv[argv.index("--cover") + 1] if "--cover" in argv else None
+        ranked = sorted((score_title(t, cover) for t in titles), key=lambda r: -r["score"])
+        if as_json:
+            print(json.dumps(ranked, ensure_ascii=False, indent=1))
+        else:
+            for row in ranked:
+                print(f"\n  {row['score']:3d}/100  {row['title']}  ({row['chars']} chars)")
+                for issue in row["issues"]:
+                    print(f"      x {issue['issue']:<12} {issue['detail']}")
+        return 0
     if argv[0] in ("--hook", "--hooks"):
         lines = [argv[1]] if argv[0] == "--hook" else [
             line for line in Path(argv[1]).read_text(encoding="utf-8").splitlines() if line.strip()]
