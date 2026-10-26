@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.1.2` in this repository's Releases section.
+`airiz-desktop-v1.2.0` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -139,3 +139,25 @@ The direct Bluetooth on button reuses the documented `diag ble on` command and
 reports dispatch, not a confirmed Bluetooth connection. It initializes the NXP
 IW612/BlueZ controller through the existing serial link. A phone-control BLE GATT
 service/characteristic protocol is not documented by this command and is not invented.
+
+
+## 1.2.0: no manual disconnect
+
+**Updating while connected.** Install from the Updates panel while the device is
+connected. The app closes the serial port itself, installs silently into the same
+folder, restarts and reopens the same remembered device at the same baud rate.
+Reconnect is attempted once, within 15 minutes, and only for a port the user
+explicitly chose before; if the device is unplugged or ambiguous, the app says so
+and leaves Connect device to the user. Only work a restart would interrupt waits:
+a running macro, camera recording/session or device audio transfer. In that case
+the app offers to install automatically when the work finishes, which can be
+cancelled. Closing the port does not stop a finite move already sent.
+
+**Bluetooth check while connected.** Bluetooth check (next to Bluetooth on) sends
+the documented `diag ble on` through the existing USB connection, scans with this
+PC's Bluetooth radio, lets you choose the AIRIZ device, connects and looks for a
+Nordic UART or HM-10-style command service, then sends only `diag ver sw` and
+reports whether a framed firmware reply came back. Results can be exported.
+No pairing is accepted without confirmation and no motor command is sent.
+Another program on the PC still cannot open COM4 while this app holds it: that is
+a Windows serial-port rule, which is why the check runs inside the app.
