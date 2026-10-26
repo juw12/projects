@@ -20,7 +20,35 @@
     <div class="sun" aria-hidden="true"></div>
     <h1>目前無法連線</h1>
     <p>光耀同行需要網路來載入課程與同步進度。請確認 Wi-Fi 或行動數據後再試一次。</p>
-    <button type="button" onclick="location.href='https://juw12.github.io/projects/guangyao/index.html'">重新連線</button>
+    <button type="button" id="retry">重新連線</button>
+    <p id="status" aria-live="polite"></p>
   </main>
+  <script>
+    // Reconnect by itself once the site is reachable again (network back, Wi-Fi joined, airplane mode off).
+    var SITE = 'https://juw12.github.io/projects/guangyao/index.html';
+    var checking = false;
+    function openSite() {
+      location.href = SITE;
+    }
+    function tryReconnect() {
+      if (checking) {
+        return;
+      }
+      checking = true;
+      document.getElementById('status').textContent = '正在檢查連線…';
+      fetch(SITE + '?online-check=' + Date.now(), { mode: 'no-cors', cache: 'no-store' })
+        .then(openSite)
+        .catch(function () {
+          document.getElementById('status').textContent = '網路恢復後會自動重新連線。';
+        })
+        .then(function () {
+          checking = false;
+        });
+    }
+    document.getElementById('retry').addEventListener('click', openSite);
+    window.addEventListener('online', tryReconnect);
+    setInterval(tryReconnect, 10000);
+    setTimeout(tryReconnect, 3000);
+  </script>
 </body>
 </html>
