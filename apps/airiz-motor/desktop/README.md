@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.2.0` in this repository's Releases section.
+`airiz-desktop-v1.2.1` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -161,3 +161,10 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.2.1: Bluetooth check accepts real firmware replies
+
+The Bluetooth check now accepts the device's actual version reply format
+(`#INFO#0:0.0.0.3#END#`). With the temporary on-device bridge in
+`apps/airiz-motor/bluetooth-bridge/`, the check finds **AIRIZ-BT** and verifies
+the command channel. No other behavior changes.
