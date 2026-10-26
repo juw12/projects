@@ -1,0 +1,1968 @@
+{
+ "places": [
+  {
+   "id": "p1",
+   "name": "Kings Lounge",
+   "short": "Kings",
+   "area": "Senopati",
+   "city": "Jakarta",
+   "lat": -6.2297,
+   "lng": 106.8094,
+   "tier": "luxe",
+   "fee": 10,
+   "chairs": 8,
+   "rent": 45,
+   "kitFee": 6,
+   "rating": 4.9,
+   "reviews": 812,
+   "hue": 42,
+   "hours": "09:00â€“22:00",
+   "amenities": [
+    "Espresso bar",
+    "Hot towel",
+    "PS5 lounge",
+    "Valet parking",
+    "Private room"
+   ],
+   "stats": {
+    "week": {
+     "visits": 310,
+     "rating": 4.9
+    },
+    "month": {
+     "visits": 1290,
+     "rating": 4.9
+    },
+    "all": {
+     "visits": 21400,
+     "rating": 4.88
+    }
+   }
+  },
+  {
+   "id": "p2",
+   "name": "Blok M Barber Co.",
+   "short": "Blok M",
+   "area": "Blok M",
+   "city": "Jakarta",
+   "lat": -6.2441,
+   "lng": 106.7992,
+   "tier": "standard",
+   "fee": 3,
+   "chairs": 6,
+   "rent": 18,
+   "kitFee": 2,
+   "rating": 4.7,
+   "reviews": 1630,
+   "hue": 200,
+   "hours": "10:00â€“21:00",
+   "amenities": [
+    "Walk-ins",
+    "AC",
+    "Free Wi-Fi"
+   ],
+   "stats": {
+    "week": {
+     "visits": 420,
+     "rating": 4.7
+    },
+    "month": {
+     "visits": 1710,
+     "rating": 4.7
+    },
+    "all": {
+     "visits": 30500,
+     "rating": 4.69
+    }
+   }
+  },
+  {
+   "id": "p3",
+   "name": "Kemang Social Club",
+   "short": "Kemang",
+   "area": "Kemang",
+   "city": "Jakarta",
+   "lat": -6.2607,
+   "lng": 106.8136,
+   "tier": "premium",
+   "fee": 6,
+   "chairs": 7,
+   "rent": 30,
+   "kitFee": 4,
+   "rating": 4.85,
+   "reviews": 944,
+   "hue": 280,
+   "hours": "11:00â€“23:00",
+   "amenities": [
+    "Craft coffee",
+    "Vinyl lounge",
+    "Hot towel",
+    "Parking"
+   ],
+   "stats": {
+    "week": {
+     "visits": 290,
+     "rating": 4.86
+    },
+    "month": {
+     "visits": 1180,
+     "rating": 4.85
+    },
+    "all": {
+     "visits": 14800,
+     "rating": 4.83
+    }
+   }
+  },
+  {
+   "id": "p4",
+   "name": "SCBD Grooming Hall",
+   "short": "SCBD",
+   "area": "SCBD",
+   "city": "Jakarta",
+   "lat": -6.2253,
+   "lng": 106.8085,
+   "tier": "luxe",
+   "fee": 10,
+   "chairs": 10,
+   "rent": 50,
+   "kitFee": 7,
+   "rating": 4.8,
+   "reviews": 601,
+   "hue": 160,
+   "hours": "08:00â€“21:00",
+   "amenities": [
+    "Express lane",
+    "Shoe shine",
+    "Scalp spa",
+    "Valet parking"
+   ],
+   "stats": {
+    "week": {
+     "visits": 260,
+     "rating": 4.82
+    },
+    "month": {
+     "visits": 1060,
+     "rating": 4.8
+    },
+    "all": {
+     "visits": 9900,
+     "rating": 4.79
+    }
+   }
+  },
+  {
+   "id": "p5",
+   "name": "Menteng Old School",
+   "short": "Menteng",
+   "area": "Menteng",
+   "city": "Jakarta",
+   "lat": -6.196,
+   "lng": 106.8327,
+   "tier": "standard",
+   "fee": 3,
+   "chairs": 4,
+   "rent": 15,
+   "kitFee": 2,
+   "rating": 4.75,
+   "reviews": 2210,
+   "hue": 15,
+   "hours": "08:00â€“20:00",
+   "amenities": [
+    "Classic shaves",
+    "Kids friendly",
+    "Walk-ins"
+   ],
+   "stats": {
+    "week": {
+     "visits": 350,
+     "rating": 4.76
+    },
+    "month": {
+     "visits": 1400,
+     "rating": 4.75
+    },
+    "all": {
+     "visits": 41000,
+     "rating": 4.74
+    }
+   }
+  },
+  {
+   "id": "p6",
+   "name": "PIK Fade Studio",
+   "short": "PIK",
+   "area": "PIK",
+   "city": "Jakarta",
+   "lat": -6.109,
+   "lng": 106.74,
+   "tier": "premium",
+   "fee": 6,
+   "chairs": 6,
+   "rent": 32,
+   "kitFee": 4,
+   "rating": 4.82,
+   "reviews": 520,
+   "hue": 320,
+   "hours": "10:00â€“22:00",
+   "amenities": [
+    "Sea view",
+    "Smoothie bar",
+    "Content corner"
+   ],
+   "stats": {
+    "week": {
+     "visits": 240,
+     "rating": 4.83
+    },
+    "month": {
+     "visits": 990,
+     "rating": 4.82
+    },
+    "all": {
+     "visits": 7200,
+     "rating": 4.8
+    }
+   }
+  },
+  {
+   "id": "p7",
+   "name": "Shoreditch Cuts",
+   "short": "Shoreditch",
+   "area": "Shoreditch",
+   "city": "London",
+   "lat": 51.5246,
+   "lng": -0.0784,
+   "tier": "premium",
+   "fee": 6,
+   "chairs": 6,
+   "rent": 70,
+   "kitFee": 6,
+   "rating": 4.86,
+   "reviews": 1320,
+   "hue": 230,
+   "hours": "09:00â€“20:00",
+   "amenities": [
+    "Craft beer",
+    "Hot towel",
+    "Bike racks"
+   ],
+   "stats": {
+    "week": {
+     "visits": 280,
+     "rating": 4.86
+    },
+    "month": {
+     "visits": 1150,
+     "rating": 4.86
+    },
+    "all": {
+     "visits": 18000,
+     "rating": 4.85
+    }
+   }
+  },
+  {
+   "id": "p8",
+   "name": "Harlem Crown",
+   "short": "Harlem",
+   "area": "Harlem",
+   "city": "New York",
+   "lat": 40.8116,
+   "lng": -73.9465,
+   "tier": "standard",
+   "fee": 3,
+   "chairs": 8,
+   "rent": 60,
+   "kitFee": 4,
+   "rating": 4.9,
+   "reviews": 3010,
+   "hue": 0,
+   "hours": "08:00â€“22:00",
+   "amenities": [
+    "Walk-ins",
+    "Big screen sports",
+    "Kids friendly"
+   ],
+   "stats": {
+    "week": {
+     "visits": 460,
+     "rating": 4.9
+    },
+    "month": {
+     "visits": 1880,
+     "rating": 4.9
+    },
+    "all": {
+     "visits": 52000,
+     "rating": 4.89
+    }
+   }
+  },
+  {
+   "id": "p9",
+   "name": "Lekki Lineup",
+   "short": "Lekki",
+   "area": "Lekki",
+   "city": "Lagos",
+   "lat": 6.4474,
+   "lng": 3.4723,
+   "tier": "premium",
+   "fee": 6,
+   "chairs": 6,
+   "rent": 22,
+   "kitFee": 3,
+   "rating": 4.88,
+   "reviews": 870,
+   "hue": 110,
+   "hours": "09:00â€“21:00",
+   "amenities": [
+    "Generator backup",
+    "Afrobeats DJ",
+    "Hot towel"
+   ],
+   "stats": {
+    "week": {
+     "visits": 300,
+     "rating": 4.88
+    },
+    "month": {
+     "visits": 1240,
+     "rating": 4.87
+    },
+    "all": {
+     "visits": 15500,
+     "rating": 4.86
+    }
+   }
+  },
+  {
+   "id": "p10",
+   "name": "Harajuku Blade",
+   "short": "Harajuku",
+   "area": "Harajuku",
+   "city": "Tokyo",
+   "lat": 35.6702,
+   "lng": 139.7027,
+   "tier": "luxe",
+   "fee": 10,
+   "chairs": 5,
+   "rent": 80,
+   "kitFee": 8,
+   "rating": 4.93,
+   "reviews": 640,
+   "hue": 340,
+   "hours": "11:00â€“21:00",
+   "amenities": [
+    "Head spa",
+    "Tea service",
+    "English & Japanese"
+   ],
+   "stats": {
+    "week": {
+     "visits": 190,
+     "rating": 4.93
+    },
+    "month": {
+     "visits": 800,
+     "rating": 4.93
+    },
+    "all": {
+     "visits": 8800,
+     "rating": 4.92
+    }
+   }
+  }
+ ],
+ "barbers": [
+  {
+   "id": "b1",
+   "name": "Marcus Reyes",
+   "handle": "fadebymarcus",
+   "title": "Skin fades & tapers",
+   "city": "Jakarta",
+   "hue": 90,
+   "verified": true,
+   "years": 9,
+   "followers": 48200,
+   "langs": [
+    "EN",
+    "ID"
+   ],
+   "rating": 4.97,
+   "reviews": 1284,
+   "bio": "Precision skin fades, hard parts and beard sculpting. 9 years behind the chair. I rotate between Kings, Kemang and Blok M so you can catch me close to you.",
+   "tags": [
+    "Skin fade",
+    "Taper",
+    "Hard part",
+    "Beard"
+   ],
+   "schedule": [
+    {
+     "dow": 1,
+     "placeId": "p1",
+     "from": 10,
+     "to": 19
+    },
+    {
+     "dow": 2,
+     "placeId": "p3",
+     "from": 12,
+     "to": 20
+    },
+    {
+     "dow": 3,
+     "placeId": "p1",
+     "from": 10,
+     "to": 19
+    },
+    {
+     "dow": 4,
+     "placeId": "p3",
+     "from": 12,
+     "to": 20
+    },
+    {
+     "dow": 6,
+     "placeId": "p2",
+     "from": 9,
+     "to": 13
+    },
+    {
+     "dow": 6,
+     "placeId": "p1",
+     "from": 15,
+     "to": 20
+    }
+   ],
+   "services": [
+    {
+     "id": "s1",
+     "name": "Skin Fade",
+     "mins": 45,
+     "price": 22
+    },
+    {
+     "id": "s2",
+     "name": "Fade + Beard Sculpt",
+     "mins": 60,
+     "price": 30
+    },
+    {
+     "id": "s3",
+     "name": "Lineup & Edge",
+     "mins": 20,
+     "price": 10
+    },
+    {
+     "id": "s4",
+     "name": "Kids Cut",
+     "mins": 30,
+     "price": 14
+    }
+   ],
+   "portfolio": [
+    {
+     "id": "f1",
+     "title": "Mid skin fade",
+     "style": "fade",
+     "hue": 90,
+     "likes": 12400
+    },
+    {
+     "id": "f2",
+     "title": "Fade + hard part",
+     "style": "design",
+     "hue": 60,
+     "likes": 9800
+    },
+    {
+     "id": "f3",
+     "title": "Beard sculpt",
+     "style": "beard",
+     "hue": 120,
+     "likes": 7100
+    },
+    {
+     "id": "f4",
+     "title": "Low taper",
+     "style": "buzz",
+     "hue": 150,
+     "likes": 5300
+    },
+    {
+     "id": "f5",
+     "title": "Pomp fade",
+     "style": "pomp",
+     "hue": 30,
+     "likes": 4700
+    },
+    {
+     "id": "f6",
+     "title": "Curly taper",
+     "style": "curly",
+     "hue": 100,
+     "likes": 3900
+    }
+   ],
+   "stats": {
+    "week": {
+     "cuts": 61,
+     "tips": 240,
+     "rating": 4.97,
+     "reviews": 44
+    },
+    "month": {
+     "cuts": 248,
+     "tips": 930,
+     "rating": 4.96,
+     "reviews": 171
+    },
+    "all": {
+     "cuts": 9800,
+     "tips": 31000,
+     "rating": 4.97,
+     "reviews": 1284
+    }
+   }
+  },
+  {
+   "id": "b2",
+   "name": "Ayu Lestari",
+   "handle": "ayu.scissorwork",
+   "title": "Scissor cuts & textured crops",
+   "city": "Jakarta",
+   "hue": 300,
+   "verified": true,
+   "years": 7,
+   "followers": 31800,
+   "langs": [
+    "EN",
+    "ID"
+   ],
+   "rating": 4.95,
+   "reviews": 860,
+   "bio": "Scissor-over-comb specialist. Textured crops, mullets, short cuts for every hair type. Consults are free â€” DM me a photo.",
+   "tags": [
+    "Textured crop",
+    "Mullet",
+    "Scissor",
+    "Short women"
+   ],
+   "schedule": [
+    {
+     "dow": 1,
+     "placeId": "p3",
+     "from": 11,
+     "to": 19
+    },
+    {
+     "dow": 3,
+     "placeId": "p3",
+     "from": 11,
+     "to": 19
+    },
+    {
+     "dow": 5,
+     "placeId": "p4",
+     "from": 9,
+     "to": 18
+    },
+    {
+     "dow": 6,
+     "placeId": "p4",
+     "from": 9,
+     "to": 15
+    },
+    {
+     "dow": 0,
+     "placeId": "p3",
+     "from": 12,
+     "to": 18
+    }
+   ],
+   "services": [
+    {
+     "id": "s1",
+     "name": "Textured Crop",
+     "mins": 50,
+     "price": 26
+    },
+    {
+     "id": "s2",
+     "name": "Modern Mullet",
+     "mins": 60,
+     "price": 32
+    },
+    {
+     "id": "s3",
+     "name": "Short Cut (all genders)",
+     "mins": 60,
+     "price": 34
+    },
+    {
+     "id": "s4",
+     "name": "Fringe Touch-up",
+     "mins": 15,
+     "price": 8
+    }
+   ],
+   "portfolio": [
+    {
+     "id": "f1",
+     "title": "Textured crop",
+     "style": "crop",
+     "hue": 300,
+     "likes": 15100
+    },
+    {
+     "id": "f2",
+     "title": "Modern mullet",
+     "style": "curly",
+     "hue": 270,
+     "likes": 11200
+    },
+    {
+     "id": "f3",
+     "title": "Soft pomp",
+     "style": "pomp",
+     "hue": 330,
+     "likes": 6400
+    },
+    {
+     "id": "f4",
+     "title": "French crop",
+     "style": "crop",
+     "hue": 250,
+     "likes": 5100
+    }
+   ],
+   "stats": {
+    "week": {
+     "cuts": 48,
+     "tips": 260,
+     "rating": 4.96,
+     "reviews": 39
+    },
+    "month": {
+     "cuts": 196,
+     "tips": 1010,
+     "rating": 4.95,
+     "reviews": 150
+    },
+    "all": {
+     "cuts": 6100,
+     "tips": 24000,
+     "rating": 4.95,
+     "reviews": 860
+    }
+   }
+  },
+  {
+   "id": "b3",
+   "name": "Dimas Saputra",
+   "handle": "lineupking.dms",
+   "title": "Lineups & beards",
+   "city": "Jakarta",
+   "hue": 20,
+   "verified": true,
+   "years": 5,
+   "followers": 21900,
+   "langs": [
+    "ID",
+    "EN"
+   ],
+   "rating": 4.9,
+   "reviews": 1730,
+   "bio": "Lineup King of Blok M. Razor-sharp edges, beard shaping and hot towel shaves. Fast, clean, consistent.",
+   "tags": [
+    "Lineup",
+    "Beard",
+    "Hot towel shave",
+    "Buzz"
+   ],
+   "schedule": [
+    {
+     "dow": 1,
+     "placeId": "p2",
+     "from": 10,
+     "to": 20
+    },
+    {
+     "dow": 2,
+     "placeId": "p2",
+     "from": 10,
+     "to": 20
+    },
+    {
+     "dow": 3,
+     "placeId": "p2",
+     "from": 10,
+     "to": 20
+    },
+    {
+     "dow": 4,
+     "placeId": "p2",
+     "from": 10,
+     "to": 20
+    },
+    {
+     "dow": 5,
+     "placeId": "p2",
+     "from": 13,
+     "to": 21
+    },
+    {
+     "dow": 0,
+     "placeId": "p5",
+     "from": 9,
+     "to": 16
+    }
+   ],
+   "services": [
+    {
+     "id": "s1",
+     "name": "Buzz + Lineup",
+     "mins": 30,
+     "price": 12
+    },
+    {
+     "id": "s2",
+     "name": "Beard Shape + Hot Towel",
+     "mins": 30,
+     "price": 14
+    },
+    {
+     "id": "s3",
+     "name": "Royal Shave",
+     "mins": 40,
+     "price": 18
+    }
+   ],
+   "portfolio": [
+    {
+     "id": "f1",
+     "title": "Crisp lineup",
+     "style": "buzz",
+     "hue": 20,
+     "likes": 8800
+    },
+    {
+     "id": "f2",
+     "title": "Full beard shape",
+     "style": "beard",
+     "hue": 0,
+     "likes": 9300
+    },
+    {
+     "id": "f3",
+     "title": "Waves + lineup",
+     "style": "buzz",
+     "hue": 40,
+     "likes": 4200
+    }
+   ],
+   "stats": {
+    "week": {
+     "cuts": 74,
+     "tips": 150,
+     "rating": 4.9,
+     "reviews": 51
+    },
+    "month": {
+     "cuts": 290,
+     "tips": 560,
+     "rating": 4.9,
+     "reviews": 203
+    },
+    "all": {
+     "cuts": 11200,
+     "tips": 17000,
+     "rating": 4.9,
+     "reviews": 1730
+    }
+   }
+  },
+  {
+   "id": "b4",
+   "name": "Kenji Mori",
+   "handle": "kenji.cuts",
+   "title": "Tokyo-style cuts & perms",
+   "city": "Jakarta",
+   "hue": 190,
+   "verified": true,
+   "years": 11,
+   "followers": 39400,
+   "langs": [
+    "EN",
+    "JP",
+    "ID"
+   ],
+   "rating": 4.94,
+   "reviews": 702,
+   "bio": "Trained in Harajuku. Two-block, curtains, korean perms and texture work. Part-time at SCBD weekdays, PIK on weekends.",
+   "tags": [
+    "Two-block",
+    "Perm",
+    "Curtains",
+    "Texture"
+   ],
+   "schedule": [
+    {
+     "dow": 2,
+     "placeId": "p4",
+     "from": 10,
+     "to": 19
+    },
+    {
+     "dow": 4,
+     "placeId": "p4",
+     "from": 10,
+     "to": 19
+    },
+    {
+     "dow": 5,
+     "placeId": "p4",
+     "from": 10,
+     "to": 14
+    },
+    {
+     "dow": 5,
+     "placeId": "p6",
+     "from": 16,
+     "to": 21
+    },
+    {
+     "dow": 6,
+     "placeId": "p6",
+     "from": 10,
+     "to": 20
+    },
+    {
+     "dow": 0,
+     "placeId": "p6",
+     "from": 10,
+     "to": 18
+    }
+   ],
+   "services": [
+    {
+     "id": "s1",
+     "name": "Two-Block Cut",
+     "mins": 50,
+     "price": 28
+    },
+    {
+     "id": "s2",
+     "name": "Korean Perm",
+     "mins": 120,
+     "price": 75
+    },
+    {
+     "id": "s3",
+     "name": "Curtains + Texture",
+     "mins": 50,
+     "price": 30
+    }
+   ],
+   "portfolio": [
+    {
+     "id": "f1",
+     "title": "Two-block",
+     "style": "crop",
+     "hue": 190,
+     "likes": 13600
+    },
+    {
+     "id": "f2",
+     "title": "Korean perm",
+     "style": "curly",
+     "hue": 210,
+     "likes": 18900
+    },
+    {
+     "id": "f3",
+     "title": "Curtains",
+     "style": "pomp",
+     "hue": 170,
+     "likes": 6100
+    }
+   ],
+   "stats": {
+    "week": {
+     "cuts": 39,
+     "tips": 210,
+     "rating": 4.95,
+     "reviews": 31
+    },
+    "month": {
+     "cuts": 160,
+     "tips": 820,
+     "rating": 4.94,
+     "reviews": 128
+    },
+    "all": {
+     "cuts": 7400,
+     "tips": 22000,
+     "rating": 4.94,
+     "reviews": 702
+    }
+   }
+  },
+  {
+   "id": "b5",
+   "name": "Rafi Hakim",
+   "handle": "rafi.classic",
+   "title": "Classic & kids cuts",
+   "city": "Jakarta",
+   "hue": 30,
+   "verified": false,
+   "years": 3,
+   "followers": 6200,
+   "langs": [
+    "ID"
+   ],
+   "rating": 4.86,
+   "reviews": 340,
+   "bio": "Patient with kids, sharp with classics. Side parts, crew cuts and first haircuts.",
+   "tags": [
+    "Kids",
+    "Side part",
+    "Crew cut"
+   ],
+   "schedule": [
+    {
+     "dow": 2,
+     "placeId": "p5",
+     "from": 8,
+     "to": 16
+    },
+    {
+     "dow": 3,
+     "placeId": "p5",
+     "from": 8,
+     "to": 16
+    },
+    {
+     "dow": 5,
+     "placeId": "p5",
+     "from": 8,
+     "to": 16
+    },
+    {
+     "dow": 6,
+     "placeId": "p2",
+     "from": 14,
+     "to": 21
+    },
+    {
+     "dow": 0,
+     "placeId": "p2",
+     "from": 10,
+     "to": 18
+    }
+   ],
+   "services": [
+    {
+     "id": "s1",
+     "name": "Classic Cut",
+     "mins": 30,
+     "price": 9
+    },
+    {
+     "id": "s2",
+     "name": "Kids Cut",
+     "mins": 30,
+     "price": 7
+    },
+    {
+     "id": "s3",
+     "name": "Dad + Kid Combo",
+     "mins": 60,
+     "price": 15
+    }
+   ],
+   "portfolio": [
+    {
+     "id": "f1",
+     "title": "Side part",
+     "style": "pomp",
+     "hue": 30,
+     "likes": 2100
+    },
+    {
+     "id": "f2",
+     "title": "First haircut ðŸŽ‰",
+     "style": "curly",
+     "hue": 50,
+     "likes": 3400
+    }
+   ],
+   "stats": {
+    "week": {
+     "cuts": 66,
+     "tips": 70,
+     "rating": 4.88,
+     "reviews": 28
+    },
+    "month": {
+     "cuts": 250,
+     "tips": 260,
+     "rating": 4.86,
+     "reviews": 96
+    },
+    "all": {
+     "cuts": 3100,
+     "tips": 2500,
+     "rating": 4.86,
+     "reviews": 340
+    }
+   }
+  },
+  {
+   "id": "b10",
+   "name": "Bima Pratama",
+   "handle": "bima.designs",
+   "title": "Freestyle designs & color",
+   "city": "Jakarta",
+   "hue": 260,
+   "verified": false,
+   "years": 2,
+   "followers": 14800,
+   "langs": [
+    "ID",
+    "EN"
+   ],
+   "rating": 4.92,
+   "reviews": 210,
+   "bio": "Rising star ðŸš€ Freestyle designs, color, and anything creative. Weekdays at PIK, Sunday nights at Kings.",
+   "tags": [
+    "Designs",
+    "Color",
+    "Freestyle"
+   ],
+   "schedule": [
+    {
+     "dow": 1,
+     "placeId": "p6",
+     "from": 12,
+     "to": 21
+    },
+    {
+     "dow": 3,
+     "placeId": "p6",
+     "from": 12,
+     "to": 21
+    },
+    {
+     "dow": 4,
+     "placeId": "p6",
+     "from": 12,
+     "to": 21
+    },
+    {
+     "dow": 0,
+     "placeId": "p6",
+     "from": 10,
+     "to": 14
+    },
+    {
+     "dow": 0,
+     "placeId": "p1",
+     "from": 16,
+     "to": 21
+    }
+   ],
+   "services": [
+    {
+     "id": "s1",
+     "name": "Fade + Design",
+     "mins": 60,
+     "price": 25
+    },
+    {
+     "id": "s2",
+     "name": "Full Color",
+     "mins": 120,
+     "price": 55
+    },
+    {
+     "id": "s3",
+     "name": "Freestyle Art",
+     "mins": 90,
+     "price": 40
+    }
+   ],
+   "portfolio": [
+    {
+     "id": "f1",
+     "title": "Lightning design",
+     "style": "design",
+     "hue": 260,
+     "likes": 21800
+    },
+    {
+     "id": "f2",
+     "title": "Platinum crop",
+     "style": "crop",
+     "hue": 50,
+     "likes": 9900,
+     "color": "#e8e2c8"
+    },
+    {
+     "id": "f3",
+     "title": "Star fade",
+     "style": "design",
+     "hue": 230,
+     "likes": 7700
+    }
+   ],
+   "stats": {
+    "week": {
+     "cuts": 32,
+     "tips": 190,
+     "rating": 4.93,
+     "reviews": 27
+    },
+    "month": {
+     "cuts": 120,
+     "tips": 610,
+     "rating": 4.92,
+     "reviews": 84
+    },
+    "all": {
+     "cuts": 1300,
+     "tips": 4100,
+     "rating": 4.92,
+     "reviews": 210
+    }
+   }
+  },
+  {
+   "id": "b6",
+   "name": "Jay Okafor",
+   "handle": "jaycutslagos",
+   "title": "Waves, 360s & designs",
+   "city": "Lagos",
+   "hue": 120,
+   "verified": true,
+   "years": 8,
+   "followers": 72100,
+   "langs": [
+    "EN",
+    "Yoruba"
+   ],
+   "rating": 4.96,
+   "reviews": 1500,
+   "bio": "Waves on deck ðŸŒŠ 360s, burst fades, beard dye. Lagos based, travels for shows.",
+   "tags": [
+    "Waves",
+    "Burst fade",
+    "Beard dye"
+   ],
+   "schedule": [
+    {
+     "dow": 1,
+     "placeId": "p9",
+     "from": 10,
+     "to": 20
+    },
+    {
+     "dow": 2,
+     "placeId": "p9",
+     "from": 10,
+     "to": 20
+    },
+    {
+     "dow": 3,
+     "placeId": "p9",
+     "from": 10,
+     "to": 20
+    },
+    {
+     "dow": 4,
+     "placeId": "p9",
+     "from": 10,
+     "to": 20
+    },
+    {
+     "dow": 5,
+     "placeId": "p9",
+     "from": 10,
+     "to": 20
+    },
+    {
+     "dow": 6,
+     "placeId": "p9",
+     "from": 10,
+     "to": 20
+    }
+   ],
+   "services": [
+    {
+     "id": "s1",
+     "name": "Burst Fade",
+     "mins": 45,
+     "price": 15
+    },
+    {
+     "id": "s2",
+     "name": "Waves Cut + Brush Kit",
+     "mins": 45,
+     "price": 22
+    }
+   ],
+   "portfolio": [
+    {
+     "id": "f1",
+     "title": "360 waves",
+     "style": "buzz",
+     "hue": 120,
+     "likes": 31200
+    },
+    {
+     "id": "f2",
+     "title": "Burst fade afro",
+     "style": "afro",
+     "hue": 80,
+     "likes": 22800
+    }
+   ],
+   "stats": {
+    "week": {
+     "cuts": 70,
+     "tips": 280,
+     "rating": 4.96,
+     "reviews": 55
+    },
+    "month": {
+     "cuts": 280,
+     "tips": 1100,
+     "rating": 4.96,
+     "reviews": 210
+    },
+    "all": {
+     "cuts": 12500,
+     "tips": 28000,
+     "rating": 4.96,
+     "reviews": 1500
+    }
+   }
+  },
+  {
+   "id": "b7",
+   "name": "Liam Carter",
+   "handle": "liam.shoreditch",
+   "title": "Crops & scissor work",
+   "city": "London",
+   "hue": 220,
+   "verified": true,
+   "years": 12,
+   "followers": 55300,
+   "langs": [
+    "EN"
+   ],
+   "rating": 4.93,
+   "reviews": 2100,
+   "bio": "East London crops, skin fades and gentleman classics.",
+   "tags": [
+    "Crop",
+    "Classic",
+    "Scissor"
+   ],
+   "schedule": [
+    {
+     "dow": 2,
+     "placeId": "p7",
+     "from": 9,
+     "to": 18
+    },
+    {
+     "dow": 3,
+     "placeId": "p7",
+     "from": 9,
+     "to": 18
+    },
+    {
+     "dow": 4,
+     "placeId": "p7",
+     "from": 9,
+     "to": 18
+    },
+    {
+     "dow": 5,
+     "placeId": "p7",
+     "from": 9,
+     "to": 18
+    },
+    {
+     "dow": 6,
+     "placeId": "p7",
+     "from": 9,
+     "to": 18
+    }
+   ],
+   "services": [
+    {
+     "id": "s1",
+     "name": "Crop + Fade",
+     "mins": 45,
+     "price": 38
+    },
+    {
+     "id": "s2",
+     "name": "Scissor Cut",
+     "mins": 45,
+     "price": 42
+    }
+   ],
+   "portfolio": [
+    {
+     "id": "f1",
+     "title": "Shoreditch crop",
+     "style": "crop",
+     "hue": 220,
+     "likes": 17400
+    },
+    {
+     "id": "f2",
+     "title": "Gentleman pomp",
+     "style": "pomp",
+     "hue": 200,
+     "likes": 9200
+    }
+   ],
+   "stats": {
+    "week": {
+     "cuts": 52,
+     "tips": 410,
+     "rating": 4.93,
+     "reviews": 40
+    },
+    "month": {
+     "cuts": 210,
+     "tips": 1600,
+     "rating": 4.93,
+     "reviews": 160
+    },
+    "all": {
+     "cuts": 14000,
+     "tips": 52000,
+     "rating": 4.93,
+     "reviews": 2100
+    }
+   }
+  },
+  {
+   "id": "b8",
+   "name": "Tasha Brooks",
+   "handle": "tasha.braids",
+   "title": "Braids, locs & twists",
+   "city": "New York",
+   "hue": 340,
+   "verified": true,
+   "years": 10,
+   "followers": 98400,
+   "langs": [
+    "EN"
+   ],
+   "rating": 4.98,
+   "reviews": 2600,
+   "bio": "Braids, starter locs, retwists and designs. Harlem Crown Wedâ€“Sun.",
+   "tags": [
+    "Braids",
+    "Locs",
+    "Twists"
+   ],
+   "schedule": [
+    {
+     "dow": 3,
+     "placeId": "p8",
+     "from": 10,
+     "to": 20
+    },
+    {
+     "dow": 4,
+     "placeId": "p8",
+     "from": 10,
+     "to": 20
+    },
+    {
+     "dow": 5,
+     "placeId": "p8",
+     "from": 10,
+     "to": 20
+    },
+    {
+     "dow": 6,
+     "placeId": "p8",
+     "from": 10,
+     "to": 20
+    },
+    {
+     "dow": 0,
+     "placeId": "p8",
+     "from": 10,
+     "to": 20
+    }
+   ],
+   "services": [
+    {
+     "id": "s1",
+     "name": "Cornrows",
+     "mins": 90,
+     "price": 60
+    },
+    {
+     "id": "s2",
+     "name": "Loc Retwist",
+     "mins": 120,
+     "price": 85
+    }
+   ],
+   "portfolio": [
+    {
+     "id": "f1",
+     "title": "Stitch cornrows",
+     "style": "braids",
+     "hue": 340,
+     "likes": 41200
+    },
+    {
+     "id": "f2",
+     "title": "Starter locs",
+     "style": "locs",
+     "hue": 10,
+     "likes": 26300
+    }
+   ],
+   "stats": {
+    "week": {
+     "cuts": 30,
+     "tips": 520,
+     "rating": 4.98,
+     "reviews": 29
+    },
+    "month": {
+     "cuts": 118,
+     "tips": 2050,
+     "rating": 4.98,
+     "reviews": 112
+    },
+    "all": {
+     "cuts": 5200,
+     "tips": 61000,
+     "rating": 4.98,
+     "reviews": 2600
+    }
+   }
+  },
+  {
+   "id": "b9",
+   "name": "Yuki Tanaka",
+   "handle": "yuki.blade",
+   "title": "Precision & head spa",
+   "city": "Tokyo",
+   "hue": 350,
+   "verified": true,
+   "years": 14,
+   "followers": 61000,
+   "langs": [
+    "JP",
+    "EN"
+   ],
+   "rating": 4.95,
+   "reviews": 980,
+   "bio": "Precision cutting and Japanese head spa ritual.",
+   "tags": [
+    "Precision",
+    "Head spa",
+    "Perm"
+   ],
+   "schedule": [
+    {
+     "dow": 1,
+     "placeId": "p10",
+     "from": 11,
+     "to": 20
+    },
+    {
+     "dow": 2,
+     "placeId": "p10",
+     "from": 11,
+     "to": 20
+    },
+    {
+     "dow": 3,
+     "placeId": "p10",
+     "from": 11,
+     "to": 20
+    },
+    {
+     "dow": 4,
+     "placeId": "p10",
+     "from": 11,
+     "to": 20
+    },
+    {
+     "dow": 5,
+     "placeId": "p10",
+     "from": 11,
+     "to": 20
+    }
+   ],
+   "services": [
+    {
+     "id": "s1",
+     "name": "Precision Cut",
+     "mins": 60,
+     "price": 55
+    },
+    {
+     "id": "s2",
+     "name": "Cut + Head Spa",
+     "mins": 90,
+     "price": 85
+    }
+   ],
+   "portfolio": [
+    {
+     "id": "f1",
+     "title": "Tokyo layered",
+     "style": "crop",
+     "hue": 350,
+     "likes": 19900
+    },
+    {
+     "id": "f2",
+     "title": "Spiral perm",
+     "style": "curly",
+     "hue": 320,
+     "likes": 14400
+    }
+   ],
+   "stats": {
+    "week": {
+     "cuts": 34,
+     "tips": 120,
+     "rating": 4.95,
+     "reviews": 26
+    },
+    "month": {
+     "cuts": 140,
+     "tips": 480,
+     "rating": 4.95,
+     "reviews": 101
+    },
+    "all": {
+     "cuts": 9900,
+     "tips": 12000,
+     "rating": 4.95,
+     "reviews": 980
+    }
+   }
+  }
+ ],
+ "products": [
+  {
+   "id": "pr1",
+   "name": "Matte Clay â€” Strong Hold",
+   "price": 16,
+   "emoji": "ðŸ«™",
+   "cat": "Styling",
+   "sellerType": "barber",
+   "sellerId": "b1",
+   "placeId": "p1",
+   "rating": 4.8,
+   "sold": 1320,
+   "hue": 90,
+   "desc": "Marcus’ signature low-shine clay. Holds a hard part all day, washes out clean."
+  },
+  {
+   "id": "pr2",
+   "name": "Beard Oil â€” Oud & Cedar",
+   "price": 14,
+   "emoji": "ðŸ§´",
+   "cat": "Beard",
+   "sellerType": "barber",
+   "sellerId": "b3",
+   "placeId": "p2",
+   "rating": 4.9,
+   "sold": 2210,
+   "hue": 20,
+   "desc": "Lightweight jojoba + argan blend. Softens, no grease."
+  },
+  {
+   "id": "pr3",
+   "name": "Sea Salt Texture Spray",
+   "price": 12,
+   "emoji": "ðŸŒŠ",
+   "cat": "Styling",
+   "sellerType": "barber",
+   "sellerId": "b2",
+   "placeId": "p3",
+   "rating": 4.7,
+   "sold": 980,
+   "hue": 300,
+   "desc": "Ayu’s go-to for crops and mullets. Matte, beachy texture."
+  },
+  {
+   "id": "pr4",
+   "name": "Kings Lounge Pomade",
+   "price": 20,
+   "emoji": "ðŸ‘‘",
+   "cat": "Styling",
+   "sellerType": "place",
+   "sellerId": "p1",
+   "placeId": "p1",
+   "rating": 4.8,
+   "sold": 3100,
+   "hue": 42,
+   "desc": "House pomade used on every chair at Kings Lounge. Medium shine."
+  },
+  {
+   "id": "pr5",
+   "name": "360 Wave Brush Kit",
+   "price": 24,
+   "emoji": "ðŸª®",
+   "cat": "Tools",
+   "sellerType": "barber",
+   "sellerId": "b6",
+   "placeId": "p9",
+   "rating": 4.9,
+   "sold": 5400,
+   "hue": 120,
+   "desc": "Boar bristle brush, silky durag and wave pomade."
+  },
+  {
+   "id": "pr6",
+   "name": "Scalp Detox Shampoo",
+   "price": 18,
+   "emoji": "ðŸ«§",
+   "cat": "Care",
+   "sellerType": "place",
+   "sellerId": "p4",
+   "placeId": "p4",
+   "rating": 4.6,
+   "sold": 760,
+   "hue": 160,
+   "desc": "Charcoal + tea tree. Recommended before perms and after workouts."
+  },
+  {
+   "id": "pr7",
+   "name": "Perm Care Curl Cream",
+   "price": 22,
+   "emoji": "ðŸŒ€",
+   "cat": "Care",
+   "sellerType": "barber",
+   "sellerId": "b4",
+   "placeId": "p4",
+   "rating": 4.9,
+   "sold": 1500,
+   "hue": 190,
+   "desc": "Keeps Korean perms bouncy for weeks."
+  },
+  {
+   "id": "pr8",
+   "name": "Fadeline Silk Durag",
+   "price": 15,
+   "emoji": "ðŸ§£",
+   "cat": "Merch",
+   "sellerType": "place",
+   "sellerId": "p3",
+   "placeId": "p3",
+   "rating": 4.8,
+   "sold": 4300,
+   "hue": 280,
+   "desc": "Limited Kemang Social Club colourway."
+  },
+  {
+   "id": "pr9",
+   "name": "Pro Detail Trimmer",
+   "price": 69,
+   "emoji": "âœ‚ï¸",
+   "cat": "Tools",
+   "sellerType": "place",
+   "sellerId": "p2",
+   "placeId": "p2",
+   "rating": 4.7,
+   "sold": 640,
+   "hue": 200,
+   "desc": "T-blade trimmer for at-home lineups between visits."
+  },
+  {
+   "id": "pr10",
+   "name": "Color Lock Toner",
+   "price": 19,
+   "emoji": "ðŸŽ¨",
+   "cat": "Care",
+   "sellerType": "barber",
+   "sellerId": "b10",
+   "placeId": "p6",
+   "rating": 4.8,
+   "sold": 520,
+   "hue": 260,
+   "desc": "Keeps platinum and fashion colors from going brassy."
+  },
+  {
+   "id": "pr11",
+   "name": "Loc Retwist Gel",
+   "price": 17,
+   "emoji": "ðŸ’§",
+   "cat": "Care",
+   "sellerType": "barber",
+   "sellerId": "b8",
+   "placeId": "p8",
+   "rating": 5,
+   "sold": 2900,
+   "hue": 340,
+   "desc": "Aloe-based, zero flakes. Tasha’s formula."
+  },
+  {
+   "id": "pr12",
+   "name": "Aftershave Balm â€” Classic",
+   "price": 13,
+   "emoji": "ðŸƒ",
+   "cat": "Beard",
+   "sellerType": "place",
+   "sellerId": "p5",
+   "placeId": "p5",
+   "rating": 4.7,
+   "sold": 1800,
+   "hue": 15,
+   "desc": "Menthol cooling balm, the Menteng classic since 1978."
+  }
+ ],
+ "threads": [
+  {
+   "id": "t1",
+   "type": "dm",
+   "barberId": "b1",
+   "unread": 1,
+   "messages": [
+    {
+     "from": "me",
+     "text": "Bro the fade last time was crazy ðŸ”¥",
+     "ago": 1560
+    },
+    {
+     "from": "b1",
+     "text": "Appreciate you! Same again next time?",
+     "ago": 1500
+    },
+    {
+     "from": "b1",
+     "text": "Btw a slot just opened Thursday at Kemang if that’s closer for you ðŸ‘€",
+     "ago": 14
+    }
+   ]
+  },
+  {
+   "id": "t2",
+   "type": "dm",
+   "barberId": "b4",
+   "unread": 0,
+   "messages": [
+    {
+     "from": "me",
+     "text": "Does a perm work on straight thick hair?",
+     "ago": 3000
+    },
+    {
+     "from": "b4",
+     "text": "Yes! Thick straight hair holds perms really well. Send me a photo and I’ll suggest a curl size.",
+     "ago": 2940
+    }
+   ]
+  },
+  {
+   "id": "g1",
+   "type": "group",
+   "title": "Jakarta Fade Society",
+   "hue": 90,
+   "members": 12480,
+   "joined": true,
+   "desc": "Fresh cuts, open slots and meetups around Jakarta.",
+   "messages": [
+    {
+     "from": "Rizky A.",
+     "text": "Anyone tried Kings Lounge PS5 lounge? Worth the luxe fee?",
+     "ago": 90
+    },
+    {
+     "from": "b3",
+     "text": "Blok M has 3 open chairs tonight after 7 â€” come thru ðŸ’ˆ",
+     "ago": 42
+    },
+    {
+     "from": "Nadia P.",
+     "text": "Bima’s lightning design on my brother went viral lol",
+     "ago": 12
+    }
+   ]
+  },
+  {
+   "id": "g2",
+   "type": "group",
+   "title": "Global Barbers Lounge",
+   "hue": 270,
+   "members": 88310,
+   "joined": true,
+   "desc": "Barbers and clients worldwide. Techniques, travel guest spots, collabs.",
+   "messages": [
+    {
+     "from": "b7",
+     "text": "Guest spot in Jakarta next month â€” who’s got a chair? ðŸ‡¬ðŸ‡§âœˆï¸ðŸ‡®ðŸ‡©",
+     "ago": 300
+    },
+    {
+     "from": "b6",
+     "text": "Waves masterclass live this Saturday, link drops here",
+     "ago": 120
+    },
+    {
+     "from": "b8",
+     "text": "Love seeing the community grow ðŸ’œ",
+     "ago": 30
+    }
+   ]
+  },
+  {
+   "id": "g3",
+   "type": "group",
+   "title": "Curly & Coily Care",
+   "hue": 330,
+   "members": 9400,
+   "joined": false,
+   "desc": "Routines, products and curl-friendly barbers.",
+   "messages": [
+    {
+     "from": "b8",
+     "text": "Moisture first, always ðŸ’§",
+     "ago": 400
+    }
+   ]
+  },
+  {
+   "id": "g4",
+   "type": "group",
+   "title": "Waves & 360s",
+   "hue": 200,
+   "members": 15200,
+   "joined": false,
+   "desc": "Brush sessions, wolfing progress and wave check Wednesdays.",
+   "messages": [
+    {
+     "from": "b6",
+     "text": "Wave check Wednesday â€” post your pics ðŸŒŠ",
+     "ago": 200
+    }
+   ]
+  },
+  {
+   "id": "g5",
+   "type": "group",
+   "title": "Beard Gang",
+   "hue": 20,
+   "members": 22100,
+   "joined": false,
+   "desc": "Growth tips, oils, and beard-friendly barbers.",
+   "messages": [
+    {
+     "from": "b3",
+     "text": "Patchy at month 2 is normal. Keep going.",
+     "ago": 500
+    }
+   ]
+  },
+  {
+   "id": "g6",
+   "type": "group",
+   "title": "Kings Lounge Members",
+   "hue": 42,
+   "members": 1840,
+   "joined": false,
+   "placeId": "p1",
+   "desc": "Members-only drops, events and priority slots at Kings Lounge.",
+   "messages": [
+    {
+     "from": "Kings Lounge",
+     "text": "Friday: free espresso tasting for members â˜•",
+     "ago": 600
+    }
+   ]
+  }
+ ],
+ "clients": [
+  {
+   "name": "Rizky A.",
+   "hue": 15,
+   "pts": 9420
+  },
+  {
+   "name": "Nadia P.",
+   "hue": 300,
+   "pts": 8110
+  },
+  {
+   "name": "Kevin T.",
+   "hue": 200,
+   "pts": 6900
+  },
+  {
+   "name": "Sarah L.",
+   "hue": 340,
+   "pts": 5480
+  },
+  {
+   "name": "Budi S.",
+   "hue": 50,
+   "pts": 4120
+  },
+  {
+   "name": "Hana W.",
+   "hue": 260,
+   "pts": 3300
+  },
+  {
+   "name": "Arif M.",
+   "hue": 120,
+   "pts": 2050
+  },
+  {
+   "name": "Dewi K.",
+   "hue": 180,
+   "pts": 1490
+  }
+ ],
+ "reviewPool": [
+  "Cleanest fade I’ve ever had. Booked again before I left.",
+  "On time, super chill, explained everything. 10/10.",
+  "Showed a pic from the feed and got exactly that cut.",
+  "Worth every cent. The blend is invisible.",
+  "Great vibe, great conversation, even better cut.",
+  "Fixed a bad cut from another shop. Lifesaver.",
+  "Booking + paying in the app took 20 seconds lol",
+  "Kid sat still for the first time ever. Magic."
+ ],
+ "names": [
+  "Andre",
+  "Bella",
+  "Chris",
+  "Dina",
+  "Evan",
+  "Fajar",
+  "Gita",
+  "Hendra",
+  "Indra",
+  "Joko",
+  "Kiki",
+  "Lukas",
+  "Maya",
+  "Niko",
+  "Oscar",
+  "Putri"
+ ]
+}
