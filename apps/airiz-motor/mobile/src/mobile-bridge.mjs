@@ -129,6 +129,10 @@ function installMobile() {
     saveFile(blob, anchor.download).catch(error => showMessage(error.message));
   }, true);
   document.documentElement.classList.add('mobile-native');
+  window.addEventListener('error', event => {
+    const loading = document.getElementById('mobile-starting');
+    if (loading) { loading.dataset.failed = '1'; loading.textContent = 'Startup error: ' + event.message; }
+  });
 }
 
 let dialog;
@@ -369,6 +373,10 @@ async function connectionError(error) {
 }
 
 function styleMobile() {
+  setTimeout(() => {
+    const loading = $('mobile-starting');
+    if (loading && !loading.dataset.failed) loading.remove();
+  }, 0);
   for (const id of ['desktop-download-banner', 'mobile-download-banner', 'btn-install-app', 'baud-select', 'btn-bluetooth-on']) {
     const element = $(id);
     if (element) element.hidden = true;

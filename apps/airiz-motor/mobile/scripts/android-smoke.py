@@ -40,10 +40,19 @@ def tap_text(label):
 
 adb('install', '-r', str(apk))
 adb('shell', 'am', 'start', '-n', PACKAGE + '/.MainActivity')
-time.sleep(10)
+time.sleep(20)
 try:
-    initial = hierarchy()
-    assert find_text(initial, 'Connect Bluetooth') is not None
+    ready = False
+    for attempt in range(8):
+        try:
+            initial = hierarchy()
+            ready = find_text(initial, 'Connect Bluetooth') is not None
+            if ready:
+                break
+        except (subprocess.CalledProcessError, ET.ParseError):
+            pass
+        time.sleep(3)
+    assert ready, 'Native Bluetooth UI did not finish loading'
     tap_text('Try demo')
     time.sleep(3)
     current = hierarchy()
@@ -54,8 +63,11 @@ try:
     print(json.dumps(report))
 except Exception:
     (output / 'airiz-android-failure.png').write_bytes(adb('exec-out', 'screencap', '-p', binary=True))
-    (output / 'android-ui-failure.xml').write_text(adb('shell', 'cat', '/sdcard/airiz-ui.xml'), encoding='utf-8')
-    (output / 'android-logcat.txt').write_text(adb('logcat', '-d', '-t', '500'), encoding='utf-8')
+    try:
+        (output / 'android-ui-failure.xml').write_text(adb('shell', 'cat', '/sdcard/airiz-ui.xml'), encoding='utf-8')
+    except subprocess.CalledProcessError:
+        pass
+    (output / 'android-logcat.txt').write_text(adb('logcat', '-d', '-t', '4000'), encoding='utf-8')
     raise
 finally:
     adb('shell', 'am', 'force-stop', PACKAGE)
