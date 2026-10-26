@@ -3,17 +3,29 @@
 Lets GlowLead use a real browser on your PC: open sites, click, type, choose options and fill
 forms, one action at a time, in its own window that you can watch and take over.
 
-## Start it (Windows)
+## Install on any Windows PC (one step, no admin)
 
-1. Install Python 3.10 or newer.
-2. Double-click `start-glow-hands.cmd`. It installs Playwright on first run and uses Microsoft
-   Edge, so no extra browser download is needed.
-3. Copy the pairing token it prints. In GlowLead open **Glow Hands → Connect browser control**,
-   paste it and press **Save & test**. If the browser asks to allow local-network access, allow it.
-4. On a mission, tick **Let Glow Hands use my browser**.
+Press **Win + R**, paste this, press Enter:
 
-Other systems: `pip install playwright`, then `python glow_hands.py --channel chrome`
-(or `python -m playwright install chromium` and run without `--channel`).
+```
+powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/juw12/projects/main/apps/glow/hands/install-glow-hands.ps1 | iex"
+```
+
+It finds or installs Python, installs Glow Hands into `%LOCALAPPDATA%\GlowHands`, picks a free port
+(8765-8770), starts it now and at every login, then opens GlowLead. Windows asks
+**"Glow Hands: allow this browser?"**. Click **Yes**, and that browser is connected for good:
+no address or code to type. Running the same command again updates Glow Hands and keeps the pairing.
+
+Already installed? In GlowLead click **Connect browser control**; it finds Glow Hands and asks the same Yes/No.
+
+Why one Yes click remains: every app on `juw12.github.io` shares one web origin, including third-party
+games. The Windows prompt makes sure only you, at this PC, can let a page control the Glow Hands browser.
+Declining sets a 20-second cooldown so a page cannot spam prompts.
+
+Manual option: run `python glow_hands.py --channel msedge` and paste the printed pairing code under
+"Connect manually with a pairing code".
+
+Phones cannot use Glow Hands: it runs on a PC, and phones cannot reach a program on your PC this way.
 
 ## Safety
 
