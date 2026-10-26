@@ -17,5 +17,4 @@ Only trusted project maintainers should receive write access: GitHub permissions
 cover the entire Projects repository, not just this content folder.
 
 Owner/maintainer: [@juw12](https://github.com/juw12).
-Co-founder/collaborator: [@juwpegatron](https://github.com/juwpegatron).
 The original content history is retained through a non-squashed subtree import.

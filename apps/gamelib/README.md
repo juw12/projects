@@ -5,7 +5,6 @@ The browser-game collection is maintained inside Projects.
 - Play: <https://juw12.github.io/projects/gamelib/>
 - Static website: `web/`
 - Owner/maintainer: [@juw12](https://github.com/juw12)
-- Co-founder/collaborator: [@juwpegatron](https://github.com/juwpegatron)
 
 The original repository's complete history was imported without squashing.
 The site is deployed but intentionally omitted from the profile, portfolio and
