@@ -1,5 +1,5 @@
 {
- "_comment": "Single source of truth for the software apps shipped by this monorepo. Consumed by scripts/build_site.py (GitHub Pages landing page + deploy copy list) and scripts/publish_portfolio.py (portfolio cards + Obsidian notes). `summary` is the one-line portfolio-card copy (HTML-ready, keep it under ~120 visible characters so cards stay even); `description` is the full copy shown in the card's Details view and the Obsidian note (HTML-ready); `desc` is the short landing-page blurb. `links` are relative to the deployed site root (https://juw12.github.io/projects/<rel>). Extra fields `image_alt`, `project_id`, `label` (thumbnail aria-label) and `desc` reproduce the live markup verbatim.",
+ "_comment": "Single source of truth for the software apps shipped by this monorepo. Consumed by scripts/build_site.py (GitHub Pages landing page + deploy copy list) and scripts/publish_portfolio.py (portfolio cards + Obsidian notes). `summary` is the one-line portfolio-card copy (HTML-ready, keep it under ~120 visible characters so cards stay even); `description` is the full copy shown in the card's Details view and the Obsidian note (HTML-ready); `desc` is the short landing-page blurb. Optional `portfolio_order` overrides `order` for the portfolio card sequence only (engineering tools first, third-party tools last) without changing the landing page. `links` are relative to the deployed site root (https://juw12.github.io/projects/<rel>). Extra fields `image_alt`, `project_id`, `label` (thumbnail aria-label) and `desc` reproduce the live markup verbatim.",
  "apps": [
   {
    "id": "orbis",
@@ -143,7 +143,7 @@
    "category": "Automation",
    "desc": "Windows, Android and browser console for AIRIZ motor testing: USB or Bluetooth jog, LEDs, camera tools and macros",
    "description": "Downloadable Windows console with a locally bundled controller, serial port chooser, camera tools, macros and offline demo. A PIN-protected on-device Bluetooth remote adds wireless pan, up/down, LED control and a real motor stop from Android or iPhone (Bluefy). The browser and mobile-web editions remain available.",
-   "summary": "Windows, Android, iPhone and web console for AIRIZ motor testing &mdash; USB or PIN-protected Bluetooth jog, motor stop, LEDs, camera tools and macros.",
+   "summary": "AIRIZ motor-test console for Windows, Android, iPhone and web &mdash; USB or Bluetooth jog, motor stop, LEDs and macros.",
    "tags": [
     "Windows app",
     "Web Serial",
@@ -223,7 +223,8 @@
    ],
    "image": "soma-hero.svg",
    "image_alt": "SOMA: a CadQuery code panel beside a rebuilt parametric part and a build log",
-   "order": 18
+   "order": 18,
+   "portfolio_order": 900
   },
   {
    "id": "vector",
@@ -242,7 +243,8 @@
    ],
    "image": "vector-hero.svg",
    "image_alt": "Vector: connected Fusion and SOLIDWORKS integrations beside a chat panel showing a ranked repair plan",
-   "order": 19
+   "order": 19,
+   "portfolio_order": 901
   },
   {
    "id": "3d-models-library",
@@ -527,7 +529,8 @@
     "mobile": "stackup/mobile.html"
    },
    "status": "shipped",
-   "order": 20
+   "order": 20,
+   "portfolio_order": -4
   },
   {
    "id": "sync",
@@ -661,7 +664,8 @@
     "mobile": "me-rd-toolkit/index.html"
    },
    "status": "shipped",
-   "order": 22
+   "order": 22,
+   "portfolio_order": -3
   }
  ]
 }
