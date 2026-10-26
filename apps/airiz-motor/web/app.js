@@ -296,7 +296,7 @@
     }
     
     setupInstallPrompt();
-    setupInstallGate();
+    setupInstallGate(); // Available on demand, never a blocking startup gate.
     setupTabBar();
   }
 
@@ -306,8 +306,7 @@
   
   async function handleConnect() {
     if (!('serial' in navigator)) {
-      logToConsole('Web Serial API not available. Using demo mode.', 'warning');
-      toggleDemoMode();
+      logToConsole('Web Serial is unavailable. Use Chrome or Edge on localhost/HTTPS, or choose Try demo.', 'warning');
       return;
     }
     
@@ -348,6 +347,10 @@
   }
 
   async function disconnect() {
+    state.connected = false;
+    state.demoMode = false;
+    state.macroStop = true;
+    updateConnectionUI(false, false);
     state.readLoopActive = false;
     
     if (state.reader) {
@@ -372,6 +375,7 @@
     }
     
     state.connected = false;
+    state.demoMode = false;
     updateConnectionUI(false, false);
     logToConsole('Disconnected', 'warning');
   }
@@ -470,34 +474,41 @@
   // ========================================================================
   
   async function sendLine(line) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(line + '\r\n');
-    
-    if (state.demoMode) {
-      // Demo mode: echo and simulate response
-      appendToConsole(`> ${line}`, 'command');
-      setTimeout(() => simulateDemoResponse(line), 100);
-      return;
-    }
-    
-    if (!state.port || !state.port.writable) {
+    if (!state.connected) {
       logToConsole('Not connected', 'error');
-      return;
+      return false;
     }
-    
+    if (state.demoMode) {
+      appendToConsole(`> ${line}`, 'command');
+      setTimeout(() => {
+        if (state.demoMode && state.connected) simulateDemoResponse(line);
+      }, 100);
+      return true;
+    }
+    if (!state.port || !state.port.writable) {
+      logToConsole('Serial port is not writable', 'error');
+      return false;
+    }
+    if (state.port.writable.locked) {
+      logToConsole('Serial writer is busy; command not sent. Retry when idle.', 'warning');
+      return false;
+    }
+    let writer;
     try {
-      state.writer = state.port.writable.getWriter();
-      await state.writer.write(data);
-      state.writer.releaseLock();
+      writer = state.port.writable.getWriter();
+      const data = new TextEncoder().encode(line + '\r\n');
+      await writer.write(data);
       appendToConsole(`> ${line}`, 'command');
     } catch (error) {
       logToConsole(`Send error: ${error.message}`, 'error');
-      return;
+      return false;
+    } finally {
+      if (writer) writer.releaseLock();
     }
-
     if (/\bdiag\s+audio\s+record\b/i.test(line)) {
       autoSaveDeviceRecording(line);
     }
+    return true;
   }
 
   function simulateDemoResponse(command) {
@@ -690,6 +701,7 @@
       const div = document.createElement('div');
       div.className = `console-line ${type}`;
       div.textContent = line;
+      div.dataset.time = new Date().toLocaleTimeString('en-GB', { hour12: false });
       container.appendChild(div);
       
       state.consoleLines.push({ text: line, type });
@@ -1623,25 +1635,15 @@
   
   function handleThemeToggle() {
     const html = document.documentElement;
-    const currentTheme = html.getAttribute('data-theme');
-    const themeOrder = [null, 'light', 'dark'];
-    const currentIndex = themeOrder.indexOf(currentTheme);
-    const nextIndex = (currentIndex + 1) % themeOrder.length;
-    const nextTheme = themeOrder[nextIndex];
-    
-    if (nextTheme === null) {
-      html.removeAttribute('data-theme');
-      localStorage.removeItem('airiz.theme');
-      updateThemeUI('system');
-    } else {
-      html.setAttribute('data-theme', nextTheme);
-      localStorage.setItem('airiz.theme', nextTheme);
-      updateThemeUI(nextTheme);
-    }
-    
+    const themes = ['dark', 'light', 'system'];
+    const currentTheme = html.getAttribute('data-theme') || 'system';
+    const nextTheme = themes[(themes.indexOf(currentTheme) + 1) % themes.length];
+    html.setAttribute('data-theme', nextTheme);
+    localStorage.setItem('airiz.theme', nextTheme);
+    updateThemeUI(nextTheme);
     updateMetaThemeColor(nextTheme);
   }
-  
+
   function updateThemeUI(theme) {
     const labels = {
       'system': 'System',
@@ -1654,18 +1656,8 @@
   
   function updateMetaThemeColor(theme) {
     if (!elements.themeColorMeta) return;
-    
-    if (theme === 'dark' || theme === null) {
-      if (theme === null && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        elements.themeColorMeta.setAttribute('content', '#0f172a');
-      } else if (theme === 'dark') {
-        elements.themeColorMeta.setAttribute('content', '#0f172a');
-      } else {
-        elements.themeColorMeta.setAttribute('content', '#f8fafc');
-      }
-    } else {
-      elements.themeColorMeta.setAttribute('content', '#f8fafc');
-    }
+    elements.themeColorMeta.content = getComputedStyle(document.documentElement)
+      .getPropertyValue('--color-bg').trim();
   }
 
   // ========================================================================
@@ -1685,164 +1677,75 @@
   // ========================================================================
   
   function setupInstallPrompt() {
-    if (!elements.btnInstallApp) return;
-    
-    const btn = elements.btnInstallApp;
-    
-    function hideButton() {
-      btn.setAttribute('hidden', '');
-      btn.title = 'Install via your browser menu (Chrome/Edge → Install app)';
-    }
-    
-    function showButton() {
-      btn.removeAttribute('hidden');
-      btn.title = 'Install app';
-    }
-    
-    if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) {
-      hideButton();
-      return;
-    }
-    
-    window.addEventListener('beforeinstallprompt', function(e) {
-      e.preventDefault();
-      deferredPrompt = e;
-      showButton();
+    const button = elements.btnInstallApp;
+    if (!button) return;
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    button.hidden = !!standalone;
+    button.title = 'Install app or view browser installation instructions';
+
+    window.addEventListener('beforeinstallprompt', (event) => {
+      event.preventDefault();
+      deferredPrompt = event;
+      button.hidden = false;
+      if (elements.installGate.open) updateInstallInstructions();
     });
-    
-    btn.addEventListener('click', async function() {
-      if (!deferredPrompt) {
-        hideButton();
-        return;
-      }
-      deferredPrompt.prompt();
-      const choice = await deferredPrompt.userChoice;
-      if (choice.outcome === 'accepted') {
-        hideButton();
-      }
+    button.addEventListener('click', () => {
+      updateInstallInstructions();
+      if (!elements.installGate.open) elements.installGate.showModal();
+    });
+    window.addEventListener('appinstalled', () => {
+      button.hidden = true;
       deferredPrompt = null;
-    });
-    
-    window.addEventListener('appinstalled', function() {
-      hideButton();
-      if (typeof appendToSessionLog === 'function' && cameraState.sessionActive) {
+      if (elements.installGate.open) elements.installGate.close();
+      localStorage.removeItem('airiz.installGateDismissed');
+      if (cameraState.sessionActive && typeof appendToSessionLog === 'function') {
         appendToSessionLog('install', 'App installed');
       }
     });
   }
 
-  // ========================================================================
-  // INSTALL GATE
-  // ========================================================================
-  
+  function updateInstallInstructions() {
+    const canPrompt = !!deferredPrompt;
+    elements.btnGateInstall.hidden = !canPrompt;
+    elements.btnGateSkip.textContent = 'Continue in the browser';
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    elements.installGateDesc.textContent = canPrompt
+      ? 'Install AIRIZ for quick access and a dedicated app window. Your browser will ask for confirmation.'
+      : isIOS
+        ? 'In Safari, open Share and choose Add to Home Screen. You can also continue using the full console in your browser.'
+        : 'In Chrome or Edge, open the browser menu and look for Install app or Install this site as an app. If installation is unavailable, the full console still works in the browser. Other browsers may not support installation.';
+  }
+
   function setupInstallGate() {
     if (!elements.installGate) return;
-    
-    let gateShown = false;
-    let gateInstallPossible = false;
-    let gateTimeout = null;
-    
-    // Check if already installed
-    if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) {
-      return; // Already installed, don't show gate
-    }
-    
-    // Check if previously dismissed
-    if (localStorage.getItem('airiz.installGateDismissed') === '1') {
-      return; // User dismissed, don't show again
-    }
-    
-    // Wait for beforeinstallprompt event
-    function showGateWithInstallOption() {
-      if (gateShown) return;
-      gateShown = true;
-      gateInstallPossible = true;
-      
-      if (elements.installGateDesc) {
-        elements.installGateDesc.textContent = 'Get quick access and a cleaner, full-screen experience.';
-      }
-      if (elements.btnGateInstall) {
-        elements.btnGateInstall.hidden = false;
-      }
-      if (elements.btnGateSkip) {
-        elements.btnGateSkip.textContent = 'Continue in the browser';
-      }
-      
-      elements.installGate.hidden = false;
-      if (elements.btnGateInstall) {
-        elements.btnGateInstall.focus();
-      }
-    }
-    
-    function showGateWithInstructions() {
-      if (gateShown) return;
-      gateShown = true;
-      
-      if (elements.installGateDesc) {
-        elements.installGateDesc.textContent = 'Use Chrome/Edge → ⋮ menu → Install app';
-      }
-      if (elements.btnGateInstall) {
-        elements.btnGateInstall.hidden = true;
-      }
-      if (elements.btnGateSkip) {
-        elements.btnGateSkip.textContent = 'Continue';
-      }
-      
-      elements.installGate.hidden = false;
-      if (elements.btnGateSkip) {
-        elements.btnGateSkip.focus();
-      }
-    }
-    
-    // Listen for beforeinstallprompt
-    window.addEventListener('beforeinstallprompt', function(e) {
-      e.preventDefault();
-      deferredPrompt = e;
-      clearTimeout(gateTimeout);
-      showGateWithInstallOption();
+    elements.btnGateSkip.addEventListener('click', () => {
+      elements.installGate.close();
+      localStorage.setItem('airiz.installGateDismissed', '1');
     });
-    
-    // If beforeinstallprompt doesn't fire within 1.5s, show with instructions
-    gateTimeout = setTimeout(showGateWithInstructions, 1500);
-    
-    // Install button click
-    if (elements.btnGateInstall) {
-      elements.btnGateInstall.addEventListener('click', async function() {
-        if (!deferredPrompt) return;
-        
-        try {
-          deferredPrompt.prompt();
-          const choice = await deferredPrompt.userChoice;
-          if (choice.outcome === 'accepted') {
-            // Gate will be hidden by appinstalled event
-          }
-          deferredPrompt = null;
-        } catch (err) {
-          // Ignore errors
-        }
-      });
-    }
-    
-    // Skip button click
-    if (elements.btnGateSkip) {
-      elements.btnGateSkip.addEventListener('click', function() {
-        elements.installGate.hidden = true;
-        localStorage.setItem('airiz.installGateDismissed', '1');
-      });
-    }
-    
-    // Escape key closes gate
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape' && !elements.installGate.hidden) {
-        elements.installGate.hidden = true;
-        localStorage.setItem('airiz.installGateDismissed', '1');
-      }
+    elements.installGate.addEventListener('cancel', () => {
+      localStorage.setItem('airiz.installGateDismissed', '1');
     });
-    
-    // App installed - clean up
-    window.addEventListener('appinstalled', function() {
-      elements.installGate.hidden = true;
-      localStorage.removeItem('airiz.installGateDismissed');
+    elements.btnGateInstall.addEventListener('click', async () => {
+      const prompt = deferredPrompt;
+      if (!prompt) {
+        updateInstallInstructions();
+        return;
+      }
+      elements.btnGateInstall.disabled = true;
+      try {
+        await prompt.prompt();
+        const choice = await prompt.userChoice;
+        deferredPrompt = null;
+        if (choice.outcome === 'accepted') elements.installGate.close();
+        updateInstallInstructions();
+      } catch (error) {
+        deferredPrompt = null;
+        updateInstallInstructions();
+        elements.installGateDesc.textContent += ' The install request could not be completed; try your browser menu.';
+      } finally {
+        elements.btnGateInstall.disabled = false;
+      }
     });
   }
 
@@ -4016,6 +3919,19 @@
   // START
   // ========================================================================
   
+  // Public adapter for the dashboard. No raw serial handle or mutable state escapes.
+  window.AirizConsole = Object.freeze({
+    getStatus() {
+      return Object.freeze({
+        connected: state.connected,
+        demoMode: state.demoMode,
+        macroRunning: state.macroRunning,
+        baudRate: state.baudRate
+      });
+    },
+    sendCommand: sendLine
+  });
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {

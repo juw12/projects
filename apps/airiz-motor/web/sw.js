@@ -1,82 +1,55 @@
-﻿/**
- * Airiz Motor Test Console â€” Service Worker
- * Cache-first strategy with network fallback
- */
-
-const CACHE_NAME = 'airiz-console-v24';
+/* AIRIZ Control Center — versioned, scope-isolated offline shell. */
+const CACHE_PREFIX = 'airiz-control-' + encodeURIComponent(self.registration.scope) + '-';
+const CACHE_NAME = CACHE_PREFIX + 'v2.2-parity';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
+  './console-ui.css',
   './app.js',
+  './console-ui.js',
   './data/commands.js',
   './data/macros.js',
   './data/sounds.js',
+  './manifest.webmanifest',
   './icons/app-icon.svg',
-  './manifest.webmanifest'
+  './icons/apple-touch-icon.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png'
 ];
 
-// Install: cache all assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('SW: caching assets');
-        return cache.addAll(ASSETS);
-      })
+      .then((cache) => cache.addAll(ASSETS))
       .then(() => self.skipWaiting())
   );
 });
 
-// Activate: clean old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((cacheNames) => {
-        return Promise.all(
-          cacheNames
-            .filter((name) => name !== CACHE_NAME)
-            .map((name) => caches.delete(name))
-        );
-      })
+      .then((names) => Promise.all(
+        names.filter((name) => name.startsWith(CACHE_PREFIX) && name !== CACHE_NAME)
+          .map((name) => caches.delete(name))
+      ))
       .then(() => self.clients.claim())
   );
 });
 
-// Fetch: cache-first, network fallback
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') {
-    return;
-  }
-
-  event.respondWith(
-    caches.match(event.request)
-      .then((cached) => {
-        if (cached) {
-          return cached;
-        }
-        
-        return fetch(event.request)
-          .then((response) => {
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
-            
-            const responseClone = response.clone();
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(event.request, responseClone);
-              });
-            
-            return response;
-          })
-          .catch(() => {
-            // Offline fallback for navigation requests
-            if (event.request.mode === 'navigate') {
-              return caches.match('./index.html');
-            }
-            return new Response('Offline', { status: 503 });
-          });
-      })
-  );
+  const url = new URL(event.request.url);
+  if (event.request.method !== 'GET' || url.origin !== self.location.origin
+      || !url.href.startsWith(self.registration.scope)) return;
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    const cached = await cache.match(event.request);
+    if (cached) return cached;
+    try {
+      return await fetch(event.request);
+    } catch (error) {
+      if (event.request.mode === 'navigate') return cache.match('./index.html');
+      return new Response('Offline asset unavailable', { status: 503 });
+    }
+  })());
 });
