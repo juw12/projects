@@ -362,3 +362,11 @@ dialog .check input { width: 18px; height: 18px; flex: 0 0 18px; margin: 0; padd
 @media (max-width: 720px) {
   .action-approval { margin-left: 0; }
 }
+
+/* One-click pairing and installer */
+#hands-auto { width: 100%; margin-top: 8px; }
+.setup-heading { font-size: 14px; margin: 18px 0 4px; }
+.install-command { display: flex; gap: 8px; align-items: flex-start; background: var(--bg); border: 1px solid var(--border); border-radius: 9px; padding: 8px; }
+.install-command code { flex: 1; min-width: 0; font-size: 11px; overflow-wrap: anywhere; user-select: all; }
+.manual-pairing { margin-top: 14px; }
+.manual-pairing summary { cursor: pointer; font-size: 13px; color: var(--muted); }
