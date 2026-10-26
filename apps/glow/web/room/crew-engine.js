@@ -96,6 +96,42 @@
   const uid = () => Math.random().toString(36).slice(2, 10);
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+  // A short, readable title for a mission: its first line, without Markdown.
+  function goalTitle(goal, max = 120) {
+    const first = String(goal || '').split('\n').map(line => line.trim()).find(Boolean) || '';
+    const plain = first.replace(/\*\*|__|`|^#+\s*/g, '').trim();
+    return plain.length > max ? plain.slice(0, max - 1).trimEnd() + '…' : plain;
+  }
+
+  // Glow Free is shared and anonymous: about one reply every ~30 s per visitor.
+  // Its calls go one at a time, and "Retry after N s" answers are waited out instead of failing the mission.
+  let glowFreeTail = Promise.resolve();
+  let lastWaitNoticeAt = 0;
+  function inGlowFreeLine(task) {
+    const turn = glowFreeTail.then(task);
+    glowFreeTail = turn.catch(() => {});
+    return turn;
+  }
+  function freeLimitSeconds(status, detail, headerSeconds) {
+    if (status !== 402 && status !== 429) return 0;
+    const stated = /retry after\s+(\d+)\s*s/i.exec(detail || '');
+    if (stated) return Number(stated[1]);
+    if (headerSeconds) return headerSeconds;
+    return /free limit|rate limit|too many/i.test(detail || '') || status === 429 ? 15 : 0;
+  }
+  function sleepUnlessAborted(ms, signal) {
+    return new Promise((resolve, reject) => {
+      if (signal && signal.aborted) return reject(new DOMException('Stopped', 'AbortError'));
+      const timer = setTimeout(resolve, ms);
+      if (signal) {
+        signal.addEventListener('abort', () => {
+          clearTimeout(timer);
+          reject(new DOMException('Stopped', 'AbortError'));
+        }, { once: true });
+      }
+    });
+  }
+
   function esc(value) {
     return String(value ?? '').replace(/[&<>"']/g, ch => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -331,7 +367,7 @@
     const conversation = {
       id: 'crew-' + run.id,
       type: 'chat',
-      title: run.goal.slice(0, 70),
+      title: goalTitle(run.goal, 70),
       messages: [
         { role: 'user', content: run.goal },
         { role: 'assistant', content: body }
@@ -422,7 +458,13 @@
   // ==================================================================
   // LLM chat with streaming (OpenAI-compatible + Anthropic)
   // ==================================================================
-  async function chat({ system, messages, onToken, signal, maxTokens = 2000, temperature = 0.4, noStream = false, emptyRetries = 2, glowFree = false }) {
+  function chat(options) {
+    const s = getSettings();
+    const usesGlowFree = s.provider === 'glow' && (!glow.signedIn || options.glowFree);
+    return usesGlowFree ? inGlowFreeLine(() => chatOnce(options)) : chatOnce(options);
+  }
+
+  async function chatOnce({ system, messages, onToken, signal, maxTokens = 2000, temperature = 0.4, noStream = false, emptyRetries = 2, glowFree = false }) {
     const s = getSettings();
     const p = PROVIDERS[s.provider];
     if (s.provider === 'glow' && glow.signedIn && !glowFree) {
@@ -462,20 +504,35 @@
     }
 
     let res;
+    let limitWaits = 0;
     for (let attempt = 0; attempt < 4; attempt++) {
       res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal });
       if (res.ok) break;
-      if ((res.status === 429 || res.status >= 500) && attempt < 3) {
-        const retryAfter = Number(res.headers.get('retry-after')) || 0;
-        await sleep(Math.max(retryAfter * 1000, [2500, 6000, 12000][attempt]));
-        continue;
-      }
+      const retryAfter = Number(res.headers.get('retry-after')) || 0;
       let detail = '';
       try {
-        const errJson = await res.json();
+        const errJson = await res.clone().json();
         detail = errJson.error?.message || errJson.message || JSON.stringify(errJson).slice(0, 200);
       } catch (err) {
         detail = res.statusText;
+      }
+      const limitSeconds = s.provider === 'glow' ? freeLimitSeconds(res.status, detail, retryAfter) : 0;
+      if (limitSeconds && limitWaits < 6) {
+        limitWaits += 1;
+        attempt -= 1; // waiting out the free limit doesn't use up the normal retries
+        const seconds = Math.min(limitSeconds, 60) + 1;
+        if (Date.now() - lastWaitNoticeAt > 25000) {
+          lastWaitNoticeAt = Date.now();
+          emitter.dispatchEvent(new CustomEvent('notice', {
+            detail: `Glow Free is shared (about one reply every 30 s), so the crew waits ${seconds}s and carries on. Sign in for faster models.`
+          }));
+        }
+        await sleepUnlessAborted(seconds * 1000, signal);
+        continue;
+      }
+      if ((res.status === 429 || res.status >= 500) && attempt < 3) {
+        await sleepUnlessAborted(Math.max(retryAfter * 1000, [2500, 6000, 12000][attempt]), signal);
+        continue;
       }
       if (/turnstile/i.test(detail) && /^(localhost|127\.)/.test(location.hostname)) {
         throw new Error('Glow Free does not accept requests from localhost. Open the live site (github.io), or add your own API key in AI settings.');
@@ -492,7 +549,7 @@
       if (!text.trim()) {
         if (emptyRetries > 0) {
           await sleep(3000);
-          return chat({ system, messages, onToken, signal, maxTokens, temperature, noStream: true, emptyRetries: emptyRetries - 1, glowFree: true });
+          return chatOnce({ system, messages, onToken, signal, maxTokens, temperature, noStream: true, emptyRetries: emptyRetries - 1, glowFree: true });
         }
         throw new Error('The AI returned an empty answer. Try again, or pick another provider in AI settings.');
       }
@@ -538,7 +595,7 @@
     if (!full.trim()) {
       if (!noStream) {
         // Some free/shared endpoints occasionally return an empty stream; retry once without streaming.
-        return chat({ system, messages, onToken, signal, maxTokens, temperature, noStream: true, glowFree: true });
+        return chatOnce({ system, messages, onToken, signal, maxTokens, temperature, noStream: true, glowFree: true });
       }
       throw new Error('The AI returned an empty answer. Try again, or pick another provider in AI settings.');
     }
@@ -1086,7 +1143,7 @@
     const signal = ctrl.signal;
     try {
       if (run.mode === 'team') {
-        botEvent(run, 'leader', 'start', 'Planning: ' + run.goal, 'plan');
+        botEvent(run, 'leader', 'start', 'Planning: ' + goalTitle(run.goal), 'plan');
         run.planning = true;
         changed(run);
         const steps = await plan(run, run.allowed, signal);
@@ -1151,7 +1208,7 @@
             realSources.map((s, i) => `${i + 1}. [${s.title.replace(/[\[\]]/g, '')}](${s.url})`).join('\n');
           changed(run);
         }
-        botEvent(run, 'leader', 'end', 'Delivered: ' + run.goal);
+        botEvent(run, 'leader', 'end', 'Delivered: ' + goalTitle(run.goal));
       } else if (run.steps[0]) {
         run.final = run.steps[0].output;
       }
@@ -1204,7 +1261,7 @@
   }
 
   function toMarkdown(run) {
-    const lines = [`# ${run.goal}`, '', `_GlowRoom · ${new Date(run.createdAt).toLocaleString()} · ${run.provider}_`, ''];
+    const lines = [`# ${goalTitle(run.goal, 200)}`, '', `_GlowRoom · ${new Date(run.createdAt).toLocaleString()} · ${run.provider}_`, ''];
     if (run.final) lines.push(run.final, '');
     if (run.mode === 'team') {
       lines.push('---', '## Team work', '');
@@ -1496,7 +1553,7 @@
       const bots = r.mode === 'solo' ? [r.steps[0]?.bot] : ['leader', ...new Set(r.steps.map(s => s.bot))];
       return `<button class="crx-hist-item" data-open="${r.id}">
         <span style="display:flex">${bots.slice(0, 4).map((b, i) => `<span style="margin-left:${i ? -8 : 0}px">${avatar(b, 26)}</span>`).join('')}</span>
-        <span class="g"><b>${esc(r.goal)}</b><span>${fmtAgo(r.createdAt)} · ${esc(r.provider)}</span></span>
+        <span class="g"><b>${esc(goalTitle(r.goal))}</b><span>${fmtAgo(r.createdAt)} · ${esc(r.provider)}</span></span>
         <span class="crx-badge ${r.status}">${r.status}</span>
       </button>`;
     }).join('') + '</div>';
@@ -1572,7 +1629,7 @@
 
   function runHtml(run) {
     const elapsed = Math.round(((run.finishedAt || Date.now()) - run.createdAt) / 1000);
-    let html = `<h3 class="crx-goal">${esc(run.goal)}</h3>
+    let html = `<h3 class="crx-goal" title="${esc(run.goal.slice(0, 600))}">${esc(goalTitle(run.goal, 200))}</h3>
       <div class="crx-meta"><span class="crx-badge ${run.status}">${run.status}</span><span>${esc(run.provider)}</span><span>${elapsed}s</span>${run.parentId ? '<span>follow-up</span>' : ''}</div>
       <div class="crx-actions">
         ${run.status === 'running' ? '<button class="crx-btn danger" data-act="stop">■ Stop</button>' : '<button class="crx-btn" data-act="rerun">↻ Re-run</button>'}
@@ -1655,7 +1712,7 @@
       const blob = new Blob([toMarkdown(run)], { type: 'text/markdown' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = 'glowroom-' + run.goal.slice(0, 40).replace(/[^\w]+/g, '-').toLowerCase() + '.md';
+      a.download = 'glowroom-' + goalTitle(run.goal, 40).replace(/[^\w]+/g, '-').toLowerCase() + '.md';
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     }
@@ -1746,6 +1803,7 @@
 
   window.CrewEngine = {
     BOTS,
+    goalTitle,
     PROVIDERS,
     start,
     stop,

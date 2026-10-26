@@ -5683,7 +5683,7 @@
           bot.detail = detail;
           bot.goalId = goalId;
           state.officeState = 'active';
-        } else if (phase === 'end') {
+        } else if (phase === 'end' || phase === 'error') {
           bot.state = 'done';
           bot.tool = null;
           bot.detail = null;
