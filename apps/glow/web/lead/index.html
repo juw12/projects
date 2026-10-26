@@ -3,63 +3,89 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="GlowLead: the Glow AI lead. Give one goal; GlowLead plans it, hands the work to GlowChat and the GlowRoom crew, checks the results against clear done-criteria and reports back.">
-<meta name="theme-color" content="#262624">
-<title>GlowLead — your AI lead</title>
+<meta name="description" content="GlowLead mission control: plan, approve, delegate and review work across your Glow AI team.">
+<meta name="theme-color" content="#171b20">
+<title>GlowLead — Mission control</title>
 <link rel="stylesheet" href="./lead.css">
 <link rel="icon" type="image/svg+xml" href="./icons/lead-icon.svg">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="../icons/icon-192.png">
 </head>
 <body>
+<a class="skip-link" href="#workspace">Skip to workspace</a>
 <header class="top">
-  <a class="logo" href="./" aria-label="GlowLead"><span class="crown" aria-hidden="true">👑</span><span>GlowLead</span><small>part of Glow</small></a>
+  <a class="logo" href="../" aria-label="Glow home"><span class="brand-mark" aria-hidden="true">✦</span><span>glow<span class="brand-divider"> / </span><b>Lead</b></span><small>MISSION CONTROL</small></a>
   <div class="top-right">
-    <span class="account-chip" id="account-chip" title="Your Glow account">👤 Guest · Glow Free</span>
+    <span class="account-chip" id="account-chip">Guest · Glow Free</span>
     <button class="btn small" id="signin-btn" type="button" hidden>Sign in</button>
-    <button class="icon-btn" id="theme-btn" type="button" title="Light or dark">☀</button>
+    <button class="icon-btn" id="provider-btn" type="button" title="AI provider settings" aria-label="AI provider settings">⚙</button>
+    <button class="icon-btn" id="theme-btn" type="button" title="Toggle color theme" aria-label="Toggle color theme">☀</button>
     <button class="icon-btn" id="glow-apps-btn" type="button" data-glow-apps aria-label="Glow apps" title="Glow apps"></button>
   </div>
 </header>
-
-<main>
-  <section class="hero">
-    <p class="eyebrow">👑 The lead of the Glow apps</p>
-    <h1>Give one goal. GlowLead runs the team.</h1>
-    <p class="lede">GlowLead doesn't do the work itself: it <b>plans</b>, hands each step to the right Glow app — <b>💬 GlowChat</b> for answers and drafts, <b>⚖ Council</b> for decisions, the <b>🏢 GlowRoom crew</b> for web research and code — then <b>checks</b> the results against clear done-criteria before reporting back.</p>
-
-    <form class="start" id="lead-form" autocomplete="off">
-      <label class="sr-only" for="lead-input">What should GlowLead get done?</label>
-      <textarea id="lead-input" rows="3" maxlength="2000" placeholder="What should GlowLead get done? e.g. “Open a small bakery in Batam: names, startup costs and a 30-day launch plan”"></textarea>
-      <div class="start-actions">
-        <button type="submit" class="btn primary" id="lead-go">👑 Lead it</button>
-        <label class="check"><input type="checkbox" id="lead-approve"> Show me the plan first</label>
-      </div>
-      <div class="examples" id="examples">
-        <button type="button" class="chip" data-goal="Open a small bakery in Batam: 5 name ideas, a rough startup budget in rupiah and a 30-day launch plan">🥐 Bakery launch plan</button>
-        <button type="button" class="chip" data-goal="Should I buy the Bambu Lab A1 mini or the Prusa MINI+ as a first 3D printer? Compare current prices and decide">🖨 Pick a 3D printer</button>
-        <button type="button" class="chip" data-goal="Plan a 3-day trip to Singapore for 2 people on a mid budget with a day-by-day plan and total cost">🧭 Trip with budget</button>
-        <button type="button" class="chip" data-goal="Write a friendly email asking my landlord to fix a leaking roof, then a shorter WhatsApp version">✍ Two messages</button>
-      </div>
-    </form>
-  </section>
-
-  <section class="team" aria-label="GlowLead's team">
-    <div class="member"><span class="ic">💬</span><b>GlowChat</b><small>One strong model writes, explains and plans</small></div>
-    <div class="member"><span class="ic">⚖</span><b>GlowChat Council</b><small>Builder and Critic debate, a Judge decides</small></div>
-    <div class="member"><span class="ic">🏢</span><b>GlowRoom crew</b><small>Reads the live web, runs code, cites sources</small></div>
-  </section>
-
-  <section class="run" id="lead-run" hidden aria-live="polite"></section>
-
-  <section class="history" id="history-box" hidden>
-    <h2>Recent leads</h2>
-    <ul id="history"></ul>
-  </section>
-
-  <p class="foot">👑 GlowLead owns GlowRoom: every crew mission it starts is in <a href="../room/">GlowRoom</a>'s results, and every lead becomes a chat in <a href="../chat/">GlowChat</a> so you can keep asking. One Glow account for all apps. <a href="../">Glow home</a></p>
-</main>
-
+<div class="workspace-shell">
+  <aside class="sidebar" aria-label="Mission library">
+    <button class="btn primary new-mission" id="new-mission" type="button">＋ New mission</button>
+    <section class="history" id="history-box">
+      <div class="section-heading"><h2>Your missions</h2><span id="mission-count" class="counter">0</span></div>
+      <label class="sr-only" for="mission-search">Search missions</label>
+      <input id="mission-search" type="search" placeholder="Search missions…" autocomplete="off">
+      <label class="sr-only" for="mission-filter">Filter missions by status</label>
+      <select id="mission-filter"><option value="all">All missions</option><option value="attention">Needs attention</option><option value="active">In progress</option><option value="done">Completed</option></select>
+      <ul id="history"></ul>
+    </section>
+    <section class="template-library" aria-labelledby="template-heading">
+      <div class="section-heading"><h2 id="template-heading">Your playbooks</h2><span class="counter">LOCAL</span></div>
+      <div id="saved-templates"></div>
+      <p class="helper">Save a useful brief. Reuse it with a fresh plan, not an old answer.</p>
+    </section>
+    <div class="sidebar-foot"><span class="online-dot" aria-hidden="true"></span> Browser-first workspace<p>History stays in this browser. AI requests go to your chosen provider. Keep this tab open while work runs.</p><a href="../">← All Glow apps</a></div>
+  </aside>
+  <main id="workspace" tabindex="-1">
+    <div class="workspace-label"><span>YOUR AI TEAM, WITH YOU IN CONTROL</span><span class="version-pill">GlowLead / 0.8</span></div>
+    <section class="hero">
+      <p class="eyebrow">From a spark to something real</p>
+      <h1>Big idea.<br><span>Clear next steps.</span></h1>
+      <p class="lede">One brief. The right teammates. A plan you can edit, work you can follow, and a result you can question.</p>
+    </section>
+    <section class="overview" aria-label="Mission overview">
+      <div><span class="metric-label">In progress</span><strong id="stat-active">0</strong><small>Planning &amp; working</small></div>
+      <div><span class="metric-label">Needs you</span><strong id="stat-attention">0</strong><small>Review, resume or retry</small></div>
+      <div><span class="metric-label">Completed</span><strong id="stat-done">0</strong><small>Reports ready to review</small></div>
+    </section>
+    <section class="composer" aria-labelledby="brief-heading">
+      <div class="section-heading"><h2 id="brief-heading">What are we working on?</h2><span class="helper">Ctrl / ⌘ + Enter to start</span></div>
+      <form class="start" id="lead-form" autocomplete="off">
+        <label class="sr-only" for="lead-input">Mission brief</label>
+        <textarea id="lead-input" rows="3" maxlength="2000" placeholder="Describe the outcome, constraints and what a great result looks like…" aria-describedby="mission-hint"></textarea>
+        <div class="start-options">
+          <label class="check"><input type="checkbox" id="lead-approve" checked> Review plan before work starts</label>
+          <label class="mode-field" for="execution-mode">Crew permissions <select id="execution-mode"><option value="research">Research &amp; drafting · no code execution</option><option value="code">Allow generated code to run</option></select></label>
+        </div>
+        <p id="mission-hint" class="helper">Planning sends your brief to AI. Research can read public web sources. Generated code runs only when you opt in; it can make network requests. Review sensitive tasks yourself.</p>
+        <div class="start-actions"><button type="submit" class="btn primary" id="lead-go">Plan my mission <span aria-hidden="true">↗</span></button><button class="btn ghost" id="save-template" type="button">Save as playbook</button></div>
+        <div class="examples" id="examples" aria-label="Starter playbooks">
+          <button type="button" class="chip" data-goal="Research three options for a first 3D printer. Compare current prices and sources, identify unknowns, and recommend one for a beginner with a small desk.">Research &amp; compare</button>
+          <button type="button" class="chip" data-goal="Turn my small bakery idea into a 30-day launch plan. List assumptions, a rough budget in rupiah, milestones and the first three actions.">Plan a launch</button>
+          <button type="button" class="chip" data-goal="Review my project idea from the perspective of a builder and a skeptical customer. Compare trade-offs and deliver a concrete go/no-go recommendation.">Stress-test an idea</button>
+          <button type="button" class="chip" data-goal="Draft a friendly email asking my landlord to fix a leaking roof, plus a shorter WhatsApp version. Be polite, specific and actionable.">Write something useful</button>
+        </div>
+      </form>
+    </section>
+    <section class="team" aria-label="Your Glow team">
+      <div class="member"><span class="ic chat-ic" aria-hidden="true">✧</span><b>GlowChat</b><small>Draft &amp; explain</small></div>
+      <div class="member"><span class="ic council-ic" aria-hidden="true">⚖</span><b>Council</b><small>Challenge &amp; decide</small></div>
+      <div class="member"><span class="ic room-ic" aria-hidden="true">◈</span><b>GlowRoom</b><small>Research &amp; build</small></div>
+    </section>
+    <p class="storage-warning" id="storage-warning" role="alert" hidden>Browser storage is full or unavailable. This run is not safely saved. Export its work before closing the tab.</p>
+    <p id="live-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
+    <section class="run" id="lead-run" hidden aria-label="Selected mission"></section>
+    <p class="foot">Your results flow into <a href="../chat/">GlowChat</a>. Delegated crew work stays in <a href="../room/">GlowRoom</a>.<br>AI review is a second look, not independent verification. No background scheduling or computer-control VM.</p>
+  </main>
+</div>
+<dialog id="template-dialog" aria-labelledby="template-title">
+  <form id="template-form"><h2 id="template-title">Save a playbook</h2><p class="helper">Stores this brief locally. No keys or provider settings are included.</p><label for="template-name">Playbook name</label><input id="template-name" maxlength="60" required placeholder="e.g. Compare a purchase"><div class="start-actions"><button class="btn primary" type="submit">Save playbook</button><button class="btn" id="template-cancel" type="button">Cancel</button></div></form>
+</dialog>
 <script src="../shared/glow-apps.js"></script>
 <script src="../room/crew-engine.js"></script>
 <script src="./lead.js"></script>
