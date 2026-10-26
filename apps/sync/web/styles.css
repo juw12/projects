@@ -358,7 +358,7 @@ input[type=checkbox] { width: auto; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: safe center; /* overflow scrolls instead of clipping the cover */
   text-align: center;
   padding: 10px 12px 18px;
   gap: 18px;
@@ -398,12 +398,38 @@ input[type=checkbox] { width: auto; }
 .media img { width: 100%; height: 100%; object-fit: cover; }
 .art-empty { display: grid; place-items: center; gap: 12px; width: 100%; height: 100%; color: var(--faint); font-size: 0.85rem; font-weight: 600; }
 .art-empty svg.i { width: 54px; height: 54px; color: rgba(255, 255, 255, 0.18); }
-.media[data-kind=youtube] { inset: 12% 0; }
-.media[data-kind=youtube] img, .media[data-kind=youtube] .art-empty { display: none; }
-.video-slot { position: absolute; inset: 0; pointer-events: none; }
-.video-slot:empty { display: none; }
+/* YouTube player: one fixed-position float that JS snaps onto the visible anchor.
+   YouTube requires a visible player of at least 200x200 px with nothing drawn over it. */
+.video-anchor { display: none; flex: none; border-radius: 16px; }
+.room.yt:not(.view-video) .video-anchor.dock { display: block; width: min(100%, 356px); height: 200px; }
+.room.yt:not(.view-video) .art-wrap { width: min(100%, 300px, 27vh); }
+.room.yt.view-video .art-wrap { display: none; }
+.room.yt.view-video .video-anchor.hero { display: block; width: min(100%, 640px, calc(48vh * 16 / 9)); aspect-ratio: 16 / 9; min-height: 200px; }
+.video-float {
+  position: fixed;
+  z-index: 6;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 30px 60px -24px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.video-float.is-pip { box-shadow: 0 18px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.14); }
+.video-slot { width: 100%; height: 100%; }
+.view-toggle {
+  gap: 6px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: none;
+  background: var(--text);
+  color: #0b0b10;
+}
+.view-toggle svg.i { width: 13px; height: 13px; }
+.view-toggle:hover:not(:disabled) { background: #fff; }
 .yt-host, .yt-host iframe { width: 100%; height: 100%; border: 0; }
-.reactions { position: absolute; inset: -20% -10% 0; pointer-events: none; overflow: visible; }
+.under { position: relative; }
+.reactions { position: absolute; left: 0; right: 0; bottom: 100%; height: 0; pointer-events: none; overflow: visible; }
 .float {
   position: absolute;
   bottom: 0;
@@ -414,7 +440,7 @@ input[type=checkbox] { width: auto; }
 @keyframes rise {
   0% { transform: translate(0, 0) scale(0.5); opacity: 0; }
   15% { opacity: 1; transform: translate(0, -30px) scale(1.15); }
-  100% { transform: translate(var(--drift), -340px) scale(0.95); opacity: 0; }
+  100% { transform: translate(var(--drift), -240px) scale(0.95); opacity: 0; }
 }
 
 .np-titles { max-width: 560px; }
@@ -729,6 +755,18 @@ input[type=checkbox] { width: auto; }
     -webkit-backdrop-filter: blur(24px);
   }
   .room[data-view=stage] .mini, .room:not(.has-track) .mini { display: none; }
+  .room.yt:not([data-view=stage]) .video-anchor.pip {
+    display: block;
+    position: fixed;
+    right: 12px;
+    bottom: calc(152px + env(safe-area-inset-bottom));
+    width: 200px;
+    height: 200px;
+  }
+  .room.yt:not([data-view=stage]) .room-grid { padding-bottom: calc(372px + env(safe-area-inset-bottom)); }
+  .room.yt:not(.view-video) .art-wrap { width: min(54vw, 220px, 27vh); }
+  .room.yt .stage { gap: 12px; }
+  .room.yt .play-btn { width: 62px; height: 62px; }
   .mini img, .mini .q-art { width: 40px; height: 40px; border-radius: 9px; object-fit: cover; }
   .mini .meta { flex: 1; min-width: 0; display: grid; }
   .mini .meta b, .mini .meta span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
