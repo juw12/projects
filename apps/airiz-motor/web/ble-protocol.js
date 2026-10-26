@@ -348,7 +348,10 @@
     const onLost = () => {
       if (lostHandler) lostHandler(new Error('Bluetooth connection lost'));
     };
-    const quick = rx.properties && rx.properties.writeWithoutResponse && typeof rx.writeValueWithoutResponse === 'function';
+    // iOS/Bluefy: 'write without response' delivers the data but can reject the
+    // promise, which aborted the connection. Acknowledged writes are reliable there.
+    const quick = !isIos() && rx.properties && rx.properties.writeWithoutResponse
+      && typeof rx.writeValueWithoutResponse === 'function';
     return {
       label: 'Bluetooth LE · ' + (device.name || 'AIRIZ-BT'),
       async subscribe(onData, onDisconnect) {
