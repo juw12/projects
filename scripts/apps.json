@@ -306,15 +306,15 @@
    "id": "glow",
    "name": "Glow",
    "category": "AI",
-   "desc": "One home for your AI: GlowChat for chat, personas, a Council with a Judge and a model Arena; GlowRoom for an AI crew that researches, codes and reports back. One free Glow account, no sign-up needed to start",
-   "description": "One home, one free account, two AI apps. <strong>GlowChat</strong>: chat with any model, personas, a Council with a Judge and a side-by-side Arena. <strong>GlowRoom</strong>: hand a goal to an AI crew that searches the web, runs code and reports back with sources. Free for guests, no sign-up needed.",
+   "desc": "One home for your AI: GlowLead plans goals and runs the other apps; GlowChat for chat, personas, a Council with a Judge and a model Arena; GlowRoom for an AI crew that researches, codes and reports back. One free Glow account, no sign-up needed to start",
+   "description": "One home, one free account, three AI apps. <strong>GlowLead</strong>: give one goal and the AI lead plans it, hands each step to GlowChat or the GlowRoom crew, checks the work against clear done-criteria and reports back. <strong>GlowChat</strong>: chat with any model, personas, a Council with a Judge and an Arena. <strong>GlowRoom</strong>: an AI crew that searches the web, runs code and cites sources. Free for guests.",
    "tags": [
     "AI ecosystem",
+    "GlowLead",
     "GlowChat",
     "GlowRoom",
     "AI agents",
-    "model arena",
-    "PWA"
+    "orchestrator"
    ],
    "image": "glow-hero.png",
    "image_alt": "Glow: GlowChat council with a Judge, part of the Glow ecosystem with GlowRoom",
@@ -329,6 +329,10 @@
      "path": "glow/"
     },
     {
+     "label": "GlowLead",
+     "path": "glow/lead/"
+    },
+    {
      "label": "GlowChat",
      "path": "glow/chat/"
     },
@@ -339,7 +343,7 @@
    ],
    "featured": true,
    "order": 5,
-   "version": "0.6.1"
+   "version": "0.7.0"
   },
   {
    "id": "sped",

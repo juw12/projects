@@ -1,4 +1,4 @@
-// Glow app switcher, shared by every app in the Glow ecosystem (Glow home, GlowChat, GlowRoom).
+// Glow app switcher, shared by every app in the Glow ecosystem (Glow home, GlowLead, GlowChat, GlowRoom).
 // Usage: add an element with the attribute data-glow-apps (it becomes the switcher button),
 // or call window.GlowApps.mount(element). All apps share one origin, so they share the
 // Glow account (Puter sign-in) stored by GlowChat under the "mufakat.v1" key.
@@ -13,6 +13,7 @@
 
   const APPS = [
     { id: "home", name: "Glow", icon: "✦", desc: "Your Glow home: start anything", page: "" },
+    { id: "lead", name: "GlowLead", icon: "👑", desc: "Your AI lead: plans, delegates to the apps, checks", page: "lead/" },
     { id: "chat", name: "GlowChat", icon: "💬", desc: "Chat, Council and Arena with any AI model", page: onMobilePage ? "chat/mobile.html" : "chat/" },
     { id: "room", name: "GlowRoom", icon: "🏢", desc: "An AI crew that researches, codes and reports back", page: onMobilePage ? "room/mobile.html" : "room/" },
   ];
@@ -26,6 +27,7 @@
     const path = location.pathname;
     if (/\/chat\//.test(path)) return "chat";
     if (/\/room\//.test(path)) return "room";
+    if (/\/lead\//.test(path)) return "lead";
     return "home";
   }
 

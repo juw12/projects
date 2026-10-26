@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="GlowLead: the Glow AI lead. Give one goal; GlowLead plans it, hands the work to GlowChat and the GlowRoom crew, checks the results against clear done-criteria and reports back.">
+<meta name="theme-color" content="#262624">
+<title>GlowLead — your AI lead</title>
+<link rel="stylesheet" href="./lead.css">
+<link rel="icon" type="image/svg+xml" href="./icons/lead-icon.svg">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="../icons/icon-192.png">
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="./" aria-label="GlowLead"><span class="crown" aria-hidden="true">👑</span><span>GlowLead</span><small>part of Glow</small></a>
+  <div class="top-right">
+    <span class="account-chip" id="account-chip" title="Your Glow account">👤 Guest · Glow Free</span>
+    <button class="btn small" id="signin-btn" type="button" hidden>Sign in</button>
+    <button class="icon-btn" id="theme-btn" type="button" title="Light or dark">☀</button>
+    <button class="icon-btn" id="glow-apps-btn" type="button" data-glow-apps aria-label="Glow apps" title="Glow apps"></button>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <p class="eyebrow">👑 The lead of the Glow apps</p>
+    <h1>Give one goal. GlowLead runs the team.</h1>
+    <p class="lede">GlowLead doesn't do the work itself: it <b>plans</b>, hands each step to the right Glow app — <b>💬 GlowChat</b> for answers and drafts, <b>⚖ Council</b> for decisions, the <b>🏢 GlowRoom crew</b> for web research and code — then <b>checks</b> the results against clear done-criteria before reporting back.</p>
+
+    <form class="start" id="lead-form" autocomplete="off">
+      <label class="sr-only" for="lead-input">What should GlowLead get done?</label>
+      <textarea id="lead-input" rows="3" maxlength="2000" placeholder="What should GlowLead get done? e.g. “Open a small bakery in Batam: names, startup costs and a 30-day launch plan”"></textarea>
+      <div class="start-actions">
+        <button type="submit" class="btn primary" id="lead-go">👑 Lead it</button>
+        <label class="check"><input type="checkbox" id="lead-approve"> Show me the plan first</label>
+      </div>
+      <div class="examples" id="examples">
+        <button type="button" class="chip" data-goal="Open a small bakery in Batam: 5 name ideas, a rough startup budget in rupiah and a 30-day launch plan">🥐 Bakery launch plan</button>
+        <button type="button" class="chip" data-goal="Should I buy the Bambu Lab A1 mini or the Prusa MINI+ as a first 3D printer? Compare current prices and decide">🖨 Pick a 3D printer</button>
+        <button type="button" class="chip" data-goal="Plan a 3-day trip to Singapore for 2 people on a mid budget with a day-by-day plan and total cost">🧭 Trip with budget</button>
+        <button type="button" class="chip" data-goal="Write a friendly email asking my landlord to fix a leaking roof, then a shorter WhatsApp version">✍ Two messages</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="team" aria-label="GlowLead's team">
+    <div class="member"><span class="ic">💬</span><b>GlowChat</b><small>One strong model writes, explains and plans</small></div>
+    <div class="member"><span class="ic">⚖</span><b>GlowChat Council</b><small>Builder and Critic debate, a Judge decides</small></div>
+    <div class="member"><span class="ic">🏢</span><b>GlowRoom crew</b><small>Reads the live web, runs code, cites sources</small></div>
+  </section>
+
+  <section class="run" id="lead-run" hidden aria-live="polite"></section>
+
+  <section class="history" id="history-box" hidden>
+    <h2>Recent leads</h2>
+    <ul id="history"></ul>
+  </section>
+
+  <p class="foot">👑 GlowLead owns GlowRoom: every crew mission it starts is in <a href="../room/">GlowRoom</a>'s results, and every lead becomes a chat in <a href="../chat/">GlowChat</a> so you can keep asking. One Glow account for all apps. <a href="../">Glow home</a></p>
+</main>
+
+<script src="../shared/glow-apps.js"></script>
+<script src="../room/crew-engine.js"></script>
+<script src="./lead.js"></script>
+</body>
+</html>

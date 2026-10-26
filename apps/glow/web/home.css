@@ -72,6 +72,8 @@ h1 { margin: 0; font-size: clamp(34px, 6.2vw, 58px); line-height: 1.05; letter-s
 .app-card::after { content: ""; position: absolute; inset: auto -40px -60px auto; width: 180px; height: 180px; border-radius: 50%; opacity: .14; pointer-events: none; }
 .app-card.chat::after { background: var(--accent); }
 .app-card.room::after { background: var(--room); }
+.app-card.lead::after { background: var(--gold); }
+.app-card.lead .btn.primary { background: var(--gold); border-color: var(--gold); color: #1f1e1d; }
 .app-icon { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; font-size: 24px; background: var(--card); border: 1px solid var(--border); }
 .app-card h2 { margin: 14px 0 6px; font-size: 24px; letter-spacing: -.02em; }
 .app-card p { margin: 0 0 10px; color: var(--muted); }

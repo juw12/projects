@@ -1,7 +1,7 @@
 // Glow home service worker. It also replaces the old Glow chat worker that used to live at
 // this path, so it removes only that worker's old 'glow-vN' caches. GlowChat (./chat/) and
 // GlowRoom (./room/) have their own workers; requests for them are left alone here.
-const CACHE_NAME = 'glowhome-v2';
+const CACHE_NAME = 'glowhome-v3';
 const ASSETS = ['./', './index.html', './home.css', './home.js', './manifest.webmanifest', './icons/app-icon.svg', './icons/icon-192.png', './shared/glow-apps.js'];
 
 self.addEventListener('install', (event) => {
@@ -22,7 +22,7 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   const scope = self.registration.scope;
   if (event.request.method !== 'GET' || url.origin !== self.location.origin || !url.href.startsWith(scope)) return;
-  if (url.href.startsWith(scope + 'chat/') || url.href.startsWith(scope + 'room/')) return;
+  if (url.href.startsWith(scope + 'chat/') || url.href.startsWith(scope + 'room/') || url.href.startsWith(scope + 'lead/')) return;
   event.respondWith(
     fetch(event.request)
       .then((response) => {

@@ -24,6 +24,7 @@
 .cr-load { width: 120px; height: 6px; border-radius: 99px; background: rgba(148, 163, 184, .18); overflow: hidden; }
 .cr-load i { display: block; height: 100%; width: 0; background: var(--cr-accent-grad); transition: width .6s cubic-bezier(.2, .8, .2, 1); }
 .cr-spark { width: 140px; height: 32px; display: block; }
+.cn-owner { text-decoration: none; color: #f3d48a !important; border-color: rgba(231, 183, 93, .55) !important; }
 .cr-kbd-btn {
   display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px;
   border-radius: 9px; border: 1px solid var(--border-color, #2d3a4f);

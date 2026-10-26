@@ -814,9 +814,45 @@
   }
 
   let saveTimer = null;
+  const removedHere = new Set();
+  // Missions saved by another Glow page (GlowLead runs GlowRoom missions too) are kept, not overwritten.
+  function mergeStoredRuns() {
+    let stored = [];
+    try {
+      stored = JSON.parse(localStorage.getItem(RUNS_KEY) || '[]');
+    } catch (err) {
+      stored = [];
+    }
+    if (!Array.isArray(stored)) return false;
+    const known = new Set(runs.map(r => r.id));
+    const added = stored.filter(r => r && r.id && !known.has(r.id) && !removedHere.has(r.id));
+    if (!added.length) return false;
+    runs = runs.concat(added).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, MAX_RUNS);
+    return true;
+  }
+  window.addEventListener('storage', e => {
+    if (e.key !== RUNS_KEY) return;
+    let stored = [];
+    try {
+      stored = JSON.parse(e.newValue || '[]');
+    } catch (err) {
+      stored = [];
+    }
+    let updated = mergeStoredRuns();
+    // Finished missions from the other page replace our stale copy (only ones we are not running here).
+    (Array.isArray(stored) ? stored : []).forEach(r => {
+      const mine = runs.find(x => x.id === r.id);
+      if (mine && !controllers[r.id] && mine.status === 'running' && r.status !== 'running') {
+        Object.assign(mine, r);
+        updated = true;
+      }
+    });
+    if (updated) emitter.dispatchEvent(new CustomEvent('run', { detail: null }));
+  });
   function persist() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
+      mergeStoredRuns();
       try {
         localStorage.setItem(RUNS_KEY, JSON.stringify(runs.slice(0, MAX_RUNS)));
       } catch (err) {
@@ -1240,6 +1276,7 @@
 
   function remove(id) {
     stop(id);
+    removedHere.add(id);
     runs = runs.filter(r => r.id !== id);
     persist();
     emitter.dispatchEvent(new CustomEvent('run', { detail: null }));
@@ -1374,6 +1411,7 @@
   .crx-x{width:36px;height:36px;border-radius:10px;border:1px solid var(--crx-line,#243045);background:var(--crx-panel,#151d2b);color:inherit;cursor:pointer;font-size:18px;line-height:1}
   .crx-body{flex:1;overflow-y:auto;padding:16px 16px calc(24px + env(safe-area-inset-bottom,0px))}
   .crx-goal{font-size:18px;font-weight:700;letter-spacing:-.02em;margin:0 0 6px}
+  .crx-owner{margin:0 0 8px;font-size:13px;color:#e7b75d}
   .crx-meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;color:var(--crx-muted,#94a3b8);font-size:12px;margin-bottom:14px}
   .crx-badge{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:99px;font:700 10px/1.4 'SF Mono',Consolas,monospace;letter-spacing:.08em;text-transform:uppercase;background:var(--crx-panel2,#1a2332)}
   .crx-badge.running{color:#10b981;background:rgba(16,185,129,.14)} .crx-badge.done{color:#3b82f6;background:rgba(59,130,246,.14)}
@@ -1553,7 +1591,7 @@
       const bots = r.mode === 'solo' ? [r.steps[0]?.bot] : ['leader', ...new Set(r.steps.map(s => s.bot))];
       return `<button class="crx-hist-item" data-open="${r.id}">
         <span style="display:flex">${bots.slice(0, 4).map((b, i) => `<span style="margin-left:${i ? -8 : 0}px">${avatar(b, 26)}</span>`).join('')}</span>
-        <span class="g"><b>${esc(goalTitle(r.goal))}</b><span>${fmtAgo(r.createdAt)} · ${esc(r.provider)}</span></span>
+        <span class="g"><b>${r.meta && r.meta.from === 'glowlead' ? '👑 ' : ''}${esc(goalTitle(r.goal))}</b><span>${fmtAgo(r.createdAt)} · ${esc(r.provider)}</span></span>
         <span class="crx-badge ${r.status}">${r.status}</span>
       </button>`;
     }).join('') + '</div>';
@@ -1629,7 +1667,7 @@
 
   function runHtml(run) {
     const elapsed = Math.round(((run.finishedAt || Date.now()) - run.createdAt) / 1000);
-    let html = `<h3 class="crx-goal" title="${esc(run.goal.slice(0, 600))}">${esc(goalTitle(run.goal, 200))}</h3>
+    let html = `<h3 class="crx-goal" title="${esc(run.goal.slice(0, 600))}">${esc(goalTitle(run.goal, 200))}</h3>${run.meta && run.meta.from === 'glowlead' ? '<p class="crx-owner">👑 Mission from GlowLead — it checks this result and uses it in its report.</p>' : ''}
       <div class="crx-meta"><span class="crx-badge ${run.status}">${run.status}</span><span>${esc(run.provider)}</span><span>${elapsed}s</span>${run.parentId ? '<span>follow-up</span>' : ''}</div>
       <div class="crx-actions">
         ${run.status === 'running' ? '<button class="crx-btn danger" data-act="stop">■ Stop</button>' : '<button class="crx-btn" data-act="rerun">↻ Re-run</button>'}
