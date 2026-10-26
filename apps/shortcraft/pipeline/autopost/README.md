@@ -141,3 +141,20 @@ The free edge-tts voice is re-coloured to your timbre with OpenVoice V2 (MIT) on
 `secrets/voice/sample.wav`. One-time: `pip install torch librosa soundfile huggingface_hub` and
 `python voice_convert.py setup`. It sounds closer to you (timbre, pitch) but keeps the base voice's
 rhythm and accent; ElevenLabs is the more faithful clone.
+
+## 2d. Automatic polish and QC (pop template)
+
+`render_headless.py` now does these on every render and writes `<out>.qc.json` next to the MP4:
+
+- **Sound effects** (`sfx.py`, synthesized with numpy, no sample files): whoosh just before each cut,
+  pops on chat bubbles and poll options, ticks + ding on bars and math, thump on stamps.
+  `"sfx": false` turns them off, and `"sfxGain"` (default 0.5) sets their level.
+- **Reading time:** every scene stays on screen long enough to read (about 15 characters/s + 1 s, capped at 6 s).
+- **Narration check** (`asr_check.py`): faster-whisper "small" listens to each voice clip and compares it
+  letter-by-letter with the script (numbers are normalized: 63% = "enam puluh tiga persen"). The render fails below 0.82
+  unless `"asrCheck": "warn"`. Needs `pip install faster-whisper` in the Python set via `ASR_PYTHON`.
+  If it's missing, the check is skipped; `ASR_REQUIRED=1` makes that fatal.
+- **Loudness:** two-pass loudnorm to −14 LUFS / −1.5 dBTP, plus black-frame detection.
+
+The SFX timing and QC ideas were borrowed from [lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar) (MIT),
+re-implemented here from scratch; no code was copied.
