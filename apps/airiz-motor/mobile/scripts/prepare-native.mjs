@@ -24,7 +24,8 @@ if (platform === 'android') {
   const android = path.join(root, 'android');
   const java = path.join(android, 'app/src/main/java', ...config.appId.split('.'));
   fs.mkdirSync(java, { recursive: true });
-  fs.copyFileSync(path.join(root, 'native/android/AirizClassicSerialPlugin.java'), path.join(java, 'AirizClassicSerialPlugin.java'));
+  const classic = fs.readFileSync(path.join(root, 'native/android/AirizClassicSerialPlugin.java'), 'utf8').replace(/^package [^;]+;/, 'package ' + config.appId + ';');
+  fs.writeFileSync(path.join(java, 'AirizClassicSerialPlugin.java'), classic);
   fs.writeFileSync(path.join(java, 'MainActivity.java'), `package ${config.appId};
 import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;
@@ -127,7 +128,13 @@ gradle.taskGraph.whenReady { graph ->
   const xcode = require('xcode');
   const parsed = xcode.project(project);
   parsed.parseSync();
-  if (!fs.readFileSync(project, 'utf8').includes('PrivacyInfo.xcprivacy')) parsed.addResourceFile('App/PrivacyInfo.xcprivacy', { target: parsed.getFirstTarget().uuid });
+  if (!fs.readFileSync(project, 'utf8').includes('PrivacyInfo.xcprivacy')) {
+    if (!parsed.pbxGroupByName('Resources')) {
+      const group = parsed.addPbxGroup([], 'Resources', 'App');
+      parsed.addToPbxGroup(group.uuid, parsed.getFirstProject().firstProject.mainGroup);
+    }
+    parsed.addResourceFile('PrivacyInfo.xcprivacy', { target: parsed.getFirstTarget().uuid });
+  }
   fs.writeFileSync(project, parsed.writeSync());
 }
 console.log('Prepared ' + platform + ' native project for ' + pkg.version + '.');
