@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    # Hourly: refresh Twin's public market snapshot (prices, FX, exchange calendars) and redeploy.
+    - cron: "17 * * * *"
 
 permissions:
   contents: read
@@ -27,6 +30,14 @@ jobs:
         with:
           python-version: '3.12'
       
+      - name: Refresh Twin market data (best effort; keeps the committed snapshot on failure)
+        continue-on-error: true
+        timeout-minutes: 15
+        run: |
+          pip install --quiet exchange_calendars || true
+          python apps/twin/scripts/market_calendars.py || git checkout -- apps/twin/web/demo/calendars.json
+          python apps/twin/scripts/world_snapshot.py || git checkout -- apps/twin/web/demo/world.json apps/twin/web/demo/world
+
       - name: Build static site
         run: python scripts/build_site.py
       
