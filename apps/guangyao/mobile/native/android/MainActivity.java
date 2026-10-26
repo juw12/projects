@@ -8,6 +8,8 @@ import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -175,7 +177,9 @@ public class MainActivity extends BridgeActivity {
             if (!handedOff) {
                 handedOff = true;
                 openExternally(uri);
-                view.post(view::destroy);
+                // The window WebView is never attached to the screen, so View.post would wait forever;
+                // use the main looper so the hidden WebView is really released.
+                new Handler(Looper.getMainLooper()).post(view::destroy);
             }
             return true;
         }
