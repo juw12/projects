@@ -76,6 +76,17 @@ async function record(name) {
   assert.equal(await app.evaluate(() => globalThis.__chosenPort), 'smoke-fake-port');
   await record('Native serial chooser opens and cancels; synthetic selection works without opening physical hardware');
 
+  assert.equal(await page.locator('#btn-connect-ble').isVisible(), true);
+  await page.locator('#btn-connect-ble').click();
+  await page.locator('#bluetooth-picker-dialog').waitFor({ state: 'visible' });
+  await page.waitForTimeout(3000);
+  const airizListed = await page.locator('#bluetooth-picker-list [data-bluetooth-id]').count();
+  await page.locator('#bluetooth-picker-cancel').click();
+  await page.locator('#bluetooth-picker-dialog').waitFor({ state: 'hidden' });
+  await page.waitForFunction(() => !document.getElementById('btn-connect-ble').disabled, null, { timeout: 60000 });
+  assert.equal((await page.evaluate(() => AirizConsole.getStatus())).connected, false);
+  await record('Connect Bluetooth opens the in-app device picker (' + airizListed + ' AIRIZ device(s) in range) and cancels without connecting');
+
   await page.locator('#btn-demo').click();
   for (const direction of ['pan-fwd', 'rising-fwd', 'pan-rev', 'rising-rev']) {
     await page.locator('[data-jog="' + direction + '"]').click();

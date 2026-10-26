@@ -20,6 +20,7 @@
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const native = !!(window.airizMobile || window.airizDesktop);
   let remoteBusy = false;
+  let lastRemotePin = null; // PIN of the remote this PC just started (fills the PIN step)
 
   // ------------------------------------------------------------ Stop motor
   const stopButton = $('btn-stop-motor');
@@ -42,11 +43,13 @@
     }
     bleConnecting = true;
     if (bleButton) bleButton.disabled = true;
+    // The desktop app shows its own device picker (desktop-integration.js).
+    window.dispatchEvent(new CustomEvent('airiz-bluetooth-request'));
     try {
       toast('Choose AIRIZ-BT. No motor command is sent while connecting.');
       const port = await ble.requestWebBluetoothPort(lost => {
         window.dispatchEvent(new CustomEvent('airiz-port-lost', { detail: lost }));
-      });
+      }, { pinHint: lastRemotePin });
       await api.connectPort(port);
       toast(port.bridge ? 'Bluetooth remote unlocked. Motor controls are ready.' : 'Bluetooth connected.');
     } catch (error) {
@@ -61,11 +64,13 @@
       toast('Bluetooth connection failed: ' + detail);
     } finally {
       bleConnecting = false;
+      window.dispatchEvent(new CustomEvent('airiz-bluetooth-request-done'));
       refresh();
     }
   }
 
-  if (bleButton && !native) {
+  // Website and Windows app (the Android app has its own native Bluetooth connect).
+  if (bleButton && !window.airizMobile && (!window.airizDesktop || navigator.bluetooth)) {
     bleButton.hidden = false;
     bleButton.addEventListener('click', () => connectBluetooth());
   }
@@ -121,11 +126,13 @@
       + '<button id="phone-remote-start" class="btn btn-primary">Start remote</button>'
       + '<button id="phone-remote-newpin" class="btn">New PIN</button>'
       + '<button id="phone-remote-stop" class="btn">Stop remote</button>'
+      + '<button id="phone-remote-pc-ble" class="btn btn-primary" hidden>Connect this PC by Bluetooth</button>'
       + '<button id="phone-remote-close" class="btn btn-secondary">Close</button></div>';
     document.body.append(dialog);
     $('phone-remote-start').addEventListener('click', () => startRemote(false));
     $('phone-remote-newpin').addEventListener('click', () => startRemote(true));
     $('phone-remote-stop').addEventListener('click', stopRemote);
+    $('phone-remote-pc-ble').addEventListener('click', switchPcToBluetooth);
     $('phone-remote-close').addEventListener('click', () => dialog.close());
     dialog.addEventListener('cancel', event => {
       if (remoteBusy) event.preventDefault();
@@ -201,7 +208,10 @@
       if (!match) throw new Error('The Bluetooth remote did not start. See /tmp/airiz/out on the device.');
       $('phone-remote-pin-value').textContent = match[1];
       $('phone-remote-pin').hidden = false;
-      setStatus('AIRIZ-BT is advertising until the device is switched off. You can unplug USB now.');
+      lastRemotePin = match[1];
+      $('phone-remote-pc-ble').hidden = !navigator.bluetooth || !!window.airizMobile;
+      setStatus('AIRIZ-BT is advertising until the device is switched off. Connect a phone, '
+        + 'or press "Connect this PC by Bluetooth" to control it wirelessly from here. You can unplug USB now.');
     } catch (error) {
       setStatus(error.message || 'Setup failed.');
     } finally {
@@ -210,12 +220,30 @@
     }
   }
 
+  // Close the USB session and reconnect this PC to the device over Bluetooth (AIRIZ-BT).
+  async function switchPcToBluetooth() {
+    if (remoteBusy || bleConnecting) return;
+    if (api.getStatus().connected) {
+      const disconnectButton = $('btn-disconnect');
+      if (disconnectButton && !disconnectButton.disabled) disconnectButton.click();
+      for (let waited = 0; api.getStatus().connected && waited < 3000; waited += 100) await sleep(100);
+      if (api.getStatus().connected) {
+        setStatus('Disconnect USB first, then press Connect Bluetooth.');
+        return;
+      }
+    }
+    dialog.close();
+    await connectBluetooth();
+  }
+
   async function stopRemote() {
     if (remoteBusy) return;
     setBusy(true);
     try {
       const reply = await run('sh /data/airiz/stop.sh', text => /#AIRIZBT#stopped#END#/.test(text) || /not found/.test(text), 8000);
       $('phone-remote-pin').hidden = true;
+      $('phone-remote-pc-ble').hidden = true;
+      lastRemotePin = null;
       setStatus(/#AIRIZBT#stopped#END#/.test(reply) ? 'Bluetooth remote stopped.' : 'The remote is not installed on this device.');
     } finally {
       setBusy(false);

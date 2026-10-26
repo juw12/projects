@@ -429,7 +429,7 @@
     throw lastError;
   }
 
-  async function requestWebBluetoothPort(onDisconnect) {
+  async function requestWebBluetoothPort(onDisconnect, options = {}) {
     const bluetooth = root && root.navigator && root.navigator.bluetooth;
     if (!bluetooth) throw new Error(webBluetoothHelp());
     // Bluefy (iPhone) is most reliable with an unfiltered list; choose AIRIZ-BT.
@@ -440,7 +440,7 @@
     const id = device.id || device.name;
     const port = new VerifiedSerialPort(webBluetoothLink(device, rx, tx), onDisconnect, 10000, {
       askPin,
-      savedPin: pinStore.get(id),
+      savedPin: pinStore.get(id) || (/^\d{6}$/.test(options.pinHint || '') ? options.pinHint : null),
       rememberPin: pin => pinStore.set(id, pin),
       forgetPin: () => pinStore.clear(id)
     });

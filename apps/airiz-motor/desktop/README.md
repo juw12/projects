@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.2.3` in this repository's Releases section.
+`airiz-desktop-v1.2.4` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -161,6 +161,17 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.2.4: Control the AIRIZ from this PC over Bluetooth
+
+* **Connect Bluetooth** now works in the Windows app (it was website/phone only). It
+  connects this PC to the AIRIZ-BT remote with the same PIN check as the phones, through
+  an in-app device picker (Electron has no browser chooser).
+* **Phone remote → Connect this PC by Bluetooth**: after Start remote, one click closes
+  the USB session and reconnects over Bluetooth, using the PIN that was just shown.
+* **Bluetooth on** is labelled as the firmware radio test (`diag ble on`); it does not
+  start the remote. Use Phone remote for that.
+* The phone camera viewer sits at the top of the Camera page on phones.
 
 ## 1.2.3: Share the AIRIZ camera to phones (live link)
 
