@@ -213,55 +213,12 @@
    "order": 19
   },
   {
-   "id": "mbs-miniature",
-   "name": "Marina Bay Sands Miniature",
-   "category": "CAD &amp; 3D",
-   "work": true,
-   "desc": "Agentic-CAD tabletop miniature — three curved glass towers joined by the boat-shaped SkyPark",
-   "description": "250 mm parametric miniature built in CadQuery by an AI agent in SOMA &mdash; three curved towers and a cantilevered SkyPark, driven by 12 parameters.",
-   "tags": [
-    "CadQuery",
-    "parametric",
-    "agentic CAD",
-    "STEP"
-   ],
-   "image": "mbs-iso.png",
-   "image_alt": "Marina Bay Sands miniature: three curved glass towers joined by the boat-shaped SkyPark with its upturned cantilever tip",
-   "thumbnails": [
-    {
-     "src": "mbs-front.png",
-     "alt": "Marina Bay Sands miniature, front elevation",
-     "label": "View front elevation"
-    }
-   ],
-   "files": "https://github.com/juwpegatron/projects/tree/main/outputs/mbs",
-   "order": 3
-  },
-  {
-   "id": "eiffel-tower",
-   "name": "Eiffel Tower",
-   "category": "CAD &amp; 3D",
-   "work": true,
-   "desc": "A 1:1000 solid Eiffel Tower, 330 mm tall, modelled with open CASCADE in Vector",
-   "description": "1:1000 solid miniature (330 mm) modelled in open CASCADE with Vector &mdash; lofted legs, arches, floors and spire as one watertight solid.",
-   "tags": [
-    "open CASCADE",
-    "1:1000",
-    "STEP",
-    "STL"
-   ],
-   "image": "eiffel-render.png",
-   "image_alt": "Eiffel Tower: a 330 mm solid miniature rendered in three-quarter view on a dark background, showing the four splayed legs, arched base and spire",
-   "files": "https://github.com/juwpegatron/projects/tree/main/outputs/eiffel",
-   "order": 4
-  },
-  {
    "id": "3d-models-library",
    "name": "3D Models Library",
    "category": "CAD &amp; 3D",
    "work": true,
-   "desc": "40 printable landmark miniatures modelled with code (CadQuery / SOMA)",
-   "description": "A library of 40 printable miniatures &mdash; the New, Ancient and Natural Wonders, the world's tallest buildings (Burj Khalifa, Merdeka 118, Taipei 101, Petronas Towers and more) and characters (Snoopy, Mobile Suits) &mdash; each one a watertight solid, 120&ndash;150&nbsp;mm tall for FDM printing. STL + STEP included.",
+   "desc": "40 printable landmark miniatures modelled with code (CadQuery / SOMA) - including Marina Bay Sands and the Eiffel Tower",
+   "description": "A library of 40 printable miniatures &mdash; the New, Ancient and Natural Wonders, the world's tallest buildings (Burj Khalifa, Merdeka 118, Taipei 101, Petronas Towers and more), characters (Snoopy, Mobile Suits), plus the Marina Bay Sands and Eiffel Tower miniatures &mdash; each one a watertight solid, 120&ndash;150&nbsp;mm tall for FDM printing. STL + STEP included.",
    "tags": [
     "CadQuery",
     "SOMA",
@@ -273,7 +230,7 @@
    "image": "3d-models-hero.svg",
    "image_alt": "3D Models Library: a row of printable landmark miniatures",
    "files": "https://github.com/juwpegatron/projects/tree/main/outputs/3d-models",
-   "order": 5
+   "order": 3
   },
   {
    "id": "lingua",
