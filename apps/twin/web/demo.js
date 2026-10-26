@@ -1090,6 +1090,12 @@
     guest: (path, body) => dispatch(path, body, true),
     saveGuest,
     hasGuest: () => readStore(true).session === "guest",
-    meta: () => load("meta"),
+    // 1.6: prices come from the world snapshot first, so report its time (the older US bundle's date stays as us_market_as_of).
+    meta: async () => {
+      const base = await load("meta");
+      const globalData = await world().catch(() => null);
+      if (!globalData || !globalData.snapshot_taken) return base;
+      return { ...base, us_market_as_of: base && base.market_as_of, market_as_of: globalData.snapshot_taken };
+    },
   };
 })();
