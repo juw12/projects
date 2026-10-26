@@ -169,6 +169,7 @@ r = await api("GET", `listings/${listing.id}`);
 assert.equal(r.data.listing.sales, 1);
 assert.equal(r.data.listing.rating, 5);
 assert.equal(r.data.listing.paymentUrl, "", "anonymous visitors do not see the payment link");
+assert.equal(r.data.listing.paymentHost, "lynk.id", "but they see which site they will pay on");
 ok("paid order unlocks library, review, sales count");
 
 // ---- ledger
@@ -236,6 +237,122 @@ assert.equal(r.status, 404);
 r = await api("POST", `listings/${listing.id}/republish`, { token: seller.token, body: {} });
 assert.equal(r.data.status, "live");
 ok("edit, unpublish, republish");
+
+// ---- paid preview: non-buyers never receive formulas
+const hasFormula = (s) => s.sheet.columns.some((c) => c.type === "formula" || c.formula);
+assert.ok(hasFormula(spec), "fixture has formula columns");
+r = await api("GET", `listings/${listing.id}`, { token: buyer2.token });
+assert.equal(r.data.listing.spec.preview, true);
+assert.ok(!hasFormula(r.data.listing.spec), "preview must not leak formulas");
+assert.ok(r.data.listing.spec.sheet.columns.some((c) => c.locked));
+assert.ok(r.data.listing.spec.sheet.rows.length <= 8);
+r = await api("GET", `listings/${listing.id}`);
+assert.ok(!hasFormula(r.data.listing.spec));
+r = await api("GET", `listings/${listing.id}`, { token: buyer.token });
+assert.ok(hasFormula(r.data.listing.spec) && !r.data.listing.spec.preview, "buyer gets the full spec");
+r = await api("GET", `listings/${listing.id}`, { token: seller.token });
+assert.ok(hasFormula(r.data.listing.spec), "seller gets the full spec");
+ok("paid listings show a formula-free preview to non-buyers");
+
+// ---- notification counts
+r = await api("POST", `listings/${listing.id}/order`, { token: buyer2.token, body: {} });
+const o3 = r.data.order;
+r = await api("GET", "me", { token: seller.token });
+assert.equal(r.data.counts.ordersToConfirm, 1);
+assert.equal(r.data.hasRecoveryCode, true);
+r = await api("GET", "me", { token: buyer2.token });
+assert.equal(r.data.counts.awaitingPayment, 1);
+await api("POST", `orders/${o3.id}/cancel`, { token: buyer2.token, body: {} });
+r = await api("GET", "me", { token: seller.token });
+assert.equal(r.data.counts.ordersToConfirm, 0);
+ok("me returns badge counts (orders to confirm, awaiting payment)");
+
+// ---- reports: enough distinct reporters hide a listing until review
+const flagSpec = Core.generate("weekly habit tracker").spec;
+r = await api("POST", "listings", {
+  token: seller.token,
+  body: { title: "Flag me", description: "test", category: "Personal", tags: [], price: 0, currency: "IDR", commissionPct: 0, spec: flagSpec },
+});
+assert.equal(r.status, 201, JSON.stringify(r.data));
+const flagged = r.data.listing;
+r = await api("POST", `listings/${flagged.id}/report`, { token: seller.token, body: { reason: "self" } });
+assert.equal(r.status, 400);
+r = await api("POST", `listings/${flagged.id}/report`, { token: buyer.token, body: { reason: "" } });
+assert.equal(r.status, 400);
+for (const who of [buyer, buyer2]) {
+  r = await api("POST", `listings/${flagged.id}/report`, { token: who.token, body: { reason: "spam" } });
+  assert.equal(r.status, 200);
+}
+r = await api("POST", `listings/${flagged.id}/report`, { token: buyer.token, body: { reason: "spam again" } });
+r = await api("GET", `listings/${flagged.id}`, { token: buyer.token });
+assert.equal(r.data.listing.reported, true);
+assert.equal(r.data.listing.status, "live", "the same reporter twice counts once");
+await api("POST", `listings/${flagged.id}/report`, { token: affiliate.token, body: { reason: "copied" } });
+r = await api("GET", "listings?q=flag%20me");
+assert.ok(!r.data.listings.some((l) => l.id === flagged.id), "flagged listing leaves the catalog");
+r = await api("POST", `listings/${flagged.id}/republish`, { token: seller.token, body: {} });
+assert.equal(r.status, 403);
+ok("reports: distinct reporters hide a listing, seller can't republish it");
+
+// ---- password change keeps this session only
+r = await api("POST", "auth/login", { body: { email: email("aff"), password: "correct horse 1" } });
+const affOther = r.data.token;
+r = await api("POST", "me/password", { token: affiliate.token, body: { currentPassword: "wrong", newPassword: "new horse 22" } });
+assert.equal(r.status, 401);
+r = await api("POST", "me/password", { token: affiliate.token, body: { currentPassword: "correct horse 1", newPassword: "short" } });
+assert.equal(r.status, 400);
+r = await api("POST", "me/password", { token: affiliate.token, body: { currentPassword: "correct horse 1", newPassword: "new horse 22" } });
+assert.equal(r.status, 200);
+r = await api("GET", "me", { token: affOther });
+assert.equal(r.data.user, null, "other sessions are signed out");
+r = await api("GET", "me", { token: affiliate.token });
+assert.equal(r.data.user.name, "Andi Affiliate");
+r = await api("POST", "auth/login", { body: { email: email("aff"), password: "new horse 22" } });
+assert.equal(r.status, 200);
+ok("change password (current required, other sessions revoked)");
+
+// ---- recovery code resets a forgotten password
+assert.match(buyer.recoveryCode, /^MINT-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+r = await api("POST", "auth/recover", { body: { email: email("buyer"), recoveryCode: "MINT-AAAA-BBBB-CCCC", newPassword: "fresh horse 3" } });
+assert.equal(r.status, 401);
+r = await api("POST", "auth/recover", {
+  body: { email: email("buyer"), recoveryCode: buyer.recoveryCode.toLowerCase().replace(/-/g, " "), newPassword: "fresh horse 3" },
+});
+assert.equal(r.status, 200, JSON.stringify(r.data));
+assert.notEqual(r.data.recoveryCode, buyer.recoveryCode, "a new code replaces the used one");
+const buyerToken = r.data.token;
+r = await api("GET", "me", { token: buyer.token });
+assert.equal(r.data.user, null, "old sessions end after recovery");
+r = await api("POST", "auth/recover", { body: { email: email("buyer"), recoveryCode: buyer.recoveryCode, newPassword: "again horse 4" } });
+assert.equal(r.status, 401, "a used code is single-use");
+r = await api("POST", "auth/login", { body: { email: email("buyer"), password: "fresh horse 3" } });
+assert.equal(r.status, 200);
+r = await api("POST", "me/recovery-code", { token: buyerToken, body: { password: "fresh horse 3" } });
+assert.match(r.data.recoveryCode, /^MINT-/);
+buyer.token = buyerToken;
+ok("recovery code: single-use reset, sessions revoked, regenerate");
+
+// ---- delete account: seller's listings go, buyers keep what they got
+const leaver = await register("leaver", "Lena Leaver");
+r = await api("POST", "listings", {
+  token: leaver.token,
+  body: { title: "Leaver freebie", description: "x", category: "Personal", tags: [], price: 0, currency: "IDR", commissionPct: 0, spec: flagSpec },
+});
+const leaverListing = r.data.listing;
+await api("POST", `listings/${leaverListing.id}/order`, { token: buyer2.token, body: {} });
+r = await api("POST", "me/delete", { token: leaver.token, body: { password: "nope nope 1" } });
+assert.equal(r.status, 401);
+r = await api("POST", "me/delete", { token: leaver.token, body: { password: "correct horse 1" } });
+assert.equal(r.status, 200);
+r = await api("GET", "me", { token: leaver.token });
+assert.equal(r.data.user, null);
+r = await api("POST", "auth/login", { body: { email: email("leaver"), password: "correct horse 1" } });
+assert.equal(r.status, 401);
+r = await api("GET", "listings?q=leaver");
+assert.ok(!r.data.listings.some((l) => l.id === leaverListing.id));
+r = await api("GET", "library", { token: buyer2.token });
+assert.ok(r.data.items.some((i) => i.listingId === leaverListing.id || i.id === leaverListing.id || i.title === "Leaver freebie"));
+ok("delete account: login gone, listings removed, buyers keep their copy");
 
 // ---- AI endpoint (no binding locally → 503; live → spec)
 r = await api("POST", "ai/template", { token: buyer.token, body: { prompt: "habit tracker" } });

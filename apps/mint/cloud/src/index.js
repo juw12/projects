@@ -13,7 +13,10 @@ import seedData from "../../web/data/seed.json";
 const Core = globalThis.MintCore;
 
 const APP = "mint";
-const VERSION = "2.0.0";
+const VERSION = "2.1.0";
+const ORDER_EXPIRY_DAYS = 14;
+const REPORT_HIDE_THRESHOLD = 5;
+const RECOVERY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const SESSION_DAYS = 30;
 const PBKDF2_ROUNDS = 100000; // Workers' PBKDF2 ceiling
 const MAX_BODY = 400000;
@@ -207,6 +210,57 @@ function moneyToCents(value) {
   return Math.round(amount * 100);
 }
 
+function recoveryCode() {
+  const data = crypto.getRandomValues(new Uint8Array(12));
+  const chars = [...data].map((b) => RECOVERY_ALPHABET[b % RECOVERY_ALPHABET.length]).join("");
+  return "MINT-" + chars.slice(0, 4) + "-" + chars.slice(4, 8) + "-" + chars.slice(8, 12);
+}
+
+// Only the checkout's domain (e.g. "lynk.id") is shown before ordering, so buyers know where they'll pay.
+function paymentHost(url) {
+  try {
+    return url ? new URL(url).hostname.replace(/^www\./, "") : "";
+  } catch (err) {
+    return "";
+  }
+}
+
+function normalizeRecovery(code) {
+  return String(code || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+// What non-buyers see: the same look and sample results, but formula columns are baked into plain
+// values, so the formulas, validation logic and dashboard formulas stay part of the paid file.
+function previewSpec(spec) {
+  const computed = Core.compute(spec);
+  const columns = spec.sheet.columns.map((col) => {
+    if (col.type !== "formula") {
+      return col;
+    }
+    const format = Core.columnFormat(col);
+    const type = ["currency", "percent", "number", "date"].includes(format) ? format : "text";
+    return { id: col.id, name: col.name, type, locked: true };
+  });
+  const rows = computed.rows.slice(0, 8).map((row, index) => {
+    const original = spec.sheet.rows[index] || {};
+    const out = { ...original };
+    row.cells.forEach((cell) => {
+      if (cell.col.type !== "formula") {
+        return;
+      }
+      if (cell.error) {
+        out[cell.col.id] = cell.error;
+      } else if (Core.columnFormat(cell.col) === "date" && typeof cell.value === "number") {
+        out[cell.col.id] = Core.isoFromSerial(cell.value);
+      } else {
+        out[cell.col.id] = cell.value;
+      }
+    });
+    return out;
+  });
+  return { ...spec, preview: true, sheet: { ...spec.sheet, columns, rows } };
+}
+
 function parseJsonLoose(text) {
   const raw = String(text || "");
   const start = raw.indexOf("{");
@@ -287,9 +341,56 @@ export class MintDB extends DurableObject {
         rating INTEGER NOT NULL, body TEXT NOT NULL, created REAL NOT NULL, UNIQUE (listing_id, user_id))`,
       `CREATE TABLE IF NOT EXISTS limits (key TEXT PRIMARY KEY, count INTEGER NOT NULL, reset_at REAL NOT NULL)`,
     ];
+    statements.push(
+      `CREATE TABLE IF NOT EXISTS reports (listing_id TEXT NOT NULL, user_id TEXT NOT NULL, reason TEXT NOT NULL,
+        created REAL NOT NULL, PRIMARY KEY (listing_id, user_id))`,
+    );
     for (const statement of statements) {
       this.run(statement);
     }
+    const userColumns = this.all("PRAGMA table_info(users)").map((c) => c.name);
+    if (!userColumns.includes("recovery_hash")) {
+      this.run("ALTER TABLE users ADD COLUMN recovery_hash TEXT NOT NULL DEFAULT ''");
+    }
+  }
+
+  expireOrders() {
+    this.run(
+      "UPDATE orders SET status = 'expired' WHERE status = 'pending' AND created < ?",
+      now() - ORDER_EXPIRY_DAYS * 86400,
+    );
+  }
+
+  counts(user) {
+    return {
+      ordersToConfirm: this.one("SELECT COUNT(*) AS n FROM orders WHERE seller_id = ? AND status = 'pending'", user.id).n,
+      commissionsOwed: this.one(
+        "SELECT COUNT(*) AS n FROM orders WHERE seller_id = ? AND status = 'paid' AND commission_cents > 0 AND commission_paid = 0",
+        user.id,
+      ).n,
+      awaitingPayment: this.one("SELECT COUNT(*) AS n FROM orders WHERE buyer_id = ? AND status = 'pending'", user.id).n,
+    };
+  }
+
+  async setRecovery(userId) {
+    const code = recoveryCode();
+    this.run("UPDATE users SET recovery_hash = ? WHERE id = ?", await sha256(normalizeRecovery(code)), userId);
+    return code;
+  }
+
+  async checkPassword(user, password) {
+    if (!user || user.pw_hash === "!") {
+      return false;
+    }
+    return safeEqual(await hashPassword(String(password || ""), user.salt), user.pw_hash);
+  }
+
+  async setPassword(userId, password) {
+    if (password.length < 8 || password.length > 200) {
+      throw new ApiError(400, "Password must be 8–200 characters");
+    }
+    const salt = hex(crypto.getRandomValues(new Uint8Array(16)));
+    this.run("UPDATE users SET pw_hash = ?, salt = ? WHERE id = ?", await hashPassword(password, salt), salt, userId);
   }
 
   seed() {
@@ -431,7 +532,7 @@ export class MintDB extends DurableObject {
       case "auth":
         return this.routeAuth(request, method, parts.slice(1), ip);
       case "me":
-        return this.routeMe(request, method);
+        return this.routeMe(request, method, parts.slice(1));
       case "templates":
         return this.routeTemplates(request, method, parts.slice(1));
       case "listings":
@@ -488,8 +589,9 @@ export class MintDB extends DurableObject {
         "INSERT INTO users (id, email, name, pw_hash, salt, is_system, created) VALUES (?, ?, ?, ?, ?, 0, ?)",
         id, email, name, await hashPassword(password, salt), salt, now(),
       );
+      const code = await this.setRecovery(id);
       const user = this.one("SELECT * FROM users WHERE id = ?", id);
-      return { __http: 201, body: { user: this.publicUser(user), token: await this.newSession(id) } };
+      return { __http: 201, body: { user: this.publicUser(user), token: await this.newSession(id), recoveryCode: code } };
     }
     if (action === "login") {
       const data = await this.readJson(request);
@@ -511,6 +613,25 @@ export class MintDB extends DurableObject {
       }
       return { user: this.publicUser(user), token: await this.newSession(user.id) };
     }
+    if (action === "recover") {
+      const data = await this.readJson(request);
+      const email = String(data.email || "").trim().toLowerCase();
+      const gate = this.limit("recover:" + ip, 10, 3600);
+      const perAccount = this.limit("recover:acct:" + email, 5, 3600);
+      if (!gate.ok || !perAccount.ok) {
+        throw new ApiError(429, "Too many attempts — try again in an hour");
+      }
+      const user = this.one("SELECT * FROM users WHERE email = ? AND is_system = 0", email);
+      const given = await sha256(normalizeRecovery(data.recoveryCode));
+      if (!user || !user.recovery_hash || !safeEqual(given, user.recovery_hash)) {
+        throw new ApiError(401, "Email or recovery code is wrong");
+      }
+      await this.setPassword(user.id, String(data.newPassword || ""));
+      this.run("DELETE FROM sessions WHERE user_id = ?", user.id);
+      const code = await this.setRecovery(user.id);
+      const fresh = this.one("SELECT * FROM users WHERE id = ?", user.id);
+      return { user: this.publicUser(fresh), token: await this.newSession(user.id), recoveryCode: code };
+    }
     if (action === "logout") {
       const header = request.headers.get("Authorization") || "";
       if (header.startsWith("Bearer ")) {
@@ -521,12 +642,54 @@ export class MintDB extends DurableObject {
     throw new ApiError(404, "Not found");
   }
 
-  async routeMe(request, method) {
+  async routeMe(request, method, parts = []) {
     if (method === "GET") {
       const user = await this.currentUser(request, false);
-      return { user: user ? this.publicUser(user) : null };
+      if (!user) {
+        return { user: null };
+      }
+      this.expireOrders();
+      return { user: this.publicUser(user), counts: this.counts(user), hasRecoveryCode: Boolean(user.recovery_hash) };
     }
-    if (method === "POST") {
+    if (method === "POST" && parts[0] === "password") {
+      const user = await this.currentUser(request);
+      const data = await this.readJson(request);
+      if (!(await this.checkPassword(user, data.currentPassword))) {
+        throw new ApiError(401, "Current password is wrong");
+      }
+      await this.setPassword(user.id, String(data.newPassword || ""));
+      const header = request.headers.get("Authorization") || "";
+      const keep = await sha256(header.slice(7).trim());
+      this.run("DELETE FROM sessions WHERE user_id = ? AND token_hash != ?", user.id, keep);
+      return { ok: true };
+    }
+    if (method === "POST" && parts[0] === "recovery-code") {
+      const user = await this.currentUser(request);
+      const data = await this.readJson(request);
+      if (!(await this.checkPassword(user, data.password))) {
+        throw new ApiError(401, "Password is wrong");
+      }
+      return { recoveryCode: await this.setRecovery(user.id) };
+    }
+    if (method === "POST" && parts[0] === "delete") {
+      const user = await this.currentUser(request);
+      const data = await this.readJson(request);
+      if (!(await this.checkPassword(user, data.password))) {
+        throw new ApiError(401, "Password is wrong");
+      }
+      // Buyers keep templates they paid for; order records stay for both sides' bookkeeping.
+      this.run("UPDATE listings SET status = 'removed', payment_url = '', updated = ? WHERE seller_id = ?", now(), user.id);
+      this.run("UPDATE orders SET status = 'cancelled' WHERE status = 'pending' AND (buyer_id = ? OR seller_id = ?)", user.id, user.id);
+      this.run("DELETE FROM templates WHERE owner_id = ?", user.id);
+      this.run("DELETE FROM affiliate_links WHERE user_id = ?", user.id);
+      this.run("DELETE FROM sessions WHERE user_id = ?", user.id);
+      this.run(
+        "UPDATE users SET email = ?, name = 'Deleted user', pw_hash = '!', salt = '', payout_info = '', recovery_hash = '' WHERE id = ?",
+        "deleted-" + user.id + "@mint.invalid", user.id,
+      );
+      return { ok: true };
+    }
+    if (method === "POST" && !parts.length) {
       const user = await this.currentUser(request);
       const data = await this.readJson(request);
       const name = data.name !== undefined ? cleanText(data.name, 60, "Name") : user.name;
@@ -628,6 +791,9 @@ export class MintDB extends DurableObject {
     if (method === "POST" && action === "reviews") {
       return this.review(request, listing);
     }
+    if (method === "POST" && action === "report") {
+      return this.report(request, listing);
+    }
     if (method === "POST" && action === "edit") {
       return this.editListing(request, listing);
     }
@@ -637,6 +803,9 @@ export class MintDB extends DurableObject {
         throw new ApiError(403, "Not your listing");
       }
       const status = action === "unpublish" ? "hidden" : "live";
+      if (status === "live" && (listing.status === "flagged" || listing.status === "removed")) {
+        throw new ApiError(403, "This template was hidden after several reports and is under review");
+      }
       if (status === "live" && listing.price_cents > 0 && !listing.payment_url) {
         throw new ApiError(400, "Add a payment link before republishing a paid template");
       }
@@ -686,6 +855,7 @@ export class MintDB extends DurableObject {
     if (listing.status !== "live" && !isSeller) {
       throw new ApiError(404, "Listing not found");
     }
+    this.expireOrders();
     const summary = this.summary(listing);
     let owned = false;
     let pending = null;
@@ -702,11 +872,13 @@ export class MintDB extends DurableObject {
     return {
       listing: {
         ...summary,
-        spec: JSON.parse(listing.spec),
+        spec: owned || isSeller || listing.price_cents === 0 ? JSON.parse(listing.spec) : previewSpec(JSON.parse(listing.spec)),
         owned,
+        reported: Boolean(user && this.one("SELECT 1 AS x FROM reports WHERE listing_id = ? AND user_id = ?", listing.id, user.id)),
         pendingOrder: pending,
         isSeller,
         paymentUrl: isSeller || pending ? listing.payment_url : "",
+        paymentHost: paymentHost(listing.payment_url),
         reviews: reviews.map((r) => ({ rating: r.rating, body: r.body, name: r.name, created: r.created })),
       },
     };
@@ -841,6 +1013,7 @@ export class MintDB extends DurableObject {
 
   async routeOrders(request, method, parts) {
     const user = await this.currentUser(request);
+    this.expireOrders();
     if (method === "GET" && !parts.length) {
       const rows = this.all(
         `SELECT orders.*, listings.title, listings.payment_url, users.name AS seller_name FROM orders
@@ -891,6 +1064,26 @@ export class MintDB extends DurableObject {
       throw new ApiError(404, "Not found");
     }
     return { order: this.orderOut(this.one("SELECT * FROM orders WHERE id = ?", order.id)) };
+  }
+
+  async report(request, listing) {
+    const user = await this.currentUser(request);
+    if (listing.seller_id === user.id) {
+      throw new ApiError(400, "You can’t report your own template");
+    }
+    const data = await this.readJson(request);
+    const reason = cleanText(data.reason, 300, "Reason");
+    this.requireLimit("report:" + user.id, 20, 86400, "Too many reports today");
+    this.run(
+      "INSERT OR REPLACE INTO reports (listing_id, user_id, reason, created) VALUES (?, ?, ?, ?)",
+      listing.id, user.id, reason, now(),
+    );
+    const reporters = this.one("SELECT COUNT(*) AS n FROM reports WHERE listing_id = ?", listing.id).n;
+    const threshold = parseInt(this.env.REPORT_HIDE_THRESHOLD || String(REPORT_HIDE_THRESHOLD), 10);
+    if (reporters >= threshold && listing.status === "live") {
+      this.run("UPDATE listings SET status = 'flagged', updated = ? WHERE id = ?", now(), listing.id);
+    }
+    return { ok: true };
   }
 
   async review(request, listing) {
@@ -988,6 +1181,7 @@ export class MintDB extends DurableObject {
   // ---- seller
   async sellerStats(request) {
     const user = await this.currentUser(request);
+    this.expireOrders();
     const listings = this.all("SELECT * FROM listings WHERE seller_id = ? ORDER BY created DESC", user.id).map((row) => {
       const agg = this.one(
         `SELECT COUNT(*) AS n, COALESCE(SUM(price_cents), 0) AS gross, COALESCE(SUM(platform_fee_cents), 0) AS fees,

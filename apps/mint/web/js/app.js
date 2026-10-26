@@ -18,6 +18,13 @@
   var tweakLog = [];
   var pendingAuth = null;
 
+  // Inside the Android/iPhone app shell (Capacitor around this same site) a few things work differently.
+  var NATIVE = /MintApp\//.test(navigator.userAgent) || !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  var APK_URL = "https://github.com/juw12/projects/releases/download/mint-android/Mint-android.apk";
+  var BASE_TITLE = document.title;
+  var installPrompt = null;
+  var countsAt = 0;
+
   var EXAMPLES = [
     "Freelance invoice tracker with notes",
     "Monthly budget in rupiah, pastel pink",
@@ -63,8 +70,54 @@
     }, 2600);
   }
 
+  function blobToBase64(blob) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        resolve(String(reader.result).split(",")[1] || "");
+      };
+      reader.onerror = function () {
+        reject(reader.error);
+      };
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  // WebViews ignore <a download>; the app saves the file to its cache and opens the phone's share sheet
+  // (Save to Files / Drive, WhatsApp, open in Excel or Sheets).
+  function nativeSave(name, blob) {
+    var plugins = window.Capacitor && window.Capacitor.Plugins;
+    if (!NATIVE || !plugins || !plugins.Filesystem || !plugins.Share) {
+      return false;
+    }
+    blobToBase64(blob).then(function (data) {
+      return plugins.Filesystem.writeFile({ path: name, data: data, directory: "CACHE" });
+    }).then(function (written) {
+      return plugins.Share.share({ title: name, files: [written.uri], dialogTitle: "Save or open " + name }).catch(function (err) {
+        if (!/cancel/i.test(String((err && err.message) || err))) {
+          throw err;
+        }
+      });
+    }).catch(function (err) {
+      toast("Couldn\u2019t save the file: " + errorMessage(err), "bad");
+    });
+    return true;
+  }
+
+  function openExternal(url) {
+    if (NATIVE) {
+      // The app shell hands other sites (checkouts, links) to the phone's browser.
+      window.location.href = url;
+      return;
+    }
+    window.open(url, "_blank", "noopener");
+  }
+
   function download(name, data, type) {
     var blob = data instanceof Blob ? data : new Blob([data], { type: type });
+    if (nativeSave(name, blob)) {
+      return;
+    }
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
     a.href = url;
@@ -161,7 +214,7 @@
       html += "<th class=\"rownum\">#</th>";
     }
     cols.forEach(function (c) {
-      html += "<th title=\"" + esc(c.type + (c.formula ? " = " + c.formula : "")) + "\">" + esc(c.name) + (c.type === "formula" ? " <span class=\"fx\">fx</span>" : "") + "</th>";
+      html += "<th title=\"" + esc(c.type + (c.formula ? " = " + c.formula : "")) + "\">" + esc(c.name) + (c.type === "formula" ? " <span class=\"fx\">fx</span>" : "") + (c.locked ? " <span class=\"fx lock\" title=\"Formula included in the full template\">\ud83d\udd12 fx</span>" : "") + "</th>";
     });
     if (opts.editable) {
       html += "<th></th>";
@@ -764,12 +817,12 @@
         var po = l.pendingOrder;
         buyArea = "<div class=\"orderbox\"><p class=\"small\"><strong>Order " + esc(po.ref) + "</strong> \u2014 waiting for payment</p>" +
           "<ol class=\"steps small\"><li>Pay " + esc(money(po.price, po.currency)) + " on the seller\u2019s checkout.</li><li>Put <strong>" + esc(po.ref) + "</strong> in the payment note.</li><li>The seller confirms \u2192 it unlocks in your library.</li></ol>" +
-          (l.paymentUrl ? "<a class=\"btn primary block\" href=\"" + esc(l.paymentUrl) + "\" target=\"_blank\" rel=\"noopener noreferrer\">Pay on seller\u2019s checkout \u2197</a>" : "") +
+          (l.paymentUrl ? "<a class=\"btn primary block\" href=\"" + esc(l.paymentUrl) + "\" target=\"_blank\" rel=\"noopener noreferrer\">Pay on " + esc(l.paymentHost || "seller\u2019s checkout") + " \u2197</a>" : "") +
           "<button class=\"btn block\" data-copy=\"" + esc(po.ref) + "\">Copy reference " + esc(po.ref) + "</button>" +
           "<button class=\"btn ghost block small\" data-cancel-order=\"" + esc(po.id) + "\">Cancel order</button></div>";
       } else {
         buyArea = "<button class=\"btn primary block\" data-buy>" + (l.price > 0 ? "Buy \u2014 " + esc(price) : "Get it free") + "</button>" +
-          (l.price > 0 ? "<p class=\"muted small\">" + (store.mode === "cloud" ? "You pay the seller directly on their checkout (QRIS, e-wallet, card\u2026). Your order reference unlocks the template once the seller confirms. Your name and email are shared with the seller for this order." : "Offline \u2014 connect to buy.") + "</p>" : "");
+          (l.price > 0 ? "<p class=\"muted small\">" + (store.mode === "cloud" ? (l.paymentHost ? "You\u2019ll pay on <strong>" + esc(l.paymentHost) + "</strong>. " : "") + "You pay the seller directly on their checkout (QRIS, e-wallet, card\u2026). Your order reference unlocks the template once the seller confirms. Your name and email are shared with the seller for this order." : "Offline \u2014 connect to buy.") + "</p>" : "");
       }
       var aff = l.commissionPct > 0 && l.price > 0 && !l.isSeller ?
         "<div class=\"panel aff\"><h3>Earn " + l.commissionPct + "% promoting this</h3><p class=\"small\">" + esc(money(l.price * l.commissionPct / 100, l.currency)) + " per sale you refer (30-day attribution).</p><button class=\"btn block\" data-afflink>Get affiliate link</button><div id=\"affOut\"></div></div>" : "";
@@ -777,7 +830,7 @@
         "<h1>" + esc(l.title) + "</h1><p class=\"meta\">by <strong>" + esc(l.sellerName) + "</strong> \u00b7 " + esc(l.category) + " \u00b7 " + stars(l.rating) + (l.ratingCount ? " (" + l.ratingCount + ")" : "") + " \u00b7 " + (l.sales || 0) + " sold</p>" +
         "<p>" + esc(l.description) + "</p>" +
         (l.tags && l.tags.length ? "<p class=\"tags\">" + l.tags.map(function (t) { return "<span>#" + esc(t) + "</span>"; }).join("") + "</p>" : "") +
-        "<h2>Live preview</h2>" + renderSheet(l.spec, { maxRows: 8 }) +
+        "<h2>Live preview</h2>" + (l.spec.preview ? "<p class=\"note small\" data-preview-note>\ud83d\udd12 Preview \u2014 columns marked \ud83d\udd12 show sample results only. The formulas, dropdown logic and dashboard come with the file after purchase.</p>" : "") + renderSheet(l.spec, { maxRows: 8 }) +
         "<p class=\"muted small\">Includes " + l.spec.sheet.columns.length + " columns, " + l.spec.summary.length + " dashboard cards, " + l.spec.rules.length + " colour rules, dropdowns and 200 ready rows. Works in Excel &amp; Google Sheets.</p>" +
         "<h2>Reviews</h2><div id=\"reviews\">" + (l.reviews.length ? l.reviews.map(function (r) {
           return "<div class=\"review\"><div>" + stars(r.rating) + " \u00b7 <strong>" + esc(r.name) + "</strong></div><p>" + esc(r.body) + "</p></div>";
@@ -785,6 +838,7 @@
         (owned ? "<form class=\"panel\" data-review><h3>Rate this template</h3><select name=\"rating\" aria-label=\"Rating\">" + [5, 4, 3, 2, 1].map(function (n) {
           return "<option value=\"" + n + "\">" + "\u2605\u2605\u2605\u2605\u2605".slice(0, n) + "</option>";
         }).join("") + "</select><textarea name=\"body\" rows=\"2\" maxlength=\"800\" placeholder=\"What did it help with?\"></textarea><button class=\"btn\" type=\"submit\">Post review</button></form>" : "") +
+        (!l.isSeller && store.mode === "cloud" ? "<p class=\"muted small\"><button type=\"button\" class=\"linkbtn\" data-report" + (l.reported ? " disabled" : "") + ">" + (l.reported ? "Reported \u2014 thanks, we\u2019ll take a look" : "\u26a0 Report this template") + "</button></p>" : "") +
         "</div><aside class=\"itemside\"><div class=\"panel buy\"><div class=\"price\">" + esc(price) + "</div>" + buyArea + "</div>" + aff + "</aside></section>";
 
       view.onclick = function (e) {
@@ -795,7 +849,7 @@
         if (b.hasAttribute("data-buy")) {
           var payWindow = null;
           requireLogin("Log in to get this template").then(function () {
-            if (l.price > 0 && store.mode === "cloud") {
+            if (l.price > 0 && store.mode === "cloud" && !NATIVE) {
               payWindow = window.open("", "_blank");
             }
             return store.order(l.id, activeRef(l.id));
@@ -810,14 +864,30 @@
                 payWindow.location = res.paymentUrl;
               } else if (payWindow) {
                 payWindow.close();
+              } else if (NATIVE && res.paymentUrl) {
+                openExternal(res.paymentUrl);
               }
               toast("Order " + res.order.ref + " created \u2014 pay on the seller\u2019s checkout and add the reference");
             }
+            refreshCounts(true);
             viewItem(id, {});
           }).catch(function (err) {
             if (payWindow) {
               payWindow.close();
             }
+            toast(errorMessage(err), "bad");
+          });
+        } else if (b.hasAttribute("data-report")) {
+          requireLogin("Log in to report a template").then(function () {
+            var reason = window.prompt("What\u2019s wrong with this template? (copied, misleading, broken, spam, offensive\u2026)");
+            if (!reason || !reason.trim()) {
+              return null;
+            }
+            return store.report(l.id, reason.trim()).then(function () {
+              toast("Thanks \u2014 report sent");
+              viewItem(id, {});
+            });
+          }).catch(function (err) {
             toast(errorMessage(err), "bad");
           });
         } else if (b.dataset.cancelOrder) {
@@ -979,6 +1049,7 @@
             return;
           }
           store.orderAction(b.dataset.order, act).then(function () {
+            refreshCounts(true);
             toast(act === "confirm" ? "Confirmed \u2014 the buyer can download now" : act === "reject" ? "Order rejected" : "Commission marked paid");
             viewSell();
           }).catch(function (err) {
@@ -1250,7 +1321,8 @@
   function authForms(reason) {
     return "<div class=\"authwrap\">" + (reason ? "<p class=\"note\">" + esc(reason) + "</p>" : "") +
       "<form class=\"panel\" data-login><h2>Log in</h2><label>Email<input name=\"email\" type=\"email\" autocomplete=\"email\" required></label>" +
-      "<label>Password<input name=\"password\" type=\"password\" autocomplete=\"current-password\" required></label><button class=\"btn primary block\" type=\"submit\">Log in</button></form>" +
+      "<label>Password<input name=\"password\" type=\"password\" autocomplete=\"current-password\" required></label><button class=\"btn primary block\" type=\"submit\">Log in</button>" +
+      (store.mode === "cloud" ? "<button type=\"button\" class=\"linkbtn\" data-forgot>Forgot password?</button>" : "") + "</form>" +
       "<form class=\"panel\" data-register><h2>Create account</h2><label>Name<input name=\"name\" autocomplete=\"name\" required maxlength=\"60\"></label>" +
       "<label>Email<input name=\"email\" type=\"email\" autocomplete=\"email\" required></label>" +
       "<label>Password (8+ characters)<input name=\"password\" type=\"password\" autocomplete=\"new-password\" minlength=\"8\" required></label>" +
@@ -1258,7 +1330,70 @@
       (store.mode === "offline" ? "<p class=\"muted small center\">Mint is offline right now \u2014 this account only lives in this browser until the connection is back.</p>" : "<p class=\"muted small center\">Your account works on every device. Passwords are hashed; we never see them.</p>");
   }
 
+  function recoverForm() {
+    return "<form class=\"panel\" data-recover><h2>Reset password</h2><p class=\"muted small\">Use the recovery code you saved when you created your account (MINT-XXXX-XXXX-XXXX). Without it the account can\u2019t be recovered \u2014 Mint stores no other way to prove it\u2019s you.</p>" +
+      "<label>Email<input name=\"email\" type=\"email\" autocomplete=\"email\" required></label>" +
+      "<label>Recovery code<input name=\"code\" required autocomplete=\"off\" autocapitalize=\"characters\" placeholder=\"MINT-XXXX-XXXX-XXXX\"></label>" +
+      "<label>New password (8+ characters)<input name=\"password\" type=\"password\" minlength=\"8\" autocomplete=\"new-password\" required></label>" +
+      "<button class=\"btn primary block\" type=\"submit\">Reset and log in</button><button type=\"button\" class=\"linkbtn\" data-back-login>Back to log in</button></form>";
+  }
+
+  function loginForm() {
+    var holder = document.createElement("div");
+    holder.innerHTML = authForms("");
+    return holder.querySelector("form[data-login]").outerHTML;
+  }
+
+  // Shown once after sign-up or a reset; the server keeps only a hash of it.
+  function showRecoveryCode(code, intro) {
+    if (!code) {
+      return;
+    }
+    var modal = document.getElementById("modal");
+    var email = user ? user.email : "";
+    modal.innerHTML = "<div class=\"modalbox\" role=\"dialog\" aria-modal=\"true\" aria-label=\"Your recovery code\"><h2>\ud83d\udd11 Save your recovery code</h2>" +
+      "<p>" + esc(intro) + "</p><p class=\"rcode\" data-rcode>" + esc(code) + "</p>" +
+      "<div class=\"two\"><button class=\"btn\" data-rcopy>Copy</button><button class=\"btn\" data-rsave>Save as file</button></div>" +
+      "<label class=\"checkline\"><input type=\"checkbox\" data-rack> I saved it somewhere safe</label>" +
+      "<button class=\"btn primary block\" data-rdone disabled>Done</button></div>";
+    modal.hidden = false;
+    modal.onsubmit = null;
+    modal.onchange = function (e) {
+      if (e.target.hasAttribute("data-rack")) {
+        modal.querySelector("[data-rdone]").disabled = !e.target.checked;
+      }
+    };
+    modal.onclick = function (e) {
+      var b = e.target.closest("button");
+      if (!b) {
+        return;
+      }
+      if (b.hasAttribute("data-rcopy")) {
+        copy(code);
+      } else if (b.hasAttribute("data-rsave")) {
+        download("mint-recovery-code.txt", "Mint recovery code" + (email ? " for " + email : "") + "\n\n" + code +
+          "\n\nIf you forget your password: Log in > Forgot password? > enter your email, this code and a new password.\nThe code works once; Mint shows a new one after you use it.\n", "text/plain");
+      } else if (b.hasAttribute("data-rdone")) {
+        modal.hidden = true;
+        modal.onchange = null;
+      }
+    };
+  }
+
   function handleAuthSubmit(e, done) {
+    if (e.target.hasAttribute("data-recover")) {
+      e.preventDefault();
+      var rf = e.target;
+      store.recover(rf.email.value, rf.code.value, rf.password.value).then(function (u) {
+        user = u;
+        renderHeader();
+        done(u);
+        showRecoveryCode(store.lastRecoveryCode, "Password changed and other devices signed out. Your old recovery code is used up \u2014 here is the new one.");
+      }).catch(function (err) {
+        toast(errorMessage(err), "bad");
+      });
+      return true;
+    }
     var f = e.target;
     var isLogin = f.hasAttribute("data-login");
     var isRegister = f.hasAttribute("data-register");
@@ -1272,6 +1407,10 @@
       renderHeader();
       toast("Welcome, " + u.name);
       done(u);
+      if (isRegister && store.mode === "cloud") {
+        showRecoveryCode(store.lastRecoveryCode, "If you ever forget your password, this code is the only way back into your account. Keep it in your notes or password manager.");
+      }
+      refreshCounts(true);
     }).catch(function (err) {
       toast(errorMessage(err), "bad");
     });
@@ -1314,6 +1453,148 @@
     };
   }
 
+  function securityPanels() {
+    var codeText = store.hasRecoveryCode ?
+      "You have a recovery code. Lost it? Make a new one \u2014 the old one stops working." :
+      "You don\u2019t have a recovery code yet. Make one now so you can reset a forgotten password.";
+    return "<form class=\"panel\" data-password><h2>Change password</h2>" +
+      "<label>Current password<input name=\"current\" type=\"password\" autocomplete=\"current-password\" required></label>" +
+      "<label>New password (8+ characters)<input name=\"next\" type=\"password\" minlength=\"8\" autocomplete=\"new-password\" required></label>" +
+      "<button class=\"btn\" type=\"submit\">Change password</button><p class=\"muted small\">Your other devices are signed out.</p></form>" +
+      "<form class=\"panel\" data-newcode><h2>Recovery code</h2><p class=\"muted small\" data-code-state>" + codeText + "</p>" +
+      "<label>Password<input name=\"password\" type=\"password\" autocomplete=\"current-password\" required></label>" +
+      "<button class=\"btn\" type=\"submit\">New recovery code</button></form>" +
+      "<form class=\"panel dangerzone\" data-delete><h2>Delete account</h2><p class=\"muted small\">Removes your login, drafts, affiliate links and payout details and takes your listings off the market. " +
+      "Buyers keep templates they already paid for and order records stay for their bookkeeping. This can\u2019t be undone.</p>" +
+      "<label>Password<input name=\"password\" type=\"password\" autocomplete=\"current-password\" required></label>" +
+      "<label>Type DELETE to confirm<input name=\"confirm\" required autocomplete=\"off\"></label>" +
+      "<button class=\"btn danger\" type=\"submit\">Delete my account</button></form>";
+  }
+
+  function securitySubmit(f) {
+    if (f.hasAttribute("data-password")) {
+      store.changePassword(f.current.value, f.next.value).then(function () {
+        f.reset();
+        toast("Password changed \u2014 other devices signed out");
+      }).catch(function (err) {
+        toast(errorMessage(err), "bad");
+      });
+      return true;
+    }
+    if (f.hasAttribute("data-newcode")) {
+      store.newRecoveryCode(f.password.value).then(function (code) {
+        f.reset();
+        store.hasRecoveryCode = true;
+        showRecoveryCode(code, "Your previous recovery code no longer works. Save this new one.");
+      }).catch(function (err) {
+        toast(errorMessage(err), "bad");
+      });
+      return true;
+    }
+    if (f.hasAttribute("data-delete")) {
+      if (f.confirm.value.trim().toUpperCase() !== "DELETE") {
+        toast("Type DELETE to confirm", "bad");
+        return true;
+      }
+      store.deleteAccount(f.password.value).then(function () {
+        user = null;
+        applyCounts(null);
+        renderHeader();
+        toast("Your account was deleted");
+        go("#/");
+      }).catch(function (err) {
+        toast(errorMessage(err), "bad");
+      });
+      return true;
+    }
+    return false;
+  }
+
+  // --- Install / phone apps
+  function viewInstall() {
+    var ua = navigator.userAgent;
+    var isIos = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    var isAndroid = /Android/.test(ua);
+    var standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+    if (NATIVE || standalone) {
+      view.innerHTML = "<section class=\"narrow\"><h1>\ud83d\udcf2 You\u2019re using the Mint app</h1><p class=\"muted\">It always loads the latest version of Mint, so there\u2019s nothing to update by hand.</p><a class=\"btn primary\" href=\"#/\">Back to Mint</a></section>";
+      return;
+    }
+    var android = "<div class=\"panel" + (isAndroid ? " pick" : "") + "\" data-install-android><h2>\ud83e\udd16 Android</h2>" +
+      "<p><a class=\"btn primary\" href=\"" + APK_URL + "\" rel=\"noopener\">\u2b07 Download the Android app (APK)</a></p>" +
+      "<ol class=\"steps small\"><li>Open the downloaded <strong>Mint-android.apk</strong>.</li><li>Allow installs from your browser when Android asks (one time).</li><li>Open Mint from your home screen. Same account and templates as the website.</li></ol>" +
+      (installPrompt ? "<p class=\"muted small\">Or install straight from Chrome:</p><button class=\"btn\" data-install-pwa>Install from Chrome</button>" : "<p class=\"muted small\">Prefer no APK? In Chrome open the \u22ee menu \u2192 <strong>Install app</strong> / <strong>Add to Home screen</strong>.</p>") + "</div>";
+    var ios = "<div class=\"panel" + (isIos ? " pick" : "") + "\" data-install-ios><h2>\ud83d\udcf1 iPhone &amp; iPad</h2>" +
+      "<ol class=\"steps small\"><li>Open <strong>juw12.github.io/projects/mint</strong> in <strong>Safari</strong>.</li><li>Tap <strong>Share</strong> (the square with the arrow) \u2192 <strong>Add to Home Screen</strong> \u2192 <strong>Add</strong>.</li><li>Open Mint from the home screen \u2014 it runs full-screen with its own icon.</li></ol>" +
+      "<p class=\"muted small\">Not in the App Store yet (that needs an Apple developer account). The home-screen app is the same Mint with the same account.</p></div>";
+    var desktop = "<div class=\"panel\"><h2>\ud83d\udcbb Computer</h2><p class=\"small\">Chrome or Edge: click the install icon in the address bar (or menu \u2192 <strong>Install Mint</strong>). Everything also works right here in the browser.</p>" +
+      (installPrompt && !isAndroid ? "<button class=\"btn\" data-install-pwa>Install Mint</button>" : "") + "</div>";
+    var order = isIos ? [ios, android, desktop] : isAndroid ? [android, ios, desktop] : [desktop, android, ios];
+    view.innerHTML = "<section class=\"narrow\"><h1>\ud83d\udcf2 Get the Mint app</h1><p class=\"muted\">One account everywhere: web, Android and iPhone. The apps load the live Mint, so new features arrive without updating.</p>" + order.join("") + "</section>";
+    view.onclick = function (e) {
+      var b = e.target.closest("button[data-install-pwa]");
+      if (!b || !installPrompt) {
+        return;
+      }
+      installPrompt.prompt();
+      installPrompt.userChoice.then(function (choice) {
+        installPrompt = null;
+        if (choice && choice.outcome === "accepted") {
+          toast("Installed \ud83c\udf89");
+        }
+        viewInstall();
+      });
+    };
+  }
+
+  // --- Notification badges (orders to confirm, commissions owed, orders awaiting payment)
+  function setBadge(nav, n) {
+    document.querySelectorAll("[data-nav=\"" + nav + "\"]").forEach(function (a) {
+      var b = a.querySelector(".nbadge");
+      if (!n) {
+        if (b) {
+          b.remove();
+        }
+        return;
+      }
+      if (!b) {
+        b = document.createElement("span");
+        b.className = "nbadge";
+        a.appendChild(b);
+      }
+      b.textContent = n > 9 ? "9+" : String(n);
+      b.title = n + " waiting for you";
+    });
+  }
+
+  function applyCounts(c) {
+    var sell = c ? (c.ordersToConfirm || 0) + (c.commissionsOwed || 0) : 0;
+    var library = c ? c.awaitingPayment || 0 : 0;
+    setBadge("sell", sell);
+    setBadge("library", library);
+    var urgent = c ? c.ordersToConfirm || 0 : 0;
+    document.title = (urgent ? "(" + urgent + ") " : "") + BASE_TITLE;
+  }
+
+  function refreshCounts(force) {
+    if (!store || store.mode !== "cloud" || !user) {
+      applyCounts(null);
+      return;
+    }
+    if (!force && Date.now() - countsAt < 15000) {
+      applyCounts(store.counts);
+      return;
+    }
+    countsAt = Date.now();
+    store.me().then(function (u) {
+      if (!u) {
+        user = null;
+        renderHeader();
+      }
+      applyCounts(u ? store.counts : null);
+    }).catch(function () {});
+  }
+
   function viewAccount() {
     if (!user) {
       return loginWall("Account", "Log in or create an account to buy, sell and earn as an affiliate.");
@@ -1325,6 +1606,8 @@
       "<form class=\"panel\" data-profile><h2>Profile & payouts</h2><label>Display name<input name=\"name\" maxlength=\"60\" required value=\"" + esc(user.name) + "\"></label>" +
       "<label>Affiliate payout details<input name=\"payout\" maxlength=\"300\" value=\"" + esc(user.payoutInfo || "") + "\" placeholder=\"BCA 1234567 a.n. Name \u00b7 GoPay 0812\u2026 \u00b7 PayPal email\"></label>" +
       "<button class=\"btn\" type=\"submit\">Save</button></form>" +
+      (store.mode === "cloud" ? securityPanels() : "") +
+      (NATIVE ? "" : "<div class=\"panel\"><h2>\ud83d\udcf2 Mint on your phone</h2><p class=\"muted small\">Android app, iPhone home-screen app, or install from your browser.</p><a class=\"btn\" href=\"#/install\">Get the app</a></div>") +
       "<form class=\"panel\" data-ai><h2>Advanced: your own AI model</h2><p class=\"muted small\">Mint AI is built in. If you prefer your own OpenAI-compatible model, add it here \u2014 the key stays in this browser and is sent only to that endpoint.</p>" +
       "<label>Endpoint<input name=\"endpoint\" placeholder=\"https://api.openai.com/v1\" value=\"" + esc(cfg.endpoint || "") + "\"></label>" +
       "<div class=\"two\"><label>Model<input name=\"model\" placeholder=\"gpt-4o-mini\" value=\"" + esc(cfg.model || "") + "\"></label><label>API key<input name=\"key\" type=\"password\" value=\"" + esc(cfg.key || "") + "\"></label></div>" +
@@ -1337,6 +1620,7 @@
       if (b.hasAttribute("data-logout")) {
         store.logout().then(function () {
           user = null;
+          applyCounts(null);
           renderHeader();
           go("#/");
         });
@@ -1349,6 +1633,10 @@
       }
     };
     view.onsubmit = function (e) {
+      if (securitySubmit(e.target)) {
+        e.preventDefault();
+        return;
+      }
       if (e.target.hasAttribute("data-profile")) {
         e.preventDefault();
         store.updateProfile({ name: e.target.name.value.trim(), payoutInfo: e.target.payout.value.trim() }).then(function (u) {
@@ -1388,6 +1676,7 @@
     view.onchange = null;
     view.onsubmit = null;
     renderHeader();
+    refreshCounts(false);
     window.scrollTo(0, 0);
     var page = r.parts[0] || "";
     if (page === "create") {
@@ -1443,6 +1732,9 @@
     if (page === "account") {
       return viewAccount();
     }
+    if (page === "install") {
+      return viewInstall();
+    }
     viewHome();
     view.onsubmit = promptSubmit;
   }
@@ -1493,7 +1785,40 @@
     document.getElementById("accountBtn").onclick = function () {
       go("#/account");
     };
+    document.documentElement.classList.toggle("native-app", NATIVE);
+    window.addEventListener("beforeinstallprompt", function (e) {
+      e.preventDefault();
+      installPrompt = e;
+    });
+    window.addEventListener("appinstalled", function () {
+      installPrompt = null;
+    });
+    setInterval(function () {
+      if (document.visibilityState === "visible") {
+        refreshCounts(true);
+      }
+    }, 60000);
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "visible") {
+        refreshCounts(false);
+      }
+    });
     document.addEventListener("click", function (e) {
+      var forgot = e.target.closest("[data-forgot]");
+      if (forgot) {
+        var loginEl = forgot.closest("form");
+        var email = loginEl.email ? loginEl.email.value : "";
+        loginEl.outerHTML = recoverForm();
+        var rec = document.querySelector("form[data-recover]");
+        rec.email.value = email;
+        (email ? rec.code : rec.email).focus();
+        return;
+      }
+      var back = e.target.closest("[data-back-login]");
+      if (back) {
+        back.closest("form").outerHTML = loginForm();
+        return;
+      }
       var chip = e.target.closest("[data-example]");
       if (chip) {
         var form = chip.closest("form");

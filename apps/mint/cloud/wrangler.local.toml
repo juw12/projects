@@ -14,3 +14,4 @@ new_sqlite_classes = ["MintDB"]
 [vars]
 ALLOWED_ORIGINS = "http://127.0.0.1:48714,http://localhost:48714"
 PLATFORM_FEE_PCT = "10"
+REPORT_HIDE_THRESHOLD = "3"
