@@ -607,6 +607,38 @@
    },
    "listed": false,
    "order": 999
+  },
+  {
+   "id": "me-rd-toolkit",
+   "name": "ME R&D Toolkit",
+   "category": "Engineering",
+   "desc": "Mechanical R&D workspace — NPI flow, review checklists, issue log, 11 engineering calculators and an optional LAN file vault; offline PWA",
+   "description": "Offline-first workspace for hardware/mechanical R&amp;D: NPI task flow, OK/NG/NA review checklists, issue log and one-page project report, 11 calculators (Cpk, x&#772; &minus; 3&sigma;, torque window, stack-up, snap-fit, thermal pad, IEC openings, &Delta;E) and an optional stdlib-only file vault server. Ships with generic demo data; real content loads from a private data pack.",
+   "tags": [
+    "NPI",
+    "checklists",
+    "Cpk",
+    "PWA",
+    "offline-first"
+   ],
+   "note_tags": [
+    "npi",
+    "design-review",
+    "checklists",
+    "cpk",
+    "pwa",
+    "offline-first",
+    "file-vault"
+   ],
+   "image": "me-rd-toolkit.png",
+   "image_alt": "ME R&D Toolkit dashboard with NPI flow, checklists, calculators and lessons quick-access tiles",
+   "links": {
+    "app": "me-rd-toolkit/index.html",
+    "web": "me-rd-toolkit/index.html",
+    "mobile": "me-rd-toolkit/index.html"
+   },
+   "status": "shipped",
+   "order": 22
   }
  ]
 }

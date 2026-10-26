@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="description" content="Offline toolkit for mechanical R&D: NPI flow, checklists, design rules, calculators, lessons learned.">
+  <title>ME R&amp;D Toolkit</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      try {
+        var saved = JSON.parse(localStorage.getItem("meRd.v2") || "{}").theme;
+        var dark = saved ? saved === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.dataset.theme = dark ? "dark" : "light";
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <div id="drawer-backdrop"></div>
+  <aside id="sidebar">
+    <div class="brand">
+      <div class="logo">ME</div>
+      <div>
+        <div class="brand-title">R&amp;D Toolkit</div>
+        <div class="brand-sub" id="pack-label">—</div>
+      </div>
+    </div>
+    <nav id="nav"></nav>
+  </aside>
+
+  <main>
+    <header id="topbar">
+      <button class="icon-btn only-mobile" id="menu-btn" aria-label="Menu"></button>
+      <div class="active-project">
+        <select id="active-select" aria-label="Active project"></select>
+        <button class="btn small" id="new-project-btn" title="New tracked project">+ New</button>
+      </div>
+      <div class="search-wrap">
+        <input id="global-search" type="search" placeholder="Search everything…  ( / )" autocomplete="off">
+      </div>
+      <button class="icon-btn" id="theme-btn" aria-label="Toggle dark mode"></button>
+    </header>
+    <section id="view"></section>
+  </main>
+
+  <nav id="bottombar"></nav>
+
+  <div id="modal" class="modal hidden"><div class="modal-card" id="modal-card"></div></div>
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="demo-pack.js"></script>
+  <!-- Optional private data pack for desktop use (never committed). Missing file is fine. -->
+  <script>
+    // Optional private files (path aliases, data pack, extra calculators). Missing files are simply skipped.
+    function loadPrivate(name) {
+      document.write('<script src="private/' + name + '.js" onerror="void 0"><\/script>');
+    }
+    loadPrivate("aliases");
+    loadPrivate("pack");
+  </script>
+  <script src="app.js"></script>
+  <script src="views.js"></script>
+  <script>loadPrivate("calcs");</script>
+  <script src="vault.js"></script>
+</body>
+</html>
