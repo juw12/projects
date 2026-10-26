@@ -217,20 +217,45 @@
    "name": "3D Models Library",
    "category": "CAD &amp; 3D",
    "work": true,
-   "desc": "40 printable landmark miniatures modelled with code (CadQuery / SOMA) - including Marina Bay Sands and the Eiffel Tower",
-   "description": "A library of 40 printable miniatures &mdash; the New, Ancient and Natural Wonders, the world's tallest buildings (Burj Khalifa, Merdeka 118, Taipei 101, Petronas Towers and more), characters (Snoopy, Mobile Suits), plus the Marina Bay Sands and Eiffel Tower miniatures &mdash; each one a watertight solid, 120&ndash;150&nbsp;mm tall for FDM printing. STL + STEP included.",
+   "desc": "41 landmark and character miniatures, including a checked 100 mm Kobo-chan geometry revision for Formlabs Form 3.",
+   "description": "41 landmark and character miniatures &mdash; world wonders, skyscrapers, Snoopy, Mobile Suits, Marina Bay Sands and the Eiffel Tower. New: a 100&nbsp;mm Kobo-chan figurine revised for Formlabs Form 3, with strengthened crown hairs, checked STL and colored STEP files, a suggested orientation and print notes. PreForm supports, resin settings and a test print are still required.",
    "tags": [
     "CadQuery",
     "SOMA",
+    "OpenCASCADE",
+    "Form 3 / SLA",
     "3D printing",
     "STL",
     "STEP",
     "miniatures"
    ],
-   "image": "3d-models-hero.svg",
-   "image_alt": "3D Models Library: a row of printable landmark miniatures",
+   "image": "kobochan-form3-hero.png",
+   "image_alt": "Kobo-chan: a 100 mm solid figurine revised for Form 3, shown from the front and three-quarter view",
    "files": "https://github.com/juwpegatron/projects/tree/main/outputs/3d-models",
-   "order": 3
+   "order": 3,
+   "anchor_id": "models-3d-library",
+   "thumbnails": [
+    {
+     "src": "kobochan-form3-hero.png",
+     "alt": "Kobo-chan: a 100 mm solid figurine revised for Form 3, shown from the front and three-quarter view",
+     "label": "Show the Kobo-chan Form 3 revision"
+    },
+    {
+     "src": "3d-models-hero.svg",
+     "alt": "3D Models Library: a selection of landmark miniatures",
+     "label": "Show the landmark collection"
+    }
+   ],
+   "extra_links": [
+    {
+     "label": "Kobo-chan / Form 3",
+     "url": "https://github.com/juwpegatron/projects/tree/main/outputs/3d-models/kobochan"
+    },
+    {
+     "label": "Download package",
+     "url": "https://github.com/juwpegatron/projects/raw/refs/heads/main/outputs/3d-models/kobochan/kobochan_form3_package.zip"
+    }
+   ]
   },
   {
    "id": "loka-translate",
