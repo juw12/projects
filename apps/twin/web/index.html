@@ -13,8 +13,8 @@
 <link rel="manifest" href="manifest.webmanifest">
 <title>Twin — invest &amp; day-trade with 10,000 replays</title>
 <meta name="description" content="Twin: a personality-matched investing and day-trading companion. Paper trading, 10,000-future goal planner, copy a famous investor's 13F, news feed and the day-trader-skill Time Machine.">
-<script src="theme.js?v=1.4.1"></script>
-<link rel="stylesheet" href="theme.css?v=1.4.1">
+<script src="theme.js?v=1.5.0"></script>
+<link rel="stylesheet" href="theme.css?v=1.5.0">
 <style>
   :root {
     --bg: #0b0f14;
@@ -222,14 +222,16 @@
 <div class="sheet" id="sheet" inert aria-hidden="true"></div>
 <div class="toast" id="toast"></div>
 
-<script src="demo.js?v=1.4.1"></script>
-<script src="pro.js?v=1.4.1"></script>
-<script src="pro-ui.js?v=1.4.1"></script>
-<script src="broker-ui.js?v=1.4.1"></script>
-<script src="academy.js?v=1.4.1"></script>
-<script src="global.js?v=1.4.1"></script>
-<script src="strategy-lab.js?v=1.4.1"></script>
-<script src="strategy-lab-ui.js?v=1.4.1"></script>
+<script src="demo.js?v=1.5.0"></script>
+<script src="pro.js?v=1.5.0"></script>
+<script src="pro-ui.js?v=1.5.0"></script>
+<script src="broker-ui.js?v=1.5.0"></script>
+<script src="academy.js?v=1.5.0"></script>
+<script src="global.js?v=1.5.0"></script>
+<script src="strategy-lab.js?v=1.5.0"></script>
+<script src="strategy-lab-ui.js?v=1.5.0"></script>
+<script src="twinagent.js?v=1.5.0"></script>
+<script src="twinagent-ui.js?v=1.5.0"></script>
 <script>
 "use strict";
 
@@ -1380,6 +1382,7 @@ function nextStep() {
   const p = state.paper;
   const steps = [
     [!done.includes("install"), "📱", "Put Twin on your iPhone", () => openGuide("install")],
+    [proRead("twinagent", []).length === 0, "🤖", "Get a TwinAgent research report", () => { state.tradeView = "agent"; switchTab("trade"); }],
     [p && p.positions.length === 0, "🧪", "Make your first paper investment", () => openStock(state.profile.quiz.focus === "trade" ? "SPY" : "SPY")],
     [!state.profile.goal_ran, "🎯", "See 10,000 futures for your goal", () => { state.investView = "goal"; switchTab("invest"); }],
     [state.profile.quiz.focus === "trade" && !done.includes("trade"), "⚡", "Learn the day-trade checklist", () => openGuide("trade")],
@@ -1413,6 +1416,7 @@ async function renderHome(main) {
   if (GUEST) {
     put(main, h("div", { class: "guest-actions" },
       h("button", { class: "btn primary", id: "home-replay", onclick: () => { state.tradeView = "replay"; switchTab("trade"); } }, "⏪ Beat the market in Replay Lab"),
+      h("button", { class: "btn", id: "home-twinagent", style: "margin-top:8px", onclick: () => { state.tradeView = "agent"; switchTab("trade"); } }, "🤖 Ask TwinAgent's research team"),
       h("div", { class: "row", style: "margin-top:8px" },
         h("button", { class: "btn", onclick: () => { state.tradeView = "checklist"; state.tradeMode = "demo"; state.tradeSymbol = "TSLA"; switchTab("trade"); } }, "TSLA day-trade replay"),
         h("button", { class: "btn ghost", onclick: () => { state.investView = "copy"; switchTab("invest"); } }, "Investor holdings")),
@@ -1770,7 +1774,7 @@ const TRADE_STEPS = [
 
 function tradeViewSwitch() {
   return h("div", { class: "seg", id: "trade-view" },
-    [["checklist", "⚡ Day-trade checklist"], ["replay", "⏪ Replay Lab"]].map(([id, label]) => h("button", {
+    [["agent", "🤖 TwinAgent"], ["checklist", "⚡ Checklist"], ["replay", "⏪ Replay"]].map(([id, label]) => h("button", {
       class: state.tradeView === id ? "on" : "", "data-view": id,
       onclick: () => {
         state.tradeView = id;
@@ -1781,6 +1785,10 @@ function tradeViewSwitch() {
 
 function renderTrade(main) {
   put(main, tradeViewSwitch());
+  if (state.tradeView === "agent") {
+    renderTwinAgent(main);
+    return;
+  }
   if (state.tradeView === "replay") {
     renderReplay(main);
     return;
@@ -2191,7 +2199,7 @@ function renderMe(main) {
       }, "Save limits")),
     h("div", { class: "card" }, h("h3", {}, "Guide"), guideList()),
     h("div", { class: "card small muted" },
-      h("b", { style: "color:var(--text)" }, "Twin · v1.4.1"),
+      h("b", { style: "color:var(--text)" }, "Twin · v1.5.0"),
       h("p", {}, "Twin is built on two free, MIT-licensed skill packs by Jake Schincariol (day-trader-skill and trader-skill). Data: Yahoo Finance (delayed, unofficial), SEC EDGAR."),
       h("p", {}, "Not financial advice. Practice money only. You can lose money investing; past performance and simulations do not guarantee future results.")),
     h("button", {

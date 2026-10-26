@@ -965,6 +965,35 @@
           user.trade = {};
           save();
           return { ok: true };
+        case "twinagent/evidence": {
+          // Everything TwinAgent needs, from the dated snapshot. Read-only: never touches the profile.
+          const symbol = String(body.symbol || "").trim().toUpperCase();
+          const [market, monthly, news, holdings, fundamentals] = await Promise.all([
+            load("market"), load("monthly"), load("news"), load("copycat"), load("fundamentals"),
+          ]);
+          let charts = market.charts[symbol];
+          let info = market.quotes[symbol];
+          if (!charts) {
+            const globalData = await world().catch(() => null);
+            charts = globalData && globalData.charts[symbol];
+            info = globalData && globalData.quotes[symbol];
+          }
+          if (!charts || !charts["1Y"]) {
+            return fail(`${symbol || "That ticker"} isn't in the offline snapshot. Try AAPL, MSFT, NVDA, TSLA, KO or SPY, or run Twin on your computer to research any listing.`);
+          }
+          return {
+            ok: true,
+            bundle: {
+              symbol, name: (info && info.name) || symbol, mode: "demo", asOf: news.checked,
+              daily: { ...charts["1Y"], currency: (info && info.currency) || "USD" },
+              benchmark: market.charts.SPY["1Y"], monthly: monthly[symbol] || null, benchmarkMonthly: monthly.SPY,
+              news: { ...news, source: "Yahoo Finance RSS snapshot" },
+              fundamentals: fundamentals.companies[symbol]
+                ? { ...fundamentals.companies[symbol], source: fundamentals.source } : null,
+              holdings, errors: {},
+            },
+          };
+        }
         default:
           return fail("not available in the web demo");
       }

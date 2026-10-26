@@ -1,13 +1,13 @@
-// Twin 1.4.1: own cache only; complete offline snapshot; API never cached.
+// Twin 1.5.0: own cache only; complete offline snapshot; API never cached.
 const PREFIX = "twin:" + self.registration.scope + ":";
-const SHELL = PREFIX + "1.4.1";
+const SHELL = PREFIX + "1.5.0";
 const FILES = [
-  "./", "index.html", "./?v=1.4.1", "index.html?v=1.4.1",
-  "demo.js?v=1.4.1", "pro.js?v=1.4.1", "pro-ui.js?v=1.4.1", "broker-ui.js?v=1.4.1", "academy.js?v=1.4.1", "global.js?v=1.4.1", "theme.js?v=1.4.1", "theme.css?v=1.4.1", "manifest.webmanifest",
-  "strategy-lab.js?v=1.4.1", "strategy-lab-ui.js?v=1.4.1",
+  "./", "index.html", "./?v=1.5.0", "index.html?v=1.5.0",
+  "demo.js?v=1.5.0", "pro.js?v=1.5.0", "pro-ui.js?v=1.5.0", "broker-ui.js?v=1.5.0", "academy.js?v=1.5.0", "global.js?v=1.5.0", "theme.js?v=1.5.0", "theme.css?v=1.5.0", "manifest.webmanifest",
+  "strategy-lab.js?v=1.5.0", "strategy-lab-ui.js?v=1.5.0", "twinagent.js?v=1.5.0", "twinagent-ui.js?v=1.5.0",
   "icons/apple-touch-icon.png", "icons/icon-192.png", "icons/icon-512.png",
   "demo/meta.json", "demo/market.json", "demo/monthly.json",
-  "demo/news.json", "demo/copycat.json", "demo/trade.json", "demo/world.json",
+  "demo/news.json", "demo/copycat.json", "demo/trade.json", "demo/world.json", "demo/fundamentals.json",
 ];
 const assets = new Set(FILES.map((file) => new URL(file, self.registration.scope).href));
 

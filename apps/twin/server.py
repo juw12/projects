@@ -86,7 +86,7 @@ TOOL = {
 }
 
 
-VERSION = "1.4.1"
+VERSION = "1.5.0"
 
 
 class AppError(Exception):
@@ -1109,6 +1109,63 @@ def verify_password(uid, password):
     return False
 
 
+# ------------------------------------------------------------------ TwinAgent
+
+US_LISTING = re.compile(r"^[A-Z][A-Z.]{0,9}$")
+
+
+def twinagent_evidence(uid, profile, symbol):
+    """Gather TwinAgent's evidence bundle. Each source fails independently and is reported,
+    so the affected analyst abstains instead of the whole run failing. Read-only."""
+    symbol = clean_symbol(symbol)
+    errors = {}
+
+    def daily(sym):
+        data = chart(sym, "1Y")
+        return {"points": data["points"], "currency": data.get("currency"), "name": data.get("name"),
+                "timezone": data.get("timezone")}
+
+    def news():
+        result = run_tool(uid, "live", [TOOL["news"], "--tickers", symbol, "--hours", "168", "--all",
+                                        "--dry-run", "--json", "--no-sec"], timeout=90)
+        if not result["ok"] or not isinstance(result["data"], dict):
+            raise AppError(result.get("stderr") or "headline tool failed")
+        return {**result["data"], "source": "Yahoo Finance RSS (live, delayed)"}
+
+    def fundamentals():
+        if not US_LISTING.match(symbol):
+            raise AppError("SEC filings cover US-listed companies only")
+        result = run_tool(uid, "live", [DAY / "trader-analyst" / "facts.py", symbol, "--no-filings", "--json",
+                                        "--quarters", "8", "--user-agent", sec_agent(profile)], timeout=90)
+        rows = result["data"][0]["result"] if result["ok"] and result["data"] else None
+        if not rows or not rows.get("rows"):
+            raise AppError(result.get("stderr") or "no filed quarterly figures (funds/ETFs have none)")
+        return {**rows, "source": "SEC XBRL company facts (live)"}
+
+    jobs = {
+        "daily": lambda: daily(symbol),
+        "benchmark": lambda: daily("SPY") if symbol != "SPY" else None,
+        "monthly": lambda: monthly_returns(symbol),
+        "benchmarkMonthly": lambda: monthly_returns("SPY"),
+        "news": news,
+        "fundamentals": fundamentals,
+    }
+    bundle = {"symbol": symbol, "mode": "live", "asOf": time.time()}
+    with ThreadPoolExecutor(max_workers=len(jobs)) as pool:
+        futures = {name: pool.submit(job) for name, job in jobs.items()}
+        for name, future in futures.items():
+            try:
+                bundle[name] = future.result()
+            except Exception as exc:  # one failing source must not sink the others
+                bundle[name] = None
+                errors[name] = str(exc)[:300]
+    bundle["name"] = (bundle.get("daily") or {}).get("name") or symbol
+    # 13F holdings: the dated snapshot bundled with Twin (live 13F parsing takes minutes per filer).
+    bundle["holdings"] = load_json(STATIC / "demo" / "copycat.json", None)
+    bundle["errors"] = errors
+    return bundle
+
+
 BROKER = broker_mod.Broker(DATA, SSL_CTX, load_json, save_json, lambda symbol: quote(symbol))
 
 
@@ -1439,6 +1496,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"ok": True, **broker_call(BROKER.cancel, uid, body.get("id"))})
         elif path == "/api/broker/cancel_all":
             self.send_json({"ok": True, **broker_call(BROKER.cancel_all, uid)})
+        elif path == "/api/twinagent/evidence":
+            self.send_json({"ok": True, "bundle": twinagent_evidence(uid, profile, body.get("symbol"))})
         elif path == "/api/trade/reset":
             mode = "demo" if body.get("mode") == "demo" else "live"
             trader = trader_root(uid, mode) / "trader"
