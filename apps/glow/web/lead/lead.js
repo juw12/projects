@@ -393,7 +393,8 @@
       const value = JSON.parse(localStorage.getItem(HANDS_KEY) || "{}");
       if (value.mode === "remote") {
         const valid = /^glowhands-[0-9a-f]{24}$/.test(value.peerId || "") && typeof value.secret === "string" && /^[\w-]{24,100}$/.test(value.secret);
-        return valid ? { mode: "remote", peerId: value.peerId, secret: value.secret, url: "", token: "" } : fallback;
+        const host = ["cloud", "server"].includes(value.host) ? value.host : "pc";
+        return valid ? { mode: "remote", host, peerId: value.peerId, secret: value.secret, url: "", token: "", until: Number(value.until) || 0 } : fallback;
       }
       const url = String(value.url || fallback.url).replace(/\/+$/, "");
       if (!/^http:\/\/(127\.0\.0\.1|localhost):\d{2,5}$/.test(url)) return fallback;
@@ -653,20 +654,168 @@
   }
 
   function acceptPhoneLink() {
-    const match = /^#phone=(glowhands-[0-9a-f]{24})\.([\w-]{24,100})$/.exec(location.hash);
+    const match = /^#phone=(glowhands-[0-9a-f]{24})\.([\w-]{24,100})(?:&host=(server))?$/.exec(location.hash);
     history.replaceState(null, "", location.pathname + location.search);
     if (!match) {
       toast("That phone link isn't valid. Make a new one from GlowLead on your PC.");
       return false;
     }
     try {
-      localStorage.setItem(HANDS_KEY, JSON.stringify({ mode: "remote", peerId: match[1], secret: match[2] }));
+      localStorage.setItem(HANDS_KEY, JSON.stringify({ mode: "remote", host: match[3] || "pc", peerId: match[1], secret: match[2] }));
     } catch (error) {
       toast("Browser storage is unavailable, so the link couldn't be saved.");
       return false;
     }
     resetRemoteLink();
-    toast("Phone linked to Glow Hands on your PC. Checking the connection…");
+    toast(match[3] ? "Phone linked to Glow Hands on your server. Checking the connection…" : "Phone linked to Glow Hands on your PC. Checking the connection…");
+    return true;
+  }
+
+  // ---- Cloud browser: a short Glow Hands session on GitHub Actions, started from this device.
+  // The phone and the job both derive the private link from the cloud key + a public session id,
+  // so nothing secret appears in the (public) workflow run.
+  const CLOUD_KEY = TEST_MODE ? "glowlead.cloud.selftest" : "glowlead.cloud.v1";
+  const HANDS_PREVIOUS_KEY = TEST_MODE ? "glowlead.hands.previous.selftest" : "glowlead.hands.previous";
+  const CLOUD_REPO = "juw12/projects";
+  const CLOUD_WORKFLOW = "glow-cloud-hands.yml";
+  const CLOUD_MINUTES = 20;
+  const cloudState = { starting: false };
+
+  function readCloud() {
+    try {
+      const value = JSON.parse(localStorage.getItem(CLOUD_KEY) || "{}");
+      return {
+        token: typeof value.token === "string" ? value.token.slice(0, 300) : "",
+        key: typeof value.key === "string" ? value.key.slice(0, 200) : "",
+      };
+    } catch (error) {
+      return { token: "", key: "" };
+    }
+  }
+
+  function saveCloud(next) {
+    const merged = { ...readCloud(), ...next };
+    localStorage.setItem(CLOUD_KEY, JSON.stringify({ token: merged.token.trim(), key: merged.key.trim() }));
+  }
+
+  function base64Url(bytes) {
+    let binary = "";
+    bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+
+  async function deriveCloudLink(key, nonce) {
+    const encoder = new TextEncoder();
+    const hmacKey = await crypto.subtle.importKey("raw", encoder.encode(key), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const tag = async (label) => new Uint8Array(await crypto.subtle.sign("HMAC", hmacKey, encoder.encode(label + nonce)));
+    const peerTag = await tag("glow-cloud-peer:");
+    const secretTag = await tag("glow-cloud-secret:");
+    const hex = [...peerTag].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    return { peerId: "glowhands-" + hex.slice(0, 24), secret: base64Url(secretTag).slice(0, 32) };
+  }
+
+  async function githubApi(path, options = {}) {
+    const { token } = readCloud();
+    const response = await fetch("https://api.github.com/repos/" + CLOUD_REPO + path, {
+      ...options,
+      headers: { Accept: "application/vnd.github+json", Authorization: "Bearer " + token, "X-GitHub-Api-Version": "2022-11-28",
+        ...(options.body ? { "Content-Type": "application/json" } : {}) },
+    });
+    const data = response.status === 204 ? {} : await response.json().catch(() => ({}));
+    return { status: response.status, data };
+  }
+
+  function cloudError(status) {
+    if (status === 401) return "GitHub didn't accept the token. Check it, or make a new one.";
+    if (status === 403 || status === 404) return "The token can't start Actions on " + CLOUD_REPO + ". Give it Actions: read and write for that repository.";
+    if (status === 422) return "The cloud workflow isn't on GitHub yet, or the request was refused.";
+    return "GitHub didn't start the cloud browser (error " + status + "). Try again in a minute.";
+  }
+
+  async function startCloud(report = () => {}) {
+    const cloud = readCloud();
+    if (!cloud.token || cloud.key.length < 24) {
+      report("Set up the cloud browser first: open your setup link on this device and paste your GitHub token.");
+      return "not-set";
+    }
+    if (cloudState.starting) return "starting";
+    cloudState.starting = true;
+    try {
+      const nonce = base64Url(crypto.getRandomValues(new Uint8Array(18)));
+      const link = await deriveCloudLink(cloud.key, nonce);
+      report("Asking GitHub to start your cloud browser…");
+      const started = await githubApi("/actions/workflows/" + CLOUD_WORKFLOW + "/dispatches", {
+        method: "POST",
+        body: JSON.stringify({ ref: "main", inputs: { session: nonce, minutes: String(CLOUD_MINUTES) } }),
+      }).catch(() => ({ status: 0 }));
+      if (started.status !== 204) {
+        report(started.status === 0 ? "Couldn't reach GitHub. Check your internet connection." : cloudError(started.status));
+        return "failed";
+      }
+      const current = readHands();
+      if (current.host !== "cloud" && (current.mode === "remote" || current.token)) {
+        localStorage.setItem(HANDS_PREVIOUS_KEY, localStorage.getItem(HANDS_KEY) || "");
+      }
+      localStorage.setItem(HANDS_KEY, JSON.stringify({ mode: "remote", host: "cloud", ...link, until: Date.now() + CLOUD_MINUTES * 60000 }));
+      resetRemoteLink();
+      const deadline = Date.now() + (TEST_MODE ? 30000 : 240000);
+      while (Date.now() < deadline) {
+        report("Starting the cloud browser… (usually about a minute)");
+        if (await checkHands() === "paired") {
+          await renderHands();
+          report("✓ Cloud browser is ready. It stops by itself after " + CLOUD_MINUTES + " minutes, or 8 minutes without use.");
+          return "paired";
+        }
+        resetRemoteLink();
+        await new Promise((resolve) => setTimeout(resolve, TEST_MODE ? 1000 : 6000));
+      }
+      await renderHands();
+      report("The cloud browser didn't come online in time. Check the Actions tab on GitHub, then try again.");
+      return "timeout";
+    } finally {
+      cloudState.starting = false;
+    }
+  }
+
+  function restorePreviousHands() {
+    const previous = localStorage.getItem(HANDS_PREVIOUS_KEY);
+    if (previous) localStorage.setItem(HANDS_KEY, previous);
+    else localStorage.removeItem(HANDS_KEY);
+    localStorage.removeItem(HANDS_PREVIOUS_KEY);
+    resetRemoteLink();
+  }
+
+  async function stopCloud(report = () => {}) {
+    const cloud = readCloud();
+    let cancelled = 0;
+    if (cloud.token) {
+      for (const status of ["in_progress", "queued"]) {
+        const runs = await githubApi("/actions/workflows/" + CLOUD_WORKFLOW + "/runs?status=" + status + "&per_page=10").catch(() => ({ status: 0, data: {} }));
+        for (const run of (runs.data && runs.data.workflow_runs) || []) {
+          const result = await githubApi("/actions/runs/" + run.id + "/cancel", { method: "POST" }).catch(() => ({ status: 0 }));
+          if (result.status === 202) cancelled += 1;
+        }
+      }
+    }
+    if (readHands().host === "cloud") restorePreviousHands();
+    await renderHands();
+    report(cancelled ? "Cloud browser stopped." : "No cloud browser was running.");
+    return cancelled;
+  }
+
+  function acceptCloudSetup() {
+    const match = /^#cloud=([\w-]{24,200})$/.exec(location.hash);
+    history.replaceState(null, "", location.pathname + location.search);
+    if (!match) {
+      toast("That cloud setup link isn't valid.");
+      return false;
+    }
+    try {
+      saveCloud({ key: match[1] });
+    } catch (error) {
+      toast("Browser storage is unavailable, so the cloud key couldn't be saved.");
+      return false;
+    }
     return true;
   }
 
@@ -675,8 +824,9 @@
     if (!chip) return "offline";
     const hands = readHands();
     const state = hands.mode === "remote" || hands.token ? await checkHands() : "not-set";
+    const hostName = { pc: "PC", server: "SERVER", cloud: "CLOUD" }[hands.host] || "PC";
     const label = hands.mode === "remote"
-      ? { paired: "CONNECTED · PC", offline: "PC OFFLINE" }[state] || "PC OFFLINE"
+      ? (state === "paired" ? "CONNECTED · " + hostName : hands.host === "cloud" ? "CLOUD STOPPED" : hostName + " OFFLINE")
       : { paired: "CONNECTED", "wrong-token": "WRONG TOKEN", offline: "OFFLINE", "not-set": "NOT SET UP" }[state];
     chip.textContent = label;
     chip.dataset.state = state;
@@ -685,10 +835,13 @@
       if (state !== "paired") $("allow-hands").checked = false;
     }
     if ($("phone-link-box")) $("phone-link-box").hidden = !(hands.mode === "local" && state === "paired");
+    if ($("cloud-use-pc")) $("cloud-use-pc").hidden = !(hands.host === "cloud" && localStorage.getItem(HANDS_PREVIOUS_KEY));
     if ($("hands-summary")) {
+      const where = { pc: "your PC", server: "your server", cloud: "the cloud browser" }[hands.host] || "your PC";
       $("hands-summary").textContent = hands.mode === "remote"
-        ? (state === "paired" ? "Linked to Glow Hands on your PC. Missions you start here use the browser on your PC."
-          : "Linked to your PC, but it isn't reachable now. Your PC must be on, online and running Glow Hands.")
+        ? (state === "paired" ? "Linked to Glow Hands on " + where + ". Browser missions you start here run there."
+          : hands.host === "cloud" ? "The cloud browser isn't running. Open Connect browser control and tap Start cloud browser."
+            : "Linked to " + where + ", but it isn't reachable now. It must be on, online and running Glow Hands.")
         : state === "paired"
           ? "Ready. Tick “Let Glow Hands use my browser” on a mission to use it."
           : "Lets GlowLead click, type and fill forms in a browser window on your PC. Needs the small Glow Hands program running.";
@@ -1721,8 +1874,44 @@
       $("hands-url").value = hands.url;
       $("hands-token").value = hands.token;
       $("hands-test-result").textContent = message;
+      const cloud = readCloud();
+      $("cloud-token").value = cloud.token;
+      $("cloud-key").value = cloud.key;
+      $("cloud-setup").open = !(cloud.token && cloud.key);
       if (!$("hands-dialog").open) $("hands-dialog").showModal();
     };
+    const cloudReport = (message) => { $("cloud-note").textContent = message; };
+    $("cloud-save").addEventListener("click", () => {
+      try {
+        saveCloud({ token: $("cloud-token").value, key: $("cloud-key").value });
+        cloudReport(readCloud().token && readCloud().key.length >= 24 ? "✓ Saved on this device." : "Saved, but the token or key is still missing.");
+      } catch (error) {
+        cloudReport("Browser storage is unavailable.");
+      }
+    });
+    $("cloud-forget").addEventListener("click", () => {
+      localStorage.removeItem(CLOUD_KEY);
+      $("cloud-token").value = "";
+      $("cloud-key").value = "";
+      cloudReport("Cloud token and key removed from this device.");
+    });
+    $("cloud-start").addEventListener("click", async () => {
+      if ($("cloud-token").value.trim() || $("cloud-key").value.trim()) saveCloud({ token: $("cloud-token").value, key: $("cloud-key").value });
+      $("cloud-start").disabled = true;
+      const state = await startCloud(cloudReport);
+      $("cloud-start").disabled = false;
+      if (state === "paired") toast("Cloud browser ready.");
+    });
+    $("cloud-stop").addEventListener("click", async () => {
+      $("cloud-stop").disabled = true;
+      await stopCloud(cloudReport);
+      $("cloud-stop").disabled = false;
+    });
+    $("cloud-use-pc").addEventListener("click", async () => {
+      restorePreviousHands();
+      const state = await renderHands();
+      cloudReport(state === "paired" ? "✓ Back on your PC." : "Switched back to your PC link; it isn't reachable right now.");
+    });
     $("hands-btn").addEventListener("click", async () => {
       if ($("hands-status").dataset.state === "paired") {
         openHandsDialog("✓ Already connected.");
@@ -1732,11 +1921,15 @@
         $("hands-btn").disabled = true;
         const state = await renderHands();
         $("hands-btn").disabled = false;
-        if (state !== "paired") openHandsDialog("Your PC isn't reachable. Make sure it's on and Glow Hands is running there.");
+        if (state !== "paired") {
+          openHandsDialog(readHands().host === "cloud"
+            ? "The cloud browser isn't running. Tap Start cloud browser below."
+            : "It isn't reachable. Make sure it's on and Glow Hands is running there, or use the cloud browser below.");
+        }
         return;
       }
       if (isPhone()) {
-        openHandsDialog("On a phone: open GlowLead on your PC, click Connect browser control, then Use from your phone, and scan the QR code with this phone.");
+        openHandsDialog("On a phone: link your PC (GlowLead on the PC → Connect browser control → Use from your phone → scan the QR code), or use the cloud browser below.");
         return;
       }
       $("hands-btn").disabled = true;
@@ -1941,6 +2134,13 @@
     if (location.hash.startsWith("#phone=") && !TEST_MODE) {
       acceptPhoneLink();
       renderHands().then((state) => toast(state === "paired" ? "✓ Connected to your PC. Browser missions from this phone run on your PC." : "Linked, but your PC isn't reachable right now."));
+    } else if (location.hash.startsWith("#cloud=") && !TEST_MODE) {
+      if (acceptCloudSetup()) {
+        setTimeout(() => {
+          $("hands-btn").click();
+          toast(readCloud().token ? "Cloud key saved. Tap Start cloud browser." : "Cloud key saved. Paste your GitHub token once, then tap Start cloud browser.");
+        }, 300);
+      }
     } else if (location.hash === "#hands-setup" && !TEST_MODE) {
       history.replaceState(null, "", location.pathname + location.search);
       setTimeout(async () => {
