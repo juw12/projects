@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>AIRIZ camera (live)</title>
+<meta content="#000000" name="theme-color"/>
+<meta content="Live view of a shared AIRIZ device camera" name="description"/>
+<meta content="noindex" name="robots"/>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #000; color: #e6edf3;
+    font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { display: flex; flex-direction: column; }
+  header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #0d1117; flex-wrap: wrap; }
+  header strong { font-size: 1rem; }
+  .status { flex: 1 1 200px; color: #9da7b3; font-size: 0.9rem; }
+  .live { display: none; padding: 2px 8px; border-radius: 6px; background: #da3633; color: #fff; font-size: 0.75rem; font-weight: 700; }
+  .live.on { display: inline-block; }
+  main { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
+  video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+  form { display: flex; gap: 8px; padding: 24px; flex-direction: column; align-items: center; text-align: center; }
+  input { font-size: 1.6rem; letter-spacing: 0.25em; width: 8em; text-align: center; padding: 8px; border-radius: 10px;
+    border: 1px solid #30363d; background: #0d1117; color: #e6edf3; }
+  button { padding: 8px 14px; border-radius: 8px; border: 1px solid #30363d; background: #21262d; color: #e6edf3; font-weight: 600; }
+  button.primary { background: #2f81f7; border-color: #2f81f7; color: #fff; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <strong>AIRIZ camera</strong>
+  <span class="live" id="live-badge">LIVE</span>
+  <span class="status" id="status" role="status">Connecting…</span>
+  <button id="btn-fullscreen" type="button" hidden>Full screen</button>
+  <button id="btn-retry" type="button" hidden>Retry</button>
+</header>
+<main>
+  <video autoplay="" id="video" muted="" playsinline="" hidden></video>
+  <form id="code-form" hidden>
+    <p>Enter the 6-digit code shown in the AIRIZ console on the PC.</p>
+    <input aria-label="Share code" autocomplete="off" id="code" inputmode="numeric" maxlength="6" pattern="[0-9]*"/>
+    <button class="primary" type="submit">Watch</button>
+  </form>
+</main>
+<script src="vendor/peerjs.min.js"></script>
+<script src="watch.js"></script>
+</body>
+</html>
