@@ -20,6 +20,7 @@ function adaptPage(page) {
     title: () => page.title(),
     waitForNetworkIdle: ({ timeout }) => page.waitForLoadState("networkidle", { timeout }),
     click: (selector) => page.click(selector),
+    waitForNavigation: ({ timeout }) => page.waitForLoadState("domcontentloaded", { timeout }),
     $eval: (selector, fn) => page.$eval(selector, fn),
     type: (selector, text) => page.type(selector, text),
     keyboard: { press: (key) => page.keyboard.press(key) },
