@@ -1,7 +1,6 @@
 # Main-account and content migration
 
 Main owner and maintainer: [@juw12](https://github.com/juw12).
-Co-founder and collaborator: [@juwpegatron](https://github.com/juwpegatron).
 Existing commit authorship has not been rewritten.
 
 ## Current locations
