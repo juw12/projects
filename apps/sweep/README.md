@@ -55,6 +55,12 @@ from the plan's Studio strip, the **Studio** nav tab, or the command palette.
   progress or Operator data), 1200×630 share-card PNG, "Planned with Sweep"
   README badge. Opening a link shows a preview with "Remix into my workspace".
 - **Templates** — six high-scoring starter briefs in the catalog, one-click remix.
+  Cards and remixed briefs follow the interface language (English, 中文, Indonesia).
+- **Spec language** — EN / 中文 / ID switch on the Spec tab. English stays the
+  canonical spec; "Translate this file / all files" uses AI assist and keeps headings,
+  ids, code, paths and the EARS keywords (WHEN … THEN THE SYSTEM SHALL) intact.
+  Translations are cached per file with a hash of the English source, flagged as
+  outdated when the brief changes, and ride along in the spec pack under `i18n/<lang>/`.
 - **Time tracking** — moving a task to Doing starts a timer (pause/resume on the
   card, 6 h cap per session, "Log time" for manual hours). Done cards show actual
   hours, a Time tracking table compares estimate vs actual, and after ≥2 tracked
@@ -73,25 +79,37 @@ All optional and opened from the gear icon in the header (**Settings**).
   interface only (text, placeholders, aria-labels); briefs, plans and specs stay
   in the language they were written in. Covers every view (Operator, guide, verify,
   palette, dialogs); paragraphs with inline markup are translated whole, and dates
-  follow the chosen language. Exposes `window.SweepI18n`.
+  follow the chosen language. "Suggest a better wording" (Settings → Language) opens a
+  prefilled GitHub issue so native speakers can fix awkward phrasing. Exposes
+  `window.SweepI18n`.
 - **AI assist** — "✨ Sharpen with AI" on the Spec Score card (per-field diff to
   review before applying) and "✨ Improve with AI" on spec files (marked
-  AI-edited, revertible). Providers: free (Pollinations, no key, shared and
-  rate-limited), OpenRouter, OpenAI, Anthropic, Groq, or any OpenAI-compatible
-  endpoint with your own key. Keys stay in this browser (session-only unless
+  AI-edited, revertible). Providers: free (no key), OpenRouter, OpenAI, Anthropic,
+  Groq, or any OpenAI-compatible endpoint with your own key. The free tier falls back
+  across keyless services (Pollinations → LLM7) when one is busy, rate-limited (402/429)
+  or stalls (60 s per service), skips a rate-limited service for 30 s, queues free
+  requests one at a time and caches identical answers for 24 h. Keys stay in this browser (session-only unless
   "remember" is ticked); requests go straight from the browser to the provider.
   A running request can be cancelled from the same button.
 - **Sync** — end-to-end encrypted (PBKDF2-SHA256 → AES-GCM, passphrase never
   leaves the device) to a private GitHub Gist (`sweep-sync.json`) using a
-  fine-grained token with Gists read/write. Merges per project: if only one device
-  changed a project, that version wins; if both did, both are kept (the older one as
-  "… (conflict copy)") so no edit is lost. Deletions sync as tombstones. Auto-syncs
+  fine-grained token with Gists read/write (the "create" link pre-fills a Gists-only
+  token; "Generate" makes a strong passphrase). **Three-way merge:** each device keeps
+  the last synced workspace as the common ancestor, so edits to different fields, list
+  items or board tasks on two devices are all kept; only a field changed differently on
+  both sides is a clash — the newer edit wins and a "Review" banner lets you pick the
+  other version field by field. Without an ancestor (first sync after updating) both
+  versions are kept as "… (conflict copy)". Deletions sync as tombstones. Auto-syncs
   after edits and on focus.
+- **Link another device** — shows a QR code + link and a one-time 10-character code.
+  The token, passphrase and gist id inside the link are encrypted with that code
+  (PBKDF2 + AES-GCM) and expire after 15 minutes; open the link (or scan on a phone),
+  type the code, and sync is on. `web/qr.js` is a small dependency-free QR encoder.
 - **Offline + updates** — the main app registers `web/sw.js` (same-origin files only;
   GitHub/AI calls always hit the network) and shows "A new version is ready — Reload"
   when a deploy lands while the app is open. Dialogs keep keyboard focus inside.
 
-Remove the `i18n.js` / `pro.js` / `pro.css` tags to disable; Studio and the core
+Remove the `i18n.js` / `qr.js` / `pro.js` / `pro.css` tags to disable; Studio and the core
 app fall back to English and offline-only behaviour.
 
 ### Visual theme (`web/theme.css`)
