@@ -388,19 +388,154 @@
 
   // ------------------------------------------------------------------ Glow Hands (browser control on the user's PC)
   function readHands() {
+    const fallback = { mode: "local", url: "http://127.0.0.1:8765", token: "" };
     try {
       const value = JSON.parse(localStorage.getItem(HANDS_KEY) || "{}");
-      const url = String(value.url || "http://127.0.0.1:8765").replace(/\/+$/, "");
-      if (!/^http:\/\/(127\.0\.0\.1|localhost):\d{2,5}$/.test(url)) return { url: "http://127.0.0.1:8765", token: "" };
-      return { url, token: typeof value.token === "string" ? value.token.slice(0, 200) : "" };
+      if (value.mode === "remote") {
+        const valid = /^glowhands-[0-9a-f]{24}$/.test(value.peerId || "") && typeof value.secret === "string" && /^[\w-]{24,100}$/.test(value.secret);
+        return valid ? { mode: "remote", peerId: value.peerId, secret: value.secret, url: "", token: "" } : fallback;
+      }
+      const url = String(value.url || fallback.url).replace(/\/+$/, "");
+      if (!/^http:\/\/(127\.0\.0\.1|localhost):\d{2,5}$/.test(url)) return fallback;
+      return { mode: "local", url, token: typeof value.token === "string" ? value.token.slice(0, 200) : "" };
     } catch (error) {
-      return { url: "http://127.0.0.1:8765", token: "" };
+      return fallback;
     }
+  }
+
+  // ---- Phone link: talk to Glow Hands on your PC over an encrypted WebRTC channel (PeerJS signalling).
+  const remoteLink = { key: "", peer: null, conn: null, ready: null, pending: new Map(), nextId: 1 };
+
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector(`script[data-src="${src}"]`);
+      if (existing) {
+        existing.addEventListener("load", resolve, { once: true });
+        if (existing.dataset.loaded) resolve();
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = src;
+      script.dataset.src = src;
+      script.onload = () => {
+        script.dataset.loaded = "1";
+        resolve();
+      };
+      script.onerror = () => reject(new Error("Couldn't load " + src));
+      document.head.appendChild(script);
+    });
+  }
+
+  async function hmacHex(secret, message) {
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(message));
+    return [...new Uint8Array(signature)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
+
+  function resetRemoteLink() {
+    try {
+      if (remoteLink.peer) remoteLink.peer.destroy();
+    } catch (error) { /* Already closed. */ }
+    remoteLink.peer = null;
+    remoteLink.conn = null;
+    remoteLink.ready = null;
+  }
+
+  function remoteConnection(hands) {
+    if (remoteLink.ready && remoteLink.key === hands.peerId) return remoteLink.ready;
+    resetRemoteLink();
+    remoteLink.key = hands.peerId;
+    remoteLink.ready = (async () => {
+      if (!window.Peer) await loadScript("../shared/peerjs.min.js");
+      return new Promise((resolve, reject) => {
+        let settled = false;
+        const fail = (message) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resetRemoteLink();
+          reject(new Error(message));
+        };
+        const timer = setTimeout(() => fail("Couldn't reach your PC. Make sure it's on, online, and Glow Hands is running."), 25000);
+        const peer = new window.Peer();
+        remoteLink.peer = peer;
+        peer.on("error", (error) => fail(error.type === "peer-unavailable"
+          ? "Your PC is offline or Glow Hands isn't running on it."
+          : "Phone link problem (" + error.type + "). Check your internet connection."));
+        peer.on("open", () => {
+          const conn = peer.connect(hands.peerId, { reliable: true });
+          remoteLink.conn = conn;
+          conn.on("data", async (message) => {
+            if (!message || typeof message !== "object") return;
+            if (message.type === "challenge" && typeof message.nonce === "string") {
+              conn.send({ type: "auth", mac: await hmacHex(hands.secret, message.nonce) });
+            } else if (message.type === "ready") {
+              if (!settled) {
+                settled = true;
+                clearTimeout(timer);
+                resolve(conn);
+              }
+            } else if (message.type === "denied") {
+              fail("Your PC didn't accept this phone. Link it again from GlowLead on the PC.");
+            } else if (message.type === "result") {
+              const waiting = remoteLink.pending.get(message.id);
+              if (waiting) {
+                remoteLink.pending.delete(message.id);
+                waiting.resolve({ status: Number(message.status) || 502, ...(message.data && typeof message.data === "object" ? message.data : {}) });
+              }
+            }
+          });
+          conn.on("close", () => {
+            remoteLink.pending.forEach((waiting) => waiting.reject(new Error("The link to your PC closed.")));
+            remoteLink.pending.clear();
+            resetRemoteLink();
+            fail("The link to your PC closed.");
+          });
+        });
+      });
+    })();
+    remoteLink.ready.catch(() => {});
+    return remoteLink.ready;
+  }
+
+  async function remoteCall(hands, path, body, signal, timeoutMs = 90000) {
+    const conn = await remoteConnection(hands);
+    const id = remoteLink.nextId++;
+    return new Promise((resolve, reject) => {
+      const onAbort = () => {
+        clearTimeout(timer);
+        remoteLink.pending.delete(id);
+        reject(new DOMException("Stopped", "AbortError"));
+      };
+      const timer = setTimeout(() => {
+        remoteLink.pending.delete(id);
+        if (signal) signal.removeEventListener("abort", onAbort);
+        reject(new Error("Your PC didn't answer in time."));
+      }, timeoutMs);
+      if (signal) {
+        if (signal.aborted) return onAbort();
+        signal.addEventListener("abort", onAbort, { once: true });
+      }
+      remoteLink.pending.set(id, {
+        resolve: (value) => {
+          clearTimeout(timer);
+          if (signal) signal.removeEventListener("abort", onAbort);
+          resolve(value);
+        },
+        reject: (error) => {
+          clearTimeout(timer);
+          reject(error);
+        },
+      });
+      conn.send({ type: "call", id, path, body: body || null });
+    });
   }
 
   async function handsCall(path, body, signal) {
     const hands = readHands();
-    if (!hands.token) throw new Error("Glow Hands is not connected. Start it on your PC, then open Glow Hands → Connect and paste its pairing token.");
+    if (hands.mode === "remote") return remoteCall(hands, path, body, signal);
+    if (!hands.token) throw new Error("Glow Hands is not connected. Click Connect browser control in the Glow Hands panel.");
     let response;
     try {
       response = await fetch(hands.url + "/" + path, {
@@ -419,6 +554,14 @@
 
   async function checkHands() {
     const hands = readHands();
+    if (hands.mode === "remote") {
+      try {
+        const data = await remoteCall(hands, "status", null, null, 20000);
+        return data.app === "glow-hands" ? "paired" : "offline";
+      } catch (error) {
+        return "offline";
+      }
+    }
     try {
       const response = await fetch(hands.url + "/" + "status", { headers: { "X-Glow-Token": hands.token } });
       const data = await response.json();
@@ -456,7 +599,7 @@
       report("Glow Hands isn't running on this PC yet. Install it with the one-line command below, then try again.");
       return "not-found";
     }
-    report("Found Glow Hands. Click Yes on the Windows prompt on this PC…");
+    report("Found Glow Hands on this PC. Connecting…");
     let response;
     try {
       response = await fetch(url + "/" + "pair", { method: "POST" });
@@ -480,25 +623,75 @@
       report("This Glow Hands is an older version without one-click connect. Run the install command below to update it.");
       return "outdated";
     }
-    report(response.status === 429 ? "You just declined. Wait a few seconds, then try again." : "Not connected: the request was declined on this PC.");
+    report(response.status === 429 ? "Connection was just declined on the PC. Wait a few seconds, then try again." : "Not connected: Glow Hands on this PC declined the connection.");
     return response.status === 429 ? "cooldown" : "declined";
+  }
+
+  const isPhone = () => (navigator.userAgentData && navigator.userAgentData.mobile) || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
+  async function showPhoneLink(reset = false) {
+    const box = $("phone-qr");
+    const note = $("phone-link-note");
+    note.textContent = reset ? "Making a new link…" : "Preparing your phone link…";
+    const link = await handsCall(reset ? "phone-link/reset" : "phone-link", reset ? {} : null).catch((error) => ({ status: 0, error: error.message }));
+    if (link.status !== 200 || !link.peerId) {
+      note.textContent = link.error || "Phone access isn't available. Update Glow Hands with the install command.";
+      return null;
+    }
+    const url = location.origin + location.pathname + "#phone=" + link.peerId + "." + link.secret;
+    if (!window.qrcode) await loadScript("../shared/qrcode.js");
+    const code = window.qrcode(0, "M");
+    code.addData(url);
+    code.make();
+    box.innerHTML = code.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+    box.dataset.url = url;
+    note.textContent = link.bridgeReady === false
+      ? "Scan with your phone camera. (Phone access is still starting on the PC; give it a few seconds.)"
+      : "Scan with your phone's camera and open the link. That phone stays linked; no code to type.";
+    if (reset) toast("All earlier phone links were turned off.");
+    return url;
+  }
+
+  function acceptPhoneLink() {
+    const match = /^#phone=(glowhands-[0-9a-f]{24})\.([\w-]{24,100})$/.exec(location.hash);
+    history.replaceState(null, "", location.pathname + location.search);
+    if (!match) {
+      toast("That phone link isn't valid. Make a new one from GlowLead on your PC.");
+      return false;
+    }
+    try {
+      localStorage.setItem(HANDS_KEY, JSON.stringify({ mode: "remote", peerId: match[1], secret: match[2] }));
+    } catch (error) {
+      toast("Browser storage is unavailable, so the link couldn't be saved.");
+      return false;
+    }
+    resetRemoteLink();
+    toast("Phone linked to Glow Hands on your PC. Checking the connection…");
+    return true;
   }
 
   async function renderHands() {
     const chip = $("hands-status");
     if (!chip) return "offline";
-    const state = readHands().token ? await checkHands() : "not-set";
-    const label = { paired: "CONNECTED", "wrong-token": "WRONG TOKEN", offline: "OFFLINE", "not-set": "NOT SET UP" }[state];
+    const hands = readHands();
+    const state = hands.mode === "remote" || hands.token ? await checkHands() : "not-set";
+    const label = hands.mode === "remote"
+      ? { paired: "CONNECTED · PC", offline: "PC OFFLINE" }[state] || "PC OFFLINE"
+      : { paired: "CONNECTED", "wrong-token": "WRONG TOKEN", offline: "OFFLINE", "not-set": "NOT SET UP" }[state];
     chip.textContent = label;
     chip.dataset.state = state;
     if ($("allow-hands")) {
       $("allow-hands").disabled = state !== "paired";
       if (state !== "paired") $("allow-hands").checked = false;
     }
+    if ($("phone-link-box")) $("phone-link-box").hidden = !(hands.mode === "local" && state === "paired");
     if ($("hands-summary")) {
-      $("hands-summary").textContent = state === "paired"
-        ? "Ready. Tick “Let Glow Hands use my browser” on a mission to use it."
-        : "Lets GlowLead click, type and fill forms in a browser window on your PC. Needs the small Glow Hands program running.";
+      $("hands-summary").textContent = hands.mode === "remote"
+        ? (state === "paired" ? "Linked to Glow Hands on your PC. Missions you start here use the browser on your PC."
+          : "Linked to your PC, but it isn't reachable now. Your PC must be on, online and running Glow Hands.")
+        : state === "paired"
+          ? "Ready. Tick “Let Glow Hands use my browser” on a mission to use it."
+          : "Lets GlowLead click, type and fill forms in a browser window on your PC. Needs the small Glow Hands program running.";
     }
     return state;
   }
@@ -1535,6 +1728,17 @@
         openHandsDialog("✓ Already connected.");
         return;
       }
+      if (readHands().mode === "remote") {
+        $("hands-btn").disabled = true;
+        const state = await renderHands();
+        $("hands-btn").disabled = false;
+        if (state !== "paired") openHandsDialog("Your PC isn't reachable. Make sure it's on and Glow Hands is running there.");
+        return;
+      }
+      if (isPhone()) {
+        openHandsDialog("On a phone: open GlowLead on your PC, click Connect browser control, then Use from your phone, and scan the QR code with this phone.");
+        return;
+      }
       $("hands-btn").disabled = true;
       const state = await autoConnectHands((message) => { $("hands-summary").textContent = message; });
       $("hands-btn").disabled = false;
@@ -1546,6 +1750,12 @@
       const state = await autoConnectHands((message) => { $("hands-test-result").textContent = message; });
       $("hands-auto").disabled = false;
       if (state === "paired") setTimeout(() => $("hands-dialog").close(), 900);
+    });
+    $("phone-link-btn").addEventListener("click", () => showPhoneLink(false));
+    $("phone-link-reset").addEventListener("click", () => showPhoneLink(true));
+    $("phone-link-copy").addEventListener("click", () => {
+      const url = $("phone-qr").dataset.url;
+      if (url && navigator.clipboard) navigator.clipboard.writeText(url).then(() => toast("Phone link copied. Send it to your phone privately."), () => toast("Couldn't copy."));
     });
     $("hands-copy-install").addEventListener("click", () => {
       const command = $("hands-install-command").textContent.trim();
@@ -1728,7 +1938,10 @@
     renderTemplates();
     renderMemory();
     renderAutomations();
-    if (location.hash === "#hands-setup" && !TEST_MODE) {
+    if (location.hash.startsWith("#phone=") && !TEST_MODE) {
+      acceptPhoneLink();
+      renderHands().then((state) => toast(state === "paired" ? "✓ Connected to your PC. Browser missions from this phone run on your PC." : "Linked, but your PC isn't reachable right now."));
+    } else if (location.hash === "#hands-setup" && !TEST_MODE) {
       history.replaceState(null, "", location.pathname + location.search);
       setTimeout(async () => {
         const state = await autoConnectHands((message) => { if ($("hands-summary")) $("hands-summary").textContent = message; });

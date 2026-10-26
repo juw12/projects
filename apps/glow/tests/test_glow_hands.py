@@ -62,7 +62,8 @@ class SiteHandler(http.server.BaseHTTPRequestHandler):
 def start_companion(port, profile, *extra):
     env = os.environ.copy()
     process = subprocess.Popen(
-        [sys.executable, str(COMPANION), "--port", str(port), "--profile", profile, "--headless", "--token", TOKEN, *extra],
+        [sys.executable, str(COMPANION), "--port", str(port), "--profile", profile, "--headless", "--token", TOKEN,
+         *(tuple(arg for arg in extra if arg != "--phone") if "--phone" in extra else ("--no-phone", *extra))],
         env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     deadline = time.time() + 15
     while time.time() < deadline:
@@ -546,6 +547,135 @@ class OneClickPairingTests(unittest.TestCase):
         page.click("#hands-btn")
         page.wait_for_selector("#hands-dialog[open]", timeout=20000)
         self.assertIn("isn't running", page.locator("#hands-test-result").inner_text())
+
+
+@unittest.skipUnless(HAVE_PLAYWRIGHT, "Install the optional Playwright test dependency to run Glow Hands checks")
+class InAppPairingDefaultTests(unittest.TestCase):
+    def test_connect_needs_no_prompt_by_default(self):
+        port = free_port()
+        process = start_companion(port, tempfile.mkdtemp(prefix="glow-pair-default-"))
+        self.addCleanup(stop_companion, process)
+        status, data, _ = call(port, "POST", "/pair", token=None, origin="https://juw12.github.io")
+        self.assertEqual((status, data.get("token")), (200, TOKEN))
+        self.assertEqual(call(port, "POST", "/pair", token=None, origin="https://evil.example")[0], 403)
+
+
+@unittest.skipUnless(HAVE_PLAYWRIGHT, "Install the optional Playwright test dependency to run Glow Hands checks")
+class PhoneLinkEndToEnd(unittest.TestCase):
+    """A phone-sized browser drives Glow Hands on the PC through the real PeerJS service (WebRTC)."""
+
+    @classmethod
+    def setUpClass(cls):
+        from playwright.sync_api import sync_playwright
+
+        class QuietStatic(http.server.SimpleHTTPRequestHandler):
+            def log_message(self, *_args):
+                pass
+
+        cls.site = http.server.ThreadingHTTPServer(("127.0.0.1", 0), SiteHandler)
+        threading.Thread(target=cls.site.serve_forever, daemon=True).start()
+        cls.site_url = f"http://127.0.0.1:{cls.site.server_port}"
+        cls.web = http.server.ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(QuietStatic, directory=str(APP / "web")))
+        threading.Thread(target=cls.web.serve_forever, daemon=True).start()
+        cls.web_url = f"http://127.0.0.1:{cls.web.server_port}"
+        cls.port = free_port()
+        cls.process = start_companion(cls.port, tempfile.mkdtemp(prefix="glow-phone-"), "--allow-private", "--phone",
+                                      "--peerjs-url", cls.web_url + "/shared/peerjs.min.js")
+        cls.link = None
+        deadline = time.time() + 45
+        while time.time() < deadline:
+            status, data, _ = call(cls.port, "GET", "/phone-link")
+            if status == 200 and data.get("bridgeReady"):
+                cls.link = data
+                break
+            time.sleep(1)
+        cls.playwright = sync_playwright().start()
+        cls.browser = cls.playwright.chromium.launch()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.browser.close()
+        cls.playwright.stop()
+        stop_companion(cls.process)
+        for server in (cls.site, cls.web):
+            server.shutdown()
+            server.server_close()
+
+    def setUp(self):
+        if not self.link:
+            self.skipTest("The public PeerJS service is unreachable from this network")
+
+    def context(self, phone=False, script=None, plan=BROWSER_PLAN):
+        options = self.playwright.devices["iPhone 13"] if phone else {}
+        context = self.browser.new_context(**options)
+        self.addCleanup(context.close)
+        context.route("**/crew-engine.js", lambda route: route.fulfill(content_type="application/javascript", body=E2E_ENGINE_STUB))
+        context.add_init_script("window.__config = " + json.dumps({"plan": plan, "script": script or []}) + ";")
+        return context
+
+    def test_phone_link_endpoints_need_the_token(self):
+        self.assertEqual(call(self.port, "GET", "/phone-link", token=None)[0], 401)
+        self.assertEqual(call(self.port, "POST", "/bridge-heartbeat", {"peerOpen": False}, token=None)[0], 401)
+        self.assertEqual(call(self.port, "POST", "/phone-link/reset", {}, token=None)[0], 401)
+        self.assertRegex(self.link["peerId"], r"^glowhands-[0-9a-f]{24}$")
+
+    def test_pc_shows_qr_and_phone_runs_a_browser_mission_with_approval(self):
+        pc = self.context().new_page()
+        saved = json.dumps({"url": f"http://127.0.0.1:{self.port}", "token": TOKEN})
+        pc.goto(self.web_url + "/lead/")
+        pc.evaluate("value => localStorage.setItem('glowlead.hands.v1', value)", saved)
+        pc.reload()
+        pc.wait_for_function("document.getElementById('hands-status').dataset.state === 'paired'", timeout=15000)
+        pc.click("#hands-btn")
+        self.assertTrue(pc.locator("#phone-link-box").is_visible())
+        pc.click("#phone-link-btn")
+        pc.wait_for_selector("#phone-qr svg", timeout=10000)
+        phone_url = pc.locator("#phone-qr").get_attribute("data-url")
+        self.assertIn("#phone=" + self.link["peerId"] + ".", phone_url)
+
+        script = [
+            {"action": "goto", "url": self.site_url + "/form.html"},
+            {"action": "type", "name": "Full name", "text": "Phone User"},
+            {"action": "click", "name": "Place order"},
+            {"action": "done", "summary": "Ordered from the phone."},
+        ]
+        phone = self.context(phone=True, script=script).new_page()
+        phone.goto(phone_url)
+        phone.wait_for_function("document.getElementById('hands-status').dataset.state === 'paired'", timeout=40000)
+        self.assertEqual(phone.locator("#hands-status").inner_text(), "CONNECTED · PC")
+        self.assertNotIn("#phone=", phone.url, "The secret must be removed from the address bar")
+        self.assertEqual(json.loads(phone.evaluate("localStorage.getItem('glowlead.hands.v1')"))["mode"], "remote")
+        phone.evaluate("GlowLead.start('Order from my phone', false, { allowHands: true })")
+        phone.wait_for_selector("#approve-action", timeout=60000)
+        self.assertEqual(call(self.port, "GET", "/observe")[1]["title"], "Test shop", "Nothing submitted before the phone approved")
+        phone.click("#approve-action")
+        phone.wait_for_function("GlowLead.leads[0] && GlowLead.leads[0].status === 'done'", timeout=60000)
+        done = call(self.port, "GET", "/observe")[1]
+        self.assertEqual(done["title"], "Done")
+        self.assertIn("name=Phone+User", done["url"])
+
+    def test_wrong_secret_is_refused(self):
+        phone = self.context(phone=True).new_page()
+        phone.goto(self.web_url + "/lead/#phone=" + self.link["peerId"] + "." + "w" * 32)
+        phone.wait_for_function("document.getElementById('hands-status').dataset.state === 'offline'", timeout=40000)
+        self.assertEqual(phone.locator("#hands-status").inner_text(), "PC OFFLINE")
+        self.assertTrue(phone.locator("#allow-hands").is_disabled())
+
+    def test_turning_off_old_links_revokes_them(self):
+        old = dict(self.link)
+        status, fresh, _ = call(self.port, "POST", "/phone-link/reset", {})
+        self.assertEqual(status, 200)
+        self.assertNotEqual(fresh["peerId"], old["peerId"])
+        deadline = time.time() + 45
+        while time.time() < deadline and not call(self.port, "GET", "/phone-link")[1].get("bridgeReady"):
+            time.sleep(1)
+        type(self).link = call(self.port, "GET", "/phone-link")[1]
+        old_phone = self.context(phone=True).new_page()
+        old_phone.goto(self.web_url + "/lead/#phone=" + old["peerId"] + "." + old["secret"])
+        old_phone.wait_for_function("document.getElementById('hands-status').dataset.state === 'offline'", timeout=40000)
+        new_phone = self.context(phone=True).new_page()
+        new_phone.goto(self.web_url + "/lead/#phone=" + fresh["peerId"] + "." + fresh["secret"])
+        new_phone.wait_for_function("document.getElementById('hands-status').dataset.state === 'paired'", timeout=40000)
 
 
 if __name__ == "__main__":

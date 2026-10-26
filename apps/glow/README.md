@@ -12,6 +12,18 @@
 GlowChat installable app: `glow/chat/app.html`, mobile: `glow/chat/mobile.html`. GlowRoom: `glow/room/app.html`, `glow/room/mobile.html`.
 AI-suggested resources in GlowChat are not automatically browsed or verified; GlowChat does no autonomous building or execution (that is GlowRoom's job, and its results should still be reviewed).
 
+## v0.13.0 — connect inside the app, and use Glow Hands from your phone
+
+- **No Windows prompt:** Connect browser control connects in one click inside GlowLead, and the installer
+  hand-off connects with no click. `--confirm-pairing` brings the Windows Yes/No prompt back.
+- **Phone control:** GlowLead on the PC shows a QR code; the phone opens it once and stays linked. Browser steps
+  from phone missions run in Glow Hands on the PC over an encrypted WebRTC link (PeerJS signalling and relay),
+  after an HMAC challenge proves the phone knows the QR secret. Old links can be revoked in one click.
+- Glow Hands 0.3: hidden phone-bridge page, `/phone-link`, `/phone-link/reset`, heartbeat; `--no-phone` option.
+- Tests: a phone-sized browser linked from the PC's QR code ran a real browser mission on the PC through the
+  public PeerJS service, with the submit approved on the phone; wrong and revoked links were refused.
+- Trade-off: all apps on `juw12.github.io` share one origin and storage; see `hands/README.md`.
+
 ## v0.12.0 — one-step install and one-click connect for Glow Hands
 
 - **Install on any Windows PC with one command** (Win+R): `hands/install-glow-hands.ps1` installs Python if
