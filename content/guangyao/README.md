@@ -1,21 +1,21 @@
-# 光耀同行 · Published content
+# Guang Yao published content
 
-This repository is the content store for the Guang Yao Together learning app
-(https://juwpegatron.github.io/projects/guangyao/).
+Published lessons, materials and events for Guang Yao Together live in this folder
+of [`juw12/projects`](https://github.com/juw12/projects).
 
-- `catalog.json` lists published lessons, materials and events. The learner app reads it.
-- `files/` holds uploaded teaching materials.
-- Content is managed through the app's admin console (`admin.html`). Do not edit by hand unless you know the schema.
+- Catalog: `catalog.json`
+- Uploaded materials: `files/`
+- Admin console: <https://juw12.github.io/projects/guangyao/admin.html>
+- Admin guide: [../../apps/guangyao/docs/admin-guide.md](../../apps/guangyao/docs/admin-guide.md)
 
-## Who can publish
+The catalog stores material paths relative to this folder. The app and admin
+console add the `content/guangyao/` prefix when accessing GitHub. Uploaded-file
+links are pinned to a commit that contains the file under its monorepo path.
 
-Only collaborators with write access to this repository can publish. To add an admin,
-invite them under **Settings → Collaborators** and ask them to create a fine-grained
-personal access token limited to this repository with **Contents: Read and write**.
+**Public content only.** Never upload private, member or internal information.
+Only trusted project maintainers should receive write access: GitHub permissions
+cover the entire Projects repository, not just this content folder.
 
-## Visibility
-
-This repository is **public**: everything uploaded here can be read by anyone.
-Do not upload private, personal or restricted material.
-
-Every change is recorded in the commit history, which serves as the audit log.
+Owner/maintainer: [@juw12](https://github.com/juw12).
+Co-founder/collaborator: [@juwpegatron](https://github.com/juwpegatron).
+The original content history is retained through a non-squashed subtree import.

@@ -14,7 +14,7 @@ For an upgrade, copy or save any current translation text, close the old app, an
 
 ## Windows app
 
-Download the Windows ZIP from https://juwpegatron.github.io/projects/loka-translate/ and extract it to a folder you will keep. Run LokaTranslate.exe. The executable bundles Python, Tk and OpenCC; it does not bundle Ollama or model weights.
+Download the Windows ZIP from https://juw12.github.io/projects/loka-translate/ and extract it to a folder you will keep. Run LokaTranslate.exe. The executable bundles Python, Tk and OpenCC; it does not bundle Ollama or model weights.
 
 Ollama must be running locally with a downloaded model. Recommended: qwen3:8b. Initial software/model downloads need internet; translation does not. No paid API or account is used. Models are never downloaded automatically by this app.
 

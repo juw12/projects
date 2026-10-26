@@ -19,7 +19,7 @@ let server;
   const sha512 = crypto.createHash('sha512');
   for await (const chunk of fs.createReadStream(oldInstaller)) sha512.update(chunk);
   const file = {
-    url: 'https://github.com/juwpegatron/projects/releases/download/airiz-desktop-v1.0.0/AIRIZ-Console-Setup-1.0.0-x64.exe',
+    url: 'https://github.com/juw12/projects/releases/download/airiz-desktop-v1.0.0/AIRIZ-Console-Setup-1.0.0-x64.exe',
     sha512: sha512.digest('base64'), size: fs.statSync(oldInstaller).size
   };
   const feed = { version: '1.0.0', files: [file], path: file.url, sha512: file.sha512, releaseDate: new Date().toISOString() };
