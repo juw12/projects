@@ -8,7 +8,7 @@
   'use strict';
 
   const SEED = window.SEED;
-  const VERSION = '2.0.0';
+  const VERSION = '3.0.0';
   const LOCAL_KEY = 'fade.state';
   const REMOTE_KEY = 'fade.remote';
   const STATE_VERSION = 1;
@@ -258,6 +258,9 @@
     scissors: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/>',
     gift: '<polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>',
     clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+    shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+    flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>',
+    bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
     search: '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
     x: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
     nav: '<polygon points="3 11 22 2 13 21 11 13 3 11"/>',
@@ -563,6 +566,16 @@
     return distanceKm(place) < 150;
   }
 
+  // Demo data is all in one city; on Fade Network "local" means near the user's location.
+  function nearMe(entity) {
+    if (!API.net) return entity.city === LOCAL_CITY;
+    if (entity.schedule) return entity.schedule.some((s) => {
+      const p = placeById(s.placeId);
+      return p && isLocal(p);
+    });
+    return isLocal(entity);
+  }
+
   function mediaUrl(url) {
     if (!url) return '';
     if (url.startsWith('/media/') && API.base) return API.base + url;
@@ -852,13 +865,13 @@
     }
     if (type === 'barbers') {
       return S.barbers
-        .filter((b) => scope === 'global' || b.city === LOCAL_CITY)
+        .filter((b) => scope === 'global' || nearMe(b))
         .map((b) => ({ id: b.id, name: b.name, hue: b.hue, sub: b.title, score: barberScore(b, period), img: b.photo, kind: 'barber' }))
         .sort((a, c) => c.score - a.score);
     }
     if (type === 'places') {
       return S.places
-        .filter((p) => scope === 'global' || p.city === LOCAL_CITY)
+        .filter((p) => scope === 'global' || nearMe(p))
         .map((p) => ({ id: p.id, name: p.name, hue: p.hue, sub: `${p.area}, ${p.city}`, score: placeScore(p, period), kind: 'place' }))
         .sort((a, c) => c.score - a.score);
     }
@@ -1196,6 +1209,7 @@
         <span class="grow"><b>I own a barbershop</b><div class="small muted">Fill chairs, earn rent + facility fees</div></span>${icon('chev')}
       </button>
       <p class="xs muted center mt16">Offline demo on this device · no real charges ·
+        ${window.FadeNet ? '<a class="acc" data-act="netGoNetwork">join the live Fade Network</a> ·' : ''}
         <a class="acc" data-act="connectServer">connect a Fade server</a></p>`;
   }
 
@@ -1215,7 +1229,7 @@
       <form id="auth-form" onsubmit="return false">
         ${signup ? `<div class="field"><label for="au-name">Name</label><input id="au-name" autocomplete="name" maxlength="60" value="${authValue('au-name')}"></div>` : ''}
         <div class="field"><label for="au-email">Email</label><input id="au-email" type="email" autocomplete="email" value="${authValue('au-email')}"></div>
-        <div class="field"><label for="au-pass">Password</label><input id="au-pass" type="password" autocomplete="${signup ? 'new-password' : 'current-password'}" placeholder="${signup ? 'At least 8 characters' : ''}" value="${authValue('au-pass')}"></div>
+        <div class="field"><label for="au-pass">Password</label><input id="au-pass" type="password" autocomplete="${signup ? 'new-password' : 'current-password'}" placeholder="${signup ? (API.net ? 'At least 10 characters' : 'At least 8 characters') : ''}" value="${authValue('au-pass')}"></div>
         ${signup ? `
           <div class="label">I am a…</div>
           <div class="seg">${roles.map(([v, l]) => `<button type="button" class="${AUTH.role === v ? 'on' : ''}" data-act="authRole" data-v="${v}">${l}</button>`).join('')}</div>
@@ -1234,7 +1248,7 @@
         <div class="field"><span class="err" id="au-err" role="alert"></span></div>
         <button class="btn primary block" data-act="authSubmit">${signup ? 'Create account' : 'Log in'}</button>
       </form>
-      <p class="xs muted center mt12">Connected to ${esc(API.base)} · <a class="acc" data-act="disconnectServer">use offline demo</a></p>`;
+      ${API.net && NETUI ? NETUI.authExtras(signup) : `<p class="xs muted center mt12">Connected to ${esc(API.base)} · <a class="acc" data-act="disconnectServer">use offline demo</a></p>`}`;
   }
 
   // ---------- Home ----------
@@ -1243,7 +1257,7 @@
     const up = upcomingBookings()[0];
     const pending = myBookings().find((b) => b.status === 'completed' && !b.rated);
     const nearToday = S.barbers
-      .filter((b) => b.city === LOCAL_CITY)
+      .filter((b) => nearMe(b))
       .map((b) => ({ b, free: nextFree(b) }))
       .filter((x) => x.free)
       .sort((a, c) => a.free.offset - c.free.offset || distanceKm(a.free.place) - distanceKm(c.free.place))
@@ -1340,7 +1354,7 @@
   }
 
   function barberMini(b, free) {
-    const feature = b.portfolio[0];
+    const feature = b.portfolio[0] || { style: 'fade', hue: b.hue };
     return `
       <button class="bmini" data-act="go" data-to="/barber/${b.id}">
         <div class="art">${feature.img ? `<img src="${esc(mediaUrl(feature.img))}" alt="" style="width:100%;height:100%;object-fit:cover">` : cutArt(feature.style, feature.hue, { color: feature.color })}${barberAvatar(b, 34)}</div>
@@ -1419,7 +1433,7 @@
   const EX = { tab: 'places', filter: 'near', sel: null };
 
   VIEWS.explore = function () {
-    const local = S.places.filter((p) => p.city === LOCAL_CITY);
+    const local = S.places.filter((p) => nearMe(p));
     const filters = EX.tab === 'places'
       ? [['near', 'Nearest'], ['today', 'Open today'], ['luxe', 'Luxe'], ['premium', 'Premium'], ['standard', 'Standard'], ['global', '🌍 Global']]
       : [['near', 'Nearest today'], ['top', 'Top rated'], ['verified', 'Verified'], ['global', '🌍 Global']];
@@ -1480,7 +1494,7 @@
           <path d="M45 0 Q52 50 40 100" stroke="#252a40" stroke-width="3" fill="none"/>
         </svg>
         ${pins}${meDot}
-        <div class="map-ctrl"><span class="pill xs">${esc(LOCAL_CITY)} · ${places.length} places</span></div>
+        <div class="map-ctrl"><span class="pill xs">${esc(API.net ? (S.user.location || {}).label || 'Near you' : LOCAL_CITY)} · ${places.length} places</span></div>
       </div>
       ${sel ? `
         <div class="card mt8 row gap12">
@@ -1588,6 +1602,7 @@
           <div class="row gap8">
             <button class="btn sm" data-act="dm" data-id="${b.id}" aria-label="Message ${esc(b.name)}">${icon('chat', 16)}</button>
             <button class="btn sm ${following ? '' : 'violet'}" data-act="follow" data-type="barber" data-id="${b.id}">${following ? 'Following' : 'Follow'}</button>
+            ${API.net && NETUI ? NETUI.profileMenu(b.id, b.ownerPk) : ''}
           </div>
         </div>
         <h1 class="mt12">${esc(b.name)} ${b.verified ? verifiedBadge : ''}</h1>
@@ -1595,7 +1610,7 @@
         <p class="small mt8" style="line-height:1.5">${esc(b.bio)}</p>
         <div class="row gap6 wrap mt8">${b.tags.map((t) => `<span class="tag">${esc(t)}</span>`).join('')}<span class="tag">🗣 ${b.langs.join(' · ')}</span></div>
         <div class="statrow">
-          <div class="stat"><b>${stars(b.rating).replace(/<span class="gold">★<\/span> /, '')}</b><span>${compact(b.reviews)} reviews</span></div>
+          <div class="stat"><b>${b.reviews ? stars(b.rating).replace(/<span class="gold">★<\/span> /, '') : 'New'}</b><span>${compact(b.reviews)} reviews</span></div>
           <div class="stat"><b>${compact(followersOf('barber', b))}</b><span>followers</span></div>
           <div class="stat"><b>#${rank}</b><span>this week</span></div>
           <div class="stat"><b>${placesCount}</b><span>place${placesCount > 1 ? 's' : ''}</span></div>
@@ -1723,6 +1738,7 @@
         <div class="row gap6 wrap mt12">${p.amenities.map((a) => `<span class="tag">${esc(a)}</span>`).join('')}</div>
         <div class="row gap8 mt12">
           <button class="btn sm ${isFollowing('place', p.id) ? '' : 'violet'}" data-act="follow" data-type="place" data-id="${p.id}">${isFollowing('place', p.id) ? 'Following' : 'Follow'}</button>
+          ${API.net && NETUI ? NETUI.profileMenu(p.id, p.ownerPk) : ''}
           <a class="btn sm grow" href="${directionsUrl(p)}" target="_blank" rel="noopener">${icon('nav', 16)} Directions</a>
           ${group ? `<button class="btn sm grow" data-act="go" data-to="/thread/${group.id}">${icon('users', 16)} Community</button>` : ''}
         </div>
@@ -1845,6 +1861,7 @@
           </div>
           <button class="btn primary block mt20" data-act="bkConfirm">${icon('check', 18)} Move my booking — free</button>`;
       }
+      if (API.net && NETUI) return NETUI.checkoutHTML(BK, b, svc, place);
       const q = quote({ price: svc.price, place, plan: S.user.plan, payMode: BK.payMode, usePoints: BK.usePoints, points: S.user.points });
       const earn = pointsEarned(q.dueNow, S.user.plan, BK.payMode === 'full');
       const sum = q.toBarber + q.toPlace + q.toPlatform || 1;
@@ -1895,8 +1912,9 @@
     return `
       <div class="success">
         <div class="big">${icon('check', 44, 'stroke-width="3"')}</div>
-        <h2 style="font-size:26px;font-weight:900">${BK.rescheduleId ? 'Moved!' : "You're booked!"}</h2>
+        <h2 style="font-size:26px;font-weight:900">${BK.rescheduleId ? 'Moved!' : API.net && !bk.confirmed ? 'Request sent!' : "You're booked!"}</h2>
         <p class="muted mt8">${esc(bk.serviceName)} with ${esc(b.name)}<br>${whenLabel(bk)} · ${esc(place.name)}</p>
+        ${API.net && NETUI ? NETUI.successExtra(bk) : ''}
         ${BK.earned ? `<div class="pill pts mt16" style="display:inline-flex">${icon('zap', 14)} +${fmtNum(BK.earned)} points</div>` : ''}
         <div class="row gap8 mt20">
           <button class="btn grow" data-act="ics" data-id="${bk.id}">${icon('calendar', 16)} Calendar</button>
@@ -2037,8 +2055,8 @@
       <div class="row gap8 wrap">${[0, 10, 15, 20, 25].map((pct) => `<button class="chip ${RT.custom == null && RT.tipPct === pct ? 'on' : ''}" data-act="rtTip" data-v="${pct}">${pct ? `${pct}% · ${money(bk.quote.price * pct / 100)}` : 'No tip'}</button>`).join('')}</div>
       <div class="field"><label>Custom tip ($)</label><input id="rt-custom" type="number" min="0" step="0.5" inputmode="decimal" placeholder="e.g. 7" value="${RT.custom != null ? RT.custom : ''}"></div>
       <div class="field"><label>Review (optional)</label><textarea id="rt-text" placeholder="What did you love?">${esc(RT.text)}</textarea></div>
-      <div class="label">Pay tip with</div>
-      ${paymentMethodsHTML(RT.method, 'rtMethod')}
+      ${API.net && NETUI ? NETUI.rateTipNote(b) : `<div class="label">Pay tip with</div>
+      ${paymentMethodsHTML(RT.method, 'rtMethod')}`}
       <p class="xs muted mt12">Ratings feed the weekly leaderboard for both ${esc(firstName(b.name))} and ${esc(p.short)}. +${REVIEW_BONUS} pts for you.</p>
       <button class="btn primary block mt12" id="rt-submit" data-act="rtSubmit">${rateButtonLabel()}</button>`;
   }
@@ -2055,8 +2073,9 @@
         await pull();
         closeSheet();
         confetti();
-        toast(`Thanks! +${result.earned} pts${tip ? ` · ${money(tip)} tip sent` : ''}`);
+        toast(API.net ? 'Thanks! Review posted ⭐' : `Thanks! +${result.earned} pts${tip ? ` · ${money(tip)} tip sent` : ''}`);
         refresh();
+        if (API.net && NETUI) NETUI.afterRate(bk, tip);
       } catch (err) {
         toast(err.message);
       }
@@ -2118,12 +2137,13 @@
     }
     return `
       <div class="bk">
-        <div class="row between"><span class="status ${statusColor}">${bk.status}${bk.status === 'upcoming' ? ` · ${countdownLabel(bk)}` : ''}</span><span class="xs muted">${money(bk.quote.total)}${bk.payLater > 0 && bk.status === 'upcoming' ? ` · ${money(bk.payLater)} at shop` : ''}</span></div>
+        <div class="row between"><span class="status ${API.net && (bk.declined || bk.noShow) ? 'hot' : statusColor}">${API.net && NETUI ? NETUI.statusLabel(bk) : bk.status}${bk.status === 'upcoming' ? ` · ${countdownLabel(bk)}` : ''}</span><span class="xs muted">${money(bk.quote.total)}${bk.payLater > 0 && bk.status === 'upcoming' ? ` · ${money(bk.payLater)} at shop` : ''}</span></div>
         <button class="row gap12 mt8" style="text-align:left;width:100%" data-act="go" data-to="/barber/${b.id}">
           ${barberAvatar(b, 46)}
           <div class="grow"><b>${esc(bk.serviceName)}</b><div class="small">${esc(b.name)}</div><div class="xs muted">${whenLabel(bk)} · ${esc(p.name)}</div></div>
         </button>
         ${bk.status === 'upcoming' && hoursAway < CANCEL_FREE_HOURS && hoursAway > 0 ? `<div class="xs muted mt8">Inside ${CANCEL_FREE_HOURS}h: cancelling keeps the deposit for the barber.</div>` : ''}
+        ${API.net && NETUI ? NETUI.bookingCardExtra(bk) : ''}
         <div class="bk-actions">${actions}</div>
       </div>`;
   }
@@ -2133,7 +2153,7 @@
     const hoursAway = (bookingStart(bk) - new Date()) / 3600000;
     const free = hoursAway >= CANCEL_FREE_HOURS || planOf(S.user.plan).id === 'pro';
     const where = bk.method && bk.method !== 'wallet' ? methodLabel(bk.method) : 'your wallet';
-    const msg = free
+    const msg = API.net && NETUI ? NETUI.cancelMessage(bk) : free
       ? `Cancel and refund ${money(bk.paidNow)} to ${where}?`
       : `Less than ${CANCEL_FREE_HOURS}h away — the ${money(bk.paidNow)} deposit goes to the barber. Cancel anyway?`;
     if (!window.confirm(msg)) return;
@@ -2196,6 +2216,7 @@
   const API = {
     base: '',
     on: false,
+    net: false,
     token: localStorage.getItem('fade.token'),
 
     async detect() {
@@ -2235,6 +2256,7 @@
     },
 
     async req(method, path, body) {
+      if (this.net) return window.FadeNet.handle(method, path, body || {});
       const headers = {};
       if (body !== undefined) headers['Content-Type'] = 'application/json';
       if (this.token) headers.Authorization = `Bearer ${this.token}`;
@@ -2256,6 +2278,7 @@
     },
 
     upload(path, blob, contentType, extraHeaders, onProgress) {
+      if (this.net) return window.FadeNet.upload(path, blob, contentType, extraHeaders || {}, onProgress);
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', this.base + path);
@@ -2313,7 +2336,10 @@
       points: u.points, lifetime: u.lifetime, wallet: u.wallet, plan: u.plan, method: u.method,
       cards: u.cards || [], followers: u.followers || 0,
       refCode: `${(u.handle || 'fade').toUpperCase().replace(/[^A-Z0-9]/g, '')}-FRESH`,
-      location: S.user.location && S.user.location.label ? S.user.location : { ...DEFAULT_LOCATION },
+      location: S.user.location && S.user.location.label && S.user.location.label !== DEFAULT_LOCATION.label
+        ? S.user.location
+        : u.location && u.location.label ? u.location : S.user.location && S.user.location.label ? S.user.location : { ...DEFAULT_LOCATION },
+      pk: u.pk, npub: u.npub, pay: u.pay || {}, notify: u.notify || null, admin: !!u.admin,
     };
     S.places = st.places;
     S.barbers = st.barbers;
@@ -2323,7 +2349,10 @@
     S.txns = st.txns;
     S.orders = st.orders;
     S.threads = st.threads.map((t) => normalizeThread(t, u));
-    S.shorts = st.shorts.map((sh) => ({ ...sh, createdAt: sh.createdAt * 1000 }));
+    const blockedPks = API.net && NETUI ? new Set(NETUI.blocked()) : new Set();
+    S.shorts = st.shorts.filter((sh) => !blockedPks.has(sh.ownerPk)).map((sh) => ({ ...sh, createdAt: sh.createdAt * 1000 }));
+    S.rent = st.rent || [];
+    S.netReviews = st.reviews || [];
     S.following = u.following || [];
     S.commissions = st.commissions.map((c) => ({ ...c, createdAt: c.createdAt * 1000 }));
     S.commissionsOwed = st.commissionsOwed;
@@ -2604,9 +2633,9 @@
   }
 
   function isLocalShort(sh) {
-    if (sh.authorType === 'barber') return (barberById(sh.authorId) || {}).city === LOCAL_CITY;
-    if (sh.authorType === 'place') return (placeById(sh.authorId) || {}).city === LOCAL_CITY;
-    return (sh.tags || []).some((t) => (tagTarget(t) || {}).city === LOCAL_CITY);
+    if (sh.authorType === 'barber') return !!barberById(sh.authorId) && nearMe(barberById(sh.authorId));
+    if (sh.authorType === 'place') return !!placeById(sh.authorId) && nearMe(placeById(sh.authorId));
+    return (sh.tags || []).some((t) => !!tagTarget(t) && nearMe(tagTarget(t)));
   }
 
   function personalScore(sh) {
@@ -2695,6 +2724,7 @@
           ${target.barber ? `<button data-act="dm" data-id="${target.barber.id}" aria-label="Ask the barber"><span class="rb">${icon('chat', 22)}</span>Ask</button>` : ''}
           <button class="${saved ? 'liked' : ''}" data-act="save" data-sid="${sh.id}" aria-label="Save"><span class="rb">${icon('bookmark', 22)}</span>Save</button>
           <button data-act="shareShort" data-sid="${sh.id}" aria-label="Share"><span class="rb">${icon('share', 22)}</span><span class="cnt">${compact(sh.shares)}</span></button>
+          ${API.net && NETUI ? NETUI.reelButtons(sh) : ''}
           ${mine ? `<button data-act="deleteShort" data-sid="${sh.id}" aria-label="Delete short"><span class="rb">${icon('trash', 20)}</span>Delete</button>` : ''}
         </div>
         <div class="meta">
@@ -2954,7 +2984,7 @@
         <label class="toggle-row"><span class="small"><b>Paid partnership</b><div class="xs muted">I have a paid agreement with the sponsored profile. The short shows “Paid partnership”.</div></span>
         <span class="switch"><input type="checkbox" data-act="upAgree" ${UP.agreement ? 'checked' : ''}><span></span></span></label>` : ''}
       <p class="xs muted mt12">Tagged barbers/shops approve tags before commissions apply. You never earn on your own bookings.</p>
-      ${UP.busy ? `<div class="progress mt12"><span style="width:${Math.round(UP.progress * 100)}%"></span></div>` : ''}
+      ${UP.busy ? `<div class="progress mt12"><span style="width:${Math.round(UP.progress * 100)}%"></span></div><div class="xs muted mt4" id="up-stage">${API.net ? 'Preparing…' : 'Uploading…'}</div>` : ''}
       <button class="btn primary block mt12" data-act="upPost" ${UP.busy ? 'disabled' : ''}>${UP.busy ? 'Posting…' : 'Post short'}</button>`;
   }
 
@@ -2981,11 +3011,34 @@
           caption, category: UP.category, tags: UP.tags, sponsoredAgreement: UP.agreement,
           poster: UP.poster, duration: UP.duration, as: UP.as,
         };
-        const result = await API.upload('/api/shorts', UP.file, UP.type, { 'X-Fade-Meta': utf8ToBase64(JSON.stringify(meta)) }, (fraction) => {
+        const paint = (fraction, label) => {
           if (!UP) return;
           UP.progress = fraction;
           const bar = $('#sheet-root .progress > span');
           if (bar) bar.style.width = `${Math.round(fraction * 100)}%`;
+          const note = $('#up-stage');
+          if (note && label) note.textContent = label;
+        };
+        let file = UP.file;
+        let type = UP.type;
+        let share = 1;
+        if (API.net && UP.kind === 'video' && window.FadeTranscode) {
+          try {
+            const optimized = await window.FadeTranscode.optimize(UP.file, (f) => paint(f * 0.5, `Optimizing video for fast playback… ${Math.round(f * 100)}%`));
+            if (optimized) {
+              file = optimized.blob;
+              type = optimized.type;
+              meta.duration = optimized.duration;
+              meta.optimized = true;
+              share = 0.5;
+            }
+          } catch (err) {
+            // keep the original file
+          }
+        }
+        const base = 1 - share;
+        const result = await API.upload('/api/shorts', file, type, { 'X-Fade-Meta': utf8ToBase64(JSON.stringify(meta)) }, (fraction) => {
+          paint(base + fraction * share, `Uploading… ${Math.round(fraction * 100)}%`);
         });
         await pull();
         const sh = result.short;
@@ -3096,10 +3149,10 @@
     return `
       ${pageHead('Creator earnings')}
       <div class="ccard">
-        <div class="row between"><span class="small muted">Available to withdraw</span><span class="badge acc">Commissions</span></div>
+        <div class="row between"><span class="small muted">${API.net ? 'Earned — paid to you directly' : 'Available to withdraw'}</span><span class="badge acc">Commissions</span></div>
         <div class="bal">${money(sum.available)}</div>
         <div class="row gap16 small mt8"><span class="muted">Pending <b style="color:var(--text)">${money(sum.pending)}</b></span><span class="muted">Paid out <b style="color:var(--text)">${money(sum.paid)}</b></span></div>
-        <button class="btn sm primary mt12" data-act="withdraw" ${sum.available < MIN_WITHDRAW ? 'disabled' : ''}>${icon('wallet', 16)} Withdraw to wallet</button>
+        ${API.net ? '<div class="xs muted mt12">Barbers and shops pay your commission with your payout methods — confirm each one below when it arrives.</div>' : `<button class="btn sm primary mt12" data-act="withdraw" ${sum.available < MIN_WITHDRAW ? 'disabled' : ''}>${icon('wallet', 16)} Withdraw to wallet</button>`}
       </div>
       <div class="card mt12 small" style="line-height:1.55">
         <b>How you earn</b><br>
@@ -3120,8 +3173,8 @@
             ${(sh.tags || []).map((t) => `<span class="badge ${t.status === 'approved' ? 'acc' : t.status === 'declined' ? 'hot' : 'standard'} mt4">${esc((tagTarget(t) || {}).name || t.id)} · ${t.kind} · ${t.status}</span>`).join(' ')}
           </span>
         </div>`).join('') : '<div class="empty">No shorts yet — post one and tag your barber</div>'}
-      <h2 class="sec">Commission history</h2>
-      ${history.length ? history.map((c) => `
+      ${API.net && NETUI ? NETUI.creatorPanel() : '<h2 class="sec">Commission history</h2>'}
+      ${API.net ? '' : history.length ? history.map((c) => `
         <div class="row gap12" style="padding:10px 0;border-bottom:1px solid var(--line)">
           <span class="thumb" style="width:36px;height:36px;background:var(--card2);color:var(--acc)">${icon(c.sourceType === 'booking' ? 'scissors' : 'bag', 16)}</span>
           <span class="grow"><b class="small">${c.sourceType === 'booking' ? 'Booking' : 'Product sale'} · ${esc(payerName(c))}</b>
@@ -3420,9 +3473,10 @@
         <button class="${CART.delivery === 'pickup' ? 'on' : ''}" data-act="cartDelivery" data-v="pickup">Pick up at next cut</button>
         <button class="${CART.delivery === 'delivery' ? 'on' : ''}" data-act="cartDelivery" data-v="delivery">Delivery +${money(DELIVERY_FEE)}</button>
       </div>
-      ${CART.delivery === 'pickup' ? `<div class="xs muted mt8">Ready at: ${pickups.map((p) => esc(p.name)).join(', ')}</div>` : ''}
-      <div class="label">Pay with</div>
-      ${paymentMethodsHTML(method, 'cartMethod')}
+      ${CART.delivery === 'pickup' ? `<div class="xs muted mt8">Ready at: ${pickups.filter(Boolean).map((p) => esc(p.name)).join(', ')}</div>` : ''}
+      ${API.net ? `${CART.delivery === 'delivery' ? `<div class="field"><label for="cart-address">Delivery address</label><input id="cart-address" maxlength="200" value="${esc(CART.address || '')}" placeholder="Street, city"></div>` : ''}
+        <p class="xs muted mt8">You pay each seller directly after ordering — Fade takes 0%.</p>` : `<div class="label">Pay with</div>
+      ${paymentMethodsHTML(method, 'cartMethod')}`}
       <div class="card breakdown mt12">
         <div class="ln"><span>Subtotal</span><span>${money(subtotal)}</span></div>
         ${memberDisc ? `<div class="ln acc"><span>Member −5%</span><span>−${money(memberDisc)}</span></div>` : ''}
@@ -3434,6 +3488,14 @@
   }
 
   async function checkout(total) {
+    if (API.net && NETUI) {
+      try {
+        await NETUI.checkout(total);
+      } catch (err) {
+        toast(err.message);
+      }
+      return;
+    }
     const method = CART.method || S.user.method;
     const ref = activeRef();
     if (API.on) {
@@ -3509,7 +3571,7 @@
         <div class="stat"><b>${fmtNum(u.points)}</b><span>points</span></div>
         <div class="stat"><b>${compact(u.followers || 0)}</b><span>followers</span></div>
         <div class="stat"><b>${S.following.length}</b><span>following</span></div>
-        <div class="stat"><b>${money(u.wallet).replace('.00', '')}</b><span>wallet</span></div>
+        ${API.net ? `<div class="stat"><b>${done.length}</b><span>cuts</span></div>` : `<div class="stat"><b>${money(u.wallet).replace('.00', '')}</b><span>wallet</span></div>`}
       </div>
       ${next ? `<div class="mt12"><div class="row between xs muted"><span>${current.name}</span><span>${fmtNum(next.min - u.lifetime)} pts to ${next.name}</span></div><div class="progress mt4"><span style="width:${Math.min(100, ((u.lifetime - current.min) / (next.min - current.min)) * 100)}%"></span></div></div>` : ''}
 
@@ -3518,8 +3580,8 @@
       ${item('dollar', 'Creator earnings', '/creator', `${money(creatorSummary().available)} available · ${money(creatorSummary().pending)} pending`)}
 
       <div class="label">Account</div>
-      ${item('wallet', 'Wallet & cards', '/wallet', `${money(u.wallet)} · ${u.cards.length} card${u.cards.length === 1 ? '' : 's'}`)}
-      ${item('crown', 'Membership', '/membership', plan.id === 'free' ? 'Save on every cut' : `${plan.name} · ${money(plan.price)}/mo`)}
+      ${API.net && NETUI ? NETUI.meAccountItems(item) : `${item('wallet', 'Wallet & cards', '/wallet', `${money(u.wallet)} · ${u.cards.length} card${u.cards.length === 1 ? '' : 's'}`)}
+      ${item('crown', 'Membership', '/membership', plan.id === 'free' ? 'Save on every cut' : `${plan.name} · ${money(plan.price)}/mo`)}`}
       ${item('gift', 'Rewards & challenges', '/rewards', 'Chase points, climb ranks')}
       ${item('history', 'Cut history', '/history', `${done.length} cuts with notes`)}
       ${item('calendar', 'Bookings', '/bookings')}
@@ -3532,18 +3594,20 @@
         ${roleButton('barber', 'Barber', !!S.meBarberId)}
         ${roleButton('owner', 'Shop owner', !!S.mePlaceId)}
       </div>
-      <p class="xs muted mt8">${meBarber ? `Barber mode uses the profile <b>${esc(meBarber.name)}</b>. ` : ''}${API.on
+      <p class="xs muted mt8">${meBarber ? `Barber mode uses the profile <b>${esc(meBarber.name)}</b>. ` : ''}${API.net
+        ? `${S.meBarberId ? '' : '<a class="acc" data-act="netBecomeBarber">Become a barber</a> '}${S.mePlaceId ? '' : '<a class="acc" data-act="netOpenShop">Open a shop</a>'}`
+        : API.on
         ? (S.meBarberId || S.mePlaceId ? '' : 'Barber and shop modes are for accounts created as a barber or shop owner.')
         : '<a class="acc" data-act="go" data-to="/join">Create your own barber profile →</a>'}</p>
 
       <div class="label">App</div>
       ${installPrompt ? item('download', 'Install Fade', '', 'Add to your home screen', 'install') : ''}
-      ${API.on
+      ${API.net && NETUI ? NETUI.meAppSection() : API.on
         ? `<div class="card small row gap10">${icon('server', 18)}<span class="grow">Connected to <b>${esc(API.base)}</b><div class="xs muted">${esc(u.email || u.name)}</div></span></div>
            <button class="btn block mt8" data-act="logout">${icon('logout', 16)} Log out</button>`
         : `${item('server', 'Connect to a Fade server', '', 'Real accounts, shared bookings, shorts & payouts', 'connectServer')}
            <button class="btn ghost block mt12 hot" data-act="reset">Reset demo data</button>`}
-      <p class="xs muted center mt16">Fade ${VERSION} · ${API.on ? 'online' : 'offline demo — data stays on this device'}</p>`;
+      <p class="xs muted center mt16">Fade ${VERSION} · ${API.net ? 'Fade Network — free, no fees' : API.on ? 'online' : 'offline demo — data stays on this device'}</p>`;
   };
 
   // ---------- Wallet ----------
@@ -3853,6 +3917,7 @@
     const byPlace = {};
     b.schedule.forEach((s) => {
       const p = placeById(s.placeId);
+      if (!p || (API.net && p.id === S.mePlaceId)) return;
       if (!byPlace[p.id]) byPlace[p.id] = { p, shifts: 0, rent: 0, kit: 0 };
       byPlace[p.id].shifts += 1;
       byPlace[p.id].rent += p.rent;
@@ -3863,7 +3928,7 @@
 
   VIEWS.pro = function () {
     const b = barberById(S.meBarberId);
-    if (!b) return `${pageHead('Barber studio', { noBack: true })}<div class="empty">No barber profile yet</div><button class="btn primary block" data-act="go" data-to="/join">Create barber profile</button>`;
+    if (!b) return `${pageHead('Barber studio', { noBack: true })}<div class="empty">No barber profile yet</div><button class="btn primary block" data-act="${API.net ? 'netBecomeBarber' : 'go'}" data-to="/join">Create barber profile</button>`;
     const avgPrice = b.services.reduce((s, x) => s + x.price, 0) / b.services.length;
     const earnings = round2(b.stats.week.cuts * avgPrice + b.stats.week.tips);
     const rents = rentSummary(b);
@@ -3886,6 +3951,7 @@
         <div class="kpi"><span>Jakarta rank</span><b class="gold">#${rank}</b><span>${fmtNum(barberScore(b, 'week'))} pts</span></div>
       </div>
 
+      ${API.net && NETUI ? NETUI.studioPanel(b) : ''}
       <h2 class="sec">Next clients</h2>
       ${appts.length ? appts.map((a) => `
         <div class="listitem">
@@ -3908,7 +3974,7 @@
       ${sortedShifts.map((s) => {
         const p = placeById(s.placeId);
         return `<div class="shift"><div class="when"><b style="font-size:15px">${DOW[s.dow]}</b></div>
-          <div class="grow"><b class="small">${esc(p.name)}</b><div class="xs muted">${fmtHours(s.from, s.to)} · ${money(p.rent)}/day</div></div>
+          <div class="grow"><b class="small">${esc(p.name)}</b> ${s.pending ? '<span class="badge standard">awaiting owner</span>' : ''}<div class="xs muted">${fmtHours(s.from, s.to)} · ${money(p.rent)}/day</div></div>
           <button class="btn xs" data-act="proDelShift" data-idx="${s.idx}">${icon('trash', 14)}</button></div>`;
       }).join('') || '<div class="empty">No shifts yet</div>'}
       <div class="card mt12">
@@ -3986,8 +4052,11 @@
   // ---------- Shop owner dashboard ----------
   VIEWS.owner = function () {
     const p = placeById(S.mePlaceId);
+    if (!p) return `${pageHead('Your shop', { noBack: true })}<div class="empty">No shop yet</div>${API.net ? '<button class="btn primary block" data-act="netOpenShop">Open your shop</button>' : ''}`;
     const shifts = S.barbers.flatMap((b) => b.schedule.filter((s) => s.placeId === p.id).map((s) => ({ ...s, b })));
-    const rentWeek = shifts.length * (p.rent + p.kitFee);
+    // The owner's own chair shifts at their own shop aren't rent income.
+    const rentedShifts = API.net ? shifts.filter((s) => s.b.id !== S.meBarberId) : shifts;
+    const rentWeek = rentedShifts.length * (p.rent + p.kitFee);
     const avgTicket = 22;
     const facilityWeek = round2(p.stats.week.visits * avgTicket * p.fee / 100);
     const prods = S.products.filter((x) => x.placeId === p.id);
@@ -4002,12 +4071,13 @@
         <button class="btn xs" data-act="go" data-to="/place/${p.id}">Public page</button>
       </div>
       <div class="kpis">
-        <div class="kpi"><span>Chair rent + kits / wk</span><b class="acc">${money(rentWeek)}</b><span>${shifts.length} barber shifts</span></div>
+        <div class="kpi"><span>Chair rent + kits / wk</span><b class="acc">${money(rentWeek)}</b><span>${rentedShifts.length} rented shift${rentedShifts.length === 1 ? '' : 's'}</span></div>
         <div class="kpi"><span>Facility fees / wk</span><b>${money(facilityWeek)}</b><span>${p.stats.week.visits} visits × ${p.fee}%</span></div>
         <div class="kpi"><span>Product sales / wk</span><b>${money(productRevenue)}</b><span>${prods.length} products</span></div>
         <div class="kpi"><span>Rank · occupancy</span><b class="gold">#${rank} · ${occupancy}%</b><span>${p.chairs} chairs</span></div>
       </div>
 
+      ${API.net && NETUI ? NETUI.ownerPanel(p) : ''}
       <h2 class="sec">Tier & customer facility fee</h2>
       <div class="seg">${Object.entries(TIERS).map(([k, t]) => `<button class="${p.tier === k ? 'on' : ''}" data-act="ownerTier" data-v="${k}">${t.label} ${t.fee}%</button>`).join('')}</div>
       <div class="card mt12">
@@ -4107,13 +4177,15 @@
         if (AUTH.mode === 'signup') {
           const body = { name: value('au-name'), email: value('au-email'), password, role: AUTH.role };
           if (AUTH.role === 'barber') body.barber = { price: Number(value('au-price')) || 15, city: value('au-city'), tags: value('au-tags') };
-          if (AUTH.role === 'owner') body.place = { name: value('au-shop'), city: value('au-city'), tier: value('au-tier') || 'standard' };
+          if (AUTH.role === 'owner') body.place = { name: value('au-shop'), city: value('au-city'), tier: value('au-tier') || 'standard', tz: Intl.DateTimeFormat().resolvedOptions().timeZone };
+          if (API.net) body.location = S.user.location;
           result = await API.req('POST', '/api/auth/register', body);
         } else {
           result = await API.req('POST', '/api/auth/login', { email: value('au-email'), password });
         }
         API.setToken(result.token);
         S = initRemoteState();
+        if (API.net) await window.FadeNet.waitForProfile(8000);
         await pull();
         const role = S.user.role;
         S.role = role === 'barber' && S.meBarberId ? 'barber' : role === 'owner' && S.mePlaceId ? 'owner' : 'customer';
@@ -4124,6 +4196,30 @@
         toast(`Welcome${welcomeBack ? ' back' : ''}, ${firstName(S.user.name)} 👋`);
       } catch (failure) {
         if (err) err.textContent = failure.message;
+      }
+    },
+    netBecomeBarber: async () => {
+      const price = Number(window.prompt('Your main cut price in USD', '15'));
+      if (!price) return;
+      const city = window.prompt('City you work in', (S.user.location || {}).label || '') || '';
+      const tags = window.prompt('Specialties (comma separated)', 'Skin fade, Beard') || '';
+      await remoteDo(() => API.req('POST', '/api/me/barber', { price, city, tags }), 'Barber profile created ✂️');
+      if (S.meBarberId) {
+        S.role = 'barber';
+        save();
+        go('/pro');
+      }
+    },
+    netOpenShop: async () => {
+      const name = window.prompt('Shop name');
+      if (!name) return;
+      const city = window.prompt('City', (S.user.location || {}).label || '') || '';
+      const loc = S.user.location || {};
+      await remoteDo(() => API.req('POST', '/api/me/place', { name, city, tz: Intl.DateTimeFormat().resolvedOptions().timeZone, lat: loc.lat, lng: loc.lng }), 'Shop created 💈');
+      if (S.mePlaceId) {
+        S.role = 'owner';
+        save();
+        go('/owner');
       }
     },
     logout: async () => {
@@ -5066,7 +5162,7 @@
   // Server mode: keep chats, bookings and earnings fresh.
   let polling = false;
   setInterval(async () => {
-    if (!API.on || !API.token || !S || !S.onboarded || document.hidden || polling) return;
+    if (API.net || !API.on || !API.token || !S || !S.onboarded || document.hidden || polling) return;
     if ($('#sheet-root').classList.contains('open')) return;
     polling = true;
     try {
@@ -5084,12 +5180,81 @@
     }
   }, 6000);
 
+  // ---------- Fade Network (serverless, free) ----------
+  let NETUI = null;
+  let netTimer = null;
+
+  function installNetUI() {
+    if (NETUI || !window.FadeNetUI) return;
+    NETUI = window.FadeNetUI({
+      API, VIEWS, ACTIONS, $, esc, money, icon, avatar, barberAvatar, pageHead, toast, openSheet, setSheet, closeSheet,
+      go, refresh, pull, remoteDo, barberById, placeById, fmtDate, fmtTime, whenLabel, firstName, confetti, compact, ago,
+      placeCover, refNoteHTML, shareLink, logoutLocal, activeRef,
+      state: () => S,
+      save: () => save(),
+      cartDelivery: () => CART.delivery,
+      cartAddress: () => ($('#cart-address') ? $('#cart-address').value.trim() : CART.address || ''),
+      afterLogin: async () => {
+        API.setToken('nostr');
+        S = initRemoteState();
+        await window.FadeNet.waitForProfile(8000);
+        await pull();
+        S.role = S.user.role === 'barber' && S.meBarberId ? 'barber' : S.user.role === 'owner' && S.mePlaceId ? 'owner' : 'customer';
+        save();
+        go(defaultPath());
+        toast(`Welcome back, ${firstName(S.user.name)} 👋`);
+      },
+    });
+  }
+
+  function liveUpdate() {
+    clearTimeout(netTimer);
+    netTimer = setTimeout(async () => {
+      if (!API.net || !API.token || !S || !S.onboarded) return;
+      try {
+        await pull();
+      } catch (err) {
+        return;
+      }
+      if ($('#sheet-root').classList.contains('open')) return;
+      const page = parseRoute().page;
+      if (['chat', 'thread', 'bookings', 'creator', 'pro', 'owner', 'admin', 'home', 'me'].includes(page)) {
+        refresh();
+      } else {
+        renderTabbar(page);
+      }
+    }, 400);
+  }
+
+  async function startNetwork() {
+    API.net = true;
+    API.on = true;
+    API.base = 'Fade Network';
+    installNetUI();
+    await window.FadeNet.start();
+    window.FadeNet.onChange(liveUpdate);
+    window.FadeNet.onNotify((message) => {
+      toast(`${message.title ? `${message.title}: ` : ''}${message.message || ''}`.slice(0, 140));
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.hidden) {
+        try {
+          new Notification(message.title || 'Fade', { body: message.message || '', icon: 'icons/icon-192.png' });
+        } catch (err) {
+          // some browsers only allow notifications from a service worker
+        }
+      }
+    });
+    API.token = window.FadeNet.hasKey() ? 'nostr' : null;
+  }
+
   async function boot() {
     $('#view').innerHTML = '<div class="splash"><div class="logo">fade<i>.</i></div></div>';
     const params = new URLSearchParams(location.search);
     const forceLocal = params.has('offline') || localStorage.getItem('fade.forceLocal') === '1';
     if (!forceLocal) await API.detect();
-    storeKey = API.on ? REMOTE_KEY : LOCAL_KEY;
+    if (!forceLocal && !API.on && window.FadeNet) await startNetwork();
+    installNetUI();
+    const profile = (params.get('profile') || '').replace(/[^a-z0-9]/gi, '');
+    storeKey = API.net ? `${REMOTE_KEY}.net.${window.FadeNet.config.ns}${profile ? `.${profile}` : ''}` : API.on ? REMOTE_KEY : LOCAL_KEY;
     S = loadState(storeKey);
     if (!API.on) {
       // Deep link: ?start=customer|barber|owner skips the welcome screen (demos / QR codes).
@@ -5100,6 +5265,10 @@
       }
     } else if (API.token) {
       try {
+        if (API.net) {
+          await window.FadeNet.waitForSync(6000);
+          await window.FadeNet.waitForProfile(8000);
+        }
         await pull();
       } catch (err) {
         if (err.status === 401) {
@@ -5126,6 +5295,9 @@
       return S;
     },
     ACTIONS, CHANGES, render, quote, slotsFor, go, API, Media, pull, hash, trendScore, feedList,
+    get NETUI() {
+      return NETUI;
+    },
     handleShortFile, postShort, openUpload, placeTimeToDate,
     get UP() {
       return UP;
