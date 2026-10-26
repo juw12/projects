@@ -5,7 +5,7 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 import json
 
 from playwright.sync_api import sync_playwright, expect
@@ -26,7 +26,7 @@ class DemoHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         if urlsplit(self.path).path.endswith('/sw.js') and self.release_override:
-            content = (ROOT / 'sw.js').read_text().replace("'3.0.0'", "'3.0.1-test'")
+            content = (ROOT / 'sw.js').read_text().replace("'4.0.0'", "'4.0.1-test'")
             payload = content.encode()
             self.send_response(200)
             self.send_header('Content-Type', 'text/javascript; charset=utf-8')
@@ -39,6 +39,56 @@ class DemoHandler(SimpleHTTPRequestHandler):
 
     def log_message(self, *args):
         pass
+
+
+EMPTY_CATALOG = {'schema': 1, 'settings': {}, 'lessons': [], 'materials': [], 'events': []}
+CONTENT_CATALOG = {
+    'schema': 1,
+    'updatedAt': '2026-11-09T10:00:00Z',
+    'settings': {'announcement': '11 月共學開放報名中', 'hideSamples': False},
+    'lessons': [
+        {'id': 'onboarding', 'title': '新手導覽：怎麼使用光耀同行', 'summary': '五分鐘學會登入與每日學習。', 'status': 'published', 'order': 0,
+         'reading': ['第一次打開時，可以選擇登入或以訪客身分繼續。', '每天先選每日目標，再上一堂課，最後做每日複習。'],
+         'video': 'https://youtu.be/dQw4w9WgXcQ', 'materials': ['handbook', 'draft-file'],
+         'quiz': [
+             {'question': '想讓手機和電腦進度同步，應該怎麼做？', 'options': ['用帳號登入', '一直用訪客'], 'answer': 0, 'explain': '登入後會同步。'},
+             {'question': '複習時翻面要按哪個鍵？', 'options': ['Esc', '空白鍵', 'Tab'], 'answer': 1, 'explain': '按空白鍵翻面。'}
+         ],
+         'reflect': '你打算每天什麼時候學習？', 'cards': [['訪客和登入的差別？', '登入會跨裝置同步']]},
+        {'id': 'hidden-draft', 'title': '尚未發布的草稿', 'status': 'draft', 'reading': ['草稿內容']},
+        {'id': 'xss', 'title': '<img src=x onerror="window.catalogXss=1">', 'status': 'published', 'order': 5, 'reading': ['<script>window.catalogXss=2</script>']}
+    ],
+    'materials': [
+        {'id': 'handbook', 'title': '學員使用手冊', 'kind': 'file', 'path': 'files/2026/11/abc-handbook.pdf', 'commit': 'a' * 40, 'size': 204800, 'mime': 'application/pdf', 'filename': '使用手冊.pdf', 'status': 'published',
+         'description': '可列印的操作說明。', 'notes': '連續保護：每連續學習七天會得到一個連續保護，最多兩個。'},
+        {'id': 'draft-file', 'title': '草稿講義', 'kind': 'link', 'url': 'https://example.com/draft', 'status': 'draft'},
+        {'id': 'evil-link', 'title': '危險連結', 'kind': 'link', 'url': 'javascript:alert(1)', 'status': 'published'},
+        {'id': 'escape-path', 'title': '路徑攻擊', 'kind': 'file', 'path': 'files/../../etc/passwd', 'status': 'published'}
+    ],
+    'events': [
+        {'id': 'open-day', 'title': '新朋友線上說明會', 'date': '2026-11-20', 'time': '19:30', 'type': 'online', 'teacher': '服務團隊', 'place': '線上會議', 'description': '介紹平台', 'signupUrl': 'https://example.com/form', 'status': 'published'},
+        {'id': 'draft-event', 'title': '草稿活動', 'date': '2026-11-21', 'time': '10:00', 'status': 'draft'}
+    ]
+}
+
+
+def make_context(browser, catalog=None, skip_tour=True, **options):
+    """Isolated context: the content repo is mocked and Puter/GitHub API calls never leave the machine."""
+    context = browser.new_context(accept_downloads=False, **options)
+    body = json.dumps(catalog or EMPTY_CATALOG)
+    context.route('https://raw.githubusercontent.com/**', lambda route: route.fulfill(status=200, content_type='application/json', body=body))
+    context.route('https://api.github.com/**', lambda route: route.fulfill(status=200, content_type='application/json', body=body))
+    context.route('https://js.puter.com/**', lambda route: route.abort())
+    if skip_tour:
+        context.add_init_script("localStorage.setItem('guangyao-tour-v1', 'test');")
+    return context
+
+
+def start_guest(page):
+    expect(page.locator('.welcome')).to_be_visible()
+    page.locator('.welcome [data-action="guest-start"]').click()
+    expect(page.locator('.welcome')).to_have_count(0)
+    page.wait_for_timeout(80)
 
 
 def passed(label):
@@ -96,12 +146,14 @@ def complete_lesson(page, perfect=True, reflection='今天想練習先聽完再�
 
 
 def core_flows(browser, base, engine):
-    context = browser.new_context(viewport={'width': 1440, 'height': 1000}, accept_downloads=False)
+    context = make_context(browser, viewport={'width': 1440, 'height': 1000})
     page = context.new_page()
     page.set_default_timeout(7000)
     errors = []
     page.on('pageerror', lambda error: errors.append(str(error)))
     page.goto(base + 'index.html')
+    start_guest(page)
+    assert read_state(page)['account']['mode'] == 'guest'
     go(page, 'course/practice')
     expect(page.locator('[data-action="play-lesson"]')).to_be_disabled()
     go(page, 'course/foundation')
@@ -140,22 +192,13 @@ def core_flows(browser, base, engine):
     click(page, 'event-detail', '[data-id="e1"]')
     click(page, 'register-event')
     assert read_state(page)['registrations'] == []
-    change_role(page, 'organizer')
+    assert 'e4' not in [card.get_attribute('data-id') for card in page.locator('[data-action="event-detail"]').all()]
+    click(page, 'account')
+    expect(page.locator('#modal [name="role"]')).to_have_count(0)
+    click(page, 'close')
     go(page, 'admin')
-    click(page, 'create-event')
-    form = page.locator('[data-form="create-event"]')
-    for field, value in [('title', 'Restricted QA activity'), ('teacher', '示範教師'), ('place', '示範地點'), ('description', '測試安全說明')]:
-        form.locator(f'[name="{field}"]').fill(value)
-    form.locator('[name="rank"]').select_option('organizer')
-    form.locator('[type="submit"]').click()
-    expect(page.locator('#modal')).not_to_be_visible()
-    assert len(read_state(page)['events']) == 1
-    change_role(page, 'member')
-    go(page, 'schedule')
-    assert 'Restricted QA activity' not in page.locator('#main').inner_text()
-    go(page, 'admin')
-    expect(page.locator('#main')).to_contain_text('目前沒有存取權限')
-    passed(f'{engine}: registration, cancellation and restricted organizer content')
+    expect(page.locator('#main .card a[href="admin.html"]').first).to_be_visible()
+    passed(f'{engine}: registration, cancellation, no learner-side role switch and staff work routed to the admin console')
 
     go(page, 'community')
     page.locator('[data-form="message"] input').fill('<script>window.injection = true</script>')
@@ -182,7 +225,7 @@ def core_flows(browser, base, engine):
     click(page, 'close')
     passed(f'{engine}: escaped chat, voting, rewards, persistence and no-charge donation')
 
-    routes = ['home', 'courses', 'course/foundation', 'schedule', 'community', 'meetings', 'portfolio', 'vault', 'rewards', 'invite', 'about', 'admin']
+    routes = ['home', 'courses', 'library', 'guide', 'course/foundation', 'schedule', 'community', 'meetings', 'portfolio', 'vault', 'rewards', 'invite', 'about', 'admin']
     for width in [1440, 768, 390]:
         page.set_viewport_size({'width': width, 'height': 844})
         for route in routes:
@@ -199,18 +242,21 @@ def core_flows(browser, base, engine):
     page.locator('[data-pwa-action="install"]').click()
     expect(page.locator('#dialog-title')).to_contain_text('安裝')
     click(page, 'close')
-    passed(f'{engine}: 36 route layouts, mobile drawer focus state and installation guidance')
+    passed(f'{engine}: 42 route layouts, mobile drawer focus state and installation guidance')
 
     click(page, 'account')
     click(page, 'logout')
-    expect(page.locator('#main')).to_contain_text('進入示範帳戶')
+    expect(page.locator('#dialog-title')).to_contain_text('已登出')
+    click(page, 'close')
+    expect(page.locator('.welcome')).to_be_visible()
     assert read_state(page)['signedIn'] is False
-    click(page, 'account')
-    page.locator('[data-form="account"] [type="submit"]').click()
-    page.wait_for_timeout(100)
+    assert read_state(page)['completed'] == ['foundation']
+    start_guest(page)
+    assert read_state(page)['completed'] == ['foundation']
     click(page, 'account')
     click(page, 'reset')
     click(page, 'confirm-reset')
+    start_guest(page)
     assert read_state(page)['points'] == 320
     assert read_state(page)['completed'] == []
     for course_id in ['foundation', 'practice', 'lead']:
@@ -234,15 +280,15 @@ def core_flows(browser, base, engine):
     assert read_state(page)['points'] == 620
     click(page, 'close')
     assert not errors, errors
-    passed(f'{engine}: logout, reset, all three levels, repeat-award protection and no application errors')
+    passed(f'{engine}: logout keeps local progress, clear-device reset, all three levels, repeat-award protection and no application errors')
     context.close()
 
 
 TODAY = '2026-11-10'
 
 
-def fixed_day_context(browser, seed=None, **options):
-    context = browser.new_context(accept_downloads=False, **options)
+def fixed_day_context(browser, seed=None, catalog=None, **options):
+    context = make_context(browser, catalog=catalog, **options)
     script = f"window.GY_TEST_TODAY = '{TODAY}';"
     if seed is not None:
         script += f"""
@@ -286,6 +332,7 @@ def study_flows(browser, base, engine):
     page.on('pageerror', lambda error: errors.append(str(error)))
     page.on('request', lambda request: puter_requests.append(request.url) if 'puter.com' in request.url else None)
     page.goto(base + 'index.html')
+    start_guest(page)
     expect(page.locator('.today-panel')).to_be_visible()
     assert page.locator('.nav-item[data-page="review"] .count').inner_text() == '3'
     click(page, 'choose-goal', '[data-xp="10"]')
@@ -367,41 +414,52 @@ def study_flows(browser, base, engine):
     assert page.evaluate('pendingQuiz !== null')
     expect(ask_tutor(page, '先聽完再回應，並確認對方的意思')).to_contain_text('參考答案')
     page.locator('[data-setting-tutor-scope]').select_option('foundation:2')
-    expect(ask_tutor(page, chip='做成閃卡')).to_contain_text('2 張閃卡')
+    expect(ask_tutor(page, chip='整理成閃卡')).to_contain_text('2 張閃卡')
     assert len(read_state(page)['study']['cards']) == 7
     ask_tutor(page, '<img src=x onerror="window.tutorXss=1">')
     assert page.evaluate('window.tutorXss === undefined')
     assert not puter_requests, puter_requests
-    passed(f'{engine}: offline tutor citations, honest no-answer, quiz, answer withheld with hint, flashcard creation, escaping, zero network')
+    expect(page.locator('.callout.ai-cta [data-action="puter-signin"]')).to_be_visible()
+    plan = ask_tutor(page, chip='幫我排今天的學習計畫')
+    expect(plan).to_contain_text('今天的學習計畫')
+    passed(f'{engine}: offline tutor citations, honest no-answer, quiz, answer withheld with hint, flashcards, study plan, escaping, zero network')
 
-    page.locator('[data-setting-ai]').click()
-    expect(page.locator('[data-setting-ai]')).not_to_be_checked()
-    expect(page.locator('#dialog-title')).to_contain_text('雲端 AI')
-    assert read_state(page)['study']['settings']['aiOptIn'] is False
-    page.evaluate("""() => {
-        window.puterCalls = [];
-        window.puter = {
-            auth: {isSignedIn: () => true, signIn: async () => true},
-            ai: {chat: async messages => {
-                window.puterCalls.push(messages);
-                return {message: {content: '先想一想：課文說要先詢問再協助〈看見生活裡的需要〉。你會怎麼開口？'}};
-            }}
-        };
-    }""")
-    click(page, 'ai-confirm')
-    assert read_state(page)['study']['settings']['aiOptIn'] is True
+    install_puter_mock(page)
+    click(page, 'puter-signin')
+    page.wait_for_function("state.account.mode === 'puter'")
+    assert read_state(page)['account']['username'] == 'tester'
+    expect(page.locator('.callout.ai-on')).to_contain_text('AI 學伴已啟用')
     page.locator('[data-setting-tutor-scope]').select_option('all')
-    expect(ask_tutor(page, '長輩提重物時我該怎麼做？')).to_contain_text('雲端 AI')
+    reply = ask_tutor(page, '長輩提重物時我該怎麼做？')
+    expect(reply).to_contain_text('AI 學伴')
+    expect(reply).to_contain_text('先詢問')
     calls = page.evaluate('window.puterCalls')
-    assert len(calls) == 1
-    assert '只根據使用者提供的課程摘錄回答' in calls[0][0]['content']
-    assert '〈看見生活裡的需要〉' in calls[0][1]['content'] and '先詢問' in calls[0][1]['content'], calls[0][1]['content']
-    page.evaluate("() => { window.puter.ai.chat = async () => { throw new Error('quota exceeded'); }; }")
-    expect(ask_tutor(page, '看見需要是什麼意思？')).to_contain_text('改用離線學伴')
-    page.locator('[data-setting-ai]').uncheck()
-    page.wait_for_timeout(150)
-    assert read_state(page)['study']['settings']['aiOptIn'] is False
-    passed(f'{engine}: cloud AI requires consent, sends grounded prompt, falls back offline on failure and can be turned off')
+    assert len(calls) == 1 and calls[0]['options'] == {'model': 'gpt-5-mini', 'stream': True}, calls
+    messages = calls[0]['messages']
+    assert '只根據「課程與教材摘錄」回答' in messages[0]['content']
+    assert '〈看見生活裡的需要〉' in messages[1]['content'] and '學員進度' in messages[1]['content'], messages[1]['content']
+    assert messages[-1] == {'role': 'user', 'content': '長輩提重物時我該怎麼做？'}
+    page.locator('[data-setting-ai-context]').uncheck()
+    page.wait_for_timeout(120)
+    ask_tutor(page, chip='用簡單的話解釋')
+    calls = page.evaluate('window.puterCalls')
+    assert '不分享學習進度' in calls[-1]['messages'][1]['content']
+    assert any(entry['role'] == 'assistant' for entry in calls[-1]['messages'][2:-1]), 'conversation history is sent'
+    page.evaluate("window.puterReply = JSON.stringify([{front: '先詢問再協助的原因？', back: '尊重對方的意願'}, {front: '提重物前要先做什麼？', back: '先問對方需不需要幫忙'}])")
+    expect(ask_tutor(page, chip='整理成閃卡')).to_contain_text('已建立 2 張閃卡')
+    custom = read_state(page)['study']['customCards']
+    assert len(custom) == 2 and all(card_id in read_state(page)['study']['cards'] for card_id in custom), custom
+    page.evaluate("() => { window.puterFail = 'quota exceeded'; }")
+    expect(ask_tutor(page, '看見需要是什麼意思？')).to_contain_text('離線回答')
+    page.evaluate("() => { window.puterFail = ''; }")
+    page.locator('[data-setting-offline]').check()
+    page.wait_for_timeout(120)
+    before = len(page.evaluate('window.puterCalls'))
+    expect(ask_tutor(page, '看見需要是什麼意思？')).to_contain_text('離線學伴')
+    assert len(page.evaluate('window.puterCalls')) == before
+    page.locator('[data-setting-offline]').uncheck()
+    page.wait_for_timeout(120)
+    passed(f'{engine}: Puter sign-in unlocks the AI companion: streamed grounded answers with history, privacy toggle, AI flashcards, offline fallback and offline-only mode')
 
     go(page, 'home')
     click(page, 'focus-open')
@@ -521,7 +579,7 @@ def streak_rules(browser, base):
     assert study['xpByDay'] == {} and study['freezes'] == 2
     assert 'bogus#0' not in study['cards']
     assert study['cards']['foundation:0#0'] == {'due': TODAY, 'interval': 0, 'ease': 2.5, 'reps': 0, 'lapses': 0}
-    assert study['settings'] == {'theme': 'system', 'textSize': 'normal', 'speechRate': 1, 'aiOptIn': False}
+    assert study['settings'] == {'theme': 'system', 'textSize': 'normal', 'speechRate': 1, 'aiOptIn': False, 'offlineOnly': False, 'aiContext': True}
     assert study['tutorLog'] == []
     assert not errors, errors
     context.close()
@@ -529,9 +587,11 @@ def streak_rules(browser, base):
 
 
 def concurrent_and_storage(browser, base):
-    context = browser.new_context()
+    context = make_context(browser)
     first = context.new_page()
     second = context.new_page()
+    first.goto(base + 'index.html')
+    start_guest(first)
     for page in [first, second]:
         page.set_default_timeout(7000)
         page.goto(base + 'index.html#rewards')
@@ -563,7 +623,7 @@ def concurrent_and_storage(browser, base):
     context.close()
 
     for raw in ['{broken-json', json.dumps({'points': -999, 'lessons': None, 'completed': ['lead', 'lead'], 'groups': [{'id': '\" onclick=\"alert(1)', 'title': 'Unsafe'}], 'messages': [], 'events': 'invalid', 'redemptions': [{'reward': 'unknown'}], 'name': 'Data recovery'})]:
-        context = browser.new_context()
+        context = make_context(browser)
         context.add_init_script(f'''if (!sessionStorage.getItem('seeded')) {{
             localStorage.setItem('guangyao-v2:' + new URL('.', location.href).pathname, {json.dumps(raw)});
             sessionStorage.setItem('seeded', '1');
@@ -572,7 +632,7 @@ def concurrent_and_storage(browser, base):
         errors = []
         page.on('pageerror', lambda error: errors.append(str(error)))
         page.goto(base + 'index.html')
-        expect(page.locator('.hero')).to_be_visible()
+        expect(page.locator('.welcome')).to_be_visible()
         assert page.evaluate('state.points') == 320
         assert page.evaluate('state.completed.length') == 0
         assert page.evaluate('state.groups.length') == 0
@@ -580,7 +640,7 @@ def concurrent_and_storage(browser, base):
         context.close()
     passed('Corrupt JSON, invalid shapes, hostile IDs and fabricated balances normalize safely')
 
-    context = browser.new_context()
+    context = make_context(browser)
     context.add_init_script('''if (!sessionStorage.getItem('seeded')) {
         localStorage.setItem('guangyao-prototype-v1', JSON.stringify({
             name: '既有學員', role: 'member', signedIn: true,
@@ -595,15 +655,18 @@ def concurrent_and_storage(browser, base):
     assert page.evaluate('state.name') == '既有學員'
     assert page.evaluate('state.points') == 220
     assert page.evaluate('state.completed[0]') == 'foundation'
-    passed('Existing v1 progress and redemptions migrate without resetting valid work')
+    assert page.evaluate('state.account.mode') == 'guest'
+    expect(page.locator('.hero')).to_be_visible()
+    passed('Existing v1 progress and redemptions migrate (as a guest account) without resetting valid work')
     context.close()
 
 
 def pwa_and_updates(browser, base):
-    context = browser.new_context()
+    context = make_context(browser)
     page = context.new_page()
     page.set_default_timeout(10000)
     page.goto(base + 'demo-project/index.html')
+    start_guest(page)
     page.wait_for_function('navigator.serviceWorker.controller !== null')
     scope = page.evaluate('navigator.serviceWorker.getRegistration().then(registration => registration.scope)')
     assert scope.endswith('/demo-project/')
@@ -613,15 +676,17 @@ def pwa_and_updates(browser, base):
     cdp.send('Page.enable')
     installability = cdp.send('Page.getInstallabilityErrors')
     assert installability['installabilityErrors'] == [], installability
+    cdp.detach()
     keys = page.evaluate('caches.keys()')
     shell_key = next(key for key in keys if '%2Fdemo-project%2F' in key)
     cached_urls = page.evaluate('(key) => caches.open(key).then(cache => cache.keys()).then(keys => keys.map(request => request.url))', shell_key)
-    assert len(cached_urls) == 7
+    assert len(cached_urls) == 9
     assert all('/demo-project/' in url for url in cached_urls)
+    assert not any('admin' in url or 'githubusercontent' in url for url in cached_urls)
     assert not any('/api/' in url for url in cached_urls)
     awaitable = 'fetch("api/private-probe", {cache: "no-store"}).then(response => response.status)'
     page.evaluate(awaitable)
-    assert page.evaluate('(key) => caches.open(key).then(cache => cache.keys()).then(keys => keys.length)', shell_key) == 7
+    assert page.evaluate('(key) => caches.open(key).then(cache => cache.keys()).then(keys => keys.length)', shell_key) == 9
     context.set_offline(True)
     page.reload(wait_until='domcontentloaded')
     expect(page.locator('.hero')).to_be_visible()
@@ -644,17 +709,430 @@ def pwa_and_updates(browser, base):
     page.once('dialog', lambda dialog: dialog.accept())
     with page.expect_navigation(wait_until='domcontentloaded'):
         page.locator('#update-app').click()
-    page.wait_for_function('caches.keys().then(keys => keys.some(key => key.endsWith("3.0.1-test")))')
+    page.wait_for_function('caches.keys().then(keys => keys.some(key => key.endsWith("4.0.1-test")))')
     assert shell_key not in page.evaluate('caches.keys()')
     passed('Updates wait for confirmation; approved update activates and clears only its scoped old cache')
     DemoHandler.release_override = False
     context.close()
 
 
+PUTER_MOCK_JS = """
+(() => {
+  if (window.__puterMock) return;
+  window.__puterMock = true;
+  window.puterCalls = [];
+  window.puterReply = '';
+  window.puterFail = '';
+  const store = () => JSON.parse(sessionStorage.getItem('mock-kv') || '{}');
+  const persist = data => sessionStorage.setItem('mock-kv', JSON.stringify(data));
+  window.puter = {
+    auth: {
+      isSignedIn: () => sessionStorage.getItem('mock-puter-signed') === '1',
+      signIn: async () => { sessionStorage.setItem('mock-puter-signed', '1'); return true; },
+      signOut: async () => { sessionStorage.removeItem('mock-puter-signed'); window.puterSignedOut = true; },
+      getUser: async () => ({username: 'tester'})
+    },
+    kv: {
+      get: async key => (store()[key] ?? null),
+      set: async (key, value) => {
+        if (window.kvFail) throw new Error(window.kvFail);
+        const data = store();
+        data[key] = value;
+        persist(data);
+        return true;
+      },
+      del: async key => { const data = store(); delete data[key]; persist(data); return true; }
+    },
+    ai: {
+      chat: async (messages, options) => {
+        window.puterCalls.push({messages, options});
+        if (window.puterFail) throw new Error(window.puterFail);
+        const text = window.puterReply || '先想一想：課文說要先詢問再協助〈看見生活裡的需要〉。你會怎麼開口？';
+        window.puterReply = '';
+        const parts = [text.slice(0, 5), text.slice(5, 12), text.slice(12)];
+        return (async function* stream() {
+          for (const part of parts) yield {text: part};
+        })();
+      }
+    }
+  };
+})();
+"""
+
+
+def install_puter_mock(page):
+    page.evaluate(PUTER_MOCK_JS)
+
+
+def content_flows(browser, base, engine):
+    context = fixed_day_context(browser, catalog=CONTENT_CATALOG, viewport={'width': 1440, 'height': 1000})
+    page = context.new_page()
+    page.set_default_timeout(8000)
+    errors = []
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    page.goto(base + 'index.html')
+    expect(page.locator('.welcome')).to_be_visible()
+    expect(page.locator('.welcome-compare')).to_contain_text('AI 學伴')
+    expect(page.locator('.welcome a[href="admin.html"]')).to_be_visible()
+    go(page, 'guide')
+    expect(page.locator('#main h1')).to_contain_text('使用指南')
+    assert page.locator('.faq').count() >= 5
+    expect(page.locator('#main .card a[href="admin.html"]').first).to_be_visible()
+    go(page, 'home')
+    start_guest(page)
+    expect(page.locator('.official-strip')).to_contain_text('11 月共學開放報名中')
+    expect(page.locator('.official-strip [data-action="play-official"]').first).to_contain_text('新手導覽')
+    passed(f'{engine}: welcome screen with guest/sign-in choice, usage guide before sign-in, announcement and newest lessons on home')
+
+    go(page, 'library')
+    lessons = page.locator('.official-lesson')
+    assert lessons.count() == 2, lessons.count()
+    expect(page.locator('#main')).not_to_contain_text('尚未發布的草稿')
+    assert page.evaluate('window.catalogXss === undefined')
+    rows = page.locator('.material-row')
+    assert rows.count() == 1, rows.count()
+    href = rows.first.locator('a').get_attribute('href')
+    assert href == 'https://cdn.jsdelivr.net/gh/juwpegatron/guangyao-content@' + 'a' * 40 + '/files/2026/11/abc-handbook.pdf', href
+    assert rows.first.locator('a').get_attribute('rel') == 'noopener noreferrer'
+    passed(f'{engine}: official library hides drafts, rejects javascript: and path-traversal materials, escapes titles and links commit-pinned files')
+
+    page.locator('[data-action="play-official"][data-id="onboarding"]').click()
+    expect(page.locator('#modal.lesson-dialog')).to_be_visible()
+    assert 'youtube-nocookie.com/embed/dQw4w9WgXcQ' in page.locator('.video-embed iframe').get_attribute('src')
+    expect(page.locator('.attachments')).to_contain_text('學員使用手冊')
+    expect(page.locator('.attachments')).not_to_contain_text('草稿講義')
+    expect(page.locator('.lesson-count')).to_have_text('1/4')
+    click(page, 'lesson-next')
+    click(page, 'lesson-choose', '[data-index="0"]')
+    expect(page.locator('#modal .feedback')).to_have_class('feedback good')
+    click(page, 'lesson-next')
+    click(page, 'lesson-choose', '[data-index="0"]')
+    expect(page.locator('#modal .feedback')).to_have_class('feedback bad')
+    click(page, 'lesson-next')
+    page.locator('#lesson-reflection').fill('晚上九點')
+    click(page, 'lesson-finish')
+    expect(page.locator('#modal')).to_contain_text('答對 1 / 2 題')
+    click(page, 'complete-lesson')
+    page.wait_for_timeout(200)
+    expect(page.locator('#modal')).not_to_be_visible()
+    data = read_state(page)['study']
+    assert data['officialDone'] == ['onboarding']
+    assert data['mastery']['official:onboarding'] == {'correct': 1, 'total': 2}
+    assert 'official:onboarding#0' in data['cards']
+    assert data['journal'][-1] == {'date': TODAY, 'lesson': 'official:onboarding', 'text': '晚上九點'}
+    passed(f'{engine}: admin-published lesson plays with video, attachments, two questions and a reflection; completion, mastery, cards and journal recorded')
+
+    go(page, 'tutor')
+    expect(ask_tutor(page, '連續保護最多幾個？')).to_contain_text('出處：〈學員使用手冊〉')
+    passed(f'{engine}: offline tutor answers from admin material notes with a citation')
+
+    go(page, 'schedule')
+    expect(page.locator('#main')).to_contain_text('新朋友線上說明會')
+    expect(page.locator('#main')).not_to_contain_text('草稿活動')
+    card = page.locator('.event-card', has_text='新朋友線上說明會')
+    expect(card.locator('.tag.blue')).to_contain_text('正式公告')
+    click(page, 'event-detail', '[data-id="pub-open-day"]')
+    signup = page.locator('#modal a', has_text='前往主辦方報名')
+    assert signup.get_attribute('href') == 'https://example.com/form' and signup.get_attribute('target') == '_blank'
+    click(page, 'register-event')
+    assert 'pub-open-day' in read_state(page)['registrations']
+    click(page, 'calendar-toggle')
+    expect(page.locator('#main h2').first).to_contain_text('2026 年 11 月')
+    click(page, 'calendar-month', '[data-step="1"]')
+    expect(page.locator('#main h2').first).to_contain_text('2026 年 12 月')
+    click(page, 'calendar-toggle')
+    assert page.locator('[data-action="event-detail"][data-id="e1"]').count() >= 1
+    hidden = dict(CONTENT_CATALOG, settings={'announcement': '', 'hideSamples': True})
+    page.evaluate('(catalog) => GY_CATALOG.inject(catalog)', hidden)
+    page.wait_for_timeout(150)
+    assert page.locator('[data-action="event-detail"][data-id="e1"]').count() == 0
+    expect(page.locator('#main')).to_contain_text('新朋友線上說明會')
+    passed(f'{engine}: published events with external signup, personal schedule, month calendar navigation and admin-hidden sample events')
+
+    page.reload()
+    assert 'official:onboarding#0' in read_state(page)['study']['cards']
+    stripped = dict(CONTENT_CATALOG, lessons=[])
+    page.evaluate('(catalog) => GY_CATALOG.inject(catalog)', stripped)
+    go(page, 'review')
+    expect(page.locator('main h1')).to_contain_text('每日複習')
+    assert not any(card.startswith('official:') for card in page.evaluate('GY_STUDY.dueCards()'))
+    assert 'official:onboarding#0' in page.evaluate('state.study.cards ? Object.keys(state.study.cards) : []')
+    assert not errors, errors
+    passed(f'{engine}: progress on official lessons survives reloads; unpublished lessons are skipped in review without losing data')
+    context.close()
+
+
+def account_sync_flows(browser, base):
+    context = make_context(browser, skip_tour=False, viewport={'width': 1300, 'height': 900})
+    context.add_init_script(PUTER_MOCK_JS)
+    remote = {
+        'name': '雲端', 'signedIn': True, 'lessons': {'foundation': [0, 1, 2], 'practice': [], 'lead': []},
+        'completed': [], 'registrations': ['e2'],
+        'study': {'xpByDay': {'2026-10-20': 30}, 'cards': {'foundation:2#0': {'due': '2026-10-30', 'interval': 6, 'ease': 2.6, 'reps': 3, 'lapses': 0}}, 'officialDone': ['onboarding'], 'journal': [{'date': '2026-10-20', 'lesson': 'foundation:2', 'text': '雲端心得'}]}
+    }
+    context.add_init_script(f"""
+        if (!sessionStorage.getItem('mock-kv')) {{
+            const text = JSON.stringify({json.dumps(remote, ensure_ascii=False)});
+            sessionStorage.setItem('mock-kv', JSON.stringify({{'guangyao-sync-v1:0': text, 'guangyao-sync-v1:meta': JSON.stringify({{parts: 1, updatedAt: '2026-10-20T00:00:00Z'}})}}));
+        }}""")
+    page = context.new_page()
+    page.set_default_timeout(8000)
+    errors = []
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    page.goto(base + 'index.html')
+    page.locator('.welcome [data-action="puter-signin"]').click()
+    expect(page.locator('.tour')).to_be_visible()
+    page.locator('[data-form="tour-name"] input').fill('小芳')
+    page.locator('[data-form="tour-name"] [type="submit"]').click()
+    for _ in range(2):
+        click(page, 'tour-next')
+    click(page, 'tour-skip')
+    expect(page.locator('#modal')).not_to_be_visible()
+    state = read_state(page)
+    assert state['account'] == {'mode': 'puter', 'username': 'tester', 'syncedAt': ''}, state['account']
+    assert state['name'] == '小芳'
+    assert sorted(state['lessons']['foundation']) == [0, 1, 2]
+    assert state['study']['xpByDay'].get('2026-10-20') == 30
+    assert state['study']['cards']['foundation:2#0']['reps'] == 3
+    assert 'onboarding' in state['study']['officialDone']
+    assert 'e2' in state['registrations']
+    assert page.evaluate("localStorage.getItem('guangyao-tour-v1') !== null")
+    passed('Puter sign-in from the welcome screen merges cloud progress (lessons, XP, cards, journal, registrations) and runs the first-visit tour once')
+
+    page.wait_for_function("JSON.parse(sessionStorage.getItem('mock-kv'))['guangyao-sync-v1:meta'] && JSON.parse(JSON.parse(sessionStorage.getItem('mock-kv'))['guangyao-sync-v1:0']).name === '小芳'", timeout=10000)
+    click(page, 'choose-goal', '[data-xp="30"]')
+    page.wait_for_function("JSON.parse(JSON.parse(sessionStorage.getItem('mock-kv'))['guangyao-sync-v1:0']).study.dailyGoal === 30", timeout=10000)
+    expect(page.locator('.top-actions .demo-pill')).to_contain_text('已同步')
+    merged = page.evaluate("""() => GY_MERGE_STATES(
+        {name: '學員', lessons: {foundation: [0]}, completed: [], study: {xpByDay: {'2026-11-01': 10, '2026-11-02': 40}, cards: {'a#0': {reps: 1, due: '2026-11-03'}}, journal: [{date: '2026-11-01', lesson: 'x', text: 'A'}], officialDone: ['one']}},
+        {name: '遠端', lessons: {foundation: [1]}, completed: ['foundation'], study: {xpByDay: {'2026-11-01': 25}, cards: {'a#0': {reps: 4, due: '2026-11-20'}}, journal: [{date: '2026-11-01', lesson: 'x', text: 'A'}], officialDone: ['two']}}
+    )""")
+    assert merged['name'] == '遠端'
+    assert sorted(merged['lessons']['foundation']) == [0, 1] and merged['completed'] == ['foundation']
+    assert merged['study']['xpByDay'] == {'2026-11-01': 25, '2026-11-02': 40}
+    assert merged['study']['cards']['a#0']['reps'] == 4
+    assert len(merged['study']['journal']) == 1 and sorted(merged['study']['officialDone']) == ['one', 'two']
+    passed('Changes push to the Puter key-value store automatically; merges never lose XP, cards, completions or journal entries')
+
+    page.evaluate("window.kvFail = 'network down'")
+    page.evaluate('GY_ACCOUNT.pushNow()')
+    expect(page.locator('.top-actions .demo-pill')).to_contain_text('同步暫停', timeout=10000)
+    page.evaluate("window.kvFail = ''")
+    page.reload()
+    page.wait_for_function("document.querySelector('.top-actions .demo-pill') && document.querySelector('.top-actions .demo-pill').textContent.includes('已同步')", timeout=10000)
+    assert read_state(page)['account']['mode'] == 'puter'
+    passed('Sync failures are surfaced, and the session resumes and re-syncs after a reload')
+
+    click(page, 'account')
+    expect(page.locator('.account-status.puter')).to_contain_text('tester')
+    click(page, 'logout')
+    expect(page.locator('#dialog-title')).to_contain_text('已登出')
+    assert page.evaluate('window.puterSignedOut === true')
+    click(page, 'confirm-reset')
+    expect(page.locator('.welcome')).to_be_visible()
+    assert read_state(page)['signedIn'] is False
+    assert not errors, errors
+    passed('Sign-out syncs first, signs out of Puter and offers to clear a shared device')
+    context.close()
+
+
+class MockGitHub:
+    """In-memory stand-in for the GitHub contents API used by the admin console."""
+
+    def __init__(self, catalog):
+        self.files = {'catalog.json': json.dumps(catalog, ensure_ascii=False)}
+        self.shas = {'catalog.json': 'sha-catalog-1'}
+        self.counter = 1
+        self.fail_next_catalog_put = False
+        self.requests = []
+
+    def handle(self, route):
+        import base64
+        request = route.request
+        token = (request.headers.get('authorization') or '').removeprefix('Bearer ')
+        path = urlsplit(request.url).path
+        self.requests.append((request.method, path))
+        if token not in ('good-token', 'read-token'):
+            return route.fulfill(status=401, json={'message': 'Bad credentials'})
+        if path == '/user':
+            return route.fulfill(json={'login': 'admin-tester', 'name': '測試管理員'})
+        if path == '/repos/juwpegatron/guangyao-content':
+            return route.fulfill(json={'permissions': {'push': token == 'good-token'}})
+        prefix = '/repos/juwpegatron/guangyao-content/contents/'
+        if not path.startswith(prefix):
+            return route.fulfill(status=404, json={'message': 'Not Found'})
+        name = unquote(path[len(prefix):])
+        if request.method == 'GET':
+            if name not in self.files:
+                return route.fulfill(status=404, json={'message': 'Not Found'})
+            return route.fulfill(json={'sha': self.shas[name], 'content': base64.b64encode(self.files[name].encode() if isinstance(self.files[name], str) else self.files[name]).decode()})
+        body = json.loads(request.post_data or '{}')
+        if token != 'good-token':
+            return route.fulfill(status=403, json={'message': 'Resource not accessible'})
+        if request.method == 'DELETE':
+            if body.get('sha') != self.shas.get(name):
+                return route.fulfill(status=409, json={'message': 'sha mismatch'})
+            self.files.pop(name)
+            self.shas.pop(name)
+            return route.fulfill(json={'commit': {'sha': 'd' * 40}})
+        if name == 'catalog.json':
+            if self.fail_next_catalog_put:
+                self.fail_next_catalog_put = False
+                self.counter += 1
+                self.shas[name] = f'sha-catalog-{self.counter}'
+                return route.fulfill(status=409, json={'message': 'is at abc but expected def'})
+            if body.get('sha') != self.shas[name]:
+                return route.fulfill(status=409, json={'message': 'sha mismatch'})
+            self.files[name] = base64.b64decode(body['content']).decode()
+        else:
+            if name in self.files and body.get('sha') != self.shas[name]:
+                return route.fulfill(status=422, json={'message': 'sha required'})
+            self.files[name] = base64.b64decode(body['content'])
+        self.counter += 1
+        self.shas[name] = f'sha-{self.counter}'
+        commit = f'{self.counter:040x}'
+        return route.fulfill(json={'commit': {'sha': commit}, 'content': {'sha': self.shas[name], 'path': name}})
+
+    @property
+    def catalog(self):
+        return json.loads(self.files['catalog.json'])
+
+
+def admin_flows(browser, base, engine):
+    github = MockGitHub(EMPTY_CATALOG)
+    context = browser.new_context(viewport={'width': 1280, 'height': 900})
+    context.route('https://api.github.com/**', github.handle)
+    page = context.new_page()
+    page.set_default_timeout(8000)
+    errors = []
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    page.goto(base + 'admin.html')
+    expect(page.locator('h1')).to_contain_text('管理員登入')
+    assert page.locator('a[href="https://github.com/settings/personal-access-tokens/new"]').count() == 1
+    assert 'scopes=public_repo' in page.locator('a', has_text='建立 Classic 權杖').get_attribute('href')
+    for token, message in [('wrong-token', '權杖無效'), ('read-token', '沒有內容庫的寫入權限')]:
+        page.fill('#login-form [name="token"]', token)
+        page.click('#login-form [type="submit"]')
+        expect(page.locator('.notice.error')).to_contain_text(message)
+    page.fill('#login-form [name="token"]', 'good-token')
+    page.click('#login-form [type="submit"]')
+    expect(page.locator('.tabs')).to_be_visible()
+    assert page.evaluate("sessionStorage.getItem('guangyao-admin-token') === 'good-token' && localStorage.getItem('guangyao-admin-token') === null")
+    passed(f'{engine}: admin login rejects bad and read-only tokens, explains token setup and keeps the token in session storage only')
+
+    page.click('[data-tab="materials"]')
+    upload = page.locator('#upload-form')
+    upload.locator('[name="file"]').set_input_files({'name': '講義.pdf', 'mimeType': 'application/pdf', 'buffer': b'%PDF-1.4 test handout'})
+    upload.locator('[name="title"]').fill('<img src=x onerror="window.adminXss=1">講義')
+    upload.locator('[name="notes"]').fill('重點：先聽完再回應。')
+    upload.locator('[type="submit"]').click()
+    expect(page.locator('.notice.ok')).to_contain_text('教材已上傳')
+    material = github.catalog['materials'][0]
+    assert material['path'].startswith('files/') and material['path'].endswith('-file.pdf'), material
+    assert material['filename'] == '講義.pdf' and len(material['commit']) == 40 and material['size'] == 21
+    assert github.files[material['path']] == b'%PDF-1.4 test handout'
+    assert page.evaluate('window.adminXss === undefined')
+    page.locator('#upload-form [name="file"]').set_input_files({'name': 'huge.pdf', 'mimeType': 'application/pdf', 'buffer': b'0' * (20 * 1024 * 1024 + 1)}, timeout=60000)
+    page.fill('#upload-form [name="title"]', '太大的檔案')
+    page.locator('#upload-form [type="submit"]').click()
+    expect(page.locator('.notice.error')).to_contain_text('檔案太大')
+    assert len(github.catalog['materials']) == 1
+    page.select_option('#link-form [name="kind"]', 'link')
+    page.fill('#link-form [name="url"]', 'javascript:alert(1)')
+    page.fill('#link-form [name="title"]', '危險連結')
+    page.locator('#link-form [type="submit"]').click()
+    expect(page.locator('.notice.error')).to_contain_text('https://')
+    passed(f'{engine}: uploads commit the file then the catalog entry; oversize files and javascript: links are refused; titles are escaped')
+
+    page.click('[data-tab="lessons"]')
+    lesson = page.locator('#lesson-form')
+    lesson.locator('[name="title"]').fill('傾聽練習')
+    lesson.locator('[name="reading"]').fill('第一段：先聽完。\n\n第二段：再回應。')
+    lesson.locator('[name="q-0"]').fill('先做什麼？')
+    lesson.locator('[name="o-0"]').fill('先聽完\n先回應')
+    lesson.locator('[name="a-0"]').fill('3')
+    lesson.locator('[type="submit"]').click()
+    expect(page.locator('.notice.error')).to_contain_text('第 1 題')
+    assert github.catalog['lessons'] == []
+    expect(page.locator('#lesson-form [name="title"]')).to_have_value('傾聽練習')
+    expect(page.locator('#lesson-form [name="o-0"]')).to_have_value('先聽完\n先回應')
+    page.locator('#lesson-form [name="a-0"]').fill('1')
+    page.locator('#lesson-form [name="video"]').fill('https://vimeo.com/123')
+    page.locator('#lesson-form [type="submit"]').click()
+    expect(page.locator('.notice.error')).to_contain_text('YouTube')
+    page.locator('#lesson-form [name="video"]').fill('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+    page.locator('#lesson-form [name="cards"]').fill('傾聽第一步？ | 先聽完\n無效的一行')
+    page.locator('#lesson-form [name="materials"]').first.check()
+    page.locator('#lesson-form [type="submit"]').click()
+    expect(page.locator('.notice.ok')).to_contain_text('課程單元已發布')
+    saved = github.catalog['lessons'][0]
+    assert saved['reading'] == ['第一段：先聽完。', '第二段：再回應。']
+    assert saved['quiz'] == [{'question': '先做什麼？', 'options': ['先聽完', '先回應'], 'answer': 0, 'explain': ''}]
+    assert saved['cards'] == [['傾聽第一步？', '先聽完']] and saved['materials'] == [material['id']]
+    page.locator(f'[data-edit-lesson="{saved["id"]}"]').click()
+    page.locator('#lesson-form [name="title"]').fill('傾聽練習（修訂）')
+    page.locator('#lesson-form [type="submit"]').click()
+    expect(page.locator('.notice.ok')).to_contain_text('已更新')
+    assert len(github.catalog['lessons']) == 1 and github.catalog['lessons'][0]['title'] == '傾聽練習（修訂）'
+    github.fail_next_catalog_put = True
+    page.locator(f'[data-toggle="lessons"][data-id="{saved["id"]}"]').click()
+    expect(page.locator('.notice.ok')).to_contain_text('顯示狀態')
+    assert github.catalog['lessons'][0]['status'] == 'draft'
+    page.locator(f'[data-toggle="lessons"][data-id="{saved["id"]}"]').click()
+    expect(page.locator('.notice.ok')).to_contain_text('顯示狀態')
+    passed(f'{engine}: lesson editor validates quizzes and videos, parses paragraphs and flashcards, edits in place and retries after a concurrent-write conflict')
+
+    page.click('[data-tab="events"]')
+    event = page.locator('#event-form')
+    event.locator('[name="title"]').fill('共學說明會')
+    event.locator('[name="date"]').fill('2026-12-05')
+    event.locator('[name="time"]').fill('19:30')
+    event.locator('[name="signupUrl"]').fill('https://example.com/signup')
+    event.locator('[type="submit"]').click()
+    expect(page.locator('.notice.ok')).to_contain_text('活動已儲存')
+    assert github.catalog['events'][0]['signupUrl'] == 'https://example.com/signup'
+    page.click('[data-tab="settings"]')
+    page.fill('#settings-form [name="announcement"]', '歡迎加入！')
+    page.check('#settings-form [name="hideSamples"]')
+    page.click('#settings-form [type="submit"]')
+    expect(page.locator('.notice.ok')).to_contain_text('設定已儲存')
+    assert github.catalog['settings'] == {'announcement': '歡迎加入！', 'hideSamples': True}
+    published = github.catalog
+    page.click('[data-tab="materials"]')
+    page.once('dialog', lambda dialog: dialog.accept())
+    page.locator(f'[data-delete="materials"][data-id="{material["id"]}"]').click()
+    expect(page.locator('.notice.ok')).to_contain_text('已刪除')
+    assert material['path'] not in github.files
+    assert github.catalog['materials'] == [] and github.catalog['lessons'][0]['materials'] == []
+    assert ('DELETE', f'/repos/juwpegatron/guangyao-content/contents/{material["path"]}') in [(method, unquote(path)) for method, path in github.requests]
+    page.click('#logout')
+    assert page.evaluate("sessionStorage.getItem('guangyao-admin-token') === null")
+    assert not errors, errors
+    passed(f'{engine}: events, announcement and sample visibility publish; deleting a material removes the file and its lesson links; logout clears the token')
+    context.close()
+
+    learner = make_context(browser, catalog=published, viewport={'width': 1280, 'height': 900})
+    page = learner.new_page()
+    page.goto(base + 'index.html')
+    start_guest(page)
+    expect(page.locator('.official-strip')).to_contain_text('歡迎加入！')
+    go(page, 'library')
+    expect(page.locator('.official-lesson')).to_contain_text('傾聽練習（修訂）')
+    go(page, 'schedule')
+    expect(page.locator('#main')).to_contain_text('共學說明會')
+    assert page.locator('[data-action="event-detail"][data-id="e1"]').count() == 0
+    learner.close()
+    passed(f'{engine}: what the admin publishes is exactly what learners see')
+
+
 def screenshots(browser, base):
-    context = browser.new_context(viewport={'width': 1440, 'height': 1080}, device_scale_factor=1)
+    showcase = dict(CONTENT_CATALOG, lessons=[item for item in CONTENT_CATALOG['lessons'] if item['id'] == 'onboarding'])
+    context = make_context(browser, catalog=showcase, viewport={'width': 1440, 'height': 1080}, device_scale_factor=1)
     page = context.new_page()
     page.goto(base + 'index.html')
+    page.wait_for_selector('.welcome')
+    page.screenshot(path=str(MEDIA / 'welcome.png'))
+    start_guest(page)
     page.wait_for_selector('.hero')
     page.screenshot(path=str(MEDIA / 'desktop.png'), full_page=True)
     page.set_viewport_size({'width': 390, 'height': 844})
@@ -674,6 +1152,9 @@ def main():
             chromium = playwright.chromium.launch()
             core_flows(chromium, base, 'Chromium')
             study_flows(chromium, base, 'Chromium')
+            content_flows(chromium, base, 'Chromium')
+            account_sync_flows(chromium, base)
+            admin_flows(chromium, base, 'Chromium')
             streak_rules(chromium, base)
             concurrent_and_storage(chromium, base)
             pwa_and_updates(chromium, base)
@@ -682,8 +1163,10 @@ def main():
             webkit = playwright.webkit.launch()
             core_flows(webkit, base, 'WebKit')
             study_flows(webkit, base, 'WebKit')
+            content_flows(webkit, base, 'WebKit')
+            admin_flows(webkit, base, 'WebKit')
             webkit.close()
-        print(f'\n{len(PASSED)} grouped regression checks passed, including 72 route-layout checks plus v3 study flows.', flush=True)
+        print(f'\n{len(PASSED)} grouped regression checks passed, including 84 route-layout checks, accounts, sync, official content and the admin console.', flush=True)
     finally:
         server.shutdown()
         server.server_close()

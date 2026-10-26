@@ -1,81 +1,73 @@
 # Guang Yao Together · 光耀同行
 
-**Unofficial 發一光耀 learning/community concept · frontend PWA demo · v3.0.0.**
+**Unofficial 發一光耀 learning/community app · installable PWA · v4.0.0 public beta.**
 
-One responsive, installable web app for desktop and phones. It uses fictional data and local storage. It does **not** authenticate real users, process donations, issue official credentials, send live chat messages, host meetings or pay affiliate commissions.
+Live: <https://juwpegatron.github.io/projects/guangyao/> · Admin console: <https://juwpegatron.github.io/projects/guangyao/admin.html> · Content repository: <https://github.com/juwpegatron/guangyao-content>
+
+One responsive app for desktop and phones (iPhone: Safari → Share → Add to Home Screen). Version 4 turns the study prototype into something people can actually use:
+
+| Who | How they get in | What is real |
+| --- | --- | --- |
+| Learner with an account | **Sign in with Puter** (free account, same as the Glow app) | Progress, XP, streaks, flashcards, journal and registrations sync across devices; the AI study companion uses the learner's own Puter AI quota. |
+| Guest | **Continue as guest** | Everything stays on this device. Nothing is sent to Puter. Offline tutor only. Can sign in later; local progress is merged. |
+| Admin | `admin.html` with a GitHub token | Upload handouts, add lessons (text, YouTube, quiz, cards), events and an announcement. Learners see changes within about five minutes. |
+
+## How learners use it
+
+1. Open the app → choose **Sign in** or **Continue as guest** on the welcome screen. A short first-visit tour follows.
+2. **今日** shows the daily goal, due flashcards, the announcement and the newest official lessons.
+3. **官方教材** (`#library`) lists admin-published lessons and downloadable materials. Lessons give XP, flashcards and a journal entry.
+4. **複習** runs spaced review (keys `Space`, `1`–`4`).
+5. **光光** is the AI study companion. Signed-in learners get streamed AI answers grounded in the course text and official material notes (it says when something is not covered, gives hints before answers, can make flashcards). Guests and the "offline only" setting use the on-device tutor.
+6. **使用指南** (`#guide`) explains everything above in Traditional Chinese, including privacy and an FAQ.
+
+## How admins publish
+
+Admins are collaborators on `juwpegatron/guangyao-content`. The full step-by-step guide is in `docs/admin-guide.md`; in short:
+
+1. The owner adds a collaborator (repository → Settings → Collaborators).
+2. The admin creates a token: the owner can use a **fine-grained token** limited to `guangyao-content` with *Contents: Read and write*; collaborators use a **classic token** with the `public_repo` scope (fine-grained tokens cannot write to another user's personal repository).
+3. Open `admin.html`, paste the token. It is checked against `/user` and the repository's push permission and is kept in session storage only (unless "remember on this device" is ticked). Sign out removes it.
+4. Publish. Each change is a commit (file first, then `catalog.json`, with conflict retries), so the repository history is the audit log and anything can be reverted.
+
+Limits: files ≤ 20 MB (put video on YouTube, unlisted is fine); the content repository is **public**, so never upload private or member information; learners see updates after ≤ 5 minutes (catalog cache), files are served from commit-pinned jsDelivr URLs.
+
+## Architecture
+
+- `web/index.html` – app shell, UI and state (local storage with validation, Web Locks, cross-tab refresh).
+- `web/study.js` – lessons, SM-2 review, streaks, stats, and the 光光 companion (offline retrieval tutor + Puter AI for signed-in users).
+- `web/catalog.js` – fetches and sanitizes the published catalog (ID/HTTPS/YouTube/path validation, drafts hidden, 5-minute cache with API fallback).
+- `web/account.js` – welcome gate, Puter sign-in/guest mode, cloud sync (chunked `puter.kv` keys, merge never loses XP/cards/completions), official library, guide, tour and announcement.
+- `web/admin.html`, `web/admin.js` – GitHub-backed admin console (not cached by the service worker).
+- `web/sw.js` – caches the exact public shell (release 4.0.0); updates wait for user approval.
+
+No build step and no server of our own: GitHub Pages hosts the app, GitHub stores content, Puter provides accounts, storage and AI.
 
 ## Run locally
-
-From this app directory:
 
 ```sh
 python3 -m http.server 8765 --bind 127.0.0.1 --directory web
 ```
 
-Open <http://127.0.0.1:8765/>. No frontend build or runtime dependencies are required.
-
-For mobile installation, use the deployed HTTPS URL in a supporting browser. iPhone/iPad users can use Safari's Share → Add to Home Screen. A phone cannot use the Mac's localhost URL as its own localhost. This is a PWA, not a native App Store/Google Play binary.
-
-## Monorepo integration
-
-- Project catalog: the repository's shared app catalog defines the landing-page entry, portfolio card and note status.
-- Public site: the existing build copies this app's `web/` directory to the `guangyao/` site directory. Do not add another root Pages workflow.
-- Portfolio: regenerate the managed project block through the existing publisher, with Obsidian notes disabled unless a specific vault is confirmed.
-- App/Web/Mobile links intentionally open the same responsive frontend rather than independently maintained copies.
-- Expected public app URL after a successful deployment: <https://juwpegatron.github.io/projects/guangyao/>.
-- Portfolio: <https://juwpegatron.github.io/portfolio/#projects>.
-
-The existence of these files does not prove that a push or deployment has succeeded. Check the remote commit and Pages workflow separately. The actual Obsidian vault has not been identified.
-
-## v3 study layer
-
-Version 3 adds a habit-forming study experience modelled on what works in leading study and AI apps (see `docs/competitive-analysis.md`):
-
-- **Interactive lessons:** short reading with zh-TW text-to-speech, multiple choice, cloze, tap-to-order and a private reflection. Immediate explanations, no hearts or lives.
-- **Spaced review:** every lesson creates flashcards scheduled with a simplified SM-2 algorithm (again/hard/good/easy, keyboard `Space` and `1`–`4`, 7-day forecast).
-- **Habits:** XP, daily goal (10/20/30 XP), streaks with up to two automatically earned streak freezes, focus timer and a 12-week heatmap.
-- **AI study buddy 光光:** an offline tutor that answers only from course passages with citations, admits when something is not covered, quizzes the learner and gives Socratic hints before answers. Optional cloud AI (Puter) requires explicit consent and falls back to the offline tutor.
-- **Community:** cooperative group weekly goal, shareable progress card (native share or PNG download) and ICS calendar export for registered events.
-- **Comfort:** light/dark/system theme, three text sizes, speech rate and goal settings, and a mobile bottom navigation with a due-card badge.
-
-## Implemented demonstrations
-
-- Three-level course progression, lesson previews, quiz feedback and one-time completion rewards.
-- Sample handout/certificate downloads, private portfolio preview and profile controls.
-- Online/offline/social activities, explicit registration/cancellation and role-switchable staff views.
-- Local group conversations, pending friend invitations, a fixed poll and opt-in leaderboard.
-- Demonstration points/redemptions, synthetic project ledgers and no-charge contributions.
-- Meeting/history previews, sample summaries and an explicitly inactive affiliate program.
-- Offline public shell, mobile bottom navigation, safe-area layout and approved-update flow.
-
-The product blueprint is available inside the app. Detailed project notes and screenshots are retained in `docs/` and are not copied to the public app by the build.
-
-## Reliability and privacy
-
-The local state loader validates shapes and IDs, preserves recognized legacy progress and reconstructs demonstration balances. Web Locks serialize same-origin writes; cross-tab updates refresh stale state. Without Web Locks, only same-tab serialization is available. Registration is idempotent; a stale “register” action does not cancel an existing registration.
-
-Local state is **not** trusted authorization or accounting. The role switch is intentionally a demo control. Never enter sensitive personal, religious, financial or meeting information. Logout retains local records; use Reset prototype on a shared device. Browser clearing or uninstalling may remove local data, and records do not synchronize across devices.
-
-The service worker caches only an exact public-shell list. It does not cache APIs, chat records, signed files or payment responses. Increment its release value whenever a cached asset changes; updates wait for user approval before reloading.
+Open <http://127.0.0.1:8765/>. The local copy reads the live content catalog.
 
 ## Checks
 
-The standard-library structural test is compatible with the monorepo's existing test runner:
-
 ```sh
-python3 tests/verify_static.py
+python3 tests/verify_static.py      # standard-library structural checks
+python3 qa/browser_checks.py        # Playwright, Chromium + WebKit
 ```
 
-Optional Chromium/WebKit browser regression tests are kept outside the default test-discovery directory. In a separate development environment with Playwright installed and its Chromium/WebKit browsers available:
+The browser suite mocks GitHub and Puter. It covers the welcome/guest/sign-in gate, cloud merge and resume, sign-out and shared-device reset, the official library (drafts hidden, `javascript:`/path traversal rejected, titles escaped), admin-lesson playback, admin login/upload/lesson/event/settings/delete flows with conflict retry, the AI companion (streaming, history, privacy toggle, AI flashcards, offline fallback), plus all v3 study, PWA and layout checks. Screenshots in `docs/images/` are refreshed by the suite.
 
-```sh
-python3 qa/browser_checks.py
-```
+Not covered automatically: a real Puter sign-in and real AI call (Puter requires an interactive account popup), physical devices and screen readers.
 
-The browser suite starts its own loopback server and isolated browser contexts. It checks progression, registration, role views, local state, concurrent tabs, mobile layouts, offline loading, subpath deployment and update approval, plus the v3 lesson player, spaced review, streak/freeze rules, tutor retrieval and citations, AI consent gating, settings, sharing and calendar export in Chromium and WebKit. It refreshes the sample screenshots under `docs/images/`. Physical-device installation, screen-reader conformance, the live Puter cloud-AI service and real backend services are not validated by these browser tests.
+## Still demonstration only
 
-## Before a real launch
+Points/rewards, giving, community chat/polls, meetings and referrals remain local demonstrations with fictional data. They are labelled as such in the app and must not be used for real money or personal information.
 
-Confirm institutional authorization, content ownership, course standards, certificate issuer, age/region policy, moderation, privacy/retention, accessibility, backend identity/authorization and media providers. Donations require a legal recipient, approved payment provider, financial approvals and reconciliation. Affiliate terms and payout accounting need separate approval. None of these is solved by static hosting.
+## Before an official launch
 
-Code follows the repository's MIT license. That license does not grant permission to use organizational trademarks, teaching materials or an official endorsement. All institution-specific content and certification require authorization.
+Confirm institutional authorization, content ownership, teaching standards, certificate issuer, age/region policy, moderation, privacy/retention and accessibility. Donations need a legal recipient and payment provider. None of this is solved by static hosting.
+
+Code follows the repository's MIT license. That license does not grant permission to use organizational trademarks, teaching materials or imply official endorsement.
