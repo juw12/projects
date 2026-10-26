@@ -15,6 +15,7 @@
     tab: 'board',
     specFile: 'specs/requirements.md',
     specMode: 'preview',
+    specLang: 'en',
     promptDrafts: {},
     shareUrl: '',
     sharedPayload: null
@@ -916,6 +917,71 @@
     return files;
   }
 
+  // ----- spec translations (AI) -----
+  // English stays the canonical spec. Translations are stored per file with a hash of the
+  // English source, so an edit to the brief marks them as outdated instead of silently lying.
+  const SPEC_LANGS = [
+    { code: 'en', label: 'EN' },
+    { code: 'zh', label: '中文' },
+    { code: 'id', label: 'ID' }
+  ];
+
+  function sourceHash(textValue) {
+    let hash = 5381;
+    for (let i = 0; i < textValue.length; i++) hash = ((hash << 5) + hash + textValue.charCodeAt(i)) | 0;
+    return (hash >>> 0).toString(36) + ':' + textValue.length;
+  }
+
+  function specTranslation(project, lang, file, english) {
+    const store = project.specTranslations && project.specTranslations[lang];
+    const entry = store && store[file];
+    if (!entry || !entry.content) return null;
+    return { content: entry.content, stale: entry.source !== sourceHash(english) };
+  }
+
+  function displayedSpec(project, file) {
+    const english = specFiles(project)[file];
+    if (ui.specLang === 'en') return { content: english, state: 'source' };
+    const translated = specTranslation(project, ui.specLang, file, english);
+    if (!translated) return { content: english, state: 'missing' };
+    return { content: translated.content, state: translated.stale ? 'stale' : 'fresh' };
+  }
+
+  async function translateSpecs(project, button, files) {
+    if (!requireAi()) return;
+    const lang = ui.specLang;
+    if (lang === 'en') return;
+    aiBusy(button, true);
+    let done = 0;
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const english = specFiles(project)[file];
+        const existing = specTranslation(project, lang, file, english);
+        if (existing && !existing.stale) {
+          done++;
+          continue;
+        }
+        if (button && files.length > 1) {
+          const label = button.querySelector('.ai-cancel');
+          if (label) label.previousSibling.textContent = ' ' + t('Translating {done}/{total}…', { done: done + 1, total: files.length }) + ' ';
+        }
+        const translated = await window.SweepPro.ai.translateSpecFile(file, english, lang);
+        if (!project.specTranslations) project.specTranslations = {};
+        if (!project.specTranslations[lang]) project.specTranslations[lang] = {};
+        project.specTranslations[lang][file] = { content: translated, source: sourceHash(english), at: new Date().toISOString() };
+        persist(project);
+        done++;
+      }
+      renderStudio(project);
+      showToast(t('Translated {count} file(s)', { count: done }));
+    } catch (error) {
+      if (done) persist(project);
+      showToast(error.cancelled ? t('Cancelled') : t('AI could not answer') + ': ' + error.message);
+      renderStudio(project);
+    }
+  }
+
   function generatedSpecFiles(project) {
     return {
       'specs/requirements.md': requirementsMarkdown(project),
@@ -1012,6 +1078,13 @@
     const prefixed = {};
     Object.keys(files).forEach(function (name) {
       prefixed[folder + '/' + name] = files[name];
+    });
+    // Up-to-date translations ride along for human readers; the English files stay the source of truth.
+    Object.keys(project.specTranslations || {}).forEach(function (lang) {
+      Object.keys(files).forEach(function (name) {
+        const entry = specTranslation(project, lang, name, files[name]);
+        if (entry && !entry.stale) prefixed[folder + '/i18n/' + lang + '/' + name] = entry.content;
+      });
     });
     downloadBlob(folder + '-spec-pack.zip', buildZip(prefixed));
     showToast('Spec pack downloaded — ' + Object.keys(files).length + ' files');
@@ -1374,6 +1447,143 @@
     }
   ];
 
+  // Template briefs in the interface languages. Product names stay as they are; everything a
+  // person reads (and later edits) is translated, so a remix starts in the user's language.
+  const TEMPLATE_I18N = {
+    zh: [
+      {
+        tag: '习惯',
+        oneLiner: '一款带连续打卡和温和提醒的习惯追踪器，帮总是半途而废的人坚持下去。',
+        problem: '忙碌的人周一开始培养习惯，到周四就忘了，因为没有任何东西在合适的时候提醒他们。',
+        targetUser: '正在培养 1–3 个日常习惯的忙碌职场人',
+        jtbd: '当我结束一天的工作时，我想用 10 秒完成打卡，这样不用费脑子就能保持连续记录。',
+        successChecks: ['创建一个习惯，并在今日列表中看到它', '把习惯标记为完成，连续天数加 1', '在设定的时间收到提醒', '刷新页面后数据仍然保留（localStorage）'],
+        nonGoals: '不做社交动态；不做教练内容；不接入可穿戴设备',
+        overlap: '类似 Streaks 或 Habitica，但没有游戏化头像，也不需要注册账号'
+      },
+      {
+        tag: '商务',
+        oneLiner: '为自由设计师打造的单页 CRM，追踪潜在客户、跟进事项和未付款发票。',
+        problem: '自由职业者会丢单，因为跟进全靠脑子记，发票拖欠几周也没有任何提醒。',
+        targetUser: '手上有 5–20 个活跃客户的自由设计师',
+        jtbd: '当潜在客户没了回音时，我想看到今天该联系谁，这样能抢在别人之前拿下项目。',
+        successChecks: ['新建、编辑和删除潜在客户', '按阶段筛选潜在客户（新的、洽谈中、已成交、已流失）', '逾期的跟进事项显示在最上方', '把所有数据导出为 CSV'],
+        nonGoals: '不同步邮件；不做团队账号；不做销售漏斗分析',
+        overlap: '比 HubSpot 或 Pipedrive 简单；更像一张智能表格'
+      },
+      {
+        tag: '发布',
+        oneLiner: '一个产品发布候补名单页，邀请链接能让用户在队列中排名上升。',
+        problem: '独立开发者发布时无人问津，因为普通的邮箱表单没有给早期粉丝任何分享的理由。',
+        targetUser: '正在预热 SaaS 产品的独立开发者',
+        jtbd: '当我宣布产品时，我希望每个报名的人都能带来一位朋友，这样发布时就有一群人围观而不是冷冷清清。',
+        successChecks: ['用邮箱报名并看到自己的排队位置', '分享个人专属邀请链接', '每成功邀请一人，邀请者前进 5 位', '在 390 px 和 1440 px 宽度下布局自适应'],
+        nonGoals: '不做支付；不做邮件营销；第一版不做管理后台',
+        overlap: '类似 Viral Loops 或 GetWaitlist，但它是一个你自己拥有的免费静态页面'
+      },
+      {
+        tag: '家庭',
+        oneLiner: '一款每周餐食计划工具，把选好的菜谱变成一张按分类整理的购物清单。',
+        problem: '家庭浪费食物和时间，因为餐食计划和购物清单分散在不同的应用里，从来对不上。',
+        targetUser: '为 3–5 口之家安排晚餐的家长',
+        jtbd: '当我周日规划下一周时，我希望购物清单自动生成，这样一次采购 30 分钟内就能搞定。',
+        successChecks: ['添加带食材的菜谱', '把菜谱拖到 7 天计划中', '生成按货架分类的购物清单', '在手机上购物时逐项勾选'],
+        nonGoals: '不做菜谱发现；不做营养追踪；不接入生鲜配送',
+        overlap: '比 Paprika 或 Mealime 更轻量；不需要维护菜谱数据库'
+      },
+      {
+        tag: '学习',
+        oneLiner: '一款带间隔重复闪卡的学习计时器，适合考前冲刺的学生。',
+        problem: '学生花几个小时反复读笔记而不是自测，考试前大部分内容都忘了。',
+        targetUser: '每学期准备 2–4 门考试的大学生',
+        jtbd: '当我坐下来学习时，我希望应用挑出我快要忘记的内容，这样学 25 分钟就能记住。',
+        successChecks: ['创建卡组并添加卡片', '复习到期的卡片并逐张评分（重来、良好、简单）', '评为“重来”的卡片在本轮学习中再次出现', '启动 25 分钟专注计时器'],
+        nonGoals: '不做共享卡组市场；不用 AI 生成卡片；不支持手写输入',
+        overlap: '类似 Anki，但首次使用更友好，并内置专注计时器'
+      },
+      {
+        tag: '理财',
+        oneLiner: '一款室友共同开销分摊工具，一键看清谁欠谁多少钱。',
+        problem: '室友们因为钱吵架，因为小票堆在群聊里，没人知道真实的账目余额。',
+        targetUser: '2–5 人合租一套房的室友',
+        jtbd: '当有人买了日用品时，我想几秒钟内记下来，这样月底结算时不用再做表格。',
+        successChecks: ['添加一笔开销，填写付款人和金额', '平均分摊或按自定义金额分摊', '用最少的转账次数显示谁欠谁', '刷新页面后数据仍然保留（localStorage）'],
+        nonGoals: '不连接银行；不做应用内支付；第一版不支持多币种',
+        overlap: '类似 Splitwise，但不需要账号、没有广告也没有付费版'
+      }
+    ],
+    id: [
+      {
+        tag: 'Kebiasaan',
+        oneLiner: 'Pelacak kebiasaan dengan streak dan pengingat lembut untuk orang yang sering berhenti di tengah jalan.',
+        problem: 'Orang sibuk memulai kebiasaan hari Senin lalu lupa di hari Kamis karena tidak ada yang mengingatkan di saat yang tepat.',
+        targetUser: 'Profesional sibuk yang membangun 1–3 kebiasaan harian',
+        jtbd: 'Saat selesai bekerja, saya ingin check-in 10 detik, supaya streak saya tetap terjaga tanpa perlu berpikir.',
+        successChecks: ['Buat kebiasaan dan lihat di daftar hari ini', 'Tandai kebiasaan selesai dan lihat streak bertambah 1', 'Dapat pengingat di jam yang dipilih', 'Data tetap ada setelah halaman dimuat ulang (localStorage)'],
+        nonGoals: 'Tanpa feed sosial; tanpa konten coaching; tanpa integrasi perangkat wearable',
+        overlap: 'Seperti Streaks atau Habitica, tapi tanpa avatar gamifikasi dan tanpa perlu akun'
+      },
+      {
+        tag: 'Bisnis',
+        oneLiner: 'CRM satu layar untuk desainer lepas guna melacak prospek, tindak lanjut, dan faktur yang belum dibayar.',
+        problem: 'Pekerja lepas kehilangan proyek karena tindak lanjut hanya diingat di kepala dan faktur menunggak berminggu-minggu tanpa pengingat.',
+        targetUser: 'Desainer lepas dengan 5–20 klien aktif',
+        jtbd: 'Saat prospek mulai diam, saya ingin melihat siapa yang perlu dihubungi hari ini, supaya proyek saya dapatkan sebelum orang lain.',
+        successChecks: ['Buat, ubah, dan hapus prospek', 'Saring prospek per tahap (baru, berdiskusi, menang, kalah)', 'Tindak lanjut yang terlambat tampil paling atas', 'Ekspor semua data ke CSV'],
+        nonGoals: 'Tanpa sinkronisasi email; tanpa akun tim; tanpa analitik pipeline',
+        overlap: 'Lebih sederhana dari HubSpot atau Pipedrive; lebih mirip spreadsheet pintar'
+      },
+      {
+        tag: 'Peluncuran',
+        oneLiner: 'Halaman daftar tunggu peluncuran dengan tautan referral yang menaikkan posisi antrean.',
+        problem: 'Pembuat produk indie meluncur tanpa gaung karena formulir email biasa tidak memberi penggemar awal alasan untuk berbagi.',
+        targetUser: 'Pembuat produk indie yang sedang pra-peluncuran produk SaaS',
+        jtbd: 'Saat mengumumkan produk, saya ingin setiap pendaftar membawa satu teman, supaya peluncuran disambut keramaian, bukan sepi.',
+        successChecks: ['Daftar dengan email dan lihat posisi antrean saya', 'Bagikan tautan referral pribadi', 'Setiap referral menaikkan pengundang 5 peringkat', 'Tata letak responsif di 390 px dan 1440 px'],
+        nonGoals: 'Tanpa pembayaran; tanpa kampanye email; tanpa dasbor admin di v1',
+        overlap: 'Seperti Viral Loops atau GetWaitlist, tapi halaman statis gratis milik Anda sendiri'
+      },
+      {
+        tag: 'Rumah',
+        oneLiner: 'Perencana menu mingguan yang mengubah resep pilihan menjadi satu daftar belanja yang dikelompokkan.',
+        problem: 'Keluarga membuang makanan dan waktu karena rencana menu dan daftar belanja ada di aplikasi berbeda dan tidak pernah cocok.',
+        targetUser: 'Orang tua yang merencanakan makan malam untuk keluarga 3–5 orang',
+        jtbd: 'Saat merencanakan minggu depan di hari Minggu, saya ingin daftar belanja dibuatkan otomatis, supaya belanja cukup sekali dalam kurang dari 30 menit.',
+        successChecks: ['Tambah resep beserta bahan-bahannya', 'Seret resep ke rencana 7 hari', 'Buat daftar belanja yang dikelompokkan per lorong', 'Centang barang saat belanja di ponsel'],
+        nonGoals: 'Tanpa penemuan resep; tanpa pelacakan nutrisi; tanpa integrasi pengantaran belanja',
+        overlap: 'Lebih ringan dari Paprika atau Mealime; tanpa database resep yang harus dirawat'
+      },
+      {
+        tag: 'Belajar',
+        oneLiner: 'Timer belajar dengan kartu hafalan spaced repetition untuk mahasiswa yang belajar kebut semalam.',
+        problem: 'Mahasiswa membaca ulang catatan berjam-jam alih-alih menguji diri, lalu lupa sebagian besar sebelum ujian.',
+        targetUser: 'Mahasiswa yang menyiapkan 2–4 ujian per semester',
+        jtbd: 'Saat mulai belajar, saya ingin aplikasi memilih materi yang hampir saya lupakan, supaya 25 menit belajar benar-benar teringat.',
+        successChecks: ['Buat dek dan tambahkan kartu', 'Ulas kartu yang jatuh tempo dan beri nilai (lagi, bagus, mudah)', 'Kartu bernilai “lagi” muncul kembali di sesi yang sama', 'Mulai timer fokus 25 menit'],
+        nonGoals: 'Tanpa marketplace dek bersama; tanpa pembuatan kartu oleh AI; tanpa input tulisan tangan',
+        overlap: 'Seperti Anki tapi dengan pengalaman awal yang lebih ramah dan timer fokus bawaan'
+      },
+      {
+        tag: 'Keuangan',
+        oneLiner: 'Pembagi pengeluaran bersama untuk teman serumah yang menunjukkan siapa berutang ke siapa dalam satu ketukan.',
+        problem: 'Teman serumah bertengkar soal uang karena struk menumpuk di grup chat dan tidak ada yang tahu saldo sebenarnya.',
+        targetUser: 'Teman serumah yang berbagi tempat tinggal 2–5 orang',
+        jtbd: 'Saat seseorang membayar belanjaan, saya ingin mencatatnya dalam hitungan detik, supaya bisa melunasi di akhir bulan tanpa spreadsheet.',
+        successChecks: ['Tambah pengeluaran dengan pembayar dan jumlahnya', 'Bagi pengeluaran rata atau dengan jumlah khusus', 'Tampilkan siapa berutang ke siapa dengan transfer paling sedikit', 'Data tetap ada setelah halaman dimuat ulang (localStorage)'],
+        nonGoals: 'Tanpa koneksi bank; tanpa pembayaran dalam aplikasi; tanpa multi-mata uang di v1',
+        overlap: 'Seperti Splitwise tanpa akun, iklan, atau paket premium'
+      }
+    ]
+  };
+
+  function localizedTemplate(index) {
+    const base = TEMPLATES[index];
+    const lang = window.SweepI18n ? window.SweepI18n.getLanguage() : 'en';
+    const translated = TEMPLATE_I18N[lang] && TEMPLATE_I18N[lang][index];
+    if (!base || !translated) return base;
+    return Object.assign({}, base, translated, { successChecks: translated.successChecks.slice() });
+  }
+
   // ---------- catalog: template gallery ----------
 
   function ensureTemplateGallery() {
@@ -1388,13 +1598,14 @@
         '<p>Each one scores A on Spec Score. Remix it, then make it yours.</p>' +
       '</div>' +
       '<div class="template-row" role="list">' +
-        TEMPLATES.map(function (template, index) {
-          const score = scoreSpec(template);
+        TEMPLATES.map(function (original, index) {
+          const template = localizedTemplate(index);
+          const score = scoreSpec(original);
           return '<div class="template-card" role="listitem">' +
-            '<div class="template-top"><span class="template-tag">' + esc(template.tag) + '</span>' +
+            '<div class="template-top"><span class="template-tag" data-no-i18n>' + esc(template.tag) + '</span>' +
             '<span class="template-grade grade-' + score.grade + '" title="Spec score">' + score.score + '</span></div>' +
-            '<h4>' + esc(template.name) + '</h4>' +
-            '<p>' + esc(template.oneLiner) + '</p>' +
+            '<h4 data-no-i18n>' + esc(template.name) + '</h4>' +
+            '<p data-no-i18n>' + esc(template.oneLiner) + '</p>' +
             '<div class="template-meta">' + template.successChecks.length + ' checks · ' + buildTasks(template).length + ' tasks</div>' +
             '<button type="button" class="btn btn-secondary btn-sm template-remix" data-template="' + index + '">' +
               '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>' +
@@ -1411,7 +1622,7 @@
     gallery.addEventListener('click', function (event) {
       const button = event.target.closest('[data-template]');
       if (!button) return;
-      const template = TEMPLATES[Number(button.getAttribute('data-template'))];
+      const template = localizedTemplate(Number(button.getAttribute('data-template')));
       if (!template) return;
       const brief = Object.assign({}, template);
       delete brief.tag;
@@ -1701,8 +1912,28 @@
   function specHtml(project) {
     const files = specFiles(project);
     if (!files[ui.specFile]) ui.specFile = SPEC_FILE_ORDER[0];
-    const content = files[ui.specFile];
+    const shown = displayedSpec(project, ui.specFile);
+    const content = shown.content;
     const isMarkdown = /\.md$/.test(ui.specFile);
+    const langName = { zh: '简体中文', id: 'Bahasa Indonesia' }[ui.specLang] || '';
+    const translatedCount = ui.specLang === 'en' ? 0 : SPEC_FILE_ORDER.filter(function (name) {
+      const entry = specTranslation(project, ui.specLang, name, files[name]);
+      return entry && !entry.stale;
+    }).length;
+    const langNote = ui.specLang === 'en' ? '' :
+      '<div class="spec-lang-note' + (shown.state === 'fresh' ? ' ok' : '') + '" role="status">' +
+        (shown.state === 'fresh'
+          ? esc(t('Translated to {lang} for reading. Give AI builders the English original for the most reliable results.', { lang: langName }))
+          : shown.state === 'stale'
+            ? esc(t('The brief changed since this translation — translate again to update it.'))
+            : esc(t('This file is not translated to {lang} yet. Showing the English original.', { lang: langName }))) +
+        (window.SweepPro && shown.state !== 'fresh'
+          ? ' <button type="button" class="btn btn-secondary btn-sm ai-btn" data-studio="translate-spec">' + esc(t('Translate this file')) + '</button>'
+          : '') +
+        (window.SweepPro && translatedCount < SPEC_FILE_ORDER.length
+          ? ' <button type="button" class="btn btn-text btn-sm ai-btn" data-studio="translate-all">' + esc(t('Translate all {count} files', { count: SPEC_FILE_ORDER.length })) + '</button>'
+          : '') +
+      '</div>';
     const body = ui.specMode === 'preview' && isMarkdown
       ? '<div class="md-body">' + renderMarkdown(content, project) + '</div>'
       : '<pre class="md-raw"><code>' + esc(content) + '</code></pre>';
@@ -1721,16 +1952,20 @@
             (project.aiSpecs && project.aiSpecs[ui.specFile] ? ' <span class="ai-badge" title="' + esc(project.aiSpecs[ui.specFile].model || '') + '">' + esc(t('AI-edited')) + '</span>' : '') +
           '</span>' +
           '<div class="spec-tools">' +
+            '<div class="seg spec-lang" role="group" aria-label="' + esc(t('Spec language')) + '">' + SPEC_LANGS.map(function (lang) {
+              return '<button type="button" data-spec-lang="' + lang.code + '" class="' + (ui.specLang === lang.code ? 'active' : '') + '" aria-pressed="' + (ui.specLang === lang.code) + '" data-no-i18n>' + lang.label + '</button>';
+            }).join('') + '</div>' +
             (isMarkdown
               ? '<div class="seg"><button type="button" data-spec-mode="preview" class="' + (ui.specMode === 'preview' ? 'active' : '') + '">Preview</button>' +
                 '<button type="button" data-spec-mode="raw" class="' + (ui.specMode === 'raw' ? 'active' : '') + '">Markdown</button></div>'
               : '') +
-            (window.SweepPro ? '<button type="button" class="btn btn-secondary btn-sm ai-btn" data-studio="ai-spec"><span aria-hidden="true">✨</span> ' + esc(t('Improve with AI')) + '</button>' : '') +
+            (window.SweepPro && ui.specLang === 'en' ? '<button type="button" class="btn btn-secondary btn-sm ai-btn" data-studio="ai-spec"><span aria-hidden="true">✨</span> ' + esc(t('Improve with AI')) + '</button>' : '') +
             (project.aiSpecs && project.aiSpecs[ui.specFile] ? '<button type="button" class="btn btn-text btn-sm" data-studio="ai-revert">' + esc(t('Revert to generated')) + '</button>' : '') +
             '<button type="button" class="btn btn-secondary btn-sm" data-studio="copy-spec">Copy</button>' +
             '<button type="button" class="btn btn-secondary btn-sm" data-studio="download-spec">Download</button>' +
           '</div>' +
         '</div>' +
+        langNote +
         body +
       '</div>' +
     '</div>';
@@ -2252,6 +2487,12 @@
       renderStudio(project);
       return;
     }
+    const specLang = event.target.closest('[data-spec-lang]');
+    if (specLang) {
+      ui.specLang = specLang.getAttribute('data-spec-lang');
+      renderStudio(project);
+      return;
+    }
     const specMode = event.target.closest('[data-spec-mode]');
     if (specMode) {
       ui.specMode = specMode.getAttribute('data-spec-mode');
@@ -2296,8 +2537,10 @@
       renderStudio(project);
       showToast(t('Reverted to the generated version'));
     }
-    if (name === 'copy-spec') copyText(specFiles(project)[ui.specFile], 'Copied ' + ui.specFile);
-    if (name === 'download-spec') downloadText(ui.specFile.split('/').pop(), specFiles(project)[ui.specFile]);
+    if (name === 'translate-spec') translateSpecs(project, action, [ui.specFile]);
+    if (name === 'translate-all') translateSpecs(project, action, SPEC_FILE_ORDER.slice());
+    if (name === 'copy-spec') copyText(displayedSpec(project, ui.specFile).content, 'Copied ' + ui.specFile);
+    if (name === 'download-spec') downloadText(ui.specFile.split('/').pop(), displayedSpec(project, ui.specFile).content);
     if (name === 'copy-prompt') copyText(currentPrompt(project), 'Prompt copied');
     if (name === 'reset-prompt') {
       delete ui.promptDrafts[project.id];
@@ -2537,6 +2780,12 @@
   // Re-render the Studio when the interface language changes, so strings built with t() update too.
   if (window.SweepI18n && window.SweepI18n.onChange) {
     window.SweepI18n.onChange(function () {
+      // Rebuild the template gallery so card text follows the language.
+      const gallery = document.getElementById('template-gallery');
+      if (gallery) {
+        gallery.remove();
+        ensureTemplateGallery();
+      }
       const studioSection = document.getElementById('section-studio');
       if (studioSection && studioSection.classList.contains('active') && state.currentProject) {
         renderStudio(state.currentProject);
@@ -2553,6 +2802,7 @@
     encodeShare: encodeShare,
     decodeShare: decodeShare,
     templates: TEMPLATES,
+    localizedTemplate: localizedTemplate,
     open: function (tab) {
       if (tab && STUDIO_TABS.indexOf(tab) !== -1) ui.tab = tab;
       navigateTo('studio');

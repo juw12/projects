@@ -40,8 +40,9 @@
   function writeJson(storage, key, value) {
     try {
       storage.setItem(key, JSON.stringify(value));
+      return true;
     } catch (error) {
-      /* storage full or unavailable */
+      return false; /* storage full or unavailable */
     }
   }
 
@@ -125,11 +126,197 @@
     if (status === 401 || status === 403) return 'The provider rejected the API key (' + status + ').';
     if (status === 404) return 'Model or endpoint not found (404). Check the model name in Settings.';
     if (status === 429) return 'The provider is rate-limiting requests (429). Wait a moment and try again.';
+    if (status === 402) return 'The free quota is used up for now (402). Wait a moment, or add your own key in Settings.';
     if (status >= 500) return 'The provider had an error (' + status + '). Try again shortly.';
     return 'Request failed (' + status + '). ' + String(detail || '').slice(0, 160);
   }
 
   const activeAiControllers = new Set();
+
+  // Keyless endpoints tried in order when the free tier is busy (429/5xx/network/empty).
+  // All are OpenAI-compatible and send CORS headers, so the browser can call them directly.
+  const FREE_CHAIN = [
+    { base: 'https://text.pollinations.ai/openai', model: 'openai-fast', name: 'Pollinations' },
+    { base: 'https://api.llm7.io/v1', model: 'default', name: 'LLM7' },
+    { base: 'https://text.pollinations.ai/openai', model: 'openai', name: 'Pollinations' }
+  ];
+  // A free service that said "slow down" (402/429) is skipped for a while instead of retried.
+  const FREE_COOLDOWN_MS = 30000;
+  const FREE_ATTEMPT_MS = 60000;
+  const freeCooldown = {};
+  const AI_CACHE_KEY = 'sweep_ai_cache_v1';
+  const AI_CACHE_LIMIT = 40;
+  const AI_CACHE_TTL = 24 * 3600 * 1000;
+  let freeQueue = Promise.resolve();
+  let lastFreeCall = 0;
+  const FREE_SPACING_MS = 1200;
+
+  function quickHash(textValue) {
+    let h1 = 0xdeadbeef;
+    let h2 = 0x41c6ce57;
+    for (let i = 0; i < textValue.length; i++) {
+      const code = textValue.charCodeAt(i);
+      h1 = Math.imul(h1 ^ code, 2654435761);
+      h2 = Math.imul(h2 ^ code, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return (h2 >>> 0).toString(36) + (h1 >>> 0).toString(36);
+  }
+
+  function cachedAnswer(key) {
+    const cache = readJson(localStorage, AI_CACHE_KEY, {});
+    const hit = cache[key];
+    if (!hit || Date.now() - hit.at > AI_CACHE_TTL) return null;
+    return hit.text;
+  }
+
+  function rememberAnswer(key, textValue) {
+    const cache = readJson(localStorage, AI_CACHE_KEY, {});
+    cache[key] = { at: Date.now(), text: textValue };
+    const keys = Object.keys(cache).sort(function (a, b) { return cache[b].at - cache[a].at; });
+    keys.slice(AI_CACHE_LIMIT).forEach(function (old) { delete cache[old]; });
+    if (!writeJson(localStorage, AI_CACHE_KEY, cache)) {
+      writeJson(localStorage, AI_CACHE_KEY, {});
+    }
+  }
+
+  // Shared free endpoints allow roughly one request at a time per visitor, so free calls
+  // are serialized and spaced instead of firing in parallel and getting 429s.
+  function enqueueFree(task) {
+    const run = freeQueue.then(async function () {
+      const wait = lastFreeCall + FREE_SPACING_MS - Date.now();
+      if (wait > 0) await sleep(wait);
+      try {
+        return await task();
+      } finally {
+        lastFreeCall = Date.now();
+      }
+    });
+    freeQueue = run.catch(function () { /* keep the queue alive */ });
+    return run;
+  }
+
+  function buildRequest(kind, base, model, key, providerId, options) {
+    if (kind === 'anthropic') {
+      return {
+        url: base + '/messages',
+        init: {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': key,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+          },
+          body: JSON.stringify({
+            model: model,
+            max_tokens: options.maxTokens || 2400,
+            system: options.system,
+            messages: [{ role: 'user', content: options.user }]
+          })
+        }
+      };
+    }
+    const headers = { 'Content-Type': 'application/json' };
+    if (key) headers.Authorization = 'Bearer ' + key;
+    if (providerId === 'openrouter') {
+      headers['HTTP-Referer'] = location.origin;
+      headers['X-Title'] = 'Sweep';
+    }
+    return {
+      url: base + '/chat/completions',
+      init: {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            { role: 'system', content: options.system },
+            { role: 'user', content: options.user }
+          ]
+        })
+      }
+    };
+  }
+
+  function readAnswer(kind, data) {
+    return kind === 'anthropic'
+      ? (data.content || []).map(function (part) { return part.text || ''; }).join('')
+      : (((data.choices || [])[0] || {}).message || {}).content || '';
+  }
+
+  // One endpoint, up to `attempts` tries with backoff on 429/5xx. Errors carry .retryable
+  // so the free chain knows when moving to the next endpoint makes sense.
+  async function callEndpoint(request, kind, signal, attempts, attemptMs) {
+    // Each endpoint gets its own time budget so one stalled free service cannot eat the whole
+    // request; a per-attempt timeout is "retryable" (try the next service), a user cancel is not.
+    let attemptTimedOut = false;
+    let attemptTimer = null;
+    let fetchSignal = signal;
+    if (attemptMs) {
+      const attemptController = new AbortController();
+      const forward = function () { attemptController.abort(); };
+      if (signal.aborted) attemptController.abort();
+      else signal.addEventListener('abort', forward, { once: true });
+      attemptTimer = setTimeout(function () {
+        attemptTimedOut = true;
+        attemptController.abort();
+      }, attemptMs);
+      fetchSignal = attemptController.signal;
+    }
+    try {
+      return await callEndpointOnce(request, kind, fetchSignal, attempts);
+    } catch (error) {
+      if (error.name === 'AbortError' && attemptTimedOut && !signal.aborted) {
+        const slow = new Error(t('The AI request timed out.'));
+        slow.retryable = true;
+        throw slow;
+      }
+      throw error;
+    } finally {
+      clearTimeout(attemptTimer);
+    }
+  }
+
+  async function callEndpointOnce(request, kind, signal, attempts) {
+    let response;
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      try {
+        response = await fetch(request.url, Object.assign({}, request.init, { signal: signal }));
+      } catch (error) {
+        if (error.name === 'AbortError') throw error;
+        if (attempt === attempts - 1) {
+          const network = new Error(t('Could not reach the AI service. Check your connection.'));
+          network.retryable = true;
+          throw network;
+        }
+        await sleep(1200 * Math.pow(2, attempt));
+        continue;
+      }
+      const retryable = response.status === 429 || response.status >= 500;
+      if (!retryable || attempt === attempts - 1) break;
+      const header = Number(response.headers.get('retry-after'));
+      const wait = Number.isFinite(header) && header > 0 ? Math.min(header, 10) * 1000 : 1500 * Math.pow(2, attempt);
+      await sleep(wait);
+    }
+    if (!response.ok) {
+      const detail = await response.text().catch(function () { return ''; });
+      const failure = new Error(friendlyAiError(response.status, detail));
+      failure.status = response.status;
+      failure.retryable = [400, 402, 404, 408, 413, 429].indexOf(response.status) !== -1 || response.status >= 500;
+      failure.rateLimited = response.status === 402 || response.status === 429;
+      throw failure;
+    }
+    const data = await response.json();
+    const textOut = String(readAnswer(kind, data) || '');
+    if (!textOut.trim()) {
+      const empty = new Error(t('The model returned an empty answer.'));
+      empty.retryable = true;
+      throw empty;
+    }
+    return textOut;
+  }
 
   async function aiComplete(options) {
     const settings = aiSettings();
@@ -140,74 +327,55 @@
     if (!provider.keyless && settings.provider !== 'custom' && !key) throw new Error(t('Set up AI in Settings first'));
     if (!base) throw new Error(t('Set up AI in Settings first'));
 
+    const cacheKey = options.cache === false ? '' : quickHash(settings.provider + '|' + model + '|' + options.system + '|' + options.user);
+    if (cacheKey) {
+      const hit = cachedAnswer(cacheKey);
+      if (hit) return hit;
+    }
+
     const controller = new AbortController();
     activeAiControllers.add(controller);
     let timedOut = false;
     const timer = setTimeout(function () {
       timedOut = true;
       controller.abort();
-    }, options.timeoutMs || 90000);
-    let url;
-    let init;
-    if (provider.kind === 'anthropic') {
-      url = base + '/messages';
-      init = {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': key,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: JSON.stringify({
-          model: model,
-          max_tokens: options.maxTokens || 2400,
-          system: options.system,
-          messages: [{ role: 'user', content: options.user }]
-        })
-      };
-    } else {
-      url = base + '/chat/completions';
-      const headers = { 'Content-Type': 'application/json' };
-      if (key) headers.Authorization = 'Bearer ' + key;
-      if (settings.provider === 'openrouter') {
-        headers['HTTP-Referer'] = location.origin;
-        headers['X-Title'] = 'Sweep';
-      }
-      init = {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify({
-          model: model,
-          messages: [
-            { role: 'system', content: options.system },
-            { role: 'user', content: options.user }
-          ]
-        })
-      };
-    }
-    init.signal = controller.signal;
+    }, options.timeoutMs || 180000);
 
     try {
-      let response;
-      for (let attempt = 0; attempt < 3; attempt++) {
-        response = await fetch(url, init);
-        const retryable = response.status === 429 || response.status >= 500;
-        if (!retryable || attempt === 2) break;
-        const header = Number(response.headers.get('retry-after'));
-        const wait = Number.isFinite(header) && header > 0 ? Math.min(header, 10) * 1000 : 1500 * Math.pow(2, attempt);
-        await sleep(wait);
+      let answer;
+      if (provider.keyless) {
+        // Free tier: the user's chosen model first, then the rest of the keyless chain.
+        const chain = [{ base: base, model: model, name: 'Pollinations' }].concat(FREE_CHAIN.filter(function (entry) {
+          return !(entry.base === base && entry.model === model);
+        }));
+        answer = await enqueueFree(async function () {
+          let lastError = null;
+          const now = Date.now();
+          const ready = chain.filter(function (entry) { return !(freeCooldown[entry.base] > now); });
+          const order = ready.length ? ready : chain;
+          for (let index = 0; index < order.length; index++) {
+            const entry = order[index];
+            try {
+              const request = buildRequest('openai', entry.base, entry.model, '', 'free', options);
+              const textOut = await callEndpoint(request, 'openai', controller.signal, 1, FREE_ATTEMPT_MS);
+              if (entry !== chain[0]) notifyAiFallback(entry.name);
+              return textOut;
+            } catch (error) {
+              if (error.name === 'AbortError' || !error.retryable) throw error;
+              if (error.rateLimited) freeCooldown[entry.base] = Date.now() + FREE_COOLDOWN_MS;
+              lastError = error;
+            }
+          }
+          const busy = new Error(t('All free AI services are busy right now. Try again in a minute, or add your own free key (Groq or OpenRouter) in Settings → AI.'));
+          busy.cause = lastError;
+          throw busy;
+        });
+      } else {
+        const request = buildRequest(provider.kind, base, model, key, settings.provider, options);
+        answer = await callEndpoint(request, provider.kind, controller.signal, 3);
       }
-      if (!response.ok) {
-        const detail = await response.text().catch(function () { return ''; });
-        throw new Error(friendlyAiError(response.status, detail));
-      }
-      const data = await response.json();
-      const textOut = provider.kind === 'anthropic'
-        ? (data.content || []).map(function (part) { return part.text || ''; }).join('')
-        : (((data.choices || [])[0] || {}).message || {}).content || '';
-      if (!String(textOut).trim()) throw new Error('The model returned an empty answer.');
-      return String(textOut);
+      if (cacheKey) rememberAnswer(cacheKey, answer);
+      return answer;
     } catch (error) {
       if (error.name === 'AbortError') {
         const cancelled = new Error(timedOut ? t('The AI request timed out.') : t('Cancelled'));
@@ -219,6 +387,13 @@
       clearTimeout(timer);
       activeAiControllers.delete(controller);
     }
+  }
+
+  let fallbackNoticeAt = 0;
+  function notifyAiFallback(name) {
+    if (Date.now() - fallbackNoticeAt < 60000) return;
+    fallbackNoticeAt = Date.now();
+    toast(t('Main free AI was busy — answered by {name} instead', { name: name }));
   }
 
   function cancelAi() {
@@ -302,6 +477,26 @@
       '\nNon-goals: ' + (project.nonGoals || '') +
       '\n\nFile: ' + filename + '\n---\n' + content;
     const answer = await aiComplete({ system: system, user: user, maxTokens: 3200 });
+    return stripFences(answer);
+  }
+
+
+  const LANGUAGE_NAMES = { en: 'English', zh: 'Simplified Chinese (简体中文)', id: 'Bahasa Indonesia' };
+
+  // Translates one generated spec file for people who read the plan in another language.
+  // Structure the AI builder depends on (headings, ids like R1/T3, EARS keywords, code,
+  // file paths, commands, [P] markers, checkboxes) is kept exactly.
+  async function translateSpecFile(filename, content, lang) {
+    const target = LANGUAGE_NAMES[lang] || lang;
+    const system = [
+      'You translate software specification files into ' + target + '.',
+      'Translate prose, headings and list items. Keep Markdown structure, line breaks and checkbox syntax exactly.',
+      'Do NOT translate: code blocks, inline code, file paths, URLs, shell commands, ids such as R1, T3, AC-2, [P] markers,',
+      'or the EARS keywords WHEN / IF / WHILE / WHERE / THEN THE SYSTEM SHALL (keep those in English capitals so agents can parse them).',
+      'Keep product names and brand names unchanged.',
+      'Reply with ONLY the translated file content, no commentary and no code fences around the whole answer.'
+    ].join('\n');
+    const answer = await aiComplete({ system: system, user: 'File: ' + filename + '\n---\n' + content, maxTokens: 4000 });
     return stripFences(answer);
   }
 
@@ -512,7 +707,144 @@
     knownIds = currentIds;
   }
 
-  function mergeWorkspaces(local, remote, base) {
+  // ----- three-way merge -----
+  // The last synced workspace is kept per device as a snapshot (the common ancestor). When both
+  // devices edited the same project, every field is merged against that ancestor: changes on
+  // only one side are taken automatically, lists merge item by item, and only a field changed
+  // differently on both sides counts as a clash (the newer edit wins, the other is offered in
+  // the review dialog so nothing is lost).
+  const SNAPSHOT_KEY = 'sweep_sync_snapshot_v1';
+  const PENDING_KEY = 'sweep_sync_conflicts_v1';
+
+  function isPlainObject(value) {
+    return !!value && typeof value === 'object' && !Array.isArray(value);
+  }
+
+  function same(a, b) {
+    if (a === b) return true;
+    if (a === undefined || b === undefined) return false;
+    return JSON.stringify(a) === JSON.stringify(b);
+  }
+
+  function clone(value) {
+    return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+  }
+
+  function hasIds(list) {
+    return Array.isArray(list) && list.length > 0 && list.every(function (item) {
+      return isPlainObject(item) && (typeof item.id === 'string' || typeof item.id === 'number');
+    });
+  }
+
+  function idArrays(mine, theirs, base) {
+    const lists = [mine, theirs, base].filter(function (list) { return Array.isArray(list) && list.length; });
+    return lists.length > 0 && lists.every(hasIds);
+  }
+
+  function itemLabel(item) {
+    if (!isPlainObject(item)) return '';
+    return String(item.title || item.name || item.label || item.text || item.id || '').slice(0, 60);
+  }
+
+  function mergeValue(base, mine, theirs, path, labels, clashes, preferMine) {
+    if (same(mine, theirs)) return clone(mine);
+    if (same(base, mine)) return clone(theirs);
+    if (same(base, theirs)) return clone(mine);
+    if (isPlainObject(mine) && isPlainObject(theirs)) {
+      const ancestor = isPlainObject(base) ? base : {};
+      const keys = Object.keys(mine).concat(Object.keys(theirs).filter(function (key) { return !(key in mine); }));
+      const result = {};
+      keys.forEach(function (key) {
+        if (key === 'updatedAt') return;
+        const value = mergeValue(ancestor[key], mine[key], theirs[key], path.concat(key), labels.concat(key), clashes, preferMine);
+        if (value !== undefined) result[key] = value;
+      });
+      return result;
+    }
+    if (Array.isArray(mine) && Array.isArray(theirs)) {
+      const ancestorList = Array.isArray(base) ? base : [];
+      if (idArrays(mine, theirs, ancestorList)) return mergeById(ancestorList, mine, theirs, path, labels, clashes, preferMine);
+      return mergeList(ancestorList, mine, theirs);
+    }
+    clashes.push({ path: path, labels: labels, local: clone(mine), remote: clone(theirs), kept: preferMine ? 'local' : 'remote' });
+    return clone(preferMine ? mine : theirs);
+  }
+
+  function mergeById(base, mine, theirs, path, labels, clashes, preferMine) {
+    const index = function (list) {
+      const map = {};
+      list.forEach(function (item) { map[String(item.id)] = item; });
+      return map;
+    };
+    const baseMap = index(base);
+    const mineMap = index(mine);
+    const theirMap = index(theirs);
+    const order = mine.map(function (item) { return String(item.id); });
+    theirs.forEach(function (item) {
+      if (!(String(item.id) in mineMap)) order.push(String(item.id));
+    });
+    const result = [];
+    order.forEach(function (id) {
+      const inMine = id in mineMap;
+      const inTheirs = id in theirMap;
+      const inBase = id in baseMap;
+      if (inMine && inTheirs) {
+        const label = itemLabel(mineMap[id]) || itemLabel(theirMap[id]) || id;
+        result.push(mergeValue(baseMap[id], mineMap[id], theirMap[id], path.concat('#' + id), labels.concat(label), clashes, preferMine));
+        return;
+      }
+      const present = inMine ? mineMap[id] : theirMap[id];
+      // Removed on the other device: drop it only if this side left it untouched.
+      if (inBase && same(baseMap[id], present)) return;
+      result.push(clone(present));
+    });
+    return result;
+  }
+
+  function mergeList(base, mine, theirs) {
+    const key = function (item) { return JSON.stringify(item); };
+    const baseKeys = new Set(base.map(key));
+    const mineKeys = new Set(mine.map(key));
+    const theirKeys = new Set(theirs.map(key));
+    const kept = mine.filter(function (item) {
+      const k = key(item);
+      return theirKeys.has(k) || !baseKeys.has(k);
+    });
+    const added = theirs.filter(function (item) {
+      const k = key(item);
+      return !baseKeys.has(k) && !mineKeys.has(k);
+    });
+    return clone(kept.concat(added));
+  }
+
+  function mergeProject(base, mine, theirs) {
+    const clashes = [];
+    const preferMine = (mine.updatedAt || 0) >= (theirs.updatedAt || 0);
+    const merged = mergeValue(base, mine, theirs, [], [], clashes, preferMine);
+    merged.id = mine.id;
+    merged.updatedAt = Math.max(mine.updatedAt || 0, theirs.updatedAt || 0, Date.now());
+    return { project: merged, clashes: clashes };
+  }
+
+  function syncSnapshot() {
+    return readJson(localStorage, SNAPSHOT_KEY, {});
+  }
+
+  function saveSnapshot(projects) {
+    const snapshot = {};
+    projects.forEach(function (project) {
+      snapshot[project.id] = project;
+    });
+    if (!writeJson(localStorage, SNAPSHOT_KEY, snapshot)) {
+      try {
+        localStorage.removeItem(SNAPSHOT_KEY);
+      } catch (error) {
+        /* storage unavailable */
+      }
+    }
+  }
+
+  function mergeWorkspaces(local, remote, base, snapshot) {
     const stones = Object.assign({}, remote.tombstones || {});
     Object.keys(local.tombstones || {}).forEach(function (id) {
       stones[id] = Math.max(stones[id] || 0, local.tombstones[id]);
@@ -520,6 +852,7 @@
     const byId = {};
     const remoteById = {};
     const conflicts = [];
+    const merges = [];
     (remote.projects || []).forEach(function (project) {
       if (project && project.id) remoteById[project.id] = project;
     });
@@ -532,6 +865,7 @@
     (local.projects || []).forEach(consider);
     if (base) {
       const stamp = Date.now();
+      const ancestors = snapshot || {};
       (local.projects || []).forEach(function (mine, index) {
         if (!mine || !mine.id) return;
         const theirs = remoteById[mine.id];
@@ -540,6 +874,14 @@
         const mineHash = contentHash(mine);
         const theirsHash = contentHash(theirs);
         if (mineHash === theirsHash || mineHash === known || theirsHash === known) return;
+        const ancestor = ancestors[mine.id];
+        if (ancestor && contentHash(ancestor) === known) {
+          const result = mergeProject(ancestor, mine, theirs);
+          byId[mine.id] = result.project;
+          merges.push({ id: mine.id, name: result.project.name || mine.name, clashes: result.clashes });
+          return;
+        }
+        // No common ancestor on this device (first sync after an update): keep both versions.
         const loser = byId[mine.id] === mine ? theirs : mine;
         const copy = conflictCopy(loser, stamp + index);
         byId[copy.id] = copy;
@@ -558,7 +900,196 @@
       if (ib === -1) return 1;
       return ia - ib;
     });
-    return { projects: projects, tombstones: stones, conflicts: conflicts };
+    return { projects: projects, tombstones: stones, conflicts: conflicts, merges: merges };
+  }
+
+  // ----- clash review -----
+  function pendingClashes() {
+    return readJson(localStorage, PENDING_KEY, []);
+  }
+
+  function savePendingClashes(list) {
+    writeJson(localStorage, PENDING_KEY, list);
+    renderClashBanner();
+  }
+
+  function rememberClashes(merges) {
+    const list = pendingClashes();
+    merges.forEach(function (merge) {
+      if (!merge.clashes.length) return;
+      const existing = list.find(function (entry) { return entry.projectId === merge.id; });
+      const entry = existing || { projectId: merge.id, name: merge.name, fields: [] };
+      entry.name = merge.name;
+      entry.at = Date.now();
+      merge.clashes.forEach(function (clash) {
+        const pathKey = JSON.stringify(clash.path);
+        entry.fields = entry.fields.filter(function (field) { return JSON.stringify(field.path) !== pathKey; });
+        entry.fields.push(clash);
+      });
+      if (!existing) list.push(entry);
+    });
+    savePendingClashes(list);
+  }
+
+  function setAtPath(target, path, value) {
+    let container = target;
+    for (let i = 0; i < path.length; i++) {
+      const segment = path[i];
+      const last = i === path.length - 1;
+      if (Array.isArray(container) && segment.charAt(0) === '#') {
+        const id = segment.slice(1);
+        const position = container.findIndex(function (item) { return item && String(item.id) === id; });
+        if (last) {
+          if (value === undefined) {
+            if (position !== -1) container.splice(position, 1);
+          } else if (position === -1) {
+            container.push(clone(value));
+          } else {
+            container[position] = clone(value);
+          }
+          return true;
+        }
+        if (position === -1) return false;
+        container = container[position];
+      } else {
+        if (last) {
+          if (value === undefined) delete container[segment];
+          else container[segment] = clone(value);
+          return true;
+        }
+        if (container[segment] === undefined || container[segment] === null) return false;
+        container = container[segment];
+      }
+    }
+    return false;
+  }
+
+  const FIELD_LABELS = {
+    name: 'Name', oneLiner: 'One-liner', problem: 'Problem', targetUser: 'Target user', jtbd: 'Job to be done',
+    nonGoals: 'Non-goals', overlap: 'Overlap', status: 'Status', successChecks: 'Success checks',
+    board: 'Board', tasks: 'Tasks', title: 'Title', notes: 'Notes', verifyGates: 'Verify'
+  };
+
+  function clashLabel(field) {
+    const parts = (field.labels && field.labels.length ? field.labels : field.path).map(function (part) {
+      return FIELD_LABELS[part] ? t(FIELD_LABELS[part]) : String(part).replace(/^#/, '');
+    });
+    return parts.join(' › ') || t('Project');
+  }
+
+  function previewValue(value) {
+    if (value === undefined || value === null || value === '') return '<em>' + esc(t('(empty)')) + '</em>';
+    const textValue = typeof value === 'string' ? value : JSON.stringify(value, null, 1);
+    return esc(textValue.length > 280 ? textValue.slice(0, 280) + '…' : textValue);
+  }
+
+  function renderClashBanner() {
+    let banner = document.getElementById('sync-clash-banner');
+    const list = pendingClashes().filter(function (entry) { return entry.fields && entry.fields.length; });
+    if (!list.length) {
+      if (banner) banner.remove();
+      return;
+    }
+    const count = list.reduce(function (sum, entry) { return sum + entry.fields.length; }, 0);
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'sync-clash-banner';
+      banner.className = 'update-banner clash-banner';
+      banner.setAttribute('role', 'status');
+      banner.addEventListener('click', function (event) {
+        const action = event.target.closest('[data-clash]');
+        if (!action) return;
+        if (action.getAttribute('data-clash') === 'review') openClashReview();
+        if (action.getAttribute('data-clash') === 'dismiss') banner.hidden = true;
+      });
+      document.body.appendChild(banner);
+    }
+    banner.hidden = false;
+    banner.innerHTML = '<span>' + esc(t('Sync merged edits from two devices — {count} change(s) clashed and need a quick look.', { count: count })) + '</span>' +
+      '<button type="button" class="btn btn-primary btn-sm" data-clash="review">' + esc(t('Review')) + '</button>' +
+      '<button type="button" class="btn btn-text btn-sm" data-clash="dismiss">' + esc(t('Later')) + '</button>';
+  }
+
+  let clashReturnFocus = null;
+  function openClashReview() {
+    const list = pendingClashes().filter(function (entry) { return entry.fields && entry.fields.length; });
+    if (!list.length) return;
+    closeClashReview();
+    clashReturnFocus = document.activeElement;
+    const overlay = document.createElement('div');
+    overlay.className = 'studio-modal';
+    overlay.id = 'clash-modal';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'clash-title');
+    overlay.innerHTML = '<div class="studio-modal-card clash-card">' +
+      '<button type="button" class="studio-modal-close" data-clash-action="close" aria-label="' + esc(t('Close')) + '">×</button>' +
+      '<h2 id="clash-title">' + esc(t('Review sync clashes')) + '</h2>' +
+      '<p class="settings-note">' + esc(t('Both devices changed these fields. Everything else was merged automatically. The newer edit is selected — pick the version to keep.')) + '</p>' +
+      '<div class="clash-list">' +
+      list.map(function (entry, entryIndex) {
+        return '<section class="clash-project"><h3>' + esc(entry.name || t('Untitled')) + '</h3>' +
+          entry.fields.map(function (field, fieldIndex) {
+            const name = 'clash-' + entryIndex + '-' + fieldIndex;
+            return '<fieldset class="clash-field"><legend>' + esc(clashLabel(field)) + '</legend>' +
+              '<label class="clash-option"><input type="radio" name="' + name + '" value="local"' + (field.kept === 'local' ? ' checked' : '') + '>' +
+                '<span class="clash-side">' + esc(t('This device')) + '</span><span class="clash-value">' + previewValue(field.local) + '</span></label>' +
+              '<label class="clash-option"><input type="radio" name="' + name + '" value="remote"' + (field.kept === 'remote' ? ' checked' : '') + '>' +
+                '<span class="clash-side">' + esc(t('Other device')) + '</span><span class="clash-value">' + previewValue(field.remote) + '</span></label>' +
+            '</fieldset>';
+          }).join('') + '</section>';
+      }).join('') + '</div>' +
+      '<div class="settings-actions"><button type="button" class="btn btn-primary btn-sm" data-clash-action="apply">' + esc(t('Keep selected versions')) + '</button>' +
+        '<button type="button" class="btn btn-text btn-sm" data-clash-action="close">' + esc(t('Later')) + '</button></div>' +
+    '</div>';
+    document.body.appendChild(overlay);
+    document.body.classList.add('studio-modal-open');
+    overlay.addEventListener('click', function (event) {
+      if (event.target === overlay) {
+        closeClashReview();
+        return;
+      }
+      const action = event.target.closest('[data-clash-action]');
+      if (!action) return;
+      if (action.getAttribute('data-clash-action') === 'apply') applyClashChoices(list, overlay);
+      else closeClashReview();
+    });
+    overlay.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') closeClashReview();
+    });
+    const first = overlay.querySelector('input[type="radio"]:checked') || overlay.querySelector('button');
+    if (first) first.focus();
+  }
+
+  function closeClashReview() {
+    const overlay = document.getElementById('clash-modal');
+    if (!overlay) return;
+    overlay.remove();
+    if (!document.getElementById('settings-modal')) document.body.classList.remove('studio-modal-open');
+    if (clashReturnFocus && document.contains(clashReturnFocus)) clashReturnFocus.focus();
+    clashReturnFocus = null;
+  }
+
+  async function applyClashChoices(list, overlay) {
+    let changed = 0;
+    list.forEach(function (entry, entryIndex) {
+      const project = (typeof state !== 'undefined' && state.projects || []).find(function (item) { return item.id === entry.projectId; });
+      entry.fields.forEach(function (field, fieldIndex) {
+        const picked = overlay.querySelector('input[name="clash-' + entryIndex + '-' + fieldIndex + '"]:checked');
+        const choice = picked ? picked.value : field.kept;
+        if (project && choice !== field.kept && setAtPath(project, field.path, choice === 'local' ? field.local : field.remote)) changed++;
+      });
+    });
+    const remaining = pendingClashes().filter(function (entry) {
+      return !list.some(function (done) { return done.projectId === entry.projectId; });
+    });
+    savePendingClashes(remaining);
+    closeClashReview();
+    if (changed && typeof window.saveState === 'function') {
+      await window.saveState();
+      rerenderCurrentView();
+    }
+    toast(changed ? t('Kept your picks — syncing them now') : t('Kept the newer versions'));
   }
 
   let syncing = null;
@@ -608,7 +1139,7 @@
         const content = await gistContent(gist);
         if (content) {
           const remote = await decryptPayload(content, secrets.passphrase);
-          merged = mergeWorkspaces(local, remote, syncBase());
+          merged = mergeWorkspaces(local, remote, syncBase(), syncSnapshot());
         }
       }
       writeJson(localStorage, TOMBSTONE_KEY, merged.tombstones);
@@ -644,10 +1175,27 @@
         nextBase[project.id] = contentHash(project);
       });
       writeJson(localStorage, BASE_KEY, nextBase);
+      saveSnapshot(merged.projects);
       (merged.conflicts || []).forEach(function (conflict) {
         toast(t('“{name}” was edited on two devices — kept both versions', { name: conflict.name }));
       });
-      const result = { phase: 'done', pulled: changedLocally, count: merged.projects.length, at: settings.lastSync, conflicts: (merged.conflicts || []).length };
+      const merges = merged.merges || [];
+      const clashCount = merges.reduce(function (sum, merge) { return sum + merge.clashes.length; }, 0);
+      if (merges.length) {
+        rememberClashes(merges);
+        if (!clashCount) {
+          toast(t('Merged edits to “{name}” from two devices', { name: merges[0].name }));
+        }
+      }
+      const result = {
+        phase: 'done',
+        pulled: changedLocally,
+        count: merged.projects.length,
+        at: settings.lastSync,
+        conflicts: (merged.conflicts || []).length,
+        merged: merges.length,
+        clashes: clashCount
+      };
       notifySync(result);
       if (options && options.announce) toast(t('Last synced {when}', { when: timeAgo(settings.lastSync) }).replace('{when}', timeAgo(settings.lastSync)));
       return result;
@@ -711,6 +1259,208 @@
     }
   }
 
+  // ----- device linking -----
+  // "Link another device" packs the token, passphrase and gist id into a link, encrypted with a
+  // one-time 10-character code shown only on this screen (PBKDF2 + AES-GCM). The link alone is
+  // useless and so is the code alone. Links expire after 15 minutes.
+  const PAIR_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  const PAIR_TTL_MS = 15 * 60 * 1000;
+  const PAIR_PENDING_KEY = 'sweep_pair_pending_v1';
+
+  function randomCode(length, alphabet) {
+    const bytes = crypto.getRandomValues(new Uint8Array(length));
+    let out = '';
+    for (let i = 0; i < length; i++) out += alphabet[bytes[i] % alphabet.length];
+    return out;
+  }
+
+  function generatePassphrase() {
+    const raw = randomCode(24, 'abcdefghjkmnpqrstuvwxyz23456789');
+    return raw.match(/.{4}/g).join('-');
+  }
+
+  function bytesToBase64Url(bytes) {
+    return toBase64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function base64UrlToBytes(value) {
+    const padded = value.replace(/-/g, '+').replace(/_/g, '/');
+    return fromBase64(padded + '==='.slice((padded.length + 3) % 4));
+  }
+
+  function normalizeCode(code) {
+    return String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
+
+  function formatCode(code) {
+    return code.slice(0, 5) + '-' + code.slice(5);
+  }
+
+  async function createPairingLink() {
+    const secrets = syncSecrets();
+    const settings = syncSettings();
+    const code = randomCode(10, PAIR_ALPHABET);
+    const envelope = await encryptPayload({
+      t: secrets.token,
+      p: secrets.passphrase,
+      g: settings.gistId || '',
+      exp: Date.now() + PAIR_TTL_MS
+    }, code);
+    // One compact base64url blob (salt 16 B | iv 12 B | ciphertext) keeps the link and QR small.
+    const parsed = JSON.parse(envelope);
+    const salt = fromBase64(parsed.salt);
+    const iv = fromBase64(parsed.iv);
+    const data = fromBase64(parsed.data);
+    const packed = new Uint8Array(salt.length + iv.length + data.length);
+    packed.set(salt, 0);
+    packed.set(iv, salt.length);
+    packed.set(data, salt.length + iv.length);
+    const base = location.href.split('#')[0].split('?')[0];
+    return { url: base + '#pair=' + bytesToBase64Url(packed), code: code };
+  }
+
+  async function redeemPairing(payload, code) {
+    const damaged = t('This link is damaged. Create a new one on the other device.');
+    let packed;
+    try {
+      packed = base64UrlToBytes(payload);
+    } catch (error) {
+      throw new Error(damaged);
+    }
+    if (packed.length < 16 + 12 + 17) throw new Error(damaged);
+    const envelope = JSON.stringify({
+      v: 1,
+      app: 'sweep',
+      salt: toBase64(packed.subarray(0, 16)),
+      iv: toBase64(packed.subarray(16, 28)),
+      data: toBase64(packed.subarray(28))
+    });
+    let secret;
+    try {
+      secret = await decryptPayload(envelope, normalizeCode(code));
+    } catch (error) {
+      throw new Error(t('That code does not match. Check the code on the other device.'));
+    }
+    if (!secret || !secret.t || !secret.p) throw new Error(damaged);
+    if (secret.exp && Date.now() > secret.exp) throw new Error(t('This link has expired. Create a new one on the other device.'));
+    saveSyncSecrets({ token: secret.t, passphrase: secret.p }, true);
+    const settings = syncSettings();
+    settings.gistId = secret.g || settings.gistId || '';
+    settings.auto = true;
+    settings.remember = true;
+    saveSyncSettings(settings);
+    return true;
+  }
+
+  async function showLinkPanel() {
+    const panel = document.getElementById('sync-link-panel');
+    if (!panel) return;
+    panel.hidden = false;
+    panel.innerHTML = '<p class="settings-note">' + esc(t('Creating a secure link…')) + '</p>';
+    try {
+      const pairing = await createPairingLink();
+      const qr = window.SweepQR ? window.SweepQR.svg(pairing.url, { ecc: 'L', border: 4, label: t('QR code to link another device') }) : '';
+      panel.innerHTML =
+        '<div class="sync-link-grid">' +
+          (qr ? '<div class="sync-qr">' + qr + '</div>' : '') +
+          '<div class="sync-link-copy">' +
+            '<p class="settings-note"><b>' + esc(t('On your phone: scan this code.')) + '</b> ' + esc(t('On a computer: open the link instead.')) + '</p>' +
+            '<p class="settings-note">' + esc(t('Then type this one-time code:')) + '</p>' +
+            '<p class="pair-code" data-no-i18n>' + esc(formatCode(pairing.code)) + '</p>' +
+            '<div class="settings-actions"><button type="button" class="btn btn-secondary btn-sm" data-pro="sync-copy-link" data-link="' + esc(pairing.url) + '">' + esc(t('Copy link')) + '</button></div>' +
+            '<p class="settings-note small">' + esc(t('Expires in 15 minutes. Never send the link and the code in the same message.')) + '</p>' +
+          '</div>' +
+        '</div>';
+    } catch (error) {
+      panel.innerHTML = '<p class="settings-status error">✗ ' + esc(error.message) + '</p>';
+    }
+  }
+
+  function capturePairingHash() {
+    const match = location.hash.match(/^#pair=([A-Za-z0-9_\-.]+)$/);
+    if (!match) return;
+    try {
+      sessionStorage.setItem(PAIR_PENDING_KEY, match[1]);
+    } catch (error) {
+      /* storage unavailable */
+    }
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+
+  let pairReturnFocus = null;
+  function openPairPrompt() {
+    let payload = '';
+    try {
+      payload = sessionStorage.getItem(PAIR_PENDING_KEY) || '';
+    } catch (error) {
+      payload = '';
+    }
+    if (!payload || document.getElementById('pair-modal')) return;
+    pairReturnFocus = document.activeElement;
+    const modal = document.createElement('div');
+    modal.id = 'pair-modal';
+    modal.className = 'studio-modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'pair-title');
+    modal.innerHTML = '<div class="studio-modal-card settings-card">' +
+      '<button type="button" class="studio-modal-close" data-pair="close" aria-label="' + esc(t('Close')) + '">×</button>' +
+      '<h2 id="pair-title">' + esc(t('Link this device')) + '</h2>' +
+      '<p class="settings-note">' + esc(t('Enter the one-time code shown on your other device to turn on sync here.')) + '</p>' +
+      '<label class="settings-field"><span>' + esc(t('One-time code')) + '</span>' +
+        '<input type="text" id="pair-code" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" maxlength="11" placeholder="ABCDE-23456" data-no-i18n></label>' +
+      '<div class="settings-actions"><button type="button" class="btn btn-primary btn-sm" data-pair="link">' + esc(t('Link device')) + '</button>' +
+        '<button type="button" class="btn btn-text btn-sm" data-pair="close">' + esc(t('Cancel')) + '</button>' +
+        '<span class="settings-status" id="pair-status" role="status"></span></div>' +
+    '</div>';
+    document.body.appendChild(modal);
+    document.body.classList.add('studio-modal-open');
+    const input = modal.querySelector('#pair-code');
+    const submit = async function () {
+      const status = modal.querySelector('#pair-status');
+      status.className = 'settings-status';
+      status.textContent = t('Linking…');
+      try {
+        await redeemPairing(payload, input.value);
+        try {
+          sessionStorage.removeItem(PAIR_PENDING_KEY);
+        } catch (error) {
+          /* storage unavailable */
+        }
+        closePairPrompt();
+        toast(t('This device is linked — syncing now'));
+        if (typeof state !== 'undefined' && state.workspace) {
+          syncNow({ announce: true }).catch(function (error) { toast('Sync: ' + error.message); });
+        }
+      } catch (error) {
+        status.className = 'settings-status error';
+        status.textContent = '✗ ' + error.message;
+      }
+    };
+    modal.addEventListener('click', function (event) {
+      const action = event.target.closest('[data-pair]');
+      if (event.target === modal || (action && action.getAttribute('data-pair') === 'close')) {
+        closePairPrompt();
+        return;
+      }
+      if (action && action.getAttribute('data-pair') === 'link') submit();
+    });
+    modal.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') closePairPrompt();
+      if (event.key === 'Enter' && event.target === input) submit();
+    });
+    input.focus();
+  }
+
+  function closePairPrompt() {
+    const modal = document.getElementById('pair-modal');
+    if (!modal) return;
+    modal.remove();
+    if (!document.getElementById('settings-modal')) document.body.classList.remove('studio-modal-open');
+    if (pairReturnFocus && document.contains(pairReturnFocus)) pairReturnFocus.focus();
+    pairReturnFocus = null;
+  }
+
   // =====================================================================
   // Settings modal
   // =====================================================================
@@ -740,7 +1490,28 @@
             esc(language.label) + '</button>';
         }).join('') +
       '</div>' +
-      '<p class="settings-note">' + esc(t('Your briefs, plans and specs stay in the language you write them in.')) + '</p>';
+      '<p class="settings-note">' + esc(t('Your briefs, plans and specs stay in the language you write them in.')) + '</p>' +
+      (current !== 'en'
+        ? '<p class="settings-note small">' + esc(t('Spotted an awkward translation?')) + ' <a href="' + translationIssueUrl(current) + '" target="_blank" rel="noopener">' + esc(t('Suggest a better wording')) + ' ↗</a></p>'
+        : '');
+  }
+
+  function translationIssueUrl(lang) {
+    const name = lang === 'zh' ? '简体中文' : 'Bahasa Indonesia';
+    const visible = Array.prototype.find.call(document.querySelectorAll('main section[id^="section-"]'), function (section) {
+      return section.style.display !== 'none';
+    });
+    const body = [
+      'Language: ' + name,
+      'Screen: ' + (visible ? visible.id.replace('section-', '') : 'unknown'),
+      '',
+      'Current text:',
+      '',
+      'Better wording:',
+      '',
+      'Why (optional):'
+    ].join('\n');
+    return 'https://github.com/juw12/projects/issues/new?title=' + encodeURIComponent('Sweep translation (' + lang + '): ') + '&body=' + encodeURIComponent(body);
   }
 
   function aiTabHtml() {
@@ -768,22 +1539,35 @@
       '<p class="settings-note small">' + esc(t('Your key is sent only to the provider you pick, straight from your browser. Sweep has no server.')) + '</p>';
   }
 
+  const TOKEN_URL = 'https://github.com/settings/personal-access-tokens/new?name=Sweep%20sync' +
+    '&description=Encrypted%20Sweep%20workspace%20sync%20(private%20gist)&expires_in=366&gists=write';
+
   function syncTabHtml() {
     const settings = syncSettings();
     const secrets = syncSecrets();
+    const configured = syncConfigured();
     return '<h3>' + esc(t('Sync across devices')) + '</h3>' +
       '<p class="settings-note">' + esc(t('Your workspace is encrypted with your sync passphrase, then saved to a private GitHub Gist you own. Use the same token and passphrase on another device to sync.')) + '</p>' +
-      '<label class="settings-field"><span>' + esc(t('GitHub token')) + ' · <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">create ↗</a></span>' +
+      (configured ? '' :
+        '<ol class="sync-steps">' +
+          '<li>' + esc(t('Create a token — the link pre-fills everything (only the “Gists” permission). Click “Generate token” on GitHub and copy it.')) + '</li>' +
+          '<li>' + esc(t('Paste it below, press “Generate” for a strong passphrase, then “Sync now”.')) + '</li>' +
+          '<li>' + esc(t('On your other devices, use “Link another device” — no typing needed.')) + '</li>' +
+        '</ol>') +
+      '<label class="settings-field"><span>' + esc(t('GitHub token')) + ' · <a href="' + TOKEN_URL + '" target="_blank" rel="noopener">' + esc(t('create (pre-filled)')) + ' ↗</a></span>' +
         '<input type="password" id="sync-token" autocomplete="off" spellcheck="false" value="' + esc(secrets.token) + '" placeholder="github_pat_…"></label>' +
       '<p class="settings-note small">' + esc(t('Create a token with only the “Gists” permission.')) + '</p>' +
       '<label class="settings-field"><span>' + esc(t('Sync passphrase')) + '</span>' +
-        '<input type="password" id="sync-pass" autocomplete="new-password" value="' + esc(secrets.passphrase) + '"></label>' +
+        '<span class="input-with-button"><input type="password" id="sync-pass" autocomplete="new-password" value="' + esc(secrets.passphrase) + '">' +
+        '<button type="button" class="btn btn-secondary btn-sm" data-pro="sync-generate">' + esc(t('Generate')) + '</button></span></label>' +
       '<p class="settings-note small">' + esc(t('Never leaves this device. Without it the gist is unreadable.')) + '</p>' +
       '<label class="settings-check"><input type="checkbox" id="sync-remember"' + (settings.remember !== false ? ' checked' : '') + '> ' + esc(t('Remember the key on this device')) + '</label>' +
       '<label class="settings-check"><input type="checkbox" id="sync-auto"' + (settings.auto !== false ? ' checked' : '') + '> ' + esc(t('Sync automatically')) + '</label>' +
       '<div class="settings-actions"><button type="button" class="btn btn-primary btn-sm" data-pro="sync-now">' + esc(t('Sync now')) + '</button>' +
-        (syncConfigured() ? '<button type="button" class="btn btn-text btn-sm" data-pro="sync-disconnect">' + esc(t('Disconnect')) + '</button>' : '') +
-        '<span class="settings-status" id="sync-status" role="status">' + esc(settings.lastSync ? t('Last synced {when}', { when: timeAgo(settings.lastSync) }).replace('{when}', timeAgo(settings.lastSync)) : t('Never synced')) + '</span></div>';
+        (configured ? '<button type="button" class="btn btn-secondary btn-sm" data-pro="sync-link">' + esc(t('Link another device')) + '</button>' : '') +
+        (configured ? '<button type="button" class="btn btn-text btn-sm" data-pro="sync-disconnect">' + esc(t('Disconnect')) + '</button>' : '') +
+        '<span class="settings-status" id="sync-status" role="status">' + esc(settings.lastSync ? t('Last synced {when}', { when: timeAgo(settings.lastSync) }).replace('{when}', timeAgo(settings.lastSync)) : t('Never synced')) + '</span></div>' +
+      '<div id="sync-link-panel" class="sync-link-panel" hidden></div>';
   }
 
   function settingsBodyHtml() {
@@ -928,13 +1712,35 @@
       setStatus('ai-status', t('Testing…'));
       action.disabled = true;
       try {
-        const reply = await aiComplete({ system: 'Reply with exactly: OK', user: 'Say OK', maxTokens: 20, timeoutMs: 45000 });
+        const reply = await aiComplete({ system: 'Reply with exactly: OK', user: 'Say OK', maxTokens: 20, timeoutMs: 45000, cache: false });
         setStatus('ai-status', '✓ ' + t('Connected') + ' · ' + reply.trim().slice(0, 24), 'ok');
       } catch (error) {
         setStatus('ai-status', '✗ ' + error.message, 'error');
       } finally {
         action.disabled = false;
       }
+    }
+    if (name === 'sync-generate') {
+      const field = document.getElementById('sync-pass');
+      if (field) {
+        field.value = generatePassphrase();
+        field.type = 'text';
+        persistSyncForm();
+        setStatus('sync-status', t('Strong passphrase created — it is saved on this device.'), 'ok');
+      }
+      return;
+    }
+    if (name === 'sync-link') {
+      persistSyncForm();
+      showLinkPanel();
+      return;
+    }
+    if (name === 'sync-copy-link') {
+      const link = action.getAttribute('data-link');
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(link).then(function () { toast(t('Link copied')); });
+      }
+      return;
     }
     if (name === 'sync-now') {
       persistSyncForm();
@@ -1081,8 +1887,12 @@
     });
   }
 
+  capturePairingHash();
+
   function init() {
     settingsButton();
+    renderClashBanner();
+    setTimeout(openPairPrompt, 400);
     wrapPersistence();
     document.addEventListener('visibilitychange', syncOnFocus);
     document.addEventListener('keydown', trapFocus);
@@ -1107,6 +1917,7 @@
       cancel: cancelAi,
       sharpenBrief: sharpenBrief,
       improveSpecFile: improveSpecFile,
+      translateSpecFile: translateSpecFile,
       onChange: function (listener) { aiListeners.push(listener); },
       providers: PROVIDERS
     },
@@ -1114,7 +1925,14 @@
       now: syncNow,
       configured: syncConfigured,
       merge: mergeWorkspaces,
+      mergeProject: mergeProject,
       hash: contentHash,
+      reviewClashes: openClashReview,
+      pendingClashes: pendingClashes,
+      createPairingLink: createPairingLink,
+      redeemPairing: redeemPairing,
+      openPairPrompt: openPairPrompt,
+      generatePassphrase: generatePassphrase,
       encrypt: encryptPayload,
       decrypt: decryptPayload,
       onStatus: function (listener) { syncListeners.push(listener); }
