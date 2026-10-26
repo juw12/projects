@@ -165,6 +165,14 @@
     {
      "label": "Mobile web",
      "path": "airiz-motor/"
+    },
+    {
+     "label": "Android app",
+     "path": "https://github.com/juw12/projects/releases/download/airiz-mobile-v1.0.0/AIRIZ-Mobile-1.0.0-android.apk"
+    },
+    {
+     "label": "iPhone build",
+     "path": "https://github.com/juw12/projects/releases/tag/airiz-mobile-v1.0.0"
     }
    ]
   },
