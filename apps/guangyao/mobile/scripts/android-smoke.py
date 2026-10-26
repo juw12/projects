@@ -108,13 +108,27 @@ def main(apk):
 
     def signin_page():
         return [p for p in devtools_pages() if "puter.com" in p.get("url", "")]
-    report["signin_window"] = bool(wait_for(signin_page, 60, "Puter window did not open in the app"))
+    signin_targets = wait_for(signin_page, 60, "Puter window did not open in the app")
+    report["signin_window"] = True
     report["signin_has_opener"] = page.evaluate("!!window.__signin && !window.__signin.closed")
-    time.sleep(3)
-    (OUT / "guangyao-android-signin-window.png").write_bytes(adb("exec-out", "screencap", "-p", binary=True))
-    adb("shell", "input", "keyevent", "KEYCODE_BACK")
-    adb("shell", "input", "keyevent", "KEYCODE_BACK")
+
+    # The sign-in page must actually render inside the dialog (not stay blank).
+    signin = Page(signin_targets[0]["webSocketDebuggerUrl"])
+    report["signin_page_text_length"] = wait_for(
+        lambda: signin.evaluate("document.readyState === 'complete' && document.body ? document.body.innerText.trim().length : 0"),
+        60,
+        "Puter sign-in page stayed blank",
+    )
+    report["signin_page_title"] = signin.evaluate("document.title")
+    signin.ws.close()
     time.sleep(2)
+    (OUT / "guangyao-android-signin-window.png").write_bytes(adb("exec-out", "screencap", "-p", binary=True))
+
+    # One Back press closes the sign-in dialog and returns to the app (a second press would leave the app).
+    adb("shell", "input", "keyevent", "KEYCODE_BACK")
+    report["signin_closed_by_back"] = bool(wait_for(lambda: not signin_page(), 20, "Back did not close the sign-in dialog"))
+    report["app_still_open"] = page.evaluate("document.visibilityState") == "visible"
+    assert report["app_still_open"], report
 
     # Any other new-window link leaves the app (no second WebView stays open for it).
     page.evaluate("window.open('https://example.com/handout.pdf', '_blank'); true")
