@@ -44,7 +44,9 @@ def main():
     session = started["session"]
 
     def call(path, body=None):
-        code, data, seconds = post(f"/v1/sessions/{session}/call", {"path": path, "body": body})
+        # Actions are never retried automatically: a repeated click could submit twice.
+        attempts = 1 if path == "act" else 3
+        code, data, seconds = post(f"/v1/sessions/{session}/call", {"path": path, "body": body}, attempts)
         print(f"{path:8} {code} {seconds:5.1f}s {str({k: data.get(k) for k in ('title', 'url', 'error') if k in data})[:150]}")
         return code, data
 
