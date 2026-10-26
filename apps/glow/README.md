@@ -12,6 +12,14 @@
 GlowChat installable app: `glow/chat/app.html`, mobile: `glow/chat/mobile.html`. GlowRoom: `glow/room/app.html`, `glow/room/mobile.html`.
 AI-suggested resources in GlowChat are not automatically browsed or verified; GlowChat does no autonomous building or execution (that is GlowRoom's job, and its results should still be reviewed).
 
+## v0.7.2 — no made-up answers when research fails
+Found in a real GlowLead run: Glow Free sent an empty reply while Nova was planning, the whole GlowRoom mission failed, GlowLead moved on, and GlowChat then invented products and review links that the check passed. Now:
+- **GlowRoom keeps going**: an empty AI reply is retried after a short wait (12 s, then 30 s); if Nova's planner still can't answer, the crew uses its standard plan, and if Nova can't write the summary, you get the team's own work instead of an error.
+- **GlowLead sends a failed crew mission again once** before giving up on that step.
+- **No invented facts**: when live research failed, later steps are told so and must not make up names, prices, ratings or links; the check is told too, and its fix-up round redoes the research with the crew instead of asking GlowChat to guess.
+- **Honest report**: if the research never succeeded, the report is marked *⚠ Not checked live* (also in GlowChat) and no criterion is shown as met.
+- Self-test: 21 checks (4 new for failed research). Caches: `glowroom-v5`, `glowlead-v3`.
+
 ## v0.7.1 — no more endless waiting
 Found in a real GlowLead run: a Glow Free request was accepted but never answered, so Nova (and GlowLead) waited forever. Every AI request from GlowRoom/GlowLead now has a 75 s answer timeout and a 45 s stall timeout while streaming; a stuck request is sent again (with a notice) and finally fails with a clear message instead of hanging. GlowLead also scrolls to its progress when a goal arrives from Glow home. Caches: `glowroom-v4`, `glowlead-v2`.
 
@@ -24,7 +32,7 @@ A "boss bot" orchestrator, like using one bot to direct Claude Code and Codex, b
 - **It owns GlowRoom**: crew missions it starts are saved in GlowRoom's own results with a 👑, GlowRoom shows *👑 Owner: GlowLead* in its header (desktop and phone), and the engine now merges missions saved by another page instead of overwriting them.
 - Glow home has a third start button (*👑 Let GlowLead run it*) and a GlowLead card; the app switcher lists GlowLead.
 - Works for guests on Glow Free (each AI call may wait ~30 s for the shared limit, so a 3-step lead takes a few minutes); signed-in Glow AI is much faster.
-- Self-test: `web/lead/index.html#selftest` (17 checks with a stubbed AI: planning, routing, Council, GlowRoom hand-off, fix-up round, approval, stop, GlowChat hand-off, escaping). Static tests: `tests/test_glowlead.py`.
+- Self-test: `web/lead/index.html#selftest` (17 checks at v0.7.0, 21 since v0.7.2, with a stubbed AI: planning, routing, Council, GlowRoom hand-off, fix-up round, approval, stop, GlowChat hand-off, escaping). Static tests: `tests/test_glowlead.py`.
 
 ## v0.6.1 — fixes from a real end-to-end run
 Tested as a first-time visitor on the live site (portfolio → Glow home → GlowChat → GlowRoom → back) with the real free AI:

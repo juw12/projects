@@ -132,6 +132,7 @@
   const REVIEW_SYSTEM = [
     "You are GlowLead, the team lead. Your team has finished the steps below.",
     "1) Write the final deliverable for the user in Markdown. Lead with the answer. Keep the team's facts, numbers and source links; remove repetition; do not describe the process.",
+    "Never add facts, products, prices, ratings or links that are not in the team's work. If the team's work notes that live research FAILED, any criterion that needs current, sourced or checked facts is NOT met, and the deliverable must say the facts were not checked live.",
     '2) On the very last line write CHECK: followed by JSON {"met":[true or false for each done-criterion, in order],"missing":"what is still missing, or empty"}.',
   ].join("\n");
 
@@ -148,12 +149,26 @@
   }
 
   // ------------------------------------------------------------------ workers
+  // Steps whose live research failed: their facts were never checked on the web.
+  function failedResearch(lead, uptoIndex = lead.steps.length) {
+    return lead.steps.slice(0, uptoIndex).filter((s) => s.worker === "room" && s.status === "error" && !s.redone);
+  }
+
   function contextFrom(lead, uptoIndex) {
     const done = lead.steps.slice(0, uptoIndex).filter((s) => s.output);
-    if (!done.length) return "";
-    return "\n\nWork already done by the team:\n" + done
-      .map((s) => `### ${WORKERS[s.worker].name}: ${s.title}\n${clip(s.output, CONTEXT_PER_STEP)}`)
-      .join("\n\n");
+    let context = "";
+    if (done.length) {
+      context += "\n\nWork already done by the team:\n" + done
+        .map((s) => `### ${WORKERS[s.worker].name}: ${s.title}\n${clip(s.output, CONTEXT_PER_STEP)}`)
+        .join("\n\n");
+    }
+    const failed = failedResearch(lead, uptoIndex);
+    if (failed.length) {
+      context += `\n\nIMPORTANT: the live web research step${failed.length > 1 ? "s" : ""} (${failed.map((s) => s.title).join("; ")}) FAILED, so you have NO checked current data. ` +
+        "Do not invent product names, models, prices, ratings, statistics, sources or links. Use only well-known facts you are sure of, " +
+        "say plainly that they were not checked live, and tell the user what to verify.";
+    }
+    return context;
   }
 
   async function ask(system, content, signal, maxTokens = 2200) {
@@ -166,7 +181,7 @@
     step.progress = "GlowChat is writing…";
     render(lead);
     return ask(
-      "You are GlowChat, working for GlowLead (the team lead). Do the task completely and concretely. Use Markdown. No preamble.",
+      "You are GlowChat, working for GlowLead (the team lead). Do the task completely and concretely. Use Markdown. No preamble. Never invent facts, product names, prices, ratings, sources or links: if you are not sure, say so.",
       `Overall goal: ${lead.goal}\n\nYour task: ${step.task}${contextFrom(lead, index)}`,
       signal,
     );
@@ -231,13 +246,25 @@
     step.startedAt = Date.now();
     step.error = "";
     render(lead);
-    try {
-      step.output = await RUNNERS[step.worker](lead, step, index, signal);
-      step.status = "done";
-    } catch (error) {
-      if (error && error.name === "AbortError") throw error;
-      step.status = "error";
-      step.error = clip(error && error.message, 300) || "Something went wrong.";
+    const attempts = step.worker === "room" && !step.fixup ? 2 : 1;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        step.output = await RUNNERS[step.worker](lead, step, index, signal);
+        step.status = "done";
+        step.error = "";
+        break;
+      } catch (error) {
+        if (error && error.name === "AbortError") throw error;
+        step.status = "error";
+        step.error = clip(error && error.message, 300) || "Something went wrong.";
+        if (attempt < attempts) {
+          step.status = "running";
+          step.retried = true;
+          step.progress = "🏢 The crew hit a problem, so GlowLead sends the mission again…";
+          render(lead);
+          await sleep(TEST_MODE ? 10 : 5000);
+        }
+      }
     }
     step.progress = "";
     step.finishedAt = Date.now();
@@ -297,7 +324,15 @@
       if (review.met.some((m) => m === false) && !lead.fixed) {
         // One fix-up round: hand what is missing back to GlowChat, then check again.
         lead.fixed = true;
-        lead.steps.push({
+        const research = failedResearch(lead)[0];
+        lead.steps.push(research ? {
+          worker: "room",
+          title: "Redo the live research",
+          task: `${research.task}\n\nThe first try failed. Also make sure of: ${review.missing || lead.criteria.join("; ")}`,
+          status: "queued",
+          output: "",
+          fixup: true,
+        } : {
           worker: "chat",
           title: "Fix what the check found missing",
           task: `The check found this still missing: ${review.missing || "some done-criteria are not met"}. Improve the team's work so every done-criterion is met: ${lead.criteria.join("; ")}`,
@@ -307,14 +342,23 @@
         });
         lead.status = "working";
         await runStep(lead, lead.steps.length - 1, signal);
+        if (research && lead.steps[lead.steps.length - 1].status === "done") research.redone = true;
         lead.status = "checking";
         render(lead);
         review = await reviewWork(lead, signal);
       }
       lead.report = review.report || lead.steps.filter((s) => s.output).map((s) => s.output).pop() || "";
-      lead.met = review.met;
+      const researchOk = lead.steps.some((s) => s.worker === "room" && s.status === "done");
+      lead.unverified = failedResearch(lead).length > 0 && !researchOk;
+      if (lead.unverified) {
+        lead.met = review.met.map(() => false);
+        lead.missing = "the live web research failed, so facts, prices and links were not checked";
+      }
+      if (!lead.unverified) {
+        lead.met = review.met;
+        lead.missing = review.missing;
+      }
       lead.checked = review.checked;
-      lead.missing = review.missing;
       return finish(lead, "done");
     } catch (error) {
       if (error && error.name === "AbortError") return finish(lead, "stopped");
@@ -331,7 +375,11 @@
       .map((s) => `### ${WORKERS[s.worker].name}: ${s.title}\n${clip(s.output, 6000)}`)
       .join("\n\n");
     const criteria = lead.criteria.map((c, i) => `${i + 1}. ${c}`).join("\n");
-    const text = await ask(REVIEW_SYSTEM, `Goal: ${lead.goal}\n\nDone-criteria:\n${criteria}\n\nTeam's work:\n${work}`, signal, 3000);
+    const failed = failedResearch(lead);
+    const failedNote = failed.length
+      ? `\n\nNOTE: live research FAILED for: ${failed.map((s) => s.title).join("; ")}. Nothing above was checked on the live web.`
+      : "";
+    const text = await ask(REVIEW_SYSTEM, `Goal: ${lead.goal}\n\nDone-criteria:\n${criteria}\n\nTeam's work:\n${work}${failedNote}`, signal, 3000);
     return parseReview(text, lead.criteria.length);
   }
 
@@ -381,7 +429,8 @@
     });
     if (lead.report) {
       const checks = lead.criteria.map((c, i) => `${lead.met && lead.met[i] === false ? "✗" : lead.met && lead.met[i] === true ? "✓" : "•"} ${c}`).join("\n");
-      messages.push({ role: "assistant", content: `${lead.report}\n\n---\n👑 **Checked by GlowLead**\n${checks}` });
+      const warning = lead.unverified ? "\n⚠ The live web research failed, so names, prices and links above were not checked." : "";
+      messages.push({ role: "assistant", content: `${lead.report}\n\n---\n👑 **Checked by GlowLead**\n${checks}${warning}` });
     }
     return messages;
   }
@@ -460,7 +509,8 @@
     if (lead.error) html += `<p class="error-text">${esc(lead.error)} You can press ↻ Try again; on Glow Free each step may wait about 30 seconds for the shared limit.</p>`;
     if (lead.report) {
       const allMet = lead.met && lead.met.length && lead.met.every((m) => m === true);
-      const verdict = !lead.checked ? "Result (not fully checked)"
+      const verdict = lead.unverified ? "⚠ Not checked live: the web research failed, so treat names, prices and links as unverified"
+        : !lead.checked ? "Result (not fully checked)"
         : allMet ? "✓ Checked: every done-criterion is met"
         : `⚠ Checked: some criteria are still not met${lead.missing ? " — " + lead.missing : ""}`;
       html += `<div class="block"><h3>${esc(verdict)}</h3><div class="report"><div class="md" id="report">${md(lead.report)}</div>
@@ -695,6 +745,63 @@
     document.querySelector("#approve-btn").click();
     for (let i = 0; i < 200 && approval.lead.status !== "done"; i++) await sleep(10);
     expect("approve: approving runs the plan to the end", approval.lead.status === "done");
+
+    // Research that fails: send it again once, and never let later steps or the check pass made-up facts
+    let roomFailures = 1;
+    const prompts = [];
+    backend.chat = async ({ system, messages }) => {
+      const content = messages[0].content;
+      prompts.push(content);
+      await sleep(2);
+      if (system === PLAN_SYSTEM) {
+        return '{"summary":"s","criteria":["Lists 3 earbuds","Sourced"],"steps":[' +
+          '{"worker":"room","title":"Research earbuds","task":"Find earbuds"},' +
+          '{"worker":"chat","title":"Recommend","task":"Recommend one"}]}';
+      }
+      if (system === REVIEW_SYSTEM) {
+        return content.includes("research FAILED")
+          ? 'Report\nCHECK: {"met":[true,false],"missing":"sources"}'
+          : 'Report\nCHECK: {"met":[true,true],"missing":""}';
+      }
+      return "Recommendation";
+    };
+    backend.startRoom = (task, meta) => {
+      const run = { id: "room-" + uid(), goal: task, status: "running", steps: [], meta, polls: 0, fail: roomFailures > 0 };
+      roomFailures -= 1;
+      rooms[run.id] = run;
+      return run;
+    };
+    backend.getRun = (id) => {
+      const run = rooms[id];
+      run.polls += 1;
+      if (run.polls >= 2) {
+        Object.assign(run, run.fail
+          ? { status: "error", error: "The AI returned an empty answer." }
+          : { status: "done", final: "Real earbuds [1]." });
+      }
+      return run;
+    };
+    const retried = startLead("Best earbuds under 50 USD", false);
+    await retried.done;
+    const firstStep = retried.lead.steps[0];
+    expect("research: a failed GlowRoom mission is sent again once and its result used",
+      firstStep.status === "done" && firstStep.retried === true && firstStep.output.includes("Real earbuds") && !retried.lead.unverified);
+
+    roomFailures = 99;
+    prompts.length = 0;
+    const failing = startLead("Best earbuds under 50 USD", false);
+    await failing.done;
+    const chatPrompt = prompts.find((p) => p.includes("Your task: Recommend one")) || "";
+    const reviewPrompt = prompts.find((p) => p.includes("Done-criteria")) || "";
+    expect("research: when it fails twice, later steps are told not to invent facts",
+      failing.lead.steps[0].status === "error" && chatPrompt.includes("FAILED") && chatPrompt.includes("Do not invent"));
+    expect("research: the check is told, and the fix-up redoes the research with the crew",
+      reviewPrompt.includes("research FAILED") && failing.lead.steps.some((s) => s.fixup && s.worker === "room"));
+    const failInbox = JSON.parse(localStorage.getItem(INBOX_KEY) || "[]").find((c) => c.id === "lead-" + failing.lead.id);
+    const failLast = failInbox ? failInbox.messages[failInbox.messages.length - 1].content : "";
+    const headings = [...document.querySelectorAll("#lead-run h3")].map((h) => h.textContent).join(" | ");
+    expect("research: the report is marked 'not checked live' with no criterion passed, also in GlowChat",
+      failing.lead.unverified === true && failing.lead.met.every((m) => m === false) && headings.includes("Not checked live") && failLast.includes("were not checked"));
 
     // Stop
     backend.chat = (options) => new Promise((resolve, reject) => {
