@@ -119,7 +119,9 @@ class MissionControlBrowserTests(unittest.TestCase):
         self.page.wait_for_selector("#selftest-results", timeout=25000)
         result = self.page.locator("#selftest-results").inner_text()
         self.assertNotIn("FAIL", result)
-        self.assertEqual(len(result.splitlines()), 21)
+        # The original 21 checks must still be there; newer checks may be added after them.
+        self.assertGreaterEqual(len(result.splitlines()), 21)
+        self.assertTrue(all(line.startswith("PASS") for line in result.splitlines()))
 
     def test_default_approval_and_editable_plan(self):
         self.open()
