@@ -4,10 +4,10 @@ Worst case, RSS and Monte Carlo tolerance stack-ups side by side, with Cpk, pred
 ppm, a variance Pareto and the one dimension to tighten first. Offline-first PWA, no
 backend, no sign-up. Ships with a free Excel / Google Sheets workbook.
 
-**Live:** https://juwpegatron.github.io/projects/stackup/ ·
-[App](https://juwpegatron.github.io/projects/stackup/app.html) ·
-[Web](https://juwpegatron.github.io/projects/stackup/web.html) ·
-[Mobile](https://juwpegatron.github.io/projects/stackup/mobile.html)
+**Live:** https://juw12.github.io/projects/stackup/ ·
+[App](https://juw12.github.io/projects/stackup/app.html) ·
+[Web](https://juw12.github.io/projects/stackup/web.html) ·
+[Mobile](https://juw12.github.io/projects/stackup/mobile.html)
 
 ## Features
 

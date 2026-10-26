@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Traffic Sim</title>
+<style>
+  /* ========== RESET & BASE ========== */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: #10131a;
+    color: #dfe4ee;
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    touch-action: manipulation;
+    padding: 10px;
+  }
+
+  /* ========== LAYOUT ========== */
+  #app {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: min(96vw, 900px);
+  }
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  h1 {
+    font-size: 20px;
+    letter-spacing: 3px;
+    color: #ffcf4d;
+    text-shadow: 0 2px 0 #6b4a00;
+    font-weight: 700;
+  }
+  h1 small {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: #7d8798;
+    font-weight: 400;
+    text-shadow: none;
+  }
+
+  /* ========== HUD ========== */
+  #hud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .stat {
+    background: #1a1f29;
+    border: 1px solid #2b3240;
+    border-radius: 8px;
+    padding: 5px 10px;
+    min-width: 74px;
+    text-align: center;
+  }
+  .stat .lbl {
+    display: block;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: #7d8798;
+    text-transform: uppercase;
+  }
+  .stat .val {
+    display: block;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 15px;
+    font-weight: bold;
+    color: #ffcf4d;
+  }
+  .stat.warn .val { color: #ff6b5c; }
+  .stat.good .val { color: #5ce08a; }
+
+  /* ========== STAGE / CANVAS ========== */
+  #stage {
+    position: relative;
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,.55);
+    border: 1px solid #2b3240;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    background: #2f4a2c;
+    cursor: crosshair;
+  }
+
+  /* ========== OVERLAY PANELS ========== */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: rgba(9, 12, 18, .84);
+    text-align: center;
+    padding: 16px;
+    transition: opacity .25s ease;
+  }
+  .overlay.hidden { opacity: 0; pointer-events: none; }
+  .overlay h2 {
+    font-size: 26px;
+    letter-spacing: 3px;
+    color: #ffcf4d;
+    text-shadow: 0 2px 0 #6b4a00;
+  }
+  .overlay p { font-size: 13px; color: #aab3c2; max-width: 460px; line-height: 1.5; }
+  .overlay .big {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 17px;
+    color: #dfe4ee;
+  }
+
+  /* ========== BUTTONS ========== */
+  button {
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    padding: 8px 14px;
+    border: 1px solid #39415280;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #dfe4ee;
+    background: #232a36;
+    box-shadow: 0 3px 0 rgba(0,0,0,.35);
+    transition: transform .05s ease, background .15s ease, color .15s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:hover { background: #2e3745; }
+  button:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.35); }
+  button.active { background: #ffcf4d; color: #3a2a00; border-color: #ffcf4d; }
+  button.primary { background: #2f9e5b; border-color: #2f9e5b; color: #fff; }
+  button.primary:hover { background: #37b569; }
+  button.danger { background: #a8412f; border-color: #a8412f; color: #fff; }
+  button.danger:hover { background: #c04c38; }
+
+  /* ========== TOOLBAR ========== */
+  #toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+  }
+  .group {
+    display: flex;
+    gap: 5px;
+    padding: 4px;
+    background: #161a22;
+    border: 1px solid #2b3240;
+    border-radius: 10px;
+  }
+  .group .tag {
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: #7d8798;
+    align-self: center;
+    padding: 0 4px;
+    text-transform: uppercase;
+  }
+
+  /* ========== HINT ========== */
+  #hint {
+    font-size: 11px;
+    color: #7d8798;
+    text-align: center;
+    letter-spacing: .5px;
+  }
+  #hint b { color: #aab3c2; }
+
+  @media (max-width: 520px) {
+    h1 { font-size: 16px; }
+    .stat { min-width: 60px; padding: 4px 7px; }
+    .stat .val { font-size: 13px; }
+    #hint { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>TRAFFIC SIM<small>FLOW SANDBOX &amp; PUZZLE</small></h1>
+    <div id="hud">
+      <div class="stat"><span class="lbl">Delivered</span><span class="val" id="s-delivered">0</span></div>
+      <div class="stat good"><span class="lbl">Rate/min</span><span class="val" id="s-rate">0</span></div>
+      <div class="stat" id="jamsBox"><span class="lbl">Jams</span><span class="val" id="s-jams">0</span></div>
+      <div class="stat"><span class="lbl">Cars</span><span class="val" id="s-cars">0</span></div>
+      <div class="stat" id="timeBox"><span class="lbl">Time</span><span class="val" id="s-time">--</span></div>
+      <div class="stat"><span class="lbl">Goal</span><span class="val" id="s-goal">--</span></div>
+      <div class="stat"><span class="lbl">Best Lv</span><span class="val" id="s-best">1</span></div>
+    </div>
+  </header>
+
+  <div id="stage">
+    <canvas id="game" width="640" height="480"></canvas>
+    <div class="overlay" id="overlay">
+      <h2 id="ov-title">TRAFFIC SIM</h2>
+      <p id="ov-text">Build roads, place traffic lights and keep the city moving. Deliver cars before the clock runs out, or just tinker freely in sandbox.</p>
+      <div class="big" id="ov-sub"></div>
+      <div class="group" style="background:transparent;border:none;padding:0;">
+        <button class="primary" id="ov-start">START</button>
+        <button id="ov-sandbox">SANDBOX</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toolbar">
+    <div class="group">
+      <span class="tag">Tool</span>
+      <button class="tool active" data-tool="road">Road</button>
+      <button class="tool" data-tool="bulldoze">Bulldoze</button>
+      <button class="tool" data-tool="light">Light</button>
+    </div>
+    <div class="group">
+      <span class="tag">Mode</span>
+      <button class="mode" data-mode="objective">Objective</button>
+      <button class="mode" data-mode="sandbox">Sandbox</button>
+    </div>
+    <div class="group">
+      <button id="btn-pause">Pause</button>
+      <button id="btn-restart">Restart</button>
+      <button class="danger" id="btn-clear">Clear Cars</button>
+    </div>
+  </div>
+
+  <div id="hint">
+    <b>Paint</b> with mouse / drag / touch &nbsp;|&nbsp; <b>Light</b> tool toggles a light on any junction &nbsp;|&nbsp;
+    <b>P</b> pause &nbsp;|&nbsp; <b>R</b> restart &nbsp;|&nbsp; <b>1/2/3</b> tools
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ========== CONSTANTS ==========
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;      // 640 logical px
+  const H = canvas.height;     // 480 logical px
+  const COLS = 16;
+  const ROWS = 12;
+  const TS = W / COLS;         // tile size = 40
+  const N = COLS * ROWS;
+
+  const DIRS = [
+    { x: 1, y: 0, axis: "h" },
+    { x: -1, y: 0, axis: "h" },
+    { x: 0, y: 1, axis: "v" },
+    { x: 0, y: -1, axis: "v" }
+  ];
+
+  const CAR_SPEED = 2.6;       // tiles per second
+  const MAX_CARS = 64;
+  const SPAWN_EVERY = 0.75;    // seconds between spawns (scaled by level)
+  const LIGHT_PERIOD = 6.0;    // seconds per green phase
+  const JAM_WAIT = 2.0;        // seconds of waiting before it counts as a jam
+  const CAR_COLORS = ["#e8574a", "#4aa3e8", "#f0b429", "#8e6bd6", "#3fbf7f", "#e87ac1", "#d9dde3"];
+
+  // ========== STATE ==========
+  let road = new Uint8Array(N);
+  let lights = new Array(N).fill(null);   // { on:boolean }
+  let occ = new Array(N).fill(null);      // tile -> car
+  let cars = [];
+  let particles = [];
+
+  let simTime = 0;             // seconds of simulated time
+  let spawnTimer = 0;
+  let state = "title";         // title | running | paused | over
+  let mode = "objective";
+  let level = 1;
+  let target = 30;
+  let timeLeft = 90;
+  let delivered = 0;           // delivered this objective
+  let totalDelivered = 0;
+  let bestLevel = Number(localStorage.getItem("trafficSimBest") || 1);
+  let stuckEvents = 0;
+  let deliverTimes = [];       // timestamps (simTime) for rate calc
+  let tool = "road";
+  let hover = { c: -1, r: -1 };
+  let painting = false;
+  let saveTimer = 0;
+
+  // ========== DOM ==========
+  const el = {
+    delivered: document.getElementById("s-delivered"),
+    rate: document.getElementById("s-rate"),
+    jams: document.getElementById("s-jams"),
+    cars: document.getElementById("s-cars"),
+    time: document.getElementById("s-time"),
+    goal: document.getElementById("s-goal"),
+    best: document.getElementById("s-best"),
+    jamsBox: document.getElementById("jamsBox"),
+    timeBox: document.getElementById("timeBox"),
+    overlay: document.getElementById("overlay"),
+    ovTitle: document.getElementById("ov-title"),
+    ovText: document.getElementById("ov-text"),
+    ovSub: document.getElementById("ov-sub"),
+    ovStart: document.getElementById("ov-start"),
+    ovSandbox: document.getElementById("ov-sandbox"),
+    btnPause: document.getElementById("btn-pause"),
+    btnRestart: document.getElementById("btn-restart"),
+    btnClear: document.getElementById("btn-clear"),
+    toolBtns: Array.prototype.slice.call(document.querySelectorAll(".tool")),
+    modeBtns: Array.prototype.slice.call(document.querySelectorAll(".mode"))
+  };
+
+  // ========== SOUND (WebAudio, no assets) ==========
+  let actx = null;
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(vol || 0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+
+  // ========== GRID HELPERS ==========
+  function inB(c, r) { return c >= 0 && c < COLS && r >= 0 && r < ROWS; }
+  function idx(c, r) { return r * COLS + c; }
+  function isRoad(c, r) { return inB(c, r) && road[idx(c, r)] === 1; }
+  function roadNeighbors(c, r) {
+    let n = 0;
+    for (let i = 0; i < 4; i++) if (isRoad(c + DIRS[i].x, r + DIRS[i].y)) n++;
+    return n;
+  }
+  function isJunction(c, r) { return isRoad(c, r) && roadNeighbors(c, r) >= 3; }
+  function isExit(c, r) { return c === 0 || c === COLS - 1 || r === 0 || r === ROWS - 1; }
+  function cx(c) { return c * TS + TS / 2; }
+  function cy(r) { return r * TS + TS / 2; }
+
+  // ========== MAP BUILD / SAVE ==========
+  function buildDefaultMap() {
+    road.fill(0);
+    lights.fill(null);
+    // outer ring
+    for (let c = 0; c < COLS; c++) { road[idx(c, 0)] = 1; road[idx(c, ROWS - 1)] = 1; }
+    for (let r = 0; r < ROWS; r++) { road[idx(0, r)] = 1; road[idx(COLS - 1, r)] = 1; }
+    // inner cross
+    for (let c = 1; c < COLS - 1; c++) road[idx(c, 6)] = 1;
+    for (let r = 1; r < ROWS - 1; r++) road[idx(8, r)] = 1;
+    // side connectors for variety
+    for (let r = 3; r <= 9; r++) { if (r !== 6) road[idx(4, r)] = 1; }
+    for (let c = 4; c <= 12; c++) { if (c !== 8) road[idx(c, 3)] = 1; }
+    autoLights();
+  }
+  function autoLights() {
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (isJunction(c, r)) lights[idx(c, r)] = { on: true };
+      }
+    }
+  }
+  function saveMap() {
+    try {
+      const roads = [], lts = [];
+      for (let i = 0; i < N; i++) {
+        if (road[i]) roads.push(i);
+        if (lights[i] && lights[i].on) lts.push(i);
+      }
+      localStorage.setItem("trafficSimMap", JSON.stringify({ roads: roads, lights: lts }));
+    } catch (e) { /* storage unavailable */ }
+  }
+  function loadMap() {
+    try {
+      const raw = localStorage.getItem("trafficSimMap");
+      if (!raw) return false;
+      const data = JSON.parse(raw);
+      if (!data || !data.roads || !data.roads.length) return false;
+      road.fill(0); lights.fill(null);
+      for (const i of data.roads) road[i] = 1;
+      for (const i of data.lights) lights[i] = { on: true };
+      return true;
+    } catch (e) { return false; }
+  }
+
+  // ========== TRAFFIC LIGHT TIMING ==========
+  function greenAxis(c, r) {
+    const phase = (simTime / LIGHT_PERIOD + (c * 0.5 + r * 0.5)) % 2;
+    return phase < 1 ? "h" : "v";
+  }
+
+  // ========== CARS ==========
+  function borderTiles() {
+    const list = [];
+    for (let c = 0; c < COLS; c++) { if (road[idx(c, 0)]) list.push({ c: c, r: 0 }); if (road[idx(c, ROWS - 1)]) list.push({ c: c, r: ROWS - 1 }); }
+    for (let r = 0; r < ROWS; r++) { if (road[idx(0, r)]) list.push({ c: 0, r: r }); if (road[idx(COLS - 1, r)]) list.push({ c: COLS - 1, r: r }); }
+    return list;
+  }
+
+  function trySpawn() {
+    if (cars.length >= MAX_CARS) return;
+    const borders = borderTiles();
+    if (!borders.length) return;
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const t = borders[(Math.random() * borders.length) | 0];
+      if (occ[idx(t.c, t.r)]) continue;
+      const dir = openDir(t.c, t.r);
+      if (!dir) continue;
+      const dest = pickDest(t);
+      if (!dest) continue;
+      const car = {
+        col: t.c, row: t.r, nx: null, ny: null,
+        progress: 0, dir: dir, wait: 0, waiting: false,
+        color: CAR_COLORS[(Math.random() * CAR_COLORS.length) | 0],
+        dest: dest, counted: false
+      };
+      car.x = cx(t.c); car.y = cy(t.r);
+      occ[idx(t.c, t.r)] = car;
+      cars.push(car);
+      return;
+    }
+  }
+
+  function openDir(c, r) {
+    for (const d of DIRS) if (isRoad(c + d.x, r + d.y)) return { x: d.x, y: d.y };
+    return null;
+  }
+
+  function pickDest(from) {
+    const borders = borderTiles();
+    let best = null, bestD = -1;
+    for (let i = 0; i < 10; i++) {
+      const t = borders[(Math.random() * borders.length) | 0];
+      if (t.c === from.c && t.r === from.r) continue;
+      const dx = t.c - from.c, dy = t.r - from.r;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d > bestD) { bestD = d; best = t; }
+    }
+    return best;
+  }
+
+  function chooseNext(car) {
+    const rev = { c: car.col - car.dir.x, r: car.row - car.dir.y };
+    const opts = [];
+    for (const d of DIRS) {
+      const nc = car.col + d.x, nr = car.row + d.y;
+      if (!isRoad(nc, nr)) continue;
+      opts.push({ c: nc, r: nr, d: d });
+    }
+    if (!opts.length) return null;
+    let pool = opts.filter(function (o) { return !(o.c === rev.c && o.r === rev.r); });
+    if (!pool.length) pool = opts; // dead end: allow U-turn
+    pool.sort(function (a, b) {
+      const da = (a.c - car.dest.c) * (a.c - car.dest.c) + (a.r - car.dest.r) * (a.r - car.dest.r);
+      const db = (b.c - car.dest.c) * (b.c - car.dest.c) + (b.r - car.dest.r) * (b.r - car.dest.r);
+      return da - db;
+    });
+    return pool[0];
+  }
+
+  function canEnter(car, choice) {
+    const i = idx(choice.c, choice.r);
+    if (occ[i]) return false;
+    const lt = lights[i];
+    if (lt && lt.on && isJunction(choice.c, choice.r)) {
+      if (greenAxis(choice.c, choice.r) !== choice.d.axis) return false;
+    }
+    return true;
+  }
+
+  function stepCars(dt) {
+    for (let i = cars.length - 1; i >= 0; i--) {
+      const car = cars[i];
+
+      if (car.nx === null) {
+        const choice = chooseNext(car);
+        if (!choice) { car.wait += dt; continue; }
+        if (!canEnter(car, choice)) {
+          car.wait += dt;
+          car.waiting = true;
+          if (car.wait >= JAM_WAIT && !car.counted) { car.counted = true; stuckEvents++; }
+          continue;
+        }
+        car.waiting = false; car.wait = 0; car.counted = false;
+        car.nx = choice.c; car.ny = choice.r;
+        car.dir = { x: choice.c - car.col, y: choice.r - car.row };
+        occ[idx(choice.c, choice.r)] = car;
+      }
+
+      car.progress += CAR_SPEED * dt;
+
+      if (car.progress >= 1) {
+        occ[idx(car.col, car.row)] = null;
+        car.col = car.nx; car.row = car.ny;
+        car.nx = null; car.ny = null;
+        car.progress = 0;
+        car.x = cx(car.col); car.y = cy(car.row);
+        occ[idx(car.col, car.row)] = car;
+
+        if (car.col === car.dest.c && car.row === car.dest.r) {
+          // delivered
+          occ[idx(car.col, car.row)] = null;
+          cars.splice(i, 1);
+          delivered++; totalDelivered++;
+          deliverTimes.push(simTime);
+          burst(car.x, car.y, car.color);
+          beep(760, 0.06, "sine", 0.035);
+        }
+      } else {
+        const fromX = cx(car.col), fromY = cy(car.row);
+        const toX = cx(car.nx), toY = cy(car.ny);
+        car.x = fromX + (toX - fromX) * car.progress;
+        car.y = fromY + (toY - fromY) * car.progress;
+      }
+    }
+  }
+
+  // ========== PARTICLES ==========
+  function burst(x, y, color) {
+    for (let i = 0; i < 8; i++) {
+      particles.push({
+        x: x, y: y,
+        vx: (Math.random() - 0.5) * 90,
+        vy: (Math.random() - 0.5) * 90,
+        life: 1, color: color, size: Math.random() * 3 + 1.5
+      });
+    }
+  }
+  function stepParticles(dt) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.life -= dt * 1.8;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+  }
+
+  // ========== OBJECTIVES ==========
+  function objectiveFor(lv) {
+    return { target: 18 + lv * 12, time: 90 };
+  }
+  function startRun(lv) {
+    level = lv || 1;
+    const o = objectiveFor(level);
+    target = o.target;
+    timeLeft = o.time;
+    delivered = 0;
+    deliverTimes = [];
+    stuckEvents = 0;
+    resetCars();
+    simTime = 0;
+    spawnTimer = 0.4;
+    state = "running";
+    hideOverlay();
+    syncPause();
+    beep(520, 0.09, "triangle", 0.05);
+  }
+  function startSandbox() {
+    mode = "sandbox";
+    syncModeBtns();
+    resetCars();
+    delivered = 0; totalDelivered = 0; deliverTimes = []; stuckEvents = 0;
+    timeLeft = -1; target = -1;
+    simTime = 0; spawnTimer = 0.4;
+    state = "running";
+    hideOverlay();
+    syncPause();
+    beep(600, 0.09, "triangle", 0.05);
+  }
+  function resetCars() {
+    cars = [];
+    occ = new Array(N).fill(null);
+    particles = [];
+  }
+
+  function levelUp() {
+    beep(880, 0.08, "sine", 0.06);
+    setTimeout(function () { beep(1180, 0.12, "sine", 0.06); }, 90);
+    level++;
+    if (level > bestLevel) {
+      bestLevel = level;
+      localStorage.setItem("trafficSimBest", String(bestLevel));
+    }
+    const o = objectiveFor(level);
+    target = o.target;
+    timeLeft = o.time;
+    delivered = 0;
+    deliverTimes = [];
+  }
+  function failRun() {
+    state = "over";
+    beep(200, 0.3, "sawtooth", 0.06);
+    const longestJam = Math.max(0, stuckEvents);
+    showOverlay(
+      "OUT OF TIME",
+      "Level " + level + " needed " + target + " deliveries. Keep junctions clear and stagger your lights so traffic never fully locks up.",
+      "Delivered " + delivered + " / " + target + "   ·   Jams " + longestJam,
+      "RETRY"
+    );
+  }
+
+  // ========== MAIN UPDATE ==========
+  function update(dt) {
+    if (state !== "running") { stepParticles(dt); return; }
+    simTime += dt;
+
+    // spawn cadence picks up with level in objective mode
+    const interval = mode === "objective"
+      ? Math.max(0.28, SPAWN_EVERY - level * 0.05)
+      : SPAWN_EVERY;
+    spawnTimer -= dt;
+    if (spawnTimer <= 0) { spawnTimer = interval; trySpawn(); }
+
+    stepCars(dt);
+    stepParticles(dt);
+
+    // rolling throughput window (last 60s)
+    const cutoff = simTime - 60;
+    while (deliverTimes.length && deliverTimes[0] < cutoff) deliverTimes.shift();
+
+    // objective clock
+    if (mode === "objective") {
+      timeLeft -= dt;
+      if (delivered >= target) { levelUp(); }
+      else if (timeLeft <= 0) { timeLeft = 0; failRun(); }
+    }
+
+    // debounced map save
+    if (saveTimer > 0) {
+      saveTimer -= dt;
+      if (saveTimer <= 0) saveMap();
+    }
+
+    syncHud();
+  }
+
+  function syncHud() {
+    el.delivered.textContent = String(mode === "objective" ? delivered : totalDelivered);
+    el.rate.textContent = String(deliverTimes.length);
+    let jam = 0;
+    for (const c of cars) if (c.waiting) jam++;
+    el.jams.textContent = String(jam);
+    el.jamsBox.classList.toggle("warn", jam >= 6);
+    el.cars.textContent = String(cars.length);
+
+    if (mode === "objective") {
+      el.time.textContent = Math.ceil(timeLeft) + "s";
+      el.timeBox.classList.toggle("warn", timeLeft <= 15);
+      el.goal.textContent = (mode === "objective" ? "L" + level + "  " : "") + delivered + "/" + target;
+    } else {
+      el.time.textContent = "∞";
+      el.timeBox.classList.remove("warn");
+      el.goal.textContent = "free";
+    }
+    el.best.textContent = String(bestLevel);
+  }
+
+  // ========== RENDERING ==========
+  function drawGround() {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#33482b");
+    g.addColorStop(1, "#25361f");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.strokeStyle = "rgba(255,255,255,0.035)";
+    ctx.lineWidth = 1;
+    for (let c = 0; c <= COLS; c++) {
+      ctx.beginPath(); ctx.moveTo(c * TS, 0); ctx.lineTo(c * TS, H); ctx.stroke();
+    }
+    for (let r = 0; r <= ROWS; r++) {
+      ctx.beginPath(); ctx.moveTo(0, r * TS); ctx.lineTo(W, r * TS); ctx.stroke();
+    }
+  }
+
+  function drawRoads() {
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (!isRoad(c, r)) continue;
+        const x = c * TS, y = r * TS;
+        const junction = isJunction(c, r);
+        ctx.fillStyle = junction ? "#4b525c" : "#3c424b";
+        ctx.fillRect(x, y, TS, TS);
+        ctx.strokeStyle = "rgba(0,0,0,0.25)";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + .5, y + .5, TS - 1, TS - 1);
+      }
+    }
+    // lane markings
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = "rgba(240,240,210,0.55)";
+    ctx.lineWidth = 2;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (!isRoad(c, r) || isJunction(c, r)) continue;
+        for (const d of DIRS) {
+          if (!isRoad(c + d.x, r + d.y)) continue;
+          ctx.beginPath();
+          ctx.moveTo(cx(c), cy(r));
+          ctx.lineTo(cx(c) + d.x * TS / 2, cy(r) + d.y * TS / 2);
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.setLineDash([]);
+  }
+
+  function drawLights() {
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const lt = lights[idx(c, r)];
+        if (!lt || !isJunction(c, r)) continue;
+        const axis = greenAxis(c, r);
+        // horizontal indicator
+        ctx.fillStyle = (lt.on && axis === "h") ? "#5ce08a" : "#7a2f2a";
+        ctx.fillRect(cx(c) - 7, cy(r) - 6, 5, 4);
+        ctx.fillRect(cx(c) + 2, cy(r) - 6, 5, 4);
+        // vertical indicator
+        ctx.fillStyle = (lt.on && axis === "v") ? "#5ce08a" : "#7a2f2a";
+        ctx.fillRect(cx(c) - 6, cy(r) - 7, 4, 5);
+        ctx.fillRect(cx(c) - 6, cy(r) + 2, 4, 5);
+        if (!lt.on) {
+          ctx.strokeStyle = "rgba(255,255,255,0.35)";
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(cx(c), cy(r), 8, 0, Math.PI * 2); ctx.stroke();
+        }
+      }
+    }
+  }
+
+  function drawCars() {
+    for (const car of cars) {
+      ctx.save();
+      ctx.translate(car.x, car.y);
+      let ang = 0;
+      if (car.dir.x > 0) ang = 0;
+      else if (car.dir.x < 0) ang = Math.PI;
+      else if (car.dir.y > 0) ang = Math.PI / 2;
+      else ang = -Math.PI / 2;
+      ctx.rotate(ang);
+      // shadow
+      ctx.fillStyle = "rgba(0,0,0,0.3)";
+      ctx.fillRect(-8, -5, 17, 11);
+      // body
+      ctx.fillStyle = car.color;
+      ctx.fillRect(-9, -6, 18, 12);
+      ctx.strokeStyle = "rgba(0,0,0,0.4)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-9.5, -6.5, 19, 13);
+      // windshield
+      ctx.fillStyle = "rgba(180,220,240,0.85)";
+      ctx.fillRect(3, -4, 4, 8);
+      // headlights
+      ctx.fillStyle = "#ffe9a8";
+      ctx.fillRect(8, -5, 2, 3);
+      ctx.fillRect(8, 2, 2, 3);
+      ctx.restore();
+      if (car.waiting) {
+        ctx.fillStyle = "rgba(255,107,92,0.9)";
+        ctx.beginPath(); ctx.arc(car.x, car.y - 12, 2.5, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  }
+
+  function drawParticles() {
+    for (const p of particles) {
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawHover() {
+    if (hover.c < 0 || state === "over") return;
+    const x = hover.c * TS, y = hover.r * TS;
+    if (tool === "road") ctx.fillStyle = "rgba(92,224,138,0.22)";
+    else if (tool === "bulldoze") ctx.fillStyle = "rgba(255,107,92,0.25)";
+    else ctx.fillStyle = "rgba(255,207,77,0.25)";
+    ctx.fillRect(x, y, TS, TS);
+    ctx.strokeStyle = "rgba(255,255,255,0.5)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + .5, y + .5, TS - 1, TS - 1);
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+    drawGround();
+    drawRoads();
+    drawLights();
+    drawCars();
+    drawParticles();
+    drawHover();
+
+    // in-canvas banner when paused / title
+    if (state === "paused") {
+      ctx.fillStyle = "rgba(9,12,18,0.6)";
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "#ffcf4d";
+      ctx.font = "bold 34px 'Trebuchet MS', sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("PAUSED", W / 2, H / 2);
+      ctx.font = "14px 'Trebuchet MS', sans-serif";
+      ctx.fillStyle = "#aab3c2";
+      ctx.fillText("Press P or Pause to resume", W / 2, H / 2 + 26);
+    }
+  }
+
+  // ========== OVERLAY MANAGEMENT ==========
+  function showOverlay(title, text, sub, btn) {
+    el.ovTitle.textContent = title;
+    el.ovText.textContent = text;
+    el.ovSub.textContent = sub || "";
+    el.ovStart.textContent = btn || "START";
+    el.overlay.classList.remove("hidden");
+  }
+  function hideOverlay() { el.overlay.classList.add("hidden"); }
+
+  // ========== INPUT ==========
+  function canvasTile(evt) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = W / rect.width;
+    const scaleY = H / rect.height;
+    const mx = (evt.clientX - rect.left) * scaleX;
+    const my = (evt.clientY - rect.top) * scaleY;
+    return { c: Math.floor(mx / TS), r: Math.floor(my / TS) };
+  }
+
+  function applyTool(c, r) {
+    if (!inB(c, r)) return;
+    const i = idx(c, r);
+    if (tool === "road") {
+      if (!road[i]) { road[i] = 1; if (isJunction(c, r)) lights[i] = { on: true }; beep(420, 0.04, "square", 0.03); }
+    } else if (tool === "bulldoze") {
+      if (occ[i]) { beep(180, 0.06, "sawtooth", 0.03); return; } // don't dig under a car
+      if (road[i]) { road[i] = 0; lights[i] = null; beep(300, 0.05, "square", 0.03); }
+    } else { // light
+      if (road[i] && isJunction(c, r)) {
+        lights[i] = lights[i] ? null : { on: true };
+        beep(lights[i] ? 660 : 500, 0.05, "triangle", 0.035);
+      } else {
+        beep(160, 0.05, "square", 0.03);
+      }
+    }
+    saveTimer = 0.4;
+  }
+
+  canvas.addEventListener("mousemove", function (e) {
+    const t = canvasTile(e);
+    hover.c = t.c; hover.r = t.r;
+  });
+  canvas.addEventListener("mouseleave", function () { hover.c = -1; hover.r = -1; });
+  canvas.addEventListener("mousedown", function (e) {
+    e.preventDefault();
+    painting = true;
+    const t = canvasTile(e);
+    hover.c = t.c; hover.r = t.r;
+    applyTool(t.c, t.r);
+  });
+  window.addEventListener("mouseup", function () { painting = false; });
+
+  canvas.addEventListener("touchstart", function (e) {
+    e.preventDefault();
+    painting = true;
+    const t = canvasTile(e.touches[0]);
+    hover.c = t.c; hover.r = t.r;
+    applyTool(t.c, t.r);
+  }, { passive: false });
+  canvas.addEventListener("touchmove", function (e) {
+    e.preventDefault();
+    const t = canvasTile(e.touches[0]);
+    hover.c = t.c; hover.r = t.r;
+    if (painting) applyTool(t.c, t.r);
+  }, { passive: false });
+  window.addEventListener("touchend", function () { painting = false; });
+
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "KeyP" || e.key === "p" || e.key === "P") { e.preventDefault(); togglePause(); }
+    else if (e.code === "KeyR" || e.key === "r" || e.key === "R") { e.preventDefault(); doRestart(); }
+    else if (e.key === "1") setTool("road");
+    else if (e.key === "2") setTool("bulldoze");
+    else if (e.key === "3") setTool("light");
+  });
+
+  // ========== CONTROL WIRING ==========
+  function setTool(t) {
+    tool = t;
+    el.toolBtns.forEach(function (b) { b.classList.toggle("active", b.dataset.tool === t); });
+  }
+  function syncModeBtns() {
+    el.modeBtns.forEach(function (b) { b.classList.toggle("active", b.dataset.mode === mode); });
+  }
+  function syncPause() {
+    el.btnPause.textContent = state === "paused" ? "Play" : "Pause";
+  }
+  function togglePause() {
+    if (state === "running") { state = "paused"; }
+    else if (state === "paused") { state = "running"; }
+    else return;
+    syncPause();
+    beep(state === "paused" ? 380 : 620, 0.06, "triangle", 0.04);
+  }
+  function doRestart() {
+    resetCars();
+    if (mode === "objective") startRun(1);
+    else startSandbox();
+  }
+
+  el.toolBtns.forEach(function (b) {
+    b.addEventListener("click", function () { setTool(b.dataset.tool); });
+  });
+  el.modeBtns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      mode = b.dataset.mode;
+      syncModeBtns();
+      if (mode === "objective") { state = "title"; showOverlay("OBJECTIVE MODE", "Deliver a target number of cars before the clock hits zero. Each cleared level raises the quota.", "Level " + level, "START"); }
+      else { state = "title"; showOverlay("SANDBOX MODE", "No clock, no quota. Build, tune lights and watch the traffic flow. Delivered totals keep counting.", "Press start to open the roads", "START"); }
+    });
+  });
+  el.btnPause.addEventListener("click", togglePause);
+  el.btnRestart.addEventListener("click", doRestart);
+  el.btnClear.addEventListener("click", function () {
+    resetCars();
+    beep(240, 0.08, "square", 0.04);
+  });
+  el.ovStart.addEventListener("click", function () {
+    if (mode === "objective") startRun(1); else startSandbox();
+  });
+  el.ovSandbox.addEventListener("click", function () {
+    mode = "sandbox";
+    syncModeBtns();
+    startSandbox();
+  });
+
+  // ========== LOOP ==========
+  let last = 0;
+  let raf = null;
+  function loop(now) {
+    if (!last) last = now;
+    let dt = (now - last) / 1000;
+    last = now;
+    if (dt > 0.05) dt = 0.05; // clamp big frame gaps
+    update(dt);
+    render();
+    raf = requestAnimationFrame(loop);
+  }
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+    } else if (!raf) {
+      last = 0;
+      raf = requestAnimationFrame(loop);
+    }
+  });
+
+  // ========== BOOT ==========
+  if (!loadMap()) buildDefaultMap();
+  syncModeBtns();
+  syncPause();
+  setTool("road");
+  showOverlay(
+    "TRAFFIC SIM",
+    "Build roads, place traffic lights and keep the city moving. Deliver cars before the clock runs out, or tinker freely in sandbox.",
+    "Best level reached: " + bestLevel,
+    "START"
+  );
+  render();
+  raf = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -9,7 +9,7 @@
         if (!response.ok) return;
         const release = await response.json();
         if (!/^\d+\.\d+\.\d+$/.test(release.version)) return;
-        const base = 'https://github.com/juwpegatron/projects/releases/download/airiz-desktop-v' + release.version + '/';
+        const base = 'https://github.com/juw12/projects/releases/download/airiz-desktop-v' + release.version + '/';
         const installer = base + 'AIRIZ-Console-Setup-' + release.version + '-x64.exe';
         const portable = base + 'AIRIZ-Console-Portable-' + release.version + '-x64.exe';
         if (release.installer.url !== installer || release.portable.url !== portable) return;

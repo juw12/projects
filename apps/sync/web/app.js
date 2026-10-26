@@ -154,7 +154,7 @@
       '<div class="landing">' +
       '  <nav class="landing-nav">' +
       '    <span class="brand"><span class="logo" aria-hidden="true"></span>Sync</span>' +
-      '    <a class="src" href="https://github.com/juwpegatron/projects/tree/main/apps/sync" target="_blank" rel="noopener">Source</a>' +
+      '    <a class="src" href="https://github.com/juw12/projects/tree/main/apps/sync" target="_blank" rel="noopener">Source</a>' +
       '  </nav>' +
       '  <main class="landing-main">' +
       '    <section>' +

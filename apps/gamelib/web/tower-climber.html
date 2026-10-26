@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Tower Climber</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(circle at 50% 0%, #2b3a67 0%, #101528 70%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+    overflow: hidden;
+    touch-action: none;
+    padding: 10px;
+  }
+
+  /* ============ GAME CONTAINER ============ */
+  #app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: min(96vw, 460px);
+  }
+
+  .game-title {
+    color: #eaf6ff;
+    font-size: 1.6rem;
+    letter-spacing: 3px;
+    text-shadow: 0 2px 0 #1b2747, 0 0 18px rgba(120,190,255,.55);
+    text-align: center;
+  }
+
+  /* ============ SCORE BOARD ============ */
+  .score-board {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 9px 14px;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(140,200,255,.25);
+    border-radius: 12px;
+    color: #bcd6f5;
+    font-size: .95rem;
+    font-weight: 600;
+    letter-spacing: .5px;
+  }
+  .score-board b { color: #fff; font-size: 1.05rem; }
+  #combo-tag { color: #ffd24a; }
+
+  /* ============ CANVAS ============ */
+  #game-wrap {
+    position: relative;
+    width: 100%;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 14px 46px rgba(0,0,0,.55), 0 0 0 2px rgba(140,200,255,.15);
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    background: #0b1226;
+  }
+
+  /* ============ OVERLAY SCREENS ============ */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 20px;
+    background: rgba(9, 14, 30, .82);
+    backdrop-filter: blur(2px);
+    transition: opacity .25s ease;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+
+  .screen-title {
+    font-size: 1.9rem;
+    letter-spacing: 2px;
+    color: #eaf6ff;
+    text-shadow: 0 0 18px rgba(120,190,255,.7);
+    margin-bottom: 6px;
+  }
+  .screen-sub {
+    color: #9fb8dd;
+    font-size: .9rem;
+    line-height: 1.5;
+    margin-bottom: 18px;
+    max-width: 320px;
+  }
+  .final-line { color: #dbe9ff; font-size: 1.15rem; margin: 3px 0; }
+  .final-line b { color: #ffd24a; }
+
+  .action-btn {
+    padding: 13px 34px;
+    border: none;
+    border-radius: 26px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #08101f;
+    background: linear-gradient(135deg, #8fd0ff, #4aa8ff);
+    box-shadow: 0 5px 0 #1d5fa6, 0 8px 20px rgba(74,168,255,.4);
+    transition: transform .08s ease, box-shadow .08s ease;
+  }
+  .action-btn:hover { background: linear-gradient(135deg, #a6daff, #5fb4ff); }
+  .action-btn:active { transform: translateY(4px); box-shadow: 0 1px 0 #1d5fa6; }
+
+  /* ============ CONTROL ROW ============ */
+  #controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  #controls button {
+    font-family: inherit;
+    font-size: .82rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 8px 18px;
+    border: 1px solid rgba(140,200,255,.3);
+    border-radius: 10px;
+    cursor: pointer;
+    color: #cfe3ff;
+    background: rgba(255,255,255,.07);
+    transition: background .15s ease, transform .05s ease;
+  }
+  #controls button:hover { background: rgba(140,200,255,.2); }
+  #controls button:active { transform: translateY(2px); }
+  #hint {
+    color: #7f96bd;
+    font-size: .74rem;
+    letter-spacing: .5px;
+    text-align: center;
+  }
+  @media (max-width: 480px) {
+    .game-title { font-size: 1.3rem; }
+    #hint { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1 class="game-title">TOWER CLIMBER</h1>
+
+  <div class="score-board">
+    <div>FLOOR <b id="floor">0</b></div>
+    <div>SCORE <b id="score">0</b></div>
+    <div>BEST <b id="best">0</b></div>
+    <div id="combo-tag"></div>
+  </div>
+
+  <div id="game-wrap">
+    <canvas id="game" width="440" height="720"></canvas>
+
+    <!-- Start Screen -->
+    <div id="startScreen" class="screen">
+      <h2 class="screen-title">TOWER CLIMBER</h2>
+      <p class="screen-sub">
+        Bounce up the endless tower!<br>
+        Steer <b style="color:#8fd0ff">left / right</b> to land on platforms.
+        Kick off the walls for a boost. Don't fall off the bottom!
+      </p>
+      <button class="action-btn" id="startBtn">Start Climb</button>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="overScreen" class="screen hidden">
+      <h2 class="screen-title">YOU FELL!</h2>
+      <p class="final-line">Floor reached: <b id="finalFloor">0</b></p>
+      <p class="final-line">Score: <b id="finalScore">0</b></p>
+      <p class="final-line" style="color:#9fb8dd;font-size:.95rem">Best: <b id="finalBest">0</b></p>
+      <button class="action-btn" id="againBtn" style="margin-top:16px">Play Again</button>
+    </div>
+
+    <!-- Pause Overlay -->
+    <div id="pauseScreen" class="screen hidden">
+      <h2 class="screen-title">PAUSED</h2>
+      <button class="action-btn" id="resumeBtn">Resume</button>
+    </div>
+  </div>
+
+  <div id="controls">
+    <button id="btnPause" type="button">Pause</button>
+    <button id="btnRestart" type="button">Restart</button>
+  </div>
+  <div id="hint">◀ ▶ / A D to steer &nbsp;|&nbsp; wall kicks boost you &nbsp;|&nbsp; P pause &nbsp;|&nbsp; R restart &nbsp;|&nbsp; hold left/right side to steer on touch</div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CANVAS & DOM ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;
+  const H = canvas.height;
+
+  const floorEl     = document.getElementById("floor");
+  const scoreEl     = document.getElementById("score");
+  const bestEl      = document.getElementById("best");
+  const comboTag    = document.getElementById("combo-tag");
+  const startScreen = document.getElementById("startScreen");
+  const overScreen  = document.getElementById("overScreen");
+  const pauseScreen = document.getElementById("pauseScreen");
+  const finalFloor  = document.getElementById("finalFloor");
+  const finalScore  = document.getElementById("finalScore");
+  const finalBest   = document.getElementById("finalBest");
+
+  // ============ TUNING CONSTANTS ============
+  const GRAVITY     = 0.62;     // downward accel per 60fps frame
+  const MAX_FALL    = 17;       // terminal fall speed
+  const BOUNCE_V    = -13.6;    // auto-bounce impulse off a platform
+  const MOVE_ACC    = 1.05;     // horizontal steering accel
+  const MAX_VX      = 7.6;      // horizontal speed cap
+  const FRICTION    = 0.86;     // horizontal damping
+  const WALL_X      = 13;       // side wall thickness
+  const FLOOR_H     = 56;       // world-px per "floor"
+  const COMBO_MS    = 780;      // bounce faster than this keeps the combo alive
+  const START_Y     = -70;      // player spawn world-y
+  const CULL_ABOVE  = 150;      // extra world-px kept above the screen
+
+  const STATE = { READY: 0, PLAYING: 1, OVER: 2 };
+
+  // ============ GAME STATE ============
+  let state = STATE.READY;
+  let paused = false;
+
+  const player = { x: W / 2, y: START_Y, prevY: START_Y, vx: 0, vy: 0, r: 15, squash: 0 };
+
+  let cameraY = player.y - H * 0.42;
+  let platforms = [];
+  let particles = [];
+  let floaters = [];
+
+  let dir = 0;                 // -1 left, +1 right, 0 idle
+  let genY = 0;                // next platform world-y to generate
+  let minPlayerY = player.y;
+  let floorCount = 0;
+  let bonus = 0;
+  let combo = 0;
+  let lastBounce = 0;
+  let frames = 0;
+
+  let best = Number(localStorage.getItem("towerClimberBest") || 0);
+  let bestFloor = Number(localStorage.getItem("towerClimberBestFloor") || 0);
+
+  // ============ SMALL HELPERS ============
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function rand(a, b) { return a + Math.random() * (b - a); }
+
+  // ============ SOUND (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.055, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  // ============ PLATFORM CONSTRUCTION ============
+  function makePlatform(x, y, w, vx) {
+    const minX = WALL_X + 6;
+    const maxX = W - WALL_X - 6 - w;
+    return { x: x, y: y, w: w, h: 14, vx: vx || 0, minX: minX, maxX: maxX };
+  }
+
+  function spacingFor(floor) {
+    return 86 + Math.min(72, floor * 1.15) + Math.random() * 34;
+  }
+
+  // ============ WORLD RESET ============
+  function resetWorld() {
+    platforms = [];
+    particles = [];
+    floaters = [];
+
+    player.x = W / 2;
+    player.y = START_Y;
+    player.prevY = START_Y;
+    player.vx = 0;
+    player.vy = 0;
+    player.squash = 0;
+
+    cameraY = player.y - H * 0.42;
+    minPlayerY = player.y;
+    floorCount = 0;
+    bonus = 0;
+    combo = 0;
+    lastBounce = 0;
+    dir = 0;
+    frames = 0;
+
+    // launching pad under the climber
+    platforms.push(makePlatform(W / 2 - 75, 0, 150, 0));
+    genY = -spacingFor(0);
+    generate();
+  }
+
+  // ============ PROCEDURAL TOWER ============
+  function generate() {
+    while (genY > cameraY - 120) {
+      const floor = Math.max(0, Math.floor((START_Y - genY) / FLOOR_H));
+      const w = rand(88, 150);
+      const x = rand(WALL_X + 8, W - WALL_X - 8 - w);
+
+      // moving platforms get more common (and faster) the higher you climb
+      let vx = 0;
+      const moveChance = Math.min(0.55, 0.05 + floor * 0.012);
+      if (Math.random() < moveChance) {
+        const speed = Math.min(3.3, 1.1 + floor * 0.05);
+        vx = (Math.random() < 0.5 ? -1 : 1) * rand(speed, speed + 0.8);
+      }
+      platforms.push(makePlatform(x, genY, w, vx));
+      genY -= spacingFor(floor);
+    }
+  }
+
+  // ============ EFFECTS ============
+  function spawnBurst(x, y) {
+    for (let i = 0; i < 9; i++) {
+      particles.push({
+        x: x, y: y,
+        vx: rand(-3, 3),
+        vy: rand(-4, -0.5),
+        life: 1,
+        size: rand(2, 5),
+        color: ["#bfe6ff", "#8fd0ff", "#ffffff", "#6fb4ff"][(Math.random() * 4) | 0]
+      });
+    }
+  }
+  function addFloater(x, y, text, color) {
+    floaters.push({ x: x, y: y, text: text, color: color, life: 1 });
+  }
+
+  // ============ INPUT ============
+  function setDir(d) { dir = d; }
+
+  window.addEventListener("keydown", function (e) {
+    if (["ArrowLeft", "ArrowRight", "KeyA", "KeyD", "Space", "KeyP", "KeyR"].indexOf(e.code) >= 0) {
+      e.preventDefault();
+    }
+    if (e.code === "KeyP" || e.key === "p" || e.key === "P" || e.key === "Escape") { togglePause(); return; }
+    if (e.code === "KeyR" || e.key === "r" || e.key === "R") { startGame(); return; }
+    if (e.code === "Space" || e.key === " ") { if (state === STATE.READY) startGame(); else if (state === STATE.OVER) startGame(); return; }
+    if (e.code === "ArrowLeft" || e.code === "KeyA") setDir(-1);
+    if (e.code === "ArrowRight" || e.code === "KeyD") setDir(1);
+  });
+  window.addEventListener("keyup", function (e) {
+    if (e.code === "ArrowLeft" || e.code === "KeyA") { if (dir === -1) setDir(0); }
+    if (e.code === "ArrowRight" || e.code === "KeyD") { if (dir === 1) setDir(0); }
+  });
+
+  // Touch / pointer steering: hold the left or right half of the canvas
+  let pointerActive = false;
+  function pointerSteer(clientX) {
+    const rect = canvas.getBoundingClientRect();
+    const rel = (clientX - rect.left) / rect.width;
+    if (rel < 0.42) setDir(-1);
+    else if (rel > 0.58) setDir(1);
+    else setDir(0);
+  }
+  canvas.addEventListener("pointerdown", function (e) {
+    if (state === STATE.READY) { startGame(); return; }
+    if (state === STATE.OVER) { startGame(); return; }
+    pointerActive = true;
+    pointerSteer(e.clientX);
+    e.preventDefault();
+  });
+  canvas.addEventListener("pointermove", function (e) {
+    if (pointerActive) { pointerSteer(e.clientX); e.preventDefault(); }
+  });
+  function endPointer() { pointerActive = false; setDir(0); }
+  canvas.addEventListener("pointerup", endPointer);
+  canvas.addEventListener("pointercancel", endPointer);
+  canvas.addEventListener("pointerleave", endPointer);
+
+  // ============ FLOW: START / PAUSE / OVER ============
+  function startGame() {
+    resetWorld();
+    state = STATE.PLAYING;
+    paused = false;
+    startScreen.classList.add("hidden");
+    overScreen.classList.add("hidden");
+    pauseScreen.classList.add("hidden");
+    updateHud();
+    beep(660, 0.08, "square");
+  }
+
+  function togglePause() {
+    if (state === STATE.OVER) return;
+    if (state === STATE.READY) return;
+    paused = !paused;
+    pauseScreen.classList.toggle("hidden", !paused);
+    document.getElementById("btnPause").textContent = paused ? "Play" : "Pause";
+    if (paused) beep(420, 0.07, "triangle");
+    else { beep(620, 0.07, "triangle"); setDir(0); }
+  }
+
+  function gameOver() {
+    if (state === STATE.OVER) return;
+    state = STATE.OVER;
+    frames = 0;
+    beep(150, 0.3, "sawtooth");
+    if (bonus + floorCount > best) best = bonus + floorCount;
+    if (floorCount > bestFloor) bestFloor = floorCount;
+    localStorage.setItem("towerClimberBest", String(best));
+    localStorage.setItem("towerClimberBestFloor", String(bestFloor));
+    finalFloor.textContent = floorCount;
+    finalScore.textContent = floorCount + bonus;
+    finalBest.textContent = best;
+    overScreen.classList.remove("hidden");
+    updateHud();
+  }
+
+  // ============ HUD ============
+  function updateHud() {
+    floorEl.textContent = floorCount;
+    scoreEl.textContent = floorCount + bonus;
+    bestEl.textContent = best;
+    comboTag.textContent = combo >= 2 ? "\uD83D\uDD25 x" + combo : "";
+  }
+
+  // ============ PHYSICS: BOUNCE EVENT ============
+  function boostUp(amount) {
+    player.vy -= amount;
+    if (player.vy < -19) player.vy = -19;
+  }
+
+  function onBounce() {
+    const now = performance.now();
+    if (now - lastBounce < COMBO_MS) combo++; else combo = 1;
+    lastBounce = now;
+
+    if (combo > 1) bonus += (combo - 1);
+    spawnBurst(player.x, player.y + player.r);
+    beep(560 + Math.min(440, combo * 45), 0.07, "square");
+    if (combo >= 2) addFloater(player.x, player.y - 28, "x" + combo, "#ffd24a");
+    updateHud();
+  }
+
+  // ============ UPDATE ============
+  function update(dt) {
+    const s = Math.min(3, dt / 16.667); // time scale vs 60fps
+    frames++;
+
+    // combo expiry
+    if (state === STATE.PLAYING && combo > 0 && performance.now() - lastBounce > COMBO_MS) {
+      combo = 0;
+      updateHud();
+    }
+
+    if (state === STATE.PLAYING) {
+      // ----- horizontal steering -----
+      if (dir !== 0) player.vx += MOVE_ACC * s * dir;
+      player.vx *= Math.pow(FRICTION, s);
+      player.vx = clamp(player.vx, -MAX_VX, MAX_VX);
+      if (Math.abs(player.vx) < 0.05) player.vx = 0;
+      player.x += player.vx * s;
+
+      // ----- gravity -----
+      player.prevY = player.y;
+      player.vy = Math.min(player.vy + GRAVITY * s, MAX_FALL);
+      player.y += player.vy * s;
+
+      // ----- wall kicks (boost upward) -----
+      if (player.x - player.r < WALL_X) {
+        player.x = WALL_X + player.r;
+        player.vx = Math.abs(player.vx) * 1.08 + 1.6;
+        boostUp(3.4);
+        spawnBurst(player.x - 6, player.y);
+        beep(520, 0.05, "triangle");
+      } else if (player.x + player.r > W - WALL_X) {
+        player.x = W - WALL_X - player.r;
+        player.vx = -(Math.abs(player.vx) * 1.08 + 1.6);
+        boostUp(3.4);
+        spawnBurst(player.x + 6, player.y);
+        beep(520, 0.05, "triangle");
+      }
+
+      // ----- moving platforms -----
+      for (let i = 0; i < platforms.length; i++) {
+        const p = platforms[i];
+        if (p.vx !== 0) {
+          p.x += p.vx * s;
+          if (p.x < p.minX) { p.x = p.minX; p.vx = Math.abs(p.vx); }
+          else if (p.x > p.maxX) { p.x = p.maxX; p.vx = -Math.abs(p.vx); }
+        }
+      }
+
+      // ----- platform collision (auto-bounce) -----
+      if (player.vy > 0) {
+        const bottom = player.y + player.r;
+        const prevBottom = player.prevY + player.r;
+        for (let i = 0; i < platforms.length; i++) {
+          const p = platforms[i];
+          if (bottom >= p.y && prevBottom <= p.y + 8 &&
+              player.x + player.r * 0.7 > p.x &&
+              player.x - player.r * 0.7 < p.x + p.w) {
+            player.y = p.y - player.r;
+            player.vy = BOUNCE_V;
+            player.squash = 1;
+            onBounce();
+            break;
+          }
+        }
+      }
+
+      // ----- camera follows upward only -----
+      const target = player.y - H * 0.42;
+      if (target < cameraY) cameraY += (target - cameraY) * Math.min(1, 0.28 * s);
+
+      // ----- floor progress -----
+      if (player.y < minPlayerY) {
+        minPlayerY = player.y;
+        const f = Math.floor((START_Y - minPlayerY) / FLOOR_H);
+        if (f > floorCount) { floorCount = f; updateHud(); }
+      }
+
+      // ----- generate ahead, cull behind -----
+      generate();
+      const cullY = cameraY + H + CULL_ABOVE;
+      if (platforms.length > 200) platforms = platforms.filter(function (p) { return p.y < cullY; });
+
+      // ----- fell off the bottom -----
+      if (player.y - cameraY > H + 60) gameOver();
+    }
+
+    // ----- squash decay -----
+    player.squash *= Math.pow(0.82, s);
+
+    // ----- particles -----
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const pt = particles[i];
+      pt.x += pt.vx * s;
+      pt.y += pt.vy * s;
+      pt.vy += 0.25 * s;
+      pt.life -= 0.02 * s;
+      if (pt.life <= 0) particles.splice(i, 1);
+    }
+
+    // ----- floating text -----
+    for (let i = floaters.length - 1; i >= 0; i--) {
+      const f = floaters[i];
+      f.y -= 0.7 * s;
+      f.life -= 0.015 * s;
+      if (f.life <= 0) floaters.splice(i, 1);
+    }
+  }
+
+  // ============ RENDER ============
+  function tierColors() {
+    // background shifts from daylight sky to deep space with altitude
+    const t = clamp((START_Y - minPlayerY) / 4200, 0, 1);
+    return {
+      top:    "rgb(" + Math.round(lerp(126, 11,  t)) + "," + Math.round(lerp(200, 16, t)) + "," + Math.round(lerp(255, 38, t)) + ")",
+      bottom: "rgb(" + Math.round(lerp(198, 26,  t)) + "," + Math.round(lerp(230, 32, t)) + "," + Math.round(lerp(255, 74, t)) + ")",
+      t: t
+    };
+  }
+
+  function drawBackground() {
+    const c = tierColors();
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, c.top);
+    g.addColorStop(1, c.bottom);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // stars fade in with altitude (parallax scroll)
+    if (c.t > 0.05) {
+      ctx.globalAlpha = c.t * 0.9;
+      ctx.fillStyle = "#ffffff";
+      for (let i = 0; i < 46; i++) {
+        const sx = (i * 97.13) % W;
+        const sy = ((i * 53.7) - (cameraY * 0.25)) % H;
+        const yy = sy < 0 ? sy + H : sy;
+        const r = (i % 3 === 0) ? 1.6 : 1;
+        ctx.fillRect(sx, yy, r, r);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // drifting clouds (parallax)
+    ctx.fillStyle = "rgba(255,255,255," + (0.5 * (1 - c.t)) + ")";
+    for (let i = 0; i < 5; i++) {
+      const cx = ((i * 210) - (frames * 0.25)) % (W + 160);
+      const cy = (((i * 320) - cameraY * 0.4) % (H + 200)) - 60;
+      drawCloud(((cx < -80 ? cx + W + 160 : cx)), cy, 0.8 + (i % 2) * 0.3);
+    }
+  }
+
+  function drawCloud(x, y, sc) {
+    const yy = y < -60 ? y + H + 200 : y;
+    ctx.beginPath();
+    ctx.arc(x, yy, 24 * sc, 0, Math.PI * 2);
+    ctx.arc(x + 26 * sc, yy + 6 * sc, 18 * sc, 0, Math.PI * 2);
+    ctx.arc(x - 26 * sc, yy + 8 * sc, 16 * sc, 0, Math.PI * 2);
+    ctx.arc(x + 6 * sc, yy - 12 * sc, 16 * sc, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawWalls() {
+    const top = cameraY;
+    const bottom = cameraY + H;
+    const gL = ctx.createLinearGradient(0, 0, WALL_X, 0);
+    gL.addColorStop(0, "#1a2547");
+    gL.addColorStop(1, "#33507f");
+    ctx.fillStyle = gL;
+    ctx.fillRect(-2, top, WALL_X + 2, H);
+    const gR = ctx.createLinearGradient(W, 0, W - WALL_X, 0);
+    gR.addColorStop(0, "#1a2547");
+    gR.addColorStop(1, "#33507f");
+    ctx.fillStyle = gR;
+    ctx.fillRect(W - WALL_X, top, WALL_X + 2, H);
+
+    // glowing edge highlight
+    ctx.fillStyle = "rgba(140,200,255,.35)";
+    ctx.fillRect(WALL_X, top, 2, H);
+    ctx.fillRect(W - WALL_X - 2, top, 2, H);
+
+    // subtle rivet marks that scroll with the tower
+    ctx.fillStyle = "rgba(255,255,255,.06)";
+    const start = Math.floor((top) / 40) * 40;
+    for (let y = start; y < bottom; y += 40) {
+      ctx.fillRect(3, y, WALL_X - 6, 3);
+      ctx.fillRect(W - WALL_X + 3, y, WALL_X - 6, 3);
+    }
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function drawPlatforms() {
+    for (let i = 0; i < platforms.length; i++) {
+      const p = platforms[i];
+
+      // shadow
+      ctx.fillStyle = "rgba(0,0,0,.28)";
+      roundRect(p.x + 2, p.y + 4, p.w, p.h, 7);
+      ctx.fill();
+
+      // body with icy gradient (moving platforms get a warmer tint)
+      const g = ctx.createLinearGradient(0, p.y, 0, p.y + p.h);
+      if (p.vx !== 0) {
+        g.addColorStop(0, "#ffd9a0");
+        g.addColorStop(1, "#d98f45");
+      } else {
+        g.addColorStop(0, "#e8f4ff");
+        g.addColorStop(1, "#9fc6ef");
+      }
+      ctx.fillStyle = g;
+      roundRect(p.x, p.y, p.w, p.h, 7);
+      ctx.fill();
+
+      // top highlight cap
+      ctx.fillStyle = "rgba(255,255,255,.85)";
+      roundRect(p.x + 4, p.y + 2, p.w - 8, 4, 2);
+      ctx.fill();
+
+      // outline
+      ctx.strokeStyle = p.vx !== 0 ? "rgba(120,70,20,.55)" : "rgba(70,110,160,.55)";
+      ctx.lineWidth = 1.5;
+      roundRect(p.x, p.y, p.w, p.h, 7);
+      ctx.stroke();
+
+      // moving-platform marker
+      if (p.vx !== 0) {
+        ctx.fillStyle = "rgba(120,70,20,.6)";
+        ctx.beginPath();
+        ctx.arc(p.x + p.w / 2, p.y + p.h / 2, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  function drawPlayer() {
+    const sq = player.squash;
+    const sy = 1 - sq * 0.32;
+    const sx = 1 + sq * 0.32;
+
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    ctx.scale(sx, sy);
+
+    // glow
+    ctx.shadowColor = "rgba(120,200,255,.85)";
+    ctx.shadowBlur = 16;
+
+    // body
+    const g = ctx.createRadialGradient(-5, -6, 3, 0, 0, player.r + 5);
+    g.addColorStop(0, "#ffffff");
+    g.addColorStop(0.6, "#a9dcff");
+    g.addColorStop(1, "#4aa8ff");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0, 0, player.r, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = "rgba(30,90,150,.7)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // little ice spike on top
+    ctx.fillStyle = "#dff2ff";
+    ctx.beginPath();
+    ctx.moveTo(-4, -player.r + 1);
+    ctx.lineTo(0, -player.r - 7);
+    ctx.lineTo(4, -player.r + 1);
+    ctx.closePath();
+    ctx.fill();
+
+    // eyes (look toward movement)
+    const look = clamp(player.vx * 0.6, -3, 3);
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(-5, -2, 4.2, 0, Math.PI * 2);
+    ctx.arc(5, -2, 4.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#12203a";
+    ctx.beginPath();
+    ctx.arc(-5 + look, -2, 2, 0, Math.PI * 2);
+    ctx.arc(5 + look, -2, 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // smile
+    ctx.strokeStyle = "#12203a";
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.arc(0, 5, 4, 0.15 * Math.PI, 0.85 * Math.PI);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawParticles() {
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      ctx.globalAlpha = clamp(p.life, 0, 1);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawFloaters() {
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "bold 18px 'Trebuchet MS', sans-serif";
+    for (let i = 0; i < floaters.length; i++) {
+      const f = floaters[i];
+      ctx.globalAlpha = clamp(f.life, 0, 1);
+      ctx.fillStyle = f.color;
+      ctx.fillText(f.text, f.x, f.y);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+    drawBackground();
+
+    ctx.save();
+    ctx.translate(0, -cameraY);
+    drawPlatforms();
+    drawParticles();
+    drawPlayer();
+    drawFloaters();
+    drawWalls();
+    ctx.restore();
+  }
+
+  // ============ MAIN LOOP ============
+  let lastTime = performance.now();
+  let raf = null;
+
+  function loop(now) {
+    const dt = Math.min(50, now - lastTime);
+    lastTime = now;
+    if (!paused) update(dt);
+    render();
+    raf = requestAnimationFrame(loop);
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+    } else if (!raf) {
+      lastTime = performance.now();
+      raf = requestAnimationFrame(loop);
+    }
+  });
+
+  // ============ BUTTONS ============
+  document.getElementById("startBtn").addEventListener("click", startGame);
+  document.getElementById("againBtn").addEventListener("click", startGame);
+  document.getElementById("resumeBtn").addEventListener("click", togglePause);
+  document.getElementById("btnPause").addEventListener("click", togglePause);
+  document.getElementById("btnRestart").addEventListener("click", startGame);
+
+  // ============ BOOT ============
+  resetWorld();
+  updateHud();
+  raf = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

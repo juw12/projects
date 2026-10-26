@@ -1,0 +1,1260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🔥 Flame Run</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Trebuchet MS', 'Segoe UI', Tahoma, sans-serif;
+      background: radial-gradient(circle at 30% 0%, #4a1a06 0%, #190703 55%, #0a0301 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+      color: #ffd9b0;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(28, 10, 4, 0.92);
+      border: 1px solid rgba(255, 122, 40, 0.35);
+      border-radius: 20px;
+      padding: 18px;
+      box-shadow: 0 0 60px rgba(255, 90, 20, 0.25), 0 18px 48px rgba(0, 0, 0, 0.6);
+      max-width: 900px;
+      width: 96%;
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 2.1rem;
+      letter-spacing: 4px;
+      color: #ffb347;
+      margin-bottom: 4px;
+      text-shadow: 0 0 14px rgba(255, 110, 20, 0.8), 0 2px 0 #4a1500;
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.85rem;
+      letter-spacing: 1px;
+      color: #d98a54;
+      margin-bottom: 14px;
+    }
+
+    /* ============ HUD ============ */
+    .score-board {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+      padding: 10px 14px;
+      background: linear-gradient(135deg, rgba(90, 30, 8, 0.9), rgba(50, 14, 4, 0.9));
+      border: 1px solid rgba(255, 130, 50, 0.28);
+      border-radius: 12px;
+      font-size: 0.95rem;
+      color: #e6a26b;
+      letter-spacing: 1px;
+    }
+
+    .score-board span {
+      font-weight: 700;
+      color: #ffb347;
+    }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #100502;
+      box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    /* ============ SCREENS (Start / Game Over) ============ */
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+      background: radial-gradient(circle at 50% 40%, rgba(60, 16, 4, 0.92), rgba(10, 3, 1, 0.97));
+      transition: opacity 0.3s ease;
+    }
+
+    .screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .screen-title {
+      font-size: 2.2rem;
+      letter-spacing: 3px;
+      color: #ff7a2a;
+      margin-bottom: 6px;
+      text-shadow: 0 0 18px rgba(255, 90, 20, 0.9);
+    }
+
+    .screen-subtitle {
+      font-size: 0.9rem;
+      color: #d98a54;
+      margin-bottom: 20px;
+      max-width: 420px;
+      line-height: 1.5;
+    }
+
+    .keys {
+      font-size: 0.82rem;
+      color: #b06a3e;
+      margin-bottom: 22px;
+      line-height: 1.9;
+    }
+
+    .keys b {
+      color: #ffb347;
+    }
+
+    .final-score {
+      font-size: 1.4rem;
+      color: #ffb347;
+      margin-bottom: 6px;
+      letter-spacing: 1px;
+    }
+
+    .final-best {
+      font-size: 0.9rem;
+      color: #d98a54;
+      margin-bottom: 20px;
+    }
+
+    /* ============ ACTION BUTTONS ============ */
+    .action-btn {
+      padding: 14px 40px;
+      background: linear-gradient(135deg, #ff9a3c, #ff4d10);
+      color: #2a0a00;
+      border: none;
+      border-radius: 28px;
+      font-size: 1.1rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      box-shadow: 0 0 22px rgba(255, 90, 20, 0.5);
+    }
+
+    .action-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 0 34px rgba(255, 110, 30, 0.75);
+    }
+
+    .action-btn:active {
+      transform: translateY(-1px);
+    }
+
+    /* ============ PAUSE OVERLAY ============ */
+    .pause-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(12, 4, 1, 0.78);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.8rem;
+      letter-spacing: 4px;
+      color: #ffb347;
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .pause-overlay.visible {
+      opacity: 1;
+    }
+
+    /* ============ MOBILE CONTROLS ============ */
+    .mobile-controls {
+      display: none;
+      margin-top: 14px;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .mobile-controls.visible {
+      display: flex;
+    }
+
+    .control-btn {
+      flex: 1;
+      max-width: 150px;
+      padding: 18px 0;
+      background: linear-gradient(135deg, #5a1e08, #3a1204);
+      border: 1px solid rgba(255, 130, 50, 0.35);
+      border-radius: 14px;
+      color: #ffb347;
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.1s ease, background 0.1s ease;
+    }
+
+    .control-btn:active {
+      background: linear-gradient(135deg, #ff7a2a, #c73a08);
+      color: #250900;
+      transform: scale(0.96);
+    }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 560px) {
+      .game-container { padding: 12px; border-radius: 14px; }
+      .game-title { font-size: 1.5rem; letter-spacing: 2px; }
+      .game-subtitle { display: none; }
+      .screen-title { font-size: 1.6rem; }
+      .keys { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">FLAME RUN</h1>
+    <p class="game-subtitle">Outrun the wall of fire. Don't look back.</p>
+
+    <div class="score-board">
+      <div>DISTANCE: <span id="score">0</span> m</div>
+      <div>BEST: <span id="highScore">0</span> m</div>
+      <div>WATER: <span id="waterCount">3</span></div>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="800" height="400"></canvas>
+
+      <!-- Start Screen -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">FLAME RUN</h2>
+        <p class="screen-subtitle">
+          A wildfire is closing in behind you. Sprint through the tinder-dry forest,
+          leap the falling debris, dash through gaps, and drop water-bombs to hold the flames back.
+        </p>
+        <p class="keys">
+          <b>SPACE / W / ↑</b> jump (double-jump in air)<br />
+          <b>SHIFT / D / →</b> dash burst<br />
+          <b>S / ↓</b> drop water-bomb (slows fire)<br />
+          <b>P</b> pause &nbsp;•&nbsp; collect <b>blue droplets</b> for water
+        </p>
+        <button class="action-btn" id="startBtn">RUN</button>
+      </div>
+
+      <!-- Game Over Screen -->
+      <div id="gameOverScreen" class="screen hidden">
+        <h2 class="screen-title">CONSUMED</h2>
+        <p class="final-score">Distance: <span id="finalScore">0</span> m</p>
+        <p class="final-best">Best: <span id="finalBest">0</span> m</p>
+        <button class="action-btn" id="playAgainBtn">RUN AGAIN</button>
+      </div>
+
+      <!-- Pause Overlay -->
+      <div id="pauseOverlay" class="pause-overlay">PAUSED</div>
+    </div>
+
+    <!-- Mobile Controls -->
+    <div class="mobile-controls" id="mobileControls">
+      <button class="control-btn" id="btnJump">JUMP</button>
+      <button class="control-btn" id="btnDash">DASH</button>
+      <button class="control-btn" id="btnBomb">BOMB</button>
+    </div>
+  </div>
+
+  <script>
+    // ============ GAME CONFIGURATION ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+    const GROUND_Y = H - 66;         // y of the ground surface
+    const PLAYER_X = Math.round(W * 0.34); // fixed screen x of the runner
+    const GRAVITY = 2000;
+    const JUMP_V = -640;
+    const MAX_WATER = 3;
+    const MAX_GAP = 380;             // fire can never fall further behind than this
+    const DASH_TIME = 0.26;
+    const DASH_CD = 0.85;
+    const STUMBLE_TIME = 0.55;
+
+    // ============ GAME STATE ============
+    let playerWorld = 0;      // how far the runner has travelled (world px)
+    let fireWorld = -200;     // world position of the fire's leading edge
+    let fireSlow = 0;         // seconds the fire is doused
+    let water = MAX_WATER;
+    let fireSlowFx = 0;
+
+    let player = {};
+    let obstacles = [];
+    let drops = [];           // water pickups
+    let bombs = [];           // dropped water-bombs
+    let particles = [];
+
+    let nextObstacleWorld = 820;
+    let nextWaterWorld = 1500;
+
+    let score = 0;
+    let best = parseInt(localStorage.getItem('flameRunBest') || '0', 10) || 0;
+    let shake = 0;
+    let time = 0;
+
+    let isRunning = false;
+    let isPaused = false;
+    let lastTime = 0;
+    let rafId = 0;
+
+    // ============ DOM ELEMENTS ============
+    const scoreEl = document.getElementById('score');
+    const highScoreEl = document.getElementById('highScore');
+    const waterEl = document.getElementById('waterCount');
+    const finalScoreEl = document.getElementById('finalScore');
+    const finalBestEl = document.getElementById('finalBest');
+    const startScreen = document.getElementById('startScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const startBtn = document.getElementById('startBtn');
+    const playAgainBtn = document.getElementById('playAgainBtn');
+    const mobileControls = document.getElementById('mobileControls');
+
+    // ============ AUDIO (WebAudio beep) ============
+    let audioCtx = null;
+    function beep(freq, dur, type, vol) {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type || 'square';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(vol == null ? 0.06 : vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + dur);
+      } catch (e) { /* audio unavailable — ignore */ }
+    }
+    function sweep(f1, f2, dur, type, vol) {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type || 'sawtooth';
+        osc.frequency.setValueAtTime(f1, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(f2, audioCtx.currentTime + dur);
+        gain.gain.setValueAtTime(vol == null ? 0.07 : vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + dur);
+      } catch (e) { /* ignore */ }
+    }
+
+    // ============ INITIALISATION ============
+    highScoreEl.textContent = best;
+
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+      mobileControls.classList.add('visible');
+    }
+
+    function resetGame() {
+      playerWorld = 0;
+      fireWorld = -200;
+      fireSlow = 0;
+      fireSlowFx = 0;
+      water = MAX_WATER;
+      obstacles = [];
+      drops = [];
+      bombs = [];
+      particles = [];
+      nextObstacleWorld = 820;
+      nextWaterWorld = 1500;
+      score = 0;
+      shake = 0;
+      time = 0;
+      player = {
+        y: GROUND_Y,      // feet y
+        vy: 0,
+        jumps: 0,
+        onGround: true,
+        dash: 0,
+        dashCd: 0,
+        stumble: 0,
+        invul: 0,
+        run: 0
+      };
+      scoreEl.textContent = '0';
+      waterEl.textContent = water;
+    }
+
+    // ============ SPEED CURVES ============
+    function baseSpeed() {
+      // ramps with distance travelled
+      return 300 + Math.min(230, playerWorld / 34);
+    }
+    function fireGain() {
+      // the fire closes in faster the further you go
+      return 10 + Math.min(85, playerWorld / 150);
+    }
+    function currentSpeed() {
+      let s = baseSpeed();
+      if (player.dash > 0) s *= 1.95;
+      if (player.stumble > 0) s *= 0.32;
+      return s;
+    }
+
+    // ============ SPAWNING ============
+    function spawnObstacle(worldX) {
+      const roll = Math.random();
+      let o;
+      if (roll < 0.42) {
+        o = { type: 'log', w: 46 + Math.random() * 26, h: 32 };
+      } else if (roll < 0.74) {
+        o = { type: 'rock', w: 30 + Math.random() * 16, h: 26 };
+      } else {
+        o = { type: 'pile', w: 34, h: 48 }; // a leaning slab of debris
+      }
+      obstacles.push({ worldX: worldX, w: o.w, h: o.h, type: o.type, hit: false, seed: Math.random() * 99 });
+    }
+
+    function spawnWater(worldX) {
+      drops.push({ worldX: worldX, y: GROUND_Y - 46 - Math.random() * 34, taken: false, bob: Math.random() * 6 });
+    }
+
+    // ============ PARTICLES ============
+    function addParticle(p) {
+      if (particles.length > 420) particles.shift();
+      particles.push(p);
+    }
+    function burstEmbers(x, y, n, spread) {
+      for (let i = 0; i < n; i++) {
+        addParticle({
+          type: 'ember',
+          x: x + (Math.random() - 0.5) * 10,
+          y: y + (Math.random() - 0.5) * 10,
+          vx: 40 + Math.random() * 150,
+          vy: -30 - Math.random() * spread,
+          life: 0.7 + Math.random() * 0.9,
+          max: 1.6,
+          size: 1.5 + Math.random() * 2.5,
+          hue: 20 + Math.random() * 30
+        });
+      }
+    }
+    function addSmoke(x, y, scale) {
+      addParticle({
+        type: 'smoke',
+        x: x, y: y,
+        vx: 20 + Math.random() * 40,
+        vy: -18 - Math.random() * 22,
+        life: 1.6 + Math.random() * 1.8,
+        max: 3.4,
+        size: (14 + Math.random() * 26) * (scale || 1),
+        grey: 40 + Math.random() * 40
+      });
+    }
+    function splash(x, y) {
+      for (let i = 0; i < 26; i++) {
+        addParticle({
+          type: 'splash',
+          x: x, y: y,
+          vx: (Math.random() - 0.5) * 320,
+          vy: -60 - Math.random() * 260,
+          life: 0.5 + Math.random() * 0.6,
+          max: 1.1,
+          size: 2 + Math.random() * 3
+        });
+      }
+      for (let i = 0; i < 14; i++) addSmoke(x, y - 10, 1.2);
+    }
+
+    // ============ ACTIONS ============
+    function tryJump() {
+      if (!isRunning || isPaused) return;
+      if (player.jumps < 2) {
+        player.vy = player.jumps === 0 ? JUMP_V : JUMP_V * 0.86;
+        player.jumps++;
+        player.onGround = false;
+        beep(player.jumps === 1 ? 620 : 780, 0.12, 'square', 0.05);
+        for (let i = 0; i < 6; i++) {
+          addParticle({
+            type: 'dust', x: PLAYER_X + (Math.random() - 0.5) * 20, y: player.y,
+            vx: -30 - Math.random() * 60, vy: -20 - Math.random() * 40,
+            life: 0.4, max: 0.4, size: 2 + Math.random() * 3
+          });
+        }
+      }
+    }
+
+    function tryDash() {
+      if (!isRunning || isPaused) return;
+      if (player.dashCd <= 0) {
+        player.dash = DASH_TIME;
+        player.dashCd = DASH_CD;
+        player.invul = Math.max(player.invul, DASH_TIME + 0.08);
+        sweep(300, 900, 0.22, 'sawtooth', 0.05);
+        for (let i = 0; i < 14; i++) {
+          addParticle({
+            type: 'dust', x: PLAYER_X - 10 - Math.random() * 30, y: player.y - Math.random() * 30,
+            vx: -120 - Math.random() * 160, vy: (Math.random() - 0.5) * 60,
+            life: 0.4 + Math.random() * 0.3, max: 0.7, size: 2 + Math.random() * 4
+          });
+        }
+      }
+    }
+
+    function tryBomb() {
+      if (!isRunning || isPaused) return;
+      if (water > 0 && bombs.filter(b => !b.landed).length < 3) {
+        water--;
+        waterEl.textContent = water;
+        bombs.push({ worldX: playerWorld - 8, y: player.y - 26, vy: -300, landed: false, t: 0 });
+        beep(300, 0.1, 'triangle', 0.05);
+      }
+    }
+
+    // ============ GAME OVER ============
+    function gameOver() {
+      isRunning = false;
+      cancelAnimationFrame(rafId);
+      if (score > best) {
+        best = score;
+        localStorage.setItem('flameRunBest', String(best));
+        highScoreEl.textContent = best;
+      }
+      finalScoreEl.textContent = score;
+      finalBestEl.textContent = best;
+      gameOverScreen.classList.remove('hidden');
+      sweep(520, 60, 0.9, 'sawtooth', 0.09);
+      // final blast of embers
+      for (let i = 0; i < 60; i++) burstEmbers(PLAYER_X, player.y - 20, 1, 260);
+    }
+
+    // ============ UPDATE ============
+    function update(dt) {
+      time += dt;
+
+      // --- timers ---
+      if (player.dash > 0) player.dash -= dt;
+      if (player.dashCd > 0) player.dashCd -= dt;
+      if (player.stumble > 0) player.stumble -= dt;
+      if (player.invul > 0) player.invul -= dt;
+      if (fireSlow > 0) fireSlow -= dt;
+      if (fireSlowFx > 0) fireSlowFx -= dt;
+      if (shake > 0) shake = Math.max(0, shake - dt * 60);
+
+      // --- horizontal travel ---
+      const sp = currentSpeed();
+      playerWorld += sp * dt;
+
+      // --- vertical (jump) physics ---
+      player.vy += GRAVITY * dt;
+      player.y += player.vy * dt;
+      if (player.y >= GROUND_Y) {
+        if (!player.onGround) {
+          for (let i = 0; i < 5; i++) {
+            addParticle({
+              type: 'dust', x: PLAYER_X + (Math.random() - 0.5) * 18, y: GROUND_Y,
+              vx: -20 - Math.random() * 50, vy: -10 - Math.random() * 30,
+              life: 0.35, max: 0.35, size: 2 + Math.random() * 3
+            });
+          }
+        }
+        player.y = GROUND_Y;
+        player.vy = 0;
+        player.jumps = 0;
+        player.onGround = true;
+      } else {
+        player.onGround = false;
+      }
+      player.run += dt * (player.onGround ? 12 : 4);
+
+      // --- fire advance ---
+      const fireSpeed = baseSpeed() + fireGain();
+      fireWorld += fireSpeed * (fireSlow > 0 ? 0.22 : 1) * dt;
+
+      // keep the fire from dropping too far behind
+      if (playerWorld - fireWorld > MAX_GAP) fireWorld = playerWorld - MAX_GAP;
+
+      const gap = playerWorld - fireWorld;
+      if (gap <= 6) { gameOver(); return; }
+
+      // --- spawn ahead ---
+      while (playerWorld + W + 120 > nextObstacleWorld) {
+        spawnObstacle(nextObstacleWorld);
+        nextObstacleWorld += 300 + Math.random() * 320 + baseSpeed() * 0.22;
+      }
+      while (playerWorld + W + 120 > nextWaterWorld) {
+        spawnWater(nextWaterWorld);
+        nextWaterWorld += 950 + Math.random() * 750;
+      }
+
+      // --- obstacle collision ---
+      const pRect = { x: PLAYER_X - 13, y: player.y - 46, w: 26, h: 46 };
+      for (const o of obstacles) {
+        if (o.hit) continue;
+        const sx = PLAYER_X + (o.worldX - playerWorld);
+        if (sx < -100 || sx > W + 100) continue;
+        const oRect = { x: sx - o.w / 2, y: GROUND_Y - o.h, w: o.w, h: o.h };
+        if (rectsOverlap(pRect, oRect)) {
+          o.hit = true;
+          if (player.invul > 0) {
+            // smashed through during a dash
+            for (let i = 0; i < 16; i++) {
+              addParticle({
+                type: 'debris', x: sx, y: GROUND_Y - o.h / 2,
+                vx: (Math.random() - 0.5) * 300, vy: -Math.random() * 260,
+                life: 0.6, max: 0.6, size: 3 + Math.random() * 4
+              });
+            }
+            beep(200, 0.12, 'square', 0.06);
+          } else {
+            player.stumble = STUMBLE_TIME;
+            player.invul = STUMBLE_TIME + 0.3;
+            player.vy = Math.min(player.vy, -180);
+            shake = 14;
+            beep(120, 0.22, 'square', 0.08);
+            for (let i = 0; i < 14; i++) {
+              addParticle({
+                type: 'debris', x: sx, y: GROUND_Y - o.h / 2,
+                vx: (Math.random() - 0.5) * 220, vy: -Math.random() * 220,
+                life: 0.6, max: 0.6, size: 2 + Math.random() * 4
+              });
+            }
+          }
+        }
+      }
+      // cull far-behind obstacles
+      obstacles = obstacles.filter(o => o.worldX > playerWorld - 200);
+
+      // --- water pickups ---
+      for (const d of drops) {
+        if (d.taken) continue;
+        const sx = PLAYER_X + (d.worldX - playerWorld);
+        if (sx < -60 || sx > W + 60) continue;
+        const dx = sx - PLAYER_X;
+        const dy = d.y - (player.y - 23);
+        if (dx * dx + dy * dy < 34 * 34) {
+          d.taken = true;
+          water = Math.min(MAX_WATER, water + 1);
+          waterEl.textContent = water;
+          beep(880, 0.14, 'sine', 0.06);
+          for (let i = 0; i < 12; i++) {
+            addParticle({
+              type: 'splash', x: sx, y: d.y,
+              vx: (Math.random() - 0.5) * 200, vy: -Math.random() * 180,
+              life: 0.45, max: 0.45, size: 2 + Math.random() * 3
+            });
+          }
+        }
+      }
+      drops = drops.filter(d => d.worldX > playerWorld - 150 && !d.taken);
+
+      // --- bombs ---
+      for (const b of bombs) {
+        if (b.landed) continue;
+        b.t += dt;
+        b.vy += GRAVITY * dt;
+        b.y += b.vy * dt;
+        if (b.y >= GROUND_Y) {
+          b.y = GROUND_Y;
+          b.landed = true;
+          const sx = PLAYER_X + (b.worldX - playerWorld);
+          // douse the fire: push it back and slow it for a while
+          fireWorld -= 130;
+          if (playerWorld - fireWorld > MAX_GAP) fireWorld = playerWorld - MAX_GAP;
+          fireSlow = 1.5;
+          fireSlowFx = 1.5;
+          splash(sx, GROUND_Y);
+          sweep(700, 140, 0.5, 'sine', 0.07);
+          // steam bursts rising from the fire line
+          for (let i = 0; i < 10; i++) addSmoke(PLAYER_X - (playerWorld - fireWorld) + Math.random() * 40, GROUND_Y - Math.random() * 200, 1.4);
+        }
+      }
+      bombs = bombs.filter(b => !(b.landed && b.t > 3));
+
+      // --- embers + smoke from the fire line ---
+      const fireScreenX = PLAYER_X - (playerWorld - fireWorld);
+      if (fireScreenX > -80) {
+        const wob = boundaryWobble(0);
+        if (Math.random() < 0.9) {
+          burstEmbers(fireScreenX + wob, GROUND_Y - Math.random() * 120, 1 + (Math.random() < 0.4 ? 1 : 0), 200);
+        }
+        if (Math.random() < 0.5) addSmoke(fireScreenX + Math.random() * 30, GROUND_Y - Math.random() * 220, 1);
+      }
+
+      // --- particles ---
+      updateParticles(dt);
+
+      // --- score ---
+      const newScore = Math.floor(playerWorld / 12);
+      if (newScore !== score) {
+        score = newScore;
+        scoreEl.textContent = score;
+      }
+    }
+
+    function rectsOverlap(a, b) {
+      return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+    }
+    function boundaryWobble(y) {
+      return Math.sin(y * 0.05 + time * 6) * 10 + Math.sin(y * 0.13 - time * 9) * 6;
+    }
+
+    function updateParticles(dt) {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += (p.vx || 0) * dt;
+        p.y += (p.vy || 0) * dt;
+        if (p.type === 'ember') {
+          p.vy -= 30 * dt;                // embers rise
+          p.vx *= 0.985;
+        } else if (p.type === 'smoke') {
+          p.vx *= 0.99;
+          p.size += 16 * dt;
+        } else if (p.type === 'splash') {
+          p.vy += 900 * dt;
+        } else if (p.type === 'dust' || p.type === 'debris') {
+          p.vy += 1200 * dt;
+          p.vx *= 0.98;
+        }
+        p.life -= dt;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+    }
+
+    // ============ DRAW ============
+    function draw() {
+      ctx.save();
+      if (shake > 0) {
+        ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+      }
+
+      drawSky();
+      drawParallax();
+      drawGround();
+      drawFire();
+      drawObstacles();
+      drawDrops();
+      drawBombs();
+      drawPlayer();
+      drawParticles();
+      drawHud();
+
+      ctx.restore();
+    }
+
+    function drawSky() {
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, '#2b0a02');
+      g.addColorStop(0.45, '#5c1a05');
+      g.addColorStop(0.75, '#9c3a08');
+      g.addColorStop(1, '#3a1204');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      // hazy glow near the fire side
+      const glow = ctx.createRadialGradient(0, H * 0.7, 40, 0, H * 0.7, W * 0.9);
+      glow.addColorStop(0, 'rgba(255, 110, 20, 0.30)');
+      glow.addColorStop(1, 'rgba(255, 110, 20, 0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    function drawParallax() {
+      // far treeline
+      layerTrees(0.18, 150, 200, 'rgba(28, 8, 2, 0.85)', GROUND_Y + 6, 96);
+      // mid treeline
+      layerTrees(0.36, 110, 230, 'rgba(20, 5, 1, 0.92)', GROUND_Y + 10, 66);
+    }
+
+    function layerTrees(factor, spacing, maxH, color, baseY, hVar) {
+      const off = (playerWorld * factor) % spacing;
+      ctx.fillStyle = color;
+      for (let x = -off - spacing; x < W + spacing; x += spacing) {
+        const s = Math.abs(Math.sin((x + playerWorld * factor) * 0.013));
+        const h = maxH + s * hVar;
+        const w = 16 + s * 10;
+        // trunk
+        ctx.fillRect(x - 3, baseY - h, 6, h);
+        // canopy triangles
+        ctx.beginPath();
+        ctx.moveTo(x, baseY - h - 44);
+        ctx.lineTo(x - w, baseY - h + 26);
+        ctx.lineTo(x + w, baseY - h + 26);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(x, baseY - h - 20);
+        ctx.lineTo(x - w * 1.25, baseY - h + 44);
+        ctx.lineTo(x + w * 1.25, baseY - h + 44);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+
+    function drawGround() {
+      const g = ctx.createLinearGradient(0, GROUND_Y, 0, H);
+      g.addColorStop(0, '#5a2a10');
+      g.addColorStop(0.4, '#3a1808');
+      g.addColorStop(1, '#180803');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
+
+      // scorched top line
+      ctx.strokeStyle = 'rgba(255, 130, 40, 0.45)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, GROUND_Y);
+      ctx.lineTo(W, GROUND_Y);
+      ctx.stroke();
+
+      // speed streaks
+      ctx.strokeStyle = 'rgba(255, 150, 70, 0.12)';
+      ctx.lineWidth = 2;
+      const sp = (playerWorld * 1.0) % 90;
+      for (let x = -sp; x < W; x += 90) {
+        ctx.beginPath();
+        ctx.moveTo(x, GROUND_Y + 16);
+        ctx.lineTo(x + 46, GROUND_Y + 16);
+        ctx.moveTo(x + 20, GROUND_Y + 34);
+        ctx.lineTo(x + 84, GROUND_Y + 34);
+        ctx.stroke();
+      }
+    }
+
+    function drawFire() {
+      const gap = playerWorld - fireWorld;
+      const fx = PLAYER_X - gap;
+      if (fx < -160) return;
+
+      // dark smoky body
+      const body = ctx.createLinearGradient(fx - 320, 0, fx, 0);
+      body.addColorStop(0, 'rgba(20, 4, 1, 0.95)');
+      body.addColorStop(0.55, 'rgba(120, 28, 4, 0.92)');
+      body.addColorStop(1, 'rgba(200, 60, 8, 0.85)');
+      ctx.fillStyle = body;
+      ctx.beginPath();
+      ctx.moveTo(-60, 0);
+      let first = true;
+      for (let y = 0; y <= H; y += 12) {
+        const wob = boundaryWobble(y);
+        if (first) { ctx.lineTo(fx + wob, y); first = false; }
+        else ctx.lineTo(fx + wob, y);
+      }
+      ctx.lineTo(-60, H);
+      ctx.closePath();
+      ctx.fill();
+
+      // flame tongues along the leading edge
+      for (let i = 0; i < 16; i++) {
+        const y = (i / 16) * H + 8;
+        const amp = 18 + Math.sin(time * 5 + i) * 12;
+        const reach = 26 + Math.abs(Math.sin(time * 3 + i * 1.7)) * 40;
+        const g = ctx.createLinearGradient(fx, y, fx + reach, y);
+        g.addColorStop(0, 'rgba(255, 220, 120, 0.9)');
+        g.addColorStop(0.5, 'rgba(255, 130, 30, 0.7)');
+        g.addColorStop(1, 'rgba(255, 60, 10, 0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.moveTo(fx - 4, y - amp * 0.5);
+        ctx.quadraticCurveTo(fx + reach * 0.6, y, fx - 4, y + amp * 0.5);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // hot core line
+      ctx.strokeStyle = 'rgba(255, 230, 150, ' + (0.5 + 0.3 * Math.sin(time * 8)) + ')';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let y = 0; y <= H; y += 12) {
+        const wob = boundaryWobble(y);
+        if (y === 0) ctx.moveTo(fx + wob, y);
+        else ctx.lineTo(fx + wob, y);
+      }
+      ctx.stroke();
+
+      // douse flash
+      if (fireSlowFx > 0) {
+        ctx.fillStyle = 'rgba(140, 210, 255, ' + (0.18 * fireSlowFx) + ')';
+        ctx.fillRect(0, 0, Math.max(0, fx), H);
+      }
+    }
+
+    function drawObstacles() {
+      for (const o of obstacles) {
+        const sx = PLAYER_X + (o.worldX - playerWorld);
+        if (sx < -100 || sx > W + 100) continue;
+        const x = sx - o.w / 2;
+        const y = GROUND_Y - o.h;
+        if (o.type === 'log') {
+          ctx.fillStyle = o.hit ? '#6b4a2e' : '#7a4a24';
+          ctx.beginPath();
+          ctx.roundRect(x, y, o.w, o.h, 12);
+          ctx.fill();
+          ctx.fillStyle = '#5a3418';
+          ctx.beginPath();
+          ctx.arc(x + 10, y + o.h * 0.5, 6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(255, 140, 50, 0.35)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(x + 4, y + 5);
+          ctx.lineTo(x + o.w - 4, y + 5);
+          ctx.stroke();
+        } else if (o.type === 'rock') {
+          ctx.fillStyle = o.hit ? '#4a4642' : '#575049';
+          ctx.beginPath();
+          ctx.moveTo(x, y + o.h);
+          ctx.lineTo(x + o.w * 0.2, y);
+          ctx.lineTo(x + o.w * 0.7, y + o.h * 0.3);
+          ctx.lineTo(x + o.w, y + o.h);
+          ctx.closePath();
+          ctx.fill();
+        } else { // pile — leaning slab
+          ctx.save();
+          ctx.translate(sx, GROUND_Y);
+          ctx.rotate(-0.16);
+          ctx.fillStyle = o.hit ? '#5a3018' : '#6b3a1c';
+          ctx.beginPath();
+          ctx.roundRect(-o.w / 2, -o.h, o.w, o.h, 6);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(255, 150, 60, 0.4)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(-o.w / 2 + 4, -o.h + 8);
+          ctx.lineTo(o.w / 2 - 4, -o.h + 8);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+    }
+
+    function drawDrops() {
+      for (const d of drops) {
+        const sx = PLAYER_X + (d.worldX - playerWorld);
+        if (sx < -60 || sx > W + 60) continue;
+        const bob = Math.sin(time * 4 + d.bob) * 4;
+        const y = d.y + bob;
+        // glow
+        const g = ctx.createRadialGradient(sx, y, 1, sx, y, 20);
+        g.addColorStop(0, 'rgba(120, 210, 255, 0.55)');
+        g.addColorStop(1, 'rgba(120, 210, 255, 0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(sx, y, 20, 0, Math.PI * 2);
+        ctx.fill();
+        // droplet
+        ctx.fillStyle = '#7fd0ff';
+        ctx.beginPath();
+        ctx.moveTo(sx, y - 12);
+        ctx.quadraticCurveTo(sx + 9, y + 2, sx, y + 9);
+        ctx.quadraticCurveTo(sx - 9, y + 2, sx, y - 12);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.beginPath();
+        ctx.arc(sx - 3, y - 1, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawBombs() {
+      for (const b of bombs) {
+        const sx = PLAYER_X + (b.worldX - playerWorld);
+        if (b.landed) {
+          const r = 10 + (b.t - 1) * 40;
+          ctx.strokeStyle = 'rgba(150, 220, 255, ' + Math.max(0, 0.6 - b.t * 0.2) + ')';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(sx, GROUND_Y, Math.max(6, r), 0, Math.PI * 2);
+          ctx.stroke();
+        } else {
+          // water-bomb capsule
+          ctx.fillStyle = '#8fd6ff';
+          ctx.beginPath();
+          ctx.ellipse(sx, b.y, 7, 9, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+          ctx.beginPath();
+          ctx.arc(sx - 2, b.y - 3, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    function drawPlayer() {
+      const px = PLAYER_X;
+      const py = player.y;               // feet
+      const bodyTop = py - 46;
+
+      // shadow
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+      ctx.beginPath();
+      ctx.ellipse(px, GROUND_Y + 3, 17, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      const flick = player.invul > 0 && Math.floor(time * 20) % 2 === 0;
+      ctx.globalAlpha = flick ? 0.55 : 1;
+
+      // trail during dash
+      if (player.dash > 0) {
+        ctx.fillStyle = 'rgba(255, 200, 120, 0.25)';
+        for (let i = 1; i <= 3; i++) {
+          ctx.beginPath();
+          ctx.roundRect(px - 13 - i * 16, bodyTop + 4, 26, 38, 8);
+          ctx.fill();
+        }
+      }
+
+      // legs (run cycle)
+      const swing = Math.sin(player.run) * (player.onGround ? 9 : 4);
+      ctx.strokeStyle = '#e8b070';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(px - 3, py - 18);
+      ctx.lineTo(px - 3 + swing, py);
+      ctx.moveTo(px + 3, py - 18);
+      ctx.lineTo(px + 3 - swing, py);
+      ctx.stroke();
+
+      // torso
+      const torso = ctx.createLinearGradient(px - 12, bodyTop, px + 12, py - 16);
+      torso.addColorStop(0, '#ffb347');
+      torso.addColorStop(1, '#d1621a');
+      ctx.fillStyle = torso;
+      ctx.beginPath();
+      ctx.roundRect(px - 12, bodyTop + 6, 24, 26, 8);
+      ctx.fill();
+
+      // arms
+      ctx.strokeStyle = '#e8b070';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(px - 10, bodyTop + 14);
+      ctx.lineTo(px - 16 - swing * 0.6, bodyTop + 24);
+      ctx.moveTo(px + 10, bodyTop + 14);
+      ctx.lineTo(px + 16 + swing * 0.6, bodyTop + 24);
+      ctx.stroke();
+
+      // head
+      ctx.fillStyle = '#f4c68a';
+      ctx.beginPath();
+      ctx.arc(px, bodyTop + 2, 10, 0, Math.PI * 2);
+      ctx.fill();
+      // goggles / eyes
+      ctx.fillStyle = '#2a1408';
+      ctx.beginPath();
+      ctx.arc(px + 4, bodyTop + 0, 2, 0, Math.PI * 2);
+      ctx.arc(px + 9, bodyTop + 0, 2, 0, Math.PI * 2);
+      ctx.fill();
+      // headband trails
+      ctx.strokeStyle = '#ff5a1e';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(px - 8, bodyTop - 2);
+      ctx.lineTo(px - 22 - Math.abs(swing), bodyTop + 4 + Math.sin(time * 12) * 3);
+      ctx.stroke();
+
+      ctx.globalAlpha = 1;
+      ctx.lineCap = 'butt';
+    }
+
+    function drawParticles() {
+      for (const p of particles) {
+        const a = Math.max(0, p.life / p.max);
+        if (p.type === 'ember') {
+          ctx.globalAlpha = a;
+          ctx.fillStyle = 'hsl(' + p.hue + ', 100%, ' + (55 + 20 * a) + '%)';
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (p.type === 'smoke') {
+          ctx.globalAlpha = a * 0.32;
+          ctx.fillStyle = 'hsl(20, 20%, ' + p.grey + '%)';
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (p.type === 'splash') {
+          ctx.globalAlpha = a;
+          ctx.fillStyle = '#9fe0ff';
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (p.type === 'debris') {
+          ctx.globalAlpha = a;
+          ctx.fillStyle = '#7a4a24';
+          ctx.fillRect(p.x, p.y, p.size, p.size);
+        } else { // dust
+          ctx.globalAlpha = a * 0.5;
+          ctx.fillStyle = '#c9a074';
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawHud() {
+      // danger meter: how close the fire is
+      const gap = playerWorld - fireWorld;
+      const danger = Math.max(0, Math.min(1, 1 - gap / MAX_GAP));
+
+      ctx.fillStyle = 'rgba(15, 5, 2, 0.55)';
+      ctx.beginPath();
+      ctx.roundRect(W - 172, 12, 160, 40, 10);
+      ctx.fill();
+
+      ctx.fillStyle = '#d98a54';
+      ctx.font = 'bold 11px Trebuchet MS, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('FIRE DISTANCE', W - 160, 28);
+
+      const barW = 136;
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      ctx.beginPath();
+      ctx.roundRect(W - 160, 34, barW, 9, 5);
+      ctx.fill();
+
+      const barColor = danger > 0.72 ? '#ff3010' : (danger > 0.45 ? '#ff8c1a' : '#ffd24d');
+      ctx.fillStyle = barColor;
+      ctx.beginPath();
+      ctx.roundRect(W - 160, 34, Math.max(2, barW * danger), 9, 5);
+      ctx.fill();
+
+      if (danger > 0.78 && isRunning) {
+        ctx.globalAlpha = 0.25 + 0.25 * Math.sin(time * 10);
+        ctx.fillStyle = '#ff2200';
+        ctx.fillRect(0, 0, W, H);
+        ctx.globalAlpha = 1;
+      }
+      ctx.textAlign = 'left';
+    }
+
+    // ============ MAIN LOOP ============
+    function loop(now) {
+      if (!isRunning || isPaused) return;
+      let dt = (now - lastTime) / 1000;
+      lastTime = now;
+      if (dt > 0.05) dt = 0.05;   // clamp for stability after tab switches
+
+      update(dt);
+      if (!isRunning) { draw(); return; }
+      draw();
+      rafId = requestAnimationFrame(loop);
+    }
+
+    // ============ START / PAUSE ============
+    function startGame() {
+      resetGame();
+      isRunning = true;
+      isPaused = false;
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      pauseOverlay.classList.remove('visible');
+      lastTime = performance.now();
+      beep(520, 0.15, 'square', 0.05);
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(loop);
+    }
+
+    function togglePause() {
+      if (!isRunning) return;
+      isPaused = !isPaused;
+      pauseOverlay.classList.toggle('visible', isPaused);
+      if (!isPaused) {
+        lastTime = performance.now();
+        cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(loop);
+      }
+    }
+
+    // ============ INPUT ============
+    document.addEventListener('keydown', (e) => {
+      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyP', 'ShiftLeft', 'ShiftRight'].includes(e.code)) {
+        e.preventDefault();
+      }
+      if (e.repeat) return;
+
+      if (e.code === 'KeyP') { togglePause(); return; }
+
+      if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
+        if (!isRunning) { startGame(); return; }
+        tryJump();
+      } else if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyD' || e.code === 'ArrowRight') {
+        tryDash();
+      } else if (e.code === 'ArrowDown' || e.code === 'KeyS') {
+        tryBomb();
+      }
+    });
+
+    // touch / mouse buttons
+    function bindHold(el, fn) {
+      el.addEventListener('pointerdown', (e) => { e.preventDefault(); fn(); });
+    }
+    bindHold(document.getElementById('btnJump'), tryJump);
+    bindHold(document.getElementById('btnDash'), tryDash);
+    bindHold(document.getElementById('btnBomb'), tryBomb);
+
+    // tap the canvas to jump (touch users)
+    canvas.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      if (!isRunning) { startGame(); return; }
+      tryJump();
+    });
+
+    startBtn.addEventListener('click', startGame);
+    playAgainBtn.addEventListener('click', startGame);
+
+    // ============ INITIAL DRAW ============
+    resetGame();
+    draw();
+
+    // keep the attract screen embers alive
+    setInterval(() => {
+      if (!isRunning) {
+        for (let i = 0; i < 3; i++) burstEmbers(Math.random() * 180, GROUND_Y - Math.random() * 150, 1, 180);
+        if (Math.random() < 0.6) addSmoke(Math.random() * 200, GROUND_Y - Math.random() * 200, 1);
+        updateParticles(0.05);
+        draw();
+      }
+    }, 120);
+  </script>
+</body>
+</html>

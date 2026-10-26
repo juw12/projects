@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🐛 Bug Hunt</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: radial-gradient(circle at 50% 0%, #eafbe0 0%, #cdebb4 45%, #a9d98a 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+      color: #34502a;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(255, 255, 255, 0.92);
+      border: 3px solid #b6df9a;
+      border-radius: 24px;
+      padding: 18px;
+      box-shadow: 0 14px 44px rgba(60, 100, 40, 0.28);
+      width: 95%;
+      max-width: 512px;
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.9rem;
+      color: #4b8b2e;
+      letter-spacing: 1px;
+      text-shadow: 2px 2px 0 #dff3cf;
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #7c9a6a;
+      margin-bottom: 12px;
+    }
+
+    /* ============ HUD ============ */
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding: 10px 14px;
+      background: linear-gradient(135deg, #f4fce8, #e3f6d2);
+      border: 2px solid #cfeab5;
+      border-radius: 14px;
+      font-size: 0.92rem;
+      color: #5a7748;
+    }
+
+    .hud .stat { display: flex; flex-direction: column; align-items: center; line-height: 1.15; }
+    .hud .stat b { color: #3f7a24; font-size: 1.15rem; }
+    .hud .label { font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: #86a373; }
+    #lives { letter-spacing: 1px; font-size: 1.05rem; }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: inset 0 0 0 3px #b6df9a, 0 6px 18px rgba(60, 100, 40, 0.18);
+      background: #dff2c8;
+    }
+
+    canvas { display: block; width: 100%; height: auto; touch-action: none; cursor: none; }
+
+    /* ============ SCREENS (Start / Game Over) ============ */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 24px;
+      background: rgba(247, 253, 240, 0.95);
+      transition: opacity 0.3s ease;
+    }
+
+    .screen.hidden { opacity: 0; pointer-events: none; }
+
+    .screen-title { font-size: 2rem; color: #4b8b2e; margin-bottom: 6px; text-shadow: 2px 2px 0 #fff; }
+    .screen-subtitle { font-size: 0.95rem; color: #7c9a6a; margin-bottom: 18px; max-width: 320px; }
+    .final-score { font-size: 1.35rem; color: #3f7a24; margin-bottom: 6px; }
+
+    .legend {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 14px;
+      font-size: 0.78rem;
+      color: #5a7748;
+      margin-bottom: 18px;
+      text-align: left;
+    }
+    .legend span { display: flex; align-items: center; gap: 6px; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
+
+    .action-btn {
+      padding: 13px 34px;
+      background: linear-gradient(135deg, #7cc93f, #4b8b2e);
+      color: #fff;
+      border: none;
+      border-radius: 26px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 5px 14px rgba(75, 139, 46, 0.38);
+    }
+    .action-btn:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(75, 139, 46, 0.45); }
+    .action-btn:active { transform: translateY(-1px); }
+
+    /* ============ PAUSE OVERLAY ============ */
+    .pause-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(247, 253, 240, 0.82);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #4b8b2e;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .pause-overlay.visible { opacity: 1; }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 480px) {
+      .game-container { padding: 12px; }
+      .game-title { font-size: 1.5rem; }
+      .hud { font-size: 0.8rem; padding: 8px 10px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">🐛 BUG HUNT</h1>
+    <p class="game-subtitle">Protect the greenhouse — spray the pests, spare the friends!</p>
+
+    <div class="hud">
+      <div class="stat"><span class="label">Score</span><b id="score">0</b></div>
+      <div class="stat"><span class="label">Wave</span><b id="wave">1</b></div>
+      <div class="stat"><span class="label">Best</span><b id="best">0</b></div>
+      <div class="stat"><span class="label">Plants</span><b id="lives">🌿🌿🌿</b></div>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="480" height="640"></canvas>
+
+      <!-- Start Screen -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">Bug Hunt</h2>
+        <p class="screen-subtitle">Aim with your mouse or finger, then tap / click to spray. Don't let the pests reach your plants!</p>
+        <div class="legend">
+          <span><i class="dot" style="background:#6fbf3f"></i>Caterpillar — easy</span>
+          <span><i class="dot" style="background:#4a4a5a"></i>Fly — fast &amp; dodgy</span>
+          <span><i class="dot" style="background:#a56bd6"></i>Aphid — splits in two</span>
+          <span><i class="dot" style="background:#8a8f98"></i>Beetle — armored (2 hits)</span>
+          <span><i class="dot" style="background:#e0504f"></i>Ladybug — friendly!</span>
+        </div>
+        <button class="action-btn" id="startBtn">Start Hunt</button>
+      </div>
+
+      <!-- Game Over Screen -->
+      <div id="gameOverScreen" class="screen hidden">
+        <h2 class="screen-title">Greenhouse Wrecked!</h2>
+        <p class="final-score">Score: <span id="finalScore">0</span></p>
+        <p class="screen-subtitle">Best: <b id="finalBest">0</b> &nbsp;•&nbsp; Reached Wave <b id="finalWave">1</b></p>
+        <button class="action-btn" id="playAgainBtn">Play Again</button>
+      </div>
+
+      <!-- Pause Overlay -->
+      <div id="pauseOverlay" class="pause-overlay">⏸️ Paused</div>
+    </div>
+  </div>
+
+  <script>
+    // ============ GAME CONSTANTS ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+    const GARDEN_TOP = H - 74;         // top of soil strip
+    const SPRAY_RADIUS = 30;           // hit radius around the crosshair
+    const SHOOT_COOLDOWN = 0.16;       // seconds between sprays
+    const COMBO_WINDOW = 2.2;          // seconds to keep a combo alive
+
+    // Bug archetypes. kind 'pest' must be stopped, 'friend' must be spared.
+    const TYPES = {
+      crawler:  { hp: 1, size: 17, speed: 44,  worth: 10, color: '#6fbf3f', kind: 'pest',   wobble: 10 },
+      flyer:    { hp: 1, size: 12, speed: 96,  worth: 15, color: '#4a4a5a', kind: 'pest',   wobble: 42 },
+      splitter: { hp: 1, size: 21, speed: 54,  worth: 12, color: '#a56bd6', kind: 'pest',   wobble: 8  },
+      tiny:     { hp: 1, size: 11, speed: 122, worth: 8,  color: '#c78cf0', kind: 'pest',   wobble: 48 },
+      armored:  { hp: 2, size: 23, speed: 31,  worth: 25, color: '#8a8f98', kind: 'pest',   wobble: 4  },
+      friendly: { hp: 1, size: 16, speed: 58,  worth: 0,  color: '#e0504f', kind: 'friend', wobble: 30 }
+    };
+
+    // ============ GAME STATE ============
+    let state = 'start';               // start | playing | paused | over
+    let score = 0;
+    let best = parseInt(localStorage.getItem('bugHuntBest') || '0', 10) || 0;
+    let wave = 1;
+    let lives = 3;
+    const maxLives = 3;
+
+    let pests = [];
+    let particles = [];
+    let splats = [];
+
+    let pointer = { x: W / 2, y: H / 2 };
+    let shootCooldown = 0;
+    let comboTimer = 0;
+    let combo = 0;
+    let bestCombo = 0;
+
+    let spawnTimer = 0;
+    let spawnedThisWave = 0;
+    let quota = 10;                    // pests to defeat this wave
+    let defeatedThisWave = 0;
+
+    let shake = 0;
+    let banner = { text: '', timer: 0 };
+    let lastTime = 0;
+
+    // ============ DOM ELEMENTS ============
+    const scoreEl = document.getElementById('score');
+    const waveEl = document.getElementById('wave');
+    const bestEl = document.getElementById('best');
+    const livesEl = document.getElementById('lives');
+    const startScreen = document.getElementById('startScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const startBtn = document.getElementById('startBtn');
+    const playAgainBtn = document.getElementById('playAgainBtn');
+    const finalScoreEl = document.getElementById('finalScore');
+    const finalBestEl = document.getElementById('finalBest');
+    const finalWaveEl = document.getElementById('finalWave');
+
+    // ============ AUDIO (WebAudio beeps) ============
+    let audioCtx = null;
+    function initAudio() {
+      if (!audioCtx) {
+        try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { audioCtx = null; }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    }
+    function beep(freq, dur, type, vol) {
+      if (!audioCtx) return;
+      const t = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type || 'square';
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(vol || 0.07, t);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + dur + 0.02);
+    }
+
+    // ============ HELPERS ============
+    function rand(a, b) { return a + Math.random() * (b - a); }
+    function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+
+    function comboMult() {
+      return 1 + Math.min(4, Math.floor(combo / 5)) * 0.5; // 1x .. 3x
+    }
+
+    function spawnBurst(x, y, color, count, power) {
+      for (let i = 0; i < count; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const sp = rand(0.3, 1) * power;
+        particles.push({
+          x, y,
+          vx: Math.cos(a) * sp,
+          vy: Math.sin(a) * sp - 30,
+          life: rand(0.35, 0.75),
+          maxLife: 0.75,
+          size: rand(2, 5),
+          color
+        });
+      }
+    }
+
+    function addSplat(x, y) {
+      splats.push({ x, y, r: rand(14, 22), life: 3.2, maxLife: 3.2, seed: Math.random() });
+      if (splats.length > 26) splats.shift();
+    }
+
+    // ============ WAVE / SPAWNING ============
+    function waveSpeedMul() { return 1 + (wave - 1) * 0.11; }
+
+    function pickType() {
+      const r = Math.random();
+      const w = wave;
+      // friendly ladybugs appear from wave 2 onward
+      const friendlyChance = w < 2 ? 0 : Math.min(0.16, 0.05 + w * 0.012);
+      if (Math.random() < friendlyChance) return 'friendly';
+      const armored = Math.min(0.24, 0.04 + w * 0.022);
+      const splitter = Math.min(0.26, 0.06 + w * 0.02);
+      const flyer = Math.min(0.34, 0.14 + w * 0.02);
+      let acc = 0;
+      acc += armored; if (r < acc) return 'armored';
+      acc += splitter; if (r < acc) return 'splitter';
+      acc += flyer; if (r < acc) return 'flyer';
+      return 'crawler';
+    }
+
+    function spawnPest(type) {
+      const cfg = TYPES[type];
+      const speed = cfg.speed * waveSpeedMul() * rand(0.9, 1.12);
+
+      if (cfg.kind === 'friend') {
+        // ladybugs drift horizontally across the screen
+        const fromLeft = Math.random() < 0.5;
+        pests.push({
+          type, cfg, hp: cfg.hp, maxHp: cfg.hp, size: cfg.size, speed,
+          x: fromLeft ? -20 : W + 20,
+          y: rand(90, GARDEN_TOP - 90),
+          vx: (fromLeft ? 1 : -1) * speed,
+          vy: 0, phase: Math.random() * Math.PI * 2,
+          wobble: cfg.wobble, baseY: 0, targetX: 0, targetY: 0, friend: true
+        });
+        return;
+      }
+
+      // Pests enter from the top / sides and home in on the garden bed.
+      const edge = Math.floor(Math.random() * 3); // 0 top, 1 left, 2 right
+      let x, y;
+      if (edge === 0) { x = rand(60, W - 60); y = -24; }
+      else if (edge === 1) { x = -24; y = rand(40, GARDEN_TOP - 80); }
+      else { x = W + 24; y = rand(40, GARDEN_TOP - 80); }
+
+      pests.push({
+        type, cfg, hp: cfg.hp, maxHp: cfg.hp, size: cfg.size, speed,
+        x, y, vx: 0, vy: 0,
+        phase: Math.random() * Math.PI * 2,
+        wobble: cfg.wobble,
+        baseY: y,
+        targetX: rand(50, W - 50),
+        targetY: GARDEN_TOP + rand(6, 40),
+        friend: false
+      });
+    }
+
+    function startWave(n) {
+      wave = n;
+      waveEl.textContent = wave;
+      quota = 8 + wave * 3;
+      spawnedThisWave = 0;
+      defeatedThisWave = 0;
+      spawnTimer = 0.6;
+      banner = { text: 'WAVE ' + wave, timer: 1.6 };
+      beep(520, 0.12, 'triangle', 0.07);
+      setTimeout(() => beep(700, 0.16, 'triangle', 0.07), 120);
+    }
+
+    function maxOnScreen() { return Math.min(10, 3 + Math.floor(wave * 0.9)); }
+
+    // ============ SHOOTING ============
+    function shoot() {
+      if (state !== 'playing' || shootCooldown > 0) return;
+      shootCooldown = SHOOT_COOLDOWN;
+      beep(rand(680, 820), 0.05, 'square', 0.05);
+
+      spawnBurst(pointer.x, pointer.y, '#e9fbd6', 8, 170);
+      addSplat(pointer.x, pointer.y);
+
+      let hitAny = false;
+      let penalized = false;
+
+      for (let i = pests.length - 1; i >= 0; i--) {
+        const p = pests[i];
+        const d = Math.hypot(p.x - pointer.x, p.y - pointer.y);
+        if (d > p.size + SPRAY_RADIUS) continue;
+
+        if (p.friend) {
+          // Shooting a friendly ladybug is a mistake!
+          penalized = true;
+          hitAny = true;
+          spawnBurst(p.x, p.y, '#ffd0cf', 14, 200);
+          pests.splice(i, 1);
+          break; // stop; handle penalty once
+        }
+
+        hitAny = true;
+        p.hp -= 1;
+
+        if (p.hp > 0) {
+          // armored beetle survived the first hit
+          spawnBurst(p.x, p.y, '#dfe6ec', 8, 150);
+          beep(240, 0.08, 'sawtooth', 0.06);
+          continue;
+        }
+
+        defeatPest(p, i);
+      }
+
+      if (penalized) {
+        registerPenalty('Ouch! You sprayed a ladybug!');
+      } else if (!hitAny) {
+        combo = 0; // a whiff resets the combo
+      }
+    }
+
+    function defeatPest(p, index) {
+      pests.splice(index, 1);
+      combo += 1;
+      comboTimer = COMBO_WINDOW;
+      if (combo > bestCombo) bestCombo = combo;
+      defeatedThisWave += 1;
+
+      const gain = Math.round(p.cfg.worth * comboMult());
+      score += gain;
+      scoreEl.textContent = score;
+
+      spawnBurst(p.x, p.y, p.cfg.color, 12, 190);
+      addSplat(p.x, p.y);
+      beep(560 + Math.min(combo, 12) * 22, 0.07, 'square', 0.06);
+
+      // aphids split into two little sprinters
+      if (p.type === 'splitter') {
+        for (let k = 0; k < 2; k++) {
+          const cfg = TYPES.tiny;
+          pests.push({
+            type: 'tiny', cfg, hp: cfg.hp, maxHp: cfg.hp, size: cfg.size,
+            speed: cfg.speed * waveSpeedMul(),
+            x: p.x + (k ? 12 : -12), y: p.y + rand(-6, 6),
+            vx: 0, vy: 0, phase: Math.random() * Math.PI * 2, wobble: cfg.wobble,
+            baseY: 0, targetX: clamp(p.targetX + rand(-40, 40), 30, W - 30),
+            targetY: p.targetY, friend: false
+          });
+        }
+        beep(880, 0.05, 'triangle', 0.05);
+      }
+
+      // wave cleared?
+      if (spawnedThisWave >= quota && pests.filter(q => !q.friend).length === 0) {
+        clearWave();
+      }
+    }
+
+    function clearWave() {
+      const bonus = 25 * wave;
+      score += bonus;
+      scoreEl.textContent = score;
+      banner = { text: 'WAVE CLEARED  +' + bonus, timer: 2.0 };
+      beep(660, 0.1, 'triangle', 0.07);
+      setTimeout(() => beep(880, 0.18, 'triangle', 0.07), 130);
+      startWave(wave + 1);
+    }
+
+    function registerPenalty(msg) {
+      lives -= 1;
+      updateLives();
+      combo = 0;
+      comboTimer = 0;
+      shake = 12;
+      banner = { text: msg, timer: 1.5 };
+      beep(180, 0.22, 'sawtooth', 0.08);
+      setTimeout(() => beep(120, 0.28, 'sawtooth', 0.08), 140);
+      if (lives <= 0) gameOver();
+    }
+
+    function damageGarden() {
+      lives -= 1;
+      updateLives();
+      combo = 0;
+      comboTimer = 0;
+      shake = 14;
+      banner = { text: 'A pest reached your plants!', timer: 1.4 };
+      beep(200, 0.2, 'sawtooth', 0.08);
+      if (lives <= 0) gameOver();
+    }
+
+    function updateLives() {
+      let s = '';
+      for (let i = 0; i < maxLives; i++) s += i < lives ? '🌿' : '🖤';
+      livesEl.textContent = s;
+    }
+
+    // ============ UPDATE ============
+    function update(dt) {
+      shootCooldown = Math.max(0, shootCooldown - dt);
+      if (shake > 0) shake = Math.max(0, shake - dt * 40);
+      if (banner.timer > 0) banner.timer -= dt;
+
+      // combo decay
+      if (combo > 0) {
+        comboTimer -= dt;
+        if (comboTimer <= 0) { combo = 0; }
+      }
+
+      // spawning
+      if (spawnedThisWave < quota && pests.filter(p => !p.friend).length < maxOnScreen()) {
+        spawnTimer -= dt;
+        if (spawnTimer <= 0) {
+          spawnPest(pickType());
+          spawnedThisWave += 1;
+          spawnTimer = Math.max(0.32, 1.35 - wave * 0.075) * rand(0.75, 1.2);
+        }
+      } else if (spawnedThisWave >= quota && pests.filter(p => !p.friend).length === 0) {
+        clearWave();
+      }
+
+      // move pests
+      for (let i = pests.length - 1; i >= 0; i--) {
+        const p = pests[i];
+        p.phase += dt * (p.type === 'flyer' || p.type === 'tiny' ? 12 : 7);
+
+        if (p.friend) {
+          p.x += p.vx * dt;
+          p.y += Math.sin(p.phase) * 26 * dt;
+          if (p.x < -40 || p.x > W + 40) pests.splice(i, 1);
+          continue;
+        }
+
+        const ang = Math.atan2(p.targetY - p.y, p.targetX - p.x);
+        p.x += Math.cos(ang) * p.speed * dt;
+        p.y += Math.sin(ang) * p.speed * dt;
+        // wobble perpendicular to travel
+        p.x += Math.cos(ang + Math.PI / 2) * Math.sin(p.phase) * p.wobble * dt;
+        p.y += Math.sin(ang + Math.PI / 2) * Math.sin(p.phase) * p.wobble * dt;
+
+        // reached the garden => plant damage
+        if (p.y >= GARDEN_TOP + 6) {
+          pests.splice(i, 1);
+          spawnBurst(p.x, GARDEN_TOP + 10, '#7a5a35', 10, 140);
+          damageGarden();
+        }
+      }
+
+      // particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const q = particles[i];
+        q.x += q.vx * dt;
+        q.y += q.vy * dt;
+        q.vy += 260 * dt;
+        q.life -= dt;
+        if (q.life <= 0) particles.splice(i, 1);
+      }
+
+      // splats fade
+      for (let i = splats.length - 1; i >= 0; i--) {
+        splats[i].life -= dt;
+        if (splats[i].life <= 0) splats.splice(i, 1);
+      }
+    }
+
+    // ============ DRAW HELPERS ============
+    function drawBackground() {
+      // greenhouse sky
+      const g = ctx.createLinearGradient(0, 0, 0, GARDEN_TOP);
+      g.addColorStop(0, '#eaf9d8');
+      g.addColorStop(1, '#cdeeb0');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, GARDEN_TOP);
+
+      // translucent glass panes
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, GARDEN_TOP);
+      ctx.moveTo(0, GARDEN_TOP / 2); ctx.lineTo(W, GARDEN_TOP / 2);
+      ctx.stroke();
+
+      // soft vignette glow
+      const v = ctx.createRadialGradient(W / 2, GARDEN_TOP / 2, 40, W / 2, GARDEN_TOP / 2, W * 0.75);
+      v.addColorStop(0, 'rgba(255,255,255,0.25)');
+      v.addColorStop(1, 'rgba(120,170,90,0.18)');
+      ctx.fillStyle = v;
+      ctx.fillRect(0, 0, W, GARDEN_TOP);
+    }
+
+    function drawSplats() {
+      splats.forEach(s => {
+        ctx.globalAlpha = 0.45 * (s.life / s.maxLife);
+        ctx.fillStyle = '#b7e08a';
+        ctx.beginPath();
+        for (let k = 0; k < 6; k++) {
+          const ang = (k / 6) * Math.PI * 2 + s.seed;
+          const rr = s.r * (0.7 + Math.random() * 0.001);
+          ctx.arc(s.x + Math.cos(ang) * s.r * 0.4, s.y + Math.sin(ang) * s.r * 0.4, rr * 0.5, 0, Math.PI * 2);
+        }
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+    }
+
+    function drawGarden() {
+      // soil
+      const g = ctx.createLinearGradient(0, GARDEN_TOP, 0, H);
+      g.addColorStop(0, '#8a6338');
+      g.addColorStop(1, '#5f4223');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, GARDEN_TOP, W, H - GARDEN_TOP);
+
+      // grassy fringe
+      ctx.fillStyle = '#6fbf3f';
+      ctx.beginPath();
+      ctx.moveTo(0, GARDEN_TOP + 4);
+      for (let x = 0; x <= W; x += 16) {
+        ctx.lineTo(x, GARDEN_TOP + 4 - (Math.sin(x * 0.35 + 1) * 3 + 3));
+      }
+      ctx.lineTo(W, GARDEN_TOP + 10);
+      ctx.lineTo(0, GARDEN_TOP + 10);
+      ctx.closePath();
+      ctx.fill();
+
+      // little plants along the bed
+      for (let i = 0; i < 7; i++) {
+        const x = 40 + i * 66;
+        const y = GARDEN_TOP + 34;
+        ctx.strokeStyle = '#3f7a24';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(x, y + 16);
+        ctx.quadraticCurveTo(x + 4, y + 2, x, y - 12);
+        ctx.stroke();
+        ctx.fillStyle = '#7cc93f';
+        ctx.beginPath();
+        ctx.ellipse(x - 6, y - 4, 7, 4, -0.7, 0, Math.PI * 2);
+        ctx.ellipse(x + 6, y - 8, 7, 4, 0.7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ffd23f';
+        ctx.beginPath();
+        ctx.arc(x, y - 15, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // warning line
+      ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+      ctx.setLineDash([8, 8]);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, GARDEN_TOP + 6);
+      ctx.lineTo(W, GARDEN_TOP + 6);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function drawLegs(x, y, size, phase, color) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      for (let s = -1; s <= 1; s++) {
+        if (s === 0) continue;
+        const sw = Math.sin(phase + s) * 4;
+        ctx.beginPath();
+        ctx.moveTo(x + s * size * 0.5, y);
+        ctx.lineTo(x + s * size * 0.9, y + size * 0.5 + sw);
+        ctx.stroke();
+      }
+    }
+
+    function drawPest(p) {
+      const { x, y, size } = p;
+      if (p.type === 'crawler') {
+        drawLegs(x, y, size, p.phase, '#3f7a24');
+        ctx.fillStyle = p.cfg.color;
+        for (let k = 2; k >= 0; k--) {
+          ctx.beginPath();
+          ctx.arc(x - Math.cos(p.phase * 0.4) * k * size * 0.5, y - k * Math.sin(p.phase * 0.15), size * (1 - k * 0.12), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        drawEyes(x, y, size, '#fff', '#243c14');
+      } else if (p.type === 'splitter') {
+        ctx.fillStyle = p.cfg.color;
+        const blobs = [[0, 0, size], [-size * 0.55, -size * 0.35, size * 0.6], [size * 0.55, -size * 0.3, size * 0.6], [0, size * 0.5, size * 0.55]];
+        blobs.forEach(b => { ctx.beginPath(); ctx.arc(x + b[0], y + b[1], b[2], 0, Math.PI * 2); ctx.fill(); });
+        drawEyes(x, y, size * 0.9, '#fff', '#3a1a5a');
+      } else if (p.type === 'tiny') {
+        drawLegs(x, y, size, p.phase, '#7a3fb0');
+        ctx.fillStyle = p.cfg.color;
+        ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI * 2); ctx.fill();
+        drawEyes(x, y, size, '#fff', '#3a1a5a');
+      } else if (p.type === 'flyer') {
+        ctx.fillStyle = 'rgba(220,235,255,0.75)';
+        const wf = Math.sin(p.phase) * 0.5 + 0.8;
+        ctx.beginPath(); ctx.ellipse(x - size * 0.7, y - size * 0.6, size * 0.9 * wf, size * 0.42, -0.6, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(x + size * 0.7, y - size * 0.6, size * 0.9 * wf, size * 0.42, 0.6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = p.cfg.color;
+        ctx.beginPath(); ctx.ellipse(x, y, size * 0.85, size, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#33334a';
+        ctx.beginPath(); ctx.arc(x, y - size * 0.35, size * 0.7, 0, Math.PI * 2); ctx.fill();
+        drawEyes(x, y - size * 0.35, size * 0.6, '#ff5a5a', '#000');
+      } else if (p.type === 'armored') {
+        // beetle: dome shell, cracked after first hit
+        ctx.fillStyle = '#5b6068';
+        ctx.beginPath(); ctx.ellipse(x, y + size * 0.3, size * 1.05, size * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+        const shell = ctx.createRadialGradient(x - size * 0.3, y - size * 0.4, 2, x, y, size * 1.15);
+        shell.addColorStop(0, '#c3ccd6');
+        shell.addColorStop(1, p.cfg.color);
+        ctx.fillStyle = shell;
+        ctx.beginPath(); ctx.ellipse(x, y, size, size * 0.95, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#4a4f57';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(x, y - size); ctx.lineTo(x, y + size * 0.9); ctx.stroke();
+        if (p.hp < p.maxHp) {
+          ctx.strokeStyle = '#ffef9f';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(x - size * 0.5, y - size * 0.3);
+          ctx.lineTo(x - size * 0.1, y + size * 0.1);
+          ctx.lineTo(x - size * 0.35, y + size * 0.45);
+          ctx.stroke();
+        }
+        drawEyes(x, y - size * 0.55, size * 0.55, '#fff', '#22252a');
+      } else if (p.type === 'friendly') {
+        // ladybug: friendly — gentle wing flap
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        const wf = Math.sin(p.phase) * 0.4 + 0.7;
+        ctx.beginPath(); ctx.ellipse(x - size * 0.6, y - size * 0.5, size * 0.7 * wf, size * 0.35, -0.6, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(x + size * 0.6, y - size * 0.5, size * 0.7 * wf, size * 0.35, 0.6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = p.cfg.color;
+        ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#20242c';
+        ctx.beginPath(); ctx.arc(x, y - size * 0.45, size * 0.55, 0, Math.PI * 2); ctx.fill();
+        [[-0.45, 0.1], [0.45, 0.1], [-0.2, 0.55], [0.2, 0.55]].forEach(s => {
+          ctx.beginPath(); ctx.arc(x + s[0] * size, y + s[1] * size, size * 0.16, 0, Math.PI * 2); ctx.fill();
+        });
+        ctx.beginPath(); ctx.moveTo(x, y - size * 0.9); ctx.lineTo(x, y + size * 0.85);
+        ctx.strokeStyle = '#20242c'; ctx.lineWidth = 2; ctx.stroke();
+      }
+    }
+
+    function drawEyes(x, y, size, white, pupil) {
+      const ex = size * 0.42, ey = -size * 0.15;
+      ctx.fillStyle = white;
+      ctx.beginPath(); ctx.arc(x - ex, y + ey, size * 0.26, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + ex, y + ey, size * 0.26, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = pupil;
+      ctx.beginPath(); ctx.arc(x - ex + 1, y + ey + 1, size * 0.12, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + ex + 1, y + ey + 1, size * 0.12, 0, Math.PI * 2); ctx.fill();
+    }
+
+    function drawParticles() {
+      particles.forEach(q => {
+        ctx.globalAlpha = clamp(q.life / q.maxLife, 0, 1);
+        ctx.fillStyle = q.color;
+        ctx.beginPath();
+        ctx.arc(q.x, q.y, q.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+    }
+
+    function drawCrosshair() {
+      if (state !== 'playing') return;
+      const x = pointer.x, y = pointer.y;
+      const pulse = 1 + Math.sin(performance.now() * 0.008) * 0.08;
+      ctx.strokeStyle = shootCooldown > 0 ? 'rgba(120,160,90,0.55)' : '#4b8b2e';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(x, y, SPRAY_RADIUS * pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x - 14, y); ctx.lineTo(x - 5, y);
+      ctx.moveTo(x + 5, y); ctx.lineTo(x + 14, y);
+      ctx.moveTo(x, y - 14); ctx.lineTo(x, y - 5);
+      ctx.moveTo(x, y + 5); ctx.lineTo(x, y + 14);
+      ctx.stroke();
+      ctx.fillStyle = '#4b8b2e';
+      ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    function drawBanner() {
+      if (banner.timer <= 0 && combo < 2) return;
+      // combo readout
+      if (combo >= 2) {
+        ctx.save();
+        ctx.font = 'bold 22px Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#e08a00';
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 4;
+        const txt = 'COMBO x' + combo + '  (' + comboMult().toFixed(1) + '×)';
+        ctx.strokeText(txt, W / 2, 40);
+        ctx.fillText(txt, W / 2, 40);
+        // combo timer bar
+        const bw = 150, bh = 7, bx = W / 2 - bw / 2, by = 50;
+        ctx.fillStyle = 'rgba(0,0,0,0.12)';
+        ctx.fillRect(bx, by, bw, bh);
+        ctx.fillStyle = '#7cc93f';
+        ctx.fillRect(bx, by, bw * clamp(comboTimer / COMBO_WINDOW, 0, 1), bh);
+        ctx.restore();
+      }
+      // banners
+      if (banner.timer > 0) {
+        ctx.save();
+        ctx.globalAlpha = clamp(banner.timer, 0, 1);
+        ctx.font = 'bold 26px Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#3f7a24';
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 5;
+        ctx.strokeText(banner.text, W / 2, H * 0.42);
+        ctx.fillText(banner.text, W / 2, H * 0.42);
+        ctx.restore();
+      }
+    }
+
+    // ============ RENDER ============
+    function render() {
+      ctx.clearRect(0, 0, W, H);
+      ctx.save();
+      if (shake > 0) {
+        ctx.translate(rand(-shake, shake) * 0.4, rand(-shake, shake) * 0.4);
+      }
+
+      drawBackground();
+      drawSplats();
+      drawParticles();
+      pests.forEach(drawPest);
+      drawGarden();
+      drawBanner();
+      drawCrosshair();
+
+      ctx.restore();
+    }
+
+    // ============ GAME LOOP ============
+    function loop(t) {
+      requestAnimationFrame(loop);
+      const dt = Math.min(0.05, (t - lastTime) / 1000) || 0;
+      lastTime = t;
+      if (state === 'playing') update(dt);
+      render();
+    }
+
+    // ============ STATE TRANSITIONS ============
+    function resetGame() {
+      score = 0; lives = maxLives;
+      combo = 0; comboTimer = 0; bestCombo = 0;
+      pests = []; particles = []; splats = [];
+      shootCooldown = 0; shake = 0;
+      banner = { text: '', timer: 0 };
+      pointer = { x: W / 2, y: H / 2 };
+      scoreEl.textContent = score;
+      updateLives();
+      startWave(1);
+    }
+
+    function startGame() {
+      initAudio();
+      resetGame();
+      state = 'playing';
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      pauseOverlay.classList.remove('visible');
+      lastTime = performance.now();
+    }
+
+    function gameOver() {
+      state = 'over';
+      if (score > best) {
+        best = score;
+        localStorage.setItem('bugHuntBest', String(best));
+      }
+      bestEl.textContent = best;
+      finalScoreEl.textContent = score;
+      finalBestEl.textContent = best;
+      finalWaveEl.textContent = wave;
+      gameOverScreen.classList.remove('hidden');
+      beep(300, 0.2, 'sawtooth', 0.07);
+      setTimeout(() => beep(220, 0.25, 'sawtooth', 0.07), 180);
+      setTimeout(() => beep(160, 0.4, 'sawtooth', 0.07), 380);
+    }
+
+    function togglePause() {
+      if (state === 'playing') {
+        state = 'paused';
+        pauseOverlay.classList.add('visible');
+      } else if (state === 'paused') {
+        state = 'playing';
+        lastTime = performance.now();
+        pauseOverlay.classList.remove('visible');
+      }
+    }
+
+    // ============ INPUT ============
+    function toCanvas(clientX, clientY) {
+      const r = canvas.getBoundingClientRect();
+      return {
+        x: (clientX - r.left) * (W / r.width),
+        y: (clientY - r.top) * (H / r.height)
+      };
+    }
+
+    canvas.addEventListener('pointermove', (e) => {
+      pointer = toCanvas(e.clientX, e.clientY);
+    });
+    canvas.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      initAudio();
+      pointer = toCanvas(e.clientX, e.clientY);
+      if (state === 'playing') shoot();
+    });
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' || e.code === 'KeyP') {
+        e.preventDefault();
+        togglePause();
+      } else if (e.code === 'Enter' && state === 'over') {
+        startGame();
+      } else if (e.code === 'KeyR' && (state === 'playing' || state === 'paused' || state === 'over')) {
+        startGame();
+      }
+    });
+
+    startBtn.addEventListener('click', startGame);
+    playAgainBtn.addEventListener('click', startGame);
+
+    // ============ INITIAL DRAW ============
+    bestEl.textContent = best;
+    updateLives();
+    lastTime = performance.now();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

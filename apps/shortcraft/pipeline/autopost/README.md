@@ -33,7 +33,7 @@ Google Chrome must be installed (it renders the video headlessly). `config.json`
 3. Under **Credentials**, create an OAuth client ID:
    - **Desktop app** for this CLI. Download the JSON to `autopost/secrets/google_client_secret.json`.
    - (Optional) **Web application** for the browser Publish panel. Add your site origin
-     (e.g. `https://juwpegatron.github.io`) as an authorised JavaScript origin, then paste the client ID
+     (e.g. `https://juw12.github.io`) as an authorised JavaScript origin, then paste the client ID
      into Studio → Publish.
 4. Run `python autopost.py auth youtube --channel en`. A browser opens; pick the **brand channel**
    you want to post to. Repeat with `--channel id` for the second channel.

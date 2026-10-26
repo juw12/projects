@@ -4,10 +4,10 @@
 
 | App | What it is | Link |
 |---|---|---|
-| **Glow** (home) | Start here: one box to ask or delegate, recent chats and missions, all apps | https://juwpegatron.github.io/projects/glow/ |
-| **GlowChat** | Chat, Council with a Judge, and Arena comparisons to explore ideas and review plans | https://juwpegatron.github.io/projects/glow/chat/ |
-| **GlowRoom** | A virtual office of AI agents (formerly Crewroom) that research, write code and make media for a mission | https://juwpegatron.github.io/projects/glow/room/ |
-| **GlowLead** 👑 | The AI lead (orchestrator) and owner of GlowRoom: plans a goal, delegates the steps to GlowChat and the GlowRoom crew, checks the work and reports | https://juwpegatron.github.io/projects/glow/lead/ |
+| **Glow** (home) | Start here: one box to ask or delegate, recent chats and missions, all apps | https://juw12.github.io/projects/glow/ |
+| **GlowChat** | Chat, Council with a Judge, and Arena comparisons to explore ideas and review plans | https://juw12.github.io/projects/glow/chat/ |
+| **GlowRoom** | A virtual office of AI agents (formerly Crewroom) that research, write code and make media for a mission | https://juw12.github.io/projects/glow/room/ |
+| **GlowLead** 👑 | The AI lead (orchestrator) and owner of GlowRoom: plans a goal, delegates the steps to GlowChat and the GlowRoom crew, checks the work and reports | https://juw12.github.io/projects/glow/lead/ |
 
 GlowChat installable app: `glow/chat/app.html`, mobile: `glow/chat/mobile.html`. GlowRoom: `glow/room/app.html`, `glow/room/mobile.html`.
 AI-suggested resources in GlowChat are not automatically browsed or verified; GlowChat does no autonomous building or execution (that is GlowRoom's job, and its results should still be reviewed).
@@ -73,7 +73,7 @@ Static site, no backend, so hosting is free (GitHub Pages). Everything runs in t
 | Glow AI (sign in) | Free for you and for Glow | Click **Sign in**: a free [Puter](https://puter.com) account; GPT, Claude, Gemini, DeepSeek… with no key |
 | Demo | Free | None: offline canned replies to show every mode |
 | OpenRouter | Free models available | Paste a free key from openrouter.ai/keys in Settings |
-| Ollama | Free, private | `OLLAMA_ORIGINS=https://juwpegatron.github.io ollama serve` |
+| Ollama | Free, private | `OLLAMA_ORIGINS=https://juw12.github.io ollama serve` |
 | Any OpenAI-compatible API | Varies | Base URL + key in Settings |
 
 Chats, settings and votes are stored in browser localStorage. API keys are stored there too and sent to the selected provider to authenticate requests. Prompts and attached text are sent to that provider; there is no hosted app backend in this prototype.

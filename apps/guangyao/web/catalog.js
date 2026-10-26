@@ -5,13 +5,14 @@
 
 (function () {
   const CONFIG = Object.freeze({
-    owner: 'juwpegatron',
-    repo: 'guangyao-content',
+    owner: 'juw12',
+    repo: 'projects',
     branch: 'main',
-    catalogPath: 'catalog.json',
+    contentPath: 'content/guangyao',
+    catalogPath: 'content/guangyao/catalog.json',
     maxFileBytes: 20 * 1024 * 1024
   });
-  const CACHE_KEY = 'guangyao-catalog-v1';
+  const CACHE_KEY = 'guangyao-catalog-v2-juw12';
   const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,47}$/;
   const FILE_PATH_PATTERN = /^files\/[A-Za-z0-9._\/-]{1,200}$/;
   const EVENT_TYPES = ['online', 'offline', 'social'];
@@ -152,10 +153,10 @@
   function fileUrl(material) {
     if (!material || material.kind !== 'file') return material?.url || '';
     return material.commit
-      ? `https://cdn.jsdelivr.net/gh/${CONFIG.owner}/${CONFIG.repo}@${material.commit}/${encodePath(material.path)}`
-      : rawUrl(material.path);
+      ? `https://cdn.jsdelivr.net/gh/${CONFIG.owner}/${CONFIG.repo}@${material.commit}/${encodePath(`${CONFIG.contentPath}/${material.path}`)}`
+      : rawUrl(`${CONFIG.contentPath}/${material.path}`);
   }
-  const historyUrl = () => `https://github.com/${CONFIG.owner}/${CONFIG.repo}/commits/${CONFIG.branch}`;
+  const historyUrl = () => `https://github.com/${CONFIG.owner}/${CONFIG.repo}/commits/${CONFIG.branch}/${CONFIG.contentPath}`;
 
   /* Converts a published lesson into the interactive lesson-player format. */
   function lessonContent(lesson, materials = []) {

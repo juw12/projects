@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🔮 Marble Run</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #fff1e6 0%, #e9f4f8 50%, #fdf3ff 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 14px;
+      touch-action: none;
+      color: #555;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(255, 255, 255, 0.92);
+      border-radius: 24px;
+      padding: 18px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+      max-width: 1040px;
+      width: 100%;
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.9rem;
+      color: #ff8fa3;
+      margin-bottom: 4px;
+      text-shadow: 2px 2px 0 #fff;
+      letter-spacing: 0.02em;
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #999;
+      margin-bottom: 12px;
+    }
+
+    /* ============ SCORE BOARD ============ */
+    .score-board {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .chip { padding: 7px 16px; background: linear-gradient(135deg, #fff9e6, #ffe8f0); border-radius: 14px; font-size: 0.88rem; color: #777; }
+    .chip span { font-weight: 700; color: #ff6b8a; }
+
+    /* ============ TOOLBAR ============ */
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      justify-content: center;
+      margin-bottom: 8px;
+    }
+
+    .tool {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      min-width: 62px;
+      padding: 7px 9px;
+      border: 2px solid #ffd9e2;
+      background: #fff;
+      border-radius: 14px;
+      cursor: pointer;
+      font-size: 1.15rem;
+      line-height: 1;
+      transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      font-family: inherit;
+      color: #888;
+    }
+
+    .tool small { font-size: 0.6rem; letter-spacing: 0.03em; text-transform: uppercase; }
+
+    .tool:hover { background: #fff3f7; transform: translateY(-2px); }
+    .tool.selected { background: linear-gradient(135deg, #ff9db1, #ff6b8a); border-color: #ff6b8a; color: #fff; box-shadow: 0 5px 14px rgba(255, 107, 138, 0.32); }
+
+    /* ============ ACTION BAR ============ */
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      justify-content: center;
+      margin-bottom: 12px;
+    }
+
+    .btn {
+      padding: 9px 18px;
+      border: none;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #ff9db1, #ff6b8a);
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 4px 12px rgba(255, 107, 138, 0.28);
+      font-family: inherit;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(255, 107, 138, 0.36); }
+    .btn:active { transform: translateY(0); }
+    .btn.soft { background: #fff; color: #ff6b8a; border: 2px solid #ffd9e2; box-shadow: none; }
+    .btn.soft:hover { background: #fff3f7; }
+    .btn.on { background: linear-gradient(135deg, #7fd6a8, #46b98a); box-shadow: 0 4px 12px rgba(70, 185, 138, 0.32); }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: inset 0 0 0 2px #ffeef3, 0 4px 16px rgba(0, 0, 0, 0.07);
+      background: linear-gradient(160deg, #fbfdff, #fff6f2);
+    }
+
+    canvas { display: block; width: 100%; height: auto; touch-action: none; }
+
+    .hint { text-align: center; font-size: 0.76rem; color: #a8a8a8; margin-top: 10px; line-height: 1.5; }
+    .toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); background: rgba(60, 60, 60, 0.9); color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 0.85rem; opacity: 0; pointer-events: none; transition: opacity 0.25s ease, transform 0.25s ease; z-index: 50; }
+
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    @media (max-width: 560px) {
+      .game-container { padding: 12px; border-radius: 18px; }
+      .game-title { font-size: 1.4rem; }
+      .tool { min-width: 52px; padding: 6px; font-size: 1rem; }
+      .tool small { font-size: 0.52rem; }
+      .btn { padding: 8px 13px; font-size: 0.78rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">🔮 Marble Run</h1>
+    <p class="game-subtitle">Build a marble machine — ramps, funnels, dominoes, wheels &amp; a bucket</p>
+
+    <div class="score-board">
+      <div class="chip">Dropped: <span id="statDropped">0</span></div>
+      <div class="chip">In bucket: <span id="statBucket">0</span></div>
+      <div class="chip">Pieces: <span id="statPieces">0</span></div>
+    </div>
+
+    <div class="toolbar" id="toolbar">
+      <button class="tool selected" data-tool="ramp">📏<small>Ramp</small></button>
+      <button class="tool" data-tool="funnel">⏬<small>Funnel</small></button>
+      <button class="tool" data-tool="domino">🁣<small>Domino</small></button>
+      <button class="tool" data-tool="seesaw">⚖️<small>Seesaw</small></button>
+      <button class="tool" data-tool="wheel">🎡<small>Wheel</small></button>
+      <button class="tool" data-tool="spring">🌀<small>Spring</small></button>
+      <button class="tool" data-tool="loop">➰<small>Loop</small></button>
+      <button class="tool" data-tool="bucket">🪣<small>Bucket</small></button>
+      <button class="tool" data-tool="marble">⚪<small>Marble</small></button>
+      <button class="tool" data-tool="eraser">🧽<small>Erase</small></button>
+    </div>
+
+    <div class="actions">
+      <button class="btn" id="dropBtn">⚪ Drop Marble</button>
+      <button class="btn soft" id="autoBtn">▶️ Auto Drop</button>
+      <button class="btn soft" id="rotLBtn">↺ Rotate</button>
+      <button class="btn soft" id="rotRBtn">↻ Rotate</button>
+      <button class="btn soft" id="restartBtn">🔁 Restart</button>
+      <button class="btn soft" id="clearBtn">🗑 Clear</button>
+      <button class="btn soft" id="saveBtn">💾 Save</button>
+      <button class="btn soft" id="loadBtn">📂 Load</button>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="960" height="620"></canvas>
+    </div>
+
+    <p class="hint">
+      Pick a tool → click the board to place. Drag with <b>Ramp</b>/<b>Spring</b> to set angle &amp; length ·
+      <b>Scroll</b> or <b>R</b> to rotate · click <b>Erase</b> on a piece to remove it.
+    </p>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ============ GAME CONFIGURATION ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+
+    const GRAVITY = 0.34;
+    const MAX_SPEED = 24;
+    const AIR_DRAG = 0.9995;
+    const FLOOR_Y = H - 10;
+    const SAVE_KEY = 'marbleRunDesign_v1';
+
+    // ============ GAME STATE ============
+    let pieces = [];          // all placed machine parts
+    let marbles = [];         // live marbles
+    let particles = [];       // sparkle particles
+    let tool = 'ramp';
+    let rotation = 0;         // current placement angle (radians)
+    let mouse = { x: W / 2, y: H / 2, inside: false };
+    let drag = { active: false, sx: 0, sy: 0, len: 0, ang: 0, moved: false };
+    let autoDrop = false;
+    let autoTimer = 0;
+    let stats = { dropped: 0, bucket: 0 };
+    let toastTimer = null;
+
+    // ============ AUDIO (WebAudio beep) ============
+    let actx = null;
+    function ensureAudio() {
+      if (!actx) {
+        try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; }
+      }
+      if (actx && actx.state === 'suspended') actx.resume();
+    }
+    function beep(freq, dur, type, vol) {
+      try {
+        ensureAudio();
+        if (!actx) return;
+        freq = freq || 440; dur = dur || 0.08; type = type || 'sine'; vol = vol || 0.07;
+        const o = actx.createOscillator();
+        const g = actx.createGain();
+        o.type = type;
+        o.frequency.setValueAtTime(freq, actx.currentTime);
+        g.gain.setValueAtTime(vol, actx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+        o.connect(g); g.connect(actx.destination);
+        o.start(); o.stop(actx.currentTime + dur);
+      } catch (e) { /* audio is optional */ }
+    }
+
+    // ============ TOAST & DOM ============
+    const toastEl = document.getElementById('toast');
+    function toast(msg) {
+      toastEl.textContent = msg;
+      toastEl.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1500);
+    }
+    const statDroppedEl = document.getElementById('statDropped');
+    const statBucketEl = document.getElementById('statBucket');
+    const statPiecesEl = document.getElementById('statPieces');
+    function refreshStats() {
+      statDroppedEl.textContent = stats.dropped;
+      statBucketEl.textContent = stats.bucket;
+      statPiecesEl.textContent = pieces.length;
+    }
+
+    // ============ GEOMETRY HELPERS ============
+    function closestPointOnSegment(px, py, x1, y1, x2, y2) {
+      const dx = x2 - x1, dy = y2 - y1;
+      const l2 = dx * dx + dy * dy;
+      let t = l2 > 0 ? ((px - x1) * dx + (py - y1) * dy) / l2 : 0;
+      t = Math.max(0, Math.min(1, t));
+      return { x: x1 + t * dx, y: y1 + t * dy };
+    }
+    function pointNearSegment(px, py, x1, y1, x2, y2, thr) {
+      const c = closestPointOnSegment(px, py, x1, y1, x2, y2);
+      return Math.hypot(px - c.x, py - c.y) <= thr;
+    }
+    function rr(x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+    function angleDiff(a, b) {
+      let d = a - b;
+      while (d > Math.PI) d -= Math.PI * 2;
+      while (d < -Math.PI) d += Math.PI * 2;
+      return Math.abs(d);
+    }
+
+    // ============ PIECE FACTORY ============
+    const PALETTE = {
+      ramp: '#8ecae6', spring: '#ffb703', funnel: '#b5a7f0',
+      domino: '#ffd166', seesaw: '#7fd6a8', wheel: '#ff9db1',
+      loop: '#9d8df1', bucket: '#c98b6b'
+    };
+
+    function makePiece(type, x, y, ang, len) {
+      const a = ang === undefined ? rotation : ang;
+      const L = len === undefined ? 130 : len;
+      switch (type) {
+        case 'ramp':   return { type, x, y, angle: a, len: L, thick: 8 };
+        case 'spring': return { type, x, y, angle: a, len: L * 0.6, thick: 10 };
+        case 'funnel': return { type, x, y, angle: a, w: 112, h: 74 };
+        case 'domino': return { type, x, y, angle: a, w: 15, h: 58, tilt: 0, av: 0, fallen: false, pushed: false };
+        case 'seesaw': return { type, x, y, angle: a, len: 140, thick: 9, av: 0 };
+        case 'wheel':  return { type, x, y, r: 44, angle: 0, spin: 0 };
+        case 'loop':   return { type, x, y, r: 66, thick: 20 };
+        case 'bucket': return { type, x, y, w: 96, h: 74, filled: 0 };
+        default:       return { type, x, y, angle: a, len: L, thick: 8 };
+      }
+    }
+
+    function rotPoint(px, py, cx, cy, a) {
+      const c = Math.cos(a), s = Math.sin(a);
+      const dx = px - cx, dy = py - cy;
+      return { x: cx + dx * c - dy * s, y: cy + dx * s + dy * c };
+    }
+
+    // Dynamic segment endpoints for a piece (recomputed per frame where needed)
+    function pieceSegments(p) {
+      if (p.type === 'ramp' || p.type === 'spring') {
+        const hx = Math.cos(p.angle) * p.len * 0.5;
+        const hy = Math.sin(p.angle) * p.len * 0.5;
+        return [{ x1: p.x - hx, y1: p.y - hy, x2: p.x + hx, y2: p.y + hy, thick: p.thick }];
+      }
+      if (p.type === 'seesaw') {
+        const hx = Math.cos(p.angle) * p.len * 0.5;
+        const hy = Math.sin(p.angle) * p.len * 0.5;
+        return [{ x1: p.x - hx, y1: p.y - hy, x2: p.x + hx, y2: p.y + hy, thick: p.thick }];
+      }
+      if (p.type === 'funnel') {
+        const w = p.w, h = p.h;
+        const l1a = rotPoint(p.x - w * 0.5, p.y, p.x, p.y, p.angle);
+        const l1b = rotPoint(p.x - w * 0.22, p.y + h, p.x, p.y, p.angle);
+        const l2a = rotPoint(p.x + w * 0.5, p.y, p.x, p.y, p.angle);
+        const l2b = rotPoint(p.x + w * 0.22, p.y + h, p.x, p.y, p.angle);
+        const b1 = rotPoint(p.x - w * 0.22, p.y + h, p.x, p.y, p.angle);
+        const b2 = rotPoint(p.x + w * 0.22, p.y + h, p.x, p.y, p.angle);
+        return [
+          { x1: l1a.x, y1: l1a.y, x2: l1b.x, y2: l1b.y, thick: 8 },
+          { x1: l2a.x, y1: l2a.y, x2: l2b.x, y2: l2b.y, thick: 8 },
+          { x1: b1.x, y1: b1.y, x2: b2.x, y2: b2.y, thick: 8 }
+        ];
+      }
+      if (p.type === 'bucket') {
+        const w = p.w, h = p.h;
+        const a = rotPoint(p.x - w / 2, p.y - h, p.x, p.y, p.angle);
+        const b = rotPoint(p.x - w / 2, p.y, p.x, p.y, p.angle);
+        const c = rotPoint(p.x + w / 2, p.y - h, p.x, p.y, p.angle);
+        const d = rotPoint(p.x + w / 2, p.y, p.x, p.y, p.angle);
+        return [
+          { x1: a.x, y1: a.y, x2: b.x, y2: b.y, thick: 9 },
+          { x1: c.x, y1: c.y, x2: d.x, y2: d.y, thick: 9 },
+          { x1: b.x, y1: b.y, x2: d.x, y2: d.y, thick: 9 }
+        ];
+      }
+      if (p.type === 'domino') {
+        const tipX = p.x + Math.sin(p.tilt) * p.h;
+        const tipY = p.y - Math.cos(p.tilt) * p.h;
+        return [{ x1: p.x, y1: p.y, x2: tipX, y2: tipY, thick: p.w }];
+      }
+      return [];
+    }
+
+    // ============ PHYSICS: MARBLE COLLISIONS ============
+    function resolveSegment(m, x1, y1, x2, y2, thick, restitution, friction) {
+      const c = closestPointOnSegment(m.x, m.y, x1, y1, x2, y2);
+      let nx = m.x - c.x, ny = m.y - c.y;
+      let d = Math.hypot(nx, ny);
+      const rad = m.r + thick * 0.5;
+      if (d < rad) {
+        if (d < 0.0001) { nx = 0; ny = -1; d = 1; }
+        nx /= d; ny /= d;
+        m.x += nx * (rad - d);
+        m.y += ny * (rad - d);
+        const vn = m.vx * nx + m.vy * ny;
+        if (vn < 0) {
+          const tx = -ny, ty = nx;
+          const vt = m.vx * tx + m.vy * ty;
+          m.vx = tx * vt * friction - nx * vn * restitution;
+          m.vy = ty * vt * friction - ny * vn * restitution;
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function resolveCircleOutside(m, cx, cy, R, restitution, friction) {
+      let nx = m.x - cx, ny = m.y - cy;
+      let d = Math.hypot(nx, ny);
+      const rad = R + m.r;
+      if (d < rad) {
+        if (d < 0.0001) { nx = 0; ny = -1; d = 1; }
+        nx /= d; ny /= d;
+        m.x += nx * (rad - d);
+        m.y += ny * (rad - d);
+        const vn = m.vx * nx + m.vy * ny;
+        if (vn < 0) {
+          const tx = -ny, ty = nx;
+          const vt = m.vx * tx + m.vy * ty;
+          m.vx = tx * vt * friction - nx * vn * restitution;
+          m.vy = ty * vt * friction - ny * vn * restitution;
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function resolveCircleInside(m, cx, cy, R, restitution, friction) {
+      let nx = cx - m.x, ny = cy - m.y;
+      let d = Math.hypot(nx, ny);
+      const rad = R - m.r;
+      if (d > rad && d > 0.0001) {
+        nx /= d; ny /= d;
+        m.x += nx * (d - rad);
+        m.y += ny * (d - rad);
+        const vn = m.vx * nx + m.vy * ny;
+        if (vn < 0) {
+          const tx = -ny, ty = nx;
+          const vt = m.vx * tx + m.vy * ty;
+          m.vx = tx * vt * friction - nx * vn * restitution;
+          m.vy = ty * vt * friction - ny * vn * restitution;
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // ============ MARBLE FACTORY ============
+    const MARBLE_COLORS = ['#ff8fa3', '#8ecae6', '#ffd166', '#7fd6a8', '#b5a7f0', '#ffb703'];
+    function spawnMarble(x, y, vx, vy) {
+      marbles.push({
+        x, y,
+        vx: vx || (Math.random() - 0.5) * 1.2,
+        vy: vy || 1.5,
+        r: 9,
+        rot: 0,
+        color: MARBLE_COLORS[(Math.random() * MARBLE_COLORS.length) | 0],
+        alive: true
+      });
+      stats.dropped++;
+      refreshStats();
+      beep(620 + Math.random() * 120, 0.06, 'sine', 0.05);
+    }
+
+    // ============ PARTICLE BURSTS ============
+    function burst(x, y, color, n) {
+      n = n || 10;
+      for (let i = 0; i < n; i++) {
+        particles.push({
+          x, y,
+          vx: (Math.random() - 0.5) * 7,
+          vy: (Math.random() - 0.8) * 7,
+          life: 1,
+          size: Math.random() * 3.5 + 1.5,
+          color: color || '#ffd166'
+        });
+      }
+    }
+
+    // ============ PHYSICS STEP ============
+    function updatePhysics() {
+      // --- dynamic pieces ---
+      for (const p of pieces) {
+        if (p.type === 'domino') {
+          if (p.tilt > 0.0001 && !p.fallen) {
+            p.av += 0.0017 * Math.sin(p.tilt + 0.03);
+            p.av *= 0.995;
+            p.tilt += p.av;
+            if (p.tilt >= Math.PI / 2) { p.tilt = Math.PI / 2; p.av = 0; p.fallen = true; }
+            // chain reaction: knock the next domino in the fall direction
+            if (p.tilt > 0.45 && !p.pushed) {
+              p.pushed = true;
+              const dirX = Math.sign(Math.sin(p.tilt)) || 1;
+              for (const q of pieces) {
+                if (q === p || q.type !== 'domino' || q.fallen) continue;
+                const dx = q.x - p.x, dy = Math.abs(q.y - p.y);
+                if (Math.sign(dx) === dirX && Math.abs(dx) < p.h * 1.5 && Math.abs(dx) > p.h * 0.35 && dy < 70) {
+                  q.tilt = 0.03; q.av = 0.05; q.pushed = false;
+                }
+              }
+              beep(300, 0.03, 'square', 0.03);
+            }
+          }
+        } else if (p.type === 'seesaw') {
+          let torque = -p.angle * 0.0009;
+          for (const m of marbles) {
+            const hx = Math.cos(p.angle) * p.len * 0.5;
+            const hy = Math.sin(p.angle) * p.len * 0.5;
+            if (pointNearSegment(m.x, m.y, p.x - hx, p.y - hy, p.x + hx, p.y + hy, m.r + p.thick)) {
+              const d = (m.x - p.x) * Math.cos(p.angle) + (m.y - p.y) * Math.sin(p.angle);
+              torque -= d * 0.00009;
+              m.vx *= 0.992; m.vy *= 0.992;
+            }
+          }
+          p.av = (p.av + torque) * 0.93;
+          p.angle += p.av;
+          p.angle = Math.max(-0.36, Math.min(0.36, p.angle));
+        } else if (p.type === 'wheel') {
+          p.angle += p.spin;
+          p.spin *= 0.988;
+          if (Math.abs(p.spin) < 0.001) p.spin = 0;
+        }
+      }
+
+      // --- marbles ---
+      for (const m of marbles) {
+        if (!m.alive) continue;
+        m.vy += GRAVITY;
+        m.vx *= AIR_DRAG;
+        m.vy *= AIR_DRAG;
+        const sp = Math.hypot(m.vx, m.vy);
+        if (sp > MAX_SPEED) { m.vx *= MAX_SPEED / sp; m.vy *= MAX_SPEED / sp; }
+        m.x += m.vx;
+        m.y += m.vy;
+        m.rot += m.vx / m.r;
+
+        // piece collisions
+        for (const p of pieces) {
+          if (p.type === 'wheel') {
+            if (resolveCircleOutside(m, p.x, p.y, p.r, 0.42, 0.96)) {
+              const rx = m.x - p.x, ry = m.y - p.y;
+              const rl = Math.hypot(rx, ry) || 1;
+              const tang = (m.vx * -ry + m.vy * rx) / rl;
+              p.spin += tang * 0.014;
+              p.spin = Math.max(-0.35, Math.min(0.35, p.spin));
+            }
+          } else if (p.type === 'loop') {
+            const dx = m.x - p.x, dy = m.y - p.y;
+            const d = Math.hypot(dx, dy);
+            if (d < p.r + p.thick + m.r + 30) {
+              const ang = Math.atan2(dy, dx);
+              const gapC = -Math.PI / 2;
+              if (angleDiff(ang, gapC) > 0.5) {
+                resolveCircleOutside(m, p.x, p.y, p.r, 0.25, 0.985);
+                resolveCircleInside(m, p.x, p.y, p.r + p.thick * 2, 0.25, 0.985);
+              }
+            }
+          } else if (p.type === 'domino') {
+            const tipX = p.x + Math.sin(p.tilt) * p.h;
+            const tipY = p.y - Math.cos(p.tilt) * p.h;
+            if (resolveSegment(m, p.x, p.y, tipX, tipY, p.w, 0.3, 0.94)) {
+              if (!p.fallen && p.tilt < 0.05) {
+                p.tilt = 0.03;
+                p.av = 0.055 + Math.min(Math.abs(m.vx), 8) * 0.006;
+                beep(340, 0.05, 'triangle', 0.04);
+              }
+            }
+          } else {
+            const segs = pieceSegments(p);
+            for (const s of segs) {
+              const rest = p.type === 'spring' ? 1.55 : (p.type === 'funnel' ? 0.18 : (p.type === 'bucket' ? 0.2 : 0.34));
+              const fric = p.type === 'spring' ? 0.995 : 0.94;
+              resolveSegment(m, s.x1, s.y1, s.x2, s.y2, s.thick, rest, fric);
+            }
+          }
+        }
+
+        // bucket capture
+        for (const p of pieces) {
+          if (p.type !== 'bucket') continue;
+          const inner = rotPoint(m.x, m.y, p.x, p.y, -p.angle);
+          if (inner.x > p.x - p.w / 2 + m.r * 0.5 && inner.x < p.x + p.w / 2 - m.r * 0.5 &&
+              inner.y > p.y - p.h && inner.y < p.y + 4) {
+            m.alive = false;
+            p.filled++;
+            stats.bucket++;
+            refreshStats();
+            burst(m.x, m.y, m.color, 12);
+            beep(880, 0.14, 'sine', 0.09);
+            setTimeout(() => beep(1180, 0.12, 'sine', 0.07), 70);
+            break;
+          }
+        }
+
+        // world bounds
+        if (m.x < m.r) { m.x = m.r; m.vx = Math.abs(m.vx) * 0.4; }
+        if (m.x > W - m.r) { m.x = W - m.r; m.vx = -Math.abs(m.vx) * 0.4; }
+        if (m.y > FLOOR_Y - m.r) {
+          m.y = FLOOR_Y - m.r;
+          if (m.vy > 0.6) beep(200 + Math.random() * 60, 0.03, 'sine', 0.025);
+          m.vy = -m.vy * 0.32;
+          m.vx *= 0.94;
+          if (Math.abs(m.vy) < 0.5) m.vy = 0;
+        }
+        if (m.y < -80 || m.y > H + 140) m.alive = false;
+      }
+
+      // prune dead marbles
+      for (let i = marbles.length - 1; i >= 0; i--) {
+        if (!marbles[i].alive) marbles.splice(i, 1);
+      }
+    }
+
+    function updateVisual(delta) {
+      // particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.28;
+        p.life -= delta * 0.0022;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+      // auto drop
+      if (autoDrop) {
+        autoTimer -= delta;
+        if (autoTimer <= 0) {
+          autoTimer = 780;
+          spawnMarble(W / 2 + (Math.random() - 0.5) * 40, 26);
+        }
+      }
+    }
+
+    // ============ RENDERING ============
+    function drawBackground() {
+      const g = ctx.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0, '#fbfdff');
+      g.addColorStop(0.5, '#fff8f4');
+      g.addColorStop(1, '#f7f2ff');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      // subtle dot grid
+      ctx.fillStyle = 'rgba(255, 170, 195, 0.20)';
+      for (let x = 24; x < W; x += 32) {
+        for (let y = 24; y < H; y += 32) {
+          ctx.beginPath();
+          ctx.arc(x, y, 1.3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // floor
+      ctx.fillStyle = 'rgba(255, 214, 226, 0.55)';
+      ctx.fillRect(0, FLOOR_Y, W, H - FLOOR_Y);
+      ctx.fillStyle = 'rgba(255, 143, 163, 0.35)';
+      ctx.fillRect(0, FLOOR_Y, W, 2);
+
+      // spout marker
+      ctx.fillStyle = 'rgba(255, 143, 163, 0.85)';
+      ctx.beginPath();
+      ctx.moveTo(W / 2 - 16, 8);
+      ctx.lineTo(W / 2 + 16, 8);
+      ctx.lineTo(W / 2, 26);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function drawSeg(s, color, glow) {
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = glow || 'rgba(0,0,0,0.06)';
+      ctx.lineWidth = s.thick + 4;
+      ctx.beginPath(); ctx.moveTo(s.x1, s.y1); ctx.lineTo(s.x2, s.y2); ctx.stroke();
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = s.thick;
+      ctx.beginPath(); ctx.moveTo(s.x1, s.y1); ctx.lineTo(s.x2, s.y2); ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth = Math.max(1.5, s.thick * 0.28);
+      const ox = -(s.y2 - s.y1), oy = s.x2 - s.x1;
+      const ol = Math.hypot(ox, oy) || 1;
+      ctx.beginPath();
+      ctx.moveTo(s.x1 + (ox / ol) * s.thick * 0.22, s.y1 + (oy / ol) * s.thick * 0.22);
+      ctx.lineTo(s.x2 + (ox / ol) * s.thick * 0.22, s.y2 + (oy / ol) * s.thick * 0.22);
+      ctx.stroke();
+    }
+
+    function drawPiece(p) {
+      ctx.save();
+      const col = PALETTE[p.type] || '#8ecae6';
+
+      if (p.type === 'ramp' || p.type === 'spring' || p.type === 'seesaw' || p.type === 'funnel' || p.type === 'bucket') {
+        const segs = pieceSegments(p);
+        for (const s of segs) {
+          drawSeg(s, p.type === 'bucket' ? PALETTE.bucket : col);
+        }
+        if (p.type === 'spring') {
+          const hx = Math.cos(p.angle) * p.len * 0.5;
+          const hy = Math.sin(p.angle) * p.len * 0.5;
+          ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+          ctx.lineWidth = 2;
+          for (let i = -2; i <= 2; i++) {
+            const t = i / 3;
+            const cx = p.x + hx * t, cy = p.y + hy * t;
+            ctx.beginPath();
+            ctx.moveTo(cx - hy * 0.18, cy + hx * 0.18);
+            ctx.lineTo(cx + hy * 0.18, cy - hx * 0.18);
+            ctx.stroke();
+          }
+        }
+        if (p.type === 'seesaw') {
+          ctx.fillStyle = '#c9b6a0';
+          ctx.beginPath();
+          ctx.moveTo(p.x - 13, p.y + 22);
+          ctx.lineTo(p.x + 13, p.y + 22);
+          ctx.lineTo(p.x, p.y - 2);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = '#7fd6a8';
+          ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI * 2); ctx.fill();
+        }
+        if (p.type === 'bucket') {
+          const inner = p.filled;
+          ctx.fillStyle = 'rgba(255, 143, 163, 0.22)';
+          ctx.beginPath(); ctx.arc(p.x, p.y - 14, Math.min(26, 8 + inner * 3), 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#8a5a44';
+          ctx.font = 'bold 13px Segoe UI, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(inner, p.x, p.y - 10);
+        }
+      } else if (p.type === 'domino') {
+        const a = p.tilt;
+        ctx.translate(p.x, p.y);
+        ctx.rotate(a);
+        // shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.07)';
+        rr(-p.w / 2 + 3, -p.h + 4, p.w, p.h, 5); ctx.fill();
+        // tile
+        ctx.fillStyle = p.fallen ? '#e6c96a' : PALETTE.domino;
+        rr(-p.w / 2, -p.h, p.w, p.h, 5); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-p.w / 2 + 2, -p.h / 2);
+        ctx.lineTo(p.w / 2 - 2, -p.h / 2);
+        ctx.stroke();
+        // pips
+        ctx.fillStyle = 'rgba(150, 110, 30, 0.65)';
+        ctx.beginPath(); ctx.arc(0, -p.h * 0.75, 2.6, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(0, -p.h * 0.25, 2.6, 0, Math.PI * 2); ctx.fill();
+      } else if (p.type === 'wheel') {
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.angle);
+        ctx.fillStyle = 'rgba(255, 157, 177, 0.22)';
+        ctx.beginPath(); ctx.arc(0, 0, p.r + 4, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = PALETTE.wheel;
+        ctx.lineWidth = 7;
+        ctx.beginPath(); ctx.arc(0, 0, p.r, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = '#ff6b8a';
+        ctx.lineWidth = 4;
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(Math.cos(a) * (p.r - 5), Math.sin(a) * (p.r - 5));
+          ctx.stroke();
+        }
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ff6b8a';
+        ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI * 2); ctx.fill();
+      } else if (p.type === 'loop') {
+        const rmid = p.r + p.thick;
+        const gapHalf = 0.5;
+        const start = -Math.PI / 2 + gapHalf;
+        const end = -Math.PI / 2 + Math.PI * 2 - gapHalf;
+        ctx.lineCap = 'butt';
+        ctx.strokeStyle = 'rgba(157, 141, 241, 0.25)';
+        ctx.lineWidth = p.thick * 2 + 6;
+        ctx.beginPath(); ctx.arc(p.x, p.y, rmid, start, end); ctx.stroke();
+        ctx.strokeStyle = PALETTE.loop;
+        ctx.lineWidth = p.thick * 2;
+        ctx.beginPath(); ctx.arc(p.x, p.y, rmid, start, end); ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(p.x, p.y, rmid, start, end); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawMarble(m) {
+      ctx.save();
+      ctx.translate(m.x, m.y);
+      ctx.rotate(m.rot);
+      const g = ctx.createRadialGradient(-m.r * 0.35, -m.r * 0.35, 1, 0, 0, m.r);
+      g.addColorStop(0, '#ffffff');
+      g.addColorStop(0.35, m.color);
+      g.addColorStop(1, 'rgba(0,0,0,0.18)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(0, 0, m.r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-m.r * 0.5, 0);
+      ctx.lineTo(m.r * 0.5, 0);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawPreview() {
+      if (!mouse.inside) return;
+      ctx.save();
+      ctx.globalAlpha = 0.45;
+      let p;
+      if ((tool === 'ramp' || tool === 'spring') && drag.active && drag.moved) {
+        p = makePiece(tool, (drag.sx + mouse.x) / 2, (drag.sy + mouse.y) / 2, drag.ang, drag.len);
+      } else if (tool === 'marble') {
+        ctx.fillStyle = '#ff8fa3';
+        ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.restore();
+        return;
+      } else if (tool === 'eraser') {
+        ctx.strokeStyle = '#ff6b8a';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 30, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.restore();
+        return;
+      } else {
+        p = makePiece(tool, mouse.x, mouse.y, rotation);
+      }
+      drawPiece(p);
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+      drawBackground();
+
+      // pieces (bucket/loop/wheel behind marbles feel good)
+      for (const p of pieces) drawPiece(p);
+
+      for (const m of marbles) drawMarble(m);
+
+      for (const pt of particles) {
+        ctx.globalAlpha = Math.max(0, pt.life);
+        ctx.fillStyle = pt.color;
+        ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      drawPreview();
+
+      // auto-drop indicator
+      if (autoDrop) {
+        ctx.fillStyle = 'rgba(70, 185, 138, 0.9)';
+        ctx.font = 'bold 13px Segoe UI, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('● AUTO', 14, 22);
+      }
+    }
+
+    // ============ MAIN LOOP ============
+    let lastT = performance.now();
+    let acc = 0;
+    const STEP = 1000 / 60;
+
+    function frame(t) {
+      let delta = t - lastT;
+      lastT = t;
+      if (delta > 100) delta = 100;
+      acc += delta;
+      let guard = 0;
+      while (acc >= STEP && guard < 4) {
+        updatePhysics();
+        acc -= STEP;
+        guard++;
+      }
+      if (guard >= 4) acc = 0;
+      updateVisual(delta);
+      draw();
+      requestAnimationFrame(frame);
+    }
+
+    // ============ PLACEMENT / INPUT ============
+    function canvasPoint(e) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: (e.clientX - rect.left) * (W / rect.width),
+        y: (e.clientY - rect.top) * (H / rect.height)
+      };
+    }
+
+    function placeAt(x, y) {
+      if (tool === 'eraser') {
+        for (let i = pieces.length - 1; i >= 0; i--) {
+          const p = pieces[i];
+          let hit = Math.hypot(p.x - x, p.y - y) < 42;
+          if (!hit) {
+            const segs = pieceSegments(p);
+            for (const s of segs) {
+              if (pointNearSegment(x, y, s.x1, s.y1, s.x2, s.y2, 20)) { hit = true; break; }
+            }
+          }
+          if (p.type === 'wheel' || p.type === 'loop') {
+            if (Math.hypot(p.x - x, p.y - y) < (p.r || 40) + 18) hit = true;
+          }
+          if (hit) { pieces.splice(i, 1); beep(180, 0.05, 'square', 0.04); refreshStats(); autoSave(); return; }
+        }
+        beep(140, 0.04, 'square', 0.03);
+        return;
+      }
+      if (tool === 'marble') {
+        spawnMarble(Math.max(12, Math.min(W - 12, x)), Math.max(12, y));
+        burst(x, y, '#ff8fa3', 6);
+        autoSave();
+        return;
+      }
+      let ang = rotation, len;
+      if ((tool === 'ramp' || tool === 'spring') && drag.moved) {
+        ang = drag.ang;
+        len = drag.len;
+      }
+      pieces.push(makePiece(tool, x, y, ang, len));
+      beep(520, 0.05, 'triangle', 0.05);
+      refreshStats();
+      autoSave();
+    }
+
+    canvas.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      ensureAudio();
+      const pt = canvasPoint(e);
+      mouse.x = pt.x; mouse.y = pt.y; mouse.inside = true;
+      drag.active = true;
+      drag.sx = pt.x; drag.sy = pt.y;
+      drag.len = 130; drag.ang = rotation; drag.moved = false;
+      canvas.setPointerCapture(e.pointerId);
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      const pt = canvasPoint(e);
+      mouse.x = pt.x; mouse.y = pt.y; mouse.inside = true;
+      if (drag.active) {
+        const dx = pt.x - drag.sx, dy = pt.y - drag.sy;
+        const d = Math.hypot(dx, dy);
+        if (d > 25) {
+          drag.moved = true;
+          drag.ang = Math.atan2(dy, dx);
+          drag.len = Math.max(50, Math.min(240, d));
+        }
+      }
+    });
+
+    canvas.addEventListener('pointerup', (e) => {
+      e.preventDefault();
+      const pt = canvasPoint(e);
+      mouse.x = pt.x; mouse.y = pt.y;
+      if (drag.active) {
+        placeAt(pt.x, pt.y);
+      }
+      drag.active = false;
+      drag.moved = false;
+    });
+
+    canvas.addEventListener('pointerleave', () => { mouse.inside = false; });
+    canvas.addEventListener('pointerenter', () => { mouse.inside = true; });
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      rotation += (e.deltaY > 0 ? 1 : -1) * 0.13;
+    }, { passive: false });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'KeyR') { rotation += e.shiftKey ? -0.13 : 0.13; }
+      if (e.code === 'KeyD') { spawnMarble(W / 2, 26); }
+      if (e.code === 'KeyC') { clearPieces(); }
+    });
+
+    // ============ TOOLBAR WIRING ============
+    document.querySelectorAll('.tool').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tool').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        tool = btn.dataset.tool;
+        beep(460, 0.04, 'sine', 0.04);
+      });
+    });
+
+    document.getElementById('dropBtn').addEventListener('click', () => {
+      ensureAudio();
+      spawnMarble(W / 2, 26);
+    });
+
+    const autoBtn = document.getElementById('autoBtn');
+    autoBtn.addEventListener('click', () => {
+      autoDrop = !autoDrop;
+      autoBtn.classList.toggle('on', autoDrop);
+      autoTimer = 0;
+      beep(autoDrop ? 700 : 400, 0.07, 'sine', 0.06);
+    });
+
+    document.getElementById('rotLBtn').addEventListener('click', () => { rotation -= 0.13; beep(420, 0.03, 'sine', 0.03); });
+    document.getElementById('rotRBtn').addEventListener('click', () => { rotation += 0.13; beep(440, 0.03, 'sine', 0.03); });
+
+    document.getElementById('restartBtn').addEventListener('click', () => {
+      marbles = [];
+      particles = [];
+      for (const p of pieces) {
+        if (p.type === 'domino') { p.tilt = 0; p.av = 0; p.fallen = false; p.pushed = false; }
+        if (p.type === 'seesaw') { p.angle = p.baseAngle !== undefined ? p.baseAngle : 0; p.av = 0; }
+        if (p.type === 'wheel') { p.spin = 0; p.angle = 0; }
+        if (p.type === 'bucket') { p.filled = 0; }
+      }
+      stats = { dropped: 0, bucket: 0 };
+      refreshStats();
+      toast('Board reset — drop some marbles!');
+      beep(600, 0.09, 'sine', 0.06);
+    });
+
+    function clearPieces() {
+      pieces = [];
+      marbles = [];
+      particles = [];
+      stats = { dropped: 0, bucket: 0 };
+      refreshStats();
+      autoSave();
+      beep(220, 0.12, 'square', 0.05);
+    }
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      clearPieces();
+      toast('Cleared all pieces');
+    });
+
+    // ============ SAVE / LOAD (localStorage) ============
+    function serialize() {
+      return JSON.stringify({
+        v: 1,
+        pieces: pieces.map(p => {
+          const o = {};
+          for (const k in p) if (typeof p[k] !== 'function') o[k] = p[k];
+          return o;
+        })
+      });
+    }
+    function applySave(data) {
+      if (!data || !Array.isArray(data.pieces)) return false;
+      pieces = data.pieces.map(o => {
+        const p = Object.assign(makePiece(o.type || 'ramp', o.x, o.y, o.angle || 0, o.len), o);
+        if (p.type === 'domino') { p.tilt = o.tilt || 0; p.av = 0; p.pushed = false; p.fallen = (o.tilt || 0) >= Math.PI / 2 - 0.01; }
+        if (p.type === 'seesaw') p.av = 0;
+        if (p.type === 'wheel') { p.spin = 0; }
+        return p;
+      });
+      marbles = [];
+      particles = [];
+      stats = { dropped: 0, bucket: 0 };
+      refreshStats();
+      return true;
+    }
+    function autoSave() {
+      try { localStorage.setItem(SAVE_KEY, serialize()); } catch (e) { /* storage may be unavailable */ }
+    }
+    document.getElementById('saveBtn').addEventListener('click', () => {
+      autoSave();
+      toast('Design saved 💾');
+      beep(760, 0.1, 'sine', 0.07);
+    });
+    document.getElementById('loadBtn').addEventListener('click', () => {
+      try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (raw && applySave(JSON.parse(raw))) {
+          toast('Design loaded 📂');
+          beep(560, 0.1, 'sine', 0.07);
+          return;
+        }
+      } catch (e) { /* ignore corrupt data */ }
+      toast('No saved design found');
+      beep(240, 0.1, 'square', 0.05);
+    });
+
+    // ============ STARTUP ============
+    function loadSample() {
+      // A tiny starter machine so the board is never empty.
+      const cx = W / 2;
+      pieces.push(makePiece('ramp', cx - 110, 170, -0.4, 250));
+      pieces.push(makePiece('funnel', cx - 250, 250, 0));
+      pieces.push(makePiece('seesaw', cx - 250, 380, 0));
+      pieces.push(makePiece('bucket', cx - 250, FLOOR_Y - 4, 0));
+      autoSave();
+    }
+
+    (function init() {
+      let restored = false;
+      try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (raw) restored = applySave(JSON.parse(raw));
+      } catch (e) { restored = false; }
+      if (!restored) loadSample();
+      refreshStats();
+      requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>

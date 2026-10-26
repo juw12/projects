@@ -3,7 +3,7 @@
 Make **faceless 9:16 explainer shorts in the browser** — the "what's inside / how it's made" format
 behind fast-growing explainer accounts — in English or Bahasa Indonesia.
 
-- **Live:** https://juwpegatron.github.io/projects/shortcraft/ (studio: `shortcraft/app.html`)
+- **Live:** https://juw12.github.io/projects/shortcraft/ (studio: `shortcraft/app.html`)
 - **Stack:** static HTML + Canvas 2D + Web Audio + MediaRecorder. No dependencies, no server, no login.
 
 ## What it does

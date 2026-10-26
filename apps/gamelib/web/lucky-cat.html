@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🐱 Lucky Cat — Maneki Neko</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #fff3d6 0%, #ffe0ec 50%, #e8f4f8 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      overflow-x: hidden;
+      touch-action: manipulation;
+      padding: 16px 0;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(255, 255, 255, 0.92);
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: 0 10px 40px rgba(200, 140, 60, 0.18);
+      max-width: 520px;
+      width: 95%;
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.9rem;
+      color: #e8a020;
+      margin-bottom: 4px;
+      text-shadow: 2px 2px 0 #fff;
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #a08a70;
+      margin-bottom: 14px;
+    }
+
+    /* ============ STATS BOARD ============ */
+    .score-board {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      background: linear-gradient(135deg, #fff9e6, #ffe8f0);
+      border-radius: 14px;
+      font-size: 0.85rem;
+      color: #7a6a55;
+    }
+
+    .score-board div {
+      text-align: center;
+      flex: 1;
+    }
+
+    .score-board span {
+      display: block;
+      font-weight: 700;
+      color: #e8a020;
+      font-size: 1.05rem;
+    }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(200, 140, 60, 0.12);
+      background: linear-gradient(135deg, #fff8ec, #ffeef4);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      cursor: pointer;
+    }
+
+    /* ============ SCREENS (Start / Pause) ============ */
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: rgba(255, 252, 245, 0.96);
+      transition: opacity 0.3s ease;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .screen-title {
+      font-size: 1.7rem;
+      color: #e8a020;
+      margin-bottom: 6px;
+      text-shadow: 2px 2px 0 #fff;
+    }
+
+    .screen-subtitle {
+      font-size: 0.9rem;
+      color: #a08a70;
+      margin-bottom: 18px;
+      max-width: 320px;
+    }
+
+    /* ============ ACTION BUTTONS ============ */
+    .action-btn {
+      padding: 13px 30px;
+      background: linear-gradient(135deg, #ffb84d, #e8a020);
+      color: white;
+      border: none;
+      border-radius: 25px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(232, 160, 32, 0.35);
+      margin: 4px;
+    }
+
+    .action-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(232, 160, 32, 0.45);
+    }
+
+    .action-btn:active {
+      transform: translateY(-1px);
+    }
+
+    .action-btn.secondary {
+      background: white;
+      color: #e8a020;
+      border: 2px solid #ffd98a;
+      box-shadow: none;
+      font-size: 0.9rem;
+      padding: 10px 22px;
+    }
+
+    /* ============ SHOP / UPGRADES ============ */
+    .shop {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+
+    .shop-btn {
+      background: white;
+      border: 2px solid #ffe3b0;
+      border-radius: 14px;
+      padding: 10px 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      font-family: inherit;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .shop-btn:hover {
+      background: #fff8ec;
+      transform: translateY(-2px);
+    }
+
+    .shop-btn:active {
+      transform: scale(0.96);
+    }
+
+    .shop-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .shop-btn .icon {
+      font-size: 1.4rem;
+      line-height: 1;
+    }
+
+    .shop-btn .label {
+      font-size: 0.7rem;
+      color: #a08a70;
+      font-weight: 600;
+    }
+
+    .shop-btn .cost {
+      font-size: 0.72rem;
+      color: #e8a020;
+      font-weight: 700;
+    }
+
+    .shop-btn .lvl {
+      font-size: 0.62rem;
+      color: #b8a890;
+    }
+
+    /* ============ TOAST ============ */
+    .toast {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.8);
+      background: rgba(255, 255, 255, 0.97);
+      border: 2px solid #ffd98a;
+      border-radius: 16px;
+      padding: 16px 24px;
+      font-size: 0.95rem;
+      color: #8a7040;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s ease;
+      box-shadow: 0 8px 30px rgba(200, 140, 60, 0.25);
+      z-index: 5;
+      max-width: 85%;
+    }
+
+    .toast.visible {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 480px) {
+      .game-container { padding: 14px; }
+      .game-title { font-size: 1.5rem; }
+      .score-board { font-size: 0.75rem; }
+      .shop-btn .icon { font-size: 1.2rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">🐱 Lucky Cat</h1>
+    <p class="game-subtitle">Tap the cat — it waves and grants coins! 🪙</p>
+
+    <div class="score-board">
+      <div>Coins<span id="coins">0</span></div>
+      <div>Per Tap<span id="perTap">1</span></div>
+      <div>Per Sec<span id="perSec">0</span></div>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="480" height="360"></canvas>
+
+      <!-- Start Screen -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">Welcome, Fortune Seeker!</h2>
+        <p class="screen-subtitle">Tap the lucky cat to collect coins. Buy upgrades to grow your cozy fortune.</p>
+        <button class="action-btn" id="startBtn">Start 🐾</button>
+      </div>
+
+      <!-- Pause Overlay -->
+      <div id="pauseScreen" class="screen hidden">
+        <h2 class="screen-title">Paused</h2>
+        <p class="screen-subtitle">Your cats are still dreaming of coins.</p>
+        <button class="action-btn" id="resumeBtn">Resume</button>
+        <button class="action-btn secondary" id="resetBtn">Reset Save</button>
+      </div>
+
+      <!-- Toast -->
+      <div id="toast" class="toast"></div>
+    </div>
+
+    <!-- Shop -->
+    <div class="shop" id="shop">
+      <button class="shop-btn" data-up="cats">
+        <span class="icon">🐾</span>
+        <span class="label">More Cats</span>
+        <span class="cost" id="costCats">25</span>
+        <span class="lvl" id="lvlCats">Lv 0</span>
+      </button>
+      <button class="shop-btn" data-up="luck">
+        <span class="icon">🍀</span>
+        <span class="label">Lucky Charm</span>
+        <span class="cost" id="costLuck">50</span>
+        <span class="lvl" id="lvlLuck">Lv 0</span>
+      </button>
+      <button class="shop-btn" data-up="fortune">
+        <span class="icon">🎎</span>
+        <span class="label">Daily Fortune</span>
+        <span class="cost" id="costFortune">0</span>
+        <span class="lvl" id="lvlFortune">Ready</span>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // ============ CONFIGURATION ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+    const SAVE_KEY = 'luckyCatSave_v1';
+
+    // ============ GAME STATE ============
+    const state = {
+      coins: 0,
+      perTapBase: 1,
+      cats: 0,          // idle cats bought
+      luck: 0,          // lucky charm level -> coin multiplier
+      lifetimeCoins: 0,
+      lastFortuneDay: '', // YYYY-MM-DD of last daily fortune claim
+      fortuneStreak: 0
+    };
+
+    // ============ UPGRADE DEFINITIONS ============
+    const UPGRADES = {
+      cats:    { base: 25,  growth: 1.55, max: 99 },
+      luck:    { base: 50,  growth: 1.7,  max: 20 }
+    };
+
+    // ============ VISUAL / RUNTIME STATE ============
+    let waving = 0;             // paw wave animation timer (frames)
+    let particles = [];         // coin pop particles
+    let floaters = [];          // floating "+N" texts
+    let sparkles = [];          // ambient sparkles
+    let isRunning = false;
+    let isPaused = false;
+    let lastTime = 0;
+    let idleAccumulator = 0;
+    let sceneTime = 0;
+
+    // ============ DOM ELEMENTS ============
+    const coinsEl = document.getElementById('coins');
+    const perTapEl = document.getElementById('perTap');
+    const perSecEl = document.getElementById('perSec');
+    const startScreen = document.getElementById('startScreen');
+    const pauseScreen = document.getElementById('pauseScreen');
+    const toastEl = document.getElementById('toast');
+    const startBtn = document.getElementById('startBtn');
+    const resumeBtn = document.getElementById('resumeBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const costCats = document.getElementById('costCats');
+    const lvlCats = document.getElementById('lvlCats');
+    const costLuck = document.getElementById('costLuck');
+    const lvlLuck = document.getElementById('lvlLuck');
+    const costFortune = document.getElementById('costFortune');
+    const lvlFortune = document.getElementById('lvlFortune');
+
+    // ============ AUDIO (WebAudio beep) ============
+    let audioCtx = null;
+    function beep(freq, dur, type, vol) {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type || 'sine';
+        osc.frequency.value = freq || 440;
+        gain.gain.setValueAtTime(vol || 0.08, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + (dur || 0.12));
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + (dur || 0.12));
+      } catch (e) { /* audio unavailable – silent */ }
+    }
+
+    // ============ SAVE / LOAD ============
+    function save() {
+      try {
+        localStorage.setItem(SAVE_KEY, JSON.stringify({
+          coins: state.coins,
+          cats: state.cats,
+          luck: state.luck,
+          lifetimeCoins: state.lifetimeCoins,
+          lastFortuneDay: state.lastFortuneDay,
+          fortuneStreak: state.fortuneStreak
+        }));
+      } catch (e) { /* storage unavailable */ }
+    }
+
+    function load() {
+      try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (!raw) return;
+        const d = JSON.parse(raw);
+        state.coins = d.coins || 0;
+        state.cats = d.cats || 0;
+        state.luck = d.luck || 0;
+        state.lifetimeCoins = d.lifetimeCoins || 0;
+        state.lastFortuneDay = d.lastFortuneDay || '';
+        state.fortuneStreak = d.fortuneStreak || 0;
+      } catch (e) { /* corrupt save – start fresh */ }
+    }
+
+    // ============ ECONOMY HELPERS ============
+    function upgradeCost(key) {
+      const u = UPGRADES[key];
+      const lv = key === 'cats' ? state.cats : state.luck;
+      return Math.floor(u.base * Math.pow(u.growth, lv));
+    }
+
+    function perTapValue() {
+      return Math.max(1, Math.floor(state.perTapBase * (1 + state.luck * 0.5)));
+    }
+
+    function perSecondValue() {
+      // each idle cat waves every ~1.6s and grants the current per-tap value
+      return +(state.cats * perTapValue() / 1.6).toFixed(1);
+    }
+
+    function todayKey() {
+      const d = new Date();
+      return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+    }
+
+    function fortuneReady() {
+      return state.lastFortuneDay !== todayKey();
+    }
+
+    // ============ UI REFRESH ============
+    function refreshUI() {
+      coinsEl.textContent = Math.floor(state.coins).toLocaleString();
+      perTapEl.textContent = perTapValue();
+      perSecEl.textContent = perSecondValue();
+
+      const cCats = upgradeCost('cats');
+      const cLuck = upgradeCost('luck');
+      costCats.textContent = cCats.toLocaleString();
+      costLuck.textContent = cLuck.toLocaleString();
+      lvlCats.textContent = 'Lv ' + state.cats;
+      lvlLuck.textContent = 'Lv ' + state.luck;
+
+      document.querySelector('[data-up="cats"]').disabled =
+        state.coins < cCats || state.cats >= UPGRADES.cats.max;
+      document.querySelector('[data-up="luck"]').disabled =
+        state.coins < cLuck || state.luck >= UPGRADES.luck.max;
+
+      if (fortuneReady()) {
+        costFortune.textContent = 'FREE';
+        lvlFortune.textContent = state.fortuneStreak > 0 ? ('streak ' + state.fortuneStreak) : 'Ready';
+        document.querySelector('[data-up="fortune"]').disabled = false;
+      } else {
+        costFortune.textContent = '—';
+        lvlFortune.textContent = 'Come back';
+        document.querySelector('[data-up="fortune"]').disabled = true;
+      }
+    }
+
+    // ============ TOAST ============
+    let toastTimer = null;
+    function toast(msg) {
+      toastEl.textContent = msg;
+      toastEl.classList.add('visible');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toastEl.classList.remove('visible'), 1800);
+    }
+
+    // ============ EFFECTS ============
+    function spawnCoins(x, y, n) {
+      for (let i = 0; i < n; i++) {
+        particles.push({
+          x: x, y: y,
+          vx: (Math.random() - 0.5) * 5,
+          vy: -Math.random() * 4 - 2,
+          life: 1,
+          size: 6 + Math.random() * 4,
+          rot: Math.random() * Math.PI
+        });
+      }
+    }
+
+    function spawnFloater(x, y, text) {
+      floaters.push({ x: x, y: y, text: text, life: 1 });
+    }
+
+    function spawnSparkle() {
+      sparkles.push({
+        x: Math.random() * W,
+        y: H - 40 + Math.random() * 30,
+        life: 1,
+        vx: (Math.random() - 0.5) * 0.6,
+        vy: -0.3 - Math.random() * 0.5,
+        size: 1 + Math.random() * 2
+      });
+    }
+
+    // ============ CORE ACTIONS ============
+    function tapCat(worldX, worldY) {
+      if (!isRunning || isPaused) return;
+      const gain = perTapValue();
+      state.coins += gain;
+      state.lifetimeCoins += gain;
+      waving = 22; // frames of wave animation
+      beep(660 + Math.random() * 120, 0.1, 'triangle', 0.06);
+      spawnCoins(worldX, worldY, 5);
+      spawnFloater(worldX, worldY - 10, '+' + gain);
+      refreshUI();
+      save();
+    }
+
+    function buyUpgrade(key) {
+      if (!isRunning || isPaused) return;
+      if (key === 'fortune') { claimFortune(); return; }
+
+      const cost = upgradeCost(key);
+      if (state.coins < cost) { beep(200, 0.12, 'sawtooth', 0.05); return; }
+      const u = UPGRADES[key];
+      const lv = key === 'cats' ? state.cats : state.luck;
+      if (lv >= u.max) { toast('Max level reached! 🌟'); return; }
+
+      state.coins -= cost;
+      if (key === 'cats') state.cats++;
+      else state.luck++;
+      beep(520, 0.12, 'square', 0.06);
+      beep(780, 0.12, 'square', 0.05);
+      toast(key === 'cats' ? 'A new lucky cat joined! 🐾' : 'Luck increased! 🍀');
+      refreshUI();
+      save();
+    }
+
+    function claimFortune() {
+      if (!fortuneReady()) { toast('Already claimed today 🌙'); return; }
+      // Generate a fortune bonus based on lifetime progress + streak
+      state.fortuneStreak = (state.lastFortuneDay === yesterdayKey()) ? state.fortuneStreak + 1 : 1;
+      const base = 30 + state.cats * 12 + state.luck * 40;
+      const streakBonus = Math.floor(base * 0.25 * Math.min(state.fortuneStreak, 7));
+      const bonus = base + streakBonus + Math.floor(Math.random() * 20);
+      state.coins += bonus;
+      state.lifetimeCoins += bonus;
+      state.lastFortuneDay = todayKey();
+      beep(880, 0.14, 'sine', 0.07);
+      setTimeout(() => beep(1180, 0.16, 'sine', 0.06), 120);
+      const cx = W / 2, cy = H / 2 - 40;
+      spawnCoins(cx, cy, 22);
+      spawnFloater(cx, cy - 20, '+' + bonus + ' 🎎');
+      toast('Daily Fortune! +' + bonus + ' coins (day ' + state.fortuneStreak + ')');
+      refreshUI();
+      save();
+    }
+
+    function yesterdayKey() {
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+    }
+
+    // ============ DRAWING — MANEKI NEKO (original drawing) ============
+    function drawCat(cx, cy, scale, wavePhase, tint) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(scale, scale);
+
+      // Body (rounded)
+      ctx.fillStyle = tint || '#fff4e0';
+      ctx.strokeStyle = '#d9b070';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(0, 20, 42, 38, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Belly patch
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.ellipse(0, 26, 24, 22, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Ears
+      ctx.fillStyle = tint || '#fff4e0';
+      ctx.strokeStyle = '#d9b070';
+      ctx.beginPath();
+      ctx.moveTo(-38, -18); ctx.lineTo(-22, -42); ctx.lineTo(-10, -16); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(38, -18); ctx.lineTo(22, -42); ctx.lineTo(10, -16); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+
+      // Inner ears
+      ctx.fillStyle = '#ffc4cc';
+      ctx.beginPath();
+      ctx.moveTo(-32, -20); ctx.lineTo(-23, -36); ctx.lineTo(-16, -19); ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(32, -20); ctx.lineTo(23, -36); ctx.lineTo(16, -19); ctx.closePath();
+      ctx.fill();
+
+      // Head
+      ctx.fillStyle = tint || '#fff4e0';
+      ctx.beginPath();
+      ctx.ellipse(0, -14, 40, 34, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Calico patches
+      ctx.fillStyle = '#f7c76b';
+      ctx.beginPath();
+      ctx.ellipse(-20, -28, 13, 11, -0.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(20, -26, 10, 9, 0.4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Eyes
+      ctx.fillStyle = '#3a3228';
+      ctx.beginPath();
+      ctx.arc(-15, -14, 5, 0, Math.PI * 2);
+      ctx.arc(15, -14, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(-13, -16, 1.8, 0, Math.PI * 2);
+      ctx.arc(17, -16, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Nose + mouth
+      ctx.fillStyle = '#ff9aa8';
+      ctx.beginPath();
+      ctx.moveTo(0, -6); ctx.lineTo(-3, -3); ctx.lineTo(3, -3); ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#b08968';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(-5, -1, 4, 0, Math.PI);
+      ctx.arc(5, -1, 4, 0, Math.PI);
+      ctx.stroke();
+
+      // Whiskers
+      ctx.strokeStyle = '#c9a97e';
+      ctx.lineWidth = 1.2;
+      [-6, 0, 6].forEach(off => {
+        ctx.beginPath(); ctx.moveTo(-20, -8 + off); ctx.lineTo(-40, -8 + off - 3); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(20, -8 + off); ctx.lineTo(40, -8 + off - 3); ctx.stroke();
+      });
+
+      // Collar + bell
+      ctx.fillStyle = '#e05a72';
+      ctx.beginPath();
+      ctx.ellipse(0, 6, 22, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffd24d';
+      ctx.strokeStyle = '#c99a1f';
+      ctx.beginPath();
+      ctx.arc(0, 14, 7, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-3, 10); ctx.lineTo(3, 10);
+      ctx.stroke();
+
+      // KOBAN (gold coin) held on the belly
+      ctx.save();
+      ctx.translate(0, 30);
+      ctx.fillStyle = '#ffd24d';
+      ctx.strokeStyle = '#d9a51f';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 15, 11, 0, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#b8860b';
+      ctx.font = 'bold 11px serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('福', 0, 1);
+      ctx.restore();
+
+      // Waving paw — left arm raised, animates with wavePhase
+      const wave = Math.sin(wavePhase) * 0.5;
+      ctx.save();
+      ctx.translate(-40, 4);
+      ctx.rotate(-0.5 + wave);
+      ctx.strokeStyle = '#d9b070';
+      ctx.lineWidth = 2;
+      ctx.fillStyle = tint || '#fff4e0';
+      ctx.beginPath();
+      ctx.ellipse(-14, -10, 12, 16, 0.3, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+      // paw pads
+      ctx.fillStyle = '#ffc4cc';
+      ctx.beginPath();
+      ctx.arc(-14, -14, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // Right arm resting
+      ctx.fillStyle = tint || '#fff4e0';
+      ctx.strokeStyle = '#d9b070';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(34, 6, 10, 14, -0.3, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // ============ DRAWING — SCENE ============
+    function drawBackground() {
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, '#fff8ec');
+      g.addColorStop(1, '#ffeef4');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      // Sun glow
+      ctx.fillStyle = 'rgba(255, 210, 120, 0.18)';
+      ctx.beginPath();
+      ctx.arc(W * 0.8, 60, 70, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Floor mat
+      ctx.fillStyle = '#fbe6c6';
+      ctx.beginPath();
+      ctx.ellipse(W / 2, H - 30, W * 0.48, 34, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Idle cats drawn as small companions
+      const idle = Math.min(state.cats, 8);
+      for (let i = 0; i < idle; i++) {
+        const t = (i + 0.5) / idle;
+        const x = 40 + t * (W - 80);
+        const y = H - 52 + Math.sin(sceneTime * 0.002 + i) * 2;
+        drawCat(x, y, 0.28, Math.sin(sceneTime * 0.006 + i * 1.3) * 0.4, '#ffeedd');
+      }
+    }
+
+    function drawMainCat() {
+      const bob = Math.sin(sceneTime * 0.003) * 3;
+      const wavePhase = waving > 0 ? (22 - waving) * 0.7 : Math.sin(sceneTime * 0.002) * 0.15;
+      drawCat(W / 2, H / 2 - 10 + bob, 1.05, wavePhase, '#fff4e0');
+    }
+
+    function drawParticles() {
+      particles.forEach(p => {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.fillStyle = '#ffd24d';
+        ctx.strokeStyle = '#d9a51f';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, p.size, p.size * 0.75, 0, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+        ctx.restore();
+      });
+      ctx.globalAlpha = 1;
+    }
+
+    function drawFloaters() {
+      floaters.forEach(f => {
+        ctx.globalAlpha = Math.max(0, f.life);
+        ctx.fillStyle = '#e8a020';
+        ctx.font = 'bold 18px Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(f.text, f.x, f.y);
+      });
+      ctx.globalAlpha = 1;
+    }
+
+    function drawSparkles() {
+      sparkles.forEach(s => {
+        ctx.globalAlpha = Math.max(0, s.life) * 0.7;
+        ctx.fillStyle = '#ffcf66';
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+    }
+
+    // ============ UPDATE ============
+    function updateEffects(dt) {
+      particles = particles.filter(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.28;
+        p.rot += 0.15;
+        p.life -= dt * 0.0022;
+        return p.life > 0;
+      });
+
+      floaters = floaters.filter(f => {
+        f.y -= 0.6;
+        f.life -= dt * 0.0016;
+        return f.life > 0;
+      });
+
+      sparkles = sparkles.filter(s => {
+        s.x += s.vx;
+        s.y += s.vy;
+        s.life -= dt * 0.0012;
+        return s.life > 0;
+      });
+
+      if (sparkles.length < 14 && Math.random() < 0.12) spawnSparkle();
+      if (waving > 0) waving--;
+    }
+
+    function updateIdle(seconds) {
+      if (state.cats <= 0) return;
+      const rate = perTapValue() * state.cats / 1.6; // coins per second
+      if (rate > 0) {
+        state.coins += rate * seconds;
+        state.lifetimeCoins += rate * seconds;
+      }
+    }
+
+    // ============ MAIN LOOP ============
+    function loop(now) {
+      if (!isRunning) return;
+      const dt = Math.min(100, now - lastTime);
+      lastTime = now;
+
+      if (!isPaused) {
+        sceneTime += dt;
+        updateIdle(dt / 1000);
+        updateEffects(dt);
+        // periodically refresh idle counters
+        idleAccumulator += dt;
+        if (idleAccumulator > 500) {
+          idleAccumulator = 0;
+          refreshUI();
+        }
+      }
+
+      drawBackground();
+      drawMainCat();
+      drawParticles();
+      drawSparkles();
+      drawFloaters();
+
+      requestAnimationFrame(loop);
+    }
+
+    // ============ INPUT — CANVAS ============
+    function canvasPos(evt) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+      const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+      return {
+        x: (clientX - rect.left) * (W / rect.width),
+        y: (clientY - rect.top) * (H / rect.height)
+      };
+    }
+
+    function onCanvasTap(evt) {
+      evt.preventDefault();
+      if (!isRunning || isPaused) return;
+      const p = canvasPos(evt);
+      // main cat hit region (generous)
+      const dx = p.x - W / 2;
+      const dy = p.y - (H / 2 - 10);
+      if (dx * dx / (70 * 70) + dy * dy / (80 * 80) <= 1.3) {
+        tapCat(p.x, p.y);
+      } else {
+        beep(300, 0.06, 'sine', 0.03);
+      }
+    }
+
+    canvas.addEventListener('mousedown', onCanvasTap);
+    canvas.addEventListener('touchstart', onCanvasTap, { passive: false });
+
+    // ============ INPUT — SHOP ============
+    document.querySelectorAll('.shop-btn').forEach(btn => {
+      btn.addEventListener('click', () => buyUpgrade(btn.dataset.up));
+    });
+
+    // ============ FLOW CONTROL ============
+    function startGame() {
+      isRunning = true;
+      isPaused = false;
+      startScreen.classList.add('hidden');
+      pauseScreen.classList.add('hidden');
+      lastTime = performance.now();
+      refreshUI();
+      requestAnimationFrame(loop);
+    }
+
+    function togglePause() {
+      if (!isRunning) return;
+      isPaused = !isPaused;
+      pauseScreen.classList.toggle('hidden', !isPaused);
+      if (!isPaused) { lastTime = performance.now(); requestAnimationFrame(loop); }
+    }
+
+    function resetGame() {
+      if (!confirmReset()) return;
+      state.coins = 0; state.cats = 0; state.luck = 0;
+      state.lifetimeCoins = 0; state.lastFortuneDay = ''; state.fortuneStreak = 0;
+      particles = []; floaters = []; sparkles = [];
+      save(); refreshUI();
+      toast('Save reset — a fresh start! 🌱');
+    }
+
+    // two-tap confirmation without alert()/confirm()
+    let resetArmed = false;
+    function confirmReset() {
+      if (!resetArmed) {
+        resetArmed = true;
+        resetBtn.textContent = 'Tap again to confirm';
+        setTimeout(() => { resetArmed = false; resetBtn.textContent = 'Reset Save'; }, 2500);
+        return false;
+      }
+      resetArmed = false;
+      resetBtn.textContent = 'Reset Save';
+      return true;
+    }
+
+    startBtn.addEventListener('click', startGame);
+    resumeBtn.addEventListener('click', togglePause);
+    resetBtn.addEventListener('click', resetGame);
+
+    // Keyboard: space to pause, P too
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' || e.code === 'KeyP') {
+        e.preventDefault();
+        togglePause();
+      }
+    });
+
+    // ============ INIT ============
+    load();
+    refreshUI();
+    // initial idle draw behind start screen
+    (function initialDraw() {
+      sceneTime = 0;
+      for (let i = 0; i < 10; i++) spawnSparkle();
+      drawBackground();
+      drawMainCat();
+      drawSparkles();
+    })();
+
+    // keep canvas crisp on resize handled by CSS width:100%
+    window.addEventListener('resize', () => { /* CSS handles scaling */ });
+  </script>
+</body>
+</html>

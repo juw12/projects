@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>⛴️ FERRY — Harbour Run</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --deep: #063a55;
+      --sea: #0e6f9c;
+      --foam: #bfe9f5;
+      --sand: #e6d199;
+      --wood: #a9743f;
+      --gold: #ffc94d;
+      --red: #ff5d6c;
+      --green: #3fd98a;
+      --ink: #08222f;
+    }
+
+    body {
+      font-family: 'Trebuchet MS', 'Segoe UI', Tahoma, sans-serif;
+      background: radial-gradient(circle at 50% 0%, #12455f 0%, #06222f 70%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      color: #eaf6fb;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(6, 34, 47, 0.92);
+      border: 2px solid rgba(191, 233, 245, 0.18);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+      max-width: 760px;
+      width: 96%;
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.7rem;
+      letter-spacing: 6px;
+      color: var(--gold);
+      text-shadow: 0 2px 0 #7a5000;
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.78rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #7fc6e0;
+      margin-bottom: 10px;
+    }
+
+    /* ============ HUD ============ */
+    .hud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+      font-size: 0.78rem;
+    }
+
+    .hud-cell {
+      flex: 1 1 90px;
+      background: rgba(191, 233, 245, 0.07);
+      border: 1px solid rgba(191, 233, 245, 0.14);
+      border-radius: 10px;
+      padding: 6px 9px;
+    }
+
+    .hud-cell b { color: var(--gold); font-size: 0.95rem; }
+    .hud-label { display: block; color: #8fc7dd; font-size: 0.66rem; letter-spacing: 1.5px; text-transform: uppercase; }
+
+    .hud-target { flex: 1 1 100%; text-align: center; color: var(--foam); }
+    .hud-target b { color: var(--green); }
+
+    /* Bars */
+    .bar { height: 8px; border-radius: 5px; background: rgba(0, 0, 0, 0.4); overflow: hidden; margin-top: 4px; }
+    .bar > i { display: block; height: 100%; width: 100%; transition: width 0.15s linear; }
+    .bar.fuel > i { background: linear-gradient(90deg, #ffb347, #ffd98a); }
+    .bar.happy > i { background: linear-gradient(90deg, #ff6b8a, #ffb0c0); }
+    .bar.hull > i { background: linear-gradient(90deg, #3fd98a, #b8ffd9); }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: inset 0 0 0 2px rgba(191, 233, 245, 0.12), 0 8px 24px rgba(0, 0, 0, 0.4);
+      background: var(--deep);
+    }
+
+    canvas { display: block; width: 100%; height: auto; touch-action: none; }
+
+    /* ============ SCREENS / OVERLAYS ============ */
+    .screen {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: center;
+      text-align: center;
+      padding: 20px;
+      background: rgba(4, 22, 32, 0.94);
+      transition: opacity 0.3s ease;
+    }
+
+    .screen.hidden { opacity: 0; pointer-events: none; }
+
+    .screen-title { font-size: 1.9rem; letter-spacing: 4px; color: var(--gold); margin-bottom: 6px; }
+    .screen-subtitle { font-size: 0.85rem; color: #9fd3e6; margin-bottom: 16px; max-width: 420px; line-height: 1.5; }
+    .final-stats { font-size: 0.9rem; color: var(--foam); margin-bottom: 18px; line-height: 1.7; }
+    .final-stats b { color: var(--gold); }
+
+    .howto {
+      display: grid;
+      grid-template-columns: auto auto;
+      gap: 4px 12px;
+      font-size: 0.76rem;
+      color: #8fc7dd;
+      margin-bottom: 18px;
+    }
+    .howto span:nth-child(odd) { color: var(--foam); font-weight: bold; text-align: right; }
+
+    .action-btn {
+      padding: 12px 34px;
+      background: linear-gradient(180deg, #2fa8d6, #12658c);
+      color: #eaf6fb;
+      border: none; border-radius: 26px;
+      font-size: 1.05rem; font-weight: bold; letter-spacing: 2px;
+      cursor: pointer;
+      box-shadow: 0 5px 0 #0a3d55, 0 8px 18px rgba(0, 0, 0, 0.4);
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+      font-family: inherit;
+    }
+    .action-btn:hover { transform: translateY(-2px); box-shadow: 0 7px 0 #0a3d55, 0 10px 22px rgba(0, 0, 0, 0.5); }
+    .action-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #0a3d55; }
+
+    /* ============ PAUSE OVERLAY ============ */
+    .pause-overlay {
+      position: absolute; inset: 0;
+      display: flex; justify-content: center; align-items: center;
+      font-size: 2rem; letter-spacing: 6px; color: var(--gold);
+      background: rgba(4, 22, 32, 0.72);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .pause-overlay.visible { opacity: 1; }
+
+    /* ============ FOOTER HINT ============ */
+    .hint { text-align: center; font-size: 0.7rem; color: #5f9db4; margin-top: 8px; letter-spacing: 1px; }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 560px) {
+      .game-title { font-size: 1.3rem; letter-spacing: 4px; }
+      .hud-cell { flex: 1 1 44%; }
+      .howto { font-size: 0.7rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">FERRY</h1>
+    <p class="game-subtitle">Harbour Run</p>
+
+    <!-- HUD -->
+    <div class="hud">
+      <div class="hud-cell"><span class="hud-label">Fare Box</span><b id="money">$0</b></div>
+      <div class="hud-cell"><span class="hud-label">Delivered</span><b id="delivered">0</b></div>
+      <div class="hud-cell"><span class="hud-label">Aboard</span><b id="aboard">0/10</b></div>
+      <div class="hud-cell"><span class="hud-label">Fuel</span><b id="fuelTxt">100%</b><div class="bar fuel"><i id="fuelBar"></i></div></div>
+      <div class="hud-cell"><span class="hud-label">Passenger Mood</span><b id="mood">100%</b><div class="bar happy"><i id="happyBar"></i></div></div>
+      <div class="hud-cell"><span class="hud-label">Hull</span><b id="hullTxt">100%</b><div class="bar hull"><i id="hullBar"></i></div></div>
+      <div class="hud-target">Dispatch &rarr; <b id="target">—</b> &nbsp;|&nbsp; Best: <b id="best">$0</b></div>
+    </div>
+
+    <!-- CANVAS -->
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="960" height="640"></canvas>
+
+      <!-- Start Screen -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">FERRY</h2>
+        <p class="screen-subtitle">Run the harbour crossing. Call at the jetties, pick up and drop off passengers, mind your fuel, and keep clear of rocks, buoys and other boats.</p>
+        <div class="howto">
+          <span>Steer</span><span>Arrow keys / A &amp; D</span>
+          <span>Throttle</span><span>W &amp; S / Arrow Up &amp; Down</span>
+          <span>Touch</span><span>Drag anywhere on the water = joystick</span>
+          <span>Dock</span><span>Approach a jetty slowly to berth</span>
+          <span>Pause</span><span>Space or P</span>
+        </div>
+        <button class="action-btn" id="startBtn">START SERVICE</button>
+      </div>
+
+      <!-- Game Over Screen -->
+      <div id="gameOverScreen" class="screen hidden">
+        <h2 class="screen-title" id="overTitle">END OF SERVICE</h2>
+        <p class="screen-subtitle" id="overReason">The crossing is over for today.</p>
+        <div class="final-stats" id="finalStats"></div>
+        <button class="action-btn" id="playAgainBtn">RUN AGAIN</button>
+      </div>
+
+      <!-- Pause Overlay -->
+      <div id="pauseOverlay" class="pause-overlay">PAUSED</div>
+    </div>
+
+    <p class="hint">Slow approach to dock · Fast transit to please passengers</p>
+  </div>
+
+  <script>
+    // ============ GAME CONFIGURATION ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+
+    const CFG = {
+      WORLD_W: 1800,
+      WORLD_H: 1300,
+      BANK: 180,            // land strip width on each side
+      MAX_SPEED: 235,
+      MIN_SPEED: -95,
+      ACCEL: 285,
+      DRAG: 1.2,
+      TURN: 2.5,
+      DOCK_RADIUS: 78,
+      DOCK_SPEED: 48,
+      DOCK_TIME: 1.1,
+      CAPACITY: 10,
+      FUEL_MAX: 100,
+      FUEL_IDLE: 0.32,
+      FUEL_THROTTLE: 2.4,
+      REFUEL_RATE: 17,
+      REFUEL_COST: 0.5,
+      SPAWN_EVERY: 2.1,
+      ONTIME: 40,           // seconds for a punctuality tip
+      FERRY_R: 22
+    };
+
+    // Water is playable between these bounds
+    const BOUND = { x0: CFG.BANK + 26, x1: CFG.WORLD_W - CFG.BANK - 26, y0: 72, y1: CFG.WORLD_H - 72 };
+
+    // ============ HELPERS ============
+    const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+    const rand = (a, b) => a + Math.random() * (b - a);
+    const pick = arr => arr[(Math.random() * arr.length) | 0];
+    const dist2 = (ax, ay, bx, by) => { const dx = ax - bx, dy = ay - by; return dx * dx + dy * dy; };
+    function normAngle(a) { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; }
+
+    // ============ AUDIO (WebAudio beeps) ============
+    let actx = null;
+    function audioInit() {
+      if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } }
+      if (actx && actx.state === 'suspended') actx.resume();
+    }
+    function beep(freq = 440, dur = 0.1, type = 'sine', vol = 0.06) {
+      if (!actx) return;
+      try {
+        const o = actx.createOscillator(), g = actx.createGain();
+        o.type = type; o.frequency.value = freq;
+        o.connect(g); g.connect(actx.destination);
+        const t = actx.currentTime;
+        g.gain.setValueAtTime(vol, t);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.start(t); o.stop(t + dur);
+      } catch (e) { /* silent */ }
+    }
+    const sfx = {
+      dock: () => { beep(560, 0.09, 'triangle', 0.07); setTimeout(() => beep(760, 0.11, 'triangle', 0.07), 90); },
+      load: () => beep(880, 0.07, 'square', 0.045),
+      pay: () => { beep(1040, 0.06, 'sine', 0.05); setTimeout(() => beep(1320, 0.08, 'sine', 0.05), 70); },
+      bump: () => beep(120, 0.16, 'sawtooth', 0.09),
+      scrape: () => beep(180, 0.08, 'triangle', 0.05),
+      warn: () => beep(300, 0.16, 'square', 0.05),
+      over: () => { beep(300, 0.25, 'sawtooth', 0.08); setTimeout(() => beep(180, 0.4, 'sawtooth', 0.08), 220); }
+    };
+
+    // ============ DOM ELEMENTS ============
+    const moneyEl = document.getElementById('money');
+    const deliveredEl = document.getElementById('delivered');
+    const aboardEl = document.getElementById('aboard');
+    const fuelTxt = document.getElementById('fuelTxt');
+    const fuelBar = document.getElementById('fuelBar');
+    const moodEl = document.getElementById('mood');
+    const happyBar = document.getElementById('happyBar');
+    const hullTxt = document.getElementById('hullTxt');
+    const hullBar = document.getElementById('hullBar');
+    const targetEl = document.getElementById('target');
+    const bestEl = document.getElementById('best');
+    const startScreen = document.getElementById('startScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const overTitle = document.getElementById('overTitle');
+    const overReason = document.getElementById('overReason');
+    const finalStats = document.getElementById('finalStats');
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const startBtn = document.getElementById('startBtn');
+    const playAgainBtn = document.getElementById('playAgainBtn');
+
+    // ============ PERSISTENT SAVE ============
+    let bestMoney = parseInt(localStorage.getItem('ferryBestMoney') || '0', 10) || 0;
+    bestEl.textContent = '$' + bestMoney;
+
+    // ============ JETTY / WORLD DEFINITIONS ============
+    const JETTIES = [
+      { bank: 'left', y: 280, name: 'North Quay', fuel: false },
+      { bank: 'right', y: 280, name: 'East Bank', fuel: false },
+      { bank: 'left', y: 640, name: 'Fuel Pier', fuel: true },
+      { bank: 'right', y: 640, name: 'Market Dock', fuel: false },
+      { bank: 'left', y: 1000, name: 'Old Harbour', fuel: false },
+      { bank: 'right', y: 1000, name: 'South Terminal', fuel: false }
+    ];
+    const PASSENGER_JETTIES = [0, 1, 3, 4, 5];
+
+    const ROCK_DEFS = [
+      { x: 760, y: 200, r: 34 }, { x: 900, y: 420, r: 26 }, { x: 640, y: 880, r: 38 },
+      { x: 1100, y: 1050, r: 30 }, { x: 1250, y: 250, r: 28 }, { x: 820, y: 680, r: 22 },
+      { x: 1050, y: 780, r: 34 }, { x: 520, y: 480, r: 20 }, { x: 1380, y: 900, r: 26 },
+      { x: 1180, y: 560, r: 24 }, { x: 700, y: 300, r: 18 }
+    ];
+
+    const BUOY_DEFS = [
+      { x: 420, y: 440, c: '#e74c3c' }, { x: 520, y: 440, c: '#2ecc71' },
+      { x: 420, y: 880, c: '#2ecc71' }, { x: 520, y: 880, c: '#e74c3c' },
+      { x: 1240, y: 440, c: '#e74c3c' }, { x: 1340, y: 440, c: '#2ecc71' },
+      { x: 1240, y: 880, c: '#2ecc71' }, { x: 1340, y: 880, c: '#e74c3c' },
+      { x: 900, y: 160, c: '#f1c40f' }, { x: 960, y: 1160, c: '#f1c40f' }
+    ];
+
+    const BOAT_DEFS = [
+      { pts: [{ x: 420, y: 180 }, { x: 1400, y: 180 }], speed: 74 },
+      { pts: [{ x: 1400, y: 1120 }, { x: 420, y: 1120 }], speed: 62 },
+      { pts: [{ x: 900, y: 150 }, { x: 900, y: 1150 }], speed: 84 },
+      { pts: [{ x: 620, y: 400 }, { x: 1180, y: 300 }, { x: 1180, y: 900 }, { x: 620, y: 820 }], speed: 58 }
+    ];
+
+    // ============ GAME STATE ============
+    let ferry, rocks, buoys, boats, particles, cam, joystick;
+    let running = false, paused = false, gameOver = false;
+    let elapsed = 0, sinceHit = 99, sinceFuelWarn = 0, spawnTimer = 0;
+    let fuelEmptyTimer = 0, shake = 0, flash = 0;
+    let money = 0, delivered = 0, happiness = 100, hull = 100, fuel = CFG.FUEL_MAX;
+    let keyboard = { up: false, down: false, left: false, right: false };
+    let lastTime = 0;
+
+    // ============ WORLD SETUP ============
+    function buildWorld() {
+      rocks = ROCKSEL();
+      buoys = BUOY_DEFS.map(b => ({ ...b, phase: Math.random() * Math.PI * 2 }));
+      boats = BOAT_DEFS.map((b, i) => ({
+        ...b, i, idx: 0, x: b.pts[0].x, y: b.pts[0].y,
+        heading: 0, wake: [], bob: Math.random() * Math.PI * 2
+      }));
+      JETTIES.forEach(j => {
+        j.tip = { x: j.bank === 'left' ? CFG.BANK + 122 : CFG.WORLD_W - CFG.BANK - 122, y: j.y };
+        j.base = { x: j.bank === 'left' ? CFG.BANK : CFG.WORLD_W - CFG.BANK, y: j.y };
+        j.waiting = [];
+        j.progress = 0;
+        j.serviced = false;
+      });
+      // Seed a few waiting passengers
+      for (let k = 0; k < 3; k++) addWaiting(pick(PASSENGER_JETTIES));
+    }
+    function ROCKSEL() { return ROCK_DEFS.map(r => ({ ...r })); }
+
+    function makeFerry() {
+      return {
+        x: 640, y: 900,
+        heading: -Math.PI / 2,
+        speed: 0,
+        pax: [],
+        wake: []
+      };
+    }
+
+    function addWaiting(jettyIndex) {
+      const j = JETTIES[jettyIndex];
+      if (j.fuel || j.waiting.length >= 6) return;
+      const options = PASSENGER_JETTIES.filter(i => i !== jettyIndex);
+      j.waiting.push({ dest: pick(options), spawned: elapsed, plus: Math.random() < 0.25 });
+    }
+
+    // ============ GAME CONTROL ============
+    function newGame() {
+      money = 0; delivered = 0; happiness = 100; hull = 100; fuel = CFG.FUEL_MAX;
+      elapsed = 0; sinceHit = 99; spawnTimer = 0; fuelEmptyTimer = 0; shake = 0; flash = 0;
+      buildWorld();
+      ferry = makeFerry();
+      particles = [];
+      cam = { x: clamp(ferry.x - W / 2, 0, CFG.WORLD_W - W), y: clamp(ferry.y - H / 2, 0, CFG.WORLD_H - H) };
+      joystick = { active: false, bx: 0, by: 0, x: 0, y: 0 };
+      paused = false; gameOver = false;
+      updateHud();
+    }
+
+    function startGame() {
+      audioInit();
+      newGame();
+      running = true;
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      pauseOverlay.classList.remove('visible');
+      lastTime = performance.now();
+      requestAnimationFrame(loop);
+    }
+
+    function togglePause() {
+      if (!running || gameOver) return;
+      paused = !paused;
+      pauseOverlay.classList.toggle('visible', paused);
+      if (!paused) { lastTime = performance.now(); requestAnimationFrame(loop); }
+    }
+
+    function endGame(title, reason) {
+      if (gameOver) return;
+      gameOver = true; running = false;
+      sfx.over();
+      let recordNote = '';
+      if (money > bestMoney) {
+        bestMoney = money;
+        localStorage.setItem('ferryBestMoney', String(bestMoney));
+        bestEl.textContent = '$' + bestMoney;
+        recordNote = '<br><b>NEW HARBOUR RECORD!</b>';
+      }
+      overTitle.textContent = title;
+      overReason.textContent = reason;
+      finalStats.innerHTML =
+        'Fares earned: <b>$' + money + '</b><br>' +
+        'Passengers delivered: <b>' + delivered + '</b><br>' +
+        'Best ever: <b>$' + bestMoney + '</b>' + recordNote;
+      gameOverScreen.classList.remove('hidden');
+    }
+
+    // ============ TARGET / DISPATCH ============
+    function getTarget() {
+      if (ferry.pax.length > 0) return JETTIES[ferry.pax[0].dest];
+      let best = null;
+      for (const i of PASSENGER_JETTIES) {
+        const j = JETTIES[i];
+        if (!best || j.waiting.length > best.waiting.length) best = j;
+      }
+      return best;
+    }
+
+    // ============ UPDATE ============
+    function update(dt) {
+      elapsed += dt;
+      sinceHit += dt;
+      spawnTimer += dt;
+      flash = Math.max(0, flash - dt * 3);
+      shake = Math.max(0, shake - dt * 26);
+
+      // Scheduled passenger arrivals
+      if (spawnTimer > CFG.SPAWN_EVERY) {
+        spawnTimer = 0;
+        addWaiting(pick(PASSENGER_JETTIES));
+      }
+
+      // ---- Input -> thrust & steer ----
+      let thrust = 0, steer = 0;
+      const dx = joystick.x - joystick.bx, dy = joystick.y - joystick.by;
+      const jmag = Math.hypot(dx, dy);
+      if (joystick.active && jmag > 12) {
+        const desired = Math.atan2(dy, dx);
+        steer = clamp(normAngle(desired - ferry.heading) * 2.2, -1, 1);
+        thrust = clamp(jmag / 95, 0, 1);
+      } else {
+        thrust = (keyboard.up ? 1 : 0) + (keyboard.down ? -1 : 0);
+        steer = (keyboard.right ? 1 : 0) + (keyboard.left ? -1 : 0);
+      }
+
+      // ---- Fuel gating ----
+      const empty = fuel <= 0;
+      if (empty) {
+        fuelEmptyTimer += dt;
+        if (fuelEmptyTimer > 8) { endGame('ADRIFT', 'You ran dry far from any pier. The harbour tug had to tow you in.'); return; }
+        thrust = Math.min(thrust, 0); // no power when dry
+      } else {
+        fuelEmptyTimer = 0;
+      }
+
+      // ---- Ferry physics ----
+      ferry.speed += (thrust * CFG.ACCEL - ferry.speed * CFG.DRAG) * dt;
+      ferry.speed = clamp(ferry.speed, CFG.MIN_SPEED, CFG.MAX_SPEED);
+      const turnScale = 0.42 + 0.58 * Math.min(1, Math.abs(ferry.speed) / 130);
+      ferry.heading += steer * CFG.TURN * dt * turnScale;
+      ferry.heading = normAngle(ferry.heading);
+
+      let nx = ferry.x + Math.cos(ferry.heading) * ferry.speed * dt;
+      let ny = ferry.y + Math.sin(ferry.heading) * ferry.speed * dt;
+
+      // Bank / bound collisions (gentle bump)
+      if (nx < BOUND.x0 || nx > BOUND.x1) { nx = clamp(nx, BOUND.x0, BOUND.x1); ferry.speed *= 0.4; }
+      if (ny < BOUND.y0 || ny > BOUND.y1) { ny = clamp(ny, BOUND.y0, BOUND.y1); ferry.speed *= 0.4; }
+      ferry.x = nx; ferry.y = ny;
+
+      // ---- Fuel burn ----
+      if (!empty) {
+        const burn = (CFG.FUEL_IDLE + Math.abs(thrust) * CFG.FUEL_THROTTLE) * dt;
+        fuel = Math.max(0, fuel - burn);
+        if (fuel < 15 && sinceFuelWarn <= 0) { sfx.warn(); sinceFuelWarn = 2; }
+      }
+      sinceFuelWarn -= dt;
+
+      // ---- Docking ----
+      handleDocking(dt);
+
+      // ---- Collisions ----
+      handleCollisions(dt);
+
+      // ---- AI boats ----
+      updateBoats(dt);
+
+      // ---- Wake particles ----
+      spawnWake(dt);
+      updateParticles(dt);
+
+      // ---- Comfort: happiness slowly recovers when cruising calmly ----
+      if (sinceHit > 4 && !empty) happiness = Math.min(100, happiness + 1.4 * dt);
+      happiness = clamp(happiness, 0, 100);
+      hull = clamp(hull, 0, 100);
+
+      // ---- Fail states ----
+      if (happiness <= 0) { endGame('MUTINY', 'The passengers had enough of the bumpy ride and stormed ashore.'); return; }
+      if (hull <= 0) { endGame('HULL BREACH', 'Too many hard knocks. The ferry is taking on water.'); return; }
+
+      // ---- Camera follow ----
+      const tx = clamp(ferry.x - W / 2, 0, CFG.WORLD_W - W);
+      const ty = clamp(ferry.y - H / 2, 0, CFG.WORLD_H - H);
+      cam.x += (tx - cam.x) * Math.min(1, dt * 5);
+      cam.y += (ty - cam.y) * Math.min(1, dt * 5);
+
+      updateHud();
+    }
+
+    // ============ DOCKING ============
+    function handleDocking(dt) {
+      let docked = null, bestD = Infinity;
+      for (const j of JETTIES) {
+        const d = Math.hypot(ferry.x - j.tip.x, ferry.y - j.tip.y);
+        if (d < CFG.DOCK_RADIUS && Math.abs(ferry.speed) < CFG.DOCK_SPEED && d < bestD) { bestD = d; docked = j; }
+      }
+      for (const j of JETTIES) { if (j !== docked) { j.progress = 0; j.serviced = false; } }
+      if (!docked) return;
+
+      docked.progress += dt;
+      if (docked.progress >= CFG.DOCK_TIME && !docked.serviced) {
+        docked.serviced = true;
+        serviceDock(docked);
+      }
+      // Refuel / repair while berthed
+      if (docked.serviced) {
+        if (docked.fuel && fuel < CFG.FUEL_MAX && money > 0) {
+          const add = Math.min(CFG.REFUEL_RATE * dt, CFG.FUEL_MAX - fuel);
+          fuel += add;
+          money = Math.max(0, money - add * CFG.REFUEL_COST);
+        }
+        hull = Math.min(100, hull + 6 * dt);
+      }
+    }
+
+    function serviceDock(j) {
+      sfx.dock();
+      if (j.fuel) return;
+      // Unload passengers bound for this jetty
+      const leaving = ferry.pax.filter(p => p.dest === JETTIES.indexOf(j));
+      ferry.pax = ferry.pax.filter(p => p.dest !== JETTIES.indexOf(j));
+      let earned = 0;
+      for (const p of leaving) {
+        let fare = 12;
+        if (elapsed - p.boarded < CFG.ONTIME) fare += 6;   // punctuality tip
+        if (p.plus) fare += 4;                              // premium passenger
+        earned += fare;
+      }
+      if (leaving.length) {
+        money += earned; delivered += leaving.length;
+        happiness = Math.min(100, happiness + leaving.length * 2);
+        for (let i = 0; i < leaving.length; i++) burst(j.tip.x, j.tip.y, '#ffd166');
+        sfx.pay();
+      }
+      // Load waiting passengers up to capacity
+      let boarded = 0;
+      while (ferry.pax.length < CFG.CAPACITY && j.waiting.length > 0) {
+        const p = j.waiting.shift();
+        ferry.pax.push({ dest: p.dest, boarded: elapsed, plus: p.plus });
+        boarded++;
+      }
+      if (boarded) sfx.load();
+    }
+
+    // ============ COLLISIONS ============
+    function handleCollisions(dt) {
+      // Rocks
+      for (const r of rocks) {
+        const rr = r.r + CFG.FERRY_R;
+        if (dist2(ferry.x, ferry.y, r.x, r.y) < rr * rr) {
+          resolveCircle(r.x, r.y, rr, 14);
+        }
+      }
+      // Buoys (soft obstacles)
+      for (const b of buoys) {
+        const rr = 13 + CFG.FERRY_R;
+        if (dist2(ferry.x, ferry.y, b.x, b.y) < rr * rr) {
+          resolveCircle(b.x, b.y, rr, 0, true);
+        }
+      }
+      // Other boats
+      for (const bt of boats) {
+        const rr = 20 + CFG.FERRY_R;
+        if (dist2(ferry.x, ferry.y, bt.x, bt.y) < rr * rr) {
+          resolveCircle(bt.x, bt.y, rr, 16);
+        }
+      }
+    }
+
+    function resolveCircle(cx, cy, rr, damage, soft) {
+      const d = Math.hypot(ferry.x - cx, ferry.y - cy) || 0.001;
+      const nx = (ferry.x - cx) / d, ny = (ferry.y - cy) / d;
+      ferry.x = cx + nx * rr;
+      ferry.y = cy + ny * rr;
+      ferry.speed *= soft ? 0.5 : 0.25;
+      if (sinceHit > 0.7) {
+        sinceHit = 0;
+        if (soft) {
+          happiness = clamp(happiness - 1.5, 0, 100);
+          sfx.scrape();
+          burst(ferry.x, ferry.y, '#bfe9f5');
+        } else {
+          happiness = clamp(happiness - 8, 0, 100);
+          hull = clamp(hull - damage, 0, 100);
+          shake = 10; flash = 0.6;
+          sfx.bump();
+          burst(ferry.x, ferry.y, '#ff5d6c');
+        }
+      }
+    }
+
+    // ============ AI BOATS ============
+    function updateBoats(dt) {
+      for (const bt of boats) {
+        const wp = bt.pts[bt.idx];
+        const dx = wp.x - bt.x, dy = wp.y - bt.y;
+        const d = Math.hypot(dx, dy);
+        if (d < 22) { bt.idx = (bt.idx + 1) % bt.pts.length; continue; }
+        bt.heading = Math.atan2(dy, dx);
+        bt.x += Math.cos(bt.heading) * bt.speed * dt;
+        bt.y += Math.sin(bt.heading) * bt.speed * dt;
+        bt.bob += dt * 3;
+        bt.wake.push({ x: bt.x, y: bt.y, life: 1 });
+        if (bt.wake.length > 12) bt.wake.shift();
+        bt.wake.forEach(w => { w.life -= dt * 0.9; });
+        bt.wake = bt.wake.filter(w => w.life > 0);
+      }
+    }
+
+    // ============ PARTICLES ============
+    function spawnWake(dt) {
+      if (Math.abs(ferry.speed) < 55) return;
+      if (Math.random() > dt * 22) return;
+      const back = ferry.heading + Math.PI;
+      ferry.wake.push({
+        x: ferry.x + Math.cos(back) * 20,
+        y: ferry.y + Math.sin(back) * 20,
+        life: 1, r: 5 + Math.random() * 5
+      });
+      if (ferry.wake.length > 40) ferry.wake.shift();
+    }
+
+    function burst(x, y, color) {
+      for (let i = 0; i < 10; i++) {
+        particles.push({
+          x, y,
+          vx: rand(-110, 110), vy: rand(-110, 110),
+          life: 1, color, r: rand(2, 5)
+        });
+      }
+    }
+
+    function updateParticles(dt) {
+      ferry.wake.forEach(w => { w.life -= dt * 0.7; w.r += dt * 8; });
+      ferry.wake = ferry.wake.filter(w => w.life > 0);
+      particles.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.94; p.vy *= 0.94; p.life -= dt * 1.6; });
+      particles = particles.filter(p => p.life > 0);
+    }
+
+    // ============ DRAW ============
+    function draw() {
+      const sx = shake ? rand(-shake, shake) : 0;
+      const sy = shake ? rand(-shake, shake) : 0;
+
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      drawWater(BOUND.x0, BOUND.y0, cam.x, cam.y, sx, sy);
+
+      ctx.save();
+      ctx.translate(-cam.x + sx, -cam.y + sy);
+
+      drawBanks();
+      drawJetties();
+      drawRocks();
+      drawBuoys();
+      boats.forEach(drawBoat);
+      drawWake();
+      drawFerry();
+      drawParticles();
+      drawTargetBeacon();
+
+      ctx.restore();
+
+      drawMinimap();
+      drawOffscreenArrow();
+      if (flash > 0) {
+        ctx.fillStyle = `rgba(255,60,80,${flash * 0.35})`;
+        ctx.fillRect(0, 0, W, H);
+      }
+    }
+
+    function drawWater(x0, y0, cx, cy, sx, sy) {
+      // Water fills the visible viewport
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, '#12678e');
+      g.addColorStop(1, '#083f5c');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      // Moving wave lines in screen space
+      ctx.strokeStyle = 'rgba(191,233,245,0.10)';
+      ctx.lineWidth = 2;
+      const step = 46;
+      const off = (cx + cy) % step;
+      for (let y = -step + (off % step); y < H + step; y += step) {
+        ctx.beginPath();
+        for (let x = -step; x < W + step; x += 12) {
+          const yy = y + Math.sin((x + cx) * 0.02 + elapsed * 1.1) * 5;
+          x === -step ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy);
+        }
+        ctx.stroke();
+      }
+      // Sparkle specks
+      ctx.fillStyle = 'rgba(200,240,255,0.14)';
+      for (let i = 0; i < 40; i++) {
+        const px = ((i * 137 + Math.floor(cx * 0.5)) % (W + 40)) - 20;
+        const py = ((i * 83 + Math.floor(cy * 0.5)) % (H + 40)) - 20;
+        ctx.fillRect(px, py, 2, 2);
+      }
+    }
+
+    function drawBanks() {
+      const B = CFG.BANK;
+      // left bank
+      ctx.fillStyle = '#e6d199';
+      ctx.fillRect(0, 0, B, CFG.WORLD_H);
+      ctx.fillStyle = '#cbb273';
+      ctx.fillRect(B - 26, 0, 26, CFG.WORLD_H);
+      // right bank
+      ctx.fillStyle = '#e6d199';
+      ctx.fillRect(CFG.WORLD_W - B, 0, B, CFG.WORLD_H);
+      ctx.fillStyle = '#cbb273';
+      ctx.fillRect(CFG.WORLD_W - B, 0, 26, CFG.WORLD_H);
+      // rock walls at top/bottom
+      ctx.fillStyle = '#5c6b6f';
+      ctx.fillRect(B, 0, CFG.WORLD_W - B * 2, 46);
+      ctx.fillRect(B, CFG.WORLD_H - 46, CFG.WORLD_W - B * 2, 46);
+      ctx.fillStyle = 'rgba(0,0,0,0.12)';
+      ctx.fillRect(B, 40, CFG.WORLD_W - B * 2, 8);
+      ctx.fillRect(B, CFG.WORLD_H - 48, CFG.WORLD_W - B * 2, 8);
+      // little buildings on banks
+      ctx.fillStyle = '#b9a06a';
+      for (let y = 120; y < CFG.WORLD_H - 80; y += 150) {
+        ctx.fillRect(40, y, 60, 44);
+        ctx.fillRect(CFG.WORLD_W - 100, y + 60, 60, 44);
+      }
+      ctx.fillStyle = 'rgba(0,0,0,0.15)';
+      for (let y = 120; y < CFG.WORLD_H - 80; y += 150) {
+        ctx.fillRect(40, y, 60, 8);
+        ctx.fillRect(CFG.WORLD_W - 100, y + 60, 60, 8);
+      }
+    }
+
+    function drawJetties() {
+      const target = getTarget();
+      for (const j of JETTIES) {
+        const left = j.bank === 'left';
+        const bx = j.base.x, tx = j.tip.x;
+        const y = j.y;
+        const w = 30;
+        // gangway planks
+        ctx.fillStyle = '#a9743f';
+        ctx.fillRect(Math.min(bx, tx), y - w / 2, Math.abs(tx - bx), w);
+        ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+        ctx.lineWidth = 2;
+        for (let x = Math.min(bx, tx) + 6; x < Math.max(bx, tx); x += 12) {
+          ctx.beginPath(); ctx.moveTo(x, y - w / 2); ctx.lineTo(x, y + w / 2); ctx.stroke();
+        }
+        // terminal hut at base
+        ctx.fillStyle = '#8c6033';
+        ctx.fillRect(left ? bx + 4 : bx - 46, y - 24, 42, 48);
+        ctx.fillStyle = '#6f4a26';
+        ctx.fillRect(left ? bx + 4 : bx - 46, y - 24, 42, 10);
+        // posts at tip
+        ctx.fillStyle = '#6f4a26';
+        ctx.fillRect(tx - 4, y - w / 2 - 6, 8, 8);
+        ctx.fillRect(tx - 4, y + w / 2 - 2, 8, 8);
+        // bollard
+        ctx.fillStyle = '#333';
+        ctx.beginPath(); ctx.arc(tx + (left ? 16 : -16), y, 5, 0, 7); ctx.fill();
+
+        // waiting passengers / fuel marker
+        if (j.fuel) {
+          ctx.fillStyle = '#ffc94d';
+          ctx.font = 'bold 22px Trebuchet MS';
+          ctx.textAlign = 'center';
+          ctx.fillText('⛽', tx + (left ? -30 : 30), y + 8);
+        } else {
+          ctx.font = 'bold 13px Trebuchet MS';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#08222f';
+          for (let i = 0; i < j.waiting.length; i++) {
+            const px = tx + (left ? 22 + (i % 3) * 15 : -22 - (i % 3) * 15);
+            const py = y - 34 + Math.floor(i / 3) * 17;
+            ctx.fillStyle = j.waiting[i].plus ? '#ffc94d' : '#ff8fa3';
+            ctx.beginPath(); ctx.arc(px, py, 6, 0, 7); ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.beginPath(); ctx.arc(px, py - 1, 2, 0, 7); ctx.fill();
+          }
+        }
+
+        // name + count
+        ctx.font = 'bold 12px Trebuchet MS';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.fillText(j.name, tx + (left ? 8 : -8), y + 44);
+        if (!j.fuel) {
+          ctx.fillStyle = '#bfe9f5';
+          ctx.fillText(j.waiting.length + ' waiting', tx + (left ? 8 : -8), y + 60);
+        }
+
+        // docking progress ring
+        if (j.progress > 0) {
+          ctx.strokeStyle = 'rgba(63,217,138,0.9)';
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.arc(tx, y, 34, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, j.progress / CFG.DOCK_TIME));
+          ctx.stroke();
+        }
+        // recommended jetty beacon
+        if (j === target) {
+          const pulse = 0.5 + 0.5 * Math.sin(elapsed * 4);
+          ctx.strokeStyle = `rgba(63,217,138,${0.35 + pulse * 0.5})`;
+          ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.arc(tx, y, 46 + pulse * 10, 0, 7); ctx.stroke();
+        }
+      }
+    }
+
+    function drawRocks() {
+      for (const r of rocks) {
+        ctx.fillStyle = '#7b8790';
+        ctx.beginPath();
+        ctx.ellipse(r.x, r.y, r.r, r.r * 0.86, 0, 0, 7);
+        ctx.fill();
+        ctx.fillStyle = '#5f6a72';
+        ctx.beginPath();
+        ctx.ellipse(r.x - r.r * 0.2, r.y + r.r * 0.2, r.r * 0.6, r.r * 0.45, 0, 0, 7);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        ctx.beginPath();
+        ctx.ellipse(r.x - r.r * 0.3, r.y - r.r * 0.3, r.r * 0.3, r.r * 0.18, -0.6, 0, 7);
+        ctx.fill();
+        // foam ring
+        ctx.strokeStyle = 'rgba(191,233,245,0.4)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(r.x, r.y, r.r + 5, (r.r + 5) * 0.86, 0, 0, 7);
+        ctx.stroke();
+      }
+    }
+
+    function drawBuoys() {
+      for (const b of buoys) {
+        const bob = Math.sin(elapsed * 2 + b.phase) * 2.5;
+        const x = b.x + bob, y = b.y;
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.beginPath(); ctx.ellipse(x, y + 8, 12, 5, 0, 0, 7); ctx.fill();
+        ctx.fillStyle = b.c;
+        ctx.beginPath(); ctx.arc(x, y, 11, 0, 7); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.beginPath(); ctx.arc(x, y, 11, 0, Math.PI); ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(x, y, 11, 0, 7); ctx.stroke();
+      }
+    }
+
+    function drawBoat(bt) {
+      // wake trail
+      ctx.fillStyle = 'rgba(191,233,245,0.18)';
+      bt.wake.forEach((w, i) => {
+        ctx.globalAlpha = w.life * 0.5;
+        ctx.beginPath(); ctx.arc(w.x, w.y, 10 + (12 - i), 0, 7); ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+
+      ctx.save();
+      ctx.translate(bt.x, bt.y + Math.sin(bt.bob) * 1.5);
+      ctx.rotate(bt.heading + Math.PI / 2);
+      // hull
+      ctx.fillStyle = '#34495e';
+      ctx.beginPath();
+      ctx.moveTo(0, -22);
+      ctx.quadraticCurveTo(14, -6, 12, 20);
+      ctx.lineTo(-12, 20);
+      ctx.quadraticCurveTo(-14, -6, 0, -22);
+      ctx.fill();
+      // deck
+      ctx.fillStyle = '#5d7189';
+      ctx.fillRect(-9, -12, 18, 22);
+      // cabin
+      ctx.fillStyle = '#eaf6fb';
+      ctx.fillRect(-7, -8, 14, 10);
+      ctx.fillStyle = '#2c3e50';
+      ctx.fillRect(-7, 4, 14, 6);
+      ctx.restore();
+    }
+
+    function drawWake() {
+      ctx.fillStyle = 'rgba(230,250,255,0.20)';
+      ferry.wake.forEach(w => {
+        ctx.globalAlpha = w.life * 0.55;
+        ctx.beginPath(); ctx.arc(w.x, w.y, w.r, 0, 7); ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+    }
+
+    function drawFerry() {
+      // shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.beginPath();
+      ctx.ellipse(ferry.x + 4, ferry.y + 6, 26, 20, ferry.heading, 0, 7);
+      ctx.fill();
+
+      ctx.save();
+      ctx.translate(ferry.x, ferry.y);
+      ctx.rotate(ferry.heading + Math.PI / 2);
+
+      // hull
+      ctx.fillStyle = '#0f4c68';
+      ctx.beginPath();
+      ctx.moveTo(0, -30);
+      ctx.quadraticCurveTo(19, -10, 16, 26);
+      ctx.lineTo(-16, 26);
+      ctx.quadraticCurveTo(-19, -10, 0, -30);
+      ctx.fill();
+      // white stripe
+      ctx.strokeStyle = '#eaf6fb';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(-15, 22);
+      ctx.lineTo(15, 22);
+      ctx.stroke();
+      // deck
+      ctx.fillStyle = '#cfd8dc';
+      ctx.beginPath();
+      ctx.moveTo(0, -22);
+      ctx.quadraticCurveTo(14, -6, 12, 20);
+      ctx.lineTo(-12, 20);
+      ctx.quadraticCurveTo(-14, -6, 0, -22);
+      ctx.fill();
+
+      // wheelhouse
+      ctx.fillStyle = '#f5c542';
+      ctx.fillRect(-9, -20, 18, 12);
+      ctx.fillStyle = '#2c3e50';
+      ctx.fillRect(-7, -18, 14, 7);
+
+      // cars / passengers on deck
+      const pax = Math.min(ferry.pax.length, CFG.CAPACITY);
+      const cols = [ -8, 0, 8 ];
+      for (let i = 0; i < pax; i++) {
+        const col = cols[i % 3];
+        const row = Math.floor(i / 3);
+        ctx.fillStyle = ['#ff8fa3', '#3fd98a', '#ffc94d', '#7fb3ff'][i % 4];
+        ctx.fillRect(col - 3, -4 + row * 7, 6, 5);
+      }
+
+      ctx.restore();
+
+      // funnel smoke puff
+      if (Math.abs(ferry.speed) > 30) {
+        ctx.fillStyle = 'rgba(220,220,220,0.25)';
+        ctx.beginPath();
+        ctx.arc(ferry.x - Math.cos(ferry.heading) * 26, ferry.y - Math.sin(ferry.heading) * 26, 7, 0, 7);
+        ctx.fill();
+      }
+    }
+
+    function drawParticles() {
+      for (const p of particles) {
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawTargetBeacon() {
+      const t = getTarget();
+      if (!t) return;
+      const d = Math.hypot(ferry.x - t.tip.x, ferry.y - t.tip.y);
+      if (d < 260) return; // only when far
+      const a = Math.atan2(t.tip.y - ferry.y, t.tip.x - ferry.x);
+      const px = ferry.x + Math.cos(a) * 120;
+      const py = ferry.y + Math.sin(a) * 120;
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(a);
+      ctx.fillStyle = 'rgba(63,217,138,0.85)';
+      ctx.beginPath();
+      ctx.moveTo(14, 0); ctx.lineTo(-8, -9); ctx.lineTo(-8, 9);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+
+    // ============ MINIMAP ============
+    function drawMinimap() {
+      const mw = 168, mh = 122, pad = 10;
+      const ox = W - mw - pad, oy = pad;
+      const sx = mw / CFG.WORLD_W, sy = mh / CFG.WORLD_H;
+      ctx.fillStyle = 'rgba(4,22,32,0.72)';
+      ctx.fillRect(ox, oy, mw, mh);
+      ctx.strokeStyle = 'rgba(191,233,245,0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(ox, oy, mw, mh);
+
+      // banks
+      ctx.fillStyle = 'rgba(230,209,153,0.5)';
+      ctx.fillRect(ox, oy, CFG.BANK * sx, mh);
+      ctx.fillRect(ox + (CFG.WORLD_W - CFG.BANK) * sx, oy, CFG.BANK * sx, mh);
+
+      // jetties
+      for (const j of JETTIES) {
+        ctx.fillStyle = j === getTarget() ? '#3fd98a' : '#bfe9f5';
+        ctx.beginPath();
+        ctx.arc(ox + j.tip.x * sx, oy + j.tip.y * sy, 3, 0, 7);
+        ctx.fill();
+      }
+      // rocks
+      ctx.fillStyle = 'rgba(123,135,144,0.8)';
+      for (const r of rocks) { ctx.beginPath(); ctx.arc(ox + r.x * sx, oy + r.y * sy, 2, 0, 7); ctx.fill(); }
+      // boats
+      ctx.fillStyle = '#ff8fa3';
+      for (const bt of boats) { ctx.beginPath(); ctx.arc(ox + bt.x * sx, oy + bt.y * sy, 2.5, 0, 7); ctx.fill(); }
+      // ferry
+      ctx.fillStyle = '#ffc94d';
+      ctx.beginPath(); ctx.arc(ox + ferry.x * sx, oy + ferry.y * sy, 4, 0, 7); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(ox + ferry.x * sx, oy + ferry.y * sy, 4, 0, 7); ctx.stroke();
+
+      ctx.fillStyle = 'rgba(191,233,245,0.7)';
+      ctx.font = '9px Trebuchet MS';
+      ctx.textAlign = 'left';
+      ctx.fillText('HARBOUR', ox + 5, oy + mh - 5);
+    }
+
+    function drawOffscreenArrow() {
+      const t = getTarget();
+      if (!t) return;
+      const sx = t.tip.x - cam.x, sy = t.tip.y - cam.y;
+      if (sx > 0 && sx < W && sy > 0 && sy < H) return;
+      const cx = W / 2, cy = H / 2;
+      const a = Math.atan2(t.tip.y - (cam.y + cy), t.tip.x - (cam.x + cx));
+      ctx.save();
+      ctx.translate(cx + Math.cos(a) * 130, cy + Math.sin(a) * 130);
+      ctx.rotate(a);
+      ctx.fillStyle = 'rgba(63,217,138,0.9)';
+      ctx.beginPath();
+      ctx.moveTo(20, 0); ctx.lineTo(-10, -12); ctx.lineTo(-4, 0); ctx.lineTo(-10, 12);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+
+    // ============ HUD ============
+    function updateHud() {
+      moneyEl.textContent = '$' + money;
+      deliveredEl.textContent = delivered;
+      aboardEl.textContent = ferry.pax.length + '/' + CFG.CAPACITY;
+      const fp = Math.round(fuel);
+      fuelTxt.textContent = fp + '%';
+      fuelBar.style.width = fuel + '%';
+      const hp = Math.round(happiness);
+      moodEl.textContent = hp + '%';
+      happyBar.style.width = happiness + '%';
+      const hl = Math.round(hull);
+      hullTxt.textContent = hl + '%';
+      hullBar.style.width = hull + '%';
+      const t = getTarget();
+      targetEl.textContent = t ? t.name : '—';
+    }
+
+    // ============ MAIN LOOP ============
+    function loop(now) {
+      if (!running || paused) return;
+      const dt = Math.min(0.05, (now - lastTime) / 1000) || 0.016;
+      lastTime = now;
+      update(dt);
+      if (running) draw();
+      requestAnimationFrame(loop);
+    }
+
+    // ============ INPUT: KEYBOARD ============
+    document.addEventListener('keydown', e => {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyP'].includes(e.code)) e.preventDefault();
+      if (e.code === 'Space' || e.code === 'KeyP') { togglePause(); return; }
+      switch (e.code) {
+        case 'ArrowUp': case 'KeyW': keyboard.up = true; break;
+        case 'ArrowDown': case 'KeyS': keyboard.down = true; break;
+        case 'ArrowLeft': case 'KeyA': keyboard.left = true; break;
+        case 'ArrowRight': case 'KeyD': keyboard.right = true; break;
+      }
+    });
+    document.addEventListener('keyup', e => {
+      switch (e.code) {
+        case 'ArrowUp': case 'KeyW': keyboard.up = false; break;
+        case 'ArrowDown': case 'KeyS': keyboard.down = false; break;
+        case 'ArrowLeft': case 'KeyA': keyboard.left = false; break;
+        case 'ArrowRight': case 'KeyD': keyboard.right = false; break;
+      }
+    });
+
+    // ============ INPUT: POINTER / TOUCH (virtual joystick) ============
+    function toCanvas(e) {
+      const r = canvas.getBoundingClientRect();
+      return { x: (e.clientX - r.left) * (W / r.width), y: (e.clientY - r.top) * (H / r.height) };
+    }
+    canvas.addEventListener('pointerdown', e => {
+      if (!running || paused) return;
+      audioInit();
+      const p = toCanvas(e);
+      joystick.active = true; joystick.bx = p.x; joystick.by = p.y; joystick.x = p.x; joystick.y = p.y;
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+      e.preventDefault();
+    });
+    canvas.addEventListener('pointermove', e => {
+      if (!joystick.active) return;
+      const p = toCanvas(e);
+      joystick.x = p.x; joystick.y = p.y;
+      e.preventDefault();
+    });
+    const releaseJoy = () => { joystick.active = false; };
+    canvas.addEventListener('pointerup', releaseJoy);
+    canvas.addEventListener('pointercancel', releaseJoy);
+
+    // ============ BUTTONS ============
+    startBtn.addEventListener('click', startGame);
+    playAgainBtn.addEventListener('click', startGame);
+
+    // ============ BOOT ============
+    newGame();
+    draw();
+  </script>
+</body>
+</html>

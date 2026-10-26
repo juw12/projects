@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Video Poker - Jacks or Better</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --felt-1: #14804a;
+    --felt-2: #0a5230;
+    --felt-3: #05301c;
+    --wood-1: #6b3f1d;
+    --wood-2: #3d2210;
+    --gold: #e8c766;
+    --gold-dim: rgba(232,199,102,.28);
+    --ink: #f4f7f2;
+    --red: #c62828;
+    --black: #1a1a1a;
+    --card-w: 88px;
+    --card-h: 124px;
+  }
+  html, body {
+    height: 100%;
+    font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif;
+    background: #10261c;
+    color: var(--ink);
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+  }
+
+  /* ============ APP SHELL (felt table + wood frame) ============ */
+  #app {
+    position: relative;
+    width: min(100%, 760px);
+    height: min(100%, 960px);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-radius: 20px;
+    padding: 12px;
+    background: radial-gradient(ellipse at 50% 30%, var(--felt-1) 0%, var(--felt-2) 48%, var(--felt-3) 100%);
+    box-shadow:
+      0 0 0 10px var(--wood-1),
+      0 0 0 14px var(--wood-2),
+      0 22px 60px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+  }
+  #app::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      repeating-linear-gradient(45deg, rgba(255,255,255,.03) 0 2px, transparent 2px 4px),
+      radial-gradient(circle at 50% 38%, rgba(255,255,255,.06), transparent 62%);
+    mix-blend-mode: soft-light;
+  }
+
+  /* ============ HEADER / HUD ============ */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    z-index: 2;
+  }
+  .brand {
+    font-size: clamp(15px, 4vw, 22px);
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: var(--gold);
+    text-shadow: 0 2px 0 rgba(0,0,0,.5);
+    line-height: 1.05;
+  }
+  .brand small {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 3px;
+    font-weight: 500;
+    color: rgba(255,255,255,.62);
+    text-shadow: none;
+  }
+  .hud {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .stat {
+    background: rgba(0,0,0,.30);
+    border: 1px solid var(--gold-dim);
+    border-radius: 10px;
+    padding: 5px 6px;
+    text-align: center;
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.6);
+    min-width: 62px;
+  }
+  .stat b {
+    display: block;
+    margin-top: 1px;
+    font-size: clamp(14px, 3.8vw, 18px);
+    letter-spacing: 0;
+    color: var(--gold);
+    text-transform: none;
+  }
+  .stat.win b { color: #8dff9e; }
+
+  /* ============ PAYTABLE ============ */
+  .paytable {
+    z-index: 2;
+    background: linear-gradient(180deg, rgba(0,0,0,.42), rgba(0,0,0,.30));
+    border: 1px solid var(--gold-dim);
+    border-radius: 12px;
+    padding: 6px 10px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px 16px;
+    font-size: clamp(11px, 2.9vw, 13px);
+  }
+  .pt-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 4px;
+    border-radius: 5px;
+    transition: background .15s ease, color .15s ease;
+    white-space: nowrap;
+  }
+  .pt-row .nm { color: rgba(255,255,255,.82); letter-spacing: .5px; }
+  .pt-row .pay { color: var(--gold); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .pt-row.win {
+    background: linear-gradient(90deg, rgba(232,199,102,.9), rgba(255,236,150,.75));
+    animation: pulse 0.9s ease-in-out infinite alternate;
+  }
+  .pt-row.win .nm, .pt-row.win .pay { color: #3a2a00; }
+  @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.02); } }
+
+  /* ============ TABLE / HAND ============ */
+  .table {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 0;
+    z-index: 2;
+  }
+  .hand {
+    display: flex;
+    gap: clamp(4px, 1.6vw, 12px);
+    justify-content: center;
+    align-items: center;
+  }
+  .msg {
+    min-height: 22px;
+    font-size: clamp(13px, 3.6vw, 17px);
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-align: center;
+    color: var(--gold);
+    text-shadow: 0 1px 3px rgba(0,0,0,.6);
+    transition: color .2s ease;
+  }
+  .msg.win { color: #8dff9e; }
+  .msg.lose { color: #ffb3b3; }
+
+  /* ============ CARD ============ */
+  .card {
+    position: relative;
+    width: var(--card-w);
+    height: var(--card-h);
+    border-radius: 8px;
+    background: linear-gradient(160deg, #ffffff, #eef2ee);
+    color: var(--black);
+    box-shadow: 0 4px 12px rgba(0,0,0,.45), inset 0 0 0 1px rgba(0,0,0,.14);
+    flex: 0 0 auto;
+    cursor: pointer;
+    user-select: none;
+    transition: transform .15s ease, box-shadow .15s ease;
+    animation: dealIn .26s ease-out;
+  }
+  .card.red { color: var(--red); }
+  @keyframes dealIn {
+    from { transform: translateY(-40px) rotateY(70deg); opacity: 0; }
+    to   { transform: translateY(0) rotateY(0); opacity: 1; }
+  }
+  .card:hover { transform: translateY(-3px); }
+  .card.held {
+    box-shadow: 0 0 0 3px var(--gold), 0 6px 18px rgba(232,199,102,.5);
+    transform: translateY(-6px);
+  }
+  .card .corner {
+    position: absolute;
+    line-height: 1;
+    text-align: center;
+    font-size: 17px;
+    font-weight: 700;
+  }
+  .card .corner .s { font-size: 14px; display: block; }
+  .card .corner.tl { top: 5px; left: 6px; }
+  .card .corner.br { bottom: 5px; right: 6px; transform: rotate(180deg); }
+  .card .pip {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(30px, 8vw, 46px);
+    opacity: .92;
+  }
+  .card .badge {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #ffde6b, #e8b93e);
+    color: #3a2a00;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    padding: 2px 9px;
+    border-radius: 20px;
+    box-shadow: 0 2px 6px rgba(0,0,0,.35);
+    opacity: 0;
+    transition: opacity .12s ease;
+  }
+  .card.held .badge { opacity: 1; }
+  /* card back (undealt) */
+  .card.back {
+    background:
+      repeating-linear-gradient(45deg, #2b4a8a 0 6px, #1d3566 6px 12px);
+    box-shadow: 0 4px 12px rgba(0,0,0,.45), inset 0 0 0 3px #eef2ee, inset 0 0 0 4px #1d3566;
+    cursor: default;
+  }
+  .card.back:hover { transform: none; }
+  .card.back::after {
+    content: "";
+    position: absolute;
+    inset: 12px;
+    border: 2px solid rgba(232,199,102,.75);
+    border-radius: 4px;
+  }
+
+  /* ============ CONTROLS ============ */
+  .controls {
+    z-index: 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    align-items: stretch;
+  }
+  button {
+    font-family: inherit;
+    font-weight: 800;
+    letter-spacing: 1px;
+    cursor: pointer;
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    transition: transform .06s ease, background .15s ease, box-shadow .15s ease;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  button:active { transform: translateY(2px); }
+  button:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+  .btn {
+    padding: 12px 18px;
+    font-size: clamp(12px, 3.2vw, 15px);
+    background: linear-gradient(180deg, #3f8f5b, #2c6b41);
+    box-shadow: 0 4px 0 rgba(0,0,0,.35);
+  }
+  .btn:hover:not(:disabled) { background: linear-gradient(180deg, #4aa267, #33794a); }
+  .btn.deal {
+    flex: 1 1 140px;
+    background: linear-gradient(180deg, #d8a93a, #b3831f);
+    color: #2a1d00;
+    font-size: clamp(14px, 3.8vw, 18px);
+  }
+  .btn.deal:hover:not(:disabled) { background: linear-gradient(180deg, #eec155, #c9942c); }
+  .btn.gold {
+    background: linear-gradient(180deg, #d8a93a, #b3831f);
+    color: #2a1d00;
+  }
+  .btn.gold:hover:not(:disabled) { background: linear-gradient(180deg, #eec155, #c9942c); }
+
+  /* ============ OVERLAY SCREENS ============ */
+  .screen {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 24px;
+    text-align: center;
+    background: rgba(3, 20, 12, 0.93);
+    backdrop-filter: blur(2px);
+    transition: opacity .3s ease;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen h2 {
+    font-size: clamp(24px, 7vw, 40px);
+    color: var(--gold);
+    letter-spacing: 2px;
+    text-shadow: 0 2px 0 rgba(0,0,0,.5);
+  }
+  .screen p { color: rgba(255,255,255,.8); font-size: clamp(12px, 3.4vw, 15px); line-height: 1.6; max-width: 440px; }
+  .screen .rules {
+    display: grid;
+    gap: 3px;
+    font-size: clamp(11px, 3vw, 13px);
+    color: rgba(255,255,255,.7);
+    text-align: left;
+    background: rgba(0,0,0,.3);
+    border: 1px solid var(--gold-dim);
+    border-radius: 10px;
+    padding: 10px 16px;
+  }
+  .screen .big-btn {
+    padding: 14px 40px;
+    font-size: clamp(15px, 4vw, 19px);
+    border-radius: 26px;
+    background: linear-gradient(180deg, #d8a93a, #b3831f);
+    color: #2a1d00;
+    box-shadow: 0 5px 0 rgba(0,0,0,.4);
+  }
+  .screen .big-btn:hover { background: linear-gradient(180deg, #eec155, #c9942c); }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 560px) {
+    :root { --card-w: 58px; --card-h: 84px; }
+    #app { padding: 8px; gap: 6px; border-radius: 14px; }
+    .card .corner { font-size: 13px; }
+    .card .corner .s { font-size: 11px; }
+    .btn { padding: 10px 12px; }
+    .paytable { font-size: 10px; padding: 5px 8px; gap: 1px 10px; }
+  }
+  @media (max-width: 380px) {
+    :root { --card-w: 50px; --card-h: 72px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ============ HEADER / HUD ============ -->
+  <div class="topbar">
+    <div class="brand">VIDEO POKER<small>JACKS OR BETTER</small></div>
+    <div class="hud">
+      <div class="stat">Bankroll<b id="hudBankroll">0</b></div>
+      <div class="stat">Bet<b id="hudBet">1</b></div>
+      <div class="stat win">Best<b id="hudBest">0</b></div>
+    </div>
+  </div>
+
+  <!-- ============ PAYTABLE ============ -->
+  <div class="paytable" id="paytable"></div>
+
+  <!-- ============ HAND + MESSAGE ============ -->
+  <div class="table">
+    <div class="hand" id="hand"></div>
+    <div class="msg" id="msg">Press DEAL to start</div>
+  </div>
+
+  <!-- ============ CONTROLS ============ -->
+  <div class="controls">
+    <button class="btn" id="btnBetOne" type="button">BET ONE</button>
+    <button class="btn" id="btnMaxBet" type="button">MAX BET</button>
+    <button class="btn deal" id="btnDeal" type="button">DEAL</button>
+  </div>
+
+  <!-- ============ START OVERLAY ============ -->
+  <div class="screen" id="startScreen">
+    <h2>VIDEO POKER</h2>
+    <div class="rules">
+      <div>Choose your bet (1-5 credits), then DEAL.</div>
+      <div>Tap cards to HOLD the ones you keep, then DRAW.</div>
+      <div>Win with a pair of Jacks or better.</div>
+      <div>Royal Flush pays 4000 on a 5-credit max bet!</div>
+    </div>
+    <p>Bankroll and best are saved on this device.</p>
+    <button class="big-btn" id="btnStart" type="button">INSERT 100 CREDITS</button>
+  </div>
+
+  <!-- ============ BROKE OVERLAY ============ -->
+  <div class="screen hidden" id="brokeScreen">
+    <h2>OUT OF CREDITS</h2>
+    <p>You have no credits left to bet.</p>
+    <button class="big-btn" id="btnReload" type="button">ADD 100 CREDITS</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONFIGURATION ============
+  const START_BANKROLL = 100;
+  const MAX_BET = 5;
+  const SUITS = ["\u2660", "\u2665", "\u2666", "\u2663"]; // spade heart diamond club
+  const RED_SUITS = [1, 2];
+  const RANK_LABEL = { 11: "J", 12: "Q", 13: "K", 14: "A" };
+
+  // Standard Jacks or Better paytable (pays per bet level 1..5 credits).
+  // Royal Flush pays a 4000 bonus on the 5-credit max bet.
+  const PAYTABLE = [
+    { key: "royal",         label: "Royal Flush",     pays: [250, 500, 750, 1000, 4000] },
+    { key: "straightFlush", label: "Straight Flush",  pays: [50, 100, 150, 200, 250] },
+    { key: "four",          label: "Four of a Kind",  pays: [25, 50, 75, 100, 125] },
+    { key: "fullHouse",     label: "Full House",      pays: [9, 18, 27, 36, 45] },
+    { key: "flush",         label: "Flush",           pays: [6, 12, 18, 24, 30] },
+    { key: "straight",      label: "Straight",        pays: [4, 8, 12, 16, 20] },
+    { key: "three",         label: "Three of a Kind", pays: [3, 6, 9, 12, 15] },
+    { key: "twoPair",       label: "Two Pair",        pays: [2, 4, 6, 8, 10] },
+    { key: "jacks",         label: "Jacks or Better", pays: [1, 2, 3, 4, 5] }
+  ];
+
+  const STATE = { DEAL: 0, DRAW: 1, RESULT: 2 };
+
+  // ============ GAME STATE ============
+  let bankroll = Number(localStorage.getItem("vpBankroll"));
+  if (!isFinite(bankroll) || bankroll < 0) bankroll = START_BANKROLL;
+  let best = Number(localStorage.getItem("vpBest") || 0);
+  let bet = Number(localStorage.getItem("vpBet") || 1);
+  if (!isFinite(bet) || bet < 1) bet = 1;
+  if (bet > MAX_BET) bet = MAX_BET;
+
+  let state = STATE.DEAL;
+  let deck = [];
+  let deckPos = 0;
+  let hand = [];          // array of {r, s} card objects
+  let held = [false, false, false, false, false];
+
+  // ============ DOM ELEMENTS ============
+  const el = {
+    bankroll: document.getElementById("hudBankroll"),
+    bet: document.getElementById("hudBet"),
+    best: document.getElementById("hudBest"),
+    paytable: document.getElementById("paytable"),
+    hand: document.getElementById("hand"),
+    msg: document.getElementById("msg"),
+    betOne: document.getElementById("btnBetOne"),
+    maxBet: document.getElementById("btnMaxBet"),
+    deal: document.getElementById("btnDeal"),
+    startScreen: document.getElementById("startScreen"),
+    brokeScreen: document.getElementById("brokeScreen"),
+    start: document.getElementById("btnStart"),
+    reload: document.getElementById("btnReload")
+  };
+
+  // ============ SOUND (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.06, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g);
+      g.connect(actx.destination);
+      o.start();
+      o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  // ============ PERSISTENCE ============
+  function syncBest() {
+    if (bankroll > best) {
+      best = bankroll;
+      localStorage.setItem("vpBest", String(best));
+    }
+  }
+  function save() {
+    localStorage.setItem("vpBankroll", String(bankroll));
+    localStorage.setItem("vpBet", String(bet));
+    syncBest();
+  }
+
+  // ============ DECK ============
+  function makeDeck() {
+    const d = [];
+    for (let s = 0; s < 4; s++) {
+      for (let r = 2; r <= 14; r++) d.push({ r: r, s: s });
+    }
+    for (let i = d.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = d[i]; d[i] = d[j]; d[j] = t;
+    }
+    return d;
+  }
+
+  // ============ HAND EVALUATION ============
+  // Returns one of the PAYTABLE keys, or "none".
+  function evaluateHand(cards) {
+    const ranks = cards.map(function (c) { return c.r; }).sort(function (a, b) { return a - b; });
+    const suits = cards.map(function (c) { return c.s; });
+    const isFlush = suits.every(function (s) { return s === suits[0]; });
+
+    // rank counts
+    const counts = {};
+    ranks.forEach(function (r) { counts[r] = (counts[r] || 0) + 1; });
+    const countVals = Object.keys(counts).map(function (k) { return counts[k]; })
+      .sort(function (a, b) { return b - a; });
+
+    // straight detection (incl. ace-low wheel A-2-3-4-5)
+    const unique = ranks.filter(function (r, i) { return ranks.indexOf(r) === i; });
+    let isStraight = false;
+    let straightHigh = 0;
+    if (unique.length === 5) {
+      if (unique[4] - unique[0] === 4) {
+        isStraight = true;
+        straightHigh = unique[4];
+      } else if (unique[0] === 2 && unique[1] === 3 && unique[2] === 4 &&
+                 unique[3] === 5 && unique[4] === 14) {
+        isStraight = true;
+        straightHigh = 5; // ace plays low, five-high straight
+      }
+    }
+
+    if (isStraight && isFlush && straightHigh === 14) return "royal";
+    if (isStraight && isFlush) return "straightFlush";
+    if (countVals[0] === 4) return "four";
+    if (countVals[0] === 3 && countVals[1] === 2) return "fullHouse";
+    if (isFlush) return "flush";
+    if (isStraight) return "straight";
+    if (countVals[0] === 3) return "three";
+    if (countVals[0] === 2 && countVals[1] === 2) return "twoPair";
+    if (countVals[0] === 2) {
+      // exactly one pair: qualifying only if Jacks or better (rank >= J)
+      const pairRank = Number(Object.keys(counts).filter(function (k) {
+        return counts[k] === 2;
+      })[0]);
+      if (pairRank >= 11) return "jacks";
+    }
+    return "none";
+  }
+
+  function payFor(key) {
+    const row = PAYTABLE.filter(function (p) { return p.key === key; })[0];
+    return row ? row.pays[bet - 1] : 0;
+  }
+
+  // ============ RENDERING ============
+  function renderHUD() {
+    el.bankroll.textContent = bankroll;
+    el.bet.textContent = bet;
+    el.best.textContent = best;
+  }
+
+  function renderPaytable(highlightKey) {
+    el.paytable.innerHTML = "";
+    PAYTABLE.forEach(function (p) {
+      const row = document.createElement("div");
+      row.className = "pt-row" + (p.key === highlightKey ? " win" : "");
+      const nm = document.createElement("span");
+      nm.className = "nm";
+      nm.textContent = p.label;
+      const pay = document.createElement("span");
+      pay.className = "pay";
+      pay.textContent = p.pays[bet - 1];
+      row.appendChild(nm);
+      row.appendChild(pay);
+      el.paytable.appendChild(row);
+    });
+  }
+
+  function rankText(r) {
+    return RANK_LABEL[r] || String(r);
+  }
+
+  function buildCardEl(card, index, isHeld, animate) {
+    const c = document.createElement("div");
+    c.className = "card" + (RED_SUITS.indexOf(card.s) >= 0 ? " red" : "");
+    if (isHeld) c.classList.add("held");
+    if (!animate) c.style.animation = "none";
+    const suit = SUITS[card.s];
+    c.innerHTML =
+      '<div class="corner tl">' + rankText(card.r) + '<span class="s">' + suit + '</span></div>' +
+      '<div class="pip">' + suit + '</div>' +
+      '<div class="corner br">' + rankText(card.r) + '<span class="s">' + suit + '</span></div>' +
+      '<div class="badge">HELD</div>';
+    c.addEventListener("click", function () { toggleHold(index); });
+    return c;
+  }
+
+  function renderHand() {
+    el.hand.innerHTML = "";
+    for (let i = 0; i < 5; i++) {
+      if (!hand[i]) {
+        // undealt card back
+        const b = document.createElement("div");
+        b.className = "card back";
+        b.style.animationDelay = (i * 55) + "ms";
+        el.hand.appendChild(b);
+      } else {
+        const c = buildCardEl(hand[i], i, held[i], true);
+        el.hand.appendChild(c);
+      }
+    }
+  }
+
+  function setMessage(text, cls) {
+    el.msg.textContent = text;
+    el.msg.className = "msg" + (cls ? " " + cls : "");
+  }
+
+  function syncButtons() {
+    if (state === STATE.DEAL) {
+      el.deal.textContent = "DEAL";
+      el.deal.disabled = bankroll < bet;
+    } else if (state === STATE.DRAW) {
+      el.deal.textContent = "DRAW";
+      el.deal.disabled = false;
+    } else {
+      el.deal.textContent = "DEAL";
+      el.deal.disabled = bankroll < bet;
+    }
+    el.betOne.disabled = (state === STATE.DRAW);
+    el.maxBet.disabled = (state === STATE.DRAW) || bankroll < 1;
+  }
+
+  // ============ GAME FLOW ============
+  function dealPhase() {
+    // Return to draw-ready state and deal a fresh 5-card hand.
+    const cost = bet;
+    bankroll -= cost;
+    deck = makeDeck();
+    deckPos = 0;
+    hand = deck.slice(0, 5);
+    deckPos = 5;
+    held = [false, false, false, false, false];
+    state = STATE.DRAW;
+
+    beep(520, 0.07, "square");
+    setTimeout(function () { beep(660, 0.07, "square"); }, 90);
+
+    syncBest();
+    save();
+    renderHUD();
+    renderPaytable(null);
+    renderHand();
+    setMessage("Tap cards to HOLD, then press DRAW");
+    syncButtons();
+  }
+
+  function drawPhase() {
+    // Replace every card that is not held.
+    for (let i = 0; i < 5; i++) {
+      if (!held[i]) {
+        hand[i] = deck[deckPos++];
+      }
+    }
+    held = [false, false, false, false, false];
+    state = STATE.RESULT;
+
+    const key = evaluateHand(hand);
+    const win = payFor(key);
+
+    if (win > 0) {
+      bankroll += win;
+      beep(880, 0.1, "sine");
+      setTimeout(function () { beep(1320, 0.16, "sine"); }, 110);
+    } else {
+      beep(180, 0.22, "sawtooth");
+    }
+
+    syncBest();
+    save();
+    renderHUD();
+    renderPaytable(win > 0 ? key : null);
+    renderHand();
+
+    if (win > 0) {
+      const row = PAYTABLE.filter(function (p) { return p.key === key; })[0];
+      setMessage("WIN " + win + " credits \u2013 " + row.label + "!", "win");
+    } else {
+      setMessage("No win \u2013 press DEAL to play again", "lose");
+    }
+    syncButtons();
+
+    if (bankroll < 1 && win <= 0) {
+      setTimeout(showBroke, 650);
+    }
+  }
+
+  function onDealButton() {
+    if (state === STATE.DEAL || state === STATE.RESULT) {
+      if (bankroll < bet) { showBroke(); return; }
+      dealPhase();
+    } else if (state === STATE.DRAW) {
+      drawPhase();
+    }
+  }
+
+  function toggleHold(i) {
+    if (state !== STATE.DRAW || !hand[i]) return;
+    held[i] = !held[i];
+    beep(held[i] ? 740 : 480, 0.06, "triangle");
+    renderHand();
+  }
+
+  function betOne() {
+    if (state === STATE.DRAW) return;
+    bet = bet >= MAX_BET ? 1 : bet + 1;
+    beep(700, 0.05, "triangle");
+    save();
+    renderHUD();
+    renderPaytable(null);
+    syncButtons();
+  }
+
+  function maxBet() {
+    if (state === STATE.DRAW) return;
+    bet = MAX_BET;
+    beep(820, 0.06, "triangle");
+    save();
+    renderHUD();
+    renderPaytable(null);
+    syncButtons();
+    if (bankroll >= bet) dealPhase();
+    else showBroke();
+  }
+
+  function showBroke() {
+    if (bankroll >= 1) return;
+    el.brokeScreen.classList.remove("hidden");
+  }
+
+  function reloadCredits() {
+    bankroll += START_BANKROLL;
+    beep(660, 0.1, "sine");
+    setTimeout(function () { beep(990, 0.14, "sine"); }, 120);
+    save();
+    renderHUD();
+    el.brokeScreen.classList.add("hidden");
+    syncButtons();
+    if (state === STATE.DEAL || state === STATE.RESULT) {
+      setMessage("Credits added \u2013 press DEAL", "win");
+    }
+  }
+
+  // ============ INPUT ============
+  el.deal.addEventListener("click", onDealButton);
+  el.betOne.addEventListener("click", betOne);
+  el.maxBet.addEventListener("click", maxBet);
+  el.start.addEventListener("click", function () {
+    // First play: keep saved bankroll if positive, otherwise start fresh.
+    el.startScreen.classList.add("hidden");
+    if (bankroll < 1) bankroll = START_BANKROLL;
+    save();
+    renderHUD();
+    renderPaytable(null);
+    syncButtons();
+    setMessage("Place your bet and press DEAL");
+  });
+  el.reload.addEventListener("click", reloadCredits);
+
+  // Keyboard shortcuts: Space = deal/draw, 1-5 = hold, B = bet one, M = max bet
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "Space") {
+      e.preventDefault();
+      onDealButton();
+      return;
+    }
+    if (e.code === "KeyB") { betOne(); return; }
+    if (e.code === "KeyM") { maxBet(); return; }
+    const n = "12345".indexOf(e.key);
+    if (n >= 0) { toggleHold(n); }
+  });
+
+  // ============ INITIALISE ============
+  renderHUD();
+  renderPaytable(null);
+  renderHand();
+  syncButtons();
+  syncBest();
+})();
+</script>
+</body>
+</html>

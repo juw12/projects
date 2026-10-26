@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Reversi (Othello)</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(circle at 50% 0%, #1f2937 0%, #0b1220 70%, #05080f 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #e8eef7;
+    padding: 12px;
+    touch-action: manipulation;
+  }
+
+  /* ============ GAME CONTAINER ============ */
+  .game-container {
+    width: min(94vw, 520px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .game-title {
+    text-align: center;
+    font-size: clamp(1.3rem, 5vw, 1.8rem);
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: #7ee787;
+    text-shadow: 0 2px 10px rgba(126, 231, 135, 0.35);
+  }
+  .game-title .sub {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 3px;
+    color: #8aa0b8;
+    margin-top: 2px;
+  }
+
+  /* ============ HUD / SCORE ============ */
+  .hud {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 10px 14px;
+  }
+  .player {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 1rem;
+    opacity: 0.55;
+    transition: opacity 0.2s ease;
+  }
+  .player.white { justify-content: flex-end; }
+  .player.active { opacity: 1; }
+  .chip {
+    width: 20px; height: 20px; border-radius: 50%;
+    flex: 0 0 auto;
+    box-shadow: inset 0 -2px 4px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.5);
+  }
+  .chip.black { background: radial-gradient(circle at 35% 30%, #5b616b, #111318 70%); }
+  .chip.white { background: radial-gradient(circle at 35% 30%, #ffffff, #c4c9d1 75%); }
+  .player .num { font-size: 1.15rem; color: #fff; min-width: 1.6em; }
+  .player.white .num { text-align: right; }
+
+  #status {
+    text-align: center;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #9fb4cc;
+    white-space: nowrap;
+    padding: 0 4px;
+  }
+  #status.pass {
+    color: #ffd166;
+    animation: blink 0.6s ease 3;
+  }
+  @keyframes blink { 50% { opacity: 0.3; } }
+
+  /* ============ BOARD ============ */
+  .board-wrap {
+    position: relative;
+    width: 100%;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55), 0 0 0 4px rgba(20, 60, 30, 0.6);
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    touch-action: none;
+  }
+
+  /* ============ OVERLAYS (start / result) ============ */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    gap: 10px;
+    padding: 18px;
+    background: rgba(8, 14, 24, 0.92);
+    backdrop-filter: blur(3px);
+    transition: opacity 0.3s ease;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+
+  .screen-title { font-size: 1.6rem; font-weight: 800; color: #7ee787; }
+  .screen-sub { font-size: 0.82rem; color: #8aa0b8; }
+
+  .opt-label { font-size: 0.72rem; letter-spacing: 2px; color: #7f93aa; margin-top: 4px; }
+
+  .opt-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .opt-btn {
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 2px solid rgba(126, 231, 135, 0.25);
+    background: rgba(255, 255, 255, 0.05);
+    color: #cfe0f0;
+    cursor: pointer;
+    transition: all 0.18s ease;
+  }
+  .opt-btn:hover { border-color: rgba(126, 231, 135, 0.6); }
+  .opt-btn.selected {
+    background: linear-gradient(135deg, #34d399, #22a06b);
+    border-color: #34d399;
+    color: #06210f;
+    box-shadow: 0 4px 14px rgba(52, 211, 153, 0.35);
+  }
+
+  .action-btn {
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 12px 34px;
+    margin-top: 6px;
+    border: none;
+    border-radius: 24px;
+    cursor: pointer;
+    color: #06210f;
+    background: linear-gradient(135deg, #7ee787, #34d399);
+    box-shadow: 0 6px 18px rgba(52, 211, 153, 0.4);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  .action-btn:hover { transform: translateY(-2px); box-shadow: 0 9px 24px rgba(52, 211, 153, 0.5); }
+  .action-btn:active { transform: translateY(0); }
+
+  .result-line { font-size: 1rem; color: #cfe0f0; }
+  .result-line b { color: #fff; }
+  .result-icon { font-size: 2rem; }
+
+  /* ============ CONTROLS / FOOTER ============ */
+  .controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .wins { font-size: 0.85rem; color: #8aa0b8; font-weight: 600; }
+  .wins span { color: #7ee787; }
+
+  .btn-secondary {
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 9px 22px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    color: #fff;
+    background: #c0562b;
+    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3);
+    transition: transform 0.06s ease, background 0.15s ease;
+  }
+  .btn-secondary:hover { background: #d66536; }
+  .btn-secondary:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3); }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 420px) {
+    .player { font-size: 0.9rem; }
+    #status { font-size: 0.72rem; }
+    .screen { gap: 8px; padding: 12px; }
+    .screen-title { font-size: 1.3rem; }
+    .opt-btn { padding: 7px 13px; font-size: 0.78rem; }
+  }
+</style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">REVERSI<span class="sub">OTHELLO</span></h1>
+
+    <!-- HUD -->
+    <div class="hud">
+      <div class="player black active" id="pBlack">
+        <span class="chip black"></span>
+        <span class="num" id="countBlack">2</span>
+      </div>
+      <div id="status">Black to move</div>
+      <div class="player white" id="pWhite">
+        <span class="num" id="countWhite">2</span>
+        <span class="chip white"></span>
+      </div>
+    </div>
+
+    <!-- BOARD -->
+    <div class="board-wrap">
+      <canvas id="board" width="480" height="480"></canvas>
+
+      <!-- START SCREEN -->
+      <div id="startScreen" class="screen">
+        <div class="screen-title">Reversi</div>
+        <div class="screen-sub">Flank your opponent's discs to flip them.</div>
+
+        <div class="opt-label">MODE</div>
+        <div class="opt-row" id="modeRow">
+          <button type="button" class="opt-btn selected" data-mode="cpu">vs CPU</button>
+          <button type="button" class="opt-btn" data-mode="2p">2 Players</button>
+        </div>
+
+        <div class="opt-label">DIFFICULTY</div>
+        <div class="opt-row" id="diffRow">
+          <button type="button" class="opt-btn" data-diff="easy">Easy</button>
+          <button type="button" class="opt-btn selected" data-diff="normal">Normal</button>
+          <button type="button" class="opt-btn" data-diff="hard">Hard</button>
+        </div>
+
+        <button type="button" class="action-btn" id="startBtn">Start Game</button>
+      </div>
+
+      <!-- RESULT SCREEN -->
+      <div id="resultScreen" class="screen hidden">
+        <div class="result-icon" id="resultIcon">🏆</div>
+        <div class="screen-title" id="resultTitle">Black wins!</div>
+        <div class="result-line" id="resultScore">34 – 30</div>
+        <div class="result-line" id="resultDetail"></div>
+        <button type="button" class="action-btn" id="playAgainBtn">Play Again</button>
+      </div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="controls">
+      <div class="wins">Wins vs CPU: <span id="wins">0</span></div>
+      <button type="button" class="btn-secondary" id="restartBtn">Restart</button>
+    </div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONSTANTS ============
+  const EMPTY = 0, BLACK = 1, WHITE = 2;
+  const HUMAN = BLACK, CPU = WHITE;
+  const N = 8;
+  const DIRS = [
+    [-1, -1], [-1, 0], [-1, 1],
+    [0, -1],           [0, 1],
+    [1, -1],  [1, 0],  [1, 1]
+  ];
+
+  // Classic Othello piece-position weights (corners good, X-squares bad)
+  const POS_WEIGHTS = [
+     120, -20,  20,   5,   5,  20, -20, 120,
+     -20, -40,  -5,  -5,  -5,  -5, -40, -20,
+      20,  -5,  15,   3,   3,  15,  -5,  20,
+       5,  -5,   3,   3,   3,   3,  -5,   5,
+       5,  -5,   3,   3,   3,   3,  -5,   5,
+      20,  -5,  15,   3,   3,  15,  -5,  20,
+     -20, -40,  -5,  -5,  -5,  -5, -40, -20,
+     120, -20,  20,   5,   5,  20, -20, 120
+  ];
+
+  const AI_DEPTH = { easy: 1, normal: 3, hard: 5 };
+  const FLIP_DUR = 360; // ms
+
+  // ============ DOM ELEMENTS ============
+  const canvas = document.getElementById("board");
+  const ctx = canvas.getContext("2d");
+  const statusEl = document.getElementById("status");
+  const countBlackEl = document.getElementById("countBlack");
+  const countWhiteEl = document.getElementById("countWhite");
+  const pBlackEl = document.getElementById("pBlack");
+  const pWhiteEl = document.getElementById("pWhite");
+  const startScreen = document.getElementById("startScreen");
+  const resultScreen = document.getElementById("resultScreen");
+  const resultIcon = document.getElementById("resultIcon");
+  const resultTitle = document.getElementById("resultTitle");
+  const resultScore = document.getElementById("resultScore");
+  const resultDetail = document.getElementById("resultDetail");
+  const startBtn = document.getElementById("startBtn");
+  const playAgainBtn = document.getElementById("playAgainBtn");
+  const restartBtn = document.getElementById("restartBtn");
+  const winsEl = document.getElementById("wins");
+  const modeRow = document.getElementById("modeRow");
+  const diffRow = document.getElementById("diffRow");
+  const modeBtns = Array.prototype.slice.call(modeRow.querySelectorAll(".opt-btn"));
+  const diffBtns = Array.prototype.slice.call(diffRow.querySelectorAll(".opt-btn"));
+
+  // ============ GAME STATE ============
+  let board = new Array(N * N).fill(EMPTY);
+  let current = BLACK;
+  let running = false;
+  let animating = false;
+  let anim = null;             // { start, dur, cells: [{i, from, to}] }
+  let mode = localStorage.getItem("reversiMode") || "cpu";
+  let diff = localStorage.getItem("reversiDiff") || "normal";
+  if (!AI_DEPTH[diff]) diff = "normal";
+  if (mode !== "cpu" && mode !== "2p") mode = "cpu";
+  let wins = Number(localStorage.getItem("reversiWins") || 0);
+
+  // ============ SOUND (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.06, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  // ============ PURE RULES ENGINE ============
+  function idx(r, c) { return r * N + c; }
+  function other(p) { return p === BLACK ? WHITE : BLACK; }
+  function name(p) { return p === BLACK ? "Black" : "White"; }
+
+  // Returns list of indices that would be flipped if `player` plays (r,c).
+  // Empty list => illegal move.
+  function getFlips(b, r, c, player) {
+    if (b[idx(r, c)] !== EMPTY) return [];
+    const opp = other(player);
+    const flips = [];
+    for (let d = 0; d < DIRS.length; d++) {
+      const dr = DIRS[d][0], dc = DIRS[d][1];
+      let rr = r + dr, cc = c + dc;
+      const line = [];
+      while (rr >= 0 && rr < N && cc >= 0 && cc < N && b[idx(rr, cc)] === opp) {
+        line.push(idx(rr, cc));
+        rr += dr; cc += dc;
+      }
+      if (line.length && rr >= 0 && rr < N && cc >= 0 && cc < N && b[idx(rr, cc)] === player) {
+        for (let k = 0; k < line.length; k++) flips.push(line[k]);
+      }
+    }
+    return flips;
+  }
+
+  function hasLegal(b, r, c, player) {
+    return getFlips(b, r, c, player).length > 0;
+  }
+
+  // Enumerate every legal move for `player`.
+  function legalMoves(b, player) {
+    const moves = [];
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        if (b[idx(r, c)] === EMPTY && hasLegal(b, r, c, player)) moves.push({ r: r, c: c });
+      }
+    }
+    return moves;
+  }
+
+  function countMobility(b, player) {
+    let n = 0;
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        if (b[idx(r, c)] === EMPTY && hasLegal(b, r, c, player)) n++;
+      }
+    }
+    return n;
+  }
+
+  // Mutates board `b`, returns flipped indices (or null if illegal).
+  function doMove(b, r, c, player) {
+    const flips = getFlips(b, r, c, player);
+    if (!flips.length) return null;
+    b[idx(r, c)] = player;
+    for (let i = 0; i < flips.length; i++) b[flips[i]] = player;
+    return flips;
+  }
+
+  function countDiscs(b) {
+    let black = 0, white = 0;
+    for (let i = 0; i < b.length; i++) {
+      if (b[i] === BLACK) black++;
+      else if (b[i] === WHITE) white++;
+    }
+    return { black: black, white: white };
+  }
+
+  // ============ AI: minimax + alpha-beta ============
+  function evaluateBoard(b, ai) {
+    let score = 0;
+    for (let i = 0; i < b.length; i++) {
+      if (b[i] === ai) score += POS_WEIGHTS[i];
+      else if (b[i] !== EMPTY) score -= POS_WEIGHTS[i];
+    }
+    // Mobility control
+    score += 6 * (countMobility(b, ai) - countMobility(b, other(ai)));
+    return score;
+  }
+
+  function terminalEval(b, ai) {
+    const cd = countDiscs(b);
+    const mine = ai === BLACK ? cd.black : cd.white;
+    const theirs = ai === BLACK ? cd.white : cd.black;
+    if (mine > theirs) return 100000 + (mine - theirs);
+    if (mine < theirs) return -100000 - (theirs - mine);
+    return 0;
+  }
+
+  function orderMoves(b, moves, player) {
+    // Cheaper-to-search ordering: try heaviest positional squares first.
+    return moves.slice().sort(function (a, b2) {
+      return POS_WEIGHTS[idx(b2.r, b2.c)] - POS_WEIGHTS[idx(a.r, a.c)];
+    });
+  }
+
+  function search(b, player, depth, alpha, beta, ai) {
+    const moves = legalMoves(b, player);
+    const oppMoves = legalMoves(b, other(player));
+
+    if (moves.length === 0 && oppMoves.length === 0) return terminalEval(b, ai);
+    if (depth <= 0) return evaluateBoard(b, ai);
+    if (moves.length === 0) {
+      // current player must pass; same depth, opponent to move
+      return search(b, other(player), depth, alpha, beta, ai);
+    }
+
+    const maximizing = player === ai;
+    let best = maximizing ? -Infinity : Infinity;
+    const ordered = orderMoves(b, moves, player);
+
+    for (let i = 0; i < ordered.length; i++) {
+      const nb = b.slice();
+      doMove(nb, ordered[i].r, ordered[i].c, player);
+      const val = search(nb, other(player), depth - 1, alpha, beta, ai);
+      if (maximizing) {
+        if (val > best) best = val;
+        if (best > alpha) alpha = best;
+      } else {
+        if (val < best) best = val;
+        if (best < beta) beta = best;
+      }
+      if (beta <= alpha) break; // alpha-beta cutoff
+    }
+    return best;
+  }
+
+  function chooseMove(b, ai, depth) {
+    const moves = legalMoves(b, ai);
+    if (!moves.length) return null;
+
+    // Easy: mostly greedy/random for a beatable opponent.
+    if (depth <= 1) {
+      if (Math.random() < 0.4) return moves[(Math.random() * moves.length) | 0];
+      let bi = 0, bs = -Infinity;
+      for (let i = 0; i < moves.length; i++) {
+        const s = POS_WEIGHTS[idx(moves[i].r, moves[i].c)] + Math.random() * 8;
+        if (s > bs) { bs = s; bi = i; }
+      }
+      return moves[bi];
+    }
+
+    let best = -Infinity, bestMove = moves[0];
+    const ordered = orderMoves(b, moves, ai);
+    for (let i = 0; i < ordered.length; i++) {
+      const nb = b.slice();
+      doMove(nb, ordered[i].r, ordered[i].c, ai);
+      const val = search(nb, other(ai), depth - 1, -Infinity, Infinity, ai);
+      if (val > best) { best = val; bestMove = ordered[i]; }
+    }
+    return bestMove;
+  }
+
+  // ============ BOARD SETUP ============
+  function newBoard() {
+    const b = new Array(N * N).fill(EMPTY);
+    b[idx(3, 3)] = WHITE;
+    b[idx(4, 4)] = WHITE;
+    b[idx(3, 4)] = BLACK;
+    b[idx(4, 3)] = BLACK;
+    return b;
+  }
+
+  // ============ RENDERING ============
+  function drawDisc(cx, cy, r, player, scaleX) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(Math.max(0.02, scaleX), 1);
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    let grad;
+    if (player === BLACK) {
+      grad = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r);
+      grad.addColorStop(0, "#5b616b");
+      grad.addColorStop(0.55, "#1c2027");
+      grad.addColorStop(1, "#05070a");
+    } else {
+      grad = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r);
+      grad.addColorStop(0, "#ffffff");
+      grad.addColorStop(0.7, "#eef1f5");
+      grad.addColorStop(1, "#bcc3cd");
+    }
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = player === BLACK ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.22)";
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawBoard() {
+    const W = canvas.width;
+    const cell = W / N;
+    const now = performance.now();
+
+    // Wood/grass gradient background
+    const bg = ctx.createLinearGradient(0, 0, W, W);
+    bg.addColorStop(0, "#2e8b57");
+    bg.addColorStop(0.55, "#237a49");
+    bg.addColorStop(1, "#155c37");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, W);
+
+    // Grid lines
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.35)";
+    ctx.lineWidth = 2;
+    for (let i = 0; i <= N; i++) {
+      ctx.beginPath(); ctx.moveTo(i * cell, 0); ctx.lineTo(i * cell, W); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i * cell); ctx.lineTo(W, i * cell); ctx.stroke();
+    }
+    // Subtle star points at 2/6 intersections
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
+    [2, 6].forEach(function (r) {
+      [2, 6].forEach(function (c) {
+        ctx.beginPath();
+        ctx.arc((c + 0.5) * cell, (r + 0.5) * cell, cell * 0.045, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    });
+
+    // Legal-move dots for the side to move (hidden while animating)
+    if (running && !animating) {
+      const moves = legalMoves(board, current);
+      const dotR = cell * 0.13;
+      for (let m = 0; m < moves.length; m++) {
+        const cx = (moves[m].c + 0.5) * cell;
+        const cy = (moves[m].r + 0.5) * cell;
+        ctx.beginPath();
+        ctx.arc(cx, cy, dotR, 0, Math.PI * 2);
+        ctx.fillStyle = current === BLACK ? "rgba(8,10,14,0.55)" : "rgba(255,255,255,0.6)";
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = current === BLACK ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.3)";
+        ctx.stroke();
+      }
+    }
+
+    // Build flip map
+    let flipMap = null;
+    if (anim) {
+      const t = Math.min(1, (now - anim.start) / anim.dur);
+      flipMap = {};
+      for (let k = 0; k < anim.cells.length; k++) {
+        const a = anim.cells[k];
+        flipMap[a.i] = {
+          player: t < 0.5 ? a.from : a.to,
+          scaleX: Math.abs(Math.cos(t * Math.PI))
+        };
+      }
+    }
+
+    // Discs
+    const discR = cell * 0.4;
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        const i = idx(r, c);
+        if (board[i] === EMPTY) continue;
+        const cx = (c + 0.5) * cell;
+        const cy = (r + 0.5) * cell;
+        let player = board[i];
+        let scaleX = 1;
+        if (flipMap && flipMap[i]) { player = flipMap[i].player; scaleX = flipMap[i].scaleX; }
+        drawDisc(cx, cy, discR, player, scaleX);
+      }
+    }
+  }
+
+  function render() {
+    drawBoard();
+    // Retire finished animation, then hand turn over.
+    if (anim && performance.now() - anim.start >= anim.dur) {
+      const done = anim.onDone;
+      anim = null;
+      animating = false;
+      if (done) done();
+    }
+    requestAnimationFrame(render);
+  }
+
+  // ============ HUD ============
+  function updateHud() {
+    const cd = countDiscs(board);
+    countBlackEl.textContent = cd.black;
+    countWhiteEl.textContent = cd.white;
+    pBlackEl.classList.toggle("active", running && current === BLACK);
+    pWhiteEl.classList.toggle("active", running && current === WHITE);
+    winsEl.textContent = wins;
+  }
+
+  function setStatus(text, isPass) {
+    statusEl.textContent = text;
+    statusEl.classList.toggle("pass", !!isPass);
+  }
+
+  // ============ TURN FLOW ============
+  function commitMove(r, c, player) {
+    const flips = getFlips(board, r, c, player);
+    if (!flips.length) return false;
+
+    board[idx(r, c)] = player;
+    for (let i = 0; i < flips.length; i++) board[flips[i]] = player;
+
+    const cells = [{ i: idx(r, c), from: player, to: player }];
+    for (let i = 0; i < flips.length; i++) cells.push({ i: flips[i], from: other(player), to: player });
+
+    anim = { start: performance.now(), dur: FLIP_DUR, cells: cells, onDone: nextTurn };
+    animating = true;
+    beep(520, 0.05, "sine");
+    setTimeout(function () { beep(720, 0.05, "sine"); }, 110);
+    setStatus(name(player) + " moves " + "(" + (c + 1) + "," + (r + 1) + ")");
+    updateHud();
+    return true;
+  }
+
+  function nextTurn() {
+    if (!running) return;
+    current = other(current);
+    const myMoves = legalMoves(board, current);
+
+    if (myMoves.length > 0) {
+      setStatus(name(current) + " to move");
+      scheduleAi();
+      updateHud();
+      return;
+    }
+
+    const opp = other(current);
+    if (legalMoves(board, opp).length === 0) {
+      endGame();
+      return;
+    }
+
+    // Current player cannot move: auto-pass and give turn back to opponent.
+    const passedName = name(current);
+    current = opp;
+    setStatus(passedName + " has no move — pass!", true);
+    beep(300, 0.14, "triangle");
+    updateHud();
+    scheduleAi();
+  }
+
+  function scheduleAi() {
+    if (!running || mode !== "cpu" || current !== CPU) return;
+    animating = true; // block input while "thinking"
+    setTimeout(function () {
+      if (!running) { animating = false; return; }
+      animating = false;
+      const mv = chooseMove(board, CPU, AI_DEPTH[diff]);
+      if (!mv) { nextTurn(); return; }
+      commitMove(mv.r, mv.c, CPU);
+    }, 480);
+  }
+
+  // ============ HUMAN INPUT ============
+  function humanMove(r, c) {
+    if (!running || animating) return;
+    if (mode === "cpu" && current !== HUMAN) return;
+    if (!commitMove(r, c, current)) {
+      beep(180, 0.08, "sawtooth"); // illegal move buzz
+    }
+  }
+
+  function cellFromEvent(e) {
+    const rect = canvas.getBoundingClientRect();
+    const src = (e.touches && e.touches.length) ? e.touches[0] : e;
+    const x = (src.clientX - rect.left) / rect.width * N;
+    const y = (src.clientY - rect.top) / rect.height * N;
+    const c = Math.floor(x), r = Math.floor(y);
+    if (r < 0 || r >= N || c < 0 || c >= N) return null;
+    return { r: r, c: c };
+  }
+
+  canvas.addEventListener("click", function (e) {
+    const cell = cellFromEvent(e);
+    if (cell) humanMove(cell.r, cell.c);
+  });
+  canvas.addEventListener("touchstart", function (e) {
+    e.preventDefault();
+    const cell = cellFromEvent(e);
+    if (cell) humanMove(cell.r, cell.c);
+  }, { passive: false });
+
+  // ============ GAME START / END / RESTART ============
+  function startGame() {
+    board = newBoard();
+    current = BLACK;
+    running = true;
+    animating = false;
+    anim = null;
+    startScreen.classList.add("hidden");
+    resultScreen.classList.add("hidden");
+    setStatus("Black to move");
+    updateHud();
+    beep(660, 0.08, "square");
+    scheduleAi();
+  }
+
+  function endGame() {
+    running = false;
+    animating = false;
+    const cd = countDiscs(board);
+    const winner = cd.black > cd.white ? BLACK : (cd.white > cd.black ? WHITE : 0);
+
+    let title, icon, detail;
+    if (winner === 0) {
+      title = "Draw"; icon = "🤝";
+    } else {
+      title = name(winner) + " wins!";
+      icon = winner === BLACK ? "⚫" : "⚪";
+    }
+
+    resultTitle.textContent = title;
+    resultIcon.textContent = icon;
+    resultScore.textContent = cd.black + " – " + cd.white + "  (Black – White)";
+
+    if (mode === "cpu") {
+      if (winner === HUMAN) {
+        detail = "You beat the CPU! 🎉";
+        wins++;
+        localStorage.setItem("reversiWins", String(wins));
+        beep(880, 0.1, "sine");
+        setTimeout(function () { beep(1180, 0.18, "sine"); }, 140);
+      } else if (winner === CPU) {
+        detail = "The CPU wins this one.";
+        beep(200, 0.3, "sawtooth");
+      } else {
+        detail = "All square — well played.";
+        beep(440, 0.2, "triangle");
+      }
+    } else {
+      detail = winner === 0 ? "Even match." : "Good game!";
+      beep(700, 0.15, "sine");
+    }
+    resultDetail.textContent = detail;
+
+    updateHud();
+    setStatus("Game over");
+    resultScreen.classList.remove("hidden");
+  }
+
+  function restartSameSettings() {
+    startGame();
+  }
+
+  // ============ SELECTORS ============
+  function selectMode(newMode) {
+    mode = newMode;
+    localStorage.setItem("reversiMode", mode);
+    modeBtns.forEach(function (b) { b.classList.toggle("selected", b.dataset.mode === mode); });
+    // Difficulty only meaningful vs CPU
+    diffRow.style.display = (mode === "cpu") ? "flex" : "none";
+  }
+
+  function selectDiff(newDiff) {
+    if (!AI_DEPTH[newDiff]) return;
+    diff = newDiff;
+    localStorage.setItem("reversiDiff", diff);
+    diffBtns.forEach(function (b) { b.classList.toggle("selected", b.dataset.diff === diff); });
+  }
+
+  modeBtns.forEach(function (b) {
+    b.addEventListener("click", function () { selectMode(b.dataset.mode); });
+  });
+  diffBtns.forEach(function (b) {
+    b.addEventListener("click", function () { selectDiff(b.dataset.diff); });
+  });
+
+  startBtn.addEventListener("click", startGame);
+  playAgainBtn.addEventListener("click", restartSameSettings);
+  restartBtn.addEventListener("click", restartSameSettings);
+
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "KeyR" || e.key === "r" || e.key === "R") {
+      e.preventDefault();
+      if (running) restartSameSettings();
+    }
+  });
+
+  // ============ INITIALIZE ============
+  board = newBoard();
+  selectMode(mode);
+  selectDiff(diff);
+  winsEl.textContent = wins;
+  updateHud();
+  render();
+})();
+</script>
+</body>
+</html>

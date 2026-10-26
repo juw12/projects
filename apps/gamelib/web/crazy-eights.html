@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Crazy Eights</title>
+<style>
+  /* ============ RESET & THEME ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --felt-1: #1a7a4a;
+    --felt-2: #0c5230;
+    --felt-3: #06381f;
+    --gold: #e8c766;
+    --ink: #f2f7f0;
+    --red: #d33;
+    --black: #15151a;
+    --cw: clamp(46px, 10.5vw, 64px);
+  }
+  html, body { height: 100%; }
+  body {
+    font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif;
+    background: #0b2016;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* ============ APP SHELL (felt table) ============ */
+  #app {
+    position: relative;
+    width: min(100%, 820px);
+    height: min(100%, 960px);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 20px;
+    background: radial-gradient(ellipse at 50% 30%, var(--felt-1) 0%, var(--felt-2) 48%, var(--felt-3) 100%);
+    box-shadow: 0 0 0 8px #6b3f1d, 0 0 0 12px #3d2210, 0 20px 50px rgba(0, 0, 0, .6);
+    overflow: hidden;
+  }
+  #app::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: 20px;
+    background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.03) 0 2px, transparent 2px 4px);
+    mix-blend-mode: soft-light;
+  }
+
+  /* ============ HEADER / HUD ============ */
+  .topbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; z-index: 2; }
+  .brand {
+    font-size: clamp(15px, 3.8vw, 22px);
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    line-height: 1.1;
+    color: var(--gold);
+    text-shadow: 0 2px 0 rgba(0, 0, 0, .5);
+  }
+  .brand small { display: block; font-size: 9px; letter-spacing: 2px; font-weight: 500; color: rgba(255,255,255,.6); }
+  .hud { display: flex; gap: 6px; }
+  .stat {
+    background: rgba(0, 0, 0, .3);
+    border: 1px solid rgba(232, 199, 102, .28);
+    border-radius: 9px;
+    padding: 4px 8px;
+    text-align: center;
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.6);
+  }
+  .stat b { display: block; font-size: 15px; letter-spacing: 0; color: var(--gold); }
+
+  /* ============ OPPONENTS ============ */
+  #opponents { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; z-index: 2; }
+  .opp {
+    background: rgba(0, 0, 0, .28);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 12px;
+    padding: 6px 12px;
+    text-align: center;
+    min-width: 88px;
+    transition: .2s;
+  }
+  .opp.active {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 2px rgba(232,199,102,.5), 0 0 18px rgba(232,199,102,.35);
+    transform: translateY(-2px);
+  }
+  .oppAvatar { font-size: 20px; line-height: 1; }
+  .oppName { font-size: 11px; font-weight: 700; letter-spacing: .5px; margin: 2px 0; }
+  .oppCards { font-size: 11px; color: rgba(255,255,255,.75); }
+  .oppCount { font-weight: 800; font-size: 13px; color: var(--gold); }
+  .oppScore { font-size: 10px; color: rgba(255,255,255,.55); }
+
+  /* ============ CENTER TABLE ============ */
+  #table { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 0; z-index: 2; }
+  #pileZone { display: flex; gap: clamp(20px, 6vw, 60px); align-items: flex-end; }
+  #deckWrap, #discardWrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  #discard { position: relative; width: var(--cw); height: calc(var(--cw) * 1.4); }
+  #discard .card { position: absolute; top: 0; left: 0; }
+  #discard .card.under { transform: translate(3px, -3px); }
+  .pileLabel { font-size: 9px; letter-spacing: 2px; color: rgba(255,255,255,.55); }
+  #deck { cursor: pointer; transition: transform .15s, filter .15s; }
+  #deck:not(.empty):hover { transform: translateY(-4px); }
+  #deck.empty { filter: grayscale(1) brightness(.45); cursor: not-allowed; }
+  #centerInfo { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .infoBox {
+    background: rgba(0, 0, 0, .3);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 10px;
+    padding: 4px 12px;
+    text-align: center;
+    min-width: 70px;
+  }
+  .infoLabel { display: block; font-size: 8px; letter-spacing: 2px; color: rgba(255,255,255,.55); }
+  .suitBadge { font-size: 22px; font-weight: 800; line-height: 1.1; color: #fff; }
+  .suitBadge.red { color: #ff6b6b; }
+  .dirBadge { font-size: 22px; line-height: 1.1; color: var(--gold); }
+  #turnBadge { font-size: 13px; font-weight: 700; color: var(--gold); }
+
+  /* ============ STATUS ============ */
+  #statusBar { text-align: center; font-size: 12px; color: rgba(255,255,255,.88); min-height: 16px; z-index: 2; }
+
+  /* ============ PLAYER ZONE ============ */
+  #playerZone { z-index: 2; }
+  .pInfo { display: flex; align-items: center; gap: 8px; font-size: 12px; color: rgba(255,255,255,.82); margin-bottom: 4px; }
+  .pInfo b { color: var(--gold); }
+  #hand {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 5px;
+    max-height: 26vh;
+    overflow-y: auto;
+    padding: 6px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, .18);
+  }
+
+  /* ============ CARDS ============ */
+  .card {
+    width: var(--cw);
+    height: calc(var(--cw) * 1.4);
+    position: relative;
+    border-radius: 7px;
+    background: linear-gradient(160deg, #ffffff, #e9ecf2);
+    color: var(--black);
+    border: 1px solid #cfd4dd;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    user-select: none;
+    flex: 0 0 auto;
+  }
+  .card.red { color: var(--red); }
+  .card .corner { position: absolute; display: flex; flex-direction: column; align-items: center; line-height: 1; font-size: calc(var(--cw) * .24); }
+  .card .corner i { font-style: normal; font-size: calc(var(--cw) * .22); }
+  .card .corner.tl { top: 3px; left: 4px; }
+  .card .corner.br { bottom: 3px; right: 4px; transform: rotate(180deg); }
+  .card .big { font-size: calc(var(--cw) * .62); opacity: .9; }
+  .card.back {
+    background: repeating-linear-gradient(45deg, #13386e 0 6px, #0d2550 6px 12px);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, .42), inset 0 0 0 3px rgba(255,255,255,.18);
+  }
+  .card.back::after { content: ""; position: absolute; inset: 6px; border: 2px solid rgba(232,199,102,.6); border-radius: 4px; }
+  #deck { box-shadow: 4px 4px 0 rgba(0,0,0,.35), 8px 8px 0 rgba(0,0,0,.2), 0 2px 6px rgba(0,0,0,.45); }
+  #hand .card { cursor: pointer; transition: transform .12s, box-shadow .12s, filter .12s; }
+  #hand .card.playable { outline: 2px solid var(--gold); outline-offset: 1px; }
+  #hand .card.playable:hover { transform: translateY(-8px); box-shadow: 0 8px 16px rgba(0, 0, 0, .45); }
+  #hand .card.dim { filter: brightness(.6) saturate(.55); cursor: not-allowed; }
+
+  /* ============ CONTROLS ============ */
+  #controls { display: flex; gap: 10px; justify-content: center; z-index: 2; }
+  #controls button {
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 10px 26px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    color: #fff;
+    background: #3a8a3f;
+    box-shadow: 0 4px 0 rgba(0, 0, 0, .25);
+    transition: .1s;
+  }
+  #controls button:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0, 0, 0, .25); }
+  #controls button:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+  #drawBtn { background: #c0562b; }
+  #restartBtn { background: #555; }
+
+  /* ============ OVERLAYS ============ */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 24px;
+    text-align: center;
+    background: rgba(3, 20, 12, .9);
+    backdrop-filter: blur(3px);
+    border-radius: 20px;
+  }
+  .overlay.hidden { display: none; }
+  .oTitle { font-size: clamp(24px, 6vw, 38px); color: var(--gold); text-shadow: 0 2px 0 rgba(0, 0, 0, .5); }
+  .oSub { font-size: 13px; color: rgba(255,255,255,.75); max-width: 470px; line-height: 1.65; }
+  .oppPick { display: flex; gap: 10px; }
+  .oppPick button {
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 12px 20px;
+    border: 2px solid rgba(232, 199, 102, .5);
+    background: rgba(0, 0, 0, .3);
+    color: var(--ink);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: .15s;
+  }
+  .oppPick button.sel { background: var(--gold); color: #3d2210; border-color: var(--gold); }
+  .bigBtn {
+    font-family: inherit;
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    padding: 14px 40px;
+    border: none;
+    border-radius: 14px;
+    cursor: pointer;
+    color: #3d2210;
+    background: linear-gradient(135deg, #f0d27a, #d9b544);
+    box-shadow: 0 5px 0 rgba(0, 0, 0, .3);
+    transition: .1s;
+  }
+  .bigBtn:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(0, 0, 0, .3); }
+  .suitPick { display: flex; gap: 14px; }
+  .suitPick button {
+    font-size: 40px;
+    width: 76px;
+    height: 76px;
+    border-radius: 14px;
+    border: 2px solid rgba(255,255,255,.3);
+    background: rgba(255,255,255,.95);
+    cursor: pointer;
+    line-height: 1;
+    transition: .15s;
+  }
+  .suitPick button.red { color: var(--red); }
+  .suitPick button.black { color: #15151a; }
+  .suitPick button:hover { transform: translateY(-4px) scale(1.05); border-color: var(--gold); }
+  .scoreList { width: min(100%, 420px); display: flex; flex-direction: column; gap: 6px; }
+  .scoreRow {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    background: rgba(0, 0, 0, .3);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 9px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  .scoreRow.win { border-color: var(--gold); background: rgba(232, 199, 102, .18); }
+  .scoreRow .pts { color: var(--gold); font-weight: 800; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 520px) {
+    #app { padding: 9px; gap: 6px; }
+    .opp { min-width: 74px; padding: 5px 8px; }
+    .oppAvatar { font-size: 17px; }
+    #controls button { padding: 9px 18px; font-size: 13px; }
+    #hand { max-height: 30vh; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- HUD -->
+  <div class="topbar">
+    <div class="brand">&#9827; CRAZY EIGHTS<small>match suit or rank &bull; 8 is wild</small></div>
+    <div class="hud">
+      <div class="stat">Wins<b id="hudWins">0</b></div>
+      <div class="stat">Target<b id="hudTarget">300</b></div>
+      <div class="stat">Round<b id="hudRound">1</b></div>
+    </div>
+  </div>
+
+  <!-- Opponents -->
+  <div id="opponents"></div>
+
+  <!-- Center table -->
+  <div id="table">
+    <div id="pileZone">
+      <div id="deckWrap">
+        <div id="deck" class="card back"></div>
+        <div class="pileLabel">DECK <span id="deckCount">0</span></div>
+      </div>
+      <div id="discardWrap">
+        <div id="discard"></div>
+        <div class="pileLabel">DISCARD</div>
+      </div>
+    </div>
+    <div id="centerInfo">
+      <div class="infoBox"><span class="infoLabel">SUIT</span><span id="suitBadge" class="suitBadge">&ndash;</span></div>
+      <div class="infoBox"><span class="infoLabel">DIRECTION</span><span id="dirBadge" class="dirBadge">&#8635;</span></div>
+      <div class="infoBox"><span class="infoLabel">TURN</span><span id="turnBadge">&ndash;</span></div>
+    </div>
+  </div>
+
+  <!-- Status message -->
+  <div id="statusBar"><span id="msg">Ready</span></div>
+
+  <!-- Player hand -->
+  <div id="playerZone">
+    <div class="pInfo"><span>&#128578;</span> <b>You</b> &bull; <span id="pCount">0 cards &bull; 0 pts</span></div>
+    <div id="hand"></div>
+  </div>
+
+  <!-- Controls -->
+  <div id="controls">
+    <button id="drawBtn" type="button">Draw</button>
+    <button id="restartBtn" type="button">Restart</button>
+  </div>
+
+  <!-- Start overlay -->
+  <div id="startScreen" class="overlay">
+    <h2 class="oTitle">Crazy Eights</h2>
+    <p class="oSub">
+      Play a card matching the top discard's <b>suit</b> or <b>rank</b>. An <b>8</b> is wild &mdash; play it anytime and name a suit.
+      Can't play? Draw until you can (or the deck runs out). Empty your hand first to win the round.
+      <br><br>
+      House rule: a <b>Queen</b> reverses the direction of play. &mdash;
+      Scoring: 8 = 50, J/Q/K = 10, A = 1, number cards = pip. First to <b>300</b> wins.
+    </p>
+    <p class="oSub" style="margin-bottom:-4px">Choose your opponents:</p>
+    <div class="oppPick" id="oppPick">
+      <button type="button" data-opp="1" class="sel">1 CPU</button>
+      <button type="button" data-opp="2">2 CPUs</button>
+      <button type="button" data-opp="3">3 CPUs</button>
+    </div>
+    <button class="bigBtn" id="startBtn" type="button">Start Game</button>
+  </div>
+
+  <!-- Suit chooser overlay (wild 8) -->
+  <div id="suitScreen" class="overlay hidden">
+    <h2 class="oTitle">Name a Suit</h2>
+    <p class="oSub">You played an 8 &mdash; choose the suit to continue.</p>
+    <div class="suitPick" id="suitPick">
+      <button type="button" class="black" data-suit="&#9824;">&#9824;</button>
+      <button type="button" class="red" data-suit="&#9829;">&#9829;</button>
+      <button type="button" class="red" data-suit="&#9830;">&#9830;</button>
+      <button type="button" class="black" data-suit="&#9827;">&#9827;</button>
+    </div>
+  </div>
+
+  <!-- Result overlay -->
+  <div id="resultScreen" class="overlay hidden">
+    <h2 class="oTitle" id="resHead">Round complete</h2>
+    <div id="resultBody"></div>
+    <button class="bigBtn" id="resBtn" type="button">Next Round</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONSTANTS ============
+  const SUITS = ["\u2660", "\u2665", "\u2666", "\u2663"]; // spades hearts diamonds clubs
+  const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+  const RED = { "\u2665": true, "\u2666": true };
+  const TARGET = 300;   // first to reach this many points wins the game
+  const HAND_SIZE = 5;  // cards dealt to each player
+  const CPU_EMOJI = ["\uD83E\uDD16", "\uD83D\uDC7D", "\uD83D\uDC79"]; // robot alien ogre
+  const CPU_NAMES = ["CPU Ana", "CPU Bob", "CPU Cleo"];
+
+  // ============ GAME STATE ============
+  let deck = [];
+  let discard = [];
+  let players = [];
+  let scores = [];
+  let turn = 0;
+  let dir = 1;                 // 1 = clockwise, -1 = counter-clockwise
+  let currentSuit = "\u2660";  // suit in play (differs from top card after a wild)
+  let roundOver = false;
+  let awaitingSuit = false;    // human played an 8, waiting for suit choice
+  let numOpp = 1;
+  let roundNum = 1;
+  let cpuTimer = null;
+
+  // ============ DOM REFERENCES ============
+  const $ = function (id) { return document.getElementById(id); };
+  const elOpponents = $("opponents");
+  const elDeck = $("deck");
+  const elDeckCount = $("deckCount");
+  const elDiscard = $("discard");
+  const elHand = $("hand");
+  const elSuit = $("suitBadge");
+  const elDir = $("dirBadge");
+  const elTurn = $("turnBadge");
+  const elMsg = $("msg");
+  const elPCount = $("pCount");
+  const elDraw = $("drawBtn");
+  const elRestart = $("restartBtn");
+  const elHudWins = $("hudWins");
+  const elHudRound = $("hudRound");
+
+  // ============ SOUND (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(vol || 0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g);
+      g.connect(actx.destination);
+      o.start();
+      o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  // ============ SMALL HELPERS ============
+  function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+  function topCard() { return discard[discard.length - 1]; }
+  function isRed(suit) { return !!RED[suit]; }
+  // A card is legal if it is an 8, or matches the suit in play, or matches the top rank.
+  function canPlay(c) {
+    return c.r === "8" || c.s === currentSuit || c.r === topCard().r;
+  }
+  function hasPlayable(pi) { return players[pi].hand.some(canPlay); }
+  function setMsg(t) { elMsg.textContent = t; }
+
+  // ============ SCORING ============
+  function cardPoints(c) {
+    if (c.r === "8") return 50;
+    if (c.r === "J" || c.r === "Q" || c.r === "K") return 10;
+    if (c.r === "A") return 1;
+    return parseInt(c.r, 10);
+  }
+  function handPoints(hand) {
+    let t = 0;
+    for (let i = 0; i < hand.length; i++) t += cardPoints(hand[i]);
+    return t;
+  }
+
+  // ============ RENDERING ============
+  function cardEl(c) {
+    const d = document.createElement("div");
+    d.className = "card" + (isRed(c.s) ? " red" : "");
+    d.innerHTML =
+      '<span class="corner tl">' + c.r + "<i>" + c.s + "</i></span>" +
+      '<span class="big">' + c.s + "</span>" +
+      '<span class="corner br">' + c.r + "<i>" + c.s + "</i></span>";
+    return d;
+  }
+
+  function renderOpponents() {
+    elOpponents.innerHTML = "";
+    for (let i = 1; i < players.length; i++) {
+      const p = players[i];
+      const d = document.createElement("div");
+      d.className = "opp" + (turn === i && !roundOver ? " active" : "");
+      d.innerHTML =
+        '<div class="oppAvatar">' + p.emoji + "</div>" +
+        '<div class="oppName">' + p.name + "</div>" +
+        '<div class="oppCards"><span class="oppCount">' + p.hand.length + "</span> cards</div>" +
+        '<div class="oppScore">' + scores[i] + " pts</div>";
+      elOpponents.appendChild(d);
+    }
+  }
+
+  function renderDiscard() {
+    elDiscard.innerHTML = "";
+    const vis = discard.slice(-4); // show a few layered cards
+    for (let i = 0; i < vis.length; i++) {
+      const el = cardEl(vis[i]);
+      if (i < vis.length - 1) el.classList.add("under");
+      elDiscard.appendChild(el);
+    }
+  }
+
+  function renderHand() {
+    elHand.innerHTML = "";
+    const p = players[0];
+    for (let i = 0; i < p.hand.length; i++) {
+      const c = p.hand[i];
+      const el = cardEl(c);
+      const playable = !roundOver && !awaitingSuit && turn === 0 && canPlay(c);
+      el.classList.add(playable ? "playable" : "dim");
+      el.addEventListener("click", (function (idx) {
+        return function () { humanCard(idx); };
+      })(i));
+      elHand.appendChild(el);
+    }
+  }
+
+  function updateDisplay() {
+    renderOpponents();
+    renderDiscard();
+    renderHand();
+
+    elDeckCount.textContent = deck.length;
+    elDeck.classList.toggle("empty", deck.length === 0);
+
+    elSuit.textContent = currentSuit;
+    elSuit.className = "suitBadge" + (isRed(currentSuit) ? " red" : "");
+    elDir.textContent = dir > 0 ? "\u21BB" : "\u21BA"; // ↻ / ↺
+    elTurn.textContent = players[turn] ? players[turn].name : "\u2014";
+
+    const p0 = players[0];
+    elPCount.textContent = p0.hand.length + " cards \u2022 " + scores[0] + " pts";
+    elDraw.disabled = roundOver || awaitingSuit || turn !== 0 || hasPlayable(0);
+    elHudRound.textContent = roundNum;
+  }
+
+  // ============ DECK / DRAW LOGIC ============
+  function reshuffle() {
+    const top = discard.pop();
+    deck = discard;
+    discard = [top];
+    shuffle(deck);
+    setMsg("Reshuffled the discard pile");
+    beep(300, 0.1, "triangle");
+  }
+
+  // Draw one card at a time until a playable card appears or the deck is exhausted.
+  function drawUntilPlayable(pi) {
+    const p = players[pi];
+    let drew = 0, guard = 0;
+    while (guard++ < 80) {
+      if (deck.length === 0) {
+        if (discard.length > 1) reshuffle();
+        else break;
+      }
+      if (deck.length === 0) break;
+      const c = deck.pop();
+      p.hand.push(c);
+      drew++;
+      if (canPlay(c)) break;
+    }
+    if (drew > 0) beep(420, 0.06, "square");
+    return drew;
+  }
+
+  // ============ TURN FLOW ============
+  function advance() {
+    if (roundOver) return;
+    turn = (turn + dir + players.length) % players.length;
+    updateDisplay();
+    if (players[turn].cpu) scheduleCpu();
+  }
+
+  function scheduleCpu() {
+    clearTimeout(cpuTimer);
+    cpuTimer = setTimeout(cpuTurn, 750);
+  }
+
+  // Best suit for a CPU naming a wild 8: the suit it holds the most of.
+  function bestSuit(p) {
+    const counts = { "\u2660": 0, "\u2665": 0, "\u2666": 0, "\u2663": 0 };
+    for (let i = 0; i < p.hand.length; i++) {
+      const c = p.hand[i];
+      if (c.r !== "8") counts[c.s]++;
+    }
+    let best = "\u2660";
+    for (let i = 0; i < SUITS.length; i++) {
+      if (counts[SUITS[i]] > counts[best]) best = SUITS[i];
+    }
+    return best;
+  }
+
+  // CPU choice: prefer suit match, then rank match, save 8s for last.
+  function cpuPickIndex(p) {
+    const opts = [];
+    for (let i = 0; i < p.hand.length; i++) if (canPlay(p.hand[i])) opts.push(i);
+    if (!opts.length) return -1;
+    const non8 = opts.filter(function (i) { return p.hand[i].r !== "8"; });
+    if (non8.length) {
+      const suitMatch = non8.filter(function (i) { return p.hand[i].s === currentSuit; });
+      if (suitMatch.length) return suitMatch[0];
+      const rankMatch = non8.filter(function (i) { return p.hand[i].r === topCard().r; });
+      if (rankMatch.length) return rankMatch[0];
+      return non8[0];
+    }
+    return opts[0]; // only 8s remain playable
+  }
+
+  function cpuTurn() {
+    if (roundOver) return;
+    const pi = turn;
+    const p = players[pi];
+    setMsg(p.name + " is thinking\u2026");
+
+    const pick = cpuPickIndex(p);
+    if (pick >= 0) { commitPlay(pi, pick); return; }
+
+    // No legal card: draw until playable.
+    const drew = drawUntilPlayable(pi);
+    updateDisplay();
+    if (drew > 0) setMsg(p.name + " drew " + drew + " card" + (drew > 1 ? "s" : ""));
+
+    const pick2 = cpuPickIndex(p);
+    if (pick2 >= 0) {
+      setTimeout(function () { if (!roundOver) commitPlay(pi, pick2); }, 450);
+    } else {
+      beep(200, 0.12, "sine");
+      setMsg(p.name + " passed");
+      advance();
+    }
+  }
+
+  // Play a card from player pi at hand index idx.
+  function commitPlay(pi, idx) {
+    const p = players[pi];
+    const card = p.hand.splice(idx, 1)[0];
+    discard.push(card);
+    setMsg(p.name + " played " + card.r + card.s);
+    beep(520, 0.08, "triangle");
+
+    if (card.r === "8") {
+      if (p.cpu) {
+        currentSuit = bestSuit(p);
+        beep(660, 0.12, "sine");
+        updateDisplay();
+        if (p.hand.length === 0) { roundEnd(pi); return; }
+        advance();
+      } else {
+        awaitingSuit = true;
+        updateDisplay();
+        $("suitScreen").classList.remove("hidden");
+      }
+      return;
+    }
+
+    currentSuit = card.s;
+    if (card.r === "Q") { dir *= -1; beep(280, 0.14, "sawtooth"); }
+    updateDisplay();
+    if (p.hand.length === 0) { roundEnd(pi); return; }
+    advance();
+  }
+
+  // ============ HUMAN INPUT ============
+  function humanCard(idx) {
+    if (roundOver || awaitingSuit || turn !== 0) return;
+    const c = players[0].hand[idx];
+    if (!canPlay(c)) {
+      beep(160, 0.12, "sawtooth");
+      setMsg("No match \u2014 must share the suit or rank.");
+      return;
+    }
+    commitPlay(0, idx);
+  }
+
+  function humanDraw() {
+    if (roundOver || awaitingSuit || turn !== 0) return;
+    if (hasPlayable(0)) { beep(180, 0.1, "square"); setMsg("You have a playable card!"); return; }
+
+    const drew = drawUntilPlayable(0);
+    updateDisplay();
+    if (drew === 0) {
+      beep(200, 0.12, "sine");
+      setMsg("Deck empty \u2014 you pass");
+      advance();
+      return;
+    }
+    if (hasPlayable(0)) {
+      setMsg("Drew " + drew + " \u2014 now play a card.");
+    } else {
+      beep(200, 0.12, "sine");
+      setMsg("Drew " + drew + " \u2014 still no move. Passing\u2026");
+      setTimeout(function () { if (!roundOver) advance(); }, 700);
+    }
+  }
+
+  function chooseSuit(suit) {
+    currentSuit = suit;
+    awaitingSuit = false;
+    $("suitScreen").classList.add("hidden");
+    beep(700, 0.1, "sine");
+    updateDisplay();
+    if (players[0].hand.length === 0) { roundEnd(0); return; }
+    advance();
+  }
+
+  // ============ ROUND / GAME END ============
+  function roundEnd(pi) {
+    roundOver = true;
+    clearTimeout(cpuTimer);
+    let gained = 0;
+    for (let i = 0; i < players.length; i++) if (i !== pi) gained += handPoints(players[i].hand);
+    scores[pi] += gained;
+
+    const gameWon = scores[pi] >= TARGET;
+    if (gameWon && pi === 0) {
+      const w = (parseInt(localStorage.getItem("crazyEightsWins"), 10) || 0) + 1;
+      localStorage.setItem("crazyEightsWins", String(w));
+      elHudWins.textContent = w;
+    }
+    beep(pi === 0 ? 880 : 300, 0.3, pi === 0 ? "sine" : "sawtooth");
+    updateDisplay();
+    showResult(pi, gained, gameWon);
+  }
+
+  function showResult(pi, gained, gameWon) {
+    const youWin = pi === 0;
+    const winner = players[pi];
+
+    $("resHead").textContent = gameWon
+      ? (youWin ? "\uD83C\uDFC6 You reached " + TARGET + " \u2014 Champion!" : "\uD83C\uDFC6 " + winner.name + " reached " + TARGET)
+      : "Round " + roundNum + " complete";
+
+    let html = '<p class="oSub">' + (youWin ? "You win the round! " : winner.name + " wins the round. ") +
+      "&#43;" + gained + " points &#8594; " + winner.name + "</p>";
+    html += '<div class="scoreList">';
+    for (let i = 0; i < players.length; i++) {
+      const p = players[i];
+      const left = i === pi ? "\u2014" : p.hand.length + " left (" + handPoints(p.hand) + ")";
+      html += '<div class="scoreRow' + (i === pi ? " win" : "") + '">' +
+        "<span>" + p.emoji + " " + p.name + "</span>" +
+        "<span>" + left + "</span>" +
+        '<span class="pts">' + scores[i] + " pts</span></div>";
+    }
+    html += "</div>";
+    $("resultBody").innerHTML = html;
+
+    const btn = $("resBtn");
+    if (gameWon) {
+      btn.textContent = "Play Again";
+      btn.onclick = function () { $("resultScreen").classList.add("hidden"); goStart(); };
+    } else {
+      btn.textContent = "Next Round \u25B6";
+      btn.onclick = function () { $("resultScreen").classList.add("hidden"); roundNum++; newRound(); };
+    }
+    $("resultScreen").classList.remove("hidden");
+  }
+
+  // ============ SETUP ============
+  function buildPlayers() {
+    players = [{ name: "You", emoji: "\uD83D\uDE42", cpu: false, hand: [] }];
+    for (let i = 0; i < numOpp; i++) {
+      players.push({ name: CPU_NAMES[i], emoji: CPU_EMOJI[i], cpu: true, hand: [] });
+    }
+    scores = [];
+    for (let i = 0; i < players.length; i++) scores.push(0);
+  }
+
+  function newRound() {
+    clearTimeout(cpuTimer);
+    deck = [];
+    discard = [];
+    roundOver = false;
+    awaitingSuit = false;
+    dir = 1;
+    turn = 0;
+
+    for (let s = 0; s < SUITS.length; s++) {
+      for (let r = 0; r < RANKS.length; r++) deck.push({ r: RANKS[r], s: SUITS[s] });
+    }
+    shuffle(deck);
+
+    for (let i = 0; i < players.length; i++) players[i].hand = [];
+    for (let k = 0; k < HAND_SIZE; k++) {
+      for (let i = 0; i < players.length; i++) players[i].hand.push(deck.pop());
+    }
+
+    // Turn up a starting card that is not an 8.
+    let first = deck.pop();
+    let guard = 0;
+    while (first.r === "8" && guard++ < 60) {
+      deck.splice(Math.floor(Math.random() * (deck.length + 1)), 0, first);
+      first = deck.pop();
+    }
+    discard.push(first);
+    currentSuit = first.s;
+
+    setMsg("You start \u2014 match the " + first.r + first.s + " suit or rank.");
+    updateDisplay();
+    if (players[turn].cpu) scheduleCpu();
+  }
+
+  function goStart() {
+    clearTimeout(cpuTimer);
+    roundOver = true; // block stray timers
+    $("startScreen").classList.remove("hidden");
+  }
+
+  function startGame(opp) {
+    numOpp = opp;
+    roundNum = 1;
+    buildPlayers();
+    $("startScreen").classList.add("hidden");
+    $("resultScreen").classList.add("hidden");
+    $("suitScreen").classList.add("hidden");
+    newRound();
+  }
+
+  // ============ EVENT WIRING ============
+  const oppBtns = Array.prototype.slice.call(document.querySelectorAll("#oppPick button"));
+  let selOpp = 1;
+  oppBtns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      oppBtns.forEach(function (x) { x.classList.remove("sel"); });
+      b.classList.add("sel");
+      selOpp = parseInt(b.dataset.opp, 10);
+      beep(600, 0.05, "triangle");
+    });
+  });
+
+  $("startBtn").addEventListener("click", function () { startGame(selOpp); });
+
+  Array.prototype.slice.call(document.querySelectorAll("#suitPick button")).forEach(function (b) {
+    b.addEventListener("click", function () { chooseSuit(b.dataset.suit); });
+  });
+
+  elDeck.addEventListener("click", humanDraw);
+  elDraw.addEventListener("click", humanDraw);
+  elRestart.addEventListener("click", goStart);
+
+  // Keyboard shortcuts: D = draw, R = restart.
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "KeyD") { e.preventDefault(); humanDraw(); }
+    else if (e.code === "KeyR") { e.preventDefault(); goStart(); }
+  });
+
+  // Pause CPU pacing while tab is hidden.
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) clearTimeout(cpuTimer);
+  });
+
+  // ============ INIT ============
+  elHudWins.textContent = parseInt(localStorage.getItem("crazyEightsWins"), 10) || 0;
+  buildPlayers();
+  updateDisplay();
+})();
+</script>
+</body>
+</html>

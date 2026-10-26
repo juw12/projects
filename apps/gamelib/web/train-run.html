@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>TRAIN RUN</title>
+<style>
+/* ============================================================
+   TRAIN RUN  ·  styles
+   ============================================================ */
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:#05070c;
+  font-family:'Trebuchet MS','Segoe UI',system-ui,sans-serif;color:#e8eef7;
+  user-select:none;-webkit-user-select:none}
+#wrap{position:fixed;inset:0}
+canvas{display:block;width:100vw;height:100vh;touch-action:none}
+
+/* ---------------- HUD ---------------- */
+#hud{position:absolute;top:0;left:0;right:0;padding:10px 14px;display:flex;
+  gap:14px;align-items:flex-start;pointer-events:none;
+  font-family:'Consolas','SFMono-Regular',monospace;text-shadow:0 2px 6px #000}
+.hudItem{display:flex;flex-direction:column;line-height:1.05}
+.hudItem .lbl{font-size:9px;letter-spacing:2px;color:#8fa3bd}
+.hudItem .val{font-size:20px;font-weight:700;color:#ffd166}
+#hud .spacer{flex:1}
+#hud .val.best{color:#7fe3dc}
+
+/* ---------------- OVERLAYS ---------------- */
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(120% 90% at 50% 40%,rgba(12,18,30,.72),rgba(3,5,10,.94));
+  opacity:0;pointer-events:none;transition:opacity .28s ease;z-index:20;padding:18px}
+.overlay.show{opacity:1;pointer-events:auto}
+.card{width:min(460px,92vw);text-align:center;padding:26px 24px 24px;
+  border:1px solid rgba(126,160,205,.28);border-radius:16px;
+  background:linear-gradient(180deg,rgba(22,31,48,.96),rgba(10,15,25,.97));
+  box-shadow:0 26px 70px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.06)}
+.card h1{margin:0 0 2px;font-size:clamp(30px,8vw,50px);letter-spacing:5px;font-weight:800;
+  color:#ffe6a6;text-shadow:0 4px 0 #7a3d10,0 10px 26px rgba(255,150,60,.35)}
+.card h1 span{color:#ff8a3d}
+.tag{margin:0 0 18px;font-size:11px;letter-spacing:4px;color:#8fa3bd;text-transform:uppercase}
+.keys{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:0 0 18px;
+  font-size:12px;color:#c6d5e8}
+.keys div{display:flex;align-items:center;gap:8px;justify-content:center;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);
+  border-radius:9px;padding:8px 6px}
+kbd{font-family:'Consolas',monospace;font-size:11px;background:#26324a;
+  border:1px solid #45557a;border-bottom-width:2px;border-radius:5px;padding:2px 6px;color:#e8eef7}
+.scoreGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:6px 0 18px}
+.sc{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08);
+  border-radius:10px;padding:10px}
+.sc .k{font-size:9px;letter-spacing:2px;color:#8fa3bd}
+.sc .v{font-size:22px;font-weight:800;color:#ffd166;font-family:'Consolas',monospace}
+.sc .v.best{color:#7fe3dc}
+button.btn{margin-top:4px;width:100%;padding:14px;border:0;border-radius:12px;cursor:pointer;
+  font-size:16px;font-weight:800;letter-spacing:3px;color:#1a0f04;
+  background:linear-gradient(180deg,#ffcf5c,#ff8a3d);
+  box-shadow:0 6px 0 #a1451a,0 14px 30px rgba(255,120,50,.3);
+  transition:transform .08s ease,box-shadow .08s ease}
+button.btn:active{transform:translateY(4px);box-shadow:0 2px 0 #a1451a}
+.hint{margin:14px 0 0;font-size:11px;color:#6f8199;letter-spacing:1px}
+
+/* ---------------- TOUCH PADS ---------------- */
+#touch{position:absolute;inset:auto 0 0 0;height:150px;display:flex;
+  justify-content:space-between;align-items:flex-end;padding:0 16px 18px;
+  pointer-events:none;z-index:15}
+.pad{display:flex;gap:12px;pointer-events:auto}
+.pad button{width:66px;height:66px;border-radius:50%;border:1px solid rgba(255,255,255,.16);
+  background:rgba(20,28,44,.55);color:#dfe9f7;font-size:13px;font-weight:800;
+  letter-spacing:1px;backdrop-filter:blur(6px);box-shadow:0 6px 18px rgba(0,0,0,.4)}
+.pad button.wide{width:78px;height:78px}
+.pad button.active{background:rgba(255,138,61,.75);color:#1a0f04;transform:scale(.94)}
+#corner{position:absolute;right:14px;top:52px;font-size:10px;letter-spacing:2px;
+  color:#5f7288;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+
+  <!-- ============ HUD ============ -->
+  <div id="hud">
+    <div class="hudItem"><span class="lbl">SCORE</span><span class="val" id="score">0</span></div>
+    <div class="hudItem"><span class="lbl">DIST</span><span class="val" id="dist">0 m</span></div>
+    <div class="hudItem"><span class="lbl">CARGO</span><span class="val" id="cargo">0</span></div>
+    <div class="spacer"></div>
+    <div class="hudItem" style="text-align:right"><span class="lbl">SPD</span><span class="val" id="spd">0</span></div>
+    <div class="hudItem" style="text-align:right"><span class="lbl">BEST</span><span class="val best" id="best">0</span></div>
+  </div>
+  <div id="corner">&#9650;&#9660; TRACK &middot; SPACE JUMP &middot; SHIFT DUCK</div>
+
+  <!-- ============ START OVERLAY ============ -->
+  <div class="overlay show" id="start">
+    <div class="card">
+      <h1>TRAIN <span>RUN</span></h1>
+      <p class="tag">endless rail-roof runner</p>
+      <div class="keys">
+        <div><kbd>&uarr;</kbd><kbd>&darr;</kbd> switch track</div>
+        <div><kbd>SPACE</kbd> jump gap / crate</div>
+        <div><kbd>SHIFT</kbd> duck bridge</div>
+        <div><kbd>P</kbd> pause</div>
+      </div>
+      <p class="hint">Ride the roofs. Leap the gaps, duck the gantries,<br>
+      dodge oncoming locos by switching tracks. Grab cargo.</p>
+      <button class="btn" id="startBtn">START RUN</button>
+      <p class="hint">touch: swipe up / down / left / right, or use the pads</p>
+    </div>
+  </div>
+
+  <!-- ============ GAME OVER OVERLAY ============ -->
+  <div class="overlay" id="over">
+    <div class="card">
+      <h1>DERAILED</h1>
+      <p class="tag">run terminated</p>
+      <div class="scoreGrid">
+        <div class="sc"><div class="k">SCORE</div><div class="v" id="finalScore">0</div></div>
+        <div class="sc"><div class="k">DISTANCE</div><div class="v" id="finalDist">0 m</div></div>
+        <div class="sc"><div class="k">CARGO</div><div class="v" id="finalCargo">0</div></div>
+        <div class="sc"><div class="k">BEST</div><div class="v best" id="finalBest">0</div></div>
+      </div>
+      <button class="btn" id="retryBtn">RUN AGAIN</button>
+      <p class="hint">press <kbd>R</kbd> or <kbd>ENTER</kbd></p>
+    </div>
+  </div>
+
+  <!-- ============ PAUSE OVERLAY ============ -->
+  <div class="overlay" id="pause">
+    <div class="card">
+      <h1>PAUSED</h1>
+      <p class="tag">hold the line</p>
+      <button class="btn" id="resumeBtn">RESUME</button>
+      <p class="hint">press <kbd>P</kbd> to resume</p>
+    </div>
+  </div>
+
+  <!-- ============ TOUCH PADS ============ -->
+  <div id="touch">
+    <div class="pad">
+      <button data-act="up">&#9650;</button>
+      <button data-act="down">&#9660;</button>
+    </div>
+    <div class="pad">
+      <button data-act="duck" class="wide">DUCK</button>
+      <button data-act="jump" class="wide">JUMP</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+/* ============================================================
+   TRAIN RUN  ·  endless rail-roof runner
+   single-file HTML5 · Canvas 2D · WebAudio · localStorage best
+   ============================================================ */
+
+/* ---------------- CONFIG ---------------- */
+var CFG = {
+  BASE_SPEED : 330,      // px/s at start
+  MAX_SPEED  : 900,      // soft cap
+  RAMP_PER_M : 2.2,      // speed gained per metre
+  GRAVITY    : 2700,     // px/s^2
+  JUMP_V     : 950,      // initial upward velocity (px/s)
+  LANE_LERP  : 13,       // track-switch tween sharpness
+  CARGO_PTS  : 25,
+  PX_PER_M   : 50,       // 50 px = 1 metre
+  SPAWN_BASE : 520,      // px between obstacle waves
+  SPAWN_MIN  : 370,
+  SPAWN_RAMP : 0.55,
+  BEST_KEY   : 'trainRun.best.v1'
+};
+
+/* ---------------- DOM ---------------- */
+var canvas   = document.getElementById('game');
+var ctx      = canvas.getContext('2d');
+var elScore  = document.getElementById('score');
+var elBest   = document.getElementById('best');
+var elDist   = document.getElementById('dist');
+var elSpd    = document.getElementById('spd');
+var elCargo  = document.getElementById('cargo');
+var startOv  = document.getElementById('start');
+var overOv   = document.getElementById('over');
+var pauseOv  = document.getElementById('pause');
+var fScore   = document.getElementById('finalScore');
+var fDist    = document.getElementById('finalDist');
+var fCargo   = document.getElementById('finalCargo');
+var fBest    = document.getElementById('finalBest');
+var touchEl  = document.getElementById('touch');
+
+/* ---------------- LAYOUT ---------------- */
+var L = { W:0,H:0,u:1, trackY:[0,0,0], scale:[0.82,0.92,1.06],
+          bodyH:[0,0,0], cl:[0,0,0], playerX:0, pw:22, ph:44, duckH:25 };
+
+function layout(){
+  var W = canvas.clientWidth  || window.innerWidth;
+  var H = canvas.clientHeight || window.innerHeight;
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width  = Math.floor(W*dpr);
+  canvas.height = Math.floor(H*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  L.W = W; L.H = H;
+  L.u = Math.max(0.62, Math.min(1.35, H/760));
+  var top = H*0.42, gap = H*0.19;
+  L.trackY[0] = top;
+  L.trackY[1] = top+gap;
+  L.trackY[2] = top+gap*2;
+  L.bodyH[0]  = gap*0.50;
+  L.bodyH[1]  = gap*0.72;
+  L.bodyH[2]  = H-L.trackY[2]+40;
+  for(var i=0;i<3;i++) L.cl[i] = 246*L.scale[i];
+  L.playerX = Math.max(56, W*0.22);
+  L.pw = 22*L.u; L.ph = 44*L.u; L.duckH = 25*L.u;
+}
+window.addEventListener('resize', layout);
+
+/* ---------------- AUDIO ---------------- */
+var actx = null;
+function ensureAudio(){
+  try{
+    if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)();
+    if(actx.state === 'suspended') actx.resume();
+  }catch(e){ actx = null; }
+}
+function beep(freq, dur, type, vol){
+  if(!actx) return;
+  var t = actx.currentTime;
+  var o = actx.createOscillator(), g = actx.createGain();
+  o.type = type || 'square';
+  o.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(vol || 0.06, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + (dur||0.1));
+  o.connect(g); g.connect(actx.destination);
+  o.start(t); o.stop(t + (dur||0.1) + 0.03);
+}
+
+/* ---------------- STATE ---------------- */
+var state = 'start';
+var world = 0, speed = CFG.BASE_SPEED, distance = 0, cargo = 0, score = 0;
+var hazards = [], particles = [];
+var nextSpawn = 0, shake = 0, flash = 0, clock = 0;
+var best = 0;
+try{ best = parseInt(localStorage.getItem(CFG.BEST_KEY)||'0',10) || 0; }catch(e){ best = 0; }
+
+var player = { lane:1, displayY:0, vy:0, jumpY:0, ducking:false, run:0, dead:false, lock:0 };
+
+/* ---------------- HELPERS ---------------- */
+function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+function rand01(s){ var x = Math.sin(s*127.1)*43758.5453; return x - Math.floor(x); }
+function rr(x,y,w,h,r){
+  r = Math.min(r, w/2, h/2);
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+
+/* ---------------- FLOW ---------------- */
+function reset(){
+  world = 0; speed = CFG.BASE_SPEED; distance = 0; cargo = 0; score = 0;
+  hazards.length = 0; particles.length = 0;
+  player.lane = 1; player.vy = 0; player.jumpY = 0; player.ducking = false;
+  player.dead = false; player.lock = 0; player.run = 0;
+  player.displayY = L.trackY[1];
+  nextSpawn = 560; shake = 0; flash = 0;
+}
+function startGame(){
+  ensureAudio();
+  reset();
+  state = 'play';
+  startOv.classList.remove('show');
+  overOv.classList.remove('show');
+  pauseOv.classList.remove('show');
+}
+function showOver(){
+  fScore.textContent = String(score);
+  fDist.textContent  = Math.floor(distance)+' m';
+  fCargo.textContent = String(cargo);
+  fBest.textContent  = String(best);
+  overOv.classList.add('show');
+}
+function togglePause(){
+  if(state === 'play'){ state = 'paused'; pauseOv.classList.add('show'); }
+  else if(state === 'paused'){ state = 'play'; pauseOv.classList.remove('show'); }
+}
+
+/* ---------------- INPUT ---------------- */
+function laneUp(){
+  if(state !== 'play' || player.lock > 0) return;
+  if(player.lane > 0){ player.lane--; player.lock = 0.10; beep(360,0.06,'square',0.045); }
+}
+function laneDown(){
+  if(state !== 'play' || player.lock > 0) return;
+  if(player.lane < 2){ player.lane++; player.lock = 0.10; beep(300,0.06,'square',0.045); }
+}
+function doJump(){
+  if(state !== 'play') return;
+  if(player.jumpY <= 0 && player.vy <= 0){
+    player.vy = CFG.JUMP_V;
+    beep(600,0.10,'square',0.055);
+  }
+}
+function setDuck(on){
+  if(state !== 'play'){ player.ducking = false; return; }
+  if(on && !player.ducking) beep(190,0.07,'sine',0.05);
+  player.ducking = on;
+}
+
+window.addEventListener('keydown', function(e){
+  var k = e.key;
+  if(k==='ArrowUp'||k==='w'||k==='W'){ e.preventDefault(); if(!e.repeat) laneUp(); }
+  else if(k==='ArrowDown'||k==='s'||k==='S'){ e.preventDefault(); if(!e.repeat) laneDown(); }
+  else if(k===' '||k==='Spacebar'||k==='j'||k==='J'){ e.preventDefault(); if(!e.repeat) doJump(); }
+  else if(k==='Shift'||k==='k'||k==='K'){ e.preventDefault(); setDuck(true); }
+  else if(k==='p'||k==='P'){ togglePause(); }
+  else if(k==='r'||k==='R'){ if(state==='over') startGame(); }
+  else if(k==='Enter'){ if(state==='start'||state==='over') startGame(); }
+});
+window.addEventListener('keyup', function(e){
+  var k = e.key;
+  if(k==='Shift'||k==='k'||k==='K') setDuck(false);
+});
+
+/* touch pads */
+var duckHeld = false;
+touchEl.addEventListener('pointerdown', function(e){
+  var b = e.target.closest ? e.target.closest('[data-act]') : null; if(!b) return;
+  e.preventDefault(); ensureAudio();
+  var a = b.getAttribute('data-act');
+  if(a==='up') laneUp();
+  else if(a==='down') laneDown();
+  else if(a==='jump') doJump();
+  else if(a==='duck'){ duckHeld = true; setDuck(true); }
+  b.classList.add('active');
+});
+function releasePads(){
+  if(duckHeld){ duckHeld = false; setDuck(false); }
+  var act = touchEl.querySelectorAll('.active');
+  for(var i=0;i<act.length;i++) act[i].classList.remove('active');
+}
+window.addEventListener('pointerup', releasePads);
+window.addEventListener('pointercancel', releasePads);
+
+/* swipe / tap on the canvas */
+var tx0=0, ty0=0, t0=0;
+canvas.addEventListener('pointerdown', function(e){ tx0=e.clientX; ty0=e.clientY; t0=performance.now(); });
+canvas.addEventListener('pointerup', function(e){
+  if(state!=='play') return;
+  var dx = e.clientX-tx0, dy = e.clientY-ty0;
+  if(performance.now()-t0 > 600) return;
+  ensureAudio();
+  if(Math.abs(dx) < 26 && Math.abs(dy) < 26){ doJump(); return; }
+  if(Math.abs(dx) > Math.abs(dy)){ if(dx > 0) laneDown(); else laneUp(); }
+  else if(dy < 0) doJump();
+  else { duckHeld = true; setDuck(true); setTimeout(function(){ duckHeld = false; setDuck(false); }, 430); }
+});
+
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('retryBtn').addEventListener('click', startGame);
+document.getElementById('resumeBtn').addEventListener('click', togglePause);
+document.addEventListener('visibilitychange', function(){
+  if(document.hidden && state==='play') togglePause();
+});
+
+/* ---------------- SPAWNING ---------------- */
+function addHazard(type, lane, xOffset){
+  var u = L.u;
+  var h = { type:type, lane:lane, x: L.W + 70 + (xOffset||0), w:0, h:0,
+            extra:0, t:Math.random()*6, dead:false };
+  if(type==='gap'){        h.w = 76*u;  h.h = 0; }
+  else if(type==='crate'){ h.w = 38*u;  h.h = 30*u; }
+  else if(type==='bridge'){h.w = 132*u; h.h = 96*u; }
+  else if(type==='train'){ h.w = 320*u; h.h = 110*u; h.extra = 440; }
+  else if(type==='cargo'){ h.w = 26*u;  h.h = 26*u; }
+  hazards.push(h);
+}
+function spawnWave(){
+  var lanes = [0,1,2];
+  for(var i=2;i>0;i--){ var j=(Math.random()*(i+1))|0; var t=lanes[i]; lanes[i]=lanes[j]; lanes[j]=t; }
+
+  var count = Math.random()<0.60 ? 1 : 2;
+  if(distance < 80) count = 1;
+
+  var types;
+  if(distance > 150 && Math.random() < 0.20){
+    count = 1; types = ['train'];            // oncoming loco: leave every other track clear
+  } else {
+    types = [];
+    for(var k=0;k<count;k++){
+      var r = Math.random();
+      types.push(r<0.44 ? 'gap' : (r<0.76 ? 'crate' : 'bridge'));
+    }
+  }
+  for(var m=0;m<count;m++) addHazard(types[m], lanes[m]);
+
+  // reward cargo on a lane left free
+  if(Math.random() < 0.62){
+    var free = lanes.slice(count);
+    if(free.length){
+      var fl = free[(Math.random()*free.length)|0];
+      addHazard('cargo', fl, 0);
+      if(Math.random() < 0.35){ addHazard('cargo', fl, 62*L.u); addHazard('cargo', fl, 124*L.u); }
+    }
+  }
+}
+
+/* ---------------- COLLISION ---------------- */
+function burst(x,y,col,n){
+  for(var i=0;i<n;i++){
+    particles.push({ x:x, y:y, vx:(Math.random()-0.5)*260, vy:-Math.random()*260-40,
+                     life:0.55+Math.random()*0.35, t:0, col:col,
+                     sz:2+Math.random()*3, g:900 });
+  }
+}
+function hit(){
+  if(player.dead) return;
+  player.dead = true;
+  state = 'over';
+  shake = 1; flash = 1;
+  beep(130,0.30,'sawtooth',0.14);
+  setTimeout(function(){ beep(70,0.45,'sawtooth',0.12); }, 110);
+  if(score > best){ best = score; try{ localStorage.setItem(CFG.BEST_KEY, String(best)); }catch(e){} }
+  showOver();
+}
+function checkHazard(h){
+  var u = L.u, py = player.jumpY;
+  if(h.type === 'cargo'){
+    cargo++;
+    score = Math.floor(distance) + cargo*CFG.CARGO_PTS;
+    beep(900,0.06,'square',0.06);
+    setTimeout(function(){ beep(1350,0.08,'square',0.05); }, 65);
+    burst(h.x+h.w/2, L.trackY[h.lane]-34*u, '#ffd166', 9);
+    h.dead = true;
+    return;
+  }
+  if(h.type === 'gap'){         if(py < 10*u)        hit(); }
+  else if(h.type === 'crate'){  if(py < h.h + 2*u)   hit(); }
+  else if(h.type === 'bridge'){ if(!(player.ducking && py <= 0)) hit(); }
+  else if(h.type === 'train'){  hit(); }
+}
+
+/* ---------------- UPDATE ---------------- */
+function update(dt){
+  if(state === 'play'){
+    speed = Math.min(CFG.MAX_SPEED, CFG.BASE_SPEED + distance*CFG.RAMP_PER_M);
+    world += speed*dt;
+    distance = world/CFG.PX_PER_M;
+    score = Math.floor(distance) + cargo*CFG.CARGO_PTS;
+
+    while(world >= nextSpawn){
+      spawnWave();
+      nextSpawn += Math.max(CFG.SPAWN_MIN, CFG.SPAWN_BASE - distance*CFG.SPAWN_RAMP);
+    }
+
+    if(player.lock > 0) player.lock -= dt;
+    player.displayY += (L.trackY[player.lane]-player.displayY) * (1-Math.exp(-CFG.LANE_LERP*dt));
+
+    if(player.jumpY > 0 || player.vy > 0){
+      player.jumpY += player.vy*dt;
+      player.vy -= CFG.GRAVITY*dt;
+      if(player.jumpY <= 0){ player.jumpY = 0; player.vy = 0; }
+    }
+    player.run += dt*(6 + speed*0.012);
+
+    var pL = L.playerX, pR = pL + L.pw*L.scale[player.lane];
+    for(var i=hazards.length-1;i>=0;i--){
+      var h = hazards[i];
+      h.t += dt;
+      h.x -= (speed + (h.extra||0))*dt;
+      if(h.dead || h.x + h.w < -120){ hazards.splice(i,1); continue; }
+      if(h.lane !== player.lane) continue;
+      if(h.x > pR || h.x + h.w < pL) continue;
+      checkHazard(h);
+      if(h.dead) hazards.splice(i,1);
+    }
+  }
+  else if(state === 'start'){
+    world += 90*dt;                                  // attract-mode drift
+    player.run += dt*7;
+    player.displayY += (L.trackY[1]-player.displayY) * (1-Math.exp(-CFG.LANE_LERP*dt));
+  }
+
+  for(var p=particles.length-1;p>=0;p--){
+    var q = particles[p];
+    q.t += dt;
+    if(q.t >= q.life){ particles.splice(p,1); continue; }
+    q.vy += q.g*dt;
+    q.x += q.vx*dt; q.y += q.vy*dt;
+  }
+  if(shake > 0) shake = Math.max(0, shake - dt*3);
+  if(flash > 0) flash = Math.max(0, flash - dt*3);
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+var LIVERY = [
+  { roof:'#243244', roof2:'#38506b', body:'#0e4d55', body2:'#0a3238', trim:'#4fd6d0' },
+  { roof:'#3a3220', roof2:'#6b5a2c', body:'#7a5410', body2:'#4d3408', trim:'#ffc247' },
+  { roof:'#3a2530', roof2:'#6e2f3e', body:'#6d1f2b', body2:'#3f1018', trim:'#ff6b81' }
+];
+
+function drawSky(W,H){
+  var g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0.00,'#080c16');
+  g.addColorStop(0.34,'#141d31');
+  g.addColorStop(0.60,'#33294a');
+  g.addColorStop(0.78,'#6b3b44');
+  g.addColorStop(0.90,'#2a1c26');
+  g.addColorStop(1.00,'#070a10');
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+
+  // stars
+  ctx.fillStyle = '#dfe9f7';
+  for(var i=0;i<70;i++){
+    var sx = (i*137.5) % W;
+    var sy = (i*79.3) % (H*0.34);
+    ctx.globalAlpha = (0.35 + 0.65*rand01(i*3.1)) * (0.5 + 0.5*Math.sin(clock*2+i));
+    ctx.fillRect(sx, sy, 1.6, 1.6);
+  }
+  ctx.globalAlpha = 1;
+
+  // moon + halo
+  var mx = W*0.80, my = H*0.14, mr = 26*L.u;
+  var mg = ctx.createRadialGradient(mx,my,mr*0.2,mx,my,mr*3.4);
+  mg.addColorStop(0,'rgba(255,244,214,0.30)');
+  mg.addColorStop(1,'rgba(255,244,214,0)');
+  ctx.fillStyle = mg; ctx.beginPath(); ctx.arc(mx,my,mr*3.4,0,6.3); ctx.fill();
+  ctx.fillStyle = '#f6eccb'; ctx.beginPath(); ctx.arc(mx,my,mr,0,6.3); ctx.fill();
+  ctx.fillStyle = 'rgba(200,190,160,0.35)';
+  ctx.beginPath(); ctx.arc(mx-mr*0.30,my-mr*0.20,mr*0.22,0,6.3); ctx.fill();
+  ctx.beginPath(); ctx.arc(mx+mr*0.25,my+mr*0.30,mr*0.16,0,6.3); ctx.fill();
+
+  // parallax city skyline
+  var base = L.trackY[0];
+  drawCity(world*0.06, base, H*0.20, '#0d1524', 'rgba(255,196,120,0.55)', 11.3, 92);
+  drawCity(world*0.15, base, H*0.15, '#131d31', 'rgba(255,214,150,0.65)', 47.9, 68);
+
+  // catenary wires above the far track
+  var wy = base - 96*L.u, period = 260*L.u, off = world % period;
+  ctx.strokeStyle = 'rgba(140,160,190,0.28)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(0, wy);            ctx.lineTo(W, wy);            ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, wy-14*L.u);     ctx.lineTo(W, wy-14*L.u);     ctx.stroke();
+  ctx.strokeStyle = 'rgba(110,130,160,0.34)';
+  ctx.lineWidth = 3*L.u;
+  for(var px=-off; px<W+period; px+=period){
+    ctx.beginPath(); ctx.moveTo(px, wy-14*L.u); ctx.lineTo(px, base-4*L.u); ctx.stroke();
+  }
+}
+function drawCity(off, baseY, maxH, col, lit, seed, step){
+  var x = -(off % step) - step;
+  var n = Math.floor(off/step);
+  for(var i=0; x < L.W+step; i++, x+=step){
+    var idx = n + i;
+    var hh = maxH*(0.35 + 0.65*rand01(seed+idx));
+    var w  = step*(0.62 + 0.30*rand01(seed+idx+7.7));
+    ctx.fillStyle = col;
+    ctx.fillRect(x, baseY-hh, w, hh);
+    ctx.fillStyle = lit;
+    for(var wy = baseY-hh+10; wy < baseY-8; wy += 13){
+      for(var wx = x+6; wx < x+w-8; wx += 11){
+        if(rand01(idx*13.7 + wx*0.11 + wy*0.07) > 0.70) ctx.fillRect(wx, wy, 4, 5);
+      }
+    }
+  }
+}
+
+/* the train the player is riding / the parallel trains */
+function drawTrain(i){
+  var W = L.W, u = L.u, s = L.scale[i], T = L.trackY[i];
+  var bh = L.bodyH[i], cl = L.cl[i], lv = LIVERY[i];
+  var x0 = -(world % cl) - cl;
+
+  for(var x=x0; x < W+cl; x+=cl){
+    var cx = x + 3*s, cw = cl - 8*s;
+
+    var g = ctx.createLinearGradient(0, T, 0, T+bh);
+    g.addColorStop(0,   lv.roof);
+    g.addColorStop(0.28,lv.body);
+    g.addColorStop(1,   lv.body2);
+    ctx.fillStyle = g;
+    rr(cx, T, cw, bh, 5*s); ctx.fill();
+
+    // roof deck (running surface)
+    ctx.fillStyle = lv.roof2;
+    ctx.fillRect(cx, T, cw, 4*s);
+    ctx.fillStyle = lv.trim;
+    ctx.fillRect(cx, T-2*s, cw, 2.5*s);
+
+    // roof panels (speed cue)
+    ctx.fillStyle = 'rgba(0,0,0,0.16)';
+    for(var vx=cx+14*s; vx < cx+cw-16*s; vx += cl*0.16) ctx.fillRect(vx, T+7*s, 14*s, 4*s);
+
+    // side panel seams + windows
+    ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+    ctx.lineWidth = 1;
+    for(var sx=cx+cl*0.25; sx < cx+cw; sx += cl*0.25){
+      ctx.beginPath(); ctx.moveTo(sx, T+8*s); ctx.lineTo(sx, T+bh); ctx.stroke();
+    }
+    if(bh > 46*s){
+      ctx.fillStyle = 'rgba(160,220,255,0.22)';
+      for(var wx=cx+16*s; wx < cx+cw-24*s; wx += 30*s) ctx.fillRect(wx, T+20*s, 17*s, 15*s);
+      ctx.fillStyle = 'rgba(0,0,0,0.30)';
+      ctx.fillRect(cx, T+bh-7*s, cw, 7*s);
+    }
+    // buffers between carriages
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(cx+cw, T+3*s, 8*s, 12*s);
+    ctx.fillStyle = 'rgba(0,0,0,0.30)';
+    ctx.fillRect(cx-6*s, T+3*s, 6*s, 12*s);
+  }
+}
+
+/* ---------------- HAZARD SPRITES ---------------- */
+function drawHazard(h){
+  var u = L.u, T = L.trackY[h.lane], s = L.scale[h.lane];
+  var x = h.x, w = h.w;
+
+  if(h.type === 'gap'){
+    // void where a carriage is missing
+    var vg = ctx.createLinearGradient(0, T-8*s, 0, T+34*s);
+    vg.addColorStop(0,'#05070c');
+    vg.addColorStop(1,'#0d1420');
+    ctx.fillStyle = vg;
+    ctx.fillRect(x, T-8*s, w, 42*s);
+    ctx.strokeStyle = 'rgba(255,140,80,0.55)';
+    ctx.lineWidth = 2*u;
+    ctx.beginPath();
+    ctx.moveTo(x, T-4*s); ctx.lineTo(x, T+6*s);
+    ctx.moveTo(x+w, T-4*s); ctx.lineTo(x+w, T+6*s);
+    ctx.stroke();
+    ctx.fillStyle = '#9aa6b8';
+    ctx.fillRect(x-9*s, T-2*s, 9*s, 3.5*s);
+    ctx.fillRect(x+w, T-2*s, 9*s, 3.5*s);
+  }
+  else if(h.type === 'crate'){
+    var y = T - h.h;
+    ctx.fillStyle = '#7a4a1f';
+    rr(x, y, w, h.h, 4*u); ctx.fill();
+    ctx.fillStyle = '#a86a30';
+    ctx.fillRect(x+3*u, y+3*u, w-6*u, h.h-6*u);
+    ctx.strokeStyle = '#5c3512'; ctx.lineWidth = 2*u;
+    ctx.beginPath();
+    ctx.moveTo(x+3*u, y+3*u);         ctx.lineTo(x+w-3*u, y+h.h-3*u);
+    ctx.moveTo(x+w-3*u, y+3*u);       ctx.lineTo(x+3*u, y+h.h-3*u);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1.5*u;
+    rr(x, y, w, h.h, 4*u); ctx.stroke();
+  }
+  else if(h.type === 'bridge'){
+    var bb = T - 34*u;              // clearance line — stand = hit, duck = pass
+    var bt = bb - 20*u;
+    ctx.fillStyle = '#242c3a';
+    ctx.fillRect(x+2*u, bt-92*u, 9*u, 112*u);
+    ctx.fillRect(x+w-11*u, bt-92*u, 9*u, 112*u);
+    ctx.fillStyle = '#39465b';
+    rr(x, bt, w, 20*u, 3*u); ctx.fill();
+    ctx.fillStyle = '#4c5a72';
+    ctx.fillRect(x, bt, w, 4*u);
+    ctx.fillStyle = '#ffcf4d';
+    for(var sx=x; sx < x+w; sx += 20*u) ctx.fillRect(sx, bb-5*u, 10*u, 5*u);
+    ctx.strokeStyle = 'rgba(255,207,77,0.35)';
+    ctx.setLineDash([6*u, 6*u]); ctx.lineWidth = 1.5*u;
+    ctx.beginPath(); ctx.moveTo(x, bb); ctx.lineTo(x+w, bb); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  else if(h.type === 'train'){
+    var ty = T - h.h;
+    var tg = ctx.createLinearGradient(0, ty, 0, T);
+    tg.addColorStop(0,'#2a3242'); tg.addColorStop(0.4,'#151b26'); tg.addColorStop(1,'#0b0f16');
+    ctx.fillStyle = tg;
+    rr(x, ty, w, h.h, 8*u); ctx.fill();
+    ctx.fillStyle = 'rgba(90,180,255,0.45)';
+    ctx.fillRect(x+14*u, ty+16*u, w-28*u, 18*u);
+    ctx.fillStyle = '#c9302c';
+    ctx.fillRect(x, ty, 12*u, h.h);
+    ctx.fillStyle = '#ffd166';
+    for(var sy=ty; sy < ty+h.h; sy += 18*u){
+      ctx.beginPath();
+      ctx.moveTo(x, sy); ctx.lineTo(x+12*u, sy+9*u);
+      ctx.lineTo(x+12*u, sy+18*u); ctx.lineTo(x, sy+9*u);
+      ctx.closePath(); ctx.fill();
+    }
+    var hg = ctx.createLinearGradient(x,0,x-170*u,0);
+    hg.addColorStop(0,'rgba(255,240,180,0.5)');
+    hg.addColorStop(1,'rgba(255,240,180,0)');
+    ctx.fillStyle = hg;
+    ctx.beginPath();
+    ctx.moveTo(x, ty+20*u); ctx.lineTo(x-170*u, ty-12*u);
+    ctx.lineTo(x-170*u, ty+h.h+12*u); ctx.lineTo(x, ty+h.h-20*u);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff3c4';
+    ctx.beginPath(); ctx.arc(x+6*u, ty+24*u, 5*u, 0, 6.3); ctx.fill();
+  }
+  else if(h.type === 'cargo'){
+    var cy = T - 38*u;
+    var pulse = 0.55 + 0.45*Math.sin(clock*6 + h.t);
+    ctx.save();
+    ctx.shadowColor = 'rgba(255,209,102,'+pulse.toFixed(2)+')';
+    ctx.shadowBlur = 16*u;
+    ctx.fillStyle = '#c98a2b';
+    rr(x, cy, w, h.h, 4*u); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = '#ffd166';
+    rr(x+3*u, cy+3*u, w-6*u, h.h-6*u, 3*u); ctx.fill();
+    ctx.strokeStyle = '#8a5a12'; ctx.lineWidth = 2*u;
+    ctx.beginPath();
+    ctx.moveTo(x+w/2, cy); ctx.lineTo(x+w/2, cy+h.h);
+    ctx.moveTo(x, cy+h.h/2); ctx.lineTo(x+w, cy+h.h/2);
+    ctx.stroke();
+  }
+}
+
+/* ---------------- RUNNER SPRITE ---------------- */
+function drawPlayer(){
+  var u = L.u, s = L.scale[player.lane];
+  var w = L.pw*s;
+  var duck = player.ducking && player.jumpY <= 0;
+  var h = duck ? L.duckH*s : L.ph*s;
+  var feetY = player.displayY - player.jumpY;
+  var airborne = player.jumpY > 2*u;
+  var swing = airborne ? 0 : Math.sin(player.run);
+
+  // shadow on the roof
+  var t = Math.max(0, 1 - player.jumpY/(110*u));
+  ctx.save();
+  ctx.globalAlpha = 0.35*t;
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.ellipse(L.playerX + w*0.5, player.displayY + 2*u,
+              w*0.85*(0.45+0.55*t), 5*u*(0.35+0.65*t), 0, 0, 6.3);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(L.playerX + w*0.5, feetY);
+
+  var hipY = -h*0.46, shY = -h*0.88;
+  var skin = '#f2c39b', suit = '#ff8a3d', suit2 = '#d96a22', dark = '#2b2118';
+  var lw = Math.max(3, 5*u);
+  ctx.lineCap = 'round';
+
+  // legs
+  ctx.strokeStyle = '#2a3550'; ctx.lineWidth = lw;
+  var legA = duck ? 0.9 : (airborne ? 0.8 : swing);
+  var legB = duck ? -0.9 : (airborne ? -0.5 : -swing);
+  var footY = airborne ? -10*u : -2*u;
+  ctx.beginPath();
+  ctx.moveTo(-3*u, hipY); ctx.lineTo(-3*u + Math.sin(legA)*8*u, footY);
+  ctx.moveTo( 3*u, hipY); ctx.lineTo( 3*u + Math.sin(legB)*8*u, footY);
+  ctx.stroke();
+
+  // torso
+  ctx.fillStyle = suit;
+  rr(-w*0.34, shY, w*0.68, hipY-shY, 6*u); ctx.fill();
+  ctx.fillStyle = suit2;
+  ctx.fillRect(-w*0.34, shY + (hipY-shY)*0.42, w*0.68, 3.5*u);
+  ctx.strokeStyle = dark; ctx.lineWidth = 1.5*u;
+  rr(-w*0.34, shY, w*0.68, hipY-shY, 6*u); ctx.stroke();
+
+  // arms
+  ctx.strokeStyle = suit; ctx.lineWidth = Math.max(3, 4.5*u);
+  var armLen = h*0.42;
+  var armA = airborne ? -1.15 : -swing*0.9;
+  var armB = airborne ? -1.00 :  swing*0.9;
+  ctx.beginPath();
+  ctx.moveTo(-w*0.30, shY+4*u);
+  ctx.lineTo(-w*0.30 + Math.sin(armA)*armLen*0.5, shY+4*u + Math.cos(armA)*armLen*0.85);
+  ctx.moveTo( w*0.30, shY+4*u);
+  ctx.lineTo( w*0.30 + Math.sin(armB)*armLen*0.5, shY+4*u + Math.cos(armB)*armLen*0.85);
+  ctx.stroke();
+
+  // head
+  var headR = w*0.34, headY = shY - headR*0.9;
+  ctx.fillStyle = skin;
+  ctx.beginPath(); ctx.arc(0, headY, headR, 0, 6.3); ctx.fill();
+  ctx.strokeStyle = dark; ctx.lineWidth = 1.5*u; ctx.stroke();
+  // cap
+  ctx.fillStyle = '#ffd166';
+  ctx.beginPath(); ctx.arc(0, headY - 1*u, headR*1.02, Math.PI, Math.PI*2); ctx.fill();
+  ctx.fillRect(headR*0.05, headY - headR*0.55, headR*1.45, headR*0.34);
+  // eye
+  ctx.fillStyle = '#1a1a1a';
+  ctx.beginPath(); ctx.arc(headR*0.34, headY + headR*0.12, headR*0.16, 0, 6.3); ctx.fill();
+
+  ctx.restore();
+}
+
+/* ---------------- MAIN RENDER ---------------- */
+function render(){
+  var W = L.W, H = L.H, u = L.u;
+
+  ctx.save();
+  if(shake > 0){
+    var amt = shake*9*u;
+    ctx.translate((Math.random()-0.5)*amt, (Math.random()-0.5)*amt);
+  }
+
+  drawSky(W,H);
+
+  // trains + their lane's hazards, far track first (nearer trains overlap further ones)
+  for(var i=0;i<3;i++){
+    drawTrain(i);
+    for(var j=0;j<hazards.length;j++){
+      if(hazards[j].lane === i) drawHazard(hazards[j]);
+    }
+  }
+
+  drawPlayer();   // on game-over the frozen frame keeps the runner visible
+
+  // speed streaks
+  if(state === 'play'){
+    var inten = clamp((speed - 420)/480, 0, 1);
+    if(inten > 0){
+      ctx.strokeStyle = 'rgba(200,225,255,'+(0.14*inten).toFixed(3)+')';
+      ctx.lineWidth = 1.5;
+      for(var k=0;k<10;k++){
+        var sy = rand01(k*7.3 + Math.floor(clock*20)) * H;
+        var sl = 40 + rand01(k*3.1 + clock)*120;
+        var sxx = rand01(k*11.7 + Math.floor(clock*30)) * W;
+        ctx.beginPath(); ctx.moveTo(sxx, sy); ctx.lineTo(sxx + sl, sy); ctx.stroke();
+      }
+    }
+  }
+
+  // particles
+  for(var p=0;p<particles.length;p++){
+    var q = particles[p];
+    var a = 1 - q.t/q.life;
+    ctx.globalAlpha = Math.max(0, a);
+    ctx.fillStyle = q.col;
+    ctx.fillRect(q.x - q.sz/2, q.y - q.sz/2, q.sz, q.sz);
+  }
+  ctx.globalAlpha = 1;
+
+  // vignette
+  var vg = ctx.createRadialGradient(W*0.5, H*0.5, Math.min(W,H)*0.36,
+                                    W*0.5, H*0.5, Math.max(W,H)*0.78);
+  vg.addColorStop(0,'rgba(0,0,0,0)');
+  vg.addColorStop(1,'rgba(0,0,0,0.55)');
+  ctx.fillStyle = vg; ctx.fillRect(0,0,W,H);
+
+  ctx.restore();
+
+  if(flash > 0){
+    ctx.fillStyle = 'rgba(255,90,60,'+(0.45*flash).toFixed(3)+')';
+    ctx.fillRect(0,0,W,H);
+  }
+}
+
+/* ---------------- HUD ---------------- */
+function updateHUD(){
+  elScore.textContent = String(score);
+  elDist.textContent  = Math.floor(distance) + ' m';
+  elCargo.textContent = String(cargo);
+  elSpd.textContent   = String(Math.round(speed/5));
+  elBest.textContent  = String(best);
+}
+
+/* ============================================================
+   LOOP
+   ============================================================ */
+var last = 0;
+function frame(ts){
+  requestAnimationFrame(frame);
+  if(!last) last = ts;
+  var dt = (ts - last)/1000;
+  last = ts;
+  if(dt > 0.05) dt = 0.05;
+  if(dt < 0)    dt = 0;
+  clock = ts/1000;
+
+  if(state !== 'paused') update(dt);
+  render();
+  updateHUD();
+}
+
+/* ---------------- BOOT ---------------- */
+layout();
+reset();
+elBest.textContent = String(best);
+requestAnimationFrame(frame);
+
+})();
+
+
+
+
+
+</script>
+</body>
+</html>

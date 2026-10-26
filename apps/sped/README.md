@@ -2,9 +2,9 @@
 
 *Formerly **Hookline**. Old `/projects/hookline/` links redirect here, and recipe files saved under the old name still load.*
 
-[Open app](https://juwpegatron.github.io/projects/sped/) ·
-[Web](https://juwpegatron.github.io/projects/sped/web.html) ·
-[Mobile](https://juwpegatron.github.io/projects/sped/mobile.html)
+[Open app](https://juw12.github.io/projects/sped/) ·
+[Web](https://juw12.github.io/projects/sped/web.html) ·
+[Mobile](https://juw12.github.io/projects/sped/mobile.html)
 
 Upload your audio, describe a direction such as “higher, faster, no reverb,
 20 seconds,” audition the result, and export a WAV. Processing happens in your

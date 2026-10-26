@@ -16,7 +16,7 @@ class WindowsDesktopTests(unittest.TestCase):
     def setUpClass(cls):
         cls.package = json.loads((DESKTOP / 'package.json').read_text(encoding='utf-8'))
         cls.version = cls.package['version']
-        cls.release = f'https://github.com/juwpegatron/projects/releases/download/airiz-desktop-v{cls.version}/'
+        cls.release = f'https://github.com/juw12/projects/releases/download/airiz-desktop-v{cls.version}/'
 
     def test_shared_web_ui_is_bundled_not_a_remote_shortcut(self):
         files = self.package['build']['files']
@@ -62,7 +62,7 @@ class WindowsDesktopTests(unittest.TestCase):
         self.assertNotIn('projects/https://', publisher.render_card(entry))
 
     def test_updater_uses_the_airiz_channel_and_idle_install_policy(self):
-        expected = 'https://juwpegatron.github.io/projects/airiz-motor/updates/windows/'
+        expected = 'https://juw12.github.io/projects/airiz-motor/updates/windows/'
         self.assertEqual(self.package['build']['publish'][0]['url'], expected)
         controller = (DESKTOP / 'update-controller.cjs').read_text(encoding='utf-8')
         self.assertIn(expected, controller)

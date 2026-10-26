@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🎯 Dart Champ</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: radial-gradient(circle at 50% 0%, #1d3a2a 0%, #0e2018 55%, #08130e 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 14px;
+    touch-action: manipulation;
+    overflow-x: hidden;
+  }
+
+  /* ============ GAME CONTAINER ============ */
+  .game-container {
+    background: linear-gradient(160deg, rgba(30,56,42,0.95), rgba(14,28,21,0.98));
+    border: 1px solid rgba(120,200,150,0.18);
+    border-radius: 22px;
+    padding: 18px 20px 16px;
+    box-shadow: 0 18px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
+    width: min(97vw, 980px);
+  }
+
+  .game-title {
+    text-align: center;
+    font-size: 1.7rem;
+    letter-spacing: 3px;
+    color: #f3d27a;
+    text-shadow: 0 2px 0 #000, 0 0 18px rgba(243,210,122,0.35);
+    margin-bottom: 10px;
+  }
+
+  /* ============ SCOREBOARD ============ */
+  .scoreboard {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .score-card {
+    flex: 1;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 10px 14px;
+    transition: border-color .2s ease, background .2s ease, transform .2s ease;
+  }
+
+  .score-card.active {
+    border-color: #f3d27a;
+    background: rgba(243,210,122,0.10);
+    transform: translateY(-2px);
+    box-shadow: 0 0 18px rgba(243,210,122,0.18);
+  }
+
+  .score-name {
+    font-size: 0.72rem;
+    letter-spacing: 2px;
+    color: #8fb8a2;
+    margin-bottom: 3px;
+  }
+
+  .score-value {
+    font-size: 1.9rem;
+    font-weight: 700;
+    color: #eaf6ee;
+    line-height: 1;
+  }
+
+  .score-card.active .score-value { color: #f3d27a; }
+
+  .score-sub {
+    font-size: 0.7rem;
+    color: #7f9c8b;
+    margin-top: 4px;
+    letter-spacing: 1px;
+    min-height: 12px;
+  }
+
+  /* ============ CANVAS ============ */
+  .canvas-wrapper {
+    position: relative;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 6px 26px rgba(0,0,0,0.5);
+    background: #0b1712;
+  }
+
+  canvas { display: block; width: 100%; height: auto; }
+
+  /* ============ SCREENS (Start / Result) ============ */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 20px;
+    background: radial-gradient(circle at 50% 40%, rgba(18,40,29,0.94), rgba(6,14,10,0.97));
+    transition: opacity .3s ease;
+  }
+
+  .screen.hidden { opacity: 0; pointer-events: none; }
+
+  .screen-title {
+    font-size: 2.2rem;
+    letter-spacing: 4px;
+    color: #f3d27a;
+    text-shadow: 0 3px 0 #000;
+    margin-bottom: 10px;
+  }
+
+  .screen-subtitle {
+    font-size: 0.95rem;
+    color: #a9c9b6;
+    margin-bottom: 6px;
+    max-width: 460px;
+    line-height: 1.5;
+  }
+
+  .final-score {
+    font-size: 1.15rem;
+    color: #fff;
+    margin: 14px 0 18px;
+    line-height: 1.7;
+  }
+
+  .final-score b { color: #f3d27a; }
+
+  /* ============ DIFFICULTY SELECTOR ============ */
+  .difficulty {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 18px;
+  }
+
+  .difficulty button {
+    padding: 8px 18px;
+    border-radius: 20px;
+    border: 1px solid rgba(243,210,122,0.35);
+    background: rgba(0,0,0,0.3);
+    color: #cfe3d7;
+    font-family: inherit;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all .18s ease;
+  }
+
+  .difficulty button:hover { background: rgba(243,210,122,0.15); }
+  .difficulty button.selected {
+    background: linear-gradient(135deg, #f3d27a, #d8a93f);
+    color: #2b1b00;
+    font-weight: 700;
+    border-color: #f3d27a;
+  }
+
+  /* ============ ACTION BUTTONS ============ */
+  .action-btn {
+    padding: 13px 34px;
+    border: none;
+    border-radius: 26px;
+    background: linear-gradient(135deg, #f3d27a, #d8a93f);
+    color: #2b1b00;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    cursor: pointer;
+    box-shadow: 0 5px 0 #8f6c1f, 0 10px 24px rgba(243,210,122,0.25);
+    transition: transform .06s ease, box-shadow .06s ease;
+    user-select: none;
+  }
+
+  .action-btn:hover { background: linear-gradient(135deg, #ffe38f, #e3b64c); }
+  .action-btn:active {
+    transform: translateY(3px);
+    box-shadow: 0 2px 0 #8f6c1f, 0 6px 14px rgba(243,210,122,0.2);
+  }
+
+  /* ============ CONTROLS ROW ============ */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 10px 12px;
+    margin-top: 12px;
+  }
+
+  .controls button {
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    padding: 9px 20px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(0,0,0,0.35);
+    color: #d7e8de;
+    cursor: pointer;
+    transition: background .15s ease, transform .06s ease;
+  }
+
+  .controls button:hover { background: rgba(255,255,255,0.10); }
+  .controls button:active { transform: translateY(2px); }
+  #btn-restart { color: #ffcf8a; }
+
+  .hint {
+    text-align: center;
+    font-size: 0.72rem;
+    letter-spacing: 1px;
+    color: #6f8d7c;
+    margin-top: 10px;
+  }
+</style>
+</head>
+<body>
+<div class="game-container">
+  <h1 class="game-title">🎯 DART CHAMP</h1>
+
+  <!-- ============ SCOREBOARD ============ -->
+  <div class="scoreboard">
+    <div class="score-card" id="card-player">
+      <div class="score-name">YOU</div>
+      <div class="score-value" id="score-player">501</div>
+      <div class="score-sub" id="sub-player">to throw</div>
+    </div>
+    <div class="score-card" id="card-cpu">
+      <div class="score-name">CPU</div>
+      <div class="score-value" id="score-cpu">501</div>
+      <div class="score-sub" id="sub-cpu">waiting</div>
+    </div>
+  </div>
+
+  <!-- ============ CANVAS ============ -->
+  <div class="canvas-wrapper">
+    <canvas id="game" width="920" height="600"></canvas>
+
+    <!-- START OVERLAY -->
+    <div class="screen" id="screen-start">
+      <div class="screen-title">DART CHAMP</div>
+      <div class="screen-subtitle">Count down from <b>501</b>. Take turns with the CPU, 3 darts each. Time the moving aim, then the power meter — land clean and <b>check out on a double</b> to win the leg.</div>
+      <div class="difficulty" id="difficulty">
+        <button type="button" data-diff="easy">EASY</button>
+        <button type="button" data-diff="normal" class="selected">NORMAL</button>
+        <button type="button" data-diff="hard">HARD</button>
+      </div>
+      <button class="action-btn" id="btn-start" type="button">START LEG</button>
+    </div>
+
+    <!-- RESULT OVERLAY -->
+    <div class="screen hidden" id="screen-result">
+      <div class="screen-title" id="result-title">LEG WON</div>
+      <div class="final-score" id="result-score"></div>
+      <button class="action-btn" id="btn-again" type="button">PLAY AGAIN</button>
+    </div>
+  </div>
+
+  <!-- ============ CONTROLS ============ -->
+  <div class="controls">
+    <button id="btn-throw" type="button">Throw</button>
+    <button id="btn-restart" type="button">Restart</button>
+  </div>
+  <div class="hint">CLICK / TAP the board or press SPACE to throw &nbsp;|&nbsp; R = restart</div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============ CANVAS & LAYOUT ============ */
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;
+  const H = canvas.height;
+
+  const CX = 300, CY = 300;      // board centre
+  const R = 250;                 // outer double radius (board scale)
+
+  // Ring radii as fractions of R (playable proportions, real-board ordering)
+  const INNER_BULL = 0.038;
+  const OUTER_BULL = 0.100;
+  const TREBLE_IN = 0.575;
+  const TREBLE_OUT = 0.665;
+  const DOUBLE_IN = 0.905;       // outer double edge = 1.0
+
+  // Standard sector order, clockwise from the top (12 o'clock)
+  const SECTORS = [20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
+  const SECTOR_STEP = Math.PI * 2 / 20;
+
+  const COL_DARK   = "#1b1b1b";
+  const COL_CREAM  = "#e7d9b8";
+  const COL_RED    = "#c1272d";
+  const COL_GREEN  = "#2f7d3a";
+  const COL_SURROUND = "#141414";
+
+  /* ============ DIFFICULTY PRESETS ============ */
+  const DIFFICULTY = {
+    easy:   { aimSpeed: 0.028, powSpeed: 0.030, cpuErr: 0.115, cpuGap: 62 },
+    normal: { aimSpeed: 0.040, powSpeed: 0.044, cpuErr: 0.072, cpuGap: 52 },
+    hard:   { aimSpeed: 0.056, powSpeed: 0.060, cpuErr: 0.044, cpuGap: 44 }
+  };
+  let diff = localStorage.getItem("dartDiff") || "normal";
+  if (!DIFFICULTY[diff]) diff = "normal";
+  function cfg() { return DIFFICULTY[diff]; }
+
+  /* ============ POWER METER ============ */
+  const SWEET_LO = 0.62;
+  const SWEET_HI = 0.80;
+
+  /* ============ GAME STATE ============ */
+  const START_SCORE = 501;
+  const FLIGHT_FRAMES = 16;
+  const WAIT_FRAMES = 26;
+  const CPU_GAP = 40;
+
+  let phase = "ready";           // ready | aim | power | flight | wait | cpu | over
+  let frame = 0;
+
+  let playerScore = START_SCORE;
+  let cpuScore = START_SCORE;
+  let turn = "player";
+  let dartsLeft = 3;
+  let turnStartScore = START_SCORE;
+
+  let aimT = 0.7;                // Lissajous time
+  let powT = 0;                  // power oscillator time
+  let flightT = 0;
+  let waitTimer = 0;
+  let cpuTimer = 0;
+  let afterWait = null;
+
+  let pendingTarget = { x: CX, y: CY - R * 0.6 };
+  let pendingDart = null;
+  let markers = [];              // { x, y, who, life }
+  let flash = null;              // { x, y, t, big }
+  let hist = [];                 // { who, label, pts, bust }
+  let playerDarts = 0;
+
+  let best = Number(localStorage.getItem("dartBest") || 0); // fewest darts to win
+  if (best <= 0) best = null;
+
+  let lastResult = "";
+
+  /* ============ DOM ============ */
+  const elScoreP = document.getElementById("score-player");
+  const elScoreC = document.getElementById("score-cpu");
+  const elSubP = document.getElementById("sub-player");
+  const elSubC = document.getElementById("sub-cpu");
+  const cardP = document.getElementById("card-player");
+  const cardC = document.getElementById("card-cpu");
+  const screenStart = document.getElementById("screen-start");
+  const screenResult = document.getElementById("screen-result");
+  const elResultTitle = document.getElementById("result-title");
+  const elResultScore = document.getElementById("result-score");
+  const diffButtons = Array.prototype.slice.call(document.querySelectorAll("#difficulty button"));
+
+  /* ============ SOUND (WebAudio, no assets) ============ */
+  let actx = null;
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(vol || 0.06, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+  function thunkSound(res) {
+    if (res.mult === 3) { beep(880, 0.10, "square", 0.07); beep(1320, 0.10, "sine", 0.04); }
+    else if (res.isDouble) { beep(740, 0.10, "square", 0.07); }
+    else if (res.pts > 0) { beep(520, 0.07, "triangle", 0.06); }
+    else { beep(180, 0.14, "sawtooth", 0.05); }
+  }
+
+  /* ============ SCORING ============ */
+  // Convert a board point to a dartboard score.
+  function scoreAt(x, y) {
+    const dx = x - CX, dy = y - CY;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d > R) return { pts: 0, mult: 0, label: "MISS", isDouble: false, value: 0 };
+    if (d <= R * INNER_BULL) return { pts: 50, mult: 2, label: "BULL", isDouble: true, value: 50 };
+    if (d <= R * OUTER_BULL) return { pts: 25, mult: 1, label: "25", isDouble: false, value: 25 };
+
+    let ang = Math.atan2(dy, dx) + Math.PI / 2;   // 0 at top, clockwise
+    if (ang < 0) ang += Math.PI * 2;
+    const idx = Math.floor(ang / SECTOR_STEP) % 20;
+    const v = SECTORS[idx];
+
+    const rn = d / R;
+    let mult = 1;
+    if (rn >= DOUBLE_IN) mult = 2;
+    else if (rn >= TREBLE_IN && rn <= TREBLE_OUT) mult = 3;
+
+    const label = mult === 3 ? "T" + v : mult === 2 ? "D" + v : "" + v;
+    return { pts: v * mult, mult: mult, label: label, isDouble: mult === 2, value: v };
+  }
+
+  // Centre point of a given sector + ring multiplier (2 = double, 3 = treble).
+  function pointForSectorMult(value, mult) {
+    const idx = SECTORS.indexOf(value);
+    const a = (idx + 0.5) * SECTOR_STEP - Math.PI / 2;
+    const rr = mult === 3 ? (TREBLE_IN + TREBLE_OUT) / 2 * R
+             : mult === 2 ? (DOUBLE_IN + 1) / 2 * R
+             : 0.35 * R;
+    return { x: CX + Math.cos(a) * rr, y: CY + Math.sin(a) * rr };
+  }
+
+  /* ============ THROW MECHANICS ============ */
+  function aimPoint() {
+    return {
+      x: CX + R * 0.82 * Math.sin(aimT),
+      y: CY + R * 0.82 * Math.sin(aimT * 1.37 + 1.1)
+    };
+  }
+  function powerValue() { return 0.5 + 0.5 * Math.sin(powT); }
+
+  function errFactor(power) {
+    let dzone = 0;
+    if (power < SWEET_LO) dzone = SWEET_LO - power;
+    else if (power > SWEET_HI) dzone = power - SWEET_HI;
+    return Math.min(0.42, 0.03 + dzone * 1.0);
+  }
+
+  function scatter(baseX, baseY, errF) {
+    const a = Math.random() * Math.PI * 2;
+    const rad = errF * R * Math.sqrt(Math.random());
+    return { x: baseX + Math.cos(a) * rad, y: baseY + Math.sin(a) * rad };
+  }
+
+  /* ============ TURN FLOW ============ */
+  function getScore(who) { return who === "player" ? playerScore : cpuScore; }
+  function setScore(who, v) { if (who === "player") playerScore = v; else cpuScore = v; }
+
+  function startTurn(who) {
+    turn = who;
+    dartsLeft = 3;
+    turnStartScore = getScore(who);
+    markers = [];
+    if (who === "player") {
+      phase = "aim";
+    } else {
+      phase = "cpu";
+      cpuTimer = CPU_GAP;
+    }
+    syncScoreUI();
+  }
+
+  function addHist(who, res, bust) {
+    hist.push({ who: who, label: bust ? res.label + " ✗" : res.label, pts: res.pts, bust: bust });
+    if (hist.length > 40) hist.shift();
+  }
+
+  function resolveDart() {
+    const res = scoreAt(pendingDart.x, pendingDart.y);
+    const who = pendingDart.who;
+    if (who === "player") playerDarts++;
+
+    markers.push({ x: pendingDart.x, y: pendingDart.y, who: who, life: 0 });
+    flash = { x: pendingDart.x, y: pendingDart.y, t: 0, big: res.isDouble || res.mult === 3 };
+    thunkSound(res);
+    applyDart(who, res);
+  }
+
+  function applyDart(who, res) {
+    const cur = getScore(who);
+    let ns = cur - res.pts;
+    let bust = false;
+
+    if (ns < 0 || ns === 1 || (ns === 0 && !res.isDouble)) {
+      bust = true;
+      ns = turnStartScore;
+    }
+
+    setScore(who, ns);
+    addHist(who, res, bust);
+
+    if (!bust && ns === 0) {
+      syncScoreUI();
+      win(who);
+      return;
+    }
+
+    dartsLeft--;
+
+    if (bust || dartsLeft <= 0) {
+      afterWait = function () { startTurn(who === "player" ? "cpu" : "player"); };
+    } else {
+      afterWait = function () {
+        if (who === "cpu") { phase = "cpu"; cpuTimer = CPU_GAP; }
+        else { phase = "aim"; }
+      };
+    }
+
+    phase = "wait";
+    waitTimer = WAIT_FRAMES;
+    if (bust) beep(150, 0.3, "sawtooth", 0.07);
+    syncScoreUI();
+  }
+
+  function win(who) {
+    phase = "over";
+    let newBest = false;
+    if (who === "player" && (best === null || playerDarts < best)) {
+      best = playerDarts;
+      localStorage.setItem("dartBest", String(best));
+      newBest = true;
+    }
+    elResultTitle.textContent = who === "player" ? "LEG WON!" : "CPU WINS";
+    elResultTitle.style.color = who === "player" ? "#f3d27a" : "#ff8f8f";
+    elResultScore.innerHTML =
+      "You finished on <b>" + playerDarts + "</b> darts.<br>" +
+      "Best checkout: <b>" + (best === null ? "—" : best + " darts") + "</b>" +
+      (newBest ? "  <span style='color:#8fe6a8'>▲ new record!</span>" : "");
+    screenResult.classList.remove("hidden");
+    if (who === "player") { beep(660, 0.12, "square", 0.08); setTimeout(function () { beep(990, 0.18, "sine", 0.07); }, 120); }
+    else { beep(200, 0.35, "sawtooth", 0.07); }
+    syncScoreUI();
+  }
+
+  /* ============ CPU THROW ============ */
+  function cpuThrow() {
+    let tx, ty;
+    if (cpuScore <= 60 && cpuScore > 1 && cpuScore % 2 === 0 && cpuScore / 2 <= 20) {
+      const p = pointForSectorMult(cpuScore / 2, 2);
+      tx = p.x; ty = p.y;
+    } else {
+      const p = pointForSectorMult(20, 3);
+      tx = p.x; ty = p.y;
+    }
+    const land = scatter(tx, ty, cfg().cpuErr);
+    pendingDart = { x: land.x, y: land.y, who: "cpu" };
+    phase = "flight";
+    flightT = 0;
+  }
+
+  /* ============ INPUT ============ */
+  function advance() {
+    if (phase === "aim") {
+      pendingTarget = aimPoint();
+      phase = "power";
+      powT = 0;
+      beep(420, 0.05, "triangle", 0.04);
+    } else if (phase === "power") {
+      const land = scatter(pendingTarget.x, pendingTarget.y, errFactor(powerValue()));
+      pendingDart = { x: land.x, y: land.y, who: "player" };
+      phase = "flight";
+      flightT = 0;
+      beep(300, 0.06, "square", 0.04);
+    }
+  }
+
+  function restart() {
+    phase = "ready";
+    playerScore = START_SCORE;
+    cpuScore = START_SCORE;
+    turn = "player";
+    dartsLeft = 3;
+    turnStartScore = START_SCORE;
+    hist = [];
+    markers = [];
+    flash = null;
+    playerDarts = 0;
+    aimT = 0.7;
+    syncScoreUI();
+    screenResult.classList.add("hidden");
+    screenStart.classList.remove("hidden");
+  }
+
+  function startLeg() {
+    playerScore = START_SCORE;
+    cpuScore = START_SCORE;
+    hist = [];
+    markers = [];
+    flash = null;
+    playerDarts = 0;
+    screenStart.classList.add("hidden");
+    screenResult.classList.add("hidden");
+    startTurn("player");
+    beep(620, 0.09, "triangle", 0.06);
+  }
+
+  canvas.addEventListener("mousedown", function (e) { e.preventDefault(); advance(); });
+  canvas.addEventListener("touchstart", function (e) { e.preventDefault(); advance(); }, { passive: false });
+
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "Space" || e.code === "Enter" || e.key === " ") {
+      e.preventDefault();
+      if (phase === "ready") { /* start handled by overlay button */ }
+      else advance();
+    }
+    if (e.code === "KeyR" || e.key === "r" || e.key === "R") { e.preventDefault(); restart(); }
+  });
+
+  document.getElementById("btn-start").addEventListener("click", startLeg);
+  document.getElementById("btn-again").addEventListener("click", restart);
+  document.getElementById("btn-restart").addEventListener("click", restart);
+  document.getElementById("btn-throw").addEventListener("click", advance);
+
+  diffButtons.forEach(function (b) {
+    b.addEventListener("click", function () {
+      diff = b.dataset.diff;
+      localStorage.setItem("dartDiff", diff);
+      syncDiffButtons();
+      beep(520, 0.05, "triangle", 0.04);
+    });
+  });
+
+  function syncDiffButtons() {
+    diffButtons.forEach(function (b) { b.classList.toggle("selected", b.dataset.diff === diff); });
+  }
+
+  /* ============ UI SYNC ============ */
+  function syncScoreUI() {
+    elScoreP.textContent = playerScore;
+    elScoreC.textContent = cpuScore;
+    cardP.classList.toggle("active", turn === "player" && phase !== "over");
+    cardC.classList.toggle("active", turn === "cpu" && phase !== "over");
+
+    if (phase === "over") { elSubP.textContent = ""; elSubC.textContent = ""; return; }
+    elSubP.textContent = turn === "player" ? "to throw" : "waiting";
+    elSubC.textContent = turn === "cpu" ? "to throw" : "waiting";
+  }
+
+  /* ============ UPDATE ============ */
+  function update() {
+    frame++;
+    const c = cfg();
+
+    if (phase === "aim") {
+      aimT += c.aimSpeed;
+    } else if (phase === "power") {
+      powT += c.powSpeed;
+    } else if (phase === "flight") {
+      flightT++;
+      if (flightT >= FLIGHT_FRAMES) resolveDart();
+    } else if (phase === "wait") {
+      waitTimer--;
+      if (waitTimer <= 0) { if (afterWait) { const f = afterWait; afterWait = null; f(); } }
+    } else if (phase === "cpu") {
+      cpuTimer++;
+      if (cpuTimer >= CPU_GAP) { cpuTimer = 0; cpuThrow(); }
+    }
+
+    // marker + flash decay
+    for (let i = markers.length - 1; i >= 0; i--) {
+      markers[i].life++;
+      if (markers[i].life > 150) markers.splice(i, 1);
+    }
+    if (flash) { flash.t++; if (flash.t > 40) flash = null; }
+  }
+
+  /* ============ DRAWING ============ */
+  function wedge(r1, r2, a1, a2, color) {
+    ctx.beginPath();
+    ctx.arc(CX, CY, r2, a1, a2, false);
+    ctx.arc(CX, CY, r1, a2, a1, true);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+
+  function drawBoard() {
+    // outer surround
+    ctx.beginPath();
+    ctx.arc(CX, CY, R + 16, 0, Math.PI * 2);
+    ctx.fillStyle = COL_SURROUND;
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(200,220,210,0.12)";
+    ctx.stroke();
+
+    // sectors
+    for (let i = 0; i < 20; i++) {
+      const a1 = i * SECTOR_STEP - Math.PI / 2;
+      const a2 = a1 + SECTOR_STEP;
+      const even = i % 2 === 0;
+      const singleCol = even ? COL_DARK : COL_CREAM;
+      const bandCol = even ? COL_RED : COL_GREEN;
+
+      wedge(R * OUTER_BULL, R * TREBLE_IN, a1, a2, singleCol);   // inner single
+      wedge(R * TREBLE_OUT, R * DOUBLE_IN, a1, a2, singleCol);   // outer single
+      wedge(R * TREBLE_IN, R * TREBLE_OUT, a1, a2, bandCol);     // treble band
+      wedge(R * DOUBLE_IN, R, a1, a2, bandCol);                  // double band
+    }
+
+    // wire separators between sectors
+    ctx.strokeStyle = "rgba(0,0,0,0.35)";
+    ctx.lineWidth = 1.2;
+    for (let i = 0; i < 20; i++) {
+      const a = i * SECTOR_STEP - Math.PI / 2;
+      ctx.beginPath();
+      ctx.moveTo(CX + Math.cos(a) * R * OUTER_BULL, CY + Math.sin(a) * R * OUTER_BULL);
+      ctx.lineTo(CX + Math.cos(a) * R, CY + Math.sin(a) * R);
+      ctx.stroke();
+    }
+    // wire rings
+    [OUTER_BULL, TREBLE_IN, TREBLE_OUT, DOUBLE_IN].forEach(function (rf) {
+      ctx.beginPath();
+      ctx.arc(CX, CY, R * rf, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+
+    // bull
+    ctx.beginPath();
+    ctx.arc(CX, CY, R * OUTER_BULL, 0, Math.PI * 2);
+    ctx.fillStyle = COL_GREEN;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(CX, CY, R * INNER_BULL, 0, Math.PI * 2);
+    ctx.fillStyle = COL_RED;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,0.35)";
+    ctx.beginPath();
+    ctx.arc(CX, CY, R * INNER_BULL, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // numbers
+    ctx.fillStyle = "#e9f4ec";
+    ctx.font = "bold 22px 'Segoe UI', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (let i = 0; i < 20; i++) {
+      const a = (i + 0.5) * SECTOR_STEP - Math.PI / 2;
+      const rr = R + 34;
+      ctx.fillText(String(SECTORS[i]), CX + Math.cos(a) * rr, CY + Math.sin(a) * rr);
+    }
+  }
+
+  function drawMarkers() {
+    for (const m of markers) {
+      const alpha = m.life > 120 ? 1 - (m.life - 120) / 30 : 1;
+      ctx.globalAlpha = Math.max(0, alpha);
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, 6, 0, Math.PI * 2);
+      ctx.fillStyle = m.who === "player" ? "#f3d27a" : "#ff7a7a";
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#000";
+      ctx.stroke();
+      // tiny shaft to show it is a dart
+      ctx.beginPath();
+      ctx.moveTo(m.x, m.y);
+      ctx.lineTo(m.x + 12, m.y + 12);
+      ctx.strokeStyle = "#d8c8a0";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    if (flash) {
+      const p = flash.t / 40;
+      ctx.globalAlpha = (1 - p) * 0.9;
+      ctx.beginPath();
+      ctx.arc(flash.x, flash.y, 10 + p * 40, 0, Math.PI * 2);
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = flash.big ? "#8fe6a8" : "#f3d27a";
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function drawAimReticle() {
+    if (phase !== "aim" && phase !== "power") return;
+    const p = phase === "aim" ? aimPoint() : pendingTarget;
+
+    // lock the target ghost while powering
+    if (phase === "power") {
+      ctx.beginPath();
+      ctx.arc(pendingTarget.x, pendingTarget.y, 12, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(243,210,122,0.35)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 13, 0, Math.PI * 2);
+    ctx.strokeStyle = "#f3d27a";
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(p.x - 20, p.y); ctx.lineTo(p.x - 6, p.y);
+    ctx.moveTo(p.x + 6, p.y); ctx.lineTo(p.x + 20, p.y);
+    ctx.moveTo(p.x, p.y - 20); ctx.lineTo(p.x, p.y - 6);
+    ctx.moveTo(p.x, p.y + 6); ctx.lineTo(p.x, p.y + 20);
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = "#f3d27a";
+    ctx.fill();
+  }
+
+  function drawFlightDart() {
+    if (phase !== "flight" || !pendingDart) return;
+    const t = Math.min(1, flightT / FLIGHT_FRAMES);
+    const ease = t * t * (3 - 2 * t);
+    const sx = CX, sy = H + 40;
+    const x = sx + (pendingDart.x - sx) * ease;
+    const y = sy + (pendingDart.y - sy) * ease;
+    const sc = 0.5 + 0.7 * ease;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(Math.atan2(pendingDart.y - sy, pendingDart.x - sx) - Math.PI / 2);
+    // dart body
+    ctx.strokeStyle = "#d8c8a0";
+    ctx.lineWidth = 3 * sc;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, 22 * sc);
+    ctx.stroke();
+    // flights
+    ctx.fillStyle = pendingDart.who === "player" ? "#f3d27a" : "#ff7a7a";
+    ctx.beginPath();
+    ctx.moveTo(-6 * sc, 22 * sc);
+    ctx.lineTo(6 * sc, 22 * sc);
+    ctx.lineTo(0, 34 * sc);
+    ctx.closePath();
+    ctx.fill();
+    // tip
+    ctx.fillStyle = "#c9c9c9";
+    ctx.beginPath();
+    ctx.arc(0, 0, 3 * sc, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawPowerMeter() {
+    const x = 620, yTop = 90, w = 52, h = 380;
+    const val = phase === "power" ? powerValue() : 0;
+
+    // frame
+    ctx.fillStyle = "rgba(255,255,255,0.06)";
+    roundRect(x, yTop, w, h, 10);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.15)";
+    ctx.lineWidth = 1.5;
+    roundRect(x, yTop, w, h, 10);
+    ctx.stroke();
+
+    // sweet zone band (bottom-up mapping: value 0 at bottom)
+    const zoneTopY = yTop + h * (1 - SWEET_HI);
+    const zoneBotY = yTop + h * (1 - SWEET_LO);
+    ctx.fillStyle = "rgba(143,230,168,0.22)";
+    ctx.fillRect(x + 2, zoneTopY, w - 4, zoneBotY - zoneTopY);
+
+    // fill
+    if (phase === "power") {
+      const fh = h * val;
+      const grad = ctx.createLinearGradient(0, yTop + h, 0, yTop);
+      grad.addColorStop(0, "#3f7d5a");
+      grad.addColorStop(0.6, "#f3d27a");
+      grad.addColorStop(1, "#e05a4a");
+      ctx.fillStyle = grad;
+      roundRect(x + 3, yTop + h - fh, w - 6, fh, 8);
+      ctx.fill();
+    }
+
+    // labels
+    ctx.fillStyle = "#a9c9b6";
+    ctx.font = "bold 12px 'Segoe UI', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("POWER", x + w / 2, yTop - 20);
+    ctx.fillStyle = "#8fe6a8";
+    ctx.fillText("SWEET", x + w + 34, (zoneTopY + zoneBotY) / 2);
+  }
+
+  function drawPanel() {
+    const px = 700;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+
+    // phase prompt
+    let prompt = "";
+    let col = "#f3d27a";
+    if (phase === "aim") { prompt = "CLICK to lock AIM"; }
+    else if (phase === "power") { prompt = "CLICK on SWEET zone!"; }
+    else if (phase === "flight") { prompt = "In flight..."; col = "#a9c9b6"; }
+    else if (phase === "wait") { prompt = "Next dart..."; col = "#a9c9b6"; }
+    else if (phase === "cpu") { prompt = "CPU throwing..."; col = "#ff9a9a"; }
+    else if (phase === "over") { prompt = "Leg finished"; col = "#a9c9b6"; }
+
+    ctx.fillStyle = col;
+    ctx.font = "bold 15px 'Segoe UI', sans-serif";
+    ctx.fillText(prompt, px, 60);
+
+    // turn darts left
+    ctx.fillStyle = "#8fb8a2";
+    ctx.font = "12px 'Segoe UI', sans-serif";
+    ctx.fillText("DARTS LEFT", px, 96);
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.arc(px + 12 + i * 26, 116, 8, 0, Math.PI * 2);
+      if (i < dartsLeft && phase !== "over" && (turn === "cpu" ? phase === "cpu" : true)) {
+        ctx.fillStyle = turn === "cpu" ? "#ff7a7a" : "#f3d27a";
+        ctx.fill();
+      } else {
+        ctx.strokeStyle = "rgba(255,255,255,0.25)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+    }
+
+    // history
+    ctx.fillStyle = "#8fb8a2";
+    ctx.font = "12px 'Segoe UI', sans-serif";
+    ctx.fillText("THROW HISTORY", px, 168);
+
+    const shown = hist.slice(-11);
+    ctx.font = "13px 'Consolas', 'Courier New', monospace";
+    for (let i = 0; i < shown.length; i++) {
+      const h = shown[i];
+      const y = 192 + i * 22;
+      const recent = i >= shown.length - 3;
+      ctx.fillStyle = h.who === "player"
+        ? (recent ? "#f3d27a" : "rgba(243,210,122,0.55)")
+        : (recent ? "#ff9a9a" : "rgba(255,154,154,0.55)");
+      const tag = h.who === "player" ? "YOU " : "CPU ";
+      const pad = h.label.length < 6 ? " ".repeat(6 - h.label.length) : " ";
+      const ptsStr = h.pts > 0 ? "+" + h.pts : "0";
+      ctx.fillText(tag + h.label + pad + " " + ptsStr, px, y);
+      if (h.bust) {
+        ctx.fillStyle = "#ff6b6b";
+        ctx.fillText("BUST", px + 168, y);
+      }
+    }
+
+    // legend / best
+    ctx.fillStyle = "rgba(143,184,162,0.75)";
+    ctx.font = "11px 'Segoe UI', sans-serif";
+    ctx.fillText("Best checkout: " + (best === null ? "—" : best + " darts"), px, 470);
+    ctx.fillText("Finish on a DOUBLE or BULL", px, 488);
+    ctx.fillText("Difficulty: " + diff.toUpperCase(), px, 506);
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+
+    // felt background
+    const g = ctx.createRadialGradient(CX, CY, 60, CX, CY, 620);
+    g.addColorStop(0, "#17362a");
+    g.addColorStop(1, "#0a1712");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    drawBoard();
+    drawMarkers();
+    drawAimReticle();
+    drawFlightDart();
+    drawPowerMeter();
+    drawPanel();
+  }
+
+  /* ============ MAIN LOOP ============ */
+  let raf = null;
+  function loop() {
+    update();
+    render();
+    raf = requestAnimationFrame(loop);
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { cancelAnimationFrame(raf); raf = null; }
+    else if (!raf) { raf = requestAnimationFrame(loop); }
+  });
+
+  syncDiffButtons();
+  syncScoreUI();
+  loop();
+})();
+</script>
+</body>
+</html>

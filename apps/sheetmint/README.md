@@ -6,10 +6,10 @@ formulas, dropdowns, colour rules and a dashboard. Tweak it with words or by han
 publish it to the built-in marketplace with a price and an affiliate commission. Affiliates
 get a tracked link and a ready-made content kit.
 
-**Live:** https://juwpegatron.github.io/projects/sheetmint/ ·
-[App](https://juwpegatron.github.io/projects/sheetmint/app.html) ·
-[Web](https://juwpegatron.github.io/projects/sheetmint/web.html) ·
-[Mobile](https://juwpegatron.github.io/projects/sheetmint/mobile.html)
+**Live:** https://juw12.github.io/projects/sheetmint/ ·
+[App](https://juw12.github.io/projects/sheetmint/app.html) ·
+[Web](https://juw12.github.io/projects/sheetmint/web.html) ·
+[Mobile](https://juw12.github.io/projects/sheetmint/mobile.html)
 
 The GitHub Pages build runs in **demo mode**: accounts, listings, sales and affiliate
 earnings live in your browser's localStorage. The checkout moves no real money. Run the

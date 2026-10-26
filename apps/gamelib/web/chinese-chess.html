@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>中國象棋 · Chinese Chess (Xiangqi)</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: #2b1d10;
+    background-image: radial-gradient(circle at 50% 0%, #4a3421 0%, #2b1d10 70%);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    font-family: "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    color: #f3e3c8;
+    padding: 10px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #app {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: min(96vw, 560px);
+  }
+  #title {
+    text-align: center;
+    font-size: clamp(18px, 5vw, 26px);
+    letter-spacing: 3px;
+    color: #f0d9a8;
+    text-shadow: 0 2px 6px rgba(0,0,0,.6);
+  }
+  #title small { font-size: .5em; letter-spacing: 1px; color: #b99a6a; display: block; }
+
+  /* ============ HUD ============ */
+  #hud {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0,0,0,.28);
+    border: 1px solid rgba(240,217,168,.25);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: clamp(12px, 3.4vw, 15px);
+  }
+  #turnInfo { font-weight: 700; }
+  #turnInfo.red { color: #ff6b5e; }
+  #turnInfo.black { color: #dcdcdc; }
+  #winsInfo { color: #cbb182; font-size: .85em; }
+
+  /* ============ CAPTURE TRAYS ============ */
+  #trays { display: flex; gap: 8px; }
+  .tray {
+    flex: 1;
+    min-height: 26px;
+    background: rgba(0,0,0,.22);
+    border: 1px solid rgba(240,217,168,.18);
+    border-radius: 8px;
+    padding: 4px 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+  }
+  .tlabel { font-size: 10px; letter-spacing: 1px; color: #9c8358; white-space: nowrap; }
+  .tchars { font-size: 15px; letter-spacing: 1px; line-height: 1; white-space: nowrap; }
+  .tchars.red { color: #ff6b5e; }
+  .tchars.black { color: #d8d8d8; }
+
+  /* ============ CANVAS ============ */
+  #game-wrap {
+    position: relative;
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,.55);
+  }
+  canvas { display: block; width: 100%; height: auto; }
+
+  /* ============ OVERLAYS ============ */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 18px;
+    background: rgba(20,13,6,.92);
+    text-align: center;
+    transition: opacity .25s ease;
+    z-index: 5;
+  }
+  .overlay.hidden { opacity: 0; pointer-events: none; }
+  .ov-title { font-size: clamp(22px, 6.5vw, 34px); color: #f0d9a8; letter-spacing: 4px; }
+  .ov-sub { font-size: clamp(11px, 3.2vw, 14px); color: #b99a6a; margin-top: -6px; }
+  .ov-label { font-size: 12px; color: #9c8358; letter-spacing: 2px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .opt {
+    font-family: inherit;
+    font-size: clamp(12px, 3.3vw, 14px);
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(240,217,168,.35);
+    background: rgba(255,255,255,.05);
+    color: #e8d4ae;
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+  .opt:hover { background: rgba(240,217,168,.15); }
+  .opt.active {
+    background: #c0392b;
+    border-color: #e05a4a;
+    color: #fff;
+    box-shadow: 0 0 14px rgba(224,90,74,.5);
+  }
+  #sideRow.hidden, #diffRow.hidden, #modeRow.hidden { display: none; }
+  .primary {
+    font-family: inherit;
+    font-size: clamp(14px, 4vw, 17px);
+    font-weight: 700;
+    letter-spacing: 2px;
+    padding: 11px 34px;
+    margin-top: 4px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    color: #fff;
+    background: linear-gradient(135deg, #d94a38, #a5281a);
+    box-shadow: 0 5px 0 rgba(0,0,0,.35);
+    transition: transform .06s ease, filter .15s ease;
+  }
+  .primary:hover { filter: brightness(1.12); }
+  .primary:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(0,0,0,.35); }
+  .result { font-size: clamp(15px, 4.4vw, 20px); color: #ffd98a; font-weight: 700; min-height: 1px; }
+
+  #pauseOverlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15,10,5,.72);
+    color: #f0d9a8;
+    font-size: clamp(24px, 8vw, 40px);
+    font-weight: 700;
+    letter-spacing: 6px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease;
+    z-index: 4;
+  }
+  #pauseOverlay.visible { opacity: 1; }
+
+  /* ============ STATUS + CONTROLS ============ */
+  #status {
+    text-align: center;
+    font-size: clamp(12px, 3.4vw, 14px);
+    color: #cbb182;
+    min-height: 18px;
+    letter-spacing: 1px;
+  }
+  #controls { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  #controls button {
+    font-family: inherit;
+    font-size: clamp(12px, 3.4vw, 14px);
+    font-weight: 600;
+    letter-spacing: 1px;
+    padding: 9px 18px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #fff;
+    background: #6b4a2a;
+    box-shadow: 0 3px 0 rgba(0,0,0,.35);
+    transition: transform .05s ease, filter .15s ease;
+    user-select: none;
+  }
+  #controls button:hover { filter: brightness(1.15); }
+  #controls button:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.35); }
+  #btnMenu { background: #4a4a55; }
+  #btnUndo { background: #3f6b4a; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="title">中國象棋<small>XIANGQI · CHINESE CHESS</small></div>
+
+  <div id="hud">
+    <span id="turnInfo" class="red">Red to move</span>
+    <span id="winsInfo">You 0 — CPU 0</span>
+  </div>
+
+  <div id="trays">
+    <div class="tray"><span class="tlabel">RED&nbsp;LOST</span><span id="trayRed" class="tchars red"></span></div>
+    <div class="tray"><span class="tlabel">BLACK&nbsp;LOST</span><span id="trayBlack" class="tchars black"></span></div>
+  </div>
+
+  <div id="game-wrap">
+    <canvas id="game" width="540" height="600"></canvas>
+
+    <!-- Start / Menu overlay -->
+    <div id="overlay" class="overlay">
+      <div class="ov-title">中國象棋</div>
+      <div class="ov-sub">Xiangqi · Chinese Chess</div>
+
+      <div class="ov-label">MODE</div>
+      <div class="row" id="modeRow">
+        <button class="opt" data-mode="cpu">vs Computer</button>
+        <button class="opt" data-mode="2p">2 Players</button>
+      </div>
+
+      <div id="sideRow">
+        <div class="ov-label">YOUR SIDE</div>
+        <div class="row">
+          <button class="opt" data-side="r">Play Red</button>
+          <button class="opt" data-side="b">Play Black</button>
+        </div>
+      </div>
+
+      <div id="diffRow">
+        <div class="ov-label">DIFFICULTY</div>
+        <div class="row">
+          <button class="opt" data-diff="easy">Easy</button>
+          <button class="opt" data-diff="normal">Normal</button>
+          <button class="opt" data-diff="hard">Hard</button>
+        </div>
+      </div>
+
+      <button id="startBtn" class="primary">START GAME</button>
+    </div>
+
+    <!-- Result overlay -->
+    <div id="resultOverlay" class="overlay hidden">
+      <div class="ov-title" id="resultTitle">Checkmate</div>
+      <div class="result" id="resultSub"></div>
+      <div class="row">
+        <button class="primary" id="againBtn">PLAY AGAIN</button>
+        <button class="opt" id="menuBtn2">MENU</button>
+      </div>
+    </div>
+
+    <!-- Pause overlay -->
+    <div id="pauseOverlay">PAUSED</div>
+  </div>
+
+  <div id="status"></div>
+
+  <div id="controls">
+    <button id="btnPause" type="button">Pause</button>
+    <button id="btnUndo" type="button">Undo</button>
+    <button id="btnRestart" type="button">Restart</button>
+    <button id="btnMenu" type="button">Menu</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============================================================
+     SECTION 1 — CONFIG & CONSTANTS
+     ============================================================ */
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+
+  const COLS = 9, ROWS = 10;
+  const CELL = 60, MARGIN = 30;
+  const W = MARGIN * 2 + CELL * (COLS - 1);   // 540
+  const H = MARGIN * 2 + CELL * (ROWS - 1);   // 600
+
+  const RED = "r", BLACK = "b";
+  const other = (c) => (c === RED ? BLACK : RED);
+
+  // Piece material values (General huge, soldier rises past the river).
+  const VALUES = { general: 10000, chariot: 9, cannon: 4.5, horse: 4, advisor: 2, elephant: 2, soldier: 1 };
+
+  // Piece glyphs.
+  const CHAR = {
+    r: { general: "帥", advisor: "仕", elephant: "相", horse: "傌", chariot: "俥", cannon: "炮", soldier: "兵" },
+    b: { general: "將", advisor: "士", elephant: "象", horse: "馬", chariot: "車", cannon: "砲", soldier: "卒" }
+  };
+
+  const DIFF_DEPTH = { easy: 2, normal: 3, hard: 4 };
+
+  /* ============================================================
+     SECTION 2 — GAME STATE
+     ============================================================ */
+  let board = null;          // board[y][x] = {type,color} | null
+  let turn = RED;
+  let selected = null;       // [x,y] currently selected
+  let legalTargets = [];     // [[x,y], ...] legal destinations for selected
+  let captured = { r: [], b: [] }; // glyphs of captured pieces, by owner colour
+  let history = [];          // snapshots for undo
+  let lastMove = null;       // {from:[x,y], to:[x,y]}
+  let checkFlag = false;     // side-to-move is in check
+  let gameOverFlag = false;
+  let thinking = false;
+  let paused = false;
+  let started = false;
+  let flipped = false;       // true => black drawn at the bottom
+
+  let mode = "cpu";          // "cpu" | "2p"
+  let playerSide = RED;      // human side in cpu mode
+  let difficulty = "normal";
+
+  let wins = { player: 0, ai: 0 };
+
+  /* ============================================================
+     SECTION 3 — DOM REFERENCES
+     ============================================================ */
+  const els = {
+    turnInfo: document.getElementById("turnInfo"),
+    winsInfo: document.getElementById("winsInfo"),
+    trayRed: document.getElementById("trayRed"),
+    trayBlack: document.getElementById("trayBlack"),
+    status: document.getElementById("status"),
+    overlay: document.getElementById("overlay"),
+    resultOverlay: document.getElementById("resultOverlay"),
+    resultTitle: document.getElementById("resultTitle"),
+    resultSub: document.getElementById("resultSub"),
+    pauseOverlay: document.getElementById("pauseOverlay"),
+    modeRow: document.getElementById("modeRow"),
+    sideRow: document.getElementById("sideRow"),
+    diffRow: document.getElementById("diffRow"),
+    startBtn: document.getElementById("startBtn"),
+    againBtn: document.getElementById("againBtn"),
+    menuBtn2: document.getElementById("menuBtn2"),
+    btnPause: document.getElementById("btnPause"),
+    btnUndo: document.getElementById("btnUndo"),
+    btnRestart: document.getElementById("btnRestart"),
+    btnMenu: document.getElementById("btnMenu")
+  };
+
+  /* ============================================================
+     SECTION 4 — PERSISTENCE
+     ============================================================ */
+  function loadPersistence() {
+    try {
+      const s = JSON.parse(localStorage.getItem("xiangqiSettings") || "{}");
+      if (s.mode === "cpu" || s.mode === "2p") mode = s.mode;
+      if (s.playerSide === RED || s.playerSide === BLACK) playerSide = s.playerSide;
+      if (DIFF_DEPTH[s.difficulty]) difficulty = s.difficulty;
+      const w = JSON.parse(localStorage.getItem("xiangqiWins") || "{}");
+      wins.player = Number(w.player) || 0;
+      wins.ai = Number(w.ai) || 0;
+    } catch (e) { /* ignore corrupt storage */ }
+  }
+  function saveSettings() {
+    try { localStorage.setItem("xiangqiSettings", JSON.stringify({ mode, playerSide, difficulty })); } catch (e) {}
+  }
+  function saveWins() {
+    try { localStorage.setItem("xiangqiWins", JSON.stringify(wins)); } catch (e) {}
+  }
+
+  /* ============================================================
+     SECTION 5 — AUDIO (WebAudio beep helper, no assets)
+     ============================================================ */
+  let actx = null;
+  function beep(freq, dur, type, gain) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "sine";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(gain || 0.07, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+  const sndMove    = () => beep(520, 0.07, "triangle");
+  const sndCapture = () => { beep(300, 0.09, "square"); setTimeout(() => beep(180, 0.11, "square"), 45); };
+  const sndCheck   = () => { beep(880, 0.09, "sawtooth"); setTimeout(() => beep(1180, 0.12, "sawtooth"), 90); };
+  const sndSelect  = () => beep(700, 0.04, "sine", 0.04);
+  const sndWin     = () => { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => beep(f, 0.16, "triangle", 0.08), i * 120)); };
+  const sndLose    = () => { [440, 349, 262].forEach((f, i) => setTimeout(() => beep(f, 0.22, "sawtooth", 0.08), i * 150)); };
+
+  /* ============================================================
+     SECTION 6 — BOARD SETUP
+     ============================================================ */
+  function mk(type, color) { return { type: type, color: color }; }
+
+  function initialBoard() {
+    const b = [];
+    for (let y = 0; y < ROWS; y++) b.push(new Array(COLS).fill(null));
+    const back = ["chariot", "horse", "elephant", "advisor", "general", "advisor", "elephant", "horse", "chariot"];
+    for (let x = 0; x < COLS; x++) {
+      b[0][x] = mk(back[x], BLACK);
+      b[9][x] = mk(back[x], RED);
+    }
+    b[2][1] = mk("cannon", BLACK); b[2][7] = mk("cannon", BLACK);
+    b[7][1] = mk("cannon", RED);   b[7][7] = mk("cannon", RED);
+    [0, 2, 4, 6, 8].forEach((x) => { b[3][x] = mk("soldier", BLACK); b[6][x] = mk("soldier", RED); });
+    return b;
+  }
+
+  const inBounds = (x, y) => x >= 0 && x < COLS && y >= 0 && y < ROWS;
+
+  function inPalace(x, y, color) {
+    if (x < 3 || x > 5) return false;
+    return color === RED ? (y >= 7 && y <= 9) : (y >= 0 && y <= 2);
+  }
+  // Elephant must stay on its own side of the river.
+  function ownSide(y, color) { return color === RED ? y >= 5 : y <= 4; }
+
+  /* ============================================================
+     SECTION 7 — MOVE GENERATION (pseudo-legal, per piece)
+     Returns array of [tx,ty] targets. Board is not mutated.
+     ============================================================ */
+  function genMoves(b, x, y) {
+    const p = b[y][x];
+    if (!p) return [];
+    const c = p.color;
+    const out = [];
+    const tryAdd = (tx, ty) => {
+      if (!inBounds(tx, ty)) return false;
+      const t = b[ty][tx];
+      if (t && t.color === c) return false;
+      out.push([tx, ty]);
+      return !t; // can keep sliding only if landing square empty
+    };
+
+    switch (p.type) {
+      case "general": {
+        [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([dx, dy]) => {
+          const tx = x + dx, ty = y + dy;
+          if (inPalace(tx, ty, c)) {
+            const t = b[ty][tx];
+            if (!t || t.color !== c) out.push([tx, ty]);
+          }
+        });
+        break; // flying-general handled by check legality
+      }
+      case "advisor": {
+        [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(([dx, dy]) => {
+          const tx = x + dx, ty = y + dy;
+          if (inPalace(tx, ty, c)) {
+            const t = b[ty][tx];
+            if (!t || t.color !== c) out.push([tx, ty]);
+          }
+        });
+        break;
+      }
+      case "elephant": {
+        [[2, 2], [2, -2], [-2, 2], [-2, -2]].forEach(([dx, dy]) => {
+          const tx = x + dx, ty = y + dy;
+          if (!inBounds(tx, ty)) return;
+          if (!ownSide(ty, c)) return;          // may not cross the river
+          if (b[y + dy / 2][x + dx / 2]) return; // "eye" blocked
+          const t = b[ty][tx];
+          if (!t || t.color !== c) out.push([tx, ty]);
+        });
+        break;
+      }
+      case "horse": {
+        const offs = [[1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, -1], [-2, 1], [-1, 2]];
+        offs.forEach(([dx, dy]) => {
+          const tx = x + dx, ty = y + dy;
+          if (!inBounds(tx, ty)) return;
+          // leg point ("蹩馬腳"): the orthogonal step toward the target
+          let lx = x, ly = y;
+          if (Math.abs(dx) === 2) lx = x + dx / 2; else ly = y + dy / 2;
+          if (b[ly][lx]) return; // leg blocked
+          const t = b[ty][tx];
+          if (!t || t.color !== c) out.push([tx, ty]);
+        });
+        break;
+      }
+      case "chariot": {
+        [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([dx, dy]) => {
+          let tx = x + dx, ty = y + dy;
+          while (inBounds(tx, ty)) {
+            if (!tryAdd(tx, ty)) break;
+            tx += dx; ty += dy;
+          }
+        });
+        break;
+      }
+      case "cannon": {
+        [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([dx, dy]) => {
+          let tx = x + dx, ty = y + dy, screen = false;
+          while (inBounds(tx, ty)) {
+            const t = b[ty][tx];
+            if (!screen) {
+              if (!t) out.push([tx, ty]);          // non-capturing slide
+              else screen = true;                  // found the screen piece
+            } else if (t) {
+              if (t.color !== c) out.push([tx, ty]); // capture first piece past screen
+              break;
+            }
+            tx += dx; ty += dy;
+          }
+        });
+        break;
+      }
+      case "soldier": {
+        const fwd = c === RED ? -1 : 1;
+        const ty = y + fwd;
+        if (inBounds(x, ty)) {
+          const t = b[ty][x];
+          if (!t || t.color !== c) out.push([x, ty]);
+        }
+        const crossed = c === RED ? y <= 4 : y >= 5;
+        if (crossed) {
+          [-1, 1].forEach((dx) => {
+            const tx = x + dx;
+            if (!inBounds(tx, y)) return;
+            const t = b[y][tx];
+            if (!t || t.color !== c) out.push([tx, y]);
+          });
+        }
+        break;
+      }
+    }
+    return out;
+  }
+
+  /* ============================================================
+     SECTION 8 — CHECK DETECTION & LEGALITY
+     ============================================================ */
+  function findGeneral(b, color) {
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+      const p = b[y][x];
+      if (p && p.type === "general" && p.color === color) return [x, y];
+    }
+    return null;
+  }
+
+  // Does any piece of colour `byColor` attack square (x,y)?
+  // Includes the flying-general rule (generals facing on a clear file).
+  function squareAttacked(b, x, y, byColor) {
+    const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+
+    // Chariot / Cannon / General along the four lines.
+    for (let i = 0; i < 4; i++) {
+      const dx = dirs[i][0], dy = dirs[i][1];
+      let tx = x + dx, ty = y + dy, seen = 0;
+      while (inBounds(tx, ty)) {
+        const p = b[ty][tx];
+        if (p) {
+          if (seen === 0) {
+            if (p.color === byColor) {
+              if (p.type === "chariot") return true;
+              if (p.type === "general") return true; // adjacent OR flying general
+            }
+            seen = 1;
+          } else {
+            if (p.color === byColor && p.type === "cannon") return true; // jump capture
+            break;
+          }
+        }
+        tx += dx; ty += dy;
+      }
+    }
+
+    // Horse attacks (respecting the attacking horse's own leg).
+    const knight = [[1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, -1], [-2, 1], [-1, 2]];
+    for (let i = 0; i < 8; i++) {
+      const hx = x + knight[i][0], hy = y + knight[i][1];
+      if (!inBounds(hx, hy)) continue;
+      const p = b[hy][hx];
+      if (!p || p.color !== byColor || p.type !== "horse") continue;
+      const mdx = -knight[i][0], mdy = -knight[i][1];
+      let lx, ly;
+      if (Math.abs(mdx) === 2) { lx = hx + mdx / 2; ly = hy; } else { lx = hx; ly = hy + mdy / 2; }
+      if (!b[ly][lx]) return true; // leg clear => the horse really attacks here
+    }
+
+    // Soldiers: forward thrust, plus sideways after crossing the river.
+    {
+      const sy = y + 1; // red soldier moving up attacks (x,y)
+      if (sy < ROWS) { const p = b[sy][x]; if (p && p.color === RED && p.type === "soldier") return true; }
+      if (y <= 4) { // red soldier that has crossed the river sits at y<=4
+        for (let dx = -1; dx <= 1; dx += 2) {
+          const sx = x + dx;
+          if (!inBounds(sx, y)) continue;
+          const p = b[y][sx];
+          if (p && p.color === RED && p.type === "soldier") return true;
+        }
+      }
+      const ny = y - 1; // black soldier moving down attacks (x,y)
+      if (ny >= 0) { const p = b[ny][x]; if (p && p.color === BLACK && p.type === "soldier") return true; }
+      if (y >= 5) { // black soldier that has crossed sits at y>=5
+        for (let dx = -1; dx <= 1; dx += 2) {
+          const sx = x + dx;
+          if (!inBounds(sx, y)) continue;
+          const p = b[y][sx];
+          if (p && p.color === BLACK && p.type === "soldier") return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function isInCheck(b, color) {
+    const g = findGeneral(b, color);
+    if (!g) return true;
+    return squareAttacked(b, g[0], g[1], other(color));
+  }
+
+  function doMove(b, from, to) {
+    const cap = b[to[1]][to[0]];
+    b[to[1]][to[0]] = b[from[1]][from[0]];
+    b[from[1]][from[0]] = null;
+    return cap;
+  }
+  function undoMove(b, from, to, cap) {
+    b[from[1]][from[0]] = b[to[1]][to[0]];
+    b[to[1]][to[0]] = cap || null;
+  }
+
+  // All fully-legal moves for a colour.
+  function genLegalMoves(b, color) {
+    const res = [];
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+      const p = b[y][x];
+      if (!p || p.color !== color) continue;
+      const pms = genMoves(b, x, y);
+      for (let i = 0; i < pms.length; i++) {
+        const tx = pms[i][0], ty = pms[i][1];
+        const cap = doMove(b, [x, y], [tx, ty]);
+        if (!isInCheck(b, color)) res.push({ from: [x, y], to: [tx, ty], cap: cap ? VALUES[cap.type] : 0 });
+        undoMove(b, [x, y], [tx, ty], cap);
+      }
+    }
+    return res;
+  }
+
+  // Legal destinations for a single piece.
+  function legalMovesFor(b, x, y) {
+    const color = b[y][x].color;
+    const pms = genMoves(b, x, y);
+    const res = [];
+    for (let i = 0; i < pms.length; i++) {
+      const tx = pms[i][0], ty = pms[i][1];
+      const cap = doMove(b, [x, y], [tx, ty]);
+      if (!isInCheck(b, color)) res.push([tx, ty]);
+      undoMove(b, [x, y], [tx, ty], cap);
+    }
+    return res;
+  }
+
+  /* ============================================================
+     SECTION 9 — EVALUATION & AI (negamax + alpha-beta)
+     ============================================================ */
+  function evaluate(b) {
+    let score = 0; // positive favours RED
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+      const p = b[y][x];
+      if (!p) continue;
+      let v = VALUES[p.type];
+      if (p.type === "soldier") {
+        const crossed = p.color === RED ? y <= 4 : y >= 5;
+        if (crossed) v += 1;
+        v += (p.color === RED ? (9 - y) : y) * 0.02;
+      } else if (p.type === "horse" || p.type === "cannon") {
+        v += (4 - Math.abs(x - 4)) * 0.06; // central files are stronger
+      }
+      score += p.color === RED ? v : -v;
+    }
+    return score;
+  }
+
+  function search(b, depth, alpha, beta, color) {
+    if (depth <= 0) {
+      const e = evaluate(b);
+      return color === RED ? e : -e;
+    }
+    const moves = genLegalMoves(b, color);
+    if (moves.length === 0) return -100000 - depth; // no moves => this side loses
+
+    // Order captures first for better pruning.
+    moves.sort((a, c) => c.cap - a.cap);
+
+    let best = -Infinity;
+    for (let i = 0; i < moves.length; i++) {
+      const m = moves[i];
+      const cap = doMove(b, m.from, m.to);
+      const val = -search(b, depth - 1, -beta, -alpha, other(color));
+      undoMove(b, m.from, m.to, cap);
+      if (val > best) best = val;
+      if (best > alpha) alpha = best;
+      if (alpha >= beta) break;
+    }
+    return best;
+  }
+
+  function rootSearch(b, color, depth) {
+    const moves = genLegalMoves(b, color);
+    const scored = [];
+    let alpha = -Infinity;
+    for (let i = 0; i < moves.length; i++) {
+      const m = moves[i];
+      const cap = doMove(b, m.from, m.to);
+      const val = -search(b, depth - 1, -Infinity, -alpha, other(color));
+      undoMove(b, m.from, m.to, cap);
+      scored.push({ move: m, score: val });
+      if (val > alpha) alpha = val;
+    }
+    scored.sort((a, c) => c.score - a.score);
+    return scored;
+  }
+
+  function chooseAIMove() {
+    const color = turn;
+    const all = genLegalMoves(board, color);
+    if (!all.length) return null;
+
+    // Easy occasionally plays a plainly weak (random) move.
+    if (difficulty === "easy" && Math.random() < 0.35) {
+      return all[Math.floor(Math.random() * all.length)];
+    }
+
+    const scored = rootSearch(board, color, DIFF_DEPTH[difficulty] || 3);
+    if (!scored.length) return all[0];
+
+    if (difficulty === "easy") {
+      const top = scored.slice(0, Math.min(4, scored.length));
+      return top[Math.floor(Math.random() * top.length)].move;
+    }
+    return scored[0].move;
+  }
+
+  /* ============================================================
+     SECTION 10 — GAME FLOW
+     ============================================================ */
+  function snapshot() {
+    return {
+      board: board.map((row) => row.map((p) => (p ? { type: p.type, color: p.color } : null))),
+      turn: turn,
+      captured: { r: captured.r.slice(), b: captured.b.slice() },
+      lastMove: lastMove ? { from: lastMove.from.slice(), to: lastMove.to.slice() } : null
+    };
+  }
+
+  function startGame() {
+    board = initialBoard();
+    turn = RED;
+    flipped = (mode === "cpu" && playerSide === BLACK);
+    selected = null;
+    legalTargets = [];
+    captured = { r: [], b: [] };
+    history = [];
+    lastMove = null;
+    checkFlag = false;
+    gameOverFlag = false;
+    thinking = false;
+    paused = false;
+    started = true;
+
+    hideOverlay(); hideResult(); hidePause();
+    syncPauseButton();
+    updateHUD();
+    draw();
+
+    if (mode === "cpu" && turn !== playerSide) scheduleAI();
+  }
+
+  function selectPiece(x, y) {
+    selected = [x, y];
+    legalTargets = legalMovesFor(board, x, y);
+    sndSelect();
+  }
+
+  function clearSelection() { selected = null; legalTargets = []; }
+
+  function humanMove(from, to) {
+    applyMove(from, to);
+  }
+
+  // Core move application (used by human + AI). Assumes the move is legal.
+  function applyMove(from, to) {
+    history.push(snapshot());
+    const mover = turn;
+    const movingPiece = board[from[1]][from[0]];
+    const cap = doMove(board, from, to);
+    if (cap) captured[cap.color].push(CHAR[cap.color][cap.type]);
+    lastMove = { from: from.slice(), to: to.slice() };
+    clearSelection();
+    turn = other(turn);
+
+    // Beeps
+    if (cap) sndCapture(); else sndMove();
+
+    // Post-move evaluation of the side now to move.
+    const movesAvailable = genLegalMoves(board, turn).length > 0;
+    checkFlag = isInCheck(board, turn);
+
+    if (!movesAvailable) {
+      gameOverFlag = true;
+      const winner = mover;
+      const reason = checkFlag ? "Checkmate" : "Stalemate (no legal moves)";
+      endGame(winner, reason);
+      return;
+    }
+
+    if (checkFlag) sndCheck();
+
+    updateHUD();
+    draw();
+
+    if (!gameOverFlag && mode === "cpu" && turn !== playerSide) scheduleAI();
+  }
+
+  function endGame(winner, reason) {
+    // Record the outcome (AI mode only).
+    if (mode === "cpu") {
+      if (winner === playerSide) wins.player++; else wins.ai++;
+      saveWins();
+    }
+    const sideName = winner === RED ? "Red" : "Black";
+    els.resultTitle.textContent = reason;
+    let sub = sideName + " wins";
+    if (mode === "cpu") sub += (winner === playerSide ? " — you win! 🎉" : " — the computer wins");
+    els.resultSub.textContent = sub;
+    if (mode === "cpu" && winner === playerSide) sndWin(); else if (mode === "cpu") sndLose(); else sndWin();
+
+    updateHUD();
+    draw();
+    setTimeout(showResult, 300);
+  }
+
+  function scheduleAI() {
+    if (gameOverFlag || paused) return;
+    thinking = true;
+    updateHUD();
+    // Let the UI paint before the search runs (keeps it responsive).
+    setTimeout(function runAI() {
+      if (!started || gameOverFlag) { thinking = false; return; }
+      if (paused) { setTimeout(runAI, 120); return; } // wait out a pause
+      const m = chooseAIMove();
+      thinking = false;
+      if (m) applyMove(m.from, m.to);
+      else updateHUD();
+    }, 40);
+  }
+
+  function undoMoveAction() {
+    if (thinking || !started) return;
+    if (!history.length) return;
+    // Restore one snapshot; in CPU mode, step back again past the AI's reply.
+    let snap = history.pop();
+    restoreSnapshot(snap);
+    if (mode === "cpu" && turn !== playerSide && history.length) {
+      snap = history.pop();
+      restoreSnapshot(snap);
+    }
+    gameOverFlag = false;
+    paused = false;
+    hidePause();
+    hideResult();
+    syncPauseButton();
+    checkFlag = isInCheck(board, turn);
+    clearSelection();
+    updateHUD();
+    draw();
+    beep(440, 0.06, "triangle");
+  }
+
+  function restoreSnapshot(s) {
+    board = s.board.map((row) => row.map((p) => (p ? { type: p.type, color: p.color } : null)));
+    turn = s.turn;
+    captured = { r: s.captured.r.slice(), b: s.captured.b.slice() };
+    lastMove = s.lastMove ? { from: s.lastMove.from.slice(), to: s.lastMove.to.slice() } : null;
+  }
+
+  /* ============================================================
+     SECTION 11 — RENDERING
+     ============================================================ */
+  function sx(x) { return MARGIN + (flipped ? (COLS - 1 - x) : x) * CELL; }
+  function sy(y) { return MARGIN + (flipped ? (ROWS - 1 - y) : y) * CELL; }
+
+  function circle(cx, cy, r) { ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); }
+
+  function drawBoard() {
+    // Wooden background.
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#e7c793");
+    g.addColorStop(0.5, "#e0ba7f");
+    g.addColorStop(1, "#d3a869");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // Subtle wood grain.
+    ctx.strokeStyle = "rgba(150,110,60,0.10)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 26; i++) {
+      ctx.beginPath();
+      const yy = (i * 41) % H;
+      ctx.moveTo(0, yy);
+      ctx.bezierCurveTo(W * 0.3, yy + 8, W * 0.7, yy - 8, W, yy + 2);
+      ctx.stroke();
+    }
+
+    // Grid lines.
+    ctx.strokeStyle = "#5a3a1a";
+    ctx.lineWidth = 1.4;
+    for (let y = 0; y < ROWS; y++) {
+      ctx.beginPath();
+      ctx.moveTo(sx(0), sy(y));
+      ctx.lineTo(sx(COLS - 1), sy(y));
+      ctx.stroke();
+    }
+    for (let x = 0; x < COLS; x++) {
+      const isEdge = (x === 0 || x === COLS - 1);
+      if (isEdge) {
+        ctx.beginPath();
+        ctx.moveTo(sx(x), sy(0));
+        ctx.lineTo(sx(x), sy(ROWS - 1));
+        ctx.stroke();
+      } else {
+        ctx.beginPath(); // top half
+        ctx.moveTo(sx(x), sy(0));
+        ctx.lineTo(sx(x), sy(4));
+        ctx.stroke();
+        ctx.beginPath(); // bottom half (river gap between rows 4 and 5)
+        ctx.moveTo(sx(x), sy(5));
+        ctx.lineTo(sx(x), sy(ROWS - 1));
+        ctx.stroke();
+      }
+    }
+
+    // Palace diagonals.
+    ctx.lineWidth = 1.4;
+    drawLine(3, 0, 5, 2); drawLine(5, 0, 3, 2); // black palace
+    drawLine(3, 7, 5, 9); drawLine(5, 7, 3, 9); // red palace
+
+    // Outer decorative border.
+    ctx.strokeStyle = "#4a2e12";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(sx(0) - 9, sy(0) - 9, sx(COLS - 1) - sx(0) + 18, sy(ROWS - 1) - sy(0) + 18);
+
+    // River text.
+    const riverMid = (sy(4) + sy(5)) / 2;
+    ctx.fillStyle = "rgba(90,58,26,0.85)";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = 'italic 30px "STKaiti","KaiTi","Kai",serif';
+    ctx.fillText("楚 河", sx(2), riverMid);
+    ctx.fillText("漢 界", sx(6), riverMid);
+  }
+
+  function drawLine(x1, y1, x2, y2) {
+    ctx.beginPath();
+    ctx.moveTo(sx(x1), sy(y1));
+    ctx.lineTo(sx(x2), sy(y2));
+    ctx.stroke();
+  }
+
+  function drawPiece(x, y, p, opts) {
+    const cx = sx(x), cy = sy(y);
+    const r = CELL * 0.42;
+    const isRed = p.color === RED;
+
+    // Shadow.
+    ctx.fillStyle = "rgba(0,0,0,0.22)";
+    circle(cx + 2, cy + 3, r); ctx.fill();
+
+    // Disc.
+    const g = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.35, r * 0.15, cx, cy, r);
+    g.addColorStop(0, "#fdf6e4");
+    g.addColorStop(1, "#e6cfa0");
+    ctx.fillStyle = g;
+    circle(cx, cy, r); ctx.fill();
+
+    // Rim.
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = isRed ? "#c0392b" : "#20242a";
+    circle(cx, cy, r); ctx.stroke();
+    ctx.lineWidth = 1;
+    circle(cx, cy, r * 0.8); ctx.stroke();
+
+    // Glyph.
+    ctx.fillStyle = isRed ? "#c0392b" : "#20242a";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = 'bold ' + Math.round(r * 1.15) + 'px "STKaiti","KaiTi","Kai","Microsoft JhengHei",serif';
+    ctx.fillText(CHAR[p.color][p.type], cx, cy + r * 0.04);
+
+    // Selection ring.
+    if (opts && opts.selected) {
+      ctx.strokeStyle = "#f1c40f";
+      ctx.lineWidth = 3.5;
+      circle(cx, cy, r + 4); ctx.stroke();
+    }
+  }
+
+  function drawMoveDot(x, y, isCapture) {
+    const cx = sx(x), cy = sy(y);
+    if (isCapture) {
+      ctx.strokeStyle = "rgba(192,57,43,0.85)";
+      ctx.lineWidth = 3;
+      circle(cx, cy, CELL * 0.42); ctx.stroke();
+    } else {
+      ctx.fillStyle = "rgba(46,134,193,0.75)";
+      circle(cx, cy, CELL * 0.16); ctx.fill();
+    }
+  }
+
+  function drawCorner(x, y, color) {
+    const cx = sx(x), cy = sy(y), d = CELL * 0.34, len = CELL * 0.16;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    const corners = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
+    for (let i = 0; i < 4; i++) {
+      const ox = corners[i][0] * d, oy = corners[i][1] * d;
+      ctx.beginPath();
+      ctx.moveTo(cx + ox, cy + oy - corners[i][1] * len);
+      ctx.lineTo(cx + ox, cy + oy);
+      ctx.lineTo(cx + ox - corners[i][0] * len, cy + oy);
+      ctx.stroke();
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    drawBoard();
+
+    // Last-move markers.
+    if (lastMove) {
+      drawCorner(lastMove.from[0], lastMove.from[1], "rgba(46,134,193,0.85)");
+      drawCorner(lastMove.to[0], lastMove.to[1], "rgba(46,134,193,0.85)");
+    }
+
+    // Legal target dots.
+    for (let i = 0; i < legalTargets.length; i++) {
+      const tx = legalTargets[i][0], ty = legalTargets[i][1];
+      drawMoveDot(tx, ty, !!board[ty][tx]);
+    }
+
+    // Pieces.
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+      const p = board[y][x];
+      if (!p) continue;
+      const sel = selected && selected[0] === x && selected[1] === y;
+      drawPiece(x, y, p, { selected: sel });
+    }
+
+    // Check marker on the general that is in check.
+    if (checkFlag && board) {
+      const g = findGeneral(board, turn);
+      if (g) {
+        const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 180);
+        ctx.strokeStyle = "rgba(230,40,40," + (0.55 + 0.45 * pulse) + ")";
+        ctx.lineWidth = 4;
+        circle(sx(g[0]), sy(g[1]), CELL * 0.5); ctx.stroke();
+      }
+    }
+  }
+
+  /* ============================================================
+     SECTION 12 — INPUT
+     ============================================================ */
+  function eventToBoard(evt) {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = evt.clientX;
+    const clientY = evt.clientY;
+    const px = (clientX - rect.left) * (canvas.width / rect.width);
+    const py = (clientY - rect.top) * (canvas.height / rect.height);
+    let gx = Math.round((px - MARGIN) / CELL);
+    let gy = Math.round((py - MARGIN) / CELL);
+    if (gx < 0 || gx >= COLS || gy < 0 || gy >= ROWS) return null;
+    const cx = MARGIN + gx * CELL, cy = MARGIN + gy * CELL;
+    if (Math.hypot(px - cx, py - cy) > CELL * 0.52) return null;
+    if (flipped) { gx = COLS - 1 - gx; gy = ROWS - 1 - gy; }
+    return [gx, gy];
+  }
+
+  function handleTap(pt) {
+    if (!started || gameOverFlag || paused) return;
+    if (mode === "cpu" && turn !== playerSide) return; // not the human's turn
+
+    const x = pt[0], y = pt[1];
+    const p = board[y][x];
+
+    if (selected) {
+      // Clicked a legal destination?
+      for (let i = 0; i < legalTargets.length; i++) {
+        if (legalTargets[i][0] === x && legalTargets[i][1] === y) {
+          humanMove(selected, [x, y]);
+          return;
+        }
+      }
+      // Clicked own piece => reselect; otherwise deselect.
+      if (p && p.color === turn) selectPiece(x, y);
+      else { clearSelection(); draw(); }
+    } else {
+      if (p && p.color === turn) { selectPiece(x, y); draw(); }
+    }
+  }
+
+  function onPointer(evt) {
+    if (evt.cancelable) evt.preventDefault();
+    const pt = eventToBoard(evt);
+    if (pt) handleTap(pt);
+  }
+
+  canvas.addEventListener("mousedown", onPointer);
+  canvas.addEventListener("touchstart", onPointer, { passive: false });
+
+  window.addEventListener("keydown", function (e) {
+    if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].indexOf(e.code) !== -1) {
+      e.preventDefault();
+    }
+    if (e.code === "KeyP" || e.key === "p" || e.key === "P" || e.key === "Escape") {
+      e.preventDefault(); togglePause(); return;
+    }
+    if (e.code === "KeyR" || e.key === "r" || e.key === "R") { e.preventDefault(); startGame(); return; }
+    if ((e.code === "KeyU" || e.key === "u" || e.key === "U") && e.ctrlKey) { e.preventDefault(); undoMoveAction(); return; }
+    if (e.code === "KeyU" || e.key === "u" || e.key === "U") { e.preventDefault(); undoMoveAction(); }
+  });
+
+  /* ============================================================
+     SECTION 13 — UI / HUD / MENU
+     ============================================================ */
+  function updateHUD() {
+    const name = turn === RED ? "Red" : "Black";
+    let t = name + " to move";
+    if (gameOverFlag) t = "Game over";
+    els.turnInfo.textContent = t;
+    els.turnInfo.className = turn === RED ? "red" : "black";
+
+    if (mode === "cpu") els.winsInfo.textContent = "You " + wins.player + " — CPU " + wins.ai;
+    else els.winsInfo.textContent = "2 Players";
+
+    els.trayRed.textContent = captured.r.join("");
+    els.trayBlack.textContent = captured.b.join("");
+
+    let s = "";
+    if (!started) s = "Choose a mode and press Start.";
+    else if (gameOverFlag) s = "Game over — see result.";
+    else if (thinking) s = "Computer is thinking…";
+    else if (checkFlag) s = name + " is in check!";
+    else if (mode === "cpu") s = (turn === playerSide ? "Your move." : "Computer's move.");
+    else s = name + "'s turn.";
+    els.status.textContent = s;
+  }
+
+  function syncPauseButton() { els.btnPause.textContent = paused ? "Play" : "Pause"; }
+
+  function togglePause() {
+    if (!started || gameOverFlag) return;
+    paused = !paused;
+    els.pauseOverlay.classList.toggle("visible", paused);
+    syncPauseButton();
+    updateHUD();
+    beep(paused ? 420 : 640, 0.07, "triangle");
+  }
+
+  function hideOverlay() { els.overlay.classList.add("hidden"); }
+  function showOverlay() { els.overlay.classList.remove("hidden"); }
+  function hideResult() { els.resultOverlay.classList.add("hidden"); }
+  function showResult() { els.resultOverlay.classList.remove("hidden"); }
+  function hidePause() { els.pauseOverlay.classList.remove("visible"); }
+
+  function refreshMenuOptions() {
+    Array.prototype.forEach.call(els.modeRow.querySelectorAll(".opt"), function (b) {
+      b.classList.toggle("active", b.dataset.mode === mode);
+    });
+    Array.prototype.forEach.call(els.sideRow.querySelectorAll(".opt"), function (b) {
+      b.classList.toggle("active", b.dataset.side === playerSide);
+    });
+    Array.prototype.forEach.call(els.diffRow.querySelectorAll(".opt"), function (b) {
+      b.classList.toggle("active", b.dataset.diff === difficulty);
+    });
+    const showCpuOpts = (mode === "cpu");
+    els.sideRow.classList.toggle("hidden", !showCpuOpts);
+    els.diffRow.classList.toggle("hidden", !showCpuOpts);
+  }
+
+  function backToMenu() {
+    started = false;
+    gameOverFlag = false;
+    thinking = false;
+    paused = false;
+    hideResult();
+    hidePause();
+    syncPauseButton();
+    showOverlay();
+    refreshMenuOptions();
+    updateHUD();
+    // Show a fresh board behind the menu.
+    board = initialBoard();
+    selected = null; legalTargets = []; lastMove = null;
+    turn = RED; checkFlag = false;
+    flipped = (mode === "cpu" && playerSide === BLACK);
+    draw();
+  }
+
+  // Menu option wiring.
+  els.modeRow.addEventListener("click", function (e) {
+    const b = e.target.closest(".opt"); if (!b) return;
+    mode = b.dataset.mode; saveSettings(); refreshMenuOptions();
+  });
+  els.sideRow.addEventListener("click", function (e) {
+    const b = e.target.closest(".opt"); if (!b) return;
+    playerSide = b.dataset.side; saveSettings(); refreshMenuOptions();
+  });
+  els.diffRow.addEventListener("click", function (e) {
+    const b = e.target.closest(".opt"); if (!b) return;
+    difficulty = b.dataset.diff; saveSettings(); refreshMenuOptions();
+  });
+  els.startBtn.addEventListener("click", startGame);
+
+  els.btnPause.addEventListener("click", togglePause);
+  els.btnUndo.addEventListener("click", undoMoveAction);
+  els.btnRestart.addEventListener("click", function () {
+    if (!started) { startGame(); return; }
+    startGame();
+  });
+  els.btnMenu.addEventListener("click", backToMenu);
+  els.againBtn.addEventListener("click", startGame);
+  els.menuBtn2.addEventListener("click", backToMenu);
+
+  // Redraw the check-marker pulse.
+  function tick() { if (started && checkFlag && !gameOverFlag) draw(); requestAnimationFrame(tick); }
+
+  /* ============================================================
+     SECTION 14 — BOOT
+     ============================================================ */
+  loadPersistence();
+  board = initialBoard();
+  flipped = (mode === "cpu" && playerSide === BLACK);
+  refreshMenuOptions();
+  updateHUD();
+  draw();
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

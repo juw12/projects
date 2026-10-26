@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🌀 FIDGET — Spinner Toy</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg0: #0c0f17; --bg1: #141a26; --cyan: #4de3ff; --mag: #ff5db1;
+      --amber: #ffcf5c; --ink: #eaf2ff; --dim: #8a97ad;
+    }
+    body {
+      font-family: 'Trebuchet MS', 'Segoe UI', Tahoma, sans-serif;
+      background: radial-gradient(120% 90% at 50% 0%, #1b2436 0%, var(--bg1) 45%, var(--bg0) 100%);
+      color: var(--ink); min-height: 100vh; display: flex; justify-content: center;
+      align-items: center; overflow: hidden; touch-action: none; -webkit-tap-highlight-color: transparent;
+    }
+    /* ============ LAYOUT ============ */
+    .app { width: 96%; max-width: 560px; height: 96vh; max-height: 900px;
+      display: flex; flex-direction: column; gap: 10px; padding: 14px; }
+    header { text-align: center; flex: 0 0 auto; }
+    .title { font-size: 1.7rem; letter-spacing: 0.32em; font-weight: 700;
+      color: var(--cyan); text-shadow: 0 0 18px rgba(77, 227, 255, 0.55); }
+    .subtitle { font-size: 0.78rem; letter-spacing: 0.18em; color: var(--dim);
+      margin-top: 3px; text-transform: uppercase; }
+    /* ============ HUD ============ */
+    .hud { display: flex; gap: 8px; flex: 0 0 auto; }
+    .stat { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px; padding: 7px 10px; text-align: center; }
+    .stat .k { display: block; font-size: 0.62rem; letter-spacing: 0.14em;
+      color: var(--dim); text-transform: uppercase; }
+    .stat .v { display: block; font-size: 1.15rem; font-weight: 700; color: var(--ink);
+      font-variant-numeric: tabular-nums; }
+    .stat.hl .v { color: var(--amber); }
+    /* ============ CANVAS ============ */
+    .stage { position: relative; flex: 1 1 auto; border-radius: 20px; overflow: hidden;
+      background: radial-gradient(80% 70% at 50% 40%, #1d2740 0%, #0e1420 100%);
+      border: 1px solid rgba(120,160,220,0.14);
+      box-shadow: inset 0 0 60px rgba(0,0,0,0.55), 0 10px 40px rgba(0,0,0,0.45); }
+    canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+    canvas.grabbing { cursor: grabbing; }
+    /* ============ MODE TABS ============ */
+    .tabs { display: flex; gap: 8px; flex: 0 0 auto; }
+    .tab { flex: 1; padding: 11px 6px; border-radius: 13px;
+      border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04);
+      color: var(--dim); font-size: 0.82rem; letter-spacing: 0.08em; font-weight: 600;
+      cursor: pointer; transition: all 0.18s ease; user-select: none; }
+    .tab:hover { background: rgba(255,255,255,0.09); color: var(--ink); }
+    .tab.active { color: #071018; background: linear-gradient(135deg, var(--cyan), #7af0d8);
+      border-color: transparent; box-shadow: 0 4px 18px rgba(77,227,255,0.4); }
+    /* ============ ACTIONS ============ */
+    .actions { display: flex; gap: 8px; flex: 0 0 auto; }
+    .btn { flex: 1; padding: 12px 10px; border: none; border-radius: 13px; font-size: 0.86rem;
+      font-weight: 700; letter-spacing: 0.06em; cursor: pointer; color: #071018;
+      background: linear-gradient(135deg, var(--mag), #ff9a6b);
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+      box-shadow: 0 4px 16px rgba(255,93,177,0.3); }
+    .btn.ghost { background: rgba(255,255,255,0.06); color: var(--ink);
+      border: 1px solid rgba(255,255,255,0.12); box-shadow: none; }
+    .btn:active { transform: scale(0.96); }
+    .hint { text-align: center; font-size: 0.72rem; color: var(--dim);
+      letter-spacing: 0.05em; flex: 0 0 auto; min-height: 15px; }
+    @media (max-height: 640px) { .title { font-size: 1.3rem; } .subtitle { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="title">FIDGET</div>
+      <div class="subtitle">flick • pop • slap</div>
+    </header>
+
+    <div class="hud">
+      <div class="stat hl"><span class="k">Longest Spin</span><span class="v" id="spinBest">0.0s</span></div>
+      <div class="stat"><span class="k">Best Combo</span><span class="v" id="comboBest">x1</span></div>
+      <div class="stat"><span class="k">Pops</span><span class="v" id="popCount">0</span></div>
+    </div>
+
+    <div class="stage"><canvas id="gameCanvas"></canvas></div>
+
+    <div class="tabs">
+      <button class="tab active" data-mode="spinner">🌀 Spinner</button>
+      <button class="tab" data-mode="popper">🫧 Popper</button>
+      <button class="tab" data-mode="slap">👋 Slap</button>
+    </div>
+
+    <div class="actions">
+      <button class="btn" id="resetBtn">RESTART</button>
+      <button class="btn ghost" id="boostBtn">AUTO-SPIN</button>
+    </div>
+
+    <div class="hint" id="hint">Drag the spinner and flick to launch it.</div>
+  </div>
+
+  <script>
+    // ============ CANVAS & RESIZE ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    let W = 0, H = 0, DPR = 1;
+    function resize() {
+      const r = canvas.getBoundingClientRect();
+      DPR = Math.min(window.devicePixelRatio || 1, 2);
+      W = r.width; H = r.height;
+      canvas.width = Math.max(1, Math.round(W * DPR));
+      canvas.height = Math.max(1, Math.round(H * DPR));
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      layout();
+    }
+    window.addEventListener('resize', resize);
+
+    // ============ AUDIO (WebAudio beep) ============
+    let audioCtx = null;
+    function ensureAudio() {
+      if (!audioCtx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) audioCtx = new AC(); }
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    }
+    // freq Hz, dur seconds, type wave, vol gain
+    function beep(freq, dur, type, vol) {
+      if (!audioCtx) return;
+      const t = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.setValueAtTime(freq, t);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(40, freq * 0.6), t + dur);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol || 0.12, t + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(g); g.connect(audioCtx.destination);
+      osc.start(t); osc.stop(t + dur + 0.05);
+    }
+    // Haptic-ish feedback: vibration + visual pulse + screen shake
+    function haptic(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
+    let shake = 0;
+    function pulse(amount) { shake = Math.min(14, shake + amount); }
+
+    // ============ CONFIG & STATE ============
+    const FRICTION = 0.55;      // angular decay coefficient (per second)
+    const SPIN_THRESHOLD = 2.2; // rad/s counted as "spinning"
+    const COMBO_WINDOW = 1.2;   // seconds between flicks to keep combo
+    const N_ARM = 3;
+    const state = {
+      mode: 'spinner',
+      spinner: { angle: 0, omega: 0, dragging: false },
+      lastFlickAt: -9, combo: 0, spinTime: 0,
+      bestSpin: parseFloat(localStorage.getItem('fidgetBestSpin') || '0'),
+      bestCombo: parseInt(localStorage.getItem('fidgetBestCombo') || '1', 10),
+      pops: 0, comboFlash: 0, comboText: '', particles: [], t: 0
+    };
+    // Center / layout anchors, computed on resize
+    const L = { cx: 0, cy: 0, R: 90 };
+    function baseLayout() {
+      L.cx = W * 0.5; L.cy = H * 0.5; L.R = Math.min(W, H) * 0.30;
+    }
+    function layout() { baseLayout(); buildBubbles(); layoutSlap(); }
+
+    // ============ DOM ELEMENTS ============
+    const spinBestEl = document.getElementById('spinBest');
+    const comboBestEl = document.getElementById('comboBest');
+    const popCountEl = document.getElementById('popCount');
+    const hintEl = document.getElementById('hint');
+    const resetBtn = document.getElementById('resetBtn');
+    const boostBtn = document.getElementById('boostBtn');
+    const tabs = document.querySelectorAll('.tab');
+    function refreshHud() {
+      spinBestEl.textContent = state.bestSpin.toFixed(1) + 's';
+      comboBestEl.textContent = 'x' + state.bestCombo;
+      popCountEl.textContent = String(state.pops);
+    }
+    const HINTS = {
+      spinner: 'Drag the spinner and flick to launch it. Flick again fast for combos.',
+      popper: 'Tap the bubbles to pop them. Refills itself — no fail.',
+      slap: 'Smack the disc. Harder = louder.'
+    };
+    function setMode(mode) {
+      state.mode = mode;
+      tabs.forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+      hintEl.textContent = HINTS[mode];
+      if (mode === 'popper') buildBubbles();
+      beep(mode === 'spinner' ? 620 : mode === 'popper' ? 760 : 300, 0.07, 'triangle', 0.07);
+    }
+
+    // ============ PARTICLES ============
+    function burst(x, y, color, n) {
+      for (let i = 0; i < (n || 10); i++) {
+        const a = Math.random() * Math.PI * 2;
+        const sp = 60 + Math.random() * 220;
+        state.particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+          life: 1, size: 1.5 + Math.random() * 3.5, color });
+      }
+    }
+    function updateParticles(dt) {
+      state.particles = state.particles.filter(p => {
+        p.x += p.vx * dt; p.y += p.vy * dt;
+        p.vx *= 0.94; p.vy *= 0.94; p.vy += 240 * dt;
+        p.life -= dt * 1.5;
+        return p.life > 0;
+      });
+    }
+    function drawParticles() {
+      for (const p of state.particles) {
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // ============ SPINNER MODE ============
+    let drag = { active: false, lastAngle: 0, lastT: 0, vel: 0 };
+    function onSpinDrag(x, y, t) {
+      const sp = state.spinner;
+      const a = Math.atan2(y - L.cy, x - L.cx);
+      if (!drag.active) {
+        drag.active = true; drag.lastAngle = a; drag.lastT = t; drag.vel = 0;
+        sp.omega = 0; canvas.classList.add('grabbing');
+        return;
+      }
+      let d = a - drag.lastAngle;
+      while (d > Math.PI) d -= Math.PI * 2;
+      while (d < -Math.PI) d += Math.PI * 2;
+      const dt = Math.max(0.001, (t - drag.lastT) / 1000);
+      sp.angle += d;
+      const v = d / dt;                       // rad/s
+      drag.vel = drag.vel * 0.6 + v * 0.4;    // smoothed
+      drag.lastAngle = a; drag.lastT = t;
+    }
+    function onSpinRelease(t) {
+      const sp = state.spinner;
+      canvas.classList.remove('grabbing');
+      if (!drag.active) return;
+      drag.active = false;
+      const omega = Math.max(-60, Math.min(60, drag.vel));
+      sp.omega = omega;
+      const speed = Math.abs(omega);
+      if (speed > 4) {
+        state.combo = (t - state.lastFlickAt < COMBO_WINDOW) ? Math.min(9, state.combo + 1) : 1;
+        state.lastFlickAt = t;
+        if (state.combo > state.bestCombo) {
+          state.bestCombo = state.combo;
+          localStorage.setItem('fidgetBestCombo', String(state.bestCombo));
+        }
+        showCombo(state.combo, speed);
+        burst(L.cx, L.cy, state.combo > 1 ? '#ff5db1' : '#4de3ff', 14 + state.combo * 4);
+        haptic(state.combo > 1 ? 28 : 15);
+        pulse(4 + state.combo);
+        beep(300 + speed * 14 + state.combo * 90, 0.16, 'sawtooth', 0.10);
+        refreshHud();
+      }
+    }
+    function showCombo(n, speed) {
+      if (n >= 2) { state.comboText = 'x' + n + (n >= 3 ? ' COMBO!' : ' COMBO'); state.comboFlash = 1; }
+    }
+    function t_now() { return performance.now() / 1000; }
+    function updateSpinner(dt) {
+      const sp = state.spinner;
+      if (!drag.active) {
+        sp.omega *= Math.exp(-FRICTION * dt);   // real angular-momentum decay
+        if (Math.abs(sp.omega) < 0.006) sp.omega = 0;
+        sp.angle += sp.omega * dt;
+      }
+      if (Math.abs(sp.omega) > SPIN_THRESHOLD && !drag.active) {
+        state.spinTime += dt;
+        if (state.spinTime > state.bestSpin) {
+          state.bestSpin = state.spinTime;
+          localStorage.setItem('fidgetBestSpin', state.bestSpin.toFixed(2));
+          refreshHud();
+        }
+      } else if (!drag.active && Math.abs(sp.omega) <= SPIN_THRESHOLD && state.spinTime > 0) {
+        state.spinTime = 0;
+      }
+      if (state.comboFlash > 0) state.comboFlash -= dt * 1.1;
+      if (t_now() - state.lastFlickAt > COMBO_WINDOW) state.combo = 0;
+    }
+    function roundedRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+    function drawArm(R, glow, i) {
+      const colors = ['#4de3ff', '#ff5db1', '#ffcf5c'];
+      const w = R * 0.34, len = R * 1.5;
+      const g = ctx.createLinearGradient(0, -w / 2, 0, w / 2);
+      g.addColorStop(0, colors[i % 3]);
+      g.addColorStop(1, 'rgba(15,22,36,0.9)');
+      ctx.fillStyle = g;
+      roundedRect(-R * 0.34, -w / 2, len, w, w / 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(len - R * 0.34, 0, w * 0.62, 0, Math.PI * 2);
+      ctx.fillStyle = colors[i % 3];
+      ctx.shadowBlur = 14 + glow * 22;
+      ctx.shadowColor = colors[i % 3];
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+    function drawSpinner() {
+      const sp = state.spinner, R = L.R;
+      const glow = Math.min(1, Math.abs(sp.omega) / 40);
+      ctx.save();
+      ctx.translate(L.cx, L.cy);
+      ctx.rotate(sp.angle);
+      // motion-blur halo
+      const halo = ctx.createRadialGradient(0, 0, R * 0.2, 0, 0, R * 1.7);
+      halo.addColorStop(0, 'rgba(77,227,255,' + (0.10 + glow * 0.25) + ')');
+      halo.addColorStop(1, 'rgba(77,227,255,0)');
+      ctx.fillStyle = halo;
+      ctx.beginPath(); ctx.arc(0, 0, R * 1.7, 0, Math.PI * 2); ctx.fill();
+      for (let i = 0; i < N_ARM; i++) {
+        ctx.save(); ctx.rotate((i / N_ARM) * Math.PI * 2); drawArm(R, glow, i); ctx.restore();
+      }
+      // bearing rings
+      ctx.beginPath(); ctx.arc(0, 0, R * 0.42, 0, Math.PI * 2);
+      ctx.fillStyle = '#0d1420'; ctx.fill();
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(160,200,255,0.35)'; ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, R * 0.22, 0, Math.PI * 2);
+      const cap = ctx.createRadialGradient(-R * 0.06, -R * 0.06, 1, 0, 0, R * 0.22);
+      cap.addColorStop(0, '#eaf2ff'); cap.addColorStop(1, '#7d8ba3');
+      ctx.fillStyle = cap; ctx.fill();
+      // speed spark on fast spin
+      if (glow > 0.25) {
+        ctx.beginPath(); ctx.arc(0, 0, R * 1.02, sp.angle, sp.angle + 1.6);
+        ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,207,92,' + (glow * 0.9) + ')'; ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // ============ POPPER MODE ============
+    let bubbles = [];
+    function buildBubbles() {
+      bubbles = [];
+      const cols = 6, rows = 6;
+      const pad = Math.min(W, H) * 0.08;
+      const cell = Math.min((W - pad * 2) / cols, (H - pad * 2) / rows) * 0.82;
+      const ox = (W - cell * cols) / 2, oy = (H - cell * rows) / 2;
+      const pal = ['#4de3ff', '#ff5db1', '#ffcf5c', '#6bff9e', '#a68bff'];
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          bubbles.push({ x: ox + cell * (c + 0.5), y: oy + cell * (r + 0.5), r: cell * 0.44,
+            color: pal[(r * cols + c) % pal.length], state: 0, anim: 1, phase: Math.random() * Math.PI * 2 });
+        }
+      }
+    }
+    function popAt(x, y) {
+      let hit = false;
+      for (const b of bubbles) {
+        if (b.state !== 0) continue;
+        if (Math.hypot(x - b.x, y - b.y) < b.r * 1.12) {
+          b.state = 1; b.anim = 1; hit = true; state.pops++;
+          burst(b.x, b.y, b.color, 9);
+          beep(420 + Math.random() * 320, 0.09, 'sine', 0.09);
+          haptic(9);
+        }
+      }
+      if (hit) {
+        refreshHud();
+        if (bubbles.every(b => b.state === 1)) setTimeout(rebuildBubbles, 260);
+      }
+      return hit;
+    }
+    function rebuildBubbles() {
+      for (const b of bubbles) { if (b.state === 1) { b.state = 0; b.anim = 0; } }
+      beep(540, 0.14, 'triangle', 0.08);
+    }
+    function updatePopper(dt) {
+      for (const b of bubbles) {
+        if (b.anim < 1) b.anim = Math.min(1, b.anim + dt * 2.2);
+        b.phase += dt;
+      }
+    }
+    function drawPopper() {
+      for (const b of bubbles) {
+        const bob = Math.sin(b.phase * 1.4) * b.r * 0.05;
+        if (b.state === 0) {
+          const s = 0.9 + b.anim * 0.1 + Math.sin(b.phase * 2) * 0.015;
+          const g = ctx.createRadialGradient(b.x - b.r * 0.3, b.y - b.r * 0.35, b.r * 0.1, b.x, b.y, b.r);
+          g.addColorStop(0, 'rgba(255,255,255,0.85)');
+          g.addColorStop(0.35, b.color);
+          g.addColorStop(1, 'rgba(10,16,28,0.65)');
+          ctx.beginPath(); ctx.arc(b.x, b.y + bob, b.r * s, 0, Math.PI * 2);
+          ctx.fillStyle = g; ctx.fill();
+          ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.stroke();
+          ctx.beginPath(); ctx.arc(b.x - b.r * 0.32, b.y - b.r * 0.34 + bob, b.r * 0.16, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fill();
+        } else {
+          const k = 1 - b.anim;
+          if (k > 0.02) {
+            ctx.beginPath(); ctx.arc(b.x, b.y, b.r * (1 + (1 - k) * 0.9), 0, Math.PI * 2);
+            ctx.lineWidth = 3 * k; ctx.strokeStyle = b.color;
+            ctx.globalAlpha = k; ctx.stroke(); ctx.globalAlpha = 1;
+          }
+        }
+      }
+    }
+
+    // ============ SLAP MODE ============
+    const slap = { count: 0, squash: 0, ring: 0, x: 0, y: 0, r: 0 };
+    function layoutSlap() { slap.x = L.cx; slap.y = L.cy; slap.r = Math.min(W, H) * 0.28; }
+    function doSlap(x, y) {
+      const d = Math.hypot(x - slap.x, y - slap.y);
+      if (d > slap.r * 1.25) return false;
+      slap.count++; slap.squash = 1; slap.ring = 1;
+      const power = 1 - Math.min(1, d / (slap.r * 1.25));
+      burst(x, y, '#ffcf5c', 12);
+      beep(160 + power * 120, 0.14, 'square', 0.07 + power * 0.09);
+      haptic(12 + Math.round(power * 16));
+      pulse(3 + power * 5);
+      return true;
+    }
+    function updateSlap(dt) {
+      if (slap.squash > 0) slap.squash = Math.max(0, slap.squash - dt * 5.5);
+      if (slap.ring > 0) slap.ring = Math.max(0, slap.ring - dt * 1.6);
+    }
+    function drawSlap() {
+      const sy = 1 - Math.sin(slap.squash * Math.PI) * 0.42;
+      const sx = 1 + Math.sin(slap.squash * Math.PI) * 0.16;
+      if (slap.ring > 0) {
+        const k = 1 - slap.ring;
+        ctx.beginPath(); ctx.arc(slap.x, slap.y, slap.r * (1 + k * 1.4), 0, Math.PI * 2);
+        ctx.lineWidth = 5 * slap.ring;
+        ctx.strokeStyle = 'rgba(255,207,92,' + slap.ring + ')'; ctx.stroke();
+      }
+      ctx.save();
+      ctx.translate(slap.x, slap.y); ctx.scale(sx, sy);
+      const g = ctx.createRadialGradient(-slap.r * 0.3, -slap.r * 0.4, slap.r * 0.1, 0, 0, slap.r);
+      g.addColorStop(0, '#ff9a6b'); g.addColorStop(0.6, '#ff5db1'); g.addColorStop(1, '#7a1f52');
+      ctx.beginPath(); ctx.arc(0, 0, slap.r, 0, Math.PI * 2);
+      ctx.fillStyle = g; ctx.fill();
+      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, slap.r * 0.62, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(12,15,23,0.55)'; ctx.fill();
+      // face: happy idle, "!" open mouth when squashed
+      const eyeY = -slap.r * 0.12, open = slap.squash > 0.15;
+      ctx.fillStyle = '#eaf2ff';
+      ctx.beginPath(); ctx.arc(-slap.r * 0.22, eyeY, slap.r * 0.1, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(slap.r * 0.22, eyeY, slap.r * 0.1, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#eaf2ff'; ctx.lineWidth = 3; ctx.beginPath();
+      if (open) ctx.arc(0, slap.r * 0.18, slap.r * 0.14, 0, Math.PI * 2);
+      else ctx.arc(0, slap.r * 0.02, slap.r * 0.3, 0.25 * Math.PI, 0.75 * Math.PI);
+      ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.font = '600 ' + Math.round(Math.min(W, H) * 0.035) + 'px Trebuchet MS';
+      ctx.textAlign = 'center';
+      ctx.fillText('SLAPS: ' + slap.count, slap.x, slap.y + slap.r * 1.5);
+    }
+
+    // ============ INPUT ============
+    function pos(e) {
+      const r = canvas.getBoundingClientRect();
+      return { x: e.clientX - r.left, y: e.clientY - r.top };
+    }
+    canvas.addEventListener('pointerdown', (e) => {
+      e.preventDefault(); ensureAudio();
+      const p = pos(e);
+      if (state.mode === 'spinner') {
+        if (Math.hypot(p.x - L.cx, p.y - L.cy) < L.R * 1.9) onSpinDrag(p.x, p.y, t_now());
+      } else if (state.mode === 'popper') popAt(p.x, p.y);
+      else if (state.mode === 'slap') doSlap(p.x, p.y);
+    });
+    canvas.addEventListener('pointermove', (e) => {
+      if (state.mode !== 'spinner' || !drag.active) return;
+      e.preventDefault();
+      const p = pos(e);
+      onSpinDrag(p.x, p.y, t_now());
+    });
+    function endPointer() { if (state.mode === 'spinner') onSpinRelease(t_now()); }
+    canvas.addEventListener('pointerup', endPointer);
+    canvas.addEventListener('pointercancel', endPointer);
+    canvas.addEventListener('pointerleave', endPointer);
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault(); ensureAudio();
+        if (state.mode === 'spinner') boost();
+        else if (state.mode === 'slap') doSlap(slap.x, slap.y);
+      } else if (e.code === 'KeyR') { doReset(); }
+    });
+
+    // ============ ACTIONS ============
+    function boost() {
+      ensureAudio();
+      const sp = state.spinner;
+      sp.omega = (Math.random() < 0.5 ? -1 : 1) * (28 + Math.random() * 16);
+      state.combo = 1; state.lastFlickAt = t_now();
+      showCombo(1, Math.abs(sp.omega));
+      burst(L.cx, L.cy, '#4de3ff', 20);
+      pulse(6); haptic(18); beep(520, 0.18, 'sawtooth', 0.1);
+    }
+    function doReset() {
+      state.spinner.angle = 0; state.spinner.omega = 0; state.spinTime = 0;
+      state.combo = 0; state.lastFlickAt = -9; state.pops = 0; slap.count = 0;
+      state.particles = [];
+      buildBubbles(); refreshHud();
+      hintEl.textContent = 'Cleared. ' + HINTS[state.mode];
+      beep(300, 0.12, 'triangle', 0.08);
+    }
+    tabs.forEach(t => t.addEventListener('click', () => { ensureAudio(); setMode(t.dataset.mode); }));
+    resetBtn.addEventListener('click', () => { ensureAudio(); doReset(); });
+    boostBtn.addEventListener('click', () => {
+      ensureAudio();
+      if (state.mode === 'spinner') boost();
+      else if (state.mode === 'popper') rebuildBubbles();
+      else doSlap(slap.x, slap.y);
+    });
+
+    // ============ MAIN LOOP ============
+    let last = performance.now();
+    function loop(now) {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now; state.t += dt;
+      if (state.mode === 'spinner') updateSpinner(dt);
+      else if (state.mode === 'popper') updatePopper(dt);
+      else updateSlap(dt);
+      updateParticles(dt);
+      if (shake > 0) shake = Math.max(0, shake - dt * 42);
+
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      ctx.save();
+      if (shake > 0) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+
+      const bgx = ctx.createRadialGradient(L.cx, L.cy, 10, L.cx, L.cy, Math.max(W, H) * 0.75);
+      bgx.addColorStop(0, 'rgba(60,90,150,0.16)');
+      bgx.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = bgx; ctx.fillRect(0, 0, W, H);
+
+      if (state.mode === 'spinner') drawSpinner();
+      else if (state.mode === 'popper') drawPopper();
+      else drawSlap();
+      drawParticles();
+
+      if (state.mode === 'spinner' && state.comboFlash > 0 && state.comboText) {
+        const k = Math.max(0, state.comboFlash);
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, k);
+        ctx.textAlign = 'center';
+        ctx.font = '800 ' + Math.round(Math.min(W, H) * (0.07 + (1 - k) * 0.05)) + 'px Trebuchet MS';
+        ctx.fillStyle = '#ffcf5c'; ctx.shadowBlur = 18; ctx.shadowColor = '#ff5db1';
+        ctx.fillText(state.comboText, L.cx, L.cy + L.R * 1.9);
+        ctx.restore();
+      }
+      if (state.mode === 'spinner' && (state.spinTime > 0 || Math.abs(state.spinner.omega) > 0.5)) {
+        ctx.save();
+        ctx.globalAlpha = 0.9; ctx.textAlign = 'center';
+        ctx.font = '600 ' + Math.round(Math.min(W, H) * 0.038) + 'px Trebuchet MS';
+        ctx.fillStyle = '#4de3ff';
+        ctx.fillText(state.spinTime.toFixed(1) + 's', L.cx, L.cy + L.R * 1.45);
+        ctx.restore();
+      }
+      ctx.restore();
+      requestAnimationFrame(loop);
+    }
+
+    // ============ INIT ============
+    refreshHud();
+    resize();
+    setMode('spinner');
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

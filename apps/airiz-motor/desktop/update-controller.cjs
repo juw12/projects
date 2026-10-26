@@ -1,7 +1,7 @@
 'use strict';
 
-const FEED = 'https://juwpegatron.github.io/projects/airiz-motor/updates/windows/';
-const RELEASE_BASE = 'https://github.com/juwpegatron/projects/releases/download/';
+const FEED = 'https://juw12.github.io/projects/airiz-motor/updates/windows/';
+const RELEASE_BASE = 'https://github.com/juw12/projects/releases/download/';
 
 function installerUrl(version, portable = false) {
   if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error('Unsupported update version.');

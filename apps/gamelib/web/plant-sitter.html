@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🪴 Plant Sitter</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #eef8e6 0%, #fdf6e3 55%, #e8f4ea 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: manipulation;
+      user-select: none;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(255, 255, 255, 0.94);
+      border-radius: 24px;
+      padding: 18px;
+      box-shadow: 0 10px 40px rgba(120, 150, 110, 0.2);
+      max-width: 520px;
+      width: 95%;
+      max-height: 97vh;
+      overflow-y: auto;
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.7rem;
+      color: #5f9e5f;
+      margin-bottom: 2px;
+      text-shadow: 2px 2px 0 #fff;
+      letter-spacing: 1px;
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.8rem;
+      color: #8a97a8;
+      margin-bottom: 10px;
+    }
+
+    /* ============ HUD ============ */
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding: 10px 14px;
+      background: linear-gradient(135deg, #f5fbf0, #fffaf0);
+      border-radius: 14px;
+      border: 1px solid #e6f0dd;
+      font-size: 0.82rem;
+      color: #55606f;
+    }
+
+    .hud .chip {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-weight: 700;
+    }
+
+    .hud .coins { color: #d99a2b; }
+    .hud .healthy { color: #5f9e5f; }
+    .hud .day { color: #8a7fbf; }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(120, 150, 110, 0.14);
+      background: #cfe9f7;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      cursor: pointer;
+      touch-action: none;
+    }
+
+    /* ============ TOAST ============ */
+    .toast {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-12px);
+      background: rgba(60, 78, 60, 0.9);
+      color: #fff;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      white-space: nowrap;
+      max-width: 90%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ============ FX LAYER ============ */
+    .fx-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .float-fx {
+      position: absolute;
+      font-size: 1.3rem;
+      animation: floatUp 1s ease-out forwards;
+      pointer-events: none;
+    }
+
+    @keyframes floatUp {
+      0%   { opacity: 1; transform: translateY(0) scale(0.8); }
+      100% { opacity: 0; transform: translateY(-64px) scale(1.25); }
+    }
+
+    /* ============ TOOLBAR ============ */
+    .tools {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .act-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 9px 4px 7px;
+      border: 2px solid #e6eef6;
+      background: #fff;
+      border-radius: 14px;
+      font-size: 0.66rem;
+      font-weight: 600;
+      color: #55606f;
+      cursor: pointer;
+      transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+    }
+
+    .act-btn .emoji { font-size: 1.3rem; line-height: 1; }
+    .act-btn:hover { background: #f4fbf0; transform: translateY(-2px); }
+    .act-btn:active { transform: scale(0.95); }
+    .act-btn:disabled { opacity: 0.4; cursor: default; transform: none; }
+
+    .act-btn.tool-on {
+      background: linear-gradient(135deg, #d8f4d0, #bdeaaf);
+      border-color: #8fd08a;
+      color: #3f7a45;
+      box-shadow: 0 0 0 2px rgba(143, 208, 138, 0.35);
+    }
+
+    /* ============ BOTTOM BAR ============ */
+    .bottom-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      gap: 8px;
+    }
+
+    .ghost-btn {
+      padding: 8px 14px;
+      border-radius: 20px;
+      border: 2px solid #e0e8f0;
+      background: #fff;
+      color: #6b7686;
+      font-size: 0.76rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .ghost-btn:hover { background: #f4fbf0; }
+    .ghost-btn:active { transform: scale(0.96); }
+
+    .hint {
+      font-size: 0.66rem;
+      color: #9aa7b6;
+      text-align: right;
+      flex: 1;
+      line-height: 1.3;
+    }
+
+    /* ============ OVERLAYS ============ */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(40, 55, 45, 0.55);
+      backdrop-filter: blur(2px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      z-index: 5;
+    }
+
+    .overlay.show { opacity: 1; pointer-events: auto; }
+
+    .panel {
+      background: #fffdf7;
+      border-radius: 18px;
+      padding: 18px;
+      width: 100%;
+      max-width: 420px;
+      max-height: 100%;
+      overflow-y: auto;
+      box-shadow: 0 12px 34px rgba(30, 50, 30, 0.3);
+    }
+
+    .panel h2 {
+      font-size: 1.15rem;
+      color: #4f8a4f;
+      margin-bottom: 4px;
+      text-align: center;
+    }
+
+    .panel p {
+      font-size: 0.8rem;
+      color: #6b7686;
+      line-height: 1.5;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    .shop-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 10px 0;
+    }
+
+    .shop-item {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 9px 10px;
+      border: 2px solid #e8f0e0;
+      border-radius: 12px;
+      background: #fff;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.12s ease;
+    }
+
+    .shop-item:hover { background: #f4fbf0; transform: translateY(-2px); }
+    .shop-item:active { transform: scale(0.97); }
+    .shop-item:disabled { opacity: 0.45; cursor: default; transform: none; }
+
+    .shop-name { font-size: 0.82rem; font-weight: 700; color: #4f6a4f; }
+    .shop-need { font-size: 0.64rem; color: #8a97a8; }
+    .shop-cost { font-size: 0.72rem; font-weight: 700; color: #d99a2b; }
+
+    .panel-actions { display: flex; gap: 8px; margin-top: 6px; }
+
+    .big-btn {
+      flex: 1;
+      padding: 11px;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #8ed17f, #5fae5a);
+      color: #fff;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.12s ease, filter 0.12s ease;
+    }
+
+    .big-btn:hover { filter: brightness(1.06); }
+    .big-btn:active { transform: scale(0.97); }
+    .big-btn.ghost { background: #eef3ea; color: #6b7686; }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 440px) {
+      .game-container { padding: 12px; border-radius: 18px; }
+      .game-title { font-size: 1.4rem; }
+      .act-btn { font-size: 0.58rem; padding: 7px 2px 6px; }
+      .hud { font-size: 0.72rem; padding: 8px 10px; }
+      .hint { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">🪴 Plant Sitter</h1>
+    <p class="game-subtitle">Keep a windowsill of happy houseplants.</p>
+
+    <!-- ============ HUD ============ -->
+    <div class="hud">
+      <div class="chip coins">🪙 <span id="coinCount">0</span></div>
+      <div class="chip healthy">💚 <span id="healthyCount">0</span>/<span id="slotCount">0</span></div>
+      <div class="chip day">📅 Day <span id="dayNum">1</span></div>
+    </div>
+
+    <!-- ============ CANVAS ============ -->
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="480" height="360"></canvas>
+      <div class="toast" id="toast"></div>
+      <div class="fx-layer" id="fxLayer"></div>
+
+      <!-- ============ INTRO OVERLAY ============ -->
+      <div class="overlay show" id="introOverlay">
+        <div class="panel">
+          <h2>🪴 Plant Sitter</h2>
+          <p>
+            A windowsill of houseplants needs a gentle hand. Every plant has
+            its own <b>light</b> and <b>water</b> needs — match them and it grows
+            and blooms. Pick a tool below, then tap a plant.
+          </p>
+          <p style="font-size:0.72rem;color:#9aa7b6;">
+            💧 water &nbsp;·&nbsp; ☀️ rotate for light &nbsp;·&nbsp; ✂️ prune
+            &nbsp;·&nbsp; 🪴 repot &nbsp;·&nbsp; 🛒 buy more
+          </p>
+          <div class="panel-actions">
+            <button class="big-btn" id="btnStart">Start tending 🌱</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ SHOP OVERLAY ============ -->
+      <div class="overlay" id="shopOverlay">
+        <div class="panel">
+          <h2>🛒 Plant Shop</h2>
+          <p>Add a plant to a free spot on the sill.</p>
+          <div class="shop-grid" id="shopGrid"></div>
+          <div class="panel-actions">
+            <button class="big-btn ghost" id="btnShopClose">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ TOOLBAR ============ -->
+    <div class="tools">
+      <button class="act-btn" id="toolWater"><span class="emoji">💧</span>Water</button>
+      <button class="act-btn" id="toolSun"><span class="emoji">☀️</span>Sun</button>
+      <button class="act-btn" id="toolPrune"><span class="emoji">✂️</span>Prune</button>
+      <button class="act-btn" id="toolRepot"><span class="emoji">🪴</span>Repot</button>
+      <button class="act-btn" id="btnShop"><span class="emoji">🛒</span>Shop</button>
+      <button class="act-btn" id="btnMute"><span class="emoji" id="muteIcon">🔊</span>Sound</button>
+      <button class="act-btn" id="btnReset"><span class="emoji">🔄</span>Restart</button>
+      <button class="act-btn" id="btnHelp"><span class="emoji">❓</span>Help</button>
+    </div>
+
+    <!-- ============ BOTTOM BAR ============ -->
+    <div class="bottom-bar">
+      <button class="ghost-btn" id="btnSave">💾 Save</button>
+      <div class="hint">Tap a plant with a tool selected.<br>Progress saves automatically.</div>
+      <button class="ghost-btn" id="btnLoad">📂 Load</button>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    // ============ CONFIGURATION =================================
+    // ============================================================
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+    const SAVE_KEY = 'plantSitterSave_v1';
+
+    const SLOTS = 6;                        // spots on the windowsill
+    const DAY_LEN = 140;                    // seconds in one day/night cycle
+    const EXPOSURE = { shade: 0.42, indirect: 0.74, bright: 1.15 };
+    const EXPOSURE_ORDER = ['shade', 'indirect', 'bright'];
+    const EXPOSURE_LABEL = { shade: 'filtered shade', indirect: 'soft indirect', bright: 'bright direct' };
+    const WATER_ADD = 34;                   // hydration from one watering
+    const REPOT_COSTS = [0, 5, 9];          // cost to reach pot size 2 / 3
+
+    // Species: lightNeed + waterNeed are the sweet spots (0-100).
+    const SPECIES = {
+      fern:      { name: 'Fern',      color: '#4fae6a', lightNeed: 34, waterNeed: 74, waterRate: 3.1, growRate: 1.00, cost: 0,  bloom: '#f4a6c0' },
+      basil:     { name: 'Basil',     color: '#5fbf5f', lightNeed: 68, waterNeed: 60, waterRate: 3.6, growRate: 1.10, cost: 5,  bloom: '#eaf3d0' },
+      succulent: { name: 'Succulent', color: '#7fc27a', lightNeed: 80, waterNeed: 22, waterRate: 1.2, growRate: 0.60, cost: 6,  bloom: '#ffd166' },
+      cactus:    { name: 'Cactus',    color: '#5fae4a', lightNeed: 90, waterNeed: 16, waterRate: 0.9, growRate: 0.50, cost: 9,  bloom: '#ff8fa3' },
+      chrys:     { name: 'Chrys',     color: '#67b273', lightNeed: 72, waterNeed: 54, waterRate: 3.0, growRate: 0.85, cost: 11, bloom: '#ffb3c6' },
+      monstera:  { name: 'Monstera',  color: '#3f9e5a', lightNeed: 56, waterNeed: 66, waterRate: 2.4, growRate: 0.75, cost: 15, bloom: '#d8f0c0' }
+    };
+
+    // ============================================================
+    // ============ GAME STATE ====================================
+    // ============================================================
+    let state = {
+      coins: 6,
+      coinFrac: 0,
+      day: 1,
+      dayTime: 0.08,      // 0..1 : dawn -> dusk -> night
+      plants: []
+    };
+
+    let muted = false;
+    let pickedTool = null;   // 'water' | 'sun' | 'prune' | 'repot'
+    let focusId = null;      // last plant acted on (for highlighting)
+    let mouse = { x: -100, y: -100, over: false };
+    let tSec = 0;            // global animation clock
+    let particles = [];      // falling/sparkle bits
+    let floats = [];         // rising text
+    let toastTimer = null;
+
+    // ============================================================
+    // ============ DOM ELEMENTS ==================================
+    // ============================================================
+    const el = {
+      coinCount: document.getElementById('coinCount'),
+      healthyCount: document.getElementById('healthyCount'),
+      slotCount: document.getElementById('slotCount'),
+      dayNum: document.getElementById('dayNum'),
+      toast: document.getElementById('toast'),
+      fxLayer: document.getElementById('fxLayer'),
+      muteIcon: document.getElementById('muteIcon'),
+      intro: document.getElementById('introOverlay'),
+      shop: document.getElementById('shopOverlay'),
+      shopGrid: document.getElementById('shopGrid')
+    };
+    const buttons = {
+      water: document.getElementById('toolWater'),
+      sun: document.getElementById('toolSun'),
+      prune: document.getElementById('toolPrune'),
+      repot: document.getElementById('toolRepot'),
+      shop: document.getElementById('btnShop'),
+      mute: document.getElementById('btnMute'),
+      reset: document.getElementById('btnReset'),
+      help: document.getElementById('btnHelp'),
+      save: document.getElementById('btnSave'),
+      load: document.getElementById('btnLoad'),
+      start: document.getElementById('btnStart'),
+      shopClose: document.getElementById('btnShopClose')
+    };
+
+    // ============================================================
+    // ============ WEBAUDIO (no external files) ==================
+    // ============================================================
+    let audioCtx = null;
+    function beep(freq, dur, type) {
+      if (muted) return;
+      try {
+        if (!audioCtx) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return;
+          audioCtx = new AC();
+        }
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type || 'sine';
+        osc.frequency.value = freq;
+        const now = audioCtx.currentTime;
+        const d = dur || 0.12;
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.16, now + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + d);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + d + 0.02);
+      } catch (e) { /* audio is a nice-to-have, never fatal */ }
+    }
+
+    // ============================================================
+    // ============ HELPERS =======================================
+    // ============================================================
+    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function rand(a, b) { return a + Math.random() * (b - a); }
+    let nextId = 1;
+
+    function slotX(i) {
+      const margin = 52;
+      return margin + i * ((W - margin * 2) / (SLOTS - 1));
+    }
+    const SILL_Y = H - 74;
+
+    function makePlant(speciesId, slot) {
+      return {
+        id: nextId++,
+        species: speciesId,
+        slot: slot,
+        hydrate: 60,
+        light: 50,
+        growth: 6,
+        health: 78,
+        exposure: 'indirect',
+        pot: 1,
+        pest: false,
+        blooming: false,
+        coinTimer: 0,
+        sway: rand(0, Math.PI * 2)
+      };
+    }
+
+    function speciesOf(p) { return SPECIES[p.species]; }
+
+    function plantsBySlot() {
+      const arr = new Array(SLOTS).fill(null);
+      state.plants.forEach(p => { if (p.slot >= 0 && p.slot < SLOTS) arr[p.slot] = p; });
+      return arr;
+    }
+
+    function freeSlot() {
+      const used = new Set(state.plants.map(p => p.slot));
+      for (let i = 0; i < SLOTS; i++) if (!used.has(i)) return i;
+      return -1;
+    }
+
+    function currentSkyLight() {
+      const t = state.dayTime;
+      let s = 0;
+      if (t < 0.78) s = Math.sin((t / 0.78) * Math.PI); // sunrise -> sunset
+      return clamp(0.12 + s * 0.95, 0.12, 1.06);
+    }
+
+    function isNight() { return state.dayTime >= 0.78; }
+
+    function showToast(msg) {
+      el.toast.textContent = msg;
+      el.toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.toast.classList.remove('show'), 1600);
+    }
+
+    function floatText(txt, x, y, color) {
+      floats.push({ x, y, txt: txt, life: 1, color: color || '#4f6a4f' });
+    }
+
+    function floatFx(emoji, x, y) {
+      const node = document.createElement('div');
+      node.className = 'float-fx';
+      node.textContent = emoji;
+      node.style.left = (x) + 'px';
+      node.style.top = (y) + 'px';
+      el.fxLayer.appendChild(node);
+      setTimeout(() => node.remove(), 1000);
+    }
+
+    function spawnParticles(x, y, color, count, spread) {
+      for (let i = 0; i < (count || 8); i++) {
+        particles.push({
+          x: x, y: y,
+          vx: (Math.random() - 0.5) * (spread || 90),
+          vy: -Math.random() * 80 - 10,
+          life: 1,
+          color: color,
+          size: Math.random() * 4 + 1.6
+        });
+      }
+    }
+
+    // ============================================================
+    // ============ PERSISTENCE (localStorage) ====================
+    // ============================================================
+    function saveGame(silent) {
+      try {
+        localStorage.setItem(SAVE_KEY, JSON.stringify({
+          coins: state.coins,
+          coinFrac: state.coinFrac,
+          day: state.day,
+          dayTime: state.dayTime,
+          plants: state.plants,
+          muted: muted
+        }));
+        if (!silent) { showToast('💾 Saved!'); beep(660, 0.1); }
+        return true;
+      } catch (e) {
+        if (!silent) showToast('Save unavailable');
+        return false;
+      }
+    }
+
+    function loadGame(silent) {
+      let raw = null;
+      try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { raw = null; }
+      if (!raw) { if (!silent) showToast('No save found'); return false; }
+      try {
+        const d = JSON.parse(raw);
+        state.coins = d.coins || 0;
+        state.coinFrac = d.coinFrac || 0;
+        state.day = d.day || 1;
+        state.dayTime = (typeof d.dayTime === 'number') ? d.dayTime : 0.08;
+        muted = !!d.muted;
+        el.muteIcon.textContent = muted ? '🔇' : '🔊';
+        state.plants = [];
+        nextId = 1;
+        (d.plants || []).forEach(sp => {
+          if (!SPECIES[sp.species]) return;
+          state.plants.push({
+            id: nextId++,
+            species: sp.species,
+            slot: clamp(sp.slot | 0, 0, SLOTS - 1),
+            hydrate: clamp(sp.hydrate || 0, 0, 100),
+            light: clamp(sp.light || 0, 0, 100),
+            growth: clamp(sp.growth || 0, 0, 100),
+            health: clamp(sp.health || 0, 0, 100),
+            exposure: EXPOSURE[sp.exposure] ? sp.exposure : 'indirect',
+            pot: clamp(sp.pot || 1, 1, 3),
+            pest: !!sp.pest,
+            blooming: !!sp.blooming,
+            coinTimer: sp.coinTimer || 0,
+            sway: rand(0, Math.PI * 2)
+          });
+        });
+        if (!silent) { showToast('📂 Loaded!'); beep(720, 0.1); }
+        return true;
+      } catch (e) {
+        if (!silent) showToast('Save corrupted');
+        return false;
+      }
+    }
+
+    // ============================================================
+    // ============ PLANT ACTIONS =================================
+    // ============================================================
+    function plantAt(x, y) {
+      let best = null, bestD = 46;
+      state.plants.forEach(p => {
+        const px = slotX(p.slot);
+        const py = SILL_Y - 6;
+        const d = Math.hypot(x - px, y - py);
+        if (d < bestD) { bestD = d; best = p; }
+      });
+      return best;
+    }
+
+    function doWater(p) {
+      focusId = p.id;
+      if (p.hydrate >= 97) {
+        showToast('Soil is already soaked 💧');
+        beep(300, 0.1);
+        return;
+      }
+      p.hydrate = clamp(p.hydrate + WATER_ADD, 0, 100);
+      const x = slotX(p.slot), y = SILL_Y - 30;
+      spawnParticles(x, y, '#5fb8e6', 10, 70);
+      floatText('+' + WATER_ADD + ' 💧', x, y - 20, '#3f9ecf');
+      beep(520, 0.09, 'triangle');
+      setTimeout(() => beep(660, 0.08, 'triangle'), 70);
+      const sp = speciesOf(p);
+      if (Math.abs(p.hydrate - sp.waterNeed) < 22) {
+        showToast(sp.name + ' drinks happily 💚');
+      } else if (p.hydrate > sp.waterNeed + 30) {
+        showToast('Careful — easy to overwater ' + sp.name);
+      } else {
+        showToast('Watered ' + sp.name + ' 💧');
+      }
+    }
+
+    function doRotate(p) {
+      focusId = p.id;
+      const idx = EXPOSURE_ORDER.indexOf(p.exposure);
+      p.exposure = EXPOSURE_ORDER[(idx + 1) % EXPOSURE_ORDER.length];
+      const x = slotX(p.slot), y = SILL_Y - 30;
+      floatText('☀️ ' + EXPOSURE_LABEL[p.exposure], x, y - 24, '#d9a12b');
+      spawnParticles(x, y - 10, '#ffe07a', 8, 60);
+      beep(700, 0.08, 'square');
+      const sp = speciesOf(p);
+      if (Math.abs(p.light - sp.lightNeed) < 22) showToast(sp.name + ' gets the light it loves ☀️');
+      else showToast('Turned ' + sp.name + ' to ' + EXPOSURE_LABEL[p.exposure]);
+    }
+
+    function doPrune(p) {
+      focusId = p.id;
+      const x = slotX(p.slot), y = SILL_Y - 34;
+      let did = false;
+      if (p.pest) {
+        p.pest = false;
+        p.health = clamp(p.health + 10, 0, 100);
+        floatText('pests gone!', x, y - 22, '#7a6a4f');
+        spawnParticles(x, y, '#8a7a55', 12, 80);
+        did = true;
+      }
+      if (p.health < 96) {
+        p.health = clamp(p.health + 9, 0, 100);
+        if (!did) floatText('+9 💚', x, y - 22, '#5fae5a');
+        did = true;
+      }
+      if (!did) { showToast('Nothing to prune ✂️'); beep(300, 0.1); return; }
+      p.growth = clamp(p.growth - 1, 0, 100);
+      beep(420, 0.06, 'sawtooth');
+      setTimeout(() => beep(560, 0.06, 'sawtooth'), 70);
+      showToast('Tidied up ' + speciesOf(p).name + ' ✂️');
+    }
+
+    function doRepot(p) {
+      focusId = p.id;
+      if (p.pot >= 3) { showToast('Already in the biggest pot 🪴'); beep(300, 0.1); return; }
+      const cost = REPOT_COSTS[p.pot];
+      if (state.coins < cost) { showToast('Need ' + cost + ' 🪙 to repot'); beep(300, 0.1); return; }
+      state.coins -= cost;
+      p.pot += 1;
+      p.health = clamp(p.health + 14, 0, 100);
+      p.growth = clamp(p.growth + 4, 0, 100);
+      const x = slotX(p.slot), y = SILL_Y - 24;
+      spawnParticles(x, y, '#b5794f', 14, 90);
+      floatText('repotted! 🪴', x, y - 24, '#a5652f');
+      beep(500, 0.1); setTimeout(() => beep(640, 0.12), 90);
+      showToast(speciesOf(p).name + ' has room to grow 🪴');
+    }
+
+    function applyTool(p) {
+      if (!p) return;
+      const sp = speciesOf(p);
+      if (pickedTool === 'water') doWater(p);
+      else if (pickedTool === 'sun') doRotate(p);
+      else if (pickedTool === 'prune') doPrune(p);
+      else if (pickedTool === 'repot') doRepot(p);
+      else {
+        // No tool: just inspect — nudge the player toward what the plant wants
+        focusId = p.id;
+        const needWater = sp.waterNeed - p.hydrate;
+        const needLight = sp.lightNeed - p.light;
+        if (Math.abs(needWater) > 22) showToast(p.hydrate < sp.waterNeed ? sp.name + ' looks thirsty 💧' : sp.name + ' soil is soggy 💧');
+        else if (Math.abs(needLight) > 22) showToast(p.light < sp.lightNeed ? sp.name + ' wants more light ☀️' : sp.name + ' wants less light ☀️');
+        else if (p.pest) showToast('A pest is on ' + sp.name + '! ✂️');
+        else showToast(sp.name + ' is doing fine 💚');
+        beep(480, 0.06);
+      }
+    }
+
+    function buyPlant(speciesId) {
+      const sp = SPECIES[speciesId];
+      const slot = freeSlot();
+      if (slot < 0) { showToast('The sill is full — repot to help plants bloom'); beep(300, 0.1); return; }
+      if (state.coins < sp.cost) { showToast('Need ' + sp.cost + ' 🪙 for ' + sp.name); beep(300, 0.1); return; }
+      state.coins -= sp.cost;
+      const p = makePlant(speciesId, slot);
+      state.plants.push(p);
+      focusId = p.id;
+      const x = slotX(slot);
+      spawnParticles(x, SILL_Y - 30, sp.color, 16, 110);
+      floatText(sp.name + '! 🌱', x, SILL_Y - 60, '#4f8a4f');
+      beep(560, 0.1); setTimeout(() => beep(720, 0.12), 90); setTimeout(() => beep(880, 0.1), 180);
+      showToast('Welcome home, ' + sp.name + '! 🌱');
+      renderShop();
+    }
+
+    // ============================================================
+    // ============ SIMULATION / UPDATE ===========================
+    // ============================================================
+    function updateSim(dt) {
+      // day / night
+      state.dayTime += dt / DAY_LEN;
+      if (state.dayTime >= 1) { state.dayTime -= 1; state.day++ ; showToast('🌅 Day ' + state.day); }
+      const sky = currentSkyLight();
+      const night = isNight();
+
+      state.plants.forEach(p => {
+        const sp = speciesOf(p);
+        p.sway += dt * 0.8;
+
+        // water drains faster on bigger, thirstier plants
+        p.hydrate = clamp(p.hydrate - sp.waterRate * dt * (0.7 + 0.3 * p.growth / 100), 0, 100);
+        p.light = clamp(sky * EXPOSURE[p.exposure] * 100, 0, 100);
+
+        const lightFit = 1 - Math.abs(p.light - sp.lightNeed) / 100;
+        const waterFit = 1 - Math.abs(p.hydrate - sp.waterNeed) / 100;
+        const goodLight = lightFit > 0.62;
+        const goodWater = waterFit > 0.62;
+
+        // growth only when both needs are roughly met and no pest
+        if (goodLight && goodWater && !p.pest) {
+          p.growth = clamp(p.growth + sp.growRate * dt * (0.45 + 0.55 * waterFit), 0, 100);
+          p.health = clamp(p.health + 6 * dt, 0, 100);
+        } else {
+          // gentle pressure back toward care; night light-deficit is mild
+          let press = 0.35;
+          if (!goodLight) press += (1 - Math.max(lightFit, 0)) * (night ? 0.6 : 1.6);
+          if (!goodWater) press += (1 - Math.max(waterFit, 0)) * 1.8;
+          p.health = clamp(p.health - press * dt, 0, 100);
+        }
+
+        // extremes are dangerous
+        if (p.hydrate <= 1) p.health = clamp(p.health - 3.2 * dt, 0, 100);
+        if (p.hydrate >= 99) p.health = clamp(p.health - 2.2 * dt, 0, 100);
+
+        // pests
+        if (p.pest) {
+          p.health = clamp(p.health - 2.2 * dt, 0, 100);
+          p.growth = clamp(p.growth - 0.8 * dt, 0, 100);
+        } else if (p.health < 82 && Math.random() < dt * 0.006) {
+          p.pest = true;
+          floatText('🐛 pest!', slotX(p.slot), SILL_Y - 46, '#7a6a4f');
+          beep(240, 0.14, 'sawtooth');
+        }
+
+        // blooming: needs maturity, a real pot, and vigour
+        if (!p.blooming && p.growth >= 99 && p.health > 72 && p.pot >= 2) {
+          p.blooming = true;
+          const x = slotX(p.slot);
+          spawnParticles(x, SILL_Y - 60, '#ffd166', 26, 130);
+          floatText('🌸 in bloom!', x, SILL_Y - 78, '#d98fb0');
+          showToast(sp.name + ' is blooming! 🌸');
+          beep(880, 0.12); setTimeout(() => beep(1100, 0.14), 120); setTimeout(() => beep(1320, 0.16), 240);
+        }
+        // a healthy blooming plant can quietly stop blooming if neglected
+        if (p.blooming && p.health < 40) p.blooming = false;
+
+        // passive coins from healthy plants
+        if (p.health >= 50) {
+          let rate = 0.07 + (p.growth / 100) * 0.16;
+          if (p.blooming) rate += 0.26;
+          state.coinFrac += rate * dt;
+        }
+      });
+
+      // bank whole coins
+      if (state.coinFrac >= 1) {
+        const gained = Math.floor(state.coinFrac);
+        state.coins += gained;
+        state.coinFrac -= gained;
+      }
+    }
+
+    function updateParticles(dt) {
+      particles = particles.filter(p => {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += 300 * dt;
+        p.life -= dt * 1.2;
+        return p.life > 0;
+      });
+      floats = floats.filter(f => {
+        f.y -= 26 * dt;
+        f.life -= dt * 0.9;
+        return f.life > 0;
+      });
+    }
+
+    // ============================================================
+    // ============ RENDER ========================================
+    // ============================================================
+    function drawWindow() {
+      // wall + sky
+      const sky = currentSkyLight();
+      const night = isNight();
+      const g = ctx.createLinearGradient(0, 0, 0, SILL_Y + 20);
+      if (night) {
+        g.addColorStop(0, '#1d2740');
+        g.addColorStop(1, '#3b4a70');
+      } else {
+        g.addColorStop(0, mixColor('#9fd0f0', '#ffd9a0', sky));
+        g.addColorStop(1, mixColor('#dff0f7', '#fff3d6', sky));
+      }
+      ctx.fillStyle = '#eef3ea';
+      ctx.fillRect(0, 0, W, H);
+
+      // window glass area
+      const fx = 26, fy = 18, fw = W - 52, fh = SILL_Y - fy - 6;
+      ctx.fillStyle = g;
+      ctx.fillRect(fx, fy, fw, fh);
+
+      // sun / moon
+      const t = state.dayTime;
+      if (!night) {
+        const prog = t / 0.78;
+        const sx = fx + 26 + prog * (fw - 52);
+        const sy = fy + fh * 0.62 - Math.sin(prog * Math.PI) * fh * 0.5;
+        const sunR = 20 + sky * 6;
+        const halo = ctx.createRadialGradient(sx, sy, 4, sx, sy, sunR * 2.6);
+        halo.addColorStop(0, 'rgba(255,235,150,0.95)');
+        halo.addColorStop(1, 'rgba(255,235,150,0)');
+        ctx.fillStyle = halo;
+        ctx.beginPath(); ctx.arc(sx, sy, sunR * 2.6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffe27a';
+        ctx.beginPath(); ctx.arc(sx, sy, sunR, 0, Math.PI * 2); ctx.fill();
+      } else {
+        const mx = fx + fw - 60;
+        const my = fy + 52;
+        ctx.fillStyle = '#fdf6cf';
+        ctx.beginPath(); ctx.arc(mx, my, 18, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(mx - 8, my - 4, 16, 0, Math.PI * 2); ctx.fill();
+        // stars
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        for (let i = 0; i < 22; i++) {
+          const x = fx + ((i * 137.5) % fw);
+          const y = fy + ((i * 71.3) % (fh * 0.6));
+          const tw = 0.5 + 0.5 * Math.sin(tSec * 2 + i);
+          ctx.globalAlpha = 0.25 + tw * 0.6;
+          ctx.beginPath(); ctx.arc(x, y, 1.3 + tw, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      // clouds drifting by day
+      if (!night) {
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        [0.2, 0.55, 0.8].forEach((c, i) => {
+          const cx = fx + ((c * fw + tSec * 10 + i * 40) % (fw + 80)) - 40;
+          const cy = fy + 34 + i * 26;
+          ctx.beginPath();
+          ctx.arc(cx, cy, 15, 0, Math.PI * 2);
+          ctx.arc(cx + 16, cy + 4, 11, 0, Math.PI * 2);
+          ctx.arc(cx - 15, cy + 5, 10, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+
+      // window frame
+      ctx.strokeStyle = '#c9a97a';
+      ctx.lineWidth = 10;
+      ctx.strokeRect(fx - 5, fy - 5, fw + 10, fh + 10);
+      ctx.strokeStyle = '#c9a97a';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(W / 2, fy); ctx.lineTo(W / 2, fy + fh);
+      ctx.moveTo(fx, fy + fh * 0.42); ctx.lineTo(fx + fw, fy + fh * 0.42);
+      ctx.stroke();
+
+      // ---- windowsill ----
+      const sillG = ctx.createLinearGradient(0, SILL_Y, 0, SILL_Y + 18);
+      sillG.addColorStop(0, '#d8b483');
+      sillG.addColorStop(1, '#b8925f');
+      ctx.fillStyle = sillG;
+      ctx.fillRect(0, SILL_Y, W, 18);
+      ctx.fillStyle = 'rgba(255,255,255,0.25)';
+      ctx.fillRect(0, SILL_Y, W, 3);
+      ctx.fillStyle = 'rgba(90,60,30,0.25)';
+      ctx.fillRect(0, SILL_Y + 16, W, 3);
+      ctx.fillStyle = '#a8814f';
+      ctx.fillRect(0, SILL_Y + 20, W, H - SILL_Y - 20);
+    }
+
+    function mixColor(a, b, t) {
+      const pa = hexToRgb(a), pb = hexToRgb(b);
+      const r = Math.round(lerp(pa[0], pb[0], clamp(t, 0, 1)));
+      const g = Math.round(lerp(pa[1], pb[1], clamp(t, 0, 1)));
+      const bl = Math.round(lerp(pa[2], pb[2], clamp(t, 0, 1)));
+      return 'rgb(' + r + ',' + g + ',' + bl + ')';
+    }
+    function hexToRgb(h) {
+      const n = parseInt(h.slice(1), 16);
+      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    }
+
+    function drawPot(x, pot) {
+      const pw = 30 + pot * 5;
+      const ph = 20 + pot * 6;
+      const top = SILL_Y - ph + 4;
+      // shadow
+      ctx.fillStyle = 'rgba(60,50,30,0.18)';
+      ctx.beginPath();
+      ctx.ellipse(x, SILL_Y + 4, pw * 0.7, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // pot body (trapezoid)
+      const tw = pw, bw = pw * 0.72;
+      ctx.beginPath();
+      ctx.moveTo(x - tw / 2, top);
+      ctx.lineTo(x + tw / 2, top);
+      ctx.lineTo(x + bw / 2, top + ph);
+      ctx.lineTo(x - bw / 2, top + ph);
+      ctx.closePath();
+      const pg = ctx.createLinearGradient(x - tw / 2, 0, x + tw / 2, 0);
+      pg.addColorStop(0, '#d18a55');
+      pg.addColorStop(0.5, '#c47a45');
+      pg.addColorStop(1, '#a9632f');
+      ctx.fillStyle = pg;
+      ctx.fill();
+      // rim
+      ctx.fillStyle = '#dd9a64';
+      ctx.beginPath();
+      ctx.ellipse(x, top, tw / 2, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // soil
+      ctx.fillStyle = '#6b4a2f';
+      ctx.beginPath();
+      ctx.ellipse(x, top + 1, tw / 2 - 4, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      return { top: top, r: tw / 2 };
+    }
+
+    function drawPlant(p, highlight) {
+      const sp = speciesOf(p);
+      const x = slotX(p.slot);
+      const potInfo = drawPot(x, p.pot);
+      const soilY = potInfo.top;
+      const wilt = p.health < 35;
+      const healthy = p.health >= 60;
+
+      // swaying stem
+      const sway = Math.sin(p.sway) * 2.2 * (healthy ? 1 : 0.4);
+      const stemH = (14 + p.growth * 0.34) * (wilt ? 0.7 : 1);
+      const topY = soilY - stemH;
+      const leanX = x + sway + (wilt ? 5 : 0);
+
+      ctx.strokeStyle = wilt ? '#8a8a5a' : sp.color;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x, soilY - 2);
+      ctx.quadraticCurveTo(x + sway * 0.5, soilY - stemH * 0.5, leanX, topY);
+      ctx.stroke();
+
+      // leaves along the stem
+      const leafCount = 2 + Math.floor(p.growth / 20);
+      for (let i = 0; i < leafCount; i++) {
+        const frac = (i + 1) / (leafCount + 1);
+        const ly = SILL_Y - (stemH + 6) * frac - 4;
+        const side = (i % 2 === 0) ? -1 : 1;
+        const lx = lerp(x, leanX, frac);
+        const leafLen = 12 + p.growth * 0.09;
+        const droop = wilt ? 0.9 : (healthy ? 0.25 : 0.5);
+        ctx.save();
+        ctx.translate(lx, ly);
+        ctx.rotate(side * (0.5 + droop));
+        ctx.fillStyle = wilt ? mixColor(sp.color, '#b0a060', 0.55) : sp.color;
+        ctx.beginPath();
+        ctx.ellipse(side * leafLen * 0.5, 0, leafLen * 0.5, leafLen * 0.28, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // cactus gets a chunky body instead of a thin stem
+      if (p.species === 'cactus' || p.species === 'succulent') {
+        const bw = 12 + p.growth * 0.06;
+        ctx.fillStyle = wilt ? '#9a9a5a' : sp.color;
+        ctx.beginPath();
+        ctx.ellipse(x, soilY - stemH * 0.5 - 2, bw, stemH * 0.55, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x, soilY - stemH * 0.9); ctx.lineTo(x, soilY - 6);
+        ctx.stroke();
+      }
+
+      // bloom on top
+      if (p.blooming) {
+        const by = topY - 6;
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2 + tSec * 0.4;
+          ctx.fillStyle = sp.bloom;
+          ctx.beginPath();
+          ctx.ellipse(leanX + Math.cos(a) * 6, by + Math.sin(a) * 6, 5, 5, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.fillStyle = '#ffd166';
+        ctx.beginPath(); ctx.arc(leanX, by, 4, 0, Math.PI * 2); ctx.fill();
+        // soft sparkle
+        ctx.globalAlpha = 0.4 + 0.4 * Math.sin(tSec * 3 + p.id);
+        ctx.fillStyle = '#fff6c0';
+        ctx.beginPath(); ctx.arc(leanX + 12, by - 8, 2.4, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+
+      // pest bug
+      if (p.pest) {
+        const bx = x + Math.cos(tSec * 3 + p.id) * 14;
+        const by = soilY - stemH * 0.6 + Math.sin(tSec * 5 + p.id) * 6;
+        ctx.fillStyle = '#5a4a2a';
+        ctx.beginPath(); ctx.ellipse(bx, by, 4, 3, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#3a2f18';
+        ctx.lineWidth = 1;
+        for (let l = 0; l < 3; l++) {
+          ctx.beginPath();
+          ctx.moveTo(bx, by);
+          ctx.lineTo(bx + (l - 1) * 5, by + 5);
+          ctx.stroke();
+        }
+      }
+
+      // selection ring
+      if (highlight) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 4]);
+        ctx.beginPath();
+        ctx.ellipse(x, SILL_Y - 4, 30, 12, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // ---- need gauges above the plant ----
+      drawPlantGauges(p, x, SILL_Y - stemH - 44);
+    }
+
+    function drawPlantGauges(p, x, y) {
+      const sp = speciesOf(p);
+      const gw = 34, gh = 5, gap = 4;
+      // water gauge
+      drawGauge(x - gw / 2, y, gw, gh, p.hydrate / 100, sp.waterNeed / 100, '#5fb8e6');
+      // light gauge
+      drawGauge(x - gw / 2, y + gh + gap, gw, gh, p.light / 100, sp.lightNeed / 100, '#f2c14e');
+    }
+
+    function drawGauge(x, y, w, h, val, need, color) {
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      roundRect(x - 1, y - 1, w + 2, h + 2, 3);
+      ctx.fill();
+      ctx.fillStyle = '#dfe6ea';
+      roundRect(x, y, w, h, 2);
+      ctx.fill();
+      // fill colored by how close to the target need
+      const fit = 1 - Math.abs(val - need);
+      ctx.fillStyle = fit > 0.62 ? '#79c26b' : fit > 0.35 ? '#e6b455' : '#e07a6a';
+      roundRect(x, y, w * clamp(val, 0, 1), h, 2);
+      ctx.fill();
+      // target marker
+      ctx.fillStyle = color;
+      ctx.fillRect(x + w * clamp(need, 0, 1) - 1, y - 1.5, 2, h + 3);
+    }
+
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    function drawParticles() {
+      particles.forEach(p => {
+        ctx.globalAlpha = clamp(p.life, 0, 1);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+      floats.forEach(f => {
+        ctx.globalAlpha = clamp(f.life, 0, 1);
+        ctx.fillStyle = f.color;
+        ctx.font = 'bold 12px Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(f.txt, f.x, f.y);
+      });
+      ctx.globalAlpha = 1;
+      ctx.textAlign = 'start';
+    }
+
+    function render() {
+      drawWindow();
+      const slots = plantsBySlot();
+      for (let i = 0; i < SLOTS; i++) {
+        if (slots[i]) {
+          drawPlant(slots[i], slots[i].id === focusId || (pickedTool && hoverPlant === slots[i]));
+        } else {
+          // empty slot marker
+          const x = slotX(i);
+          ctx.strokeStyle = 'rgba(160,140,110,0.5)';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.ellipse(x, SILL_Y - 4, 22, 8, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = 'rgba(120,140,110,0.65)';
+          ctx.font = '11px Segoe UI, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('empty', x, SILL_Y + 16);
+          ctx.textAlign = 'start';
+        }
+      }
+      drawParticles();
+    }
+
+    // ============================================================
+    // ============ HUD ===========================================
+    // ============================================================
+    function syncHud() {
+      el.coinCount.textContent = state.coins;
+      el.slotCount.textContent = state.plants.length;
+      el.healthyCount.textContent = state.plants.filter(p => p.health >= 55).length;
+      el.dayNum.textContent = state.day;
+    }
+
+    // ============================================================
+    // ============ SHOP / OVERLAYS ===============================
+    // ============================================================
+    function renderShop() {
+      el.shopGrid.innerHTML = '';
+      Object.keys(SPECIES).forEach(id => {
+        const sp = SPECIES[id];
+        const b = document.createElement('button');
+        b.className = 'shop-item';
+        b.disabled = state.coins < sp.cost || freeSlot() < 0;
+        b.innerHTML =
+          '<span class="shop-name">' + sp.name + '</span>' +
+          '<span class="shop-need">☀️' + sp.lightNeed + '&nbsp; 💧' + sp.waterNeed + '</span>' +
+          '<span class="shop-cost">🪙 ' + sp.cost + '</span>';
+        b.addEventListener('click', () => buyPlant(id));
+        el.shopGrid.appendChild(b);
+      });
+    }
+
+    function openShop() { renderShop(); el.shop.classList.add('show'); beep(620, 0.08); }
+    function closeShop() { el.shop.classList.remove('show'); }
+
+    function selectTool(name) {
+      pickedTool = (pickedTool === name) ? null : name;
+      buttons.water.classList.toggle('tool-on', pickedTool === 'water');
+      buttons.sun.classList.toggle('tool-on', pickedTool === 'sun');
+      buttons.prune.classList.toggle('tool-on', pickedTool === 'prune');
+      buttons.repot.classList.toggle('tool-on', pickedTool === 'repot');
+      if (pickedTool) { showToast('Tap a plant to ' + pickedTool); beep(640, 0.07); }
+    }
+
+    // ============================================================
+    // ============ INPUT =========================================
+    // ============================================================
+    let hoverPlant = null;
+    function canvasPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const cx = (e.touches ? e.touches[0].clientX : e.clientX);
+      const cy = (e.touches ? e.touches[0].clientY : e.clientY);
+      return {
+        x: (cx - rect.left) * (W / rect.width),
+        y: (cy - rect.top) * (H / rect.height)
+      };
+    }
+
+    function handlePointer(e) {
+      if (el.shop.classList.contains('show') || el.intro.classList.contains('show')) return;
+      const pos = canvasPos(e);
+      const p = plantAt(pos.x, pos.y);
+      if (p) applyTool(p);
+      else {
+        // tapping empty space with the water tool nudges nothing; just deselect focus
+        focusId = null;
+      }
+    }
+
+    canvas.addEventListener('mouseup', handlePointer);
+    canvas.addEventListener('mousemove', (e) => {
+      const pos = canvasPos(e);
+      mouse.x = pos.x; mouse.y = pos.y; mouse.over = true;
+      hoverPlant = plantAt(pos.x, pos.y);
+    });
+    canvas.addEventListener('mouseleave', () => { mouse.over = false; hoverPlant = null; });
+    canvas.addEventListener('touchend', (e) => { e.preventDefault(); handlePointer(e); }, { passive: false });
+
+    buttons.water.addEventListener('click', () => selectTool('water'));
+    buttons.sun.addEventListener('click', () => selectTool('sun'));
+    buttons.prune.addEventListener('click', () => selectTool('prune'));
+    buttons.repot.addEventListener('click', () => selectTool('repot'));
+    buttons.shop.addEventListener('click', openShop);
+    buttons.shopClose.addEventListener('click', closeShop);
+    buttons.help.addEventListener('click', () => el.intro.classList.add('show'));
+    buttons.start.addEventListener('click', () => { el.intro.classList.remove('show'); beep(660, 0.1); });
+
+    buttons.mute.addEventListener('click', () => {
+      muted = !muted;
+      el.muteIcon.textContent = muted ? '🔇' : '🔊';
+      if (!muted) beep(700, 0.1);
+      saveGame(true);
+    });
+
+    buttons.save.addEventListener('click', () => saveGame(false));
+    buttons.load.addEventListener('click', () => { if (loadGame(false)) syncHud(); });
+
+    // Restart: double-tap to confirm (no alert/prompt)
+    let resetArmed = false;
+    buttons.reset.addEventListener('click', () => {
+      if (!resetArmed) {
+        resetArmed = true;
+        showToast('Tap Restart again to confirm 🔄');
+        buttons.reset.querySelector('.emoji').textContent = '❗';
+        setTimeout(() => { resetArmed = false; buttons.reset.querySelector('.emoji').textContent = '🔄'; }, 2500);
+        return;
+      }
+      resetArmed = false;
+      buttons.reset.querySelector('.emoji').textContent = '🔄';
+      state = { coins: 6, coinFrac: 0, day: 1, dayTime: 0.08, plants: [makePlant('fern', 1)] };
+      pickedTool = null; focusId = null;
+      [buttons.water, buttons.sun, buttons.prune, buttons.repot].forEach(b => b.classList.remove('tool-on'));
+      particles = []; floats = [];
+      try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+      showToast('A fresh windowsill 🌱');
+      beep(520, 0.1); setTimeout(() => beep(700, 0.12), 100);
+    });
+
+    // Keyboard shortcuts (desktop convenience)
+    document.addEventListener('keydown', (e) => {
+      switch (e.code) {
+        case 'Digit1': selectTool('water'); break;
+        case 'Digit2': selectTool('sun'); break;
+        case 'Digit3': selectTool('prune'); break;
+        case 'Digit4': selectTool('repot'); break;
+        case 'KeyB': openShop(); break;
+        case 'Escape': closeShop(); el.intro.classList.remove('show'); break;
+        default: return;
+      }
+      e.preventDefault();
+    });
+
+    // ============================================================
+    // ============ MAIN LOOP =====================================
+    // ============================================================
+    let lastTime = performance.now();
+    let hudTimer = 0;
+    let saveTimer = 0;
+
+    function loop(now) {
+      let dt = (now - lastTime) / 1000;
+      lastTime = now;
+      if (dt > 0.1) dt = 0.1; // clamp after tab switches
+      tSec += dt;
+
+      updateSim(dt);
+      updateParticles(dt);
+      render();
+
+      hudTimer += dt;
+      if (hudTimer > 0.15) { syncHud(); hudTimer = 0; }
+
+      saveTimer += dt;
+      if (saveTimer > 15) { saveGame(true); saveTimer = 0; }
+
+      requestAnimationFrame(loop);
+    }
+
+    // ============================================================
+    // ============ BOOT ==========================================
+    // ============================================================
+    if (!loadGame(true)) {
+      // brand-new sitter: start with a friendly fern
+      state.plants = [makePlant('fern', 1)];
+    }
+    if (state.plants.length === 0) state.plants = [makePlant('fern', 1)];
+    syncHud();
+    render();
+
+    // update shop affordability while it is open
+    setInterval(() => { if (el.shop.classList.contains('show')) renderShop(); }, 900);
+
+    requestAnimationFrame(loop);
+
+    // Persist when leaving the page so progress is never lost.
+    window.addEventListener('beforeunload', () => saveGame(true));
+    document.addEventListener('visibilitychange', () => { if (document.hidden) saveGame(true); });
+  </script>
+</body>
+</html>

@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Tower Craft</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(circle at 50% 0%, #2b2233, #16121c 70%);
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    color: #e8dcc0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    overflow: hidden;
+    touch-action: manipulation;
+  }
+  #app { width: min(96vw, 900px); display: flex; flex-direction: column; gap: 10px; }
+
+  /* ============ HUD ============ */
+  #hud {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    background: linear-gradient(180deg, #3b2f1f, #241b11);
+    border: 2px solid #5b4629;
+    border-radius: 12px;
+    padding: 8px 14px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    font-size: 15px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+  }
+  .stat { display: flex; align-items: center; gap: 6px; color: #e8dcc0; }
+  .stat b { color: #ffcf5a; }
+  .bar {
+    width: 120px; height: 12px; border-radius: 6px;
+    background: #2a2016; overflow: hidden; border: 1px solid #6b5233;
+  }
+  #hpfill {
+    height: 100%; width: 100%;
+    background: linear-gradient(90deg, #5fd36a, #a8e063);
+    transition: width .15s ease;
+  }
+
+  /* ============ CANVAS WRAP ============ */
+  #wrap {
+    position: relative; width: 100%; border-radius: 14px;
+    overflow: hidden; border: 3px solid #4a3a24;
+    box-shadow: 0 14px 40px rgba(0,0,0,.55);
+  }
+  canvas {
+    display: block; width: 100%; height: auto;
+    background: #1a1424; touch-action: none;
+    cursor: crosshair;
+  }
+
+  /* ============ SCREENS ============ */
+  .screen {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    gap: 13px; background: rgba(18,14,26,.92); padding: 22px;
+    transition: opacity .25s ease;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen h1 {
+    font-size: clamp(28px, 5vw, 48px); color: #ffcf5a;
+    letter-spacing: 3px; text-shadow: 0 3px 0 #6b4a12;
+  }
+  .screen p { color: #cbbfa2; max-width: 560px; line-height: 1.55; font-size: 15px; }
+  .screen p.small { font-size: 13px; color: #9c917c; }
+  .screen .crest { font-size: 46px; line-height: 1; }
+  .action-btn {
+    font-family: inherit; font-size: 16px; font-weight: 800; letter-spacing: 1px;
+    padding: 12px 30px; border-radius: 12px; cursor: pointer;
+    border: 2px solid #8a6410; color: #4a3208;
+    background: linear-gradient(180deg, #ffd873, #e0a437);
+    box-shadow: 0 4px 0 #8a6410;
+    transition: transform .06s ease, filter .15s ease;
+  }
+  .action-btn:hover { filter: brightness(1.07); }
+  .action-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #8a6410; }
+
+  /* ============ TOOLBAR ============ */
+  #tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .tool, #tools button {
+    font-family: inherit; font-size: 14px; font-weight: 700;
+    padding: 9px 14px; border-radius: 10px;
+    border: 2px solid #5b4629; background: #3a2f20; color: #e8dcc0;
+    cursor: pointer; user-select: none;
+    transition: transform .06s ease, background .15s ease;
+  }
+  .tool:hover, #tools button:hover { background: #4a3c28; }
+  .tool:active, #tools button:active { transform: translateY(2px); }
+  .tool.active {
+    background: linear-gradient(180deg, #ffd873, #e0a437);
+    color: #4a3208; border-color: #8a6410;
+  }
+  .tool small { opacity: .85; font-size: 11px; margin-left: 3px; }
+  #spacer { flex: 1 1 auto; }
+  #btnWave { background: linear-gradient(180deg, #7fc45a, #4c8b2f); border-color: #3a6b22; color: #10240a; }
+  #btnWave:disabled { filter: grayscale(.7) brightness(.65); cursor: default; transform: none; }
+  #btnPause { background: linear-gradient(180deg, #6d7f9c, #40506b); border-color: #2f3c52; color: #eef3ff; }
+  #btnRestart { background: linear-gradient(180deg, #d96a4a, #a83f28); border-color: #7a2a18; color: #2a0f08; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 560px) {
+    #hud { font-size: 13px; gap: 10px; padding: 7px 10px; }
+    .bar { width: 80px; }
+    .tool, #tools button { padding: 8px 10px; font-size: 13px; }
+    .screen p { font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ============ HUD ============ -->
+  <div id="hud">
+    <div class="stat">&#129689; Gold: <b id="gold">0</b></div>
+    <div class="stat">&#9876; Wave: <b id="wave">0/5</b></div>
+    <div class="stat">&#127968; Keep <div class="bar"><div id="hpfill"></div></div></div>
+    <div class="stat" id="best">Best: Wave 0</div>
+  </div>
+
+  <!-- ============ CANVAS ============ -->
+  <div id="wrap">
+    <canvas id="game" width="900" height="560"></canvas>
+
+    <div class="screen" id="startScreen">
+      <div class="crest">&#127984;</div>
+      <h1>TOWER CRAFT</h1>
+      <p>Build a castle from walls, towers and gates &mdash; then defend your keep from charging armies. Towers fire arrows at the nearest foe. Earn gold from every kill, then repair and upgrade between waves.</p>
+      <p class="small">Click / tap a grid cell to build &middot; click a tower to upgrade &middot; click a damaged block to repair &middot; survive all 5 waves</p>
+      <button class="action-btn" id="startBtn">Build &amp; Defend</button>
+    </div>
+
+    <div class="screen hidden" id="endScreen">
+      <div class="crest" id="endCrest">&#127942;</div>
+      <h1 id="endTitle">Victory!</h1>
+      <p id="endText"></p>
+      <button class="action-btn" id="endBtn">Play Again</button>
+    </div>
+  </div>
+
+  <!-- ============ TOOLBAR ============ -->
+  <div id="tools">
+    <button class="tool active" data-tool="wall">&#129521; Wall <small>10g</small></button>
+    <button class="tool" data-tool="tower">&#127993; Tower <small>35g</small></button>
+    <button class="tool" data-tool="gate">&#128682; Gate <small>20g</small></button>
+    <span id="spacer"></span>
+    <button id="btnWave">Start Wave</button>
+    <button id="btnPause">Pause</button>
+    <button id="btnRestart">Restart</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============ CANVAS & LAYOUT ============ */
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+
+  const CELL = 40, COLS = 8, ROWS = 8;
+  const KEEP_W = 70;
+  const GROUND_Y = 500;
+  const BUILD_X0 = KEEP_W;
+  const BUILD_X1 = KEEP_W + COLS * CELL;
+  const SPAWN_X = W + 40;
+  const TOWER_RANGE = 430;
+  const BUILD_TIME = 14;
+  const CAT_STANDOFF = 470;
+
+  // Block definitions (cost / hp)
+  const BLOCKS = {
+    wall:  { name: "Wall",  cost: 10, hp: 70  },
+    tower: { name: "Tower", cost: 35, hp: 50  },
+    gate:  { name: "Gate",  cost: 20, hp: 160 }
+  };
+  // Cost to reach a given tower level (index = current level)
+  const TOWER_UPG = [0, 40, 75];
+
+  // Attack waves: enemy counts + spawn interval per wave
+  const WAVES = [
+    { soldiers: 3, catapults: 0, interval: 1.7 },
+    { soldiers: 4, catapults: 1, interval: 1.5 },
+    { soldiers: 5, catapults: 1, interval: 1.4 },
+    { soldiers: 6, catapults: 2, interval: 1.3 },
+    { soldiers: 8, catapults: 3, interval: 1.1 }
+  ];
+
+  /* ============ GAME STATE ============ */
+  let gold = 0, wave = 0, keepHp = 100;
+  let mode = "menu";                 // menu | build | wave | over | win
+  let paused = false;
+  let blocks = [], blockMap = new Map();
+  let enemies = [], projectiles = [], particles = [], toasts = [];
+  let spawnQueue = [], spawnTimer = 0, waveInterval = 1.5, buildTimer = BUILD_TIME;
+  let selectedTool = "wall";
+  let shake = 0, hover = null, T = 0;
+  let bestWave = Number(localStorage.getItem("towercraftBest") || 0);
+
+  /* ============ AUDIO (WebAudio, no assets) ============ */
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+  function beepLater(freq, dur, type, delay) {
+    setTimeout(function () { beep(freq, dur, type); }, delay);
+  }
+
+  /* ============ DOM ============ */
+  const goldEl = document.getElementById("gold");
+  const waveEl = document.getElementById("wave");
+  const bestEl = document.getElementById("best");
+  const hpFill = document.getElementById("hpfill");
+  const btnWave = document.getElementById("btnWave");
+  const btnPause = document.getElementById("btnPause");
+  const btnRestart = document.getElementById("btnRestart");
+  const startBtn = document.getElementById("startBtn");
+  const startScreen = document.getElementById("startScreen");
+  const endScreen = document.getElementById("endScreen");
+  const endCrest = document.getElementById("endCrest");
+  const endTitle = document.getElementById("endTitle");
+  const endText = document.getElementById("endText");
+  const endBtn = document.getElementById("endBtn");
+  const toolButtons = Array.prototype.slice.call(document.querySelectorAll(".tool"));
+
+  /* ============ GRID HELPERS ============ */
+  function cellX(c) { return BUILD_X0 + c * CELL; }
+  function cellY(r) { return GROUND_Y - (r + 1) * CELL; }
+  function cellCX(c) { return cellX(c) + CELL / 2; }
+  function cellCY(r) { return cellY(r) + CELL / 2; }
+  function colAtX(x) { return Math.floor((x - BUILD_X0) / CELL); }
+  function rowAtY(y) { return Math.floor((GROUND_Y - y) / CELL); }
+  function gk(c, r) { return c + "," + r; }
+
+  /* ============ EFFECTS HELPERS ============ */
+  function burst(x, y, color, n) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const s = 40 + Math.random() * 150;
+      particles.push({
+        x: x, y: y,
+        vx: Math.cos(a) * s, vy: Math.sin(a) * s - 60,
+        life: 0.55 + Math.random() * 0.45, max: 1,
+        color: color, size: 2 + Math.random() * 3
+      });
+    }
+  }
+  function toast(text) { toasts.push({ text: text, life: 1.6 }); }
+
+  /* ============ HUD ============ */
+  function updateHud() {
+    goldEl.textContent = Math.max(0, Math.floor(gold));
+    waveEl.textContent = Math.min(wave, WAVES.length) + "/" + WAVES.length;
+    bestEl.textContent = "Best: Wave " + bestWave;
+    hpFill.style.width = Math.max(0, keepHp) + "%";
+    hpFill.style.background = keepHp > 50
+      ? "linear-gradient(90deg,#5fd36a,#a8e063)"
+      : keepHp > 25
+        ? "linear-gradient(90deg,#e8c14a,#f5e07a)"
+        : "linear-gradient(90deg,#e05a4a,#f08a6a)";
+
+    if (mode === "build") {
+      btnWave.disabled = false;
+      btnWave.textContent = "Start Wave " + (wave + 1) + " (" + Math.ceil(Math.max(0, buildTimer)) + "s)";
+    } else if (mode === "wave") {
+      btnWave.disabled = true;
+      btnWave.textContent = "Wave " + wave + " (" + enemies.length + " left)";
+    } else {
+      btnWave.disabled = true;
+      btnWave.textContent = "Start Wave";
+    }
+  }
+
+  /* ============ GAME SETUP ============ */
+  function newGame() {
+    gold = 150; wave = 0; keepHp = 100;
+    blocks = []; blockMap = new Map();
+    enemies = []; projectiles = []; particles = []; toasts = [];
+    spawnQueue = []; spawnTimer = 0; waveInterval = 1.5; buildTimer = BUILD_TIME;
+    selectTool("wall");
+    mode = "build"; paused = false; shake = 0; hover = null;
+    startScreen.classList.add("hidden");
+    endScreen.classList.add("hidden");
+    btnPause.textContent = "Pause";
+    updateHud();
+  }
+
+  function startWave() {
+    if (mode !== "build" || paused) return;
+    const cfg = WAVES[wave];
+    wave++;
+    mode = "wave";
+    spawnQueue = [];
+    for (let i = 0; i < cfg.soldiers; i++) spawnQueue.push("soldier");
+    for (let i = 0; i < cfg.catapults; i++) spawnQueue.push("catapult");
+    for (let i = spawnQueue.length - 1; i > 0; i--) {
+      const j = (Math.random() * (i + 1)) | 0;
+      const t = spawnQueue[i]; spawnQueue[i] = spawnQueue[j]; spawnQueue[j] = t;
+    }
+    waveInterval = cfg.interval;
+    spawnTimer = 0.4;
+    toast("\u2694 Wave " + wave + " incoming!");
+    beep(300, 0.2, "sawtooth");
+    updateHud();
+  }
+
+  function onWaveCleared() {
+    const bonus = 40 + wave * 12;
+    gold += bonus;
+    toast("Wave cleared! +" + bonus + " gold");
+    beep(880, 0.14, "sine");
+    beepLater(1180, 0.14, "sine", 120);
+    if (wave >= WAVES.length) { endGame(true); return; }
+    mode = "build";
+    buildTimer = BUILD_TIME;
+    updateHud();
+  }
+
+  function endGame(won) {
+    mode = won ? "win" : "over";
+    paused = false;
+    const survived = won ? WAVES.length : Math.max(0, wave - 1);
+    if (survived > bestWave) {
+      bestWave = survived;
+      localStorage.setItem("towercraftBest", String(bestWave));
+    }
+    updateHud();
+    endCrest.textContent = won ? "\uD83C\uDFC6" : "\uD83D\uDC80";
+    endTitle.textContent = won ? "Victory!" : "Castle Fallen";
+    endText.textContent = won
+      ? "You survived all " + WAVES.length + " waves and saved the keep! Best: wave " + bestWave + "."
+      : "The keep was overrun on wave " + wave + ". Best: wave " + bestWave + ".";
+    endScreen.classList.remove("hidden");
+    if (won) { beep(660, 0.18, "sine"); beepLater(990, 0.25, "sine", 160); }
+    else beep(120, 0.5, "sawtooth");
+  }
+
+  /* ============ BUILDING ============ */
+  function upgradeTower(b) {
+    if (b.level >= 3) { toast("Tower already maxed"); return; }
+    const cost = TOWER_UPG[b.level];
+    if (gold < cost) { toast("Need " + cost + " gold to upgrade"); beep(200, 0.08, "square"); return; }
+    gold -= cost;
+    b.level++;
+    b.dmg = b.level === 2 ? 24 : 36;
+    toast("Tower upgraded \u2192 Lv" + b.level);
+    burst(cellCX(b.c), cellCY(b.r), "#8fe0ff", 12);
+    beep(760, 0.1, "sine");
+    updateHud();
+  }
+  function repairBlock(b) {
+    if (b.hp >= b.maxHp) { toast("Block is intact"); return; }
+    if (gold < 8) { toast("Need 8 gold to repair"); beep(200, 0.08, "square"); return; }
+    gold -= 8;
+    b.hp = b.maxHp;
+    toast("Repaired");
+    burst(cellCX(b.c), cellCY(b.r), "#9fe08f", 8);
+    beep(600, 0.07, "square");
+    updateHud();
+  }
+  function handleTap(p) {
+    if (paused || (mode !== "build" && mode !== "wave")) return;
+    const c = colAtX(p.x), r = rowAtY(p.y);
+    if (c < 0 || c >= COLS || r < 0 || r >= ROWS) return;
+
+    const existing = blockMap.get(gk(c, r));
+    if (existing) {
+      if (existing.type === "tower") upgradeTower(existing);
+      else repairBlock(existing);
+      return;
+    }
+    if (!(r === 0 || blockMap.has(gk(c, r - 1)))) {
+      toast("Needs a block below");
+      beep(200, 0.08, "square");
+      return;
+    }
+    const def = BLOCKS[selectedTool];
+    if (gold < def.cost) { toast("Not enough gold"); beep(200, 0.08, "square"); return; }
+    gold -= def.cost;
+    const nb = {
+      c: c, r: r, type: selectedTool,
+      hp: def.hp, maxHp: def.hp, level: 1,
+      dmg: selectedTool === "tower" ? 14 : 0, cd: 0
+    };
+    blocks.push(nb);
+    blockMap.set(gk(c, r), nb);
+    burst(cellCX(c), cellCY(r), "#ffe1a0", 7);
+    beep(520, 0.05, "square");
+    updateHud();
+  }
+
+  /* ============ DAMAGE / COLLAPSE ============ */
+  function damageBlock(b, dmg) {
+    b.hp -= dmg;
+    burst(cellCX(b.c), cellCY(b.r), "#ffe1a0", 5);
+    if (b.hp <= 0) removeBlock(b);
+  }
+  function removeBlock(b) {
+    blockMap.delete(gk(b.c, b.r));
+    const i = blocks.indexOf(b);
+    if (i >= 0) blocks.splice(i, 1);
+    burst(cellCX(b.c), cellCY(b.r), "#b9c0c9", 16);
+    beep(110, 0.16, "sawtooth");
+    settle();
+  }
+  // Let unsupported blocks fall until the castle is stable again
+  function settle() {
+    let moved = true, guard = 0;
+    while (moved && guard++ < 60) {
+      moved = false;
+      blocks.sort(function (a, b) { return a.r - b.r; });
+      for (let i = 0; i < blocks.length; i++) {
+        const b = blocks[i];
+        while (b.r > 0 && !blockMap.has(gk(b.c, b.r - 1))) {
+          blockMap.delete(gk(b.c, b.r));
+          b.r--;
+          blockMap.set(gk(b.c, b.r), b);
+          moved = true;
+        }
+      }
+    }
+  }
+
+  /* ============ ENEMIES ============ */
+  function spawnEnemy(kind) {
+    if (kind === "soldier") {
+      const hp = 26 + wave * 7;
+      enemies.push({
+        type: "soldier", x: SPAWN_X, y: GROUND_Y, r: 12,
+        hp: hp, maxHp: hp, speed: 42, dmg: 8, atkCd: 0.4,
+        reward: 12, attacking: false, dead: false
+      });
+    } else {
+      const hp = 70 + wave * 12;
+      enemies.push({
+        type: "catapult", x: SPAWN_X, y: GROUND_Y, r: 17,
+        hp: hp, maxHp: hp, speed: 26, fireCd: 2.2, fireMax: 2.6,
+        reward: 25, dead: false
+      });
+    }
+  }
+
+  function updateEnemies(dt) {
+    for (let i = 0; i < enemies.length; i++) {
+      const e = enemies[i];
+      if (e.hp <= 0) continue;
+
+      if (e.type === "soldier") {
+        const front = e.x - e.r;
+        let tgt = blockMap.get(gk(colAtX(front), 0));
+        if (!tgt) tgt = blockMap.get(gk(colAtX(front + 6), 0));
+
+        if (tgt) {
+          e.attacking = true;
+          e.atkCd -= dt;
+          if (e.atkCd <= 0) {
+            e.atkCd = 0.8;
+            damageBlock(tgt, e.dmg);
+            burst(front, e.y - 20, "#ffd27a", 3);
+            beep(180, 0.05, "square");
+          }
+        } else {
+          e.attacking = false;
+          e.x -= e.speed * dt;
+        }
+
+        // Reached the keep?
+        if (e.x - e.r <= BUILD_X0) {
+          e.x = BUILD_X0 + e.r;
+          e.attacking = true;
+          e.atkCd -= dt;
+          if (e.atkCd <= 0) {
+            e.atkCd = 0.85;
+            keepHp -= 6;
+            shake = 6;
+            burst(BUILD_X0, GROUND_Y - 30, "#ff8a5a", 6);
+            beep(150, 0.12, "square");
+            updateHud();
+            if (keepHp <= 0) { keepHp = 0; endGame(false); return; }
+          }
+        }
+      } else {
+        // catapult rolls forward then lobs boulders
+        if (e.x > CAT_STANDOFF) {
+          e.x -= e.speed * dt;
+        } else {
+          e.fireCd -= dt;
+          if (e.fireCd <= 0) { e.fireCd = e.fireMax; lobBoulder(e); }
+        }
+      }
+    }
+  }
+
+  function cleanupEnemies() {
+    for (let i = 0; i < enemies.length; i++) {
+      const e = enemies[i];
+      if (e.hp <= 0 && !e.dead) {
+        e.dead = true;
+        gold += e.reward;
+        burst(e.x, e.y - 14, "#ffd27a", 10);
+        beep(880, 0.07, "sine");
+        updateHud();
+      }
+    }
+    enemies = enemies.filter(function (e) { return e.hp > 0; });
+  }
+
+  /* ============ TOWERS & PROJECTILES ============ */
+  function updateTowers(dt) {
+    for (let i = 0; i < blocks.length; i++) {
+      const b = blocks[i];
+      if (b.type !== "tower") continue;
+      b.cd = (b.cd || 0) - dt;
+      if (b.cd > 0) continue;
+
+      const tx = cellCX(b.c), ty = cellY(b.r) + 10;
+      let best = null, bd = Infinity;
+      for (let j = 0; j < enemies.length; j++) {
+        const e = enemies[j];
+        if (e.hp <= 0 || e.dead) continue;
+        const d = Math.hypot(e.x - tx, (e.y - 14) - ty);
+        if (d < TOWER_RANGE && d < bd) { bd = d; best = e; }
+      }
+      if (best) {
+        b.cd = b.level >= 3 ? 0.5 : b.level === 2 ? 0.7 : 0.95;
+        projectiles.push({
+          kind: "arrow", x: tx, y: ty, ang: 0,
+          target: best, dmg: b.dmg, speed: 520, dead: false
+        });
+        beep(720, 0.03, "square");
+      }
+    }
+  }
+
+  function lobBoulder(e) {
+    let tx, ty;
+    if (blocks.length) {
+      let front = blocks[0];
+      for (let i = 1; i < blocks.length; i++) if (blocks[i].c > front.c) front = blocks[i];
+      tx = cellCX(front.c) + (Math.random() - 0.5) * 24;
+      ty = cellCY(front.r);
+    } else {
+      tx = BUILD_X0 + 30; ty = GROUND_Y - 60;
+    }
+    projectiles.push({
+      kind: "boulder", x: e.x, y: e.y - 40, sx: e.x, sy: e.y - 40,
+      tx: tx, ty: ty, t: 0, dur: 1.1, arc: 150, spin: 0, dead: false
+    });
+    beep(140, 0.15, "triangle");
+  }
+
+  function landBoulder(p) {
+    burst(p.tx, p.ty, "#c98a4a", 16);
+    shake = 8;
+    beep(120, 0.18, "sawtooth");
+    const c = colAtX(p.tx), r = rowAtY(p.ty);
+    let b = blockMap.get(gk(c, r));
+    if (!b) b = blockMap.get(gk(c, 0));
+    if (b) damageBlock(b, 30);
+    else if (p.tx < BUILD_X0 + 10) {
+      keepHp -= 8; updateHud();
+      if (keepHp <= 0) { keepHp = 0; endGame(false); }
+    }
+  }
+
+  function updateProjectiles(dt) {
+    for (let i = 0; i < projectiles.length; i++) {
+      const p = projectiles[i];
+      if (p.kind === "arrow") {
+        let tx, ty;
+        if (p.target && p.target.hp > 0 && !p.target.dead) {
+          tx = p.target.x; ty = p.target.y - 14;
+        } else { tx = p.x + 200; ty = p.y; }
+        const dx = tx - p.x, dy = ty - p.y;
+        const d = Math.hypot(dx, dy) || 1;
+        const step = p.speed * dt;
+        p.ang = Math.atan2(dy, dx);
+        if (d <= step) {
+          if (p.target && p.target.hp > 0 && !p.target.dead) {
+            p.target.hp -= p.dmg;
+            burst(p.target.x, p.target.y - 14, "#ffd27a", 4);
+            beep(680, 0.03, "square");
+          }
+          p.dead = true;
+        } else {
+          p.x += dx / d * step;
+          p.y += dy / d * step;
+        }
+        if (p.x > W + 60 || p.y < -60) p.dead = true;
+      } else {
+        p.t += dt;
+        const u = p.t / p.dur;
+        if (u >= 1) { landBoulder(p); p.dead = true; }
+        else {
+          p.x = p.sx + (p.tx - p.sx) * u;
+          p.y = p.sy + (p.ty - p.sy) * u - p.arc * Math.sin(Math.PI * u);
+          p.spin += dt * 9;
+        }
+      }
+    }
+    projectiles = projectiles.filter(function (p) { return !p.dead; });
+  }
+
+  function updateParticles(dt) {
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 520 * dt; p.life -= dt;
+    }
+    particles = particles.filter(function (p) { return p.life > 0; });
+  }
+
+  /* ============ MAIN SIMULATION ============ */
+  function update(dt) {
+    if (mode === "build") {
+      buildTimer -= dt;
+      if (buildTimer <= 0) { buildTimer = 0; startWave(); }
+      else updateHud();
+    }
+
+    if (mode === "wave") {
+      spawnTimer -= dt;
+      if (spawnQueue.length && spawnTimer <= 0) {
+        spawnEnemy(spawnQueue.shift());
+        spawnTimer = waveInterval;
+      }
+      updateEnemies(dt);
+      updateTowers(dt);
+      updateProjectiles(dt);
+      cleanupEnemies();
+      if (mode === "wave" && spawnQueue.length === 0 && enemies.length === 0) onWaveCleared();
+    } else {
+      updateProjectiles(dt);
+    }
+
+    updateParticles(dt);
+    for (let i = 0; i < toasts.length; i++) toasts[i].life -= dt;
+    toasts = toasts.filter(function (t) { return t.life > 0; });
+    if (shake > 0) shake = Math.max(0, shake - dt * 40);
+  }
+
+  /* ============ DRAW: WORLD ============ */
+  function drawSky() {
+    const g = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+    g.addColorStop(0, "#201832");
+    g.addColorStop(0.42, "#4a2f5e");
+    g.addColorStop(0.72, "#a9503f");
+    g.addColorStop(1, "#e8934f");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, GROUND_Y + 2);
+
+    // sun
+    ctx.fillStyle = "rgba(255,214,140,0.15)";
+    ctx.beginPath(); ctx.arc(W * 0.72, GROUND_Y - 80, 82, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "rgba(255,222,160,0.9)";
+    ctx.beginPath(); ctx.arc(W * 0.72, GROUND_Y - 80, 44, 0, Math.PI * 2); ctx.fill();
+
+    // stars
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    for (let i = 0; i < 26; i++) {
+      const sx = (i * 137.5) % W;
+      const sy = (i * 53.3) % (GROUND_Y - 220);
+      ctx.fillRect(sx, sy, 2, 2);
+    }
+
+    // distant hills
+    ctx.fillStyle = "#2a2038";
+    ctx.beginPath();
+    ctx.moveTo(0, GROUND_Y);
+    for (let x = 0; x <= W; x += 60) {
+      ctx.lineTo(x, GROUND_Y - 60 - Math.sin(x * 0.01) * 34 - Math.sin(x * 0.023) * 18);
+    }
+    ctx.lineTo(W, GROUND_Y); ctx.closePath(); ctx.fill();
+
+    ctx.fillStyle = "#1d1728";
+    ctx.beginPath();
+    ctx.moveTo(0, GROUND_Y);
+    for (let x = 0; x <= W; x += 80) {
+      ctx.lineTo(x, GROUND_Y - 30 - Math.sin(x * 0.017 + 2) * 22);
+    }
+    ctx.lineTo(W, GROUND_Y); ctx.closePath(); ctx.fill();
+  }
+
+  function drawGround() {
+    const g = ctx.createLinearGradient(0, GROUND_Y, 0, H);
+    g.addColorStop(0, "#5a4a2e");
+    g.addColorStop(1, "#2c2317");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
+    ctx.fillStyle = "#6b7a3a";
+    ctx.fillRect(0, GROUND_Y, W, 6);
+    ctx.fillStyle = "rgba(255,255,255,0.05)";
+    for (let x = 12; x < W; x += 26) ctx.fillRect(x, GROUND_Y + 16, 3, 3);
+  }
+
+  function drawBuildGrid() {
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,255,255,0.06)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let c = 0; c <= COLS; c++) {
+      ctx.moveTo(BUILD_X0 + c * CELL, GROUND_Y - ROWS * CELL);
+      ctx.lineTo(BUILD_X0 + c * CELL, GROUND_Y);
+    }
+    for (let r = 0; r <= ROWS; r++) {
+      const y = GROUND_Y - r * CELL;
+      ctx.moveTo(BUILD_X0, y);
+      ctx.lineTo(BUILD_X1, y);
+    }
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(255,207,90,0.22)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(BUILD_X0, GROUND_Y - ROWS * CELL, COLS * CELL, ROWS * CELL);
+    ctx.restore();
+  }
+
+  function drawHover() {
+    if (!hover || paused || (mode !== "build" && mode !== "wave")) return;
+    const occupied = blockMap.has(gk(hover.c, hover.r));
+    let ok, color;
+    if (occupied) {
+      const b = blockMap.get(gk(hover.c, hover.r));
+      ok = (b.type === "tower" && b.level < 3 && gold >= TOWER_UPG[b.level]) ||
+           (b.type !== "tower" && b.hp < b.maxHp && gold >= 8);
+      color = ok ? "rgba(90,220,140,0.35)" : "rgba(230,90,70,0.30)";
+    } else {
+      const support = hover.r === 0 || blockMap.has(gk(hover.c, hover.r - 1));
+      ok = support && gold >= BLOCKS[selectedTool].cost;
+      color = ok ? "rgba(90,220,140,0.30)" : "rgba(230,90,70,0.28)";
+    }
+    ctx.fillStyle = color;
+    ctx.fillRect(cellX(hover.c), cellY(hover.r), CELL, CELL);
+    ctx.strokeStyle = "rgba(255,255,255,0.5)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(cellX(hover.c) + 1, cellY(hover.r) + 1, CELL - 2, CELL - 2);
+  }
+
+  function drawKeep() {
+    const x = 10, w = KEEP_W - 22, top = GROUND_Y - 190;
+    const g = ctx.createLinearGradient(x, 0, x + w, 0);
+    g.addColorStop(0, "#767f8c");
+    g.addColorStop(0.5, "#a2abb8");
+    g.addColorStop(1, "#6f7885");
+    ctx.fillStyle = g;
+    ctx.fillRect(x, top, w, GROUND_Y - top);
+    ctx.strokeStyle = "#4c5460";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, top, w, GROUND_Y - top);
+
+    // crenellations
+    ctx.fillStyle = "#8b95a3";
+    for (let i = 0; i < 3; i++) ctx.fillRect(x + i * (w / 3), top - 10, w / 3 - 4, 12);
+
+    // gate arch
+    ctx.fillStyle = "#3a2a1c";
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.25, GROUND_Y);
+    ctx.lineTo(x + w * 0.25, GROUND_Y - 30);
+    ctx.arc(x + w * 0.5, GROUND_Y - 30, w * 0.25, Math.PI, 0);
+    ctx.lineTo(x + w * 0.75, GROUND_Y);
+    ctx.closePath();
+    ctx.fill();
+
+    // windows
+    ctx.fillStyle = "#2a2f38";
+    ctx.fillRect(x + w * 0.5 - 4, top + 30, 8, 14);
+    ctx.fillRect(x + w * 0.5 - 4, top + 64, 8, 14);
+
+    // flag
+    ctx.strokeStyle = "#4a3a24";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x + w / 2, top - 10);
+    ctx.lineTo(x + w / 2, top - 54);
+    ctx.stroke();
+    const flap = Math.sin(T * 3) * 3;
+    ctx.fillStyle = "#c2382a";
+    ctx.beginPath();
+    ctx.moveTo(x + w / 2, top - 54);
+    ctx.lineTo(x + w / 2 + 22, top - 48 + flap);
+    ctx.lineTo(x + w / 2, top - 40);
+    ctx.closePath();
+    ctx.fill();
+
+    // keep hp bar
+    ctx.fillStyle = "rgba(0,0,0,0.55)";
+    ctx.fillRect(8, top - 74, 54, 8);
+    ctx.fillStyle = keepHp > 50 ? "#5fd36a" : keepHp > 25 ? "#e8c14a" : "#e05a4a";
+    ctx.fillRect(8, top - 74, 54 * Math.max(0, keepHp / 100), 8);
+    ctx.strokeStyle = "#3a2f1f";
+    ctx.strokeRect(8, top - 74, 54, 8);
+  }
+
+  /* ============ DRAW: STRUCTURES ============ */
+  function drawBlock(b) {
+    const x = cellX(b.c), y = cellY(b.r), w = CELL, h = CELL;
+    const hurt = 1 - b.hp / b.maxHp;
+
+    if (b.type === "gate") {
+      ctx.fillStyle = "#7a4e26";
+      ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+      ctx.strokeStyle = "#5a3818";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + 2, y + 2, w - 4, h - 4);
+      ctx.strokeStyle = "rgba(0,0,0,0.28)";
+      ctx.lineWidth = 1;
+      for (let i = 1; i < 4; i++) {
+        ctx.beginPath();
+        ctx.moveTo(x + 2 + i * (w - 4) / 4, y + 2);
+        ctx.lineTo(x + 2 + i * (w - 4) / 4, y + h - 2);
+        ctx.stroke();
+      }
+      ctx.fillStyle = "#c9c2b0";
+      ctx.fillRect(x + 4, y + h * 0.34, w - 8, 4);
+      ctx.fillRect(x + 4, y + h * 0.60, w - 8, 4);
+    } else if (b.type === "tower") {
+      ctx.fillStyle = "#a9b3c0";
+      ctx.fillRect(x + 3, y, w - 6, h - 4);
+      ctx.fillStyle = "#8b95a3";
+      for (let i = 0; i < 3; i++) {
+        ctx.fillRect(x + 4 + i * ((w - 8) / 3), y - 5, (w - 8) / 3 - 3, 6);
+      }
+      ctx.strokeStyle = "#5f6875";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + 3, y, w - 6, h - 4);
+      // archer
+      ctx.fillStyle = "#e0b48a";
+      ctx.beginPath(); ctx.arc(x + w / 2, y + 12, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#8b3a2a";
+      ctx.beginPath(); ctx.arc(x + w / 2, y + 10, 6, Math.PI, 0); ctx.fill();
+      // arrow loop
+      ctx.fillStyle = "#3a4048";
+      ctx.fillRect(x + w / 2 - 3, y + 20, 6, 12);
+      // level pips
+      for (let i = 0; i < b.level; i++) {
+        ctx.fillStyle = "#ffcf5a";
+        ctx.fillRect(x + 5 + i * 7, y + h - 9, 5, 5);
+      }
+    } else {
+      // stone wall with brick pattern
+      ctx.fillStyle = "#98a1ad";
+      ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+      ctx.strokeStyle = "#6a727e";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 2, y + 2, w - 4, h - 4);
+      ctx.beginPath();
+      ctx.moveTo(x + 2, y + h / 2); ctx.lineTo(x + w - 2, y + h / 2);
+      ctx.moveTo(x + w / 2, y + 2); ctx.lineTo(x + w / 2, y + h / 2);
+      ctx.moveTo(x + w / 4, y + h / 2); ctx.lineTo(x + w / 4, y + h - 2);
+      ctx.moveTo(x + 3 * w / 4, y + h / 2); ctx.lineTo(x + 3 * w / 4, y + h - 2);
+      ctx.stroke();
+    }
+
+    // damage cracks
+    if (hurt > 0.02) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(0.6, hurt);
+      ctx.strokeStyle = "#2a1c12";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x + 8, y + 5);
+      ctx.lineTo(x + w * 0.5, y + h * 0.5);
+      ctx.lineTo(x + w - 8, y + h - 6);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // hp bar when damaged
+    if (b.hp < b.maxHp) {
+      ctx.fillStyle = "rgba(0,0,0,0.5)";
+      ctx.fillRect(x + 4, y - 8, w - 8, 4);
+      ctx.fillStyle = b.hp / b.maxHp > 0.5 ? "#5fd36a" : b.hp / b.maxHp > 0.25 ? "#e8c14a" : "#e05a4a";
+      ctx.fillRect(x + 4, y - 8, (w - 8) * Math.max(0, b.hp / b.maxHp), 4);
+    }
+  }
+
+  /* ============ DRAW: ENEMIES ============ */
+  function drawEnemyHp(e) {
+    if (e.hp >= e.maxHp) return;
+    const w = 26, x = e.x - w / 2, y = e.y - 54;
+    ctx.fillStyle = "rgba(0,0,0,0.55)";
+    ctx.fillRect(x, y, w, 4);
+    ctx.fillStyle = "#ff6a5a";
+    ctx.fillRect(x, y, w * Math.max(0, e.hp / e.maxHp), 4);
+  }
+
+  function drawSoldier(e) {
+    const x = e.x, base = e.y;
+    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    ctx.beginPath(); ctx.ellipse(x, base, 12, 4, 0, 0, Math.PI * 2); ctx.fill();
+    // legs
+    ctx.fillStyle = "#3a3a44";
+    ctx.fillRect(x - 7, base - 14, 5, 14);
+    ctx.fillRect(x + 2, base - 14, 5, 14);
+    // tunic
+    ctx.fillStyle = "#b03028";
+    ctx.fillRect(x - 9, base - 30, 18, 18);
+    ctx.fillStyle = "#8a231d";
+    ctx.fillRect(x - 9, base - 30, 18, 4);
+    // shield arm
+    ctx.fillStyle = "#b03028";
+    ctx.fillRect(x - 12, base - 28, 4, 12);
+    // head + helmet
+    ctx.fillStyle = "#e0b48a";
+    ctx.beginPath(); ctx.arc(x, base - 36, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#7d8794";
+    ctx.beginPath(); ctx.arc(x, base - 38, 8, Math.PI, 0); ctx.fill();
+    ctx.fillRect(x - 8, base - 38, 16, 3);
+    // sword (swings while attacking)
+    const sw = e.attacking ? Math.sin(T * 12) * 4 : 0;
+    ctx.strokeStyle = "#d8dde3";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x + 9, base - 30);
+    ctx.lineTo(x + 19 + sw, base - 34 - sw);
+    ctx.stroke();
+    drawEnemyHp(e);
+  }
+
+  function drawCatapult(e) {
+    const x = e.x, base = e.y;
+    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    ctx.beginPath(); ctx.ellipse(x, base, 20, 5, 0, 0, Math.PI * 2); ctx.fill();
+    // wheels
+    ctx.fillStyle = "#4a3320";
+    ctx.beginPath();
+    ctx.arc(x - 12, base - 8, 8, 0, Math.PI * 2);
+    ctx.arc(x + 12, base - 8, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#2a1c10";
+    ctx.beginPath();
+    ctx.arc(x - 12, base - 8, 3, 0, Math.PI * 2);
+    ctx.arc(x + 12, base - 8, 3, 0, Math.PI * 2);
+    ctx.fill();
+    // frame
+    ctx.fillStyle = "#6b4a2a";
+    ctx.fillRect(x - 18, base - 22, 36, 12);
+    ctx.strokeStyle = "#432c16";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x - 18, base - 22, 36, 12);
+    // throwing arm
+    const load = Math.max(0, Math.min(1, e.fireCd / e.fireMax));
+    const angle = -0.9 + (1 - load) * 0.9;
+    ctx.save();
+    ctx.translate(x, base - 22);
+    ctx.rotate(angle);
+    ctx.strokeStyle = "#7a5a34";
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(22, 0); ctx.stroke();
+    ctx.fillStyle = "#5a4028";
+    ctx.beginPath(); ctx.arc(22, 0, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    drawEnemyHp(e);
+  }
+
+  /* ============ DRAW: PROJECTILES & FX ============ */
+  function drawProjectiles() {
+    for (let i = 0; i < projectiles.length; i++) {
+      const p = projectiles[i];
+      if (p.kind === "arrow") {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.ang);
+        ctx.strokeStyle = "#e8dcc0";
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(9, 0); ctx.stroke();
+        ctx.fillStyle = "#d8dde3";
+        ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(4, -3); ctx.lineTo(4, 3); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = "#c2382a";
+        ctx.beginPath();
+        ctx.moveTo(-9, 0); ctx.lineTo(-13, -3);
+        ctx.moveTo(-9, 0); ctx.lineTo(-13, 3);
+        ctx.stroke();
+        ctx.restore();
+      } else {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.spin);
+        ctx.fillStyle = "#8a6a44";
+        ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#5a3f24";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(-5, -5); ctx.lineTo(5, 5);
+        ctx.moveTo(5, -5); ctx.lineTo(-5, 5);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
+
+  function drawParticles() {
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      ctx.globalAlpha = Math.max(0, Math.min(1, p.life / p.max));
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawToasts() {
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (let i = 0; i < toasts.length; i++) {
+      const t = toasts[i];
+      const y = 86 + i * 30;
+      ctx.globalAlpha = Math.min(1, t.life / 0.4);
+      ctx.font = "bold 20px 'Segoe UI', Tahoma, sans-serif";
+      ctx.fillStyle = "rgba(0,0,0,0.6)";
+      ctx.fillText(t.text, W / 2 + 2, y + 2);
+      ctx.fillStyle = "#ffd873";
+      ctx.fillText(t.text, W / 2, y);
+    }
+    ctx.globalAlpha = 1;
+    ctx.textAlign = "start";
+    ctx.textBaseline = "alphabetic";
+  }
+
+  /* ============ RENDER ============ */
+  function render() {
+    T = performance.now() / 1000;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    const sx = shake > 0 ? (Math.random() - 0.5) * shake : 0;
+    const sy = shake > 0 ? (Math.random() - 0.5) * shake : 0;
+    ctx.save();
+    ctx.translate(sx, sy);
+
+    drawSky();
+    drawGround();
+    if (mode !== "menu") drawBuildGrid();
+    drawKeep();
+    for (let i = 0; i < blocks.length; i++) drawBlock(blocks[i]);
+    for (let i = 0; i < enemies.length; i++) {
+      if (enemies[i].type === "soldier") drawSoldier(enemies[i]);
+      else drawCatapult(enemies[i]);
+    }
+    drawProjectiles();
+    drawParticles();
+    drawHover();
+    drawToasts();
+    ctx.restore();
+
+    if (mode === "wave") {
+      ctx.fillStyle = "rgba(0,0,0,0.42)";
+      ctx.fillRect(12, 12, 172, 30);
+      ctx.fillStyle = "#ffd873";
+      ctx.font = "bold 15px 'Segoe UI', Tahoma, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("\u2694 Wave " + wave + "  \u00B7  " + enemies.length + " foes left", 98, 32);
+      ctx.textAlign = "start";
+    }
+
+    if (paused && (mode === "build" || mode === "wave")) {
+      ctx.fillStyle = "rgba(10,8,16,0.62)";
+      ctx.fillRect(0, 0, W, H);
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#ffd873";
+      ctx.font = "bold 46px 'Segoe UI', Tahoma, sans-serif";
+      ctx.fillText("PAUSED", W / 2, H / 2);
+      ctx.fillStyle = "#e8dcc0";
+      ctx.font = "16px 'Segoe UI', Tahoma, sans-serif";
+      ctx.fillText("Press P or Pause to resume", W / 2, H / 2 + 38);
+      ctx.textAlign = "start";
+    }
+  }
+
+  /* ============ INPUT ============ */
+  function toGame(clientX, clientY) {
+    const r = canvas.getBoundingClientRect();
+    return { x: (clientX - r.left) * (W / r.width), y: (clientY - r.top) * (H / r.height) };
+  }
+
+  function selectTool(t) {
+    selectedTool = t;
+    for (let i = 0; i < toolButtons.length; i++) {
+      toolButtons[i].classList.toggle("active", toolButtons[i].dataset.tool === t);
+    }
+  }
+
+  function togglePause() {
+    if (mode !== "build" && mode !== "wave") return;
+    paused = !paused;
+    btnPause.textContent = paused ? "Resume" : "Pause";
+    beep(paused ? 420 : 620, 0.06, "triangle");
+  }
+
+  canvas.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    handleTap(toGame(e.clientX, e.clientY));
+  });
+  canvas.addEventListener("pointermove", function (e) {
+    const g = toGame(e.clientX, e.clientY);
+    const c = colAtX(g.x), r = rowAtY(g.y);
+    hover = (c >= 0 && c < COLS && r >= 0 && r < ROWS) ? { c: c, r: r } : null;
+  });
+  canvas.addEventListener("pointerleave", function () { hover = null; });
+
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "KeyP" || e.key === "p" || e.key === "P") { e.preventDefault(); togglePause(); return; }
+    if (e.code === "KeyR" || e.key === "r" || e.key === "R") { e.preventDefault(); newGame(); return; }
+    if (e.code === "Space") {
+      e.preventDefault();
+      if (mode === "menu" || mode === "over" || mode === "win") newGame();
+      else if (mode === "build" && !paused) startWave();
+      return;
+    }
+    if (e.code === "Digit1") selectTool("wall");
+    if (e.code === "Digit2") selectTool("tower");
+    if (e.code === "Digit3") selectTool("gate");
+  });
+
+  for (let i = 0; i < toolButtons.length; i++) {
+    toolButtons[i].addEventListener("click", function () {
+      selectTool(this.dataset.tool);
+      beep(420, 0.04, "square");
+    });
+  }
+  btnWave.addEventListener("click", function () { if (mode === "build" && !paused) startWave(); });
+  btnPause.addEventListener("click", togglePause);
+  btnRestart.addEventListener("click", function () { newGame(); });
+  startBtn.addEventListener("click", function () {
+    try { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (err) {}
+    newGame();
+  });
+  endBtn.addEventListener("click", function () { newGame(); });
+  canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+  /* ============ MAIN LOOP ============ */
+  let last = performance.now();
+  function loop(now) {
+    let dt = (now - last) / 1000;
+    last = now;
+    if (dt > 0.05) dt = 0.05;
+    if (!paused) update(dt);
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) last = performance.now();
+  });
+
+  /* ============ BOOT ============ */
+  selectTool("wall");
+  updateHud();
+  requestAnimationFrame(loop);
+})();
+
+</script>
+</body>
+</html>

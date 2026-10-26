@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🃏 FreeCell</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    min-height: 100%;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: radial-gradient(circle at 50% 0%, #2e8b57 0%, #1f6b40 45%, #124a2b 100%);
+    color: #fff;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+    padding: 10px;
+  }
+
+  /* ============ APP SHELL ============ */
+  #app {
+    width: min(97vw, 1000px);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px 14px;
+    padding: 6px 10px;
+    background: rgba(0, 0, 0, 0.22);
+    border-radius: 12px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  }
+
+  .game-title {
+    font-size: 1.35rem;
+    letter-spacing: 1px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    white-space: nowrap;
+  }
+
+  #stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    font-size: 0.86rem;
+  }
+  #stats .stat { color: #d5f5e1; white-space: nowrap; }
+  #stats .stat b { color: #ffe680; font-weight: 700; }
+
+  /* ============ BOARD ============ */
+  #board-wrap {
+    position: relative;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.16);
+    border-radius: 14px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  }
+
+  #board {
+    position: relative;
+    touch-action: none;
+  }
+
+  .row-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--gap);
+    margin-bottom: calc(var(--gap) * 1.5);
+  }
+
+  .cluster {
+    display: flex;
+    gap: var(--gap);
+  }
+
+  /* Slots (free cells + foundations) */
+  .cell {
+    width: var(--cw);
+    height: var(--ch);
+    border-radius: calc(var(--cw) * 0.09);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .free-cell {
+    border: 2px dashed rgba(255, 255, 255, 0.35);
+    background: rgba(255, 255, 255, 0.05);
+  }
+  .foundation {
+    border: 2px solid rgba(255, 255, 255, 0.32);
+    background: rgba(255, 255, 255, 0.07);
+  }
+  .slotglyph {
+    font-size: calc(var(--cw) * 0.6);
+    color: rgba(255, 255, 255, 0.22);
+    line-height: 1;
+  }
+
+  /* Tableau */
+  .row-tableau {
+    display: flex;
+    gap: var(--gap);
+    align-items: flex-start;
+  }
+  .col {
+    width: var(--cw);
+    height: var(--tabh);
+    position: relative;
+    border-radius: calc(var(--cw) * 0.09);
+  }
+  .col::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: calc(var(--cw) * 0.09);
+    border: 2px dashed rgba(255, 255, 255, 0.10);
+    pointer-events: none;
+  }
+
+  /* ============ CARDS ============ */
+  .card {
+    width: var(--cw);
+    height: var(--ch);
+    background: linear-gradient(160deg, #ffffff 0%, #f2f4f7 100%);
+    border-radius: calc(var(--cw) * 0.09);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(0, 0, 0, 0.10);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    will-change: transform;
+  }
+  .col .card {
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+  .card.red { color: #d6336c; }
+  .card.black { color: #212529; }
+
+  .card .corner {
+    position: absolute;
+    top: calc(var(--cw) * 0.07);
+    left: calc(var(--cw) * 0.09);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 0.92;
+  }
+  .card .corner .rk {
+    font-size: calc(var(--cw) * 0.34);
+    font-weight: 700;
+  }
+  .card .corner .st {
+    font-size: calc(var(--cw) * 0.26);
+  }
+  .card .big {
+    font-size: calc(var(--cw) * 0.62);
+    opacity: 0.92;
+    line-height: 1;
+  }
+
+  .card.selected {
+    box-shadow: 0 0 0 3px #ffe680, 0 4px 10px rgba(0, 0, 0, 0.5);
+    transform: translateY(-2px);
+    z-index: 60 !important;
+  }
+  .card.dragging { visibility: hidden; }
+
+  /* ============ DRAG LAYER ============ */
+  #drag-layer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 900;
+  }
+  #drag-layer .ghost {
+    position: fixed;
+    left: 0;
+    top: 0;
+    pointer-events: none;
+  }
+  #drag-layer .ghost .card {
+    position: absolute;
+    left: 0;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.5);
+  }
+
+  /* ============ TOOLBAR ============ */
+  #toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px 10px;
+    padding: 6px 8px;
+  }
+  #toolbar button {
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 9px 18px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    color: #123522;
+    background: linear-gradient(180deg, #d8f5c9, #a8e08a);
+    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.25);
+    transition: transform 0.05s ease, filter 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #toolbar button:hover { filter: brightness(1.06); }
+  #toolbar button:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25); }
+  #toolbar #btn-new { background: linear-gradient(180deg, #ffe08a, #f5c542); color: #4a3600; }
+  #toolbar #btn-undo { background: linear-gradient(180deg, #cfe3ff, #94b8f0); color: #0d2547; }
+
+  .deal-group { display: flex; align-items: center; gap: 6px; }
+  .deal-group label { font-size: 0.85rem; color: #d5f5e1; }
+  #game-input {
+    width: 96px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    background: rgba(0, 0, 0, 0.25);
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.9rem;
+    outline: none;
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  #game-input:focus { border-color: #ffe680; }
+
+  /* ============ OVERLAYS ============ */
+  .overlay {
+    position: absolute;
+    inset: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 10px;
+    padding: 20px;
+    border-radius: 14px;
+    background: rgba(8, 34, 20, 0.93);
+    backdrop-filter: blur(3px);
+    z-index: 500;
+    transition: opacity 0.25s ease;
+  }
+  .overlay.hidden { opacity: 0; pointer-events: none; }
+  .overlay h2 {
+    font-size: 1.7rem;
+    color: #ffe680;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  }
+  .overlay p {
+    font-size: 0.95rem;
+    color: #d5f5e1;
+    max-width: 620px;
+    line-height: 1.5;
+  }
+  .overlay .action-btn {
+    margin-top: 6px;
+    font-family: inherit;
+    font-size: 1.05rem;
+    font-weight: 700;
+    padding: 12px 34px;
+    border: none;
+    border-radius: 24px;
+    cursor: pointer;
+    color: #123522;
+    background: linear-gradient(180deg, #ffe08a, #f5c542);
+    box-shadow: 0 5px 0 rgba(0, 0, 0, 0.3);
+    transition: transform 0.06s ease;
+  }
+  .overlay .action-btn:active { transform: translateY(2px); box-shadow: 0 3px 0 rgba(0, 0, 0, 0.3); }
+  .win-stats { font-size: 1rem; color: #fff; line-height: 1.7; }
+  .win-stats b { color: #ffe680; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 560px) {
+    html, body { padding: 6px; }
+    .game-title { font-size: 1.1rem; }
+    #stats { font-size: 0.76rem; gap: 4px 10px; }
+    #toolbar button { padding: 8px 12px; font-size: 0.8rem; }
+    #game-input { width: 74px; }
+    .overlay h2 { font-size: 1.35rem; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1 class="game-title">🃏 FreeCell</h1>
+    <div id="stats">
+      <span class="stat">Moves: <b id="stat-moves">0</b></span>
+      <span class="stat">Time: <b id="stat-time">0:00</b></span>
+      <span class="stat">Game: <b id="stat-game">—</b></span>
+      <span class="stat">Wins: <b id="stat-wins">0</b></span>
+      <span class="stat">Best: <b id="stat-best">—</b></span>
+    </div>
+  </header>
+
+  <div id="board-wrap">
+    <div id="board">
+      <div class="row-top">
+        <div class="cluster" id="free-row">
+          <div class="cell free-cell" data-drop="free-0"></div>
+          <div class="cell free-cell" data-drop="free-1"></div>
+          <div class="cell free-cell" data-drop="free-2"></div>
+          <div class="cell free-cell" data-drop="free-3"></div>
+        </div>
+        <div class="cluster" id="found-row">
+          <div class="cell foundation" data-drop="foundation-0"></div>
+          <div class="cell foundation" data-drop="foundation-1"></div>
+          <div class="cell foundation" data-drop="foundation-2"></div>
+          <div class="cell foundation" data-drop="foundation-3"></div>
+        </div>
+      </div>
+      <div class="row-tableau" id="tab-row"></div>
+    </div>
+
+    <!-- Start overlay -->
+    <div id="start-screen" class="overlay">
+      <h2>🃏 FreeCell</h2>
+      <p>
+        Move all 52 cards to the four foundations (A → K, one suit each).<br>
+        Build tableau columns <b>down</b> in <b>alternating colors</b>.<br>
+        The four free cells hold one card each. A run can be moved if it fits
+        within <b>(free cells + 1) × 2<sup>empty columns</sup></b>.
+      </p>
+      <p>
+        <b>Click</b> a card to select, then <b>click a target</b> to move it.
+        <b>Drag</b> to move a run. <b>Double-click</b> to send a card to its foundation.
+      </p>
+      <button class="action-btn" id="start-btn">Start Game</button>
+    </div>
+
+    <!-- Win overlay -->
+    <div id="win-screen" class="overlay hidden">
+      <h2>🎉 You Win! 🎉</h2>
+      <div class="win-stats" id="win-stats"></div>
+      <button class="action-btn" id="win-btn">Play Again</button>
+    </div>
+  </div>
+
+  <div id="toolbar">
+    <button id="btn-undo" type="button">↶ Undo</button>
+    <button id="btn-new" type="button">🎲 New Game</button>
+    <button id="btn-restart" type="button">↻ Restart</button>
+    <div class="deal-group">
+      <label for="game-input">Game #</label>
+      <input id="game-input" type="text" inputmode="numeric" autocomplete="off" />
+      <button id="btn-deal" type="button">Deal</button>
+    </div>
+  </div>
+</div>
+
+<div id="drag-layer"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============ CONSTANTS ============ */
+  const SUITS = ["S", "H", "D", "C"];             // 0 spade, 1 heart, 2 diamond, 3 club
+  const SUIT_GLYPH = { S: "\u2660", H: "\u2665", D: "\u2666", C: "\u2663" };
+  const RANKS = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+
+  const isRed = (c) => c.suit === 1 || c.suit === 2;
+
+  /* ============ SOUND (WebAudio, no assets) ============ */
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "triangle";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g);
+      g.connect(actx.destination);
+      o.start();
+      o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+  const sfxMove = () => beep(620, 0.06, "square");
+  const sfxPlace = () => beep(830, 0.07, "triangle");
+  const sfxBad = () => beep(180, 0.10, "sawtooth");
+  function sfxWin() {
+    [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.18, "triangle"), i * 130));
+  }
+
+  /* ============ DOM REFERENCES ============ */
+  const board = document.getElementById("board");
+  const boardWrap = document.getElementById("board-wrap");
+  const freeRow = document.getElementById("free-row");
+  const foundRow = document.getElementById("found-row");
+  const tabRow = document.getElementById("tab-row");
+  const dragLayer = document.getElementById("drag-layer");
+  const startScreen = document.getElementById("start-screen");
+  const winScreen = document.getElementById("win-screen");
+  const winStats = document.getElementById("win-stats");
+
+  const movesEl = document.getElementById("stat-moves");
+  const timeEl = document.getElementById("stat-time");
+  const gameEl = document.getElementById("stat-game");
+  const winsEl = document.getElementById("stat-wins");
+  const bestEl = document.getElementById("stat-best");
+  const gameInput = document.getElementById("game-input");
+
+  const btnUndo = document.getElementById("btn-undo");
+  const btnNew = document.getElementById("btn-new");
+  const btnRestart = document.getElementById("btn-restart");
+  const btnDeal = document.getElementById("btn-deal");
+  const btnStart = document.getElementById("start-btn");
+  const btnWin = document.getElementById("win-btn");
+
+  /* ============ PERSISTENT STATS ============ */
+  function loadInt(key, def) {
+    const v = parseInt(localStorage.getItem(key), 10);
+    return isNaN(v) ? def : v;
+  }
+  let totalWins = loadInt("freecellWins", 0);
+  let bestTime = loadInt("freecellBestTime", 0); // seconds, 0 = none
+
+  /* ============ LAYOUT SIZING ============ */
+  let cw = 90, ch = 128, tabH = 360, baseOff = 30;
+  function computeLayout() {
+    const wrapW = boardWrap.clientWidth || 900;
+    const gap = Math.max(5, Math.round(wrapW * 0.009));
+    const pad = 10;
+    let c = Math.floor((wrapW - pad * 2 - gap * 7) / 8);
+    let h = Math.round(c * 1.42);
+    const availH = window.innerHeight - 190;
+    const maxH = Math.max(70, Math.floor(availH / 4.75));
+    if (h > maxH) { h = maxH; c = Math.round(h / 1.42); }
+    c = Math.max(34, c);
+    h = Math.round(c * 1.42);
+    cw = c; ch = h;
+    tabH = Math.round(h * 3.55);
+    baseOff = Math.round(h * 0.30);
+    document.documentElement.style.setProperty("--cw", cw + "px");
+    document.documentElement.style.setProperty("--ch", ch + "px");
+    document.documentElement.style.setProperty("--gap", gap + "px");
+    document.documentElement.style.setProperty("--tabh", tabH + "px");
+  }
+
+  /* ============ GAME STATE ============ */
+  // Card: { id, suit (0..3), rank (1..13) }
+  let state = null;       // { free:[4], foundations:[[],[],[],[]], tableau:[[x8]], moves }
+  let history = [];       // snapshots for undo
+  let selection = null;   // { zone, col, slot, idx }
+  let gameNo = 1;
+  let won = false;
+  let elapsed = 0;
+  let timerId = null;
+  let started = false;
+  let lastClick = { key: null, time: 0 };
+
+  /* ============ SEEDED DEAL (Microsoft LCG shuffle) ============ */
+  function dealDeck(seed) {
+    const deck = [];
+    for (let s = 0; s < 4; s++) {
+      for (let r = 1; r <= 13; r++) {
+        deck.push({ id: s * 13 + r, suit: s, rank: r });
+      }
+    }
+    let st = (seed >>> 0) || 1;
+    for (let i = 0; i < deck.length; i++) {
+      st = (Math.imul(st, 214013) + 2531011) >>> 0;
+      const r = (st >>> 16) & 0x7fff;
+      const j = i + (r % (deck.length - i));
+      const tmp = deck[i]; deck[i] = deck[j]; deck[j] = tmp;
+    }
+    return deck;
+  }
+
+  /* ============ NEW GAME ============ */
+  function newGame(no) {
+    gameNo = (no != null && !isNaN(no)) ? Math.max(1, Math.floor(no)) : (Math.floor(Math.random() * 1000000) + 1);
+    localStorage.setItem("freecellGame", String(gameNo));
+
+    state = {
+      free: [null, null, null, null],
+      foundations: [[], [], [], []],
+      tableau: [[], [], [], [], [], [], [], []],
+      moves: 0
+    };
+    const deck = dealDeck(gameNo);
+    deck.forEach((card, i) => state.tableau[i % 8].push(card));
+
+    history = [];
+    selection = null;
+    won = false;
+    elapsed = 0;
+    started = false;
+    stopTimer();
+    gameInput.value = gameNo;
+    winScreen.classList.add("hidden");
+    render();
+    updateStats();
+  }
+
+  /* ============ RENDERING ============ */
+  function cardEl(card) {
+    const d = document.createElement("div");
+    d.className = "card " + (isRed(card) ? "red" : "black");
+    d.dataset.id = card.id;
+    const g = SUIT_GLYPH[SUITS[card.suit]];
+    d.innerHTML =
+      '<span class="corner"><span class="rk">' + RANKS[card.rank] + '</span>' +
+      '<span class="st">' + g + '</span></span>' +
+      '<span class="big">' + g + '</span>';
+    return d;
+  }
+
+  function render() {
+    // Free cells
+    for (let i = 0; i < 4; i++) {
+      const cell = freeRow.children[i];
+      cell.innerHTML = "";
+      const c = state.free[i];
+      if (c) {
+        const el = cardEl(c);
+        el.dataset.loc = "free-" + i;
+        cell.appendChild(el);
+      }
+    }
+    // Foundations
+    for (let s = 0; s < 4; s++) {
+      const cell = foundRow.children[s];
+      const pile = state.foundations[s];
+      const g = SUIT_GLYPH[SUITS[s]];
+      if (pile.length) {
+        cell.innerHTML = "";
+        const el = cardEl(pile[pile.length - 1]);
+        el.dataset.loc = "foundation-" + s;
+        cell.appendChild(el);
+      } else {
+        cell.innerHTML = '<span class="slotglyph">' + g + '</span>';
+      }
+    }
+    // Tableau
+    for (let col = 0; col < 8; col++) {
+      const c = tabRow.children[col];
+      c.innerHTML = "";
+      const t = state.tableau[col];
+      const n = t.length;
+      let off = baseOff;
+      if (n > 1) {
+        const avail = tabH - ch;
+        off = Math.min(baseOff, Math.max(11, Math.floor(avail / (n - 1))));
+      }
+      t.forEach((card, i) => {
+        const el = cardEl(card);
+        el.dataset.loc = "tab-" + col + "-" + i;
+        el.style.top = (i * off) + "px";
+        c.appendChild(el);
+      });
+    }
+    applyHighlight();
+  }
+
+  function applyHighlight() {
+    if (!selection) return;
+    const cards = cardsAt(selection);
+    if (!cards) return;
+    cards.forEach((card) => {
+      const el = board.querySelector('.card[data-id="' + card.id + '"]');
+      if (el) el.classList.add("selected");
+    });
+  }
+
+  /* ============ LOCATION HELPERS ============ */
+  function parseCardLoc(el) {
+    const p = el.dataset.loc.split("-");
+    if (p[0] === "free") return { zone: "free", slot: +p[1] };
+    if (p[0] === "foundation") return { zone: "foundation", slot: +p[1] };
+    if (p[0] === "tab") return { zone: "tab", col: +p[1], idx: +p[2] };
+    return null;
+  }
+  function parseDropLoc(el) {
+    const p = el.dataset.drop.split("-");
+    if (p[0] === "free") return { zone: "free", slot: +p[1] };
+    if (p[0] === "foundation") return { zone: "foundation", slot: +p[1] };
+    if (p[0] === "tab") return { zone: "tab", col: +p[1] };
+    return null;
+  }
+
+  // Valid descending alternating run starting at idx (tableau), or null.
+  function runFromTab(col, idx) {
+    const t = state.tableau[col];
+    if (idx < 0 || idx >= t.length) return null;
+    for (let i = idx; i < t.length - 1; i++) {
+      const a = t[i], b = t[i + 1];
+      if (b.rank !== a.rank - 1 || isRed(a) === isRed(b)) return null;
+    }
+    return t.slice(idx);
+  }
+
+  // Cards represented by a location (array) or null.
+  function cardsAt(loc) {
+    if (!loc || !state) return null;
+    if (loc.zone === "tab") return runFromTab(loc.col, loc.idx);
+    if (loc.zone === "free") {
+      const c = state.free[loc.slot];
+      return c ? [c] : null;
+    }
+    if (loc.zone === "foundation") {
+      const f = state.foundations[loc.slot];
+      return f.length ? [f[f.length - 1]] : null;
+    }
+    return null;
+  }
+
+  /* ============ RULES ============ */
+  function canPlaceOnTableau(card, col) {
+    const t = state.tableau[col];
+    if (t.length === 0) return true;
+    const top = t[t.length - 1];
+    return top.rank === card.rank + 1 && isRed(top) !== isRed(card);
+  }
+  function canPlaceOnFoundation(card, slot) {
+    return card.suit === slot && state.foundations[slot].length + 1 === card.rank;
+  }
+  function maxMoveFor(destCol) {
+    const freeCount = state.free.filter((x) => !x).length;
+    let emptyCount = state.tableau.filter((c) => c.length === 0).length;
+    if (state.tableau[destCol].length === 0) emptyCount = Math.max(0, emptyCount - 1);
+    return (freeCount + 1) * Math.pow(2, emptyCount);
+  }
+
+  /* ============ HISTORY / UNDO ============ */
+  function snapshot() {
+    return {
+      free: state.free.slice(),
+      foundations: state.foundations.map((f) => f.slice()),
+      tableau: state.tableau.map((t) => t.slice()),
+      moves: state.moves
+    };
+  }
+  function pushHistory() { history.push(snapshot()); }
+  function undo() {
+    if (!history.length) { sfxBad(); return; }
+    const s = history.pop();
+    state.free = s.free;
+    state.foundations = s.foundations;
+    state.tableau = s.tableau;
+    state.moves = s.moves;
+    selection = null;
+    won = false;
+    winScreen.classList.add("hidden");
+    render();
+    updateStats();
+    beep(420, 0.05, "square");
+  }
+
+  /* ============ MOVE EXECUTION ============ */
+  function removeFromSource(from, n) {
+    if (from.zone === "tab") state.tableau[from.col].splice(from.idx, n);
+    else if (from.zone === "free") state.free[from.slot] = null;
+    else if (from.zone === "foundation") state.foundations[from.slot].pop();
+  }
+  function addToDest(to, cards) {
+    if (to.zone === "tab") state.tableau[to.col].push.apply(state.tableau[to.col], cards);
+    else if (to.zone === "free") state.free[to.slot] = cards[0];
+    else if (to.zone === "foundation") state.foundations[to.slot].push(cards[0]);
+  }
+
+  // Returns true if a legal move was performed.
+  function attemptMove(from, to) {
+    if (!from || !to) return false;
+    const cards = cardsAt(from);
+    if (!cards || !cards.length) return false;
+
+    // Tableau destination
+    if (to.zone === "tab") {
+      if (from.zone === "tab" && from.col === to.col) return false;
+      if (cards.length > maxMoveFor(to.col)) { sfxBad(); return false; }
+      if (!canPlaceOnTableau(cards[0], to.col)) return false;
+      pushHistory();
+      removeFromSource(from, cards.length);
+      addToDest(to, cards);
+      commitMove(false);
+      return true;
+    }
+
+    // Single-card destinations
+    if (cards.length !== 1) { sfxBad(); return false; }
+    const card = cards[0];
+
+    if (to.zone === "free") {
+      if (from.zone === "free" && from.slot === to.slot) return false;
+      if (state.free[to.slot]) return false;
+      pushHistory();
+      removeFromSource(from, 1);
+      addToDest(to, cards);
+      commitMove(false);
+      return true;
+    }
+
+    if (to.zone === "foundation") {
+      if (from.zone === "foundation" && from.slot === to.slot) return false;
+      if (!canPlaceOnFoundation(card, to.slot)) return false;
+      pushHistory();
+      removeFromSource(from, 1);
+      addToDest(to, cards);
+      commitMove(true);
+      return true;
+    }
+    return false;
+  }
+
+  function commitMove(toFoundation) {
+    state.moves++;
+    if (!started) startTimer();
+    selection = null;
+    if (toFoundation) sfxPlace(); else sfxMove();
+    render();
+    updateStats();
+    lastClick = { key: null, time: 0 };
+    checkWin();
+  }
+
+  /* ============ CLICK / DOUBLE-CLICK ============ */
+  function handleSingleClick(loc) {
+    // Try moving current selection to clicked location.
+    if (selection) {
+      if (attemptMove(selection, loc)) return;
+    }
+    // Otherwise (re)select if a movable card is there.
+    const cards = cardsAt(loc);
+    if (cards && cards.length) {
+      selection = {
+        zone: loc.zone,
+        col: loc.col,
+        slot: loc.slot,
+        idx: (loc.zone === "tab") ? loc.idx : undefined
+      };
+    } else {
+      selection = null;
+    }
+    render();
+  }
+
+  function handleDoubleClick(loc) {
+    const cards = cardsAt(loc);
+    if (!cards || cards.length !== 1) { sfxBad(); selection = null; render(); return; }
+    const card = cards[0];
+    if (!attemptMove(loc, { zone: "foundation", slot: card.suit })) {
+      sfxBad();
+      selection = null;
+      render();
+    }
+  }
+
+  function onClick(el) {
+    const cardElm = el.closest && el.closest(".card");
+    const dropElm = el.closest && el.closest("[data-drop]");
+    let loc = null;
+    if (cardElm) loc = parseCardLoc(cardElm);
+    else if (dropElm) loc = parseDropLoc(dropElm);
+    if (!loc) { selection = null; render(); return; }
+
+    const key = loc.zone + (loc.col != null ? loc.col : "") + (loc.slot != null ? loc.slot : "") + (loc.idx != null ? loc.idx : "");
+    const now = performance.now();
+    if (lastClick.key === key && now - lastClick.time < 320) {
+      lastClick = { key: null, time: 0 };
+      handleDoubleClick(loc);
+      return;
+    }
+    lastClick = { key: key, time: now };
+    handleSingleClick(loc);
+  }
+
+  /* ============ DRAG & DROP (pointer events) ============ */
+  let drag = null;
+
+  function beginDrag(e) {
+    drag.active = true;
+    const cards = drag.cards;
+
+    const ghost = document.createElement("div");
+    ghost.className = "ghost";
+    const off = Math.round(ch * 0.30);
+    drag.cards.forEach((card, i) => {
+      const src = board.querySelector('.card[data-id="' + card.id + '"]');
+      if (!src) return;
+      const clone = src.cloneNode(true);
+      clone.classList.remove("selected");
+      clone.style.top = (i * off) + "px";
+      ghost.appendChild(clone);
+    });
+    dragLayer.innerHTML = "";
+    dragLayer.appendChild(ghost);
+    drag.ghost = ghost;
+
+    // grab offset from the first card's rect
+    const first = board.querySelector('.card[data-id="' + cards[0].id + '"]');
+    const r = first.getBoundingClientRect();
+    drag.grabX = drag.startX - r.left;
+    drag.grabY = drag.startY - r.top;
+
+    // hide originals
+    cards.forEach((card) => {
+      const src = board.querySelector('.card[data-id="' + card.id + '"]');
+      if (src) src.classList.add("dragging");
+    });
+    moveGhost(e.clientX, e.clientY);
+  }
+
+  function moveGhost(x, y) {
+    if (!drag || !drag.ghost) return;
+    drag.ghost.style.transform = "translate(" + (x - drag.grabX) + "px," + (y - drag.grabY) + "px)";
+  }
+
+  function zoneAtPoint(x, y) {
+    const stack = document.elementsFromPoint ? document.elementsFromPoint(x, y) : [];
+    for (let i = 0; i < stack.length; i++) {
+      const d = stack[i].closest && stack[i].closest("[data-drop]");
+      if (d) return parseDropLoc(d);
+    }
+    return null;
+  }
+
+  function endDrag(x, y) {
+    const target = zoneAtPoint(x, y);
+    let ok = false;
+    if (target) ok = attemptMove(drag.from, target);
+    dragLayer.innerHTML = "";
+    if (!ok) {
+      // restore original visibility
+      render();
+      selection = null;
+    }
+    drag.active = false;
+  }
+
+  function onPointerDown(e) {
+    if (won) return;
+    const cardElm = e.target.closest && e.target.closest(".card");
+    const dropElm = e.target.closest && e.target.closest("[data-drop]");
+    let loc = null, cards = null;
+    if (cardElm) {
+      loc = parseCardLoc(cardElm);
+      cards = cardsAt(loc);
+    }
+    drag = {
+      active: false,
+      startX: e.clientX,
+      startY: e.clientY,
+      from: loc,
+      cards: cards,
+      ghost: null,
+      grabX: 0,
+      grabY: 0
+    };
+    if (dropElm || cardElm) e.preventDefault();
+    try { board.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+  }
+
+  function onPointerMove(e) {
+    if (!drag) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    if (!drag.active && drag.cards && (dx * dx + dy * dy) > 36) {
+      beginDrag(e);
+    }
+    if (drag.active) moveGhost(e.clientX, e.clientY);
+  }
+
+  function onPointerUp(e) {
+    if (!drag) return;
+    if (drag.active) {
+      endDrag(e.clientX, e.clientY);
+    } else {
+      onClick(e.target);
+    }
+    drag = null;
+    try { board.releasePointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+  }
+
+  board.addEventListener("pointerdown", onPointerDown);
+  window.addEventListener("pointermove", onPointerMove);
+  window.addEventListener("pointerup", onPointerUp);
+  window.addEventListener("pointercancel", function () {
+    if (drag && drag.active) { dragLayer.innerHTML = ""; render(); }
+    drag = null;
+  });
+
+  /* ============ TIMER ============ */
+  function startTimer() {
+    if (started || won) return;
+    started = true;
+    timerId = setInterval(function () {
+      elapsed++;
+      updateStats();
+    }, 1000);
+  }
+  function stopTimer() {
+    if (timerId) { clearInterval(timerId); timerId = null; }
+  }
+  function formatTime(s) {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return m + ":" + (sec < 10 ? "0" : "") + sec;
+  }
+
+  /* ============ STATS DISPLAY ============ */
+  function updateStats() {
+    movesEl.textContent = state ? String(state.moves) : "0";
+    timeEl.textContent = formatTime(elapsed);
+    gameEl.textContent = "#" + gameNo;
+    winsEl.textContent = String(totalWins);
+    bestEl.textContent = bestTime > 0 ? formatTime(bestTime) : "—";
+  }
+
+  /* ============ WIN CHECK ============ */
+  function checkWin() {
+    for (let s = 0; s < 4; s++) {
+      if (state.foundations[s].length !== 13) return;
+    }
+    won = true;
+    stopTimer();
+    totalWins++;
+    localStorage.setItem("freecellWins", String(totalWins));
+    if (bestTime === 0 || elapsed < bestTime) {
+      bestTime = elapsed;
+      localStorage.setItem("freecellBestTime", String(bestTime));
+    }
+    winStats.innerHTML =
+      "Game <b>#" + gameNo + "</b><br>" +
+      "Time: <b>" + formatTime(elapsed) + "</b><br>" +
+      "Moves: <b>" + state.moves + "</b><br>" +
+      "Total wins: <b>" + totalWins + "</b> &nbsp;·&nbsp; Best: <b>" + formatTime(bestTime) + "</b>";
+    winScreen.classList.remove("hidden");
+    updateStats();
+    sfxWin();
+  }
+
+  /* ============ BUTTONS ============ */
+  btnStart.addEventListener("click", function () {
+    startScreen.classList.add("hidden");
+    beep(700, 0.08, "triangle");
+  });
+  btnNew.addEventListener("click", function () { newGame(null); });
+  btnRestart.addEventListener("click", function () { newGame(gameNo); });
+  btnUndo.addEventListener("click", undo);
+  btnWin.addEventListener("click", function () { newGame(null); });
+  btnDeal.addEventListener("click", function () {
+    const v = parseInt(gameInput.value, 10);
+    newGame(isNaN(v) ? null : v);
+  });
+  gameInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const v = parseInt(gameInput.value, 10);
+      newGame(isNaN(v) ? null : v);
+      gameInput.blur();
+    }
+  });
+
+  /* ============ KEYBOARD ============ */
+  document.addEventListener("keydown", function (e) {
+    const tag = (e.target.tagName || "").toLowerCase();
+    if (tag === "input") return;
+    const k = e.key.toLowerCase();
+    if (k === "u") { e.preventDefault(); undo(); }
+    else if (k === "n") { e.preventDefault(); newGame(null); }
+    else if (k === "r") { e.preventDefault(); newGame(gameNo); }
+    else if (k === "escape") { selection = null; render(); }
+  });
+
+  /* ============ BOOT ============ */
+  function buildTableauCols() {
+    tabRow.innerHTML = "";
+    for (let i = 0; i < 8; i++) {
+      const c = document.createElement("div");
+      c.className = "col";
+      c.dataset.drop = "tab-" + i;
+      tabRow.appendChild(c);
+    }
+  }
+
+  let resizeTimer = null;
+  window.addEventListener("resize", function () {
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () {
+      computeLayout();
+      if (state) render();
+    }, 120);
+  });
+
+  function boot() {
+    buildTableauCols();
+    computeLayout();
+    const saved = parseInt(localStorage.getItem("freecellGame"), 10);
+    newGame(isNaN(saved) ? (Math.floor(Math.random() * 1000000) + 1) : saved);
+    updateStats();
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>

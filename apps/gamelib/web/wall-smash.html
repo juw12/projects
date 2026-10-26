@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>WALL SMASH</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      min-height: 100%;
+      background:
+        radial-gradient(ellipse at 15% 0%, #3a1600 0%, transparent 55%),
+        radial-gradient(ellipse at 85% 100%, #00202e 0%, transparent 60%),
+        #0a0602;
+      color: #ffe9cf;
+      font-family: "Impact", "Haettenschweiler", "Arial Narrow", sans-serif;
+      overflow: hidden;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    body {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 12px; min-height: 100vh;
+    }
+
+    /* ============ APP / HEADER ============ */
+    #app {
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      width: min(96vw, 540px);
+    }
+    .header { text-align: center; width: 100%; }
+    .header h1 {
+      font-size: clamp(1.8rem, 7vw, 2.8rem);
+      letter-spacing: 8px; font-weight: 900; color: #fff; line-height: 1;
+      text-shadow: 0 2px 0 #c2410c, 0 0 10px #ff8a00, 0 0 26px #ff4500;
+      margin-bottom: 6px;
+    }
+    .header .hint {
+      font-family: "Courier New", monospace;
+      font-size: clamp(10px, 2.3vw, 12px); color: #ffcb9a; letter-spacing: 1px;
+      text-shadow: 0 0 4px rgba(255, 150, 40, 0.5);
+    }
+
+    /* ============ HUD ============ */
+    #hud {
+      display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;
+      width: 100%; padding: 8px 8px;
+      background: linear-gradient(135deg, rgba(60, 20, 0, 0.6), rgba(0, 40, 55, 0.6));
+      border: 1px solid rgba(255, 170, 80, 0.35); border-radius: 10px;
+      box-shadow: 0 0 18px rgba(255, 120, 0, 0.2) inset;
+    }
+    #hud .stat { text-align: center; }
+    #hud .label {
+      display: block; font-family: "Courier New", monospace;
+      font-size: clamp(8px, 1.9vw, 10px); color: #ff9d3c; letter-spacing: 1px; margin-bottom: 2px;
+    }
+    #hud .value {
+      display: block; font-size: clamp(13px, 3.4vw, 18px); font-weight: 900; color: #fff; letter-spacing: 1px;
+      text-shadow: 0 0 6px #ff8a00, 0 0 14px #ff4500;
+    }
+    #hud .value.combo { color: #fff2a8; text-shadow: 0 0 6px #ffd000, 0 0 14px #ff9500; }
+    #hud .value.smash { color: #7dffd8; text-shadow: 0 0 6px #00ffc8, 0 0 14px #00b3a0; }
+
+    /* ============ GAME STAGE ============ */
+    #stage {
+      position: relative; width: 100%; border-radius: 12px; overflow: hidden;
+      box-shadow: 0 0 24px rgba(255, 120, 0, 0.35), 0 0 60px rgba(0, 200, 220, 0.15);
+      border: 1px solid rgba(255, 160, 70, 0.45);
+    }
+    canvas { display: block; width: 100%; height: auto; background: #070302; }
+
+    /* ============ OVERLAYS ============ */
+    .overlay {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      gap: 12px; padding: 20px;
+      background: rgba(10, 5, 2, 0.82);
+      backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+      transition: opacity 0.25s ease; text-align: center;
+    }
+    .overlay.hidden { opacity: 0; pointer-events: none; }
+    .overlay h2 {
+      font-size: clamp(1.6rem, 6vw, 2.6rem); letter-spacing: 5px; color: #fff; font-weight: 900;
+      text-shadow: 0 2px 0 #c2410c, 0 0 10px #ff8a00, 0 0 24px #ff4500;
+    }
+    .overlay p {
+      font-family: "Courier New", monospace;
+      font-size: clamp(11px, 2.5vw, 13px); letter-spacing: 1px; color: #ffcb9a;
+      max-width: 340px; line-height: 1.5;
+    }
+    .overlay .big {
+      font-size: clamp(1rem, 3.6vw, 1.35rem); color: #fff; letter-spacing: 3px; font-weight: 900;
+      text-shadow: 0 0 8px #00ffc8, 0 0 16px #00b3a0;
+    }
+    .overlay .big.score { text-shadow: 0 0 8px #ff8a00, 0 0 16px #ff4500; }
+    .diff-label {
+      font-family: "Courier New", monospace;
+      font-size: 0.82em; letter-spacing: 2px; color: #ff9d3c; margin-top: 4px;
+    }
+    #difficulty { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+    #difficulty button {
+      font-family: "Courier New", monospace; font-size: 12px; font-weight: bold; letter-spacing: 2px;
+      padding: 8px 16px;
+      border: 1px solid rgba(255, 170, 80, 0.55);
+      background: rgba(40, 16, 0, 0.6); color: #ffd8b0; border-radius: 18px;
+      cursor: pointer; transition: all 0.15s ease;
+    }
+    #difficulty button:hover { background: rgba(90, 35, 0, 0.7); color: #fff; transform: translateY(-1px); }
+    #difficulty button.active {
+      background: linear-gradient(135deg, #ff8a00, #c2410c); color: #fff;
+      border-color: #ffb060; box-shadow: 0 0 14px rgba(255, 120, 0, 0.55);
+    }
+
+    /* ============ ACTION BUTTONS ============ */
+    .action-btn {
+      font-family: inherit; font-size: 16px; font-weight: 900; letter-spacing: 4px;
+      padding: 12px 30px; border: none; border-radius: 28px; cursor: pointer;
+      color: #fff; background: linear-gradient(135deg, #ff9500, #e2451a);
+      box-shadow: 0 0 18px rgba(255, 130, 0, 0.5), 0 4px 0 rgba(0, 0, 0, 0.45);
+      transition: transform 0.1s ease, box-shadow 0.15s ease;
+    }
+    .action-btn:hover { box-shadow: 0 0 26px rgba(255, 130, 0, 0.85), 0 4px 0 rgba(0, 0, 0, 0.45); transform: translateY(-1px); }
+    .action-btn:active { transform: translateY(2px); box-shadow: 0 0 12px rgba(255, 130, 0, 0.6), 0 1px 0 rgba(0, 0, 0, 0.45); }
+
+    /* ============ CONTROL BAR ============ */
+    #controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 10px; width: 100%; }
+    #controls button {
+      font-family: "Courier New", monospace; font-size: 12px; font-weight: bold; letter-spacing: 2px;
+      padding: 9px 16px;
+      border: 1px solid rgba(255, 170, 80, 0.45);
+      background: rgba(50, 22, 0, 0.6); color: #ffd8b0; border-radius: 8px;
+      cursor: pointer; transition: all 0.15s ease; box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
+    }
+    #controls button:hover { background: rgba(90, 40, 0, 0.75); color: #fff; box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35), 0 0 14px rgba(255, 130, 0, 0.4); }
+    #controls button:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35); }
+    #btn-smash {
+      border-color: rgba(0, 255, 200, 0.6) !important;
+      background: rgba(0, 55, 45, 0.65) !important; color: #b6ffea !important;
+      text-shadow: 0 0 6px rgba(0, 255, 200, 0.6);
+    }
+    #btn-smash:hover { background: rgba(0, 95, 80, 0.85) !important; color: #fff !important; }
+    #btn-smash.ready { animation: smashPulse 1s ease-in-out infinite; }
+    @keyframes smashPulse {
+      0%, 100% { box-shadow: 0 3px 0 rgba(0,0,0,0.35), 0 0 8px rgba(0, 255, 200, 0.4); }
+      50% { box-shadow: 0 3px 0 rgba(0,0,0,0.35), 0 0 20px rgba(0, 255, 200, 0.95); }
+    }
+    #btn-restart { border-color: rgba(255, 120, 120, 0.55); background: rgba(70, 0, 20, 0.55); color: #ffd0d8; }
+    #btn-restart:hover { background: rgba(130, 0, 40, 0.75); color: #fff; }
+
+    /* ============ PAUSE BANNER ============ */
+    #pauseBanner {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      background: rgba(10, 5, 2, 0.6);
+      backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+      opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+      letter-spacing: 10px; font-size: clamp(1.8rem, 8vw, 3rem); color: #fff; font-weight: 900;
+      text-shadow: 0 0 12px #ff8a00, 0 0 28px #ff4500;
+    }
+    #pauseBanner.visible { opacity: 1; }
+    #pauseBanner span {
+      display: block; font-family: "Courier New", monospace;
+      font-size: 0.34em; letter-spacing: 4px; margin-top: 12px; color: #ffcb9a;
+    }
+
+    /* ============ TOAST ============ */
+    #toast {
+      position: absolute; left: 50%; top: 78px; transform: translateX(-50%);
+      font-size: clamp(0.9rem, 3.4vw, 1.3rem); font-weight: 900; letter-spacing: 3px;
+      color: #b6ffea; text-shadow: 0 0 8px #00ffc8, 0 0 18px #00b3a0;
+      opacity: 0; pointer-events: none; transition: opacity 0.25s ease; white-space: nowrap;
+    }
+    #toast.visible { opacity: 1; }
+
+    @media (max-width: 420px) { #hud .label { letter-spacing: 0; } }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- ============ HEADER ============ -->
+    <div class="header">
+      <h1>WALL SMASH</h1>
+      <div class="hint">MOVE: mouse / touch / &larr; &rarr; &nbsp;|&nbsp; LAUNCH: space &nbsp;|&nbsp; SMASH: S &nbsp;|&nbsp; P pause &nbsp;|&nbsp; R restart</div>
+    </div>
+
+    <!-- ============ HUD ============ -->
+    <div id="hud">
+      <div class="stat"><span class="label">SCORE</span><span class="value" id="scoreVal">0</span></div>
+      <div class="stat"><span class="label">LIVES</span><span class="value" id="livesVal">3</span></div>
+      <div class="stat"><span class="label">COMBO</span><span class="value combo" id="comboVal">0</span></div>
+      <div class="stat"><span class="label">SMASH</span><span class="value smash" id="smashVal">0</span></div>
+      <div class="stat"><span class="label">LEVEL</span><span class="value" id="levelVal">1</span></div>
+    </div>
+
+    <!-- ============ STAGE / CANVAS ============ -->
+    <div id="stage">
+      <canvas id="game" width="480" height="720"></canvas>
+      <div id="toast"></div>
+
+      <!-- Start Overlay -->
+      <div id="startOverlay" class="overlay">
+        <h2>WALL SMASH</h2>
+        <p>Every brick you break makes the ball <b>faster</b>. Chain bricks without touching the paddle to build a <b>COMBO</b> — every 5 in a row charges a <b>SMASH</b> that demolishes an entire row.</p>
+        <div class="diff-label">DIFFICULTY</div>
+        <div id="difficulty">
+          <button type="button" data-diff="easy">EASY</button>
+          <button type="button" data-diff="normal" class="active">NORMAL</button>
+          <button type="button" data-diff="hard">HARD</button>
+        </div>
+        <button class="action-btn" id="startBtn" type="button">START</button>
+      </div>
+
+      <!-- Game Over Overlay -->
+      <div id="overOverlay" class="overlay hidden">
+        <h2 id="overTitle">DEMOLISHED</h2>
+        <div class="big score">SCORE <span id="finalScore">0</span></div>
+        <div class="big">BEST <span id="bestScore">0</span></div>
+        <p id="overHint">Tap PLAY or press R to rebuild the wall.</p>
+        <button class="action-btn" id="playAgainBtn" type="button">PLAY AGAIN</button>
+      </div>
+
+      <!-- Pause Banner -->
+      <div id="pauseBanner">PAUSED<span>Press P or Resume to continue</span></div>
+    </div>
+
+    <!-- ============ CONTROL BAR ============ -->
+    <div id="controls">
+      <button id="btn-smash" type="button">SMASH!</button>
+      <button id="btn-pause" type="button">PAUSE</button>
+      <button id="btn-restart" type="button">RESTART</button>
+    </div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CANVAS & CONSTANTS ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;
+  const H = canvas.height;
+  const PAD_X = 14;            // side wall thickness
+  const TOP_OFFSET = 92;       // ceiling line
+  const PADDLE_OFFSET = 40;
+  const PADDLE_W_BASE = 92;
+  const PADDLE_H = 13;
+  const PADDLE_SPEED = 9;
+  const BALL_R = 7;
+  const SMASH_MAX = 3;         // max stored smash charges
+  const COMBO_STEP = 5;        // consecutive bricks per charge
+  const SPEED_PER_HIT = 0.055; // ball accelerates each brick
+  const SPEED_MAX = 15.5;
+
+  // ============ DIFFICULTY PRESETS ============
+  const DIFFICULTY = {
+    easy:   { startSpeed: 5.0, lives: 4, scale: 1.03 },
+    normal: { startSpeed: 5.8, lives: 3, scale: 1.06 },
+    hard:   { startSpeed: 6.8, lives: 2, scale: 1.09 }
+  };
+  const DIFF_LABEL = { easy: "Easy", normal: "Normal", hard: "Hard" };
+  let diff = (function () {
+    try { const s = localStorage.getItem("wallSmashDiff"); return (s && DIFFICULTY[s]) ? s : "normal"; }
+    catch (e) { return "normal"; }
+  })();
+
+  // ============ WALL THEMES (shift every level) ============
+  const THEMES = [
+    { name: "KILN YARD",   bg1: "#1c0d02", bg2: "#050201", wall: "#ff6b1c",
+      palette: ["#ff3d00", "#ff6b1c", "#ff9500", "#ffc400", "#ffe066"] },
+    { name: "GLACIER WALL", bg1: "#021824", bg2: "#010608", wall: "#39d9ff",
+      palette: ["#00e1ff", "#3aa0ff", "#7dffd8", "#b6f2ff", "#cfeffd"] },
+    { name: "TOXIC BLOCKS", bg1: "#0d1c02", bg2: "#020501", wall: "#8bff3d",
+      palette: ["#3dff00", "#8bff3d", "#b6ff7a", "#d8ff5e", "#fff35e"] },
+    { name: "EMBER CITY",   bg1: "#20020d", bg2: "#050103", wall: "#ff3d7f",
+      palette: ["#ff2d6f", "#ff44d8", "#a04bff", "#ff6b1c", "#ffd400"] },
+    { name: "VOID STEEL",   bg1: "#0b0b16", bg2: "#020207", wall: "#9db4d6",
+      palette: ["#7d90ad", "#a9bcd8", "#d4e0f2", "#5a6b86", "#ff9500"] }
+  ];
+
+  // ============ ROW LAYOUTS (bit patterns reused across levels) ============
+  // '1' = brick, '.' = empty. 10 columns wide.
+  const LAYOUTS = [
+    "1111111111\n1111111111\n1111111111\n1111111111\n1111111111\n1111111111",
+    "..111111..\n.11111111.\n1111111111\n1111111111\n.11111111.\n..111111..",
+    "1.1.1.1.1.\n.1.1.1.1.1\n11.11.11.1\n1.1.1.1.1.\n.1.1.1.1.1\n1111111111",
+    "1111111111\n1........1\n1.111111.1\n1.1....1.1\n1.111111.1\n1111111111",
+    "....11....\n...1111...\n..111111..\n.11111111.\n1111111111\n1111111111"
+  ];
+
+  const BRICK_ROWS = 6;
+  const BRICK_COLS = 10;
+  const BRICK_GAP = 4;
+  const BRICK_TOP = 58;
+
+  // ============ STATE ============
+  const STATE = { READY: 0, PLAYING: 1, OVER: 2 };
+  let state = STATE.READY;
+  let paused = false;
+  let score = 0;
+  let lives = DIFFICULTY[diff].lives;
+  let level = 1;
+  let combo = 0;
+  let smashCharges = 0;
+  let shake = 0;
+  let frames = 0;
+  let best = (function () {
+    try { return Number(localStorage.getItem("wallSmashBest") || 0); }
+    catch (e) { return 0; }
+  })();
+
+  const ball = { x: W / 2, y: 0, vx: 0, vy: 0, speed: 0, stuck: true };
+  const paddle = { x: W / 2, y: 0, w: PADDLE_W_BASE, h: PADDLE_H };
+
+  let brickW = 0, brickH = 18;
+  let bricks = [];
+  let particles = [];
+  let debris = [];
+
+  // ============ DOM REFS ============
+  const scoreEl = document.getElementById("scoreVal");
+  const livesEl = document.getElementById("livesVal");
+  const comboEl = document.getElementById("comboVal");
+  const smashEl = document.getElementById("smashVal");
+  const levelEl = document.getElementById("levelVal");
+  const finalScoreEl = document.getElementById("finalScore");
+  const bestScoreEl = document.getElementById("bestScore");
+  const startOverlay = document.getElementById("startOverlay");
+  const overOverlay = document.getElementById("overOverlay");
+  const overTitle = document.getElementById("overTitle");
+  const overHint = document.getElementById("overHint");
+  const pauseBanner = document.getElementById("pauseBanner");
+  const toastEl = document.getElementById("toast");
+  const startBtn = document.getElementById("startBtn");
+  const playAgainBtn = document.getElementById("playAgainBtn");
+  const btnSmash = document.getElementById("btn-smash");
+  const btnPause = document.getElementById("btn-pause");
+  const btnRestart = document.getElementById("btn-restart");
+  const diffButtons = Array.prototype.slice.call(document.querySelectorAll("#difficulty button"));
+
+  // ============ AUDIO (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(typeof vol === "number" ? vol : 0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+  const SFX = {
+    paddle: () => beep(360, 0.05, "square", 0.04),
+    brick:  () => beep(620 + Math.random() * 120, 0.05, "square", 0.05),
+    wall:   () => beep(200, 0.04, "triangle", 0.035),
+    life:   () => { beep(220, 0.16, "sawtooth", 0.06); setTimeout(() => beep(130, 0.22, "sawtooth", 0.06), 90); },
+    level:  () => { beep(523, 0.09, "triangle", 0.06); setTimeout(() => beep(659, 0.09, "triangle", 0.06), 90); setTimeout(() => beep(880, 0.14, "triangle", 0.06), 180); },
+    charge: () => { beep(700, 0.06, "sine", 0.06); setTimeout(() => beep(1050, 0.10, "sine", 0.06), 70); },
+    smash:  () => { beep(120, 0.28, "sawtooth", 0.09); setTimeout(() => beep(80, 0.3, "square", 0.08), 60); },
+    launch: () => beep(680, 0.06, "square", 0.05)
+  };
+
+  function theme() { return THEMES[(level - 1) % THEMES.length]; }
+
+  // ============ LAYOUT / INIT ============
+  function recomputeLayout() {
+    brickW = (W - PAD_X * 2 - BRICK_GAP * (BRICK_COLS - 1)) / BRICK_COLS;
+    brickH = Math.max(15, Math.floor(brickW * 0.44));
+    paddle.y = H - PADDLE_OFFSET - paddle.h;
+  }
+
+  function buildBricks(layoutIdx) {
+    bricks = [];
+    const layout = LAYOUTS[layoutIdx % LAYOUTS.length];
+    const rows = layout.split("\n");
+    const pal = theme().palette;
+    for (let r = 0; r < BRICK_ROWS; r++) {
+      const rowStr = rows[r] || "";
+      for (let c = 0; c < BRICK_COLS; c++) {
+        if (rowStr.charAt(c) !== "1") continue;
+        bricks.push({
+          x: PAD_X + c * (brickW + BRICK_GAP),
+          y: BRICK_TOP + r * (brickH + BRICK_GAP),
+          w: brickW, h: brickH, row: r, alive: true,
+          color: pal[r % pal.length],
+          hp: (level >= 3 && r < 2) ? 2 : 1
+        });
+      }
+    }
+  }
+
+  function resetBallAndPaddle() {
+    paddle.w = PADDLE_W_BASE;
+    paddle.x = W / 2;
+    recomputeLayout();
+    ball.x = paddle.x;
+    ball.y = paddle.y - BALL_R - 2;
+    ball.speed = DIFFICULTY[diff].startSpeed * Math.pow(DIFFICULTY[diff].scale, level - 1);
+    ball.stuck = true;
+    ball.vx = 0; ball.vy = 0;
+  }
+
+  function launchBall() {
+    if (!ball.stuck) return;
+    const angle = (-Math.PI / 2) + (Math.random() - 0.5) * 0.6;
+    let vx = Math.cos(angle) * ball.speed;
+    let vy = Math.sin(angle) * ball.speed;
+    if (vy > 0) vy = -Math.abs(vy);
+    ball.vx = vx; ball.vy = vy;
+    ball.stuck = false;
+    SFX.launch();
+  }
+
+  // ============ RESET / START / OVER ============
+  function fullReset() {
+    score = 0; combo = 0; smashCharges = 0; shake = 0; frames = 0;
+    lives = DIFFICULTY[diff].lives;
+    level = 1;
+    particles = []; debris = [];
+    recomputeLayout();
+    buildBricks(0);
+    resetBallAndPaddle();
+    syncHud();
+  }
+
+  function startGame() {
+    fullReset();
+    state = STATE.PLAYING;
+    paused = false;
+    startOverlay.classList.add("hidden");
+    overOverlay.classList.add("hidden");
+    pauseBanner.classList.remove("visible");
+    btnPause.textContent = "PAUSE";
+    syncHud();
+    showToast(theme().name, 1200);
+  }
+
+  function gameOver(win) {
+    if (state === STATE.OVER) return;
+    state = STATE.OVER;
+    if (score > best) {
+      best = score;
+      try { localStorage.setItem("wallSmashBest", String(best)); } catch (e) {}
+    }
+    overTitle.textContent = win ? "WALLS CONQUERED" : "DEMOLISHED";
+    overHint.textContent = win
+      ? "You smashed through every wall layout in the set."
+      : "The ball dropped past your paddle. Rebuild and try again.";
+    finalScoreEl.textContent = String(score);
+    bestScoreEl.textContent = String(best);
+    overOverlay.classList.remove("hidden");
+    btnPause.textContent = "PAUSE";
+    win ? SFX.level() : SFX.life();
+  }
+
+  function nextLevel() {
+    level++;
+    particles = []; debris = [];
+    combo = 0;
+    buildBricks(level - 1);
+    resetBallAndPaddle();
+    syncHud();
+    SFX.level();
+    showToast(theme().name, 1400);
+  }
+
+  function loseLife() {
+    lives--;
+    combo = 0;
+    syncHud();
+    SFX.life();
+    if (lives <= 0) { gameOver(false); return; }
+    resetBallAndPaddle();
+  }
+
+  function syncHud() {
+    scoreEl.textContent = String(score);
+    livesEl.textContent = String(Math.max(0, lives));
+    comboEl.textContent = String(combo);
+    smashEl.textContent = smashCharges + "/" + SMASH_MAX;
+    levelEl.textContent = String(level);
+    bestScoreEl.textContent = String(best);
+    btnSmash.classList.toggle("ready", smashCharges > 0);
+  }
+
+  let toastTimer = null;
+  function showToast(text, ms) {
+    toastEl.textContent = text;
+    toastEl.classList.add("visible");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("visible"); }, ms || 1200);
+  }
+
+  function togglePause() {
+    if (state !== STATE.PLAYING) return;
+    paused = !paused;
+    pauseBanner.classList.toggle("visible", paused);
+    btnPause.textContent = paused ? "RESUME" : "PAUSE";
+    beep(paused ? 400 : 640, 0.06, "triangle", 0.04);
+  }
+
+  function setDifficulty(d) {
+    if (!DIFFICULTY[d]) return;
+    diff = d;
+    try { localStorage.setItem("wallSmashDiff", d); } catch (e) {}
+    syncDiffButtons();
+    fullReset();
+    state = STATE.READY;
+    startOverlay.classList.remove("hidden");
+    overOverlay.classList.add("hidden");
+    pauseBanner.classList.remove("visible");
+    paused = false;
+    btnPause.textContent = "PAUSE";
+  }
+
+  function syncDiffButtons() {
+    diffButtons.forEach(function (b) { b.classList.toggle("active", b.dataset.diff === diff); });
+  }
+
+  // ============ SMASH CHARGE (signature mechanic) ============
+  // Destroys the lowest remaining row of bricks in one blast.
+  function doSmash() {
+    if (state !== STATE.PLAYING || paused) return;
+    if (smashCharges <= 0) { showToast("NO CHARGE", 700); beep(160, 0.08, "square", 0.04); return; }
+
+    // Find the lowest (largest y) row that still has alive bricks.
+    let targetRow = -1;
+    for (let i = 0; i < bricks.length; i++) {
+      if (bricks[i].alive && bricks[i].row > targetRow) targetRow = bricks[i].row;
+    }
+    if (targetRow < 0) return;
+
+    smashCharges--;
+    shake = 16;
+    SFX.smash();
+
+    let broken = 0;
+    for (let i = 0; i < bricks.length; i++) {
+      const b = bricks[i];
+      if (b.alive && b.row === targetRow) {
+        b.alive = false;
+        broken++;
+        spawnBrickParticles(b);
+        score += 12 + combo * 2;
+      }
+    }
+    // Combo also advances a little for an aggressive smash.
+    combo += 1;
+    syncHud();
+    showToast("SMASH!  ROW CLEARED", 900);
+
+    if (allCleared()) {
+      if (level >= LAYOUTS.length) { gameOver(true); return; }
+      nextLevel();
+    }
+  }
+
+  function allCleared() {
+    for (let i = 0; i < bricks.length; i++) { if (bricks[i].alive) return false; }
+    return true;
+  }
+
+  // ============ INPUT ============
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function setPaddleFromX(clientX) {
+    const rect = canvas.getBoundingClientRect();
+    const x = (clientX - rect.left) * (W / rect.width);
+    paddle.x = clamp(x, paddle.w / 2 + PAD_X, W - paddle.w / 2 - PAD_X);
+  }
+
+  canvas.addEventListener("mousemove", function (e) {
+    if (state === STATE.PLAYING && !paused) setPaddleFromX(e.clientX);
+  });
+  canvas.addEventListener("touchmove", function (e) {
+    if (state !== STATE.PLAYING || paused || !e.touches.length) return;
+    e.preventDefault();
+    setPaddleFromX(e.touches[0].clientX);
+  }, { passive: false });
+  canvas.addEventListener("touchstart", function (e) {
+    if (!e.touches.length) return;
+    e.preventDefault();
+    if (state === STATE.PLAYING) {
+      setPaddleFromX(e.touches[0].clientX);
+      if (ball.stuck) launchBall();
+    }
+  }, { passive: false });
+  canvas.addEventListener("mousedown", function () {
+    if (state === STATE.PLAYING && !paused && ball.stuck) launchBall();
+  });
+
+  window.addEventListener("keydown", function (e) {
+    const code = e.code;
+    if (["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Space","KeyA","KeyD","KeyW","KeyS","KeyP","KeyR","Enter"].indexOf(code) !== -1) {
+      e.preventDefault();
+    }
+    if (code === "KeyP") { if (state === STATE.PLAYING) togglePause(); return; }
+    if (code === "KeyR") { startGame(); return; }
+    if (code === "KeyS") { doSmash(); return; }
+    if (code === "Space" || code === "Enter") {
+      if (state === STATE.READY) { startGame(); return; }
+      if (state === STATE.PLAYING && ball.stuck) launchBall();
+      return;
+    }
+    if (state !== STATE.PLAYING || paused) return;
+    if (code === "ArrowLeft" || code === "KeyA") {
+      paddle.x = clamp(paddle.x - PADDLE_SPEED * 4, paddle.w / 2 + PAD_X, W - paddle.w / 2 - PAD_X);
+    } else if (code === "ArrowRight" || code === "KeyD") {
+      paddle.x = clamp(paddle.x + PADDLE_SPEED * 4, paddle.w / 2 + PAD_X, W - paddle.w / 2 - PAD_X);
+    }
+  });
+
+  // ============ BUTTONS ============
+  btnPause.addEventListener("click", function () { if (state === STATE.PLAYING) togglePause(); });
+  btnRestart.addEventListener("click", startGame);
+  btnSmash.addEventListener("click", doSmash);
+  startBtn.addEventListener("click", startGame);
+  playAgainBtn.addEventListener("click", startGame);
+  diffButtons.forEach(function (b) { b.addEventListener("click", function () { setDifficulty(b.dataset.diff); }); });
+
+  // ============ COLLISION HELPERS ============
+  function brickHitTest(bx, by) {
+    let best = null;
+    for (let i = 0; i < bricks.length; i++) {
+      const b = bricks[i];
+      if (!b.alive) continue;
+      if (bx + BALL_R * 2 > b.x && bx < b.x + b.w && by + BALL_R * 2 > b.y && by < b.y + b.h) {
+        const oL = (bx + BALL_R * 2) - b.x;
+        const oR = (b.x + b.w) - bx;
+        const oT = (by + BALL_R * 2) - b.y;
+        const oB = (b.y + b.h) - by;
+        const m = Math.min(oL, oR, oT, oB);
+        if (!best || m < best.min) best = { b: b, min: m, oL: oL, oR: oR, oT: oT, oB: oB };
+      }
+    }
+    return best;
+  }
+
+  function spawnBrickParticles(b) {
+    const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+    for (let i = 0; i < 9; i++) {
+      particles.push({
+        x: cx, y: cy,
+        vx: (Math.random() - 0.5) * 4.5,
+        vy: (Math.random() - 0.5) * 4.5,
+        life: 1, color: b.color, size: 2 + Math.random() * 2.2
+      });
+    }
+    // Chunky debris shards for a heavier "smash" feel
+    for (let i = 0; i < 3; i++) {
+      debris.push({
+        x: cx, y: cy,
+        vx: (Math.random() - 0.5) * 6, vy: -Math.random() * 4 - 1,
+        rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.3,
+        size: 3 + Math.random() * 4, life: 1, color: b.color
+      });
+    }
+  }
+
+  // ============ UPDATE ============
+  function update() {
+    frames++;
+    if (shake > 0) shake = Math.max(0, shake - 0.9);
+
+    if (state === STATE.READY) {
+      ball.x += (paddle.x - ball.x) * 0.25;
+      ball.y = paddle.y - BALL_R - 2;
+      updateParticles();
+      return;
+    }
+    if (state !== STATE.PLAYING) { updateParticles(); return; }
+
+    if (ball.stuck) {
+      ball.x += (paddle.x - ball.x) * 0.25;
+      ball.y = paddle.y - BALL_R - 2;
+      updateParticles();
+      return;
+    }
+
+    ball.x += ball.vx;
+    ball.y += ball.vy;
+
+    // Side + ceiling walls
+    if (ball.x - BALL_R < PAD_X) { ball.x = PAD_X + BALL_R; ball.vx = Math.abs(ball.vx); SFX.wall(); }
+    else if (ball.x + BALL_R > W - PAD_X) { ball.x = W - PAD_X - BALL_R; ball.vx = -Math.abs(ball.vx); SFX.wall(); }
+    if (ball.y - BALL_R < TOP_OFFSET) { ball.y = TOP_OFFSET + BALL_R; ball.vy = Math.abs(ball.vy); SFX.wall(); }
+
+    // Paddle — hitting it resets the combo chain
+    if (ball.vy > 0 && ball.y + BALL_R >= paddle.y &&
+        ball.x + BALL_R >= paddle.x - paddle.w / 2 &&
+        ball.x - BALL_R <= paddle.x + paddle.w / 2 &&
+        ball.y - BALL_R <= paddle.y + paddle.h) {
+      ball.y = paddle.y - BALL_R;
+      const rel = clamp((ball.x - paddle.x) / (paddle.w / 2), -1, 1);
+      const angle = -Math.PI / 2 + rel * (Math.PI / 3);
+      ball.vx = Math.cos(angle) * ball.speed;
+      ball.vy = Math.sin(angle) * ball.speed;
+      if (combo > 0) combo = 0;
+      SFX.paddle();
+      syncHud();
+    }
+
+    // Bricks
+    if (ball.vy < 0) {
+      const hit = brickHitTest(ball.x - BALL_R, ball.y - BALL_R);
+      if (hit) {
+        const b = hit.b;
+        if (hit.oT < hit.oL && hit.oT < hit.oR) ball.vy = Math.abs(ball.vy);
+        else if (hit.oL < hit.oR) ball.vx = Math.abs(ball.vx);
+        else ball.vx = -Math.abs(ball.vx);
+
+        b.hp--;
+        if (b.hp <= 0) {
+          b.alive = false;
+          combo++;
+          // speed climbs with every brick smashed
+          ball.speed = Math.min(SPEED_MAX, ball.speed + SPEED_PER_HIT);
+          const mult = 1 + Math.floor(combo / 3);
+          score += (10 + (BRICK_ROWS - b.row) * 2) * mult;
+          spawnBrickParticles(b);
+
+          // Charge a smash every COMBO_STEP consecutive bricks
+          if (combo > 0 && combo % COMBO_STEP === 0 && smashCharges < SMASH_MAX) {
+            smashCharges++;
+            SFX.charge();
+            showToast("SMASH CHARGED  " + smashCharges + "/" + SMASH_MAX, 900);
+          }
+        }
+        SFX.brick();
+        syncHud();
+
+        if (allCleared()) {
+          if (level >= LAYOUTS.length) { gameOver(true); return; }
+          nextLevel();
+          return;
+        }
+      }
+    }
+
+    if (ball.y - BALL_R > H) { loseLife(); return; }
+    updateParticles();
+  }
+
+  function updateParticles() {
+    particles = particles.filter(function (p) {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.12; p.life -= 0.028;
+      return p.life > 0;
+    });
+    debris = debris.filter(function (d) {
+      d.x += d.vx; d.y += d.vy; d.vy += 0.4; d.rot += d.vr; d.life -= 0.016;
+      return d.life > 0 && d.y < H + 40;
+    });
+  }
+
+  // ============ RENDER ============
+  function clear() {
+    const th = theme();
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, th.bg1);
+    g.addColorStop(0.5, th.bg2);
+    g.addColorStop(1, "#020101");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.strokeStyle = "rgba(255, 200, 120, 0.06)";
+    ctx.lineWidth = 1;
+    for (let x = PAD_X; x <= W - PAD_X; x += 26) {
+      ctx.beginPath(); ctx.moveTo(x, TOP_OFFSET); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let y = TOP_OFFSET; y < H; y += 26) {
+      ctx.beginPath(); ctx.moveTo(PAD_X, y); ctx.lineTo(W - PAD_X, y); ctx.stroke();
+    }
+    // side wall pillars + ceiling bar in the theme's accent colour
+    ctx.fillStyle = th.wall;
+    ctx.globalAlpha = 0.28;
+    ctx.fillRect(0, TOP_OFFSET, PAD_X, H - TOP_OFFSET);
+    ctx.fillRect(W - PAD_X, TOP_OFFSET, PAD_X, H - TOP_OFFSET);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = th.wall;
+    ctx.fillRect(0, TOP_OFFSET - 4, W, 2);
+  }
+
+  function roundRect(c, x, y, w, h, r, fill) {
+    if (w < 2 * r) r = w / 2;
+    if (h < 2 * r) r = h / 2;
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r);
+    c.arcTo(x, y, x + w, y, r);
+    c.closePath();
+    if (fill) c.fill();
+  }
+
+  function drawBricks() {
+    for (let i = 0; i < bricks.length; i++) {
+      const b = bricks[i];
+      if (!b.alive) continue;
+      ctx.shadowColor = b.color;
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = b.color;
+      roundRect(ctx, b.x, b.y, b.w, b.h, 3, true);
+      ctx.shadowBlur = 0;
+      // top highlight + mortar line for a "brick" look
+      ctx.fillStyle = "rgba(255,255,255,0.20)";
+      roundRect(ctx, b.x + 2, b.y + 2, b.w - 4, b.h * 0.34, 2, true);
+      ctx.strokeStyle = "rgba(0,0,0,0.35)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(b.x + b.w / 2, b.y + b.h * 0.45);
+      ctx.lineTo(b.x + b.w / 2, b.y + b.h - 1);
+      ctx.stroke();
+      // cracked overlay when reinforced and damaged
+      if (b.hp === 1 && level >= 3 && b.row < 2) {
+        ctx.strokeStyle = "rgba(0,0,0,0.6)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(b.x + b.w * 0.28, b.y + b.h * 0.2);
+        ctx.lineTo(b.x + b.w * 0.5, b.y + b.h * 0.6);
+        ctx.lineTo(b.x + b.w * 0.74, b.y + b.h * 0.3);
+        ctx.stroke();
+      }
+    }
+  }
+
+  function drawPaddle() {
+    const th = theme();
+    const py = paddle.y, px = paddle.x - paddle.w / 2;
+    ctx.shadowColor = th.wall;
+    ctx.shadowBlur = 14;
+    const grad = ctx.createLinearGradient(0, py, 0, py + paddle.h);
+    grad.addColorStop(0, "#ffffff");
+    grad.addColorStop(0.45, th.wall);
+    grad.addColorStop(1, "#2a1103");
+    ctx.fillStyle = grad;
+    roundRect(ctx, px, py, paddle.w, paddle.h, 6, true);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.fillRect(paddle.x - 1, py + 2, 2, paddle.h - 4);
+  }
+
+  function drawBall() {
+    const sp = Math.hypot(ball.vx, ball.vy);
+    if (sp > 0.1) {
+      const tx = ball.x - ball.vx * 1.7, ty = ball.y - ball.vy * 1.7;
+      const tg = ctx.createRadialGradient(tx, ty, 1, tx, ty, BALL_R * 1.6);
+      tg.addColorStop(0, "rgba(255,255,255,0.5)");
+      tg.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = tg;
+      ctx.beginPath(); ctx.arc(tx, ty, BALL_R * 1.6, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.shadowColor = "#ffffff";
+    ctx.shadowBlur = 18;
+    const bg = ctx.createRadialGradient(ball.x - 2, ball.y - 2, 1, ball.x, ball.y, BALL_R);
+    bg.addColorStop(0, "#ffffff");
+    bg.addColorStop(0.6, "#ffe0b8");
+    bg.addColorStop(1, "#ff8a00");
+    ctx.fillStyle = bg;
+    ctx.beginPath(); ctx.arc(ball.x, ball.y, BALL_R, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  function drawParticles() {
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    for (let i = 0; i < debris.length; i++) {
+      const d = debris[i];
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, d.life);
+      ctx.translate(d.x, d.y);
+      ctx.rotate(d.rot);
+      ctx.fillStyle = d.color;
+      ctx.fillRect(-d.size / 2, -d.size / 2, d.size, d.size);
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawHeader() {
+    const th = theme();
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.font = "bold 15px 'Impact', 'Arial Narrow', sans-serif";
+    ctx.fillText(th.name, PAD_X, 14);
+    ctx.font = "11px 'Courier New', monospace";
+    ctx.fillStyle = "rgba(255,200,150,0.75)";
+    ctx.fillText("LVL " + level + " / " + LAYOUTS.length + "  -  " + DIFF_LABEL[diff], PAD_X, 34);
+
+    ctx.textAlign = "right";
+    if (combo >= 2) {
+      ctx.fillStyle = "#ffe066";
+      ctx.font = "bold 16px 'Impact', 'Arial Narrow', sans-serif";
+      ctx.fillText("COMBO x" + combo, W - PAD_X, 14);
+    }
+    ctx.fillStyle = smashCharges > 0 ? "#7dffd8" : "rgba(255,200,150,0.5)";
+    ctx.font = "11px 'Courier New', monospace";
+    ctx.fillText("SMASH " + smashCharges + "/" + SMASH_MAX + " (S)", W - PAD_X, 34);
+  }
+
+  function drawLaunchHint() {
+    if (state !== STATE.READY) return;
+    const th = theme();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.font = "bold 14px 'Courier New', monospace";
+    ctx.fillText("PRESS  SPACE  OR  TAP  TO  LAUNCH", W / 2, paddle.y - 38);
+    ctx.fillStyle = th.wall;
+    ctx.globalAlpha = 0.5 + 0.5 * Math.sin(frames * 0.1);
+    ctx.fillText("BREAK 5 IN A ROW  =  1 SMASH  CHARGE", W / 2, paddle.y - 18);
+    ctx.globalAlpha = 1;
+  }
+
+  function render() {
+    ctx.save();
+    if (shake > 0) {
+      ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+    }
+    clear();
+    drawHeader();
+    drawBricks();
+    drawPaddle();
+    drawBall();
+    drawParticles();
+    drawLaunchHint();
+    ctx.restore();
+  }
+
+  // ============ MAIN LOOP ============
+  let raf = null;
+  function loop() {
+    if (!(paused && state === STATE.PLAYING)) update();
+    render();
+    raf = requestAnimationFrame(loop);
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+    } else if (!raf) {
+      raf = requestAnimationFrame(loop);
+    }
+  });
+
+  // ============ BOOTSTRAP ============
+  recomputeLayout();
+  buildBricks(0);
+  resetBallAndPaddle();
+  syncHud();
+  syncDiffButtons();
+  paddle.x = W / 2;
+  ball.x = W / 2;
+  ball.y = paddle.y - BALL_R - 2;
+  bestScoreEl.textContent = String(best);
+  loop();
+})();
+</script>
+</body>
+</html>

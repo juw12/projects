@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🌵 Canyon Run</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Trebuchet MS', 'Segoe UI', Tahoma, sans-serif;
+      background: radial-gradient(circle at 50% 0%, #3a2b44 0%, #241a2e 55%, #160f1d 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(38, 25, 34, 0.92);
+      border: 1px solid rgba(255, 190, 120, 0.22);
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: 0 18px 60px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 220, 170, 0.08);
+      max-width: 980px;
+      width: 96%;
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.9rem;
+      letter-spacing: 3px;
+      color: #ffcb7d;
+      margin-bottom: 4px;
+      text-shadow: 0 2px 0 #7a3f1c, 0 0 22px rgba(255, 150, 60, 0.35);
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.82rem;
+      letter-spacing: 1.5px;
+      color: #d9a06e;
+      margin-bottom: 14px;
+      text-transform: uppercase;
+    }
+
+    /* ============ SCORE DISPLAY ============ */
+    .score-board {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding: 10px 16px;
+      background: linear-gradient(135deg, rgba(255, 170, 90, 0.14), rgba(255, 110, 60, 0.08));
+      border: 1px solid rgba(255, 170, 100, 0.18);
+      border-radius: 12px;
+      font-size: 0.95rem;
+      color: #f2cfa8;
+    }
+
+    .score-board span {
+      font-weight: 700;
+      color: #ffd27f;
+    }
+
+    .hud-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .mute-btn {
+      background: transparent;
+      border: 1px solid rgba(255, 170, 100, 0.35);
+      color: #ffcb7d;
+      border-radius: 8px;
+      padding: 4px 8px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .mute-btn:hover {
+      background: rgba(255, 170, 100, 0.12);
+    }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 6px 26px rgba(0, 0, 0, 0.5);
+      background: #2a1e33;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      touch-action: none;
+    }
+
+    /* ============ SCREENS (Start / Game Over) ============ */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+      background: linear-gradient(180deg, rgba(30, 18, 28, 0.86), rgba(46, 26, 30, 0.92));
+      transition: opacity 0.3s ease;
+    }
+
+    .screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .screen-title {
+      font-size: 2.1rem;
+      letter-spacing: 2px;
+      color: #ffcb7d;
+      margin-bottom: 6px;
+      text-shadow: 0 2px 0 #7a3f1c;
+    }
+
+    .screen-subtitle {
+      font-size: 0.95rem;
+      color: #e2b892;
+      margin-bottom: 18px;
+      max-width: 460px;
+      line-height: 1.5;
+    }
+
+    .keys {
+      display: flex;
+      gap: 18px;
+      margin-bottom: 22px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .key-hint {
+      font-size: 0.8rem;
+      color: #d9a06e;
+      letter-spacing: 0.5px;
+    }
+
+    .key-hint b {
+      color: #ffd27f;
+      border: 1px solid rgba(255, 180, 110, 0.4);
+      border-radius: 6px;
+      padding: 2px 7px;
+      margin-right: 5px;
+      background: rgba(255, 170, 100, 0.1);
+    }
+
+    .final-score {
+      font-size: 1.4rem;
+      color: #ffd27f;
+      margin-bottom: 4px;
+    }
+
+    .final-sub {
+      font-size: 0.9rem;
+      color: #d9a06e;
+      margin-bottom: 18px;
+    }
+
+    /* ============ ACTION BUTTONS ============ */
+    .action-btn {
+      padding: 13px 38px;
+      background: linear-gradient(135deg, #ffb357, #e8683a);
+      color: #2a1410;
+      border: none;
+      border-radius: 24px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+      box-shadow: 0 6px 18px rgba(232, 104, 58, 0.4);
+    }
+
+    .action-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 9px 26px rgba(232, 104, 58, 0.55);
+    }
+
+    .action-btn:active {
+      transform: translateY(0);
+    }
+
+    /* ============ PAUSE OVERLAY ============ */
+    .pause-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(28, 16, 24, 0.72);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      font-size: 1.8rem;
+      letter-spacing: 4px;
+      color: #ffcb7d;
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .pause-overlay small {
+      font-size: 0.8rem;
+      letter-spacing: 1px;
+      color: #d9a06e;
+    }
+
+    .pause-overlay.visible {
+      opacity: 1;
+    }
+
+    /* ============ MOBILE CONTROLS ============ */
+    .mobile-controls {
+      display: none;
+      margin-top: 14px;
+      gap: 14px;
+    }
+
+    .mobile-controls.visible {
+      display: flex;
+    }
+
+    .control-btn {
+      flex: 1;
+      padding: 18px 0;
+      background: linear-gradient(135deg, rgba(255, 170, 90, 0.2), rgba(255, 110, 60, 0.12));
+      border: 1px solid rgba(255, 170, 100, 0.35);
+      border-radius: 14px;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: #ffd27f;
+      cursor: pointer;
+      user-select: none;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .control-btn:active {
+      background: rgba(255, 170, 100, 0.35);
+      transform: scale(0.98);
+    }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 620px) {
+      .game-container { padding: 12px; }
+      .game-title { font-size: 1.4rem; letter-spacing: 2px; }
+      .screen-title { font-size: 1.6rem; }
+      .mobile-controls { display: flex; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">CANYON RUN</h1>
+    <p class="game-subtitle">Survive the ledges · find water</p>
+
+    <div class="score-board">
+      <div>Distance: <span id="scoreEl">0</span> m</div>
+      <div class="hud-right">
+        <div>Canteens: <span id="canteenEl">0</span></div>
+        <div>Best: <span id="bestEl">0</span></div>
+        <button class="mute-btn" id="muteBtn" title="Mute (M)">🔊</button>
+      </div>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="960" height="540"></canvas>
+
+      <!-- Start Screen -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">RUN THE CANYON</h2>
+        <p class="screen-subtitle">
+          Leap the gaps, slide under the rock overhangs, drop between ledges
+          and grab every water canteen you can. The canyon never ends.
+        </p>
+        <div class="keys">
+          <div class="key-hint"><b>SPACE / ↑</b>Jump</div>
+          <div class="key-hint"><b>↓</b>Slide</div>
+          <div class="key-hint"><b>P</b>Pause</div>
+        </div>
+        <button class="action-btn" id="startBtn">START RUN</button>
+      </div>
+
+      <!-- Game Over Screen -->
+      <div id="gameOverScreen" class="screen hidden">
+        <h2 class="screen-title">GAME OVER</h2>
+        <p class="final-sub" id="overReason">You fell into the canyon!</p>
+        <p class="final-score">Distance <span id="finalScore">0</span> m</p>
+        <p class="final-sub">Canteens collected: <span id="finalCanteens">0</span></p>
+        <button class="action-btn" id="playAgainBtn">RUN AGAIN</button>
+      </div>
+
+      <!-- Pause Overlay -->
+      <div id="pauseOverlay" class="pause-overlay">
+        PAUSED
+        <small>press P to resume</small>
+      </div>
+    </div>
+
+    <!-- Mobile Controls -->
+    <div class="mobile-controls" id="mobileControls">
+      <button class="control-btn" id="jumpBtn">JUMP</button>
+      <button class="control-btn" id="slideBtn">SLIDE</button>
+    </div>
+  </div>
+
+  <script>
+    // ============ GAME CONFIGURATION ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+
+    const BASE_SPEED = 320;   // px / second at the start
+    const MAX_SPEED = 760;    // top speed once far into the canyon
+    const GRAVITY = 2200;     // px / second^2
+    const JUMP_V = -730;      // initial jump velocity
+    const PLAYER_W = 30;
+    const STAND_H = 48;
+    const SLIDE_H = 24;
+    const TIER_STEP = 80;     // vertical gap between ledge levels
+    const BASE_TIER_Y = 430;  // y of the lowest ledge surface
+    const DEATH_Y = H + 60;   // fall past this = canyon
+
+    // ============ SMALL HELPERS ============
+    function rand(a, b) { return a + Math.random() * (b - a); }
+    function tierY(i) { return BASE_TIER_Y - i * TIER_STEP; }
+    function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill(); }
+
+    // ============ GAME STATE ============
+    let state = 'start';           // start | playing | paused | over
+    let platforms, obstacles, overhangs, canteens, particles;
+    let player, camX, genX, currentTier;
+    let speed, score, canteensGot, animTime, restartLock;
+    let slideHeld = false;
+    let muted = false;
+    let lastTime = 0;
+
+    // ============ DOM ELEMENTS ============
+    const scoreEl = document.getElementById('scoreEl');
+    const canteenEl = document.getElementById('canteenEl');
+    const bestEl = document.getElementById('bestEl');
+    const finalScoreEl = document.getElementById('finalScore');
+    const finalCanteensEl = document.getElementById('finalCanteens');
+    const overReasonEl = document.getElementById('overReason');
+    const startScreen = document.getElementById('startScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const startBtn = document.getElementById('startBtn');
+    const playAgainBtn = document.getElementById('playAgainBtn');
+    const muteBtn = document.getElementById('muteBtn');
+    const mobileControls = document.getElementById('mobileControls');
+    const jumpBtn = document.getElementById('jumpBtn');
+    const slideBtn = document.getElementById('slideBtn');
+
+    // ============ HIGH SCORE ============
+    let best = parseInt(localStorage.getItem('canyonRunBest') || '0', 10) || 0;
+    bestEl.textContent = best;
+
+    // Show touch controls on touch devices
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+      mobileControls.classList.add('visible');
+    }
+
+    // ============ AUDIO (WebAudio) ============
+    let audioCtx = null;
+    function beep(freq, dur, type, vol) {
+      if (muted) return;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = type || 'square';
+        o.frequency.value = freq;
+        o.connect(g);
+        g.connect(audioCtx.destination);
+        const t = audioCtx.currentTime;
+        const peak = vol || 0.07;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(peak, t + 0.012);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + (dur || 0.1));
+        o.start(t);
+        o.stop(t + (dur || 0.1) + 0.02);
+      } catch (e) { /* audio is optional */ }
+    }
+
+    function toggleMute() {
+      muted = !muted;
+      muteBtn.textContent = muted ? '🔇' : '🔊';
+    }
+
+    // ============ WORLD SETUP ============
+    function resetGame() {
+      platforms = [];
+      obstacles = [];
+      overhangs = [];
+      canteens = [];
+      particles = [];
+      animTime = 0;
+      canteensGot = 0;
+      score = 0;
+      speed = BASE_SPEED;
+      slideHeld = false;
+      currentTier = 0;
+      player = { worldX: 60, y: tierY(0), vy: 0, onGround: true, sliding: false };
+
+      // Safe starting ledge
+      const start = { x: -240, y: tierY(0), w: 940, tier: 0 };
+      platforms.push(start);
+      genX = start.x + start.w;
+      camX = player.worldX - W * 0.28;
+
+      // Pre-generate the visible world
+      while (genX < camX + W + 600) generateSegment();
+    }
+
+    // Procedurally build one ledge plus at most one hazard
+    function generateSegment() {
+      const r = Math.random();
+      let nextTier = currentTier;
+      if (r < 0.22) nextTier = Math.min(2, currentTier + 1);       // jump up a level
+      else if (r < 0.44) nextTier = Math.max(0, currentTier - 1);  // drop down a level
+
+      let gap = 0;
+      if (nextTier > currentTier) gap = rand(70, 110);       // need a jump across
+      else if (nextTier < currentTier) gap = rand(90, 150);  // free fall down
+      else if (Math.random() < 0.42) gap = rand(70, 140);    // plain gap
+
+      const w = rand(230, 470);
+      const x = genX + gap;
+      const y = tierY(nextTier);
+      platforms.push({ x: x, y: y, w: w, tier: nextTier });
+
+      const diff = Math.min(1, player.worldX / 14000); // 0 -> 1 over distance
+
+      // At most one hazard per ledge so layouts stay fair
+      const hazardRoll = Math.random();
+      const wantOverhang = w > 300 && hazardRoll < 0.16 + diff * 0.20;
+      const wantObstacle = !wantOverhang && w > 260 && hazardRoll < 0.30 + diff * 0.30;
+
+      if (wantOverhang) {
+        const ow = rand(60, 115);
+        const ox = x + rand(130, Math.max(140, w - 130 - ow));
+        const bottom = y - 30; // 30px clearance: slide fits, standing does not
+        overhangs.push({ x: ox, y: bottom - 80, w: ow, h: 80, bottom: bottom });
+      } else if (wantObstacle) {
+        const kind = Math.random() < 0.58 ? 'cactus' : 'rock';
+        const ow = kind === 'cactus' ? 26 : 42;
+        const oh = kind === 'cactus' ? 54 : 30;
+        const ox = x + rand(95, Math.max(100, w - 95 - ow));
+        obstacles.push({ x: ox, y: y - oh, w: ow, h: oh, kind: kind });
+      }
+
+      // Water canteen reward (bobbing above the ledge)
+      if (Math.random() < 0.5 && w > 220) {
+        canteens.push({ x: x + rand(70, w - 70), y: y - rand(45, 92), r: 13, taken: false });
+      }
+
+      genX = x + w;
+      currentTier = nextTier;
+    }
+
+    // ============ PARTICLES ============
+    function spawnDust(x, y, n, color) {
+      for (let i = 0; i < n; i++) {
+        particles.push({
+          x: x, y: y,
+          vx: rand(-90, 30), vy: rand(-70, -10),
+          life: 0.5, size: rand(1.5, 3.5),
+          color: color || 'rgba(226, 190, 140, 0.75)'
+        });
+      }
+    }
+
+    function spawnPickup(x, y) {
+      for (let i = 0; i < 12; i++) {
+        const a = Math.random() * Math.PI * 2;
+        particles.push({
+          x: x, y: y,
+          vx: Math.cos(a) * rand(40, 180), vy: Math.sin(a) * rand(40, 180) - 40,
+          life: 0.6, size: rand(2, 4),
+          color: 'rgba(150, 220, 255, 0.9)'
+        });
+      }
+    }
+
+    function updateParticles(dt) {
+      particles = particles.filter(function (p) {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += 420 * dt;
+        p.life -= dt;
+        return p.life > 0;
+      });
+    }
+
+    // ============ GAME OVER / START / PAUSE ============
+    function gameOver(reason) {
+      state = 'over';
+      beep(150, 0.42, 'sawtooth', 0.09);
+      restartLock = performance.now() + 700;
+      if (score > best) {
+        best = score;
+        localStorage.setItem('canyonRunBest', String(best));
+        bestEl.textContent = best;
+      }
+      finalScoreEl.textContent = score;
+      finalCanteensEl.textContent = canteensGot;
+      overReasonEl.textContent = reason === 'fell'
+        ? 'You fell into the canyon!'
+        : 'You slammed into the rock!';
+      gameOverScreen.classList.remove('hidden');
+    }
+
+    function startGame() {
+      resetGame();
+      state = 'playing';
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      pauseOverlay.classList.remove('visible');
+      lastTime = performance.now();
+      beep(660, 0.09, 'square', 0.05);
+    }
+
+    function togglePause() {
+      if (state === 'playing') {
+        state = 'paused';
+        pauseOverlay.classList.add('visible');
+      } else if (state === 'paused') {
+        state = 'playing';
+        pauseOverlay.classList.remove('visible');
+        lastTime = performance.now();
+      }
+    }
+
+    function tryJump() {
+      if (state !== 'playing') return;
+      if (player.onGround) {
+        player.vy = JUMP_V;
+        player.onGround = false;
+        spawnDust(player.worldX + PLAYER_W / 2, player.y, 5);
+        beep(520, 0.09, 'square', 0.05);
+      }
+    }
+
+    // ============ UPDATE ============
+    function update(dt) {
+      animTime += dt;
+
+      // Speed ramps up with distance
+      speed = Math.min(MAX_SPEED, BASE_SPEED + player.worldX * 0.018);
+      player.worldX += speed * dt;
+
+      player.sliding = slideHeld;
+      const ph = player.sliding ? SLIDE_H : STAND_H;
+
+      // Gravity (sliding in the air becomes a fast dive)
+      player.vy += GRAVITY * dt * (player.sliding && !player.onGround ? 1.7 : 1);
+      player.y += player.vy * dt;
+
+      // --- Landing / wall collisions ---
+      player.onGround = false;
+      for (let i = 0; i < platforms.length; i++) {
+        const p = platforms[i];
+        const overlapX = (player.worldX + PLAYER_W > p.x) && (player.worldX < p.x + p.w);
+        if (!overlapX) continue;
+        const prevFeet = player.y - player.vy * dt;
+        if (player.vy >= 0 && prevFeet <= p.y + 1 && player.y >= p.y - 1) {
+          player.y = p.y;
+          player.vy = 0;
+          player.onGround = true;
+        } else if (prevFeet > p.y + 24 && player.y - ph < p.y) {
+          gameOver('crash'); // ran straight into a raised ledge face
+          return;
+        }
+      }
+
+      const ptop = player.y - ph;
+
+      // --- Overhang collisions (slide to pass) ---
+      for (let i = 0; i < overhangs.length; i++) {
+        const o = overhangs[i];
+        if (player.worldX + PLAYER_W > o.x && player.worldX < o.x + o.w &&
+            ptop < o.y + o.h && player.y > o.y) {
+          gameOver('crash');
+          return;
+        }
+      }
+
+      // --- Obstacle collisions ---
+      for (let i = 0; i < obstacles.length; i++) {
+        const ob = obstacles[i];
+        if (player.worldX + PLAYER_W > ob.x && player.worldX < ob.x + ob.w &&
+            ptop < ob.y + ob.h && player.y > ob.y) {
+          gameOver('crash');
+          return;
+        }
+      }
+
+      // --- Canteen pickups ---
+      for (let i = 0; i < canteens.length; i++) {
+        const c = canteens[i];
+        if (c.taken) continue;
+        const nx = Math.max(player.worldX, Math.min(c.x, player.worldX + PLAYER_W));
+        const ny = Math.max(ptop, Math.min(c.y, player.y));
+        const dx = c.x - nx, dy = c.y - ny;
+        if (dx * dx + dy * dy < c.r * c.r) {
+          c.taken = true;
+          canteensGot++;
+          spawnPickup(c.x, c.y);
+          beep(880, 0.08, 'sine', 0.07);
+        }
+      }
+
+      // --- Fell into the canyon ---
+      if (player.y > DEATH_Y) {
+        gameOver('fell');
+        return;
+      }
+
+      // --- Dust while running ---
+      if (player.onGround && Math.random() < 0.35) {
+        spawnDust(player.worldX + 4, player.y, 1);
+      }
+
+      // --- Camera, streaming and cleanup ---
+      camX = player.worldX - W * 0.28;
+      while (genX < camX + W + 600) generateSegment();
+
+      const cull = camX - 240;
+      platforms = platforms.filter(function (p) { return p.x + p.w > cull; });
+      obstacles = obstacles.filter(function (o) { return o.x + o.w > cull; });
+      overhangs = overhangs.filter(function (o) { return o.x + o.w > cull; });
+      canteens = canteens.filter(function (c) { return !c.taken && c.x + 60 > cull; });
+
+      updateParticles(dt);
+
+      score = Math.floor(player.worldX / 20) + canteensGot * 15;
+    }
+
+    // ============ DRAWING ============
+    function drawSky() {
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, '#2b2340');
+      g.addColorStop(0.42, '#7c4666');
+      g.addColorStop(0.68, '#e08a4f');
+      g.addColorStop(0.86, '#f5b978');
+      g.addColorStop(1, '#f7d9a4');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    function drawSun() {
+      const gx = W * 0.71, gy = H * 0.5;
+      const glow = ctx.createRadialGradient(gx, gy, 10, gx, gy, 190);
+      glow.addColorStop(0, 'rgba(255, 231, 168, 0.95)');
+      glow.addColorStop(0.35, 'rgba(255, 180, 96, 0.45)');
+      glow.addColorStop(1, 'rgba(255, 150, 70, 0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(gx - 200, gy - 200, 400, 400);
+      ctx.fillStyle = 'rgba(255, 244, 205, 0.95)';
+      ctx.beginPath();
+      ctx.arc(gx, gy, 46, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawMesas(parallax, height, color, base, alpha) {
+      const ox = camX * parallax;
+      ctx.save();
+      ctx.globalAlpha = alpha === undefined ? 1 : alpha;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      for (let sx = 0; sx <= W; sx += 8) {
+        const wx = sx + ox;
+        let h = base
+          + Math.sin(wx * 0.0016) * height * 0.55
+          + Math.sin(wx * 0.0041 + 2) * height * 0.3
+          + Math.sin(wx * 0.0121 + 5) * height * 0.15;
+        h = Math.round(h / 20) * 20; // quantize -> flat-topped mesas
+        ctx.lineTo(sx, H * 0.62 - h);
+      }
+      ctx.lineTo(W, H);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawPlatform(p) {
+      const sx = p.x - camX;
+      if (sx > W + 40 || sx + p.w < -40) return;
+
+      const g = ctx.createLinearGradient(0, p.y, 0, H);
+      g.addColorStop(0, '#c07a45');
+      g.addColorStop(0.35, '#9a5a34');
+      g.addColorStop(1, '#5e3520');
+      ctx.fillStyle = g;
+      ctx.fillRect(sx, p.y, p.w, H - p.y);
+
+      // Sandstone cap
+      ctx.fillStyle = '#e8b06a';
+      ctx.fillRect(sx, p.y, p.w, 12);
+      ctx.fillStyle = '#f6d494';
+      ctx.fillRect(sx, p.y, p.w, 4);
+
+      // Strata lines
+      ctx.strokeStyle = 'rgba(80, 45, 25, 0.32)';
+      ctx.lineWidth = 2;
+      for (let i = 1; i < 7; i++) {
+        const yy = p.y + 20 * i;
+        if (yy < H) {
+          ctx.beginPath();
+          ctx.moveTo(sx, yy);
+          ctx.lineTo(sx + p.w, yy);
+          ctx.stroke();
+        }
+      }
+
+      // Right edge shade
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
+      ctx.fillRect(sx + p.w - 7, p.y, 7, H - p.y);
+    }
+
+    function drawOverhang(o) {
+      const sx = o.x - camX;
+      if (sx > W + 40 || sx + o.w < -40) return;
+      const bottom = o.y + o.h;
+
+      const g = ctx.createLinearGradient(sx, 0, sx + o.w, 0);
+      g.addColorStop(0, '#8a5334');
+      g.addColorStop(0.5, '#a9663d');
+      g.addColorStop(1, '#6e3f28');
+      ctx.fillStyle = g;
+      ctx.fillRect(sx, 0, o.w, bottom);
+
+      // Jagged lower lip
+      ctx.beginPath();
+      ctx.moveTo(sx, bottom);
+      const steps = Math.max(2, Math.floor(o.w / 16));
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        ctx.lineTo(sx + t * o.w, bottom - (i % 2 === 0 ? 0 : 7));
+      }
+      ctx.lineTo(sx + o.w, bottom + 10);
+      ctx.lineTo(sx, bottom + 10);
+      ctx.closePath();
+      ctx.fillStyle = '#5d3322';
+      ctx.fill();
+
+      // Cracks
+      ctx.strokeStyle = 'rgba(50, 26, 16, 0.5)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(sx + o.w * 0.4, 0);
+      ctx.lineTo(sx + o.w * 0.5, bottom - 14);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(sx + o.w * 0.75, 0);
+      ctx.lineTo(sx + o.w * 0.68, bottom - 26);
+      ctx.stroke();
+    }
+
+    function drawObstacle(ob) {
+      const sx = ob.x - camX;
+      const sy = ob.y;
+      if (sx > W + 40 || sx + ob.w < -40) return;
+
+      if (ob.kind === 'cactus') {
+        ctx.fillStyle = '#3f7d4e';
+        rr(sx, sy, ob.w, ob.h, 8);
+        ctx.fillStyle = '#356b42';
+        rr(sx - 9, sy + 16, 10, 22, 5);
+        rr(sx + ob.w - 1, sy + 24, 10, 18, 5);
+        ctx.fillStyle = '#4f9660';
+        ctx.fillRect(sx + 4, sy + 6, 3, ob.h - 12);
+        // spines
+        ctx.strokeStyle = 'rgba(230, 245, 210, 0.55)';
+        ctx.lineWidth = 1;
+        for (let i = 6; i < ob.h - 6; i += 8) {
+          ctx.beginPath();
+          ctx.moveTo(sx + 3, sy + i);
+          ctx.lineTo(sx - 2, sy + i - 2);
+          ctx.stroke();
+        }
+      } else {
+        const g = ctx.createLinearGradient(sx, sy, sx, sy + ob.h);
+        g.addColorStop(0, '#9a8577');
+        g.addColorStop(1, '#5f5048');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy + ob.h);
+        ctx.lineTo(sx + 4, sy + 6);
+        ctx.lineTo(sx + ob.w * 0.4, sy);
+        ctx.lineTo(sx + ob.w - 4, sy + 8);
+        ctx.lineTo(sx + ob.w, sy + ob.h);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 235, 210, 0.25)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(sx + 8, sy + ob.h - 4);
+        ctx.lineTo(sx + ob.w * 0.45, sy + 6);
+        ctx.stroke();
+      }
+    }
+
+    function drawCanteen(c) {
+      const sx = c.x - camX;
+      const bob = Math.sin(animTime * 3 + c.x * 0.02) * 3;
+      const sy = c.y + bob;
+      if (sx > W + 40 || sx < -40) return;
+
+      ctx.save();
+      ctx.shadowColor = 'rgba(120, 210, 255, 0.55)';
+      ctx.shadowBlur = 14;
+
+      // Body
+      const g = ctx.createLinearGradient(sx - c.r, sy - c.r, sx + c.r, sy + c.r);
+      g.addColorStop(0, '#8fd4ff');
+      g.addColorStop(0.5, '#3aa0e0');
+      g.addColorStop(1, '#1f6ea8');
+      ctx.fillStyle = g;
+      rr(sx - c.r, sy - c.r, c.r * 2, c.r * 2, 6);
+
+      // Cap
+      ctx.fillStyle = '#d9e6ef';
+      rr(sx - 4, sy - c.r - 5, 8, 6, 2);
+
+      // Highlight
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      rr(sx - c.r + 3, sy - c.r + 3, 4, c.r, 2);
+      ctx.restore();
+    }
+
+    function drawParticles() {
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        ctx.globalAlpha = Math.max(0, Math.min(1, p.life * 1.6));
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x - camX, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawPlayer() {
+      const px = player.worldX - camX;
+      const ph = player.sliding ? SLIDE_H : STAND_H;
+      const top = player.y - ph;
+
+      ctx.save();
+
+      if (player.sliding) {
+        // Lying / sliding pose
+        ctx.fillStyle = '#2b2b3a';
+        rr(px - 4, player.y - 14, 20, 12, 5);       // legs
+        ctx.fillStyle = '#c0392b';
+        rr(px + 10, player.y - 22, 22, 18, 7);      // torso
+        ctx.fillStyle = '#f0c39a';
+        ctx.beginPath();
+        ctx.arc(px + 32, player.y - 15, 7.5, 0, Math.PI * 2); // head
+        ctx.fill();
+        ctx.fillStyle = '#8a5a2b';
+        rr(px + 25, player.y - 26, 16, 5, 2);       // hat
+        ctx.fillStyle = 'rgba(226, 190, 140, 0.5)';
+        for (let i = 0; i < 3; i++) {
+          ctx.beginPath();
+          ctx.arc(px - 14 - i * 9, player.y - 6 - i * 2, 2.4 - i * 0.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else {
+        const runPhase = animTime * 15;
+        const legA = Math.sin(runPhase);
+        const legB = Math.sin(runPhase + Math.PI);
+
+        // Legs
+        ctx.strokeStyle = '#2b2b3a';
+        ctx.lineWidth = 6;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(px + 14, top + 30);
+        ctx.lineTo(px + 14 + legA * 9, player.y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(px + 16, top + 30);
+        ctx.lineTo(px + 16 + legB * 9, player.y);
+        ctx.stroke();
+
+        // Scarf trail
+        const flap = Math.sin(animTime * 17) * 3;
+        ctx.fillStyle = '#e74c3c';
+        ctx.beginPath();
+        ctx.moveTo(px + 8, top + 16);
+        ctx.lineTo(px - 16, top + 12 + flap);
+        ctx.lineTo(px - 12, top + 24 + flap);
+        ctx.lineTo(px + 8, top + 24);
+        ctx.closePath();
+        ctx.fill();
+
+        // Torso
+        ctx.fillStyle = '#c0392b';
+        rr(px + 6, top + 14, 18, 20, 7);
+
+        // Arm
+        ctx.strokeStyle = '#a5301f';
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(px + 20, top + 18);
+        ctx.lineTo(px + 20 + legB * 7, top + 27);
+        ctx.stroke();
+
+        // Head
+        ctx.fillStyle = '#f0c39a';
+        ctx.beginPath();
+        ctx.arc(px + 18, top + 9, 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Hat
+        ctx.fillStyle = '#8a5a2b';
+        rr(px + 8, top + 1, 21, 5, 2);
+        rr(px + 12, top - 4, 13, 6, 2);
+
+        // Eye
+        ctx.fillStyle = '#2b2b3a';
+        ctx.beginPath();
+        ctx.arc(px + 23, top + 9, 1.7, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    function drawVignette() {
+      const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.92);
+      g.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      g.addColorStop(1, 'rgba(20, 8, 16, 0.55)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    function draw() {
+      drawSky();
+      drawSun();
+      drawMesas(0.15, 58, '#4d3450', 40, 0.85);
+      drawMesas(0.30, 46, '#8a4a44', 34, 0.9);
+      drawMesas(0.52, 34, '#a85f3a', 26, 0.95);
+
+      for (let i = 0; i < platforms.length; i++) drawPlatform(platforms[i]);
+      for (let i = 0; i < overhangs.length; i++) drawOverhang(overhangs[i]);
+      for (let i = 0; i < obstacles.length; i++) drawObstacle(obstacles[i]);
+      for (let i = 0; i < canteens.length; i++) if (!canteens[i].taken) drawCanteen(canteens[i]);
+
+      drawParticles();
+      drawPlayer();
+      drawVignette();
+    }
+
+    // ============ HUD ============
+    function updateHUD() {
+      scoreEl.textContent = score || 0;
+      canteenEl.textContent = canteensGot;
+      if (score > best) bestEl.textContent = score;
+    }
+
+    // ============ MAIN LOOP ============
+    function gameLoop(now) {
+      requestAnimationFrame(gameLoop);
+      let dt = (now - lastTime) / 1000;
+      lastTime = now;
+      if (!isFinite(dt) || dt < 0) dt = 0;
+      dt = Math.min(dt, 0.05);
+
+      if (state === 'playing') {
+        update(dt);
+      } else {
+        animTime += dt * 0.6; // gentle idle animation on menus
+        updateParticles(dt);
+      }
+
+      draw();
+      updateHUD();
+    }
+
+    // ============ INPUT HANDLING ============
+    window.addEventListener('keydown', function (e) {
+      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(e.code) !== -1) {
+        e.preventDefault();
+      }
+
+      if (e.code === 'KeyM') { toggleMute(); return; }
+      if (e.code === 'KeyP' || e.code === 'Escape') { togglePause(); return; }
+
+      if (state === 'start') {
+        if (e.code === 'Space' || e.code === 'Enter') startGame();
+        return;
+      }
+      if (state === 'over') {
+        if ((e.code === 'Space' || e.code === 'Enter') && performance.now() > restartLock) startGame();
+        return;
+      }
+      if (state !== 'playing') return;
+
+      if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') tryJump();
+      if (e.code === 'ArrowDown' || e.code === 'KeyS') slideHeld = true;
+    });
+
+    window.addEventListener('keyup', function (e) {
+      if (e.code === 'ArrowDown' || e.code === 'KeyS') slideHeld = false;
+    });
+
+    // Touch / pointer: top area jumps, bottom area slides
+    canvas.addEventListener('pointerdown', function (e) {
+      if (state !== 'playing') return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      const rect = canvas.getBoundingClientRect();
+      const ry = (e.clientY - rect.top) / rect.height;
+      if (ry > 0.66) {
+        slideHeld = true;
+      } else {
+        tryJump();
+      }
+    });
+    function releaseSlide() { slideHeld = false; }
+    window.addEventListener('pointerup', releaseSlide);
+    window.addEventListener('pointercancel', releaseSlide);
+
+    // Dedicated on-screen buttons
+    jumpBtn.addEventListener('pointerdown', function (e) { e.preventDefault(); tryJump(); });
+    slideBtn.addEventListener('pointerdown', function (e) { e.preventDefault(); slideHeld = true; });
+    slideBtn.addEventListener('pointerup', function (e) { e.preventDefault(); slideHeld = false; });
+    slideBtn.addEventListener('pointerleave', function () { slideHeld = false; });
+
+    // Buttons
+    startBtn.addEventListener('click', startGame);
+    playAgainBtn.addEventListener('click', startGame);
+    muteBtn.addEventListener('click', toggleMute);
+
+    // Auto-pause when the tab is hidden
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden && state === 'playing') togglePause();
+    });
+
+    // ============ INITIAL DRAW ============
+    resetGame();
+    camX = player.worldX - W * 0.28;
+    lastTime = performance.now();
+    draw();
+    updateHUD();
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>

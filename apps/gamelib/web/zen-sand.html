@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Zen Sand — Falling Sand Sandbox</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: radial-gradient(circle at 50% 0%, #24263a 0%, #16171f 55%, #0f1015 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+      color: #e8e2d4;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(30, 32, 44, 0.72);
+      border: 1px solid rgba(226, 190, 124, 0.18);
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+      max-width: 560px;
+      width: 95%;
+      backdrop-filter: blur(6px);
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.7rem;
+      letter-spacing: 0.14em;
+      font-weight: 500;
+      color: #e2be7c;
+      margin-bottom: 4px;
+      text-shadow: 0 0 22px rgba(226, 190, 124, 0.35);
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.78rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #8b8fa3;
+      margin-bottom: 16px;
+    }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #12141c;
+      box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.7), 0 6px 26px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(226, 190, 124, 0.14);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      cursor: crosshair;
+      touch-action: none;
+    }
+
+    /* ============ TOOLBAR ============ */
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 16px;
+    }
+
+    .tool-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 14px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: #c9c6ba;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .tool-btn:hover {
+      background: rgba(226, 190, 124, 0.1);
+      transform: translateY(-2px);
+    }
+
+    .tool-btn.selected {
+      background: linear-gradient(135deg, rgba(226, 190, 124, 0.9), rgba(200, 150, 84, 0.9));
+      color: #1a1b23;
+      border-color: #e2be7c;
+      box-shadow: 0 4px 16px rgba(226, 190, 124, 0.3);
+    }
+
+    .swatch {
+      width: 13px;
+      height: 13px;
+      border-radius: 4px;
+      border: 1px solid rgba(0, 0, 0, 0.45);
+      box-shadow: inset 0 0 4px rgba(255, 255, 255, 0.25);
+    }
+
+    /* ============ CONTROLS ROW ============ */
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .brush-wrap {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 0.78rem;
+      color: #8b8fa3;
+      letter-spacing: 0.06em;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 96px;
+      height: 4px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.14);
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #e2be7c;
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(226, 190, 124, 0.6);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 15px;
+      height: 15px;
+      border: none;
+      border-radius: 50%;
+      background: #e2be7c;
+      cursor: pointer;
+    }
+
+    .action-btn {
+      padding: 9px 20px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      color: #1a1b23;
+      background: linear-gradient(135deg, #e2be7c, #c89654);
+      border: none;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      box-shadow: 0 4px 14px rgba(226, 190, 124, 0.24);
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .action-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(226, 190, 124, 0.36);
+    }
+
+    .action-btn.ghost {
+      background: rgba(255, 255, 255, 0.05);
+      color: #c9c6ba;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: none;
+    }
+
+    /* ============ HINT ============ */
+    .hint {
+      text-align: center;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      color: #5f6376;
+      margin-top: 12px;
+    }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 480px) {
+      .game-container { padding: 12px; border-radius: 16px; }
+      .game-title { font-size: 1.35rem; }
+      .tool-btn { padding: 8px 11px; font-size: 0.76rem; }
+      .brush-wrap { font-size: 0.72rem; }
+      .controls { gap: 10px; }
+      input[type="range"] { width: 78px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">ZEN SAND</h1>
+    <p class="game-subtitle">Falling Sand Sandbox</p>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="500" height="500"></canvas>
+    </div>
+
+    <!-- Material palette -->
+    <div class="toolbar" id="toolbar">
+      <button class="tool-btn selected" data-mat="1"><span class="swatch" style="background:#e2be7c"></span>Sand</button>
+      <button class="tool-btn" data-mat="2"><span class="swatch" style="background:#3a76bc"></span>Water</button>
+      <button class="tool-btn" data-mat="3"><span class="swatch" style="background:#686b76"></span>Stone</button>
+      <button class="tool-btn" data-mat="4"><span class="swatch" style="background:#ff8c28"></span>Fire</button>
+      <button class="tool-btn" data-mat="5"><span class="swatch" style="background:#529854"></span>Plant</button>
+      <button class="tool-btn" data-mat="6"><span class="swatch" style="background:#362a42"></span>Oil</button>
+      <button class="tool-btn" data-mat="0"><span class="swatch" style="background:#12141c"></span>Eraser</button>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <label class="brush-wrap">BRUSH
+        <input type="range" id="brushSize" min="1" max="8" value="3" />
+        <span id="brushVal">3</span>
+      </label>
+      <button class="action-btn" id="pauseBtn">⏸ Pause</button>
+      <button class="action-btn ghost" id="clearBtn">↺ Clear</button>
+    </div>
+
+    <p class="hint">Drag to pour · fire ignites oil &amp; plants · water feeds plants</p>
+  </div>
+
+  <script>
+    // ============ CONFIGURATION ============
+    const W = 100;            // grid width  (cells)
+    const H = 100;            // grid height (cells)
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+
+    // ============ MATERIAL IDS ============
+    const EMPTY = 0, SAND = 1, WATER = 2, STONE = 3, FIRE = 4, PLANT = 5, OIL = 6;
+
+    // Base colors per material (r, g, b)
+    const COL = {
+      [EMPTY]: [18, 20, 28],
+      [SAND]:  [226, 190, 124],
+      [WATER]: [58, 118, 188],
+      [STONE]: [104, 107, 118],
+      [FIRE]:  [255, 140, 40],
+      [PLANT]: [82, 152, 84],
+      [OIL]:   [54, 42, 66]
+    };
+
+    // ============ STATE ============
+    const grid = new Uint8Array(W * H);   // material id per cell
+    const meta = new Int16Array(W * H);   // extra data (fire lifetime)
+    const noise = new Int8Array(W * H);   // static per-cell texture offset
+    for (let i = 0; i < noise.length; i++) noise[i] = (Math.random() * 22 - 11) | 0;
+
+    let currentMat = SAND;
+    let brush = 3;
+    let paused = false;
+    let painting = false;
+    let lastCell = null;
+
+    // ============ OFFSCREEN IMAGE BUFFER ============
+    const off = document.createElement('canvas');
+    off.width = W;
+    off.height = H;
+    const octx = off.getContext('2d');
+    const img = octx.createImageData(W, H);
+
+    // ============ AUDIO (WebAudio beep) ============
+    let actx = null;
+    let muted = false;
+
+    function audio() {
+      if (!actx) {
+        try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+      }
+      return actx;
+    }
+
+    function beep(freq = 440, dur = 0.07, type = 'sine', vol = 0.05) {
+      if (muted) return;
+      const ac = audio();
+      if (!ac) return;
+      try {
+        const o = ac.createOscillator();
+        const g = ac.createGain();
+        o.type = type;
+        o.frequency.value = freq;
+        g.gain.setValueAtTime(vol, ac.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + dur);
+        o.connect(g);
+        g.connect(ac.destination);
+        o.start();
+        o.stop(ac.currentTime + dur);
+      } catch (e) {}
+    }
+
+    // ============ GRID HELPERS ============
+    function inBounds(x, y) { return x >= 0 && x < W && y >= 0 && y < H; }
+    function at(x, y) { return inBounds(x, y) ? grid[y * W + x] : STONE; }
+    function swap(i, j) {
+      const t = grid[i]; grid[i] = grid[j]; grid[j] = t;
+      const m = meta[i]; meta[i] = meta[j]; meta[j] = m;
+    }
+
+    // Which materials a mover may displace
+    function sandCanDisplace(m)  { return m === EMPTY || m === WATER || m === OIL; }
+    function waterCanDisplace(m) { return m === EMPTY || m === OIL; }
+    function oilCanDisplace(m)   { return m === EMPTY; }
+
+    // ============ SIMULATION STEP ============
+    function step() {
+      // --- Pass 1: gravity materials (bottom-up, randomized row direction) ---
+      for (let y = H - 1; y >= 0; y--) {
+        const ltr = Math.random() < 0.5;
+        for (let k = 0; k < W; k++) {
+          const x = ltr ? k : W - 1 - k;
+          const i = y * W + x;
+          const m = grid[i];
+          if (m === SAND) stepSand(x, y, i);
+          else if (m === WATER) stepWater(x, y, i);
+          else if (m === OIL) stepOil(x, y, i);
+        }
+      }
+
+      // --- Pass 2: active materials (top-down, fire rises safely) ---
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const i = y * W + x;
+          if (grid[i] === FIRE) stepFire(x, y, i);
+          else if (grid[i] === PLANT) stepPlant(x, y, i);
+        }
+      }
+    }
+
+    function stepSand(x, y, i) {
+      const below = i + W;
+      if (sandCanDisplace(grid[below])) { swap(i, below); return; }
+      const first = Math.random() < 0.5 ? -1 : 1;
+      for (const dx of [first, -first]) {
+        const nx = x + dx, ny = y + 1;
+        if (inBounds(nx, ny)) {
+          const j = ny * W + nx;
+          if (sandCanDisplace(grid[j])) { swap(i, j); return; }
+        }
+      }
+    }
+
+    function stepWater(x, y, i) {
+      const below = i + W;
+      if (waterCanDisplace(grid[below])) { swap(i, below); return; }
+      const first = Math.random() < 0.5 ? -1 : 1;
+      for (const dx of [first, -first]) {
+        const nx = x + dx, ny = y + 1;
+        if (inBounds(nx, ny)) {
+          const j = ny * W + nx;
+          if (waterCanDisplace(grid[j])) { swap(i, j); return; }
+        }
+      }
+      // lateral flow (a touch slower than falling)
+      if (Math.random() < 0.72) {
+        const sx = x + first;
+        if (inBounds(sx, y)) {
+          const j = y * W + sx;
+          if (waterCanDisplace(grid[j])) { swap(i, j); return; }
+        }
+      }
+    }
+
+    function stepOil(x, y, i) {
+      const below = i + W;
+      if (oilCanDisplace(grid[below])) { swap(i, below); return; }
+      const first = Math.random() < 0.5 ? -1 : 1;
+      for (const dx of [first, -first]) {
+        const nx = x + dx, ny = y + 1;
+        if (inBounds(nx, ny)) {
+          const j = ny * W + nx;
+          if (oilCanDisplace(grid[j])) { swap(i, j); return; }
+        }
+      }
+      // oil is viscous — spreads sideways only occasionally
+      if (Math.random() < 0.24) {
+        const sx = x + first;
+        if (inBounds(sx, y)) {
+          const j = y * W + sx;
+          if (oilCanDisplace(grid[j])) { swap(i, j); return; }
+        }
+      }
+    }
+
+    function stepFire(x, y, i) {
+      let life = meta[i] - 1;
+      let extinguished = false;
+
+      // react with 4-neighbours
+      const nbs = [[x, y - 1], [x, y + 1], [x - 1, y], [x + 1, y]];
+      for (const [nx, ny] of nbs) {
+        if (!inBounds(nx, ny)) continue;
+        const j = ny * W + nx;
+        const n = grid[j];
+        if (n === OIL && Math.random() < 0.35) {
+          grid[j] = FIRE; meta[j] = 22 + ((Math.random() * 30) | 0);
+        } else if (n === PLANT && Math.random() < 0.12) {
+          grid[j] = FIRE; meta[j] = 14 + ((Math.random() * 20) | 0);
+        } else if (n === WATER) {
+          extinguished = true;
+        }
+      }
+
+      if (extinguished || life <= 0) {
+        grid[i] = EMPTY;
+        meta[i] = 0;
+        return;
+      }
+      meta[i] = life;
+
+      // flame licks upward
+      if (Math.random() < 0.28) {
+        const up = i - W;
+        if (inBounds(x, y - 1) && grid[up] === EMPTY) swap(i, up);
+      }
+    }
+
+    function stepPlant(x, y, i) {
+      if (Math.random() < 0.035 && hasWaterNear(x, y)) {
+        const ny = y - 1;
+        if (inBounds(x, ny) && grid[ny * W + x] === EMPTY) {
+          grid[ny * W + x] = PLANT;
+          meta[ny * W + x] = 0;
+        }
+      }
+    }
+
+    function hasWaterNear(x, y) {
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          if (at(x + dx, y + dy) === WATER) return true;
+        }
+      }
+      return false;
+    }
+
+    // ============ RENDERING ============
+    function render() {
+      const d = img.data;
+      for (let i = 0; i < W * H; i++) {
+        const m = grid[i];
+        const n = noise[i];
+        let r, g, b;
+        if (m === FIRE) {
+          const f = Math.min(1, meta[i] / 40);
+          r = 255;
+          g = (78 + 150 * f) | 0;
+          b = (10 + 42 * f) | 0;
+          r += n; g += (n >> 1);
+        } else {
+          const c = COL[m];
+          r = c[0] + n;
+          g = c[1] + n;
+          b = c[2] + (n >> 1);
+        }
+        const p = i << 2;
+        d[p]     = r < 0 ? 0 : r > 255 ? 255 : r;
+        d[p + 1] = g < 0 ? 0 : g > 255 ? 255 : g;
+        d[p + 2] = b < 0 ? 0 : b > 255 ? 255 : b;
+        d[p + 3] = 255;
+      }
+      octx.putImageData(img, 0, 0);
+      ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
+    }
+
+    // ============ BRUSH / PAINTING ============
+    function setCell(x, y, m) {
+      if (!inBounds(x, y)) return;
+      const i = y * W + x;
+      grid[i] = m;
+      meta[i] = (m === FIRE) ? 26 + ((Math.random() * 34) | 0) : 0;
+    }
+
+    function stamp(cx, cy) {
+      const r = brush;
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (dx * dx + dy * dy <= r * r) setCell(cx + dx, cy + dy, currentMat);
+        }
+      }
+    }
+
+    function stampLine(x0, y0, x1, y1) {
+      const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+      if (steps === 0) { stamp(x1, y1); return; }
+      for (let s = 0; s <= steps; s++) {
+        const t = s / steps;
+        stamp(Math.round(x0 + (x1 - x0) * t), Math.round(y0 + (y1 - y0) * t));
+      }
+    }
+
+    // ============ INPUT ============
+    function toGrid(ev) {
+      const r = canvas.getBoundingClientRect();
+      return {
+        x: Math.floor((ev.clientX - r.left) / r.width * W),
+        y: Math.floor((ev.clientY - r.top) / r.height * H)
+      };
+    }
+
+    canvas.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault();
+      if (actx && actx.state === 'suspended') actx.resume();
+      painting = true;
+      canvas.setPointerCapture(ev.pointerId);
+      const c = toGrid(ev);
+      lastCell = c;
+      stamp(c.x, c.y);
+      beep(currentMat === FIRE ? 620 : 320, 0.06, 'sine', 0.045);
+    });
+
+    canvas.addEventListener('pointermove', (ev) => {
+      if (!painting) return;
+      ev.preventDefault();
+      const c = toGrid(ev);
+      if (lastCell) stampLine(lastCell.x, lastCell.y, c.x, c.y);
+      else stamp(c.x, c.y);
+      lastCell = c;
+    });
+
+    function endPaint(ev) {
+      painting = false;
+      lastCell = null;
+      try { canvas.releasePointerCapture(ev.pointerId); } catch (e) {}
+    }
+    canvas.addEventListener('pointerup', endPaint);
+    canvas.addEventListener('pointercancel', endPaint);
+    canvas.addEventListener('pointerleave', () => { if (!painting) lastCell = null; });
+
+    // ============ TOOLBAR ============
+    const toolBtns = document.querySelectorAll('.tool-btn');
+    toolBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        toolBtns.forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        currentMat = parseInt(btn.dataset.mat, 10);
+        beep(520, 0.05, 'triangle', 0.04);
+      });
+    });
+
+    // ============ CONTROLS ============
+    const brushInput = document.getElementById('brushSize');
+    const brushVal = document.getElementById('brushVal');
+    brushInput.addEventListener('input', () => {
+      brush = parseInt(brushInput.value, 10);
+      brushVal.textContent = brush;
+    });
+
+    const pauseBtn = document.getElementById('pauseBtn');
+    pauseBtn.addEventListener('click', () => {
+      paused = !paused;
+      pauseBtn.textContent = paused ? '▶ Play' : '⏸ Pause';
+      beep(paused ? 260 : 480, 0.07, 'square', 0.035);
+    });
+
+    const clearBtn = document.getElementById('clearBtn');
+    clearBtn.addEventListener('click', () => {
+      grid.fill(EMPTY);
+      meta.fill(0);
+      beep(180, 0.16, 'sine', 0.05);
+    });
+
+    // ============ DEMO SEED SCENE ============
+    function seedScene() {
+      grid.fill(EMPTY);
+      meta.fill(0);
+      // smooth stone ground (bottom two rows)
+      for (let y = H - 2; y < H; y++) {
+        for (let x = 0; x < W; x++) grid[y * W + x] = STONE;
+      }
+      // tranquil dune across the middle
+      for (let x = 0; x < W; x++) {
+        const hump = Math.round(15 * Math.sin((x / W) * Math.PI));
+        for (let k = 0; k < hump; k++) {
+          const y = H - 3 - k;
+          if (y >= 0) setCell(x, y, SAND);
+        }
+      }
+    }
+
+    // ============ MAIN LOOP ============
+    let lastT = 0;
+    let acc = 0;
+    const STEP = 1000 / 60;
+
+    function loop(t) {
+      requestAnimationFrame(loop);
+      if (!lastT) lastT = t;
+      let dt = t - lastT;
+      lastT = t;
+      if (dt > 100) dt = 100;          // avoid huge catch-up after tab switch
+      acc += dt;
+
+      let guard = 0;
+      while (acc >= STEP && guard++ < 5) {
+        if (!paused) step();
+        acc -= STEP;
+      }
+      render();
+    }
+
+    // ============ INIT ============
+    seedScene();
+    render();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Hurdles</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: #101a26;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Courier New", monospace;
+    overflow: hidden;
+    touch-action: manipulation;
+    padding: 12px;
+  }
+  /* ============ APP LAYOUT ============ */
+  #app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: min(96vw, 900px);
+  }
+  #game-wrap {
+    position: relative;
+    width: 100%;
+    box-shadow: 0 12px 44px rgba(0,0,0,.55);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  canvas { display: block; width: 100%; height: auto; background: #bfe0f5; }
+  #hint {
+    position: absolute;
+    bottom: 4px;
+    width: 100%;
+    text-align: center;
+    color: rgba(255,255,255,.85);
+    font-size: 11px;
+    letter-spacing: 1px;
+    pointer-events: none;
+    text-shadow: 0 1px 3px rgba(0,0,0,.7);
+  }
+  /* ============ CONTROLS ============ */
+  #controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 10px 14px;
+  }
+  #controls button {
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    padding: 10px 22px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #fff;
+    background: #c8553d;
+    box-shadow: 0 4px 0 rgba(0,0,0,.32);
+    transition: transform .05s ease, background .15s ease;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+  #controls button:hover { background: #d76a4a; }
+  #controls button:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.32); }
+  #btn-jump { background: #2f7fd6; min-width: 130px; }
+  #btn-jump:hover { background: #3d92ea; }
+  #btn-restart { background: #46586c; }
+  #btn-restart:hover { background: #55697f; }
+  #difficulty { display: flex; align-items: center; gap: 6px; margin-left: 6px; }
+  #difficulty .label {
+    color: #fff;
+    font-size: 13px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    text-shadow: 0 1px 2px rgba(0,0,0,.4);
+    margin-right: 2px;
+  }
+  #difficulty button {
+    padding: 8px 15px;
+    background: rgba(255,255,255,.14);
+    color: #cfe3ff;
+    box-shadow: 0 3px 0 rgba(0,0,0,.28);
+  }
+  #difficulty button:hover { background: rgba(255,255,255,.24); }
+  #difficulty button.active { background: #ffd23f; color: #4a3400; }
+  #difficulty button.active:hover { background: #ffe14d; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="game-wrap">
+    <canvas id="game" width="800" height="450"></canvas>
+    <div id="hint">A / D (or tap screen halves) = stride &nbsp;|&nbsp; SPACE / JUMP = hurdle &nbsp;|&nbsp; R = restart</div>
+  </div>
+  <div id="controls">
+    <button id="btn-jump" type="button">JUMP</button>
+    <button id="btn-restart" type="button">Restart</button>
+    <div id="difficulty">
+      <span class="label">Difficulty:</span>
+      <button type="button" data-diff="easy">Easy</button>
+      <button type="button" data-diff="normal" class="active">Normal</button>
+      <button type="button" data-diff="hard">Hard</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============ CANVAS & GEOMETRY ============ */
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;
+  const H = canvas.height;
+
+  const PPM = 40;                 // pixels per metre (shared x / y scale)
+  const RACE = 110;               // race distance in metres
+  const HURDLE_X = [13.72, 22.86, 32.00, 41.14, 50.28, 59.42, 68.56, 77.70, 86.84, 95.98];
+  const HURDLE_H = 0.84;          // hurdle bar height in metres
+  const CAM_LEAD = 6;             // metres of track kept behind the runner
+
+  const LANES = 4;
+  const LANE_TOP = 104;
+  const LANE_BOTTOM = 436;
+  const LANE_H = (LANE_BOTTOM - LANE_TOP) / LANES;
+  const PLAYER_LANE = 3;
+  const STAND_BOTTOM = 88;
+
+  /* ============ PHYSICS / TUNING ============ */
+  const G = 20;                   // gravity (m/s^2)
+  const JUMP_V = 6.5;             // take-off speed -> ~1.06 m apex
+  const MAXSPD = 9.5;             // fresh-legs top speed (m/s)
+  const IMPULSE = 1.2;            // speed added per valid stride
+  const DRAG = 0.5;               // passive speed decay
+  const STAMINA_DRAIN = 0.005;    // stamina cost per stride
+  const MIN_STRIDE_GAP = 60;      // ms anti-mash guard
+
+  /* ============ DIFFICULTY PRESETS ============ */
+  const DIFFICULTY = {
+    easy:   { speeds: [7.6, 7.9, 8.2], rMin: 0.20, rMax: 0.34, clipP: 0.14 },
+    normal: { speeds: [8.3, 8.6, 8.9], rMin: 0.14, rMax: 0.26, clipP: 0.08 },
+    hard:   { speeds: [8.9, 9.2, 9.5], rMin: 0.10, rMax: 0.20, clipP: 0.04 }
+  };
+  const DIFF_LABEL = { easy: "Easy", normal: "Normal", hard: "Hard" };
+  const CPU_COLORS = ["#e74c3c", "#3498db", "#2ecc71"];
+  const PLAYER_COLOR = "#ffd23f";
+
+  let diff = localStorage.getItem("hurdlesDiff") || "normal";
+  if (!DIFFICULTY[diff]) diff = "normal";
+
+  /* ============ STATE ============ */
+  const ST = { READY: 0, SET: 1, RUN: 2, DONE: 3 };
+  let state = ST.READY;
+  let gunAt = 0, gunTime = 0, gunFlash = 0;
+  let raceTime = 0;
+  let lastSide = null, lastStrideT = 0;
+  let shake = 0;
+  let result = null;
+
+  let runners = [];
+  let player = null;
+  let laneHurdles = [];
+  let popups = [];
+
+  // personal bests per difficulty, persisted
+  let best = {};
+  try { best = JSON.parse(localStorage.getItem("hurdlesBest") || "{}") || {}; }
+  catch (e) { best = {}; }
+
+  /* ============ SOUND (WebAudio, no assets) ============ */
+  let actx = null;
+  function tone(freq, dur, type, vol) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(vol == null ? 0.06 : vol, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+  function beep(freq, dur, type) { tone(freq, dur, type, 0.06); }
+  function tick() { tone(520, 0.03, "sine", 0.03); }
+  function whoosh() { tone(340, 0.10, "triangle", 0.05); }
+  function thud() { tone(120, 0.20, "sawtooth", 0.11); tone(80, 0.26, "square", 0.07); }
+  function gunBang() { tone(180, 0.10, "square", 0.10); tone(70, 0.34, "sawtooth", 0.12); }
+  function fanfare() {
+    tone(660, 0.12, "sine", 0.08);
+    setTimeout(function () { tone(880, 0.12, "sine", 0.08); }, 130);
+    setTimeout(function () { tone(1320, 0.22, "sine", 0.09); }, 265);
+  }
+
+  /* ============ DOM CONTROLS ============ */
+  const btnJump = document.getElementById("btn-jump");
+  const btnRestart = document.getElementById("btn-restart");
+  const diffButtons = Array.prototype.slice.call(
+    document.querySelectorAll("#difficulty button")
+  );
+
+  function syncDiffButtons() {
+    diffButtons.forEach(function (b) {
+      b.classList.toggle("active", b.dataset.diff === diff);
+    });
+  }
+
+  /* ============ RUNNER FACTORY ============ */
+  function makeRunner(lane, color, name) {
+    return {
+      lane: lane, color: color, name: name,
+      dist: 0, pdist: 0, speed: 0, targetSpeed: 0,
+      reaction: 0, clipP: 0, started: false, clipNext: undefined, lateClip: false,
+      feet: 0, vy: 0, air: false, stun: 0,
+      anim: Math.random() * 6, stride: 0,
+      finishTime: null, hits: 0, cleared: 0, perfect: 0, split50: null, stamina: 1
+    };
+  }
+
+  function buildHurdles() {
+    laneHurdles = [];
+    for (let l = 0; l < LANES; l++) {
+      const arr = [];
+      for (let i = 0; i < HURDLE_X.length; i++) {
+        arr.push({ x: HURDLE_X[i], passed: false, hit: false, tilt: 0 });
+      }
+      laneHurdles.push(arr);
+    }
+  }
+
+  function reset() {
+    buildHurdles();
+    popups = [];
+    runners = [];
+
+    const c = DIFFICULTY[diff];
+    for (let i = 0; i < 3; i++) {
+      const r = makeRunner(i, CPU_COLORS[i], "CPU " + (i + 1));
+      r.targetSpeed = c.speeds[i] * (0.985 + Math.random() * 0.03);
+      r.reaction = c.rMin + Math.random() * (c.rMax - c.rMin);
+      r.clipP = c.clipP;
+      runners.push(r);
+    }
+    player = makeRunner(PLAYER_LANE, PLAYER_COLOR, "YOU");
+    runners.push(player);
+
+    raceTime = 0;
+    gunFlash = 0;
+    shake = 0;
+    lastSide = null;
+    lastStrideT = 0;
+    result = null;
+  }
+
+  /* ============ GAME FLOW ============ */
+  function beginRace() {
+    reset();
+    state = ST.SET;
+    gunAt = performance.now() + 1100 + Math.random() * 1300;
+    beep(300, 0.08, "triangle");
+  }
+
+  function fireGun() {
+    gunTime = performance.now();
+    state = ST.RUN;
+    gunFlash = 1;
+    lastSide = null;
+    gunBang();
+  }
+
+  function falseStart() {
+    if (state !== ST.SET) return;
+    state = ST.DONE;
+    result = { falseStart: true };
+    tone(150, 0.4, "sawtooth", 0.10);
+  }
+
+  function computeFinish() {
+    const t = player.finishTime;
+    let place = 1;
+    for (let i = 0; i < runners.length; i++) {
+      const r = runners[i];
+      if (r === player) continue;
+      const proj = r.finishTime !== null
+        ? r.finishTime
+        : raceTime + (RACE - r.dist) / Math.max(r.speed, 0.5);
+      if (proj < t) place++;
+    }
+    const prev = best[diff];
+    const isBest = (prev == null || t < prev);
+    if (isBest) {
+      best[diff] = t;
+      try { localStorage.setItem("hurdlesBest", JSON.stringify(best)); } catch (e) {}
+    }
+    result = {
+      falseStart: false,
+      time: t,
+      place: place,
+      split: player.split50,
+      hits: player.hits,
+      cleared: player.cleared,
+      perfect: player.perfect,
+      isBest: isBest
+    };
+    state = ST.DONE;
+    fanfare();
+  }
+  /*__P2__*/
+})();
+</script>
+</body>
+</html>

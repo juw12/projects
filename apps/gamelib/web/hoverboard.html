@@ -1,0 +1,1424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>HOVERBOARD — Neon Tube Racer</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Trebuchet MS', 'Segoe UI', Tahoma, sans-serif;
+      background:
+        radial-gradient(1200px 600px at 50% -10%, #142a4d 0%, #0a1024 45%, #05060f 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+      color: #cfefff;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: linear-gradient(180deg, rgba(18,34,64,0.92), rgba(8,14,30,0.95));
+      border: 1px solid rgba(0,229,255,0.35);
+      border-radius: 22px;
+      padding: 18px;
+      box-shadow:
+        0 0 0 1px rgba(0,229,255,0.12),
+        0 18px 60px rgba(0,229,255,0.10),
+        0 0 90px rgba(255,0,200,0.08) inset;
+      max-width: 960px;
+      width: 96%;
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.7rem;
+      letter-spacing: 0.42em;
+      text-transform: uppercase;
+      color: #e7fbff;
+      text-shadow:
+        0 0 8px #00e5ff,
+        0 0 22px #00e5ff,
+        0 0 46px #ff2fd0;
+      margin-bottom: 2px;
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.72rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: #5fa8d3;
+      margin-bottom: 12px;
+    }
+
+    /* ============ HUD BOARD ============ */
+    .score-board {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      padding: 10px 14px;
+      background: linear-gradient(135deg, rgba(0,60,90,0.55), rgba(40,0,70,0.55));
+      border: 1px solid rgba(0,229,255,0.25);
+      border-radius: 12px;
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #8fd0ff;
+    }
+
+    .score-board b {
+      color: #00ffc8;
+      font-weight: 700;
+      text-shadow: 0 0 8px rgba(0,255,200,0.6);
+    }
+
+    .score-board b.hot {
+      color: #ff2fd0;
+      text-shadow: 0 0 8px rgba(255,47,208,0.7);
+    }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #04060f;
+      box-shadow: 0 0 26px rgba(0,229,255,0.14) inset;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    /* ============ SCREENS (Start / Finish) ============ */
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+      background: radial-gradient(600px 380px at 50% 40%, rgba(10,30,60,0.86), rgba(2,4,10,0.95));
+      transition: opacity 0.28s ease;
+      backdrop-filter: blur(2px);
+    }
+
+    .screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .screen-title {
+      font-size: 1.9rem;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: #e7fbff;
+      margin-bottom: 6px;
+      text-shadow: 0 0 12px #00e5ff, 0 0 30px #ff2fd0;
+    }
+
+    .screen-subtitle {
+      font-size: 0.82rem;
+      letter-spacing: 0.14em;
+      color: #7fb8dd;
+      margin-bottom: 18px;
+      max-width: 460px;
+      line-height: 1.5;
+    }
+
+    .key-hints {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    .key-hints span {
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #a9dcff;
+      border: 1px solid rgba(0,229,255,0.3);
+      border-radius: 16px;
+      padding: 5px 12px;
+      background: rgba(0,229,255,0.06);
+    }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(120px, 1fr));
+      gap: 8px 22px;
+      margin-bottom: 18px;
+      font-size: 0.78rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #8fd0ff;
+    }
+
+    .result-grid div {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px dashed rgba(0,229,255,0.2);
+      padding-bottom: 4px;
+    }
+
+    .result-grid b {
+      color: #00ffc8;
+    }
+
+    /* ============ ACTION BUTTON ============ */
+    .action-btn {
+      padding: 13px 40px;
+      background: linear-gradient(135deg, #00e5ff, #0066ff 55%, #ff2fd0);
+      color: #02121f;
+      border: none;
+      border-radius: 30px;
+      font-size: 1rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 0 22px rgba(0,229,255,0.5), 0 6px 20px rgba(0,0,0,0.5);
+    }
+
+    .action-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 34px rgba(0,229,255,0.75), 0 8px 26px rgba(0,0,0,0.55);
+    }
+
+    .action-btn:active {
+      transform: translateY(0) scale(0.98);
+    }
+
+    /* ============ PAUSE OVERLAY ============ */
+    .pause-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(2,6,16,0.72);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      font-size: 1.6rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: #00e5ff;
+      font-weight: 700;
+      text-shadow: 0 0 16px #00e5ff;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .pause-overlay small {
+      font-size: 0.7rem;
+      letter-spacing: 0.18em;
+      color: #7fb8dd;
+      text-shadow: none;
+    }
+
+    .pause-overlay.visible {
+      opacity: 1;
+    }
+
+    /* ============ TOUCH CONTROLS ============ */
+    .touch-controls {
+      display: none;
+      margin-top: 12px;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      user-select: none;
+    }
+
+    .touch-controls.visible {
+      display: flex;
+    }
+
+    .pad-group {
+      display: flex;
+      gap: 10px;
+    }
+
+    .touch-btn {
+      width: 68px;
+      height: 58px;
+      border-radius: 14px;
+      border: 1px solid rgba(0,229,255,0.35);
+      background: linear-gradient(135deg, rgba(0,229,255,0.14), rgba(255,47,208,0.10));
+      color: #bff2ff;
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-weight: 700;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.1s ease, background 0.1s ease;
+    }
+
+    .touch-btn:active,
+    .touch-btn.active {
+      transform: scale(0.94);
+      background: linear-gradient(135deg, rgba(0,229,255,0.5), rgba(255,47,208,0.35));
+      color: #06121f;
+    }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 700px) {
+      .game-container { padding: 12px; }
+      .game-title { font-size: 1.15rem; letter-spacing: 0.28em; }
+      .score-board { font-size: 0.64rem; padding: 8px 10px; }
+      .result-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">Hoverboard</h1>
+    <p class="game-subtitle">Neon Tube Racer</p>
+
+    <div class="score-board">
+      <div>Lap <b id="hudLap">1/2</b></div>
+      <div>Pos <b id="hudPos">1/6</b></div>
+      <div>Time <b id="hudTime">0.00</b></div>
+      <div>Best Lap <b id="hudBest">--.--</b></div>
+      <div>Speed <b id="hudSpeed" class="hot">0</b></div>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="960" height="540"></canvas>
+
+      <!-- Start Screen -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">Enter The Tube</h2>
+        <p class="screen-subtitle">
+          Glide the neon hyper-tube on your hoverboard. Thread boost pads, dodge
+          energy blocks, keep off the walls and beat five rival riders over two laps.
+        </p>
+        <div class="key-hints">
+          <span>◄ ► / A D — Steer</span>
+          <span>▲ / W — Thrust</span>
+          <span>▼ / S — Brake</span>
+          <span>P / Esc — Pause</span>
+          <span>Touch supported</span>
+        </div>
+        <button class="action-btn" id="startBtn">Launch</button>
+      </div>
+
+      <!-- Finish Screen -->
+      <div id="gameOverScreen" class="screen hidden">
+        <h2 class="screen-title" id="finishTitle">Race Complete</h2>
+        <p class="screen-subtitle" id="finishSub">Tube cleared.</p>
+        <div class="result-grid">
+          <div><span>Finish Pos</span><b id="resPos">1/6</b></div>
+          <div><span>Total Time</span><b id="resTime">0.00</b></div>
+          <div><span>Best Lap</span><b id="resBest">--.--</b></div>
+          <div><span>Top Speed</span><b id="resTop">0</b></div>
+          <div><span>Wipeouts</span><b id="resWipe">0</b></div>
+          <div><span>Pads Hit</span><b id="resPads">0</b></div>
+        </div>
+        <button class="action-btn" id="restartBtn">Race Again</button>
+      </div>
+
+      <!-- Pause Overlay -->
+      <div id="pauseOverlay" class="pause-overlay">
+        Paused
+        <small>Press P / Esc to resume</small>
+      </div>
+    </div>
+
+    <!-- Touch Controls -->
+    <div class="touch-controls" id="touchControls">
+      <div class="pad-group">
+        <div class="touch-btn" id="btnLeft">◄</div>
+        <div class="touch-btn" id="btnRight">►</div>
+      </div>
+      <div class="pad-group">
+        <div class="touch-btn" id="btnBrake">Brake</div>
+        <div class="touch-btn" id="btnThrust">Thrust</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ============================================================
+       HOVERBOARD — Neon Tube Racer
+       Original futuristic hoverboard racer. Single file, offline.
+       Sections: CONFIG / STATE / DOM / AUDIO / TRACK / PROJECT /
+                 UPDATE / DRAW / LOOP / INPUT / INIT
+       ============================================================ */
+
+    // ============ CONFIG ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+
+    const SEG_LEN = 200;              // world length of one track segment
+    const TOTAL_SEGMENTS = 1200;      // segments per lap
+    const TRACK_LENGTH = TOTAL_SEGMENTS * SEG_LEN;
+    const ROAD_WIDTH = 2100;          // tube radius (world units)
+    const CAMERA_HEIGHT = 1050;
+    const FOV = 100;
+    const CAMERA_DEPTH = 1 / Math.tan((FOV / 2) * Math.PI / 180);
+    const DRAW_DISTANCE = 180;        // segments rendered ahead
+
+    const LAPS = 2;
+    const FINISH_DISTANCE = LAPS * TRACK_LENGTH;
+
+    const MAX_SPEED = 13000;
+    const MIN_SPEED = 0;
+    const ACCEL = 7000;
+    const BRAKE_FORCE = -14000;
+    const COAST_DRAG = -2600;
+    const BOOST_IMPULSE = 4200;
+    const STEER_RATE = 1.35;          // lateral units per second at full grip
+    const CENTRIFUGAL = 0.9;
+    const WALL_LIMIT = 1.0;
+
+    // Fixed "dashboard" geometry for the player's ring inside the tube
+    const CY0 = H * 0.54;
+    const RX0 = W * 0.46;
+    const RY0 = RX0 * 0.38;
+    const CX0 = W / 2;
+    const PLAYER_ARC = 0.9;           // radians of tube wall used for steering
+
+    const PALETTE = {
+      bgTop: '#050a18',
+      bgBot: '#0b1c33',
+      glowA: '#00e5ff',
+      glowB: '#ff2fd0',
+      railA: '#00e5ff',
+      railB: '#7a5cff',
+      pad: '#00ff9c',
+      block: '#ff3b6b',
+      ai: '#ffb300'
+    };
+
+    // ============ STATE ============
+    const segments = [];              // generated track
+    let obstacles = [];               // {seg, side, hit}
+    let pads = [];                    // {seg, side, used}
+    let aiRiders = [];
+
+    let state = 'start';              // start | racing | wipeout | paused | finished
+    let prevState = 'racing';
+
+    const player = {
+      pos: 0,                         // distance along track
+      x: 0,                           // lateral -1..1 inside tube
+      speed: 0,
+      lean: 0,
+      lap: 1,
+      lapStart: 0,
+      bestLap: null,
+      wipeouts: 0,
+      padsHit: 0,
+      topSpeed: 0,
+      recoverTimer: 0
+    };
+
+    let raceTime = 0;
+    let lastLapFlash = 0;
+    let wipeFlash = 0;
+    let stars = [];
+    let speedParticles = [];
+    let shakeAmount = 0;
+
+    const input = { left: false, right: false, thrust: false, brake: false };
+
+    // ============ DOM ============
+    const hudLap = document.getElementById('hudLap');
+    const hudPos = document.getElementById('hudPos');
+    const hudTime = document.getElementById('hudTime');
+    const hudBest = document.getElementById('hudBest');
+    const hudSpeed = document.getElementById('hudSpeed');
+    const startScreen = document.getElementById('startScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const startBtn = document.getElementById('startBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const touchControls = document.getElementById('touchControls');
+    const finishTitle = document.getElementById('finishTitle');
+    const finishSub = document.getElementById('finishSub');
+    const resPos = document.getElementById('resPos');
+    const resTime = document.getElementById('resTime');
+    const resBest = document.getElementById('resBest');
+    const resTop = document.getElementById('resTop');
+    const resWipe = document.getElementById('resWipe');
+    const resPads = document.getElementById('resPads');
+
+    const BEST_KEY = 'hoverboardBestLap';
+    let storedBest = parseFloat(localStorage.getItem(BEST_KEY));
+    if (isNaN(storedBest) || storedBest <= 0) storedBest = null;
+
+    // ============ AUDIO ============
+    let audioCtx = null;
+
+    function beep(freq, dur, type, vol) {
+      freq = freq || 440;
+      dur = dur || 0.08;
+      type = type || 'square';
+      vol = vol == null ? 0.045 : vol;
+      try {
+        if (!audioCtx) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return;
+          audioCtx = new AC();
+        }
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.value = vol;
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        const now = audioCtx.currentTime;
+        osc.start(now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+        osc.stop(now + dur);
+      } catch (err) { /* audio is optional */ }
+    }
+
+    function sweep(f0, f1, dur, type, vol) {
+      try {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type || 'sawtooth';
+        const now = audioCtx.currentTime;
+        osc.frequency.setValueAtTime(f0, now);
+        osc.frequency.exponentialRampToValueAtTime(Math.max(40, f1), now + dur);
+        gain.gain.value = vol == null ? 0.04 : vol;
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+        osc.start(now);
+        osc.stop(now + dur);
+      } catch (err) { /* optional */ }
+    }
+
+    // ============ TRACK GENERATION ============
+    // Smooth, perfectly looping track built from periodic sine curves so the
+    // tube closes on itself lap after lap with no seam.
+    function curveAt(i) {
+      const t = (i % TOTAL_SEGMENTS) / TOTAL_SEGMENTS;
+      return 3.0 * Math.sin(t * Math.PI * 2) + 1.6 * Math.sin(t * Math.PI * 4);
+    }
+
+    function hillAt(i) {
+      const t = (i % TOTAL_SEGMENTS) / TOTAL_SEGMENTS;
+      return 420 * Math.sin(t * Math.PI * 2 + 0.7) + 190 * Math.sin(t * Math.PI * 6 + 2.1);
+    }
+
+    function buildTrack() {
+      segments.length = 0;
+      for (let i = 0; i < TOTAL_SEGMENTS; i++) {
+        segments.push({
+          index: i,
+          curve: curveAt(i),
+          yWorld: hillAt(i),
+          zWorld: i * SEG_LEN,
+          xWorld: 0,        // filled during render (accumulated curve drift)
+          sx: 0, sy: 0, sw: 0
+        });
+      }
+    }
+
+    function buildObjects() {
+      // Obstacles and boost pads placed by segment with a lateral "side" value.
+      obstacles = [];
+      pads = [];
+      const rnd = mulberry32(0x51ab13);
+
+      for (let i = 40; i < TOTAL_SEGMENTS - 20; i++) {
+        if (i % 3 !== 0) continue;
+        const r = rnd();
+        if (r < 0.20 && i > 90) {
+          obstacles.push({ seg: i, side: (rnd() * 1.5) - 0.75 });
+        } else if (r > 0.86) {
+          pads.push({ seg: i, side: (rnd() * 1.6) - 0.8 });
+        }
+      }
+    }
+
+    // deterministic PRNG so obstacle layout is stable per race
+    function mulberry32(seed) {
+      let a = seed >>> 0;
+      return function () {
+        a |= 0; a = (a + 0x6D2B79F5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function spawnRiders() {
+      aiRiders = [];
+      const names = ['NOVA', 'VEX', 'KITE', 'RAZE', 'ORBIT'];
+      for (let i = 0; i < names.length; i++) {
+        aiRiders.push({
+          name: names[i],
+          dist: -(i + 1) * 4200,          // staggered grid behind the line
+          speed: 9400 + i * 420,
+          baseSpeed: 9400 + i * 420,
+          x: (i % 2 === 0 ? 0.45 : -0.45),
+          phase: Math.random() * Math.PI * 2,
+          lane: ((i * 0.37) % 1.4) - 0.7,
+          finished: false,
+          finishTime: 0
+        });
+      }
+    }
+
+    function buildStars() {
+      stars = [];
+      const rnd = mulberry32(0x9e3779b9);
+      for (let i = 0; i < 140; i++) {
+        stars.push({
+          x: rnd() * W,
+          y: rnd() * (H * 0.5),
+          z: rnd(),
+          s: 0.4 + rnd() * 1.6
+        });
+      }
+    }
+
+    // ============ PROJECTION ============
+    function projectSeg(seg, camX, camY, camZ, driftX) {
+      const cz = seg.zWorld - camZ;
+      if (cz <= 1) { seg.sx = CX0; seg.sy = H / 2; seg.sw = 0; return; }
+      const scale = CAMERA_DEPTH / cz;
+      seg.sx = CX0 + scale * (driftX - camX) * W / 2;
+      seg.sy = H / 2 - scale * (seg.yWorld - camY) * H / 2;
+      seg.sw = scale * ROAD_WIDTH * W / 2;
+    }
+
+    // ============ HELPERS ============
+    function fmt(t) {
+      if (t == null) return '--.--';
+      return t.toFixed(2);
+    }
+
+    function lerp(a, b, t) { return a + (b - a) * t; }
+
+    function playerScreenPoint() {
+      const a = Math.PI / 2 + player.x * PLAYER_ARC;
+      return {
+        x: CX0 + Math.cos(a) * RX0,
+        y: CY0 + Math.sin(a) * RY0,
+        angle: a
+      };
+    }
+
+    // ============ UPDATE ============
+    function updatePlayer(dt) {
+      if (state === 'wipeout') {
+        player.recoverTimer -= dt;
+        player.speed = Math.max(player.speed * (1 - dt * 2.2), MAX_SPEED * 0.12);
+        player.x += Math.sin(raceTime * 26) * dt * 1.6;
+        player.x = Math.max(-WALL_LIMIT * 1.05, Math.min(WALL_LIMIT * 1.05, player.x));
+        player.lean = lerp(player.lean, Math.sin(raceTime * 30) * 0.9, dt * 6);
+        player.pos += player.speed * dt;
+        if (player.recoverTimer <= 0) {
+          state = 'racing';
+          player.x = Math.max(-0.85, Math.min(0.85, player.x));
+          beep(660, 0.08, 'triangle', 0.05);
+        }
+        return;
+      }
+
+      const speedNorm = player.speed / MAX_SPEED;
+
+      // Thrust / brake
+      if (input.thrust) {
+        player.speed += ACCEL * dt * (1.05 - speedNorm * 0.4);
+      } else if (input.brake) {
+        player.speed += BRAKE_FORCE * dt;
+      } else {
+        player.speed += COAST_DRAG * dt;
+      }
+      player.speed = Math.max(MIN_SPEED, Math.min(MAX_SPEED, player.speed));
+
+      // Steering — grip grows with speed, plus tube curvature drift
+      let steer = 0;
+      if (input.left) steer -= 1;
+      if (input.right) steer += 1;
+      const grip = 0.35 + speedNorm * 0.85;
+      player.x += steer * STEER_RATE * grip * dt;
+
+      const segIdx = Math.floor(player.pos / SEG_LEN) % TOTAL_SEGMENTS;
+      const curve = segments[segIdx].curve;
+      player.x -= curve * CENTRIFUGAL * speedNorm * dt * 0.16;
+
+      // Lean visual
+      player.lean = lerp(player.lean, steer * 0.85 - curve * 0.12 * speedNorm, dt * 7);
+
+      // Advance along track
+      player.pos += player.speed * dt;
+
+      // Wall collision → wipeout
+      if (Math.abs(player.x) > WALL_LIMIT) {
+        triggerWipeout('wall');
+        return;
+      }
+
+      // Object collisions
+      checkObjects(segIdx);
+
+      // Lap bookkeeping
+      const lapIndex = Math.floor(player.pos / TRACK_LENGTH);
+      const currentLap = lapIndex + 1;
+      if (currentLap > player.lap) {
+        onLapComplete();
+      }
+
+      // Stats
+      if (player.speed > player.topSpeed) player.topSpeed = player.speed;
+
+      // Finish
+      if (player.pos >= FINISH_DISTANCE) {
+        finishRace();
+      }
+    }
+
+    function checkObjects(segIdx) {
+      // scan a small window around the player's segment
+      for (let k = -2; k <= 2; k++) {
+        const si = ((segIdx + k) + TOTAL_SEGMENTS) % TOTAL_SEGMENTS;
+        for (let i = 0; i < obstacles.length; i++) {
+          const o = obstacles[i];
+          if (o.hit) continue;
+          if (o.seg !== si) continue;
+          if (Math.abs(player.x - o.side) < 0.24) {
+            o.hit = true;
+            triggerWipeout('block');
+            return;
+          }
+        }
+        for (let j = 0; j < pads.length; j++) {
+          const p = pads[j];
+          if (p.used) continue;
+          if (p.seg !== si) continue;
+          if (Math.abs(player.x - p.side) < 0.30) {
+            p.used = true;
+            player.padsHit++;
+            player.speed = Math.min(MAX_SPEED * 1.18, player.speed + BOOST_IMPULSE);
+            player.topSpeed = Math.max(player.topSpeed, player.speed);
+            beep(1100, 0.10, 'triangle', 0.05);
+            sweep(1200, 2200, 0.22, 'sawtooth', 0.03);
+            for (let s = 0; s < 12; s++) {
+              speedParticles.push({
+                x: CX0 + (Math.random() - 0.5) * W * 0.7,
+                y: CY0 + RY0 + (Math.random() - 0.5) * 40,
+                vx: (Math.random() - 0.5) * 60,
+                vy: -180 - Math.random() * 180,
+                life: 1
+              });
+            }
+          }
+        }
+      }
+    }
+
+    function triggerWipeout(kind) {
+      if (state !== 'racing') return;
+      state = 'wipeout';
+      player.wipeouts++;
+      player.recoverTimer = 1.35;
+      player.speed *= 0.32;
+      wipeFlash = 1;
+      shakeAmount = 14;
+      if (kind === 'block') {
+        beep(150, 0.22, 'square', 0.07);
+        sweep(420, 90, 0.35, 'sawtooth', 0.05);
+      } else {
+        beep(200, 0.18, 'square', 0.06);
+        sweep(300, 120, 0.28, 'sawtooth', 0.04);
+      }
+    }
+
+    function onLapComplete() {
+      player.lap++;
+      const lapTime = raceTime - player.lapStart;
+      if (player.bestLap == null || lapTime < player.bestLap) {
+        player.bestLap = lapTime;
+        beep(1400, 0.12, 'triangle', 0.06);
+        beep(1900, 0.14, 'triangle', 0.05);
+      }
+      player.lapStart = raceTime;
+      lastLapFlash = 1.6;
+      beep(880, 0.1, 'square', 0.05);
+    }
+
+    function updateAI(dt) {
+      for (let i = 0; i < aiRiders.length; i++) {
+        const a = aiRiders[i];
+        if (a.finished) continue;
+        // gentle speed oscillation so they feel alive
+        a.speed = a.baseSpeed + Math.sin(raceTime * 0.7 + a.phase) * 500;
+        a.dist += a.speed * dt;
+        // drift across the tube toward their lane
+        a.x = a.lane + Math.sin(raceTime * 0.5 + a.phase) * 0.22;
+        if (a.dist >= FINISH_DISTANCE) {
+          a.finished = true;
+          a.finishTime = raceTime;
+        }
+      }
+    }
+
+    function playerRank() {
+      let ahead = 0;
+      for (let i = 0; i < aiRiders.length; i++) {
+        if (aiRiders[i].dist > player.pos) ahead++;
+      }
+      return ahead + 1;
+    }
+
+    function updateParticles(dt) {
+      speedParticles = speedParticles.filter(p => {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.life -= dt * 1.4;
+        return p.life > 0;
+      });
+      if (lastLapFlash > 0) lastLapFlash -= dt;
+      if (wipeFlash > 0) wipeFlash -= dt * 1.8;
+      if (shakeAmount > 0) shakeAmount = Math.max(0, shakeAmount - dt * 40);
+    }
+
+    function update(dt) {
+      raceTime += dt;
+      if (state === 'racing' || state === 'wipeout') {
+        updatePlayer(dt);
+        updateAI(dt);
+        updateParticles(dt);
+      }
+    }
+
+    // ============ DRAW ============
+    function drawBackground() {
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, PALETTE.bgTop);
+      g.addColorStop(0.5, '#081428');
+      g.addColorStop(1, PALETTE.bgBot);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      // stars
+      for (let i = 0; i < stars.length; i++) {
+        const s = stars[i];
+        s.y += (0.2 + s.z * 1.5) * (state === 'racing' ? 1 : 0.3);
+        if (s.y > H * 0.52) { s.y = 0; s.x = Math.random() * W; }
+        ctx.globalAlpha = 0.35 + s.z * 0.5;
+        ctx.fillStyle = '#9fe9ff';
+        ctx.fillRect(s.x, s.y, s.s, s.s);
+      }
+      ctx.globalAlpha = 1;
+
+      // horizon glow
+      const hg = ctx.createRadialGradient(W / 2, H / 2, 10, W / 2, H / 2, W * 0.55);
+      hg.addColorStop(0, 'rgba(0,229,255,0.22)');
+      hg.addColorStop(0.4, 'rgba(255,47,208,0.08)');
+      hg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = hg;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    function drawTube() {
+      const baseIndex = Math.floor(player.pos / SEG_LEN);
+      const camZ = player.pos;
+      const camX = player.x * ROAD_WIDTH;
+      const playerSeg = segments[((baseIndex % TOTAL_SEGMENTS) + TOTAL_SEGMENTS) % TOTAL_SEGMENTS];
+      const camY = playerSeg.yWorld + CAMERA_HEIGHT;
+
+      // Accumulate curve drift and project all visible segments
+      let x = 0;
+      let dx = 0;
+      const visible = [];
+      for (let n = 0; n < DRAW_DISTANCE; n++) {
+        const raw = baseIndex + n;
+        const si = ((raw % TOTAL_SEGMENTS) + TOTAL_SEGMENTS) % TOTAL_SEGMENTS;
+        const seg = segments[si];
+        const looped = raw >= TOTAL_SEGMENTS || raw < 0;
+        const segCamZ = camZ - (looped ? TRACK_LENGTH : 0);
+        projectSeg(seg, camX, camY, segCamZ, -x);
+        seg.curveDrift = -x;
+        seg.fog = n / DRAW_DISTANCE;
+        visible.push(seg);
+        x += dx;
+        dx += seg.curve;
+      }
+
+      // Draw far → near so nearer rings overlay distant ones
+      const RAILS = 8;
+      for (let n = visible.length - 1; n >= 0; n--) {
+        const seg = visible[n];
+        if (seg.sw <= 0) continue;
+        const cx = seg.sx;
+        const cy = seg.sy;
+        const rx = seg.sw;
+        const ry = seg.sw * 0.38;
+        const fog = seg.fog;
+        const alpha = 1 - fog * 0.9;
+
+        // ring outline
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+        const ringHue = 185 + (seg.index % 60) * 0.5;
+        ctx.strokeStyle = 'hsla(' + ringHue + ', 100%, ' + (60 - fog * 22) + '%, ' + (alpha * 0.75) + ')';
+        ctx.lineWidth = Math.max(1, 2.4 * (1 - fog));
+        ctx.stroke();
+      }
+
+      // Longitudinal rails — wireframe tunnel
+      for (let r = 0; r < RAILS; r++) {
+        const ang = (r / RAILS) * Math.PI * 2 + Math.PI / 2;
+        const ca = Math.cos(ang);
+        const sa = Math.sin(ang);
+        ctx.beginPath();
+        let started = false;
+        for (let n = 0; n < visible.length; n += 2) {
+          const seg = visible[n];
+          if (seg.sw <= 0) continue;
+          const px = seg.sx + ca * seg.sw;
+          const py = seg.sy + sa * (seg.sw * 0.38);
+          if (!started) { ctx.moveTo(px, py); started = true; }
+          else ctx.lineTo(px, py);
+        }
+        const railHue = r % 2 === 0 ? 190 : 300;
+        ctx.strokeStyle = 'hsla(' + railHue + ', 100%, 62%, 0.42)';
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
+      }
+
+      return visible;
+    }
+
+    function drawObjects(visible) {
+      // Build a quick lookup of visible segments by index
+      const segMap = {};
+      for (let i = 0; i < visible.length; i++) segMap[visible[i].index] = visible[i];
+
+      for (let i = 0; i < pads.length; i++) {
+        const pad = pads[i];
+        if (pad.used) continue;
+        const seg = segMap[pad.seg];
+        if (!seg || seg.sw <= 0) continue;
+        drawObjectOnRing(seg, pad.side, 'pad', seg.fog);
+      }
+
+      for (let i = 0; i < obstacles.length; i++) {
+        const ob = obstacles[i];
+        if (ob.hit) continue;
+        const seg = segMap[ob.seg];
+        if (!seg || seg.sw <= 0) continue;
+        drawObjectOnRing(seg, ob.side, 'block', seg.fog);
+      }
+    }
+
+    function drawObjectOnRing(seg, side, type, fog) {
+      const a = Math.PI / 2 + side * PLAYER_ARC;
+      const px = seg.sx + Math.cos(a) * seg.sw;
+      const py = seg.sy + Math.sin(a) * (seg.sw * 0.38);
+      const scale = seg.sw / RX0;
+      const size = Math.max(2, 46 * scale);
+      const alpha = 1 - fog * 0.85;
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(px, py);
+
+      if (type === 'pad') {
+        const pulse = 0.7 + Math.sin(raceTime * 6 + seg.index) * 0.3;
+        ctx.shadowColor = PALETTE.pad;
+        ctx.shadowBlur = 22 * scale;
+        ctx.fillStyle = 'rgba(0,255,156,' + (0.35 + pulse * 0.35) + ')';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, size * 0.9, size * 0.32, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = PALETTE.pad;
+        ctx.lineWidth = Math.max(1, 3 * scale);
+        ctx.stroke();
+        // chevrons
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#eafff6';
+        for (let c = -1; c <= 1; c++) {
+          ctx.beginPath();
+          ctx.moveTo(-size * 0.3, c * size * 0.12 + size * 0.12);
+          ctx.lineTo(0, c * size * 0.12);
+          ctx.lineTo(size * 0.3, c * size * 0.12 + size * 0.12);
+          ctx.stroke();
+        }
+      } else {
+        ctx.shadowColor = PALETTE.block;
+        ctx.shadowBlur = 18 * scale;
+        ctx.fillStyle = 'rgba(255,59,107,0.9)';
+        ctx.strokeStyle = '#ffd0dd';
+        ctx.lineWidth = Math.max(1, 2.4 * scale);
+        const w = size * 0.62;
+        const h = size * 1.12;
+        roundRect(-w / 2, -h / 2, w, h, size * 0.16);
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+        ctx.beginPath();
+        ctx.moveTo(0, -h / 2 + size * 0.12);
+        ctx.lineTo(0, h / 2 - size * 0.12);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    }
+
+    function drawRiders(visible) {
+      const segMap = {};
+      for (let i = 0; i < visible.length; i++) segMap[visible[i].index] = visible[i];
+
+      for (let i = 0; i < aiRiders.length; i++) {
+        const a = aiRiders[i];
+        if (a.dist < 0) continue;
+        const segIdx = Math.floor(a.dist / SEG_LEN) % TOTAL_SEGMENTS;
+        const seg = segMap[(segIdx + TOTAL_SEGMENTS) % TOTAL_SEGMENTS];
+        if (!seg || seg.sw <= 0) continue;
+        const ang = Math.PI / 2 + a.x * PLAYER_ARC;
+        const px = seg.sx + Math.cos(ang) * seg.sw;
+        const py = seg.sy + Math.sin(ang) * (seg.sw * 0.38);
+        const scale = seg.sw / RX0;
+        const size = Math.max(2, 44 * scale);
+        const alpha = 1 - seg.fog * 0.85;
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(px, py);
+        ctx.shadowColor = PALETTE.ai;
+        ctx.shadowBlur = 16 * scale;
+        // rider trail glow
+        ctx.fillStyle = 'rgba(255,179,0,0.85)';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, size * 0.5, size * 0.22, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // rider body
+        ctx.fillStyle = '#2a1c00';
+        ctx.strokeStyle = PALETTE.ai;
+        ctx.lineWidth = Math.max(1, 2 * scale);
+        roundRect(-size * 0.24, -size * 0.6, size * 0.48, size * 0.6, size * 0.14);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    function drawPlayer() {
+      const pt = playerScreenPoint();
+      const wipe = state === 'wipeout';
+      const speedNorm = player.speed / MAX_SPEED;
+
+      ctx.save();
+      ctx.translate(pt.x, pt.y);
+      ctx.rotate(player.lean * 0.35 + (wipe ? Math.sin(raceTime * 30) * 0.3 : 0));
+
+      const bw = 118;
+      const bh = 34;
+
+      // under-glow
+      ctx.shadowColor = wipe ? '#ff3b6b' : PALETTE.glowA;
+      ctx.shadowBlur = 30 + speedNorm * 30;
+      ctx.fillStyle = wipe ? 'rgba(255,59,107,0.35)' : 'rgba(0,229,255,0.30)';
+      ctx.beginPath();
+      ctx.ellipse(0, 12, bw * 0.75, bh * 0.55, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // board deck
+      ctx.shadowBlur = 18;
+      const deckGrad = ctx.createLinearGradient(-bw / 2, 0, bw / 2, 0);
+      deckGrad.addColorStop(0, '#0b2740');
+      deckGrad.addColorStop(0.5, wipe ? '#7a1230' : '#0d3f63');
+      deckGrad.addColorStop(1, '#0b2740');
+      ctx.fillStyle = deckGrad;
+      ctx.strokeStyle = wipe ? '#ff6d8f' : '#54f4ff';
+      ctx.lineWidth = 3;
+      roundRect(-bw / 2, -bh / 2, bw, bh, 12);
+      ctx.fill();
+      ctx.stroke();
+
+      // thruster strips
+      ctx.shadowBlur = 20;
+      ctx.fillStyle = wipe ? '#ff3b6b' : '#00ffc8';
+      for (let s = -1; s <= 1; s++) {
+        ctx.globalAlpha = 0.6 + speedNorm * 0.4;
+        ctx.fillRect(s * 34 - 8, bh / 2 - 5, 16, 7);
+      }
+      ctx.globalAlpha = 1;
+
+      // deck core light
+      ctx.shadowBlur = 26;
+      ctx.fillStyle = wipe ? '#ffb3c4' : '#d8ffff';
+      ctx.beginPath();
+      ctx.ellipse(0, -2, bw * 0.2, bh * 0.24, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // rider silhouette
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = wipe ? '#2a0812' : '#061a2b';
+      ctx.strokeStyle = wipe ? '#ff9db4' : '#8ff6ff';
+      ctx.lineWidth = 2;
+      roundRect(-16, -bh / 2 - 26, 32, 30, 10);
+      ctx.fill();
+      ctx.stroke();
+      // visor
+      ctx.fillStyle = wipe ? '#ffd0dd' : '#00e5ff';
+      ctx.beginPath();
+      ctx.ellipse(0, -bh / 2 - 12, 11, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+
+      // thruster exhaust particles
+      ctx.save();
+      for (let s = -1; s <= 1; s++) {
+        const ex = pt.x + s * 40 * Math.cos(player.lean * 0.2);
+        const ey = pt.y + 24;
+        const len = 20 + speedNorm * 70;
+        const grad = ctx.createLinearGradient(ex, ey, ex, ey + len);
+        grad.addColorStop(0, wipe ? 'rgba(255,80,120,0.8)' : 'rgba(0,255,200,0.85)');
+        grad.addColorStop(1, 'rgba(0,229,255,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(ex - 6, ey);
+        ctx.lineTo(ex + 6, ey);
+        ctx.lineTo(ex, ey + len);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawSpeedLines() {
+      const speedNorm = player.speed / MAX_SPEED;
+      if (speedNorm < 0.35) return;
+      const count = Math.floor(10 + speedNorm * 26);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(180,240,255,' + (0.10 + speedNorm * 0.28) + ')';
+      ctx.lineWidth = 1.5;
+      for (let i = 0; i < count; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const r0 = 120 + Math.random() * 140;
+        const r1 = r0 + 60 + speedNorm * 220;
+        const cx = CX0;
+        const cy = H / 2;
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(ang) * r0, cy + Math.sin(ang) * r0 * 0.6);
+        ctx.lineTo(cx + Math.cos(ang) * r1, cy + Math.sin(ang) * r1 * 0.6);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawParticles() {
+      for (let i = 0; i < speedParticles.length; i++) {
+        const p = speedParticles[i];
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = '#00ffc8';
+        ctx.fillRect(p.x, p.y, 3, 10);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawHudOverlay() {
+      // lap flash
+      if (lastLapFlash > 0) {
+        const a = Math.min(1, lastLapFlash);
+        ctx.save();
+        ctx.globalAlpha = a * 0.9;
+        ctx.fillStyle = '#00ffc8';
+        ctx.font = 'bold 46px Trebuchet MS, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.shadowColor = '#00ffc8';
+        ctx.shadowBlur = 26;
+        ctx.fillText('LAP ' + Math.min(player.lap, LAPS) + ' / ' + LAPS, W / 2, H * 0.3);
+        ctx.restore();
+      }
+
+      // progress bar
+      const prog = Math.min(1, player.pos / FINISH_DISTANCE);
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,229,255,0.15)';
+      ctx.fillRect(W - 220, 18, 200, 8);
+      ctx.fillStyle = '#00e5ff';
+      ctx.shadowColor = '#00e5ff';
+      ctx.shadowBlur = 12;
+      ctx.fillRect(W - 220, 18, 200 * prog, 8);
+      ctx.restore();
+
+      // wipe flash
+      if (wipeFlash > 0) {
+        ctx.save();
+        ctx.globalAlpha = Math.min(0.6, wipeFlash) * 0.7;
+        ctx.fillStyle = '#ff3b6b';
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, wipeFlash);
+        ctx.fillStyle = '#ffd0dd';
+        ctx.font = 'bold 30px Trebuchet MS, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.shadowColor = '#ff3b6b';
+        ctx.shadowBlur = 20;
+        if (state === 'wipeout') ctx.fillText('WIPEOUT', W / 2, H * 0.42);
+        ctx.restore();
+      }
+    }
+
+    function draw() {
+      ctx.save();
+      if (shakeAmount > 0) {
+        ctx.translate((Math.random() - 0.5) * shakeAmount, (Math.random() - 0.5) * shakeAmount);
+      }
+
+      drawBackground();
+      drawSpeedLines();
+      const visible = drawTube();
+      drawObjects(visible);
+      drawRiders(visible);
+      if (state !== 'start') drawPlayer();
+      drawParticles();
+      drawHudOverlay();
+
+      ctx.restore();
+    }
+
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    // ============ LOOP ============
+    let lastTime = 0;
+
+    function loop(now) {
+      if (state === 'paused') { lastTime = now; requestAnimationFrame(loop); return; }
+      let dt = (now - lastTime) / 1000;
+      lastTime = now;
+      if (dt > 0.05) dt = 0.05;   // clamp for stability after tab switches
+
+      update(dt);
+      updateHud();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    function updateHud() {
+      hudLap.textContent = Math.min(player.lap, LAPS) + '/' + LAPS;
+      hudPos.textContent = state === 'finished' ? '-' : playerRank() + '/' + (aiRiders.length + 1);
+      hudTime.textContent = raceTime.toFixed(2);
+      const best = (player.bestLap != null && (storedBest == null || player.bestLap < storedBest))
+        ? player.bestLap : storedBest;
+      hudBest.textContent = fmt(best);
+      hudSpeed.textContent = Math.round(player.speed / MAX_SPEED * 999);
+      hudSpeed.classList.toggle('hot', player.speed > MAX_SPEED * 0.75);
+    }
+
+    // ============ RACE FLOW ============
+    function resetRace() {
+      player.pos = 0;
+      player.x = 0;
+      player.speed = 0;
+      player.lean = 0;
+      player.lap = 1;
+      player.lapStart = 0;
+      player.bestLap = null;
+      player.wipeouts = 0;
+      player.padsHit = 0;
+      player.topSpeed = 0;
+      player.recoverTimer = 0;
+
+      raceTime = 0;
+      lastLapFlash = 0;
+      wipeFlash = 0;
+      shakeAmount = 0;
+      speedParticles = [];
+
+      buildObjects();
+      spawnRiders();
+      input.left = input.right = input.thrust = input.brake = false;
+      clearTouchStates();
+    }
+
+    function startRace() {
+      resetRace();
+      state = 'racing';
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      pauseOverlay.classList.remove('visible');
+      beep(880, 0.09, 'triangle', 0.05);
+      beep(1320, 0.12, 'triangle', 0.045);
+      lastTime = performance.now();
+    }
+
+    function finishRace() {
+      state = 'finished';
+      const pos = playerRank();
+      // persist best lap
+      if (player.bestLap != null && (storedBest == null || player.bestLap < storedBest)) {
+        storedBest = player.bestLap;
+        localStorage.setItem(BEST_KEY, String(storedBest));
+      }
+
+      resPos.textContent = pos + '/' + (aiRiders.length + 1);
+      resTime.textContent = raceTime.toFixed(2);
+      resBest.textContent = fmt(player.bestLap);
+      resTop.textContent = Math.round(player.topSpeed / MAX_SPEED * 999);
+      resWipe.textContent = player.wipeouts;
+      resPads.textContent = player.padsHit;
+
+      if (pos === 1) {
+        finishTitle.textContent = 'Victory';
+        finishSub.textContent = 'You own the tube. Champion of the neon circuit.';
+        beep(1046, 0.12, 'triangle', 0.06);
+        setTimeout(() => beep(1318, 0.12, 'triangle', 0.06), 130);
+        setTimeout(() => beep(1568, 0.2, 'triangle', 0.06), 260);
+      } else {
+        finishTitle.textContent = 'Race Complete';
+        finishSub.textContent = 'Finished P' + pos + '. Tune your line and chase the podium.';
+        beep(520, 0.14, 'square', 0.05);
+        setTimeout(() => beep(400, 0.18, 'square', 0.05), 150);
+      }
+
+      gameOverScreen.classList.remove('hidden');
+    }
+
+    // ============ INPUT ============
+    function clearTouchStates() {
+      document.querySelectorAll('.touch-btn').forEach(b => b.classList.remove('active'));
+    }
+
+    const GAME_KEYS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+      'KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'KeyP', 'Escape'];
+
+    document.addEventListener('keydown', (e) => {
+      if (GAME_KEYS.indexOf(e.code) !== -1) e.preventDefault();
+
+      if (e.code === 'KeyP' || e.code === 'Escape') {
+        togglePause();
+        return;
+      }
+      if (state === 'start' || state === 'finished') {
+        if (e.code === 'Space' || e.code === 'Enter') startRace();
+        return;
+      }
+      if (state === 'paused') return;
+
+      switch (e.code) {
+        case 'ArrowLeft': case 'KeyA': input.left = true; break;
+        case 'ArrowRight': case 'KeyD': input.right = true; break;
+        case 'ArrowUp': case 'KeyW': case 'Space': input.thrust = true; break;
+        case 'ArrowDown': case 'KeyS': input.brake = true; break;
+      }
+    });
+
+    document.addEventListener('keyup', (e) => {
+      switch (e.code) {
+        case 'ArrowLeft': case 'KeyA': input.left = false; break;
+        case 'ArrowRight': case 'KeyD': input.right = false; break;
+        case 'ArrowUp': case 'KeyW': case 'Space': input.thrust = false; break;
+        case 'ArrowDown': case 'KeyS': input.brake = false; break;
+      }
+    });
+
+    function togglePause() {
+      if (state === 'racing' || state === 'wipeout') {
+        prevState = state;
+        state = 'paused';
+        pauseOverlay.classList.add('visible');
+      } else if (state === 'paused') {
+        state = prevState;
+        pauseOverlay.classList.remove('visible');
+        lastTime = performance.now();
+      }
+    }
+
+    // Touch / pointer controls
+    function bindTouch(el, onDown, onUp) {
+      el.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        el.classList.add('active');
+        onDown();
+      });
+      const release = (e) => {
+        if (e) e.preventDefault();
+        el.classList.remove('active');
+        if (onUp) onUp();
+      };
+      el.addEventListener('pointerup', release);
+      el.addEventListener('pointerleave', release);
+      el.addEventListener('pointercancel', release);
+    }
+
+    bindTouch(document.getElementById('btnLeft'), () => { input.left = true; }, () => { input.left = false; });
+    bindTouch(document.getElementById('btnRight'), () => { input.right = true; }, () => { input.right = false; });
+    bindTouch(document.getElementById('btnThrust'), () => { input.thrust = true; }, () => { input.thrust = false; });
+    bindTouch(document.getElementById('btnBrake'), () => { input.brake = true; }, () => { input.brake = false; });
+
+    // Show touch controls on touch-capable devices
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+      touchControls.classList.add('visible');
+    }
+
+    startBtn.addEventListener('click', startRace);
+    restartBtn.addEventListener('click', startRace);
+
+    // ============ INIT ============
+    buildTrack();
+    buildObjects();
+    spawnRiders();
+    buildStars();
+    hudBest.textContent = fmt(storedBest);
+    updateHud();
+
+    // idle attract draw behind the start screen
+    state = 'start';
+    requestAnimationFrame((t) => {
+      lastTime = t;
+      state = 'start';
+      requestAnimationFrame(loop);
+    });
+  </script>
+</body>
+</html>

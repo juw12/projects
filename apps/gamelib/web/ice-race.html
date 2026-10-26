@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>❄️ Ice Race</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: radial-gradient(circle at 30% 20%, #dff1ff 0%, #a9d4ee 45%, #6fa8cf 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(255, 255, 255, 0.92);
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: 0 12px 44px rgba(30, 70, 110, 0.28);
+      max-width: 560px;
+      width: 96%;
+      backdrop-filter: blur(4px);
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.9rem;
+      color: #2b6ea8;
+      margin-bottom: 4px;
+      letter-spacing: 2px;
+      text-shadow: 2px 2px 0 #fff, 0 4px 14px rgba(80, 160, 220, 0.35);
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #7a96ad;
+      margin-bottom: 14px;
+    }
+
+    /* ============ HUD ============ */
+    .score-board {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 10px 14px;
+      background: linear-gradient(135deg, #eaf6ff, #d6ecfb);
+      border-radius: 12px;
+      font-size: 0.92rem;
+      color: #4a6a84;
+    }
+
+    .score-board span { font-weight: 700; color: #1f5c92; }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 18px rgba(30, 70, 110, 0.18);
+      background: #cfe6f5;
+    }
+
+    canvas { display: block; width: 100%; height: auto; }
+
+    /* ============ SCREENS (Start / Finish) ============ */
+    .screen {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: rgba(240, 250, 255, 0.96);
+      transition: opacity 0.3s ease;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .screen.hidden { opacity: 0; pointer-events: none; }
+
+    .screen-title {
+      font-size: 1.9rem;
+      color: #2b6ea8;
+      margin-bottom: 6px;
+      text-shadow: 2px 2px 0 #fff;
+    }
+
+    .screen-subtitle { font-size: 0.95rem; color: #7a96ad; margin-bottom: 18px; }
+
+    .final-score { font-size: 1.4rem; color: #1f5c92; margin-bottom: 6px; }
+    .final-note  { font-size: 0.95rem; color: #5c7c96; margin-bottom: 18px; }
+
+    /* ============ ACTION BUTTONS ============ */
+    .action-btn {
+      padding: 13px 32px;
+      background: linear-gradient(135deg, #5fb2e8, #2b6ea8);
+      color: white;
+      border: none;
+      border-radius: 25px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 14px rgba(43, 110, 168, 0.4);
+      letter-spacing: 1px;
+    }
+
+    .action-btn:hover { transform: translateY(-3px); box-shadow: 0 7px 22px rgba(43, 110, 168, 0.5); }
+    .action-btn:active { transform: translateY(-1px); }
+
+    /* ============ PAUSE / MESSAGE OVERLAY ============ */
+    .pause-overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(230, 245, 255, 0.82);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.8rem;
+      color: #2b6ea8;
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .pause-overlay.visible { opacity: 1; }
+
+    /* ============ MOBILE CONTROLS ============ */
+    .mobile-controls {
+      display: none;
+      margin-top: 14px;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .mobile-controls.visible { display: flex; }
+
+    .pad {
+      display: grid;
+      grid-template-columns: repeat(2, 52px);
+      grid-template-rows: repeat(2, 52px);
+      gap: 8px;
+    }
+
+    .control-btn {
+      background: linear-gradient(135deg, #eaf6ff, #d0e9fa);
+      border: 2px solid #b7dbf3;
+      border-radius: 14px;
+      font-size: 1.3rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: transform 0.12s ease, background 0.12s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      color: #28577d;
+      font-weight: 700;
+    }
+
+    .control-btn:active { background: #9fd2f0; transform: scale(0.94); }
+
+    .pedal-col { display: flex; flex-direction: column; gap: 8px; }
+    .pedal-col .control-btn { width: 68px; height: 56px; }
+    .brake-btn { background: linear-gradient(135deg, #ffe0e0, #ffcccc); border-color: #f5b3b3; }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 520px) {
+      .game-container { padding: 14px; }
+      .game-title { font-size: 1.5rem; }
+      .score-board { font-size: 0.8rem; }
+      .mobile-controls { display: flex; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">❄️ ICE RACE</h1>
+    <p class="game-subtitle">Grip is scarce. Throttle with care.</p>
+
+    <!-- ============ HUD ============ -->
+    <div class="score-board">
+      <div>Lap: <span id="lapDisplay">1/3</span></div>
+      <div>Time: <span id="timeDisplay">0.00</span></div>
+      <div>Best: <span id="bestDisplay">--</span></div>
+      <div>Pos: <span id="posDisplay">1/4</span></div>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="520" height="520"></canvas>
+
+      <!-- Start Screen -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">Ice Race</h2>
+        <p class="screen-subtitle">Steer with ←/→ · Throttle ↑ · Brake ↓<br>Collect &#128142; grip crystals · 3 laps to win</p>
+        <button class="action-btn" id="startBtn">Start Race</button>
+      </div>
+
+      <!-- Finish Screen -->
+      <div id="finishScreen" class="screen hidden">
+        <h2 class="screen-title" id="finishTitle">Race Over!</h2>
+        <p class="final-score" id="finishTime">Time: 0.00</p>
+        <p class="final-note" id="finishNote">Best lap: --</p>
+        <button class="action-btn" id="restartBtn">Race Again</button>
+      </div>
+
+      <!-- Pause / Spin overlay -->
+      <div id="pauseOverlay" class="pause-overlay">⏸ Paused</div>
+    </div>
+
+    <!-- ============ MOBILE CONTROLS ============ -->
+    <div class="mobile-controls" id="mobileControls">
+      <div class="pad">
+        <div></div>
+        <button class="control-btn" data-act="throttle">▲</button>
+        <button class="control-btn" data-act="left">◀</button>
+        <button class="control-btn" data-act="brake" style="visibility:hidden">▼</button>
+      </div>
+      <button class="control-btn brake-btn" data-act="brake" style="width:80px;height:80px;font-size:0.85rem">BRAKE</button>
+    </div>
+  </div>
+
+  <script>
+    // ============ GAME CONFIGURATION ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+
+    const TOTAL_LAPS = 3;
+    const TRACK_POINTS = 12;          // waypoints around the oval-ish circuit
+    const TRACK_RADIUS = 170;         // base radius from centre
+    const ROAD_HALF = 52;             // half road width
+    const INNER_FRICTION = 0.90;      // off-road drag
+    const ICE_FRICTION = 0.985;       // on-ice lateral slide (very slippery)
+    const ENGINE_POWER = 0.30;
+    const BRAKE_POWER = 0.42;
+    const REVERSE_POWER = 0.14;
+    const STEER_RATE = 0.052;
+    const MAX_SPEED = 8.2;
+
+    // ============ GAME STATE ============
+    let cars = [];                    // [0] = player, rest are AI
+    let particles = [];
+    let pickups = [];
+    let center = { x: W / 2, y: H / 2 };
+    let track = [];                   // precomputed outer/inner path points
+    let raceTime = 0;
+    let running = false;
+    let isPaused = false;
+    let lastTime = 0;
+    let finishPlace = 0;
+
+    const COLORS = ['#2b6ea8', '#d64545', '#3faa6b', '#a25bd6'];
+    const AI_NAMES = ['You', 'Frost', 'Glacier', 'Blizzard'];
+
+    let bestLap = parseFloat(localStorage.getItem('iceRaceBestLap')) || 0;
+
+    // ============ DOM ELEMENTS ============
+    const lapDisplay = document.getElementById('lapDisplay');
+    const timeDisplay = document.getElementById('timeDisplay');
+    const bestDisplay = document.getElementById('bestDisplay');
+    const posDisplay = document.getElementById('posDisplay');
+    const startScreen = document.getElementById('startScreen');
+    const finishScreen = document.getElementById('finishScreen');
+    const finishTitle = document.getElementById('finishTitle');
+    const finishTime = document.getElementById('finishTime');
+    const finishNote = document.getElementById('finishNote');
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const startBtn = document.getElementById('startBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const mobileControls = document.getElementById('mobileControls');
+
+    if (bestLap > 0) bestDisplay.textContent = bestLap.toFixed(2);
+
+    // Show touch controls on touch devices
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+      mobileControls.classList.add('visible');
+    }
+
+    // ============ AUDIO (WebAudio beep) ============
+    let audioCtx = null;
+    function beep(freq, dur, type, gain) {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = type || 'square';
+        o.frequency.value = freq;
+        g.gain.value = gain === undefined ? 0.06 : gain;
+        o.connect(g).connect(audioCtx.destination);
+        const t = audioCtx.currentTime;
+        o.start(t);
+        g.gain.setValueAtTime(g.gain.value, t);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.stop(t + dur);
+      } catch (e) { /* audio optional */ }
+    }
+
+    // ============ TRACK BUILDING ============
+    // Build an organic closed loop from a polar radius table.
+    function buildTrack() {
+      track = [];
+      for (let i = 0; i < TRACK_POINTS; i++) {
+        const a = (i / TRACK_POINTS) * Math.PI * 2;
+        // radius wobble creates corners of varying tightness
+        const wob = 1 + 0.22 * Math.sin(i * 1.7) + 0.10 * Math.cos(i * 0.9);
+        const r = TRACK_RADIUS * wob;
+        track.push({
+          x: center.x + Math.cos(a) * r,
+          y: center.y + Math.sin(a) * r
+        });
+      }
+    }
+
+    // Return interpolated centre-line point at parameter t in [0, N)
+    function pathAt(t) {
+      const n = track.length;
+      const i0 = Math.floor(t) % n;
+      const i1 = (i0 + 1) % n;
+      const f = t - Math.floor(t);
+      const a = track[i0], b = track[i1];
+      return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
+    }
+
+    // Distance from a point to the centre line (approx via nearest segment)
+    function distToCenterLine(px, py) {
+      let best = Infinity;
+      const n = track.length;
+      for (let i = 0; i < n; i++) {
+        const a = track[i];
+        const b = track[(i + 1) % n];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const len2 = dx * dx + dy * dy || 1;
+        let u = ((px - a.x) * dx + (py - a.y) * dy) / len2;
+        u = Math.max(0, Math.min(1, u));
+        const cx = a.x + dx * u, cy = a.y + dy * u;
+        const d = Math.hypot(px - cx, py - cy);
+        if (d < best) best = d;
+      }
+      return best;
+    }
+
+    // Progressive race progress: project position onto nearest segment index
+    function progressAt(px, py) {
+      let best = Infinity, bestT = 0;
+      const n = track.length;
+      for (let i = 0; i < n; i++) {
+        const a = track[i];
+        const b = track[(i + 1) % n];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const len2 = dx * dx + dy * dy || 1;
+        let u = ((px - a.x) * dx + (py - a.y) * dy) / len2;
+        u = Math.max(0, Math.min(1, u));
+        const cx = a.x + dx * u, cy = a.y + dy * u;
+        const d = Math.hypot(px - cx, py - cy);
+        if (d < best) { best = d; bestT = i + u; }
+      }
+      return bestT / n; // 0..1 around the loop
+    }
+
+    // ============ CAR CREATION ============
+    function makeCar(index, isPlayer) {
+      // start them staggered along the first part of the track
+      const t = -index * 0.04;
+      const p = pathAt((t + track.length) % track.length);
+      const p2 = pathAt((t + track.length + 0.2) % track.length);
+      const ang = Math.atan2(p2.y - p.y, p2.x - p.x);
+      return {
+        x: p.x, y: p.y,
+        angle: ang,
+        vx: 0, vy: 0,
+        speed: 0,
+        color: COLORS[index % COLORS.length],
+        isPlayer: !!isPlayer,
+        name: AI_NAMES[index % AI_NAMES.length],
+        // race bookkeeping
+        lap: 0,
+        lastProgress: progressAt(p.x, p.y),
+        totalProgress: 0,
+        finished: false,
+        finishTime: 0,
+        // grip state
+        grip: 1,          // 1 = full grip, lower = icy
+        gripTimer: 0,     // frames of boosted grip remaining
+        spin: 0,          // spin-out timer
+        spinDir: 1,
+        wheelSkid: 0
+      };
+    }
+
+    function resetRace() {
+      buildTrack();
+      cars = [];
+      for (let i = 0; i < 4; i++) cars.push(makeCar(i, i === 0));
+      particles = [];
+      pickups = [];
+      spawnPickups();
+      raceTime = 0;
+      finishPlace = 0;
+      running = true;
+      isPaused = false;
+      startScreen.classList.add('hidden');
+      finishScreen.classList.add('hidden');
+      pauseOverlay.classList.remove('visible');
+      lastTime = performance.now();
+      requestAnimationFrame(gameLoop);
+    }
+
+    // ============ PICKUPS ============
+    function spawnPickups() {
+      pickups = [];
+      for (let i = 0; i < 4; i++) {
+        const t = (i / 4) * track.length + 0.5;
+        const p = pathAt(t % track.length);
+        pickups.push({ x: p.x, y: p.y, taken: false, bob: Math.random() * Math.PI * 2 });
+      }
+    }
+
+    // ============ SNOW PARTICLES ============
+    function spawnSnow(x, y, count, spread) {
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x, y,
+          vx: (Math.random() - 0.5) * (spread || 4),
+          vy: (Math.random() - 0.5) * (spread || 4),
+          life: 1,
+          size: Math.random() * 3 + 1,
+          color: '#ffffff'
+        });
+      }
+    }
+
+    function updateParticles(dt) {
+      particles = particles.filter(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vx *= 0.96;
+        p.vy *= 0.96;
+        p.life -= dt * 0.0025;
+        return p.life > 0;
+      });
+    }
+
+    // ============ INPUT ============
+    const keys = {};
+    document.addEventListener('keydown', (e) => {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyP'].includes(e.code)) {
+        e.preventDefault();
+      }
+      keys[e.code] = true;
+      if (e.code === 'Space' || e.code === 'KeyP') togglePause();
+    });
+    document.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+    // Touch / pointer controls
+    const touchState = { left: false, right: false, throttle: false, brake: false };
+    document.querySelectorAll('.control-btn').forEach(btn => {
+      const act = btn.dataset.act;
+      const on = (e) => { e.preventDefault(); touchState[act] = true; };
+      const off = (e) => { e.preventDefault(); touchState[act] = false; };
+      btn.addEventListener('touchstart', on, { passive: false });
+      btn.addEventListener('touchend', off, { passive: false });
+      btn.addEventListener('touchcancel', off, { passive: false });
+      btn.addEventListener('mousedown', on);
+      btn.addEventListener('mouseup', off);
+      btn.addEventListener('mouseleave', off);
+    });
+
+    function playerInput() {
+      return {
+        left: !!(keys['ArrowLeft'] || keys['KeyA'] || touchState.left),
+        right: !!(keys['ArrowRight'] || keys['KeyD'] || touchState.right),
+        throttle: !!(keys['ArrowUp'] || keys['KeyW'] || touchState.throttle),
+        brake: !!(keys['ArrowDown'] || keys['KeyS'] || touchState.brake)
+      };
+    }
+
+    // ============ PHYSICS / UPDATE ============
+    function updateCar(car, input, dt) {
+      // Decrement timers
+      if (car.gripTimer > 0) car.gripTimer -= dt;
+      car.grip = car.gripTimer > 0 ? 1.35 : 1;
+
+      if (car.spin > 0) {
+        car.spin -= dt;
+        // uncontrollable rotation while spinning
+        car.angle += car.spinDir * 0.16 * (dt / 16);
+        car.wheelSkid = 1;
+        spawnSnow(car.x, car.y, 2, 2.5);
+      } else {
+        // ---- Steering ----
+        // Steering effectiveness scales with speed but is reduced on ice.
+        const steerGrip = 0.55 + 0.45 * car.grip * Math.min(1, Math.abs(car.speed) / 3);
+        if (input.left) car.angle -= STEER_RATE * steerGrip * (dt / 16) * 1.6;
+        if (input.right) car.angle += STEER_RATE * steerGrip * (dt / 16) * 1.6;
+      }
+
+      // ---- Longitudinal force ----
+      let accel = 0;
+      if (car.spin <= 0) {
+        if (input.throttle) accel += ENGINE_POWER * (car.grip > 1 ? 1.1 : 1);
+        if (input.brake) {
+          if (car.speed > 0.3) accel -= BRAKE_POWER;
+          else accel -= REVERSE_POWER; // gentle reverse
+        }
+      }
+      car.speed += accel * (dt / 16);
+
+      // Natural drag / rolling resistance
+      car.speed *= 0.992;
+      // clamp speed
+      if (car.speed > MAX_SPEED * car.grip) car.speed = MAX_SPEED * car.grip;
+      if (car.speed < -MAX_SPEED * 0.4) car.speed = -MAX_SPEED * 0.4;
+      if (Math.abs(car.speed) < 0.02) car.speed = 0;
+
+      // ---- Friction / grip on ice ----
+      const offRoad = distToCenterLine(car.x, car.y) > ROAD_HALF;
+      const surface = offRoad ? INNER_FRICTION : ICE_FRICTION;
+
+      // Velocity expressed along heading + lateral slip
+      const hx = Math.cos(car.angle), hy = Math.sin(car.angle);
+      // forward velocity component
+      let fwd = car.vx * hx + car.vy * hy;
+      // lateral velocity component
+      let lat = -car.vx * hy + car.vy * hx;
+
+      // Apply engine speed to forward component
+      fwd = car.speed;
+
+      // Lateral slip decays based on grip. On ice it barely decays -> drifting.
+      const latGrip = car.grip > 1 ? 0.86 : (offRoad ? 0.82 : 0.965);
+      lat *= latGrip;
+
+      // Spin-outs when steering hard at high speed on low grip
+      if (car.spin <= 0 && Math.abs(car.speed) > 5.2 && car.grip <= 1 && !offRoad) {
+        const turning = (input.left ? 1 : 0) + (input.right ? 1 : 0);
+        if (turning && Math.abs(lat) < 0.6 && Math.random() < 0.035) {
+          // begin a spin-out
+          car.spin = 60 + Math.random() * 40;
+          car.spinDir = input.left ? -1 : 1;
+          car.speed *= 0.6;
+          lat += car.spinDir * 2.2;
+          beep(140, 0.3, 'sawtooth', 0.08);
+          spawnSnow(car.x, car.y, 14, 6);
+        }
+      }
+
+      // Recombine velocity
+      car.vx = hx * fwd - hy * lat;
+      car.vy = hy * fwd + hx * lat;
+
+      // Integrate position
+      car.x += car.vx * (dt / 16);
+      car.y += car.vy * (dt / 16);
+
+      // Wall bounce if far off-road (keeps cars on the snow area)
+      const distC = distToCenterLine(car.x, car.y);
+      if (distC > ROAD_HALF + 60) {
+        // push back toward centre line
+        let bx = 0, by = 0, bd = Infinity;
+        for (let i = 0; i < track.length; i++) {
+          const d = Math.hypot(track[i].x - car.x, track[i].y - car.y);
+          if (d < bd) { bd = d; bx = track[i].x; by = track[i].y; }
+        }
+        const nx = (bx - car.x), ny = (by - car.y);
+        const nl = Math.hypot(nx, ny) || 1;
+        car.x += (nx / nl) * 1.4;
+        car.y += (ny / nl) * 1.4;
+        car.vx *= 0.5; car.vy *= 0.5; car.speed *= 0.5;
+      }
+
+      // ---- Snow trailing particles when drifting/skidding ----
+      const slip = Math.abs(lat);
+      if (slip > 0.7 && Math.abs(car.speed) > 1 || car.spin > 0) {
+        car.wheelSkid = Math.min(1, slip * 0.4 + 0.3);
+        spawnSnow(car.x - hx * 8, car.y - hy * 8, 1, 3);
+      } else {
+        car.wheelSkid *= 0.9;
+      }
+
+      // ---- Pickups (grip crystal) ----
+      pickups.forEach(p => {
+        if (!p.taken && Math.hypot(p.x - car.x, p.y - car.y) < 20) {
+          p.taken = true;
+          car.gripTimer = 140; // ~2.3s of boosted grip
+          if (car.isPlayer) { beep(880, 0.12, 'sine', 0.09); spawnSnow(p.x, p.y, 16, 5); }
+        }
+      });
+
+      updateLapProgress(car);
+    }
+
+    function updateLapProgress(car) {
+      const prog = progressAt(car.x, car.y);
+      let delta = prog - car.lastProgress;
+      // handle wrap-around at start/finish
+      if (delta < -0.5) delta += 1;
+      else if (delta > 0.5) delta -= 1;
+      car.totalProgress += delta;
+      car.lastProgress = prog;
+
+      const newLap = Math.max(0, Math.floor(car.totalProgress)) ;
+      if (newLap > car.lap) {
+        car.lap = newLap;
+        if (car.lap > 0 && !car.finished && car.lap >= TOTAL_LAPS) {
+          car.finished = true;
+          car.finishTime = raceTime;
+          if (car.isPlayer) beep(700, 0.2, 'sine', 0.1);
+        } else if (car.lap >= 1 && car.isPlayer) {
+          beep(620, 0.12, 'triangle', 0.08);
+        }
+      }
+    }
+
+    // Simple AI: aim for a look-ahead point on the track, ease throttle on corners.
+    function aiInput(car) {
+      const t = car.lastProgress * track.length;
+      const look = pathAt((t + 6) % track.length);
+      let targetAng = Math.atan2(look.y - car.y, look.x - car.x);
+      let diff = targetAng - car.angle;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+
+      const input = { left: false, right: false, throttle: false, brake: false };
+      const dead = 0.06;
+      if (diff < -dead) input.left = true;
+      else if (diff > dead) input.right = true;
+
+      // If angle is very sharp, brake; otherwise throttle.
+      const absDiff = Math.abs(diff);
+      if (absDiff > 0.6 && Math.abs(car.speed) > 4.2) input.brake = true;
+      else input.throttle = true;
+
+      // Skill noise: faster AIs look further / have less jitter
+      if (Math.random() < 0.01) { input.left = !input.left; }
+      return input;
+    }
+
+    // ============ UPDATE LOOP ============
+    function update(dt) {
+      if (!running) return;
+      raceTime += dt / 1000;
+
+      cars.forEach(car => {
+        if (car.finished) { car.speed *= 0.9; car.x += car.vx * (dt / 16); car.y += car.vy * (dt / 16); return; }
+        const input = car.isPlayer ? playerInput() : aiInput(car);
+        updateCar(car, input, dt);
+      });
+
+      // Car-vs-car light collision nudge
+      for (let i = 0; i < cars.length; i++) {
+        for (let j = i + 1; j < cars.length; j++) {
+          const a = cars[i], b = cars[j];
+          const d = Math.hypot(a.x - b.x, a.y - b.y);
+          if (d < 20 && d > 0) {
+            const nx = (a.x - b.x) / d, ny = (a.y - b.y) / d;
+            a.x += nx * 1.2; a.y += ny * 1.2;
+            b.x -= nx * 1.2; b.y -= ny * 1.2;
+            a.vx *= 0.85; a.vy *= 0.85;
+            b.vx *= 0.85; b.vy *= 0.85;
+          }
+        }
+      }
+
+      updateParticles(dt);
+      updateHUD();
+      checkRaceEnd();
+    }
+
+    function playerPosition() {
+      // rank by totalProgress (desc), finished cars count as ahead
+      const sorted = [...cars].sort((a, b) => {
+        if (a.finished && b.finished) return a.finishTime - b.finishTime;
+        if (a.finished) return -1;
+        if (b.finished) return 1;
+        return b.totalProgress - a.totalProgress;
+      });
+      return sorted.indexOf(cars[0]) + 1;
+    }
+
+    function updateHUD() {
+      const p = cars[0];
+      lapDisplay.textContent = Math.min(TOTAL_LAPS, Math.max(1, p.lap + 1)) + '/' + TOTAL_LAPS;
+      timeDisplay.textContent = raceTime.toFixed(2);
+      posDisplay.textContent = playerPosition() + '/' + cars.length;
+    }
+
+    function checkRaceEnd() {
+      if (cars[0].finished && running) {
+        running = false;
+        finishPlace = playerPosition();
+        const place = finishPlace;
+        finishTitle.textContent = place === 1 ? '🏆 You Win!' :
+                                  place === 2 ? '🥈 2nd Place' :
+                                  place === 3 ? '🥉 3rd Place' : 'Finished';
+        finishTime.textContent = 'Time: ' + raceTime.toFixed(2);
+        // best lap tracked from single fastest full race (single lap timing best-effort)
+        if (bestLap === 0 || raceTime < bestLap) {
+          bestLap = raceTime;
+          localStorage.setItem('iceRaceBestLap', String(bestLap));
+          bestDisplay.textContent = bestLap.toFixed(2);
+          finishNote.textContent = 'New best race time! ' + bestLap.toFixed(2) + 's';
+        } else {
+          finishNote.textContent = 'Best race time: ' + bestLap.toFixed(2) + 's';
+        }
+        if (place === 1) beep(990, 0.25, 'sine', 0.12);
+        else beep(330, 0.25, 'triangle', 0.08);
+        finishScreen.classList.remove('hidden');
+      }
+    }
+
+    // ============ DRAWING ============
+    function draw() {
+      // Sky/ice base
+      const bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, '#eaf6ff');
+      bg.addColorStop(1, '#cfe6f5');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      drawTrack();
+      drawPickups();
+      drawParticles();
+      cars.forEach(drawCar);
+    }
+
+    function drawTrack() {
+      // Snowfield base
+      ctx.fillStyle = '#f4fbff';
+      ctx.fillRect(0, 0, W, H);
+
+      // Road: thick closed loop stroke
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+
+      // outer glow
+      ctx.strokeStyle = '#bcdcf0';
+      ctx.lineWidth = ROAD_HALF * 2 + 16;
+      strokeLoop();
+
+      // the icy road surface
+      const roadGrad = ctx.createLinearGradient(0, 0, W, H);
+      roadGrad.addColorStop(0, '#9fc9e6');
+      roadGrad.addColorStop(0.5, '#8dc0e0');
+      roadGrad.addColorStop(1, '#a7d2ea');
+      ctx.strokeStyle = roadGrad;
+      ctx.lineWidth = ROAD_HALF * 2;
+      strokeLoop();
+
+      // lane dashes down the middle
+      ctx.setLineDash([14, 18]);
+      ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+      ctx.lineWidth = 3;
+      strokeLoop();
+      ctx.setLineDash([]);
+
+      // start/finish line
+      const s = track[0];
+      const s2 = track[1];
+      const a = Math.atan2(s2.y - s.y, s2.x - s.x);
+      ctx.save();
+      ctx.translate(s.x, s.y);
+      ctx.rotate(a);
+      for (let i = -ROAD_HALF; i < ROAD_HALF; i += 8) {
+        ctx.fillStyle = (Math.floor((i + ROAD_HALF) / 8) % 2 === 0) ? '#ffffff' : '#2b3a48';
+        ctx.fillRect(-4, i, 8, 8);
+      }
+      ctx.restore();
+    }
+
+    function strokeLoop() {
+      ctx.beginPath();
+      for (let i = 0; i <= track.length; i++) {
+        const p = pathAt(i % track.length);
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    }
+
+    function drawPickups() {
+      pickups.forEach(p => {
+        if (p.taken) return;
+        p.bob += 0.06;
+        const yy = p.y + Math.sin(p.bob) * 2.5;
+        // glow
+        ctx.fillStyle = 'rgba(120, 220, 255, 0.35)';
+        ctx.beginPath();
+        ctx.arc(p.x, yy, 12, 0, Math.PI * 2);
+        ctx.fill();
+        // diamond crystal
+        ctx.fillStyle = '#4fd0ff';
+        ctx.beginPath();
+        ctx.moveTo(p.x, yy - 8);
+        ctx.lineTo(p.x + 7, yy);
+        ctx.lineTo(p.x, yy + 8);
+        ctx.lineTo(p.x - 7, yy);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.beginPath();
+        ctx.moveTo(p.x, yy - 8);
+        ctx.lineTo(p.x + 3, yy - 2);
+        ctx.lineTo(p.x, yy);
+        ctx.closePath();
+        ctx.fill();
+      });
+    }
+
+    function drawParticles() {
+      particles.forEach(p => {
+        ctx.globalAlpha = p.life * 0.9;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+    }
+
+    function drawCar(car) {
+      ctx.save();
+      ctx.translate(car.x, car.y);
+      ctx.rotate(car.angle);
+
+      // shadow
+      ctx.fillStyle = 'rgba(40,70,100,0.22)';
+      ctx.beginPath();
+      ctx.ellipse(0, 3, 15, 9, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // body
+      ctx.fillStyle = car.color;
+      ctx.beginPath();
+      ctx.roundRect(-14, -8, 28, 16, 5);
+      ctx.fill();
+
+      // cabin
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.beginPath();
+      ctx.roundRect(-6, -6, 12, 12, 3);
+      ctx.fill();
+
+      // nose marker
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.beginPath();
+      ctx.moveTo(14, -5);
+      ctx.lineTo(18, 0);
+      ctx.lineTo(14, 5);
+      ctx.closePath();
+      ctx.fill();
+
+      // grip-boost halo
+      if (car.gripTimer > 0) {
+        ctx.strokeStyle = 'rgba(79,208,255,0.9)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 20, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // spin-out swirl
+      if (car.spin > 0) {
+        ctx.strokeStyle = 'rgba(255,120,120,0.85)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 17, 0, Math.PI * 1.4);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+
+      // name tag (for AI cars)
+      if (!car.isPlayer) {
+        ctx.fillStyle = 'rgba(40,70,100,0.65)';
+        ctx.font = '10px Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(car.name, car.x, car.y - 20);
+      } else {
+        ctx.fillStyle = 'rgba(20,60,100,0.9)';
+        ctx.font = 'bold 10px Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('YOU', car.x, car.y - 20);
+      }
+    }
+
+    // ============ GAME LOOP ============
+    function gameLoop(now) {
+      if (!running || isPaused) { return; }
+      let dt = now - lastTime;
+      lastTime = now;
+      if (dt > 50) dt = 50; // clamp big frame gaps
+      update(dt);
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function togglePause() {
+      if (!running && !isPaused) return;
+      if (!running) return;
+      isPaused = !isPaused;
+      pauseOverlay.classList.toggle('visible', isPaused);
+      if (!isPaused) {
+        lastTime = performance.now();
+        requestAnimationFrame(gameLoop);
+      }
+    }
+
+    // ============ START ============
+    startBtn.addEventListener('click', () => {
+      beep(520, 0.1, 'sine', 0.07);
+      resetRace();
+    });
+    restartBtn.addEventListener('click', () => {
+      beep(520, 0.1, 'sine', 0.07);
+      resetRace();
+    });
+
+    // ============ INITIAL DRAW ============
+    buildTrack();
+    cars = [];
+    for (let i = 0; i < 4; i++) cars.push(makeCar(i, i === 0));
+    spawnPickups();
+    draw();
+  </script>
+</body>
+</html>

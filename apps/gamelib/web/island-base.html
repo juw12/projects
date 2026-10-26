@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Island Base</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    background: radial-gradient(circle at 50% 0%, #123a52 0%, #0a1c2b 70%, #06121c 100%);
+    font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+    color: #eaf6ff;
+    display: flex;
+    justify-content: center;
+    overflow: hidden;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ============ APP SHELL ============ */
+  #app {
+    display: flex;
+    flex-direction: column;
+    width: min(100vw, 900px);
+    height: 100%;
+    max-height: 100vh;
+    padding: 8px;
+    gap: 8px;
+  }
+
+  /* ============ TOP BAR ============ */
+  #topbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    background: linear-gradient(180deg, #143042 0%, #0e2231 100%);
+    border: 1px solid #2c5871;
+    border-radius: 12px;
+    padding: 8px 12px;
+    box-shadow: 0 6px 18px rgba(0,0,0,.4);
+  }
+  #topbar .title {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: #ffd76a;
+    text-shadow: 0 2px 0 rgba(0,0,0,.4);
+    margin-right: auto;
+  }
+  .res {
+    font-size: 14px;
+    font-weight: 700;
+    background: rgba(255,255,255,.06);
+    border: 1px solid #2c5871;
+    border-radius: 999px;
+    padding: 4px 10px;
+    white-space: nowrap;
+  }
+  .res b { color: #ffe08a; }
+  #topbar button {
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    color: #06202e;
+    background: #63c7e8;
+    border: none;
+    border-radius: 8px;
+    padding: 7px 12px;
+    cursor: pointer;
+    box-shadow: 0 3px 0 #2f7f9c;
+    transition: transform .05s ease, filter .15s ease;
+    white-space: nowrap;
+  }
+  #topbar button:hover { filter: brightness(1.08); }
+  #topbar button:active { transform: translateY(2px); box-shadow: 0 1px 0 #2f7f9c; }
+  #topbar button.on { background: #ffcf47; box-shadow: 0 3px 0 #a87f10; }
+  #topbar button.danger { background: #ff8a7a; box-shadow: 0 3px 0 #a84a3c; }
+
+  /* ============ STAGE / CANVAS ============ */
+  #stage {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #081724;
+    box-shadow: inset 0 0 0 1px #2c5871;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    cursor: crosshair;
+    touch-action: none;
+  }
+
+  /* ============ HUD (shop / info) ============ */
+  #hud {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 8px;
+    background: linear-gradient(180deg, #0e2231 0%, #0a1926 100%);
+    border: 1px solid #2c5871;
+    border-radius: 12px;
+    min-height: 84px;
+    align-items: stretch;
+    scrollbar-width: thin;
+  }
+  #hud::-webkit-scrollbar { height: 8px; }
+  #hud::-webkit-scrollbar-thumb { background: #2c5871; border-radius: 4px; }
+
+  .card {
+    flex: 0 0 auto;
+    width: 108px;
+    background: linear-gradient(180deg, #1a3a4e 0%, #122a3a 100%);
+    border: 1px solid #336b88;
+    border-radius: 10px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+    transition: transform .08s ease, border-color .15s ease;
+    user-select: none;
+  }
+  .card:hover { transform: translateY(-2px); border-color: #63c7e8; }
+  .card.sel { border-color: #ffcf47; box-shadow: 0 0 0 2px rgba(255,207,71,.4); }
+  .card.disabled { opacity: .42; cursor: not-allowed; }
+  .card .ic { font-size: 22px; line-height: 1; }
+  .card .nm { font-size: 11px; font-weight: 700; text-align: center; line-height: 1.1; }
+  .card .cost { font-size: 11px; font-weight: 700; color: #ffe08a; }
+  .card .desc { font-size: 9px; color: #9fc2d6; text-align: center; line-height: 1.15; }
+
+  .info-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 4px 10px;
+    min-width: 190px;
+  }
+  .info-panel h3 { font-size: 15px; color: #ffd76a; }
+  .info-panel .stat { font-size: 12px; color: #bfe0f0; }
+  .info-panel .row { display: flex; gap: 6px; margin-top: auto; }
+  .info-panel button {
+    font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+    border: none; border-radius: 8px; padding: 7px 10px; color: #06202e;
+    background: #63c7e8; box-shadow: 0 3px 0 #2f7f9c;
+  }
+  .info-panel button.up { background: #7ee081; box-shadow: 0 3px 0 #3f8f42; }
+  .info-panel button.rm { background: #ff8a7a; box-shadow: 0 3px 0 #a84a3c; }
+  .info-panel button:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* ============ OVERLAY SCREENS ============ */
+  #overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 20px;
+    background: rgba(4, 16, 26, .86);
+    backdrop-filter: blur(3px);
+    transition: opacity .25s ease;
+    z-index: 5;
+  }
+  #overlay.hidden { opacity: 0; pointer-events: none; }
+  #overlay h2 {
+    font-size: clamp(22px, 5vw, 38px);
+    color: #ffd76a;
+    text-shadow: 0 3px 0 rgba(0,0,0,.5);
+    margin-bottom: 10px;
+  }
+  #overlay p {
+    font-size: clamp(12px, 2.4vw, 15px);
+    color: #cfe8f5;
+    max-width: 620px;
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }
+  #overlay .ovbtns { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  #overlay button {
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    color: #06202e;
+    background: #ffcf47;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 26px;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #a87f10;
+    transition: transform .06s ease;
+  }
+  #overlay button:hover { filter: brightness(1.06); }
+  #overlay button:active { transform: translateY(2px); box-shadow: 0 2px 0 #a87f10; }
+  #overlay button.alt { background: #63c7e8; box-shadow: 0 4px 0 #2f7f9c; }
+
+  @media (max-width: 560px) {
+    #topbar .title { font-size: 15px; }
+    .res { font-size: 12px; padding: 3px 8px; }
+    #topbar button { font-size: 11px; padding: 6px 9px; }
+    #hud { min-height: 76px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="topbar">
+    <span class="title">🏝️ ISLAND BASE</span>
+    <span class="res">💰 <b id="rGold">0</b></span>
+    <span class="res">🔩 <b id="rIron">0</b></span>
+    <span class="res">🏆 <b id="rWins">0</b></span>
+    <button id="btnBase">My Base</button>
+    <button id="btnRaid">⚔️ Raid</button>
+    <button id="btnReset" class="danger">Reset</button>
+  </div>
+
+  <div id="stage">
+    <canvas id="game" width="900" height="600"></canvas>
+    <div id="overlay" class="hidden">
+      <h2 id="ovTitle"></h2>
+      <p id="ovText"></p>
+      <div class="ovbtns" id="ovBtns"></div>
+    </div>
+  </div>
+
+  <div id="hud"></div>
+</div>
+
+<script>
+(function () {
+"use strict";
+
+// ============================================================
+// ISLAND BASE — beach-raid base builder. Single file, offline.
+// ============================================================
+
+// ============ CONFIGURATION ============
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const W = canvas.width, H = canvas.height;
+
+const COLS = 15, ROWS = 10, TILE = 56;
+const OFFX = (W - COLS * TILE) / 2;   // 30
+const OFFY = (H - ROWS * TILE) / 2;   // 20
+
+const C0 = 1, C1 = COLS - 2;          // buildable columns
+const R0 = 1, R1 = ROWS - 2;          // buildable rows
+const SPAWN_Y = OFFY + ROWS * TILE + 14; // beach drop line (water, below island)
+
+const LEVEL_CAP = 5;
+const RAID_TIME = 80;                 // seconds per raid
+const DEPLOY_CD = 0.55;               // seconds between troop drops
+
+// ============ BUILDING DEFINITIONS ============
+const BUILD = {
+  hq:     { name: "Command HQ",   icon: "🏛️", cost: 0,   hp: 520, color: "#e05a4a", desc: "Protect the core" },
+  gold:   { name: "Gold Mine",    icon: "⛏️", cost: 160, hp: 130, color: "#f2c14e", income: { gold: 2.2 }, desc: "+2.2 gold/s" },
+  iron:   { name: "Iron Mine",    icon: "🔩", cost: 280, hp: 150, color: "#9fb0bc", income: { iron: 1.1 }, desc: "+1.1 iron/s" },
+  wall:   { name: "Wall",         icon: "🧱", cost: 40,  hp: 420, color: "#8a7f74", desc: "Soaks up attacks" },
+  cannon: { name: "Cannon",       icon: "💥", cost: 190, hp: 210, color: "#e08a3a", dmg: 11, range: 150, rate: 1.1, desc: "Short-range turret" },
+  tower:  { name: "Sniper Tower", icon: "🎯", cost: 340, hp: 180, color: "#9b6ad6", dmg: 25, range: 235, rate: 1.7, desc: "Long-range turret" }
+};
+const BUILD_ORDER = ["gold", "iron", "wall", "cannon", "tower"];
+
+// Troop definitions (used during raids)
+const TROOP = {
+  rifle: { name: "Rifleman", icon: "🪖", hp: 72,  dmg: 9,  rate: 0.7, speed: 64, range: TILE * 0.55, color: "#e8f5a0" },
+  tank:  { name: "Tank",     icon: "🚙", hp: 440, dmg: 27, rate: 1.1, speed: 44, range: TILE * 0.62, color: "#b7d94a" }
+};
+
+// ============ HELPERS: SCALING BY LEVEL ============
+function hpOf(type, level)     { return Math.round(BUILD[type].hp * (1 + 0.62 * (level - 1))); }
+function dmgOf(type, level)    { return BUILD[type].dmg ? BUILD[type].dmg * (1 + 0.5 * (level - 1)) : 0; }
+function rangeOf(type, level)  { return BUILD[type].range ? BUILD[type].range * (1 + 0.05 * (level - 1)) : 0; }
+function rateOf(type, level)   { return BUILD[type].rate ? BUILD[type].rate * (1 - 0.06 * (level - 1)) : 0; }
+function incomeOf(type, level) {
+  const b = BUILD[type].income; if (!b) return null;
+  const out = {};
+  for (const k in b) out[k] = b[k] * (1 + 0.5 * (level - 1));
+  return out;
+}
+function upgradeCost(b) {
+  const base = BUILD[b.type].cost || 200;
+  return Math.round((base * 0.75) * b.level + 60);
+}
+function buildCost(type) { return BUILD[type].cost; }
+
+// ============ GAME STATE ============
+const state = {
+  mode: "base",        // "base" | "raid"
+  started: false,
+  gold: 600,
+  iron: 250,
+  wins: 0,
+  buildings: [],       // player buildings: {type,col,row,level,hp,maxHp}
+  sel: null,           // selected player building index
+  shopSel: null,       // building type queued for placement
+  hover: null,         // {col,row} under pointer
+  raid: null
+};
+
+// ============ PARTICLES & EFFECTS ============
+let particles = [];
+let tracers = [];
+function burst(x, y, color, n) {
+  n = n || 10;
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, s = 30 + Math.random() * 90;
+    particles.push({
+      x: x, y: y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 30,
+      life: 0.6 + Math.random() * 0.5, max: 1.1, color: color, size: 2 + Math.random() * 3
+    });
+  }
+}
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 220 * dt; p.life -= dt;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+  for (let i = tracers.length - 1; i >= 0; i--) {
+    tracers[i].life -= dt;
+    if (tracers[i].life <= 0) tracers.splice(i, 1);
+  }
+}
+
+// ============ SOUND (WebAudio, no assets) ============
+let actx = null;
+function beep(freq, dur, type) {
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || "square";
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0.05, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(); o.stop(actx.currentTime + dur);
+  } catch (e) { /* audio unavailable */ }
+}
+
+// ============ GEOMETRY ============
+function cellCenter(col, row) {
+  return { x: OFFX + (col + 0.5) * TILE, y: OFFY + (row + 0.5) * TILE };
+}
+function isBuildableCell(col, row) {
+  return col >= C0 && col <= C1 && row >= R0 && row <= R1;
+}
+function pointerToCell(px, py) {
+  const col = Math.floor((px - OFFX) / TILE);
+  const row = Math.floor((py - OFFY) / TILE);
+  return { col: col, row: row };
+}
+
+// ============ SAVE / LOAD ============
+const SAVE_KEY = "islandBaseSave_v1";
+function save() {
+  try {
+    const data = {
+      gold: state.gold, iron: state.iron, wins: state.wins,
+      buildings: state.buildings.map(b => ({ type: b.type, col: b.col, row: b.row, level: b.level, hp: Math.round(b.hp) }))
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  } catch (e) { /* storage unavailable */ }
+}
+function load() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    const d = JSON.parse(raw);
+    if (!d || !Array.isArray(d.buildings) || !d.buildings.length) return false;
+    state.gold = d.gold || 0;
+    state.iron = d.iron || 0;
+    state.wins = d.wins || 0;
+    state.buildings = d.buildings.map(b => {
+      const lvl = b.level || 1;
+      const mx = hpOf(b.type, lvl);
+      return { type: b.type, col: b.col, row: b.row, level: lvl, maxHp: mx, hp: Math.min(mx, b.hp || mx) };
+    });
+    return true;
+  } catch (e) { return false; }
+}
+function freshBase() {
+  state.gold = 600;
+  state.iron = 250;
+  state.wins = 0;
+  state.buildings = [];
+  const hx = Math.floor((C0 + C1) / 2), hy = Math.floor((R0 + R1) / 2);
+  addBuilding("hq", hx, hy);
+  // a small starter plot
+  addBuilding("gold", hx - 2, hy + 1);
+  addBuilding("iron", hx + 2, hy + 1);
+  save();
+}
+function addBuilding(type, col, row, level) {
+  const lvl = level || 1, mx = hpOf(type, lvl);
+  const b = { type: type, col: col, row: row, level: lvl, maxHp: mx, hp: mx };
+  state.buildings.push(b);
+  return b;
+}
+function occupied(col, row) {
+  return state.buildings.some(b => b.col === col && b.row === row);
+}
+
+// ============ RESOURCE FLOW ============
+function incomePerSecond() {
+  let g = 0, i = 0;
+  for (const b of state.buildings) {
+    const inc = incomeOf(b.type, b.level);
+    if (inc) { g += inc.gold || 0; i += inc.iron || 0; }
+  }
+  return { gold: g, iron: i };
+}
+
+// ============================================================
+// RAIDS
+// ============================================================
+function generateRaid() {
+  const d = state.wins; // difficulty grows with wins
+  const list = [];
+  const used = {};
+  function freeCell() {
+    for (let t = 0; t < 200; t++) {
+      const col = C0 + Math.floor(Math.random() * (C1 - C0 + 1));
+      const row = R0 + Math.floor(Math.random() * (R1 - R0 + 1));
+      const key = col + "," + row;
+      if (!used[key]) { used[key] = 1; return { col: col, row: row }; }
+    }
+    return null;
+  }
+  // Core near the middle-upper area
+  const coreCol = Math.floor((C0 + C1) / 2) + (Math.random() < 0.5 ? -1 : 1);
+  const coreRow = R0 + 1;
+  used[coreCol + "," + coreRow] = 1;
+  const coreHp = 420 + d * 190;
+  const core = { type: "hq", col: coreCol, row: coreRow, level: 1, maxHp: coreHp, hp: coreHp, enemy: true };
+  list.push(core);
+
+  // Walls ring a little around the core
+  const wallCount = Math.min(16, 5 + d * 2);
+  for (let i = 0; i < wallCount; i++) {
+    const c = freeCell(); if (!c) break;
+    const hp = Math.round(380 * (1 + d * 0.18));
+    list.push({ type: "wall", col: c.col, row: c.row, level: 1, maxHp: hp, hp: hp, enemy: true });
+  }
+  // Turrets
+  const cannonCount = Math.min(7, 2 + Math.floor(d * 1.2));
+  const towerCount = Math.min(4, 1 + Math.floor(d * 0.7));
+  const dmgScale = 1 + d * 0.16;
+  for (let i = 0; i < cannonCount; i++) {
+    const c = freeCell(); if (!c) break;
+    const hp = Math.round(220 * (1 + d * 0.2));
+    list.push({ type: "cannon", col: c.col, row: c.row, level: 1, maxHp: hp, hp: hp,
+      enemy: true, dmg: BUILD.cannon.dmg * dmgScale, range: BUILD.cannon.range, rate: BUILD.cannon.rate, cd: Math.random() });
+  }
+  for (let i = 0; i < towerCount; i++) {
+    const c = freeCell(); if (!c) break;
+    const hp = Math.round(190 * (1 + d * 0.2));
+    list.push({ type: "tower", col: c.col, row: c.row, level: 1, maxHp: hp, hp: hp,
+      enemy: true, dmg: BUILD.tower.dmg * dmgScale, range: BUILD.tower.range, rate: BUILD.tower.rate, cd: Math.random() });
+  }
+
+  const army = { rifle: 12 + Math.min(8, d), tank: 5 + Math.floor(d / 2) };
+  const loot = { gold: 150 + d * 70, iron: 70 + d * 35 };
+
+  state.raid = {
+    buildings: list, core: core, troops: [], army: army, loot: loot,
+    time: RAID_TIME, over: false, result: null, cd: 0, troopSel: "rifle", deployed: 0
+  };
+  state.mode = "raid";
+  state.shopSel = null;
+  state.sel = null;
+  buildHud();
+  beep(520, 0.12, "triangle");
+}
+
+function remainingArmy() {
+  const a = state.raid.army;
+  return a.rifle + a.tank;
+}
+
+function deployTroop(px) {
+  const r = state.raid;
+  if (!r || r.over) return;
+  const type = r.troopSel;
+  if (r.army[type] <= 0) { beep(160, 0.1, "sawtooth"); return; }
+  if (r.cd > 0) return;
+  r.army[type]--;
+  r.cd = DEPLOY_CD;
+  const def = TROOP[type];
+  const x = Math.max(OFFX + TILE, Math.min(OFFX + (COLS - 1) * TILE, px));
+  r.troops.push({
+    type: type, x: x, y: SPAWN_Y, hp: def.hp, maxHp: def.hp,
+    dmg: def.dmg, rate: def.rate, speed: def.speed, range: def.range,
+    cd: 0, target: null, bob: Math.random() * 6
+  });
+  burst(x, SPAWN_Y, "#9be0ff", 6);
+  beep(700, 0.07, "square");
+  buildHud();
+}
+
+function buildingCenter(b) { return cellCenter(b.col, b.row); }
+
+function updateRaid(dt) {
+  const r = state.raid;
+  if (!r) return;
+
+  if (r.over) { updateParticles(dt); return; }
+
+  r.time -= dt;
+  if (r.cd > 0) r.cd -= dt;
+
+  // --- Troop AI ---
+  for (const t of r.troops) {
+    if (t.hp <= 0) continue;
+    t.cd -= dt;
+    t.bob += dt * 8;
+
+    // acquire / validate target: nearest surviving enemy building
+    if (!t.target || t.target.hp <= 0) {
+      let best = null, bd = Infinity;
+      for (const b of r.buildings) {
+        if (b.hp <= 0) continue;
+        const c = buildingCenter(b);
+        const dd = (c.x - t.x) * (c.x - t.x) + (c.y - t.y) * (c.y - t.y);
+        if (dd < bd) { bd = dd; best = b; }
+      }
+      t.target = best;
+    }
+
+    if (t.target) {
+      const c = buildingCenter(t.target);
+      const dx = c.x - t.x, dy = c.y - t.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > t.range) {
+        // walk toward target
+        let mx = (dx / dist) * t.speed * dt;
+        let my = (dy / dist) * t.speed * dt;
+        // simple separation so troops fan out
+        for (const o of r.troops) {
+          if (o === t || o.hp <= 0) continue;
+          const ox = t.x - o.x, oy = t.y - o.y;
+          const od = Math.hypot(ox, oy);
+          if (od > 0.01 && od < 20) { mx += (ox / od) * 26 * dt; my += (oy / od) * 26 * dt; }
+        }
+        t.x += mx; t.y += my;
+      } else if (t.cd <= 0) {
+        // attack
+        t.cd = t.rate;
+        t.target.hp -= t.dmg;
+        burst(c.x, c.y, "#ffcf6a", 3);
+        if (t.target.hp <= 0) {
+          burst(c.x, c.y, BUILD[t.target.type].color, 14);
+          beep(180, 0.16, "sawtooth");
+          t.target = null;
+          if (r.core.hp <= 0) { endRaid("win"); return; }
+        }
+      }
+    }
+  }
+  // remove dead troops
+  r.troops = r.troops.filter(t => t.hp > 0);
+  // remove destroyed buildings from the field
+  r.buildings = r.buildings.filter(b => b.hp > 0 || b === r.core);
+
+  // --- Enemy defenses ---
+  for (const b of r.buildings) {
+    if (b.hp <= 0 || !b.dmg) continue;
+    b.cd -= dt;
+    if (b.cd > 0) continue;
+    let best = null, bd = Infinity;
+    const c = buildingCenter(b);
+    for (const t of r.troops) {
+      if (t.hp <= 0) continue;
+      const d2 = (t.x - c.x) * (t.x - c.x) + (t.y - c.y) * (t.y - c.y);
+      if (d2 < b.range * b.range && d2 < bd) { bd = d2; best = t; }
+    }
+    if (best) {
+      b.cd = b.rate;
+      best.hp -= b.dmg;
+      tracers.push({ x1: c.x, y1: c.y, x2: best.x, y2: best.y, life: 0.12, color: b.type === "tower" ? "#d0a0ff" : "#ffb060" });
+      burst(best.x, best.y, "#ff7a5a", 4);
+      beep(b.type === "tower" ? 900 : 420, 0.05, "square");
+      if (best.hp <= 0) burst(best.x, best.y, "#ff6a6a", 10);
+    }
+  }
+  r.troops = r.troops.filter(t => t.hp > 0);
+
+  // --- Win / Lose ---
+  if (r.core.hp <= 0) { endRaid("win"); return; }
+  if (r.troops.length === 0 && remainingArmy() === 0) { endRaid("lose"); return; }
+  if (r.time <= 0) { endRaid("lose"); return; }
+
+  updateParticles(dt);
+}
+
+function endRaid(result) {
+  const r = state.raid;
+  if (!r || r.over) return;
+  r.over = true;
+  r.result = result;
+  if (result === "win") {
+    state.gold += r.loot.gold;
+    state.iron += r.loot.iron;
+    state.wins += 1;
+    save();
+    beep(660, 0.12, "triangle"); setTimeout(() => beep(880, 0.2, "triangle"), 130);
+    showOverlay("RAID VICTORY!", "You smashed the enemy core.\nLoot secured: 💰 " + r.loot.gold + "   🔩 " + r.loot.iron,
+      [{ label: "Return to Base", fn: goBase }]);
+  } else {
+    beep(200, 0.3, "sawtooth");
+    showOverlay("RAID FAILED", "Your troops were wiped out before the core fell.\nUpgrade your base and try again.",
+      [{ label: "Return to Base", fn: goBase }, { label: "Retry Raid", alt: true, fn: () => { hideOverlay(); generateRaid(); } }]);
+  }
+  buildHud();
+  updateTopbar();
+}
+
+// ============================================================
+// BASE MODE
+// ============================================================
+function updateBase(dt) {
+  const inc = incomePerSecond();
+  state.gold += inc.gold * dt;
+  state.iron += inc.iron * dt;
+  updateParticles(dt);
+}
+
+function tryPlace(col, row) {
+  const type = state.shopSel;
+  if (!type) return;
+  if (!isBuildableCell(col, row) || occupied(col, row)) { beep(160, 0.08, "sawtooth"); return; }
+  const cost = buildCost(type);
+  if (state.gold < cost) { beep(160, 0.08, "sawtooth"); return; }
+  state.gold -= cost;
+  const b = addBuilding(type, col, row);
+  b.hp = b.maxHp;
+  burst(cellCenter(col, row).x, cellCenter(col, row).y, "#ffe08a", 8);
+  beep(600, 0.09, "triangle");
+  save(); updateTopbar(); buildHud();
+}
+
+function doUpgrade() {
+  const b = state.buildings[state.sel];
+  if (!b || b.level >= LEVEL_CAP) return;
+  const cost = upgradeCost(b);
+  if (state.gold < cost) { beep(160, 0.08, "sawtooth"); return; }
+  state.gold -= cost;
+  b.level += 1;
+  b.maxHp = hpOf(b.type, b.level);
+  b.hp = b.maxHp;
+  burst(cellCenter(b.col, b.row).x, cellCenter(b.col, b.row).y, "#7ee081", 12);
+  beep(760, 0.12, "sine"); setTimeout(() => beep(1020, 0.14, "sine"), 110);
+  save(); updateTopbar(); buildHud();
+}
+
+function doRemove() {
+  const b = state.buildings[state.sel];
+  if (!b || b.type === "hq") return;
+  const refund = Math.round(buildCost(b.type) * 0.5 + (b.level - 1) * 30);
+  state.gold += refund;
+  burst(cellCenter(b.col, b.row).x, cellCenter(b.col, b.row).y, "#ff8a7a", 10);
+  state.buildings.splice(state.sel, 1);
+  state.sel = null;
+  beep(300, 0.12, "sawtooth");
+  save(); updateTopbar(); buildHud();
+}
+
+function goBase() {
+  hideOverlay();
+  state.mode = "base";
+  state.raid = null;
+  state.shopSel = null;
+  state.sel = null;
+  buildHud();
+  updateTopbar();
+}
+
+// ============================================================
+// UI: TOPBAR / HUD / OVERLAY
+// ============================================================
+const rGold = document.getElementById("rGold");
+const rIron = document.getElementById("rIron");
+const rWins = document.getElementById("rWins");
+const hud = document.getElementById("hud");
+const overlay = document.getElementById("overlay");
+const ovTitle = document.getElementById("ovTitle");
+const ovText = document.getElementById("ovText");
+const ovBtns = document.getElementById("ovBtns");
+const btnBase = document.getElementById("btnBase");
+const btnRaid = document.getElementById("btnRaid");
+const btnReset = document.getElementById("btnReset");
+
+function updateTopbar() {
+  rGold.textContent = Math.floor(state.gold);
+  rIron.textContent = Math.floor(state.iron);
+  rWins.textContent = state.wins;
+  btnBase.classList.toggle("on", state.mode === "base");
+  btnRaid.classList.toggle("on", state.mode === "raid");
+}
+
+function makeCard(icon, name, costText, desc, affordable, selected, onClick) {
+  const el = document.createElement("div");
+  el.className = "card" + (selected ? " sel" : "") + (affordable ? "" : " disabled");
+  el.innerHTML = '<span class="ic">' + icon + '</span><span class="nm">' + name +
+    '</span><span class="cost">' + costText + '</span><span class="desc">' + desc + '</span>';
+  el.addEventListener("click", onClick);
+  return el;
+}
+
+function buildHud() {
+  hud.innerHTML = "";
+  if (state.mode === "base") {
+    const info = document.createElement("div");
+    info.className = "info-panel";
+    const inc = incomePerSecond();
+    info.innerHTML = "<h3>Build Shop</h3><span class='stat'>Pick a building, then tap a tile.</span>" +
+      "<span class='stat'>Income: 💰 " + inc.gold.toFixed(1) + "/s · 🔩 " + inc.iron.toFixed(1) + "/s</span>";
+    hud.appendChild(info);
+
+    for (const type of BUILD_ORDER) {
+      const def = BUILD[type];
+      const cost = buildCost(type);
+      hud.appendChild(makeCard(def.icon, def.name, "💰 " + cost, def.desc,
+        state.gold >= cost, state.shopSel === type, () => {
+          state.shopSel = (state.shopSel === type) ? null : type;
+          state.sel = null;
+          beep(520, 0.05, "square");
+          buildHud();
+        }));
+    }
+
+    // Selected existing building info + upgrade / remove
+    const b = state.buildings[state.sel];
+    if (b) {
+      const def = BUILD[b.type];
+      const panel = document.createElement("div");
+      panel.className = "info-panel";
+      let stats = "Lv " + b.level + "/" + LEVEL_CAP + " · HP " + Math.round(b.hp) + "/" + b.maxHp;
+      if (def.dmg) stats += " · DMG " + dmgOf(b.type, b.level).toFixed(0) + " · RNG " + rangeOf(b.type, b.level).toFixed(0);
+      const up = b.level < LEVEL_CAP ? upgradeCost(b) : null;
+      panel.innerHTML = "<h3>" + def.icon + " " + def.name + "</h3><span class='stat'>" + stats + "</span>";
+      const row = document.createElement("div");
+      row.className = "row";
+      const upBtn = document.createElement("button");
+      upBtn.className = "up";
+      upBtn.textContent = up === null ? "Max Level" : "Upgrade 💰" + up;
+      upBtn.disabled = up === null || state.gold < up;
+      upBtn.addEventListener("click", doUpgrade);
+      row.appendChild(upBtn);
+      if (b.type !== "hq") {
+        const rmBtn = document.createElement("button");
+        rmBtn.className = "rm";
+        rmBtn.textContent = "Remove";
+        rmBtn.addEventListener("click", doRemove);
+        row.appendChild(rmBtn);
+      }
+      panel.appendChild(row);
+      hud.appendChild(panel);
+    }
+  } else if (state.mode === "raid" && state.raid) {
+    const r = state.raid;
+    const info = document.createElement("div");
+    info.className = "info-panel";
+    info.innerHTML = "<h3>⚔️ Raid!</h3><span class='stat'>Deploy troops on the beach (bottom).</span>" +
+      "<span class='stat'>⏱ " + Math.ceil(r.time) + "s · Core HP " + Math.max(0, Math.round(r.core.hp)) + "</span>" +
+      "<span class='stat'>Loot: 💰 " + r.loot.gold + " · 🔩 " + r.loot.iron + "</span>";
+    hud.appendChild(info);
+
+    for (const type of ["rifle", "tank"]) {
+      const def = TROOP[type];
+      const count = r.army[type];
+      hud.appendChild(makeCard(def.icon, def.name, "x" + count,
+        "HP " + def.hp + " · DMG " + def.dmg, count > 0, r.troopSel === type, () => {
+          r.troopSel = type;
+          beep(520, 0.05, "square");
+          buildHud();
+        }));
+    }
+  }
+  updateTopbar();
+}
+
+function showOverlay(title, text, buttons) {
+  ovTitle.textContent = title;
+  ovText.innerHTML = text.replace(/\n/g, "<br>");
+  ovBtns.innerHTML = "";
+  (buttons || []).forEach(b => {
+    const el = document.createElement("button");
+    el.textContent = b.label;
+    if (b.alt) el.className = "alt";
+    el.addEventListener("click", b.fn);
+    ovBtns.appendChild(el);
+  });
+  overlay.classList.remove("hidden");
+}
+function hideOverlay() { overlay.classList.add("hidden"); }
+
+btnBase.addEventListener("click", () => { if (state.mode !== "base") goBase(); });
+btnRaid.addEventListener("click", () => { if (state.mode !== "raid") { hideOverlay(); generateRaid(); } });
+btnReset.addEventListener("click", () => {
+  showOverlay("Reset Progress?", "This clears your island, resources and raid wins.",
+    [{ label: "Yes, reset", fn: () => { freshBase(); goBase(); updateTopbar(); buildHud(); } },
+     { label: "Cancel", alt: true, fn: () => hideOverlay() }]);
+});
+
+// ============================================================
+// RENDERING
+// ============================================================
+function drawSea() {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, "#1b6f96");
+  g.addColorStop(0.5, "#17608a");
+  g.addColorStop(1, "#0d4767");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // animated waves
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.lineWidth = 2;
+  const t = performance.now() * 0.0006;
+  for (let i = 0; i < 7; i++) {
+    const y = 40 + i * 90;
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += 20) {
+      const yy = y + Math.sin(x * 0.02 + t * 6 + i) * 4;
+      if (x === 0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy);
+    }
+    ctx.stroke();
+  }
+}
+
+function drawIsland() {
+  const x = OFFX + TILE, y = OFFY + TILE;
+  const w = (COLS - 2) * TILE, h = (ROWS - 2) * TILE;
+
+  // sandy base
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.45)";
+  ctx.shadowBlur = 22;
+  ctx.shadowOffsetY = 8;
+  ctx.fillStyle = "#e8d7a3";
+  roundRect(x - 12, y - 12, w + 24, h + 24, 34);
+  ctx.fill();
+  ctx.restore();
+
+  // sand inner
+  ctx.fillStyle = "#efdfb0";
+  roundRect(x - 4, y - 4, w + 8, h + 8, 28);
+  ctx.fill();
+
+  // grass
+  const gg = ctx.createLinearGradient(x, y, x, y + h);
+  gg.addColorStop(0, "#77c25a");
+  gg.addColorStop(1, "#5aa845");
+  ctx.fillStyle = gg;
+  roundRect(x, y, w, h, 20);
+  ctx.fill();
+
+  // beach hint strip at bottom (for raids)
+  ctx.fillStyle = "rgba(255,255,255,0.10)";
+  ctx.fillRect(x, y + h - TILE, w, TILE);
+
+  // tile grid
+  ctx.strokeStyle = "rgba(0,0,0,0.10)";
+  ctx.lineWidth = 1;
+  for (let c = C0; c <= C1 + 1; c++) {
+    ctx.beginPath(); ctx.moveTo(OFFX + c * TILE, y); ctx.lineTo(OFFX + c * TILE, y + h); ctx.stroke();
+  }
+  for (let r = R0; r <= R1 + 1; r++) {
+    ctx.beginPath(); ctx.moveTo(x, OFFY + r * TILE); ctx.lineTo(x + w, OFFY + r * TILE); ctx.stroke();
+  }
+}
+
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function drawBuildingVisual(b, ghost) {
+  const c = cellCenter(b.col, b.row);
+  const def = BUILD[b.type];
+  const size = TILE - 10;
+
+  ctx.globalAlpha = ghost ? 0.55 : 1;
+
+  // shadow
+  ctx.fillStyle = "rgba(0,0,0,0.22)";
+  roundRect(c.x - size / 2, c.y - size / 2 + 5, size, size, 10);
+  ctx.fill();
+
+  // body
+  ctx.fillStyle = def.color;
+  roundRect(c.x - size / 2, c.y - size / 2, size, size, 10);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,0.35)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // icon
+  ctx.font = "26px 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(def.icon, c.x, c.y + 1);
+
+  // hp bar if damaged
+  if (!ghost && b.hp < b.maxHp) {
+    const bw = size, bh = 5, bx = c.x - bw / 2, by = c.y - size / 2 - 9;
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fillRect(bx, by, bw, bh);
+    ctx.fillStyle = b.enemy ? "#ff6a5a" : "#6ce07a";
+    ctx.fillRect(bx, by, bw * Math.max(0, b.hp / b.maxHp), bh);
+  }
+  // level pips
+  if (!ghost && b.level > 1 && !b.enemy) {
+    ctx.fillStyle = "#ffe08a";
+    ctx.font = "10px 'Trebuchet MS', sans-serif";
+    ctx.fillText("Lv" + b.level, c.x, c.y + size / 2 - 5);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawTroop(t) {
+  const def = TROOP[t.type];
+  const bob = Math.sin(t.bob) * 1.5;
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  ctx.beginPath(); ctx.ellipse(t.x, t.y + 10, 9, 4, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.font = (t.type === "tank" ? "24px" : "20px") + " 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(def.icon, t.x, t.y + bob);
+  // hp bar
+  const bw = t.type === "tank" ? 26 : 18, bh = 4;
+  ctx.fillStyle = "rgba(0,0,0,0.5)";
+  ctx.fillRect(t.x - bw / 2, t.y - 18, bw, bh);
+  ctx.fillStyle = "#8ce07a";
+  ctx.fillRect(t.x - bw / 2, t.y - 18, bw * Math.max(0, t.hp / t.maxHp), bh);
+}
+
+function drawTracers() {
+  for (const tr of tracers) {
+    ctx.globalAlpha = Math.max(0, tr.life / 0.12);
+    ctx.strokeStyle = tr.color;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(tr.x1, tr.y1); ctx.lineTo(tr.x2, tr.y2); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life / p.max);
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawGhost() {
+  if (state.mode !== "base" || !state.shopSel || !state.hover) return;
+  const { col, row } = state.hover;
+  if (!isBuildableCell(col, row)) return;
+  const ok = !occupied(col, row) && state.gold >= buildCost(state.shopSel);
+  const c = cellCenter(col, row);
+  ctx.globalAlpha = 0.5;
+  ctx.fillStyle = ok ? "#7ee081" : "#ff7a6a";
+  roundRect(c.x - TILE / 2 + 5, c.y - TILE / 2 + 5, TILE - 10, TILE - 10, 10);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  const ghost = { type: state.shopSel, col: col, row: row, level: 1, hp: 1, maxHp: 1 };
+  drawBuildingVisual(ghost, true);
+}
+
+function drawSelection() {
+  if (state.mode !== "base" || state.sel === null) return;
+  const b = state.buildings[state.sel];
+  if (!b) return;
+  const c = cellCenter(b.col, b.row);
+  ctx.strokeStyle = "#ffcf47";
+  ctx.lineWidth = 3;
+  roundRect(c.x - TILE / 2 + 2, c.y - TILE / 2 + 2, TILE - 4, TILE - 4, 12);
+  ctx.stroke();
+  // range ring for turrets
+  if (BUILD[b.type].range) {
+    ctx.strokeStyle = "rgba(255,207,71,0.35)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(c.x, c.y, rangeOf(b.type, b.level), 0, Math.PI * 2); ctx.stroke();
+  }
+}
+
+function drawTopBanner() {
+  if (state.mode !== "raid" || !state.raid) return;
+  const r = state.raid;
+  ctx.textAlign = "center";
+  ctx.font = "bold 15px 'Trebuchet MS', sans-serif";
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  roundRect(W / 2 - 130, 6, 260, 30, 10);
+  ctx.fill();
+  ctx.fillStyle = "#ffd76a";
+  const army = remainingArmy();
+  ctx.fillText("⏱ " + Math.ceil(Math.max(0, r.time)) + "s   ·   Troops left: " + army + "   ·   Core: " + Math.max(0, Math.round(r.core.hp)), W / 2, 26);
+}
+
+function render() {
+  drawSea();
+  drawIsland();
+
+  if (state.mode === "base") {
+    state.buildings.forEach(b => drawBuildingVisual(b, false));
+    drawGhost();
+    drawSelection();
+    // beach label
+    ctx.textAlign = "center";
+    ctx.font = "13px 'Trebuchet MS', sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.65)";
+    ctx.fillText("Tap a building to upgrade it · Press ⚔️ Raid to attack an enemy island", W / 2, H - 8);
+  } else if (state.mode === "raid" && state.raid) {
+    const r = state.raid;
+    r.buildings.forEach(b => drawBuildingVisual(b, false));
+    r.troops.forEach(t => drawTroop(t));
+    drawTracers();
+    drawParticles();
+    drawTopBanner();
+    // deploy line
+    ctx.setLineDash([8, 8]);
+    ctx.strokeStyle = "rgba(155,224,255,0.5)";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(OFFX + TILE, SPAWN_Y - 6); ctx.lineTo(OFFX + (COLS - 1) * TILE, SPAWN_Y - 6); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.textAlign = "center";
+    ctx.font = "13px 'Trebuchet MS', sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.fillText("Tap along the dashed beach line to deploy troops", W / 2, SPAWN_Y + 26);
+  }
+}
+
+// ============================================================
+// INPUT
+// ============================================================
+function toLocal(e) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: (e.clientX - rect.left) * (canvas.width / rect.width),
+    y: (e.clientY - rect.top) * (canvas.height / rect.height)
+  };
+}
+
+function handlePointer(e) {
+  if (!state.started) return;
+  const p = toLocal(e);
+
+  if (state.mode === "raid") {
+    if (!state.raid || state.raid.over) return;
+    // deploy anywhere on the beach band / lower area
+    if (p.y > OFFY + (ROWS - 1) * TILE - TILE * 0.5) {
+      deployTroop(p.x);
+    }
+    return;
+  }
+
+  // base mode
+  const { col, row } = pointerToCell(p.x, p.y);
+  if (state.shopSel) {
+    tryPlace(col, row);
+    return;
+  }
+  const idx = state.buildings.findIndex(b => b.col === col && b.row === row);
+  state.sel = idx >= 0 ? idx : null;
+  if (idx >= 0) beep(640, 0.04, "sine");
+  buildHud();
+}
+
+canvas.addEventListener("mousemove", (e) => {
+  if (state.mode !== "base") return;
+  const p = toLocal(e);
+  const c = pointerToCell(p.x, p.y);
+  state.hover = isBuildableCell(c.col, c.row) ? c : null;
+});
+canvas.addEventListener("mouseleave", () => { state.hover = null; });
+
+canvas.addEventListener("mousedown", (e) => { e.preventDefault(); handlePointer(e); });
+canvas.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  const t = e.changedTouches[0];
+  handlePointer({ clientX: t.clientX, clientY: t.clientY });
+}, { passive: false });
+
+// keyboard shortcuts
+window.addEventListener("keydown", (e) => {
+  if (!state.started) return;
+  if (e.key === "b" || e.key === "B") { goBase(); }
+  if (e.key === "r" || e.key === "R") { if (state.mode !== "raid") { hideOverlay(); generateRaid(); } }
+  if (e.key === "Escape") { state.shopSel = null; state.sel = null; buildHud(); }
+});
+
+// ============================================================
+// MAIN LOOP
+// ============================================================
+let lastT = 0;
+let hudClock = 0;
+function loop(t) {
+  const dt = Math.min(0.05, (t - lastT) / 1000 || 0);
+  lastT = t;
+
+  if (state.started) {
+    if (state.mode === "base") updateBase(dt);
+    else if (state.mode === "raid") updateRaid(dt);
+  } else {
+    updateParticles(dt);
+  }
+
+  render();
+
+  // refresh numeric readouts a few times per second
+  hudClock += dt;
+  if (hudClock > 0.2) { hudClock = 0; if (state.started) updateTopbar(); }
+
+  requestAnimationFrame(loop);
+}
+
+// ============================================================
+// BOOT
+// ============================================================
+function startGame() {
+  state.started = true;
+  if (!load()) freshBase();
+  goBase();
+  state.shopSel = null;
+  state.sel = null;
+  beep(560, 0.1, "triangle");
+  buildHud();
+  updateTopbar();
+}
+
+showOverlay(
+  "🏝️ ISLAND BASE",
+  "Build your island fortress, then raid enemy bases.\n\n" +
+  "<b>Base:</b> pick a building from the shop and tap a tile to place it. Gold mines and iron mines earn resources over time. Tap any building to upgrade it.\n\n" +
+  "<b>Raid (⚔️):</b> deploy Riflemen and Tanks onto the beach — they auto-attack the nearest defenses. Destroy the enemy HQ to win loot. If your army is wiped out, you lose.\n\n" +
+  "Progress saves automatically in your browser.",
+  [{ label: "Start Playing", fn: startGame }]
+);
+
+buildHud();
+updateTopbar();
+render();
+requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Terrarium</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(circle at 50% 0%, #1d2a25 0%, #0d1512 70%);
+    display: flex; align-items: center; justify-content: center; padding: 12px;
+    font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    color: #dfeee4; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  }
+  #app { display: flex; flex-direction: column; align-items: center; gap: 10px; width: min(96vw, 860px); }
+
+  /* ============ TITLE ============ */
+  #title { font-size: 22px; letter-spacing: 6px; font-weight: bold; color: #a8e6b8; text-shadow: 0 0 14px rgba(120,230,160,.45); }
+  #title span { color: #f4d97b; }
+
+  /* ============ HUD ============ */
+  #hud {
+    width: 100%; display: flex; flex-wrap: wrap; gap: 6px 14px;
+    justify-content: center; align-items: center; padding: 8px 12px; font-size: 13px;
+    background: rgba(255,255,255,.05); border: 1px solid rgba(168,230,184,.18); border-radius: 10px;
+  }
+  .vital { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .vital .k { color: #87b39a; }
+  .vital .v { color: #eafff0; font-weight: bold; min-width: 26px; text-align: right; }
+  .meter { width: 54px; height: 8px; background: rgba(0,0,0,.4); border-radius: 4px; overflow: hidden; }
+  .meter > i { display: block; height: 100%; width: 0%; border-radius: 4px; transition: width .25s ease, background .25s ease; }
+  #dayVal { color: #f4d97b; }
+
+  /* ============ CANVAS ============ */
+  #game-wrap {
+    position: relative; width: 100%; border-radius: 14px; overflow: hidden; background: #0a1310;
+    box-shadow: 0 14px 50px rgba(0,0,0,.6), 0 0 0 1px rgba(168,230,184,.14) inset;
+  }
+  canvas { display: block; width: 100%; height: auto; cursor: crosshair; }
+
+  /* ============ INTRO / OVERLAY ============ */
+  #intro {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; gap: 14px; padding: 24px;
+    background: rgba(6,14,11,.9); backdrop-filter: blur(3px); transition: opacity .4s ease;
+  }
+  #intro.hidden { opacity: 0; pointer-events: none; }
+  #intro h2 { font-size: 26px; letter-spacing: 3px; color: #a8e6b8; }
+  #intro p { font-size: 14px; color: #cfe6d8; line-height: 1.6; max-width: 520px; }
+  #intro p b { color: #f4d97b; }
+  #toast {
+    position: absolute; left: 50%; top: 14px; transform: translateX(-50%);
+    padding: 7px 16px; border-radius: 20px; white-space: nowrap;
+    background: rgba(20,40,30,.9); border: 1px solid rgba(168,230,184,.35);
+    color: #b6f0c8; font-size: 13px; letter-spacing: .5px;
+    opacity: 0; pointer-events: none; transition: opacity .35s ease;
+  }
+  #toast.show { opacity: 1; }
+
+  /* ============ CONTROLS ============ */
+  #controls { width: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
+  .tool, .cmd {
+    font-family: inherit; font-size: 13px; letter-spacing: .5px; padding: 9px 14px;
+    border: 1px solid rgba(168,230,184,.25); border-radius: 9px;
+    background: rgba(255,255,255,.05); color: #dfeee4; cursor: pointer; white-space: nowrap;
+    transition: transform .06s ease, background .15s ease, border-color .15s ease; user-select: none;
+  }
+  .tool:hover, .cmd:hover { background: rgba(168,230,184,.16); }
+  .tool:active, .cmd:active { transform: translateY(1px); }
+  .tool.active { background: linear-gradient(180deg, #3f9d6a, #2c7a50); border-color: #7fe0a4; color: #fff; box-shadow: 0 0 14px rgba(120,230,160,.4); }
+  .cmd.on { background: #b98b1f; border-color: #f4d97b; color: #241c00; }
+  #btn-new { border-color: rgba(230,140,120,.4); color: #f2c4b8; }
+  #btn-new:hover { background: rgba(230,120,100,.18); }
+  .group-label { font-size: 12px; color: #7d9c8b; margin: 0 2px; }
+  #speedBtns { display: flex; gap: 6px; }
+  #hint { font-size: 12px; color: #7d9c8b; text-align: center; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="title">TERRARI<span>UM</span></div>
+
+  <div id="hud">
+    <div class="vital"><span class="k">Day</span><span class="v" id="dayVal">1</span></div>
+    <div class="vital"><span class="k">ðŸ’§</span><div class="meter"><i id="mMoi"></i></div><span class="v" id="vMoi">0%</span></div>
+    <div class="vital"><span class="k">â˜€ï¸</span><div class="meter"><i id="mLight"></i></div><span class="v" id="vLight">0%</span></div>
+    <div class="vital"><span class="k">ðŸ«§</span><div class="meter"><i id="mOxy"></i></div><span class="v" id="vOxy">0%</span></div>
+    <div class="vital"><span class="k">ðŸŒ±</span><span class="v" id="vPlants">0</span></div>
+    <div class="vital"><span class="k">ðŸ›</span><span class="v" id="vBugs">0</span></div>
+  </div>
+
+  <div id="game-wrap">
+    <canvas id="game" width="800" height="520"></canvas>
+    <div id="toast"></div>
+    <div id="intro">
+      <h2>A SEALED TERRARIUM</h2>
+      <p>
+        A glass world holding air, soil and water. <b>Plants</b> grow with
+        <b>light</b> and <b>moisture</b> and exhale oxygen. <b>Bugs</b> eat
+        plants and breed when they thrive â€” but they need oxygen too.
+        <br><br>
+        Keep the balance: not too dry, not drowned, not over-grazed.
+        <br>There is no losing screen â€” only a garden that lives on.
+      </p>
+      <button class="cmd" id="btn-begin" type="button">Begin</button>
+    </div>
+  </div>
+
+  <div id="controls">
+    <button class="tool active" type="button" data-tool="water">ðŸ’§ Water</button>
+    <button class="tool" type="button" data-tool="plant">ðŸŒ± Plant</button>
+    <button class="tool" type="button" data-tool="bug">ðŸ› Bug</button>
+    <button class="tool" type="button" data-tool="soil">ðŸŸ« Soil</button>
+    <button class="tool" type="button" data-tool="trim">âœ‚ï¸ Trim</button>
+    <span class="group-label">|</span>
+    <button class="cmd" type="button" id="btn-lamp">â˜€ï¸ Lamp: Off</button>
+    <span class="group-label">|</span>
+    <button class="cmd" type="button" id="btn-pause">Pause</button>
+    <div id="speedBtns">
+      <button class="cmd" type="button" data-speed="1">1x</button>
+      <button class="cmd" type="button" data-speed="2">2x</button>
+      <button class="cmd" type="button" data-speed="4">4x</button>
+    </div>
+    <button class="cmd" type="button" id="btn-new">New World</button>
+  </div>
+  <div id="hint">Pick a tool, then click / tap the glass. P = pause Â· R = restart</div>
+</div>
+
+<script>(function () {
+  "use strict";
+
+  // ============ CANVAS & GEOMETRY ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;
+  const H = canvas.height;
+  const SOIL_TOP = H - 150;     // air/soil boundary
+  const PAD = 18;               // glass wall inset
+  const COLS = 40;              // moisture grid columns
+  const ROWS = 7;               // moisture grid rows (inside soil)
+  const CW = (W - PAD * 2) / COLS;
+  const CH = (H - PAD - SOIL_TOP) / ROWS;
+  const DAY_LEN = 34;           // seconds of sim per day
+  const MAX_PLANTS = 60;
+  const MAX_BUGS = 26;
+
+  // ============ SAVE KEY ============
+  const SAVE_KEY = "terrariumSave_v1";
+
+  // ============ STATE ============
+  let plants = [];    // {x, growth, health, maxH, seed, sway}
+  let bugs = [];      // {x, y, vx, vy, energy, dir, age, wig}
+  let moist = new Float32Array(COLS * ROWS); // 0..1 per cell
+  let simTime = 0;
+  let day = 1;
+  let soilQ = 0.7;    // soil quality 0..1
+  let oxygen = 0.6;   // 0..1
+  let lamp = false;
+  let light = 0.3;
+  let paused = false;
+  let speed = 1;
+  let started = false;
+  let particles = [];
+  let milestones = {}; // gentle goals reached
+
+  // ============ DOM ============
+  const dayVal = document.getElementById("dayVal");
+  const vMoi = document.getElementById("vMoi");
+  const vLight = document.getElementById("vLight");
+  const vOxy = document.getElementById("vOxy");
+  const vPlants = document.getElementById("vPlants");
+  const vBugs = document.getElementById("vBugs");
+  const mMoi = document.getElementById("mMoi");
+  const mLight = document.getElementById("mLight");
+  const mOxy = document.getElementById("mOxy");
+  const intro = document.getElementById("intro");
+  const toastEl = document.getElementById("toast");
+  const btnLamp = document.getElementById("btn-lamp");
+  const btnPause = document.getElementById("btn-pause");
+  const btnNew = document.getElementById("btn-new");
+  const btnBegin = document.getElementById("btn-begin");
+  const toolBtns = Array.prototype.slice.call(document.querySelectorAll(".tool"));
+  const speedBtns = Array.prototype.slice.call(document.querySelectorAll("[data-speed]"));
+  let tool = "water";
+
+  // ============ SOUND (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "sine";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  // ============ TOAST ============
+  let toastTimer = null;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 2200);
+  }
+
+  // ============ HELPERS ============
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function rnd(a, b) { return a + Math.random() * (b - a); }
+  function idx(c, r) { return r * COLS + c; }
+  function colAt(x) { return clamp(Math.floor((x - PAD) / CW), 0, COLS - 1); }
+  function rowAt(y) { return clamp(Math.floor((y - SOIL_TOP) / CH), 0, ROWS - 1); }
+  function moistureNear(x, y) {
+    const c = colAt(x), r = rowAt(clamp(y, SOIL_TOP, H));
+    let s = 0, n = 0;
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        const rr = r + dr, cc = c + dc;
+        if (rr >= 0 && rr < ROWS && cc >= 0 && cc < COLS) { s += moist[idx(cc, rr)]; n++; }
+      }
+    }
+    return n ? s / n : 0;
+  }
+  function avgMoisture() {
+    let s = 0;
+    for (let i = 0; i < moist.length; i++) s += moist[i];
+    return s / moist.length;
+  }
+
+  // ============ WORLD SETUP ============
+  function freshWorld(seedDemo) {
+    plants = []; bugs = []; particles = [];
+    moist = new Float32Array(COLS * ROWS);
+    for (let i = 0; i < moist.length; i++) moist[i] = 0.28 + 0.06 * Math.random();
+    simTime = 0; day = 1; soilQ = 0.7; oxygen = 0.6;
+    lamp = false; light = 0.3; speed = 1; paused = false;
+    milestones = {};
+    if (seedDemo) {
+      // a small starter colony so the world is alive at first glance
+      for (let i = 0; i < 4; i++) addPlant(rnd(PAD + 60, W - PAD - 60), true);
+      for (let i = 0; i < 3; i++) addBug(rnd(PAD + 40, W - PAD - 40), true);
+    }
+    syncLampBtn(); syncSpeedBtns(); syncPauseBtn();
+  }
+
+  // ============ ENTITIES ============
+  function addPlant(x, instant) {
+    if (plants.length >= MAX_PLANTS) return null;
+    const p = {
+      x: clamp(x, PAD + 12, W - PAD - 12),
+      growth: instant ? rnd(0.45, 0.8) : 0.04,
+      health: 1, maxH: rnd(60, 118), seed: Math.random() * Math.PI * 2, sway: Math.random() * Math.PI * 2, flowers: 0, flowerT: 0
+    };
+    plants.push(p);
+    return p;
+  }
+  function addBug(x, instant) {
+    if (bugs.length >= MAX_BUGS) return null;
+    const b = {
+      x: clamp(x, PAD + 16, W - PAD - 16),
+      y: rnd(SOIL_TOP - 150, SOIL_TOP - 12),
+      vx: rnd(-1, 1), vy: rnd(-0.4, 0.4),
+      energy: instant ? rnd(0.45, 0.7) : 0.55,
+age: 0, wig: Math.random() * Math.PI * 2, cool: 0
+    };
+    bugs.push(b);
+    return b;
+  }
+  function spawnParticles(x, y, color, n) {
+    for (let i = 0; i < n; i++) {
+      particles.push({
+        x: x, y: y,
+        vx: rnd(-1.1, 1.1), vy: rnd(-1.6, -0.3),
+        life: 1, color: color, size: rnd(1.5, 3.4)
+      });
+    }
+  }
+
+  // ============ TOOLS ============
+  function useWater(x, y) {
+    const c = colAt(x);
+    if (y < SOIL_TOP - 8) return; // must water the soil area
+    for (let r = 0; r < ROWS; r++) {
+      for (let dc = -2; dc <= 2; dc++) {
+        const cc = c + dc;
+        if (cc < 0 || cc >= COLS) continue;
+        const falloff = 1 - Math.abs(dc) / 3;
+        const depth = 1 - r / (ROWS + 2);
+        moist[idx(cc, r)] = clamp(moist[idx(cc, r)] + 0.42 * falloff * depth, 0, 1.3);
+      }
+    }
+    spawnParticles(x, SOIL_TOP + 6, "rgba(120,190,255,", 8);
+    beep(520, 0.06, "sine");
+  }
+  function usePlant(x, y) {
+    if (y < SOIL_TOP - 4) { toast("Plant on the soil"); return; }
+    if (addPlant(x, false)) { beep(700, 0.07, "triangle"); toast("A seed is planted"); }
+    else toast("The soil is crowded");
+  }
+  function useBug(x) {
+    if (addBug(x, false)) { beep(300, 0.06, "square"); toast("A bug wanders in"); }
+    else toast("Too many bugs");
+  }
+  function useSoil(x, y) {
+    if (y < SOIL_TOP - 4) return;
+    const c = colAt(x);
+    for (let r = 0; r < ROWS; r++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        const cc = c + dc;
+        if (cc >= 0 && cc < COLS) moist[idx(cc, r)] *= 0.94; // fresher, less soggy
+      }
+    }
+    soilQ = clamp(soilQ + 0.06, 0, 1);
+    spawnParticles(x, SOIL_TOP + 4, "rgba(180,140,90,", 6);
+    beep(240, 0.06, "triangle");
+  }
+  function useTrim(x, y) {
+    // remove nearest plant or bug within reach
+    let best = null, bestD = 34 * 34;
+    for (let i = 0; i < plants.length; i++) {
+      const p = plants[i], h = p.maxH * p.growth;
+      const d = (p.x - x) * (p.x - x) + (SOIL_TOP - h * 0.5 - y) * (SOIL_TOP - h * 0.5 - y);
+      if (d < bestD) { bestD = d; best = { kind: "plant", i: i }; }
+    }
+    for (let i = 0; i < bugs.length; i++) {
+      const b = bugs[i];
+      const d = (b.x - x) * (b.x - x) + (b.y - y) * (b.y - y);
+      if (d < bestD) { bestD = d; best = { kind: "bug", i: i }; }
+    }
+    if (!best) return;
+    if (best.kind === "plant") {
+      const p = plants[best.i];
+      spawnParticles(p.x, SOIL_TOP - p.maxH * p.growth * 0.5, "rgba(120,200,130,", 7);
+      plants.splice(best.i, 1);
+    } else {
+      const b = bugs[best.i];
+      spawnParticles(b.x, b.y, "rgba(210,150,90,", 6);
+      bugs.splice(best.i, 1);
+    }
+    beep(180, 0.08, "sawtooth");
+  }
+  function applyTool(x, y) {
+    if (x < PAD - 10 || x > W - PAD + 10 || y < PAD - 10 || y > H - PAD + 10) return;
+    if (tool === "water") useWater(x, y);
+    else if (tool === "plant") usePlant(x, y);
+    else if (tool === "bug") useBug(x);
+    else if (tool === "soil") useSoil(x, y);
+    else if (tool === "trim") useTrim(x, y);
+  }
+
+  // ============ LIGHT / DAY CYCLE ============
+  function computeLight() {
+    const t = (simTime % DAY_LEN) / DAY_LEN;
+    const daylight = 0.5 - 0.5 * Math.cos(t * Math.PI * 2); // 0..1, night at t=0
+    light = clamp(0.12 + 0.88 * daylight + (lamp ? 0.34 : 0), 0, 1);
+  }
+
+  // ============ SIMULATION ============
+  function simulate(dt) {
+    simTime += dt;
+    computeLight();
+    const newDay = Math.floor(simTime / DAY_LEN) + 1;
+    if (newDay !== day) {
+      day = newDay;
+      milestoneCheck();
+      beep(560, 0.06, "sine");
+    }
+    // --- moisture: diffuse + evaporate ---
+    const next = Float32Array.from(moist);
+    const evap = 0.02 + 0.06 * light; // sun dries the soil faster
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const i = idx(c, r);
+        let v = moist[i];
+        // lateral diffusion
+        let sum = 0, n = 0;
+        if (c > 0) { sum += moist[idx(c - 1, r)]; n++; }
+        if (c < COLS - 1) { sum += moist[idx(c + 1, r)]; n++; }
+        if (r > 0) { sum += moist[idx(c, r - 1)]; n++; }
+        if (r < ROWS - 1) { sum += moist[idx(c, r + 1)]; n++; }
+        const avg = n ? sum / n : v;
+        v += (avg - v) * 0.12 * dt;
+        // gravity seep: top rows drain toward lower rows
+        if (r < ROWS - 1) {
+          const drip = (moist[i] - moist[idx(c, r + 1)]) * 0.18 * dt;
+          if (drip > 0) { v -= drip; next[idx(c, r + 1)] += drip; }
+        }
+        v -= evap * dt * (0.4 + v);
+        next[i] = clamp(v, 0, 1.4);
+      }
+    }
+    moist = next;
+    // --- soil quality ---
+    const avgM = avgMoisture();
+    if (avgM > 0.95) soilQ = clamp(soilQ - 0.006 * dt, 0, 1);      // waterlogged
+    else if (avgM < 0.12) soilQ = clamp(soilQ - 0.004 * dt, 0, 1); // parched
+    else soilQ = clamp(soilQ + 0.004 * dt, 0, 1);
+    // --- plants ---
+    let oxyProd = 0;
+    for (let i = plants.length - 1; i >= 0; i--) {
+      const p = plants[i];
+      const rootY = SOIL_TOP + 14;
+      const m = moistureNear(p.x, rootY);
+      const goodWater = m > 0.18 && m < 1.05;
+      const tooWet = m >= 1.05;
+      const goodLight = light > 0.22;
+      // growth
+      if (goodWater && goodLight && soilQ > 0.25) {
+        p.growth = clamp(p.growth + (0.05 + 0.10 * light) * soilQ * dt, 0, 1);
+        p.health = clamp(p.health + 0.05 * dt, 0, 1);
+      } else {
+        p.health = clamp(p.health - (0.03 + (tooWet ? 0.05 : 0) + (goodLight ? 0 : 0.03)) * dt, 0, 1);
+      }
+      // drink: roots pull moisture from the cells beneath
+      const c0 = colAt(p.x);
+      for (let r = 0; r < ROWS; r++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          const cc = c0 + dc;
+          if (cc >= 0 && cc < COLS) {
+            const cell = idx(cc, r);
+            moist[cell] = clamp(moist[cell] - 0.05 * dt * (0.4 + p.growth), 0, 1.4);
+          }
+        }
+      }
+      // oxygen exhalation
+      oxyProd += p.growth * p.health * (0.35 + 0.65 * light);
+      // flowering & gentle self-seeding
+      if (p.growth > 0.85 && p.health > 0.7) {
+        p.flowerT += dt;
+        if (p.flowerT > 6) {
+          p.flowerT = 0;
+          p.flowers = Math.min(3, p.flowers + 1);
+          if (plants.length < MAX_PLANTS - 2 && Math.random() < 0.5) {
+            addPlant(p.x + rnd(-42, 42), false);
+          }
+        }
+      }
+      // death
+      if (p.health <= 0) {
+        spawnParticles(p.x, SOIL_TOP - p.maxH * p.growth * 0.5, "rgba(150,120,80,", 8);
+        plants.splice(i, 1);
+      } else {
+        p.sway += dt * 1.4;
+      }
+    }
+    // --- bugs ---
+    let oxyUse = 0;
+    for (let i = bugs.length - 1; i >= 0; i--) {
+      const b = bugs[i];
+      b.age += dt;
+      b.wig += dt * 9;
+      b.cool = Math.max(0, b.cool - dt);
+      // target the nearest living plant
+      let tgt = null, td = 1e9;
+      for (let j = 0; j < plants.length; j++) {
+        const p = plants[j];
+        const py = SOIL_TOP - p.maxH * p.growth * 0.55;
+        const d = (p.x - b.x) * (p.x - b.x) + (py - b.y) * (py - b.y);
+        if (d < td) { td = d; tgt = { p: p, y: py }; }
+      }
+      let desiredVx, desiredVy;
+      if (tgt) {
+        const dx = tgt.p.x - b.x, dy = tgt.y - b.y;
+        const dist = Math.hypot(dx, dy) || 1;
+        desiredVx = (dx / dist) * 46;
+        desiredVy = (dy / dist) * 46;
+      } else {
+        // wander
+        desiredVx = Math.sin(b.age * 1.7 + b.wig * 0.1) * 34;
+        desiredVy = Math.cos(b.age * 1.3);
+      }
+      b.vx += (desiredVx - b.vx) * 2.2 * dt;
+      b.vy += (desiredVy - b.vy) * 2.2 * dt;
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      // stay inside the glass + above the soil line
+      if (b.x < PAD + 12) { b.x = PAD + 12; b.vx = Math.abs(b.vx); }
+      if (b.x > W - PAD - 12) { b.x = W - PAD - 12; b.vx = -Math.abs(b.vx); }
+      if (b.y < SOIL_TOP - 250) { b.y = SOIL_TOP - 250; b.vy = Math.abs(b.vy); }
+      if (b.y > SOIL_TOP - 8) { b.y = SOIL_TOP - 8; b.vy = -Math.abs(b.vy); }
+      // grazing
+      if (tgt && td < 20 * 20 && b.cool <= 0) {
+        const p = tgt.p;
+        p.growth = clamp(p.growth - 0.10, 0, 1);
+        p.health = clamp(p.health - 0.22, 0, 1);
+        b.energy = clamp(b.energy + 0.28, 0, 1.2);
+        b.cool = 0.5;
+        spawnParticles(b.x, b.y, "rgba(140,220,150,", 4);
+        beep(200 + Math.random() * 60, 0.04, "square");
+        // over-grazing shrinks the plant for good
+        if (p.health <= 0) {
+          spawnParticles(p.x, SOIL_TOP - p.maxH * p.growth * 0.5, "rgba(150,120,80,", 6);
+          plants.splice(plants.indexOf(p), 1);
+        }
+      }
+      // metabolism â€” low oxygen makes bugs sick
+      const drain = 0.035 + (oxygen < 0.35 ? 0.05 : 0) + (light < 0.15 ? 0.01 : 0);
+      b.energy -= drain * dt;
+      oxyUse += 0.5;
+      // breeding when well fed
+      if (b.energy > 0.82 && bugs.length < MAX_BUGS && plants.length > 0 && Math.random() < 0.35 * dt) {
+        b.energy = 0.5;
+        const child = addBug(b.x + rnd(-14, 14), false);
+        if (child) { child.energy = 0.45; spawnParticles(b.x, b.y, "rgba(250,220,140,", 5); beep(760, 0.05, "triangle"); }
+      }
+      // starvation
+      if (b.energy <= 0) {
+        spawnParticles(b.x, b.y, "rgba(140,120,90,", 5);
+        bugs.splice(i, 1);
+      }
+    }
+    // --- oxygen balance ---
+    const prod = oxyProd * 0.010;
+    const use = oxyUse * 0.010 + 0.004; // slow ambient loss (sealed glass isn't perfect)
+    oxygen = clamp(oxygen + (prod - use) * dt, 0, 1);
+    // --- particles ---
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const pt = particles[i];
+      pt.x += pt.vx; pt.y += pt.vy;
+      pt.vy += 0.06;
+      pt.life -= dt * 1.4;
+      if (pt.life <= 0) particles.splice(i, 1);
+    }
+  }
+
+  // ============ GENTLE GOALS ============
+  function milestoneCheck() {
+    if (!milestones.first_plant && plants.length > 0) { milestones.first_plant = 1; toast("ðŸŒ± First sprout"); }
+    if (!milestones.ten_plants && plants.length >= 10) { milestones.ten_plants = 1; toast("ðŸŒ¿ A little forest"); }
+    if (!milestones.bug_born && bugs.length > 0) { milestones.bug_born = 1; }
+    if (!milestones.bloom && plants.some(function (p) { return p.flowers > 0; })) {
+      milestones.bloom = 1; toast("ðŸŒ¸ Something is blooming");
+    }
+    if (!milestones.balance && avgMoisture() > 0.3 && avgMoisture() < 0.75 && oxygen > 0.5 && plants.length >= 6) {
+      milestones.balance = 1; toast("âš–ï¸ The terrarium finds its balance");
+    }
+    if (day >= 5 && !milestones.week) { milestones.week = 1; toast("ðŸ•°ï¸ Five days, still alive"); }
+  }
+
+  // ============ DRAWING ============
+  function draw() {
+    // --- air / sky gradient ---
+    const sky = ctx.createLinearGradient(0, 0, 0, H);
+    const lit = light;
+    sky.addColorStop(0, "rgb(" + Math.round(90 + 90 * lit) + "," + Math.round(150 + 70 * lit) + "," + Math.round(150 + 40 * lit) + ")");
+    sky.addColorStop(0.55, "rgb(" + Math.round(40 + 80 * lit) + "," + Math.round(80 + 80 * lit) + "," + Math.round(80 + 50 * lit) + ")");
+    sky.addColorStop(1, "rgb(" + Math.round(20 + 40 * lit) + "," + Math.round(40 + 40 * lit) + "," + Math.round(38 + 30 * lit) + ")");
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+    // sun / moon glow
+    const t = (simTime % DAY_LEN) / DAY_LEN;
+    const sunX = PAD + (W - PAD * 2) * t;
+    ctx.save();
+    ctx.globalAlpha = 0.55 + 0.35 * light;
+    const glow = ctx.createRadialGradient(sunX, PAD + 34, 6, sunX, PAD + 34, 120);
+    glow.addColorStop(0, "rgba(255,240,180,.9)");
+    glow.addColorStop(1, "rgba(255,240,180,0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, W, SOIL_TOP);
+    ctx.fillStyle = light > 0.5 ? "#fff5c4" : "rgba(220,230,255,.8)";
+    ctx.beginPath();
+    ctx.arc(sunX, PAD + 34, 14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    // --- floating oxygen bubbles ---
+    ctx.save();
+    for (let i = 0; i < plants.length; i += 2) {
+      const p = plants[i];
+      const bx = p.x + Math.sin(simTime * 0.8 + p.seed) * 8;
+      const by = SOIL_TOP - 20 - ((simTime * 22 + p.seed * 40) % 200);
+      ctx.globalAlpha = 0.12 + 0.16 * oxygen;
+      ctx.fillStyle = "#dff6ff";
+      ctx.beginPath();
+      ctx.arc(bx, by, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+    // --- soil ---
+    const soilGrad = ctx.createLinearGradient(0, SOIL_TOP, 0, H);
+    soilGrad.addColorStop(0, "#5a4028");
+    soilGrad.addColorStop(1, "#2e2116");
+    ctx.fillStyle = soilGrad;
+    ctx.fillRect(PAD, SOIL_TOP, W - PAD * 2, H - PAD - SOIL_TOP);
+    // moisture tint per cell
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const m = clamp(moist[idx(c, r)], 0, 1);
+        if (m > 0.05) {
+          ctx.fillStyle = "rgba(60,130,200," + (m * 0.30).toFixed(3) + ")";
+          ctx.fillRect(PAD + c * CW, SOIL_TOP + r * CH, CW + 0.6, CH + 0.6);
+        }
+      }
+    }
+    // soil crumbs / texture
+    ctx.save();
+    ctx.globalAlpha = 0.25;
+    ctx.fillStyle = "#8a6a44";
+    for (let i = 0; i < 120; i++) {
+      const sx = PAD + ((i * 97.3) % (W - PAD * 2));
+      const sy = SOIL_TOP + 6 + ((i * 53.7) % (H - PAD - SOIL_TOP - 10));
+      ctx.fillRect(sx, sy, 2, 2);
+    }
+    ctx.restore();
+    // --- plants ---
+    for (let i = 0; i < plants.length; i++) drawPlant(plants[i]);
+    // --- bugs ---
+    for (let i = 0; i < bugs.length; i++) drawBug(bugs[i]);
+    // --- particles ---
+    for (let i = 0; i < particles.length; i++) {
+      const pt = particles[i];
+      ctx.globalAlpha = clamp(pt.life, 0, 1);
+      ctx.fillStyle = pt.color + clamp(pt.life, 0, 1).toFixed(2) + ")";
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    drawGlass();
+    // --- night dimming ---
+    if (light < 0.45) {
+      ctx.fillStyle = "rgba(8,16,34," + ((0.45 - light) * 0.85).toFixed(3) + ")";
+      ctx.fillRect(0, 0, W, H);
+    }
+  }
+  function drawPlant(p) {
+    const h = p.maxH * p.growth;
+    const baseY = SOIL_TOP + 6;
+    const topY = baseY - h;
+    const sway = Math.sin(p.sway) * (2 + h * 0.05);
+    const health = clamp(p.health, 0, 1);
+    const leafG = Math.round(120 + 90 * health);
+    const col = "rgb(" + Math.round(60 + 40 * health) + "," + leafG + "," + Math.round(60 + 30 * health) + ")";
+    // stem
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 2 + 2.4 * p.growth;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(p.x, baseY);
+    ctx.quadraticCurveTo(p.x + sway * 0.6, (baseY + topY) / 2, p.x + sway, topY);
+    ctx.stroke();
+    // leaves
+    const leafCount = Math.max(1, Math.floor(p.growth * 5));
+    for (let i = 1; i <= leafCount; i++) {
+      const f = i / (leafCount + 1);
+      const lx = p.x + sway * f * 0.9;
+      const ly = baseY - h * f;
+      const side = (i % 2 === 0) ? 1 : -1;
+      const size = 6 + 10 * p.growth;
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.ellipse(lx + side * size * 0.5, ly, size, size * 0.42,
+        side * 0.5 + sway * 0.02, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // flower
+    if (p.flowers > 0) {
+      const fx = p.x + sway, fy = topY - 2;
+      for (let k = 0; k < 5; k++) {
+        const a = (k / 5) * Math.PI * 2;
+        ctx.fillStyle = k % 2 ? "#ff9fd0" : "#ffd66b";
+        ctx.beginPath();
+        ctx.arc(fx + Math.cos(a) * 4, fy + Math.sin(a) * 4, 3.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = "#fff6d8";
+      ctx.beginPath();
+      ctx.arc(fx, fy, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // wilting cue â€” a faint brown tint when unhealthy
+    if (health < 0.5) {
+      ctx.globalAlpha = (0.5 - health);
+      ctx.fillStyle = "#6b4a24";
+      ctx.beginPath();
+      ctx.ellipse(p.x + sway, baseY - h * 0.6, 5, h * 0.3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+  function drawBug(b) {
+    const wob = Math.sin(b.wig) * 1.6;
+    ctx.save();
+    ctx.translate(b.x, b.y + wob * 0.4);
+    const hungry = b.energy < 0.3;
+    // body
+    ctx.fillStyle = hungry ? "#8a6a4a" : "#c98a4e";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 5, 3.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // head
+    ctx.fillStyle = hungry ? "#6e5238" : "#a86e3c";
+    ctx.beginPath();
+    ctx.arc(5, 0, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+    // legs
+    ctx.strokeStyle = "rgba(40,25,15,.8)";
+    ctx.lineWidth = 1;
+    for (let i = -1; i <= 1; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * 2.4, 2);
+      ctx.lineTo(i * 2.4 + wob * 0.5, 4.6);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(i * 2.4, -2);
+      ctx.lineTo(i * 2.4 - wob * 0.5, -4.6);
+      ctx.stroke();
+    }
+    // antennae
+    ctx.beginPath();
+    ctx.moveTo(6.4, -1.4); ctx.lineTo(9, -3);
+    ctx.moveTo(6.4, 1.4); ctx.lineTo(9, 3);
+    ctx.stroke();
+    ctx.restore();
+  }
+  function drawGlass() {
+    // inner border + highlights to read as a sealed glass jar
+    ctx.save();
+    ctx.strokeStyle = "rgba(220,245,235,.35)";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(PAD - 6, PAD - 6, W - (PAD - 6) * 2, H - (PAD - 6) * 2);
+    ctx.strokeStyle = "rgba(255,255,255,.10)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(PAD - 1, PAD - 1, W - (PAD - 1) * 2, H - (PAD - 1) * 2);
+    // diagonal reflection streaks
+    ctx.globalAlpha = 0.06;
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.moveTo(PAD, PAD);
+    ctx.lineTo(PAD + 120, PAD);
+    ctx.lineTo(PAD, PAD + 220);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(W - PAD - 60, PAD);
+    ctx.lineTo(W - PAD, PAD);
+    ctx.lineTo(W - PAD, PAD + 120);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // ============ HUD SYNC ============
+  let hudTick = 0;
+  function syncHUD() {
+    const m = clamp(avgMoisture(), 0, 1);
+    vMoi.textContent = Math.round(m * 100) + "%";
+    mMoi.style.width = (m * 100) + "%";
+    mMoi.style.background = m < 0.15 ? "#e0a04a" : (m > 0.95 ? "#5f8fe0" : "#4fb6e8");
+    vLight.textContent = Math.round(light * 100) + "%";
+    mLight.style.width = (light * 100) + "%";
+    mLight.style.background = light < 0.2 ? "#4a5a80" : "#f4d97b";
+    vOxy.textContent = Math.round(oxygen * 100) + "%";
+    mOxy.style.width = (oxygen * 100) + "%";
+    mOxy.style.background = oxygen < 0.35 ? "#d06a6a" : "#7fe0c0";
+    vPlants.textContent = plants.length;
+    vBugs.textContent = bugs.length;
+    dayVal.textContent = day;
+  }
+
+  // ============ MAIN LOOP ============
+  let raf = null;
+  let last = 0;
+  function loop(ts) {
+    if (!last) last = ts;
+    let dt = (ts - last) / 1000;
+    last = ts;
+    if (dt > 0.1) dt = 0.1; // clamp after tab switches
+    if (started && !paused) {
+      // fixed-ish sub-steps scaled by speed
+      const total = dt * speed;
+      const step = 1 / 60;
+      let acc = total;
+      let guard = 0;
+      while (acc > 0 && guard < 12) {
+        const s = Math.min(step, acc);
+        simulate(s);
+        acc -= s;
+        guard++;
+      }
+    }
+    draw();
+    hudTick += dt;
+    if (hudTick > 0.2) { hudTick = 0; syncHUD(); }
+    raf = requestAnimationFrame(loop);
+  }
+
+  // ============ PERSISTENCE ============
+  function save() {
+    try {
+      const data = {
+        plants: plants.map(function (p) {
+          return { x: p.x, growth: p.growth, health: p.health, maxH: p.maxH, seed: p.seed, sway: p.sway, flowers: p.flowers, flowerT: p.flowerT };
+        }),
+        bugs: bugs.map(function (b) {
+          return { x: b.x, y: b.y, vx: b.vx, vy: b.vy, energy: b.energy, age: b.age, wig: b.wig, cool: b.cool };
+        }),
+        moist: Array.prototype.slice.call(moist),
+        simTime: simTime, day: day, soilQ: soilQ, oxygen: oxygen,
+        lamp: lamp, milestones: milestones
+      };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    } catch (e) { /* storage might be unavailable, ignore */ }
+  }
+  function load() {
+    let raw = null;
+    try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { return false; }
+    if (!raw) return false;
+    try {
+      const d = JSON.parse(raw);
+      plants = d.plants || [];
+      bugs = d.bugs || [];
+      moist = Float32Array.from(d.moist || []);
+      if (moist.length !== COLS * ROWS) moist = new Float32Array(COLS * ROWS);
+      simTime = d.simTime || 0;
+      day = d.day || 1;
+      soilQ = typeof d.soilQ === "number" ? d.soilQ : 0.7;
+      oxygen = typeof d.oxygen === "number" ? d.oxygen : 0.6;
+      lamp = !!d.lamp;
+      milestones = d.milestones || {};
+      syncLampBtn();
+      return true;
+    } catch (e) { return false; }
+  }
+
+  // ============ UI WIRING ============
+  function syncLampBtn() {
+    btnLamp.textContent = "â˜€ï¸ Lamp: " + (lamp ? "On" : "Off");
+    btnLamp.classList.toggle("on", lamp);
+  }
+  function syncPauseBtn() {
+    btnPause.textContent = paused ? "Resume" : "Pause";
+  }
+  function syncSpeedBtns() {
+    speedBtns.forEach(function (b) {
+      b.classList.toggle("on", Number(b.dataset.speed) === speed);
+    });
+  }
+  toolBtns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      tool = b.dataset.tool;
+      toolBtns.forEach(function (x) { x.classList.remove("active"); });
+      b.classList.add("active");
+      beep(600, 0.04, "sine");
+    });
+  });
+  speedBtns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      speed = Number(b.dataset.speed);
+      syncSpeedBtns();
+      beep(640, 0.04, "sine");
+    });
+  });
+  btnLamp.addEventListener("click", function () {
+    lamp = !lamp;
+    syncLampBtn();
+    beep(lamp ? 720 : 360, 0.08, "triangle");
+  });
+  btnPause.addEventListener("click", function () {
+    if (!started) return;
+    paused = !paused;
+    syncPauseBtn();
+    beep(paused ? 420 : 620, 0.06, "triangle");
+  });
+  btnNew.addEventListener("click", function () {
+    freshWorld(true);
+    started = true;
+    intro.classList.add("hidden");
+    save();
+    toast("A new sealed world");
+    beep(520, 0.09, "sine");
+  });
+  btnBegin.addEventListener("click", function () {
+    started = true;
+    intro.classList.add("hidden");
+    beep(660, 0.08, "sine");
+  });
+  // canvas pointer input (mouse + touch)
+  function pointerToCanvas(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left) * (W / rect.width),
+      y: (clientY - rect.top) * (H / rect.height)
+    };
+  }
+  let dragging = false;
+  let dragTool = null;
+  canvas.addEventListener("mousedown", function (e) {
+    dragging = true; dragTool = tool;
+    const p = pointerToCanvas(e.clientX, e.clientY);
+    applyTool(p.x, p.y);
+  });
+  canvas.addEventListener("mousemove", function (e) {
+    if (!dragging) return;
+    if (dragTool !== "water" && dragTool !== "soil") return; // continuous tools only
+    const p = pointerToCanvas(e.clientX, e.clientY);
+    applyTool(p.x, p.y);
+  });
+  window.addEventListener("mouseup", function () { dragging = false; });
+  canvas.addEventListener("touchstart", function (e) {
+    e.preventDefault();
+    dragging = true; dragTool = tool;
+    const t = e.changedTouches[0];
+    const p = pointerToCanvas(t.clientX, t.clientY);
+    applyTool(p.x, p.y);
+  }, { passive: false });
+  canvas.addEventListener("touchmove", function (e) {
+    e.preventDefault();
+    if (!dragging) return;
+    if (dragTool !== "water" && dragTool !== "soil") return;
+    const t = e.changedTouches[0];
+    const p = pointerToCanvas(t.clientX, t.clientY);
+    applyTool(p.x, p.y);
+  }, { passive: false });
+  canvas.addEventListener("touchend", function () { dragging = false; });
+  // keyboard shortcuts
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "KeyP" || e.code === "Escape") { e.preventDefault(); btnPause.click(); return; }
+    if (e.code === "KeyR") { e.preventDefault(); btnNew.click(); return; }
+    if (e.code === "KeyL") { e.preventDefault(); btnLamp.click(); return; }
+    const map = { Digit1: "water", Digit2: "plant", Digit3: "bug", Digit4: "soil", Digit5: "trim" };
+    if (map[e.code]) {
+      e.preventDefault();
+      const b = document.querySelector('.tool[data-tool="' + map[e.code] + '"]');
+      if (b) b.click();
+    }
+  });
+  // pause sim when hidden (keep last frame drawn)
+  document.addEventListener("visibilitychange", function () {
+    last = 0;
+  });
+  // autosave
+  setInterval(function () { if (started) save(); }, 6000);
+  window.addEventListener("beforeunload", function () { if (started) save(); });
+
+  // ============ BOOT ============
+  if (load()) {
+    started = false; // wait for Begin, but keep the loaded world visible
+    toast("Welcome back â€” day " + day);
+  } else {
+    freshWorld(true);
+    started = false;
+  }
+  syncSpeedBtns();
+  syncPauseBtn();
+  syncHUD();
+  draw();
+  raf = requestAnimationFrame(loop);
+})();</script>
+</body>
+</html>

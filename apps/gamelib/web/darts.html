@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🎯 Darts — 501</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(circle at 50% -10%, #33291f 0%, #1a1410 55%, #0a0806 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #f2e8d8;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ============ APP SHELL ============ */
+  #app {
+    width: min(96vw, 760px);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .title {
+    text-align: center;
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: #ffcf6a;
+    text-shadow: 0 2px 0 #000, 0 0 22px rgba(255,175,60,.35);
+  }
+  .title small {
+    display: block;
+    font-size: .62rem;
+    letter-spacing: 4px;
+    color: #a99b85;
+    font-weight: 600;
+    margin-top: 2px;
+  }
+
+  /* ============ SCOREBOARD / HUD ============ */
+  .hud { display: flex; gap: 10px; }
+  .pcard {
+    flex: 1;
+    position: relative;
+    background: linear-gradient(160deg, #24201b, #17130f);
+    border: 2px solid #332b22;
+    border-radius: 14px;
+    padding: 8px 12px;
+    transition: border-color .2s ease, box-shadow .2s ease, opacity .2s ease;
+  }
+  .pcard.active {
+    border-color: #ffcf6a;
+    box-shadow: 0 0 18px rgba(255,190,80,.35) inset, 0 0 12px rgba(255,190,80,.2);
+  }
+  .pcard.dim { opacity: .5; }
+  .pcard.hide { display: none; }
+  .pname {
+    font-size: .68rem;
+    letter-spacing: 2px;
+    color: #a99b85;
+    font-weight: 700;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .pscore {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1.05;
+    color: #fff2d8;
+    font-variant-numeric: tabular-nums;
+  }
+  .pscore.low { color: #77e39a; }
+  .pdarts { font-size: .85rem; letter-spacing: 3px; color: #ffcf6a; }
+  .pdarts .off { color: #4a4038; }
+
+  /* ============ BOARD / CANVAS ============ */
+  .board-wrap {
+    position: relative;
+    border-radius: 18px;
+    overflow: hidden;
+    background: #0d1412;
+    box-shadow: 0 14px 44px rgba(0,0,0,.6), 0 0 0 2px #2c231b;
+  }
+  canvas { display: block; width: 100%; height: auto; }
+
+  /* ============ MESSAGE BAR ============ */
+  .msgbar {
+    min-height: 20px;
+    text-align: center;
+    font-size: .82rem;
+    letter-spacing: 1px;
+    color: #d9c9a8;
+  }
+  .msgbar b { color: #ffcf6a; }
+
+  /* ============ OVERLAYS (start / end) ============ */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 18px;
+    text-align: center;
+    background: linear-gradient(180deg, rgba(12,9,7,.9), rgba(12,9,7,.97));
+    transition: opacity .25s ease;
+    z-index: 5;
+    overflow-y: auto;
+  }
+  .overlay.hidden { opacity: 0; pointer-events: none; }
+
+  .overlay h2 {
+    font-size: 1.7rem;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: #ffcf6a;
+    text-shadow: 0 2px 0 #000;
+  }
+  .overlay .sub { font-size: .85rem; color: #b6a893; max-width: 34ch; line-height: 1.5; }
+
+  .opt { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+  .opt-label { font-size: .66rem; letter-spacing: 3px; color: #8d8171; font-weight: 700; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .chip {
+    font-family: inherit;
+    font-size: .8rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 7px 16px;
+    border-radius: 20px;
+    border: 2px solid #3a3128;
+    background: #1c1814;
+    color: #b6a893;
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+  .chip:hover { border-color: #6b5a44; color: #e6d6bb; }
+  .chip.active {
+    background: linear-gradient(160deg, #ffcf6a, #e8a72c);
+    border-color: #ffcf6a;
+    color: #241b0c;
+    box-shadow: 0 4px 14px rgba(255,180,60,.35);
+  }
+
+  .cta {
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    padding: 12px 34px;
+    border: none;
+    border-radius: 26px;
+    cursor: pointer;
+    color: #241b0c;
+    background: linear-gradient(160deg, #ffcf6a, #e8a72c);
+    box-shadow: 0 5px 0 #9c6d13;
+    transition: transform .07s ease, box-shadow .07s ease, filter .15s ease;
+  }
+  .cta:hover { filter: brightness(1.08); }
+  .cta:active { transform: translateY(3px); box-shadow: 0 2px 0 #9c6d13; }
+
+  .best { font-size: .72rem; color: #8d8171; letter-spacing: 1px; }
+
+  /* ============ TOOLBAR ============ */
+  .toolbar { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+  .tbtn {
+    font-family: inherit;
+    font-size: .8rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 9px 20px;
+    border-radius: 10px;
+    border: 2px solid #3a3128;
+    background: #1c1814;
+    color: #d9c9a8;
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+  .tbtn:hover { border-color: #6b5a44; background: #241f19; }
+  .tbtn:active { transform: translateY(2px); }
+  .hint { font-size: .72rem; color: #7f7365; letter-spacing: 1px; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 560px) {
+    .title { font-size: 1.25rem; letter-spacing: 2px; }
+    .pscore { font-size: 1.55rem; }
+    .overlay h2 { font-size: 1.3rem; }
+    .overlay { gap: 6px; padding: 12px; }
+    .overlay .sub { font-size: .76rem; line-height: 1.35; }
+    .chip { padding: 6px 12px; font-size: .74rem; }
+    .cta { padding: 10px 26px; font-size: .9rem; }
+    .hide-sm { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1 class="title">🎯 DARTS <small>FIVE-OH-ONE</small></h1>
+
+  <!-- ============ SCOREBOARD ============ -->
+  <div class="hud">
+    <div class="pcard" id="pcard0">
+      <div class="pname"><span>YOU</span><span class="pdarts" id="darts0">●●●</span></div>
+      <div class="pscore" id="score0">501</div>
+    </div>
+    <div class="pcard" id="pcard1">
+      <div class="pname"><span>CPU</span><span class="pdarts" id="darts1">●●●</span></div>
+      <div class="pscore" id="score1">501</div>
+    </div>
+  </div>
+
+  <!-- ============ BOARD ============ -->
+  <div class="board-wrap">
+    <canvas id="game" width="700" height="580"></canvas>
+
+    <!-- Start overlay -->
+    <div class="overlay" id="startScreen">
+      <h2>DARTS · 501</h2>
+      <p class="sub">Count down from 501. Three darts a turn. You must check out on a <b>double</b>.</p>
+
+      <div class="opt">
+        <span class="opt-label">MODE</span>
+        <div class="chips" id="modeChips">
+          <button type="button" class="chip" data-mode="solo">Solo</button>
+          <button type="button" class="chip active" data-mode="cpu">Vs CPU</button>
+        </div>
+      </div>
+
+      <div class="opt">
+        <span class="opt-label">DIFFICULTY</span>
+        <div class="chips" id="diffChips">
+          <button type="button" class="chip" data-diff="easy">Easy</button>
+          <button type="button" class="chip active" data-diff="normal">Normal</button>
+          <button type="button" class="chip" data-diff="hard">Hard</button>
+        </div>
+      </div>
+
+      <button type="button" class="cta" id="startBtn">Start Game</button>
+      <p class="best" id="bestLine"></p>
+    </div>
+
+    <!-- End overlay -->
+    <div class="overlay hidden" id="endScreen">
+      <h2 id="endTitle">CHECKOUT!</h2>
+      <p class="sub" id="endSub"></p>
+      <p class="best" id="endBest"></p>
+      <button type="button" class="cta" id="againBtn">Play Again</button>
+    </div>
+  </div>
+
+  <div class="msgbar" id="msgbar"></div>
+  <div class="msgbar" id="checkout" style="color:#77e39a"></div>
+
+  <!-- ============ TOOLBAR ============ -->
+  <div class="toolbar">
+    <button type="button" class="tbtn" id="btnRestart">Restart</button>
+    <button type="button" class="tbtn" id="btnSound">🔊 Sound</button>
+    <span class="hint hide-sm">Click / Tap / Space to throw &nbsp;·&nbsp; R = restart</span>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CANVAS & BOARD GEOMETRY ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  const CX = 360, CY = 305, R = 226;            // board centre + radius (px)
+  const SPAN = R * 1.02;                         // aim span half-width
+  const MX0 = CX - SPAN, MX1 = CX + SPAN;        // horizontal meter extent
+  const MY0 = CY - SPAN, MY1 = CY + SPAN;        // vertical meter extent
+
+  // Clockwise from the top, exactly like a real board.
+  const ORDER = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
+
+  // Ring radii as a fraction of R (real dartboard proportions).
+  const RAD = { bIn: 0.037, bOut: 0.094, tIn: 0.582, tOut: 0.629, dIn: 0.953, dOut: 1.0 };
+
+  const COL = {
+    black: "#232320", cream: "#e9d7ac",
+    red: "#c8322b", green: "#2c8a4b",
+    wire: "#d5cfc2", surround: "#0d0b09"
+  };
+
+  // ============ DIFFICULTY SETTINGS ============
+  const DIFF = {
+    easy:   { speed: 0.85, spread: 0.031, cpuErr: 0.150, label: "Easy" },
+    normal: { speed: 1.25, spread: 0.025, cpuErr: 0.105, label: "Normal" },
+    hard:   { speed: 1.75, spread: 0.019, cpuErr: 0.068, label: "Hard" }
+  };
+  let diff = localStorage.getItem("dartsDiff") || "normal";
+  if (!DIFF[diff]) diff = "normal";
+  function cfg() { return DIFF[diff]; }
+
+  // ============ GAME STATE ============
+  const PHASE = { AIMX: 0, AIMY: 1, FLY: 2 };
+
+  let mode = localStorage.getItem("dartsMode") || "cpu";
+  if (mode !== "solo" && mode !== "cpu") mode = "cpu";
+
+  let gameActive = false;
+  let current = 0;                    // 0 = player, 1 = cpu
+  let phase = PHASE.AIMX;
+
+  let aimX = 0.5, aimDirX = 1;
+  let aimY = 0.5, aimDirY = 1;
+
+  let throwAnim = null;               // {x0,y0,x1,y1,t,dur,arc}
+  let stuck = [];                     // darts landed this turn
+  let popups = [];                    // floating hit text
+  let players = [];
+
+  // Persistent records
+  let bestDarts = Number(localStorage.getItem("dartsBestDarts") || 0); // solo: fewest darts
+  let cpuWins = Number(localStorage.getItem("dartsCpuW") || 0);
+  let cpuLoss = Number(localStorage.getItem("dartsCpuL") || 0);
+
+  // ============ DOM ELEMENTS ============
+  const startScreen = document.getElementById("startScreen");
+  const endScreen = document.getElementById("endScreen");
+  const endTitle = document.getElementById("endTitle");
+  const endSub = document.getElementById("endSub");
+  const endBest = document.getElementById("endBest");
+  const bestLine = document.getElementById("bestLine");
+  const msgbar = document.getElementById("msgbar");
+  const checkoutEl = document.getElementById("checkout");
+  const startBtn = document.getElementById("startBtn");
+  const againBtn = document.getElementById("againBtn");
+  const btnRestart = document.getElementById("btnRestart");
+  const btnSound = document.getElementById("btnSound");
+  const modeChips = Array.prototype.slice.call(document.querySelectorAll("#modeChips .chip"));
+  const diffChips = Array.prototype.slice.call(document.querySelectorAll("#diffChips .chip"));
+
+  // ============ SOUND (WebAudio, no assets) ============
+  let soundOn = true;
+  let actx = null;
+  function beep(freq, dur, type) {
+    if (!soundOn) return;
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+
+  // ============ MISC HELPERS ============
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+  function gauss() {
+    let u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+  function roundRect(x, y, w, h, r) {
+    if (w < 0) { x += w; w = -w; }
+    if (h < 0) { y += h; h = -h; }
+    r = Math.min(r, h / 2, w / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  // ============ SCORING MATH ============
+  // Sector index at a point relative to board centre (0 = 20 at top, clockwise).
+  function sectorIndex(dx, dy) {
+    let deg = Math.atan2(dy, dx) * 180 / Math.PI;  // 0 = right, 90 = down (canvas)
+    let a = deg + 90;                              // 0 = top, increases clockwise
+    while (a < 0) a += 360;
+    while (a >= 360) a -= 360;
+    return Math.floor((a + 9) / 18) % 20;
+  }
+
+  // Resolve a landing point into a dartboard score.
+  function hitFromPoint(dx, dy) {
+    const d = Math.hypot(dx, dy);
+    if (d > R) return { val: 0, num: 0, mult: 0, label: "MISS", isDouble: false };
+    if (d <= R * RAD.bIn)  return { val: 50, num: 25, mult: 2, label: "BULL", isDouble: true };
+    if (d <= R * RAD.bOut) return { val: 25, num: 25, mult: 1, label: "25", isDouble: false };
+
+    const num = ORDER[sectorIndex(dx, dy)];
+    let mult = 1;
+    if (d >= R * RAD.dIn) mult = 2;
+    else if (d >= R * RAD.tIn && d <= R * RAD.tOut) mult = 3;
+
+    const label = (mult === 3 ? "T" : mult === 2 ? "D" : "") + num;
+    return { val: num * mult, num: num, mult: mult, label: label, isDouble: mult === 2 };
+  }
+
+  // Aim coordinate (0..1, 0..1) -> board pixel point.
+  function aimPoint() {
+    return {
+      px: CX + (aimX - 0.5) * 2 * SPAN,
+      py: CY + (aimY - 0.5) * 2 * SPAN
+    };
+  }
+
+  // Centre of a target segment (used by the CPU).
+  function pointForTarget(t) {
+    if (t.num === 25) return { x: CX, y: CY };     // bullseye 50
+    const idx = ORDER.indexOf(t.num);
+    const ang = (-90 + idx * 18) * Math.PI / 180;
+    let rr;
+    if (t.mult === 3) rr = R * (RAD.tIn + RAD.tOut) / 2;
+    else if (t.mult === 2) rr = R * (RAD.dIn + RAD.dOut) / 2;
+    else rr = R * (RAD.bOut + RAD.tIn) / 2;
+    return { x: CX + Math.cos(ang) * rr, y: CY + Math.sin(ang) * rr };
+  }
+
+  // ============ CPU TARGET SELECTION ============
+  function cpuAim(rem) {
+    if (rem === 50) return { num: 25, mult: 2 };                       // bull check-out
+    if (rem >= 2 && rem <= 40 && rem % 2 === 0) return { num: rem / 2, mult: 2 };
+
+    // Set up a double: find a single that leaves an even value <= 40.
+    if (rem > 40 && rem <= 60) {
+      for (let v = Math.min(20, rem - 2); v >= 1; v--) {
+        const left = rem - v;
+        if (left >= 2 && left <= 40 && left % 2 === 0) return { num: v, mult: 1 };
+      }
+    }
+    if (rem <= 40 && rem % 2 === 1) {
+      for (let v = Math.min(20, rem - 2); v >= 1; v--) {
+        const left = rem - v;
+        if (left >= 2 && left <= 40 && left % 2 === 0) return { num: v, mult: 1 };
+      }
+    }
+    // Default: heavy scoring, but never leave a 1.
+    if (rem - 60 >= 2) return { num: 20, mult: 3 };
+    if (rem - 40 >= 2) return { num: 20, mult: 2 };
+    return { num: 1, mult: 1 };
+  }
+
+  // ============ PLAYERS / TURN FLOW ============
+  function makePlayers() {
+    return [
+      { name: "YOU", score: 501, isCPU: false, dartsLeft: 3, turnStartScore: 501, dartCount: 0, busted: false },
+      { name: "CPU", score: 501, isCPU: true,  dartsLeft: 3, turnStartScore: 501, dartCount: 0, busted: false }
+    ];
+  }
+
+  function startGame() {
+    players = makePlayers();
+    current = 0;
+    gameActive = true;
+    throwAnim = null; stuck = []; popups = [];
+    phase = PHASE.AIMX; aimX = 0.5; aimY = 0.5; aimDirX = 1; aimDirY = 1;
+    startScreen.classList.add("hidden");
+    endScreen.classList.add("hidden");
+    document.getElementById("pcard1").classList.toggle("hide", mode === "solo");
+    startTurn();
+  }
+
+  function resetToStart() {
+    gameActive = false;
+    throwAnim = null; stuck = []; popups = [];
+    players = makePlayers();
+    current = 0;
+    document.getElementById("pcard1").classList.toggle("hide", mode === "solo");
+    updateHUD();
+    msgbar.innerHTML = "";
+    checkoutEl.textContent = "";
+    updateBestLine();
+    endScreen.classList.add("hidden");
+    startScreen.classList.remove("hidden");
+  }
+
+  function startTurn() {
+    const p = players[current];
+    p.dartsLeft = 3;
+    p.turnStartScore = p.score;
+    p.busted = false;
+    stuck = [];
+    phase = PHASE.AIMX;
+    aimX = 0.5; aimY = 0.5; aimDirX = 1; aimDirY = 1;
+    updateHUD();
+    updateMessage();
+    if (p.isCPU) setTimeout(cpuThrow, 750);
+  }
+
+  function endTurn() {
+    players[current].busted = false;
+    if (mode === "cpu") current = (current === 0) ? 1 : 0;
+    else current = 0;
+    startTurn();
+  }
+
+  // ============ THROWING ============
+  function launch(tx, ty) {
+    throwAnim = { x0: CX, y0: H + 30, x1: tx, y1: ty, t: 0, dur: 0.36, arc: 62 };
+    beep(300, 0.05, "triangle");
+    phase = PHASE.FLY;
+  }
+
+  // Player input: lock horizontal -> lock vertical -> throw.
+  function playerAction() {
+    if (!gameActive || current !== 0) return;
+    if (phase === PHASE.AIMX) {
+      phase = PHASE.AIMY;
+      beep(520, 0.05, "sine");
+      updateMessage();
+    } else if (phase === PHASE.AIMY) {
+      const p = aimPoint();
+      const err = cfg().spread * R;
+      const tx = clamp(p.px + gauss() * err, 12, W - 12);
+      const ty = clamp(p.py + gauss() * err, 12, H - 12);
+      launch(tx, ty);
+      updateMessage();
+    }
+  }
+
+  function cpuThrow() {
+    if (!gameActive || current !== 1) return;
+    const p = players[1];
+    const pt = pointForTarget(cpuAim(p.score));
+    const err = cfg().cpuErr * R;
+    const tx = clamp(pt.x + gauss() * err, 12, W - 12);
+    const ty = clamp(pt.y + gauss() * err, 12, H - 12);
+    launch(tx, ty);
+  }
+
+  // ============ RESOLUTION ============
+  function landDart(a) {
+    const hit = hitFromPoint(a.x1 - CX, a.y1 - CY);
+    if (stuck.length < 3) stuck.push({ x: a.x1, y: a.y1 });
+    popups.push({
+      x: a.x1, y: a.y1 - 20,
+      text: hit.label,
+      color: hit.val === 0 ? "#ff8a8a" : (hit.val >= 40 ? "#ffd76a" : "#f5e7c8"),
+      life: 1.15
+    });
+    beepFor(hit);
+    resolveScore(hit);
+  }
+
+  function beepFor(hit) {
+    if (hit.val === 0) beep(130, 0.2, "sawtooth");
+    else if (hit.val >= 40) { beep(900, 0.09, "square"); setTimeout(function () { beep(1250, 0.09, "square"); }, 70); }
+    else if (hit.val >= 20) beep(760, 0.08, "square");
+    else beep(540, 0.07, "square");
+  }
+
+  function resolveScore(hit) {
+    const p = players[current];
+    p.dartsLeft--;
+    if (current === 0) p.dartCount++;
+
+    const next = p.score - hit.val;
+    let endNow = false;
+
+    if (next === 0 && hit.isDouble) {
+      p.score = 0;
+      updateHUD();
+      setTimeout(function () { endGame(current); }, 900);
+      return;
+    }
+
+    if (next < 2) {
+      // Bust: below zero, exactly 1, or reaching zero without a double.
+      p.score = p.turnStartScore;
+      p.busted = true;
+      endNow = true;
+      beep(110, 0.32, "sawtooth");
+      popups.push({ x: CX, y: CY + R * 0.55, text: "BUST!", color: "#ff6b6b", life: 1.4 });
+    } else {
+      p.score = next;
+      if (p.dartsLeft <= 0) endNow = true;
+    }
+
+    updateHUD();
+    setTimeout(function () { if (endNow) endTurn(); else nextDart(); }, 850);
+  }
+
+  function nextDart() {
+    if (!gameActive) return;
+    phase = PHASE.AIMX;
+    if (current === 0) {
+      aimX = 0.5; aimY = 0.5; aimDirX = 1; aimDirY = 1;
+      updateMessage();
+    } else {
+      setTimeout(cpuThrow, 420);
+    }
+  }
+
+  function endGame(winner) {
+    gameActive = false;
+    phase = PHASE.FLY;
+
+    if (mode === "solo") {
+      const darts = players[winner].dartCount;
+      if (!bestDarts || darts < bestDarts) {
+        bestDarts = darts;
+        localStorage.setItem("dartsBestDarts", String(bestDarts));
+      }
+      endTitle.textContent = "🎯 CHECKOUT!";
+      endSub.textContent = "You cleared 501 in " + darts + " dart" + (darts === 1 ? "" : "s") + ".";
+      beep(880, 0.12, "square");
+      setTimeout(function () { beep(1180, 0.12, "square"); }, 130);
+      setTimeout(function () { beep(1560, 0.22, "square"); }, 260);
+    } else if (winner === 0) {
+      cpuWins++;
+      localStorage.setItem("dartsCpuW", String(cpuWins));
+      endTitle.textContent = "🏆 YOU WIN!";
+      endSub.textContent = "You checked out first. CPU finished on " + players[1].score + ".";
+      beep(880, 0.12, "square");
+      setTimeout(function () { beep(1560, 0.22, "square"); }, 150);
+    } else {
+      cpuLoss++;
+      localStorage.setItem("dartsCpuL", String(cpuLoss));
+      endTitle.textContent = "💥 CPU WINS";
+      endSub.textContent = "The CPU checked out. You finished on " + players[0].score + ".";
+      beep(300, 0.25, "sawtooth");
+      setTimeout(function () { beep(180, 0.35, "sawtooth"); }, 180);
+    }
+
+    updateBestLine();
+    endBest.textContent = bestLine.textContent;
+    setTimeout(function () { endScreen.classList.remove("hidden"); }, 350);
+  }
+
+  // ============ HUD ============
+  function updateHUD() {
+    for (let i = 0; i < 2; i++) {
+      const p = players[i];
+      if (!p) continue;
+      const sEl = document.getElementById("score" + i);
+      sEl.textContent = p.score;
+      sEl.classList.toggle("low", p.score <= 40 && p.score !== 501);
+      let dots = "";
+      for (let d = 0; d < 3; d++) dots += (d < p.dartsLeft ? "●" : "<span class='off'>●</span>");
+      document.getElementById("darts" + i).innerHTML = dots;
+      const card = document.getElementById("pcard" + i);
+      card.classList.toggle("active", gameActive && current === i);
+      card.classList.toggle("dim", gameActive && current !== i);
+      card.classList.toggle("hide", i === 1 && mode === "solo");
+    }
+    updateCheckout();
+  }
+
+  function updateCheckout() {
+    if (!gameActive) { checkoutEl.textContent = ""; return; }
+    const rem = players[0].score;
+    let txt = "";
+    if (rem === 50) txt = "Check-out: BULL (50)";
+    else if (rem >= 2 && rem <= 40 && rem % 2 === 0) txt = "Check-out: D" + (rem / 2) + " to win";
+    else if (rem <= 170) txt = "Finish on a double!";
+    checkoutEl.textContent = txt;
+  }
+
+  function updateMessage() {
+    if (!gameActive) { msgbar.innerHTML = ""; return; }
+    if (current === 1) { msgbar.innerHTML = "<b>CPU</b> is taking aim…"; return; }
+    if (phase === PHASE.AIMX) msgbar.innerHTML = "Tap / Space — lock <b>HORIZONTAL</b>";
+    else if (phase === PHASE.AIMY) msgbar.innerHTML = "Tap / Space — lock <b>VERTICAL</b>";
+    else msgbar.innerHTML = "Throwing…";
+  }
+
+  function updateBestLine() {
+    const parts = [];
+    parts.push(bestDarts ? ("Best solo checkout: " + bestDarts + " dart" + (bestDarts === 1 ? "" : "s")) : "Best solo checkout: —");
+    parts.push("CPU record: " + cpuWins + "W / " + cpuLoss + "L");
+    bestLine.textContent = parts.join("   ·   ");
+  }
+
+  // ============ UPDATE ============
+  function update(dt) {
+    const c = cfg();
+
+    if (gameActive && current === 0) {
+      if (phase === PHASE.AIMX) {
+        aimX += aimDirX * c.speed * dt;
+        if (aimX >= 1) { aimX = 1; aimDirX = -1; }
+        if (aimX <= 0) { aimX = 0; aimDirX = 1; }
+      } else if (phase === PHASE.AIMY) {
+        aimY += aimDirY * c.speed * dt;
+        if (aimY >= 1) { aimY = 1; aimDirY = -1; }
+        if (aimY <= 0) { aimY = 0; aimDirY = 1; }
+      }
+    }
+
+    if (throwAnim) {
+      throwAnim.t += dt / throwAnim.dur;
+      if (throwAnim.t >= 1) {
+        throwAnim.t = 1;
+        const a = throwAnim;
+        throwAnim = null;
+        landDart(a);
+      }
+    }
+
+    for (let i = popups.length - 1; i >= 0; i--) {
+      popups[i].life -= dt;
+      if (popups[i].life <= 0) popups.splice(i, 1);
+    }
+  }
+
+  // ============ DRAWING ============
+  function annulusWedge(r1, r2, a0, a1, fill) {
+    ctx.beginPath();
+    ctx.arc(CX, CY, r2, a0, a1);
+    ctx.arc(CX, CY, r1, a1, a0, true);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+  }
+
+  function drawBoard() {
+    // Surround
+    ctx.beginPath();
+    ctx.arc(CX, CY, R * 1.135, 0, Math.PI * 2);
+    ctx.fillStyle = COL.surround;
+    ctx.fill();
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = "#43362a";
+    ctx.stroke();
+
+    // Sectors
+    for (let i = 0; i < 20; i++) {
+      const c = (-90 + i * 18) * Math.PI / 180;
+      const a0 = c - 9 * Math.PI / 180, a1 = c + 9 * Math.PI / 180;
+      const base = (i % 2 === 0) ? COL.black : COL.cream;
+      const ring = (i % 2 === 0) ? COL.red : COL.green;
+      annulusWedge(R * RAD.bOut, R, a0, a1, base);
+      annulusWedge(R * RAD.tIn, R * RAD.tOut, a0, a1, ring);
+      annulusWedge(R * RAD.dIn, R * RAD.dOut, a0, a1, ring);
+    }
+
+    // Wires
+    ctx.strokeStyle = COL.wire;
+    ctx.lineWidth = 1.5;
+    ctx.globalAlpha = 0.7;
+    for (let i = 0; i < 20; i++) {
+      const c = (-90 + i * 18 + 9) * Math.PI / 180;
+      ctx.beginPath();
+      ctx.moveTo(CX + Math.cos(c) * R * RAD.bOut, CY + Math.sin(c) * R * RAD.bOut);
+      ctx.lineTo(CX + Math.cos(c) * R, CY + Math.sin(c) * R);
+      ctx.stroke();
+    }
+    [RAD.bOut, RAD.tIn, RAD.tOut, RAD.dIn, RAD.dOut].forEach(function (f) {
+      ctx.beginPath();
+      ctx.arc(CX, CY, R * f, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
+
+    // Bullseye
+    ctx.beginPath(); ctx.arc(CX, CY, R * RAD.bOut, 0, Math.PI * 2);
+    ctx.fillStyle = COL.green; ctx.fill();
+    ctx.beginPath(); ctx.arc(CX, CY, R * RAD.bIn, 0, Math.PI * 2);
+    ctx.fillStyle = COL.red; ctx.fill();
+
+    // Numbers
+    ctx.fillStyle = "#f4ecd8";
+    ctx.font = "bold 22px 'Segoe UI', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (let i = 0; i < 20; i++) {
+      const c = (-90 + i * 18) * Math.PI / 180;
+      const rr = R * 1.072;
+      ctx.fillText(ORDER[i], CX + Math.cos(c) * rr, CY + Math.sin(c) * rr);
+    }
+  }
+
+  function drawDartShape(x, y, ang, scale) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(ang);
+    // body / shaft (local -X trails the tip at origin)
+    ctx.strokeStyle = "#d8d2c4";
+    ctx.lineWidth = 2.2 * scale;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-20 * scale, 0);
+    ctx.stroke();
+    // flights
+    ctx.fillStyle = "#e23b2e";
+    ctx.beginPath();
+    ctx.moveTo(-20 * scale, 0);
+    ctx.lineTo(-31 * scale, -7 * scale);
+    ctx.lineTo(-31 * scale, 7 * scale);
+    ctx.closePath();
+    ctx.fill();
+    // tip
+    ctx.fillStyle = "#f2f2f2";
+    ctx.beginPath();
+    ctx.arc(0, 0, 2.4 * scale, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawStuck() {
+    stuck.forEach(function (s) {
+      const ang = Math.atan2(s.y - CY, s.x - CX); // outward from centre
+      drawDartShape(s.x, s.y, ang + Math.PI, 1);
+    });
+  }
+
+  function drawCrosshair(x, y) {
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,200,80,.95)";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, y, 11, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x - 18, y); ctx.lineTo(x - 5, y);
+    ctx.moveTo(x + 5, y);  ctx.lineTo(x + 18, y);
+    ctx.moveTo(x, y - 18); ctx.lineTo(x, y - 5);
+    ctx.moveTo(x, y + 5);  ctx.lineTo(x, y + 18);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawGuides() {
+    if (!gameActive || current !== 0 || phase === PHASE.FLY) return;
+    const p = aimPoint();
+    ctx.save();
+    ctx.setLineDash([6, 6]);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "rgba(255,200,80,.45)";
+    ctx.beginPath(); ctx.moveTo(p.px, MY0); ctx.lineTo(p.px, MY1); ctx.stroke();
+    if (phase === PHASE.AIMY) {
+      ctx.beginPath(); ctx.moveTo(MX0, p.py); ctx.lineTo(MX1, p.py); ctx.stroke();
+    }
+    ctx.restore();
+    drawCrosshair(p.px, (phase === PHASE.AIMY) ? p.py : CY);
+  }
+
+  function drawMeters() {
+    const playerTurn = gameActive && current === 0;
+    const xOn = playerTurn && phase === PHASE.AIMX;
+    const yOn = playerTurn && phase === PHASE.AIMY;
+    const xLocked = phase >= PHASE.AIMY;
+    const yLocked = phase >= PHASE.FLY;
+
+    // Horizontal meter
+    const hy = 16, hh = 14;
+    roundRect(MX0, hy, MX1 - MX0, hh, 7);
+    ctx.fillStyle = "rgba(255,255,255,.07)"; ctx.fill();
+    const hx = MX0 + aimX * (MX1 - MX0);
+    ctx.fillStyle = xOn ? "rgba(255,196,64,.35)" : (xLocked ? "rgba(80,220,140,.3)" : "rgba(255,255,255,.05)");
+    roundRect(MX0, hy, Math.max(2, hx - MX0), hh, 7); ctx.fill();
+    ctx.fillStyle = xOn ? "#ffc440" : (xLocked ? "#4fe08c" : "#8a8a8a");
+    ctx.beginPath(); ctx.arc(hx, hy + hh / 2, 9, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,.5)"; ctx.lineWidth = 2; ctx.stroke();
+
+    // Vertical meter
+    const vx = 16, vw = 14;
+    roundRect(vx, MY0, vw, MY1 - MY0, 7);
+    ctx.fillStyle = "rgba(255,255,255,.07)"; ctx.fill();
+    const vy = MY0 + aimY * (MY1 - MY0);
+    ctx.fillStyle = yOn ? "rgba(255,196,64,.35)" : (yLocked ? "rgba(80,220,140,.3)" : "rgba(255,255,255,.05)");
+    roundRect(vx, MY0, vw, Math.max(2, vy - MY0), 7); ctx.fill();
+    ctx.fillStyle = yOn ? "#ffc440" : (yLocked ? "#4fe08c" : "#8a8a8a");
+    ctx.beginPath(); ctx.arc(vx + vw / 2, vy, 9, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,.5)"; ctx.lineWidth = 2; ctx.stroke();
+
+    // Labels
+    ctx.fillStyle = "rgba(255,255,255,.4)";
+    ctx.font = "bold 11px 'Segoe UI', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("◀ X ▶", CX, 5);
+    ctx.save();
+    ctx.translate(5, CY);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText("◀ Y ▶", 0, 0);
+    ctx.restore();
+  }
+
+  function drawThrow() {
+    if (!throwAnim) return;
+    const a = throwAnim;
+    const t = easeOut(a.t);
+    const x = lerp(a.x0, a.x1, t);
+    const y = lerp(a.y0, a.y1, t) - Math.sin(a.t * Math.PI) * a.arc;
+    const ang = Math.atan2(a.y1 - a.y0, a.x1 - a.x0);
+    // ground shadow
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = "#000";
+    ctx.beginPath(); ctx.ellipse(x, a.y1, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+    drawDartShape(x, y, ang, 1.25 + 0.3 * (1 - a.t));
+  }
+
+  function drawPopups() {
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    popups.forEach(function (p) {
+      const a = clamp(p.life, 0, 1);
+      ctx.globalAlpha = a;
+      ctx.font = "bold 20px 'Segoe UI', sans-serif";
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "rgba(0,0,0,.65)";
+      ctx.strokeText(p.text, p.x, p.y - (1 - p.life) * 26);
+      ctx.fillStyle = p.color;
+      ctx.fillText(p.text, p.x, p.y - (1 - p.life) * 26);
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  function drawCpuBadge() {
+    ctx.fillStyle = "rgba(255,120,90,.9)";
+    ctx.font = "bold 15px 'Segoe UI', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("CPU THROWING", CX, H - 22);
+  }
+
+  function render() {
+    // Backdrop
+    const g = ctx.createRadialGradient(CX, CY, 40, CX, CY, R * 1.7);
+    g.addColorStop(0, "#22322b");
+    g.addColorStop(1, "#0b120f");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    drawBoard();
+    drawStuck();
+    drawGuides();
+    drawMeters();
+    drawThrow();
+    drawPopups();
+    if (gameActive && current === 1) drawCpuBadge();
+  }
+
+  // ============ MAIN LOOP ============
+  let last = 0;
+  function loop(ts) {
+    if (!last) last = ts;
+    let dt = (ts - last) / 1000;
+    last = ts;
+    if (dt > 0.05) dt = 0.05;
+    update(dt);
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  // ============ INPUT ============
+  function throwInput(e) {
+    if (e) e.preventDefault();
+    if (actx && actx.state === "suspended") actx.resume();
+    playerAction();
+  }
+
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "Space" || e.code === "Enter" || e.key === " ") {
+      e.preventDefault();
+      throwInput();
+    } else if (e.code === "KeyR" || e.key === "r" || e.key === "R") {
+      e.preventDefault();
+      resetToStart();
+    }
+  });
+  canvas.addEventListener("mousedown", throwInput);
+  canvas.addEventListener("touchstart", throwInput, { passive: false });
+
+  // ============ UI WIRING ============
+  modeChips.forEach(function (b) {
+    b.addEventListener("click", function () {
+      mode = b.dataset.mode;
+      localStorage.setItem("dartsMode", mode);
+      modeChips.forEach(function (x) { x.classList.toggle("active", x === b); });
+    });
+  });
+
+  diffChips.forEach(function (b) {
+    b.addEventListener("click", function () {
+      diff = b.dataset.diff;
+      localStorage.setItem("dartsDiff", diff);
+      diffChips.forEach(function (x) { x.classList.toggle("active", x === b); });
+    });
+  });
+
+  startBtn.addEventListener("click", startGame);
+  againBtn.addEventListener("click", startGame);
+  btnRestart.addEventListener("click", resetToStart);
+  btnSound.addEventListener("click", function () {
+    soundOn = !soundOn;
+    btnSound.textContent = soundOn ? "🔊 Sound" : "🔇 Muted";
+    if (soundOn) beep(660, 0.08, "triangle");
+  });
+
+  // Reflect saved settings on the start screen
+  modeChips.forEach(function (b) { b.classList.toggle("active", b.dataset.mode === mode); });
+  diffChips.forEach(function (b) { b.classList.toggle("active", b.dataset.diff === diff); });
+
+  // ============ BOOT ============
+  players = makePlayers();
+  document.getElementById("pcard1").classList.toggle("hide", mode === "solo");
+  updateHUD();
+  updateBestLine();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

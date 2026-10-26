@@ -1,0 +1,1097 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Dragon Haven â€” Breeding Village</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg1: #140b28; --bg2: #1e1146; --bg3: #0a0618;
+    --gold: #ffcf5c; --gold2: #ffe9a8; --panel: rgba(28, 18, 56, 0.9);
+    --line: rgba(178, 148, 255, 0.28); --text: #efe8ff; --muted: #a99cd0;
+    --good: #6ef0a8; --bad: #ff8a8a;
+  }
+  html, body {
+    min-height: 100%; background: var(--bg3); color: var(--text);
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+    display: flex; justify-content: center; touch-action: manipulation;
+    padding: 10px; overflow-x: hidden;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0; z-index: -1;
+    background:
+      radial-gradient(900px 500px at 12% -10%, rgba(120, 80, 220, 0.45), transparent 60%),
+      radial-gradient(800px 480px at 92% 8%, rgba(60, 180, 190, 0.28), transparent 62%),
+      radial-gradient(700px 500px at 50% 120%, rgba(255, 180, 80, 0.14), transparent 60%),
+      linear-gradient(160deg, var(--bg1), var(--bg2) 55%, var(--bg3));
+  }
+  h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; letter-spacing: 2px; text-transform: uppercase; }
+  /* ============ APP SHELL ============ */
+  #app { width: min(96vw, 980px); display: flex; flex-direction: column; gap: 10px; padding-bottom: 20px; }
+  /* ============ TOP BAR ============ */
+  #topbar {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 8px 14px; padding: 10px 14px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 8px 26px rgba(0,0,0,.45);
+  }
+  #title { font-size: 1.05rem; color: var(--gold2); text-shadow: 0 0 14px rgba(255,190,90,.5); }
+  #title small { display: block; font-size: .6rem; letter-spacing: 3px; color: var(--muted); font-family: "Trebuchet MS", sans-serif; text-transform: uppercase; }
+  #stats { display: flex; flex-wrap: wrap; gap: 8px; }
+  .stat { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,.06); border: 1px solid var(--line); border-radius: 10px; padding: 5px 10px; font-size: .82rem; font-weight: 600; }
+  .stat b { color: var(--gold); font-variant-numeric: tabular-nums; }
+  .stat.rate b { color: var(--good); }
+  /* ============ CANVAS ============ */
+  #stage { position: relative; width: 100%; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,.55); background: #0d0820; }
+  canvas { display: block; width: 100%; height: auto; }
+  /* ============ ACTION BAR ============ */
+  #actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  button.btn {
+    font-family: inherit; font-size: .85rem; font-weight: 700; letter-spacing: .5px;
+    padding: 9px 16px; border-radius: 11px; cursor: pointer; color: var(--text);
+    background: rgba(255,255,255,.07); border: 1px solid var(--line);
+    transition: transform .06s ease, background .15s ease, box-shadow .15s ease; user-select: none;
+  }
+  button.btn:hover { background: rgba(255,255,255,.15); }
+  button.btn:active { transform: translateY(2px); }
+  button.btn.gold { background: linear-gradient(135deg, #ffb63c, #ff8a3c); color: #2a1600; border-color: #ffcf5c; box-shadow: 0 4px 0 rgba(0,0,0,.35); }
+  button.btn.gold:hover { background: linear-gradient(135deg, #ffc95e, #ff9c4c); }
+  button.btn.ghost { background: transparent; }
+  button.btn:disabled { opacity: .42; cursor: not-allowed; transform: none; }
+  /* ============ INFO STRIP ============ */
+  #infobar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 9px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; font-size: .82rem; min-height: 44px; }
+  #infobar .name { color: var(--gold2); font-weight: 700; }
+  #infobar .dim { color: var(--muted); }
+  /* ============ PANELS (sheets) ============ */
+  .sheet { position: fixed; inset: 0; z-index: 40; display: none; background: rgba(6, 3, 16, 0.72); backdrop-filter: blur(3px); align-items: center; justify-content: center; padding: 14px; }
+  .sheet.open { display: flex; }
+  .sheet-inner {
+    width: min(94vw, 620px); max-height: 86vh; overflow-y: auto;
+    background: linear-gradient(180deg, rgba(38,24,72,.98), rgba(20,12,44,.98));
+    border: 1px solid var(--line); border-radius: 16px; padding: 16px;
+    box-shadow: 0 18px 60px rgba(0,0,0,.6); animation: pop .18s ease;
+  }
+  @keyframes pop { from { transform: scale(.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .sheet-head h2 { font-size: 1rem; color: var(--gold2); }
+  .close-x { width: 32px; height: 32px; border-radius: 9px; cursor: pointer; background: rgba(255,255,255,.08); border: 1px solid var(--line); color: var(--text); font-size: 1rem; line-height: 1; }
+  .close-x:hover { background: rgba(255,120,120,.25); }
+  /* shop rows */
+  .row { display: flex; align-items: center; gap: 12px; padding: 11px 12px; background: rgba(255,255,255,.05); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 9px; }
+  .row .info { flex: 1; min-width: 0; }
+  .row .info .t { font-weight: 700; font-size: .9rem; }
+  .row .info .d { font-size: .74rem; color: var(--muted); line-height: 1.35; }
+  .row button.btn { padding: 8px 13px; font-size: .78rem; white-space: nowrap; }
+  .badge { font-size: .62rem; padding: 2px 7px; border-radius: 20px; letter-spacing: 1px; font-weight: 700; }
+  .badge.common { background: rgba(140,160,255,.25); color: #c7d2ff; }
+  .badge.rare { background: rgba(120,220,255,.22); color: #a9ecff; }
+  .badge.epic { background: rgba(255,170,90,.25); color: #ffd39a; }
+  /* breed selects */
+  .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 11px; }
+  .field label { font-size: .74rem; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+  select { font-family: inherit; font-size: .85rem; padding: 9px 10px; border-radius: 10px; background: rgba(255,255,255,.07); color: var(--text); border: 1px solid var(--line); }
+  select option { background: #1c1240; color: #efe8ff; }
+  /* dex grid */
+  .dex-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .dex-card { display: flex; align-items: center; gap: 9px; padding: 9px 10px; background: rgba(255,255,255,.05); border: 1px solid var(--line); border-radius: 11px; }
+  .dex-card.locked { opacity: .45; filter: grayscale(1); }
+  .dex-dot { width: 26px; height: 26px; border-radius: 50%; flex: none; box-shadow: 0 0 12px currentColor; }
+  .dex-card .nm { font-size: .8rem; font-weight: 700; }
+  .dex-card .sub { font-size: .68rem; color: var(--muted); }
+  /* quests */
+  .quest { display: flex; align-items: center; gap: 12px; padding: 11px 12px; background: rgba(255,255,255,.05); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 9px; }
+  .quest.done { border-color: rgba(110,240,168,.5); background: rgba(110,240,168,.08); }
+  .quest .info { flex: 1; }
+  .bar { height: 7px; border-radius: 6px; background: rgba(255,255,255,.12); margin-top: 6px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: linear-gradient(90deg, #7fd0ff, #b48cff); border-radius: 6px; transition: width .3s ease; }
+  /* ============ TOAST & CONFIRM ============ */
+  #toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(24px);
+    background: rgba(30,18,60,.96); border: 1px solid var(--line); color: var(--text);
+    padding: 11px 20px; border-radius: 12px; font-size: .84rem; font-weight: 600;
+    opacity: 0; pointer-events: none; transition: all .25s ease; z-index: 60;
+    box-shadow: 0 10px 34px rgba(0,0,0,.5); max-width: 90vw; text-align: center;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast.good { border-color: rgba(110,240,168,.6); }
+  #toast.bad { border-color: rgba(255,138,138,.6); }
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 620px) {
+    #title { font-size: .9rem; }
+    .stat { font-size: .74rem; padding: 4px 8px; }
+    button.btn { padding: 8px 12px; font-size: .78rem; }
+    .row { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ TOP BAR ============ -->
+  <div id="topbar">
+    <h1 id="title">Dragon Haven<small>Breeding Village</small></h1>
+    <div id="stats">
+      <div class="stat">ðŸª™ <b id="s-coins">0</b></div>
+      <div class="stat rate">ðŸ“ˆ <b id="s-rate">0</b>/s</div>
+      <div class="stat">ðŸ² <b id="s-dragons">0</b>/<span id="s-slots">0</span></div>
+      <div class="stat">âœ¨ <b id="s-elems">0</b>/8</div>
+    </div>
+  </div>
+
+  <!-- ============ CANVAS STAGE ============ -->
+  <div id="stage">
+    <canvas id="game" width="900" height="600"></canvas>
+  </div>
+
+  <!-- ============ INFO STRIP ============ -->
+  <div id="infobar"><span class="dim">Tap a dragon to select it, or tap a locked plot to expand your village.</span></div>
+
+  <!-- ============ ACTION BAR ============ -->
+  <div id="actions">
+    <button class="btn gold" id="btn-shop" type="button">ðŸ›’ Hatchery</button>
+    <button class="btn" id="btn-breed" type="button">â¤ï¸ Breed</button>
+    <button class="btn" id="btn-dex" type="button">ðŸ“œ Dragon Dex</button>
+    <button class="btn" id="btn-quests" type="button">ðŸ† Quests</button>
+    <button class="btn ghost" id="btn-reset" type="button">â†º New Village</button>
+  </div>
+
+  <!-- ============ SHEET: SHOP ============ -->
+  <div class="sheet" id="sheet-shop">
+    <div class="sheet-inner">
+      <div class="sheet-head"><h2>ðŸ›’ Hatchery &amp; Market</h2><button class="close-x" data-close type="button">âœ•</button></div>
+      <div id="shop-body"></div>
+    </div>
+  </div>
+
+  <!-- ============ SHEET: BREED ============ -->
+  <div class="sheet" id="sheet-breed">
+    <div class="sheet-inner">
+      <div class="sheet-head"><h2>â¤ï¸ Breeding Nest</h2><button class="close-x" data-close type="button">âœ•</button></div>
+      <p style="font-size:.78rem;color:var(--muted);margin-bottom:12px;line-height:1.5">
+        Pair two dragons to hatch a new one. The hatchling inherits an element from its parents â€”
+        and rare pairings can spark an <span style="color:#ffd39a">epic</span> bloodline.
+      </p>
+      <div class="field"><label>First parent</label><select id="breed-a"></select></div>
+      <div class="field"><label>Second parent</label><select id="breed-b"></select></div>
+      <button class="btn gold" id="btn-do-breed" type="button" style="width:100%">Hatch Egg</button>
+    </div>
+  </div>
+  <!-- ============ SHEET: DEX ============ -->
+  <div class="sheet" id="sheet-dex">
+    <div class="sheet-inner">
+      <div class="sheet-head"><h2>ðŸ“œ Dragon Dex</h2><button class="close-x" data-close type="button">âœ•</button></div>
+      <div class="dex-grid" id="dex-body"></div>
+    </div>
+  </div>
+  <!-- ============ SHEET: QUESTS ============ -->
+  <div class="sheet" id="sheet-quests">
+    <div class="sheet-inner">
+      <div class="sheet-head"><h2>ðŸ† Village Quests</h2><button class="close-x" data-close type="button">âœ•</button></div>
+      <div id="quests-body"></div>
+    </div>
+  </div>
+  <!-- ============ SHEET: CONFIRM ============ -->
+  <div class="sheet" id="sheet-confirm">
+    <div class="sheet-inner" style="max-width:380px;text-align:center">
+      <h2 style="color:var(--gold2);margin-bottom:10px">Start a New Village?</h2>
+      <p style="font-size:.82rem;color:var(--muted);margin-bottom:16px">All dragons, coins and progress will be lost. This cannot be undone.</p>
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button class="btn" id="btn-cancel" type="button">Cancel</button>
+        <button class="btn gold" id="btn-confirm" type="button">Yes, reset</button>
+      </div>
+    </div>
+  </div>
+  <div id="toast"></div>
+</div>
+<script>
+(function () {
+  "use strict";
+  // ============================================================
+  // ============ CONFIG & DATA ================================
+  // ============================================================
+  const SAVE_KEY = "dragonHavenSave_v1";
+  const CAP_PER_HAB = 4;
+  const MAX_HABS = 12;
+  const OFFLINE_CAP_H = 8;          // offline earnings capped at 8 hours
+  const BREED_COST = 100;
+  const ELEMENTS = {
+    fire:    { name: "Fire",    color: "#ff6b4a", glow: "#ffb07a", icon: "ðŸ”¥" },
+    water:   { name: "Water",   color: "#3fa9ff", glow: "#8fd6ff", icon: "ðŸ’§" },
+    earth:   { name: "Earth",   color: "#9a7a4f", glow: "#d4b183", icon: "ðŸª¨" },
+    air:     { name: "Air",     color: "#a9d8ff", glow: "#e4f4ff", icon: "ðŸ’¨" },
+    ice:     { name: "Ice",     color: "#63dcdc", glow: "#c2f7f7", icon: "â„ï¸" },
+    storm:   { name: "Storm",   color: "#b48cff", glow: "#e0ccff", icon: "âš¡" },
+    nature:  { name: "Nature",  color: "#5fd97a", glow: "#b1f2be", icon: "ðŸŒ¿" },
+    light:   { name: "Light",   color: "#ffce5c", glow: "#fff0ba", icon: "âœ¨" }
+  };
+  const ELEM_KEYS = Object.keys(ELEMENTS);
+  // Original species â€” tiers gate how they can be obtained.
+  const SPECIES = [
+    { id: "emberling",    name: "Emberling",   el: "fire",   tier: "common", base: 0.55, form: 0 },
+    { id: "dripscale",    name: "Dripscale",   el: "water",  tier: "common", base: 0.55, form: 1 },
+    { id: "mossclaw",     name: "Mossclaw",    el: "nature", tier: "common", base: 0.55, form: 2 },
+    { id: "galescreech",  name: "Galescreech", el: "air",    tier: "common", base: 0.6,  form: 0 },
+    { id: "frostwing",    name: "Frostwing",   el: "ice",    tier: "common", base: 0.6,  form: 1 },
+    { id: "sparkcoil",    name: "Sparkcoil",   el: "storm",  tier: "common", base: 0.65, form: 2 },
+    { id: "sunmane",      name: "Sunmane",     el: "light",  tier: "rare",   base: 1.7,  form: 1 },
+    { id: "bloomtail",    name: "Bloomtail",   el: "nature", tier: "rare",   base: 1.7,  form: 0 },
+    { id: "tideweaver",   name: "Tideweaver",  el: "water",  tier: "rare",   base: 1.8,  form: 2 },
+    { id: "cinderdrift",  name: "Cinderdrift", el: "fire",   tier: "rare",   base: 1.8,  form: 0 },
+    { id: "quakehorn",    name: "Quakehorn",   el: "earth",  tier: "rare",   base: 1.9,  form: 1 },
+    { id: "zephyrwing",   name: "Zephyrwing",  el: "air",    tier: "rare",   base: 1.9,  form: 2 },
+    { id: "prismawing",   name: "Prismawing",  el: "light",  tier: "epic",   base: 4.2,  form: 1 },
+    { id: "tempesthorn",  name: "Tempesthorn", el: "storm",  tier: "epic",   base: 4.4,  form: 0 },
+    { id: "glacierlord",  name: "Glacierlord", el: "ice",    tier: "epic",   base: 4.6,  form: 2 },
+    { id: "verdantcrown", name: "Verdantcrown", el: "nature", tier: "epic",  base: 4.6,  form: 1 },
+    { id: "magmawrath",   name: "Magmawrath",  el: "fire",   tier: "epic",   base: 5.0,  form: 0 },
+    { id: "abyssdrake",   name: "Abyssdrake",  el: "water",  tier: "epic",   base: 5.2,  form: 2 }
+  ];
+  const SP = {};
+  SPECIES.forEach(function (s) { SP[s.id] = s; });
+  const TIER_ORDER = { common: 0, rare: 1, epic: 2 };
+  // ============================================================
+  // ============ STATE & PERSISTENCE ==========================
+  // ============================================================
+  let state = defaultState();
+  let selectedId = null;     // uid of selected dragon
+  let movingId = null;       // uid being relocated
+  let uidCounter = 1;
+  function defaultState() {
+    return {
+      coins: 250,
+      dragons: [],             // { uid, sp, level, hab }
+      habs: [{ el: "fire" }],  // each habitat has an elemental affinity
+      charm: 0,                // upgrade: +12% coin rate per level
+      lens: 0,                 // upgrade: better breeding rarity
+      bred: 0,                 // total successful breeds (quest)
+      quests: {},              // questId -> true (claimed)
+      seen: {},                // speciesId -> true (dex)
+      lastSeen: Date.now()
+    };
+  }
+  function save() {
+    state.lastSeen = Date.now();
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) { /* quota/blocked */ }
+  }
+  function load() {
+    let raw = null;
+    try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { raw = null; }
+    if (!raw) { startVillage(); return false; }
+    let data;
+    try { data = JSON.parse(raw); } catch (e) { data = null; }
+    if (!data || !Array.isArray(data.dragons) || !Array.isArray(data.habs)) { startVillage(); return false; }
+    state = {
+      coins: Number(data.coins) || 0,
+      dragons: data.dragons.filter(function (d) { return d && SP[d.sp]; }),
+      habs: data.habs.filter(function (h) { return h && ELEMENTS[h.el]; }),
+      charm: Number(data.charm) || 0,
+      lens: Number(data.lens) || 0,
+      bred: Number(data.bred) || 0,
+      quests: data.quests || {},
+      seen: data.seen || {},
+      lastSeen: Number(data.lastSeen) || Date.now()
+    };
+    if (state.habs.length === 0) state.habs.push({ el: "fire" });
+    state.dragons.forEach(function (d) {
+      d.uid = Number(d.uid) || uidCounter++;
+      uidCounter = Math.max(uidCounter, d.uid + 1);
+      d.level = Math.max(1, Number(d.level) || 1);
+      markSeen(d.sp);
+    });
+    return true;
+  }
+  function startVillage() {
+    state = defaultState();
+    // A friendly founding pair so the village is never empty.
+    addDragon("emberling", 0);
+    addDragon("dripscale", 0);
+    markSeen("emberling"); markSeen("dripscale");
+  }
+  function markSeen(spId) { state.seen[spId] = true; }
+  // ============================================================
+  // ============ ECONOMY HELPERS ==============================
+  // ============================================================
+  function dragonRate(d) {
+    var sp = SP[d.sp];
+    var lvlMul = 1 + (d.level - 1) * 0.22;
+    var hab = state.habs[d.hab];
+    var habMul = (hab && hab.el === sp.el) ? 1.5 : 1;
+    var charmMul = 1 + state.charm * 0.12;
+    return sp.base * lvlMul * habMul * charmMul;
+  }
+  function totalRate() {
+    var t = 0;
+    for (var i = 0; i < state.dragons.length; i++) t += dragonRate(state.dragons[i]);
+    return t;
+  }
+  function capacity() { return state.habs.length * CAP_PER_HAB; }
+  function usedInHab(h) {
+    return state.dragons.filter(function (d) { return d.hab === h; }).length;
+  }
+  function discoveredElements() {
+    var set = {};
+    state.dragons.forEach(function (d) { set[SP[d.sp].el] = true; });
+    return Object.keys(set);
+  }
+  function dexOwned() {
+    var n = 0; for (var k in state.seen) if (state.seen[k]) n++; return n;
+  }
+  function fmt(n) {
+    n = Math.floor(n);
+    if (n >= 1e9) return (n / 1e9).toFixed(2) + "B";
+    if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
+    if (n >= 1e4) return (n / 1e3).toFixed(1) + "k";
+    return String(n);
+  }
+  function feedCost(d) { return Math.round(25 * d.level * (1 + d.level * 0.12)); }
+  function habCost()    { return Math.round(600 * Math.pow(1.85, state.habs.length - 1)); }
+  function charmCost()  { return Math.round(900 * Math.pow(1.9, state.charm)); }
+  function lensCost()   { return Math.round(1200 * Math.pow(2.0, state.lens)); }
+  function spend(n) {
+    if (state.coins < n) return false;
+    state.coins -= n; return true;
+  }
+  // ============================================================
+  // ============ DRAGON CREATION & PLACEMENT ==================
+  // ============================================================
+  function firstFreeHab() {
+    for (var i = 0; i < state.habs.length; i++) {
+      if (usedInHab(i) < CAP_PER_HAB) return i;
+    }
+    return -1;
+  }
+  function addDragon(spId, habIndex) {
+    var hab = (typeof habIndex === "number" && habIndex >= 0) ? habIndex : firstFreeHab();
+    if (hab < 0) return null;
+    var d = { uid: uidCounter++, sp: spId, level: 1, hab: hab };
+    state.dragons.push(d);
+    markSeen(spId);
+    return d;
+  }
+  function randomByTier(tier, weights) {
+    var pool = SPECIES.filter(function (s) { return s.tier === tier; });
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+  // Weighted tier roll; lens upgrade nudges odds toward rarer bloodlines.
+  function rollTier() {
+    var l = state.lens;
+    var wEpic = 5 + l * 3;
+    var wRare = 28 + l * 3;
+    var wCommon = Math.max(10, 100 - wEpic - wRare);
+    var r = Math.random() * (wCommon + wRare + wEpic);
+    if (r < wEpic) return "epic";
+    if (r < wEpic + wRare) return "rare";
+    return "common";
+  }
+  function canGrow() { return state.dragons.length < capacity(); }
+  // ============================================================
+  // ============ AUDIO (WebAudio, no assets) =================
+  // ============================================================
+  var actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = actx.createOscillator();
+      var g = actx.createGain();
+      o.type = type || "triangle";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable â€” silently ignore */ }
+  }
+  // ============================================================
+  // ============ TOAST & CONFIRM ==============================
+  // ============================================================
+  var toastEl = document.getElementById("toast");
+  var toastTimer = null;
+  function toast(msg, kind) {
+    toastEl.textContent = msg;
+    toastEl.className = "show" + (kind ? " " + kind : "");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.className = ""; }, 2100);
+  }
+  function openSheet(id) { document.getElementById(id).classList.add("open"); }
+  function closeSheet(id) { document.getElementById(id).classList.remove("open"); }
+  // ============================================================
+  // ============ CANVAS & VILLAGE RENDERING ===================
+  // ============================================================
+  var canvas = document.getElementById("game");
+  var ctx = canvas.getContext("2d");
+  var W = canvas.width, H = canvas.height;
+  var COLS = 3, ROWS = 4, CELL_W = 300, CELL_H = 150, PAD = 10;
+  var pops = [];   // floating "+n" coin texts
+  var t0 = 0;
+  function penRect(i) {
+    var col = i % COLS, row = Math.floor(i / COLS);
+    return { x: col * CELL_W + PAD, y: row * CELL_H + PAD, w: CELL_W - PAD * 2, h: CELL_H - PAD * 2 };
+  }
+  function slotPos(pen, k) {
+    return { x: pen.x + 50 + k * 66, y: pen.y + pen.h - 44 };
+  }
+  function rgba(hex, a) {
+    var n = parseInt(hex.slice(1), 16);
+    var r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    return "rgba(" + r + "," + g + "," + b + "," + a + ")";
+  }
+  // Draws one procedurally-drawn dragon centered at (cx, cy) with scale s.
+  function drawDragon(g, cx, cy, s, el, form, t, selected) {
+    var c1 = ELEMENTS[el].color, c2 = ELEMENTS[el].glow;
+    var bob = Math.sin(t * 2.4 + cx * 0.05) * s * 0.10;
+    cy += bob;
+    var flap = Math.sin(t * 7 + cx * 0.1) * 0.38;
+    // aura
+    var ag = g.createRadialGradient(cx, cy, s * 0.3, cx, cy, s * 2.4);
+    ag.addColorStop(0, rgba(c2, 0.5));
+    ag.addColorStop(1, rgba(c1, 0));
+    g.fillStyle = ag;
+    g.beginPath(); g.arc(cx, cy, s * 2.4, 0, Math.PI * 2); g.fill();
+    // tail
+    g.strokeStyle = c1; g.lineWidth = s * 0.34; g.lineCap = "round";
+    g.beginPath();
+    g.moveTo(cx - s * 0.6, cy + s * 0.35);
+    g.quadraticCurveTo(cx - s * 1.5, cy + s * 0.1, cx - s * 1.7, cy - s * 0.6);
+    g.stroke();
+    g.fillStyle = c2;
+    g.beginPath();
+    g.moveTo(cx - s * 1.7, cy - s * 0.6);
+    g.lineTo(cx - s * 2.15, cy - s * 0.85);
+    g.lineTo(cx - s * 1.75, cy - s * 1.15);
+    g.closePath(); g.fill();
+    // legs
+    g.fillStyle = c1;
+    g.beginPath(); g.ellipse(cx - s * 0.35, cy + s * 0.86, s * 0.24, s * 0.34, 0, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.ellipse(cx + s * 0.42, cy + s * 0.86, s * 0.24, s * 0.34, 0, 0, Math.PI * 2); g.fill();
+    // wings (behind body)
+    g.fillStyle = rgba(c2, 0.85);
+    g.strokeStyle = c1; g.lineWidth = Math.max(1, s * 0.09);
+    for (var side = -1; side <= 1; side += 2) {
+      g.save();
+      g.translate(cx + side * s * 0.35, cy - s * 0.1);
+      g.rotate(side * (0.5 + flap));
+      g.beginPath();
+      g.moveTo(0, 0);
+      g.quadraticCurveTo(side * s * 1.1, -s * 0.9, side * s * 1.7, -s * 0.2);
+      g.quadraticCurveTo(side * s * 1.0, s * 0.35, 0, s * 0.4);
+      g.closePath(); g.fill(); g.stroke();
+      g.restore();
+    }
+    // body
+    var bg = g.createLinearGradient(cx, cy - s, cx, cy + s);
+    bg.addColorStop(0, c2); bg.addColorStop(1, c1);
+    g.fillStyle = bg;
+    g.beginPath(); g.ellipse(cx, cy + s * 0.1, s * 1.02, s * 0.92, 0, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = rgba("#000000", 0.22); g.lineWidth = Math.max(1, s * 0.07); g.stroke();
+    // belly
+    g.fillStyle = rgba("#ffffff", 0.55);
+    g.beginPath(); g.ellipse(cx, cy + s * 0.42, s * 0.55, s * 0.42, 0, 0, Math.PI * 2); g.fill();
+    // chest gem
+    g.fillStyle = c2;
+    g.beginPath();
+    g.moveTo(cx, cy - s * 0.05);
+    g.lineTo(cx + s * 0.2, cy + s * 0.18);
+    g.lineTo(cx, cy + s * 0.42);
+    g.lineTo(cx - s * 0.2, cy + s * 0.18);
+    g.closePath(); g.fill();
+    // neck + head
+    var hx = cx + s * 0.78, hy = cy - s * 0.72;
+    g.strokeStyle = c1; g.lineWidth = s * 0.42;
+    g.beginPath(); g.moveTo(cx + s * 0.3, cy - s * 0.2); g.lineTo(hx, hy); g.stroke();
+    g.fillStyle = c1;
+    g.beginPath(); g.arc(hx, hy, s * 0.6, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = rgba("#000000", 0.22); g.stroke();
+    // snout
+    g.fillStyle = c1;
+    g.beginPath(); g.ellipse(hx + s * 0.5, hy + s * 0.16, s * 0.32, s * 0.2, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = rgba("#000000", 0.5);
+    g.beginPath(); g.arc(hx + s * 0.72, hy + s * 0.16, s * 0.05, 0, Math.PI * 2); g.fill();
+    // horns (form variants)
+    g.fillStyle = c2; g.strokeStyle = rgba("#000000", 0.25); g.lineWidth = Math.max(1, s * 0.06);
+    var hornN = form === 2 ? 3 : (form === 1 ? 2 : 1);
+    for (var i = 0; i < hornN; i++) {
+      var hh = s * (0.5 + i * 0.1);
+      var hbx = hx + s * 0.1 - i * s * 0.22;
+      g.beginPath();
+      g.moveTo(hbx, hy - s * 0.5);
+      g.lineTo(hbx - s * 0.1, hy - s * 0.5 - hh);
+      g.lineTo(hbx + s * 0.16, hy - s * 0.5);
+      g.closePath(); g.fill(); g.stroke();
+    }
+    // ear fin
+    g.fillStyle = rgba(c2, 0.9);
+    g.beginPath();
+    g.moveTo(hx - s * 0.1, hy - s * 0.1);
+    g.quadraticCurveTo(hx - s * 0.9, hy - s * 0.5, hx - s * 0.45, hy + s * 0.4);
+    g.closePath(); g.fill();
+    // eye
+    g.fillStyle = "#ffffff";
+    g.beginPath(); g.arc(hx + s * 0.22, hy - s * 0.08, s * 0.2, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#1b1030";
+    g.beginPath(); g.arc(hx + s * 0.27, hy - s * 0.08, s * 0.1, 0, Math.PI * 2); g.fill();
+    // blush
+    g.fillStyle = rgba("#ff9ec4", 0.55);
+    g.beginPath(); g.arc(hx + s * 0.05, hy + s * 0.28, s * 0.13, 0, Math.PI * 2); g.fill();
+    // selection ring
+    if (selected) {
+      g.strokeStyle = "#ffcf5c"; g.lineWidth = 2.5;
+      g.setLineDash([4, 4]);
+      g.beginPath(); g.arc(cx, cy + s * 0.1, s * 1.9, 0, Math.PI * 2); g.stroke();
+      g.setLineDash([]);
+    }
+  }
+
+  function drawVillage(t) {
+    // night-meadow backdrop
+    var sky = ctx.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, "#1b1040");
+    sky.addColorStop(0.55, "#241552");
+    sky.addColorStop(1, "#120b2c");
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+
+    // stars
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    for (var i = 0; i < 60; i++) {
+      var sx = (i * 137.5) % W;
+      var sy = (i * 71.3) % (H * 0.5);
+      var tw = 0.35 + 0.65 * Math.abs(Math.sin(t * 1.5 + i));
+      ctx.globalAlpha = tw * 0.7;
+      ctx.fillRect(sx, sy, 1.6, 1.6);
+    }
+    ctx.globalAlpha = 1;
+
+    // aurora bands
+    for (var b = 0; b < 3; b++) {
+      var y = 60 + b * 55 + Math.sin(t * 0.6 + b) * 12;
+      var g2 = ctx.createLinearGradient(0, y, W, y + 40);
+      g2.addColorStop(0, "rgba(120,90,255,0)");
+      g2.addColorStop(0.5, "rgba(120,220,210," + (0.06 - b * 0.015) + ")");
+      g2.addColorStop(1, "rgba(255,150,220,0)");
+      ctx.fillStyle = g2;
+      ctx.fillRect(0, y, W, 40);
+    }
+
+    // habitats
+    for (var h = 0; h < MAX_HABS; h++) {
+      var p = penRect(h);
+      if (h < state.habs.length) drawHabitat(h, p, t);
+      else drawLockedPad(h, p);
+    }
+
+    // floating coin pops
+    for (var k = pops.length - 1; k >= 0; k--) {
+      var pp = pops[k];
+      pp.life -= 0.016;
+      pp.y -= 0.7;
+      if (pp.life <= 0) { pops.splice(k, 1); continue; }
+      ctx.globalAlpha = Math.min(1, pp.life);
+      ctx.fillStyle = "#ffcf5c";
+      ctx.font = "bold 15px Georgia, serif";
+      ctx.textAlign = "center";
+      ctx.fillText("+" + pp.v, pp.x, pp.y);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function drawHabitat(h, p, t) {
+    var el = ELEMENTS[state.habs[h].el];
+
+    // pen ground glow
+    var g = ctx.createRadialGradient(p.x + p.w / 2, p.y + p.h / 2, 10, p.x + p.w / 2, p.y + p.h / 2, p.w * 0.7);
+    g.addColorStop(0, rgba(el.color, 0.18));
+    g.addColorStop(1, rgba(el.color, 0));
+    ctx.fillStyle = g;
+    roundRect(ctx, p.x, p.y, p.w, p.h, 14); ctx.fill();
+
+    // fence
+    ctx.strokeStyle = "rgba(180,150,255,0.4)"; ctx.lineWidth = 2;
+    roundRect(ctx, p.x, p.y, p.w, p.h, 14); ctx.stroke();
+    ctx.strokeStyle = rgba(el.color, 0.6); ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(p.x + 8, p.y + p.h - 30);
+    ctx.lineTo(p.x + p.w - 8, p.y + p.h - 30);
+    ctx.stroke();
+
+    // label
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.font = "bold 12px Trebuchet MS, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(el.icon + " " + el.name + " Pen", p.x + 12, p.y + 20);
+    ctx.textAlign = "right";
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    ctx.fillText(usedInHab(h) + "/" + CAP_PER_HAB, p.x + p.w - 12, p.y + 20);
+
+    // dragons
+    var occ = state.dragons.filter(function (d) { return d.hab === h; });
+    for (var i = 0; i < occ.length; i++) {
+      var d = occ[i];
+      var pos = slotPos(p, i);
+      drawDragon(ctx, pos.x, pos.y, 16, SP[d.sp].el, SP[d.sp].form, t, d.uid === selectedId);
+      // level pip
+      ctx.fillStyle = "rgba(0,0,0,0.5)";
+      ctx.beginPath(); ctx.arc(pos.x, pos.y + 30, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ffcf5c";
+      ctx.font = "bold 10px Trebuchet MS, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("L" + d.level, pos.x, pos.y + 34);
+    }
+  }
+
+  function drawLockedPad(h, p) {
+    ctx.save();
+    ctx.setLineDash([7, 7]);
+    ctx.strokeStyle = "rgba(160,140,220,0.35)";
+    ctx.lineWidth = 2;
+    roundRect(ctx, p.x, p.y, p.w, p.h, 14); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "rgba(200,185,255,0.55)";
+    ctx.font = "bold 14px Georgia, serif";
+    ctx.textAlign = "center";
+    ctx.fillText("ï¼‹ Expand Village", p.x + p.w / 2, p.y + p.h / 2 - 4);
+    ctx.fillStyle = "rgba(255,207,92,0.85)";
+    ctx.font = "bold 13px Trebuchet MS, sans-serif";
+    ctx.fillText("Buy pen â€” " + fmt(habCost()) + " ðŸª™", p.x + p.w / 2, p.y + p.h / 2 + 18);
+    ctx.restore();
+  }
+
+  function roundRect(g, x, y, w, h, r) {
+    g.beginPath();
+    g.moveTo(x + r, y);
+    g.arcTo(x + w, y, x + w, y + h, r);
+    g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r);
+    g.arcTo(x, y, x + w, y, r);
+    g.closePath();
+  }
+
+  // ============================================================
+  // ============ ECONOMY TICK & OFFLINE ACCRUAL ===============
+  // ============================================================
+  var accTimer = 0;
+  function economyTick(dt) {
+    var rate = totalRate();
+    if (rate <= 0) return;
+    state.coins += rate * dt;
+    accTimer += dt;
+    if (accTimer >= 1) {
+      accTimer = 0;
+      // spawn a coin pop above a random occupied habitat
+      if (state.dragons.length) {
+        var h = state.dragons[Math.floor(Math.random() * state.dragons.length)].hab;
+        var p = penRect(h);
+        pops.push({ x: p.x + 40 + Math.random() * (p.w - 80), y: p.y + 30, life: 1.2, v: fmt(rate) });
+      }
+    }
+  }
+
+  function applyOffline() {
+    var secs = Math.max(0, (Date.now() - (state.lastSeen || Date.now())) / 1000);
+    if (secs < 30) return;
+    var capped = Math.min(secs, OFFLINE_CAP_H * 3600);
+    var earned = totalRate() * capped;
+    if (earned >= 1) {
+      state.coins += earned;
+      var hrs = (capped / 3600).toFixed(1);
+      setTimeout(function () { toast("Welcome back! +" + fmt(earned) + " ðŸª™ (" + hrs + "h away)", "good"); }, 400);
+    }
+  }
+
+  // ============================================================
+  // ============ GAME ACTIONS ================================
+  // ============================================================
+  function buyEgg(kind) {
+    if (!canGrow()) { toast("Village is full â€” build a new pen!", "bad"); beep(180, 0.2, "sawtooth"); return; }
+    var cost = kind === "grand" ? 1500 : 200;
+    if (!spend(cost)) { toast("Not enough coins.", "bad"); beep(180, 0.2, "sawtooth"); return; }
+    var tier;
+    if (kind === "grand") tier = Math.random() < 0.2 ? "epic" : "rare";
+    else tier = Math.random() < 0.15 ? "rare" : "common";
+    var sp = randomByTier(tier);
+    var d = addDragon(sp.id);
+    afterHatch(sp, d);
+  }
+
+  function afterHatch(sp, d) {
+    beep(880, 0.09, "sine");
+    setTimeout(function () { beep(1180, 0.12, "sine"); }, 90);
+    var label = sp.tier === "epic" ? "âœ¨ EPIC" : (sp.tier === "rare" ? "â˜… Rare" : "New");
+    toast(label + ": " + sp.name + " (" + ELEMENTS[sp.el].name + ")!", "good");
+    if (d) selectedId = d.uid;
+    renderAll();
+    save();
+  }
+
+  function doBreed() {
+    if (!canGrow()) { toast("Village is full â€” build a new pen!", "bad"); beep(180, 0.2, "sawtooth"); return; }
+    var a = state.dragons.filter(function (d) { return d.uid === Number(selA.value); })[0];
+    var b = state.dragons.filter(function (d) { return d.uid === Number(selB.value); })[0];
+    if (!a || !b || a.uid === b.uid) { toast("Choose two different dragons.", "bad"); return; }
+    if (!spend(BREED_COST)) { toast("Breeding needs " + BREED_COST + " ðŸª™.", "bad"); beep(180, 0.2, "sawtooth"); return; }
+
+    var elA = SP[a.sp].el, elB = SP[b.sp].el;
+    var childEl;
+    var r = Math.random();
+    if (elA === elB) childEl = elA;
+    else if (r < 0.45) childEl = elA;
+    else if (r < 0.85) childEl = elB;
+    else childEl = ELEM_KEYS[Math.floor(Math.random() * ELEM_KEYS.length)]; // surprise fusion
+    var sp = breedSpecies(childEl);
+
+    var d = addDragon(sp.id);
+    state.bred++;
+    closeSheet("sheet-breed");
+    afterHatch(sp, d);
+  }
+
+  function breedSpecies(el) {
+    var tier = rollTier();
+    var pool = SPECIES.filter(function (s) { return s.el === el && s.tier === tier; });
+    if (!pool.length) pool = SPECIES.filter(function (s) { return s.tier === tier; });
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function feedSelected() {
+    var d = state.dragons.filter(function (x) { return x.uid === selectedId; })[0];
+    if (!d) { toast("Select a dragon first.", "bad"); return; }
+    if (d.level >= 20) { toast("This dragon is fully grown (L20).", "bad"); return; }
+    var cost = feedCost(d);
+    if (!spend(cost)) { toast("Feeding costs " + fmt(cost) + " ðŸª™.", "bad"); beep(180, 0.2, "sawtooth"); return; }
+    d.level++;
+    beep(520 + d.level * 22, 0.1, "triangle");
+    var p = penRect(d.hab);
+    pops.push({ x: p.x + p.w / 2, y: p.y + 20, life: 1.2, v: "L" + d.level });
+    toast(SP[d.sp].name + " grew to level " + d.level + "!", "good");
+    renderAll();
+    save();
+  }
+
+  function buyHabitat() {
+    if (state.habs.length >= MAX_HABS) { toast("Village is fully expanded!", "bad"); return; }
+    var cost = habCost();
+    if (!spend(cost)) { toast("A new pen costs " + fmt(cost) + " ðŸª™.", "bad"); beep(180, 0.2, "sawtooth"); return; }
+    var el = ELEM_KEYS[Math.floor(Math.random() * ELEM_KEYS.length)];
+    state.habs.push({ el: el });
+    beep(420, 0.1); setTimeout(function () { beep(640, 0.14, "sine"); }, 100);
+    toast("New " + ELEMENTS[el].name + " pen built!", "good");
+    renderAll();
+    save();
+  }
+
+  function buyCharm() {
+    var cost = charmCost();
+    if (!spend(cost)) { toast("Market Charm costs " + fmt(cost) + " ðŸª™.", "bad"); beep(180, 0.2, "sawtooth"); return; }
+    state.charm++;
+    beep(700, 0.1, "square");
+    toast("Market Charm L" + state.charm + " â€” coins +12%!", "good");
+    renderAll();
+    save();
+  }
+
+  function buyLens() {
+    var cost = lensCost();
+    if (!spend(cost)) { toast("Crystal Lens costs " + fmt(cost) + " ðŸª™.", "bad"); beep(180, 0.2, "sawtooth"); return; }
+    state.lens++;
+    beep(760, 0.1, "square");
+    toast("Crystal Lens L" + state.lens + " â€” rarer hatchlings!", "good");
+    renderAll();
+    save();
+  }
+
+  // ============================================================
+  // ============ QUESTS ======================================
+  // ============================================================
+  var QUESTS = [
+    { id: "q_own3",  title: "Founding Flock", desc: "Own 3 dragons",        goal: 3,       reward: 200,  prog: function () { return state.dragons.length; } },
+    { id: "q_el4",   title: "Elemental Mix",  desc: "Discover 4 elements",  goal: 4,       reward: 600,  prog: function () { return discoveredElements().length; } },
+    { id: "q_breed5",title: "Keeper of Lines", desc: "Hatch 5 bred dragons", goal: 5,      reward: 1200, prog: function () { return state.bred; } },
+    { id: "q_dex10", title: "Chronicler",     desc: "Record 10 species in the Dex", goal: 10, reward: 2000, prog: function () { return dexOwned(); } },
+    { id: "q_el8",   title: "All Elements",   desc: "Discover all 8 elements", goal: 8,    reward: 6000, prog: function () { return discoveredElements().length; } }
+  ];
+
+  function claimQuest(q) {
+    if (state.quests[q.id]) return;
+    if (q.prog() < q.goal) { toast("Not yet complete.", "bad"); return; }
+    state.quests[q.id] = true;
+    state.coins += q.reward;
+    beep(660, 0.09, "sine"); setTimeout(function () { beep(990, 0.14, "sine"); }, 100);
+    toast("Quest complete! +" + fmt(q.reward) + " ðŸª™", "good");
+    renderAll();
+    save();
+  }
+
+  // ============================================================
+  // ============ UI RENDERING ================================
+  // ============================================================
+  function $(id) { return document.getElementById(id); }
+
+  function renderTopbar() {
+    $("s-coins").textContent = fmt(state.coins);
+    $("s-rate").textContent = totalRate().toFixed(1);
+    $("s-dragons").textContent = state.dragons.length;
+    $("s-slots").textContent = capacity();
+    $("s-elems").textContent = discoveredElements().length;
+  }
+
+  function renderInfo() {
+    var bar = $("infobar");
+    var d = state.dragons.filter(function (x) { return x.uid === selectedId; })[0];
+    if (!d) {
+      bar.innerHTML = '<span class="dim">Tap a dragon to select it, or tap a locked plot to expand your village.</span>';
+      return;
+    }
+    var sp = SP[d.sp], e = ELEMENTS[sp.el];
+    var hab = state.habs[d.hab];
+    var bonus = hab && hab.el === sp.el ? ' <span style="color:var(--good)">(+50% home bonus)</span>' : '';
+    var cost = feedCost(d);
+    bar.innerHTML =
+      '<span class="name">' + e.icon + ' ' + sp.name + '</span>' +
+      '<span class="dim">Lv ' + d.level + ' &middot; ' + e.name + '</span>' +
+      '<span class="dim">' + dragonRate(d).toFixed(1) + ' ðŸª™/s' + bonus + '</span>' +
+      '<span style="flex:1"></span>' +
+      '<button class="btn" id="ib-feed" type="button">ðŸ– Feed (' + fmt(cost) + ')</button>' +
+      '<button class="btn" id="ib-move" type="button">' + (movingId === d.uid ? 'âœ• Cancel move' : 'â†¦ Move') + '</button>';
+    $("ib-feed").addEventListener("click", feedSelected);
+    $("ib-move").addEventListener("click", function () {
+      movingId = (movingId === d.uid) ? null : d.uid;
+      toast(movingId ? "Tap a pen to move this dragon there." : "Move cancelled.");
+      renderInfo();
+    });
+  }
+
+  function renderShop() {
+    var body = $("shop-body");
+    var full = !canGrow();
+    var html = "";
+
+    html += rowHTML("ðŸ¥š", "Basic Egg", "200 ðŸª™", "Hatches a common dragon (15% chance of a rare).", "buy-egg-basic", !full && state.coins >= 200);
+    html += rowHTML("ðŸªº", "Grand Egg", "1,500 ðŸª™", "Hatches a rare dragon (20% chance of an epic).", "buy-egg-grand", !full && state.coins >= 1500);
+    html += rowHTML("ðŸ•ï¸", "New Pen", fmt(habCost()) + " ðŸª™", "Adds 4 habitat slots with a random elemental affinity. (" + state.habs.length + "/" + MAX_HABS + ")", "buy-hab", state.habs.length < MAX_HABS && state.coins >= habCost());
+    html += rowHTML("ðŸ€", "Market Charm Lv " + state.charm, fmt(charmCost()) + " ðŸª™", "+12% coin income from every dragon (permanent).", "buy-charm", state.coins >= charmCost());
+    html += rowHTML("ðŸ”­", "Crystal Lens Lv " + state.lens, fmt(lensCost()) + " ðŸª™", "Improves breeding &amp; hatchling rarity odds.", "buy-lens", state.coins >= lensCost());
+
+    if (full) html = '<p style="color:var(--bad);font-size:.8rem;margin-bottom:10px">Your village is full (' + state.dragons.length + '/' + capacity() + '). Build a pen to hatch more dragons.</p>' + html;
+    body.innerHTML = html;
+
+    bind("buy-egg-basic", function () { buyEgg("basic"); });
+    bind("buy-egg-grand", function () { buyEgg("grand"); });
+    bind("buy-hab", buyHabitat);
+    bind("buy-charm", buyCharm);
+    bind("buy-lens", buyLens);
+  }
+
+  function rowHTML(icon, title, price, desc, id, enabled) {
+    return '<div class="row">' +
+      '<div style="font-size:1.5rem;width:34px;text-align:center">' + icon + '</div>' +
+      '<div class="info"><div class="t">' + title + '</div><div class="d">' + desc + '</div></div>' +
+      '<button class="btn gold" id="' + id + '" type="button"' + (enabled ? '' : ' disabled') + '>' + price + '</button>' +
+      '</div>';
+  }
+
+  function bind(id, fn) {
+    var e = $(id);
+    if (e) e.addEventListener("click", fn);
+  }
+
+  function renderBreed() {
+    var opts = state.dragons.map(function (d) {
+      var sp = SP[d.sp];
+      return '<option value="' + d.uid + '">' + ELEMENTS[sp.el].icon + ' ' + sp.name + ' (Lv ' + d.level + ')</option>';
+    }).join("");
+    if (!opts) opts = '<option value="">â€” no dragons â€”</option>';
+    var prevA = selA.value, prevB = selB.value;
+    selA.innerHTML = opts;
+    selB.innerHTML = opts;
+    if (prevA && $selHas(selA, prevA)) selA.value = prevA;
+    if (prevB && $selHas(selB, prevB)) selB.value = prevB;
+    else if (state.dragons.length > 1) selB.value = String(state.dragons[1].uid);
+    $("btn-do-breed").disabled = state.dragons.length < 2;
+  }
+  function $selHas(sel, v) {
+    for (var i = 0; i < sel.options.length; i++) if (sel.options[i].value === v) return true;
+    return false;
+  }
+
+  function renderDex() {
+    var body = $("dex-body");
+    var html = "";
+    SPECIES.forEach(function (sp) {
+      var seen = !!state.seen[sp.id];
+      var e = ELEMENTS[sp.el];
+      html += '<div class="dex-card' + (seen ? '' : ' locked') + '">' +
+        '<div class="dex-dot" style="background:linear-gradient(135deg,' + e.glow + ',' + e.color + ');color:' + e.color + '"></div>' +
+        '<div><div class="nm">' + (seen ? sp.name : "???") + ' <span class="badge ' + sp.tier + '">' + sp.tier + '</span></div>' +
+        '<div class="sub">' + e.icon + ' ' + e.name + (seen ? ' &middot; ' + sp.base + '/s' : '') + '</div></div>' +
+        '</div>';
+    });
+    body.innerHTML = html;
+  }
+
+  function renderQuests() {
+    var body = $("quests-body");
+    var html = "";
+    QUESTS.forEach(function (q) {
+      var p = Math.min(q.prog(), q.goal);
+      var done = !!state.quests[q.id];
+      var pct = Math.round(100 * p / q.goal);
+      html += '<div class="quest' + (done ? ' done' : '') + '">' +
+        '<div class="info"><div class="t" style="font-weight:700;font-size:.9rem">' + q.title + '</div>' +
+        '<div class="d" style="font-size:.74rem;color:var(--muted)">' + q.desc + ' â€” ' + p + '/' + q.goal + '</div>' +
+        '<div class="bar"><i style="width:' + pct + '%"></i></div></div>' +
+        '<button class="btn ' + (done ? '' : 'gold') + '" data-quest="' + q.id + '" type="button"' + (done ? ' disabled' : '') + '>' +
+        (done ? 'âœ“ Done' : '+' + fmt(q.reward) + ' ðŸª™') + '</button>' +
+        '</div>';
+    });
+    body.innerHTML = html;
+    body.querySelectorAll("button[data-quest]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var q = QUESTS.filter(function (x) { return x.id === b.dataset.quest; })[0];
+        if (q) claimQuest(q);
+      });
+    });
+  }
+
+  function renderAll() {
+    renderTopbar();
+    renderInfo();
+    if ($("sheet-shop").classList.contains("open")) renderShop();
+    if ($("sheet-breed").classList.contains("open")) renderBreed();
+    if ($("sheet-dex").classList.contains("open")) renderDex();
+    if ($("sheet-quests").classList.contains("open")) renderQuests();
+  }
+
+  // ============================================================
+  // ============ INPUT ======================================
+  // ============================================================
+  function canvasPoint(evt) {
+    var r = canvas.getBoundingClientRect();
+    var cx = (evt.touches ? evt.touches[0].clientX : evt.clientX) - r.left;
+    var cy = (evt.touches ? evt.touches[0].clientY : evt.clientY) - r.top;
+    return { x: cx * (W / r.width), y: cy * (H / r.height) };
+  }
+
+  function handleTap(evt) {
+    var p = canvasPoint(evt);
+    var penIndex = -1;
+    for (var i = 0; i < MAX_HABS; i++) {
+      var r = penRect(i);
+      if (p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h) { penIndex = i; break; }
+    }
+    if (penIndex < 0) { selectedId = null; movingId = null; renderInfo(); return; }
+
+    // locked plot â†’ expand
+    if (penIndex >= state.habs.length) { buyHabitat(); return; }
+
+    // moving a dragon into this pen
+    if (movingId) {
+      var md = state.dragons.filter(function (x) { return x.uid === movingId; })[0];
+      if (md) {
+        if (md.hab === penIndex) { toast("Already in this pen."); }
+        else if (usedInHab(penIndex) >= CAP_PER_HAB) { toast("That pen is full.", "bad"); beep(180, 0.2, "sawtooth"); }
+        else {
+          md.hab = penIndex;
+          beep(500, 0.08, "square");
+          toast(SP[md.sp].name + " moved to the " + ELEMENTS[state.habs[penIndex].el].name + " pen.", "good");
+          save();
+        }
+      }
+      movingId = null;
+      renderAll();
+      return;
+    }
+
+    // find a dragon under the tap
+    var pen = penRect(penIndex);
+    var occ = state.dragons.filter(function (d) { return d.hab === penIndex; });
+    for (var j = 0; j < occ.length; j++) {
+      var pos = slotPos(pen, j);
+      if (Math.abs(p.x - pos.x) < 34 && Math.abs(p.y - (pos.y - 6)) < 40) {
+        selectedId = occ[j].uid;
+        beep(620, 0.06, "triangle");
+        renderInfo();
+        return;
+      }
+    }
+    selectedId = null;
+    renderInfo();
+  }
+
+  canvas.addEventListener("click", handleTap);
+  canvas.addEventListener("touchstart", function (e) { e.preventDefault(); handleTap(e); }, { passive: false });
+
+  // sheet open/close wiring
+  $("btn-shop").addEventListener("click", function () { renderShop(); openSheet("sheet-shop"); beep(560, 0.06); });
+  $("btn-breed").addEventListener("click", function () { renderBreed(); openSheet("sheet-breed"); beep(560, 0.06); });
+  $("btn-dex").addEventListener("click", function () { renderDex(); openSheet("sheet-dex"); beep(560, 0.06); });
+  $("btn-quests").addEventListener("click", function () { renderQuests(); openSheet("sheet-quests"); beep(560, 0.06); });
+  document.querySelectorAll("[data-close]").forEach(function (b) {
+    b.addEventListener("click", function () { b.closest(".sheet").classList.remove("open"); });
+  });
+  document.querySelectorAll(".sheet").forEach(function (sh) {
+    sh.addEventListener("click", function (e) { if (e.target === sh) sh.classList.remove("open"); });
+  });
+
+  // reset flow (custom confirm, never alert/prompt)
+  $("btn-reset").addEventListener("click", function () { openSheet("sheet-confirm"); });
+  $("btn-cancel").addEventListener("click", function () { closeSheet("sheet-confirm"); });
+  $("btn-confirm").addEventListener("click", function () {
+    try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* ignore */ }
+    selectedId = null; movingId = null; uidCounter = 1;
+    startVillage();
+    closeSheet("sheet-confirm");
+    renderAll(); save();
+    toast("A brand new village awaits!", "good");
+  });
+
+  var selA = $("breed-a"), selB = $("breed-b");
+  $("btn-do-breed").addEventListener("click", doBreed);
+
+  // keyboard shortcuts
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") {
+      document.querySelectorAll(".sheet.open").forEach(function (s) { s.classList.remove("open"); });
+    }
+    if (e.key === "f" || e.key === "F") feedSelected();
+  });
+
+  // ============================================================
+  // ============ MAIN LOOP ==================================
+  // ============================================================
+  var last = performance.now();
+  var saveTimer = 0;
+  var raf = null;
+
+  function loop(now) {
+    var dt = Math.min(0.25, (now - last) / 1000);
+    last = now;
+    t0 += dt;
+
+    economyTick(dt);
+
+    saveTimer += dt;
+    if (saveTimer >= 12) { saveTimer = 0; save(); }
+
+    drawVillage(t0);
+    renderTopbar();
+
+    raf = requestAnimationFrame(loop);
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { if (raf) { cancelAnimationFrame(raf); raf = null; } save(); }
+    else if (!raf) { last = performance.now(); raf = requestAnimationFrame(loop); }
+  });
+  window.addEventListener("beforeunload", save);
+
+  // ============================================================
+  // ============ BOOT =======================================
+  // ============================================================
+  var restored = load();
+  applyOffline();
+  renderAll();
+  if (!restored) save();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

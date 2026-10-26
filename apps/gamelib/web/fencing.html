@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Fencing</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { min-height: 100%; background: radial-gradient(circle at 50% -10%, #1b2540 0%, #10141f 55%, #0a0d15 100%); color: #e7edf6; font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif; display: flex; align-items: center; justify-content: center; padding: 14px; touch-action: manipulation; overflow-x: hidden; }
+  /* ============ APP SHELL ============ */
+  .app { width: min(96vw, 960px); display: flex; flex-direction: column; gap: 10px; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 4px; }
+  .brand { font-family: Georgia, "Times New Roman", serif; font-size: 18px; letter-spacing: 5px; color: #cfe0ff; text-shadow: 0 2px 14px rgba(110, 160, 255, 0.5); white-space: nowrap; }
+  .brand b { color: #7fb0ff; }
+  .topbtns { display: flex; gap: 8px; }
+  .btn { font-family: inherit; font-size: 13px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #e7edf6; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(120, 165, 255, 0.4); border-radius: 6px; padding: 9px 18px; cursor: pointer; transition: background 0.15s ease, transform 0.06s ease, border-color 0.15s ease; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .btn:hover { background: rgba(120, 165, 255, 0.18); border-color: #7fb0ff; }
+  .btn:active { transform: translateY(1px); }
+  .btn.small { padding: 6px 14px; font-size: 11px; }
+  .btn.primary { background: linear-gradient(135deg, #3f7bff, #1f4fc4); border-color: #a9c6ff; box-shadow: 0 6px 22px rgba(63, 123, 255, 0.45); padding: 13px 30px; font-size: 14px; }
+  .btn.primary:hover { background: linear-gradient(135deg, #5a92ff, #2b5bd6); }
+  /* ============ STAGE / CANVAS ============ */
+  .stage { position: relative; width: 100%; border-radius: 12px; overflow: hidden; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(120, 165, 255, 0.22); background: #0a0d15; }
+  canvas { display: block; width: 100%; height: auto; }
+  /* ============ OVERLAY SCREENS ============ */
+  .screen { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(8, 11, 19, 0.84); backdrop-filter: blur(3px); transition: opacity 0.25s ease; z-index: 5; }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .panel { width: min(94%, 520px); max-height: 100%; overflow-y: auto; background: linear-gradient(160deg, rgba(24, 33, 55, 0.96), rgba(12, 17, 28, 0.97)); border: 1px solid rgba(120, 165, 255, 0.28); border-radius: 12px; padding: 22px 24px; text-align: center; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6); }
+  .logo { font-family: Georgia, "Times New Roman", serif; font-size: clamp(28px, 6vw, 42px); letter-spacing: 8px; color: #dfe9ff; line-height: 1; text-shadow: 0 3px 20px rgba(110, 160, 255, 0.5); }
+  .logo span { color: #7fb0ff; display: block; font-size: 0.6em; letter-spacing: 12px; margin-top: 6px; }
+  .tagline { font-size: 12.5px; letter-spacing: 1.5px; color: #93a2bd; margin: 12px 0 18px; }
+  .opt { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  .opt.hidden { display: none; }
+  .opt-label { font-size: 10.5px; letter-spacing: 3px; text-transform: uppercase; color: #7f8ea9; }
+  .seg { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .seg-btn { font-family: inherit; font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #aab8d2; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 7px; padding: 9px 14px; cursor: pointer; transition: all 0.15s ease; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .seg-btn:hover { background: rgba(120, 165, 255, 0.14); color: #e7edf6; }
+  .seg-btn.active { background: linear-gradient(135deg, #3f7bff, #1f4fc4); border-color: #a9c6ff; color: #fff; box-shadow: 0 4px 14px rgba(63, 123, 255, 0.45); }
+  .best { font-size: 12px; color: #7f8ea9; letter-spacing: 1px; margin-top: 14px; }
+  .best span { color: #7fb0ff; font-weight: 700; }
+  .result-title { font-family: Georgia, "Times New Roman", serif; font-size: clamp(26px, 6vw, 38px); letter-spacing: 5px; color: #dfe9ff; text-shadow: 0 3px 20px rgba(110, 160, 255, 0.5); }
+  .result-title.lose { color: #ff6a58; text-shadow: 0 3px 18px rgba(255, 106, 88, 0.45); }
+  .result-sub { font-size: 14px; letter-spacing: 2px; color: #aab8d2; margin-top: 12px; }
+  .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
+  /* ============ TOUCH CONTROLS ============ */
+  .touch-controls { display: flex; gap: 14px; justify-content: space-between; padding: 0 4px; }
+  .touch-controls.hidden { display: none; }
+  .tc-cluster { display: flex; gap: 8px; align-items: center; }
+  .tc-cluster.hidden { display: none; }
+  .tbtn { font-family: inherit; font-size: 13px; font-weight: 700; letter-spacing: 1px; color: #e7edf6; background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(120, 165, 255, 0.4); border-radius: 10px; width: 56px; height: 54px; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; transition: background 0.1s ease, transform 0.05s ease; }
+  .tbtn:active, .tbtn.on { background: rgba(120, 165, 255, 0.38); transform: scale(0.94); }
+  .tbtn.atk { border-color: #ff6a58; color: #ffd7cf; }
+  .tbtn.pry { border-color: #6ce0b0; color: #d7ffee; }
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 560px) {
+    .brand { font-size: 14px; letter-spacing: 3px; }
+    .btn.small { padding: 6px 10px; font-size: 10px; }
+    .tbtn { width: 50px; height: 48px; font-size: 12px; }
+    .touch-controls { gap: 8px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ============ TOP BAR ============ -->
+  <div class="topbar">
+    <div class="brand">FENCING<b>&#8203;</b></div>
+    <div class="topbtns">
+      <button class="btn small" id="pauseBtn" type="button">Pause</button>
+      <button class="btn small" id="restartBtn" type="button">Restart</button>
+    </div>
+  </div>
+  <!-- ============ STAGE ============ -->
+  <div class="stage">
+    <canvas id="game" width="900" height="480"></canvas>
+    <!-- Start / Menu overlay -->
+    <div id="menuScreen" class="screen">
+      <div class="panel">
+        <h1 class="logo">FENCING<span>on the piste</span></h1>
+        <p class="tagline">Advance &#183; Lunge &#183; Parry &#183; Riposte</p>
+        <div class="opt">
+          <span class="opt-label">Mode</span>
+          <div class="seg" data-group="mode">
+            <button class="seg-btn active" data-val="cpu" type="button">vs CPU</button>
+            <button class="seg-btn" data-val="2p" type="button">2 Players</button>
+          </div>
+        </div>
+        <div class="opt" id="diffOpt">
+          <span class="opt-label">Difficulty</span>
+          <div class="seg" data-group="diff">
+            <button class="seg-btn" data-val="easy" type="button">Easy</button>
+            <button class="seg-btn active" data-val="normal" type="button">Normal</button>
+            <button class="seg-btn" data-val="hard" type="button">Hard</button>
+          </div>
+        </div>
+        <div class="opt">
+          <span class="opt-label">Bout</span>
+          <div class="seg" data-group="target">
+            <button class="seg-btn active" data-val="5" type="button">First to 5 touches</button>
+          </div>
+        </div>
+        <button class="btn primary" id="startBtn" type="button">On Guard</button>
+        <p class="best">Best bout streak vs CPU: <span id="bestStreak">0</span></p>
+      </div>
+    </div>
+    <!-- Result overlay -->
+    <div id="resultScreen" class="screen hidden">
+      <div class="panel">
+        <h2 id="resultTitle" class="result-title">VICTORY</h2>
+        <p id="resultSub" class="result-sub">Touches 0 - 0</p>
+        <p class="best">Best bout streak vs CPU: <span id="bestStreak2">0</span></p>
+        <div class="row">
+          <button class="btn primary" id="rematchBtn" type="button">Rematch</button>
+          <button class="btn" id="menuBtn" type="button">Main Menu</button>
+        </div>
+      </div>
+    </div>
+    <!-- Pause overlay -->
+    <div id="pauseScreen" class="screen hidden">
+      <div class="panel">
+        <h2 class="result-title">PAUSED</h2>
+        <p class="result-sub">Press P or Pause to resume</p>
+      </div>
+    </div>
+  </div>
+  <!-- ============ TOUCH CONTROLS ============ -->
+  <div id="touchControls" class="touch-controls hidden">
+    <div class="tc-cluster" id="tc1">
+      <button class="tbtn" type="button" data-p="1" data-act="left">&#9664;</button>
+      <button class="tbtn" type="button" data-p="1" data-act="right">&#9654;</button>
+      <button class="tbtn atk" type="button" data-p="1" data-act="attack">LUNGE</button>
+      <button class="tbtn pry" type="button" data-p="1" data-act="parry">PARRY</button>
+    </div>
+    <div class="tc-cluster hidden" id="tc2">
+      <button class="tbtn" type="button" data-p="2" data-act="left">&#9664;</button>
+      <button class="tbtn" type="button" data-p="2" data-act="right">&#9654;</button>
+      <button class="tbtn atk" type="button" data-p="2" data-act="attack">LUNGE</button>
+      <button class="tbtn pry" type="button" data-p="2" data-act="parry">PARRY</button>
+    </div>
+  </div>
+</div>
+<script>
+(function () { "use strict";
+  // ============ CANVAS & CONSTANTS ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  const GROUND_Y = 372;
+  const PISTE_L = 66, PISTE_R = W - 66;
+  const CENTER = (PISTE_L + PISTE_R) / 2;
+  const EN_GARDE = 72;                       // distance from centre to each en-garde line
+  const BACK_L = PISTE_L + 52, BACK_R = PISTE_R - 52;
+  const EDGE_L = PISTE_L + 16, EDGE_R = PISTE_R - 16;
+  const MIN_GAP = 40;                        // minimum body separation
+  const BODY_HW = 15;                        // body half width
+  const MOVE_SPEED = 3.15;                   // footwork speed
+  const LUNGE_SPEED = 6.6;                   // forward burst on lunge
+  const REACH = 74;                          // blade tip reach ahead of hip
+  const LUNGE_STARTUP = 6, LUNGE_ACTIVE = 8, LUNGE_RECOVERY = 16;
+  const PARRY_FRAMES = 9, PARRY_HOLD = 17;   // active parry window / total hold
+  const RIPOSTE_FRAMES = 34;                 // window after a parry to riposte
+  const STAGGER_DUR = 26, HURT_DUR = 18;
+  const MATCH_TO = 5;
+  const ROUND_TIME = 180 * 60;               // 3 minute bout clock
+  const STEP = 1000 / 60;
+  const INTRO_MATCH = 150, INTRO_POINT = 70;
+  const POINT_LEN = 78;
+  const DIFF = {
+    easy:   { react: 18, aggr: 0.30, thinkMin: 30, thinkMax: 60, parryP: 0.42, retreatP: 0.30 },
+    normal: { react: 11, aggr: 0.46, thinkMin: 18, thinkMax: 40, parryP: 0.62, retreatP: 0.45 },
+    hard:   { react: 6,  aggr: 0.62, thinkMin: 10, thinkMax: 26, parryP: 0.82, retreatP: 0.60 }
+  };
+  const DIFF_LABEL = { easy: "EASY", normal: "NORMAL", hard: "HARD" };
+  const COLORS = {
+    p1: { jacket: "#eef3fa", pants: "#cfd9e8", mask: "#dbe4f1", trim: "#3f7bff", trim2: "#8fb6ff" },
+    p2: { jacket: "#f7efee", pants: "#e2cfcd", mask: "#f0dedd", trim: "#ff5a48", trim2: "#ff9c90" }
+  };
+  // ============ AUDIO (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) { try { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur); } catch (e) { /* audio unavailable, ignore */ } }
+  // ============ DOM ELEMENTS ============
+  const menuScreen = document.getElementById("menuScreen");
+  const resultScreen = document.getElementById("resultScreen");
+  const pauseScreen = document.getElementById("pauseScreen");
+  const resultTitle = document.getElementById("resultTitle");
+  const resultSub = document.getElementById("resultSub");
+  const bestStreakEl = document.getElementById("bestStreak");
+  const bestStreakEl2 = document.getElementById("bestStreak2");
+  const diffOpt = document.getElementById("diffOpt");
+  const startBtn = document.getElementById("startBtn");
+  const rematchBtn = document.getElementById("rematchBtn");
+  const menuBtn = document.getElementById("menuBtn");
+  const pauseBtn = document.getElementById("pauseBtn");
+  const restartBtn = document.getElementById("restartBtn");
+  const touchControls = document.getElementById("touchControls");
+  const tc2 = document.getElementById("tc2");
+  // ============ PERSISTED SETTINGS ============
+  const settings = {
+    mode: localStorage.getItem("fencingMode") || "cpu",
+    diff: localStorage.getItem("fencingDiff") || "normal"
+  };
+  if (settings.mode !== "cpu" && settings.mode !== "2p") settings.mode = "cpu";
+  if (!DIFF[settings.diff]) settings.diff = "normal";
+  let bestStreak = Number(localStorage.getItem("fencingBestStreak") || 0);
+  let curStreak = 0;
+  // ============ GAME STATE ============
+  const PHASE = { MENU: "menu", INTRO: "intro", FIGHT: "fight", POINT: "point", MATCHOVER: "matchover" };
+  let phase = PHASE.MENU;
+  let paused = false;
+  let touches = [0, 0];
+  let lamps = [false, false];
+  let whiteLight = 0;
+  let introT = 0, introLen = INTRO_MATCH;
+  let pointT = 0, pointWinner = -1;
+  let roundTimer = ROUND_TIME;
+  let suddenDeath = false;
+  let hitstop = 0, shake = 0, flashWhite = 0;
+  let centerMsg = null;
+  let atkCounter = 0;
+  let sparks = [];
+  let floats = [];
+  let renderTick = 0;
+  // ============ FIGHTERS ============
+  function makeFighter(side) { return {
+      side: side,
+      startX: side === 1 ? CENTER - EN_GARDE : CENTER + EN_GARDE,
+      x: 0, vx: 0, facing: side,
+      state: "idle", phase: null, t: 0, animT: Math.random() * 100,
+      hitDone: false, parryWindow: 0, riposteWindow: 0, riposte: false, atkSeq: 0, startup: LUNGE_STARTUP,
+      flash: 0, isCpu: false,
+      prev: { left: false, right: false, attack: false, parry: false }
+    }; }
+  let p1 = makeFighter(1);
+  let p2 = makeFighter(-1);
+  function resetFighter(f) { f.x = f.startX;
+    f.facing = f.side;
+    f.vx = 0;
+    f.state = "idle";
+    f.phase = null;
+    f.t = 0;
+    f.hitDone = false;
+    f.parryWindow = 0;
+    f.riposteWindow = 0;
+    f.riposte = false;
+    f.flash = 0;
+    f.startup = LUNGE_STARTUP;
+    f.prev = { left: false, right: false, attack: false, parry: false }; }
+  // ============ CPU AI STATE ============
+  const ai = { think: 20, threat: false, threatT: 0 };
+  // ============ UTILITIES ============
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function rand(a, b) { return a + Math.random() * (b - a); }
+  function rr(x, y, w, h, r) { if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); return; }
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath(); }
+  // ============ INPUT: KEYBOARD ============
+  const keys = Object.create(null);
+  const GAME_KEYS = ["KeyA", "KeyD", "KeyW", "KeyS", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space", "Enter", "KeyP", "KeyR"];
+  document.addEventListener("keydown", function (e) { if (GAME_KEYS.indexOf(e.code) !== -1) e.preventDefault();
+    if (e.repeat) return;
+    keys[e.code] = true;
+    if (e.code === "KeyP") { togglePause(); return; }
+    if (e.code === "KeyR") { if (phase !== PHASE.MENU) startMatch(); return; }
+    if (e.code === "Space" || e.code === "Enter") { if (phase === PHASE.MENU || phase === PHASE.MATCHOVER) startMatch(); } });
+  document.addEventListener("keyup", function (e) { keys[e.code] = false; });
+  window.addEventListener("blur", function () { if (phase === PHASE.FIGHT && !paused) togglePause();
+    clearTouchHolds(); });
+  // ============ INPUT: TOUCH ============
+  const touchHold = { p1: { left: false, right: false }, p2: { left: false, right: false } };
+  const touchTap = { p1: { attack: false, parry: false }, p2: { attack: false, parry: false } };
+  function clearTouchHolds() { ["p1", "p2"].forEach(function (k) { touchHold[k].left = false; touchHold[k].right = false; });
+    Array.prototype.forEach.call(document.querySelectorAll(".tbtn"), function (b) { b.classList.remove("on"); }); }
+  function bindTouch(btn) { const player = btn.dataset.p === "2" ? "p2" : "p1";
+    const act = btn.dataset.act;
+    const isHold = (act === "left" || act === "right");
+    function press(e) { if (e) e.preventDefault();
+      btn.classList.add("on");
+      if (isHold) touchHold[player][act] = true;
+      else touchTap[player][act] = true; }
+    function release(e) { if (e) e.preventDefault();
+      btn.classList.remove("on");
+      if (isHold) touchHold[player][act] = false; }
+    btn.addEventListener("touchstart", press, { passive: false });
+    btn.addEventListener("touchend", release, { passive: false });
+    btn.addEventListener("touchcancel", release, { passive: false });
+    btn.addEventListener("mousedown", press);
+    btn.addEventListener("mouseup", release);
+    btn.addEventListener("mouseleave", release); }
+  Array.prototype.forEach.call(document.querySelectorAll(".tbtn"), bindTouch);
+  const isTouch = ("ontouchstart" in window) || navigator.maxTouchPoints > 0;
+  if (isTouch) touchControls.classList.remove("hidden");
+  function refreshTouchVisibility() { if (!isTouch) return;
+    tc2.classList.toggle("hidden", settings.mode !== "2p"); }
+  // ============ MENU SEGMENTED CONTROLS ============
+  Array.prototype.forEach.call(document.querySelectorAll(".seg"), function (group) { const key = group.dataset.group;
+    Array.prototype.forEach.call(group.querySelectorAll(".seg-btn"), function (btn) { btn.addEventListener("click", function () { Array.prototype.forEach.call(group.querySelectorAll(".seg-btn"), function (b) { b.classList.remove("active"); });
+        btn.classList.add("active");
+        if (key === "mode") { settings.mode = btn.dataset.val; localStorage.setItem("fencingMode", settings.mode); }
+        if (key === "diff") { settings.diff = btn.dataset.val; localStorage.setItem("fencingDiff", settings.diff); }
+        diffOpt.classList.toggle("hidden", settings.mode !== "cpu");
+        refreshTouchVisibility();
+        beep(620, 0.05, "square"); }); }); });
+  function syncMenu() { Array.prototype.forEach.call(document.querySelectorAll(".seg"), function (group) { const key = group.dataset.group;
+      Array.prototype.forEach.call(group.querySelectorAll(".seg-btn"), function (b) { b.classList.toggle("active", b.dataset.val === settings[key]); }); });
+    diffOpt.classList.toggle("hidden", settings.mode !== "cpu");
+    bestStreakEl.textContent = bestStreak;
+    bestStreakEl2.textContent = bestStreak;
+    refreshTouchVisibility(); }
+  // ============ GAME FLOW ============
+  function hideScreens() { menuScreen.classList.add("hidden");
+    resultScreen.classList.add("hidden");
+    pauseScreen.classList.add("hidden"); }
+  function startMatch() { hideScreens();
+    paused = false;
+    pauseBtn.textContent = "Pause";
+    touches = [0, 0];
+    lamps = [false, false];
+    suddenDeath = false;
+    hitstop = 0; shake = 0; flashWhite = 0;
+    sparks = []; floats = [];
+    atkCounter = 0;
+    p1.isCpu = false;
+    p2.isCpu = (settings.mode === "cpu");
+    startPoint(INTRO_MATCH);
+    beep(760, 0.1, "square"); }
+  function startPoint(len) { resetFighter(p1);
+    resetFighter(p2);
+    sparks = []; floats = [];
+    roundTimer = ROUND_TIME;
+    introT = 0;
+    introLen = len;
+    centerMsg = null;
+    pointWinner = -1;
+    ai.think = 20; ai.threat = false; ai.threatT = 0;
+    phase = PHASE.INTRO; }
+  function awardPoint(idx, label, side) { touches[idx] += 1;
+    lamps[idx] = true;
+    lamps[1 - idx] = false;
+    pointWinner = idx;
+    phase = PHASE.POINT;
+    pointT = 0;
+    showCenter(label, side === 1 ? "#8fb6ff" : "#ff9c90", 42);
+    shake = 10;
+    beep(880, 0.12, "square");
+    if (idx === 1) { setTimeout(function () { beep(1180, 0.12, "square"); }, 90); } }
+  function noTouch() { pointWinner = -1;
+    phase = PHASE.POINT;
+    pointT = 0;
+    lamps = [false, false];
+    showCenter("SIMULTANEOUS", "#f2f5fa", 32);
+    beep(300, 0.1, "triangle"); }
+  function endPoint() { lamps = [false, false]; whiteLight = 0;
+    if (suddenDeath || touches[0] >= MATCH_TO || touches[1] >= MATCH_TO) {
+      const win = touches[0] >= MATCH_TO ? 0 : (touches[1] >= MATCH_TO ? 1 : (touches[0] > touches[1] ? 0 : 1));
+      endMatch(win);
+    } else { startPoint(INTRO_POINT); } }
+  function endMatch(winner) { phase = PHASE.MATCHOVER;
+    let title, sub, lose = false;
+    if (settings.mode === "cpu") { if (winner === 0) { curStreak++;
+        if (curStreak > bestStreak) { bestStreak = curStreak; localStorage.setItem("fencingBestStreak", String(bestStreak)); }
+        title = "VICTORY";
+        sub = "Touches " + touches[0] + " - " + touches[1] + "  \u00B7  Streak " + curStreak; } else { curStreak = 0;
+        title = "DEFEATED";
+        sub = "Touches " + touches[0] + " - " + touches[1];
+        lose = true; } } else { title = winner === 0 ? "PLAYER 1 WINS" : "PLAYER 2 WINS";
+      sub = "Touches " + touches[0] + " - " + touches[1]; }
+    resultTitle.textContent = title;
+    resultTitle.classList.toggle("lose", lose);
+    resultSub.textContent = sub;
+    bestStreakEl.textContent = bestStreak;
+    bestStreakEl2.textContent = bestStreak;
+    resultScreen.classList.remove("hidden");
+    if (!lose) { beep(660, 0.12, "square");
+      setTimeout(function () { beep(880, 0.12, "square"); }, 130);
+      setTimeout(function () { beep(1180, 0.24, "square"); }, 260); } else { beep(300, 0.18, "sawtooth");
+      setTimeout(function () { beep(200, 0.3, "sawtooth"); }, 180); } }
+  function togglePause() { if (phase === PHASE.MENU || phase === PHASE.MATCHOVER) return;
+    paused = !paused;
+    pauseBtn.textContent = paused ? "Resume" : "Pause";
+    pauseScreen.classList.toggle("hidden", !paused);
+    beep(paused ? 420 : 620, 0.07, "triangle");
+    clearTouchHolds(); }
+  function goMenu() { phase = PHASE.MENU;
+    paused = false;
+    pauseBtn.textContent = "Pause";
+    hideScreens();
+    menuScreen.classList.remove("hidden");
+    syncMenu(); }
+  startBtn.addEventListener("click", startMatch);
+  rematchBtn.addEventListener("click", startMatch);
+  menuBtn.addEventListener("click", goMenu);
+  pauseBtn.addEventListener("click", togglePause);
+  restartBtn.addEventListener("click", function () { if (phase !== PHASE.MENU) startMatch(); });
+  // ============ CENTER MESSAGE ============
+  function showCenter(text, color, size) { centerMsg = { text: text, color: color || "#dfe9ff", t: 0, life: 60, size: size || 40 }; }
+  // ============ EFFECTS & PARTICLES ============
+  function spawnSparks(x, y, n, colors, speed, size) { for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2;
+      const sp = rand(speed * 0.35, speed);
+      sparks.push({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1, life: rand(14, 26), maxLife: 26, size: rand(size * 0.6, size), color: colors[(Math.random() * colors.length) | 0] }); } }
+  function addFloat(x, y, text, color, size) { floats.push({ x: x, y: y, text: text, color: color, life: 44, maxLife: 44, size: size || 22 }); }
+  function updateEffects() { for (let i = sparks.length - 1; i >= 0; i--) { const s = sparks[i];
+      s.x += s.vx; s.y += s.vy;
+      s.vy += 0.18; s.vx *= 0.96;
+      s.life -= 1;
+      if (s.life <= 0) sparks.splice(i, 1); }
+    for (let i = floats.length - 1; i >= 0; i--) { const fl = floats[i];
+      fl.y -= 0.8; fl.life -= 1;
+      if (fl.life <= 0) floats.splice(i, 1); }
+    if (centerMsg) { centerMsg.t += 1;
+      if (centerMsg.t > centerMsg.life) centerMsg = null; }
+    if (shake > 0) shake *= 0.86;
+    if (shake < 0.3) shake = 0;
+    if (whiteLight > 0) whiteLight -= 1;
+    if (flashWhite > 0) flashWhite -= 1; }
+  // ============ INPUT MAPPING ============
+  function readInput(which) { const hold = which === 1 ? touchHold.p1 : touchHold.p2;
+    const tap = which === 1 ? touchTap.p1 : touchTap.p2;
+    let left = false, right = false, attack = false, parry = false;
+    if (which === 1) { left = keys["KeyA"] || (settings.mode === "cpu" && keys["ArrowLeft"]);
+      right = keys["KeyD"] || (settings.mode === "cpu" && keys["ArrowRight"]);
+      attack = keys["KeyW"] || keys["Space"] || (settings.mode === "cpu" && keys["ArrowUp"]);
+      parry = keys["KeyS"] || (settings.mode === "cpu" && keys["ArrowDown"]); } else { left = keys["ArrowLeft"];
+      right = keys["ArrowRight"];
+      attack = keys["ArrowUp"];
+      parry = keys["ArrowDown"]; }
+    left = left || hold.left;
+    right = right || hold.right;
+    attack = attack || tap.attack;
+    parry = parry || tap.parry;
+    tap.attack = false; tap.parry = false;
+    return { left: left, right: right, attack: attack, parry: parry }; }
+  // ============ FIGHTER UPDATE ============
+  function faceOpponent(f, o) { if (f.state === "idle" || f.state === "walk" || f.state === "parry") { if (Math.abs(o.x - f.x) > 6) f.facing = o.x > f.x ? 1 : -1; } }
+  function updateFighter(f, o, inp) { f.animT += 1;
+    if (f.flash > 0) f.flash -= 1;
+    if (f.parryWindow > 0) f.parryWindow -= 1;
+    if (f.riposteWindow > 0) f.riposteWindow -= 1;
+    const canAct = (f.state === "idle" || f.state === "walk");
+    if (canAct && inp.parry && !f.prev.parry) { f.state = "parry"; f.t = 0; f.parryWindow = PARRY_FRAMES; f.vx = 0;
+      beep(520, 0.05, "sine"); }
+    else if (canAct && inp.attack && !f.prev.attack) { f.state = "lunge"; f.t = 0; f.phase = "startup"; f.hitDone = false;
+      f.riposte = f.riposteWindow > 0;
+      f.startup = f.riposte ? 3 : LUNGE_STARTUP;
+      f.atkSeq = ++atkCounter;
+      f.vx = 0; }
+    switch (f.state) {
+      case "idle":
+      case "walk": { let mv = 0;
+        if (inp.left) mv -= 1;
+        if (inp.right) mv += 1;
+        f.vx = mv * MOVE_SPEED;
+        f.state = mv !== 0 ? "walk" : "idle";
+        break; }
+      case "parry": { f.t += 1;
+        f.vx = 0;
+        if (f.t >= PARRY_HOLD) f.state = "idle";
+        break; }
+      case "lunge": { f.t += 1;
+        const S = f.startup;
+        if (f.t < S) { f.phase = "startup"; f.vx = f.facing * 1.5; }
+        else if (f.t < S + LUNGE_ACTIVE) { if (f.phase !== "active") { f.phase = "active"; f.vx = f.facing * LUNGE_SPEED; } f.vx *= 0.82; }
+        else if (f.t < S + LUNGE_ACTIVE + LUNGE_RECOVERY) { f.phase = "recovery"; f.vx *= 0.78; }
+        else { f.state = "idle"; f.phase = null; f.vx = 0; }
+        break; }
+      case "stagger": { f.t += 1;
+        f.vx *= 0.88;
+        if (f.t > STAGGER_DUR) f.state = "idle";
+        break; }
+      case "hurt": { f.t += 1;
+        f.vx *= 0.88;
+        if (f.t > HURT_DUR) f.state = "idle";
+        break; } }
+    f.x += f.vx;
+    f.x = clamp(f.x, EDGE_L, EDGE_R);
+    faceOpponent(f, o);
+    f.prev = inp; }
+  function separate(a, b) { const d = b.x - a.x;
+    if (Math.abs(d) < MIN_GAP) { const push = (MIN_GAP - Math.abs(d)) / 2 * (d >= 0 ? 1 : -1);
+      a.x -= push; b.x += push;
+      a.x = clamp(a.x, EDGE_L, EDGE_R);
+      b.x = clamp(b.x, EDGE_L, EDGE_R); } }
+  // ============ COMBAT ============
+  function outcome(a, d) { if (a.state !== "lunge" || a.phase !== "active" || a.hitDone) return null;
+    const gap = (d.x - a.x) * a.facing;
+    if (gap > 0 && gap < REACH + BODY_HW) { if (d.state === "parry" && d.parryWindow > 0) return "parry"; return "touch"; }
+    return null; }
+  function resolveCombat() { const o1 = outcome(p1, p2);
+    const o2 = outcome(p2, p1);
+    if (o1 === "parry") { doParry(p2, p1); return; }
+    if (o2 === "parry") { doParry(p1, p2); return; }
+    if (o1 === "touch" && o2 === "touch") { if (p1.atkSeq < p2.atkSeq) doTouch(p1, p2);
+      else if (p2.atkSeq < p1.atkSeq) doTouch(p2, p1);
+      else { p1.hitDone = true; p2.hitDone = true;
+        noTouch(); } return; }
+    if (o1 === "touch") { doTouch(p1, p2); return; }
+    if (o2 === "touch") { doTouch(p2, p1); return; } }
+  function doParry(defender, attacker) { const midX = (attacker.x + defender.x) / 2, midY = GROUND_Y - 120;
+    attacker.hitDone = true;
+    attacker.state = "stagger"; attacker.t = 0; attacker.phase = null;
+    attacker.vx = -attacker.facing * 2.6;
+    defender.parryWindow = 0;
+    defender.riposteWindow = RIPOSTE_FRAMES;
+    defender.state = "parry"; defender.t = 0; defender.vx = 0;
+    spawnSparks(midX, midY, 20, ["#ffffff", "#d7ffee", "#9ad0ff"], 7.5, 4.2);
+    addFloat(midX, midY - 16, "PARRY!", "#eafff6", 26);
+    whiteLight = 16; hitstop = 12; shake = 12;
+    beep(1450, 0.1, "square");
+    setTimeout(function () { beep(980, 0.14, "triangle"); }, 70); }
+  function doTouch(attacker, defender) { const midX = (attacker.x + defender.x) / 2, midY = GROUND_Y - 118;
+    attacker.hitDone = true;
+    defender.state = "hurt"; defender.t = 0; defender.vx = attacker.facing * 4.4; defender.flash = 10;
+    const idx = attacker.side === 1 ? 0 : 1;
+    const label = attacker.riposte ? "RIPOSTE!" : "TOUCH\u00E9!";
+    spawnSparks(midX, midY, 22, attacker.side === 1 ? ["#ffffff", "#9ad0ff", "#dfeaff"] : ["#ffffff", "#ff9c90", "#ffd9cf"], 7.5, 4.2);
+    addFloat(midX, midY - 14, label, attacker.side === 1 ? "#8fb6ff" : "#ff9c90", 24);
+    attacker.riposte = false; attacker.riposteWindow = 0;
+    hitstop = 10; shake = 14; flashWhite = 8;
+    awardPoint(idx, label, attacker.side);
+    beep(170, 0.2, "sawtooth"); }
+  // ============ CPU AI ============
+  function updateCpu(cpu, human) { const cfg = DIFF[settings.diff];
+    const inp = { left: false, right: false, attack: false, parry: false };
+    if (cpu.state === "lunge" || cpu.state === "parry" || cpu.state === "stagger" || cpu.state === "hurt") return inp;
+    const dist = Math.abs(human.x - cpu.x);
+    const toR = human.x > cpu.x;
+    // React to incoming attack with a possible parry
+    if (human.state === "lunge" && human.phase === "startup") { ai.threat = true; ai.threatT = cfg.react; }
+    if (ai.threatT > 0) { ai.threatT -= 1;
+      if (ai.threatT === 0 && ai.threat && dist < REACH + BODY_HW + 28 && Math.random() < cfg.parryP) { inp.parry = true; ai.threat = false; return inp; } }
+    if (human.state !== "lunge") ai.threat = false;
+    // Footwork / attack decision
+    if (ai.think > 0) { ai.think -= 1; } else { ai.think = Math.round(rand(cfg.thinkMin, cfg.thinkMax));
+      const pref = 82;
+      const staggerTarget = (human.state === "stagger" || human.state === "hurt");
+      if (staggerTarget && dist < REACH + BODY_HW + 24) { inp.attack = true; }
+      else if (dist > pref + 16) { if (Math.random() < cfg.aggr * 0.35 && dist < REACH + BODY_HW + 30) inp.attack = true;
+        else { inp.right = toR; inp.left = !toR; } }
+      else if (dist < pref - 22) { if (Math.random() < cfg.retreatP) { inp.left = toR; inp.right = !toR; }
+        else { inp.attack = true; } }
+      else { const r = Math.random();
+        if (r < cfg.aggr) inp.attack = true;
+        else if (r < cfg.aggr + 0.28) { inp.right = toR; inp.left = !toR; }
+        else { inp.left = toR; inp.right = !toR; } } }
+    return inp; }
+  // ============ MAIN UPDATE ============
+  function update() { if (paused) return;
+    if (hitstop > 0) { hitstop -= 1; updateEffects(); return; }
+    if (phase === PHASE.MENU || phase === PHASE.MATCHOVER) { updateEffects(); return; }
+    if (phase === PHASE.INTRO) { introT += 1;
+      if (introT === 40 || introT === 96) beep(520, 0.06, "triangle");
+      if (introT >= introLen) { phase = PHASE.FIGHT; beep(980, 0.14, "square"); }
+      updateEffects();
+      return; }
+    if (phase === PHASE.POINT) { pointT += 1;
+      p1.x += p1.vx; p2.x += p2.vx;
+      p1.vx *= 0.86; p2.vx *= 0.86;
+      p1.x = clamp(p1.x, EDGE_L, EDGE_R);
+      p2.x = clamp(p2.x, EDGE_L, EDGE_R);
+      if (p1.state === "hurt" || p1.state === "stagger") p1.t += 1;
+      if (p2.state === "hurt" || p2.state === "stagger") p2.t += 1;
+      if (pointT >= POINT_LEN) endPoint();
+      updateEffects();
+      return; }
+    // ---- FIGHT ----
+    updateFighter(p1, p2, readInput(1));
+    if (p2.isCpu) updateFighter(p2, p1, updateCpu(p2, p1));
+    else updateFighter(p2, p1, readInput(2));
+    separate(p1, p2);
+    if (phase === PHASE.FIGHT) { resolveCombat(); }
+    // off-piste penalty (retreat past your own back limit)
+    if (phase === PHASE.FIGHT) {
+      if (p1.state !== "hurt" && p1.x < BACK_L) { spawnSparks(p1.x, GROUND_Y - 60, 14, ["#ffd76a", "#ffffff"], 5, 3); awardPoint(1, "OFF PISTE", 1); }
+      else if (p2.state !== "hurt" && p2.x > BACK_R) { spawnSparks(p2.x, GROUND_Y - 60, 14, ["#ffd76a", "#ffffff"], 5, 3); awardPoint(0, "OFF PISTE", -1); } }
+    roundTimer -= 1;
+    if (roundTimer <= 0 && !suddenDeath && phase === PHASE.FIGHT) {
+      if (touches[0] > touches[1]) endMatch(0);
+      else if (touches[1] > touches[0]) endMatch(1);
+      else { suddenDeath = true; roundTimer = 0; showCenter("SUDDEN DEATH", "#ffd76a", 34); beep(700, 0.12, "triangle"); } }
+    updateEffects(); }
+  // ============ RENDER: ARENA & PISTE ============
+  function drawArena() { const g = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+    g.addColorStop(0, "#0c1220");
+    g.addColorStop(0.6, "#131c30");
+    g.addColorStop(1, "#1a2439");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, GROUND_Y);
+    // spotlights
+    for (let i = 0; i < 3; i++) { const lx = W * (0.22 + i * 0.28);
+      const sg = ctx.createRadialGradient(lx, -40, 10, lx, GROUND_Y, 340);
+      sg.addColorStop(0, "rgba(150,190,255,0.20)");
+      sg.addColorStop(1, "rgba(150,190,255,0)");
+      ctx.fillStyle = sg;
+      ctx.fillRect(lx - 220, 0, 440, GROUND_Y); }
+    // crowd bokeh
+    for (let i = 0; i < 40; i++) { const bx = (i * 137 + 23) % W, by = 30 + (i % 5) * 22;
+      ctx.fillStyle = "rgba(180,205,255," + (0.04 + (i % 3) * 0.02) + ")";
+      ctx.beginPath();
+      ctx.arc(bx, by, 3 + (i % 3), 0, Math.PI * 2);
+      ctx.fill(); }
+    // floor
+    ctx.fillStyle = "#080b12";
+    ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
+    // piste strip
+    const pg = ctx.createLinearGradient(0, GROUND_Y - 6, 0, GROUND_Y + 30);
+    pg.addColorStop(0, "#4a5568");
+    pg.addColorStop(0.35, "#39424f");
+    pg.addColorStop(1, "#232a35");
+    ctx.fillStyle = pg;
+    ctx.fillRect(PISTE_L, GROUND_Y - 4, PISTE_R - PISTE_L, 30);
+    // piste top highlight
+    ctx.strokeStyle = "rgba(190,210,240,0.5)";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(PISTE_L, GROUND_Y - 4); ctx.lineTo(PISTE_R, GROUND_Y - 4); ctx.stroke();
+    // piste edge ends
+    ctx.strokeStyle = "rgba(150,175,215,0.55)";
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(PISTE_L, GROUND_Y - 4); ctx.lineTo(PISTE_L, GROUND_Y + 26);
+    ctx.moveTo(PISTE_R, GROUND_Y - 4); ctx.lineTo(PISTE_R, GROUND_Y + 26); ctx.stroke();
+    // markings helper
+    function mark(x, color, dash, lw) { ctx.save();
+      ctx.setLineDash(dash || []);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lw || 2;
+      ctx.beginPath(); ctx.moveTo(x, GROUND_Y - 4); ctx.lineTo(x, GROUND_Y + 26); ctx.stroke();
+      ctx.restore(); }
+    mark(CENTER, "rgba(230,240,255,0.85)", [6, 6], 2.5);      // centre line
+    mark(CENTER - EN_GARDE, "rgba(200,215,240,0.5)");
+    mark(CENTER + EN_GARDE, "rgba(200,215,240,0.5)");
+    mark(BACK_L, "rgba(255,120,90,0.7)", [4, 5]);              // warning / back-limit lines
+    mark(BACK_R, "rgba(255,120,90,0.7)", [4, 5]);
+    mark(EDGE_L, "rgba(255,90,70,0.55)");
+    mark(EDGE_R, "rgba(255,90,70,0.55)");
+    // range brackets on the piste floor
+    drawRangeBracket(p1);
+    drawRangeBracket(p2); }
+  function drawRangeBracket(f) { const o = f === p1 ? p2 : p1;
+    const gap = Math.abs(o.x - f.x);
+    const inRange = gap < REACH + BODY_HW + 26;
+    const x0 = f.x, x1 = f.x + f.facing * (REACH + BODY_HW);
+    ctx.save();
+    ctx.strokeStyle = inRange ? (f.side === 1 ? "rgba(120,170,255,0.85)" : "rgba(255,130,110,0.85)") : "rgba(180,200,230,0.18)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([3, 4]);
+    ctx.beginPath(); ctx.moveTo(x0, GROUND_Y + 20); ctx.lineTo(x1, GROUND_Y + 20); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(x1, GROUND_Y + 16); ctx.lineTo(x1, GROUND_Y + 24); ctx.stroke();
+    ctx.restore(); }
+  // ============ RENDER: FENCER ============
+  function drawFencer(f) { const pal = f.side === 1 ? COLORS.p1 : COLORS.p2;
+    const flash = f.flash > 0 && (Math.floor(f.flash / 2) % 2 === 0);
+    const t = f.animT;
+    const bob = Math.sin(renderTick * 0.07 + t) * 1.8;
+    // pose defaults (en-garde)
+    let hipX = 0, hipY = -70, lean = 0.06, fFoot = 24, bFoot = -26;
+    let handX = 30, handY = -100, bAng = -0.05, bLen = 56;
+    switch (f.state) {
+      case "walk": { const s = Math.sin(t * 0.35); fFoot = 24 + s * 8; bFoot = -26 - s * 8; hipY = -68 - Math.abs(s) * 1.5; break; }
+      case "parry": { handX = 15; handY = -114; bAng = -0.9; bLen = 52; fFoot = 20; bFoot = -24; hipY = -68; break; }
+      case "stagger":
+      case "hurt": { lean = -0.2; hipX = -6; handX = -8; handY = -96; bAng = 0.65; bLen = 50; fFoot = 16; bFoot = -20; break; }
+      case "lunge": {
+        if (f.phase === "startup") { const k = f.t / f.startup; hipX = -5 * k; hipY = -72 + 6 * k; handX = 30 - 16 * k; handY = -100 - 2 * k; bAng = -0.05 - 0.25 * k; bFoot = -26 - 6 * k; bLen = 52; }
+        else if (f.phase === "active") { hipX = 16; hipY = -56; fFoot = 50; bFoot = -24; handX = 40; handY = -96; bAng = -0.02; bLen = 64; lean = 0.18; }
+        else { const k = Math.min(1, (f.t - f.startup - LUNGE_ACTIVE) / LUNGE_RECOVERY);
+          hipX = 16 * (1 - k); hipY = -56 - 14 * k; fFoot = 50 * (1 - k) + 24 * k; bFoot = -24 * (1 - k) - 26 * k;
+          handX = 40 * (1 - k) + 30 * k; handY = -96; bLen = 64 * (1 - k) + 56 * k; bAng = -0.02 * (1 - k) - 0.05 * k; lean = 0.18 * (1 - k) + 0.06 * k; }
+        break; }
+      default: hipY = -70 + bob * 0.5; }
+    const shoulderX = hipX, shoulderY = hipY - 44;
+    const kneeF_x = (hipX + fFoot) / 2 + 8, kneeF_y = (hipY + 0) / 2 - 3;
+    const kneeB_x = (hipX + bFoot) / 2 - 8, kneeB_y = (hipY + 0) / 2 - 3;
+    ctx.save();
+    ctx.translate(f.x, GROUND_Y);
+    ctx.scale(f.facing, 1);
+    // shadow
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
+    ctx.beginPath();
+    ctx.ellipse((hipX + 8), 0, 34, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineCap = "round";
+    // back leg
+    ctx.strokeStyle = flash ? "#ffffff" : pal.pants;
+    ctx.lineWidth = 10;
+    ctx.beginPath(); ctx.moveTo(hipX, hipY); ctx.lineTo(kneeB_x, kneeB_y); ctx.lineTo(bFoot, 0); ctx.stroke();
+    // back arm
+    ctx.strokeStyle = flash ? "#ffffff" : pal.jacket;
+    ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.moveTo(shoulderX, shoulderY + 4); ctx.lineTo(hipX - 14, hipY - 8); ctx.stroke();
+    // torso
+    ctx.fillStyle = flash ? "#ffffff" : pal.jacket;
+    ctx.beginPath();
+    ctx.moveTo(hipX - 13, hipY);
+    ctx.lineTo(hipX + 13, hipY);
+    ctx.lineTo(shoulderX + 12, shoulderY);
+    ctx.lineTo(shoulderX - 12, shoulderY);
+    ctx.closePath();
+    ctx.fill();
+    // jacket trim
+    ctx.fillStyle = flash ? "#ffffff" : pal.trim;
+    ctx.beginPath();
+    ctx.moveTo(hipX - 13, hipY);
+    ctx.lineTo(hipX - 13 + 5, hipY);
+    ctx.lineTo(shoulderX + 12 - 5, shoulderY);
+    ctx.lineTo(shoulderX + 12, shoulderY);
+    ctx.closePath();
+    ctx.fill();
+    // belt
+    ctx.fillStyle = flash ? "#ffffff" : pal.trim;
+    ctx.fillRect(hipX - 14, hipY - 3, 28, 6);
+    // front leg
+    ctx.strokeStyle = flash ? "#ffffff" : pal.pants;
+    ctx.lineWidth = 11;
+    ctx.beginPath(); ctx.moveTo(hipX, hipY); ctx.lineTo(kneeF_x, kneeF_y); ctx.lineTo(fFoot, 0); ctx.stroke();
+    // front arm (toward blade)
+    ctx.strokeStyle = flash ? "#ffffff" : pal.jacket;
+    ctx.lineWidth = 9;
+    ctx.beginPath(); ctx.moveTo(shoulderX, shoulderY + 2); ctx.lineTo(handX, handY); ctx.stroke();
+    // head + mask
+    ctx.fillStyle = flash ? "#ffffff" : pal.mask;
+    ctx.beginPath();
+    ctx.arc(shoulderX + 4, shoulderY - 9, 10, 0, Math.PI * 2);
+    ctx.fill();
+    // mask bib
+    ctx.fillStyle = flash ? "#ffffff" : pal.jacket;
+    ctx.beginPath();
+    ctx.arc(shoulderX + 4, shoulderY - 9, 10, -0.4, 1.4);
+    ctx.lineTo(shoulderX + 14, shoulderY - 9);
+    ctx.closePath();
+    ctx.fill();
+    // visor
+    ctx.fillStyle = flash ? "#ffffff" : "#2a3346";
+    ctx.beginPath();
+    ctx.moveTo(shoulderX - 2, shoulderY - 12);
+    ctx.lineTo(shoulderX + 13, shoulderY - 12);
+    ctx.lineTo(shoulderX + 13, shoulderY - 7);
+    ctx.lineTo(shoulderX - 2, shoulderY - 7);
+    ctx.closePath();
+    ctx.fill();
+    // mesh hint
+    ctx.strokeStyle = flash ? "#ffffff" : "rgba(200,215,240,0.5)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(shoulderX + 1 + i * 4, shoulderY - 12); ctx.lineTo(shoulderX + 1 + i * 4, shoulderY - 7); ctx.stroke(); }
+    // trim on mask crest
+    ctx.fillStyle = flash ? "#ffffff" : pal.trim2;
+    ctx.beginPath();
+    ctx.arc(shoulderX + 4, shoulderY - 18, 4, 0, Math.PI * 2);
+    ctx.fill();
+    // blade (drawn from hand, extends forward)
+    ctx.save();
+    ctx.translate(handX, handY);
+    ctx.rotate(bAng);
+    // guard
+    ctx.fillStyle = flash ? "#ffffff" : "#c9d3e0";
+    ctx.beginPath();
+    ctx.arc(0, 0, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = flash ? "#ffffff" : "#8d99a8";
+    ctx.beginPath();
+    ctx.arc(0, 0, 3.4, 0, Math.PI * 2);
+    ctx.fill();
+    // blade
+    const bg = ctx.createLinearGradient(0, 0, bLen, 0);
+    bg.addColorStop(0, "#dfe6f0");
+    bg.addColorStop(1, "#ffffff");
+    ctx.strokeStyle = flash ? "#ffffff" : bg;
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(bLen, -1); ctx.stroke();
+    // tip button
+    ctx.fillStyle = flash ? "#ffffff" : "#ffe9a8";
+    ctx.beginPath(); ctx.arc(bLen, -1, 2.4, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    ctx.restore(); }
+  // ============ RENDER: EFFECTS ============
+  function drawSparks() { ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (let i = 0; i < sparks.length; i++) { const s = sparks[i];
+      const a = s.life / s.maxLife;
+      ctx.globalAlpha = a;
+      ctx.fillStyle = s.color;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.size * (0.4 + 0.6 * a), 0, Math.PI * 2);
+      ctx.fill(); }
+    ctx.restore();
+    ctx.globalAlpha = 1; }
+  function drawFloats() { ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (let i = 0; i < floats.length; i++) { const f = floats[i];
+      const a = f.life / f.maxLife;
+      ctx.globalAlpha = a;
+      ctx.font = "700 " + f.size + "px Georgia, 'Times New Roman', serif";
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "rgba(0,0,0,0.7)";
+      ctx.strokeText(f.text, f.x, f.y);
+      ctx.fillStyle = f.color;
+      ctx.fillText(f.text, f.x, f.y); }
+    ctx.restore();
+    ctx.globalAlpha = 1; }
+  // ============ RENDER: HUD ============
+  function drawLamp(x, y, on, color) { const r = 13;
+    if (on) { const gl = ctx.createRadialGradient(x, y, 2, x, y, r * 3);
+      gl.addColorStop(0, color);
+      gl.addColorStop(0.35, "rgba(255,255,255,0.35)");
+      gl.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.globalAlpha = 0.6;
+      ctx.fillStyle = gl;
+      ctx.beginPath(); ctx.arc(x, y, r * 3, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1; }
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = on ? color : "rgba(255,255,255,0.09)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,0.6)"; ctx.lineWidth = 2; ctx.stroke();
+    if (on) { ctx.beginPath(); ctx.arc(x - 4, y - 4, 4, 0, Math.PI * 2); ctx.fillStyle = "rgba(255,255,255,0.7)"; ctx.fill(); } }
+  function drawPip(x, y, on, color) { ctx.beginPath();
+    ctx.arc(x, y, 5, 0, Math.PI * 2);
+    ctx.fillStyle = on ? color : "rgba(255,255,255,0.13)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,0.55)"; ctx.lineWidth = 1.2; ctx.stroke(); }
+  function drawHUD() { if (phase === PHASE.MENU) return;
+    ctx.textBaseline = "middle";
+    const cx = CENTER;
+    // lamp panel backdrop
+    ctx.fillStyle = "rgba(6,10,18,0.5)";
+    rr(cx - 170, 20, 340, 42, 12); ctx.fill();
+    ctx.strokeStyle = "rgba(120,165,255,0.28)"; ctx.lineWidth = 1.5;
+    rr(cx - 170, 20, 340, 42, 12); ctx.stroke();
+    // three lamps: red (left), white (centre), green (right)
+    drawLamp(cx - 92, 41, lamps[0], "#ff3b30");
+    drawLamp(cx, 41, whiteLight > 0, "#f4f7ff");
+    drawLamp(cx + 92, 41, lamps[1], "#34c759");
+    // touch pips
+    for (let i = 0; i < MATCH_TO; i++) { drawPip(cx - 132 - i * 16, 41, i < touches[0], "#ff3b30");
+      drawPip(cx + 132 + i * 16, 41, i < touches[1], "#34c759"); }
+    // names
+    ctx.font = "700 13px 'Trebuchet MS', sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#8fb6ff";
+    ctx.fillText("PLAYER 1", 24, 74);
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#ff9c90";
+    ctx.fillText(p2.isCpu ? ("CPU \u00B7 " + DIFF_LABEL[settings.diff]) : "PLAYER 2", W - 24, 74);
+    // timer pill
+    const secs = Math.max(0, Math.ceil(roundTimer / 60));
+    const mm = Math.floor(secs / 60), ss = secs % 60;
+    const tlabel = suddenDeath ? "SD" : (mm + ":" + (ss < 10 ? "0" + ss : ss));
+    ctx.textAlign = "center";
+    ctx.fillStyle = "rgba(6,10,18,0.55)";
+    rr(cx - 34, 72, 68, 24, 7); ctx.fill();
+    ctx.font = "700 15px 'Trebuchet MS', sans-serif";
+    ctx.fillStyle = suddenDeath ? "#ffd76a" : (secs <= 15 ? "#ff6a58" : "#dfe9ff");
+    ctx.fillText(tlabel, cx, 85); }
+  // ============ RENDER: CENTER TEXT ============
+  function drawBigText(text, color, size, x, y, alpha) { ctx.save();
+    ctx.globalAlpha = clamp(alpha, 0, 1);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "700 " + size + "px Georgia, 'Times New Roman', serif";
+    ctx.lineWidth = Math.max(4, size * 0.09);
+    ctx.strokeStyle = "rgba(0,0,0,0.72)";
+    ctx.strokeText(text, x, y);
+    ctx.fillStyle = color;
+    ctx.fillText(text, x, y);
+    ctx.restore(); }
+  function drawCenter() { if (phase === PHASE.INTRO) { let label, color;
+      if (introLen <= INTRO_POINT) { label = introT < 35 ? "EN GARDE" : "ALLEZ!"; color = introT < 35 ? "#dfe9ff" : "#8fb6ff"; }
+      else { if (introT < 50) { label = "EN GARDE"; color = "#dfe9ff"; }
+        else if (introT < 100) { label = "READY?"; color = "#a9c6ff"; }
+        else { label = "ALLEZ!"; color = "#8fb6ff"; } } drawBigText(label, color, 60, W / 2, H / 2 - 20, 1); }
+    if (centerMsg) { const k = centerMsg.t / centerMsg.life;
+      const a = k < 0.72 ? 1 : (1 - (k - 0.72) / 0.28);
+      drawBigText(centerMsg.text, centerMsg.color, centerMsg.size, W / 2, H / 2 - 40, a); } }
+  function drawVignette() { const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.34, W / 2, H / 2, H * 0.9);
+    vg.addColorStop(0, "rgba(0,0,0,0)");
+    vg.addColorStop(1, "rgba(0,0,0,0.6)");
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, W, H); }
+  // ============ RENDER LOOP ============
+  function render() { renderTick += 1;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    ctx.save();
+    if (shake > 0) ctx.translate(rand(-shake, shake), rand(-shake, shake));
+    drawArena();
+    drawFencer(p2);
+    drawFencer(p1);
+    drawSparks();
+    drawFloats();
+    ctx.restore();
+    if (flashWhite > 0) { ctx.fillStyle = "rgba(240,248,255," + (flashWhite / 8 * 0.22) + ")";
+      ctx.fillRect(0, 0, W, H); }
+    drawHUD();
+    drawCenter();
+    drawVignette(); }
+  // ============ MAIN LOOP (fixed timestep) ============
+  let lastTime = 0, accumulator = 0;
+  function loop(now) { requestAnimationFrame(loop);
+    if (!lastTime) lastTime = now;
+    let dt = now - lastTime;
+    lastTime = now;
+    if (dt > 250) dt = 250;
+    accumulator += dt;
+    let guard = 0;
+    while (accumulator >= STEP && guard < 5) { update();
+      accumulator -= STEP;
+      guard++; }
+    if (guard >= 5) accumulator = 0;
+    render(); }
+  // ============ INIT ============
+  syncMenu();
+  resetFighter(p1);
+  resetFighter(p2);
+  requestAnimationFrame(loop); })();
+</script>
+</body>
+</html>

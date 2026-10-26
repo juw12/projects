@@ -66,7 +66,7 @@ def build_landing_apps(catalog):
     """Map catalog entries to the {name, desc, links} rows the landing page needs."""
     landing = []
     for app in catalog:
-        if app.get("external") or app.get("work"):
+        if app.get("external") or app.get("work") or not app.get("listed", True):
             continue
         links = app["links"]
         landing.append({

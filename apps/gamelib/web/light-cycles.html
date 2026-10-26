@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Light Cycles</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 50% 0%, #0b1220 0%, #05070d 60%, #02040a 100%);
+    color: #dbeafe; font-family: "Courier New", Consolas, monospace;
+    overflow: hidden; touch-action: none; padding: 10px;
+  }
+  /* ============ APP SHELL ============ */
+  #app { width: min(97vw, 1000px); display: flex; flex-direction: column; gap: 10px; }
+  #titlebar { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 0 4px; }
+  h1 { font-size: clamp(18px, 3.4vw, 30px); letter-spacing: 6px; font-weight: bold; color: #e0fbff;
+       text-shadow: 0 0 8px #22d3ee, 0 0 22px rgba(34,211,238,.6); }
+  #career { font-size: 12px; letter-spacing: 1px; color: #67e8f9; opacity: .85; }
+  /* ============ HUD (rounds) ============ */
+  #hud { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
+  .chip { display: flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 20px;
+          font-size: 13px; font-weight: bold; letter-spacing: 1px;
+          background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.12);
+          transition: transform .15s ease, border-color .15s ease; }
+  .chip .dot { width: 11px; height: 11px; border-radius: 50%; box-shadow: 0 0 8px currentColor; background: currentColor; }
+  .chip.dead { opacity: .38; }
+  .chip.leader { transform: scale(1.06); border-color: currentColor; }
+  .chip .wins { color: #fff; }
+  #roundinfo { font-size: 12px; letter-spacing: 1px; color: #9fb6d6; padding: 0 6px; text-align: center; }
+  /* ============ GAME WRAP / CANVAS ============ */
+  #game-wrap { position: relative; width: 100%; border-radius: 12px; overflow: hidden;
+               box-shadow: 0 0 0 1px rgba(34,211,238,.25), 0 0 34px rgba(34,211,238,.18), 0 18px 50px rgba(0,0,0,.6); }
+  canvas { display: block; width: 100%; height: auto; background: #04060c; }
+  /* ============ OVERLAY SCREENS ============ */
+  .screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+            justify-content: center; gap: 12px; text-align: center; padding: 18px;
+            background: rgba(4,8,16,.86); backdrop-filter: blur(2px); transition: opacity .22s ease; z-index: 5; }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen h2 { font-size: clamp(22px, 4vw, 40px); letter-spacing: 5px; color: #e0fbff;
+               text-shadow: 0 0 10px #22d3ee, 0 0 26px rgba(244,114,182,.5); }
+  .screen p { font-size: 13px; color: #9fb6d6; letter-spacing: 1px; max-width: 620px; }
+  .screen .big { font-size: 15px; color: #fbbf24; letter-spacing: 2px; margin-top: 2px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
+  .row .label { font-size: 12px; color: #9fb6d6; letter-spacing: 1px; margin-right: 2px; }
+  button { font-family: inherit; font-size: 13px; font-weight: bold; letter-spacing: 1px; padding: 9px 18px;
+           border: none; border-radius: 9px; cursor: pointer; color: #04121a;
+           background: linear-gradient(180deg, #67e8f9, #22d3ee);
+           box-shadow: 0 4px 0 rgba(6,52,64,.55), 0 0 18px rgba(34,211,238,.4);
+           transition: transform .06s ease, filter .15s ease; user-select: none; -webkit-tap-highlight-color: transparent; }
+  button:hover { filter: brightness(1.1); }
+  button:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(6,52,64,.55); }
+  button.opt { background: rgba(255,255,255,.06); color: #cfe3f5; box-shadow: 0 3px 0 rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.14); }
+  button.opt:hover { background: rgba(255,255,255,.14); }
+  button.opt.active { background: linear-gradient(180deg, #f9a8d4, #f472b6); color: #2b0716; border-color: #f9a8d4;
+                      box-shadow: 0 3px 0 rgba(120,20,60,.5), 0 0 16px rgba(244,114,182,.55); }
+  button.ghost { background: transparent; color: #cfe3f5; border: 1px solid rgba(255,255,255,.22); box-shadow: none; }
+  #keyhelp { font-size: 11px; line-height: 1.6; color: #8fa6c4; letter-spacing: 1px; margin-top: 4px; }
+  #keyhelp b { color: #67e8f9; }
+  /* ============ BOTTOM CONTROL BAR ============ */
+  #controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 12px; }
+  /* ============ TOUCH PADS ============ */
+  #touchpads { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .pad { display: none; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px;
+         background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.10); }
+  .pad.show { display: flex; }
+  .pad .ptag { font-size: 11px; letter-spacing: 1px; font-weight: bold; }
+  .pad button { width: 62px; height: 52px; padding: 0; font-size: 20px; border-radius: 12px;
+                background: rgba(103,232,249,.14); color: #e0fbff; border: 1px solid rgba(103,232,249,.35);
+                box-shadow: 0 3px 0 rgba(0,0,0,.4); }
+  .pad button.boost { width: 84px; font-size: 12px; letter-spacing: 1px;
+                      background: rgba(251,191,36,.16); border-color: rgba(251,191,36,.45); color: #fde68a; }
+  .pad.p2 button { background: rgba(244,114,182,.14); border-color: rgba(244,114,182,.4); }
+  @media (max-width: 560px) { h1 { letter-spacing: 3px; } .pad button { width: 54px; height: 46px; } .pad button.boost { width: 66px; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ============ TITLE ============ -->
+  <div id="titlebar">
+    <h1>LIGHT CYCLES</h1>
+    <div id="career">Career match wins: <span id="careerWins">0</span></div>
+  </div>
+  <!-- ============ HUD ============ -->
+  <div id="hud"></div>
+  <div id="roundinfo">First to win the match takes the grid.</div>
+  <!-- ============ GAME ============ -->
+  <div id="game-wrap">
+    <canvas id="game" width="960" height="600"></canvas>
+    <!-- Start / setup screen -->
+    <div id="startScreen" class="screen">
+      <h2>LIGHT CYCLES</h2>
+      <p>Leave a solid wall of light behind you. Turn into any trail or wall and you derezze.
+         Last cycle riding wins the round.</p>
+      <div class="row">
+        <span class="label">MODE</span>
+        <button class="opt active" data-mode="cpu" type="button">VS CPU</button>
+        <button class="opt" data-mode="2p" type="button">2 PLAYERS</button>
+      </div>
+      <div class="row" id="aiRow">
+        <span class="label">CPU CYCLES</span>
+        <button class="opt" data-ai="1" type="button">1</button>
+        <button class="opt active" data-ai="2" type="button">2</button>
+        <button class="opt" data-ai="3" type="button">3</button>
+      </div>
+      <div class="row">
+        <span class="label">ROUNDS TO WIN</span>
+        <button class="opt active" data-win="3" type="button">3</button>
+        <button class="opt" data-win="5" type="button">5</button>
+      </div>
+      <button id="startBtn" type="button">START MATCH</button>
+      <div id="keyhelp">
+        <b>P1</b> A / D turn &nbsp;·&nbsp; W or Shift boost<br>
+        <b>P2</b> &larr; / &rarr; turn &nbsp;·&nbsp; &darr; or Space boost<br>
+        <b>P</b> pause &nbsp;·&nbsp; <b>R</b> restart match &nbsp;·&nbsp; touch pads appear on phones
+      </div>
+    </div>
+    <!-- Round / match result screen -->
+    <div id="endScreen" class="screen hidden">
+      <h2 id="endTitle">ROUND OVER</h2>
+      <p id="endSub">-</p>
+      <div class="big" id="endScore"></div>
+      <div class="row">
+        <button id="endPrimary" type="button">NEXT ROUND</button>
+        <button id="endMenu" class="ghost" type="button">MENU</button>
+      </div>
+    </div>
+    <!-- Pause overlay -->
+    <div id="pauseOverlay" class="screen hidden">
+      <h2>PAUSED</h2>
+      <p>Press P or tap Resume to continue the grid.</p>
+      <button id="resumeBtn" type="button">RESUME</button>
+    </div>
+  </div>
+  <!-- ============ BOTTOM BAR ============ -->
+  <div id="controls">
+    <button id="pauseBtn" class="opt" type="button">PAUSE</button>
+    <button id="restartBtn" class="opt" type="button">RESTART</button>
+    <button id="menuBtn" class="opt" type="button">MENU</button>
+  </div>
+  <!-- ============ TOUCH PADS ============ -->
+  <div id="touchpads">
+    <div class="pad p1" id="pad1">
+      <span class="ptag" style="color:#67e8f9">P1</span>
+      <button data-act="left" type="button">&#9664;</button>
+      <button data-act="right" type="button">&#9654;</button>
+      <button class="boost" data-act="boost" type="button">BOOST</button>
+    </div>
+    <div class="pad p2" id="pad2">
+      <button data-act="left" type="button">&#9664;</button>
+      <button data-act="right" type="button">&#9654;</button>
+      <button class="boost" data-act="boost" type="button">BOOST</button>
+      <span class="ptag" style="color:#f9a8d4">P2</span>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CANVAS & ARENA CONSTANTS ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  const COLS = 64, ROWS = 40;
+  const CELL = W / COLS;               // 15px grid cell, square arena
+  const TICK = 95;                     // ms per move step (base speed)
+  const BOOST_STEPS = 2;               // cells moved per step while boosting
+  const COUNTDOWN = 3.0;               // seconds before each round
+  const AI_LOOKAHEAD = 9;              // cells the CPU scans ahead
+
+  // ============ GAME STATE ============
+  const ST = { MENU: 0, COUNTDOWN: 1, PLAYING: 2, ROUNDOVER: 3, MATCHOVER: 4 };
+  let state = ST.MENU;
+  let paused = false;
+  let mode = "cpu";                    // "cpu" | "2p"
+  let aiCount = 2;
+  let roundsToWin = 3;
+  let cycles = [];                     // active light cycles
+  let grid = [];                       // ROWS x COLS owner map (0 = empty)
+  let matchWins = [];
+  let roundNum = 0;
+  let tickT = 0;                       // ms accumulator within a tick
+  let countdownT = 0;
+  let lastCountShown = 99;
+  let endTimer = null;
+  let shake = 0;
+  let particles = [];
+  let frame = 0;
+  let careerWins = Number(localStorage.getItem("lcCareerWins") || 0);
+
+  // ============ COLORS / SPAWN SLOTS ============
+  const PAL = {
+    cyan:   { color: "#22d3ee", glow: "#a5f3fc" },
+    pink:   { color: "#f472b6", glow: "#fbcfe8" },
+    orange: { color: "#fb923c", glow: "#fed7aa" },
+    lime:   { color: "#a3e635", glow: "#d9f99d" },
+    amber:  { color: "#fbbf24", glow: "#fde68a" }
+  };
+  // Spawn points keyed to arena edges, each aimed toward the centre.
+  const SPOTS = [
+    { x: 4,  y: 13, dir: { x: 1,  y: 0 } },   // 0: player 1
+    { x: 59, y: 26, dir: { x: -1, y: 0 } },   // 1: player 2 / CPU 1
+    { x: 32, y: 4,  dir: { x: 0,  y: 1 } },   // 2: CPU 2
+    { x: 32, y: 35, dir: { x: 0,  y: -1 } }   // 3: CPU 3
+  ];
+
+  // ============ DOM ============
+  const hudEl = document.getElementById("hud");
+  const roundInfoEl = document.getElementById("roundinfo");
+  const careerWinsEl = document.getElementById("careerWins");
+  const startScreen = document.getElementById("startScreen");
+  const endScreen = document.getElementById("endScreen");
+  const pauseOverlay = document.getElementById("pauseOverlay");
+  const endTitle = document.getElementById("endTitle");
+  const endSub = document.getElementById("endSub");
+  const endScore = document.getElementById("endScore");
+  const endPrimary = document.getElementById("endPrimary");
+  const endMenu = document.getElementById("endMenu");
+  const aiRow = document.getElementById("aiRow");
+  const pad1 = document.getElementById("pad1");
+  const pad2 = document.getElementById("pad2");
+  const pauseBtn = document.getElementById("pauseBtn");
+  careerWinsEl.textContent = careerWins;
+
+  // ============ SOUND (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      const v = vol == null ? 0.05 : vol;
+      g.gain.setValueAtTime(v, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable - ignore */ }
+  }
+
+  // ============ GRID / GEOMETRY HELPERS ============
+  function emptyGrid() {
+    const g = new Array(ROWS);
+    for (let y = 0; y < ROWS; y++) g[y] = new Array(COLS).fill(0);
+    return g;
+  }
+  function inBounds(x, y) { return x >= 0 && x < COLS && y >= 0 && y < ROWS; }
+  function cw(d)  { return { x: -d.y, y: d.x }; }   // clockwise 90 turn
+  function ccw(d) { return { x: d.y,  y: -d.x }; }  // counter-clockwise 90 turn
+  function centerX(cx) { return (cx + 0.5) * CELL; }
+  function centerY(cy) { return (cy + 0.5) * CELL; }
+  function clampX(x) { return Math.max(0, Math.min(COLS - 1, x)); }
+  function clampY(y) { return Math.max(0, Math.min(ROWS - 1, y)); }
+
+  // ============ MATCH / ROUND LIFECYCLE ============
+  function buildCycles() {
+    cycles = [];
+    let slots;
+    if (mode === "2p") {
+      slots = [
+        { name: "PLAYER 1", pal: "cyan", isAI: false, human: 0 },
+        { name: "PLAYER 2", pal: "pink", isAI: false, human: 1 }
+      ];
+    } else {
+      slots = [{ name: "YOU", pal: "cyan", isAI: false, human: 0 }];
+      const cpuPal = ["orange", "lime", "amber"], cpuName = ["CPU I", "CPU II", "CPU III"];
+      for (let i = 0; i < aiCount; i++) slots.push({ name: cpuName[i], pal: cpuPal[i], isAI: true, human: -1 });
+    }
+    slots.forEach(function (s, i) {
+      cycles.push({
+        id: i + 1, idx: i, name: s.name, isAI: s.isAI, human: s.human,
+        color: PAL[s.pal].color, glow: PAL[s.pal].glow, spot: SPOTS[i],
+        x: SPOTS[i].x, y: SPOTS[i].y,
+        dir: { x: SPOTS[i].dir.x, y: SPOTS[i].dir.y },
+        nextDir: { x: SPOTS[i].dir.x, y: SPOTS[i].dir.y },
+        alive: true, boost: false, path: [], crashCell: null
+      });
+    });
+  }
+
+  function startMatch() {
+    clearTimeout(endTimer);
+    buildCycles();
+    matchWins = new Array(cycles.length).fill(0);
+    roundNum = 0; particles = []; shake = 0; paused = false;
+    startScreen.classList.add("hidden");
+    endScreen.classList.add("hidden");
+    pauseOverlay.classList.add("hidden");
+    pauseBtn.textContent = "PAUSE";
+    updateHUD();
+    startRound();
+  }
+
+  function startRound() {
+    roundNum++;
+    grid = emptyGrid();
+    particles = []; shake = 0;
+    cycles.forEach(function (c) {
+      const s = c.spot;
+      c.x = s.x; c.y = s.y;
+      c.dir = { x: s.dir.x, y: s.dir.y };
+      c.nextDir = { x: s.dir.x, y: s.dir.y };
+      c.alive = true; c.boost = false;
+      c.path = [{ x: s.x, y: s.y }];
+      c.crashCell = null;
+      grid[s.y][s.x] = c.id;             // spawn cell is treated as trail
+    });
+    state = ST.COUNTDOWN;
+    countdownT = COUNTDOWN; lastCountShown = 99; tickT = 0;
+    endScreen.classList.add("hidden");
+    updateHUD();
+    updatePads();
+  }
+
+  function backToMenu() {
+    clearTimeout(endTimer);
+    state = ST.MENU; paused = false; cycles = [];
+    startScreen.classList.remove("hidden");
+    endScreen.classList.add("hidden");
+    pauseOverlay.classList.add("hidden");
+    pauseBtn.textContent = "PAUSE";
+    updateHUD();
+    updatePads();
+  }
+
+  function endRound(winner) {
+    state = ST.ROUNDOVER;
+    let line;
+    if (winner) {
+      matchWins[winner.idx]++;
+      line = winner.name + " SURVIVES";
+      beep(880, 0.16, "sine", 0.06);
+      beep(1320, 0.22, "sine", 0.05);
+    } else {
+      line = "MUTUAL DEREZZ - NO POINTS";
+      beep(200, 0.3, "sawtooth", 0.06);
+    }
+    updateHUD();
+    if (matchWins.some(function (w) { return w >= roundsToWin; })) {
+      state = ST.MATCHOVER;
+      finishMatch();
+    } else {
+      showEnd("ROUND " + roundNum + " OVER", line, scoreLine(), "NEXT ROUND");
+      endTimer = setTimeout(function () {
+        if (state === ST.ROUNDOVER) startRound();
+      }, 2600);
+    }
+  }
+
+  function finishMatch() {
+    let best = -1, winnerIdx = 0;
+    matchWins.forEach(function (w, i) { if (w > best) { best = w; winnerIdx = i; } });
+    const champ = cycles[winnerIdx];
+    const humanWon = mode === "2p" ? true : (champ && !champ.isAI);
+    if (humanWon) {
+      careerWins++;
+      localStorage.setItem("lcCareerWins", String(careerWins));
+      careerWinsEl.textContent = careerWins;
+    }
+    showEnd("MATCH OVER", (champ ? champ.name : "NOBODY") + " WINS THE MATCH", scoreLine(), "REMATCH");
+    beep(660, 0.14, "sine", 0.06);
+    setTimeout(function () { beep(990, 0.24, "sine", 0.06); }, 140);
+  }
+
+  function scoreLine() {
+    return cycles.map(function (c) { return c.name + " " + matchWins[c.idx]; }).join("   |   ");
+  }
+  function showEnd(title, sub, score, primaryLabel) {
+    endTitle.textContent = title;
+    endSub.textContent = sub;
+    endScore.textContent = score;
+    endPrimary.textContent = primaryLabel;
+    endScreen.classList.remove("hidden");
+  }
+
+  // ============ HUD ============
+  function updateHUD() {
+    hudEl.innerHTML = "";
+    if (cycles.length === 0) {
+      roundInfoEl.textContent = "Configure your grid, then hit START MATCH.";
+      return;
+    }
+    const lead = Math.max.apply(null, matchWins);
+    cycles.forEach(function (c, i) {
+      const chip = document.createElement("div");
+      chip.className = "chip" + (c.alive ? "" : " dead") + (matchWins[i] === lead && lead > 0 ? " leader" : "");
+      chip.style.color = c.color;
+      chip.innerHTML = '<span class="dot"></span>' + c.name + ' <span class="wins">' + matchWins[i] + "</span>";
+      hudEl.appendChild(chip);
+    });
+    roundInfoEl.textContent = "Round " + roundNum + "  ·  first to " + roundsToWin + " rounds wins the match";
+  }
+
+  // ============ CORE TICK (all cycles move simultaneously) ============
+  function doTick() {
+    // 1. Gather intended movement for every living cycle.
+    const moves = [];
+    for (let i = 0; i < cycles.length; i++) {
+      const c = cycles[i];
+      if (!c.alive) continue;
+      if (c.isAI) c.nextDir = aiChooseDir(c);
+      c.dir = { x: c.nextDir.x, y: c.nextDir.y };
+      const steps = c.boost ? BOOST_STEPS : 1;
+      const cells = [];
+      let x = c.x, y = c.y;
+      for (let s = 0; s < steps; s++) { x += c.dir.x; y += c.dir.y; cells.push({ x: x, y: y }); }
+      moves.push({ c: c, cells: cells });
+    }
+    // 2. Decide who crashes (walls, trails, other cycles).
+    const dead = {};
+    for (let i = 0; i < moves.length; i++) {
+      const cells = moves[i].cells;
+      for (let k = 0; k < cells.length; k++) {
+        const cell = cells[k];
+        if (!inBounds(cell.x, cell.y) || grid[cell.y][cell.x] !== 0) { dead[i] = true; break; }
+      }
+    }
+    // head-on: two cycles claiming the same cell both derezze
+    for (let i = 0; i < moves.length; i++) {
+      for (let j = i + 1; j < moves.length; j++) {
+        const a = moves[i].cells, b = moves[j].cells;
+        let hit = false;
+        for (let p = 0; p < a.length && !hit; p++)
+          for (let q = 0; q < b.length; q++)
+            if (a[p].x === b[q].x && a[p].y === b[q].y) { hit = true; break; }
+        if (hit) { dead[i] = true; dead[j] = true; }
+      }
+    }
+    // 3. Apply surviving moves, derezze the rest.
+    for (let i = 0; i < moves.length; i++) {
+      const c = moves[i].c, cells = moves[i].cells;
+      if (dead[i]) {
+        c.alive = false;
+        c.crashCell = cells[cells.length - 1];
+        spawnBurst(centerX(clampX(c.crashCell.x)), centerY(clampY(c.crashCell.y)), c.color, 16);
+        shake = Math.min(14, shake + 8);
+        beep(150, 0.22, "sawtooth", 0.06);
+        continue;
+      }
+      let last = null;
+      for (let k = 0; k < cells.length; k++) {
+        grid[cells[k].y][cells[k].x] = c.id;
+        c.path.push({ x: cells[k].x, y: cells[k].y });
+        last = cells[k];
+      }
+      c.x = last.x; c.y = last.y;
+      c.nextDir = { x: c.dir.x, y: c.dir.y };
+    }
+    // 4. Round resolution.
+    const alive = cycles.filter(function (c) { return c.alive; });
+    if (alive.length <= 1) endRound(alive.length === 1 ? alive[0] : null);
+  }
+
+  // ============ CPU BRAIN ============
+  function aiChooseDir(c) {
+    const options = [c.dir, cw(c.dir), ccw(c.dir)];
+    let best = c.dir, bestScore = -Infinity;
+    for (let oi = 0; oi < options.length; oi++) {
+      const d = options[oi];
+      // scan straight ahead to measure how much room this choice buys
+      let free = 0, x = c.x, y = c.y;
+      for (let k = 0; k < AI_LOOKAHEAD; k++) {
+        x += d.x; y += d.y;
+        if (!inBounds(x, y) || grid[y][x] !== 0) break;
+        free++;
+      }
+      if (free === 0) continue;                       // immediate death - skip
+      let score = free * 2.2;                          // reward open space
+      // side-room awareness: can we still turn once we commit?
+      score += Math.min(rayFree(x, y, cw(d)), rayFree(x, y, ccw(d))) * 0.5;
+      // cut-off instinct: close the gap on the nearest rival
+      const tgt = nearestRival(c);
+      if (tgt) {
+        const before = Math.abs(c.x - tgt.x) + Math.abs(c.y - tgt.y);
+        const after = Math.abs(x - tgt.x) + Math.abs(y - tgt.y);
+        score += (after < before ? 4 : -1.5);
+      }
+      score += Math.random() * 2.0;                    // tiny noise - CPUs differ
+      if (score > bestScore) { bestScore = score; best = d; }
+    }
+    return best;
+  }
+  function rayFree(sx, sy, d) {
+    let n = 0, x = sx, y = sy;
+    for (let k = 0; k < AI_LOOKAHEAD; k++) {
+      x += d.x; y += d.y;
+      if (!inBounds(x, y) || grid[y][x] !== 0) break;
+      n++;
+    }
+    return n;
+  }
+  function nearestRival(c) {
+    let best = null, bd = Infinity;
+    for (let i = 0; i < cycles.length; i++) {
+      const o = cycles[i];
+      if (o === c || !o.alive) continue;
+      const d = Math.abs(o.x - c.x) + Math.abs(o.y - c.y);
+      if (d < bd) { bd = d; best = o; }
+    }
+    return best;
+  }
+
+  // ============ PARTICLES ============
+  function spawnBurst(px, py, color, count) {
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 1 + Math.random() * 3.4;
+      particles.push({
+        x: px, y: py, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: 1, color: color, size: 1.5 + Math.random() * 3
+      });
+    }
+  }
+  function updateParticles(dt) {
+    const f = dt / 16.67;
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx * f; p.y += p.vy * f;
+      p.vx *= 0.94; p.vy *= 0.94;
+      p.life -= 0.022 * f;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+  }
+
+  // ============ INPUT ============
+  function playerTurn(idx, clockwise) {
+    if (state !== ST.PLAYING || paused) return;
+    const c = cycles[idx];
+    if (!c || !c.alive || c.isAI) return;
+    const d = c.dir;
+    c.nextDir = clockwise ? cw(d) : ccw(d);           // 90° only - no reverse
+    beep(clockwise ? 520 : 400, 0.04, "square", 0.035);
+  }
+  function playerBoost(idx, on) {
+    if (state !== ST.PLAYING && state !== ST.COUNTDOWN) return;
+    const c = cycles[idx];
+    if (!c || c.isAI) return;
+    c.boost = on;
+  }
+  function handleKey(e, down) {
+    const code = e.code;
+    const keys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space", "KeyA", "KeyD",
+      "KeyW", "KeyS", "KeyP", "KeyR", "ShiftLeft", "ShiftRight", "Escape"];
+    if (keys.indexOf(code) !== -1) e.preventDefault();
+    if (down && (code === "KeyP" || code === "Escape")) { togglePause(); return; }
+    if (down && code === "KeyR") { restartMatch(); return; }
+    // Player 1
+    if (code === "KeyA") { if (down) playerTurn(0, false); return; }
+    if (code === "KeyD") { if (down) playerTurn(0, true); return; }
+    if (code === "KeyW" || code === "ShiftLeft" || code === "ShiftRight") { playerBoost(0, down); return; }
+    // Player 2 (local versus only)
+    if (mode === "2p") {
+      if (code === "ArrowLeft")  { if (down) playerTurn(1, false); return; }
+      if (code === "ArrowRight") { if (down) playerTurn(1, true);  return; }
+      if (code === "ArrowDown" || code === "Space") { playerBoost(1, down); return; }
+    }
+  }
+  window.addEventListener("keydown", function (e) { handleKey(e, true); });
+  window.addEventListener("keyup", function (e) { handleKey(e, false); });
+
+  // ============ PAUSE / RESTART ============
+  function togglePause() {
+    if (state === ST.MENU || state === ST.MATCHOVER) return;
+    paused = !paused;
+    pauseOverlay.classList.toggle("hidden", !paused);
+    pauseBtn.textContent = paused ? "RESUME" : "PAUSE";
+    beep(paused ? 420 : 620, 0.07, "triangle", 0.05);
+  }
+  function restartMatch() {
+    if (state === ST.MENU) { startMatch(); return; }
+    clearTimeout(endTimer);
+    paused = false;
+    pauseOverlay.classList.add("hidden");
+    pauseBtn.textContent = "PAUSE";
+    startMatch();
+  }
+
+  // ============ TOUCH PADS ============
+  function updatePads() {
+    const touch = ("ontouchstart" in window) || navigator.maxTouchPoints > 0;
+    const active = touch && state !== ST.MENU;
+    pad1.classList.toggle("show", active);
+    pad2.classList.toggle("show", active && mode === "2p");
+  }
+  function bindPad(pad, idx) {
+    pad.querySelectorAll("button").forEach(function (btn) {
+      const act = btn.dataset.act;
+      btn.addEventListener("pointerdown", function (e) {
+        e.preventDefault();
+        if (act === "boost") playerBoost(idx, true);
+        else playerTurn(idx, act === "right");
+      });
+      const release = function (e) {
+        if (e) e.preventDefault();
+        if (act === "boost") playerBoost(idx, false);
+      };
+      btn.addEventListener("pointerup", release);
+      btn.addEventListener("pointercancel", release);
+      btn.addEventListener("pointerleave", release);
+    });
+  }
+  bindPad(pad1, 0);
+  bindPad(pad2, 1);
+
+  // ============ SETUP BUTTONS ============
+  function setMode(m) {
+    mode = m;
+    document.querySelectorAll("[data-mode]").forEach(function (b) {
+      b.classList.toggle("active", b.dataset.mode === m);
+    });
+    aiRow.style.display = (m === "cpu") ? "flex" : "none";
+    updatePads();
+  }
+  document.querySelectorAll("[data-mode]").forEach(function (b) {
+    b.addEventListener("click", function () { setMode(b.dataset.mode); });
+  });
+  document.querySelectorAll("[data-ai]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      aiCount = Number(b.dataset.ai);
+      document.querySelectorAll("[data-ai]").forEach(function (x) { x.classList.toggle("active", x === b); });
+    });
+  });
+  document.querySelectorAll("[data-win]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      roundsToWin = Number(b.dataset.win);
+      document.querySelectorAll("[data-win]").forEach(function (x) { x.classList.toggle("active", x === b); });
+    });
+  });
+  document.getElementById("startBtn").addEventListener("click", startMatch);
+  pauseBtn.addEventListener("click", togglePause);
+  document.getElementById("restartBtn").addEventListener("click", restartMatch);
+  document.getElementById("menuBtn").addEventListener("click", backToMenu);
+  document.getElementById("resumeBtn").addEventListener("click", togglePause);
+  endMenu.addEventListener("click", backToMenu);
+  endPrimary.addEventListener("click", function () {
+    if (state === ST.MATCHOVER) { clearTimeout(endTimer); startMatch(); }
+    else if (state === ST.ROUNDOVER) { clearTimeout(endTimer); startRound(); }
+  });
+
+  // ============ DRAWING ============
+  function drawBackground() {
+    ctx.fillStyle = "#04060c";
+    ctx.fillRect(0, 0, W, H);
+    // faint grid
+    ctx.strokeStyle = "rgba(56,189,248,0.07)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 0; x <= COLS; x++) { ctx.moveTo(x * CELL, 0); ctx.lineTo(x * CELL, H); }
+    for (let y = 0; y <= ROWS; y++) { ctx.moveTo(0, y * CELL); ctx.lineTo(W, y * CELL); }
+    ctx.stroke();
+    // subtle inner vignette
+    const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.25, W / 2, H / 2, H * 0.9);
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(1, "rgba(0,0,0,0.55)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  }
+  function drawFrame() {
+    ctx.save();
+    ctx.strokeStyle = "rgba(34,211,238,0.75)";
+    ctx.shadowColor = "#22d3ee"; ctx.shadowBlur = 14; ctx.lineWidth = 3;
+    ctx.strokeRect(1.5, 1.5, W - 3, H - 3);
+    ctx.restore();
+  }
+  function trailPoints(c, frac) {
+    const pts = [];
+    for (let i = 0; i < c.path.length; i++) pts.push({ x: centerX(c.path[i].x), y: centerY(c.path[i].y) });
+    if (!c.alive && pts.length) return pts;
+    const last = c.path[c.path.length - 1];
+    if (last) pts.push({
+      x: centerX(last.x) + c.dir.x * frac * CELL,
+      y: centerY(last.y) + c.dir.y * frac * CELL
+    });
+    return pts;
+  }
+  function strokeLine(pts) {
+    if (pts.length < 2) return;
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.stroke();
+  }
+  function drawTrails(frac) {
+    for (let i = 0; i < cycles.length; i++) {
+      const c = cycles[i];
+      if (c.path.length === 0) continue;
+      const pts = trailPoints(c, c.alive ? frac : 0);
+      ctx.save();
+      ctx.lineJoin = "round"; ctx.lineCap = "round";
+      // outer halo
+      ctx.shadowColor = c.color; ctx.shadowBlur = 18;
+      ctx.strokeStyle = c.color; ctx.globalAlpha = c.alive ? 0.55 : 0.32;
+      ctx.lineWidth = CELL * 0.92;
+      strokeLine(pts);
+      // bright core
+      ctx.shadowBlur = 10; ctx.globalAlpha = c.alive ? 0.95 : 0.55;
+      ctx.strokeStyle = c.glow; ctx.lineWidth = CELL * 0.4;
+      strokeLine(pts);
+      ctx.restore();
+    }
+  }
+  function drawHeads(frac) {
+    for (let i = 0; i < cycles.length; i++) {
+      const c = cycles[i];
+      if (!c.alive) continue;
+      const last = c.path[c.path.length - 1];
+      if (!last) continue;
+      const hx = centerX(last.x) + c.dir.x * frac * CELL;
+      const hy = centerY(last.y) + c.dir.y * frac * CELL;
+      ctx.save();
+      ctx.shadowColor = c.color; ctx.shadowBlur = 20;
+      ctx.fillStyle = c.glow;
+      ctx.beginPath(); ctx.arc(hx, hy, CELL * 0.62, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = c.color;
+      ctx.beginPath();
+      ctx.arc(hx + c.dir.x * CELL * 0.5, hy + c.dir.y * CELL * 0.5, CELL * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      if (c.boost) {                                   // boost aura
+        ctx.strokeStyle = "#fff"; ctx.globalAlpha = 0.5 + 0.5 * Math.sin(frame * 0.4); ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(hx, hy, CELL * 1.1, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+  function drawParticles() {
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  function drawCountdown() {
+    if (state !== ST.COUNTDOWN) return;
+    const n = Math.ceil(countdownT);
+    const label = n > 0 ? String(n) : "GO";
+    const pulse = 1 + 0.15 * Math.sin(frame * 0.3);
+    ctx.save();
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillStyle = "rgba(4,8,16,0.55)";
+    ctx.fillRect(0, H / 2 - 90, W, 180);
+    ctx.fillStyle = "#e0fbff"; ctx.shadowColor = "#22d3ee"; ctx.shadowBlur = 30;
+    ctx.font = "bold " + Math.round(120 * pulse) + "px 'Courier New', monospace";
+    ctx.fillText(label, W / 2, H / 2);
+    ctx.restore();
+  }
+  function drawMenuBackdrop() {
+    ctx.save();
+    ctx.globalAlpha = 0.10; ctx.strokeStyle = "#22d3ee";
+    ctx.shadowColor = "#22d3ee"; ctx.shadowBlur = 16; ctx.lineWidth = CELL * 0.8;
+    const t = frame * 0.01;
+    for (let i = 0; i < 5; i++) {
+      const y = (i + 1) * (H / 6);
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.bezierCurveTo(W * 0.33, y + Math.sin(t + i) * 40, W * 0.66, y - Math.sin(t + i) * 40, W, y);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function render(frac) {
+    ctx.save();
+    if (shake > 0.1) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+    drawBackground();
+    if (state === ST.MENU || cycles.length === 0) {
+      drawMenuBackdrop();
+    } else {
+      drawTrails(frac);
+      drawHeads(frac);
+    }
+    drawParticles();
+    drawFrame();
+    if (state !== ST.MENU) drawCountdown();
+    ctx.restore();
+  }
+
+  // ============ MAIN LOOP ============
+  let lastTime = performance.now();
+  let raf = null;
+  function loop(now) {
+    const dt = Math.min(60, now - lastTime);
+    lastTime = now;
+    frame++;
+    if (!paused) {
+      if (shake > 0) shake = Math.max(0, shake - dt * 0.03);
+      if (state === ST.COUNTDOWN) {
+        countdownT -= dt / 1000;
+        const n = Math.ceil(countdownT);
+        if (n !== lastCountShown) {
+          lastCountShown = n;
+          beep(n > 0 ? 440 : 720, n > 0 ? 0.1 : 0.16, "square", 0.05);
+        }
+        if (countdownT <= 0) { state = ST.PLAYING; tickT = 0; }
+      } else if (state === ST.PLAYING) {
+        tickT += dt;
+        let guard = 0;
+        while (tickT >= TICK && state === ST.PLAYING && guard < 8) { tickT -= TICK; guard++; doTick(); }
+      }
+      updateParticles(dt);
+    }
+    const frac = (state === ST.PLAYING) ? Math.min(1, tickT / TICK) : 0;
+    render(frac);
+    raf = requestAnimationFrame(loop);
+  }
+
+  // ============ VISIBILITY (save cycles when hidden) ============
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { cancelAnimationFrame(raf); raf = null; }
+    else if (!raf) { lastTime = performance.now(); raf = requestAnimationFrame(loop); }
+  });
+
+  // ============ BOOT ============
+  setMode("cpu");
+  updateHUD();
+  updatePads();
+  raf = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

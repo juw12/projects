@@ -1,0 +1,1495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🗝️ Dungeon Crawler</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Trebuchet MS', 'Segoe UI', Tahoma, Verdana, sans-serif;
+      background:
+        radial-gradient(circle at 50% -10%, #2a2233 0%, #16121c 45%, #090710 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+      color: #e8e0d0;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: linear-gradient(160deg, #1c1726 0%, #120f18 100%);
+      border: 2px solid #3b3148;
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: 0 18px 60px rgba(0, 0, 0, 0.7), inset 0 0 40px rgba(0, 0, 0, 0.5);
+      width: min(1000px, 96vw);
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.7rem;
+      letter-spacing: 3px;
+      color: #f0c674;
+      text-shadow: 0 0 12px rgba(240, 198, 116, 0.45), 2px 2px 0 #2a1f10;
+      margin-bottom: 2px;
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.78rem;
+      letter-spacing: 2px;
+      color: #8d7fa6;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+    }
+
+    /* ============ HUD ============ */
+    .hud {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+      padding: 10px 14px;
+      background: linear-gradient(135deg, #241d31, #191320);
+      border: 1px solid #3b3148;
+      border-radius: 12px;
+    }
+
+    .hud-block {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .hud-label {
+      font-size: 0.62rem;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #7d7194;
+    }
+
+    .hud-value {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #f0c674;
+    }
+
+    .hud-value.dim { color: #c9bda4; }
+
+    .hp-wrap {
+      flex: 1;
+      min-width: 130px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .hp-bar {
+      height: 16px;
+      background: #2b1220;
+      border: 1px solid #4a2033;
+      border-radius: 9px;
+      overflow: hidden;
+      box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6);
+    }
+
+    .hp-fill {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, #d94b4b, #f0755c);
+      transition: width 0.18s ease;
+    }
+
+    .hud-key {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 1.1rem;
+      opacity: 0.35;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .hud-key.held { opacity: 1; transform: scale(1.15); filter: drop-shadow(0 0 6px #f0c674); }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #060409;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.7);
+      border: 1px solid #302640;
+    }
+
+    canvas { display: block; width: 100%; height: auto; }
+
+    /* ============ OVERLAY SCREENS ============ */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+      background: rgba(10, 7, 16, 0.94);
+      backdrop-filter: blur(3px);
+      transition: opacity 0.25s ease;
+      z-index: 5;
+    }
+
+    .screen.hidden { opacity: 0; pointer-events: none; }
+
+    .screen-title {
+      font-size: 2rem;
+      letter-spacing: 3px;
+      color: #f0c674;
+      text-shadow: 0 0 14px rgba(240, 198, 116, 0.5);
+      margin-bottom: 6px;
+    }
+
+    .screen-text {
+      font-size: 0.92rem;
+      color: #a99fc0;
+      max-width: 460px;
+      line-height: 1.55;
+      margin-bottom: 18px;
+    }
+
+    .screen-text b { color: #e8e0d0; }
+
+    .stat-row {
+      display: flex;
+      gap: 26px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .stat .k { font-size: 0.62rem; letter-spacing: 1.5px; text-transform: uppercase; color: #7d7194; }
+    .stat .v { font-size: 1.4rem; font-weight: 700; color: #f0c674; }
+
+    /* ============ BUTTONS ============ */
+    .action-btn {
+      padding: 13px 36px;
+      background: linear-gradient(135deg, #f0c674, #d99b3c);
+      color: #221703;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 4px 0 #8a6317, 0 6px 18px rgba(240, 198, 116, 0.25);
+    }
+
+    .action-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 0 #8a6317, 0 8px 24px rgba(240, 198, 116, 0.35); }
+    .action-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #8a6317; }
+
+    /* ============ UPGRADE CARDS ============ */
+    .upgrade-cards {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 6px;
+    }
+
+    .upgrade-card {
+      width: 170px;
+      padding: 16px 12px;
+      background: linear-gradient(160deg, #2b2340, #1a1428);
+      border: 2px solid #4c3d68;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .upgrade-card:hover {
+      transform: translateY(-4px);
+      border-color: #f0c674;
+      box-shadow: 0 8px 24px rgba(240, 198, 116, 0.28);
+    }
+
+    .upgrade-icon { font-size: 1.9rem; margin-bottom: 6px; }
+    .upgrade-name { font-size: 0.95rem; font-weight: 700; color: #f0c674; margin-bottom: 4px; }
+    .upgrade-desc { font-size: 0.76rem; color: #a99fc0; line-height: 1.4; }
+
+    /* ============ TOUCH CONTROLS ============ */
+    .touch-controls {
+      display: none;
+      margin-top: 12px;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .touch-controls.visible { display: flex; }
+
+    .dpad {
+      display: grid;
+      grid-template-columns: repeat(3, 52px);
+      grid-template-rows: repeat(3, 52px);
+      gap: 6px;
+    }
+
+    .action-pad { display: flex; flex-direction: column; gap: 10px; }
+
+    .tbtn {
+      background: linear-gradient(135deg, #2b2340, #191325);
+      border: 2px solid #4c3d68;
+      border-radius: 12px;
+      color: #e8e0d0;
+      font-size: 1.3rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .tbtn:active { background: #4c3d68; transform: scale(0.94); }
+
+    .tbtn.up { grid-column: 2; grid-row: 1; }
+    .tbtn.left { grid-column: 1; grid-row: 2; }
+    .tbtn.down { grid-column: 2; grid-row: 3; }
+    .tbtn.right { grid-column: 3; grid-row: 2; }
+    .tbtn.atk { width: 84px; height: 62px; font-size: 1.5rem; }
+    .tbtn.atk.ranged { border-color: #6a7d9c; }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 720px) {
+      .game-title { font-size: 1.25rem; }
+      .hud { gap: 10px; padding: 8px 10px; }
+      .hud-value { font-size: 0.9rem; }
+      .screen-title { font-size: 1.5rem; }
+      .upgrade-card { width: 140px; padding: 12px 8px; }
+    }
+
+    @media (hover: none) and (pointer: coarse) {
+      .touch-controls { display: flex; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">DUNGEON CRAWLER</h1>
+    <p class="game-subtitle">Descend · Slay · Loot · Repeat</p>
+
+    <!-- ============ HUD ============ -->
+    <div class="hud">
+      <div class="hud-block" style="min-width:64px">
+        <div class="hud-label">Floor</div>
+        <div class="hud-value" id="hudFloor">1</div>
+      </div>
+      <div class="hud-block" style="min-width:80px">
+        <div class="hud-label">Score</div>
+        <div class="hud-value" id="hudScore">0</div>
+      </div>
+      <div class="hp-wrap">
+        <div class="hud-label">Health <span id="hudHpText" class="hud-value dim" style="font-size:.72rem">100 / 100</span></div>
+        <div class="hp-bar"><div class="hp-fill" id="hudHp"></div></div>
+      </div>
+      <div class="hud-block">
+        <div class="hud-label">Key</div>
+        <div class="hud-key" id="hudKey">🗝️</div>
+      </div>
+      <div class="hud-block">
+        <div class="hud-label">Best</div>
+        <div class="hud-value dim" id="hudBest">F0 · 0</div>
+      </div>
+    </div>
+
+    <!-- ============ CANVAS ============ -->
+    <div class="canvas-wrapper" id="canvasWrapper">
+      <canvas id="gameCanvas" width="960" height="640"></canvas>
+
+      <!-- Start Screen -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">ENTER THE DUNGEON</h2>
+        <p class="screen-text">
+          Explore shifting depths, slay monsters, grab the <b>key</b> and find the <b>stairs</b>.<br>
+          <b>WASD / Arrows</b> to move · <b>Space</b> melee · <b>Click / K</b> to shoot.<br>
+          Touch controls appear on mobile. Death is permanent — one run, one score.
+        </p>
+        <div class="stat-row">
+          <div class="stat"><span class="k">Best Floor</span><span class="v" id="startBestFloor">0</span></div>
+          <div class="stat"><span class="k">Best Score</span><span class="v" id="startBestScore">0</span></div>
+        </div>
+        <button class="action-btn" id="startBtn">Begin Run</button>
+      </div>
+
+      <!-- Upgrade Screen -->
+      <div id="upgradeScreen" class="screen hidden">
+        <h2 class="screen-title" id="upgradeTitle">FLOOR CLEARED</h2>
+        <p class="screen-text">Choose one boon before you descend.</p>
+        <div class="upgrade-cards" id="upgradeCards"></div>
+      </div>
+
+      <!-- Game Over Screen -->
+      <div id="gameOverScreen" class="screen hidden">
+        <h2 class="screen-title" id="gameOverTitle">YOU DIED</h2>
+        <p class="screen-text" id="gameOverText">The dungeon claims another soul.</p>
+        <div class="stat-row">
+          <div class="stat"><span class="k">Floor Reached</span><span class="v" id="finalFloor">1</span></div>
+          <div class="stat"><span class="k">Score</span><span class="v" id="finalScore">0</span></div>
+          <div class="stat"><span class="k">Best Score</span><span class="v" id="finalBest">0</span></div>
+        </div>
+        <button class="action-btn" id="retryBtn">Try Again</button>
+      </div>
+    </div>
+
+    <!-- ============ TOUCH CONTROLS ============ -->
+    <div class="touch-controls" id="touchControls">
+      <div class="dpad">
+        <button class="tbtn up" data-dir="up">▲</button>
+        <button class="tbtn left" data-dir="left">◀</button>
+        <button class="tbtn down" data-dir="down">▼</button>
+        <button class="tbtn right" data-dir="right">▶</button>
+      </div>
+      <div class="action-pad">
+        <button class="tbtn atk melee" id="btnMelee">⚔️</button>
+        <button class="tbtn atk ranged" id="btnShoot">🏹</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    // ============ CONFIG & CONSTANTS ============================
+    // ============================================================
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const wrapper = document.getElementById('canvasWrapper');
+
+    const TILE = 28;          // world units per tile
+    const COLS = 41;          // dungeon width in tiles
+    const ROWS = 29;          // dungeon height in tiles
+    const MAP_W = COLS * TILE;
+    const MAP_H = ROWS * TILE;
+    const T_WALL = 0, T_FLOOR = 1, T_STAIRS = 2;
+
+    let scale = 1, offX = 0, offY = 0;
+
+    // ============================================================
+    // ============ AUDIO (WebAudio beeps) =======================
+    // ============================================================
+    let audioCtx = null;
+    function beep(freq, dur, type, vol) {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const t = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type || 'square';
+        osc.frequency.setValueAtTime(freq, t);
+        gain.gain.setValueAtTime(vol == null ? 0.05 : vol, t);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + (dur || 0.08));
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(t);
+        osc.stop(t + (dur || 0.08));
+      } catch (e) { /* audio unavailable */ }
+    }
+    const SFX = {
+      hit:    () => beep(180, 0.07, 'square', 0.05),
+      slash:  () => beep(420, 0.05, 'sawtooth', 0.035),
+      shoot:  () => beep(660, 0.05, 'triangle', 0.035),
+      kill:   () => { beep(300, 0.06, 'square', 0.05); setTimeout(() => beep(160, 0.1, 'square', 0.05), 60); },
+      hurt:   () => beep(110, 0.14, 'sawtooth', 0.07),
+      pickup: () => { beep(700, 0.06, 'triangle', 0.05); setTimeout(() => beep(1050, 0.09, 'triangle', 0.05), 60); },
+      stairs: () => { beep(400, 0.09, 'sine', 0.06); setTimeout(() => beep(600, 0.09, 'sine', 0.06), 90); setTimeout(() => beep(800, 0.14, 'sine', 0.06), 180); },
+      deny:   () => beep(150, 0.12, 'square', 0.05),
+      gameover: () => { beep(220, 0.2, 'sawtooth', 0.06); setTimeout(() => beep(150, 0.3, 'sawtooth', 0.06), 180); }
+    };
+
+    // ============================================================
+    // ============ GAME STATE ===================================
+    // ============================================================
+    let grid = [];            // 2D array of tile ids
+    let rooms = [];
+    let player = null;
+    let enemies = [];
+    let projectiles = [];
+    let particles = [];
+    let floaters = [];
+    let items = [];           // {type, x, y, opened}
+    let swings = [];          // melee arc visuals
+    let hasKey = false;
+    let floorNum = 1;
+    let score = 0;
+    let state = 'menu';       // menu | playing | upgrading | over
+    let respawnFlash = 0;
+    let time = 0;
+
+    // Aim / input
+    const keys = {};
+    const touch = { up: false, down: false, left: false, right: false };
+    const mouse = { x: MAP_W / 2, y: MAP_H / 2, active: false };
+
+    // Persisted bests
+    let best = { score: 0, floor: 0 };
+    try {
+      const raw = localStorage.getItem('dungeonCrawlerBest');
+      if (raw) best = JSON.parse(raw);
+    } catch (e) { /* ignore */ }
+
+    // ============================================================
+    // ============ DOM ELEMENTS =================================
+    // ============================================================
+    const hudFloor = document.getElementById('hudFloor');
+    const hudScore = document.getElementById('hudScore');
+    const hudHp = document.getElementById('hudHp');
+    const hudHpText = document.getElementById('hudHpText');
+    const hudKey = document.getElementById('hudKey');
+    const hudBest = document.getElementById('hudBest');
+    const startScreen = document.getElementById('startScreen');
+    const upgradeScreen = document.getElementById('upgradeScreen');
+    const upgradeCards = document.getElementById('upgradeCards');
+    const upgradeTitle = document.getElementById('upgradeTitle');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const gameOverTitle = document.getElementById('gameOverTitle');
+    const gameOverText = document.getElementById('gameOverText');
+    const startBestFloor = document.getElementById('startBestFloor');
+    const startBestScore = document.getElementById('startBestScore');
+    const finalFloor = document.getElementById('finalFloor');
+    const finalScore = document.getElementById('finalScore');
+    const finalBest = document.getElementById('finalBest');
+    const touchControls = document.getElementById('touchControls');
+
+    document.getElementById('startBtn').addEventListener('click', startRun);
+    document.getElementById('retryBtn').addEventListener('click', startRun);
+
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+      touchControls.classList.add('visible');
+    }
+
+    // ============================================================
+    // ============ UPGRADE DEFINITIONS ==========================
+    // ============================================================
+    const UPGRADES = [
+      { icon: '❤️', name: 'Vitality',      desc: '+25 Max HP and heal for the same.',
+        apply: () => { player.maxHp += 25; player.hp = Math.min(player.maxHp, player.hp + 25); } },
+      { icon: '🗡️', name: 'Sharp Blade',   desc: '+7 melee damage.',
+        apply: () => { player.meleeDmg += 7; } },
+      { icon: '🏹', name: 'Power Shot',    desc: '+5 ranged damage.',
+        apply: () => { player.rangedDmg += 5; } },
+      { icon: '👟', name: 'Swift Boots',   desc: '+12% movement speed.',
+        apply: () => { player.speed *= 1.12; } },
+      { icon: '⚡', name: 'Quick Hands',   desc: '+22% attack & fire speed.',
+        apply: () => { player.atkRate *= 1.22; player.shootRate *= 1.22; } },
+      { icon: '🧪', name: 'Health Potion', desc: 'Restore 45 HP immediately.',
+        apply: () => { player.hp = Math.min(player.maxHp, player.hp + 45); } },
+      { icon: '🎯', name: 'Split Arrow',   desc: '+1 projectile per shot.',
+        apply: () => { player.shots += 1; } },
+      { icon: '➶',  name: 'Piercing Bolts', desc: 'Projectiles pierce one extra foe.',
+        apply: () => { player.pierce += 1; } },
+      { icon: '🌿', name: 'Regeneration',  desc: 'Recover 1.5 HP every second.',
+        apply: () => { player.regen += 1.5; } },
+      { icon: '🩸', name: 'Vampiric Edge', desc: 'Melee heals 15% of damage dealt.',
+        apply: () => { player.lifesteal += 0.15; } },
+      { icon: '💠', name: 'Heavy Arrows',  desc: 'Bigger shots, +3 ranged damage.',
+        apply: () => { player.projSize += 1.6; player.rangedDmg += 3; } },
+      { icon: '🛡️', name: 'Iron Skin',     desc: 'Take 15% less damage.',
+        apply: () => { player.armor = Math.min(0.6, player.armor + 0.15); } }
+    ];
+
+    // ============================================================
+    // ============ DUNGEON GENERATION ===========================
+    // ============================================================
+    function randInt(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+    function randPick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+    function dist(ax, ay, bx, by) { return Math.hypot(ax - bx, ay - by); }
+
+    function makeEmptyGrid() {
+      const g = [];
+      for (let y = 0; y < ROWS; y++) {
+        g[y] = [];
+        for (let x = 0; x < COLS; x++) g[y][x] = T_WALL;
+      }
+      return g;
+    }
+
+    function roomsOverlap(a, b) {
+      return !(a.x + a.w + 1 < b.x || b.x + b.w + 1 < a.x ||
+               a.y + a.h + 1 < b.y || b.y + b.h + 1 < a.y);
+    }
+
+    function carveRoom(r) {
+      for (let y = r.y; y < r.y + r.h; y++)
+        for (let x = r.x; x < r.x + r.w; x++) grid[y][x] = T_FLOOR;
+    }
+
+    function carveCorridor(x1, y1, x2, y2) {
+      // horizontal then vertical, knocked out 2 tiles wide for comfort
+      let x = x1, y = y1;
+      while (x !== x2) {
+        x += x < x2 ? 1 : -1;
+        grid[y][x] = T_FLOOR;
+        if (y + 1 < ROWS - 1) grid[y + 1][x] = T_FLOOR;
+      }
+      while (y !== y2) {
+        y += y < y2 ? 1 : -1;
+        grid[y][x] = T_FLOOR;
+        if (x + 1 < COLS - 1) grid[y][x + 1] = T_FLOOR;
+      }
+    }
+
+    function tileAt(wx, wy) {
+      const tx = Math.floor(wx / TILE);
+      const ty = Math.floor(wy / TILE);
+      if (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS) return T_WALL;
+      return grid[ty][tx];
+    }
+
+    function circleHitsWall(cx, cy, r) {
+      const minX = Math.floor((cx - r) / TILE);
+      const maxX = Math.floor((cx + r) / TILE);
+      const minY = Math.floor((cy - r) / TILE);
+      const maxY = Math.floor((cy + r) / TILE);
+      for (let ty = minY; ty <= maxY; ty++) {
+        for (let tx = minX; tx <= maxX; tx++) {
+          if (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS) return true;
+          if (grid[ty][tx] === T_WALL) {
+            // AABB vs circle
+            const rx = tx * TILE, ry = ty * TILE;
+            const nx = Math.max(rx, Math.min(cx, rx + TILE));
+            const ny = Math.max(ry, Math.min(cy, ry + TILE));
+            if ((cx - nx) * (cx - nx) + (cy - ny) * (cy - ny) < r * r) return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    function moveEntity(e, dx, dy) {
+      if (!circleHitsWall(e.x + dx, e.y, e.r)) e.x += dx;
+      if (!circleHitsWall(e.x, e.y + dy, e.r)) e.y += dy;
+    }
+
+    function roomCenter(r) {
+      return { x: (r.x + r.w / 2) * TILE, y: (r.y + r.h / 2) * TILE };
+    }
+
+    function generateFloor() {
+      grid = makeEmptyGrid();
+      rooms = [];
+      enemies = [];
+      projectiles = [];
+      particles = [];
+      floaters = [];
+      items = [];
+      swings = [];
+      hasKey = false;
+
+      // --- place rooms ---
+      const attempts = 90;
+      const target = Math.min(7 + Math.floor(floorNum / 2), 11);
+      for (let i = 0; i < attempts && rooms.length < target; i++) {
+        const w = randInt(5, 9);
+        const h = randInt(4, 6);
+        const x = randInt(2, COLS - w - 3);
+        const y = randInt(2, ROWS - h - 3);
+        const cand = { x, y, w, h };
+        if (rooms.some(r => roomsOverlap(cand, r))) continue;
+        rooms.push(cand);
+      }
+      rooms.forEach(carveRoom);
+
+      // --- connect rooms ---
+      for (let i = 1; i < rooms.length; i++) {
+        const a = roomCenter(rooms[i - 1]);
+        const b = roomCenter(rooms[i]);
+        carveCorridor(Math.floor(a.x / TILE), Math.floor(a.y / TILE),
+                      Math.floor(b.x / TILE), Math.floor(b.y / TILE));
+      }
+      // a couple of extra links for loops
+      for (let i = 0; i < 2 && rooms.length > 3; i++) {
+        const a = roomCenter(randPick(rooms));
+        const b = roomCenter(randPick(rooms));
+        carveCorridor(Math.floor(a.x / TILE), Math.floor(a.y / TILE),
+                      Math.floor(b.x / TILE), Math.floor(b.y / TILE));
+      }
+
+      // --- player start: room 0 ---
+      const start = rooms[0];
+      const sc = roomCenter(start);
+      player.x = sc.x;
+      player.y = sc.y;
+
+      // --- stairs: farthest room from start ---
+      let stairRoom = rooms[rooms.length - 1], bestD = -1;
+      for (let i = 1; i < rooms.length; i++) {
+        const c = roomCenter(rooms[i]);
+        const d = dist(c.x, c.y, sc.x, sc.y);
+        if (d > bestD) { bestD = d; stairRoom = rooms[i]; }
+      }
+      const st = roomCenter(stairRoom);
+      const stTx = Math.floor(st.x / TILE), stTy = Math.floor(st.y / TILE);
+      grid[stTy][stTx] = T_STAIRS;
+
+      // --- key: random middle room ---
+      const midRooms = rooms.filter((r, i) => i !== 0 && r !== stairRoom);
+      const keyRoom = midRooms.length ? randPick(midRooms) : randPick(rooms);
+      const kc = roomCenter(keyRoom);
+      items.push({ type: 'key', x: kc.x, y: kc.y, bob: Math.random() * 6 });
+
+      // --- chests ---
+      const chestCount = randInt(1, Math.min(3, Math.max(1, rooms.length - 2)));
+      const chestRooms = rooms.filter((r, i) => i !== 0);
+      for (let i = 0; i < chestCount && chestRooms.length; i++) {
+        const r = chestRooms[i % chestRooms.length];
+        const c = roomCenter(r);
+        items.push({
+          type: 'chest',
+          x: c.x + randInt(-TILE, TILE),
+          y: c.y + randInt(-TILE, TILE),
+          opened: false
+        });
+      }
+
+      // --- enemies ---
+      const count = Math.min(4 + Math.floor(floorNum * 1.4), 16);
+      const spawnRooms = rooms.filter((r, i) => i !== 0);
+      for (let i = 0; i < count && spawnRooms.length; i++) {
+        const r = randPick(spawnRooms);
+        const c = roomCenter(r);
+        let ex = c.x + randInt(-TILE * 2, TILE * 2);
+        let ey = c.y + randInt(-TILE * 2, TILE * 2);
+        if (circleHitsWall(ex, ey, 10)) { ex = c.x; ey = c.y; }
+        if (dist(ex, ey, player.x, player.y) < TILE * 5) continue;
+        enemies.push(makeEnemy(ex, ey));
+      }
+    }
+
+    function makeEnemy(x, y) {
+      const roll = Math.random();
+      let type, hp, speed, dmg, r, color;
+      const hpScale = 1 + (floorNum - 1) * 0.34;
+      const dmgScale = 1 + (floorNum - 1) * 0.16;
+
+      if (roll < 0.42) {
+        type = 'slime'; hp = 22; speed = 40; dmg = 9; r = 11; color = '#5fbf6a';
+      } else if (roll < 0.72) {
+        type = 'bat'; hp = 13; speed = 92; dmg = 6; r = 8; color = '#a06bd0';
+      } else {
+        type = 'skeleton'; hp = 36; speed = 50; dmg = 12; r = 12; color = '#d8d2c4';
+      }
+
+      hp = Math.round(hp * hpScale);
+      dmg = Math.round(dmg * dmgScale);
+
+      return {
+        type, x, y, r,
+        hp, maxHp: hp,
+        speed, dmg, color,
+        vx: 0, vy: 0,
+        touchCd: 0,
+        shootCd: randInt(60, 150) / 100,
+        wob: Math.random() * Math.PI * 2,
+        hitFlash: 0,
+        dead: false
+      };
+    }
+
+    // ============================================================
+    // ============ PLAYER =======================================
+    // ============================================================
+    function makePlayer() {
+      return {
+        x: 0, y: 0, r: 10,
+        hp: 100, maxHp: 100,
+        speed: 152,
+        meleeDmg: 18,
+        rangedDmg: 12,
+        atkRate: 2.3,       // melee swings / sec
+        shootRate: 2.6,     // shots / sec
+        meleeRange: 48,
+        shots: 1,
+        pierce: 0,
+        projSize: 3.5,
+        regen: 0,
+        lifesteal: 0,
+        armor: 0,
+        aim: 0,
+        atkCd: 0,
+        shootCd: 0,
+        invuln: 0,
+        walk: 0
+      };
+    }
+
+    // ============================================================
+    // ============ RUN FLOW =====================================
+    // ============================================================
+    function startRun() {
+      floorNum = 1;
+      score = 0;
+      player = makePlayer();
+      state = 'playing';
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      upgradeScreen.classList.add('hidden');
+      generateFloor();
+      updateHUD();
+      beep(520, 0.1, 'triangle', 0.05);
+    }
+
+    function descend() {
+      floorNum++;
+      score += 50 + floorNum * 10;
+      generateFloor();
+      updateHUD();
+      SFX.stairs();
+      offerUpgrade();
+    }
+
+    function offerUpgrade() {
+      state = 'upgrading';
+      upgradeTitle.textContent = 'FLOOR ' + floorNum + ' — CHOOSE A BOON';
+      upgradeCards.innerHTML = '';
+      const pool = UPGRADES.slice();
+      for (let i = 0; i < 3 && pool.length; i++) {
+        const idx = Math.floor(Math.random() * pool.length);
+        const up = pool.splice(idx, 1)[0];
+        const card = document.createElement('div');
+        card.className = 'upgrade-card';
+        card.innerHTML = '<div class="upgrade-icon">' + up.icon + '</div>' +
+                         '<div class="upgrade-name">' + up.name + '</div>' +
+                         '<div class="upgrade-desc">' + up.desc + '</div>';
+        card.addEventListener('click', () => pickUpgrade(up));
+        upgradeCards.appendChild(card);
+      }
+      upgradeScreen.classList.remove('hidden');
+    }
+
+    function pickUpgrade(up) {
+      up.apply();
+      upgradeScreen.classList.add('hidden');
+      state = 'playing';
+      updateHUD();
+      SFX.pickup();
+    }
+
+    function gameOver() {
+      state = 'over';
+      SFX.gameover();
+      const newBest = score > best.score;
+      if (score > best.score) best.score = score;
+      if (floorNum > best.floor) best.floor = floorNum;
+      try { localStorage.setItem('dungeonCrawlerBest', JSON.stringify(best)); } catch (e) {}
+
+      finalFloor.textContent = floorNum;
+      finalScore.textContent = score;
+      finalBest.textContent = best.score;
+      gameOverTitle.textContent = newBest ? 'A NEW LEGEND' : 'YOU DIED';
+      gameOverText.textContent = newBest
+        ? 'Your name is carved into the dungeon walls.'
+        : 'The dungeon claims another soul.';
+      gameOverScreen.classList.remove('hidden');
+      updateHUD();
+    }
+
+    // ============================================================
+    // ============ HUD ==========================================
+    // ============================================================
+    function updateHUD() {
+      if (!player) return;
+      hudFloor.textContent = floorNum;
+      hudScore.textContent = score;
+      const pct = Math.max(0, Math.min(1, player.hp / player.maxHp));
+      hudHp.style.width = (pct * 100) + '%';
+      hudHp.style.background = pct > 0.5
+        ? 'linear-gradient(90deg,#4fbf6a,#8fe07a)'
+        : pct > 0.25
+          ? 'linear-gradient(90deg,#d99b3c,#f0c674)'
+          : 'linear-gradient(90deg,#d94b4b,#f0755c)';
+      hudHpText.textContent = Math.max(0, Math.ceil(player.hp)) + ' / ' + Math.round(player.maxHp);
+      hudKey.classList.toggle('held', hasKey);
+      hudBest.textContent = 'F' + best.floor + ' · ' + best.score;
+      startBestFloor.textContent = best.floor;
+      startBestScore.textContent = best.score;
+    }
+
+    // ============================================================
+    // ============ EFFECTS ======================================
+    // ============================================================
+    function burst(x, y, color, n, spd) {
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const s = (spd || 90) * (0.4 + Math.random() * 0.9);
+        particles.push({
+          x, y,
+          vx: Math.cos(a) * s,
+          vy: Math.sin(a) * s,
+          life: 0.4 + Math.random() * 0.4,
+          maxLife: 0.8,
+          color,
+          size: 1.5 + Math.random() * 2.5
+        });
+      }
+    }
+
+    function floatText(x, y, text, color) {
+      floaters.push({ x, y, text, color: color || '#f0c674', life: 1, vy: -26 });
+    }
+
+    // ============================================================
+    // ============ COMBAT =======================================
+    // ============================================================
+    function doMelee() {
+      if (player.atkCd > 0) return;
+      player.atkCd = 1 / player.atkRate;
+      SFX.slash();
+      swings.push({ x: player.x, y: player.y, a: player.aim, life: 0.16, maxLife: 0.16, range: player.meleeRange });
+
+      let hitAny = false;
+      for (const en of enemies) {
+        if (en.dead) continue;
+        const d = dist(en.x, en.y, player.x, player.y);
+        if (d > player.meleeRange + en.r) continue;
+        let ang = Math.atan2(en.y - player.y, en.x - player.x);
+        let diff = Math.abs(((ang - player.aim + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+        if (diff < 1.15) {
+          damageEnemy(en, player.meleeDmg);
+          hitAny = true;
+          if (player.lifesteal > 0) {
+            player.hp = Math.min(player.maxHp, player.hp + player.meleeDmg * player.lifesteal);
+          }
+        }
+      }
+      if (hitAny) SFX.hit();
+    }
+
+    function doShoot() {
+      if (player.shootCd > 0) return;
+      player.shootCd = 1 / player.shootRate;
+      SFX.shoot();
+      const spread = 0.16;
+      const n = player.shots;
+      for (let i = 0; i < n; i++) {
+        const offset = (i - (n - 1) / 2) * spread;
+        const a = player.aim + offset;
+        projectiles.push({
+          x: player.x + Math.cos(a) * 12,
+          y: player.y + Math.sin(a) * 12,
+          vx: Math.cos(a) * 430,
+          vy: Math.sin(a) * 430,
+          dmg: player.rangedDmg,
+          r: player.projSize,
+          friendly: true,
+          pierce: player.pierce,
+          life: 1.3,
+          hitIds: []
+        });
+      }
+    }
+
+    function damageEnemy(en, dmg) {
+      en.hp -= dmg;
+      en.hitFlash = 0.12;
+      if (en.hp <= 0 && !en.dead) {
+        en.dead = true;
+        score += en.type === 'skeleton' ? 25 : en.type === 'bat' ? 12 : 15;
+        burst(en.x, en.y, en.color, 12, 130);
+        floatText(en.x, en.y - 12, '+' + (en.type === 'skeleton' ? 25 : en.type === 'bat' ? 12 : 15), '#8fe07a');
+        SFX.kill();
+        updateHUD();
+      }
+    }
+
+    function damagePlayer(dmg) {
+      if (player.invuln > 0) return;
+      const real = dmg * (1 - player.armor);
+      player.hp -= real;
+      player.invuln = 0.75;
+      respawnFlash = 0.18;
+      burst(player.x, player.y, '#d94b4b', 8, 100);
+      SFX.hurt();
+      updateHUD();
+      if (player.hp <= 0) {
+        player.hp = 0;
+        burst(player.x, player.y, '#f0755c', 22, 170);
+        gameOver();
+      }
+    }
+
+    // ============================================================
+    // ============ UPDATE =======================================
+    // ============================================================
+    function update(dt) {
+      time += dt;
+      if (!player) return;
+
+      // --- cooldowns ---
+      player.atkCd = Math.max(0, player.atkCd - dt);
+      player.shootCd = Math.max(0, player.shootCd - dt);
+      player.invuln = Math.max(0, player.invuln - dt);
+      respawnFlash = Math.max(0, respawnFlash - dt);
+      if (player.regen > 0 && player.hp < player.maxHp) {
+        player.hp = Math.min(player.maxHp, player.hp + player.regen * dt);
+      }
+
+      // --- movement input ---
+      let mx = 0, my = 0;
+      if (keys['KeyA'] || keys['ArrowLeft'] || touch.left) mx -= 1;
+      if (keys['KeyD'] || keys['ArrowRight'] || touch.right) mx += 1;
+      if (keys['KeyW'] || keys['ArrowUp'] || touch.up) my -= 1;
+      if (keys['KeyS'] || keys['ArrowDown'] || touch.down) my += 1;
+
+      if (mx || my) {
+        const len = Math.hypot(mx, my);
+        mx /= len; my /= len;
+        const step = player.speed * dt;
+        moveEntity(player, mx * step, my * step);
+        player.aim = Math.atan2(my, mx);
+        player.walk += dt * 10;
+      } else {
+        player.walk = 0;
+      }
+
+      // --- items pickup ---
+      for (const it of items) {
+        if (it.type === 'key') {
+          it.bob += dt * 3;
+          if (dist(it.x, it.y, player.x, player.y) < player.r + 14) {
+            hasKey = true;
+            it.taken = true;
+            burst(it.x, it.y, '#f0c674', 14, 120);
+            floatText(it.x, it.y - 10, 'KEY!', '#f0c674');
+            score += 20;
+            SFX.pickup();
+            updateHUD();
+          }
+        } else if (it.type === 'chest' && !it.opened) {
+          if (dist(it.x, it.y, player.x, player.y) < player.r + 16) {
+            it.opened = true;
+            const gold = randInt(15, 35) + floorNum * 5;
+            score += gold;
+            const heal = randInt(10, 25);
+            player.hp = Math.min(player.maxHp, player.hp + heal);
+            burst(it.x, it.y, '#f0c674', 16, 120);
+            floatText(it.x, it.y - 10, '+' + gold + '  +' + heal + 'hp', '#8fe07a');
+            SFX.pickup();
+            updateHUD();
+          }
+        }
+      }
+      items = items.filter(it => !it.taken);
+
+      // --- stairs ---
+      if (tileAt(player.x, player.y) === T_STAIRS) {
+        if (hasKey) { descend(); return; }
+        else if (!player._denied || time - player._denied > 1.4) {
+          player._denied = time;
+          floatText(player.x, player.y - 22, 'THE STAIRS ARE LOCKED — FIND THE KEY', '#f0755c');
+          SFX.deny();
+        }
+      }
+
+      // --- enemies ---
+      for (const en of enemies) {
+        if (en.dead) continue;
+        en.hitFlash = Math.max(0, en.hitFlash - dt);
+        en.touchCd = Math.max(0, en.touchCd - dt);
+        en.shootCd -= dt;
+        en.wob += dt * 6;
+
+        const dx = player.x - en.x;
+        const dy = player.y - en.y;
+        const d = Math.hypot(dx, dy) || 1;
+        const aggro = en.type === 'bat' ? 340 : 300;
+
+        if (d < aggro) {
+          let ux = dx / d, uy = dy / d;
+          if (en.type === 'bat') {
+            // erratic weaving flight
+            const px = -uy, py = ux;
+            const w = Math.sin(en.wob * 1.7) * 0.65;
+            ux = ux * 0.8 + px * w;
+            uy = uy * 0.8 + py * w;
+            const l2 = Math.hypot(ux, uy) || 1;
+            ux /= l2; uy /= l2;
+          }
+          // skeletons keep distance and fire bone shards
+          if (en.type === 'skeleton') {
+            if (en.shootCd <= 0 && d < 300) {
+              en.shootCd = 1.7 + Math.random() * 0.8;
+              const a = Math.atan2(dy, dx);
+              projectiles.push({
+                x: en.x, y: en.y,
+                vx: Math.cos(a) * 250, vy: Math.sin(a) * 250,
+                dmg: en.dmg * 0.75, r: 4, friendly: false,
+                pierce: 0, life: 2, hitIds: []
+              });
+              beep(300, 0.05, 'triangle', 0.03);
+            }
+            if (d < 120) { ux = -ux; uy = -uy; }  // back away
+            else if (d < 200) { ux *= 0.25; uy *= 0.25; }
+          }
+          const spd = en.speed * dt;
+          moveEntity(en, ux * spd, uy * spd);
+        }
+
+        // contact damage
+        if (d < en.r + player.r && en.touchCd <= 0) {
+          en.touchCd = 0.8;
+          damagePlayer(en.dmg);
+        }
+      }
+      enemies = enemies.filter(e => !e.dead);
+
+      // --- projectiles ---
+      for (const p of projectiles) {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.life -= dt;
+        if (circleHitsWall(p.x, p.y, p.r)) { p.life = 0; burst(p.x, p.y, '#8d7fa6', 4, 60); continue; }
+
+        if (p.friendly) {
+          for (const en of enemies) {
+            if (en.dead) continue;
+            if (p.hitIds.indexOf(en) !== -1) continue;
+            if (dist(p.x, p.y, en.x, en.y) < en.r + p.r) {
+              damageEnemy(en, p.dmg);
+              p.hitIds.push(en);
+              burst(p.x, p.y, '#f0c674', 5, 70);
+              if (p.pierce > 0) p.pierce--; else { p.life = 0; break; }
+            }
+          }
+        } else {
+          if (dist(p.x, p.y, player.x, player.y) < player.r + p.r) {
+            damagePlayer(p.dmg);
+            p.life = 0;
+          }
+        }
+      }
+      projectiles = projectiles.filter(p => p.life > 0);
+
+      // --- particles ---
+      for (const pt of particles) {
+        pt.x += pt.vx * dt;
+        pt.y += pt.vy * dt;
+        pt.vx *= 0.92;
+        pt.vy *= 0.92;
+        pt.life -= dt;
+      }
+      particles = particles.filter(p => p.life > 0);
+
+      // --- floaters ---
+      for (const f of floaters) {
+        f.y += f.vy * dt;
+        f.life -= dt;
+      }
+      floaters = floaters.filter(f => f.life > 0);
+
+      // --- swings ---
+      for (const s of swings) s.life -= dt;
+      swings = swings.filter(s => s.life > 0);
+    }
+
+    // ============================================================
+    // ============ RENDER =======================================
+    // ============================================================
+    function resize() {
+      const w = wrapper.clientWidth || 960;
+      canvas.width = Math.max(320, Math.round(w));
+      canvas.height = Math.round(canvas.width * 0.66);
+      scale = Math.min(canvas.width / MAP_W, canvas.height / MAP_H);
+      offX = (canvas.width - MAP_W * scale) / 2;
+      offY = (canvas.height - MAP_H * scale) / 2;
+    }
+    window.addEventListener('resize', resize);
+
+    function hash2(x, y) {
+      let n = x * 374761393 + y * 668265263;
+      n = (n ^ (n >> 13)) * 1274126177;
+      return ((n ^ (n >> 16)) >>> 0) / 4294967295;
+    }
+
+    function draw() {
+      // backdrop
+      ctx.fillStyle = '#060409';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.save();
+      ctx.translate(offX, offY);
+      ctx.scale(scale, scale);
+
+      drawTiles();
+
+      // items
+      for (const it of items) drawItem(it);
+
+      // enemies
+      for (const en of enemies) drawEnemy(en);
+
+      // projectiles
+      for (const p of projectiles) {
+        ctx.save();
+        ctx.shadowColor = p.friendly ? '#f0c674' : '#d94b4b';
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = p.friendly ? '#ffe9b0' : '#ff8b6b';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // melee swings
+      for (const s of swings) {
+        const t = s.life / s.maxLife;
+        ctx.save();
+        ctx.globalAlpha = t * 0.75;
+        ctx.strokeStyle = '#fff3d0';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.range * (1.05 - t * 0.25), s.a - 1.15, s.a + 1.15);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // player
+      if (player) drawPlayer();
+
+      // particles
+      for (const pt of particles) {
+        ctx.globalAlpha = Math.max(0, pt.life / pt.maxLife);
+        ctx.fillStyle = pt.color;
+        ctx.fillRect(pt.x - pt.size / 2, pt.y - pt.size / 2, pt.size, pt.size);
+      }
+      ctx.globalAlpha = 1;
+
+      // floating text
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 12px "Trebuchet MS", sans-serif';
+      for (const f of floaters) {
+        ctx.globalAlpha = Math.min(1, f.life);
+        ctx.fillStyle = f.color;
+        ctx.fillText(f.text, f.x, f.y);
+      }
+      ctx.globalAlpha = 1;
+
+      // torch light
+      drawTorchlight();
+
+      ctx.restore();
+
+      // damage flash
+      if (respawnFlash > 0) {
+        ctx.fillStyle = 'rgba(200, 40, 40, ' + (respawnFlash * 1.6) + ')';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+
+    function drawTiles() {
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          const t = grid[y][x];
+          const px = x * TILE, py = y * TILE;
+          if (t === T_WALL) {
+            const shade = hash2(x, y);
+            ctx.fillStyle = shade > 0.5 ? '#241d31' : '#201a2b';
+            ctx.fillRect(px, py, TILE, TILE);
+            ctx.fillStyle = 'rgba(95, 78, 130, 0.35)';
+            ctx.fillRect(px, py, TILE, 3);
+            ctx.fillStyle = 'rgba(0,0,0,0.35)';
+            ctx.fillRect(px, py + TILE - 3, TILE, 3);
+          } else {
+            const shade = hash2(x, y);
+            ctx.fillStyle = shade > 0.66 ? '#171326' : shade > 0.33 ? '#151121' : '#141020';
+            ctx.fillRect(px, py, TILE, TILE);
+            ctx.fillStyle = 'rgba(120, 100, 160, 0.05)';
+            ctx.fillRect(px + 4, py + 4, TILE - 8, TILE - 8);
+            if (t === T_STAIRS) {
+              ctx.save();
+              ctx.fillStyle = hasKey ? '#7fd7f0' : '#5a7d8c';
+              ctx.fillRect(px + 4, py + 4, TILE - 8, TILE - 8);
+              ctx.fillStyle = 'rgba(0,0,0,0.5)';
+              for (let i = 0; i < 3; i++) ctx.fillRect(px + 6, py + 8 + i * 6, TILE - 12, 2);
+              ctx.restore();
+            }
+          }
+        }
+      }
+    }
+
+    function drawItem(it) {
+      if (it.type === 'key') {
+        const bob = Math.sin(it.bob) * 3;
+        ctx.save();
+        ctx.translate(it.x, it.y + bob);
+        ctx.shadowColor = '#f0c674';
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = '#f0c674';
+        ctx.beginPath();
+        ctx.arc(0, 0, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillRect(0, -2, 12, 4);
+        ctx.fillRect(9, 2, 3, 5);
+        ctx.fillRect(13, 2, 3, 6);
+        ctx.restore();
+      } else {
+        ctx.save();
+        ctx.translate(it.x, it.y);
+        if (it.opened) {
+          ctx.fillStyle = '#3a2f4a';
+          ctx.fillRect(-11, -6, 22, 14);
+          ctx.fillStyle = '#241d31';
+          ctx.fillRect(-11, -6, 22, 5);
+        } else {
+          ctx.shadowColor = '#d99b3c';
+          ctx.shadowBlur = 10;
+          ctx.fillStyle = '#7a5a2c';
+          ctx.fillRect(-11, -9, 22, 18);
+          ctx.fillStyle = '#9c7538';
+          ctx.fillRect(-11, -9, 22, 6);
+          ctx.fillStyle = '#f0c674';
+          ctx.fillRect(-2, -3, 4, 7);
+        }
+        ctx.restore();
+      }
+    }
+
+    function drawEnemy(en) {
+      ctx.save();
+      ctx.translate(en.x, en.y);
+      const flash = en.hitFlash > 0;
+      ctx.fillStyle = flash ? '#ffffff' : en.color;
+
+      if (en.type === 'slime') {
+        const squash = 1 + Math.sin(en.wob) * 0.08;
+        ctx.beginPath();
+        ctx.ellipse(0, 2, en.r * squash, en.r / squash, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = flash ? '#fff' : 'rgba(255,255,255,0.4)';
+        ctx.beginPath();
+        ctx.arc(-3, -3, 2.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#1d2a1d';
+        ctx.beginPath();
+        ctx.arc(-4, -1, 1.6, 0, Math.PI * 2);
+        ctx.arc(4, -1, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (en.type === 'bat') {
+        const flap = Math.sin(en.wob * 2) * 4;
+        ctx.fillStyle = flash ? '#fff' : '#3a2b4a';
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-en.r * 1.7, -flap);
+        ctx.lineTo(-en.r * 0.4, 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(en.r * 1.7, -flap);
+        ctx.lineTo(en.r * 0.4, 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = flash ? '#fff' : en.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, en.r * 0.85, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ff5b5b';
+        ctx.beginPath();
+        ctx.arc(-2.5, -1, 1.6, 0, Math.PI * 2);
+        ctx.arc(2.5, -1, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // skeleton
+        ctx.fillStyle = flash ? '#fff' : '#e9e3d5';
+        ctx.beginPath();
+        ctx.arc(0, -en.r * 0.45, en.r * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillRect(-en.r * 0.45, en.r * 0.1, en.r * 0.9, en.r * 0.9);
+        ctx.fillStyle = flash ? '#fff' : '#1a1408';
+        ctx.beginPath();
+        ctx.arc(-3, -en.r * 0.5, 2.2, 0, Math.PI * 2);
+        ctx.arc(3, -en.r * 0.5, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = flash ? '#fff' : '#8d7fa6';
+        ctx.fillRect(-1, -en.r * 0.15, 2, 5);
+      }
+
+      // enemy hp bar
+      if (en.hp < en.maxHp) {
+        const w = en.r * 2.4;
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.fillRect(-w / 2, -en.r - 9, w, 3.5);
+        ctx.fillStyle = '#d94b4b';
+        ctx.fillRect(-w / 2, -en.r - 9, w * Math.max(0, en.hp / en.maxHp), 3.5);
+      }
+      ctx.restore();
+    }
+
+    function drawPlayer() {
+      ctx.save();
+      ctx.translate(player.x, player.y);
+      const bob = Math.sin(player.walk) * (player.walk ? 2 : 0);
+
+      // shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.beginPath();
+      ctx.ellipse(0, player.r * 0.9, player.r * 0.95, player.r * 0.4, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // flicker when invulnerable
+      if (player.invuln > 0 && Math.floor(time * 20) % 2 === 0) ctx.globalAlpha = 0.45;
+
+      // cloak body
+      ctx.fillStyle = '#3f6fb0';
+      ctx.beginPath();
+      ctx.arc(0, bob, player.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#f0d6b0';
+      ctx.beginPath();
+      ctx.arc(0, bob - 2, player.r * 0.62, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#2c4f82';
+      ctx.beginPath();
+      ctx.arc(0, bob - 5, player.r * 0.66, Math.PI, 0);
+      ctx.fill();
+
+      // facing weapon
+      ctx.rotate(player.aim);
+      ctx.fillStyle = '#d8d2c4';
+      ctx.fillRect(player.r * 0.4, -2, 15, 4);
+      ctx.fillStyle = '#8a6317';
+      ctx.fillRect(player.r * 0.4 - 2, -3.5, 4, 7);
+      // eyes
+      ctx.rotate(-player.aim);
+      ctx.fillStyle = '#1a1408';
+      const ex = Math.cos(player.aim) * 3;
+      const ey = Math.sin(player.aim) * 3;
+      ctx.beginPath();
+      ctx.arc(-3 + ex, bob - 2 + ey, 1.6, 0, Math.PI * 2);
+      ctx.arc(3 + ex, bob - 2 + ey, 1.6, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function drawTorchlight() {
+      if (!player) return;
+      const g = ctx.createRadialGradient(player.x, player.y, 40, player.x, player.y, 300);
+      g.addColorStop(0, 'rgba(0,0,0,0)');
+      g.addColorStop(0.55, 'rgba(0,0,0,0.12)');
+      g.addColorStop(1, 'rgba(0,0,0,0.68)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, MAP_W, MAP_H);
+    }
+
+    // ============================================================
+    // ============ MAIN LOOP ====================================
+    // ============================================================
+    let lastTime = 0;
+    function loop(now) {
+      const dt = Math.min(0.05, (now - lastTime) / 1000 || 0);
+      lastTime = now;
+
+      if (state === 'playing') {
+        update(dt);
+        updateHUD();
+        // auto-note mouse aim for continuous facing while shooting handled in input
+      }
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // ============================================================
+    // ============ INPUT ========================================
+    // ============================================================
+    document.addEventListener('keydown', (e) => {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
+      keys[e.code] = true;
+      if (state !== 'playing') return;
+      if (e.code === 'Space' || e.code === 'KeyJ') doMelee();
+      if (e.code === 'KeyK' || e.code === 'KeyL') doShoot();
+    });
+    document.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+    function canvasToWorld(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      const cx = (clientX - rect.left) * (canvas.width / rect.width);
+      const cy = (clientY - rect.top) * (canvas.height / rect.height);
+      return { x: (cx - offX) / scale, y: (cy - offY) / scale };
+    }
+
+    canvas.addEventListener('mousemove', (e) => {
+      const p = canvasToWorld(e.clientX, e.clientY);
+      mouse.x = p.x; mouse.y = p.y; mouse.active = true;
+      if (state === 'playing' && player) {
+        player.aim = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+      }
+    });
+
+    canvas.addEventListener('mousedown', (e) => {
+      if (state !== 'playing') return;
+      e.preventDefault();
+      const p = canvasToWorld(e.clientX, e.clientY);
+      player.aim = Math.atan2(p.y - player.y, p.x - player.x);
+      doShoot();
+    });
+
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // --- touch pads ---
+    document.querySelectorAll('.tbtn[data-dir]').forEach(btn => {
+      const dir = btn.dataset.dir;
+      const on = (e) => { e.preventDefault(); touch[dir] = true; };
+      const off = (e) => { e.preventDefault(); touch[dir] = false; };
+      btn.addEventListener('touchstart', on, { passive: false });
+      btn.addEventListener('touchend', off);
+      btn.addEventListener('touchcancel', off);
+      btn.addEventListener('mousedown', on);
+      btn.addEventListener('mouseup', off);
+      btn.addEventListener('mouseleave', off);
+    });
+
+    const btnMelee = document.getElementById('btnMelee');
+    const btnShoot = document.getElementById('btnShoot');
+    const bindAction = (el, fn) => {
+      const go = (e) => { e.preventDefault(); if (state === 'playing') fn(); };
+      el.addEventListener('touchstart', go, { passive: false });
+      el.addEventListener('mousedown', go);
+    };
+    bindAction(btnMelee, doMelee);
+    bindAction(btnShoot, doShoot);
+
+    // ============================================================
+    // ============ BOOT =========================================
+    // ============================================================
+    player = makePlayer();
+    grid = makeEmptyGrid();
+    for (let y = 0; y < ROWS; y++)
+      for (let x = 0; x < COLS; x++)
+        grid[y][x] = (x === 0 || y === 0 || x === COLS - 1 || y === ROWS - 1) ? T_WALL : T_FLOOR;
+    resize();
+    updateHUD();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

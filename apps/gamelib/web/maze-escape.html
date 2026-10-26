@@ -1,0 +1,1326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🧩 Maze Escape</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --ink: #e8eefc;
+      --muted: #7f8db0;
+      --cyan: #37e0c8;
+      --gold: #ffd166;
+      --purple: #b06bff;
+      --red: #ff5566;
+      --panel: rgba(16, 21, 33, 0.92);
+      --line: rgba(120, 140, 190, 0.22);
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif;
+      background:
+        radial-gradient(1100px 700px at 20% -10%, #16233c 0%, transparent 60%),
+        radial-gradient(900px 600px at 110% 120%, #1d2a44 0%, transparent 55%),
+        #070a12;
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 14px;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+      overflow-x: hidden;
+    }
+
+    /* ============ LAYOUT ============ */
+    .game-container {
+      width: 100%;
+      max-width: 660px;
+      background: linear-gradient(180deg, rgba(21, 28, 45, 0.95), rgba(12, 16, 26, 0.95));
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 18px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.65rem;
+      letter-spacing: 0.14em;
+      font-weight: 700;
+      background: linear-gradient(90deg, var(--cyan), var(--gold));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      margin-bottom: 4px;
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.78rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    /* ============ HUD ============ */
+    .hud {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .hud-cell {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 7px 6px;
+      text-align: center;
+    }
+
+    .hud-cell .k {
+      display: block;
+      font-size: 0.6rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+
+    .hud-cell .v {
+      font-size: 1rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .v.cyan { color: var(--cyan); }
+    .v.gold { color: var(--gold); }
+    .v.red  { color: var(--red); }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background: #05070c;
+      box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.7);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    /* ============ OVERLAYS ============ */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 22px;
+      background: rgba(6, 9, 16, 0.9);
+      backdrop-filter: blur(3px);
+      transition: opacity 0.25s ease;
+    }
+
+    .screen.hidden { opacity: 0; pointer-events: none; }
+
+    .screen-title {
+      font-size: 1.7rem;
+      letter-spacing: 0.06em;
+      margin-bottom: 10px;
+      background: linear-gradient(90deg, var(--cyan), var(--gold));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .screen-text {
+      font-size: 0.86rem;
+      line-height: 1.55;
+      color: #b9c6e2;
+      max-width: 400px;
+      margin-bottom: 18px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      justify-content: center;
+      margin-bottom: 20px;
+      font-size: 0.76rem;
+      color: #9fabcb;
+    }
+
+    .legend b { font-weight: 700; }
+
+    .hint {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 14px;
+      letter-spacing: 0.04em;
+    }
+
+    /* ============ BUTTONS ============ */
+    .action-btn {
+      padding: 13px 34px;
+      border: none;
+      border-radius: 26px;
+      font-size: 1.02rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      color: #06231f;
+      background: linear-gradient(135deg, var(--cyan), #6ff0dc);
+      box-shadow: 0 8px 24px rgba(55, 224, 200, 0.28);
+      transition: transform 0.16s ease, box-shadow 0.16s ease;
+    }
+
+    .action-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(55, 224, 200, 0.4); }
+    .action-btn:active { transform: translateY(0); }
+
+    /* ============ PAUSE / LEVEL BANNER ============ */
+    .pause-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: rgba(6, 9, 16, 0.78);
+      color: var(--cyan);
+      font-size: 1.6rem;
+      letter-spacing: 0.2em;
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .pause-overlay.visible { opacity: 1; }
+
+    .banner {
+      position: absolute;
+      left: 0; right: 0;
+      top: 42%;
+      text-align: center;
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: var(--gold);
+      text-shadow: 0 0 24px rgba(255, 209, 102, 0.6);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      transform: translateY(10px);
+    }
+
+    .banner.show { opacity: 1; transform: translateY(0); }
+
+    /* ============ ON-SCREEN DPAD ============ */
+    .dpad {
+      display: grid;
+      grid-template-columns: repeat(3, 62px);
+      grid-template-rows: repeat(3, 62px);
+      gap: 8px;
+      justify-content: center;
+      margin-top: 14px;
+    }
+
+    .dpad-btn {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(40, 52, 78, 0.9), rgba(20, 27, 43, 0.9));
+      color: var(--cyan);
+      border-radius: 14px;
+      font-size: 1.4rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.1s ease, background 0.1s ease;
+    }
+
+    .dpad-btn:active, .dpad-btn.on {
+      background: rgba(55, 224, 200, 0.22);
+      transform: scale(0.94);
+    }
+
+    .dpad-btn.up    { grid-column: 2; grid-row: 1; }
+    .dpad-btn.left  { grid-column: 1; grid-row: 2; }
+    .dpad-btn.right { grid-column: 3; grid-row: 2; }
+    .dpad-btn.down  { grid-column: 2; grid-row: 3; }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 560px) {
+      .game-container { padding: 12px; border-radius: 16px; }
+      .game-title { font-size: 1.3rem; }
+      .hud-cell .v { font-size: 0.86rem; }
+      .hud-cell .k { font-size: 0.52rem; }
+      .dpad { grid-template-columns: repeat(3, 54px); grid-template-rows: repeat(3, 54px); }
+      .screen-title { font-size: 1.35rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">MAZE ESCAPE</h1>
+    <p class="game-subtitle">Find the keys · Dodge the traps · Reach the exit</p>
+
+    <div class="hud">
+      <div class="hud-cell"><span class="k">Level</span><span class="v cyan" id="hudLevel">1</span></div>
+      <div class="hud-cell"><span class="k">Keys</span><span class="v gold" id="hudKeys">0</span></div>
+      <div class="hud-cell"><span class="k">Time</span><span class="v" id="hudTime">0:00</span></div>
+      <div class="hud-cell"><span class="k">Lives</span><span class="v red" id="hudLives">3</span></div>
+      <div class="hud-cell"><span class="k">Best</span><span class="v gold" id="hudBest">Lv 1</span></div>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="640" height="640"></canvas>
+
+      <!-- Start Screen -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">Ready to Escape?</h2>
+        <p class="screen-text">
+          Explore a freshly generated maze, grab the golden keys and unlock the
+          purple doors that block your path. Watch out for the roaming red traps.
+        </p>
+        <div class="legend">
+          <span><b style="color:#37e0c8">●</b> You</span>
+          <span><b style="color:#ffd166">⚿</b> Key</span>
+          <span><b style="color:#b06bff">▮</b> Door</span>
+          <span><b style="color:#ff5566">✸</b> Trap</span>
+          <span><b style="color:#ffd166">◎</b> Exit</span>
+        </div>
+        <button class="action-btn" id="startBtn">START RUN</button>
+        <p class="hint">Arrows / WASD to move · P pause · M minimap · F fog · R restart</p>
+      </div>
+
+      <!-- Game Over Screen -->
+      <div id="gameOverScreen" class="screen hidden">
+        <h2 class="screen-title">Run Ended</h2>
+        <p class="screen-text" id="goStats">You reached level 1.</p>
+        <button class="action-btn" id="playAgainBtn">PLAY AGAIN</button>
+        <p class="hint">Press R or Enter to restart</p>
+      </div>
+
+      <!-- Pause Overlay -->
+      <div id="pauseOverlay" class="pause-overlay">PAUSED</div>
+
+      <!-- Level Banner -->
+      <div id="banner" class="banner"></div>
+    </div>
+
+    <!-- On-screen D-Pad -->
+    <div class="dpad" id="dpad">
+      <button class="dpad-btn up"    data-dir="up">▲</button>
+      <button class="dpad-btn left"  data-dir="left">◀</button>
+      <button class="dpad-btn right" data-dir="right">▶</button>
+      <button class="dpad-btn down"  data-dir="down">▼</button>
+    </div>
+  </div>
+
+  <script>
+    /* ==================================================================
+       MAZE ESCAPE — original single-file maze puzzle
+       Procedural mazes (recursive backtracker) · keys · doors · traps
+       fog of war · minimap · timer + best · keyboard + touch
+       ================================================================== */
+
+    /* ============ CONFIGURATION ============ */
+    const CANVAS = 640;            // internal canvas resolution (square)
+    const N4 = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+    const PLAYER_SPEED = 8.0;      // cells per second
+    const VISION_BASE = 5;         // fog reveal radius (cells)
+    const STORAGE_LEVEL = 'mazeEscapeBestLevel';
+    const STORAGE_TIME = 'mazeEscapeBestTime';
+
+    const COLORS = {
+      fog:        '#05070c',
+      floorSeen:  '#141b28',
+      floorVis:   '#26314a',
+      floorEdge:  '#33415f',
+      wallSeen:   '#1a2233',
+      wallVis:    '#5a6f96',
+      wallTop:    '#8fa6cd',
+      wallFog:    '#0a0e17',
+      player:     '#37e0c8',
+      key:        '#ffd166',
+      door:       '#b06bff',
+      trap:       '#ff5566',
+      exit:       '#ffd166'
+    };
+
+    /* ============ CANVAS SETUP ============ */
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    /* ============ DOM ELEMENTS ============ */
+    const hudLevel = document.getElementById('hudLevel');
+    const hudKeys = document.getElementById('hudKeys');
+    const hudTime = document.getElementById('hudTime');
+    const hudLives = document.getElementById('hudLives');
+    const hudBest = document.getElementById('hudBest');
+    const startScreen = document.getElementById('startScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const goStats = document.getElementById('goStats');
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const bannerEl = document.getElementById('banner');
+    const startBtn = document.getElementById('startBtn');
+    const playAgainBtn = document.getElementById('playAgainBtn');
+    const dpad = document.getElementById('dpad');
+
+    /* ============ GAME STATE ============ */
+    const state = {
+      mode: 'start',        // start | playing | paused | cleared | over
+      level: 1,
+      lives: 3,
+      elapsed: 0,           // total run time (seconds)
+      keysHeld: 0,
+      keysTotal: 0,
+      cols: 11,
+      rows: 11,
+      cell: 0,
+      g: null,              // grid: 1 wall, 0 floor
+      doorMap: new Map(),   // "x,y" -> { open, idx }
+      keys: [],             // { x, y, got }
+      exit: { x: 0, y: 0 },
+      traps: [],
+      visible: new Set(),
+      seen: new Set(),
+      showMinimap: true,
+      fog: true,
+      invuln: 0,
+      clearTimer: 0,
+      shake: 0,
+      particles: [],
+      bestLevel: 1,
+      bestTime: 0
+    };
+
+    const player = { cx: 1, cy: 1, tx: 1, ty: 1, p: 0, moving: false, dir: 'down' };
+
+    /* ============ AUDIO (WebAudio beep) ============ */
+    let audioCtx = null;
+
+    function beep(freq, dur, type, vol) {
+      dur = dur || 0.08;
+      type = type || 'square';
+      vol = vol || 0.14;
+      try {
+        if (!audioCtx) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return;
+          audioCtx = new AC();
+        }
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + dur);
+      } catch (e) { /* audio is best-effort only */ }
+    }
+
+    function sfxStep()   { beep(220, 0.03, 'sine', 0.05); }
+    function sfxKey()    { beep(760, 0.09, 'triangle', 0.16); setTimeout(() => beep(1140, 0.11, 'triangle', 0.14), 70); }
+    function sfxDoor()   { beep(300, 0.16, 'sawtooth', 0.12); setTimeout(() => beep(520, 0.13, 'sine', 0.12), 90); }
+    function sfxBump()   { beep(110, 0.06, 'square', 0.07); }
+    function sfxCaught() { beep(160, 0.35, 'sawtooth', 0.2); }
+    function sfxWin()    { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => beep(f, 0.13, 'triangle', 0.15), i * 95)); }
+    function sfxOver()   { [400, 320, 240, 160].forEach((f, i) => setTimeout(() => beep(f, 0.22, 'sawtooth', 0.16), i * 130)); }
+
+    /* ============ STORAGE ============ */
+    function loadBest() {
+      try {
+        const lv = parseInt(localStorage.getItem(STORAGE_LEVEL), 10);
+        const tm = parseFloat(localStorage.getItem(STORAGE_TIME));
+        if (!isNaN(lv) && lv > 0) state.bestLevel = lv;
+        if (!isNaN(tm) && tm > 0) state.bestTime = tm;
+      } catch (e) { /* storage may be unavailable on file:// */ }
+    }
+
+    function saveBest() {
+      try {
+        localStorage.setItem(STORAGE_LEVEL, String(state.bestLevel));
+        localStorage.setItem(STORAGE_TIME, String(Math.round(state.bestTime)));
+      } catch (e) { /* ignore */ }
+    }
+
+    /* ============ MAZE GENERATION (recursive backtracker) ============ */
+    function generateMaze(cols, rows) {
+      const g = [];
+      for (let y = 0; y < rows; y++) g.push(new Array(cols).fill(1));
+      const stack = [[1, 1]];
+      g[1][1] = 0;
+      const step = [[0, -2], [0, 2], [-2, 0], [2, 0]];
+
+      while (stack.length) {
+        const cur = stack[stack.length - 1];
+        const cx = cur[0], cy = cur[1];
+        const options = [];
+        for (const s of step) {
+          const nx = cx + s[0], ny = cy + s[1];
+          if (nx > 0 && nx < cols - 1 && ny > 0 && ny < rows - 1 && g[ny][nx] === 1) {
+            options.push([nx, ny, s[0], s[1]]);
+          }
+        }
+        if (options.length) {
+          const pick = options[Math.floor(Math.random() * options.length)];
+          g[cy + pick[3] / 2][cx + pick[2] / 2] = 0; // knock down wall between
+          g[pick[1]][pick[0]] = 0;
+          stack.push([pick[0], pick[1]]);
+        } else {
+          stack.pop();
+        }
+      }
+      return g;
+    }
+
+    /* ============ PATHFINDING (BFS) ============ */
+    function bfsPath(g, startX, startY, goalX, goalY) {
+      const rows = g.length, cols = g[0].length;
+      const prev = new Map();
+      const startKey = startX + ',' + startY;
+      prev.set(startKey, null);
+      const queue = [[startX, startY]];
+      let head = 0;
+
+      while (head < queue.length) {
+        const cell = queue[head++];
+        const x = cell[0], y = cell[1];
+        if (x === goalX && y === goalY) break;
+        for (const d of N4) {
+          const nx = x + d[0], ny = y + d[1];
+          if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
+          if (g[ny][nx] !== 0) continue;
+          const k = nx + ',' + ny;
+          if (!prev.has(k)) { prev.set(k, x + ',' + y); queue.push([nx, ny]); }
+        }
+      }
+
+      const path = [];
+      let cur = goalX + ',' + goalY;
+      while (cur) {
+        const parts = cur.split(',');
+        path.push([parseInt(parts[0], 10), parseInt(parts[1], 10)]);
+        cur = prev.get(cur);
+      }
+      return path.reverse(); // start -> goal
+    }
+
+    /* ============ LEVEL BUILD ============ */
+    function levelConfig(level) {
+      const size = Math.min(11 + (level - 1) * 2, 25); // odd sizes, caps at 25
+      const doors = Math.min(3, 1 + Math.floor((level - 1) / 2));
+      const traps = Math.min(2 + level, 8);
+      return { size: size, doors: doors, traps: traps };
+    }
+
+    function buildLevel() {
+      const cfg = levelConfig(state.level);
+      const g = generateMaze(cfg.size, cfg.size);
+      state.g = g;
+      state.cols = cfg.size;
+      state.rows = cfg.size;
+      state.cell = CANVAS / cfg.size;
+      state.doorMap = new Map();
+      state.keys = [];
+      state.traps = [];
+      state.visible = new Set();
+      state.seen = new Set();
+      state.keysHeld = 0;
+      state.particles = [];
+      state.invuln = 0;
+      state.shake = 0;
+
+      const exitX = cfg.size - 2, exitY = cfg.size - 2;
+      state.exit = { x: exitX, y: exitY };
+
+      // Path from start to exit — the unique solution route.
+      const path = bfsPath(g, 1, 1, exitX, exitY);
+      const blocked = new Set(); // cells occupied by keys/doors, to avoid overlaps
+
+      // Place doors along the path, with a key placed just before each door.
+      const doorCells = [];
+      const doorIdx = [];
+      for (let j = 1; j <= cfg.doors; j++) {
+        let di = Math.round(path.length * j / (cfg.doors + 1));
+        di = Math.min(path.length - 2, Math.max(1, di));
+        const prevIdx = doorIdx.length ? doorIdx[doorIdx.length - 1] : 0;
+        // Need room for a key cell strictly between the previous door and this one.
+        if (di <= prevIdx + 1) continue;
+
+        let ki = Math.floor((prevIdx + di) / 2);
+        ki = Math.max(prevIdx + 1, Math.min(di - 1, ki));
+
+        const keyCell = path[ki];
+        const doorCell = path[di];
+        const keyId = keyCell[0] + ',' + keyCell[1];
+        const doorId = doorCell[0] + ',' + doorCell[1];
+        if (blocked.has(keyId) || blocked.has(doorId) || keyId === doorId) continue;
+
+        state.keys.push({ x: keyCell[0], y: keyCell[1], got: false });
+        blocked.add(keyId);
+        state.doorMap.set(doorId, { open: false, idx: doorIdx.length });
+        doorCells.push(doorCell);
+        blocked.add(doorId);
+        doorIdx.push(di);
+      }
+      state.keysTotal = state.keys.length;
+
+      // Spawn traps in cells far from the start and away from key/exit zones.
+      const candidates = [];
+      for (let y = 1; y < cfg.size - 1; y++) {
+        for (let x = 1; x < cfg.size - 1; x++) {
+          if (g[y][x] !== 0) continue;
+          const dist = Math.abs(x - 1) + Math.abs(y - 1);
+          if (dist < 4) continue;
+          if (x === exitX && y === exitY) continue;
+          if (blocked.has(x + ',' + y)) continue;
+          candidates.push([x, y]);
+        }
+      }
+      shuffle(candidates);
+      const trapSpeed = Math.min(4.4, 2.0 + (state.level - 1) * 0.25);
+      for (let i = 0; i < cfg.traps && i < candidates.length; i++) {
+        const c = candidates[i];
+        state.traps.push({ cx: c[0], cy: c[1], tx: c[0], ty: c[1], p: 0, speed: trapSpeed });
+      }
+
+      // Reset player at the maze entrance.
+      player.cx = 1; player.cy = 1; player.tx = 1; player.ty = 1;
+      player.p = 0; player.moving = false; player.dir = 'down';
+
+      computeVision();
+      updateHud();
+    }
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+      }
+    }
+
+    /* ============ VISION / FOG ============ */
+    function computeVision() {
+      state.visible.clear();
+      const range = state.cols <= 15 ? VISION_BASE : VISION_BASE - 1;
+      const queue = [[player.cx, player.cy, 0]];
+      const startKey = player.cx + ',' + player.cy;
+      state.visible.add(startKey);
+      state.seen.add(startKey);
+      let head = 0;
+
+      while (head < queue.length) {
+        const node = queue[head++];
+        const x = node[0], y = node[1], d = node[2];
+        if (d >= range) continue;
+        for (const dir of N4) {
+          const nx = x + dir[0], ny = y + dir[1];
+          if (nx < 0 || ny < 0 || nx >= state.cols || ny >= state.rows) continue;
+          const k = nx + ',' + ny;
+          if (state.g[ny][nx] === 0) {
+            if (!state.visible.has(k)) {
+              state.visible.add(k);
+              state.seen.add(k);
+              queue.push([nx, ny, d + 1]);
+            }
+          } else {
+            state.visible.add(k);
+            state.seen.add(k);
+          }
+        }
+      }
+    }
+
+    /* ============ PARTICLES ============ */
+    function burst(cx, cy, color) {
+      const px = (cx + 0.5) * state.cell;
+      const py = (cy + 0.5) * state.cell;
+      for (let i = 0; i < 12; i++) {
+        state.particles.push({
+          x: px, y: py,
+          vx: (Math.random() - 0.5) * 260,
+          vy: (Math.random() - 0.5) * 260,
+          life: 1,
+          color: color,
+          size: 2 + Math.random() * 3
+        });
+      }
+    }
+
+    function updateParticles(dt) {
+      const list = state.particles;
+      for (let i = list.length - 1; i >= 0; i--) {
+        const p = list[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vx *= 0.94;
+        p.vy *= 0.94;
+        p.life -= dt * 1.7;
+        if (p.life <= 0) list.splice(i, 1);
+      }
+    }
+
+    /* ============ PLAYER MOVEMENT ============ */
+    function cellFloor(x, y) {
+      if (x < 0 || y < 0 || x >= state.cols || y >= state.rows) return false;
+      return state.g[y][x] === 0;
+    }
+
+    function tryMove(dir) {
+      if (player.moving) return;
+      const delta = dirVec(dir);
+      if (!delta) return;
+      const nx = player.cx + delta[0];
+      const ny = player.cy + delta[1];
+      if (!cellFloor(nx, ny)) { state.shake = 4; sfxBump(); return; }
+
+      const door = state.doorMap.get(nx + ',' + ny);
+      if (door && !door.open) {
+        if (state.keysHeld > 0) {
+          door.open = true;
+          state.keysHeld--;
+          sfxDoor();
+          updateHud();
+        } else {
+          state.shake = 4;
+          sfxBump();
+          return;
+        }
+      }
+
+      player.dir = dir;
+      player.tx = nx;
+      player.ty = ny;
+      player.moving = true;
+      player.p = 0;
+    }
+
+    function dirVec(dir) {
+      if (dir === 'up') return [0, -1];
+      if (dir === 'down') return [0, 1];
+      if (dir === 'left') return [-1, 0];
+      if (dir === 'right') return [1, 0];
+      return null;
+    }
+
+    function updatePlayer(dt) {
+      if (player.moving) {
+        player.p += dt * PLAYER_SPEED;
+        if (player.p >= 1) {
+          player.p = 0;
+          player.moving = false;
+          player.cx = player.tx;
+          player.cy = player.ty;
+          onCellEnter();
+        }
+      }
+
+      if (!player.moving && state.mode === 'playing') {
+        const want = desiredDir();
+        if (want) tryMove(want);
+      }
+    }
+
+    function onCellEnter() {
+      computeVision();
+      sfxStep();
+
+      // Key pickup
+      for (const k of state.keys) {
+        if (!k.got && k.x === player.cx && k.y === player.cy) {
+          k.got = true;
+          state.keysHeld++;
+          burst(k.x, k.y, COLORS.key);
+          sfxKey();
+          updateHud();
+        }
+      }
+
+      // Exit reached
+      if (player.cx === state.exit.x && player.cy === state.exit.y) {
+        levelClear();
+      }
+    }
+
+    /* ============ TRAPS ============ */
+    function updateTraps(dt) {
+      for (const trap of state.traps) {
+        trap.p += dt * trap.speed;
+        if (trap.p >= 1) {
+          trap.p = 0;
+          trap.cx = trap.tx;
+          trap.cy = trap.ty;
+          pickTrapTarget(trap);
+        }
+      }
+    }
+
+    function pickTrapTarget(trap) {
+      const back = { cx: trap.cx - (trap.tx - trap.cx), cy: trap.cy - (trap.ty - trap.cy) };
+      const options = [];
+      for (const d of N4) {
+        const nx = trap.cx + d[0];
+        const ny = trap.cy + d[1];
+        if (!cellFloor(nx, ny)) continue;
+        const door = state.doorMap.get(nx + ',' + ny);
+        if (door && !door.open) continue; // traps cannot pass locked doors
+        options.push([nx, ny]);
+      }
+      if (!options.length) { trap.tx = trap.cx; trap.ty = trap.cy; return; }
+
+      // Prefer not to immediately reverse, unless it is the only way.
+      let filtered = options.filter(o => !(o[0] === back.cx && o[1] === back.cy));
+      if (!filtered.length) filtered = options;
+      const pick = filtered[Math.floor(Math.random() * filtered.length)];
+      trap.tx = pick[0];
+      trap.ty = pick[1];
+    }
+
+    function trapRenderPos(trap) {
+      return {
+        x: trap.cx + (trap.tx - trap.cx) * ease(trap.p),
+        y: trap.cy + (trap.ty - trap.cy) * ease(trap.p)
+      };
+    }
+
+    function playerRenderPos() {
+      return {
+        x: player.cx + (player.tx - player.cx) * ease(player.p),
+        y: player.cy + (player.ty - player.cy) * ease(player.p)
+      };
+    }
+
+    function ease(t) { return t * t * (3 - 2 * t); }
+
+    function checkTrapCollision() {
+      if (state.invuln > 0) return;
+      const pp = playerRenderPos();
+      for (const trap of state.traps) {
+        const tp = trapRenderPos(trap);
+        const dx = pp.x - tp.x;
+        const dy = pp.y - tp.y;
+        if (dx * dx + dy * dy < 0.32) { caught(); return; }
+      }
+    }
+
+    /* ============ LIVES / WIN / LOSE ============ */
+    function caught() {
+      state.lives--;
+      sfxCaught();
+      state.shake = 14;
+      burst(player.cx, player.cy, COLORS.red);
+      updateHud();
+
+      if (state.lives <= 0) {
+        gameOver();
+        return;
+      }
+      // Respawn at the entrance with a short invulnerability window.
+      player.cx = 1; player.cy = 1; player.tx = 1; player.ty = 1;
+      player.p = 0; player.moving = false;
+      state.invuln = 1.6;
+      computeVision();
+      showBanner('CAUGHT! ' + state.lives + ' LEFT', COLORS.red);
+    }
+
+    function levelClear() {
+      state.mode = 'cleared';
+      const bonus = state.lives >= 3 ? '+1 LIFE' : '';
+      if (state.lives < 5 && state.level % 3 === 0) state.lives++;
+      sfxWin();
+      burst(player.cx, player.cy, COLORS.exit);
+      showBanner('LEVEL ' + state.level + ' CLEARED ' + bonus, COLORS.gold);
+      updateHud();
+      state.clearTimer = 1.2;
+    }
+
+    function nextLevel() {
+      state.level++;
+      state.mode = 'playing';
+      buildLevel();
+      showBanner('LEVEL ' + state.level, COLORS.cyan);
+    }
+
+    function gameOver() {
+      state.mode = 'over';
+      updateHud();
+
+      // Best: highest level reached (tie -> fastest time to get there).
+      if (state.level > state.bestLevel || (state.level === state.bestLevel && (state.bestTime === 0 || state.elapsed < state.bestTime))) {
+        state.bestLevel = state.level;
+        state.bestTime = state.elapsed;
+        saveBest();
+      }
+
+      goStats.textContent = 'You reached level ' + state.level + ' in ' + formatTime(state.elapsed) +
+        ' with ' + state.keysHeld + ' key' + (state.keysHeld === 1 ? '' : 's') + ' in hand.';
+      gameOverScreen.classList.remove('hidden');
+      updateHud();
+      sfxOver();
+    }
+
+    /* ============ HUD ============ */
+    function formatTime(sec) {
+      const total = Math.max(0, Math.floor(sec));
+      const m = Math.floor(total / 60);
+      const s = total % 60;
+      return m + ':' + (s < 10 ? '0' : '') + s;
+    }
+
+    function updateHud() {
+      hudLevel.textContent = state.level;
+      hudKeys.textContent = state.keysHeld + '/' + state.keysTotal;
+      hudTime.textContent = formatTime(state.elapsed);
+      hudLives.textContent = state.lives;
+      hudBest.textContent = 'Lv ' + state.bestLevel + (state.bestTime ? ' · ' + formatTime(state.bestTime) : '');
+    }
+
+    let bannerTimer = null;
+    function showBanner(text, color) {
+      bannerEl.textContent = text;
+      bannerEl.style.color = color || COLORS.gold;
+      bannerEl.style.textShadow = '0 0 24px ' + (color || COLORS.gold) + '99';
+      bannerEl.classList.add('show');
+      if (bannerTimer) clearTimeout(bannerTimer);
+      bannerTimer = setTimeout(() => bannerEl.classList.remove('show'), 1100);
+    }
+
+    /* ============ RENDERING ============ */
+    function render() {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = COLORS.fog;
+      ctx.fillRect(0, 0, CANVAS, CANVAS);
+
+      if (!state.g) return;
+
+      ctx.save();
+      if (state.shake > 0) {
+        ctx.translate((Math.random() - 0.5) * state.shake, (Math.random() - 0.5) * state.shake);
+      }
+
+      drawMaze();
+      drawEntities();
+      drawParticles();
+      ctx.restore();
+
+      drawMinimap();
+      drawVignette();
+    }
+
+    function drawMaze() {
+      const cell = state.cell;
+      const revealAll = !state.fog;
+
+      for (let y = 0; y < state.rows; y++) {
+        for (let x = 0; x < state.cols; x++) {
+          const key = x + ',' + y;
+          const vis = revealAll || state.visible.has(key);
+          const seen = revealAll || state.seen.has(key);
+          if (!seen) continue; // fully hidden -> fog background shows
+
+          const px = x * cell;
+          const py = y * cell;
+          const isWall = state.g[y][x] === 1;
+          let color;
+
+          if (isWall) {
+            color = vis ? COLORS.wallVis : COLORS.wallSeen;
+          } else {
+            color = vis ? COLORS.floorVis : COLORS.floorSeen;
+          }
+
+          ctx.fillStyle = color;
+          roundRect(px + 0.5, py + 0.5, cell - 1, cell - 1, Math.min(4, cell * 0.18));
+          ctx.fill();
+
+          // Subtle lit rim for visible walls gives the maze depth.
+          if (isWall && vis) {
+            ctx.fillStyle = COLORS.wallTop;
+            ctx.fillRect(px + 1, py + 1, cell - 2, Math.max(1, cell * 0.1));
+          }
+        }
+      }
+    }
+
+    function drawEntities() {
+      const cell = state.cell;
+      const revealAll = !state.fog;
+
+      // Exit portal
+      const ex = state.exit.x, ey = state.exit.y;
+      if (revealAll || state.seen.has(ex + ',' + ey)) {
+        const cxp = (ex + 0.5) * cell;
+        const cyp = (ey + 0.5) * cell;
+        const t = performance.now() / 500;
+        const glow = 0.55 + Math.sin(t) * 0.25;
+        ctx.save();
+        ctx.globalAlpha = glow;
+        ctx.fillStyle = COLORS.exit;
+        ctx.beginPath();
+        ctx.arc(cxp, cyp, cell * 0.34, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = COLORS.exit;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cxp, cyp, cell * (0.34 + 0.12 * ((Math.sin(t * 1.5) + 1) / 2)), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Keys
+      for (const k of state.keys) {
+        if (k.got) continue;
+        if (!(revealAll || state.visible.has(k.x + ',' + k.y))) continue;
+        const cxp = (k.x + 0.5) * cell;
+        const cyp = (k.y + 0.5) * cell;
+        const bob = Math.sin(performance.now() / 320 + k.x) * cell * 0.06;
+        ctx.save();
+        ctx.translate(cxp, cyp + bob);
+        ctx.shadowColor = COLORS.key;
+        ctx.shadowBlur = 12;
+        ctx.fillStyle = COLORS.key;
+        ctx.beginPath();
+        ctx.arc(0, -cell * 0.08, cell * 0.12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillRect(-cell * 0.035, -cell * 0.02, cell * 0.07, cell * 0.22);
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#06231f';
+        ctx.beginPath();
+        ctx.arc(0, -cell * 0.08, cell * 0.05, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Doors
+      state.doorMap.forEach(function (door, key) {
+        const parts = key.split(',');
+        const x = parseInt(parts[0], 10), y = parseInt(parts[1], 10);
+        if (!(revealAll || state.seen.has(key))) return;
+        const px = x * cell, py = y * cell;
+
+        if (door.open) {
+          ctx.strokeStyle = 'rgba(176,107,255,0.45)';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([4, 4]);
+          ctx.strokeRect(px + 3, py + 3, cell - 6, cell - 6);
+          ctx.setLineDash([]);
+        } else {
+          ctx.save();
+          ctx.fillStyle = COLORS.door;
+          ctx.globalAlpha = 0.9;
+          roundRect(px + cell * 0.12, py + 1, cell * 0.76, cell - 2, 3);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = '#1a0b2e';
+          ctx.beginPath();
+          ctx.arc(px + cell * 0.5, py + cell * 0.5, cell * 0.13, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      });
+
+      // Traps
+      const now = performance.now();
+      for (const trap of state.traps) {
+        const tp = trapRenderPos(trap);
+        const key = Math.round(tp.x) + ',' + Math.round(tp.y);
+        if (!(revealAll || state.visible.has(key))) continue;
+        const cxp = (tp.x + 0.5) * cell;
+        const cyp = (tp.y + 0.5) * cell;
+        const spin = now / 300 + trap.cx;
+        const pulse = 0.85 + Math.sin(now / 160 + trap.cy) * 0.15;
+
+        ctx.save();
+        ctx.translate(cxp, cyp);
+        ctx.rotate(spin);
+        ctx.shadowColor = COLORS.trap;
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = COLORS.trap;
+        ctx.beginPath();
+        const spikes = 8;
+        const outer = cell * 0.34 * pulse;
+        const inner = cell * 0.18 * pulse;
+        for (let i = 0; i < spikes * 2; i++) {
+          const r = i % 2 === 0 ? outer : inner;
+          const a = (Math.PI / spikes) * i;
+          const sx = Math.cos(a) * r;
+          const sy = Math.sin(a) * r;
+          if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Player
+      const pp = playerRenderPos();
+      const pcx = (pp.x + 0.5) * cell;
+      const pcy = (pp.y + 0.5) * cell;
+      const blink = state.invuln > 0 && Math.floor(state.invuln * 10) % 2 === 0;
+      if (!blink) {
+        ctx.save();
+        ctx.shadowColor = COLORS.player;
+        ctx.shadowBlur = 18;
+        ctx.fillStyle = COLORS.player;
+        ctx.beginPath();
+        ctx.arc(pcx, pcy, cell * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#06231f';
+        ctx.beginPath();
+        ctx.arc(pcx, pcy, cell * 0.13, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function drawParticles() {
+      for (const p of state.particles) {
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawMinimap() {
+      if (!state.showMinimap) return;
+      const m = 3; // px per maze cell
+      const mw = state.cols * m;
+      const mh = state.rows * m;
+      const ox = CANVAS - mw - 14;
+      const oy = 14;
+
+      ctx.save();
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = 'rgba(6,9,16,0.88)';
+      roundRect(ox - 6, oy - 6, mw + 12, mh + 12, 8);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(120,140,190,0.3)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      for (let y = 0; y < state.rows; y++) {
+        for (let x = 0; x < state.cols; x++) {
+          if (!state.seen.has(x + ',' + y)) continue;
+          const isWall = state.g[y][x] === 1;
+          ctx.fillStyle = isWall ? 'rgba(90,111,150,0.75)' : 'rgba(38,49,74,0.95)';
+          ctx.fillRect(ox + x * m, oy + y * m, m, m);
+        }
+      }
+
+      // Keys on minimap
+      ctx.fillStyle = COLORS.key;
+      for (const k of state.keys) {
+        if (k.got) continue;
+        if (!state.seen.has(k.x + ',' + k.y)) continue;
+        ctx.fillRect(ox + k.x * m - 1, oy + k.y * m - 1, m + 2, m + 2);
+      }
+
+      // Exit on minimap
+      if (state.seen.has(state.exit.x + ',' + state.exit.y)) {
+        ctx.fillStyle = COLORS.exit;
+        ctx.fillRect(ox + state.exit.x * m, oy + state.exit.y * m, m, m);
+      }
+
+      // Traps on minimap (only when currently visible)
+      ctx.fillStyle = COLORS.trap;
+      for (const trap of state.traps) {
+        if (!state.visible.has(trap.cx + ',' + trap.cy)) continue;
+        ctx.fillRect(ox + trap.cx * m, oy + trap.cy * m, m, m);
+      }
+
+      // Player on minimap
+      ctx.fillStyle = COLORS.player;
+      ctx.fillRect(ox + player.cx * m - 1, oy + player.cy * m - 1, m + 2, m + 2);
+      ctx.restore();
+    }
+
+    function drawVignette() {
+      const grad = ctx.createRadialGradient(CANVAS / 2, CANVAS / 2, CANVAS * 0.28, CANVAS / 2, CANVAS / 2, CANVAS * 0.75);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(1, 'rgba(0,0,0,0.5)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, CANVAS, CANVAS);
+    }
+
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(x, y, w, h, r);
+      } else {
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+      }
+    }
+
+    /* ============ MAIN LOOP ============ */
+    let lastTs = 0;
+
+    function loop(ts) {
+      if (!lastTs) lastTs = ts;
+      let dt = (ts - lastTs) / 1000;
+      lastTs = ts;
+      if (dt > 0.05) dt = 0.05; // clamp long frames
+
+      if (state.mode === 'playing') {
+        state.elapsed += dt;
+        updatePlayer(dt);
+        updateTraps(dt);
+        if (state.invuln > 0) state.invuln -= dt;
+        if (state.shake > 0) state.shake = Math.max(0, state.shake - dt * 40);
+        checkTrapCollision();
+        updateHud();
+      } else if (state.mode === 'cleared') {
+        state.clearTimer -= dt;
+        if (state.clearTimer <= 0) nextLevel();
+      }
+
+      updateParticles(dt);
+      render();
+      requestAnimationFrame(loop);
+    }
+
+    /* ============ GAME FLOW ============ */
+    function startRun() {
+      state.level = 1;
+      state.lives = 3;
+      state.elapsed = 0;
+      state.mode = 'playing';
+      buildLevel();
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      pauseOverlay.classList.remove('visible');
+      showBanner('LEVEL 1', COLORS.cyan);
+      lastTs = 0;
+      beep(440, 0.09, 'triangle', 0.14);
+    }
+
+    function togglePause() {
+      if (state.mode === 'playing') {
+        state.mode = 'paused';
+        pauseOverlay.classList.add('visible');
+      } else if (state.mode === 'paused') {
+        state.mode = 'playing';
+        pauseOverlay.classList.remove('visible');
+        lastTs = 0;
+      }
+    }
+
+    /* ============ INPUT: KEYBOARD ============ */
+    const pressed = {};
+    let lastDir = null;
+
+    const KEYMAP = {
+      ArrowUp: 'up', KeyW: 'up',
+      ArrowDown: 'down', KeyS: 'down',
+      ArrowLeft: 'left', KeyA: 'left',
+      ArrowRight: 'right', KeyD: 'right'
+    };
+
+    function desiredDir() {
+      if (lastDir && pressed[lastDir]) return lastDir;
+      const keys = Object.keys(pressed);
+      for (const k of keys) if (pressed[k]) return k;
+      return null;
+    }
+
+    document.addEventListener('keydown', function (e) {
+      const dir = KEYMAP[e.code];
+      if (dir) {
+        e.preventDefault();
+        pressed[dir] = true;
+        lastDir = dir;
+        if (state.mode === 'playing') tryMove(dir);
+        return;
+      }
+      if (e.code === 'Space' || e.code === 'KeyP' || e.code === 'Escape') {
+        e.preventDefault();
+        if (state.mode === 'playing' || state.mode === 'paused') togglePause();
+        return;
+      }
+      if (e.code === 'KeyM') { state.showMinimap = !state.showMinimap; beep(600, 0.05, 'sine', 0.08); return; }
+      if (e.code === 'KeyF') { state.fog = !state.fog; beep(500, 0.05, 'sine', 0.08); return; }
+      if (e.code === 'KeyR' || e.code === 'Enter') {
+        if (state.mode === 'over' || state.mode === 'start') { e.preventDefault(); startRun(); }
+        else if (e.code === 'KeyR') { startRun(); }
+      }
+    });
+
+    document.addEventListener('keyup', function (e) {
+      const dir = KEYMAP[e.code];
+      if (dir) {
+        pressed[dir] = false;
+        if (lastDir === dir) lastDir = desiredDir();
+      }
+    });
+
+    /* ============ INPUT: TOUCH / ON-SCREEN DPAD ============ */
+    dpad.querySelectorAll('.dpad-btn').forEach(function (btn) {
+      const dir = btn.dataset.dir;
+
+      function down(e) {
+        e.preventDefault();
+        btn.classList.add('on');
+        pressed[dir] = true;
+        lastDir = dir;
+        if (state.mode === 'playing') tryMove(dir);
+      }
+      function up(e) {
+        if (e) e.preventDefault();
+        btn.classList.remove('on');
+        pressed[dir] = false;
+        if (lastDir === dir) lastDir = desiredDir();
+      }
+
+      btn.addEventListener('touchstart', down, { passive: false });
+      btn.addEventListener('touchend', up, { passive: false });
+      btn.addEventListener('touchcancel', up, { passive: false });
+      btn.addEventListener('mousedown', down);
+      btn.addEventListener('mouseup', up);
+      btn.addEventListener('mouseleave', up);
+    });
+
+    /* ============ BUTTON WIRING ============ */
+    startBtn.addEventListener('click', startRun);
+    playAgainBtn.addEventListener('click', startRun);
+
+    /* ============ BOOT ============ */
+    loadBest();
+    buildLevel();          // build a level so the start screen has a live backdrop
+    state.mode = 'start';
+    updateHud();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

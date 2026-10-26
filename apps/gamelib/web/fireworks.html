@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🎆 Fireworks Sandbox</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #04060f;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #e8eef9;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    /* ============ STAGE ============ */
+    #stage { position: fixed; inset: 0; }
+
+    canvas#sky {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+
+    /* ============ TITLE ============ */
+    .title {
+      position: absolute;
+      top: 14px; left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .title h1 {
+      font-size: 1.5rem;
+      letter-spacing: 0.22em;
+      font-weight: 600;
+      color: #fff;
+      text-shadow: 0 0 18px rgba(255, 210, 120, 0.55), 0 0 42px rgba(120, 170, 255, 0.35);
+    }
+    .title p {
+      margin-top: 4px;
+      font-size: 0.72rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(200, 215, 245, 0.6);
+    }
+
+    /* ============ TOOLBAR ============ */
+    .toolbar {
+      position: absolute;
+      left: 50%; bottom: 16px;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      max-width: calc(100% - 16px);
+      border-radius: 18px;
+      background: rgba(14, 20, 40, 0.62);
+      border: 1px solid rgba(140, 170, 255, 0.18);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+    }
+
+    .group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(140, 170, 255, 0.12);
+    }
+
+    .group-label {
+      font-size: 0.62rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(190, 205, 240, 0.55);
+      padding-right: 2px;
+    }
+
+    .tbtn {
+      padding: 7px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(150, 175, 255, 0.22);
+      background: rgba(255, 255, 255, 0.05);
+      color: #cdd8f0;
+      font-size: 0.74rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .tbtn:hover { background: rgba(255, 255, 255, 0.13); transform: translateY(-1px); }
+    .tbtn:active { transform: translateY(0); }
+    .tbtn.active {
+      background: linear-gradient(135deg, #ffb347, #ff6a3d);
+      border-color: rgba(255, 190, 120, 0.7);
+      color: #24120a;
+      box-shadow: 0 0 16px rgba(255, 150, 70, 0.45);
+    }
+    .tbtn.fire {
+      background: linear-gradient(135deg, #7ce0ff, #9a7bff);
+      border-color: rgba(160, 200, 255, 0.6);
+      color: #0d1030;
+    }
+
+    .swatch {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.25);
+      background: var(--c);
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .swatch:hover { transform: scale(1.15); }
+    .swatch.active {
+      border-color: #fff;
+      transform: scale(1.18);
+      box-shadow: 0 0 14px var(--c);
+    }
+    .swatch.rainbow {
+      background: conic-gradient(#ff5f6d, #ffd166, #7ce0ff, #9a7bff, #ff5f6d);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem;
+    }
+
+    input[type="range"] {
+      width: 86px;
+      accent-color: #ffb347;
+      cursor: pointer;
+    }
+
+    /* ============ HINT ============ */
+    .hint {
+      position: absolute;
+      left: 50%; top: 76px;
+      transform: translateX(-50%);
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      color: rgba(200, 215, 245, 0.42);
+      pointer-events: none;
+      z-index: 5;
+      text-align: center;
+      transition: opacity 0.6s ease;
+    }
+    .hint.gone { opacity: 0; }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 620px) {
+      .title h1 { font-size: 1.05rem; letter-spacing: 0.15em; }
+      .title p { font-size: 0.6rem; }
+      .toolbar { gap: 6px; padding: 8px; bottom: 10px; border-radius: 14px; }
+      .tbtn { padding: 6px 9px; font-size: 0.66rem; }
+      .group { padding: 3px 6px; gap: 4px; }
+      .group-label { display: none; }
+      .swatch { width: 20px; height: 20px; }
+      input[type="range"] { width: 64px; }
+      .hint { font-size: 0.6rem; top: 66px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="sky"></canvas>
+
+    <div class="title">
+      <h1>FIREWORKS</h1>
+      <p>sandbox &middot; tap the sky</p>
+    </div>
+    <div class="hint" id="hint">Tap / click anywhere to launch a shell</div>
+
+    <!-- ============ TOOLBAR ============ -->
+    <div class="toolbar">
+      <div class="group" id="shapeGroup">
+        <span class="group-label">Shell</span>
+        <button class="tbtn active" data-shape="peony">Peony</button>
+        <button class="tbtn" data-shape="ring">Ring</button>
+        <button class="tbtn" data-shape="willow">Willow</button>
+        <button class="tbtn" data-shape="chrysalis">Chrysalis</button>
+        <button class="tbtn" data-shape="palm">Palm</button>
+      </div>
+
+      <div class="group" id="paletteGroup">
+        <span class="group-label">Color</span>
+        <button class="swatch active" data-color="#ff5f6d" style="--c:#ff5f6d"></button>
+        <button class="swatch" data-color="#ffd166" style="--c:#ffd166"></button>
+        <button class="swatch" data-color="#7ce0ff" style="--c:#7ce0ff"></button>
+        <button class="swatch" data-color="#9a7bff" style="--c:#9a7bff"></button>
+        <button class="swatch" data-color="#7bffa8" style="--c:#7bffa8"></button>
+        <button class="swatch rainbow" data-color="rainbow">✦</button>
+      </div>
+
+      <div class="group">
+        <span class="group-label">Size</span>
+        <input type="range" id="sizeRange" min="0.5" max="2" step="0.1" value="1" />
+      </div>
+
+      <div class="group">
+        <button class="tbtn fire" id="finaleBtn">🎆 Finale</button>
+        <button class="tbtn" id="autoBtn">Auto</button>
+        <button class="tbtn" id="clearBtn">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    'use strict';
+
+    // ============ CANVAS & SIZING ============
+    const canvas = document.getElementById('sky');
+    const ctx = canvas.getContext('2d');
+    const hintEl = document.getElementById('hint');
+
+    let W = 0, H = 0, DPR = 1;
+    let stars = [];
+    let skyline = [];
+
+    function resize() {
+      DPR = Math.min(window.devicePixelRatio || 1, 2);
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = Math.floor(W * DPR);
+      canvas.height = Math.floor(H * DPR);
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      buildStars();
+      buildSkyline();
+    }
+
+    function buildStars() {
+      stars = [];
+      const count = Math.round((W * H) / 5200);
+      for (let i = 0; i < count; i++) {
+        stars.push({
+          x: Math.random() * W,
+          y: Math.random() * H * 0.82,
+          r: Math.random() * 1.25 + 0.25,
+          base: Math.random() * 0.5 + 0.3,
+          tw: Math.random() * Math.PI * 2,
+          sp: Math.random() * 0.03 + 0.008
+        });
+      }
+    }
+
+    function buildSkyline() {
+      skyline = [];
+      let x = -10;
+      while (x < W + 20) {
+        const w = 26 + Math.random() * 58;
+        const h = 16 + Math.random() * 62;
+        const win = [];
+        const cols = Math.max(1, Math.floor(w / 12));
+        const rows = Math.max(1, Math.floor(h / 14));
+        for (let c = 0; c < cols; c++) {
+          for (let r = 0; r < rows; r++) {
+            if (Math.random() < 0.32) win.push({ c, r });
+          }
+        }
+        skyline.push({ x, w, h, win, cols, rows });
+        x += w + 3 + Math.random() * 10;
+      }
+    }
+
+    window.addEventListener('resize', resize);
+
+    // ============ STATE ============
+    const state = {
+      shape: 'peony',
+      color: '#ff5f6d',
+      rainbow: false,
+      scale: 1,
+      auto: false,
+      autoTimer: 0,
+      shells: [],
+      particles: [],
+      queue: [],          // scheduled finale launches {t, x, y, shape, color, scale}
+      time: 0,
+      lastCrackle: 0
+    };
+
+    const SHAPE_COUNT = { peony: 130, ring: 110, willow: 90, chrysalis: 150, palm: 34 };
+    const MAX_PARTICLES = 5200;
+
+    // ============ COLOR HELPERS ============
+    function hexToRgb(hex) {
+      const h = hex.replace('#', '');
+      return {
+        r: parseInt(h.substring(0, 2), 16),
+        g: parseInt(h.substring(2, 4), 16),
+        b: parseInt(h.substring(4, 6), 16)
+      };
+    }
+
+    function hslToRgb(h, s, l) {
+      h /= 360; s /= 100; l /= 100;
+      let r, g, b;
+      if (s === 0) { r = g = b = l; }
+      else {
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1 / 6) return p + (q - p) * 6 * t;
+          if (t < 1 / 2) return q;
+          if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+          return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1 / 3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1 / 3);
+      }
+      return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
+    }
+
+    function pickRgb(seedHue) {
+      if (state.rainbow) return hslToRgb((seedHue === undefined ? Math.random() * 360 : seedHue), 92, 62);
+      return hexToRgb(state.color);
+    }
+
+    // ============ AUDIO ENGINE (WebAudio, no files) ============
+    const Sound = {
+      ctx: null,
+      master: null,
+      noiseBuf: null,
+
+      init() {
+        if (this.ctx) {
+          if (this.ctx.state === 'suspended') this.ctx.resume();
+          return;
+        }
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        this.ctx = new AC();
+        this.master = this.ctx.createGain();
+        this.master.gain.value = 0.55;
+        this.master.connect(this.ctx.destination);
+
+        // pre-render a short noise buffer for booms / crackle
+        const len = Math.floor(this.ctx.sampleRate * 1.4);
+        const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+        this.noiseBuf = buf;
+      },
+
+      noise(dur, vol, type, freq, q) {
+        if (!this.ctx) return;
+        const src = this.ctx.createBufferSource();
+        src.buffer = this.noiseBuf;
+        const filt = this.ctx.createBiquadFilter();
+        filt.type = type || 'bandpass';
+        filt.frequency.value = freq || 900;
+        filt.Q.value = q || 0.8;
+        const g = this.ctx.createGain();
+        const t = this.ctx.currentTime;
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(vol, t + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+        src.connect(filt); filt.connect(g); g.connect(this.master);
+        src.start(t); src.stop(t + dur + 0.05);
+      },
+
+      // launch: rising "boep" whoosh
+      launch() {
+        this.init();
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        osc.type = 'sine';
+        const g = this.ctx.createGain();
+        osc.frequency.setValueAtTime(180, t);
+        osc.frequency.exponentialRampToValueAtTime(760, t + 0.5);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(0.14, t + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.0008, t + 0.55);
+        osc.connect(g); g.connect(this.master);
+        osc.start(t); osc.stop(t + 0.6);
+        this.noise(0.5, 0.05, 'highpass', 1400, 0.7);
+      },
+
+      // burst: low boom + noise crack
+      boom(power) {
+        this.init();
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime;
+        const p = power || 1;
+
+        const osc = this.ctx.createOscillator();
+        osc.type = 'sine';
+        const g = this.ctx.createGain();
+        osc.frequency.setValueAtTime(150 * p, t);
+        osc.frequency.exponentialRampToValueAtTime(38, t + 0.5);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(0.5 * p, t + 0.012);
+        g.gain.exponentialRampToValueAtTime(0.0008, t + 0.7);
+        osc.connect(g); g.connect(this.master);
+        osc.start(t); osc.stop(t + 0.75);
+
+        this.noise(0.35, 0.34 * p, 'lowpass', 1100, 0.6);
+        this.noise(0.14, 0.2 * p, 'bandpass', 2600, 1.1);
+      },
+
+      // spark crackle pop
+      crackle() {
+        if (!this.ctx) return;
+        const now = performance.now();
+        if (now - state.lastCrackle < 55) return;
+        state.lastCrackle = now;
+        this.noise(0.09, 0.09, 'bandpass', 3200 + Math.random() * 2600, 2.4);
+      }
+    };
+
+    // ============ BACKGROUND RENDER ============
+    function drawSky() {
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, '#050817');
+      g.addColorStop(0.45, '#0a1130');
+      g.addColorStop(0.78, '#141c3d');
+      g.addColorStop(1, '#241f38');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      // moon glow
+      const mx = W * 0.82, my = H * 0.17;
+      const mg = ctx.createRadialGradient(mx, my, 0, mx, my, 170);
+      mg.addColorStop(0, 'rgba(235,240,255,0.55)');
+      mg.addColorStop(0.12, 'rgba(200,215,255,0.22)');
+      mg.addColorStop(1, 'rgba(160,190,255,0)');
+      ctx.fillStyle = mg;
+      ctx.beginPath(); ctx.arc(mx, my, 170, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(246,248,255,0.92)';
+      ctx.beginPath(); ctx.arc(mx, my, 26, 0, Math.PI * 2); ctx.fill();
+
+      // twinkling stars
+      for (let i = 0; i < stars.length; i++) {
+        const s = stars[i];
+        s.tw += s.sp;
+        const a = s.base + Math.sin(s.tw) * 0.28;
+        ctx.globalAlpha = Math.max(0.05, a);
+        ctx.fillStyle = '#dce6ff';
+        ctx.fillRect(s.x, s.y, s.r, s.r);
+      }
+      ctx.globalAlpha = 1;
+
+      // city silhouette
+      for (let i = 0; i < skyline.length; i++) {
+        const b = skyline[i];
+        const y = H - b.h;
+        ctx.fillStyle = '#05070f';
+        ctx.fillRect(b.x, y, b.w, b.h);
+        for (let k = 0; k < b.win.length; k++) {
+          const wn = b.win[k];
+          ctx.fillStyle = 'rgba(255, 205, 120, 0.35)';
+          ctx.fillRect(b.x + 4 + wn.c * (b.w / b.cols), y + 5 + wn.r * (b.h / b.rows), 3, 4);
+        }
+      }
+    }
+
+    // ============ PARTICLE FACTORY ============
+    function addParticle(x, y, vx, vy, rgb, life, size, opts) {
+      if (state.particles.length >= MAX_PARTICLES) return;
+      const o = opts || {};
+      state.particles.push({
+        x, y, px: x, py: y, vx, vy,
+        r: rgb.r, g: rgb.g, b: rgb.b,
+        life: life, maxLife: life,
+        size: size,
+        grav: o.grav === undefined ? 0.05 : o.grav,
+        drag: o.drag === undefined ? 0.985 : o.drag,
+        sparkle: !!o.sparkle,
+        crackle: !!o.crackle,
+        crackled: false,
+        flicker: Math.random() * Math.PI * 2
+      });
+    }
+
+    // ============ BURST PATTERNS ============
+    function baseSpeed() {
+      return 2.6 + 1.9 * state.scale;
+    }
+
+    function burst(x, y, shape, hueSeed) {
+      const n = Math.max(12, Math.round(SHAPE_COUNT[shape] * state.scale));
+      const maxV = baseSpeed();
+      const baseHue = state.rainbow ? Math.random() * 360 : 0;
+
+      if (shape === 'peony') {
+        for (let i = 0; i < n; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const sp = maxV * (0.35 + Math.random() * 0.75);
+          const rgb = pickRgb(baseHue + (Math.random() * 26 - 13));
+          const life = 62 + Math.random() * 48;
+          addParticle(x, y, Math.cos(a) * sp, Math.sin(a) * sp, rgb, life, 1.6 + Math.random() * 1.1,
+            { crackle: Math.random() < 0.12 });
+        }
+        for (let i = 0; i < 14; i++) {
+          const a = Math.random() * Math.PI * 2;
+          addParticle(x, y, Math.cos(a) * maxV * 0.2, Math.sin(a) * maxV * 0.2,
+            { r: 255, g: 250, b: 225 }, 30 + Math.random() * 20, 2.2, { sparkle: true, drag: 0.94 });
+        }
+      } else if (shape === 'ring') {
+        const rot = Math.random() * Math.PI;
+        const radii = [1, 0.62];
+        for (let l = 0; l < radii.length; l++) {
+          const cnt = Math.round(n * (l === 0 ? 0.68 : 0.32));
+          for (let i = 0; i < cnt; i++) {
+            const a = rot + (i / cnt) * Math.PI * 2 + (Math.random() - 0.5) * 0.06;
+            const sp = maxV * radii[l] * (0.96 + Math.random() * 0.08);
+            const rgb = l === 0 ? pickRgb(baseHue) : { r: 255, g: 255, b: 240 };
+            addParticle(x, y, Math.cos(a) * sp, Math.sin(a) * sp, rgb, 72 + Math.random() * 30, 1.7,
+              { crackle: l === 0 && Math.random() < 0.1 });
+          }
+        }
+      } else if (shape === 'willow') {
+        for (let i = 0; i < n; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const sp = maxV * (0.3 + Math.random() * 0.45);
+          const hue = 38 + Math.random() * 22;
+          const rgb = state.rainbow ? pickRgb(baseHue) : hslToRgb(hue, 95, 66);
+          addParticle(x, y, Math.cos(a) * sp, Math.sin(a) * sp - 0.4, rgb,
+            130 + Math.random() * 70, 1.5 + Math.random() * 0.8,
+            { grav: 0.085, drag: 0.99, crackle: Math.random() < 0.16 });
+        }
+      } else if (shape === 'chrysalis') {
+        const rings = [
+          { k: 1.0, rot: 0, white: false, cnt: 0.5 },
+          { k: 0.72, rot: Math.PI / 6, white: false, cnt: 0.28 },
+          { k: 0.45, rot: Math.PI / 3, white: true, cnt: 0.22 }
+        ];
+        for (let r = 0; r < rings.length; r++) {
+          const cfg = rings[r];
+          const cnt = Math.max(10, Math.round(n * cfg.cnt));
+          for (let i = 0; i < cnt; i++) {
+            const wobble = Math.sin(i * 5.2 + r) * 0.22;
+            const a = cfg.rot + (i / cnt) * Math.PI * 2;
+            const sp = maxV * cfg.k * (1 + wobble * 0.35) * (0.9 + Math.random() * 0.15);
+            const rgb = cfg.white ? { r: 255, g: 255, b: 245 }
+              : pickRgb(baseHue + (r === 0 ? 0 : r * 40));
+            addParticle(x, y, Math.cos(a) * sp, Math.sin(a) * sp, rgb, 80 + Math.random() * 45,
+              cfg.white ? 2.1 : 1.6, { crackle: Math.random() < 0.09 });
+          }
+        }
+      } else if (shape === 'palm') {
+        const arms = 7 + Math.round(Math.random() * 4);
+        const rot = Math.random() * Math.PI;
+        for (let i = 0; i < arms; i++) {
+          const a = rot + (i / arms) * Math.PI * 2;
+          const cnt = 4 + Math.round(Math.random() * 3);
+          const hue = 32 + Math.random() * 28;
+          const rgb = state.rainbow ? pickRgb(baseHue) : hslToRgb(hue, 96, 64);
+          for (let k = 0; k < cnt; k++) {
+            const sp = maxV * (0.55 + k * 0.28) * (1.35);
+            addParticle(x, y, Math.cos(a) * sp, Math.sin(a) * sp, rgb,
+              110 + Math.random() * 60, 2.4 + Math.random() * 1.4,
+              { grav: 0.1, drag: 0.992, crackle: Math.random() < 0.24 });
+          }
+        }
+      }
+    }
+
+    // ============ SHELL LAUNCH ============
+    function launch(tx, ty, opts) {
+      const o = opts || {};
+      const startX = Math.min(W - 10, Math.max(10, tx + (Math.random() - 0.5) * 40));
+      const startY = H + 12;
+      const targetY = Math.min(H * 0.68, Math.max(H * 0.08, ty));
+      const g = 0.16;
+      const dist = startY - targetY;
+      const vy = -Math.sqrt(2 * g * dist);
+      const tUp = Math.max(8, -vy / g);
+      const vx = (tx - startX) / tUp;
+      const rgb = o.color === 'rainbow' || state.rainbow
+        ? hslToRgb(Math.random() * 360, 95, 66)
+        : hexToRgb(o.color || state.color);
+
+      state.shells.push({
+        x: startX, y: startY, px: startX, py: startY,
+        vx, vy, g, r: rgb.r, g2: rgb.g, b: rgb.b,
+        shape: o.shape || state.shape,
+        hue: Math.random() * 360,
+        trail: 0
+      });
+
+      Sound.launch();
+      hintEl.classList.add('gone');
+    }
+
+    function detonate(shell) {
+      burst(shell.x, shell.y, shell.shape, shell.hue);
+      Sound.boom(shell.shape === 'palm' || shell.shape === 'willow' ? 1.15 : 0.95);
+      // residual flash
+      state.particles.push({
+        x: shell.x, y: shell.y, px: shell.x, py: shell.y,
+        vx: 0, vy: 0, r: 255, g: 248, b: 225,
+        life: 12, maxLife: 12, size: 16, grav: 0, drag: 1,
+        sparkle: false, crackle: false, crackled: true, flicker: 0, flash: true
+      });
+    }
+
+    // ============ UPDATE ============
+    function update(df) {
+      // shells
+      for (let i = state.shells.length - 1; i >= 0; i--) {
+        const s = state.shells[i];
+        s.px = s.x; s.py = s.y;
+        s.vy += s.g * df;
+        s.x += s.vx * df;
+        s.y += s.vy * df;
+        s.trail += df;
+        if (s.vy >= 0 || s.y <= 0) {
+          detonate(s);
+          state.shells.splice(i, 1);
+        }
+      }
+
+      // particles
+      for (let i = state.particles.length - 1; i >= 0; i--) {
+        const p = state.particles[i];
+        p.px = p.x; p.py = p.y;
+        p.vy += p.grav * df;
+        p.vx *= Math.pow(p.drag, df);
+        p.vy *= Math.pow(p.drag, df);
+        p.x += p.vx * df;
+        p.y += p.vy * df;
+        p.life -= df;
+        p.flicker += 0.3 * df;
+
+        if (p.crackle && !p.crackled && p.life < p.maxLife * 0.45) {
+          p.crackled = true;
+          Sound.crackle();
+        }
+
+        if (p.life <= 0) state.particles.splice(i, 1);
+      }
+
+      // scheduled finale queue
+      for (let i = state.queue.length - 1; i >= 0; i--) {
+        const q = state.queue[i];
+        q.t -= df / 60;
+        if (q.t <= 0) {
+          launch(q.x, q.y, { shape: q.shape, color: q.color });
+          state.queue.splice(i, 1);
+        }
+      }
+
+      // auto mode
+      if (state.auto) {
+        state.autoTimer -= df / 60;
+        if (state.autoTimer <= 0) {
+          state.autoTimer = 0.55 + Math.random() * 0.75;
+          launch(W * (0.15 + Math.random() * 0.7), H * (0.12 + Math.random() * 0.42), {});
+        }
+      }
+    }
+
+    // ============ DRAW ============
+    function draw() {
+      drawSky();
+
+      ctx.globalCompositeOperation = 'lighter';
+
+      // shells (glowing trail)
+      for (let i = 0; i < state.shells.length; i++) {
+        const s = state.shells[i];
+        ctx.globalAlpha = 0.9;
+        ctx.strokeStyle = 'rgba(' + s.r + ',' + s.g2 + ',' + s.b + ',0.85)';
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.moveTo(s.px, s.py);
+        ctx.lineTo(s.x, s.y);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(255,250,235,0.95)';
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, 2.6, 0, Math.PI * 2);
+        ctx.fill();
+
+        const gl = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, 14);
+        gl.addColorStop(0, 'rgba(' + s.r + ',' + s.g2 + ',' + s.b + ',0.5)');
+        gl.addColorStop(1, 'rgba(' + s.r + ',' + s.g2 + ',' + s.b + ',0)');
+        ctx.fillStyle = gl;
+        ctx.beginPath(); ctx.arc(s.x, s.y, 14, 0, Math.PI * 2); ctx.fill();
+      }
+
+      // particles
+      for (let i = 0; i < state.particles.length; i++) {
+        const p = state.particles[i];
+        const a = Math.max(0, p.life / p.maxLife);
+        if (p.flash) {
+          ctx.globalAlpha = a;
+          const fg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 90);
+          fg.addColorStop(0, 'rgba(255,250,225,0.85)');
+          fg.addColorStop(1, 'rgba(255,210,140,0)');
+          ctx.fillStyle = fg;
+          ctx.beginPath(); ctx.arc(p.x, p.y, 90, 0, Math.PI * 2); ctx.fill();
+          continue;
+        }
+        const flick = p.sparkle ? 0.6 + 0.4 * Math.sin(p.flicker) : 1;
+        ctx.globalAlpha = a * flick * 0.95;
+
+        // motion streak
+        ctx.strokeStyle = 'rgb(' + p.r + ',' + p.g + ',' + p.b + ')';
+        ctx.lineWidth = p.size * (0.5 + a * 0.7);
+        ctx.beginPath();
+        ctx.moveTo(p.px, p.py);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+
+        // head glow
+        ctx.fillStyle = 'rgb(' + p.r + ',' + p.g + ',' + p.b + ')';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * (0.7 + a * 0.6), 0, Math.PI * 2);
+        ctx.fill();
+
+        if (p.sparkle && a > 0.3) {
+          ctx.globalAlpha = a * 0.7;
+          ctx.strokeStyle = '#fffaf0';
+          ctx.lineWidth = 1;
+          const rr = p.size * 2.6;
+          ctx.beginPath();
+          ctx.moveTo(p.x - rr, p.y); ctx.lineTo(p.x + rr, p.y);
+          ctx.moveTo(p.x, p.y - rr); ctx.lineTo(p.x, p.y + rr);
+          ctx.stroke();
+        }
+      }
+
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // ============ MAIN LOOP ============
+    let lastT = performance.now();
+    function loop(t) {
+      let df = (t - lastT) / (1000 / 60);
+      lastT = t;
+      if (df > 3) df = 3;       // clamp after tab-switch
+      state.time += df / 60;
+      update(df);
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // ============ FINALE SEQUENCE ============
+    let finaleActive = false;
+    function startFinale() {
+      Sound.init();
+      if (finaleActive) return;
+      finaleActive = true;
+      state.queue.length = 0;
+
+      const shapes = ['peony', 'ring', 'willow', 'chrysalis', 'palm'];
+      let t = 0;
+      for (let wave = 0; wave < 4; wave++) {
+        const shots = 3 + wave * 2;
+        for (let i = 0; i < shots; i++) {
+          t += 0.14 + Math.random() * 0.16;
+          state.queue.push({
+            t: t,
+            x: W * (0.12 + Math.random() * 0.76),
+            y: H * (0.1 + Math.random() * 0.45),
+            shape: shapes[Math.floor(Math.random() * shapes.length)],
+            color: Math.random() < 0.5 ? 'rainbow' : state.color
+          });
+        }
+        t += 0.5;
+      }
+      // grand multi-color crescendo
+      const prevRainbow = state.rainbow;
+      for (let i = 0; i < 9; i++) {
+        state.queue.push({
+          t: t + i * 0.09,
+          x: W * (0.2 + Math.random() * 0.6),
+          y: H * (0.08 + Math.random() * 0.3),
+          shape: shapes[Math.floor(Math.random() * shapes.length)],
+          color: 'rainbow'
+        });
+      }
+
+      // release the finale lock once queue drains
+      const drain = setInterval(() => {
+        if (state.queue.length === 0) {
+          finaleActive = false;
+          clearInterval(drain);
+        }
+      }, 400);
+    }
+
+    // ============ INPUT ============
+    function pointerToCanvas(e) {
+      const r = canvas.getBoundingClientRect();
+      return { x: e.clientX - r.left, y: e.clientY - r.top };
+    }
+
+    canvas.addEventListener('pointerdown', (e) => {
+      if (e.button !== undefined && e.button !== 0) return;
+      Sound.init();
+      const pt = pointerToCanvas(e);
+      launch(pt.x, pt.y, {});
+    });
+
+    // ============ TOOLBAR WIRING ============
+    const shapeBtns = document.querySelectorAll('#shapeGroup .tbtn');
+    shapeBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        shapeBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.shape = btn.dataset.shape;
+        Sound.init();
+      });
+    });
+
+    const swatches = document.querySelectorAll('#paletteGroup .swatch');
+    swatches.forEach(sw => {
+      sw.addEventListener('click', () => {
+        swatches.forEach(s => s.classList.remove('active'));
+        sw.classList.add('active');
+        const c = sw.dataset.color;
+        if (c === 'rainbow') { state.rainbow = true; }
+        else { state.rainbow = false; state.color = c; }
+        Sound.init();
+      });
+    });
+
+    const sizeRange = document.getElementById('sizeRange');
+    sizeRange.addEventListener('input', () => {
+      state.scale = parseFloat(sizeRange.value);
+    });
+
+    const finaleBtn = document.getElementById('finaleBtn');
+    finaleBtn.addEventListener('click', startFinale);
+
+    const autoBtn = document.getElementById('autoBtn');
+    autoBtn.addEventListener('click', () => {
+      state.auto = !state.auto;
+      autoBtn.classList.toggle('active', state.auto);
+      autoBtn.textContent = state.auto ? 'Auto ●' : 'Auto';
+      Sound.init();
+    });
+
+    const clearBtn = document.getElementById('clearBtn');
+    clearBtn.addEventListener('click', () => {
+      state.particles.length = 0;
+      state.shells.length = 0;
+      state.queue.length = 0;
+      hintEl.classList.remove('gone');
+    });
+
+    // keyboard: space = launch, F = finale, C = clear
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        Sound.init();
+        launch(W * (0.25 + Math.random() * 0.5), H * (0.15 + Math.random() * 0.35), {});
+      } else if (e.key === 'f' || e.key === 'F') {
+        startFinale();
+      } else if (e.key === 'c' || e.key === 'C') {
+        state.particles.length = 0;
+        state.shells.length = 0;
+        state.queue.length = 0;
+      }
+    });
+
+    // resume audio context on first interaction anywhere
+    window.addEventListener('pointerdown', () => Sound.init(), { once: true });
+
+    // ============ BOOT ============
+    resize();
+    // opening salvo so the sky is never empty on load
+    setTimeout(() => { launch(W * 0.5, H * 0.28, { shape: 'peony' }); }, 350);
+    setTimeout(() => { launch(W * 0.28, H * 0.36, { shape: 'ring' }); }, 900);
+    setTimeout(() => { launch(W * 0.72, H * 0.32, { shape: 'willow' }); }, 1500);
+
+    requestAnimationFrame((t) => { lastT = t; loop(t); });
+  </script>
+</body>
+</html>

@@ -3,9 +3,9 @@
 **Listen to music together in real time, from anywhere.** Same song, same
 second, different cities. No shared Wi-Fi or Bluetooth, no account, no server.
 
-- Live: https://juwpegatron.github.io/projects/sync/ (App) ·
-  [Web](https://juwpegatron.github.io/projects/sync/web.html) ·
-  [Mobile](https://juwpegatron.github.io/projects/sync/mobile.html)
+- Live: https://juw12.github.io/projects/sync/ (App) ·
+  [Web](https://juw12.github.io/projects/sync/web.html) ·
+  [Mobile](https://juw12.github.io/projects/sync/mobile.html)
 - Open locally: `python3 -m http.server -d apps/sync/web 8000` → http://localhost:8000
 
 ## What it does

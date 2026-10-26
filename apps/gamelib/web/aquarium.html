@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>AQUARIUM</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(circle at 50% 0%, #123a5c 0%, #08192b 60%, #040d17 100%);
+    font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    color: #eaf6ff;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 12px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #app {
+    width: min(96vw, 860px);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* ============ HEADER / STATS ============ */
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  h1 {
+    font-size: 1.5rem;
+    letter-spacing: 4px;
+    font-weight: 800;
+    color: #7fe7ff;
+    text-shadow: 0 0 12px rgba(80, 220, 255, .6);
+  }
+  h1 small {
+    display: block;
+    font-size: .58rem;
+    letter-spacing: 3px;
+    color: #6fa8c4;
+    font-weight: 600;
+  }
+  .stats { display: flex; gap: 8px; flex-wrap: wrap; }
+  .stat {
+    background: rgba(255, 255, 255, .07);
+    border: 1px solid rgba(120, 220, 255, .25);
+    border-radius: 10px;
+    padding: 6px 12px;
+    font-size: .9rem;
+    font-weight: 700;
+    color: #cdeeff;
+    white-space: nowrap;
+  }
+  .stat b { color: #ffd76b; }
+
+  /* ============ CANVAS / TANK ============ */
+  #game-wrap {
+    position: relative;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 12px 44px rgba(0, 0, 0, .55), inset 0 0 0 6px rgba(20, 60, 90, .8);
+    border: 2px solid #1d4d70;
+  }
+  canvas { display: block; width: 100%; height: auto; background: #0c3050; cursor: crosshair; }
+  #hint {
+    position: absolute;
+    bottom: 6px;
+    width: 100%;
+    text-align: center;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: rgba(220, 245, 255, .7);
+    pointer-events: none;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, .7);
+  }
+  #toast {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-24px);
+    background: rgba(10, 40, 60, .92);
+    border: 1px solid rgba(120, 220, 255, .5);
+    color: #bdf3ff;
+    font-size: .82rem;
+    font-weight: 700;
+    padding: 7px 16px;
+    border-radius: 20px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ============ TOOLBAR ============ */
+  #toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  button {
+    font-family: inherit;
+    font-weight: 700;
+    font-size: .85rem;
+    letter-spacing: .5px;
+    padding: 9px 16px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    color: #06202f;
+    background: linear-gradient(180deg, #7fe7ff, #3fb6e0);
+    box-shadow: 0 4px 0 rgba(0, 40, 60, .5);
+    transition: transform .06s ease, filter .15s ease;
+    user-select: none;
+  }
+  button:hover { filter: brightness(1.1); }
+  button:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0, 40, 60, .5); }
+  button.ghost { background: rgba(255, 255, 255, .1); color: #bfe8ff; box-shadow: 0 4px 0 rgba(0, 0, 0, .35); }
+  button.danger { background: linear-gradient(180deg, #ff8f8f, #e05252); color: #330404; }
+  button:disabled { opacity: .45; cursor: not-allowed; filter: grayscale(.5); }
+
+  /* ============ SELECTED FISH PANEL ============ */
+  #selInfo {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    background: rgba(255, 255, 255, .06);
+    border: 1px solid rgba(120, 220, 255, .3);
+    border-radius: 12px;
+    padding: 8px 14px;
+    font-size: .85rem;
+  }
+  #selInfo.show { display: flex; }
+  #selInfo .swatch { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #fff3; }
+  #selInfo .grow { flex: 1; }
+
+  /* ============ SHOP ============ */
+  #shop {
+    background: rgba(8, 28, 46, .8);
+    border: 1px solid rgba(120, 220, 255, .22);
+    border-radius: 16px;
+    padding: 10px;
+  }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .tab {
+    background: rgba(255, 255, 255, .05);
+    color: #9fd4ea;
+    border-radius: 9px;
+    box-shadow: none;
+    font-size: .82rem;
+  }
+  .tab.active { background: linear-gradient(180deg, #7fe7ff, #3fb6e0); color: #06202f; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px;
+    max-height: 46vh;
+    overflow-y: auto;
+  }
+  .card {
+    background: rgba(255, 255, 255, .05);
+    border: 1px solid rgba(120, 220, 255, .18);
+    border-radius: 12px;
+    padding: 9px 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease;
+  }
+  .card:hover { background: rgba(120, 220, 255, .12); border-color: rgba(120, 220, 255, .5); }
+  .card.cant { opacity: .5; cursor: not-allowed; }
+  .card .top { display: flex; align-items: center; gap: 8px; }
+  .card .dot { width: 14px; height: 14px; border-radius: 50%; flex: none; box-shadow: 0 0 8px currentColor; }
+  .card .name { font-weight: 800; font-size: .86rem; color: #e6f7ff; }
+  .card .cost { font-size: .74rem; color: #ffd76b; font-weight: 700; }
+  .card .desc { font-size: .7rem; color: #8fbdd2; line-height: 1.3; }
+  .card .lvl { font-size: .68rem; color: #7fe7ff; font-weight: 700; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>AQUARIUM<small>FISH TANK SANDBOX</small></h1>
+    <div class="stats">
+      <div class="stat">🪙 <b id="coins">0</b></div>
+      <div class="stat">🐟 <b id="fishCount">0</b>/<b id="capacity">6</b></div>
+      <div class="stat">⚡ <b id="rate">0.0</b>/s</div>
+    </div>
+  </header>
+
+  <div id="game-wrap">
+    <canvas id="game" width="760" height="440"></canvas>
+    <div id="toast"></div>
+    <div id="hint">Click the tank to drop food &nbsp;|&nbsp; click a fish to select / sell</div>
+  </div>
+
+  <div id="selInfo">
+    <div class="swatch" id="selSwatch"></div>
+    <div class="grow">
+      <div id="selName">-</div>
+      <div id="selSub" style="font-size:.72rem;color:#8fbdd2"></div>
+    </div>
+    <button id="selFeed" class="ghost">Feed</button>
+    <button id="selSell" class="danger">Sell</button>
+    <button id="selClear" class="ghost">Deselect</button>
+  </div>
+
+  <div id="toolbar">
+    <button id="btn-feed">🍤 Feed Tank</button>
+    <button id="btn-pause" class="ghost">Pause</button>
+    <button id="btn-restart" class="danger">Reset Tank</button>
+  </div>
+
+  <div id="shop">
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-tab="fish">🐟 Fish</button>
+      <button class="tab" data-tab="plants">🌿 Plants</button>
+      <button class="tab" data-tab="decor">🏰 Decor</button>
+      <button class="tab" data-tab="upgrades">⚙️ Upgrades</button>
+    </div>
+    <div class="grid" id="shopGrid"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============ CONSTANTS & CATALOG ============ */
+  var canvas = document.getElementById("game");
+  var ctx = canvas.getContext("2d");
+  var W = canvas.width;
+  var H = canvas.height;
+  var SAVE_KEY = "aquariumSave_v1";
+  var OFFLINE_CAP_HOURS = 8;
+
+  // Original, generic fish species (no real-brand / trademarked characters).
+  var SPECIES = [
+    { id: "guppy",   name: "Guppy",      price: 25,    rate: 0.6, size: 11, palette: ["#ff6b8a", "#ffd166", "#4cc9f0", "#b892ff"], pattern: "plain" },
+    { id: "tetra",   name: "Neon Tetra", price: 70,    rate: 1.5, size: 10, palette: ["#00c2ff", "#37d6ff", "#7a5cff"],             pattern: "stripe" },
+    { id: "goldie",  name: "Goldfish",   price: 160,   rate: 3.0, size: 17, palette: ["#ff9f1c", "#ffbf69", "#ff7043"],             pattern: "plain" },
+    { id: "angel",   name: "Angel",      price: 360,   rate: 6.0, size: 19, palette: ["#c77dff", "#9d4edd", "#7fe7ff"],             pattern: "stripe" },
+    { id: "betta",   name: "Betta",      price: 720,   rate: 12,  size: 15, palette: ["#ef476f", "#f78c6b", "#06d6a0"],             pattern: "fin" },
+    { id: "puffer",  name: "Puffer",     price: 1500,  rate: 24,  size: 18, palette: ["#f9c74f", "#f9844a", "#ffe08a"],             pattern: "spot" },
+    { id: "koi",     name: "Koi",        price: 3000,  rate: 48,  size: 25, palette: ["#fff2f2", "#ff6b35", "#ffd1a4"],             pattern: "koi" },
+    { id: "discus",  name: "Discus",     price: 6200,  rate: 96,  size: 23, palette: ["#2a9d8f", "#e76f51", "#8ecae6"],             pattern: "stripes" },
+    { id: "arowana", name: "Arowana",    price: 13000, rate: 200, size: 33, palette: ["#e9c46a", "#2a9d8f", "#c9a227"],             pattern: "scale" }
+  ];
+
+  var PLANTS = [
+    { id: "seaweed", name: "Seaweed",     price: 40,   color: "#3fa34d", kind: "plant", variant: "grass" },
+    { id: "coral",   name: "Pink Coral",  price: 130,  color: "#ff7f9e", kind: "plant", variant: "coral" },
+    { id: "anemone", name: "Anemone",     price: 320,  color: "#b06bff", kind: "plant", variant: "anemone" },
+    { id: "kelp",    name: "Giant Kelp",  price: 760,  color: "#2f8f4e", kind: "plant", variant: "kelp" }
+  ];
+
+  var DECOR = [
+    { id: "rock",     name: "Smooth Rock",   price: 70,   color: "#6b7c8f", kind: "decor", variant: "rock" },
+    { id: "castle",   name: "Stone Castle",  price: 300,  color: "#9aa3b2", kind: "decor", variant: "castle" },
+    { id: "wreck",    name: "Shipwreck",     price: 700,  color: "#8a5a34", kind: "decor", variant: "wreck" },
+    { id: "treasure", name: "Treasure Chest",price: 1400, color: "#c9962f", kind: "decor", variant: "treasure" }
+  ];
+
+  var UPGRADES = [
+    { id: "capacity", name: "Tank Expansion",   desc: "+5 fish capacity",            base: 220,  growth: 1.9 },
+    { id: "food",     name: "Premium Food",     desc: "+25% coins per fish",          base: 340,  growth: 1.8 },
+    { id: "water",    name: "Water Conditioner",desc: "+15% coins, slower hunger",    base: 600,  growth: 1.9 },
+    { id: "auto",     name: "Auto-Feeder",      desc: "Automatically drops food",     base: 1200, growth: 2.2 }
+  ];
+
+  var SPECIES_BY_ID = {};
+  SPECIES.forEach(function (s) { SPECIES_BY_ID[s.id] = s; });
+  var ALL_ITEMS = {};
+  PLANTS.concat(DECOR, UPGRADES).forEach(function (it) { ALL_ITEMS[it.id] = it; });
+
+  /* ============ GAME STATE ============ */
+  var state = null;
+  var food = [];        // dropped pellets { x, y, vy, life }
+  var bubbles = [];     // ambient bubbles { x, y, r, sp }
+  var sparkles = [];    // coin pop effects { x, y, life, txt }
+  var selected = null;  // selected fish object
+  var activeTab = "fish";
+  var paused = false;
+  var t = 0;            // seconds elapsed (runtime)
+  var toastTimer = null;
+
+  function defaultState() {
+    return {
+      coins: 60,
+      fish: [],
+      plants: [],
+      decor: [],
+      upgrades: { capacity: 0, food: 0, water: 0, auto: 0 },
+      seq: 1,
+      savedAt: Date.now()
+    };
+  }
+
+  /* ============ DERIVED VALUES ============ */
+  function capacity() { return 6 + state.upgrades.capacity * 5; }
+  function foodMult() { return 1 + state.upgrades.food * 0.25; }
+  function waterMult() { return 1 + state.upgrades.water * 0.15; }
+
+  function fishRate(f) {
+    var sp = SPECIES_BY_ID[f.sp] || SPECIES[0];
+    var hungerFactor = 0.15 + 0.85 * f.hunger;    // hungry fish earn far less
+    return sp.rate * hungerFactor * foodMult() * waterMult();
+  }
+  function totalRate() {
+    var sum = 0;
+    state.fish.forEach(function (f) { sum += fishRate(f); });
+    return sum;
+  }
+  function upgradeCost(u) {
+    return Math.round(u.base * Math.pow(u.growth, state.upgrades[u.id]));
+  }
+
+  /* ============ SOUND (WebAudio, no assets) ============ */
+  var actx = null;
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = actx.createOscillator();
+      var g = actx.createGain();
+      o.type = type || "sine";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(vol || 0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+
+  /* ============ PERSISTENCE ============ */
+  function save() {
+    state.savedAt = Date.now();
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+  function load() {
+    var raw = null;
+    try { raw = localStorage.getItem(SAVE_KEY); } catch (e) {}
+    if (!raw) { state = defaultState(); return; }
+    try {
+      var d = JSON.parse(raw);
+      var base = defaultState();
+      state = {
+        coins: typeof d.coins === "number" ? d.coins : base.coins,
+        fish: Array.isArray(d.fish) ? d.fish : [],
+        plants: Array.isArray(d.plants) ? d.plants : [],
+        decor: Array.isArray(d.decor) ? d.decor : [],
+        upgrades: Object.assign(base.upgrades, d.upgrades || {}),
+        seq: d.seq || 1,
+        savedAt: d.savedAt || Date.now()
+      };
+      // rehydrate transient fish fields
+      state.fish.forEach(function (f) {
+        if (!SPECIES_BY_ID[f.sp]) f.sp = SPECIES[0].id;
+        f.hunger = typeof f.hunger === "number" ? f.hunger : 1;
+        f.x = Math.random() * (W - 80) + 40;
+        f.y = Math.random() * (H - 140) + 70;
+        f.vx = (Math.random() < 0.5 ? -1 : 1) * 20;
+        f.vy = 0; f.phase = Math.random() * 6.28;
+        f.tx = f.x; f.ty = f.y; f.wander = 0; f.eat = 0;
+      });
+    } catch (e) { state = defaultState(); }
+  }
+
+  function applyOfflineEarnings() {
+    var elapsedSec = Math.max(0, (Date.now() - (state.savedAt || Date.now())) / 1000);
+    var capped = Math.min(elapsedSec, OFFLINE_CAP_HOURS * 3600);
+    if (capped < 5) return;
+    // Offline earns at half the live rate (fish still nap a bit).
+    var gained = totalRate() * capped * 0.5;
+    if (gained > 1) {
+      state.coins += gained;
+      var mins = Math.round(capped / 60);
+      showToast("Welcome back! +" + fmt(gained) + " coins while away (" + mins + " min)");
+    }
+  }
+
+  /* ============ FORMATTING / UTIL ============ */
+  function fmt(n) {
+    if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + "k";
+    return String(Math.floor(n));
+  }
+  function rand(a, b) { return a + Math.random() * (b - a); }
+  function hexToRgb(h) {
+    h = h.replace("#", "");
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+  }
+  function shade(hex, amt) {
+    var c = hexToRgb(hex);
+    var r = Math.max(0, Math.min(255, c[0] + amt));
+    var g = Math.max(0, Math.min(255, c[1] + amt));
+    var b = Math.max(0, Math.min(255, c[2] + amt));
+    return "rgb(" + (r | 0) + "," + (g | 0) + "," + (b | 0) + ")";
+  }
+  function showToast(msg) {
+    var el = document.getElementById("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove("show"); }, 2200);
+  }
+
+  /* ============ FISH FACTORY ============ */
+  function makeFish(speciesId) {
+    var sp = SPECIES_BY_ID[speciesId];
+    var col = sp.palette[(Math.random() * sp.palette.length) | 0];
+    return {
+      id: state.seq++,
+      sp: speciesId,
+      color: col,
+      size: sp.size * rand(0.86, 1.14),
+      x: rand(50, W - 50),
+      y: rand(80, H - 70),
+      vx: (Math.random() < 0.5 ? -1 : 1) * rand(15, 30),
+      vy: 0,
+      tx: rand(50, W - 50),
+      ty: rand(80, H - 70),
+      wander: 0,
+      hunger: 1,
+      phase: Math.random() * 6.28,
+      eat: 0
+    };
+  }
+
+  /* ============ SHOP ACTIONS ============ */
+  function buyFish(speciesId) {
+    var sp = SPECIES_BY_ID[speciesId];
+    if (state.fish.length >= capacity()) { showToast("Tank is full — expand it!"); beep(180, 0.15, "square"); return; }
+    if (state.coins < sp.price) { showToast("Not enough coins"); beep(180, 0.12, "square"); return; }
+    state.coins -= sp.price;
+    state.fish.push(makeFish(speciesId));
+    beep(720, 0.1, "sine"); beep(960, 0.12, "sine");
+    showToast(sp.name + " added to your tank");
+    save(); renderShop(); updateStats();
+  }
+
+  function addDecorItem(item) {
+    if (state.coins < item.price) { showToast("Not enough coins"); beep(180, 0.12, "square"); return; }
+    state.coins -= item.price;
+    var obj = {
+      id: item.id,
+      x: rand(60, W - 60),
+      y: rand(H - 150, H - 40),
+      scale: rand(0.85, 1.2),
+      variant: item.variant,
+      color: item.color
+    };
+    if (item.kind === "plant") state.plants.push(obj); else state.decor.push(obj);
+    beep(560, 0.1, "triangle"); beep(760, 0.12, "triangle");
+    showToast(item.name + " placed");
+    save(); renderShop(); updateStats();
+  }
+
+  function buyUpgrade(u) {
+    var cost = upgradeCost(u);
+    if (state.coins < cost) { showToast("Not enough coins"); beep(180, 0.12, "square"); return; }
+    state.coins -= cost;
+    state.upgrades[u.id]++;
+    beep(660, 0.1, "square"); beep(880, 0.1, "square"); beep(1100, 0.14, "square");
+    showToast(u.name + " upgraded to Lv." + state.upgrades[u.id]);
+    save(); renderShop(); updateStats();
+  }
+
+  function sellSelected() {
+    if (!selected) return;
+    var sp = SPECIES_BY_ID[selected.sp];
+    var value = Math.round(sp.price * 0.5);
+    state.coins += value;
+    var idx = state.fish.indexOf(selected);
+    if (idx >= 0) state.fish.splice(idx, 1);
+    sparkles.push({ x: selected.x, y: selected.y, life: 1, txt: "+" + fmt(value) });
+    selected = null; hideSel(); renderShop(); updateStats(); save();
+    beep(440, 0.12, "triangle");
+    showToast("Sold for " + value + " coins");
+  }
+
+  function feedSelected() {
+    if (!selected) return;
+    var i = Math.min(food.length, 1);
+    if (food.length === 0) dropFood(selected.x, 20);
+    selected.hunger = Math.min(1, selected.hunger + 0.4);
+    beep(520, 0.08, "sine");
+    updateSelPanel();
+  }
+
+  function dropFood(x, y) {
+    food.push({ x: Math.max(14, Math.min(W - 14, x)), y: typeof y === "number" ? y : 14, vy: rand(18, 30), life: 14 });
+  }
+  function feedTank() {
+    for (var i = 0; i < 5; i++) dropFood(rand(60, W - 60), 12);
+    beep(600, 0.09, "sine");
+    showToast("Food scattered!");
+  }
+
+  /* ============ UI: STATS ============ */
+  function updateStats() {
+    document.getElementById("coins").textContent = fmt(state.coins);
+    document.getElementById("fishCount").textContent = state.fish.length;
+    document.getElementById("capacity").textContent = capacity();
+    document.getElementById("rate").textContent = totalRate().toFixed(1);
+  }
+
+  /* ============ UI: SHOP RENDER ============ */
+  function renderShop() {
+    var grid = document.getElementById("shopGrid");
+    grid.innerHTML = "";
+    var frag = document.createDocumentFragment();
+
+    if (activeTab === "fish") {
+      SPECIES.forEach(function (sp) {
+        var can = state.coins >= sp.price && state.fish.length < capacity();
+        var card = document.createElement("div");
+        card.className = "card" + (can ? "" : " cant");
+        card.innerHTML =
+          '<div class="top"><span class="dot" style="background:' + sp.palette[0] + ';color:' + sp.palette[0] + '"></span>' +
+          '<span class="name">' + sp.name + '</span></div>' +
+          '<div class="cost">🪙 ' + fmt(sp.price) + ' &nbsp;·&nbsp; +' + sp.rate.toFixed(1) + '/s</div>' +
+          '<div class="desc">Size ' + sp.size + ' · ' + sp.pattern + ' pattern</div>';
+        card.addEventListener("click", function () { buyFish(sp.id); });
+        frag.appendChild(card);
+      });
+    } else if (activeTab === "plants" || activeTab === "decor") {
+      var list = activeTab === "plants" ? PLANTS : DECOR;
+      list.forEach(function (it) {
+        var can = state.coins >= it.price;
+        var card = document.createElement("div");
+        card.className = "card" + (can ? "" : " cant");
+        card.innerHTML =
+          '<div class="top"><span class="dot" style="background:' + it.color + ';color:' + it.color + '"></span>' +
+          '<span class="name">' + it.name + '</span></div>' +
+          '<div class="cost">🪙 ' + fmt(it.price) + '</div>' +
+          '<div class="desc">' + (it.kind === "plant" ? "Plant — adds life to the tank" : "Decoration — beautifies the tank") + '</div>';
+        card.addEventListener("click", function () { addDecorItem(it); });
+        frag.appendChild(card);
+      });
+    } else {
+      UPGRADES.forEach(function (u) {
+        var cost = upgradeCost(u);
+        var can = state.coins >= cost;
+        var card = document.createElement("div");
+        card.className = "card" + (can ? "" : " cant");
+        card.innerHTML =
+          '<div class="top"><span class="name">' + u.name + '</span></div>' +
+          '<div class="lvl">Level ' + state.upgrades[u.id] + '</div>' +
+          '<div class="desc">' + u.desc + '</div>' +
+          '<div class="cost">🪙 ' + fmt(cost) + '</div>';
+        card.addEventListener("click", function () { buyUpgrade(u); });
+        frag.appendChild(card);
+      });
+    }
+    grid.appendChild(frag);
+  }
+
+  /* ============ UI: SELECTED FISH ============ */
+  function showSel(f) {
+    selected = f;
+    var el = document.getElementById("selInfo");
+    el.classList.add("show");
+    updateSelPanel();
+  }
+  function hideSel() {
+    document.getElementById("selInfo").classList.remove("show");
+  }
+  function updateSelPanel() {
+    if (!selected) return;
+    var sp = SPECIES_BY_ID[selected.sp];
+    document.getElementById("selSwatch").style.background = selected.color;
+    document.getElementById("selName").textContent = sp.name + "  (hunger " + Math.round(selected.hunger * 100) + "%)";
+    document.getElementById("selSub").textContent = "Earning " + fishRate(selected).toFixed(2) + "/s · sell value " + Math.round(sp.price * 0.5);
+  }
+
+  /* ============ INPUT: CANVAS ============ */
+  function canvasPoint(e) {
+    var r = canvas.getBoundingClientRect();
+    var cx = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+    var cy = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
+    return { x: cx * (W / r.width), y: cy * (H / r.height) };
+  }
+  function onCanvasTap(e) {
+    e.preventDefault();
+    var p = canvasPoint(e);
+    // select the nearest fish under the tap (generous hit radius)
+    var best = null, bestD = 34 * 34;
+    state.fish.forEach(function (f) {
+      var dx = f.x - p.x, dy = f.y - p.y;
+      var d = dx * dx + dy * dy;
+      if (d < bestD) { bestD = d; best = f; }
+    });
+    if (best) {
+      // second tap on same fish = quick feed
+      if (selected === best) { best.hunger = Math.min(1, best.hunger + 0.35); beep(520, 0.07, "sine"); }
+      showSel(best);
+      beep(760, 0.05, "sine", 0.03);
+    } else {
+      dropFood(p.x, p.y);
+      beep(640, 0.04, "sine", 0.03);
+    }
+  }
+  canvas.addEventListener("mousedown", onCanvasTap);
+  canvas.addEventListener("touchstart", onCanvasTap, { passive: false });
+
+  /* ============ INPUT: BUTTONS ============ */
+  document.getElementById("btn-feed").addEventListener("click", feedTank);
+  document.getElementById("btn-pause").addEventListener("click", togglePause);
+  document.getElementById("btn-restart").addEventListener("click", resetTank);
+  document.getElementById("selSell").addEventListener("click", sellSelected);
+  document.getElementById("selFeed").addEventListener("click", feedSelected);
+  document.getElementById("selClear").addEventListener("click", function () { selected = null; hideSel(); });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (tab) {
+    tab.addEventListener("click", function () {
+      activeTab = tab.dataset.tab;
+      Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (x) {
+        x.classList.toggle("active", x === tab);
+      });
+      renderShop();
+      beep(500, 0.05, "triangle", 0.03);
+    });
+  });
+
+  window.addEventListener("keydown", function (e) {
+    if (e.key === "p" || e.key === "P" || e.key === "Escape") { e.preventDefault(); togglePause(); }
+    if (e.key === "f" || e.key === "F") { e.preventDefault(); feedTank(); }
+  });
+
+  /* ============ PAUSE / RESET ============ */
+  function togglePause() {
+    paused = !paused;
+    document.getElementById("btn-pause").textContent = paused ? "Resume" : "Pause";
+    beep(paused ? 380 : 620, 0.08, "triangle");
+  }
+  function resetTank() {
+    // Two-step confirm without alert(): first click arms, second click wipes.
+    var btn = document.getElementById("btn-restart");
+    if (btn.dataset.armed !== "1") {
+      btn.dataset.armed = "1";
+      btn.textContent = "Really reset?";
+      showToast("Click Reset again to wipe your tank");
+      beep(300, 0.12, "square");
+      setTimeout(function () { btn.dataset.armed = "0"; btn.textContent = "Reset Tank"; }, 3000);
+      return;
+    }
+    state = defaultState();
+    food = []; sparkles = []; selected = null; hideSel();
+    try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+    save(); renderShop(); updateStats();
+    btn.dataset.armed = "0"; btn.textContent = "Reset Tank";
+    showToast("Tank reset — a fresh start!");
+    beep(440, 0.1, "sawtooth");
+  }
+
+  /* ============ AMBIENT EFFECTS ============ */
+  function spawnBubble() {
+    bubbles.push({ x: rand(0, W), y: H - 4, r: rand(1.5, 5), sp: rand(20, 55) });
+  }
+  function initBubbles() {
+    bubbles = [];
+    for (var i = 0; i < 22; i++) {
+      bubbles.push({ x: rand(0, W), y: rand(0, H), r: rand(1.5, 5), sp: rand(20, 55) });
+    }
+  }
+
+  /* ============ UPDATE ============ */
+  function update(dt) {
+    t += dt;
+
+    // ambient bubbles
+    if (Math.random() < dt * 3) spawnBubble();
+    for (var b = bubbles.length - 1; b >= 0; b--) {
+      var bb = bubbles[b];
+      bb.y -= bb.sp * dt;
+      bb.x += Math.sin(t * 2 + bb.y * 0.05) * 6 * dt;
+      if (bb.y < -6) bubbles.splice(b, 1);
+    }
+
+    // hunger drain (slower with Water Conditioner)
+    var drain = dt * 0.012 / (1 + state.upgrades.water * 0.2);
+    state.fish.forEach(function (f) {
+      f.hunger = Math.max(0, f.hunger - drain);
+    });
+
+    // auto-feeder
+    if (state.upgrades.auto > 0 && Math.random() < dt * 0.12 * state.upgrades.auto) {
+      dropFood(rand(60, W - 60), 12);
+    }
+
+    // food pellets sink
+    for (var i = food.length - 1; i >= 0; i--) {
+      var p = food[i];
+      p.y += p.vy * dt;
+      p.x += Math.sin(t * 2 + p.y * 0.06) * 8 * dt;
+      p.life -= dt;
+      if (p.y > H - 12 || p.life <= 0) food.splice(i, 1);
+    }
+
+    // coin income
+    state.coins += totalRate() * dt;
+
+    // fish AI + eating
+    state.fish.forEach(function (f) {
+      // steal a pellet if close
+      for (var k = food.length - 1; k >= 0; k--) {
+        var fp = food[k];
+        var ddx = fp.x - f.x, ddy = fp.y - f.y;
+        if (ddx * ddx + ddy * ddy < 16 * 16) {
+          food.splice(k, 1);
+          f.hunger = Math.min(1, f.hunger + 0.5);
+          f.eat = 0.35;
+          beep(820 + Math.random() * 160, 0.05, "sine", 0.03);
+        }
+      }
+
+      // wander toward target
+      f.wander -= dt;
+      if (f.wander <= 0) {
+        f.wander = rand(1.2, 3.2);
+        // hungry fish head toward nearest pellet if one exists
+        var target = null, bestD = 1e9;
+        food.forEach(function (fp) {
+          var dx = fp.x - f.x, dy = fp.y - f.y, d = dx * dx + dy * dy;
+          if (d < bestD) { bestD = d; target = fp; }
+        });
+        if (target && Math.random() < 0.8) { f.tx = target.x; f.ty = target.y; }
+        else { f.tx = rand(40, W - 40); f.ty = rand(60, H - 50); }
+      }
+
+      var dx = f.tx - f.x, dy = f.ty - f.y;
+      var dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      var speed = 30 + f.size * 1.4;
+      var ax = (dx / dist) * speed - f.vx;
+      var ay = (dy / dist) * speed - f.vy;
+      f.vx += ax * Math.min(1, dt * 1.6);
+      f.vy += ay * Math.min(1, dt * 1.6);
+
+      // gentle idle bob
+      f.vy += Math.sin(t * 1.5 + f.phase) * 4 * dt;
+
+      f.x += f.vx * dt;
+      f.y += f.vy * dt;
+
+      // keep inside tank
+      if (f.x < 24) { f.x = 24; f.vx = Math.abs(f.vx); }
+      if (f.x > W - 24) { f.x = W - 24; f.vx = -Math.abs(f.vx); }
+      if (f.y < 44) { f.y = 44; f.vy = Math.abs(f.vy); }
+      if (f.y > H - 26) { f.y = H - 26; f.vy = -Math.abs(f.vy); }
+
+      // clamp speed
+      var sp2 = Math.sqrt(f.vx * f.vx + f.vy * f.vy);
+      if (sp2 > speed * 2.4) { f.vx = f.vx / sp2 * speed * 2.4; f.vy = f.vy / sp2 * speed * 2.4; }
+
+      if (f.eat > 0) f.eat -= dt;
+    });
+
+    // sparkles fade
+    for (var s = sparkles.length - 1; s >= 0; s--) {
+      sparkles[s].life -= dt;
+      sparkles[s].y -= dt * 26;
+      if (sparkles[s].life <= 0) sparkles.splice(s, 1);
+    }
+  }
+
+  /* ============ DRAWING: BACKGROUND ============ */
+  function drawWater() {
+    var g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#0a2f52");
+    g.addColorStop(0.45, "#0d4774");
+    g.addColorStop(1, "#062033");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // light rays from the surface
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (var i = 0; i < 5; i++) {
+      var rx = (i * (W / 5)) + Math.sin(t * 0.4 + i) * 30;
+      var rg = ctx.createLinearGradient(rx, 0, rx + 90, H);
+      rg.addColorStop(0, "rgba(140, 230, 255, 0.10)");
+      rg.addColorStop(1, "rgba(140, 230, 255, 0)");
+      ctx.fillStyle = rg;
+      ctx.beginPath();
+      ctx.moveTo(rx - 30, 0);
+      ctx.lineTo(rx + 60, 0);
+      ctx.lineTo(rx + 150, H);
+      ctx.lineTo(rx + 30, H);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // surface ripple
+    ctx.strokeStyle = "rgba(180, 240, 255, 0.25)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (var x = 0; x <= W; x += 12) {
+      var y = 14 + Math.sin(x * 0.05 + t * 2) * 4;
+      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  function drawSand() {
+    var base = H - 42;
+    var g = ctx.createLinearGradient(0, base, 0, H);
+    g.addColorStop(0, "#c9b27a");
+    g.addColorStop(1, "#8a744a");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    ctx.lineTo(0, base + 8);
+    for (var x = 0; x <= W; x += 40) {
+      ctx.quadraticCurveTo(x + 20, base + Math.sin(x * 0.03) * 10, x + 40, base + 8);
+    }
+    ctx.lineTo(W, H);
+    ctx.closePath();
+    ctx.fill();
+
+    // pebbles
+    ctx.fillStyle = "rgba(90, 74, 48, 0.45)";
+    for (var i = 0; i < 26; i++) {
+      var px = (i * 137.5) % W;
+      var py = base + 14 + ((i * 53) % 22);
+      ctx.beginPath();
+      ctx.ellipse(px, py, 4 + (i % 3), 2.5 + (i % 2), 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  /* ============ DRAWING: PLANTS & DECOR ============ */
+  function drawPlants() {
+    state.plants.forEach(function (p) {
+      ctx.save();
+      ctx.translate(p.x, H - 34);
+      ctx.scale(p.scale, p.scale);
+      var sway = Math.sin(t * 1.2 + p.x * 0.05) * 0.12;
+      if (p.variant === "grass" || p.variant === "kelp") {
+        var blades = p.variant === "kelp" ? 3 : 5;
+        var hgt = p.variant === "kelp" ? 150 : 78;
+        for (var i = 0; i < blades; i++) {
+          var off = (i - (blades - 1) / 2) * 9;
+          ctx.strokeStyle = shade(p.color, i % 2 ? -20 : 10);
+          ctx.lineWidth = p.variant === "kelp" ? 8 : 5;
+          ctx.lineCap = "round";
+          ctx.beginPath();
+          ctx.moveTo(off, 0);
+          ctx.quadraticCurveTo(off + sway * 40, -hgt * 0.6, off + sway * 80 + off * 0.4, -hgt);
+          ctx.stroke();
+        }
+      } else if (p.variant === "coral") {
+        ctx.strokeStyle = p.color;
+        ctx.lineWidth = 7;
+        ctx.lineCap = "round";
+        for (var b = 0; b < 4; b++) {
+          var ang = -Math.PI / 2 + (b - 1.5) * 0.5 + sway;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(Math.cos(ang) * 46, Math.sin(ang) * 46);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(Math.cos(ang) * 46, Math.sin(ang) * 46, 6, 0, Math.PI * 2);
+          ctx.fillStyle = shade(p.color, 25);
+          ctx.fill();
+        }
+      } else { // anemone
+        ctx.strokeStyle = p.color;
+        ctx.lineWidth = 4;
+        ctx.lineCap = "round";
+        for (var a = 0; a < 11; a++) {
+          var ang2 = -Math.PI / 2 + (a - 5) * 0.22 + sway;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.quadraticCurveTo(Math.cos(ang2) * 24, Math.sin(ang2) * 24, Math.cos(ang2) * 40, Math.sin(ang2) * 40 + Math.sin(t * 3 + a) * 4);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(Math.cos(ang2) * 40, Math.sin(ang2) * 40, 3.4, 0, Math.PI * 2);
+          ctx.fillStyle = shade(p.color, 40);
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+    });
+  }
+
+  function drawDecor() {
+    state.decor.forEach(function (d) {
+      ctx.save();
+      ctx.translate(d.x, H - 34);
+      ctx.scale(d.scale, d.scale);
+      if (d.variant === "rock") {
+        ctx.fillStyle = d.color;
+        ctx.beginPath();
+        ctx.ellipse(0, -12, 30, 18, 0, Math.PI, 0);
+        ctx.fill();
+        ctx.fillStyle = shade(d.color, 25);
+        ctx.beginPath();
+        ctx.ellipse(-8, -18, 12, 8, -0.3, Math.PI, 0);
+        ctx.fill();
+      } else if (d.variant === "castle") {
+        ctx.fillStyle = d.color;
+        ctx.fillRect(-44, -70, 88, 70);
+        ctx.fillRect(-52, -86, 22, 86);
+        ctx.fillRect(30, -86, 22, 86);
+        ctx.fillStyle = shade(d.color, -30);
+        ctx.fillRect(-14, -34, 28, 34);       // doorway
+        ctx.fillStyle = "#3b6ea5";
+        ctx.beginPath(); ctx.arc(-14, -30, 7, 0, Math.PI * 2); ctx.fill(); // port-hole lights
+        ctx.beginPath(); ctx.arc(14, -30, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#e05252";
+        ctx.beginPath();
+        ctx.moveTo(-41, -86); ctx.lineTo(-41, -104); ctx.lineTo(-30, -95); ctx.closePath(); ctx.fill();
+      } else if (d.variant === "wreck") {
+        ctx.fillStyle = d.color;
+        ctx.beginPath();
+        ctx.moveTo(-52, -6);
+        ctx.quadraticCurveTo(-10, -80, 60, -52);
+        ctx.lineTo(46, -6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = shade(d.color, -25);
+        ctx.beginPath();
+        ctx.moveTo(10, -60); ctx.lineTo(70, -120); ctx.lineTo(74, -60); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = shade(d.color, -40); ctx.lineWidth = 2;
+        for (var i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(-40 + i * 26, -50); ctx.lineTo(-36 + i * 26, -10); ctx.stroke(); }
+      } else { // treasure
+        ctx.fillStyle = d.color;
+        ctx.fillRect(-28, -34, 56, 34);
+        ctx.beginPath();
+        ctx.moveTo(-30, -34);
+        ctx.quadraticCurveTo(0, -62, 30, -34);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#ffd76b";
+        ctx.fillRect(-30, -36, 60, 7);
+        ctx.fillStyle = "#5a3e12";
+        ctx.beginPath(); ctx.arc(0, -18, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(255, 215, 107, 0.9)";
+        ctx.beginPath(); ctx.arc(6, -8, 3, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    });
+  }
+
+  /* ============ DRAWING: FISH ============ */
+  function drawFish(f) {
+    var s = f.size;
+    var flip = f.vx < 0 ? -1 : 1;
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    ctx.scale(flip, 1);
+    var wag = Math.sin(t * 7 + f.phase) * 0.35;
+    var dim = 0.55 + 0.45 * f.hunger;   // pale when hungry
+    var base = f.color;
+    ctx.globalAlpha = dim;
+
+    // tail fin
+    ctx.fillStyle = shade(base, -30);
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.85, 0);
+    ctx.lineTo(-s * 1.55, -s * 0.75 * (1 + wag * 0.3));
+    ctx.lineTo(-s * 1.55, s * 0.75 * (1 - wag * 0.3));
+    ctx.closePath();
+    ctx.fill();
+
+    // dorsal fin
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.2, -s * 0.7);
+    ctx.quadraticCurveTo(0, -s * 1.3, s * 0.4, -s * 0.55);
+    ctx.closePath();
+    ctx.fill();
+
+    // body
+    var bg = ctx.createLinearGradient(0, -s, 0, s);
+    bg.addColorStop(0, shade(base, 45));
+    bg.addColorStop(0.5, base);
+    bg.addColorStop(1, shade(base, -45));
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, s * 1.12, s * 0.74, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // patterns
+    var sp = SPECIES_BY_ID[f.sp] || SPECIES[0];
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(0, 0, s * 1.12, s * 0.74, 0, 0, Math.PI * 2);
+    ctx.clip();
+    if (sp.pattern === "stripe" || sp.pattern === "stripes") {
+      ctx.fillStyle = "rgba(255,255,255,0.7)";
+      for (var i = -1; i <= 1; i++) ctx.fillRect(i * s * 0.55 - s * 0.08, -s, s * 0.16, s * 2);
+    } else if (sp.pattern === "spot") {
+      ctx.fillStyle = "rgba(30,30,40,0.4)";
+      for (var k = 0; k < 5; k++) {
+        ctx.beginPath();
+        ctx.arc(Math.cos(k * 2) * s * 0.5, Math.sin(k * 3) * s * 0.35, s * 0.12, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (sp.pattern === "koi") {
+      ctx.fillStyle = "rgba(255,107,53,0.75)";
+      ctx.beginPath(); ctx.arc(-s * 0.2, -s * 0.1, s * 0.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(s * 0.5, s * 0.2, s * 0.3, 0, Math.PI * 2); ctx.fill();
+    } else if (sp.pattern === "scale") {
+      ctx.strokeStyle = "rgba(255,255,255,0.35)";
+      ctx.lineWidth = 1;
+      for (var r = -2; r <= 2; r++) for (var cc = -2; cc <= 2; cc++) {
+        ctx.beginPath();
+        ctx.arc(cc * s * 0.35, r * s * 0.3, s * 0.18, 0.4, Math.PI - 0.4);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+
+    // pectoral fin
+    ctx.fillStyle = shade(base, -15);
+    ctx.globalAlpha = dim * 0.85;
+    ctx.beginPath();
+    ctx.ellipse(s * 0.15, s * 0.25 + wag * 3, s * 0.4, s * 0.2, 0.5 + wag, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = dim;
+
+    // belly highlight
+    ctx.fillStyle = "rgba(255,255,255,0.22)";
+    ctx.beginPath();
+    ctx.ellipse(-s * 0.1, s * 0.28, s * 0.6, s * 0.25, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // eye
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.arc(s * 0.62, -s * 0.16, s * 0.24, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#0b1620";
+    ctx.beginPath();
+    ctx.arc(s * 0.68, -s * 0.16, s * 0.12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.beginPath();
+    ctx.arc(s * 0.72, -s * 0.22, s * 0.045, 0, Math.PI * 2);
+    ctx.fill();
+
+    // mouth
+    ctx.strokeStyle = shade(base, -60);
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.arc(s * 1.0, s * 0.12, s * 0.12, -0.4, 0.9);
+    ctx.stroke();
+
+    ctx.globalAlpha = 1;
+
+    // hunger bubble / eating indicator
+    if (f.eat > 0) {
+      ctx.globalAlpha = Math.min(1, f.eat * 3);
+      ctx.fillStyle = "#ffd76b";
+      ctx.font = "bold " + (10 + s * 0.2) + "px 'Trebuchet MS'";
+      ctx.textAlign = "center";
+      ctx.fillText("+", 0, -s * 1.4);
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.restore();
+
+    // selection ring
+    if (selected === f) {
+      ctx.strokeStyle = "rgba(127, 231, 255, " + (0.5 + 0.4 * Math.sin(t * 6)) + ")";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(f.x, f.y, s * 1.5, s * 1.25, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // hunger bar above hungry fish
+    if (f.hunger < 0.35) {
+      var bw = s * 1.6;
+      ctx.fillStyle = "rgba(0,0,0,0.4)";
+      ctx.fillRect(f.x - bw / 2, f.y - s * 1.7, bw, 4);
+      ctx.fillStyle = "#ff8f5a";
+      ctx.fillRect(f.x - bw / 2, f.y - s * 1.7, bw * f.hunger, 4);
+    }
+  }
+
+  /* ============ DRAWING: FOOD / BUBBLES / FX ============ */
+  function drawFood() {
+    food.forEach(function (p) {
+      ctx.fillStyle = "#d9a15a";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 3.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "rgba(255, 235, 200, 0.7)";
+      ctx.beginPath();
+      ctx.arc(p.x - 1, p.y - 1, 1.3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+  function drawBubbles() {
+    ctx.strokeStyle = "rgba(190, 240, 255, 0.5)";
+    ctx.lineWidth = 1;
+    bubbles.forEach(function (b) {
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(220, 245, 255, 0.12)";
+      ctx.fill();
+    });
+  }
+  function drawSparkles() {
+    sparkles.forEach(function (s) {
+      ctx.globalAlpha = Math.max(0, s.life);
+      ctx.fillStyle = "#ffd76b";
+      ctx.font = "bold 16px 'Trebuchet MS'";
+      ctx.textAlign = "center";
+      ctx.fillText(s.txt, s.x, s.y);
+      ctx.globalAlpha = 1;
+    });
+  }
+
+  /* ============ HUD ON CANVAS ============ */
+  function drawHud() {
+    ctx.fillStyle = "rgba(4, 20, 34, 0.55)";
+    ctx.fillRect(10, 8, 168, 28);
+    ctx.fillStyle = "#ffd76b";
+    ctx.font = "bold 15px 'Trebuchet MS'";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText("🪙 " + fmt(state.coins), 20, 23);
+
+    if (state.fish.length === 0) {
+      ctx.fillStyle = "rgba(220, 245, 255, " + (0.5 + 0.3 * Math.sin(t * 2)) + ")";
+      ctx.font = "bold 18px 'Trebuchet MS'";
+      ctx.textAlign = "center";
+      ctx.fillText("Your tank is empty — buy a fish below!", W / 2, H / 2);
+      ctx.font = "13px 'Trebuchet MS'";
+      ctx.fillText("Click the water to drop food once your fish arrive.", W / 2, H / 2 + 26);
+    }
+    ctx.textBaseline = "alphabetic";
+
+    if (paused) {
+      ctx.fillStyle = "rgba(4, 16, 28, 0.6)";
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "#7fe7ff";
+      ctx.font = "bold 40px 'Trebuchet MS'";
+      ctx.textAlign = "center";
+      ctx.fillText("PAUSED", W / 2, H / 2 - 4);
+      ctx.font = "15px 'Trebuchet MS'";
+      ctx.fillStyle = "#bfe8ff";
+      ctx.fillText("Press Resume / P to continue", W / 2, H / 2 + 28);
+    }
+  }
+
+  /* ============ RENDER ============ */
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+    drawWater();
+    drawSand();
+    drawDecor();
+    drawPlants();
+    // draw fish back-to-front by y for depth
+    var sorted = state.fish.slice().sort(function (a, b) { return a.y - b.y; });
+    sorted.forEach(drawFish);
+    drawFood();
+    drawBubbles();
+    drawSparkles();
+    drawHud();
+  }
+
+  /* ============ MAIN LOOP ============ */
+  var last = 0;
+  var raf = null;
+  var statAcc = 0;
+
+  function loop(now) {
+    if (!last) last = now;
+    var dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+
+    if (!paused) update(dt);
+
+    // update HUD text ~4x/sec
+    statAcc += dt;
+    if (statAcc > 0.25) { statAcc = 0; updateStats(); if (selected) updateSelPanel(); }
+
+    render();
+    raf = requestAnimationFrame(loop);
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { save(); cancelAnimationFrame(raf); raf = null; }
+    else if (!raf) { last = 0; raf = requestAnimationFrame(loop); }
+  });
+  window.addEventListener("beforeunload", save);
+
+  /* ============ BOOT ============ */
+  function boot() {
+    load();
+    applyOfflineEarnings();
+    initBubbles();
+    // seed a starter fish on a brand-new tank
+    if (state.fish.length === 0 && state.plants.length === 0 && state.decor.length === 0 && state.coins <= 60) {
+      state.fish.push(makeFish("guppy"));
+      state.fish.push(makeFish("guppy"));
+      showToast("Welcome! Your tank came with 2 guppies 🐟");
+    }
+    renderShop();
+    updateStats();
+    save();
+    raf = requestAnimationFrame(loop);
+  }
+
+  // periodic autosave (every 15s)
+  setInterval(save, 15000);
+
+  boot();
+})();
+</script>
+</body>
+</html>

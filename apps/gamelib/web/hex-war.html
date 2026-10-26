@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>HEX WAR</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: #0b0e14;
+    color: #e6edf3;
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    touch-action: manipulation;
+    overflow-x: hidden;
+  }
+
+  /* ============ LAYOUT ============ */
+  .wrap {
+    width: min(96vw, 1020px);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .topbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, #151b26, #10151d);
+    border: 1px solid #232c3a;
+    border-radius: 12px;
+    box-shadow: 0 6px 24px rgba(0,0,0,.45);
+  }
+
+  .brand {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: #ffd166;
+    text-shadow: 0 0 10px rgba(255,209,102,.35);
+    white-space: nowrap;
+  }
+
+  .hud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex: 1 1 auto;
+    min-width: 200px;
+  }
+
+  .chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    background: #1b2330;
+    border: 1px solid #2a3446;
+    color: #b8c4d6;
+    white-space: nowrap;
+  }
+
+  .chip .dot {
+    width: 11px; height: 11px; border-radius: 50%;
+    box-shadow: 0 0 6px currentColor;
+  }
+
+  .chip.active {
+    border-color: #ffd166;
+    color: #fff;
+    box-shadow: 0 0 0 1px rgba(255,209,102,.5);
+  }
+
+  .ctrls { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  button {
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 9px 16px;
+    border: none;
+    border-radius: 9px;
+    cursor: pointer;
+    color: #0b0e14;
+    background: #ffd166;
+    box-shadow: 0 4px 0 rgba(0,0,0,.35);
+    transition: transform .06s ease, background .15s ease, opacity .15s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:hover { background: #ffe08a; }
+  button:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.35); }
+  button.ghost {
+    background: transparent;
+    color: #b8c4d6;
+    border: 1px solid #2a3446;
+    box-shadow: none;
+  }
+  button.ghost:hover { background: #1b2330; color: #fff; }
+  button:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+  /* ============ STAGE / CANVAS ============ */
+  .stage {
+    position: relative;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #0d1117;
+    border: 1px solid #232c3a;
+    box-shadow: 0 10px 40px rgba(0,0,0,.5);
+  }
+  canvas { display: block; width: 100%; height: auto; background: #0d1117; touch-action: none; }
+
+  /* ============ LEGEND ============ */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    font-size: 12px;
+    color: #93a1b5;
+    letter-spacing: .4px;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i {
+    width: 14px; height: 14px; border-radius: 3px; display: inline-block;
+    border: 1px solid rgba(255,255,255,.15);
+  }
+
+  /* ============ OVERLAYS ============ */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 24px;
+    background: radial-gradient(circle at 50% 30%, rgba(21,27,38,.96), rgba(8,10,15,.98));
+    transition: opacity .25s ease;
+    z-index: 5;
+  }
+  .overlay.hidden { opacity: 0; pointer-events: none; }
+
+  .overlay h1 {
+    font-size: clamp(30px, 6vw, 52px);
+    letter-spacing: 8px;
+    color: #ffd166;
+    text-shadow: 0 0 24px rgba(255,209,102,.4);
+    margin-bottom: 6px;
+  }
+  .overlay h2 {
+    font-size: clamp(24px, 5vw, 40px);
+    letter-spacing: 5px;
+    margin-bottom: 8px;
+  }
+  .overlay p.sub { color: #93a1b5; font-size: 14px; margin-bottom: 20px; max-width: 520px; line-height: 1.5; }
+
+  .opt-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .opt-row .lbl {
+    color: #7d8ba1;
+    font-size: 12px;
+    letter-spacing: 2px;
+    width: 96px;
+    text-align: right;
+  }
+  .opt-row button {
+    padding: 8px 14px;
+    font-size: 12px;
+    background: #1b2330;
+    color: #b8c4d6;
+    border: 1px solid #2a3446;
+    box-shadow: none;
+  }
+  .opt-row button:hover { background: #243040; color: #fff; }
+  .opt-row button.on {
+    background: #ffd166;
+    color: #10151d;
+    border-color: #ffd166;
+  }
+
+  .start-btn { margin-top: 18px; padding: 14px 40px; font-size: 16px; letter-spacing: 3px; }
+
+  .result-line { font-size: 16px; color: #cfd8e6; margin: 4px 0; letter-spacing: 1px; }
+  .result-line b { color: #ffd166; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ============ TOP BAR / HUD ============ -->
+  <div class="topbar">
+    <div class="brand">HEX&nbsp;WAR</div>
+    <div class="hud" id="hud"></div>
+    <div class="ctrls">
+      <button id="btnEndTurn" class="ghost">End Turn</button>
+      <button id="btnRestart" class="ghost">Restart</button>
+    </div>
+  </div>
+
+  <!-- ============ STAGE ============ -->
+  <div class="stage">
+    <canvas id="game" width="900" height="620"></canvas>
+
+    <!-- Start Screen -->
+    <div class="overlay" id="startScreen">
+      <h1>HEX WAR</h1>
+      <p class="sub">Turn-based conquest on a hex grid. Grab cities to raise troops,
+        push into neutral ground, and crush rival armies. Control every city — or be the last banner standing.</p>
+
+      <div class="opt-row" id="optSize">
+        <span class="lbl">MAP</span>
+        <button data-v="3" class="on">Small</button>
+        <button data-v="4">Large</button>
+      </div>
+      <div class="opt-row" id="optCpu">
+        <span class="lbl">RIVALS</span>
+        <button data-v="1" class="on">1 CPU</button>
+        <button data-v="2">2 CPU</button>
+      </div>
+      <div class="opt-row" id="optFog">
+        <span class="lbl">FOG</span>
+        <button data-v="0" class="on">Off</button>
+        <button data-v="1">On</button>
+      </div>
+
+      <button class="start-btn" id="btnStart">DEPLOY</button>
+      <div style="margin-top:14px" class="legend" id="legend"></div>
+    </div>
+
+    <!-- Result Screen -->
+    <div class="overlay hidden" id="resultScreen">
+      <h2 id="resultTitle">VICTORY</h2>
+      <div class="result-line" id="resultMsg"></div>
+      <div class="result-line">Games won: <b id="resultWins">0</b></div>
+      <button class="start-btn" id="btnAgain">PLAY AGAIN</button>
+    </div>
+  </div>
+
+  <!-- ============ LEGEND ============ -->
+  <div class="legend">
+    <span><i style="background:#3d7bff"></i>You</span>
+    <span><i style="background:#e5484d"></i>Rival A</span>
+    <span><i style="background:#e2a83b"></i>Rival B</span>
+    <span><i style="background:#5b6b52"></i>Neutral</span>
+    <span><i style="background:#2a3446"></i>No owner</span>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONSTANTS & CONFIG ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+
+  // Axial neighbour offsets for a pointy-top hex grid.
+  const DIRS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+
+  const FACTIONS = {
+    1: { id: 1, name: "You",     color: "#3d7bff", edge: "#1f4fbf", ai: false },
+    2: { id: 2, name: "Rival A", color: "#e5484d", edge: "#a8292d", ai: true  },
+    3: { id: 3, name: "Rival B", color: "#e2a83b", edge: "#a2761f", ai: true  }
+  };
+  const NEUTRAL = { color: "#5b6b52", edge: "#3f4a39" };
+
+  const MAX_STACK = 14;       // unit cap on a single hex
+  const CAPITAL_PROD = 3;     // units produced by a capital per turn
+  const CITY_PROD = 2;        // units produced by any other city per turn
+  const NEUTRAL_GARRISON = 3; // starting defenders in neutral cities
+
+  const STATE = { MENU: 0, PLAYING: 1, OVER: 2 };
+
+  // ============ GAME STATE ============
+  const G = {
+    state: STATE.MENU,
+    radius: 3,
+    cpuCount: 1,
+    fog: false,
+    hexes: [],
+    byKey: new Map(),
+    order: [],          // faction id turn order, e.g. [1,2]
+    turnIndex: 0,
+    current: 1,
+    selected: null,     // hex currently selected by the human
+    hover: null,
+    busy: false,        // true while an AI faction is acting
+    totalCities: 0,
+    flash: [],          // combat flash effects
+    seedT: 0
+  };
+
+  let wins = Number(localStorage.getItem("hexWarWins") || 0);
+
+  // ============ DOM ============
+  const hudEl        = document.getElementById("hud");
+  const startScreen  = document.getElementById("startScreen");
+  const resultScreen = document.getElementById("resultScreen");
+  const resultTitle  = document.getElementById("resultTitle");
+  const resultMsg    = document.getElementById("resultMsg");
+  const resultWins   = document.getElementById("resultWins");
+  const btnEndTurn   = document.getElementById("btnEndTurn");
+  const btnRestart   = document.getElementById("btnRestart");
+  const btnStart     = document.getElementById("btnStart");
+  const btnAgain     = document.getElementById("btnAgain");
+
+  // ============ AUDIO (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.setValueAtTime(freq, actx.currentTime);
+      g.gain.setValueAtTime(vol == null ? 0.05 : vol, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+  function sfxMove()    { beep(520, 0.06, "triangle"); }
+  function sfxAttack()  { beep(180, 0.12, "sawtooth", 0.07); }
+  function sfxCapture() { beep(700, 0.08, "square"); setTimeout(function () { beep(980, 0.1, "square"); }, 70); }
+  function sfxProduce() { beep(880, 0.05, "sine", 0.035); }
+  function sfxWin()     { [523,659,784,1047].forEach(function (f, i) { setTimeout(function () { beep(f, 0.16, "square", 0.06); }, i * 130); }); }
+  function sfxLose()    { [400,320,240,160].forEach(function (f, i) { setTimeout(function () { beep(f, 0.22, "sawtooth", 0.06); }, i * 150); }); }
+
+  // ============ HEX MATH ============
+  function hexToPixel(q, r, size) {
+    return {
+      x: size * Math.sqrt(3) * (q + r / 2),
+      y: size * 1.5 * r
+    };
+  }
+  function hexKey(q, r) { return q + "," + r; }
+  function axialDist(a, b) {
+    return Math.max(Math.abs(a.q - b.q), Math.abs(a.r - b.r), Math.abs((a.q + a.r) - (b.q + b.r)));
+  }
+  function neighbours(h) {
+    const out = [];
+    for (let i = 0; i < 6; i++) {
+      const n = G.byKey.get(hexKey(h.q + DIRS[i][0], h.r + DIRS[i][1]));
+      if (n) out.push(n);
+    }
+    return out;
+  }
+
+  // ============ MAP GENERATION ============
+  function buildMap(radius, cpuCount) {
+    G.hexes = [];
+    G.byKey = new Map();
+    const size = radius <= 3 ? 40 : 34;
+
+    // Build the full hexagon-shaped board.
+    for (let q = -radius; q <= radius; q++) {
+      const r1 = Math.max(-radius, -q - radius);
+      const r2 = Math.min(radius, -q + radius);
+      for (let r = r1; r <= r2; r++) {
+        const p = hexToPixel(q, r, size);
+        const hex = {
+          q: q, r: r, cx: p.x, cy: p.y,
+          owner: 0, units: 0, city: false, capital: false, acted: false
+        };
+        G.hexes.push(hex);
+        G.byKey.set(hexKey(q, r), hex);
+      }
+    }
+
+    // Pan the board so every hex fits with padding.
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const h of G.hexes) {
+      minX = Math.min(minX, h.cx); maxX = Math.max(maxX, h.cx);
+      minY = Math.min(minY, h.cy); maxY = Math.max(maxY, h.cy);
+    }
+    const pad = size * 1.15;
+    const offX = -minX + pad, offY = -minY + pad;
+    for (const h of G.hexes) { h.cx += offX; h.cy += offY; }
+
+    canvas.width  = Math.round(maxX - minX + pad * 2);
+    canvas.height = Math.round(maxY - minY + pad * 2);
+    G.hexSize = size;
+
+    // --- Capitals: place on spaced corners of the hexagon. ---
+    const corners = [[radius, 0], [0, radius], [-radius, radius],
+                     [-radius, 0], [0, -radius], [radius, -radius]];
+    const slots = [corners[5], corners[2], corners[0]]; // human, cpu1, cpu2
+    const caps = [1, 2, 3].slice(0, 1 + cpuCount);
+    caps.forEach(function (fid, i) {
+      const c = slots[i];
+      const h = G.byKey.get(hexKey(c[0], c[1]));
+      if (h) {
+        h.owner = fid; h.units = 6; h.city = true; h.capital = true;
+      }
+    });
+
+    // --- Neutral cities: scattered, away from capitals and each other. ---
+    const capHexes = G.hexes.filter(function (h) { return h.capital; });
+    const pool = G.hexes.filter(function (h) {
+      if (h.capital) return false;
+      for (const c of capHexes) if (axialDist(h, c) < 2) return false;
+      return true;
+    });
+    shuffle(pool);
+    const want = radius <= 3 ? 5 : 7;
+    const placed = [];
+    for (const h of pool) {
+      if (placed.length >= want) break;
+      let ok = true;
+      for (const p of placed) if (axialDist(h, p) < 2) { ok = false; break; }
+      if (!ok) continue;
+      h.city = true; h.units = NEUTRAL_GARRISON; h.owner = 0;
+      placed.push(h);
+    }
+
+    G.totalCities = G.hexes.filter(function (h) { return h.city; }).length;
+  }
+
+  function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+  }
+
+  // ============ TURN FLOW ============
+  function startGame() {
+    buildMap(G.radius, G.cpuCount);
+    G.order = [1, 2, 3].slice(0, 1 + G.cpuCount);
+    G.turnIndex = 0;
+    G.current = 1;
+    G.selected = null;
+    G.hover = null;
+    G.busy = false;
+    G.flash = [];
+    G.state = STATE.PLAYING;
+    startScreen.classList.add("hidden");
+    resultScreen.classList.add("hidden");
+    updateHUD();
+    beginTurn(G.current, true);
+  }
+
+  function beginTurn(faction, first) {
+    // Reset action flags for the acting faction.
+    for (const h of G.hexes) if (h.owner === faction) h.acted = false;
+
+    // Production: every owned city raises troops.
+    let produced = false;
+    for (const h of G.hexes) {
+      if (h.owner === faction && h.city) {
+        const amt = h.capital ? CAPITAL_PROD : CITY_PROD;
+        const before = h.units;
+        h.units = Math.min(MAX_STACK, h.units + amt);
+        if (h.units > before) produced = true;
+      }
+    }
+    if (produced && faction === 1) sfxProduce();
+
+    G.busy = (faction !== 1);
+    updateHUD();
+
+    if (faction === 1) {
+      if (!first) beep(660, 0.09, "sine", 0.05);
+      return; // wait for the human
+    }
+    setTimeout(function () { aiStep(faction); }, 260);
+  }
+
+  function endTurn() {
+    if (G.state !== STATE.PLAYING || G.busy) return;
+    advanceTurn();
+  }
+
+  function advanceTurn() {
+    if (checkVictory()) return;
+    let guard = 0;
+    do {
+      G.turnIndex = (G.turnIndex + 1) % G.order.length;
+      G.current = G.order[G.turnIndex];
+      guard++;
+    } while (!factionAlive(G.current) && guard < 10);
+
+    if (!factionAlive(G.current)) { checkVictory(); return; }
+    G.selected = null;
+    beginTurn(G.current, false);
+  }
+
+  function factionAlive(fid) {
+    return G.hexes.some(function (h) { return h.owner === fid; });
+  }
+
+  // ============ COMBAT & MOVEMENT ============
+  function resolveCombat(src, dst, srcFaction) {
+    const A = src.units;
+    const D = dst.units;
+
+    if (D === 0) {
+      // Undefended land falls immediately.
+      dst.owner = srcFaction;
+      dst.units = A;
+      src.units = 0;
+      return { captured: true, aLeft: A, dLeft: 0, aLoss: 0, dLoss: 0 };
+    }
+
+    const defMul = dst.city ? 1.3 : 1;
+    let dLoss = Math.round(A * (0.45 + Math.random() * 0.30) / defMul);
+    let aLoss = Math.round(D * defMul * (0.45 + Math.random() * 0.30));
+    dLoss = Math.max(0, Math.min(dLoss, D));
+    aLoss = Math.max(0, Math.min(aLoss, A));
+
+    const aLeft = A - aLoss;
+    const dLeft = D - dLoss;
+
+    if (dLeft <= 0 && aLeft > 0) {
+      dst.owner = srcFaction;
+      dst.units = aLeft;
+      src.units = 0;
+      return { captured: true, aLeft: aLeft, dLeft: 0, aLoss: aLoss, dLoss: D };
+    }
+    if (aLeft <= 0) {
+      src.units = 0;
+      dst.units = dLeft;
+      return { captured: false, aLeft: 0, dLeft: dLeft, aLoss: A, dLoss: dLoss };
+    }
+    // Both survive: attacker pulls back, defender holds.
+    src.units = aLeft;
+    dst.units = dLeft;
+    return { captured: false, aLeft: aLeft, dLeft: dLeft, aLoss: aLoss, dLoss: dLoss };
+  }
+
+  // Execute a move/attack from src to dst for srcFaction.
+  function executeMove(src, dst, srcFaction) {
+    if (!src || !dst || src.units <= 0) return null;
+    src.acted = true;
+
+    if (dst.owner === srcFaction) {
+      // Reinforce: merge stacks into the target.
+      dst.units = Math.min(MAX_STACK + 9, dst.units + src.units);
+      src.units = 0;
+      sfxMove();
+      return { type: "reinforce", to: dst };
+    }
+
+    if (dst.owner === 0 && dst.units === 0) {
+      // Walk into empty neutral land.
+      dst.owner = srcFaction;
+      dst.units = src.units;
+      src.units = 0;
+      sfxMove();
+      return { type: "expand", to: dst };
+    }
+
+    // Otherwise fight.
+    const before = dst.owner;
+    const res = resolveCombat(src, dst, srcFaction);
+    addFlash(dst, res.captured);
+    if (res.captured) {
+      sfxCapture();
+      G.flash.push({ text: "-" + res.dLoss, hex: dst, life: 1, color: "#ff6b6b" });
+    } else {
+      sfxAttack();
+    }
+    return { type: res.captured ? "capture" : "attack", to: dst, res: res, from: before };
+  }
+
+  function addFlash(h, capture) {
+    G.flash.push({ ring: h, life: 1, capture: !!capture });
+  }
+
+  // ============ AI ============
+  function aiStep(faction) {
+    if (G.state !== STATE.PLAYING || G.current !== faction) return;
+    const action = chooseAIAction(faction);
+
+    if (!action) {
+      // Nothing left to do this turn.
+      G.busy = false;
+      updateHUD();
+      setTimeout(function () { advanceTurn(); }, 260);
+      return;
+    }
+    executeMove(action.from, action.to, faction);
+    updateHUD();
+    setTimeout(function () { aiStep(faction); }, 230);
+  }
+
+  function chooseAIAction(faction) {
+    const mine = G.hexes.filter(function (h) {
+      return h.owner === faction && h.units > 0 && !h.acted;
+    });
+    if (!mine.length) return null;
+
+    let best = null, bestScore = 0;
+
+    function consider(from, to, score) {
+      score += Math.random() * 0.6; // slight variety between games
+      if (score > bestScore) { bestScore = score; best = { from: from, to: to }; }
+    }
+
+    // How dangerous is a given enemy stack to this faction?
+    for (const h of mine) {
+      const ns = neighbours(h);
+      for (const n of ns) {
+        if (n.owner === faction) {
+          // Merge into a friendly city that is under threat, or fill an empty city.
+          if (n.city && n.units < 3 && threatLevel(n, faction) > n.units) {
+            consider(h, n, 6);
+          }
+          continue;
+        }
+
+        const defStr = n.units + (n.city ? 2 : 0);
+
+        if (n.owner === 0) {
+          // Neutral ground.
+          if (n.city) {
+            if (h.units > defStr) consider(h, n, 5 + (h.units - defStr));   // grab a city
+          } else if (h.units >= 2) {
+            consider(h, n, 1.2);                                            // cheap expansion
+          }
+          continue;
+        }
+
+        // Enemy hex.
+        if (n.units === 0) { consider(h, n, 4 + (n.city ? 6 : 0)); continue; }
+        if (h.units > defStr + 0.5) {
+          consider(h, n, 2.5 + (h.units - defStr) + (n.city ? 6 : 0));
+        } else if (n.city && h.units > n.units) {
+          consider(h, n, 1.5); // opportunistic push at a weaker city
+        }
+      }
+    }
+
+    if (best) return best;
+
+    // Fallback: march big stacks toward the nearest city we do not own.
+    for (const h of mine) {
+      if (h.units < 3) continue;
+      const target = nearestForeignCity(h, faction);
+      if (!target) continue;
+      let pick = null, bestD = Infinity;
+      for (const n of neighbours(h)) {
+        if (n.owner === faction && n.units > h.units) continue; // avoid blobbing into a bigger own stack
+        const d = axialDist(n, target);
+        if (d < bestD) { bestD = d; pick = n; }
+      }
+      if (pick && axialDist(pick, target) < axialDist(h, target)) return { from: h, to: pick };
+    }
+    return null;
+  }
+
+  // Strength of the strongest enemy stack adjacent to hex h.
+  function threatLevel(h, faction) {
+    let t = 0;
+    for (const n of neighbours(h)) {
+      if (n.owner !== faction && n.owner !== 0 && n.units > t) t = n.units;
+      if (n.owner === 0 && n.units > t) t = n.units;
+    }
+    return t;
+  }
+
+  function nearestForeignCity(from, faction) {
+    let best = null, bestD = Infinity;
+    for (const h of G.hexes) {
+      if (!h.city || h.owner === faction) continue;
+      const d = axialDist(from, h);
+      if (d < bestD) { bestD = d; best = h; }
+    }
+    return best;
+  }
+
+  // ============ VICTORY ============
+  function checkVictory() {
+    if (G.state !== STATE.PLAYING) return false;
+
+    const cityCount = {};
+    for (const fid of G.order) cityCount[fid] = 0;
+    for (const h of G.hexes) if (h.city && cityCount[h.owner] != null) cityCount[h.owner]++;
+
+    // Sole owner of every city => win.
+    for (const fid of G.order) {
+      if (cityCount[fid] === G.totalCities) return finish(fid);
+    }
+    // Last faction standing => win.
+    const alive = G.order.filter(factionAlive);
+    if (alive.length === 1) return finish(alive[0]);
+    if (alive.length === 0) return finish(0);
+    return false;
+  }
+
+  function finish(winnerFid) {
+    G.state = STATE.OVER;
+    G.busy = false;
+    const humanWon = winnerFid === 1;
+    if (humanWon) {
+      wins++;
+      localStorage.setItem("hexWarWins", String(wins));
+      sfxWin();
+    } else {
+      sfxLose();
+    }
+    resultTitle.textContent = humanWon ? "VICTORY" : (winnerFid === 0 ? "STALEMATE" : "DEFEAT");
+    resultTitle.style.color = humanWon ? "#ffd166" : (winnerFid === 0 ? "#93a1b5" : "#e5484d");
+    const cities = G.hexes.filter(function (h) { return h.city && h.owner === 1; }).length;
+    resultMsg.textContent = humanWon
+      ? "You control the field with " + cities + "/" + G.totalCities + " cities."
+      : winnerFid === 0
+        ? "All banners have fallen."
+        : FACTIONS[winnerFid].name + " seized " +
+          G.hexes.filter(function (h) { return h.city && h.owner === winnerFid; }).length +
+          "/" + G.totalCities + " cities.";
+    resultWins.textContent = String(wins);
+    resultScreen.classList.remove("hidden");
+    updateHUD();
+    return true;
+  }
+
+  // ============ FOG OF WAR ============
+  function isVisible(h) {
+    if (!G.fog) return true;
+    if (h.owner === 1) return true;
+    for (const n of neighbours(h)) if (n.owner === 1) return true;
+    return false;
+  }
+
+  // ============ INPUT ============
+  function pointerToHex(evt) {
+    const rect = canvas.getBoundingClientRect();
+    const sx = canvas.width / rect.width;
+    const sy = canvas.height / rect.height;
+    const x = (evt.clientX - rect.left) * sx;
+    const y = (evt.clientY - rect.top) * sy;
+    let best = null, bestD = Infinity;
+    for (const h of G.hexes) {
+      const dx = h.cx - x, dy = h.cy - y;
+      const d = dx * dx + dy * dy;
+      if (d < bestD) { bestD = d; best = h; }
+    }
+    // Only accept if the click is within the hex footprint.
+    const reach = G.hexSize * G.hexSize * 1.15;
+    return bestD <= reach ? best : null;
+  }
+
+  function handleClick(evt) {
+    if (G.state !== STATE.PLAYING || G.busy || G.current !== 1) return;
+    const h = pointerToHex(evt);
+    if (!h) { G.selected = null; return; }
+    if (!isVisible(h)) { beep(220, 0.05, "sine", 0.03); return; }
+
+    // Resolve a pending selection.
+    if (G.selected && G.selected !== h) {
+      const adj = neighbours(G.selected).indexOf(h) !== -1;
+      if (adj && !G.selected.acted && G.selected.units > 0) {
+        const res = executeMove(G.selected, h, 1);
+        G.selected = null;
+        updateHUD();
+        if (checkVictory()) return;
+        if (res && res.type !== "reinforce" && res.type !== "expand") {
+          // Combat consumed the turn action; keep player in control.
+        }
+        return;
+      }
+    }
+
+    // Select one of our own stacks.
+    if (h.owner === 1 && h.units > 0 && !h.acted) {
+      G.selected = (G.selected === h) ? null : h;
+      beep(600, 0.04, "sine", 0.04);
+    } else {
+      G.selected = null;
+    }
+  }
+
+  function handleMove(evt) {
+    if (G.state !== STATE.PLAYING) { G.hover = null; return; }
+    G.hover = pointerToHex(evt);
+  }
+
+  canvas.addEventListener("pointerdown", function (e) { e.preventDefault(); handleClick(e); }, { passive: false });
+  canvas.addEventListener("pointermove", handleMove);
+  canvas.addEventListener("pointerleave", function () { G.hover = null; });
+
+  btnEndTurn.addEventListener("click", function () {
+    if (G.state === STATE.PLAYING && G.current === 1 && !G.busy) {
+      beep(440, 0.07, "triangle", 0.05);
+      advanceTurn();
+    }
+  });
+
+  btnRestart.addEventListener("click", function () {
+    G.state = STATE.MENU;
+    G.selected = null;
+    resultScreen.classList.add("hidden");
+    startScreen.classList.remove("hidden");
+    updateHUD();
+  });
+
+  btnStart.addEventListener("click", startGame);
+  btnAgain.addEventListener("click", startGame);
+
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "KeyR" && (e.key === "r" || e.key === "R")) {
+      if (G.state === STATE.PLAYING) { e.preventDefault(); G.state = STATE.MENU; startScreen.classList.remove("hidden"); resultScreen.classList.add("hidden"); updateHUD(); }
+      return;
+    }
+    if (G.state !== STATE.PLAYING) return;
+    if (e.code === "Space" || e.code === "Enter") {
+      e.preventDefault();
+      if (G.current === 1 && !G.busy) advanceTurn();
+    }
+  });
+
+  // ============ OPTION BUTTONS (start screen) ============
+  function wireOptions(rowId, apply) {
+    const row = document.getElementById(rowId);
+    const btns = Array.prototype.slice.call(row.querySelectorAll("button"));
+    btns.forEach(function (b) {
+      b.addEventListener("click", function () {
+        btns.forEach(function (o) { o.classList.remove("on"); });
+        b.classList.add("on");
+        apply(Number(b.dataset.v));
+        beep(560, 0.04, "sine", 0.03);
+      });
+    });
+  }
+  wireOptions("optSize", function (v) { G.radius = v; });
+  wireOptions("optCpu",  function (v) { G.cpuCount = v; });
+  wireOptions("optFog",  function (v) { G.fog = v === 1; });
+
+  // ============ HUD ============
+  function updateHUD() {
+    let html = "";
+    for (const fid of [1, 2, 3]) {
+      if (fid !== 1 && fid > 1 + G.cpuCount) continue;
+      const f = FACTIONS[fid];
+      const cities = G.hexes.filter(function (h) { return h.city && h.owner === fid; }).length;
+      const units = G.hexes.reduce(function (s, h) { return s + (h.owner === fid ? h.units : 0); }, 0);
+      const active = (G.state === STATE.PLAYING && G.current === fid);
+      html += '<div class="chip' + (active ? " active" : "") + '">' +
+                '<span class="dot" style="background:' + f.color + ';color:' + f.color + '"></span>' +
+                f.name + " · " + units + "u · " + cities + "★</div>";
+    }
+    if (G.state === STATE.PLAYING) {
+      const label = G.busy ? "RIVAL TURN…" : (G.current === 1 ? "YOUR TURN" : "…");
+      html += '<div class="chip active" style="border-color:#ffd166;color:#ffd166">' + label + "</div>";
+    }
+    hudEl.innerHTML = html;
+
+    const myTurn = (G.state === STATE.PLAYING && G.current === 1 && !G.busy);
+    btnEndTurn.disabled = !myTurn;
+    btnEndTurn.classList.toggle("ghost", !myTurn);
+  }
+
+  // ============ RENDER ============
+  function hexPath(cx, cy, size) {
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const ang = Math.PI / 180 * (60 * i - 30);
+      const x = cx + size * Math.cos(ang);
+      const y = cy + size * Math.sin(ang);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+  }
+
+  function draw() {
+    // Background wash.
+    const bg = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    bg.addColorStop(0, "#0e131c");
+    bg.addColorStop(1, "#080b11");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const size = G.hexSize;
+
+    // Base tiles.
+    for (const h of G.hexes) drawHexTile(h, size);
+
+    // Highlights for the human.
+    if (G.state === STATE.PLAYING && G.current === 1 && !G.busy && G.selected) {
+      for (const n of neighbours(G.selected)) {
+        if (!isVisible(n)) continue;
+        if (n.owner === 1) ctx.strokeStyle = "rgba(120,190,255,.85)";
+        else ctx.strokeStyle = "rgba(255,120,120,.9)";
+        ctx.lineWidth = 3;
+        hexPath(n.cx, n.cy, size * 0.92);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = "#ffd166";
+      ctx.lineWidth = 4;
+      hexPath(G.selected.cx, G.selected.cy, size * 0.95);
+      ctx.stroke();
+    }
+
+    // Hover ring.
+    if (G.hover && (!G.selected || G.hover !== G.selected)) {
+      ctx.strokeStyle = "rgba(255,255,255,.28)";
+      ctx.lineWidth = 2;
+      hexPath(G.hover.cx, G.hover.cy, size * 0.9);
+      ctx.stroke();
+    }
+
+    // Contents (city + units) on top of highlights.
+    for (const h of G.hexes) drawHexContent(h, size);
+
+    // Combat flashes.
+    drawFlashes();
+  }
+
+  function drawHexTile(h, size) {
+    const vis = isVisible(h);
+    let fill, edge;
+    if (h.owner === 0) {
+      if (h.city) { fill = NEUTRAL.color; edge = NEUTRAL.edge; }
+      else { fill = "#1d2530"; edge = "#28323f"; }
+    } else {
+      fill = FACTIONS[h.owner].color;
+      edge = FACTIONS[h.owner].edge;
+    }
+
+    hexPath(h.cx, h.cy, size * 0.94);
+    ctx.fillStyle = fill;
+    ctx.globalAlpha = (h.owner === 0 && !h.city) ? 0.55 : 0.82;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.strokeStyle = edge;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Inner shading for a little depth.
+    hexPath(h.cx, h.cy, size * 0.72);
+    ctx.strokeStyle = "rgba(255,255,255,.06)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    if (!vis) {
+      hexPath(h.cx, h.cy, size * 0.94);
+      ctx.fillStyle = "rgba(6,8,12,.74)";
+      ctx.fill();
+    }
+  }
+
+  function drawHexContent(h, size) {
+    const vis = isVisible(h);
+
+    // City marker.
+    if (h.city) {
+      ctx.save();
+      ctx.globalAlpha = vis ? 1 : 0.28;
+      ctx.fillStyle = h.capital ? "#ffd166" : "#f2f6ff";
+      // A little fortress/crown shape.
+      const cx = h.cx, cy = h.cy - size * 0.30;
+      const s = size * 0.26;
+      ctx.beginPath();
+      ctx.moveTo(cx - s, cy + s * 0.7);
+      ctx.lineTo(cx - s, cy - s * 0.4);
+      ctx.lineTo(cx - s * 0.45, cy + s * 0.1);
+      ctx.lineTo(cx, cy - s * 0.7);
+      ctx.lineTo(cx + s * 0.45, cy + s * 0.1);
+      ctx.lineTo(cx + s, cy - s * 0.4);
+      ctx.lineTo(cx + s, cy + s * 0.7);
+      ctx.closePath();
+      ctx.fill();
+      if (h.capital) {
+        ctx.strokeStyle = "rgba(0,0,0,.4)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // Unit counter.
+    if (h.units > 0) {
+      const vis2 = vis;
+      ctx.save();
+      ctx.globalAlpha = vis2 ? 1 : 0.0; // fog hides armies
+      const r = size * 0.34;
+      const cy = h.cy + size * 0.28;
+      ctx.beginPath();
+      ctx.arc(h.cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(8,10,14,.78)";
+      ctx.fill();
+      ctx.strokeStyle = h.owner === 0 ? "#9aa7b6" : FACTIONS[h.owner].color;
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "700 " + Math.round(size * 0.52) + "px 'Trebuchet MS', sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(h.units), h.cx, cy + 1);
+      ctx.restore();
+    }
+
+    // Fogged hexes hint only at geography.
+    if (!vis && h.city) {
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = "#8fa0b5";
+      ctx.font = "700 " + Math.round(size * 0.36) + "px 'Trebuchet MS', sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("?", h.cx, h.cy + size * 0.28);
+      ctx.restore();
+    }
+  }
+
+  function drawFlashes() {
+    for (let i = G.flash.length - 1; i >= 0; i--) {
+      const f = G.flash[i];
+      f.life -= 0.035;
+      if (f.life <= 0) { G.flash.splice(i, 1); continue; }
+
+      if (f.ring) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, f.life);
+        ctx.strokeStyle = f.capture ? "#ffd166" : "#ff6b6b";
+        ctx.lineWidth = 4;
+        hexPath(f.ring.cx, f.ring.cy, G.hexSize * (0.6 + (1 - f.life) * 0.75));
+        ctx.stroke();
+        ctx.restore();
+      }
+      if (f.text) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, f.life);
+        ctx.fillStyle = f.color;
+        ctx.font = "700 20px 'Trebuchet MS', sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(f.text, f.hex.cx, f.hex.cy - G.hexSize * (0.5 + (1 - f.life) * 0.9));
+        ctx.restore();
+      }
+    }
+  }
+
+  // ============ MAIN LOOP ============
+  let raf = null;
+  function loop() {
+    if (G.state !== STATE.MENU) draw();
+    else drawMenuBackdrop();
+    if (G.flash.length) { /* keep animating flashes */ }
+    raf = requestAnimationFrame(loop);
+  }
+
+  function drawMenuBackdrop() {
+    const bg = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    bg.addColorStop(0, "#0e131c");
+    bg.addColorStop(1, "#080b11");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Decorative faint hex lattice.
+    const size = 34;
+    ctx.strokeStyle = "rgba(255,209,102,.06)";
+    ctx.lineWidth = 1;
+    const cols = Math.ceil(canvas.width / (size * Math.sqrt(3))) + 2;
+    const rows = Math.ceil(canvas.height / (size * 1.5)) + 2;
+    for (let q = -1; q < cols; q++) {
+      for (let r = -1; r < rows; r++) {
+        const p = hexToPixel(q, r, size);
+        const cx = p.x + size * Math.sqrt(3) / 2;
+        const cy = p.y + size;
+        if (cx < -size || cx > canvas.width + size || cy < -size || cy > canvas.height + size) continue;
+        hexPath(cx, cy, size * 0.9);
+        ctx.stroke();
+      }
+    }
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+    } else if (!raf) {
+      raf = requestAnimationFrame(loop);
+    }
+  });
+
+  // ============ BOOT ============
+  G.hexSize = 40;
+  drawMenuBackdrop();
+  updateHUD();
+  loop();
+})();
+</script>
+</body>
+</html>
