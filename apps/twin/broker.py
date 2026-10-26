@@ -2,8 +2,9 @@
 
 Design rules:
   * Runs only inside the user's own Twin server. The public web build never sees keys.
-  * Keys are stored per Twin account in the server data folder (file mode 0600) and are
-    never sent back to the browser; status shows only a masked key id.
+  * Keys are stored per Twin account in the server data folder (0600 on POSIX;
+    Windows ACLs are not configured or verified). They are never sent back to
+    the browser; status shows only a masked key id. Storage is NOT encrypted.
   * The server talks only to Alpaca's fixed paper/live hosts (overridable by environment
     variables for automated tests, never by request input).
   * Paper is the default. Live requires the Twin password plus a typed confirmation phrase.
@@ -64,7 +65,10 @@ def _num(value, name, low=None, high=None):
 def _price(value, name):
     # Alpaca rejects sub-penny prices at or above $1; round to cents (4 dp below $1).
     raw = _num(value, name, 0, 1e7)
-    return round(raw, 2) if raw >= 1 else round(raw, 4)
+    rounded = round(raw, 2) if raw >= 1 else round(raw, 4)
+    if rounded <= 0:
+        raise BrokerError("%s is below the supported price precision" % name)
+    return rounded
 
 
 def _mask(key_id):
@@ -85,6 +89,26 @@ class Broker:
     # ------------------------------------------------------------ storage
     def _path(self, uid):
         return self.data_dir / "users" / uid / "broker.json"
+
+    def _guard_path(self, uid):
+        # Deliberately survives disconnect/reconnect and contains no credentials.
+        return self.data_dir / "users" / uid / "broker_guard.json"
+
+    def _daily_count(self, uid, cfg):
+        today = datetime.now(timezone.utc).date().isoformat()
+        path = self._guard_path(uid)
+        try:
+            guard = json.loads(path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            guard = cfg.get("orders_today") or {}
+        except (OSError, ValueError) as exc:
+            raise BrokerError("Unreadable live order counter; resolve it before placing orders.") from exc
+        if not isinstance(guard, dict):
+            raise BrokerError("Unreadable live order counter; resolve it before placing orders.")
+        count = guard.get("count", 0) if guard.get("date") == today else 0
+        if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+            raise BrokerError("Invalid live order counter; resolve it before placing orders.")
+        return today, count
 
     def _config(self, uid):
         cfg = self.load_json(self._path(uid), None)
@@ -146,7 +170,8 @@ class Broker:
     def _account_summary(acct):
         def f(key):
             try:
-                return round(float(acct.get(key)), 2)
+                value = float(acct.get(key))
+                return round(value, 2) if math.isfinite(value) else None
             except (TypeError, ValueError):
                 return None
         return {
@@ -172,6 +197,8 @@ class Broker:
             if str(phrase or "").strip().upper() != LIVE_PHRASE:
                 raise BrokerError('Type %s to confirm you understand live orders use real money.' % LIVE_PHRASE)
         cap = DEFAULT_MAX_ORDER[mode] if max_order_usd in (None, "") else _num(max_order_usd, "max order ($)", 0, 1e7)
+        if round(cap, 2) <= 0:
+            raise BrokerError("max order ($) must round to at least one cent")
         cfg = {"key_id": key_id, "secret": secret, "mode": mode, "max_order_usd": round(cap, 2)}
         acct = self._request(cfg, "GET", "/v2/account")
         if mode == "live" and str(acct.get("status", "")).upper() != "ACTIVE":
@@ -179,11 +206,21 @@ class Broker:
         cfg["connected_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
         cfg["orders_today"] = {"date": "", "count": 0}
         with self.lock:
+            previous = self._config(uid)
+            if previous:
+                today, count = self._daily_count(uid, previous)
+                self.save_json(self._guard_path(uid), {"date": today, "count": count})
+            for key in [k for k in self.previews if k[0] == uid]:
+                self.previews.pop(key, None)
             self.save_json(self._path(uid), cfg)
         return self.status(uid)
 
     def disconnect(self, uid):
         with self.lock:
+            cfg = self._config(uid)
+            if cfg and not self._guard_path(uid).exists():
+                self.save_json(self._guard_path(uid), cfg.get("orders_today") or {})
+            # Even a corrupt counter must not prevent the user from deleting credentials.
             try:
                 self._path(uid).unlink()
             except FileNotFoundError:
@@ -195,7 +232,10 @@ class Broker:
     def settings(self, uid, max_order_usd):
         with self.lock:
             cfg = self._require(uid)
-            cfg["max_order_usd"] = round(_num(max_order_usd, "max order ($)", 0, 1e7), 2)
+            cap = round(_num(max_order_usd, "max order ($)", 0, 1e7), 2)
+            if cap <= 0:
+                raise BrokerError("max order ($) must round to at least one cent")
+            cfg["max_order_usd"] = cap
             self.save_json(self._path(uid), cfg)
         return self.status(uid)
 
@@ -206,7 +246,8 @@ class Broker:
         for p in rows if isinstance(rows, list) else []:
             def f(key):
                 try:
-                    return round(float(p.get(key)), 4)
+                    value = float(p.get(key))
+                    return round(value, 4) if math.isfinite(value) else None
                 except (TypeError, ValueError):
                     return None
             out.append({
@@ -322,13 +363,15 @@ class Broker:
             text += " · stop-loss $%s" % payload["stop_loss"]["stop_price"]
         return text
 
-    def preview(self, uid, fields, limits=None):
-        limits = limits or {}
-        cfg = self._require(uid)
-        payload = self.build_order(fields)
+    def _validate_order(self, uid, cfg, payload, limits):
+        """Run the same checks at preview AND immediately before submission.
+
+        This is an estimate gate, not a guaranteed fill or stop-loss price.
+        Caller holds self.lock so concurrent submits cannot reuse daily capacity.
+        """
         warnings = []
         try:
-            ref = float(self.quote_fn(payload["symbol"])["price"])
+            ref = _num(self.quote_fn(payload["symbol"])["price"], "quote", 0)
         except Exception:
             ref = None
             warnings.append("Could not load a current quote; the estimate uses your prices only.")
@@ -341,15 +384,25 @@ class Broker:
         summary = self._account_summary(acct)
         if summary["trading_blocked"] or summary["account_blocked"]:
             raise BrokerError("Alpaca says trading is blocked on this account.")
-        if cfg.get("mode") == "live" and str(summary["status"]).upper() != "ACTIVE":
-            raise BrokerError("The live account is not ACTIVE (status %s)." % summary["status"])
+        if str(summary["status"]).upper() != "ACTIVE":
+            raise BrokerError("The broker account is not ACTIVE (status %s)." % summary["status"])
+        if payload.get("take_profit") or payload.get("stop_loss"):
+            entry_price = float(payload.get("limit_price") or ref or 0)
+            if entry_price <= 0:
+                raise BrokerError("Can't validate bracket prices; set an entry limit price.")
+            if payload.get("stop_loss") and float(payload["stop_loss"]["stop_price"]) >= entry_price:
+                raise BrokerError("The stop-loss must be below the buy entry price.")
+            if payload.get("take_profit") and float(payload["take_profit"]["limit_price"]) <= entry_price:
+                raise BrokerError("The take-profit must be above the buy entry price.")
         if payload["side"] == "buy":
             cap = float(cfg.get("max_order_usd") or DEFAULT_MAX_ORDER[cfg.get("mode", "paper")])
             if estimate is None:
                 raise BrokerError("Can't estimate the order cost; set a limit price.")
             if estimate > cap + 0.005:
                 raise BrokerError("This order (~$%.2f) is above your max per order ($%.2f). Change it in Me → Real trading." % (estimate, cap))
-            if summary["buying_power"] is not None and estimate > summary["buying_power"] + 0.005:
+            if summary["buying_power"] is None or summary["buying_power"] < 0:
+                raise BrokerError("Alpaca did not return valid buying power; order blocked.")
+            if estimate > summary["buying_power"] + 0.005:
                 raise BrokerError("Not enough buying power ($%.2f available)." % summary["buying_power"])
         else:
             held = 0.0
@@ -359,58 +412,81 @@ class Broker:
             wanted = float(payload["qty"]) if "qty" in payload else (float(payload["notional"]) / ref if ref else None)
             if held <= 0:
                 raise BrokerError("You don't hold %s. Twin never opens short positions." % payload["symbol"])
-            if wanted is not None and wanted > held + 1e-6:
+            if wanted is None:
+                raise BrokerError("Can't size a dollar sale without a valid quote; enter shares instead.")
+            if wanted > held + 1e-6:
                 raise BrokerError("You hold %s %s; Twin won't sell more than that (no shorting)." % (held, payload["symbol"]))
         if cfg.get("mode") == "live":
             # No saved limits (e.g. quiz skipped) must not mean "unlimited" with real money.
             cap_count = int(limits.get("max_trades_per_day") or LIVE_DEFAULT_DAILY_ORDERS)
-            today = datetime.now(timezone.utc).date().isoformat()
-            used = cfg.get("orders_today", {}).get("count", 0) if cfg.get("orders_today", {}).get("date") == today else 0
-            if cap_count and used >= cap_count:
+            used = self._daily_count(uid, cfg)[1] if payload["side"] == "buy" else 0
+            # Never prevent a long-position exit just because the entry cap was reached.
+            if payload["side"] == "buy" and cap_count and used >= cap_count:
                 raise BrokerError("Daily live order limit reached (%d). Change it in Me → Trading limits." % cap_count)
             if summary.get("pattern_day_trader"):
                 warnings.append("Alpaca flags this account as a pattern day trader.")
             cap_loss = limits.get("max_loss_per_trade_usd")
-            if payload.get("stop_loss") and cap_loss and "qty" in payload:
+            if payload.get("stop_loss") and cap_loss is not None and "qty" in payload:
+                cap_loss = _num(cap_loss, "max loss per trade")
                 entry = float(payload.get("limit_price") or ref or 0)
                 risk = (entry - float(payload["stop_loss"]["stop_price"])) * float(payload["qty"])
                 if risk > float(cap_loss):
-                    warnings.append("Max loss ≈ $%.2f is above your limit of $%.2f per trade." % (risk, float(cap_loss)))
+                    raise BrokerError("Planned stop-loss risk $%.2f exceeds your per-trade limit $%.2f." % (risk, float(cap_loss)))
+            if payload["side"] == "buy" and not payload.get("stop_loss"):
+                warnings.append("No attached stop-loss: the per-trade loss limit cannot be checked for this order.")
             warnings.append("LIVE: this uses real money in your Alpaca account.")
+        if payload.get("stop_loss"):
+            warnings.append("Planned stop-loss risk is not a maximum loss: gaps and slippage can exceed it.")
         if payload["type"] in ("stop", "trailing_stop"):
             warnings.append("Stops become market orders and can fill worse than the stop price.")
-        preview_id = secrets.token_urlsafe(16)
+        return {
+            "estimate_usd": round(estimate, 2) if estimate is not None else None,
+            "reference_price": round(ref, 2) if ref else None, "warnings": warnings,
+            "account": summary,
+        }
+
+    def preview(self, uid, fields, limits=None):
         with self.lock:
+            cfg = self._require(uid)
+            payload = self.build_order(fields)
+            limits = dict(limits or {})
+            checked = self._validate_order(uid, cfg, payload, limits)
+            preview_id = secrets.token_urlsafe(16)
             now = time.time()
             for key in [k for k, v in self.previews.items() if now - v["at"] > PREVIEW_TTL]:
                 self.previews.pop(key, None)
-            self.previews[(uid, preview_id)] = {"at": now, "payload": payload, "mode": cfg.get("mode")}
+            self.previews[(uid, preview_id)] = {
+                "at": now, "payload": payload, "mode": cfg.get("mode"), "limits": limits,
+            }
         return {
             "preview_id": preview_id, "mode": cfg.get("mode"), "summary": self.describe(payload),
-            "estimate_usd": round(estimate, 2) if estimate is not None else None,
-            "reference_price": round(ref, 2) if ref else None, "warnings": warnings,
-            "account": summary, "expires_in": PREVIEW_TTL,
+            **checked, "expires_in": PREVIEW_TTL,
         }
 
-    def place(self, uid, preview_id, confirm):
+    def place(self, uid, preview_id, confirm, limits=None):
         if confirm is not True:
             raise BrokerError("Confirm the order to send it.")
-        cfg = self._require(uid)
         with self.lock:
+            cfg = self._require(uid)
             entry = self.previews.pop((uid, str(preview_id or "")), None)
-        if not entry or time.time() - entry["at"] > PREVIEW_TTL:
-            raise BrokerError("This preview expired or was already used. Review the order again.")
-        if entry["mode"] != cfg.get("mode"):
-            raise BrokerError("Broker mode changed since the preview. Review the order again.")
-        order = self._request(cfg, "POST", "/v2/orders", entry["payload"])
-        if cfg.get("mode") == "live":
-            with self.lock:
-                fresh = self._config(uid) or cfg
-                today = datetime.now(timezone.utc).date().isoformat()
-                counter = fresh.get("orders_today") or {}
-                count = counter.get("count", 0) if counter.get("date") == today else 0
-                fresh["orders_today"] = {"date": today, "count": count + 1}
-                self.save_json(self._path(uid), fresh)
+            if not entry or time.time() - entry["at"] > PREVIEW_TTL:
+                raise BrokerError("This preview expired or was already used. Review the order again.")
+            if entry["mode"] != cfg.get("mode"):
+                raise BrokerError("Broker mode changed since the preview. Review the order again.")
+            current_limits = entry["limits"] if limits is None else limits
+            self._validate_order(uid, cfg, entry["payload"], current_limits)
+            if cfg.get("mode") == "live" and entry["payload"]["side"] == "buy":
+                today, count = self._daily_count(uid, cfg)
+                # Reserve BEFORE network I/O. A timeout may mean Alpaca accepted it.
+                # Failed/unknown submissions deliberately consume capacity; never auto-retry.
+                self.save_json(self._guard_path(uid), {"date": today, "count": count + 1})
+            try:
+                order = self._request(cfg, "POST", "/v2/orders", entry["payload"])
+            except BrokerError as exc:
+                raise BrokerError(
+                    "%s Check Alpaca orders before trying again. Client order id: %s"
+                    % (exc, entry["payload"]["client_order_id"])
+                ) from exc
         return {"order": self._order_summary(order), "summary": self.describe(entry["payload"]), "mode": cfg.get("mode")}
 
     def cancel(self, uid, order_id):

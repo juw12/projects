@@ -43,6 +43,16 @@ class CleanupTests(unittest.TestCase):
     def test_retries_are_bounded(self):
         self.exercise([OSError(errno.ENOTEMPTY, 'persistent writer')] * 8, 8, errno.ENOTEMPTY)
 
+    def test_windows_handle_release_is_retried(self):
+        error = OSError(errno.EACCES, 'Windows handle still releasing')
+        error.winerror = 5
+        self.exercise([error, None], 2)
+
+    def test_persistent_windows_access_denied_still_raises(self):
+        error = OSError(errno.EACCES, 'Windows permission failure')
+        error.winerror = 5
+        self.exercise([error] * 8, 8, errno.EACCES)
+
 
 if __name__ == '__main__':
     unittest.main()

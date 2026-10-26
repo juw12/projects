@@ -90,7 +90,7 @@ function drawConnected(card, status) {
         switchTab("me");
       },
     }, "Disconnect broker"),
-    h("p", { class: "tiny muted" }, "Keys live in Twin's data folder on this computer (owner-only file, not encrypted). Alpaca holds your money and executes orders; Twin is not a broker and gives no advice."));
+    h("p", { class: "tiny muted" }, "Keys live unencrypted in Twin's data folder. Files are owner-only on POSIX; Windows access permissions are not configured or verified. Use paper keys on a trusted computer. Alpaca holds your money and executes orders; Twin is not a broker and gives no advice."));
 }
 
 function drawConnectForm(card, status) {

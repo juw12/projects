@@ -13,8 +13,8 @@
 <link rel="manifest" href="manifest.webmanifest">
 <title>Twin — invest &amp; day-trade with 10,000 replays</title>
 <meta name="description" content="Twin: a personality-matched investing and day-trading companion. Paper trading, 10,000-future goal planner, copy a famous investor's 13F, news feed and the day-trader-skill Time Machine.">
-<script src="theme.js?v=1.4.0"></script>
-<link rel="stylesheet" href="theme.css?v=1.4.0">
+<script src="theme.js?v=1.4.1"></script>
+<link rel="stylesheet" href="theme.css?v=1.4.1">
 <style>
   :root {
     --bg: #0b0f14;
@@ -222,12 +222,14 @@
 <div class="sheet" id="sheet" inert aria-hidden="true"></div>
 <div class="toast" id="toast"></div>
 
-<script src="demo.js?v=1.4.0"></script>
-<script src="pro.js?v=1.4.0"></script>
-<script src="pro-ui.js?v=1.4.0"></script>
-<script src="broker-ui.js?v=1.4.0"></script>
-<script src="academy.js?v=1.4.0"></script>
-<script src="global.js?v=1.4.0"></script>
+<script src="demo.js?v=1.4.1"></script>
+<script src="pro.js?v=1.4.1"></script>
+<script src="pro-ui.js?v=1.4.1"></script>
+<script src="broker-ui.js?v=1.4.1"></script>
+<script src="academy.js?v=1.4.1"></script>
+<script src="global.js?v=1.4.1"></script>
+<script src="strategy-lab.js?v=1.4.1"></script>
+<script src="strategy-lab-ui.js?v=1.4.1"></script>
 <script>
 "use strict";
 
@@ -2189,7 +2191,7 @@ function renderMe(main) {
       }, "Save limits")),
     h("div", { class: "card" }, h("h3", {}, "Guide"), guideList()),
     h("div", { class: "card small muted" },
-      h("b", { style: "color:var(--text)" }, "Twin · v1.4.0"),
+      h("b", { style: "color:var(--text)" }, "Twin · v1.4.1"),
       h("p", {}, "Twin is built on two free, MIT-licensed skill packs by Jake Schincariol (day-trader-skill and trader-skill). Data: Yahoo Finance (delayed, unofficial), SEC EDGAR."),
       h("p", {}, "Not financial advice. Practice money only. You can lose money investing; past performance and simulations do not guarantee future results.")),
     h("button", {
