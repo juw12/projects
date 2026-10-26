@@ -99,7 +99,7 @@
     const keys = await caches.keys();
     check("unrelated app cache survives activation", keys.includes("other-app-keep-me"));
     check("old Twin cache cleaned", !keys.includes("tt-shell-v3"));
-    const current = keys.find((key) => key.startsWith("twin:") && key.endsWith(":1.5.0"));
+    const current = keys.find((key) => key.startsWith("twin:") && key.endsWith(":1.5.1"));
     const offline = await caches.open(current);
     const cached = await offline.keys();
     check("complete demo precached", ["demo.js", "theme.js", "theme.css", "demo/market.json", "demo/monthly.json", "demo/trade.json", "demo/news.json"].every((name) => cached.some((request) => request.url.split("?")[0].endsWith(name))));
@@ -323,7 +323,7 @@
     const copied = JSON.parse(reportField.value);
     check("report fallback contains replayable inputs and ledger", copied.data.points.length >= 120 && copied.strategy.trades.length > 0 && copied.source.symbol === "AAPL");
     check("Strategy Lab never changes practice positions or cash", paperBeforeLab === JSON.stringify((await reloadWindow.api("api/me")).profile.paper));
-    check("Strategy Lab engine is available in offline shell cache", cached.some((request) => request.url.includes("strategy-lab.js?v=1.5.0")));
+    check("Strategy Lab engine is available in offline shell cache", cached.some((request) => request.url.includes("strategy-lab.js?v=1.5.1")));
     reloadWindow.closeSheet();
 
     // TwinAgent: Trade tab view and stock sheet, in the same guest at phone width.
@@ -381,7 +381,7 @@
     await waitFor(() => reloadDoc.querySelector("#sheet #ta-rating"));
     check("stock page opens a TwinAgent report", Boolean(reloadDoc.querySelector("#sheet #ta-rating")) && reloadDoc.getElementById("sheet").textContent.includes("MSFT"));
     check("TwinAgent sheet fits phone width", reloadDoc.documentElement.scrollWidth <= 320);
-    check("TwinAgent engine and fundamentals cached offline", ["twinagent.js?v=1.5.0", "twinagent-ui.js?v=1.5.0", "demo/fundamentals.json"].every((name) => cached.some((request) => request.url.includes(name))));
+    check("TwinAgent engine and fundamentals cached offline", ["twinagent.js?v=1.5.1", "twinagent-ui.js?v=1.5.1", "design.css?v=1.5.1", "icons.js?v=1.5.1", "demo/fundamentals.json"].every((name) => cached.some((request) => request.url.includes(name))));
     reloadWindow.closeSheet();
 
 
