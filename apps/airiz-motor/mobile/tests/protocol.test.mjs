@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeUuid, discoverProfiles, customProfile, firmwareVersion, chunks, VerifiedSerialPort, FIRMWARE_QUERY } from '../src/protocol.mjs';
+import { normalizeUuid, discoverProfiles, customProfile, firmwareVersion, authReply, chunks, VerifiedSerialPort, FIRMWARE_QUERY } from '../src/protocol.mjs';
 
 const nus = {
   uuid: '6E400001-B5A3-F393-E0A9-E50E24DCCA9E',
@@ -101,4 +101,76 @@ test('connection loss makes the stream unavailable and emits one disconnect', as
 test('real AIRIZ firmware reply with a status prefix is accepted', () => {
   assert.equal(firmwareVersion('diag ver sw\r\n#INFO#0:0.0.0.3#END#\r\n~ # '), '0.0.0.3');
   assert.equal(firmwareVersion('#INFO#0#END#'), null);
+});
+
+function bridgeLink(pin, lockAfter = 99) {
+  let failures = 0;
+  const link = {
+    label: 'Bluetooth LE · AIRIZ-BT', writes: [], closed: 0,
+    async subscribe(onData, onDisconnect) { link.receive = onData; link.lost = onDisconnect; },
+    async write(bytes) {
+      const text = new TextDecoder().decode(bytes);
+      link.writes.push(text);
+      const reply = value => setTimeout(() => link.receive(new TextEncoder().encode(value)), 1);
+      if (text === FIRMWARE_QUERY) reply('#INFO#0:0.0.0.3#END#\n#AUTH#required#END#\n');
+      else if (text === 'auth ' + pin + '\n') reply('#AUTH#ok#END#\n');
+      else if (text.startsWith('auth ')) reply(++failures >= lockAfter ? '#AUTH#locked 60#END#\n' : '#AUTH#denied#END#\n');
+    },
+    async close() { link.closed++; }
+  };
+  return link;
+}
+
+test('bridge PIN replies are parsed', () => {
+  assert.deepEqual(authReply('x#AUTH#ok#END#'), { state: 'ok' });
+  assert.deepEqual(authReply('#AUTH#locked 42#END#'), { state: 'locked', seconds: 42 });
+  assert.equal(authReply('#INFO#0#END#'), null);
+});
+
+test('bridge asks for the PIN, unlocks with the right one and uses the bridge stop command', async () => {
+  const link = bridgeLink('123456');
+  const asked = [];
+  let remembered = null;
+  const port = new VerifiedSerialPort(link, null, 200, {
+    askPin: async request => { asked.push(request.attempt); return asked.length === 1 ? '000000' : '123456'; },
+    rememberPin: pin => { remembered = pin; }
+  });
+  await port.open();
+  assert.deepEqual(link.writes, [FIRMWARE_QUERY, 'auth 000000\n', 'auth 123456\n']);
+  assert.deepEqual(asked, [1, 2]);
+  assert.equal(remembered, '123456');
+  assert.equal(port.bridge, true);
+  assert.equal(port.authenticated, true);
+  assert.equal(port.stopCommand, 'stop');
+  assert.notEqual(port.writable, null);
+  await port.close();
+});
+
+test('a saved PIN is tried first without asking', async () => {
+  const link = bridgeLink('654321');
+  const port = new VerifiedSerialPort(link, null, 200, { savedPin: '654321', askPin: async () => { throw new Error('should not ask'); } });
+  await port.open();
+  assert.deepEqual(link.writes, [FIRMWARE_QUERY, 'auth 654321\n']);
+  await port.close();
+});
+
+test('cancelled PIN entry or lockout keeps motor controls locked', async () => {
+  const cancelled = bridgeLink('123456');
+  const port = new VerifiedSerialPort(cancelled, null, 200, { askPin: async () => null });
+  await assert.rejects(port.open(), /cancelled/);
+  assert.equal(port.writable, null);
+  assert.equal(cancelled.closed, 1);
+  const locked = bridgeLink('123456', 1);
+  const second = new VerifiedSerialPort(locked, null, 200, { askPin: async () => '111111' });
+  await assert.rejects(second.open(), /Wait 60 s/);
+  assert.equal(second.writable, null);
+});
+
+test('plain USB-style replies without #AUTH# keep the shell stop command', async () => {
+  const link = fakeLink(['#INFO#0:0.0.0.3#END#\r\n~ #']);
+  const port = new VerifiedSerialPort(link, null, 100);
+  await port.open();
+  assert.equal(port.bridge, false);
+  assert.match(port.stopCommand, /soc:motor\/status/);
+  await port.close();
 });

@@ -619,3 +619,35 @@ body.console-redesign { color-scheme: inherit; }
 .bluetooth-check-result { font-size: 12px; font-weight: 500; }
 .bluetooth-check-result[data-result="verified"] { color: var(--color-success); }
 .bluetooth-check-result[data-result]:not([data-result="verified"]) { color: var(--color-warning); }
+
+/* Phone remote + Bluetooth PIN */
+.phone-remote-pin {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 12px 16px;
+  border: 1px solid var(--color-accent);
+  border-radius: 10px;
+}
+.phone-remote-pin[hidden] { display: none; }
+.phone-remote-pin strong {
+  font-size: 2rem;
+  letter-spacing: 0.25em;
+  font-variant-numeric: tabular-nums;
+}
+.phone-remote-status { min-height: 1.4em; }
+.phone-remote-steps { padding-left: 1.2em; font-size: 0.92em; }
+.airiz-pin-dialog input {
+  width: 100%;
+  font-size: 1.6rem;
+  letter-spacing: 0.3em;
+  text-align: center;
+  margin: 8px 0 12px;
+}
+.airiz-pin-dialog .mobile-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+#btn-stop-motor:not(:disabled) { font-weight: 600; }

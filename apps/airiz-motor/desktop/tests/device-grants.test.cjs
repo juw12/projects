@@ -46,3 +46,11 @@ test('invalid reconnect requests are refused', () => {
   assert.equal(store.savePendingReconnect({ baudRate: 12 }), false);
   assert.equal(store.takePendingReconnect(), null);
 });
+
+test('Electron permission checks (snake_case, instance id only) match the chosen port', () => {
+  const store = createGrantStore(temporaryDirectory());
+  const chosen = { portId: 'p1', portName: 'COM4', vendorId: '7529', productId: '257', serialNumber: '', deviceInstanceId: 'USB\\VID_1D69&PID_0101&MI_02\\6&E58C16&0&0002' };
+  store.remember(chosen);
+  assert.equal(store.allows({ device_instance_id: 'USB\\VID_1D69&PID_0101&MI_02\\6&E58C16&0&0002', name: 'USB Gadget - CDC Abstract Control Model (ACM)' }), true);
+  assert.equal(store.allows({ device_instance_id: 'USB\\VID_0000&PID_0000\\OTHER', name: 'Other' }), false);
+});

@@ -3,7 +3,7 @@ import { BleClient } from '@capacitor-community/bluetooth-le';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { App } from '@capacitor/app';
-import { VerifiedSerialPort, discoverProfiles, customProfile, normalizeUuid, chunks } from './protocol.mjs';
+import { VerifiedSerialPort, discoverProfiles, customProfile, normalizeUuid, chunks, pinStore, askPin } from './protocol.mjs';
 
 const platform = Capacitor.getPlatform();
 const Classic = registerPlugin('AirizClassicSerial');
@@ -12,6 +12,7 @@ let pending = null;
 let currentLink = null;
 let scanTimer;
 let lastDiagnostics = null;
+let appVersion = '';
 const serialEvents = new EventTarget();
 const blobRegistry = new Map();
 const encode64 = bytes => {
@@ -150,7 +151,7 @@ function buildDialog() {
   dialog.setAttribute('aria-labelledby', 'mobile-bluetooth-title');
   dialog.innerHTML = `
     <h2 id="mobile-bluetooth-title">Connect over Bluetooth</h2>
-    <p>First enable the AIRIZ radio with <code>diag ble on</code> from the USB console. Select only your device. A Bluetooth connection alone does not confirm motor-command support.</p>
+    <p>Start the AIRIZ Bluetooth remote once per power-up from the USB console (<strong>Phone remote</strong> button), then choose <strong>AIRIZ-BT</strong>. You will be asked for its 6-digit PIN the first time.</p>
     <label class="mobile-field">Transport<select id="mobile-transport"><option value="ble">Bluetooth LE · iPhone + Android</option>${platform === 'android' ? '<option value="classic">Paired Classic serial · Android</option>' : ''}</select></label>
     <div class="mobile-scan-actions"><button id="mobile-scan" class="btn btn-primary">Scan devices</button><button id="mobile-settings" class="btn">Phone Bluetooth settings</button></div>
     <p id="mobile-connect-status" role="status">No commands are sent during discovery.</p>
@@ -283,7 +284,7 @@ async function connect(device) {
   }
   request.disconnectRef = { current: null };
   request.selected = device;
-  lastDiagnostics = { app: 'AIRIZ Mobile 1.0.1', platform, transport: request.mode, device: { id: device.deviceId, name: device.name || null }, capturedAt: new Date().toISOString(), services: [], motorCommandsSentDuringDiscovery: false };
+  lastDiagnostics = { app: 'AIRIZ Mobile ' + appVersion, platform, transport: request.mode, device: { id: device.deviceId, name: device.name || null }, capturedAt: new Date().toISOString(), services: [], motorCommandsSentDuringDiscovery: false };
   $('mobile-export-diagnostics').disabled = false;
   try {
     status('Connecting to ' + (device.name || device.deviceId) + '…');
@@ -344,8 +345,14 @@ async function verifyLink(link) {
   if (!request) { await link.close(); return; }
   setBusy(true);
   currentLink = link;
-  status('Checking the existing AIRIZ text protocol with diag ver sw. No jog command is being sent.');
-  const port = new VerifiedSerialPort(link, emitDisconnect);
+  status('Checking the AIRIZ text protocol with diag ver sw (and the remote PIN if asked). No jog command is being sent.');
+  const pinId = request.selected?.deviceId || 'mobile';
+  const port = new VerifiedSerialPort(link, emitDisconnect, 10000, {
+    askPin,
+    savedPin: pinStore.get(pinId),
+    rememberPin: pin => pinStore.set(pinId, pin),
+    forgetPin: () => pinStore.clear(pinId)
+  });
   try {
     await port.open();
     if (pending !== request) { await port.close(); return; }
@@ -387,6 +394,7 @@ function styleMobile() {
   const cameraHeading = document.querySelector('#view-camera .panel-header h2');
   if (cameraHeading) cameraHeading.textContent = 'Phone camera — local preview, not Bluetooth video';
   App.getInfo().then(info => {
+    appVersion = info.version;
     document.title = 'AIRIZ Mobile ' + info.version;
     document.querySelector('.page-intro .eyebrow').textContent = platform.toUpperCase() + ' / AIRIZ MOBILE ' + info.version;
     const badge = document.querySelector('.header-session');
