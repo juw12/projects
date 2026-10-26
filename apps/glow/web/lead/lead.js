@@ -603,7 +603,7 @@
   }
 
   // ---- Instant cloud browser: a shared Glow service (Cloudflare) runs the browser; nothing to set up.
-  const CLOUD_SERVICE_URL = "";
+  const CLOUD_SERVICE_URL = "https://glow-cloud.juw12.workers.dev";
   function cloudServiceUrl() {
     return String(window.GLOW_CLOUD_SERVICE_URL || CLOUD_SERVICE_URL || "").replace(/\/+$/, "");
   }
