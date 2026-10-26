@@ -215,6 +215,14 @@ history and are not predictions. Not financial advice.
 
 ## Changelog
 
+- **1.5.2 — Updates show immediately.** The app page is fetched fresh when online (offline copy
+  still used without a connection), and the app reloads itself once when a new release takes over —
+  never while an order ticket or other sheet is open.
+- **1.5.1 — Design refresh.** New design system (`web/design.css`): calmer dark/light palettes,
+  consistent type scale, buttons, inputs, chips and left-accent notices; a single line-icon set
+  (`web/icons.js`) replaces emoji across the app; icon tab bar with accent indicator; Home quick
+  actions as tiles; TwinAgent report rebuilt around a verdict card, metric grid, research pipeline
+  and clearer risk-gate/debate/analyst sections. No engine or data changes.
 - **1.5.0 — TwinAgent.** Multi-analyst research team with bull/bear debate, portfolio manager and
   profile-driven risk gate; point-in-time evidence (SEC filing dates, timestamped headlines, 13F
   filed dates) with leak tests; relevance-screened headline tone; one-off accounting flags;

@@ -1,10 +1,10 @@
-// Twin 1.5.0: own cache only; complete offline snapshot; API never cached.
+// Twin 1.5.2: own cache only; complete offline snapshot; API never cached.
 const PREFIX = "twin:" + self.registration.scope + ":";
-const SHELL = PREFIX + "1.5.0";
+const SHELL = PREFIX + "1.5.2";
 const FILES = [
-  "./", "index.html", "./?v=1.5.0", "index.html?v=1.5.0",
-  "demo.js?v=1.5.0", "pro.js?v=1.5.0", "pro-ui.js?v=1.5.0", "broker-ui.js?v=1.5.0", "academy.js?v=1.5.0", "global.js?v=1.5.0", "theme.js?v=1.5.0", "theme.css?v=1.5.0", "manifest.webmanifest",
-  "strategy-lab.js?v=1.5.0", "strategy-lab-ui.js?v=1.5.0", "twinagent.js?v=1.5.0", "twinagent-ui.js?v=1.5.0",
+  "./", "index.html", "./?v=1.5.2", "index.html?v=1.5.2",
+  "demo.js?v=1.5.2", "pro.js?v=1.5.2", "pro-ui.js?v=1.5.2", "broker-ui.js?v=1.5.2", "academy.js?v=1.5.2", "global.js?v=1.5.2", "theme.js?v=1.5.2", "theme.css?v=1.5.2", "design.css?v=1.5.2", "icons.js?v=1.5.2", "manifest.webmanifest",
+  "strategy-lab.js?v=1.5.2", "strategy-lab-ui.js?v=1.5.2", "twinagent.js?v=1.5.2", "twinagent-ui.js?v=1.5.2",
   "icons/apple-touch-icon.png", "icons/icon-192.png", "icons/icon-512.png",
   "demo/meta.json", "demo/market.json", "demo/monthly.json",
   "demo/news.json", "demo/copycat.json", "demo/trade.json", "demo/world.json", "demo/fundamentals.json",
@@ -22,6 +22,12 @@ self.addEventListener("activate", (event) => {
 });
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET" || !assets.has(event.request.url)) {
+    return;
+  }
+  // The app page itself is network-first so a new release shows on the very next open;
+  // every script/style URL is versioned, so a fresh page never mixes with old cached code.
+  if (event.request.mode === "navigate") {
+    event.respondWith(freshPage(event.request));
     return;
   }
   // Versioned offline snapshot stays internally consistent until the next worker install.
@@ -43,3 +49,24 @@ self.addEventListener("fetch", (event) => {
     }
   }));
 });
+
+async function freshPage(request) {
+  const cache = await caches.open(SHELL);
+  try {
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("slow network")), 4000));
+    const response = await Promise.race([fetch(request.url, { cache: "no-cache", credentials: "same-origin" }), timeout]);
+    if (response.ok) {
+      await cache.put(request, response.clone());
+      return response;
+    }
+    return (await cache.match(request)) || response;
+  } catch (error) {
+    const cached = await cache.match(request);
+    if (cached) {
+      return cached;
+    }
+    return new Response("Twin is offline. Reconnect to finish installing the offline demo.", {
+      status: 503, headers: { "Content-Type": "text/plain" },
+    });
+  }
+}

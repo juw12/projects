@@ -165,6 +165,14 @@
     {
      "label": "Mobile web",
      "path": "airiz-motor/"
+    },
+    {
+     "label": "Android app",
+     "path": "https://github.com/juw12/projects/releases/download/airiz-mobile-v1.0.0/AIRIZ-Mobile-1.0.0-android.apk"
+    },
+    {
+     "label": "iPhone build",
+     "path": "https://github.com/juw12/projects/releases/tag/airiz-mobile-v1.0.0"
     }
    ]
   },
@@ -312,13 +320,13 @@
    "image": "twin.png",
    "image_alt": "Twin v1.4: global stock search, Toyota stock page in yen with market status, world markets and order ticket",
    "links": {
-    "app": "twin/?v=1.5.0",
+    "app": "twin/?v=1.5.2",
     "web": "twin/web.html",
     "mobile": "twin/mobile.html"
    },
    "featured": true,
    "order": 14,
-   "version": "1.5.0"
+   "version": "1.5.2"
   },
   {
    "id": "glow",
