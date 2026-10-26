@@ -1,0 +1,45 @@
+name: AIRIZ Windows desktop
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/airiz-motor/desktop/**'
+      - 'apps/airiz-motor/web/**'
+      - '.github/workflows/airiz-desktop.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  windows-desktop:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: apps/airiz-motor/desktop
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/airiz-motor/desktop/package-lock.json
+      - name: Install pinned build dependencies
+        run: npm ci --no-fund
+      - name: Test origin and serial-selection boundaries
+        run: npm test
+      - name: Build unsigned Windows installer and portable executable
+        run: npm run dist:win
+      - name: Smoke-test the actual packaged app with synthetic hardware
+        run: npm run test:packaged
+      - name: Upload Windows builds and test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: AIRIZ-Console-Windows-x64
+          path: |
+            apps/airiz-motor/desktop/dist/*.exe
+            apps/airiz-motor/desktop/.test-data/native-smoke-results.json
+          if-no-files-found: error

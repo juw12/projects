@@ -23,6 +23,7 @@ import subprocess
 from datetime import date, datetime
 from html import escape, unescape
 from pathlib import Path
+from urllib.parse import urljoin
 
 SITE_BASE = "https://juwpegatron.github.io/projects/"
 REPO_URL = "https://github.com/juwpegatron/projects"
@@ -103,7 +104,7 @@ def render_card(app):
             )
     elif app.get("native"):
         lines.append(
-            f'{ind}      <a class="project-link" href="{SITE_BASE}{app["links"]["app"]}" '
+            f'{ind}      <a class="project-link" href="{urljoin(SITE_BASE, app["links"]["app"])}" '
             f'target="_blank" rel="noopener noreferrer">Windows app</a>'
         )
         lines.append(
@@ -114,13 +115,13 @@ def render_card(app):
         # Apps made of several parts (e.g. an ecosystem) name each link instead of App/Web/Mobile.
         for card_link in app["card_links"]:
             lines.append(
-                f'{ind}      <a class="project-link" href="{SITE_BASE}{card_link["path"]}" '
+                f'{ind}      <a class="project-link" href="{urljoin(SITE_BASE, card_link["path"])}" '
                 f'target="_blank" rel="noopener noreferrer">{card_link["label"]}</a>'
             )
     else:
         for label, key in (("App", "app"), ("Web", "web"), ("Mobile", "mobile")):
             lines.append(
-                f'{ind}      <a class="project-link" href="{SITE_BASE}{app["links"][key]}" '
+                f'{ind}      <a class="project-link" href="{urljoin(SITE_BASE, app["links"][key])}" '
                 f'target="_blank" rel="noopener noreferrer">{label}</a>'
             )
     # Optional supplementary links, including CAD packages and print notes.
@@ -162,7 +163,7 @@ def update_index(portfolio_dir, apps, dry_run):
 
 
 def app_url(app, key):
-    return SITE_BASE + app["links"][key]
+    return urljoin(SITE_BASE, app["links"][key])
 
 
 def render_note(app, today):

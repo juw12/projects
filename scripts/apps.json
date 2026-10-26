@@ -136,23 +136,37 @@
    "id": "airiz-motor",
    "name": "Airiz Motor",
    "category": "Automation",
-   "desc": "Dependency-free browser console for AIRIZ motor testing — command library, serial console and macro notepad",
-   "description": "Browser serial console that replaces TeraTerm for AIRIZ motor testing &mdash; command library, test macros, log saving and a hardware-free demo mode.",
+   "desc": "Windows desktop app and browser console for AIRIZ motor testing, camera tools and macros",
+   "description": "Downloadable Windows console with a locally bundled controller, serial port chooser, camera tools, macros and offline demo. The browser and mobile-web editions remain available.",
    "tags": [
+    "Windows app",
     "Web Serial",
     "macro runner",
-    "PWA",
     "offline demo"
    ],
    "image": "airiz-motor-hero.svg",
    "image_alt": "Airiz Motor Test Console dashboard: command library, serial console and macro notepad for AIRIZ device motor testing",
    "links": {
-    "app": "airiz-motor/",
+    "app": "https://github.com/juwpegatron/projects/releases/download/airiz-desktop-v1.0.0/AIRIZ-Console-Setup-1.0.0-x64.exe",
     "web": "airiz-motor/",
     "mobile": "airiz-motor/"
    },
    "featured": true,
-   "order": 1
+   "order": 1,
+   "card_links": [
+    {
+     "label": "Windows app",
+     "path": "https://github.com/juwpegatron/projects/releases/download/airiz-desktop-v1.0.0/AIRIZ-Console-Setup-1.0.0-x64.exe"
+    },
+    {
+     "label": "Web",
+     "path": "airiz-motor/"
+    },
+    {
+     "label": "Mobile web",
+     "path": "airiz-motor/"
+    }
+   ]
   },
   {
    "id": "vertex",

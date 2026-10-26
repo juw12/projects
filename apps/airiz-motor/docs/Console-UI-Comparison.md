@@ -91,3 +91,13 @@ the same public URL. No other application or deployment workflow is modified.
 Existing browser sessions should reload after deployment to receive the updated
 shell. Reverting the scoped UI commit restores the previous source; a separate
 snapshot of the published assets was also retained locally.
+
+
+## Follow-up: downloadable Windows application
+
+The browser/PWA install action is now clearly distinguished from the Windows app.
+A locally bundled Electron edition adds an installer, portable executable, native
+serial-port chooser, restricted local IPC and a guarded close flow. The page and
+project catalog link to the actual release executables, not just the website.
+The interface and all firmware definitions remain shared with the browser edition.
+Desktop packaging details and test boundaries are documented with its source.
