@@ -86,7 +86,7 @@ TOOL = {
 }
 
 
-VERSION = "1.5.2"
+VERSION = "1.6.0"
 
 
 class AppError(Exception):
@@ -164,20 +164,27 @@ RANGES = {
 # Some exchanges quote in minor units (pence, cents, agorot); Twin always uses the major unit.
 MINOR_UNITS = {"GBp": ("GBP", 100), "GBX": ("GBP", 100), "ZAc": ("ZAR", 100), "ILA": ("ILS", 100)}
 FX_FALLBACK = {}
+FX_TIME = {}  # currency -> epoch seconds of the quote behind the rate
+FX_TTL = 60  # seconds; Yahoo FX quotes update continuously while FX markets are open
 
 
 def fx_usd(currency):
-    """US dollars per one unit of `currency` (delayed Yahoo FX), cached for 10 minutes."""
+    """US dollars per one unit of `currency` (Yahoo FX), refreshed at most every FX_TTL seconds."""
     currency = (currency or "USD").upper()
     if currency == "USD":
         return 1.0
+    if FAKE_MARKET is not None and currency in FAKE_MARKET.get("fx_usd", {}):
+        return FAKE_MARKET["fx_usd"][currency]
     if not re.fullmatch(r"[A-Z]{3}", currency):
         raise AppError("unknown currency %s" % currency)
     try:
         # USDxxx=X keeps full precision (16,500 IDR); xxxUSD=X is rounded to 4 decimals by Yahoo.
-        doc = http_json("https://query2.finance.yahoo.com/v8/finance/chart/USD%s%%3DX?range=1d&interval=1d" % currency, ttl=600)
-        inverse = (((doc.get("chart") or {}).get("result") or [{}])[0].get("meta") or {}).get("regularMarketPrice")
+        doc = http_json("https://query2.finance.yahoo.com/v8/finance/chart/USD%s%%3DX?range=1d&interval=1d" % currency, ttl=FX_TTL)
+        meta = ((doc.get("chart") or {}).get("result") or [{}])[0].get("meta") or {}
+        inverse = meta.get("regularMarketPrice")
         rate = 1 / inverse if inverse else None
+        if rate:
+            FX_TIME[currency] = meta.get("regularMarketTime") or int(time.time())
     except AppError:
         rate = None
     if rate:
@@ -216,6 +223,7 @@ def search(query):
 
 
 WORLD_FILE = APP_DIR / "web" / "demo" / "world.json"
+WORLD_LIVE_STOCKS = 80
 _world_meta = {}
 
 
@@ -224,7 +232,10 @@ def world_markets():
     if not _world_meta:
         data = json.loads(WORLD_FILE.read_text())
         _world_meta.update({k: data[k] for k in ("universe", "indices", "quotes", "fx_usd", "snapshot_taken")})
-    symbols = [item["symbol"] for item in _world_meta["indices"] + _world_meta["universe"]]
+    # Live quotes for the indices and the core list (first entries); the rest of the 300+ symbols come
+    # from the hourly snapshot so the World screen stays fast. Any symbol is live on its own stock page.
+    live_symbols = [item["symbol"] for item in _world_meta["indices"] + _world_meta["universe"][:WORLD_LIVE_STOCKS]]
+    symbols = live_symbols
     live, errors = {}, {}
 
     def fetch_one(symbol):
@@ -240,6 +251,9 @@ def world_markets():
             else:
                 errors[symbol] = error
                 live[symbol] = dict(_world_meta["quotes"].get(symbol, {}), stale=True)
+    for symbol, q in _world_meta["quotes"].items():
+        if symbol not in live:
+            live[symbol] = dict(q, snapshot=True)
     fx = dict(_world_meta["fx_usd"])
     for item in _world_meta["universe"]:
         q = live.get(item["symbol"]) or {}
@@ -252,6 +266,7 @@ def world_markets():
         "fx_usd": fx,
         "errors": errors,
         "as_of": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+        "fx_as_of": max(FX_TIME.values()) if FX_TIME else None,
     }
 
 
@@ -294,6 +309,7 @@ def chart(symbol, span="1D"):
         "change_pct": ((price / prev - 1) * 100) if price is not None and prev else None,
         "currency": currency,
         "fx_usd": fx_usd(currency),
+        "fx_time": FX_TIME.get(currency) if currency != "USD" else None,
         "exchange": meta.get("fullExchangeName") or meta.get("exchangeName"),
         "timezone": meta.get("exchangeTimezoneName"),
         "time": meta.get("regularMarketTime"),
@@ -307,7 +323,16 @@ def chart(symbol, span="1D"):
     }
 
 
+# Tests only: TWIN_FAKE_QUOTES points at a JSON file {"quotes": {...}, "fx_usd": {...}} used instead of Yahoo.
+FAKE_MARKET = json.loads(Path(os.environ["TWIN_FAKE_QUOTES"]).read_text()) if os.environ.get("TWIN_FAKE_QUOTES") else None
+
+
 def quote(symbol):
+    if FAKE_MARKET is not None:
+        symbol = clean_symbol(symbol)
+        if symbol not in FAKE_MARKET.get("quotes", {}):
+            raise AppError("no data for %s" % symbol)
+        return dict(FAKE_MARKET["quotes"][symbol], symbol=symbol)
     data = chart(symbol, "1D")
     data = dict(data)
     data["spark"] = [p[1] for p in data.pop("points")][::3]
@@ -1166,7 +1191,7 @@ def twinagent_evidence(uid, profile, symbol):
     return bundle
 
 
-BROKER = broker_mod.Broker(DATA, SSL_CTX, load_json, save_json, lambda symbol: quote(symbol))
+BROKER = broker_mod.BrokerRouter(DATA, SSL_CTX, load_json, save_json, lambda symbol: quote(symbol), fx_usd)
 
 
 def broker_call(fn, *args, **kwargs):
@@ -1401,7 +1426,9 @@ class Handler(BaseHTTPRequestHandler):
                     rates[currency] = fx_usd(currency)
                 except AppError as exc:
                     errors[currency] = str(exc)
-            self.send_json({"ok": True, "fx_usd": rates, "errors": errors})
+            stamps = [FX_TIME[c] for c in rates if c in FX_TIME]
+            self.send_json({"ok": True, "fx_usd": rates, "errors": errors,
+                            "as_of": max(stamps) if stamps else int(time.time())})
         elif path == "/api/paper":
             state = paper_state(profile)
             put_profile(uid, profile)
@@ -1470,7 +1497,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"ok": True, "broker": broker_call(BROKER.status, uid)})
         elif path == "/api/broker/connect":
             status = broker_call(
-                BROKER.connect, uid, body.get("key_id"), body.get("secret"), body.get("mode", "paper"),
+                BROKER.connect, uid, provider=body.get("provider") or "alpaca", key_id=body.get("key_id"),
+                secret=body.get("secret"), mode=body.get("mode", "paper"),
                 phrase=body.get("phrase", ""), max_order_usd=body.get("max_order_usd"),
                 password_ok=verify_password(uid, body.get("password")) if body.get("mode") == "live" else False,
             )
@@ -1491,6 +1519,10 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/broker/order":
             self.send_json({"ok": True, **broker_call(
                 BROKER.place, uid, body.get("preview_id"), body.get("confirm"), profile.get("limits") or {}
+            )})
+        elif path == "/api/broker/reply":
+            self.send_json({"ok": True, **broker_call(
+                BROKER.reply, uid, body.get("reply_token"), body.get("confirm"), profile.get("limits") or {}
             )})
         elif path == "/api/broker/cancel":
             self.send_json({"ok": True, **broker_call(BROKER.cancel, uid, body.get("id"))})

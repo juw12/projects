@@ -34,25 +34,31 @@ Bank Central Asia, Samsung, Reliance, Petrobras, Nestlé and so on.
 - **Live server:** search reaches any stock, ETF, index or fund Yahoo Finance lists — dozens of
   exchanges (Tokyo `7203.T`, Hong Kong `0700.HK`, Jakarta `BBCA.JK`, London `VOD.L`, Frankfurt `SAP.DE`,
   Mumbai `RELIANCE.NS`, Toronto `RY.TO`, São Paulo `PETR4.SA`, Sydney `BHP.AX` …).
-- **Web demo:** a dated snapshot of 54 large stocks on 25+ exchanges plus 18 world indices
-  (`web/demo/world.json`, loaded only when needed).
+- **Web demo:** about 280 large stocks and ETFs on 35+ exchanges plus 34 world indices from a **dated
+  snapshot** (`web/demo/world.json` + one chart file per symbol in `web/demo/world/`, loaded only when
+  needed); its time is shown in the app. `scripts/world_snapshot.py` refreshes it (last good data kept on failures).
 - Every stock page shows the flag, exchange, currency, **open / lunch break / closed** with local time,
   the price in its own currency and ≈ in US dollars, day and 52-week ranges, and its US listing (ADR)
   when there is one.
-- **World markets** (Home): market clocks, 18 indices with sparklines, biggest moves and a heatmap.
-- **Practice cash stays in USD.** Foreign orders convert at a delayed FX rate: $1,000 of Toyota at
+- **World markets** (Home): market clocks, 34 indices with sparklines, biggest moves and a heatmap.
+- **Practice cash stays in USD.** Foreign orders convert at the FX rate shown with its "as of" time
+  (re-fetched every 60 s on your own server, from the snapshot in the web demo): $1,000 of Toyota at
   ¥3,105 with 1 USD ≈ ¥157 buys ≈ 50.5 shares. Pence (GBp), South African cents and agorot are
   converted to pounds, rand and shekels.
 - **Home currency** (Me → Currency): see totals ≈ in your own currency (25 currencies, e.g. IDR, EUR, INR, JPY).
 - **Portfolio X-ray** adds country and currency exposure.
-- Market hours follow each exchange's regular session and lunch break; public holidays are not modelled.
+- **Real exchange calendars:** open / lunch / closed, public holidays, early closes and late opens come
+  from [`exchange_calendars`](https://github.com/gerrymanoim/exchange_calendars) (38 exchanges,
+  `web/demo/calendars.json`, rebuilt by `scripts/market_calendars.py`). Stock pages list the next
+  market holidays. Qatar and Abu Dhabi have no calendar in that package and use regular hours only;
+  Shanghai/Shenzhen and India are covered through 2026 until the package publishes later years.
 
 ## Features
 
 | Tab | What it does | Inspired by |
 | --- | --- | --- |
 | Home | global search, world-markets strip, practice-portfolio value (≈ home currency) + chart, next-step coach, watchlist with sparklines, movers, Academy progress | Robinhood, Yahoo Finance, Google Finance |
-| Invest | **Practice** (market / limit / stop / stop-limit / trailing orders, brackets, price alerts, portfolio X-ray), **Real** (optional Alpaca account), **goal planner** (10,000 simulated futures), **copy a famous investor's 13F** | Webull / moomoo paper, Acorns / Betterment goals, eToro CopyTrader |
+| Invest | **Practice** (market / limit / stop / stop-limit / trailing orders, brackets, price alerts, portfolio X-ray), **Real** (optional Alpaca or Interactive Brokers account), **goal planner** (10,000 simulated futures), **copy a famous investor's 13F** | Webull / moomoo paper, Acorns / Betterment goals, eToro CopyTrader |
 | Trade | entry → exit → **Time Machine** (10,000 replays + every past session) → size → risk → ticket; breakout scanner; **Replay Lab** (trade a hidden past session bar by bar) | day-trader-skill, TradingView replay |
 | Learn | **Twin Academy**: 3 levels × 4 interactive lessons, quizzes, points, streak, badges, completion card | Fidelity Learn, Duolingo-style levels |
 | News | headlines for watchlist + holdings, movers, tags | moomoo / Public feeds |
@@ -131,43 +137,65 @@ The lab never submits orders or changes the practice portfolio.
   cookies, stored in `apps/twin/data/` (git-ignored). Live delayed quotes (Yahoo Finance),
   SEC EDGAR 13Fs (needs your email as the SEC user agent), news, and the full skill tools.
 * **Web demo (GitHub Pages).** When no server answers, `web/demo.js` takes over: the same app runs
-  in the browser on a bundled snapshot (`web/demo/`: 16 US tickers' prices and charts, 54 global
-  stocks + 18 indices + 25 FX rates in `world.json`, 12 monthly histories, five investors' 13Fs, a news
-  snapshot and the TSLA replay). Refresh the global snapshot with
-  `python apps/twin/scripts/world_snapshot.py` (`--check` validates it). Accounts and the practice
-  portfolio stay in that browser's localStorage.
+  in the browser on bundled data (`web/demo/`: 16 US tickers' prices and charts, ~280 global stocks/ETFs
+  + 34 indices + 30 FX rates in `world.json` with per-symbol charts in `world/`, exchange calendars,
+  12 monthly histories, five investors' 13Fs, a news snapshot and the TSLA replay). Re-run
+  `scripts/world_snapshot.py` and `scripts/market_calendars.py` and commit to refresh it (`--check`
+  validates; if Yahoo throttles, the last good data is kept). An hourly GitHub Actions refresh is
+  prepared but not enabled yet. Accounts
+  and the practice portfolio stay in that browser's localStorage.
 
 ## Real trading (optional, local server only)
 
-Twin can place **real** orders through your own [Alpaca](https://alpaca.markets) account. This only
-works on the live Python server you run yourself; the GitHub Pages demo shows an explainer and never
-asks for keys.
+Twin can place **real** orders through your own brokerage account — **Alpaca** (US stocks and ETFs) or
+**Interactive Brokers** (listings on most world exchanges). This only works on the live Python server
+you run yourself; the GitHub Pages demo shows an explainer and never asks for keys or logins.
+One broker is connected at a time.
 
+**Alpaca (US):**
 1. Create an Alpaca account and API keys (start with **paper** keys — Alpaca's free simulated account).
-2. Sign in to Twin on your server → **Me → Real trading** → paste keys, choose Paper or Live.
-3. Trade from any ticket with the **Alpaca** account switch, or see equity, positions and open orders
-   in **Invest → Real**.
+2. Sign in to Twin on your server → **Me → Real trading → Alpaca** → paste keys, choose Paper or Live.
+
+**Interactive Brokers (global):**
+1. Download IBKR's [Client Portal Gateway](https://www.interactivebrokers.com/en/trading/ib-api.php)
+   (needs Java) and start it on the same computer: `bin/run.sh root/conf.yaml`.
+2. Open `https://localhost:5000` and log in (paper username first). Twin never sees your IBKR password.
+3. In Twin → **Me → Real trading → Interactive Brokers**, choose Paper or Live and press Connect.
+   Twin checks the gateway's account type matches (a paper login can't be connected as live and vice versa).
+4. Gateway sessions time out; when Twin says so, log in at `https://localhost:5000` again.
+   Use `TWIN_IBKR_URL` if your gateway runs on another local port (only loopback addresses are accepted).
+
+Then trade from any stock's ticket with the account switch (Practice / Alpaca or IBKR), or see equity,
+positions and open orders in **Invest → Real**.
+
+IBKR specifics: Twin maps the Yahoo symbol to IBKR's listing (`7203.T` → Toyota on TSEJ, `BBCA.JK` →
+IDX, `VOD.L` → LSE …) and asks you to pick when there are several; orders are **whole shares** in the
+listing's currency (a dollar amount rounds down to whole shares); market, limit, stop, stop-limit,
+trailing (%) and take-profit/stop-loss brackets; IBKR's what-if check (commission, warnings) is shown in
+the preview, and if IBKR asks a precautionary question (e.g. price far from the market) you answer it yourself — Twin never confirms it for you and nothing is placed until you do. Which markets you can trade
+depends on your country of residence and the market-data / trading permissions on your IBKR account.
 
 Safeguards: paper is the default; live needs your Twin password and typing `REAL MONEY`; every order
 gets a server-side preview with a single-use confirmation (expires after 2 minutes, live adds a
-3-second browser pause); per-order cap (paper $25,000, live $1,000 by default, adjustable); live buy
-submission attempts per UTC day follow your trade limit (default 3); no-short position checks;
-account must be ACTIVE; **cancel all** button.
-Keys are stored on your computer in `data/users/<id>/broker.json` (**not encrypted**;
+3-second browser pause); per-order cap (paper $25,000, live $1,000 by default, adjustable, in US dollars
+for both brokers — foreign orders are converted at the current rate); live buy submission attempts per
+UTC day follow your trade limit (default 3); no-short position checks; account must be ACTIVE;
+**cancel all** button. Checks run at preview **and** again immediately before submission.
+Alpaca keys are stored on your computer in `data/users/<id>/broker.json` (**not encrypted**;
 owner-only permissions on POSIX, but Windows ACLs are not configured or verified) and are
 never sent back to the browser. Use paper keys on a trusted computer. Use keys you can revoke;
-disconnecting deletes them.
-Alpaca trades **US-listed** stocks and ETFs only, so Twin blocks real orders for other exchanges and
-points to the US listing (ADR) when one exists. To own shares on other exchanges, use a broker that
-covers them — for example Interactive Brokers (175 markets in 40 countries, per IBKR) or a local broker —
-and practise those stocks in Twin first. Alpaca availability depends on your country. Tested against a mock Alpaca API,
-not a funded account — try paper first.
+disconnecting deletes them. IBKR logins stay in IBKR's gateway; Twin stores only the account id.
+Alpaca trades **US-listed** stocks and ETFs only, so with Alpaca Twin blocks real orders for other
+exchanges and points to the US listing (ADR) or to IBKR. Broker availability depends on your country —
+Twin can't change who a broker accepts or which markets your account may trade. Both bridges are tested
+against mock APIs (`verify_broker.py`, `verify_ibkr.py`), not funded accounts — try paper first.
 
 ## Test
 
 ```bash
 python apps/twin/tests/verify_api.py
 python apps/twin/tests/verify_broker.py      # real-trading bridge against a mock Alpaca
+python apps/twin/tests/verify_ibkr.py        # Interactive Brokers bridge against a mock Client Portal Gateway
 python apps/twin/tests/test_pro_engine.py    # order types, brackets, indicators, replay (needs node)
 python -m unittest discover -s apps/twin/tests -p 'test_*.py'
 node --test apps/twin/tests/strategy_lab.test.js apps/twin/tests/twinagent.test.js
@@ -179,7 +207,9 @@ Hermetic (temp data dir, free port, no network): health + static files, accounts
 personality → limits, the cross-site guard, input validation (NaN/∞/negative amounts, path
 traversal, malformed Content-Length), the full demo trade flow, and unit tests for the
 monthly-return gap handling, the goal simulator, FX conversion, minor-unit quotes (GBp → GBP) and
-foreign-currency practice orders. `verify_broker.py` also checks that non-US listings are refused.
+foreign-currency practice orders. `verify_broker.py` also checks that non-US listings are refused with Alpaca; `verify_ibkr.py`
+covers gateway login checks, contract resolution and ambiguity, whole-share sizing, JPY tick rounding,
+caps and buying power in USD, brackets, what-if errors, IBKR questions answered (or declined) by the user, and cancel.
 
 ### Submission-time safeguards (1.4.1)
 
@@ -209,12 +239,20 @@ do not expose this development server to the public internet. Use a properly con
 for untrusted networks. The preferences quiz is educational, not a validated suitability assessment.
 
 
-Practice money by default. Real orders happen only if you connect your own Alpaca keys on your own server (see above); the public web demo never asks for broker credentials.
+Practice money by default. Real orders happen only if you connect your own Alpaca keys or IBKR gateway on your own server (see above); the public web demo never asks for broker credentials.
 Quotes are delayed and unofficial; 13F reports describe quarter-end holdings and are due within 45 days after the quarter; the latest available holdings can be much older and exclude shorts/cash. Simulations resample
 history and are not predictions. Not financial advice.
 
 ## Changelog
 
+- **1.6.0 — Limits fixed.** Web demo now ~280 stocks/ETFs on 35+ exchanges + 34 indices, from a dated
+  snapshot with a per-symbol chart for every listing (refresh scripts keep the last good data on
+  failures); **real exchange calendars** (holidays, early closes, late opens for 38 exchanges, "next
+  market holidays" on stock pages); FX re-fetched every **60 s** on the server with an "as of" time on
+  stock pages and the currency card; **Interactive Brokers** bridge (Client Portal Gateway) for real
+  orders on world exchanges — listing picker, whole shares, local-currency prices, what-if preview,
+  USD caps, no shorting, the same submission-time guards as Alpaca, and IBKR's precautionary questions answered by you, never automatically. Live server quotes up to 80 global stocks per
+  World view (rest from the snapshot, marked).
 - **1.5.2 — Updates show immediately.** The app page is fetched fresh when online (offline copy
   still used without a connection), and the app reloads itself once when a new release takes over —
   never while an order ticket or other sheet is open.

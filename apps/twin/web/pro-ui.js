@@ -442,7 +442,7 @@ function orderTicket(cfg) {
       cfg.where === "replay"
         ? "Replay orders are checked once per day at the closing price."
         : cfg.where === "broker"
-          ? `Sends a ${cfg.brokerMode === "live" ? "REAL-MONEY" : "paper"} order to Alpaca after a server preview and your confirmation.`
+          ? `Sends a ${cfg.brokerMode === "live" ? "REAL-MONEY" : "paper"} order to ${brokerName(cfg.brokerProvider)} after a server preview and your confirmation.${cfg.brokerProvider === "ibkr" ? " IBKR trades whole shares; dollar amounts round down." : ""}`
         : (GUEST || DEMO)
           ? "Practice money. Snapshot prices don't move, so pending orders wait. Use Replay Lab to watch orders fill over time."
           : "Practice money. Pending orders are checked about once a minute while Twin is open (no background execution)."));
@@ -868,12 +868,12 @@ function openOrderPro(symbol, side, price, held, prefill = null) {
   const listingInfo = TwinGlobal.listing(symbol);
   const quoteInfo = TwinGlobal.info(symbol);
   const draw = () => {
-    const brokerOn = status && status.connected && listingInfo.us;
+    const brokerOn = brokerCanTrade(status, listingInfo);
     if (!brokerOn) {
       account = "practice";
     }
     seg.hidden = !brokerOn;
-    seg.replaceChildren(...(brokerOn ? [["practice", "Practice"], ["broker", status.mode === "live" ? "Alpaca LIVE" : "Alpaca paper"]] : []).map(([id, label]) => h("button", {
+    seg.replaceChildren(...(brokerOn ? [["practice", "Practice"], ["broker", `${brokerName(status.provider)} ${status.mode === "live" ? "LIVE" : "paper"}`]] : []).map(([id, label]) => h("button", {
       class: account === id ? "on" : "", "data-account": id,
       style: id === "broker" && status.mode === "live" ? "color:var(--red)" : "",
       onclick: () => {
@@ -884,10 +884,11 @@ function openOrderPro(symbol, side, price, held, prefill = null) {
     }, label)));
     if (account === "broker") {
       const acct = status.account || {};
-      header.replaceChildren(brokerBadge(status.mode), ` Buying power ${fmtMoney(acct.buying_power)} · max ${fmtMoney(status.max_order_usd, 0)} per order`);
+      header.replaceChildren(brokerBadge(status.mode, status.provider), ` Buying power ${brokerMoney(acct.buying_power, acct.currency)} · max ${fmtMoney(status.max_order_usd, 0)} per order`);
       holder.replaceChildren(orderTicket({
         symbol, price, side, held: 0, cash: acct.buying_power, equity: acct.equity,
-        limits: state.profile.limits, where: "broker", brokerMode: status.mode,
+        limits: state.profile.limits, where: "broker", brokerMode: status.mode, brokerProvider: status.provider,
+        currency: quoteInfo.currency, fx: quoteInfo.fx_usd,
         submit: (fields) => submitBrokerOrder(fields),
       }));
     } else {
@@ -899,7 +900,7 @@ function openOrderPro(symbol, side, price, held, prefill = null) {
         submit: (fields) => submitLiveOrder(fields, price),
       }));
       if (status && status.connected && !listingInfo.us) {
-        put(holder, h("p", { class: "tiny muted" }, `Alpaca trades US listings only, so ${symbol} (${listingInfo.exchange}) is practice-only here.`));
+        put(holder, h("p", { class: "tiny muted" }, `Alpaca trades US listings only, so ${symbol} (${listingInfo.exchange}) is practice-only here. Connect Interactive Brokers in Me → Real trading to trade it for real.`));
       }
     }
   };

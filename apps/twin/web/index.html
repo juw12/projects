@@ -13,10 +13,10 @@
 <link rel="manifest" href="manifest.webmanifest">
 <title>Twin — invest &amp; day-trade with 10,000 replays</title>
 <meta name="description" content="Twin: a personality-matched investing and day-trading companion. Paper trading, 10,000-future goal planner, copy a famous investor's 13F, news feed and the day-trader-skill Time Machine.">
-<script src="theme.js?v=1.5.2"></script>
-<script src="icons.js?v=1.5.2"></script>
-<link rel="stylesheet" href="theme.css?v=1.5.2">
-<link rel="stylesheet" href="design.css?v=1.5.2">
+<script src="theme.js?v=1.6.0"></script>
+<script src="icons.js?v=1.6.0"></script>
+<link rel="stylesheet" href="theme.css?v=1.6.0">
+<link rel="stylesheet" href="design.css?v=1.6.0">
 <style>
   :root {
     --bg: #0b0f14;
@@ -224,16 +224,16 @@
 <div class="sheet" id="sheet" inert aria-hidden="true"></div>
 <div class="toast" id="toast"></div>
 
-<script src="demo.js?v=1.5.2"></script>
-<script src="pro.js?v=1.5.2"></script>
-<script src="pro-ui.js?v=1.5.2"></script>
-<script src="broker-ui.js?v=1.5.2"></script>
-<script src="academy.js?v=1.5.2"></script>
-<script src="global.js?v=1.5.2"></script>
-<script src="strategy-lab.js?v=1.5.2"></script>
-<script src="strategy-lab-ui.js?v=1.5.2"></script>
-<script src="twinagent.js?v=1.5.2"></script>
-<script src="twinagent-ui.js?v=1.5.2"></script>
+<script src="demo.js?v=1.6.0"></script>
+<script src="pro.js?v=1.6.0"></script>
+<script src="pro-ui.js?v=1.6.0"></script>
+<script src="broker-ui.js?v=1.6.0"></script>
+<script src="academy.js?v=1.6.0"></script>
+<script src="global.js?v=1.6.0"></script>
+<script src="strategy-lab.js?v=1.6.0"></script>
+<script src="strategy-lab-ui.js?v=1.6.0"></script>
+<script src="twinagent.js?v=1.6.0"></script>
+<script src="twinagent-ui.js?v=1.6.0"></script>
 <script>
 "use strict";
 
@@ -871,23 +871,24 @@ const GUIDE = [
     ],
   },
   {
-    id: "real", icon: "🏦", title: "Real trading with Alpaca",
+    id: "real", icon: "🏦", title: "Real trading (Alpaca or Interactive Brokers)",
     body: [
-      ["p", "Twin can send real orders to your own Alpaca brokerage account (US stocks and ETFs). Alpaca holds your money and executes orders; Twin is not a broker and gives no advice."],
-      ["p", "It only works with Twin running on your computer. The public web/guest app never asks for keys. Create API keys in Alpaca's dashboard, then open Me → Real trading."],
-      ["p", "Start with Alpaca paper (fake money, real prices). Live mode needs your Twin password and typing REAL MONEY, has a $1,000 per-order cap by default (you can change it), and allows 3 live orders a day unless your trading limits say otherwise."],
+      ["p", "Twin can send real orders to your own brokerage account: Alpaca for US stocks and ETFs, or Interactive Brokers (IBKR) for listings on most world exchanges. The broker holds your money and executes orders; Twin is not a broker and gives no advice."],
+      ["p", "It only works with Twin running on your computer. The public web/guest app never asks for keys or logins. Alpaca: create API keys in Alpaca's dashboard. IBKR: run IBKR's Client Portal Gateway on the same computer and log in at https://localhost:5000 — Twin never sees your IBKR password. Then open Me → Real trading."],
+      ["p", "IBKR trades whole shares, in the listing's own currency. If a symbol is listed on several exchanges, Twin asks which listing you mean. Which markets you can trade depends on your country and your IBKR market permissions."],
+      ["p", "Start with a paper account (fake money, real prices). Live mode needs your Twin password and typing REAL MONEY, has a $1,000 per-order cap by default (you can change it), and allows 3 live orders a day unless your trading limits say otherwise."],
       ["p", "Every order is checked by Twin's server first (cash, cap, no short selling, valid prices), then shown for review. Live orders wait 3 seconds before you can confirm. The preview is single-use, so a double tap can't send two orders."],
-      ["p", "Keys are stored on your computer in Twin's data folder (owner-only file, not encrypted). Disconnect deletes them. Anyone who can sign in to your Twin account on your Wi-Fi could trade, so use a strong password."],
+      ["p", "Alpaca keys are stored on your computer in Twin's data folder (owner-only file, not encrypted); Disconnect deletes them. IBKR sessions live in the gateway and time out — log in there again when Twin says so. Anyone who can sign in to your Twin account on your Wi-Fi could trade, so use a strong password."],
       ["p", "Fast markets can fill stops and market orders worse than expected. Only trade money you can afford to lose."],
     ],
   },
   {
     id: "global", icon: "🌍", title: "Stocks from any country",
     body: [
-      ["p", "Search any company by name, ticker or country. Twin running on your computer looks up listings on dozens of exchanges through Yahoo Finance (e.g. 7203.T Toyota in Tokyo, BBCA.JK Bank Central Asia in Jakarta, RELIANCE.NS in Mumbai, VOD.L in London). The web demo includes a snapshot of about 55 large companies on 25+ exchanges plus 18 world indices."],
-      ["p", "Prices show in the stock's own currency. Practice cash is in US dollars: when you buy a foreign stock, Twin converts at the delayed exchange rate, so currency moves change your result too. Pick a home currency in Me to see totals converted."],
-      ["p", "Market status (open, lunch break, closed) uses each exchange's regular hours in its local time. Public holidays are not shown."],
-      ["p", "Real money: Twin's Alpaca connection trades US-listed stocks and ETFs, which Alpaca offers to customers in many countries. For other exchanges use a broker that covers them, such as Interactive Brokers (175 markets in 40 countries, per IBKR) or a licensed local broker. Many big foreign companies also have US listings (ADRs), shown on their stock page."],
+      ["p", "Search any company by name, ticker or country. Twin running on your computer looks up listings on dozens of exchanges through Yahoo Finance (e.g. 7203.T Toyota in Tokyo, BBCA.JK Bank Central Asia in Jakarta, RELIANCE.NS in Mumbai, VOD.L in London). The web demo includes about 280 large companies and ETFs on 35+ exchanges plus 34 world indices, refreshed about once an hour."],
+      ["p", "Prices show in the stock's own currency. Practice cash is in US dollars: when you buy a foreign stock, Twin converts at the exchange rate shown (refreshed every minute on your own Twin; in the web demo it comes from the dated snapshot, with its “as of” time), so currency moves change your result too. Pick a home currency in Me to see totals converted."],
+      ["p", "Market status (open, lunch break, closed, holiday, early close) uses each exchange's real trading calendar in its local time, and each stock page lists the next market holidays. Qatar and Abu Dhabi use regular hours only (no holiday calendar)."],
+      ["p", "Real money: connect Interactive Brokers in Me → Real trading to trade listings on most world exchanges, or Alpaca for US-listed stocks and ETFs. Availability depends on where you live and on each broker's terms — Twin can't change that. Many big foreign companies also have US listings (ADRs), shown on their stock page."],
     ],
   },
   {
@@ -937,7 +938,7 @@ const GUIDE = [
     id: "safety", icon: "🛡️", title: "Safety & going real",
     body: [
       ["ul", [
-        "Practice is the default. Real orders only go through your own Alpaca account on Twin running on your computer, after a preview you confirm. Never paste broker keys into a public website, and Twin never asks for your broker password.",
+        "Practice is the default. Real orders only go through your own Alpaca or Interactive Brokers account on Twin running on your computer, after a preview you confirm. Never paste broker keys into a public website, and Twin never asks for your broker password.",
         "Prices are free delayed quotes — check your broker before acting.",
         "Most new day traders lose money. Prove a strategy on paper first, with a written plan.",
         "US margin accounts can be limited by pattern-day-trader rules; check your broker's current rules before day trading.",
@@ -2236,7 +2237,7 @@ function renderMe(main) {
       }, "Save limits")),
     h("div", { class: "card" }, h("h3", {}, "Guide"), guideList()),
     h("div", { class: "card small muted" },
-      h("b", { style: "color:var(--text)" }, "Twin · v1.5.2"),
+      h("b", { style: "color:var(--text)" }, "Twin · v1.6.0"),
       h("p", {}, "Twin is built on two free, MIT-licensed skill packs by Jake Schincariol (day-trader-skill and trader-skill). Data: Yahoo Finance (delayed, unofficial), SEC EDGAR."),
       h("p", {}, "Not financial advice. Practice money only. You can lose money investing; past performance and simulations do not guarantee future results.")),
     h("button", {
