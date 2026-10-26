@@ -540,6 +540,13 @@
       headers = { 'content-type': 'application/json' };
       if (s.apiKey) headers.authorization = 'Bearer ' + s.apiKey;
       body = { model, messages: [{ role: 'system', content: system }, ...messages], stream: !noStream, temperature };
+      if (s.provider === 'glow') {
+        // Glow Free now runs a reasoning model that, at its default effort, often stops after thinking
+        // (or tries a tool call) and sends no answer text. Low effort answers reliably.
+        body.reasoning_effort = 'low';
+        // The free endpoint caches identical requests, so a retry must differ or it returns the same empty reply.
+        if (emptyRetries < 2) body.seed = Math.floor(Math.random() * 1e9);
+      }
       if (s.provider === 'openrouter') {
         headers['HTTP-Referer'] = location.origin;
         headers['X-Title'] = 'GlowRoom';
