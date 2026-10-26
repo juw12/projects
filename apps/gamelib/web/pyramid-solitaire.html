@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Pyramid Solitaire</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --cw: 60px;
+    --ch: 86px;
+  }
+
+  html, body {
+    min-height: 100%;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: radial-gradient(circle at 50% 0%, #3b2a6b 0%, #241748 55%, #150c2b 100%);
+    color: #efe9ff;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 10px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ============ APP SHELL ============ */
+  #app {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: min(96vw, 780px);
+  }
+
+  /* ============ HUD ============ */
+  #hud {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 14px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 9px 14px;
+  }
+  #hud .brand {
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    font-size: 1.05rem;
+    color: #ffd75e;
+    text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+  }
+  #hud .stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    font-size: 0.92rem;
+    font-variant-numeric: tabular-nums;
+  }
+  #hud .stats b { color: #b9a4ff; font-weight: 700; }
+  #hud .tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    border-radius: 9px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    color: #fff;
+    background: #5b46c4;
+    padding: 9px 15px;
+    font-size: 0.88rem;
+    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.28);
+    transition: transform 0.06s ease, background 0.15s ease;
+    user-select: none;
+  }
+  button:hover { background: #6a54d6; }
+  button:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.28); }
+  button.secondary { background: #8a6a1f; }
+  button.secondary:hover { background: #9d7a26; }
+  button.ghost {
+    background: rgba(0, 0, 0, 0.3);
+    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.2);
+  }
+  button.ghost:hover { background: rgba(0, 0, 0, 0.45); }
+  button.ghost.on {
+    background: #ffd75e;
+    color: #6b4b00;
+    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.2);
+  }
+  button.primary {
+    background: linear-gradient(135deg, #ffcf4d, #f39c12);
+    color: #5a3b00;
+    padding: 12px 30px;
+    font-size: 1rem;
+  }
+
+  /* ============ BOARD (FELT) ============ */
+  #board {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 16px;
+    border-radius: 16px;
+    background:
+      radial-gradient(circle at 30% 8%, rgba(255, 255, 255, 0.06), transparent 60%),
+      linear-gradient(160deg, #3a2a6e, #2a1d52 70%, #1f1540);
+    box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.5), 0 14px 40px rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  /* ============ TOP AREA (STOCK / WASTE) ============ */
+  #topRow { display: flex; gap: 28px; }
+  .pilewrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .plab {
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #c9b8ff;
+  }
+  .pile {
+    position: relative;
+    width: var(--cw);
+    height: var(--ch);
+    border-radius: calc(var(--cw) * 0.1);
+  }
+  .pile::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    border: 2px dashed rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.05);
+  }
+  .pile[data-zone="stock"] { cursor: pointer; }
+  .pile[data-zone="stock"]:hover::before {
+    border-color: #ffd75e;
+    box-shadow: 0 0 12px rgba(255, 215, 94, 0.6);
+  }
+  .slot-sym {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: calc(var(--cw) * 0.5);
+    color: rgba(255, 255, 255, 0.22);
+    z-index: 0;
+    pointer-events: none;
+    font-weight: 700;
+  }
+
+  /* ============ PYRAMID ============ */
+  #pyramid { position: relative; margin: 0 auto; }
+
+  /* ============ CARDS ============ */
+  .card {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: var(--cw);
+    height: var(--ch);
+    border-radius: calc(var(--cw) * 0.1);
+    background: linear-gradient(160deg, #ffffff, #eef0f4);
+    border: 1px solid rgba(0, 0, 0, 0.28);
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25), 0 2px 6px rgba(0, 0, 0, 0.22);
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-drag: none;
+    touch-action: none;
+    z-index: 2;
+    will-change: top;
+  }
+  .card.back {
+    background: repeating-linear-gradient(45deg, #3a2f78 0 6px, #463a91 6px 12px);
+    border-color: #241a55;
+  }
+  .card.back::after {
+    content: '';
+    position: absolute;
+    inset: 13%;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-radius: calc(var(--cw) * 0.06);
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.14), transparent 70%);
+  }
+  .card .corner {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 0.92;
+    font-weight: 800;
+  }
+  .card .corner.tl { top: calc(var(--cw) * 0.05); left: calc(var(--cw) * 0.07); }
+  .card .corner.br {
+    bottom: calc(var(--cw) * 0.05);
+    right: calc(var(--cw) * 0.07);
+    transform: rotate(180deg);
+  }
+  .card .corner .r { font-size: calc(var(--cw) * 0.34); }
+  .card .corner .s { font-size: calc(var(--cw) * 0.28); }
+  .card .pip {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: calc(var(--cw) * 0.58);
+    opacity: 0.85;
+  }
+  .card.red { color: #c62828; }
+  .card.black { color: #17171c; }
+  .card.covered { filter: brightness(0.72) saturate(0.85); }
+  .card.sel {
+    outline: 3px solid #ffd75e;
+    outline-offset: -3px;
+    box-shadow: 0 0 14px rgba(255, 215, 94, 0.8), 0 2px 6px rgba(0, 0, 0, 0.25);
+  }
+  .card.winpop { animation: winpop 0.55s ease both; }
+  @keyframes winpop {
+    0% { transform: translateY(0) scale(1); }
+    45% { transform: translateY(-14px) scale(1.08); }
+    100% { transform: translateY(0) scale(1); }
+  }
+  .card:not(.covered):not(.back) { cursor: pointer; }
+  .count {
+    position: absolute;
+    right: -6px;
+    bottom: -6px;
+    background: #ffd75e;
+    color: #5a3b00;
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 9px;
+    z-index: 6;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+
+  /* ============ OVERLAYS ============ */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(12, 6, 30, 0.84);
+    backdrop-filter: blur(3px);
+    z-index: 500;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+    padding: 16px;
+  }
+  .overlay.show { opacity: 1; pointer-events: auto; }
+  .panel {
+    width: min(92vw, 450px);
+    background: linear-gradient(165deg, #352765, #1e1442);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 18px;
+    padding: 26px 22px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  }
+  .panel h1 {
+    font-size: 1.7rem;
+    color: #ffd75e;
+    margin-bottom: 8px;
+    text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
+  }
+  .panel p.sub {
+    color: #d6ccff;
+    font-size: 0.9rem;
+    margin-bottom: 14px;
+    line-height: 1.45;
+  }
+  .panel .rules {
+    text-align: left;
+    background: rgba(0, 0, 0, 0.24);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 0.82rem;
+    color: #cdc2ff;
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }
+  .panel .rules b { color: #ffd75e; }
+  .panel .drawpick {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .panel .recap {
+    display: flex;
+    justify-content: space-around;
+    gap: 10px;
+    margin: 14px 0 20px;
+  }
+  .panel .recap div {
+    background: rgba(0, 0, 0, 0.28);
+    border-radius: 10px;
+    padding: 10px 14px;
+    min-width: 82px;
+  }
+  .panel .recap .lab {
+    font-size: 0.72rem;
+    color: #b6a6ff;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .panel .recap .val {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+  }
+  .panel .newbest {
+    color: #ffd75e;
+    font-weight: 800;
+    margin-bottom: 8px;
+    min-height: 20px;
+  }
+
+  /* ============ CONFETTI ============ */
+  .confetti {
+    position: fixed;
+    top: -40px;
+    font-size: 22px;
+    z-index: 600;
+    pointer-events: none;
+    animation: fall linear forwards;
+  }
+  @keyframes fall {
+    to { transform: translateY(112vh) rotate(720deg); opacity: 0.7; }
+  }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 560px) {
+    #hud .brand { font-size: 0.95rem; }
+    #hud .stats { font-size: 0.82rem; gap: 4px 12px; }
+    button { padding: 8px 12px; font-size: 0.8rem; }
+    #board { padding: 10px; }
+    #topRow { gap: 18px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ============ HUD ============ -->
+  <div id="hud">
+    <span class="brand">&#128314; Pyramid Solitaire</span>
+    <div class="stats">
+      <span>Time <b id="s-time">0:00</b></span>
+      <span>Score <b id="s-score">0</b></span>
+      <span>Best <b id="s-best">--</b></span>
+      <span>Wins <b id="s-wins">0</b></span>
+    </div>
+    <div class="tools">
+      <button class="ghost on" data-draw="1">Draw&nbsp;1</button>
+      <button class="ghost" data-draw="3">Draw&nbsp;3</button>
+      <button class="secondary" id="btn-undo">Undo</button>
+      <button id="btn-new">New&nbsp;Game</button>
+    </div>
+  </div>
+
+  <!-- ============ BOARD ============ -->
+  <div id="board">
+    <div id="topRow">
+      <div class="pilewrap">
+        <div class="pile" id="stockPile" data-zone="stock"></div>
+        <div class="plab">Stock</div>
+      </div>
+      <div class="pilewrap">
+        <div class="pile" id="wastePile" data-zone="waste"></div>
+        <div class="plab">Waste</div>
+      </div>
+    </div>
+    <div id="pyramid"></div>
+  </div>
+</div>
+
+<!-- ============ START OVERLAY ============ -->
+<div class="overlay show" id="startOverlay">
+  <div class="panel">
+    <h1>&#128314; Pyramid Solitaire</h1>
+    <p class="sub">Clear the pyramid by matching cards to 13.</p>
+    <div class="rules">
+      &bull; A card is <b>exposed</b> when no card covers it (dimmed cards are covered).<br>
+      &bull; Tap two exposed cards that <b>sum to 13</b> to remove both.<br>
+      &bull; Values: A=1, J=11, Q=12, K=13. A lone <b>King</b> is removed by itself.<br>
+      &bull; The top <b>Waste</b> card may pair with any exposed pyramid card.<br>
+      &bull; Draw <b>1</b> or <b>3</b> from the stock to find partners.<br>
+      &bull; Winning = clearing all 28 pyramid cards.
+    </div>
+    <div class="drawpick">
+      <button class="ghost on" data-draw="1">Draw 1</button>
+      <button class="ghost" data-draw="3">Draw 3</button>
+    </div>
+    <button class="primary" id="btn-start">Start Game</button>
+    <div class="recap">
+      <div><div class="lab">Best</div><div class="val" id="ov-best">--</div></div>
+      <div><div class="lab">Wins</div><div class="val" id="ov-wins">0</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ WIN OVERLAY ============ -->
+<div class="overlay" id="winOverlay">
+  <div class="panel">
+    <h1>&#127881; You Win! &#127881;</h1>
+    <p class="sub">The pyramid is cleared.</p>
+    <div class="newbest" id="wb-new"></div>
+    <div class="recap">
+      <div><div class="lab">Time</div><div class="val" id="wb-time">0:00</div></div>
+      <div><div class="lab">Score</div><div class="val" id="wb-score">0</div></div>
+      <div><div class="lab">Best</div><div class="val" id="wb-best">--</div></div>
+    </div>
+    <button class="primary" id="btn-again">New Game</button>
+  </div>
+</div>
+
+<!-- ============ NO-MOVES OVERLAY ============ -->
+<div class="overlay" id="overOverlay">
+  <div class="panel">
+    <h1>&#128128; No Moves Left</h1>
+    <p class="sub">The deck is exhausted and no pairs remain.</p>
+    <div class="recap">
+      <div><div class="lab">Score</div><div class="val" id="ob-score">0</div></div>
+      <div><div class="lab">Left</div><div class="val" id="ob-left">0</div></div>
+    </div>
+    <button class="primary" id="btn-retry">Try Again</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONSTANTS ============
+  var SUITS = [
+    { k: "S", sym: "\u2660", color: "black" },  // 0 spade
+    { k: "H", sym: "\u2665", color: "red" },    // 1 heart
+    { k: "D", sym: "\u2666", color: "red" },    // 2 diamond
+    { k: "C", sym: "\u2663", color: "black" }   // 3 club
+  ];
+  var RANK = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+  var ROWS = 7;                 // pyramid rows; total cards = 7*8/2 = 28
+  var PAIR_SUM = 13;
+  var REMOVE_SCORE = 10;
+
+  // ============ DOM ============
+  var board = document.getElementById("board");
+  var pyramidEl = document.getElementById("pyramid");
+  var stockEl = document.getElementById("stockPile");
+  var wasteEl = document.getElementById("wastePile");
+  var timeEl = document.getElementById("s-time");
+  var scoreEl = document.getElementById("s-score");
+  var bestEl = document.getElementById("s-best");
+  var winsEl = document.getElementById("s-wins");
+  var ovBest = document.getElementById("ov-best");
+  var ovWins = document.getElementById("ov-wins");
+  var startOverlay = document.getElementById("startOverlay");
+  var winOverlay = document.getElementById("winOverlay");
+  var overOverlay = document.getElementById("overOverlay");
+  var wbTime = document.getElementById("wb-time");
+  var wbScore = document.getElementById("wb-score");
+  var wbBest = document.getElementById("wb-best");
+  var wbNew = document.getElementById("wb-new");
+  var obScore = document.getElementById("ob-score");
+  var obLeft = document.getElementById("ob-left");
+
+  // ============ STATE ============
+  var pyramid = [];             // array of rows; each row = array of card|null
+  for (var _ri = 0; _ri < ROWS; _ri++) pyramid.push([]);  // safe empty rows before first deal
+  var stock = [];
+  var waste = [];
+  var history = [];             // undo snapshots
+  var selection = null;         // { zone:'p', r, c } | { zone:'waste' }
+  var score = 0;
+  var moves = 0;
+  var elapsed = 0;
+  var running = false;
+  var won = false;
+  var timerId = null;
+  var lastTick = 0;
+  var drawCount = 1;
+  var METRICS = { cw: 60, ch: 86, rowStep: 52 };
+  var uid = 0;
+
+  // ============ SOUND (WebAudio, no assets) ============
+  var actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = actx.createOscillator();
+      var g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g);
+      g.connect(actx.destination);
+      o.start();
+      o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+  function sfxFlip() { beep(520, 0.06, "triangle"); }
+  function sfxMatch() { beep(660, 0.07, "square"); setTimeout(function () { beep(880, 0.08, "sine"); }, 70); }
+  function sfxKing() { beep(440, 0.07, "square"); setTimeout(function () { beep(990, 0.1, "sine"); }, 70); }
+  function sfxDraw() { beep(360, 0.06, "triangle"); }
+  function sfxBad() { beep(150, 0.12, "sawtooth"); }
+  function sfxWin() {
+    var notes = [523, 659, 784, 1046, 784, 1046, 1318];
+    notes.forEach(function (f, i) {
+      setTimeout(function () { beep(f, 0.16, "sine"); }, i * 130);
+    });
+  }
+
+  // ============ PERSISTENCE ============
+  function readInt(key, def) {
+    var v = parseInt(localStorage.getItem(key), 10);
+    return isNaN(v) ? def : v;
+  }
+  function bestTime() { return readInt("pyramid_best", 0); }
+  function winCount() { return readInt("pyramid_wins", 0); }
+  function fmt(s) {
+    s = Math.floor(s);
+    var m = Math.floor(s / 60);
+    var r = s % 60;
+    return m + ":" + (r < 10 ? "0" + r : r);
+  }
+
+  // ============ DECK ============
+  function buildDeck() {
+    var deck = [];
+    for (var s = 0; s < 4; s++) {
+      for (var r = 1; r <= 13; r++) {
+        deck.push({
+          id: uid++,
+          suit: s,
+          rank: r,
+          color: SUITS[s].color,
+          faceUp: true
+        });
+      }
+    }
+    return deck;
+  }
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  // ============ CARD ACCESS ============
+  // A pyramid card at (r,c) is exposed when neither card directly below it exists.
+  function isExposed(r, c) {
+    if (r >= ROWS - 1) return true;
+    var below = pyramid[r + 1];
+    return !below[c] && !below[c + 1];
+  }
+  function cardAt(loc) {
+    if (!loc) return null;
+    if (loc.zone === "waste") return waste.length ? waste[waste.length - 1] : null;
+    if (loc.zone === "p") return pyramid[loc.r][loc.c];
+    return null;
+  }
+  function isSelectable(loc) {
+    if (!loc) return false;
+    if (loc.zone === "waste") return waste.length > 0;
+    if (loc.zone === "p") {
+      var card = pyramid[loc.r][loc.c];
+      return !!card && isExposed(loc.r, loc.c);
+    }
+    return false;
+  }
+  function sameLoc(a, b) {
+    if (!a || !b) return false;
+    if (a.zone !== b.zone) return false;
+    if (a.zone === "p") return a.r === b.r && a.c === b.c;
+    return true;
+  }
+
+  // ============ HISTORY / UNDO ============
+  function snapshot() {
+    return JSON.stringify({ p: pyramid, s: stock, w: waste, sc: score, mv: moves });
+  }
+  function pushHistory() {
+    history.push(snapshot());
+    if (history.length > 500) history.shift();
+  }
+  function undo() {
+    if (!history.length || won) { sfxBad(); return; }
+    var snap = JSON.parse(history.pop());
+    pyramid = snap.p;
+    stock = snap.s;
+    waste = snap.w;
+    score = snap.sc;
+    moves = snap.mv;
+    selection = null;
+    won = false;
+    overOverlay.classList.remove("show");
+    updateHUD();
+    render();
+    sfxFlip();
+  }
+
+  // ============ ACTIONS ============
+  function removeCard(loc) {
+    if (loc.zone === "waste") {
+      waste.pop();
+    } else {
+      pyramid[loc.r][loc.c] = null;
+    }
+  }
+
+  function performRemoval(locs, kind) {
+    pushHistory();
+    locs.forEach(removeCard);
+    score += REMOVE_SCORE;
+    moves++;
+    if (kind === "king") sfxKing(); else sfxMatch();
+    finishMove();
+  }
+
+  // Handle a tap on a card location (pyramid or waste).
+  function tapCard(loc) {
+    if (won) return;
+    if (!isSelectable(loc)) { sfxBad(); return; }
+    var card = cardAt(loc);
+    if (!card) { sfxBad(); return; }
+
+    // Kings (value 13) are removed by themselves.
+    if (card.rank === PAIR_SUM) {
+      selection = null;
+      performRemoval([loc], "king");
+      return;
+    }
+
+    if (!selection) {
+      selection = loc;
+      sfxFlip();
+      render();
+      return;
+    }
+    if (sameLoc(selection, loc)) {
+      selection = null;
+      render();
+      return;
+    }
+    var selCard = cardAt(selection);
+    if (selCard && selCard.rank + card.rank === PAIR_SUM) {
+      var a = selection;
+      selection = null;
+      performRemoval([a, loc], "pair");
+      return;
+    }
+    // Not a match: switch selection to the newly tapped card.
+    selection = loc;
+    sfxFlip();
+    render();
+  }
+
+  function draw() {
+    if (won) return;
+    if (!stock.length && !waste.length) { sfxBad(); return; }
+    pushHistory();
+    if (!stock.length) {
+      // Recycle waste back into the stock, face-down.
+      while (waste.length) {
+        var c = waste.pop();
+        c.faceUp = false;
+        stock.push(c);
+      }
+      sfxDraw();
+    } else {
+      var n = Math.min(drawCount, stock.length);
+      for (var i = 0; i < n; i++) {
+        var t = stock.pop();
+        t.faceUp = true;
+        waste.push(t);
+      }
+      sfxDraw();
+    }
+    selection = null;
+    moves++;
+    finishMove();
+  }
+
+  function finishMove() {
+    startTimerIfNeeded();
+    updateHUD();
+    if (checkWin()) return;
+    render();
+    checkStuck();
+  }
+
+  // ============ WIN / STUCK ============
+  function pyramidCleared() {
+    for (var r = 0; r < ROWS; r++) {
+      for (var c = 0; c < pyramid[r].length; c++) {
+        if (pyramid[r][c]) return false;
+      }
+    }
+    return true;
+  }
+  function checkWin() {
+    if (!pyramidCleared()) return false;
+    winGame();
+    return true;
+  }
+
+  // Only declare "stuck" once stock and waste are both empty (otherwise the
+  // player can always draw or recycle and keep looking).
+  function checkStuck() {
+    if (won) return;
+    if (stock.length || waste.length) return;
+    if (hasPyramidMove()) return;
+    overOverlay.classList.add("show");
+    obScore.textContent = String(score);
+    obLeft.textContent = String(countRemaining());
+    beep(160, 0.3, "sawtooth");
+  }
+  function hasPyramidMove() {
+    var exposed = [];
+    for (var r = 0; r < ROWS; r++) {
+      for (var c = 0; c < pyramid[r].length; c++) {
+        if (pyramid[r][c] && isExposed(r, c)) exposed.push(pyramid[r][c]);
+      }
+    }
+    for (var i = 0; i < exposed.length; i++) {
+      if (exposed[i].rank === PAIR_SUM) return true;   // lone king
+    }
+    for (var a = 0; a < exposed.length; a++) {
+      for (var b = a + 1; b < exposed.length; b++) {
+        if (exposed[a].rank + exposed[b].rank === PAIR_SUM) return true;
+      }
+    }
+    return false;
+  }
+  function countRemaining() {
+    var n = 0;
+    for (var r = 0; r < ROWS; r++) {
+      for (var c = 0; c < pyramid[r].length; c++) {
+        if (pyramid[r][c]) n++;
+      }
+    }
+    return n;
+  }
+
+  function winGame() {
+    won = true;
+    running = false;
+    clearInterval(timerId);
+    timerId = null;
+    var sec = Math.floor(elapsed);
+
+    score += (stock.length + waste.length) * 5;   // bonus for unused deck
+
+    var prevBest = bestTime();
+    var isNewBest = (!prevBest || sec < prevBest);
+    if (isNewBest) localStorage.setItem("pyramid_best", String(sec));
+    localStorage.setItem("pyramid_wins", String(winCount() + 1));
+
+    updateHUD();
+    wbTime.textContent = fmt(sec);
+    wbScore.textContent = String(score);
+    wbBest.textContent = fmt(bestTime());
+    wbNew.textContent = isNewBest ? "\u2605 New best time!" : "";
+
+    render();
+    winOverlay.classList.add("show");
+    launchConfetti();
+    sfxWin();
+  }
+
+  function launchConfetti() {
+    var glyphs = ["\u2660", "\u2665", "\u2666", "\u2663", "\uD83C\uDF89", "\uD83C\uDF8A", "\u2b50"];
+    for (var i = 0; i < 42; i++) {
+      var c = document.createElement("div");
+      c.className = "confetti";
+      c.textContent = glyphs[Math.floor(Math.random() * glyphs.length)];
+      c.style.left = Math.random() * 100 + "vw";
+      c.style.fontSize = (14 + Math.random() * 20) + "px";
+      c.style.animationDuration = (2.2 + Math.random() * 2.2) + "s";
+      c.style.animationDelay = (Math.random() * 0.9) + "s";
+      c.style.color = ["#ffd75e", "#ff7d9c", "#9be89f", "#9ad4ff", "#ffffff"][i % 5];
+      document.body.appendChild(c);
+      (function (el) {
+        setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 5200);
+      })(c);
+    }
+  }
+
+  // ============ TIMER ============
+  function startTimerIfNeeded() {
+    if (running || won) return;
+    running = true;
+    lastTick = Date.now();
+    timerId = setInterval(function () {
+      var now = Date.now();
+      elapsed += (now - lastTick) / 1000;
+      lastTick = now;
+      timeEl.textContent = fmt(elapsed);
+    }, 200);
+  }
+  function stopTimer() {
+    running = false;
+    clearInterval(timerId);
+    timerId = null;
+  }
+
+  // ============ HUD ============
+  function updateHUD() {
+    timeEl.textContent = fmt(elapsed);
+    scoreEl.textContent = String(score);
+    var b = bestTime();
+    bestEl.textContent = b ? fmt(b) : "--";
+    winsEl.textContent = String(winCount());
+    ovBest.textContent = b ? fmt(b) : "--";
+    ovWins.textContent = String(winCount());
+    document.querySelectorAll("[data-draw]").forEach(function (btn) {
+      btn.classList.toggle("on", parseInt(btn.dataset.draw, 10) === drawCount);
+    });
+  }
+
+  // ============ RENDER ============
+  function cardHTML(card, attrs, extraCls, left, top, z) {
+    var cls = extraCls || "";
+    var style = ' style="left:' + left + "px;top:" + top + "px;z-index:" + z + '"';
+    if (!card.faceUp) return '<div class="card back ' + cls + '" ' + attrs + style + "></div>";
+    var s = SUITS[card.suit];
+    var rk = RANK[card.rank];
+    return '<div class="card ' + s.color + " " + cls + '" ' + attrs + style + ">" +
+      '<span class="corner tl"><span class="r">' + rk + '</span><span class="s">' + s.sym + "</span></span>" +
+      '<span class="pip">' + s.sym + "</span>" +
+      '<span class="corner br"><span class="r">' + rk + '</span><span class="s">' + s.sym + "</span></span>" +
+      "</div>";
+  }
+
+  function render() {
+    var cw = METRICS.cw;
+    var ch = METRICS.ch;
+    var step = METRICS.rowStep;
+
+    // ---- Pyramid ----
+    var html = "";
+    for (var r = 0; r < ROWS; r++) {
+      for (var c = 0; c < pyramid[r].length; c++) {
+        var card = pyramid[r][c];
+        if (!card) continue;
+        var exposed = isExposed(r, c);
+        var left = Math.round(((ROWS - 1 - r) / 2 + c) * cw);
+        var top = Math.round(r * step);
+        var isSel = selection && selection.zone === "p" && selection.r === r && selection.c === c;
+        var z = isSel ? 300 : (10 + r * 3);
+        var cls = (exposed ? "" : "covered") + (isSel ? " sel" : "") + (won ? " winpop" : "");
+        html += cardHTML(card, 'data-zone="p" data-r="' + r + '" data-c="' + c + '"', cls.trim(), left, top, z);
+      }
+    }
+    pyramidEl.innerHTML = html;
+
+    // ---- Stock ----
+    if (stock.length) {
+      stockEl.innerHTML = cardHTML({ faceUp: false }, 'data-zone="stock"', "", 0, 0, 2) +
+        '<span class="count">' + stock.length + "</span>";
+    } else {
+      stockEl.innerHTML = waste.length ? '<span class="slot-sym">\u21BB</span>' : '<span class="slot-sym"></span>';
+    }
+
+    // ---- Waste ----
+    if (waste.length) {
+      var isSelW = selection && selection.zone === "waste" ? "sel" : "";
+      wasteEl.innerHTML = cardHTML(waste[waste.length - 1], 'data-zone="waste"', isSelW, 0, 0, 2);
+    } else {
+      wasteEl.innerHTML = '<span class="slot-sym"></span>';
+    }
+  }
+
+  // ============ LAYOUT ============
+  var rootStyle = document.documentElement.style;
+  function layout() {
+    var avail = Math.min(window.innerWidth - 40, 720);
+    var cw = Math.floor(avail / ROWS);
+    cw = Math.max(26, Math.min(84, cw));
+    var ch = Math.round(cw * 1.42);
+    var rowStep = Math.round(ch * 0.6);
+    METRICS = { cw: cw, ch: ch, rowStep: rowStep };
+    rootStyle.setProperty("--cw", cw + "px");
+    rootStyle.setProperty("--ch", ch + "px");
+    pyramidEl.style.width = (ROWS * cw) + "px";
+    pyramidEl.style.height = ((ROWS - 1) * rowStep + ch) + "px";
+    if (typeof render === "function") render();
+  }
+
+  // ============ NEW GAME ============
+  function newGame() {
+    stopTimer();
+    history = [];
+    selection = null;
+    won = false;
+    score = 0;
+    moves = 0;
+    elapsed = 0;
+    stock = [];
+    waste = [];
+    pyramid = [];
+
+    var deck = shuffle(buildDeck());
+    var k = 0;
+    for (var r = 0; r < ROWS; r++) {
+      var row = [];
+      for (var c = 0; c <= r; c++) {
+        var card = deck[k++];
+        card.faceUp = true;
+        row.push(card);
+      }
+      pyramid.push(row);
+    }
+    while (k < deck.length) {
+      var d = deck[k++];
+      d.faceUp = false;
+      stock.push(d);
+    }
+
+    winOverlay.classList.remove("show");
+    overOverlay.classList.remove("show");
+    startOverlay.classList.remove("show");
+    updateHUD();
+    render();
+    beep(680, 0.08, "triangle");
+  }
+
+  // ============ INPUT ============
+  board.addEventListener("click", function (e) {
+    if (won) return;
+    var el = e.target.closest("[data-zone]");
+    if (!el) { selection = null; render(); return; }
+    var zone = el.dataset.zone;
+    if (zone === "stock") { draw(); return; }
+    if (zone === "waste") { tapCard({ zone: "waste" }); return; }
+    if (zone === "p") {
+      var r = parseInt(el.dataset.r, 10);
+      var c = parseInt(el.dataset.c, 10);
+      tapCard({ zone: "p", r: r, c: c });
+    }
+  });
+
+  board.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "Space") { e.preventDefault(); if (!won) draw(); }
+    else if (e.key === "u" || e.key === "U") { undo(); }
+    else if (e.key === "n" || e.key === "N") { newGame(); }
+    else if (e.key === "Escape") { selection = null; render(); }
+  });
+
+  // ============ BUTTONS ============
+  document.getElementById("btn-new").addEventListener("click", newGame);
+  document.getElementById("btn-again").addEventListener("click", newGame);
+  document.getElementById("btn-retry").addEventListener("click", newGame);
+  document.getElementById("btn-undo").addEventListener("click", undo);
+  document.getElementById("btn-start").addEventListener("click", newGame);
+
+  document.querySelectorAll("[data-draw]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      drawCount = parseInt(btn.dataset.draw, 10) === 3 ? 3 : 1;
+      localStorage.setItem("pyramid_draw", String(drawCount));
+      updateHUD();
+      beep(600, 0.05, "triangle");
+    });
+  });
+
+  // ============ INIT ============
+  drawCount = readInt("pyramid_draw", 1) === 3 ? 3 : 1;
+  layout();
+  newGame();
+  updateHUD();
+  startOverlay.classList.add("show");
+
+  var resizeTimer = null;
+  window.addEventListener("resize", function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(layout, 120);
+  });
+})();
+</script>
+</body>
+</html>

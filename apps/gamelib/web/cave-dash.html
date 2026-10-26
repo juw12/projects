@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Cave Dash</title>
+<style>
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; background:#0b0f1a; color:#e5e7eb;
+    font-family:system-ui,Segoe UI,Roboto,sans-serif; overflow:hidden; }
+  #wrap{ position:fixed; inset:0; }
+  canvas{ display:block; width:100%; height:100%; touch-action:none; }
+  .overlay{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:14px; background:rgba(6,10,20,.8); text-align:center; padding:24px; }
+  .overlay.hidden{ display:none; }
+  h1{ font-size:clamp(28px,7vw,54px); margin:0; letter-spacing:2px; }
+  p{ margin:0; opacity:.85; max-width:34ch; }
+  button{ font:inherit; font-weight:700; padding:12px 26px; border:0; border-radius:999px;
+    background:linear-gradient(135deg,#f97316,#ef4444); color:#fff; cursor:pointer; }
+  .hud{ position:absolute; top:12px; left:0; right:0; display:flex; justify-content:space-between;
+    padding:0 16px; font-weight:700; text-shadow:0 2px 6px #000; pointer-events:none; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div class="hud"><span id="hudScore">0</span><span id="hudGems">&#128142; 0</span><span id="hudBest">Best 0</span></div>
+  <div class="overlay" id="start">
+    <h1>CAVE DASH</h1>
+    <p>Jump gaps, duck under low ceilings and grab gems in your runaway mine cart.</p>
+    <button id="btnStart">Start</button>
+  </div>
+  <div class="overlay hidden" id="over">
+    <h1>Derailed!</h1>
+    <p id="overText"></p>
+    <button id="btnRestart">Restart</button>
+  </div>
+</div>
+<script>
+/* ===== Cave Dash - endless mine-cart runner ===== */
+(function(){
+  "use strict";
+  const canvas=document.getElementById("c"), ctx=canvas.getContext("2d");
+  const hudScore=document.getElementById("hudScore"), hudGems=document.getElementById("hudGems"), hudBest=document.getElementById("hudBest");
+  const startEl=document.getElementById("start"), overEl=document.getElementById("over"), overText=document.getElementById("overText");
+  const BEST_KEY="cavedash.best";
+  let W=0,H=0,DPR=1;
+
+  function resize(){
+    DPR=Math.min(window.devicePixelRatio||1,2);
+    W=canvas.clientWidth; H=canvas.clientHeight;
+    canvas.width=Math.floor(W*DPR); canvas.height=Math.floor(H*DPR);
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener("resize",resize);
+
+  /* ---- audio ---- */
+  let AC=null;
+  function beep(freq,dur,type,vol){
+    try{
+      if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)();
+      const o=AC.createOscillator(), g=AC.createGain();
+      o.type=type||"square"; o.frequency.value=freq; g.gain.value=(vol||0.05);
+      o.connect(g); g.connect(AC.destination); o.start();
+      g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime+(dur||0.1));
+      o.stop(AC.currentTime+(dur||0.1));
+    }catch(e){}
+  }
+
+  /* ---- state ---- */
+  let running=false, speed=0, dist=0, gems=0, score=0;
+  let best=+(localStorage.getItem(BEST_KEY)||0);
+  hudBest.textContent="Best "+best;
+  const cart={ x:0, y:0, vy:0, onGround:true, ducking:false, w:60, h:34 };
+  let obstacles=[], pickups=[], nextSpawn=0;
+  const GRAV=0.9, JUMP=-15;
+  const groundY=()=>H*0.78;
+
+  function reset(){
+    speed=4; dist=0; gems=0; score=0;
+    cart.y=groundY()-cart.h; cart.vy=0; cart.onGround=true; cart.ducking=false;
+    obstacles=[]; pickups=[]; nextSpawn=60;
+    hudScore.textContent="0"; hudGems.textContent="\uD83D\uDC8E 0";
+  }
+
+  function spawn(){
+    const gx=W+40, r=Math.random();
+    if(r<0.34){ obstacles.push({type:"gap", x:gx, w:70+Math.random()*70}); }
+    else if(r<0.67){ obstacles.push({type:"rock", x:gx, w:34, h:44}); }
+    else { obstacles.push({type:"ceiling", x:gx, w:90, h:70}); }
+    if(Math.random()<0.7) pickups.push({x:gx+40+Math.random()*120, y:groundY()-40-Math.random()*90, got:false});
+  }
+
+  function update(){
+    if(!running) return;
+    speed=Math.min(13, speed+0.0015);
+    dist+=speed; score=Math.floor(dist/10)+gems*15;
+    hudScore.textContent=score; hudGems.textContent="\uD83D\uDC8E "+gems;
+
+    cart.vy+=GRAV; cart.y+=cart.vy;
+    const g=groundY();
+    if(cart.y>=g-cart.h){ cart.y=g-cart.h; cart.vy=0; cart.onGround=true; }
+    else cart.onGround=false;
+
+    nextSpawn-=speed;
+    if(nextSpawn<=0){ spawn(); nextSpawn=140+Math.random()*120; }
+
+    for(const o of obstacles) o.x-=speed;
+    for(const p of pickups) p.x-=speed;
+
+    const cx=cart.x, cw=cart.w;
+    const chEff=cart.ducking?cart.h*0.55:cart.h, cyTop=cart.y+(cart.h-chEff);
+
+    for(const o of obstacles){
+      if(o.type==="rock"){
+        if(cx+cw-6>o.x && cx+6<o.x+o.w && cyTop+chEff>groundY()-o.h+6){ die(); return; }
+      } else if(o.type==="ceiling"){
+        if(cx+cw-6>o.x && cx+6<o.x+o.w && cyTop<groundY()-o.h*2.6){ die(); return; }
+      } else if(o.type==="gap"){
+        if(cx+cw-6>o.x && cx+6<o.x+o.w && cart.onGround){ die(); return; }
+      }
+    }
+    for(const p of pickups){
+      if(!p.got && Math.abs((cx+cw/2)-p.x)<26 && Math.abs((cyTop+chEff/2)-p.y)<34){
+        p.got=true; gems++; beep(880,0.08,"sine",0.05);
+      }
+    }
+    obstacles=obstacles.filter(o=>o.x+o.w>-60);
+    pickups=pickups.filter(p=>p.x>-60 && !p.got);
+  }
+
+  function draw(){
+    const g=ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,"#141b2e"); g.addColorStop(1,"#05070d");
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+    ctx.fillStyle="#1f2a44";
+    for(let x=(dist*0.3)%160-160; x<W+160; x+=160){
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x+40,0); ctx.lineTo(x+20,60+((x|0)%40)); ctx.closePath(); ctx.fill();
+    }
+
+    const gy=groundY();
+    ctx.fillStyle="#3b2a1a"; ctx.fillRect(0,gy,W,H-gy);
+    ctx.fillStyle="#5a3f26"; ctx.fillRect(0,gy,W,6);
+    ctx.strokeStyle="#8a8f98"; ctx.lineWidth=3;
+    for(let x=dist%60-60; x<W+60; x+=60){ ctx.beginPath(); ctx.moveTo(x,gy-8); ctx.lineTo(x+30,gy-8); ctx.stroke(); }
+
+    for(const o of obstacles){
+      if(o.type==="gap"){ ctx.fillStyle="#05070d"; ctx.fillRect(o.x,gy-2,o.w,H-gy+2); }
+      else if(o.type==="rock"){ ctx.fillStyle="#6b7280"; ctx.beginPath(); ctx.moveTo(o.x,gy); ctx.lineTo(o.x+o.w/2,gy-o.h); ctx.lineTo(o.x+o.w,gy); ctx.closePath(); ctx.fill(); }
+      else { ctx.fillStyle="#334155"; ctx.fillRect(o.x, gy-o.h*3.6, o.w, o.h); }
+    }
+    for(const p of pickups){
+      if(p.got) continue;
+      ctx.fillStyle="#22d3ee";
+      ctx.beginPath(); ctx.moveTo(p.x,p.y-10); ctx.lineTo(p.x+9,p.y); ctx.lineTo(p.x,p.y+10); ctx.lineTo(p.x-9,p.y); ctx.closePath(); ctx.fill();
+    }
+
+    const ch=cart.ducking?cart.h*0.55:cart.h, cy=cart.y+(cart.h-ch);
+    ctx.fillStyle="#b45309"; ctx.fillRect(cart.x,cy,cart.w,ch);
+    ctx.fillStyle="#78350f"; ctx.fillRect(cart.x+4,cy+4,cart.w-8,ch-8);
+    ctx.fillStyle="#facc15";
+    for(const wx of [cart.x+12,cart.x+cart.w-12]){ ctx.beginPath(); ctx.arc(wx,cy+ch+2,6,0,7); ctx.fill(); }
+    ctx.fillStyle="#fbbf24"; ctx.beginPath(); ctx.arc(cart.x+cart.w/2, cy-12, 9, 0, 7); ctx.fill();
+    ctx.fillStyle="#f97316"; ctx.fillRect(cart.x+cart.w/2-11, cy-30, 22, 8);
+  }
+
+  function die(){
+    running=false;
+    beep(140,0.4,"sawtooth",0.08);
+    if(score>best){ best=score; localStorage.setItem(BEST_KEY,best); hudBest.textContent="Best "+best; }
+    overText.textContent="Score "+score+"  \u2022  "+gems+" gems  \u2022  Best "+best;
+    overEl.classList.remove("hidden");
+  }
+
+  function startGame(){
+    reset(); running=true;
+    startEl.classList.add("hidden"); overEl.classList.add("hidden");
+    if(!AC){ try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+  }
+
+  document.getElementById("btnStart").addEventListener("click",startGame);
+  document.getElementById("btnRestart").addEventListener("click",startGame);
+
+  function jump(){ if(running && cart.onGround){ cart.vy=JUMP; cart.onGround=false; beep(520,0.07,"square",0.05); } }
+  function duck(d){ cart.ducking=d; }
+
+  window.addEventListener("keydown",function(e){
+    const k=e.key.toLowerCase();
+    if(e.code==="Space"||k==="arrowup"||k==="w"){ e.preventDefault(); jump(); }
+    if(k==="arrowdown"||k==="s"){ e.preventDefault(); duck(true); }
+  });
+  window.addEventListener("keyup",function(e){ const k=e.key.toLowerCase(); if(k==="arrowdown"||k==="s") duck(false); });
+  canvas.addEventListener("pointerdown",function(e){ e.preventDefault(); if(e.clientY>H*0.6) duck(true); else jump(); });
+  window.addEventListener("pointerup",function(){ duck(false); });
+
+  function loop(){ update(); draw(); requestAnimationFrame(loop); }
+
+  resize(); reset(); loop();
+})();
+</script>
+</body>
+</html>

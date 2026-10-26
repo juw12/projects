@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>🏙️ Urban Garden</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --ink: #3f4a45; --soft: #7d8a82; --panel: rgba(255,255,255,0.70);
+    --panel-solid: #fbfdf9; --accent: #7fbe95; --accent-deep: #4f9768;
+    --gold: #dfae4f; --brick: #b8796a; --shadow: 0 12px 34px rgba(63,74,69,0.16);
+  }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Trebuchet MS', 'Segoe UI', Verdana, sans-serif;
+    color: var(--ink);
+    background: linear-gradient(160deg, #e8f0ea 0%, #f4f1e4 55%, #e6ecef 100%);
+    min-height: 100vh; display: flex; justify-content: center; align-items: flex-start;
+    overflow-y: auto; touch-action: manipulation;
+  }
+  body.night { background: linear-gradient(160deg, #232c3d 0%, #2f3a4d 60%, #25303f 100%); }
+
+  /* ============ SHELL ============ */
+  .shell { width: 100%; max-width: 1000px; padding: 18px 16px 40px; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  h1.title { font-size: clamp(1.35rem, 3.8vw, 1.95rem); color: var(--accent-deep); letter-spacing: 0.4px; text-shadow: 0 2px 0 rgba(255,255,255,0.55); }
+  body.night h1.title { color: #a6e0bd; text-shadow: none; }
+  .clock { font-size: 0.85rem; color: var(--soft); background: var(--panel); padding: 6px 14px; border-radius: 20px; box-shadow: var(--shadow); white-space: nowrap; }
+
+  /* ============ HUD ============ */
+  .hud { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .stat { flex: 1 1 110px; background: var(--panel); border-radius: 14px; padding: 9px 14px; box-shadow: var(--shadow); backdrop-filter: blur(6px); }
+  .stat .label { font-size: 0.68rem; color: var(--soft); text-transform: uppercase; letter-spacing: 0.6px; }
+  .stat .value { font-size: 1.2rem; font-weight: 700; color: var(--accent-deep); }
+  body.night .stat .value { color: #a6e0bd; }
+
+  /* ============ CANVAS ============ */
+  .canvas-wrap { position: relative; border-radius: 18px; overflow: hidden; box-shadow: var(--shadow); background: #8fa6bd; }
+  canvas { display: block; width: 100%; height: auto; touch-action: none; cursor: crosshair; }
+
+  /* ============ TOOLBAR ============ */
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; justify-content: center; }
+  .tool {
+    display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 76px;
+    background: var(--panel-solid); border: 2px solid rgba(127,190,149,0.35); border-radius: 14px;
+    padding: 8px 10px; cursor: pointer; font-family: inherit; color: inherit;
+    box-shadow: var(--shadow); transition: transform 0.12s ease, border-color 0.12s ease;
+  }
+  body.night .tool { background: #334154; border-color: rgba(127,190,149,0.3); color: #e7efe8; }
+  .tool:hover { transform: translateY(-2px); border-color: var(--accent-deep); }
+  .tool.sel { border-color: var(--accent-deep); background: linear-gradient(180deg, #e9f7ee, #d4eede); }
+  body.night .tool.sel { background: linear-gradient(180deg, #41604f, #34503f); }
+  .tool .t-icon { font-size: 1.5rem; line-height: 1; }
+  .tool .t-name { font-size: 0.68rem; font-weight: 700; }
+  .tool .t-cost { font-size: 0.66rem; color: var(--gold); font-weight: 700; }
+  .tool:disabled, .tool.off { opacity: 0.42; cursor: not-allowed; transform: none; }
+
+  /* ============ HINT + FOOT ============ */
+  .hint { margin-top: 12px; font-size: 0.8rem; color: var(--soft); text-align: center; line-height: 1.4; }
+  .foot { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .foot button { padding: 9px 20px; border-radius: 20px; font-size: 0.82rem; font-family: inherit; background: var(--panel); border: 2px solid rgba(127,190,149,0.4); color: var(--soft); cursor: pointer; box-shadow: var(--shadow); }
+  .foot button:hover { color: var(--accent-deep); border-color: var(--accent-deep); }
+
+  /* ============ OVERLAY / CARD ============ */
+  .overlay { position: fixed; inset: 0; background: rgba(35,44,56,0.55); display: flex; align-items: center; justify-content: center; z-index: 60; padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+  .overlay.show { opacity: 1; pointer-events: auto; }
+  .card { background: var(--panel-solid); border-radius: 22px; padding: 28px 26px; max-width: 430px; width: 100%; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.32); animation: pop 0.32s ease; }
+  @keyframes pop { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .card h2 { font-size: 1.55rem; color: var(--accent-deep); margin-bottom: 8px; }
+  .card p { font-size: 0.9rem; color: var(--soft); margin-bottom: 12px; line-height: 1.5; }
+  .btn { display: inline-block; padding: 12px 30px; margin: 6px 4px 0; background: linear-gradient(135deg, #96d3ad, #4f9768); color: #fff; border: none; border-radius: 24px; font-size: 1rem; font-weight: 700; font-family: inherit; cursor: pointer; box-shadow: 0 6px 16px rgba(79,151,104,0.42); transition: transform 0.15s ease; }
+  .btn:hover { transform: translateY(-2px); }
+  .btn.ghost { background: transparent; color: var(--soft); box-shadow: none; border: 2px solid rgba(127,190,149,0.45); }
+
+  /* ============ TOAST ============ */
+  .toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: rgba(79,151,104,0.95); color: #fff; padding: 10px 22px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; z-index: 80; opacity: 0; transition: opacity 0.3s ease; pointer-events: none; box-shadow: 0 8px 20px rgba(0,0,0,0.22); }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topbar">
+      <h1 class="title">🏙️ Urban Garden</h1>
+      <div class="clock" id="clock">☀️ Day 1 · 06:00</div>
+    </div>
+
+    <!-- ============ HUD ============ -->
+    <div class="hud">
+      <div class="stat"><div class="label">Coins</div><div class="value" id="coins">0</div></div>
+      <div class="stat"><div class="label">Plants</div><div class="value" id="plants">0</div></div>
+      <div class="stat"><div class="label">Harvested</div><div class="value" id="harvested">0</div></div>
+      <div class="stat"><div class="label">Rooftop Green</div><div class="value" id="green">0%</div></div>
+    </div>
+
+    <!-- ============ CANVAS ============ -->
+    <div class="canvas-wrap">
+      <canvas id="game"></canvas>
+    </div>
+
+    <!-- ============ TOOLBAR ============ -->
+    <div class="toolbar" id="toolbar"></div>
+
+    <div class="hint" id="hint">Pick a seed, then tap the grey rooftop to plant. Tap growing plants to water, ripe ones to harvest. Add a greenhouse for faster growth and a beehive to invite bees.</div>
+
+    <div class="foot">
+      <button id="saveBtn">💾 Save</button>
+      <button id="restartBtn">🔄 Restart</button>
+    </div>
+  </div>
+
+  <!-- ============ WELCOME OVERLAY ============ -->
+  <div class="overlay show" id="welcomeOverlay">
+    <div class="card">
+      <h2>Welcome to the Rooftop</h2>
+      <p>This grey rooftop could be a garden. Plant herbs and veg in planters, grow vines up trellises, raise a greenhouse, and keep a beehive buzzing. Pick ripe produce for coins and turn the concrete green.</p>
+      <p style="font-size:0.8rem">The garden keeps growing gently while you're away. 🌿🐝</p>
+      <button class="btn" id="startBtn">Start Gardening</button>
+    </div>
+  </div>
+
+  <!-- ============ RESTART OVERLAY ============ -->
+  <div class="overlay" id="restartOverlay">
+    <div class="card">
+      <h2>Start Over?</h2>
+      <p>This clears the whole rooftop and your coins. There is no undo.</p>
+      <button class="btn" id="confirmRestart">Yes, Clear It</button>
+      <button class="btn ghost" id="cancelRestart">Keep Gardening</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+// ============ GAME CONFIGURATION ============
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = 960, H = 640;
+canvas.width = W; canvas.height = H;
+
+const COLS = 10, ROWS = 6;
+const ROOF = { x: 44, y: 214, w: 872, h: 386 };
+const CW = ROOF.w / COLS;          // cell width
+const CH = ROOF.h / ROWS;          // cell height
+const DAY_LENGTH = 150;            // seconds for a full in-game day
+const SAVE_KEY = 'urbanGardenSave_v1';
+
+const SPECIES = {
+  herb:   { icon: '🌿', name: 'Herb',       grow: 5,  value: 15 },
+  veg:    { icon: '🥬', name: 'Leafy Veg',  grow: 8,  value: 28 },
+  tomato: { icon: '🍅', name: 'Tomato',     grow: 12, value: 46 },
+  vine:   { icon: '🍇', name: 'Grape Vine', grow: 16, value: 74 }
+};
+
+const TOOLS = [
+  { id: 'planter',    icon: '🪴', name: 'Planter',   cost: 10, kind: 'struct' },
+  { id: 'herb',       icon: '🌿', name: 'Herb',      cost: 6,  kind: 'plant' },
+  { id: 'veg',        icon: '🥬', name: 'Leafy Veg', cost: 12, kind: 'plant' },
+  { id: 'tomato',     icon: '🍅', name: 'Tomato',    cost: 20, kind: 'plant' },
+  { id: 'trellis',    icon: '🪜', name: 'Trellis',   cost: 18, kind: 'struct' },
+  { id: 'vine',       icon: '🍇', name: 'Vine',      cost: 26, kind: 'plant', onTrellis: true },
+  { id: 'greenhouse', icon: '🏡', name: 'Greenhouse',cost: 80, kind: 'struct' },
+  { id: 'hive',       icon: '🐝', name: 'Beehive',   cost: 60, kind: 'struct' },
+  { id: 'lights',     icon: '✨', name: 'Lights',    cost: 34, kind: 'decor' },
+  { id: 'remove',     icon: '🧹', name: 'Clear',     cost: 0,  kind: 'tool' }
+];
+
+// Sky colour stops across one day (phase 0 = midnight .. 1 = midnight next).
+const SKY_STOPS = [
+  { t: 0.00, a: '#0b1428', b: '#1c2b45' },
+  { t: 0.14, a: '#142238', b: '#3a3f5c' },
+  { t: 0.22, a: '#4a5b86', b: '#e08a76' },
+  { t: 0.28, a: '#7aa9d8', b: '#f7cfa0' },
+  { t: 0.42, a: '#84c9f0', b: '#ddf4f8' },
+  { t: 0.58, a: '#79c2ee', b: '#eaf8f9' },
+  { t: 0.72, a: '#e6a86c', b: '#f4d9a6' },
+  { t: 0.80, a: '#8a5a7a', b: '#e79a6a' },
+  { t: 0.86, a: '#26324f', b: '#5a4a6b' },
+  { t: 1.00, a: '#0b1428', b: '#1c2b45' }
+];
+
+// ============ GAME STATE ============
+let state = null;
+let currentTool = 'herb';
+let hover = { c: -1, r: -1 };
+let bees = [], birds = [], floats = [], droplets = [], sparkles = [];
+let gameTime = 0;
+let lastTick = performance.now();
+let autoSaveTimer = 0, birdTimer = 6;
+let skyline = [], stars = [];
+let dayFlag = { day: 1, night: false };
+
+// ============ DOM ELEMENTS ============
+const el = id => document.getElementById(id);
+const coinsEl = el('coins');
+const plantsEl = el('plants');
+const harvestedEl = el('harvested');
+const greenEl = el('green');
+const clockEl = el('clock');
+const toolbarEl = el('toolbar');
+const toastEl = el('toast');
+const welcomeOverlay = el('welcomeOverlay');
+const restartOverlay = el('restartOverlay');
+
+// ============ AUDIO (WebAudio beep) ============
+let audioCtx = null;
+function beep(freq = 440, dur = 0.08, type = 'sine', vol = 0.06) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + dur);
+  } catch (e) { /* audio unavailable */ }
+}
+
+// ============ PERSISTENCE ============
+function defaultState() {
+  const cells = [];
+  for (let i = 0; i < COLS * ROWS; i++) cells.push({ type: 'empty' });
+  return {
+    coins: 26, harvested: 0, totalCoins: 0, time: 0, sawNight: false, cells
+  };
+}
+
+function save() {
+  try {
+    const data = { coins: state.coins, harvested: state.harvested, totalCoins: state.totalCoins,
+      time: gameTime, sawNight: state.sawNight, cells: state.cells };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  } catch (e) { /* storage unavailable */ }
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const p = JSON.parse(raw);
+    if (!p || !Array.isArray(p.cells) || p.cells.length !== COLS * ROWS) return null;
+    return p;
+  } catch (e) { return null; }
+}
+
+// ============ HELPERS ============
+function cellCenter(i) {
+  const c = i % COLS, r = Math.floor(i / COLS);
+  return { x: ROOF.x + (c + 0.5) * CW, y: ROOF.y + (r + 0.5) * CH, c, r };
+}
+function hasGreenhouseNear(i) {
+  const c = i % COLS, r = Math.floor(i / COLS);
+  const nb = [[c - 1, r], [c + 1, r], [c, r - 1], [c, r + 1]];
+  return nb.some(([nc, nr]) => nc >= 0 && nc < COLS && nr >= 0 && nr < ROWS &&
+    state.cells[nr * COLS + nc].type === 'greenhouse');
+}
+function hiveCount() { return state.cells.filter(c => c.type === 'hive').length; }
+function plantCount() {
+  return state.cells.filter(c => c.type === 'plant' || c.type === 'vine').length;
+}
+function greenPercent() {
+  const filled = state.cells.filter(c => c.type !== 'empty').length;
+  return Math.round((filled / state.cells.length) * 100);
+}
+function roundRect(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function lerp(a, b, t) { return a + (b - a) * t; }
+function lerpColor(a, b, t) {
+  const pa = [parseInt(a.slice(1, 3), 16), parseInt(a.slice(3, 5), 16), parseInt(a.slice(5, 7), 16)];
+  const pb = [parseInt(b.slice(1, 3), 16), parseInt(b.slice(3, 5), 16), parseInt(b.slice(5, 7), 16)];
+  const c = pa.map((v, i) => Math.round(lerp(v, pb[i], t)));
+  return 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')';
+}
+function skyAt(phase) {
+  for (let i = 0; i < SKY_STOPS.length - 1; i++) {
+    const s0 = SKY_STOPS[i], s1 = SKY_STOPS[i + 1];
+    if (phase >= s0.t && phase <= s1.t) {
+      const t = (phase - s0.t) / (s1.t - s0.t);
+      return { top: lerpColor(s0.a, s1.a, t), bot: lerpColor(s0.b, s1.b, t) };
+    }
+  }
+  return { top: SKY_STOPS[0].a, bot: SKY_STOPS[0].b };
+}
+function isNightNow() { const p = phase(); return p < 0.20 || p > 0.82; }
+function darknessAt() {
+  const p = phase();
+  if (p < 0.18) return 0.52;
+  if (p < 0.28) return lerp(0.52, 0, (p - 0.18) / 0.10);
+  if (p < 0.74) return 0;
+  if (p < 0.86) return lerp(0, 0.52, (p - 0.74) / 0.12);
+  return 0.52;
+}
+function phase() { return (gameTime % DAY_LENGTH) / DAY_LENGTH; }
+
+function toast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastEl._t);
+  toastEl._t = setTimeout(() => toastEl.classList.remove('show'), 1500);
+}
+function floatText(x, y, text, color) {
+  floats.push({ x, y, text, color, life: 1.5, vy: -0.55 });
+}
+
+// ============ SCENERY GENERATION ============
+function buildScenery() {
+  skyline = [];
+  let x = -30;
+  const baseY = ROOF.y - 4;
+  while (x < W + 40) {
+    const bw = 26 + Math.random() * 46;
+    const bh = 46 + Math.random() * 104;
+    const wins = [];
+    for (let wy = baseY - bh + 12; wy < baseY - 8; wy += 16) {
+      for (let wx = x + 7; wx < x + bw - 8; wx += 13) {
+        if (Math.random() < 0.75) wins.push({ x: wx, y: wy });
+      }
+    }
+    skyline.push({ x, w: bw, h: bh, wins });
+    x += bw + 7 + Math.random() * 12;
+  }
+  stars = [];
+  for (let i = 0; i < 90; i++) {
+    stars.push({ x: Math.random() * W, y: Math.random() * (ROOF.y - 40), r: Math.random() * 1.4 + 0.4, tw: Math.random() * 6 });
+  }
+}
+
+// ============ RENDERING: SKY / SCENERY ============
+function drawSky() {
+  const p = phase();
+  const sky = skyAt(p);
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, sky.top);
+  g.addColorStop(1, sky.bot);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // stars
+  const nightAmount = darknessAt() / 0.52;
+  if (nightAmount > 0.05) {
+    stars.forEach(s => {
+      const tw = 0.55 + 0.45 * Math.sin(gameTime * 2 + s.tw);
+      ctx.globalAlpha = nightAmount * tw;
+      ctx.fillStyle = '#fdfbe6';
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  // sun / moon on an arc
+  const ang = Math.PI * (0.5 - p) + Math.PI * 0.5; // arc across sky
+  const cx = W * (0.5 - Math.cos(Math.PI * (p - 0.25) * 1.0) * 0.42) - 0;
+  const sunX = W * 0.5 + Math.cos(Math.PI * (p - 0.25)) * (W * 0.55);
+  const sunY = ROOF.y - Math.sin(Math.PI * Math.min(1, Math.max(0, p))) * (ROOF.y - 70) - 40;
+  if (!isNightNow()) {
+    ctx.fillStyle = 'rgba(255,236,170,0.85)';
+    ctx.beginPath(); ctx.arc(sunX, Math.max(50, sunY), 34, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,250,210,0.95)';
+    ctx.beginPath(); ctx.arc(sunX, Math.max(50, sunY), 24, 0, Math.PI * 2); ctx.fill();
+  } else {
+    const moonX = W * 0.5 + Math.cos(Math.PI * (p - 0.25)) * (W * 0.55);
+    const moonY = 90;
+    ctx.fillStyle = 'rgba(240,244,255,0.95)';
+    ctx.beginPath(); ctx.arc(moonX, moonY, 26, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(200,210,235,0.5)';
+    ctx.beginPath(); ctx.arc(moonX - 8, moonY - 6, 6, 0, Math.PI * 2);
+    ctx.arc(moonX + 7, moonY + 8, 4, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+function drawSkyline() {
+  const baseY = ROOF.y - 4;
+  skyline.forEach(b => {
+    ctx.fillStyle = '#2d3646';
+    ctx.fillRect(b.x, baseY - b.h, b.w, b.h);
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    ctx.fillRect(b.x, baseY - b.h, b.w, 3);
+  });
+}
+
+function drawWindowLights() {
+  if (darknessAt() < 0.15) return;
+  const baseY = ROOF.y - 4;
+  ctx.fillStyle = 'rgba(255,220,130,0.9)';
+  skyline.forEach(b => {
+    b.wins.forEach(w => {
+      if (((w.x + w.y) | 0) % 3 === 0) return;
+      ctx.fillRect(w.x, baseY - (b.h) + (w.y - (baseY - b.h)), 4, 5);
+    });
+  });
+}
+
+// ============ RENDERING: ROOFTOP ============
+function drawRoof() {
+  // concrete surface
+  const g = ctx.createLinearGradient(0, ROOF.y, 0, ROOF.y + ROOF.h);
+  g.addColorStop(0, '#9aa2a8');
+  g.addColorStop(0.5, '#868e94');
+  g.addColorStop(1, '#6d757b');
+  ctx.fillStyle = g;
+  ctx.fillRect(ROOF.x, ROOF.y, ROOF.w, ROOF.h);
+
+  // mottled texture
+  ctx.fillStyle = 'rgba(255,255,255,0.045)';
+  for (let i = 0; i < 260; i++) {
+    const px = ROOF.x + Math.random() * ROOF.w;
+    const py = ROOF.y + Math.random() * ROOF.h;
+    ctx.fillRect(px, py, 2, 2);
+  }
+
+  // grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+  ctx.lineWidth = 1;
+  for (let c = 0; c <= COLS; c++) {
+    ctx.beginPath(); ctx.moveTo(ROOF.x + c * CW, ROOF.y); ctx.lineTo(ROOF.x + c * CW, ROOF.y + ROOF.h); ctx.stroke();
+  }
+  for (let r = 0; r <= ROWS; r++) {
+    ctx.beginPath(); ctx.moveTo(ROOF.x, ROOF.y + r * CH); ctx.lineTo(ROOF.x + ROOF.w, ROOF.y + r * CH); ctx.stroke();
+  }
+
+  // parapet wall along the top edge
+  const pg = ctx.createLinearGradient(0, ROOF.y - 22, 0, ROOF.y);
+  pg.addColorStop(0, '#b9c0c5'); pg.addColorStop(1, '#8d959b');
+  ctx.fillStyle = pg;
+  ctx.fillRect(ROOF.x - 10, ROOF.y - 20, ROOF.w + 20, 20);
+  ctx.fillStyle = 'rgba(0,0,0,0.14)';
+  ctx.fillRect(ROOF.x - 10, ROOF.y - 3, ROOF.w + 20, 5);
+  // side ledges
+  ctx.fillStyle = 'rgba(0,0,0,0.10)';
+  ctx.fillRect(ROOF.x - 6, ROOF.y, 6, ROOF.h);
+  ctx.fillRect(ROOF.x + ROOF.w, ROOF.y, 6, ROOF.h);
+}
+
+// ============ RENDERING: OBJECTS ============
+function drawSoil(cc) {
+  const w = CW - 16, h = CH - 14;
+  ctx.fillStyle = '#6b4a33';
+  roundRect(cc.x - w / 2, cc.y - h / 2 + 6, w, h - 6, 7); ctx.fill();
+  ctx.fillStyle = '#8a6244';
+  roundRect(cc.x - w / 2 + 2, cc.y - h / 2 + 8, w - 4, h - 12, 6); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  for (let i = 0; i < 6; i++) {
+    ctx.fillRect(cc.x - w / 2 + 8 + Math.random() * (w - 20), cc.y - h / 2 + 12 + Math.random() * (h - 22), 3, 2);
+  }
+}
+
+function drawPlanter(cc) {
+  const w = CW - 14, h = CH - 12;
+  // pot body
+  ctx.fillStyle = '#b06a4f';
+  roundRect(cc.x - w / 2, cc.y - h / 2 + 8, w, h - 8, 8); ctx.fill();
+  ctx.fillStyle = '#c97f60';
+  roundRect(cc.x - w / 2 + 5, cc.y - h / 2 + 12, w - 10, h - 16, 6); ctx.fill();
+  // soil top
+  ctx.fillStyle = '#5f4230';
+  roundRect(cc.x - w / 2 + 8, cc.y - h / 2 + 12, w - 16, 10, 5); ctx.fill();
+}
+
+function drawTrellis(cc, withVine) {
+  const w = CW - 20, h = CH - 10;
+  const x = cc.x - w / 2, y = cc.y - h / 2 + 4;
+  ctx.strokeStyle = '#8a6b4a';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(x, y, w, h);
+  ctx.lineWidth = 1.6;
+  for (let i = 1; i < 5; i++) {
+    const yy = y + (h * i) / 5;
+    ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x + w, yy); ctx.stroke();
+  }
+  for (let i = 1; i < 4; i++) {
+    const xx = x + (w * i) / 4;
+    ctx.beginPath(); ctx.moveTo(xx, y); ctx.lineTo(xx, y + h); ctx.stroke();
+  }
+  if (!withVine) {
+    ctx.strokeStyle = 'rgba(90,150,90,0.45)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x + 4, y + h); ctx.quadraticCurveTo(cc.x, cc.y - 6, x + w - 4, y + 3); ctx.stroke();
+  }
+}
+
+function drawGreenhouse(cc) {
+  const w = CW - 12, h = CH - 8;
+  const x = cc.x - w / 2, y = cc.y - h / 2 + 4;
+  ctx.fillStyle = 'rgba(180,225,235,0.42)';
+  roundRect(x, y, w, h, 8); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+  ctx.lineWidth = 2.4;
+  roundRect(x, y, w, h, 8); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cc.x, y); ctx.lineTo(cc.x, y + h); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x, y + h * 0.45); ctx.lineTo(x + w, y + h * 0.45); ctx.stroke();
+  // little sprout inside
+  ctx.font = '22px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('🌱', cc.x, cc.y + 12);
+}
+
+function drawHive(cc) {
+  const w = 34, h = 42;
+  const x = cc.x, y = cc.y + 2;
+  ctx.fillStyle = '#c9903f';
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.ellipse(x, y - 12 + i * 12, w / 2 - i * 3, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.fillStyle = '#7a5a2a';
+  ctx.beginPath(); ctx.ellipse(x, y + 8, 6, 5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#8a6a3a';
+  roundRect(x - 24, y - 26, 48, 6, 3); ctx.fill();
+}
+
+function drawLights(cc) {
+  const w = CW - 6;
+  const x0 = cc.x - w / 2, x1 = cc.x + w / 2;
+  const sag = 10;
+  ctx.strokeStyle = 'rgba(70,80,90,0.8)';
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, cc.y - CH / 2 + 10);
+  ctx.quadraticCurveTo(cc.x, cc.y - CH / 2 + 10 + sag * 2, x1, cc.y - CH / 2 + 10);
+  ctx.stroke();
+  for (let i = 1; i <= 4; i++) {
+    const t = i / 5;
+    const bx = lerp(x0, x1, t);
+    const by = (1 - t) * (1 - t) * (cc.y - CH / 2 + 10) + 2 * (1 - t) * t * (cc.y - CH / 2 + 10 + sag * 2) + t * t * (cc.y - CH / 2 + 10);
+    ctx.fillStyle = 'rgba(255,225,140,0.9)';
+    ctx.beginPath(); ctx.arc(bx, by + 3, 3, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+function drawPlant(cc, species, growth, mature) {
+  const sp = SPECIES[species];
+  const scale = 0.42 + 0.58 * growth;
+  if (mature) {
+    const glow = ctx.createRadialGradient(cc.x, cc.y, 2, cc.x, cc.y, 34);
+    glow.addColorStop(0, 'rgba(255,236,150,0.55)');
+    glow.addColorStop(1, 'rgba(255,236,150,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(cc.x, cc.y, 34, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.font = Math.round(40 * scale) + 'px serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(sp.icon, cc.x, cc.y + (1 - growth) * 8 + 6);
+}
+
+function drawCells() {
+  state.cells.forEach((cell, i) => {
+    const cc = cellCenter(i);
+    if (cell.type === 'empty') return;
+    if (cell.type === 'planter') { drawPlanter(cc); }
+    else if (cell.type === 'trellis') { drawTrellis(cc, false); }
+    else if (cell.type === 'greenhouse') { drawGreenhouse(cc); }
+    else if (cell.type === 'hive') { drawHive(cc); }
+    else if (cell.type === 'lights') { drawLights(cc); }
+    else if (cell.type === 'plant') {
+      drawSoil(cc);
+      const mature = cell.growth >= 1;
+      drawPlant(cc, cell.species, cell.growth, mature);
+    } else if (cell.type === 'vine') {
+      drawTrellis(cc, true);
+      const mature = cell.growth >= 1;
+      drawPlant(cc, 'vine', cell.growth, mature);
+    }
+  });
+}
+
+// ============ RENDERING: ENTITIES + EFFECTS ============
+function drawBees() {
+  bees.forEach(b => {
+    const wob = Math.sin(b.ph) * 3;
+    ctx.fillStyle = '#3a3320';
+    ctx.beginPath(); ctx.ellipse(b.x, b.y, 4, 3, b.a, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.beginPath(); ctx.ellipse(b.x - 1, b.y - 4 + wob * 0.2, 4, 2.4, b.a, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#e8c24a';
+    ctx.beginPath(); ctx.arc(b.x + 2, b.y + 1, 1.4, 0, Math.PI * 2); ctx.fill();
+  });
+}
+
+function drawBirds() {
+  birds.forEach(b => {
+    ctx.strokeStyle = '#26303c';
+    ctx.lineWidth = 2.4;
+    const flap = Math.sin(gameTime * 9 + b.ph) * 5;
+    ctx.beginPath();
+    ctx.moveTo(b.x - 10, b.y + flap);
+    ctx.quadraticCurveTo(b.x - 4, b.y - 4, b.x, b.y);
+    ctx.quadraticCurveTo(b.x + 4, b.y - 4, b.x + 10, b.y + flap);
+    ctx.stroke();
+  });
+}
+
+function drawParticles() {
+  // water droplets
+  droplets.forEach(d => {
+    ctx.fillStyle = 'rgba(120,190,235,' + Math.max(0, d.life) + ')';
+    ctx.beginPath(); ctx.ellipse(d.x, d.y, 2.2, 3.4, 0, 0, Math.PI * 2); ctx.fill();
+  });
+  // floating text
+  floats.forEach(f => {
+    ctx.globalAlpha = Math.max(0, Math.min(1, f.life));
+    ctx.fillStyle = f.color;
+    ctx.font = 'bold 18px Trebuchet MS, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(f.text, f.x, f.y);
+    ctx.globalAlpha = 1;
+  });
+}
+
+function drawSparkles() {
+  sparkles.forEach(s => {
+    ctx.globalAlpha = Math.max(0, s.life);
+    ctx.font = Math.round(12 + 8 * s.life) + 'px serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('✨', s.x, s.y);
+    ctx.globalAlpha = 1;
+  });
+  // ripe markers
+  state.cells.forEach((cell, i) => {
+    if ((cell.type === 'plant' || cell.type === 'vine') && cell.growth >= 1) {
+      const cc = cellCenter(i);
+      const bob = Math.sin(gameTime * 3 + i) * 3;
+      ctx.font = '16px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('✨', cc.x + 18, cc.y - CH / 2 + 12 + bob);
+      ctx.fillStyle = 'rgba(255,244,190,0.55)';
+      ctx.fillRect(cc.x - 22, cc.y + CH / 2 - 12, 44, 5);
+    } else if (cell.type === 'plant' || cell.type === 'vine') {
+      const cc = cellCenter(i);
+      ctx.fillStyle = 'rgba(0,0,0,0.22)';
+      ctx.fillRect(cc.x - 22, cc.y + CH / 2 - 12, 44, 5);
+      ctx.fillStyle = cell.watered > 0 ? '#78bee8' : '#8fcaa2';
+      ctx.fillRect(cc.x - 22, cc.y + CH / 2 - 12, 44 * cell.growth, 5);
+    }
+  });
+}
+
+function drawGlowPass() {
+  // string lights + hive glow at night
+  const nightAmount = darknessAt();
+  if (nightAmount < 0.1) return;
+  state.cells.forEach((cell, i) => {
+    if (cell.type !== 'lights' && cell.type !== 'greenhouse' && cell.type !== 'hive') return;
+    const cc = cellCenter(i);
+    const col = cell.type === 'lights' ? '255,220,130' : (cell.type === 'greenhouse' ? '150,225,235' : '255,200,90');
+    const rad = cell.type === 'lights' ? 46 : 34;
+    const grad = ctx.createRadialGradient(cc.x, cc.y, 2, cc.x, cc.y, rad);
+    grad.addColorStop(0, 'rgba(' + col + ',' + (0.5 * nightAmount) + ')');
+    grad.addColorStop(1, 'rgba(' + col + ',0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(cc.x, cc.y, rad, 0, Math.PI * 2); ctx.fill();
+  });
+}
+
+function drawHover() {
+  if (hover.c < 0) return;
+  const cc = cellCenter(hover.r * COLS + hover.c);
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+  ctx.lineWidth = 2.5;
+  roundRect(cc.x - CW / 2 + 3, cc.y - CH / 2 + 3, CW - 6, CH - 6, 9);
+  ctx.stroke();
+}
+
+function drawDarkness() {
+  const d = darknessAt();
+  if (d <= 0) return;
+  ctx.fillStyle = 'rgba(18,26,48,' + d + ')';
+  ctx.fillRect(0, 0, W, H);
+}
+
+// ============ RENDERING: MASTER ============
+function draw() {
+  drawSky();
+  drawSkyline();
+  drawRoof();
+  drawCells();
+  drawBees();
+  drawBirds();
+  drawParticles();
+  drawSparkles();
+  drawHover();
+  drawDarkness();
+  drawWindowLights();
+  drawGlowPass();
+}
+
+// ============ SIMULATION ============
+function newBee() {
+  const hiveCells = state.cells.map((c, i) => c.type === 'hive' ? i : -1).filter(i => i >= 0);
+  const src = hiveCells.length ? cellCenter(hiveCells[Math.floor(Math.random() * hiveCells.length)]) : { x: W / 2, y: ROOF.y + ROOF.h / 2 };
+  const a = Math.random() * Math.PI * 2;
+  return { x: src.x, y: src.y, a, sp: 0.5 + Math.random() * 0.6, ph: Math.random() * 10 };
+}
+
+function spawnBird() {
+  const fromLeft = Math.random() < 0.5;
+  const y = 70 + Math.random() * (ROOF.y - 130);
+  birds.push({
+    x: fromLeft ? ROOF.x - 140 : W + 140,
+    y, vx: (fromLeft ? 1 : -1) * (60 + Math.random() * 40),
+    ph: Math.random() * 10, dropT: 3 + Math.random() * 4, dead: false
+  });
+}
+
+function updateBeasts(dt) {
+  // bees
+  const target = Math.min(15, hiveCount() * 3);
+  while (bees.length < target) bees.push(newBee());
+  while (bees.length > target) bees.pop();
+  bees.forEach(b => {
+    b.a += (Math.random() - 0.5) * 0.6;
+    b.x += Math.cos(b.a) * b.sp * dt * 90;
+    b.y += Math.sin(b.a) * b.sp * dt * 90;
+    if (b.x < ROOF.x + 12) { b.x = ROOF.x + 12; b.a = Math.PI - b.a; }
+    if (b.x > ROOF.x + ROOF.w - 12) { b.x = ROOF.x + ROOF.w - 12; b.a = Math.PI - b.a; }
+    if (b.y < ROOF.y + 12) { b.y = ROOF.y + 12; b.a = -b.a; }
+    if (b.y > ROOF.y + ROOF.h - 12) { b.y = ROOF.y + ROOF.h - 12; b.a = -b.a; }
+    b.ph += dt * 24;
+    for (let i = 0; i < state.cells.length; i++) {
+      const cell = state.cells[i];
+      if ((cell.type === 'plant' || cell.type === 'vine') && cell.growth < 1) {
+        const cc = cellCenter(i);
+        if (Math.hypot(cc.x - b.x, cc.y - b.y) < 26) {
+          cell.growth = Math.min(1, cell.growth + dt * 0.06);
+        }
+      }
+    }
+  });
+
+  // birds
+  birdTimer -= dt * (isNightNow() ? 0.2 : 1);
+  if (birdTimer <= 0 && birds.length < 2) { birdTimer = 16 + Math.random() * 16; spawnBird(); }
+  birds.forEach(b => {
+    b.x += b.vx * dt;
+    b.y += Math.sin(gameTime * 3 + b.ph) * 0.4;
+    if (b.x < ROOF.x - 180 || b.x > W + 180) b.dead = true;
+    b.dropT -= dt;
+    if (b.dropT <= 0 && !isNightNow()) {
+      b.dropT = 5 + Math.random() * 6;
+      const gain = 3 + Math.floor(Math.random() * 5);
+      state.coins += gain; state.totalCoins += gain;
+      floatText(b.x, b.y + 14, '+' + gain, '#dfae4f');
+      beep(840, 0.06, 'sine', 0.035);
+    }
+  });
+  birds = birds.filter(b => !b.dead);
+}
+
+function updateParticles(dt) {
+  floats.forEach(f => { f.y += f.vy; f.life -= dt; });
+  floats = floats.filter(f => f.life > 0);
+  droplets.forEach(d => { d.y += 60 * dt; d.life -= dt; });
+  droplets = droplets.filter(d => d.life > 0);
+  sparkles.forEach(s => { s.y -= 12 * dt; s.life -= dt; });
+  sparkles = sparkles.filter(s => s.life > 0);
+}
+
+function tickGrowth(dt) {
+  const night = isNightNow();
+  state.cells.forEach((cell, i) => {
+    if (cell.type !== 'plant' && cell.type !== 'vine') return;
+    if (cell.growth >= 1) return;
+    const sp = SPECIES[cell.species];
+    let rate = 1 / sp.grow;
+    if (hasGreenhouseNear(i)) rate *= 1.7;
+    if (cell.watered > 0) { rate *= 1.5; cell.watered -= dt; if (cell.watered < 0) cell.watered = 0; }
+    if (night) rate *= 0.6;
+    const before = cell.growth;
+    cell.growth = Math.min(1, cell.growth + rate * dt);
+    if (before < 1 && cell.growth >= 1) {
+      const cc = cellCenter(i);
+      sparkles.push({ x: cc.x, y: cc.y - 10, life: 1.2 });
+      beep(560, 0.07, 'sine', 0.04);
+    }
+  });
+}
+
+// ============ ACTIONS ============
+const toolById = id => TOOLS.find(t => t.id === id);
+function spend(n) {
+  if (state.coins < n) { toast('Not enough coins 💰'); return false; }
+  state.coins -= n;
+  return true;
+}
+
+function waterCell(i) {
+  const cell = state.cells[i];
+  cell.watered = 9;
+  cell.growth = Math.min(1, cell.growth + 0.14);
+  const cc = cellCenter(i);
+  for (let k = 0; k < 6; k++) {
+    droplets.push({ x: cc.x + (Math.random() - 0.5) * 26, y: cc.y - 20 - Math.random() * 10, life: 0.7 + Math.random() * 0.3 });
+  }
+  beep(680, 0.09, 'sine', 0.045);
+}
+
+function harvestCell(i) {
+  const cell = state.cells[i];
+  const sp = SPECIES[cell.species];
+  const gain = sp.value;
+  state.coins += gain; state.totalCoins += gain; state.harvested++;
+  const cc = cellCenter(i);
+  floatText(cc.x, cc.y - 6, '+' + gain, '#4f9768');
+  sparkles.push({ x: cc.x - 12, y: cc.y - 12, life: 1 });
+  sparkles.push({ x: cc.x + 12, y: cc.y - 6, life: 1 });
+  beep(720, 0.09, 'triangle', 0.06);
+  setTimeout(() => beep(980, 0.1, 'triangle', 0.05), 90);
+  cell.type = cell.type === 'vine' ? 'trellis' : 'planter';
+  cell.species = null; cell.growth = 0; cell.watered = 0;
+  refreshToolbar();
+}
+
+function clearCell(i) {
+  const cell = state.cells[i];
+  if (cell.type === 'empty') { toast('Nothing to clear'); return; }
+  cell.type = 'empty'; cell.species = null; cell.growth = 0; cell.watered = 0;
+  beep(340, 0.08, 'square', 0.04);
+  refreshToolbar();
+}
+
+function plantSeed(i, tool) {
+  const cell = state.cells[i];
+  const onTrellis = !!tool.onTrellis;
+  const baseType = onTrellis ? 'trellis' : 'planter';
+
+  if (cell.type === 'empty') {
+    const baseCost = onTrellis ? toolById('trellis').cost : 0; // planter auto-included with seed
+    const total = tool.cost + baseCost;
+    if (!spend(total)) return;
+    cell.type = baseType;
+  } else if (cell.type !== baseType) {
+    toast(onTrellis ? 'A trellis belongs here 🍇' : 'Clear this spot first 🧹');
+    return;
+  } else {
+    if (!spend(tool.cost)) return;
+  }
+
+  cell.species = tool.id;
+  cell.growth = 0.02;
+  cell.watered = 6;
+  const cc = cellCenter(i);
+  droplets.push({ x: cc.x, y: cc.y - 16, life: 0.8 });
+  beep(520, 0.09, 'triangle', 0.05);
+  refreshToolbar();
+}
+
+function placeStruct(i, tool) {
+  const cell = state.cells[i];
+  if (cell.type !== 'empty') { toast('This spot is taken'); return; }
+  if (!spend(tool.cost)) return;
+  cell.type = tool.id;
+  const cc = cellCenter(i);
+  floatText(cc.x, cc.y - 10, '🏗️', '#7d8a82');
+  beep(600, 0.1, 'sine', 0.05);
+  setTimeout(() => beep(820, 0.1, 'sine', 0.045), 90);
+  refreshToolbar();
+}
+
+function interact(i) {
+  const cell = state.cells[i];
+  const tool = toolById(currentTool);
+  if (!tool) return;
+
+  if (tool.kind === 'tool') { clearCell(i); return; }
+
+  if (cell.type === 'plant' || cell.type === 'vine') {
+    if (cell.growth >= 1) harvestCell(i);
+    else waterCell(i);
+    return;
+  }
+
+  if (tool.kind === 'plant') { plantSeed(i, tool); return; }
+
+  placeStruct(i, tool);
+}
+
+// ============ TOOLBAR ============
+function refreshToolbar() {
+  Array.from(toolbarEl.children).forEach(btn => {
+    const tool = toolById(btn.dataset.id);
+    btn.classList.toggle('sel', btn.dataset.id === currentTool);
+    const affordable = tool.cost === 0 || state.coins >= tool.cost;
+    btn.classList.toggle('off', !affordable);
+  });
+}
+
+function buildToolbar() {
+  toolbarEl.innerHTML = '';
+  TOOLS.forEach(tool => {
+    const btn = document.createElement('button');
+    btn.className = 'tool';
+    btn.dataset.id = tool.id;
+    btn.innerHTML = '<span class="t-icon">' + tool.icon + '</span>' +
+      '<span class="t-name">' + tool.name + '</span>' +
+      '<span class="t-cost">' + (tool.cost === 0 ? 'free' : '💰' + tool.cost) + '</span>';
+    btn.addEventListener('click', () => {
+      currentTool = tool.id;
+      beep(500, 0.05, 'sine', 0.03);
+      refreshToolbar();
+    });
+    toolbarEl.appendChild(btn);
+  });
+  refreshToolbar();
+}
+
+function updateHud() {
+  coinsEl.textContent = Math.floor(state.coins).toLocaleString();
+  plantsEl.textContent = plantCount();
+  harvestedEl.textContent = state.harvested;
+  greenEl.textContent = greenPercent() + '%';
+}
+
+// ============ DAY / NIGHT ============
+function updateClock() {
+  const p = phase();
+  const hour = (p * 24) % 24;
+  const hh = String(Math.floor(hour)).padStart(2, '0');
+  const mm = String(Math.floor((hour % 1) * 60)).padStart(2, '0');
+  const day = Math.floor(gameTime / DAY_LENGTH) + 1;
+  const night = isNightNow();
+  clockEl.textContent = (night ? '🌙' : '☀️') + ' Day ' + day + ' · ' + hh + ':' + mm;
+  document.body.classList.toggle('night', night);
+  if (night && !state.sawNight) {
+    state.sawNight = true;
+    toast('Night falls over the rooftop 🌙');
+  }
+  dayFlag.night = night;
+}
+
+// ============ INPUT ============
+function getPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: (e.clientX - rect.left) * (W / rect.width),
+    y: (e.clientY - rect.top) * (H / rect.height)
+  };
+}
+function posToCell(x, y) {
+  if (x < ROOF.x || x > ROOF.x + ROOF.w || y < ROOF.y || y > ROOF.y + ROOF.h) return -1;
+  const c = Math.floor((x - ROOF.x) / CW);
+  const r = Math.floor((y - ROOF.y) / CH);
+  if (c < 0 || c >= COLS || r < 0 || r >= ROWS) return -1;
+  return r * COLS + c;
+}
+
+canvas.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  const p = getPos(e);
+  const i = posToCell(p.x, p.y);
+  if (i >= 0) interact(i);
+});
+canvas.addEventListener('pointermove', e => {
+  const p = getPos(e);
+  const i = posToCell(p.x, p.y);
+  if (i >= 0) { hover.c = i % COLS; hover.r = Math.floor(i / COLS); }
+  else { hover.c = -1; }
+});
+canvas.addEventListener('pointerleave', () => { hover.c = -1; });
+
+document.addEventListener('keydown', e => {
+  if (e.key >= '1' && e.key <= '9') {
+    const idx = parseInt(e.key) - 1;
+    if (TOOLS[idx]) { currentTool = TOOLS[idx].id; refreshToolbar(); }
+  }
+  if (e.key === 's' || e.key === 'S') { save(); toast('Rooftop saved 💾'); }
+});
+
+// ============ MAIN LOOP ============
+function loop(now) {
+  const dt = Math.min(0.25, (now - lastTick) / 1000);
+  lastTick = now;
+  gameTime += dt;
+
+  tickGrowth(dt);
+  updateBeasts(dt);
+  updateParticles(dt);
+  updateClock();
+
+  autoSaveTimer += dt;
+  if (autoSaveTimer >= 10) { autoSaveTimer = 0; save(); }
+
+  // periodic HUD refresh
+  if (Math.floor(now / 400) !== Math.floor((now - dt * 1000) / 400)) {
+    updateHud();
+    refreshToolbar();
+  }
+
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// ============ INIT ============
+function startGame(fromSave) {
+  if (fromSave) {
+    const loaded = load();
+    state = defaultState();
+    if (loaded) {
+      state.coins = loaded.coins;
+      state.harvested = loaded.harvested;
+      state.totalCoins = loaded.totalCoins;
+      state.sawNight = loaded.sawNight;
+      state.cells = loaded.cells;
+      gameTime = loaded.time || 0;
+    }
+  } else {
+    state = defaultState();
+    gameTime = 0.30 * DAY_LENGTH; // start mid-morning
+  }
+  updateHud();
+  refreshToolbar();
+}
+
+function resetGame() {
+  try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+  state = defaultState();
+  gameTime = 0.30 * DAY_LENGTH;
+  bees = []; birds = []; floats = []; droplets = []; sparkles = [];
+  hover.c = -1;
+  updateHud();
+  refreshToolbar();
+  save();
+  toast('Fresh rooftop! 🌱');
+  beep(660, 0.12, 'triangle', 0.06);
+}
+
+el('startBtn').addEventListener('click', () => {
+  welcomeOverlay.classList.remove('show');
+  beep(660, 0.12, 'triangle', 0.06);
+  if (!state) startGame(true);
+});
+el('saveBtn').addEventListener('click', () => { save(); toast('Rooftop saved 💾'); beep(600, 0.08); });
+el('restartBtn').addEventListener('click', () => restartOverlay.classList.add('show'));
+el('cancelRestart').addEventListener('click', () => restartOverlay.classList.remove('show'));
+el('confirmRestart').addEventListener('click', () => {
+  restartOverlay.classList.remove('show');
+  resetGame();
+});
+
+window.addEventListener('beforeunload', () => { if (state) save(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && state) save();
+  else if (!document.hidden) lastTick = performance.now();
+});
+
+// ============ BOOT ============
+(function boot() {
+  buildScenery();
+  startGame(true);
+  buildToolbar();
+  lastTick = performance.now();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

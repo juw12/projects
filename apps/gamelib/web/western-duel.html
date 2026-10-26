@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🤠 Western Duel</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #f3dcae 0%, #e8c98a 50%, #d9b073 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(253, 246, 230, 0.96);
+      border: 3px solid #8f6b3d;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 14px 48px rgba(60, 30, 10, 0.35);
+      max-width: 880px;
+      width: 96%;
+    }
+
+    .game-title {
+      text-align: center;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 2rem;
+      letter-spacing: 2px;
+      color: #7a3b14;
+      margin-bottom: 4px;
+      text-shadow: 2px 2px 0 #f6e3b6;
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #9a7b4f;
+      margin-bottom: 14px;
+    }
+
+    /* ============ SCORE DISPLAY ============ */
+    .score-board {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 8px 14px;
+      margin-bottom: 12px;
+      padding: 10px 16px;
+      background: linear-gradient(135deg, #f8ecc9, #f0dcae);
+      border: 2px solid #d8bd85;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      color: #6b5330;
+      font-weight: 600;
+    }
+
+    .score-board span {
+      color: #a8410f;
+    }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 6px 20px rgba(60, 30, 10, 0.22);
+      background: #ffe6b0;
+      cursor: crosshair;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      touch-action: none;
+    }
+
+    /* ============ SCREENS (Start / Game Over) ============ */
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+      background: rgba(30, 18, 8, 0.72);
+      transition: opacity 0.3s ease;
+    }
+
+    .screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .screen-title {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 2.2rem;
+      letter-spacing: 3px;
+      color: #ffd66b;
+      margin-bottom: 8px;
+      text-shadow: 2px 3px 0 #4a2410;
+    }
+
+    .screen-subtitle {
+      font-size: 0.95rem;
+      color: #f3e2bd;
+      margin-bottom: 14px;
+      max-width: 460px;
+      line-height: 1.5;
+    }
+
+    .screen-hint {
+      font-size: 0.8rem;
+      color: #dcbf8a;
+      margin-bottom: 20px;
+    }
+
+    .final-score {
+      font-size: 1.25rem;
+      color: #ffe9b8;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    /* ============ ACTION BUTTONS ============ */
+    .action-btn {
+      padding: 13px 34px;
+      background: linear-gradient(135deg, #c4531f, #8f3416);
+      color: #ffe9c4;
+      border: none;
+      border-radius: 8px;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 1.1rem;
+      letter-spacing: 1px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      box-shadow: 0 5px 0 #5d2409, 0 8px 18px rgba(0, 0, 0, 0.3);
+    }
+
+    .action-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 7px 0 #5d2409, 0 10px 22px rgba(0, 0, 0, 0.35);
+    }
+
+    .action-btn:active {
+      transform: translateY(3px);
+      box-shadow: 0 2px 0 #5d2409;
+    }
+
+    /* ============ PAUSE OVERLAY ============ */
+    .pause-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(30, 18, 8, 0.6);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: Georgia, serif;
+      font-size: 2rem;
+      letter-spacing: 3px;
+      color: #ffd66b;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .pause-overlay.visible {
+      opacity: 1;
+    }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 520px) {
+      .game-container {
+        padding: 12px;
+      }
+      .game-title {
+        font-size: 1.5rem;
+      }
+      .score-board {
+        font-size: 0.8rem;
+        padding: 8px 12px;
+      }
+      .screen-title {
+        font-size: 1.6rem;
+      }
+      .screen-subtitle {
+        font-size: 0.82rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">WESTERN DUEL</h1>
+    <p class="game-subtitle">High-noon quick-draw — react fastest to win</p>
+
+    <div class="score-board">
+      <div>Duel: <span id="duelEl">1</span></div>
+      <div>Won: <span id="scoreEl">0</span></div>
+      <div>Best: <span id="bestEl">—</span></div>
+      <div>Lives: <span id="livesEl">❤❤❤</span></div>
+    </div>
+
+    <div class="canvas-wrapper" id="canvasWrapper">
+      <canvas id="gameCanvas" width="800" height="450"></canvas>
+
+      <!-- Start Screen -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">HIGH NOON</h2>
+        <p class="screen-subtitle">
+          Face the outlaw across the dusty street. When the word
+          <strong>DRAW!</strong> appears, fire first — no sooner.
+        </p>
+        <p class="screen-hint">SPACE / ENTER / TAP&nbsp;to draw&nbsp;&nbsp;•&nbsp;&nbsp;P&nbsp;to pause</p>
+        <button class="action-btn" id="startBtn">START DUEL</button>
+      </div>
+
+      <!-- Game Over Screen -->
+      <div id="gameOverScreen" class="screen hidden">
+        <h2 class="screen-title">GUNNED DOWN</h2>
+        <p class="final-score">Duels Won: <span id="finalWon">0</span></p>
+        <p class="final-score">Fastest Draw: <span id="finalBest">—</span></p>
+        <button class="action-btn" id="playAgainBtn">DUEL AGAIN</button>
+      </div>
+
+      <!-- Pause Overlay -->
+      <div id="pauseOverlay" class="pause-overlay">PAUSED</div>
+    </div>
+  </div>
+
+  <script>
+    // ============ GAME CONFIGURATION ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+    const GROUND_Y = 344;   // feet baseline for the gunslingers
+    const PLAYER_X = 208;
+    const CPU_X = 592;
+    const SLINGER_SCALE = 1.3;
+    const DRAW_TIMEOUT = 1500;   // ms allowed after the signal to fire
+    const RESOLVE_TIME = 1500;   // ms a round result stays on screen
+    const INTRO_TIME = 900;      // ms of "DUEL n" intro
+
+    // ============ GAME STATE ============
+    let state = 'menu';          // menu | intro | wait | signal | resolve | gameover
+    let paused = false;
+    let phaseAt = 0;             // timestamp the current phase began
+    let signalAt = 0;            // timestamp the DRAW signal appeared
+    let signalDelay = 0;         // wait length before the signal (ms)
+    let pauseStart = 0;
+
+    let duel = 0;
+    let score = 0;               // duels won
+    let lives = 3;
+    let playerReaction = 0;      // ms, 0 = not fired
+    let oppReaction = 0;         // ms
+    let drawnWinner = false;
+
+    let best = parseInt(localStorage.getItem('westernDuelBestReaction') || '0', 10) || 0;
+
+    let message = '';
+    let subMessage = '';
+    let muzzle = { player: 0, cpu: 0 };   // flash timers (seconds remaining)
+    let shake = 0;
+    let tumbleweeds = [];
+    let tumbleTimer = 0;
+    let flash = 0;                        // white screen flash on a shot
+
+    // ============ DOM ELEMENTS ============
+    const duelEl = document.getElementById('duelEl');
+    const scoreEl = document.getElementById('scoreEl');
+    const bestEl = document.getElementById('bestEl');
+    const livesEl = document.getElementById('livesEl');
+    const finalWon = document.getElementById('finalWon');
+    const finalBest = document.getElementById('finalBest');
+    const startScreen = document.getElementById('startScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const startBtn = document.getElementById('startBtn');
+    const playAgainBtn = document.getElementById('playAgainBtn');
+    const canvasWrapper = document.getElementById('canvasWrapper');
+
+    // ============ AUDIO (WebAudio beep) ============
+    let audioCtx = null;
+
+    function ensureAudio() {
+      if (!audioCtx) {
+        try {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (e) { audioCtx = null; }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    // Simple oscillator beep
+    function beep(freq = 440, dur = 0.1, type = 'square', gain = 0.08) {
+      if (!audioCtx) return;
+      try {
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = type;
+        o.frequency.value = freq;
+        o.connect(g);
+        g.connect(audioCtx.destination);
+        const t = audioCtx.currentTime;
+        g.gain.setValueAtTime(gain, t);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.start(t);
+        o.stop(t + dur + 0.03);
+      } catch (e) { /* ignore */ }
+    }
+
+    // Noisy gunshot burst
+    function gunshot() {
+      if (!audioCtx) return;
+      try {
+        const dur = 0.2;
+        const buf = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * dur), audioCtx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) {
+          d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3);
+        }
+        const src = audioCtx.createBufferSource();
+        src.buffer = buf;
+        const flt = audioCtx.createBiquadFilter();
+        flt.type = 'lowpass';
+        flt.frequency.value = 1900;
+        const g = audioCtx.createGain();
+        g.gain.value = 0.4;
+        src.connect(flt);
+        flt.connect(g);
+        g.connect(audioCtx.destination);
+        src.start();
+        // low thump under the crack
+        beep(70, 0.16, 'sawtooth', 0.14);
+      } catch (e) { /* ignore */ }
+    }
+
+    function signalSound() {
+      beep(1000, 0.09, 'square', 0.1);
+      setTimeout(() => beep(1500, 0.11, 'square', 0.1), 85);
+    }
+
+    // ============ SILHOUETTE DRAWING ============
+    // Draws a western gunslinger silhouette. Origin = feet centre.
+    function drawSlinger(cx, by, s, dir, armed) {
+      ctx.save();
+      ctx.translate(cx, by);
+      ctx.scale(dir, 1);       // mirror so dir=+1 faces right
+      ctx.scale(s, s);
+      const ink = '#1d130c';
+      ctx.fillStyle = ink;
+      ctx.strokeStyle = ink;
+      ctx.lineCap = 'round';
+
+      // legs
+      ctx.fillRect(-9, -34, 7, 34);
+      ctx.fillRect(2, -34, 7, 34);
+      // boots
+      ctx.beginPath();
+      ctx.moveTo(-11, -6); ctx.lineTo(-1, -6); ctx.lineTo(-1, 0); ctx.lineTo(-14, 0);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(1, -6); ctx.lineTo(11, -6); ctx.lineTo(14, 0); ctx.lineTo(1, 0);
+      ctx.closePath(); ctx.fill();
+
+      // torso / duster coat
+      ctx.beginPath();
+      ctx.moveTo(-12, -60);
+      ctx.lineTo(12, -60);
+      ctx.lineTo(9, -28);
+      ctx.lineTo(-9, -28);
+      ctx.closePath();
+      ctx.fill();
+
+      // head
+      ctx.beginPath();
+      ctx.arc(0, -70, 8, 0, Math.PI * 2);
+      ctx.fill();
+      // hat crown
+      ctx.beginPath();
+      ctx.moveTo(-8, -78);
+      ctx.lineTo(8, -78);
+      ctx.lineTo(7, -92);
+      ctx.lineTo(-7, -92);
+      ctx.closePath();
+      ctx.fill();
+      // hat brim
+      ctx.beginPath();
+      ctx.ellipse(0, -78, 16, 4.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // arm + revolver
+      ctx.lineWidth = 9;
+      ctx.beginPath();
+      if (armed) {
+        ctx.moveTo(6, -58);
+        ctx.lineTo(33, -52);
+        ctx.stroke();
+        ctx.fillRect(29, -56, 15, 5);   // barrel
+        ctx.fillRect(29, -55, 5, 9);    // grip
+      } else {
+        ctx.moveTo(8, -58);
+        ctx.lineTo(12, -34);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // Muzzle flash anchored to the drawn-arm tip
+    function drawMuzzleFlash(cx, by, s, dir, t) {
+      const gx = cx + dir * 44 * s;
+      const gy = by - 54 * s;
+      const a = t / 0.12;                 // 1 -> 0
+      ctx.save();
+      ctx.translate(gx, gy);
+      ctx.globalAlpha = Math.max(0, a);
+      ctx.fillStyle = '#fff3b0';
+      ctx.beginPath();
+      ctx.arc(0, 0, 10 + 6 * a, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffb43d';
+      for (let i = 0; i < 5; i++) {
+        const ang = (i / 5) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(ang) * (22 + 10 * a), Math.sin(ang) * (22 + 10 * a));
+        ctx.lineTo(Math.cos(ang + 0.5) * 8, Math.sin(ang + 0.5) * 8);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // ============ TUMBLEWEED ============
+    function spawnTumbleweed() {
+      const fromLeft = Math.random() < 0.5;
+      const r = 12 + Math.random() * 12;
+      tumbleweeds.push({
+        x: fromLeft ? -40 : W + 40,
+        y: GROUND_Y - r + 6,
+        r: r,
+        vx: (fromLeft ? 1 : -1) * (40 + Math.random() * 60),
+        rot: Math.random() * Math.PI,
+        rotSpeed: (fromLeft ? 1 : -1) * (1.5 + Math.random() * 2),
+        bob: Math.random() * Math.PI * 2
+      });
+    }
+
+    function updateTumbleweeds(dt, now) {
+      tumbleTimer -= dt;
+      if (tumbleTimer <= 0) {
+        spawnTumbleweed();
+        tumbleTimer = 2.6 + Math.random() * 2.4;
+      }
+      for (let i = tumbleweeds.length - 1; i >= 0; i--) {
+        const t = tumbleweeds[i];
+        t.x += t.vx * dt;
+        t.rot += t.rotSpeed * dt;
+        t.bob += dt * 6;
+        if (t.x < -70 || t.x > W + 70) tumbleweeds.splice(i, 1);
+      }
+    }
+
+    function drawTumbleweed(t) {
+      const y = t.y + Math.sin(t.bob) * 3;
+      ctx.save();
+      ctx.translate(t.x, y);
+      ctx.rotate(t.rot);
+      ctx.strokeStyle = '#8a6a3a';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * Math.PI * 2;
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(a) * t.r, Math.sin(a) * t.r);
+      }
+      ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, t.r, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, t.r * 0.62, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
+
+    // ============ SCENERY ============
+    function drawMesa(x, w, h, color) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(x, GROUND_Y - 46);
+      ctx.lineTo(x + 10, GROUND_Y - 46 - h);
+      ctx.lineTo(x + w - 10, GROUND_Y - 46 - h);
+      ctx.lineTo(x + w, GROUND_Y - 46);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function drawCactus(x, h) {
+      ctx.fillStyle = '#6f5a34';
+      ctx.fillRect(x - 3, GROUND_Y - 46 - h, 6, h);
+      ctx.fillRect(x - 14, GROUND_Y - 46 - h * 0.65, 6, h * 0.35);
+      ctx.fillRect(x - 14, GROUND_Y - 46 - h * 0.65, 11, 5);
+      ctx.fillRect(x + 8, GROUND_Y - 46 - h * 0.5, 6, h * 0.28);
+      ctx.fillRect(x + 3, GROUND_Y - 46 - h * 0.5, 11, 5);
+    }
+
+    function drawScene(now) {
+      // --- sky ---
+      const sky = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+      sky.addColorStop(0, '#ffcf87');
+      sky.addColorStop(0.42, '#ffe6b0');
+      sky.addColorStop(0.72, '#fff2d4');
+      sky.addColorStop(1, '#f0d59a');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, GROUND_Y);
+
+      // --- high-noon sun ---
+      const sunX = 400, sunY = 92, sunR = 44;
+      const glow = ctx.createRadialGradient(sunX, sunY, 8, sunX, sunY, 170);
+      glow.addColorStop(0, 'rgba(255,248,205,0.95)');
+      glow.addColorStop(0.45, 'rgba(255,230,150,0.45)');
+      glow.addColorStop(1, 'rgba(255,224,150,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.arc(sunX, sunY, 170, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fffbe6';
+      ctx.beginPath(); ctx.arc(sunX, sunY, sunR, 0, Math.PI * 2); ctx.fill();
+
+      // --- mesas ---
+      drawMesa(-40, 190, 60, '#d8a877');
+      drawMesa(150, 140, 40, '#e3b98a');
+      drawMesa(560, 220, 72, '#d3a373');
+      drawMesa(740, 120, 50, '#e0b686');
+
+      // --- cacti ---
+      drawCactus(90, 46);
+      drawCactus(715, 38);
+
+      // --- ground ---
+      const gnd = ctx.createLinearGradient(0, GROUND_Y - 46, 0, H);
+      gnd.addColorStop(0, '#e2c083');
+      gnd.addColorStop(1, '#c19a58');
+      ctx.fillStyle = gnd;
+      ctx.fillRect(0, GROUND_Y - 46, W, H - (GROUND_Y - 46));
+
+      // dusty road across the middle
+      ctx.fillStyle = 'rgba(255,244,214,0.35)';
+      ctx.beginPath();
+      ctx.moveTo(120, H);
+      ctx.lineTo(300, GROUND_Y - 6);
+      ctx.lineTo(500, GROUND_Y - 6);
+      ctx.lineTo(680, H);
+      ctx.closePath();
+      ctx.fill();
+
+      // ground specks
+      ctx.fillStyle = 'rgba(120,88,44,0.18)';
+      for (let i = 0; i < 26; i++) {
+        const gx = (i * 137) % W;
+        const gy = GROUND_Y + ((i * 53) % (H - GROUND_Y));
+        ctx.fillRect(gx, gy, 14, 2);
+      }
+
+      // --- saloon front, left edge ---
+      ctx.fillStyle = '#8a5a30';
+      ctx.fillRect(-10, GROUND_Y - 190, 110, 190);
+      ctx.fillStyle = '#6b4322';
+      ctx.fillRect(-10, GROUND_Y - 190, 110, 16);
+      ctx.fillStyle = '#c9a05e';
+      ctx.fillRect(6, GROUND_Y - 150, 34, 44);   // door
+      ctx.fillStyle = '#5a3819';
+      ctx.fillRect(58, GROUND_Y - 150, 30, 40);  // window
+      ctx.fillStyle = '#7c4f28';
+      ctx.beginPath();
+      ctx.moveTo(-10, GROUND_Y - 130);
+      ctx.lineTo(100, GROUND_Y - 130);
+      ctx.lineTo(100, GROUND_Y - 118);
+      ctx.lineTo(-10, GROUND_Y - 118);
+      ctx.closePath();
+      ctx.fill();
+
+      // --- barn, right edge ---
+      ctx.fillStyle = '#7a4a24';
+      ctx.fillRect(710, GROUND_Y - 170, 100, 170);
+      ctx.beginPath();
+      ctx.moveTo(700, GROUND_Y - 170);
+      ctx.lineTo(760, GROUND_Y - 214);
+      ctx.lineTo(820, GROUND_Y - 170);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#5c3517';
+      ctx.fillRect(748, GROUND_Y - 96, 34, 96);
+    }
+
+    // ============ HUD ============
+    function updateHud() {
+      duelEl.textContent = Math.max(1, duel);
+      scoreEl.textContent = score;
+      bestEl.textContent = best > 0 ? best + 'ms' : '—';
+      livesEl.textContent = lives > 0 ? '❤'.repeat(lives) : '—';
+    }
+
+    // ============ TEXT HELPERS ============
+    function centerText(txt, y, size, color, stroke) {
+      ctx.font = 'bold ' + size + "px Georgia, 'Times New Roman', serif";
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.lineWidth = Math.max(3, size * 0.13);
+      ctx.strokeStyle = stroke || '#2a1607';
+      ctx.strokeText(txt, W / 2, y);
+      ctx.fillStyle = color;
+      ctx.fillText(txt, W / 2, y);
+    }
+
+    // ============ RENDER ============
+    function render(now) {
+      ctx.save();
+      if (shake > 0) {
+        const s = shake;
+        ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
+      }
+
+      drawScene(now);
+
+      // gunslingers — draw armed pose once the signal is live
+      const armed = (state === 'signal' || state === 'resolve');
+      drawSlinger(PLAYER_X, GROUND_Y, SLINGER_SCALE, 1, armed);
+      drawSlinger(CPU_X, GROUND_Y, SLINGER_SCALE, -1, armed);
+
+      // muzzle flashes
+      if (muzzle.player > 0) drawMuzzleFlash(PLAYER_X, GROUND_Y, SLINGER_SCALE, 1, muzzle.player);
+      if (muzzle.cpu > 0) drawMuzzleFlash(CPU_X, GROUND_Y, SLINGER_SCALE, -1, muzzle.cpu);
+
+      // tumbleweeds
+      tumbleweeds.forEach(drawTumbleweed);
+
+      // on-canvas prompts
+      if (state === 'intro') {
+        centerText('DUEL ' + duel, 120, 46, '#ffe08a');
+        centerText('STEADY YOUR NERVE...', 176, 22, '#fff3d6');
+      } else if (state === 'wait') {
+        centerText('STEADY...', 120, 40, '#fff3d6');
+      } else if (state === 'signal') {
+        const pulse = 1 + Math.sin(now / 40) * 0.06;
+        centerText('DRAW!', 120, 74 * pulse, '#ff3d2e', '#fff3d6');
+      } else if (state === 'resolve') {
+        centerText(message, 116, 48, drawnWinner ? '#8dff9a' : '#ff6b6b');
+        centerText(subMessage, 168, 24, '#fff3d6');
+      }
+
+      ctx.restore();
+
+      // gunshot screen flash (unaffected by shake)
+      if (flash > 0) {
+        ctx.fillStyle = 'rgba(255,246,214,' + Math.min(0.5, flash) + ')';
+        ctx.fillRect(0, 0, W, H);
+      }
+    }
+
+    // ============ DUEL FLOW ============
+    function computeOppReaction() {
+      // CPU sharpens every duel, with a little jitter
+      const base = Math.max(205, 560 - duel * 24);
+      const jitter = (Math.random() * 100) - 50;
+      return Math.round(Math.max(190, base + jitter));
+    }
+
+    function beginDuel() {
+      duel++;
+      state = 'intro';
+      phaseAt = performance.now();
+      signalDelay = 0;
+      playerReaction = 0;
+      oppReaction = 0;
+      message = '';
+      subMessage = '';
+      updateHud();
+    }
+
+    function foul() {
+      muzzle.player = 0.12;
+      flash = 0.5;
+      shake = 8;
+      gunshot();
+      resolveDuel(false, true);
+    }
+
+    // drawResult: player fired in time; foulResult: fired before the signal
+    function resolveDuel(playerWon, wasFoul) {
+      const now = performance.now();
+      state = 'resolve';
+      phaseAt = now;
+      muzzle.player = 0.12;
+      muzzle.cpu = 0.12;
+      flash = 0.5;
+      shake = playerWon ? 6 : 10;
+      gunshot();
+      drawnWinner = playerWon;
+
+      if (playerWon) {
+        score++;
+        message = 'YOU WIN!';
+        subMessage = playerReaction + 'ms  vs  ' + oppReaction + 'ms';
+        // victory jingle
+        beep(660, 0.1, 'square', 0.09);
+        setTimeout(() => beep(880, 0.14, 'square', 0.09), 110);
+      } else {
+        lives--;
+        if (wasFoul) {
+          message = 'FOUL! TOO SOON';
+          subMessage = 'You drew before the signal.';
+          beep(120, 0.35, 'sawtooth', 0.12);
+        } else if (playerReaction > 0) {
+          message = 'TOO SLOW';
+          subMessage = playerReaction + 'ms  vs  ' + oppReaction + 'ms';
+          beep(300, 0.18, 'sawtooth', 0.1);
+          setTimeout(() => beep(180, 0.24, 'sawtooth', 0.1), 150);
+        } else {
+          message = 'YOU HESITATED';
+          subMessage = 'The outlaw got you.';
+          beep(300, 0.18, 'sawtooth', 0.1);
+          setTimeout(() => beep(180, 0.24, 'sawtooth', 0.1), 150);
+        }
+      }
+      updateHud();
+    }
+
+    // Input: the draw-and-fire action
+    function fire() {
+      if (paused) return;
+      if (state === 'wait') {
+        foul();
+      } else if (state === 'signal') {
+        if (playerReaction !== 0) return;             // already fired
+        playerReaction = Math.round(performance.now() - signalAt);
+        oppReaction = computeOppReaction();
+        if (best === 0 || playerReaction < best) {    // record fastest draw
+          best = playerReaction;
+          localStorage.setItem('westernDuelBestReaction', best);
+        }
+        resolveDuel(playerReaction <= oppReaction, false);
+      }
+    }
+
+    // ============ MAIN LOOP ============
+    let lastTime = performance.now();
+
+    function loop(now) {
+      const dt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+
+      if (!paused) {
+        muzzle.player = Math.max(0, muzzle.player - dt);
+        muzzle.cpu = Math.max(0, muzzle.cpu - dt);
+        flash = Math.max(0, flash - dt * 1.6);
+        shake = Math.max(0, shake - dt * 40);
+        updateTumbleweeds(dt, now);
+
+        // phase transitions
+        if (state === 'intro' && now - phaseAt > INTRO_TIME) {
+          state = 'wait';
+          phaseAt = now;
+          signalDelay = 900 + Math.random() * 1700;
+        } else if (state === 'wait' && now - phaseAt >= signalDelay) {
+          state = 'signal';
+          signalAt = now;
+          signalSound();
+        } else if (state === 'signal' && playerReaction === 0 && now - signalAt > DRAW_TIMEOUT) {
+          resolveDuel(false, false);   // never fired in time
+        } else if (state === 'resolve' && now - phaseAt > RESOLVE_TIME) {
+          if (lives <= 0) {
+            gameOver();
+          } else {
+            beginDuel();
+          }
+        }
+      }
+
+      render(now);
+      requestAnimationFrame(loop);
+    }
+
+    // ============ MATCH CONTROL ============
+    function startMatch() {
+      ensureAudio();
+      state = 'intro';
+      paused = false;
+      duel = 0;
+      score = 0;
+      lives = 3;
+      playerReaction = 0;
+      oppReaction = 0;
+      muzzle = { player: 0, cpu: 0 };
+      shake = 0;
+      flash = 0;
+      tumbleweeds = [];
+      tumbleTimer = 0.6;
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      pauseOverlay.classList.remove('visible');
+      beginDuel();
+      beep(520, 0.1, 'square', 0.08);
+      updateHud();
+    }
+
+    function gameOver() {
+      state = 'gameover';
+      finalWon.textContent = score;
+      finalBest.textContent = best > 0 ? best + 'ms' : '—';
+      gameOverScreen.classList.remove('hidden');
+      beep(180, 0.3, 'sawtooth', 0.12);
+      setTimeout(() => beep(120, 0.4, 'sawtooth', 0.12), 220);
+    }
+
+    function togglePause() {
+      if (state === 'menu' || state === 'gameover' || state === 'resolve') return;
+      paused = !paused;
+      pauseOverlay.classList.toggle('visible', paused);
+      if (paused) {
+        pauseStart = performance.now();
+      } else {
+        const d = performance.now() - pauseStart;
+        phaseAt += d;   // keep pre-signal timing honest
+        signalAt += d;
+      }
+    }
+
+    // ============ INPUT HANDLING ============
+    document.addEventListener('keydown', (e) => {
+      if (['Space', 'Enter', 'KeyP'].includes(e.code)) e.preventDefault();
+      if (e.repeat) return;
+
+      if (state === 'menu' || state === 'gameover') {
+        if (e.code === 'Space' || e.code === 'Enter') startMatch();
+        return;
+      }
+      if (e.code === 'KeyP') { togglePause(); return; }
+      if (paused) return;
+      if (e.code === 'Space' || e.code === 'Enter') fire();
+    });
+
+    // Touch / mouse: tap the street to draw
+    canvasWrapper.addEventListener('pointerdown', (e) => {
+      if (paused) return;
+      if (state === 'wait' || state === 'signal') {
+        e.preventDefault();
+        fire();
+      }
+    });
+
+    startBtn.addEventListener('click', startMatch);
+    playAgainBtn.addEventListener('click', startMatch);
+
+    // ============ INITIAL STATE ============
+    updateHud();
+    tumbleTimer = 1.2;
+    spawnTumbleweed();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

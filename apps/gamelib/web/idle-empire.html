@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>👑 Idle Empire</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg0: #14100a;
+    --bg1: #221a10;
+    --panel: rgba(38, 28, 18, 0.92);
+    --panel-line: rgba(214, 168, 90, 0.28);
+    --gold: #f2c14e;
+    --gold-dim: #b8892f;
+    --gold-brite: #ffe08a;
+    --text: #f4e9d4;
+    --text-dim: #b6a184;
+    --good: #7bd88f;
+    --bad: #e06a5a;
+    --shadow: 0 10px 34px rgba(0, 0, 0, 0.55);
+  }
+
+  html, body {
+    min-height: 100%;
+    background:
+      radial-gradient(1200px 700px at 50% -10%, #3a2b16 0%, transparent 60%),
+      linear-gradient(160deg, var(--bg0), var(--bg1) 55%, #161009 100%);
+    color: var(--text);
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 14px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ============ LAYOUT ============ */
+  #app {
+    width: min(1040px, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  header.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .title {
+    font-size: 1.7rem;
+    letter-spacing: 1px;
+    color: var(--gold-brite);
+    text-shadow: 0 2px 0 rgba(0, 0, 0, 0.6), 0 0 18px rgba(242, 193, 78, 0.25);
+  }
+  .title small { font-size: 0.85rem; color: var(--text-dim); letter-spacing: 2px; }
+
+  .topbar-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .btn {
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 9px 16px;
+    border: 1px solid var(--panel-line);
+    border-radius: 10px;
+    cursor: pointer;
+    color: var(--text);
+    background: linear-gradient(180deg, #3a2c1a, #2a2013);
+    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35);
+    transition: transform 0.05s ease, background 0.15s ease, border-color 0.15s ease;
+    user-select: none;
+  }
+  .btn:hover { border-color: var(--gold); background: linear-gradient(180deg, #46351f, #2f2414); }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35); }
+  .btn.warn { color: #ffd9d2; border-color: rgba(224, 106, 90, 0.5); }
+  .btn.warn:hover { border-color: var(--bad); background: linear-gradient(180deg, #4a241d, #301713); }
+  .btn.prestige { color: #1a1207; background: linear-gradient(180deg, var(--gold-brite), var(--gold)); border-color: var(--gold-brite); }
+  .btn.prestige:hover { background: linear-gradient(180deg, #ffedb0, var(--gold-brite)); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+  /* ============ MAIN GRID ============ */
+  .grid {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 12px;
+    align-items: start;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(3px);
+    padding: 14px;
+  }
+
+  .card h2 {
+    font-size: 1rem;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--panel-line);
+    padding-bottom: 8px;
+  }
+
+  /* ============ LEFT: PRESS PANEL ============ */
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 6px 2px;
+    font-size: 0.92rem;
+    border-bottom: 1px dashed rgba(214, 168, 90, 0.14);
+  }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-row .k { color: var(--text-dim); }
+  .stat-row .v { font-weight: 700; color: var(--gold-brite); }
+  .stat-row .v.big { font-size: 1.35rem; }
+
+  .coins {
+    text-align: center;
+    margin: 6px 0 4px;
+  }
+  .coins .amount {
+    font-size: 2.6rem;
+    font-weight: 800;
+    color: var(--gold-brite);
+    text-shadow: 0 0 24px rgba(242, 193, 78, 0.4);
+    line-height: 1.05;
+  }
+  .coins .label { font-size: 0.72rem; letter-spacing: 3px; color: var(--text-dim); }
+
+  #pressBtn {
+    position: relative;
+    width: 100%;
+    margin-top: 10px;
+    padding: 26px 10px;
+    border: 2px solid var(--gold);
+    border-radius: 16px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: #1a1207;
+    background: radial-gradient(circle at 50% 25%, #ffe9a8, #f2c14e 52%, #c8912f);
+    box-shadow: 0 8px 0 #8a6220, 0 12px 24px rgba(0, 0, 0, 0.4);
+    transition: transform 0.06s ease, box-shadow 0.06s ease;
+    user-select: none;
+    overflow: hidden;
+  }
+  #pressBtn:hover { filter: brightness(1.06); }
+  #pressBtn:active { transform: translateY(5px); box-shadow: 0 3px 0 #8a6220, 0 6px 14px rgba(0, 0, 0, 0.4); }
+  #pressBtn .sub { display: block; font-size: 0.78rem; font-weight: 700; margin-top: 6px; color: #5a3d0d; }
+
+  .float {
+    position: fixed;
+    pointer-events: none;
+    font-weight: 800;
+    color: var(--gold-brite);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+    animation: floatUp 0.9s ease-out forwards;
+    z-index: 60;
+  }
+  @keyframes floatUp {
+    0% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -70px) scale(1.25); }
+  }
+
+  /* ============ RIGHT: GENERATORS ============ */
+  .gen-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .gen {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    text-align: left;
+    padding: 10px 12px;
+    border: 1px solid var(--panel-line);
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(58, 44, 26, 0.7), rgba(30, 23, 14, 0.7));
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--text);
+    transition: transform 0.06s ease, border-color 0.15s ease, background 0.15s ease;
+    user-select: none;
+  }
+  .gen:hover:not(:disabled) { border-color: var(--gold); background: linear-gradient(180deg, rgba(70, 53, 31, 0.85), rgba(38, 28, 17, 0.85)); }
+  .gen:active:not(:disabled) { transform: scale(0.985); }
+  .gen:disabled { opacity: 0.5; cursor: not-allowed; }
+  .gen .icon {
+    font-size: 1.7rem;
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.28);
+    border-radius: 10px;
+    flex: 0 0 auto;
+  }
+  .gen .info { flex: 1 1 auto; min-width: 0; }
+  .gen .name { font-weight: 800; font-size: 0.95rem; }
+  .gen .meta { font-size: 0.74rem; color: var(--text-dim); margin-top: 2px; }
+  .gen .meta b { color: var(--good); font-weight: 700; }
+  .gen .owned {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--gold);
+    min-width: 22px;
+    text-align: right;
+    flex: 0 0 auto;
+  }
+  .gen .cost { color: var(--gold-brite); font-weight: 700; }
+  .gen.locked { filter: grayscale(0.5); }
+
+  .bulk-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .bulk-row .lbl { font-size: 0.78rem; color: var(--text-dim); letter-spacing: 1px; }
+  .chip {
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 6px 12px;
+    border: 1px solid var(--panel-line);
+    border-radius: 20px;
+    background: rgba(0, 0, 0, 0.25);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.12s ease;
+  }
+  .chip.active { background: var(--gold); color: #1a1207; border-color: var(--gold-brite); }
+
+  /* ============ UPGRADES ============ */
+  .up-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 10px;
+  }
+  .up {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 12px;
+    border: 1px solid var(--panel-line);
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(58, 44, 26, 0.6), rgba(30, 23, 14, 0.6));
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--text);
+    text-align: left;
+    transition: transform 0.06s ease, border-color 0.15s ease;
+  }
+  .up:hover:not(:disabled) { border-color: var(--gold); }
+  .up:active:not(:disabled) { transform: scale(0.985); }
+  .up:disabled { opacity: 0.5; cursor: not-allowed; }
+  .up .icon { font-size: 1.4rem; flex: 0 0 auto; }
+  .up .info { flex: 1 1 auto; min-width: 0; }
+  .up .name { font-weight: 700; font-size: 0.86rem; }
+  .up .desc { font-size: 0.72rem; color: var(--text-dim); margin-top: 2px; }
+  .up .cost { color: var(--gold-brite); font-weight: 700; font-size: 0.8rem; margin-top: 4px; }
+  .up.owned { border-color: rgba(123, 216, 143, 0.5); }
+  .up.owned .name::after { content: " ✓"; color: var(--good); }
+
+  /* ============ PRESTIGE CARD ============ */
+  .prestige-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .prestige-row .txt { font-size: 0.84rem; color: var(--text-dim); max-width: 640px; line-height: 1.45; }
+  .prestige-row .txt b { color: var(--gold-brite); }
+
+  /* ============ TOAST ============ */
+  #toast {
+    position: fixed;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%) translateY(30px);
+    background: rgba(20, 15, 8, 0.96);
+    border: 1px solid var(--gold);
+    color: var(--gold-brite);
+    font-weight: 700;
+    padding: 10px 20px;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 80;
+    max-width: 90vw;
+    text-align: center;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 760px) {
+    .grid { grid-template-columns: 1fr; }
+    .gen-grid { grid-template-columns: 1fr; }
+    .title { font-size: 1.35rem; }
+    .coins .amount { font-size: 2.1rem; }
+    #pressBtn { padding: 20px 10px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ============ TOP BAR ============ -->
+  <header class="topbar">
+    <div class="title">👑 IDLE EMPIRE <small id="prestigeBadge"></small></div>
+    <div class="topbar-btns">
+      <button class="btn prestige" id="btnPrestige" type="button">Prestige</button>
+      <button class="btn warn" id="btnReset" type="button">Reset Save</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- ============ LEFT COLUMN ============ -->
+    <div class="card">
+      <h2>Treasury</h2>
+      <div class="coins">
+        <div class="amount" id="coins">0</div>
+        <div class="label">GOLD</div>
+      </div>
+      <div class="stat-row"><span class="k">Per second</span><span class="v" id="perSec">0</span></div>
+      <div class="stat-row"><span class="k">Per click</span><span class="v" id="perClick">1</span></div>
+      <div class="stat-row"><span class="k">Total earned</span><span class="v" id="totalEarned">0</span></div>
+      <div class="stat-row"><span class="k">Prestige bonus</span><span class="v" id="prestigeBonus">×1.00</span></div>
+
+      <button id="pressBtn" type="button">
+        MINE GOLD
+        <span class="sub" id="pressSub">+1 per click</span>
+      </button>
+    </div>
+
+    <!-- ============ RIGHT COLUMN ============ -->
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div class="card">
+        <h2>Buildings — auto income</h2>
+        <div class="bulk-row">
+          <span class="lbl">BUY</span>
+          <button class="chip active" data-bulk="1" type="button">×1</button>
+          <button class="chip" data-bulk="10" type="button">×10</button>
+          <button class="chip" data-bulk="100" type="button">×100</button>
+          <button class="chip" data-bulk="max" type="button">MAX</button>
+        </div>
+        <div class="gen-grid" id="genGrid"></div>
+      </div>
+
+      <div class="card">
+        <h2>Upgrades — permanent boosts</h2>
+        <div class="up-grid" id="upGrid"></div>
+      </div>
+
+      <div class="card">
+        <h2>Prestige</h2>
+        <div class="prestige-row">
+          <div class="txt">
+            Ascend to reset buildings, upgrades and gold — but gain a permanent
+            <b>+<span id="prestigePct">0</span>% global income</b> for every crown earned.
+            You currently hold <b id="crownsNow">0</b> crown(s), granting <b id="crownMult">×1.00</b>.
+            Ascending now would yield <b id="crownsGain">0</b> crown(s).
+          </div>
+          <button class="btn prestige" id="btnPrestige2" type="button">Ascend</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONFIG: BUILDINGS ============
+  // base = starting cost, rate = gold/sec each, growth = cost multiplier per purchase
+  const BUILDINGS = [
+    { id: "farm",    icon: "🌾", name: "Farm",       base: 15,        rate: 0.5,      growth: 1.15 },
+    { id: "mine",    icon: "⛏️", name: "Mine",       base: 120,       rate: 3,        growth: 1.15 },
+    { id: "market",  icon: "🏪", name: "Market",     base: 1100,      rate: 18,       growth: 1.15 },
+    { id: "bank",    icon: "🏦", name: "Bank",       base: 12000,     rate: 110,      growth: 1.15 },
+    { id: "factory", icon: "🏭", name: "Factory",    base: 130000,    rate: 800,      growth: 1.15 },
+    { id: "tower",   icon: "🗼", name: "Sky Tower",  base: 1.4e6,     rate: 6000,     growth: 1.15 }
+  ];
+
+  // ============ CONFIG: UPGRADES ============
+  // Each upgrade is unique and bought once. `apply` mutates the modifiers object.
+  const UPGRADES = [
+    { id: "gloves",  icon: "🧤", name: "Sturdy Gloves",   desc: "Click power ×2",                 cost: 100,       apply: m => m.clickMult *= 2 },
+    { id: "pick",    icon: "⛏️", name: "Steel Pickaxe",    desc: "Click power ×2",                 cost: 1500,      apply: m => m.clickMult *= 2 },
+    { id: "cart",    icon: "🛒", name: "Auto Cart",        desc: "Click power ×2",                 cost: 30000,     apply: m => m.clickMult *= 2 },
+    { id: "drill",   icon: "🛠️", name: "Mega Drill",       desc: "Click power ×3",                 cost: 900000,    apply: m => m.clickMult *= 3 },
+    { id: "rally",   icon: "📣", name: "Rally Cry",        desc: "All buildings +25% output",      cost: 2500,      apply: m => m.genMult *= 1.25 },
+    { id: "guild",   icon: "⚜️", name: "Merchant Guild",   desc: "All buildings +35% output",      cost: 40000,     apply: m => m.genMult *= 1.35 },
+    { id: "reform",  icon: "📜", name: "Tax Reform",       desc: "All buildings +50% output",      cost: 1.5e6,     apply: m => m.genMult *= 1.5 },
+    { id: "fusion",  icon: "⚡", name: "Fusion Grid",      desc: "All buildings ×2 output",        cost: 6e7,       apply: m => m.genMult *= 2 },
+    { id: "synergy", icon: "🔗", name: "Empire Synergy",   desc: "Each building type +8% to all",  cost: 5e5,       apply: (m) => { m.synergy = true; } },
+    { id: "lottery", icon: "🎲", name: "Golden Lottery",   desc: "Offline earns 100% (not 50%)",   cost: 250000,    apply: m => { m.offlineBonus = 1.0; } }
+  ];
+
+  const PRESTIGE_CROWN_BONUS = 0.10; // +10% global income per crown
+  const OFFLINE_BASE_RATE = 0.5;     // earn 50% of income while away
+  const OFFLINE_CAP_HOURS = 8;       // cap offline earnings to 8 hours
+  const SAVE_KEY = "idleEmpireSave_v1";
+
+  // ============ GAME STATE ============
+  let state = defaultState();
+  let modifiers = {};
+  let bulk = 1; // 1, 10, 100, or "max"
+  let lastFrame = performance.now();
+  let uiAccum = 0;
+
+  function defaultState() {
+    const counts = {};
+    BUILDINGS.forEach(b => { counts[b.id] = 0; });
+    return {
+      gold: 0,
+      totalEarned: 0,
+      clickBase: 1,
+      crowns: 0,
+      prestigeCount: 0,
+      boughtUpgrades: {},
+      counts: counts,
+      lastSeen: Date.now()
+    };
+  }
+
+  // ============ NUMBER FORMATTING ============
+  function fmt(n) {
+    if (!isFinite(n)) return "∞";
+    if (n < 0) return "-" + fmt(-n);
+    if (n < 1000) return (n < 10 && n % 1 !== 0) ? n.toFixed(1) : String(Math.floor(n));
+    const units = ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"];
+    let u = 0;
+    while (n >= 1000 && u < units.length - 1) { n /= 1000; u++; }
+    const decimals = n < 10 ? 2 : n < 100 ? 1 : 0;
+    return n.toFixed(decimals) + units[u];
+  }
+
+  // ============ AUDIO (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  // ============ SAVE / LOAD ============
+  function save() {
+    try {
+      state.lastSeen = Date.now();
+      localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    } catch (e) { /* storage unavailable, ignore */ }
+  }
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return false;
+      const data = JSON.parse(raw);
+      const fresh = defaultState();
+      // Merge defensively so old/new saves never crash.
+      Object.assign(fresh, data);
+      fresh.counts = Object.assign({}, defaultState().counts, data.counts || {});
+      fresh.boughtUpgrades = data.boughtUpgrades || {};
+      state = fresh;
+      return true;
+    } catch (e) { return false; }
+  }
+
+  // ============ MODIFIERS ============
+  function recomputeModifiers() {
+    const m = {
+      clickMult: 1,
+      genMult: 1,
+      synergy: false,
+      offlineBonus: OFFLINE_BASE_RATE
+    };
+    UPGRADES.forEach(u => {
+      if (state.boughtUpgrades[u.id]) u.apply(m);
+    });
+    if (m.synergy) {
+      const types = BUILDINGS.filter(b => state.counts[b.id] > 0).length;
+      m.genMult *= 1 + 0.08 * types;
+    }
+    modifiers = m;
+  }
+
+  function prestigeMult() {
+    return 1 + state.crowns * PRESTIGE_CROWN_BONUS;
+  }
+
+  function clickPower() {
+    return state.clickBase * modifiers.clickMult * prestigeMult();
+  }
+
+  // Gold/sec from one building type (raw, before prestige).
+  function buildingRate(b, count) {
+    return b.rate * count * modifiers.genMult;
+  }
+
+  // Total gold/sec including prestige multiplier.
+  function totalPerSec() {
+    let sum = 0;
+    BUILDINGS.forEach(b => { sum += buildingRate(b, state.counts[b.id]); });
+    return sum * prestigeMult();
+  }
+
+  // ============ COST MATH ============
+  function costOfN(b, n, count) {
+    // Geometric series: base * growth^count * (growth^n - 1)/(growth - 1)
+    const g = b.growth;
+    return b.base * Math.pow(g, count) * (Math.pow(g, n) - 1) / (g - 1);
+  }
+
+  function maxAffordable(b, count) {
+    // Solve base*g^count*(g^n-1)/(g-1) <= gold  for n
+    const g = b.growth, gold = state.gold;
+    const a = b.base * Math.pow(g, count) / (g - 1);
+    if (a <= 0) return 0;
+    const inner = 1 + gold / a;
+    if (inner <= 1) return 0;
+    const n = Math.floor(Math.log(inner) / Math.log(g));
+    return Math.max(0, n);
+  }
+
+  function bulkCount(b) {
+    if (bulk === "max") return Math.max(1, maxAffordable(b, state.counts[b.id]));
+    return bulk;
+  }
+
+  // ============ ACTIONS ============
+  function press(ev) {
+    const gain = clickPower();
+    addGold(gain);
+    beep(520 + Math.random() * 120, 0.05, "triangle");
+    spawnFloat(ev, "+" + fmt(gain));
+  }
+
+  function addGold(amount) {
+    state.gold += amount;
+    state.totalEarned += amount;
+  }
+
+  function buyBuilding(b) {
+    const owned = state.counts[b.id];
+    const n = bulkCount(b);
+    const cost = costOfN(b, n, owned);
+    if (state.gold < cost) { beep(180, 0.09, "sawtooth"); return; }
+    state.gold -= cost;
+    state.counts[b.id] += n;
+    beep(700, 0.09, "square");
+    showToast("Bought " + n + "× " + b.name + " for " + fmt(cost));
+    recomputeModifiers();
+    render();
+    save();
+  }
+
+  function buyUpgrade(u) {
+    if (state.boughtUpgrades[u.id]) return;
+    if (state.gold < u.cost) { beep(180, 0.09, "sawtooth"); return; }
+    state.gold -= u.cost;
+    state.boughtUpgrades[u.id] = true;
+    beep(880, 0.16, "sine");
+    showToast("Upgrade: " + u.name);
+    recomputeModifiers();
+    render();
+    save();
+  }
+
+  function crownsGain() {
+    // Cube-root scaled against total earned this run for a gentle prestige curve.
+    if (state.totalEarned < 1e6) return 0;
+    return Math.floor(Math.pow(state.totalEarned / 1e6, 0.5));
+  }
+
+  function doPrestige() {
+    const gain = crownsGain();
+    if (gain < 1) { beep(180, 0.12, "sawtooth"); showToast("Earn at least 1M total gold to ascend."); return; }
+    const keepCrowns = state.crowns + gain;
+    state = defaultState();
+    state.crowns = keepCrowns;
+    state.prestigeCount = (state.prestigeCount || 0) + 1;
+    recomputeModifiers();
+    beep(300, 0.14, "sine");
+    setTimeout(() => beep(500, 0.14, "sine"), 120);
+    setTimeout(() => beep(760, 0.22, "sine"), 240);
+    showToast("Ascended! +" + gain + " crown(s) — permanent bonus now ×" + prestigeMult().toFixed(2));
+    render();
+    save();
+  }
+
+  function resetSave() {
+    try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+    state = defaultState();
+    recomputeModifiers();
+    beep(220, 0.12, "sawtooth");
+    showToast("Save reset. A fresh empire begins.");
+    render();
+    save();
+  }
+
+  // ============ OFFLINE EARNINGS ============
+  function applyOffline(secondsAway) {
+    const rate = totalPerSec();
+    if (rate <= 0 || secondsAway < 10) return 0;
+    const capped = Math.min(secondsAway, OFFLINE_CAP_HOURS * 3600);
+    const earned = rate * capped * modifiers.offlineBonus;
+    if (earned <= 0) return 0;
+    addGold(earned);
+    return earned;
+  }
+
+  // ============ RENDER: BUILDINGS ============
+  const genGrid = document.getElementById("genGrid");
+  const genEls = {};
+
+  function buildBuildingUI() {
+    genGrid.innerHTML = "";
+    BUILDINGS.forEach((b, i) => {
+      const el = document.createElement("button");
+      el.type = "button";
+      el.className = "gen";
+      el.innerHTML =
+        '<span class="icon">' + b.icon + '</span>' +
+        '<span class="info">' +
+          '<span class="name">' + b.name + '</span>' +
+          '<span class="meta">' +
+            '<b class="effRate">0/s</b> each · cost <span class="cost">0</span>' +
+          '</span>' +
+        '</span>' +
+        '<span class="owned">0</span>';
+      el.addEventListener("click", () => buyBuilding(b));
+      genGrid.appendChild(el);
+      genEls[b.id] = {
+        root: el,
+        owned: el.querySelector(".owned"),
+        cost: el.querySelector(".cost"),
+        effRate: el.querySelector(".effRate")
+      };
+    });
+  }
+
+  function renderBuildings() {
+    const pm = prestigeMult();
+    BUILDINGS.forEach(b => {
+      const o = genEls[b.id];
+      const count = state.counts[b.id];
+      const n = bulkCount(b);
+      const cost = costOfN(b, n, count);
+      const affordable = state.gold >= cost;
+      const eff = buildingRate(b, 1) * pm;
+      o.owned.textContent = count;
+      o.cost.textContent = fmt(cost) + (bulk === "max" ? "" : (n > 1 ? " ×" + n : ""));
+      o.effRate.textContent = fmt(eff) + "/s";
+      o.root.disabled = !affordable;
+      // Lock look until the previous tier is at least seen.
+      const prev = i_unlocked(b);
+      o.root.classList.toggle("locked", !prev);
+    });
+  }
+  function i_unlocked(b) {
+    const idx = BUILDINGS.indexOf(b);
+    if (idx === 0) return true;
+    const prevBuilding = BUILDINGS[idx - 1];
+    return state.counts[prevBuilding.id] > 0 || state.counts[b.id] > 0 || state.gold >= b.base * 0.5;
+  }
+
+  // ============ RENDER: UPGRADES ============
+  const upGrid = document.getElementById("upGrid");
+  const upEls = {};
+
+  function buildUpgradeUI() {
+    upGrid.innerHTML = "";
+    UPGRADES.forEach(u => {
+      const el = document.createElement("button");
+      el.type = "button";
+      el.className = "up";
+      el.innerHTML =
+        '<span class="icon">' + u.icon + '</span>' +
+        '<span class="info">' +
+          '<span class="name">' + u.name + '</span>' +
+          '<span class="desc">' + u.desc + '</span>' +
+          '<span class="cost">' + fmt(u.cost) + '</span>' +
+        '</span>';
+      el.addEventListener("click", () => buyUpgrade(u));
+      upGrid.appendChild(el);
+      upEls[u.id] = el;
+    });
+  }
+
+  function renderUpgrades() {
+    UPGRADES.forEach(u => {
+      const el = upEls[u.id];
+      const owned = !!state.boughtUpgrades[u.id];
+      if (owned) {
+        el.classList.add("owned");
+        el.disabled = true;
+        el.style.display = "";
+      } else {
+        el.classList.remove("owned");
+        el.disabled = state.gold < u.cost;
+        el.style.display = state.totalEarned >= u.cost * 0.25 ? "" : "none";
+      }
+    });
+  }
+
+  // ============ RENDER: TOP STATS ============
+  const coinsEl = document.getElementById("coins");
+  const perSecEl = document.getElementById("perSec");
+  const perClickEl = document.getElementById("perClick");
+  const totalEarnedEl = document.getElementById("totalEarned");
+  const prestigeBonusEl = document.getElementById("prestigeBonus");
+  const pressSubEl = document.getElementById("pressSub");
+  const prestigeBadge = document.getElementById("prestigeBadge");
+  const crownsNowEl = document.getElementById("crownsNow");
+  const crownMultEl = document.getElementById("crownMult");
+  const crownsGainEl = document.getElementById("crownsGain");
+  const prestigePctEl = document.getElementById("prestigePct");
+  const btnPrestige = document.getElementById("btnPrestige");
+  const btnPrestige2 = document.getElementById("btnPrestige2");
+
+  function renderTop() {
+    coinsEl.textContent = fmt(state.gold);
+    perSecEl.textContent = fmt(totalPerSec()) + "/s";
+    perClickEl.textContent = fmt(clickPower());
+    pressSubEl.textContent = "+" + fmt(clickPower()) + " per click";
+    totalEarnedEl.textContent = fmt(state.totalEarned);
+    prestigeBonusEl.textContent = "×" + prestigeMult().toFixed(2);
+    if (state.crowns > 0) {
+      prestigeBadge.textContent = "· 👑 " + state.crowns + " (" + Math.round(state.crowns * PRESTIGE_CROWN_BONUS * 100) + "%)";
+    } else {
+      prestigeBadge.textContent = "";
+    }
+    prestigePctEl.textContent = Math.round(PRESTIGE_CROWN_BONUS * 100);
+    crownsNowEl.textContent = state.crowns;
+    crownMultEl.textContent = "×" + prestigeMult().toFixed(2);
+    const gain = crownsGain();
+    crownsGainEl.textContent = gain;
+    btnPrestige.disabled = gain < 1;
+    btnPrestige2.disabled = gain < 1;
+  }
+
+  function render() {
+    renderTop();
+    renderBuildings();
+    renderUpgrades();
+  }
+
+  // ============ FLOATING TEXT + TOAST ============
+  function spawnFloat(ev, text) {
+    const el = document.createElement("div");
+    el.className = "float";
+    el.textContent = text;
+    const x = ev && ev.clientX ? ev.clientX : window.innerWidth / 2;
+    const y = ev && ev.clientY ? ev.clientY : window.innerHeight / 2;
+    el.style.left = x + "px";
+    el.style.top = (y - 10) + "px";
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 900);
+  }
+
+  let toastTimer = null;
+  const toastEl = document.getElementById("toast");
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2200);
+  }
+
+  // ============ IDLE LOOP (requestAnimationFrame + timestamps) ============
+  let raf = null;
+  function loop(now) {
+    const dt = Math.min((now - lastFrame) / 1000, 1); // clamp big gaps
+    lastFrame = now;
+
+    const rate = totalPerSec();
+    if (rate > 0) addGold(rate * dt);
+
+    uiAccum += dt;
+    if (uiAccum >= 0.1) { // refresh UI ~10x/sec (not every frame)
+      uiAccum = 0;
+      render();
+    }
+    raf = requestAnimationFrame(loop);
+  }
+
+  // ============ WIRING ============
+  const pressBtn = document.getElementById("pressBtn");
+  pressBtn.addEventListener("click", press);
+
+  document.getElementById("btnPrestige").addEventListener("click", doPrestige);
+  document.getElementById("btnPrestige2").addEventListener("click", doPrestige);
+  document.getElementById("btnReset").addEventListener("click", resetSave);
+
+  document.querySelectorAll(".chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      document.querySelectorAll(".chip").forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
+      const v = chip.dataset.bulk;
+      bulk = (v === "max") ? "max" : parseInt(v, 10);
+      beep(600, 0.04, "triangle");
+      render();
+    });
+  });
+
+  // Keyboard: press SPACE to mine.
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "Space") {
+      e.preventDefault();
+      press({ clientX: window.innerWidth / 2, clientY: 240 });
+    }
+  });
+
+  // Pause loop when tab hidden (saves cycles); catch up on visibility.
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      save();
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+    } else if (!raf) {
+      lastFrame = performance.now();
+      raf = requestAnimationFrame(loop);
+    }
+  });
+
+  window.addEventListener("beforeunload", save);
+  setInterval(save, 15000); // periodic autosave
+
+  // ============ BOOT ============
+  function boot() {
+    const hadSave = load();
+    recomputeModifiers();
+
+    if (hadSave) {
+      const away = (Date.now() - (state.lastSeen || Date.now())) / 1000;
+      const earned = applyOffline(away);
+      if (earned > 0) {
+        const secs = Math.floor(away);
+        const h = Math.floor(secs / 3600), m2 = Math.floor((secs % 3600) / 60);
+        const awayStr = h > 0 ? h + "h " + m2 + "m" : m2 + "m";
+        showToast("Welcome back! Away " + awayStr + " → +" + fmt(earned) + " gold");
+      }
+    }
+
+    buildBuildingUI();
+    buildUpgradeUI();
+    render();
+    lastFrame = performance.now();
+    raf = requestAnimationFrame(loop);
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Wind Chimes — a quiet musical toy</title>
+<style>
+/* ============ RESET & THEME ============ */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --paper:#f4efe4;--paper-2:#e8e0cf;--ink:#3a352c;--muted:#8c8374;
+  --brass:#c9a24a;--brass-2:#8b6d2c;--sage:#7d9b83;--line:rgba(58,53,44,.14);
+}
+body{
+  font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
+  background:radial-gradient(120% 80% at 50% -10%,#fffaf0 0%,var(--paper) 45%,var(--paper-2) 100%);
+  color:var(--ink);min-height:100vh;display:flex;justify-content:center;align-items:center;
+  padding:20px;touch-action:none;-webkit-tap-highlight-color:transparent;
+}
+/* ============ SHELL ============ */
+.app{width:100%;max-width:760px;display:flex;flex-direction:column;gap:14px}
+.masthead{text-align:center}
+.title{font-family:Georgia,'Times New Roman',serif;font-weight:400;font-style:italic;font-size:2.1rem;letter-spacing:.04em}
+.title .day{display:block;font-style:normal;font-size:.62rem;letter-spacing:.42em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.subtitle{font-size:.86rem;color:var(--muted);margin-top:6px}
+/* ============ STAGE ============ */
+.stage{
+  position:relative;border-radius:18px;overflow:hidden;background:#dfe6e2;
+  box-shadow:0 1px 0 rgba(255,255,255,.7) inset,0 18px 40px -18px rgba(58,53,44,.5),0 4px 14px rgba(58,53,44,.12);
+  border:1px solid rgba(58,53,44,.16);
+}
+canvas{display:block;width:100%;height:auto;cursor:grab}
+canvas.grabbing{cursor:grabbing}
+.hint{position:absolute;left:14px;bottom:12px;font-size:.72rem;color:rgba(58,53,44,.55);pointer-events:none}
+/* ============ CONTROLS ============ */
+.controls{
+  display:grid;grid-template-columns:1.6fr auto;gap:12px;align-items:center;
+  background:rgba(255,255,255,.55);border:1px solid var(--line);border-radius:16px;padding:14px 16px;
+}
+.field{display:flex;flex-direction:column;gap:8px;min-width:0}
+.field-label{font-size:.68rem;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between}
+.field-label b{font-weight:600;color:var(--brass-2);letter-spacing:.08em}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:4px;
+  background:linear-gradient(90deg,var(--sage),var(--brass));outline:none;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:20px;height:20px;border-radius:50%;cursor:grab;
+  background:radial-gradient(circle at 35% 30%,#fff,#d9cba6 60%,var(--brass-2));
+  border:1px solid rgba(120,96,40,.5);box-shadow:0 2px 6px rgba(58,53,44,.3);
+}
+input[type=range]::-moz-range-thumb{
+  width:18px;height:18px;border-radius:50%;cursor:grab;
+  background:radial-gradient(circle at 35% 30%,#fff,#d9cba6 60%,var(--brass-2));
+  border:1px solid rgba(120,96,40,.5);box-shadow:0 2px 6px rgba(58,53,44,.3);
+}
+.buttons{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+button{
+  font:inherit;font-size:.8rem;letter-spacing:.03em;padding:9px 15px;border-radius:11px;
+  border:1px solid rgba(58,53,44,.2);background:rgba(255,255,255,.75);color:var(--ink);
+  cursor:pointer;transition:transform .12s ease,background .2s ease,box-shadow .2s ease;white-space:nowrap;
+}
+button:hover{transform:translateY(-2px);background:#fff;box-shadow:0 6px 14px -6px rgba(58,53,44,.4)}
+button:active{transform:translateY(0)}
+button.ghost{background:transparent}
+.sets{display:flex;gap:8px;flex-wrap:wrap;grid-column:1/-1;justify-content:center;padding-top:6px;border-top:1px dashed var(--line)}
+.sets button{padding:7px 14px;border-radius:20px;font-size:.76rem}
+.sets button.on{background:linear-gradient(180deg,#f4e2ac,var(--brass));border-color:var(--brass-2);color:#43340f;font-weight:600;box-shadow:0 4px 12px -4px rgba(139,109,44,.8)}
+/* ============ RESPONSIVE ============ */
+@media(max-width:560px){
+  .title{font-size:1.6rem}
+  .controls{grid-template-columns:1fr}
+  .buttons{justify-content:center}
+  .hint{font-size:.66rem}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="masthead">
+    <h1 class="title"><span class="day">a quiet musical toy</span>Wind Chimes</h1>
+    <p class="subtitle">Drag the clapper, pluck a tube, or simply let the breeze do the work.</p>
+  </header>
+  <div class="stage">
+    <canvas id="scene"></canvas>
+    <div class="hint">drag the clapper &middot; tap a tube &middot; wind slider below</div>
+  </div>
+  <div class="controls">
+    <div class="field">
+      <label class="field-label" for="wind">Breeze <b id="windVal">30%</b></label>
+      <input type="range" id="wind" min="0" max="100" value="30">
+    </div>
+    <div class="buttons">
+      <button id="gustBtn">Gust</button>
+      <button id="resetBtn" class="ghost">Reset</button>
+    </div>
+    <div class="sets" id="sets"></div>
+  </div>
+</div>
+<script>
+"use strict";
+// ============ CANVAS & SIZING ============
+const canvas = document.getElementById('scene');
+const ctx = canvas.getContext('2d');
+const stage = canvas.parentElement;
+let W = 800, H = 620, dpr = 1;
+
+function resize() {
+  const cssW = Math.max(280, stage.clientWidth);
+  W = Math.round(cssW);
+  H = Math.round(Math.max(320, Math.min(cssW * 0.82, window.innerHeight * 0.62)));
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.style.height = H + 'px';
+  canvas.width = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  layout();
+}
+
+// ============ MUSICAL SCALE (C major pentatonic) ============
+const SCALE = [
+  261.63, 293.66, 329.63, 392.00, 440.00,   // C4 D4 E4 G4 A4
+  523.25, 587.33, 659.25, 783.99, 880.00,   // C5 D5 E5 G5 A5
+  1046.50, 1174.66                          // C6 D6
+];
+const SETS = {
+  trio:   { name: 'Trio',   notes: [3, 5, 7],             hue: 44 },
+  five:   { name: 'Five',   notes: [5, 6, 7, 8, 9],       hue: 40 },
+  seven:  { name: 'Seven',  notes: [3, 4, 5, 6, 7, 8, 9], hue: 34 },
+  bamboo: { name: 'Bamboo', notes: [2, 3, 5, 6, 7, 8],    hue: 96 }
+};
+const SET_ORDER = ['trio', 'five', 'seven', 'bamboo'];
+
+// ============ PHYSICS CONSTANTS ============
+const GRAV = 2050;        // px/s^2 restoring force for the pendulums
+const REF_LEN = 320;      // reference tube length for wind scaling
+const STRING_FRAC = 0.16; // fraction of the pendulum that is bare string
+const DAMP = 0.6;         // angular damping
+
+// ============ WORLD STATE ============
+let chimes = [];
+let striker = { x: 0, y: 0, vx: 0, vy: 0, r: 15, grabbed: false };
+let wind = 0.30, gust = 0, time = 0, lastT = 0;
+let streakList = [], beamY = 0, pivotY = 0, bgGrad = null, activeSet = 'five';
+
+// ============ AUDIO ENGINE ============
+let actx = null, master = null, reverb = null, wetGain = null, voices = 0;
+
+function makeImpulse(seconds, decay) {
+  const rate = actx.sampleRate, len = Math.floor(rate * seconds);
+  const buf = actx.createBuffer(2, len, rate);
+  for (let c = 0; c < 2; c++) {
+    const d = buf.getChannelData(c);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+  }
+  return buf;
+}
+
+function ensureAudio() {
+  if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  actx = new AC();
+  master = actx.createGain(); master.gain.value = 0.55;
+  const warm = actx.createBiquadFilter(); warm.type = 'lowpass'; warm.frequency.value = 4600;
+  reverb = actx.createConvolver(); reverb.buffer = makeImpulse(2.6, 2.8);
+  wetGain = actx.createGain(); wetGain.gain.value = 0.30;
+  master.connect(warm); warm.connect(actx.destination);
+  warm.connect(reverb); reverb.connect(wetGain); wetGain.connect(actx.destination);
+}
+
+// Soft struck-metal tone: fundamental + faint inharmonic partials.
+function playChime(freq, vol) {
+  if (!actx || actx.state !== 'running' || voices > 14) return;
+  voices++; setTimeout(() => { voices--; }, 2600);
+  const t = actx.currentTime + 0.001;
+  const amp = Math.max(0.04, Math.min(0.34, vol));
+  const env = actx.createGain();
+  env.gain.setValueAtTime(0.0001, t);
+  env.gain.exponentialRampToValueAtTime(amp, t + 0.012);
+  env.gain.exponentialRampToValueAtTime(0.0001, t + 2.4);
+  env.connect(master);
+  const partials = [[1, 1], [2.01, 0.17], [3.03, 0.06], [4.16, 0.025]];
+  for (const [mult, a] of partials) {
+    const o = actx.createOscillator(); o.type = 'sine'; o.frequency.value = freq * mult;
+    const pg = actx.createGain(); pg.gain.value = a;
+    o.connect(pg); pg.connect(env); o.start(t); o.stop(t + 2.5);
+  }
+}
+
+// ============ LAYOUT ============
+function layout() {
+  beamY = H * 0.14; pivotY = beamY;
+  bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+  bgGrad.addColorStop(0.0, '#e9efe9');
+  bgGrad.addColorStop(0.42, '#eef1e8');
+  bgGrad.addColorStop(1.0, '#f6efe2');
+  buildSet(activeSet, true);
+  striker.x = W * 0.5; striker.y = H * 0.72;
+  buildStreaks();
+}
+
+function buildStreaks() {
+  streakList = [];
+  for (let i = 0; i < 16; i++) {
+    streakList.push({
+      x: Math.random() * W,
+      y: beamY + 28 + Math.random() * (H - beamY - 60),
+      len: 26 + Math.random() * 70,
+      spd: 0.4 + Math.random() * 1.1,
+      a: 0.25 + Math.random() * 0.75
+    });
+  }
+}
+
+// Build the hanging tubes for a set; higher notes get shorter tubes.
+function buildSet(key, keepMotion) {
+  activeSet = key;
+  const cfg = SETS[key], n = cfg.notes.length;
+  const margin = Math.max(38, W * 0.13), span = W - margin * 2, ref = 523.25;
+  const prev = {};
+  if (keepMotion) chimes.forEach(c => { prev[c.freq] = { a: c.angle, v: c.angVel }; });
+  chimes = [];
+  for (let i = 0; i < n; i++) {
+    const freq = SCALE[cfg.notes[i]];
+    const x = n === 1 ? W / 2 : margin + span * (i / (n - 1));
+    const len = H * 0.44 * Math.pow(ref / freq, 0.5);
+    const keep = prev[freq];
+    chimes.push({
+      px: x, py: pivotY, len, w: Math.max(9, 15 - i * 0.7),
+      stringLen: len * STRING_FRAC,
+      angle: keep ? keep.a : (Math.random() - 0.5) * 0.14,
+      angVel: keep ? keep.v : (Math.random() - 0.5) * 0.25,
+      freq, hue: cfg.hue + (i - n / 2) * 6,
+      windK: 0.85 + Math.random() * 0.5,
+      phase: Math.random() * Math.PI * 2, cool: 0
+    });
+  }
+  renderSetButtons();
+}
+
+function renderSetButtons() {
+  const wrap = document.getElementById('sets');
+  wrap.innerHTML = '';
+  SET_ORDER.forEach(k => {
+    const b = document.createElement('button');
+    b.textContent = SETS[k].name;
+    if (k === activeSet) b.classList.add('on');
+    b.addEventListener('click', () => { ensureAudio(); buildSet(k, true); });
+    wrap.appendChild(b);
+  });
+}
+
+// ============ GEOMETRY HELPERS ============
+function bobOf(c) {
+  return { x: c.px + Math.sin(c.angle) * c.len, y: c.py + Math.cos(c.angle) * c.len };
+}
+function tubeStart(c) {
+  return { x: c.px + Math.sin(c.angle) * c.stringLen, y: c.py + Math.cos(c.angle) * c.stringLen };
+}
+function closestOnSeg(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy || 1;
+  let t = ((px - ax) * dx + (py - ay) * dy) / L2;
+  t = Math.max(0, Math.min(1, t));
+  return { x: ax + dx * t, y: ay + dy * t, t };
+}
+
+// ============ PHYSICS ============
+function updateChimes(dt) {
+  for (const c of chimes) {
+    const turb = 0.7 + 0.3 * Math.sin(time * 0.7 + c.phase);
+    const w = (wind + gust) * turb;
+    let acc = -(GRAV / c.len) * Math.sin(c.angle);
+    acc += w * c.windK * 7.0 * Math.cos(c.angle) * (REF_LEN / c.len);
+    c.angVel += acc * dt;
+    c.angVel -= c.angVel * DAMP * dt;
+    c.angle += c.angVel * dt;
+    const LIM = 1.35; // swings stay courtly — never a full rotation
+    if (c.angle > LIM) { c.angle = LIM; c.angVel *= -0.28; }
+    if (c.angle < -LIM) { c.angle = -LIM; c.angVel *= -0.28; }
+    if (c.cool > 0) c.cool -= dt;
+  }
+  // Chime ↔ chime collisions (bobs crossing paths).
+  for (let i = 0; i < chimes.length; i++) {
+    for (let j = i + 1; j < chimes.length; j++) {
+      const a = chimes[i], b = chimes[j];
+      const ba = bobOf(a), bb = bobOf(b);
+      const dx = bb.x - ba.x, dy = bb.y - ba.y;
+      const d = Math.hypot(dx, dy) || 0.001;
+      if (d < a.w + b.w + 2) {
+        const nx = dx / d;
+        const rel = (b.angVel * b.len) - (a.angVel * a.len);
+        const imp = Math.abs(a.angVel * a.len - b.angVel * b.len);
+        if (imp > 26) {
+          const vol = Math.min(0.3, 0.05 + imp / 2600);
+          if (a.cool <= 0) { playChime(a.freq, vol); a.cool = 0.09; }
+          if (b.cool <= 0) { playChime(b.freq, vol * 0.8); b.cool = 0.09; }
+        }
+        const push = 0.34 * (rel >= 0 ? 1 : -1);
+        if (nx > 0) { a.angVel -= push; b.angVel += push; }
+        else { a.angVel += push; b.angVel -= push; }
+      }
+    }
+  }
+}
+
+function updateStriker(dt) {
+  if (!striker.grabbed) {
+    striker.x += striker.vx * dt; striker.y += striker.vy * dt;
+    const f = Math.exp(-1.4 * dt);
+    striker.vx *= f; striker.vy *= f;
+    striker.vx += (wind + gust) * 60 * dt;
+    const m = striker.r + 6;
+    if (striker.x < m) { striker.x = m; striker.vx = Math.abs(striker.vx) * 0.72; }
+    if (striker.x > W - m) { striker.x = W - m; striker.vx = -Math.abs(striker.vx) * 0.72; }
+    if (striker.y < beamY + 24) { striker.y = beamY + 24; striker.vy = Math.abs(striker.vy) * 0.72; }
+    if (striker.y > H - m) { striker.y = H - m; striker.vy = -Math.abs(striker.vy) * 0.72; }
+  }
+  // Striker ↔ tube collisions.
+  for (const c of chimes) {
+    const s = tubeStart(c), b = bobOf(c);
+    const p = closestOnSeg(striker.x, striker.y, s.x, s.y, b.x, b.y);
+    const dx = striker.x - p.x, dy = striker.y - p.y;
+    const d = Math.hypot(dx, dy) || 0.001;
+    const reach = striker.r + c.w * 0.9;
+    if (d < reach) {
+      const nx = dx / d, ny = dy / d;
+      const tx = Math.cos(c.angle), ty = -Math.sin(c.angle); // tangential swing direction
+      const vt = striker.vx * tx + striker.vy * ty;
+      if (Math.abs(vt) > 30 && c.cool <= 0) {
+        playChime(c.freq, Math.min(0.34, 0.06 + Math.abs(vt) / 900));
+        c.cool = 0.07;
+      }
+      c.angVel += (vt * 0.62) / c.len;
+      const overlap = reach - d;
+      striker.x += nx * overlap; striker.y += ny * overlap;
+      const vn = striker.vx * nx + striker.vy * ny;
+      if (vn < 0) { striker.vx -= 1.45 * vn * nx; striker.vy -= 1.45 * vn * ny; }
+      striker.vx *= 0.9; striker.vy *= 0.9;
+    }
+  }
+}
+
+// ============ RENDERING ============
+function drawBackground() {
+  ctx.fillStyle = bgGrad || '#eef1e8';
+  ctx.fillRect(0, 0, W, H);
+  const inten = Math.min(1, wind + gust);
+  if (inten > 0.04) {
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(120,150,140,0.16)';
+    for (const s of streakList) {
+      ctx.globalAlpha = s.a * inten;
+      ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x + s.len, s.y); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawBeam() {
+  const x = W * 0.06, w = W * 0.88, h = 16, y = beamY - h / 2;
+  const g = ctx.createLinearGradient(0, y, 0, y + h);
+  g.addColorStop(0, '#a58254'); g.addColorStop(0.5, '#8a6a44'); g.addColorStop(1, '#5f452a');
+  ctx.save();
+  ctx.shadowColor = 'rgba(58,53,44,0.35)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 6;
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, 7); ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = 'rgba(58,53,44,0.5)';
+  [0.06, 0.94].forEach(f => { ctx.beginPath(); ctx.roundRect(W * f - 3, beamY - 22, 6, 16, 3); ctx.fill(); });
+}
+
+function drawChimes() {
+  for (const c of chimes) {
+    const b = bobOf(c);
+    ctx.strokeStyle = 'rgba(74,64,50,0.45)'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(c.px, c.py); ctx.lineTo(b.x, b.y); ctx.stroke();
+
+    ctx.save();
+    ctx.translate(c.px, c.py); ctx.rotate(c.angle);
+    const hw = c.w / 2, top = c.stringLen, bot = c.len;
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(58,53,44,0.28)'; ctx.shadowBlur = 12; ctx.shadowOffsetX = 6; ctx.shadowOffsetY = 4;
+    const grad = ctx.createLinearGradient(-hw, 0, hw, 0);
+    grad.addColorStop(0.00, 'hsl(' + c.hue + ',42%,34%)');
+    grad.addColorStop(0.28, 'hsl(' + c.hue + ',62%,66%)');
+    grad.addColorStop(0.50, 'hsl(' + c.hue + ',78%,86%)');
+    grad.addColorStop(0.74, 'hsl(' + c.hue + ',55%,55%)');
+    grad.addColorStop(1.00, 'hsl(' + c.hue + ',46%,30%)');
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.roundRect(-hw, top, c.w, bot - top, hw * 0.9); ctx.fill();
+    ctx.restore();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.beginPath(); ctx.ellipse(0, top + 2, hw * 0.8, 2.4, 0, 0, Math.PI * 2); ctx.fill();
+
+    ctx.strokeStyle = 'rgba(60,48,26,0.22)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, top + c.w * 0.9); ctx.lineTo(0, bot - c.w * 0.9); ctx.stroke();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.beginPath(); ctx.roundRect(-hw * 0.55, top + 4, hw * 0.28, (bot - top) * 0.72, 3); ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawStriker() {
+  const s = striker;
+  const glow = Math.min(1, Math.hypot(s.vx, s.vy) / 900);
+  ctx.save();
+  ctx.shadowColor = 'rgba(58,53,44,0.4)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 5;
+  const g = ctx.createRadialGradient(s.x - s.r * 0.35, s.y - s.r * 0.4, s.r * 0.15, s.x, s.y, s.r * 1.1);
+  g.addColorStop(0, '#f3dfae'); g.addColorStop(0.45, '#c9a24a'); g.addColorStop(1, '#7a5c26');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  ctx.strokeStyle = 'rgba(125,155,131,0.85)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(s.x, s.y, s.r - 2.5, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.beginPath(); ctx.arc(s.x - s.r * 0.34, s.y - s.r * 0.38, s.r * 0.26, 0, Math.PI * 2); ctx.fill();
+
+  if (glow > 0.05) {
+    ctx.strokeStyle = 'rgba(201,162,74,' + (glow * 0.5).toFixed(3) + ')'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r + 4 + glow * 5, 0, Math.PI * 2); ctx.stroke();
+  }
+}
+
+function render() {
+  drawBackground(); drawBeam(); drawChimes(); drawStriker();
+}
+
+// ============ MAIN LOOP ============
+function frame(now) {
+  const dt = Math.min(0.034, (now - lastT) / 1000 || 0.016);
+  lastT = now; time += dt;
+  gust = gust > 0.001 ? Math.max(0, gust - dt * 0.55) : 0;
+
+  updateChimes(dt);
+  updateStriker(dt);
+
+  const inten = Math.min(1, wind + gust);
+  for (const s of streakList) {
+    s.x += (10 + inten * 220) * s.spd * dt;
+    if (s.x > W + s.len) { s.x = -s.len; s.y = beamY + 28 + Math.random() * (H - beamY - 60); }
+  }
+  render();
+  requestAnimationFrame(frame);
+}
+
+// ============ INPUT ============
+function toLocal(e) {
+  const r = canvas.getBoundingClientRect();
+  const cx = e.touches ? e.touches[0].clientX : e.clientX;
+  const cy = e.touches ? e.touches[0].clientY : e.clientY;
+  return { x: (cx - r.left) * (W / r.width), y: (cy - r.top) * (H / r.height) };
+}
+
+function onDown(e) {
+  ensureAudio();
+  const p = toLocal(e);
+  if (Math.hypot(p.x - striker.x, p.y - striker.y) < striker.r + 26) {
+    striker.grabbed = true; canvas.classList.add('grabbing');
+    striker.vx = 0; striker.vy = 0; striker.x = p.x; striker.y = p.y;
+    e.preventDefault(); return;
+  }
+  // Tap a tube to pluck it.
+  let best = null, bestD = 1e9;
+  for (const c of chimes) {
+    const s = tubeStart(c), b = bobOf(c);
+    const q = closestOnSeg(p.x, p.y, s.x, s.y, b.x, b.y);
+    const d = Math.hypot(p.x - q.x, p.y - q.y);
+    if (d < c.w + 20 && d < bestD) { best = { c, side: q.x - c.px >= 0 ? 1 : -1, along: q.t }; bestD = d; }
+  }
+  if (best) {
+    const c = best.c;
+    c.angVel += best.side * (2.6 + 3.2 * best.along);
+    if (c.cool <= 0) { playChime(c.freq, 0.24); c.cool = 0.08; }
+    e.preventDefault();
+  }
+}
+
+function onMove(e) {
+  if (!striker.grabbed) return;
+  const p = toLocal(e);
+  striker.vx = Math.max(-2400, Math.min(2400, (p.x - striker.x) / 0.016));
+  striker.vy = Math.max(-2400, Math.min(2400, (p.y - striker.y) / 0.016));
+  striker.x = p.x; striker.y = p.y;
+  e.preventDefault();
+}
+
+function onUp(e) {
+  if (striker.grabbed) {
+    striker.grabbed = false; canvas.classList.remove('grabbing');
+    striker.vx *= 0.85; striker.vy *= 0.85;
+  }
+  if (e) e.preventDefault();
+}
+
+// ============ CONTROLS ============
+const windSlider = document.getElementById('wind');
+const windVal = document.getElementById('windVal');
+
+function blowGust() {
+  ensureAudio();
+  gust = 1.1;
+  chimes.forEach(c => { c.angVel += (Math.random() * 0.6 + 0.35) * (Math.random() < 0.5 ? 1 : -1); });
+}
+
+windSlider.addEventListener('input', () => {
+  wind = windSlider.value / 100;
+  windVal.textContent = windSlider.value + '%';
+});
+document.getElementById('gustBtn').addEventListener('click', blowGust);
+document.getElementById('resetBtn').addEventListener('click', reset);
+
+function reset() {
+  gust = 0; wind = 0.30;
+  windSlider.value = 30; windVal.textContent = '30%';
+  chimes.forEach(c => { c.angle = 0; c.angVel = 0; c.cool = 0; });
+  striker.x = W * 0.5; striker.y = H * 0.72;
+  striker.vx = 0; striker.vy = 0; striker.grabbed = false;
+  canvas.classList.remove('grabbing');
+  buildStreaks();
+}
+
+// ============ EVENTS ============
+canvas.addEventListener('mousedown', onDown);
+window.addEventListener('mousemove', onMove);
+window.addEventListener('mouseup', onUp);
+canvas.addEventListener('touchstart', onDown, { passive: false });
+window.addEventListener('touchmove', onMove, { passive: false });
+window.addEventListener('touchend', onUp, { passive: false });
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); blowGust(); }
+  else if (e.code === 'KeyR') { e.preventDefault(); reset(); }
+});
+
+window.addEventListener('resize', resize);
+if (window.ResizeObserver) new ResizeObserver(resize).observe(stage);
+
+// ============ BOOT ============
+resize();
+requestAnimationFrame(t => { lastT = t; requestAnimationFrame(frame); });
+</script>
+</body>
+</html>

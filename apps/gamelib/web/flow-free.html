@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Color Flow</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(1200px 800px at 50% -10%, #1d2a44 0%, #0f1523 55%, #090d16 100%);
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+    color: #e8eefc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+    overflow: hidden;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ============ LAYOUT ============ */
+  #app {
+    width: min(96vw, 560px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .title {
+    text-align: center;
+    font-size: clamp(1.4rem, 5vw, 2rem);
+    font-weight: 800;
+    letter-spacing: 3px;
+    background: linear-gradient(90deg, #ff4d6d, #ffd23f, #4dd2ff, #b06bff, #ff4d6d);
+    background-size: 220% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: flow 6s linear infinite;
+    text-shadow: 0 0 22px rgba(77, 210, 255, 0.15);
+  }
+  @keyframes flow { to { background-position: 220% center; } }
+
+  /* ============ HUD ============ */
+  .hud {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .pill {
+    flex: 1;
+    text-align: center;
+    padding: 8px 6px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    font-size: 0.78rem;
+    letter-spacing: 1px;
+    color: #9fb0d0;
+    text-transform: uppercase;
+  }
+  .pill b {
+    display: block;
+    margin-top: 2px;
+    font-size: 1.05rem;
+    color: #eaf1ff;
+    letter-spacing: 0;
+  }
+
+  /* ============ BOARD ============ */
+  #board-wrap {
+    position: relative;
+    width: 100%;
+    border-radius: 18px;
+    overflow: hidden;
+    background: #141a29;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    touch-action: none;
+    cursor: pointer;
+  }
+
+  /* ============ OVERLAYS ============ */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 24px;
+    text-align: center;
+    background: rgba(8, 12, 20, 0.86);
+    backdrop-filter: blur(4px);
+    transition: opacity 0.25s ease;
+    z-index: 5;
+  }
+  .overlay.hidden { opacity: 0; pointer-events: none; }
+  .overlay h2 {
+    font-size: clamp(1.3rem, 5.5vw, 1.9rem);
+    letter-spacing: 2px;
+    color: #fff;
+  }
+  .overlay p { color: #a8b8d8; font-size: 0.92rem; line-height: 1.5; max-width: 320px; }
+  .overlay .moves-line { color: #ffd23f; font-weight: 700; letter-spacing: 1px; }
+
+  /* ============ BUTTONS ============ */
+  .btn {
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 12px 34px;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    color: #0b0f17;
+    background: linear-gradient(135deg, #4dd2ff, #b06bff);
+    box-shadow: 0 8px 22px rgba(77, 210, 255, 0.28);
+    transition: transform 0.08s ease, box-shadow 0.2s ease;
+    user-select: none;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(176, 107, 255, 0.35); }
+  .btn:active { transform: translateY(1px); }
+  .btn.ghost {
+    background: rgba(255, 255, 255, 0.07);
+    color: #cfe0ff;
+    box-shadow: none;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    padding: 10px 20px;
+    font-size: 0.85rem;
+  }
+
+  /* ============ CONTROLS ============ */
+  .controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .controls .btn.ghost { padding: 9px 22px; font-size: 0.88rem; }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1 class="title">COLOR FLOW</h1>
+
+  <div class="hud">
+    <div class="pill">Level<b id="hud-level">1 / 6</b></div>
+    <div class="pill">Grid<b id="hud-size">5 x 5</b></div>
+    <div class="pill">Moves<b id="hud-moves">0</b></div>
+  </div>
+
+  <div id="board-wrap">
+    <canvas id="board" width="360" height="360"></canvas>
+
+    <!-- Start screen -->
+    <div id="startScreen" class="overlay">
+      <h2>COLOR FLOW</h2>
+      <p>Connect every matching pair of dots with a pipe. Pipes can't cross, and the whole board must be filled. Drag from a dot to route; grab a pipe again to redraw it.</p>
+      <button class="btn" id="startBtn" type="button">Start</button>
+      <button class="btn ghost" id="resetProgressBtn" type="button">Reset Progress</button>
+    </div>
+
+    <!-- Win screen -->
+    <div id="winScreen" class="overlay hidden">
+      <h2 id="winTitle">LEVEL COMPLETE</h2>
+      <p class="moves-line" id="winMoves">Moves: 0</p>
+      <p id="winNote">Nice routing!</p>
+      <button class="btn" id="nextBtn" type="button">Next Level</button>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn ghost" id="resetLevelBtn" type="button">Reset Level</button>
+    <button class="btn ghost" id="menuBtn" type="button">Menu</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ LEVEL DATA (hand-made, each derived from a full-cover solution) ============
+  // Each level: { n: gridSize, pairs: [ [ [r1,c1], [r2,c2] ], ... one pair per color ] }.
+  // Every level is solvable AND every cell is coverable, because all endpoints come
+  // from cutting a single Hamiltonian path that visits all n*n cells exactly once.
+  const LEVELS = [
+    { n: 5, pairs: [
+      [[0, 0], [1, 3]], [[1, 2], [2, 2]], [[2, 3], [3, 1]], [[3, 0], [4, 4]]
+    ] },
+    { n: 6, pairs: [
+      [[0, 0], [1, 4]], [[1, 3], [2, 2]], [[2, 3], [3, 2]], [[3, 1], [4, 4]], [[4, 5], [5, 0]]
+    ] },
+    { n: 7, pairs: [
+      [[0, 0], [5, 1]], [[4, 1], [2, 2]], [[3, 2], [3, 3]], [[2, 3], [4, 4]], [[5, 4], [1, 5]], [[0, 5], [6, 6]]
+    ] },
+    { n: 8, pairs: [
+      [[0, 0], [1, 6]], [[1, 5], [2, 2]], [[2, 3], [3, 4]], [[3, 3], [4, 4]],
+      [[4, 5], [5, 2]], [[5, 1], [6, 6]], [[6, 7], [7, 0]]
+    ] },
+    { n: 9, pairs: [
+      [[0, 0], [2, 8]], [[3, 8], [8, 4]], [[8, 3], [2, 0]], [[1, 0], [3, 7]],
+      [[4, 7], [7, 1]], [[6, 1], [2, 6]], [[3, 6], [4, 2]], [[3, 2], [4, 4]]
+    ] },
+    { n: 9, pairs: [
+      [[0, 0], [1, 5]], [[1, 4], [2, 6]], [[2, 7], [3, 0]], [[4, 0], [5, 8]], [[5, 7], [6, 0]],
+      [[6, 1], [6, 8]], [[7, 8], [7, 2]], [[7, 1], [8, 3]], [[8, 4], [8, 8]]
+    ] }
+  ];
+
+  // Vivid, distinct palette (one per color index)
+  const COLORS = [
+    "#ff4d6d", "#4dd2ff", "#5ce65c", "#ffd23f", "#b06bff",
+    "#ff8c42", "#2ec4b6", "#ff5ea8", "#8ecae6", "#c9f24d"
+  ];
+
+  const CELL_PX = 72;          // internal pixels per cell (canvas scales via CSS)
+  const STORE_KEY = "flowFreeLevel";
+  const BEST_KEY = "flowFreeBest";
+
+  // ============ DOM ============
+  const canvas = document.getElementById("board");
+  const ctx = canvas.getContext("2d");
+  const hudLevel = document.getElementById("hud-level");
+  const hudSize = document.getElementById("hud-size");
+  const hudMoves = document.getElementById("hud-moves");
+  const startScreen = document.getElementById("startScreen");
+  const winScreen = document.getElementById("winScreen");
+  const winTitle = document.getElementById("winTitle");
+  const winMoves = document.getElementById("winMoves");
+  const winNote = document.getElementById("winNote");
+  const startBtn = document.getElementById("startBtn");
+  const nextBtn = document.getElementById("nextBtn");
+  const resetLevelBtn = document.getElementById("resetLevelBtn");
+  const menuBtn = document.getElementById("menuBtn");
+  const resetProgressBtn = document.getElementById("resetProgressBtn");
+
+  // ============ GAME STATE ============
+  let levelIndex = 0;   // index into LEVELS
+  let N = 5;            // grid size
+  let pairs = [];       // endpoint pairs for current level
+  let paths = [];       // paths[color] = array of [r,c] cells forming the pipe
+  let moves = 0;
+  let drawing = false;
+  let drawColor = -1;
+  let won = false;
+  let lastTime = 0;
+  let pulse = 0;
+
+  // ============ AUDIO (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "sine";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  // ============ LEVEL INITIALISATION ============
+  function loadLevel(idx) {
+    levelIndex = idx;
+    const lv = LEVELS[idx];
+    N = lv.n;
+    pairs = lv.pairs.map(function (p) { return [p[0].slice(), p[1].slice()]; });
+    paths = pairs.map(function () { return []; });
+    moves = 0;
+    drawing = false;
+    drawColor = -1;
+    won = false;
+    // Size the canvas to the grid (square, keep crisp internal resolution)
+    canvas.width = N * CELL_PX;
+    canvas.height = N * CELL_PX;
+    syncHud();
+    dismissOverlays();
+  }
+
+  function currentProgress() {
+    const v = parseInt(localStorage.getItem(STORE_KEY) || "1", 10);
+    if (isNaN(v) || v < 1) return 0;
+    return Math.min(v - 1, LEVELS.length - 1);
+  }
+
+  function syncHud() {
+    hudLevel.textContent = (levelIndex + 1) + " / " + LEVELS.length;
+    hudSize.textContent = N + " x " + N;
+    hudMoves.textContent = moves;
+  }
+
+  function dismissOverlays() {
+    startScreen.classList.add("hidden");
+    winScreen.classList.add("hidden");
+  }
+
+  // ============ GRID HELPERS ============
+  function cellPx() { return canvas.width / N; }
+  function same(a, b) { return a[0] === b[0] && a[1] === b[1]; }
+
+  // Build occupancy map: -1 empty, otherwise color index. Endpoints always occupy.
+  function buildOcc() {
+    const occ = [];
+    for (let r = 0; r < N; r++) {
+      const row = [];
+      for (let c = 0; c < N; c++) row.push(-1);
+      occ.push(row);
+    }
+    for (let k = 0; k < pairs.length; k++) {
+      occ[pairs[k][0][0]][pairs[k][0][1]] = k;
+      occ[pairs[k][1][0]][pairs[k][1][1]] = k;
+    }
+    for (let k = 0; k < paths.length; k++) {
+      for (let i = 0; i < paths[k].length; i++) {
+        occ[paths[k][i][0]][paths[k][i][1]] = k;
+      }
+    }
+    return occ;
+  }
+
+  function endpointColorAt(r, c) {
+    for (let k = 0; k < pairs.length; k++) {
+      if (same(pairs[k][0], [r, c]) || same(pairs[k][1], [r, c])) return k;
+    }
+    return -1;
+  }
+
+  function colorAt(r, c, occ) {
+    const e = endpointColorAt(r, c);
+    if (e >= 0) return e;
+    return occ[r][c];
+  }
+
+  function indexInPath(p, r, c) {
+    for (let i = 0; i < p.length; i++) if (p[i][0] === r && p[i][1] === c) return i;
+    return -1;
+  }
+
+  // ============ DRAWING INTERACTION ============
+  function toCell(ev) {
+    const rect = canvas.getBoundingClientRect();
+    const x = (ev.clientX - rect.left) / rect.width * canvas.width;
+    const y = (ev.clientY - rect.top) / rect.height * canvas.height;
+    const r = Math.floor(y / cellPx());
+    const c = Math.floor(x / cellPx());
+    if (r < 0 || r >= N || c < 0 || c >= N) return null;
+    return [r, c];
+  }
+
+  function startDraw(color, r, c) {
+    const p = paths[color];
+    const idx = indexInPath(p, r, c);
+    if (idx >= 0) {
+      // grab an existing pipe -> truncate there and continue (re-route replaces old path)
+      paths[color] = p.slice(0, idx + 1);
+    } else {
+      // must be an endpoint -> start a fresh route from it
+      paths[color] = [[r, c]];
+    }
+  }
+
+  function extendDraw(r, c) {
+    if (drawColor < 0) return;
+    const p = paths[drawColor];
+    if (p.length === 0) return;
+    const last = p[p.length - 1];
+    if (same(last, [r, c])) return;
+    // must move to an orthogonally adjacent cell
+    if (Math.abs(r - last[0]) + Math.abs(c - last[1]) !== 1) return;
+
+    // backtrack / truncate if the cell is already part of this path
+    const idx = indexInPath(p, r, c);
+    if (idx >= 0) { paths[drawColor] = p.slice(0, idx + 1); return; }
+
+    // block cells owned by any other color (their pipes and endpoints)
+    const occ = buildOcc();
+    if (occ[r][c] >= 0 && occ[r][c] !== drawColor) return;
+
+    const wasConnected = isConnected(drawColor);
+    paths[drawColor].push([r, c]);
+
+    if (!wasConnected && isConnected(drawColor)) beep(880, 0.1, "triangle");
+    else beep(520, 0.03, "sine");
+
+    checkWin();
+  }
+
+  // ============ WIN LOGIC ============
+  function isConnected(color) {
+    const p = paths[color];
+    if (p.length < 2) return false;
+    const a = pairs[color][0], b = pairs[color][1];
+    const head = p[0], tail = p[p.length - 1];
+    return (same(head, a) && same(tail, b)) || (same(head, b) && same(tail, a));
+  }
+
+  function filledCount(occ) {
+    let n = 0;
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (occ[r][c] >= 0) n++;
+    return n;
+  }
+
+  function checkWin() {
+    if (won) return;
+    const occ = buildOcc();
+    if (filledCount(occ) !== N * N) return;
+    for (let k = 0; k < pairs.length; k++) if (!isConnected(k)) return;
+    win();
+  }
+
+  function win() {
+    won = true;
+    beep(660, 0.12, "triangle");
+    setTimeout(function () { beep(990, 0.16, "triangle"); }, 110);
+
+    // persist progress (unlock the next level)
+    const nextLevel = Math.min(levelIndex + 2, LEVELS.length); // 1-based store value
+    const stored = parseInt(localStorage.getItem(STORE_KEY) || "1", 10) || 1;
+    if (nextLevel > stored) localStorage.setItem(STORE_KEY, String(nextLevel));
+
+    // best-moves tracking
+    let best = {};
+    try { best = JSON.parse(localStorage.getItem(BEST_KEY) || "{}"); } catch (e) { best = {}; }
+    const key = "L" + (levelIndex + 1);
+    let note = "Nice routing!";
+    if (best[key] == null || moves < best[key]) {
+      best[key] = moves;
+      localStorage.setItem(BEST_KEY, JSON.stringify(best));
+      note = "New best for this level!";
+    } else {
+      note = "Best so far: " + best[key] + " moves";
+    }
+
+    winMoves.textContent = "Moves: " + moves;
+    winNote.textContent = note;
+
+    const isLast = levelIndex >= LEVELS.length - 1;
+    winTitle.textContent = isLast ? "ALL LEVELS CLEARED!" : "LEVEL COMPLETE";
+    nextBtn.textContent = isLast ? "Play Again" : "Next Level";
+    winScreen.classList.remove("hidden");
+  }
+
+  // ============ RENDERING ============
+  function roundRect(x, y, w, h, rad) {
+    ctx.beginPath();
+    ctx.moveTo(x + rad, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rad);
+    ctx.arcTo(x + w, y + h, x, y + h, rad);
+    ctx.arcTo(x, y + h, x, y, rad);
+    ctx.arcTo(x, y, x + w, y, rad);
+    ctx.closePath();
+  }
+
+  function draw() {
+    const cs = cellPx();
+    const W = canvas.width;
+
+    // board background
+    ctx.fillStyle = "#141a29";
+    ctx.fillRect(0, 0, W, W);
+
+    // subtle cell tiles
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        ctx.fillStyle = ((r + c) % 2 === 0) ? "#1a2234" : "#172030";
+        roundRect(c * cs + 3, r * cs + 3, cs - 6, cs - 6, cs * 0.16);
+        ctx.fill();
+      }
+    }
+
+    // pipes (glowing thick rounded strokes)
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    for (let k = 0; k < paths.length; k++) {
+      const p = paths[k];
+      if (p.length < 2) continue;
+      ctx.save();
+      ctx.strokeStyle = COLORS[k % COLORS.length];
+      ctx.lineWidth = cs * 0.30;
+      ctx.shadowColor = COLORS[k % COLORS.length];
+      ctx.shadowBlur = cs * 0.28;
+      for (let i = 0; i < p.length - 1; i++) {
+        ctx.beginPath();
+        ctx.moveTo(p[i][1] * cs + cs / 2, p[i][0] * cs + cs / 2);
+        ctx.lineTo(p[i + 1][1] * cs + cs / 2, p[i + 1][0] * cs + cs / 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // endpoints (dots)
+    const pulseR = 1 + Math.sin(pulse * 0.004) * 0.05;
+    for (let k = 0; k < pairs.length; k++) {
+      const col = COLORS[k % COLORS.length];
+      for (let e = 0; e < 2; e++) {
+        const r = pairs[k][e][0], c = pairs[k][e][1];
+        const cx = c * cs + cs / 2, cy = r * cs + cs / 2;
+        const rad = cs * 0.28 * (isConnected(k) ? 1 : pulseR);
+
+        ctx.save();
+        ctx.shadowColor = col;
+        ctx.shadowBlur = cs * 0.35;
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // dark ring + highlight
+        ctx.strokeStyle = "rgba(10,14,22,0.75)";
+        ctx.lineWidth = cs * 0.045;
+        ctx.beginPath();
+        ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        ctx.beginPath();
+        ctx.arc(cx - rad * 0.3, cy - rad * 0.3, rad * 0.28, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  function loop(t) {
+    pulse = t || 0;
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // ============ INPUT (pointer: mouse + touch drag) ============
+  canvas.addEventListener("pointerdown", function (ev) {
+    if (won) return;
+    ev.preventDefault();
+    const cell = toCell(ev);
+    if (!cell) return;
+    const occ = buildOcc();
+    const color = colorAt(cell[0], cell[1], occ);
+    if (color < 0) return;                    // only dots / pipes can be grabbed
+    drawColor = color;
+    drawing = true;
+    moves++;
+    syncHud();
+    startDraw(color, cell[0], cell[1]);
+    if (canvas.setPointerCapture) { try { canvas.setPointerCapture(ev.pointerId); } catch (e) {} }
+    checkWin();
+  });
+
+  canvas.addEventListener("pointermove", function (ev) {
+    if (!drawing) return;
+    ev.preventDefault();
+    const cell = toCell(ev);
+    if (!cell) return;
+    extendDraw(cell[0], cell[1]);
+  });
+
+  function endDraw(ev) {
+    if (!drawing) return;
+    drawing = false;
+    drawColor = -1;
+    if (ev && ev.pointerId != null && canvas.releasePointerCapture) {
+      try { canvas.releasePointerCapture(ev.pointerId); } catch (e) {}
+    }
+    checkWin();
+  }
+  canvas.addEventListener("pointerup", endDraw);
+  canvas.addEventListener("pointercancel", endDraw);
+  canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+  // keyboard shortcut: R resets the level
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "KeyR" || e.key === "r" || e.key === "R") {
+      resetLevel();
+    }
+  });
+
+  // ============ BUTTON ACTIONS ============
+  function resetLevel() {
+    loadLevel(levelIndex);
+    beep(300, 0.06, "square");
+  }
+
+  function showMenu() {
+    won = true;                 // freeze board input behind the menu
+    startScreen.classList.remove("hidden");
+    winScreen.classList.add("hidden");
+  }
+
+  startBtn.addEventListener("click", function () {
+    loadLevel(currentProgress());
+    beep(520, 0.08, "triangle");
+  });
+
+  resetLevelBtn.addEventListener("click", resetLevel);
+
+  menuBtn.addEventListener("click", showMenu);
+
+  resetProgressBtn.addEventListener("click", function () {
+    localStorage.removeItem(STORE_KEY);
+    levelIndex = 0;
+    startScreen.querySelector("h2").textContent = "COLOR FLOW";
+    beep(300, 0.08, "square");
+  });
+
+  nextBtn.addEventListener("click", function () {
+    if (levelIndex >= LEVELS.length - 1) {
+      loadLevel(0);             // wrap around after the final level
+    } else {
+      loadLevel(levelIndex + 1);
+    }
+    beep(620, 0.1, "triangle");
+  });
+
+  // ============ BOOT ============
+  // Prepare a board behind the start screen so the layout is sized correctly.
+  loadLevel(currentProgress());
+  startScreen.classList.remove("hidden");
+  winScreen.classList.add("hidden");
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

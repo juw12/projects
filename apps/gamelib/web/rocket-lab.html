@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Rocket Lab</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(120% 90% at 50% 0%, #101a33 0%, #070b18 55%, #03040a 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Courier New", ui-monospace, monospace;
+    color: #cfe3ff;
+    overflow-x: hidden;
+    touch-action: manipulation;
+    padding: 12px;
+  }
+
+  /* ============ APP SHELL ============ */
+  #app { width: min(96vw, 960px); display: flex; flex-direction: column; gap: 10px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .logo {
+    font-size: 22px; font-weight: bold; letter-spacing: 3px; color: #4fe3c1;
+    text-shadow: 0 0 12px rgba(79,227,193,.45);
+  }
+  .tag {
+    font-size: 12px; letter-spacing: 2px; color: #ffb347;
+    border: 1px solid rgba(255,179,71,.4); border-radius: 20px;
+    padding: 3px 12px; background: rgba(255,179,71,.08);
+  }
+
+  /* ============ CANVAS ============ */
+  #game-wrap {
+    position: relative; width: 100%; border-radius: 10px; overflow: hidden;
+    box-shadow: 0 12px 44px rgba(0,0,0,.6), inset 0 0 0 1px rgba(79,227,193,.12);
+  }
+  canvas { display: block; width: 100%; height: auto; background: #060a14; touch-action: none; }
+  #hint {
+    position: absolute; left: 0; bottom: 6px; width: 100%; text-align: center;
+    font-size: 11px; letter-spacing: 1px; color: rgba(207,227,255,.5); pointer-events: none;
+  }
+
+  /* ============ PANELS ============ */
+  section { display: flex; flex-direction: column; gap: 8px; }
+  .hidden { display: none !important; }
+
+  #palette { display: flex; flex-wrap: wrap; gap: 6px; }
+  #palette button {
+    font-family: inherit; font-size: 12px; letter-spacing: 1px; padding: 8px 12px;
+    border-radius: 8px; border: 1px solid rgba(79,227,193,.35); background: rgba(79,227,193,.08);
+    color: #bfeee2; cursor: pointer; user-select: none;
+    transition: transform .05s ease, background .15s ease, border-color .15s ease;
+  }
+  #palette button:hover { background: rgba(79,227,193,.2); border-color: #4fe3c1; }
+  #palette button:active { transform: translateY(2px); }
+  #palette button small { display: block; font-size: 10px; opacity: .6; letter-spacing: 0; }
+
+  #stats {
+    display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 14px; border-radius: 8px;
+    background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); font-size: 13px;
+  }
+  #stats b { color: #4fe3c1; font-weight: normal; }
+  #stats .warn { color: #ff6b8a; }
+
+  #goals { display: flex; flex-wrap: wrap; gap: 6px; }
+  .goal {
+    font-size: 12px; letter-spacing: 1px; padding: 6px 12px; border-radius: 20px;
+    border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.03);
+    color: rgba(207,227,255,.6);
+  }
+  .goal.done { border-color: rgba(79,227,193,.6); color: #4fe3c1; background: rgba(79,227,193,.12); }
+
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .row button {
+    font-family: inherit; font-size: 14px; font-weight: bold; letter-spacing: 1px;
+    padding: 10px 22px; border: none; border-radius: 8px; cursor: pointer;
+    color: #04140f; background: #4fe3c1; box-shadow: 0 4px 0 rgba(0,0,0,.35);
+    user-select: none; transition: transform .05s ease, background .15s ease;
+  }
+  .row button:hover { background: #6ff0d2; }
+  .row button:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.35); }
+  .row button.ghost { background: transparent; color: #ffb347; border: 1px solid rgba(255,179,71,.5); box-shadow: none; }
+  .row button.ghost:hover { background: rgba(255,179,71,.14); }
+  .row button:disabled { opacity: .35; cursor: default; transform: none; }
+  #buildMsg { font-size: 12px; letter-spacing: 1px; color: #ff6b8a; min-height: 14px; }
+
+  #readout {
+    display: flex; flex-wrap: wrap; gap: 4px 20px; padding: 10px 14px; border-radius: 8px;
+    background: rgba(0,0,0,.35); border: 1px solid rgba(79,227,193,.15); font-size: 13px;
+  }
+  #readout b { color: #4fe3c1; font-weight: normal; min-width: 56px; display: inline-block; }
+  #readout .big { color: #ffb347; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 620px) {
+    .logo { font-size: 18px; letter-spacing: 2px; }
+    .tag { font-size: 10px; }
+    .row button { padding: 9px 16px; font-size: 13px; }
+    #stats { font-size: 12px; gap: 4px 12px; }
+    #readout { font-size: 12px; }
+    #hint { font-size: 10px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">ROCKET LAB</div>
+    <div class="tag" id="modeTag">BUILD MODE</div>
+  </header>
+
+  <div id="game-wrap">
+    <canvas id="game" width="900" height="560"></canvas>
+    <div id="hint">Click a part on the rocket to remove it</div>
+  </div>
+
+  <!-- ============ BUILD PANEL ============ -->
+  <section id="panel-build">
+    <div id="palette"></div>
+    <div id="stats"></div>
+    <div id="goals"></div>
+    <div class="row">
+      <button id="btn-launch" type="button">Launch &#9654;</button>
+      <button id="btn-clear" class="ghost" type="button">Clear</button>
+      <button id="btn-sample" class="ghost" type="button">Load Sample</button>
+      <button id="btn-reset" class="ghost" type="button">Reset Progress</button>
+    </div>
+    <div id="buildMsg"></div>
+  </section>
+
+  <!-- ============ FLIGHT PANEL ============ -->
+  <section id="panel-flight" class="hidden">
+    <div id="readout"></div>
+    <div class="row">
+      <button id="btn-stage" type="button">Stage &#10515; (Space)</button>
+      <button id="btn-throttle" class="ghost" type="button">Throttle: ON</button>
+      <button id="btn-relaunch" class="ghost" type="button">Relaunch &#8635;</button>
+      <button id="btn-lab" class="ghost" type="button">Back to Lab</button>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONFIGURATION & CONSTANTS ============
+  var canvas = document.getElementById("game");
+  var ctx = canvas.getContext("2d");
+  var W = canvas.width;
+  var H = canvas.height;
+
+  var G0 = 9.81;            // surface gravity (m/s^2)
+  var R_PLANET = 150000;    // small planet radius (m) -> gravity falls off with altitude
+  var RHO0 = 1.225;         // sea-level air density (kg/m^3)
+  var SH = 8500;            // atmosphere scale height (m)
+  var MAX_TIME = 180;       // seconds before a flight auto-ends
+
+  // Part catalogue. mass = dry tonnes, fuel = tonnes, thrust = kN, burn = tonnes/s
+  var PARTS = {
+    nose:   { name: "Nose Cone",   mass: 0.40, fuel: 0, thrust: 0,   burn: 0,    geo: 34 },
+    pod:    { name: "Command Pod", mass: 1.50, fuel: 0, thrust: 0,   burn: 0,    geo: 46 },
+    tankS:  { name: "Small Tank",  mass: 0.80, fuel: 3, thrust: 0,   burn: 0,    geo: 42 },
+    tankL:  { name: "Large Tank",  mass: 1.60, fuel: 7, thrust: 0,   burn: 0,    geo: 66 },
+    engine: { name: "Engine",      mass: 1.50, fuel: 0, thrust: 350, burn: 0.55, geo: 42 },
+    fin:    { name: "Fin Set",     mass: 0.20, fuel: 0, thrust: 0,   burn: 0,    geo: 24 },
+    sep:    { name: "Separator",   mass: 0.15, fuel: 0, thrust: 0,   burn: 0,    geo: 12 }
+  };
+  var PALETTE = ["nose", "pod", "tankS", "tankL", "engine", "fin", "sep"];
+
+  // Mission objectives
+  var GOALS = [
+    { alt: 3000,   name: "Hobby Flight" },
+    { alt: 20000,  name: "Sounding Rocket" },
+    { alt: 50000,  name: "Stratosphere" },
+    { alt: 200000, name: "Orbit" }
+  ];
+
+  var STATE = { BUILD: 0, FLIGHT: 1, RESULT: 2 };
+  var mode = STATE.BUILD;
+
+  // ============ AUDIO (WebAudio, no assets) ============
+  var actx = null;
+  function ensureAudio() {
+    if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } }
+    return actx;
+  }
+  function beep(freq, dur, type, vol) {
+    var a = ensureAudio(); if (!a) return;
+    try {
+      var o = a.createOscillator(); var g = a.createGain();
+      o.type = type || "square";
+      o.frequency.setValueAtTime(freq, a.currentTime);
+      g.gain.setValueAtTime(vol || 0.06, a.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + dur);
+      o.connect(g); g.connect(a.destination);
+      o.start(); o.stop(a.currentTime + dur);
+    } catch (e) { /* ignore */ }
+  }
+  function sweep(f1, f2, dur, type, vol) {
+    var a = ensureAudio(); if (!a) return;
+    try {
+      var o = a.createOscillator(); var g = a.createGain();
+      o.type = type || "sawtooth";
+      o.frequency.setValueAtTime(f1, a.currentTime);
+      o.frequency.exponentialRampToValueAtTime(Math.max(1, f2), a.currentTime + dur);
+      g.gain.setValueAtTime(vol || 0.07, a.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + dur);
+      o.connect(g); g.connect(a.destination);
+      o.start(); o.stop(a.currentTime + dur);
+    } catch (e) { /* ignore */ }
+  }
+
+  // ============ STATE & PERSISTENCE ============
+  var parts = [];                    // design: array of {t, f} ordered top -> bottom
+  var best = Number(localStorage.getItem("rocketLab.best") || 0);
+  var goalsDone = [];
+  try { goalsDone = JSON.parse(localStorage.getItem("rocketLab.goals") || "[]") || []; } catch (e) { goalsDone = []; }
+
+  var flight = null;
+  var particles = [];
+  var buildZones = [];
+  var resultBanner = "";
+
+  function saveDesign() {
+    try { localStorage.setItem("rocketLab.design", JSON.stringify(parts.map(function (p) { return p.t; }))); } catch (e) {}
+  }
+  function saveProgress() {
+    try {
+      localStorage.setItem("rocketLab.best", String(best));
+      localStorage.setItem("rocketLab.goals", JSON.stringify(goalsDone));
+    } catch (e) {}
+  }
+
+  // ============ DOM REFERENCES ============
+  var paletteEl = document.getElementById("palette");
+  var statsEl = document.getElementById("stats");
+  var goalsEl = document.getElementById("goals");
+  var buildMsg = document.getElementById("buildMsg");
+  var readoutEl = document.getElementById("readout");
+  var hintEl = document.getElementById("hint");
+  var modeTag = document.getElementById("modeTag");
+  var panelBuild = document.getElementById("panel-build");
+  var panelFlight = document.getElementById("panel-flight");
+  var btnLaunch = document.getElementById("btn-launch");
+  var btnClear = document.getElementById("btn-clear");
+  var btnSample = document.getElementById("btn-sample");
+  var btnReset = document.getElementById("btn-reset");
+  var btnStage = document.getElementById("btn-stage");
+  var btnThrottle = document.getElementById("btn-throttle");
+  var btnRelaunch = document.getElementById("btn-relaunch");
+  var btnLab = document.getElementById("btn-lab");
+
+  // ============ PALETTE ============
+  PALETTE.forEach(function (key) {
+    var def = PARTS[key];
+    var b = document.createElement("button");
+    b.type = "button";
+    var sub = def.fuel ? (def.fuel + "t fuel") : def.thrust ? (def.thrust + " kN") : (def.mass.toFixed(2) + "t");
+    b.innerHTML = def.name + "<small>" + sub + "</small>";
+    b.addEventListener("click", function () { addPart(key); });
+    paletteEl.appendChild(b);
+  });
+
+  function addPart(key) {
+    parts.push({ t: key, f: PARTS[key].fuel });
+    beep(520, 0.06, "triangle", 0.05);
+    buildMsg.textContent = "";
+    saveDesign();
+    refreshBuildUI();
+  }
+  function removePart(i) {
+    if (i < 0 || i >= parts.length) return;
+    parts.splice(i, 1);
+    beep(300, 0.08, "sine", 0.05);
+    spawnBurst(W * 0.5, H * 0.5, "#4fe3c1", 10);
+    saveDesign();
+    refreshBuildUI();
+  }
+  function loadSample() {
+    parts = ["nose", "pod", "tankL", "engine", "sep", "tankL", "tankL", "engine"]
+      .map(function (t) { return { t: t, f: PARTS[t].fuel }; });
+    saveDesign();
+    refreshBuildUI();
+    beep(600, 0.08, "triangle", 0.06);
+  }
+
+  // ============ DESIGN MATH ============
+  function lastSepIndex(arr) {
+    var k = -1;
+    for (var i = 0; i < arr.length; i++) if (arr[i].t === "sep") k = i;
+    return k;
+  }
+  function activeSeg(arr) {
+    var k = lastSepIndex(arr);
+    return k < 0 ? arr : arr.slice(k + 1);
+  }
+  function sumDry(arr) { var s = 0; for (var i = 0; i < arr.length; i++) s += PARTS[arr[i].t].mass; return s; }
+  function sumFuel(arr) { var s = 0; for (var i = 0; i < arr.length; i++) s += arr[i].f; return s; }
+  function engCount(arr) { var n = 0; for (var i = 0; i < arr.length; i++) if (arr[i].t === "engine") n++; return n; }
+  function stageCount(arr) {
+    var seps = 0;
+    for (var i = 0; i < arr.length; i++) if (arr[i].t === "sep") seps++;
+    return arr.length ? seps + 1 : 0;
+  }
+
+  // Tsiolkovsky delta-v summed across stages (bottom stage burns first)
+  function deltaV(arr) {
+    if (!arr.length) return 0;
+    var segs = [];
+    var cur = [];
+    for (var i = arr.length - 1; i >= 0; i--) {
+      cur.unshift(arr[i]);
+      if (arr[i].t === "sep") { segs.push(cur); cur = []; }
+    }
+    if (cur.length) segs.push(cur);
+    var res = 0;
+    for (var s = 0; s < segs.length; s++) {
+      var seg = segs[s];
+      var dry = sumDry(seg), fuel = sumFuel(seg), above = 0;
+      for (var j = s + 1; j < segs.length; j++) above += sumDry(segs[j]) + sumFuel(segs[j]);
+      var m0 = dry + fuel + above, mf = dry + above;
+      var eng = engCount(seg);
+      var thrust = eng * PARTS.engine.thrust;
+      var burn = eng * PARTS.engine.burn;
+      if (burn > 0 && thrust > 0 && mf > 0 && m0 > mf) res += (thrust / burn) * Math.log(m0 / mf);
+    }
+    return res;
+  }
+
+  function bottomTWR(arr) {
+    var seg = activeSeg(arr);
+    var thrust = engCount(seg) * PARTS.engine.thrust;
+    var mass = sumDry(arr) + sumFuel(arr);
+    if (!mass || !thrust) return 0;
+    return thrust / mass / G0;
+  }
+
+  // ============ BUILD UI ============
+  function refreshBuildUI() {
+    var dry = sumDry(parts), fuel = sumFuel(parts), eng = engCount(parts);
+    var thrust = eng * PARTS.engine.thrust, twr = bottomTWR(parts), dv = deltaV(parts), st = stageCount(parts);
+    var twrCls = (parts.length && twr < 1) ? "warn" : "";
+    statsEl.innerHTML =
+      "Mass <b>" + (dry + fuel).toFixed(1) + " t</b>" +
+      "&nbsp; Fuel <b>" + fuel.toFixed(0) + " t</b>" +
+      "&nbsp; Engines <b>" + eng + "</b>" +
+      "&nbsp; Thrust <b>" + thrust + " kN</b>" +
+      "&nbsp; TWR <b class='" + twrCls + "'>" + twr.toFixed(2) + "</b>" +
+      "&nbsp; &Delta;v <b>" + Math.round(dv) + " m/s</b>" +
+      "&nbsp; Stages <b>" + st + "</b>";
+    renderGoals();
+    if (!parts.length) buildMsg.textContent = "Add parts top \u2192 bottom: Nose, Pod, Tanks, Engine";
+  }
+
+  function renderGoals() {
+    goalsEl.innerHTML = "";
+    GOALS.forEach(function (g, i) {
+      var d = document.createElement("div");
+      var done = goalsDone.indexOf(i) >= 0;
+      d.className = "goal" + (done ? " done" : "");
+      d.textContent = (done ? "\u2713 " : "") + g.name + " \u00b7 " + fmtAlt(g.alt);
+      goalsEl.appendChild(d);
+    });
+  }
+
+  // ============ OBJECTIVES ============
+  function recordGoal(i) {
+    if (goalsDone.indexOf(i) < 0) {
+      goalsDone.push(i);
+      saveProgress();
+      beep(880, 0.1, "sine", 0.08);
+      setTimeout(function () { beep(1320, 0.16, "sine", 0.08); }, 110);
+    }
+  }
+
+  // ============ FLIGHT LIFECYCLE ============
+  function validate() {
+    if (!parts.length) return "Nothing to launch - add some parts.";
+    if (engCount(parts) < 1) return "This rocket has no engine!";
+    if (!parts.some(function (p) { return PARTS[p.t].fuel > 0; })) return "Add at least one fuel tank.";
+    if (!parts.some(function (p) { return p.t === "pod"; })) return "Every rocket needs a Command Pod.";
+    return "";
+  }
+
+  function launch() {
+    var err = validate();
+    if (err) { buildMsg.textContent = err; beep(180, 0.18, "sawtooth", 0.07); return; }
+    flight = {
+      parts: parts.map(function (p) { return { t: p.t, f: PARTS[p.t].fuel }; }),
+      alt: 0.5, vel: 0, throttle: 1, time: 0, maxAlt: 0,
+      thrustNow: 0, massNow: 0, accNow: 0, gNow: G0, rhoNow: RHO0,
+      dead: false, orbited: false
+    }; // flight.parts is an independent copy; staging never edits the saved design
+    particles = [];
+    resultBanner = "";
+    mode = STATE.FLIGHT;
+    hintEl.textContent = "SPACE = stage \u00b7 X = throttle \u00b7 ESC = back to lab";
+    modeTag.textContent = "FLIGHT";
+    panelBuild.classList.add("hidden");
+    panelFlight.classList.remove("hidden");
+    btnStage.disabled = false;
+    btnThrottle.textContent = "Throttle: ON";
+    sweep(120, 320, 0.5, "sawtooth", 0.09);
+  }
+
+  function endFlight(kind) {
+    if (mode !== STATE.FLIGHT) return;
+    mode = STATE.RESULT;
+    flight.dead = true;
+    btnStage.disabled = true;
+    if (kind === "crash") { spawnBurst(W * 0.5, H * 0.42, "#ff8a3d", 46); sweep(260, 40, 0.5, "sawtooth", 0.12); }
+    else beep(440, 0.12, "sine", 0.07);
+
+    var reached = flight.maxAlt;
+    if (reached > best) { best = reached; saveProgress(); }
+    for (var i = 0; i < GOALS.length; i++) if (reached >= GOALS[i].alt) recordGoal(i);
+
+    var top = GOALS[GOALS.length - 1];
+    resultBanner = reached >= top.alt ? "ORBIT ACHIEVED!" : (reached >= GOALS[0].alt ? "GOAL REACHED" : "FLIGHT OVER");
+  }
+
+  function backToLab() {
+    flight = null;
+    mode = STATE.BUILD;
+    hintEl.textContent = "Click a part on the rocket to remove it";
+    modeTag.textContent = "BUILD MODE";
+    panelFlight.classList.add("hidden");
+    panelBuild.classList.remove("hidden");
+    refreshBuildUI();
+  }
+
+  // ============ FLIGHT PHYSICS ============
+  function stepFlight(dt) {
+    var f = flight;
+    var arr = f.parts;
+    var seg = activeSeg(arr);
+    var mass = sumDry(arr) + sumFuel(arr);
+
+    var eng = engCount(seg);
+    var thrustKN = 0;
+    if (eng > 0 && f.throttle > 0 && sumFuel(seg) > 0) {
+      var need = eng * PARTS.engine.burn * f.throttle * dt;
+      var rem = need;
+      for (var i = 0; i < seg.length && rem > 0; i++) {
+        if (seg[i].f > 0) { var take = Math.min(seg[i].f, rem); seg[i].f -= take; rem -= take; }
+      }
+      var used = need - rem;
+      thrustKN = eng * PARTS.engine.thrust * f.throttle * (need > 0 ? used / need : 0);
+    }
+
+    var g = G0 * Math.pow(R_PLANET / (R_PLANET + Math.max(0, f.alt)), 2);
+    var rho = RHO0 * Math.exp(-Math.max(0, f.alt) / SH);
+    var hasNose = false;
+    for (var n = 0; n < arr.length; n++) if (arr[n].t === "nose") hasNose = true;
+    var area = (0.7 + 0.04 * arr.length) * (hasNose ? 0.6 : 1.0);
+    var v = f.vel;
+    var dragA = 0.5 * rho * v * v * area / (mass * 1000) * (v >= 0 ? 1 : -1);
+
+    var acc = thrustKN / mass - g - dragA;
+    f.vel += acc * dt;
+    f.alt += f.vel * dt;
+    f.time += dt;
+    if (f.alt > f.maxAlt) f.maxAlt = f.alt;
+    f.thrustNow = thrustKN; f.massNow = mass; f.accNow = acc; f.gNow = g; f.rhoNow = rho;
+
+    if (thrustKN > 0 && Math.random() < 0.9) {
+      particles.push({
+        x: W * 0.5 + (Math.random() - 0.5) * 14,
+        y: H * 0.42 + 22,
+        vx: (Math.random() - 0.5) * 40, vy: 120 + Math.random() * 160,
+        life: 1, size: 3 + Math.random() * 5,
+        color: Math.random() < 0.5 ? "#ffb347" : "#ff6a2b"
+      });
+    }
+
+    if (f.alt <= 0 && f.vel < 0) { f.alt = 0; endFlight(f.vel < -12 ? "crash" : "land"); return; }
+
+    var top = GOALS[GOALS.length - 1];
+    if (!f.orbited && f.alt >= top.alt) {
+      f.orbited = true;
+      spawnBurst(W * 0.5, H * 0.42, "#4fe3c1", 30);
+      recordGoal(GOALS.length - 1);
+    }
+    if (f.time > MAX_TIME) endFlight("timeout");
+  }
+
+  function doStage() {
+    if (mode !== STATE.FLIGHT) return;
+    var arr = flight.parts;
+    var k = lastSepIndex(arr);
+    if (k < 0) { beep(160, 0.1, "sawtooth", 0.05); return; }
+    arr.splice(k, arr.length - k); // jettison the lowest stage (and its separator)
+    spawnBurst(W * 0.5, H * 0.42 + 20, "#8fa0c0", 16);
+    beep(90, 0.22, "square", 0.09);
+  }
+
+  // ============ PARTICLES ============
+  function spawnBurst(x, y, color, count) {
+    for (var i = 0; i < count; i++) {
+      particles.push({
+        x: x, y: y,
+        vx: (Math.random() - 0.5) * 260,
+        vy: (Math.random() - 0.5) * 260,
+        life: 1, size: 2 + Math.random() * 4, color: color
+      });
+    }
+  }
+  function updateParticles(dt) {
+    particles = particles.filter(function (p) {
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.vy += 340 * dt;
+      p.life -= dt * 1.6;
+      return p.life > 0;
+    });
+  }
+  function drawParticles() {
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // ============ ROCKET RENDERING (shared) ============
+  function roundRect(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+
+  function drawFlame(cx, baseY, s) {
+    var len = (22 + Math.random() * 20) * s;
+    var wid = (12 + Math.random() * 6) * s;
+    var grad = ctx.createLinearGradient(0, baseY, 0, baseY + len);
+    grad.addColorStop(0, "rgba(255,240,180,.95)");
+    grad.addColorStop(0.5, "rgba(255,150,60,.85)");
+    grad.addColorStop(1, "rgba(255,60,20,0)");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(cx - wid * 0.5, baseY);
+    ctx.quadraticCurveTo(cx, baseY + len * 0.6, cx, baseY + len);
+    ctx.quadraticCurveTo(cx, baseY + len * 0.6, cx + wid * 0.5, baseY);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawModule(cx, top, h, part, s, firing) {
+    var type = part.t;
+    var w = 46 * s, half = w / 2, def = PARTS[type];
+
+    if (type === "nose") {
+      ctx.beginPath();
+      ctx.moveTo(cx - half, top + h); ctx.lineTo(cx + half, top + h); ctx.lineTo(cx, top);
+      ctx.closePath();
+      ctx.fillStyle = "#e6edf7"; ctx.fill();
+      ctx.strokeStyle = "#93a4bd"; ctx.lineWidth = Math.max(1, 1.4 * s); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx, top); ctx.lineTo(cx - 6 * s, top + h);
+      ctx.strokeStyle = "rgba(120,140,170,.5)"; ctx.stroke();
+    } else if (type === "pod") {
+      ctx.fillStyle = "#c9d5e6"; roundRect(cx - half, top, w, h, 7 * s); ctx.fill();
+      ctx.strokeStyle = "#8898b2"; ctx.lineWidth = Math.max(1, 1.3 * s); ctx.stroke();
+      ctx.fillStyle = "#3fd0ff";
+      ctx.beginPath(); ctx.arc(cx, top + h * 0.42, h * 0.2, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.stroke();
+    } else if (type === "tankS" || type === "tankL") {
+      ctx.fillStyle = "#8e9cb2"; roundRect(cx - half, top, w, h, 6 * s); ctx.fill();
+      var ratio = def.fuel ? Math.max(0, Math.min(1, part.f / def.fuel)) : 0;
+      var fillH = (h - 4 * s) * ratio;
+      if (fillH > 0) {
+        ctx.save();
+        roundRect(cx - half, top, w, h, 6 * s); ctx.clip();
+        ctx.fillStyle = ratio < 0.25 ? "#e0603c" : "#39d98a";
+        ctx.fillRect(cx - half, top + h - 2 * s - fillH, w, fillH);
+        ctx.restore();
+      }
+      ctx.strokeStyle = "#5d6b82"; ctx.lineWidth = Math.max(1, 1.3 * s);
+      roundRect(cx - half, top, w, h, 6 * s); ctx.stroke();
+      ctx.strokeStyle = "rgba(0,0,0,.22)";
+      for (var yy = top + h / 3; yy < top + h - 2; yy += h / 3) {
+        ctx.beginPath(); ctx.moveTo(cx - half + 2, yy); ctx.lineTo(cx + half - 2, yy); ctx.stroke();
+      }
+    } else if (type === "engine") {
+      ctx.beginPath();
+      ctx.moveTo(cx - half * 0.7, top); ctx.lineTo(cx + half * 0.7, top);
+      ctx.lineTo(cx + half, top + h); ctx.lineTo(cx - half, top + h);
+      ctx.closePath();
+      ctx.fillStyle = "#4a5568"; ctx.fill();
+      ctx.strokeStyle = "#2c3543"; ctx.lineWidth = Math.max(1, 1.3 * s); ctx.stroke();
+      ctx.fillStyle = "#232a36"; ctx.fillRect(cx - half, top + h - 6 * s, w, 6 * s);
+      if (firing) drawFlame(cx, top + h, s);
+    } else if (type === "fin") {
+      ctx.fillStyle = "#aeb9cb"; ctx.fillRect(cx - 6 * s, top, 12 * s, h);
+      ctx.beginPath();
+      ctx.moveTo(cx - 6 * s, top); ctx.lineTo(cx - 30 * s, top + h); ctx.lineTo(cx - 6 * s, top + h); ctx.closePath();
+      ctx.moveTo(cx + 6 * s, top); ctx.lineTo(cx + 30 * s, top + h); ctx.lineTo(cx + 6 * s, top + h); ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = "#7d8aa0"; ctx.lineWidth = Math.max(1, 1.2 * s); ctx.stroke();
+    } else if (type === "sep") {
+      ctx.fillStyle = "#ffb347"; ctx.fillRect(cx - half, top + h * 0.25, w, h * 0.5);
+      ctx.strokeStyle = "#c9820f"; ctx.lineWidth = 1; ctx.strokeRect(cx - half, top + h * 0.25, w, h * 0.5);
+    }
+  }
+
+  function drawStack(cx, baseY, arr, s, firing, fireFrom) {
+    var y = baseY;
+    for (var i = arr.length - 1; i >= 0; i--) {
+      var p = arr[i];
+      var h = PARTS[p.t].geo * s;
+      y -= h;
+      drawModule(cx, y, h, p, s, firing && p.t === "engine" && i >= fireFrom);
+    }
+    return y;
+  }
+
+  // ============ BUILD MODE RENDER ============
+  function layoutBuild() {
+    var totalH = 0;
+    for (var i = 0; i < parts.length; i++) totalH += PARTS[parts[i].t].geo;
+    var s = Math.min(1.15, (H * 0.6) / Math.max(60, totalH));
+    var baseY = H * 0.9;
+    var y = baseY;
+    var zones = [];
+    for (var j = parts.length - 1; j >= 0; j--) {
+      var h = PARTS[parts[j].t].geo * s;
+      var wz = (parts[j].t === "fin" ? 74 : 54) * s;
+      y -= h;
+      zones.push({ i: j, top: y, bottom: y + h, cx: W * 0.5, w: wz });
+    }
+    buildZones = zones;
+    return { s: s, baseY: baseY, topY: y };
+  }
+
+  function renderBuild() {
+    var g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#0d1730"); g.addColorStop(1, "#060a14");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    ctx.strokeStyle = "rgba(79,227,193,.08)"; ctx.lineWidth = 1;
+    for (var x = 0; x <= W; x += 45) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    for (var yy = 0; yy <= H; yy += 45) { ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(W, yy); ctx.stroke(); }
+
+    var lay = layoutBuild();
+    ctx.strokeStyle = "rgba(255,179,71,.5)"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(W * 0.5 - 90, lay.baseY); ctx.lineTo(W * 0.5 + 90, lay.baseY); ctx.stroke();
+    ctx.fillStyle = "rgba(255,179,71,.25)"; ctx.fillRect(0, lay.baseY, W, H - lay.baseY);
+
+    ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = "rgba(207,227,255,.85)"; ctx.font = "bold 20px 'Courier New', monospace";
+    ctx.fillText("ASSEMBLY BAY", 28, 38);
+    ctx.fillStyle = "rgba(207,227,255,.4)"; ctx.font = "13px 'Courier New', monospace";
+    ctx.fillText("Best altitude: " + fmtAlt(best), 28, 62);
+
+    if (!parts.length) {
+      ctx.textAlign = "center"; ctx.fillStyle = "rgba(207,227,255,.5)"; ctx.font = "16px 'Courier New', monospace";
+      ctx.fillText("Build your rocket using the parts below.", W * 0.5, H * 0.45);
+      ctx.fillText("Add them in order: nose \u2192 pod \u2192 tanks \u2192 engine.", W * 0.5, H * 0.45 + 26);
+      drawParticles();
+      return;
+    }
+
+    drawStack(W * 0.5, lay.baseY, parts, lay.s, false, 0);
+
+    ctx.font = "12px 'Courier New', monospace"; ctx.textBaseline = "middle";
+    for (var z = 0; z < buildZones.length; z++) {
+      var zone = buildZones[z];
+      var p = parts[zone.i];
+      var mid = (zone.top + zone.bottom) / 2;
+      var lx = W * 0.5 + 110;
+      ctx.strokeStyle = "rgba(79,227,193,.35)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(W * 0.5 + zone.w / 2, mid); ctx.lineTo(lx - 8, mid); ctx.stroke();
+      ctx.textAlign = "left"; ctx.fillStyle = "rgba(191,238,226,.9)";
+      ctx.fillText(PARTS[p.t].name, lx, mid - 6);
+      ctx.fillStyle = "rgba(207,227,255,.45)";
+      var sub = PARTS[p.t].mass.toFixed(2) + " t";
+      if (PARTS[p.t].fuel) sub += "  +" + PARTS[p.t].fuel + " fuel";
+      else if (PARTS[p.t].thrust) sub += "  " + PARTS[p.t].thrust + " kN";
+      ctx.fillText(sub, lx, mid + 8);
+    }
+
+    drawParticles();
+  }
+
+  // ============ FLIGHT RENDER ============
+  function fmtAlt(m) {
+    if (m < 1000) return Math.round(m) + " m";
+    return (m / 1000).toFixed(m < 100000 ? 1 : 0) + " km";
+  }
+  function mixColor(a, b, t) {
+    function hx(c) { return [parseInt(c.substr(1, 2), 16), parseInt(c.substr(3, 2), 16), parseInt(c.substr(5, 2), 16)]; }
+    var A = hx(a), B = hx(b);
+    return "rgb(" + Math.round(A[0] + (B[0] - A[0]) * t) + "," + Math.round(A[1] + (B[1] - A[1]) * t) + "," + Math.round(A[2] + (B[2] - A[2]) * t) + ")";
+  }
+  function camera() {
+    var range = Math.max(320, flight.alt * 1.25);
+    var pxPerM = (H * 0.5) / range;
+    var rocketY = H * 0.42;
+    return { pxPerM: pxPerM, rocketY: rocketY, range: range };
+  }
+
+  function renderFlight() {
+    var f = flight;
+    var cam = camera();
+    var t = Math.min(1, f.alt / 120000);
+
+    var g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, mixColor("#0c2b57", "#02030a", t));
+    g.addColorStop(0.6, mixColor("#1a4f86", "#050710", t));
+    g.addColorStop(1, mixColor("#3f7fb3", "#0a0d1c", t));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    var starA = Math.min(0.95, Math.max(0, (f.alt - 8000) / 60000));
+    if (starA > 0) {
+      ctx.fillStyle = "rgba(255,255,255," + starA + ")";
+      for (var i = 0; i < 90; i++) ctx.fillRect((i * 97.3) % W, (i * 53.7) % (H * 0.8), 1.6, 1.6);
+    }
+
+    // altitude ticks
+    var step = cam.range < 1500 ? 100 : cam.range < 6000 ? 500 : cam.range < 30000 ? 2000 : cam.range < 120000 ? 10000 : 25000;
+    var groundY = cam.rocketY + f.alt * cam.pxPerM;
+    var altBottom = f.alt - (H - cam.rocketY) / cam.pxPerM;
+    var altTop = f.alt + cam.rocketY / cam.pxPerM;
+    ctx.font = "11px 'Courier New', monospace"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    var startTick = Math.max(0, Math.ceil(altBottom / step) * step);
+    for (var a = startTick; a <= altTop; a += step) {
+      var y = cam.rocketY - (a - f.alt) * cam.pxPerM;
+      ctx.strokeStyle = "rgba(255,255,255,.12)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      ctx.fillStyle = "rgba(207,227,255,.35)";
+      ctx.fillText(fmtAlt(a), 8, y - 8);
+    }
+
+    // ground
+    if (groundY < H) {
+      ctx.fillStyle = "#2f6b3f"; ctx.fillRect(0, groundY, W, H - groundY);
+      ctx.fillStyle = "#3f8a52"; ctx.fillRect(0, groundY, W, 6);
+    }
+
+    // rocket
+    var fireFrom = lastSepIndex(f.parts) + 1;
+    drawStack(W * 0.5, cam.rocketY, f.parts, 0.8, f.thrustNow > 0, fireFrom);
+
+    drawParticles();
+
+    // HUD text on canvas
+    ctx.textAlign = "right"; ctx.textBaseline = "top";
+    ctx.fillStyle = "rgba(255,179,71,.95)"; ctx.font = "bold 34px 'Courier New', monospace";
+    ctx.fillText(fmtAlt(f.alt), W - 20, 18);
+    ctx.fillStyle = "rgba(207,227,255,.6)"; ctx.font = "13px 'Courier New', monospace";
+    ctx.fillText("V " + f.vel.toFixed(1) + " m/s", W - 20, 58);
+    ctx.fillText("Apogee " + fmtAlt(f.maxAlt), W - 20, 76);
+
+    // result overlay
+    if (mode === STATE.RESULT) {
+      ctx.fillStyle = "rgba(3,6,14,.72)"; ctx.fillRect(0, 0, W, H);
+      ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+      ctx.fillStyle = resultBanner === "ORBIT ACHIEVED!" ? "#4fe3c1" : "#ffb347";
+      ctx.font = "bold 42px 'Courier New', monospace";
+      ctx.fillText(resultBanner, W * 0.5, H * 0.42);
+      ctx.fillStyle = "#cfe3ff"; ctx.font = "20px 'Courier New', monospace";
+      ctx.fillText("Apogee: " + fmtAlt(f.maxAlt) + "     Best: " + fmtAlt(best), W * 0.5, H * 0.42 + 44);
+      ctx.fillStyle = "rgba(207,227,255,.6)"; ctx.font = "15px 'Courier New', monospace";
+      ctx.fillText("Relaunch to retry, or return to the lab to redesign.", W * 0.5, H * 0.42 + 82);
+    }
+
+    // staging prompt
+    if (mode === STATE.FLIGHT && lastSepIndex(f.parts) >= 0 && sumFuel(activeSeg(f.parts)) <= 0.05) {
+      ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+      ctx.fillStyle = "rgba(255,179,71," + (0.55 + 0.45 * Math.sin(f.time * 6)) + ")";
+      ctx.font = "bold 18px 'Courier New', monospace";
+      ctx.fillText("STAGE READY \u2014 press SPACE", W * 0.5, H - 24);
+    }
+  }
+
+  // ============ READOUT ============
+  function updateReadout() {
+    var f = flight; if (!f) return;
+    var seg = activeSeg(f.parts);
+    var segFuel = sumFuel(seg);
+    var eng = engCount(seg);
+    var thrust = eng * PARTS.engine.thrust;
+    var twr = f.massNow ? thrust / f.massNow / f.gNow : 0;
+    var parts_n = f.parts.length;
+    readoutEl.innerHTML =
+      "Alt <b class='big'>" + fmtAlt(f.alt) + "</b>" +
+      "&nbsp; Vel <b>" + f.vel.toFixed(1) + " m/s</b>" +
+      "&nbsp; Mass <b>" + f.massNow.toFixed(1) + " t</b>" +
+      "&nbsp; Fuel <b>" + segFuel.toFixed(1) + " t</b>" +
+      "&nbsp; Thrust <b>" + Math.round(f.thrustNow) + " kN</b>" +
+      "&nbsp; TWR <b>" + twr.toFixed(2) + "</b>" +
+      "&nbsp; g <b>" + f.gNow.toFixed(2) + "</b>" +
+      "&nbsp; Parts <b>" + parts_n + "</b>" +
+      "&nbsp; T <b>" + f.time.toFixed(1) + "s</b>";
+  }
+
+  // ============ MAIN LOOP ============
+  var raf = null;
+  var last = 0;
+  var acc = 0;
+  var frameCount = 0;
+
+  function loop(now) {
+    raf = requestAnimationFrame(loop);
+    var dt = (now - last) / 1000; last = now;
+    if (!isFinite(dt) || dt < 0) dt = 0;
+    if (dt > 0.1) dt = 0.1;
+
+    if (mode === STATE.FLIGHT) {
+      acc += dt;
+      var step = 1 / 120, guard = 0;
+      while (acc >= step && guard < 40) { stepFlight(step); acc -= step; guard++; if (mode !== STATE.FLIGHT) break; }
+    } else {
+      acc = 0;
+    }
+
+    updateParticles(dt);
+    ctx.clearRect(0, 0, W, H);
+    if (mode === STATE.BUILD) renderBuild();
+    else renderFlight();
+
+    frameCount++;
+    if ((mode === STATE.FLIGHT || mode === STATE.RESULT) && frameCount % 4 === 0) updateReadout();
+  }
+
+  // ============ INPUT ============
+  function canvasPos(e) {
+    var r = canvas.getBoundingClientRect();
+    var cx = (e.clientX != null ? e.clientX : (e.touches && e.touches[0].clientX) || 0);
+    var cy = (e.clientY != null ? e.clientY : (e.touches && e.touches[0].clientY) || 0);
+    return { x: (cx - r.left) * (W / r.width), y: (cy - r.top) * (H / r.height) };
+  }
+
+  canvas.addEventListener("pointerdown", function (e) {
+    ensureAudio();
+    if (mode !== STATE.BUILD) return;
+    var pos = canvasPos(e);
+    for (var z = 0; z < buildZones.length; z++) {
+      var zone = buildZones[z];
+      if (pos.y >= zone.top && pos.y <= zone.bottom && Math.abs(pos.x - zone.cx) <= zone.w / 2) {
+        removePart(zone.i);
+        return;
+      }
+    }
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.code === "Space" || e.key === " ") {
+      e.preventDefault();
+      if (mode === STATE.FLIGHT) doStage();
+      else if (mode === STATE.BUILD) launch();
+      return;
+    }
+    if (e.code === "KeyX" || e.key === "x" || e.key === "X") {
+      if (mode === STATE.FLIGHT) toggleThrottle();
+      return;
+    }
+    if (e.code === "Escape") {
+      if (mode === STATE.FLIGHT || mode === STATE.RESULT) backToLab();
+      return;
+    }
+    if (e.code === "KeyR" || e.key === "r" || e.key === "R") {
+      if (mode === STATE.FLIGHT || mode === STATE.RESULT) launch();
+    }
+  });
+
+  function toggleThrottle() {
+    if (mode !== STATE.FLIGHT) return;
+    flight.throttle = flight.throttle > 0 ? 0 : 1;
+    btnThrottle.textContent = "Throttle: " + (flight.throttle > 0 ? "ON" : "OFF");
+    beep(flight.throttle > 0 ? 560 : 300, 0.07, "triangle", 0.05);
+  }
+
+  // ============ BUTTON WIRING ============
+  btnLaunch.addEventListener("click", launch);
+  btnClear.addEventListener("click", function () {
+    parts = []; saveDesign(); refreshBuildUI(); beep(240, 0.08, "sine", 0.05);
+  });
+  btnSample.addEventListener("click", loadSample);
+  btnReset.addEventListener("click", function () {
+    best = 0; goalsDone = []; saveProgress();
+    buildMsg.textContent = "Progress reset.";
+    beep(200, 0.12, "sine", 0.05);
+    refreshBuildUI();
+  });
+  btnStage.addEventListener("click", doStage);
+  btnThrottle.addEventListener("click", toggleThrottle);
+  btnRelaunch.addEventListener("click", launch);
+  btnLab.addEventListener("click", backToLab);
+
+  // Pause rendering when tab hidden to save cycles
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+    } else if (!raf) {
+      last = performance.now();
+      raf = requestAnimationFrame(loop);
+    }
+  });
+
+  // ============ INIT ============
+  try {
+    var saved = JSON.parse(localStorage.getItem("rocketLab.design") || "null");
+    if (Array.isArray(saved)) {
+      parts = saved.filter(function (t) { return PARTS[t]; }).map(function (t) { return { t: t, f: PARTS[t].fuel }; });
+    }
+  } catch (e) { parts = []; }
+
+  best = Number(localStorage.getItem("rocketLab.best") || 0) || 0;
+  refreshBuildUI();
+  last = performance.now();
+  raf = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

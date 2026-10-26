@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Tower of Hanoi</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: linear-gradient(135deg, #ffe5ec 0%, #e8f4f8 50%, #fff5e4 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    padding: 14px;
+    touch-action: manipulation;
+    overflow-x: hidden;
+  }
+
+  /* ============ GAME CONTAINER ============ */
+  #app {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: min(96vw, 760px);
+  }
+  .game-container {
+    background: rgba(255, 255, 255, 0.92);
+    border-radius: 22px;
+    padding: 18px 18px 20px;
+    box-shadow: 0 12px 44px rgba(0, 0, 0, 0.12);
+  }
+  .game-title {
+    text-align: center;
+    font-size: 1.9rem;
+    color: #ff6b8a;
+    text-shadow: 2px 2px 0 #fff;
+    letter-spacing: 0.5px;
+  }
+  .game-subtitle {
+    text-align: center;
+    font-size: 0.85rem;
+    color: #94a0ab;
+    margin: 4px 0 14px;
+  }
+
+  /* ============ STATS BOARD ============ */
+  .score-board {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 11px 14px;
+    background: linear-gradient(135deg, #fff9e6, #ffe8f0);
+    border-radius: 12px;
+    font-size: 0.92rem;
+    color: #67727c;
+  }
+  .score-board span { font-weight: 700; color: #ff6b8a; }
+  .score-board .cell { white-space: nowrap; }
+
+  /* ============ BOARD ============ */
+  .board-wrap {
+    position: relative;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: inset 0 4px 18px rgba(0, 0, 0, 0.06);
+    background: linear-gradient(180deg, #f2fbff 0%, #fdf1f6 100%);
+    border: 1px solid #ffe0ea;
+  }
+  #board {
+    position: relative;
+    width: 100%;
+    height: min(54vh, 360px);
+    min-height: 240px;
+    cursor: pointer;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .base {
+    position: absolute;
+    left: 3%;
+    width: 94%;
+    height: 18px;
+    bottom: 10px;
+    border-radius: 6px;
+    background: linear-gradient(180deg, #c58c6a, #a06a4a);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
+  }
+  .peg { position: absolute; bottom: 28px; width: 0; }
+  .rod {
+    position: absolute;
+    left: -7px;
+    width: 14px;
+    border-radius: 7px 7px 0 0;
+    background: linear-gradient(90deg, #c58c6a, #e0ab8b 40%, #a06a4a);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.14);
+  }
+  .peg-label {
+    position: absolute;
+    left: -30px;
+    width: 60px;
+    text-align: center;
+    bottom: -26px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #b98a8a;
+    letter-spacing: 1px;
+  }
+  .peg.active .rod { box-shadow: 0 0 0 3px rgba(255, 107, 138, 0.35), 0 2px 6px rgba(0,0,0,.2); }
+  .disk {
+    position: absolute;
+    border-radius: 14px;
+    border: 2px solid rgba(0, 0, 0, 0.12);
+    box-shadow: 0 3px 7px rgba(0, 0, 0, 0.18), inset 0 3px 0 rgba(255, 255, 255, 0.45);
+    transition: left 0.16s ease, bottom 0.16s ease, width 0.16s ease, box-shadow 0.16s ease;
+    will-change: left, bottom;
+  }
+  #heldDisk {
+    position: absolute;
+    z-index: 40;
+    pointer-events: none;
+    border-radius: 14px;
+    border: 2px solid rgba(0, 0, 0, 0.12);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.28), inset 0 3px 0 rgba(255, 255, 255, 0.45);
+    transform: scale(1.04);
+  }
+
+  /* ============ OVERLAYS (start / win / auto-solve) ============ */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 18px;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(2px);
+    transition: opacity 0.3s ease;
+    z-index: 60;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen-title {
+    font-size: 1.7rem;
+    color: #ff6b8a;
+    text-shadow: 2px 2px 0 #fff;
+    margin-bottom: 4px;
+  }
+  .screen-subtitle { font-size: 0.9rem; color: #94a0ab; margin-bottom: 18px; }
+
+  /* ============ DISK SELECTOR ============ */
+  .select-label { font-size: 0.82rem; color: #67727c; margin-bottom: 9px; letter-spacing: 0.4px; }
+  .disk-buttons { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 20px; }
+  .disk-btn {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    border: 2px solid #ffd1dc;
+    background: #fff;
+    color: #67727c;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s ease, background 0.15s ease;
+    font-family: inherit;
+  }
+  .disk-btn:hover { background: #fff0f5; transform: translateY(-2px); }
+  .disk-btn.selected {
+    background: linear-gradient(135deg, #ff8fa3, #ff6b8a);
+    color: #fff;
+    border-color: #ff6b8a;
+    box-shadow: 0 4px 12px rgba(255, 107, 138, 0.32);
+  }
+
+  /* ============ BUTTONS ============ */
+  .action-btn {
+    padding: 13px 30px;
+    background: linear-gradient(135deg, #ff8fa3, #ff6b8a);
+    color: #fff;
+    border: none;
+    border-radius: 24px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    box-shadow: 0 5px 14px rgba(255, 107, 138, 0.32);
+  }
+  .action-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(255, 107, 138, 0.4); }
+  .action-btn:active { transform: translateY(0); }
+  .action-btn.ghost {
+    background: #fff;
+    color: #ff6b8a;
+    border: 2px solid #ffd1dc;
+    box-shadow: none;
+  }
+  .action-btn.ghost:hover { background: #fff0f5; box-shadow: none; }
+
+  #controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+  }
+  #controls button { padding: 11px 22px; font-size: 0.95rem; }
+  #autoBtn.solving { background: linear-gradient(135deg, #ffb37b, #ff8f5e); }
+
+  .result-line { font-size: 1rem; color: #67727c; margin-bottom: 6px; }
+  .result-line b { color: #ff6b8a; }
+  .record-badge {
+    display: inline-block;
+    margin-bottom: 14px;
+    padding: 5px 14px;
+    border-radius: 20px;
+    background: #fff3c9;
+    color: #c98a00;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .screen-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+
+  /* ============ TOAST (illegal move feedback) ============ */
+  #toast {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-10px);
+    background: rgba(190, 60, 80, 0.94);
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 7px 16px;
+    border-radius: 20px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 80;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  #hint {
+    text-align: center;
+    font-size: 0.76rem;
+    color: #a9b3bd;
+    letter-spacing: 0.3px;
+  }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 520px) {
+    .game-container { padding: 14px 12px 16px; border-radius: 18px; }
+    .game-title { font-size: 1.5rem; }
+    .game-subtitle { font-size: 0.78rem; margin-bottom: 10px; }
+    .score-board { font-size: 0.8rem; padding: 9px 10px; }
+    .screen-title { font-size: 1.4rem; }
+    .disk-btn { width: 38px; height: 38px; }
+    #board { height: min(46vh, 300px); }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="game-container">
+    <h1 class="game-title">🗼 Tower of Hanoi</h1>
+    <p class="game-subtitle">Move the whole stack to peg C</p>
+
+    <!-- ============ STATS ============ -->
+    <div class="score-board">
+      <div class="cell">Moves: <span id="movesEl">0</span></div>
+      <div class="cell">Min: <span id="minEl">7</span></div>
+      <div class="cell">Best: <span id="bestEl">—</span></div>
+    </div>
+
+    <!-- ============ BOARD ============ -->
+    <div class="board-wrap">
+      <div id="board">
+        <div class="base"></div>
+        <div class="peg" data-peg="0"><div class="rod"></div><div class="peg-label">A</div></div>
+        <div class="peg" data-peg="1"><div class="rod"></div><div class="peg-label">B</div></div>
+        <div class="peg" data-peg="2"><div class="rod"></div><div class="peg-label">C</div></div>
+        <div id="toast"></div>
+
+        <!-- Start overlay -->
+        <div id="startScreen" class="screen">
+          <h2 class="screen-title">Ready to Play?</h2>
+          <p class="screen-subtitle">Pick how many disks to stack</p>
+          <div class="select-label">DISK COUNT</div>
+          <div class="disk-buttons" id="diskButtons">
+            <button class="disk-btn" data-n="3">3</button>
+            <button class="disk-btn" data-n="4">4</button>
+            <button class="disk-btn selected" data-n="5">5</button>
+            <button class="disk-btn" data-n="6">6</button>
+            <button class="disk-btn" data-n="7">7</button>
+            <button class="disk-btn" data-n="8">8</button>
+          </div>
+          <button class="action-btn" id="startBtn" type="button">Start Game</button>
+        </div>
+
+        <!-- Win overlay -->
+        <div id="winScreen" class="screen hidden">
+          <h2 class="screen-title">Solved! 🎉</h2>
+          <div id="recordBadge" class="record-badge hidden" style="display:none;">NEW BEST</div>
+          <p class="result-line">Your moves: <b id="winMoves">0</b></p>
+          <p class="result-line">Minimum: <b id="winMin">0</b></p>
+          <p class="result-line" style="margin-bottom:16px;">Best (<span id="winN">5</span> disks): <b id="winBest">—</b></p>
+          <div class="screen-actions">
+            <button class="action-btn" id="playAgainBtn" type="button">Play Again</button>
+            <button class="action-btn ghost" id="changeBtn" type="button">Change Disks</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ CONTROLS ============ -->
+    <div id="controls" style="margin-top:12px;">
+      <button class="action-btn ghost" id="restartBtn" type="button">Restart</button>
+      <button class="action-btn ghost" id="autoBtn" type="button">Show Solution</button>
+    </div>
+    <div id="hint">Tap a peg to pick up its top disk · tap another to drop · keys 1·2·3 · R restart</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ GAME CONFIGURATION ============
+  var PEG_COUNT = 3;
+  var DISK_COLORS = ["#ff6b8a", "#ffa94d", "#ffd43b", "#69db7c", "#4dabf7", "#9775fa", "#f783ac", "#38d9a9"];
+  var BASE_H = 18;          // matches .base height
+  var LIFT = 8;             // space between base and first disk
+  var TOP_PAD = 78;         // room reserved above the tallest stack for the held disk
+  var AUTO_DELAY = 340;     // ms between auto-solve steps
+
+  // ============ STATE ============
+  var n = 5;                          // disk count
+  var pegs = [[], [], []];            // each peg = array of disk sizes, index 0 = bottom
+  var diskEls = {};                   // size -> DOM element
+  var held = null;                    // { size, from } disk currently picked up
+  var dragging = false;
+  var dragStart = { x: 0, y: 0 };
+  var moves = 0;
+  var running = false;                // a game is in progress
+  var autoPlaying = false;
+  var usedAutoSolve = false;
+  var autoTimer = null;
+
+  // ============ DOM ELEMENTS ============
+  var board = document.getElementById("board");
+  var toast = document.getElementById("toast");
+  var pegEls = Array.prototype.slice.call(document.querySelectorAll(".peg"));
+  var movesEl = document.getElementById("movesEl");
+  var minEl = document.getElementById("minEl");
+  var bestEl = document.getElementById("bestEl");
+  var startScreen = document.getElementById("startScreen");
+  var winScreen = document.getElementById("winScreen");
+  var winMoves = document.getElementById("winMoves");
+  var winMin = document.getElementById("winMin");
+  var winBest = document.getElementById("winBest");
+  var winN = document.getElementById("winN");
+  var recordBadge = document.getElementById("recordBadge");
+  var diskButtons = Array.prototype.slice.call(document.querySelectorAll(".disk-btn"));
+  var toastTimer = null;
+
+  // ============ AUDIO (WebAudio, no assets) ============
+  var actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = actx.createOscillator();
+      var g = actx.createGain();
+      o.type = type || "sine";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.07, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+  function buzz() { beep(140, 0.22, "sawtooth"); }
+  function sfxPick() { beep(620, 0.07, "triangle"); }
+  function sfxDrop() { beep(440, 0.09, "square"); }
+  function sfxWin() {
+    [523, 659, 784, 1047].forEach(function (f, i) {
+      setTimeout(function () { beep(f, 0.16, "sine"); }, i * 110);
+    });
+  }
+
+  // ============ GEOMETRY / LAYOUT ============
+  var geo = { W: 0, H: 0, pegX: [0, 0, 0], diskH: 24, rodTop: 0 };
+
+  function computeGeometry() {
+    var rect = board.getBoundingClientRect();
+    geo.W = rect.width;
+    geo.H = rect.height;
+    geo.pegX = [geo.W * 0.18, geo.W * 0.5, geo.W * 0.82];
+    var avail = geo.H - BASE_H - 10 - TOP_PAD;
+    geo.diskH = Math.max(13, avail / n);
+    geo.rodTop = BASE_H + 10 + n * geo.diskH;
+    geo.rect = rect;
+  }
+
+  function diskWidth(size) {
+    var spacing = geo.pegX[1] - geo.pegX[0];
+    var minW = spacing * 0.30;
+    var maxW = spacing * 0.94;
+    if (n === 1) return maxW;
+    return minW + (maxW - minW) * ((size - 1) / (n - 1));
+  }
+
+  function layoutPegs() {
+    pegEls.forEach(function (el, i) {
+      el.style.left = geo.pegX[i] + "px";
+      el.style.bottom = (BASE_H + 10) + "px";
+      el.querySelector(".rod").style.height = geo.rodTop + "px";
+    });
+  }
+
+  function positionDisk(el, size, pegIndex, stackIndex) {
+    var w = diskWidth(size);
+    el.style.width = w + "px";
+    el.style.height = (geo.diskH - 3) + "px";
+    el.style.left = (geo.pegX[pegIndex] - w / 2) + "px";
+    el.style.bottom = (BASE_H + 10 + stackIndex * geo.diskH) + "px";
+  }
+
+  // ============ BUILD & RENDER ============
+  function buildDisks() {
+    Object.keys(diskEls).forEach(function (k) {
+      diskEls[k].parentNode && diskEls[k].parentNode.removeChild(diskEls[k]);
+    });
+    diskEls = {};
+    for (var s = 1; s <= n; s++) {
+      var el = document.createElement("div");
+      el.className = "disk";
+      el.style.background = "linear-gradient(180deg, " + DISK_COLORS[(s - 1) % 8] + ", " +
+        shade(DISK_COLORS[(s - 1) % 8], -18) + ")";
+      el.dataset.size = s;
+      board.appendChild(el);
+      diskEls[s] = el;
+    }
+  }
+
+  // Darken/lighten a hex color by pct (-100..100)
+  function shade(hex, pct) {
+    var num = parseInt(hex.slice(1), 16);
+    var r = (num >> 16) & 255, g = (num >> 8) & 255, b = num & 255;
+    var t = pct < 0 ? 0 : 255, p = Math.abs(pct) / 100;
+    r = Math.round((t - r) * p + r);
+    g = Math.round((t - g) * p + g);
+    b = Math.round((t - b) * p + b);
+    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+  }
+
+  function render() {
+    if (!held) removeHeldEl();
+    pegs.forEach(function (stack, p) {
+      stack.forEach(function (size, idx) {
+        var el = diskEls[size];
+        if (!el) return;
+        el.style.display = "";
+        el.style.zIndex = String(10 + idx);
+        positionDisk(el, size, p, idx);
+      });
+    });
+    // Hide the disk that is currently held
+    if (held) {
+      var he = diskEls[held.size];
+      he.style.display = "none";
+    }
+    pegEls.forEach(function (el, i) {
+      el.classList.toggle("active", !!held && held.from === i);
+    });
+    movesEl.textContent = moves;
+  }
+
+  function renderHeldAt(x, y) {
+    if (!held) return;
+    if (!heldEl) createHeldEl();
+    var src = diskEls[held.size];
+    if (src) heldEl.style.background = src.style.background;
+    var w = diskWidth(held.size);
+    heldEl.style.width = w + "px";
+    heldEl.style.height = (geo.diskH - 3) + "px";
+    if (dragging) {
+      var rx = x - geo.rect.left;
+      var ry = y - geo.rect.top;
+      heldEl.style.left = (rx - w / 2) + "px";
+      heldEl.style.bottom = (geo.H - ry - geo.diskH / 2 + 12) + "px";
+    } else {
+      heldEl.style.left = (geo.pegX[held.from] - w / 2) + "px";
+      heldEl.style.bottom = (geo.rodTop + 14) + "px";
+    }
+  }
+
+  var heldEl = null;
+  function createHeldEl() {
+    heldEl = document.createElement("div");
+    heldEl.id = "heldDisk";
+    board.appendChild(heldEl);
+  }
+  function removeHeldEl() {
+    if (heldEl && heldEl.parentNode) heldEl.parentNode.removeChild(heldEl);
+    heldEl = null;
+  }
+
+  // ============ GAME FLOW ============
+  function minMoves(count) { return Math.pow(2, count) - 1; }
+  function bestKey(count) { return "hanoiBest_" + count; }
+  function getBest(count) {
+    var v = localStorage.getItem(bestKey(count));
+    return v === null ? null : Number(v);
+  }
+  function updateBestLabel() {
+    var b = getBest(n);
+    bestEl.textContent = b === null ? "—" : b;
+    minEl.textContent = minMoves(n);
+  }
+
+  function newGame(count) {
+    n = count;
+    cancelAutoSolve(true);
+    pegs = [[], [], []];
+    for (var s = n; s >= 1; s--) pegs[0].push(s); // largest at bottom
+    held = null;
+    dragging = false;
+    moves = 0;
+    usedAutoSolve = false;
+    running = true;
+    winScreen.classList.add("hidden");
+    startScreen.classList.add("hidden");
+    removeHeldEl();
+    computeGeometry();
+    buildDisks();
+    layoutPegs();
+    updateBestLabel();
+    render();
+  }
+
+  function resetGame() {
+    if (!running && startScreen.classList.contains("hidden") === false) return;
+    newGame(n);
+  }
+
+  function showStart() {
+    running = false;
+    cancelAutoSolve(true);
+    winScreen.classList.add("hidden");
+    startScreen.classList.remove("hidden");
+    updateBestLabel();
+  }
+
+  function checkWin() {
+    if (pegs[2].length === n) {
+      running = false;
+      sfxWin();
+      var best = getBest(n);
+      var isRecord = !usedAutoSolve && (best === null || moves < best);
+      if (isRecord) localStorage.setItem(bestKey(n), String(moves));
+      winMoves.textContent = moves;
+      winMin.textContent = minMoves(n);
+      winN.textContent = n;
+      winBest.textContent = getBest(n) === null ? "—" : getBest(n);
+      if (isRecord) { recordBadge.style.display = "inline-block"; }
+      else { recordBadge.style.display = "none"; }
+      updateBestLabel();
+      setTimeout(function () { winScreen.classList.remove("hidden"); }, 260);
+      return true;
+    }
+    return false;
+  }
+
+  // ============ MOVE LOGIC ============
+  function canDrop(pegIndex, size) {
+    var stack = pegs[pegIndex];
+    return stack.length === 0 || stack[stack.length - 1] > size;
+  }
+
+  function applyMove(from, to) {
+    var size = pegs[from].pop();
+    pegs[to].push(size);
+    return size;
+  }
+
+  function pickUp(pegIndex) {
+    if (pegs[pegIndex].length === 0) { buzz(); showToast("That peg is empty"); return; }
+    held = { size: pegs[pegIndex][pegs[pegIndex].length - 1], from: pegIndex };
+    pegs[pegIndex].pop();
+    sfxPick();
+    render();
+    renderHeldAt(0, 0);
+  }
+
+  function dropOn(pegIndex) {
+    if (!held) return;
+    var size = held.size;
+    if (pegIndex === held.from && pegs[pegIndex].length === 0) {
+      // simple put-back
+      pegs[pegIndex].push(size);
+      held = null;
+      render();
+      return;
+    }
+    if (!canDrop(pegIndex, size)) {
+      // illegal: return disk to its origin, buzz
+      pegs[held.from].push(size);
+      held = null;
+      buzz();
+      showToast("No larger disk on a smaller one!");
+      render();
+      return;
+    }
+    pegs[pegIndex].push(size);
+    held = null;
+    moves++;
+    sfxDrop();
+    render();
+    if (!checkWin()) beep(520, 0.05, "sine");
+  }
+
+  function cancelHeld() {
+    if (!held) return;
+    pegs[held.from].push(held.size);
+    held = null;
+    render();
+  }
+
+  // ============ TOAST ============
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toast.classList.remove("show"); }, 1200);
+  }
+
+  // ============ POINTER INPUT ============
+  function pegFromX(clientX) {
+    var rx = clientX - geo.rect.left;
+    if (rx < -30 || rx > geo.W + 30) return -1;
+    var bestIdx = 0, bestDist = Infinity;
+    for (var i = 0; i < PEG_COUNT; i++) {
+      var d = Math.abs(geo.pegX[i] - rx);
+      if (d < bestDist) { bestDist = d; bestIdx = i; }
+    }
+    return bestIdx;
+  }
+
+  board.addEventListener("pointerdown", function (e) {
+    if (!running || autoPlaying) return;
+    e.preventDefault();
+    if (actx && actx.state === "suspended") actx.resume();
+    var p = pegFromX(e.clientX);
+    if (p < 0) return;
+
+    if (held === null) {
+      if (pegs[p].length === 0) { buzz(); showToast("That peg is empty"); return; }
+      dragStart = { x: e.clientX, y: e.clientY };
+      dragged = false;
+      pickUp(p);
+      if (held) {
+        heldEl.classList.add("dragging");
+        renderHeldAt(e.clientX, e.clientY);
+      }
+    } else {
+      dropOn(p);
+    }
+  });
+
+  var dragged = false;
+  window.addEventListener("pointermove", function (e) {
+    if (!held) return;
+    if (!dragging) {
+      var dx = e.clientX - dragStart.x, dy = e.clientY - dragStart.y;
+      if (!dragged && Math.hypot(dx, dy) > 8) {
+        dragged = true;
+        dragging = true;
+        if (heldEl) heldEl.classList.add("dragging");
+      }
+    }
+    if (dragging) renderHeldAt(e.clientX, e.clientY);
+  });
+
+  window.addEventListener("pointerup", function (e) {
+    if (!held) return;
+    if (dragging) {
+      var p = pegFromX(e.clientX);
+      dragging = false;
+      if (heldEl) heldEl.classList.remove("dragging");
+      if (p < 0) { cancelHeld(); return; }
+      dropOn(p);
+    }
+    // tap mode: keep the disk held; a following pointerdown completes the drop
+  });
+
+  window.addEventListener("pointercancel", function () {
+    if (dragging) { dragging = false; cancelHeld(); }
+  });
+
+  // Keyboard: 1/2/3 select-or-drop, R restart, Esc cancel
+  window.addEventListener("keydown", function (e) {
+    if (e.key === "r" || e.key === "R") { e.preventDefault(); if (running || !startScreen.classList.contains("hidden")) resetGame(); return; }
+    if (e.key === "Escape") { if (held) { cancelHeld(); } return; }
+    if (e.key === "1" || e.key === "2" || e.key === "3") {
+      e.preventDefault();
+      if (!running || autoPlaying) return;
+      var idx = Number(e.key) - 1;
+      if (held === null) pickUp(idx);
+      else dropOn(idx);
+    }
+  });
+
+  // ============ AUTO-SOLVE (Show Solution) ============
+  function buildSolution(count, from, to, via, out) {
+    if (count === 0) return;
+    buildSolution(count - 1, from, via, to, out);
+    out.push([from, to]);
+    buildSolution(count - 1, via, to, from, out);
+  }
+
+  function startAutoSolve() {
+    if (autoPlaying) { cancelAutoSolve(); return; }
+    if (!running) return;
+    cancelHeld();
+    var solution = [];
+    buildSolution(n, 0, 2, 1, solution);
+    autoPlaying = true;
+    usedAutoSolve = true;
+    autoBtn.textContent = "Stop";
+    autoBtn.classList.add("solving");
+    var i = 0;
+    autoTimer = setInterval(function () {
+      if (i >= solution.length) { cancelAutoSolve(); checkWin(); return; }
+      var mv = solution[i++];
+      applyMove(mv[0], mv[1]);
+      moves++;
+      beep(360 + (i % 6) * 40, 0.06, "sine");
+      render();
+    }, AUTO_DELAY);
+  }
+
+  function cancelAutoSolve(silent) {
+    if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+    if (!autoPlaying) return;
+    autoPlaying = false;
+    autoBtn.textContent = "Show Solution";
+    autoBtn.classList.remove("solving");
+    if (!silent) { /* nothing else */ }
+  }
+
+  // ============ WIRING ============
+  var autoBtn = document.getElementById("autoBtn");
+  var restartBtn = document.getElementById("restartBtn");
+  var startBtn = document.getElementById("startBtn");
+  var playAgainBtn = document.getElementById("playAgainBtn");
+  var changeBtn = document.getElementById("changeBtn");
+
+  diskButtons.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      diskButtons.forEach(function (b) { b.classList.remove("selected"); });
+      btn.classList.add("selected");
+      n = Number(btn.dataset.n);
+      updateBestLabel();
+    });
+  });
+
+  startBtn.addEventListener("click", function () { newGame(n); });
+  playAgainBtn.addEventListener("click", function () { newGame(n); });
+  changeBtn.addEventListener("click", function () { showStart(); });
+  restartBtn.addEventListener("click", function () { if (running || startScreen.classList.contains("hidden") === false) resetGame(); });
+  autoBtn.addEventListener("click", startAutoSolve);
+
+  window.addEventListener("resize", function () {
+    if (autoPlaying) return;
+    computeGeometry();
+    layoutPegs();
+    render();
+    if (held) renderHeldAt(0, 0);
+    else removeHeldEl();
+  });
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden && autoPlaying) cancelAutoSolve(true);
+  });
+
+  // ============ INITIAL DRAW ============
+  (function init() {
+    pegs = [[], [], []];
+    for (var s = n; s >= 1; s--) pegs[0].push(s);
+    computeGeometry();
+    buildDisks();
+    layoutPegs();
+    updateBestLabel();
+    render();
+    minEl.textContent = minMoves(n);
+  })();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Color Clash</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%; padding: 10px; touch-action: manipulation;
+    background: radial-gradient(circle at 50% 0%, #1b2340 0%, #0d1020 60%, #06070f 100%);
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+    color: #eef2ff; display: flex; align-items: center; justify-content: center; overflow-x: hidden;
+  }
+
+  /* ============ GAME CONTAINER ============ */
+  .game-container {
+    position: relative; width: min(96vw, 860px); min-height: min(94vh, 680px);
+    background: linear-gradient(180deg, #182144 0%, #10162e 100%);
+    border: 2px solid rgba(120,150,255,.28); border-radius: 20px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06);
+    padding: 14px 16px 18px; display: flex; flex-direction: column; gap: 10px; overflow: hidden;
+  }
+
+  /* ============ TOP BAR / STATS ============ */
+  .topbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  .brand {
+    font-size: clamp(16px, 3.4vw, 24px); font-weight: 800; letter-spacing: 2px;
+    background: linear-gradient(90deg, #ff5d5d, #ffd23f, #4bd06a, #4aa8ff);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .stats { display: flex; gap: 8px; flex-wrap: wrap; }
+  .stat {
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+    border-radius: 10px; padding: 5px 10px; font-size: 12px; color: #a8b2d8; letter-spacing: .5px;
+  }
+  .stat b { color: #fff; font-size: 13px; }
+
+  /* ============ HUD ============ */
+  .hud { display: flex; gap: 8px; flex-wrap: wrap; }
+  .hud-item {
+    flex: 1 1 auto; display: flex; align-items: center; gap: 8px; min-width: 110px;
+    background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.09); border-radius: 12px; padding: 6px 12px;
+  }
+  .hud-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #7f8ac0; }
+  .hud-value { font-size: 15px; font-weight: 700; }
+  .color-chip-wrap { display: flex; align-items: center; font-size: 13px; font-weight: 700; text-transform: capitalize; }
+  .color-chip { width: 18px; height: 18px; border-radius: 50%; display: inline-block; margin-right: 6px; box-shadow: 0 0 10px currentColor; transition: background .25s ease; }
+
+  /* ============ OPPONENTS ============ */
+  .opponents { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .opp {
+    position: relative; text-align: center; padding: 8px 6px;
+    background: rgba(255,255,255,.04); border: 2px solid rgba(255,255,255,.08); border-radius: 14px;
+    transition: border-color .25s ease, box-shadow .25s ease, transform .25s ease;
+  }
+  .opp.active { border-color: #ffd23f; box-shadow: 0 0 0 2px rgba(255,210,63,.25), 0 0 22px rgba(255,210,63,.35); transform: translateY(-2px); }
+  .opp .avatar { font-size: clamp(20px, 4vw, 28px); line-height: 1; }
+  .opp .name { font-size: 11px; color: #b8c0e6; margin-top: 2px; letter-spacing: .5px; }
+  .opp .count { font-size: clamp(13px, 3vw, 17px); font-weight: 800; color: #fff; margin-top: 2px; }
+  .opp .count small { font-size: 10px; color: #8f99c9; font-weight: 600; }
+  .mini-stack { display: flex; justify-content: center; margin-top: 4px; height: 20px; }
+  .mini { width: 12px; height: 18px; border-radius: 3px; margin-left: -5px; background: linear-gradient(135deg, #2d3a6b, #1a2144); border: 1px solid rgba(150,170,255,.4); }
+  .mini:first-child { margin-left: 0; }
+
+  /* last-card flare */
+  .flare {
+    position: absolute; top: -12px; left: 50%; transform: translateX(-50%) scale(0);
+    background: linear-gradient(90deg, #ff3b3b, #ff7a00); color: #fff;
+    font-size: 10px; font-weight: 800; letter-spacing: 1px; padding: 3px 8px; border-radius: 20px; white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(255,60,60,.6);
+    animation: pop-flare .4s ease forwards, pulse-flare 1s ease-in-out .4s infinite;
+  }
+  @keyframes pop-flare { to { transform: translateX(-50%) scale(1); } }
+  @keyframes pulse-flare { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.5); } }
+
+  /* ============ TABLE ============ */
+  .table { flex: 1; display: flex; align-items: center; justify-content: center; gap: clamp(18px, 6vw, 60px); padding: 6px 0; }
+  .pile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .pile-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: #7f8ac0; }
+  .draw-pile { cursor: pointer; }
+  .draw-pile:hover .card.back { transform: translateY(-4px) rotate(-2deg); }
+  .draw-pile.disabled { opacity: .5; cursor: not-allowed; }
+  .draw-pile.disabled:hover .card.back { transform: none; }
+
+  /* ============ CARD ============ */
+  .card {
+    position: relative; width: clamp(58px, 12vw, 82px); height: clamp(84px, 17vw, 118px);
+    border-radius: 10px; background: #fff; display: flex; align-items: center; justify-content: center; overflow: hidden;
+    box-shadow: 0 6px 16px rgba(0,0,0,.45), inset 0 0 0 3px rgba(255,255,255,.85);
+    transition: transform .15s ease, box-shadow .15s ease; user-select: none;
+  }
+  .card.red    { background: linear-gradient(160deg, #ff5f5f, #c81e3a); }
+  .card.yellow { background: linear-gradient(160deg, #ffd23f, #e39b00); }
+  .card.green  { background: linear-gradient(160deg, #57d07a, #1f9b46); }
+  .card.blue   { background: linear-gradient(160deg, #59b0ff, #1f63d6); }
+  .card.wild   { background: conic-gradient(from 45deg, #ff5f5f 0 25%, #ffd23f 0 50%, #57d07a 0 75%, #59b0ff 0 100%); }
+  .card .pip { font-size: clamp(20px, 5vw, 34px); font-weight: 900; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,.35); z-index: 2; }
+  .card .corner { position: absolute; font-size: clamp(9px, 2vw, 13px); font-weight: 900; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4); z-index: 2; }
+  .card .corner.tl { top: 5px; left: 6px; }
+  .card .corner.br { bottom: 5px; right: 6px; transform: rotate(180deg); }
+  .card.back { background: linear-gradient(160deg, #2a3568, #161c3a); box-shadow: 0 6px 16px rgba(0,0,0,.5), inset 0 0 0 3px rgba(150,170,255,.5); }
+  .card.back .card-back-logo {
+    width: 52%; height: 52%; border-radius: 50%; transform: rotate(-18deg); border: 2px solid rgba(180,200,255,.4);
+    display: flex; align-items: center; justify-content: center; font-size: clamp(16px, 4vw, 24px); font-weight: 900; letter-spacing: 1px;
+    background: linear-gradient(90deg, #ff5d5d, #ffd23f, #4bd06a, #4aa8ff); -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .card.playable { cursor: pointer; box-shadow: 0 0 0 3px #ffd23f, 0 0 20px rgba(255,210,63,.6), 0 6px 16px rgba(0,0,0,.45); }
+  .card.playable:hover { transform: translateY(-10px) scale(1.04); }
+  .card.selected { transform: translateY(-12px) scale(1.06); box-shadow: 0 0 0 3px #fff, 0 0 24px rgba(255,255,255,.7); }
+  .card.dim { opacity: .45; filter: grayscale(.4); }
+
+  /* ============ LOG ============ */
+  .log {
+    text-align: center; font-size: clamp(12px, 2.6vw, 14px); color: #c3caf0;
+    background: rgba(255,255,255,.04); border-radius: 10px; padding: 7px 12px; min-height: 34px;
+    display: flex; align-items: center; justify-content: center; letter-spacing: .3px;
+  }
+
+  /* ============ HAND BAR ============ */
+  .handbar { display: flex; flex-direction: column; gap: 8px; }
+  .hand-info { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #7f8ac0; }
+  .hand-info b { color: #ffd23f; }
+  .hand { display: flex; gap: 8px; overflow-x: auto; padding: 14px 4px 10px; min-height: 130px; scrollbar-width: thin; scrollbar-color: #3a4680 transparent; }
+  .hand::-webkit-scrollbar { height: 6px; }
+  .hand::-webkit-scrollbar-thumb { background: #3a4680; border-radius: 4px; }
+  .hand .card { flex: 0 0 auto; }
+  .hand-actions { display: flex; gap: 10px; justify-content: center; }
+  .btn {
+    font-family: inherit; font-size: 14px; font-weight: 800; letter-spacing: 1px; padding: 10px 26px;
+    border: none; border-radius: 12px; cursor: pointer; color: #0d1020;
+    background: linear-gradient(180deg, #ffd23f, #e39b00); box-shadow: 0 4px 0 rgba(0,0,0,.35);
+    transition: transform .05s ease, filter .15s ease;
+  }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.35); }
+  .btn:disabled { opacity: .4; cursor: not-allowed; filter: grayscale(.5); }
+  .btn.ghost { background: linear-gradient(180deg, #4a5694, #2c3568); color: #fff; }
+  .hidden { display: none !important; }
+
+  /* ============ OVERLAYS ============ */
+  .overlay {
+    position: absolute; inset: 0; z-index: 20; padding: 16px;
+    background: rgba(6,8,18,.86); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .overlay .panel {
+    background: linear-gradient(180deg, #1c2550, #121834); border: 2px solid rgba(130,160,255,.3);
+    border-radius: 18px; padding: 26px 28px; max-width: 460px; width: 100%; text-align: center; box-shadow: 0 24px 60px rgba(0,0,0,.7);
+  }
+  .panel h1 {
+    font-size: clamp(26px, 6vw, 40px); font-weight: 900; letter-spacing: 2px; margin-bottom: 8px;
+    background: linear-gradient(90deg, #ff5d5d, #ffd23f, #4bd06a, #4aa8ff); -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .panel h3 { font-size: 18px; margin-bottom: 14px; letter-spacing: 1px; color: #eef2ff; }
+  .panel p { font-size: 13px; color: #a8b2d8; line-height: 1.6; margin-bottom: 16px; }
+  .panel p b, .panel .rules b { color: #fff; }
+  .panel .rules { text-align: left; font-size: 12.5px; color: #b6bfe6; line-height: 1.7; margin: 0 auto 18px; max-width: 340px; }
+  .panel .big-emoji { font-size: 54px; margin-bottom: 6px; }
+  .panel .btn { margin-top: 4px; }
+  .swatches { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .swatch { width: 58px; height: 58px; border-radius: 14px; border: 3px solid rgba(255,255,255,.5); cursor: pointer; transition: transform .12s ease, box-shadow .12s ease; }
+  .swatch:hover { transform: translateY(-4px) scale(1.08); box-shadow: 0 0 20px currentColor; }
+  .swatch.red    { background: linear-gradient(160deg, #ff5f5f, #c81e3a); color: #ff5f5f; }
+  .swatch.yellow { background: linear-gradient(160deg, #ffd23f, #e39b00); color: #ffd23f; }
+  .swatch.green  { background: linear-gradient(160deg, #57d07a, #1f9b46); color: #57d07a; }
+  .swatch.blue   { background: linear-gradient(160deg, #59b0ff, #1f63d6); color: #59b0ff; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 520px) {
+    .game-container { padding: 10px 10px 14px; border-radius: 14px; }
+    .stat { padding: 4px 8px; font-size: 11px; }
+    .hud-item { min-width: 90px; padding: 5px 9px; }
+    .table { gap: 20px; }
+    .hand { min-height: 112px; }
+    .swatch { width: 48px; height: 48px; }
+  }
+</style>
+</head>
+<body>
+<div class="game-container" id="app">
+
+  <!-- ============ TOP BAR ============ -->
+  <div class="topbar">
+    <div class="brand">🎴 COLOR CLASH</div>
+    <div class="stats">
+      <div class="stat">Wins <b><span id="youWins">0</span>–<span id="cpuWins">0</span></b></div>
+      <div class="stat">Streak <b id="streakEl">0</b></div>
+      <div class="stat">Best <b id="bestEl">0</b></div>
+    </div>
+  </div>
+
+  <!-- ============ HUD ============ -->
+  <div class="hud">
+    <div class="hud-item"><span class="hud-label">Direction</span><span id="dirIcon" class="hud-value">🔄</span></div>
+    <div class="hud-item">
+      <span class="hud-label">Color</span>
+      <span class="color-chip-wrap"><span id="colorChip" class="color-chip"></span><span id="colorName">—</span></span>
+    </div>
+    <div class="hud-item"><span class="hud-label">Turn</span><span id="turnText" class="hud-value">—</span></div>
+  </div>
+
+  <!-- ============ OPPONENTS ============ -->
+  <div class="opponents" id="opponents"></div>
+
+  <!-- ============ TABLE ============ -->
+  <div class="table">
+    <div class="pile draw-pile" id="drawPile" title="Draw a card">
+      <div class="card back"><div class="card-back-logo">CC</div></div>
+      <div class="pile-label">Draw</div>
+    </div>
+    <div class="pile discard-pile" id="discardPile">
+      <div class="pile-label">Discard</div>
+    </div>
+  </div>
+
+  <!-- ============ LOG & HAND ============ -->
+  <div class="log" id="log">Welcome to Color Clash! First to empty their hand wins.</div>
+  <div class="handbar">
+    <div class="hand-info">Your hand · <b><span id="handCount">0</span></b> cards</div>
+    <div class="hand" id="hand"></div>
+    <div class="hand-actions">
+      <button id="drawBtn" class="btn">Draw Card</button>
+      <button id="passBtn" class="btn ghost hidden">Pass</button>
+    </div>
+  </div>
+
+  <!-- ============ COLOR PICKER ============ -->
+  <div class="overlay hidden" id="colorPicker">
+    <div class="panel">
+      <h3>Choose a color</h3>
+      <div class="swatches">
+        <button class="swatch red" data-color="red" aria-label="Red"></button>
+        <button class="swatch yellow" data-color="yellow" aria-label="Yellow"></button>
+        <button class="swatch green" data-color="green" aria-label="Green"></button>
+        <button class="swatch blue" data-color="blue" aria-label="Blue"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ START OVERLAY ============ -->
+  <div class="overlay" id="startOverlay">
+    <div class="panel">
+      <div class="big-emoji">🎴</div>
+      <h1>COLOR CLASH</h1>
+      <p>You vs 3 rivals. Match the top card by <b>color</b> or <b>number / symbol</b>.</p>
+      <div class="rules">
+        <b>Goal:</b> be first to play every card in your hand.<br>
+        <b>Wild</b> → pick any color. <b>Wild +4</b> → next player draws four.<br>
+        <b>Draw</b> if you can't play. <b>Last card</b> = danger!<br>
+        Keyboard: ← → select · Enter/Space play · D draw · 1–9 quick pick.
+      </div>
+      <button class="btn" id="startBtn">Start Game</button>
+    </div>
+  </div>
+
+  <!-- ============ RESULT OVERLAY ============ -->
+  <div class="overlay hidden" id="resultOverlay">
+    <div class="panel">
+      <div class="big-emoji" id="resultEmoji">🎉</div>
+      <h1 id="resultTitle">You win!</h1>
+      <p id="resultSub">Nice hand.</p>
+      <div class="stats" style="justify-content:center;margin-bottom:16px;">
+        <div class="stat">Wins <b><span id="rYouWins">0</span>–<span id="rCpuWins">0</span></b></div>
+        <div class="stat">Best streak <b id="rBest">0</b></div>
+      </div>
+      <button class="btn" id="nextRoundBtn">Next Round</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============ CONFIGURATION ============ */
+  var COLORS = ["red", "yellow", "green", "blue"];
+  var ACTIONS = ["skip", "reverse", "draw2"];   // two of each per color
+  var START_HAND = 7;
+  var CPU_DELAY = 850;
+  var PLAYER_DEFS = [
+    { name: "You",   emoji: "🧑", isCPU: false },
+    { name: "Robo",  emoji: "🤖", isCPU: true  },
+    { name: "Panda", emoji: "🐼", isCPU: true  },
+    { name: "Fox",   emoji: "🦊", isCPU: true  }
+  ];
+
+  /* ============ DOM ============ */
+  var $ = function (id) { return document.getElementById(id); };
+  var opponentsEl = $("opponents"), discardPileEl = $("discardPile"), drawPileEl = $("drawPile");
+  var handEl = $("hand"), handCountEl = $("handCount"), logEl = $("log");
+  var dirIconEl = $("dirIcon"), colorChipEl = $("colorChip"), colorNameEl = $("colorName"), turnTextEl = $("turnText");
+  var drawBtn = $("drawBtn"), passBtn = $("passBtn");
+  var youWinsEl = $("youWins"), cpuWinsEl = $("cpuWins"), streakEl = $("streakEl"), bestEl = $("bestEl");
+  var startOverlay = $("startOverlay"), resultOverlay = $("resultOverlay"), colorPicker = $("colorPicker");
+  var startBtn = $("startBtn"), nextRoundBtn = $("nextRoundBtn");
+  var swatches = Array.prototype.slice.call(document.querySelectorAll(".swatch"));
+  var resultEmoji = $("resultEmoji"), resultTitle = $("resultTitle"), resultSub = $("resultSub");
+  var rYouWins = $("rYouWins"), rCpuWins = $("rCpuWins"), rBest = $("rBest");
+
+  /* ============ PERSISTED STATS ============ */
+  var wins = { you: 0, cpu: 0 }, streak = 0, best = 0;
+  try {
+    var savedWins = JSON.parse(localStorage.getItem("colorClashWins") || "null");
+    if (savedWins && typeof savedWins.you === "number") wins = savedWins;
+    streak = Number(localStorage.getItem("colorClashStreak") || 0);
+    best = Number(localStorage.getItem("colorClashBest") || 0);
+  } catch (e) { /* fresh start */ }
+
+  /* ============ GAME STATE ============ */
+  var uid = 0;
+  var state = {
+    players: [], deck: [], discard: [], current: 0, direction: 1, currentColor: "red",
+    skip: 0, running: false, drawnThisTurn: false, pendingDrawn: null, pendingWild: null,
+    selIndex: 0, timer: null
+  };
+
+  /* ============ SOUND (WebAudio, no assets) ============ */
+  var actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = actx.createOscillator(), g = actx.createGain();
+      o.type = type || "square"; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.06, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination); o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  /* ============ CARD HELPERS ============ */
+  function makeCard(color, type, value) {
+    return { id: ++uid, color: color, type: type, value: (value === undefined ? null : value) };
+  }
+  function buildDeck() {
+    var deck = [];
+    for (var ci = 0; ci < COLORS.length; ci++) {
+      var c = COLORS[ci];
+      deck.push(makeCard(c, "number", 0));                     // one zero
+      for (var v = 1; v <= 9; v++) { deck.push(makeCard(c, "number", v)); deck.push(makeCard(c, "number", v)); }
+      for (var ai = 0; ai < ACTIONS.length; ai++) { deck.push(makeCard(c, ACTIONS[ai])); deck.push(makeCard(c, ACTIONS[ai])); }
+    }
+    for (var w = 0; w < 4; w++) { deck.push(makeCard("wild", "wild")); deck.push(makeCard("wild", "wild4")); }
+    return deck; // 25 * 4 + 8 = 108
+  }
+  function shuffle(arr) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1)); var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+  function matchKey(card) { return card.type === "number" ? ("n" + card.value) : card.type; }
+  function isPlayable(card, top) {
+    if (card.color === "wild" || card.color === state.currentColor) return true;
+    return matchKey(card) === matchKey(top);
+  }
+  function topCard() { return state.discard[state.discard.length - 1]; }
+  function cardFace(card) {
+    if (card.type === "number") return String(card.value);
+    if (card.type === "skip") return "🚫";
+    if (card.type === "reverse") return "🔄";
+    if (card.type === "draw2") return "+2";
+    if (card.type === "wild") return "🌈";
+    return "+4";
+  }
+  function cardCorner(card) {
+    if (card.type === "number") return String(card.value);
+    if (card.type === "skip") return "⊘";
+    if (card.type === "reverse") return "⇄";
+    if (card.type === "draw2") return "+2";
+    if (card.type === "wild") return "W";
+    return "+4";
+  }
+  function cardName(card) {
+    var col = card.color === "wild" ? "" : (card.color + " ");
+    if (card.type === "number") return card.color + " " + card.value;
+    if (card.type === "skip") return col + "Skip";
+    if (card.type === "reverse") return col + "Reverse";
+    if (card.type === "draw2") return col + "Draw Two";
+    if (card.type === "wild") return "Wild";
+    return "Wild Draw Four";
+  }
+
+  /* ============ DOM BUILDERS ============ */
+  function makeCardEl(card, opts) {
+    opts = opts || {};
+    var el = document.createElement("div");
+    el.className = "card " + (card.color === "wild" ? "wild" : card.color);
+    el.innerHTML =
+      '<span class="corner tl">' + cardCorner(card) + "</span>" +
+      '<span class="pip">' + cardFace(card) + "</span>" +
+      '<span class="corner br">' + cardCorner(card) + "</span>";
+    if (opts.playable) el.classList.add("playable");
+    if (opts.selected) el.classList.add("selected");
+    if (opts.dim) el.classList.add("dim");
+    if (opts.onClick) el.addEventListener("click", opts.onClick);
+    return el;
+  }
+
+  /* ============ RENDERING ============ */
+  function renderStats() {
+    youWinsEl.textContent = wins.you; cpuWinsEl.textContent = wins.cpu;
+    streakEl.textContent = streak; bestEl.textContent = best;
+  }
+  function renderHud() {
+    dirIconEl.textContent = state.direction === 1 ? "➡️" : "⬅️";
+    colorChipEl.style.background = state.currentColor; colorChipEl.style.color = state.currentColor;
+    colorNameEl.textContent = state.currentColor;
+    if (!state.running) turnTextEl.textContent = "—";
+    else if (state.current === 0) turnTextEl.textContent = "Your turn";
+    else turnTextEl.textContent = state.players[state.current].name;
+  }
+  function renderOpponents() {
+    opponentsEl.innerHTML = "";
+    for (var i = 1; i < state.players.length; i++) {
+      var p = state.players[i];
+      var box = document.createElement("div");
+      box.className = "opp" + (state.running && state.current === i ? " active" : "");
+      var minis = "", shown = Math.min(p.hand.length, 6);
+      for (var m = 0; m < shown; m++) minis += '<div class="mini"></div>';
+      box.innerHTML =
+        '<div class="avatar">' + p.emoji + "</div>" +
+        '<div class="name">' + p.name + "</div>" +
+        '<div class="count">' + p.hand.length + " <small>cards</small></div>" +
+        '<div class="mini-stack">' + minis + "</div>";
+      if (p.hand.length === 1) {
+        var flare = document.createElement("div");
+        flare.className = "flare"; flare.textContent = "LAST CARD!";
+        box.appendChild(flare);
+      }
+      opponentsEl.appendChild(box);
+    }
+  }
+  function renderTable() {
+    discardPileEl.innerHTML = "";
+    var label = document.createElement("div");
+    label.className = "pile-label"; label.textContent = "Discard";
+    if (state.discard.length) {
+      var topEl = makeCardEl(topCard(), {});
+      topEl.style.boxShadow = "0 0 0 3px rgba(255,255,255,.55), 0 6px 18px rgba(0,0,0,.5)";
+      discardPileEl.appendChild(topEl);
+    }
+    discardPileEl.appendChild(label);
+    var canDraw = state.running && state.current === 0 && !state.drawnThisTurn && !state.pendingWild;
+    drawPileEl.classList.toggle("disabled", !canDraw);
+  }
+  function renderHand() {
+    handEl.innerHTML = "";
+    handCountEl.textContent = state.players.length ? state.players[0].hand.length : 0;
+    if (!state.players.length) return;
+    var hand = state.players[0].hand;
+    if (hand.length === 0) {
+      var hint = document.createElement("div");
+      hint.className = "empty-hint"; hint.style.cssText = "color:#5c6699;font-style:italic;align-self:center;";
+      hint.textContent = "No cards — you're out!";
+      handEl.appendChild(hint); return;
+    }
+    var myTurn = state.running && state.current === 0 && !state.pendingWild;
+    if (state.selIndex >= hand.length) state.selIndex = hand.length - 1;
+    if (state.selIndex < 0) state.selIndex = 0;
+    for (var i = 0; i < hand.length; i++) {
+      (function (idx) {
+        var card = hand[idx];
+        var playable = myTurn && canHumanPlay(card);
+        handEl.appendChild(makeCardEl(card, {
+          playable: playable,
+          selected: myTurn && idx === state.selIndex,
+          dim: myTurn && !playable,
+          onClick: playable ? function () { humanPlay(idx); } : null
+        }));
+      })(i);
+    }
+    if (hand.length === 1) {
+      var badge = document.createElement("div");
+      badge.style.cssText = "align-self:center;color:#ff7a00;font-weight:800;font-size:11px;letter-spacing:1px;margin-left:6px;";
+      badge.textContent = "⚠️ LAST CARD!";
+      handEl.appendChild(badge);
+    }
+  }
+  function renderControls() {
+    var myTurn = state.running && state.current === 0 && !state.pendingWild;
+    drawBtn.disabled = !(myTurn && !state.drawnThisTurn);
+    passBtn.classList.toggle("hidden", !(myTurn && state.drawnThisTurn));
+  }
+  function renderAll() { renderStats(); renderHud(); renderOpponents(); renderTable(); renderHand(); renderControls(); }
+  function say(msg) { logEl.textContent = msg; }
+
+  /* ============ ROUND SETUP ============ */
+  function startRound() {
+    clearTimeout(state.timer);
+    state.players = PLAYER_DEFS.map(function (d) {
+      return { name: d.name, emoji: d.emoji, isCPU: d.isCPU, hand: [] };
+    });
+    state.deck = shuffle(buildDeck());
+    state.discard = [];
+    state.direction = 1; state.skip = 0;
+    state.drawnThisTurn = false; state.pendingDrawn = null; state.pendingWild = null; state.selIndex = 0;
+    for (var r = 0; r < START_HAND; r++) {
+      for (var p = 0; p < state.players.length; p++) state.players[p].hand.push(state.deck.pop());
+    }
+    // flip a starting NUMBER card so the round never opens on a wild
+    var first = state.deck.pop(), guard = 0;
+    while (first.type !== "number" && guard < 400) { state.deck.unshift(first); first = state.deck.pop(); guard++; }
+    state.discard.push(first); state.currentColor = first.color;
+    state.current = 0; state.running = true;
+    colorPicker.classList.add("hidden");
+    resultOverlay.classList.add("hidden");
+    startOverlay.classList.add("hidden");
+    beep(520, 0.1, "sine");
+    say("Round started. You go first!");
+    beginTurn();
+  }
+
+  /* ============ TURN ENGINE ============ */
+  function beginTurn() {
+    clearTimeout(state.timer);
+    if (!state.running) return;
+    var p = state.players[state.current];
+    renderAll();
+    if (p.isCPU) {
+      say(p.name + " is thinking…");
+      state.timer = setTimeout(cpuTurn, CPU_DELAY);
+    } else {
+      state.drawnThisTurn = false; state.pendingDrawn = null; state.selIndex = 0;
+      say("Your turn — match the color or number, or draw a card.");
+      renderAll();
+    }
+  }
+  function nextIndex(from) { var n = state.players.length; return (from + state.direction + n) % n; }
+  function advanceTurn() {
+    var n = state.players.length;
+    state.current = (state.current + state.direction + n) % n;
+    if (state.skip > 0) { state.skip--; state.current = (state.current + state.direction + n) % n; }
+  }
+  function drawCard() {
+    if (state.deck.length === 0) {
+      if (state.discard.length <= 1) return null;
+      var top = state.discard.pop();
+      state.deck = shuffle(state.discard); state.discard = [top];
+      say("Deck reshuffled.");
+    }
+    return state.deck.pop();
+  }
+  function drawMany(player, count) {
+    for (var i = 0; i < count; i++) { var c = drawCard(); if (c) player.hand.push(c); }
+  }
+
+  /* ============ PLAY / EFFECTS ============ */
+  function applyEffects(card, byIndex) {
+    var targetIdx;
+    if (card.type === "skip") {
+      state.skip = 1; say(state.players[nextIndex(byIndex)].name + " is skipped!");
+    } else if (card.type === "reverse") {
+      state.direction *= -1; say("Direction reversed!");
+    } else if (card.type === "draw2") {
+      targetIdx = nextIndex(byIndex); drawMany(state.players[targetIdx], 2); state.skip = 1;
+      say(state.players[targetIdx].name + " draws 2 and is skipped!");
+    } else if (card.type === "wild4") {
+      targetIdx = nextIndex(byIndex); drawMany(state.players[targetIdx], 4); state.skip = 1;
+      say(state.players[targetIdx].name + " draws 4 and is skipped!");
+    }
+  }
+  function executePlay(pIdx, card, chosenColor) {
+    var p = state.players[pIdx];
+    var i = p.hand.indexOf(card);
+    if (i < 0) return;
+    p.hand.splice(i, 1); state.discard.push(card);
+    state.currentColor = (card.color === "wild") ? (chosenColor || bestColor(p.hand)) : card.color;
+    beep(card.color === "wild" ? 700 : 520, 0.08, "square");
+    if (p.hand.length === 1) beep(920, 0.12, "sine");
+    var who = (pIdx === 0) ? "You" : p.name;
+    var extra = (card.color === "wild") ? " → " + state.currentColor : "";
+    say(who + " played " + cardName(card) + extra + ".");
+    renderAll();
+    if (p.hand.length === 0) { endRound(pIdx); return; }
+    applyEffects(card, pIdx);
+    advanceTurn();
+    state.timer = setTimeout(beginTurn, 650);
+  }
+
+  /* ============ HUMAN TURN ============ */
+  function canHumanPlay(card) {
+    if (!state.running || state.current !== 0) return false;
+    if (!isPlayable(card, topCard())) return false;
+    if (state.drawnThisTurn && state.pendingDrawn && card !== state.pendingDrawn) return false;
+    return true;
+  }
+  function humanPlay(idx) {
+    if (!state.running || state.current !== 0 || state.pendingWild) return;
+    var card = state.players[0].hand[idx];
+    if (!card || !canHumanPlay(card)) return;
+    if (card.color === "wild") {
+      state.pendingWild = card;
+      colorPicker.classList.remove("hidden");
+      beep(640, 0.06, "triangle");
+      return;
+    }
+    humanChooseColor(card, null);
+  }
+  function humanChooseColor(card, color) {
+    beep(760, 0.06, "sine");
+    state.timer = setTimeout(function () { executePlay(0, card, color); }, 180);
+  }
+  function humanDraw() {
+    if (!state.running || state.current !== 0 || state.drawnThisTurn || state.pendingWild) return;
+    var c = drawCard();
+    if (!c) { say("No cards left to draw — turn passes."); advanceTurn(); beginTurn(); return; }
+    state.players[0].hand.push(c);
+    state.drawnThisTurn = true;
+    beep(300, 0.08, "triangle");
+    if (isPlayable(c, topCard())) {
+      state.pendingDrawn = c;
+      say("You drew a playable card — play it or pass.");
+    } else {
+      state.pendingDrawn = null;
+      say("You drew " + cardName(c) + " — not playable. Turn passes.");
+      renderAll();
+      state.timer = setTimeout(function () { state.drawnThisTurn = false; advanceTurn(); beginTurn(); }, 700);
+      return;
+    }
+    renderAll();
+  }
+  function humanPass() {
+    if (!state.running || state.current !== 0 || !state.drawnThisTurn) return;
+    state.drawnThisTurn = false; state.pendingDrawn = null;
+    say("You passed."); advanceTurn(); beginTurn();
+  }
+
+  /* ============ CPU TURN ============ */
+  function cpuScore(card) {
+    // lower plays first; prefer disruptive actions, keep numbers flexible
+    if (card.type === "draw2" || card.type === "skip" || card.type === "reverse") return 0;
+    return 1;
+  }
+  function bestColor(hand) {
+    var counts = { red: 0, yellow: 0, green: 0, blue: 0 };
+    for (var i = 0; i < hand.length; i++) { var c = hand[i].color; if (counts[c] !== undefined) counts[c]++; }
+    var bestC = null, bestN = -1;
+    for (var k = 0; k < COLORS.length; k++) { if (counts[COLORS[k]] > bestN) { bestN = counts[COLORS[k]]; bestC = COLORS[k]; } }
+    if (bestN <= 0) return COLORS[Math.floor(Math.random() * COLORS.length)];
+    return bestC;
+  }
+  function cpuTurn() {
+    if (!state.running) return;
+    var p = state.players[state.current], top = topCard();
+    var playable = p.hand.filter(function (c) { return isPlayable(c, top); });
+    var nonWild = playable.filter(function (c) { return c.color !== "wild"; });
+    // 1) prefer normal playable cards (save wilds)
+    if (nonWild.length) {
+      nonWild.sort(function (a, b) { return cpuScore(a) - cpuScore(b); });
+      executePlay(state.current, nonWild[0], null);
+      return;
+    }
+    // 2) only playable wilds → play one (wild4 is stronger, prefer it)
+    if (playable.length) {
+      playable.sort(function (a, b) { return (b.type === "wild4" ? 1 : 0) - (a.type === "wild4" ? 1 : 0); });
+      executePlay(state.current, playable[0], bestColor(p.hand));
+      return;
+    }
+    // 3) nothing playable → draw one
+    var drawn = drawCard();
+    if (!drawn) { say(p.name + " cannot draw — passes."); advanceTurn(); beginTurn(); return; }
+    p.hand.push(drawn);
+    beep(300, 0.08, "triangle");
+    say(p.name + " drew a card.");
+    renderAll();
+    if (isPlayable(drawn, top)) {
+      var color = (drawn.color === "wild") ? bestColor(p.hand) : null;
+      state.timer = setTimeout(function () { executePlay(state.current, drawn, color); }, 650);
+    } else {
+      state.timer = setTimeout(function () { advanceTurn(); beginTurn(); }, 650);
+    }
+  }
+
+  /* ============ ROUND END ============ */
+  function endRound(winnerIdx) {
+    clearTimeout(state.timer);
+    state.running = false; state.pendingWild = null;
+    var humanWon = (winnerIdx === 0);
+    if (humanWon) { wins.you++; streak++; if (streak > best) best = streak; }
+    else { wins.cpu++; streak = 0; }
+    try {
+      localStorage.setItem("colorClashWins", JSON.stringify(wins));
+      localStorage.setItem("colorClashStreak", String(streak));
+      localStorage.setItem("colorClashBest", String(best));
+    } catch (e) { /* storage unavailable */ }
+    var name = state.players[winnerIdx].name;
+    resultEmoji.textContent = humanWon ? "🎉" : "😵";
+    resultTitle.textContent = humanWon ? "You Win!" : (name + " Wins");
+    resultSub.textContent = humanWon
+      ? "You emptied your hand first. Well played!"
+      : (name + " emptied their hand first. Try again!");
+    rYouWins.textContent = wins.you; rCpuWins.textContent = wins.cpu; rBest.textContent = best;
+    beep(humanWon ? 880 : 180, 0.3, humanWon ? "sine" : "sawtooth");
+    renderAll();
+    resultOverlay.classList.remove("hidden");
+  }
+
+  /* ============ INPUT ============ */
+  drawBtn.addEventListener("click", humanDraw);
+  passBtn.addEventListener("click", humanPass);
+  drawPileEl.addEventListener("click", function () {
+    if (state.running && state.current === 0 && !state.drawnThisTurn && !state.pendingWild) humanDraw();
+  });
+  startBtn.addEventListener("click", function () { beep(660, 0.08, "square"); startRound(); });
+  nextRoundBtn.addEventListener("click", function () { beep(660, 0.08, "square"); startRound(); });
+  swatches.forEach(function (sw) {
+    sw.addEventListener("click", function () {
+      var card = state.pendingWild;
+      state.pendingWild = null;
+      colorPicker.classList.add("hidden");
+      if (card) humanChooseColor(card, sw.dataset.color);
+    });
+  });
+  function pickColorCode(code) {
+    var map = { Digit1: "red", Digit2: "yellow", Digit3: "green", Digit4: "blue" };
+    if (!map[code]) return;
+    var card = state.pendingWild;
+    state.pendingWild = null;
+    colorPicker.classList.add("hidden");
+    if (card) humanChooseColor(card, map[code]);
+  }
+  document.addEventListener("keydown", function (e) {
+    if (!startOverlay.classList.contains("hidden")) {
+      if (e.code === "Enter" || e.code === "Space") { e.preventDefault(); startRound(); }
+      return;
+    }
+    if (!resultOverlay.classList.contains("hidden")) {
+      if (e.code === "Enter" || e.code === "Space") { e.preventDefault(); startRound(); }
+      return;
+    }
+    if (!colorPicker.classList.contains("hidden")) { e.preventDefault(); pickColorCode(e.code); return; }
+    if (!state.running || state.current !== 0) return;
+    var hand = state.players[0].hand;
+    if (e.code === "ArrowLeft") { e.preventDefault(); state.selIndex = (state.selIndex - 1 + hand.length) % hand.length; renderHand(); }
+    else if (e.code === "ArrowRight") { e.preventDefault(); state.selIndex = (state.selIndex + 1) % hand.length; renderHand(); }
+    else if (e.code === "Enter" || e.code === "Space") { e.preventDefault(); if (hand.length) humanPlay(state.selIndex); }
+    else if (e.code === "KeyD") { e.preventDefault(); humanDraw(); }
+    else if (e.code === "KeyP") { e.preventDefault(); humanPass(); }
+    else if (/^Digit[1-9]$/.test(e.code)) {
+      e.preventDefault();
+      var idx = parseInt(e.code.slice(5), 10) - 1;
+      if (idx < hand.length) { state.selIndex = idx; humanPlay(idx); }
+    }
+  });
+
+  /* ============ INITIAL DRAW ============ */
+  renderStats();
+  renderHud();
+})();
+</script>
+</body>
+</html>

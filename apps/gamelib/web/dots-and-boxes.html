@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Dots &amp; Boxes</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: linear-gradient(135deg, #eef3ff 0%, #fdf0f5 55%, #fff8e8 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow-x: hidden;
+    touch-action: manipulation;
+    padding: 12px;
+  }
+
+  /* ============ APP SHELL ============ */
+  #app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: min(96vw, 620px);
+  }
+  h1 {
+    font-size: 1.8rem;
+    color: #4a5568;
+    letter-spacing: 1px;
+    text-shadow: 2px 2px 0 #fff;
+  }
+  h1 span { color: #ff6b8a; }
+
+  /* ============ SCORE BAR ============ */
+  #scorebar {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+  }
+  .chip {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: rgba(255,255,255,.75);
+    border: 2px solid transparent;
+    box-shadow: 0 3px 12px rgba(80,90,120,.08);
+    transition: border-color .2s ease, transform .2s ease, background .2s ease;
+  }
+  .chip .who { display: flex; align-items: center; gap: 8px; font-weight: 600; color: #55627a; font-size: .92rem; }
+  .chip .dot { width: 14px; height: 14px; border-radius: 50%; }
+  .chip .val { font-weight: 800; font-size: 1.25rem; color: #3d4557; }
+  .chip.active { border-color: var(--pc); transform: translateY(-2px); background: #fff; }
+  .chip.active .val { color: var(--pc); }
+
+  /* ============ BOARD ============ */
+  #wrap {
+    position: relative;
+    width: 100%;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(80,90,120,.18);
+    background: #ffffff;
+  }
+  canvas { display: block; width: 100%; height: auto; touch-action: manipulation; }
+
+  /* ============ OVERLAYS ============ */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 20px;
+    gap: 10px;
+    background: rgba(255,255,255,.94);
+    backdrop-filter: blur(3px);
+    transition: opacity .28s ease;
+    z-index: 5;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen h2 { font-size: 1.6rem; color: #ff6b8a; text-shadow: 2px 2px 0 #fff; }
+  .screen p { color: #7b869c; font-size: .92rem; max-width: 34ch; line-height: 1.5; }
+  .mode-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin: 4px 0; }
+  .mode-btn {
+    font-family: inherit;
+    padding: 10px 18px;
+    border-radius: 22px;
+    border: 2px solid #ffd1dc;
+    background: #fff;
+    color: #6b7488;
+    font-size: .9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .18s ease;
+  }
+  .mode-btn:hover { background: #fff0f5; transform: translateY(-2px); }
+  .mode-btn.selected { background: linear-gradient(135deg, #ff8fa3, #ff6b8a); color: #fff; border-color: #ff6b8a; box-shadow: 0 5px 14px rgba(255,107,138,.32); }
+  .action-btn {
+    margin-top: 6px;
+    padding: 13px 34px;
+    border: none;
+    border-radius: 25px;
+    font-family: inherit;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #fff;
+    cursor: pointer;
+    background: linear-gradient(135deg, #ff8fa3, #ff6b8a);
+    box-shadow: 0 5px 16px rgba(255,107,138,.34);
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .action-btn:hover { transform: translateY(-3px); box-shadow: 0 8px 22px rgba(255,107,138,.42); }
+  .action-btn:active { transform: translateY(-1px); }
+  .result-score { font-size: 1.15rem; font-weight: 700; color: #4a5568; }
+  .record { font-size: .8rem; color: #9aa3b5; letter-spacing: .5px; }
+
+  /* ============ CONTROLS ============ */
+  #controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  #controls button {
+    font-family: inherit;
+    font-size: .9rem;
+    font-weight: 700;
+    letter-spacing: .5px;
+    padding: 9px 20px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    color: #fff;
+    background: #8b95a8;
+    box-shadow: 0 4px 0 rgba(0,0,0,.16);
+    transition: transform .06s ease, background .15s ease;
+    user-select: none;
+  }
+  #controls button:hover { background: #9aa4b7; }
+  #controls button:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.16); }
+  #btn-restart { background: #c0562b; }
+  #btn-restart:hover { background: #d66536; }
+  #hint { font-size: .78rem; color: #9aa3b5; text-align: center; }
+
+  @media (max-width: 460px) {
+    h1 { font-size: 1.45rem; }
+    .chip { padding: 8px 10px; }
+    .chip .who { font-size: .8rem; }
+    .chip .val { font-size: 1.05rem; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>DOTS <span>&amp;</span> BOXES</h1>
+
+  <div id="scorebar">
+    <div class="chip" id="chip0" style="--pc:#ff6b8a">
+      <div class="who"><span class="dot" style="background:#ff6b8a"></span><span id="name0">Player 1</span></div>
+      <div class="val" id="score0">0</div>
+    </div>
+    <div class="chip" id="chip1" style="--pc:#6c8cff">
+      <div class="who"><span class="dot" style="background:#6c8cff"></span><span id="name1">Player 2</span></div>
+      <div class="val" id="score1">0</div>
+    </div>
+  </div>
+
+  <div id="wrap">
+    <canvas id="game" width="560" height="560"></canvas>
+
+    <!-- ============ START SCREEN ============ -->
+    <div id="startScreen" class="screen">
+      <h2>Ready to Play?</h2>
+      <p>Claim a box by drawing its 4th side. Complete a box and you play again!</p>
+      <div class="mode-row">
+        <button class="mode-btn selected" type="button" data-mode="cpu">vs CPU</button>
+        <button class="mode-btn" type="button" data-mode="2p">2 Players</button>
+      </div>
+      <button class="action-btn" id="startBtn" type="button">Start Game</button>
+    </div>
+
+    <!-- ============ RESULT SCREEN ============ -->
+    <div id="resultScreen" class="screen hidden">
+      <h2 id="resultTitle">You Win!</h2>
+      <div class="result-score" id="resultScore">5 – 5</div>
+      <div class="record" id="resultRecord"></div>
+      <button class="action-btn" id="againBtn" type="button">Play Again</button>
+    </div>
+  </div>
+
+  <div id="controls">
+    <button id="btn-restart" type="button">Restart</button>
+    <button id="btn-mode" type="button">Switch Mode</button>
+  </div>
+  <div id="hint">Tap a gap between two dots to draw a line</div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ BOARD GEOMETRY ============
+  const BOX_X = 5;               // boxes per row
+  const BOX_Y = 5;               // boxes per column
+  const DOTS_X = BOX_X + 1;      // dot columns
+  const DOTS_Y = BOX_Y + 1;      // dot rows
+
+  const CANVAS = 560;
+  const CELL = 92;
+  const MARGIN = (CANVAS - CELL * BOX_X) / 2; // 50
+
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+
+  // ============ COLORS ============
+  const P_COLORS = [
+    { line: "#ff6b8a", fill: "#ffd9e2", fillSoft: "#ffeef3", text: "#c23a58" },
+    { line: "#6c8cff", fill: "#d6e0ff", fillSoft: "#eef2ff", text: "#3a55c2" }
+  ];
+
+  // ============ STATE ============
+  const STATE = { START: 0, PLAYING: 1, OVER: 2 };
+  let state = STATE.START;
+  let mode = localStorage.getItem("dabMode") || "cpu"; // "cpu" | "2p"
+  if (mode !== "cpu" && mode !== "2p") mode = "cpu";
+
+  let hLines = [];   // hLines[r][c] : owner (-1 = empty, 0/1 = player)
+  let vLines = [];
+  let boxes = [];    // boxes[r][c] : owner (-1 = empty)
+  let current = 0;   // 0 = player 1, 1 = player 2 / CPU
+  let scores = [0, 0];
+  let totalBoxes = BOX_X * BOX_Y;
+  let captured = 0;
+  let cpuTimer = null;
+  let lastPlace = 0;          // timestamp of last line placed (for pulse)
+  let lastCaptured = [];      // recent capture animation targets
+  let lastCapturedAt = 0;
+  let hoverLine = null;       // {type,r,c} for mouse hover feedback
+
+  // ============ PERSISTENCE ============
+  const STATS_KEY = "dabStats";
+  function loadStats() {
+    try { return JSON.parse(localStorage.getItem(STATS_KEY)) || {}; }
+    catch (e) { return {}; }
+  }
+  function bumpStat(key) {
+    const s = loadStats();
+    s[key] = (s[key] || 0) + 1;
+    localStorage.setItem(STATS_KEY, JSON.stringify(s));
+  }
+  function statsLabel() {
+    const s = loadStats();
+    return "Record — P1 " + (s.p1 || 0) + " · P2 " + (s.p2 || 0) + " · CPU " + (s.cpu || 0) +
+           " · Draw " + (s.draw || 0);
+  }
+
+  // ============ SOUND (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.06, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  // ============ DOM ============
+  const scoreEls = [document.getElementById("score0"), document.getElementById("score1")];
+  const chipEls = [document.getElementById("chip0"), document.getElementById("chip1")];
+  const nameEls = [document.getElementById("name0"), document.getElementById("name1")];
+  const startScreen = document.getElementById("startScreen");
+  const resultScreen = document.getElementById("resultScreen");
+  const resultTitle = document.getElementById("resultTitle");
+  const resultScore = document.getElementById("resultScore");
+  const resultRecord = document.getElementById("resultRecord");
+  const startBtn = document.getElementById("startBtn");
+  const againBtn = document.getElementById("againBtn");
+  const restartBtn = document.getElementById("btn-restart");
+  const modeBtn = document.getElementById("btn-mode");
+  const modeBtns = Array.prototype.slice.call(document.querySelectorAll(".mode-btn"));
+
+  // ============ SETUP / RESET ============
+  function newGrid() {
+    hLines = [];
+    for (let r = 0; r < DOTS_Y; r++) {
+      hLines.push(new Array(DOTS_X - 1).fill(-1));
+    }
+    vLines = [];
+    for (let r = 0; r < DOTS_Y - 1; r++) {
+      vLines.push(new Array(DOTS_X).fill(-1));
+    }
+    boxes = [];
+    for (let r = 0; r < BOX_Y; r++) {
+      boxes.push(new Array(BOX_X).fill(-1));
+    }
+    scores = [0, 0];
+    captured = 0;
+    current = 0;
+    lastCaptured = [];
+    hoverLine = null;
+  }
+
+  function reset() {
+    clearTimeout(cpuTimer);
+    cpuTimer = null;
+    newGrid();
+    state = STATE.PLAYING;
+    startScreen.classList.add("hidden");
+    resultScreen.classList.add("hidden");
+    applyModeLabels();
+    syncScores();
+    if (mode === "cpu" && current === 1) scheduleCpu();
+  }
+
+  function applyModeLabels() {
+    nameEls[0].textContent = "Player 1";
+    nameEls[1].textContent = (mode === "cpu") ? "CPU" : "Player 2";
+  }
+
+  function syncScores() {
+    scoreEls[0].textContent = scores[0];
+    scoreEls[1].textContent = scores[1];
+    chipEls[0].classList.toggle("active", state === STATE.PLAYING && current === 0);
+    chipEls[1].classList.toggle("active", state === STATE.PLAYING && current === 1);
+  }
+
+  // ============ LINE HELPERS ============
+  function lineOwner(line) {
+    return line.type === "h" ? hLines[line.r][line.c] : vLines[line.r][line.c];
+  }
+  function setLineOwner(line, val) {
+    if (line.type === "h") hLines[line.r][line.c] = val;
+    else vLines[line.r][line.c] = val;
+  }
+
+  // Boxes touched by a line: returns array of {r,c} box coords
+  function boxesForLine(line) {
+    const out = [];
+    if (line.type === "h") {
+      // horizontal line at row r, col c — between dots (c,r)-(c+1,r)
+      if (line.r - 1 >= 0 && line.c < BOX_X) out.push({ r: line.r - 1, c: line.c }); // above
+      if (line.r < BOX_Y && line.c < BOX_X) out.push({ r: line.r, c: line.c });       // below
+    } else {
+      // vertical line at row r, col c — between dots (c,r)-(c,r+1)
+      if (line.c - 1 >= 0 && line.r < BOX_Y) out.push({ r: line.r, c: line.c - 1 });  // left
+      if (line.c < BOX_X && line.r < BOX_Y) out.push({ r: line.r, c: line.c });        // right
+    }
+    return out;
+  }
+
+  // Count owned sides of a box
+  function boxSides(br, bc) {
+    let n = 0;
+    if (hLines[br][bc] !== -1) n++;         // top
+    if (hLines[br + 1][bc] !== -1) n++;     // bottom
+    if (vLines[br][bc] !== -1) n++;         // left
+    if (vLines[br][bc + 1] !== -1) n++;     // right
+    return n;
+  }
+
+  function allLines() {
+    const list = [];
+    for (let r = 0; r < DOTS_Y; r++)
+      for (let c = 0; c < DOTS_X - 1; c++)
+        if (hLines[r][c] === -1) list.push({ type: "h", r: r, c: c });
+    for (let r = 0; r < DOTS_Y - 1; r++)
+      for (let c = 0; c < DOTS_X; c++)
+        if (vLines[r][c] === -1) list.push({ type: "v", r: r, c: c });
+    return list;
+  }
+
+  // ============ PLACING A LINE ============
+  // Returns number of boxes captured by this move.
+  function placeLine(line, player) {
+    if (lineOwner(line) !== -1) return -1; // invalid
+    setLineOwner(line, player);
+    lastPlace = performance.now();
+
+    const boxesHit = boxesForLine(line);
+    let gained = 0;
+    for (const b of boxesHit) {
+      if (boxes[b.r][b.c] !== -1) continue;
+      if (boxSides(b.r, b.c) === 4) {
+        boxes[b.r][b.c] = player;
+        gained++;
+        scores[player]++;
+        captured++;
+        lastCaptured.push({ r: b.r, c: b.c, t: performance.now() });
+      }
+    }
+    if (gained > 0) {
+      lastCapturedAt = performance.now();
+      beep(880 + gained * 60, 0.1, "sine");
+    } else {
+      beep(520, 0.05, "square");
+    }
+    syncScores();
+
+    // Extra turn if a box was captured, otherwise pass
+    if (gained === 0) current = 1 - current;
+    syncScores();
+
+    if (captured >= totalBoxes) {
+      endGame();
+      return gained;
+    }
+
+    if (mode === "cpu" && current === 1) scheduleCpu();
+    return gained;
+  }
+
+  // ============ CPU ============
+  function scheduleCpu() {
+    clearTimeout(cpuTimer);
+    cpuTimer = setTimeout(cpuTurn, 480);
+  }
+
+  function cpuTurn() {
+    if (state !== STATE.PLAYING || current !== 1) return;
+    const moves = allLines();
+    if (moves.length === 0) return;
+    const choice = pickCpuMove(moves);
+    placeLine(choice, 1);
+  }
+
+  // Greedy capture + avoid setting up the 3rd side of a box.
+  function pickCpuMove(moves) {
+    // 1. Take any box we can complete right now (extra turn included).
+    for (const m of moves) {
+      if (completesBox(m, 1)) return m;
+    }
+
+    // 2. Prefer "safe" moves: creating no box with exactly 3 sides.
+    const safe = moves.filter(function (m) { return !createsThreeSided(m); });
+    if (safe.length > 0) {
+      // Among safe moves, prefer ones neighbouring our own captured boxes,
+      // otherwise pick the one touching the fewest open boxes (keeps board tidy).
+      let best = safe[0], bestScore = Infinity;
+      for (const m of safe) {
+        const s = neighborValue(m, 1);
+        if (s < bestScore) { bestScore = s; best = m; }
+      }
+      return best;
+    }
+
+    // 3. Every move gives away a box. Choose the one that hands over the fewest
+    //    boxes / smallest immediate damage.
+    let best = moves[0], bestDamage = Infinity;
+    for (const m of moves) {
+      const d = giveawayDamage(m);
+      if (d < bestDamage) { bestDamage = d; best = m; }
+    }
+    return best;
+  }
+
+  function completesBox(line, player) {
+    return boxesForLine(line).some(function (b) {
+      return boxes[b.r][b.c] === -1 && boxSides(b.r, b.c) === 3;
+    });
+  }
+
+  function createsThreeSided(line) {
+    // Simulate placing this line and see if any unowned box reaches 3 sides.
+    const touched = boxesForLine(line);
+    for (const b of touched) {
+      if (boxes[b.r][b.c] !== -1) continue;
+      if (boxSides(b.r, b.c) + 1 === 3) return true;
+    }
+    // A line can also raise a box from 3 to 4 (that's a capture, handled earlier).
+    return false;
+  }
+
+  function neighborValue(line, player) {
+    const touched = boxesForLine(line);
+    let v = 0;
+    for (const b of touched) {
+      if (boxes[b.r][b.c] === player) v -= 2; // touching own box is good (lower cost)
+      else v += 1;
+    }
+    return v;
+  }
+
+  function giveawayDamage(line) {
+    // How many boxes would immediately become capture-ready (3 sides) for the foe.
+    const touched = boxesForLine(line);
+    let dmg = 0;
+    for (const b of touched) {
+      if (boxes[b.r][b.c] !== -1) continue;
+      const sides = boxSides(b.r, b.c) + 1;
+      if (sides === 3) dmg++;
+      else if (sides === 4) dmg += 2;
+    }
+    return dmg;
+  }
+
+  // ============ END GAME ============
+  function endGame() {
+    state = STATE.OVER;
+    clearTimeout(cpuTimer);
+    cpuTimer = null;
+    chipEls[0].classList.remove("active");
+    chipEls[1].classList.remove("active");
+
+    const a = scores[0], b = scores[1];
+    const isCpu = mode === "cpu";
+    let title;
+    let statKey;
+
+    if (a > b) { title = "Player 1 Wins!"; statKey = "p1"; }
+    else if (b > a) {
+      title = isCpu ? "CPU Wins!" : "Player 2 Wins!";
+      statKey = isCpu ? "cpu" : "p2";
+    } else { title = "It's a Draw!"; statKey = "draw"; }
+
+    if (isCpu && a > b) title = "You Win!";
+    if (isCpu && b > a) title = "CPU Wins!";
+
+    bumpStat(statKey);
+    resultTitle.textContent = title;
+    resultScore.textContent = a + " – " + b;
+    resultRecord.textContent = statsLabel();
+    resultScreen.classList.remove("hidden");
+    beep(a === b ? 400 : 720, 0.28, "triangle");
+  }
+
+  // ============ PIXEL MAPPING ============
+  function px(col) { return MARGIN + col * CELL; }
+  function py(row) { return MARGIN + row * CELL; }
+
+  function lineEndpoints(line) {
+    if (line.type === "h") {
+      return { x1: px(line.c), y1: py(line.r), x2: px(line.c + 1), y2: py(line.r) };
+    }
+    return { x1: px(line.c), y1: py(line.r), x2: px(line.c), y2: py(line.r + 1) };
+  }
+
+  // ============ INPUT ============
+  function canvasPoint(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = CANVAS / rect.width;
+    const scaleY = CANVAS / rect.height;
+    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+  }
+
+  function hitLine(pt) {
+    if (state !== STATE.PLAYING) return null;
+    if (mode === "cpu" && current === 1) return null; // not your turn
+    const threshold = CELL * 0.36;
+    let best = null, bestDist = threshold;
+    const candidates = allLines();
+    for (const ln of candidates) {
+      const e = lineEndpoints(ln);
+      const d = distToSegment(pt.x, pt.y, e.x1, e.y1, e.x2, e.y2);
+      if (d < bestDist) { bestDist = d; best = ln; }
+    }
+    return best;
+  }
+
+  function distToSegment(pxx, pyy, x1, y1, x2, y2) {
+    const dx = x2 - x1, dy = y2 - y1;
+    const len2 = dx * dx + dy * dy;
+    let t = len2 === 0 ? 0 : ((pxx - x1) * dx + (pyy - y1) * dy) / len2;
+    t = Math.max(0, Math.min(1, t));
+    const cx = x1 + t * dx, cy = y1 + t * dy;
+    return Math.hypot(pxx - cx, pyy - cy);
+  }
+
+  function tryMove(ln) {
+    if (!ln) return;
+    if (lineOwner(ln) !== -1) return;
+    if (mode === "cpu" && current === 1) return;
+    placeLine(ln, current);
+  }
+
+  function onPointer(clientX, clientY) {
+    if (state !== STATE.PLAYING) return;
+    const pt = canvasPoint(clientX, clientY);
+    tryMove(hitLine(pt));
+  }
+
+  canvas.addEventListener("click", function (e) { onPointer(e.clientX, e.clientY); });
+  canvas.addEventListener("touchstart", function (e) {
+    if (e.touches.length) {
+      e.preventDefault();
+      onPointer(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  }, { passive: false });
+
+  canvas.addEventListener("mousemove", function (e) {
+    if (state !== STATE.PLAYING || (mode === "cpu" && current === 1)) { hoverLine = null; return; }
+    hoverLine = hitLine(canvasPoint(e.clientX, e.clientY));
+  });
+  canvas.addEventListener("mouseleave", function () { hoverLine = null; });
+
+  // ============ RENDER ============
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function drawBoard(now) {
+    // background
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, CANVAS, CANVAS);
+    const bg = ctx.createLinearGradient(0, 0, CANVAS, CANVAS);
+    bg.addColorStop(0, "#fbfcff");
+    bg.addColorStop(1, "#f4f7ff");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, CANVAS, CANVAS);
+
+    // filled boxes
+    for (let r = 0; r < BOX_Y; r++) {
+      for (let c = 0; c < BOX_X; c++) {
+        const owner = boxes[r][c];
+        if (owner === -1) continue;
+        const pc = P_COLORS[owner];
+        const inset = 10;
+        const x = px(c) + inset, y = py(r) + inset;
+        const w = CELL - inset * 2, h = CELL - inset * 2;
+
+        // capture pop animation
+        let scale = 1;
+        for (const lc of lastCaptured) {
+          if (lc.r === r && lc.c === c) {
+            const age = (now - lc.t) / 260;
+            if (age < 1) scale = 1 + Math.sin(age * Math.PI) * 0.12;
+          }
+        }
+        ctx.save();
+        ctx.translate(x + w / 2, y + h / 2);
+        ctx.scale(scale, scale);
+        ctx.translate(-(x + w / 2), -(y + h / 2));
+
+        const g = ctx.createLinearGradient(x, y, x, y + h);
+        g.addColorStop(0, pc.fill);
+        g.addColorStop(1, pc.fillSoft);
+        ctx.fillStyle = g;
+        roundRect(x, y, w, h, 12);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,.85)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // owner mark
+        ctx.fillStyle = pc.text;
+        ctx.globalAlpha = 0.85;
+        ctx.font = "bold 30px 'Segoe UI', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(owner === 0 ? "P1" : (mode === "cpu" ? "C" : "P2"), x + w / 2, y + h / 2 + 1);
+        ctx.globalAlpha = 1;
+        ctx.restore();
+      }
+    }
+
+    // hover preview
+    if (hoverLine && lineOwner(hoverLine) === -1) {
+      const e = lineEndpoints(hoverLine);
+      ctx.strokeStyle = P_COLORS[current].line;
+      ctx.globalAlpha = 0.28;
+      ctx.lineWidth = 8;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(e.x1, e.y1);
+      ctx.lineTo(e.x2, e.y2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    // drawn lines
+    ctx.lineCap = "round";
+    for (let r = 0; r < DOTS_Y; r++) {
+      for (let c = 0; c < DOTS_X - 1; c++) {
+        const owner = hLines[r][c];
+        if (owner === -1) continue;
+        drawLine(px(c), py(r), px(c + 1), py(r), owner);
+      }
+    }
+    for (let r = 0; r < DOTS_Y - 1; r++) {
+      for (let c = 0; c < DOTS_X; c++) {
+        const owner = vLines[r][c];
+        if (owner === -1) continue;
+        drawLine(px(c), py(r), px(c), py(r + 1), owner);
+      }
+    }
+
+    // dots
+    for (let r = 0; r < DOTS_Y; r++) {
+      for (let c = 0; c < DOTS_X; c++) {
+        ctx.beginPath();
+        ctx.arc(px(c), py(r), 5.5, 0, Math.PI * 2);
+        ctx.fillStyle = "#aab3c6";
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(px(c) - 1.5, py(r) - 1.5, 2, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255,255,255,.8)";
+        ctx.fill();
+      }
+    }
+
+    // turn banner (only while playing)
+    if (state === STATE.PLAYING) {
+      const pc = P_COLORS[current];
+      const label = (mode === "cpu")
+        ? (current === 0 ? "Your turn" : "CPU thinking...")
+        : ("Player " + (current + 1) + "'s turn");
+      const pulse = 0.75 + 0.25 * Math.sin(now * 0.005);
+      const bw = 200, bx = (CANVAS - bw) / 2, by = 8;
+      ctx.fillStyle = "rgba(255,255,255,.9)";
+      roundRect(bx, by, bw, 30, 15);
+      ctx.fill();
+      ctx.strokeStyle = pc.line;
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = pulse;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = pc.text;
+      ctx.font = "bold 15px 'Segoe UI', sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(label, CANVAS / 2, by + 16);
+    }
+  }
+
+  function drawLine(x1, y1, x2, y2, owner) {
+    const pc = P_COLORS[owner];
+    // shadow / base
+    ctx.strokeStyle = "rgba(120,130,160,.18)";
+    ctx.lineWidth = 12;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    // colored line
+    ctx.strokeStyle = pc.line;
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    // glossy highlight
+    ctx.strokeStyle = "rgba(255,255,255,.45)";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+    ctx.moveTo(x1, y1 - 1.8);
+    ctx.lineTo(x2, y2 - 1.8);
+    ctx.stroke();
+  }
+
+  function pruning() {
+    // drop old capture animations
+    const now = performance.now();
+    lastCaptured = lastCaptured.filter(function (lc) { return now - lc.t < 400; });
+  }
+
+  // ============ LOOP ============
+  function loop() {
+    pruning();
+    drawBoard(performance.now());
+    requestAnimationFrame(loop);
+  }
+
+  // ============ MODE / BUTTONS ============
+  function selectMode(m) {
+    mode = m;
+    localStorage.setItem("dabMode", m);
+    modeBtns.forEach(function (b) { b.classList.toggle("selected", b.dataset.mode === m); });
+    applyModeLabels();
+  }
+
+  modeBtns.forEach(function (b) {
+    b.addEventListener("click", function () { selectMode(b.dataset.mode); });
+  });
+
+  startBtn.addEventListener("click", function () {
+    beep(660, 0.08, "square");
+    reset();
+  });
+  againBtn.addEventListener("click", function () {
+    beep(660, 0.08, "square");
+    reset();
+  });
+  restartBtn.addEventListener("click", function () {
+    beep(360, 0.06, "triangle");
+    reset();
+  });
+  modeBtn.addEventListener("click", function () {
+    // return to the start screen so a mode can be picked
+    clearTimeout(cpuTimer);
+    cpuTimer = null;
+    state = STATE.START;
+    resultScreen.classList.add("hidden");
+    startScreen.classList.remove("hidden");
+    newGrid();
+    syncScores();
+    chipEls[0].classList.remove("active");
+    chipEls[1].classList.remove("active");
+  });
+
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "KeyR" || e.key === "r" || e.key === "R") {
+      e.preventDefault();
+      reset();
+    }
+  });
+
+  // pause CPU when the tab is hidden
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      clearTimeout(cpuTimer);
+      cpuTimer = null;
+    } else if (state === STATE.PLAYING && mode === "cpu" && current === 1) {
+      scheduleCpu();
+    }
+  });
+
+  // ============ BOOT ============
+  selectMode(mode);
+  newGrid();
+  syncScores();
+  loop();
+})();
+</script>
+</body>
+</html>

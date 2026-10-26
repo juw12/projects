@@ -1,0 +1,970 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>ðŸº Pottery Wheel</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(160deg, #f6ece0 0%, #ecd9c2 55%, #e0c9ad 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 18px 10px 40px;
+      color: #5a4632;
+    }
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(255, 253, 250, 0.92);
+      border-radius: 26px;
+      padding: 22px;
+      box-shadow: 0 14px 44px rgba(90, 70, 50, 0.18);
+      max-width: 560px;
+      width: 100%;
+    }
+    .game-title {
+      text-align: center;
+      font-size: 1.9rem;
+      color: #8a5a34;
+      letter-spacing: 0.5px;
+      text-shadow: 2px 2px 0 #fff;
+    }
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.9rem;
+      color: #a08a72;
+      margin: 4px 0 14px;
+    }
+    /* ============ HUD ============ */
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding: 10px 16px;
+      background: linear-gradient(135deg, #fdf3e6, #f3e2cc);
+      border-radius: 14px;
+      font-size: 0.95rem;
+    }
+    .hud b { color: #b5651d; }
+    .shape-label {
+      font-size: 0.82rem;
+      color: #8a7458;
+      background: #fff8ef;
+      border: 1px solid #ead9c4;
+      padding: 4px 12px;
+      border-radius: 20px;
+    }
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 6px 20px rgba(90, 70, 50, 0.14);
+      background: #f7efe3;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      touch-action: none;
+      cursor: grab;
+    }
+    canvas:active { cursor: grabbing; }
+    /* ============ TOOLBAR ============ */
+    .toolbar { margin-top: 14px; }
+    .tool-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .tool-label {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #9c8265;
+      width: 52px;
+      flex: 0 0 auto;
+    }
+    .swatch {
+      width: 34px;
+      height: 34px;
+      border-radius: 11px;
+      border: 3px solid transparent;
+      cursor: pointer;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+      box-shadow: 0 2px 6px rgba(80, 60, 40, 0.2);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .swatch:hover { transform: translateY(-2px); }
+    .swatch.selected {
+      border-color: #6b4f33;
+      transform: translateY(-2px) scale(1.08);
+    }
+    /* ============ SPIN SLIDER ============ */
+    .spin-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      font-size: 0.78rem;
+      color: #9c8265;
+    }
+    input[type="range"] {
+      flex: 1;
+      accent-color: #b5651d;
+      height: 20px;
+      cursor: pointer;
+    }
+    /* ============ ACTION BUTTONS ============ */
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .action-btn {
+      flex: 1;
+      min-width: 120px;
+      padding: 13px 18px;
+      border: none;
+      border-radius: 22px;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+      cursor: pointer;
+      background: linear-gradient(135deg, #d98236, #b5651d);
+      box-shadow: 0 4px 14px rgba(181, 101, 29, 0.35);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .action-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(181, 101, 29, 0.45); }
+    .action-btn:active { transform: translateY(0); }
+    .action-btn.secondary {
+      background: linear-gradient(135deg, #b6a289, #93816a);
+      box-shadow: 0 4px 14px rgba(120, 100, 78, 0.3);
+    }
+    .action-btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+    .hint {
+      text-align: center;
+      font-size: 0.8rem;
+      color: #a08a72;
+      margin: 12px 0 4px;
+      min-height: 18px;
+      transition: color 0.3s ease;
+    }
+    /* ============ SHELF ============ */
+    .shelf {
+      margin-top: 12px;
+      border-top: 1px dashed #e2d0b8;
+      padding-top: 12px;
+    }
+    .shelf-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .shelf-title {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #9c8265;
+    }
+    .clear-btn {
+      background: none;
+      border: 1px solid #e0cdb4;
+      border-radius: 14px;
+      color: #9c8265;
+      font-size: 0.72rem;
+      padding: 4px 12px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .clear-btn:hover { background: #f7ece0; }
+    .shelf-items {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding: 4px 2px 8px;
+      min-height: 92px;
+      align-items: flex-end;
+    }
+    .shelf-item { flex: 0 0 auto; text-align: center; }
+    .shelf-item img {
+      width: 54px;
+      height: 72px;
+      display: block;
+      border-radius: 8px;
+      background: #fbf4ea;
+      border: 1px solid #ecdfcd;
+    }
+    .shelf-item span {
+      display: block;
+      font-size: 0.6rem;
+      color: #8a7458;
+      margin-top: 3px;
+      max-width: 58px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .shelf-empty {
+      font-size: 0.8rem;
+      color: #b9a68f;
+      align-self: center;
+      padding: 24px 0;
+      width: 100%;
+      text-align: center;
+    }
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 480px) {
+      .game-container { padding: 14px; border-radius: 20px; }
+      .game-title { font-size: 1.5rem; }
+      .tool-label { width: 44px; font-size: 0.7rem; }
+      .swatch { width: 30px; height: 30px; }
+      .action-btn { font-size: 0.9rem; padding: 11px 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">ðŸº Pottery Wheel</h1>
+    <p class="game-subtitle">Centre the clay, shape it, then fire your piece</p>
+
+    <!-- ============ HUD ============ -->
+    <div class="hud">
+      <div>Pieces fired: <b id="pieceCount">0</b></div>
+      <div class="shape-label" id="shapeLabel">Cylinder</div>
+    </div>
+
+    <!-- ============ CANVAS ============ -->
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="520" height="600"></canvas>
+    </div>
+
+    <!-- ============ TOOLBAR ============ -->
+    <div class="toolbar">
+      <div class="tool-group">
+        <span class="tool-label">Clay</span>
+        <div id="claySwatches" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+      </div>
+      <div class="tool-group">
+        <span class="tool-label">Glaze</span>
+        <div id="glazeSwatches" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+      </div>
+
+      <div class="spin-group">
+        <span>Wheel speed</span>
+        <input type="range" id="spinRange" min="0" max="3.2" step="0.1" value="1.3" />
+      </div>
+
+      <div class="actions">
+        <button class="action-btn" id="fireBtn">ðŸ”¥ Fire</button>
+        <button class="action-btn secondary" id="newBtn">â†º New Piece</button>
+      </div>
+
+      <p class="hint" id="hint">Drag near the clay wall â€” push out to widen, in to narrow, up to pull the walls higher.</p>
+    </div>
+
+    <!-- ============ SHELF ============ -->
+    <div class="shelf">
+      <div class="shelf-head">
+        <span class="shelf-title">Your Shelf</span>
+        <button class="clear-btn" id="clearBtn">Clear shelf</button>
+      </div>
+      <div class="shelf-items" id="shelfItems"></div>
+    </div>
+  </div>
+
+  <script>
+    "use strict";
+
+    // ============ CANVAS & GEOMETRY CONFIG ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;    // 520
+    const H = canvas.height;   // 600
+    const cx = 260;            // wheel / pot centre x
+    const baseY = 468;         // wheel surface y
+    const rowH = 6;            // pixel height of one clay row
+    const ROWS = 46;           // number of clay rows (max height = ROWS * rowH)
+    const maxR = 152;          // pixels per radius unit 1.0
+    const WH_RX = maxR + 40;   // wheel ellipse radius x
+    const WH_RY = 38;          // wheel ellipse radius y
+    const SIGMA = 16;          // drag influence spread
+    const FIRE_TIME = 2.3;     // seconds of the firing animation
+
+    // ============ CLAY & GLAZE PALETTES ============
+    const CLAYS = [
+      { name: 'Terracotta', hex: '#b5651d' },
+      { name: 'Stoneware',  hex: '#9c8f83' },
+      { name: 'Porcelain',  hex: '#e7dcc8' },
+      { name: 'Black Clay', hex: '#4f453c' },
+      { name: 'Red Earth',  hex: '#a2371f' }
+    ];
+    const GLAZES = [
+      { name: 'Clear',    hex: '#f2ede4', alpha: 0.30 },
+      { name: 'Celadon',  hex: '#79b39a', alpha: 0.62 },
+      { name: 'Cobalt',   hex: '#31508f', alpha: 0.70 },
+      { name: 'Amber',    hex: '#d2952c', alpha: 0.66 },
+      { name: 'Oxblood',  hex: '#8c2230', alpha: 0.62 },
+      { name: 'Temmoku',  hex: '#3a2b22', alpha: 0.74 }
+    ];
+
+    // ============ STATE ============
+    let profile = new Float32Array(ROWS); // radius per row, index 0 = bottom
+    let volumeTarget = 0;                 // clay volume kept roughly constant
+    let clay = CLAYS[0];
+    let glaze = GLAZES[1];
+    let glazeAmt = 0;                     // 0 = raw clay, 1 = fully glazed
+    let finished = false;                 // true once fired
+    let firing = null;                    // { t } while firing
+    let wheelAngle = 0;
+    let spinSpeed = 1.3;
+    let dragging = false;
+    let shelf = [];
+    let sparkles = [];
+    let nameIndex = 0;
+
+    // ============ DOM REFERENCES ============
+    const pieceCountEl = document.getElementById('pieceCount');
+    const shapeLabelEl = document.getElementById('shapeLabel');
+    const hintEl = document.getElementById('hint');
+    const fireBtn = document.getElementById('fireBtn');
+    const newBtn = document.getElementById('newBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const spinRange = document.getElementById('spinRange');
+    const shelfItems = document.getElementById('shelfItems');
+    const claySwatches = document.getElementById('claySwatches');
+    const glazeSwatches = document.getElementById('glazeSwatches');
+    const SHELF_KEY = 'potteryShelfV1';
+
+    // ============ AUDIO (WebAudio beeps, no assets) ============
+    let actx = null;
+    function audioInit() {
+      if (!actx) {
+        try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; }
+      }
+      if (actx && actx.state === 'suspended') actx.resume();
+    }
+    function beep(freq, dur, type, vol) {
+      audioInit();
+      if (!actx) return;
+      const t = actx.currentTime;
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.linearRampToValueAtTime(vol == null ? 0.12 : vol, t + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + (dur || 0.14));
+      osc.connect(gain);
+      gain.connect(actx.destination);
+      osc.start(t);
+      osc.stop(t + (dur || 0.14) + 0.03);
+    }
+    function chime(notes) {
+      notes.forEach((n, i) => setTimeout(() => beep(n, 0.3, 'triangle', 0.10), i * 110));
+    }
+
+    // ============ COLOUR HELPERS ============
+    function hexToRgb(h) {
+      h = h.replace('#', '');
+      if (h.length === 3) h = h.split('').map(c => c + c).join('');
+      const n = parseInt(h, 16);
+      return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+    }
+    function shade(hex, f) {
+      const c = hexToRgb(hex);
+      const cl = v => Math.max(0, Math.min(255, Math.round(v * f)));
+      return 'rgb(' + cl(c.r) + ',' + cl(c.g) + ',' + cl(c.b) + ')';
+    }
+    function rgba(hex, a) {
+      const c = hexToRgb(hex);
+      return 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',' + a + ')';
+    }
+
+    // ============ CLAY MODEL ============
+    function yOf(i) { return baseY - (i + 0.5) * rowH; }
+
+    function resetProfile() {
+      profile = new Float32Array(ROWS);
+      // A simple centred cylinder blank the potter can shape.
+      for (let i = 0; i <= 30; i++) profile[i] = 0.46;
+      profile[0] = 0.30; // trimmed foot
+      profile[1] = 0.34;
+      volumeTarget = computeVolume();
+      glazeAmt = 0;
+      finished = false;
+      firing = null;
+      sparkles = [];
+      updateShapeLabel();
+    }
+
+    function computeVolume() {
+      let v = 0;
+      for (let i = 0; i < ROWS; i++) v += profile[i] * profile[i];
+      return v;
+    }
+
+    function topRow() {
+      for (let i = ROWS - 1; i >= 0; i--) if (profile[i] > 0.03) return i;
+      return 0;
+    }
+
+    // Keep the amount of clay gently constant so shaping feels physical.
+    function conserveClay(strength) {
+      const v = computeVolume();
+      if (v < 0.0001) return;
+      const scale = Math.sqrt(volumeTarget / v);
+      for (let i = 0; i < ROWS; i++) profile[i] *= (1 + (scale - 1) * strength);
+    }
+
+    // Smooth the silhouette so dragged clay reads as one continuous surface.
+    function smoothProfile() {
+      const top = topRow();
+      const copy = Array.from(profile);
+      for (let i = 1; i < top; i++) {
+        profile[i] = copy[i] * 0.6 + (copy[i - 1] + copy[i + 1]) * 0.2;
+      }
+    }
+
+    // Enforce a foot and contiguous clay (no floating rings).
+    function enforceStructure() {
+      profile[0] = Math.max(profile[0], 0.16);
+      profile[1] = Math.max(profile[1], 0.15);
+      for (let i = 1; i < ROWS; i++) {
+        if (profile[i - 1] < 0.04) profile[i] = 0;
+        profile[i] = Math.max(0, Math.min(1, profile[i]));
+      }
+    }
+
+    // ============ INTERACTION ============
+    function dragAt(px, py) {
+      for (let i = 0; i < ROWS; i++) {
+        const yy = yOf(i);
+        const wallL = cx - profile[i] * maxR;
+        const wallR = cx + profile[i] * maxR;
+        const dL = Math.hypot(px - wallL, py - yy);
+        const dR = Math.hypot(px - wallR, py - yy);
+        const d = Math.min(dL, dR);
+        const infl = Math.exp(-(d * d) / (2 * SIGMA * SIGMA));
+        if (infl < 0.02) continue;
+        const targetR = Math.min(1, Math.abs(px - cx) / maxR);
+        profile[i] += (targetR - profile[i]) * infl * 0.42;
+      }
+      conserveClay(0.22);
+      smoothProfile();
+      enforceStructure();
+      updateShapeLabel();
+    }
+
+    function toCanvas(e) {
+      const r = canvas.getBoundingClientRect();
+      return {
+        x: (e.clientX - r.left) * (canvas.width / r.width),
+        y: (e.clientY - r.top) * (canvas.height / r.height)
+      };
+    }
+
+    function onDown(e) {
+      if (firing || finished) return;
+      e.preventDefault();
+      audioInit();
+      dragging = true;
+      const p = toCanvas(e);
+      dragAt(p.x, p.y);
+      if (canvas.setPointerCapture) { try { canvas.setPointerCapture(e.pointerId); } catch (err) {} }
+    }
+    function onMove(e) {
+      if (!dragging || firing || finished) return;
+      e.preventDefault();
+      const p = toCanvas(e);
+      dragAt(p.x, p.y);
+    }
+    function onUp() { dragging = false; }
+
+    canvas.addEventListener('pointerdown', onDown);
+    canvas.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+
+    // ============ SHAPE NAMING ============
+    function classifyShape() {
+      const top = topRow();
+      const heightPx = (top + 1) * rowH;
+      let widest = 0;
+      for (let i = 0; i <= top; i++) widest = Math.max(widest, profile[i]);
+      const widthPx = widest * maxR * 2;
+      const ratio = widthPx / Math.max(1, heightPx);
+
+      // Look for a constricted waist in the middle third of the vessel.
+      let waist = 1;
+      const a = Math.floor(top / 3), b = Math.floor((2 * top) / 3);
+      for (let i = a; i <= b; i++) waist = Math.min(waist, profile[i]);
+
+      if (ratio > 1.25) return 'Bowl';
+      if (waist < widest * 0.66) return 'Vase';
+      if (ratio < 0.55) return 'Bottle';
+      return 'Jar';
+    }
+
+    function updateShapeLabel() {
+      shapeLabelEl.textContent = finished ? (glaze.name + ' ' + classifyShape()) : classifyShape();
+    }
+
+    // ============ RENDERING ============
+    function drawBackground() {
+      const bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, '#fbf5ec');
+      bg.addColorStop(0.7, '#f3e7d6');
+      bg.addColorStop(1, '#e8d6bd');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // soft table band
+      ctx.fillStyle = 'rgba(200, 172, 136, 0.22)';
+      ctx.beginPath();
+      ctx.ellipse(cx, baseY + 96, W * 0.62, 74, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // vignette
+      const vg = ctx.createRadialGradient(cx, H * 0.5, 120, cx, H * 0.5, W * 0.78);
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, 'rgba(120, 95, 65, 0.16)');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    function drawWheel() {
+      const wy = baseY + 4;
+      ctx.save();
+      ctx.translate(cx, wy);
+
+      // pot shadow on the wheel
+      const widest = Math.max(0.3, profile[0]);
+      ctx.fillStyle = 'rgba(60, 40, 25, 0.20)';
+      ctx.beginPath();
+      ctx.ellipse(0, 6, widest * maxR * 1.05, 16, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // disc
+      const grd = ctx.createLinearGradient(0, -WH_RY, 0, WH_RY);
+      grd.addColorStop(0, '#8a7a66');
+      grd.addColorStop(0.5, '#6b5c4b');
+      grd.addColorStop(1, '#493d33');
+      ctx.beginPath();
+      ctx.ellipse(0, 0, WH_RX, WH_RY, 0, 0, Math.PI * 2);
+      ctx.fillStyle = grd;
+      ctx.fill();
+
+      // rotating spokes (visualises the spin)
+      const N = 14;
+      for (let k = 0; k < N; k++) {
+        const a = wheelAngle + k * (Math.PI * 2 / N);
+        const sx = Math.cos(a) * WH_RX;
+        const sy = Math.sin(a) * WH_RY;
+        ctx.strokeStyle = 'rgba(0,0,0,0.16)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(sx, sy);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.12)';
+        ctx.beginPath();
+        ctx.arc(sx, sy, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // rim highlight
+      ctx.beginPath();
+      ctx.ellipse(0, 0, WH_RX, WH_RY, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.20)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function potPath(g, o) {
+      const top = o.topRow;
+      g.beginPath();
+      for (let i = 0; i <= top; i++) {
+        const x = o.cx + o.prof[i] * o.maxR;
+        const y = o.baseY - (i + 0.5) * o.rowH;
+        if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+      }
+      for (let i = top; i >= 0; i--) {
+        g.lineTo(o.cx - o.prof[i] * o.maxR, o.baseY - (i + 0.5) * o.rowH);
+      }
+      g.closePath();
+    }
+
+    // Generic pot renderer - reused for the main view and shelf thumbnails.
+    function drawPot(g, o) {
+      const top = o.topRow;
+      if (top < 1) return;
+      const topY = o.baseY - (top + 0.5) * o.rowH;
+      const botY = o.baseY - 0.5 * o.rowH;
+
+      // ---- clay body ----
+      potPath(g, o);
+      const vg = g.createLinearGradient(0, topY, 0, botY);
+      vg.addColorStop(0, shade(o.clay.hex, 1.16));
+      vg.addColorStop(1, shade(o.clay.hex, 0.74));
+      g.fillStyle = vg;
+      g.fill();
+
+      g.save();
+      potPath(g, o);
+      g.clip();
+
+      // cylindrical shading
+      const hg = g.createLinearGradient(o.cx - o.maxR, 0, o.cx + o.maxR, 0);
+      hg.addColorStop(0, 'rgba(0,0,0,0.36)');
+      hg.addColorStop(0.26, 'rgba(0,0,0,0.05)');
+      hg.addColorStop(0.42, 'rgba(255,255,255,0.20)');
+      hg.addColorStop(0.62, 'rgba(0,0,0,0.03)');
+      hg.addColorStop(1, 'rgba(0,0,0,0.40)');
+      g.fillStyle = hg;
+      g.fillRect(o.cx - o.maxR - 6, topY - 6, o.maxR * 2 + 12, botY - topY + 12);
+
+      // rotating surface texture
+      if (o.texture) {
+        const stripe = 15;
+        const off = (o.angle * 42) % stripe;
+        g.strokeStyle = 'rgba(0,0,0,0.10)';
+        g.lineWidth = 1;
+        for (let x = o.cx - o.maxR - stripe; x <= o.cx + o.maxR + stripe; x += stripe) {
+          g.beginPath();
+          g.moveTo(x + off, topY);
+          g.lineTo(x + off, botY);
+          g.stroke();
+        }
+        // throwing rings
+        g.strokeStyle = 'rgba(255,255,255,0.06)';
+        for (let i = 2; i < top; i += 3) {
+          const y = o.baseY - (i + 0.5) * o.rowH;
+          g.beginPath();
+          g.moveTo(o.cx - o.maxR, y);
+          g.lineTo(o.cx + o.maxR, y);
+          g.stroke();
+        }
+      }
+
+      // ---- glaze overlay ----
+      const ga = (o.glazeAmt || 0);
+      if (ga > 0.001) {
+        const gg = g.createLinearGradient(o.cx - o.maxR, topY, o.cx + o.maxR, botY);
+        gg.addColorStop(0, rgba(o.glaze.hex, o.glaze.alpha * ga * 0.9));
+        gg.addColorStop(0.42, rgba(o.glaze.hex, o.glaze.alpha * ga * 0.22));
+        gg.addColorStop(1, rgba(o.glaze.hex, o.glaze.alpha * ga));
+        g.fillStyle = gg;
+        g.fillRect(o.cx - o.maxR - 6, topY - 6, o.maxR * 2 + 12, botY - topY + 12);
+
+        // glossy sheen
+        g.fillStyle = 'rgba(255,255,255,' + (0.30 * ga) + ')';
+        g.beginPath();
+        g.ellipse(o.cx - o.maxR * 0.42, (topY + botY) / 2,
+                  o.maxR * 0.11, Math.max(6, (botY - topY) * 0.30), 0, 0, Math.PI * 2);
+        g.fill();
+      } else {
+        // faint raw-clay sheen
+        g.fillStyle = 'rgba(255,255,255,0.13)';
+        g.beginPath();
+        g.ellipse(o.cx - o.maxR * 0.42, (topY + botY) / 2,
+                  o.maxR * 0.09, Math.max(6, (botY - topY) * 0.26), 0, 0, Math.PI * 2);
+        g.fill();
+      }
+      g.restore();
+
+      // ---- rim / opening ----
+      const rx = o.prof[top] * o.maxR;
+      const ry = Math.max(3, rx * 0.30);
+      g.beginPath();
+      g.ellipse(o.cx, topY, rx, ry, 0, 0, Math.PI * 2);
+      g.fillStyle = shade(o.clay.hex, 0.56);
+      g.fill();
+      if (ga > 0.001) {
+        g.fillStyle = rgba(o.glaze.hex, 0.4 * ga);
+        g.fill();
+      }
+      g.strokeStyle = shade(o.clay.hex, 1.14);
+      g.lineWidth = 2.5;
+      g.stroke();
+    }
+
+    function drawGlow(t) {
+      const top = topRow();
+      const topY = yOf(top);
+      const midY = (topY + yOf(0)) / 2;
+      const pulse = 0.55 + 0.45 * Math.sin(t * 9);
+      const rad = 210 + pulse * 34;
+      const gr = ctx.createRadialGradient(cx, midY, 30, cx, midY, rad);
+      gr.addColorStop(0, 'rgba(255, 168, 62, ' + (0.34 * pulse) + ')');
+      gr.addColorStop(0.5, 'rgba(255, 110, 40, ' + (0.16 * pulse) + ')');
+      gr.addColorStop(1, 'rgba(255, 80, 20, 0)');
+      ctx.fillStyle = gr;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    function drawSparkles() {
+      for (const s of sparkles) {
+        ctx.globalAlpha = Math.max(0, s.life);
+        ctx.fillStyle = s.c;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function render(t) {
+      drawBackground();
+      drawWheel();
+      drawPot(ctx, {
+        prof: profile,
+        topRow: topRow(),
+        cx: cx,
+        baseY: baseY,
+        rowH: rowH,
+        maxR: maxR,
+        clay: clay,
+        glaze: glaze,
+        glazeAmt: glazeAmt,
+        texture: !finished,
+        angle: wheelAngle
+      });
+      if (firing) drawGlow(firing.t);
+      drawSparkles();
+    }
+
+    // ============ FIRING ============
+    function startFiring() {
+      if (firing || finished) return;
+      if (topRow() < 4) {
+        hintEl.textContent = 'Shape a little clay first, then fire it.';
+        beep(200, 0.12, 'sine', 0.08);
+        return;
+      }
+      firing = { t: 0 };
+      hintEl.textContent = 'Into the kilnâ€¦ heating up ðŸ”¥';
+      chime([392, 523, 659]);
+      // spawn heat sparkles rising around the pot
+      for (let i = 0; i < 26; i++) {
+        sparkles.push({
+          x: cx + (Math.random() - 0.5) * 300,
+          y: baseY - Math.random() * 260,
+          r: 1 + Math.random() * 2.2,
+          life: 0.4 + Math.random() * 0.6,
+          c: Math.random() < 0.5 ? '#ffb347' : '#ff7a3d'
+        });
+      }
+    }
+
+    function finishFiring() {
+      finished = true;
+      glazeAmt = 1;
+      firing = null;
+      updateShapeLabel();
+      const name = glaze.name + ' ' + classifyShape();
+      savePiece(name);
+      hintEl.textContent = 'Fired! â€œ' + name + 'â€ added to your shelf. Start a new piece â†º';
+      chime([523, 659, 784, 1047]);
+      fireBtn.disabled = true;
+    }
+
+    function updateFiring(dt) {
+      if (!firing) return;
+      firing.t += dt;
+      const p = Math.min(1, firing.t / FIRE_TIME);
+      // hold raw clay for a moment, then glaze blooms in
+      glazeAmt = Math.max(0, (p - 0.35) / 0.45);
+      glazeAmt = Math.min(1, glazeAmt);
+      for (const s of sparkles) {
+        s.y -= 22 * dt;
+        s.life -= dt * 0.35;
+      }
+      sparkles = sparkles.filter(s => s.life > 0);
+      if (firing.t >= FIRE_TIME) finishFiring();
+    }
+
+    // ============ SHELF / PERSISTENCE ============
+    function makeThumb() {
+      const tw = 108, th = 144;
+      const c = document.createElement('canvas');
+      c.width = tw;
+      c.height = th;
+      const g = c.getContext('2d');
+      const top = topRow();
+      const potH = (top + 1) * rowH;
+      let widest = 0.4;
+      for (let i = 0; i <= top; i++) widest = Math.max(widest, profile[i]);
+      const potW = widest * maxR * 2;
+      const scale = Math.min((tw - 20) / potW, (th - 34) / potH);
+      drawPot(g, {
+        prof: profile,
+        topRow: top,
+        cx: tw / 2,
+        baseY: th - 16,
+        rowH: rowH * scale,
+        maxR: maxR * scale,
+        clay: clay,
+        glaze: glaze,
+        glazeAmt: 1,
+        texture: false,
+        angle: 0
+      });
+      return c.toDataURL('image/png');
+    }
+
+    function savePiece(name) {
+      let url = '';
+      try { url = makeThumb(); } catch (e) { url = ''; }
+      shelf.push({ url: url, name: name });
+      if (shelf.length > 18) shelf = shelf.slice(shelf.length - 18);
+      nameIndex++;
+      persistShelf();
+      renderShelf();
+    }
+
+    function persistShelf() {
+      try { localStorage.setItem(SHELF_KEY, JSON.stringify(shelf)); } catch (e) {}
+    }
+
+    function loadShelf() {
+      try {
+        const raw = localStorage.getItem(SHELF_KEY);
+        shelf = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(shelf)) shelf = [];
+      } catch (e) { shelf = []; }
+      renderShelf();
+    }
+
+    function renderShelf() {
+      shelfItems.innerHTML = '';
+      pieceCountEl.textContent = shelf.length;
+      if (!shelf.length) {
+        const empty = document.createElement('div');
+        empty.className = 'shelf-empty';
+        empty.textContent = 'No pieces yet â€” fire your first pot to fill the shelf.';
+        shelfItems.appendChild(empty);
+        return;
+      }
+      shelf.slice().reverse().forEach((item, idx) => {
+        const box = document.createElement('div');
+        box.className = 'shelf-item';
+        if (item.url) {
+          const img = document.createElement('img');
+          img.src = item.url;
+          img.alt = item.name;
+          box.appendChild(img);
+        }
+        const label = document.createElement('span');
+        label.textContent = item.name || ('Piece ' + (shelf.length - idx));
+        label.title = label.textContent;
+        box.appendChild(label);
+        shelfItems.appendChild(box);
+      });
+    }
+
+    function clearShelf() {
+      if (!shelf.length) return;
+      shelf = [];
+      persistShelf();
+      renderShelf();
+      beep(260, 0.16, 'sine', 0.09);
+      hintEl.textContent = 'Shelf cleared.';
+    }
+
+    // ============ TOOLBAR WIRING ============
+    function buildSwatches() {
+      CLAYS.forEach((c, i) => {
+        const b = document.createElement('button');
+        b.className = 'swatch' + (i === 0 ? ' selected' : '');
+        b.style.background = c.hex;
+        b.title = c.name;
+        b.setAttribute('aria-label', c.name);
+        b.addEventListener('click', () => {
+          if (finished) { hintEl.textContent = 'Start a new piece to change the clay.'; return; }
+          clay = c;
+          claySwatches.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+          b.classList.add('selected');
+          beep(440, 0.07, 'sine', 0.08);
+        });
+        claySwatches.appendChild(b);
+      });
+
+      GLAZES.forEach((gl, i) => {
+        const b = document.createElement('button');
+        b.className = 'swatch' + (i === 1 ? ' selected' : '');
+        b.style.background = 'linear-gradient(150deg, ' + rgba(gl.hex, 0.95) + ' 0%, ' +
+          rgba(gl.hex, 0.55) + ' 55%, ' + rgba(gl.hex, 0.9) + ' 100%)';
+        b.style.boxShadow = 'inset 0 6px 8px rgba(255,255,255,0.45), 0 2px 6px rgba(80,60,40,0.2)';
+        b.title = gl.name + ' glaze';
+        b.setAttribute('aria-label', gl.name + ' glaze');
+        b.addEventListener('click', () => {
+          if (finished) { hintEl.textContent = 'Start a new piece to change the glaze.'; return; }
+          glaze = gl;
+          glazeSwatches.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+          b.classList.add('selected');
+          beep(520, 0.07, 'sine', 0.08);
+        });
+        glazeSwatches.appendChild(b);
+      });
+    }
+
+    fireBtn.addEventListener('click', () => { audioInit(); startFiring(); });
+
+    newBtn.addEventListener('click', () => {
+      audioInit();
+      resetProfile();
+      fireBtn.disabled = false;
+      hintEl.textContent = 'Fresh clay centred on the wheel. Shape it, then fire.';
+      beep(330, 0.1, 'sine', 0.09);
+    });
+
+    clearBtn.addEventListener('click', clearShelf);
+
+    spinRange.addEventListener('input', () => { spinSpeed = parseFloat(spinRange.value); });
+
+    // ============ MAIN LOOP ============
+    let lastTime = performance.now();
+    function loop(now) {
+      const dt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+
+      wheelAngle += spinSpeed * dt;
+      updateFiring(dt);
+
+      // idle sparkle drift
+      if (!firing && Math.random() < 0.015) {
+        sparkles.push({
+          x: cx + (Math.random() - 0.5) * 240,
+          y: baseY - Math.random() * 40,
+          r: 1 + Math.random() * 1.6,
+          life: 0.7,
+          c: 'rgba(255, 214, 150, 0.8)'
+        });
+      }
+      for (const s of sparkles) if (!firing) s.life -= dt * 0.5;
+      sparkles = sparkles.filter(s => s.life > 0);
+
+      render(now / 1000);
+      requestAnimationFrame(loop);
+    }
+
+    // ============ INIT ============
+    buildSwatches();
+    resetProfile();
+    loadShelf();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

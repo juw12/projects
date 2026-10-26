@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🎾 SQUASH</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #ffe5ec 0%, #e8f4f8 50%, #fff5e4 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+      max-width: 860px;
+      width: 96%;
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 2rem;
+      color: #ff6b8a;
+      margin-bottom: 4px;
+      text-shadow: 2px 2px 0 #fff;
+      letter-spacing: 2px;
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.86rem;
+      color: #888;
+      margin-bottom: 12px;
+    }
+
+    /* ============ SCORE DISPLAY ============ */
+    .score-board {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 10px 16px;
+      background: linear-gradient(135deg, #fff9e6, #ffe8f0);
+      border-radius: 12px;
+      font-size: 0.95rem;
+      color: #666;
+    }
+
+    .score-board span {
+      font-weight: 700;
+      color: #ff6b8a;
+    }
+
+    .score-board .you span { color: #ff4d78; }
+    .score-board .cpu span { color: #2f8fd6; }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+      background: #14121c;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      touch-action: none;
+    }
+
+    /* ============ SCREENS (Start / Game Over) ============ */
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.94);
+      transition: opacity 0.3s ease;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .screen-title {
+      font-size: 2rem;
+      color: #ff6b8a;
+      margin-bottom: 6px;
+      text-shadow: 2px 2px 0 #fff;
+    }
+
+    .screen-subtitle {
+      font-size: 0.95rem;
+      color: #888;
+      margin-bottom: 20px;
+      line-height: 1.5;
+      max-width: 460px;
+    }
+
+    .final-score {
+      font-size: 1.2rem;
+      color: #ff8fa3;
+      margin-bottom: 6px;
+    }
+
+    .stat-line {
+      font-size: 1rem;
+      color: #777;
+      margin-bottom: 18px;
+    }
+
+    /* ============ DIFFICULTY SELECTOR ============ */
+    .difficulty-container {
+      margin-bottom: 18px;
+    }
+
+    .difficulty-label {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #666;
+      margin-bottom: 10px;
+    }
+
+    .difficulty-buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .difficulty-btn {
+      padding: 10px 20px;
+      border: 2px solid #ffd1dc;
+      background: white;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      color: #666;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-weight: 500;
+    }
+
+    .difficulty-btn:hover {
+      background: #fff0f5;
+      transform: translateY(-2px);
+    }
+
+    .difficulty-btn.selected {
+      background: linear-gradient(135deg, #ff8fa3, #ff6b8a);
+      color: white;
+      border-color: #ff6b8a;
+      box-shadow: 0 4px 12px rgba(255, 107, 138, 0.3);
+    }
+
+    /* ============ ACTION BUTTONS ============ */
+    .action-btn {
+      padding: 13px 30px;
+      background: linear-gradient(135deg, #ff8fa3, #ff6b8a);
+      color: white;
+      border: none;
+      border-radius: 25px;
+      font-size: 1.05rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(255, 107, 138, 0.3);
+    }
+
+    .action-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(255, 107, 138, 0.4);
+    }
+
+    .action-btn:active {
+      transform: translateY(-1px);
+    }
+
+    /* ============ PAUSE OVERLAY ============ */
+    .pause-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(20, 18, 28, 0.55);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 2rem;
+      color: #ff8fa3;
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      letter-spacing: 2px;
+    }
+
+    .pause-overlay.visible {
+      opacity: 1;
+    }
+
+    /* ============ HINT ============ */
+    .hint {
+      text-align: center;
+      font-size: 0.78rem;
+      color: #999;
+      margin-top: 10px;
+    }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 560px) {
+      .game-container { padding: 12px; }
+      .game-title { font-size: 1.5rem; }
+      .score-board { font-size: 0.8rem; padding: 8px 10px; }
+      .hint { font-size: 0.7rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">🎾 SQUASH</h1>
+    <p class="game-subtitle">Return every ball before it bounces twice!</p>
+
+    <div class="score-board">
+      <div class="you">You <span id="scoreP">0</span></div>
+      <div class="cpu">CPU <span id="scoreC">0</span></div>
+      <div>Rally <span id="rally">0</span></div>
+      <div>Best <span id="bestRally">0</span></div>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="820" height="540"></canvas>
+
+      <!-- Start Screen with Difficulty Selection -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">Match Point!</h2>
+        <p class="screen-subtitle">Aim with your mouse or finger and swing your racquet.
+          First to <strong>9</strong> points wins the game.</p>
+
+        <div class="difficulty-container">
+          <p class="difficulty-label">Opponent Skill</p>
+          <div class="difficulty-buttons">
+            <button class="difficulty-btn selected" data-speed="1.7" data-reach="0.36">Rookie</button>
+            <button class="difficulty-btn" data-speed="2.5" data-reach="0.46">Pro</button>
+            <button class="difficulty-btn" data-speed="3.5" data-reach="0.56">Champion</button>
+          </div>
+        </div>
+
+        <button class="action-btn" id="startBtn">Start Match</button>
+      </div>
+
+      <!-- Game Over Screen -->
+      <div id="gameOverScreen" class="screen hidden">
+        <h2 class="screen-title" id="overTitle">Game Over</h2>
+        <p class="final-score" id="finalScore">You 0 — 0 CPU</p>
+        <p class="stat-line" id="overStats"></p>
+        <button class="action-btn" id="playAgainBtn">Play Again</button>
+      </div>
+
+      <!-- Pause Overlay -->
+      <div id="pauseOverlay" class="pause-overlay">⏸ PAUSED</div>
+    </div>
+
+    <p class="hint">Move mouse / drag to aim · Click / tap to swing · Space or P to pause</p>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    // ============ CANVAS & COURT CONSTANTS ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const Hpx = canvas.height;
+
+    // World space:  x = lateral (-1..1)   d = depth (0 = viewer/back, L = front wall)   h = height (0..CH)
+    const L = 9;          // court length
+    const CW = 1;         // lateral half width
+    const CH = 2.4;       // wall height
+    const CX = W / 2;     // screen centre x
+    const HALFW = 320;    // lateral pixels at scale 1
+    const HPX = 150;      // height pixels at scale 1
+    const FY0 = 520;      // floor y at depth 0 (nearest viewer)
+    const FYL = 170;      // floor y at depth L (front wall base)
+
+    const R = 0.05;       // ball radius (world)
+    const G = 8.0;        // gravity (height units / s^2)
+
+    const TARGET_SCORE = 9;
+
+    // Perspective helpers
+    function scale(d) { return 1 - 0.55 * (d / L); }
+    function floorY(d) { return FY0 - (d / L) * (FY0 - FYL); }
+    function project(x, d, h) {
+      const s = scale(d);
+      return { x: CX + x * HALFW * s, y: floorY(d) - h * HPX * s, s: s };
+    }
+    function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+
+    // ============ DOM ELEMENTS ============
+    const scorePEl = document.getElementById('scoreP');
+    const scoreCEl = document.getElementById('scoreC');
+    const rallyEl = document.getElementById('rally');
+    const bestRallyEl = document.getElementById('bestRally');
+    const startScreen = document.getElementById('startScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const startBtn = document.getElementById('startBtn');
+    const playAgainBtn = document.getElementById('playAgainBtn');
+    const overTitle = document.getElementById('overTitle');
+    const finalScoreEl = document.getElementById('finalScore');
+    const overStatsEl = document.getElementById('overStats');
+    const difficultyBtns = document.querySelectorAll('.difficulty-btn');
+
+    // ============ AUDIO (WebAudio beep) ============
+    let actx = null;
+    function beep(freq, dur, type, vol) {
+      freq = freq || 440;
+      dur = dur || 0.06;
+      type = type || 'square';
+      vol = vol === undefined ? 0.05 : vol;
+      try {
+        if (!actx) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return;
+          actx = new AC();
+        }
+        if (actx.state === 'suspended') actx.resume();
+        const o = actx.createOscillator();
+        const g = actx.createGain();
+        o.type = type;
+        o.frequency.value = freq;
+        g.gain.value = vol;
+        o.connect(g);
+        g.connect(actx.destination);
+        const t = actx.currentTime;
+        o.start(t);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.stop(t + dur);
+      } catch (e) { /* audio unsupported — ignore */ }
+    }
+
+    // ============ GAME STATE ============
+    let state = 'start';          // 'start' | 'playing' | 'over'
+    let paused = false;
+
+    let scoreP = 0;
+    let scoreC = 0;
+    let rally = 0;
+    let bestRally = parseInt(localStorage.getItem('squashBestRally') || '0', 10) || 0;
+
+    // Court positions (depth)
+    const pD = 2.0;    // player (near viewer)
+    const cD = 6.2;    // CPU (deep, nearer the front wall)
+
+    let playerX = 0;   // player racquet lateral position
+    let cpuX = 0;      // cpu racquet lateral position
+    let pointerX = 0;  // target lateral from input
+    let swingT = 0;    // player swing animation timer (seconds)
+
+    let cpuSpeed = 2.5;
+    let cpuReach = 0.46;
+
+    let target = 'C';       // whose turn to return ('P' or 'C')
+    let floorBounces = 0;   // floor bounces since last hit
+    let holdT = 0;          // serve hold timer
+    let serveVd = 7.0;
+
+    let ball = { x: 0, d: 4.5, h: 1.4, vx: 0, vd: 0, vh: 0 };
+    let particles = [];
+    let flash = { text: '', t: 0, color: '#fff' };
+
+    // ============ HUD ============
+    function updateHud() {
+      scorePEl.textContent = scoreP;
+      scoreCEl.textContent = scoreC;
+      rallyEl.textContent = rally;
+      bestRallyEl.textContent = bestRally;
+    }
+    bestRallyEl.textContent = bestRally;
+
+    // ============ BALL / RALLY ============
+    function launch() {
+      ball.vx = (Math.random() - 0.5) * 1.8;
+      ball.vd = serveVd;
+      ball.vh = 2.6;
+      beep(660, 0.05, 'triangle');
+    }
+
+    function serve(server) {
+      ball.x = 0;
+      ball.d = server === 'P' ? pD : cD;
+      ball.h = 1.25;
+      ball.vx = 0; ball.vd = 0; ball.vh = 0;
+      target = server === 'P' ? 'C' : 'P';
+      serveVd = 7.0 + Math.random() * 1.5;
+      floorBounces = 0;
+      rally = 0;
+      holdT = 0.75;
+      updateHud();
+    }
+
+    function endRally() {
+      // Whoever was supposed to return the ball failed → opponent scores
+      const winner = target === 'P' ? 'C' : 'P';
+      if (winner === 'P') scoreP += 1; else scoreC += 1;
+
+      flash.text = winner === 'P' ? 'POINT — YOU!' : 'POINT — CPU';
+      flash.color = winner === 'P' ? '#ff5d86' : '#4aa3ff';
+      flash.t = 1.1;
+
+      beep(winner === 'P' ? 760 : 180, 0.22, 'sawtooth', 0.07);
+      updateHud();
+
+      if (scoreP >= TARGET_SCORE || scoreC >= TARGET_SCORE) {
+        endGame();
+        return;
+      }
+      serve(winner);
+    }
+
+    function endGame() {
+      state = 'over';
+      if (scoreP > scoreC) {
+        overTitle.textContent = '🏆 You Win!';
+        overTitle.style.color = '#ff6b8a';
+      } else {
+        overTitle.textContent = 'CPU Wins';
+        overTitle.style.color = '#2f8fd6';
+      }
+      finalScoreEl.textContent = 'You ' + scoreP + ' — ' + scoreC + ' CPU';
+      overStatsEl.textContent = 'Best rally: ' + bestRally + ' shot' + (bestRally === 1 ? '' : 's');
+      gameOverScreen.classList.remove('hidden');
+      beep(scoreP > scoreC ? 880 : 220, 0.4, 'triangle', 0.08);
+    }
+
+    // ============ PHYSICS ============
+    function updateBall(dt) {
+      ball.vh -= G * dt;
+      ball.x += ball.vx * dt;
+      ball.d += ball.vd * dt;
+      ball.h += ball.vh * dt;
+
+      // Floor bounce
+      if (ball.h < R && ball.vh < 0) {
+        ball.h = R;
+        ball.vh = -ball.vh * 0.82;
+        ball.vd *= 0.99;
+        ball.vx *= 0.99;
+        floorBounces += 1;
+        beep(150, 0.05, 'sine', 0.05);
+        if (floorBounces >= 2) {
+          endRally();
+          return;
+        }
+      }
+
+      // Front wall (depth = L)
+      if (ball.d > L - R && ball.vd > 0) {
+        ball.d = L - R;
+        ball.vd = -ball.vd * 0.92;
+        burst(ball.x, ball.d, ball.h, '#ffd166');
+        beep(300, 0.05, 'square');
+      }
+
+      // Back limit (viewer side) — soft wall so ball stays in court
+      if (ball.d < R && ball.vd < 0) {
+        ball.d = R;
+        ball.vd = -ball.vd * 0.86;
+        beep(210, 0.04, 'square');
+      }
+
+      // Side walls
+      if (ball.x < -CW + R && ball.vx < 0) {
+        ball.x = -CW + R;
+        ball.vx = -ball.vx * 0.9;
+        burst(ball.x, ball.d, ball.h, '#8ecae6');
+        beep(250, 0.04, 'square');
+      }
+      if (ball.x > CW - R && ball.vx > 0) {
+        ball.x = CW - R;
+        ball.vx = -ball.vx * 0.9;
+        burst(ball.x, ball.d, ball.h, '#8ecae6');
+        beep(250, 0.04, 'square');
+      }
+
+      // Safety clamp
+      ball.h = clamp(ball.h, R, CH);
+    }
+
+    // ============ HITTING ============
+    function tryHit(who) {
+      if (state !== 'playing' || holdT > 0) return;
+      if (target !== who) return;
+      if (ball.vd >= 0) return;                       // must be coming back toward the player
+      const depth = who === 'P' ? pD : cD;
+      const zone = who === 'P' ? 1.4 : 1.15;
+      if (Math.abs(ball.d - depth) > zone) return;
+      if (ball.h > 1.95) return;
+
+      const rac = who === 'P' ? playerX : cpuX;
+      const reach = who === 'P' ? (swingT > 0 ? 0.78 : 0.36) : cpuReach;
+      if (Math.abs(ball.x - rac) > reach) return;
+
+      // Successful return
+      target = who === 'P' ? 'C' : 'P';
+      floorBounces = 0;
+      rally += 1;
+      if (rally > bestRally) {
+        bestRally = rally;
+        localStorage.setItem('squashBestRally', String(bestRally));
+      }
+
+      let aim = (ball.x - rac) * 2.2 + (Math.random() - 0.5) * 0.8;
+      if (who === 'P' && swingT > 0) aim *= 1.35;
+
+      ball.d = depth + (who === 'P' ? 0.03 : -0.03);
+      ball.vd = 7.0 + Math.random() * 2.0 + (who === 'P' && swingT > 0 ? 1.3 : 0);
+      ball.vx = aim;
+      ball.vh = 2.6 + Math.random() * 1.8;
+
+      burst(ball.x, ball.d, ball.h, who === 'P' ? '#ff7aa2' : '#4aa3ff');
+      beep(who === 'P' ? 540 : 430, 0.06, 'square', 0.06);
+      if (who === 'P') swingT = 0;   // consume the swing
+      updateHud();
+    }
+
+    // ============ CPU AI ============
+    function cpuAI(dt) {
+      let goal = 0;
+      if (target === 'C' && ball.vd < 0) {
+        const tt = clamp((ball.d - cD) / Math.max(0.001, -ball.vd), 0, 1.2);
+        goal = clamp(ball.x + ball.vx * tt, -0.82, 0.82);
+      }
+      const diff = goal - cpuX;
+      cpuX += clamp(diff, -cpuSpeed * dt, cpuSpeed * dt);
+    }
+
+    // ============ PARTICLES ============
+    function burst(x, d, h, color) {
+      const p = project(x, d, h);
+      for (let i = 0; i < 5; i++) {
+        particles.push({
+          x: p.x, y: p.y,
+          vx: (Math.random() - 0.5) * 180,
+          vy: (Math.random() - 0.5) * 180,
+          life: 1, color: color, size: Math.random() * 3 + 1.5
+        });
+      }
+    }
+
+    function updateParticles(dt) {
+      particles = particles.filter(function (p) {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += 320 * dt;
+        p.life -= dt * 2.4;
+        return p.life > 0;
+      });
+      particles.forEach(function (p) {
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+    }
+
+    // ============ DRAWING — COURT ============
+    function poly(pts, fill) {
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+      ctx.closePath();
+      ctx.fillStyle = fill;
+      ctx.fill();
+    }
+
+    function drawCourt() {
+      // Room background
+      const bg = ctx.createRadialGradient(CX, 240, 60, CX, 300, 620);
+      bg.addColorStop(0, '#241f33');
+      bg.addColorStop(1, '#0b0a12');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, Hpx);
+
+      // ---- Floor (drawn first, behind walls) ----
+      const fNearL = project(-CW, 0, 0);
+      const fNearR = project(CW, 0, 0);
+      const fFarR = project(CW, L, 0);
+      const fFarL = project(-CW, L, 0);
+      const fg = ctx.createLinearGradient(0, fFarL.y, 0, fNearL.y);
+      fg.addColorStop(0, '#b07a3f');
+      fg.addColorStop(1, '#8a5c2b');
+      poly([fNearL, fNearR, fFarR, fFarL], fg);
+
+      // Floor lines
+      ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+      ctx.lineWidth = 1.5;
+      for (let d = 0; d <= L + 0.001; d += 1.5) {
+        const a = project(-CW, d, 0), b = project(CW, d, 0);
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      }
+      [-0.5, 0, 0.5].forEach(function (x) {
+        const a = project(x, 0, 0), b = project(x, L, 0);
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      });
+
+      // ---- Side walls ----
+      const nearLT = project(-CW, 0, CH);
+      const farLT = project(-CW, L, CH);
+      const lwg = ctx.createLinearGradient(0, nearLT.y, 0, fNearL.y);
+      lwg.addColorStop(0, '#efe7d8');
+      lwg.addColorStop(1, '#d8ccb8');
+      poly([fNearL, fFarL, farLT, nearLT], lwg);
+
+      const nearRT = project(CW, 0, CH);
+      const farRT = project(CW, L, CH);
+      const rwg = ctx.createLinearGradient(0, nearRT.y, 0, fNearR.y);
+      rwg.addColorStop(0, '#e4dac8');
+      rwg.addColorStop(1, '#c8bba4');
+      poly([fNearR, fFarR, farRT, nearRT], rwg);
+
+      // Side-wall shading
+      ctx.fillStyle = 'rgba(0,0,0,0.10)';
+      poly([fNearL, project(-CW, L, 0), project(-CW, L, CH), project(-CW, 0, CH)], 'rgba(0,0,0,0.10)');
+
+      // ---- Front wall ----
+      const fwl = project(-CW, L, 0);
+      const fwr = project(CW, L, 0);
+      const fwtR = project(CW, L, CH);
+      const fwtL = project(-CW, L, CH);
+      const fwg = ctx.createLinearGradient(0, fwtL.y, 0, fwl.y);
+      fwg.addColorStop(0, '#f7f1e4');
+      fwg.addColorStop(1, '#ded2bf');
+      poly([fwl, fwr, fwtR, fwtL], fwg);
+
+      // Front wall lines (classic squash red markings)
+      ctx.strokeStyle = '#c0392b';
+      ctx.lineWidth = 3;
+      // out line (top)
+      let a = project(-CW + 0.03, L, CH - 0.05), b = project(CW - 0.03, L, CH - 0.05);
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      // service line
+      a = project(-CW + 0.03, L, 1.35); b = project(CW - 0.03, L, 1.35);
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      // tin line (low)
+      a = project(-CW + 0.03, L, 0.4); b = project(CW - 0.03, L, 0.4);
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      // vertical centre service lines
+      ctx.lineWidth = 2;
+      a = project(0, L, 0.4); b = project(0, L, 1.35);
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+
+      // Front-wall edge shadow
+      ctx.strokeStyle = 'rgba(0,0,0,0.20)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(fwl.x, fwl.y); ctx.lineTo(fwr.x, fwr.y); ctx.stroke();
+    }
+
+    // ============ DRAWING — BALL & RACQUETS ============
+    function drawBallShadow() {
+      const p = project(ball.x, ball.d, 0);
+      const rr = Math.max(4, R * HALFW * scale(ball.d) * 1.15);
+      // shadow fades with height
+      const a = clamp(0.42 - ball.h * 0.12, 0.06, 0.42);
+      ctx.fillStyle = 'rgba(0,0,0,' + a + ')';
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y, rr, rr * 0.36, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawBall() {
+      const p = project(ball.x, ball.d, ball.h);
+      const rr = Math.max(5, R * HALFW * scale(ball.d));
+      const g = ctx.createRadialGradient(p.x - rr * 0.3, p.y - rr * 0.35, rr * 0.15, p.x, p.y, rr);
+      g.addColorStop(0, '#ff9fb8');
+      g.addColorStop(0.55, '#ff4d6d');
+      g.addColorStop(1, '#c81e3c');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, rr, 0, Math.PI * 2);
+      ctx.fill();
+      // shine
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.beginPath();
+      ctx.arc(p.x - rr * 0.32, p.y - rr * 0.34, rr * 0.26, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawRacquet(x, d, color, isPlayer) {
+      const base = project(x, d, 0);
+      const head = project(x, d, 0.95);
+      const s = scale(d);
+      const rw = 24 * s + 8;
+      const rh = 32 * s + 10;
+
+      // ground marker
+      ctx.fillStyle = 'rgba(0,0,0,0.22)';
+      ctx.beginPath();
+      ctx.ellipse(base.x, base.y, rw * 1.05, rw * 0.4, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // handle
+      ctx.strokeStyle = '#5a4632';
+      ctx.lineWidth = 6 * s + 2;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(base.x, base.y);
+      ctx.lineTo(head.x, head.y);
+      ctx.stroke();
+
+      // head
+      ctx.save();
+      ctx.translate(head.x, head.y);
+      let ang = 0;
+      if (isPlayer && swingT > 0) {
+        ang = Math.sin((1 - swingT / 0.28) * Math.PI * 2) * 0.55;
+      }
+      ctx.rotate(ang);
+
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rw, rh, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rw * 0.62, rh * 0.62, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // strings
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-rw * 0.5, 0); ctx.lineTo(rw * 0.5, 0);
+      ctx.moveTo(0, -rh * 0.5); ctx.lineTo(0, rh * 0.5);
+      ctx.stroke();
+      ctx.restore();
+
+      // swing swoosh
+      if (isPlayer && swingT > 0) {
+        ctx.strokeStyle = 'rgba(255,140,180,' + (swingT / 0.28) * 0.8 + ')';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(head.x, head.y, rh * 1.5, -0.9, 0.9);
+        ctx.stroke();
+      }
+    }
+
+    // ============ DRAWING — SCENE ============
+    function drawScene() {
+      drawCourt();
+      drawBallShadow();
+
+      // Depth-sorted entities (far first)
+      const ents = [
+        { d: cD, fn: function () { drawRacquet(cpuX, cD, '#3f9bec', false); } },
+        { d: ball.d, fn: drawBall },
+        { d: pD, fn: function () { drawRacquet(playerX, pD, '#ff6b8a', true); } }
+      ];
+      ents.sort(function (a, b) { return b.d - a.d; });
+      ents.forEach(function (e) { e.fn(); });
+
+      // Rally counter
+      if (state === 'playing' && rally > 1) {
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.font = 'bold 20px Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('RALLY  ' + rally, CX, 40);
+      }
+      if (flash.t > 0) {
+        ctx.globalAlpha = clamp(flash.t, 0, 1);
+        ctx.fillStyle = flash.color;
+        ctx.font = 'bold 34px Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(flash.text, CX, 92);
+        ctx.globalAlpha = 1;
+      }
+      ctx.textAlign = 'left';
+    }
+
+    // ============ MAIN LOOP ============
+    let last = 0;
+    function loop(now) {
+      if (state !== 'playing' || paused) { last = now; return; }
+      let dt = (now - last) / 1000;
+      last = now;
+      if (!isFinite(dt) || dt <= 0) dt = 0.016;
+      dt = Math.min(dt, 0.033);
+
+      // Timers
+      if (swingT > 0) swingT = Math.max(0, swingT - dt);
+      if (flash.t > 0) flash.t = Math.max(0, flash.t - dt);
+
+      // Serve hold
+      if (holdT > 0) {
+        holdT -= dt;
+        if (holdT <= 0) launch();
+      } else {
+        updateBall(dt);
+      }
+
+      // Players
+      playerX += (pointerX - playerX) * Math.min(1, dt * 14);
+      cpuAI(dt);
+
+      // Hit checks (after movement)
+      tryHit('P');
+      tryHit('C');
+
+      // Particles physics
+      updateParticles(dt);
+
+      drawScene();
+      requestAnimationFrame(loop);
+    }
+
+    // ============ INPUT ============
+    function lateralFromClient(clientX) {
+      const r = canvas.getBoundingClientRect();
+      const mx = ((clientX - r.left) / r.width) * W;
+      const s = scale(pD);
+      return clamp((mx - CX) / (HALFW * s), -0.92, 0.92);
+    }
+
+    function doSwing() {
+      if (state !== 'playing' || paused) return;
+      swingT = 0.28;
+      beep(900, 0.03, 'sine', 0.03);
+      tryHit('P');
+    }
+
+    canvas.addEventListener('mousemove', function (e) {
+      pointerX = lateralFromClient(e.clientX);
+    });
+    canvas.addEventListener('mousedown', function (e) {
+      pointerX = lateralFromClient(e.clientX);
+      doSwing();
+    });
+    canvas.addEventListener('touchstart', function (e) {
+      e.preventDefault();
+      pointerX = lateralFromClient(e.touches[0].clientX);
+      doSwing();
+    }, { passive: false });
+    canvas.addEventListener('touchmove', function (e) {
+      e.preventDefault();
+      pointerX = lateralFromClient(e.touches[0].clientX);
+    }, { passive: false });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.code === 'Space' || e.code === 'KeyP') {
+        e.preventDefault();
+        togglePause();
+      }
+    });
+
+    // ============ FLOW ============
+    function togglePause() {
+      if (state !== 'playing') return;
+      paused = !paused;
+      pauseOverlay.classList.toggle('visible', paused);
+      if (!paused) {
+        last = performance.now();
+        requestAnimationFrame(loop);
+      }
+    }
+
+    function startGame() {
+      scoreP = 0;
+      scoreC = 0;
+      playerX = 0;
+      cpuX = 0;
+      pointerX = 0;
+      swingT = 0;
+      particles = [];
+      flash.t = 0;
+      state = 'playing';
+      paused = false;
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      pauseOverlay.classList.remove('visible');
+      updateHud();
+      serve('P');
+      last = performance.now();
+      requestAnimationFrame(loop);
+    }
+
+    // ============ DIFFICULTY ============
+    difficultyBtns.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        difficultyBtns.forEach(function (b) { b.classList.remove('selected'); });
+        btn.classList.add('selected');
+        cpuSpeed = parseFloat(btn.dataset.speed);
+        cpuReach = parseFloat(btn.dataset.reach);
+      });
+    });
+
+    startBtn.addEventListener('click', startGame);
+    playAgainBtn.addEventListener('click', startGame);
+
+    // ============ INITIAL RENDER ============
+    serve('P');
+    holdT = 0;
+    state = 'start';
+    drawScene();
+  })();
+  </script>
+</body>
+</html>

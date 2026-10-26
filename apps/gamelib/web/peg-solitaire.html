@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Peg Solitaire</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(circle at 50% 0%, #2a2218 0%, #17110b 60%, #0b0805 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Segoe UI", system-ui, -apple-system, Tahoma, sans-serif;
+    color: #f2e6d8;
+    touch-action: manipulation;
+    padding: 14px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: min(94vw, 540px);
+  }
+
+  /* ============ TITLE ============ */
+  h1.title {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(1.5rem, 6vw, 2.15rem);
+    letter-spacing: 5px;
+    font-weight: 700;
+    color: #f4d9a8;
+    text-shadow: 0 2px 0 #000, 0 0 18px rgba(214,164,96,.35);
+  }
+  .sub {
+    font-size: .76rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #a08a6e;
+    margin-top: -6px;
+  }
+
+  /* ============ HUD ============ */
+  #hud {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 12px;
+    background: linear-gradient(180deg, #34251a, #241a12);
+    border: 1px solid #553c28;
+    border-radius: 14px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 6px 18px rgba(0,0,0,.45);
+  }
+  .stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .stat .k { font-size: .66rem; letter-spacing: 1px; text-transform: uppercase; color: #a08a6e; }
+  .stat .v { font-size: 1.15rem; font-weight: 700; color: #f4d9a8; font-family: Georgia, serif; }
+  .stat .v.dim { color: #8f7a5e; }
+
+  /* ============ BOARD ============ */
+  #boardWrap {
+    position: relative;
+    width: 100%;
+    padding: 10px;
+    background: linear-gradient(180deg, #6b4a2f, #4a3120);
+    border-radius: 16px;
+    box-shadow: inset 0 2px 3px rgba(255,255,255,.12), inset 0 -4px 8px rgba(0,0,0,.5), 0 14px 30px rgba(0,0,0,.55);
+  }
+  #board {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    background:
+      radial-gradient(circle at 50% 45%, rgba(255,255,255,.05), transparent 70%),
+      linear-gradient(180deg, #5a3f28, #3d2919);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: inset 0 0 0 2px #2c1c10;
+    --span: 7;
+  }
+  .hole {
+    position: absolute;
+    width: calc(100% / var(--span) * 0.84);
+    height: calc(100% / var(--span) * 0.84);
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 38%, #1c130b, #2f2116 80%);
+    box-shadow: inset 0 3px 6px rgba(0,0,0,.85), inset 0 -1px 2px rgba(255,255,255,.06);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .hole.empty { cursor: default; }
+  .hole.movable::after {
+    content: ""; position: absolute; inset: 30%; border-radius: 50%;
+    background: rgba(246,211,74,.28);
+  }
+  .hole.dest::after {
+    content: ""; position: absolute; inset: 26%; border-radius: 50%;
+    background: rgba(46, 204, 113, .95);
+    box-shadow: 0 0 14px rgba(46,204,113,.85);
+  }
+  .hole.over::before {
+    content: ""; position: absolute; inset: -6%; border-radius: 50%;
+    box-shadow: inset 0 0 0 3px rgba(231, 76, 60, .95), 0 0 12px rgba(231,76,60,.75);
+  }
+
+  /* ============ PEGS ============ */
+  .peg {
+    width: 84%; height: 84%; border-radius: 50%;
+    background: radial-gradient(circle at 36% 30%, #ffe9a8, #d9a53c 58%, #7f5616);
+    box-shadow: inset 0 -4px 7px rgba(0,0,0,.5), inset 0 3px 5px rgba(255,255,255,.45), 0 3px 5px rgba(0,0,0,.5);
+    transform: scale(1);
+    transition: transform .12s ease;
+  }
+  .hole.sel .peg {
+    background: radial-gradient(circle at 36% 30%, #c8f7ff, #4fc3f7 58%, #12607f);
+    box-shadow: inset 0 -4px 7px rgba(0,0,0,.5), inset 0 3px 5px rgba(255,255,255,.55), 0 0 16px rgba(79,195,247,.8);
+    transform: scale(1.08);
+  }
+  .peg.spawn { animation: pop .22s ease-out; }
+  @keyframes pop { from { transform: scale(.35); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .peg.removing { animation: vanish .28s ease-in forwards; }
+  @keyframes vanish { to { transform: scale(.2); opacity: 0; } }
+
+  /* ============ CONTROLS ============ */
+  #controls {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+    gap: 8px 10px; width: 100%;
+  }
+  #controls button {
+    font-family: inherit; font-size: .82rem; font-weight: 700; letter-spacing: .6px;
+    padding: 9px 18px; border: none; border-radius: 10px; cursor: pointer;
+    color: #f4d9a8; background: #4a3120;
+    box-shadow: 0 4px 0 #2c1c10, inset 0 1px 0 rgba(255,255,255,.12);
+    transition: transform .06s ease, background .15s ease;
+    user-select: none;
+  }
+  #controls button:hover { background: #5c3d28; }
+  #controls button:active { transform: translateY(2px); box-shadow: 0 2px 0 #2c1c10, inset 0 1px 0 rgba(255,255,255,.12); }
+  #controls button.primary { background: #b5662b; box-shadow: 0 4px 0 #6d3c17, inset 0 1px 0 rgba(255,255,255,.16); color: #fff; }
+  #controls button.primary:hover { background: #c9762f; }
+  #controls button:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+  /* ============ OPTION GROUPS ============ */
+  .optGroup { display: flex; align-items: center; gap: 6px; }
+  .optGroup .optLabel { font-size: .72rem; letter-spacing: 1px; text-transform: uppercase; color: #a08a6e; margin-right: 2px; }
+  .optGroup button {
+    background: #241a12; color: #cbb494; box-shadow: 0 3px 0 #120c08, inset 0 1px 0 rgba(255,255,255,.08);
+  }
+  .optGroup button:hover { background: #34251a; }
+  .optGroup button.active { background: #f6d34a; color: #3a2a08; box-shadow: 0 3px 0 #a8891f, inset 0 1px 0 rgba(255,255,255,.4); }
+
+  /* ============ OVERLAY ============ */
+  #overlay {
+    position: fixed; inset: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(8,6,4,.82);
+    backdrop-filter: blur(3px);
+    padding: 18px;
+    transition: opacity .28s ease;
+  }
+  #overlay.hidden { opacity: 0; pointer-events: none; }
+  .panel {
+    width: min(92vw, 420px);
+    background: linear-gradient(180deg, #34251a, #20160f);
+    border: 1px solid #553c28;
+    border-radius: 18px;
+    padding: 24px 22px;
+    text-align: center;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 24px 60px rgba(0,0,0,.65);
+    display: flex; flex-direction: column; gap: 14px; align-items: center;
+  }
+  .panel h2 {
+    font-family: Georgia, serif; font-size: 1.6rem; letter-spacing: 3px;
+    color: #f4d9a8; text-shadow: 0 2px 0 #000;
+  }
+  .panel p.msg { font-size: .86rem; color: #b6a184; line-height: 1.45; }
+  .panel .big { font-size: 2.4rem; line-height: 1; }
+  .panel .wins { font-size: .76rem; color: #8f7a5e; letter-spacing: .5px; }
+  .panel .legend {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px;
+    font-size: .72rem; color: #a08a6e; text-align: left; width: 100%;
+    background: #1a120c; border-radius: 10px; padding: 12px; border: 1px solid #3a2a1c;
+  }
+  .panel .legend b { color: #d9c3a0; }
+
+  @media (max-width: 420px) {
+    #hud { padding: 8px; }
+    .stat .v { font-size: 1rem; }
+    #controls button { padding: 8px 14px; font-size: .76rem; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1 class="title">PEG SOLITAIRE</h1>
+  <div class="sub" id="layoutLabel">English Cross &middot; 33 holes</div>
+
+  <!-- ============ HUD ============ -->
+  <div id="hud">
+    <div class="stat"><span class="k">Pegs Left</span><span class="v" id="pegsLeft">36</span></div>
+    <div class="stat"><span class="k">Moves</span><span class="v" id="movesVal">0</span></div>
+    <div class="stat"><span class="k">Best</span><span class="v dim" id="bestVal">&mdash;</span></div>
+  </div>
+
+  <!-- ============ BOARD ============ -->
+  <div id="boardWrap">
+    <div id="board"></div>
+  </div>
+
+  <!-- ============ CONTROLS ============ -->
+  <div id="controls">
+    <button id="btnNew" class="primary" type="button">New Game</button>
+    <button id="btnUndo" type="button" disabled>Undo</button>
+    <div class="optGroup" id="layoutGroup">
+      <span class="optLabel">Board</span>
+      <button type="button" data-layout="cross" class="active">Cross</button>
+      <button type="button" data-layout="triangle">Triangle</button>
+      <button type="button" data-layout="diamond">Diamond</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ OVERLAY ============ -->
+<div id="overlay">
+  <div class="panel">
+    <h2 id="ovTitle">PEG SOLITAIRE</h2>
+    <div class="big" id="ovBig">&#9679;</div>
+    <p class="msg" id="ovMsg">Jump one peg over an adjacent peg into an empty hole to remove it. Clear the board until a single peg remains &mdash; the classic aim is to finish in the centre.</p>
+    <div class="legend">
+      <span><b>Select</b> &mdash; tap a peg</span>
+      <span><b>Jump</b> &mdash; tap a green hole</span>
+      <span><b>Remove</b> &mdash; jumped peg leaves</span>
+      <span><b>Goal</b> &mdash; leave one peg</span>
+    </div>
+    <button class="primary" id="ovBtn" type="button">Start Game</button>
+    <p class="wins" id="ovWins"></p>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONSTANTS ============
+  var BEST_KEY = "pegSolitaireBest";
+
+  // ============ DOM ============
+  var boardEl    = document.getElementById("board");
+  var layoutLbl  = document.getElementById("layoutLabel");
+  var pegsLeftEl = document.getElementById("pegsLeft");
+  var movesValEl = document.getElementById("movesVal");
+  var bestValEl  = document.getElementById("bestVal");
+  var btnNew     = document.getElementById("btnNew");
+  var btnUndo    = document.getElementById("btnUndo");
+  var layoutGrp  = document.getElementById("layoutGroup");
+  var overlay    = document.getElementById("overlay");
+  var ovTitle    = document.getElementById("ovTitle");
+  var ovBig      = document.getElementById("ovBig");
+  var ovMsg      = document.getElementById("ovMsg");
+  var ovBtn      = document.getElementById("ovBtn");
+  var ovWins     = document.getElementById("ovWins");
+
+  // ============ STATE ============
+  var layout = "cross";
+  var cells = [];              // { r, c, occupied, el, peg }
+  var cellByKey = {};          // "r,c" -> cell
+  var moves = [];              // legal moves { from, over, to } (cell refs)
+  var selected = null;
+  var moveCount = 0;
+  var history = [];            // undo stack of { from, over, to }
+  var over = false;
+  var started = false;
+
+  // ============ SOUND (WebAudio, no assets) ============
+  var actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = actx.createOscillator();
+      var g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.06, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+  function fanfare(win) {
+    var notes = win ? [523, 659, 784, 1046] : [392, 330, 262, 196];
+    notes.forEach(function (f, i) {
+      setTimeout(function () { beep(f, 0.18, "triangle"); }, i * 120);
+    });
+  }
+
+  // ============ PERSISTENCE ============
+  function loadBest() {
+    try {
+      var raw = localStorage.getItem(BEST_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return {};
+  }
+  function saveBest(b) { try { localStorage.setItem(BEST_KEY, JSON.stringify(b)); } catch (e) {} }
+  var best = loadBest();
+
+  // ============ LAYOUT DEFINITIONS ============
+  // Cells use a row/column lattice. c may be fractional (0.5 steps) for the
+  // triangular lattice. "dirs" list the neighbour vectors for that lattice.
+  function crossCells() {
+    var out = [];
+    for (var r = 0; r < 7; r++) for (var c = 0; c < 7; c++) {
+      if ((r >= 2 && r <= 4) || (c >= 2 && c <= 4)) out.push({ r: r, c: c });
+    }
+    return { cells: out, start: { r: 3, c: 3 }, dirs: [[1,0],[-1,0],[0,1],[0,-1]] };
+  }
+  function triangleCells() {
+    var out = [], r, xs;
+    for (r = 0; r < 5; r++) {
+      xs = [];
+      for (var i = 0; i <= r; i++) xs.push((4 - r) / 2 + i * 1); // centre each row
+      for (var j = 0; j < xs.length; j++) out.push({ r: r, c: xs[j] });
+    }
+    return { cells: out, start: { r: 2, c: 2 },
+             dirs: [[1,0.5],[1,-0.5],[-1,0.5],[-1,-0.5],[0,1],[0,-1]] };
+  }
+  function diamondCells() {
+    var out = [];
+    for (var r = 0; r < 5; r++) for (var c = 0; c < 5; c++) {
+      if (Math.abs(r - 2) + Math.abs(c - 2) <= 2) out.push({ r: r, c: c });
+    }
+    return { cells: out, start: { r: 2, c: 2 }, dirs: [[1,0],[-1,0],[0,1],[0,-1]] };
+  }
+  function getLayout(name) {
+    if (name === "triangle") return { def: triangleCells(), label: "Triangle", holes: 15 };
+    if (name === "diamond")  return { def: diamondCells(),  label: "Diamond",  holes: 13 };
+    return { def: crossCells(), label: "English Cross", holes: 37 };
+  }
+
+  // ============ HELPERS ============
+  function q(v) { return Math.round(v * 2) / 2; }          // snap to half steps
+  function key(r, c) { return r + "," + q(c); }
+
+  // ============ BUILD BOARD ============
+  function buildBoard() {
+    var packed = getLayout(layout);
+    var def = packed.def;
+    var byKey = packed.label;
+
+    // bounds
+    var minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+    def.cells.forEach(function (p) {
+      if (p.r < minR) minR = p.r; if (p.r > maxR) maxR = p.r;
+      if (p.c < minC) minC = p.c; if (p.c > maxC) maxC = p.c;
+    });
+    var span = Math.max(maxC - minC, maxR - minR) + 1;
+
+    boardEl.innerHTML = "";
+    boardEl.style.setProperty("--span", span);
+    cells = [];
+    cellByKey = {};
+
+    def.cells.forEach(function (p) {
+      var cell = { r: p.r, c: p.c, occupied: true, el: null, peg: null };
+      var el = document.createElement("div");
+      el.className = "hole";
+      el.style.left = ((p.c - minC + 0.5) / span * 100) + "%";
+      el.style.top  = ((p.r - minR + 0.5) / span * 100) + "%";
+      el.addEventListener("click", onHoleClick.bind(null, cell));
+      boardEl.appendChild(el);
+      cell.el = el;
+      cells.push(cell);
+      cellByKey[key(p.r, p.c)] = cell;
+    });
+
+    // clear the start hole
+    var s = cellByKey[key(def.start.r, def.start.c)];
+    if (s) s.occupied = false;
+
+    // store dirs for move generation
+    boardEl.dataset.dirs = JSON.stringify(def.dirs);
+    layoutLbl.textContent = packed.label + " \u00b7 " + def.cells.length + " holes";
+    layoutLbl.dataset.holes = def.cells.length;
+  }
+
+  function neighbour(cell, dr, dc) {
+    return cellByKey[key(cell.r + dr, cell.c + dc)] || null;
+  }
+
+  // ============ MOVE GENERATION ============
+  function allMoves() {
+    var dirs = JSON.parse(boardEl.dataset.dirs);
+    var list = [];
+    cells.forEach(function (cell) {
+      if (!cell.occupied) return;
+      for (var d = 0; d < dirs.length; d++) {
+        var dr = dirs[d][0], dc = dirs[d][1];
+        var mid = neighbour(cell, dr, dc);
+        if (!mid || !mid.occupied) continue;
+        var land = neighbour(cell, dr * 2, dc * 2);
+        if (!land || land.occupied) continue;
+        list.push({ from: cell, over: mid, to: land });
+      }
+    });
+    return list;
+  }
+
+  // ============ RENDER ============
+  function render() {
+    var destSet = {}, overSet = {}, fromSet = {};
+    if (selected) {
+      moves.forEach(function (m) {
+        if (m.from === selected) { destSet[key(m.to.r, m.to.c)] = true; overSet[key(m.over.r, m.over.c)] = true; }
+      });
+    } else if (started && !over) {
+      moves.forEach(function (m) { fromSet[key(m.from.r, m.from.c)] = true; });
+    }
+
+    cells.forEach(function (cell) {
+      var k = key(cell.r, cell.c);
+      var cls = "hole";
+      if (!cell.occupied) cls += " empty";
+      if (selected === cell) cls += " sel";
+      if (destSet[k]) cls += " dest";
+      if (overSet[k]) cls += " over";
+      if (fromSet[k]) cls += " movable";
+      if (cell.el.className !== cls) cell.el.className = cls;
+
+      // sync peg element
+      if (cell.occupied && !cell.peg) {
+        var p = document.createElement("div");
+        p.className = "peg spawn";
+        cell.el.appendChild(p);
+        cell.peg = p;
+        setTimeout(function () { p.classList.remove("spawn"); }, 240);
+      } else if (!cell.occupied && cell.peg) {
+        var dead = cell.peg;
+        cell.peg = null;
+        dead.classList.add("removing");
+        setTimeout(function () { dead.remove(); }, 300);
+      }
+    });
+
+    updateHud();
+  }
+
+  function updateHud() {
+    var n = 0;
+    cells.forEach(function (c) { if (c.occupied) n++; });
+    pegsLeftEl.textContent = n;
+    movesValEl.textContent = moveCount;
+    var b = best[layout];
+    bestValEl.textContent = (b == null) ? "\u2014" : (b + " moves");
+    bestValEl.classList.toggle("dim", b == null);
+    btnUndo.disabled = (history.length === 0 || over);
+  }
+
+  // ============ GAME FLOW ============
+  function newGame() {
+    over = false;
+    selected = null;
+    moveCount = 0;
+    history = [];
+    buildBoard();
+    moves = allMoves();
+    render();
+  }
+
+  function onHoleClick(cell) {
+    if (!started || over) return;
+
+    // choosing a destination?
+    if (selected) {
+      var mv = findMove(selected, cell);
+      if (mv) { applyMove(mv); return; }
+      if (cell === selected) {           // deselect
+        selected = null;
+        beep(360, 0.05, "triangle");
+        render();
+        return;
+      }
+    }
+
+    // choosing a peg to move
+    if (cell.occupied) {
+      var has = moves.some(function (m) { return m.from === cell; });
+      if (has) {
+        selected = cell;
+        beep(620, 0.05, "triangle");
+        render();
+        return;
+      }
+      beep(200, 0.06, "square");   // that peg has no jump
+      return;
+    }
+    beep(180, 0.05, "square");
+  }
+
+  function findMove(from, to) {
+    for (var i = 0; i < moves.length; i++) {
+      if (moves[i].from === from && moves[i].to === to) return moves[i];
+    }
+    return null;
+  }
+
+  function applyMove(mv) {
+    mv.from.occupied = false;
+    mv.over.occupied = false;
+    mv.to.occupied = true;
+    moveCount++;
+    history.push({ from: mv.from, over: mv.over, to: mv.to });
+    selected = null;
+    beep(880, 0.07, "sine");
+    setTimeout(function () { beep(560, 0.05, "triangle"); }, 60);
+
+    moves = allMoves();
+    render();
+    checkEnd();
+  }
+
+  function undo() {
+    if (!history.length || over) return;
+    var m = history.pop();
+    m.to.occupied = false;
+    m.over.occupied = true;
+    m.from.occupied = true;
+    moveCount = Math.max(0, moveCount - 1);
+    selected = null;
+    moves = allMoves();
+    beep(420, 0.06, "triangle");
+    render();
+  }
+
+  function checkEnd() {
+    var n = 0;
+    cells.forEach(function (c) { if (c.occupied) n++; });
+    if (n === 1) { finish(true); return; }
+    if (moves.length === 0) { finish(false); return; }
+  }
+
+  function finish(win) {
+    over = true;
+    selected = null;
+    render();
+    var improved = false;
+    if (win) {
+      if (best[layout] == null || moveCount < best[layout]) {
+        best[layout] = moveCount;
+        saveBest(best);
+        improved = true;
+      }
+    }
+    setTimeout(function () { showResult(win, improved); }, 380);
+    setTimeout(function () { fanfare(win); }, 120);
+  }
+
+  // ============ OVERLAYS ============
+  function showStart() {
+    ovTitle.textContent = "PEG SOLITAIRE";
+    ovBig.textContent = "\u25CF";
+    ovBig.style.color = "#f4d9a8";
+    ovMsg.textContent = "Jump one peg over an adjacent peg into an empty hole to remove it. Clear the board until a single peg remains \u2014 the classic aim is to finish in the centre.";
+    ovBtn.textContent = "Start Game";
+    updateWinsLine();
+    overlay.classList.remove("hidden");
+  }
+
+  function showResult(win, improved) {
+    ovTitle.textContent = win ? "Solved!" : "No Moves Left";
+    ovBig.textContent = win ? "\u25CF" : "\u25CB";
+    ovBig.style.color = win ? "#f6d34a" : "#8f7a5e";
+    if (win) {
+      ovMsg.textContent = "One peg left in " + moveCount + " move" + (moveCount === 1 ? "" : "s") +
+        (improved ? " \u2014 a new best for this board!" : ".");
+    } else {
+      var n = 0;
+      cells.forEach(function (c) { if (c.occupied) n++; });
+      ovMsg.textContent = "No jumps remain and " + n + " pegs are still on the board. Try again \u2014 undo also lets you back up one move.";
+    }
+    ovBtn.textContent = "Play Again";
+    updateWinsLine();
+    overlay.classList.remove("hidden");
+  }
+
+  function updateWinsLine() {
+    var parts = [];
+    ["cross", "triangle", "diamond"].forEach(function (k) {
+      if (best[k] != null) parts.push(getLayout(k).label + ": " + best[k]);
+    });
+    ovWins.textContent = parts.length ? ("Best moves \u2014 " + parts.join("   ")) : "No records yet \u2014 solve a board to set one.";
+  }
+
+  // ============ CONTROLS ============
+  layoutGrp.querySelectorAll("button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      layout = b.dataset.layout;
+      layoutGrp.querySelectorAll("button").forEach(function (x) { x.classList.toggle("active", x === b); });
+      beep(700, 0.05, "triangle");
+      newGame();
+    });
+  });
+  btnNew.addEventListener("click", function () { newGame(); beep(660, 0.08, "square"); });
+  btnUndo.addEventListener("click", undo);
+  ovBtn.addEventListener("click", function () {
+    overlay.classList.add("hidden");
+    newGame();
+    started = true;
+    beep(660, 0.08, "square");
+  });
+
+  // keyboard
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "r" || e.key === "R") {
+      e.preventDefault(); newGame();
+    } else if (e.key === "u" || e.key === "U") {
+      e.preventDefault(); undo();
+    } else if (e.code === "Enter" || e.code === "Space") {
+      if (!overlay.classList.contains("hidden")) { e.preventDefault(); ovBtn.click(); }
+    } else if (e.code === "Escape") {
+      selected = null; render();
+    }
+  });
+
+  // ============ BOOT ============
+  newGame();
+  started = false;          // board ready behind the start overlay; block input
+  render();
+  showStart();
+})();
+</script>
+</body>
+</html>

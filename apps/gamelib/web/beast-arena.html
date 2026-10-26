@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🐲 BEAST ARENA</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: radial-gradient(circle at 50% 0%, #2b1b3d 0%, #140d20 55%, #080510 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+      color: #eee;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(20, 13, 32, 0.9);
+      border: 1px solid rgba(255, 170, 60, 0.25);
+      border-radius: 22px;
+      padding: 18px;
+      box-shadow: 0 18px 60px rgba(0, 0, 0, 0.6), inset 0 0 40px rgba(255, 140, 40, 0.05);
+      max-width: 940px;
+      width: 97%;
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.9rem;
+      letter-spacing: 4px;
+      color: #ffb347;
+      margin-bottom: 2px;
+      text-shadow: 0 0 18px rgba(255, 150, 40, 0.6);
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.82rem;
+      color: #9a8fb0;
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+
+    /* ============ HUD / HEALTH BARS ============ */
+    .hud {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .side { flex: 1; }
+    .side.right { text-align: right; }
+
+    .fighter-name {
+      font-size: 0.8rem;
+      color: #cfc4e8;
+      margin-bottom: 4px;
+      letter-spacing: 1px;
+    }
+
+    .health-track {
+      height: 18px;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 9px;
+      overflow: hidden;
+    }
+
+    .health-fill {
+      height: 100%;
+      width: 100%;
+      transition: width 0.15s linear;
+      background: linear-gradient(90deg, #6cff8f, #33cc66);
+    }
+    .health-fill.low { background: linear-gradient(90deg, #ff6b6b, #cc2929); }
+
+    .charge-track {
+      height: 8px;
+      margin-top: 5px;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .charge-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #ffd36e, #ff9a1f);
+      transition: width 0.1s linear;
+    }
+    .charge-fill.ready { background: linear-gradient(90deg, #ffe066, #ff5ec7); box-shadow: 0 0 12px #ff5ec7; }
+
+    .center-hud {
+      text-align: center;
+      min-width: 92px;
+      padding-top: 2px;
+    }
+    .round-label { font-size: 0.72rem; color: #9a8fb0; letter-spacing: 2px; }
+    .pips { font-size: 1rem; letter-spacing: 3px; margin-top: 2px; color: #ff5ec7; }
+    .timer { font-size: 1.25rem; font-weight: 700; color: #ffb347; margin-top: 2px; }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+      background: #120c1c;
+    }
+
+    canvas { display: block; width: 100%; height: auto; }
+
+    /* ============ SCREENS / OVERLAYS ============ */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 16px;
+      background: rgba(12, 8, 20, 0.94);
+      transition: opacity 0.25s ease;
+      overflow-y: auto;
+    }
+    .screen.hidden { opacity: 0; pointer-events: none; }
+
+    .screen-title {
+      font-size: 1.7rem;
+      color: #ffb347;
+      letter-spacing: 2px;
+      margin-bottom: 4px;
+      text-shadow: 0 0 16px rgba(255, 150, 40, 0.5);
+    }
+    .screen-subtitle { font-size: 0.85rem; color: #9a8fb0; margin-bottom: 14px; }
+
+    /* ============ CREATURE SELECT ============ */
+    .beast-grid {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 14px;
+    }
+    .beast-card {
+      width: 118px;
+      padding: 10px 8px;
+      border: 2px solid rgba(255, 255, 255, 0.14);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.04);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      color: #d8cff0;
+    }
+    .beast-card:hover { transform: translateY(-3px); border-color: rgba(255, 170, 60, 0.5); }
+    .beast-card.selected {
+      border-color: #ffb347;
+      background: rgba(255, 170, 60, 0.16);
+      box-shadow: 0 0 16px rgba(255, 170, 60, 0.35);
+    }
+    .beast-card canvas { width: 78px; height: 78px; margin: 0 auto 2px; }
+    .beast-card .bname { font-weight: 700; font-size: 0.85rem; letter-spacing: 1px; color: #fff; }
+    .beast-card .bdesc { font-size: 0.66rem; color: #9a8fb0; line-height: 1.2; margin-top: 2px; }
+
+    /* ============ BUTTONS ============ */
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 8px; }
+
+    .action-btn {
+      padding: 12px 26px;
+      background: linear-gradient(135deg, #ffb347, #ff7a1f);
+      color: #1a1020;
+      border: none;
+      border-radius: 22px;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      box-shadow: 0 4px 14px rgba(255, 140, 40, 0.4);
+    }
+    .action-btn:hover { transform: translateY(-3px); box-shadow: 0 7px 22px rgba(255, 140, 40, 0.55); }
+    .action-btn:active { transform: translateY(-1px); }
+
+    .ghost-btn {
+      padding: 11px 20px;
+      background: transparent;
+      color: #ffb347;
+      border: 2px solid rgba(255, 179, 71, 0.55);
+      border-radius: 22px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .ghost-btn:hover { background: rgba(255, 179, 71, 0.14); }
+    .ghost-btn.selected { background: rgba(255, 179, 71, 0.25); border-color: #ffb347; }
+
+    .controls-hint {
+      font-size: 0.7rem;
+      color: #7d7294;
+      line-height: 1.6;
+      margin-top: 6px;
+    }
+    .controls-hint b { color: #b9a9e0; }
+
+    /* ============ PAUSE / ROUND BANNERS ============ */
+    .banner-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: rgba(10, 6, 18, 0.6);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .banner-overlay.visible { opacity: 1; }
+    .banner-text {
+      font-size: 2.4rem;
+      font-weight: 800;
+      letter-spacing: 3px;
+      color: #ffb347;
+      text-shadow: 0 0 24px rgba(255, 140, 40, 0.7);
+    }
+    .banner-sub { font-size: 0.95rem; color: #cfc4e8; margin-top: 6px; letter-spacing: 2px; }
+
+    /* ============ TOUCH CONTROLS ============ */
+    .touch-controls {
+      display: none;
+      margin-top: 12px;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .touch-controls.visible { display: flex; }
+    .touch-pad { display: grid; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(2, 52px); gap: 7px; }
+    .touch-btns { display: grid; grid-template-columns: repeat(2, 58px); grid-template-rows: repeat(2, 52px); gap: 7px; }
+
+    .tbtn {
+      border: 2px solid rgba(255, 179, 71, 0.35);
+      background: rgba(255, 179, 71, 0.1);
+      border-radius: 12px;
+      font-size: 1.15rem;
+      color: #ffcf8a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tbtn:active { background: rgba(255, 179, 71, 0.35); transform: scale(0.94); }
+    .tbtn.left { grid-column: 1; grid-row: 2; }
+    .tbtn.right { grid-column: 3; grid-row: 2; }
+    .tbtn.up { grid-column: 2; grid-row: 1; }
+    .tbtn.down { grid-column: 2; grid-row: 2; }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 620px) {
+      .game-title { font-size: 1.4rem; }
+      .beast-card { width: 88px; }
+      .beast-card canvas { width: 60px; height: 60px; }
+      .screen-title { font-size: 1.3rem; }
+      .touch-controls { display: flex; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">BEAST ARENA</h1>
+    <p class="game-subtitle">Claw · Tail · Bite · Dash — best of three</p>
+
+    <!-- ============ HUD ============ -->
+    <div class="hud">
+      <div class="side">
+        <div class="fighter-name" id="name1">P1</div>
+        <div class="health-track"><div class="health-fill" id="hp1"></div></div>
+        <div class="charge-track"><div class="charge-fill" id="ch1"></div></div>
+      </div>
+      <div class="center-hud">
+        <div class="round-label">ROUND</div>
+        <div class="pips" id="pips">○ ○ ○</div>
+        <div class="timer" id="timer">60</div>
+      </div>
+      <div class="side right">
+        <div class="fighter-name" id="name2">CPU</div>
+        <div class="health-track"><div class="health-fill" id="hp2"></div></div>
+        <div class="charge-track"><div class="charge-fill" id="ch2"></div></div>
+      </div>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="900" height="480"></canvas>
+
+      <!-- ============ START / MODE SCREEN ============ -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">CHOOSE YOUR BEAST</h2>
+        <p class="screen-subtitle" id="pickHint">Player 1 — pick a fighter</p>
+        <div class="beast-grid" id="beastGrid"></div>
+        <div class="btn-row">
+          <button class="ghost-btn selected" id="modeCpu">⚔ vs CPU</button>
+          <button class="ghost-btn" id="mode2p">👥 2 Players</button>
+        </div>
+        <div class="btn-row">
+          <button class="action-btn" id="startBtn">ENTER THE ARENA</button>
+        </div>
+        <div class="controls-hint">
+          <b>P1:</b> A/D move · W jump · S block · J attack · K special<br />
+          <b>P2:</b> ← → move · ↑ jump · ↓ block · / attack · . special
+        </div>
+      </div>
+
+      <!-- ============ MATCH OVER SCREEN ============ -->
+      <div id="overScreen" class="screen hidden">
+        <h2 class="screen-title" id="overTitle">VICTORY</h2>
+        <p class="screen-subtitle" id="overSub">Round summary</p>
+        <div class="final-score" id="finalScore"></div>
+        <div class="btn-row">
+          <button class="action-btn" id="rematchBtn">REMATCH</button>
+          <button class="ghost-btn" id="menuBtn">CHANGE BEAST</button>
+        </div>
+      </div>
+
+      <!-- ============ PAUSE OVERLAY ============ -->
+      <div id="pauseOverlay" class="banner-overlay">
+        <div class="banner-text">PAUSED</div>
+        <div class="banner-sub">press P or tap resume</div>
+      </div>
+
+      <!-- ============ ROUND BANNER ============ -->
+      <div id="roundBanner" class="banner-overlay">
+        <div class="banner-text" id="roundBannerText">ROUND 1</div>
+        <div class="banner-sub" id="roundBannerSub">FIGHT!</div>
+      </div>
+    </div>
+
+    <!-- ============ TOUCH CONTROLS (P1) ============ -->
+    <div class="touch-controls" id="touchControls">
+      <div class="touch-pad">
+        <button class="tbtn up" data-key="up">⬆</button>
+        <button class="tbtn left" data-key="left">⬅</button>
+        <button class="tbtn down" data-key="down">🛡</button>
+        <button class="tbtn right" data-key="right">➡</button>
+      </div>
+      <div class="touch-btns">
+        <button class="tbtn" data-key="attack">⚔</button>
+        <button class="tbtn" data-key="special">✦</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============ AUDIO (WebAudio beep) ============
+    let audioCtx = null;
+    function beep(freq, dur, type, vol) {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = type || 'square';
+        o.frequency.value = freq;
+        g.gain.value = (vol === undefined ? 0.06 : vol);
+        o.connect(g); g.connect(audioCtx.destination);
+        const t = audioCtx.currentTime;
+        g.gain.setValueAtTime(g.gain.value, t);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.start(t); o.stop(t + dur);
+      } catch (e) { /* audio unavailable */ }
+    }
+
+    // ============ GAME CONFIGURATION ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const GROUND = H - 64;
+    const GRAVITY = 0.85;
+    const ROUND_TIME = 60;
+    const WINS_NEEDED = 2;
+
+    // ============ CREATURE DEFINITIONS ============
+    const BEASTS = {
+      claw: {
+        name: 'CLAW', color: '#ff7a3c', accent: '#ffd0a0',
+        hp: 100, speed: 4.6, jump: 15, dmg: 7, reach: 60, comboDmg:[7,8,12],
+        specialName: 'PINCER SLAM', mass: 1.0,
+        desc: 'Fast pincer combos, quick recovery.'
+      },
+      tail: {
+        name: 'TAIL', color: '#2fd6c0', accent: '#b6fff4',
+        hp: 100, speed: 3.8, jump: 14, dmg: 6, reach: 92, comboDmg:[6,7,10],
+        specialName: 'WHIP SWEEP', mass: 1.15,
+        desc: 'Long tail sweep hits at mid-range.'
+      },
+      bite: {
+        name: 'BITE', color: '#e0413f', accent: '#ffb3b2',
+        hp: 118, speed: 3.1, jump: 13, dmg: 10, reach: 54, comboDmg:[10,11,18],
+        specialName: 'CRUSH JAWS', mass: 1.35,
+        desc: 'Heavy jaws, slow but armored.'
+      },
+      dash: {
+        name: 'DASH', color: '#a86bff', accent: '#e0ccff',
+        hp: 96, speed: 5.2, jump: 16, dmg: 8, reach: 58, comboDmg:[8,9,14],
+        specialName: 'HORN CHARGE', mass: 0.9,
+        desc: 'Blazing speed and horn charges.'
+      }
+    };
+
+    // ============ GAME STATE ============
+    const state = {
+      mode: 'cpu',            // 'cpu' | '2p'
+      p1Beast: 'claw',
+      p2Beast: 'bite',
+      picking: 1,             // which player is choosing (1 or 2)
+      running: false,
+      paused: false,
+      round: 1,
+      p1Wins: 0, p2Wins: 0,
+      timer: ROUND_TIME,
+      phase: 'select',        // select | fight | roundEnd | matchEnd
+      bannerTimer: 0,
+      particles: [],
+      hits: [],
+      shake: 0
+    };
+
+    const wins = parseInt(localStorage.getItem('beastArenaWins') || '0', 10) || 0;
+    const losses = parseInt(localStorage.getItem('beastArenaLosses') || '0', 10) || 0;
+
+    // ============ FIGHTER FACTORY ============
+    function makeFighter(beastKey, side) {
+      const b = BEASTS[beastKey];
+      return {
+        key: beastKey, side: side, facing: side === 'l' ? 1 : -1,
+        x: side === 'l' ? W * 0.32 : W * 0.68,
+        y: GROUND, vx: 0, vy: 0, onGround: true,
+        hp: b.hp, maxHp: b.hp, charge: 0,
+        state: 'idle', stateTimer: 0,
+        combo: 0, comboTimer: 0, comboReset: 0,
+        attackTimer: 0, attackHit: false, attackIndex: 0,
+        blocking: false, hitstun: 0, invuln: 0,
+        flash: 0, walkCycle: 0,
+        aiTimer: 0, aiDir: 0, aiWantJump: false, aiBlock: false, aiAttack: false, aiSpecial: false
+      };
+    }
+
+    let P1 = makeFighter('claw', 'l');
+    let P2 = makeFighter('bite', 'r');
+
+    // ============ DOM ELEMENTS ============
+    const els = {
+      name1: document.getElementById('name1'),
+      name2: document.getElementById('name2'),
+      hp1: document.getElementById('hp1'),
+      hp2: document.getElementById('hp2'),
+      ch1: document.getElementById('ch1'),
+      ch2: document.getElementById('ch2'),
+      pips: document.getElementById('pips'),
+      timer: document.getElementById('timer'),
+      startScreen: document.getElementById('startScreen'),
+      overScreen: document.getElementById('overScreen'),
+      pauseOverlay: document.getElementById('pauseOverlay'),
+      roundBanner: document.getElementById('roundBanner'),
+      roundBannerText: document.getElementById('roundBannerText'),
+      roundBannerSub: document.getElementById('roundBannerSub'),
+      beastGrid: document.getElementById('beastGrid'),
+      pickHint: document.getElementById('pickHint'),
+      finalScore: document.getElementById('finalScore'),
+      overTitle: document.getElementById('overTitle'),
+      overSub: document.getElementById('overSub'),
+      modeCpu: document.getElementById('modeCpu'),
+      mode2p: document.getElementById('mode2p'),
+      startBtn: document.getElementById('startBtn'),
+      rematchBtn: document.getElementById('rematchBtn'),
+      menuBtn: document.getElementById('menuBtn'),
+      touchControls: document.getElementById('touchControls')
+    };
+
+    // ============ PORTRAIT RENDERER (select cards) ============
+    function drawBeastPortrait(cvs, key) {
+      const c = cvs.getContext('2d');
+      const b = BEASTS[key];
+      const cx = cvs.width / 2, cy = cvs.height / 2 + 6;
+      c.clearRect(0, 0, cvs.width, cvs.height);
+      drawBeastBody(c, key, cx, cy, 1, 1, 0, 0);
+    }
+
+    // ============ BEAST DRAWING (shared) ============
+    function drawBeastBody(c, key, x, y, facing, scale, walk, flash) {
+      const b = BEASTS[key];
+      c.save();
+      c.translate(x, y);
+      c.scale(facing * scale, scale);
+
+      const body = flash ? '#ffffff' : b.color;
+      const acc = flash ? '#ffffff' : b.accent;
+
+      // Shadow
+      c.fillStyle = 'rgba(0,0,0,0.28)';
+      c.beginPath(); c.ellipse(0, 2, 30, 8, 0, 0, Math.PI * 2); c.fill();
+
+      // Legs (bob with walk)
+      c.strokeStyle = body; c.lineWidth = 7; c.lineCap = 'round';
+      const legSwing = Math.sin(walk) * 7;
+      c.beginPath(); c.moveTo(-10, -6); c.lineTo(-12 + legSwing, 0); c.stroke();
+      c.beginPath(); c.moveTo(10, -6); c.lineTo(12 - legSwing, 0); c.stroke();
+
+      // Main body
+      c.fillStyle = body;
+      c.beginPath(); c.ellipse(0, -26, 26, 22, 0, 0, Math.PI * 2); c.fill();
+
+      // Belly
+      c.fillStyle = acc;
+      c.beginPath(); c.ellipse(4, -18, 15, 12, 0, 0, Math.PI * 2); c.fill();
+
+      // Head
+      c.fillStyle = body;
+      c.beginPath(); c.ellipse(20, -46, 17, 15, 0, 0, Math.PI * 2); c.fill();
+
+      // Eye
+      c.fillStyle = '#140d20';
+      c.beginPath(); c.arc(26, -50, 3.4, 0, Math.PI * 2); c.fill();
+      c.fillStyle = flash ? '#fff' : '#ffd36e';
+      c.beginPath(); c.arc(27, -51, 1.4, 0, Math.PI * 2); c.fill();
+
+      // Creature-specific accessories
+      if (key === 'claw') {
+        c.strokeStyle = body; c.lineWidth = 6; c.lineCap = 'round';
+        c.beginPath(); c.moveTo(14, -30); c.lineTo(34, -34); c.stroke();
+        c.beginPath(); c.moveTo(14, -22); c.lineTo(34, -18); c.stroke();
+        c.fillStyle = acc;
+        c.beginPath(); c.arc(36, -34, 5, 0, Math.PI * 2); c.fill();
+        c.beginPath(); c.arc(36, -18, 5, 0, Math.PI * 2); c.fill();
+      } else if (key === 'tail') {
+        c.strokeStyle = body; c.lineWidth = 8; c.lineCap = 'round';
+        c.beginPath(); c.moveTo(-20, -22);
+        c.quadraticCurveTo(-46, -30, -54, -46); c.stroke();
+        c.fillStyle = acc;
+        c.beginPath(); c.arc(-54, -48, 6, 0, Math.PI * 2); c.fill();
+        // head fin
+        c.fillStyle = acc;
+        c.beginPath(); c.moveTo(18, -60); c.lineTo(30, -68); c.lineTo(28, -54); c.closePath(); c.fill();
+      } else if (key === 'bite') {
+        // big jaw
+        c.fillStyle = acc;
+        c.beginPath(); c.moveTo(30, -46); c.lineTo(46, -42); c.lineTo(46, -30); c.lineTo(30, -34); c.closePath(); c.fill();
+        c.fillStyle = '#fff';
+        c.beginPath(); c.moveTo(32, -40); c.lineTo(38, -38); c.lineTo(32, -36); c.closePath(); c.fill();
+        // back spikes
+        c.fillStyle = acc;
+        for (let i = 0; i < 3; i++) {
+          c.beginPath(); c.moveTo(-12 + i * 12, -46); c.lineTo(-6 + i * 12, -60); c.lineTo(0 + i * 12, -46); c.closePath(); c.fill();
+        }
+      } else if (key === 'dash') {
+        // horns
+        c.fillStyle = acc;
+        c.beginPath(); c.moveTo(16, -58); c.lineTo(24, -74); c.lineTo(30, -56); c.closePath(); c.fill();
+        c.beginPath(); c.moveTo(26, -56); c.lineTo(36, -70); c.lineTo(38, -52); c.closePath(); c.fill();
+        // speed fins
+        c.fillStyle = body;
+        c.beginPath(); c.moveTo(-16, -34); c.lineTo(-34, -40); c.lineTo(-16, -26); c.closePath(); c.fill();
+      }
+
+      c.restore();
+    }
+
+    // ============ ATTACK HITBOX ============
+    function attackBox(f) {
+      const b = BEASTS[f.key];
+      const reach = b.reach + f.attackIndex * 8;
+      const w = reach, h = 40;
+      const x = f.facing === 1 ? f.x + 16 : f.x - 16 - w;
+      const y = f.y - 60;
+      return { x: x, y: y, w: w, h: h };
+    }
+
+    function overlap(a, b) {
+      return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+    }
+
+    function fighterBox(f) {
+      return { x: f.x - 26, y: f.y - 62, w: 52, h: 62 };
+    }
+
+    // ============ PARTICLES & FX ============
+    function burst(x, y, color, n) {
+      for (let i = 0; i < (n || 8); i++) {
+        state.particles.push({
+          x: x, y: y,
+          vx: (Math.random() - 0.5) * 9,
+          vy: (Math.random() - 0.7) * 9,
+          life: 1, color: color, size: Math.random() * 4 + 2
+        });
+      }
+    }
+
+    function addHitSpark(x, y, color) {
+      state.hits.push({ x: x, y: y, life: 1, color: color });
+    }
+
+    // ============ INPUT ============
+    const keys = {};
+    const input = {
+      p1: { left: false, right: false, up: false, down: false, attack: false, special: false },
+      p2: { left: false, right: false, up: false, down: false, attack: false, special: false }
+    };
+
+    const KEYMAP = {
+      KeyA: ['p1', 'left'], KeyD: ['p1', 'right'], KeyW: ['p1', 'up'], KeyS: ['p1', 'down'],
+      KeyJ: ['p1', 'attack'], KeyK: ['p1', 'special'],
+      ArrowLeft: ['p2', 'left'], ArrowRight: ['p2', 'right'], ArrowUp: ['p2', 'up'], ArrowDown: ['p2', 'down'],
+      Slash: ['p2', 'attack'], Period: ['p2', 'special']
+    };
+    const GAME_KEYS = ['KeyA','KeyD','KeyW','KeyS','KeyJ','KeyK','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Slash','Period','KeyP','Space'];
+
+    document.addEventListener('keydown', (e) => {
+      if (GAME_KEYS.indexOf(e.code) !== -1) e.preventDefault();
+      keys[e.code] = true;
+      if (e.code === 'KeyP') { togglePause(); return; }
+      if (e.code === 'Space' && state.phase === 'select') return;
+    });
+    document.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+    function syncKeyboardInput() {
+      for (const code in KEYMAP) {
+        const m = KEYMAP[code];
+        input[m[0]][m[1]] = !!keys[code];
+      }
+    }
+
+    // Touch controls (drive P1)
+    document.querySelectorAll('.tbtn').forEach(btn => {
+      const k = btn.dataset.key;
+      const press = (e) => { e.preventDefault(); input.p1[k] = true; };
+      const release = (e) => { e.preventDefault(); input.p1[k] = false; };
+      btn.addEventListener('touchstart', press, { passive: false });
+      btn.addEventListener('touchend', release, { passive: false });
+      btn.addEventListener('touchcancel', release, { passive: false });
+      btn.addEventListener('mousedown', press);
+      btn.addEventListener('mouseup', release);
+      btn.addEventListener('mouseleave', release);
+    });
+
+    // ============ COMBAT LOGIC ============
+    function startAttack(f) {
+      if (f.state === 'attack' || f.hitstun > 0) return;
+      if (f.comboTimer > 0) { f.combo = (f.combo + 1) % 3; }
+      else { f.combo = 0; }
+      f.state = 'attack';
+      f.attackIndex = f.combo;
+      f.attackTimer = 16;
+      f.attackHit = false;
+      f.comboReset = 26;
+      beep(180 + f.attackIndex * 60, 0.05, 'square', 0.04);
+    }
+
+    function doSpecial(f) {
+      if (f.charge < 100 || f.state === 'attack' || f.hitstun > 0) return;
+      f.charge = 0;
+      f.state = 'special';
+      f.attackTimer = f.key === 'dash' ? 34 : 26;
+      f.attackHit = false;
+      f.vx = f.facing * (f.key === 'dash' ? 15 : 4);
+      beep(520, 0.25, 'sawtooth', 0.07);
+      burst(f.x, f.y - 40, BEASTS[f.key].color, 14);
+    }
+
+    function applyHit(attacker, defender, isSpecial) {
+      if (defender.invuln > 0) return;
+      const b = BEASTS[attacker.key];
+      let dmg = isSpecial ? Math.round(b.comboDmg[2] * 2.2) : b.comboDmg[attacker.attackIndex];
+      const blocking = defender.blocking && defender.onGround && defender.state !== 'attack';
+      if (blocking) dmg = Math.round(dmg * 0.25);
+
+      defender.hp = Math.max(0, defender.hp - dmg);
+      defender.flash = 8;
+      defender.invuln = isSpecial ? 18 : 6;
+
+      // knockback (scaled by block)
+      const dir = attacker.facing;
+      const kb = (isSpecial ? 9 : 4) * (blocking ? 0.35 : 1) * (b.mass);
+      defender.vx = dir * kb;
+      if (!blocking && !isSpecial) defender.vy = -3;
+
+      if (!blocking) { defender.hitstun = isSpecial ? 22 : 12; defender.state = 'hurt'; }
+
+      // attacker builds charge on hit; defender builds a little
+      attacker.charge = Math.min(100, attacker.charge + (blocking ? 4 : 10));
+      defender.charge = Math.min(100, defender.charge + 3);
+
+      const hx = (attacker.x + defender.x) / 2;
+      const hy = defender.y - 48;
+      addHitSpark(hx, hy, blocking ? '#9ad0ff' : '#ffd36e');
+      burst(hx, hy, blocking ? '#9ad0ff' : b.accent, blocking ? 5 : 10);
+      state.shake = blocking ? 3 : 8;
+
+      beep(blocking ? 90 : 140, 0.08, 'square', blocking ? 0.05 : 0.08);
+      if (isSpecial) beep(70, 0.2, 'sawtooth', 0.09);
+    }
+
+    // ============ CPU AI ============
+    function updateAI(f, foe) {
+      const b = BEASTS[f.key];
+      const dist = Math.abs(foe.x - f.x);
+      f.aiTimer--;
+      if (f.aiTimer <= 0) {
+        f.aiTimer = 8 + Math.random() * 10;
+        // face foe
+        f.facing = foe.x > f.x ? 1 : -1;
+        // decide
+        const hpFrac = f.hp / f.maxHp;
+        const r = Math.random();
+        f.aiDir = 0; f.aiWantJump = false; f.aiBlock = false;
+        f.aiAttack = false; f.aiSpecial = false;
+
+        if (dist > 140) {
+          f.aiDir = f.facing; // approach
+          if (r < 0.12) f.aiWantJump = true;
+        } else if (dist > b.reach * 0.75) {
+          f.aiDir = f.facing;
+          if (r < 0.35 && f.charge >= 100) f.aiSpecial = true;
+        } else {
+          // in range
+          if (r < 0.45) f.aiAttack = true;
+          else if (r < 0.6) f.aiBlock = true;
+          else if (r < 0.72) f.aiDir = -f.facing; // back off
+          else if (r < 0.85 && f.charge >= 100) f.aiSpecial = true;
+          else f.aiWantJump = true;
+        }
+        // defensive reaction: block more when low hp
+        if (hpFrac < 0.35 && r < 0.4) f.aiBlock = true;
+        // special when charged and close
+        if (f.charge >= 100 && dist < 160 && Math.random() < 0.5) f.aiSpecial = true;
+      }
+
+      // move
+      if (f.aiDir !== 0) f.x += f.aiDir * b.speed * 0.85;
+      if (f.aiWantJump && f.onGround) { f.vy = -b.jump; f.onGround = false; }
+      f.blocking = f.aiBlock && f.onGround;
+      if (f.aiAttack) { startAttack(f); f.aiAttack = false; }
+      if (f.aiSpecial) { doSpecial(f); f.aiSpecial = false; }
+    }
+
+    // ============ FIGHTER UPDATE ============
+    function updateFighter(f, foe, isAI, ctrl) {
+      const b = BEASTS[f.key];
+
+      if (f.hitstun > 0) {
+        f.hitstun--;
+        if (f.hitstun === 0 && f.state === 'hurt') f.state = 'idle';
+      }
+      if (f.invuln > 0) f.invuln--;
+      if (f.flash > 0) f.flash--;
+      if (f.comboReset > 0) { f.comboReset--; if (f.comboReset === 0) f.combo = 0; }
+
+      // charge over time
+      if (state.phase === 'fight') f.charge = Math.min(100, f.charge + 0.12);
+
+      if (isAI) {
+        updateAI(f, foe);
+      } else {
+        // player controls
+        const canAct = f.hitstun <= 0 && f.state !== 'special';
+        f.blocking = ctrl.down && f.onGround && f.state !== 'attack';
+        let move = 0;
+        if (canAct && f.state !== 'attack') {
+          if (ctrl.left) move -= 1;
+          if (ctrl.right) move += 1;
+        }
+        const spd = b.speed * (f.blocking ? 0.35 : 1);
+        f.vx = move * spd;
+        if (move !== 0) { f.facing = move > 0 ? 1 : -1; f.walkCycle += 0.25; }
+
+        // face foe when idle-ish and not moving
+        if (move === 0 && f.state === 'idle') f.facing = foe.x > f.x ? 1 : -1;
+
+        if (canAct && ctrl.up && f.onGround) { f.vy = -b.jump; f.onGround = false; beep(320, 0.06, 'sine', 0.03); }
+        if (ctrl.attack) startAttack(f);
+        if (ctrl.special) doSpecial(f);
+      }
+
+      // state timers
+      if (f.state === 'attack' || f.state === 'special') {
+        f.attackTimer--;
+        const activeWindow = f.state === 'special';
+        const active = f.attackTimer < (activeWindow ? 22 : 11) && f.attackTimer > (activeWindow ? 6 : 2);
+        if (active && !f.attackHit) {
+          const box = attackBox(f);
+          if (overlap(box, fighterBox(foe))) {
+            applyHit(f, foe, f.state === 'special');
+            f.attackHit = true;
+          }
+        }
+        if (f.attackTimer <= 0) {
+          if (f.state === 'attack') { f.comboTimer = 18; f.state = 'idle'; }
+          else f.state = 'idle';
+        }
+      }
+      if (f.comboTimer > 0) f.comboTimer--;
+
+      // physics
+      f.vy += GRAVITY;
+      f.y += f.vy;
+      if (f.y >= GROUND) { f.y = GROUND; f.vy = 0; f.onGround = true; }
+      f.x += f.vx;
+      if (f.state !== 'special') f.vx *= 0.6;
+
+      // walls
+      const margin = 40;
+      if (f.x < margin) f.x = margin;
+      if (f.x > W - margin) f.x = W - margin;
+      f.walkCycle += (f.onGround && Math.abs(f.vx) > 0.5 ? 0.32 : 0);
+    }
+
+    // ============ ROUND / MATCH FLOW ============
+    function newRound() {
+      P1 = makeFighter(state.p1Beast, 'l');
+      P2 = makeFighter(state.p2Beast, 'r');
+      state.timer = ROUND_TIME;
+      state.phase = 'fight';
+      state.particles = [];
+      state.hits = [];
+      state.shake = 0;
+      showBanner('ROUND ' + state.round, 'FIGHT!', 90);
+      beep(440, 0.12, 'square', 0.05);
+      setTimeout(() => beep(660, 0.2, 'square', 0.06), 120);
+    }
+
+    function endRound(winner) {
+      state.phase = 'roundEnd';
+      if (winner === 'p1') state.p1Wins++;
+      else if (winner === 'p2') state.p2Wins++;
+      const text = winner === 'draw' ? 'DRAW' : (winner.toUpperCase() + ' WINS');
+      showBanner(text, 'round ' + state.round + ' over', 120);
+      updateHUD();
+      beep(winner === 'draw' ? 200 : 300, 0.4, 'triangle', 0.07);
+
+      setTimeout(() => {
+        if (state.p1Wins >= WINS_NEEDED || state.p2Wins >= WINS_NEEDED) {
+          endMatch();
+        } else {
+          state.round++;
+          newRound();
+        }
+      }, 1700);
+    }
+
+    function endMatch() {
+      state.phase = 'matchEnd';
+      state.running = false;
+      const p1Won = state.p1Wins > state.p2Wins;
+      els.overTitle.textContent = p1Won ? 'P1 VICTORY' : 'P2 VICTORY';
+      els.overTitle.style.color = p1Won ? '#6cff8f' : '#ff6b6b';
+
+      // localStorage win tracking (P1 perspective, CPU mode only for win/loss)
+      if (state.mode === 'cpu') {
+        if (p1Won) localStorage.setItem('beastArenaWins', String(wins + 1));
+        else localStorage.setItem('beastArenaLosses', String(losses + 1));
+      }
+      const w = parseInt(localStorage.getItem('beastArenaWins') || '0', 10);
+      const l = parseInt(localStorage.getItem('beastArenaLosses') || '0', 10);
+      els.overSub.textContent = 'Rounds ' + state.p1Wins + ' - ' + state.p2Wins + '  ·  Record vs CPU: ' + w + 'W / ' + l + 'L';
+      els.finalScore.textContent = (p1Won ? BEASTS[state.p1Beast].name : BEASTS[state.p2Beast].name) + ' dominates the arena';
+      els.overScreen.classList.remove('hidden');
+      beep(p1Won ? 720 : 180, 0.5, 'triangle', 0.08);
+    }
+
+    // ============ BANNERS ============
+    function showBanner(text, sub, frames) {
+      els.roundBannerText.textContent = text;
+      els.roundBannerSub.textContent = sub;
+      els.roundBanner.classList.add('visible');
+      state.bannerTimer = frames || 70;
+    }
+    function updateBanner() {
+      if (state.bannerTimer > 0) {
+        state.bannerTimer--;
+        if (state.bannerTimer === 0) els.roundBanner.classList.remove('visible');
+      }
+    }
+
+    // ============ HUD ============
+    function updateHUD() {
+      const b1 = BEASTS[state.p1Beast], b2 = BEASTS[state.p2Beast];
+      els.hp1.style.width = (P1.hp / P1.maxHp * 100) + '%';
+      els.hp2.style.width = (P2.hp / P2.maxHp * 100) + '%';
+      els.hp1.classList.toggle('low', P1.hp / P1.maxHp < 0.3);
+      els.hp2.classList.toggle('low', P2.hp / P2.maxHp < 0.3);
+      els.ch1.style.width = P1.charge + '%';
+      els.ch2.style.width = P2.charge + '%';
+      els.ch1.classList.toggle('ready', P1.charge >= 100);
+      els.ch2.classList.toggle('ready', P2.charge >= 100);
+      els.timer.textContent = Math.ceil(state.timer);
+      let pips = '';
+      for (let i = 0; i < WINS_NEEDED; i++) pips += (i < state.p1Wins ? '●' : '○') + ' ';
+      pips += '· ';
+      for (let i = 0; i < WINS_NEEDED; i++) pips += (i < state.p2Wins ? '●' : '○') + ' ';
+      els.pips.textContent = pips.trim();
+    }
+    function refreshNames() {
+      els.name1.textContent = (state.mode === 'cpu' ? 'P1 · ' : 'P1 · ') + BEASTS[state.p1Beast].name;
+      els.name2.textContent = (state.mode === 'cpu' ? 'CPU · ' : 'P2 · ') + BEASTS[state.p2Beast].name;
+    }
+
+    // ============ RENDER ============
+    function drawArena() {
+      // sky gradient
+      const sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, '#2b1b3d');
+      sky.addColorStop(0.6, '#3a2145');
+      sky.addColorStop(1, '#1a1020');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, H);
+
+      // distant pillars
+      ctx.fillStyle = 'rgba(255,179,71,0.06)';
+      for (let i = 0; i < 6; i++) {
+        const x = 60 + i * 150;
+        ctx.fillRect(x, 120, 26, GROUND - 120);
+      }
+
+      // glowing torches
+      for (let i = 0; i < 5; i++) {
+        const tx = 90 + i * 180;
+        const g = ctx.createRadialGradient(tx, 130, 4, tx, 130, 90);
+        g.addColorStop(0, 'rgba(255,160,60,0.45)');
+        g.addColorStop(1, 'rgba(255,160,60,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(tx, 130, 90, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffb347';
+        ctx.beginPath(); ctx.arc(tx, 130, 6, 0, Math.PI * 2); ctx.fill();
+      }
+
+      // ground
+      const gr = ctx.createLinearGradient(0, GROUND, 0, H);
+      gr.addColorStop(0, '#4a3358');
+      gr.addColorStop(1, '#1d1329');
+      ctx.fillStyle = gr;
+      ctx.fillRect(0, GROUND, W, H - GROUND);
+
+      // ground line
+      ctx.strokeStyle = 'rgba(255,179,71,0.4)';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(0, GROUND); ctx.lineTo(W, GROUND); ctx.stroke();
+
+      // arena floor tiles
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < W; i += 60) {
+        ctx.beginPath(); ctx.moveTo(i, GROUND); ctx.lineTo(i - 30, H); ctx.stroke();
+      }
+    }
+
+    function drawFighter(f) {
+      // attack hitbox glow
+      if (f.state === 'attack' || f.state === 'special') {
+        const box = attackBox(f);
+        const alpha = f.state === 'special' ? 0.35 : 0.2;
+        ctx.fillStyle = f.state === 'special' ? 'rgba(255,94,199,' + alpha + ')' : 'rgba(255,211,110,' + alpha + ')';
+        ctx.beginPath();
+        ctx.ellipse(f.x + f.facing * ((BEASTS[f.key].reach) / 2 + 16), f.y - 42, BEASTS[f.key].reach / 2 + 20, 30, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      const blink = f.invuln > 0 && Math.floor(f.invuln / 3) % 2 === 0;
+      const flash = f.flash > 4;
+      ctx.globalAlpha = blink ? 0.5 : 1;
+      const scale = f.state === 'special' ? 1.14 : 1;
+      drawBeastBody(ctx, f.key, f.x, f.y, f.facing, scale, f.walkCycle, flash);
+
+      // block shield
+      if (f.blocking) {
+        ctx.globalAlpha = 0.8;
+        ctx.strokeStyle = '#9ad0ff'; ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(f.x + f.facing * 24, f.y - 40, 34, -Math.PI / 2, Math.PI / 2, f.facing < 0);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+
+      // charge-ready sparkle
+      if (f.charge >= 100) {
+        ctx.fillStyle = '#ff5ec7';
+        const t = performance.now() / 200;
+        for (let i = 0; i < 3; i++) {
+          const a = t + i * 2.1;
+          ctx.beginPath();
+          ctx.arc(f.x + Math.cos(a) * 30, f.y - 46 + Math.sin(a) * 20, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    function drawParticles() {
+      state.particles.forEach(p => {
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+      });
+      state.hits.forEach(h => {
+        ctx.globalAlpha = Math.max(0, h.life);
+        ctx.strokeStyle = h.color; ctx.lineWidth = 3;
+        const s = (1 - h.life) * 26 + 6;
+        for (let i = 0; i < 4; i++) {
+          const a = i * Math.PI / 2 + 0.4;
+          ctx.beginPath();
+          ctx.moveTo(h.x + Math.cos(a) * 4, h.y + Math.sin(a) * 4);
+          ctx.lineTo(h.x + Math.cos(a) * s, h.y + Math.sin(a) * s);
+          ctx.stroke();
+        }
+      });
+      ctx.globalAlpha = 1;
+    }
+
+    function render() {
+      ctx.save();
+      if (state.shake > 0) {
+        ctx.translate((Math.random() - 0.5) * state.shake, (Math.random() - 0.5) * state.shake);
+      }
+      drawArena();
+      if (state.phase !== 'select') {
+        drawFighter(P1);
+        drawFighter(P2);
+      }
+      drawParticles();
+      ctx.restore();
+    }
+
+    // ============ MAIN LOOP ============
+    let lastTime = 0;
+    function loop(t) {
+      const dt = Math.min(50, t - lastTime);
+      lastTime = t;
+
+      if (state.phase === 'fight' && state.running && !state.paused) {
+        syncKeyboardInput();
+        updateFighter(P1, P2, false, input.p1);
+        updateFighter(P2, P1, state.mode === 'cpu', input.p2);
+
+        // push-apart to avoid perfect overlap
+        const dx = P1.x - P2.x, minD = 46;
+        if (Math.abs(dx) < minD) {
+          const push = (minD - Math.abs(dx)) / 2 * (dx >= 0 ? 1 : -1);
+          P1.x += push; P2.x -= push;
+        }
+
+        // timer
+        state.timer -= dt / 1000;
+        if (state.timer <= 0) {
+          state.timer = 0;
+          const winner = P1.hp > P2.hp ? 'p1' : (P2.hp > P1.hp ? 'p2' : 'draw');
+          endRound(winner);
+        }
+        // KO
+        if (P1.hp <= 0 || P2.hp <= 0) {
+          if (state.phase === 'fight') {
+            const winner = P1.hp <= 0 && P2.hp <= 0 ? 'draw' : (P1.hp <= 0 ? 'p2' : 'p1');
+            endRound(winner);
+          }
+        }
+        updateHUD();
+      }
+
+      // particles & fx always update
+      state.particles = state.particles.filter(p => {
+        p.x += p.vx; p.y += p.vy; p.vy += 0.35; p.life -= dt * 0.0022;
+        return p.life > 0;
+      });
+      state.hits = state.hits.filter(h => { h.life -= dt * 0.006; return h.life > 0; });
+      if (state.shake > 0) state.shake = Math.max(0, state.shake - dt * 0.05);
+      updateBanner();
+
+      render();
+      requestAnimationFrame(loop);
+    }
+
+    // ============ PAUSE ============
+    function togglePause() {
+      if (state.phase !== 'fight') return;
+      state.paused = !state.paused;
+      els.pauseOverlay.classList.toggle('visible', state.paused);
+      if (state.paused) beep(240, 0.1, 'square', 0.05);
+    }
+    els.pauseOverlay.addEventListener('click', togglePause);
+
+    // ============ BEAST SELECT UI ============
+    function buildBeastGrid() {
+      els.beastGrid.innerHTML = '';
+      Object.keys(BEASTS).forEach(key => {
+        const card = document.createElement('div');
+        card.className = 'beast-card';
+        card.dataset.key = key;
+        const c = document.createElement('canvas');
+        c.width = 96; c.height = 96;
+        card.appendChild(c);
+        const nm = document.createElement('div');
+        nm.className = 'bname'; nm.textContent = BEASTS[key].name;
+        card.appendChild(nm);
+        const ds = document.createElement('div');
+        ds.className = 'bdesc'; ds.textContent = BEASTS[key].desc;
+        card.appendChild(ds);
+        card.addEventListener('click', () => selectBeast(key));
+        els.beastGrid.appendChild(card);
+        drawBeastPortrait(c, key);
+      });
+      highlightPicks();
+    }
+
+    function highlightPicks() {
+      els.beastGrid.querySelectorAll('.beast-card').forEach(card => {
+        const k = card.dataset.key;
+        const isP1 = k === state.p1Beast && state.picking === 1;
+        const isP2 = k === state.p2Beast && state.picking === 2;
+        card.classList.toggle('selected', isP1 || isP2);
+      });
+      els.pickHint.textContent = state.picking === 1
+        ? 'Player 1 — pick a fighter'
+        : 'Player 2 — pick a fighter';
+    }
+
+    function selectBeast(key) {
+      if (state.picking === 1) {
+        state.p1Beast = key;
+        if (state.mode === 'cpu') {
+          // CPU picks a random different beast from remaining pool
+          const pool = Object.keys(BEASTS).filter(k => k !== key);
+          state.p2Beast = pool[Math.floor(Math.random() * pool.length)];
+          beep(500, 0.08, 'square', 0.05);
+          startMatch();
+          return;
+        }
+        state.picking = 2;
+      } else {
+        state.p2Beast = key;
+        beep(500, 0.08, 'square', 0.05);
+        startMatch();
+        return;
+      }
+      highlightPicks();
+      refreshNames();
+    }
+
+    // ============ MATCH START / RESET ============
+    function startMatch() {
+      P1 = makeFighter(state.p1Beast, 'l');
+      P2 = makeFighter(state.p2Beast, 'r');
+      state.p1Wins = 0; state.p2Wins = 0; state.round = 1;
+      state.running = true; state.paused = false;
+      state.particles = []; state.hits = [];
+      els.startScreen.classList.add('hidden');
+      els.overScreen.classList.add('hidden');
+      els.pauseOverlay.classList.remove('visible');
+      refreshNames();
+      newRound();
+      lastTime = performance.now();
+    }
+
+    function returnToMenu() {
+      state.phase = 'select';
+      state.running = false;
+      state.picking = 1;
+      els.overScreen.classList.add('hidden');
+      els.startScreen.classList.remove('hidden');
+      refreshNames();
+      highlightPicks();
+    }
+
+    // ============ BUTTON LISTENERS ============
+    els.modeCpu.addEventListener('click', () => {
+      state.mode = 'cpu'; state.picking = 1;
+      els.modeCpu.classList.add('selected'); els.mode2p.classList.remove('selected');
+      highlightPicks();
+    });
+    els.mode2p.addEventListener('click', () => {
+      state.mode = '2p'; state.picking = 1;
+      els.mode2p.classList.add('selected'); els.modeCpu.classList.remove('selected');
+      highlightPicks();
+    });
+    els.startBtn.addEventListener('click', () => {
+      state.picking = 1; highlightPicks();
+      els.pickHint.textContent = 'Player 1 — pick a fighter';
+      beep(520, 0.06, 'square', 0.04);
+    });
+    els.rematchBtn.addEventListener('click', () => {
+      if (state.mode === 'cpu') {
+        const pool = Object.keys(BEASTS).filter(k => k !== state.p1Beast);
+        state.p2Beast = pool[Math.floor(Math.random() * pool.length)];
+      }
+      startMatch();
+    });
+    els.menuBtn.addEventListener('click', returnToMenu);
+
+    // ============ INITIALIZATION ============
+    buildBeastGrid();
+    refreshNames();
+    updateHUD();
+    requestAnimationFrame(loop);
+
+    // Expose victory hooks for the hub (optional)
+    window.beastArena = { state: state, BEASTS: BEASTS };
+  </script>
+</body>
+</html>

@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Track Sprint</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: #14202f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Courier New", monospace;
+    overflow: hidden;
+    touch-action: manipulation;
+    padding: 12px;
+  }
+  /* ============ APP LAYOUT ============ */
+  #app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: min(96vw, 900px);
+  }
+  #game-wrap {
+    position: relative;
+    width: 100%;
+    box-shadow: 0 12px 44px rgba(0,0,0,.5);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  canvas { display: block; width: 100%; height: auto; background: #bfe6ff; }
+  #hint {
+    position: absolute;
+    bottom: 6px;
+    width: 100%;
+    text-align: center;
+    color: rgba(255,255,255,.9);
+    font-size: 12px;
+    letter-spacing: 1px;
+    pointer-events: none;
+    text-shadow: 0 1px 3px rgba(0,0,0,.6);
+  }
+  /* ============ CONTROLS ============ */
+  #controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 10px 14px;
+  }
+  #controls button {
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    padding: 9px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #fff;
+    background: #c8553d;
+    box-shadow: 0 4px 0 rgba(0,0,0,.3);
+    transition: transform .05s ease, background .15s ease;
+    user-select: none;
+  }
+  #controls button:hover { background: #d76a4a; }
+  #controls button:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.3); }
+  #difficulty {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 6px;
+  }
+  #difficulty .label {
+    color: #fff;
+    font-size: 13px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    text-shadow: 0 1px 2px rgba(0,0,0,.4);
+    margin-right: 2px;
+  }
+  #difficulty button {
+    padding: 8px 16px;
+    background: rgba(255,255,255,.14);
+    color: #cfe3ff;
+    box-shadow: 0 3px 0 rgba(0,0,0,.28);
+  }
+  #difficulty button:hover { background: rgba(255,255,255,.24); }
+  #difficulty button.active {
+    background: #ffd23f;
+    color: #4a3400;
+  }
+  #difficulty button.active:hover { background: #ffe14d; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="game-wrap">
+    <canvas id="game" width="800" height="450"></canvas>
+    <div id="hint">SPACE / TAP = start &nbsp;|&nbsp; alternate LEFT / RIGHT (or tap screen sides) to sprint &nbsp;|&nbsp; R = restart</div>
+  </div>
+  <div id="controls">
+    <button id="btn-restart" type="button">Restart</button>
+    <div id="difficulty">
+      <span class="label">Difficulty:</span>
+      <button type="button" data-diff="easy">Easy</button>
+      <button type="button" data-diff="normal" class="active">Normal</button>
+      <button type="button" data-diff="hard">Hard</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============ CANVAS & GEOMETRY ============ */
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;
+  const H = canvas.height;
+
+  const TRACK_X0 = 54;                 // start line (0 m)
+  const TRACK_X1 = 772;                // finish line (100 m)
+  const FINISH = 100;                  // metres
+  const LANES = 4;
+  const LANE_TOP = 84;
+  const LANE_BOTTOM = 408;
+  const LANE_H = (LANE_BOTTOM - LANE_TOP) / LANES;
+
+  /* ============ PHYSICS / TUNING ============ */
+  const IMPULSE = 1.2;      // m/s added per valid stride
+  const DRAG = 0.5;         // speed decay per second (speed *= 1 - DRAG*dt)
+  const MAXSPD = 12.0;      // soft ceiling with full stamina
+  const STAMINA_DRAIN = 0.010;
+  const MIN_STRIDE_GAP = 55; // ms anti-mash guard
+
+  /* ============ DIFFICULTY PRESETS ============ */
+  const DIFFICULTY = {
+    easy:   { speeds: [8.8, 9.1, 9.5],  rMin: 0.22, rMax: 0.34 },
+    normal: { speeds: [9.8, 10.1, 10.5], rMin: 0.15, rMax: 0.25 },
+    hard:   { speeds: [10.6, 10.9, 11.3], rMin: 0.11, rMax: 0.19 }
+  };
+  const DIFF_LABEL = { easy: "Easy", normal: "Normal", hard: "Hard" };
+  const CPU_COLORS = ["#e74c3c", "#3498db", "#2ecc71"];
+  const PLAYER_COLOR = "#ffd23f";
+
+  let diff = localStorage.getItem("trackSprintDiff") || "normal";
+  if (!DIFFICULTY[diff]) diff = "normal";
+
+  /* ============ STATE ============ */
+  const ST = { READY: 0, SET: 1, RUN: 2, DONE: 3 };
+  let state = ST.READY;
+  let gunAt = 0;
+  let gunTime = 0;
+  let gunFlash = 0;
+  let raceTime = 0;
+  let lastSide = null;
+  let lastStrideT = 0;
+  let firstStride = false;
+  let result = null;
+
+  let runners = [];
+  let player = null;
+
+  // best times per difficulty, persisted
+  let best = {};
+  try { best = JSON.parse(localStorage.getItem("trackSprintBest") || "{}") || {}; }
+  catch (e) { best = {}; }
+
+  /* ============ SOUND (WebAudio, no assets) ============ */
+  let actx = null;
+  function tone(freq, dur, type, vol) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(vol == null ? 0.06 : vol, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+  function beep(freq, dur, type) { tone(freq, dur, type, 0.06); }
+  function gunBang() { tone(180, 0.10, "square", 0.10); tone(70, 0.34, "sawtooth", 0.12); }
+  function tick() { tone(520, 0.03, "sine", 0.03); }
+
+  /* ============ DOM CONTROLS ============ */
+  const btnRestart = document.getElementById("btn-restart");
+  const diffButtons = Array.prototype.slice.call(
+    document.querySelectorAll("#difficulty button")
+  );
+
+  function syncDiffButtons() {
+    diffButtons.forEach(function (b) {
+      b.classList.toggle("active", b.dataset.diff === diff);
+    });
+  }
+
+  /* ============ RUNNER FACTORY ============ */
+  function makeRunner(lane, color, name) {
+    return {
+      lane: lane, color: color, name: name,
+      dist: 0, speed: 0, anim: Math.random() * 6,
+      stride: 0, finishTime: null
+    };
+  }
+
+  function reset() {
+    runners = [];
+    const c = DIFFICULTY[diff];
+    for (let i = 0; i < 3; i++) {
+      const r = makeRunner(i, CPU_COLORS[i], "CPU " + (i + 1));
+      r.targetSpeed = c.speeds[i] * (0.98 + Math.random() * 0.04);
+      r.reaction = c.rMin + Math.random() * (c.rMax - c.rMin);
+      r.started = false;
+      runners.push(r);
+    }
+    player = makeRunner(3, PLAYER_COLOR, "YOU");
+    player.stamina = 1;
+    player.split50 = null;
+    player.reaction = null;
+    runners.push(player);
+
+    raceTime = 0;
+    gunFlash = 0;
+    lastSide = null;
+    lastStrideT = 0;
+    firstStride = true;
+    result = null;
+  }
+
+  /* ============ GAME FLOW ============ */
+  function beginRace() {
+    reset();
+    state = ST.SET;
+    gunAt = performance.now() + 1100 + Math.random() * 1300;
+    beep(300, 0.08, "triangle");
+  }
+
+  function fireGun() {
+    gunTime = performance.now();
+    state = ST.RUN;
+    gunFlash = 1;
+    lastSide = null;
+    player.reaction = null;
+    gunBang();
+  }
+
+  function falseStart() {
+    if (state !== ST.SET) return;
+    state = ST.DONE;
+    result = { falseStart: true };
+    tone(150, 0.4, "sawtooth", 0.10);
+  }
+
+  // A valid push from the blocks or a stride
+  function handleStride(side) {
+    if (state !== ST.RUN) return;
+    const now = performance.now();
+    if (side === lastSide) return;          // must alternate
+    if (now - lastStrideT < MIN_STRIDE_GAP) return;
+    lastSide = side;
+    lastStrideT = now;
+
+    if (player.reaction === null) player.reaction = (now - gunTime) / 1000;
+
+    const effMax = MAXSPD * (0.65 + 0.35 * player.stamina);
+    const push = firstStride ? IMPULSE * 1.35 : IMPULSE;
+    player.speed = Math.min(player.speed + push, effMax);
+    player.stamina = Math.max(0, player.stamina - STAMINA_DRAIN);
+    player.stride++;
+    firstStride = false;
+    tick();
+  }
+
+  function computePlaceAndFinish() {
+    const t = player.finishTime;
+    let place = 1;
+    for (let i = 0; i < runners.length; i++) {
+      const r = runners[i];
+      if (r === player) continue;
+      const proj = r.finishTime !== null
+        ? r.finishTime
+        : raceTime + (FINISH - r.dist) / r.targetSpeed;
+      if (proj < t) place++;
+    }
+    const prevBest = best[diff];
+    const isBest = (prevBest == null || t < prevBest);
+    if (isBest) {
+      best[diff] = t;
+      try { localStorage.setItem("trackSprintBest", JSON.stringify(best)); } catch (e) {}
+    }
+    result = {
+      falseStart: false,
+      time: t,
+      place: place,
+      split: player.split50,
+      reaction: player.reaction,
+      isBest: isBest
+    };
+    state = ST.DONE;
+    beep(880, 0.14, "sine");
+    setTimeout(function () { if (result && !result.falseStart) beep(1320, 0.18, "sine"); }, 140);
+  }
+
+  /* ============ UPDATE ============ */
+  function update(dt) {
+    const now = performance.now();
+
+    if (state === ST.SET && now >= gunAt) fireGun();
+
+    if (state === ST.RUN || state === ST.DONE) {
+      const active = (state === ST.RUN);
+      if (active) raceTime = (now - gunTime) / 1000;
+
+      // CPU runners
+      for (let i = 0; i < runners.length; i++) {
+        const r = runners[i];
+        if (r === player) continue;
+        if (!r.started) {
+          if (raceTime >= r.reaction) r.started = true;
+          else continue;
+        }
+        if (r.dist < FINISH) {
+          r.speed += (r.targetSpeed - r.speed) * 5 * dt;
+          r.dist += r.speed * dt;
+          if (r.dist >= FINISH) { r.dist = FINISH; r.finishTime = raceTime; }
+        }
+      }
+
+      // Player
+      if (active) {
+        player.speed -= player.speed * DRAG * dt;
+        const effMax = MAXSPD * (0.65 + 0.35 * player.stamina);
+        if (player.speed > effMax) player.speed += (effMax - player.speed) * 3 * dt;
+        if (player.speed < 0) player.speed = 0;
+        player.dist += player.speed * dt;
+
+        if (player.split50 === null && player.dist >= 50) player.split50 = raceTime;
+
+        if (player.dist >= FINISH && player.finishTime === null) {
+          player.dist = FINISH;
+          player.finishTime = raceTime;
+          computePlaceAndFinish();
+        }
+      } else {
+        player.speed *= (1 - 1.6 * dt);
+      }
+
+      // Advance animation phase by speed
+      for (let i = 0; i < runners.length; i++) {
+        runners[i].anim += runners[i].speed * dt * 3.2;
+      }
+    }
+
+    if (gunFlash > 0) gunFlash = Math.max(0, gunFlash - dt * 2.2);
+  }
+
+  /* ============ DRAW HELPERS ============ */
+  function rr(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+  function xForDist(d) { return TRACK_X0 + (d / FINISH) * (TRACK_X1 - TRACK_X0); }
+  function laneCenterY(i) { return LANE_TOP + i * LANE_H + LANE_H * 0.6; }
+
+  /* ============ BACKGROUND / STADIUM ============ */
+  let crowd = null;
+  function buildCrowd() {
+    crowd = [];
+    let s = 1337;
+    function rnd() { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; }
+    for (let i = 0; i < 260; i++) {
+      crowd.push({
+        x: rnd() * W,
+        y: 42 + rnd() * 30,
+        c: ["#f5d76e", "#e8743b", "#6c7a89", "#e0e0e0", "#a5d6a7"][Math.floor(rnd() * 5)]
+      });
+    }
+  }
+
+  function drawStadium() {
+    const g = ctx.createLinearGradient(0, 0, 0, LANE_TOP);
+    g.addColorStop(0, "#bfe6ff");
+    g.addColorStop(1, "#eef9ff");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, LANE_TOP);
+
+    // stand structure
+    ctx.fillStyle = "#7d8fa3";
+    ctx.fillRect(0, 30, W, 54);
+    ctx.fillStyle = "#6b7c8f";
+    ctx.fillRect(0, 30, W, 6);
+
+    // crowd dots
+    if (!crowd) buildCrowd();
+    for (let i = 0; i < crowd.length; i++) {
+      const c = crowd[i];
+      const bob = Math.sin((performance.now() * 0.004) + c.x * 0.05) * 1.5;
+      ctx.fillStyle = c.c;
+      ctx.fillRect(c.x, c.y + bob, 3, 4);
+    }
+
+    // grass apron
+    ctx.fillStyle = "#3f9d5a";
+    ctx.fillRect(0, LANE_TOP - 8, W, 10);
+    ctx.fillStyle = "#58b672";
+    ctx.fillRect(0, LANE_TOP - 8, W, 3);
+  }
+
+  /* ============ TRACK ============ */
+  function drawTrack() {
+    // terracotta surface
+    ctx.fillStyle = "#c8553d";
+    ctx.fillRect(0, LANE_TOP, W, LANE_BOTTOM - LANE_TOP + 22);
+
+    // lanes
+    for (let i = 0; i < LANES; i++) {
+      const y = LANE_TOP + i * LANE_H;
+      ctx.fillStyle = (i % 2 === 0) ? "#cf5f45" : "#c8553d";
+      ctx.fillRect(0, y, W, LANE_H);
+      ctx.strokeStyle = "rgba(255,255,255,0.55)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(W, y);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "rgba(255,255,255,0.55)";
+    ctx.beginPath();
+    ctx.moveTo(0, LANE_BOTTOM);
+    ctx.lineTo(W, LANE_BOTTOM);
+    ctx.stroke();
+
+    // metre ticks every 10 m
+    ctx.font = "11px 'Courier New', monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    for (let m = 10; m < FINISH; m += 10) {
+      const x = xForDist(m);
+      ctx.strokeStyle = m === 50 ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.22)";
+      ctx.lineWidth = m === 50 ? 2 : 1;
+      ctx.beginPath();
+      ctx.moveTo(x, LANE_TOP);
+      ctx.lineTo(x, LANE_BOTTOM);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,0.6)";
+      ctx.fillText(m + "m", x, LANE_BOTTOM + 2);
+    }
+
+    // start line
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(TRACK_X0 - 2, LANE_TOP, 4, LANE_BOTTOM - LANE_TOP);
+
+    // finish line (checkered)
+    const fx = TRACK_X1 - 2;
+    const cw = 6, ch = 7;
+    for (let r2 = 0; r2 < Math.ceil((LANE_BOTTOM - LANE_TOP) / ch); r2++) {
+      for (let c2 = 0; c2 < 2; c2++) {
+        ctx.fillStyle = ((r2 + c2) % 2 === 0) ? "#ffffff" : "#222222";
+        ctx.fillRect(fx + c2 * cw, LANE_TOP + r2 * ch, cw, ch);
+      }
+    }
+    // finish banner
+    ctx.fillStyle = "#111";
+    ctx.fillRect(TRACK_X1 - 4, LANE_TOP - 22, 8, 24);
+    ctx.font = "bold 12px 'Courier New', monospace";
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#ffe14d";
+    ctx.fillText("FINISH", TRACK_X1 - 8, LANE_TOP - 20);
+  }
+
+  /* ============ RUNNER FIGURE ============ */
+  function drawFigure(x, footY, height, color, anim, speedRatio, crouch) {
+    const hipY = footY - height * (crouch ? 0.40 : 0.50);
+    const shY = footY - height * (crouch ? 0.66 : 0.82);
+    const headY = footY - height * (crouch ? 0.82 : 0.97);
+    const lean = 2 + speedRatio * 9 + (crouch ? 6 : 0);
+
+    ctx.strokeStyle = "#2b2b2b";
+    ctx.lineWidth = Math.max(2, height * 0.075);
+    ctx.lineCap = "round";
+
+    const thigh = height * 0.26, shin = height * 0.26;
+    // two legs, opposite phase
+    for (let s = 0; s < 2; s++) {
+      const ph = anim + s * Math.PI;
+      const swing = Math.sin(ph) * 0.9;
+      const bend = 0.5 + 0.75 * (0.5 + 0.5 * Math.sin(ph + 1.0));
+      const kx = x + Math.sin(swing) * thigh;
+      const ky = hipY + Math.cos(swing) * thigh;
+      const la = swing + bend;
+      const ex = kx + Math.sin(la) * shin;
+      const ey = ky + Math.cos(la) * shin;
+      ctx.beginPath();
+      ctx.moveTo(x + (s === 0 ? -1 : 1) * 1, hipY);
+      ctx.lineTo(kx, ky);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+    }
+
+    // torso
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(4, height * 0.15);
+    ctx.beginPath();
+    ctx.moveTo(x, hipY);
+    ctx.lineTo(x + lean * 0.5, shY);
+    ctx.stroke();
+
+    const shX = x + lean * 0.5;
+
+    // arms (opposite to legs)
+    ctx.strokeStyle = "#2b2b2b";
+    ctx.lineWidth = Math.max(2, height * 0.062);
+    const upper = height * 0.19;
+    for (let s = 0; s < 2; s++) {
+      const ph = anim + Math.PI + s * Math.PI;
+      const swing = Math.sin(ph) * 0.9;
+      const kx = shX + Math.sin(swing) * upper;
+      const ky = shY + Math.cos(swing) * upper;
+      const la = swing - 0.9;
+      const ex = kx + Math.sin(la) * upper;
+      const ey = ky + Math.cos(la) * upper;
+      ctx.beginPath();
+      ctx.moveTo(shX, shY);
+      ctx.lineTo(kx, ky);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+    }
+
+    // head
+    ctx.fillStyle = "#f0c48a";
+    ctx.beginPath();
+    ctx.arc(shX + lean * 0.35, headY, height * 0.12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,.25)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  function drawRunner(r) {
+    const cx = xForDist(r.dist);
+    const footY = laneCenterY(r.lane) + LANE_H * 0.30;
+    const speedRatio = Math.min(1, r.speed / MAXSPD);
+    const isPlayer = (r === player);
+    const crouch = isPlayer && (state === ST.SET);
+
+    // lane highlight for player
+    if (isPlayer) {
+      ctx.fillStyle = "rgba(255,210,63,0.10)";
+      const y = LANE_TOP + r.lane * LANE_H;
+      ctx.fillRect(0, y, W, LANE_H);
+    }
+
+    // speed trail
+    if (speedRatio > 0.35) {
+      ctx.strokeStyle = isPlayer ? "rgba(255,210,63,0.5)" : "rgba(255,255,255,0.35)";
+      ctx.lineWidth = 2;
+      for (let k = 1; k <= 3; k++) {
+        ctx.beginPath();
+        ctx.moveTo(cx - k * 12 - 6, footY - 10 - k * 10);
+        ctx.lineTo(cx - k * 12 - 6, footY + 2);
+        ctx.stroke();
+      }
+    }
+
+    // shadow
+    ctx.fillStyle = "rgba(0,0,0,0.18)";
+    ctx.beginPath();
+    ctx.ellipse(cx, footY + 2, LANE_H * 0.24, 3.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    drawFigure(cx, footY, LANE_H * 0.72, r.color, r.anim, speedRatio, crouch);
+
+    // name tag
+    ctx.font = (isPlayer ? "bold " : "") + "10px 'Courier New', monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    ctx.fillStyle = isPlayer ? "#ffe14d" : "rgba(255,255,255,0.8)";
+    ctx.fillText(r.name, cx, LANE_TOP + r.lane * LANE_H - 2);
+  }
+
+  /* ============ HUD ============ */
+  function drawHud() {
+    // timer
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.font = "bold 30px 'Courier New', monospace";
+    ctx.fillStyle = "#fff";
+    ctx.strokeStyle = "rgba(0,0,0,0.6)";
+    ctx.lineWidth = 4;
+    const tTxt = (state === ST.RUN || state === ST.DONE && !result.falseStart)
+      ? raceTime.toFixed(2) + "s" : "0.00s";
+    ctx.strokeText(tTxt, 14, 8);
+    ctx.fillText(tTxt, 14, 8);
+
+    // distance
+    const dTxt = Math.min(FINISH, player.dist).toFixed(0) + " / 100 m";
+    ctx.font = "13px 'Courier New', monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.strokeStyle = "rgba(0,0,0,0.5)";
+    ctx.lineWidth = 3;
+    ctx.strokeText(dTxt, 16, 44);
+    ctx.fillText(dTxt, 16, 44);
+
+    // best
+    ctx.textAlign = "right";
+    ctx.font = "12px 'Courier New', monospace";
+    const bTxt = "BEST (" + DIFF_LABEL[diff] + "): " +
+      (best[diff] != null ? best[diff].toFixed(2) + "s" : "--");
+    ctx.strokeText(bTxt, W - 14, 10);
+    ctx.fillStyle = "#ffe14d";
+    ctx.fillText(bTxt, W - 14, 10);
+
+    // stamina bar
+    ctx.textAlign = "right";
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.font = "11px 'Courier New', monospace";
+    ctx.fillText("STAMINA", W - 14, 34);
+    const bw = 150, bh = 12, bx = W - 14 - bw, by = 48;
+    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    rr(bx, by, bw, bh, 4);
+    ctx.fill();
+    const st = player.stamina;
+    ctx.fillStyle = st > 0.5 ? "#2ecc71" : (st > 0.25 ? "#f1c40f" : "#e74c3c");
+    rr(bx + 2, by + 2, (bw - 4) * st, bh - 4, 3);
+    ctx.fill();
+  }
+
+  /* ============ OVERLAYS ============ */
+  function panel(y, h) {
+    ctx.fillStyle = "rgba(10,18,30,0.82)";
+    rr(70, y, W - 140, h, 12);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,210,63,0.5)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  function drawStartOverlay() {
+    panel(120, 220);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+
+    ctx.fillStyle = "#ffd23f";
+    ctx.font = "bold 42px 'Courier New', monospace";
+    ctx.fillText("TRACK SPRINT", W / 2, 178);
+
+    ctx.fillStyle = "#fff";
+    ctx.font = "15px 'Courier New', monospace";
+    ctx.fillText("React to the gun \u2014 don't move early!", W / 2, 212);
+    ctx.fillText("Then alternate LEFT / RIGHT to build speed.", W / 2, 236);
+    ctx.fillText("Tap the screen: left half \u2022 right half.", W / 2, 260);
+
+    ctx.fillStyle = "#ffe14d";
+    ctx.font = "bold 16px 'Courier New', monospace";
+    ctx.fillText("Difficulty: " + DIFF_LABEL[diff], W / 2, 292);
+
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.font = "14px 'Courier New', monospace";
+    ctx.fillText("Best: " + (best[diff] != null ? best[diff].toFixed(2) + "s" : "no time yet"), W / 2, 316);
+
+    ctx.fillStyle = "rgba(255,255,255," + (0.55 + 0.45 * Math.sin(performance.now() * 0.006)) + ")";
+    ctx.font = "bold 16px 'Courier New', monospace";
+    ctx.fillText("Press SPACE / Tap to start", W / 2, 344);
+  }
+
+  function drawSetOverlay() {
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.008);
+    ctx.fillStyle = "rgba(10,18,30,0.55)";
+    rr(W / 2 - 130, 150, 260, 70, 12);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255," + (0.6 + 0.4 * pulse) + ")";
+    ctx.font = "bold 34px 'Courier New', monospace";
+    ctx.fillText("SET...", W / 2, 198);
+    ctx.fillStyle = "rgba(255,210,63,0.9)";
+    ctx.font = "13px 'Courier New', monospace";
+    ctx.fillText("wait for the gun — do not move!", W / 2, 240);
+  }
+
+  function drawResultOverlay() {
+    const isFalse = result.falseStart;
+    panel(112, 240);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+
+    if (isFalse) {
+      ctx.fillStyle = "#e74c3c";
+      ctx.font = "bold 40px 'Courier New', monospace";
+      ctx.fillText("FALSE START", W / 2, 178);
+      ctx.fillStyle = "#fff";
+      ctx.font = "16px 'Courier New', monospace";
+      ctx.fillText("You moved before the gun.", W / 2, 212);
+      ctx.fillText("Disqualified.", W / 2, 236);
+    } else {
+      const medals = ["", "#ffd23f", "#c0c0c0", "#cd7f32", "#8fa3b8"];
+      const labels = ["", "1st", "2nd", "3rd", "4th"];
+      ctx.fillStyle = "#2ecc71";
+      ctx.font = "bold 38px 'Courier New', monospace";
+      ctx.fillText("FINISH!", W / 2, 166);
+
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 30px 'Courier New', monospace";
+      ctx.fillText(result.time.toFixed(2) + "s", W / 2, 204);
+
+      ctx.fillStyle = medals[result.place] || "#fff";
+      ctx.font = "bold 22px 'Courier New', monospace";
+      ctx.fillText("PLACE: " + (labels[result.place] || "-"), W / 2, 236);
+
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.font = "13px 'Courier New', monospace";
+      const split = result.split != null ? result.split.toFixed(2) + "s" : "--";
+      const react = result.reaction != null ? result.reaction.toFixed(3) + "s" : "--";
+      ctx.fillText("50m split: " + split + "    reaction: " + react, W / 2, 260);
+
+      if (result.isBest) {
+        ctx.fillStyle = "#ffe14d";
+        ctx.font = "bold 15px 'Courier New', monospace";
+        ctx.fillText("\u2605 NEW PERSONAL BEST \u2605", W / 2, 286);
+      } else {
+        ctx.fillStyle = "rgba(255,255,255,0.7)";
+        ctx.font = "13px 'Courier New', monospace";
+        ctx.fillText("Best: " + (best[diff] != null ? best[diff].toFixed(2) + "s" : "--"), W / 2, 286);
+      }
+    }
+
+    ctx.fillStyle = "rgba(255,255,255," + (0.55 + 0.45 * Math.sin(performance.now() * 0.006)) + ")";
+    ctx.font = "bold 16px 'Courier New', monospace";
+    ctx.fillText("Press SPACE / Tap or Restart to race again", W / 2, 330);
+  }
+
+  /* ============ RENDER ============ */
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+    drawStadium();
+    drawTrack();
+    for (let i = 0; i < runners.length; i++) drawRunner(runners[i]);
+    drawHud();
+
+    if (state === ST.READY) drawStartOverlay();
+    else if (state === ST.SET) drawSetOverlay();
+    else if (state === ST.DONE) drawResultOverlay();
+
+    // gun flash
+    if (gunFlash > 0) {
+      ctx.fillStyle = "rgba(255,255,255," + (gunFlash * 0.6) + ")";
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "rgba(255,80,40," + gunFlash + ")";
+      ctx.font = "bold 40px 'Courier New', monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("BANG!", W / 2, 120);
+    }
+  }
+
+  /* ============ MAIN LOOP ============ */
+  let raf;
+  let lastT = performance.now();
+  function loop(now) {
+    let dt = (now - lastT) / 1000;
+    lastT = now;
+    if (dt > 0.05) dt = 0.05;   // clamp to avoid jumps
+    update(dt);
+    render();
+    raf = requestAnimationFrame(loop);
+  }
+
+  /* ============ INPUT ============ */
+  const SIDE_A = { ArrowLeft: 1, KeyA: 1 };
+  const SIDE_B = { ArrowRight: 1, KeyD: 1 };
+  const GAME_KEYS = {
+    ArrowLeft: 1, ArrowRight: 1, KeyA: 1, KeyD: 1,
+    Space: 1, KeyR: 1, Enter: 1
+  };
+
+  function primary() {
+    if (state === ST.READY) { beginRace(); return true; }
+    if (state === ST.DONE) { beginRace(); return true; }
+    return false;
+  }
+
+  window.addEventListener("keydown", function (e) {
+    if (GAME_KEYS[e.code]) e.preventDefault();
+
+    if (e.code === "KeyR") { beginRace(); return; }
+    if (e.code === "Space" || e.code === "Enter") {
+      if (state === ST.SET) { /* space behaves like a move during SET */ falseStart(); return; }
+      if (primary()) return;
+      return;
+    }
+    if (state === ST.SET && (SIDE_A[e.code] || SIDE_B[e.code])) { falseStart(); return; }
+    if (state === ST.RUN) {
+      if (SIDE_A[e.code]) handleStride("A");
+      else if (SIDE_B[e.code]) handleStride("B");
+    }
+  });
+
+  canvas.addEventListener("mousedown", function (e) {
+    const rect = canvas.getBoundingClientRect();
+    const relX = (e.clientX - rect.left) / rect.width;
+    if (state === ST.READY || state === ST.DONE) { beginRace(); return; }
+    if (state === ST.SET) { falseStart(); return; }
+    if (state === ST.RUN) handleStride(relX < 0.5 ? "A" : "B");
+  });
+
+  canvas.addEventListener("touchstart", function (e) {
+    e.preventDefault();
+    const t = e.changedTouches[0];
+    const rect = canvas.getBoundingClientRect();
+    const relX = (t.clientX - rect.left) / rect.width;
+    if (state === ST.READY || state === ST.DONE) { beginRace(); return; }
+    if (state === ST.SET) { falseStart(); return; }
+    if (state === ST.RUN) handleStride(relX < 0.5 ? "A" : "B");
+  }, { passive: false });
+
+  btnRestart.addEventListener("click", function () { beginRace(); });
+
+  diffButtons.forEach(function (b) {
+    b.addEventListener("click", function () {
+      diff = b.dataset.diff;
+      localStorage.setItem("trackSprintDiff", diff);
+      syncDiffButtons();
+      reset();
+      state = ST.READY;
+    });
+  });
+
+  // pause the loop while the tab is hidden
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      cancelAnimationFrame(raf);
+      raf = null;
+    } else if (!raf) {
+      lastT = performance.now();
+      raf = requestAnimationFrame(loop);
+    }
+  });
+
+  /* ============ BOOT ============ */
+  syncDiffButtons();
+  reset();
+  raf = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Ant Farm — Colony Simulator</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --soil: #5f3d27;
+    --soil-dark: #3d2417;
+    --wood: #7c5228;
+    --wood-dark: #4a3018;
+    --amber: #e8a33d;
+    --leaf: #8fbf4d;
+    --cavity: #180f08;
+    --ink: #f3e4cf;
+    --panel: #2a1a10;
+    --panel-lite: #3a2517;
+  }
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(circle at 50% 0%, #2d1c11 0%, #140c07 70%);
+    color: var(--ink);
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 14px;
+    touch-action: manipulation;
+  }
+  #app { width: min(96vw, 1180px); display: flex; flex-direction: column; gap: 10px; }
+
+  /* ============ TOP BAR ============ */
+  #topbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px;
+    background: linear-gradient(180deg, var(--panel-lite), var(--panel));
+    border: 2px solid #5a3a20; border-radius: 12px; padding: 10px 16px;
+    box-shadow: inset 0 1px 0 rgba(255,220,170,.12), 0 6px 20px rgba(0,0,0,.5);
+  }
+  #topbar h1 {
+    font-size: 20px; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--amber); text-shadow: 0 2px 0 #2a1608;
+  }
+  .stat { font-size: 13px; letter-spacing: 1px; display: flex; gap: 6px; align-items: baseline; }
+  .stat b { font-size: 17px; color: #ffe1a6; font-variant-numeric: tabular-nums; }
+  .stat.grow { margin-left: auto; }
+  .goal { color: #ffd27a; }
+
+  /* ============ STAGE LAYOUT ============ */
+  #stage { display: flex; gap: 12px; align-items: stretch; }
+  #canvas-wrap {
+    position: relative; flex: 1 1 auto; min-width: 0;
+    border: 8px solid var(--wood);
+    border-radius: 14px;
+    box-shadow: inset 0 0 0 3px var(--wood-dark), 0 12px 34px rgba(0,0,0,.6);
+    overflow: hidden;
+    background: var(--cavity);
+  }
+  canvas { display: block; width: 100%; height: auto; touch-action: none; cursor: crosshair; }
+
+  /* ============ SIDE PANEL ============ */
+  #panel {
+    flex: 0 0 250px; display: flex; flex-direction: column; gap: 10px;
+    background: linear-gradient(180deg, var(--panel-lite), var(--panel));
+    border: 2px solid #5a3a20; border-radius: 12px; padding: 12px;
+    box-shadow: inset 0 1px 0 rgba(255,220,170,.1), 0 10px 26px rgba(0,0,0,.5);
+  }
+  .panel-title {
+    font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+    color: #c9a06a; border-bottom: 1px solid #513521; padding-bottom: 5px;
+  }
+  .btns { display: flex; flex-direction: column; gap: 7px; }
+  .up-row { display: flex; flex-direction: column; gap: 7px; }
+  button {
+    font-family: inherit; font-size: 13px; font-weight: bold; letter-spacing: 1px;
+    color: var(--ink); background: #4a3018; border: 2px solid #6a4522;
+    border-radius: 9px; padding: 9px 12px; cursor: pointer; text-align: left;
+    transition: transform .06s ease, background .15s ease, border-color .15s ease;
+    user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  button:hover:not(:disabled) { background: #5c3c1e; border-color: #8a5c2c; }
+  button:active:not(:disabled) { transform: translateY(2px); }
+  button:disabled { opacity: .42; cursor: not-allowed; }
+  button .lvl { float: right; color: #ffcf7a; font-weight: normal; }
+  button.tool { background: #3a2b17; }
+  button.tool.active {
+    background: var(--amber); color: #2a1608; border-color: #ffdf9e;
+    box-shadow: 0 0 14px rgba(232,163,61,.55);
+  }
+  button.danger { background: #5c2a1c; border-color: #8a3d26; text-align: center; }
+  .hint { font-size: 11px; line-height: 1.5; color: #b79a76; letter-spacing: .3px; }
+  .hint b { color: #ffd27a; }
+
+  /* ============ OVERLAY / TOAST ============ */
+  #overlay {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; gap: 10px;
+    background: rgba(14,8,4,.86); backdrop-filter: blur(2px); padding: 20px;
+    transition: opacity .3s ease; z-index: 5;
+  }
+  #overlay.hidden { opacity: 0; pointer-events: none; }
+  #overlay h2 {
+    font-size: 30px; letter-spacing: 4px; text-transform: uppercase;
+    color: var(--amber); text-shadow: 0 3px 0 #2a1608;
+  }
+  #overlay p { max-width: 460px; font-size: 13px; line-height: 1.6; color: #dcc6a8; }
+  #overlay .keys { color: #ffd27a; font-weight: bold; }
+  #startBtn {
+    margin-top: 8px; padding: 12px 34px; font-size: 15px; text-align: center;
+    background: var(--amber); color: #2a1608; border-color: #ffdf9e;
+    box-shadow: 0 5px 0 #8a5c1c;
+  }
+  #toast {
+    position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%) translateY(14px);
+    background: rgba(20,12,6,.92); border: 2px solid var(--amber); color: #ffe1a6;
+    font-size: 13px; letter-spacing: 1px; padding: 8px 18px; border-radius: 20px;
+    opacity: 0; pointer-events: none; transition: opacity .25s ease, transform .25s ease;
+    z-index: 6; white-space: nowrap;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 860px) {
+    #stage { flex-direction: column; }
+    #panel { flex: 0 0 auto; }
+    .btns, .up-row { flex-direction: row; flex-wrap: wrap; }
+    .btns button, .up-row button { flex: 1 1 44%; }
+    #topbar h1 { font-size: 16px; letter-spacing: 2px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ TOP BAR ============ -->
+  <div id="topbar">
+    <h1>🐜 Ant Farm</h1>
+    <div class="stat">Food <b id="uiFood">0</b></div>
+    <div class="stat">Ants <b id="uiPop">0</b></div>
+    <div class="stat">Colony <b id="uiLevel">1</b></div>
+    <div class="stat grow goal" id="uiGoal">Goal: Colony Level 5</div>
+  </div>
+
+  <!-- ============ STAGE ============ -->
+  <div id="stage">
+    <div id="canvas-wrap">
+      <canvas id="game" width="912" height="624"></canvas>
+
+      <div id="overlay">
+        <h2>Ant Farm</h2>
+        <p>
+          You are the keeper of a living colony. <span class="keys">Paint tunnels</span> through the
+          soil, uncover buried seed caches, and let your ants forage them back to the nest.
+          Spend the food they gather on more ants and faster digging.
+        </p>
+        <p>
+          <span class="keys">Drag</span> to dig &nbsp;·&nbsp;
+          <span class="keys">L</span> tool change &nbsp;·&nbsp;
+          <span class="keys">P</span> pause &nbsp;·&nbsp;
+          <span class="keys">R</span> restart
+        </p>
+        <button id="startBtn" type="button">Dig In</button>
+      </div>
+
+      <div id="toast"></div>
+    </div>
+
+    <!-- ============ SIDE PANEL ============ -->
+    <div id="panel">
+      <div>
+        <div class="panel-title">Tools</div>
+        <div class="btns" style="margin-top:8px">
+          <button class="tool active" id="toolDig" type="button">⛏️ Dig Tunnels</button>
+          <button class="tool" id="toolFood" type="button">🍃 Place Food <span class="lvl">5</span></button>
+        </div>
+      </div>
+      <div>
+        <div class="panel-title">Upgrades</div>
+        <div class="up-row" style="margin-top:8px">
+          <button id="btnHire" type="button">🐜 Hire Ant <span class="lvl" id="costHire">8</span></button>
+          <button id="btnDig" type="button">⛏️ Faster Digging <span class="lvl" id="costDig">15</span></button>
+          <button id="btnSpeed" type="button">⚡ Faster Ants <span class="lvl" id="costSpeed">20</span></button>
+        </div>
+      </div>
+      <div>
+        <div class="panel-title">Colony</div>
+        <div class="btns" style="margin-top:8px">
+          <button id="btnPause" type="button">⏸️ Pause</button>
+          <button class="danger" id="btnRestart" type="button">↻ Restart Colony</button>
+        </div>
+      </div>
+      <div class="hint">
+        Ants follow pheromone trails to food and carry crumbs home.
+        Dig near <b>amber specks</b> to uncover seed caches. The colony grows
+        as your population rises — watch it thrive.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONFIGURATION ============
+  const COLS = 76, ROWS = 52, CS = 12;      // grid + cell size
+  const N = COLS * ROWS;
+  const W = COLS * CS, H = ROWS * CS;
+  const SURFACE_ROWS = 2;                    // rows 0..1 are open air / topsoil
+  const SAVE_KEY = "antFarmSave_v1";
+  const GOAL_POP = 19;                       // population that reaches Colony Level 5
+  const FOOD_PLACE_COST = 5;
+  const MAX_POP = 40;
+  const MAX_DIG = 5, MAX_SPEED = 5;
+  const UPKEEP_EVERY = 10;                   // seconds between upkeep ticks
+
+  const nestC = Math.round(COLS * 0.5);
+  const nestR = Math.round(ROWS * 0.66);
+
+  const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+  // ============ DOM ELEMENTS ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const terrain = document.createElement("canvas");
+  terrain.width = W; terrain.height = H;
+  const tctx = terrain.getContext("2d");
+
+  const uiFood = document.getElementById("uiFood");
+  const uiPop = document.getElementById("uiPop");
+  const uiLevel = document.getElementById("uiLevel");
+  const uiGoal = document.getElementById("uiGoal");
+  const overlay = document.getElementById("overlay");
+  const startBtn = document.getElementById("startBtn");
+  const toastEl = document.getElementById("toast");
+  const toolDig = document.getElementById("toolDig");
+  const toolFood = document.getElementById("toolFood");
+  const btnHire = document.getElementById("btnHire");
+  const btnDig = document.getElementById("btnDig");
+  const btnSpeed = document.getElementById("btnSpeed");
+  const btnPause = document.getElementById("btnPause");
+  const btnRestart = document.getElementById("btnRestart");
+  const costHire = document.getElementById("costHire");
+  const costDig = document.getElementById("costDig");
+  const costSpeed = document.getElementById("costSpeed");
+
+  // ============ STATE ============
+  let dug, seed, foodAt, phero, shade, dirtColor;
+  let distHome, distFood;
+  let ants = [], particles = [];
+  let foodStore = 0, antsBought = 0, digLevel = 0, speedLevel = 0;
+  let tool = "dig";
+  let started = false, paused = false;
+  let fieldsDirty = true, terrainDirty = true;
+  let upkTimer = 0, starveTimer = 0;
+  let lastLevel = 1, goalReached = false;
+  let saveAcc = 0, uiAcc = 0, toastTimer = null, lastTime = 0;
+  let dragging = false, raf = null;
+  let time = 0;
+
+  // ============ SOUND (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  // ============ TOAST ============
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 2200);
+  }
+
+  // ============ GRID HELPERS ============
+  function idx(c, r) { return r * COLS + c; }
+  function col(i) { return i % COLS; }
+  function row(i) { return (i / COLS) | 0; }
+  function isOpen(i) { return row(i) < SURFACE_ROWS || dug[i] === 1; }
+  function isDirt(c, r) { return r >= SURFACE_ROWS && r < ROWS && c >= 0 && c < COLS && dug[idx(c, r)] === 0; }
+
+  // Nest chamber is deterministic so it survives save / load.
+  function nestCells() {
+    const list = [];
+    for (let r = nestR - 2; r <= nestR + 3; r++) {
+      for (let c = nestC - 5; c <= nestC + 5; c++) {
+        const dx = (c - nestC) / 6, dy = (r - nestR) / 3.2;
+        if (dx * dx + dy * dy <= 1) list.push(idx(c, r));
+      }
+    }
+    return list;
+  }
+  const NEST = nestCells();
+  const NEST_CENTER = idx(nestC, nestR);
+
+  // ============ MAP GENERATION ============
+  function allocGrids() {
+    dug = new Uint8Array(N);
+    foodAt = new Uint8Array(N);
+    phero = new Float32Array(N);
+    shade = new Float32Array(N);
+    dirtColor = new Array(N);
+    seed = new Set();
+    for (let i = 0; i < N; i++) {
+      const s = Math.random();
+      shade[i] = s;
+      dirtColor[i] = "hsl(26,32%," + (16 + s * 13).toFixed(1) + "%)";
+    }
+  }
+  function carve(c, r) { if (c >= 0 && c < COLS && r >= 0 && r < ROWS) dug[idx(c, r)] = 1; }
+  function carveRect(c0, r0, c1, r1) {
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) carve(c, r);
+  }
+  function carveStarter() {
+    // nest chamber
+    for (let k = 0; k < NEST.length; k++) dug[NEST[k]] = 1;
+    // entrance shaft from surface down to the nest
+    carveRect(nestC - 1, 1, nestC, nestR - 2);
+    // horizontal galleries
+    carveRect(nestC - 16, nestR - 8, nestC + 16, nestR - 8);
+    carveRect(nestC - 10, nestR - 8, nestC - 10, nestR - 2);
+    carveRect(nestC + 10, nestR - 8, nestC + 10, nestR - 2);
+    // lower gallery
+    carveRect(nestC - 13, nestR + 7, nestC + 13, nestR + 7);
+    carveRect(nestC, nestR + 3, nestC, nestR + 7);
+    // a couple of food sources on the surface for immediate life
+    foodAt[idx(nestC + 3, 1)] = 10;
+    foodAt[idx(nestC - 5, 1)] = 7;
+  }
+  function scatterSeeds() {
+    let placed = 0, tries = 0;
+    while (placed < 20 && tries < 3000) {
+      tries++;
+      const c = 2 + Math.floor(Math.random() * (COLS - 4));
+      const r = SURFACE_ROWS + 3 + Math.floor(Math.random() * (ROWS - SURFACE_ROWS - 6));
+      const i = idx(c, r);
+      if (dug[i] === 1 || seed.has(i)) continue;
+      seed.add(i); placed++;
+    }
+  }
+
+  function newColony() {
+    allocGrids();
+    carveStarter();
+    scatterSeeds();
+    ants = [];
+    foodStore = 15; antsBought = 0; digLevel = 0; speedLevel = 0;
+    particles = [];
+    for (let k = 0; k < 3; k++) spawnAnt();
+    lastLevel = 1; goalReached = false; starveTimer = 0; upkTimer = 0;
+    fieldsDirty = true; terrainDirty = true;
+  }
+
+  // ============ DISTANCE FIELDS (BFS) ============
+  function bfs(sources, dist) {
+    dist.fill(-1);
+    const q = new Int32Array(N);
+    let head = 0, tail = 0;
+    for (let k = 0; k < sources.length; k++) {
+      const s = sources[k];
+      if (dist[s] === -1) { dist[s] = 0; q[tail++] = s; }
+    }
+    while (head < tail) {
+      const i = q[head++];
+      const d = dist[i] + 1;
+      const c = i % COLS, r = (i / COLS) | 0;
+      if (c > 0) { const n = i - 1; if (dist[n] === -1 && isOpen(n)) { dist[n] = d; q[tail++] = n; } }
+      if (c < COLS - 1) { const n = i + 1; if (dist[n] === -1 && isOpen(n)) { dist[n] = d; q[tail++] = n; } }
+      if (r > 0) { const n = i - COLS; if (dist[n] === -1 && isOpen(n)) { dist[n] = d; q[tail++] = n; } }
+      if (r < ROWS - 1) { const n = i + COLS; if (dist[n] === -1 && isOpen(n)) { dist[n] = d; q[tail++] = n; } }
+    }
+  }
+  function rebuildFields() {
+    distHome = new Int16Array(N);
+    distFood = new Int16Array(N);
+    bfs(NEST, distHome);
+    const srcFood = [];
+    for (let i = 0; i < N; i++) if (foodAt[i] > 0) srcFood.push(i);
+    bfs(srcFood, distFood);
+    fieldsDirty = false;
+  }
+
+  // ============ DIGGING ============
+  function digCell(i) {
+    const r = row(i);
+    if (r < SURFACE_ROWS || dug[i] === 1) return false;
+    dug[i] = 1;
+    terrainDirty = true;
+    fieldsDirty = true;
+    if (seed.has(i)) {
+      seed.delete(i);
+      foodAt[i] = 8;
+      beep(990, 0.1, "sine");
+      burst(col(i) * CS + CS / 2, r * CS + CS / 2, "#e8c76a", 6);
+    }
+    return true;
+  }
+  function digBrush(c, r) {
+    const br = 1 + Math.floor(digLevel / 2);
+    let any = false;
+    for (let dr = -br; dr <= br; dr++) {
+      for (let dc = -br; dc <= br; dc++) {
+        if (dc * dc + dr * dr > br * br + br) continue;
+        const ci = c + dc, ri = r + dr;
+        if (isDirt(ci, ri) && digCell(idx(ci, ri))) any = true;
+      }
+    }
+    return any;
+  }
+
+  // ============ PARTICLES ============
+  function burst(x, y, color, n) {
+    for (let k = 0; k < n; k++) {
+      particles.push({
+        x: x, y: y,
+        vx: (Math.random() - 0.5) * 40,
+        vy: (Math.random() - 0.5) * 40 - 10,
+        life: 1, color: color, size: 1.5 + Math.random() * 2
+      });
+    }
+  }
+
+  // ============ ANTS ============
+  function spawnAnt() {
+    if (ants.length >= MAX_POP) return;
+    const start = NEST_CENTER;
+    ants.push({
+      cur: start, next: start, prev: start, t: 0,
+      state: "explore", ang: -Math.PI / 2, ph: Math.random() * 10
+    });
+  }
+
+  function tryDig(a) {
+    const chance = 0.02 + digLevel * 0.02;
+    if (Math.random() > chance) return;
+    const c = col(a.cur), r = row(a.cur);
+    const opts = [];
+    for (let k = 0; k < 4; k++) {
+      const nc = c + DIRS[k][0], nr = r + DIRS[k][1];
+      if (isDirt(nc, nr)) opts.push(idx(nc, nr));
+    }
+    if (!opts.length) return;
+    digCell(opts[(Math.random() * opts.length) | 0]);
+  }
+
+  function chooseNext(a) {
+    const cur = a.cur, c = col(cur), r = row(cur);
+    const nbrs = [];
+    for (let k = 0; k < 4; k++) {
+      const nc = c + DIRS[k][0], nr = r + DIRS[k][1];
+      if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) continue;
+      const n = idx(nc, nr);
+      if (isOpen(n)) nbrs.push(n);
+    }
+    if (!nbrs.length) { a.next = cur; tryDig(a); return; }
+
+    let best = -1e9, pick = cur;
+    for (let k = 0; k < nbrs.length; k++) {
+      const n = nbrs[k];
+      let s = Math.random() * 1.6;
+      if (n === a.prev) s -= 2.2;                       // avoid immediate backtrack
+      if (a.state === "carry") {
+        if (distHome[n] >= 0) s += (distHome[cur] - distHome[n]) * 8;
+        else s -= 40;
+      } else {
+        if (distFood[n] >= 0) {
+          if (distFood[cur] >= 0) s += (distFood[cur] - distFood[n]) * 2.4;
+          else s += 3;                                  // rush toward reachable food
+          if (distFood[n] === 0) s += 2.5;
+        }
+        s += phero[n] * 5;                              // follow the trail
+      }
+      if (s > best) { best = s; pick = n; }
+    }
+    if (a.state === "carry") phero[cur] = Math.min(3, phero[cur] + 0.35);
+    a.next = pick;
+    tryDig(a);
+  }
+
+  function arrive(a) {
+    const i = a.cur;
+    if (a.state === "carry" && distHome[i] === 0) {
+      a.state = "explore";
+      foodStore += 1;
+      burst(col(i) * CS + CS / 2, row(i) * CS + CS / 2, "#ffe1a6", 3);
+      beep(560, 0.05, "sine");
+      return;
+    }
+    if (a.state === "explore" && foodAt[i] > 0) {
+      foodAt[i]--;
+      if (foodAt[i] <= 0) fieldsDirty = true;
+      a.state = "carry";
+      beep(740, 0.04, "square");
+    }
+  }
+
+  function stepAnt(a, dt) {
+    const speed = 2.0 + speedLevel * 0.6;
+    a.t += speed * dt;
+    let guard = 0;
+    while (a.t >= 1 && guard++ < 4) {
+      a.t -= 1;
+      a.prev = a.cur;
+      a.cur = a.next;
+      arrive(a);
+      chooseNext(a);
+      if (a.next === a.cur) { a.t = 0; break; }
+    }
+    if (a.t < 0) a.t = 0;
+  }
+
+  // ============ SIMULATION ============
+  function simulate(dt) {
+    time += dt;
+    // pheromone evaporation
+    const decay = Math.exp(-dt * 0.55);
+    for (let i = 0; i < N; i++) { if (phero[i] > 0.001) phero[i] *= decay; else phero[i] = 0; }
+
+    // upkeep: colony slowly consumes food, and starves if it runs dry
+    upkTimer += dt;
+    if (upkTimer >= UPKEEP_EVERY) {
+      upkTimer = 0;
+      const need = Math.floor(ants.length / 5);
+      if (foodStore >= need) { foodStore -= need; starveTimer = 0; }
+      else {
+        foodStore = 0;
+        starveTimer += UPKEEP_EVERY;
+        if (starveTimer >= 30 && ants.length > 2) {
+          starveTimer = 0;
+          ants.pop();
+          toast("An ant left the colony — food is low!");
+          beep(190, 0.16, "sawtooth");
+        }
+      }
+    }
+
+    for (let k = 0; k < ants.length; k++) stepAnt(ants[k], dt);
+
+    // particles
+    for (let k = particles.length - 1; k >= 0; k--) {
+      const p = particles[k];
+      p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 60 * dt;
+      p.life -= dt * 1.6;
+      if (p.life <= 0) particles.splice(k, 1);
+    }
+  }
+
+  // ============ TERRAIN RENDERING (cached offscreen) ============
+  function buildTerrain() {
+    tctx.clearRect(0, 0, W, H);
+
+    // base soil gradient
+    const g = tctx.createLinearGradient(0, SURFACE_ROWS * CS, 0, H);
+    g.addColorStop(0, "#7a5236");
+    g.addColorStop(0.55, "#5c3b26");
+    g.addColorStop(1, "#38210f");
+    tctx.fillStyle = g;
+    tctx.fillRect(0, 0, W, H);
+
+    // dirt cells with per-cell shade
+    for (let r = SURFACE_ROWS; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      const i = idx(c, r);
+      tctx.fillStyle = dug[i] === 0 ? dirtColor[i] : "#1b1109";
+      tctx.fillRect(c * CS, r * CS, CS, CS);
+    }
+
+    // rim-lighting along dirt/tunnel boundaries for depth
+    for (let r = SURFACE_ROWS; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      const i = idx(c, r);
+      if (dug[i] !== 0) continue;
+      const x = c * CS, y = r * CS;
+      if (r + 1 < ROWS && dug[i + COLS] === 1) { tctx.fillStyle = "rgba(0,0,0,0.45)"; tctx.fillRect(x, y + CS - 2, CS, 2); }
+      if (r - 1 >= SURFACE_ROWS && dug[i - COLS] === 1) { tctx.fillStyle = "rgba(255,220,170,0.16)"; tctx.fillRect(x, y, CS, 2); }
+      if (c > 0 && dug[i - 1] === 1) { tctx.fillStyle = "rgba(255,220,170,0.10)"; tctx.fillRect(x, y, 2, CS); }
+      if (c < COLS - 1 && dug[i + 1] === 1) { tctx.fillStyle = "rgba(0,0,0,0.35)"; tctx.fillRect(x + CS - 2, y, 2, CS); }
+    }
+
+    // buried seed specks (a faint hint of treasure)
+    seed.forEach(function (i) {
+      const x = col(i) * CS + CS / 2, y = row(i) * CS + CS / 2;
+      tctx.fillStyle = "rgba(232,199,106,0.85)";
+      tctx.beginPath();
+      tctx.arc(x, y, 2.4, 0, 6.3);
+      tctx.fill();
+      tctx.strokeStyle = "rgba(120,80,20,0.7)";
+      tctx.lineWidth = 1;
+      tctx.stroke();
+    });
+
+    // surface: air band, topsoil strip, grass blades
+    const sg = tctx.createLinearGradient(0, 0, 0, SURFACE_ROWS * CS);
+    sg.addColorStop(0, "#cdd9c0");
+    sg.addColorStop(0.55, "#b9c9a4");
+    sg.addColorStop(1, "#6f7a44");
+    tctx.fillStyle = sg;
+    tctx.fillRect(0, 0, W, SURFACE_ROWS * CS);
+    tctx.fillStyle = "rgba(111,122,68,0.9)";
+    tctx.fillRect(0, CS, W, CS);
+    // grass blades
+    tctx.strokeStyle = "#5d7a34";
+    tctx.lineWidth = 2;
+    for (let x = 3; x < W; x += 9) {
+      const h = 4 + ((x * 7) % 5);
+      tctx.beginPath(); tctx.moveTo(x, SURFACE_ROWS * CS);
+      tctx.lineTo(x + (x % 3 - 1), SURFACE_ROWS * CS - h); tctx.stroke();
+    }
+    // soil line under grass
+    tctx.fillStyle = "rgba(58,36,18,0.85)";
+    tctx.fillRect(0, SURFACE_ROWS * CS, W, 3);
+
+    // nest chamber glow + eggs
+    const nx = nestC * CS + CS / 2, ny = nestR * CS + CS / 2;
+    const ng = tctx.createRadialGradient(nx, ny, 4, nx, ny, CS * 6);
+    ng.addColorStop(0, "rgba(255,196,120,0.30)");
+    ng.addColorStop(1, "rgba(255,196,120,0)");
+    tctx.fillStyle = ng;
+    tctx.fillRect(nx - CS * 6, ny - CS * 6, CS * 12, CS * 12);
+    for (let k = 0; k < NEST.length; k += 3) {
+      const i = NEST[k];
+      tctx.fillStyle = "rgba(240,228,200,0.75)";
+      tctx.beginPath();
+      tctx.arc(col(i) * CS + CS / 2, row(i) * CS + CS / 2, 2, 0, 6.3); tctx.fill();
+    }
+
+    // vignette
+    const vg = tctx.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.95);
+    vg.addColorStop(0, "rgba(0,0,0,0)");
+    vg.addColorStop(1, "rgba(0,0,0,0.45)");
+    tctx.fillStyle = vg;
+    tctx.fillRect(0, 0, W, H);
+
+    terrainDirty = false;
+  }
+
+  // ============ FRAME RENDERING ============
+  function drawPheromone() {
+    for (let i = 0; i < N; i++) {
+      const p = phero[i];
+      if (p < 0.035) continue;
+      ctx.fillStyle = "rgba(120,225,180," + Math.min(0.30, p * 0.11).toFixed(3) + ")";
+      ctx.fillRect(col(i) * CS, row(i) * CS, CS, CS);
+    }
+  }
+
+  function drawFood() {
+    for (let i = 0; i < N; i++) {
+      const amt = foodAt[i];
+      if (!amt) continue;
+      const x = col(i) * CS + CS / 2, y = row(i) * CS + CS / 2;
+      const n = Math.min(5, 1 + Math.floor(amt / 2));
+      for (let k = 0; k < n; k++) {
+        const a = k * 2.1;
+        ctx.fillStyle = k % 2 ? "#d8c46a" : "#c2a94e";
+        ctx.beginPath();
+        ctx.arc(x + Math.cos(a) * 2.4, y + Math.sin(a) * 2.4, 2.1 + (k % 2) * 0.6, 0, 6.3);
+        ctx.fill();
+      }
+    }
+    // stored food pile in the nest
+    if (foodStore > 0) {
+      const x = nestC * CS + CS / 2 + 18, y = nestR * CS + CS / 2 - 6;
+      const n = Math.min(9, 1 + Math.floor(foodStore / 4));
+      for (let k = 0; k < n; k++) {
+        ctx.fillStyle = k % 2 ? "#e0cd74" : "#c9b055";
+        ctx.beginPath();
+        ctx.arc(x + (k % 3) * 3 - 3, y - Math.floor(k / 3) * 3, 2.3, 0, 6.3);
+        ctx.fill();
+      }
+    }
+  }
+
+  function drawAnt(a) {
+    const cc = col(a.cur), cr = row(a.cur);
+    const cn = col(a.next), rn = row(a.next);
+    const cx = cc * CS + CS / 2, cy = cr * CS + CS / 2;
+    const nx = cn * CS + CS / 2, ny = rn * CS + CS / 2;
+    const px = cx + (nx - cx) * a.t, py = cy + (ny - cy) * a.t;
+    if (nx !== cx || ny !== cy) a.ang = Math.atan2(ny - cy, nx - cx);
+
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.rotate(a.ang);
+    const s = CS / 11;
+
+    // legs (with a small walking wiggle)
+    const wig = Math.sin(time * 15 + a.ph) * 1.1;
+    ctx.strokeStyle = "rgba(50,26,8,0.8)";
+    ctx.lineWidth = 1;
+    for (let k = -1; k <= 1; k++) {
+      const lx = k * 2.1 * s;
+      ctx.beginPath(); ctx.moveTo(lx, -0.6 * s); ctx.lineTo(lx + wig * 0.5 * s, -3.6 * s); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(lx, 0.6 * s); ctx.lineTo(lx - wig * 0.5 * s, 3.6 * s); ctx.stroke();
+    }
+    // abdomen
+    ctx.fillStyle = a.state === "carry" ? "#c87728" : "#7d4b1d";
+    ctx.beginPath();
+    ctx.ellipse(-3 * s, 0, 3.2 * s, 2.4 * s, 0, 0, 6.3);
+    ctx.fill();
+    // thorax + head
+    ctx.fillStyle = "#8a5423";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 2 * s, 1.8 * s, 0, 0, 6.3);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(2.6 * s, 0, 1.6 * s, 0, 6.3);
+    ctx.fill();
+    // antennae
+    ctx.strokeStyle = "rgba(50,26,8,0.85)";
+    ctx.beginPath();
+    ctx.moveTo(3.2 * s, -0.8 * s); ctx.lineTo(5.6 * s, -2.6 * s);
+    ctx.moveTo(3.2 * s, 0.8 * s); ctx.lineTo(5.6 * s, 2.6 * s);
+    ctx.stroke();
+    // carried crumb
+    if (a.state === "carry") {
+      ctx.fillStyle = "#cfd86b";
+      ctx.beginPath();
+      ctx.arc(4.6 * s, 0, 2 * s, 0, 6.3);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawParticles() {
+    for (let k = 0; k < particles.length; k++) {
+      const p = particles[k];
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, 6.3);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(terrain, 0, 0);
+    drawPheromone();
+    drawFood();
+    for (let k = 0; k < ants.length; k++) drawAnt(ants[k]);
+    drawParticles();
+
+    if (paused && started) {
+      ctx.fillStyle = "rgba(10,6,3,0.6)";
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "#ffd27a";
+      ctx.textAlign = "center";
+      ctx.font = "bold 46px 'Trebuchet MS', sans-serif";
+      ctx.fillText("PAUSED", W / 2, H / 2);
+      ctx.font = "16px 'Trebuchet MS', sans-serif";
+      ctx.fillText("Press P or the Pause button to resume", W / 2, H / 2 + 34);
+    }
+    ctx.textAlign = "start";
+  }
+
+  // ============ UI SYNC ============
+  function colonyLevel(pop) { return Math.min(5, 1 + Math.floor(Math.max(0, pop - 3) / 4)); }
+  function hireCost() { return 8 + Math.max(0, ants.length - 3) * 4; }
+  function digCost() { return 15 * Math.pow(2, digLevel); }
+  function speedCost() { return 20 * Math.pow(2, speedLevel); }
+
+  function syncUI() {
+    const lvl = colonyLevel(ants.length);
+    uiFood.textContent = Math.floor(foodStore);
+    uiPop.textContent = ants.length;
+    uiLevel.textContent = lvl;
+    uiGoal.textContent = goalReached ? "Colony flourishing! 🎉" : "Goal: Colony Level 5 @ " + GOAL_POP + " ants";
+
+    checkGrowth(lvl);
+
+    costHire.textContent = hireCost();
+    costDig.textContent = digLevel >= MAX_DIG ? "MAX" : digCost();
+    costSpeed.textContent = speedLevel >= MAX_SPEED ? "MAX" : speedCost();
+
+    btnHire.disabled = foodStore < hireCost() || ants.length >= MAX_POP;
+    btnDig.disabled = digLevel >= MAX_DIG || foodStore < digCost();
+    btnSpeed.disabled = speedLevel >= MAX_SPEED || foodStore < speedCost();
+
+    btnDig.firstChild.textContent = "⛏️ Faster Digging ";
+    btnSpeed.firstChild.textContent = "⚡ Faster Ants ";
+  }
+
+  function checkGrowth(lvl) {
+    if (lvl > lastLevel) {
+      lastLevel = lvl;
+      toast("Colony reached Level " + lvl + "!");
+      beep(660, 0.09, "triangle");
+      setTimeout(function () { beep(880, 0.12, "triangle"); }, 110);
+    }
+    if (lvl >= 5 && !goalReached) {
+      goalReached = true;
+      toast("🎉 Colony flourishing — Level 5 reached!");
+      beep(523, 0.12, "sine");
+      setTimeout(function () { beep(659, 0.12, "sine"); }, 130);
+      setTimeout(function () { beep(784, 0.18, "sine"); }, 260);
+    }
+  }
+
+  // ============ UPGRADES ============
+  function buyHire() {
+    const c = hireCost();
+    if (ants.length >= MAX_POP) { toast("The farm is full!"); return; }
+    if (foodStore < c) { toast("Not enough food"); beep(190, 0.12, "sawtooth"); return; }
+    foodStore -= c;
+    spawnAnt();
+    toast("A new ant joins the colony");
+    beep(880, 0.1, "triangle");
+    syncUI();
+  }
+  function buyDig() {
+    if (digLevel >= MAX_DIG) { toast("Digging maxed out"); return; }
+    const c = digCost();
+    if (foodStore < c) { toast("Not enough food"); beep(190, 0.12, "sawtooth"); return; }
+    foodStore -= c; digLevel++;
+    toast("Digging upgraded to Level " + digLevel);
+    beep(700, 0.1, "triangle");
+    syncUI();
+  }
+  function buySpeed() {
+    if (speedLevel >= MAX_SPEED) { toast("Speed maxed out"); return; }
+    const c = speedCost();
+    if (foodStore < c) { toast("Not enough food"); beep(190, 0.12, "sawtooth"); return; }
+    foodStore -= c; speedLevel++;
+    toast("Ants move faster — Level " + speedLevel);
+    beep(820, 0.1, "triangle");
+    syncUI();
+  }
+
+  // ============ TOOLS ============
+  function setTool(t) {
+    tool = t;
+    toolDig.classList.toggle("active", t === "dig");
+    toolFood.classList.toggle("active", t === "food");
+    canvas.style.cursor = t === "dig" ? "crosshair" : "cell";
+  }
+
+  function placeFood(i) {
+    if (!isOpen(i)) { toast("Place food on a tunnel or the surface"); beep(190, 0.1, "sawtooth"); return; }
+    if (foodAt[i] > 0) { toast("Food is already here"); return; }
+    if (foodStore < FOOD_PLACE_COST) { toast("Need " + FOOD_PLACE_COST + " food to place food"); beep(190, 0.12, "sawtooth"); return; }
+    foodStore -= FOOD_PLACE_COST;
+    foodAt[i] = 6;
+    fieldsDirty = true;
+    beep(600, 0.08, "sine");
+    syncUI();
+  }
+
+  // ============ INPUT ============
+  function cellFromEvent(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (W / rect.width);
+    const y = (e.clientY - rect.top) * (H / rect.height);
+    const c = Math.floor(x / CS), r = Math.floor(y / CS);
+    if (c < 0 || c >= COLS || r < 0 || r >= ROWS) return -1;
+    return idx(c, r);
+  }
+
+  function onDown(e) {
+    if (!started || paused) return;
+    const i = cellFromEvent(e);
+    if (i < 0) return;
+    if (tool === "dig") { dragging = true; if (digBrush(col(i), row(i))) beep(150, 0.05, "triangle"); }
+    else placeFood(i);
+  }
+  function onMove(e) {
+    if (!dragging || !started || paused) return;
+    const i = cellFromEvent(e);
+    if (i < 0) return;
+    digBrush(col(i), row(i));
+  }
+  function onUp() { dragging = false; }
+
+  canvas.addEventListener("pointerdown", function (e) { e.preventDefault(); canvas.setPointerCapture(e.pointerId); onDown(e); });
+  canvas.addEventListener("pointermove", onMove);
+  canvas.addEventListener("pointerup", onUp);
+  canvas.addEventListener("pointercancel", onUp);
+  canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+  window.addEventListener("keydown", function (e) {
+    const k = e.key.toLowerCase();
+    if (e.code === "Space") { e.preventDefault(); togglePause(); return; }
+    if (k === "p" || e.key === "Escape") { e.preventDefault(); togglePause(); return; }
+    if (k === "r") { e.preventDefault(); restart(); return; }
+    if (k === "l") { setTool(tool === "dig" ? "food" : "dig"); return; }
+    if (k === "1") setTool("dig");
+    if (k === "2") setTool("food");
+  });
+
+  // ============ GAME CONTROL ============
+  function togglePause() {
+    if (!started) return;
+    paused = !paused;
+    btnPause.textContent = paused ? "▶️ Resume" : "⏸️ Pause";
+    beep(paused ? 420 : 620, 0.07, "triangle");
+  }
+
+  function restart() {
+    localStorage.removeItem(SAVE_KEY);
+    newColony();
+    rebuildFields();
+    buildTerrain();
+    saveAcc = 0;
+    paused = false;
+    btnPause.textContent = "⏸️ Pause";
+    overlay.classList.add("hidden");
+    started = true;
+    syncUI();
+    toast("Fresh colony started — dig some tunnels!");
+  }
+
+  btnHire.addEventListener("click", buyHire);
+  btnDig.addEventListener("click", buyDig);
+  btnSpeed.addEventListener("click", buySpeed);
+  toolDig.addEventListener("click", function () { setTool("dig"); });
+  toolFood.addEventListener("click", function () { setTool("food"); });
+  btnPause.addEventListener("click", togglePause);
+  btnRestart.addEventListener("click", restart);
+
+  startBtn.addEventListener("click", function () {
+    started = true;
+    paused = false;
+    overlay.classList.add("hidden");
+    btnPause.textContent = "⏸️ Pause";
+    try { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+    beep(660, 0.09, "triangle");
+    syncUI();
+  });
+
+  // ============ SAVE / LOAD ============
+  function save() {
+    try {
+      const dl = [], fl = [], sl = [];
+      for (let i = 0; i < N; i++) {
+        if (dug[i]) dl.push(i);
+        if (foodAt[i] > 0) fl.push(i + ":" + foodAt[i]);
+      }
+      seed.forEach(function (i) { sl.push(i); });
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        store: foodStore, ants: ants.length, antsBought: antsBought,
+        dig: digLevel, speed: speedLevel, goal: goalReached,
+        dug: dl, fl: fl, seed: sl
+      }));
+    } catch (e) { /* storage unavailable, ignore */ }
+  }
+
+  function load() {
+    let raw = null;
+    try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { return false; }
+    if (!raw) return false;
+    let d;
+    try { d = JSON.parse(raw); } catch (e) { return false; }
+    if (!d || !d.dug) return false;
+
+    allocGrids();
+    for (let k = 0; k < d.dug.length; k++) { const i = d.dug[k]; if (i >= 0 && i < N) dug[i] = 1; }
+    const seeds = d.seed || [];
+    for (let k = 0; k < seeds.length; k++) { const i = seeds[k]; if (i >= 0 && i < N) seed.add(i); }
+    const fl = d.fl || [];
+    for (let k = 0; k < fl.length; k++) {
+      const parts = String(fl[k]).split(":");
+      const i = parseInt(parts[0], 10), a = parseInt(parts[1], 10);
+      if (i >= 0 && i < N) foodAt[i] = Math.min(255, a || 1);
+    }
+    foodStore = d.store != null ? d.store : 15;
+    antsBought = d.antsBought || 0;
+    digLevel = Math.min(MAX_DIG, d.dig || 0);
+    speedLevel = Math.min(MAX_SPEED, d.speed || 0);
+    goalReached = !!d.goal;
+    lastLevel = colonyLevel(d.ants || 3);
+
+    ants = [];
+    const pop = Math.max(1, Math.min(MAX_POP, d.ants || 3));
+    for (let k = 0; k < pop; k++) spawnAnt();
+
+    rebuildFields();
+    buildTerrain();
+    return true;
+  }
+
+  // ============ MAIN LOOP ============
+  function frame(now) {
+    const dt = Math.min(0.05, (now - lastTime) / 1000 || 0);
+    lastTime = now;
+
+    if (terrainDirty) buildTerrain();
+    if (fieldsDirty) rebuildFields();
+    if (started && !paused) simulate(dt);
+    render();
+
+    uiAcc += dt;
+    if (uiAcc > 0.2) { uiAcc = 0; syncUI(); }
+    if (started) {
+      saveAcc += dt;
+      if (saveAcc > 3) { saveAcc = 0; save(); }
+    }
+    raf = requestAnimationFrame(frame);
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      if (started) save();
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+    } else if (!raf) {
+      lastTime = performance.now();
+      raf = requestAnimationFrame(frame);
+    }
+  });
+  window.addEventListener("beforeunload", function () { if (started) save(); });
+
+  // ============ BOOT ============
+  (function init() {
+    const restored = load();
+    if (!restored) {
+      newColony();
+      rebuildFields();
+      buildTerrain();
+    }
+    setTool("dig");
+    syncUI();
+    overlay.classList.remove("hidden");
+    startBtn.textContent = restored ? "Resume Colony" : "Dig In";
+    lastTime = performance.now();
+    raf = requestAnimationFrame(frame);
+  })();
+})();
+</script>
+</body>
+</html>

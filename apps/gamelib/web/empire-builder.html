@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Empire Builder</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: #10161f;
+    color: #e8eef6;
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body { display: flex; justify-content: center; padding: 10px; }
+
+  /* ============ APP SHELL ============ */
+  #app {
+    width: min(96vw, 1180px);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* ============ HUD ============ */
+  #hud {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    background: linear-gradient(180deg, #1c2634, #151d28);
+    border: 1px solid #2c3a4d;
+    border-radius: 10px;
+    padding: 10px 14px;
+    box-shadow: 0 6px 18px rgba(0,0,0,.4);
+  }
+  #brand {
+    font-size: 20px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    color: #f4c542;
+    text-shadow: 0 2px 0 #000;
+    margin-right: 6px;
+  }
+  .stat {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 14px;
+    font-weight: bold;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: #0e141c;
+    border: 1px solid #2c3a4d;
+  }
+  .stat .ic { font-size: 15px; }
+  .stat.food { color: #8fe388; }
+  .stat.wood { color: #e0b878; }
+  .stat.gold { color: #f4d35e; }
+  .stat.sci  { color: #7ec8ff; }
+  .stat.turn { color: #ffd6a0; }
+  .stat.army { color: #ff9a9a; }
+  #hud .spacer { flex: 1; }
+
+  /* ============ STAGE ============ */
+  #stage {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+  }
+  #map-wrap {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid #2c3a4d;
+    background: #0b1017;
+    box-shadow: 0 6px 18px rgba(0,0,0,.4);
+  }
+  canvas { display: block; width: 100%; height: auto; cursor: pointer; }
+
+  /* ============ PANEL ============ */
+  #panel {
+    flex: 0 0 268px;
+    max-width: 268px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+    max-height: 78vh;
+  }
+  .card {
+    background: linear-gradient(180deg, #1a232f, #141b25);
+    border: 1px solid #2c3a4d;
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .card h3 {
+    font-size: 14px;
+    letter-spacing: 1px;
+    color: #f4c542;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+  .card p { font-size: 12.5px; line-height: 1.5; color: #a9b7c8; }
+  .card .muted { color: #6f7f92; font-size: 11.5px; }
+  .row { display: flex; justify-content: space-between; font-size: 12.5px; padding: 2px 0; }
+  .row span:last-child { color: #e8eef6; font-weight: bold; }
+  .row span:first-child { color: #8b9aac; }
+
+  .btn {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    padding: 8px 10px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: bold;
+    color: #10161f;
+    background: linear-gradient(180deg, #f4c542, #d9a520);
+    border: none;
+    border-radius: 7px;
+    cursor: pointer;
+    box-shadow: 0 3px 0 #8a6a12;
+    transition: transform .05s ease, filter .15s ease;
+    text-align: left;
+  }
+  .btn:hover:not(:disabled) { filter: brightness(1.08); }
+  .btn:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 #8a6a12; }
+  .btn:disabled { filter: grayscale(.7) brightness(.6); cursor: not-allowed; box-shadow: 0 3px 0 #3a3a3a; }
+  .btn .cost { float: right; font-weight: normal; opacity: .85; }
+  .btn.small { font-size: 12px; padding: 6px 9px; }
+  .btn.atk { background: linear-gradient(180deg, #ff8a7a, #d64b3a); color: #fff; box-shadow: 0 3px 0 #7a2418; }
+  .btn.found { background: linear-gradient(180deg, #7ade84, #3aa548); color: #0c1a0e; box-shadow: 0 3px 0 #1c5c25; }
+  .btn.tech { background: linear-gradient(180deg, #8fd0ff, #3a8fd6); color: #06121c; box-shadow: 0 3px 0 #144a72; }
+  .btn.ghost { background: #26303d; color: #cdd8e6; box-shadow: 0 3px 0 #10161f; }
+
+  /* ============ CONTROLS ============ */
+  #controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+  }
+  #controls button {
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    padding: 11px 26px;
+    border: none;
+    border-radius: 9px;
+    cursor: pointer;
+    user-select: none;
+    color: #0c1a0e;
+    background: linear-gradient(180deg, #7ade84, #3aa548);
+    box-shadow: 0 4px 0 #1c5c25;
+    transition: transform .05s ease, filter .15s ease;
+  }
+  #controls button:hover { filter: brightness(1.08); }
+  #controls button:active { transform: translateY(2px); box-shadow: 0 2px 0 #1c5c25; }
+  #controls #btn-restart { background: linear-gradient(180deg, #ff8a7a, #d64b3a); color: #fff; box-shadow: 0 4px 0 #7a2418; }
+  #controls #btn-research-toggle { background: linear-gradient(180deg, #8fd0ff, #3a8fd6); color: #06121c; box-shadow: 0 4px 0 #144a72; }
+
+  /* ============ TOAST ============ */
+  #toast {
+    position: absolute;
+    left: 50%;
+    bottom: 12px;
+    transform: translateX(-50%);
+    max-width: 92%;
+    padding: 7px 16px;
+    border-radius: 20px;
+    background: rgba(8,12,18,.85);
+    border: 1px solid #3a4a5e;
+    color: #ffe6a0;
+    font-size: 13px;
+    opacity: 0;
+    transition: opacity .25s ease;
+    pointer-events: none;
+    text-align: center;
+  }
+  #toast.show { opacity: 1; }
+
+  /* ============ OVERLAY ============ */
+  #overlay {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(circle at 50% 40%, #1b2836, #070b10 80%);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 24px;
+    z-index: 20;
+  }
+  #overlay.hidden { display: none; }
+  #overlay h1 {
+    font-size: clamp(30px, 7vw, 58px);
+    letter-spacing: 4px;
+    color: #f4c542;
+    text-shadow: 0 4px 0 #000, 0 0 30px rgba(244,197,66,.35);
+    margin-bottom: 10px;
+  }
+  #overlay p {
+    max-width: 620px;
+    color: #a9b7c8;
+    font-size: 15px;
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+  #overlay .legend { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; margin-bottom: 22px; font-size: 13px; color: #cdd8e6; }
+  #overlay .legend b { display: inline-block; width: 16px; height: 16px; border-radius: 4px; vertical-align: -3px; margin-right: 5px; }
+  #overlay-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  #overlay-actions button {
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    padding: 13px 30px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    color: #0c1a0e;
+    background: linear-gradient(180deg, #7ade84, #3aa548);
+    box-shadow: 0 5px 0 #1c5c25;
+  }
+  #overlay-actions button.secondary { background: linear-gradient(180deg, #8fd0ff, #3a8fd6); color: #06121c; box-shadow: 0 5px 0 #144a72; }
+  #overlay-actions button:active { transform: translateY(2px); }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 860px) {
+    #stage { flex-direction: column; }
+    #panel { flex: 1 1 auto; max-width: none; max-height: none; }
+    #brand { font-size: 16px; }
+    .stat { font-size: 12.5px; padding: 3px 8px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ============ HUD ============ -->
+  <div id="hud">
+    <div id="brand">EMPIRE BUILDER</div>
+    <div class="stat food"><span class="ic">&#127806;</span>Food <span id="hud-food">0</span></div>
+    <div class="stat wood"><span class="ic">&#129717;</span>Wood <span id="hud-wood">0</span></div>
+    <div class="stat gold"><span class="ic">&#129689;</span>Gold <span id="hud-gold">0</span></div>
+    <div class="stat sci"><span class="ic">&#128300;</span>Science <span id="hud-sci">0</span></div>
+    <div class="stat army"><span class="ic">&#9876;</span>Armies <span id="hud-army">0</span></div>
+    <div class="spacer"></div>
+    <div class="stat turn"><span class="ic">&#9203;</span>Turn <span id="hud-turn">1</span></div>
+    <div class="stat"><span class="ic">&#127963;</span>Cities <span id="hud-cities">1</span></div>
+  </div>
+
+  <!-- ============ STAGE ============ -->
+  <div id="stage">
+    <div id="map-wrap">
+      <canvas id="game" width="748" height="476"></canvas>
+      <div id="toast"></div>
+    </div>
+    <aside id="panel">
+      <div class="card" id="selInfo"></div>
+      <div class="card" id="research"></div>
+    </aside>
+  </div>
+
+  <!-- ============ CONTROLS ============ -->
+  <div id="controls">
+    <button id="btn-endturn" type="button">End Turn &#9203;</button>
+    <button id="btn-research-toggle" type="button">Research &#128300;</button>
+    <button id="btn-restart" type="button">New Game</button>
+  </div>
+</div>
+
+<!-- ============ OVERLAY ============ -->
+<div id="overlay">
+  <h1 id="ov-title">EMPIRE BUILDER</h1>
+  <p id="ov-text">
+    Grow a civilization from a single city. Harvest food, wood and gold,
+    raise buildings, research technology, settle new lands and conquer rival empires.
+    Win by taking every rival capital, or by leading the score when the age ends.
+  </p>
+  <div class="legend">
+    <span><b style="background:#7db24a"></b>Plains &middot; +food</span>
+    <span><b style="background:#3f7a35"></b>Forest &middot; +wood</span>
+    <span><b style="background:#a8894f"></b>Hills &middot; +gold</span>
+    <span><b style="background:#2a4d6e"></b>Water &middot; blocked</span>
+  </div>
+  <div id="overlay-actions">
+    <button id="ov-continue" type="button" class="secondary" style="display:none">Continue</button>
+    <button id="ov-start" type="button">New Empire</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONFIGURATION ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const COLS = 22, ROWS = 14, TILE = 34;
+  const W = COLS * TILE, H = ROWS * TILE;   // 748 x 476
+  const WATER = 0, PLAINS = 1, FOREST = 2, HILLS = 3;
+  const TURN_LIMIT = 80;
+
+  const START_RES = { food: 34, wood: 34, gold: 24, science: 0 };
+  const FOUND_COST = { food: 25, wood: 25, gold: 10 };
+
+  // Building definitions: base cost scaled by (level + 1). Cap level = 3.
+  const BUILDINGS = {
+    farm:     { name: "Farm",       cost: { wood: 15 } },
+    lumber:   { name: "Lumber Mill",cost: { wood: 15, gold: 10 } },
+    market:   { name: "Market",     cost: { wood: 20, gold: 15 } },
+    barracks: { name: "Barracks",   cost: { wood: 20, gold: 20 } },
+    walls:    { name: "Walls",      cost: { wood: 25, gold: 15 } },
+    library:  { name: "Library",    cost: { wood: 30, gold: 10 } }
+  };
+  const BUILD_ORDER = ["farm", "lumber", "market", "barracks", "walls", "library"];
+  const MAX_LEVEL = 3;
+
+  // Technology tree.
+  const TECHS = [
+    { id: "agri",    name: "Agriculture",   cost: 40,  desc: "+2 food per city" },
+    { id: "forestry",name: "Forestry",      cost: 60,  desc: "+2 wood per city" },
+    { id: "mining",  name: "Mining",        cost: 60,  desc: "+2 gold per city" },
+    { id: "mason",   name: "Masonry",       cost: 90,  desc: "+15 city HP, cheaper builds" },
+    { id: "civil",   name: "Civil Service", cost: 110, desc: "+1 science, faster growth" },
+    { id: "metal",   name: "Metallurgy",    cost: 130, desc: "+2 army regen per city" },
+    { id: "bank",    name: "Banking",       cost: 150, desc: "+3 gold per city" },
+    { id: "logi",    name: "Logistics",     cost: 185, desc: "+2 food and wood per city" }
+  ];
+
+  // Empire roster. Player is always index 0.
+  const EMPIRE_DEFS = [
+    { name: "Azure Empire (You)", color: "#4aa3ff", dark: "#1c5c99", isAI: false, home: { x: 4,  y: 7 } },
+    { name: "Crimson Horde",      color: "#ff5a5a", dark: "#8f2222", isAI: true,  home: { x: 17, y: 6 } },
+    { name: "Verdant League",     color: "#57d36a", dark: "#226b2c", isAI: true,  home: { x: 11, y: 1 } },
+    { name: "Amber Dominion",     color: "#f2a341", dark: "#8a5210", isAI: true,  home: { x: 11, y: 12 } }
+  ];
+  const PLAYER = 0;
+  const SAVE_KEY = "empireBuilderSaveV1";
+
+  // ============ STATE ============
+  let tiles = [];          // { terrain }
+  let cities = [];         // { x, y, owner, name, pop, growth, army, hp, b:{...} }
+  let empires = [];        // dynamic per-empire data
+  let turn = 1;
+  let over = false;
+  let winner = -1;
+  let selected = null;     // { x, y }
+  let cityMap = {};        // "x,y" -> city
+  let toastTimer = null;
+
+  // ============ DOM ============
+  const selInfo = document.getElementById("selInfo");
+  const researchEl = document.getElementById("research");
+  const overlay = document.getElementById("overlay");
+  const ovTitle = document.getElementById("ov-title");
+  const ovText = document.getElementById("ov-text");
+  const ovStart = document.getElementById("ov-start");
+  const ovContinue = document.getElementById("ov-continue");
+  const toastEl = document.getElementById("toast");
+  const hudFood = document.getElementById("hud-food");
+  const hudWood = document.getElementById("hud-wood");
+  const hudGold = document.getElementById("hud-gold");
+  const hudSci = document.getElementById("hud-sci");
+  const hudArmy = document.getElementById("hud-army");
+  const hudTurn = document.getElementById("hud-turn");
+  const hudCities = document.getElementById("hud-cities");
+
+  // ============ SOUND (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "triangle";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.06, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+
+  // ============ UTILITIES ============
+  function idx(x, y) { return y * COLS + x; }
+  function inBounds(x, y) { return x >= 0 && y >= 0 && x < COLS && y < ROWS; }
+  function manhattan(a, b) { return Math.abs(a.x - b.x) + Math.abs(a.y - b.y); }
+  function cityAt(x, y) { return cityMap[x + "," + y] || null; }
+  function hasTech(emp, id) { return empires[emp].techs.indexOf(id) !== -1; }
+  function aliveEmpires() {
+    const list = [];
+    for (let i = 0; i < empires.length; i++) if (empires[i].alive) list.push(i);
+    return list;
+  }
+  function empireCities(i) { return cities.filter(function (c) { return c.owner === i; }); }
+  function clampRes(e) {
+    e.res.food = Math.max(0, Math.floor(e.res.food));
+    e.res.wood = Math.max(0, Math.floor(e.res.wood));
+    e.res.gold = Math.max(0, Math.floor(e.res.gold));
+    e.res.science = Math.max(0, Math.floor(e.res.science));
+  }
+
+  function canAfford(emp, cost) {
+    const r = empires[emp].res;
+    const keys = Object.keys(cost);
+    for (let i = 0; i < keys.length; i++) if (r[keys[i]] < cost[keys[i]]) return false;
+    return true;
+  }
+  function pay(emp, cost) {
+    const r = empires[emp].res;
+    const keys = Object.keys(cost);
+    for (let i = 0; i < keys.length; i++) r[keys[i]] -= cost[keys[i]];
+    clampRes(empires[emp]);
+  }
+  function costLabel(cost) {
+    const parts = [];
+    if (cost.food) parts.push(cost.food + "F");
+    if (cost.wood) parts.push(cost.wood + "W");
+    if (cost.gold) parts.push(cost.gold + "G");
+    return parts.join(" ");
+  }
+  function scaleCost(cost, mult) {
+    const out = {};
+    const keys = Object.keys(cost);
+    for (let i = 0; i < keys.length; i++) out[keys[i]] = Math.round(cost[keys[i]] * mult);
+    return out;
+  }
+  function buildCost(emp, type, level) {
+    let c = scaleCost(BUILDINGS[type].cost, level + 1);
+    if (hasTech(emp, "mason")) c = scaleCost(c, 0.8);
+    return c;
+  }
+
+  // ============ MAP GENERATION ============
+  function generateMap() {
+    tiles = new Array(COLS * ROWS);
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const r = Math.random();
+        let t;
+        if (r < 0.13) t = WATER;
+        else if (r < 0.36) t = FOREST;
+        else if (r < 0.51) t = HILLS;
+        else t = PLAINS;
+        tiles[idx(x, y)] = { terrain: t };
+      }
+    }
+    // Guarantee land at every empire home (and keep neighbours walkable).
+    for (let i = 0; i < EMPIRE_DEFS.length; i++) {
+      const h = EMPIRE_DEFS[i].home;
+      const t = tiles[idx(h.x, h.y)];
+      if (t.terrain === WATER) t.terrain = PLAINS;
+      const dirsPos = [[1,0],[-1,0],[0,1],[0,-1]];
+      for (let d = 0; d < dirsPos.length; d++) {
+        const nx = h.x + dirsPos[d][0], ny = h.y + dirsPos[d][1];
+        if (inBounds(nx, ny) && tiles[idx(nx, ny)].terrain === WATER) {
+          tiles[idx(nx, ny)].terrain = PLAINS;
+        }
+      }
+    }
+  }
+
+  // ============ SETUP / NEW GAME ============
+  function newGame() {
+    generateMap();
+    cities = [];
+    empires = EMPIRE_DEFS.map(function (d) {
+      return {
+        name: d.name, color: d.color, dark: d.dark, isAI: d.isAI,
+        alive: true, techs: [],
+        res: { food: START_RES.food, wood: START_RES.wood, gold: START_RES.gold, science: START_RES.science }
+      };
+    });
+    // Starting capitals.
+    for (let i = 0; i < EMPIRE_DEFS.length; i++) {
+      const h = EMPIRE_DEFS[i].home;
+      cities.push(makeCity(h.x, h.y, i, "Capital"));
+    }
+    turn = 1;
+    over = false;
+    winner = -1;
+    selected = null;
+    rebuildCityMap();
+    recomputeTerritory();
+    updateAll();
+    beep(520, 0.12, "triangle");
+  }
+
+  function makeCity(x, y, owner, tag) {
+    return {
+      x: x, y: y, owner: owner, tag: tag || "City",
+      pop: 3, growth: 0, army: 8, hp: 40,
+      b: { farm: 0, lumber: 0, market: 0, barracks: 0, walls: 0, library: 0 }
+    };
+  }
+
+  function rebuildCityMap() {
+    cityMap = {};
+    for (let i = 0; i < cities.length; i++) cityMap[cities[i].x + "," + cities[i].y] = cities[i];
+  }
+
+  // ============ TERRITORY ============
+  function recomputeTerritory() {
+    for (let i = 0; i < tiles.length; i++) tiles[i].owner = -1;
+    for (let i = 0; i < cities.length; i++) {
+      const c = cities[i];
+      if (tiles[idx(c.x, c.y)].terrain !== WATER) tiles[idx(c.x, c.y)].owner = c.owner;
+    }
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const t = tiles[idx(x, y)];
+        if (t.terrain === WATER || t.owner !== -1) continue;
+        let best = null, bestD = 99;
+        for (let i = 0; i < cities.length; i++) {
+          const c = cities[i];
+          const d = manhattan({ x: x, y: y }, c);
+          if (d <= 2 && d < bestD) { bestD = d; best = c; }
+        }
+        if (best) t.owner = best.owner;
+      }
+    }
+  }
+
+  // ============ PRODUCTION ============
+  function cityYield(c) {
+    const e = c.owner;
+    const t = tiles[idx(c.x, c.y)];
+    let food = 4 + Math.floor(c.pop / 2);
+    let wood = 2 + Math.floor(c.pop / 2);
+    let gold = 2 + Math.floor(c.pop / 2);
+    let sci = 1 + c.pop * 0.25;
+    food += c.b.farm * 3;
+    wood += c.b.lumber * 3;
+    gold += c.b.market * 3;
+    sci += c.b.library * 2;
+    if (t.terrain === PLAINS) food += 1;
+    if (t.terrain === FOREST) wood += 1;
+    if (t.terrain === HILLS) gold += 1;
+    if (hasTech(e, "agri")) food += 2;
+    if (hasTech(e, "forestry")) wood += 2;
+    if (hasTech(e, "mining")) gold += 2;
+    if (hasTech(e, "bank")) gold += 3;
+    if (hasTech(e, "logi")) { food += 2; wood += 2; }
+    if (hasTech(e, "civil")) sci += 1;
+    return { food: food, wood: wood, gold: gold, sci: sci };
+  }
+
+  function maxArmy(c) {
+    return 12 + c.b.barracks * 8 + (hasTech(c.owner, "metal") ? 6 : 0);
+  }
+  function baseHp(owner) {
+    return 40 + (hasTech(owner, "mason") ? 15 : 0);
+  }
+  function armyRegen(c) {
+    return 1 + c.b.barracks * 2 + (hasTech(c.owner, "metal") ? 2 : 0);
+  }
+
+  // Collection pass for one empire; also handles growth and army regen.
+  function collectFor(emp) {
+    const e = empires[emp];
+    if (!e.alive) return { food: 0, wood: 0, gold: 0, sci: 0 };
+    let tf = 0, tw = 0, tg = 0, ts = 0;
+    const list = empireCities(emp);
+    for (let i = 0; i < list.length; i++) {
+      const c = list[i];
+      const y = cityYield(c);
+      tf += y.food; tw += y.wood; tg += y.gold; ts += y.sci;
+      // army regen
+      c.army = Math.min(maxArmy(c), c.army + armyRegen(c));
+      // population growth from surplus food
+      const surplus = y.food - c.pop;
+      const need = 8 + c.pop * 3;
+      if (surplus > 0) {
+        c.growth += surplus;
+        if (c.growth >= need) { c.growth = 0; c.pop += 1; }
+      } else {
+        c.growth = Math.max(0, c.growth + surplus);
+      }
+      c.hp = Math.max(c.hp, baseHp(emp)); // walls never drop below base after healing
+    }
+    e.res.food += tf;
+    e.res.wood += tw;
+    e.res.gold += tg;
+    e.res.science += ts;
+    clampRes(e);
+    return { food: tf, wood: tw, gold: tg, sci: ts };
+  }
+
+  // ============ ACTIONS ============
+  function foundableTile(x, y) {
+    if (!inBounds(x, y)) return false;
+    const t = tiles[idx(x, y)];
+    if (t.terrain === WATER) return false;
+    if (t.owner !== PLAYER) return false;
+    if (cityAt(x, y)) return false;
+    for (let i = 0; i < cities.length; i++) {
+      if (manhattan({ x: x, y: y }, cities[i]) < 2) return false;
+    }
+    return true;
+  }
+
+  function targetableCities(emp) {
+    const out = [];
+    for (let i = 0; i < cities.length; i++) {
+      const c = cities[i];
+      if (c.owner === emp || !empires[c.owner].alive) continue;
+      const dirsPos = [[1,0],[-1,0],[0,1],[0,-1]];
+      for (let d = 0; d < dirsPos.length; d++) {
+        const nx = c.x + dirsPos[d][0], ny = c.y + dirsPos[d][1];
+        if (inBounds(nx, ny) && tiles[idx(nx, ny)].owner === emp) { out.push(c); break; }
+      }
+    }
+    return out;
+  }
+
+  function doFound(x, y) {
+    if (over) return;
+    if (!foundableTile(x, y)) { toast("You cannot settle there."); return; }
+    if (!canAfford(PLAYER, FOUND_COST)) { toast("Not enough resources to settle."); beep(180, 0.15, "sawtooth"); return; }
+    pay(PLAYER, FOUND_COST);
+    cities.push(makeCity(x, y, PLAYER, "Settlement"));
+    rebuildCityMap();
+    recomputeTerritory();
+    selected = { x: x, y: y };
+    beep(700, 0.12, "sine");
+    toast("New settlement founded!");
+    save();
+    updateAll();
+  }
+
+  function doBuild(city, type) {
+    if (over) return;
+    if (city.owner !== PLAYER) return;
+    const level = city.b[type];
+    if (level >= MAX_LEVEL) { toast("Already at maximum level."); return; }
+    const cost = buildCost(PLAYER, type, level);
+    if (!canAfford(PLAYER, cost)) { toast("Not enough resources."); beep(180, 0.15, "sawtooth"); return; }
+    pay(PLAYER, cost);
+    city.b[type] = level + 1;
+    if (type === "walls") city.hp = baseHp(PLAYER) + city.b.walls * 20;
+    beep(620, 0.1, "square");
+    toast(BUILDINGS[type].name + " built (Lv " + city.b[type] + ").");
+    save();
+    updateAll();
+  }
+
+  function doResearch(id) {
+    if (over) return;
+    const t = TECHS.filter(function (x) { return x.id === id; })[0];
+    if (!t) return;
+    if (hasTech(PLAYER, id)) return;
+    if (empires[PLAYER].res.science < t.cost) { toast("Not enough science."); beep(180, 0.15, "sawtooth"); return; }
+    empires[PLAYER].res.science -= t.cost;
+    empires[PLAYER].techs.push(id);
+    beep(900, 0.14, "sine");
+    toast("Researched " + t.name + "!");
+    save();
+    updateAll();
+  }
+
+  // ============ COMBAT ============
+  function attack(fromCity, target) {
+    if (over) return;
+    if (fromCity.owner !== PLAYER) return;
+    if (fromCity.army < 2) { toast("Need at least 2 soldiers to attack."); beep(180, 0.15, "sawtooth"); return; }
+    resolveBattle(fromCity, target);
+    save();
+    updateAll();
+    checkEnd();
+  }
+
+  function resolveBattle(fromCity, target) {
+    const atkPower = fromCity.army * (1 + Math.random() * 0.35);
+    let defBonus = target.hp * 0.35;
+    if (hasTech(target.owner, "mason")) defBonus += 8;
+    const defPower = target.army + defBonus;
+    const attackerName = empires[fromCity.owner].name;
+    if (atkPower > defPower) {
+      // Capture
+      const left = Math.max(3, Math.floor(atkPower - defPower));
+      fromCity.army = Math.min(maxArmy(fromCity), left);
+      const defeatedEmpire = target.owner;
+      target.owner = fromCity.owner;
+      target.army = Math.max(2, Math.floor(fromCity.army * 0.5));
+      target.hp = baseHp(target.owner);
+      target.pop = Math.max(1, Math.floor(target.pop * 0.7));
+      target.tag = "Conquered";
+      target.b.barracks = Math.min(target.b.barracks, 1);
+      target.b.walls = 0;
+      recomputeTerritory();
+      beep(240, 0.28, "sawtooth");
+      toast(attackerName + " conquered a city!");
+      // eliminate empire if it has no cities left
+      if (empireCities(defeatedEmpire).length === 0) {
+        empires[defeatedEmpire].alive = false;
+        toast(empires[defeatedEmpire].name + " has fallen!");
+      }
+    } else {
+      // Repelled
+      fromCity.army = Math.max(1, Math.floor(fromCity.army * 0.35));
+      target.army = Math.max(1, Math.floor(target.army * 0.6));
+      beep(150, 0.22, "square");
+      toast(attackerName + "'s assault was repelled.");
+    }
+  }
+
+  // ============ AI ============
+  function aiTurn(emp) {
+    const e = empires[emp];
+    if (!e.alive) return;
+    const list = empireCities(emp);
+
+    // Research the cheapest affordable technology.
+    const avail = TECHS.filter(function (t) { return !hasTech(emp, t.id); })
+      .sort(function (a, b) { return a.cost - b.cost; });
+    if (avail.length) {
+      let best = avail[0];
+      // prefer economy first for a more believable opponent
+      for (let i = 0; i < avail.length; i++) {
+        if (["agri", "mining", "forestry"].indexOf(avail[i].id) !== -1 && e.res.science >= avail[i].cost) { best = avail[i]; break; }
+      }
+      if (e.res.science >= best.cost) {
+        e.res.science -= best.cost;
+        e.techs.push(best.id);
+      }
+    }
+
+    // Build in each city (max one building per city per turn).
+    for (let i = 0; i < list.length; i++) {
+      const c = list[i];
+      const order = ["farm", "lumber", "market", "library", "barracks", "walls"];
+      for (let k = 0; k < order.length; k++) {
+        const type = order[k];
+        if (c.b[type] >= MAX_LEVEL) continue;
+        const cost = buildCost(emp, type, c.b[type]);
+        // keep a small reserve so the AI still expands
+        if (canAfford(emp, cost) && e.res.food > 20 && e.res.wood > 20) {
+          pay(emp, cost);
+          c.b[type] += 1;
+          if (type === "walls") c.hp = baseHp(emp) + c.b.walls * 20;
+          break;
+        }
+      }
+    }
+
+    // Attempt to expand by settling.
+    if (e.res.food >= 45 && e.res.wood >= 45 && e.res.gold >= 30) {
+      const spot = pickFoundSpot(emp);
+      if (spot) {
+        pay(emp, FOUND_COST);
+        cities.push(makeCity(spot.x, spot.y, emp, "Settlement"));
+        rebuildCityMap();
+        recomputeTerritory();
+      }
+    }
+
+    // Attack: strongest city strikes an adjacent enemy city.
+    list.sort(function (a, b) { return b.army - a.army; });
+    for (let i = 0; i < list.length; i++) {
+      const c = list[i];
+      if (c.army < 10) continue;
+      const targets = targetableCities(emp);
+      if (!targets.length) break;
+      targets.sort(function (a, b) { return a.army - b.army; });
+      const t = targets[0];
+      const estAtk = c.army * 1.05;
+      const estDef = t.army + t.hp * 0.35 + (hasTech(t.owner, "mason") ? 8 : 0);
+      if (estAtk > estDef) {
+        resolveBattle(c, t);
+      }
+      break;
+    }
+  }
+
+  function pickFoundSpot(emp) {
+    const candidates = [];
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const t = tiles[idx(x, y)];
+        if (t.terrain === WATER) continue;
+        if (t.owner !== emp) continue;
+        if (cityAt(x, y)) continue;
+        let ok = true;
+        for (let i = 0; i < cities.length; i++) {
+          if (manhattan({ x: x, y: y }, cities[i]) < 2) { ok = false; break; }
+        }
+        if (ok) candidates.push({ x: x, y: y });
+      }
+    }
+    if (!candidates.length) return null;
+    return candidates[Math.floor(Math.random() * candidates.length)];
+  }
+
+  // ============ TURN FLOW ============
+  function endTurn() {
+    if (over) return;
+    // Player production.
+    collectFor(PLAYER);
+    // AI turns.
+    for (let i = 1; i < empires.length; i++) aiTurn(i);
+    // AI production is collected next round; keep it simple: collect for AI now.
+    for (let i = 1; i < empires.length; i++) collectFor(i);
+    turn += 1;
+    recomputeTerritory();
+    beep(440, 0.1, "triangle");
+    checkEnd();
+    save();
+    updateAll();
+  }
+
+  function scoreOf(emp) {
+    const list = empireCities(emp);
+    let pop = 0, army = 0;
+    for (let i = 0; i < list.length; i++) { pop += list[i].pop; army += list[i].army; }
+    const r = empires[emp].res;
+    return list.length * 100 + pop * 15 + empires[emp].techs.length * 50 + army * 4 +
+      Math.floor((r.food + r.wood + r.gold) / 10);
+  }
+
+  function checkEnd() {
+    if (over) return;
+    // Defeat: player has no cities.
+    if (empireCities(PLAYER).length === 0) { finish(-2); return; }
+    // Victory: no rivals remain.
+    const alive = aliveEmpires();
+    if (alive.length === 1 && alive[0] === PLAYER) { finish(PLAYER); return; }
+    // Turn limit: highest score wins.
+    if (turn > TURN_LIMIT) {
+      let best = -1, bestScore = -1;
+      for (let i = 0; i < empires.length; i++) {
+        if (!empires[i].alive) continue;
+        const s = scoreOf(i);
+        if (s > bestScore) { bestScore = s; best = i; }
+      }
+      finish(best);
+    }
+  }
+
+  function finish(w) {
+    over = true;
+    winner = w;
+    let title, text;
+    if (w === PLAYER) { title = "VICTORY"; beep(880, 0.2, "sine"); }
+    else if (w === -2) { title = "DEFEAT"; beep(120, 0.3, "sawtooth"); }
+    else { title = "AGE ENDS"; beep(520, 0.2, "triangle"); }
+    if (w === -2) {
+      text = "Your last city has fallen. The empire is no more.<br>Your score: " + scoreOf(PLAYER);
+    } else {
+      const rows = [];
+      for (let i = 0; i < empires.length; i++) {
+        rows.push(empires[i].name + " &mdash; " + scoreOf(i) + " pts" + (i === winner ? " &#127942;" : ""));
+      }
+      text = (w === PLAYER ? "You lead the known world!" : empires[w].name + " leads the known world.") +
+        "<br><br>" + rows.join("<br>") + "<br><br>Turn reached: " + Math.min(turn, TURN_LIMIT);
+    }
+    ovTitle.innerHTML = title;
+    ovText.innerHTML = text;
+    ovContinue.style.display = "none";
+    ovStart.textContent = "Play Again";
+    overlay.classList.remove("hidden");
+    save();
+    updateAll();
+  }
+
+  // ============ SAVE / LOAD ============
+  function save() {
+    try {
+      const data = {
+        v: 1, turn: turn, over: over, winner: winner,
+        terrain: tiles.map(function (t) { return t.terrain; }),
+        cities: cities.map(function (c) {
+          return { x: c.x, y: c.y, owner: c.owner, tag: c.tag, pop: c.pop, growth: c.growth, army: c.army, hp: c.hp, b: c.b };
+        }),
+        empires: empires.map(function (e) {
+          return { alive: e.alive, techs: e.techs.slice(), res: e.res };
+        })
+      };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    } catch (err) { /* storage full or blocked */ }
+  }
+
+  function loadSave() {
+    let raw;
+    try { raw = localStorage.getItem(SAVE_KEY); } catch (err) { raw = null; }
+    if (!raw) return null;
+    try {
+      const d = JSON.parse(raw);
+      if (!d || d.v !== 1 || !d.terrain || d.terrain.length !== COLS * ROWS) return null;
+      return d;
+    } catch (err) { return null; }
+  }
+
+  function applySave(d) {
+    tiles = d.terrain.map(function (t) { return { terrain: t }; });
+    cities = d.cities.map(function (c) {
+      return { x: c.x, y: c.y, owner: c.owner, tag: c.tag, pop: c.pop, growth: c.growth, army: c.army, hp: c.hp, b: c.b };
+    });
+    empires = EMPIRE_DEFS.map(function (def, i) {
+      const s = d.empires[i] || {};
+      return {
+        name: def.name, color: def.color, dark: def.dark, isAI: def.isAI,
+        alive: s.alive !== undefined ? s.alive : true,
+        techs: s.techs ? s.techs.slice() : [],
+        res: s.res || { food: START_RES.food, wood: START_RES.wood, gold: START_RES.gold, science: 0 }
+      };
+    });
+    turn = d.turn || 1;
+    over = !!d.over;
+    winner = d.winner !== undefined ? d.winner : -1;
+    selected = null;
+    rebuildCityMap();
+    recomputeTerritory();
+    updateAll();
+  }
+
+  function hasSave() { return !!loadSave(); }
+
+  // ============ TOAST ============
+  function toast(msg) {
+    toastEl.innerHTML = msg;
+    toastEl.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 2000);
+  }
+
+  // ============ HUD & PANEL ============
+  function updateHUD() {
+    const r = empires[PLAYER].res;
+    hudFood.textContent = Math.floor(r.food);
+    hudWood.textContent = Math.floor(r.wood);
+    hudGold.textContent = Math.floor(r.gold);
+    hudSci.textContent = Math.floor(r.science);
+    let army = 0;
+    const list = empireCities(PLAYER);
+    for (let i = 0; i < list.length; i++) army += list[i].army;
+    hudArmy.textContent = army;
+    hudTurn.textContent = Math.min(turn, TURN_LIMIT);
+    hudCities.textContent = list.length;
+  }
+
+  function updatePanel() {
+    // --- selection card ---
+    if (!selected) {
+      selInfo.innerHTML =
+        "<h3>Command</h3>" +
+        "<p>Select one of your cities to build, recruit and attack.<br>" +
+        "Select an open land tile inside your borders to settle a new city.</p>" +
+        "<p class='muted' style='margin-top:6px'>Turn " + Math.min(turn, TURN_LIMIT) + " of " + TURN_LIMIT +
+        " &middot; Defeat all rivals to win.</p>";
+    } else {
+      const c = cityAt(selected.x, selected.y);
+      const t = tiles[idx(selected.x, selected.y)];
+      if (c && c.owner === PLAYER) {
+        selInfo.innerHTML = renderCityPanel(c);
+      } else if (c) {
+        const e = empires[c.owner];
+        selInfo.innerHTML =
+          "<h3 style='color:" + e.color + "'>" + e.name + "</h3>" +
+          row("Role", c.tag) + row("Population", c.pop) + row("Soldiers", c.army) +
+          row("City HP", c.hp) +
+          "<p class='muted' style='margin-top:6px'>Enemy city. Move a city adjacent to attack it.</p>";
+      } else if (foundableTile(selected.x, selected.y)) {
+        const ok = canAfford(PLAYER, FOUND_COST);
+        selInfo.innerHTML =
+          "<h3>Settle Land</h3>" +
+          row("Terrain", terrainName(t.terrain)) +
+          "<p style='margin-top:6px'>Found a new city here to expand your empire.</p>" +
+          "<button class='btn found' data-act='found' data-x='" + selected.x + "' data-y='" + selected.y + "'" +
+          (ok ? "" : " disabled") + ">Found City <span class='cost'>" + costLabel(FOUND_COST) + "</span></button>";
+      } else if (t.terrain === WATER) {
+        selInfo.innerHTML = "<h3>Open Sea</h3><p class='muted'>Water tiles cannot be settled or crossed.</p>";
+      } else {
+        selInfo.innerHTML =
+          "<h3>Wilderness</h3>" +
+          row("Terrain", terrainName(t.terrain)) +
+          row("Owner", t.owner === -1 ? "Unclaimed" : empires[t.owner].name) +
+          "<p class='muted' style='margin-top:6px'>Expand your borders by settling nearby.</p>";
+      }
+    }
+
+    // --- research card ---
+    const e = empires[PLAYER];
+    let html = "<h3>Research &middot; " + Math.floor(e.res.science) + " &#128300;</h3>";
+    let any = false;
+    for (let i = 0; i < TECHS.length; i++) {
+      const t = TECHS[i];
+      if (hasTech(PLAYER, t.id)) {
+        html += "<button class='btn ghost small' disabled>&#10003; " + t.name + "</button>";
+        continue;
+      }
+      any = true;
+      const ok = e.res.science >= t.cost;
+      html += "<button class='btn tech small' data-act='research' data-tech='" + t.id + "'" + (ok ? "" : " disabled") +
+        ">" + t.name + "<span class='cost'>" + t.cost + "</span></button>";
+    }
+    if (!any) html += "<p class='muted'>All technologies researched.</p>";
+    researchEl.innerHTML = html;
+  }
+
+  function renderCityPanel(c) {
+    const y = cityYield(c);
+    const maxA = maxArmy(c);
+    let html =
+      "<h3>" + c.tag + " &middot; " + c.pop + "&#128101;</h3>" +
+      row("Soldiers", c.army + " / " + maxA) +
+      row("City HP", c.hp) +
+      row("Food", "+" + Math.floor(y.food) + " (" + (y.food - c.pop) + " net)") +
+      row("Wood", "+" + Math.floor(y.wood)) +
+      row("Gold", "+" + Math.floor(y.gold)) +
+      row("Science", "+" + Math.floor(y.sci));
+
+    // build buttons
+    for (let i = 0; i < BUILD_ORDER.length; i++) {
+      const type = BUILD_ORDER[i];
+      const level = c.b[type];
+      if (level >= MAX_LEVEL) {
+        html += "<button class='btn ghost small' disabled>" + BUILDINGS[type].name + " Lv" + level + " (max)</button>";
+        continue;
+      }
+      const cost = buildCost(PLAYER, type, level);
+      const ok = canAfford(PLAYER, cost);
+      html += "<button class='btn small' data-act='build' data-type='" + type + "'" + (ok ? "" : " disabled") +
+        ">" + BUILDINGS[type].name + " Lv" + (level + 1) + "<span class='cost'>" + costLabel(cost) + "</span></button>";
+    }
+
+    // attack buttons
+    const targets = targetableCities(PLAYER);
+    if (targets.length) {
+      html += "<h3 style='margin-top:8px'>Attack</h3>";
+      for (let i = 0; i < targets.length; i++) {
+        const tc = targets[i];
+        const e = empires[tc.owner];
+        html += "<button class='btn atk small' data-act='attack' data-x='" + c.x + "' data-y='" + c.y +
+          "' data-tx='" + tc.x + "' data-ty='" + tc.y + "'>" +
+          "Strike " + e.name.split(" ")[0] + " (" + tc.army + "&#9876;) <span class='cost'>from " + c.army + "</span></button>";
+      }
+    }
+    return html;
+  }
+
+  function row(label, val) {
+    return "<div class='row'><span>" + label + "</span><span>" + val + "</span></div>";
+  }
+  function terrainName(t) {
+    return t === WATER ? "Water" : t === PLAINS ? "Plains" : t === FOREST ? "Forest" : "Hills";
+  }
+
+  function updateAll() {
+    updateHUD();
+    updatePanel();
+  }
+
+  // ============ RENDER ============
+  let pulse = 0;
+  const TERRAIN_COLORS = {
+    0: "#24486b", 1: "#6ea24a", 2: "#356b30", 3: "#9d8047"
+  };
+
+  function draw() {
+    // background
+    ctx.fillStyle = "#0b1017";
+    ctx.fillRect(0, 0, W, H);
+
+    // terrain
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const t = tiles[idx(x, y)];
+        ctx.fillStyle = TERRAIN_COLORS[t.terrain];
+        ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+      }
+    }
+
+    // ownership tint
+    ctx.save();
+    ctx.globalAlpha = 0.30;
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const t = tiles[idx(x, y)];
+        if (t.owner !== -1 && !(cityAt(x, y))) {
+          ctx.fillStyle = empires[t.owner].color;
+          ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+        }
+      }
+    }
+    ctx.restore();
+
+    // grid
+    ctx.strokeStyle = "rgba(0,0,0,0.28)";
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= COLS; x++) {
+      ctx.beginPath(); ctx.moveTo(x * TILE, 0); ctx.lineTo(x * TILE, H); ctx.stroke();
+    }
+    for (let y = 0; y <= ROWS; y++) {
+      ctx.beginPath(); ctx.moveTo(0, y * TILE); ctx.lineTo(W, y * TILE); ctx.stroke();
+    }
+
+    // foundable highlight
+    const glow = 0.35 + 0.35 * Math.sin(pulse * 0.12);
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        if (foundableTile(x, y)) {
+          ctx.save();
+          ctx.globalAlpha = glow;
+          ctx.strokeStyle = "#7ade84";
+          ctx.setLineDash([5, 4]);
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x * TILE + 2, y * TILE + 2, TILE - 4, TILE - 4);
+          ctx.restore();
+        }
+      }
+    }
+
+    // cities
+    for (let i = 0; i < cities.length; i++) drawCity(cities[i]);
+
+    // selection
+    if (selected) {
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(selected.x * TILE + 1.5, selected.y * TILE + 1.5, TILE - 3, TILE - 3);
+    }
+  }
+
+  function drawCity(c) {
+    const e = empires[c.owner];
+    const cx = c.x * TILE + TILE / 2;
+    const cy = c.y * TILE + TILE / 2;
+    const s = TILE - 6;
+
+    // base block
+    ctx.fillStyle = e.dark;
+    ctx.fillRect(cx - s / 2, cy - s / 2, s, s);
+    ctx.fillStyle = e.color;
+    ctx.fillRect(cx - s / 2 + 2, cy - s / 2 + 2, s - 4, s - 4);
+
+    // battlements
+    ctx.fillStyle = "#0d1218";
+    ctx.fillRect(cx - s / 2, cy - s / 2, s, 4);
+    for (let bx = 0; bx < 3; bx++) {
+      ctx.fillRect(cx - s / 2 + bx * (s / 3), cy - s / 2 - 3, s / 6, 4);
+    }
+
+    // pop label
+    ctx.fillStyle = "#0d1218";
+    ctx.font = "bold 13px 'Trebuchet MS', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(c.pop), cx, cy + 2);
+
+    // capital marker
+    if (c.tag === "Capital") {
+      ctx.fillStyle = "#f4c542";
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - s / 2 - 9);
+      ctx.lineTo(cx + 5, cy - s / 2 - 4);
+      ctx.lineTo(cx - 5, cy - s / 2 - 4);
+      ctx.closePath();
+      ctx.fill();
+    }
+    // walls indicator
+    if (c.b.walls > 0) {
+      ctx.strokeStyle = "#d9d9d9";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cx - s / 2 - 2, cy - s / 2 - 2, s + 4, s + 4);
+    }
+  }
+
+  function loop() {
+    pulse += 1;
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // ============ INPUT ============
+  function canvasTile(evt) {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+    const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+    const x = Math.floor((clientX - rect.left) / rect.width * COLS);
+    const y = Math.floor((clientY - rect.top) / rect.height * ROWS);
+    if (!inBounds(x, y)) return null;
+    return { x: x, y: y };
+  }
+
+  function handleTap(evt) {
+    if (over) return;
+    const p = canvasTile(evt);
+    if (!p) return;
+    if (selected && selected.x === p.x && selected.y === p.y) {
+      selected = null; // tap again to deselect
+    } else {
+      selected = p;
+    }
+    beep(500, 0.05, "sine");
+    updatePanel();
+  }
+  canvas.addEventListener("click", handleTap);
+  canvas.addEventListener("touchstart", function (e) { e.preventDefault(); handleTap(e); }, { passive: false });
+
+  // Panel event delegation
+  function onPanelClick(evt) {
+    const el = evt.target.closest("[data-act]");
+    if (!el || over) return;
+    const act = el.getAttribute("data-act");
+    if (act === "found") {
+      doFound(parseInt(el.getAttribute("data-x"), 10), parseInt(el.getAttribute("data-y"), 10));
+    } else if (act === "research") {
+      doResearch(el.getAttribute("data-tech"));
+    } else if (act === "build") {
+      const c = cityAt(selected.x, selected.y);
+      if (c) doBuild(c, el.getAttribute("data-type"));
+    } else if (act === "attack") {
+      const from = cityAt(parseInt(el.getAttribute("data-x"), 10), parseInt(el.getAttribute("data-y"), 10));
+      const target = cityAt(parseInt(el.getAttribute("data-tx"), 10), parseInt(el.getAttribute("data-ty"), 10));
+      if (from && target) attack(from, target);
+    }
+  }
+  selInfo.addEventListener("click", onPanelClick);
+  researchEl.addEventListener("click", onPanelClick);
+
+  // Control buttons
+  document.getElementById("btn-endturn").addEventListener("click", endTurn);
+  document.getElementById("btn-restart").addEventListener("click", function () {
+    newGame();
+    overlay.classList.add("hidden");
+  });
+  document.getElementById("btn-research-toggle").addEventListener("click", function () {
+    researchEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    toast("Spend science to unlock technologies.");
+  });
+
+  // Overlay buttons
+  ovStart.addEventListener("click", function () {
+    newGame();
+    overlay.classList.add("hidden");
+  });
+  ovContinue.addEventListener("click", function () {
+    const d = loadSave();
+    if (d) { applySave(d); overlay.classList.add("hidden"); }
+    else { newGame(); overlay.classList.add("hidden"); }
+  });
+
+  // Keyboard
+  document.addEventListener("keydown", function (e) {
+    if (e.key === " " || e.code === "Space" || e.code === "Enter" || e.key === "Enter") {
+      e.preventDefault();
+      if (!over) endTurn();
+    } else if (e.key === "Escape") {
+      selected = null; updatePanel();
+    } else if (e.key === "r" || e.key === "R") {
+      if (!over) { newGame(); overlay.classList.add("hidden"); }
+    }
+  });
+
+  // ============ INIT ============
+  newGame();
+  overlay.classList.add("hidden");
+  if (hasSave()) {
+    // The autosave always exists after newGame; expose Continue only if a save predates this session.
+    const pre = loadSave();
+    if (pre && pre.turn > 1 && !pre.over) {
+      ovContinue.style.display = "";
+      overlay.classList.remove("hidden");
+    }
+  }
+  loop();
+})();
+</script>
+</body>
+</html>

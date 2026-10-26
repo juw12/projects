@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🧋 Bubble Tea — Shop Simulator</title>
+<style>
+  /* ============ RESET & THEME ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --cream: #fff8f0;
+    --cream2: #f7e6d2;
+    --milk: #ecd0aa;
+    --tea: #8a5a3b;
+    --tea-dark: #573823;
+    --taro: #9b7fc7;
+    --taro-dark: #6f52a3;
+    --ink: #4a3528;
+    --ink-soft: #907a6c;
+    --good: #58ad63;
+    --warn: #dfa63a;
+    --bad: #d9664f;
+    --line: rgba(138, 90, 59, 0.22);
+    --panel: rgba(255, 252, 247, 0.93);
+    --shadow: 0 10px 30px rgba(96, 62, 40, 0.16);
+  }
+
+  html, body {
+    min-height: 100%;
+    background:
+      radial-gradient(900px 520px at 12% -8%, rgba(155, 127, 199, 0.35) 0%, transparent 60%),
+      radial-gradient(900px 560px at 92% 4%, rgba(236, 208, 170, 0.55) 0%, transparent 62%),
+      linear-gradient(165deg, #fff6ec 0%, #f7e3d0 52%, #edd7c2 100%);
+    background-attachment: fixed;
+    color: var(--ink);
+    font-family: "Segoe UI", Tahoma, Geneva, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 14px;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* ============ APP LAYOUT ============ */
+  #app {
+    width: min(1060px, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  header.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .logo { font-size: 2rem; filter: drop-shadow(0 3px 4px rgba(96, 62, 40, 0.28)); }
+  .title {
+    font-family: "Palatino Linotype", Palatino, Georgia, serif;
+    font-size: 1.7rem;
+    letter-spacing: 2px;
+    color: var(--tea-dark);
+    line-height: 1;
+    text-shadow: 0 1px 0 #fff;
+  }
+  .tagline { font-size: 0.7rem; letter-spacing: 3px; text-transform: uppercase; color: var(--taro-dark); }
+
+  .hud { display: flex; gap: 8px; flex-wrap: wrap; }
+  .hud-item {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 6px 12px;
+    min-width: 74px;
+    text-align: center;
+    box-shadow: 0 3px 0 rgba(138, 90, 59, 0.12);
+  }
+  .hud-k { display: block; font-size: 0.6rem; letter-spacing: 1.6px; text-transform: uppercase; color: var(--ink-soft); }
+  .hud-v { font-family: Consolas, monospace; font-size: 1.1rem; font-weight: 700; color: var(--tea); }
+
+  .topbar-btns { display: flex; gap: 8px; }
+
+  /* ============ BUTTONS ============ */
+  .btn {
+    font-family: inherit;
+    font-size: 0.88rem;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    padding: 9px 16px;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    cursor: pointer;
+    color: var(--tea-dark);
+    background: linear-gradient(180deg, #fffaf3, #f3e0ca);
+    box-shadow: 0 3px 0 rgba(138, 90, 59, 0.22);
+    transition: transform 0.06s ease, filter 0.15s ease, border-color 0.15s ease;
+    user-select: none;
+  }
+  .btn:hover { border-color: var(--taro); filter: brightness(1.03); }
+  .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(138, 90, 59, 0.22); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+  .btn.warn { color: #a13b28; border-color: rgba(217, 102, 79, 0.42); }
+  .btn.warn:hover { border-color: var(--bad); background: linear-gradient(180deg, #fff0ec, #f7ddd5); }
+  .btn.serve {
+    color: #fff;
+    background: linear-gradient(180deg, #b48fdc, var(--taro-dark));
+    border-color: var(--taro-dark);
+    box-shadow: 0 4px 0 #4d3878;
+  }
+  .btn.serve:hover { filter: brightness(1.08); }
+  .btn.big { font-size: 1rem; padding: 13px 22px; border-radius: 14px; flex: 1 1 auto; }
+
+  /* ============ REPUTATION BAR ============ */
+  .rep-wrap {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    box-shadow: var(--shadow);
+  }
+  .rep-label { font-size: 0.78rem; letter-spacing: 1px; text-transform: uppercase; color: var(--ink-soft); }
+  .rep-label b { font-family: Consolas, monospace; color: var(--tea); font-size: 0.95rem; }
+  .rep-bar { flex: 1 1 180px; height: 12px; background: #ead9c6; border-radius: 999px; overflow: hidden; border: 1px solid var(--line); }
+  .rep-fill { height: 100%; width: 100%; border-radius: 999px; background: linear-gradient(90deg, #6fc07a, var(--good)); transition: width 0.25s ease, background 0.25s ease; }
+  .day-progress { font-size: 0.78rem; color: var(--ink-soft); }
+  .day-progress b { font-family: Consolas, monospace; color: var(--tea); }
+
+  /* ============ GRID ============ */
+  .grid { display: grid; grid-template-columns: 1fr 340px; gap: 12px; align-items: start; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    padding: 14px;
+  }
+  .card h2 {
+    font-size: 0.78rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--taro-dark);
+    border-bottom: 1px dashed var(--line);
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+  }
+
+  /* ============ CUSTOMER QUEUE ============ */
+  .queue { display: flex; flex-direction: column; gap: 10px; min-height: 120px; }
+  .queue-empty {
+    text-align: center;
+    color: var(--ink-soft);
+    font-style: italic;
+    padding: 42px 10px;
+    border: 1px dashed var(--line);
+    border-radius: 12px;
+  }
+
+  .cust {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 10px;
+    border: 2px solid var(--line);
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(247, 230, 210, 0.7));
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    animation: slideIn 0.28s ease;
+  }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+  .cust.front { border-color: var(--taro); box-shadow: 0 0 0 3px rgba(155, 127, 199, 0.18); }
+  .cust.leaving { animation: slideOut 0.3s ease forwards; }
+  @keyframes slideOut { to { opacity: 0; transform: translateX(28px); } }
+
+  .cust-face {
+    font-size: 1.9rem;
+    width: 52px; height: 52px;
+    flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(236, 208, 170, 0.5);
+    border-radius: 12px;
+  }
+  .cust-body { flex: 1 1 auto; min-width: 0; }
+  .ticket-line { font-size: 0.8rem; color: var(--ink); margin-bottom: 3px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  .ticket-line .k { color: var(--ink-soft); font-size: 0.68rem; letter-spacing: 1px; text-transform: uppercase; }
+  .swatch { width: 11px; height: 11px; border-radius: 3px; border: 1px solid rgba(0, 0, 0, 0.18); display: inline-block; }
+  .tag { background: rgba(155, 127, 199, 0.16); border-radius: 6px; padding: 1px 6px; font-size: 0.72rem; }
+  .patience { height: 8px; background: #ead9c6; border-radius: 999px; overflow: hidden; margin-top: 6px; border: 1px solid var(--line); }
+  .patience-fill { height: 100%; width: 100%; border-radius: 999px; background: var(--good); transition: background 0.2s ease; }
+  .cust.front .cust-tag { opacity: 1; }
+  .cust-tag { font-size: 0.62rem; letter-spacing: 1.4px; text-transform: uppercase; color: var(--taro-dark); font-weight: 700; opacity: 0.25; }
+
+  /* ============ WORKBENCH ============ */
+  .bench { display: flex; flex-direction: column; align-items: center; }
+  #cup { width: 100%; max-width: 250px; height: auto; display: block; }
+  .bench-info {
+    display: flex; flex-wrap: wrap; gap: 5px; justify-content: center;
+    margin-top: 6px; min-height: 26px;
+  }
+  .chip {
+    font-size: 0.7rem; font-weight: 600;
+    padding: 3px 9px; border-radius: 999px;
+    background: rgba(155, 127, 199, 0.15);
+    border: 1px solid rgba(155, 127, 199, 0.35);
+    color: var(--taro-dark);
+  }
+  .chip.empty { background: rgba(0, 0, 0, 0.04); border-color: var(--line); color: var(--ink-soft); }
+  .bench-actions { display: flex; gap: 10px; margin-top: 12px; }
+
+  /* ============ PALETTE ============ */
+  .palette { display: flex; flex-direction: column; gap: 12px; }
+  .pal-group h3 {
+    font-size: 0.68rem; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--ink-soft); margin-bottom: 7px;
+  }
+  .pal-group h3 .slots { color: var(--taro-dark); letter-spacing: 1px; }
+  .pal-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  .ing {
+    font-family: inherit; cursor: pointer;
+    display: flex; align-items: center; gap: 7px;
+    padding: 8px 14px;
+    border-radius: 12px;
+    border: 2px solid var(--line);
+    background: linear-gradient(180deg, #fffdfa, #f6e8d6);
+    color: var(--ink);
+    font-size: 0.82rem; font-weight: 600;
+    transition: transform 0.06s ease, border-color 0.15s ease, background 0.15s ease;
+    user-select: none;
+  }
+  .ing .ic { font-size: 1rem; }
+  .ing:hover:not(:disabled) { border-color: var(--taro); transform: translateY(-1px); }
+  .ing.sel { border-color: var(--taro-dark); background: linear-gradient(180deg, #efe4fb, #dccdf4); box-shadow: 0 3px 0 rgba(111, 82, 163, 0.3); }
+  .ing:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ============ FLOATING TEXT + TOAST ============ */
+  .float {
+    position: fixed; pointer-events: none; z-index: 70;
+    font-weight: 800; font-size: 1.05rem;
+    color: var(--good);
+    text-shadow: 0 2px 4px rgba(255, 255, 255, 0.9), 0 1px 2px rgba(0, 0, 0, 0.25);
+    animation: floatUp 0.95s ease-out forwards;
+  }
+  @keyframes floatUp {
+    from { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    to { opacity: 0; transform: translate(-50%, -68px) scale(1.2); }
+  }
+
+  #toast {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%) translateY(30px);
+    background: rgba(87, 56, 35, 0.96); color: var(--cream);
+    font-weight: 600; font-size: 0.88rem;
+    padding: 11px 22px; border-radius: 12px;
+    box-shadow: var(--shadow); opacity: 0; pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 90; max-width: 90vw; text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ============ OVERLAYS ============ */
+  .overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(64, 43, 30, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+    transition: opacity 0.25s ease;
+  }
+  .overlay.hidden { opacity: 0; pointer-events: none; }
+
+  .sheet {
+    background: linear-gradient(180deg, #fffdf9, #f7e9d8);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    box-shadow: 0 22px 60px rgba(64, 43, 30, 0.4);
+    padding: 24px;
+    width: min(560px, 100%);
+    max-height: 88vh;
+    overflow-y: auto;
+    text-align: center;
+    animation: pop 0.28s ease;
+  }
+  @keyframes pop { from { opacity: 0; transform: scale(0.94) translateY(10px); } to { opacity: 1; transform: none; } }
+
+  .sheet h1 {
+    font-family: "Palatino Linotype", Palatino, Georgia, serif;
+    font-size: 1.9rem; letter-spacing: 2px; color: var(--tea-dark); margin-bottom: 4px;
+  }
+  .sheet .sub { color: var(--ink-soft); font-size: 0.85rem; margin-bottom: 18px; }
+  .sheet p.explain { color: var(--ink-soft); font-size: 0.84rem; line-height: 1.6; text-align: left; margin: 0 auto 16px; max-width: 440px; }
+  .sheet p.explain b { color: var(--tea-dark); }
+  .sheet .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .stat-line { display: flex; justify-content: space-between; font-size: 0.9rem; padding: 6px 4px; border-bottom: 1px dashed var(--line); }
+  .stat-line span:last-child { font-family: Consolas, monospace; font-weight: 700; color: var(--taro-dark); }
+
+  /* ============ UPGRADE SHOP ============ */
+  .shop { display: grid; grid-template-columns: repeat(auto-fill, minmax(228px, 1fr)); gap: 10px; margin: 16px 0; text-align: left; }
+  .up {
+    font-family: inherit; cursor: pointer; text-align: left;
+    display: flex; gap: 9px; align-items: flex-start;
+    padding: 10px 12px; border-radius: 13px;
+    border: 2px solid var(--line);
+    background: linear-gradient(180deg, #fffdfa, #f6e8d6);
+    color: var(--ink);
+    transition: transform 0.06s ease, border-color 0.15s ease;
+  }
+  .up:hover:not(:disabled) { border-color: var(--taro); transform: translateY(-1px); }
+  .up:disabled { opacity: 0.5; cursor: not-allowed; }
+  .up.maxed { border-color: rgba(88, 173, 99, 0.55); background: linear-gradient(180deg, #f2fbf3, #e2f3e4); }
+  .up .ic { font-size: 1.3rem; flex: 0 0 auto; }
+  .up .nm { font-weight: 700; font-size: 0.86rem; }
+  .up .ds { font-size: 0.72rem; color: var(--ink-soft); margin-top: 2px; line-height: 1.35; }
+  .up .cs { font-size: 0.78rem; font-weight: 700; color: var(--tea); margin-top: 5px; }
+  .up .cost-ok { color: var(--good); }
+  .up .lvl { font-size: 0.66rem; letter-spacing: 1px; color: var(--taro-dark); text-transform: uppercase; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 820px) {
+    .grid { grid-template-columns: 1fr; }
+    .bench-card { order: -1; }
+    .title { font-size: 1.35rem; }
+    #cup { max-width: 190px; }
+    .hud-item { min-width: 62px; padding: 5px 9px; }
+  }
+  @media (max-width: 480px) {
+    body { padding: 8px; }
+    .sheet { padding: 18px; }
+    .sheet h1 { font-size: 1.5rem; }
+    .ing { padding: 7px 11px; font-size: 0.76rem; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ============ TOP BAR ============ -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">🧋</span>
+      <div>
+        <div class="title">BUBBLE TEA</div>
+        <div class="tagline">Shop Simulator</div>
+      </div>
+    </div>
+    <div class="hud">
+      <div class="hud-item"><span class="hud-k">Day</span><span class="hud-v" id="hudDay">1</span></div>
+      <div class="hud-item"><span class="hud-k">Coins</span><span class="hud-v" id="hudCoins">0</span></div>
+      <div class="hud-item"><span class="hud-k">Served</span><span class="hud-v" id="hudServed">0</span></div>
+    </div>
+    <div class="topbar-btns">
+      <button class="btn" id="btnSound" type="button" title="Sound">🔊</button>
+      <button class="btn" id="btnHelp" type="button" title="How to play">?</button>
+      <button class="btn warn" id="btnReset" type="button">Reset Save</button>
+    </div>
+  </header>
+
+  <!-- ============ REPUTATION ============ -->
+  <div class="rep-wrap">
+    <div class="rep-label">Reputation <b id="repVal">100</b></div>
+    <div class="rep-bar"><div class="rep-fill" id="repFill"></div></div>
+    <div class="day-progress">Orders today: <b id="ordersLeft">0</b></div>
+  </div>
+
+  <!-- ============ MAIN GRID ============ -->
+  <div class="grid">
+    <section class="card queue-card">
+      <h2>Customer Line</h2>
+      <div class="queue" id="queue"></div>
+    </section>
+
+    <section class="card bench-card">
+      <h2>Your Cup</h2>
+      <div class="bench">
+        <canvas id="cup" width="300" height="340"></canvas>
+        <div class="bench-info" id="benchInfo"></div>
+      </div>
+      <div class="bench-actions">
+        <button class="btn warn big" id="btnClear" type="button">🗑️ Empty</button>
+        <button class="btn serve big" id="btnServe" type="button">🍹 SERVE</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============ INGREDIENT PALETTE ============ -->
+  <section class="card palette">
+    <div class="pal-group"><h3>Tea Base</h3><div class="pal-row" id="palTea"></div></div>
+    <div class="pal-group"><h3>Milk Level</h3><div class="pal-row" id="palMilk"></div></div>
+    <div class="pal-group"><h3>Sugar Level</h3><div class="pal-row" id="palSugar"></div></div>
+    <div class="pal-group"><h3>Toppings <span class="slots" id="slotInfo"></span></h3><div class="pal-row" id="palTop"></div></div>
+  </section>
+</div>
+
+<!-- ============ START / HELP / SHOP / GAME OVER OVERLAYS ============ -->
+<div class="overlay" id="startOverlay">
+  <div class="sheet">
+    <h1>🧋 Bubble Tea</h1>
+    <p class="sub">Run your own bubble-tea stall</p>
+    <p class="explain">
+      Customers order a drink: a <b>tea base</b>, a <b>milk level</b>, a <b>sugar level</b> and their <b>toppings</b>.
+      Tap the ingredients below to build each cup, then hit <b>SERVE</b>. Match the order exactly for a
+      <b>perfect bonus</b> and extra reputation. Let a customer's patience run out and your reputation drops —
+      at zero the shop closes for good.
+    </p>
+    <div class="row">
+      <button class="btn serve big" id="btnStart" type="button">Open the Shop</button>
+    </div>
+    <p class="sub" id="startHint" style="margin-top:14px;margin-bottom:0"></p>
+  </div>
+</div>
+
+<div class="overlay hidden" id="helpOverlay">
+  <div class="sheet">
+    <h1>How to Play</h1>
+    <p class="explain">
+      <b>1.</b> Read the ticket on the front customer card.<br>
+      <b>2.</b> Tap a Tea, a Milk level and a Sugar level — each is required.<br>
+      <b>3.</b> Tap toppings to add/remove them (limited by your cup slots).<br>
+      <b>4.</b> Press <b>SERVE</b> to hand over the cup.<br>
+      <b>5.</b> Exact match = <b>PERFECT</b>: bonus coins + reputation.<br>
+      <b>6.</b> Between days, spend coins on <b>upgrades</b> to unlock new teas, toppings and comforts.<br><br>
+      Keyboard: <b>Space</b> serve · <b>Backspace</b> empty cup.
+    </p>
+    <div class="row"><button class="btn" id="btnHelpClose" type="button">Got it</button></div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="shopOverlay">
+  <div class="sheet">
+    <h1 id="shopTitle">Day Complete</h1>
+    <p class="sub" id="shopSub"></p>
+    <div class="shop" id="shopGrid"></div>
+    <div class="row"><button class="btn serve big" id="btnNextDay" type="button">Start Next Day</button></div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="overOverlay">
+  <div class="sheet">
+    <h1>Shop Closed</h1>
+    <p class="sub">Your reputation hit zero.</p>
+    <div style="max-width:340px;margin:0 auto 18px;text-align:left">
+      <div class="stat-line"><span>Days survived</span><span id="overDay">1</span></div>
+      <div class="stat-line"><span>Cups served</span><span id="overServed">0</span></div>
+      <div class="stat-line"><span>Coins earned</span><span id="overCoins">0</span></div>
+      <div class="stat-line"><span>Best day</span><span id="overBest">1</span></div>
+    </div>
+    <div class="row"><button class="btn serve big" id="btnNewRun" type="button">Open a New Shop</button></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONFIG: INGREDIENTS ============
+  const TEAS = [
+    { id: "black",   name: "Black Tea",   color: "#a9622f", icon: "🫖", mult: 1.00 },
+    { id: "green",   name: "Green Tea",   color: "#8fbf6b", icon: "🍵", mult: 1.05 },
+    { id: "oolong",  name: "Oolong",      color: "#c58f3c", icon: "🍂", mult: 1.15 },
+    { id: "jasmine", name: "Jasmine",     color: "#dfc05c", icon: "🌼", mult: 1.10 },
+    { id: "taro",    name: "Taro",        color: "#b79ad6", icon: "💜", mult: 1.30 }
+  ];
+
+  const MILKS = [
+    { v: 0,   name: "None" },
+    { v: 50,  name: "Half" },
+    { v: 100, name: "Full" }
+  ];
+
+  const SUGARS = [
+    { v: 0,   name: "0%" },
+    { v: 50,  name: "50%" },
+    { v: 100, name: "100%" }
+  ];
+
+  const TOPPINGS = [
+    { id: "pearls",  name: "Tapioca Pearls", icon: "⚫", color: "#2b1a12" },
+    { id: "boba",    name: "Popping Boba",   icon: "🔴", color: "#e8603f" },
+    { id: "aloe",    name: "Aloe Vera",      icon: "🟢", color: "#a9dc93" },
+    { id: "jelly",   name: "Grass Jelly",    icon: "⬛", color: "#3a2a22" },
+    { id: "pudding", name: "Pudding",        icon: "🟡", color: "#f0c34a" },
+    { id: "redbean", name: "Red Bean",       icon: "🟤", color: "#8a4b2f" }
+  ];
+
+  // ============ CONFIG: UPGRADES ============
+  const UPGRADES = [
+    { id: "cup",     icon: "🥤", name: "Jumbo Cup",     desc: "+1 topping slot per level.",              base: 130, growth: 1.9,  max: 2 },
+    { id: "comfy",   icon: "🛋️", name: "Comfy Seats",   desc: "Customers wait 18% longer.",              base: 100, growth: 1.8,  max: 3 },
+    { id: "blender", icon: "🌀", name: "Turbo Blender", desc: "+15% coins on every serve.",              base: 165, growth: 1.85, max: 4 },
+    { id: "loyalty", icon: "💳", name: "Loyalty Cards", desc: "+12% chance of a big tip.",               base: 210, growth: 1.9,  max: 3 },
+    { id: "sign",    icon: "💡", name: "Neon Sign",     desc: "+2 reputation per perfect serve.",        base: 240, growth: 2.0,  max: 2 },
+    { id: "fruit",   icon: "🍓", name: "Fruit Bar",     desc: "Unlock Popping Boba & Aloe Vera.",        base: 150, growth: 1,    max: 1 },
+    { id: "dessert", icon: "🍮", name: "Dessert Bar",   desc: "Unlock Grass Jelly, Pudding & Red Bean.", base: 280, growth: 1,    max: 1 },
+    { id: "taro",    icon: "💜", name: "Taro Menu",     desc: "Unlock Taro tea (pays a premium).",       base: 190, growth: 1,    max: 1 }
+  ];
+
+  const SAVE_KEY = "bubbleTeaSave_v1";
+  const MAX_QUEUE = 3;
+  const SPAWN_DELAY = 950;   // ms between arrivals
+  const CW = 300, CH = 340;  // canvas logical size
+
+  // ============ GAME STATE ============
+  let state = defaultState();
+  let unlocked = { teas: [], toppings: [] };
+  let drink = emptyDrink();
+  let queue = [];
+  let running = false;
+  let dayOver = false;
+  let spawnedToday = 0;
+  let servedToday = 0;
+  let customersToday = 0;
+  let spawnTimer = 0;
+  let runServed = 0;
+  let runCoins = 0;
+  let lastFrame = performance.now();
+  let resetArmed = 0;
+
+  function defaultState() {
+    return {
+      day: 1,
+      coins: 0,
+      rep: 100,
+      upgrades: {},
+      sound: true,
+      bestDay: 1,
+      runServed: 0,
+      runCoins: 0
+    };
+  }
+  function emptyDrink() { return { tea: null, milk: null, sugar: null, toppings: [] }; }
+
+  // ============ DERIVED VALUES ============
+  function maxSlots() { return 2 + (state.upgrades.cup || 0); }
+  function patienceMult() { return 1 + 0.18 * (state.upgrades.comfy || 0); }
+  function coinMult() { return 1 + 0.15 * (state.upgrades.blender || 0); }
+  function tipChance() { return 0.15 + 0.12 * (state.upgrades.loyalty || 0); }
+  function repPerPerfect() { return 4 + 2 * (state.upgrades.sign || 0); }
+
+  function computeUnlocks() {
+    const teas = ["black", "green", "oolong", "jasmine"];
+    const toppings = ["pearls"];
+    if (state.upgrades.taro) teas.push("taro");
+    if (state.upgrades.fruit) toppings.push("boba", "aloe");
+    if (state.upgrades.dessert) toppings.push("jelly", "pudding", "redbean");
+    unlocked = { teas: teas, toppings: toppings };
+  }
+
+  // ============ HELPERS ============
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function teaById(id) { return TEAS.find(t => t.id === id); }
+  function topById(id) { return TOPPINGS.find(t => t.id === id); }
+  function fmt(n) { return Math.floor(n).toLocaleString("en-US"); }
+  function upgradeCost(u) {
+    const lvl = state.upgrades[u.id] || 0;
+    return Math.round(u.base * Math.pow(u.growth, lvl));
+  }
+
+  // ============ AUDIO (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    if (!state.sound) return;
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+  function sfxPerfect() { beep(660, 0.1, "sine"); setTimeout(() => beep(880, 0.12, "sine"), 90); setTimeout(() => beep(1180, 0.18, "sine"), 190); }
+  function sfxGood() { beep(560, 0.1, "triangle"); setTimeout(() => beep(720, 0.12, "triangle"), 90); }
+  function sfxBad() { beep(200, 0.16, "sawtooth"); }
+  function sfxTick() { beep(1080, 0.03, "square"); }
+  function sfxTap() { beep(700, 0.04, "triangle"); }
+  function sfxCoin() { beep(980, 0.08, "square"); }
+  function sfxDay() { beep(440, 0.14, "sine"); setTimeout(() => beep(660, 0.14, "sine"), 130); setTimeout(() => beep(880, 0.22, "sine"), 260); }
+
+  // ============ SAVE / LOAD ============
+  function save() {
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+  }
+  function load() {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return false;
+      const data = JSON.parse(raw);
+      const fresh = defaultState();
+      Object.assign(fresh, data);
+      fresh.upgrades = data.upgrades || {};
+      fresh.rep = Math.max(1, Math.min(100, fresh.rep || 100));
+      state = fresh;
+      return true;
+    } catch (e) { return false; }
+  }
+
+  // ============ ORDER GENERATION ============
+  function customersForDay(d) { return Math.min(16, 5 + d); }
+  function patienceForDay(d) { return Math.max(7000, 15500 - (d - 1) * 700); }
+  function toppingsForDay(d, avail) { return Math.max(1, Math.min(avail, maxSlots(), 1 + Math.floor((d - 1) / 3))); }
+
+  function makeOrder() {
+    const availTops = TOPPINGS.filter(t => unlocked.toppings.indexOf(t.id) >= 0);
+    const teaPool = TEAS.filter(t => unlocked.teas.indexOf(t.id) >= 0);
+    const tea = pick(teaPool).id;
+    const milk = pick(MILKS).v;
+    const sugar = pick(SUGARS).v;
+    const n = toppingsForDay(state.day, availTops.length);
+    const chosen = shuffle(availTops.slice()).slice(0, n).map(t => t.id);
+    return { tea: tea, milk: milk, sugar: sugar, toppings: chosen };
+  }
+
+  // ============ CUSTOMERS ============
+  const FACES = ["😀", "😎", "🤠", "🥰", "😺", "🐰", "🐻", "🐼", "🦊", "🐨", "🐸", "🐵"];
+  let faceBag = [];
+
+  function nextFace() {
+    if (faceBag.length === 0) faceBag = shuffle(FACES.slice());
+    return faceBag.pop();
+  }
+
+  function spawnCustomer() {
+    const max = patienceForDay(state.day) * patienceMult() * (0.85 + Math.random() * 0.3);
+    const c = { order: makeOrder(), patience: max, maxPatience: max, face: nextFace(), el: null, fillEl: null };
+    queue.push(c);
+    spawnedToday++;
+    renderQueue();
+    sfxTap();
+  }
+
+  // ============ EVALUATION ============
+  function evaluate(a, order) {
+    let total = 3, match = 0;
+    if (a.tea === order.tea) match++;
+    if (a.milk === order.milk) match++;
+    if (a.sugar === order.sugar) match++;
+    total += Math.max(order.toppings.length, a.toppings.length);
+    const pool = order.toppings.slice();
+    a.toppings.forEach(t => { const i = pool.indexOf(t); if (i >= 0) { pool.splice(i, 1); match++; } });
+    return { match: match, total: total, score: total ? match / total : 1 };
+  }
+
+  function servePrice(order) {
+    const t = teaById(order.tea);
+    return Math.round((11 + state.day * 3) * (t ? t.mult : 1));
+  }
+
+  // ============ ACTIONS ============
+  function selectTea(id) {
+    if (!running || dayOver) return;
+    drink.tea = (drink.tea === id) ? null : id;
+    sfxTap(); renderBench();
+  }
+  function selectMilk(v) {
+    if (!running || dayOver) return;
+    drink.milk = (drink.milk === v) ? null : v;
+    sfxTap(); renderBench();
+  }
+  function selectSugar(v) {
+    if (!running || dayOver) return;
+    drink.sugar = (drink.sugar === v) ? null : v;
+    sfxTap(); renderBench();
+  }
+  function toggleTopping(id) {
+    if (!running || dayOver) return;
+    const i = drink.toppings.indexOf(id);
+    if (i >= 0) { drink.toppings.splice(i, 1); sfxTap(); }
+    else if (drink.toppings.length >= maxSlots()) { sfxBad(); showToast("Your cup is full — upgrade for more slots."); return; }
+    else { drink.toppings.push(id); sfxTap(); }
+    renderBench();
+  }
+  function clearDrink() {
+    if (!running || dayOver) return;
+    if (!drink.tea && drink.milk === null && drink.sugar === null && drink.toppings.length === 0) return;
+    drink = emptyDrink(); sfxBad(); renderBench();
+  }
+
+  function serve() {
+    if (!running || dayOver) return;
+    if (queue.length === 0) { sfxBad(); showToast("No customer to serve."); return; }
+    if (drink.tea === null || drink.milk === null || drink.sugar === null) {
+      sfxBad(); showToast("Every cup needs a tea, a milk level and a sugar level."); return;
+    }
+    const cust = queue[0];
+    const res = evaluate(drink, cust.order);
+    const price = servePrice(cust.order);
+    let coins = Math.round(price * res.score * coinMult());
+    let tip = 0;
+    const perfect = res.score >= 0.999;
+
+    if (perfect) {
+      coins += Math.round(price * 0.5);
+      if (Math.random() < tipChance()) { tip = Math.round(price * (0.6 + Math.random() * 0.9)); coins += tip; }
+      state.rep = Math.min(100, state.rep + repPerPerfect());
+      sfxPerfect();
+      flash(cust, "PERFECT!", "#3f9e4e");
+    } else if (res.score >= 0.6) {
+      state.rep = Math.min(100, state.rep + 1);
+      sfxGood();
+      flash(cust, "Close enough", "#c98c1e");
+    } else {
+      state.rep -= 6;
+      sfxBad();
+      flash(cust, "Wrong order", "#c84a33");
+    }
+
+    state.coins += coins;
+    runCoins += coins;
+    runServed++;
+    state.runServed = runServed;
+    state.runCoins = runCoins;
+    servedToday++;
+    spawnFloat(coins, perfect ? "#3f9e4e" : "#7a6558");
+    if (tip > 0) setTimeout(() => showToast("Big tip! +" + fmt(tip) + " coins 💰"), 250);
+
+    removeFront(cust);
+    drink = emptyDrink();
+    renderBench(); renderHUD(); updateBars();
+
+    if (state.rep <= 0) { gameOver(); return; }
+    if (spawnedToday >= customersToday && queue.length === 0) endDay();
+    save();
+  }
+
+  function removeFront(cust) {
+    queue.shift();
+    if (cust && cust.el) {
+      cust.el.classList.add("leaving");
+      setTimeout(() => { if (cust.el && cust.el.parentNode) cust.el.parentNode.removeChild(cust.el); }, 300);
+    }
+    renderQueue();
+  }
+
+  function customerAngry(c, index) {
+    state.rep -= 16;
+    sfxBad();
+    flash(c, "Too slow!", "#c84a33");
+    queue.splice(index, 1);
+    if (c.el) {
+      c.el.classList.add("leaving");
+      setTimeout(() => { if (c.el && c.el.parentNode) c.el.parentNode.removeChild(c.el); }, 300);
+    }
+    renderQueue(); renderHUD();
+    if (state.rep <= 0) { gameOver(); return; }
+    if (spawnedToday >= customersToday && queue.length === 0) endDay();
+    save();
+  }
+
+  // ============ DAY FLOW ============
+  function startDay() {
+    customersToday = customersForDay(state.day);
+    spawnedToday = 0;
+    servedToday = 0;
+    dayOver = false;
+    queue = [];
+    drink = emptyDrink();
+    spawnTimer = 500;
+    state.rep = Math.max(state.rep, 25);
+    if (state.day > state.bestDay) state.bestDay = state.day;
+    running = true;
+    hideAllOverlays();
+    buildPalette();
+    renderQueue(); renderBench(); renderHUD();
+    lastFrame = performance.now();
+    showToast("Day " + state.day + " — " + customersToday + " customers coming in!");
+  }
+
+  function endDay() {
+    dayOver = true;
+    running = false;
+    const bonus = 20 + state.day * 10;
+    state.coins += bonus;
+    runCoins += bonus;
+    state.runCoins = runCoins;
+    sfxDay();
+    state.day++;
+    state.bestDay = Math.max(state.bestDay, state.day);
+    save();
+    renderHUD();
+    openShop(bonus);
+  }
+
+  function gameOver() {
+    running = false;
+    state.rep = 0;
+    sfxBad();
+    document.getElementById("overDay").textContent = state.day;
+    document.getElementById("overServed").textContent = fmt(runServed);
+    document.getElementById("overCoins").textContent = fmt(runCoins);
+    document.getElementById("overBest").textContent = state.bestDay;
+    save();
+    showOverlay("overOverlay");
+  }
+
+  function newRun() {
+    state = defaultState();
+    runServed = 0;
+    runCoins = 0;
+    computeUnlocks();
+    buildPalette();
+    renderHUD();
+    startDay();
+  }
+
+  // ============ SHOP ============
+  function openShop(bonus) {
+    document.getElementById("shopTitle").textContent = "Day " + (state.day - 1) + " Complete";
+    document.getElementById("shopSub").textContent = "Daily bonus +" + fmt(bonus) + " coins · You have " + fmt(state.coins) + " coins. Spend them on upgrades before tomorrow.";
+    renderShop();
+    showOverlay("shopOverlay");
+  }
+
+  function renderShop() {
+    const grid = document.getElementById("shopGrid");
+    grid.innerHTML = "";
+    UPGRADES.forEach(u => {
+      const lvl = state.upgrades[u.id] || 0;
+      const maxed = lvl >= u.max;
+      const cost = upgradeCost(u);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "up" + (maxed ? " maxed" : "");
+      btn.disabled = maxed || state.coins < cost;
+      const costCls = state.coins >= cost ? "cost-ok" : "";
+      btn.innerHTML =
+        '<span class="ic">' + u.icon + '</span>' +
+        '<span style="flex:1 1 auto;min-width:0">' +
+          '<span class="nm">' + u.name + '</span>' +
+          '<span class="lvl">' + (u.max > 1 ? "Lv " + lvl + " / " + u.max : (maxed ? "Owned" : "Locked")) + '</span>' +
+          '<span class="ds">' + u.desc + '</span>' +
+          '<span class="cs ' + costCls + '">' + (maxed ? "✓ Maxed" : "🪙 " + fmt(cost)) + '</span>' +
+        '</span>';
+      btn.addEventListener("click", () => buyUpgrade(u));
+      grid.appendChild(btn);
+    });
+  }
+
+  function buyUpgrade(u) {
+    const lvl = state.upgrades[u.id] || 0;
+    if (lvl >= u.max) return;
+    const cost = upgradeCost(u);
+    if (state.coins < cost) { sfxBad(); showToast("Not enough coins."); return; }
+    state.coins -= cost;
+    state.upgrades[u.id] = lvl + 1;
+    sfxCoin();
+    computeUnlocks();
+    buildPalette();
+    renderBench(); renderHUD(); renderShop();
+    save();
+    showToast(u.name + " upgraded!");
+  }
+
+  // ============ RENDER: HUD ============
+  function renderHUD() {
+    document.getElementById("hudDay").textContent = state.day;
+    document.getElementById("hudCoins").textContent = fmt(state.coins);
+    document.getElementById("hudServed").textContent = fmt(runServed);
+    document.getElementById("repVal").textContent = Math.max(0, Math.round(state.rep));
+    const fill = document.getElementById("repFill");
+    const pct = Math.max(0, Math.min(100, state.rep));
+    fill.style.width = pct + "%";
+    fill.style.background = pct > 55
+      ? "linear-gradient(90deg,#6fc07a,#58ad63)"
+      : pct > 25
+        ? "linear-gradient(90deg,#e9b64c,#dfa63a)"
+        : "linear-gradient(90deg,#e07a5f,#d9664f)";
+    document.getElementById("ordersLeft").textContent = Math.max(0, customersToday - servedToday);
+  }
+
+  // ============ RENDER: QUEUE ============
+  const queueEl = document.getElementById("queue");
+
+  function ticketHTML(order) {
+    const tea = teaById(order.tea);
+    const milk = MILKS.find(m => m.v === order.milk);
+    const sugar = SUGARS.find(s => s.v === order.sugar);
+    let tops = order.toppings.map(id => { const t = topById(id); return '<span class="tag">' + t.icon + " " + t.name + '</span>'; }).join(" ") || '<span class="tag">none</span>';
+    return (
+      '<div class="ticket-line"><span class="k">Tea</span><span class="swatch" style="background:' + tea.color + '"></span>' + tea.icon + " " + tea.name + '</div>' +
+      '<div class="ticket-line"><span class="k">Milk</span>' + milk.name + '<span style="width:8px"></span><span class="k">Sugar</span>' + sugar.name + '</div>' +
+      '<div class="ticket-line"><span class="k">Toppings</span>' + tops + '</div>'
+    );
+  }
+
+  function renderQueue() {
+    queueEl.innerHTML = "";
+    if (queue.length === 0) {
+      const d = document.createElement("div");
+      d.className = "queue-empty";
+      d.textContent = dayOver ? "Day complete — nice work!" : (running ? "Waiting for the next customer…" : "Open the shop to start.");
+      queueEl.appendChild(d);
+      return;
+    }
+    queue.forEach((c, i) => {
+      const card = document.createElement("div");
+      card.className = "cust" + (i === 0 ? " front" : "");
+      card.innerHTML =
+        '<div class="cust-face">' + c.face + '</div>' +
+        '<div class="cust-body">' +
+          '<div class="cust-tag">' + (i === 0 ? "Now serving" : "In line #" + (i + 1)) + '</div>' +
+          ticketHTML(c.order) +
+          '<div class="patience"><div class="patience-fill"></div></div>' +
+        '</div>';
+      card.addEventListener("click", () => { if (i === 0) sfxTap(); else showToast("Finish the customer in front first."); });
+      queueEl.appendChild(card);
+      c.el = card;
+      c.fillEl = card.querySelector(".patience-fill");
+    });
+    updateBars();
+  }
+
+  function updateBars() {
+    queue.forEach(c => {
+      if (!c.fillEl) return;
+      const f = Math.max(0, Math.min(1, c.patience / c.maxPatience));
+      c.fillEl.style.width = (f * 100) + "%";
+      c.fillEl.style.background = f > 0.5 ? "#58ad63" : f > 0.25 ? "#dfa63a" : "#d9664f";
+    });
+  }
+
+  // ============ RENDER: BENCH CHIPS ============
+  function renderBench() {
+    const info = document.getElementById("benchInfo");
+    const chips = [];
+    if (drink.tea) { const t = teaById(drink.tea); chips.push('<span class="chip">' + t.icon + " " + t.name + '</span>'); }
+    if (drink.milk !== null) chips.push('<span class="chip">🥛 ' + MILKS.find(m => m.v === drink.milk).name + '</span>');
+    if (drink.sugar !== null) chips.push('<span class="chip">🍬 ' + SUGARS.find(s => s.v === drink.sugar).name + '</span>');
+    drink.toppings.forEach(id => { const t = topById(id); chips.push('<span class="chip">' + t.icon + " " + t.name + '</span>'); });
+    info.innerHTML = chips.length ? chips.join("") : '<span class="chip empty">Empty cup — tap ingredients below</span>';
+    document.getElementById("slotInfo").textContent = "(" + drink.toppings.length + " / " + maxSlots() + ")";
+    buildPaletteSelection();
+  }
+
+  // ============ RENDER: PALETTE ============
+  function buildPalette() {
+    const pTea = document.getElementById("palTea");
+    const pMilk = document.getElementById("palMilk");
+    const pSugar = document.getElementById("palSugar");
+    const pTop = document.getElementById("palTop");
+    pTea.innerHTML = ""; pMilk.innerHTML = ""; pSugar.innerHTML = ""; pTop.innerHTML = "";
+
+    TEAS.forEach(t => {
+      if (unlocked.teas.indexOf(t.id) < 0) return;
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "ing"; b.dataset.tea = t.id;
+      b.innerHTML = '<span class="ic">' + t.icon + '</span>' + t.name;
+      b.addEventListener("click", () => selectTea(t.id));
+      pTea.appendChild(b);
+    });
+
+    MILKS.forEach(m => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "ing"; b.dataset.milk = m.v;
+      b.innerHTML = '<span class="ic">🥛</span>' + m.name;
+      b.addEventListener("click", () => selectMilk(m.v));
+      pMilk.appendChild(b);
+    });
+
+    SUGARS.forEach(s => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "ing"; b.dataset.sugar = s.v;
+      b.innerHTML = '<span class="ic">🍬</span>' + s.name;
+      b.addEventListener("click", () => selectSugar(s.v));
+      pSugar.appendChild(b);
+    });
+
+    TOPPINGS.forEach(t => {
+      if (unlocked.toppings.indexOf(t.id) < 0) return;
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "ing"; b.dataset.top = t.id;
+      b.innerHTML = '<span class="ic">' + t.icon + '</span>' + t.name;
+      b.addEventListener("click", () => toggleTopping(t.id));
+      pTop.appendChild(b);
+    });
+
+    buildPaletteSelection();
+  }
+
+  function buildPaletteSelection() {
+    document.querySelectorAll("#palTea .ing").forEach(b => b.classList.toggle("sel", b.dataset.tea === drink.tea));
+    document.querySelectorAll("#palMilk .ing").forEach(b => b.classList.toggle("sel", String(drink.milk) === b.dataset.milk));
+    document.querySelectorAll("#palSugar .ing").forEach(b => b.classList.toggle("sel", String(drink.sugar) === b.dataset.sugar));
+    document.querySelectorAll("#palTop .ing").forEach(b => b.classList.toggle("sel", drink.toppings.indexOf(b.dataset.top) >= 0));
+  }
+
+  // ============ CANVAS: CUP DRAWING ============
+  const cupCanvas = document.getElementById("cup");
+  const ctx = cupCanvas.getContext("2d");
+  const CUP = { topY: 54, botY: 300, topL: 76, topR: 224, botL: 102, botR: 198 };
+  let fillLevel = 0.12;   // animated 0..1
+
+  function setupCanvas() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cupCanvas.width = CW * dpr;
+    cupCanvas.height = CH * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function cupPath() {
+    const r = 18;
+    ctx.beginPath();
+    ctx.moveTo(CUP.topL, CUP.topY);
+    ctx.lineTo(CUP.botL, CUP.botY - r);
+    ctx.quadraticCurveTo(CUP.botL, CUP.botY, CUP.botL + r, CUP.botY);
+    ctx.lineTo(CUP.botR - r, CUP.botY);
+    ctx.quadraticCurveTo(CUP.botR, CUP.botY, CUP.botR, CUP.botY - r);
+    ctx.lineTo(CUP.topR, CUP.topY);
+    ctx.closePath();
+  }
+
+  function mixHex(a, b, t) {
+    function hx(h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
+    const ca = hx(a), cb = hx(b);
+    const r = Math.round(ca[0] + (cb[0] - ca[0]) * t);
+    const g = Math.round(ca[1] + (cb[1] - ca[1]) * t);
+    const bl = Math.round(ca[2] + (cb[2] - ca[2]) * t);
+    return "rgb(" + r + "," + g + "," + bl + ")";
+  }
+
+  function drawTopping(id, x, y, t, idx) {
+    const bob = Math.sin(t * 0.003 + idx) * 1.6;
+    const yy = y + bob;
+    ctx.save();
+    if (id === "pearls") {
+      ctx.fillStyle = "#2b1a12";
+      ctx.beginPath(); ctx.arc(x, yy, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.28)";
+      ctx.beginPath(); ctx.arc(x - 2, yy - 2, 2.2, 0, Math.PI * 2); ctx.fill();
+    } else if (id === "boba") {
+      ctx.fillStyle = "#e8603f";
+      ctx.beginPath(); ctx.arc(x, yy, 6.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.35)";
+      ctx.beginPath(); ctx.arc(x - 1.6, yy - 1.6, 2, 0, Math.PI * 2); ctx.fill();
+    } else if (id === "aloe") {
+      ctx.fillStyle = "#b6e0a0";
+      ctx.beginPath(); ctx.arc(x, yy, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "rgba(90,150,70,0.7)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(x, yy, 5, 0, Math.PI * 2); ctx.stroke();
+    } else if (id === "jelly") {
+      ctx.fillStyle = "rgba(48,34,28,0.86)";
+      ctx.beginPath(); ctx.roundRect(x - 6, yy - 5, 12, 10, 3); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.16)";
+      ctx.beginPath(); ctx.roundRect(x - 4, yy - 3, 5, 4, 2); ctx.fill();
+    } else if (id === "pudding") {
+      ctx.fillStyle = "#f0c34a";
+      ctx.beginPath(); ctx.roundRect(x - 6, yy - 5, 12, 10, 4); ctx.fill();
+      ctx.fillStyle = "rgba(120,70,10,0.25)";
+      ctx.beginPath(); ctx.roundRect(x - 5, yy + 1, 10, 4, 3); ctx.fill();
+    } else if (id === "redbean") {
+      ctx.fillStyle = "#8a4b2f";
+      ctx.beginPath(); ctx.ellipse(x, yy, 6, 5, 0.4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.2)";
+      ctx.beginPath(); ctx.ellipse(x - 1.5, yy - 1.2, 2, 1.5, 0.4, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawCup(now) {
+    ctx.clearRect(0, 0, CW, CH);
+
+    // shadow under cup
+    ctx.fillStyle = "rgba(96,62,40,0.14)";
+    ctx.beginPath(); ctx.ellipse(150, CUP.botY + 12, 74, 12, 0, 0, Math.PI * 2); ctx.fill();
+
+    const hasTea = !!drink.tea;
+    const targetFill = hasTea ? 0.82 : 0.14;
+    fillLevel += (targetFill - fillLevel) * 0.12;
+
+    // straw (behind liquid rim, in front of nothing important)
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "rgba(255,255,255,0.9)";
+    ctx.lineWidth = 17;
+    ctx.beginPath(); ctx.moveTo(208, 22); ctx.lineTo(180, 244); ctx.stroke();
+    ctx.strokeStyle = "rgba(155,127,199,0.8)";
+    ctx.setLineDash([9, 13]);
+    ctx.beginPath(); ctx.moveTo(208, 22); ctx.lineTo(180, 244); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    // cup body back
+    ctx.save();
+    cupPath();
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    ctx.fill();
+    ctx.restore();
+
+    // liquid (clipped to cup)
+    if (hasTea) {
+      ctx.save();
+      cupPath(); ctx.clip();
+      const teaCol = teaById(drink.tea).color;
+      const milkT = drink.milk === 100 ? 0.72 : drink.milk === 50 ? 0.38 : 0;
+      const topCol = mixHex(teaCol, "#f6e6cb", milkT);
+      const y0 = CUP.botY - fillLevel * (CUP.botY - CUP.topY);
+      const grad = ctx.createLinearGradient(0, CUP.botY, 0, y0);
+      grad.addColorStop(0, teaCol);
+      grad.addColorStop(1, topCol);
+      ctx.fillStyle = grad;
+      const wobble = Math.sin(now * 0.0022) * 2.4;
+      ctx.beginPath();
+      ctx.moveTo(CUP.topL - 6, y0 + wobble);
+      ctx.quadraticCurveTo(150, y0 - 5 + wobble, CUP.topR + 6, y0 + wobble);
+      ctx.lineTo(CUP.topR + 6, CUP.botY + 6);
+      ctx.lineTo(CUP.topL - 6, CUP.botY + 6);
+      ctx.closePath();
+      ctx.fill();
+
+      // sugar sparkle overlay
+      if (drink.sugar === 50 || drink.sugar === 100) {
+        const n = drink.sugar === 100 ? 26 : 13;
+        ctx.fillStyle = "rgba(255,255,255,0.55)";
+        for (let i = 0; i < n; i++) {
+          const sx = CUP.botL + 10 + ((i * 53) % 84);
+          const sy = y0 + 16 + ((i * 37) % Math.max(20, (CUP.botY - y0 - 24)));
+          ctx.beginPath(); ctx.arc(sx, sy, 1.5, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+
+      // toppings, stacked from the bottom
+      let idx = 0;
+      drink.toppings.forEach((id, ti) => {
+        const count = 7;
+        for (let k = 0; k < count; k++) {
+          const frac = (k + 0.5) / count;
+          const x = 110 + frac * 80 + (((idx * 17) % 9) - 4);
+          const y = CUP.botY - 16 - ti * 15 - ((idx % 2) * 4);
+          drawTopping(id, x, y, now, idx);
+          idx++;
+        }
+      });
+      ctx.restore();
+    }
+
+    // cup outline + highlight
+    ctx.save();
+    cupPath();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(138,90,59,0.55)";
+    ctx.stroke();
+    ctx.clip();
+    const hi = ctx.createLinearGradient(CUP.topL, 0, CUP.botL + 40, 0);
+    hi.addColorStop(0, "rgba(255,255,255,0.55)");
+    hi.addColorStop(0.25, "rgba(255,255,255,0.05)");
+    hi.addColorStop(0.75, "rgba(255,255,255,0)");
+    hi.addColorStop(1, "rgba(255,255,255,0.32)");
+    ctx.fillStyle = hi;
+    ctx.fillRect(0, 0, CW, CH);
+    ctx.restore();
+
+    // rim ellipse
+    ctx.save();
+    ctx.strokeStyle = "rgba(138,90,59,0.5)";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.ellipse(150, CUP.topY, (CUP.topR - CUP.topL) / 2, 9, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // empty hint
+    if (!hasTea) {
+      ctx.save();
+      ctx.fillStyle = "rgba(138,90,59,0.55)";
+      ctx.font = "600 13px Segoe UI, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("Empty cup", 150, 186);
+      ctx.font = "12px Segoe UI, sans-serif";
+      ctx.fillStyle = "rgba(138,90,59,0.4)";
+      ctx.fillText("tap ingredients to fill", 150, 205);
+      ctx.restore();
+    }
+  }
+
+  // ============ FEEDBACK: FLOATS, FLASH, TOAST ============
+  function spawnFloat(amount, color) {
+    const el = document.createElement("div");
+    el.className = "float";
+    el.textContent = "+" + fmt(amount);
+    el.style.color = color || "#3f9e4e";
+    const r = document.getElementById("btnServe").getBoundingClientRect();
+    el.style.left = (r.left + r.width / 2) + "px";
+    el.style.top = (r.top - 8) + "px";
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 950);
+  }
+
+  function flash(cust, text, color) {
+    if (!cust || !cust.el) { showToast(text); return; }
+    const r = cust.el.getBoundingClientRect();
+    const el = document.createElement("div");
+    el.className = "float";
+    el.textContent = text;
+    el.style.color = color;
+    el.style.left = (r.left + r.width / 2) + "px";
+    el.style.top = (r.top + r.height / 2) + "px";
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 950);
+  }
+
+  let toastTimer = null;
+  const toastEl = document.getElementById("toast");
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2200);
+  }
+
+  // ============ OVERLAYS ============
+  function showOverlay(id) { document.getElementById(id).classList.remove("hidden"); }
+  function hideAllOverlays() {
+    ["startOverlay", "helpOverlay", "shopOverlay", "overOverlay"].forEach(id => document.getElementById(id).classList.add("hidden"));
+  }
+
+  // ============ GAME LOOP ============
+  let tickAccum = 0;
+  function update(dt) {
+    if (!running || dayOver) return;
+
+    if (queue.length < MAX_QUEUE && spawnedToday < customersToday) {
+      spawnTimer -= dt;
+      if (spawnTimer <= 0) { spawnCustomer(); spawnTimer = SPAWN_DELAY; }
+    }
+
+    for (let i = queue.length - 1; i >= 0; i--) {
+      const c = queue[i];
+      const rate = i === 0 ? 1 : 0.7;
+      c.patience -= dt * rate;
+      if (c.patience <= 0) { customerAngry(c, i); if (!running) return; }
+    }
+
+    if (spawnedToday >= customersToday && queue.length === 0 && !dayOver) endDay();
+  }
+
+  function loop(now) {
+    const dt = Math.min(now - lastFrame, 200);
+    lastFrame = now;
+
+    update(dt);
+    if (running || dayOver) {
+      tickAccum += dt;
+      if (tickAccum > 80) { tickAccum = 0; updateBars(); renderHUD(); }
+    }
+    drawCup(now);
+    requestAnimationFrame(loop);
+  }
+
+  // ============ INPUT ============
+  document.getElementById("btnServe").addEventListener("click", serve);
+  document.getElementById("btnClear").addEventListener("click", clearDrink);
+  document.getElementById("btnStart").addEventListener("click", startDay);
+  document.getElementById("btnNextDay").addEventListener("click", startDay);
+  document.getElementById("btnNewRun").addEventListener("click", newRun);
+  document.getElementById("btnHelp").addEventListener("click", () => { showOverlay("helpOverlay"); });
+  document.getElementById("btnHelpClose").addEventListener("click", () => { document.getElementById("helpOverlay").classList.add("hidden"); });
+
+  document.getElementById("btnSound").addEventListener("click", function () {
+    state.sound = !state.sound;
+    this.textContent = state.sound ? "🔊" : "🔇";
+    if (state.sound) sfxTap();
+    save();
+  });
+
+  // Two-step reset (no native confirm dialogs)
+  document.getElementById("btnReset").addEventListener("click", function () {
+    const now = Date.now();
+    if (now - resetArmed < 3500 && resetArmed > 0) {
+      try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+      state = defaultState(); runServed = 0; runCoins = 0;
+      computeUnlocks(); buildPalette(); renderHUD();
+      document.getElementById("btnReset").textContent = "Reset Save";
+      resetArmed = 0;
+      hideAllOverlays(); showOverlay("startOverlay");
+      showToast("Save wiped. Fresh start!");
+    } else {
+      resetArmed = now;
+      this.textContent = "Click again!";
+      setTimeout(() => { if (resetArmed === now) { document.getElementById("btnReset").textContent = "Reset Save"; resetArmed = 0; } }, 3500);
+    }
+  });
+
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "Space") { e.preventDefault(); if (running) serve(); }
+    else if (e.code === "Backspace" || e.code === "Delete") { e.preventDefault(); clearDrink(); }
+  });
+
+  document.addEventListener("visibilitychange", function () { if (document.hidden) save(); });
+  window.addEventListener("beforeunload", save);
+  setInterval(save, 15000);
+
+  // ============ BOOT ============
+  function boot() {
+    const had = load();
+    runServed = state.runServed || 0;
+    runCoins = state.runCoins || 0;
+    setupCanvas();
+    computeUnlocks();
+    buildPalette();
+    renderHUD();
+    renderQueue();
+    renderBench();
+
+    document.getElementById("btnSound").textContent = state.sound ? "🔊" : "🔇";
+    if (had && state.day > 1) {
+      document.getElementById("btnStart").textContent = "Continue — Day " + state.day;
+      document.getElementById("startHint").textContent = "Resuming your shop · " + fmt(state.coins) + " coins saved";
+    } else {
+      document.getElementById("startHint").textContent = "Tip: exact matches earn the biggest bonuses.";
+    }
+
+    showOverlay("startOverlay");
+    lastFrame = performance.now();
+    requestAnimationFrame(loop);
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>

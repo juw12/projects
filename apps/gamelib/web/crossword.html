@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Crossword</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg1: #1b2a4a;
+    --bg2: #0e1729;
+    --panel: rgba(255,255,255,0.06);
+    --ink: #eaf1ff;
+    --muted: #93a4c4;
+    --line: rgba(255,255,255,0.16);
+    --accent: #ffc53d;
+    --accent2: #57d0ff;
+    --good: #7cffb2;
+    --bad: #ff5a6a;
+    --cell: #1a2540;
+    --cellhl: #22375f;
+    --sel: #2b6cff;
+  }
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(1200px 800px at 50% -10%, #22365f 0%, var(--bg1) 45%, var(--bg2) 100%);
+    color: var(--ink);
+    font-family: "Segoe UI", "Trebuchet MS", Tahoma, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 14px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #app {
+    width: min(96vw, 620px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* ============ HEADER ============ */
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  h1 {
+    font-size: clamp(1.3rem, 5vw, 1.9rem);
+    letter-spacing: 2px;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 2px 12px rgba(87,208,255,0.35);
+  }
+  h1 span { color: var(--accent2); }
+  .best-tag {
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-align: right;
+    line-height: 1.35;
+  }
+  .best-tag b { color: var(--accent); font-weight: 700; }
+
+  /* ============ STATUS BAR ============ */
+  #status {
+    display: flex;
+    gap: 8px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 0.82rem;
+    backdrop-filter: blur(6px);
+  }
+  #status .stat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    text-align: center;
+  }
+  #status .stat .k { color: var(--muted); font-size: 0.62rem; letter-spacing: 1px; text-transform: uppercase; }
+  #status .stat .v { font-weight: 700; font-size: 1rem; color: var(--ink); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ============ BOARD ============ */
+  #board-wrap {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    min-height: 120px;
+  }
+  #board {
+    display: grid;
+    gap: 3px;
+    padding: 6px;
+    background: rgba(0,0,0,0.28);
+    border-radius: 14px;
+    box-shadow: 0 14px 44px rgba(0,0,0,0.45), inset 0 0 0 1px var(--line);
+    width: min(92vw, 360px);
+  }
+  .cell {
+    aspect-ratio: 1 / 1;
+    background: var(--cell);
+    border-radius: 5px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    color: var(--ink);
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: background .08s ease, color .08s ease;
+  }
+  .cell.block { background: transparent; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05); cursor: default; border-radius: 3px; }
+  .cell .num {
+    position: absolute;
+    top: 2px;
+    left: 3px;
+    font-size: clamp(0.4rem, 1.7vw, 0.6rem);
+    line-height: 1;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .cell .let {
+    font-size: clamp(1rem, 4.6vw, 1.5rem);
+    line-height: 1;
+    padding-top: 3px;
+  }
+  .cell.hl { background: var(--cellhl); }
+  .cell.active { background: var(--sel); color: #fff; box-shadow: inset 0 0 0 2px #bcd2ff; }
+  .cell.wrong { background: var(--bad) !important; color: #fff !important; }
+  .cell.reveal { color: var(--accent2); }
+
+  /* ============ CLUE BOX ============ */
+  #cluebox {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px 14px;
+    min-height: 62px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  #cluebox .clue-head {
+    font-size: 0.66rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  #cluebox .clue-text { font-size: 0.95rem; line-height: 1.4; color: var(--ink); }
+
+  /* ============ CLUE COLUMNS ============ */
+  #cluecols {
+    display: flex;
+    gap: 10px;
+  }
+  .cluecol {
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px;
+    min-width: 0;
+  }
+  .cluecol h3 {
+    font-size: 0.62rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent2);
+    margin-bottom: 7px;
+    font-weight: 700;
+  }
+  .cluecol .clue {
+    display: flex;
+    gap: 6px;
+    font-size: 0.72rem;
+    line-height: 1.35;
+    color: var(--muted);
+    padding: 4px 5px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background .1s ease, color .1s ease;
+  }
+  .cluecol .clue:hover { background: rgba(255,255,255,0.06); }
+  .cluecol .clue b { color: var(--ink); font-weight: 700; }
+  .cluecol .clue.done { opacity: 0.45; text-decoration: line-through; }
+  .cluecol .clue.active { background: rgba(87,208,255,0.16); color: var(--ink); }
+
+  /* ============ KEYBOARD ============ */
+  #keyboard {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+  }
+  .krow { display: flex; gap: 5px; justify-content: center; width: 100%; }
+  .key {
+    font-family: inherit;
+    font-size: clamp(0.7rem, 3vw, 0.9rem);
+    font-weight: 700;
+    color: var(--ink);
+    background: linear-gradient(180deg, #33456f, #263458);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 0;
+    flex: 1 1 0;
+    min-width: 0;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: transform .05s ease, background .1s ease;
+  }
+  .key:hover { background: linear-gradient(180deg, #3c5182, #2c3d66); }
+  .key:active { transform: translateY(2px); }
+  .key.wide { flex: 1.6 1 0; font-size: 0.7rem; }
+  .key.act { background: linear-gradient(180deg, #3a4f7d, #243252); }
+
+  /* ============ ACTIONS ============ */
+  #actions { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: .6px;
+    padding: 11px 18px;
+    border: none;
+    border-radius: 11px;
+    cursor: pointer;
+    color: #04121f;
+    background: linear-gradient(135deg, var(--accent), #ff9f1c);
+    box-shadow: 0 4px 0 rgba(0,0,0,.25);
+    transition: transform .06s ease, filter .15s ease;
+    user-select: none;
+  }
+  .btn:hover { filter: brightness(1.06); }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.25); }
+  .btn.ghost {
+    background: var(--panel);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    box-shadow: none;
+  }
+  .btn.ghost:hover { background: rgba(255,255,255,0.13); }
+
+  /* ============ PUZZLE CHIPS ============ */
+  .picker-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .picker-label { font-size: 0.64rem; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); min-width: 52px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+  .chip {
+    font-family: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: .5px;
+    padding: 7px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    cursor: pointer;
+    transition: all .12s ease;
+  }
+  .chip:hover { background: rgba(255,255,255,0.13); }
+  .chip.active {
+    background: linear-gradient(135deg, var(--accent2), #2b6cff);
+    color: #04121f;
+    border-color: var(--accent2);
+    box-shadow: 0 3px 12px rgba(87,208,255,0.35);
+  }
+
+  /* ============ OVERLAY ============ */
+  #overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 20px;
+    text-align: center;
+    background: rgba(9,16,30,0.88);
+    backdrop-filter: blur(4px);
+    border-radius: 14px;
+    opacity: 1;
+    transition: opacity .25s ease;
+  }
+  #overlay.hidden { opacity: 0; pointer-events: none; }
+  #overlay h2 {
+    font-size: clamp(1.4rem, 6vw, 2.1rem);
+    color: var(--accent);
+    letter-spacing: 1px;
+    text-shadow: 0 3px 18px rgba(255,197,61,0.4);
+  }
+  #overlay p { color: var(--muted); font-size: 0.85rem; }
+  #overlay .big { color: #fff; font-size: 1.1rem; font-weight: 700; }
+  #overlay .btn { margin-top: 12px; padding: 12px 26px; font-size: 0.9rem; }
+  #overlay .newbest { color: var(--accent2); font-weight: 800; letter-spacing: 1px; }
+
+  /* ============ FOOTER ============ */
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.68rem;
+    letter-spacing: .5px;
+    line-height: 1.5;
+  }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 420px) {
+    #status .stat .v { font-size: 0.9rem; }
+    .btn { padding: 10px 13px; font-size: 0.72rem; }
+    .chip { padding: 6px 10px; font-size: 0.68rem; }
+    .cluecol .clue { font-size: 0.66rem; }
+    .key { padding: 9px 0; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>CROSS <span>WORD</span></h1>
+    <div class="best-tag" id="bestTag"></div>
+  </header>
+
+  <div id="status">
+    <div class="stat"><span class="k">Puzzle</span><span class="v" id="statName">&mdash;</span></div>
+    <div class="stat"><span class="k">Time</span><span class="v" id="statTime">00:00</span></div>
+    <div class="stat"><span class="k">Best</span><span class="v" id="statBest">--:--</span></div>
+    <div class="stat"><span class="k">Filled</span><span class="v" id="statFilled">0/0</span></div>
+  </div>
+
+  <div id="board-wrap">
+    <div id="board"></div>
+
+    <!-- Start / Win overlay -->
+    <div id="overlay">
+      <h2 id="ovTitle">Mini Crossword</h2>
+      <p id="ovSub">Fill every square using the across &amp; down clues</p>
+      <div class="big" id="ovDetail"></div>
+      <p class="newbest" id="ovBest"></p>
+      <button class="btn" id="ovBtn">Start</button>
+    </div>
+  </div>
+
+  <div id="cluebox">
+    <div class="clue-head" id="clueLabel">&nbsp;</div>
+    <div class="clue-text" id="clueText">Tap a square to begin</div>
+  </div>
+
+  <div id="cluecols">
+    <div class="cluecol"><h3>Across</h3><div id="acrossList"></div></div>
+    <div class="cluecol"><h3>Down</h3><div id="downList"></div></div>
+  </div>
+
+  <div class="picker-row">
+    <span class="picker-label">Puzzle</span>
+    <div class="chips" id="puzzleChips"></div>
+  </div>
+
+  <div id="actions">
+    <button class="btn" id="btnCheck">Check</button>
+    <button class="btn ghost" id="btnReveal">Reveal Word</button>
+    <button class="btn ghost" id="btnSolve">Solve</button>
+    <button class="btn ghost" id="btnNew">Restart</button>
+  </div>
+
+  <div id="keyboard"></div>
+
+  <footer>
+    Type or use the on-screen keys &middot; arrows move &middot; space/tab changes across&nbsp;/&nbsp;down &middot; backspace deletes
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============ PUZZLE DATA (hand-authored, inline) ============ */
+  var PUZZLES = [
+    {
+      name: "Market Day",
+      size: 5,
+      solution: ["#SHOP", "STAVE", "HAVEN", "OVERT", "WENT#"],
+      across: {
+        1: "A place where goods are sold",
+        5: "Wooden slat of a barrel; a verse of a hymn",
+        6: "A safe place; a shelter",
+        7: "Openly visible; not hidden",
+        8: "Past tense of \u201Cgo\u201D"
+      },
+      down: {
+        1: "Barrel slat; a musical staff",
+        2: "A place of safety; a refuge",
+        3: "Plainly visible; public",
+        4: "Shut in; penned up",
+        5: "To display; a TV programme"
+      }
+    },
+    {
+      name: "Word Square",
+      size: 5,
+      solution: ["HEART", "EMBER", "ABUSE", "RESIN", "TREND"],
+      across: {
+        1: "Organ that pumps blood",
+        6: "A glowing piece of coal",
+        7: "To misuse; cruel treatment",
+        8: "Sticky substance from pine trees",
+        9: "A general line of change"
+      },
+      down: {
+        1: "Chest organ; a symbol of love",
+        2: "Smouldering fragment of fire",
+        3: "Improper use; to mistreat",
+        4: "Tree sap used in varnish",
+        5: "Overall tendency or direction"
+      }
+    }
+  ];
+
+  /* ============ PERSISTENCE KEYS ============ */
+  var BEST_KEY = "crosswordBest";
+  var PZ_KEY = "crosswordPuzzle";
+
+  /* ============ DOM ELEMENTS ============ */
+  var boardEl = document.getElementById("board");
+  var overlay = document.getElementById("overlay");
+  var ovTitle = document.getElementById("ovTitle");
+  var ovSub = document.getElementById("ovSub");
+  var ovDetail = document.getElementById("ovDetail");
+  var ovBest = document.getElementById("ovBest");
+  var ovBtn = document.getElementById("ovBtn");
+  var acrossList = document.getElementById("acrossList");
+  var downList = document.getElementById("downList");
+  var clueLabel = document.getElementById("clueLabel");
+  var clueText = document.getElementById("clueText");
+  var statName = document.getElementById("statName");
+  var statTime = document.getElementById("statTime");
+  var statBest = document.getElementById("statBest");
+  var statFilled = document.getElementById("statFilled");
+  var bestTag = document.getElementById("bestTag");
+  var puzzleChips = document.getElementById("puzzleChips");
+
+  /* ============ GAME STATE ============ */
+  var pzIndex = parseInt(localStorage.getItem(PZ_KEY) || "0", 10);
+  if (!PUZZLES[pzIndex]) pzIndex = 0;
+
+  var size = 5;
+  var sol = [];            // [r][c] = letter or null (block)
+  var nums = [];           // [r][c] = clue number or 0
+  var letters = [];        // [r][c] = typed letter or ""
+  var entries = [];        // [{num, dir, cells:[[r,c],...]}]
+  var cellEntry = [];      // [r][c] = { across: idx, down: idx }
+  var cellEls = [];        // [r][c] = DOM element
+  var totalLetters = 0;
+
+  var cur = { r: 0, c: 0 };
+  var dir = "across";
+  var solved = false;
+  var assisted = false;
+  var started = false;
+  var wrongFlash = {};     // "r,c" -> true
+
+  var elapsed = 0;
+  var running = false;
+  var startTime = 0;
+  var timerId = null;
+
+  /* ============ SOUND (WebAudio, no assets) ============ */
+  var actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = actx.createOscillator();
+      var g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  /* ============ UTILITIES ============ */
+  function fmtTime(ms) {
+    var s = Math.floor(ms / 1000);
+    var m = Math.floor(s / 60);
+    s = s % 60;
+    return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  /* ============ BUILD PUZZLE ============ */
+  function makeEntry(num, dirName, r, c) {
+    var cells = [];
+    var dr = dirName === "down" ? 1 : 0;
+    var dc = dirName === "across" ? 1 : 0;
+    var rr = r, cc = c;
+    while (rr >= 0 && rr < size && cc >= 0 && cc < size && sol[rr][cc] !== null) {
+      cells.push([rr, cc]);
+      rr += dr; cc += dc;
+    }
+    return { num: num, dir: dirName, cells: cells };
+  }
+
+  function computeNumbering() {
+    nums = [];
+    cellEntry = [];
+    entries = [];
+    var n = 0;
+    for (var r = 0; r < size; r++) {
+      nums[r] = []; cellEntry[r] = [];
+      for (var c = 0; c < size; c++) {
+        nums[r][c] = 0;
+        cellEntry[r][c] = { across: -1, down: -1 };
+      }
+    }
+    for (r = 0; r < size; r++) {
+      for (c = 0; c < size; c++) {
+        if (sol[r][c] === null) continue;
+        var startA = (c === 0 || sol[r][c - 1] === null) && (c + 1 < size && sol[r][c + 1] !== null);
+        var startD = (r === 0 || sol[r - 1][c] === null) && (r + 1 < size && sol[r + 1][c] !== null);
+        if (startA || startD) {
+          n++;
+          nums[r][c] = n;
+          if (startA) entries.push(makeEntry(n, "across", r, c));
+          if (startD) entries.push(makeEntry(n, "down", r, c));
+        }
+      }
+    }
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i];
+      for (var k = 0; k < e.cells.length; k++) {
+        var cell = e.cells[k];
+        cellEntry[cell[0]][cell[1]][e.dir] = i;
+      }
+    }
+  }
+
+  function buildPuzzle(index) {
+    pzIndex = index;
+    var pz = PUZZLES[pzIndex];
+    size = pz.size;
+    sol = [];
+    letters = [];
+    totalLetters = 0;
+    for (var r = 0; r < size; r++) {
+      sol[r] = []; letters[r] = [];
+      for (var c = 0; c < size; c++) {
+        var ch = pz.solution[r].charAt(c);
+        if (ch === "#") { sol[r][c] = null; letters[r][c] = null; }
+        else { sol[r][c] = ch; letters[r][c] = ""; totalLetters++; }
+      }
+    }
+    computeNumbering();
+
+    solved = false;
+    assisted = false;
+    wrongFlash = {};
+    cur = { r: 0, c: 0 };
+    dir = "across";
+    // snap current cell to a playable one
+    outer:
+    for (r = 0; r < size; r++) for (c = 0; c < size; c++) {
+      if (sol[r][c] !== null) { cur = { r: r, c: c }; break outer; }
+    }
+
+    buildBoard();
+    buildClues();
+    stopTimer();
+    elapsed = 0;
+    statTime.textContent = "00:00";
+    statName.textContent = pz.name;
+    updateBestDisplay();
+    updateFilled();
+    renderCells();
+    renderClueBox();
+    hideOverlay();
+    if (started) startTimer();
+  }
+
+  /* ============ BOARD RENDER ============ */
+  function buildBoard() {
+    boardEl.innerHTML = "";
+    boardEl.style.gridTemplateColumns = "repeat(" + size + ", minmax(0, 1fr))";
+    cellEls = [];
+    for (var r = 0; r < size; r++) {
+      cellEls[r] = [];
+      for (var c = 0; c < size; c++) {
+        var d = document.createElement("div");
+        d.className = "cell";
+        d.dataset.r = r;
+        d.dataset.c = c;
+        if (sol[r][c] === null) {
+          d.classList.add("block");
+        } else {
+          var numEl = document.createElement("span");
+          numEl.className = "num";
+          numEl.textContent = nums[r][c] > 0 ? nums[r][c] : "";
+          var letEl = document.createElement("span");
+          letEl.className = "let";
+          d.appendChild(numEl);
+          d.appendChild(letEl);
+        }
+        boardEl.appendChild(d);
+        cellEls[r][c] = d;
+      }
+    }
+  }
+
+  function renderCells() {
+    var e = currentEntry();
+    var inWord = {};
+    if (e) for (var i = 0; i < e.cells.length; i++) inWord[e.cells[i][0] + "," + e.cells[i][1]] = true;
+
+    for (var r = 0; r < size; r++) {
+      for (var c = 0; c < size; c++) {
+        if (sol[r][c] === null) continue;
+        var el = cellEls[r][c];
+        var letEl = el.querySelector(".let");
+        letEl.textContent = letters[r][c] || "";
+        el.classList.toggle("active", r === cur.r && c === cur.c);
+        el.classList.toggle("hl", !!inWord[r + "," + c] && !(r === cur.r && c === cur.c));
+        el.classList.toggle("wrong", !!wrongFlash[r + "," + c]);
+      }
+    }
+  }
+
+  /* ============ CLUES ============ */
+  function buildClues() {
+    acrossList.innerHTML = "";
+    downList.innerHTML = "";
+    var pz = PUZZLES[pzIndex];
+    var i;
+    var seenA = {}, seenD = {};
+    for (i = 0; i < entries.length; i++) {
+      var e = entries[i];
+      var isAcross = e.dir === "across";
+      var seen = isAcross ? seenA : seenD;
+      if (seen[e.num]) continue;
+      seen[e.num] = true;
+      var clueMap = isAcross ? pz.across : pz.down;
+      var row = document.createElement("div");
+      row.className = "clue";
+      row.dataset.num = e.num;
+      row.dataset.dir = e.dir;
+      var b = document.createElement("b");
+      b.textContent = e.num + (isAcross ? "A" : "D");
+      var span = document.createElement("span");
+      span.textContent = clueMap[e.num] || "";
+      row.appendChild(b);
+      row.appendChild(span);
+      row.addEventListener("click", function (ev) {
+        var num = parseInt(ev.currentTarget.dataset.num, 10);
+        var d = ev.currentTarget.dataset.dir;
+        jumpToClue(num, d);
+      });
+      (isAcross ? acrossList : downList).appendChild(row);
+    }
+  }
+
+  function jumpToClue(num, d) {
+    for (var i = 0; i < entries.length; i++) {
+      if (entries[i].num === num && entries[i].dir === d) {
+        var cell = entries[i].cells[0];
+        cur.r = cell[0]; cur.c = cell[1];
+        dir = d;
+        renderCells();
+        renderClueBox();
+        beep(600, 0.04, "sine");
+        return;
+      }
+    }
+  }
+
+  function renderClueBox() {
+    var e = currentEntry();
+    if (!e) { clueLabel.textContent = "\u00A0"; clueText.textContent = "Tap a square to begin"; return; }
+    var pz = PUZZLES[pzIndex];
+    var map = e.dir === "across" ? pz.across : pz.down;
+    clueLabel.textContent = e.num + " " + (e.dir === "across" ? "Across" : "Down");
+    clueText.textContent = map[e.num] || "";
+
+    // highlight active clue + mark completed clues
+    var rows = document.querySelectorAll(".cluecol .clue");
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      row.classList.toggle("active",
+        parseInt(row.dataset.num, 10) === e.num && row.dataset.dir === e.dir);
+    }
+    markCompletedClues();
+  }
+
+  function entryIsFilled(en) {
+    for (var i = 0; i < en.cells.length; i++) {
+      var cell = en.cells[i];
+      if (!letters[cell[0]][cell[1]]) return false;
+    }
+    return true;
+  }
+  function entryIsCorrect(en) {
+    for (var i = 0; i < en.cells.length; i++) {
+      var cell = en.cells[i];
+      if (letters[cell[0]][cell[1]] !== sol[cell[0]][cell[1]]) return false;
+    }
+    return true;
+  }
+  function markCompletedClues() {
+    var rows = document.querySelectorAll(".cluecol .clue");
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      var num = parseInt(row.dataset.num, 10);
+      var d = row.dataset.dir;
+      var en = null;
+      for (var k = 0; k < entries.length; k++) {
+        if (entries[k].num === num && entries[k].dir === d) { en = entries[k]; break; }
+      }
+      row.classList.toggle("done", !!(en && entryIsCorrect(en)));
+    }
+  }
+
+  /* ============ SELECTION ============ */
+  function currentEntry() {
+    var ce = cellEntry[cur.r] ? cellEntry[cur.r][cur.c] : null;
+    if (!ce) return null;
+    var idx = ce[dir];
+    if (idx < 0) idx = dir === "across" ? ce.down : ce.across;
+    return idx >= 0 ? entries[idx] : null;
+  }
+
+  function idxInEntry(en, r, c) {
+    for (var i = 0; i < en.cells.length; i++) {
+      if (en.cells[i][0] === r && en.cells[i][1] === c) return i;
+    }
+    return -1;
+  }
+
+  function selectCell(r, c, toggle) {
+    if (sol[r][c] === null) return;
+    var ce = cellEntry[r][c];
+    if (r === cur.r && c === cur.c && toggle) {
+      if (ce.across >= 0 && ce.down >= 0) dir = dir === "across" ? "down" : "across";
+    } else {
+      if (dir === "across" && ce.across < 0 && ce.down >= 0) dir = "down";
+      if (dir === "down" && ce.down < 0 && ce.across >= 0) dir = "across";
+    }
+    cur.r = r; cur.c = c;
+    renderCells();
+    renderClueBox();
+  }
+
+  function toggleDir() {
+    var ce = cellEntry[cur.r][cur.c];
+    if (ce.across >= 0 && ce.down >= 0) {
+      dir = dir === "across" ? "down" : "across";
+      beep(560, 0.03, "sine");
+      renderCells();
+      renderClueBox();
+    }
+  }
+
+  /* ============ TYPING ============ */
+  function typeLetter(ch) {
+    if (solved) return;
+    if (!ch) return;
+    letters[cur.r][cur.c] = ch;
+    delete wrongFlash[cur.r + "," + cur.c];
+    beep(540, 0.03, "sine");
+    advance();
+    renderCells();
+    renderClueBox();
+    updateFilled();
+    checkWin();
+  }
+
+  function advance() {
+    var e = currentEntry();
+    if (!e) return;
+    var i = idxInEntry(e, cur.r, cur.c);
+    if (i >= 0 && i < e.cells.length - 1) {
+      var n = e.cells[i + 1];
+      cur.r = n[0]; cur.c = n[1];
+    }
+  }
+
+  function backspace() {
+    if (solved) return;
+    if (letters[cur.r][cur.c]) {
+      letters[cur.r][cur.c] = "";
+    } else {
+      var e = currentEntry();
+      if (e) {
+        var i = idxInEntry(e, cur.r, cur.c);
+        if (i > 0) {
+          var p = e.cells[i - 1];
+          cur.r = p[0]; cur.c = p[1];
+          letters[cur.r][cur.c] = "";
+        }
+      }
+    }
+    beep(300, 0.03, "sawtooth");
+    renderCells();
+    renderClueBox();
+    updateFilled();
+  }
+
+  function move(dr, dc) {
+    var r = cur.r + dr, c = cur.c + dc;
+    while (r >= 0 && r < size && c >= 0 && c < size) {
+      if (sol[r][c] !== null) {
+        if (dr !== 0) dir = "down";
+        if (dc !== 0) dir = "across";
+        cur.r = r; cur.c = c;
+        break;
+      }
+      r += dr; c += dc;
+    }
+    renderCells();
+    renderClueBox();
+  }
+
+  /* ============ ACTIONS ============ */
+  function updateFilled() {
+    var n = 0;
+    for (var r = 0; r < size; r++) for (var c = 0; c < size; c++) {
+      if (sol[r][c] !== null && letters[r][c]) n++;
+    }
+    statFilled.textContent = n + "/" + totalLetters;
+  }
+
+  function check() {
+    if (solved) return;
+    wrongFlash = {};
+    var bad = 0;
+    for (var r = 0; r < size; r++) for (var c = 0; c < size; c++) {
+      if (sol[r][c] === null) continue;
+      var v = letters[r][c];
+      if (v && v !== sol[r][c]) { wrongFlash[r + "," + c] = true; bad++; }
+    }
+    renderCells();
+    if (bad === 0) {
+      beep(760, 0.08, "square");
+    } else {
+      beep(200, 0.16, "sawtooth");
+      setTimeout(function () { wrongFlash = {}; renderCells(); }, 1100);
+    }
+    if (isComplete() && isAllCorrect()) win();
+  }
+
+  function revealWord() {
+    if (solved) return;
+    var e = currentEntry();
+    if (!e) return;
+    assisted = true;
+    for (var i = 0; i < e.cells.length; i++) {
+      var cell = e.cells[i];
+      letters[cell[0]][cell[1]] = sol[cell[0]][cell[1]];
+      delete wrongFlash[cell[0] + "," + cell[1]];
+    }
+    beep(880, 0.07, "sine");
+    renderCells();
+    renderClueBox();
+    updateFilled();
+    checkWin();
+  }
+
+  function solveAll() {
+    if (solved) return;
+    assisted = true;
+    for (var r = 0; r < size; r++) for (var c = 0; c < size; c++) {
+      if (sol[r][c] !== null) letters[r][c] = sol[r][c];
+    }
+    renderCells();
+    renderClueBox();
+    updateFilled();
+    win();
+  }
+
+  function isComplete() {
+    for (var r = 0; r < size; r++) for (var c = 0; c < size; c++) {
+      if (sol[r][c] !== null && !letters[r][c]) return false;
+    }
+    return true;
+  }
+  function isAllCorrect() {
+    for (var r = 0; r < size; r++) for (var c = 0; c < size; c++) {
+      if (sol[r][c] !== null && letters[r][c] !== sol[r][c]) return false;
+    }
+    return true;
+  }
+
+  function checkWin() {
+    if (solved) return;
+    if (isComplete() && isAllCorrect()) win();
+  }
+
+  /* ============ WIN ============ */
+  function win() {
+    if (solved) return;
+    solved = true;
+    stopTimer();
+
+    beep(660, 0.1, "square");
+    setTimeout(function () { beep(880, 0.12, "square"); }, 110);
+    setTimeout(function () { beep(1180, 0.2, "square"); }, 240);
+
+    var best = loadBest();
+    var prev = best[PUZZLES[pzIndex].name] || 0;
+    var isBest = false;
+    if (!assisted && (prev === 0 || elapsed < prev)) {
+      best[PUZZLES[pzIndex].name] = elapsed;
+      saveBest(best);
+      isBest = true;
+    }
+    updateBestDisplay();
+
+    ovTitle.textContent = "Solved!";
+    ovSub.textContent = PUZZLES[pzIndex].name + " \u00b7 " + (assisted ? "assisted" : "clean finish");
+    ovDetail.textContent = "Time " + fmtTime(elapsed);
+    ovBest.textContent = isBest ? "\u2605 New best time!" : (prev ? "Best: " + fmtTime(prev) : "");
+    ovBtn.textContent = "Play Again";
+    showOverlay();
+    markCompletedClues();
+  }
+
+  /* ============ TIMER ============ */
+  function startTimer() {
+    if (timerId || solved) return;
+    startTime = performance.now();
+    timerId = setInterval(tick, 250);
+    running = true;
+  }
+  function tick() {
+    if (!running) return;
+    var now = performance.now();
+    elapsed += now - startTime;
+    startTime = now;
+    statTime.textContent = fmtTime(elapsed);
+  }
+  function stopTimer() {
+    if (timerId) { clearInterval(timerId); timerId = null; }
+    running = false;
+  }
+
+  /* ============ OVERLAY ============ */
+  function showOverlay() { overlay.classList.remove("hidden"); }
+  function hideOverlay() { overlay.classList.add("hidden"); }
+
+  /* ============ PERSISTENCE ============ */
+  function loadBest() {
+    try { return JSON.parse(localStorage.getItem(BEST_KEY)) || {}; }
+    catch (e) { return {}; }
+  }
+  function saveBest(m) {
+    try { localStorage.setItem(BEST_KEY, JSON.stringify(m)); } catch (e) {}
+  }
+  function updateBestDisplay() {
+    var best = loadBest();
+    var b = best[PUZZLES[pzIndex].name] || 0;
+    statBest.textContent = b ? fmtTime(b) : "--:--";
+    var parts = [];
+    for (var i = 0; i < PUZZLES.length; i++) {
+      var t = best[PUZZLES[i].name];
+      if (t) parts.push(PUZZLES[i].name + " " + fmtTime(t));
+    }
+    bestTag.innerHTML = parts.length ? "Best<br><b>" + parts.join(" &middot; ") + "</b>" : "";
+  }
+
+  /* ============ KEYBOARD (on-screen) ============ */
+  function buildKeyboard() {
+    var kb = document.getElementById("keyboard");
+    kb.innerHTML = "";
+    var rows = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
+    rows.forEach(function (lettersRow, ri) {
+      var row = document.createElement("div");
+      row.className = "krow";
+      lettersRow.split("").forEach(function (ch) {
+        var k = document.createElement("button");
+        k.className = "key";
+        k.textContent = ch;
+        k.dataset.key = ch;
+        row.appendChild(k);
+      });
+      if (ri === 2) {
+        var bks = document.createElement("button");
+        bks.className = "key wide act";
+        bks.textContent = "\u232B";
+        bks.dataset.key = "BACK";
+        row.appendChild(bks);
+      }
+      kb.appendChild(row);
+    });
+
+    var ctrl = document.createElement("div");
+    ctrl.className = "krow";
+    [["\u2190", "LEFT"], ["\u2193", "DOWN"], ["\u2191", "UP"], ["\u2192", "RIGHT"], ["\u21C4", "TOGGLE"]]
+      .forEach(function (pair) {
+        var k = document.createElement("button");
+        k.className = "key wide act";
+        k.textContent = pair[0];
+        k.dataset.key = pair[1];
+        ctrl.appendChild(k);
+      });
+    kb.appendChild(ctrl);
+
+    kb.addEventListener("click", function (ev) {
+      var t = ev.target;
+      if (!t || !t.dataset || !t.dataset.key) return;
+      ev.preventDefault();
+      if (!started) { started = true; hideOverlay(); startTimer(); }
+      handleKey(t.dataset.key);
+    });
+  }
+
+  function handleKey(k) {
+    if (k.length === 1 && k >= "A" && k <= "Z") { typeLetter(k); return; }
+    switch (k) {
+      case "BACK": backspace(); break;
+      case "LEFT": move(0, -1); break;
+      case "RIGHT": move(0, 1); break;
+      case "UP": move(-1, 0); break;
+      case "DOWN": move(1, 0); break;
+      case "TOGGLE": toggleDir(); break;
+    }
+  }
+
+  /* ============ PHYSICAL KEYBOARD ============ */
+  document.addEventListener("keydown", function (ev) {
+    if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+    var k = ev.key;
+
+    if (k === "Backspace") { ev.preventDefault(); if (!started) return; backspace(); return; }
+    if (k === "ArrowLeft") { ev.preventDefault(); if (!started) return; move(0, -1); return; }
+    if (k === "ArrowRight") { ev.preventDefault(); if (!started) return; move(0, 1); return; }
+    if (k === "ArrowUp") { ev.preventDefault(); if (!started) return; move(-1, 0); return; }
+    if (k === "ArrowDown") { ev.preventDefault(); if (!started) return; move(1, 0); return; }
+    if (k === " " || k === "Tab" || k === "Enter") {
+      ev.preventDefault();
+      if (started) toggleDir();
+      return;
+    }
+    if (k.length === 1) {
+      var up = k.toUpperCase();
+      if (up >= "A" && up <= "Z") {
+        ev.preventDefault();
+        if (!started) { started = true; hideOverlay(); startTimer(); }
+        typeLetter(up);
+      }
+    }
+  });
+
+  /* ============ POINTER ON BOARD ============ */
+  boardEl.addEventListener("pointerdown", function (ev) {
+    var t = ev.target;
+    if (!t || !t.dataset || t.dataset.r === undefined) return;
+    ev.preventDefault();
+    if (!started) { started = true; hideOverlay(); startTimer(); }
+    var r = parseInt(t.dataset.r, 10);
+    var c = parseInt(t.dataset.c, 10);
+    selectCell(r, c, true);
+    beep(500, 0.03, "sine");
+  });
+
+  /* ============ PUZZLE CHIPS ============ */
+  function buildPuzzleChips() {
+    puzzleChips.innerHTML = "";
+    PUZZLES.forEach(function (pz, i) {
+      var b = document.createElement("button");
+      b.className = "chip" + (i === pzIndex ? " active" : "");
+      b.textContent = pz.name;
+      b.dataset.idx = i;
+      b.addEventListener("click", function () {
+        if (i === pzIndex && !solved) return;
+        pzIndex = i;
+        localStorage.setItem(PZ_KEY, String(i));
+        syncPuzzleChips();
+        beep(600, 0.05, "sine");
+        started = true;
+        buildPuzzle(i);
+      });
+      puzzleChips.appendChild(b);
+    });
+  }
+  function syncPuzzleChips() {
+    var chips = puzzleChips.querySelectorAll(".chip");
+    for (var i = 0; i < chips.length; i++) {
+      chips[i].classList.toggle("active", parseInt(chips[i].dataset.idx, 10) === pzIndex);
+    }
+  }
+
+  /* ============ BUTTONS ============ */
+  document.getElementById("btnCheck").addEventListener("click", check);
+  document.getElementById("btnReveal").addEventListener("click", revealWord);
+  document.getElementById("btnSolve").addEventListener("click", solveAll);
+  document.getElementById("btnNew").addEventListener("click", function () {
+    started = true;
+    buildPuzzle(pzIndex);
+    beep(600, 0.05, "sine");
+  });
+
+  ovBtn.addEventListener("click", function () {
+    if (solved) {
+      // play again -> restart the same puzzle
+      started = true;
+      buildPuzzle(pzIndex);
+    } else {
+      started = true;
+      hideOverlay();
+      startTimer();
+      beep(700, 0.06, "sine");
+    }
+  });
+
+  /* ============ INITIALISATION ============ */
+  buildKeyboard();
+  buildPuzzleChips();
+  syncPuzzleChips();
+  buildPuzzle(pzIndex);
+
+  // return focus / resume audio on first interaction (mobile autoplay policies)
+  window.addEventListener("pointerdown", function onceAudio() {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+    } catch (e) {}
+    window.removeEventListener("pointerdown", onceAudio);
+  });
+})();
+</script>
+</body>
+</html>

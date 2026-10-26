@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🏙️ City Planner</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #dfeaff 0%, #eef6ff 50%, #f6fbff 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 16px;
+      touch-action: manipulation;
+    }
+
+    /* ============ LAYOUT ============ */
+    .game-container {
+      background: rgba(255, 255, 255, 0.94);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 12px 44px rgba(40, 70, 130, 0.18);
+      max-width: 900px;
+      width: 100%;
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.8rem;
+      color: #2f6fd0;
+      margin-bottom: 4px;
+      text-shadow: 2px 2px 0 #eaf2ff;
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #7b8aa5;
+      margin-bottom: 14px;
+    }
+
+    /* ============ HUD ============ */
+    .hud {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .hud-cell {
+      background: linear-gradient(135deg, #f2f7ff, #e7f0ff);
+      border-radius: 10px;
+      padding: 8px 10px;
+      text-align: center;
+      border: 1px solid #dbe8ff;
+    }
+
+    .hud-cell .label { font-size: 0.7rem; color: #8299b8; text-transform: uppercase; letter-spacing: 0.5px; }
+    .hud-cell .value { font-size: 1.15rem; font-weight: 700; color: #2f6fd0; }
+    .hud-cell .value.good { color: #24a35a; }
+    .hud-cell .value.warn { color: #d6792f; }
+    .hud-cell .value.bad  { color: #d24b4b; }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 6px 20px rgba(40, 70, 130, 0.14);
+      background: #bfe3a8;
+      cursor: crosshair;
+    }
+
+    canvas { display: block; width: 100%; height: auto; }
+
+    /* ============ TOOLBAR ============ */
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+      justify-content: center;
+    }
+
+    .tool-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 74px;
+      padding: 8px 10px;
+      border: 2px solid #dbe8ff;
+      background: #fff;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-size: 0.72rem;
+      color: #55688a;
+      font-weight: 600;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .tool-btn .ico { font-size: 1.4rem; line-height: 1; margin-bottom: 2px; }
+    .tool-btn .cost { font-size: 0.65rem; color: #90a2bf; font-weight: 500; }
+    .tool-btn:hover { transform: translateY(-2px); border-color: #b6ccf2; }
+    .tool-btn.selected {
+      background: linear-gradient(135deg, #4f8ae0, #2f6fd0);
+      color: #fff;
+      border-color: #2f6fd0;
+      box-shadow: 0 5px 14px rgba(47, 111, 208, 0.35);
+    }
+    .tool-btn.selected .cost { color: #dceaff; }
+
+    /* ============ ACTION BUTTONS ============ */
+    .actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .action-btn {
+      padding: 10px 22px;
+      background: linear-gradient(135deg, #4f8ae0, #2f6fd0);
+      color: white;
+      border: none;
+      border-radius: 22px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      box-shadow: 0 4px 12px rgba(47, 111, 208, 0.3);
+    }
+    .action-btn:hover { transform: translateY(-2px); }
+    .action-btn:active { transform: translateY(0); }
+    .action-btn.ghost {
+      background: #fff;
+      color: #2f6fd0;
+      border: 2px solid #b6ccf2;
+      box-shadow: none;
+    }
+
+    /* ============ BANNER (milestones) ============ */
+    .banner {
+      margin-top: 12px;
+      text-align: center;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #b8791f;
+      background: linear-gradient(135deg, #fff6e0, #ffeec2);
+      border: 1px solid #ffe0a0;
+      border-radius: 12px;
+      padding: 10px;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      min-height: 20px;
+    }
+    .banner.show { opacity: 1; }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 560px) {
+      .game-title { font-size: 1.4rem; }
+      .game-container { padding: 12px; }
+      .tool-btn { min-width: 60px; padding: 6px; font-size: 0.65rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">🏙️ City Planner</h1>
+    <p class="game-subtitle">Zone land • connect roads • grow your city</p>
+
+    <!-- ============ HUD ============ -->
+    <div class="hud">
+      <div class="hud-cell"><div class="label">Cash</div><div class="value" id="hudMoney">$0</div></div>
+      <div class="hud-cell"><div class="label">Population</div><div class="value" id="hudPop">0</div></div>
+      <div class="hud-cell"><div class="label">Jobs</div><div class="value" id="hudJobs">0</div></div>
+      <div class="hud-cell"><div class="label">Happiness</div><div class="value" id="hudHappy">70%</div></div>
+      <div class="hud-cell"><div class="label">Income /tick</div><div class="value" id="hudIncome">$0</div></div>
+      <div class="hud-cell"><div class="label">Milestone</div><div class="value" id="hudRank">Outpost</div></div>
+    </div>
+
+    <!-- ============ CANVAS ============ -->
+    <div class="canvas-wrapper" id="canvasWrap">
+      <canvas id="gameCanvas" width="800" height="560"></canvas>
+    </div>
+
+    <!-- ============ TOOLBAR ============ -->
+    <div class="toolbar" id="toolbar">
+      <button class="tool-btn selected" data-tool="road"><span class="ico">🛣️</span><span>Road</span><span class="cost" id="cost-road">$20</span></button>
+      <button class="tool-btn" data-tool="res"><span class="ico">🏠</span><span>Residential</span><span class="cost" id="cost-res">$100</span></button>
+      <button class="tool-btn" data-tool="com"><span class="ico">🏢</span><span>Commercial</span><span class="cost" id="cost-com">$150</span></button>
+      <button class="tool-btn" data-tool="ind"><span class="ico">🏭</span><span>Industrial</span><span class="cost" id="cost-ind">$200</span></button>
+      <button class="tool-btn" data-tool="park"><span class="ico">🌳</span><span>Park</span><span class="cost" id="cost-park">$50</span></button>
+      <button class="tool-btn" data-tool="bulldoze"><span class="ico">🚜</span><span>Bulldoze</span><span class="cost">$10</span></button>
+    </div>
+
+    <!-- ============ ACTIONS ============ -->
+    <div class="actions">
+      <button class="action-btn" id="restartBtn">↻ New City</button>
+      <button class="action-btn ghost" id="saveBtn">💾 Save</button>
+      <button class="action-btn ghost" id="pauseBtn">⏸ Pause</button>
+    </div>
+
+    <div class="banner" id="banner"></div>
+  </div>
+
+  <script>
+    // ============================================================
+    // CONFIG
+    // ============================================================
+    const CELL = 40;
+    const COLS = 20;
+    const ROWS = 14;
+    const TICK_MS = 1600;               // simulation step
+    const START_CASH = 4000;
+    const TAX_RATE = 0.9;               // dollars per resident per tick
+
+    // Tile types
+    const T = { EMPTY: 0, ROAD: 1, RES: 2, COM: 3, IND: 4, PARK: 5 };
+
+    const TOOL_DEFS = {
+      road:     { type: T.ROAD, cost: 20 },
+      res:      { type: T.RES,  cost: 100 },
+      com:      { type: T.COM,  cost: 150 },
+      ind:      { type: T.IND,  cost: 200 },
+      park:     { type: T.PARK, cost: 50 },
+      bulldoze: { type: -1,     cost: 10 }
+    };
+
+    const RANKS = [
+      { pop: 0,    name: 'Outpost' },
+      { pop: 40,   name: 'Hamlet' },
+      { pop: 120,  name: 'Village' },
+      { pop: 300,  name: 'Town' },
+      { pop: 700,  name: 'City' },
+      { pop: 1500, name: 'Metropolis' },
+      { pop: 3000, name: 'Megacity' }
+    ];
+
+    // ============================================================
+    // STATE
+    // ============================================================
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let grid = [];               // grid[y][x] = { type, lvl }
+    let cash = START_CASH;
+    let population = 0;
+    let jobs = 0;
+    let happiness = 70;
+    let income = 0;
+    let rankIndex = 0;
+    let paused = false;
+    let tickTimer = 0;
+    let lastTime = 0;
+    let currentTool = 'road';
+    let hover = { x: -1, y: -1 };
+    let isPainting = false;
+
+    // ============================================================
+    // DOM
+    // ============================================================
+    const hudMoney = document.getElementById('hudMoney');
+    const hudPop = document.getElementById('hudPop');
+    const hudJobs = document.getElementById('hudJobs');
+    const hudHappy = document.getElementById('hudHappy');
+    const hudIncome = document.getElementById('hudIncome');
+    const hudRank = document.getElementById('hudRank');
+    const banner = document.getElementById('banner');
+    const restartBtn = document.getElementById('restartBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const toolBtns = document.querySelectorAll('.tool-btn');
+
+    // ============================================================
+    // AUDIO (WebAudio beep)
+    // ============================================================
+    let audioCtx = null;
+    function beep(freq = 440, dur = 0.08, type = 'sine', vol = 0.06) {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.value = vol;
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+        osc.stop(audioCtx.currentTime + dur);
+      } catch (e) { /* audio optional */ }
+    }
+
+    // ============================================================
+    // GRID HELPERS
+    // ============================================================
+    function emptyGrid() {
+      const g = [];
+      for (let y = 0; y < ROWS; y++) {
+        const row = [];
+        for (let x = 0; x < COLS; x++) row.push({ type: T.EMPTY, lvl: 0 });
+        g.push(row);
+      }
+      return g;
+    }
+
+    function inBounds(x, y) {
+      return x >= 0 && x < COLS && y >= 0 && y < ROWS;
+    }
+
+    function hasRoadAccess(x, y) {
+      return (inBounds(x - 1, y) && grid[y][x - 1].type === T.ROAD) ||
+             (inBounds(x + 1, y) && grid[y][x + 1].type === T.ROAD) ||
+             (inBounds(x, y - 1) && grid[y - 1][x].type === T.ROAD) ||
+             (inBounds(x, y + 1) && grid[y + 1][x].type === T.ROAD);
+    }
+
+    function countType(t) {
+      let n = 0, levels = 0;
+      for (let y = 0; y < ROWS; y++)
+        for (let x = 0; x < COLS; x++) {
+          if (grid[y][x].type === t) { n++; levels += grid[y][x].lvl; }
+        }
+      return { n, levels };
+    }
+
+    // ============================================================
+    // ECONOMY / STATS
+    // ============================================================
+    function recomputeStats() {
+      const res = countType(T.RES);
+      const com = countType(T.COM);
+      const ind = countType(T.IND);
+      const park = countType(T.PARK);
+      const road = countType(T.ROAD);
+
+      population = res.levels * 6;
+      jobs = com.levels * 5 + ind.levels * 6;
+
+      // Tax & business income
+      const gross = population * TAX_RATE + com.levels * 3 + ind.levels * 5;
+      const upkeep = road.n * 0.6 + park.n * 0.4;
+      income = Math.round(gross - upkeep);
+
+      // Happiness target
+      const zoneCount = res.n + com.n + ind.n + 1;
+      const parkRatio = Math.min(1, park.n / zoneCount * 4);
+      const pollution = Math.min(1, ind.levels / (res.levels + 3));
+      const unemployment = jobs > 0 ? Math.max(0, (population - jobs) / Math.max(1, population)) : (population > 0 ? 0.5 : 0);
+      let target = 62 + parkRatio * 45 - pollution * 30 - unemployment * 55;
+      target += (income > 0) ? 6 : -8;
+      target = Math.max(0, Math.min(100, target));
+      happiness += (target - happiness) * 0.25;
+    }
+
+    // ============================================================
+    // GROWTH SIMULATION
+    // ============================================================
+    function simulateGrowth() {
+      const res = countType(T.RES);
+      const com = countType(T.COM);
+      const ind = countType(T.IND);
+      const road = countType(T.ROAD);
+      if (road.n === 0) return;   // no connectivity yet
+
+      const pop = res.levels * 6;
+      const jobTotal = com.levels * 5 + ind.levels * 6;
+
+      // Demand heuristics (always a small base so cities can bootstrap)
+      const resDemand = 30 + jobTotal * 1.4 - pop;
+      const comDemand = 25 + pop * 0.9 - com.levels * 8;
+      const indDemand = 20 + pop * 0.5 - ind.levels * 9;
+
+      const happyFactor = 0.5 + happiness / 200;   // 0.5 .. 1.0+
+      let grew = false;
+
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          const cell = grid[y][x];
+          if (cell.type < T.RES || cell.type > T.PARK) continue;
+          if (cell.type === T.PARK) continue;
+          if (!hasRoadAccess(x, y)) continue;
+          if (cell.lvl >= 3) continue;
+
+          let demand = 0;
+          if (cell.type === T.RES) demand = resDemand;
+          else if (cell.type === T.COM) demand = comDemand;
+          else if (cell.type === T.IND) demand = indDemand;
+
+          if (demand > 0) {
+            const chance = Math.min(0.9, 0.25 * happyFactor + demand / 400);
+            if (Math.random() < chance) { cell.lvl++; grew = true; }
+          }
+        }
+      }
+      if (grew) beep(660, 0.05, 'triangle', 0.03);
+    }
+
+    // ============================================================
+    // SIM TICK
+    // ============================================================
+    function tick() {
+      recomputeStats();
+      simulateGrowth();
+      recomputeStats();
+      cash += income;
+
+      // Milestones
+      let newRank = 0;
+      for (let i = 0; i < RANKS.length; i++) if (population >= RANKS[i].pop) newRank = i;
+      if (newRank > rankIndex) {
+        rankIndex = newRank;
+        showBanner('🎉 Milestone reached: ' + RANKS[rankIndex].name + '!');
+        beep(523, 0.12, 'square', 0.07);
+        setTimeout(() => beep(784, 0.16, 'square', 0.07), 130);
+      }
+
+      // Bankruptcy guard — city cannot go deeply negative
+      if (cash < -500) cash = -500;
+
+      updateHUD();
+      autoSave();
+    }
+
+    // ============================================================
+    // HUD
+    // ============================================================
+    function updateHUD() {
+      hudMoney.textContent = '$' + Math.round(cash);
+      hudMoney.className = 'value ' + (cash < 0 ? 'bad' : cash < 300 ? 'warn' : '');
+      hudPop.textContent = population;
+      hudJobs.textContent = jobs;
+      hudIncome.textContent = (income >= 0 ? '+$' : '-$') + Math.abs(income);
+
+      const h = Math.round(happiness);
+      hudHappy.textContent = h + '%';
+      hudHappy.className = 'value ' + (h >= 65 ? 'good' : h >= 40 ? 'warn' : 'bad');
+      hudRank.textContent = RANKS[rankIndex].name;
+    }
+
+    let bannerTimer = null;
+    function showBanner(msg) {
+      banner.textContent = msg;
+      banner.classList.add('show');
+      clearTimeout(bannerTimer);
+      bannerTimer = setTimeout(() => banner.classList.remove('show'), 3200);
+    }
+
+    // ============================================================
+    // PLACEMENT
+    // ============================================================
+    function placeAt(x, y) {
+      if (!inBounds(x, y)) return;
+      const def = TOOL_DEFS[currentTool];
+      const cell = grid[y][x];
+
+      if (currentTool === 'bulldoze') {
+        if (cell.type === T.EMPTY) return;
+        cash -= def.cost;
+        cell.type = T.EMPTY;
+        cell.lvl = 0;
+        beep(180, 0.07, 'sawtooth', 0.05);
+      } else {
+        if (cell.type === def.type) return;   // already this zone
+        if (cell.type !== T.EMPTY) {          // re-zone: refund nothing, overwrite
+          cash -= def.cost;
+        } else {
+          if (cash < def.cost) { beep(120, 0.12, 'square', 0.05); showBanner('Not enough cash for ' + currentTool); return; }
+          cash -= def.cost;
+        }
+        cell.type = def.type;
+        cell.lvl = (def.type === T.RES || def.type === T.COM || def.type === T.IND) ? 0 : 0;
+        // Roads & parks get an implicit level for rendering variety
+        if (def.type === T.ROAD) cell.lvl = (x + y) % 2;
+        if (def.type === T.PARK) cell.lvl = 1;
+        beep(def.type === T.ROAD ? 320 : 440, 0.06, 'triangle', 0.05);
+      }
+      recomputeStats();
+      updateHUD();
+    }
+
+    // ============================================================
+    // RENDER
+    // ============================================================
+    function draw() {
+      // Base terrain
+      ctx.fillStyle = '#bfe3a8';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          drawTile(x, y, grid[y][x]);
+        }
+      }
+
+      // Grid lines
+      ctx.strokeStyle = 'rgba(60, 110, 60, 0.12)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= COLS; i++) {
+        ctx.beginPath(); ctx.moveTo(i * CELL, 0); ctx.lineTo(i * CELL, ROWS * CELL); ctx.stroke();
+      }
+      for (let j = 0; j <= ROWS; j++) {
+        ctx.beginPath(); ctx.moveTo(0, j * CELL); ctx.lineTo(COLS * CELL, j * CELL); ctx.stroke();
+      }
+
+      // Hover highlight
+      if (inBounds(hover.x, hover.y)) {
+        ctx.strokeStyle = 'rgba(47, 111, 208, 0.9)';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(hover.x * CELL + 2, hover.y * CELL + 2, CELL - 4, CELL - 4);
+      }
+
+      // Pause veil
+      if (paused) {
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#2f6fd0';
+        ctx.font = 'bold 34px Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('⏸ Paused', canvas.width / 2, canvas.height / 2);
+        ctx.textAlign = 'left';
+      }
+    }
+
+    function drawTile(x, y, cell) {
+      const px = x * CELL, py = y * CELL;
+      switch (cell.type) {
+        case T.ROAD:    drawRoad(px, py, cell); break;
+        case T.RES:     drawBuilding(px, py, cell, '#4caf6d', '#67d18c', '🏠'); break;
+        case T.COM:     drawBuilding(px, py, cell, '#3f7fd0', '#5f9ded', '🏢'); break;
+        case T.IND:     drawBuilding(px, py, cell, '#c98a2e', '#e0a94c', '🏭'); break;
+        case T.PARK:    drawPark(px, py, cell); break;
+        default: break;
+      }
+    }
+
+    function drawRoad(px, py, cell) {
+      ctx.fillStyle = '#6b737d';
+      ctx.fillRect(px, py, CELL, CELL);
+      ctx.fillStyle = '#8b939d';
+      ctx.fillRect(px + 2, py + 2, CELL - 4, CELL - 4);
+      // Center dashes
+      ctx.strokeStyle = 'rgba(255, 240, 170, 0.85)';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath();
+      if (cell.lvl === 0) { ctx.moveTo(px, py + CELL / 2); ctx.lineTo(px + CELL, py + CELL / 2); }
+      else { ctx.moveTo(px + CELL / 2, py); ctx.lineTo(px + CELL / 2, py + CELL); }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function drawBuilding(px, py, cell, base, light, icon) {
+      if (cell.lvl === 0) {
+        // Undeveloped zoned lot
+        ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        ctx.fillRect(px + 2, py + 2, CELL - 4, CELL - 4);
+        ctx.strokeStyle = base;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(px + 3, py + 3, CELL - 6, CELL - 6);
+        ctx.setLineDash([]);
+        return;
+      }
+      const h = 10 + cell.lvl * 9;                     // height by level
+      const top = py + CELL - 6 - h;
+      // Ground plot
+      ctx.fillStyle = 'rgba(0,0,0,0.07)';
+      ctx.fillRect(px + 4, py + CELL - 8, CELL - 8, 5);
+      // Building body
+      ctx.fillStyle = base;
+      ctx.fillRect(px + 7, top, CELL - 14, h);
+      // Roof highlight
+      ctx.fillStyle = light;
+      ctx.fillRect(px + 7, top, CELL - 14, 5);
+      // Windows
+      ctx.fillStyle = 'rgba(255, 255, 235, 0.85)';
+      for (let r = 0; r < cell.lvl; r++) {
+        ctx.fillRect(px + 11, top + 10 + r * 8, 6, 5);
+        ctx.fillRect(px + CELL - 17, top + 10 + r * 8, 6, 5);
+      }
+      // Level pip
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.font = '10px Segoe UI, sans-serif';
+      ctx.fillText('★'.repeat(cell.lvl), px + 8, py + 12);
+    }
+
+    function drawPark(px, py, cell) {
+      ctx.fillStyle = '#8ed46f';
+      ctx.fillRect(px + 1, py + 1, CELL - 2, CELL - 2);
+      // Trees
+      const spots = [[12, 24], [27, 16], [20, 30]];
+      spots.forEach(([ox, oy]) => {
+        ctx.fillStyle = '#7a5a3a';
+        ctx.fillRect(px + ox - 1, py + oy + 4, 3, 8);
+        ctx.fillStyle = '#3fa34d';
+        ctx.beginPath();
+        ctx.arc(px + ox, py + oy, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#5cc46a';
+        ctx.beginPath();
+        ctx.arc(px + ox - 2, py + oy - 2, 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    // ============================================================
+    // INPUT
+    // ============================================================
+    function canvasPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const cx = (e.clientX !== undefined ? e.clientX : e.touches[0].clientX) - rect.left;
+      const cy = (e.clientY !== undefined ? e.clientY : e.touches[0].clientY) - rect.top;
+      return {
+        x: Math.floor(cx / rect.width * COLS),
+        y: Math.floor(cy / rect.height * ROWS)
+      };
+    }
+
+    function onDown(e) {
+      e.preventDefault();
+      if (paused) return;
+      isPainting = true;
+      const p = canvasPos(e);
+      hover = p;
+      placeAt(p.x, p.y);
+    }
+
+    function onMove(e) {
+      const p = canvasPos(e);
+      hover = p;
+      if (isPainting && !paused) placeAt(p.x, p.y);
+    }
+
+    function onUp() { isPainting = false; }
+
+    canvas.addEventListener('mousedown', onDown);
+    canvas.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    canvas.addEventListener('mouseleave', () => { hover = { x: -1, y: -1 }; isPainting = false; });
+
+    canvas.addEventListener('touchstart', onDown, { passive: false });
+    canvas.addEventListener('touchmove', (e) => { e.preventDefault(); onMove(e); }, { passive: false });
+    canvas.addEventListener('touchend', onUp);
+
+    // Toolbar selection
+    toolBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        toolBtns.forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        currentTool = btn.dataset.tool;
+        beep(520, 0.05, 'sine', 0.04);
+      });
+    });
+
+    // ============================================================
+    // SAVE / LOAD
+    // ============================================================
+    const SAVE_KEY = 'cityPlannerSave_v1';
+
+    function buildSave() {
+      return {
+        grid: grid.map(row => row.map(c => [c.type, c.lvl])),
+        cash, population, jobs, happiness, rankIndex
+      };
+    }
+
+    function autoSave() {
+      try { localStorage.setItem(SAVE_KEY, JSON.stringify(buildSave())); } catch (e) {}
+    }
+
+    function loadSave() {
+      try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (!raw) return false;
+        const data = JSON.parse(raw);
+        if (!data || !Array.isArray(data.grid)) return false;
+        grid = data.grid.map(row => row.map(([type, lvl]) => ({ type, lvl })));
+        cash = typeof data.cash === 'number' ? data.cash : START_CASH;
+        happiness = typeof data.happiness === 'number' ? data.happiness : 70;
+        rankIndex = typeof data.rankIndex === 'number' ? data.rankIndex : 0;
+        recomputeStats();
+        updateHUD();
+        return true;
+      } catch (e) { return false; }
+    }
+
+    // ============================================================
+    // NEW CITY / PAUSE
+    // ============================================================
+    function newCity() {
+      grid = emptyGrid();
+      cash = START_CASH;
+      population = 0;
+      jobs = 0;
+      happiness = 70;
+      income = 0;
+      rankIndex = 0;
+      hover = { x: -1, y: -1 };
+      recomputeStats();
+      updateHUD();
+      showBanner('🌱 A fresh plot of land. Lay roads, then zone!');
+      beep(400, 0.1, 'sine', 0.05);
+    }
+
+    function togglePause() {
+      paused = !paused;
+      pauseBtn.textContent = paused ? '▶ Resume' : '⏸ Pause';
+    }
+
+    restartBtn.addEventListener('click', newCity);
+    saveBtn.addEventListener('click', () => { autoSave(); showBanner('💾 City saved.'); beep(700, 0.08, 'sine', 0.05); });
+    pauseBtn.addEventListener('click', togglePause);
+
+    // ============================================================
+    // MAIN LOOP
+    // ============================================================
+    function loop(now) {
+      const dt = now - lastTime;
+      lastTime = now;
+      if (!paused) {
+        tickTimer += dt;
+        if (tickTimer >= TICK_MS) { tickTimer = 0; tick(); }
+      }
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // ============================================================
+    // INIT
+    // ============================================================
+    function init() {
+      grid = emptyGrid();
+      const loaded = loadSave();
+      updateHUD();
+      if (!loaded) {
+        showBanner('🌱 Welcome! Build roads first, then zone land beside them.');
+      }
+      lastTime = performance.now();
+      requestAnimationFrame(loop);
+    }
+
+    init();
+  </script>
+</body>
+</html>

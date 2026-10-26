@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>TRUCK TRAIL</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Trebuchet MS', 'Segoe UI', Tahoma, sans-serif;
+    background: radial-gradient(circle at 50% 0%, #bfe3ff 0%, #8fc98a 55%, #4f8a4a 100%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    color: #2b3a2b;
+  }
+
+  /* ============ GAME CONTAINER ============ */
+  .game-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+  .title {
+    font-size: 1.6rem; letter-spacing: 4px; font-weight: 800;
+    color: #fff8e7; text-shadow: 0 2px 0 #6b4a1f, 0 4px 10px rgba(0,0,0,.35);
+  }
+  .title small { display:block; letter-spacing: 2px; font-size:.65rem; color:#ffe9b0; font-weight:600; text-shadow:none; }
+
+  /* ============ HUD ============ */
+  .hud {
+    width: 100%; max-width: 480px;
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
+    font-size: .72rem; font-weight: 700;
+  }
+  .hud .cell {
+    background: rgba(255,252,240,.9); border: 2px solid #d8c39a;
+    border-radius: 10px; padding: 5px 8px; box-shadow: 0 2px 6px rgba(0,0,0,.12);
+    display: flex; flex-direction: column; gap: 3px; min-width: 0;
+  }
+  .hud .cell b { font-size: .9rem; color: #7a4a12; }
+  .hud .lbl { font-size: .58rem; letter-spacing: 1px; color: #99805c; }
+  .bar { height: 7px; border-radius: 6px; background: #e6ddc8; overflow: hidden; }
+  .bar > i { display: block; height: 100%; width: 100%; transition: width .12s linear; }
+  .fuel > i { background: linear-gradient(90deg,#ffd166,#f4a300); }
+  .dmg  > i { background: linear-gradient(90deg,#ff8f6b,#d8342b); }
+  .hud .wide { grid-column: span 3; flex-direction: row; align-items: center; justify-content: space-between; }
+  .hud .wide .grp { display:flex; flex-direction:column; gap:2px; }
+  .hint { font-size:.6rem; color:#7c6a4d; font-weight:600; letter-spacing:.5px; }
+
+  /* ============ CANVAS ============ */
+  .stage {
+    position: relative; border-radius: 14px; overflow: hidden;
+    box-shadow: 0 12px 34px rgba(0,0,0,.35), 0 0 0 3px #d8c39a;
+    background: #7cc46f;
+  }
+  canvas { display: block; width: auto; height: auto; max-width: 94vw; max-height: 66vh; }
+
+  /* ============ OVERLAYS ============ */
+  .screen {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    justify-content: center; align-items: center; text-align: center; gap: 10px;
+    padding: 20px; background: rgba(255,250,235,.95);
+    transition: opacity .25s ease;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen h2 { font-size: 1.7rem; color: #7a4a12; letter-spacing: 2px; text-shadow: 0 2px 0 #fff; }
+  .screen p { font-size: .85rem; color: #6b5a3f; line-height: 1.5; max-width: 320px; }
+  .screen .big { font-size: 1.25rem; color: #c0562b; font-weight: 800; }
+  .keys { font-size: .74rem; color: #8a7554; line-height: 1.7; }
+  .keys kbd {
+    background: #fff; border: 1px solid #c9b48c; border-bottom-width: 3px;
+    border-radius: 5px; padding: 1px 6px; font-family: inherit; font-size: .7rem; color:#5c4a2e;
+  }
+
+  .btn {
+    padding: 12px 30px; border: none; border-radius: 22px;
+    font-size: 1rem; font-weight: 800; letter-spacing: 1px; cursor: pointer;
+    color: #fff8e7; background: linear-gradient(135deg, #f0a500, #d97e00);
+    box-shadow: 0 4px 0 #a35a00, 0 6px 14px rgba(0,0,0,.28); transition: transform .12s ease;
+  }
+  .btn:hover { transform: translateY(-2px); }
+  .btn:active { transform: translateY(1px); box-shadow: 0 2px 0 #a35a00; }
+
+  .pause-tag {
+    position: absolute; top: 46%; left: 50%; transform: translate(-50%,-50%);
+    font-size: 1.6rem; font-weight: 800; letter-spacing: 3px; color: #fff8e7;
+    background: rgba(60,40,10,.72); padding: 12px 28px; border-radius: 14px;
+    opacity: 0; pointer-events: none; transition: opacity .2s ease;
+  }
+  .pause-tag.visible { opacity: 1; }
+
+  /* ============ TOUCH CONTROLS ============ */
+  .touch {
+    display: none; width: 100%; max-width: 480px;
+    grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px;
+  }
+  .touch button {
+    padding: 16px 0; font-size: 1.3rem; border-radius: 14px; cursor: pointer;
+    border: 2px solid #d8c39a; background: rgba(255,252,240,.92); color: #7a4a12;
+    box-shadow: 0 3px 0 #c9b48c; -webkit-tap-highlight-color: transparent;
+  }
+  .touch button:active { transform: translateY(2px); box-shadow: 0 1px 0 #c9b48c; }
+
+  @media (max-width: 560px) {
+    .title { font-size: 1.25rem; letter-spacing: 2px; }
+    .touch { display: grid; }
+  }
+</style>
+</head>
+<body>
+  <div class="game-wrap">
+    <div class="title">TRUCK TRAIL<small>LONG-HAUL CARGO RUN</small></div>
+
+    <!-- ============ HUD BAR ============ -->
+    <div class="hud">
+      <div class="cell"><span class="lbl">CASH</span><b>$<span id="hudCash">0</span></b></div>
+      <div class="cell"><span class="lbl">SPEED</span><b><span id="hudSpeed">0</span> km/h</b></div>
+      <div class="cell"><span class="lbl">ROUTE</span><b><span id="hudDist">0</span> m</b></div>
+      <div class="cell"><span class="lbl">FUEL</span><div class="bar fuel"><i id="hudFuel"></i></div></div>
+      <div class="cell"><span class="lbl">DAMAGE</span><div class="bar dmg"><i id="hudDmg"></i></div></div>
+      <div class="cell"><span class="lbl">ETA</span><b id="hudTime">--</b></div>
+      <div class="cell wide">
+        <div class="grp"><span class="lbl">CARGO</span><b id="hudCargo">—</b></div>
+        <div class="grp" style="text-align:right"><span class="lbl">BEST</span><b>$<span id="hudBest">0</span></b></div>
+      </div>
+    </div>
+
+    <!-- ============ STAGE ============ -->
+    <div class="stage">
+      <canvas id="game" width="480" height="680"></canvas>
+
+      <div id="startScreen" class="screen">
+        <h2>TRUCK TRAIL</h2>
+        <p>Haul cargo between roadside depots. Steer, throttle, and brake to dodge traffic and roadworks — deliver on time for a fat bonus.</p>
+        <div class="keys">
+          <kbd>W</kbd>/<kbd>↑</kbd> throttle &nbsp;·&nbsp; <kbd>S</kbd>/<kbd>↓</kbd> brake<br>
+          <kbd>A</kbd> <kbd>D</kbd> / <kbd>←</kbd> <kbd>→</kbd> steer<br>
+          <kbd>P</kbd> or <kbd>Space</kbd> pause
+        </div>
+        <button class="btn" id="startBtn">Start Haul</button>
+      </div>
+
+      <div id="overScreen" class="screen hidden">
+        <h2 id="overTitle">RUN ENDED</h2>
+        <p class="big" id="overReason"></p>
+        <p id="overStats"></p>
+        <button class="btn" id="againBtn">Drive Again</button>
+      </div>
+
+      <div id="pauseTag" class="pause-tag">PAUSED</div>
+    </div>
+
+    <!-- ============ TOUCH CONTROLS ============ -->
+    <div class="touch" id="touch">
+      <button data-act="left">◀</button>
+      <button data-act="brake">▼</button>
+      <button data-act="gas">▲</button>
+      <button data-act="right">▶</button>
+    </div>
+  </div>
+
+<script>
+/* ================================================================
+   TRUCK TRAIL — single-file long-haul trucking game (original).
+   Top-down scrolling highway: deliver cargo between depots on a
+   timer while dodging traffic + roadworks. Watch fuel and damage.
+   ================================================================ */
+
+// ============ DOM / CANVAS ============
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+const hudCash  = document.getElementById('hudCash');
+const hudSpeed = document.getElementById('hudSpeed');
+const hudDist  = document.getElementById('hudDist');
+const hudFuel  = document.getElementById('hudFuel');
+const hudDmg   = document.getElementById('hudDmg');
+const hudTime  = document.getElementById('hudTime');
+const hudCargo = document.getElementById('hudCargo');
+const hudBest  = document.getElementById('hudBest');
+
+const startScreen = document.getElementById('startScreen');
+const overScreen  = document.getElementById('overScreen');
+const overTitle   = document.getElementById('overTitle');
+const overReason  = document.getElementById('overReason');
+const overStats   = document.getElementById('overStats');
+const pauseTag    = document.getElementById('pauseTag');
+const startBtn    = document.getElementById('startBtn');
+const againBtn    = document.getElementById('againBtn');
+const touchPad    = document.getElementById('touch');
+
+// ============ GEOMETRY CONSTANTS ============
+const ROAD_L = 78;                 // left edge of asphalt
+const ROAD_R = W - 78;             // right edge of asphalt
+const ROAD_W = ROAD_R - ROAD_L;
+const LANES  = 4;                  // 2 oncoming (left) + 2 same-direction (right)
+const LANE_W = ROAD_W / LANES;
+const laneCenter = i => ROAD_L + LANE_W * (i + 0.5);
+
+const TRUCK_W = 46, TRUCK_H = 80;
+const TRUCK_Y = H - 130;           // fixed screen row of the cab
+
+const MAX_KMH = 140;               // top speed
+const PX_PER_KMH = 0.62;           // screen scroll scale
+const DEPOT_TRIGGER_M = 360;       // distance left when depot appears
+
+const CARGO_NAMES = ['Produce', 'Timber', 'Lumber', 'Grain', 'Furniture', 'Fertiliser',
+                     'Bottled Water', 'Steel Coils', 'Paper Rolls', 'Fruit Crates'];
+const DEPOT_NAMES = ['Pine Hollow', 'Cedar Creek', 'Millbrook', 'Sunny Ridge', 'Foxglove',
+                     'Harvest Bend', 'Old Quarry', 'Blue Lagoon', 'Clover Field', 'Willow Flats'];
+
+// ============ STATE ============
+let state = 'menu';                // menu | play | pause | over
+let last = 0, particles = [], floaters = [], scenery = [];
+let keys = { gas:false, brake:false, left:false, right:false };
+
+const truck = { x: laneCenter(2), kmh: 0, dmg: 0, fuel: 100 };
+let scroll = 0;                    // world scroll accumulator (px)
+let traffic = [], works = [], depot = null;
+let job = null;                    // current delivery contract
+let cash = 0, best = +(localStorage.getItem('truckTrailBest') || 0);
+let spawnCar = 0, spawnWork = 0, treesSeeded = false, shake = 0, wheelSpin = 0;
+
+// ============ AUDIO (WebAudio beep) ============
+let actx = null;
+function beep(freq, dur, type, vol) {
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'square';
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(vol == null ? 0.06 : vol, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(); o.stop(actx.currentTime + dur);
+  } catch (e) { /* audio unavailable — fail quietly */ }
+}
+function chime(){ beep(660,.09,'triangle',.07); setTimeout(()=>beep(880,.12,'triangle',.07),90); }
+function thud(){ beep(120,.16,'sawtooth',.10); }
+function refuelSfx(){ beep(440,.08,'sine',.06); setTimeout(()=>beep(554,.1,'sine',.06),80); }
+
+// ============ HELPERS ============
+const rnd = (a, b) => a + Math.random() * (b - a);
+const idx = arr => arr[Math.floor(Math.random() * arr.length)];
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+
+// ============ RESET / SETUP ============
+function newJob() {
+  const dist = Math.round(rnd(900, 1800));
+  const limit = Math.round(dist / (68 / 3.6) * 1.25);   // generous deadline
+  job = {
+    cargo: idx(CARGO_NAMES),
+    from: depot ? depot.name : idx(DEPOT_NAMES),
+    to: idx(DEPOT_NAMES),
+    total: dist,
+    left: dist,
+    time: limit,
+    reward: Math.round(90 + dist * 0.16),
+    issued: true
+  };
+  depot = null;
+}
+
+function resetGame() {
+  state = 'play';
+  truck.x = laneCenter(2); truck.kmh = 0; truck.dmg = 0; truck.fuel = 100;
+  scroll = 0; traffic = []; works = []; particles = []; floaters = [];
+  spawnCar = 1.0; spawnWork = 4.0; shake = 0; treesSeeded = false;
+  depot = null; cash = 0;
+  newJob();
+  seedScenery();
+  last = performance.now();
+  requestAnimationFrame(loop);
+}
+
+function seedScenery() {
+  scenery = [];
+  treesSeeded = true;
+  for (let i = 0; i < 14; i++) {
+    const side = i % 2 ? 'L' : 'R';
+    scenery.push({ y: (i / 14) * H, side, kind: Math.random() < .72 ? 'tree' : 'bush', s: rnd(.85, 1.25) });
+  }
+}
+
+// ============ SPAWNERS ============
+function spawnTraffic() {
+  const oncoming = Math.random() < 0.4;
+  const lane = oncoming ? (Math.random() < .5 ? 0 : 1) : (Math.random() < .5 ? 2 : 3);
+  const theirKmh = oncoming ? rnd(65, 95) : rnd(45, 78);
+  const palette = ['#c0392b', '#2c6fa8', '#6b8e23', '#8e6e53', '#7d5ba6', '#d9a441', '#4a4a52'];
+  traffic.push({
+    x: laneCenter(lane), y: -100,
+    w: 40, h: 66, lane, oncoming, theirKmh,
+    color: idx(palette), big: Math.random() < .18
+  });
+  if (traffic[traffic.length - 1].big) { traffic[traffic.length - 1].h = 84; }
+}
+
+function spawnRoadwork() {
+  const lane = Math.floor(rnd(0, LANES));
+  // do not blanket the whole oncoming side at once
+  works.push({ x: laneCenter(lane), y: -120, w: LANE_W - 14, h: 96, lane });
+}
+
+// ============ PARTICLES / FLOATERS ============
+function burst(x, y, color, n) {
+  for (let i = 0; i < (n || 10); i++) {
+    particles.push({
+      x, y, vx: rnd(-120, 120), vy: rnd(-160, 40), life: 1,
+      color: color, size: rnd(2, 5)
+    });
+  }
+}
+function floater(x, y, text, color) {
+  floaters.push({ x, y, text, color: color || '#fff', life: 1 });
+}
+
+// ============ COLLISION ============
+function hit(a, b, pad) {
+  const p = pad == null ? 6 : pad;
+  return Math.abs(a.x - b.x) < (a.w + b.w) / 2 - p &&
+         Math.abs(a.y - b.y) < (a.h + b.h) / 2 - p;
+}
+
+// ============ MAIN UPDATE ============
+function update(dt) {
+  if (state !== 'play') return;
+
+  // ---- input → speed ----
+  if (keys.gas && truck.fuel > 0) truck.kmh += 34 * dt;
+  else if (keys.brake) truck.kmh -= 62 * dt;
+  else truck.kmh -= 9 * dt;                       // coasting drag
+  if (truck.fuel <= 0) truck.kmh -= 40 * dt;      // dead engine
+  truck.kmh = clamp(truck.kmh, 0, MAX_KMH);
+
+  // ---- steering (needs some speed to turn meaningfully) ----
+  const grip = 0.45 + (truck.kmh / MAX_KMH) * 0.55;
+  const steerSpd = 235 * grip;
+  if (keys.left)  truck.x -= steerSpd * dt;
+  if (keys.right) truck.x += steerSpd * dt;
+  truck.x = clamp(truck.x, ROAD_L + TRUCK_W / 2 + 2, ROAD_R - TRUCK_W / 2 - 2);
+
+  // ---- fuel burn ----
+  truck.fuel -= (0.4 + (truck.kmh / MAX_KMH) * 1.4) * dt;
+  if (truck.fuel < 0) truck.fuel = 0;
+
+  // ---- scroll the world ----
+  const pxPerSec = truck.kmh * PX_PER_KMH;
+  const dScroll = pxPerSec * dt;
+  scroll += dScroll;
+  wheelSpin += dScroll * 0.05;
+
+  // ---- scenery drift ----
+  for (const t of scenery) t.y += dScroll;
+  for (const t of scenery) if (t.y > H + 80) { t.y = -80; t.s = rnd(.85, 1.25); t.kind = Math.random() < .72 ? 'tree' : 'bush'; }
+
+  // ---- odometer / job progress ----
+  const meters = (truck.kmh / 3.6) * dt;
+  job.left = Math.max(0, job.left - meters);
+  job.time -= dt;
+  if (job.time <= 0) missDeadline();
+
+  // ---- depot appear / move ----
+  if (!depot && job.left <= DEPOT_TRIGGER_M) {
+    depot = {
+      name: job.to, side: Math.random() < .5 ? 'L' : 'R',
+      y: -160, x: Math.random() < .5 ? ROAD_L - 30 : ROAD_R + 30, h: 120
+    };
+    floater(W / 2, 150, 'DEPOT IN SIGHT', '#fff1c2');
+    beep(520, .12, 'sine', .05);
+  }
+  if (depot) {
+    depot.y += dScroll;
+    // delivery check: slow, aligned, in the bay
+    const inY = Math.abs(depot.y - TRUCK_Y) < 55;
+    const inX = Math.abs(depot.x - truck.x) < 52;
+    if (inY && inX && truck.kmh < 26) deliver();
+    if (depot && depot.y > H + 200) {              // rolled past the bay
+      floater(W / 2, 200, 'MISSED THE DEPOT!', '#ff9d7a');
+      job.reward = Math.round(job.reward * 0.6);
+      depot = null; beep(180, .2, 'sawtooth', .07);
+    }
+  }
+
+  // ---- traffic ----
+  spawnCar -= dt;
+  if (spawnCar <= 0) { spawnTraffic(); spawnCar = rnd(0.7, 1.7); }
+  for (const c of traffic) {
+    const rel = c.oncoming ? (dScroll + c.theirKmh * PX_PER_KMH * dt)
+                           : (dScroll - c.theirKmh * PX_PER_KMH * dt);
+    c.y += rel;
+    if (hit({ x: truck.x, y: TRUCK_Y, w: TRUCK_W, h: TRUCK_H }, c)) {
+      const impact = 6 + truck.kmh * 0.12;
+      truck.dmg += impact;
+      truck.kmh = Math.max(0, truck.kmh - 34);
+      burst(c.x, TRUCK_Y - 20, '#ffd166', 14);
+      shake = 12; thud();
+      c.dead = true;
+    }
+  }
+  traffic = traffic.filter(c => !c.dead && c.y < H + 160 && c.y > -260);
+
+  // ---- roadworks ----
+  spawnWork -= dt;
+  if (spawnWork <= 0) { spawnRoadwork(); spawnWork = rnd(3.2, 6.5); }
+  for (const k of works) {
+    k.y += dScroll;
+    if (hit({ x: truck.x, y: TRUCK_Y, w: TRUCK_W, h: TRUCK_H }, k, 10)) {
+      truck.dmg += 3 + truck.kmh * 0.07;
+      truck.kmh = Math.max(0, truck.kmh - 20);
+      burst(truck.x, TRUCK_Y - 10, '#e9762b', 8);
+      shake = 8; thud();
+      k.dead = true;
+    }
+  }
+  works = works.filter(k => !k.dead && k.y < H + 140);
+
+  // ---- particles / floaters ----
+  for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 220 * dt; p.life -= dt * 1.5; }
+  particles = particles.filter(p => p.life > 0);
+  for (const f of floaters) { f.y -= 26 * dt; f.life -= dt * 0.7; }
+  floaters = floaters.filter(f => f.life > 0);
+
+  if (shake > 0) shake = Math.max(0, shake - dt * 60);
+
+  // ---- lose conditions ----
+  if (truck.dmg >= 100) return endRun('TRUCK WRECKED', 'Your rig took too much punishment.');
+  if (truck.fuel <= 0 && truck.kmh <= 0.5) return endRun('OUT OF FUEL', 'Stranded on the shoulder with a dry tank.');
+
+  updateHUD();
+}
+
+function deliver() {
+  const timeBonus = Math.max(0, Math.round(job.time * 4));
+  const payout = job.reward + timeBonus;
+  cash += payout;
+  truck.fuel = 100;
+  truck.dmg = Math.max(0, truck.dmg - 12);
+  burst(depot.x, TRUCK_Y, '#8fd14f', 20);
+  floater(depot.x, TRUCK_Y - 40, '+$' + payout, '#c8ff9e');
+  if (timeBonus > 0) floater(depot.x, TRUCK_Y - 66, 'ON TIME!', '#ffe08a');
+  chime();
+  if (best < cash) { best = cash; localStorage.setItem('truckTrailBest', best); }
+  depot = null;
+  newJob();
+}
+
+function missDeadline() {
+  cash = Math.max(0, cash - 60);
+  floater(W / 2, 220, 'LATE — $60 PENALTY', '#ff9d7a');
+  beep(160, .25, 'sawtooth', .07);
+  job.time = Math.round(job.left / (68 / 3.6) * 1.25) + 20;
+}
+
+// ============ RENDER ============
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  update(dt);
+  draw();
+  if (state === 'play' || state === 'pause') requestAnimationFrame(loop);
+}
+
+function draw() {
+  ctx.save();
+  if (shake > 0) ctx.translate(rnd(-shake, shake) * .4, rnd(-shake, shake) * .4);
+
+  drawGrass();
+  drawRoad();
+  works.forEach(drawWork);
+  if (depot) drawDepot();
+  drawTraffic();
+  if (state !== 'over') drawTruck();
+  drawParticles();
+  drawFloaters();
+
+  ctx.restore();
+}
+
+function drawGrass() {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#8fd06f');
+  g.addColorStop(1, '#5da24c');
+  ctx.fillStyle = g;
+  ctx.fillRect(-20, -20, W + 40, H + 40);
+
+  // scattered field stripes for texture
+  ctx.fillStyle = 'rgba(255,255,255,0.05)';
+  for (let y = -(scroll % 40); y < H; y += 40) ctx.fillRect(-20, y, W + 40, 12);
+
+  // scenery (trees / bushes) on both shoulders
+  for (const t of scenery) {
+    const x = t.side === 'L' ? ROAD_L / 2 : W - (W - ROAD_R) / 2;
+    if (t.kind === 'tree') {
+      ctx.fillStyle = '#6b4a2b';
+      ctx.fillRect(x - 4 * t.s, t.y + 18 * t.s, 8 * t.s, 16 * t.s);
+      ctx.fillStyle = '#3f7d34';
+      ctx.beginPath(); ctx.arc(x, t.y, 24 * t.s, 0, 7); ctx.fill();
+      ctx.fillStyle = '#4f9540';
+      ctx.beginPath(); ctx.arc(x - 5 * t.s, t.y - 6 * t.s, 16 * t.s, 0, 7); ctx.fill();
+    } else {
+      ctx.fillStyle = '#4f9540';
+      ctx.beginPath(); ctx.arc(x, t.y, 13 * t.s, 0, 7); ctx.fill();
+      ctx.fillStyle = '#63ad4e';
+      ctx.beginPath(); ctx.arc(x - 4, t.y - 4, 8 * t.s, 0, 7); ctx.fill();
+    }
+  }
+}
+
+function drawRoad() {
+  // asphalt
+  const g = ctx.createLinearGradient(ROAD_L, 0, ROAD_R, 0);
+  g.addColorStop(0, '#4b4f57');
+  g.addColorStop(.5, '#585d66');
+  g.addColorStop(1, '#4b4f57');
+  ctx.fillStyle = g;
+  ctx.fillRect(ROAD_L, -20, ROAD_W, H + 40);
+
+  // shoulders
+  ctx.fillStyle = '#c9a86a';
+  ctx.fillRect(ROAD_L - 8, -20, 8, H + 40);
+  ctx.fillRect(ROAD_R, -20, 8, H + 40);
+  ctx.fillStyle = 'rgba(0,0,0,.12)';
+  ctx.fillRect(ROAD_L, -20, 5, H + 40);
+  ctx.fillRect(ROAD_R - 5, -20, 5, H + 40);
+
+  // lane dividers (dashed) — centre double line solid
+  const dash = 46, gap = 34, period = dash + gap;
+  const off = (scroll % period);
+  for (let i = 1; i < LANES; i++) {
+    const x = ROAD_L + LANE_W * i;
+    ctx.strokeStyle = i === 2 ? '#f4e3a1' : 'rgba(255,255,255,.75)';
+    ctx.lineWidth = i === 2 ? 4 : 3;
+    if (i === 2) {
+      ctx.beginPath(); ctx.moveTo(x - 4, -20); ctx.lineTo(x - 4, H + 20); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x + 4, -20); ctx.lineTo(x + 4, H + 20); ctx.stroke();
+    } else {
+      for (let y = -period + off; y < H + period; y += period) {
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + dash); ctx.stroke();
+      }
+    }
+  }
+}
+
+function drawWork(k) {
+  // cones + barrier strip occupying a lane
+  ctx.save();
+  ctx.translate(k.x, k.y);
+  // warning stripes
+  ctx.fillStyle = '#f0a22a';
+  ctx.fillRect(-k.w / 2, 8, k.w, 16);
+  ctx.fillStyle = '#333';
+  for (let x = -k.w / 2; x < k.w / 2; x += 16) ctx.fillRect(x, 8, 8, 16);
+  // cones
+  for (let i = 0; i < 3; i++) {
+    const cy = -30 + i * 26;
+    ctx.fillStyle = '#e8622b';
+    ctx.beginPath();
+    ctx.moveTo(0, cy - 13); ctx.lineTo(11, cy + 12); ctx.lineTo(-11, cy + 12);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(-8, cy + 1, 16, 5);
+  }
+  ctx.restore();
+}
+
+function drawDepot() {
+  const d = depot;
+  ctx.save();
+  ctx.translate(d.x, d.y);
+  // bay pad
+  ctx.fillStyle = 'rgba(143,209,79,.85)';
+  ctx.fillRect(-46, -d.h / 2, 92, d.h);
+  ctx.strokeStyle = '#2f6b1f'; ctx.lineWidth = 3;
+  ctx.strokeRect(-46, -d.h / 2, 92, d.h);
+  // building
+  ctx.fillStyle = '#b5651d';
+  ctx.fillRect(-40, -d.h / 2 + 6, 80, 34);
+  ctx.fillStyle = '#8a4a12';
+  ctx.beginPath();
+  ctx.moveTo(-46, -d.h / 2 + 6); ctx.lineTo(0, -d.h / 2 - 16); ctx.lineTo(46, -d.h / 2 + 6);
+  ctx.closePath(); ctx.fill();
+  // sign + chevrons
+  ctx.fillStyle = '#fff8e7';
+  ctx.font = 'bold 11px Trebuchet MS'; ctx.textAlign = 'center';
+  ctx.fillText('DEPOT', 0, -d.h / 2 + 26);
+  ctx.fillStyle = '#2f6b1f';
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    const yy = -6 + i * 22;
+    ctx.moveTo(-18, yy); ctx.lineTo(0, yy + 12); ctx.lineTo(18, yy);
+    ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(47,107,31,.7)'; ctx.stroke();
+  }
+  ctx.fillStyle = '#2b3a2b'; ctx.font = 'bold 10px Trebuchet MS';
+  ctx.fillText(d.name, 0, d.h / 2 - 8);
+  ctx.restore();
+}
+
+function drawTraffic() {
+  for (const c of traffic) {
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.fillStyle = 'rgba(0,0,0,.18)';
+    ctx.fillRect(-c.w / 2 + 3, -c.h / 2 + 6, c.w, c.h);
+    // body
+    ctx.fillStyle = c.color;
+    roundRect(-c.w / 2, -c.h / 2, c.w, c.h, 8); ctx.fill();
+    // windows
+    ctx.fillStyle = 'rgba(210,235,255,.85)';
+    if (c.oncoming) {
+      roundRect(-c.w / 2 + 5, c.h / 2 - 22, c.w - 10, 14, 5); ctx.fill();
+    } else {
+      roundRect(-c.w / 2 + 5, -c.h / 2 + 8, c.w - 10, 14, 5); ctx.fill();
+    }
+    // lights
+    ctx.fillStyle = c.oncoming ? '#ffe08a' : '#c9302c';
+    ctx.fillRect(-c.w / 2 + 4, c.oncoming ? c.h / 2 - 4 : -c.h / 2, 8, 4);
+    ctx.fillRect(c.w / 2 - 12, c.oncoming ? c.h / 2 - 4 : -c.h / 2, 8, 4);
+    ctx.restore();
+  }
+}
+
+function drawTruck() {
+  const x = truck.x, y = TRUCK_Y;
+  ctx.save();
+  ctx.translate(x, y);
+
+  // shadow
+  ctx.fillStyle = 'rgba(0,0,0,.22)';
+  ctx.fillRect(-TRUCK_W / 2 + 4, -TRUCK_H / 2 + 8, TRUCK_W, TRUCK_H);
+
+  // trailer box
+  ctx.fillStyle = '#e9eef2';
+  roundRect(-TRUCK_W / 2, -TRUCK_H / 2, TRUCK_W, TRUCK_H - 26, 6); ctx.fill();
+  ctx.strokeStyle = '#b9c3cc'; ctx.lineWidth = 2;
+  roundRect(-TRUCK_W / 2, -TRUCK_H / 2, TRUCK_W, TRUCK_H - 26, 6); ctx.stroke();
+  // cargo stripe on trailer
+  ctx.fillStyle = '#c94f2b';
+  ctx.fillRect(-TRUCK_W / 2 + 4, -TRUCK_H / 2 + 14, TRUCK_W - 8, 10);
+  ctx.fillStyle = '#3b4a54';
+  ctx.font = 'bold 9px Trebuchet MS'; ctx.textAlign = 'center';
+  ctx.fillText(job ? job.cargo.toUpperCase().slice(0, 9) : '', 0, -TRUCK_H / 2 + 40);
+
+  // cab
+  ctx.fillStyle = '#2f6fa8';
+  roundRect(-TRUCK_W / 2, TRUCK_H / 2 - 30, TRUCK_W, 30, 8); ctx.fill();
+  ctx.fillStyle = '#8fd0ff';
+  roundRect(-TRUCK_W / 2 + 6, TRUCK_H / 2 - 26, TRUCK_W - 12, 12, 4); ctx.fill();
+  // wheels (spin flicker)
+  ctx.fillStyle = '#20242a';
+  const wob = Math.sin(wheelSpin) > 0 ? 0 : 1;
+  ctx.fillRect(-TRUCK_W / 2 - 3, -TRUCK_H / 2 + 12 + wob, 5, 16);
+  ctx.fillRect(TRUCK_W / 2 - 2, -TRUCK_H / 2 + 12 + wob, 5, 16);
+  ctx.fillRect(-TRUCK_W / 2 - 3, TRUCK_H / 2 - 34 - wob, 5, 16);
+  ctx.fillRect(TRUCK_W / 2 - 2, TRUCK_H / 2 - 34 - wob, 5, 16);
+
+  // headlights beam hint when moving
+  if (truck.kmh > 4) {
+    ctx.fillStyle = 'rgba(255,244,190,.16)';
+    ctx.beginPath();
+    ctx.moveTo(-TRUCK_W / 2 + 4, -TRUCK_H / 2);
+    ctx.lineTo(TRUCK_W / 2 - 4, -TRUCK_H / 2);
+    ctx.lineTo(TRUCK_W / 2 + 20, -TRUCK_H / 2 - 90);
+    ctx.lineTo(-TRUCK_W / 2 - 20, -TRUCK_H / 2 - 90);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+
+  // speed smear lines
+  if (truck.kmh > 70) {
+    ctx.strokeStyle = 'rgba(255,255,255,.18)';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 6; i++) {
+      const lx = ROAD_L + 20 + i * (ROAD_W / 6) + Math.sin(scroll * .05 + i) * 8;
+      ctx.beginPath(); ctx.moveTo(lx, H); ctx.lineTo(lx, H - 70); ctx.stroke();
+    }
+  }
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 7); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawFloaters() {
+  ctx.textAlign = 'center';
+  for (const f of floaters) {
+    ctx.globalAlpha = Math.max(0, Math.min(1, f.life));
+    ctx.font = 'bold 16px Trebuchet MS';
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(30,20,0,.6)';
+    ctx.strokeText(f.text, f.x, f.y);
+    ctx.fillStyle = f.color;
+    ctx.fillText(f.text, f.x, f.y);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+// ============ HUD ============
+function updateHUD() {
+  hudCash.textContent  = cash;
+  hudSpeed.textContent = Math.round(truck.kmh);
+  hudDist.textContent  = Math.round(job.left);
+  hudTime.textContent  = job.time > 0 ? Math.ceil(job.time) + 's' : 'LATE';
+  hudFuel.style.width  = clamp(truck.fuel, 0, 100) + '%';
+  hudDmg.style.width   = clamp(truck.dmg, 0, 100) + '%';
+  hudCargo.textContent = job.cargo + ' → ' + job.to;
+  hudBest.textContent  = best;
+}
+
+// ============ END RUN ============
+function endRun(title, reason) {
+  state = 'over';
+  if (best < cash) { best = cash; localStorage.setItem('truckTrailBest', best); }
+  overTitle.textContent = title;
+  overReason.textContent = reason;
+  overStats.innerHTML = 'Delivered-run earnings: <b>$' + cash + '</b><br>Route remaining: ' +
+                        Math.round(job.left) + ' m &nbsp;·&nbsp; Best: $' + best;
+  pauseTag.classList.remove('visible');
+  overScreen.classList.remove('hidden');
+  beep(220, .5, 'sawtooth', .09);
+}
+
+// ============ INPUT ============
+const KEYMAP = {
+  ArrowUp: 'gas', KeyW: 'gas', ArrowDown: 'brake', KeyS: 'brake',
+  ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right'
+};
+document.addEventListener('keydown', e => {
+  if (e.code in KEYMAP) { keys[KEYMAP[e.code]] = true; e.preventDefault(); }
+  if (e.code === 'KeyP' || e.code === 'Space') {
+    e.preventDefault();
+    if (state === 'play') { state = 'pause'; pauseTag.classList.add('visible'); }
+    else if (state === 'pause') { state = 'play'; last = performance.now(); pauseTag.classList.remove('visible'); requestAnimationFrame(loop); }
+  }
+});
+document.addEventListener('keyup', e => { if (e.code in KEYMAP) keys[KEYMAP[e.code]] = false; });
+
+// touch buttons
+touchPad.querySelectorAll('button').forEach(b => {
+  const act = b.dataset.act;
+  const on  = e => { e.preventDefault(); keys[act] = true; if (act === 'gas' && state === 'menu') startGame(); };
+  const off = e => { e.preventDefault(); keys[act] = false; };
+  b.addEventListener('pointerdown', on);
+  b.addEventListener('pointerup', off);
+  b.addEventListener('pointerleave', off);
+  b.addEventListener('pointercancel', off);
+});
+
+// ============ BUTTONS ============
+startBtn.addEventListener('click', startGame);
+againBtn.addEventListener('click', startGame);
+
+function startGame() {
+  overScreen.classList.add('hidden');
+  startScreen.classList.add('hidden');
+  resetGame();
+}
+
+// ============ BOOT ============
+seedScenery();
+newJob();
+hudBest.textContent = best;
+updateHUD();
+draw();
+</script>
+</body>
+</html>

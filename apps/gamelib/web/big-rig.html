@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>BIG RIG — Freeway Truck Race</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Trebuchet MS', 'Segoe UI', Tahoma, sans-serif;
+    background: radial-gradient(circle at 50% 0%, #2b3a55 0%, #1d2637 55%, #10151f 100%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    color: #e7edf5;
+  }
+
+  /* ============ GAME CONTAINER ============ */
+  .game-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+  .title {
+    font-size: 1.65rem; letter-spacing: 5px; font-weight: 900;
+    color: #ffd166; text-shadow: 0 2px 0 #7a4a00, 0 5px 16px rgba(0,0,0,.55);
+  }
+  .title small { display: block; letter-spacing: 2px; font-size: .6rem; color: #9fb4cc; font-weight: 700; text-shadow: none; }
+
+  /* ============ HUD ============ */
+  .hud {
+    width: 100%; max-width: 480px;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+    font-size: .7rem; font-weight: 700;
+  }
+  .hud .cell {
+    background: rgba(23,31,45,.92); border: 1px solid #33425c;
+    border-radius: 9px; padding: 5px 8px; min-width: 0; overflow: hidden;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .hud .cell b { font-size: .92rem; color: #ffd166; white-space: nowrap; }
+  .hud .lbl { font-size: .54rem; letter-spacing: 1px; color: #7f93ad; }
+  .hud .wide { grid-column: span 2; }
+  .hud .wide b { font-size: .8rem; color: #cfe0f2; }
+  .bar { height: 7px; border-radius: 6px; background: #22304a; overflow: hidden; }
+  .bar > i { display: block; height: 100%; width: 0%; transition: width .1s linear; }
+  .slip > i { background: linear-gradient(90deg, #3fa9f5, #66e0ff); }
+  .time-low b { color: #ff6b6b !important; animation: pulse .5s infinite alternate; }
+  @keyframes pulse { from { opacity: 1; } to { opacity: .45; } }
+
+  /* ============ CANVAS / STAGE ============ */
+  .stage {
+    position: relative; border-radius: 14px; overflow: hidden;
+    box-shadow: 0 14px 40px rgba(0,0,0,.6), 0 0 0 3px #33425c;
+    background: #3a4a3a;
+  }
+  canvas { display: block; width: auto; height: auto; max-width: 94vw; max-height: 68vh; }
+
+  /* ============ OVERLAYS ============ */
+  .screen {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    justify-content: center; align-items: center; text-align: center; gap: 10px;
+    padding: 18px; background: rgba(14,20,30,.94);
+    transition: opacity .25s ease; overflow-y: auto;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen h2 { font-size: 1.6rem; color: #ffd166; letter-spacing: 2px; text-shadow: 0 2px 0 #6a3d00; }
+  .screen p { font-size: .82rem; color: #a9bad0; line-height: 1.5; max-width: 330px; }
+  .screen .big { font-size: 1.3rem; color: #66e0ff; font-weight: 900; }
+  .keys { font-size: .72rem; color: #8fa3bb; line-height: 1.8; }
+  .keys kbd {
+    background: #1d283a; border: 1px solid #3d5170; border-bottom-width: 3px;
+    border-radius: 5px; padding: 1px 6px; font-family: inherit; font-size: .68rem; color: #cfe0f2;
+  }
+
+  .cargo-pick { display: flex; gap: 8px; margin: 2px 0 4px; }
+  .cargo-btn {
+    padding: 9px 14px; border-radius: 12px; cursor: pointer; font-weight: 800;
+    font-size: .74rem; color: #a9bad0; background: #1d283a;
+    border: 2px solid #3d5170; transition: all .15s ease; line-height: 1.25;
+  }
+  .cargo-btn:hover { transform: translateY(-2px); }
+  .cargo-btn.sel { background: linear-gradient(135deg, #ffd166, #f0a500); color: #2a1d00; border-color: #ffd166; }
+
+  .btn {
+    padding: 12px 32px; border: none; border-radius: 22px; margin-top: 4px;
+    font-size: 1rem; font-weight: 900; letter-spacing: 1px; cursor: pointer;
+    color: #2a1d00; background: linear-gradient(135deg, #ffd166, #f0a500);
+    box-shadow: 0 4px 0 #a36700, 0 6px 16px rgba(0,0,0,.4); transition: transform .12s ease;
+  }
+  .btn:hover { transform: translateY(-2px); }
+  .btn:active { transform: translateY(1px); box-shadow: 0 2px 0 #a36700; }
+
+  .pause-tag {
+    position: absolute; top: 46%; left: 50%; transform: translate(-50%,-50%);
+    font-size: 1.5rem; font-weight: 900; letter-spacing: 4px; color: #ffd166;
+    background: rgba(10,15,24,.8); padding: 12px 28px; border-radius: 14px;
+    opacity: 0; pointer-events: none; transition: opacity .2s ease;
+  }
+  .pause-tag.visible { opacity: 1; }
+
+  /* ============ TOUCH CONTROLS ============ */
+  .touch {
+    display: none; width: 100%; max-width: 480px;
+    grid-template-columns: 1.15fr 1fr 1fr 1.15fr; gap: 8px;
+  }
+  .touch button {
+    padding: 15px 0; font-size: 1.15rem; font-weight: 800; border-radius: 14px; cursor: pointer;
+    border: 2px solid #3d5170; background: rgba(29,40,58,.95); color: #cfe0f2;
+    box-shadow: 0 3px 0 #22304a; -webkit-tap-highlight-color: transparent;
+  }
+  .touch button:active { transform: translateY(2px); box-shadow: 0 1px 0 #22304a; }
+  .touch button[data-act="boost"] { color: #66e0ff; }
+
+  @media (max-width: 560px) {
+    .title { font-size: 1.25rem; letter-spacing: 3px; }
+    .hud { font-size: .62rem; }
+    .touch { display: grid; }
+  }
+</style>
+</head>
+<body>
+  <div class="game-wrap">
+    <div class="title">BIG RIG<small>FREEWAY TRUCK RACE</small></div>
+
+    <!-- ============ HUD BAR ============ -->
+    <div class="hud">
+      <div class="cell" id="timeCell"><span class="lbl">CLOCK</span><b id="hudTime">--</b></div>
+      <div class="cell"><span class="lbl">ELAPSED</span><b id="hudElapsed">0.0s</b></div>
+      <div class="cell"><span class="lbl">SPEED</span><b><span id="hudSpeed">0</span></b></div>
+      <div class="cell"><span class="lbl">GATE</span><b><span id="hudGate">1</span>/<span id="hudGates">7</span></b></div>
+      <div class="cell wide"><span class="lbl">NEXT GATE</span><b><span id="hudDist">0</span> m</b></div>
+      <div class="cell wide"><span class="lbl">SLIPSTREAM</span><div class="bar slip"><i id="hudSlip"></i></div></div>
+      <div class="cell wide"><span class="lbl">CARGO</span><b id="hudCargo">Standard</b></div>
+      <div class="cell wide" style="text-align:right"><span class="lbl">BEST TIME</span><b><span id="hudBest">--</span></b></div>
+    </div>
+
+    <!-- ============ STAGE ============ -->
+    <div class="stage">
+      <canvas id="game" width="480" height="680"></canvas>
+
+      <div id="startScreen" class="screen">
+        <h2>BIG RIG</h2>
+        <p>Race your rig gate to gate down the freeway. Beat the clock, draft rival trailers for a slipstream boost, and keep the trailer straight — too much sway and you jackknife.</p>
+        <div class="cargo-pick" id="cargoPick">
+          <button class="cargo-btn" data-cargo="light">LIGHT<br><small>quick · twitchy</small></button>
+          <button class="cargo-btn sel" data-cargo="std">STANDARD<br><small>balanced</small></button>
+          <button class="cargo-btn" data-cargo="heavy">HEAVY<br><small>slow · stable</small></button>
+        </div>
+        <div class="keys">
+          <kbd>W</kbd>/<kbd>&uarr;</kbd> throttle &nbsp;·&nbsp; <kbd>S</kbd>/<kbd>&darr;</kbd> brake<br>
+          <kbd>A</kbd> <kbd>D</kbd> / <kbd>&larr;</kbd> <kbd>&rarr;</kbd> steer<br>
+          <kbd>Shift</kbd> slipstream boost &nbsp;·&nbsp; <kbd>P</kbd>/<kbd>Space</kbd> pause
+        </div>
+        <button class="btn" id="startBtn">Start Race</button>
+      </div>
+
+      <div id="overScreen" class="screen hidden">
+        <h2 id="overTitle">RACE OVER</h2>
+        <p class="big" id="overReason"></p>
+        <p id="overStats"></p>
+        <button class="btn" id="againBtn">Race Again</button>
+      </div>
+
+      <div id="pauseTag" class="pause-tag">PAUSED</div>
+    </div>
+
+    <!-- ============ TOUCH CONTROLS ============ -->
+    <div class="touch" id="touch">
+      <button data-act="left">&#9664;</button>
+      <button data-act="brake">&#9660;</button>
+      <button data-act="gas">&#9650;</button>
+      <button data-act="right">&#9654;</button>
+      <button data-act="boost" style="grid-column:span 4">SLIPSTREAM BOOST</button>
+    </div>
+  </div>
+
+<script>
+/* ================================================================
+   BIG RIG — single-file freeway truck racing game (original).
+   Top-down scrolling freeway: race gate to gate against the clock,
+   overtake traffic + rival rigs, draft trailers for a slipstream
+   boost. Cargo weight changes handling; too much trailer sway
+   jackknifes the rig.
+   ================================================================ */
+
+// ============ DOM / CANVAS ============
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+const hudTime    = document.getElementById('hudTime');
+const hudElapsed = document.getElementById('hudElapsed');
+const hudSpeed   = document.getElementById('hudSpeed');
+const hudGate    = document.getElementById('hudGate');
+const hudGates   = document.getElementById('hudGates');
+const hudDist    = document.getElementById('hudDist');
+const hudSlip    = document.getElementById('hudSlip');
+const hudCargo   = document.getElementById('hudCargo');
+const hudBest    = document.getElementById('hudBest');
+const timeCell   = document.getElementById('timeCell');
+
+const startScreen = document.getElementById('startScreen');
+const overScreen  = document.getElementById('overScreen');
+const overTitle   = document.getElementById('overTitle');
+const overReason  = document.getElementById('overReason');
+const overStats   = document.getElementById('overStats');
+const pauseTag    = document.getElementById('pauseTag');
+const startBtn    = document.getElementById('startBtn');
+const againBtn    = document.getElementById('againBtn');
+const touchPad    = document.getElementById('touch');
+const cargoPick   = document.getElementById('cargoPick');
+
+// ============ GEOMETRY CONSTANTS ============
+const ROAD_L = 62;                  // left edge of asphalt
+const ROAD_R = W - 62;              // right edge of asphalt
+const ROAD_W = ROAD_R - ROAD_L;
+const LANES  = 4;                   // one-way freeway, four lanes
+const LANE_W = ROAD_W / LANES;
+const laneCenter = i => ROAD_L + LANE_W * (i + 0.5);
+
+const CAB_LEN = 38, TRAILER_LEN = 64, TRUCK_W = 40;
+const TRUCK_TOTAL = CAB_LEN + TRAILER_LEN;
+const TRUCK_Y = H - 150;            // fixed screen row of the rig
+
+const PX_PER_KMH = 0.6;             // screen scroll scale
+const M2PX = PX_PER_KMH * 3.6;      // px per metre of travel
+const GATE_SPAWN_M = 250;           // metres ahead when a gate is placed
+
+const START_TIME = 20;              // countdown seconds at green light
+const GATE_BONUS = 15;              // seconds added per checkpoint
+const LEG_M = 640;                  // metres between gates
+const GATES_N = 7;                  // 6 checkpoints + finish
+
+// cargo profiles: name, weight factor (handling), top speed, accel
+const CARGO = {
+  light: { label: 'Light (1t)',      wt: 0.85, top: 176, acc: 52 },
+  std:   { label: 'Standard (4t)',   wt: 1.25, top: 158, acc: 44 },
+  heavy: { label: 'Heavy (9t)',      wt: 1.85, top: 136, acc: 34 }
+};
+let cargoKey = 'std';
+
+// ============ STATE ============
+let state = 'menu';                 // menu | play | pause | over
+let last = 0, particles = [], floaters = [], scenery = [];
+let keys = { gas: false, brake: false, left: false, right: false, boost: false };
+
+const rig = { x: laneCenter(1), kmh: 0, dmg: 0, sway: 0, swayVel: 0, spin: 0 };
+let scroll = 0, meters = 0, wheelSpin = 0;
+let traffic = [], rivals = [], gate = null, nextGateAt = LEG_M;
+let gateIndex = 0, raceTime = START_TIME, elapsed = 0, slip = 0, boost = 0;
+let shake = 0, spawnCar = 1.0, rivalTimer = 2.0, jackTimer = 0, warnFlash = 0;
+let best = +(localStorage.getItem('bigRigBest') || 0) || 0;
+let lastSplit = 0;
+
+// ============ AUDIO (WebAudio beep) ============
+let actx = null;
+function beep(freq, dur, type, vol) {
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'square';
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(vol == null ? 0.06 : vol, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(); o.stop(actx.currentTime + dur);
+  } catch (e) { /* audio unavailable — fail quietly */ }
+}
+function chime()   { beep(660, .09, 'triangle', .07); setTimeout(() => beep(880, .13, 'triangle', .07), 90); }
+function thud()    { beep(110, .18, 'sawtooth', .11); }
+function hiss()    { beep(320, .12, 'sine', .05); }
+function fanfare() { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => beep(f, .16, 'triangle', .07), i * 120)); }
+
+// ============ HELPERS ============
+const rnd = (a, b) => a + Math.random() * (b - a);
+const idx = arr => arr[Math.floor(Math.random() * arr.length)];
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+// ============ RESET / SETUP ============
+function resetGame() {
+  state = 'play';
+  rig.x = laneCenter(1); rig.kmh = 40; rig.dmg = 0;
+  rig.sway = 0; rig.swayVel = 0; rig.spin = 0;
+
+  scroll = 0; meters = 0; wheelSpin = 0;
+  traffic = []; rivals = []; particles = []; floaters = [];
+  gate = null; nextGateAt = LEG_M; gateIndex = 0;
+  raceTime = START_TIME; elapsed = 0; slip = 0; boost = 0;
+  shake = 0; spawnCar = 0.8; rivalTimer = 1.6; jackTimer = 0; warnFlash = 0;
+  lastSplit = 0;
+
+  seedScenery();
+  placeGate();
+  last = performance.now();
+  requestAnimationFrame(loop);
+}
+
+function seedScenery() {
+  scenery = [];
+  for (let i = 0; i < 18; i++) {
+    scenery.push({
+      y: (i / 18) * (H + 120),
+      side: i % 2 ? 'L' : 'R',
+      kind: Math.random() < .6 ? 'sign' : (Math.random() < .5 ? 'pole' : 'bush'),
+      s: rnd(.85, 1.2)
+    });
+  }
+}
+
+// ============ GATES ============
+function placeGate() {
+  gate = {
+    dist: LEG_M,               // metres until the rig reaches it
+    y: TRUCK_Y - GATE_SPAWN_M * M2PX,
+    last: gateIndex === GATES_N - 1,
+    num: gateIndex + 1
+  };
+}
+
+function passGate() {
+  if (gate.last) return finishRace();
+  const split = elapsed - lastSplit;
+  lastSplit = elapsed;
+  gateIndex++;
+  raceTime += GATE_BONUS;
+  burst(W / 2, TRUCK_Y - 40, '#66e0ff', 18);
+  floater(W / 2, 190, 'CHECKPOINT ' + gate.num + '  +' + GATE_BONUS + 's', '#a8f0ff');
+  floater(W / 2, 214, 'SPLIT ' + split.toFixed(1) + 's', '#ffd166');
+  chime();
+  placeGate();
+  hudGates.textContent = GATES_N;
+  hudGate.textContent = Math.min(gateIndex + 1, GATES_N);
+}
+
+// ============ SPAWNERS ============
+function spawnTraffic() {
+  const lane = Math.floor(rnd(0, LANES));
+  const palette = ['#c0392b', '#2c6fa8', '#6b8e23', '#8e6e53', '#7d5ba6', '#d9a441', '#4a4a52'];
+  const pos = cargoKey === 'heavy' ? 1.15 : (cargoKey === 'light' ? 0 : 0.9);
+  traffic.push({
+    x: laneCenter(lane), y: -120, w: 38, h: 62, lane,
+    kmh: rnd(58, 88) * (pos || 1), color: idx(palette), car: true
+  });
+}
+
+function spawnRival() {
+  const lane = Math.floor(rnd(0, LANES));
+  const palette = ['#e8b93b', '#4f8fd8', '#d95f4a', '#5bbf7a', '#b072d8', '#e0e0e0'];
+  rivals.push({
+    x: laneCenter(lane), y: -180, w: 42, h: TRUCK_TOTAL, lane,
+    kmh: rnd(96, 132), color: idx(palette), car: false, wob: rnd(0, 6)
+  });
+}
+
+// ============ PARTICLES / FLOATERS ============
+function burst(x, y, color, n) {
+  for (let i = 0; i < (n || 10); i++) {
+    particles.push({
+      x, y, vx: rnd(-130, 130), vy: rnd(-170, 40), life: 1,
+      color: color, size: rnd(2, 5)
+    });
+  }
+}
+function floater(x, y, text, color) {
+  floaters.push({ x, y, text, color: color || '#fff', life: 1 });
+}
+
+// ============ COLLISION ============
+function hit(a, b, pad) {
+  const p = pad == null ? 5 : pad;
+  return Math.abs(a.x - b.x) < (a.w + b.w) / 2 - p &&
+         Math.abs(a.y - b.y) < (a.h + b.h) / 2 - p;
+}
+
+// ============ MAIN UPDATE ============
+function update(dt) {
+  if (state !== 'play') return;
+
+  const cfg = CARGO[cargoKey];
+
+  // ---- countdown clock ----
+  raceTime -= dt;
+  elapsed  += dt;
+  if (raceTime <= 0) return endRace('TIME UP', 'The clock beat you to the next gate.');
+
+  // ---- input → speed ----
+  const spinning = rig.spin > 0;
+  if (rig.spin > 0) rig.spin = Math.max(0, rig.spin - dt);
+
+  if (boost > 0) {
+    boost = Math.max(0, boost - dt);
+    rig.kmh += cfg.acc * 1.9 * dt;
+  }
+  if (!spinning) {
+    if (keys.gas)        rig.kmh += cfg.acc * dt;
+    else if (keys.brake) rig.kmh -= cfg.acc * 1.5 * dt;
+    else                 rig.kmh -= 8 * dt;
+  } else {
+    rig.kmh -= 26 * dt;
+  }
+  rig.kmh = clamp(rig.kmh, 0, cfg.top + (boost > 0 ? 34 : 0));
+
+  // ---- steering (weight + speed sensitive) ----
+  const grip = 0.5 + (rig.kmh / cfg.top) * 0.5;
+  const steerSpd = (250 / cfg.wt) * grip;
+  let steerIn = 0;
+  if (!spinning) {
+    if (keys.left)  steerIn = -1;
+    if (keys.right) steerIn = 1;
+  }
+
+  // ---- trailer sway / jackknife model ----
+  // Hard steering at speed with a heavy load swings the trailer out.
+  const speedRatio = rig.kmh / cfg.top;
+  rig.swayVel += steerIn * 2.4 * cfg.wt * speedRatio * dt * 60 * dt;
+  // crosswind from buffeting / spin
+  rig.swayVel += (spinning ? 1 : 0) * (rig.sway > 0 ? 1 : -1) * 1.6 * dt;
+  // spring pulling the trailer back in line
+  rig.swayVel -= rig.sway * 6.0 * dt * cfg.wt * 6;
+  rig.swayVel *= Math.pow(0.86, dt * 60);
+  rig.sway += rig.swayVel;
+
+  // jackknife when the trailer folds past the limit
+  if (Math.abs(rig.sway) > 1.0 && jackTimer <= 0) {
+    jackknife(rig.sway > 0 ? 1 : -1);
+  }
+
+  rig.x += steerIn * steerSpd * dt;
+  rig.x = clamp(rig.x, ROAD_L + TRUCK_W / 2 + 2, ROAD_R - TRUCK_W / 2 - 2);
+
+  // ---- world scroll ----
+  const dScroll = rig.kmh * PX_PER_KMH * dt;
+  const dm = (rig.kmh / 3.6) * dt;
+  scroll += dScroll; meters += dm; wheelSpin += dScroll * 0.05;
+
+  // ---- scenery drift ----
+  for (const s of scenery) s.y += dScroll;
+  for (const s of scenery) if (s.y > H + 120) {
+    s.y = -120; s.side = Math.random() < .5 ? 'L' : 'R';
+    s.kind = Math.random() < .6 ? 'sign' : (Math.random() < .5 ? 'pole' : 'bush');
+    s.s = rnd(.85, 1.2);
+  }
+
+  // ---- gate progress ----
+  if (gate) {
+    gate.dist -= dm;
+    gate.y += dScroll;
+    if (gate.dist <= 0) passGate();
+  }
+
+  // ---- traffic ----
+  spawnCar -= dt;
+  if (spawnCar <= 0) { spawnTraffic(); spawnCar = rnd(0.6, 1.5); }
+  for (const c of traffic) {
+    c.y += (rig.kmh - c.kmh) * PX_PER_KMH * dt;
+    if (hit(rigBox(), c)) {
+      const impact = 5 + rig.kmh * 0.09;
+      rig.dmg += impact;
+      rig.kmh = Math.max(0, rig.kmh - 30);
+      rig.swayVel += (rig.x < c.x ? -1 : 1) * 0.35;
+      burst(c.x, TRUCK_Y - 24, '#ffd166', 12);
+      shake = 12; thud(); warnFlash = 0.4;
+      c.dead = true;
+    }
+  }
+  traffic = traffic.filter(c => !c.dead && c.y < H + 170 && c.y > -300);
+
+  // ---- rival rigs + slipstream ----
+  rivalTimer -= dt;
+  if (rivalTimer <= 0) { spawnRival(); rivalTimer = rnd(1.8, 3.6); }
+
+  let drafting = false;
+  for (const r of rivals) {
+    r.y += (rig.kmh - r.kmh) * PX_PER_KMH * dt;
+    r.x += Math.sin(scroll * 0.004 + r.wob) * 14 * dt;   // slight jockeying
+    r.x = clamp(r.x, ROAD_L + r.w / 2 + 2, ROAD_R - r.w / 2 - 2);
+
+    // draft window: directly behind, close enough
+    const gap = TRUCK_Y - r.y;                            // positive = ahead of us
+    const lat = Math.abs(r.x - rig.x);
+    if (gap > 34 && gap < 150 && lat < 30 && rig.kmh > 55) drafting = true;
+
+    if (hit(rigBox(), r, 3)) {
+      rig.dmg += 6 + rig.kmh * 0.1;
+      rig.kmh = Math.max(0, rig.kmh - 36);
+      rig.swayVel += (rig.x < r.x ? -1 : 1) * 0.45;
+      burst(r.x, TRUCK_Y - 20, '#ff9d7a', 14);
+      shake = 14; thud(); warnFlash = 0.5;
+      r.dead = true;
+    }
+  }
+  rivals = rivals.filter(r => !r.dead && r.y < H + 200 && r.y > -340);
+
+  // slipstream meter fills while drafting, drains otherwise
+  if (drafting) slip = clamp(slip + 34 * dt, 0, 100);
+  else slip = clamp(slip - 12 * dt, 0, 100);
+
+  // ---- particles / floaters ----
+  for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 220 * dt; p.life -= dt * 1.5; }
+  particles = particles.filter(p => p.life > 0);
+  for (const f of floaters) { f.y -= 26 * dt; f.life -= dt * 0.7; }
+  floaters = floaters.filter(f => f.life > 0);
+
+  if (shake > 0) shake = Math.max(0, shake - dt * 60);
+  if (warnFlash > 0) warnFlash = Math.max(0, warnFlash - dt * 2.2);
+
+  // ---- lose condition ----
+  if (rig.dmg >= 100) return endRace('RIG WRECKED', 'Too many hits — the rig is done for.');
+
+  updateHUD(drafting, cfg);
+}
+
+function rigBox() {
+  return { x: rig.x, y: TRUCK_Y, w: TRUCK_W, h: TRUCK_TOTAL };
+}
+
+// ============ JACKKNIFE ============
+function jackknife(dir) {
+  jackTimer = 0.9;
+  rig.spin = 0.9;
+  rig.kmh = Math.max(0, rig.kmh - 42);
+  rig.sway = dir * 1.05;
+  rig.swayVel = -dir * 0.4;
+  rig.dmg += 6;
+  shake = 16; thud();
+  burst(rig.x, TRUCK_Y + 20, '#ff6b6b', 16);
+  floater(rig.x, TRUCK_Y - 70, 'JACKKNIFE!', '#ff6b6b');
+  warnFlash = 0.8;
+}
+
+// ============ BOOST ============
+function tryBoost() {
+  if (state !== 'play') return;
+  if (slip >= 25 && boost <= 0) {
+    boost = 1.4;
+    const cost = 45;
+    slip = clamp(slip - cost, 0, 100);
+    floater(rig.x, TRUCK_Y - 60, 'SLIPSTREAM!', '#66e0ff');
+    burst(rig.x, TRUCK_Y + 30, '#66e0ff', 14);
+    hiss();
+  }
+}
+
+// ============ RENDER ============
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  update(dt);
+  draw();
+  if (state === 'play' || state === 'pause') requestAnimationFrame(loop);
+}
+
+function draw() {
+  ctx.save();
+  if (shake > 0) ctx.translate(rnd(-shake, shake) * .4, rnd(-shake, shake) * .4);
+
+  drawVerges();
+  drawRoad();
+  drawScenery();
+  if (gate) drawGate();
+  traffic.forEach(drawVehicle);
+  rivals.forEach(drawRival);
+  if (state !== 'over') drawRig();
+  drawSpeedLines();
+  drawParticles();
+  drawFloaters();
+  if (warnFlash > 0) {
+    ctx.fillStyle = 'rgba(255,60,60,' + (warnFlash * 0.22) + ')';
+    ctx.fillRect(-20, -20, W + 40, H + 40);
+  }
+  ctx.restore();
+}
+
+function drawVerges() {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#3f6b45');
+  g.addColorStop(1, '#2c4d33');
+  ctx.fillStyle = g;
+  ctx.fillRect(-20, -20, W + 40, H + 40);
+  ctx.fillStyle = 'rgba(255,255,255,0.04)';
+  for (let y = -(scroll % 46); y < H; y += 46) ctx.fillRect(-20, y, W + 40, 14);
+}
+
+function drawRoad() {
+  const g = ctx.createLinearGradient(ROAD_L, 0, ROAD_R, 0);
+  g.addColorStop(0, '#3b4048');
+  g.addColorStop(.5, '#474d57');
+  g.addColorStop(1, '#3b4048');
+  ctx.fillStyle = g;
+  ctx.fillRect(ROAD_L, -20, ROAD_W, H + 40);
+
+  // shoulder rumble strips
+  ctx.fillStyle = '#c9b06a';
+  ctx.fillRect(ROAD_L - 9, -20, 9, H + 40);
+  ctx.fillRect(ROAD_R, -20, 9, H + 40);
+  ctx.fillStyle = 'rgba(0,0,0,.15)';
+  ctx.fillRect(ROAD_L, -20, 4, H + 40);
+  ctx.fillRect(ROAD_R - 4, -20, 4, H + 40);
+
+  // dashed lane markings
+  const dash = 44, gap = 34, period = dash + gap;
+  const off = scroll % period;
+  for (let i = 1; i < LANES; i++) {
+    const x = ROAD_L + LANE_W * i;
+    ctx.strokeStyle = 'rgba(255,255,255,.72)';
+    ctx.lineWidth = 3;
+    for (let y = -period + off; y < H + period; y += period) {
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + dash); ctx.stroke();
+    }
+  }
+}
+
+function drawScenery() {
+  for (const s of scenery) {
+    const x = s.side === 'L' ? ROAD_L / 2 - 6 : W - (W - ROAD_R) / 2 + 6;
+    ctx.save();
+    ctx.translate(x, s.y);
+    if (s.kind === 'sign') {
+      ctx.fillStyle = '#6b727d';
+      ctx.fillRect(-2, 0, 4, 24);
+      ctx.fillStyle = '#2f8f4e';
+      roundRect(-20 * s.s, -14, 40 * s.s, 18, 4); ctx.fill();
+      ctx.fillStyle = '#dfe9f5';
+      ctx.font = 'bold 8px Trebuchet MS'; ctx.textAlign = 'center';
+      ctx.fillText('EXIT', 0, -1);
+    } else if (s.kind === 'pole') {
+      ctx.fillStyle = '#7c8794';
+      ctx.fillRect(-2, -18, 4, 26);
+      ctx.fillStyle = '#ffd9a0';
+      ctx.beginPath(); ctx.arc(0, -20, 5 * s.s, 0, 7); ctx.fill();
+    } else {
+      ctx.fillStyle = '#4f9540';
+      ctx.beginPath(); ctx.arc(0, 0, 13 * s.s, 0, 7); ctx.fill();
+      ctx.fillStyle = '#63ad4e';
+      ctx.beginPath(); ctx.arc(-4, -4, 8 * s.s, 0, 7); ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+function drawGate() {
+  const g = gate;
+  const col = g.last ? '#ffd166' : '#3fd0ff';
+  ctx.save();
+  ctx.translate(0, g.y);
+  // overhead arch
+  ctx.fillStyle = col;
+  ctx.fillRect(ROAD_L - 4, -6, ROAD_W + 8, 12);
+  ctx.fillStyle = 'rgba(0,0,0,.25)';
+  for (let x = ROAD_L; x < ROAD_R; x += 34) ctx.fillRect(x, -6, 16, 12);
+  // posts
+  ctx.fillStyle = '#7c8794';
+  ctx.fillRect(ROAD_L - 12, -6, 9, 26);
+  ctx.fillRect(ROAD_R + 3, -6, 9, 26);
+  // banner
+  ctx.fillStyle = 'rgba(10,15,24,.85)';
+  roundRect(W / 2 - 58, -46, 116, 26, 8); ctx.fill();
+  ctx.fillStyle = col;
+  ctx.font = 'bold 13px Trebuchet MS'; ctx.textAlign = 'center';
+  ctx.fillText(g.last ? 'FINISH' : 'GATE ' + g.num, W / 2, -28);
+  ctx.restore();
+}
+
+function drawVehicle(c) {
+  ctx.save();
+  ctx.translate(c.x, c.y);
+  ctx.fillStyle = 'rgba(0,0,0,.22)';
+  ctx.fillRect(-c.w / 2 + 3, -c.h / 2 + 6, c.w, c.h);
+  ctx.fillStyle = c.color;
+  roundRect(-c.w / 2, -c.h / 2, c.w, c.h, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(210,235,255,.85)';
+  roundRect(-c.w / 2 + 5, c.h / 2 - 20, c.w - 10, 13, 4); ctx.fill();
+  roundRect(-c.w / 2 + 5, -c.h / 2 + 6, c.w - 10, 12, 4); ctx.fill();
+  ctx.fillStyle = '#d0342c';
+  ctx.fillRect(-c.w / 2 + 4, c.h / 2 - 5, 8, 4);
+  ctx.fillRect(c.w / 2 - 12, c.h / 2 - 5, 8, 4);
+  ctx.restore();
+}
+
+function drawRival(r) {
+  ctx.save();
+  ctx.translate(r.x, r.y);
+  // shadow
+  ctx.fillStyle = 'rgba(0,0,0,.25)';
+  ctx.fillRect(-r.w / 2 + 4, -r.h / 2 + 8, r.w, r.h);
+  // trailer (front-cab up: trailer sits behind)
+  ctx.fillStyle = '#e9eef2';
+  roundRect(-r.w / 2, -r.h / 2 + CAB_LEN, r.w, TRAILER_LEN - 4, 5); ctx.fill();
+  ctx.strokeStyle = '#b9c3cc'; ctx.lineWidth = 2;
+  roundRect(-r.w / 2, -r.h / 2 + CAB_LEN, r.w, TRAILER_LEN - 4, 5); ctx.stroke();
+  ctx.fillStyle = r.color;
+  ctx.fillRect(-r.w / 2 + 4, -r.h / 2 + CAB_LEN + 8, r.w - 8, 10);
+  // cab
+  ctx.fillStyle = r.color;
+  roundRect(-r.w / 2, -r.h / 2, r.w, CAB_LEN - 4, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(190,225,255,.9)';
+  roundRect(-r.w / 2 + 5, -r.h / 2 + 6, r.w - 10, 12, 4); ctx.fill();
+  // tail lights
+  ctx.fillStyle = '#d0342c';
+  ctx.fillRect(-r.w / 2 + 4, r.h / 2 - 6, 8, 5);
+  ctx.fillRect(r.w / 2 - 12, r.h / 2 - 6, 8, 5);
+  ctx.restore();
+}
+
+function drawRig() {
+  const x = rig.x, y = TRUCK_Y;
+  ctx.save();
+  ctx.translate(x, y);
+
+  // ground shadow
+  ctx.fillStyle = 'rgba(0,0,0,.24)';
+  ctx.fillRect(-TRUCK_W / 2 + 4, -TRUCK_TOTAL / 2 + 8, TRUCK_W, TRUCK_TOTAL);
+
+  // ---- trailer (pivots on the kingpin, sways for jackknife feel) ----
+  const pivotY = -TRUCK_TOTAL / 2 + CAB_LEN - 2;
+  ctx.save();
+  ctx.translate(0, pivotY);
+  ctx.rotate(rig.sway * 0.42 + (rig.spin > 0 ? rig.sway * 0.3 : 0));
+  ctx.fillStyle = '#eef2f6';
+  roundRect(-TRUCK_W / 2, 0, TRUCK_W, TRAILER_LEN, 5); ctx.fill();
+  ctx.strokeStyle = '#b9c3cc'; ctx.lineWidth = 2;
+  roundRect(-TRUCK_W / 2, 0, TRUCK_W, TRAILER_LEN, 5); ctx.stroke();
+  // cargo stripe reflects the load
+  ctx.fillStyle = cargoKey === 'heavy' ? '#c94f2b' : (cargoKey === 'light' ? '#2f8f4e' : '#2c6fa8');
+  ctx.fillRect(-TRUCK_W / 2 + 4, 16, TRUCK_W - 8, 12);
+  ctx.fillStyle = '#3b4a54';
+  ctx.font = 'bold 9px Trebuchet MS'; ctx.textAlign = 'center';
+  ctx.fillText(CARGO[cargoKey].label.split(' ')[0].toUpperCase(), 0, 44);
+  // trailer tail lights
+  ctx.fillStyle = '#d0342c';
+  ctx.fillRect(-TRUCK_W / 2 + 3, TRAILER_LEN - 6, 8, 5);
+  ctx.fillRect(TRUCK_W / 2 - 11, TRAILER_LEN - 6, 8, 5);
+  ctx.restore();
+
+  // ---- cab (front, up the screen) ----
+  ctx.fillStyle = boost > 0 ? '#2fa9f0' : '#2f6fa8';
+  roundRect(-TRUCK_W / 2, -TRUCK_TOTAL / 2, TRUCK_W, CAB_LEN - 4, 8); ctx.fill();
+  ctx.fillStyle = 'rgba(180,225,255,.92)';
+  roundRect(-TRUCK_W / 2 + 5, -TRUCK_TOTAL / 2 + 5, TRUCK_W - 10, 12, 4); ctx.fill();
+  // mirrors
+  ctx.fillStyle = '#20242a';
+  ctx.fillRect(-TRUCK_W / 2 - 6, -TRUCK_TOTAL / 2 + 14, 5, 12);
+  ctx.fillRect(TRUCK_W / 2 + 1, -TRUCK_TOTAL / 2 + 14, 5, 12);
+  // chimney stack puff
+  ctx.fillStyle = 'rgba(90,90,95,.5)';
+  ctx.beginPath(); ctx.arc(TRUCK_W / 2 + 4, -TRUCK_TOTAL / 2 - 2 - (wheelSpin % 8), 3, 0, 7); ctx.fill();
+
+  // wheels (spin flicker)
+  ctx.fillStyle = '#191d22';
+  const wob = Math.sin(wheelSpin) > 0 ? 0 : 1;
+  ctx.fillRect(-TRUCK_W / 2 - 4, -TRUCK_TOTAL / 2 + 8 + wob, 5, 15);
+  ctx.fillRect(TRUCK_W / 2 - 1, -TRUCK_TOTAL / 2 + 8 + wob, 5, 15);
+  ctx.fillRect(-TRUCK_W / 2 - 4, 14 + wob, 5, 15);
+  ctx.fillRect(TRUCK_W / 2 - 1, 14 + wob, 5, 15);
+
+  // headlight beams
+  if (rig.kmh > 5) {
+    ctx.fillStyle = 'rgba(255,244,190,.14)';
+    ctx.beginPath();
+    ctx.moveTo(-TRUCK_W / 2 + 4, -TRUCK_TOTAL / 2);
+    ctx.lineTo(TRUCK_W / 2 - 4, -TRUCK_TOTAL / 2);
+    ctx.lineTo(TRUCK_W / 2 + 22, -TRUCK_TOTAL / 2 - 96);
+    ctx.lineTo(-TRUCK_W / 2 - 22, -TRUCK_TOTAL / 2 - 96);
+    ctx.closePath(); ctx.fill();
+  }
+  // boost flames
+  if (boost > 0) {
+    ctx.fillStyle = 'rgba(102,224,255,.5)';
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath();
+      ctx.arc(-TRUCK_W / 2 + 8 + i * 8, TRUCK_TOTAL / 2 + rnd(2, 14), rnd(3, 6), 0, 7);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function drawSpeedLines() {
+  if (rig.kmh < 68) return;
+  ctx.strokeStyle = 'rgba(255,255,255,.16)';
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 7; i++) {
+    const lx = ROAD_L + 16 + i * (ROAD_W / 7) + Math.sin(scroll * .05 + i) * 8;
+    ctx.beginPath(); ctx.moveTo(lx, H); ctx.lineTo(lx, H - 74); ctx.stroke();
+  }
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 7); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawFloaters() {
+  ctx.textAlign = 'center';
+  for (const f of floaters) {
+    ctx.globalAlpha = Math.max(0, Math.min(1, f.life));
+    ctx.font = 'bold 15px Trebuchet MS';
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.65)';
+    ctx.strokeText(f.text, f.x, f.y);
+    ctx.fillStyle = f.color;
+    ctx.fillText(f.text, f.x, f.y);
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ============ HUD ============
+function updateHUD(drafting, cfg) {
+  hudTime.textContent = Math.max(0, raceTime).toFixed(1) + 's';
+  hudElapsed.textContent = elapsed.toFixed(1) + 's';
+  hudSpeed.textContent = Math.round(rig.kmh);
+  hudDist.textContent = gate ? Math.max(0, Math.round(gate.dist)) : 0;
+  hudGate.textContent = Math.min(gateIndex + 1, GATES_N);
+  hudSlip.style.width = slip + '%';
+  hudCargo.textContent = cfg.label + (drafting ? ' · DRAFT' : '');
+  hudBest.textContent = best > 0 ? best.toFixed(2) + 's' : '--';
+  timeCell.classList.toggle('time-low', raceTime < 6);
+}
+
+// ============ FINISH / END ============
+function finishRace() {
+  state = 'over';
+  if (best === 0 || elapsed < best) {
+    best = elapsed;
+    localStorage.setItem('bigRigBest', best.toFixed(3));
+  }
+  let rank = 'FINISHED';
+  if (elapsed < 42) rank = 'GOLD — CLEAN RUN';
+  else if (elapsed < 52) rank = 'SILVER — SOLID RUN';
+  else if (elapsed < 64) rank = 'BRONZE — MADE IT';
+  overTitle.textContent = 'RACE COMPLETE';
+  overReason.textContent = rank;
+  overStats.innerHTML = 'Finish time: <b>' + elapsed.toFixed(2) + 's</b><br>' +
+    'Cargo: ' + CARGO[cargoKey].label + ' &nbsp;·&nbsp; Damage: ' + Math.round(rig.dmg) + '%<br>' +
+    'Best time: <b>' + best.toFixed(2) + 's</b>';
+  pauseTag.classList.remove('visible');
+  overScreen.classList.remove('hidden');
+  fanfare();
+}
+
+function endRace(title, reason) {
+  state = 'over';
+  overTitle.textContent = title;
+  overReason.textContent = reason;
+  overStats.innerHTML = 'Reached gate <b>' + Math.min(gateIndex + 1, GATES_N) + '/' + GATES_N + '</b> &nbsp;·&nbsp; ' +
+    Math.round(meters) + ' m travelled<br>' +
+    'Best time: <b>' + (best > 0 ? best.toFixed(2) + 's' : '--') + '</b>';
+  pauseTag.classList.remove('visible');
+  overScreen.classList.remove('hidden');
+  beep(200, .5, 'sawtooth', .09);
+}
+
+// ============ INPUT ============
+const KEYMAP = {
+  ArrowUp: 'gas', KeyW: 'gas', ArrowDown: 'brake', KeyS: 'brake',
+  ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right'
+};
+document.addEventListener('keydown', e => {
+  if (e.code in KEYMAP) { keys[KEYMAP[e.code]] = true; e.preventDefault(); }
+  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { e.preventDefault(); keys.boost = true; tryBoost(); }
+  if (e.code === 'KeyP' || e.code === 'Space') {
+    e.preventDefault();
+    if (state === 'play') { state = 'pause'; pauseTag.classList.add('visible'); }
+    else if (state === 'pause') {
+      state = 'play'; last = performance.now();
+      pauseTag.classList.remove('visible'); requestAnimationFrame(loop);
+    }
+  }
+});
+document.addEventListener('keyup', e => {
+  if (e.code in KEYMAP) keys[KEYMAP[e.code]] = false;
+  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') keys.boost = false;
+});
+
+// touch controls
+touchPad.querySelectorAll('button').forEach(b => {
+  const act = b.dataset.act;
+  const on  = e => {
+    e.preventDefault();
+    if (state === 'menu') startGame();
+    if (act === 'boost') tryBoost();
+    else keys[act] = true;
+  };
+  const off = e => { e.preventDefault(); if (act !== 'boost') keys[act] = false; };
+  b.addEventListener('pointerdown', on);
+  b.addEventListener('pointerup', off);
+  b.addEventListener('pointerleave', off);
+  b.addEventListener('pointercancel', off);
+});
+
+// cargo selection
+cargoPick.querySelectorAll('.cargo-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    cargoPick.querySelectorAll('.cargo-btn').forEach(x => x.classList.remove('sel'));
+    b.classList.add('sel');
+    cargoKey = b.dataset.cargo;
+    hudCargo.textContent = CARGO[cargoKey].label;
+    beep(520, .06, 'sine', .05);
+  });
+});
+
+// buttons
+startBtn.addEventListener('click', startGame);
+againBtn.addEventListener('click', startGame);
+
+function startGame() {
+  overScreen.classList.add('hidden');
+  startScreen.classList.add('hidden');
+  resetGame();
+}
+
+// ============ BOOT ============
+seedScenery();
+hudGates.textContent = GATES_N;
+hudCargo.textContent = CARGO[cargoKey].label;
+hudBest.textContent = best > 0 ? best.toFixed(2) + 's' : '--';
+draw();
+</script>
+</body>
+</html>

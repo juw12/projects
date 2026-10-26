@@ -1,0 +1,1785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🦕 Dino Park</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(circle at 20% 0%, #2b4a2b 0%, #16261a 55%, #0d1712 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+    color: #eaf5e6;
+    overflow-x: hidden;
+    touch-action: manipulation;
+    padding: 10px;
+  }
+
+  /* ============ APP LAYOUT ============ */
+  #app {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: min(96vw, 900px);
+  }
+
+  #title {
+    text-align: center;
+    font-size: clamp(18px, 3.4vw, 26px);
+    letter-spacing: 2px;
+    font-weight: 800;
+    color: #d8f0b8;
+    text-shadow: 0 2px 0 #2c4a1e, 0 4px 12px rgba(0,0,0,.5);
+  }
+  #title span { color: #f4c14b; }
+
+  /* ============ HUD ============ */
+  #hud {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    background: rgba(10, 24, 14, .72);
+    border: 1px solid #3d5c33;
+    border-radius: 12px;
+    padding: 7px 10px;
+  }
+  .stat {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #cfe6bd;
+    padding: 3px 9px;
+    background: rgba(255,255,255,.05);
+    border-radius: 8px;
+    white-space: nowrap;
+  }
+  .stat b { color: #f4c14b; font-size: 14px; }
+  .stat.dim b { color: #8fd6ff; }
+
+  /* ============ CANVAS ============ */
+  #wrap {
+    position: relative;
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 12px 36px rgba(0,0,0,.55);
+    border: 2px solid #33502c;
+    background: #2f5d33;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    cursor: crosshair;
+    touch-action: none;
+  }
+
+  /* ============ STATUS LINE ============ */
+  #msg {
+    min-height: 20px;
+    text-align: center;
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: .4px;
+    color: #ffe08a;
+    transition: opacity .4s ease;
+    opacity: 0;
+  }
+  #msg.show { opacity: 1; }
+
+  /* ============ TOOLBAR ============ */
+  #toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+  }
+  .tool {
+    font-family: inherit;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 70px;
+    padding: 7px 8px 6px;
+    border: 2px solid #3d5c33;
+    border-radius: 10px;
+    background: linear-gradient(#243c22, #182a18);
+    color: #d6ecbf;
+    cursor: pointer;
+    user-select: none;
+    transition: transform .08s ease, border-color .12s ease, background .12s ease;
+  }
+  .tool .ic { font-size: 18px; line-height: 1; }
+  .tool .nm { font-size: 11px; font-weight: 700; letter-spacing: .4px; }
+  .tool .pr { font-size: 10px; color: #a9c890; }
+  .tool:hover { border-color: #6f9c53; transform: translateY(-2px); }
+  .tool.active {
+    border-color: #f4c14b;
+    background: linear-gradient(#4d6b2c, #38511f);
+    box-shadow: 0 0 0 2px rgba(244,193,75,.3), 0 4px 12px rgba(0,0,0,.4);
+  }
+  .tool.active .pr { color: #ffe9b0; }
+
+  /* ============ FOOTER ROW (objectives + tickets) ============ */
+  #footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: stretch;
+  }
+  #objectives {
+    flex: 1 1 340px;
+    background: rgba(10, 24, 14, .72);
+    border: 1px solid #3d5c33;
+    border-radius: 12px;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  #objectives h3 {
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: #f4c14b;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+  }
+  #objectives ul { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+  #objectives li { color: #b9d3a3; }
+  #objectives li.done { color: #79d16a; text-decoration: line-through; opacity: .8; }
+
+  #tickets {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    background: rgba(10, 24, 14, .72);
+    border: 1px solid #3d5c33;
+    border-radius: 12px;
+    padding: 8px 14px;
+    min-width: 150px;
+  }
+  #tickets .lbl { font-size: 11px; letter-spacing: 1px; color: #a9c890; text-transform: uppercase; }
+  #tickets .row { display: flex; align-items: center; gap: 8px; }
+  #tickets .row button {
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 800;
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    border: 2px solid #3d5c33;
+    background: #243c22;
+    color: #d6ecbf;
+    cursor: pointer;
+  }
+  #tickets .row button:hover { border-color: #f4c14b; color: #f4c14b; }
+  #ticketVal { font-size: 16px; font-weight: 800; color: #f4c14b; min-width: 44px; text-align: center; }
+
+  #actions { display: flex; gap: 6px; }
+  #actions button {
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 8px 14px;
+    border-radius: 9px;
+    border: 2px solid #3d5c33;
+    background: #243c22;
+    color: #d6ecbf;
+    cursor: pointer;
+    letter-spacing: .5px;
+  }
+  #actions button:hover { border-color: #f4c14b; }
+  #btn-restart { border-color: #7a3a2a; color: #ffbba8; }
+  #btn-restart:hover { border-color: #e07a5f; }
+
+  /* ============ OVERLAYS ============ */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 10px;
+    padding: 18px;
+    background: linear-gradient(rgba(6,16,9,.88), rgba(6,16,9,.94));
+    backdrop-filter: blur(2px);
+    transition: opacity .25s ease;
+    z-index: 5;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen h2 { font-size: clamp(20px, 4vw, 30px); color: #f4c14b; letter-spacing: 2px; }
+  .screen p { font-size: 13px; color: #c6dcb0; max-width: 480px; line-height: 1.55; }
+  .screen .btnrow { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
+  .bigbtn {
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    padding: 12px 26px;
+    border: none;
+    border-radius: 11px;
+    cursor: pointer;
+    color: #16261a;
+    background: linear-gradient(#f7d373, #e0a72c);
+    box-shadow: 0 5px 0 #a8761a;
+    transition: transform .07s ease;
+  }
+  .bigbtn:active { transform: translateY(3px); box-shadow: 0 2px 0 #a8761a; }
+  .bigbtn.ghost {
+    background: linear-gradient(#31502c, #223a1e);
+    color: #d6ecbf;
+    box-shadow: 0 5px 0 #16240f;
+  }
+  .hintline { font-size: 11.5px; color: #8fae78; letter-spacing: .5px; }
+
+  @media (max-width: 560px) {
+    .tool { min-width: 58px; padding: 6px 5px; }
+    .tool .ic { font-size: 16px; }
+    .tool .nm { font-size: 9.5px; }
+    .stat { font-size: 11.5px; padding: 2px 7px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1 id="title">🦕 DINO <span>PARK</span> 🌿</h1>
+
+  <!-- ============ HUD ============ -->
+  <div id="hud">
+    <div class="stat">💵 <b id="hudMoney">0</b></div>
+    <div class="stat dim">👥 <b id="hudVisitors">0</b></div>
+    <div class="stat dim">🦕 <b id="hudDinos">0</b></div>
+    <div class="stat dim">🐣 <b id="hudHatched">0</b></div>
+    <div class="stat">⭐ <b id="hudStars">1</b></div>
+    <div class="stat dim">😊 <b id="hudHappy">100</b>%</div>
+    <div class="stat dim">📅 <b id="hudDay">1</b></div>
+  </div>
+
+  <!-- ============ CANVAS ============ -->
+  <div id="wrap">
+    <canvas id="game" width="640" height="448"></canvas>
+
+    <div id="startScreen" class="screen">
+      <h2>DINO PARK</h2>
+      <p>Build a park for prehistoric creatures. Lay paths, fence in enclosures, hatch dinos,
+         keep them fed and their fences repaired, and keep your visitors happy paying tickets.</p>
+      <p class="hintline">Pick a tool below the map, then click / tap a tile to build. Dinos are procedural — no two parks alike.</p>
+      <div class="btnrow">
+        <button class="bigbtn" id="btnNew">New Park</button>
+        <button class="bigbtn ghost" id="btnContinue">Continue</button>
+      </div>
+    </div>
+
+    <div id="winScreen" class="screen hidden">
+      <h2>🏆 PARK COMPLETE</h2>
+      <p id="winText">Every objective achieved. Your park is legendary — keep building as long as you like.</p>
+      <div class="btnrow">
+        <button class="bigbtn" id="btnKeep">Keep Building</button>
+        <button class="bigbtn ghost" id="btnRestartWin">Restart</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="msg"></div>
+
+  <!-- ============ TOOLBAR ============ -->
+  <div id="toolbar"></div>
+
+  <!-- ============ FOOTER ============ -->
+  <div id="footer">
+    <div id="objectives">
+      <h3>Objectives</h3>
+      <ul id="objList"></ul>
+    </div>
+    <div id="tickets">
+      <span class="lbl">Ticket Price</span>
+      <div class="row">
+        <button id="btnPriceDown" type="button">−</button>
+        <span id="ticketVal">$10</span>
+        <button id="btnPriceUp" type="button">+</button>
+      </div>
+      <div id="actions">
+        <button id="btnPause" type="button">Pause</button>
+        <button id="btn-restart" type="button">Restart</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============================================================
+  // GAME CONFIGURATION
+  // ============================================================
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const COLS = 20, ROWS = 14, TILE = 32;
+  const W = COLS * TILE, H = ROWS * TILE;
+  const ENTRANCE = { x: 0, y: ROWS - 1 };
+
+  const TICK_MS = 900;          // simulation tick
+  const HATCH_TICKS = 22;       // hatch a dino every N ticks (if space)
+  const SAVE_KEY = "dinoParkSave_v1";
+  const START_MONEY = 1000;
+
+  // Tool catalogue
+  const TOOLS = {
+    path:     { name: "Path",      ic: "🛤️", cost: 5,   hint: "Let visitors walk." },
+    pen:      { name: "Enclosure", ic: "🚧", cost: 35,  hint: "Fenced pen for dinos (4+ tiles)." },
+    feeder:   { name: "Feeder",    ic: "🥩", cost: 45,  hint: "Place beside a pen to feed it." },
+    hatchery: { name: "Hatchery",  ic: "🥚", cost: 160, hint: "Hatches a dino when a pen has space." },
+    booth:    { name: "Ticket Booth", ic: "🎟️", cost: 90, hint: "Required for visitors to arrive." },
+    shop:     { name: "Snack Bar", ic: "🍿", cost: 70,  hint: "Visitors spend extra money here." },
+    repair:   { name: "Repair",    ic: "🔧", cost: 0,   hint: "Click a damaged pen to fix its fence." },
+    bulldoze: { name: "Demolish",  ic: "⛏️", cost: 0,   hint: "Remove a tile, 40% refund." }
+  };
+
+  const SPECIES = [
+    { name: "Fernneck",  body: "#7fc96a", dark: "#559447", kind: "longneck" },
+    { name: "Plateback", body: "#e0a94b", dark: "#b07c25", kind: "plates" },
+    { name: "Snapper",   body: "#e07a5f", dark: "#b0513a", kind: "biped" },
+    { name: "Darter",    body: "#6fb3e0", dark: "#3f7fae", kind: "raptor" },
+    { name: "DomeShell", body: "#b98ad6", dark: "#8a58ac", kind: "armor" }
+  ];
+
+  // ============================================================
+  // GAME STATE
+  // ============================================================
+  let grid = [];                // grid[y][x] = { type }
+  let regions = [];             // computed pen regions
+  let regionStore = new Map();  // key -> { fence, broken }
+  let dinos = [];
+  let visitors = [];
+  let escapedCount = 0;
+
+  let money = START_MONEY;
+  let ticketPrice = 10;
+  let tickCount = 0;
+  let hatchTimer = 0;
+  let nextSpawnTick = 0;
+  let visitorsServed = 0;
+  let totalEarned = 0;
+  let globalHappy = 100;
+  let stars = 1;
+
+  let tool = "path";
+  let hover = null;             // {x,y}
+  let running = false;
+  let paused = false;
+  let winShown = false;
+
+  // ============================================================
+  // DOM ELEMENTS
+  // ============================================================
+  const hudMoney    = document.getElementById("hudMoney");
+  const hudVisitors = document.getElementById("hudVisitors");
+  const hudDinos    = document.getElementById("hudDinos");
+  const hudHatched  = document.getElementById("hudHatched");
+  const hudStars    = document.getElementById("hudStars");
+  const hudHappy    = document.getElementById("hudHappy");
+  const hudDay      = document.getElementById("hudDay");
+  const toolbar     = document.getElementById("toolbar");
+  const objList     = document.getElementById("objList");
+  const msgEl       = document.getElementById("msg");
+  const ticketVal   = document.getElementById("ticketVal");
+  const startScreen = document.getElementById("startScreen");
+  const winScreen   = document.getElementById("winScreen");
+  const btnPause    = document.getElementById("btnPause");
+
+  // ============================================================
+  // AUDIO (WebAudio, no assets)
+  // ============================================================
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+
+  // ============================================================
+  // STATUS MESSAGE
+  // ============================================================
+  let msgTimer = 0;
+  function say(text) {
+    msgEl.textContent = text;
+    msgEl.classList.add("show");
+    msgTimer = 4;
+  }
+
+  // ============================================================
+  // GRID HELPERS
+  // ============================================================
+  function cellCenter(cx, cy) {
+    return { x: cx * TILE + TILE / 2, y: cy * TILE + TILE / 2 };
+  }
+  function inBounds(x, y) { return x >= 0 && y >= 0 && x < COLS && y < ROWS; }
+  function typeAt(x, y) { return inBounds(x, y) ? grid[y][x].type : "void"; }
+  function isPen(x, y) { return typeAt(x, y) === "pen"; }
+
+  function freshGrid() {
+    grid = [];
+    for (let y = 0; y < ROWS; y++) {
+      const row = [];
+      for (let x = 0; x < COLS; x++) row.push({ type: "grass" });
+      grid.push(row);
+    }
+    grid[ENTRANCE.y][ENTRANCE.x].type = "entrance";
+  }
+
+  // ============================================================
+  // PEN REGIONS (flood fill + fence integrity store)
+  // ============================================================
+  function regionKeyOf(cells) {
+    let mx = COLS, my = ROWS;
+    for (const c of cells) {
+      if (c.y < my || (c.y === my && c.x < mx)) { my = c.y; mx = c.x; }
+    }
+    return my * COLS + mx;
+  }
+
+  function computeRegions() {
+    const seen = [];
+    for (let y = 0; y < ROWS; y++) seen.push(new Array(COLS).fill(false));
+    const out = [];
+    const newStore = new Map();
+
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        if (seen[y][x] || grid[y][x].type !== "pen") continue;
+        // BFS flood fill
+        const cells = [];
+        const queue = [{ x, y }];
+        seen[y][x] = true;
+        while (queue.length) {
+          const c = queue.pop();
+          cells.push(c);
+          const nbrs = [[1,0],[-1,0],[0,1],[0,-1]];
+          for (const n of nbrs) {
+            const nx = c.x + n[0], ny = c.y + n[1];
+            if (inBounds(nx, ny) && !seen[ny][nx] && grid[ny][nx].type === "pen") {
+              seen[ny][nx] = true;
+              queue.push({ x: nx, y: ny });
+            }
+          }
+        }
+        const key = regionKeyOf(cells);
+        const cellSet = new Set(cells.map(c => c.x + "," + c.y));
+        let fed = false;
+        for (const c of cells) {
+          const nbrs = [[1,0],[-1,0],[0,1],[0,-1]];
+          for (const n of nbrs) {
+            if (typeAt(c.x + n[0], c.y + n[1]) === "feeder") { fed = true; }
+          }
+        }
+        // preserve fence integrity for matching key
+        let st = regionStore.get(key);
+        if (!st) st = { fence: 100, broken: false };
+        newStore.set(key, st);
+
+        out.push({
+          key, cells, cellSet, fed,
+          minX: Math.min.apply(null, cells.map(c => c.x)),
+          maxX: Math.max.apply(null, cells.map(c => c.x)),
+          minY: Math.min.apply(null, cells.map(c => c.y)),
+          maxY: Math.max.apply(null, cells.map(c => c.y))
+        });
+      }
+    }
+    regions = out;
+    // escape dinos whose pen vanished
+    regionStore = newStore;
+    for (const d of dinos) {
+      if (d.key !== null && !regionStore.has(d.key)) {
+        d.key = null;
+        d.tx = null; d.ty = null;
+      }
+    }
+  }
+
+  function regionByKey(key) {
+    for (const r of regions) if (r.key === key) return r;
+    return null;
+  }
+  function dinoCountIn(key) {
+    let n = 0;
+    for (const d of dinos) if (d.key === key) n++;
+    return n;
+  }
+  function capacityOf(r) { return Math.max(1, Math.floor(r.cells.length / 3)); }
+
+  // Path distance field to entrance (for visitors leaving)
+  let distField = null;
+  function computeDistField() {
+    const d = [];
+    for (let y = 0; y < ROWS; y++) d.push(new Array(COLS).fill(-1));
+    const q = [[ENTRANCE.x, ENTRANCE.y]];
+    d[ENTRANCE.y][ENTRANCE.x] = 0;
+    while (q.length) {
+      const c = q.shift();
+      const nbrs = [[1,0],[-1,0],[0,1],[0,-1]];
+      for (const n of nbrs) {
+        const nx = c[0] + n[0], ny = c[1] + n[1];
+        if (!inBounds(nx, ny) || d[ny][nx] !== -1) continue;
+        const t = grid[ny][nx].type;
+        if (t === "path" || t === "entrance") {
+          d[ny][nx] = d[c[1]][c[0]] + 1;
+          q.push([nx, ny]);
+        }
+      }
+    }
+    distField = d;
+  }
+  function isWalkable(x, y) {
+    const t = typeAt(x, y);
+    return t === "path" || t === "entrance";
+  }
+
+  // ============================================================
+  // ECONOMY / STATS
+  // ============================================================
+  function addMoney(n) { money += n; }
+  function hasBooth() {
+    for (let y = 0; y < ROWS; y++)
+      for (let x = 0; x < COLS; x++)
+        if (grid[y][x].type === "booth") return true;
+    return false;
+  }
+  function amenityCount() {
+    let n = 0;
+    for (let y = 0; y < ROWS; y++)
+      for (let x = 0; x < COLS; x++) {
+        const t = grid[y][x].type;
+        if (t === "shop" || t === "feeder" || t === "booth") n++;
+      }
+    return n;
+  }
+  function dinoCount() { return dinos.length; }
+
+  function computeStars() {
+    const score = dinoCount() * 3 + amenityCount() * 2 +
+                  Math.floor(globalHappy / 12) + Math.floor(totalEarned / 600);
+    stars = Math.max(1, Math.min(5, 1 + Math.floor(score / 8)));
+  }
+
+  function maxVisitors() { return Math.min(40, 6 + Math.round(stars * 2 + dinoCount())); }
+  function spawnInterval() {
+    const base = 9 - stars * 0.8 - dinoCount() * 0.25 + (ticketPrice - 10) / 6;
+    return Math.max(2, Math.round(base));
+  }
+
+  // ============================================================
+  // PLACEMENT
+  // ============================================================
+  function canBuild(x, y) {
+    return inBounds(x, y) && grid[y][x].type === "grass" &&
+           !(x === ENTRANCE.x && y === ENTRANCE.y);
+  }
+
+  function placeTool(x, y) {
+    if (!inBounds(x, y)) return;
+    const t = TOOLS[tool];
+
+    if (tool === "bulldoze") {
+      const cur = grid[y][x].type;
+      if (cur === "grass" || cur === "entrance") { say("Nothing to demolish here."); return; }
+      const refund = Math.round((TOOLS[cur] ? TOOLS[cur].cost : 20) * 0.4);
+      grid[y][x].type = "grass";
+      addMoney(refund);
+      recomputeAll();
+      beep(240, 0.09, "triangle");
+      say("Demolished. Refunded $" + refund + ".");
+      return;
+    }
+
+    if (tool === "repair") {
+      if (grid[y][x].type !== "pen") { say("Repair targets enclosure fences."); return; }
+      const r = regionContaining(x, y);
+      if (!r) return;
+      const st = regionStore.get(r.key);
+      if (st.fence >= 100 && !st.broken) { say("This fence is already fully repaired."); return; }
+      const missing = 100 - st.fence;
+      const fee = Math.max(15, Math.round(missing * 0.6));
+      if (money < fee) { say("Not enough money to repair ($" + fee + " needed)."); return; }
+      addMoney(-fee);
+      st.fence = 100;
+      if (st.broken) {
+        st.broken = false;
+        // recapture escaped dinos into this pen if capacity allows
+        let cap = capacityOf(r);
+        for (const d of dinos) {
+          if (d.key === null && dinoCountIn(r.key) < cap) {
+            d.key = r.key;
+            const c = r.cells[Math.floor(Math.random() * r.cells.length)];
+            const p = cellCenter(c.x, c.y);
+            d.x = p.x; d.y = p.y; d.tx = null; d.ty = null;
+          }
+        }
+        say("Fence rebuilt — dinos recaptured!");
+      } else {
+        say("Fence repaired. (-$" + fee + ")");
+      }
+      beep(700, 0.1, "sine");
+      recomputeAll();
+      return;
+    }
+
+    if (tool === "pen") {
+      if (!canBuild(x, y)) { say("Can only build on open grass."); return; }
+      if (money < TOOLS.pen.cost) { say("Not enough money for an enclosure tile."); return; }
+      addMoney(-TOOLS.pen.cost);
+      grid[y][x].type = "pen";
+      recomputeAll();
+      beep(420, 0.07, "square");
+      return;
+    }
+
+    if (tool === "feeder") {
+      if (!canBuild(x, y)) { say("Feeders need an empty grass tile."); return; }
+      if (money < TOOLS.feeder.cost) { say("Not enough money for a feeder."); return; }
+      // require an adjacent pen
+      const adj = [[1,0],[-1,0],[0,1],[0,-1]].some(n => isPen(x + n[0], y + n[1]));
+      if (!adj) { say("Place the feeder next to an enclosure fence."); beep(180, 0.12, "sawtooth"); return; }
+      addMoney(-TOOLS.feeder.cost);
+      grid[y][x].type = "feeder";
+      recomputeAll();
+      beep(520, 0.08, "triangle");
+      say("Feeder installed — adjacent pens will stay fed.");
+      return;
+    }
+
+    if (tool === "hatchery") {
+      if (!canBuild(x, y)) { say("Hatcheries need an empty grass tile."); return; }
+      if (money < TOOLS.hatchery.cost) { say("Not enough money for a hatchery."); return; }
+      addMoney(-TOOLS.hatchery.cost);
+      grid[y][x].type = "hatchery";
+      recomputeAll();
+      beep(600, 0.12, "sine");
+      say("Hatchery built. It will hatch a dino when a pen has room.");
+      return;
+    }
+
+    if (tool === "booth") {
+      if (!canBuild(x, y)) { say("Booths need an empty grass tile."); return; }
+      if (money < TOOLS.booth.cost) { say("Not enough money for a ticket booth."); return; }
+      addMoney(-TOOLS.booth.cost);
+      grid[y][x].type = "booth";
+      recomputeAll();
+      beep(760, 0.12, "triangle");
+      say("Ticket booth open! Visitors will start arriving.");
+      return;
+    }
+
+    if (tool === "shop") {
+      if (!canBuild(x, y)) { say("Shops need an empty grass tile."); return; }
+      if (money < TOOLS.shop.cost) { say("Not enough money for a snack bar."); return; }
+      addMoney(-TOOLS.shop.cost);
+      grid[y][x].type = "shop";
+      recomputeAll();
+      beep(560, 0.09, "triangle");
+      say("Snack bar open — visitors will spend extra here.");
+      return;
+    }
+
+    if (tool === "path") {
+      if (!canBuild(x, y)) { say("Paths can only be laid on open grass."); return; }
+      if (money < TOOLS.path.cost) { say("Not enough money for a path tile."); return; }
+      addMoney(-TOOLS.path.cost);
+      grid[y][x].type = "path";
+      recomputeAll();
+      beep(360, 0.05, "square");
+      return;
+    }
+  }
+
+  function regionContaining(x, y) {
+    for (const r of regions) if (r.cellSet.has(x + "," + y)) return r;
+    return null;
+  }
+
+  function recomputeAll() {
+    const prevFed = new Map();
+    for (const r of regions) prevFed.set(r.key, r.fed);
+    computeRegions();
+    computeDistField();
+    for (var i = 0; i < regions.length; i++) {
+      const r = regions[i];
+      if (r.fed && !prevFed.get(r.key)) say("An enclosure is now being fed. 🥩");
+    }
+  }
+
+  // ============================================================
+  // DINOS
+  // ============================================================
+  let dinoSeq = 0;
+  function spawnDino() {
+    // pick pen region with free capacity, nearest a hatchery (any is fine)
+    let best = null, bestD = Infinity;
+    let hx = -1, hy = -1;
+    for (let y = 0; y < ROWS; y++)
+      for (let x = 0; x < COLS; x++)
+        if (grid[y][x].type === "hatchery") { hx = x; hy = y; }
+    for (const r of regions) {
+      if (regionStore.get(r.key).broken) continue;
+      if (dinoCountIn(r.key) >= capacityOf(r)) continue;
+      const d = Math.abs(r.minX - hx) + Math.abs(r.minY - hy);
+      if (d < bestD) { bestD = d; best = r; }
+    }
+    if (!best) return false;
+
+    const sp = SPECIES[Math.floor(Math.random() * SPECIES.length)];
+    const c = best.cells[Math.floor(Math.random() * best.cells.length)];
+    const p = cellCenter(c.x, c.y);
+    dinos.push({
+      id: ++dinoSeq,
+      sp,
+      x: p.x, y: p.y,
+      tx: null, ty: null,
+      key: best.key,
+      hunger: 80,
+      face: Math.random() < 0.5 ? 1 : -1,
+      bob: Math.random() * Math.PI * 2
+    });
+    dinoStats.hatched++;
+    beep(880, 0.1, "sine");
+    setTimeout(() => beep(1180, 0.1, "sine"), 90);
+    say("🐣 A " + sp.name + " hatched!");
+    return true;
+  }
+
+  function updateDinos(dt) {
+    for (const d of dinos) {
+      // --- target selection ---
+      if (d.tx === null || d.ty === null) pickDinoTarget(d);
+      const t = cellCenter(d.tx, d.ty);
+      const dx = t.x - d.x, dy = t.y - d.y;
+      const dist = Math.hypot(dx, dy);
+      const speed = (d.key === null ? 34 : 24) * dt;
+      if (dist <= speed || dist < 0.5) {
+        d.x = t.x; d.y = t.y; d.tx = null; d.ty = null;
+      } else {
+        d.x += dx / dist * speed;
+        d.y += dy / dist * speed;
+        d.face = dx >= 0 ? 1 : -1;
+      }
+      d.bob += dt * (d.key === null ? 7 : 3);
+
+      // --- recapture escaped dino stepping into a healthy pen ---
+      if (d.key === null) {
+        const gx = Math.floor(d.x / TILE), gy = Math.floor(d.y / TILE);
+        if (isPen(gx, gy)) {
+          const r = regionContaining(gx, gy);
+          if (r && !regionStore.get(r.key).broken && dinoCountIn(r.key) < capacityOf(r)) {
+            d.key = r.key; d.tx = null; d.ty = null;
+            say("A " + d.sp.name + " was safely returned to its enclosure.");
+          }
+        }
+      }
+    }
+  }
+
+  function pickDinoTarget(d) {
+    if (d.key !== null) {
+      const r = regionByKey(d.key);
+      if (r && r.cells.length) {
+        const c = r.cells[Math.floor(Math.random() * r.cells.length)];
+        d.tx = c.x; d.ty = c.y;
+        return;
+      }
+      d.key = null;
+    }
+    // escaped: roam the whole park (avoid buildings)
+    for (let tries = 0; tries < 30; tries++) {
+      const x = Math.floor(Math.random() * COLS);
+      const y = Math.floor(Math.random() * ROWS);
+      const t = grid[y][x].type;
+      if (t === "grass" || t === "path" || t === "entrance") { d.tx = x; d.ty = y; return; }
+    }
+    d.tx = Math.floor(Math.random() * COLS);
+    d.ty = Math.floor(Math.random() * ROWS);
+  }
+
+  // ============================================================
+  // VISITORS
+  // ============================================================
+  function spawnVisitor() {
+    if (!hasBooth()) return;
+    if (visitors.length >= maxVisitors()) return;
+    const p = cellCenter(ENTRANCE.x, ENTRANCE.y);
+    visitors.push({
+      x: p.x, y: p.y,
+      cx: ENTRANCE.x, cy: ENTRANCE.y,
+      px: -1, py: -1,
+      tx: ENTRANCE.x, ty: ENTRANCE.y,
+      state: "wander",
+      happy: 72,
+      timer: 0,
+      life: 12 + Math.floor(Math.random() * 10),
+      spd: 26 + Math.random() * 12,
+      face: 1,
+      seen: 0, scared: 0, spent: 0
+    });
+    // ticket income
+    addMoney(ticketPrice);
+    totalEarned += ticketPrice;
+    visitorsServed++;
+    beep(980, 0.05, "sine");
+  }
+
+  function chooseNext(v) {
+    const nbrs = [[1,0],[-1,0],[0,1],[0,-1]].filter(n => isWalkable(v.cx + n[0], v.cy + n[1]));
+    if (!nbrs.length) return;
+
+    if (v.state === "leave") {
+      const here = distField[v.cy][v.cx];
+      let best = null, bestD = here === -1 ? Infinity : here;
+      for (const n of nbrs) {
+        const nd = distField[v.cy + n[1]][v.cx + n[0]];
+        if (nd !== -1 && nd < bestD) { bestD = nd; best = n; }
+      }
+      if (best) { v.tx = v.cx + best[0]; v.ty = v.cy + best[1]; return; }
+    }
+    // wander: avoid immediate backtrack when possible
+    let options = nbrs.filter(n => !(v.cx + n[0] === v.px && v.cy + n[1] === v.py));
+    if (!options.length) options = nbrs;
+    const pick = options[Math.floor(Math.random() * options.length)];
+    v.tx = v.cx + pick[0];
+    v.ty = v.cy + pick[1];
+  }
+
+  function updateVisitors(dt) {
+    for (const v of visitors) {
+      const t = cellCenter(v.tx, v.ty);
+      const dx = t.x - v.x, dy = t.y - v.y;
+      const dist = Math.hypot(dx, dy);
+      const step = v.spd * dt * (v.state === "leave" ? 1.35 : 1);
+      if (dist <= step || dist < 0.5) {
+        v.px = v.cx; v.py = v.cy;
+        v.x = t.x; v.y = t.y;
+        v.cx = v.tx; v.cy = v.ty;
+        chooseNext(v);
+      } else {
+        v.x += dx / dist * step;
+        v.y += dy / dist * step;
+        v.face = dx >= 0 ? 1 : -1;
+      }
+      // reached entrance while leaving → gone
+      if (v.state === "leave" && v.cx === ENTRANCE.x && v.cy === ENTRANCE.y) {
+        v.gone = true;
+      }
+      // ---- happiness sensed from dinos / shops ----
+      let scared = 0, happy = 0, shopAdj = false;
+      for (const d of dinos) {
+        const dd = Math.hypot(d.x - v.x, d.y - v.y);
+        if (dd < 52) {
+          if (d.key === null) scared += 6;              // loose dino terrifies
+          else if (d.hunger < 25) scared += 3;          // starving dino upsets
+          else happy += 2;                              // healthy dino delights
+        }
+      }
+      const around = [[1,0],[-1,0],[0,1],[0,-1]];
+      for (const n of around) if (typeAt(v.cx + n[0], v.cy + n[1]) === "shop") shopAdj = true;
+      if (shopAdj) happy += 3;
+      v.scared = scared;
+      v.happy = Math.max(0, Math.min(100, v.happy + (happy - scared) * dt - 0.6 * dt));
+      v.timer += dt;
+      if (v.happy < 12) v.state = "leave";
+      if (v.state === "wander" && v.timer > v.life) v.state = "leave";
+    }
+    // shop spending (per tick handled in tick, but keep here for smooth)
+    visitors = visitors.filter(v => !v.gone);
+  }
+
+  // ============================================================
+  // SIMULATION TICK
+  // ============================================================
+  function tick() {
+    tickCount++;
+
+    // ---- fence decay & breakage ----
+    for (const r of regions) {
+      const st = regionStore.get(r.key);
+      const n = dinoCountIn(r.key);
+      if (n > 0 && !st.broken) {
+        let decay = 0.8 + n * 0.35;
+        // starving dinos strain the fence harder
+        for (const d of dinos) if (d.key === r.key && d.hunger < 20) decay += 0.6;
+        st.fence = Math.max(0, st.fence - decay);
+        if (st.fence <= 0) {
+          st.broken = true;
+          let escaped = 0;
+          for (const d of dinos) {
+            if (d.key === r.key) {
+              d.key = null; d.tx = null; d.ty = null; escaped++;
+            }
+          }
+          if (escaped > 0) {
+            beep(120, 0.5, "sawtooth");
+            say("⚠️ A fence broke! " + escaped + " dino(s) escaped — repair it!");
+          }
+        }
+      }
+    }
+
+    // ---- feeding & hunger ----
+    for (const d of dinos) {
+      const r = d.key !== null ? regionByKey(d.key) : null;
+      const fed = r ? r.fed : false;
+      // feeding from a feeder the dino is standing near
+      let nearFeeder = false;
+      if (d.key !== null && r) {
+        const gx = Math.floor(d.x / TILE), gy = Math.floor(d.y / TILE);
+        for (const n of [[1,0],[-1,0],[0,1],[0,-1]]) {
+          if (typeAt(gx + n[0], gy + n[1]) === "feeder") nearFeeder = true;
+          const t2 = typeAt(gx + n[0], gy + n[1]);
+          if (t2 === "feeder") nearFeeder = true;
+        }
+      }
+      if (fed && nearFeeder) d.hunger = Math.min(100, d.hunger + 9);
+      else if (fed) d.hunger = Math.min(100, d.hunger + 3);
+      else d.hunger = Math.max(0, d.hunger - 4.5);
+    }
+
+    // ---- hatching ----
+    hatchTimer++;
+    let anyHatchery = false;
+    for (let y = 0; y < ROWS; y++)
+      for (let x = 0; x < COLS; x++) if (grid[y][x].type === "hatchery") anyHatchery = true;
+    if (anyHatchery && hatchTimer >= HATCH_TICKS) {
+      hatchTimer = 0;
+      const ok = spawnDino();
+      if (!ok) say("Hatchery ready but every enclosure is full. Build more pens!");
+    }
+
+    // ---- visitors ----
+    if (tickCount >= nextSpawnTick) {
+      nextSpawnTick = tickCount + spawnInterval();
+      spawnVisitor();
+    }
+    // shop spending
+    for (const v of visitors) {
+      const around = [[1,0],[-1,0],[0,1],[0,-1]];
+      for (const n of around) {
+        if (typeAt(v.cx + n[0], v.cy + n[1]) === "shop") {
+          if (Math.random() < 0.22) {
+            const amt = 4 + Math.floor(Math.random() * 5);
+            addMoney(amt);
+            totalEarned += amt;
+            v.spent += amt;
+          }
+          break;
+        }
+      }
+    }
+
+    // ---- global happiness & stats ----
+    if (visitors.length) {
+      let sum = 0;
+      for (const v of visitors) sum += v.happy;
+      globalHappy = Math.round(sum / visitors.length);
+    } else {
+      globalHappy = Math.min(100, globalHappy + 4);
+    }
+    escapedCount = dinos.filter(d => d.key === null).length;
+
+    computeStars();
+    checkObjectives();
+    updateHUD();
+
+    // ---- autosave ----
+    if (tickCount % 6 === 0) save();
+  }
+
+  // ============================================================
+  // OBJECTIVES
+  // ============================================================
+  const OBJECTIVES = [
+    { id: "booth",  text: "Build a Ticket Booth",                    ok: () => hasBooth() },
+    { id: "pen",    text: "Enclose a pen of 4+ tiles",               ok: () => regions.some(r => r.cells.length >= 4) },
+    { id: "feed",   text: "Install a Feeder beside a pen",           ok: () => regions.some(r => r.fed) },
+    { id: "hatch",  text: "Hatch your first dino",                   ok: () => dinoStats.hatched >= 1 },
+    { id: "served", text: "Welcome 10 visitors (tickets sold)",      ok: () => visitorsServed >= 10 },
+    { id: "earn",   text: "Earn $1,500 lifetime",                    ok: () => totalEarned >= 1500 },
+    { id: "care",   text: "Keep every dino fed (hunger > 60)",       ok: () => dinos.length > 0 && dinos.every(d => d.hunger > 60) },
+    { id: "star",   text: "Reach a 3-star park",                     ok: () => stars >= 3 }
+  ];
+  const dinoStats = { hatched: 0 };
+
+  function renderObjectives() {
+    objList.innerHTML = "";
+    for (const o of OBJECTIVES) {
+      const li = document.createElement("li");
+      li.textContent = (o.ok() ? "✔ " : "• ") + o.text;
+      if (o.ok()) li.classList.add("done");
+      objList.appendChild(li);
+    }
+  }
+  function checkObjectives() {
+    renderObjectives();
+    if (!winShown && OBJECTIVES.every(o => o.ok())) {
+      winShown = true;
+      document.getElementById("winText").textContent =
+        "All objectives complete with " + dinoCount() + " dinos, " +
+        visitorsServed + " visitors served and $" + Math.round(totalEarned) +
+        " earned. Keep building — the gates never close.";
+      winScreen.classList.remove("hidden");
+      beep(660, 0.15, "sine");
+      setTimeout(() => beep(880, 0.15, "sine"), 150);
+      setTimeout(() => beep(1180, 0.25, "sine"), 300);
+      save();
+    }
+  }
+
+  // ============================================================
+  // HUD
+  // ============================================================
+  function updateHUD() {
+    hudMoney.textContent = "$" + Math.round(money);
+    hudVisitors.textContent = visitors.length;
+    hudDinos.textContent = dinoCount();
+    hudHatched.textContent = dinoStats.hatched;
+    hudStars.textContent = "⭐".repeat(stars);
+    hudHappy.textContent = globalHappy;
+    hudDay.textContent = 1 + Math.floor(tickCount / 40);
+    ticketVal.textContent = "$" + ticketPrice;
+  }
+
+  // ============================================================
+  // SAVE / LOAD
+  // ============================================================
+  function save() {
+    try {
+      const cellTypes = [];
+      for (let y = 0; y < ROWS; y++) {
+        let row = "";
+        for (let x = 0; x < COLS; x++) row += grid[y][x].type.charAt(0);
+        cellTypes.push(row);
+      }
+      const st = {};
+      regionStore.forEach((v, k) => { st[k] = { fence: v.fence, broken: v.broken }; });
+      const data = {
+        v: 1,
+        cells: cellTypes,
+        store: st,
+        dinos: dinos.map(d => ({
+          x: d.x, y: d.y, key: d.key, hunger: d.hunger,
+          sp: SPECIES.indexOf(d.sp), face: d.face
+        })),
+        money, ticketPrice, tickCount, visitorsServed, totalEarned,
+        globalHappy, hatched: dinoStats.hatched, winShown
+      };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    } catch (e) { /* quota / private mode */ }
+  }
+
+  function load() {
+    let raw;
+    try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { return false; }
+    if (!raw) return false;
+    let data;
+    try { data = JSON.parse(raw); } catch (e) { return false; }
+    if (!data || data.v !== 1) return false;
+
+    const code2type = { g: "grass", p: "path", e: "pen", f: "feeder",
+                        h: "hatchery", b: "booth", s: "shop", n: "entrance" };
+    freshGrid();
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const ch = data.cells[y][x];
+        grid[y][x].type = code2type[ch] || "grass";
+      }
+    }
+    money = data.money;
+    ticketPrice = data.ticketPrice;
+    tickCount = data.tickCount;
+    visitorsServed = data.visitorsServed;
+    totalEarned = data.totalEarned;
+    globalHappy = data.globalHappy;
+    dinoStats.hatched = data.hatched || 0;
+    winShown = !!data.winShown;
+
+    regionStore = new Map();
+    Object.keys(data.store || {}).forEach(k => {
+      const o = data.store[k];
+      regionStore.set(Number(k), { fence: o.fence, broken: o.broken });
+    });
+
+    computeRegions();
+    computeDistField();
+
+    dinos = (data.dinos || []).map(d => ({
+      id: ++dinoSeq,
+      sp: SPECIES[d.sp] || SPECIES[0],
+      x: d.x, y: d.y, tx: null, ty: null,
+      key: (d.key === null ? null : d.key),
+      hunger: d.hunger, face: d.face, bob: Math.random() * 6.28
+    }));
+    // ensure dino keys still valid
+    for (const d of dinos) if (d.key !== null && !regionStore.has(d.key)) d.key = null;
+
+    visitors = [];
+    escapedCount = dinos.filter(d => d.key === null).length;
+    computeStars();
+    renderObjectives();
+    updateHUD();
+    if (winShown) winScreen.classList.remove("hidden");
+    return true;
+  }
+
+  function hasSave() {
+    try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; }
+  }
+
+  // ============================================================
+  // RENDERING
+  // ============================================================
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+    drawTerrain();
+    drawPens();
+    drawBuildings();
+    drawDinos();
+    drawVisitors();
+    drawHover();
+    drawVignette();
+  }
+
+  function drawTerrain() {
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const t = grid[y][x].type;
+        const X = x * TILE, Y = y * TILE;
+        let base;
+        if (t === "path" || t === "entrance") {
+          base = ((x + y) % 2 === 0) ? "#c8ab74" : "#bd9f68";
+        } else if (t === "pen") {
+          base = ((x + y) % 2 === 0) ? "#7a6a3c" : "#726235";
+        } else {
+          base = ((x + y) % 2 === 0) ? "#4f8a45" : "#488040";
+        }
+        ctx.fillStyle = base;
+        ctx.fillRect(X, Y, TILE, TILE);
+
+        if (t === "grass") {
+          ctx.fillStyle = "rgba(255,255,255,0.05)";
+          ctx.fillRect(X + 6, Y + 10, 3, 6);
+          ctx.fillRect(X + 20, Y + 18, 3, 5);
+        } else if (t === "path" || t === "entrance") {
+          ctx.fillStyle = "rgba(0,0,0,0.06)";
+          ctx.fillRect(X + ((x * 7 + y * 3) % 20), Y + ((x * 5 + y * 9) % 20), 4, 4);
+        }
+        ctx.strokeStyle = "rgba(0,0,0,0.08)";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(X + 0.5, Y + 0.5, TILE - 1, TILE - 1);
+      }
+    }
+    // entrance marker
+    const e = cellCenter(ENTRANCE.x, ENTRANCE.y);
+    ctx.fillStyle = "rgba(244,193,75,0.9)";
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#3a2c07";
+    ctx.font = "bold 11px 'Trebuchet MS', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("IN", e.x, e.y + 0.5);
+  }
+
+  function isRegionCell(r, x, y) { return r.cellSet.has(x + "," + y); }
+
+  function drawPens() {
+    for (const r of regions) {
+      const st = regionStore.get(r.key);
+      const broken = st.broken;
+      const X = r.minX * TILE, Y = r.minY * TILE;
+      const w = (r.maxX - r.minX + 1) * TILE, h = (r.maxY - r.minY + 1) * TILE;
+
+      // integrity fill tint
+      ctx.fillStyle = broken ? "rgba(192,57,43,0.20)"
+        : (st.fence < 45 ? "rgba(224,160,32,0.16)" : "rgba(120,200,120,0.08)");
+      ctx.fillRect(X, Y, w, h);
+
+      // fence lines
+      ctx.save();
+      if (broken) ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = broken ? "#e74c3c" : (st.fence < 45 ? "#e0a020" : "#7a5c33");
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (const c of r.cells) {
+        const cx = c.x * TILE, cy = c.y * TILE;
+        if (!isRegionCell(r, c.x, c.y - 1)) { ctx.moveTo(cx, cy); ctx.lineTo(cx + TILE, cy); }
+        if (!isRegionCell(r, c.x, c.y + 1)) { ctx.moveTo(cx, cy + TILE); ctx.lineTo(cx + TILE, cy + TILE); }
+        if (!isRegionCell(r, c.x - 1, c.y)) { ctx.moveTo(cx, cy); ctx.lineTo(cx, cy + TILE); }
+        if (!isRegionCell(r, c.x + 1, c.y)) { ctx.moveTo(cx + TILE, cy); ctx.lineTo(cx + TILE, cy + TILE); }
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      // fence posts at corners
+      ctx.fillStyle = broken ? "#a83226" : "#5c4527";
+      for (const c of r.cells) {
+        ctx.fillRect(c.x * TILE - 1, c.y * TILE - 1, 4, 4);
+        ctx.fillRect(c.x * TILE + TILE - 3, c.y * TILE - 1, 4, 4);
+        ctx.fillRect(c.x * TILE - 1, c.y * TILE + TILE - 3, 4, 4);
+        ctx.fillRect(c.x * TILE + TILE - 3, c.y * TILE + TILE - 3, 4, 4);
+      }
+
+      // integrity badge
+      if (!broken && st.fence < 99) {
+        ctx.fillStyle = "rgba(0,0,0,0.55)";
+        ctx.fillRect(X + 3, Y + 3, 36, 12);
+        ctx.fillStyle = st.fence < 45 ? "#ffb347" : "#a5e08a";
+        ctx.font = "bold 10px 'Trebuchet MS', sans-serif";
+        ctx.textAlign = "left"; ctx.textBaseline = "middle";
+        ctx.fillText(Math.round(st.fence) + "%", X + 7, Y + 9.5);
+      }
+      if (broken) {
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
+        ctx.fillRect(X + 3, Y + 3, 62, 13);
+        ctx.fillStyle = "#ff8a75";
+        ctx.font = "bold 10px 'Trebuchet MS', sans-serif";
+        ctx.textAlign = "left"; ctx.textBaseline = "middle";
+        ctx.fillText("BROKEN", X + 7, Y + 10);
+      }
+    }
+  }
+
+  function drawBuildings() {
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const t = grid[y][x].type;
+        if (t === "grass" || t === "path" || t === "entrance" || t === "pen") continue;
+        const X = x * TILE, Y = y * TILE;
+        if (t === "feeder") drawFeeder(X, Y);
+        else if (t === "hatchery") drawHatchery(X, Y);
+        else if (t === "booth") drawBooth(X, Y);
+        else if (t === "shop") drawShop(X, Y);
+      }
+    }
+  }
+
+  function drawFeeder(X, Y) {
+    ctx.fillStyle = "#6b4a2a";
+    ctx.fillRect(X + 4, Y + 16, TILE - 8, 11);
+    ctx.fillStyle = "#8a6238";
+    ctx.fillRect(X + 4, Y + 16, TILE - 8, 4);
+    ctx.fillStyle = "#b8503f";
+    ctx.beginPath();
+    ctx.arc(X + 11, Y + 20, 4, 0, Math.PI * 2);
+    ctx.arc(X + 20, Y + 20, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    ctx.fillRect(X + 9, Y + 18, 2, 2);
+  }
+
+  function drawHatchery(X, Y) {
+    // hut
+    ctx.fillStyle = "#7d6a52";
+    ctx.fillRect(X + 4, Y + 10, TILE - 8, TILE - 13);
+    ctx.fillStyle = "#9a8467";
+    ctx.beginPath();
+    ctx.moveTo(X + 2, Y + 10);
+    ctx.lineTo(X + TILE / 2, Y + 2);
+    ctx.lineTo(X + TILE - 2, Y + 10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,0.3)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // egg
+    const pulse = 1 + Math.sin(tickCount * 0.3) * 0.06;
+    ctx.save();
+    ctx.translate(X + TILE / 2, Y + 22);
+    ctx.scale(pulse, pulse);
+    ctx.fillStyle = "#f3e7c9";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 6, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#c9b78d";
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-4, 1); ctx.lineTo(-1, -3); ctx.lineTo(2, 1); ctx.lineTo(5, -3);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawBooth(X, Y) {
+    ctx.fillStyle = "#c65f3f";
+    ctx.fillRect(X + 3, Y + 12, TILE - 6, TILE - 15);
+    // striped awning
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = i % 2 === 0 ? "#f2efe4" : "#c65f3f";
+      ctx.fillRect(X + 3 + i * ((TILE - 6) / 4), Y + 7, (TILE - 6) / 4, 6);
+    }
+    ctx.fillStyle = "#3a2419";
+    ctx.fillRect(X + 10, Y + 20, 12, 9);
+    ctx.fillStyle = "#ffe08a";
+    ctx.font = "bold 9px 'Trebuchet MS', sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("$", X + TILE / 2, Y + 24);
+  }
+
+  function drawShop(X, Y) {
+    ctx.fillStyle = "#d9c27a";
+    ctx.fillRect(X + 4, Y + 14, TILE - 8, TILE - 17);
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = i % 2 === 0 ? "#e0573f" : "#f2efe4";
+      ctx.fillRect(X + 4 + i * ((TILE - 8) / 4), Y + 9, (TILE - 8) / 4, 6);
+    }
+    ctx.fillStyle = "#5c4326";
+    ctx.fillRect(X + 9, Y + 21, 14, 8);
+    ctx.fillStyle = "#fff3c9";
+    ctx.beginPath();
+    ctx.arc(X + 16, Y + 24, 1.6, 0, Math.PI * 2);
+    ctx.arc(X + 20, Y + 23, 1.5, 0, Math.PI * 2);
+    ctx.arc(X + 12, Y + 23, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawDinos() {
+    for (const d of dinos) {
+      const escaped = d.key === null;
+      // shadow
+      ctx.fillStyle = "rgba(0,0,0,0.22)";
+      ctx.beginPath();
+      ctx.ellipse(d.x, d.y + 11, 13, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      const bobY = Math.sin(d.bob) * 1.4;
+      drawDino(d.sp, 15, d.sp.kind, d.face, d.x, d.y + bobY, d.hunger, escaped);
+
+      // hunger / alert indicator
+      if (d.hunger < 25) {
+        ctx.fillStyle = "#ff5a4d";
+        ctx.font = "bold 12px 'Trebuchet MS', sans-serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("!", d.x, d.y - 26);
+      } else if (escaped) {
+        ctx.fillStyle = "#ffb347";
+        ctx.font = "bold 11px 'Trebuchet MS', sans-serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("⚠", d.x, d.y - 26);
+      }
+    }
+  }
+
+  function drawDino(sp, size, kind, face, x, y, hunger, escaped) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(face, 1);
+
+    const b = sp.body, dk = sp.dark;
+
+    // legs
+    ctx.fillStyle = dk;
+    ctx.fillRect(-size * 0.38, size * 0.02, size * 0.17, size * 0.42);
+    ctx.fillRect(size * 0.12, size * 0.02, size * 0.17, size * 0.42);
+
+    // tail
+    ctx.fillStyle = b;
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.45, -size * 0.15);
+    ctx.quadraticCurveTo(-size * 1.2, -size * 0.5, -size * 0.9, size * 0.12);
+    ctx.quadraticCurveTo(-size * 0.7, -size * 0.05, -size * 0.45, size * 0.05);
+    ctx.closePath();
+    ctx.fill();
+
+    // body
+    ctx.beginPath();
+    ctx.ellipse(0, -size * 0.05, size * 0.6, size * 0.42, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    let hx, hy;
+    if (kind === "longneck") {
+      ctx.strokeStyle = b;
+      ctx.lineWidth = size * 0.24;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(size * 0.28, -size * 0.2);
+      ctx.quadraticCurveTo(size * 0.78, -size * 0.85, size * 0.5, -size * 1.18);
+      ctx.stroke();
+      ctx.fillStyle = b;
+      ctx.beginPath();
+      ctx.ellipse(size * 0.5, -size * 1.2, size * 0.27, size * 0.18, 0, 0, Math.PI * 2);
+      ctx.fill();
+      hx = size * 0.58; hy = -size * 1.24;
+    } else {
+      ctx.fillStyle = b;
+      ctx.beginPath();
+      ctx.ellipse(size * 0.6, -size * 0.34, size * 0.3, size * 0.27, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // snout
+      ctx.fillStyle = dk;
+      ctx.beginPath();
+      ctx.ellipse(size * 0.86, -size * 0.29, size * 0.16, size * 0.12, 0, 0, Math.PI * 2);
+      ctx.fill();
+      hx = size * 0.66; hy = -size * 0.42;
+    }
+
+    // decorations by kind
+    if (kind === "plates") {
+      ctx.fillStyle = dk;
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * size * 0.3 - size * 0.1, -size * 0.4);
+        ctx.lineTo(i * size * 0.3, -size * 0.68);
+        ctx.lineTo(i * size * 0.3 + size * 0.1, -size * 0.4);
+        ctx.closePath();
+        ctx.fill();
+      }
+    } else if (kind === "armor") {
+      ctx.fillStyle = dk;
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        ctx.arc(i * size * 0.3, -size * 0.42, size * 0.11, Math.PI, 0);
+        ctx.fill();
+      }
+    } else if (kind === "raptor") {
+      ctx.fillStyle = dk;
+      ctx.beginPath();
+      ctx.moveTo(-size * 0.28, -size * 0.35);
+      ctx.lineTo(-size * 0.52, -size * 0.58);
+      ctx.lineTo(-size * 0.12, -size * 0.46);
+      ctx.closePath();
+      ctx.fill();
+    } else if (kind === "biped") {
+      ctx.fillStyle = dk;
+      ctx.beginPath();
+      ctx.moveTo(size * 0.5, -size * 0.34);
+      ctx.lineTo(size * 0.98, -size * 0.56);
+      ctx.lineTo(size * 0.9, -size * 0.08);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // belly highlight
+    ctx.fillStyle = "rgba(255,255,255,0.16)";
+    ctx.beginPath();
+    ctx.ellipse(-size * 0.05, size * 0.05, size * 0.4, size * 0.24, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // eye
+    ctx.fillStyle = escaped ? "#ff4d3d" : "#fff";
+    ctx.beginPath();
+    ctx.arc(hx, hy, size * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#1a1a1a";
+    ctx.beginPath();
+    ctx.arc(hx + size * 0.035, hy, size * 0.05, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawVisitors() {
+    for (const v of visitors) {
+      const scared = v.scared > 0;
+      // shadow
+      ctx.fillStyle = "rgba(0,0,0,0.2)";
+      ctx.beginPath();
+      ctx.ellipse(v.x, v.y + 8, 6, 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // body
+      ctx.fillStyle = scared ? "#e0573f" : "#5aa9e6";
+      ctx.fillRect(v.x - 4, v.y - 6, 8, 12);
+      // head
+      ctx.fillStyle = "#f4d3a8";
+      ctx.beginPath();
+      ctx.arc(v.x, v.y - 11, 5, 0, Math.PI * 2);
+      ctx.fill();
+      // happy / sad face
+      ctx.fillStyle = "#2a2a2a";
+      ctx.fillRect(v.x - 2, v.y - 12, 1.4, 2);
+      ctx.fillRect(v.x + 1, v.y - 12, 1.4, 2);
+      ctx.strokeStyle = "#2a2a2a";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      if (v.happy > 55) ctx.arc(v.x, v.y - 8, 2.4, 0.15 * Math.PI, 0.85 * Math.PI);
+      else ctx.arc(v.x, v.y - 6, 2.4, 1.15 * Math.PI, 1.85 * Math.PI);
+      ctx.stroke();
+    }
+  }
+
+  function drawHover() {
+    if (!hover || !running) return;
+    const X = hover.x * TILE, Y = hover.y * TILE;
+    const t = TOOLS[tool];
+    const buildable = tool === "bulldoze" || tool === "repair"
+      ? grid[hover.y][hover.x].type !== "grass"
+      : canBuild(hover.x, hover.y);
+    ctx.fillStyle = (tool === "bulldoze" || tool === "repair")
+      ? (buildable ? "rgba(255,120,80,0.30)" : "rgba(255,255,255,0.12)")
+      : (buildable ? "rgba(120,255,150,0.30)" : "rgba(255,80,80,0.30)");
+    ctx.fillRect(X, Y, TILE, TILE);
+    ctx.strokeStyle = buildable ? "#9dffb0" : "#ff8a75";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(X + 1, Y + 1, TILE - 2, TILE - 2);
+  }
+
+  function drawVignette() {
+    const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.85);
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(1, "rgba(0,0,0,0.32)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // pause veil
+    if (paused && running) {
+      ctx.fillStyle = "rgba(6,16,9,0.6)";
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "#f4c14b";
+      ctx.font = "bold 40px 'Trebuchet MS', sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("PAUSED", W / 2, H / 2 - 6);
+      ctx.font = "15px 'Trebuchet MS', sans-serif";
+      ctx.fillStyle = "#d6ecbf";
+      ctx.fillText("Press Play / P to resume", W / 2, H / 2 + 32);
+    }
+
+    // escaped warning banner
+    if (escapedCount > 0) {
+      ctx.fillStyle = "rgba(192,57,43,0.85)";
+      ctx.fillRect(W / 2 - 125, 6, 250, 22);
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 12px 'Trebuchet MS', sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("⚠ " + escapedCount + " DINO(S) LOOSE — repair fences!", W / 2, 17);
+    }
+  }
+
+  // ============================================================
+  // MAIN LOOP
+  // ============================================================
+  let lastTime = 0;
+  let accumulator = 0;
+  let raf = null;
+
+  function loop(t) {
+    raf = requestAnimationFrame(loop);
+    if (!lastTime) lastTime = t;
+    let dt = (t - lastTime) / 1000;
+    lastTime = t;
+    if (dt > 0.1) dt = 0.1; // clamp after tab switches
+
+    if (running && !paused) {
+      accumulator += dt * 1000;
+      while (accumulator >= TICK_MS) {
+        accumulator -= TICK_MS;
+        tick();
+      }
+      updateDinos(dt);
+      updateVisitors(dt);
+    }
+
+    render();
+
+    // message fade
+    if (msgTimer > 0) {
+      msgTimer -= dt;
+      if (msgTimer <= 0) msgEl.classList.remove("show");
+    }
+  }
+
+  // ============================================================
+  // INPUT
+  // ============================================================
+  function eventToCell(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = W / rect.width;
+    const scaleY = H / rect.height;
+    const px = (e.clientX - rect.left) * scaleX;
+    const py = (e.clientY - rect.top) * scaleY;
+    return { x: Math.floor(px / TILE), y: Math.floor(py / TILE) };
+  }
+
+  canvas.addEventListener("pointermove", function (e) {
+    const c = eventToCell(e);
+    if (inBounds(c.x, c.y)) hover = c;
+  });
+  canvas.addEventListener("pointerleave", function () { hover = null; });
+  canvas.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    if (!running || paused) return;
+    const c = eventToCell(e);
+    if (!inBounds(c.x, c.y)) return;
+    hover = c;
+    placeTool(c.x, c.y);
+  });
+  canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.code === "KeyP" || e.key === "p" || e.key === "P") {
+      e.preventDefault();
+      togglePause();
+    } else if (e.code === "KeyR" || e.key === "r" || e.key === "R") {
+      e.preventDefault();
+      restart();
+    } else if (e.key >= "1" && e.key <= "8") {
+      const list = Object.keys(TOOLS);
+      const idx = parseInt(e.key, 10) - 1;
+      if (list[idx]) selectTool(list[idx]);
+    }
+  });
+
+  // ============================================================
+  // UI WIRING
+  // ============================================================
+  function buildToolbar() {
+    toolbar.innerHTML = "";
+    Object.keys(TOOLS).forEach(function (key, i) {
+      const t = TOOLS[key];
+      const btn = document.createElement("button");
+      btn.className = "tool" + (key === tool ? " active" : "");
+      btn.type = "button";
+      btn.dataset.tool = key;
+      btn.innerHTML = '<span class="ic">' + t.ic + '</span>' +
+                      '<span class="nm">' + t.name + '</span>' +
+                      '<span class="pr">' + (t.cost > 0 ? "$" + t.cost : (key === "bulldoze" ? "refund" : "free")) + '</span>';
+      btn.title = "[" + (i + 1) + "] " + t.hint;
+      btn.addEventListener("click", function () { selectTool(key); });
+      toolbar.appendChild(btn);
+    });
+  }
+
+  function selectTool(key) {
+    tool = key;
+    Array.prototype.forEach.call(toolbar.children, function (b) {
+      b.classList.toggle("active", b.dataset.tool === key);
+    });
+    say(TOOLS[key].ic + " " + TOOLS[key].name + " — " + TOOLS[key].hint);
+    beep(480, 0.05, "triangle");
+  }
+
+  function togglePause() {
+    if (!running) return;
+    paused = !paused;
+    btnPause.textContent = paused ? "Play" : "Pause";
+    lastTime = 0;
+    beep(paused ? 380 : 620, 0.07, "triangle");
+  }
+
+  function newPark() {
+    freshGrid();
+    regionStore = new Map();
+    computeRegions();
+    computeDistField();
+    dinos = [];
+    visitors = [];
+    money = START_MONEY;
+    ticketPrice = 10;
+    tickCount = 0;
+    hatchTimer = 0;
+    nextSpawnTick = 0;
+    visitorsServed = 0;
+    totalEarned = 0;
+    globalHappy = 100;
+    dinoStats.hatched = 0;
+    stars = 1;
+    escapedCount = 0;
+    winShown = false;
+    paused = false;
+    accumulator = 0;
+    lastTime = 0;
+    btnPause.textContent = "Pause";
+    winScreen.classList.add("hidden");
+    try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+    renderObjectives();
+    updateHUD();
+    say("New park founded. Build a Ticket Booth and a path to the entrance!");
+  }
+
+  function startGame() {
+    running = true;
+    startScreen.classList.add("hidden");
+    winScreen.classList.add("hidden");
+    lastTime = 0;
+    beep(620, 0.1, "sine");
+    setTimeout(function () { beep(880, 0.14, "sine"); }, 110);
+  }
+
+  function restart() {
+    newPark();
+    startGame();
+    say("Park reset. Good luck!");
+  }
+
+  // button wiring
+  document.getElementById("btnNew").addEventListener("click", function () {
+    newPark();
+    startGame();
+  });
+  document.getElementById("btnContinue").addEventListener("click", function () {
+    if (!load()) newPark();
+    startGame();
+  });
+  document.getElementById("btnKeep").addEventListener("click", function () {
+    winScreen.classList.add("hidden");
+  });
+  document.getElementById("btnRestartWin").addEventListener("click", function () {
+    winScreen.classList.add("hidden");
+    restart();
+  });
+  document.getElementById("btn-restart").addEventListener("click", restart);
+  btnPause.addEventListener("click", togglePause);
+  document.getElementById("btnPriceUp").addEventListener("click", function () {
+    ticketPrice = Math.min(50, ticketPrice + 5);
+    updateHUD();
+    beep(700, 0.06, "square");
+  });
+  document.getElementById("btnPriceDown").addEventListener("click", function () {
+    ticketPrice = Math.max(5, ticketPrice - 5);
+    updateHUD();
+    beep(520, 0.06, "square");
+  });
+
+  // pause simulation when tab hidden
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden && running) {
+      if (!paused) { paused = true; btnPause.textContent = "Play"; }
+      save();
+    }
+  });
+  window.addEventListener("beforeunload", function () { save(); });
+
+  // ============================================================
+  // BOOT
+  // ============================================================
+  freshGrid();
+  computeRegions();
+  computeDistField();
+  buildToolbar();
+
+  if (hasSave()) {
+    document.getElementById("btnContinue").style.display = "";
+  } else {
+    document.getElementById("btnContinue").style.display = "none";
+  }
+  updateHUD();
+  renderObjectives();
+  render();
+  raf = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

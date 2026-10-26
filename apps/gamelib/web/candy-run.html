@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Candy Run</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(160deg, #ffd9ec 0%, #d5f2ff 45%, #fff3d6 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: 0 12px 44px rgba(255, 138, 190, 0.28);
+      width: 96%;
+      max-width: 860px;
+    }
+
+    .game-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 10px;
+    }
+
+    .game-title {
+      font-size: 1.8rem;
+      color: #ff77aa;
+      text-shadow: 2px 2px 0 #fff;
+      letter-spacing: 0.5px;
+    }
+
+    .game-hint {
+      font-size: 0.82rem;
+      color: #9a8fa8;
+    }
+
+    /* ============ SCORE BOARD ============ */
+    .score-board {
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      padding: 10px 16px;
+      background: linear-gradient(135deg, #fff9e6, #ffe8f4);
+      border-radius: 14px;
+      font-size: 0.95rem;
+      color: #6b6478;
+    }
+
+    .score-board .cell span { font-weight: 700; color: #ff6b9d; }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 6px 18px rgba(120, 90, 140, 0.14);
+      background: #cdeffd;
+    }
+
+    canvas { display: block; width: 100%; height: auto; }
+
+    /* ============ SCREENS (Start / Game Over) ============ */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 16px;
+      background: rgba(255, 250, 253, 0.94);
+      transition: opacity 0.3s ease;
+    }
+
+    .screen.hidden { opacity: 0; pointer-events: none; }
+
+    .screen-title {
+      font-size: 1.9rem;
+      color: #ff6b9d;
+      margin-bottom: 6px;
+      text-shadow: 2px 2px 0 #fff;
+    }
+
+    .screen-subtitle {
+      font-size: 0.92rem;
+      color: #8b8296;
+      margin-bottom: 18px;
+      max-width: 420px;
+      line-height: 1.5;
+    }
+
+    .legend {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 20px;
+      font-size: 0.8rem;
+      color: #7b7388;
+    }
+
+    .legend div { display: flex; align-items: center; gap: 5px; }
+
+    .dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+
+    .final-score {
+      font-size: 1.15rem;
+      color: #ff7aa8;
+      margin-bottom: 6px;
+    }
+
+    .final-line { font-size: 0.95rem; color: #8b8296; margin-bottom: 18px; }
+
+    /* ============ ACTION BUTTONS ============ */
+    .action-btn {
+      padding: 13px 34px;
+      background: linear-gradient(135deg, #ff9ec4, #ff6b9d);
+      color: #fff;
+      border: none;
+      border-radius: 26px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+      box-shadow: 0 6px 16px rgba(255, 107, 157, 0.34);
+    }
+
+    .action-btn:hover { transform: translateY(-3px); box-shadow: 0 9px 22px rgba(255, 107, 157, 0.44); }
+    .action-btn:active { transform: translateY(-1px); }
+
+    /* ============ PAUSE OVERLAY ============ */
+    .pause-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(255, 245, 250, 0.82);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.7rem;
+      color: #ff6b9d;
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .pause-overlay.visible { opacity: 1; }
+
+    /* ============ TOUCH CONTROLS ============ */
+    .touch-controls {
+      display: none;
+      gap: 10px;
+      margin-top: 12px;
+      justify-content: center;
+    }
+
+    .touch-controls.visible { display: flex; }
+
+    .touch-btn {
+      flex: 1;
+      max-width: 190px;
+      padding: 16px;
+      background: linear-gradient(135deg, #ffe5f0, #fff2f7);
+      border: 2px solid #ffd1e3;
+      border-radius: 14px;
+      font-size: 1.05rem;
+      color: #ff6b9d;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.12s ease, transform 0.12s ease;
+    }
+
+    .touch-btn:active { background: #ffd0e2; transform: scale(0.97); }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 560px) {
+      .game-container { padding: 14px; }
+      .game-title { font-size: 1.4rem; }
+      .game-hint { display: none; }
+      .touch-controls { display: flex; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <div class="game-head">
+      <h1 class="game-title">Candy Run</h1>
+      <span class="game-hint">Space / ↑ = Jump&nbsp;&nbsp;↓ = Slide&nbsp;&nbsp;P = Pause</span>
+    </div>
+
+    <!-- ============ SCORE BOARD ============ -->
+    <div class="score-board">
+      <div class="cell">Distance: <span id="distance">0</span> m</div>
+      <div class="cell">Sweets: <span id="sweets">0</span></div>
+      <div class="cell">Best: <span id="best">0</span></div>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="800" height="400"></canvas>
+
+      <!-- ============ START SCREEN ============ -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">Ready, Sprinkles?</h2>
+        <p class="screen-subtitle">Race across the candy land. Leap gumdrops, slide under candy canes, bounce on jelly trampolines and wade the icing rivers. Grab sweets for coins!</p>
+        <div class="legend">
+          <div><span class="dot" style="background:#ff6b9d"></span>Gumdrop</div>
+          <div><span class="dot" style="background:#7ad0ff"></span>Candy Cane</div>
+          <div><span class="dot" style="background:#b388ff"></span>Jelly Bounce</div>
+          <div><span class="dot" style="background:#fff0a8"></span>Sweets</div>
+        </div>
+        <button class="action-btn" id="startBtn">Start Running</button>
+      </div>
+
+      <!-- ============ GAME OVER SCREEN ============ -->
+      <div id="gameOverScreen" class="screen hidden">
+        <h2 class="screen-title">Sticky End!</h2>
+        <p class="final-score">Distance: <span id="finalDistance">0</span> m</p>
+        <p class="final-line">Sweets: <span id="finalSweets">0</span> &nbsp;•&nbsp; Coins: <span id="finalCoins">0</span></p>
+        <button class="action-btn" id="restartBtn">Run Again</button>
+      </div>
+
+      <!-- ============ PAUSE OVERLAY ============ -->
+      <div id="pauseOverlay" class="pause-overlay">Paused</div>
+    </div>
+
+    <!-- ============ TOUCH CONTROLS ============ -->
+    <div class="touch-controls" id="touchControls">
+      <button class="touch-btn" id="jumpBtn">JUMP</button>
+      <button class="touch-btn" id="slideBtn">SLIDE</button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // ============ CANVAS SETUP ============
+      const canvas = document.getElementById('gameCanvas');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width;   // 800
+      const H = canvas.height;  // 400
+
+      // Ground band
+      const GROUND_Y = H - 90;          // feet baseline
+      const GRAVITY = 0.85;
+      const JUMP_V = -15.5;
+
+      // ============ DOM ELEMENTS ============
+      const distanceEl = document.getElementById('distance');
+      const sweetsEl = document.getElementById('sweets');
+      const bestEl = document.getElementById('best');
+      const startScreen = document.getElementById('startScreen');
+      const gameOverScreen = document.getElementById('gameOverScreen');
+      const pauseOverlay = document.getElementById('pauseOverlay');
+      const startBtn = document.getElementById('startBtn');
+      const restartBtn = document.getElementById('restartBtn');
+      const jumpBtn = document.getElementById('jumpBtn');
+      const slideBtn = document.getElementById('slideBtn');
+      const touchControls = document.getElementById('touchControls');
+
+      // ============ AUDIO (WebAudio beep) ============
+      let audioCtx = null;
+      function beep(freq, dur, type, vol) {
+        try {
+          if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          if (audioCtx.state === 'suspended') audioCtx.resume();
+          const o = audioCtx.createOscillator();
+          const g = audioCtx.createGain();
+          o.type = type || 'sine';
+          o.frequency.value = freq;
+          g.gain.value = vol || 0.08;
+          o.connect(g);
+          g.connect(audioCtx.destination);
+          const t = audioCtx.currentTime;
+          g.gain.setValueAtTime(g.gain.value, t);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + (dur || 0.12));
+          o.start(t);
+          o.stop(t + (dur || 0.12));
+        } catch (e) { /* audio optional */ }
+      }
+
+      // ============ GAME STATE ============
+      const STATE = { START: 0, PLAY: 1, PAUSE: 2, OVER: 3 };
+      let state = STATE.START;
+
+      let lastTime = 0;
+      let worldSpeed = 6;        // px per frame baseline
+      let distance = 0;          // meters
+      let sweetsCount = 0;
+      let coins = 0;
+      let best = parseInt(localStorage.getItem('candyRunBest') || '0', 10);
+      let spawnTimer = 0;
+      let speedRamp = 0;
+      let hudTick = 0;
+
+      let particles = [];
+      let floats = [];           // floating "+1" texts
+      let obstacles = [];        // hazards
+      let collectibles = [];     // sweets
+      let groundItems = [];      // decorative / rivers passed as ground state
+
+      // Scrolling parallax offsets
+      let skyOff = 0, hillOff = 0, candyOff = 0, groundOff = 0;
+
+      // The runner
+      const player = {
+        x: 130,
+        y: GROUND_Y,        // y is feet position
+        vy: 0,
+        w: 46,
+        h: 60,
+        onGround: true,
+        sliding: false,
+        slideT: 0,
+        bounceT: 0,         // squash-stretch timer for trampoline
+        runT: 0
+      };
+
+      // ============ SIZING / RESPONSIVE ============
+      function fitCanvas() {
+        // keep internal 800x400, CSS scales it; nothing needed but kept for clarity
+      }
+      window.addEventListener('resize', fitCanvas);
+
+      // ============ HELPERS ============
+      function rand(a, b) { return a + Math.random() * (b - a); }
+      function roundRect(x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+      }
+
+      function spawnParticles(x, y, color, n) {
+        for (let i = 0; i < (n || 8); i++) {
+          particles.push({
+            x: x, y: y,
+            vx: rand(-3, 3), vy: rand(-5, 1),
+            life: 1, size: rand(3, 7), color: color
+          });
+        }
+      }
+
+      function addFloat(x, y, text) {
+        floats.push({ x: x, y: y, text: text, life: 1 });
+      }
+
+      // ============ SPAWNING ============
+      function spawnObstacle() {
+        const r = Math.random();
+        if (r < 0.42) {
+          // Gumdrop: jump over
+          const size = rand(38, 52);
+          obstacles.push({ type: 'gumdrop', x: W + 40, y: GROUND_Y - size, w: size, h: size, hit: false });
+        } else if (r < 0.74) {
+          // Candy cane: slide under (tall, floating bar with gap below)
+          const h = rand(56, 74);
+          obstacles.push({ type: 'cane', x: W + 40, y: GROUND_Y - 110, w: 34, h: h, hit: false });
+        } else {
+          // Double gumdrop cluster
+          const size = rand(34, 44);
+          obstacles.push({ type: 'gumdrop', x: W + 40, y: GROUND_Y - size, w: size, h: size, hit: false });
+          obstacles.push({ type: 'gumdrop', x: W + 40 + size + 8, y: GROUND_Y - size, w: size, h: size, hit: false });
+        }
+      }
+
+      function spawnTrampoline() {
+        groundItems.push({ type: 'jelly', x: W + 60, w: 90, y: GROUND_Y, used: false });
+      }
+
+      function spawnCollectible() {
+        // three arcs / lines of sweets at varying heights
+        const pattern = Math.random();
+        const baseX = W + 50;
+        if (pattern < 0.4) {
+          for (let i = 0; i < 4; i++) {
+            collectibles.push({ x: baseX + i * 34, y: GROUND_Y - 60, r: 12, got: false });
+          }
+        } else if (pattern < 0.75) {
+          for (let i = 0; i < 4; i++) {
+            collectibles.push({ x: baseX + i * 34, y: GROUND_Y - 130 + Math.abs(i - 1.5) * 26, r: 12, got: false });
+          }
+        } else {
+          for (let i = 0; i < 5; i++) {
+            collectibles.push({ x: baseX + i * 30, y: GROUND_Y - 40, r: 12, got: false });
+          }
+        }
+      }
+
+      // ============ ICING RIVERS (ground hazard) ============
+      // A river is a stretch where touching the ground while NOT on jelly = slip = over.
+      // We represent rivers as ground segments the player must jump across.
+      let rivers = [];  // {x, w}
+
+      function spawnRiver() {
+        const w = rand(110, 170);
+        rivers.push({ x: W + 60, w: w, passed: false });
+      }
+
+      // ============ RESET ============
+      function resetGame() {
+        worldSpeed = 6;
+        distance = 0;
+        sweetsCount = 0;
+        coins = 0;
+        spawnTimer = 0;
+        speedRamp = 0;
+        hudTick = 0;
+        particles = [];
+        floats = [];
+        obstacles = [];
+        collectibles = [];
+        groundItems = [];
+        rivers = [];
+        skyOff = hillOff = candyOff = groundOff = 0;
+
+        player.y = GROUND_Y;
+        player.vy = 0;
+        player.onGround = true;
+        player.sliding = false;
+        player.slideT = 0;
+        player.bounceT = 0;
+        player.runT = 0;
+
+        distanceEl.textContent = '0';
+        sweetsEl.textContent = '0';
+        bestEl.textContent = best;
+      }
+
+      // ============ START / OVER / PAUSE ============
+      function startGame() {
+        resetGame();
+        state = STATE.PLAY;
+        startScreen.classList.add('hidden');
+        gameOverScreen.classList.add('hidden');
+        pauseOverlay.classList.remove('visible');
+        lastTime = performance.now();
+        beep(660, 0.1, 'triangle', 0.07);
+        requestAnimationFrame(loop);
+      }
+
+      function gameOver() {
+        state = STATE.OVER;
+        beep(180, 0.35, 'sawtooth', 0.1);
+        spawnParticles(player.x + player.w / 2, player.y - player.h / 2, '#ff86b0', 18);
+        const score = Math.floor(distance);
+        if (score > best) {
+          best = score;
+          localStorage.setItem('candyRunBest', String(best));
+        }
+        document.getElementById('finalDistance').textContent = score;
+        document.getElementById('finalSweets').textContent = sweetsCount;
+        document.getElementById('finalCoins').textContent = coins;
+        bestEl.textContent = best;
+        gameOverScreen.classList.remove('hidden');
+      }
+
+      function togglePause() {
+        if (state === STATE.PLAY) {
+          state = STATE.PAUSE;
+          pauseOverlay.classList.add('visible');
+        } else if (state === STATE.PAUSE) {
+          state = STATE.PLAY;
+          pauseOverlay.classList.remove('visible');
+          lastTime = performance.now();
+          requestAnimationFrame(loop);
+        }
+      }
+
+      // ============ INPUT ============
+      function doJump() {
+        if (state !== STATE.PLAY) return;
+        if (player.onGround) {
+          player.vy = JUMP_V;
+          player.onGround = false;
+          player.sliding = false;
+          player.slideT = 0;
+          beep(520, 0.1, 'square', 0.06);
+        }
+      }
+
+      function doSlide() {
+        if (state !== STATE.PLAY) return;
+        if (player.onGround) {
+          player.sliding = true;
+          player.slideT = 34;   // frames of slide
+          beep(300, 0.1, 'triangle', 0.05);
+        } else {
+          // fast-fall
+          player.vy += 6;
+        }
+      }
+
+      document.addEventListener('keydown', function (e) {
+        if (['Space', 'ArrowUp', 'ArrowDown', 'KeyW', 'KeyS', 'KeyP'].indexOf(e.code) !== -1) e.preventDefault();
+        if (e.code === 'KeyP') { togglePause(); return; }
+        if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
+          if (state === STATE.START || state === STATE.OVER) startGame();
+          else doJump();
+        }
+        if (e.code === 'ArrowDown' || e.code === 'KeyS') doSlide();
+      });
+
+      jumpBtn.addEventListener('click', function (e) { e.preventDefault(); if (state === STATE.PLAY) doJump(); else startGame(); });
+      slideBtn.addEventListener('click', function (e) { e.preventDefault(); doSlide(); });
+      startBtn.addEventListener('click', startGame);
+      restartBtn.addEventListener('click', startGame);
+
+      // Touch: tap upper = jump, swipe/tap lower = slide
+      canvas.addEventListener('touchstart', function (e) {
+        e.preventDefault();
+        if (state === STATE.START || state === STATE.OVER) { startGame(); return; }
+        const t = e.changedTouches[0];
+        const rect = canvas.getBoundingClientRect();
+        const y = t.clientY - rect.top;
+        if (y < rect.height * 0.6) doJump(); else doSlide();
+      }, { passive: false });
+
+      // Detect touch to reveal touch controls
+      if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+        touchControls.classList.add('visible');
+      }
+
+      // ============ UPDATE ============
+      function updatePlayer() {
+        // Jump physics
+        player.vy += GRAVITY;
+        player.y += player.vy;
+
+        // Trampoline bounce: check ground items under player
+        let onJelly = false;
+        for (let i = 0; i < groundItems.length; i++) {
+          const j = groundItems[i];
+          if (player.x + player.w * 0.6 > j.x && player.x + player.w * 0.4 < j.x + j.w) {
+            if (!j.used && player.y >= GROUND_Y - 12 && player.vy >= 0) {
+              player.vy = JUMP_V * 1.35;
+              player.onGround = false;
+              j.used = true;
+              player.bounceT = 12;
+              beep(880, 0.14, 'sine', 0.09);
+              spawnParticles(j.x + j.w / 2, GROUND_Y - 6, '#c9a8ff', 10);
+              addFloat(j.x + j.w / 2, GROUND_Y - 40, 'BOING');
+            }
+          }
+        }
+
+        // Ground / river collision
+        if (player.y >= GROUND_Y) {
+          player.y = GROUND_Y;
+          if (!player.onGround) {
+            // land
+            player.onGround = true;
+            spawnParticles(player.x + player.w / 2, GROUND_Y, '#ffd9ec', 5);
+          }
+          player.vy = 0;
+
+          // River check (slippery icing — only safe on jelly)
+          for (let i = 0; i < rivers.length; i++) {
+            const rv = rivers[i];
+            const inRiver = (player.x + player.w * 0.5 > rv.x) && (player.x + player.w * 0.5 < rv.x + rv.w);
+            if (inRiver) {
+              // if standing on a jelly over the river, safe
+              let safe = false;
+              for (let k = 0; k < groundItems.length; k++) {
+                const j = groundItems[k];
+                if (j.x < rv.x + rv.w && j.x + j.w > rv.x && player.x + player.w * 0.5 > j.x && player.x + player.w * 0.5 < j.x + j.w) safe = true;
+              }
+              if (!safe) { gameOver(); return; }
+            }
+          }
+        } else {
+          player.onGround = false;
+        }
+
+        // Slide timer
+        if (player.sliding) {
+          player.slideT--;
+          if (player.slideT <= 0) player.sliding = false;
+        }
+
+        if (player.bounceT > 0) player.bounceT--;
+        player.runT += 1;
+      }
+
+      function playerRect() {
+        if (player.sliding) {
+          return { x: player.x, y: player.y - 34, w: player.w + 16, h: 34 };
+        }
+        return { x: player.x, y: player.y - player.h, w: player.w, h: player.h };
+      }
+
+      function rectsOverlap(a, b) {
+        return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+      }
+
+      function updateWorld(dt) {
+        const step = worldSpeed;
+
+        // scroll parallax
+        skyOff = (skyOff + step * 0.06) % W;
+        hillOff = (hillOff + step * 0.22) % W;
+        candyOff = (candyOff + step * 0.5) % W;
+        groundOff = (groundOff + step) % 60;
+
+        // move world objects
+        for (let i = obstacles.length - 1; i >= 0; i--) obstacles[i].x -= step;
+        for (let i = collectibles.length - 1; i >= 0; i--) collectibles[i].x -= step;
+        for (let i = groundItems.length - 1; i >= 0; i--) groundItems[i].x -= step;
+        for (let i = rivers.length - 1; i >= 0; i--) rivers[i].x -= step;
+
+        // cull
+        obstacles = obstacles.filter(function (o) { return o.x + o.w > -60; });
+        collectibles = collectibles.filter(function (c) { return c.x + c.r > -40 && !c.got; });
+        groundItems = groundItems.filter(function (g) { return g.x + g.w > -60; });
+        rivers = rivers.filter(function (r) { return r.x + r.w > -60; });
+
+        // distance & speed ramp
+        distance += step * 0.06;
+        speedRamp += dt;
+        if (speedRamp > 1000) {
+          speedRamp = 0;
+          if (worldSpeed < 14) worldSpeed += 0.55;
+        }
+
+        // spawn scheduling
+        spawnTimer -= dt;
+        if (spawnTimer <= 0) {
+          const roll = Math.random();
+          if (roll < 0.46) spawnObstacle();
+          else if (roll < 0.62) spawnCollectible();
+          else if (roll < 0.74) spawnTrampoline();
+          else if (roll < 0.84) spawnRiver();
+          else { spawnObstacle(); spawnCollectible(); }
+          // tighter intervals as speed climbs
+          spawnTimer = rand(620, 1050) - Math.min(320, worldSpeed * 16);
+          if (spawnTimer < 380) spawnTimer = 380;
+        }
+
+        // collisions with obstacles
+        const pr = playerRect();
+        for (let i = 0; i < obstacles.length; i++) {
+          const o = obstacles[i];
+          if (o.hit) continue;
+          // candy cane: only the hanging bar matters; allow pass under
+          if (rectsOverlap(pr, o)) {
+            if (o.type === 'cane') {
+              // Safe if sliding (header below bar). Bar occupies o.y..o.y+o.h (top area)
+              // Player head must be under the bar.
+              const headY = player.sliding ? player.y - 34 : player.y - player.h;
+              if (headY > o.y + o.h - 6) continue; // ducked under successfully
+            }
+            gameOver();
+            return;
+          }
+        }
+        // mark cane passed to avoid false block later (bar rises off-screen naturally)
+
+        // collect sweets
+        for (let i = 0; i < collectibles.length; i++) {
+          const c = collectibles[i];
+          if (c.got) continue;
+          const cx = player.x + player.w / 2;
+          const cy = player.y - (player.sliding ? 16 : player.h / 2);
+          const dx = cx - c.x, dy = cy - c.y;
+          if (dx * dx + dy * dy < (c.r + 20) * (c.r + 20)) {
+            c.got = true;
+            sweetsCount++;
+            coins += 1;
+            sweetsEl.textContent = sweetsCount;
+            beep(1040, 0.09, 'sine', 0.06);
+            spawnParticles(c.x, c.y, '#ffe066', 6);
+            addFloat(c.x, c.y - 10, '+1');
+          }
+        }
+
+        // particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.28;
+          p.life -= dt * 0.0026;
+          if (p.life <= 0) particles.splice(i, 1);
+        }
+        for (let i = floats.length - 1; i >= 0; i--) {
+          const f = floats[i];
+          f.y -= 1.1;
+          f.life -= dt * 0.0016;
+          if (f.life <= 0) floats.splice(i, 1);
+        }
+
+        // HUD throttle
+        hudTick += dt;
+        if (hudTick > 100) {
+          hudTick = 0;
+          distanceEl.textContent = Math.floor(distance);
+        }
+      }
+
+      // ============ DRAWING ============
+      function drawBackground() {
+        // Sky gradient
+        const sky = ctx.createLinearGradient(0, 0, 0, H);
+        sky.addColorStop(0, '#bfe9ff');
+        sky.addColorStop(0.55, '#ffe3f1');
+        sky.addColorStop(1, '#fff4d9');
+        ctx.fillStyle = sky;
+        ctx.fillRect(0, 0, W, H);
+
+        // Sun / cloud discs
+        ctx.globalAlpha = 0.55;
+        ctx.fillStyle = '#fff6c9';
+        ctx.beginPath();
+        ctx.arc(W - 120, 78, 46, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        // Parallax clouds
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        for (let i = 0; i < 4; i++) {
+          const cx = ((i * 260 - skyOff * 3) % (W + 260)) - 130;
+          const cy = 60 + (i % 2) * 46;
+          ctx.beginPath();
+          ctx.arc(cx, cy, 26, 0, Math.PI * 2);
+          ctx.arc(cx + 26, cy + 6, 20, 0, Math.PI * 2);
+          ctx.arc(cx - 26, cy + 8, 18, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Far candy hills (parallax)
+        ctx.fillStyle = '#ffc7e0';
+        for (let i = 0; i < 4; i++) {
+          const hx = ((i * 300 - hillOff * 2) % (W + 300)) - 150;
+          ctx.beginPath();
+          ctx.arc(hx, GROUND_Y + 20, 120, Math.PI, 0);
+          ctx.fill();
+        }
+        ctx.fillStyle = '#ffd9a8';
+        for (let i = 0; i < 4; i++) {
+          const hx = ((i * 300 - hillOff * 3.5 + 160) % (W + 300)) - 150;
+          ctx.beginPath();
+          ctx.arc(hx, GROUND_Y + 34, 96, Math.PI, 0);
+          ctx.fill();
+        }
+
+        // Lollipop grove (mid parallax)
+        for (let i = 0; i < 6; i++) {
+          const lx = ((i * 200 - candyOff * 4) % (W + 200)) - 100;
+          const baseY = GROUND_Y - 10;
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.moveTo(lx, baseY);
+          ctx.lineTo(lx, baseY - 70);
+          ctx.stroke();
+          const cols = ['#ff86b0', '#8ad4ff', '#c9a8ff', '#ffd166'];
+          ctx.fillStyle = cols[i % cols.length];
+          ctx.beginPath();
+          ctx.arc(lx, baseY - 82, 20, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(lx, baseY - 82, 11, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+
+      function drawGround() {
+        // Icing rivers (draw as glossy bands on the ground)
+        for (let i = 0; i < rivers.length; i++) {
+          const rv = rivers[i];
+          const g = ctx.createLinearGradient(0, GROUND_Y - 4, 0, H);
+          g.addColorStop(0, '#a8e6ff');
+          g.addColorStop(1, '#7cc9f0');
+          ctx.fillStyle = g;
+          roundRect(rv.x, GROUND_Y - 6, rv.w, H - GROUND_Y + 6, 10);
+          ctx.fill();
+          // wavy icing highlights
+          ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          for (let x = rv.x; x < rv.x + rv.w; x += 14) {
+            ctx.lineTo(x, GROUND_Y + 8 + Math.sin((x + groundOff) * 0.08) * 4);
+          }
+          ctx.stroke();
+        }
+
+        // Ground base (soft frosting)
+        const gg = ctx.createLinearGradient(0, GROUND_Y, 0, H);
+        gg.addColorStop(0, '#ffe0ef');
+        gg.addColorStop(1, '#ffc4dd');
+        ctx.fillStyle = gg;
+        ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
+        ctx.fillStyle = '#fff2f8';
+        ctx.fillRect(0, GROUND_Y, W, 8);
+
+        // ground sprinkles pattern
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        const cols = ['#ff9ec4', '#9ed8ff', '#ffe066', '#c9a8ff'];
+        for (let x = -groundOff; x < W; x += 60) {
+          ctx.fillStyle = cols[Math.floor((x + groundOff) / 60) % cols.length];
+          ctx.beginPath();
+          ctx.arc(x + 20, GROUND_Y + 30, 3.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(x + 44, GROUND_Y + 54, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      function drawJellies() {
+        for (let i = 0; i < groundItems.length; i++) {
+          const j = groundItems[i];
+          const cx = j.x + j.w / 2;
+          // jelly pad
+          const g = ctx.createLinearGradient(0, GROUND_Y - 22, 0, GROUND_Y + 6);
+          g.addColorStop(0, '#d9b8ff');
+          g.addColorStop(1, '#9a6dff');
+          ctx.fillStyle = g;
+          roundRect(j.x, GROUND_Y - 20, j.w, 26, 12);
+          ctx.fill();
+          ctx.fillStyle = 'rgba(255,255,255,0.7)';
+          roundRect(j.x + 12, GROUND_Y - 16, j.w - 24, 7, 4);
+          ctx.fill();
+          // label dots
+          ctx.fillStyle = '#7a4fd6';
+          ctx.beginPath();
+          ctx.arc(cx, GROUND_Y - 6, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      function drawObstacles() {
+        for (let i = 0; i < obstacles.length; i++) {
+          const o = obstacles[i];
+          if (o.type === 'gumdrop') {
+            // dome gumdrop
+            const g = ctx.createLinearGradient(o.x, o.y, o.x, o.y + o.h);
+            g.addColorStop(0, '#ff9ec4');
+            g.addColorStop(1, '#ff5c93');
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.moveTo(o.x, o.y + o.h);
+            ctx.quadraticCurveTo(o.x + o.w / 2, o.y - o.h * 0.35, o.x + o.w, o.y + o.h);
+            ctx.closePath();
+            ctx.fill();
+            // sugar shine
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            ctx.beginPath();
+            ctx.ellipse(o.x + o.w * 0.35, o.y + o.h * 0.4, o.w * 0.12, o.h * 0.18, -0.4, 0, Math.PI * 2);
+            ctx.fill();
+            // sparkle
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(o.x + o.w * 0.7, o.y + o.h * 0.35, 3, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            // candy cane: vertical striped bar hanging from the top of its bbox
+            const g = ctx.createLinearGradient(o.x, 0, o.x + o.w, 0);
+            g.addColorStop(0, '#fff');
+            g.addColorStop(1, '#eaf7ff');
+            ctx.fillStyle = g;
+            roundRect(o.x, o.y, o.w, o.h, 8);
+            ctx.fill();
+            // red stripes
+            ctx.save();
+            roundRect(o.x, o.y, o.w, o.h, 8);
+            ctx.clip();
+            ctx.strokeStyle = '#ff5c93';
+            ctx.lineWidth = 7;
+            for (let s = -o.h; s < o.h; s += 20) {
+              ctx.beginPath();
+              ctx.moveTo(o.x - 6, o.y + s);
+              ctx.lineTo(o.x + o.w + 6, o.y + s + 22);
+              ctx.stroke();
+            }
+            ctx.restore();
+            // hook top
+            ctx.strokeStyle = '#ff5c93';
+            ctx.lineWidth = 8;
+            ctx.beginPath();
+            ctx.arc(o.x + o.w / 2, o.y - 6, o.w * 0.55, Math.PI, Math.PI * 1.9);
+            ctx.stroke();
+          }
+        }
+      }
+
+      function drawCollectibles() {
+        for (let i = 0; i < collectibles.length; i++) {
+          const c = collectibles[i];
+          if (c.got) continue;
+          const bob = Math.sin((performance.now() * 0.004) + i) * 3;
+          // wrapper candy
+          const g = ctx.createRadialGradient(c.x - 3, c.y + bob - 3, 2, c.x, c.y + bob, c.r + 2);
+          g.addColorStop(0, '#fff6b0');
+          g.addColorStop(0.6, '#ffd166');
+          g.addColorStop(1, '#ff9e3d');
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(c.x, c.y + bob, c.r, 0, Math.PI * 2);
+          ctx.fill();
+          // wrapper wings
+          ctx.fillStyle = '#ffb347';
+          ctx.beginPath();
+          ctx.moveTo(c.x - c.r, c.y + bob);
+          ctx.lineTo(c.x - c.r - 8, c.y + bob - 6);
+          ctx.lineTo(c.x - c.r - 8, c.y + bob + 6);
+          ctx.closePath();
+          ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(c.x + c.r, c.y + bob);
+          ctx.lineTo(c.x + c.r + 8, c.y + bob - 6);
+          ctx.lineTo(c.x + c.r + 8, c.y + bob + 6);
+          ctx.closePath();
+          ctx.fill();
+          // shine
+          ctx.fillStyle = 'rgba(255,255,255,0.85)';
+          ctx.beginPath();
+          ctx.arc(c.x - 4, c.y + bob - 4, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      function drawPlayer() {
+        const cx = player.x + player.w / 2;
+        let bodyW = player.w;
+        let bodyH = player.h;
+        let topY = player.y - player.h;
+
+        if (player.sliding) {
+          bodyW = player.w + 20;
+          bodyH = 34;
+          topY = player.y - 34;
+        }
+
+        // squash / stretch
+        let sx = 1, sy = 1;
+        if (player.bounceT > 0) { sx = 1.2; sy = 0.8; }
+        else if (!player.onGround) { sy = 1.08; sx = 0.94; }
+
+        ctx.save();
+        ctx.translate(cx, player.y);
+        ctx.scale(sx, sy);
+        ctx.translate(-cx, -player.y);
+
+        // legs (animated when grounded)
+        if (player.onGround && !player.sliding) {
+          const swing = Math.sin(player.runT * 0.35) * 8;
+          ctx.strokeStyle = '#ff6b9d';
+          ctx.lineWidth = 6;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(cx - 8, player.y - 6);
+          ctx.lineTo(cx - 8 + swing, player.y + 8);
+          ctx.moveTo(cx + 8, player.y - 6);
+          ctx.lineTo(cx + 8 - swing, player.y + 8);
+          ctx.stroke();
+        }
+
+        // body (marshmallow blob)
+        const bg = ctx.createLinearGradient(0, topY, 0, topY + bodyH);
+        bg.addColorStop(0, '#ffffff');
+        bg.addColorStop(1, '#ffd9ea');
+        ctx.fillStyle = bg;
+        roundRect(cx - bodyW / 2, topY, bodyW, bodyH, player.sliding ? 16 : 20);
+        ctx.fill();
+        ctx.strokeStyle = '#ff9ec4';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // cheeks
+        ctx.fillStyle = 'rgba(255,150,190,0.7)';
+        ctx.beginPath();
+        ctx.arc(cx - bodyW * 0.28, topY + bodyH * 0.55, 5, 0, Math.PI * 2);
+        ctx.arc(cx + bodyW * 0.28, topY + bodyH * 0.55, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // eyes
+        const eyeY = topY + bodyH * 0.36;
+        ctx.fillStyle = '#5a4b63';
+        ctx.beginPath();
+        ctx.arc(cx - 10, eyeY, 4.5, 0, Math.PI * 2);
+        ctx.arc(cx + 10, eyeY, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(cx - 11.5, eyeY - 1.5, 1.6, 0, Math.PI * 2);
+        ctx.arc(cx + 8.5, eyeY - 1.5, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+
+        // smile
+        ctx.strokeStyle = '#5a4b63';
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.arc(cx, eyeY + 8, 8, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.stroke();
+
+        // little candy hat
+        ctx.fillStyle = '#8ad4ff';
+        ctx.beginPath();
+        ctx.arc(cx, topY, 9, Math.PI, 0);
+        ctx.fill();
+        ctx.fillStyle = '#ff6b9d';
+        ctx.beginPath();
+        ctx.arc(cx, topY - 6, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      function drawParticles() {
+        for (let i = 0; i < particles.length; i++) {
+          const p = particles[i];
+          ctx.globalAlpha = Math.max(0, p.life);
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 16px Segoe UI, sans-serif';
+        for (let i = 0; i < floats.length; i++) {
+          const f = floats[i];
+          ctx.globalAlpha = Math.max(0, f.life);
+          ctx.fillStyle = '#ff6b9d';
+          ctx.fillText(f.text, f.x, f.y);
+        }
+        ctx.globalAlpha = 1;
+        ctx.textAlign = 'left';
+      }
+
+      function draw() {
+        drawBackground();
+        drawGround();
+        drawJellies();
+        drawObstacles();
+        drawCollectibles();
+        drawParticles();
+        drawPlayer();
+      }
+
+      // ============ MAIN LOOP ============
+      function loop(now) {
+        if (state === STATE.PAUSE || state === STATE.OVER) return;
+
+        let dt = now - lastTime;
+        lastTime = now;
+        if (dt > 60) dt = 60; // clamp after tab switch
+
+        updatePlayer();
+        if (state !== STATE.PLAY) return; // gameOver triggered inside
+        updateWorld(dt);
+        if (state !== STATE.PLAY) return;
+
+        draw();
+        requestAnimationFrame(loop);
+      }
+
+      // ============ BOOT ============
+      bestEl.textContent = best;
+      resetGame();
+      draw();
+    })();
+  </script>
+</body>
+</html>

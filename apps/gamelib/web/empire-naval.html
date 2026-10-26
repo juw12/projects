@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>EMPIRE NAVAL</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #22384f 0%, #12212e 55%, #0a141c 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 14px;
+    color: #f0e6d2;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ============ LAYOUT ============ */
+  .wrap {
+    width: min(1000px, 97vw);
+    background:
+      linear-gradient(180deg, #3c2a1a 0%, #2c1e13 100%);
+    border: 3px solid #7a5a2e;
+    border-radius: 14px;
+    box-shadow: 0 18px 50px rgba(0,0,0,.6), inset 0 0 0 2px #17110b;
+    padding: 14px;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #7a5a2e;
+    margin-bottom: 10px;
+  }
+
+  .title {
+    font-size: 1.5rem;
+    letter-spacing: 3px;
+    color: #e7c86b;
+    text-shadow: 0 2px 0 #1a120a, 0 0 14px rgba(231,200,107,.35);
+  }
+  .title small {
+    display: block;
+    font-size: .6rem;
+    letter-spacing: 5px;
+    color: #b99a5e;
+    margin-top: 2px;
+  }
+
+  .record {
+    font-size: .78rem;
+    letter-spacing: 1px;
+    color: #cbb68c;
+    background: #241a10;
+    border: 1px solid #7a5a2e;
+    border-radius: 8px;
+    padding: 6px 12px;
+    white-space: nowrap;
+  }
+  .record b { color: #e7c86b; }
+
+  /* ============ HUD ============ */
+  .hud {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .fleet {
+    background: #241a10;
+    border: 1px solid #6b4f2a;
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+  .fleet h3 {
+    font-size: .72rem;
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+  .fleet.blue h3 { color: #7fb6e0; }
+  .fleet.red h3 { color: #e08a7f; text-align: right; }
+  .fleet.blue { border-left: 3px solid #3d6f9e; }
+  .fleet.red { border-right: 3px solid #9e4a3d; }
+
+  .shiprow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: .72rem;
+    padding: 3px 0;
+    color: #d9c9a6;
+  }
+  .fleet.red .shiprow { flex-direction: row-reverse; text-align: right; }
+  .shiprow.done { opacity: .4; }
+  .shiprow.dead { opacity: .35; text-decoration: line-through; color: #8c7a5c; }
+  .shipname { min-width: 74px; }
+  .bar {
+    flex: 1;
+    height: 8px;
+    background: #150f09;
+    border: 1px solid #4a3823;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .bar i { display: block; height: 100%; width: 100%; transition: width .25s ease; }
+  .blue .bar i { background: linear-gradient(90deg, #4d8fc4, #7fb6e0); }
+  .red .bar i { background: linear-gradient(90deg, #c46b4d, #e08a7f); }
+
+  /* ============ CANVAS STAGE ============ */
+  .stage {
+    position: relative;
+    border: 3px solid #7a5a2e;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #0d1b26;
+    box-shadow: inset 0 0 40px rgba(0,0,0,.7);
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    cursor: crosshair;
+  }
+
+  /* ============ OVERLAYS ============ */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 20px;
+    background:
+      radial-gradient(circle at 50% 40%, rgba(28,20,12,.86), rgba(8,6,4,.96));
+    backdrop-filter: blur(2px);
+    transition: opacity .3s ease;
+    z-index: 5;
+  }
+  .overlay.hidden { opacity: 0; pointer-events: none; }
+
+  .overlay h2 {
+    font-size: 1.9rem;
+    letter-spacing: 4px;
+    color: #e7c86b;
+    text-shadow: 0 3px 0 #1a120a;
+    margin-bottom: 8px;
+  }
+  .overlay p {
+    font-size: .9rem;
+    line-height: 1.6;
+    color: #cbb68c;
+    max-width: 520px;
+    margin-bottom: 16px;
+  }
+  .overlay .note { font-size: .74rem; color: #9b865f; letter-spacing: 1px; }
+
+  .banner {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(20,14,8,.85);
+    border: 1px solid #7a5a2e;
+    border-radius: 20px;
+    padding: 4px 18px;
+    font-size: .78rem;
+    letter-spacing: 2px;
+    color: #e7c86b;
+    pointer-events: none;
+    z-index: 4;
+    white-space: nowrap;
+  }
+
+  /* ============ BUTTONS ============ */
+  .btn {
+    font-family: inherit;
+    font-size: .95rem;
+    letter-spacing: 2px;
+    color: #23180d;
+    background: linear-gradient(180deg, #e7c86b, #b8933f);
+    border: 2px solid #8a6a2c;
+    border-radius: 8px;
+    padding: 11px 26px;
+    cursor: pointer;
+    font-weight: 700;
+    box-shadow: 0 4px 0 #5c4520, 0 6px 14px rgba(0,0,0,.4);
+    transition: transform .1s ease, box-shadow .1s ease;
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 5px 0 #5c4520, 0 8px 18px rgba(0,0,0,.45); }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #5c4520; }
+  .btn.ghost {
+    background: #241a10; color: #cbb68c; border-color: #6b4f2a;
+    box-shadow: 0 4px 0 #140e08;
+  }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  .controls .hint {
+    font-size: .74rem;
+    color: #9b865f;
+    align-self: center;
+    letter-spacing: 1px;
+  }
+
+  /* ============ DEPLOY ROSTER ============ */
+  .roster {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .slot {
+    font-family: inherit;
+    background: #241a10;
+    border: 2px solid #6b4f2a;
+    border-radius: 8px;
+    color: #d9c9a6;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: .78rem;
+    text-align: center;
+    min-width: 96px;
+    transition: all .15s ease;
+  }
+  .slot small { display: block; color: #9b865f; font-size: .62rem; letter-spacing: 1px; }
+  .slot.active {
+    border-color: #e7c86b;
+    background: #3a2a15;
+    box-shadow: 0 0 14px rgba(231,200,107,.45);
+  }
+  .slot.placed { opacity: .42; border-style: dashed; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 620px) {
+    .title { font-size: 1.1rem; letter-spacing: 2px; }
+    .hud { grid-template-columns: 1fr; }
+    .fleet.red .shiprow { flex-direction: row; text-align: left; }
+    .overlay h2 { font-size: 1.4rem; }
+    .shipname { min-width: 62px; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <!-- ============ TOP BAR ============ -->
+    <div class="topbar">
+      <div class="title">EMPIRE NAVAL<small>FLEET OF THE LINE</small></div>
+      <div class="record">RECORD &nbsp; W:<b id="recW">0</b> &nbsp; L:<b id="recL">0</b></div>
+    </div>
+
+    <!-- ============ HUD ============ -->
+    <div class="hud">
+      <div class="fleet blue" id="fleetEnemy">
+        <h3>Azure Fleet &mdash; Admiral</h3>
+      </div>
+      <div class="fleet red" id="fleetPlayer">
+        <h3>Crimson Fleet &mdash; You</h3>
+      </div>
+    </div>
+
+    <!-- ============ STAGE ============ -->
+    <div class="stage">
+      <canvas id="cv" width="840" height="600"></canvas>
+      <div class="banner" id="banner">DEPLOYMENT</div>
+
+      <!-- Start / Deploy Screen -->
+      <div class="overlay" id="startOverlay">
+        <h2>EMPIRE NAVAL</h2>
+        <p>Command an age-of-sail squadron against an enemy admiral.
+           Deploy your three hulls in the shaded western waters, then seek
+           and sink the Azure Fleet. Islands block both cannon fire and movement &mdash; use them as cover.</p>
+        <div class="roster" id="roster"></div>
+        <button class="btn" id="battleBtn" disabled>Begin Battle</button>
+        <p class="note" id="deployHint">Select a hull, then click a western tile to place it.</p>
+      </div>
+
+      <!-- End Screen -->
+      <div class="overlay hidden" id="endOverlay">
+        <h2 id="endTitle">VICTORY</h2>
+        <p id="endText"></p>
+        <button class="btn" id="againBtn">Sail Again</button>
+      </div>
+    </div>
+
+    <!-- ============ CONTROLS ============ -->
+    <div class="controls">
+      <button class="btn ghost" id="endTurnBtn">End Turn</button>
+      <button class="btn ghost" id="restartBtn">Restart</button>
+      <span class="hint" id="statusHint">Select a ship to move &amp; fire.</span>
+    </div>
+  </div>
+
+<script>
+/* ================================================================
+   EMPIRE NAVAL — a single-file, offline age-of-sail tactics game
+   Sections: CONFIG · STATE · AUDIO · ISLANDS · FLEETS · RENDER
+             INPUT · MOVEMENT · FIRING · TURNS · AI · WIN/LOSE
+   ================================================================ */
+
+// ============ CONFIGURATION ============
+const CV = document.getElementById('cv');
+const ctx = CV.getContext('2d');
+const W = 14;          // grid columns
+const H = 10;          // grid rows
+const TS = CV.width / W; // tile size in canvas px
+
+const SHIP_TYPES = {
+  sloop:   { key:'sloop',   name:'Sloop',      cls:'fast',  move:3, range:3, hp:3, dmg:1, tip:'Fast · 3 move · 3 range' },
+  frigate: { key:'frigate', name:'Frigate',    cls:'slow',  move:2, range:4, hp:4, dmg:2, tip:'Balanced · 2 move · 4 range' },
+  manowar: { key:'manowar', name:'Man-o-War',  cls:'heavy', move:1, range:5, hp:6, dmg:3, tip:'Heavy · 1 move · 5 range' }
+};
+const FLEET_COMP = ['sloop', 'frigate', 'manowar'];
+const DEPLOY_MAX_X = 3; // player deploys in columns 0..2
+
+// ============ STATE ============
+let islands = [];        // {x,y}
+let islandSet = new Set();
+let playerShips = [];
+let enemyShips = [];
+let rosterKeys = [];      // remaining deployment keys
+let activeKey = null;     // selected roster type during deploy
+let selected = null;      // selected ship during battle
+let moveTiles = [];       // reachable tiles for selected ship
+let phase = 'deploy';     // deploy | battle | over
+let turn = 'player';      // player | enemy
+let busy = false;         // blocking input during AI
+let particles = [];
+let floats = [];         // floating text
+let t0 = performance.now();
+let wins = parseInt(localStorage.getItem('empireNavalWins') || '0', 10);
+let losses = parseInt(localStorage.getItem('empireNavalLosses') || '0', 10);
+
+// ============ DOM ELEMENTS ============
+const bannerEl = document.getElementById('banner');
+const startOverlay = document.getElementById('startOverlay');
+const endOverlay = document.getElementById('endOverlay');
+const endTitle = document.getElementById('endTitle');
+const endText = document.getElementById('endText');
+const rosterEl = document.getElementById('roster');
+const battleBtn = document.getElementById('battleBtn');
+const deployHint = document.getElementById('deployHint');
+const endTurnBtn = document.getElementById('endTurnBtn');
+const restartBtn = document.getElementById('restartBtn');
+const statusHint = document.getElementById('statusHint');
+const recW = document.getElementById('recW');
+const recL = document.getElementById('recL');
+const fleetPlayerEl = document.getElementById('fleetPlayer');
+const fleetEnemyEl = document.getElementById('fleetEnemy');
+
+recW.textContent = wins;
+recL.textContent = losses;
+
+// ============ AUDIO (WebAudio beep, lazy-init on gesture) ============
+let actx = null;
+function beep(freq, dur, type, vol) {
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator();
+    const g = actx.createGain();
+    o.type = type || 'square';
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(vol == null ? 0.05 : vol, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(); o.stop(actx.currentTime + dur);
+  } catch (e) { /* audio optional */ }
+}
+const SND = {
+  place: () => beep(330, 0.08, 'triangle', 0.05),
+  move:  () => beep(220, 0.10, 'sine', 0.05),
+  fire:  () => { beep(160, 0.18, 'sawtooth', 0.07); beep(90, 0.22, 'square', 0.05); },
+  hit:   () => beep(120, 0.14, 'square', 0.06),
+  sink:  () => { beep(80, 0.35, 'sawtooth', 0.08); beep(55, 0.5, 'sine', 0.06); },
+  win:   () => { beep(440, 0.15); setTimeout(()=>beep(554,0.15),140); setTimeout(()=>beep(660,0.30),280); },
+  lose:  () => { beep(300, 0.2); setTimeout(()=>beep(220,0.25),160); setTimeout(()=>beep(150,0.4),320); }
+};
+
+// ============ GRID HELPERS ============
+const key = (x, y) => x + ',' + y;
+const inBounds = (x, y) => x >= 0 && x < W && y >= 0 && y < H;
+const isIsland = (x, y) => islandSet.has(key(x, y));
+function shipAt(x, y) {
+  return playerShips.concat(enemyShips).find(s => s.alive && s.x === x && s.y === y) || null;
+}
+const alive = arr => arr.filter(s => s.alive);
+const cheb = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+
+// ============ ISLANDS ============
+function generateIslands() {
+  islands = []; islandSet = new Set();
+  const target = 7 + Math.floor(Math.random() * 3);
+  let guard = 0;
+  while (islands.length < target && guard++ < 400) {
+    const bx = 4 + Math.floor(Math.random() * (W - 8)); // keep middle-ish
+    const by = 1 + Math.floor(Math.random() * (H - 2));
+    const size = 1 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < size; i++) {
+      const x = bx + Math.floor(Math.random() * 2);
+      const y = by + Math.floor(Math.random() * 2);
+      if (!inBounds(x, y)) continue;
+      if (x < DEPLOY_MAX_X + 2 || x > W - 3) continue; // keep lanes open
+      if (islandSet.has(key(x, y))) continue;
+      islandSet.add(key(x, y));
+      islands.push({ x, y });
+      if (islands.length >= target) break;
+    }
+  }
+}
+
+// ============ FLEETS ============
+function makeShip(type, owner) {
+  const t = SHIP_TYPES[type];
+  return { type, owner, name: t.name, x: -1, y: -1,
+           hp: t.hp, maxHp: t.hp, move: t.move, range: t.range, dmg: t.dmg,
+           alive: true, hasMoved: false, hasFired: false, placed: false };
+}
+
+function setupDeployment() {
+  playerShips = FLEET_COMP.map(k => makeShip(k, 'player'));
+  enemyShips  = FLEET_COMP.map(k => makeShip(k, 'enemy'));
+  rosterKeys = FLEET_COMP.slice();
+  activeKey = rosterKeys[0] || null;
+  selected = null; moveTiles = [];
+  phase = 'deploy'; turn = 'player'; busy = false;
+  particles = []; floats = [];
+  bannerEl.textContent = 'DEPLOYMENT';
+  deployHint.textContent = 'Select a hull, then click a western tile to place it.';
+  buildRoster();
+  updateRoster();
+  startOverlay.classList.remove('hidden');
+  endOverlay.classList.add('hidden');
+  updateHUD();
+}
+
+function buildRoster() {
+  rosterEl.innerHTML = '';
+  FLEET_COMP.forEach(k => {
+    const t = SHIP_TYPES[k];
+    const b = document.createElement('button');
+    b.className = 'slot';
+    b.dataset.key = k;
+    b.innerHTML = '<b>' + t.name + '</b><small>' + t.tip + '</small>';
+    b.addEventListener('click', () => { if (phase === 'deploy') { activeKey = k; updateRoster(); beep(330,0.05,'triangle',0.04); } });
+    rosterEl.appendChild(b);
+  });
+}
+function updateRoster() {
+  [...rosterEl.children].forEach(b => {
+    const placed = !rosterKeys.includes(b.dataset.key);
+    b.classList.toggle('placed', placed);
+    b.classList.toggle('active', b.dataset.key === activeKey && !placed);
+  });
+  const placedCount = FLEET_COMP.length - rosterKeys.length;
+  battleBtn.disabled = placedCount < FLEET_COMP.length;
+  if (placedCount >= FLEET_COMP.length) deployHint.textContent = 'All hulls ready — begin the battle!';
+}
+function placePlayerShip(x, y) {
+  if (x >= DEPLOY_MAX_X || !inBounds(x, y) || isIsland(x, y) || shipAt(x, y)) return false;
+  if (!activeKey || !rosterKeys.includes(activeKey)) return false;
+  const ship = playerShips.find(s => s.type === activeKey && !s.placed);
+  if (!ship) return false;
+  ship.x = x; ship.y = y; ship.placed = true;
+  rosterKeys = rosterKeys.filter(k => k !== activeKey);
+  activeKey = rosterKeys[0] || null;
+  SND.place(); spawnPuff(x, y, '#e7c86b');
+  updateRoster(); updateHUD();
+  return true;
+}
+
+function placeEnemyFleet() {
+  const cols = [W - 1, W - 2, W - 3];
+  enemyShips.forEach((s, i) => {
+    let cx = cols[i % cols.length];
+    let cy = Math.floor(H / 2) + (i - 1) * 2;
+    let guard = 0;
+    while ((!inBounds(cx, cy) || isIsland(cx, cy) || shipAt(cx, cy)) && guard++ < 60) {
+      cx = W - 1 - Math.floor(Math.random() * 3);
+      cy = Math.floor(Math.random() * H);
+    }
+    s.x = cx; s.y = cy; s.placed = true;
+  });
+}
+
+// ============ MOVEMENT ============
+function reachableTiles(ship) {
+  const dist = new Map();
+  dist.set(key(ship.x, ship.y), 0);
+  const q = [{ x: ship.x, y: ship.y }];
+  const out = [];
+  let head = 0;
+  while (head < q.length) {
+    const cur = q[head++];
+    const d = dist.get(key(cur.x, cur.y));
+    if (d > 0) out.push(cur);
+    if (d >= ship.move) continue;
+    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+    for (const [dx, dy] of dirs) {
+      const nx = cur.x + dx, ny = cur.y + dy;
+      if (!inBounds(nx, ny)) continue;
+      if (isIsland(nx, ny)) continue;
+      if (shipAt(nx, ny)) continue;
+      const k = key(nx, ny);
+      if (dist.has(k)) continue;
+      dist.set(k, d + 1);
+      q.push({ x: nx, y: ny });
+    }
+  }
+  return out;
+}
+
+// Bresenham line-of-fire: islands block the shot
+function lineClear(x0, y0, x1, y1) {
+  let dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
+  let sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let err = dx - dy, x = x0, y = y0;
+  while (true) {
+    const isEnd = (x === x1 && y === y1);
+    const isStart = (x === x0 && y === y0);
+    if (!isStart && !isEnd && isIsland(x, y)) return false;
+    if (isEnd) break;
+    const e2 = 2 * err;
+    if (e2 > -dy) { err -= dy; x += sx; }
+    if (e2 < dx) { err += dx; y += sy; }
+  }
+  return true;
+}
+function canFire(ship, target) {
+  if (!ship.alive || !target || !target.alive) return false;
+  if (ship.hasFired) return false;
+  if (cheb(ship, target) > ship.range) return false;
+  return lineClear(ship.x, ship.y, target.x, target.y);
+}
+
+// ============ FIRING ============
+function fire(shooter, target) {
+  shooter.hasFired = true;
+  SND.fire();
+  const dmg = shooter.dmg;
+  target.hp -= dmg;
+  spawnBurst(target.x, target.y, shooter.owner === 'player' ? '#ffcf6b' : '#9fd0ff');
+  addFloat(target.x, target.y, '-' + dmg, '#ffd48a');
+  beep(120, 0.14, 'square', 0.06);
+  if (target.hp <= 0) {
+    target.hp = 0; target.alive = false;
+    SND.sink();
+    spawnBurst(target.x, target.y, '#ffffff', 20);
+    addFloat(target.x, target.y, 'SUNK', '#ff6b6b');
+  }
+  updateHUD();
+  checkWin();
+}
+
+// ============ PARTICLES & FLOATERS ============
+function spawnBurst(gx, gy, color, n) {
+  n = n || 12;
+  const cx = gx * TS + TS / 2, cy = gy * TS + TS / 2;
+  for (let i = 0; i < n; i++) {
+    particles.push({
+      x: cx, y: cy,
+      vx: (Math.random() - 0.5) * 7,
+      vy: (Math.random() - 0.5) * 7,
+      life: 1, size: 1.5 + Math.random() * 3, color
+    });
+  }
+}
+function spawnPuff(gx, gy, color) { spawnBurst(gx, gy, color, 6); }
+function addFloat(gx, gy, text, color) {
+  floats.push({ x: gx * TS + TS / 2, y: gy * TS + TS / 2, text, color, life: 1 });
+}
+function updateFX(dt) {
+  particles = particles.filter(p => {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.16; p.life -= dt * 0.0018;
+    return p.life > 0;
+  });
+  floats = floats.filter(f => { f.y -= dt * 0.03; f.life -= dt * 0.0011; return f.life > 0; });
+}
+
+// ============ HUD ============
+function buildFleetRows(container, ships, owner) {
+  // clear existing rows
+  [...container.querySelectorAll('.shiprow')].forEach(r => r.remove());
+  ships.forEach(s => {
+    const row = document.createElement('div');
+    row.className = 'shiprow' + (!s.alive ? ' dead' : (s.hasFired ? ' done' : ''));
+    const pct = Math.max(0, (s.hp / s.maxHp) * 100);
+    row.innerHTML = '<span class="shipname">' + s.name + '</span>' +
+      '<span class="bar"><i style="width:' + pct + '%"></i></span>' +
+      '<span class="hp">' + s.hp + '/' + s.maxHp + '</span>';
+    container.appendChild(row);
+  });
+}
+function updateHUD() {
+  buildFleetRows(fleetEnemyEl, enemyShips, 'enemy');
+  buildFleetRows(fleetPlayerEl, playerShips, 'player');
+  recW.textContent = wins; recL.textContent = losses;
+}
+
+// ============ RENDER ============
+function draw(time) {
+  // --- sea background ---
+  const g = ctx.createLinearGradient(0, 0, 0, CV.height);
+  g.addColorStop(0, '#12384f');
+  g.addColorStop(1, '#0a1e2c');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, CV.width, CV.height);
+
+  // wave shimmer
+  ctx.save();
+  ctx.globalAlpha = 0.06;
+  ctx.strokeStyle = '#bfe3ff';
+  ctx.lineWidth = 1;
+  for (let y = 0; y < H; y++) {
+    ctx.beginPath();
+    for (let x = 0; x <= W; x++) {
+      const px = x * TS;
+      const py = y * TS + TS * 0.5 + Math.sin((x * 0.9) + time * 0.0012 + y) * 2.4;
+      x === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // --- grid ---
+  ctx.strokeStyle = 'rgba(150,200,235,0.10)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x <= W; x++) { ctx.beginPath(); ctx.moveTo(x*TS,0); ctx.lineTo(x*TS,CV.height); ctx.stroke(); }
+  for (let y = 0; y <= H; y++) { ctx.beginPath(); ctx.moveTo(0,y*TS); ctx.lineTo(CV.width,y*TS); ctx.stroke(); }
+
+  // --- deployment zone tint ---
+  if (phase === 'deploy') {
+    ctx.fillStyle = 'rgba(200,60,60,0.10)';
+    ctx.fillRect(0, 0, DEPLOY_MAX_X * TS, CV.height);
+    ctx.setLineDash([8, 6]);
+    ctx.strokeStyle = 'rgba(224,138,127,0.5)';
+    ctx.beginPath(); ctx.moveTo(DEPLOY_MAX_X*TS, 0); ctx.lineTo(DEPLOY_MAX_X*TS, CV.height); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // --- islands ---
+  islands.forEach(o => drawIsland(o.x, o.y));
+
+  // --- move highlights ---
+  if (phase === 'battle' && turn === 'player' && selected && selected.alive && !selected.hasMoved && !selected.hasFired) {
+    ctx.fillStyle = 'rgba(120,220,170,0.22)';
+    moveTiles.forEach(t => ctx.fillRect(t.x*TS+3, t.y*TS+3, TS-6, TS-6));
+  }
+
+  // --- fire range ring + target highlights ---
+  if (phase === 'battle' && turn === 'player' && selected && selected.alive) {
+    const cx = selected.x*TS+TS/2, cy = selected.y*TS+TS/2;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(231,200,107,0.28)';
+    ctx.setLineDash([6, 6]);
+    ctx.beginPath();
+    ctx.arc(cx, cy, selected.range*TS, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+    if (!selected.hasFired) {
+      enemyShips.filter(s => s.alive && canFire(selected, s)).forEach(s => {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(231,200,107,0.95)';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([5,4]);
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(s.x*TS+TS/2, s.y*TS+TS/2); ctx.stroke();
+        ctx.restore();
+        ctx.fillStyle = 'rgba(231,200,107,0.22)';
+        ctx.fillRect(s.x*TS, s.y*TS, TS, TS);
+      });
+    }
+  }
+
+  // --- ships ---
+  playerShips.forEach(s => { if (s.alive) drawShip(s, '#c0392b', '#e7c86b', 1); });
+  enemyShips.forEach(s => { if (s.alive) drawShip(s, '#2c3e50', '#9fd0ff', -1); });
+
+  // --- selection ring ---
+  if (selected && selected.alive) {
+    ctx.save();
+    ctx.strokeStyle = '#e7c86b';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(selected.x*TS+2, selected.y*TS+2, TS-4, TS-4);
+    ctx.restore();
+  }
+
+  // --- particles ---
+  particles.forEach(p => {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+
+  // --- floating text ---
+  ctx.textAlign = 'center';
+  ctx.font = 'bold ' + Math.round(TS*0.5) + 'px Georgia';
+  floats.forEach(f => {
+    ctx.globalAlpha = Math.max(0, f.life);
+    ctx.fillStyle = f.color;
+    ctx.fillText(f.text, f.x, f.y);
+  });
+  ctx.globalAlpha = 1;
+}
+
+function drawIsland(gx, gy) {
+  const x = gx*TS, y = gy*TS;
+  ctx.fillStyle = '#4a6b3a';
+  ctx.fillRect(x, y, TS, TS);
+  ctx.fillStyle = '#8a6a3e';
+  ctx.beginPath();
+  ctx.ellipse(x+TS/2, y+TS/2+2, TS*0.44, TS*0.34, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = '#6b8f4d';
+  ctx.beginPath();
+  ctx.ellipse(x+TS/2-3, y+TS/2-3, TS*0.26, TS*0.2, 0, 0, Math.PI*2);
+  ctx.fill();
+  // palm
+  ctx.strokeStyle = '#3a2a18';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x+TS*0.5, y+TS*0.55); ctx.lineTo(x+TS*0.5, y+TS*0.3); ctx.stroke();
+}
+
+function drawShip(s, hull, trim, dir) {
+  const cx = s.x*TS + TS/2, cy = s.y*TS + TS/2;
+  const r = TS*0.36;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(dir, 1);
+  // wake
+  ctx.globalAlpha = 0.35;
+  ctx.fillStyle = '#cfe8ff';
+  ctx.beginPath();
+  ctx.moveTo(-r*2.0, 0); ctx.lineTo(-r*0.6, -r*0.7); ctx.lineTo(-r*0.6, r*0.7);
+  ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 1;
+  // hull
+  ctx.fillStyle = hull;
+  ctx.beginPath();
+  ctx.moveTo(r*1.25, 0);
+  ctx.lineTo(r*0.4, -r*0.85);
+  ctx.lineTo(-r*1.1, -r*0.72);
+  ctx.lineTo(-r*1.1, r*0.72);
+  ctx.lineTo(r*0.4, r*0.85);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = trim; ctx.lineWidth = 2; ctx.stroke();
+  // mast + sails
+  ctx.strokeStyle = '#3a2a18'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, -r*0.9); ctx.lineTo(0, r*0.9); ctx.stroke();
+  ctx.fillStyle = '#f3ead2';
+  ctx.beginPath();
+  ctx.moveTo(2, -r*0.85); ctx.lineTo(r*0.95, 0); ctx.lineTo(2, r*0.1);
+  ctx.closePath(); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-2, -r*0.6); ctx.lineTo(-r*0.85, 0); ctx.lineTo(-2, r*0.1);
+  ctx.closePath(); ctx.fill();
+  // hp pip
+  ctx.restore();
+  ctx.fillStyle = trim;
+  ctx.fillRect(cx - TS*0.32, cy + r*1.05, TS*0.64 * (s.hp/s.maxHp), 3);
+}
+
+// ============ INPUT (mouse + touch) ============
+function canvasTileFromEvent(e) {
+  const rect = CV.getBoundingClientRect();
+  const pt = e.touches ? e.touches[0] : e;
+  const px = (pt.clientX - rect.left) * (CV.width / rect.width);
+  const py = (pt.clientY - rect.top) * (CV.height / rect.height);
+  return { x: Math.floor(px / TS), y: Math.floor(py / TS) };
+}
+function onCanvasTap(e) {
+  if (e.touches) e.preventDefault();
+  if (busy) return;
+  const { x, y } = canvasTileFromEvent(e);
+  if (!inBounds(x, y)) return;
+
+  if (phase === 'deploy') {
+    placePlayerShip(x, y);
+    return;
+  }
+  if (phase !== 'battle' || turn !== 'player') return;
+
+  const clickedShip = shipAt(x, y);
+  // select own ship
+  if (clickedShip && clickedShip.owner === 'player') {
+    selected = clickedShip;
+    moveTiles = (!selected.hasMoved && !selected.hasFired) ? reachableTiles(selected) : [];
+    statusHint.textContent = describeShip(selected);
+    beep(440, 0.05, 'triangle', 0.04);
+    return;
+  }
+  if (!selected || !selected.alive) return;
+
+  // fire at enemy ship
+  if (clickedShip && clickedShip.owner === 'enemy') {
+    if (canFire(selected, clickedShip)) {
+      fire(selected, clickedShip);
+      statusHint.textContent = describeShip(selected);
+      moveTiles = [];
+      if (phase !== 'over') maybeAutoEndTurn();
+    } else {
+      addFloat(x, y, 'NO SHOT', '#ff8f8f'); beep(140, 0.08, 'square', 0.04);
+    }
+    return;
+  }
+  // move to empty tile
+  if (!selected.hasMoved && !selected.hasFired) {
+    const can = moveTiles.some(t => t.x === x && t.y === y);
+    if (can) {
+      selected.x = x; selected.y = y;
+      selected.hasMoved = true;
+      SND.move(); spawnPuff(x, y, '#a9d8ff');
+      moveTiles = reachableTiles(selected);
+      statusHint.textContent = describeShip(selected);
+    }
+  }
+}
+CV.addEventListener('click', onCanvasTap);
+CV.addEventListener('touchstart', onCanvasTap, { passive: false });
+
+function describeShip(s) {
+  const parts = [s.name];
+  parts.push(s.hasMoved ? 'moved' : 'can move ' + s.move);
+  parts.push(s.hasFired ? 'fired' : 'can fire r' + s.range);
+  return parts.join(' · ');
+}
+
+// ============ TURN LOGIC ============
+function maybeAutoEndTurn() {
+  const anyLeft = playerShips.some(s => s.alive && (!s.hasMoved || !s.hasFired));
+  if (!anyLeft) endPlayerTurn();
+}
+function endPlayerTurn() {
+  if (phase !== 'battle' || turn !== 'player' || busy) return;
+  selected = null; moveTiles = [];
+  turn = 'enemy'; busy = true;
+  bannerEl.textContent = 'ADMIRAL’S TURN';
+  statusHint.textContent = 'The Azure Fleet manoeuvres…';
+  beep(300, 0.12, 'sine', 0.04);
+  setTimeout(runAITurn, 420);
+}
+
+// ============ AI ADMIRAL ============
+function runAITurn() {
+  const queue = enemyShips.filter(s => s.alive && (!s.hasFired || !s.hasMoved));
+  let i = 0;
+  const step = () => {
+    if (phase === 'over') return;
+    if (i >= queue.length) { finishAITurn(); return; }
+    const ship = queue[i++];
+    if (!ship.alive) { step(); return; }
+    aiAct(ship);
+    updateHUD();
+    setTimeout(step, 480);
+  };
+  setTimeout(step, 260);
+}
+
+function aiAct(ship) {
+  if (phase === 'over') return;
+  // try to fire first
+  let targets = alive(playerShips).filter(t => canFire(ship, t));
+  if (targets.length) {
+    targets.sort((a, b) => a.hp - b.hp);
+    fire(ship, targets[0]);
+    return;
+  }
+  // otherwise reposition toward nearest player hull
+  if (!ship.hasMoved) {
+    const foes = alive(playerShips);
+    if (!foes.length) return;
+    const reach = reachableTiles(ship);
+    let best = null, bestScore = Infinity;
+    reach.forEach(tile => {
+      const minD = Math.min.apply(null, foes.map(f => Math.max(Math.abs(f.x - tile.x), Math.abs(f.y - tile.y))));
+      const score = minD - Math.random() * 0.6;
+      if (score < bestScore) { bestScore = score; best = tile; }
+    });
+    if (best) {
+      ship.x = best.x; ship.y = best.y; ship.hasMoved = true;
+      SND.move();
+    }
+  }
+  // fire after moving if possible
+  targets = alive(playerShips).filter(t => canFire(ship, t));
+  if (targets.length) {
+    targets.sort((a, b) => a.hp - b.hp);
+    fire(ship, targets[0]);
+  } else {
+    ship.hasFired = true; // spent its action
+  }
+}
+
+function finishAITurn() {
+  if (phase === 'over') return;
+  enemyShips.forEach(s => { s.hasMoved = false; s.hasFired = false; });
+  playerShips.forEach(s => { s.hasMoved = false; s.hasFired = false; });
+  turn = 'player'; busy = false;
+  bannerEl.textContent = 'YOUR TURN';
+  statusHint.textContent = 'Select a ship to move & fire.';
+  beep(440, 0.10, 'triangle', 0.04);
+  updateHUD();
+}
+
+// ============ WIN / LOSE ============
+function checkWin() {
+  const pc = alive(playerShips).length;
+  const ec = alive(enemyShips).length;
+  if (ec === 0) return endGame(true);
+  if (pc === 0) return endGame(false);
+}
+function endGame(victory) {
+  if (phase === 'over') return;
+  phase = 'over'; busy = true;
+  if (victory) { wins++; localStorage.setItem('empireNavalWins', wins); SND.win(); }
+  else { losses++; localStorage.setItem('empireNavalLosses', losses); SND.lose(); }
+  recW.textContent = wins; recL.textContent = losses;
+  bannerEl.textContent = victory ? 'VICTORY' : 'DEFEAT';
+  endTitle.textContent = victory ? 'VICTORY AT SEA' : 'FLEET LOST';
+  endText.textContent = victory
+    ? 'The Azure Fleet has been sent to the deep. Your line holds the field. Record updated.'
+    : 'Your squadron has been sunk. The enemy admiral claims these waters. Record updated.';
+  updateHUD();
+  setTimeout(() => endOverlay.classList.remove('hidden'), 500);
+}
+
+// ============ BUTTONS ============
+battleBtn.addEventListener('click', () => {
+  if (rosterKeys.length) return;
+  placeEnemyFleet();
+  startOverlay.classList.add('hidden');
+  phase = 'battle'; turn = 'player'; busy = false;
+  bannerEl.textContent = 'YOUR TURN';
+  statusHint.textContent = 'Select a ship to move & fire.';
+  updateHUD();
+  beep(520, 0.14, 'triangle', 0.05);
+});
+endTurnBtn.addEventListener('click', endPlayerTurn);
+restartBtn.addEventListener('click', () => {
+  startOverlay.classList.remove('hidden');
+  endOverlay.classList.add('hidden');
+  startNewGame();
+});
+document.getElementById('againBtn').addEventListener('click', () => {
+  endOverlay.classList.add('hidden');
+  startOverlay.classList.remove('hidden');
+  startNewGame();
+});
+// keyboard: space = end turn
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); endPlayerTurn(); }
+});
+
+// ============ GAME BOOT ============
+function startNewGame() {
+  generateIslands();
+  setupDeployment();
+  busy = false;
+}
+function loop(now) {
+  const dt = now - t0; t0 = now;
+  updateFX(dt);
+  if (phase === 'battle' || phase === 'deploy') draw(now);
+  else draw(now);
+  requestAnimationFrame(loop);
+}
+
+startNewGame();
+draw(performance.now());
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Physics Toys</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg1: #0a0f1c;
+    --panel: rgba(18, 27, 46, 0.92);
+    --panel-edge: rgba(80, 220, 200, 0.18);
+    --accent: #35e0c0;
+    --accent2: #ffb454;
+    --ink: #cfe3f5;
+    --dim: #7d90ab;
+  }
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(1200px 700px at 50% -10%, #16233f 0%, var(--bg1) 60%);
+    color: var(--ink);
+    font-family: "Segoe UI", Roboto, system-ui, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 14px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #app { display: flex; flex-direction: column; gap: 10px; width: min(97vw, 1080px); }
+
+  /* ============ HEADER ============ */
+  header { text-align: center; line-height: 1.2; }
+  h1 {
+    font-family: "Courier New", monospace;
+    font-size: clamp(1.3rem, 3.6vw, 2rem);
+    letter-spacing: 3px;
+    color: #eaf6ff;
+    text-shadow: 0 0 18px rgba(53, 224, 192, 0.45);
+  }
+  h1 span { color: var(--accent); }
+  header p {
+    font-family: "Courier New", monospace;
+    font-size: clamp(0.62rem, 1.7vw, 0.78rem);
+    color: var(--dim);
+    letter-spacing: 1px;
+    margin-top: 4px;
+  }
+
+  /* ============ STAGE / CANVAS ============ */
+  #stage {
+    position: relative;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--panel-edge);
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55), inset 0 0 60px rgba(0, 0, 0, 0.4);
+    background: #070b16;
+  }
+  canvas { display: block; width: 100%; height: auto; touch-action: none; cursor: crosshair; }
+  #hud {
+    position: absolute; top: 8px; left: 10px;
+    font-family: "Courier New", monospace; font-size: 11px; color: var(--accent);
+    letter-spacing: 1px; text-shadow: 0 1px 3px #000; pointer-events: none; opacity: 0.85;
+  }
+  #tip {
+    position: absolute; bottom: 8px; right: 10px;
+    font-family: "Courier New", monospace; font-size: 11px; color: var(--dim);
+    letter-spacing: 1px; pointer-events: none;
+  }
+
+  /* ============ CONTROL DECK ============ */
+  #deck {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    background: var(--panel); border: 1px solid var(--panel-edge);
+    border-radius: 14px; padding: 10px 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  }
+  .group {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+    padding: 4px 8px; border-radius: 10px; background: rgba(0, 0, 0, 0.22);
+  }
+  .group > .cap {
+    font-family: "Courier New", monospace; font-size: 10px; letter-spacing: 2px;
+    color: var(--dim); text-transform: uppercase; margin-right: 2px;
+  }
+  button {
+    font-family: "Courier New", monospace; font-size: 12px; letter-spacing: 0.5px;
+    color: var(--ink); background: #1b2740; border: 1px solid #2c3d5e;
+    border-radius: 8px; padding: 7px 11px; cursor: pointer; user-select: none;
+    transition: transform .05s ease, background .15s ease, border-color .15s ease;
+  }
+  button:hover { background: #24334f; border-color: #3d5580; }
+  button:active { transform: translateY(1px); }
+  button.tool.active {
+    background: linear-gradient(180deg, #2ff0cb, #14b79a); color: #04211c;
+    border-color: var(--accent); font-weight: bold;
+    box-shadow: 0 0 14px rgba(53, 224, 192, 0.45);
+  }
+  button.toy { background: #2a2340; border-color: #463a68; }
+  button.toy:hover { background: #362d54; }
+  button.warn { background: #40202a; border-color: #6e3546; }
+  button.warn:hover { background: #522735; }
+
+  .slider { display: flex; flex-direction: column; gap: 2px; min-width: 108px; }
+  .slider label {
+    font-family: "Courier New", monospace; font-size: 10px; letter-spacing: 1px;
+    color: var(--dim); display: flex; justify-content: space-between;
+  }
+  .slider label b { color: var(--accent2); font-weight: normal; }
+  input[type="range"] { -webkit-appearance: none; appearance: none; height: 5px; border-radius: 4px; background: #26324c; outline: none; }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 15px; height: 15px; border-radius: 50%;
+    background: var(--accent); border: 2px solid #04211c; cursor: pointer;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 15px; height: 15px; border: 2px solid #04211c; border-radius: 50%; background: var(--accent); cursor: pointer;
+  }
+
+  @media (max-width: 620px) {
+    #deck { padding: 8px; gap: 8px; }
+    .group { padding: 3px 6px; }
+    button { font-size: 11px; padding: 6px 9px; }
+    #tip { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>PHYSICS <span>TOYS</span></h1>
+    <p>SPAWN &bull; DRAG &bull; TUNE GRAVITY &bull; PLAY</p>
+  </header>
+
+  <div id="stage">
+    <canvas id="c" width="1000" height="600"></canvas>
+    <div id="hud">--</div>
+    <div id="tip">SPACE pause &nbsp;|&nbsp; R restart &nbsp;|&nbsp; C clear &nbsp;|&nbsp; 1-0 tools</div>
+  </div>
+
+  <div id="deck">
+    <!-- ============ TOOL PALETTE ============ -->
+    <div class="group">
+      <span class="cap">Tools</span>
+      <button class="tool active" data-tool="hand">&#9995; Drag</button>
+      <button class="tool" data-tool="ball">&#9679; Ball</button>
+      <button class="tool" data-tool="box">&#9632; Box</button>
+      <button class="tool" data-tool="plank">&#9644; Plank</button>
+      <button class="tool" data-tool="domino">&#9642; Domino</button>
+      <button class="tool" data-tool="ramp">&#9700; Ramp</button>
+      <button class="tool" data-tool="rope">&#9737; Rope</button>
+      <button class="tool" data-tool="spring">&#10057; Spring</button>
+      <button class="tool" data-tool="water">&#128167; Water</button>
+      <button class="tool" data-tool="erase">&#10006; Erase</button>
+    </div>
+
+    <!-- ============ READY-MADE TOYS ============ -->
+    <div class="group">
+      <span class="cap">Toys</span>
+      <button class="toy" data-toy="domino">Domino Run</button>
+      <button class="toy" data-toy="pendulum">Pendulum</button>
+      <button class="toy" data-toy="seesaw">Seesaw</button>
+      <button class="toy" data-toy="ramp">Ramp &amp; Balls</button>
+      <button class="toy" data-toy="waterfall">Waterfall</button>
+    </div>
+
+    <!-- ============ ACTIONS ============ -->
+    <div class="group">
+      <span class="cap">Actions</span>
+      <button id="btn-pause">Pause</button>
+      <button id="btn-restart">Restart</button>
+      <button id="btn-clear" class="warn">Clear</button>
+      <button id="btn-sound">Sound: On</button>
+    </div>
+
+    <!-- ============ LIVE PHYSICS SLIDERS ============ -->
+    <div class="group">
+      <span class="cap">Physics</span>
+      <div class="slider">
+        <label>GRAVITY <b id="v-grav">1.00</b></label>
+        <input id="s-grav" type="range" min="0" max="220" value="100">
+      </div>
+      <div class="slider">
+        <label>BOUNCE <b id="v-bounce">0.30</b></label>
+        <input id="s-bounce" type="range" min="0" max="95" value="30">
+      </div>
+      <div class="slider">
+        <label>FRICTION <b id="v-fric">0.45</b></label>
+        <input id="s-fric" type="range" min="0" max="100" value="45">
+      </div>
+      <div class="slider">
+        <label>FLOW <b id="v-flow">1.00</b></label>
+        <input id="s-flow" type="range" min="0" max="200" value="100">
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // =====================================================================
+  // ============ SECTION: MATH HELPERS ==================================
+  // =====================================================================
+  function v(x, y) { return { x: x, y: y }; }
+  function add(a, b) { return { x: a.x + b.x, y: a.y + b.y }; }
+  function sub(a, b) { return { x: a.x - b.x, y: a.y - b.y }; }
+  function mul(a, s) { return { x: a.x * s, y: a.y * s }; }
+  function dot(a, b) { return a.x * b.x + a.y * b.y; }
+  function cross(a, b) { return a.x * b.y - a.y * b.x; }
+  function len(a) { return Math.sqrt(a.x * a.x + a.y * a.y); }
+  function norm(a) { var l = len(a); return l > 1e-9 ? { x: a.x / l, y: a.y / l } : { x: 0, y: 0 }; }
+  function rot(p, a) { var c = Math.cos(a), s = Math.sin(a); return { x: p.x * c - p.y * s, y: p.x * s + p.y * c }; }
+  function crossWr(w, r) { return { x: -w * r.y, y: w * r.x }; }
+  function clamp(x, lo, hi) { return x < lo ? lo : (x > hi ? hi : x); }
+  function rand(a, b) { return a + Math.random() * (b - a); }
+
+  // =====================================================================
+  // ============ SECTION: AUDIO (WebAudio beep, no assets) ==============
+  // =====================================================================
+  var actx = null, soundOn = true;
+  function beep(freq, dur, type, vol) {
+    if (!soundOn) return;
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+      var o = actx.createOscillator(), g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      var peak = vol == null ? 0.05 : vol;
+      g.gain.setValueAtTime(peak, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+
+  // =====================================================================
+  // ============ SECTION: CANVAS, WORLD STATE ===========================
+  // =====================================================================
+  var canvas = document.getElementById("c");
+  var ctx = canvas.getContext("2d");
+  var W = canvas.width, H = canvas.height;
+  var GROUND_Y = H - 58;
+  var DENSITY = 0.0019;
+  var FIXED_DT = 1 / 120;
+  var VEL_ITER = 10;
+  var POS_ITER = 3;
+
+  var state = {
+    gravity: 1000,
+    gravityScale: 1,
+    bounce: 0.30,
+    friction: 0.45,
+    flow: 1.0,
+    paused: false,
+    tool: "hand",
+    frames: 0
+  };
+
+  var bodies = [];
+  var joints = [];
+  var emitters = [];
+  var particles = [];
+  var mouse = { x: 0, y: 0, active: false, down: false };
+  var grab = null;
+  var painting = false;
+  var erasing = false;
+  var lastSpawn = { x: 0, y: 0, ok: false };
+  var world = { impact: 0, lastSound: 0 };
+  var MAX_PARTICLES = 260;
+  var PART_R = 6;
+  var staticGrad = null;
+
+  // =====================================================================
+  // ============ SECTION: BODY FACTORY ==================================
+  // =====================================================================
+  function finishPoly(lv) {
+    var ln = [], n = lv.length;
+    for (var i = 0; i < n; i++) {
+      var a = lv[i], b = lv[(i + 1) % n];
+      var nn = norm({ x: b.y - a.y, y: -(b.x - a.x) });
+      var mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      if (dot(nn, mid) < 0) nn = { x: -nn.x, y: -nn.y };
+      ln.push(nn);
+    }
+    return { type: "poly", verts: lv, normals: ln };
+  }
+  function makeBox(hw, hh) { return finishPoly([v(-hw, -hh), v(hw, -hh), v(hw, hh), v(-hw, hh)]); }
+
+  function computeMass(b) {
+    if (b.static) { b.mass = 0; b.invMass = 0; b.inertia = 0; b.invInertia = 0; return; }
+    var m, I;
+    if (b.shape.type === "circle") {
+      var r = b.shape.r;
+      m = DENSITY * Math.PI * r * r;
+      I = 0.5 * m * r * r;
+    } else {
+      var lv = b.shape.verts, area = 0;
+      for (var i = 0; i < lv.length; i++) area += cross(lv[i], lv[(i + 1) % lv.length]);
+      area = Math.abs(area) / 2;
+      m = DENSITY * area;
+      var Isum = 0;
+      for (var k = 0; k < lv.length; k++) {
+        var a = lv[k], bb = lv[(k + 1) % lv.length];
+        Isum += Math.abs(cross(a, bb)) * (dot(a, a) + dot(a, bb) + dot(bb, bb));
+      }
+      I = Math.max((DENSITY * Isum) / 12, 0.05);
+    }
+    b.mass = m; b.invMass = 1 / m; b.inertia = I; b.invInertia = 1 / I;
+  }
+  function addBody(opts) {
+    var b = {
+      pos: v(opts.x, opts.y),
+      vel: v(opts.vx || 0, opts.vy || 0),
+      angle: opts.angle || 0,
+      angVel: opts.angVel || 0,
+      static: !!opts.static,
+      kind: opts.kind || "box",
+      color: opts.color || "#5aa9e6",
+      shape: opts.shape,
+      damping: opts.damping == null ? 0.999 : opts.damping
+    };
+    computeMass(b);
+    updateShape(b);
+    bodies.push(b);
+    return b;
+  }
+  function removeBody(b) {
+    var i = bodies.indexOf(b); if (i >= 0) bodies.splice(i, 1);
+    for (var j = joints.length - 1; j >= 0; j--) if (joints[j].a === b || joints[j].b === b) joints.splice(j, 1);
+    if (grab && grab.body === b) grab = null;
+  }
+  function updateShape(b) {
+    if (b.shape.type === "poly") {
+      var c = Math.cos(b.angle), s = Math.sin(b.angle), lv = b.shape.verts, ln = b.shape.normals;
+      b.wv = []; b.wn = [];
+      b.aabb = { minx: 1e9, miny: 1e9, maxx: -1e9, maxy: -1e9 };
+      for (var i = 0; i < lv.length; i++) {
+        var wx = b.pos.x + lv[i].x * c - lv[i].y * s;
+        var wy = b.pos.y + lv[i].x * s + lv[i].y * c;
+        b.wv.push({ x: wx, y: wy });
+        if (wx < b.aabb.minx) b.aabb.minx = wx;
+        if (wx > b.aabb.maxx) b.aabb.maxx = wx;
+        if (wy < b.aabb.miny) b.aabb.miny = wy;
+        if (wy > b.aabb.maxy) b.aabb.maxy = wy;
+      }
+      for (var k = 0; k < ln.length; k++) b.wn.push({ x: ln[k].x * c - ln[k].y * s, y: ln[k].x * s + ln[k].y * c });
+    } else {
+      var r = b.shape.r;
+      b.aabb = { minx: b.pos.x - r, miny: b.pos.y - r, maxx: b.pos.x + r, maxy: b.pos.y + r };
+    }
+  }
+  function pointInBody(b, px, py) {
+    if (b.shape.type === "circle") {
+      var dx = px - b.pos.x, dy = py - b.pos.y;
+      return dx * dx + dy * dy <= b.shape.r * b.shape.r;
+    }
+    var local = rot({ x: px - b.pos.x, y: py - b.pos.y }, -b.angle);
+    var lv = b.shape.verts, ln = b.shape.normals;
+    for (var i = 0; i < lv.length; i++) {
+      if ((local.x - lv[i].x) * ln[i].x + (local.y - lv[i].y) * ln[i].y > 0) return false;
+    }
+    return true;
+  }
+
+  // =====================================================================
+  // ============ SECTION: COLLISION DETECTION ===========================
+  // =====================================================================
+  function aabbOverlap(a, b) {
+    return !(a.aabb.maxx < b.aabb.minx || a.aabb.minx > b.aabb.maxx ||
+             a.aabb.maxy < b.aabb.miny || a.aabb.miny > b.aabb.maxy);
+  }
+  function findAxisLeastPenetration(A, B) {
+    var bestDist = -1e9, bestIdx = 0;
+    for (var i = 0; i < A.wn.length; i++) {
+      var n = A.wn[i], minDot = 1e9, sx = 0, sy = 0;
+      for (var j = 0; j < B.wv.length; j++) {
+        var d = B.wv[j].x * n.x + B.wv[j].y * n.y;
+        if (d < minDot) { minDot = d; sx = B.wv[j].x; sy = B.wv[j].y; }
+      }
+      var d2 = (sx - A.wv[i].x) * n.x + (sy - A.wv[i].y) * n.y;
+      if (d2 > bestDist) { bestDist = d2; bestIdx = i; }
+    }
+    return { distance: bestDist, index: bestIdx };
+  }
+  function clipSeg(nx, ny, c, face) {
+    var out = [];
+    var d0 = nx * face[0].x + ny * face[0].y - c;
+    var d1 = nx * face[1].x + ny * face[1].y - c;
+    if (d0 <= 0) out.push(face[0]);
+    if (d1 <= 0) out.push(face[1]);
+    if (d0 * d1 < 0) {
+      var al = d0 / (d0 - d1);
+      out.push({ x: face[0].x + al * (face[1].x - face[0].x), y: face[0].y + al * (face[1].y - face[0].y) });
+    }
+    return out;
+  }
+  function collidePolyPoly(a, b) {
+    var A = a, B = b;
+    var ea = findAxisLeastPenetration(A, B);
+    if (ea.distance > 0) return null;
+    var eb = findAxisLeastPenetration(B, A);
+    if (eb.distance > 0) return null;
+    var Ref, Inc, refIdx, flip = false;
+    if (eb.distance >= ea.distance * 0.95 + eb.distance * 0.01) { Ref = B; Inc = A; refIdx = eb.index; flip = true; }
+    else { Ref = A; Inc = B; refIdx = ea.index; }
+    var refN = Ref.wn[refIdx];
+    var v1 = Ref.wv[refIdx];
+    var v2 = Ref.wv[(refIdx + 1) % Ref.wv.length];
+    var sideN = norm({ x: v2.x - v1.x, y: v2.y - v1.y });
+    var minDot = 1e9, incIdx = 0;
+    for (var i = 0; i < Inc.wn.length; i++) {
+      var d = dot(refN, Inc.wn[i]);
+      if (d < minDot) { minDot = d; incIdx = i; }
+    }
+    var face = [Inc.wv[incIdx], Inc.wv[(incIdx + 1) % Inc.wv.length]];
+    face = clipSeg(-sideN.x, -sideN.y, -dot(sideN, v1), face);
+    if (face.length < 2) return null;
+    face = clipSeg(sideN.x, sideN.y, dot(sideN, v2), face);
+    if (face.length < 2) return null;
+    var refC = dot(refN, v1);
+    var normal = flip ? { x: -refN.x, y: -refN.y } : { x: refN.x, y: refN.y };
+    var contacts = [];
+    for (var c2 = 0; c2 < face.length; c2++) {
+      var sep = dot(refN, face[c2]) - refC;
+      if (sep <= 0) contacts.push({ p: face[c2], pen: -sep });
+    }
+    if (!contacts.length) return null;
+    return { a: a, b: b, normal: normal, contacts: contacts };
+  }
+  function collideCircleCircle(a, b) {
+    var d = sub(b.pos, a.pos), dist = len(d), r = a.shape.r + b.shape.r;
+    if (dist >= r) return null;
+    var n = dist > 1e-6 ? mul(d, 1 / dist) : v(0, -1);
+    return { a: a, b: b, normal: n, contacts: [{ p: add(a.pos, mul(n, a.shape.r - (r - dist) * 0.5)), pen: r - dist }] };
+  }
+  function collidePolyCircle(poly, circle) {
+    var r = circle.shape.r;
+    var local = rot(sub(circle.pos, poly.pos), -poly.angle);
+    var lv = poly.shape.verts, ln = poly.shape.normals;
+    var bestSep = -1e9, face = 0;
+    for (var i = 0; i < lv.length; i++) {
+      var s = (local.x - lv[i].x) * ln[i].x + (local.y - lv[i].y) * ln[i].y;
+      if (s > bestSep) { bestSep = s; face = i; }
+    }
+    if (bestSep > r) return null;
+    var nLocal, contactLocal;
+    if (bestSep < 1e-6) { nLocal = ln[face]; contactLocal = local; }
+    else {
+      var v1 = lv[face], v2 = lv[(face + 1) % lv.length];
+      var ex = v2.x - v1.x, ey = v2.y - v1.y;
+      var ee = ex * ex + ey * ey;
+      var t = ee > 1e-9 ? clamp(((local.x - v1.x) * ex + (local.y - v1.y) * ey) / ee, 0, 1) : 0;
+      var closest = { x: v1.x + ex * t, y: v1.y + ey * t };
+      var dd = { x: local.x - closest.x, y: local.y - closest.y };
+      var dist = len(dd);
+      if (dist > r) return null;
+      nLocal = dist > 1e-6 ? mul(dd, 1 / dist) : ln[face];
+      contactLocal = closest;
+    }
+    var nWorld = rot(nLocal, poly.angle);
+    var pWorld = add(poly.pos, rot(contactLocal, poly.angle));
+    var pen = r - ((local.x - contactLocal.x) * nLocal.x + (local.y - contactLocal.y) * nLocal.y);
+    return { a: poly, b: circle, normal: nWorld, contacts: [{ p: pWorld, pen: Math.max(pen, 0.01) }] };
+  }
+  function collide(a, b) {
+    var ca = a.shape.type === "circle", cb = b.shape.type === "circle";
+    if (ca && cb) return collideCircleCircle(a, b);
+    if (ca && !cb) {
+      var m = collidePolyCircle(b, a);
+      if (!m) return null;
+      m.a = a; m.b = b; m.normal = { x: -m.normal.x, y: -m.normal.y };
+      return m;
+    }
+    if (!ca && cb) return collidePolyCircle(a, b);
+    return collidePolyPoly(a, b);
+  }
+
+  // =====================================================================
+  // ============ SECTION: CONTACT SOLVER ================================
+  // =====================================================================
+  function solveContact(m) {
+    var a = m.a, b = m.b, n = m.normal, count = m.contacts.length, mu = state.friction;
+    for (var i = 0; i < count; i++) {
+      var c = m.contacts[i];
+      var ra = sub(c.p, a.pos), rb = sub(c.p, b.pos);
+      var vpA = add(a.vel, crossWr(a.angVel, ra));
+      var vpB = add(b.vel, crossWr(b.angVel, rb));
+      var rv = sub(vpB, vpA);
+      var vn = dot(rv, n);
+      if (vn > 0) continue;
+      if (vn < world.impact) world.impact = vn;
+      var e = state.bounce;
+      if (-vn < 45) e = 0;
+      var raCn = cross(ra, n), rbCn = cross(rb, n);
+      var k = a.invMass + b.invMass + raCn * raCn * a.invInertia + rbCn * rbCn * b.invInertia;
+      if (k < 1e-9) continue;
+      var j = -(1 + e) * vn / k / count;
+      var imp = mul(n, j);
+      a.vel = sub(a.vel, mul(imp, a.invMass)); a.angVel -= a.invInertia * cross(ra, imp);
+      b.vel = add(b.vel, mul(imp, b.invMass)); b.angVel += b.invInertia * cross(rb, imp);
+      // friction
+      vpA = add(a.vel, crossWr(a.angVel, ra));
+      vpB = add(b.vel, crossWr(b.angVel, rb));
+      rv = sub(vpB, vpA);
+      var t = sub(rv, mul(n, dot(rv, n)));
+      var tl = len(t);
+      if (tl > 1e-6) {
+        t = mul(t, 1 / tl);
+        var raCt = cross(ra, t), rbCt = cross(rb, t);
+        var kt = a.invMass + b.invMass + raCt * raCt * a.invInertia + rbCt * rbCt * b.invInertia;
+        var jt = clamp(-dot(rv, t) / kt / count, -Math.abs(j) * mu, Math.abs(j) * mu);
+        var impT = mul(t, jt);
+        a.vel = sub(a.vel, mul(impT, a.invMass)); a.angVel -= a.invInertia * cross(ra, impT);
+        b.vel = add(b.vel, mul(impT, b.invMass)); b.angVel += b.invInertia * cross(rb, impT);
+      }
+    }
+  }
+  function positionCorrect(m) {
+    var a = m.a, b = m.b, n = m.normal, slop = 0.4, percent = 0.35;
+    for (var i = 0; i < m.contacts.length; i++) {
+      var pen = m.contacts[i].pen - slop;
+      if (pen <= 0) continue;
+      var denom = a.invMass + b.invMass;
+      if (denom < 1e-9) continue;
+      var corr = mul(n, (pen * percent) / denom);
+      a.pos = sub(a.pos, mul(corr, a.invMass));
+      b.pos = add(b.pos, mul(corr, b.invMass));
+    }
+  }
+
+  // =====================================================================
+  // ============ SECTION: JOINTS (revolute / rod / rope / spring) =======
+  // =====================================================================
+  function solveRevolute(A, B, la, lb, beta, dt) {
+    var rA = rot(la, A.angle), rB = rot(lb, B.angle);
+    var pA = add(A.pos, rA), pB = add(B.pos, rB);
+    var vpA = add(A.vel, crossWr(A.angVel, rA));
+    var vpB = add(B.vel, crossWr(B.angVel, rB));
+    var Cdotx = vpB.x - vpA.x + (beta / dt) * (pB.x - pA.x);
+    var Cdotyp = vpB.y - vpA.y + (beta / dt) * (pB.y - pA.y);
+    var im = A.invMass + B.invMass;
+    var k11 = im + A.invInertia * rA.y * rA.y + B.invInertia * rB.y * rB.y;
+    var k12 = -A.invInertia * rA.x * rA.y - B.invInertia * rB.x * rB.y;
+    var k22 = im + A.invInertia * rA.x * rA.x + B.invInertia * rB.x * rB.x;
+    var det = k11 * k22 - k12 * k12;
+    if (Math.abs(det) < 1e-9) return;
+    var lx = -(k22 * Cdotx - k12 * Cdotyp) / det;
+    var ly = -(-k12 * Cdotx + k11 * Cdotyp) / det;
+    A.vel = sub(A.vel, mul(v(lx, ly), A.invMass)); A.angVel -= A.invInertia * (rA.x * ly - rA.y * lx);
+    B.vel = add(B.vel, mul(v(lx, ly), B.invMass)); B.angVel += B.invInertia * (rB.x * ly - rB.y * lx);
+  }
+  function solveDistance(j, dt, beta) {
+    var A = j.a, B = j.b;
+    var rA = rot(j.la, A.angle), rB = rot(j.lb, B.angle);
+    var pA = add(A.pos, rA), pB = add(B.pos, rB);
+    var d = sub(pB, pA), L = len(d);
+    if (L < 1e-6) return;
+    var n = mul(d, 1 / L);
+    var C = L - j.rest;
+    if (j.type === "rope" && C < 0) return;
+    var vpA = add(A.vel, crossWr(A.angVel, rA));
+    var vpB = add(B.vel, crossWr(B.angVel, rB));
+    var Cdot = dot(n, sub(vpB, vpA)) + (beta / dt) * C;
+    var raCn = cross(rA, n), rbCn = cross(rB, n);
+    var k = A.invMass + B.invMass + raCn * raCn * A.invInertia + rbCn * rbCn * B.invInertia;
+    if (k < 1e-9) return;
+    var imp = mul(n, -Cdot / k);
+    A.vel = sub(A.vel, mul(imp, A.invMass)); A.angVel -= A.invInertia * cross(rA, imp);
+    B.vel = add(B.vel, mul(imp, B.invMass)); B.angVel += B.invInertia * cross(rB, imp);
+  }
+  function applySpring(j, dt) {
+    var A = j.a, B = j.b;
+    var rA = rot(j.la, A.angle), rB = rot(j.lb, B.angle);
+    var pA = add(A.pos, rA), pB = add(B.pos, rB);
+    var d = sub(pB, pA), L = len(d);
+    if (L < 1e-6) return;
+    var n = mul(d, 1 / L);
+    var vpA = add(A.vel, crossWr(A.angVel, rA));
+    var vpB = add(B.vel, crossWr(B.angVel, rB));
+    var vrel = dot(n, sub(vpB, vpA));
+    var F = -j.k * (L - j.rest) - j.damp * vrel;
+    var imp = mul(n, F * dt);
+    A.vel = sub(A.vel, mul(imp, A.invMass)); A.angVel -= A.invInertia * cross(rA, imp);
+    B.vel = add(B.vel, mul(imp, B.invMass)); B.angVel += B.invInertia * cross(rB, imp);
+  }
+
+  // =====================================================================
+  // ============ SECTION: FLUID PARTICLES ===============================
+  // =====================================================================
+  var grid = {}, CELL = 13;
+  function rebuildGrid() {
+    grid = {};
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i], k = ((p.x / CELL) | 0) + "," + ((p.y / CELL) | 0);
+      (grid[k] || (grid[k] = [])).push(i);
+    }
+  }
+  function pointInPolySep(b, px, py) {
+    var bestSep = -1e9, nx = 0, ny = 0;
+    for (var i = 0; i < b.wn.length; i++) {
+      var s = (px - b.wv[i].x) * b.wn[i].x + (py - b.wv[i].y) * b.wn[i].y;
+      if (s > bestSep) { bestSep = s; nx = b.wn[i].x; ny = b.wn[i].y; }
+    }
+    return { sep: bestSep, nx: nx, ny: ny };
+  }
+  function particleBodyCollide(p) {
+    for (var i = 0; i < bodies.length; i++) {
+      var b = bodies[i];
+      if (b.kind === "emitter") continue;
+      if (p.x < b.aabb.minx - PART_R || p.x > b.aabb.maxx + PART_R ||
+          p.y < b.aabb.miny - PART_R || p.y > b.aabb.maxy + PART_R) continue;
+      var nx, ny, sep;
+      if (b.shape.type === "circle") {
+        var dx = p.x - b.pos.x, dy = p.y - b.pos.y, dl = Math.sqrt(dx * dx + dy * dy);
+        if (dl > b.shape.r + PART_R || dl < 1e-6) continue;
+        nx = dx / dl; ny = dy / dl; sep = dl - b.shape.r;
+      } else {
+        var r = pointInPolySep(b, p.x, p.y);
+        nx = r.nx; ny = r.ny; sep = r.sep;
+        if (sep > PART_R) continue;
+      }
+      var push = PART_R - sep;
+      if (push <= 0) continue;
+      p.x += nx * push; p.y += ny * push;
+      var vn = p.vx * nx + p.vy * ny;
+      if (vn < 0) { p.vx -= 1.15 * vn * nx; p.vy -= 1.15 * vn * ny; }
+      p.vx *= 0.82; p.vy *= 0.82;
+      if (!b.static && push > 0.4) {
+        var f = Math.min(push, 5) * 0.06;
+        b.vel.x -= nx * f; b.vel.y -= ny * f;
+      }
+    }
+  }
+  function stepFluid(dt) {
+    var g = state.gravity * state.gravityScale;
+    var rr = PART_R * 1.85, rr2 = rr * rr;
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      p.vy += g * dt;
+      p.vx *= 0.995; p.vy *= 0.995;
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      if (p.x < PART_R) { p.x = PART_R; p.vx = Math.abs(p.vx) * 0.4; }
+      if (p.x > W - PART_R) { p.x = W - PART_R; p.vx = -Math.abs(p.vx) * 0.4; }
+      if (p.y > H - PART_R) { p.y = H - PART_R; p.vy = -Math.abs(p.vy) * 0.25; p.vx *= 0.9; }
+    }
+    rebuildGrid();
+    for (var gi in grid) {
+      var cell = grid[gi], parts = gi.split(","), cx = +parts[0], cy = +parts[1];
+      for (var a = 0; a < cell.length; a++) {
+        var ia = cell[a], pa = particles[ia];
+        for (var ox = -1; ox <= 1; ox++) {
+          for (var oy = -1; oy <= 1; oy++) {
+            var nc = grid[(cx + ox) + "," + (cy + oy)];
+            if (!nc) continue;
+            for (var bI = 0; bI < nc.length; bI++) {
+              var ib = nc[bI];
+              if (ib <= ia) continue;
+              var pb = particles[ib];
+              var dx = pb.x - pa.x, dy = pb.y - pa.y, d2 = dx * dx + dy * dy;
+              if (d2 >= rr2 || d2 < 1e-9) continue;
+              var dl = Math.sqrt(d2), overlap = (rr - dl) * 0.25, ux = dx / dl, uy = dy / dl;
+              pa.x -= ux * overlap; pa.y -= uy * overlap;
+              pb.x += ux * overlap; pb.y += uy * overlap;
+              var rvx = (pb.vx - pa.vx) * 0.05, rvy = (pb.vy - pa.vy) * 0.05;
+              pa.vx += rvx; pa.vy += rvy; pb.vx -= rvx; pb.vy -= rvy;
+            }
+          }
+        }
+      }
+    }
+    var maxV = 900;
+    for (var q = 0; q < particles.length; q++) {
+      var pq = particles[q];
+      pq.vx = clamp(pq.vx, -maxV, maxV); pq.vy = clamp(pq.vy, -maxV, maxV);
+      particleBodyCollide(pq);
+    }
+  }
+  function spawnParticles(dt) {
+    for (var i = 0; i < emitters.length; i++) {
+      var em = emitters[i];
+      em.acc += em.rate * state.flow * dt;
+      while (em.acc >= 1) {
+        em.acc -= 1;
+        if (particles.length >= MAX_PARTICLES) break;
+        particles.push({
+          x: em.pos.x + rand(-em.w, em.w),
+          y: em.pos.y + rand(-4, 4),
+          vx: rand(-em.spread, em.spread),
+          vy: em.vy == null ? 40 : em.vy
+        });
+      }
+    }
+  }
+
+  // =====================================================================
+  // ============ SECTION: WORLD STEP ====================================
+  // =====================================================================
+  function stepWorld(dt) {
+    world.impact = 0;
+    var g = state.gravity * state.gravityScale;
+
+    for (var s = 0; s < joints.length; s++) if (joints[s].type === "spring") applySpring(joints[s], dt);
+
+    for (var i = 0; i < bodies.length; i++) {
+      var b = bodies[i];
+      if (b.static) continue;
+      b.vel.y += g * dt;
+      b.vel.x *= b.damping; b.vel.y *= b.damping; b.angVel *= 0.998;
+      var sp = len(b.vel);
+      if (sp > 2600) b.vel = mul(b.vel, 2600 / sp);
+      b.angVel = clamp(b.angVel, -32, 32);
+    }
+
+    var manifolds = [];
+    for (var a = 0; a < bodies.length; a++) {
+      for (var c = a + 1; c < bodies.length; c++) {
+        var A = bodies[a], B = bodies[c];
+        if ((A.static && B.static)) continue;
+        if (A.kind === "emitter" || B.kind === "emitter") continue;
+        if (!aabbOverlap(A, B)) continue;
+        var m = collide(A, B);
+        if (m) manifolds.push(m);
+      }
+    }
+
+    for (var it = 0; it < VEL_ITER; it++) {
+      for (var mi = 0; mi < manifolds.length; mi++) solveContact(manifolds[mi]);
+      for (var jj = 0; jj < joints.length; jj++) {
+        var jt = joints[jj];
+        if (jt.type === "pivot") solveRevolute(jt.a, jt.b, jt.la, jt.lb, 0.22, dt);
+        else if (jt.type === "rod" || jt.type === "rope") solveDistance(jt, dt, 0.2);
+      }
+      if (grab) solveRevolute(grab.anchorBody, grab.body, v(0, 0), grab.localAnchor, 0.5, dt);
+    }
+
+    for (var p = 0; p < bodies.length; p++) {
+      var bb = bodies[p];
+      if (bb.static) continue;
+      bb.pos.x += bb.vel.x * dt; bb.pos.y += bb.vel.y * dt;
+      bb.angle += bb.angVel * dt;
+      updateShape(bb);
+    }
+
+    for (var pi = 0; pi < POS_ITER; pi++) {
+      for (var mn = 0; mn < manifolds.length; mn++) positionCorrect(manifolds[mn]);
+      for (var pk = 0; pk < bodies.length; pk++) if (!bodies[pk].static) updateShape(bodies[pk]);
+    }
+
+    spawnParticles(dt);
+    if (particles.length) stepFluid(dt);
+
+    if (world.impact < -240) {
+      var now = performance.now();
+      if (now - world.lastSound > 70) {
+        world.lastSound = now;
+        beep(120 + Math.random() * 90, 0.045, "triangle", 0.028);
+      }
+    }
+    state.frames++;
+  }
+
+  // =====================================================================
+  // ============ SECTION: SCENE BUILDERS (ground, walls, presets) =======
+  // =====================================================================
+  function addWalls() {
+    addBody({ x: W / 2, y: GROUND_Y + 30, shape: makeBox(W / 2 + 20, 30), static: true, kind: "wall", color: "#31405c" });
+    addBody({ x: -20, y: H / 2, shape: makeBox(20, H), static: true, kind: "wall", color: "#31405c" });
+    addBody({ x: W + 20, y: H / 2, shape: makeBox(20, H), static: true, kind: "wall", color: "#31405c" });
+    addBody({ x: W / 2, y: -20, shape: makeBox(W / 2 + 20, 20), static: true, kind: "wall", color: "#31405c" });
+  }
+  function ball(x, y, r, c) { return addBody({ x: x, y: y, shape: { type: "circle", r: r || 17 }, kind: "ball", color: c || "#48c9d6" }); }
+  function boxAt(x, y, s) { return addBody({ x: x, y: y, shape: makeBox(s || 23, s || 23), kind: "box", color: "#f2a33c" }); }
+  function plank(x, y, a) { return addBody({ x: x, y: y, angle: a || 0, shape: makeBox(70, 9), kind: "plank", color: "#a06cd5" }); }
+  function domino(x, y) { return addBody({ x: x, y: y, shape: makeBox(8, 27), kind: "domino", color: "#ff6b6b" }); }
+  function rampBody(x, y, a) { return addBody({ x: x, y: y, angle: a, shape: makeBox(95, 12), static: true, kind: "ramp", color: "#7d8ca3" }); }
+
+  function buildRope(x, y) {
+    var anchor = addBody({ x: x, y: y, shape: makeBox(7, 7), static: true, kind: "anchor", color: "#8fa3bb" });
+    var prev = anchor, py = y;
+    for (var i = 0; i < 6; i++) {
+      py += 20;
+      var link = addBody({ x: x, y: py, shape: { type: "circle", r: 5 }, kind: "link", color: "#b8c4d4", damping: 0.997 });
+      joints.push({ type: "rope", a: prev, b: link, la: v(0, 0), lb: v(0, 0), rest: 20 });
+      prev = link;
+    }
+    var bob = addBody({ x: x, y: py + 22, shape: { type: "circle", r: 14 }, kind: "ball", color: "#ff9f43" });
+    joints.push({ type: "rope", a: prev, b: bob, la: v(0, 0), lb: v(0, 0), rest: 22 });
+    beep(720, 0.07, "sine");
+  }
+  function buildSpring(x, y) {
+    var anchor = addBody({ x: x, y: y, shape: makeBox(7, 7), static: true, kind: "anchor", color: "#8fa3bb" });
+    var bob = addBody({ x: x, y: y + 90, shape: { type: "circle", r: 16 }, kind: "ball", color: "#ffd84d" });
+    joints.push({ type: "spring", a: anchor, b: bob, la: v(0, 0), lb: v(0, 0), rest: 90, k: 62, damp: 1.4 });
+    beep(520, 0.09, "sine");
+  }
+  function addEmitter(x, y, rate, spread, w) {
+    emitters.push({ pos: v(x, y), rate: rate || 55, spread: spread == null ? 22 : spread, w: w || 16, vy: 30, acc: 0 });
+    addBody({ x: x, y: y, shape: makeBox(14, 8), static: true, kind: "emitter", color: "#3f8cff" });
+    beep(420, 0.08, "sine");
+  }
+
+  function clearAll(keepWalls) {
+    bodies.length = 0; joints.length = 0; emitters.length = 0; particles.length = 0;
+    grab = null;
+    if (keepWalls) addWalls();
+  }
+
+  // =====================================================================
+  // ============ SECTION: PRESET TOYS ===================================
+  // =====================================================================
+  function sceneDefault() {
+    clearAll(true);
+    rampBody(250, GROUND_Y - 70, 0.32);
+    rampBody(560, GROUND_Y - 130, -0.32);
+    ball(140, 90, 18); ball(700, 70, 16); ball(760, 40, 18);
+    boxAt(880, GROUND_Y - 24); boxAt(880, GROUND_Y - 70);
+    plank(430, GROUND_Y - 12);
+    for (var i = 0; i < 5; i++) ball(150 + i * 34, 300 - i * 30, 12);
+  }
+  function toyDomino() {
+    clearAll(true);
+    for (var i = 0; i < 15; i++) domino(150 + i * 40, GROUND_Y - 28);
+    rampBody(90, GROUND_Y - 150, 0.5);
+    ball(60, 60, 16);
+    beep(700, 0.1, "square");
+  }
+  function toyPendulum() {
+    clearAll(true);
+    var anchor = addBody({ x: 420, y: 110, shape: makeBox(9, 9), static: true, kind: "anchor", color: "#8fa3bb" });
+    var bob = addBody({ x: 560, y: 110, shape: { type: "circle", r: 26 }, kind: "ball", color: "#ff6b9d" });
+    joints.push({ type: "rod", a: anchor, b: bob, la: v(0, 0), lb: v(0, 0), rest: 140 });
+    bob.pos.y = 130;
+    for (var i = 0; i < 10; i++) domino(600 + i * 34, GROUND_Y - 28);
+    beep(600, 0.1, "sine");
+  }
+  function toySeesaw() {
+    clearAll(true);
+    var cx = W / 2, fy = GROUND_Y - 22;
+    var base = addBody({ x: cx, y: fy, shape: makeBox(16, 22), static: true, kind: "anchor", color: "#8fa3bb" });
+    var board = addBody({ x: cx, y: fy - 30, shape: makeBox(140, 8), kind: "plank", color: "#a06cd5" });
+    joints.push({ type: "pivot", a: base, b: board, la: v(0, -30), lb: v(0, 0) });
+    ball(390, 90, 18); ball(610, 90, 20);
+    for (var i = 0; i < 6; i++) boxAt(180 + i * 30, GROUND_Y - 24);
+    beep(560, 0.1, "triangle");
+  }
+  function toyRamp() {
+    clearAll(true);
+    rampBody(300, GROUND_Y - 190, 0.42);
+    for (var i = 0; i < 6; i++) ball(180 + i * 24, 60 - i * 20, 13);
+    boxAt(560, GROUND_Y - 24); boxAt(560, GROUND_Y - 70); boxAt(560, GROUND_Y - 116);
+  }
+  function toyWaterfall() {
+    clearAll(true);
+    rampBody(360, 150, 0.55);
+    rampBody(700, GROUND_Y - 120, -0.5);
+    addEmitter(200, 40, 70, 24, 22);
+    boxAt(720, GROUND_Y - 24); boxAt(770, GROUND_Y - 24);
+    ball(650, 300, 20, "#ffb454");
+    beep(480, 0.12, "sine");
+  }
+  var TOYS = { domino: toyDomino, pendulum: toyPendulum, seesaw: toySeesaw, ramp: toyRamp, waterfall: toyWaterfall };
+
+  // =====================================================================
+  // ============ SECTION: SPAWNING FROM TOOL PALETTE ====================
+  // =====================================================================
+  function spawnAt(tool, x, y) {
+    switch (tool) {
+      case "ball": ball(x, y, rand(14, 22)); beep(760, 0.05, "sine", 0.035); break;
+      case "box": boxAt(x, y, 23); beep(300, 0.05, "square", 0.035); break;
+      case "plank": plank(x, y, rand(-0.5, 0.5)); beep(420, 0.06, "triangle", 0.035); break;
+      case "domino": domino(x, y); beep(520, 0.05, "square", 0.03); break;
+      case "ramp": rampBody(x, y, -0.35); beep(240, 0.08, "sawtooth", 0.03); break;
+      case "rope": buildRope(x, y); break;
+      case "spring": buildSpring(x, y); break;
+      case "water": addEmitter(x, y, 60, 22, 18); break;
+    }
+  }
+  function eraseAt(x, y) {
+    for (var i = bodies.length - 1; i >= 0; i--) {
+      var b = bodies[i];
+      if (b.static) continue;
+      if (pointInBody(b, x, y)) { removeBody(b); beep(180, 0.05, "sawtooth", 0.03); return; }
+    }
+    for (var e = emitters.length - 1; e >= 0; e--) {
+      var em = emitters[e];
+      if (Math.abs(em.pos.x - x) < 20 && Math.abs(em.pos.y - y) < 20) {
+        emitters.splice(e, 1);
+        for (var k = bodies.length - 1; k >= 0; k--) if (bodies[k].kind === "emitter") bodies.splice(k, 1);
+        beep(180, 0.05, "sawtooth", 0.03);
+        return;
+      }
+    }
+  }
+
+  // =====================================================================
+  // ============ SECTION: INPUT (mouse + touch) =========================
+  // =====================================================================
+  function toWorld(clientX, clientY) {
+    var r = canvas.getBoundingClientRect();
+    return { x: (clientX - r.left) * (W / r.width), y: (clientY - r.top) * (H / r.height) };
+  }
+  function findBodyAt(x, y) {
+    for (var i = bodies.length - 1; i >= 0; i--) {
+      var b = bodies[i];
+      if (b.static) continue;
+      if (pointInBody(b, x, y)) return b;
+    }
+    return null;
+  }
+  function pointerDown(x, y) {
+    mouse.down = true; mouse.x = x; mouse.y = y;
+    if (!actx) beep(1, 0.001, "sine", 0.001); // unlock audio on first gesture
+    var tool = state.tool;
+    if (tool === "hand") {
+      var b = findBodyAt(x, y);
+      if (b) {
+        var local = rot({ x: x - b.pos.x, y: y - b.pos.y }, -b.angle);
+        grab = { body: b, localAnchor: local, anchorBody: { pos: v(x, y), vel: v(0, 0), angle: 0, angVel: 0, invMass: 0, invInertia: 0 } };
+        beep(660, 0.04, "sine", 0.03);
+      }
+    } else if (tool === "erase") {
+      erasing = true; eraseAt(x, y);
+    } else {
+      painting = true;
+      spawnAt(tool, x, y);
+      lastSpawn = { x: x, y: y, ok: true };
+    }
+  }
+  function pointerMove(x, y) {
+    mouse.x = x; mouse.y = y;
+    if (grab) grab.anchorBody.pos = v(x, y);
+    if (painting && lastSpawn.ok) {
+      var d = Math.hypot(x - lastSpawn.x, y - lastSpawn.y);
+      if (d > 46) { spawnAt(state.tool, x, y); lastSpawn = { x: x, y: y, ok: true }; }
+    }
+    if (erasing) eraseAt(x, y);
+  }
+  function pointerUp() {
+    mouse.down = false; grab = null; painting = false; erasing = false;
+  }
+
+  canvas.addEventListener("mousedown", function (e) { e.preventDefault(); var p = toWorld(e.clientX, e.clientY); pointerDown(p.x, p.y); });
+  canvas.addEventListener("mousemove", function (e) { var p = toWorld(e.clientX, e.clientY); pointerMove(p.x, p.y); });
+  window.addEventListener("mouseup", function () { pointerUp(); });
+  canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+  canvas.addEventListener("touchstart", function (e) {
+    e.preventDefault();
+    var t = e.changedTouches[0], p = toWorld(t.clientX, t.clientY);
+    pointerDown(p.x, p.y);
+  }, { passive: false });
+  canvas.addEventListener("touchmove", function (e) {
+    e.preventDefault();
+    var t = e.changedTouches[0], p = toWorld(t.clientX, t.clientY);
+    pointerMove(p.x, p.y);
+  }, { passive: false });
+  canvas.addEventListener("touchend", function (e) { e.preventDefault(); pointerUp(); }, { passive: false });
+
+  // =====================================================================
+  // ============ SECTION: RENDER ========================================
+  // =====================================================================
+  function gridPath() {
+    ctx.strokeStyle = "rgba(70, 140, 170, 0.10)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (var x = 0; x <= W; x += 50) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+    for (var y = 0; y <= H; y += 50) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+    ctx.stroke();
+  }
+  function drawBackground() {
+    var g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#101a30");
+    g.addColorStop(0.65, "#0b1222");
+    g.addColorStop(1, "#070b16");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    gridPath();
+  }
+  function shade(hex, f) {
+    var n = parseInt(hex.slice(1), 16);
+    var r = clamp(((n >> 16) & 255) * f, 0, 255) | 0;
+    var gg = clamp(((n >> 8) & 255) * f, 0, 255) | 0;
+    var b = clamp((n & 255) * f, 0, 255) | 0;
+    return "rgb(" + r + "," + gg + "," + b + ")";
+  }
+  function drawBody(b) {
+    if (b.shape.type === "circle") {
+      var r = b.shape.r;
+      var grd = ctx.createRadialGradient(b.pos.x - r * 0.35, b.pos.y - r * 0.35, r * 0.1, b.pos.x, b.pos.y, r);
+      grd.addColorStop(0, shade(b.color, 1.35));
+      grd.addColorStop(1, shade(b.color, 0.6));
+      ctx.fillStyle = b.static ? "#3a4b66" : grd;
+      ctx.beginPath(); ctx.arc(b.pos.x, b.pos.y, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = shade(b.color, 0.45); ctx.lineWidth = 2; ctx.stroke();
+      if (!b.static) {
+        ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(b.pos.x, b.pos.y);
+        ctx.lineTo(b.pos.x + Math.cos(b.angle) * r * 0.8, b.pos.y + Math.sin(b.angle) * r * 0.8);
+        ctx.stroke();
+      }
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(b.wv[0].x, b.wv[0].y);
+      for (var i = 1; i < b.wv.length; i++) ctx.lineTo(b.wv[i].x, b.wv[i].y);
+      ctx.closePath();
+      ctx.fillStyle = b.static ? "#2a3a55" : shade(b.color, 0.95);
+      ctx.fill();
+      ctx.strokeStyle = b.static ? "#41567a" : shade(b.color, 1.4);
+      ctx.lineWidth = 2; ctx.stroke();
+      if (b.static) {
+        ctx.save(); ctx.clip();
+        ctx.strokeStyle = "rgba(120,160,200,0.16)"; ctx.lineWidth = 1;
+        for (var d = -H; d < W; d += 12) { ctx.beginPath(); ctx.moveTo(d, 0); ctx.lineTo(d + H, H); ctx.stroke(); }
+        ctx.restore();
+      } else {
+        var cx = (b.wv[0].x + b.wv[2].x) / 2, cy = (b.wv[0].y + b.wv[2].y) / 2;
+        ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        var e0 = b.wv[0], e1 = b.wv[1];
+        ctx.lineTo((e0.x + e1.x) / 2, (e0.y + e1.y) / 2);
+        ctx.stroke();
+      }
+    }
+  }
+  function drawJoints() {
+    for (var i = 0; i < joints.length; i++) {
+      var j = joints[i];
+      var pa = add(j.a.pos, rot(j.la, j.a.angle));
+      var pb = add(j.b.pos, rot(j.lb, j.b.angle));
+      if (j.type === "spring") {
+        var dx = pb.x - pa.x, dy = pb.y - pa.y, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L;
+        var px = -uy, py = ux, seg = 10;
+        ctx.strokeStyle = "#ffd84d"; ctx.lineWidth = 2.4;
+        ctx.beginPath(); ctx.moveTo(pa.x, pa.y);
+        for (var s = 1; s < seg; s++) {
+          var tt = s / seg, amp = (s % 2 === 0 ? 6 : -6);
+          ctx.lineTo(pa.x + ux * L * tt + px * amp, pa.y + uy * L * tt + py * amp);
+        }
+        ctx.lineTo(pb.x, pb.y); ctx.stroke();
+      } else {
+        ctx.strokeStyle = j.type === "pivot" ? "rgba(120,150,180,0.0)" : "rgba(184,196,212,0.75)";
+        if (j.type === "pivot") {
+          ctx.fillStyle = "#e6eefc";
+          ctx.beginPath(); ctx.arc(pa.x, pa.y, 5, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = "#5a6b86"; ctx.lineWidth = 2; ctx.stroke();
+        } else {
+          ctx.lineWidth = 2; ctx.setLineDash([6, 5]);
+          ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
+    }
+  }
+  function drawFluid() {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      ctx.fillStyle = "rgba(70, 150, 255, 0.5)";
+      ctx.beginPath(); ctx.arc(p.x, p.y, PART_R, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+  function drawEmitters() {
+    for (var i = 0; i < emitters.length; i++) {
+      var em = emitters[i];
+      ctx.fillStyle = "#3f8cff";
+      ctx.beginPath(); ctx.roundRect(em.pos.x - 14, em.pos.y - 6, 28, 12, 4); ctx.fill();
+      ctx.fillStyle = "rgba(120,190,255,0.85)";
+      ctx.beginPath(); ctx.arc(em.pos.x, em.pos.y + 4, 3.5, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  function drawGhost() {
+    if (mouse.x < 0 || state.tool === "hand" || state.tool === "erase") return;
+    ctx.save();
+    ctx.globalAlpha = 0.5;
+    ctx.strokeStyle = "#35e0c0"; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    if (state.tool === "ball" || state.tool === "rope" || state.tool === "spring") {
+      ctx.arc(mouse.x, mouse.y, 18, 0, Math.PI * 2);
+    } else if (state.tool === "domino") {
+      ctx.rect(mouse.x - 8, mouse.y - 27, 16, 54);
+    } else if (state.tool === "plank") {
+      ctx.rect(mouse.x - 70, mouse.y - 9, 140, 18);
+    } else if (state.tool === "ramp") {
+      ctx.save(); ctx.translate(mouse.x, mouse.y); ctx.rotate(-0.35);
+      ctx.rect(-95, -12, 190, 24); ctx.restore();
+    } else if (state.tool === "water") {
+      ctx.rect(mouse.x - 14, mouse.y - 6, 28, 12);
+    } else {
+      ctx.rect(mouse.x - 23, mouse.y - 23, 46, 46);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+  function drawGrab() {
+    if (!grab) return;
+    var p = add(grab.body.pos, rot(grab.localAnchor, grab.body.angle));
+    ctx.strokeStyle = "rgba(53,224,192,0.9)"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 10, 0, Math.PI * 2); ctx.stroke();
+  }
+  function render() {
+    drawBackground();
+    drawFluid();
+    drawJoints();
+    drawEmitters();
+    for (var i = 0; i < bodies.length; i++) drawBody(bodies[i]);
+    drawGrab();
+    drawGhost();
+    if (state.paused) {
+      ctx.fillStyle = "rgba(4, 8, 16, 0.55)";
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "#eaf6ff";
+      ctx.font = "bold 46px 'Courier New', monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("PAUSED", W / 2, H / 2);
+      ctx.font = "15px 'Courier New', monospace";
+      ctx.fillStyle = "#35e0c0";
+      ctx.fillText("press SPACE or Pause to resume", W / 2, H / 2 + 34);
+    }
+  }
+
+  // =====================================================================
+  // ============ SECTION: MAIN LOOP =====================================
+  // =====================================================================
+  var acc = 0, last = performance.now(), raf = null;
+  var hudEl = document.getElementById("hud");
+  function loop(now) {
+    var dt = (now - last) / 1000; last = now;
+    if (dt > 0.1) dt = 0.1;
+    if (!state.paused) {
+      acc += dt;
+      var steps = 0;
+      while (acc >= FIXED_DT && steps < 8) { stepWorld(FIXED_DT); acc -= FIXED_DT; steps++; }
+      if (acc > FIXED_DT) acc = 0;
+    }
+    render();
+    hudEl.textContent = "BODIES " + bodies.length + "  |  DROPS " + particles.length;
+    raf = requestAnimationFrame(loop);
+  }
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { cancelAnimationFrame(raf); raf = null; }
+    else if (!raf) { last = performance.now(); raf = requestAnimationFrame(loop); }
+  });
+
+  // =====================================================================
+  // ============ SECTION: UI WIRING =====================================
+  // =====================================================================
+  var toolBtns = Array.prototype.slice.call(document.querySelectorAll("button.tool"));
+  var toyBtns = Array.prototype.slice.call(document.querySelectorAll("button.toy"));
+  var btnPause = document.getElementById("btn-pause");
+  var btnRestart = document.getElementById("btn-restart");
+  var btnClear = document.getElementById("btn-clear");
+  var btnSound = document.getElementById("btn-sound");
+
+  function selectTool(t) {
+    state.tool = t;
+    toolBtns.forEach(function (b) { b.classList.toggle("active", b.dataset.tool === t); });
+  }
+  toolBtns.forEach(function (b) {
+    b.addEventListener("click", function () { selectTool(b.dataset.tool); beep(600, 0.04, "square", 0.03); });
+  });
+  toyBtns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (TOYS[b.dataset.toy]) TOYS[b.dataset.toy]();
+      state.paused = false; btnPause.textContent = "Pause";
+    });
+  });
+
+  function togglePause() {
+    state.paused = !state.paused;
+    btnPause.textContent = state.paused ? "Play" : "Pause";
+    beep(state.paused ? 380 : 620, 0.07, "triangle", 0.04);
+  }
+  btnPause.addEventListener("click", togglePause);
+  btnRestart.addEventListener("click", function () { sceneDefault(); beep(520, 0.1, "square", 0.04); });
+  btnClear.addEventListener("click", function () { clearAll(true); beep(200, 0.12, "sawtooth", 0.04); });
+  btnSound.addEventListener("click", function () {
+    soundOn = !soundOn;
+    btnSound.textContent = "Sound: " + (soundOn ? "On" : "Off");
+    if (soundOn) beep(700, 0.06, "sine", 0.04);
+  });
+
+  var sGrav = document.getElementById("s-grav"), vGrav = document.getElementById("v-grav");
+  var sBounce = document.getElementById("s-bounce"), vBounce = document.getElementById("v-bounce");
+  var sFric = document.getElementById("s-fric"), vFric = document.getElementById("v-fric");
+  var sFlow = document.getElementById("s-flow"), vFlow = document.getElementById("v-flow");
+
+  function syncSliders() {
+    state.gravityScale = parseFloat(sGrav.value) / 100;
+    state.bounce = parseFloat(sBounce.value) / 100;
+    state.friction = parseFloat(sFric.value) / 100;
+    state.flow = parseFloat(sFlow.value) / 100;
+    vGrav.textContent = state.gravityScale.toFixed(2);
+    vBounce.textContent = state.bounce.toFixed(2);
+    vFric.textContent = state.friction.toFixed(2);
+    vFlow.textContent = state.flow.toFixed(2);
+  }
+  [sGrav, sBounce, sFric, sFlow].forEach(function (el) { el.addEventListener("input", syncSliders); });
+
+  // =====================================================================
+  // ============ SECTION: KEYBOARD ======================================
+  // =====================================================================
+  var TOOL_KEYS = { "1": "hand", "2": "ball", "3": "box", "4": "plank", "5": "domino", "6": "ramp", "7": "rope", "8": "spring", "9": "water", "0": "erase" };
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "Space" || e.key === "p" || e.key === "P") { e.preventDefault(); togglePause(); return; }
+    if (e.key === "r" || e.key === "R") { sceneDefault(); beep(520, 0.1, "square", 0.04); return; }
+    if (e.key === "c" || e.key === "C") { clearAll(true); beep(200, 0.12, "sawtooth", 0.04); return; }
+    if (TOOL_KEYS[e.key]) { e.preventDefault(); selectTool(TOOL_KEYS[e.key]); beep(600, 0.03, "square", 0.03); }
+  });
+
+  // =====================================================================
+  // ============ SECTION: INIT ==========================================
+  // =====================================================================
+  syncSliders();
+  sceneDefault();
+  raf = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

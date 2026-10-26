@@ -1,0 +1,1682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>🚀 Space Explorer</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg0: #05060f;
+    --bg1: #0b1024;
+    --neon: #4ff0e0;
+    --neon2: #7c6cff;
+    --amber: #ffb347;
+    --danger: #ff5d73;
+    --panel: rgba(14, 20, 42, 0.94);
+    --line: rgba(79, 240, 224, 0.35);
+  }
+
+  body {
+    font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+    background: radial-gradient(circle at 20% 10%, #101a3a 0%, var(--bg1) 40%, var(--bg0) 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    color: #d7e6ff;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ============ GAME CONTAINER ============ */
+  .game-container {
+    width: 96vw;
+    max-width: 1000px;
+    background: linear-gradient(180deg, rgba(18,26,54,0.92), rgba(8,12,28,0.96));
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 14px 16px 16px;
+    box-shadow: 0 0 0 1px rgba(124,108,255,0.15), 0 24px 60px rgba(0,0,0,0.65), inset 0 0 60px rgba(79,240,224,0.04);
+  }
+
+  .brand {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .game-title {
+    font-size: 1.35rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--neon);
+    text-shadow: 0 0 12px rgba(79,240,224,0.55);
+    font-weight: 700;
+  }
+
+  .game-subtitle {
+    font-size: 0.72rem;
+    letter-spacing: 1.5px;
+    color: #6f86b8;
+    text-transform: uppercase;
+  }
+
+  /* ============ HUD ============ */
+  .hud {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .hud-cell {
+    background: rgba(9, 14, 32, 0.85);
+    border: 1px solid rgba(79,240,224,0.18);
+    border-radius: 8px;
+    padding: 7px 9px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.5px;
+    color: #7f95c6;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .hud-cell b {
+    display: block;
+    font-size: 0.98rem;
+    color: var(--neon);
+    margin-top: 2px;
+    letter-spacing: 0;
+  }
+
+  .hud-cell.warn b { color: var(--danger); }
+
+  .bar {
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.08);
+    margin-top: 5px;
+    overflow: hidden;
+  }
+
+  .bar > i {
+    display: block;
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, var(--neon), var(--neon2));
+    transition: width 0.15s linear;
+  }
+
+  .bar.fuel > i { background: linear-gradient(90deg, var(--amber), #ff7a45); }
+  .bar.hull > i { background: linear-gradient(90deg, #54ff9f, #17c964); }
+
+  /* ============ CANVAS ============ */
+  .canvas-wrapper {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(124,108,255,0.25);
+    background: #03040c;
+    box-shadow: inset 0 0 80px rgba(0,0,0,0.9);
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    image-rendering: auto;
+  }
+
+  /* ============ OVERLAY SCREENS ============ */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 20px;
+    background: radial-gradient(circle at 50% 40%, rgba(16,26,58,0.96), rgba(3,4,12,0.98));
+    transition: opacity 0.25s ease;
+    z-index: 5;
+  }
+
+  .screen.hidden { opacity: 0; pointer-events: none; }
+
+  .screen-title {
+    font-size: 2rem;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--neon);
+    text-shadow: 0 0 18px rgba(79,240,224,0.6);
+    margin-bottom: 6px;
+  }
+
+  .screen-sub {
+    font-size: 0.85rem;
+    color: #8ba0cf;
+    margin-bottom: 18px;
+    max-width: 560px;
+    line-height: 1.5;
+  }
+
+  .screen-sub kbd {
+    background: rgba(79,240,224,0.12);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: 'Consolas', monospace;
+    color: var(--neon);
+  }
+
+  .btn {
+    padding: 12px 30px;
+    background: linear-gradient(135deg, rgba(79,240,224,0.9), rgba(124,108,255,0.9));
+    color: #05060f;
+    border: none;
+    border-radius: 24px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 6px 22px rgba(79,240,224,0.3);
+  }
+
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(79,240,224,0.45); }
+  .btn:active { transform: translateY(0); }
+  .btn.ghost {
+    background: transparent;
+    color: var(--neon);
+    border: 1px solid var(--line);
+    box-shadow: none;
+  }
+
+  .btn-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+  .stat-final {
+    font-family: 'Consolas', monospace;
+    font-size: 0.95rem;
+    color: var(--amber);
+    margin-bottom: 16px;
+    line-height: 1.7;
+  }
+
+  /* ============ TRADE / UPGRADE PANEL ============ */
+  .panel {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(3,5,14,0.72);
+    backdrop-filter: blur(3px);
+    z-index: 6;
+    transition: opacity 0.2s ease;
+  }
+
+  .panel.hidden { opacity: 0; pointer-events: none; }
+
+  .panel-box {
+    width: min(680px, 94%);
+    max-height: 92%;
+    overflow-y: auto;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+  }
+
+  .panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    border-bottom: 1px solid rgba(79,240,224,0.2);
+    padding-bottom: 10px;
+  }
+
+  .panel-head h3 {
+    font-size: 0.95rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--neon);
+  }
+
+  .panel-head span { font-family: 'Consolas', monospace; color: var(--amber); font-size: 0.9rem; }
+
+  .panel-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .card {
+    background: rgba(9,14,32,0.8);
+    border: 1px solid rgba(79,240,224,0.15);
+    border-radius: 10px;
+    padding: 11px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .card h4 {
+    font-size: 0.72rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #9fb4e0;
+  }
+
+  .card p { font-family: 'Consolas', monospace; font-size: 0.72rem; color: #6f86b8; }
+
+  .card .lvl { color: var(--neon2); font-weight: 700; }
+
+  .card button {
+    margin-top: 6px;
+    background: rgba(79,240,224,0.12);
+    border: 1px solid var(--line);
+    color: var(--neon);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 0.72rem;
+    font-family: 'Consolas', monospace;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .card button:hover { background: rgba(79,240,224,0.24); }
+  .card button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* ============ TOAST ============ */
+  .toast {
+    position: absolute;
+    left: 50%;
+    bottom: 16px;
+    transform: translate(-50%, 20px);
+    background: rgba(9,14,32,0.94);
+    border: 1px solid var(--line);
+    color: var(--neon);
+    font-family: 'Consolas', monospace;
+    font-size: 0.78rem;
+    padding: 8px 16px;
+    border-radius: 20px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 7;
+    white-space: nowrap;
+  }
+
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  /* ============ PAUSE ============ */
+  .pause-tag {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Consolas', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 3px;
+    color: var(--amber);
+    background: rgba(3,5,14,0.8);
+    border: 1px solid rgba(255,179,71,0.4);
+    padding: 5px 14px;
+    border-radius: 14px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 8;
+  }
+
+  .pause-tag.visible { opacity: 1; }
+
+  /* ============ MOBILE CONTROLS ============ */
+  .touch {
+    display: none;
+    margin-top: 12px;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    user-select: none;
+  }
+
+  .touch.on { display: flex; }
+
+  .touch-group { display: flex; gap: 10px; }
+
+  .tbtn {
+    width: 62px;
+    height: 62px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: rgba(79,240,224,0.1);
+    color: var(--neon);
+    font-size: 1.3rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: background 0.12s ease, transform 0.12s ease;
+    font-family: 'Consolas', monospace;
+  }
+
+  .tbtn:active { background: rgba(79,240,224,0.32); transform: scale(0.93); }
+  .tbtn.fire { border-color: rgba(255,93,115,0.6); color: var(--danger); background: rgba(255,93,115,0.12); }
+  .tbtn.act { border-color: rgba(255,179,71,0.6); color: var(--amber); background: rgba(255,179,71,0.12); width: 84px; border-radius: 30px; font-size: 0.85rem; letter-spacing: 1px; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 720px) {
+    .game-container { padding: 10px; border-radius: 12px; }
+    .game-title { font-size: 1rem; letter-spacing: 2px; }
+    .hud { grid-template-columns: repeat(3, 1fr); }
+    .hud-cell { font-size: 0.6rem; }
+    .hud-cell b { font-size: 0.85rem; }
+    .screen-title { font-size: 1.4rem; }
+    .screen-sub { font-size: 0.75rem; }
+    .panel-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="game-container">
+  <div class="brand">
+    <h1 class="game-title">Space Explorer</h1>
+    <p class="game-subtitle">Mine · Trade · Upgrade · Survive</p>
+  </div>
+
+  <!-- ============ HUD ============ -->
+  <div class="hud">
+    <div class="hud-cell">Credits<b id="hCredits">0</b></div>
+    <div class="hud-cell">Ore<b id="hOre">0 / 20</b></div>
+    <div class="hud-cell">Fuel<b id="hFuel">100%</b><div class="bar fuel"><i id="bFuel"></i></div></div>
+    <div class="hud-cell">Hull<b id="hHull">100%</b><div class="bar hull"><i id="bHull"></i></div></div>
+    <div class="hud-cell">Wealth<b id="hWealth">0</b></div>
+    <div class="hud-cell" id="hSectorWrap">Sector<b id="hSector">—</b></div>
+  </div>
+
+  <div class="canvas-wrapper">
+    <canvas id="gameCanvas" width="960" height="600"></canvas>
+
+    <!-- Start Screen -->
+    <div id="startScreen" class="screen">
+      <h2 class="screen-title">Space Explorer</h2>
+      <p class="screen-sub">
+        Chart an uncharted star system. Mine ore from rocky worlds, siphon fuel from gas giants,
+        sell cargo at stations, and buy upgrades. Watch out for drifting asteroids and raider ships.<br><br>
+        <kbd>W</kbd>/<kbd>↑</kbd> thrust &nbsp; <kbd>A</kbd><kbd>D</kbd> steer &nbsp;
+        <kbd>Space</kbd> fire &nbsp; <kbd>E</kbd> interact &nbsp; <kbd>P</kbd> pause
+      </p>
+      <div class="btn-row">
+        <button class="btn" id="startBtn">Launch</button>
+        <button class="btn ghost" id="continueBtn">Continue Save</button>
+      </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="gameOverScreen" class="screen hidden">
+      <h2 class="screen-title" style="color:var(--danger);text-shadow:0 0 18px rgba(255,93,115,0.6)">Hull Breach</h2>
+      <p class="screen-sub">Your ship drifts silently among the stars.</p>
+      <div class="stat-final" id="finalStats"></div>
+      <div class="btn-row">
+        <button class="btn" id="againBtn">New Run</button>
+        <button class="btn ghost" id="resumeBtn">Restore Save</button>
+      </div>
+    </div>
+
+    <!-- Trade / Upgrade Panel -->
+    <div id="tradePanel" class="panel hidden">
+      <div class="panel-box">
+        <div class="panel-head">
+          <h3 id="stationName">Trading Post</h3>
+          <span id="stationCredits">₡ 0</span>
+        </div>
+        <div class="panel-grid" id="tradeGrid"></div>
+        <div style="margin-top:14px;text-align:right">
+          <button class="btn ghost" id="closePanel">Undock</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="pause-tag" id="pauseTag">PAUSED</div>
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <!-- ============ TOUCH CONTROLS ============ -->
+  <div class="touch" id="touchControls">
+    <div class="touch-group">
+      <button class="tbtn" id="tLeft">◀</button>
+      <button class="tbtn" id="tRight">▶</button>
+    </div>
+    <div class="touch-group">
+      <button class="tbtn act" id="tAct">E</button>
+      <button class="tbtn fire" id="tFire">✦</button>
+      <button class="tbtn" id="tThrust">▲</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============ GAME CONFIGURATION ============
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width;
+const H = canvas.height;
+const WORLD = { w: 4200, h: 3200 };
+const SAVE_KEY = 'spaceExplorerSave_v1';
+
+const PRICE_ORE = 26;          // credits per ore unit
+const FUEL_PRICE = 3.2;        // credits per fuel unit
+const REPAIR_PRICE = 2.6;      // credits per hull point
+
+// ============ DOM ELEMENTS ============
+const hCredits = document.getElementById('hCredits');
+const hOre = document.getElementById('hOre');
+const hFuel = document.getElementById('hFuel');
+const hHull = document.getElementById('hHull');
+const hWealth = document.getElementById('hWealth');
+const hSector = document.getElementById('hSector');
+const hSectorWrap = document.getElementById('hSectorWrap');
+const bFuel = document.getElementById('bFuel');
+const bHull = document.getElementById('bHull');
+const startScreen = document.getElementById('startScreen');
+const gameOverScreen = document.getElementById('gameOverScreen');
+const finalStats = document.getElementById('finalStats');
+const tradePanel = document.getElementById('tradePanel');
+const tradeGrid = document.getElementById('tradeGrid');
+const stationName = document.getElementById('stationName');
+const stationCredits = document.getElementById('stationCredits');
+const closePanel = document.getElementById('closePanel');
+const pauseTag = document.getElementById('pauseTag');
+const toastEl = document.getElementById('toast');
+const touchControls = document.getElementById('touchControls');
+
+// ============ AUDIO (WebAudio beeps) ============
+let actx = null;
+function beep(freq, dur, type, vol) {
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+    const t = actx.currentTime;
+    const o = actx.createOscillator();
+    const g = actx.createGain();
+    o.type = type || 'square';
+    o.frequency.setValueAtTime(freq || 440, t);
+    g.gain.setValueAtTime(vol == null ? 0.05 : vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + (dur || 0.1));
+    o.connect(g); g.connect(actx.destination);
+    o.start(t); o.stop(t + (dur || 0.1) + 0.02);
+  } catch (e) { /* audio unavailable — silent */ }
+}
+
+// ============ GAME STATE ============
+let running = false;
+let paused = false;
+let docking = false;
+let lastTime = 0;
+let gameTime = 0;
+
+const ship = {
+  x: 0, y: 0, vx: 0, vy: 0, angle: -Math.PI / 2,
+  fuel: 100, fuelMax: 100, hull: 100, hullMax: 100,
+  cargo: 0, cargoMax: 20, fireCd: 0, invuln: 0
+};
+
+const upgrades = { cargo: 0, thruster: 0, scanner: 0, hull: 0 };
+let credits = 0;
+let bestWealth = 0;
+
+let planets = [];
+let stations = [];
+let asteroids = [];
+let raiders = [];
+let bullets = [];
+let particles = [];
+let stars = [];
+let cam = { x: 0, y: 0 };
+let spawnTimer = 0;
+let raiderTimer = 6;
+let nearTarget = null;   // planet or station in range
+let nearKind = '';       // 'rocky' | 'gas' | 'station'
+
+// ============ UTILITIES ============
+const rnd = (a, b) => a + Math.random() * (b - a);
+const dist2 = (ax, ay, bx, by) => { const dx = ax - bx, dy = ay - by; return dx * dx + dy * dy; };
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const speedOf = o => Math.hypot(o.vx, o.vy);
+
+function toast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => toastEl.classList.remove('show'), 1600);
+}
+
+function wealth() { return Math.round(credits + ship.cargo * PRICE_ORE); }
+
+// ============ WORLD GENERATION ============
+const PLANET_NAMES = ['Cinder', 'Verdant', 'Kelvar', 'Nyx', 'Torvin', 'Halcyon', 'Rime', 'Obsidian', 'Zephyr', 'Marrow'];
+const STATION_NAMES = ['Port Ardent', 'Kepler Docks', 'Waypoint Vega', 'Drift Haven', 'Anchor Nine'];
+
+function makePlanets(count) {
+  const out = [];
+  const names = PLANET_NAMES.slice();
+  for (let i = 0; i < count; i++) {
+    const gas = Math.random() < 0.35;
+    let x, y, ok = false, tries = 0;
+    while (!ok && tries++ < 120) {
+      x = rnd(420, WORLD.w - 420);
+      y = rnd(420, WORLD.h - 420);
+      ok = Math.hypot(x - ship.x, y - ship.y) > 520;
+      if (ok) for (const p of out) if (dist2(x, y, p.x, p.y) < 560 * 560) { ok = false; break; }
+    }
+    const r = gas ? rnd(88, 130) : rnd(52, 96);
+    const idx = Math.floor(rnd(0, names.length));
+    out.push({
+      x, y, r,
+      type: gas ? 'gas' : 'rocky',
+      name: names.splice(idx, 1)[0] || ('World-' + i),
+      hue: gas ? rnd(180, 215) : rnd(15, 45),
+      amount: Math.round(gas ? rnd(120, 260) : rnd(60, 200)),
+      amountMax: 0,
+      spin: rnd(-0.25, 0.25),
+      ring: gas && Math.random() < 0.6,
+      cool: 0
+    });
+    const p = out[out.length - 1];
+    p.amountMax = p.amount;
+    if (gas) p.amountMax = p.amount = Math.round(rnd(200, 400)); // gas = fuel units
+  }
+  return out;
+}
+
+function makeStations(count) {
+  const out = [];
+  const names = STATION_NAMES.slice();
+  for (let i = 0; i < count; i++) {
+    let x, y, ok = false, tries = 0;
+    while (!ok && tries++ < 120) {
+      x = rnd(500, WORLD.w - 500);
+      y = rnd(500, WORLD.h - 500);
+      ok = Math.hypot(x - ship.x, y - ship.y) > 640;
+      if (ok) for (const s of out) if (dist2(x, y, s.x, s.y) < 900 * 900) { ok = false; break; }
+      if (ok) for (const p of planets) if (dist2(x, y, p.x, p.y) < (p.r + 230) * (p.r + 230)) { ok = false; break; }
+    }
+    out.push({
+      x, y, r: 46,
+      name: names.splice(Math.floor(rnd(0, names.length)), 1)[0] || ('Dock-' + i),
+      spin: rnd(-0.6, 0.6),
+      angle: rnd(0, Math.PI * 2)
+    });
+  }
+  return out;
+}
+
+function makeAsteroids(count) {
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    let x, y, ok = false, tries = 0;
+    while (!ok && tries++ < 80) {
+      x = rnd(200, WORLD.w - 200);
+      y = rnd(200, WORLD.h - 200);
+      ok = Math.hypot(x - ship.x, y - ship.y) > 420;
+      if (ok) for (const p of planets) if (dist2(x, y, p.x, p.y) < (p.r + 80) * (p.r + 80)) { ok = false; break; }
+      if (ok) for (const s of stations) if (dist2(x, y, s.x, s.y) < 200 * 200) { ok = false; break; }
+    }
+    out.push({
+      x, y, r: rnd(14, 42),
+      vx: rnd(-0.5, 0.5), vy: rnd(-0.5, 0.5),
+      angle: rnd(0, Math.PI * 2), spin: rnd(-0.02, 0.02),
+      verts: Array.from({ length: 8 }, () => rnd(0.72, 1.25))
+    });
+  }
+  return out;
+}
+
+function makeStars() {
+  const out = [];
+  for (let i = 0; i < 260; i++) {
+    out.push({
+      x: rnd(0, W), y: rnd(0, H),
+      s: rnd(0.4, 1.8),
+      a: rnd(0.25, 0.95),
+      layer: Math.random() < 0.5 ? 0.12 : (Math.random() < 0.5 ? 0.3 : 0.55)
+    });
+  }
+  return out;
+}
+
+function generateWorld() {
+  ship.x = WORLD.w / 2; ship.y = WORLD.h / 2;
+  ship.vx = 0; ship.vy = 0; ship.angle = -Math.PI / 2;
+  ship.fuel = ship.fuelMax = 100;
+  ship.hull = ship.hullMax = 100;
+  ship.cargo = 0; ship.cargoMax = 20;
+  upgrades.cargo = 0; upgrades.thruster = 0; upgrades.scanner = 0; upgrades.hull = 0;
+  credits = 120;
+  planets = makePlanets(8);
+  stations = makeStations(3);
+  asteroids = makeAsteroids(46);
+  raiders = []; bullets = []; particles = [];
+  stars = makeStars();
+  spawnTimer = 0; raiderTimer = 7;
+  gameTime = 0;
+  cam.x = ship.x - W / 2; cam.y = ship.y - H / 2;
+}
+
+// ============ SAVE / LOAD ============
+function saveGame() {
+  try {
+    const data = {
+      credits, ship: { fuel: ship.fuel, hull: ship.hull, cargo: ship.cargo, cargoMax: ship.cargoMax },
+      upgrades: { ...upgrades },
+      bestWealth,
+      planets: planets.map(p => ({ x: p.x, y: p.y, r: p.r, type: p.type, name: p.name, hue: p.hue, amount: p.amount, amountMax: p.amountMax, ring: p.ring, spin: p.spin })),
+      stations: stations.map(s => ({ x: s.x, y: s.y, name: s.name })),
+      shipPos: { x: ship.x, y: ship.y, angle: ship.angle }
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    return true;
+  } catch (e) { return false; }
+}
+
+function hasSave() {
+  try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; }
+}
+
+function loadGame() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    const d = JSON.parse(raw);
+    if (!d || !d.planets) return false;
+    credits = d.credits || 0;
+    bestWealth = d.bestWealth || 0;
+    ship.cargoMax = d.ship.cargoMax || 20;
+    ship.fuel = d.ship.fuel != null ? d.ship.fuel : 100;
+    ship.hull = d.ship.hull != null ? d.ship.hull : 100;
+    ship.cargo = d.ship.cargo || 0;
+    Object.assign(upgrades, d.upgrades || {});
+    ship.fuelMax = 100; ship.hullMax = 100;
+    planets = d.planets.map(p => ({ ...p }));
+    stations = d.stations.map(s => ({ x: s.x, y: s.y, r: 46, name: s.name, spin: rnd(-0.6, 0.6), angle: rnd(0, Math.PI * 2) }));
+    if (d.shipPos) { ship.x = d.shipPos.x; ship.y = d.shipPos.y; ship.angle = d.shipPos.angle; }
+    ship.vx = 0; ship.vy = 0;
+    asteroids = makeAsteroids(46);
+    raiders = []; bullets = []; particles = [];
+    stars = makeStars();
+    cam.x = ship.x - W / 2; cam.y = ship.y - H / 2;
+    return true;
+  } catch (e) { return false; }
+}
+
+// ============ PARTICLES ============
+function burst(x, y, color, n, spd) {
+  for (let i = 0; i < n; i++) {
+    const a = rnd(0, Math.PI * 2), s = rnd(0.5, spd || 3.5);
+    particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 1, decay: rnd(0.012, 0.03), color, size: rnd(1.5, 3.5) });
+  }
+}
+
+function exhaust() {
+  const a = ship.angle + Math.PI;
+  const bx = ship.x + Math.cos(a) * 12;
+  const by = ship.y + Math.sin(a) * 12;
+  particles.push({
+    x: bx, y: by,
+    vx: Math.cos(a) * rnd(1.5, 3) + rnd(-0.4, 0.4),
+    vy: Math.sin(a) * rnd(1.5, 3) + rnd(-0.4, 0.4),
+    life: 0.6, decay: rnd(0.04, 0.07),
+    color: Math.random() < 0.5 ? '#4ff0e0' : '#7c6cff', size: rnd(1, 2.6)
+  });
+}
+
+// ============ INPUT ============
+const keys = { w: false, a: false, d: false, s: false, fire: false };
+const touchKeys = { left: false, right: false, thrust: false, fire: false };
+
+document.addEventListener('keydown', e => {
+  const c = e.code;
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE', 'KeyP'].includes(c)) e.preventDefault();
+  if (c === 'KeyW' || c === 'ArrowUp') keys.w = true;
+  if (c === 'KeyS' || c === 'ArrowDown') keys.s = true;
+  if (c === 'KeyA' || c === 'ArrowLeft') keys.a = true;
+  if (c === 'KeyD' || c === 'ArrowRight') keys.d = true;
+  if (c === 'Space') keys.fire = true;
+  if (c === 'KeyE') tryInteract();
+  if (c === 'KeyP') togglePause();
+});
+document.addEventListener('keyup', e => {
+  const c = e.code;
+  if (c === 'KeyW' || c === 'ArrowUp') keys.w = false;
+  if (c === 'KeyS' || c === 'ArrowDown') keys.s = false;
+  if (c === 'KeyA' || c === 'ArrowLeft') keys.a = false;
+  if (c === 'KeyD' || c === 'ArrowRight') keys.d = false;
+  if (c === 'Space') keys.fire = false;
+});
+
+function bindHold(id, prop) {
+  const el = document.getElementById(id);
+  const on = e => { e.preventDefault(); touchKeys[prop] = true; };
+  const off = e => { e.preventDefault(); touchKeys[prop] = false; };
+  el.addEventListener('touchstart', on, { passive: false });
+  el.addEventListener('touchend', off, { passive: false });
+  el.addEventListener('touchcancel', off, { passive: false });
+  el.addEventListener('mousedown', on);
+  el.addEventListener('mouseup', off);
+  el.addEventListener('mouseleave', off);
+}
+bindHold('tLeft', 'left');
+bindHold('tRight', 'right');
+bindHold('tThrust', 'thrust');
+bindHold('tFire', 'fire');
+document.getElementById('tAct').addEventListener('click', e => { e.preventDefault(); tryInteract(); });
+
+if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+  touchControls.classList.add('on');
+}
+
+// ============ INTERACTION (mine / refuel / dock) ============
+function tryInteract() {
+  if (!running || paused || docking) return;
+  if (!nearTarget) return;
+
+  if (nearKind === 'station') {
+    openStation(nearTarget);
+    return;
+  }
+  if (speedOf(ship) > 3.2) { toast('Too fast to land — slow down'); beep(160, 0.14, 'sawtooth'); return; }
+
+  const p = nearTarget;
+  if (p.type === 'gas') {
+    const room = ship.fuelMax - ship.fuel;
+    const take = Math.min(room, p.amount, 18);
+    if (take <= 0.5) { toast(ship.fuel >= ship.fuelMax - 0.5 ? 'Fuel tanks already full' : 'Gas giant depleted'); beep(150, 0.12, 'sawtooth'); return; }
+    p.amount -= take; ship.fuel += take;
+    burst(p.x + rnd(-p.r, p.r), p.y + rnd(-p.r, p.r), '#ffb347', 14, 3);
+    beep(520, 0.09, 'sine'); beep(760, 0.09, 'sine');
+    toast('+' + Math.round(take) + ' fuel');
+  } else {
+    const room = ship.cargoMax - ship.cargo;
+    const take = Math.min(room, p.amount, 4 + upgrades.cargo);
+    if (take <= 0.5) { toast(ship.cargo >= ship.cargoMax ? 'Cargo hold full' : 'Deposit exhausted'); beep(150, 0.12, 'sawtooth'); return; }
+    p.amount -= take; ship.cargo += take;
+    burst(p.x + rnd(-p.r, p.r), p.y + rnd(-p.r, p.r), 'hsl(' + p.hue + ',85%,60%)', 14, 3.5);
+    beep(340, 0.1, 'square');
+    toast('+' + Math.round(take) + ' ore');
+  }
+}
+
+// ============ STATION PANEL ============
+function openStation(st) {
+  docking = true;
+  paused = false;
+  stationName.textContent = st.name;
+  renderStation();
+  tradePanel.classList.remove('hidden');
+  beep(660, 0.09, 'sine');
+}
+
+function closeStation() {
+  docking = false;
+  tradePanel.classList.add('hidden');
+  saveGame();
+}
+
+function renderStation() {
+  stationCredits.textContent = '₡ ' + credits + '   |   Ore ' + ship.cargo + '/' + ship.cargoMax;
+  const cargoLvl = upgrades.cargo;
+  const thrLvl = upgrades.thruster;
+  const scanLvl = upgrades.scanner;
+  const hullLvl = upgrades.hull;
+
+  const cargoCost = 90 + cargoLvl * 70;
+  const thrCost = 110 + thrLvl * 90;
+  const scanCost = 80 + scanLvl * 65;
+  const hullCost = 100 + hullLvl * 80;
+
+  tradeGrid.innerHTML = '';
+
+  // Sell ore
+  addCard('Sell Cargo',
+    'Ore aboard: <span class="lvl">' + ship.cargo + '</span> @ ₡' + PRICE_ORE + '/unit',
+    'Sell all (+₡' + (ship.cargo * PRICE_ORE) + ')',
+    ship.cargo <= 0, () => {
+      if (ship.cargo <= 0) return;
+      credits += ship.cargo * PRICE_ORE;
+      ship.cargo = 0;
+      beep(880, 0.09, 'sine'); beep(1180, 0.1, 'sine');
+      toast('Cargo sold');
+      renderStation();
+    });
+
+  // Buy fuel
+  const fuelRoom = Math.ceil(ship.fuelMax - ship.fuel);
+  const fuelCost = Math.ceil(fuelRoom * FUEL_PRICE);
+  addCard('Refuel',
+    'Tank: <span class="lvl">' + Math.round(ship.fuel) + '/' + ship.fuelMax + '</span>',
+    'Fill tank (₡' + fuelCost + ')',
+    fuelRoom <= 0 || credits < fuelCost, () => {
+      if (fuelRoom <= 0 || credits < fuelCost) return;
+      credits -= fuelCost; ship.fuel = ship.fuelMax;
+      beep(700, 0.09, 'sine');
+      toast('Tanks filled');
+      renderStation();
+    });
+
+  // Repair
+  const hullRoom = Math.ceil(ship.hullMax - ship.hull);
+  const repairCost = Math.ceil(hullRoom * REPAIR_PRICE);
+  addCard('Repair Hull',
+    'Integrity: <span class="lvl">' + Math.round(ship.hull) + '/' + ship.hullMax + '</span>',
+    'Repair (₡' + repairCost + ')',
+    hullRoom <= 0 || credits < repairCost, () => {
+      if (hullRoom <= 0 || credits < repairCost) return;
+      credits -= repairCost; ship.hull = ship.hullMax;
+      beep(760, 0.12, 'triangle');
+      toast('Hull repaired');
+      renderStation();
+    });
+
+  // Upgrades
+  addCard('Cargo Bay <span class="lvl">Lv' + cargoLvl + '</span>',
+    'Capacity <span class="lvl">' + ship.cargoMax + '</span> units',
+    'Upgrade (₡' + cargoCost + ')',
+    credits < cargoCost || cargoLvl >= 6, () => {
+      credits -= cargoCost; upgrades.cargo++; ship.cargoMax += 10;
+      beep(980, 0.11, 'square');
+      toast('Cargo bay expanded');
+      renderStation();
+    });
+
+  addCard('Thruster <span class="lvl">Lv' + thrLvl + '</span>',
+    'Acceleration &amp; top speed',
+    'Upgrade (₡' + thrCost + ')',
+    credits < thrCost || thrLvl >= 6, () => {
+      credits -= thrCost; upgrades.thruster++;
+      beep(1020, 0.11, 'square');
+      toast('Thrusters upgraded');
+      renderStation();
+    });
+
+  addCard('Scanner <span class="lvl">Lv' + scanLvl + '</span>',
+    'Detect resources from <span class="lvl">' + (600 + scanLvl * 320) + '</span> units',
+    'Upgrade (₡' + scanCost + ')',
+    credits < scanCost || scanLvl >= 6, () => {
+      credits -= scanCost; upgrades.scanner++;
+      beep(1060, 0.11, 'square');
+      toast('Scanner upgraded');
+      renderStation();
+    });
+
+  addCard('Reinforced Hull <span class="lvl">Lv' + hullLvl + '</span>',
+    'Max integrity <span class="lvl">' + ship.hullMax + '</span>',
+    'Upgrade (₡' + hullCost + ')',
+    credits < hullCost || hullLvl >= 5, () => {
+      credits -= hullCost; upgrades.hull++; ship.hullMax += 25; ship.hull = ship.hullMax;
+      beep(1040, 0.11, 'square');
+      toast('Hull reinforced');
+      renderStation();
+    });
+}
+
+function addCard(title, desc, btnLabel, disabled, fn) {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = '<h4>' + title + '</h4><p>' + desc + '</p>';
+  const b = document.createElement('button');
+  b.textContent = btnLabel;
+  b.disabled = !!disabled;
+  b.addEventListener('click', fn);
+  card.appendChild(b);
+  tradeGrid.appendChild(card);
+}
+
+// ============ SHIP UPDATE ============
+function updateShip(dt) {
+  const turnSpeed = 3.4 * dt;
+  const accel = 0.18 + upgrades.thruster * 0.055;
+  const maxSpd = 5.4 + upgrades.thruster * 0.75;
+
+  const left = keys.a || touchKeys.left;
+  const right = keys.d || touchKeys.right;
+  const thrust = keys.w || touchKeys.thrust;
+  const reverse = keys.s;
+
+  if (left) ship.angle -= turnSpeed;
+  if (right) ship.angle += turnSpeed;
+
+  const hasFuel = ship.fuel > 0.1;
+  const emergency = !hasFuel; // limp-home reserve
+  if (thrust && (hasFuel || emergency)) {
+    const a = accel * (emergency ? 0.35 : 1);
+    ship.vx += Math.cos(ship.angle) * a;
+    ship.vy += Math.sin(ship.angle) * a;
+    if (hasFuel) ship.fuel = Math.max(0, ship.fuel - 0.09);
+    exhaust();
+    if (Math.random() < 0.25) beep(rnd(90, 140), 0.05, 'sawtooth', 0.02);
+  }
+  if (reverse) {
+    ship.vx -= Math.cos(ship.angle) * 0.07;
+    ship.vy -= Math.sin(ship.angle) * 0.07;
+  }
+
+  // Speed clamp + drag
+  const sp = speedOf(ship);
+  if (sp > maxSpd) { ship.vx = ship.vx / sp * maxSpd; ship.vy = ship.vy / sp * maxSpd; }
+  ship.vx *= 0.992; ship.vy *= 0.992;
+  ship.x += ship.vx; ship.y += ship.vy;
+
+  // World bounds
+  const m = 30;
+  if (ship.x < m) { ship.x = m; ship.vx = Math.abs(ship.vx) * 0.4; }
+  if (ship.x > WORLD.w - m) { ship.x = WORLD.w - m; ship.vx = -Math.abs(ship.vx) * 0.4; }
+  if (ship.y < m) { ship.y = m; ship.vy = Math.abs(ship.vy) * 0.4; }
+  if (ship.y > WORLD.h - m) { ship.y = WORLD.h - m; ship.vy = -Math.abs(ship.vy) * 0.4; }
+
+  // Weapons
+  ship.fireCd -= dt;
+  if ((keys.fire || touchKeys.fire) && ship.fireCd <= 0) {
+    ship.fireCd = 0.24;
+    bullets.push({
+      x: ship.x + Math.cos(ship.angle) * 16,
+      y: ship.y + Math.sin(ship.angle) * 16,
+      vx: Math.cos(ship.angle) * 11 + ship.vx * 0.5,
+      vy: Math.sin(ship.angle) * 11 + ship.vy * 0.5,
+      life: 1.5, friendly: true, r: 3
+    });
+    beep(920, 0.06, 'square', 0.035);
+  }
+
+  if (ship.invuln > 0) ship.invuln -= dt;
+
+  // Track nearest interactable
+  updateNearTarget();
+}
+
+function updateNearTarget() {
+  const scanRange = 600 + upgrades.scanner * 320;
+  nearTarget = null; nearKind = '';
+  let best = Infinity;
+
+  for (const p of planets) {
+    const d = Math.hypot(p.x - ship.x, p.y - ship.y);
+    if (d < p.r + 70 && d < best) { best = d; nearTarget = p; nearKind = p.type; }
+  }
+  for (const s of stations) {
+    const d = Math.hypot(s.x - ship.x, s.y - ship.y);
+    if (d < s.r + 70 && d < best) { best = d; nearTarget = s; nearKind = 'station'; }
+  }
+  // Scanner reveals distant targets on HUD minimap (handled in render)
+  ship._scanRange = scanRange;
+}
+
+// ============ ASTEROIDS ============
+function updateAsteroids(dt) {
+  for (const a of asteroids) {
+    a.x += a.vx; a.y += a.vy; a.angle += a.spin;
+    if (a.x < a.r) { a.x = a.r; a.vx *= -1; }
+    if (a.x > WORLD.w - a.r) { a.x = WORLD.w - a.r; a.vx *= -1; }
+    if (a.y < a.r) { a.y = a.r; a.vy *= -1; }
+    if (a.y > WORLD.h - a.r) { a.y = WORLD.h - a.r; a.vy *= -1; }
+
+    // Ship collision
+    if (ship.invuln <= 0 && dist2(a.x, a.y, ship.x, ship.y) < (a.r + 12) * (a.r + 12)) {
+      damageShip(14 + a.r * 0.18);
+      const ang = Math.atan2(ship.y - a.y, ship.x - a.x);
+      ship.vx += Math.cos(ang) * 3; ship.vy += Math.sin(ang) * 3;
+      burst(ship.x, ship.y, '#c9d6f0', 12, 3);
+      beep(120, 0.18, 'sawtooth', 0.07);
+    }
+  }
+}
+
+function damageShip(amount) {
+  if (ship.invuln > 0) return;
+  ship.hull -= amount;
+  ship.invuln = 0.5;
+  burst(ship.x, ship.y, '#ff5d73', 10, 3);
+  beep(180, 0.16, 'sawtooth', 0.06);
+  if (ship.hull <= 0) { ship.hull = 0; gameOver(); }
+}
+
+// ============ RAIDERS ============
+function spawnRaider() {
+  const edge = Math.floor(rnd(0, 4));
+  let x, y;
+  if (edge === 0) { x = rnd(0, WORLD.w); y = 0; }
+  else if (edge === 1) { x = WORLD.w; y = rnd(0, WORLD.h); }
+  else if (edge === 2) { x = rnd(0, WORLD.w); y = WORLD.h; }
+  else { x = 0; y = rnd(0, WORLD.h); }
+  // spawn just outside view of player
+  x = clamp(x, 60, WORLD.w - 60); y = clamp(y, 60, WORLD.h - 60);
+  raiders.push({
+    x, y, vx: 0, vy: 0, angle: 0,
+    hull: 34, fireCd: rnd(1, 2.5), aggro: 0
+  });
+  toast('⚠ Raider detected');
+  beep(300, 0.2, 'sawtooth', 0.05);
+}
+
+function updateRaiders(dt) {
+  raiderTimer -= dt;
+  if (raiderTimer <= 0 && raiders.length < 4) {
+    spawnRaider();
+    raiderTimer = rnd(12, 22);
+  }
+
+  for (let i = raiders.length - 1; i >= 0; i--) {
+    const r = raiders[i];
+    const dx = ship.x - r.x, dy = ship.y - r.y;
+    const d = Math.hypot(dx, dy);
+    const desireAngle = Math.atan2(dy, dx);
+
+    if (d < 900) r.aggro = 1;
+
+    if (r.aggro) {
+      // steer toward player
+      let diff = desireAngle - r.angle;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      r.angle += clamp(diff, -0.05, 0.05);
+      // maintain standoff distance
+      const drive = d > 320 ? 0.11 : -0.05;
+      r.vx += Math.cos(r.angle) * drive;
+      r.vy += Math.sin(r.angle) * drive;
+      r.vx *= 0.985; r.vy *= 0.985;
+      const sp = Math.hypot(r.vx, r.vy);
+      if (sp > 3.4) { r.vx = r.vx / sp * 3.4; r.vy = r.vy / sp * 3.4; }
+
+      r.fireCd -= dt;
+      if (r.fireCd <= 0 && d < 620) {
+        r.fireCd = rnd(0.9, 1.7);
+        const spread = rnd(-0.09, 0.09);
+        bullets.push({
+          x: r.x + Math.cos(r.angle) * 14,
+          y: r.y + Math.sin(r.angle) * 14,
+          vx: Math.cos(r.angle + spread) * 7.5,
+          vy: Math.sin(r.angle + spread) * 7.5,
+          life: 2.2, friendly: false, r: 3
+        });
+        beep(420, 0.07, 'sawtooth', 0.03);
+      }
+    }
+
+    r.x += r.vx; r.y += r.vy;
+
+    // collide with player
+    if (ship.invuln <= 0 && dist2(r.x, r.y, ship.x, ship.y) < 26 * 26) {
+      damageShip(9);
+      r.hull -= 8;
+      burst(r.x, r.y, '#ff8a5d', 10, 3);
+    }
+  }
+}
+
+// ============ BULLETS ============
+function updateBullets(dt) {
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    const b = bullets[i];
+    b.x += b.vx; b.y += b.vy; b.life -= dt;
+    let dead = b.life <= 0 || b.x < -50 || b.x > WORLD.w + 50 || b.y < -50 || b.y > WORLD.h + 50;
+
+    if (!dead) {
+      if (b.friendly) {
+        for (let j = raiders.length - 1; j >= 0; j--) {
+          const r = raiders[j];
+          if (dist2(b.x, b.y, r.x, r.y) < 20 * 20) {
+            r.hull -= 14; dead = true;
+            burst(b.x, b.y, '#ffb347', 8, 3);
+            if (r.hull <= 0) { destroyRaider(j); }
+            break;
+          }
+        }
+        if (!dead) for (const a of asteroids) {
+          if (dist2(b.x, b.y, a.x, a.y) < a.r * a.r) {
+            dead = true; burst(b.x, b.y, '#8fa4cc', 6, 2.4);
+            break;
+          }
+        }
+      } else {
+        if (ship.invuln <= 0 && dist2(b.x, b.y, ship.x, ship.y) < 14 * 14) {
+          damageShip(8); dead = true;
+          burst(b.x, b.y, '#ff5d73', 8, 3);
+        }
+      }
+    }
+    if (dead) bullets.splice(i, 1);
+  }
+}
+
+function destroyRaider(index) {
+  const r = raiders[index];
+  burst(r.x, r.y, '#ffb347', 26, 5);
+  burst(r.x, r.y, '#ff5d73', 18, 4);
+  const reward = 40 + Math.floor(rnd(0, 40));
+  credits += reward;
+  ship.fuel = Math.min(ship.fuelMax, ship.fuel + 6);
+  beep(220, 0.18, 'sawtooth', 0.06);
+  beep(520, 0.2, 'square', 0.05);
+  // chance to drop ore
+  if (Math.random() < 0.5 && ship.cargo < ship.cargoMax) {
+    ship.cargo = Math.min(ship.cargoMax, ship.cargo + 2);
+  }
+  toast('Raider destroyed +₡' + reward);
+  raiders.splice(index, 1);
+}
+
+// ============ WORLD SIM ============
+function updateWorld(dt) {
+  // Planet regen
+  for (const p of planets) {
+    const rate = p.type === 'gas' ? 0.35 : 0.22;
+    if (p.amount < p.amountMax) p.amount = Math.min(p.amountMax, p.amount + rate * dt);
+    p.cool += p.spin * dt;
+  }
+  for (const s of stations) s.angle += s.spin * dt;
+
+  updateShip(dt);
+  updateAsteroids(dt);
+  updateRaiders(dt);
+  updateBullets(dt);
+
+  // particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy; p.vx *= 0.97; p.vy *= 0.97; p.life -= p.decay;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+  gameTime += dt;
+
+  // autosave every ~5s
+  if (Math.floor(gameTime) % 5 === 0 && Math.floor(gameTime) !== ship._lastSave) {
+    ship._lastSave = Math.floor(gameTime);
+    saveGame();
+  }
+
+  // camera follow (smoothed, leads slightly)
+  const tx = ship.x + ship.vx * 26 - W / 2;
+  const ty = ship.y + ship.vy * 26 - H / 2;
+  cam.x += (tx - cam.x) * 0.09;
+  cam.y += (ty - cam.y) * 0.09;
+}
+
+// ============ RENDER ============
+function render() {
+  ctx.fillStyle = '#03040c';
+  ctx.fillRect(0, 0, W, H);
+
+  drawStars();
+  ctx.save();
+  ctx.translate(-cam.x, -cam.y);
+
+  drawBoundary();
+  drawPlanets();
+  drawStations();
+  drawAsteroids();
+  drawBullets();
+  drawRaiders();
+  drawParticles();
+  drawShip();
+
+  ctx.restore();
+
+  drawVignette();
+  drawMinimap();
+  drawPrompt();
+  drawCrosshair();
+}
+
+function drawStars() {
+  for (const s of stars) {
+    const px = (s.x - cam.x * s.layer) % W;
+    const py = (s.y - cam.y * s.layer) % H;
+    const x = px < 0 ? px + W : px;
+    const y = py < 0 ? py + H : py;
+    ctx.globalAlpha = s.a;
+    ctx.fillStyle = s.layer > 0.4 ? '#cfe6ff' : '#8aa4d8';
+    ctx.fillRect(x, y, s.s, s.s);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawBoundary() {
+  ctx.strokeStyle = 'rgba(79,240,224,0.12)';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([14, 12]);
+  ctx.strokeRect(0, 0, WORLD.w, WORLD.h);
+  ctx.setLineDash([]);
+}
+
+function drawPlanets() {
+  for (const p of planets) {
+    // glow
+    const g = ctx.createRadialGradient(p.x, p.y, p.r * 0.6, p.x, p.y, p.r * 2.1);
+    g.addColorStop(0, 'hsla(' + p.hue + ',80%,55%,0.22)');
+    g.addColorStop(1, 'hsla(' + p.hue + ',80%,55%,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 2.1, 0, Math.PI * 2); ctx.fill();
+
+    // ring (behind)
+    if (p.ring) {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(-0.4);
+      ctx.strokeStyle = 'hsla(' + p.hue + ',60%,70%,0.4)';
+      ctx.lineWidth = p.r * 0.16;
+      ctx.beginPath(); ctx.ellipse(0, 0, p.r * 1.7, p.r * 0.45, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
+
+    // body
+    const bg = ctx.createRadialGradient(p.x - p.r * 0.35, p.y - p.r * 0.35, p.r * 0.1, p.x, p.y, p.r);
+    bg.addColorStop(0, 'hsl(' + p.hue + ',85%,72%)');
+    bg.addColorStop(0.6, 'hsl(' + p.hue + ',70%,48%)');
+    bg.addColorStop(1, 'hsl(' + p.hue + ',65%,24%)');
+    ctx.fillStyle = bg;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+
+    // bands / craters
+    ctx.save();
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.clip();
+    ctx.globalAlpha = 0.16;
+    ctx.fillStyle = p.type === 'gas' ? '#ffffff' : '#000000';
+    const bandCount = p.type === 'gas' ? 5 : 4;
+    for (let i = 0; i < bandCount; i++) {
+      const by = p.y + Math.sin(p.cool + i * 1.7) * p.r * 0.4 + (i - bandCount / 2) * p.r * 0.32;
+      ctx.beginPath();
+      ctx.ellipse(p.x, by, p.r * 0.95, p.r * 0.13, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
+
+    // deposit indicator when in scanner range
+    const d = Math.hypot(p.x - ship.x, p.y - ship.y);
+    if (d < (ship._scanRange || 600)) {
+      const frac = p.amount / p.amountMax;
+      const col = p.type === 'gas' ? '#ffb347' : 'hsl(' + p.hue + ',90%,62%)';
+      ctx.strokeStyle = col;
+      ctx.globalAlpha = 0.9;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r + 12, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      ctx.fillStyle = 'rgba(215,230,255,0.85)';
+      ctx.font = '12px Consolas, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(p.name + ' · ' + Math.round(p.amount), p.x, p.y - p.r - 22);
+      ctx.fillStyle = col;
+      ctx.fillText(p.type === 'gas' ? 'FUEL' : 'ORE', p.x, p.y - p.r - 8);
+    }
+  }
+}
+
+function drawStations() {
+  for (const s of stations) {
+    // halo
+    const g = ctx.createRadialGradient(s.x, s.y, 4, s.x, s.y, 110);
+    g.addColorStop(0, 'rgba(79,240,224,0.28)');
+    g.addColorStop(1, 'rgba(79,240,224,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(s.x, s.y, 110, 0, Math.PI * 2); ctx.fill();
+
+    ctx.save();
+    ctx.translate(s.x, s.y);
+    ctx.rotate(s.angle);
+    // core
+    ctx.fillStyle = '#1a2444';
+    ctx.strokeStyle = '#4ff0e0';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = i / 6 * Math.PI * 2;
+      const px = Math.cos(a) * s.r, py = Math.sin(a) * s.r;
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    // inner ring
+    ctx.strokeStyle = 'rgba(124,108,255,0.9)';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(0, 0, s.r * 0.5, 0, Math.PI * 2); ctx.stroke();
+    // spokes
+    ctx.strokeStyle = 'rgba(79,240,224,0.5)';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 6; i++) {
+      const a = i / 6 * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * s.r * 0.5, Math.sin(a) * s.r * 0.5);
+      ctx.lineTo(Math.cos(a) * s.r, Math.sin(a) * s.r);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    ctx.fillStyle = 'rgba(215,230,255,0.9)';
+    ctx.font = 'bold 12px Consolas, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(s.name, s.x, s.y - s.r - 16);
+    ctx.fillStyle = '#ffb347';
+    ctx.font = '11px Consolas, monospace';
+    ctx.fillText('TRADE · DOCK', s.x, s.y + s.r + 22);
+  }
+}
+
+function drawAsteroids() {
+  ctx.strokeStyle = 'rgba(160,180,220,0.55)';
+  ctx.lineWidth = 1.5;
+  for (const a of asteroids) {
+    ctx.save();
+    ctx.translate(a.x, a.y);
+    ctx.rotate(a.angle);
+    const g = ctx.createRadialGradient(-a.r * 0.3, -a.r * 0.3, a.r * 0.1, 0, 0, a.r);
+    g.addColorStop(0, '#5a6789');
+    g.addColorStop(1, '#252c44');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    for (let i = 0; i < a.verts.length; i++) {
+      const ang = i / a.verts.length * Math.PI * 2;
+      const rr = a.r * a.verts[i];
+      const px = Math.cos(ang) * rr, py = Math.sin(ang) * rr;
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawBullets() {
+  for (const b of bullets) {
+    ctx.fillStyle = b.friendly ? '#ffb347' : '#ff5d73';
+    ctx.shadowColor = ctx.fillStyle;
+    ctx.shadowBlur = 10;
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+}
+
+function drawRaiders() {
+  for (const r of raiders) {
+    ctx.save();
+    ctx.translate(r.x, r.y);
+    ctx.rotate(r.angle);
+    ctx.fillStyle = '#2a1220';
+    ctx.strokeStyle = '#ff5d73';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(16, 0);
+    ctx.lineTo(-10, -11);
+    ctx.lineTo(-4, 0);
+    ctx.lineTo(-10, 11);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,93,115,0.7)';
+    ctx.beginPath(); ctx.arc(2, 0, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    // health bar
+    const frac = clamp(r.hull / 34, 0, 1);
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(r.x - 16, r.y - 26, 32, 4);
+    ctx.fillStyle = '#ff5d73';
+    ctx.fillRect(r.x - 16, r.y - 26, 32 * frac, 4);
+  }
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    ctx.globalAlpha = clamp(p.life, 0, 1);
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawShip() {
+  ctx.save();
+  ctx.translate(ship.x, ship.y);
+  ctx.rotate(ship.angle);
+
+  if (ship.invuln > 0 && Math.floor(ship.invuln * 20) % 2 === 0) ctx.globalAlpha = 0.45;
+
+  // hull glow
+  ctx.shadowColor = '#4ff0e0';
+  ctx.shadowBlur = 14;
+
+  // body
+  const bg = ctx.createLinearGradient(-14, 0, 16, 0);
+  bg.addColorStop(0, '#1a2444');
+  bg.addColorStop(1, '#3a4b7a');
+  ctx.fillStyle = bg;
+  ctx.strokeStyle = '#4ff0e0';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(17, 0);
+  ctx.lineTo(-11, -10);
+  ctx.lineTo(-6, 0);
+  ctx.lineTo(-11, 10);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // cockpit
+  ctx.fillStyle = '#7c6cff';
+  ctx.beginPath(); ctx.arc(3, 0, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.beginPath(); ctx.arc(4, -1, 1.6, 0, Math.PI * 2); ctx.fill();
+
+  ctx.restore();
+  ctx.globalAlpha = 1;
+
+  // shield ring when invulnerable
+  if (ship.invuln > 0) {
+    ctx.strokeStyle = 'rgba(255,93,115,0.5)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(ship.x, ship.y, 24, 0, Math.PI * 2); ctx.stroke();
+  }
+}
+
+function drawVignette() {
+  const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.85);
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(1, 'rgba(0,0,0,0.55)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function drawMinimap() {
+  const mw = 168, mh = 128, mx = W - mw - 14, my = 14;
+  const sx = mw / WORLD.w, sy = mh / WORLD.h;
+
+  ctx.fillStyle = 'rgba(6,10,24,0.82)';
+  ctx.strokeStyle = 'rgba(79,240,224,0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.roundRect(mx, my, mw, mh, 8); ctx.fill(); ctx.stroke();
+
+  const scanRange = ship._scanRange || 600;
+  for (const p of planets) {
+    const d = Math.hypot(p.x - ship.x, p.y - ship.y);
+    const known = d < scanRange;
+    ctx.fillStyle = known ? 'hsl(' + p.hue + ',85%,60%)' : 'rgba(120,140,180,0.5)';
+    ctx.beginPath();
+    ctx.arc(mx + p.x * sx, my + p.y * sy, Math.max(2, p.r * sx * 1.3), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  for (const s of stations) {
+    ctx.fillStyle = '#4ff0e0';
+    ctx.fillRect(mx + s.x * sx - 3, my + s.y * sy - 3, 6, 6);
+  }
+  for (const r of raiders) {
+    ctx.fillStyle = '#ff5d73';
+    ctx.beginPath(); ctx.arc(mx + r.x * sx, my + r.y * sy, 2.5, 0, Math.PI * 2); ctx.fill();
+  }
+  // ship
+  ctx.save();
+  ctx.translate(mx + ship.x * sx, my + ship.y * sy);
+  ctx.rotate(ship.angle);
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.moveTo(5, 0); ctx.lineTo(-3, -3); ctx.lineTo(-3, 3);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+
+  // viewport rect
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.strokeRect(mx + cam.x * sx, my + cam.y * sy, W * sx, H * sy);
+
+  ctx.fillStyle = 'rgba(159,180,224,0.9)';
+  ctx.font = '10px Consolas, monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('SYSTEM MAP', mx + 8, my + 14);
+}
+
+function drawCrosshair() {
+  ctx.strokeStyle = 'rgba(79,240,224,0.22)';
+  ctx.lineWidth = 1;
+  const cx = W / 2, cy = H / 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 26, 0, Math.PI * 2);
+  ctx.moveTo(cx - 34, cy); ctx.lineTo(cx - 14, cy);
+  ctx.moveTo(cx + 14, cy); ctx.lineTo(cx + 34, cy);
+  ctx.stroke();
+}
+
+function drawPrompt() {
+  if (!nearTarget) return;
+  let text;
+  if (nearKind === 'station') text = '[E] DOCK — ' + nearTarget.name;
+  else if (nearKind === 'gas') text = '[E] SIPHON FUEL — ' + nearTarget.name;
+  else text = '[E] MINE ORE — ' + nearTarget.name;
+
+  const canDo = nearKind === 'station' ? true : speedOf(ship) <= 3.2;
+  const x = W / 2, y = H - 42;
+  ctx.font = 'bold 14px Consolas, monospace';
+  ctx.textAlign = 'center';
+  const tw = ctx.measureText(text).width;
+  ctx.fillStyle = 'rgba(6,10,24,0.85)';
+  ctx.strokeStyle = canDo ? 'rgba(79,240,224,0.8)' : 'rgba(255,179,71,0.8)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.roundRect(x - tw / 2 - 16, y - 20, tw + 32, 30, 15); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = canDo ? '#4ff0e0' : '#ffb347';
+  ctx.fillText(text, x, y);
+  if (!canDo) {
+    ctx.fillStyle = 'rgba(255,179,71,0.75)';
+    ctx.font = '11px Consolas, monospace';
+    ctx.fillText('reduce speed to land', x, y + 18);
+  }
+}
+
+// ============ HUD UPDATE ============
+function updateHUD() {
+  const cap = ship.cargoMax;
+  hCredits.textContent = credits;
+  hOre.textContent = Math.round(ship.cargo) + ' / ' + cap;
+  hFuel.textContent = Math.round(ship.fuel) + '%';
+  hHull.textContent = Math.round(ship.hull) + '%';
+  hWealth.textContent = wealth();
+  bFuel.style.width = clamp(ship.fuel / ship.fuelMax * 100, 0, 100) + '%';
+  bHull.style.width = clamp(ship.hull / ship.hullMax * 100, 0, 100) + '%';
+
+  document.getElementById('hFuel').parentElement.classList.toggle('warn', ship.fuel < 20);
+  document.getElementById('hHull').parentElement.classList.toggle('warn', ship.hull < 35);
+
+  // sector readout: nearest notable object
+  let nearest = null, nd = Infinity, kind = '';
+  for (const s of stations) { const d = Math.hypot(s.x - ship.x, s.y - ship.y); if (d < nd) { nd = d; nearest = s; kind = 'Dock'; } }
+  for (const p of planets) { const d = Math.hypot(p.x - ship.x, p.y - ship.y); if (d < nd) { nd = d; nearest = p; kind = p.type === 'gas' ? 'Fuel' : 'Ore'; } }
+  if (nearest) {
+    hSector.textContent = (nearest.name || kind) + ' · ' + Math.round(nd);
+    hSector.style.color = kind === 'Dock' ? '#4ff0e0' : (kind === 'Fuel' ? '#ffb347' : '#9fe0d0');
+  }
+}
+
+// ============ GAME LOOP ============
+function loop(now) {
+  if (!running) return;
+  const dt = Math.min(0.05, (now - lastTime) / 1000 || 0);
+  lastTime = now;
+
+  if (!paused && !docking) {
+    updateWorld(dt);
+    updateHUD();
+  }
+  render();
+
+  requestAnimationFrame(loop);
+}
+
+// ============ FLOW CONTROL ============
+function startRun(useSave) {
+  if (useSave && hasSave()) {
+    if (!loadGame()) { generateWorld(); toast('Save corrupted — new system generated'); }
+  } else {
+    generateWorld();
+  }
+  ship._lastSave = -1;
+  running = true;
+  paused = false;
+  docking = false;
+  tradePanel.classList.add('hidden');
+  startScreen.classList.add('hidden');
+  gameOverScreen.classList.add('hidden');
+  pauseTag.classList.remove('visible');
+  lastTime = performance.now();
+  updateHUD();
+  toast(useSave ? 'Progress restored' : 'Welcome to the uncharted system');
+  beep(520, 0.1, 'sine'); beep(780, 0.12, 'sine');
+  requestAnimationFrame(loop);
+}
+
+function togglePause() {
+  if (!running || docking) return;
+  paused = !paused;
+  pauseTag.classList.toggle('visible', paused);
+  if (!paused) { lastTime = performance.now(); }
+  beep(paused ? 300 : 480, 0.08, 'sine');
+}
+
+function gameOver() {
+  running = false;
+  paused = false;
+  const w = wealth();
+  if (w > bestWealth) bestWealth = w;
+  saveGame();
+  finalStats.innerHTML =
+    'Credits earned: ₡' + credits + '<br>' +
+    'Final wealth: ₡' + w + '<br>' +
+    'Best wealth: ₡' + bestWealth + '<br>' +
+    'Systems charted: ' + planets.length + ' · Upgrades: ' +
+    (upgrades.cargo + upgrades.thruster + upgrades.scanner + upgrades.hull);
+  gameOverScreen.classList.remove('hidden');
+  beep(220, 0.3, 'sawtooth', 0.07);
+  beep(140, 0.5, 'sawtooth', 0.06);
+}
+
+// ============ BUTTON LISTENERS ============
+document.getElementById('startBtn').addEventListener('click', () => startRun(false));
+document.getElementById('continueBtn').addEventListener('click', () => startRun(true));
+document.getElementById('againBtn').addEventListener('click', () => startRun(false));
+document.getElementById('resumeBtn').addEventListener('click', () => startRun(true));
+closePanel.addEventListener('click', closeStation);
+
+// ============ INITIAL DRAW ============
+generateWorld();
+updateHUD();
+render();
+if (!hasSave()) document.getElementById('continueBtn').disabled = true;
+</script>
+</body>
+</html>

@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>🛰️ Space Station Sim</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg0: #04050e;
+    --bg1: #0a0f24;
+    --panel: rgba(16, 22, 48, 0.92);
+    --panel-2: rgba(10, 14, 34, 0.9);
+    --line: #23326b;
+    --line-soft: rgba(90, 130, 220, 0.18);
+    --ink: #dfe9ff;
+    --ink-dim: #8ea0cf;
+    --cyan: #6be3ff;
+    --amber: #ffd166;
+    --green: #8ef0a3;
+    --purple: #c79bff;
+    --pink: #ff9fb0;
+    --red: #ff6b7f;
+    --mono: 'Consolas', 'SFMono-Regular', 'Roboto Mono', monospace;
+  }
+
+  html, body { height: 100%; }
+
+  body {
+    font-family: 'Trebuchet MS', 'Segoe UI', Tahoma, sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(1200px 700px at 80% -10%, rgba(60, 110, 220, 0.18), transparent 60%),
+      radial-gradient(900px 600px at -10% 110%, rgba(140, 80, 220, 0.16), transparent 60%),
+      linear-gradient(160deg, var(--bg0), var(--bg1) 70%, #060a1c);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 18px 12px 26px;
+    overflow-x: hidden;
+    touch-action: manipulation;
+  }
+
+  .wrap { width: 100%; max-width: 1080px; }
+
+  /* ============ HEADER ============ */
+  header { text-align: center; margin-bottom: 12px; }
+  .title {
+    font-size: clamp(1.4rem, 4vw, 2.1rem);
+    letter-spacing: 2px;
+    color: #eaf4ff;
+    text-shadow: 0 0 14px rgba(107, 227, 255, 0.55), 0 0 30px rgba(107, 227, 255, 0.2);
+  }
+  .subtitle { font-size: 0.8rem; color: var(--ink-dim); letter-spacing: 3px; margin-top: 4px; }
+
+  /* ============ HUD ============ */
+  .hud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+  .chip {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 6px 12px;
+    min-width: 92px;
+    text-align: center;
+    box-shadow: inset 0 0 18px rgba(70, 120, 220, 0.08);
+  }
+  .chip .k { display: block; font-size: 0.6rem; letter-spacing: 2px; color: var(--ink-dim); }
+  .chip .v { font-family: var(--mono); font-size: 1rem; font-weight: 700; }
+  .c-day .v { color: var(--cyan); }
+  .c-pow .v { color: var(--amber); }
+  .c-o2 .v { color: var(--green); }
+  .c-crew .v { color: var(--purple); }
+  .c-sup .v { color: #7fd0ff; }
+  .c-res .v { color: #ff9fe0; }
+  .warn .v { color: var(--red) !important; animation: blink 0.8s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0.35; } }
+
+  /* ============ LAYOUT ============ */
+  .main { display: flex; gap: 14px; align-items: flex-start; justify-content: center; }
+  .board-col { flex: 0 1 auto; min-width: 0; }
+  .side { flex: 1 1 250px; max-width: 300px; display: flex; flex-direction: column; gap: 12px; }
+
+  /* ============ CANVAS BOARD ============ */
+  .board {
+    position: relative;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: #03040c;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), inset 0 0 60px rgba(40, 90, 200, 0.08);
+  }
+  canvas { display: block; width: 100%; height: auto; cursor: crosshair; }
+
+  .goalbar {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 1px;
+    color: var(--ink-dim);
+    padding: 6px 4px 0;
+    text-align: center;
+  }
+  .goalbar b { color: var(--cyan); }
+
+  /* ============ PANELS ============ */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px;
+  }
+  .panel h3 {
+    font-size: 0.68rem;
+    letter-spacing: 2px;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    border-bottom: 1px dashed var(--line-soft);
+    padding-bottom: 6px;
+  }
+
+  /* ============ BUILD PALETTE ============ */
+  .palette { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .mod-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(20, 28, 58, 0.9);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 8px;
+    color: var(--ink);
+    cursor: pointer;
+    text-align: left;
+    transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+    font-family: inherit;
+  }
+  .mod-btn:hover { transform: translateY(-2px); border-color: var(--cyan); }
+  .mod-btn.sel { border-color: var(--cyan); background: rgba(40, 90, 160, 0.35); box-shadow: 0 0 16px rgba(107, 227, 255, 0.35); }
+  .mod-btn.poor { opacity: 0.4; }
+  .mod-btn .gl { font-size: 1.1rem; width: 20px; text-align: center; }
+  .mod-btn .m { display: flex; flex-direction: column; line-height: 1.15; }
+  .mod-btn .nm { font-size: 0.72rem; font-weight: 700; }
+  .mod-btn .cst { font-family: var(--mono); font-size: 0.62rem; color: var(--ink-dim); }
+
+  /* ============ R&D ============ */
+  .rd-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: rgba(30, 22, 58, 0.85);
+    border: 1px solid #3a2c66;
+    border-radius: 9px;
+    padding: 7px 9px;
+    margin-bottom: 7px;
+    color: var(--ink);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.68rem;
+    transition: all 0.12s ease;
+  }
+  .rd-btn:hover:not(:disabled) { border-color: var(--purple); transform: translateX(2px); }
+  .rd-btn:disabled { opacity: 0.42; cursor: not-allowed; }
+  .rd-btn .rdname { font-weight: 700; display: flex; justify-content: space-between; }
+  .rd-btn .rdcost { font-family: var(--mono); color: #ff9fe0; }
+  .rd-btn.owned { border-color: var(--green); color: var(--green); opacity: 1; }
+
+  /* ============ LOG ============ */
+  .log { display: flex; flex-direction: column-reverse; gap: 3px; max-height: 150px; overflow: hidden; }
+  .log div { font-family: var(--mono); font-size: 0.64rem; color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .log div.hot { color: var(--red); }
+  .log div.good { color: var(--green); }
+  .log div.info { color: var(--cyan); }
+
+  /* ============ OVERLAYS ============ */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 20px;
+    background: linear-gradient(180deg, rgba(4, 6, 18, 0.94), rgba(8, 12, 30, 0.96));
+    transition: opacity 0.3s ease;
+    z-index: 5;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .hidden { display: none !important; }
+  .screen h2 {
+    font-size: clamp(1.3rem, 3.4vw, 1.9rem);
+    letter-spacing: 2px;
+    color: var(--cyan);
+    text-shadow: 0 0 18px rgba(107, 227, 255, 0.5);
+    margin-bottom: 8px;
+  }
+  .screen p { font-size: 0.78rem; color: var(--ink-dim); max-width: 460px; line-height: 1.6; margin-bottom: 6px; }
+  .screen .keys { font-family: var(--mono); font-size: 0.66rem; color: #7f92c4; margin: 10px 0 16px; }
+
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 12px; }
+  .action-btn {
+    padding: 11px 24px;
+    background: linear-gradient(135deg, #2b6bd8, #21b6d6);
+    color: #fff;
+    border: none;
+    border-radius: 22px;
+    font-size: 0.86rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    font-family: inherit;
+    box-shadow: 0 6px 18px rgba(40, 130, 220, 0.4);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  .action-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(40, 160, 230, 0.5); }
+  .action-btn.ghost { background: transparent; border: 1px solid var(--line); box-shadow: none; color: var(--ink-dim); }
+  .action-btn.ghost:hover { color: var(--ink); border-color: var(--cyan); }
+
+  .pause-ov {
+    position: absolute; inset: 0; z-index: 4;
+    display: flex; justify-content: center; align-items: center;
+    background: rgba(4, 6, 18, 0.72);
+    font-size: 1.6rem; letter-spacing: 4px; color: var(--cyan);
+    opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+  }
+  .pause-ov.visible { opacity: 1; }
+
+  footer { text-align: center; margin-top: 12px; font-size: 0.66rem; color: #5b6a95; letter-spacing: 1px; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 820px) {
+    .main { flex-direction: column; align-items: stretch; }
+    .side { max-width: none; }
+    .palette { grid-template-columns: 1fr 1fr 1fr; }
+    .log { max-height: 96px; }
+  }
+  @media (max-width: 480px) {
+    body { padding: 10px 6px 18px; }
+    .chip { min-width: 74px; padding: 5px 8px; }
+    .chip .v { font-size: 0.85rem; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 class="title">🛰️ SPACE STATION SIM</h1>
+    <p class="subtitle">MODULAR ORBITAL CONSTRUCTION &amp; SURVIVAL</p>
+  </header>
+
+  <!-- ============ HUD ============ -->
+  <div class="hud">
+    <div class="chip c-day"><span class="k">DAY</span><span class="v" id="hudDay">1/30</span></div>
+    <div class="chip c-pow"><span class="k">POWER</span><span class="v" id="hudPow">0/0</span></div>
+    <div class="chip c-o2" id="chipO2"><span class="k">OXYGEN</span><span class="v" id="hudO2">65%</span></div>
+    <div class="chip c-crew"><span class="k">CREW</span><span class="v" id="hudCrew">2/2</span></div>
+    <div class="chip c-sup"><span class="k">SUPPLY</span><span class="v" id="hudSup">60</span></div>
+    <div class="chip c-res"><span class="k">RESEARCH</span><span class="v" id="hudRes">0</span></div>
+  </div>
+
+  <div class="main">
+    <!-- ============ BOARD ============ -->
+    <div class="board-col">
+      <div class="board">
+        <canvas id="gameCanvas" width="616" height="504"></canvas>
+        <div id="startScreen" class="screen">
+          <h2>ASSEMBLE THE STATION</h2>
+          <p>Attach modules to the Core via <b>connectors</b> on a grid. Click a build option, then click any glowing cell next to an existing module.</p>
+          <p>Balance <b>power</b>, keep <b>oxygen</b> above zero, grow <b>research</b>, and survive random hazards until Day 30.</p>
+          <p class="keys">CLICK = place / repair &nbsp;·&nbsp; P or SPACE = pause</p>
+          <div class="btn-row">
+            <button class="action-btn" id="startBtn">NEW STATION</button>
+            <button class="action-btn ghost hidden" id="resumeBtn">RESUME</button>
+          </div>
+        </div>
+        <div id="endScreen" class="screen hidden">
+          <h2 id="endTitle">STATION LOST</h2>
+          <p id="endMsg"></p>
+          <p class="keys" id="endStats"></p>
+          <button class="action-btn" id="againBtn">PLAY AGAIN</button>
+        </div>
+        <div id="pauseOverlay" class="pause-ov">⏸ PAUSED</div>
+      </div>
+      <div class="goalbar" id="goalBar">OBJECTIVE: SURVIVE TO DAY 30</div>
+    </div>
+
+    <!-- ============ SIDEBAR ============ -->
+    <div class="side">
+      <div class="panel">
+        <h3>Build Menu</h3>
+        <div class="palette" id="palette"></div>
+      </div>
+      <div class="panel">
+        <h3>Research &amp; Development</h3>
+        <div id="rndList"></div>
+      </div>
+      <div class="panel">
+        <h3>Station Log</h3>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer id="footHint">Click a module to repair damage or seal a hull breach.</footer>
+</div>
+
+<script>
+"use strict";
+/* ======================================================================
+   SPACE STATION SIM — single-file canvas strategy.
+   Build a modular orbital station on a grid, manage power/oxygen/crew,
+   respond to events, research upgrades, survive to Day 30.
+   ====================================================================== */
+
+/* ============ CONFIG ============ */
+const COLS = 11;
+const ROWS = 9;
+const CELL = 56;
+const DAY_LEN = 16;          // seconds of real time per station day
+const WIN_DAY = 30;
+const O2_MAX = 100;
+const SAVE_KEY = 'spaceStationSimSave_v1';
+
+/* ============ MODULE DEFINITIONS ============ */
+const MODULES = {
+  core:    { name:'Core Reactor', cost:0,  power:+6, o2:+0.20, crewCap:2, research:0,   income:0,   hp:220, color:'#6be3ff', glyph:'◍', desc:'Command + power' },
+  solar:   { name:'Solar Array',  cost:18, power:+8, o2:0,     crewCap:0, research:0,   income:0,   hp:80,  color:'#ffd166', glyph:'☀', desc:'+8 power' },
+  habitat: { name:'Habitat Ring', cost:24, power:-3, o2:+0.35, crewCap:4, research:0,   income:0,   hp:130, color:'#8ef0a3', glyph:'⌂', desc:'+O2, +crew cap' },
+  lab:     { name:'Research Lab', cost:30, power:-4, o2:-0.10, crewCap:0, research:1.2, income:0,   hp:100, color:'#c79bff', glyph:'✦', desc:'+research' },
+  dock:    { name:'Docking Bay',  cost:34, power:-3, o2:0,     crewCap:0, research:0,   income:0.6, hp:110, color:'#9ad0ff', glyph:'⌸', desc:'+supply, shuttles' },
+  airlock: { name:'Airlock',      cost:20, power:-1, o2:0,     crewCap:0, research:0,   income:0,   hp:90,  color:'#ff9fb0', glyph:'⧉', desc:'Seals breaches faster' }
+};
+const BUILDABLE = ['solar','habitat','lab','dock','airlock'];
+
+/* ============ UPGRADES ============ */
+const UPGRADES = {
+  solarBoost: { name:'Solar Boost',     cost:30, glyph:'☀', desc:'+40% solar output' },
+  hullPlate:  { name:'Hull Plating',    cost:26, glyph:'⛨', desc:'-50% meteor damage' },
+  lifeSupport:{ name:'Life Support+',   cost:28, glyph:'❋', desc:'+50% O2 production' },
+  rapidLab:   { name:'Rapid Research',  cost:32, glyph:'✦', desc:'+35% research rate' },
+  sealFoam:   { name:'Sealant Foam',    cost:24, glyph:'⧉', desc:'Breaches leak 50% slower' }
+};
+
+/* ============ GAME STATE ============ */
+let grid = [];              // flat array ROWS*COLS of null | {type,hp,breach,maxHp}
+let running = false;
+let paused = false;
+let gameOver = false;
+let day = 1;
+let dayTimer = 0;
+let o2 = 65;
+let supply = 60;
+let research = 0;
+let crew = 2;
+let upgrades = {};          // purchased upgrade keys
+let selected = null;        // selected module type to build
+let hover = { x:-1, y:-1 };
+let effects = [];           // transient visuals
+let lowO2Timer = 0;
+let saveAccum = 0;
+let lastTime = 0;
+let clock = 0;              // global animation clock
+
+/* ============ DOM REFS ============ */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const hudDay = document.getElementById('hudDay');
+const hudPow = document.getElementById('hudPow');
+const hudO2 = document.getElementById('hudO2');
+const hudCrew = document.getElementById('hudCrew');
+const hudSup = document.getElementById('hudSup');
+const hudRes = document.getElementById('hudRes');
+const chipO2 = document.getElementById('chipO2');
+const palette = document.getElementById('palette');
+const rndList = document.getElementById('rndList');
+const logEl = document.getElementById('log');
+const goalBar = document.getElementById('goalBar');
+const startScreen = document.getElementById('startScreen');
+const endScreen = document.getElementById('endScreen');
+const pauseOverlay = document.getElementById('pauseOverlay');
+const startBtn = document.getElementById('startBtn');
+const resumeBtn = document.getElementById('resumeBtn');
+const againBtn = document.getElementById('againBtn');
+const endTitle = document.getElementById('endTitle');
+const endMsg = document.getElementById('endMsg');
+const endStats = document.getElementById('endStats');
+
+/* ============ AUDIO (WebAudio beeps) ============ */
+let audioCtx = null;
+function initAudio() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { audioCtx = null; }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
+function beep(freq, dur, type, vol) {
+  if (!audioCtx) return;
+  freq = freq || 440; dur = dur || 0.08; type = type || 'square'; vol = vol || 0.05;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(); osc.stop(audioCtx.currentTime + dur + 0.02);
+}
+
+/* ============ STARS BACKGROUND ============ */
+const stars = [];
+(function makeStars() {
+  for (let i = 0; i < 130; i++) {
+    stars.push({ x: Math.random() * W, y: Math.random() * H, r: Math.random() * 1.4 + 0.3, p: Math.random() * Math.PI * 2, s: 0.6 + Math.random() * 1.6 });
+  }
+})();
+
+/* ============ GRID HELPERS ============ */
+function idx(x, y) { return y * COLS + x; }
+function inBounds(x, y) { return x >= 0 && x < COLS && y >= 0 && y < ROWS; }
+function cellAt(x, y) { return inBounds(x, y) ? grid[idx(x, y)] : null; }
+function moduleList() { return grid.filter(Boolean); }
+
+function hasAdjacent(x, y) {
+  const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+  for (const d of dirs) {
+    const c = cellAt(x + d[0], y + d[1]);
+    if (c) return true;
+  }
+  return false;
+}
+function canBuild(x, y) {
+  return inBounds(x, y) && !cellAt(x, y) && hasAdjacent(x, y);
+}
+
+/* ============ STATION STATS ============ */
+function computeStats() {
+  let gen = 0, use = 0, o2Gen = 0, o2Use = crew * 0.15, o2Leak = 0;
+  let researchRate = 0, income = 0, cap = 0, airlocks = 0, docks = 0;
+  const mods = moduleList();
+  for (const m of mods) {
+    const d = MODULES[m.type];
+    let p = d.power;
+    if (m.type === 'solar' && upgrades.solarBoost) p *= 1.4;
+    if (p > 0) gen += p; else use += -p;
+    if (d.o2 > 0) o2Gen += d.o2;
+    o2Leak += d.o2 < 0 ? -d.o2 : 0;
+    researchRate += d.research;
+    income += d.income;
+    cap += d.crewCap;
+    if (m.type === 'airlock') airlocks++;
+    if (m.type === 'dock') docks++;
+    if (m.breach) o2Leak += upgrades.sealFoam ? 0.3 : 0.6;
+  }
+  const pf = use <= 0 ? 1 : Math.min(1, gen / use);
+  if (upgrades.lifeSupport) o2Gen *= 1.5;
+  o2Gen *= pf;
+  researchRate = researchRate * pf * (1 + crew * 0.04) * (upgrades.rapidLab ? 1.35 : 1);
+  income = income * pf * (1 + crew * 0.03);
+  let breaches = 0;
+  for (const m of mods) if (m.breach) breaches++;
+  return { gen, use, pf, o2Gen, o2Use, o2Leak, researchRate, income, cap, airlocks, docks, breaches };
+}
+
+/* ============ LOG ============ */
+function log(text, cls) {
+  const d = document.createElement('div');
+  d.textContent = text;
+  if (cls) d.className = cls;
+  logEl.prepend(d);
+  while (logEl.children.length > 40) logEl.removeChild(logEl.lastChild);
+}
+
+/* ============ PALETTE / R&D UI ============ */
+function buildPalette() {
+  palette.innerHTML = '';
+  for (const key of BUILDABLE) {
+    const d = MODULES[key];
+    const btn = document.createElement('button');
+    btn.className = 'mod-btn';
+    btn.dataset.type = key;
+    btn.innerHTML = '<span class="gl" style="color:' + d.color + '">' + d.glyph + '</span>' +
+      '<span class="m"><span class="nm">' + d.name.split(' ')[0] + '</span>' +
+      '<span class="cst">' + d.cost + ' sup</span></span>';
+    btn.title = d.name + ' — ' + d.desc;
+    btn.addEventListener('click', () => { selectBuild(key); });
+    palette.appendChild(btn);
+  }
+  refreshPalette();
+}
+function selectBuild(key) {
+  if (gameOver) return;
+  selected = (selected === key) ? null : key;
+  initAudio();
+  beep(selected ? 660 : 320, 0.05, 'triangle', 0.04);
+  refreshPalette();
+}
+function refreshPalette() {
+  const btns = palette.querySelectorAll('.mod-btn');
+  btns.forEach(b => {
+    const k = b.dataset.type;
+    b.classList.toggle('sel', selected === k);
+    b.classList.toggle('poor', supply < MODULES[k].cost);
+  });
+}
+
+function buildRnd() {
+  rndList.innerHTML = '';
+  for (const key in UPGRADES) {
+    const u = UPGRADES[key];
+    const btn = document.createElement('button');
+    btn.className = 'rd-btn';
+    btn.dataset.key = key;
+    btn.innerHTML = '<span class="rdname"><span>' + u.glyph + ' ' + u.name + '</span>' +
+      '<span class="rdcost">' + u.cost + ' res</span></span>' +
+      '<span style="color:#7f92c4;font-size:0.6rem">' + u.desc + '</span>';
+    btn.addEventListener('click', () => buyUpgrade(key));
+    rndList.appendChild(btn);
+  }
+  refreshRnd();
+}
+function buyUpgrade(key) {
+  if (gameOver || upgrades[key]) return;
+  const u = UPGRADES[key];
+  if (research < u.cost) { beep(180, 0.12, 'sawtooth', 0.05); log('Insufficient research for ' + u.name, 'hot'); return; }
+  research -= u.cost;
+  upgrades[key] = true;
+  initAudio();
+  beep(880, 0.1, 'sine', 0.06); setTimeout(() => beep(1180, 0.12, 'sine', 0.06), 90);
+  log('R&D complete: ' + u.name, 'good');
+  refreshRnd(); refreshHud();
+}
+function refreshRnd() {
+  const btns = rndList.querySelectorAll('.rd-btn');
+  btns.forEach(b => {
+    const key = b.dataset.key, u = UPGRADES[key];
+    if (upgrades[key]) { b.classList.add('owned'); b.disabled = true; b.querySelector('.rdcost').textContent = 'OWNED'; }
+    else { b.disabled = research < u.cost; }
+  });
+}
+
+/* ============ HUD REFRESH ============ */
+let hudAccum = 0;
+function refreshHud() {
+  const s = computeStats();
+  hudDay.textContent = day + '/' + WIN_DAY;
+  hudPow.textContent = Math.round(s.use) + '/' + Math.round(s.gen);
+  hudPow.parentElement.classList.toggle('warn', s.pf < 1);
+  hudO2.textContent = Math.max(0, Math.round(o2)) + '%';
+  chipO2.classList.toggle('warn', o2 < 25);
+  hudCrew.textContent = crew + '/' + s.cap;
+  hudSup.textContent = Math.floor(supply);
+  hudRes.textContent = Math.floor(research);
+  goalBar.innerHTML = 'OBJECTIVE: SURVIVE TO DAY <b>30</b> &nbsp;·&nbsp; BREACHES: <b>' + s.breaches + '</b> &nbsp;·&nbsp; MODULES: <b>' + moduleList().length + '</b>';
+  refreshPalette();
+  refreshRnd();
+}
+
+/* ============ GAME INIT / RESET ============ */
+function newStation() {
+  grid = new Array(ROWS * COLS).fill(null);
+  const cx = Math.floor(COLS / 2), cy = Math.floor(ROWS / 2);
+  grid[idx(cx, cy)] = { type:'core', hp:MODULES.core.hp, maxHp:MODULES.core.hp, breach:false };
+  day = 1; dayTimer = 0; o2 = 65; supply = 60; research = 0; crew = 2;
+  upgrades = {}; effects = []; lowO2Timer = 0;
+  selected = null; gameOver = false; paused = false;
+  logEl.innerHTML = '';
+  log('Core reactor online. Begin construction.', 'info');
+  startRun();
+}
+
+/* ============ RUN CONTROL ============ */
+function startRun() {
+  running = true; paused = false; gameOver = false;
+  startScreen.classList.add('hidden');
+  endScreen.classList.add('hidden');
+  pauseOverlay.classList.remove('visible');
+  lastTime = performance.now();
+  refreshHud(); save();
+  requestAnimationFrame(loop);
+}
+function togglePause() {
+  if (!running || gameOver) return;
+  paused = !paused;
+  pauseOverlay.classList.toggle('visible', paused);
+  if (!paused) { lastTime = performance.now(); requestAnimationFrame(loop); }
+  beep(paused ? 400 : 600, 0.05, 'triangle', 0.03);
+}
+function endRun(win, msg) {
+  running = false; gameOver = true;
+  const s = computeStats();
+  endTitle.textContent = win ? '✅ STATION SURVIVES' : '💥 STATION LOST';
+  endTitle.style.color = win ? '#8ef0a3' : '#ff6b7f';
+  endMsg.textContent = msg;
+  endStats.textContent = 'DAY ' + day + ' · ' + moduleList().length + ' MODULES · CREW ' + crew + ' · RESEARCH ' + Math.floor(research);
+  endScreen.classList.remove('hidden');
+  initAudio();
+  if (win) { beep(660, 0.15, 'sine', 0.07); setTimeout(() => beep(880, 0.15, 'sine', 0.07), 150); setTimeout(() => beep(1180, 0.25, 'sine', 0.07), 320); }
+  else { beep(220, 0.3, 'sawtooth', 0.08); setTimeout(() => beep(150, 0.4, 'sawtooth', 0.08), 260); }
+  localStorage.removeItem(SAVE_KEY);
+}
+
+/* ============ BUILD / REPAIR ACTIONS ============ */
+function tryBuild(x, y) {
+  if (!selected) return;
+  const d = MODULES[selected];
+  if (cellAt(x, y)) { log('Cell occupied.', 'hot'); beep(180, 0.08, 'sawtooth', 0.04); return; }
+  if (!hasAdjacent(x, y)) { log('Modules must connect to the station.', 'hot'); beep(180, 0.08, 'sawtooth', 0.04); return; }
+  if (supply < d.cost) { log('Need ' + d.cost + ' supply for ' + d.name + '.', 'hot'); beep(180, 0.08, 'sawtooth', 0.04); return; }
+  supply -= d.cost;
+  grid[idx(x, y)] = { type:selected, hp:d.hp, maxHp:d.hp, breach:false };
+  effects.push({ kind:'float', x:(x + 0.5) * CELL, y:(y + 0.5) * CELL, text:'+' + d.glyph, color:d.color, t:0, dur:1 });
+  log('Constructed ' + d.name + ' (-' + d.cost + ' sup).', 'good');
+  beep(520, 0.06, 'square', 0.05); setTimeout(() => beep(760, 0.07, 'square', 0.05), 70);
+  refreshHud(); save();
+}
+
+function clickCell(x, y) {
+  const c = cellAt(x, y);
+  if (c) { interactModule(x, y, c); }
+  else if (selected) { tryBuild(x, y); }
+}
+
+function interactModule(x, y, c) {
+  // 1) seal breach
+  if (c.breach) {
+    const cost = upgrades.sealFoam ? 6 : 9;
+    if (supply < cost) { log('Need ' + cost + ' supply to seal breach.', 'hot'); beep(180, 0.08, 'sawtooth', 0.04); return; }
+    supply -= cost; c.breach = false;
+    addAirlockBonus(x, y);
+    log('Hull breach sealed (-' + cost + ' sup).', 'good');
+    beep(700, 0.08, 'sine', 0.06); setTimeout(() => beep(480, 0.1, 'sine', 0.05), 90);
+    refreshHud(); save();
+    return;
+  }
+  // 2) repair damage
+  if (c.hp < c.maxHp) {
+    const missing = c.maxHp - c.hp;
+    const cost = Math.max(3, Math.round(missing * 0.06));
+    if (supply < cost) { log('Need ' + cost + ' supply to repair.', 'hot'); beep(180, 0.08, 'sawtooth', 0.04); return; }
+    supply -= cost; c.hp = c.maxHp;
+    log('Repaired ' + MODULES[c.type].name + ' (-' + cost + ' sup).', 'good');
+    beep(620, 0.07, 'triangle', 0.05);
+    refreshHud(); save();
+    return;
+  }
+  // 3) salvage / info
+  log(MODULES[c.type].name + ' is nominal.', 'info');
+  beep(440, 0.05, 'triangle', 0.03);
+}
+
+function addAirlockBonus(x, y) {
+  // Airlock adjacency speeds up neighbouring repairs: free heal of neighbours.
+  const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+  for (const d of dirs) {
+    const n = cellAt(x + d[0], y + d[1]);
+    if (n && n.hp < n.maxHp) n.hp = Math.min(n.maxHp, n.hp + 15);
+  }
+}
+
+/* ============ EVENTS ============ */
+function triggerDayEvent() {
+  const s = computeStats();
+  const r = Math.random();
+  const dangerScale = 0.45 + day * 0.02;
+
+  if (r < 0.30 * dangerScale + 0.12) { micrometeor(); }
+  else if (r < 0.30 * dangerScale + 0.28 && day > 3) { hullBreach(); }
+  else if (r < 0.30 * dangerScale + 0.55 && s.docks > 0) { shuttle(); }
+  else if (r < 0.80) { quietCycle(); }
+  else { supplyDrop(); }
+}
+
+function micrometeor() {
+  const mods = moduleList();
+  if (!mods.length) return;
+  const m = mods[Math.floor(Math.random() * mods.length)];
+  const pos = findPos(m);
+  let dmg = 22 + Math.random() * 26;
+  if (upgrades.hullPlate) dmg *= 0.5;
+  m.hp -= dmg;
+  // meteor visual from a random edge
+  const fromLeft = Math.random() < 0.5;
+  effects.push({ kind:'meteor', x1: fromLeft ? -20 : W + 20, y1: Math.random() * H * 0.6,
+    x2:(pos.x + 0.5) * CELL, y2:(pos.y + 0.5) * CELL, t:0, dur:0.55 });
+  if (m.hp <= 0) {
+    if (m.type === 'core') { endRun(false, 'The core reactor was destroyed by micrometeor impacts.'); return; }
+    grid[idx(pos.x, pos.y)] = null;
+    log('💥 Micrometeor destroyed a ' + MODULES[m.type].name + '!', 'hot');
+  } else {
+    log('☄ Micrometeor hit ' + MODULES[m.type].name + ' (integrity ' + Math.max(0, Math.round(m.hp)) + ').', 'hot');
+  }
+  for (let i = 0; i < 10; i++) {
+    effects.push({ kind:'spark', x:(pos.x + 0.5) * CELL, y:(pos.y + 0.5) * CELL,
+      vx:(Math.random() - 0.5) * 220, vy:(Math.random() - 0.5) * 220, t:0, dur:0.6, color:'#ffb066' });
+  }
+  beep(140, 0.18, 'sawtooth', 0.08);
+  refreshHud();
+}
+
+function hullBreach() {
+  const mods = moduleList().filter(m => m.type !== 'core' && !m.breach);
+  if (!mods.length) { quietCycle(); return; }
+  const m = mods[Math.floor(Math.random() * mods.length)];
+  m.breach = true;
+  const pos = findPos(m);
+  effects.push({ kind:'float', x:(pos.x + 0.5) * CELL, y:(pos.y + 0.5) * CELL, text:'⚠ BREACH', color:'#ff6b7f', t:0, dur:1.6 });
+  log('⚠️ HULL BREACH in ' + MODULES[m.type].name + '! Oxygen venting — click to seal.', 'hot');
+  beep(120, 0.25, 'sawtooth', 0.09);
+  refreshHud();
+}
+
+function shuttle() {
+  const s = computeStats();
+  const dockIdx = moduleList().findIndex(m => m.type === 'dock');
+  const mods = moduleList();
+  const dock = mods[dockIdx];
+  const pos = dock ? findPos(dock) : { x: Math.floor(COLS / 2), y: 0 };
+  effects.push({ kind:'shuttle', x:-30, y:(pos.y + 0.5) * CELL, tx:(pos.x + 0.5) * CELL, ty:(pos.y + 0.5) * CELL, t:0, dur:1.8 });
+  const gainCrew = Math.min(2, Math.max(0, s.cap - crew));
+  crew += gainCrew;
+  const bonus = 12 + Math.floor(day * 0.6);
+  supply += bonus;
+  log('🚀 Supply shuttle docked: +' + bonus + ' supply' + (gainCrew ? ', +' + gainCrew + ' crew' : '') + '.', 'good');
+  beep(660, 0.08, 'sine', 0.06); setTimeout(() => beep(990, 0.1, 'sine', 0.06), 100);
+  refreshHud();
+}
+
+function quietCycle() {
+  supply += 4;
+  log('Quiet orbital cycle. +4 supply.', 'info');
+  refreshHud();
+}
+
+function supplyDrop() {
+  const amt = 16 + Math.floor(Math.random() * 14);
+  supply += amt;
+  log('📦 Debris-field salvage recovered +' + amt + ' supply.', 'good');
+  beep(520, 0.06, 'triangle', 0.05);
+  refreshHud();
+}
+
+function findPos(m) {
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    if (grid[idx(x, y)] === m) return { x, y };
+  }
+  return { x: Math.floor(COLS / 2), y: Math.floor(ROWS / 2) };
+}
+
+/* ============ UPDATE ============ */
+function update(dt) {
+  clock += dt;
+  const s = computeStats();
+
+  // oxygen balance
+  const o2Delta = (s.o2Gen - s.o2Use - s.o2Leak) * dt;
+  o2 = Math.max(0, Math.min(O2_MAX, o2 + o2Delta));
+
+  // resources
+  research += s.researchRate * dt;
+  supply += s.income * dt;
+
+  // suffocation timer
+  if (o2 <= 0.01) {
+    lowO2Timer += dt;
+    if (lowO2Timer > 6) { endRun(false, 'Oxygen reserves depleted — the crew did not survive.'); return; }
+  } else {
+    lowO2Timer = 0;
+  }
+
+  // day progression
+  dayTimer += dt;
+  if (dayTimer >= DAY_LEN) {
+    dayTimer -= DAY_LEN;
+    day++;
+    // daily stipend
+    supply += 6;
+    // occasional habitat-driven crew recruitment
+    if (crew < s.cap && o2 > 35) {
+      crew++; log('🏠 New crew arrived via habitat ring.', 'good');
+    }
+    log('── DAY ' + day + ' ──', 'info');
+    if (day >= WIN_DAY) { endRun(true, 'After 30 days in orbit, the station is stable and self-sustaining. Mission success!'); return; }
+    triggerDayEvent();
+  }
+
+  // effects
+  for (let i = effects.length - 1; i >= 0; i--) {
+    const e = effects[i];
+    e.t += dt;
+    if (e.t >= e.dur) { effects.splice(i, 1); continue; }
+    if (e.kind === 'spark') { e.x += e.vx * dt; e.y += e.vy * dt; e.vy += 160 * dt; }
+    if (e.kind === 'shuttle') {
+      const p = Math.min(1, e.t / e.dur);
+      e.x = -30 + (e.tx - -30) * p;
+      e.y = e.y + (e.ty - e.y) * 0.04;
+    }
+    if (e.kind === 'float') { e.y -= 18 * dt; }
+  }
+
+  // throttled HUD refresh (avoid DOM thrash at 60fps)
+  hudAccum += dt;
+  if (hudAccum > 0.15) { hudAccum = 0; refreshHud(); }
+}
+
+/* ============ RENDER ============ */
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function draw() {
+  // space background
+  const g = ctx.createLinearGradient(0, 0, W, H);
+  g.addColorStop(0, '#04050f');
+  g.addColorStop(0.5, '#070b1e');
+  g.addColorStop(1, '#03040c');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // distant nebula glow
+  const ng = ctx.createRadialGradient(W * 0.8, H * 0.2, 10, W * 0.8, H * 0.2, 320);
+  ng.addColorStop(0, 'rgba(80, 60, 200, 0.14)');
+  ng.addColorStop(1, 'rgba(80, 60, 200, 0)');
+  ctx.fillStyle = ng;
+  ctx.fillRect(0, 0, W, H);
+
+  // stars
+  for (const st of stars) {
+    const a = 0.35 + 0.55 * (0.5 + 0.5 * Math.sin(clock * st.s + st.p));
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#cfe3ff';
+    ctx.beginPath();
+    ctx.arc(st.x, st.y, st.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // grid
+  ctx.strokeStyle = 'rgba(90, 130, 220, 0.10)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x <= COLS; x++) { ctx.beginPath(); ctx.moveTo(x * CELL, 0); ctx.lineTo(x * CELL, ROWS * CELL); ctx.stroke(); }
+  for (let y = 0; y <= ROWS; y++) { ctx.beginPath(); ctx.moveTo(0, y * CELL); ctx.lineTo(COLS * CELL, y * CELL); ctx.stroke(); }
+
+  // highlight buildable cells when a module is selected
+  if (selected && running && !gameOver) {
+    ctx.fillStyle = 'rgba(107, 227, 255, 0.06)';
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+      if (canBuild(x, y) && supply >= MODULES[selected].cost) ctx.fillRect(x * CELL + 3, y * CELL + 3, CELL - 6, CELL - 6);
+    }
+  }
+
+  // connectors between adjacent modules
+  ctx.strokeStyle = 'rgba(140, 200, 255, 0.55)';
+  ctx.lineCap = 'round';
+  ctx.lineWidth = 6;
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    const c = grid[idx(x, y)];
+    if (!c) continue;
+    const cx = x * CELL + CELL / 2, cy = y * CELL + CELL / 2;
+    if (cellAt(x + 1, y)) { ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + CELL, cy); ctx.stroke(); }
+    if (cellAt(x, y + 1)) { ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy + CELL); ctx.stroke(); }
+  }
+  ctx.lineCap = 'butt';
+
+  // modules
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    const c = grid[idx(x, y)];
+    if (!c) continue;
+    drawModule(x, y, c);
+  }
+
+  // ghost preview
+  if (selected && running && !gameOver && inBounds(hover.x, hover.y)) {
+    const d = MODULES[selected];
+    const ok = canBuild(hover.x, hover.y) && supply >= d.cost;
+    ctx.globalAlpha = 0.55;
+    ctx.fillStyle = ok ? 'rgba(107, 227, 255, 0.25)' : 'rgba(255, 107, 127, 0.28)';
+    ctx.strokeStyle = ok ? '#6be3ff' : '#ff6b7f';
+    ctx.lineWidth = 2;
+    roundRect(hover.x * CELL + 4, hover.y * CELL + 4, CELL - 8, CELL - 8, 10);
+    ctx.fill(); ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = ok ? '#dff6ff' : '#ffc9d2';
+    ctx.font = 'bold 22px Trebuchet MS';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(d.glyph, (hover.x + 0.5) * CELL, (hover.y + 0.5) * CELL);
+  }
+
+  // effects
+  for (const e of effects) drawEffect(e);
+
+  // low oxygen warning vignette
+  if (o2 < 25 && running && !gameOver) {
+    const a = 0.10 + 0.10 * Math.abs(Math.sin(clock * 3));
+    const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.8);
+    vg.addColorStop(0, 'rgba(255, 40, 60, 0)');
+    vg.addColorStop(1, 'rgba(255, 40, 60, ' + a + ')');
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+function drawModule(x, y, c) {
+  const d = MODULES[c.type];
+  const px = x * CELL + 5, py = y * CELL + 5, sz = CELL - 10;
+  const breached = c.breach;
+  const pulse = 0.5 + 0.5 * Math.sin(clock * 6);
+
+  // base plate
+  ctx.fillStyle = 'rgba(10, 16, 36, 0.95)';
+  ctx.strokeStyle = breached ? 'rgba(255, 107, 127, ' + (0.5 + 0.5 * pulse) + ')' : d.color;
+  ctx.lineWidth = breached ? 3 : 2;
+  roundRect(px, py, sz, sz, 10);
+  ctx.fill(); ctx.stroke();
+
+  // inner glow
+  ctx.save();
+  ctx.globalAlpha = 0.18;
+  ctx.fillStyle = d.color;
+  roundRect(px + 4, py + 4, sz - 8, sz - 8, 8);
+  ctx.fill();
+  ctx.restore();
+
+  // glyph
+  ctx.fillStyle = d.color;
+  ctx.font = 'bold 24px Trebuchet MS';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(d.glyph, x * CELL + CELL / 2, y * CELL + CELL / 2 - 4);
+
+  // integrity bar
+  const hpFrac = Math.max(0, c.hp / c.maxHp);
+  if (hpFrac < 1) {
+    const bw = sz - 12, bx = px + 6, by = py + sz - 10;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(bx, by, bw, 4);
+    ctx.fillStyle = hpFrac > 0.5 ? '#8ef0a3' : (hpFrac > 0.25 ? '#ffd166' : '#ff6b7f');
+    ctx.fillRect(bx, by, bw * hpFrac, 4);
+  }
+
+  // breach marker
+  if (breached) {
+    ctx.fillStyle = 'rgba(255, 107, 127, ' + (0.6 + 0.4 * pulse) + ')';
+    ctx.font = 'bold 15px Trebuchet MS';
+    ctx.fillText('⚠', x * CELL + CELL - 12, y * CELL + 13);
+  }
+}
+
+function drawEffect(e) {
+  const p = e.t / e.dur;
+  if (e.kind === 'meteor') {
+    ctx.strokeStyle = 'rgba(255, 176, 102, 0.9)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(e.x1, e.y1);
+    ctx.lineTo(e.x1 + (e.x2 - e.x1) * Math.min(1, p * 1.6), e.y1 + (e.y2 - e.y1) * Math.min(1, p * 1.6));
+    ctx.stroke();
+    ctx.fillStyle = '#ffd18a';
+    ctx.beginPath();
+    ctx.arc(e.x1 + (e.x2 - e.x1) * Math.min(1, p * 1.6), e.y1 + (e.y2 - e.y1) * Math.min(1, p * 1.6), 5, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (e.kind === 'spark') {
+    ctx.globalAlpha = 1 - p;
+    ctx.fillStyle = e.color;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  } else if (e.kind === 'float') {
+    ctx.globalAlpha = 1 - p;
+    ctx.fillStyle = e.color;
+    ctx.font = 'bold 15px Trebuchet MS';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(e.text, e.x, e.y);
+    ctx.globalAlpha = 1;
+  } else if (e.kind === 'shuttle') {
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    ctx.fillStyle = '#9ad0ff';
+    ctx.beginPath();
+    ctx.moveTo(-10, -6); ctx.lineTo(12, 0); ctx.lineTo(-10, 6); ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#ffd166';
+    ctx.fillRect(-16, -2, 6, 4);
+    ctx.restore();
+  }
+}
+
+/* ============ LOOP ============ */
+function loop(now) {
+  if (!running || paused || gameOver) return;
+  let dt = (now - lastTime) / 1000;
+  lastTime = now;
+  if (dt > 0.1) dt = 0.1; // clamp after tab switch
+
+  update(dt);
+  if (!running) { draw(); return; } // ended this frame
+
+  draw();
+
+  // autosave
+  saveAccum += dt;
+  if (saveAccum > 4) { saveAccum = 0; save(); }
+
+  requestAnimationFrame(loop);
+}
+
+/* ============ INPUT ============ */
+function pointerToCell(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const sx = (clientX - rect.left) / rect.width * W;
+  const sy = (clientY - rect.top) / rect.height * H;
+  return { x: Math.floor(sx / CELL), y: Math.floor(sy / CELL) };
+}
+
+canvas.addEventListener('mousemove', (ev) => {
+  const c = pointerToCell(ev.clientX, ev.clientY);
+  hover.x = c.x; hover.y = c.y;
+});
+canvas.addEventListener('mouseleave', () => { hover.x = -1; hover.y = -1; });
+
+canvas.addEventListener('click', (ev) => {
+  if (!running || paused || gameOver) return;
+  initAudio();
+  const c = pointerToCell(ev.clientX, ev.clientY);
+  if (!inBounds(c.x, c.y)) return;
+  clickCell(c.x, c.y);
+});
+
+canvas.addEventListener('touchstart', (ev) => {
+  if (!running || paused || gameOver) return;
+  ev.preventDefault();
+  initAudio();
+  const t = ev.changedTouches[0];
+  const c = pointerToCell(t.clientX, t.clientY);
+  hover.x = c.x; hover.y = c.y;
+  if (inBounds(c.x, c.y)) clickCell(c.x, c.y);
+}, { passive: false });
+
+document.addEventListener('keydown', (ev) => {
+  const k = ev.code;
+  if (k === 'KeyP' || k === 'Space') { ev.preventDefault(); togglePause(); return; }
+  if (k === 'Escape') { selected = null; refreshPalette(); }
+  // number keys 1..5 quick-select build
+  if (/^Digit[1-5]$/.test(k)) {
+    const i = parseInt(k.slice(5), 10) - 1;
+    if (i < BUILDABLE.length) selectBuild(BUILDABLE[i]);
+  }
+});
+
+/* ============ SAVE / LOAD ============ */
+function save() {
+  if (!running && !gameOver) return;
+  if (gameOver) return;
+  try {
+    const data = {
+      grid: grid.map(c => c ? { t:c.type, hp:c.hp, mh:c.maxHp, b:c.breach } : null),
+      day, o2, supply, research, crew, upgrades
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  } catch (e) { /* storage unavailable */ }
+}
+function load() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    const d = JSON.parse(raw);
+    if (!d || !Array.isArray(d.grid) || d.grid.length !== ROWS * COLS) return false;
+    grid = d.grid.map(c => c ? { type:c.t, hp:c.hp, maxHp:c.mh, breach:!!c.b } : null);
+    day = d.day || 1; o2 = d.o2 != null ? d.o2 : 65;
+    supply = d.supply != null ? d.supply : 60;
+    research = d.research || 0; crew = d.crew || 2;
+    upgrades = d.upgrades || {};
+    effects = []; dayTimer = 0; lowO2Timer = 0; clock = 0;
+    return true;
+  } catch (e) { return false; }
+}
+
+/* ============ WIRE UP ============ */
+startBtn.addEventListener('click', () => { initAudio(); newStation(); });
+againBtn.addEventListener('click', () => { initAudio(); newStation(); });
+resumeBtn.addEventListener('click', () => {
+  initAudio();
+  if (load()) { log('Station restored from saved data.', 'info'); startRun(); }
+  else newStation();
+});
+
+/* ============ BOOT ============ */
+buildPalette();
+buildRnd();
+if (localStorage.getItem(SAVE_KEY)) resumeBtn.classList.remove('hidden');
+// initial preview grid: draw an empty starfield demo behind the start overlay
+grid = new Array(ROWS * COLS).fill(null);
+grid[idx(Math.floor(COLS / 2), Math.floor(ROWS / 2))] = { type:'core', hp:MODULES.core.hp, maxHp:MODULES.core.hp, breach:false };
+refreshHud();
+draw();
+</script>
+</body>
+</html>

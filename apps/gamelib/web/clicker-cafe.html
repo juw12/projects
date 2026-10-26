@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>☕ Clicker Cafe</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg0: #1a120b;
+    --bg1: #2a1b10;
+    --panel: rgba(46, 30, 20, 0.92);
+    --panel-line: rgba(214, 160, 104, 0.26);
+    --crema: #f3c98b;
+    --crema-dim: #b98d55;
+    --crema-brite: #ffe6bd;
+    --text: #f6ecdd;
+    --text-dim: #c1a68a;
+    --good: #8fd694;
+    --bad: #e0785f;
+    --shadow: 0 10px 34px rgba(0, 0, 0, 0.55);
+  }
+
+  html, body {
+    min-height: 100%;
+    background:
+      radial-gradient(1100px 640px at 50% -12%, #4a3019 0%, transparent 62%),
+      linear-gradient(160deg, var(--bg0), var(--bg1) 55%, #150d07 100%);
+    color: var(--text);
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 14px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ============ LAYOUT ============ */
+  #app {
+    width: min(1040px, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  header.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .title {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.75rem;
+    letter-spacing: 1px;
+    color: var(--crema-brite);
+    text-shadow: 0 2px 0 rgba(0, 0, 0, 0.6), 0 0 20px rgba(243, 201, 139, 0.24);
+  }
+  .title small { font-size: 0.82rem; color: var(--text-dim); letter-spacing: 2px; font-family: "Trebuchet MS", sans-serif; }
+
+  .topbar-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .btn {
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 9px 16px;
+    border: 1px solid var(--panel-line);
+    border-radius: 10px;
+    cursor: pointer;
+    color: var(--text);
+    background: linear-gradient(180deg, #4a3020, #331f13);
+    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35);
+    transition: transform 0.05s ease, background 0.15s ease, border-color 0.15s ease;
+    user-select: none;
+  }
+  .btn:hover { border-color: var(--crema); background: linear-gradient(180deg, #5a3c27, #3b2517); }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35); }
+  .btn.warn { color: #ffd9d2; border-color: rgba(224, 120, 95, 0.5); }
+  .btn.warn:hover { border-color: var(--bad); background: linear-gradient(180deg, #4a241b, #301611); }
+  .btn.prestige { color: #241405; background: linear-gradient(180deg, var(--crema-brite), var(--crema)); border-color: var(--crema-brite); }
+  .btn.prestige:hover { background: linear-gradient(180deg, #fff3dc, var(--crema-brite)); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+  /* ============ MAIN GRID ============ */
+  .grid {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 12px;
+    align-items: start;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(3px);
+    padding: 14px;
+  }
+
+  .card h2 {
+    font-size: 0.95rem;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--crema);
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--panel-line);
+    padding-bottom: 8px;
+  }
+
+  /* ============ LEFT: TREASURY ============ */
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 6px 2px;
+    font-size: 0.92rem;
+    border-bottom: 1px dashed rgba(214, 160, 104, 0.14);
+  }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-row .k { color: var(--text-dim); }
+  .stat-row .v { font-weight: 700; color: var(--crema-brite); }
+
+  .coins { text-align: center; margin: 6px 0 4px; }
+  .coins .amount {
+    font-family: Georgia, serif;
+    font-size: 2.6rem;
+    font-weight: 800;
+    color: var(--crema-brite);
+    text-shadow: 0 0 24px rgba(243, 201, 139, 0.4);
+    line-height: 1.05;
+  }
+  .coins .label { font-size: 0.72rem; letter-spacing: 3px; color: var(--text-dim); }
+
+  #tapBtn {
+    position: relative;
+    width: 100%;
+    margin-top: 10px;
+    padding: 26px 10px;
+    border: 2px solid var(--crema);
+    border-radius: 16px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: #241405;
+    background: radial-gradient(circle at 50% 25%, #ffeacb, #f3c98b 52%, #c8912f);
+    box-shadow: 0 8px 0 #86602a, 0 12px 24px rgba(0, 0, 0, 0.4);
+    transition: transform 0.06s ease, box-shadow 0.06s ease;
+    user-select: none;
+    overflow: hidden;
+  }
+  #tapBtn:hover { filter: brightness(1.06); }
+  #tapBtn:active { transform: translateY(5px); box-shadow: 0 3px 0 #86602a, 0 6px 14px rgba(0, 0, 0, 0.4); }
+  #tapBtn .sub { display: block; font-size: 0.78rem; font-weight: 700; margin-top: 6px; color: #5a3d0d; }
+
+  .float {
+    position: fixed;
+    pointer-events: none;
+    font-weight: 800;
+    color: var(--crema-brite);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+    animation: floatUp 0.9s ease-out forwards;
+    z-index: 60;
+  }
+  @keyframes floatUp {
+    0% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -70px) scale(1.25); }
+  }
+
+  /* ============ RIGHT: STATIONS ============ */
+  .gen-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .gen {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    text-align: left;
+    padding: 10px 12px;
+    border: 1px solid var(--panel-line);
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(74, 48, 32, 0.7), rgba(36, 24, 15, 0.7));
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--text);
+    transition: transform 0.06s ease, border-color 0.15s ease, background 0.15s ease;
+    user-select: none;
+  }
+  .gen:hover:not(:disabled) { border-color: var(--crema); background: linear-gradient(180deg, rgba(90, 60, 39, 0.85), rgba(46, 30, 18, 0.85)); }
+  .gen:active:not(:disabled) { transform: scale(0.985); }
+  .gen:disabled { opacity: 0.5; cursor: not-allowed; }
+  .gen .icon {
+    font-size: 1.7rem;
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.28);
+    border-radius: 10px;
+    flex: 0 0 auto;
+  }
+  .gen .info { flex: 1 1 auto; min-width: 0; }
+  .gen .name { font-weight: 800; font-size: 0.95rem; }
+  .gen .kind { font-size: 0.62rem; letter-spacing: 1px; text-transform: uppercase; color: var(--crema-dim); }
+  .gen .meta { font-size: 0.74rem; color: var(--text-dim); margin-top: 2px; }
+  .gen .meta b { color: var(--good); font-weight: 700; }
+  .gen .owned {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--crema);
+    min-width: 22px;
+    text-align: right;
+    flex: 0 0 auto;
+  }
+  .gen .cost { color: var(--crema-brite); font-weight: 700; }
+  .gen.locked { filter: grayscale(0.5); }
+
+  .bulk-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .bulk-row .lbl { font-size: 0.78rem; color: var(--text-dim); letter-spacing: 1px; }
+  .chip {
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 6px 12px;
+    border: 1px solid var(--panel-line);
+    border-radius: 20px;
+    background: rgba(0, 0, 0, 0.25);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.12s ease;
+  }
+  .chip.active { background: var(--crema); color: #241405; border-color: var(--crema-brite); }
+
+  /* ============ UPGRADES ============ */
+  .up-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 10px;
+  }
+  .up {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 12px;
+    border: 1px solid var(--panel-line);
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(74, 48, 32, 0.6), rgba(36, 24, 15, 0.6));
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--text);
+    text-align: left;
+    transition: transform 0.06s ease, border-color 0.15s ease;
+  }
+  .up:hover:not(:disabled) { border-color: var(--crema); }
+  .up:active:not(:disabled) { transform: scale(0.985); }
+  .up:disabled { opacity: 0.5; cursor: not-allowed; }
+  .up .icon { font-size: 1.4rem; flex: 0 0 auto; }
+  .up .info { flex: 1 1 auto; min-width: 0; }
+  .up .name { font-weight: 700; font-size: 0.86rem; }
+  .up .desc { font-size: 0.72rem; color: var(--text-dim); margin-top: 2px; }
+  .up .cost { color: var(--crema-brite); font-weight: 700; font-size: 0.8rem; margin-top: 4px; }
+  .up.owned { border-color: rgba(143, 214, 148, 0.5); }
+  .up.owned .name::after { content: " ✓"; color: var(--good); }
+
+  /* ============ PRESTIGE ============ */
+  .prestige-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .prestige-row .txt { font-size: 0.84rem; color: var(--text-dim); max-width: 640px; line-height: 1.45; }
+  .prestige-row .txt b { color: var(--crema-brite); }
+
+  /* ============ TOAST ============ */
+  #toast {
+    position: fixed;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%) translateY(30px);
+    background: rgba(22, 14, 8, 0.96);
+    border: 1px solid var(--crema);
+    color: var(--crema-brite);
+    font-weight: 700;
+    padding: 10px 20px;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 80;
+    max-width: 90vw;
+    text-align: center;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 760px) {
+    .grid { grid-template-columns: 1fr; }
+    .gen-grid { grid-template-columns: 1fr; }
+    .title { font-size: 1.35rem; }
+    .coins .amount { font-size: 2.1rem; }
+    #tapBtn { padding: 20px 10px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ============ TOP BAR ============ -->
+  <header class="topbar">
+    <div class="title">☕ CLICKER CAFE <small id="prestigeBadge"></small></div>
+    <div class="topbar-btns">
+      <button class="btn prestige" id="btnPrestige" type="button">Franchise</button>
+      <button class="btn" id="btnRestart" type="button">Restart</button>
+      <button class="btn warn" id="btnReset" type="button">Reset Save</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- ============ LEFT COLUMN ============ -->
+    <div class="card">
+      <h2>The Register</h2>
+      <div class="coins">
+        <div class="amount" id="coins">0</div>
+        <div class="label">COINS</div>
+      </div>
+      <div class="stat-row"><span class="k">Per second</span><span class="v" id="perSec">0</span></div>
+      <div class="stat-row"><span class="k">Per serve</span><span class="v" id="perTap">1</span></div>
+      <div class="stat-row"><span class="k">Total earned</span><span class="v" id="totalEarned">0</span></div>
+      <div class="stat-row"><span class="k">Franchise bonus</span><span class="v" id="prestigeBonus">×1.00</span></div>
+
+      <button id="tapBtn" type="button">
+        ☕ SERVE COFFEE
+        <span class="sub" id="tapSub">+1 per serve</span>
+      </button>
+    </div>
+
+    <!-- ============ RIGHT COLUMN ============ -->
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div class="card">
+        <h2>Cafe Stations — auto income</h2>
+        <div class="bulk-row">
+          <span class="lbl">BUY</span>
+          <button class="chip active" data-bulk="1" type="button">×1</button>
+          <button class="chip" data-bulk="10" type="button">×10</button>
+          <button class="chip" data-bulk="100" type="button">×100</button>
+          <button class="chip" data-bulk="max" type="button">MAX</button>
+        </div>
+        <div class="gen-grid" id="genGrid"></div>
+      </div>
+
+      <div class="card">
+        <h2>Upgrades — permanent boosts</h2>
+        <div class="up-grid" id="upGrid"></div>
+      </div>
+
+      <div class="card">
+        <h2>Franchise — prestige</h2>
+        <div class="prestige-row">
+          <div class="txt">
+            Sell the cafe and start a fresh franchise — resetting stations, upgrades and coins,
+            but earning a permanent <b>+<span id="prestigePct">0</span>% global income</b>
+            for every star earned. You hold <b id="starsNow">0</b> star(s),
+            granting <b id="starMult">×1.00</b>. Franchising now yields <b id="starsGain">0</b> star(s).
+          </div>
+          <button class="btn prestige" id="btnPrestige2" type="button">Franchise</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONFIG: STATIONS (machines, staff & menu) ============
+  // base = starting cost, rate = coins/sec each, growth = cost multiplier per purchase.
+  const STATIONS = [
+    { id: "drip",     icon: "🥤", name: "Drip Brewer",   kind: "machine", base: 15,       rate: 0.5,    growth: 1.15 },
+    { id: "barista",  icon: "🧑🍳", name: "Barista",      kind: "staff",   base: 120,      rate: 3,      growth: 1.15 },
+    { id: "grinder",  icon: "⚙️", name: "Burr Grinder",  kind: "machine", base: 1100,     rate: 18,     growth: 1.15 },
+    { id: "pastry",   icon: "🥐", name: "Pastry Oven",   kind: "menu",    base: 12000,    rate: 110,    growth: 1.15 },
+    { id: "roaster",  icon: "🔥", name: "In-House Roaster", kind: "machine", base: 130000, rate: 800,  growth: 1.15 },
+    { id: "drivethru",icon: "🚗", name: "Drive-Thru",    kind: "staff",   base: 1.4e6,    rate: 6000,   growth: 1.15 },
+    { id: "chain",    icon: "🏬", name: "Cafe Chain",    kind: "menu",    base: 2e7,      rate: 45000,  growth: 1.15 }
+  ];
+
+  // ============ CONFIG: UPGRADES ============
+  // Each upgrade is unique and bought once. `apply` mutates the modifiers object.
+  const UPGRADES = [
+    { id: "latte",    icon: "🎨", name: "Latte Art",        desc: "Serve power ×2",                  cost: 100,    apply: m => m.tapMult *= 2 },
+    { id: "beans",    icon: "🫘", name: "Premium Beans",    desc: "Serve power ×2",                  cost: 1800,   apply: m => m.tapMult *= 2 },
+    { id: "loyalty",  icon: "💳", name: "Loyalty Cards",    desc: "Serve power ×2",                  cost: 32000,  apply: m => m.tapMult *= 2 },
+    { id: "signature",icon: "🍰", name: "Signature Menu",   desc: "Serve power ×3",                  cost: 900000, apply: m => m.tapMult *= 3 },
+    { id: "menu",     icon: "📖", name: "Seasonal Menu",    desc: "All stations +25% output",        cost: 2600,   apply: m => m.genMult *= 1.25 },
+    { id: "training", icon: "🎓", name: "Barista Training", desc: "All stations +35% output",        cost: 42000,  apply: m => m.genMult *= 1.35 },
+    { id: "espresso", icon: "☕", name: "Espresso Rebrand",  desc: "All stations +50% output",        cost: 1.5e6,  apply: m => m.genMult *= 1.5 },
+    { id: "franchise",icon: "⚡", name: "Franchise Network", desc: "All stations ×2 output",          cost: 6e7,    apply: m => m.genMult *= 2 },
+    { id: "synergy",  icon: "🔗", name: "Cafe Synergy",     desc: "Each station type +8% to all",    cost: 5e5,    apply: m => { m.synergy = true; } },
+    { id: "nightshift",icon: "🌙", name: "Night Shift",     desc: "Offline earns 100% (not 50%)",    cost: 250000, apply: m => { m.offlineBonus = 1.0; } }
+  ];
+
+  const PRESTIGE_STAR_BONUS = 0.10; // +10% global income per star
+  const OFFLINE_BASE_RATE = 0.5;    // earn 50% of income while away
+  const OFFLINE_CAP_HOURS = 8;      // cap offline earnings to 8 hours
+  const SAVE_KEY = "clickerCafeSave_v1";
+
+  // ============ GAME STATE ============
+  let state = defaultState();
+  let modifiers = {};
+  let bulk = 1; // 1, 10, 100, or "max"
+  let lastFrame = performance.now();
+  let uiAccum = 0;
+
+  function defaultState() {
+    const counts = {};
+    STATIONS.forEach(s => { counts[s.id] = 0; });
+    return {
+      coins: 0,
+      totalEarned: 0,
+      tapBase: 1,
+      stars: 0,
+      prestigeCount: 0,
+      boughtUpgrades: {},
+      counts: counts,
+      lastSeen: Date.now()
+    };
+  }
+
+  // ============ NUMBER FORMATTING (K / M / B ...) ============
+  function fmt(n) {
+    if (!isFinite(n)) return "∞";
+    if (n < 0) return "-" + fmt(-n);
+    if (n < 1000) return (n < 10 && n % 1 !== 0) ? n.toFixed(1) : String(Math.floor(n));
+    const units = ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"];
+    let u = 0;
+    while (n >= 1000 && u < units.length - 1) { n /= 1000; u++; }
+    const decimals = n < 10 ? 2 : n < 100 ? 1 : 0;
+    return n.toFixed(decimals) + units[u];
+  }
+
+  // ============ AUDIO (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  // ============ SAVE / LOAD ============
+  function save() {
+    try {
+      state.lastSeen = Date.now();
+      localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    } catch (e) { /* storage unavailable, ignore */ }
+  }
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return false;
+      const data = JSON.parse(raw);
+      const fresh = defaultState();
+      // Merge defensively so old/new saves never crash.
+      Object.assign(fresh, data);
+      fresh.counts = Object.assign({}, defaultState().counts, data.counts || {});
+      fresh.boughtUpgrades = data.boughtUpgrades || {};
+      state = fresh;
+      return true;
+    } catch (e) { return false; }
+  }
+
+  // ============ MODIFIERS ============
+  function recomputeModifiers() {
+    const m = {
+      tapMult: 1,
+      genMult: 1,
+      synergy: false,
+      offlineBonus: OFFLINE_BASE_RATE
+    };
+    UPGRADES.forEach(u => {
+      if (state.boughtUpgrades[u.id]) u.apply(m);
+    });
+    if (m.synergy) {
+      const types = STATIONS.filter(s => state.counts[s.id] > 0).length;
+      m.genMult *= 1 + 0.08 * types;
+    }
+    modifiers = m;
+  }
+
+  function prestigeMult() {
+    return 1 + state.stars * PRESTIGE_STAR_BONUS;
+  }
+
+  function tapPower() {
+    return state.tapBase * modifiers.tapMult * prestigeMult();
+  }
+
+  // Coins/sec from one station type (raw, before prestige).
+  function stationRate(s, count) {
+    return s.rate * count * modifiers.genMult;
+  }
+
+  // Total coins/sec including prestige multiplier.
+  function totalPerSec() {
+    let sum = 0;
+    STATIONS.forEach(s => { sum += stationRate(s, state.counts[s.id]); });
+    return sum * prestigeMult();
+  }
+
+  // ============ COST MATH ============
+  function costOfN(s, n, count) {
+    // Geometric series: base * growth^count * (growth^n - 1)/(growth - 1)
+    const g = s.growth;
+    return s.base * Math.pow(g, count) * (Math.pow(g, n) - 1) / (g - 1);
+  }
+
+  function maxAffordable(s, count) {
+    // Solve base*g^count*(g^n-1)/(g-1) <= coins  for n
+    const g = s.growth, coins = state.coins;
+    const a = s.base * Math.pow(g, count) / (g - 1);
+    if (a <= 0) return 0;
+    const inner = 1 + coins / a;
+    if (inner <= 1) return 0;
+    const n = Math.floor(Math.log(inner) / Math.log(g));
+    return Math.max(0, n);
+  }
+
+  function bulkCount(s) {
+    if (bulk === "max") return Math.max(1, maxAffordable(s, state.counts[s.id]));
+    return bulk;
+  }
+
+  // ============ ACTIONS ============
+  function serve(ev) {
+    const gain = tapPower();
+    addCoins(gain);
+    beep(520 + Math.random() * 120, 0.05, "triangle");
+    spawnFloat(ev, "+" + fmt(gain));
+    renderTop();
+  }
+
+  function addCoins(amount) {
+    state.coins += amount;
+    state.totalEarned += amount;
+  }
+
+  function buyStation(s) {
+    const owned = state.counts[s.id];
+    const n = bulkCount(s);
+    const cost = costOfN(s, n, owned);
+    if (state.coins < cost) { beep(180, 0.09, "sawtooth"); return; }
+    state.coins -= cost;
+    state.counts[s.id] += n;
+    beep(700, 0.09, "square");
+    showToast("Bought " + n + "× " + s.name + " for " + fmt(cost));
+    recomputeModifiers();
+    render();
+    save();
+  }
+
+  function buyUpgrade(u) {
+    if (state.boughtUpgrades[u.id]) return;
+    if (state.coins < u.cost) { beep(180, 0.09, "sawtooth"); return; }
+    state.coins -= u.cost;
+    state.boughtUpgrades[u.id] = true;
+    beep(880, 0.16, "sine");
+    showToast("Upgrade: " + u.name);
+    recomputeModifiers();
+    render();
+    save();
+  }
+
+  function starsGain() {
+    // Square-root scaled against total earned this run for a gentle prestige curve.
+    if (state.totalEarned < 1e6) return 0;
+    return Math.floor(Math.pow(state.totalEarned / 1e6, 0.5));
+  }
+
+  function doPrestige() {
+    const gain = starsGain();
+    if (gain < 1) { beep(180, 0.12, "sawtooth"); showToast("Earn at least 1M total coins to franchise."); return; }
+    const keepStars = state.stars + gain;
+    state = defaultState();
+    state.stars = keepStars;
+    state.prestigeCount = (state.prestigeCount || 0) + 1;
+    recomputeModifiers();
+    beep(300, 0.14, "sine");
+    setTimeout(() => beep(500, 0.14, "sine"), 120);
+    setTimeout(() => beep(760, 0.22, "sine"), 240);
+    showToast("Franchised! +" + gain + " star(s) — permanent bonus now ×" + prestigeMult().toFixed(2));
+    render();
+    save();
+  }
+
+  function restart() {
+    state = defaultState();
+    recomputeModifiers();
+    beep(300, 0.12, "sawtooth");
+    showToast("Cafe restarted from scratch.");
+    render();
+    save();
+  }
+
+  function resetSave() {
+    try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+    state = defaultState();
+    recomputeModifiers();
+    beep(220, 0.12, "sawtooth");
+    showToast("Save wiped. A fresh cafe opens.");
+    render();
+    save();
+  }
+
+  // ============ OFFLINE EARNINGS ============
+  function applyOffline(secondsAway) {
+    const rate = totalPerSec();
+    if (rate <= 0 || secondsAway < 10) return 0;
+    const capped = Math.min(secondsAway, OFFLINE_CAP_HOURS * 3600);
+    const earned = rate * capped * modifiers.offlineBonus;
+    if (earned <= 0) return 0;
+    addCoins(earned);
+    return earned;
+  }
+
+  // ============ RENDER: STATIONS ============
+  const genGrid = document.getElementById("genGrid");
+  const genEls = {};
+
+  function buildStationUI() {
+    genGrid.innerHTML = "";
+    STATIONS.forEach(b => {
+      const el = document.createElement("button");
+      el.type = "button";
+      el.className = "gen";
+      el.innerHTML =
+        '<span class="icon">' + b.icon + '</span>' +
+        '<span class="info">' +
+          '<span class="name">' + b.name + '</span>' +
+          '<span class="kind">' + b.kind + '</span>' +
+          '<span class="meta">' +
+            '<b class="effRate">0/s</b> each · cost <span class="cost">0</span>' +
+          '</span>' +
+        '</span>' +
+        '<span class="owned">0</span>';
+      el.addEventListener("click", () => buyStation(b));
+      genGrid.appendChild(el);
+      genEls[b.id] = {
+        root: el,
+        owned: el.querySelector(".owned"),
+        cost: el.querySelector(".cost"),
+        effRate: el.querySelector(".effRate")
+      };
+    });
+  }
+
+  function stationUnlocked(b) {
+    const idx = STATIONS.indexOf(b);
+    if (idx === 0) return true;
+    const prev = STATIONS[idx - 1];
+    return state.counts[prev.id] > 0 || state.counts[b.id] > 0 || state.coins >= b.base * 0.5;
+  }
+
+  function renderStations() {
+    const pm = prestigeMult();
+    STATIONS.forEach(b => {
+      const o = genEls[b.id];
+      const count = state.counts[b.id];
+      const n = bulkCount(b);
+      const cost = costOfN(b, n, count);
+      const affordable = state.coins >= cost;
+      const eff = stationRate(b, 1) * pm;
+      o.owned.textContent = count;
+      o.cost.textContent = fmt(cost) + (bulk === "max" ? "" : (n > 1 ? " ×" + n : ""));
+      o.effRate.textContent = fmt(eff) + "/s";
+      o.root.disabled = !affordable;
+      o.root.classList.toggle("locked", !stationUnlocked(b));
+    });
+  }
+
+  // ============ RENDER: UPGRADES ============
+  const upGrid = document.getElementById("upGrid");
+  const upEls = {};
+
+  function buildUpgradeUI() {
+    upGrid.innerHTML = "";
+    UPGRADES.forEach(u => {
+      const el = document.createElement("button");
+      el.type = "button";
+      el.className = "up";
+      el.innerHTML =
+        '<span class="icon">' + u.icon + '</span>' +
+        '<span class="info">' +
+          '<span class="name">' + u.name + '</span>' +
+          '<span class="desc">' + u.desc + '</span>' +
+          '<span class="cost">' + fmt(u.cost) + '</span>' +
+        '</span>';
+      el.addEventListener("click", () => buyUpgrade(u));
+      upGrid.appendChild(el);
+      upEls[u.id] = el;
+    });
+  }
+
+  function renderUpgrades() {
+    UPGRADES.forEach(u => {
+      const el = upEls[u.id];
+      const owned = !!state.boughtUpgrades[u.id];
+      if (owned) {
+        el.classList.add("owned");
+        el.disabled = true;
+        el.style.display = "";
+      } else {
+        el.classList.remove("owned");
+        el.disabled = state.coins < u.cost;
+        el.style.display = state.totalEarned >= u.cost * 0.25 ? "" : "none";
+      }
+    });
+  }
+
+  // ============ RENDER: TOP STATS ============
+  const coinsEl = document.getElementById("coins");
+  const perSecEl = document.getElementById("perSec");
+  const perTapEl = document.getElementById("perTap");
+  const totalEarnedEl = document.getElementById("totalEarned");
+  const prestigeBonusEl = document.getElementById("prestigeBonus");
+  const tapSubEl = document.getElementById("tapSub");
+  const prestigeBadge = document.getElementById("prestigeBadge");
+  const starsNowEl = document.getElementById("starsNow");
+  const starMultEl = document.getElementById("starMult");
+  const starsGainEl = document.getElementById("starsGain");
+  const prestigePctEl = document.getElementById("prestigePct");
+  const btnPrestige = document.getElementById("btnPrestige");
+  const btnPrestige2 = document.getElementById("btnPrestige2");
+
+  function renderTop() {
+    coinsEl.textContent = fmt(state.coins);
+    perSecEl.textContent = fmt(totalPerSec()) + "/s";
+    perTapEl.textContent = fmt(tapPower());
+    tapSubEl.textContent = "+" + fmt(tapPower()) + " per serve";
+    totalEarnedEl.textContent = fmt(state.totalEarned);
+    prestigeBonusEl.textContent = "×" + prestigeMult().toFixed(2);
+    if (state.stars > 0) {
+      prestigeBadge.textContent = "· ⭐ " + state.stars + " (" + Math.round(state.stars * PRESTIGE_STAR_BONUS * 100) + "%)";
+    } else {
+      prestigeBadge.textContent = "";
+    }
+    prestigePctEl.textContent = Math.round(PRESTIGE_STAR_BONUS * 100);
+    starsNowEl.textContent = state.stars;
+    starMultEl.textContent = "×" + prestigeMult().toFixed(2);
+    const gain = starsGain();
+    starsGainEl.textContent = gain;
+    btnPrestige.disabled = gain < 1;
+    btnPrestige2.disabled = gain < 1;
+  }
+
+  function render() {
+    renderTop();
+    renderStations();
+    renderUpgrades();
+  }
+
+  // ============ FLOATING TEXT + TOAST ============
+  function spawnFloat(ev, text) {
+    const el = document.createElement("div");
+    el.className = "float";
+    el.textContent = text;
+    const x = ev && ev.clientX ? ev.clientX : window.innerWidth / 2;
+    const y = ev && ev.clientY ? ev.clientY : window.innerHeight / 2;
+    el.style.left = x + "px";
+    el.style.top = (y - 10) + "px";
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 900);
+  }
+
+  let toastTimer = null;
+  const toastEl = document.getElementById("toast");
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2200);
+  }
+
+  // ============ IDLE LOOP (requestAnimationFrame + timestamps) ============
+  let raf = null;
+  function loop(now) {
+    const dt = Math.min((now - lastFrame) / 1000, 1); // clamp big gaps
+    lastFrame = now;
+
+    const rate = totalPerSec();
+    if (rate > 0) addCoins(rate * dt);
+
+    uiAccum += dt;
+    if (uiAccum >= 0.1) { // refresh UI ~10x/sec (not every frame)
+      uiAccum = 0;
+      render();
+    }
+    raf = requestAnimationFrame(loop);
+  }
+
+  // ============ WIRING ============
+  const tapBtn = document.getElementById("tapBtn");
+  tapBtn.addEventListener("click", serve);
+
+  document.getElementById("btnPrestige").addEventListener("click", doPrestige);
+  document.getElementById("btnPrestige2").addEventListener("click", doPrestige);
+  document.getElementById("btnRestart").addEventListener("click", restart);
+  document.getElementById("btnReset").addEventListener("click", resetSave);
+
+  document.querySelectorAll(".chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      document.querySelectorAll(".chip").forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
+      const v = chip.dataset.bulk;
+      bulk = (v === "max") ? "max" : parseInt(v, 10);
+      beep(600, 0.04, "triangle");
+      render();
+    });
+  });
+
+  // Keyboard: press SPACE to serve coffee.
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "Space") {
+      e.preventDefault();
+      serve({ clientX: window.innerWidth / 2, clientY: 240 });
+    }
+  });
+
+  // Pause loop when tab hidden (saves cycles); catch up on visibility.
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      save();
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+    } else if (!raf) {
+      lastFrame = performance.now();
+      raf = requestAnimationFrame(loop);
+    }
+  });
+
+  window.addEventListener("beforeunload", save);
+  setInterval(save, 15000); // periodic autosave
+
+  // ============ BOOT ============
+  function boot() {
+    const hadSave = load();
+    recomputeModifiers();
+
+    if (hadSave) {
+      const away = (Date.now() - (state.lastSeen || Date.now())) / 1000;
+      const earned = applyOffline(away);
+      if (earned > 0) {
+        const secs = Math.floor(away);
+        const h = Math.floor(secs / 3600), m2 = Math.floor((secs % 3600) / 60);
+        const awayStr = h > 0 ? h + "h " + m2 + "m" : m2 + "m";
+        showToast("Welcome back! Away " + awayStr + " → +" + fmt(earned) + " coins");
+      }
+    }
+
+    buildStationUI();
+    buildUpgradeUI();
+    render();
+    lastFrame = performance.now();
+    raf = requestAnimationFrame(loop);
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>

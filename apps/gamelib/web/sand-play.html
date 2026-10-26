@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🏖️ Sand Play</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Trebuchet MS', 'Segoe UI', Tahoma, sans-serif;
+      background: radial-gradient(circle at 30% 10%, #2a3f63 0%, #16233b 60%, #0d1526 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+      color: #fff;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(18, 28, 46, 0.72);
+      border: 1px solid rgba(255, 226, 168, 0.18);
+      border-radius: 20px;
+      padding: 16px;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+      width: min(960px, 96vw);
+      backdrop-filter: blur(6px);
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.6rem;
+      letter-spacing: 0.06em;
+      color: #ffe9b8;
+      margin-bottom: 2px;
+      text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.78rem;
+      color: #a8bad6;
+      margin-bottom: 10px;
+    }
+
+    /* ============ TOOLBAR ============ */
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+      margin-bottom: 8px;
+    }
+
+    .tool-btn {
+      padding: 7px 12px;
+      border: 1px solid rgba(255, 226, 168, 0.25);
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      font-size: 0.78rem;
+      color: #d7e3f5;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: inherit;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .tool-btn:hover { background: rgba(255, 255, 255, 0.14); transform: translateY(-1px); }
+
+    .tool-btn.active {
+      background: linear-gradient(135deg, #ffcf6b, #ffa94d);
+      color: #3a2500;
+      border-color: #ffdf9c;
+      box-shadow: 0 4px 14px rgba(255, 180, 80, 0.35);
+      font-weight: 700;
+    }
+
+    .tool-btn.reset { background: rgba(255, 120, 120, 0.16); border-color: rgba(255, 140, 140, 0.4); color: #ffd0d0; }
+
+    /* ============ TIDE SLIDER ============ */
+    .tide-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 10px;
+      font-size: 0.74rem;
+      color: #a8bad6;
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: min(320px, 60vw);
+      height: 6px;
+      border-radius: 6px;
+      background: linear-gradient(90deg, #6fd0e6, #2b6c86);
+      outline: none;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: #ffe9b8;
+      border: 2px solid #ffa94d;
+      cursor: pointer;
+    }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 8px 26px rgba(0, 0, 0, 0.4);
+      background: #0d1526;
+    }
+
+    canvas { display: block; width: 100%; height: auto; cursor: crosshair; }
+
+    .hint {
+      text-align: center;
+      font-size: 0.68rem;
+      color: #7f92ad;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 520px) {
+      .game-title { font-size: 1.25rem; }
+      .tool-btn { padding: 6px 9px; font-size: 0.72rem; }
+      .toolbar { gap: 4px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">🏖️ Sand Play</h1>
+    <p class="game-subtitle">A little tropical tide pool — build, dig, and let the sea do the rest.</p>
+
+    <div class="toolbar" id="toolbar">
+      <button class="tool-btn active" data-tool="pour">🏝️ Pour Sand</button>
+      <button class="tool-btn" data-tool="dig">🕳️ Dig</button>
+      <button class="tool-btn" data-tool="rake">🪮 Rake Flat</button>
+      <button class="tool-btn" data-tool="castle">🏰 Castle</button>
+      <button class="tool-btn" data-tool="shell">🐚 Shell</button>
+      <button class="tool-btn" data-tool="palm">🌴 Palm</button>
+      <button class="tool-btn" data-tool="umbrella">⛱️ Umbrella</button>
+      <button class="tool-btn reset" id="resetBtn">↺ Reset Beach</button>
+    </div>
+
+    <div class="tide-row">
+      <span>Tide</span>
+      <input type="range" id="tideSlider" min="0" max="100" value="42" />
+      <span id="tideLabel">steady</span>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="900" height="540"></canvas>
+    </div>
+
+    <p class="hint">Drag to shape the shore · tap a spot to place things · keys 1–8 switch tools</p>
+  </div>
+
+  <script>
+    // ============ GAME CONFIGURATION ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;              // world width
+    const H = canvas.height;             // world height
+    const NCOL = 200;                    // sand columns across the beach
+    const COLW = W / NCOL;
+    const SEA_BASE = 476;                // y of the sea floor
+    const MAX_H = 320;                   // tallest sand pile
+
+    // ============ GAME STATE ============
+    let h = new Float32Array(NCOL);      // sand surface height (pixels above sea floor)
+    let wet = new Float32Array(NCOL);    // 0 = bone dry, 1 = soaked
+    let surfY = new Float32Array(NCOL);  // cached screen y of each column top
+
+    let shells = [];
+    let palms = [];
+    let umbrellas = [];
+    let crabs = [];
+    let grains = [];
+
+    let tideBase = 42;                   // from the slider
+    let tide = 42;                       // live tide height
+    let worldTime = 0;                   // seconds of beach life
+    let skyPhase = 0.06;                 // 0..1 day cycle
+    let lastTime = 0;
+    let currentTool = 'pour';
+    let pointer = { down: false, x: 0, col: 0 };
+    let splashes = [];
+
+    // ============ DOM ELEMENTS ============
+    const toolbar = document.getElementById('toolbar');
+    const toolBtns = document.querySelectorAll('.tool-btn[data-tool]');
+    const resetBtn = document.getElementById('resetBtn');
+    const tideSlider = document.getElementById('tideSlider');
+    const tideLabel = document.getElementById('tideLabel');
+
+    // ============ AUDIO ============
+    let actx = null;
+    function beep(freq, dur, type, vol) {
+      try {
+        if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = actx.createOscillator();
+        const g = actx.createGain();
+        o.type = type || 'sine';
+        o.frequency.value = freq || 440;
+        o.connect(g); g.connect(actx.destination);
+        g.gain.setValueAtTime(vol || 0.12, actx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + (dur || 0.09));
+        o.start(); o.stop(actx.currentTime + (dur || 0.09));
+      } catch (e) { /* audio is a bonus, never fatal */ }
+    }
+
+    // ============ WORLD SETUP ============
+    function colFromX(x) {
+      const c = Math.floor(x / COLW);
+      return c < 0 ? 0 : (c >= NCOL ? NCOL - 1 : c);
+    }
+    function xOfCol(i) { return (i + 0.5) * COLW; }
+    function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+    function rnd(a, b) { return a + Math.random() * (b - a); }
+
+    // Bias the shore toward the right side of the beach
+    function baseProfile(i) {
+      const f = i / (NCOL - 1);
+      return 8 + 150 * Math.pow(1 - f, 2.2);
+    }
+
+    function buildBeach() {
+      h = new Float32Array(NCOL);
+      wet = new Float32Array(NCOL);
+      for (let i = 0; i < NCOL; i++) {
+        h[i] = baseProfile(i) + Math.sin(i * 0.31) * 2.2 + Math.sin(i * 0.07 + 1.3) * 3.4;
+        wet[i] = h[i] < tideBase ? 0.85 : 0.2;
+      }
+      // decorative sand grains scattered over the dry upper beach
+      grains = [];
+      for (let i = 0; i < 260; i++) {
+        grains.push({
+          x: Math.random() * (W * 0.78),
+          yOff: rnd(6, 150),
+          s: rnd(0.6, 1.6),
+          a: rnd(0.05, 0.22)
+        });
+      }
+      palms = [
+        { x: W * 0.10, sway: Math.random() * 6.28, seed: 0.4 },
+        { x: W * 0.20, sway: Math.random() * 6.28, seed: 1.9 },
+        { x: W * 0.37, sway: Math.random() * 6.28, seed: 3.1 }
+      ];
+      shells = [
+        { x: W * 0.52, kind: 0, rot: 0.4, life: 1 },
+        { x: W * 0.60, kind: 1, rot: 2.1, life: 1 },
+        { x: W * 0.71, kind: 0, rot: 5.0, life: 1 },
+        { x: W * 0.45, kind: 2, rot: 1.2, life: 1 }
+      ];
+      umbrellas = [{ x: W * 0.28, hue: 12 }];
+      crabs = [];
+      for (let i = 0; i < 5; i++) {
+        crabs.push({
+          x: rnd(W * 0.18, W * 0.72),
+          dir: Math.random() < 0.5 ? -1 : 1,
+          speed: rnd(22, 44),
+          wobble: Math.random() * 6.28,
+          state: 'walk',
+          timer: rnd(1, 4)
+        });
+      }
+      splashes = [];
+    }
+
+    // ============ SIMULATION ============
+    function updateTide(dt) {
+      // slow breathing tide + the player's slider offset
+      const breathe = Math.sin(worldTime * 0.11) * 16 + Math.sin(worldTime * 0.037) * 7;
+      tide = clamp(tideBase + breathe, 2, 150);
+    }
+
+    function simSand(dt) {
+      // diffusion = angle of repose. Wet sand slumps faster than dry dunes.
+      const next = new Float32Array(NCOL);
+      for (let i = 0; i < NCOL; i++) {
+        const l = h[i > 0 ? i - 1 : 0];
+        const r = h[i < NCOL - 1 ? i + 1 : NCOL - 1];
+        const k = (0.35 + wet[i] * 1.15) * dt;
+        next[i] = h[i] + clamp((l + r - 2 * h[i]), -8, 8) * k;
+      }
+
+      for (let i = 0; i < NCOL; i++) {
+        let v = next[i];
+
+        if (v < tide) {
+          // submerged: the sea levels everything it touches
+          wet[i] = Math.min(1, wet[i] + dt * 1.6);
+          v += (tide - v) * clamp(dt * 0.55, 0, 1);
+          // gentle wash: nibble a little material away each pass
+          v -= dt * 2.4 * (1 - v / Math.max(tide, 1));
+        } else {
+          // drying in the sun
+          wet[i] = Math.max(0, wet[i] - dt * 0.035);
+          // splashing near the waterline keeps the shore glistening
+          const nearWater = Math.abs(v - tide);
+          if (nearWater < 6) wet[i] = Math.min(1, wet[i] + dt * 0.9);
+        }
+        h[i] = clamp(v, 0, MAX_H);
+      }
+    }
+
+    function updateCrabs(dt) {
+      for (const c of crabs) {
+        c.wobble += dt * 9;
+        c.timer -= dt;
+        if (c.timer <= 0) {
+          if (c.state === 'walk') { c.state = 'pause'; c.timer = rnd(0.6, 1.8); }
+          else { c.state = 'walk'; c.timer = rnd(1.5, 4.5); }
+        }
+        if (c.state !== 'walk') continue;
+
+        const nx = c.x + c.dir * c.speed * dt;
+        const col = colFromX(nx);
+        const dryEnough = h[col] > tide + 4;
+        if (nx < W * 0.05 || nx > W * 0.92) c.dir *= -1;
+        else if (!dryEnough) c.dir *= -1;
+        else c.x = nx;
+      }
+    }
+
+    function updateShells(dt) {
+      for (const s of shells) {
+        const col = colFromX(s.x);
+        if (h[col] < tide) {
+          s.life -= dt * 0.35;          // washed away by the incoming sea
+          s.x += Math.sin(worldTime * 2 + s.rot) * dt * 14;
+        } else if (h[col] > tide + 2) {
+          s.life = Math.min(1, s.life + dt * 0.1);
+        }
+        s.x = clamp(s.x, 4, W - 4);
+      }
+      shells = shells.filter(s => s.life > 0.02);
+    }
+
+    function updateSplashes(dt) {
+      for (const p of splashes) {
+        p.vy += 260 * dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.life -= dt * 1.5;
+      }
+      splashes = splashes.filter(p => p.life > 0);
+    }
+
+    // ============ TOOLS ============
+    function applyBrush(col, strength, radius, wetAdd) {
+      for (let i = col - radius; i <= col + radius; i++) {
+        if (i < 0 || i >= NCOL) continue;
+        const d = Math.abs(i - col) / radius;
+        const fall = Math.cos(d * Math.PI * 0.5); // smooth bell
+        h[i] = clamp(h[i] + strength * fall, 0, MAX_H);
+        if (wetAdd) wet[i] = clamp(wet[i] + wetAdd * fall, 0, 1);
+      }
+    }
+
+    function stampCastle(col) {
+      const half = 13;
+      for (let j = -half; j <= half; j++) {
+        const i = col + j;
+        if (i < 0 || i >= NCOL) continue;
+        const t = Math.abs(j) / half;
+        let add = 46 * (1 - t * t * 0.55);
+        // crenellated battlements
+        if (((j + 60) % 7) < 3) add += 11;
+        // corner towers
+        if (Math.abs(j) > half - 5 && Math.abs(j) <= half - 3) add += 26;
+        h[i] = clamp(h[i] + add, 0, MAX_H);
+        wet[i] = Math.min(1, wet[i] + 0.55);
+      }
+      burst(col * COLW, SEA_BASE - h[clamp(col, 0, NCOL - 1)], 16, '#e8d3a5');
+      beep(300, 0.16, 'triangle', 0.14);
+      beep(450, 0.1, 'sine', 0.08);
+    }
+
+    function burst(x, y, n, color) {
+      for (let i = 0; i < n; i++) {
+        splashes.push({
+          x: x, y: y,
+          vx: rnd(-70, 70), vy: rnd(-140, -30),
+          life: 1, color: color, size: rnd(1.5, 3.4)
+        });
+      }
+    }
+
+    function handlePaint(dt) {
+      if (!pointer.down) return;
+      const col = pointer.col;
+      if (currentTool === 'pour') {
+        applyBrush(col, 70 * dt, 7, 0.5);
+      } else if (currentTool === 'dig') {
+        applyBrush(col, -95 * dt, 8, 0.35);
+      } else if (currentTool === 'rake') {
+        let sum = 0, n = 0;
+        for (let i = col - 10; i <= col + 10; i++) {
+          if (i < 0 || i >= NCOL) continue;
+          sum += h[i]; n++;
+        }
+        const avg = sum / Math.max(n, 1);
+        for (let i = col - 10; i <= col + 10; i++) {
+          if (i < 0 || i >= NCOL) continue;
+          h[i] += (avg - h[i]) * clamp(dt * 3.2, 0, 1);
+          wet[i] = Math.min(1, wet[i] + dt * 0.1);
+        }
+      }
+    }
+
+    function handleTap(col, x) {
+      if (currentTool === 'castle') {
+        stampCastle(col);
+      } else if (currentTool === 'shell') {
+        shells.push({ x: x, kind: (shells.length + palms.length) % 3, rot: Math.random() * 6.28, life: 1 });
+        beep(880, 0.07, 'sine', 0.1);
+      } else if (currentTool === 'palm') {
+        palms.push({ x: x, sway: Math.random() * 6.28, seed: Math.random() * 5 });
+        beep(220, 0.12, 'sine', 0.1);
+      } else if (currentTool === 'umbrella') {
+        umbrellas.push({ x: x, hue: Math.floor(rnd(0, 360)) });
+        beep(520, 0.1, 'triangle', 0.1);
+      } else if (currentTool === 'pour' || currentTool === 'dig') {
+        burst(x, SEA_BASE - h[col], 8, currentTool === 'dig' ? '#8a6a3d' : '#f0dcae');
+        beep(currentTool === 'dig' ? 150 : 640, 0.05, 'sine', 0.07);
+      }
+    }
+
+    // ============ RENDER ============
+    // Sky keyframes: day -> sunset -> dusk -> night -> dawn -> day
+    const SKY_KEYS = [
+      { t: 0.00, top: [126, 200, 227], bot: [191, 232, 245], sun: [255, 246, 200], a: 0.00, tint: [255, 255, 255] },
+      { t: 0.32, top: [255, 140, 105], bot: [255, 214, 160], sun: [255, 190, 120], a: 0.10, tint: [255, 200, 150] },
+      { t: 0.48, top: [90, 80, 130],   bot: [240, 150, 120], sun: [255, 120, 90],  a: 0.22, tint: [220, 140, 120] },
+      { t: 0.60, top: [20, 30, 60],    bot: [45, 60, 95],    sun: [235, 240, 255], a: 0.42, tint: [90, 110, 170] },
+      { t: 0.86, top: [120, 140, 180], bot: [255, 200, 170], sun: [255, 235, 200], a: 0.12, tint: [255, 210, 190] },
+      { t: 1.00, top: [126, 200, 227], bot: [191, 232, 245], sun: [255, 246, 200], a: 0.00, tint: [255, 255, 255] }
+    ];
+
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function lerpRGB(a, b, t) {
+      return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
+    }
+    function rgb(c) { return 'rgb(' + (c[0] | 0) + ',' + (c[1] | 0) + ',' + (c[2] | 0) + ')'; }
+
+    function sampleSky(phase) {
+      let A = SKY_KEYS[0], B = SKY_KEYS[SKY_KEYS.length - 1];
+      for (let i = 0; i < SKY_KEYS.length - 1; i++) {
+        if (phase >= SKY_KEYS[i].t && phase <= SKY_KEYS[i + 1].t) {
+          A = SKY_KEYS[i]; B = SKY_KEYS[i + 1]; break;
+        }
+      }
+      const s = (phase - A.t) / Math.max(B.t - A.t, 0.0001);
+      return {
+        top: lerpRGB(A.top, B.top, s),
+        bot: lerpRGB(A.bot, B.bot, s),
+        sun: lerpRGB(A.sun, B.sun, s),
+        a: lerp(A.a, B.a, s),
+        tint: lerpRGB(A.tint, B.tint, s)
+      };
+    }
+
+    function drawSky(sky) {
+      const g = ctx.createLinearGradient(0, 0, 0, SEA_BASE);
+      g.addColorStop(0, rgb(sky.top));
+      g.addColorStop(1, rgb(sky.bot));
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, SEA_BASE + 4);
+
+      // sun / moon riding an arc across the sky
+      const ang = skyPhase * Math.PI * 2 - Math.PI * 0.5;
+      const sx = W * 0.5 + Math.cos(ang - Math.PI * 0.5) * W * 0.42;
+      const sy = 150 + Math.sin(ang) * 92 + 40;
+      const isMoon = skyPhase > 0.5 && skyPhase < 0.9;
+      const r = isMoon ? 26 : 34;
+      ctx.save();
+      ctx.shadowColor = rgb(sky.sun);
+      ctx.shadowBlur = 60;
+      ctx.fillStyle = rgb(sky.sun);
+      ctx.beginPath();
+      ctx.arc(clamp(sx, 60, W - 60), sy, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // a few lazy clouds, tinted by the light
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = rgb(lerpRGB([255, 255, 255], sky.bot, 0.35));
+      for (let i = 0; i < 4; i++) {
+        const cx = ((i * 260 + worldTime * 5) % (W + 300)) - 150;
+        const cy = 60 + i * 34;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, 52, 16, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx + 34, cy + 6, 36, 13, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx - 30, cy + 7, 30, 11, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawSand() {
+      // solid sand body as a single smooth silhouette
+      ctx.beginPath();
+      ctx.moveTo(0, surfY[0]);
+      for (let i = 1; i < NCOL; i++) ctx.lineTo(xOfCol(i), surfY[i]);
+      ctx.lineTo(W, surfY[NCOL - 1]);
+      ctx.lineTo(W, H); ctx.lineTo(0, H);
+      ctx.closePath();
+
+      const g = ctx.createLinearGradient(0, 120, 0, H);
+      g.addColorStop(0, '#f7e6bb');
+      g.addColorStop(0.55, '#ecd39c');
+      g.addColorStop(1, '#c9a86e');
+      ctx.fillStyle = g;
+      ctx.fill();
+
+      // wetness overlay: darker, richer sand where the sea has been
+      for (let i = 0; i < NCOL; i++) {
+        const w = wet[i];
+        if (w < 0.04) continue;
+        ctx.globalAlpha = w * 0.72;
+        ctx.fillStyle = '#9c784a';
+        ctx.fillRect(i * COLW, surfY[i], COLW + 1.2, H - surfY[i]);
+      }
+      ctx.globalAlpha = 1;
+
+      // damp highlight right at the waterline
+      for (let i = 0; i < NCOL; i++) {
+        const d = Math.abs(h[i] - tide);
+        if (d < 3.2) {
+          ctx.globalAlpha = (1 - d / 3.2) * 0.5;
+          ctx.fillStyle = '#fff2d0';
+          ctx.fillRect(i * COLW, surfY[i] - 1.5, COLW + 1, 3);
+        }
+      }
+      ctx.globalAlpha = 1;
+
+      // grain speckles on the dry upper beach
+      ctx.fillStyle = '#8a6a3d';
+      for (const gr of grains) {
+        const col = colFromX(gr.x);
+        if (wet[col] > 0.45) continue;
+        ctx.globalAlpha = gr.a;
+        ctx.fillRect(gr.x, surfY[col] + gr.yOff, gr.s, gr.s);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawWater() {
+      const waterCol = 'rgba(78,164,198,0.42)';
+      const deepCol = 'rgba(40,110,150,0.5)';
+      for (let i = 0; i < NCOL; i++) {
+        if (h[i] >= tide) continue;
+        const x = i * COLW;
+        const depth = tide - h[i];
+        const wave = Math.sin(x * 0.035 + worldTime * 2.2) * 2.4
+                   + Math.sin(x * 0.11 - worldTime * 1.4) * 1.1;
+        const topY = SEA_BASE - tide - wave;
+        const botY = surfY[i];
+        ctx.fillStyle = depth > 22 ? deepCol : waterCol;
+        ctx.beginPath();
+        ctx.moveTo(x, topY);
+        ctx.lineTo(x + COLW, topY + Math.sin((x + COLW) * 0.035 + worldTime * 2.2) * 0.6);
+        ctx.lineTo(x + COLW, botY);
+        ctx.lineTo(x, botY);
+        ctx.closePath();
+        ctx.fill();
+
+        // foam where water meets sand
+        if (depth < 3 && depth > 0.2) {
+          ctx.globalAlpha = 0.7;
+          ctx.fillStyle = '#eafaff';
+          ctx.fillRect(x, topY - 1, COLW + 0.6, 2.4);
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      // shimmering highlights on the open sea
+      ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      for (let i = 0; i < NCOL; i += 2) {
+        if (tide - h[i] < 18) continue;
+        const x = i * COLW;
+        const y = SEA_BASE - tide + 8 + Math.sin(x * 0.06 + worldTime * 3) * 3;
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + 10, y);
+      }
+      ctx.stroke();
+    }
+
+    function drawPalm(p) {
+      const col = colFromX(p.x);
+      const baseY = surfY[col];
+      const sway = Math.sin(worldTime * 0.9 + p.sway) * 0.05;
+      const tall = 92 + p.seed * 10;
+
+      // trunk
+      ctx.strokeStyle = '#8a5a2b';
+      ctx.lineWidth = 8;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(p.x, baseY);
+      ctx.quadraticCurveTo(p.x + sway * 60, baseY - tall * 0.6, p.x + sway * 120, baseY - tall);
+      ctx.stroke();
+
+      const tipX = p.x + sway * 120;
+      const tipY = baseY - tall;
+
+      // coconuts
+      ctx.fillStyle = '#6d4522';
+      ctx.beginPath();
+      ctx.arc(tipX - 4, tipY + 4, 4, 0, Math.PI * 2);
+      ctx.arc(tipX + 4, tipY + 5, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // fronds
+      for (let k = 0; k < 6; k++) {
+        const a = (k / 6) * Math.PI * 2 + worldTime * 0.06 + p.seed;
+        const len = 42 + Math.sin(k * 1.7) * 8;
+        ctx.strokeStyle = k % 2 ? '#2f7d4f' : '#3f9a63';
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(tipX, tipY);
+        ctx.quadraticCurveTo(
+          tipX + Math.cos(a) * len * 0.6,
+          tipY + Math.sin(a) * len * 0.6 - 14,
+          tipX + Math.cos(a) * len,
+          tipY + Math.sin(a) * len + 8
+        );
+        ctx.stroke();
+      }
+    }
+
+    function drawUmbrella(u) {
+      const col = colFromX(u.x);
+      const baseY = surfY[col];
+      const topY = baseY - 74;
+
+      ctx.strokeStyle = '#d9dde3';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(u.x, baseY);
+      ctx.lineTo(u.x, topY);
+      ctx.stroke();
+
+      const segs = 7;
+      for (let k = 0; k < segs; k++) {
+        const a0 = Math.PI + (k / segs) * Math.PI;
+        const a1 = Math.PI + ((k + 1) / segs) * Math.PI;
+        ctx.beginPath();
+        ctx.moveTo(u.x, topY);
+        ctx.arc(u.x, topY, 46, a0, a1);
+        ctx.closePath();
+        ctx.fillStyle = k % 2 ? 'hsl(' + u.hue + ',72%,62%)' : '#fdf6ec';
+        ctx.fill();
+      }
+      ctx.fillStyle = 'hsl(' + u.hue + ',72%,50%)';
+      ctx.beginPath();
+      ctx.arc(u.x, topY, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawShell(s) {
+      const col = colFromX(s.x);
+      const y = surfY[col] - 2;
+      ctx.save();
+      ctx.globalAlpha = clamp(s.life, 0, 1);
+      ctx.translate(s.x, y);
+      ctx.rotate(s.rot);
+      if (s.kind === 0) {
+        // scallop
+        ctx.fillStyle = '#ffd9e0';
+        ctx.beginPath();
+        ctx.arc(0, 0, 9, Math.PI, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#e39aae';
+        ctx.lineWidth = 1;
+        for (let k = -2; k <= 2; k++) {
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(k * 4.4, -8.4);
+          ctx.stroke();
+        }
+      } else if (s.kind === 1) {
+        // spiral snail
+        ctx.fillStyle = '#f3d7a6';
+        ctx.beginPath();
+        ctx.arc(0, 0, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#c39a5c';
+        ctx.beginPath();
+        for (let t = 0; t < 12; t++) {
+          const r = t * 0.55;
+          const a = t * 0.9;
+          const px = Math.cos(a) * r, py = Math.sin(a) * r;
+          if (t === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+      } else {
+        // little starfish
+        ctx.fillStyle = '#ff9f6b';
+        ctx.beginPath();
+        for (let k = 0; k < 5; k++) {
+          const a = (k / 5) * Math.PI * 2 - Math.PI / 2;
+          const a2 = a + Math.PI / 5;
+          ctx.lineTo(Math.cos(a) * 9, Math.sin(a) * 9);
+          ctx.lineTo(Math.cos(a2) * 4, Math.sin(a2) * 4);
+        }
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawCrab(c) {
+      const col = colFromX(c.x);
+      const y = surfY[col] - 4;
+      const walk = c.state === 'walk' ? 1 : 0.25;
+
+      // legs
+      ctx.strokeStyle = '#b33c2a';
+      ctx.lineWidth = 2;
+      for (let k = -1; k <= 1; k++) {
+        const lift = Math.sin(c.wobble + k * 1.5) * 2.4 * walk;
+        ctx.beginPath();
+        ctx.moveTo(c.x + k * 5, y + 1);
+        ctx.lineTo(c.x + k * 5 + c.dir * 6, y + 5 + lift);
+        ctx.stroke();
+      }
+      // body
+      ctx.fillStyle = '#e8563c';
+      ctx.beginPath();
+      ctx.ellipse(c.x, y, 9, 6.4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#c8402a';
+      ctx.beginPath();
+      ctx.ellipse(c.x - c.dir * 2, y + 2, 6, 3.4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // claws
+      ctx.strokeStyle = '#d24a30';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(c.x + c.dir * 8, y - 1);
+      ctx.lineTo(c.x + c.dir * 15, y - 5);
+      ctx.stroke();
+      ctx.fillStyle = '#e8563c';
+      ctx.beginPath();
+      ctx.arc(c.x + c.dir * 16, y - 6, 3.2, 0, Math.PI * 2);
+      ctx.fill();
+      // eyes on stalks
+      ctx.strokeStyle = '#b33c2a';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(c.x - c.dir * 2, y - 5); ctx.lineTo(c.x - c.dir * 3, y - 10);
+      ctx.moveTo(c.x + c.dir * 3, y - 5); ctx.lineTo(c.x + c.dir * 4, y - 10);
+      ctx.stroke();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(c.x - c.dir * 3, y - 11, 2.4, 0, Math.PI * 2);
+      ctx.arc(c.x + c.dir * 4, y - 11, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#232323';
+      ctx.beginPath();
+      ctx.arc(c.x - c.dir * 3 + c.dir * 0.6, y - 11, 1.1, 0, Math.PI * 2);
+      ctx.arc(c.x + c.dir * 4 + c.dir * 0.6, y - 11, 1.1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawSplashes() {
+      for (const p of splashes) {
+        ctx.globalAlpha = clamp(p.life, 0, 1);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function draw() {
+      const sky = sampleSky(skyPhase);
+      drawSky(sky);
+
+      for (let i = 0; i < NCOL; i++) surfY[i] = SEA_BASE - h[i];
+
+      drawSand();
+      drawWater();
+
+      // objects sorted so upright things layer naturally
+      for (const p of palms) drawPalm(p);
+      for (const u of umbrellas) drawUmbrella(u);
+      for (const s of shells) drawShell(s);
+      for (const c of crabs) drawCrab(c);
+      drawSplashes();
+
+      // day-to-sunset warmth tint over the whole scene
+      if (sky.a > 0.001) {
+        ctx.globalCompositeOperation = 'soft-light';
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = 'rgba(' + (sky.tint[0] | 0) + ',' + (sky.tint[1] | 0) + ',' + (sky.tint[2] | 0) + ',' + sky.a.toFixed(3) + ')';
+        ctx.fillRect(0, 0, W, H);
+        ctx.globalCompositeOperation = 'source-over';
+      }
+
+      // vignette for coziness
+      const vg = ctx.createRadialGradient(W / 2, H * 0.45, H * 0.35, W / 2, H * 0.5, H * 1.05);
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, 'rgba(15,10,25,0.34)');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // ============ MAIN LOOP ============
+    function loop(now) {
+      const dt = Math.min((now - lastTime) / 1000 || 0, 0.05);
+      lastTime = now;
+      worldTime += dt;
+      skyPhase = (skyPhase + dt * 0.0035) % 1; // ~4.5 minute full day
+
+      updateTide(dt);
+      simSand(dt);
+      handlePaint(dt);
+      updateCrabs(dt);
+      updateShells(dt);
+      updateSplashes(dt);
+
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // ============ INPUT HANDLING ============
+    function canvasPos(e) {
+      const r = canvas.getBoundingClientRect();
+      const cx = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+      const x = cx * (W / r.width);
+      return { x: clamp(x, 0, W - 0.001) };
+    }
+
+    function onDown(e) {
+      if (e.touches) e.preventDefault();
+      if (!actx) beep(1, 0.01, 'sine', 0.0001); // unlock audio on first gesture
+      const p = canvasPos(e);
+      pointer.down = true;
+      pointer.x = p.x;
+      pointer.col = colFromX(p.x);
+      if (currentTool !== 'pour' && currentTool !== 'dig' && currentTool !== 'rake') {
+        handleTap(pointer.col, p.x);
+      }
+    }
+
+    function onMove(e) {
+      const p = canvasPos(e);
+      pointer.x = p.x;
+      pointer.col = colFromX(p.x);
+      if (pointer.down && e.touches) e.preventDefault();
+    }
+
+    function onUp() {
+      if (!pointer.down) return;
+      pointer.down = false;
+      if (currentTool === 'pour') beep(700, 0.05, 'sine', 0.06);
+      if (currentTool === 'dig') beep(140, 0.07, 'sine', 0.07);
+    }
+
+    canvas.addEventListener('mousedown', onDown);
+    canvas.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+
+    canvas.addEventListener('touchstart', onDown, { passive: false });
+    canvas.addEventListener('touchmove', onMove, { passive: false });
+    canvas.addEventListener('touchend', onUp);
+    canvas.addEventListener('touchcancel', onUp);
+
+    // ============ TOOLBAR ============
+    function selectTool(tool) {
+      currentTool = tool;
+      toolBtns.forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
+      beep(520, 0.05, 'square', 0.05);
+    }
+
+    toolBtns.forEach(btn => {
+      btn.addEventListener('click', () => selectTool(btn.dataset.tool));
+    });
+
+    resetBtn.addEventListener('click', () => {
+      tideBase = 42; tideSlider.value = 42; tideLabel.textContent = 'steady';
+      worldTime = 0; skyPhase = 0.06;
+      buildBeach();
+      beep(400, 0.1, 'triangle', 0.12);
+      beep(600, 0.14, 'triangle', 0.1);
+    });
+
+    tideSlider.addEventListener('input', () => {
+      tideBase = 6 + (parseInt(tideSlider.value) / 100) * 108;
+      tideLabel.textContent = tideBase < 28 ? 'low' : (tideBase > 82 ? 'high' : 'steady');
+    });
+
+    document.addEventListener('keydown', (e) => {
+      const map = { Digit1: 'pour', Digit2: 'dig', Digit3: 'rake', Digit4: 'castle', Digit5: 'shell', Digit6: 'palm', Digit7: 'umbrella' };
+      if (map[e.code]) { selectTool(map[e.code]); e.preventDefault(); }
+      if (e.code === 'KeyR') { resetBtn.click(); e.preventDefault(); }
+    });
+
+    // prevent the page from scrolling while sculpting on touch devices
+    document.addEventListener('touchmove', (e) => {
+      if (e.target === canvas) e.preventDefault();
+    }, { passive: false });
+
+    // ============ INITIAL DRAW ============
+    buildBeach();
+    for (let i = 0; i < NCOL; i++) surfY[i] = SEA_BASE - h[i];
+    lastTime = performance.now();
+    draw();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

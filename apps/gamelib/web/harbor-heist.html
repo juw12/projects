@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>⚓ Harbor Heist</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Trebuchet MS', 'Segoe UI', Tahoma, sans-serif;
+    background: radial-gradient(circle at 50% 0%, #16283a 0%, #0a1622 55%, #050b12 100%);
+    min-height: 100vh; display: flex; justify-content: center; align-items: center;
+    padding: 14px; touch-action: none; color: #dfe9f2;
+  }
+  /* ============ GAME CONTAINER ============ */
+  .game-container {
+    background: rgba(10, 20, 32, 0.94); border: 1px solid #24405a; border-radius: 20px;
+    padding: 18px; box-shadow: 0 18px 60px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(255,178,84,0.06);
+    max-width: 900px; width: 100%;
+  }
+  .game-title {
+    text-align: center; font-size: 1.9rem; letter-spacing: 5px; color: #ffb454;
+    text-shadow: 0 0 18px rgba(255,178,84,0.35); margin-bottom: 2px;
+  }
+  .game-subtitle {
+    text-align: center; font-size: 0.76rem; letter-spacing: 2px;
+    text-transform: uppercase; color: #6f89a6; margin-bottom: 12px;
+  }
+  /* ============ HUD ============ */
+  .score-board {
+    display: flex; justify-content: space-between; gap: 8px; margin-bottom: 10px;
+    padding: 10px 14px; background: linear-gradient(135deg, #12283c, #0d1a2a);
+    border: 1px solid #233d58; border-radius: 12px; font-size: 0.9rem;
+    letter-spacing: 1px; color: #8fa6c0;
+  }
+  .score-board span { font-weight: 700; color: #ffb454; }
+  /* ============ CANVAS ============ */
+  .canvas-wrapper {
+    position: relative; border-radius: 14px; overflow: hidden; border: 1px solid #233d58;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 10px 30px rgba(0,0,0,0.5); background: #08121c;
+  }
+  canvas { display: block; width: 100%; height: auto; }
+  /* ============ SCREENS / OVERLAYS ============ */
+  .screen {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    justify-content: center; align-items: center; text-align: center; padding: 20px;
+    background: rgba(5,11,18,0.94); transition: opacity 0.25s ease; z-index: 5;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen-title {
+    font-size: 2rem; letter-spacing: 3px; color: #ffb454; margin-bottom: 6px;
+    text-shadow: 0 0 20px rgba(255,178,84,0.3);
+  }
+  .screen-subtitle { font-size: 0.9rem; color: #8fa6c0; margin-bottom: 18px; max-width: 480px; line-height: 1.45; }
+  .final-score { font-size: 1.15rem; color: #55d6c2; margin-bottom: 16px; letter-spacing: 1px; }
+  .key-list {
+    display: grid; grid-template-columns: auto auto; gap: 6px 16px;
+    font-size: 0.8rem; color: #9fb2cc; margin-bottom: 20px;
+  }
+  .key-list b { color: #ffb454; font-weight: 700; }
+  /* ============ BUTTONS ============ */
+  .action-btn {
+    padding: 12px 30px; margin: 5px; background: linear-gradient(135deg, #ffb454, #f28f2b);
+    color: #0c1826; border: none; border-radius: 24px; font-family: inherit; font-size: 1rem;
+    font-weight: 700; letter-spacing: 1px; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 4px 16px rgba(255,178,84,0.28);
+  }
+  .action-btn:hover { transform: translateY(-2px); box-shadow: 0 7px 22px rgba(255,178,84,0.4); }
+  .action-btn:active { transform: translateY(0); }
+  .action-btn.ghost { background: transparent; color: #9fb2cc; border: 1px solid #33506e; box-shadow: none; }
+  .action-btn.ghost:hover { color: #ffb454; border-color: #ffb454; }
+  /* ============ PAUSE ============ */
+  .pause-overlay {
+    position: absolute; inset: 0; display: flex; justify-content: center; align-items: center;
+    font-size: 1.8rem; letter-spacing: 4px; color: #ffb454; background: rgba(5,11,18,0.82);
+    opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 4;
+  }
+  .pause-overlay.visible { opacity: 1; }
+  /* ============ TOUCH CONTROLS ============ */
+  .touch-controls { display: none; margin-top: 14px; justify-content: space-between; align-items: center; gap: 12px; }
+  .touch-controls.visible { display: flex; }
+  .dpad { display: grid; grid-template-columns: repeat(3, 54px); grid-template-rows: repeat(2, 54px); gap: 8px; }
+  .pad-btn, .act-btn {
+    background: linear-gradient(135deg, #16293e, #101d2c); border: 1px solid #33506e; border-radius: 12px;
+    color: #cddcf0; font-size: 1.3rem; display: flex; justify-content: center; align-items: center;
+    cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent;
+    transition: background 0.1s ease, transform 0.1s ease;
+  }
+  .pad-btn.active, .act-btn.active { background: #ffb454; color: #0c1826; transform: scale(0.94); }
+  .pad-btn.up { grid-column: 2; grid-row: 1; }
+  .pad-btn.left { grid-column: 1; grid-row: 2; }
+  .pad-btn.down { grid-column: 2; grid-row: 2; }
+  .pad-btn.right { grid-column: 3; grid-row: 2; }
+  .action-pad { display: grid; grid-template-columns: repeat(2, 62px); gap: 8px; }
+  .act-btn { font-size: 0.68rem; letter-spacing: 1px; font-weight: 700; height: 54px; }
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 620px) {
+    .game-container { padding: 12px; border-radius: 16px; }
+    .game-title { font-size: 1.4rem; letter-spacing: 3px; }
+    .screen-title { font-size: 1.4rem; }
+    .score-board { font-size: 0.72rem; padding: 8px 10px; }
+    .touch-controls.visible { display: flex; }
+  }
+</style>
+</head>
+<body>
+<div class="game-container">
+  <h1 class="game-title">HARBOR HEIST</h1>
+  <p class="game-subtitle">Dockside Cargo Raid</p>
+
+  <div class="score-board">
+    <div>Level <span id="levelEl">1</span></div>
+    <div>Cargo <span id="cargoEl">0/0</span></div>
+    <div>Score <span id="scoreEl">0</span></div>
+    <div>Best <span id="bestEl">0</span></div>
+  </div>
+
+  <div class="canvas-wrapper">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div id="startScreen" class="screen">
+      <h2 class="screen-title">HARBOR HEIST</h2>
+      <p class="screen-subtitle">Haul every crate of loot across the container yard to the waiting boat, then board it before it sails. Keep out of patrol cones, floodlights and dog noses.</p>
+      <div class="key-list">
+        <b>WASD / Arrows</b><span>Move</span>
+        <b>Shift</b><span>Sneak (slower, harder to spot)</span>
+        <b>E</b><span>Grab nearby crate</span>
+        <b>Space / P</b><span>Pause</span>
+      </div>
+      <button class="action-btn" id="startBtn">Start Heist</button>
+    </div>
+    <div id="levelScreen" class="screen hidden">
+      <h2 class="screen-title" id="clearTitle">Clean Getaway</h2>
+      <p class="final-score" id="clearScore">Score: 0</p>
+      <p class="screen-subtitle" id="clearMsg">The boat is loaded. Next dock is better guarded.</p>
+      <button class="action-btn" id="nextBtn">Next Dock</button>
+    </div>
+    <div id="gameOverScreen" class="screen hidden">
+      <h2 class="screen-title" id="overTitle">Busted</h2>
+      <p class="screen-subtitle" id="caughtMsg">The alarm blared and the dock guards swarmed in.</p>
+      <p class="final-score" id="finalScore">Score: 0</p>
+      <button class="action-btn" id="retryBtn">Retry Dock</button>
+      <button class="action-btn ghost" id="restartBtn">Restart Heist</button>
+    </div>
+    <div id="pauseOverlay" class="pause-overlay">⏸ Paused</div>
+  </div>
+
+  <div class="touch-controls" id="touchControls">
+    <div class="dpad">
+      <button class="pad-btn up" data-k="up">▲</button>
+      <button class="pad-btn left" data-k="left">◀</button>
+      <button class="pad-btn down" data-k="down">▼</button>
+      <button class="pad-btn right" data-k="right">▶</button>
+    </div>
+    <div class="action-pad">
+      <button class="act-btn" data-k="sneak">SNEAK</button>
+      <button class="act-btn" data-k="grab">GRAB</button>
+      <button class="act-btn" data-k="pause">PAUSE</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ============ CANVAS & CONSTANTS ============
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const CS = 40, COLS = 20, ROWS = 15;   // grid: 20x15 cells of 40px
+  const W = canvas.width, H = canvas.height, TWO_PI = Math.PI * 2;
+
+  // ============ LEVEL MAPS (20 x 15) ============
+  // # container | C crane | W water | B boat(deliver) | . dock
+  // P start | L loot crate | G guard | D dog | F floodlight
+  const LEVELS = [
+    [
+      "####################",
+      "#P.................#",
+      "#..####....####....#",
+      "#..#G.#....#C.#....#",
+      "#..####....####....#",
+      "#.........F........#",
+      "#...L.....D....###.#",
+      "#..............#L#.#",
+      "#..###.........#.#.#",
+      "#..#D#.........###.#",
+      "#..###.........L...#",
+      "#.........G........#",
+      "#WWWWWWWWWBBWWWWWWW#",
+      "#WWWWWWWWWBBWWWWWWW#",
+      "####################"
+    ],
+    [
+      "####################",
+      "#P..L.....G....L...#",
+      "#.####..#####..###.#",
+      "#.#..#..#...#..#C#.#",
+      "#.####..#...#..###.#",
+      "#.......#...#......#",
+      "#..###..#####..###.#",
+      "#..#D#....F....#L#.#",
+      "#..###.........###.#",
+      "#....G....D........#",
+      "#.####..#####..###.#",
+      "#.#..#..#...#..#C#.#",
+      "#WWWWWWWWBBWWWWWWWW#",
+      "#WWWWWWWWBBWWWWWWWW#",
+      "####################"
+    ],
+    [
+      "####################",
+      "#P.......L.........#",
+      "#.###.###.###.###..#",
+      "#G###L###.###D###L.#",
+      "#.###.###.###.###..#",
+      "#........F.........#",
+      "#....D........G....#",
+      "#..####..####..###.#",
+      "#..#C.#..#G.#..#D#.#",
+      "#..####..####..###.#",
+      "#.......L.....L....#",
+      "#..###....###......#",
+      "#WWWWWWWWWBBWWWWWWW#",
+      "#WWWWWWWWWBBWWWWWWW#",
+      "####################"
+    ],
+    [
+      "####################",
+      "#P...L....G....L...#",
+      "#.##.####.####.##..#",
+      "#.#G.#.D#.#D.#.#C#.#",
+      "#.##.####.####.##..#",
+      "#.........F........#",
+      "#..####..####..###.#",
+      "#..#D.#..#L.#..#G#.#",
+      "#..####..####..###.#",
+      "#.....D......G.....#",
+      "#.###.###.####.###.#",
+      "#.#C#.#D#.#G.#.#L#.#",
+      "#WWWWWWWWWBBWWWWWWW#",
+      "#WWWWWWWWWBBWWWWWWW#",
+      "####################"
+    ]
+  ];
+
+  // ============ DOM ELEMENTS ============
+  const levelEl = document.getElementById('levelEl');
+  const cargoEl = document.getElementById('cargoEl');
+  const scoreEl = document.getElementById('scoreEl');
+  const bestEl = document.getElementById('bestEl');
+  const startScreen = document.getElementById('startScreen');
+  const levelScreen = document.getElementById('levelScreen');
+  const gameOverScreen = document.getElementById('gameOverScreen');
+  const pauseOverlay = document.getElementById('pauseOverlay');
+  const clearTitleEl = document.getElementById('clearTitle');
+  const clearScoreEl = document.getElementById('clearScore');
+  const clearMsgEl = document.getElementById('clearMsg');
+  const overTitleEl = document.getElementById('overTitle');
+  const caughtMsgEl = document.getElementById('caughtMsg');
+  const finalScoreEl = document.getElementById('finalScore');
+  const touchControls = document.getElementById('touchControls');
+
+  // ============ GAME STATE ============
+  let state = 'menu';            // menu | playing | paused | levelclear | gameover
+  let level = 1, score = 0;
+  let best = parseInt(localStorage.getItem('harborHeistBest') || '0', 10) || 0;
+  let grid = [], water = [], boat = [];   // per-cell maps
+  let crates = [];               // { x, y, taken }
+  let guards = [], dogs = [], lights = [];
+  let particles = [], ripples = [];
+  let boatPos = { x: 0, y: 0 };
+  let player = { x: 0, y: 0, angle: -Math.PI / 2, carry: false, sneak: false, r: 12, bob: 0 };
+  let alarm = 0, timeLeft = 0, levelTime = 100, timeSec = 0, levelStart = 0;
+  let delivered = 0, totalCrates = 0;
+  let toast = { text: '', life: 0 };
+  let shake = 0;
+
+  // ============ AUDIO (WebAudio beep) ============
+  let audioCtx = null;
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      const t = audioCtx.currentTime, v = vol || 0.05;
+      o.type = type || 'sine';
+      o.frequency.setValueAtTime(freq, t);
+      g.gain.setValueAtTime(v, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t); o.stop(t + dur + 0.02);
+    } catch (e) { /* audio unavailable */ }
+  }
+  function resumeAudio() {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    } catch (e) { /* ignore */ }
+  }
+
+  // ============ MATH / GRID HELPERS ============
+  function norm(a) { while (a > Math.PI) a -= TWO_PI; while (a < -Math.PI) a += TWO_PI; return a; }
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function dist(ax, ay, bx, by) { return Math.hypot(ax - bx, ay - by); }
+
+  function solidAt(x, y, r) {
+    r = r || 0;
+    const c0 = Math.floor((x - r) / CS), c1 = Math.floor((x + r) / CS);
+    const r0 = Math.floor((y - r) / CS), r1 = Math.floor((y + r) / CS);
+    for (let rr = r0; rr <= r1; rr++) {
+      for (let cc = c0; cc <= c1; cc++) {
+        if (rr < 0 || cc < 0 || rr >= ROWS || cc >= COLS) return true;
+        if (grid[rr][cc] || water[rr][cc]) return true;
+      }
+    }
+    return false;
+  }
+  function onBoat(x, y) {
+    const c = Math.floor(x / CS), r = Math.floor(y / CS);
+    if (r < 0 || c < 0 || r >= ROWS || c >= COLS) return false;
+    return boat[r][c];
+  }
+  function los(x1, y1, x2, y2) {
+    const d = Math.hypot(x2 - x1, y2 - y1), steps = Math.ceil(d / 12);
+    for (let i = 1; i < steps; i++) {
+      const t = i / steps;
+      const c = Math.floor((x1 + (x2 - x1) * t) / CS), r = Math.floor((y1 + (y2 - y1) * t) / CS);
+      if (r < 0 || c < 0 || r >= ROWS || c >= COLS) return false;
+      if (grid[r][c]) return false;
+    }
+    return true;
+  }
+  function moveEntity(e, dx, dy, rad) {
+    if (!solidAt(e.x + dx, e.y, rad)) e.x += dx;
+    if (!solidAt(e.x, e.y + dy, rad)) e.y += dy;
+  }
+  function walkable(c, r) {
+    const ch = LEVELS[(level - 1) % LEVELS.length][r][c];
+    return ch !== '#' && ch !== 'C' && ch !== 'W';
+  }
+
+  // ============ ENTITY FACTORIES ============
+  function computeBounds(g) {
+    const cc = Math.floor(g.x / CS), rr = Math.floor(g.y / CS);
+    if (g.axis === 'h') {
+      let a = cc; while (a - 1 >= 0 && walkable(a - 1, rr)) a--;
+      let b = cc; while (b + 1 < COLS && walkable(b + 1, rr)) b++;
+      g.min = a * CS + CS / 2; g.max = b * CS + CS / 2; g.y = rr * CS + CS / 2;
+    } else {
+      let a = rr; while (a - 1 >= 0 && walkable(cc, a - 1)) a--;
+      let b = rr; while (b + 1 < ROWS && walkable(cc, b + 1)) b++;
+      g.min = a * CS + CS / 2; g.max = b * CS + CS / 2; g.x = cc * CS + CS / 2;
+    }
+  }
+  function makeGuard(c, r, i, diff) {
+    const g = { type: 'guard', x: c * CS + CS / 2, y: r * CS + CS / 2, axis: (i % 2 === 0) ? 'h' : 'v',
+      dir: 1, angle: 0, state: 'patrol', target: null, baseSpeed: 70 * (1 + diff),
+      fov: 1.0, range: 200, rate: 30 * (1 + diff), spot: 0 };
+    computeBounds(g);
+    g.angle = (g.axis === 'h') ? (g.dir > 0 ? 0 : Math.PI) : (g.dir > 0 ? Math.PI / 2 : -Math.PI / 2);
+    return g;
+  }
+  function makeDog(c, r, i, diff) {
+    const d = { type: 'dog', x: c * CS + CS / 2, y: r * CS + CS / 2, axis: (i % 2 === 0) ? 'v' : 'h',
+      dir: -1, angle: 0, state: 'patrol', target: null, baseSpeed: 108 * (1 + diff),
+      fov: 1.5, range: 140, rate: 34 * (1 + diff), spot: 0, wag: 0 };
+    computeBounds(d);
+    d.angle = (d.axis === 'h') ? (d.dir > 0 ? 0 : Math.PI) : (d.dir > 0 ? Math.PI / 2 : -Math.PI / 2);
+    return d;
+  }
+  function makeLight(c, r, i, diff) {
+    return { type: 'light', x: c * CS + CS / 2, y: r * CS + CS / 2, base: i * 1.6, angle: i * 1.6,
+      fov: 0.62, range: 250, sweep: 0.95, sweepSpeed: 0.7 + i * 0.13, phase: i * 1.9,
+      rate: 22 * (1 + diff), hot: 0 };
+  }
+
+  // ============ LEVEL LOADING ============
+  function loadLevel(n) {
+    const idx = (n - 1) % LEVELS.length;
+    const loop = Math.floor((n - 1) / LEVELS.length);
+    const diff = idx * 0.06 + loop * 0.16;
+    const map = LEVELS[idx];
+    grid = []; water = []; boat = []; guards = []; dogs = []; lights = [];
+    crates = []; particles = []; ripples = [];
+    let gi = 0, di = 0, li = 0;
+    delivered = 0; totalCrates = 0;
+    for (let r = 0; r < ROWS; r++) {
+      grid[r] = []; water[r] = []; boat[r] = [];
+      for (let c = 0; c < COLS; c++) {
+        const ch = map[r][c];
+        grid[r][c] = (ch === '#' || ch === 'C') ? 1 : 0;
+        water[r][c] = (ch === 'W');
+        boat[r][c] = (ch === 'B');
+        if (ch === 'B') { boatPos.x = c * CS + CS / 2; boatPos.y = r * CS + CS / 2; }
+        if (ch === 'P') { player.x = c * CS + CS / 2; player.y = r * CS + CS / 2; }
+        if (ch === 'L') { crates.push({ x: c * CS + CS / 2, y: r * CS + CS / 2, taken: false }); totalCrates++; }
+        if (ch === 'G') guards.push(makeGuard(c, r, gi++, diff));
+        if (ch === 'D') dogs.push(makeDog(c, r, di++, diff));
+        if (ch === 'F') lights.push(makeLight(c, r, li++, diff));
+      }
+    }
+    player.angle = -Math.PI / 2; player.carry = false; player.sneak = false;
+    alarm = 0; timeSec = 0;
+    levelTime = Math.max(58, 104 - idx * 8 - loop * 6);
+    timeLeft = levelTime; toast.life = 0; shake = 0;
+    levelStart = performance.now();
+    updateHUD();
+  }
+
+  // ============ HUD / FEEDBACK ============
+  function updateHUD() {
+    levelEl.textContent = level;
+    cargoEl.textContent = delivered + '/' + totalCrates;
+    scoreEl.textContent = score;
+    bestEl.textContent = best;
+  }
+  function spawnParticles(x, y, color, count) {
+    count = count || 10;
+    for (let i = 0; i < count; i++) {
+      particles.push({ x: x, y: y, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6,
+        life: 1, color: color, size: Math.random() * 3 + 1.5 });
+    }
+  }
+  function showToast(text) { toast.text = text; toast.life = 1.8; }
+  function makeRipple(x, y) { ripples.push({ x: x, y: y, r: 6, life: 1 }); }
+
+  // ============ ACTIONS ============
+  function tryGrab() {
+    if (state !== 'playing') return;
+    if (player.carry) { showToast('Already hauling a crate — load it on the boat'); beep(240, 0.07, 'sine', 0.04); return; }
+    let bestC = null, bd = 1e9;
+    for (const cr of crates) {
+      if (cr.taken) continue;
+      const d = dist(cr.x, cr.y, player.x, player.y);
+      if (d < 40 && d < bd) { bd = d; bestC = cr; }
+    }
+    if (bestC) {
+      bestC.taken = true; player.carry = true;
+      beep(520, 0.08, 'triangle', 0.05);
+      beep(700, 0.10, 'triangle', 0.04);
+      spawnParticles(bestC.x, bestC.y, '#c98a3c', 12);
+      showToast('Crate grabbed — haul it to the boat');
+    } else {
+      showToast('No crate within reach');
+      beep(200, 0.07, 'sine', 0.04);
+    }
+  }
+  function tryDeposit() {
+    if (!player.carry) return false;
+    player.carry = false; delivered++; score += 150;
+    beep(660, 0.09, 'triangle', 0.06);
+    beep(880, 0.12, 'triangle', 0.05);
+    spawnParticles(boatPos.x, boatPos.y, '#55d6c2', 16);
+    makeRipple(boatPos.x, boatPos.y);
+    updateHUD();
+    if (delivered >= totalCrates) showToast('All cargo loaded — board the boat to escape!');
+    else showToast('Cargo secured  (' + delivered + '/' + totalCrates + ')');
+    return true;
+  }
+  function toggleSneak() {
+    player.sneak = !player.sneak;
+    beep(player.sneak ? 320 : 240, 0.05, 'sine', 0.035);
+  }
+
+  // ============ DETECTION ============
+  function updateDetection(dt) {
+    let seen = false;
+    const watchers = guards.concat(dogs);
+    const carryMult = player.carry ? 1.4 : 1;
+    for (const o of watchers) {
+      const dx = player.x - o.x, dy = player.y - o.y;
+      const d = Math.hypot(dx, dy);
+      if (d > o.range) { o.spot = Math.max(0, o.spot - dt * 2); continue; }
+      if (Math.abs(norm(Math.atan2(dy, dx) - o.angle)) > o.fov / 2) { o.spot = Math.max(0, o.spot - dt * 2); continue; }
+      if (!los(o.x, o.y, player.x, player.y)) { o.spot = Math.max(0, o.spot - dt * 2); continue; }
+      let expo = 1;
+      if (player.sneak) expo = o.type === 'dog' ? 0.55 : 0.5;
+      expo *= carryMult;
+      if (player.sneak && o.type === 'dog' && d < 40) expo = 0.9;
+      seen = true;
+      o.spot = Math.min(1, (o.spot || 0) + dt * 2.6);
+      alarm += o.rate * expo * (1 - (d / o.range) * 0.5) * dt;
+    }
+    for (const l of lights) {
+      const dx = player.x - l.x, dy = player.y - l.y;
+      const d = Math.hypot(dx, dy);
+      if (d > l.range) { l.hot = Math.max(0, l.hot - dt * 2); continue; }
+      if (Math.abs(norm(Math.atan2(dy, dx) - l.angle)) > l.fov / 2) { l.hot = Math.max(0, l.hot - dt * 2); continue; }
+      if (!los(l.x, l.y, player.x, player.y)) { l.hot = Math.max(0, l.hot - dt * 2); continue; }
+      l.hot = Math.min(1, l.hot + dt * 3);
+      seen = true;
+      alarm += l.rate * carryMult * (1 - d / l.range * 0.4) * dt;
+    }
+    for (const g of watchers) {
+      if (dist(g.x, g.y, player.x, player.y) < 26) { alarm += 300 * dt; g.spot = 1; seen = true; }
+    }
+    if (!seen) alarm -= 16 * dt;
+    alarm = clamp(alarm, 0, 100);
+    if (alarm >= 100) loseGame('The alarm peaked — the guards swarmed you.');
+  }
+
+  // ============ UPDATE ============
+  function updatePatroller(g, dt) {
+    if (g.state === 'patrol') {
+      if (g.axis === 'h') {
+        g.x += g.dir * g.baseSpeed * dt;
+        if (g.x <= g.min) { g.x = g.min; g.dir = 1; }
+        if (g.x >= g.max) { g.x = g.max; g.dir = -1; }
+        g.angle = g.dir > 0 ? 0 : Math.PI;
+      } else {
+        g.y += g.dir * g.baseSpeed * dt;
+        if (g.y <= g.min) { g.y = g.min; g.dir = 1; }
+        if (g.y >= g.max) { g.y = g.max; g.dir = -1; }
+        g.angle = g.dir > 0 ? Math.PI / 2 : -Math.PI / 2;
+      }
+      if (g.spot > 0.6) { g.state = 'investigate'; g.target = { x: player.x, y: player.y }; }
+    } else {
+      const dx = g.target.x - g.x, dy = g.target.y - g.y;
+      const d = Math.hypot(dx, dy) || 1;
+      g.angle = Math.atan2(dy, dx);
+      if (d < 10) { g.state = 'patrol'; computeBounds(g); }
+      else moveEntity(g, (dx / d) * g.baseSpeed * 1.7 * dt, (dy / d) * g.baseSpeed * 1.7 * dt, 11);
+    }
+    if (g.type === 'dog') g.wag += dt * 8;
+  }
+  function updateParticles(dt) {
+    for (const p of particles) {
+      p.x += p.vx; p.y += p.vy; p.vx *= 0.95; p.vy *= 0.95; p.life -= dt * 2.2;
+    }
+    particles = particles.filter(p => p.life > 0);
+    for (const rp of ripples) { rp.r += dt * 60; rp.life -= dt * 1.2; }
+    ripples = ripples.filter(rp => rp.life > 0);
+  }
+  function updatePlayer(dt) {
+    let mx = 0, my = 0;
+    if (keys.left) mx -= 1;
+    if (keys.right) mx += 1;
+    if (keys.up) my -= 1;
+    if (keys.down) my += 1;
+    let speed = player.sneak ? 84 : 172;
+    if (player.carry) speed *= 0.78;
+    if (mx || my) {
+      const len = Math.hypot(mx, my); mx /= len; my /= len;
+      moveEntity(player, mx * speed * dt, my * speed * dt, player.r);
+      player.angle = Math.atan2(my, mx);
+      player.bob += dt * (player.sneak ? 4 : 9);
+    }
+    if (onBoat(player.x, player.y)) {
+      if (player.carry) tryDeposit();
+      else if (delivered >= totalCrates && toast.life <= 0) {
+        showToast('All cargo loaded — board the boat to sail!');
+        beep(880, 0.1, 'triangle', 0.05);
+      }
+    }
+    if (delivered >= totalCrates && onBoat(player.x, player.y)) winLevel();
+  }
+  function update(dt) {
+    timeSec += dt; timeLeft -= dt;
+    if (timeLeft <= 0) { timeLeft = 0; loseGame('The boat sailed without its cargo. Time ran out.'); return; }
+    updatePlayer(dt);
+    for (const g of guards) updatePatroller(g, dt);
+    for (const d of dogs) updatePatroller(d, dt);
+    for (const l of lights) l.angle = l.base + Math.sin(timeSec * l.sweepSpeed + l.phase) * l.sweep;
+    updateParticles(dt);
+    updateDetection(dt);
+    if (toast.life > 0) toast.life -= dt;
+    if (shake > 0) shake = Math.max(0, shake - dt * 3);
+    if (alarm > 65) shake = Math.max(shake, 0.35);
+  }
+
+  // ============ STATE TRANSITIONS ============
+  function startGame() {
+    level = 1; score = 0;
+    loadLevel(level);
+    state = 'playing';
+    startScreen.classList.add('hidden');
+    gameOverScreen.classList.add('hidden');
+    levelScreen.classList.add('hidden');
+    pauseOverlay.classList.remove('visible');
+    updateHUD(); resumeAudio();
+  }
+  function retryLevel() {
+    loadLevel(level); state = 'playing';
+    gameOverScreen.classList.add('hidden');
+    levelScreen.classList.add('hidden');
+    pauseOverlay.classList.remove('visible');
+    resumeAudio();
+  }
+  function nextLevel() {
+    level++; loadLevel(level); state = 'playing';
+    levelScreen.classList.add('hidden'); resumeAudio();
+  }
+  function winLevel() {
+    state = 'levelclear';
+    const timeBonus = Math.round(timeLeft) * 5;
+    const bonus = 250 * level + 120 * totalCrates + timeBonus;
+    score += bonus;
+    if (score > best) { best = score; localStorage.setItem('harborHeistBest', String(best)); }
+    updateHUD();
+    clearTitleEl.textContent = 'Clean Getaway';
+    clearScoreEl.textContent = 'Score: ' + score + '  (+' + bonus + ')';
+    clearMsgEl.textContent = 'All ' + totalCrates + ' crates loaded and you slipped out with the tide. The next dock is better guarded.';
+    levelScreen.classList.remove('hidden');
+    beep(784, 0.12, 'sine', 0.06);
+    setTimeout(() => beep(1046, 0.2, 'sine', 0.06), 130);
+  }
+  function loseGame(msg) {
+    state = 'gameover';
+    if (score > best) { best = score; localStorage.setItem('harborHeistBest', String(best)); }
+    updateHUD();
+    overTitleEl.textContent = 'Busted';
+    caughtMsgEl.textContent = msg;
+    finalScoreEl.textContent = 'Score: ' + score + ' · Reached Dock ' + level + ' · Cargo ' + delivered + '/' + totalCrates;
+    gameOverScreen.classList.remove('hidden');
+    beep(200, 0.28, 'sawtooth', 0.06);
+    setTimeout(() => beep(140, 0.36, 'sawtooth', 0.06), 200);
+  }
+  function togglePause() {
+    if (state === 'playing') { state = 'paused'; pauseOverlay.classList.add('visible'); }
+    else if (state === 'paused') { state = 'playing'; pauseOverlay.classList.remove('visible'); lastTime = performance.now(); }
+  }
+
+  // ============ RENDERING ============
+  function drawGround() {
+    ctx.fillStyle = '#0a1723'; ctx.fillRect(0, 0, W, H);
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const x = c * CS, y = r * CS;
+        if (water[r][c]) {
+          ctx.fillStyle = '#0d2c44'; ctx.fillRect(x, y, CS, CS);
+          ctx.strokeStyle = 'rgba(85, 214, 194, 0.13)'; ctx.lineWidth = 1;
+          for (let i = -CS; i < CS; i += 12) {
+            ctx.beginPath(); ctx.moveTo(x + i, y); ctx.lineTo(x + i + CS, y + CS); ctx.stroke();
+          }
+        } else if (!grid[r][c]) {
+          ctx.fillStyle = ((r + c) % 2 === 0) ? '#12222f' : '#101e2b';
+          ctx.fillRect(x, y, CS, CS);
+          ctx.strokeStyle = 'rgba(40, 70, 96, 0.28)'; ctx.lineWidth = 1;
+          ctx.strokeRect(x + 0.5, y + 0.5, CS - 1, CS - 1);
+        }
+      }
+    }
+    ctx.fillStyle = 'rgba(255, 178, 84, 0.15)';
+    for (let r = 1; r < ROWS - 1; r++) {
+      for (let c = 1; c < COLS - 1; c++) {
+        if (!water[r][c] && (water[r][c + 1] || water[r + 1][c] || water[r][c - 1] || water[r - 1][c])) {
+          ctx.beginPath(); ctx.arc(c * CS + CS - 5, r * CS + 5, 3, 0, TWO_PI); ctx.fill();
+        }
+      }
+    }
+  }
+  function drawBoat() {
+    const bx = boatPos.x, by = boatPos.y;
+    ctx.save(); ctx.translate(bx, by);
+    ctx.fillStyle = '#2d3f52';
+    ctx.beginPath();
+    ctx.moveTo(-CS * 1.1, -CS * 0.55); ctx.lineTo(CS * 1.1, -CS * 0.55);
+    ctx.lineTo(CS * 0.72, CS * 0.7); ctx.lineTo(-CS * 0.72, CS * 0.7);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#5a748f'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#3c5064'; ctx.fillRect(-CS * 0.95, -CS * 0.5, CS * 1.9, CS * 1.05);
+    ctx.fillStyle = '#20303f'; ctx.fillRect(-CS * 0.4, -CS * 1.15, CS * 0.8, CS * 0.7);
+    ctx.fillStyle = '#ffb454'; ctx.beginPath(); ctx.arc(CS * 0.55, -CS * 0.08, 3.5, 0, TWO_PI); ctx.fill();
+    for (let i = 0; i < delivered; i++) {
+      const px = -CS * 0.85 + (i % 4) * 20, py = CS * 0.25 - Math.floor(i / 4) * 18;
+      ctx.fillStyle = '#8a5f2c'; ctx.fillRect(px, py, 16, 15);
+      ctx.strokeStyle = '#c98a3c'; ctx.lineWidth = 1; ctx.strokeRect(px + 0.5, py + 0.5, 15, 14);
+    }
+    ctx.restore();
+    const pulse = 0.5 + Math.sin(timeSec * 4) * 0.5;
+    ctx.strokeStyle = 'rgba(85, 214, 194, ' + (0.35 + pulse * 0.4) + ')'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(bx, by, 34 + pulse * 6, 0, TWO_PI); ctx.stroke();
+    for (const rp of ripples) {
+      ctx.strokeStyle = 'rgba(85, 214, 194, ' + clamp(rp.life, 0, 1) * 0.5 + ')'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(rp.x, rp.y, rp.r, 0, TWO_PI); ctx.stroke();
+    }
+  }
+  function drawContainers() {
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (!grid[r][c]) continue;
+        const x = c * CS, y = r * CS;
+        if (LEVELS[(level - 1) % LEVELS.length][r][c] === 'C') {
+          ctx.fillStyle = '#24384c'; ctx.fillRect(x + 4, y + 4, CS - 8, CS - 8);
+          ctx.fillStyle = '#ffb454'; ctx.fillRect(x + 6, y + 6, CS - 12, 6);
+          ctx.fillStyle = '#37526e'; ctx.fillRect(x + CS / 2 - 3, y + 8, 6, CS - 16);
+          ctx.strokeStyle = '#0a1723'; ctx.lineWidth = 2; ctx.strokeRect(x + 4, y + 4, CS - 8, CS - 8);
+        } else {
+          const hues = ['#3a5a72', '#4a6b52', '#7a4a44', '#5a4a72', '#6b6440'];
+          ctx.fillStyle = hues[(r * 7 + c * 3) % hues.length];
+          ctx.fillRect(x + 2, y + 2, CS - 4, CS - 4);
+          ctx.strokeStyle = 'rgba(10, 23, 35, 0.85)'; ctx.lineWidth = 2; ctx.strokeRect(x + 2, y + 2, CS - 4, CS - 4);
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.22)'; ctx.lineWidth = 1;
+          for (let i = 8; i < CS - 6; i += 6) {
+            ctx.beginPath(); ctx.moveTo(x + i, y + 4); ctx.lineTo(x + i, y + CS - 4); ctx.stroke();
+          }
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.06)'; ctx.fillRect(x + 2, y + 2, CS - 4, 5);
+        }
+      }
+    }
+  }
+  function drawCrates() {
+    for (const cr of crates) {
+      if (cr.taken) continue;
+      const bob = Math.sin(timeSec * 3 + cr.x * 0.05) * 2;
+      ctx.save(); ctx.translate(cr.x, cr.y + bob);
+      ctx.shadowColor = '#ffb454'; ctx.shadowBlur = 14;
+      ctx.fillStyle = '#8a5f2c'; ctx.fillRect(-11, -11, 22, 22);
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#c98a3c'; ctx.lineWidth = 2; ctx.strokeRect(-11, -11, 22, 22);
+      ctx.beginPath(); ctx.moveTo(-11, -11); ctx.lineTo(11, 11); ctx.moveTo(11, -11); ctx.lineTo(-11, 11); ctx.stroke();
+      ctx.restore();
+    }
+  }
+  function drawCone(o, tint) {
+    const hot = (o.spot || 0) > 0.05 || (o.hot || 0) > 0.05;
+    const base = hot ? '255, 90, 90' : tint;
+    const grad = ctx.createRadialGradient(o.x, o.y, 6, o.x, o.y, o.range);
+    grad.addColorStop(0, 'rgba(' + base + ', 0.28)');
+    grad.addColorStop(1, 'rgba(' + base + ', 0.02)');
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.moveTo(o.x, o.y);
+    ctx.arc(o.x, o.y, o.range, o.angle - o.fov / 2, o.angle + o.fov / 2);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(' + base + ', ' + (hot ? 0.55 : 0.22) + ')'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(o.x, o.y);
+    ctx.lineTo(o.x + Math.cos(o.angle - o.fov / 2) * o.range, o.y + Math.sin(o.angle - o.fov / 2) * o.range);
+    ctx.moveTo(o.x, o.y);
+    ctx.lineTo(o.x + Math.cos(o.angle + o.fov / 2) * o.range, o.y + Math.sin(o.angle + o.fov / 2) * o.range);
+    ctx.stroke();
+  }
+  function drawLights() {
+    for (const l of lights) {
+      drawCone(l, '255, 210, 120');
+      ctx.fillStyle = l.hot > 0.05 ? '#ff6b6b' : '#6d7f92'; ctx.fillRect(l.x - 2.5, l.y - 4, 5, CS * 0.5);
+      ctx.beginPath(); ctx.arc(l.x, l.y, 9, 0, TWO_PI); ctx.fill();
+      ctx.fillStyle = l.hot > 0.05 ? '#ffd27a' : '#c9d6e4';
+      ctx.beginPath(); ctx.arc(l.x + Math.cos(l.angle) * 7, l.y + Math.sin(l.angle) * 7, 4, 0, TWO_PI); ctx.fill();
+    }
+  }
+  function drawGuards() {
+    for (const g of guards) {
+      drawCone(g, '255, 140, 110');
+      ctx.save(); ctx.translate(g.x, g.y);
+      ctx.fillStyle = '#e2574c'; ctx.beginPath(); ctx.arc(0, 0, 12, 0, TWO_PI); ctx.fill();
+      ctx.fillStyle = '#7a2f3a'; ctx.beginPath(); ctx.arc(0, 0, 8, 0, TWO_PI); ctx.fill();
+      ctx.fillStyle = '#20303f'; ctx.beginPath(); ctx.arc(0, -2, 7, Math.PI, TWO_PI); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(Math.cos(g.angle) * 5, Math.sin(g.angle) * 5, 3.5, 0, TWO_PI); ctx.fill();
+      if (g.state === 'investigate') {
+        ctx.fillStyle = '#ffb454'; ctx.font = 'bold 16px Trebuchet MS'; ctx.textAlign = 'center';
+        ctx.fillText('!', 0, -18);
+      }
+      ctx.restore();
+    }
+  }
+  function drawDogs() {
+    for (const d of dogs) {
+      drawCone(d, '255, 170, 90');
+      ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.angle + Math.PI / 2);
+      ctx.fillStyle = '#c98a3c'; ctx.beginPath(); ctx.ellipse(0, 0, 7, 12, 0, 0, TWO_PI); ctx.fill();
+      ctx.fillStyle = '#7a5220'; ctx.beginPath(); ctx.arc(0, -12, 6, 0, TWO_PI); ctx.fill();
+      ctx.fillStyle = '#5e3d17';
+      ctx.beginPath();
+      ctx.moveTo(-5, -15); ctx.lineTo(-7, -22); ctx.lineTo(-1, -17); ctx.closePath();
+      ctx.moveTo(5, -15); ctx.lineTo(7, -22); ctx.lineTo(1, -17); ctx.closePath();
+      ctx.fill();
+      const wag = Math.sin(d.wag) * 0.5;
+      ctx.strokeStyle = '#7a5220'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(0, 12); ctx.lineTo(wag * 10, 18); ctx.stroke();
+      ctx.restore();
+      if (d.state === 'investigate') {
+        ctx.fillStyle = '#ffb454'; ctx.font = 'bold 16px Trebuchet MS'; ctx.textAlign = 'center';
+        ctx.fillText('!', d.x, d.y - 20);
+      }
+    }
+  }
+  function drawPlayer() {
+    ctx.save(); ctx.translate(player.x, player.y + Math.sin(player.bob) * 1.5);
+    ctx.globalAlpha = player.sneak ? 0.72 : 1;
+    ctx.shadowColor = '#ffb454'; ctx.shadowBlur = player.sneak ? 0 : 12;
+    ctx.fillStyle = '#ffb454'; ctx.beginPath(); ctx.arc(0, 0, player.sneak ? 10 : 12, 0, TWO_PI); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#0c1826'; ctx.beginPath();
+    ctx.arc(Math.cos(player.angle) * 4.5, Math.sin(player.angle) * 4.5, 4.5, 0, TWO_PI); ctx.fill();
+    if (player.carry) {
+      ctx.fillStyle = '#8a5f2c'; ctx.strokeStyle = '#c98a3c'; ctx.lineWidth = 1.5;
+      ctx.fillRect(-8, -20, 16, 13); ctx.strokeRect(-8, -20, 16, 13);
+    }
+    ctx.restore();
+    if (player.sneak) {
+      ctx.fillStyle = 'rgba(85, 214, 194, 0.9)'; ctx.font = 'bold 10px Trebuchet MS'; ctx.textAlign = 'center';
+      ctx.fillText('SNEAK', player.x, player.y - 24);
+    }
+  }
+  function drawParticles() {
+    for (const p of particles) {
+      ctx.globalAlpha = clamp(p.life, 0, 1); ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, TWO_PI); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  function drawBars() {
+    const bh = 12, by = 14, bw = 300;
+    ctx.fillStyle = 'rgba(8, 18, 28, 0.85)'; ctx.strokeStyle = '#233d58'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.roundRect(16, by, bw, bh, 6); ctx.fill(); ctx.stroke();
+    const tp = clamp(timeLeft / levelTime, 0, 1);
+    ctx.fillStyle = tp > 0.5 ? '#55d6c2' : (tp > 0.22 ? '#ffb454' : '#ff6b6b');
+    ctx.beginPath(); ctx.roundRect(18, by + 2, Math.max(0, (bw - 4) * tp), bh - 4, 5); ctx.fill();
+    ctx.fillStyle = '#8fa6c0'; ctx.font = 'bold 10px Trebuchet MS'; ctx.textAlign = 'left';
+    ctx.fillText('TIME ' + Math.ceil(timeLeft) + 's', 16, by + bh + 12);
+
+    const aw = 300, ax = W - 16 - aw;
+    ctx.fillStyle = 'rgba(8, 18, 28, 0.85)'; ctx.strokeStyle = '#233d58';
+    ctx.beginPath(); ctx.roundRect(ax, by, aw, bh, 6); ctx.fill(); ctx.stroke();
+    const ap = alarm / 100;
+    ctx.fillStyle = alarm < 45 ? '#55d6c2' : (alarm < 75 ? '#ffb454' : '#ff6b6b');
+    ctx.beginPath(); ctx.roundRect(ax + aw - 2 - Math.max(0, (aw - 4) * ap), by + 2, Math.max(0, (aw - 4) * ap), bh - 4, 5); ctx.fill();
+    ctx.fillStyle = '#8fa6c0'; ctx.textAlign = 'right';
+    ctx.fillText('ALARM ' + Math.round(alarm) + '%', ax + aw, by + bh + 12);
+
+    if (player.carry) {
+      ctx.textAlign = 'center'; ctx.fillStyle = '#ffb454'; ctx.font = 'bold 11px Trebuchet MS';
+      ctx.fillText('HAULING CARGO', W / 2, by + bh + 12);
+    }
+  }
+  function drawToast() {
+    if (toast.life <= 0) return;
+    ctx.globalAlpha = clamp(toast.life, 0, 1);
+    ctx.fillStyle = 'rgba(8, 18, 28, 0.9)'; ctx.strokeStyle = '#ffb454'; ctx.lineWidth = 1.5;
+    ctx.font = 'bold 14px Trebuchet MS';
+    const tw = ctx.measureText(toast.text).width + 36;
+    ctx.beginPath(); ctx.roundRect((W - tw) / 2, H - 56, tw, 32, 10); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#ffb454'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(toast.text, W / 2, H - 40); ctx.textBaseline = 'alphabetic'; ctx.globalAlpha = 1;
+  }
+  function draw() {
+    ctx.save();
+    if (shake > 0) ctx.translate((Math.random() - 0.5) * shake * 10, (Math.random() - 0.5) * shake * 10);
+    drawGround(); drawBoat(); drawCrates(); drawContainers();
+    drawLights(); drawGuards(); drawDogs(); drawPlayer(); drawParticles();
+    ctx.restore();
+
+    const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.9);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.55)');
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+    if (alarm > 55) {
+      ctx.fillStyle = 'rgba(255, 60, 60, ' + ((alarm - 55) / 45) * 0.16 + ')';
+      ctx.fillRect(0, 0, W, H);
+    }
+    drawBars(); drawToast();
+  }
+
+  // ============ INPUT ============
+  const keys = { up: false, down: false, left: false, right: false };
+  document.addEventListener('keydown', (e) => {
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE', 'KeyP', 'ShiftLeft', 'ShiftRight'].includes(e.code)) {
+      e.preventDefault();
+    }
+    if (e.repeat) return;
+    switch (e.code) {
+      case 'ArrowUp': case 'KeyW': keys.up = true; break;
+      case 'ArrowDown': case 'KeyS': keys.down = true; break;
+      case 'ArrowLeft': case 'KeyA': keys.left = true; break;
+      case 'ArrowRight': case 'KeyD': keys.right = true; break;
+      case 'ShiftLeft': case 'ShiftRight': toggleSneak(); break;
+      case 'KeyE': tryGrab(); break;
+      case 'Space': case 'KeyP': togglePause(); break;
+    }
+    if (state === 'menu' && (e.code === 'Enter' || e.code === 'Space')) startGame();
+  });
+  document.addEventListener('keyup', (e) => {
+    switch (e.code) {
+      case 'ArrowUp': case 'KeyW': keys.up = false; break;
+      case 'ArrowDown': case 'KeyS': keys.down = false; break;
+      case 'ArrowLeft': case 'KeyA': keys.left = false; break;
+      case 'ArrowRight': case 'KeyD': keys.right = false; break;
+    }
+  });
+
+  // ============ TOUCH / POINTER CONTROLS ============
+  document.querySelectorAll('[data-k]').forEach(btn => {
+    const k = btn.dataset.k;
+    const press = (e) => {
+      e.preventDefault();
+      if (k === 'sneak') { toggleSneak(); btn.classList.toggle('active', player.sneak); return; }
+      if (k === 'grab') { tryGrab(); return; }
+      if (k === 'pause') { togglePause(); return; }
+      keys[k] = true; btn.classList.add('active');
+    };
+    const release = (e) => {
+      e.preventDefault();
+      if (k === 'sneak' || k === 'grab' || k === 'pause') return;
+      keys[k] = false; btn.classList.remove('active');
+    };
+    btn.addEventListener('pointerdown', press);
+    btn.addEventListener('pointerup', release);
+    btn.addEventListener('pointerleave', release);
+    btn.addEventListener('pointercancel', release);
+  });
+
+  // ============ BUTTONS ============
+  document.getElementById('startBtn').addEventListener('click', startGame);
+  document.getElementById('nextBtn').addEventListener('click', nextLevel);
+  document.getElementById('retryBtn').addEventListener('click', retryLevel);
+  document.getElementById('restartBtn').addEventListener('click', startGame);
+
+  // ============ MAIN LOOP ============
+  let lastTime = performance.now();
+  function gameLoop(now) {
+    const dt = Math.min((now - lastTime) / 1000, 0.05);
+    lastTime = now;
+    if (state === 'playing') update(dt);
+    else if (state === 'menu') timeSec += dt;
+    if (grid.length) draw();
+    requestAnimationFrame(gameLoop);
+  }
+
+  // ============ INIT ============
+  bestEl.textContent = best;
+  if ('ontouchstart' in window || navigator.maxTouchPoints > 0) touchControls.classList.add('visible');
+  loadLevel(1);
+  state = 'menu';
+  requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>

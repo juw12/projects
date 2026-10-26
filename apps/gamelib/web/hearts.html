@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Hearts</title>
+<style>
+  /* ============ RESET & THEME ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --felt-1: #1a7a4a;
+    --felt-2: #0c5230;
+    --felt-3: #06381f;
+    --gold: #e8c766;
+    --ink: #f2f7f0;
+    --red: #d33;
+    --black: #15151a;
+    --cw: clamp(42px, 9.5vw, 60px);
+  }
+  html, body { height: 100%; }
+  body {
+    font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif;
+    background: #0b2016;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* ============ APP SHELL (felt table) ============ */
+  #app {
+    position: relative;
+    width: min(100%, 860px);
+    height: min(100%, 960px);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px;
+    border-radius: 20px;
+    background: radial-gradient(ellipse at 50% 30%, var(--felt-1) 0%, var(--felt-2) 48%, var(--felt-3) 100%);
+    box-shadow: 0 0 0 8px #6b3f1d, 0 0 0 12px #3d2210, 0 20px 50px rgba(0, 0, 0, .6);
+    overflow: hidden;
+  }
+  #app::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: 20px;
+    background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.03) 0 2px, transparent 2px 4px);
+    mix-blend-mode: soft-light;
+  }
+
+  /* ============ HEADER / HUD ============ */
+  .topbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; z-index: 2; }
+  .brand {
+    font-size: clamp(15px, 3.8vw, 22px);
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    line-height: 1.1;
+    color: var(--gold);
+    text-shadow: 0 2px 0 rgba(0, 0, 0, .5);
+  }
+  .brand small { display: block; font-size: 9px; letter-spacing: 2px; font-weight: 500; color: rgba(255,255,255,.6); }
+  .hud { display: flex; gap: 6px; }
+  .stat {
+    background: rgba(0, 0, 0, .3);
+    border: 1px solid rgba(232, 199, 102, .28);
+    border-radius: 9px;
+    padding: 4px 8px;
+    text-align: center;
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.6);
+  }
+  .stat b { display: block; font-size: 15px; letter-spacing: 0; color: var(--gold); }
+
+  /* ============ OPPONENTS ROW ============ */
+  #opponents { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; z-index: 2; }
+  .opp {
+    background: rgba(0, 0, 0, .28);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 12px;
+    padding: 5px 12px;
+    text-align: center;
+    min-width: 92px;
+    transition: .2s;
+  }
+  .opp.active {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 2px rgba(232,199,102,.5), 0 0 18px rgba(232,199,102,.35);
+    transform: translateY(-2px);
+  }
+  .oppAvatar { font-size: 19px; line-height: 1; }
+  .oppName { font-size: 11px; font-weight: 700; letter-spacing: .5px; margin: 2px 0; }
+  .oppMeta { font-size: 10px; color: rgba(255,255,255,.75); }
+  .oppCount { font-weight: 800; font-size: 12px; color: var(--gold); }
+  .oppPts { font-size: 10px; color: #ff9a9a; }
+  .oppScore { font-size: 10px; color: rgba(255,255,255,.55); }
+
+  /* ============ CENTER TABLE (3x3 grid) ============ */
+  #table { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 0; z-index: 2; }
+  #trickGrid {
+    flex: 1;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1.1fr 1fr;
+    grid-template-rows: 1fr 1.2fr 1fr;
+    grid-template-areas:
+      ".    top    ."
+      "left center right"
+      ".    bot    .";
+    align-items: center;
+    justify-items: center;
+    gap: 4px;
+    min-height: 0;
+  }
+  .slot { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .slot .who { font-size: 9px; letter-spacing: 1px; color: rgba(255,255,255,.5); text-transform: uppercase; }
+  .slot .card { visibility: hidden; opacity: 0; transition: opacity .18s; }
+  .slot .card.show { visibility: visible; opacity: 1; }
+  #slotTop { grid-area: top; }
+  #slotBot { grid-area: bot; }
+  #slotLeft { grid-area: left; }
+  #slotRight { grid-area: right; }
+  .slotInner { width: var(--cw); height: calc(var(--cw) * 1.4); position: relative; }
+
+  #centerInfo {
+    grid-area: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+  }
+  .infoBox {
+    background: rgba(0, 0, 0, .32);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 10px;
+    padding: 4px 12px;
+    min-width: 96px;
+  }
+  .infoLabel { display: block; font-size: 8px; letter-spacing: 2px; color: rgba(255,255,255,.55); text-transform: uppercase; }
+  .infoVal { font-size: 15px; font-weight: 800; color: var(--gold); }
+  .infoVal.broken { color: #ff7b7b; }
+  #turnBadge { font-size: 13px; font-weight: 700; color: var(--gold); }
+
+  /* ============ STATUS ============ */
+  #statusBar { text-align: center; font-size: 12px; color: rgba(255,255,255,.9); min-height: 16px; z-index: 2; }
+
+  /* ============ PLAYER ZONE ============ */
+  #playerZone { z-index: 2; }
+  .pInfo { display: flex; align-items: center; gap: 8px; font-size: 12px; color: rgba(255,255,255,.82); margin-bottom: 4px; flex-wrap: wrap; }
+  .pInfo b { color: var(--gold); }
+  #hand {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 5px;
+    max-height: 27vh;
+    overflow-y: auto;
+    padding: 6px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, .18);
+  }
+
+  /* ============ CARDS ============ */
+  .card {
+    width: var(--cw);
+    height: calc(var(--cw) * 1.4);
+    position: relative;
+    border-radius: 7px;
+    background: linear-gradient(160deg, #ffffff, #e9ecf2);
+    color: var(--black);
+    border: 1px solid #cfd4dd;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    user-select: none;
+    flex: 0 0 auto;
+  }
+  .card.red { color: var(--red); }
+  .card .corner { position: absolute; display: flex; flex-direction: column; align-items: center; line-height: 1; font-size: calc(var(--cw) * .24); }
+  .card .corner i { font-style: normal; font-size: calc(var(--cw) * .22); }
+  .card .corner.tl { top: 3px; left: 4px; }
+  .card .corner.br { bottom: 3px; right: 4px; transform: rotate(180deg); }
+  .card .big { font-size: calc(var(--cw) * .62); opacity: .9; }
+  .card.back {
+    background: repeating-linear-gradient(45deg, #7a1230 0 6px, #580c22 6px 12px);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, .42), inset 0 0 0 3px rgba(255,255,255,.18);
+  }
+  .card.back::after { content: ""; position: absolute; inset: 6px; border: 2px solid rgba(232,199,102,.6); border-radius: 4px; }
+  #hand .card { cursor: pointer; transition: transform .12s, box-shadow .12s, filter .12s; }
+  #hand .card.playable { outline: 2px solid var(--gold); outline-offset: 1px; }
+  #hand .card.playable:hover { transform: translateY(-8px); box-shadow: 0 8px 16px rgba(0, 0, 0, .45); }
+  #hand .card.dim { filter: brightness(.6) saturate(.55); cursor: not-allowed; }
+  #hand .card.sel { transform: translateY(-10px); outline: 3px solid #7fd1ff; outline-offset: 1px; box-shadow: 0 8px 16px rgba(0, 0, 0, .5); }
+
+  /* ============ CONTROLS ============ */
+  #controls { display: flex; gap: 10px; justify-content: center; z-index: 2; }
+  #controls button {
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 10px 26px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    color: #fff;
+    background: #3a8a3f;
+    box-shadow: 0 4px 0 rgba(0, 0, 0, .25);
+    transition: .1s;
+  }
+  #controls button:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0, 0, 0, .25); }
+  #controls button:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+  #passBtn { background: #1f6fb2; }
+  #restartBtn { background: #555; }
+
+  /* ============ OVERLAYS ============ */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 24px;
+    text-align: center;
+    background: rgba(3, 20, 12, .92);
+    backdrop-filter: blur(3px);
+    border-radius: 20px;
+  }
+  .overlay.hidden { display: none; }
+  .oTitle { font-size: clamp(24px, 6vw, 38px); color: var(--gold); text-shadow: 0 2px 0 rgba(0, 0, 0, .5); }
+  .oSub { font-size: 13px; color: rgba(255,255,255,.78); max-width: 500px; line-height: 1.65; }
+  .oSub b { color: var(--gold); }
+  .bigBtn {
+    font-family: inherit;
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    padding: 14px 40px;
+    border: none;
+    border-radius: 14px;
+    cursor: pointer;
+    color: #3d2210;
+    background: linear-gradient(135deg, #f0d27a, #d9b544);
+    box-shadow: 0 5px 0 rgba(0, 0, 0, .3);
+    transition: .1s;
+  }
+  .bigBtn:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(0, 0, 0, .3); }
+  .scoreList { width: min(100%, 440px); display: flex; flex-direction: column; gap: 6px; }
+  .scoreRow {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    background: rgba(0, 0, 0, .3);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 9px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  .scoreRow.win { border-color: var(--gold); background: rgba(232, 199, 102, .18); }
+  .scoreRow .pts { color: var(--gold); font-weight: 800; }
+  .scoreRow .delta { color: #ff9a9a; font-weight: 700; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 520px) {
+    #app { padding: 9px; gap: 5px; }
+    .opp { min-width: 72px; padding: 4px 8px; }
+    .oppAvatar { font-size: 16px; }
+    #controls button { padding: 9px 18px; font-size: 13px; }
+    #hand { max-height: 31vh; }
+    .infoBox { min-width: 78px; padding: 3px 8px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ============ HUD ============ -->
+  <div class="topbar">
+    <div class="brand">&#9829; HEARTS<small>avoid hearts &amp; the queen &bull; lowest wins</small></div>
+    <div class="hud">
+      <div class="stat">Wins<b id="hudWins">0</b></div>
+      <div class="stat">Round<b id="hudRound">1</b></div>
+      <div class="stat">Your pts<b id="hudScore">0</b></div>
+    </div>
+  </div>
+
+  <!-- ============ OPPONENTS ============ -->
+  <div id="opponents"></div>
+
+  <!-- ============ CENTER TABLE ============ -->
+  <div id="table">
+    <div id="trickGrid">
+      <div class="slot" id="slotTop"><div class="slotInner" id="inner2"></div><span class="who" id="who2">&mdash;</span></div>
+      <div class="slot" id="slotLeft"><div class="slotInner" id="inner1"></div><span class="who" id="who1">&mdash;</span></div>
+      <div id="centerInfo">
+        <div class="infoBox"><span class="infoLabel">Hearts</span><span class="infoVal" id="brokenBadge">Safe</span></div>
+        <div class="infoBox"><span class="infoLabel">This round</span><span class="infoVal" id="roundPtsBadge">0 pts</span></div>
+        <div id="turnBadge">&mdash;</div>
+      </div>
+      <div class="slot" id="slotRight"><div class="slotInner" id="inner3"></div><span class="who" id="who3">&mdash;</span></div>
+      <div class="slot" id="slotBot"><div class="slotInner" id="inner0"></div><span class="who" id="who0">&mdash;</span></div>
+    </div>
+  </div>
+
+  <!-- ============ STATUS ============ -->
+  <div id="statusBar"><span id="msg">Ready</span></div>
+
+  <!-- ============ PLAYER ZONE ============ -->
+  <div id="playerZone">
+    <div class="pInfo"><span>&#128578;</span> <b>You</b> &bull; <span id="pCount">0 cards &bull; 0 pts</span> &bull; <span id="passInfo">&mdash;</span></div>
+    <div id="hand"></div>
+  </div>
+
+  <!-- ============ CONTROLS ============ -->
+  <div id="controls">
+    <button id="passBtn" type="button" disabled>Pass 3 Cards</button>
+    <button id="restartBtn" type="button">Restart</button>
+  </div>
+
+  <!-- ============ START OVERLAY ============ -->
+  <div id="startScreen" class="overlay">
+    <h2 class="oTitle">Hearts</h2>
+    <p class="oSub">
+      A classic 4-player trick-taking game. Follow suit when you can &mdash; the highest card of the
+      led suit takes the trick. You <b>avoid</b> collecting points: every <b>&#9829; is 1 point</b>
+      and the <b>Q&#9824; is 13</b>.
+      <br><br>
+      Each round you <b>pass 3 cards</b> (left &#8594; right &#8594; across &#8594; hold, repeating).
+      The <b>2&#9827;</b> leads the first trick. Hearts may not be led until they're <b>broken</b>.
+      Take <b>all 26</b> points to <b>shoot the moon</b> (you get 0, everyone else +26).
+      <br><br>
+      The game ends when someone reaches <b>100</b>. <b>Lowest total wins.</b>
+    </p>
+    <button class="bigBtn" id="startBtn" type="button">Start Game</button>
+  </div>
+
+  <!-- ============ RESULT OVERLAY ============ -->
+  <div id="resultScreen" class="overlay hidden">
+    <h2 class="oTitle" id="resHead">Round complete</h2>
+    <div id="resultBody"></div>
+    <button class="bigBtn" id="resBtn" type="button">Next Round</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONSTANTS ============
+  const SUITS = ["\u2660", "\u2665", "\u2666", "\u2663"];  // spades hearts diamonds clubs
+  const RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
+  const RED = { "\u2665": true, "\u2666": true };
+  const SPADE = 0, HEART = 1, DIAMOND = 2, CLUB = 3;
+  const Q_SPADES_RANK = 10;           // index of "Q" in RANKS
+  const CLUB_2 = 0;                    // index of "2"
+  const GAME_LIMIT = 100;              // first to reach this ends the game
+  const PASS_NAMES = ["Pass Left \u2192", "Pass Right \u2190", "Pass Across \u2195", "Hold (no pass)"];
+  const CPU_EMOJI = ["\uD83E\uDD16", "\uD83D\uDC7D", "\uD83D\uDC79"];  // robot alien ogre
+  const CPU_NAMES = ["CPU Mia", "CPU Rex", "CPU Zoe"];
+
+  // ============ GAME STATE ============
+  let players = [];        // { name, emoji, cpu, hand: [{r,s}] }
+  let scores = [];         // cumulative game scores
+  let takenPts = [];       // points collected this round
+  let currentTrick = [];   // [{ pi, card }]
+  let leadSuit = -1;       // suit index led this trick
+  let heartsBroken = false;
+  let trickNumber = 0;
+  let turn = 0;
+  let phase = "idle";      // idle | pass | play | between | over
+  let roundNum = 1;
+  let passMode = 0;        // 0 left, 1 right, 2 across, 3 hold
+  let selected = [];       // hand indices selected to pass
+  let cpuTimer = null;
+  let betweenTimer = null;
+
+  // ============ DOM REFERENCES ============
+  const $ = function (id) { return document.getElementById(id); };
+  const elOpponents = $("opponents");
+  const elHand = $("hand");
+  const elMsg = $("msg");
+  const elPCount = $("pCount");
+  const elPassInfo = $("passInfo");
+  const elPassBtn = $("passBtn");
+  const elRestart = $("restartBtn");
+  const elTurn = $("turnBadge");
+  const elBroken = $("brokenBadge");
+  const elRoundPts = $("roundPtsBadge");
+  const elHudWins = $("hudWins");
+  const elHudRound = $("hudRound");
+  const elHudScore = $("hudScore");
+
+  // ============ SOUND (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(vol || 0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g);
+      g.connect(actx.destination);
+      o.start();
+      o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+  function fanfare(win) {
+    if (win) { beep(660, .15, "sine", .07); setTimeout(function () { beep(880, .25, "sine", .07); }, 150); }
+    else { beep(300, .2, "sawtooth", .06); setTimeout(function () { beep(220, .3, "sawtooth", .06); }, 160); }
+  }
+
+  // ============ SMALL HELPERS ============
+  function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+  function setMsg(t) { elMsg.textContent = t; }
+  function rankVal(c) { return RANKS.indexOf(c.r); }
+  function isRed(c) { return !!RED[SUITS[c.s]]; }
+  function isHeart(c) { return c.s === HEART; }
+  function isQueenSpades(c) { return c.s === SPADE && rankVal(c) === Q_SPADES_RANK; }
+  function isPenalty(c) { return isHeart(c) || isQueenSpades(c); }
+  function penaltyScore(c) {
+    if (isQueenSpades(c)) return 100;
+    if (isHeart(c)) return 10 + rankVal(c);
+    return 0;
+  }
+  function cardPts(c) {
+    if (isQueenSpades(c)) return 13;
+    if (isHeart(c)) return 1;
+    return 0;
+  }
+  function maxBy(arr, fn) {
+    let best = arr[0], bv = fn(arr[0]);
+    for (let i = 1; i < arr.length; i++) { const v = fn(arr[i]); if (v > bv) { bv = v; best = arr[i]; } }
+    return best;
+  }
+  function minBy(arr, fn) {
+    let best = arr[0], bv = fn(arr[0]);
+    for (let i = 1; i < arr.length; i++) { const v = fn(arr[i]); if (v < bv) { bv = v; best = arr[i]; } }
+    return best;
+  }
+  // Sort a hand in a stable, readable order: by suit then rank.
+  function sortHand(hand) { return hand.sort(function (a, b) { return (a.s - b.s) || (rankVal(a) - rankVal(b)); }); }
+
+  // ============ RENDERING ============
+  function cardEl(c) {
+    const d = document.createElement("div");
+    d.className = "card" + (isRed(c) ? " red" : "");
+    d.innerHTML =
+      '<span class="corner tl">' + c.r + "<i>" + SUITS[c.s] + "</i></span>" +
+      '<span class="big">' + SUITS[c.s] + "</span>" +
+      '<span class="corner br">' + c.r + "<i>" + SUITS[c.s] + "</i></span>";
+    return d;
+  }
+
+  function renderOpponents() {
+    elOpponents.innerHTML = "";
+    for (let i = 1; i < 4; i++) {
+      const p = players[i];
+      const d = document.createElement("div");
+      d.className = "opp" + (turn === i && (phase === "play" || phase === "between") ? " active" : "");
+      d.innerHTML =
+        '<div class="oppAvatar">' + p.emoji + "</div>" +
+        '<div class="oppName">' + p.name + "</div>" +
+        '<div class="oppMeta"><span class="oppCount">' + p.hand.length + "</span> cards</div>" +
+        '<div class="oppPts">+' + takenPts[i] + " this round</div>" +
+        '<div class="oppScore">' + scores[i] + " total</div>";
+      elOpponents.appendChild(d);
+    }
+  }
+
+  function renderTrick() {
+    for (let i = 0; i < 4; i++) {
+      const inner = $("inner" + i);
+      const who = $("who" + i);
+      inner.innerHTML = "";
+      const entry = currentTrick.filter(function (t) { return t.pi === i; })[0];
+      if (entry) {
+        const el = cardEl(entry.card);
+        el.classList.add("show");
+        inner.appendChild(el);
+      }
+      who.textContent = entry ? players[i].name : "\u2014";
+    }
+  }
+
+  function renderHand() {
+    elHand.innerHTML = "";
+    const p = players[0];
+    for (let i = 0; i < p.hand.length; i++) {
+      const c = p.hand[i];
+      const el = cardEl(c);
+      if (phase === "pass") {
+        el.classList.add(selected.indexOf(i) >= 0 ? "sel" : "playable");
+      } else {
+        const legal = phase === "play" && turn === 0 && legalIndices(0).indexOf(i) >= 0;
+        el.classList.add(legal ? "playable" : "dim");
+      }
+      el.addEventListener("click", (function (idx) {
+        return function () { onCardClick(idx); };
+      })(i));
+      elHand.appendChild(el);
+    }
+  }
+
+  function updateDisplay() {
+    renderOpponents();
+    renderTrick();
+    renderHand();
+
+    elTurn.textContent = (phase === "play" || phase === "between") && players[turn] ? players[turn].name : "\u2014";
+    elBroken.textContent = heartsBroken ? "Broken!" : "Safe";
+    elBroken.className = "infoVal" + (heartsBroken ? " broken" : "");
+    elRoundPts.textContent = takenPts[0] + " pts";
+
+    elPCount.textContent = players[0].hand.length + " cards \u2022 " + scores[0] + " pts total";
+    elHudRound.textContent = roundNum;
+    elHudScore.textContent = scores[0];
+
+    if (phase === "pass") {
+      elPassInfo.textContent = PASS_NAMES[passMode] + " \u2022 " + selected.length + "/3 chosen";
+      elPassBtn.disabled = selected.length !== 3;
+    } else {
+      elPassInfo.textContent = PASS_NAMES[passMode];
+      elPassBtn.disabled = true;
+    }
+  }
+
+  // ============ LEGALITY ============
+  // Returns the list of legal hand indices for player pi in the current state.
+  function legalIndices(pi) {
+    const p = players[pi];
+    const hand = p.hand;
+    const n = hand.length;
+    const isLead = currentTrick.length === 0;
+    const firstTrick = trickNumber === 0;
+    let out = [];
+
+    if (isLead) {
+      // First trick must be led by the 2 of clubs.
+      if (firstTrick) {
+        for (let i = 0; i < n; i++) if (hand[i].s === CLUB && rankVal(hand[i]) === CLUB_2) return [i];
+      }
+      // Hearts cannot be led until broken (unless only hearts remain).
+      for (let i = 0; i < n; i++) if (!(isHeart(hand[i]) && !heartsBroken)) out.push(i);
+      if (!out.length) for (let i = 0; i < n; i++) out.push(i);
+      return out;
+    }
+
+    // Following: must follow the led suit when possible.
+    for (let i = 0; i < n; i++) if (hand[i].s === leadSuit) out.push(i);
+    if (!out.length) for (let i = 0; i < n; i++) out.push(i);
+
+    // First trick: no penalty cards may be played unless forced.
+    if (firstTrick) {
+      const safe = out.filter(function (i) { return !isPenalty(hand[i]); });
+      if (safe.length) out = safe;
+    }
+    return out;
+  }
+
+  // ============ TURN FLOW ============
+  function scheduleCpu(delay) {
+    clearTimeout(cpuTimer);
+    cpuTimer = setTimeout(cpuTurn, delay || 720);
+  }
+
+  function nextPlayer() { return (turn + 1) % 4; }
+
+  function advance() {
+    if (phase !== "play") return;
+    turn = nextPlayer();
+    updateDisplay();
+    if (players[turn].cpu) scheduleCpu();
+  }
+
+  // ============ CARD PLAY ============
+  function playCard(pi, idx) {
+    const p = players[pi];
+    const card = p.hand.splice(idx, 1)[0];
+    currentTrick.push({ pi: pi, card: card });
+    if (currentTrick.length === 1) leadSuit = card.s;
+    if (isHeart(card)) heartsBroken = true;
+    beep(520, 0.07, "triangle");
+    updateDisplay();
+
+    if (currentTrick.length === 4) {
+      phase = "between";
+      setMsg(players[pi].name + " played " + card.r + SUITS[card.s] + "\u2026");
+      clearTimeout(betweenTimer);
+      betweenTimer = setTimeout(resolveTrick, 850);
+      return;
+    }
+    if (isHeart(card)) setMsg("Hearts are broken!");
+    advance();
+  }
+
+  function winningEntry() {
+    let best = currentTrick[0];
+    for (let i = 1; i < currentTrick.length; i++) {
+      const t = currentTrick[i];
+      if (t.card.s === leadSuit && best.card.s === leadSuit && rankVal(t.card) > rankVal(best.card)) best = t;
+    }
+    return best;
+  }
+
+  function resolveTrick() {
+    const win = winningEntry();
+    let pts = 0;
+    for (let i = 0; i < currentTrick.length; i++) pts += cardPts(currentTrick[i].card);
+    takenPts[win.pi] += pts;
+
+    if (pts > 0) {
+      beep(240, 0.12, "sawtooth");
+      setMsg(players[win.pi].name + " takes the trick (+" + pts + ")");
+    } else {
+      beep(600, 0.08, "triangle");
+      setMsg(players[win.pi].name + " wins the trick");
+    }
+
+    currentTrick = [];
+    leadSuit = -1;
+    trickNumber++;
+    turn = win.pi;
+    updateDisplay();
+
+    if (players[0].hand.length === 0) {
+      clearTimeout(betweenTimer);
+      betweenTimer = setTimeout(endRound, 600);
+      return;
+    }
+    phase = "play";
+    updateDisplay();
+    if (players[turn].cpu) scheduleCpu();
+  }
+
+  // ============ CPU AI ============
+  function cpuChooseIndex(pi) {
+    const p = players[pi];
+    const legal = legalIndices(pi);
+    if (!legal.length) return -1;
+    const hand = p.hand;
+    const isLead = currentTrick.length === 0;
+
+    if (isLead) {
+      // Lead low; avoid giving away penalty cards when a safe lead exists.
+      let pool = legal.filter(function (i) { return !isPenalty(hand[i]); });
+      if (!pool.length) pool = legal;
+      return legal.reduce(function (a, b) {
+        const ca = hand[a], cb = hand[b];
+        const sa = (isPenalty(ca) ? 100 : 0) + rankVal(ca);
+        const sb = (isPenalty(cb) ? 100 : 0) + rankVal(cb);
+        return sb < sa ? b : a;
+      });
+    }
+
+    const follow = legal.filter(function (i) { return hand[i].s === leadSuit; });
+
+    if (follow.length) {
+      // Highest rank of the led suit already on the table.
+      let hi = -1;
+      for (let i = 0; i < currentTrick.length; i++) {
+        const t = currentTrick[i];
+        if (t.card.s === leadSuit && rankVal(t.card) > hi) hi = rankVal(t.card);
+      }
+      const losers = follow.filter(function (i) { return rankVal(hand[i]) < hi; });
+      const winners = follow.filter(function (i) { return rankVal(hand[i]) > hi; });
+      // Duck when possible, shedding the highest card that still loses.
+      if (losers.length) return maxBy(losers, function (i) { return rankVal(hand[i]); });
+      // Forced to win: use the cheapest winner.
+      if (winners.length) return minBy(winners, function (i) { return rankVal(hand[i]); });
+      return minBy(follow, function (i) { return rankVal(hand[i]); });
+    }
+
+    // Void in the led suit: this trick cannot be won, so dump penalty cards.
+    const penalty = legal.filter(function (i) { return isPenalty(hand[i]); });
+    if (penalty.length) return maxBy(penalty, function (i) { return penaltyScore(hand[i]); });
+    // Otherwise shed the highest card to create a void sooner.
+    return maxBy(legal, function (i) { return rankVal(hand[i]); });
+  }
+
+  function cpuTurn() {
+    if (phase !== "play") return;
+    const pi = turn;
+    const pick = cpuChooseIndex(pi);
+    if (pick < 0) { advance(); return; }
+    playCard(pi, pick);
+  }
+
+  // ============ HUMAN INPUT ============
+  function onCardClick(idx) {
+    if (phase === "pass") {
+      const at = selected.indexOf(idx);
+      if (at >= 0) selected.splice(at, 1);
+      else if (selected.length < 3) { selected.push(idx); beep(640, 0.05, "triangle"); }
+      else { beep(180, 0.08, "square"); setMsg("Choose exactly 3 cards to pass."); return; }
+      updateDisplay();
+      return;
+    }
+    if (phase !== "play" || turn !== 0) return;
+    if (legalIndices(0).indexOf(idx) < 0) {
+      beep(160, 0.1, "sawtooth");
+      setMsg("Illegal play \u2014 follow suit if you can.");
+      return;
+    }
+    playCard(0, idx);
+  }
+
+  // ============ PASSING ============
+  function roundPassMode(n) { return (n - 1) % 4; }   // 0 left, 1 right, 2 across, 3 hold
+  function passTarget(pi, mode) {
+    if (mode === 0) return (pi + 1) % 4;
+    if (mode === 1) return (pi + 3) % 4;
+    if (mode === 2) return (pi + 2) % 4;
+    return -1;
+  }
+
+  // CPU pass: send away the most dangerous cards (Q♠, high spades, high hearts, high cards).
+  function cpuPickPass(pi) {
+    const hand = players[pi].hand;
+    const scored = hand.map(function (c, i) { return { i: i, v: penaltyScore(c) + rankVal(c) }; });
+    scored.sort(function (a, b) { return b.v - a.v; });
+    return [scored[0].i, scored[1].i, scored[2].i];
+  }
+
+  function beginPass() {
+    passMode = roundPassMode(roundNum);
+    selected = [];
+    currentTrick = [];
+    leadSuit = -1;
+
+    if (passMode === 3) {  // no passing this round
+      phase = "idle";
+      setMsg("No passing this round \u2014 the 2\u2663 leads.");
+      updateDisplay();
+      setTimeout(beginPlay, 650);
+      return;
+    }
+    phase = "pass";
+    setMsg("Passing \u2014 " + PASS_NAMES[passMode]);
+    updateDisplay();
+  }
+
+  function confirmPass() {
+    if (phase !== "pass" || selected.length !== 3) return;
+    const sendOut = [[], [], [], []];
+    // Human selection.
+    for (let k = 0; k < 3; k++) sendOut[0].push(players[0].hand[selected[k]]);
+    // CPU selections.
+    for (let i = 1; i < 4; i++) {
+      const picks = cpuPickPass(i);
+      picks.sort(function (a, b) { return b - a; });   // remove high indices first
+      for (let k = 0; k < picks.length; k++) sendOut[i].push(players[i].hand[picks[k]]);
+      for (let k = 0; k < picks.length; k++) players[i].hand.splice(picks[k], 1);
+    }
+    // Human hand: clear out the selected cards.
+    const sorted = selected.slice().sort(function (a, b) { return b - a; });
+    for (let k = 0; k < sorted.length; k++) players[0].hand.splice(sorted[k], 1);
+
+    // Deliver each player's three cards to their target.
+    for (let i = 0; i < 4; i++) {
+      const target = passTarget(i, passMode);
+      for (let k = 0; k < sendOut[i].length; k++) players[target].hand.push(sendOut[i][k]);
+    }
+
+    for (let i = 0; i < 4; i++) sortHand(players[i].hand);
+    beep(700, 0.1, "sine");
+    setMsg("Cards passed. The 2\u2663 leads\u2026");
+    selected = [];
+    phase = "idle";
+    updateDisplay();
+    setTimeout(beginPlay, 550);
+  }
+
+  // ============ ROUND SETUP ============
+  function beginPlay() {
+    phase = "play";
+    currentTrick = [];
+    leadSuit = -1;
+    heartsBroken = false;
+    trickNumber = 0;
+
+    // The holder of the 2 of clubs leads the first trick.
+    for (let i = 0; i < 4; i++) {
+      const has2c = players[i].hand.some(function (c) { return c.s === CLUB && rankVal(c) === CLUB_2; });
+      if (has2c) { turn = i; break; }
+    }
+    setMsg(players[turn].name + " leads with the 2\u2663.");
+    updateDisplay();
+    if (players[turn].cpu) scheduleCpu(900);
+  }
+
+  function deal() {
+    const deck = [];
+    for (let s = 0; s < SUITS.length; s++) {
+      for (let r = 0; r < RANKS.length; r++) deck.push({ r: RANKS[r], s: s });
+    }
+    shuffle(deck);
+    for (let i = 0; i < 4; i++) players[i].hand = [];
+    for (let k = 0; k < 13; k++) {
+      for (let i = 0; i < 4; i++) players[i].hand.push(deck.pop());
+    }
+  }
+
+  function newRound() {
+    clearTimeout(cpuTimer);
+    clearTimeout(betweenTimer);
+    deal();
+    for (let i = 0; i < 4; i++) sortHand(players[i].hand);
+    takenPts = [0, 0, 0, 0];
+    heartsBroken = false;
+    trickNumber = 0;
+    leadSuit = -1;
+    currentTrick = [];
+    turn = 0;
+    updateDisplay();
+    beginPass();
+  }
+
+  // ============ ROUND / GAME END ============
+  function endRound() {
+    phase = "over";
+    clearTimeout(cpuTimer);
+    clearTimeout(betweenTimer);
+
+    const deltas = [0, 0, 0, 0];
+    let shooter = -1;
+    for (let i = 0; i < 4; i++) if (takenPts[i] === 26) shooter = i;
+
+    if (shooter >= 0) {
+      for (let i = 0; i < 4; i++) deltas[i] = (i === shooter) ? 0 : 26;
+    } else {
+      for (let i = 0; i < 4; i++) deltas[i] = takenPts[i];
+    }
+    for (let i = 0; i < 4; i++) scores[i] += deltas[i];
+
+    const gameOver = scores.some(function (s) { return s >= GAME_LIMIT; });
+    if (gameOver) {
+      const low = Math.min.apply(null, scores);
+      const winners = [];
+      for (let i = 0; i < 4; i++) if (scores[i] === low) winners.push(i);
+      const youWin = winners.indexOf(0) >= 0;
+      if (youWin) {
+        const w = (parseInt(localStorage.getItem("heartsWins"), 10) || 0) + 1;
+        localStorage.setItem("heartsWins", String(w));
+        elHudWins.textContent = w;
+      }
+      fanfare(youWin);
+    } else {
+      beep(440, 0.2, "sine");
+    }
+
+    updateDisplay();
+    showResult(deltas, shooter, gameOver);
+  }
+
+  function showResult(deltas, shooter, gameOver) {
+    const moon = shooter >= 0;
+    $("resHead").textContent = gameOver
+      ? "\uD83C\uDFC6 Game over"
+      : (moon ? "\uD83C\uDF19 Shot the Moon!" : "\u2665 Round " + roundNum + " complete");
+
+    let html = "";
+    if (moon) html += '<p class="oSub"><b>' + players[shooter].name + "</b> took every point &mdash; shooting the moon! Everyone else gains 26.</p>";
+    else if (gameOver) html += '<p class="oSub">Someone reached ' + GAME_LIMIT + ". Lowest total wins.</p>";
+    else html += '<p class="oSub">Round points collected:</p>';
+
+    const low = Math.min.apply(null, scores);
+    html += '<div class="scoreList">';
+    for (let i = 0; i < 4; i++) {
+      const win = gameOver && scores[i] === low;
+      html += '<div class="scoreRow' + (win ? " win" : "") + '">' +
+        "<span>" + players[i].emoji + " " + players[i].name + "</span>" +
+        '<span class="delta">+' + deltas[i] + "</span>" +
+        '<span class="pts">' + scores[i] + " pts</span></div>";
+    }
+    html += "</div>";
+    $("resultBody").innerHTML = html;
+
+    const btn = $("resBtn");
+    if (gameOver) {
+      btn.textContent = "Play Again";
+      btn.onclick = function () { $("resultScreen").classList.add("hidden"); goStart(); };
+    } else {
+      btn.textContent = "Next Round \u25B6";
+      btn.onclick = function () { $("resultScreen").classList.add("hidden"); roundNum++; newRound(); };
+    }
+    $("resultScreen").classList.remove("hidden");
+  }
+
+  // ============ SETUP ============
+  function buildPlayers() {
+    players = [{ name: "You", emoji: "\uD83D\uDE42", cpu: false, hand: [] }];
+    for (let i = 0; i < 3; i++) players.push({ name: CPU_NAMES[i], emoji: CPU_EMOJI[i], cpu: true, hand: [] });
+    scores = [0, 0, 0, 0];
+    takenPts = [0, 0, 0, 0];
+  }
+
+  function goStart() {
+    clearTimeout(cpuTimer);
+    clearTimeout(betweenTimer);
+    phase = "idle";
+    $("startScreen").classList.remove("hidden");
+    $("resultScreen").classList.add("hidden");
+  }
+
+  function startGame() {
+    roundNum = 1;
+    buildPlayers();
+    $("startScreen").classList.add("hidden");
+    $("resultScreen").classList.add("hidden");
+    newRound();
+  }
+
+  // ============ EVENT WIRING ============
+  $("startBtn").addEventListener("click", startGame);
+  elPassBtn.addEventListener("click", confirmPass);
+  elRestart.addEventListener("click", goStart);
+
+  // Keyboard shortcuts: Enter confirms the pass, R restarts.
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "KeyR") { e.preventDefault(); goStart(); }
+    else if (e.code === "Enter" && phase === "pass") { e.preventDefault(); confirmPass(); }
+  });
+
+  // Pause CPU pacing while the tab is hidden.
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { clearTimeout(cpuTimer); clearTimeout(betweenTimer); }
+  });
+
+  // ============ INIT ============
+  elHudWins.textContent = parseInt(localStorage.getItem("heartsWins"), 10) || 0;
+  buildPlayers();
+  updateDisplay();
+})();
+</script>
+</body>
+</html>

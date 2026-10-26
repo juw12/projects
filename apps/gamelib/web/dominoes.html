@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Dominoes</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(circle at 30% 10%, #1f6f4a 0%, #0f3d29 55%, #072015 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    color: #f4f7f5;
+    padding: 12px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #app { width: min(97vw, 900px); display: flex; flex-direction: column; gap: 10px; }
+
+  /* ============ HEADER / SCORE BOARD ============ */
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .title {
+    font-size: clamp(1.1rem, 3.5vw, 1.6rem);
+    letter-spacing: 1px; color: #ffe8a3;
+    text-shadow: 0 2px 0 rgba(0,0,0,.35);
+  }
+  .scores { display: flex; gap: 8px; font-size: clamp(.7rem, 2.4vw, .9rem); }
+  .score-chip {
+    background: rgba(0,0,0,.32);
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 10px; padding: 5px 10px; text-align: center; min-width: 78px;
+  }
+  .score-chip b { display: block; color: #ffe8a3; font-size: 1.05em; }
+  .score-chip.lead { border-color: #ffe8a3; box-shadow: 0 0 8px rgba(255,232,163,.35); }
+
+  /* ============ TABLE (game wrap) ============ */
+  #game-wrap {
+    position: relative; border-radius: 14px; overflow: hidden;
+    box-shadow: 0 12px 44px rgba(0,0,0,.5);
+    background: linear-gradient(160deg, #2c8a5f, #1c5c40 70%, #14452f);
+    border: 2px solid rgba(255,255,255,.08);
+  }
+
+  /* ============ INFO BAR ============ */
+  .infobar {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 8px 12px; font-size: clamp(.72rem, 2.4vw, .9rem);
+    background: rgba(0,0,0,.28); border-bottom: 1px solid rgba(255,255,255,.08);
+    flex-wrap: wrap;
+  }
+  .infobar .pill { background: rgba(255,255,255,.1); border-radius: 20px; padding: 4px 12px; white-space: nowrap; }
+  .infobar .turn { color: #ffe8a3; font-weight: bold; }
+  .msg { flex: 1; min-width: 120px; text-align: center; color: #d6f5e3; font-style: italic; }
+
+  /* ============ LINE / HAND AREAS ============ */
+  .board-caption {
+    padding: 6px 12px 0; font-size: .68rem; letter-spacing: 2px;
+    text-transform: uppercase; color: rgba(255,255,255,.55);
+  }
+  #line {
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+    min-height: 92px; padding: 12px; overflow-x: auto; overflow-y: hidden;
+    scrollbar-width: thin;
+    background-image:
+      linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px);
+    background-size: 26px 26px;
+  }
+  #line .chain { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; }
+  .empty-line { color: rgba(255,255,255,.45); font-style: italic; font-size: .85rem; }
+
+  /* ============ DOMINO TILES ============ */
+  .tile {
+    --tw: 34px;
+    display: flex; flex-direction: row;
+    background: linear-gradient(160deg, #fdfcf7, #e9e4d6);
+    border-radius: 6px; border: 1px solid #b9b19c;
+    box-shadow: 0 3px 6px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.6);
+    flex: 0 0 auto; user-select: none;
+  }
+  .tile.vertical { flex-direction: column; }
+  .half { width: var(--tw); height: var(--tw); position: relative; flex: 0 0 auto; }
+  .half:first-child { border-right: 1px dashed #b0a892; }
+  .tile.vertical .half:first-child { border-right: none; border-bottom: 1px dashed #b0a892; }
+  .pip {
+    position: absolute; width: 22%; height: 22%; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #556, #10131a 70%);
+    box-shadow: inset 0 -1px 1px rgba(255,255,255,.15);
+    transform: translate(-50%, -50%);
+  }
+
+  /* Hand tiles are interactive */
+  .tile.hand { cursor: pointer; transition: transform .12s ease, box-shadow .12s ease; }
+  .tile.hand:hover { transform: translateY(-6px); box-shadow: 0 8px 14px rgba(0,0,0,.45); }
+  .tile.hand.playable { border-color: #4ad07a; box-shadow: 0 0 0 2px rgba(74,208,122,.6), 0 4px 8px rgba(0,0,0,.4); }
+  .tile.hand.playable:hover { box-shadow: 0 0 0 3px rgba(74,208,122,.9), 0 9px 16px rgba(0,0,0,.5); }
+  .tile.hand.dead { cursor: not-allowed; opacity: .45; filter: grayscale(.6); }
+  .tile.hand.dead:hover { transform: none; }
+
+  /* Line tiles slightly smaller */
+  #line .tile { --tw: 30px; }
+
+  /* Face-down back tiles */
+  .tile.back {
+    background: repeating-linear-gradient(45deg, #8a2b3a, #8a2b3a 6px, #6d1f2c 6px, #6d1f2c 12px);
+    border-color: #4d131c;
+    width: var(--tw); height: calc(var(--tw) * 2 + 2px);
+  }
+
+  /* ============ HAND ROWS ============ */
+  .hand-area { padding: 10px 12px 14px; }
+  #cpuHand { display: flex; justify-content: center; gap: 5px; flex-wrap: wrap; min-height: 40px; }
+  #myHand { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; min-height: 80px; }
+
+  /* ============ CONTROLS ============ */
+  #controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; }
+  button {
+    font-family: inherit; font-size: clamp(.8rem, 2.6vw, .95rem); font-weight: bold;
+    letter-spacing: .5px; padding: 10px 20px; border: none; border-radius: 10px;
+    cursor: pointer; color: #08281a; background: #ffe8a3;
+    box-shadow: 0 4px 0 rgba(0,0,0,.3);
+    transition: transform .06s ease, background .15s ease, opacity .15s ease;
+    user-select: none;
+  }
+  button:hover { background: #fff2c4; }
+  button:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.3); }
+  button:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+  .btn-alt { background: #a9d6c0; }
+  .btn-alt:hover { background: #c3e6d4; }
+  .btn-draw { background: #7fd4ff; }
+  .btn-draw:hover { background: #a5e1ff; }
+
+  /* ============ SCREENS (Start / Result overlays) ============ */
+  .screen {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 12px; text-align: center;
+    padding: 24px; background: rgba(6, 28, 18, .93); backdrop-filter: blur(3px);
+    transition: opacity .3s ease; z-index: 5;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen-title { font-size: clamp(1.5rem, 6vw, 2.4rem); color: #ffe8a3; text-shadow: 0 3px 0 rgba(0,0,0,.4); }
+  .screen-subtitle { font-size: clamp(.85rem, 3vw, 1.05rem); color: #bfe6d3; max-width: 470px; line-height: 1.5; }
+  .screen .rules { font-size: clamp(.72rem, 2.5vw, .85rem); color: rgba(255,255,255,.6); max-width: 470px; line-height: 1.55; }
+  .mode-buttons { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .final-score { font-size: clamp(1.05rem, 3.6vw, 1.35rem); color: #fff; line-height: 1.7; }
+  .final-score b { color: #ffe8a3; }
+  .toast {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,.75); color: #ffe8a3; padding: 8px 16px; border-radius: 20px;
+    font-size: .85rem; opacity: 0; transition: opacity .25s ease; pointer-events: none; z-index: 6;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <h1 class="title">&#127924; Dominoes &mdash; Double Six</h1>
+    <div class="scores">
+      <div class="score-chip" id="chipOpp"><b>0</b><span id="lblOpp">CPU</span></div>
+      <div class="score-chip" id="chipYou"><b>0</b><span id="lblYou">You</span></div>
+    </div>
+  </div>
+
+  <div id="game-wrap">
+    <div class="infobar">
+      <span class="pill turn" id="turnLabel">Turn</span>
+      <span class="msg" id="message">Press Start to play.</span>
+      <span class="pill" id="bonePill">Boneyard: 0</span>
+    </div>
+
+    <div class="board-caption" id="oppCaption">Opponent hand</div>
+    <div class="hand-area"><div id="cpuHand"></div></div>
+
+    <div class="board-caption">The line</div>
+    <div id="line"><span class="empty-line">Empty table &mdash; play any tile to start</span></div>
+
+    <div class="board-caption" id="myCaption">Your hand &mdash; tap a glowing tile to play</div>
+    <div class="hand-area"><div id="myHand"></div></div>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- ============ START SCREEN ============ -->
+    <div id="startScreen" class="screen">
+      <h2 class="screen-title">Dominoes</h2>
+      <p class="screen-subtitle">Classic draw/block dominoes with a double-six set (28 tiles). Each side draws 7 and matches either open end of the line.</p>
+      <div class="mode-buttons">
+        <button type="button" data-mode="cpu">Play vs CPU</button>
+        <button type="button" class="btn-alt" data-mode="2p">2-Player Local</button>
+      </div>
+      <p class="rules">Can't play? Draw from the boneyard until you can &mdash; or pass if it's empty. Round ends when a hand empties (opponent's pips are scored) or all players are blocked (lowest pips wins). Ties score nothing.</p>
+    </div>
+
+    <!-- ============ RESULT SCREEN ============ -->
+    <div id="resultScreen" class="screen hidden">
+      <h2 class="screen-title" id="resultTitle">Round Over</h2>
+      <p class="final-score" id="resultDetail"></p>
+      <div class="mode-buttons">
+        <button type="button" id="btnNext">Next Round</button>
+        <button type="button" class="btn-alt" id="btnMenu">Change Mode</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="controls">
+    <button type="button" class="btn-draw" id="btnDraw">Draw</button>
+    <button type="button" class="btn-alt" id="btnPass">Pass</button>
+    <button type="button" id="btnRestart">Restart</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============ CONSTANTS & STATE ============ */
+  const MAX_PIP = 6;
+  const HAND_SIZE = 7;
+  const LS_KEY = "dominoesData"; // { bestCpu, best2p }
+
+  let mode = "cpu";      // "cpu" | "2p"
+  let players = [];      // [0]=CPU/P1  [1]=You/P2  each {name, hand:[tileId]}
+  let line = [];         // ordered list of {tile:{a,b}, flip:bool}
+  let openLeft = null;   // pip value at left open end
+  let openRight = null;  // pip value at right open end
+  let boneyard = [];     // tile ids still to draw
+  let turn = 0;          // 0 = index 0 to move, 1 = index 1
+  let over = false;
+  let busy = false;      // locked while CPU acts
+  let scores = { a: 0, b: 0 };
+  let data = { bestCpu: 0, best2p: 0 };
+
+  /* ============ DOUBLE-SIX SET ============ */
+  function makeSet() {
+    const ids = [];
+    for (let a = 0; a <= MAX_PIP; a++)
+      for (let b = a; b <= MAX_PIP; b++) ids.push(a * 10 + b);
+    return ids;
+  }
+  const ALL_TILES = makeSet();
+  const TILE_MAP = {};
+  ALL_TILES.forEach(id => {
+    TILE_MAP[id] = { a: Math.floor(id / 10), b: id % 10 };
+  });
+
+  /* ============ AUDIO (WebAudio, no assets) ============ */
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.06, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  /* ============ LOCAL STORAGE ============ */
+  function loadData() {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw) data = Object.assign(data, JSON.parse(raw));
+    } catch (e) { /* ignore corrupt storage */ }
+  }
+  function saveData() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch (e) {}
+  }
+
+  /* ============ DOM ============ */
+  const els = {
+    line: document.getElementById("line"),
+    cpuHand: document.getElementById("cpuHand"),
+    myHand: document.getElementById("myHand"),
+    turnLabel: document.getElementById("turnLabel"),
+    message: document.getElementById("message"),
+    bonePill: document.getElementById("bonePill"),
+    chipYou: document.getElementById("chipYou"),
+    chipOpp: document.getElementById("chipOpp"),
+    lblYou: document.getElementById("lblYou"),
+    lblOpp: document.getElementById("lblOpp"),
+    oppCaption: document.getElementById("oppCaption"),
+    myCaption: document.getElementById("myCaption"),
+    startScreen: document.getElementById("startScreen"),
+    resultScreen: document.getElementById("resultScreen"),
+    resultTitle: document.getElementById("resultTitle"),
+    resultDetail: document.getElementById("resultDetail"),
+    toast: document.getElementById("toast"),
+    btnDraw: document.getElementById("btnDraw"),
+    btnPass: document.getElementById("btnPass"),
+    btnRestart: document.getElementById("btnRestart"),
+    btnNext: document.getElementById("btnNext"),
+    btnMenu: document.getElementById("btnMenu")
+  };
+
+  let toastTimer = null;
+  function toast(text) {
+    els.toast.textContent = text;
+    els.toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => els.toast.classList.remove("show"), 1300);
+  }
+
+  /* ============ NAMING HELPERS ============ */
+  function nameFor(pi) {
+    if (mode === "cpu") return pi === 0 ? "CPU" : "You";
+    return "Player " + (pi + 1);
+  }
+  // Which player's hand is shown face-up in the lower row.
+  function faceIdx() { return mode === "cpu" ? 1 : turn; }
+  // Is the person at the screen allowed to act right now?
+  function humansCanAct() {
+    if (over || busy) return false;
+    if (mode === "2p") return true;   // both seats are human (hot-seat)
+    return turn === 1;                // vs CPU: only "You"
+  }
+
+  /* ============ TILE RENDERING ============ */
+  const PIPS = {
+    0: [],
+    1: [[0.5, 0.5]],
+    2: [[0.28, 0.28], [0.72, 0.72]],
+    3: [[0.26, 0.26], [0.5, 0.5], [0.74, 0.74]],
+    4: [[0.28, 0.28], [0.72, 0.28], [0.28, 0.72], [0.72, 0.72]],
+    5: [[0.27, 0.27], [0.73, 0.27], [0.5, 0.5], [0.27, 0.73], [0.73, 0.73]],
+    6: [[0.28, 0.22], [0.72, 0.22], [0.28, 0.5], [0.72, 0.5], [0.28, 0.78], [0.72, 0.78]]
+  };
+
+  function halfEl(value) {
+    const d = document.createElement("div");
+    d.className = "half";
+    PIPS[value].forEach(pos => {
+      const p = document.createElement("div");
+      p.className = "pip";
+      p.style.left = (pos[0] * 100) + "%";
+      p.style.top = (pos[1] * 100) + "%";
+      d.appendChild(p);
+    });
+    return d;
+  }
+
+  function tileEl(tile, flip) {
+    const el = document.createElement("div");
+    el.className = "tile";
+    el.appendChild(halfEl(flip ? tile.b : tile.a));
+    el.appendChild(halfEl(flip ? tile.a : tile.b));
+    return el;
+  }
+
+  function backEl() {
+    const el = document.createElement("div");
+    el.className = "tile back";
+    return el;
+  }
+
+  /* ============ RENDER ============ */
+  function renderHand() {
+    els.myHand.innerHTML = "";
+    const pi = faceIdx();
+    const me = players[pi].hand;
+    me.sort((x, y) => x - y);
+    const active = humansCanAct();
+    me.forEach(id => {
+      const t = TILE_MAP[id];
+      const el = tileEl(t, false);
+      if (active) {
+        el.classList.add("hand");
+        if (canPlay(id).playable) {
+          el.classList.add("playable");
+          el.title = "Play " + t.a + "-" + t.b;
+          el.addEventListener("click", () => onTileClick(id));
+        } else {
+          el.classList.add("dead");
+          el.title = "No matching end";
+          el.addEventListener("click", () => toast("No open end matches " + t.a + "-" + t.b));
+        }
+      } else {
+        el.classList.add("dead");
+      }
+      els.myHand.appendChild(el);
+    });
+  }
+
+  function renderOppHand() {
+    els.cpuHand.innerHTML = "";
+    const opp = 1 - faceIdx();
+    players[opp].hand.forEach(() => els.cpuHand.appendChild(backEl()));
+  }
+
+  function renderLine() {
+    els.line.innerHTML = "";
+    if (line.length === 0) {
+      els.line.innerHTML = '<span class="empty-line">Empty table &mdash; play any tile to start</span>';
+      return;
+    }
+    const chain = document.createElement("div");
+    chain.className = "chain";
+    line.forEach(item => chain.appendChild(tileEl(item.tile, item.flip)));
+    els.line.appendChild(chain);
+    els.line.scrollLeft = els.line.scrollWidth;
+  }
+
+  function renderInfo() {
+    els.bonePill.textContent = "Boneyard: " + boneyard.length;
+
+    if (over) {
+      els.turnLabel.textContent = "Round over";
+    } else if (mode === "cpu" && turn === 0) {
+      els.turnLabel.textContent = "CPU thinking\u2026";
+    } else {
+      els.turnLabel.textContent = nameFor(turn) + "'s turn";
+    }
+
+    els.chipYou.querySelector("b").textContent = scores.b;
+    els.chipOpp.querySelector("b").textContent = scores.a;
+    els.lblYou.textContent = mode === "cpu" ? "You" : "Player 2";
+    els.lblOpp.textContent = mode === "cpu" ? "CPU" : "Player 1";
+    els.chipYou.classList.toggle("lead", scores.b > scores.a);
+    els.chipOpp.classList.toggle("lead", scores.a > scores.b);
+
+    const opp = 1 - faceIdx();
+    els.myCaption.textContent =
+      (mode === "cpu" ? "Your hand" : nameFor(faceIdx()) + "'s hand") +
+      " \u2014 tap a glowing tile to play";
+    els.oppCaption.textContent =
+      (mode === "cpu" ? "CPU hand" : nameFor(opp) + "'s hand") + " (hidden)";
+
+    // Draw/Pass availability for the acting human
+    const pi = faceIdx();
+    const hasPlayable = players[pi].hand.some(id => canPlay(id).playable);
+    const act = humansCanAct();
+    els.btnDraw.disabled = !act || boneyard.length === 0 || hasPlayable;
+    els.btnPass.disabled = !act || hasPlayable || boneyard.length > 0;
+  }
+
+  function setMessage(t) { els.message.textContent = t; }
+
+  function renderAll() {
+    if (!players || players.length === 0) return; // before first round
+    renderOppHand();
+    renderLine();
+    renderHand();
+    renderInfo();
+  }
+
+  /* ============ MATCHING LOGIC ============ */
+  function canPlay(id) {
+    const t = TILE_MAP[id];
+    if (line.length === 0) return { playable: true, side: "start" };
+    const left = (t.a === openLeft || t.b === openLeft) ? "left" : null;
+    const right = (t.a === openRight || t.b === openRight) ? "right" : null;
+    if (!left && !right) return { playable: false };
+    return { playable: true, side: left && right ? "right" : (left || right) };
+  }
+
+  function pipCount(id) { const t = TILE_MAP[id]; return t.a + t.b; }
+  function handPips(hand) { return hand.reduce((s, id) => s + pipCount(id), 0); }
+
+  /* ============ PLACEMENT ============ */
+  // Places tile so the touching half matches the open end and updates open values.
+  function placeTile(id, side) {
+    const t = TILE_MAP[id];
+    if (line.length === 0) {
+      line.push({ tile: { a: t.a, b: t.b }, flip: false });
+      openLeft = t.a;
+      openRight = t.b;
+      return;
+    }
+    if (side === "left") {
+      // right half must equal openLeft; left half becomes the new openLeft
+      if (t.a === openLeft) { line.unshift({ tile: { a: t.a, b: t.b }, flip: true }); openLeft = t.b; }
+      else { line.unshift({ tile: { a: t.a, b: t.b }, flip: false }); openLeft = t.a; }
+    } else {
+      // rendered left half faces inward and must equal openRight
+      if (t.a === openRight) { line.push({ tile: { a: t.a, b: t.b }, flip: false }); openRight = t.b; }
+      else { line.push({ tile: { a: t.a, b: t.b }, flip: true }); openRight = t.a; }
+    }
+  }
+
+  function removeFromHand(pi, id) {
+    const h = players[pi].hand;
+    const i = h.indexOf(id);
+    if (i >= 0) h.splice(i, 1);
+  }
+
+  /* ============ HUMAN MOVE (both seats) ============ */
+  function onTileClick(id) {
+    if (!humansCanAct()) return;
+    const c = canPlay(id);
+    if (!c.playable) return;
+    playHuman(id, c.side);
+  }
+
+  function playHuman(id, side) {
+    const pi = faceIdx();
+    beep(660, 0.08, "square");
+    removeFromHand(pi, id);
+    placeTile(id, side);
+    renderAll();
+
+    if (players[pi].hand.length === 0) { endRound(pi, "hand"); return; }
+    if (isBlocked()) { endRound(-1, "blocked"); return; }
+
+    turn = 1 - pi;
+    renderAll();
+    if (mode === "cpu" && turn === 0) scheduleCpu();
+    else setMessage(nameFor(turn) + " \u2014 tap a glowing tile.");
+  }
+
+  function humanDraw() {
+    if (!humansCanAct()) return;
+    if (boneyard.length === 0) { toast("Boneyard is empty"); return; }
+    const pi = faceIdx();
+    const id = boneyard.pop();
+    players[pi].hand.push(id);
+    beep(400, 0.06, "triangle");
+    renderHand();
+    renderInfo();
+    setMessage("Drew " + TILE_MAP[id].a + "-" + TILE_MAP[id].b + ".");
+    if (canPlay(id).playable) toast("You can play the new tile!");
+  }
+
+  function humanPass() {
+    if (!humansCanAct()) return;
+    const pi = faceIdx();
+    if (players[pi].hand.some(id => canPlay(id).playable)) { toast("You have a playable tile"); return; }
+    if (boneyard.length > 0) { toast("Draw from the boneyard first"); return; }
+    beep(300, 0.1, "sawtooth");
+    setMessage(nameFor(pi) + " passed.");
+    turn = 1 - pi;
+    renderAll();
+    if (mode === "cpu" && turn === 0) scheduleCpu();
+    else setMessage(nameFor(turn) + " \u2014 tap a glowing tile.");
+  }
+
+  /* ============ CPU OPPONENT ============ */
+  function scheduleCpu() {
+    if (over) return;
+    busy = true;
+    renderAll();
+    setMessage("CPU thinking\u2026");
+    setTimeout(cpuMove, 620);
+  }
+
+  function cpuMove() {
+    busy = false;
+    if (over || turn !== 0) { renderAll(); return; }
+
+    // Greedy: highest-pip legal tile; doubles win ties (harder to place later).
+    const legal = players[0].hand
+      .map(id => ({ id: id, c: canPlay(id) }))
+      .filter(x => x.c.playable);
+
+    if (legal.length > 0) {
+      legal.sort((x, y) => {
+        const pd = pipCount(y.id) - pipCount(x.id);
+        if (pd !== 0) return pd;
+        const xd = TILE_MAP[x.id].a === TILE_MAP[x.id].b ? 1 : 0;
+        const yd = TILE_MAP[y.id].a === TILE_MAP[y.id].b ? 1 : 0;
+        return yd - xd;
+      });
+      const choice = legal[0];
+      beep(520, 0.08, "square");
+      removeFromHand(0, choice.id);
+      placeTile(choice.id, choice.c.side);
+      renderAll();
+      if (players[0].hand.length === 0) { endRound(0, "hand"); return; }
+      if (isBlocked()) { endRound(-1, "blocked"); return; }
+      turn = 1;
+      renderAll();
+      return;
+    }
+
+    // No legal tile: draw until playable or boneyard empty.
+    let drew = 0;
+    while (boneyard.length > 0) {
+      const id = boneyard.pop();
+      players[0].hand.push(id);
+      drew++;
+      if (canPlay(id).playable) break;
+    }
+    if (drew > 0) {
+      beep(400, 0.06, "triangle");
+      setMessage("CPU drew " + drew + " tile" + (drew > 1 ? "s" : "") + ".");
+    }
+    renderAll();
+
+    if (players[0].hand.some(id => canPlay(id).playable)) { setTimeout(cpuMove, 520); return; }
+
+    if (boneyard.length === 0) {
+      beep(300, 0.1, "sawtooth");
+      setMessage("CPU passed.");
+      if (isBlocked()) { endRound(-1, "blocked"); return; }
+      turn = 1;
+      renderAll();
+    } else {
+      setTimeout(cpuMove, 520);
+    }
+  }
+
+  /* ============ BLOCK DETECTION ============ */
+  function isBlocked() {
+    const noneCanPlay = players.every(p => !p.hand.some(id => canPlay(id).playable));
+    return noneCanPlay && boneyard.length === 0;
+  }
+
+  /* ============ ROUND END & SCORING ============ */
+  function endRound(winner, how) {
+    over = true;
+    busy = false;
+    renderAll();
+
+    if (how === "hand") {
+      const loser = 1 - winner;
+      const pts = handPips(players[loser].hand);
+      if (winner === 0) scores.a += pts; else scores.b += pts;
+      beep(880, 0.12, "sine");
+      setTimeout(() => beep(1180, 0.16, "sine"), 120);
+      els.resultTitle.textContent = "Round Over";
+      els.resultDetail.innerHTML =
+        "<b>" + nameFor(winner) + "</b> played out their hand and scores <b>" + pts +
+        "</b> pip" + (pts === 1 ? "" : "s") + " from " + nameFor(loser) + "'s remaining tiles.<br>" +
+        "Total &mdash; " + chipNames();
+      showResult();
+    } else {
+      const pa = handPips(players[0].hand);
+      const pb = handPips(players[1].hand);
+      let winIdx, pts;
+      if (pa < pb) { winIdx = 0; pts = pb - pa; scores.a += pts; }
+      else if (pb < pa) { winIdx = 1; pts = pa - pb; scores.b += pts; }
+      else { winIdx = -1; pts = 0; }
+      beep(700, 0.12, "sine");
+      els.resultTitle.textContent = "Blocked!";
+      els.resultDetail.innerHTML =
+        "No moves left and the boneyard is empty.<br>" +
+        nameFor(0) + " pips: <b>" + pa + "</b> &nbsp;&middot;&nbsp; " + nameFor(1) + " pips: <b>" + pb + "</b><br>" +
+        (winIdx === -1
+          ? "It's a tie on pips &mdash; no points scored."
+          : "<b>" + nameFor(winIdx) + "</b> has the lowest pips and scores <b>" + pts + "</b>.") +
+        "<br>Total &mdash; " + chipNames();
+      showResult();
+    }
+  }
+
+  function chipNames() {
+    if (mode === "cpu") return "You <b>" + scores.b + "</b> \u2014 CPU <b>" + scores.a + "</b>";
+    return "P1 <b>" + scores.a + "</b> \u2014 P2 <b>" + scores.b + "</b>";
+  }
+
+  function showResult() {
+    if (mode === "cpu") data.bestCpu = Math.max(data.bestCpu || 0, scores.b);
+    else data.best2p = Math.max(data.best2p || 0, Math.max(scores.a, scores.b));
+    saveData();
+    els.resultScreen.classList.remove("hidden");
+  }
+
+  /* ============ ROUND SETUP ============ */
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  function newRound() {
+    const deck = shuffle(ALL_TILES.slice());
+    players = [
+      { name: mode === "cpu" ? "CPU" : "Player 1", hand: [] },
+      { name: mode === "cpu" ? "You" : "Player 2", hand: [] }
+    ];
+    for (let i = 0; i < HAND_SIZE; i++) {
+      players[0].hand.push(deck.pop());
+      players[1].hand.push(deck.pop());
+    }
+    boneyard = deck;   // 28 - 14 = 14
+    line = [];
+    openLeft = null;
+    openRight = null;
+    over = false;
+    busy = false;
+
+    // Starter: holder of the highest double, else the lighter hand.
+    const d0 = highestDouble(0), d1 = highestDouble(1);
+    if (d0 !== null || d1 !== null) {
+      turn = (d0 !== null && (d1 === null || d0 > d1)) ? 0 : 1;
+    } else {
+      turn = handPips(players[0].hand) <= handPips(players[1].hand) ? 0 : 1;
+    }
+
+    els.resultScreen.classList.add("hidden");
+    els.startScreen.classList.add("hidden");
+    renderAll();
+
+    if (mode === "cpu" && turn === 0) {
+      scheduleCpu();
+    } else {
+      setMessage(nameFor(turn) + " \u2014 tap a glowing tile.");
+    }
+  }
+
+  function highestDouble(pi) {
+    let best = null;
+    players[pi].hand.forEach(id => {
+      const t = TILE_MAP[id];
+      if (t.a === t.b && (best === null || t.a > best)) best = t.a;
+    });
+    return best;
+  }
+
+  /* ============ CONTROLS / EVENTS ============ */
+  function startMode(m) {
+    mode = m;
+    scores = { a: 0, b: 0 };
+    beep(620, 0.08, "triangle");
+    newRound();
+  }
+
+  els.btnDraw.addEventListener("click", humanDraw);
+  els.btnPass.addEventListener("click", humanPass);
+  els.btnRestart.addEventListener("click", () => {
+    if (over) { startMode(mode); }
+    else { beep(420, 0.07, "triangle"); newRound(); }
+  });
+  els.btnNext.addEventListener("click", () => { beep(620, 0.08, "triangle"); newRound(); });
+  els.btnMenu.addEventListener("click", () => {
+    els.resultScreen.classList.add("hidden");
+    els.startScreen.classList.remove("hidden");
+    over = true;
+    busy = false;
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-mode]"), btn => {
+    btn.addEventListener("click", () => startMode(btn.getAttribute("data-mode")));
+  });
+
+  // Keyboard: D = draw, P = pass, R = restart
+  document.addEventListener("keydown", e => {
+    const k = e.key.toLowerCase();
+    if (k === "d") humanDraw();
+    else if (k === "p") humanPass();
+    else if (k === "r") els.btnRestart.click();
+  });
+
+  /* ============ INIT ============ */
+  loadData();
+  renderAll();
+})();
+</script>
+</body>
+</html>

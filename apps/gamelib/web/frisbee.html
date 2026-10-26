@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🥏 Frisbee</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Trebuchet MS', 'Segoe UI', Tahoma, sans-serif;
+      background: linear-gradient(160deg, #bfe8ff 0%, #d9f4ff 45%, #eafbe7 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(255, 255, 255, 0.92);
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: 0 14px 46px rgba(24, 90, 130, 0.18);
+      max-width: 940px;
+      width: 96%;
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 1.9rem;
+      letter-spacing: 2px;
+      color: #0b6ea8;
+      margin-bottom: 4px;
+      text-shadow: 2px 2px 0 #fff;
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #6b8a9a;
+      margin-bottom: 12px;
+    }
+
+    /* ============ HUD ============ */
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding: 10px 14px;
+      background: linear-gradient(135deg, #eef9ff, #f4fff0);
+      border-radius: 14px;
+      font-size: 0.9rem;
+      color: #4a6b7a;
+    }
+
+    .hud span {
+      font-weight: 700;
+      color: #0b6ea8;
+    }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 6px 20px rgba(24, 90, 130, 0.16);
+      background: #8fd06a;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      touch-action: none;
+      cursor: crosshair;
+    }
+
+    /* ============ SCREENS ============ */
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+      background: rgba(240, 251, 255, 0.96);
+      transition: opacity 0.3s ease;
+    }
+
+    .screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .screen-title {
+      font-size: 1.9rem;
+      color: #0b6ea8;
+      margin-bottom: 6px;
+      text-shadow: 2px 2px 0 #fff;
+    }
+
+    .screen-subtitle {
+      font-size: 0.95rem;
+      color: #6b8a9a;
+      margin-bottom: 14px;
+      max-width: 480px;
+      line-height: 1.5;
+    }
+
+    .how-to {
+      font-size: 0.82rem;
+      color: #557;
+      line-height: 1.7;
+      margin-bottom: 18px;
+      text-align: left;
+      background: rgba(255, 255, 255, 0.8);
+      border: 1px solid #d7eefb;
+      border-radius: 12px;
+      padding: 12px 16px;
+      max-width: 460px;
+    }
+
+    .final-score {
+      font-size: 1.4rem;
+      color: #0b6ea8;
+      margin-bottom: 4px;
+      font-weight: 700;
+    }
+
+    /* ============ ACTION BUTTONS ============ */
+    .action-btn {
+      padding: 13px 30px;
+      background: linear-gradient(135deg, #22b6e8, #0b6ea8);
+      color: white;
+      border: none;
+      border-radius: 24px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: all 0.2s ease;
+      box-shadow: 0 5px 16px rgba(11, 110, 168, 0.32);
+    }
+
+    .action-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 22px rgba(11, 110, 168, 0.4);
+    }
+
+    .action-btn:active {
+      transform: translateY(-1px);
+    }
+
+    .action-btn.small {
+      padding: 9px 18px;
+      font-size: 0.85rem;
+      border-radius: 14px;
+    }
+
+    /* ============ PAUSE / BANNER ============ */
+    .pause-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(240, 251, 255, 0.82);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 2rem;
+      color: #0b6ea8;
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .pause-overlay.visible {
+      opacity: 1;
+    }
+
+    .round-banner {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      pointer-events: none;
+      font-size: 2.4rem;
+      font-weight: 800;
+      letter-spacing: 3px;
+      color: #fff;
+      text-shadow: 0 4px 18px rgba(11, 110, 168, 0.8);
+      opacity: 0;
+      transition: opacity 0.35s ease;
+    }
+
+    .round-banner.show {
+      opacity: 1;
+    }
+
+    /* ============ CONTROL BAR ============ */
+    .control-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .curve-control {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.85rem;
+      color: #4a6b7a;
+      font-weight: 600;
+    }
+
+    .curve-control input[type="range"] {
+      width: 180px;
+      accent-color: #22b6e8;
+    }
+
+    .curve-control span {
+      color: #0b6ea8;
+      min-width: 34px;
+      display: inline-block;
+    }
+
+    .hint {
+      text-align: center;
+      font-size: 0.76rem;
+      color: #7d97a5;
+      margin-top: 8px;
+      min-height: 16px;
+    }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 620px) {
+      .game-container { padding: 12px; border-radius: 18px; }
+      .game-title { font-size: 1.4rem; }
+      .screen-title { font-size: 1.4rem; }
+      .hud { font-size: 0.72rem; padding: 8px 10px; }
+      .curve-control input[type="range"] { width: 120px; }
+      .round-banner { font-size: 1.6rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">🥏 FRISBEE</h1>
+    <p class="game-subtitle">Bend it with curve, beat the wind, ring the target.</p>
+
+    <div class="hud">
+      <div>Round <span id="roundLabel">1/5</span></div>
+      <div>Throws <span id="throwsLabel">5</span></div>
+      <div>Score <span id="scoreLabel">0</span></div>
+      <div>Best <span id="bestLabel">0</span></div>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="900" height="600"></canvas>
+
+      <!-- Start Screen -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">Take the Field</h2>
+        <p class="screen-subtitle">Land the disc inside the rings, pass through hoops for tricks.</p>
+        <div class="how-to">
+          <b>Drag &amp; release</b> — pull back like a slingshot to set angle + power.<br>
+          <b>Curve slider</b> — bend the flight path left / right.<br>
+          <b>Wind</b> — pushes the disc every throw. Compensate!<br>
+          <b>Keys</b> — ← → angle · ↑ ↓ power · Z / X curve · Space throw · P pause
+        </div>
+        <button class="action-btn" id="startBtn">Start Throwing</button>
+      </div>
+
+      <!-- Game Over Screen -->
+      <div id="gameOverScreen" class="screen hidden">
+        <h2 class="screen-title">Course Complete!</h2>
+        <p class="final-score">Total Score: <span id="finalScore">0</span></p>
+        <p class="screen-subtitle" id="gradeLine">Nice arm.</p>
+        <button class="action-btn" id="playAgainBtn">Throw Again</button>
+      </div>
+
+      <!-- Pause Overlay -->
+      <div id="pauseOverlay" class="pause-overlay">⏸ Paused</div>
+
+      <!-- Round Banner -->
+      <div id="roundBanner" class="round-banner">ROUND 2</div>
+    </div>
+
+    <div class="control-bar">
+      <div class="curve-control">
+        <label for="curveSlider">Curve</label>
+        <input type="range" id="curveSlider" min="-1" max="1" step="0.1" value="0" />
+        <span id="curveLabel">0.0</span>
+      </div>
+      <button class="action-btn small" id="throwBtn">Throw 🥏</button>
+    </div>
+    <div class="hint" id="hintLine">Drag on the field to aim, then release.</div>
+  </div>
+
+  <script>
+    // ============ GAME CONFIGURATION ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+
+    const ROUNDS = 5;
+    const THROWS_PER_ROUND = 5;
+    const THROWER = { x: W / 2, y: H - 46 };
+    const FRICTION = 0.985;
+    const CURVE_FORCE = 0.5;
+
+    // ============ GAME STATE ============
+    let state = 'start';           // start | aim | flying | result | over
+    let round = 1;
+    let throwsLeft = THROWS_PER_ROUND;
+    let totalScore = 0;
+    let lastThrowScore = 0;
+    let flightBonus = 0;
+
+    let aimAngle = -Math.PI / 2;   // pointing up
+    let aimPower = 0.65;
+    let curve = 0;
+    let dragging = false;
+    let dragAnchor = { x: 0, y: 0 };
+    let dragCurrent = { x: 0, y: 0 };
+
+    let targets = [];
+    let wind = { x: 0, y: 0, strength: 0 };
+
+    let path = [];
+    let flightPos = 0;
+    let frisbeeSpin = 0;
+    let trail = [];
+    let floats = [];
+    let resultTimer = 0;
+    let lastTime = 0;
+    let isPaused = false;
+    let bannerTimer = 0;
+
+    let best = parseInt(localStorage.getItem('frisbeeBestScore') || '0', 10) || 0;
+
+    // ============ DOM ELEMENTS ============
+    const roundLabel = document.getElementById('roundLabel');
+    const throwsLabel = document.getElementById('throwsLabel');
+    const scoreLabel = document.getElementById('scoreLabel');
+    const bestLabel = document.getElementById('bestLabel');
+    const curveSlider = document.getElementById('curveSlider');
+    const curveLabel = document.getElementById('curveLabel');
+    const startScreen = document.getElementById('startScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const roundBanner = document.getElementById('roundBanner');
+    const finalScoreEl = document.getElementById('finalScore');
+    const gradeLine = document.getElementById('gradeLine');
+    const hintLine = document.getElementById('hintLine');
+    const startBtn = document.getElementById('startBtn');
+    const playAgainBtn = document.getElementById('playAgainBtn');
+    const throwBtn = document.getElementById('throwBtn');
+
+    // ============ AUDIO ============
+    let audioCtx = null;
+    function beep(freq, dur, type, vol) {
+      freq = freq || 440; dur = dur || 0.08; type = type || 'sine'; vol = vol || 0.06;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = type;
+        o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        g.gain.setValueAtTime(vol, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+        o.connect(g);
+        g.connect(audioCtx.destination);
+        o.start();
+        o.stop(audioCtx.currentTime + dur);
+      } catch (e) { /* audio unavailable, ignore */ }
+    }
+
+    // ============ UTILITIES ============
+    function rand(min, max) { return min + Math.random() * (max - min); }
+
+    function updateHUD() {
+      roundLabel.textContent = round + '/' + ROUNDS;
+      throwsLabel.textContent = throwsLeft;
+      scoreLabel.textContent = totalScore;
+      bestLabel.textContent = best;
+    }
+
+    function showHint(text) { hintLine.textContent = text; }
+
+    // ============ TARGET GENERATION (per throw) ============
+    function generateTargets() {
+      targets = [];
+
+      // Primary ring target — shrinks as rounds progress
+      const ringR = Math.max(38, 74 - (round - 1) * 8);
+      const ringMoving = round >= 3;
+      targets.push({
+        type: 'ring',
+        x: rand(150, W - 150),
+        y: rand(110, H * 0.55),
+        r: ringR,
+        vx: ringMoving ? (Math.random() < 0.5 ? -1 : 1) * rand(16, 36) : 0,
+        vy: ringMoving ? rand(-16, 16) : 0,
+        flash: 0
+      });
+
+      // Basket — small, high value, moves from round 2 onward
+      if (round >= 2) {
+        const bSpeed = 34 + round * 16;
+        targets.push({
+          type: 'basket',
+          x: rand(130, W - 130),
+          y: rand(90, H * 0.52),
+          r: 26,
+          vx: (Math.random() < 0.5 ? -1 : 1) * bSpeed,
+          vy: 0,
+          flash: 0
+        });
+      }
+
+      // Trick hoop — fly through it mid-flight for bonus points
+      if (Math.random() < 0.78) {
+        targets.push({
+          type: 'gate',
+          x: rand(150, W - 150),
+          y: rand(H * 0.44, H * 0.8),
+          r: 30,
+          points: 40,
+          passed: false,
+          flash: 0
+        });
+      }
+    }
+
+    // ============ WIND ============
+    function newWind() {
+      const maxStrength = Math.min(1, 0.16 + round * 0.15);
+      const strength = rand(0.12, maxStrength);
+      const dir = rand(0, Math.PI * 2);
+      wind.strength = strength;
+      wind.x = Math.cos(dir) * strength * 0.03;
+      wind.y = Math.sin(dir) * strength * 0.03;
+    }
+
+    // ============ THROW SIMULATION ============
+    function simulateThrow(angle, power, cv, withWind) {
+      const speed = 3 + power * 15;
+      let x = THROWER.x;
+      let y = THROWER.y;
+      let vx = Math.cos(angle) * speed;
+      let vy = Math.sin(angle) * speed;
+      const out = [{ x: x, y: y }];
+
+      for (let i = 0; i < 1400; i++) {
+        const sp = Math.hypot(vx, vy);
+
+        // Curve: rotate velocity (preserving speed) → bends the flight path
+        if (sp > 0.01 && Math.abs(cv) > 0.001) {
+          const px = -vy / sp;
+          const py = vx / sp;
+          const amt = cv * CURVE_FORCE * (0.4 + sp / 20);
+          vx += px * amt;
+          vy += py * amt;
+          const sp2 = Math.hypot(vx, vy) || 1;
+          vx = (vx / sp2) * sp;
+          vy = (vy / sp2) * sp;
+        }
+
+        if (withWind) { vx += wind.x; vy += wind.y; }
+
+        vx *= FRICTION;
+        vy *= FRICTION;
+        x += vx;
+        y += vy;
+        out.push({ x: x, y: y });
+
+        if (Math.hypot(vx, vy) < 0.7) break;
+        if (x < -80 || x > W + 80 || y < -80 || y > H + 80) break;
+      }
+      return out;
+    }
+
+    // ============ AIMING ============
+    function toCanvas(evt) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: (evt.clientX - rect.left) * (W / rect.width),
+        y: (evt.clientY - rect.top) * (H / rect.height)
+      };
+    }
+
+    function updateAimFromDrag() {
+      const dx = dragAnchor.x - dragCurrent.x;
+      const dy = dragAnchor.y - dragCurrent.y;
+      const len = Math.hypot(dx, dy);
+      if (len < 8) return;
+      aimAngle = Math.atan2(dy, dx);
+      aimPower = Math.min(1, len / 240);
+    }
+
+    function resetAim() {
+      aimAngle = -Math.PI / 2;
+      aimPower = 0.65;
+      curve = 0;
+      curveSlider.value = 0;
+      curveLabel.textContent = '0.0';
+      dragging = false;
+      trail = [];
+    }
+
+    // ============ THROWING ============
+    function doThrow() {
+      if (state !== 'aim') return;
+      if (aimPower < 0.06) { showHint('Pull back further to build power!'); return; }
+
+      path = simulateThrow(aimAngle, aimPower, curve, true);
+      flightPos = 0;
+      frisbeeSpin = 0;
+      flightBonus = 0;
+      trail = [];
+      state = 'flying';
+      throwsLeft--;
+      updateHUD();
+      showHint('Disc in flight…');
+      beep(520, 0.07, 'triangle', 0.05);
+    }
+
+    // ============ LANDING & SCORING ============
+    function land() {
+      const p = path[path.length - 1];
+      let gained = flightBonus;
+      const msgs = [];
+
+      // Find a hit target (ignore hoops — those are scored mid-flight)
+      let hit = null;
+      for (let i = 0; i < targets.length; i++) {
+        const t = targets[i];
+        if (t.type === 'gate') continue;
+        const d = Math.hypot(p.x - t.x, p.y - t.y);
+        if (d <= t.r) { hit = { t: t, d: d }; break; }
+      }
+
+      if (hit) {
+        hit.t.flash = 1;
+        if (hit.t.type === 'ring') {
+          const f = hit.d / hit.t.r;
+          if (f <= 0.32) { gained += 100; msgs.push('BULLSEYE +100'); beep(880, 0.12, 'square', 0.07); }
+          else if (f <= 0.62) { gained += 50; msgs.push('GOOD RING +50'); beep(700, 0.1, 'square', 0.06); }
+          else { gained += 20; msgs.push('EDGE +20'); beep(600, 0.09, 'square', 0.05); }
+        } else {
+          gained += 75;
+          msgs.push('BASKET +75');
+          beep(920, 0.12, 'square', 0.07);
+        }
+
+        // Trick-shot bonuses
+        if (Math.abs(curve) > 0.6) { gained += 30; msgs.push('CURVE SHOT +30'); }
+        if (hit.t.vx !== 0) { gained += 20; msgs.push('MOVING TARGET +20'); }
+      } else {
+        msgs.push('MISS');
+        beep(180, 0.16, 'sawtooth', 0.05);
+      }
+
+      lastThrowScore = gained;
+      totalScore += gained;
+      if (totalScore > best) {
+        best = totalScore;
+        localStorage.setItem('frisbeeBestScore', String(best));
+      }
+      updateHUD();
+
+      // Floating text feedback
+      floatText(gained > 0 ? '+' + gained : 'MISS', p.x, p.y, gained > 0 ? '#0b6ea8' : '#c0392b');
+      msgs.forEach(function (m, i) {
+        floatText(m, p.x, p.y - 26 - i * 20, '#e67e22', 56);
+      });
+      showHint(msgs.join('  ·  '));
+
+      state = 'result';
+      resultTimer = 1.15;
+    }
+
+    function afterThrow() {
+      if (throwsLeft <= 0) {
+        if (round < ROUNDS) {
+          round++;
+          throwsLeft = THROWS_PER_ROUND;
+          generateTargets();
+          newWind();
+          resetAim();
+          updateHUD();
+          showBanner('ROUND ' + round);
+          state = 'aim';
+          showHint('Round ' + round + ' — targets are trickier now.');
+        } else {
+          gameOver();
+        }
+      } else {
+        generateTargets();
+        newWind();
+        resetAim();
+        state = 'aim';
+        showHint('Throws left: ' + throwsLeft + ' — aim and release.');
+      }
+    }
+
+    // ============ FLOATING TEXT ============
+    function floatText(text, x, y, color, rise) {
+      floats.push({
+        text: text,
+        x: x,
+        y: y,
+        color: color || '#0b6ea8',
+        life: 1,
+        rise: rise || 34
+      });
+    }
+
+    // ============ GAME FLOW ============
+    function startGame() {
+      round = 1;
+      throwsLeft = THROWS_PER_ROUND;
+      totalScore = 0;
+      floats = [];
+      isPaused = false;
+      state = 'aim';
+      generateTargets();
+      newWind();
+      resetAim();
+      updateHUD();
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      pauseOverlay.classList.remove('visible');
+      showHint('Drag back on the field, then release to throw.');
+      lastTime = performance.now();
+    }
+
+    function gameOver() {
+      state = 'over';
+      finalScoreEl.textContent = totalScore;
+      if (totalScore >= 1200) gradeLine.textContent = 'Pro circuit material. Unreal arm!';
+      else if (totalScore >= 700) gradeLine.textContent = 'Sharp throws — you read the wind well.';
+      else if (totalScore >= 350) gradeLine.textContent = 'Solid round. Bend that curve more!';
+      else gradeLine.textContent = 'Keep practicing — watch the wind arrow.';
+      gameOverScreen.classList.remove('hidden');
+      beep(660, 0.14, 'triangle', 0.07);
+      setTimeout(function () { beep(880, 0.2, 'triangle', 0.07); }, 160);
+    }
+
+    function togglePause() {
+      if (state !== 'aim' && state !== 'flying') return;
+      isPaused = !isPaused;
+      pauseOverlay.classList.toggle('visible', isPaused);
+      lastTime = performance.now();
+    }
+
+    function showBanner(text) {
+      roundBanner.textContent = text;
+      roundBanner.classList.add('show');
+      bannerTimer = 1.2;
+    }
+
+    // ============ UPDATE ============
+    function updateTargets(dt) {
+      for (let i = 0; i < targets.length; i++) {
+        const t = targets[i];
+        if (t.vx || t.vy) {
+          t.x += t.vx * dt;
+          t.y += t.vy * dt;
+          if (t.x < 70) { t.x = 70; t.vx = Math.abs(t.vx); }
+          if (t.x > W - 70) { t.x = W - 70; t.vx = -Math.abs(t.vx); }
+          if (t.y < 70) { t.y = 70; t.vy = Math.abs(t.vy); }
+          if (t.y > H * 0.72) { t.y = H * 0.72; t.vy = -Math.abs(t.vy); }
+        }
+        if (t.flash > 0) t.flash = Math.max(0, t.flash - dt * 1.6);
+      }
+    }
+
+    function updateFloats(dt) {
+      floats = floats.filter(function (f) {
+        f.y -= f.rise * dt;
+        f.life -= dt * 1.1;
+        return f.life > 0;
+      });
+    }
+
+    function updateFlight(dt) {
+      const adv = dt * 60 * 1.15;
+      const prevPos = Math.floor(flightPos);
+      flightPos += adv;
+
+      // Hoop / trick detection along traversed points
+      for (let i = prevPos; i <= Math.min(flightPos, path.length - 1); i++) {
+        const pt = path[i];
+        if (!pt) continue;
+        trail.push({ x: pt.x, y: pt.y, life: 1 });
+        for (let g = 0; g < targets.length; g++) {
+          const t = targets[g];
+          if (t.type !== 'gate' || t.passed) continue;
+          if (Math.hypot(pt.x - t.x, pt.y - t.y) <= t.r) {
+            t.passed = true;
+            t.flash = 1;
+            flightBonus += t.points;
+            floatText('TRICK +' + t.points, t.x, t.y, '#16a085', 44);
+            beep(1040, 0.1, 'sine', 0.06);
+          }
+        }
+      }
+
+      frisbeeSpin += dt * 22;
+
+      if (flightPos >= path.length - 1) {
+        flightPos = path.length - 1;
+        land();
+      }
+    }
+
+    function updateTrails(dt) {
+      trail = trail.filter(function (p) {
+        p.life -= dt * 1.8;
+        return p.life > 0;
+      });
+    }
+
+    // ============ DRAWING ============
+    function drawField() {
+      // Grass gradient
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, '#9be07a');
+      g.addColorStop(0.5, '#82d364');
+      g.addColorStop(1, '#6ec253');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      // Mow stripes
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.055)';
+      const stripe = H / 12;
+      for (let i = 0; i < 12; i += 2) {
+        ctx.fillRect(0, i * stripe, W, stripe);
+      }
+
+      // Yard lines
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.lineWidth = 2;
+      for (let i = 1; i < 6; i++) {
+        const y = (H / 6) * i;
+        ctx.beginPath();
+        ctx.moveTo(30, y);
+        ctx.lineTo(W - 30, y);
+        ctx.stroke();
+      }
+
+      // Border
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(14, 14, W - 28, H - 28);
+
+      // Thrower pad
+      ctx.beginPath();
+      ctx.ellipse(THROWER.x, THROWER.y + 16, 52, 20, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
+      ctx.fill();
+    }
+
+    function drawThrower() {
+      const tx = THROWER.x;
+      const ty = THROWER.y;
+
+      // Shadow
+      ctx.beginPath();
+      ctx.ellipse(tx, ty + 26, 22, 8, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+      ctx.fill();
+
+      // Body
+      ctx.fillStyle = '#0b6ea8';
+      ctx.beginPath();
+      ctx.roundRect(tx - 13, ty - 4, 26, 30, 10);
+      ctx.fill();
+
+      // Head
+      ctx.beginPath();
+      ctx.arc(tx, ty - 14, 12, 0, Math.PI * 2);
+      ctx.fillStyle = '#f6c89a';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(tx, ty - 19, 12, Math.PI, 0);
+      ctx.fillStyle = '#3a2a20';
+      ctx.fill();
+
+      // Extended arm holding the disc while aiming
+      if (state === 'aim') {
+        const ax = tx + Math.cos(aimAngle) * 26;
+        const ay = ty - 6 + Math.sin(aimAngle) * 26;
+        ctx.strokeStyle = '#0b6ea8';
+        ctx.lineWidth = 7;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(tx, ty - 2);
+        ctx.lineTo(ax, ay);
+        ctx.stroke();
+      }
+    }
+
+    function drawTargets() {
+      for (let i = 0; i < targets.length; i++) {
+        const t = targets[i];
+        const pulse = 1 + (t.flash || 0) * 0.14;
+
+        if (t.type === 'ring') {
+          const bands = [
+            { f: 1.0, c: '#ffffff' },
+            { f: 0.78, c: '#f7b733' },
+            { f: 0.62, c: '#ffffff' },
+            { f: 0.32, c: '#e74c3c' }
+          ];
+          for (let b = 0; b < bands.length; b++) {
+            ctx.beginPath();
+            ctx.arc(t.x, t.y, t.r * bands[b].f * pulse, 0, Math.PI * 2);
+            ctx.fillStyle = bands[b].c;
+            ctx.fill();
+          }
+          ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(t.x, t.y, t.r * pulse, 0, Math.PI * 2);
+          ctx.stroke();
+          // Shadow ellipse offset (depth)
+          ctx.beginPath();
+          ctx.ellipse(t.x, t.y + t.r + 8, t.r * 0.85, 9, 0, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(0,0,0,0.12)';
+          ctx.fill();
+        } else if (t.type === 'basket') {
+          ctx.beginPath();
+          ctx.ellipse(t.x, t.y + 10, 30, 11, 0, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(0,0,0,0.14)';
+          ctx.fill();
+
+          // Net
+          ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+          ctx.lineWidth = 2;
+          for (let n = -2; n <= 2; n++) {
+            ctx.beginPath();
+            ctx.moveTo(t.x + n * 10, t.y - 4);
+            ctx.lineTo(t.x + n * 6, t.y + 22);
+            ctx.stroke();
+          }
+          // Rim
+          ctx.beginPath();
+          ctx.ellipse(t.x, t.y, t.r * pulse, t.r * 0.42 * pulse, 0, 0, Math.PI * 2);
+          ctx.lineWidth = 7;
+          ctx.strokeStyle = '#e67e22';
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.ellipse(t.x, t.y, t.r * pulse, t.r * 0.42 * pulse, 0, 0, Math.PI * 2);
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = '#f7b733';
+          ctx.stroke();
+        } else if (t.type === 'gate') {
+          // Hoop floating in the air (top-down: ring with glow)
+          const glow = t.passed ? 0.15 : 0.5 + Math.sin(performance.now() / 260) * 0.18;
+          ctx.beginPath();
+          ctx.arc(t.x, t.y, t.r * pulse, 0, Math.PI * 2);
+          ctx.lineWidth = 8;
+          ctx.strokeStyle = t.passed ? 'rgba(120,150,160,0.4)' : 'rgba(22,160,190,' + glow + ')';
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(t.x, t.y, t.r * pulse, 0, Math.PI * 2);
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = t.passed ? 'rgba(200,220,230,0.6)' : '#e8fbff';
+          ctx.stroke();
+          if (!t.passed) {
+            ctx.fillStyle = 'rgba(22,160,190,0.9)';
+            ctx.font = 'bold 13px Trebuchet MS';
+            ctx.textAlign = 'center';
+            ctx.fillText('TRICK', t.x, t.y + 4);
+          }
+        }
+      }
+    }
+
+    function drawWind() {
+      // Wind arrow, top-right corner
+      const cx = W - 78;
+      const cy = 52;
+      const len = 18 + wind.strength * 34;
+      const dir = Math.atan2(wind.y, wind.x);
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(dir);
+      ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-len / 2, 0);
+      ctx.lineTo(len / 2, 0);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(len / 2, 0);
+      ctx.lineTo(len / 2 - 10, -7);
+      ctx.lineTo(len / 2 - 10, 7);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.fill();
+      ctx.restore();
+
+      ctx.fillStyle = 'rgba(11, 90, 130, 0.85)';
+      ctx.font = 'bold 13px Trebuchet MS';
+      ctx.textAlign = 'center';
+      ctx.fillText('WIND ' + Math.round(wind.strength * 10), cx, cy + 34);
+      ctx.textAlign = 'left';
+    }
+
+    function drawAim() {
+      // Predicted path (curve only, no wind) — short preview
+      const preview = simulateThrow(aimAngle, aimPower, curve, false);
+      ctx.save();
+      ctx.setLineDash([6, 8]);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      let dist = 0;
+      let prev = preview[0];
+      ctx.moveTo(prev.x, prev.y);
+      for (let i = 1; i < preview.length && i < 42; i++) {
+        dist += Math.hypot(preview[i].x - prev.x, preview[i].y - prev.y);
+        prev = preview[i];
+        if (dist > 300) break;
+        ctx.lineTo(prev.x, prev.y);
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      // Aim arrow from thrower
+      const arrowLen = 34 + aimPower * 54;
+      const ex = THROWER.x + Math.cos(aimAngle) * arrowLen;
+      const ey = THROWER.y + Math.sin(aimAngle) * arrowLen;
+      ctx.strokeStyle = '#0b6ea8';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(THROWER.x, THROWER.y);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(ex, ey, 6, 0, Math.PI * 2);
+      ctx.fillStyle = '#0b6ea8';
+      ctx.fill();
+
+      // Power arc meter
+      ctx.beginPath();
+      ctx.arc(THROWER.x, THROWER.y, 62, Math.PI * 0.78, Math.PI * 0.78 + aimPower * Math.PI * 1.44);
+      ctx.strokeStyle = aimPower > 0.85 ? '#e74c3c' : aimPower > 0.5 ? '#f7b733' : '#2ecc71';
+      ctx.lineWidth = 7;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+
+      // Slingshot band
+      if (dragging) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(dragAnchor.x, dragAnchor.y);
+        ctx.lineTo(dragCurrent.x, dragCurrent.y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(dragCurrent.x, dragCurrent.y, 10, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.fill();
+      }
+    }
+
+    function drawFrisbee() {
+      // Trail
+      for (let i = 0; i < trail.length; i++) {
+        const p = trail[i];
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 5 * p.life, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, ' + (p.life * 0.45) + ')';
+        ctx.fill();
+      }
+
+      if (state !== 'flying' && state !== 'result') return;
+
+      const idx = Math.max(0, Math.min(path.length - 1, Math.floor(flightPos)));
+      const pt = path[idx] || path[0];
+      if (!pt) return;
+
+      // Shadow
+      ctx.beginPath();
+      ctx.ellipse(pt.x + 6, pt.y + 12, 15, 6, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,0,0,0.2)';
+      ctx.fill();
+
+      // Disc
+      ctx.save();
+      ctx.translate(pt.x, pt.y);
+      ctx.rotate(frisbeeSpin);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 16, 6, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#e91e8c';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(0, -1, 9, 3, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffd93d';
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawFloats() {
+      ctx.textAlign = 'center';
+      for (let i = 0; i < floats.length; i++) {
+        const f = floats[i];
+        ctx.globalAlpha = Math.max(0, f.life);
+        ctx.fillStyle = f.color;
+        ctx.font = 'bold 20px Trebuchet MS';
+        ctx.fillText(f.text, f.x, f.y);
+      }
+      ctx.globalAlpha = 1;
+      ctx.textAlign = 'left';
+    }
+
+    function draw() {
+      drawField();
+      drawTargets();
+      drawThrower();
+      if (state === 'aim') drawAim();
+      drawFrisbee();
+      drawFloats();
+      drawWind();
+    }
+
+    // ============ MAIN LOOP ============
+    function gameLoop(now) {
+      requestAnimationFrame(gameLoop);
+      if (isPaused) { lastTime = now; return; }
+
+      let dt = (now - lastTime) / 1000;
+      lastTime = now;
+      if (dt > 0.05) dt = 0.05; // clamp after tab switches
+      if (dt < 0) dt = 0;
+
+      if (state !== 'start' && state !== 'over') {
+        updateTargets(dt);
+      }
+      updateFloats(dt);
+      updateTrails(dt);
+
+      if (state === 'flying') {
+        updateFlight(dt);
+      } else if (state === 'result') {
+        resultTimer -= dt;
+        if (resultTimer <= 0) afterThrow();
+      }
+
+      if (bannerTimer > 0) {
+        bannerTimer -= dt;
+        if (bannerTimer <= 0) roundBanner.classList.remove('show');
+      }
+
+      draw();
+    }
+
+    // ============ INPUT: POINTER (mouse + touch) ============
+    canvas.addEventListener('pointerdown', function (e) {
+      if (state !== 'aim' || isPaused) return;
+      e.preventDefault();
+      dragging = true;
+      dragAnchor = toCanvas(e);
+      dragCurrent = dragAnchor;
+    });
+
+    window.addEventListener('pointermove', function (e) {
+      if (!dragging) return;
+      dragCurrent = toCanvas(e);
+      updateAimFromDrag();
+    });
+
+    window.addEventListener('pointerup', function (e) {
+      if (!dragging) return;
+      dragging = false;
+      dragCurrent = toCanvas(e);
+      updateAimFromDrag();
+      if (state === 'aim' && aimPower > 0.06) doThrow();
+    });
+
+    window.addEventListener('pointercancel', function () {
+      dragging = false;
+    });
+
+    // ============ INPUT: KEYBOARD ============
+    document.addEventListener('keydown', function (e) {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].indexOf(e.code) !== -1) {
+        e.preventDefault();
+      }
+
+      if (e.code === 'KeyP') { togglePause(); return; }
+      if (e.code === 'KeyR') { if (state !== 'start') startGame(); return; }
+
+      if (isPaused || state !== 'aim') return;
+
+      switch (e.code) {
+        case 'ArrowLeft':
+          aimAngle -= 0.035;
+          break;
+        case 'ArrowRight':
+          aimAngle += 0.035;
+          break;
+        case 'ArrowUp':
+          aimPower = Math.min(1, aimPower + 0.03);
+          break;
+        case 'ArrowDown':
+          aimPower = Math.max(0.05, aimPower - 0.03);
+          break;
+        case 'KeyZ':
+          curve = Math.max(-1, +(curve - 0.1).toFixed(1));
+          curveSlider.value = curve;
+          curveLabel.textContent = curve.toFixed(1);
+          break;
+        case 'KeyX':
+          curve = Math.min(1, +(curve + 0.1).toFixed(1));
+          curveSlider.value = curve;
+          curveLabel.textContent = curve.toFixed(1);
+          break;
+        case 'Space':
+          doThrow();
+          break;
+      }
+    });
+
+    // ============ INPUT: CONTROLS ============
+    curveSlider.addEventListener('input', function () {
+      curve = parseFloat(curveSlider.value);
+      curveLabel.textContent = curve.toFixed(1);
+    });
+
+    throwBtn.addEventListener('click', function () {
+      if (state === 'aim') doThrow();
+    });
+
+    startBtn.addEventListener('click', startGame);
+    playAgainBtn.addEventListener('click', startGame);
+
+    // ============ INITIALIZATION ============
+    updateHUD();
+    generateTargets();
+    newWind();
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>

@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🔗 Numberlink</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    min-height: 100%;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #eef3ff 0%, #f6f0ff 45%, #ffeef6 100%);
+    color: #4a4560;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 14px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ============ APP SHELL ============ */
+  .app {
+    width: min(96vw, 560px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .title {
+    text-align: center;
+    font-size: 1.9rem;
+    letter-spacing: 1px;
+    color: #6c63ff;
+    text-shadow: 2px 2px 0 #fff;
+  }
+
+  .subtitle {
+    text-align: center;
+    font-size: 0.82rem;
+    color: #9a93ad;
+    margin-top: -6px;
+  }
+
+  /* ============ HUD ============ */
+  .hud {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px 10px;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 14px;
+    box-shadow: 0 4px 18px rgba(108, 99, 255, 0.12);
+    font-size: 0.88rem;
+  }
+  .hud .stat { color: #8d86a0; }
+  .hud .stat b { color: #6c63ff; font-variant-numeric: tabular-nums; }
+
+  .chip {
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #ece9ff;
+    color: #6c63ff;
+    font-size: 0.76rem;
+    font-weight: 700;
+  }
+
+  /* ============ BOARD ============ */
+  .board-area { display: flex; justify-content: center; }
+
+  #board {
+    width: min(92vw, 440px);
+    aspect-ratio: 1 / 1;
+    display: grid;
+    gap: 4px;
+    padding: 9px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #e7e3fb, #efe9ff 60%, #f6ecff);
+    box-shadow: inset 0 2px 10px rgba(108, 99, 255, 0.14),
+                0 10px 30px rgba(108, 99, 255, 0.14);
+    touch-action: none;
+    user-select: none;
+  }
+
+  .cell {
+    position: relative;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.62);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7);
+  }
+
+  /* filled pipe tile for each path cell */
+  .pipe {
+    position: absolute;
+    inset: 9%;
+    border-radius: 26%;
+    background: var(--c, #ccc);
+    z-index: 1;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
+  }
+
+  /* connectors bridging a cell toward its path neighbours */
+  .cn {
+    position: absolute;
+    background: var(--c, #ccc);
+    z-index: 1;
+  }
+  .cn.n { left: 38%; width: 24%; top: -14%; height: 64%; }
+  .cn.s { left: 38%; width: 24%; bottom: -14%; height: 64%; }
+  .cn.w { top: 38%; height: 24%; left: -14%; width: 64%; }
+  .cn.e { top: 38%; height: 24%; right: -14%; width: 64%; }
+
+  /* endpoint dot */
+  .dot {
+    position: absolute;
+    inset: 22%;
+    border-radius: 50%;
+    background: var(--c, #ccc);
+    box-shadow: 0 0 0 3px #fff, 0 2px 6px rgba(0, 0, 0, 0.2);
+    z-index: 3;
+  }
+
+  /* ============ CONTROLS ============ */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+
+  .btn {
+    font-family: inherit;
+    font-size: 0.88rem;
+    font-weight: 600;
+    padding: 10px 16px;
+    border: 2px solid #d9d3f0;
+    background: #fff;
+    color: #5c5570;
+    border-radius: 15px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn:hover { background: #f6f3ff; transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+
+  .btn.primary {
+    background: linear-gradient(135deg, #8b83ff, #6c63ff);
+    color: #fff;
+    border-color: #6c63ff;
+    box-shadow: 0 4px 12px rgba(108, 99, 255, 0.32);
+  }
+  .btn.primary:hover { background: linear-gradient(135deg, #9a93ff, #7a72ff); }
+
+  /* ============ LEGEND ============ */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    justify-content: center;
+    font-size: 0.74rem;
+    color: #9a93ad;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .swatch {
+    width: 13px; height: 13px; border-radius: 50%;
+    display: inline-block; background: #6c63ff;
+  }
+
+  /* ============ OVERLAYS ============ */
+  .screen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(50, 44, 84, 0.42);
+    backdrop-filter: blur(4px);
+    padding: 20px;
+    z-index: 20;
+    transition: opacity 0.25s ease;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+
+  .card {
+    width: min(92vw, 400px);
+    background: #fff;
+    border-radius: 22px;
+    padding: 26px 24px;
+    text-align: center;
+    box-shadow: 0 18px 50px rgba(60, 48, 110, 0.34);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .card h2 {
+    font-size: 1.6rem;
+    color: #6c63ff;
+    text-shadow: 1px 1px 0 #ece9ff;
+  }
+  .card p { font-size: 0.86rem; color: #8d86a0; line-height: 1.55; }
+
+  .size-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .size-btn {
+    font-family: inherit;
+    font-size: 0.88rem;
+    font-weight: 600;
+    padding: 10px 16px;
+    border: 2px solid #ddd6f2;
+    background: #fff;
+    color: #5c5570;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .size-btn:hover { background: #f7f4ff; }
+  .size-btn.selected {
+    background: linear-gradient(135deg, #8b83ff, #6c63ff);
+    color: #fff;
+    border-color: #6c63ff;
+    box-shadow: 0 4px 12px rgba(108, 99, 255, 0.32);
+  }
+
+  .result-line { font-size: 1.15rem; font-weight: 700; color: #6c63ff; }
+  .result-line small {
+    display: block; font-size: 0.8rem; font-weight: 600;
+    color: #9a93ad; margin-top: 4px;
+  }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 480px) {
+    .title { font-size: 1.5rem; }
+    .hud { font-size: 0.78rem; }
+    .btn { padding: 9px 13px; font-size: 0.82rem; }
+    #board { width: min(94vw, 360px); }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1 class="title">🔗 Numberlink</h1>
+  <p class="subtitle">Connect matching dots — fill every cell</p>
+
+  <!-- ============ HUD ============ -->
+  <div class="hud">
+    <div class="stat">Size: <b id="sizeLabel">6×6</b></div>
+    <div class="stat">Moves: <b id="moves">0</b></div>
+    <div class="stat">Best: <b id="best">--</b></div>
+    <div class="stat">Filled: <b id="filled">0%</b></div>
+    <div class="chip" id="pairChip">Pairs 0/0</div>
+  </div>
+
+  <!-- ============ BOARD ============ -->
+  <div class="board-area">
+    <div id="board"></div>
+  </div>
+
+  <!-- ============ CONTROLS ============ -->
+  <div class="controls">
+    <button class="btn primary" id="btnNew" type="button">New Puzzle</button>
+    <button class="btn" id="btnRestart" type="button">Restart</button>
+    <button class="btn" id="btnMenu" type="button">Menu</button>
+  </div>
+
+  <div class="legend">
+    <span><i class="swatch"></i> drag from a dot</span>
+    <span>paths can't cross</span>
+    <span>fill every cell to win</span>
+  </div>
+</div>
+
+<!-- ============ START SCREEN ============ -->
+<div class="screen" id="startScreen">
+  <div class="card">
+    <h2>Numberlink</h2>
+    <p>Every coloured pair of dots must be joined by a pipe. Pipes run
+       horizontally or vertically, never cross, and together they must fill
+       <b>every single cell</b> of the grid.</p>
+    <p><b>Drag</b> from a dot to draw its pipe. Drag back over a pipe to
+       erase it, or start again from any dot to redraw that colour.</p>
+    <p style="font-weight:600;color:#5c5570;">Choose a grid size</p>
+    <div class="size-row">
+      <button class="size-btn" data-size="5" type="button">5 × 5</button>
+      <button class="size-btn selected" data-size="6" type="button">6 × 6</button>
+      <button class="size-btn" data-size="7" type="button">7 × 7</button>
+    </div>
+    <button class="btn primary" id="btnStart" type="button">Start Puzzle</button>
+  </div>
+</div>
+
+<!-- ============ WIN SCREEN ============ -->
+<div class="screen hidden" id="winScreen">
+  <div class="card">
+    <h2>Linked! 🎉</h2>
+    <div class="result-line">
+      <span id="winMoves">Moves: 0</span>
+      <small id="winBest">Best: --</small>
+    </div>
+    <div class="size-row" style="margin-top:4px;">
+      <button class="btn primary" id="btnAgain" type="button">Play Again</button>
+      <button class="btn" id="btnWinMenu" type="button">Menu</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONFIGURATION ============
+  const SIZES = [5, 6, 7];
+  const PAIR_COUNT = { 5: 5, 6: 6, 7: 7 };   // colours per board
+  const PALETTE = [                           // one colour per pair
+    "#ff4d6d", "#ff9f1c", "#ffd60a", "#2ec4b6",
+    "#3a86ff", "#9b5de5", "#ff70a6"
+  ];
+
+  // ============ GAME STATE ============
+  let n = 6, N = 36;            // grid dimension & cell count
+  let K = 0;                    // number of colour pairs
+  let cells = [];               // cellEls[i] -> DOM node
+  let paths = [];               // paths[colour] -> ordered array of cell indices
+  let owner = [];               // owner[i] -> colour index drawing cell i, or -1
+  let epA = [], epB = [];       // the two endpoint indices for each colour
+  let endpointOwner = [];       // endpointOwner[i] -> colour index or -1
+
+  let active = -1;              // colour currently being drawn
+  let drawing = false;          // true while a stroke can still extend
+  let gesture = false;          // true between pointerdown and pointerup
+  let changed = false;          // did this gesture alter the board?
+  let moves = 0;
+  let locked = true;            // true while an overlay is up
+
+  // ============ SOUND (WebAudio, no assets) ============
+  let actx = null;
+  function resumeAudio() {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+    } catch (e) { /* audio unavailable */ }
+  }
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "sine";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+  function melody() {
+    [523, 659, 784, 1046].forEach(function (f, i) {
+      setTimeout(function () { beep(f, 0.18, "triangle"); }, i * 130);
+    });
+  }
+
+  // ============ DOM REFERENCES ============
+  const boardEl = document.getElementById("board");
+  const sizeLabelEl = document.getElementById("sizeLabel");
+  const movesEl = document.getElementById("moves");
+  const bestEl = document.getElementById("best");
+  const filledEl = document.getElementById("filled");
+  const pairChip = document.getElementById("pairChip");
+  const startScreen = document.getElementById("startScreen");
+  const winScreen = document.getElementById("winScreen");
+  const winMovesEl = document.getElementById("winMoves");
+  const winBestEl = document.getElementById("winBest");
+  const btnNew = document.getElementById("btnNew");
+  const btnRestart = document.getElementById("btnRestart");
+  const btnMenu = document.getElementById("btnMenu");
+  const btnStart = document.getElementById("btnStart");
+  const btnAgain = document.getElementById("btnAgain");
+  const btnWinMenu = document.getElementById("btnWinMenu");
+
+  // ============ GEOMETRY HELPERS ============
+  function neighbours(idx, dim) {
+    const x = idx % dim, y = (idx / dim) | 0, out = [];
+    if (x > 0) out.push(idx - 1);
+    if (x < dim - 1) out.push(idx + 1);
+    if (y > 0) out.push(idx - dim);
+    if (y < dim - 1) out.push(idx + dim);
+    return out;
+  }
+  function areAdjacent(a, b) {
+    const ax = a % n, ay = (a / n) | 0, bx = b % n, by = (b / n) | 0;
+    return Math.abs(ax - bx) + Math.abs(ay - by) === 1;
+  }
+  function dirBetween(a, b) {
+    const d = b - a;
+    if (d === 1) return "e";
+    if (d === -1) return "w";
+    if (d === n) return "s";
+    if (d === -n) return "n";
+    return null;
+  }
+  function colourOf(c) { return PALETTE[c % PALETTE.length]; }
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = (Math.random() * (i + 1)) | 0;
+      const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  // ============ PUZZLE GENERATION ============
+  // 1) Build a random Hamiltonian path over the grid (boustrophedon start +
+  //    "backbite" moves), 2) cut it into K contiguous segments: every segment
+  //    is a valid, non-crossing pipe that together fill the whole board.
+
+  function hamiltonian(dim) {
+    const total = dim * dim;
+    const p = [];
+    for (let y = 0; y < dim; y++) {
+      for (let x = 0; x < dim; x++) {
+        const xx = (y % 2 === 0) ? x : (dim - 1 - x);
+        p.push(y * dim + xx);
+      }
+    }
+    const pos = new Array(total);
+    for (let i = 0; i < total; i++) pos[p[i]] = i;
+
+    const iters = 16 * total;
+    for (let k = 0; k < iters; k++) backbite(dim, p, pos);
+    return p;
+  }
+
+  // A single backbite move keeps the path Hamiltonian while randomising it.
+  function backbite(dim, p, pos) {
+    const len = p.length;
+    if (Math.random() < 0.5) {
+      // act on the head endpoint p[0]
+      const nb = neighbours(p[0], dim);
+      const v = nb[(Math.random() * nb.length) | 0];
+      const k = pos[v];
+      if (k < 2) return;
+      reverseRange(p, pos, 0, k - 1);
+    } else {
+      // act on the tail endpoint p[len-1]
+      const nb = neighbours(p[len - 1], dim);
+      const v = nb[(Math.random() * nb.length) | 0];
+      const k = pos[v];
+      if (k > len - 3) return;
+      reverseRange(p, pos, k + 1, len - 1);
+    }
+  }
+  function reverseRange(p, pos, a, b) {
+    while (a < b) {
+      const t = p[a]; p[a] = p[b]; p[b] = t;
+      pos[p[a]] = a; pos[p[b]] = b;
+      a++; b--;
+    }
+  }
+
+  // Cut the Hamiltonian path into exactly K segments of length >= 2.
+  function cutIntoSegments(p, K) {
+    const len = p.length;
+    for (let attempt = 0; attempt < 80; attempt++) {
+      const pool = [];
+      for (let i = 1; i < len; i++) pool.push(i);
+      shuffle(pool);
+      const cuts = pool.slice(0, K - 1).sort(function (a, b) { return a - b; });
+      const segs = [];
+      let prev = 0, ok = true;
+      for (let i = 0; i < cuts.length; i++) {
+        if (cuts[i] - prev < 2) { ok = false; break; }
+        segs.push(p.slice(prev, cuts[i]));
+        prev = cuts[i];
+      }
+      if (!ok) continue;
+      segs.push(p.slice(prev));
+      if (segs[segs.length - 1].length < 2) continue;
+      return segs;
+    }
+    // deterministic fallback: even split (every piece >= 2 for our sizes)
+    const base = Math.floor(len / K);
+    const segs = [];
+    let idx = 0;
+    for (let c = 0; c < K; c++) {
+      const l = (c === K - 1) ? (len - idx) : base;
+      segs.push(p.slice(idx, idx + l));
+      idx += l;
+    }
+    return segs;
+  }
+
+  function generatePuzzle(dim) {
+    n = dim; N = dim * dim;
+    const path = hamiltonian(dim);
+    const segs = cutIntoSegments(path, PAIR_COUNT[dim]);
+    K = segs.length;
+
+    paths = new Array(K).fill(null);
+    epA = new Array(K);
+    epB = new Array(K);
+    endpointOwner = new Array(N).fill(-1);
+    owner = new Array(N).fill(-1);
+
+    for (let c = 0; c < K; c++) {
+      const s = segs[c];
+      epA[c] = s[0];
+      epB[c] = s[s.length - 1];
+      endpointOwner[epA[c]] = c;
+      endpointOwner[epB[c]] = c;
+    }
+    active = -1; drawing = false; gesture = false; changed = false;
+  }
+
+  // ============ BOARD BUILDING ============
+  function buildBoard() {
+    boardEl.innerHTML = "";
+    boardEl.style.gridTemplateColumns = "repeat(" + n + ", 1fr)";
+    boardEl.style.gridTemplateRows = "repeat(" + n + ", 1fr)";
+    cells = [];
+    for (let i = 0; i < N; i++) {
+      const d = document.createElement("div");
+      d.className = "cell";
+      d.dataset.i = i;
+      boardEl.appendChild(d);
+      cells.push(d);
+    }
+    paint();
+  }
+
+  // ============ RENDERING ============
+  function paint() {
+    // reset dynamic visuals for every cell
+    for (let i = 0; i < N; i++) {
+      const c = cells[i];
+      c.innerHTML = "";
+      c.className = "cell";
+      c.style.removeProperty("--c");
+    }
+    // draw each active path
+    for (let c = 0; c < K; c++) {
+      const p = paths[c];
+      if (!p || !p.length) continue;
+      for (let j = 0; j < p.length; j++) {
+        const idx = p[j], cell = cells[idx];
+        cell.classList.add("on");
+        cell.style.setProperty("--c", colourOf(c));
+        if (!cell.querySelector(".pipe")) addPipe(cell);
+        if (j > 0) addConn(cell, dirBetween(idx, p[j - 1]));
+        if (j < p.length - 1) addConn(cell, dirBetween(idx, p[j + 1]));
+      }
+    }
+    // endpoints are always visible, with their dot on top
+    for (let c = 0; c < K; c++) {
+      paintEndpoint(epA[c], c);
+      paintEndpoint(epB[c], c);
+    }
+  }
+
+  function paintEndpoint(idx, c) {
+    const cell = cells[idx];
+    cell.classList.add("on");
+    cell.style.setProperty("--c", colourOf(c));
+    if (!cell.querySelector(".pipe")) addPipe(cell);
+    if (!cell.querySelector(".dot")) {
+      const d = document.createElement("span");
+      d.className = "dot";
+      cell.appendChild(d);
+    }
+  }
+  function addPipe(cell) {
+    const s = document.createElement("span");
+    s.className = "pipe";
+    cell.appendChild(s);
+  }
+  function addConn(cell, dir) {
+    if (!dir) return;
+    const s = document.createElement("span");
+    s.className = "cn " + dir;
+    cell.appendChild(s);
+  }
+
+  // ============ HUD ============
+  function filledCount() {
+    let f = 0;
+    for (let i = 0; i < N; i++) if (owner[i] !== -1 || endpointOwner[i] !== -1) f++;
+    return f;
+  }
+  function pairsConnected() {
+    let c = 0;
+    for (let k = 0; k < K; k++) if (pathConnects(k)) c++;
+    return c;
+  }
+  function pathConnects(c) {
+    const p = paths[c];
+    if (!p || p.length < 2) return false;
+    const a = p[0], b = p[p.length - 1];
+    return (a === epA[c] && b === epB[c]) || (a === epB[c] && b === epA[c]);
+  }
+  function updateHud() {
+    movesEl.textContent = moves;
+    const pct = Math.round((filledCount() / N) * 100);
+    filledEl.textContent = pct + "%";
+    pairChip.textContent = "Pairs " + pairsConnected() + "/" + K;
+  }
+
+  // ============ PATH EDITING ============
+  function clearPath(c) {
+    const p = paths[c];
+    if (p) for (let i = 0; i < p.length; i++) {
+      if (owner[p[i]] === c) owner[p[i]] = -1;
+    }
+    paths[c] = null;
+  }
+
+  // Keep the first part of a colour's path up to (and including) idx.
+  function trimTo(c, idx) {
+    const p = paths[c];
+    if (!p) return;
+    const at = p.indexOf(idx);
+    if (at < 0) return;
+    for (let i = at + 1; i < p.length; i++) {
+      if (owner[p[i]] === c) owner[p[i]] = -1;
+    }
+    paths[c] = p.slice(0, at + 1);
+  }
+
+  // ============ INPUT ============
+  function onDown(idx) {
+    resumeAudio();
+    if (locked || idx < 0) return;
+    gesture = true;
+    changed = false;
+
+    if (endpointOwner[idx] !== -1) {
+      // fresh start from a dot
+      const c = endpointOwner[idx];
+      clearPath(c);
+      paths[c] = [idx];
+      active = c; drawing = true; changed = true;
+      paint();
+      beep(620, 0.05, "sine");
+      return;
+    }
+    if (owner[idx] !== -1) {
+      // grab an existing pipe and continue from there
+      const c = owner[idx];
+      trimTo(c, idx);
+      active = c; drawing = true; changed = true;
+      paint();
+      beep(520, 0.04, "sine");
+    }
+  }
+
+  function onMove(idx) {
+    if (!drawing || active < 0 || idx < 0) return;
+    const p = paths[active];
+    const last = p[p.length - 1];
+    if (idx === last) return;
+
+    // step back over the previous cell
+    if (p.length >= 2 && idx === p[p.length - 2]) {
+      const rm = p.pop();
+      if (owner[rm] === active) owner[rm] = -1;
+      changed = true;
+      paint();
+      return;
+    }
+    if (!areAdjacent(last, idx)) return;
+
+    // revisit our own pipe -> trim to that point
+    if (owner[idx] === active) {
+      trimTo(active, idx);
+      changed = true;
+      paint();
+      return;
+    }
+    // landed on an endpoint
+    if (endpointOwner[idx] !== -1) {
+      if (endpointOwner[idx] === active) {
+        p.push(idx);
+        changed = true;
+        drawing = false;          // pipe completed
+        paint();
+        beep(880, 0.12, "triangle");
+        checkWin();
+      }
+      return;                     // another colour's dot: blocked
+    }
+    // blocked by another colour
+    if (owner[idx] !== -1) return;
+
+    // free cell -> extend
+    p.push(idx);
+    owner[idx] = active;
+    changed = true;
+    paint();
+    beep(430 + p.length * 8, 0.02, "sine");
+    checkWin();
+  }
+
+  function onUp() {
+    if (gesture && changed) { moves++; updateHud(); }
+    gesture = false; drawing = false; active = -1;
+    checkWin();
+  }
+
+  function cellFromPoint(x, y) {
+    const el = document.elementFromPoint(x, y);
+    if (!el) return -1;
+    const cell = el.closest(".cell");
+    return cell ? parseInt(cell.dataset.i, 10) : -1;
+  }
+
+  boardEl.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    onDown(cellFromPoint(e.clientX, e.clientY));
+  });
+  boardEl.addEventListener("pointermove", function (e) {
+    if (!gesture) return;
+    e.preventDefault();
+    onMove(cellFromPoint(e.clientX, e.clientY));
+  });
+  window.addEventListener("pointerup", onUp);
+  window.addEventListener("pointercancel", onUp);
+
+  // touch fallback for browsers that fire touch before pointer events settle
+  boardEl.addEventListener("touchstart", function (e) {
+    e.preventDefault();
+    const t = e.touches[0];
+    if (t) onDown(cellFromPoint(t.clientX, t.clientY));
+  }, { passive: false });
+  boardEl.addEventListener("touchmove", function (e) {
+    e.preventDefault();
+    const t = e.touches[0];
+    if (t) onMove(cellFromPoint(t.clientX, t.clientY));
+  }, { passive: false });
+  boardEl.addEventListener("touchend", function (e) {
+    e.preventDefault();
+    onUp();
+  }, { passive: false });
+
+  boardEl.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+  // ============ WIN ============
+  function checkWin() {
+    if (locked) return;
+    updateHud();
+    if (filledCount() === N && pairsConnected() === K) win();
+  }
+
+  function win() {
+    if (locked) return;
+    locked = true;
+    melody();
+
+    const best = loadBest();
+    let isBest = false;
+    if (best == null || moves < best) {
+      localStorage.setItem(bestKey(), String(moves));
+      isBest = true;
+    }
+    showBest();
+
+    winMovesEl.textContent = "Moves: " + moves;
+    winBestEl.textContent = isBest ? "New best! 🏆" : "Best: " + loadBest() + " moves";
+    winScreen.classList.remove("hidden");
+  }
+
+  // ============ BEST (localStorage per size) ============
+  function bestKey() { return "numberlinkBest" + n; }
+  function loadBest() {
+    const v = localStorage.getItem(bestKey());
+    return v ? Number(v) : null;
+  }
+  function showBest() {
+    const b = loadBest();
+    bestEl.textContent = b == null ? "--" : b;
+  }
+
+  // ============ GAME FLOW ============
+  function newPuzzle(dim) {
+    generatePuzzle(dim || n);
+    moves = 0;
+    sizeLabelEl.textContent = n + "×" + n;
+    buildBoard();
+    showBest();
+    updateHud();
+    locked = false;
+  }
+
+  function restart() {
+    for (let c = 0; c < K; c++) clearPath(c);
+    for (let i = 0; i < N; i++) owner[i] = -1;
+    moves = 0;
+    active = -1; drawing = false; gesture = false;
+    paint();
+    updateHud();
+    locked = false;
+    beep(500, 0.06, "triangle");
+  }
+
+  // ============ BUTTON WIRING ============
+  btnNew.addEventListener("click", function () { newPuzzle(); beep(700, 0.06, "triangle"); });
+  btnRestart.addEventListener("click", restart);
+  btnMenu.addEventListener("click", function () {
+    winScreen.classList.add("hidden");
+    startScreen.classList.remove("hidden");
+    locked = true;
+  });
+
+  btnStart.addEventListener("click", function () {
+    const sel = document.querySelector(".size-btn.selected");
+    const chosen = sel ? parseInt(sel.dataset.size, 10) : 6;
+    startScreen.classList.add("hidden");
+    newPuzzle(chosen);
+    beep(740, 0.09, "triangle");
+  });
+  btnAgain.addEventListener("click", function () {
+    winScreen.classList.add("hidden");
+    newPuzzle();
+    beep(740, 0.09, "triangle");
+  });
+  btnWinMenu.addEventListener("click", function () {
+    winScreen.classList.add("hidden");
+    startScreen.classList.remove("hidden");
+    locked = true;
+  });
+
+  document.querySelectorAll(".size-btn").forEach(function (b) {
+    b.addEventListener("click", function () {
+      document.querySelectorAll(".size-btn").forEach(function (o) { o.classList.remove("selected"); });
+      b.classList.add("selected");
+      beep(600, 0.05, "sine");
+    });
+  });
+
+  // ============ KEYBOARD SHORTCUTS ============
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "KeyN") { e.preventDefault(); newPuzzle(); }
+    else if (e.code === "KeyR") { e.preventDefault(); restart(); }
+    else if (e.code === "KeyM") {
+      e.preventDefault();
+      winScreen.classList.add("hidden");
+      startScreen.classList.remove("hidden");
+      locked = true;
+    }
+  });
+
+  // ============ INITIAL PAINT ============
+  sizeLabelEl.textContent = "6×6";
+  showBest();
+  updateHud();
+  generatePuzzle(6);
+  buildBoard();
+  sizeLabelEl.textContent = n + "×" + n;
+  locked = true;   // waits for the start screen
+})();
+</script>
+</body>
+</html>

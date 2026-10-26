@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>⚔️ Kingdom Wars</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg1: #16120d;
+    --bg2: #241c12;
+    --panel: rgba(255, 240, 210, 0.05);
+    --line: rgba(255, 235, 200, 0.14);
+    --txt: #f0e6d2;
+    --dim: #b6a480;
+    --gold: #e8b84b;
+    --parch: #f4e6c4;
+    --blue: #5b9bd5;   /* your host  */
+    --red: #d9534f;    /* the enemy  */
+    --steel: #9db4cf;  /* spearman   */
+    --leaf: #84c46e;   /* archer     */
+    --brass: #e0b23c;  /* knight     */
+    --ok: #7cc47f;
+  }
+
+  html, body { height: 100%; }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: radial-gradient(1200px 700px at 50% -10%, #2a2016 0%, var(--bg1) 60%, #0b0906 100%);
+    color: var(--txt);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ============ GAME CONTAINER ============ */
+  .game-container {
+    width: 96vw;
+    max-width: 990px;
+    background: linear-gradient(180deg, rgba(255,235,200,0.05), rgba(255,235,200,0.015));
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 14px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(0,0,0,0.25);
+  }
+
+  /* ============ TOP BAR / HUD ============ */
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .game-title {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 1.2rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--parch);
+    text-shadow: 0 2px 12px rgba(232,184,75,0.35);
+  }
+  .game-title b { color: var(--gold); }
+
+  .hud {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 0.76rem;
+  }
+  .chip {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .chip i { font-style: normal; opacity: 0.8; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .d-gold { background: var(--gold); }
+  .d-blue { background: var(--blue); }
+  .d-red { background: var(--red); }
+  .d-parch { background: var(--parch); }
+  #valGold { color: var(--gold); font-weight: 700; }
+  #valArmy { color: var(--blue); font-weight: 700; }
+  #valEnemy { color: var(--red); font-weight: 700; }
+  #valBattle { color: var(--parch); font-weight: 700; }
+  #valWins { color: var(--ok); font-weight: 700; }
+
+  /* ============ CANVAS ============ */
+  .canvas-wrapper {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: #0d0b08;
+  }
+  canvas { display: block; width: 100%; height: auto; cursor: crosshair; }
+
+  /* ============ COMMAND BARS ============ */
+  .cmdbar {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+  .cmdbar.hidden { display: none; }
+  .cmd-btn {
+    flex: 1 1 130px;
+    background: linear-gradient(180deg, #33301f, #262218);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--txt);
+    padding: 9px 10px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    transition: transform .12s ease, background .12s ease, border-color .12s ease;
+    user-select: none;
+  }
+  .cmd-btn:hover { transform: translateY(-2px); border-color: rgba(232,184,75,0.55); }
+  .cmd-btn:active { transform: translateY(0); }
+  .cmd-btn small { display: block; font-weight: 400; color: var(--dim); font-size: 0.66rem; margin-top: 3px; }
+  .cmd-btn.sel { border-color: var(--gold); background: linear-gradient(180deg, #4a3c16, #3a2f11); box-shadow: 0 0 14px rgba(232,184,75,0.25) inset; }
+  .cmd-btn.armed { border-color: var(--ok); background: linear-gradient(180deg, #24462c, #1b3a23); }
+  .cmd-btn.disabled { opacity: 0.42; cursor: not-allowed; }
+  .cmd-btn.primary { background: linear-gradient(135deg, var(--gold), #c9922b); color: #241a06; border: none; }
+  .cmd-btn.primary:hover { box-shadow: 0 6px 20px rgba(232,184,75,0.4); }
+  .swatch { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+
+  .hint { font-size: 0.7rem; color: var(--dim); margin-top: 8px; text-align: center; min-height: 1em; }
+
+  /* ============ OVERLAYS ============ */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 22px;
+    background: rgba(9,7,5,0.93);
+    backdrop-filter: blur(3px);
+    transition: opacity .25s ease;
+    z-index: 5;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen-title {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 2.1rem;
+    color: var(--parch);
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+    text-shadow: 0 4px 20px rgba(232,184,75,.4);
+  }
+  .screen-subtitle { font-size: 0.9rem; color: var(--dim); margin-bottom: 16px; max-width: 520px; line-height: 1.55; }
+  .final-stat { font-size: 1rem; color: var(--txt); margin-bottom: 5px; }
+  .action-btn {
+    padding: 13px 34px;
+    background: linear-gradient(135deg, var(--gold), #c9922b);
+    color: #241a06;
+    border: none;
+    border-radius: 26px;
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: .5px;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(232,184,75,0.32);
+    transition: transform .15s ease, box-shadow .15s ease;
+    margin-top: 10px;
+  }
+  .action-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(232,184,75,0.5); }
+  .action-btn.alt { background: linear-gradient(135deg, var(--red), #9c3330); color: #fff; box-shadow: 0 8px 24px rgba(217,83,79,0.35); }
+  .legend { display: flex; gap: 14px; margin-top: 14px; font-size: 0.73rem; color: var(--dim); flex-wrap: wrap; justify-content: center; }
+  .legend span { display: flex; align-items: center; gap: 6px; }
+  .tri { display: flex; gap: 10px; margin-top: 12px; font-size: 0.72rem; color: var(--dim); align-items: center; flex-wrap: wrap; justify-content: center; }
+  .tri b { color: var(--parch); }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 640px) {
+    .game-title { font-size: 0.95rem; letter-spacing: 1px; }
+    .hud { font-size: 0.66rem; }
+    .chip { padding: 4px 7px; }
+    .cmd-btn { flex: 1 1 44%; font-size: 0.7rem; }
+    .screen-title { font-size: 1.5rem; }
+    .screen-subtitle { font-size: 0.8rem; }
+  }
+</style>
+</head>
+<body>
+<div class="game-container">
+  <!-- ============ TOP BAR / HUD ============ -->
+  <div class="topbar">
+    <div class="game-title">⚔️ Kingdom <b>Wars</b></div>
+    <div class="hud">
+      <div class="chip"><span class="dot d-gold"></span>Gold <span id="valGold">0</span></div>
+      <div class="chip"><span class="dot d-blue"></span>Your host <span id="valArmy">0</span></div>
+      <div class="chip"><span class="dot d-red"></span>Enemy <span id="valEnemy">0</span></div>
+      <div class="chip"><span class="dot d-parch"></span>Battle <span id="valBattle">0/0</span></div>
+      <div class="chip"><i>Wins</i> <span id="valWins">0</span></div>
+    </div>
+  </div>
+
+  <!-- ============ CANVAS ============ -->
+  <div class="canvas-wrapper">
+    <canvas id="gameCanvas" width="960" height="600"></canvas>
+
+    <!-- Start overlay -->
+    <div id="startScreen" class="screen">
+      <h2 class="screen-title">Kingdom Wars</h2>
+      <p class="screen-subtitle">
+        Muster your host, form a battle line, and take the field. Spears break cavalry,
+        cavalry breaks archers, archers break spears. Spend gold, counter the enemy
+        army you can see, then <b>command the charge</b> to victory.
+      </p>
+      <div class="tri">
+        <span><b>Spearman</b> ▸ beats ▸</span><span>Knight</span>
+        <span>·</span>
+        <span><b>Knight</b> ▸ beats ▸</span><span>Archer</span>
+        <span>·</span>
+        <span><b>Archer</b> ▸ beats ▸</span><span>Spearman</span>
+      </div>
+      <div class="legend">
+        <span><span class="dot d-gold"></span>260 gold to raise a host</span>
+        <span>5-battle campaign</span>
+        <span>Drag / click to deploy · right-click to dismiss</span>
+      </div>
+      <button class="action-btn" id="startBtn">Raise the Banner</button>
+    </div>
+
+    <!-- Result overlay -->
+    <div id="endScreen" class="screen hidden">
+      <h2 class="screen-title" id="endTitle">Victory</h2>
+      <p class="screen-subtitle" id="endSub"></p>
+      <div class="final-stat" id="endStat"></div>
+      <div class="final-stat" id="endWins"></div>
+      <button class="action-btn" id="endBtn">Next Battle</button>
+    </div>
+  </div>
+
+  <!-- ============ RECRUIT BAR (deploy phase) ============ -->
+  <div class="cmdbar" id="recruitBar">
+    <button class="cmd-btn" id="btnSpear"><span class="swatch" style="background:var(--steel)"></span>Spearman<small>50 gold · pikes break knights</small></button>
+    <button class="cmd-btn" id="btnArcher"><span class="swatch" style="background:var(--leaf)"></span>Archer<small>60 gold · volleys cut spearmen</small></button>
+    <button class="cmd-btn" id="btnKnight"><span class="swatch" style="background:var(--brass)"></span>Knight<small>90 gold · charge down archers</small></button>
+    <button class="cmd-btn" id="btnAuto">Auto-Muster<small>Fill the line with gold</small></button>
+    <button class="cmd-btn" id="btnUndo">Dismiss<small>Refund last unit</small></button>
+    <button class="cmd-btn primary" id="btnBegin">Begin Battle<small>Enter</small></button>
+  </div>
+
+  <!-- ============ ORDER BAR (battle phase) ============ -->
+  <div class="cmdbar hidden" id="orderBar">
+    <button class="cmd-btn sel" id="btnHold">Hold Line<small>Stand and strike</small></button>
+    <button class="cmd-btn" id="btnAdvance">Advance<small>March into contact</small></button>
+    <button class="cmd-btn" id="btnCharge">Charge<small>Faster · +damage</small></button>
+    <button class="cmd-btn" id="btnPause" style="flex:0 0 130px">Pause<small>Space</small></button>
+  </div>
+
+  <div class="hint" id="hint">Choose a unit, then click your side of the field to deploy.</div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ GAME CONFIGURATION ============
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height, CX = W / 2;
+  const PLAYER_XMAX = 330;        // player deploy zone: x < PLAYER_XMAX
+  const ENEMY_XMIN = W - 330;     // enemy deploy zone:  x > ENEMY_XMIN
+  const CORPSE_LIFE = 7;          // seconds a fallen soldier lingers
+
+  // Rock-paper-scissors unit table. strong = x2 damage, weak = x0.6 damage.
+  const UNIT = {
+    spear:  { name: 'Spearman', hp: 130, dmg: 11, speed: 46, range: 26,  atkDelay: 0.90, cost: 50, r: 11, strong: 'knight', weak: 'archer', tone: '#9db4cf' },
+    archer: { name: 'Archer',   hp: 80,  dmg: 9,  speed: 40, range: 172, atkDelay: 1.15, cost: 60, r: 10, strong: 'spear',  weak: 'knight', tone: '#84c46e' },
+    knight: { name: 'Knight',   hp: 195, dmg: 20, speed: 76, range: 28,  atkDelay: 0.80, cost: 90, r: 12, strong: 'archer', weak: 'spear',  tone: '#e0b23c' }
+  };
+  const TYPES = ['spear', 'archer', 'knight'];
+
+  // Five-battle campaign. `enemy` lists the foe's host (visible during deployment).
+  const BATTLES = [
+    { name: 'Border Skirmish',   gold: 260, enemy: ['spear', 'spear', 'archer'], reward: 120 },
+    { name: 'River Crossing',    gold: 260, enemy: ['spear', 'spear', 'archer', 'archer', 'knight'], reward: 165 },
+    { name: 'Siege of the Keep', gold: 300, enemy: ['spear', 'spear', 'spear', 'archer', 'archer', 'knight', 'knight'], reward: 215 },
+    { name: 'Highland Ambush',   gold: 300, enemy: ['spear', 'spear', 'spear', 'archer', 'archer', 'archer', 'knight', 'knight'], reward: 270 },
+    { name: 'The Crown Field',   gold: 340, enemy: ['spear', 'spear', 'spear', 'spear', 'archer', 'archer', 'archer', 'knight', 'knight', 'knight'], reward: 420 }
+  ];
+
+  // ============ GAME STATE ============
+  let state = 'menu';             // menu | deploy | battle | paused | result
+  let units = [];
+  let projectiles = [];
+  let particles = [];
+  let corpses = [];
+  let uid = 1;
+
+  let gold = 0;
+  let goldAtBattleStart = 0;
+  let campaignIndex = 0;
+  let selectedType = 'spear';
+  let order = 'hold';             // player stance: hold | advance | charge
+  let enemyStance = 'hold';       // AI stance
+  let enemyStanceT = 0;
+  let battleTime = 0;
+  let ghost = null;               // {x,y} deploy preview
+  let lastTime = 0;
+
+  let wins = parseInt(localStorage.getItem('kingdomWarsWins') || '0', 10) || 0;
+  let bestBattle = parseInt(localStorage.getItem('kingdomWarsBest') || '0', 10) || 0;
+
+  // Static ground speckles (computed once for texture)
+  const speckles = [];
+  for (let i = 0; i < 260; i++) {
+    speckles.push({ x: Math.random() * W, y: Math.random() * H, r: 0.6 + Math.random() * 1.8, a: 0.03 + Math.random() * 0.07 });
+  }
+
+  // ============ DOM ELEMENTS ============
+  const el = {
+    gold: document.getElementById('valGold'),
+    army: document.getElementById('valArmy'),
+    enemy: document.getElementById('valEnemy'),
+    battle: document.getElementById('valBattle'),
+    wins: document.getElementById('valWins'),
+    startScreen: document.getElementById('startScreen'),
+    endScreen: document.getElementById('endScreen'),
+    endTitle: document.getElementById('endTitle'),
+    endSub: document.getElementById('endSub'),
+    endStat: document.getElementById('endStat'),
+    endWins: document.getElementById('endWins'),
+    endBtn: document.getElementById('endBtn'),
+    recruitBar: document.getElementById('recruitBar'),
+    orderBar: document.getElementById('orderBar'),
+    btnSpear: document.getElementById('btnSpear'),
+    btnArcher: document.getElementById('btnArcher'),
+    btnKnight: document.getElementById('btnKnight'),
+    btnAuto: document.getElementById('btnAuto'),
+    btnUndo: document.getElementById('btnUndo'),
+    btnBegin: document.getElementById('btnBegin'),
+    btnHold: document.getElementById('btnHold'),
+    btnAdvance: document.getElementById('btnAdvance'),
+    btnCharge: document.getElementById('btnCharge'),
+    btnPause: document.getElementById('btnPause'),
+    hint: document.getElementById('hint'),
+    startBtn: document.getElementById('startBtn')
+  };
+
+  // ============ AUDIO (WebAudio beep) ============
+  let audioCtx = null;
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        audioCtx = new AC();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = type || 'square';
+      o.frequency.value = freq || 440;
+      g.gain.value = vol == null ? 0.05 : vol;
+      o.connect(g); g.connect(audioCtx.destination);
+      const t = audioCtx.currentTime;
+      o.start(t);
+      g.gain.setValueAtTime(g.gain.value, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + (dur || 0.08));
+      o.stop(t + (dur || 0.08) + 0.02);
+    } catch (e) { /* audio is optional */ }
+  }
+
+  // ============ HELPERS ============
+  function dist(a, b) { const dx = a.x - b.x, dy = a.y - b.y; return Math.sqrt(dx * dx + dy * dy); }
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function rnd(a, b) { return a + Math.random() * (b - a); }
+
+  function burst(x, y, color, n) {
+    for (let i = 0; i < (n || 8); i++) {
+      const a = Math.random() * Math.PI * 2, s = rnd(30, 150);
+      particles.push({ x: x, y: y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rnd(0.3, 0.75), max: 0.75, color: color, size: rnd(1.3, 3.2) });
+    }
+  }
+
+  // Damage multipliers for the counter triangle.
+  function counterMult(atkType, defType) {
+    const a = UNIT[atkType];
+    if (a.strong === defType) return 2.0;
+    if (a.weak === defType) return 0.6;
+    return 1.0;
+  }
+
+  function makeUnit(type, team, x, y) {
+    const c = UNIT[type];
+    return {
+      id: uid++, type: type, team: team, x: x, y: y, r: c.r,
+      hp: c.hp, maxHp: c.hp, atkCd: Math.random() * 0.3,
+      target: null, facing: team === 1 ? 1 : -1, flash: 0,
+      bob: Math.random() * 6.28, dead: false
+    };
+  }
+
+  function countTeam(team) {
+    let n = 0;
+    for (let i = 0; i < units.length; i++) if (units[i].team === team && !units[i].dead) n++;
+    return n;
+  }
+
+  function teamUnits(team) {
+    return units.filter(function (u) { return u.team === team && !u.dead; });
+  }
+
+  // ============ WORLD SETUP ============
+  function deployEnemyHost(types) {
+    // Front rank = spears/knights (x nearer the middle); back rank = archers.
+    const melee = types.filter(function (t) { return t !== 'archer'; });
+    const ranged = types.filter(function (t) { return t === 'archer'; });
+    arrangeForTeam(melee, 2, ENEMY_XMIN + 78);
+    arrangeForTeam(ranged, 2, ENEMY_XMIN + 12);
+  }
+
+  function arrangeForTeam(list, team, baseX) {
+    if (!list.length) return;
+    const gap = Math.min(66, (H - 170) / Math.max(1, list.length - 1));
+    const startY = H / 2 - (list.length - 1) * gap / 2;
+    list.forEach(function (t, i) {
+      const x = baseX + (team === 2 ? -1 : 1) * rnd(-10, 10);
+      units.push(makeUnit(t, team, x, startY + i * gap));
+    });
+  }
+
+  function clearArmy(team) {
+    units = units.filter(function (u) { return u.team !== team; });
+  }
+
+  // ============ CAMPAIGN / BATTLE FLOW ============
+  function startCampaign() {
+    campaignIndex = 0;
+    gold = BATTLES[0].gold;
+    startBattle(0);
+  }
+
+  function startBattle(idx) {
+    campaignIndex = idx;
+    goldAtBattleStart = gold;
+    units = []; projectiles = []; particles = []; corpses = [];
+    order = 'hold'; enemyStance = 'hold'; enemyStanceT = 3; battleTime = 0;
+    ghost = null; lastTime = 0;
+
+    deployEnemyHost(BATTLES[idx].enemy);
+
+    state = 'deploy';
+    el.startScreen.classList.add('hidden');
+    el.endScreen.classList.add('hidden');
+    el.recruitBar.classList.remove('hidden');
+    el.orderBar.classList.add('hidden');
+    selectType(selectedType);
+    updateHUD();
+    setHint('Choose a unit, then click your side of the field to deploy. Right-click a soldier to dismiss.');
+    beep(330, 0.09, 'triangle', 0.05);
+    setTimeout(function () { beep(495, 0.11, 'triangle', 0.05); }, 100);
+    requestAnimationFrame(loop);
+  }
+
+  function beginBattle() {
+    if (!teamUnits(1).length) { setHint('You must deploy at least one soldier before giving battle!'); beep(140, 0.14, 'square', 0.05); return; }
+    state = 'battle';
+    order = 'advance';
+    setOrderButtons();
+    el.recruitBar.classList.add('hidden');
+    el.orderBar.classList.remove('hidden');
+    lastTime = 0;
+    setHint('The lines close! Hold / Advance / Charge to command your host.');
+    beep(196, 0.16, 'sawtooth', 0.06);
+    setTimeout(function () { beep(294, 0.16, 'sawtooth', 0.06); }, 130);
+    setTimeout(function () { beep(392, 0.22, 'sawtooth', 0.07); }, 260);
+  }
+
+  function endBattle(win) {
+    if (state === 'result') return;
+    state = 'result';
+    const b = BATTLES[campaignIndex];
+    if (win) {
+      wins++;
+      gold += b.reward;
+      localStorage.setItem('kingdomWarsWins', String(wins));
+      const nextIdx = campaignIndex + 1;
+      if (nextIdx > bestBattle) { bestBattle = nextIdx; localStorage.setItem('kingdomWarsBest', String(bestBattle)); }
+      const finished = nextIdx >= BATTLES.length;
+      el.endTitle.textContent = finished ? 'Campaign Won!' : 'Victory!';
+      el.endTitle.style.color = 'var(--ok)';
+      el.endSub.textContent = finished
+        ? 'Five fields taken. Your banner stands alone over the realm.'
+        : 'The field is yours. The foe is broken and their baggage train is yours.';
+      el.endStat.textContent = 'Battle ' + (campaignIndex + 1) + ' · ' + b.name + ' · Reward +' + b.reward + ' gold';
+      el.endBtn.textContent = finished ? 'New Campaign' : 'Next Battle';
+      el.endBtn.dataset.mode = finished ? 'campaign' : 'next';
+      beep(523, 0.14, 'triangle', 0.07);
+      setTimeout(function () { beep(659, 0.14, 'triangle', 0.07); }, 150);
+      setTimeout(function () { beep(784, 0.24, 'triangle', 0.08); }, 300);
+    } else {
+      gold = goldAtBattleStart;   // restore the budget for a retry
+      el.endTitle.textContent = 'Defeat';
+      el.endTitle.style.color = 'var(--red)';
+      el.endSub.textContent = 'Your host is scattered. Regroup, study the foe, and raise a better line.';
+      el.endStat.textContent = 'Battle ' + (campaignIndex + 1) + ' · ' + b.name + ' · Gold restored to ' + goldAtBattleStart;
+      el.endBtn.textContent = 'Retry Battle';
+      el.endBtn.dataset.mode = 'retry';
+      beep(220, 0.3, 'sawtooth', 0.07);
+    }
+    el.endWins.textContent = 'Total victories: ' + wins;
+    el.endScreen.classList.remove('hidden');
+    updateHUD();
+  }
+
+  function togglePause() {
+    if (state === 'battle') {
+      state = 'paused';
+      el.btnPause.innerHTML = 'Resume<small>Space</small>';
+    } else if (state === 'paused') {
+      state = 'battle';
+      lastTime = 0;
+      el.btnPause.innerHTML = 'Pause<small>Space</small>';
+      requestAnimationFrame(loop);
+    }
+  }
+
+  // ============ DEPLOYMENT ============
+  function selectType(t) {
+    selectedType = t;
+    el.btnSpear.classList.toggle('sel', t === 'spear');
+    el.btnArcher.classList.toggle('sel', t === 'archer');
+    el.btnKnight.classList.toggle('sel', t === 'knight');
+    updateHUD();
+  }
+
+  function inPlayerZone(x) { return x >= 34 && x <= PLAYER_XMAX; }
+
+  function placePlayerUnit(x, y) {
+    if (!inPlayerZone(x)) { setHint('Deploy only on your side of the field.'); beep(140, 0.1, 'square', 0.04); return; }
+    const c = UNIT[selectedType];
+    if (gold < c.cost) { setHint('Not enough gold for a ' + c.name + '.'); beep(140, 0.12, 'square', 0.05); return; }
+    const yy = clamp(y, 40, H - 40);
+    const u = makeUnit(selectedType, 1, x, yy);
+    units.push(u);
+    gold -= c.cost;
+    beep(660, 0.06, 'triangle', 0.05);
+    burst(u.x, u.y, '#e8b84b', 6);
+    updateHUD();
+  }
+
+  function dismissLast() {
+    let last = null;
+    for (let i = units.length - 1; i >= 0; i--) { if (units[i].team === 1) { last = i; break; } }
+    if (last === null) return;
+    refundIndex(last);
+  }
+
+  function dismissAt(x, y) {
+    let best = -1, bd = 30;
+    for (let i = 0; i < units.length; i++) {
+      const u = units[i];
+      if (u.team !== 1) continue;
+      const d = dist(u, { x: x, y: y });
+      if (d < bd) { bd = d; best = i; }
+    }
+    if (best >= 0) refundIndex(best);
+  }
+
+  function refundIndex(i) {
+    const u = units[i];
+    if (!u || u.team !== 1) return;
+    gold += UNIT[u.type].cost;
+    burst(u.x, u.y, '#b6a480', 6);
+    units.splice(i, 1);
+    beep(300, 0.07, 'sine', 0.04);
+    updateHUD();
+  }
+
+  function refundAllPlayerUnits() {
+    units = units.filter(function (u) {
+      if (u.team === 1) { gold += UNIT[u.type].cost; return false; }
+      return true;
+    });
+  }
+
+  function autoMuster() {
+    refundAllPlayerUnits();
+    const cycle = ['spear', 'knight', 'archer'];   // balanced by cost
+    const placed = [];
+    let ci = 0, guard = 0;
+    while (guard++ < 60) {
+      let pick = null;
+      for (let k = 0; k < cycle.length; k++) {
+        const cand = cycle[(ci + k) % cycle.length];
+        if (gold >= UNIT[cand].cost) { pick = cand; ci = ci + k + 1; break; }
+      }
+      if (!pick) break;
+      gold -= UNIT[pick].cost;
+      placed.push(pick);
+    }
+    arrangeForTeam(placed.filter(function (t) { return t !== 'archer'; }), 1, PLAYER_XMAX - 40);
+    arrangeForTeam(placed.filter(function (t) { return t === 'archer'; }), 1, PLAYER_XMAX - 130);
+    beep(520, 0.08, 'triangle', 0.05);
+    setTimeout(function () { beep(700, 0.1, 'triangle', 0.05); }, 90);
+    updateHUD();
+  }
+
+  // ============ COMBAT ============
+  function nearestFoe(u) {
+    let best = null, bd = Infinity;
+    for (let i = 0; i < units.length; i++) {
+      const o = units[i];
+      if (o.team === u.team || o.dead) continue;
+      const d = dist(u, o);
+      if (d < bd) { bd = d; best = o; }
+    }
+    return best;
+  }
+
+  function applyDamage(t, amount, srcX) {
+    t.hp -= amount;
+    t.flash = 0.16;
+    burst(t.x, t.y, t.team === 1 ? '#9fd0ff' : '#ffb3a6', 3);
+    if (t.hp <= 0 && !t.dead) {
+      t.dead = true;
+      corpses.push({ x: t.x, y: t.y, type: t.type, team: t.team, life: CORPSE_LIFE, facing: t.facing });
+      burst(t.x, t.y, t.team === 1 ? '#5b9bd5' : '#d9534f', 14);
+      beep(t.team === 1 ? 170 : 250, 0.1, 'sawtooth', 0.045);
+    }
+  }
+
+  function performAttack(u, t, stance) {
+    const c = UNIT[u.type];
+    let dmg = c.dmg * counterMult(u.type, t.type);
+    if (stance === 'charge' && u.type !== 'archer') dmg *= 1.3;   // charge momentum bonus
+
+    if (u.type === 'archer') {
+      projectiles.push({
+        x: u.x, y: u.y - 8, tx: t.x, ty: t.y, target: t,
+        dmg: dmg, team: u.team, speed: 560
+      });
+      beep(1050, 0.02, 'square', 0.014);
+    } else {
+      applyDamage(t, dmg, u.x);
+      beep(u.type === 'knight' ? 220 : 320, 0.03, 'square', 0.02);
+    }
+  }
+
+  function moveToward(u, tx, ty, mult, dt) {
+    const dx = tx - u.x, dy = ty - u.y;
+    const d = Math.sqrt(dx * dx + dy * dy) || 1;
+    const step = UNIT[u.type].speed * mult * dt;
+    if (d <= step) { u.x = tx; u.y = ty; return true; }
+    u.x += dx / d * step; u.y += dy / d * step;
+    return false;
+  }
+
+  function updateEnemyStance(dt) {
+    enemyStanceT -= dt;
+    if (enemyStanceT > 0) return;
+    enemyStanceT = 4;
+    const foe = teamUnits(2);
+    const ranged = foe.filter(function (u) { return u.type === 'archer'; }).length;
+    const melee = foe.length - ranged;
+    const mine = countTeam(2), theirs = countTeam(1);
+    if (mine > theirs * 1.4) enemyStance = 'charge';
+    else if (ranged > melee && battleTime < 8) enemyStance = 'hold';
+    else enemyStance = 'advance';
+  }
+
+  function updateUnits(dt) {
+    battleTime += dt;
+    updateEnemyStance(dt);
+
+    for (let i = 0; i < units.length; i++) {
+      const u = units[i];
+      if (u.dead) continue;
+      const c = UNIT[u.type];
+      u.bob += dt * 6;
+      if (u.flash > 0) u.flash -= dt;
+      if (u.atkCd > 0) u.atkCd -= dt;
+
+      if (!u.target || u.target.dead) u.target = nearestFoe(u);
+      const stance = u.team === 1 ? order : enemyStance;
+
+      if (!u.target) {
+        if (stance !== 'hold') moveToward(u, u.team === 1 ? W - 40 : 40, u.y, 1, dt);
+        continue;
+      }
+
+      const d = dist(u, u.target);
+      const reach = c.range + u.target.r;
+      u.facing = u.target.x > u.x ? 1 : -1;
+
+      if (d > reach) {
+        if (stance === 'hold') {
+          // Hold: brace in place (archers still loose at anything in range, handled below).
+        } else {
+          moveToward(u, u.target.x, u.target.y, stance === 'charge' ? 1.5 : 1, dt);
+        }
+      } else if (u.atkCd <= 0) {
+        u.atkCd = c.atkDelay * (stance === 'charge' ? 0.85 : 1);
+        performAttack(u, u.target, stance);
+      }
+    }
+
+    separate();
+  }
+
+  // Gentle same-team push-apart so formations read as lines, not blobs.
+  function separate() {
+    for (let i = 0; i < units.length; i++) {
+      const a = units[i];
+      if (a.dead) continue;
+      for (let j = i + 1; j < units.length; j++) {
+        const b = units[j];
+        if (b.dead || b.team !== a.team) continue;
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const d = Math.sqrt(dx * dx + dy * dy) || 0.001;
+        const min = a.r + b.r - 2;
+        if (d < min) {
+          const push = (min - d) / 2, nx = dx / d, ny = dy / d;
+          a.x -= nx * push; a.y -= ny * push;
+          b.x += nx * push; b.y += ny * push;
+        }
+      }
+    }
+    for (let i = 0; i < units.length; i++) {
+      const u = units[i];
+      if (u.dead) continue;
+      u.x = clamp(u.x, 14, W - 14);
+      u.y = clamp(u.y, 16, H - 16);
+    }
+  }
+
+  function updateProjectiles(dt) {
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      const p = projectiles[i];
+      if (p.target && !p.target.dead) { p.tx = p.target.x; p.ty = p.target.y; }
+      const dx = p.tx - p.x, dy = p.ty - p.y;
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      const step = p.speed * dt;
+      if (d <= step || !p.target || p.target.dead) {
+        if (p.target && !p.target.dead) applyDamage(p.target, p.dmg, p.x);
+        burst(p.tx, p.ty, '#f4e6c4', 3);
+        projectiles.splice(i, 1);
+      } else {
+        p.x += dx / d * step; p.y += dy / d * step;
+      }
+    }
+  }
+
+  function updateParticles(dt) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const pt = particles[i];
+      pt.x += pt.vx * dt; pt.y += pt.vy * dt;
+      pt.vx *= 0.94; pt.vy *= 0.94;
+      pt.life -= dt;
+      if (pt.life <= 0) particles.splice(i, 1);
+    }
+    for (let i = corpses.length - 1; i >= 0; i--) {
+      corpses[i].life -= dt;
+      if (corpses[i].life <= 0) corpses.splice(i, 1);
+    }
+  }
+
+  function update(dt) {
+    updateUnits(dt);
+    updateProjectiles(dt);
+    updateParticles(dt);
+    units = units.filter(function (u) { return !u.dead; });
+
+    if (state === 'battle') {
+      const p = countTeam(1), e = countTeam(2);
+      if (e === 0 && p > 0) endBattle(true);
+      else if (p === 0) endBattle(false);
+    }
+  }
+
+  // ============ RENDERING ============
+  function drawGround() {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#3a3524');
+    g.addColorStop(0.55, '#2f3420');
+    g.addColorStop(1, '#232a18');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    // flecks of grass / dirt
+    for (let i = 0; i < speckles.length; i++) {
+      const s = speckles[i];
+      ctx.globalAlpha = s.a;
+      ctx.fillStyle = i % 3 === 0 ? '#6d7a44' : '#1d2114';
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 6.2832); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // horizon haze bands
+    ctx.fillStyle = 'rgba(0,0,0,0.10)';
+    ctx.fillRect(0, 0, W, 44);
+    ctx.fillRect(0, H - 44, W, 44);
+  }
+
+  function drawZones() {
+    ctx.fillStyle = 'rgba(91,155,213,0.07)';
+    ctx.fillRect(0, 0, PLAYER_XMAX, H);
+    ctx.fillStyle = 'rgba(217,83,79,0.07)';
+    ctx.fillRect(ENEMY_XMIN, 0, W - ENEMY_XMIN, H);
+
+    // deploy boundaries
+    ctx.save();
+    ctx.setLineDash([8, 10]);
+    ctx.strokeStyle = 'rgba(91,155,213,0.35)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(PLAYER_XMAX, 0); ctx.lineTo(PLAYER_XMAX, H); ctx.stroke();
+    ctx.strokeStyle = 'rgba(217,83,79,0.35)';
+    ctx.beginPath(); ctx.moveTo(ENEMY_XMIN, 0); ctx.lineTo(ENEMY_XMIN, H); ctx.stroke();
+    ctx.restore();
+
+    // centre line
+    ctx.save();
+    ctx.setLineDash([14, 16]);
+    ctx.strokeStyle = 'rgba(232,184,75,0.22)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(CX, 0); ctx.lineTo(CX, H); ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawCorpses() {
+    for (let i = 0; i < corpses.length; i++) {
+      const c = corpses[i];
+      const a = clamp(c.life / CORPSE_LIFE, 0, 1);
+      ctx.save();
+      ctx.globalAlpha = a * 0.8;
+      ctx.translate(c.x, c.y);
+      ctx.fillStyle = '#171410';
+      ctx.beginPath(); ctx.ellipse(0, 2, 13, 5, 0, 0, 6.2832); ctx.fill();
+      ctx.strokeStyle = c.team === 1 ? 'rgba(91,155,213,0.6)' : 'rgba(217,83,79,0.6)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-8, -3); ctx.lineTo(8, 3); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-8, 3); ctx.lineTo(8, -3); ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function drawUnit(u) {
+    const c = UNIT[u.type];
+    const teamCol = u.team === 1 ? '#5b9bd5' : '#d9534f';
+    const teamDark = u.team === 1 ? '#1d3550' : '#4d1f1d';
+    const bob = Math.sin(u.bob) * 1.3;
+
+    ctx.save();
+    ctx.translate(u.x, u.y + bob);
+
+    // shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.32)';
+    ctx.beginPath(); ctx.ellipse(0, u.r * 0.95, u.r * 0.95, u.r * 0.42, 0, 0, 6.2832); ctx.fill();
+
+    // team banner pole
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, -u.r - 2); ctx.lineTo(0, -u.r - 16); ctx.stroke();
+    ctx.fillStyle = teamCol;
+    ctx.beginPath();
+    ctx.moveTo(0, -u.r - 16); ctx.lineTo(9, -u.r - 12); ctx.lineTo(0, -u.r - 8);
+    ctx.closePath(); ctx.fill();
+
+    // body
+    ctx.fillStyle = u.flash > 0 ? '#ffffff' : teamDark;
+    ctx.strokeStyle = u.flash > 0 ? '#ffffff' : teamCol;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, 0, u.r, 0, 6.2832); ctx.fill(); ctx.stroke();
+
+    // weapon / role emblem
+    ctx.strokeStyle = c.tone; ctx.lineWidth = 2.2;
+    ctx.lineCap = 'round';
+    if (u.type === 'spear') {
+      ctx.beginPath();
+      ctx.moveTo(u.facing * 3, 2);
+      ctx.lineTo(u.facing * (u.r + 12), -u.r - 4);
+      ctx.stroke();
+      ctx.fillStyle = c.tone;
+      ctx.beginPath(); ctx.arc(u.facing * (u.r + 12), -u.r - 4, 2.2, 0, 6.2832); ctx.fill();
+    } else if (u.type === 'archer') {
+      ctx.beginPath();
+      ctx.arc(u.facing * 4, -1, u.r * 0.9, u.facing > 0 ? -1.15 : 1.99, u.facing > 0 ? 1.15 : 4.29);
+      ctx.stroke();
+      ctx.strokeStyle = '#e8d9b0'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(u.facing * 11, -u.r * 0.85);
+      ctx.lineTo(u.facing * 11, u.r * 0.85);
+      ctx.stroke();
+    } else { // knight
+      ctx.strokeStyle = c.tone; ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(u.facing * 2, -2);
+      ctx.lineTo(u.facing * (u.r + 14), -6);
+      ctx.stroke();
+      // plume
+      ctx.fillStyle = teamCol;
+      ctx.beginPath();
+      ctx.moveTo(-2, -u.r - 2); ctx.lineTo(0, -u.r - 10); ctx.lineTo(3, -u.r - 2);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+
+    // hp bar when hurt
+    if (u.hp < u.maxHp) {
+      const pct = clamp(u.hp / u.maxHp, 0, 1);
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(u.x - 13, u.y - u.r - 26, 26, 4);
+      ctx.fillStyle = pct > 0.5 ? '#7cc47f' : (pct > 0.25 ? '#e8b84b' : '#d9534f');
+      ctx.fillRect(u.x - 13, u.y - u.r - 26, 26 * pct, 4);
+    }
+
+    // selection flash ring on player units during deploy
+    if (state === 'deploy' && u.team === 1) {
+      ctx.strokeStyle = 'rgba(232,184,75,0.35)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(u.x, u.y, u.r + 4, 0, 6.2832); ctx.stroke();
+    }
+  }
+
+  function drawProjectiles() {
+    for (let i = 0; i < projectiles.length; i++) {
+      const p = projectiles[i];
+      const ang = Math.atan2(p.ty - p.y, p.tx - p.x);
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(ang);
+      ctx.strokeStyle = p.team === 1 ? '#cfe6ff' : '#ffd0c6';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.moveTo(-7, 0); ctx.lineTo(5, 0); ctx.stroke();
+      ctx.fillStyle = p.team === 1 ? '#9fd0ff' : '#ff9a8c';
+      ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(0, -2.4); ctx.lineTo(0, 2.4); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function drawParticles() {
+    for (let i = 0; i < particles.length; i++) {
+      const pt = particles[i];
+      ctx.globalAlpha = Math.max(0, pt.life / pt.max);
+      ctx.fillStyle = pt.color;
+      ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.size, 0, 6.2832); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawGhost() {
+    if (state !== 'deploy' || !ghost) return;
+    const ok = inPlayerZone(ghost.x) && gold >= UNIT[selectedType].cost;
+    const c = UNIT[selectedType];
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = ok ? '#7cc47f' : '#d9534f';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(ghost.x, ghost.y, c.r + 4, 0, 6.2832); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = ok ? 'rgba(232,184,75,0.35)' : 'rgba(217,83,79,0.35)';
+    ctx.beginPath(); ctx.arc(ghost.x, ghost.y, c.r, 0, 6.2832); ctx.fill();
+    ctx.restore();
+  }
+
+  function draw() {
+    drawGround();
+    drawZones();
+    drawCorpses();
+
+    // depth sort for a layering feel
+    const sorted = units.slice().sort(function (a, b) { return a.y - b.y; });
+    for (let i = 0; i < sorted.length; i++) drawUnit(sorted[i]);
+
+    drawProjectiles();
+    drawParticles();
+    drawGhost();
+
+    // Battle-phase status ribbon
+    if (state === 'battle' || state === 'paused') {
+      ctx.save();
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillRect(CX - 96, 8, 192, 24);
+      ctx.strokeStyle = 'rgba(232,184,75,0.4)'; ctx.lineWidth = 1;
+      ctx.strokeRect(CX - 96, 8, 192, 24);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#f4e6c4';
+      ctx.font = 'bold 13px Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Your order: ' + order.toUpperCase() + (state === 'paused' ? '  ·  PAUSED' : ''), CX, 20);
+      ctx.restore();
+    }
+  }
+
+  // ============ HUD ============
+  function updateHUD() {
+    el.gold.textContent = Math.floor(gold);
+    el.army.textContent = countTeam(1);
+    el.enemy.textContent = countTeam(2);
+    el.battle.textContent = (campaignIndex + 1) + '/' + BATTLES.length;
+    el.wins.textContent = wins;
+
+    el.btnSpear.classList.toggle('disabled', gold < UNIT.spear.cost);
+    el.btnArcher.classList.toggle('disabled', gold < UNIT.archer.cost);
+    el.btnKnight.classList.toggle('disabled', gold < UNIT.knight.cost);
+  }
+
+  function setOrderButtons() {
+    el.btnHold.classList.toggle('armed', order === 'hold');
+    el.btnAdvance.classList.toggle('armed', order === 'advance');
+    el.btnCharge.classList.toggle('armed', order === 'charge');
+  }
+
+  function setHint(t) { el.hint.textContent = t; }
+
+  // ============ LOOP ============
+  function loop(t) {
+    if (state !== 'battle') return;
+    if (!lastTime) lastTime = t;
+    let dt = (t - lastTime) / 1000;
+    lastTime = t;
+    if (dt > 0.05) dt = 0.05;
+
+    update(dt);
+    draw();
+    updateHUD();
+    requestAnimationFrame(loop);
+  }
+
+  // Static redraw for menu / deploy / result / paused frames
+  function renderStatic() { draw(); updateHUD(); }
+
+  // ============ POINTER MAPPING ============
+  function pos(e) {
+    const r = canvas.getBoundingClientRect();
+    const p = (e.touches && e.touches[0]) ? e.touches[0] : e;
+    return { x: (p.clientX - r.left) * (W / r.width), y: (p.clientY - r.top) * (H / r.height) };
+  }
+
+  // ============ INPUT ============
+  canvas.addEventListener('mousemove', function (e) {
+    if (state !== 'deploy') return;
+    const p = pos(e);
+    ghost = { x: p.x, y: p.y };
+    renderStatic();
+  });
+  canvas.addEventListener('mouseleave', function () { ghost = null; if (state === 'deploy') renderStatic(); });
+
+  canvas.addEventListener('click', function (e) {
+    if (state !== 'deploy') return;
+    const p = pos(e);
+    placePlayerUnit(p.x, p.y);
+    renderStatic();
+  });
+
+  canvas.addEventListener('contextmenu', function (e) {
+    e.preventDefault();
+    if (state !== 'deploy') return;
+    const p = pos(e);
+    dismissAt(p.x, p.y);
+    renderStatic();
+  });
+
+  // Touch: tap to deploy. (Dismiss via the Dismiss button.)
+  canvas.addEventListener('touchend', function (e) {
+    if (state !== 'deploy') return;
+    e.preventDefault();
+    const p = pos(e);
+    placePlayerUnit(p.x, p.y);
+    renderStatic();
+  }, { passive: false });
+  canvas.addEventListener('touchmove', function (e) {
+    if (state !== 'deploy') return;
+    e.preventDefault();
+    const p = pos(e);
+    ghost = { x: p.x, y: p.y };
+    renderStatic();
+  }, { passive: false });
+
+  // Buttons
+  el.startBtn.addEventListener('click', function () { startCampaign(); });
+
+  el.endBtn.addEventListener('click', function () {
+    const mode = el.endBtn.dataset.mode;
+    if (mode === 'retry') startBattle(campaignIndex);
+    else if (mode === 'next') startBattle(campaignIndex + 1);
+    else startCampaign();
+  });
+
+  el.btnSpear.addEventListener('click', function () { selectType('spear'); renderStatic(); });
+  el.btnArcher.addEventListener('click', function () { selectType('archer'); renderStatic(); });
+  el.btnKnight.addEventListener('click', function () { selectType('knight'); renderStatic(); });
+  el.btnAuto.addEventListener('click', function () { autoMuster(); renderStatic(); });
+  el.btnUndo.addEventListener('click', function () { dismissLast(); renderStatic(); });
+  el.btnBegin.addEventListener('click', beginBattle);
+
+  el.btnHold.addEventListener('click', function () { order = 'hold'; setOrderButtons(); });
+  el.btnAdvance.addEventListener('click', function () { order = 'advance'; setOrderButtons(); });
+  el.btnCharge.addEventListener('click', function () { order = 'charge'; setOrderButtons(); });
+  el.btnPause.addEventListener('click', togglePause);
+
+  // Keyboard
+  document.addEventListener('keydown', function (e) {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      if (state === 'battle' || state === 'paused') togglePause();
+      return;
+    }
+    if (state === 'deploy') {
+      if (e.code === 'Digit1') { selectType('spear'); renderStatic(); }
+      if (e.code === 'Digit2') { selectType('archer'); renderStatic(); }
+      if (e.code === 'Digit3') { selectType('knight'); renderStatic(); }
+      if (e.code === 'KeyU' || e.code === 'Backspace') { dismissLast(); renderStatic(); }
+      if (e.code === 'Enter') beginBattle();
+      return;
+    }
+    if (state === 'battle' || state === 'paused') {
+      if (e.code === 'KeyH') { order = 'hold'; setOrderButtons(); }
+      if (e.code === 'KeyA') { order = 'advance'; setOrderButtons(); }
+      if (e.code === 'KeyC') { order = 'charge'; setOrderButtons(); }
+    }
+  });
+
+  // ============ INIT ============
+  setHint('Raise the banner to open the campaign.');
+  renderStatic();
+})();
+</script>
+</body>
+</html>

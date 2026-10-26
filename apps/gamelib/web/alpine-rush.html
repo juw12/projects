@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Alpine Rush</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #0d1b2a 0%, #1b3a5c 55%, #123047 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    touch-action: none;
+    padding: 10px;
+  }
+
+  /* ============ GAME CONTAINER ============ */
+  .game-container {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 22px;
+    padding: 14px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+    width: min(96vw, 520px);
+  }
+
+  .game-title {
+    text-align: center;
+    font-size: 1.5rem;
+    letter-spacing: 3px;
+    color: #bfe6ff;
+    text-shadow: 0 0 16px rgba(120, 200, 255, 0.6);
+    margin-bottom: 4px;
+  }
+
+  .game-subtitle {
+    text-align: center;
+    font-size: 0.72rem;
+    letter-spacing: 1px;
+    color: #7fa6c4;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+
+  /* ============ CANVAS ============ */
+  .canvas-wrapper {
+    position: relative;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.4);
+    background: #dbe9f4;
+  }
+
+  canvas { display: block; width: 100%; height: auto; }
+
+  /* ============ SCREENS (Start / Game Over) ============ */
+  .screen {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 24px;
+    background: rgba(8, 20, 34, 0.9);
+    backdrop-filter: blur(3px);
+    transition: opacity 0.28s ease;
+    z-index: 5;
+  }
+
+  .screen.hidden { opacity: 0; pointer-events: none; }
+
+  .screen-title {
+    font-size: 1.9rem;
+    letter-spacing: 2px;
+    color: #d8f0ff;
+    text-shadow: 0 0 20px rgba(120, 200, 255, 0.55);
+    margin-bottom: 6px;
+  }
+
+  .screen-subtitle {
+    font-size: 0.85rem;
+    color: #8fb2cd;
+    line-height: 1.6;
+    margin-bottom: 20px;
+    max-width: 320px;
+  }
+
+  .final-score {
+    font-size: 1.15rem;
+    color: #bfe6ff;
+    margin-bottom: 6px;
+  }
+
+  .final-best {
+    font-size: 0.9rem;
+    color: #7fd1a3;
+    margin-bottom: 20px;
+  }
+
+  .btn {
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 12px 34px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    color: #06202e;
+    background: linear-gradient(180deg, #a5e6ff, #5fb6e8);
+    box-shadow: 0 5px 0 rgba(0, 0, 0, 0.35);
+    transition: transform .05s ease, filter .15s ease;
+    user-select: none;
+  }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35); }
+
+  /* ============ CONTROLS ============ */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .controls button {
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 9px;
+    cursor: pointer;
+    color: #dff3ff;
+    background: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.28);
+    transition: transform .05s ease, background .15s ease;
+    user-select: none;
+  }
+  .controls button:hover { background: rgba(255, 255, 255, 0.22); }
+  .controls button:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.28); }
+
+  #touch-pad {
+    display: none;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  #touch-pad button {
+    flex: 1;
+    font-family: inherit;
+    font-size: 1.4rem;
+    font-weight: 700;
+    padding: 16px 0;
+    border: none;
+    border-radius: 12px;
+    color: #dff3ff;
+    background: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.28);
+    user-select: none;
+    touch-action: none;
+  }
+  #touch-pad button:active { background: rgba(255, 255, 255, 0.3); }
+
+  @media (hover: none) and (pointer: coarse) {
+    #touch-pad { display: flex; }
+  }
+</style>
+</head>
+<body>
+<div class="game-container">
+  <div class="game-title">ALPINE RUSH</div>
+  <div class="game-subtitle">Endless Downhill Descent</div>
+
+  <div class="canvas-wrapper">
+    <canvas id="game" width="480" height="720"></canvas>
+
+    <!-- Start overlay -->
+    <div class="screen" id="startScreen">
+      <div class="screen-title">ALPINE RUSH</div>
+      <div class="screen-subtitle">
+        Carve down the mountain.<br>
+        Dodge trees, rocks &amp; skiers.<br>
+        Thread the gates, launch the ramps.
+      </div>
+      <button class="btn" id="btnStart" type="button">Start Run</button>
+    </div>
+
+    <!-- Game over overlay -->
+    <div class="screen hidden" id="overScreen">
+      <div class="screen-title">WIPEOUT!</div>
+      <div class="final-score" id="finalScore">Score: 0</div>
+      <div class="final-best" id="finalBest">Best: 0</div>
+      <button class="btn" id="btnRestart" type="button">Ride Again</button>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="btnPause" type="button">Pause</button>
+    <button id="btnReset" type="button">Restart</button>
+  </div>
+
+  <div id="touch-pad">
+    <button id="tLeft" type="button">&#9664;</button>
+    <button id="tTuck" type="button">TUCK</button>
+    <button id="tRight" type="button">&#9654;</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============ CANVAS & SIZING ============ */
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;
+  const H = canvas.height;
+
+  /* ============ CONSTANTS ============ */
+  const SLOPE_MARGIN = 26;            // snow banks on each side
+  const PLAYER_Y = H * 0.72;          // fixed screen row for the rider
+  const PLAYER_R = 15;                // player collision radius
+  const STEER_SPEED = 0.62;           // px per frame of lateral drift (scaled by speed)
+  const BASE_SPEED = 3.0;             // starting world scroll speed
+  const MAX_SPEED = 15.5;
+  const SPEED_GROWTH = 0.0021;        // passive acceleration per frame
+  const TUCK_BOOST = 1.9;             // extra growth while tucking
+  const BRAKE_DRAG = 0.06;
+  const JUMP_VZ = 8.2;                // ramp launch vertical velocity
+  const AIR_GRAV = 0.34;
+
+  const TS_BEST = "alpineRushBest";
+
+  /* ============ STATE ============ */
+  let state = "start";                // "start" | "playing" | "paused" | "over"
+  let lastTime = 0;
+  let runTime = 0;
+
+  let player, speed, distance, gates, obstacles, snowMarks, spawnAcc, spawnGap, gateAcc;
+  let best = Number(localStorage.getItem(TS_BEST) || 0);
+  let shakeT = 0, flashT = 0;
+
+  /* ============ AUDIO (WebAudio beep) ============ */
+  let actx = null;
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!actx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        actx = new AC();
+      }
+      if (actx.state === "suspended") actx.resume();
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.type = type || "square";
+      osc.frequency.setValueAtTime(freq, actx.currentTime);
+      gain.gain.setValueAtTime(vol == null ? 0.06 : vol, actx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + (dur || 0.08));
+      osc.connect(gain);
+      gain.connect(actx.destination);
+      osc.start();
+      osc.stop(actx.currentTime + (dur || 0.08));
+    } catch (e) { /* audio is best-effort */ }
+  }
+
+  /* ============ INPUT ============ */
+  const keys = { left: false, right: false, tuck: false, brake: false };
+
+  window.addEventListener("keydown", function (e) {
+    if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") keys.left = true;
+    else if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") keys.right = true;
+    else if (e.key === "ArrowDown" || e.key === "s" || e.key === "S" || e.key === " ") keys.tuck = true;
+    else if (e.key === "ArrowUp" || e.key === "w" || e.key === "W") keys.brake = true;
+    else if (e.key === "p" || e.key === "P") togglePause();
+    else if (e.key === "r" || e.key === "R") startRun();
+    else return;
+    if ([" ", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].indexOf(e.key) >= 0) e.preventDefault();
+  });
+
+  window.addEventListener("keyup", function (e) {
+    if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") keys.left = false;
+    else if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") keys.right = false;
+    else if (e.key === "ArrowDown" || e.key === "s" || e.key === "S" || e.key === " ") keys.tuck = false;
+    else if (e.key === "ArrowUp" || e.key === "w" || e.key === "W") keys.brake = false;
+  });
+
+  function bindHold(el, on, off) {
+    if (!el) return;
+    el.addEventListener("touchstart", function (e) { e.preventDefault(); on(); }, { passive: false });
+    el.addEventListener("touchend", function (e) { e.preventDefault(); off(); }, { passive: false });
+    el.addEventListener("touchcancel", function () { off(); });
+    el.addEventListener("mousedown", function (e) { e.preventDefault(); on(); });
+    el.addEventListener("mouseup", function () { off(); });
+    el.addEventListener("mouseleave", function () { off(); });
+  }
+  bindHold(document.getElementById("tLeft"), function () { keys.left = true; }, function () { keys.left = false; });
+  bindHold(document.getElementById("tRight"), function () { keys.right = true; }, function () { keys.right = false; });
+  bindHold(document.getElementById("tTuck"), function () { keys.tuck = true; }, function () { keys.tuck = false; });
+
+  // Tap the slope to start / resume
+  canvas.addEventListener("pointerdown", function () {
+    if (state === "start" || state === "over") startRun();
+    else if (state === "paused") togglePause();
+  });
+
+  /* ============ ENTITY HELPERS ============ */
+  function rand(a, b) { return a + Math.random() * (b - a); }
+
+  function spawnObstacle() {
+    const roll = Math.random();
+    const x = rand(SLOPE_MARGIN + 24, W - SLOPE_MARGIN - 24);
+    if (roll < 0.42) {
+      obstacles.push({ type: "tree", x: x, y: -60, r: 20, sway: rand(0, 6.28) });
+    } else if (roll < 0.72) {
+      obstacles.push({ type: "rock", x: x, y: -60, r: 16, rot: rand(0, 6.28) });
+    } else {
+      obstacles.push({ type: "skier", x: x, y: -60, r: 14, vx: rand(-1.1, 1.1) });
+    }
+  }
+
+  function spawnGate() {
+    const gapW = rand(96, 126);
+    const gapX = rand(SLOPE_MARGIN + 12, W - SLOPE_MARGIN - 12 - gapW);
+    gates.push({ x: gapX, w: gapW, y: -70, scored: false });
+  }
+
+  function spawnRamp() {
+    obstacles.push({ type: "ramp", x: rand(SLOPE_MARGIN + 40, W - SLOPE_MARGIN - 40), y: -60, w: 66, r: 30 });
+  }
+
+  /* ============ RUN LIFECYCLE ============ */
+  function resetWorld() {
+    player = { x: W / 2, target: W / 2, tilt: 0, z: 0, vz: 0, crash: 0 };
+    speed = BASE_SPEED;
+    distance = 0;
+    gates = 0;
+    obstacles = [];
+    snowMarks = [];
+    spawnAcc = 0;
+    spawnGap = 150;
+    gateAcc = 0;
+    shakeT = 0;
+    flashT = 0;
+    for (let i = 0; i < 26; i++) {
+      snowMarks.push({ x: rand(SLOPE_MARGIN, W - SLOPE_MARGIN), y: rand(0, H), len: rand(10, 34), a: rand(0.05, 0.16) });
+    }
+  }
+
+  function startRun() {
+    resetWorld();
+    state = "playing";
+    runTime = 0;
+    lastTime = performance.now();
+    document.getElementById("startScreen").classList.add("hidden");
+    document.getElementById("overScreen").classList.add("hidden");
+    document.getElementById("btnPause").textContent = "Pause";
+    beep(520, 0.08, "triangle", 0.05);
+  }
+
+  function togglePause() {
+    if (state === "playing") {
+      state = "paused";
+      document.getElementById("btnPause").textContent = "Resume";
+    } else if (state === "paused") {
+      state = "playing";
+      lastTime = performance.now();
+      document.getElementById("btnPause").textContent = "Pause";
+    }
+  }
+
+  function gameOver() {
+    state = "over";
+    const score = Math.floor(distance) + gates * 60;
+    if (score > best) {
+      best = score;
+      try { localStorage.setItem(TS_BEST, String(best)); } catch (e) {}
+    }
+    document.getElementById("finalScore").textContent = "Score: " + score;
+    document.getElementById("finalBest").textContent = "Best: " + best;
+    document.getElementById("overScreen").classList.remove("hidden");
+  }
+
+  /* ============ UPDATE ============ */
+  function update(dt) {
+    runTime += dt;
+    const frame = Math.min(dt, 2.5);
+
+    // ---- speed model ----
+    if (keys.brake) {
+      speed -= BRAKE_DRAG * frame;
+    } else {
+      const growth = SPEED_GROWTH * (keys.tuck ? (1 + TUCK_BOOST) : 1);
+      speed += growth * frame;
+    }
+    if (speed < 2.2) speed = 2.2;
+    if (speed > MAX_SPEED) speed = MAX_SPEED;
+
+    const scroll = speed * frame;
+    distance += scroll * 0.14;
+
+    // ---- steering ----
+    let dir = 0;
+    if (keys.left) dir -= 1;
+    if (keys.right) dir += 1;
+    const steer = STEER_SPEED * frame * (0.75 + speed / MAX_SPEED * 0.6);
+    player.target += dir * steer;
+    const lo = SLOPE_MARGIN + 14;
+    const hi = W - SLOPE_MARGIN - 14;
+    if (player.target < lo) { player.target = lo; }
+    if (player.target > hi) { player.target = hi; }
+    player.x += (player.target - player.x) * Math.min(1, 0.22 * frame);
+    player.tilt += ((dir * 0.5) - player.tilt) * Math.min(1, 0.18 * frame);
+
+    // ---- air physics ----
+    if (player.z > 0 || player.vz > 0) {
+      player.z += player.vz * frame;
+      player.vz -= AIR_GRAV * frame;
+      if (player.z <= 0) {
+        player.z = 0;
+        player.vz = 0;
+        beep(180, 0.09, "sine", 0.05); // landing thud
+      }
+    }
+
+    // ---- scroll decorations ----
+    for (let i = 0; i < snowMarks.length; i++) {
+      const m = snowMarks[i];
+      m.y += scroll * (m.len > 22 ? 1 : 0.6);
+      if (m.y > H + 40) { m.y = -40; m.x = rand(SLOPE_MARGIN, W - SLOPE_MARGIN); }
+    }
+
+    // ---- spawn pacing ----
+    spawnAcc += scroll;
+    if (spawnAcc >= spawnGap) {
+      spawnAcc = 0;
+      spawnGap = rand(96, 168) * (1 + (MAX_SPEED - speed) / MAX_SPEED * 0.6);
+      const r = Math.random();
+      if (r < 0.16) spawnRamp();
+      else spawnObstacle();
+    }
+    gateAcc += scroll;
+    if (gateAcc >= rand(560, 900)) {
+      gateAcc = 0;
+      spawnGate();
+    }
+
+    // ---- obstacles ----
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+      const o = obstacles[i];
+      o.y += scroll;
+      if (o.type === "skier") {
+        o.x += o.vx * frame;
+        if (o.x < SLOPE_MARGIN + 16) { o.x = SLOPE_MARGIN + 16; o.vx *= -1; }
+        if (o.x > W - SLOPE_MARGIN - 16) { o.x = W - SLOPE_MARGIN - 16; o.vx *= -1; }
+      }
+      if (o.y > H + 80) { obstacles.splice(i, 1); continue; }
+
+      // crossing the player's row this frame?
+      const crossed = o.y >= PLAYER_Y - 6 && o.y <= PLAYER_Y + 26;
+      if (!crossed) continue;
+
+      const dx = o.x - player.x;
+      const airborne = player.z > 12;
+
+      if (o.type === "ramp") {
+        if (o.r > 0 && Math.abs(dx) < o.w / 2 && player.z <= 0 && player.vz <= 0) {
+          o.r = 0; // ramp used
+          player.vz = JUMP_VZ + speed * 0.16;
+          player.z = 0.1;
+          beep(720, 0.12, "triangle", 0.06);
+        }
+        continue;
+      }
+
+      if (airborne) continue; // sailing over
+
+      const rr = o.r + PLAYER_R;
+      if (state === "playing" && dx * dx + (o.y - PLAYER_Y) * (o.y - PLAYER_Y) < rr * rr) {
+        player.crash = 1;
+        shakeT = 16;
+        flashT = 14;
+        state = "dying";
+        beep(110, 0.25, "sawtooth", 0.09);
+        beep(70, 0.35, "square", 0.07);
+        setTimeout(gameOver, 380);
+        return;
+      }
+    }
+
+    // ---- gates ----
+    for (let i = gates.length - 1; i >= 0; i--) {
+      const g = gates[i];
+      g.y += scroll;
+      if (!g.scored && g.y >= PLAYER_Y - 2 && g.y < PLAYER_Y + scroll + 2) {
+        g.scored = true;
+        const inGate = player.x > g.x + 6 && player.x < g.x + g.w - 6;
+        if (inGate) {
+          gates++;
+          distance += 22; // gate bonus
+          beep(880, 0.1, "sine", 0.06);
+          beep(1180, 0.08, "sine", 0.04);
+        }
+      }
+      if (g.y > H + 70) gates.splice(i, 1);
+    }
+
+    if (shakeT > 0) shakeT -= frame;
+    if (flashT > 0) flashT -= frame;
+  }
+
+  /* ============ RENDER ============ */
+  function drawBackground() {
+    // base snow gradient
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, "#eef6fd");
+    grad.addColorStop(0.55, "#dceaf7");
+    grad.addColorStop(1, "#cddff0");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    // side banks
+    ctx.fillStyle = "rgba(150, 180, 205, 0.35)";
+    ctx.fillRect(0, 0, SLOPE_MARGIN, H);
+    ctx.fillRect(W - SLOPE_MARGIN, 0, SLOPE_MARGIN, H);
+    ctx.fillStyle = "rgba(120, 155, 185, 0.5)";
+    ctx.fillRect(SLOPE_MARGIN - 3, 0, 3, H);
+    ctx.fillRect(W - SLOPE_MARGIN, 0, 3, H);
+
+    // decorative pines along the banks
+    for (let y = -30; y < H + 30; y += 90) {
+      drawPine(SLOPE_MARGIN * 0.5, y, 11, "rgba(70, 120, 90, 0.55)");
+      drawPine(W - SLOPE_MARGIN * 0.5, y + 45, 11, "rgba(70, 120, 90, 0.55)");
+    }
+
+    // snow tracks
+    ctx.lineCap = "round";
+    for (let i = 0; i < snowMarks.length; i++) {
+      const m = snowMarks[i];
+      ctx.strokeStyle = "rgba(120, 150, 180, " + m.a + ")";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(m.x, m.y);
+      ctx.lineTo(m.x + 2, m.y + m.len);
+      ctx.stroke();
+    }
+  }
+
+  function drawPine(x, y, s, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x, y - s);
+    ctx.lineTo(x - s * 0.7, y + s * 0.6);
+    ctx.lineTo(x + s * 0.7, y + s * 0.6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "rgba(90, 70, 50, 0.6)";
+    ctx.fillRect(x - 2, y + s * 0.6, 4, 5);
+  }
+
+  function drawGate(g) {
+    const topY = g.y - 30;
+    // banner across the gap
+    ctx.strokeStyle = "rgba(220, 60, 80, 0.9)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(g.x, g.y);
+    ctx.lineTo(g.x + g.w, g.y);
+    ctx.stroke();
+    ctx.setLineDash([7, 5]);
+    ctx.strokeStyle = "rgba(220, 60, 80, 0.5)";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(g.x + 4, topY);
+    ctx.lineTo(g.x + g.w - 4, topY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    drawFlag(g.x, g.y);
+    drawFlag(g.x + g.w, g.y);
+  }
+
+  function drawFlag(x, y) {
+    ctx.fillStyle = "#5a6472";
+    ctx.fillRect(x - 1.5, y - 30, 3, 30);
+    ctx.fillStyle = "#e8455f";
+    ctx.beginPath();
+    ctx.moveTo(x + 1.5, y - 30);
+    ctx.lineTo(x + 20, y - 24);
+    ctx.lineTo(x + 1.5, y - 16);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawObstacle(o) {
+    if (o.type === "tree") {
+      ctx.save();
+      ctx.translate(o.x, o.y);
+      // shadow
+      ctx.fillStyle = "rgba(90, 120, 145, 0.28)";
+      ctx.beginPath();
+      ctx.ellipse(3, 16, 18, 7, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#3f7d54";
+      ctx.beginPath();
+      ctx.moveTo(0, -30);
+      ctx.lineTo(-19, 8);
+      ctx.lineTo(19, 8);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#4f9a66";
+      ctx.beginPath();
+      ctx.moveTo(0, -30);
+      ctx.lineTo(-12, -6);
+      ctx.lineTo(12, -6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#6b4a30";
+      ctx.fillRect(-4, 8, 8, 9);
+      ctx.restore();
+    } else if (o.type === "rock") {
+      ctx.save();
+      ctx.translate(o.x, o.y);
+      ctx.fillStyle = "rgba(90, 120, 145, 0.28)";
+      ctx.beginPath();
+      ctx.ellipse(3, 13, 16, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#8a94a3";
+      ctx.beginPath();
+      ctx.moveTo(-15, 10); ctx.lineTo(-9, -11); ctx.lineTo(6, -14);
+      ctx.lineTo(16, 0); ctx.lineTo(10, 12); ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#a6b0be";
+      ctx.beginPath();
+      ctx.moveTo(-9, -11); ctx.lineTo(6, -14); ctx.lineTo(2, -1); ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    } else if (o.type === "skier") {
+      ctx.save();
+      ctx.translate(o.x, o.y);
+      ctx.rotate(0.12 * Math.sin(runTime / 120));
+      ctx.fillStyle = "rgba(90, 120, 145, 0.3)";
+      ctx.beginPath();
+      ctx.ellipse(2, 14, 15, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // skis
+      ctx.fillStyle = "#2b3a4a";
+      ctx.fillRect(-13, 10, 26, 3);
+      // body
+      ctx.fillStyle = "#e0662f";
+      ctx.beginPath();
+      ctx.arc(0, 0, 9, 0, Math.PI * 2);
+      ctx.fill();
+      // helmet
+      ctx.fillStyle = "#f2c33d";
+      ctx.beginPath();
+      ctx.arc(0, -3, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    } else if (o.type === "ramp") {
+      ctx.save();
+      ctx.translate(o.x, o.y);
+      ctx.fillStyle = "rgba(90, 120, 145, 0.28)";
+      ctx.beginPath();
+      ctx.ellipse(3, 14, 34, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      const gr = ctx.createLinearGradient(0, -12, 0, 12);
+      gr.addColorStop(0, "#ffffff");
+      gr.addColorStop(1, "#b9d2e6");
+      ctx.fillStyle = gr;
+      ctx.beginPath();
+      ctx.moveTo(-o.w / 2, 12);
+      ctx.lineTo(o.w / 2, 12);
+      ctx.lineTo(o.w / 2 - 10, -12);
+      ctx.lineTo(-o.w / 2 + 10, -12);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = "#7fa0bd";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function drawPlayer() {
+    const x = player.x;
+    const y = PLAYER_Y - player.z;
+    ctx.save();
+    ctx.translate(x, y);
+
+    // shadow grows with altitude
+    const sh = Math.max(0.25, 1 - player.z / 120);
+    ctx.fillStyle = "rgba(80, 110, 140, " + (0.3 * sh) + ")";
+    ctx.beginPath();
+    ctx.ellipse(0, PLAYER_Y - y + 14, 15 * sh + 4, 6 * sh + 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.rotate(player.tilt * 0.6);
+    // board
+    ctx.fillStyle = "#20303f";
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(-9, 8, 18, 26, 6) : ctx.rect(-9, 8, 18, 26);
+    ctx.fill();
+    ctx.fillStyle = "#37b0e0";
+    ctx.fillRect(-9, 8, 18, 5);
+    // jacket
+    ctx.fillStyle = "#1f9e63";
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(-11, -10, 22, 22, 7) : ctx.rect(-11, -10, 22, 22);
+    ctx.fill();
+    // arms
+    ctx.strokeStyle = "#1f9e63";
+    ctx.lineWidth = 6;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(-9, -4); ctx.lineTo(-17, 2);
+    ctx.moveTo(9, -4); ctx.lineTo(17, 2);
+    ctx.stroke();
+    // helmet
+    ctx.fillStyle = "#f2c33d";
+    ctx.beginPath();
+    ctx.arc(0, -16, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#12313f";
+    ctx.fillRect(-8, -17, 16, 3);
+    ctx.restore();
+  }
+
+  function drawHUD() {
+    ctx.save();
+    ctx.fillStyle = "rgba(10, 26, 40, 0.55)";
+    ctx.fillRect(0, 0, W, 40);
+    ctx.font = "bold 15px 'Segoe UI', sans-serif";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#dff3ff";
+    ctx.textAlign = "left";
+    ctx.fillText("DIST " + Math.floor(distance) + " m", 14, 14);
+    ctx.fillText("GATES " + gates, 14, 30);
+    ctx.textAlign = "right";
+    ctx.fillText("SPEED " + (speed * 6.2).toFixed(0) + " km/h", W - 14, 14);
+    ctx.fillStyle = "#8fe0b6";
+    ctx.fillText("BEST " + best, W - 14, 30);
+    if (player.z > 12) {
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#ffd34d";
+      ctx.fillText("AIRTIME!", W / 2, 30);
+    }
+    ctx.restore();
+  }
+
+  function render() {
+    ctx.save();
+    if (shakeT > 0) {
+      ctx.translate(rand(-4, 4), rand(-4, 4));
+    }
+    drawBackground();
+    for (let i = 0; i < gates.length; i++) drawGate(gates[i]);
+    for (let i = 0; i < obstacles.length; i++) drawObstacle(obstacles[i]);
+    drawPlayer();
+    ctx.restore();
+
+    drawHUD();
+
+    if (flashT > 0) {
+      ctx.fillStyle = "rgba(255, 60, 60, " + (flashT / 40) + ")";
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    if (state === "paused") {
+      ctx.fillStyle = "rgba(8, 20, 34, 0.6)";
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "#dff3ff";
+      ctx.textAlign = "center";
+      ctx.font = "bold 30px 'Segoe UI', sans-serif";
+      ctx.fillText("PAUSED", W / 2, H / 2);
+      ctx.font = "14px 'Segoe UI', sans-serif";
+      ctx.fillStyle = "#8fb2cd";
+      ctx.fillText("Press P or tap to resume", W / 2, H / 2 + 30);
+    }
+  }
+
+  /* ============ LOOP ============ */
+  function loop(now) {
+    requestAnimationFrame(loop);
+    if (!lastTime) lastTime = now;
+    let dt = (now - lastTime) / 16.6667;
+    lastTime = now;
+    if (dt > 3) dt = 3;
+
+    if (state === "playing" || state === "dying") update(dt);
+    render();
+  }
+
+  /* ============ UI WIRING ============ */
+  document.getElementById("btnStart").addEventListener("click", startRun);
+  document.getElementById("btnRestart").addEventListener("click", startRun);
+  document.getElementById("btnReset").addEventListener("click", startRun);
+  document.getElementById("btnPause").addEventListener("click", togglePause);
+
+  /* ============ BOOT ============ */
+  resetWorld();
+  state = "start";
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

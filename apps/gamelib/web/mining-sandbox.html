@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>⛏️ Sandbox Blocks — Mining Sandbox</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --ink: #f4ead8; --panel: rgba(28, 22, 18, 0.86); --panel-b: rgba(120, 98, 74, 0.55);
+      --accent: #f0b429; --accent-2: #8fd14f; --danger: #e5533d;
+    }
+    html, body { height: 100%; }
+    body {
+      font-family: 'Trebuchet MS', 'Segoe UI', Tahoma, sans-serif; background: #12100d; color: var(--ink);
+      overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none;
+    }
+    /* ============ STAGE ============ */
+    #stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+    #game { display: block; width: 100%; height: 100%; image-rendering: pixelated; cursor: crosshair; }
+    /* ============ HUD ============ */
+    .hud {
+      position: absolute; top: 10px; left: 10px; right: 10px; display: flex; gap: 8px;
+      align-items: flex-start; pointer-events: none; flex-wrap: wrap;
+    }
+    .chip {
+      background: var(--panel); border: 1px solid var(--panel-b); border-radius: 10px; padding: 6px 10px;
+      font-size: 13px; letter-spacing: 0.3px; line-height: 1.35;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45); backdrop-filter: blur(3px);
+    }
+    .chip b { color: var(--accent); font-weight: 700; }
+    .chip .k { opacity: 0.7; }
+    #titleChip { pointer-events: none; }
+    #titleChip .sub { font-size: 11px; opacity: 0.6; display: block; }
+    .hud .spacer { flex: 1 1 auto; }
+    .btn {
+      pointer-events: auto; cursor: pointer; background: linear-gradient(180deg, #4a3d31, #33291f);
+      color: var(--ink); border: 1px solid rgba(240, 180, 41, 0.4); border-radius: 10px; padding: 7px 12px;
+      font: inherit; font-size: 13px; font-weight: 700; transition: transform 0.08s ease, filter 0.15s ease;
+    }
+    .btn:hover { filter: brightness(1.18); }
+    .btn:active { transform: translateY(1px) scale(0.98); }
+    .btn.gold { background: linear-gradient(180deg, #f6c453, #d99420); color: #2b1f0b; border-color: #ffe49a; }
+    /* ============ HOTBAR ============ */
+    .hotbar {
+      position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; gap: 6px;
+      padding: 7px; background: var(--panel); border: 1px solid var(--panel-b); border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+    .slot {
+      width: 52px; height: 56px; border-radius: 9px; background: rgba(0, 0, 0, 0.28);
+      border: 2px solid rgba(255, 255, 255, 0.12); display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 3px; cursor: pointer; position: relative;
+      transition: border-color 0.12s ease, transform 0.08s ease;
+    }
+    .slot:active { transform: scale(0.95); }
+    .slot.sel { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(240, 180, 41, 0.28) inset; }
+    .slot .ico { width: 22px; height: 22px; border-radius: 4px; box-shadow: inset -3px -3px 0 rgba(0,0,0,0.28), inset 3px 3px 0 rgba(255,255,255,0.18); }
+    .slot .cnt { font-size: 11px; font-weight: 700; color: #ffe9b8; }
+    .slot .key { position: absolute; top: 2px; left: 4px; font-size: 9px; opacity: 0.55; }
+    .slot.empty { opacity: 0.45; }
+    /* ============ CRAFT PANEL ============ */
+    .craft {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(92vw, 460px);
+      max-height: 84vh; overflow-y: auto; background: var(--panel); border: 1px solid var(--panel-b);
+      border-radius: 16px; padding: 16px; box-shadow: 0 16px 50px rgba(0, 0, 0, 0.6); z-index: 30;
+    }
+    .craft h2 { font-size: 18px; margin-bottom: 4px; color: var(--accent); }
+    .craft p.hint { font-size: 12px; opacity: 0.7; margin-bottom: 12px; }
+    .recipe {
+      display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.09); background: rgba(0, 0, 0, 0.22); margin-bottom: 8px;
+    }
+    .recipe .ico { width: 26px; height: 26px; border-radius: 5px; flex: 0 0 auto; box-shadow: inset -3px -3px 0 rgba(0,0,0,0.28), inset 3px 3px 0 rgba(255,255,255,0.18); }
+    .recipe .info { flex: 1 1 auto; }
+    .recipe .name { font-size: 14px; font-weight: 700; }
+    .recipe .cost { font-size: 11.5px; opacity: 0.75; }
+    .recipe .cost .miss { color: var(--danger); }
+    .recipe button { flex: 0 0 auto; padding: 7px 12px; font-size: 12.5px; }
+    .recipe button:disabled { filter: grayscale(1) brightness(0.7); cursor: not-allowed; opacity: 0.6; }
+    /* ============ OVERLAY (start / pause) ============ */
+    .overlay {
+      position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; text-align: center; gap: 12px; padding: 24px;
+      background: radial-gradient(circle at 50% 35%, rgba(60, 48, 34, 0.86), rgba(10, 9, 7, 0.96));
+      z-index: 40; transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    .overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    .overlay h1 { font-size: clamp(26px, 6vw, 44px); color: var(--accent); letter-spacing: 1px; text-shadow: 0 3px 0 rgba(0,0,0,0.5); }
+    .overlay .tag { font-size: clamp(12px, 2.6vw, 15px); opacity: 0.8; max-width: 520px; line-height: 1.55; }
+    .overlay .keys { display: grid; grid-template-columns: auto auto; gap: 4px 14px; font-size: 12.5px; opacity: 0.85; text-align: left; margin-top: 6px; }
+    .overlay .keys span:nth-child(odd) { color: var(--accent-2); font-weight: 700; white-space: nowrap; }
+    .overlay .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
+    /* ============ TOAST ============ */
+    #toast {
+      position: absolute; left: 50%; bottom: 92px; transform: translateX(-50%) translateY(8px);
+      background: rgba(20, 16, 12, 0.92); border: 1px solid var(--panel-b); border-radius: 10px;
+      padding: 8px 14px; font-size: 13px; opacity: 0; pointer-events: none; z-index: 35;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    /* ============ MOBILE CONTROLS ============ */
+    .touch { position: absolute; bottom: 84px; display: none; gap: 10px; z-index: 20; }
+    .touch.left { left: 14px; }
+    .touch.right { right: 14px; }
+    .tbtn {
+      width: 58px; height: 58px; border-radius: 50%; background: var(--panel); border: 2px solid var(--panel-b);
+      color: var(--ink); font-size: 22px; font-weight: 700; display: flex; align-items: center;
+      justify-content: center; -webkit-tap-highlight-color: transparent;
+    }
+    .tbtn:active { background: rgba(90, 74, 56, 0.9); }
+    body.touch-on .touch { display: flex; }
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 560px) {
+      .hotbar { bottom: 10px; }
+      .slot { width: 44px; height: 48px; }
+      #titleChip .sub { display: none; }
+      .hud { gap: 6px; }
+      .chip { font-size: 11.5px; padding: 5px 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="game"></canvas>
+
+    <!-- ============ HUD ============ -->
+    <div class="hud">
+      <div class="chip" id="titleChip">⛏️ <b>SANDBOX BLOCKS</b><span class="sub">dig · build · explore</span></div>
+      <div class="chip"><span class="k">Tool:</span> <b id="toolName">Bare Hands</b></div>
+      <div class="chip"><span class="k">Depth:</span> <b id="depthVal">0</b>m</div>
+      <div class="spacer"></div>
+      <button class="btn gold" id="craftBtn">Craft (E)</button>
+      <button class="btn" id="saveBtn">Save</button>
+      <button class="btn" id="menuBtn">Menu</button>
+    </div>
+
+    <!-- ============ HOTBAR ============ -->
+    <div class="hotbar" id="hotbar"></div>
+
+    <!-- ============ TOAST ============ -->
+    <div id="toast"></div>
+
+    <!-- ============ TOUCH CONTROLS ============ -->
+    <div class="touch left">
+      <button class="tbtn" id="tLeft">◀</button>
+      <button class="tbtn" id="tRight">▶</button>
+    </div>
+    <div class="touch right">
+      <button class="tbtn" id="tPlace">🧱</button>
+      <button class="tbtn" id="tJump">▲</button>
+    </div>
+
+    <!-- ============ CRAFT PANEL ============ -->
+    <div class="craft" id="craftPanel" style="display:none">
+      <h2>Crafting Bench</h2>
+      <p class="hint">Turn raw blocks into tools and materials. Press E or ✕ to close.</p>
+      <div id="recipeList"></div>
+      <div class="row" style="display:flex;justify-content:flex-end;margin-top:10px">
+        <button class="btn" id="closeCraft">✕ Close</button>
+      </div>
+    </div>
+
+    <!-- ============ START OVERLAY ============ -->
+    <div class="overlay" id="startOverlay">
+      <h1>SANDBOX BLOCKS</h1>
+      <div class="tag">A little world to dig, build and explore. Mine ore, craft a pickaxe and torch, hollow out a cozy cave base. Everything saves to your browser.</div>
+      <div class="keys">
+        <span>A / D or ← →</span><span>walk</span>
+        <span>W / Space</span><span>jump</span>
+        <span>Left-click (hold)</span><span>mine block</span>
+        <span>Right-click</span><span>place block</span>
+        <span>1 – 5</span><span>select hotbar</span>
+        <span>E</span><span>crafting</span>
+      </div>
+      <div class="row">
+        <button class="btn gold" id="newBtn">New World</button>
+        <button class="btn" id="continueBtn" style="display:none">Continue</button>
+      </div>
+    </div>
+
+    <!-- ============ MENU OVERLAY ============ -->
+    <div class="overlay hidden" id="menuOverlay">
+      <h1>Paused</h1>
+      <div class="tag" id="menuStats"></div>
+      <div class="row">
+        <button class="btn gold" id="resumeBtn">Resume</button>
+        <button class="btn" id="menuSaveBtn">Save World</button>
+        <button class="btn" id="wipeBtn">Delete Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============ GAME CONFIGURATION ============
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    const TS = 24;                 // tile size in world units
+    const W = 72, H = 52;          // world size in tiles
+    const GRAVITY = 46;            // tiles / s^2
+    const MOVE_SPEED = 6.2;        // tiles / s
+    const JUMP_VEL = 14.2;         // tiles / s
+    const REACH = 5.2;             // mining / placing reach (tiles)
+    const SAVE_KEY = 'sandboxBlocks.save.v1';
+    const OPT_KEY = 'sandboxBlocks.opt.v1';
+
+    // ============ TILE DEFINITIONS ============
+    const AIR = 0, SOIL = 1, ROCK = 2, COAL = 3, IRON = 4, GOLD = 5, GEM = 6,
+          WOOD = 7, LEAF = 8, PLANK = 9, TORCH = 10, BEDROCK = 11;
+
+    const TILE = {
+      [AIR]:    { name: 'Air',      solid: false, hard: 0,    c1: '#000000', c2: '#000000', place: false },
+      [SOIL]:   { name: 'Soil',     solid: true,  hard: 0.5,  c1: '#8a5a34', c2: '#6d451f', place: true },
+      [ROCK]:   { name: 'Rock',     solid: true,  hard: 1.15, c1: '#8d8f96', c2: '#6c6f78', place: true },
+      [COAL]:   { name: 'Coal',     solid: true,  hard: 1.35, c1: '#9a9ba2', c2: '#3a3a40', place: false, fleck: '#20222a' },
+      [IRON]:   { name: 'Iron Ore', solid: true,  hard: 1.9,  c1: '#9a9ba2', c2: '#b8703f', place: false, fleck: '#c07a45' },
+      [GOLD]:   { name: 'Gold Ore', solid: true,  hard: 1.7,  c1: '#9a9ba2', c2: '#d8a92a', place: false, fleck: '#f2c53d' },
+      [GEM]:    { name: 'Gemshard', solid: true,  hard: 2.5,  c1: '#8d8f96', c2: '#4fd0c8', place: false, fleck: '#7ff0e8' },
+      [WOOD]:   { name: 'Wood',     solid: true,  hard: 0.85, c1: '#8b6237', c2: '#5f421f', place: true },
+      [LEAF]:   { name: 'Leaf',     solid: true,  hard: 0.2,  c1: '#5fae3a', c2: '#3f7f26', place: false },
+      [PLANK]:  { name: 'Plank',    solid: true,  hard: 0.7,  c1: '#c99a5b', c2: '#a87a3f', place: true },
+      [TORCH]:  { name: 'Torch',    solid: false, hard: 0.12, c1: '#ffd27a', c2: '#c9741f', place: true },
+      [BEDROCK]:{ name: 'Bedrock',  solid: true,  hard: Infinity, c1: '#3b3b41', c2: '#26262b', place: false }
+    };
+
+    // ============ CRAFTING RECIPES ============
+    const RECIPES = [
+      { id: 'plank',     name: 'Planks x2',    c1: '#c99a5b', c2: '#a87a3f', cost: { [WOOD]: 1 }, run: () => give(PLANK, 2) },
+      { id: 'torch',     name: 'Torches x2',   c1: '#ffd27a', c2: '#c9741f', cost: { [WOOD]: 1, [COAL]: 1 }, run: () => give(TORCH, 2) },
+      { id: 'pick_stone',name: 'Stone Pickaxe',c1: '#a9adb5', c2: '#7d818a', cost: { [WOOD]: 2, [ROCK]: 3 }, run: () => equipTool('stone') },
+      { id: 'pick_iron', name: 'Iron Pickaxe', c1: '#d79a63', c2: '#a86b39', cost: { [WOOD]: 2, [IRON]: 4 }, run: () => equipTool('iron') },
+      { id: 'lantern',   name: 'Glow Lantern', c1: '#ffe08a', c2: '#f0a52a', cost: { [GOLD]: 1, [GEM]: 1, [TORCH]: 1 }, run: () => { give(TORCH, 6); toast('Glow Lantern crafted — 6 torches added'); } }
+    ];
+
+    const TOOL = { none: { name: 'Bare Hands', power: 0 }, stone: { name: 'Stone Pickaxe', power: 2.2 }, iron: { name: 'Iron Pickaxe', power: 5.2 } };
+
+    // ============ GAME STATE ============
+    let tiles = new Uint8Array(W * H).fill(AIR);
+    let light = new Uint8Array(W * H);
+    let lightDirty = true;
+
+    const player = { x: W / 2, y: 6, vx: 0, vy: 0, w: 0.78, h: 1.7, onGround: false, face: 1, walkPhase: 0 };
+    const cam = { x: 0, y: 0 };
+
+    const inv = {};              // tileId -> count
+    let hotbar = [SOIL, ROCK, WOOD, PLANK, TORCH];
+    let selected = 0;
+    let tool = 'none';
+
+    let running = false, paused = false;
+    let stats = { mined: 0, placed: 0, crafted: 0, started: Date.now() };
+    let mouse = { x: 0, y: 0, down: false, rdown: false, wx: 0, wy: 0, tx: 0, ty: 0, inReach: false, active: false };
+    let particles = [];
+    let dig = { tx: -1, ty: -1, t: 0 };
+    let shake = 0;
+    let lastSave = 0;
+
+    // ============ DOM ELEMENTS ============
+    const toolNameEl = document.getElementById('toolName');
+    const depthValEl = document.getElementById('depthVal');
+    const hotbarEl = document.getElementById('hotbar');
+    const craftPanel = document.getElementById('craftPanel');
+    const recipeListEl = document.getElementById('recipeList');
+    const startOverlay = document.getElementById('startOverlay');
+    const menuOverlay = document.getElementById('menuOverlay');
+    const menuStats = document.getElementById('menuStats');
+    const toastEl = document.getElementById('toast');
+    const continueBtn = document.getElementById('continueBtn');
+
+    // ============ AUDIO (WebAudio beep) ============
+    let actx = null;
+    function beep(freq, dur, type, vol) {
+      try {
+        if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = actx.createOscillator(), g = actx.createGain();
+        o.type = type || 'square';
+        o.frequency.value = freq || 440;
+        g.gain.value = (vol == null ? 0.05 : vol);
+        o.connect(g); g.connect(actx.destination);
+        const t = actx.currentTime;
+        g.gain.setValueAtTime(g.gain.value, t);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + (dur || 0.08));
+        o.start(t); o.stop(t + (dur || 0.08));
+      } catch (e) { /* audio unavailable — silent */ }
+    }
+
+    // ============ UTILITIES ============
+    const idx = (x, y) => y * W + x;
+    const inBounds = (x, y) => x >= 0 && y >= 0 && x < W && y < H;
+    const tileAt = (x, y) => (inBounds(x, y) ? tiles[idx(x, y)] : ROCK);
+    const isSolid = (x, y) => !!TILE[tileAt(x, y)].solid;
+    const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+
+    function toast(msg) {
+      toastEl.textContent = msg;
+      toastEl.classList.add('show');
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => toastEl.classList.remove('show'), 1600);
+    }
+
+    // ============ WORLD GENERATION ============
+    function generateWorld(seed) {
+      let s = seed || (Math.random() * 1e9) | 0;
+      const rnd = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+      tiles = new Uint8Array(W * H).fill(AIR);
+
+      // Surface heightmap via layered sine noise
+      const surf = new Array(W);
+      for (let x = 0; x < W; x++) {
+        const n = Math.sin(x * 0.09 + s * 0.001) * 2.2 + Math.sin(x * 0.21 + 3.1) * 1.1;
+        surf[x] = Math.round(H * 0.32 + n);
+      }
+
+      // Fill columns: soil band + rock below, bedrock floor
+      for (let x = 0; x < W; x++) {
+        const top = surf[x];
+        for (let y = top; y < H; y++) {
+          let t;
+          if (y >= H - 2) t = BEDROCK;
+          else if (y < top + 4) t = SOIL;
+          else t = ROCK;
+          tiles[idx(x, y)] = t;
+        }
+      }
+
+      // Carve caves with a few random walks
+      const caves = 16;
+      for (let c = 0; c < caves; c++) {
+        let cx = 4 + Math.floor(rnd() * (W - 8));
+        let cy = Math.floor(surf[cx] + 5 + rnd() * (H - surf[cx] - 10));
+        let len = 40 + Math.floor(rnd() * 120);
+        let dir = Math.floor(rnd() * 4);
+        let r = 1 + Math.floor(rnd() * 2);
+        for (let i = 0; i < len; i++) {
+          for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+            const nx = cx + dx, ny = cy + dy;
+            if (inBounds(nx, ny) && tiles[idx(nx, ny)] !== BEDROCK && !(ny < surf[nx] + 1)) {
+              tiles[idx(nx, ny)] = AIR;
+            }
+          }
+          if (rnd() < 0.28) dir = (dir + (rnd() < 0.5 ? 1 : 3)) % 4;
+          if (dir === 0) cx++; else if (dir === 1) cx--; else if (dir === 2) cy++; else cy--;
+          cx = clamp(cx, 3, W - 4); cy = clamp(cy, surf[cx] + 3, H - 4);
+          if (rnd() < 0.08) r = 1 + Math.floor(rnd() * 2);
+        }
+      }
+
+      // Scatter ores (deeper = better)
+      scatterOre(rnd, COAL, 130, 0.28);
+      scatterOre(rnd, IRON, 70, 0.5);
+      scatterOre(rnd, GOLD, 34, 0.7);
+      scatterOre(rnd, GEM, 16, 0.85);
+
+      // Plant trees on the surface
+      for (let x = 3; x < W - 3; x++) {
+        if (rnd() < 0.11) {
+          const top = surf[x];
+          if (tiles[idx(x, top)] !== SOIL) continue;
+          const th = 3 + Math.floor(rnd() * 3);
+          for (let i = 0; i < th; i++) if (inBounds(x, top - 1 - i)) tiles[idx(x, top - 1 - i)] = WOOD;
+          const ly = top - th - 1;
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -2; dx <= 2; dx++) {
+            if (Math.abs(dx) === 2 && dy !== 0) continue;
+            const nx = x + dx, ny = ly + dy;
+            if (inBounds(nx, ny) && tiles[idx(nx, ny)] === AIR) tiles[idx(nx, ny)] = LEAF;
+          }
+        }
+      }
+      lightDirty = true;
+    }
+
+    function scatterOre(rnd, tile, count, minDepth) {
+      for (let i = 0; i < count; i++) {
+        const x = 1 + Math.floor(rnd() * (W - 2));
+        const yFloor = Math.floor(H * (0.42 + minDepth * 0.5));
+        const y = clamp(yFloor + Math.floor(rnd() * (H - yFloor - 3)), 1, H - 3);
+        const vein = 1 + Math.floor(rnd() * 3);
+        for (let v = 0; v < vein; v++) {
+          const nx = clamp(x + Math.floor(rnd() * 3) - 1, 1, W - 2);
+          const ny = clamp(y + Math.floor(rnd() * 3) - 1, 1, H - 3);
+          if (tiles[idx(nx, ny)] === ROCK) tiles[idx(nx, ny)] = tile;
+        }
+      }
+    }
+
+    // ============ LIGHTING ============
+    function computeLight() {
+      const n = W * H;
+      const L = new Uint8Array(n);
+      const q = [];
+      // Sky light down each column until the first opaque block
+      for (let x = 0; x < W; x++) {
+        for (let y = 0; y < H; y++) {
+          const i = idx(x, y);
+          if (tiles[i] === AIR) { L[i] = 15; q.push(i); }
+          else break;
+        }
+      }
+      // Torch emitters
+      for (let i = 0; i < n; i++) if (tiles[i] === TORCH) { L[i] = 14; q.push(i); }
+
+      let head = 0;
+      while (head < q.length) {
+        const i = q[head++];
+        const l = L[i];
+        if (l <= 1) continue;
+        const x = i % W, y = (i / W) | 0;
+        const nl = l - 1;
+        if (x > 0 && nl > L[i - 1]) { L[i - 1] = nl; q.push(i - 1); }
+        if (x < W - 1 && nl > L[i + 1]) { L[i + 1] = nl; q.push(i + 1); }
+        if (y > 0 && nl > L[i - W]) { L[i - W] = nl; q.push(i - W); }
+        if (y < H - 1 && nl > L[i + W]) { L[i + W] = nl; q.push(i + W); }
+      }
+      light = L;
+      lightDirty = false;
+    }
+
+    // ============ INVENTORY ============
+    function give(tile, amount) {
+      inv[tile] = (inv[tile] || 0) + (amount || 1);
+      if (TILE[tile].place && !hotbar.includes(tile)) hotbar[hotbar.length - 1] = tile;
+      buildHotbar();
+    }
+    function take(tile, amount) {
+      if ((inv[tile] || 0) < amount) return false;
+      inv[tile] -= amount;
+      if (inv[tile] <= 0) delete inv[tile];
+      buildHotbar();
+      return true;
+    }
+
+    function buildHotbar() {
+      hotbarEl.innerHTML = '';
+      hotbar.forEach((tile, i) => {
+        const t = TILE[tile];
+        const count = inv[tile] || 0;
+        const el = document.createElement('div');
+        el.className = 'slot' + (i === selected ? ' sel' : '') + (count <= 0 ? ' empty' : '');
+        el.innerHTML = '<span class="key">' + (i + 1) + '</span>' +
+          '<span class="ico" style="background:linear-gradient(145deg,' + t.c1 + ',' + t.c2 + ')"></span>' +
+          '<span class="cnt">' + count + '</span>';
+        el.title = t.name;
+        el.addEventListener('click', () => { selected = i; buildHotbar(); beep(520, 0.04, 'square', 0.03); });
+        hotbarEl.appendChild(el);
+      });
+    }
+
+    // ============ PHYSICS & COLLISION ============
+    function solidInRect(x, y, w, h) {
+      const x0 = Math.floor(x), x1 = Math.floor(x + w - 0.0001);
+      const y0 = Math.floor(y), y1 = Math.floor(y + h - 0.0001);
+      for (let ty = y0; ty <= y1; ty++)
+        for (let tx = x0; tx <= x1; tx++)
+          if (isSolid(tx, ty)) return true;
+      return false;
+    }
+
+    function updatePlayer(dt) {
+      const ax = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+      player.vx = ax * MOVE_SPEED;
+      if (ax !== 0) { player.face = ax; player.walkPhase += dt * 9; }
+
+      // Horizontal move + resolve
+      let nx = player.x + player.vx * dt;
+      if (solidInRect(nx, player.y, player.w, player.h)) {
+        // step up single-block ledges for smoother walking
+        if (!solidInRect(nx, player.y - 0.1, player.w, player.h) && player.onGround) {
+          player.y -= 0.1;
+        } else {
+          nx = player.x;
+          player.vx = 0;
+        }
+      }
+      player.x = clamp(nx, 0.2, W - player.w - 0.2);
+
+      // Gravity
+      player.vy += GRAVITY * dt;
+      if (player.vy > 34) player.vy = 34;
+
+      // Vertical move + resolve
+      let ny = player.y + player.vy * dt;
+      if (solidInRect(player.x, ny, player.w, player.h)) {
+        if (player.vy > 0) { // landing
+          if (!player.onGround && player.vy > 8) shake = Math.min(0.4, player.vy * 0.02);
+          player.onGround = true;
+        }
+        ny = player.y;
+        player.vy = 0;
+      } else {
+        player.onGround = false;
+      }
+      player.y = clamp(ny, 0, H - player.h - 0.001);
+    }
+
+    // ============ MINING ============ */
+    function mineTime(tile) {
+      const t = TILE[tile];
+      if (!isFinite(t.hard)) return Infinity;
+      const power = TOOL[tool].power;
+      return t.hard / (0.7 + power * 1.15) * 1.15;
+    }
+
+    function attemptMine(dt) {
+      if (!mouse.active || !mouse.inReach) { dig.tx = -1; dig.t = 0; return; }
+      const tile = tileAt(mouse.tx, mouse.ty);
+      if (tile === AIR) { dig.tx = -1; dig.t = 0; return; }
+
+      if (dig.tx !== mouse.tx || dig.ty !== mouse.ty) { dig.tx = mouse.tx; dig.ty = mouse.ty; dig.t = 0; }
+
+      const need = mineTime(tile);
+      if (!isFinite(need)) { toast('Bedrock is indestructible'); dig.t = 0; return; }
+
+      dig.t += dt;
+      if (dig.t % 0.12 < dt) beep(140 + Math.random() * 40, 0.03, 'square', 0.02);
+      spawnDigParticles(mouse.tx, mouse.ty, tile);
+
+      if (dig.t >= need) {
+        breakTile(mouse.tx, mouse.ty);
+        dig.t = 0; dig.tx = -1;
+      }
+    }
+
+    function breakTile(x, y) {
+      const tile = tileAt(x, y);
+      if (tile === AIR) return;
+      tiles[idx(x, y)] = AIR;
+
+      // Leaves/wood drop handling
+      if (tile === LEAF) {
+        if (Math.random() < 0.25) give(WOOD, 1);
+      } else {
+        give(tile, 1);
+      }
+      stats.mined++;
+      beep(320 + Math.random() * 90, 0.07, 'triangle', 0.045);
+      burst(x, y, TILE[tile].c1, 8);
+      // Fall-through check: unsupported sand-like tiles? none. Recompute light.
+      lightDirty = true;
+      markSaveDirty();
+    }
+
+    function placeTile(x, y) {
+      const tile = hotbar[selected];
+      if (!tile || !TILE[tile].place) { toast('Nothing placeable selected'); return; }
+      if ((inv[tile] || 0) <= 0) { toast('Out of ' + TILE[tile].name); return; }
+      if (tileAt(x, y) !== AIR) return;
+
+      // Don't place inside the player
+      if (tile !== TORCH && withinPlayer(x, y)) { toast('Too close — move back'); return; }
+
+      tiles[idx(x, y)] = tile;
+      take(tile, 1);
+      stats.placed++;
+      beep(600, 0.05, 'sine', 0.04);
+      burst(x, y, TILE[tile].c1, 5);
+      lightDirty = true;
+      markSaveDirty();
+    }
+
+    function withinPlayer(tx, ty) {
+      // inset the body a little so you can still drop a block at your own feet
+      const x = player.x + 0.1, y = player.y + 0.15, w = player.w - 0.2, h = player.h - 0.3;
+      return tx + 1 > x && tx < x + w && ty + 1 > y && ty < y + h;
+    }
+
+    // ============ PARTICLES ============
+    function burst(tx, ty, color, n) {
+      for (let i = 0; i < n; i++) {
+        particles.push({
+          x: tx + 0.5, y: ty + 0.5,
+          vx: (Math.random() - 0.5) * 5,
+          vy: -Math.random() * 4 - 1,
+          life: 0.5 + Math.random() * 0.4, max: 0.9,
+          color, size: 0.1 + Math.random() * 0.16
+        });
+      }
+      if (particles.length > 420) particles.splice(0, particles.length - 420);
+    }
+    function spawnDigParticles(tx, ty, tile) {
+      if (particles.length > 380) return;
+      if (Math.random() < 0.5) particles.push({
+        x: tx + Math.random(), y: ty + Math.random(),
+        vx: (Math.random() - 0.5) * 1.6, vy: -Math.random() * 1.6,
+        life: 0.25, max: 0.25, color: TILE[tile].c1, size: 0.08 + Math.random() * 0.1
+      });
+    }
+    function updateParticles(dt) {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx * dt; p.y += p.vy * dt; p.vy += GRAVITY * dt;
+        p.life -= dt;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+    }
+
+    // ============ CRAFTING ============
+    function canCraft(recipe) {
+      return Object.keys(recipe.cost).every(k => (inv[k] || 0) >= recipe.cost[k]);
+    }
+    function craft(recipe) {
+      if (!canCraft(recipe)) { beep(180, 0.12, 'sawtooth', 0.04); return; }
+      Object.keys(recipe.cost).forEach(k => take(k, recipe.cost[k]));
+      recipe.run();
+      stats.crafted++;
+      beep(720, 0.09, 'sine', 0.05);
+      toast('Crafted: ' + recipe.name);
+      renderRecipes();
+      markSaveDirty();
+    }
+    function equipTool(tier) {
+      tool = tier;
+      updateHUD();
+      toast('Equipped: ' + TOOL[tier].name);
+    }
+
+    function renderRecipes() {
+      recipeListEl.innerHTML = '';
+      RECIPES.forEach(r => {
+        const ok = canCraft(r);
+        const costTxt = Object.keys(r.cost).map(k =>
+          '<span class="' + ((inv[k] || 0) >= r.cost[k] ? '' : 'miss') + '">' + r.cost[k] + '× ' + TILE[k].name + '</span>'
+        ).join(', ');
+        const el = document.createElement('div');
+        el.className = 'recipe';
+        el.innerHTML =
+          '<span class="ico" style="background:linear-gradient(145deg,' + r.c1 + ',' + r.c2 + ')"></span>' +
+          '<div class="info"><div class="name">' + r.name + '</div><div class="cost">' + costTxt + '</div></div>' +
+          '<button class="btn' + (ok ? ' gold' : '') + '"' + (ok ? '' : ' disabled') + '>Make</button>';
+        el.querySelector('button').addEventListener('click', () => craft(r));
+        recipeListEl.appendChild(el);
+      });
+    }
+
+    function toggleCraft(force) {
+      const open = force != null ? force : craftPanel.style.display === 'none';
+      craftPanel.style.display = open ? 'block' : 'none';
+      if (open) renderRecipes();
+    }
+
+    // ============ HUD ============
+    function updateHUD() {
+      toolNameEl.textContent = TOOL[tool].name;
+      const surfaceY = Math.round(H * 0.32);
+      const depth = Math.max(0, Math.round(((player.y - surfaceY + player.h) / 1) ));
+      depthValEl.textContent = depth;
+    }
+
+    // ============ SAVE / LOAD ============
+    let saveDirty = false;
+    function markSaveDirty() { saveDirty = true; }
+
+    function saveWorld() {
+      const data = {
+        v: 1,
+        tiles: Array.from(tiles),
+        player: { x: player.x, y: player.y },
+        inv: inv,
+        tool: tool,
+        hotbar: hotbar,
+        selected: selected,
+        stats: stats
+      };
+      try {
+        localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+        saveDirty = false;
+        lastSave = performance.now();
+      } catch (e) {
+        toast('Could not save (storage full?)');
+      }
+    }
+
+    function loadWorld() {
+      let raw = null;
+      try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { raw = null; }
+      if (!raw) return false;
+      try {
+        const data = JSON.parse(raw);
+        if (!data || !data.tiles || data.tiles.length !== W * H) return false;
+        tiles = Uint8Array.from(data.tiles);
+        player.x = data.player.x; player.y = data.player.y;
+        player.vx = player.vy = 0;
+        for (const k in inv) delete inv[k];
+        Object.assign(inv, data.inv || {});
+        tool = TOOL[data.tool] ? data.tool : 'none';
+        if (Array.isArray(data.hotbar) && data.hotbar.length === 5) hotbar = data.hotbar;
+        selected = clamp(data.selected || 0, 0, 4);
+        if (data.stats) stats = Object.assign(stats, data.stats);
+        lightDirty = true;
+        return true;
+      } catch (e) { return false; }
+    }
+
+    function wipeSave() {
+      try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+      toast('Save deleted');
+    }
+
+    // ============ RENDER ============ */
+    function resize() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.floor(window.innerWidth * dpr);
+      canvas.height = Math.floor(window.innerHeight * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    window.addEventListener('resize', resize);
+
+    function updateCamera() {
+      const vw = canvas.clientWidth, vh = canvas.clientHeight;
+      cam.x = player.x + player.w / 2 - vw / (2 * TS);
+      cam.y = player.y + player.h / 2 - vh / (2 * TS);
+      cam.x = clamp(cam.x, 0, Math.max(0, W - vw / TS));
+      cam.y = clamp(cam.y, 0, Math.max(0, H - vh / TS));
+    }
+
+    function draw() {
+      const vw = canvas.clientWidth, vh = canvas.clientHeight;
+      const ox = -cam.x * TS, oy = -cam.y * TS;
+
+      // Sky gradient (brighter near the surface)
+      const sky = ctx.createLinearGradient(0, 0, 0, vh);
+      sky.addColorStop(0, '#7fb6e8');
+      sky.addColorStop(0.55, '#bcd9ef');
+      sky.addColorStop(1, '#e8d9c0');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, vw, vh);
+
+      // Optional shaky camera on landing
+      ctx.save();
+      if (shake > 0.005) ctx.translate((Math.random() - 0.5) * shake * 12, (Math.random() - 0.5) * shake * 12);
+
+      const x0 = Math.max(0, Math.floor(cam.x) - 1);
+      const x1 = Math.min(W - 1, Math.ceil(cam.x + vw / TS) + 1);
+      const y0 = Math.max(0, Math.floor(cam.y) - 1);
+      const y1 = Math.min(H - 1, Math.ceil(cam.y + vh / TS) + 1);
+
+      // Tiles
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) {
+          const t = tiles[idx(x, y)];
+          if (t === AIR) continue;
+          drawTile(x, y, t, ox, oy);
+        }
+      }
+
+      // Darkness / light overlay
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) {
+          const i = idx(x, y);
+          const l = light[i] / 15;
+          const dark = 1 - l;
+          if (dark > 0.02) {
+            const a = dark * dark * 0.94;
+            ctx.fillStyle = 'rgba(6, 8, 16, ' + a.toFixed(3) + ')';
+            ctx.fillRect(ox + x * TS, oy + y * TS, TS, TS);
+          }
+        }
+      }
+
+      // Torch glow overlay
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) {
+          if (tiles[idx(x, y)] === TORCH) {
+            const cx = ox + x * TS + TS / 2, cy = oy + y * TS + TS / 2;
+            const g = ctx.createRadialGradient(cx, cy, 2, cx, cy, TS * 3.4);
+            g.addColorStop(0, 'rgba(255, 190, 90, 0.32)');
+            g.addColorStop(1, 'rgba(255, 190, 90, 0)');
+            ctx.fillStyle = g;
+            ctx.fillRect(cx - TS * 3.4, cy - TS * 3.4, TS * 6.8, TS * 6.8);
+          }
+        }
+      }
+
+      // Dig target outline + crack progress
+      if (mouse.active && mouse.inReach && tileAt(mouse.tx, mouse.ty) !== AIR) {
+        const t = tileAt(mouse.tx, mouse.ty);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(ox + mouse.tx * TS + 1, oy + mouse.ty * TS + 1, TS - 2, TS - 2);
+        if (dig.tx === mouse.tx && dig.ty === mouse.ty) {
+          const need = mineTime(t);
+          if (isFinite(need)) {
+            const p = clamp(dig.t / need, 0, 1);
+            ctx.fillStyle = 'rgba(0,0,0,' + (0.35 * p).toFixed(2) + ')';
+            ctx.fillRect(ox + mouse.tx * TS, oy + mouse.ty * TS, TS, TS);
+            // crack lines
+            ctx.strokeStyle = 'rgba(20,16,12,' + (0.7 * p).toFixed(2) + ')';
+            ctx.lineWidth = 1.5;
+            const cx = ox + mouse.tx * TS, cy = oy + mouse.ty * TS;
+            ctx.beginPath();
+            ctx.moveTo(cx + TS * 0.2, cy + TS * 0.1);
+            ctx.lineTo(cx + TS * 0.5, cy + TS * 0.5 * p + TS * 0.2);
+            ctx.lineTo(cx + TS * 0.3, cy + TS * (0.4 + 0.5 * p));
+            ctx.stroke();
+          } else {
+            ctx.strokeStyle = 'rgba(229,83,61,0.9)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(ox + mouse.tx * TS + 1, oy + mouse.ty * TS + 1, TS - 2, TS - 2);
+          }
+        }
+      }
+
+      // Particles
+      for (const p of particles) {
+        ctx.globalAlpha = clamp(p.life / p.max, 0, 1);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(ox + p.x * TS, oy + p.y * TS, p.size * TS, p.size * TS);
+      }
+      ctx.globalAlpha = 1;
+
+      // Player
+      drawPlayer(ox, oy);
+
+      ctx.restore();
+    }
+
+    function tileShade(x, y) {
+      // deterministic per-tile variation for texture
+      const h = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+      return (h % 100) / 100;
+    }
+
+    function drawTile(x, y, t, ox, oy) {
+      const def = TILE[t];
+      const px = ox + x * TS, py = oy + y * TS;
+      const v = tileShade(x, y);
+
+      if (t === TORCH) {
+        // stick + flame
+        ctx.fillStyle = '#6b4a26';
+        ctx.fillRect(px + TS * 0.42, py + TS * 0.35, TS * 0.16, TS * 0.6);
+        const flick = 0.5 + 0.5 * Math.sin(performance.now() * 0.012 + x);
+        const g = ctx.createRadialGradient(px + TS / 2, py + TS * 0.3, 1, px + TS / 2, py + TS * 0.3, TS * 0.4);
+        g.addColorStop(0, '#fff3c4');
+        g.addColorStop(0.5, '#ffb63d');
+        g.addColorStop(1, 'rgba(255,120,20,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(px + TS / 2, py + TS * 0.3, TS * (0.26 + flick * 0.06), 0, Math.PI * 2);
+        ctx.fill();
+        return;
+      }
+
+      if (t === LEAF) {
+        ctx.fillStyle = def.c1;
+        ctx.fillRect(px, py, TS, TS);
+        ctx.fillStyle = def.c2;
+        for (let i = 0; i < 3; i++) {
+          const hh = ((x * 31 + y * 17 + i * 13) >>> 0) % 3;
+          ctx.fillRect(px + hh * TS * 0.3 + 2, py + ((hh + i) % 3) * TS * 0.3 + 2, TS * 0.22, TS * 0.22);
+        }
+        return;
+      }
+
+      // Base fill with slight vertical shading
+      const g = ctx.createLinearGradient(px, py, px, py + TS);
+      g.addColorStop(0, def.c1);
+      g.addColorStop(1, def.c2);
+      ctx.fillStyle = g;
+      ctx.fillRect(px, py, TS, TS);
+
+      // Bevel highlight / shadow
+      ctx.fillStyle = 'rgba(255,255,255,' + (0.06 + v * 0.05).toFixed(3) + ')';
+      ctx.fillRect(px, py, TS, 2);
+      ctx.fillStyle = 'rgba(0,0,0,0.16)';
+      ctx.fillRect(px, py + TS - 2, TS, 2);
+
+      // Ore flecks
+      if (def.fleck) {
+        ctx.fillStyle = def.fleck;
+        const seeds = [[0.22, 0.28], [0.62, 0.2], [0.44, 0.62], [0.74, 0.7], [0.3, 0.78]];
+        for (let i = 0; i < seeds.length; i++) {
+          if ((((x * 92821 + y * 68917 + i * 7) >>> 0) % 10) < 6) {
+            const sx = px + seeds[i][0] * TS, sy = py + seeds[i][1] * TS;
+            ctx.beginPath();
+            ctx.arc(sx, sy, TS * 0.075, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+
+      // Wood grain
+      if (t === WOOD) {
+        ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(px + TS * 0.32, py); ctx.lineTo(px + TS * 0.32, py + TS); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(px + TS * 0.68, py); ctx.lineTo(px + TS * 0.68, py + TS); ctx.stroke();
+      }
+      // Plank lines
+      if (t === PLANK) {
+        ctx.strokeStyle = 'rgba(90,60,25,0.35)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(px, py + TS * 0.5); ctx.lineTo(px + TS, py + TS * 0.5); ctx.stroke();
+      }
+      // Bedrock speckle
+      if (t === BEDROCK) {
+        ctx.fillStyle = 'rgba(255,255,255,0.05)';
+        ctx.fillRect(px + (v * TS * 0.6), py + TS * 0.3, 4, 4);
+      }
+    }
+
+    function drawPlayer(ox, oy) {
+      const px = ox + player.x * TS, py = oy + player.y * TS;
+      const w = player.w * TS, h = player.h * TS;
+      const bob = player.onGround ? Math.sin(player.walkPhase) * 1.5 : 0;
+      const cx = px + w / 2;
+
+      // Shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.28)';
+      ctx.beginPath();
+      ctx.ellipse(cx, py + h - 1, w * 0.55, 3.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Legs
+      ctx.fillStyle = '#3f5f8a';
+      const legSwing = player.onGround ? Math.sin(player.walkPhase) * w * 0.22 : 0;
+      ctx.fillRect(cx - w * 0.4 + legSwing, py + h * 0.62, w * 0.32, h * 0.38);
+      ctx.fillRect(cx + w * 0.08 - legSwing, py + h * 0.62, w * 0.32, h * 0.38);
+
+      // Torso
+      ctx.fillStyle = '#3fb6a8';
+      ctx.fillRect(cx - w * 0.44, py + h * 0.32 + bob, w * 0.88, h * 0.34);
+
+      // Arm (forward)
+      ctx.fillStyle = '#35a396';
+      const dir = player.face;
+      ctx.fillRect(cx + dir * w * 0.3 - w * 0.12, py + h * 0.36 + bob, w * 0.28, h * 0.28);
+
+      // Head
+      ctx.fillStyle = '#e8b98c';
+      ctx.fillRect(cx - w * 0.4, py + h * 0.02 + bob, w * 0.8, h * 0.32);
+
+      // Helmet
+      ctx.fillStyle = '#f0b429';
+      ctx.fillRect(cx - w * 0.46, py + bob - h * 0.02, w * 0.92, h * 0.16);
+      ctx.fillStyle = '#ffe49a';
+      ctx.fillRect(cx - w * 0.1, py + bob + h * 0.1, w * 0.2, h * 0.06);
+
+      // Eyes (simple, facing direction)
+      ctx.fillStyle = '#22303a';
+      const eyeX = cx + dir * w * 0.12;
+      ctx.fillRect(eyeX - 2.5, py + h * 0.16 + bob, 3, 3.5);
+      ctx.fillRect(eyeX + 4, py + h * 0.16 + bob, 3, 3.5);
+    }
+
+    // ============ INPUT ============
+    const keys = { left: false, right: false, jump: false, jumpHeld: false };
+
+    document.addEventListener('keydown', (e) => {
+      const code = e.code;
+      if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space','KeyW','KeyA','KeyS','KeyD','KeyE'].includes(code)) e.preventDefault();
+      if (paused || !running) {
+        if (code === 'Escape') toggleMenu(false);
+        return;
+      }
+      if (code === 'ArrowLeft' || code === 'KeyA') keys.left = true;
+      if (code === 'ArrowRight' || code === 'KeyD') keys.right = true;
+      if (code === 'ArrowUp' || code === 'KeyW' || code === 'Space') {
+        if (!keys.jumpHeld && player.onGround) {
+          player.vy = -JUMP_VEL;
+          player.onGround = false;
+          beep(300, 0.06, 'sine', 0.035);
+        }
+        keys.jump = true; keys.jumpHeld = true;
+      }
+      if (code === 'KeyE') toggleCraft();
+      if (code === 'Escape') toggleMenu(true);
+      if (code >= 'Digit1' && code <= 'Digit5') { selected = parseInt(code.slice(5)) - 1; buildHotbar(); }
+      if (code === 'KeyQ') { selected = (selected + 1) % 5; buildHotbar(); }
+    });
+
+    document.addEventListener('keyup', (e) => {
+      const code = e.code;
+      if (code === 'ArrowLeft' || code === 'KeyA') keys.left = false;
+      if (code === 'ArrowRight' || code === 'KeyD') keys.right = false;
+      if (code === 'ArrowUp' || code === 'KeyW' || code === 'Space') { keys.jump = false; keys.jumpHeld = false; }
+    });
+
+    // --- Pointer mapping to world tiles ---
+    function pointerToWorld(clientX, clientY) {
+      const r = canvas.getBoundingClientRect();
+      const sx = (clientX - r.left), sy = (clientY - r.top);
+      const wx = cam.x + sx / TS;
+      const wy = cam.y + sy / TS;
+      return { wx, wy };
+    }
+
+    function updateMouseTarget(clientX, clientY) {
+      const w = pointerToWorld(clientX, clientY);
+      mouse.wx = w.wx; mouse.wy = w.wy;
+      mouse.tx = Math.floor(w.wx);
+      mouse.ty = Math.floor(w.wy);
+      const dx = (mouse.wx) - (player.x + player.w / 2);
+      const dy = (mouse.wy) - (player.y + player.h / 2);
+      mouse.inReach = Math.sqrt(dx * dx + dy * dy) <= REACH && inBounds(mouse.tx, mouse.ty);
+      mouse.active = true;
+    }
+
+    canvas.addEventListener('mousemove', (e) => updateMouseTarget(e.clientX, e.clientY));
+    canvas.addEventListener('mouseleave', () => { mouse.active = false; mouse.down = false; mouse.rdown = false; });
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    canvas.addEventListener('mousedown', (e) => {
+      if (!running || paused) return;
+      updateMouseTarget(e.clientX, e.clientY);
+      if (e.button === 0) mouse.down = true;
+      if (e.button === 2) { mouse.rdown = true; if (mouse.inReach) placeTile(mouse.tx, mouse.ty); }
+    });
+    window.addEventListener('mouseup', (e) => {
+      if (e.button === 0) { mouse.down = false; dig.t = 0; }
+      if (e.button === 2) mouse.rdown = false;
+    });
+
+    // --- Touch: tap-to-mine / long-hold, plus tap-to-place on hold? Use touch on canvas = mine.
+    let placeMode = false; // touch: tap-to-place vs hold-to-mine
+    canvas.addEventListener('touchstart', (e) => {
+      if (!running || paused) return;
+      e.preventDefault();
+      const t = e.changedTouches[0];
+      updateMouseTarget(t.clientX, t.clientY);
+      if (placeMode) { if (mouse.inReach) placeTile(mouse.tx, mouse.ty); }
+      else mouse.down = true;
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+      if (!running || paused) return;
+      e.preventDefault();
+      const t = e.changedTouches[0];
+      updateMouseTarget(t.clientX, t.clientY);
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      mouse.down = false; dig.t = 0;
+    }, { passive: false });
+
+    // --- On-screen touch buttons ---
+    function bindHold(el, on, off) {
+      const start = (e) => { e.preventDefault(); on(); };
+      const end = (e) => { e.preventDefault(); off && off(); };
+      el.addEventListener('touchstart', start, { passive: false });
+      el.addEventListener('touchend', end, { passive: false });
+      el.addEventListener('touchcancel', end, { passive: false });
+      el.addEventListener('mousedown', start);
+      el.addEventListener('mouseup', end);
+      el.addEventListener('mouseleave', end);
+    }
+    bindHold(document.getElementById('tLeft'), () => keys.left = true, () => keys.left = false);
+    bindHold(document.getElementById('tRight'), () => keys.right = true, () => keys.right = false);
+    bindHold(document.getElementById('tJump'), () => {
+      if (player.onGround) { player.vy = -JUMP_VEL; player.onGround = false; beep(300, 0.06, 'sine', 0.035); }
+    }, null);
+    const tPlaceBtn = document.getElementById('tPlace');
+    tPlaceBtn.addEventListener('click', () => {
+      placeMode = !placeMode;
+      tPlaceBtn.textContent = placeMode ? '⛏' : '🧱';
+      toast(placeMode ? 'Tap canvas to place blocks' : 'Hold canvas to mine');
+    });
+
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) document.body.classList.add('touch-on');
+
+    // ============ MENU / OVERLAYS ============
+    function toggleMenu(show) {
+      paused = !!show;
+      menuOverlay.classList.toggle('hidden', !show);
+      if (show) {
+        const mins = Math.floor((Date.now() - stats.started) / 60000);
+        menuStats.innerHTML =
+          'Mined <b>' + stats.mined + '</b> blocks · Placed <b>' + stats.placed +
+          '</b> · Crafted <b>' + stats.crafted + '</b><br>Tool: <b>' + TOOL[tool].name + '</b>' +
+          '<br>Session: <b>' + mins + ' min</b>';
+      }
+    }
+
+    document.getElementById('craftBtn').addEventListener('click', () => toggleCraft());
+    document.getElementById('closeCraft').addEventListener('click', () => toggleCraft(false));
+    document.getElementById('saveBtn').addEventListener('click', () => { saveWorld(); toast('World saved'); beep(660, 0.07, 'sine', 0.04); });
+    document.getElementById('menuBtn').addEventListener('click', () => toggleMenu(true));
+    document.getElementById('resumeBtn').addEventListener('click', () => toggleMenu(false));
+    document.getElementById('menuSaveBtn').addEventListener('click', () => { saveWorld(); toast('World saved'); });
+    document.getElementById('wipeBtn').addEventListener('click', () => { wipeSave(); toggleMenu(false); });
+
+    document.getElementById('newBtn').addEventListener('click', () => startNew());
+    document.getElementById('continueBtn').addEventListener('click', () => startGame(false));
+
+    // ============ START / LOOP ============
+    function startNew() {
+      generateWorld();
+      for (const k in inv) delete inv[k];
+      inv[SOIL] = 0;
+      give(TORCH, 2);
+      tool = 'none';
+      hotbar = [SOIL, ROCK, WOOD, PLANK, TORCH];
+      selected = 0;
+      stats = { mined: 0, placed: 0, crafted: 0, started: Date.now() };
+      // place player on the surface
+      let sx = Math.floor(W / 2);
+      let sy = 0;
+      for (let y = 0; y < H; y++) { if (isSolid(sx, y)) { sy = y; break; } }
+      player.x = sx + 0.1; player.y = sy - player.h - 0.01;
+      player.vx = player.vy = 0;
+      lightDirty = true;
+      buildHotbar();
+      startGame(true);
+      beep(500, 0.1, 'sine', 0.05);
+    }
+
+    function startGame(isNew) {
+      startOverlay.classList.add('hidden');
+      menuOverlay.classList.add('hidden');
+      paused = false;
+      running = true;
+      if (!isNew) { /* world/inventory already loaded */ }
+      updateHUD();
+      buildHotbar();
+      if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+      if (actx && actx.state === 'suspended') actx.resume();
+    }
+
+    let lastT = performance.now();
+    (function boot() {
+      resize();
+      const hasSave = !!localStorage.getItem(SAVE_KEY);
+      if (hasSave) {
+        continueBtn.style.display = '';
+        continueBtn.addEventListener('click', () => { loadWorld(); startGame(false); }, { once: false });
+      }
+      // Background: draw a fresh world preview behind the overlay
+      if (!loadWorld()) generateWorld();
+      computeLight();
+      buildHotbar();
+      renderRecipes();
+      updateCamera();
+      requestAnimationFrame(loop);
+    })();
+
+    function loop(now) {
+      const dt = Math.min(0.05, (now - lastT) / 1000);
+      lastT = now;
+
+      if (running && !paused) {
+        updatePlayer(dt);
+        if (mouse.down) attemptMine(dt); else { dig.t = 0; dig.tx = -1; }
+        updateParticles(dt);
+        if (shake > 0) shake = Math.max(0, shake - dt * 2);
+        updateHUD();
+        if (lightDirty) computeLight();
+
+        // autosave every 12s if dirty
+        if (saveDirty && now - lastSave > 12000) saveWorld();
+      }
+
+      updateCamera();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // Also expose quick restart via keyboard R (house style restart)
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'KeyR' && (e.ctrlKey || e.metaKey) === false && running && !paused) {
+        // R = respawn at surface if stuck
+        let sx = Math.floor(player.x);
+        for (let y = 0; y < H; y++) if (isSolid(sx, y)) { player.y = y - player.h - 0.01; player.x = sx + 0.1; player.vy = 0; break; }
+      }
+    });
+
+    // Save on unload
+    window.addEventListener('beforeunload', () => { if (running) saveWorld(); });
+  </script>
+</body>
+</html>

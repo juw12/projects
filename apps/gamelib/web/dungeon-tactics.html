@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Dungeon Tactics · Turn-Based Squad Skirmish</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: #14111c;
+    background-image:
+      radial-gradient(circle at 50% -10%, #2c2440 0%, #14111c 62%),
+      repeating-linear-gradient(45deg, rgba(255,255,255,.012) 0 2px, transparent 2px 4px);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    color: #ded4ec;
+    padding: 10px;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  #app { display: flex; flex-direction: column; gap: 8px; width: min(97vw, 640px); }
+
+  /* ============ TITLE ============ */
+  #title {
+    text-align: center;
+    font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+    font-size: clamp(19px, 5.4vw, 30px);
+    letter-spacing: 5px;
+    color: #e8c37a;
+    text-shadow: 0 2px 10px rgba(0,0,0,.8), 0 0 22px rgba(232,195,122,.18);
+  }
+  #title small { display: block; font-size: .42em; letter-spacing: 3px; color: #8f7fb3; margin-top: 3px; }
+
+  /* ============ HUD ============ */
+  #hud {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0,0,0,.34);
+    border: 1px solid rgba(232,195,122,.22);
+    border-radius: 9px;
+    padding: 7px 12px;
+    font-size: clamp(11px, 3.1vw, 14px);
+  }
+  #turnInfo { font-weight: 700; letter-spacing: 1px; color: #7ec8ff; }
+  #turnInfo.enemy { color: #ff8a7a; }
+  #turnInfo.done { color: #9c8fbd; }
+  #levelInfo { color: #a392c9; font-size: .9em; letter-spacing: 1px; }
+
+  /* ============ ROSTER BAR ============ */
+  #roster { display: flex; gap: 6px; }
+  .rcard {
+    flex: 1;
+    background: rgba(0,0,0,.26);
+    border: 1px solid rgba(255,255,255,.08);
+    border-left: 4px solid #7ec8ff;
+    border-radius: 8px;
+    padding: 4px 7px;
+    min-height: 34px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    transition: opacity .2s ease, transform .1s ease;
+    cursor: pointer;
+  }
+  .rcard.dead { opacity: .32; filter: grayscale(1); }
+  .rcard.done { opacity: .5; }
+  .rcard.active { background: rgba(232,195,122,.14); transform: translateY(-1px); }
+  .rname { font-size: 10px; letter-spacing: 1px; color: #cbbde6; display: flex; justify-content: space-between; }
+  .rbar { height: 5px; border-radius: 3px; background: rgba(0,0,0,.5); overflow: hidden; }
+  .rfill { height: 100%; background: linear-gradient(90deg, #5fd48a, #b6f07a); transition: width .25s ease; }
+
+  /* ============ CANVAS ============ */
+  #game-wrap {
+    position: relative;
+    width: 100%;
+    border-radius: 11px;
+    overflow: hidden;
+    box-shadow: 0 14px 44px rgba(0,0,0,.62), inset 0 0 0 1px rgba(232,195,122,.14);
+    background: #0c0a12;
+  }
+  canvas { display: block; width: 100%; height: auto; cursor: pointer; }
+
+  /* ============ OVERLAYS ============ */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 11px;
+    padding: 18px;
+    background: rgba(10,7,16,.945);
+    text-align: center;
+    transition: opacity .25s ease;
+    z-index: 6;
+  }
+  .overlay.hidden { opacity: 0; pointer-events: none; }
+  .ov-title {
+    font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+    font-size: clamp(21px, 6.4vw, 34px);
+    color: #e8c37a;
+    letter-spacing: 4px;
+    text-shadow: 0 0 24px rgba(232,195,122,.3);
+  }
+  .ov-sub { font-size: clamp(11px, 3.1vw, 14px); color: #a392c9; margin-top: -5px; line-height: 1.5; max-width: 34em; }
+  .ov-label { font-size: 11px; color: #8f7fb3; letter-spacing: 3px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .primary {
+    font-family: inherit;
+    font-size: clamp(14px, 3.9vw, 17px);
+    font-weight: 700;
+    letter-spacing: 2px;
+    padding: 11px 34px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    color: #241a0c;
+    background: linear-gradient(135deg, #f0d091, #c99b47);
+    box-shadow: 0 5px 0 rgba(0,0,0,.42);
+    transition: transform .06s ease, filter .15s ease;
+  }
+  .primary:hover { filter: brightness(1.1); }
+  .primary:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(0,0,0,.42); }
+  .opt {
+    font-family: inherit;
+    font-size: clamp(12px, 3.2vw, 14px);
+    padding: 10px 22px;
+    border-radius: 9px;
+    border: 1px solid rgba(232,195,122,.32);
+    background: rgba(255,255,255,.05);
+    color: #e2d6f2;
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+  .opt:hover { background: rgba(232,195,122,.14); }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px 16px; justify-content: center; font-size: 11px; color: #a392c9; max-width: 30em; }
+  .legend b { color: #ded4ec; font-weight: 600; }
+  .chip { display: inline-block; width: 11px; height: 11px; border-radius: 3px; vertical-align: -2px; margin-right: 3px; }
+
+  #pauseOverlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(8,5,14,.74);
+    color: #e8c37a;
+    font-family: "Palatino Linotype", Georgia, serif;
+    font-size: clamp(24px, 8vw, 42px);
+    font-weight: 700;
+    letter-spacing: 8px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease;
+    z-index: 5;
+  }
+  #pauseOverlay.visible { opacity: 1; }
+
+  /* ============ STATUS + CONTROLS ============ */
+  #status {
+    text-align: center;
+    font-size: clamp(11px, 3.2vw, 13.5px);
+    color: #b6a6d8;
+    min-height: 34px;
+    letter-spacing: .6px;
+    line-height: 1.5;
+  }
+  #controls { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  #controls button {
+    font-family: inherit;
+    font-size: clamp(12px, 3.3vw, 14px);
+    font-weight: 600;
+    letter-spacing: 1px;
+    padding: 9px 18px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #f2ebff;
+    background: #3d3357;
+    box-shadow: 0 3px 0 rgba(0,0,0,.42);
+    transition: transform .05s ease, filter .15s ease;
+    user-select: none;
+  }
+  #controls button:hover { filter: brightness(1.16); }
+  #controls button:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.42); }
+  #btnWait { background: #2f6b52; }
+  #btnEnd { background: #7a4a2e; }
+  #btnPause { background: #47406b; }
+  #btnMenu { background: #434350; }
+  #controls button:disabled { opacity: .4; cursor: default; transform: none; box-shadow: 0 3px 0 rgba(0,0,0,.3); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="title">DUNGEON TACTICS<small>A TURN-BASED SQUAD SKIRMISH</small></div>
+
+  <div id="hud">
+    <span id="turnInfo">Your turn</span>
+    <span id="levelInfo">Level 1 / 4</span>
+  </div>
+
+  <div id="roster"></div>
+
+  <div id="game-wrap">
+    <canvas id="game" width="616" height="448"></canvas>
+
+    <!-- Start / Menu overlay -->
+    <div id="overlay" class="overlay">
+      <div class="ov-title">DUNGEON TACTICS</div>
+      <div class="ov-sub">Command a trio of heroes through the sunken halls. Move and strike, mind the walls, and use cover from ranged fire. Clear every foe — lose a hero and the run ends.</div>
+      <div class="legend">
+        <span><span class="chip" style="background:#7ec8ff"></span><b>Knight</b> · melee tank</span>
+        <span><span class="chip" style="background:#8ff0a4"></span><b>Archer</b> · long shot</span>
+        <span><span class="chip" style="background:#c9a0ff"></span><b>Mage</b> · ignores cover</span>
+      </div>
+      <button id="startBtn" class="primary">ENTER THE DUNGEON</button>
+    </div>
+
+    <!-- Result overlay -->
+    <div id="resultOverlay" class="overlay hidden">
+      <div class="ov-title" id="resultTitle">Level Clear</div>
+      <div class="ov-sub" id="resultSub"></div>
+      <div class="row">
+        <button class="primary" id="againBtn">NEXT LEVEL</button>
+        <button class="opt" id="menuBtn2">MENU</button>
+      </div>
+    </div>
+
+    <!-- Pause overlay -->
+    <div id="pauseOverlay">PAUSED</div>
+  </div>
+
+  <div id="status"></div>
+
+  <div id="controls">
+    <button id="btnWait" type="button">Wait</button>
+    <button id="btnEnd" type="button">End Turn</button>
+    <button id="btnPause" type="button">Pause</button>
+    <button id="btnRestart" type="button">Restart</button>
+    <button id="btnMenu" type="button">Menu</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============================================================
+     SECTION 1 — CONFIG & CONSTANTS
+     ============================================================ */
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+
+  const COLS = 11, ROWS = 8;
+  const TILE = 56;
+  const W = COLS * TILE, H = ROWS * TILE;
+
+  const DIRS = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+
+  const HERO = "hero", ENEMY = "enemy";
+
+  // Unit templates. range/dmg use Manhattan distance; move is tiles per turn.
+  const TYPES = {
+    knight: { name: "Knight", side: HERO, hp: 14, move: 3, range: 1, dmg: 5, color: "#7ec8ff", glyph: "K" },
+    archer: { name: "Archer", side: HERO, hp: 10, move: 3, range: 4, dmg: 3, color: "#8ff0a4", glyph: "A" },
+    mage:   { name: "Mage",   side: HERO, hp: 9,  move: 2, range: 3, dmg: 4, color: "#c9a0ff", glyph: "M" },
+    goblin: { name: "Goblin", side: ENEMY, hp: 6,  move: 3, range: 1, dmg: 3, color: "#ff9f6b", glyph: "g" },
+    slinger:{ name: "Slinger",side: ENEMY, hp: 6,  move: 2, range: 4, dmg: 2, color: "#ffd166", glyph: "s" },
+    brute:  { name: "Brute",  side: ENEMY, hp: 12, move: 2, range: 1, dmg: 5, color: "#ff6b6b", glyph: "B" }
+  };
+
+  const COVER_REDUCTION = 2; // ranged damage lost when the target hugs a crate
+  const HEAL_PER_LEVEL = 4;  // heroes recover this much between stages
+
+  /* ============================================================
+     SECTION 2 — LEVEL DATA
+     Legend: '.' floor  '#' wall  'o' crate (cover, impassable)
+     ============================================================ */
+  const LEVELS = [
+    {
+      name: "The Gate",
+      terrain: [
+        "...........",
+        "...........",
+        "..o.....o..",
+        "...........",
+        ".....##....",
+        "...........",
+        "..o.....o..",
+        "..........."
+      ],
+      heroes: [
+        { x: 0, y: 3, kind: "knight" },
+        { x: 0, y: 4, kind: "archer" },
+        { x: 0, y: 5, kind: "mage" }
+      ],
+      enemies: [
+        { x: 9, y: 3, kind: "goblin" },
+        { x: 10, y: 4, kind: "goblin" },
+        { x: 9, y: 5, kind: "goblin" }
+      ]
+    },
+    {
+      name: "Crossroads",
+      terrain: [
+        ".....#.....",
+        "...........",
+        "..o.....o..",
+        "...........",
+        "...........",
+        "..o.....o..",
+        "...........",
+        ".....#....."
+      ],
+      heroes: [
+        { x: 0, y: 3, kind: "knight" },
+        { x: 0, y: 4, kind: "archer" },
+        { x: 0, y: 5, kind: "mage" }
+      ],
+      enemies: [
+        { x: 10, y: 2, kind: "goblin" },
+        { x: 10, y: 6, kind: "goblin" },
+        { x: 10, y: 4, kind: "slinger" },
+        { x: 7, y: 4, kind: "goblin" }
+      ]
+    },
+    {
+      name: "The Vault",
+      terrain: [
+        ".#.......#.",
+        ".#.......#.",
+        "...........",
+        "....###....",
+        "....#.#....",
+        "....###....",
+        ".#.......#.",
+        ".#.......#."
+      ],
+      heroes: [
+        { x: 0, y: 2, kind: "knight" },
+        { x: 0, y: 3, kind: "archer" },
+        { x: 0, y: 4, kind: "mage" }
+      ],
+      enemies: [
+        { x: 10, y: 3, kind: "brute" },
+        { x: 10, y: 2, kind: "goblin" },
+        { x: 10, y: 5, kind: "slinger" },
+        { x: 8, y: 4, kind: "goblin" }
+      ]
+    },
+    {
+      name: "Throne of Ash",
+      terrain: [
+        ".#.......#.",
+        "...........",
+        "..o.#.#.o..",
+        "....#.#....",
+        "....#.#....",
+        "..o.#.#.o..",
+        "...........",
+        ".#.......#."
+      ],
+      heroes: [
+        { x: 0, y: 3, kind: "knight" },
+        { x: 0, y: 4, kind: "archer" },
+        { x: 1, y: 4, kind: "mage" }
+      ],
+      enemies: [
+        { x: 10, y: 3, kind: "brute" },
+        { x: 10, y: 4, kind: "brute" },
+        { x: 10, y: 1, kind: "slinger" },
+        { x: 10, y: 6, kind: "slinger" },
+        { x: 9, y: 3, kind: "goblin" },
+        { x: 9, y: 4, kind: "goblin" }
+      ]
+    }
+  ];
+
+  /* ============================================================
+     SECTION 3 — GAME STATE
+     ============================================================ */
+  let terrain = [];        // terrain[y][x] = '.' | '#' | 'o'
+  let units = [];          // all units (heroes + enemies), dead ones removed
+  let levelIndex = 0;
+  let phase = "player";    // "player" | "enemy" | "ended"
+  let selected = null;     // selected hero unit
+  let reachTiles = [];     // [{x,y,d}] movement options for selected
+  let attackTiles = [];    // [{x,y}] enemy targets in range for selected
+  let hover = null;        // {x,y} tile under the cursor
+  let started = false;
+  let paused = false;
+  let resultMode = null;   // "clear" | "defeat" | "victory"
+  let aiToken = 0;         // bumped to cancel in-flight enemy turns
+  let carryHp = null;      // hero hp carried between levels
+  let wins = 0;
+  let furthest = 1;
+
+  /* ============================================================
+     SECTION 4 — DOM REFERENCES
+     ============================================================ */
+  const els = {
+    turnInfo: document.getElementById("turnInfo"),
+    levelInfo: document.getElementById("levelInfo"),
+    roster: document.getElementById("roster"),
+    status: document.getElementById("status"),
+    overlay: document.getElementById("overlay"),
+    resultOverlay: document.getElementById("resultOverlay"),
+    resultTitle: document.getElementById("resultTitle"),
+    resultSub: document.getElementById("resultSub"),
+    pauseOverlay: document.getElementById("pauseOverlay"),
+    startBtn: document.getElementById("startBtn"),
+    againBtn: document.getElementById("againBtn"),
+    menuBtn2: document.getElementById("menuBtn2"),
+    btnWait: document.getElementById("btnWait"),
+    btnEnd: document.getElementById("btnEnd"),
+    btnPause: document.getElementById("btnPause"),
+    btnRestart: document.getElementById("btnRestart"),
+    btnMenu: document.getElementById("btnMenu")
+  };
+
+  /* ============================================================
+     SECTION 5 — PERSISTENCE
+     ============================================================ */
+  function loadPersistence() {
+    try {
+      const s = JSON.parse(localStorage.getItem("dungeonTacticsSave") || "{}");
+      wins = Number(s.wins) || 0;
+      furthest = Math.max(1, Math.min(LEVELS.length, Number(s.furthest) || 1));
+    } catch (e) { /* ignore corrupt storage */ }
+  }
+  function savePersistence() {
+    try {
+      localStorage.setItem("dungeonTacticsSave", JSON.stringify({ wins: wins, furthest: furthest }));
+    } catch (e) { /* storage unavailable */ }
+  }
+
+  /* ============================================================
+     SECTION 6 — AUDIO (WebAudio beep helper, no assets)
+     ============================================================ */
+  let actx = null;
+  function beep(freq, dur, type, gain) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "sine";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(gain || 0.06, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+  const sndSelect = () => beep(680, 0.04, "sine", 0.04);
+  const sndStep   = () => beep(320, 0.05, "triangle", 0.05);
+  const sndHit    = () => { beep(240, 0.07, "square", 0.06); setTimeout(() => beep(150, 0.1, "square", 0.06), 40); };
+  const sndKill   = () => { [420, 300, 200].forEach((f, i) => setTimeout(() => beep(f, 0.11, "sawtooth", 0.06), i * 70)); };
+  const sndFoe    = () => beep(190, 0.09, "sawtooth", 0.05);
+  const sndClear  = () => { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => beep(f, 0.15, "triangle", 0.07), i * 115)); };
+  const sndFall   = () => { [400, 300, 200, 130].forEach((f, i) => setTimeout(() => beep(f, 0.2, "sawtooth", 0.07), i * 140)); };
+
+  /* ============================================================
+     SECTION 7 — GRID HELPERS (bounds, movement, line-of-sight)
+     ============================================================ */
+  const inBounds = (x, y) => x >= 0 && x < COLS && y >= 0 && y < ROWS;
+  const tileAt = (x, y) => (inBounds(x, y) ? terrain[y][x] : "#");
+  const isWall = (x, y) => tileAt(x, y) === "#";
+  const isCrate = (x, y) => tileAt(x, y) === "o";
+  const isBlocked = (x, y) => isWall(x, y) || isCrate(x, y);
+
+  function unitAt(x, y) {
+    for (let i = 0; i < units.length; i++) {
+      const u = units[i];
+      if (u.x === x && u.y === y) return u;
+    }
+    return null;
+  }
+
+  function dist(a, b, c, d) { return Math.abs(a - c) + Math.abs(b - d); }
+
+  // A crate only shields its direct neighbours.
+  function adjacentToCover(x, y) {
+    for (let i = 0; i < DIRS.length; i++) {
+      const nx = x + DIRS[i][0], ny = y + DIRS[i][1];
+      if (isCrate(nx, ny)) return true;
+    }
+    return false;
+  }
+
+  // Walls strictly between two tiles block the shot. Endpoints are ignored.
+  function hasLOS(x0, y0, x1, y1) {
+    const dx = x1 - x0, dy = y1 - y0;
+    const steps = Math.max(Math.abs(dx), Math.abs(dy)) * 6;
+    if (steps === 0) return true;
+    let lastX = x0, lastY = y0;
+    for (let i = 1; i < steps; i++) {
+      const t = i / steps;
+      const gx = Math.round(x0 + dx * t);
+      const gy = Math.round(y0 + dy * t);
+      if (gx === lastX && gy === lastY) continue;
+      lastX = gx; lastY = gy;
+      if (gx === x0 && gy === y0) continue;
+      if (gx === x1 && gy === y1) break;
+      if (isWall(gx, gy)) return false;
+    }
+    return true;
+  }
+
+  // Can `u` strike `t` this instant? (range + LOS)
+  function canAttack(u, t) {
+    if (!u || !t || u.side === t.side) return false;
+    const d = dist(u.x, u.y, t.x, t.y);
+    if (d > u.range || d === 0) return false;
+    if (u.range > 1 && !hasLOS(u.x, u.y, t.x, t.y)) return false;
+    return true;
+  }
+
+  // Breadth-first flood for movement: returns tiles reachable within move range.
+  function computeReach(u) {
+    const seen = new Int16Array(COLS * ROWS).fill(-1);
+    const key = (x, y) => y * COLS + x;
+    seen[key(u.x, u.y)] = 0;
+    const queue = [[u.x, u.y]];
+    const out = [];
+    while (queue.length) {
+      const cur = queue.shift();
+      const cx = cur[0], cy = cur[1];
+      const step = seen[key(cx, cy)];
+      if (step >= u.move) continue;
+      for (let i = 0; i < DIRS.length; i++) {
+        const nx = cx + DIRS[i][0], ny = cy + DIRS[i][1];
+        if (!inBounds(nx, ny) || isBlocked(nx, ny)) continue;
+        if (unitAt(nx, ny)) continue;          // units block movement
+        const k = key(nx, ny);
+        if (seen[k] !== -1) continue;
+        seen[k] = step + 1;
+        queue.push([nx, ny]);
+      }
+    }
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const d = seen[key(x, y)];
+        if (d >= 1 && !unitAt(x, y)) out.push({ x: x, y: y, d: d });
+      }
+    }
+    return out;
+  }
+
+  /* ============================================================
+     SECTION 8 — LEVEL LOADING
+     ============================================================ */
+  function makeUnit(spec, index) {
+    const t = TYPES[spec.kind];
+    let hp = t.hp;
+    if (t.side === HERO && carryHp && carryHp[spec.kind] != null) {
+      hp = Math.min(t.hp, carryHp[spec.kind] + HEAL_PER_LEVEL);
+    }
+    return {
+      id: spec.kind + "_" + index,
+      kind: spec.kind,
+      side: t.side,
+      x: spec.x, y: spec.y,
+      hp: hp, maxHp: t.hp,
+      move: t.move, range: t.range, dmg: t.dmg,
+      color: t.color, glyph: t.glyph, name: t.name,
+      moved: false, acted: false
+    };
+  }
+
+  function loadLevel(index) {
+    aiToken++;                 // cancel any running AI
+    levelIndex = index;
+    const data = LEVELS[index];
+    terrain = data.terrain.map((row) => row.split(""));
+
+    units = [];
+    data.heroes.forEach((h, i) => units.push(makeUnit(h, i)));
+    data.enemies.forEach((e, i) => units.push(makeUnit(e, i + 100)));
+
+    phase = "player";
+    selected = null; reachTiles = []; attackTiles = [];
+    hover = null; paused = false;
+    resultMode = null;
+
+    hideOverlay(); hideResult(); hidePause();
+    syncPauseButton();
+    refreshUI();
+    draw();
+  }
+
+  const heroes = () => units.filter((u) => u.side === HERO);
+  const foes = () => units.filter((u) => u.side === ENEMY);
+
+  function clearUnitFlags() {
+    units.forEach((u) => { u.moved = false; u.acted = false; });
+  }
+
+  /* ============================================================
+     SECTION 9 — COMBAT
+     ============================================================ */
+  function damageOf(attacker, target) {
+    let d = attacker.dmg;
+    // Only ranged attackers lose power, and a crate only helps its neighbour.
+    if (attacker.range > 1 && attacker.kind !== "mage" && adjacentToCover(target.x, target.y)) {
+      d = Math.max(1, d - COVER_REDUCTION);
+    }
+    return d;
+  }
+
+  function resolveAttack(attacker, target) {
+    const dealt = damageOf(attacker, target);
+    target.hp -= dealt;
+    if (target.hp <= 0) {
+      target.hp = 0;
+      units = units.filter((u) => u !== target);
+      sndKill();
+    } else {
+      sndHit();
+    }
+    return dealt;
+  }
+
+  /* ============================================================
+     SECTION 10 — PLAYER TURN / ACTIONS
+     ============================================================ */
+  function selectHero(u) {
+    if (!u || u.side !== HERO || u.acted) return;
+    selected = u;
+    reachTiles = u.moved ? [] : computeReach(u);
+    attackTiles = foes().filter((f) => canAttack(u, f)).map((f) => ({ x: f.x, y: f.y }));
+    sndSelect();
+    refreshUI();
+    draw();
+  }
+
+  function clearSelection() {
+    selected = null; reachTiles = []; attackTiles = [];
+    refreshUI();
+    draw();
+  }
+
+  function moveHeroTo(tile) {
+    if (!selected || selected.moved || selected.acted) return;
+    const from = { x: selected.x, y: selected.y };
+    selected.x = tile.x; selected.y = tile.y;
+    selected.moved = true;
+    sndStep();
+    // Attack options refresh now that the hero has repositioned.
+    reachTiles = [];
+    attackTiles = foes().filter((f) => canAttack(selected, f)).map((f) => ({ x: f.x, y: f.y }));
+    animationPing(from.x, from.y);
+    refreshUI();
+    draw();
+  }
+
+  function heroAttack(target) {
+    if (!selected || selected.acted) return;
+    if (!canAttack(selected, target)) return;
+    resolveAttack(selected, target);
+    selected.acted = true;
+    animationPing(target.x, target.y, "#ff6b6b");
+
+    const before = foes().length;
+    clearSelection();
+
+    if (before > 0 && foes().length === 0) { onLevelClear(); return; }
+    if (!heroes().length) { onDefeat(); return; }
+    refreshUI();
+    draw();
+  }
+
+  function waitSelected() {
+    if (!selected || selected.acted) return;
+    selected.acted = true;
+    clearSelection();
+    refreshUI();
+    draw();
+  }
+
+  function endPlayerTurn() {
+    if (phase !== "player") return;
+    heroes().forEach((h) => { h.acted = true; });
+    clearSelection();
+    startEnemyPhase();
+  }
+
+  /* ============================================================
+     SECTION 11 — ENEMY AI
+     ============================================================ */
+  function pickAttackTarget(u) {
+    let best = null, bestHp = Infinity;
+    units.filter((t) => t.side !== u.side).forEach((t) => {
+      if (canAttack(u, t) && t.hp < bestHp) { best = t; bestHp = t.hp; }
+    });
+    return best;
+  }
+
+  // Choose the best tile this enemy can walk to (or its current tile).
+  function bestApproachTile(u, reachable) {
+    const heroList = heroes();
+    let best = { x: u.x, y: u.y };
+    let bestScore = -Infinity;
+    const tiles = [{ x: u.x, y: u.y }].concat(reachable);
+    for (let i = 0; i < tiles.length; i++) {
+      const t = tiles[i];
+      let score = 0;
+      for (let h = 0; h < heroList.length; h++) {
+        const hr = heroList[h];
+        const d = dist(t.x, t.y, hr.x, hr.y);
+        const canShoot = d > 0 && d <= u.range &&
+          (u.range === 1 || hasLOS(t.x, t.y, hr.x, hr.y));
+        // Prefer a spot that lets us strike the weakest hero, else just get close.
+        const s = canShoot ? (1000 - hr.hp * 10 - d) : (-d);
+        if (s > score) score = s;
+      }
+      if (score > bestScore) { bestScore = score; best = t; }
+    }
+    return best;
+  }
+
+  function enemyAct(u) {
+    // 1) Strike now if a hero is already in reach.
+    let target = pickAttackTarget(u);
+    if (target) {
+      resolveAttack(u, target);
+      animationPing(target.x, target.y, "#ff6b6b");
+      return;
+    }
+    // 2) Otherwise close in and try again.
+    const reach = computeReach(u);
+    const spot = bestApproachTile(u, reach);
+    if (spot.x !== u.x || spot.y !== u.y) {
+      animationPing(u.x, u.y, "#ffd166");
+      u.x = spot.x; u.y = spot.y;
+      sndStep();
+    }
+    target = pickAttackTarget(u);
+    if (target) {
+      resolveAttack(u, target);
+      animationPing(target.x, target.y, "#ff6b6b");
+    }
+  }
+
+  function startEnemyPhase() {
+    if (phase === "ended") return;
+    phase = "enemy";
+    refreshUI(); draw();
+
+    const token = ++aiToken;
+    const queue = foes().slice();
+    let i = 0;
+
+    function step() {
+      if (token !== aiToken) return;                    // cancelled
+      if (paused) { setTimeout(step, 140); return; }     // hold during pause
+      if (phase === "ended") return;
+
+      if (!heroes().length) { onDefeat(); return; }
+
+      if (i >= queue.length) {
+        if (!foes().length) { onLevelClear(); return; }
+        clearUnitFlags();
+        phase = "player";
+        refreshUI(); draw();
+        autoSelectFirstReady();
+        return;
+      }
+
+      const u = queue[i++];
+      if (units.indexOf(u) === -1) { step(); return; }  // died mid-phase
+      enemyAct(u);
+      sndFoe();
+      refreshUI(); draw();
+      if (!heroes().length) { onDefeat(); return; }
+      setTimeout(step, 300);
+    }
+    setTimeout(step, 260);
+  }
+
+  function autoSelectFirstReady() {
+    const ready = heroes().filter((h) => !h.acted);
+    if (ready.length) selectHero(ready[0]);
+    else { refreshUI(); draw(); }
+  }
+
+  /* ============================================================
+     SECTION 12 — LEVEL RESOLUTION
+     ============================================================ */
+  function snapshotHeroHp() {
+    const map = {};
+    heroes().forEach((h) => { map[h.kind] = h.hp; });
+    return map;
+  }
+
+  function onLevelClear() {
+    if (phase === "ended") return;
+    phase = "ended";
+    aiToken++;
+    carryHp = snapshotHeroHp();
+    const last = levelIndex === LEVELS.length - 1;
+    if (last) {
+      wins++;
+      furthest = 1;
+      carryHp = null;
+      savePersistence();
+      sndClear();
+      showResult("VICTORY",
+        "The sunken halls fall silent. Your trio stands unchallenged — " + wins +
+        " campaign" + (wins === 1 ? "" : "s") + " won.",
+        "PLAY AGAIN", "victory");
+    } else {
+      furthest = Math.max(furthest, levelIndex + 2);
+      savePersistence();
+      sndClear();
+      showResult("LEVEL CLEAR",
+        LEVELS[levelIndex].name + " is quiet. Wounded heroes recover " + HEAL_PER_LEVEL + " HP before the next hall.",
+        "NEXT LEVEL", "clear");
+    }
+    refreshUI(); draw();
+  }
+
+  function onDefeat() {
+    if (phase === "ended") return;
+    phase = "ended";
+    aiToken++;
+    carryHp = null;
+    sndFall();
+    showResult("DEFEAT",
+      "A hero has fallen. The squad retreats — the dungeon claims this hall.",
+      "RETRY LEVEL", "defeat");
+    refreshUI(); draw();
+  }
+
+  function advanceResult() {
+    if (resultMode === "clear") loadLevel(levelIndex + 1);
+    else if (resultMode === "defeat") { carryHp = null; loadLevel(levelIndex); }
+    else { carryHp = null; loadLevel(0); }
+  }
+
+  /* ============================================================
+     SECTION 13 — RENDERING
+     ============================================================ */
+  const pings = []; // short-lived highlight rings for move/hit feedback
+  function animationPing(x, y, color) {
+    pings.push({ x: x, y: y, t: 0, color: color || "#7ec8ff" });
+  }
+  function updatePings(dt) {
+    for (let i = pings.length - 1; i >= 0; i--) {
+      pings[i].t += dt;
+      if (pings[i].t > 420) pings.splice(i, 1);
+    }
+  }
+
+  const px = (x) => x * TILE;
+  const py = (y) => y * TILE;
+
+  function drawFloor() {
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const dark = (x + y) % 2 === 0;
+        ctx.fillStyle = dark ? "#1d1829" : "#221c31";
+        ctx.fillRect(px(x), py(y), TILE, TILE);
+      }
+    }
+    // Subtle vignette wash.
+    const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.95);
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(1, "rgba(0,0,0,0.55)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  function drawWall(x, y) {
+    const X = px(x), Y = py(y);
+    ctx.fillStyle = "#3a3448";
+    ctx.fillRect(X, Y, TILE, TILE);
+    ctx.fillStyle = "#4a4258";
+    ctx.fillRect(X + 2, Y + 2, TILE - 4, TILE - 9);
+    ctx.strokeStyle = "rgba(0,0,0,.45)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(X + 2, Y + 2, TILE - 4, TILE - 9);
+    // block seams
+    ctx.strokeStyle = "rgba(0,0,0,.22)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(X + TILE * 0.5, Y + 2);
+    ctx.lineTo(X + TILE * 0.5, Y + TILE - 7);
+    ctx.moveTo(X + 2, Y + (TILE - 7) * 0.5);
+    ctx.lineTo(X + TILE - 2, Y + (TILE - 7) * 0.5);
+    ctx.stroke();
+  }
+
+  function drawCrate(x, y) {
+    const X = px(x), Y = py(y), m = 6;
+    ctx.fillStyle = "rgba(0,0,0,.35)";
+    ctx.fillRect(X + m + 2, Y + m + 4, TILE - m * 2, TILE - m * 2);
+    ctx.fillStyle = "#6d4a25";
+    ctx.fillRect(X + m, Y + m, TILE - m * 2, TILE - m * 2);
+    ctx.strokeStyle = "#8a6435";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(X + m, Y + m, TILE - m * 2, TILE - m * 2);
+    // hazard diagonal stripes
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(X + m, Y + m, TILE - m * 2, TILE - m * 2);
+    ctx.clip();
+    ctx.strokeStyle = "rgba(240,208,145,.4)";
+    ctx.lineWidth = 4;
+    for (let s = -TILE; s < TILE * 2; s += 12) {
+      ctx.beginPath();
+      ctx.moveTo(X + s, Y);
+      ctx.lineTo(X + s + TILE, Y + TILE);
+      ctx.stroke();
+    }
+    ctx.restore();
+    ctx.strokeStyle = "rgba(0,0,0,.35)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(X + m, Y + m, TILE - m * 2, TILE - m * 2);
+  }
+
+  function drawHighlights() {
+    // Reachable movement tiles.
+    for (let i = 0; i < reachTiles.length; i++) {
+      const t = reachTiles[i];
+      ctx.fillStyle = "rgba(126,200,255,.20)";
+      ctx.fillRect(px(t.x) + 3, py(t.y) + 3, TILE - 6, TILE - 6);
+      ctx.strokeStyle = "rgba(126,200,255,.5)";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(px(t.x) + 3.5, py(t.y) + 3.5, TILE - 7, TILE - 7);
+    }
+    // Attack targets.
+    for (let i = 0; i < attackTiles.length; i++) {
+      const t = attackTiles[i];
+      const cx = px(t.x) + TILE / 2, cy = py(t.y) + TILE / 2;
+      ctx.strokeStyle = "rgba(255,90,90,.9)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(cx, cy, TILE * 0.44, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    // Selected ring.
+    if (selected) {
+      const pulse = 0.55 + 0.45 * Math.sin(Date.now() / 220);
+      ctx.strokeStyle = "rgba(232,195,122," + pulse + ")";
+      ctx.lineWidth = 3.5;
+      ctx.strokeRect(px(selected.x) + 2, py(selected.y) + 2, TILE - 4, TILE - 4);
+    }
+    // Hover marker.
+    if (hover) {
+      ctx.strokeStyle = "rgba(255,255,255,.35)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(px(hover.x) + 1, py(hover.y) + 1, TILE - 2, TILE - 2);
+    }
+  }
+
+  function drawUnit(u) {
+    const cx = px(u.x) + TILE / 2, cy = py(u.y) + TILE / 2;
+    const r = TILE * 0.36;
+    const isHero = u.side === HERO;
+
+    // Shadow.
+    ctx.fillStyle = "rgba(0,0,0,.4)";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + r * 0.85, r * 0.85, r * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Body.
+    const g = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.45, r * 0.15, cx, cy, r);
+    g.addColorStop(0, "rgba(255,255,255,.92)");
+    g.addColorStop(0.35, u.color);
+    g.addColorStop(1, "rgba(0,0,0,.7)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Rim — heroes gold, enemies crimson.
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = isHero ? "rgba(232,195,122,.95)" : "rgba(255,80,80,.85)";
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Glyph.
+    ctx.fillStyle = "#120e1c";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "bold " + Math.round(r * 1.05) + 'px "Palatino Linotype", Georgia, serif';
+    ctx.fillText(u.glyph, cx, cy + r * 0.06);
+
+    // Exhausted marker for heroes that already acted.
+    if (isHero && u.acted) {
+      ctx.fillStyle = "rgba(10,8,16,.6)";
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "rgba(200,190,220,.75)";
+      ctx.font = "bold " + Math.round(r * 0.9) + 'px "Trebuchet MS", sans-serif';
+      ctx.fillText("✓", cx, cy + 1);
+    }
+
+    // HP bar.
+    const bw = TILE * 0.68, bh = 5;
+    const bx = cx - bw / 2, by = py(u.y) + TILE - 9;
+    ctx.fillStyle = "rgba(0,0,0,.62)";
+    ctx.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
+    const frac = Math.max(0, u.hp / u.maxHp);
+    ctx.fillStyle = frac > 0.55 ? "#5fd48a" : frac > 0.28 ? "#f0c14b" : "#ff5a5a";
+    ctx.fillRect(bx, by, bw * frac, bh);
+  }
+
+  function drawPings() {
+    for (let i = 0; i < pings.length; i++) {
+      const p = pings[i];
+      const k = p.t / 420;
+      ctx.strokeStyle = p.color;
+      ctx.globalAlpha = (1 - k) * 0.8;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(px(p.x) + TILE / 2, py(p.y) + TILE / 2, TILE * (0.3 + k * 0.5), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    drawFloor();
+
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        if (isWall(x, y)) drawWall(x, y);
+        else if (isCrate(x, y)) drawCrate(x, y);
+      }
+    }
+
+    drawHighlights();
+    for (let i = 0; i < units.length; i++) drawUnit(units[i]);
+    drawPings();
+  }
+
+  let lastFrame = performance.now();
+  function tick(now) {
+    const dt = now - lastFrame;
+    lastFrame = now;
+    updatePings(dt);
+    if (started && !paused) draw();
+    requestAnimationFrame(tick);
+  }
+
+  /* ============================================================
+     SECTION 14 — INPUT
+     ============================================================ */
+  function eventToTile(evt) {
+    const rect = canvas.getBoundingClientRect();
+    const pxp = (evt.clientX - rect.left) * (W / rect.width);
+    const pyp = (evt.clientY - rect.top) * (H / rect.height);
+    const x = Math.floor(pxp / TILE);
+    const y = Math.floor(pyp / TILE);
+    if (!inBounds(x, y)) return null;
+    return { x: x, y: y };
+  }
+
+  function handleTap(tile) {
+    if (!started || paused || phase === "ended") return;
+    if (phase !== "player") return; // enemies are moving
+
+    const u = unitAt(tile.x, tile.y);
+
+    // 1) Attack an enemy in range with the selected hero.
+    if (selected && !selected.acted) {
+      for (let i = 0; i < attackTiles.length; i++) {
+        if (attackTiles[i].x === tile.x && attackTiles[i].y === tile.y && u && u.side === ENEMY) {
+          heroAttack(u);
+          return;
+        }
+      }
+      // 2) Move to a reachable tile.
+      if (!selected.moved) {
+        for (let i = 0; i < reachTiles.length; i++) {
+          if (reachTiles[i].x === tile.x && reachTiles[i].y === tile.y) {
+            moveHeroTo(tile);
+            return;
+          }
+        }
+      }
+    }
+
+    // 3) Select / reselect a hero.
+    if (u && u.side === HERO) {
+      if (u === selected) clearSelection();
+      else selectHero(u);
+      return;
+    }
+
+    // 4) Anywhere else clears the selection.
+    if (selected) clearSelection();
+  }
+
+  function onPointer(evt) {
+    if (evt.cancelable) evt.preventDefault();
+    if (!started || paused) return;
+    const tile = eventToTile(evt);
+    if (tile) handleTap(tile);
+  }
+
+  canvas.addEventListener("mousedown", onPointer);
+  canvas.addEventListener("touchstart", onPointer, { passive: false });
+  canvas.addEventListener("mousemove", function (e) {
+    if (!started || paused) return;
+    const t = eventToTile(e);
+    const changed = (!!t !== !!hover) || (t && hover && (t.x !== hover.x || t.y !== hover.y));
+    hover = t;
+    if (changed && !paused) draw();
+  });
+  canvas.addEventListener("mouseleave", function () { hover = null; if (started) draw(); });
+
+  window.addEventListener("keydown", function (e) {
+    if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].indexOf(e.code) !== -1) {
+      e.preventDefault();
+    }
+    if (e.key === "p" || e.key === "P" || e.key === "Escape") { e.preventDefault(); togglePause(); return; }
+    if (!started) return;
+    if (e.key === "r" || e.key === "R") { e.preventDefault(); loadLevel(levelIndex); return; }
+    if (e.key === "e" || e.key === "E") { e.preventDefault(); if (phase === "player" && !paused) endPlayerTurn(); return; }
+    if (e.key === "w" || e.key === "W") { e.preventDefault(); if (phase === "player" && !paused) waitSelected(); }
+  });
+
+  /* ============================================================
+     SECTION 15 — UI / HUD / OVERLAYS
+     ============================================================ */
+  function refreshUI() {
+    // Turn banner.
+    let t = "Your turn", cls = "";
+    if (phase === "enemy") { t = "Enemy turn"; cls = "enemy"; }
+    else if (phase === "ended") { t = "Battle over"; cls = "done"; }
+    else if (heroes().every((h) => h.acted)) { t = "Press End Turn"; cls = "done"; }
+    els.turnInfo.textContent = t;
+    els.turnInfo.className = cls;
+
+    els.levelInfo.textContent = "Level " + (levelIndex + 1) + " / " + LEVELS.length +
+      "  ·  " + LEVELS[levelIndex].name;
+
+    // Roster cards.
+    els.roster.innerHTML = "";
+    heroes().forEach((h) => {
+      const card = document.createElement("div");
+      card.className = "rcard" + (h.acted ? " done" : "") + (h === selected ? " active" : "");
+      card.style.borderLeftColor = h.color;
+      const name = document.createElement("div");
+      name.className = "rname";
+      const label = document.createElement("span");
+      label.textContent = h.name;
+      const hpv = document.createElement("span");
+      hpv.textContent = h.hp + "/" + h.maxHp;
+      name.appendChild(label); name.appendChild(hpv);
+      const bar = document.createElement("div");
+      bar.className = "rbar";
+      const fill = document.createElement("div");
+      fill.className = "rfill";
+      fill.style.width = Math.max(0, (h.hp / h.maxHp) * 100) + "%";
+      bar.appendChild(fill);
+      card.appendChild(name); card.appendChild(bar);
+      card.addEventListener("click", () => { if (started && phase === "player" && !paused) selectHero(h); });
+      els.roster.appendChild(card);
+    });
+
+    // Status hint line.
+    let s = "";
+    if (!started) s = "Choose Enter the Dungeon to begin.";
+    else if (phase === "ended") s = "See the result — restart or continue.";
+    else if (phase === "enemy") s = "The dungeon stirs… enemies are taking their turn.";
+    else if (selected && selected.acted) s = "That hero is spent for this turn.";
+    else if (selected && selected.moved) s = "Moved. Attack a highlighted foe, or press Wait to finish.";
+    else if (selected) s = "Blue tiles: move. Red rings: attack. Or click a hero card.";
+    else s = "Select a hero (click token or card) to move and strike. End Turn once everyone has acted.";
+    els.status.textContent = s;
+
+    // Control availability.
+    const human = started && phase === "player" && !paused;
+    els.btnWait.disabled = !(human && selected && !selected.acted);
+    els.btnEnd.disabled = !human;
+  }
+
+  function syncPauseButton() { els.btnPause.textContent = paused ? "Resume" : "Pause"; }
+
+  function togglePause() {
+    if (!started || phase === "ended") return;
+    paused = !paused;
+    els.pauseOverlay.classList.toggle("visible", paused);
+    syncPauseButton();
+    if (!paused) { lastFrame = performance.now(); draw(); }
+    refreshUI();
+  }
+
+  function hideOverlay() { els.overlay.classList.add("hidden"); }
+  function showOverlay() { els.overlay.classList.remove("hidden"); }
+  function hideResult() { els.resultOverlay.classList.add("hidden"); }
+  function showResult(title, sub, btnLabel, mode) {
+    resultMode = mode;
+    els.resultTitle.textContent = title;
+    els.resultSub.textContent = sub;
+    els.againBtn.textContent = btnLabel;
+    els.resultOverlay.classList.remove("hidden");
+  }
+  function hidePause() { els.pauseOverlay.classList.remove("visible"); }
+
+  /* ============================================================
+     SECTION 16 — FLOW / START / MENU
+     ============================================================ */
+  function startCampaign() {
+    carryHp = null;
+    started = true;
+    hideResult(); hidePause();
+    loadLevel(0);
+    autoSelectFirstReady();
+  }
+
+  function backToMenu() {
+    started = false;
+    phase = "player";
+    aiToken++;
+    carryHp = null;
+    paused = false;
+    hideResult(); hidePause();
+    syncPauseButton();
+    // Show a static preview board behind the menu.
+    terrain = LEVELS[0].terrain.map((row) => row.split(""));
+    units = [];
+    LEVELS[0].heroes.forEach((h, i) => units.push(makeUnit(h, i)));
+    LEVELS[0].enemies.forEach((e, i) => units.push(makeUnit(e, i + 100)));
+    units.forEach((u) => { u.moved = false; u.acted = false; });
+    selected = null; reachTiles = []; attackTiles = []; hover = null;
+    showOverlay();
+    refreshUI();
+    draw();
+  }
+
+  els.startBtn.addEventListener("click", startCampaign);
+  els.againBtn.addEventListener("click", advanceResult);
+  els.menuBtn2.addEventListener("click", backToMenu);
+  els.btnWait.addEventListener("click", waitSelected);
+  els.btnEnd.addEventListener("click", endPlayerTurn);
+  els.btnPause.addEventListener("click", togglePause);
+  els.btnRestart.addEventListener("click", function () {
+    if (!started) { startCampaign(); return; }
+    carryHp = (phase === "ended") ? null : carryHp;
+    loadLevel(levelIndex);
+    autoSelectFirstReady();
+  });
+  els.btnMenu.addEventListener("click", backToMenu);
+
+  /* ============================================================
+     SECTION 17 — BOOT
+     ============================================================ */
+  loadPersistence();
+  backToMenu();
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Dungeon Crawl</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: #151019;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+    overflow: hidden;
+    touch-action: manipulation;
+    padding: 10px;
+  }
+  #app { width: min(97vw, 980px); display: flex; flex-direction: column; gap: 8px; }
+
+  /* ============ GAME FRAME ============ */
+  #frame {
+    position: relative;
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 14px 46px rgba(0,0,0,.6), inset 0 0 0 2px #3a2b46;
+    background: #0c0810;
+  }
+  canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+
+  /* ============ SCREENS (start / over / win) ============ */
+  .screen {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    text-align: center;
+    background: radial-gradient(circle at 50% 35%, rgba(46,32,58,.94), rgba(9,6,13,.97));
+    transition: opacity .3s ease;
+    padding: 20px;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen h1 {
+    font-size: clamp(1.6rem, 5vw, 2.7rem);
+    letter-spacing: 3px;
+    color: #ffd977;
+    text-shadow: 0 0 18px rgba(255,190,80,.5), 0 3px 0 #6b3d00;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+  .screen h2 {
+    font-size: clamp(1.3rem, 4.5vw, 2.1rem);
+    color: #ff7d6b;
+    text-shadow: 0 0 16px rgba(255,90,60,.5);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+  .screen p { color: #cbb6d8; font-size: clamp(.8rem, 2.3vw, .98rem); line-height: 1.7; max-width: 560px; }
+  .screen .tag { color: #ffd977; font-weight: bold; }
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 8px 18px; justify-content: center;
+    margin: 14px 0 4px;
+  }
+  .legend span { color: #a894b6; font-size: .82rem; display: flex; align-items: center; gap: 6px; }
+  .chip { display: inline-block; width: 13px; height: 13px; border-radius: 3px; }
+
+  .btn {
+    margin-top: 18px;
+    padding: 13px 34px;
+    font-family: inherit;
+    font-size: 1.05rem;
+    font-weight: bold;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #2a1400;
+    background: linear-gradient(180deg, #ffd977, #f0a72c);
+    border: none; border-radius: 9px;
+    cursor: pointer;
+    box-shadow: 0 5px 0 #a96800, 0 8px 20px rgba(240,167,44,.4);
+    transition: transform .06s ease, box-shadow .1s ease;
+    user-select: none;
+  }
+  .btn:hover { filter: brightness(1.06); }
+  .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #a96800; }
+
+  .stat-line { margin-top: 10px; color: #e8dff0; font-size: 1rem; }
+  .stat-line b { color: #ffd977; }
+
+  /* ============ HUD ============ */
+  #hint {
+    text-align: center; color: #8f7fa0; font-size: .74rem; letter-spacing: 1px;
+  }
+  #hint b { color: #c9b6d8; }
+
+  /* ============ TOUCH CONTROLS ============ */
+  #touch {
+    display: none;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-top: 4px;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #touch.on { display: flex; }
+  .pad {
+    display: grid;
+    grid-template-columns: repeat(3, 52px);
+    grid-template-rows: repeat(3, 52px);
+    gap: 6px;
+  }
+  .tbtn {
+    background: rgba(120,96,140,.35);
+    border: 2px solid rgba(200,170,220,.35);
+    border-radius: 12px;
+    color: #e6d8f2;
+    font-size: 1.4rem;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .tbtn:active { background: rgba(255,205,110,.55); color: #2a1400; transform: scale(.94); }
+  .pad .up    { grid-column: 2; grid-row: 1; }
+  .pad .left  { grid-column: 1; grid-row: 2; }
+  .pad .right { grid-column: 3; grid-row: 2; }
+  .pad .down  { grid-column: 2; grid-row: 3; }
+  .actions { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  .actions .tbtn { width: 74px; height: 74px; border-radius: 50%; font-size: 1.5rem; }
+  .actions .attack { background: rgba(255,120,90,.4); border-color: rgba(255,150,120,.5); }
+  .actions .potion { width: 62px; height: 62px; font-size: 1.2rem; background: rgba(120,220,150,.3); border-color: rgba(150,240,180,.4); }
+
+  @media (max-width: 560px) {
+    .pad { grid-template-columns: repeat(3, 46px); grid-template-rows: repeat(3, 46px); }
+    .actions .tbtn { width: 64px; height: 64px; }
+    .actions .potion { width: 54px; height: 54px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="frame">
+    <canvas id="game" width="960" height="600"></canvas>
+
+    <!-- Start -->
+    <div id="startScreen" class="screen">
+      <h1>Dungeon Crawl</h1>
+      <p>Brave the haunted vaults, slay the beasts within, and descend to the deepest floor.</p>
+      <div class="legend">
+        <span><i class="chip" style="background:#6fd08c"></i>Slime</span>
+        <span><i class="chip" style="background:#b48cff"></i>Bat</span>
+        <span><i class="chip" style="background:#e8e2d0"></i>Skeleton</span>
+        <span><i class="chip" style="background:#ffd977"></i>Key</span>
+        <span><i class="chip" style="background:#ff5b6e"></i>Heart</span>
+        <span><i class="chip" style="background:#7fd0ff"></i>Potion</span>
+      </div>
+      <p style="margin-top:8px"><span class="tag">Move</span> with WASD / Arrows &nbsp;·&nbsp; <span class="tag">Swing sword</span> with Space / J &nbsp;·&nbsp; <span class="tag">Drink potion</span> with E &nbsp;·&nbsp; <span class="tag">Pause</span> with P</p>
+      <button class="btn" id="startBtn">Descend</button>
+    </div>
+
+    <!-- Game Over -->
+    <div id="gameOverScreen" class="screen hidden">
+      <h2>You Have Fallen</h2>
+      <p class="stat-line">Reached Floor <b id="overFloor">1</b></p>
+      <p class="stat-line">Coins <b id="overCoins">0</b> &nbsp;·&nbsp; Slain <b id="overKills">0</b> &nbsp;·&nbsp; Score <b id="overScore">0</b></p>
+      <p class="stat-line" style="color:#8f7fa0">Deepest Floor: <b id="overBest">1</b> &nbsp;·&nbsp; Best Score: <b id="overBestScore">0</b></p>
+      <button class="btn" id="overBtn">Try Again</button>
+    </div>
+
+    <!-- Win -->
+    <div id="winScreen" class="screen hidden">
+      <h1>Victory</h1>
+      <p class="stat-line">You escaped the Dungeon Crawl with the Warden's crown!</p>
+      <p class="stat-line" style="margin-top:14px">Coins <b id="winCoins">0</b> &nbsp;·&nbsp; Slain <b id="winKills">0</b> &nbsp;·&nbsp; Score <b id="winScore">0</b></p>
+      <p class="stat-line" style="color:#8f7fa0">Best Score: <b id="winBestScore">0</b></p>
+      <button class="btn" id="winBtn">Play Again</button>
+    </div>
+  </div>
+
+  <div id="hint"><b>WASD/Arrows</b> move · <b>Space/J</b> attack · <b>E</b> potion · <b>P</b> pause · <b>R</b> restart</div>
+
+  <div id="touch">
+    <div class="pad">
+      <div class="tbtn up"    data-dir="up">▲</div>
+      <div class="tbtn left"  data-dir="left">◀</div>
+      <div class="tbtn right" data-dir="right">▶</div>
+      <div class="tbtn down"  data-dir="down">▼</div>
+    </div>
+    <div class="actions">
+      <div class="tbtn potion" id="tPotion">🧪</div>
+      <div class="tbtn attack" id="tAttack">⚔️</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  let actx = null;
+  function tone(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.055, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  const dom = {
+    startScreen: document.getElementById("startScreen"),
+    overScreen: document.getElementById("gameOverScreen"),
+    winScreen: document.getElementById("winScreen"),
+    startBtn: document.getElementById("startBtn"),
+    overBtn: document.getElementById("overBtn"),
+    winBtn: document.getElementById("winBtn"),
+    touch: document.getElementById("touch"),
+    tAttack: document.getElementById("tAttack"),
+    tPotion: document.getElementById("tPotion")
+  };
+
+  localStorage.setItem("dungeonCrawlBest", localStorage.getItem("dungeonCrawlBest") || "1");
+  localStorage.setItem("dungeonCrawlBestScore", localStorage.getItem("dungeonCrawlBestScore") || "0");
+
+  function updateOverlay() {
+    const best = localStorage.getItem("dungeonCrawlBest");
+    const bestScore = localStorage.getItem("dungeonCrawlBestScore");
+    document.getElementById("overBest").textContent = best;
+    document.getElementById("overBestScore").textContent = bestScore;
+    document.getElementById("winBestScore").textContent = bestScore;
+  }
+
+  function hideAll() {
+    dom.startScreen.classList.add("hidden");
+    dom.overScreen.classList.add("hidden");
+    dom.winScreen.classList.add("hidden");
+  }
+
+  function triggerHaptic(ms) {
+    if (navigator.vibrate) navigator.vibrate(ms);
+  }
+
+  // ============ CANVAS & CONSTANTS ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const VW = canvas.width;
+  const VH = canvas.height;
+  const TILE = 32;
+  const WALL = 0, FLOOR = 1, STAIRS = 2, DOOR = 3;
+  const TAU = Math.PI * 2;
+
+  const MAX_HEARTS = 6;
+  const STATS = {
+    player: { speed: 178, radius: 11 },
+    slime: { hp: 2, speed: 44, radius: 13, dmg: 1, color: "#6fd08c" },
+    bat:   { hp: 1, speed: 96, radius: 10, dmg: 1, color: "#b48cff" },
+    skeleton: { hp: 4, speed: 40, radius: 13, dmg: 1, color: "#e8e2d0" }
+  };
+
+  function rand(a, b) { return a + Math.random() * (b - a); }
+  function randi(a, b) { return Math.floor(rand(a, b + 1)); }
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+  function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = randi(0, i); const t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+
+  // ============ GAME STATE ============
+  const G = {
+    floor: 1,
+    maxFloors: 5,
+    bossFloors: [3, 5],
+    state: "menu",        // menu | playing | paused | over | win
+    mapW: 0, mapH: 0,
+    grid: null,
+    rooms: [],
+    enemyMinimap: null,
+    coins: 0,
+    kills: 0,
+    score: 0,
+    keys: 0,
+    potions: 0,
+    swordLevel: 1,
+    player: null,
+    enemies: [],
+    projectiles: [],
+    pickups: [],
+    particles: [],
+    chests: [],
+    message: "",
+    messageT: 0,
+    camera: { x: 0, y: 0 },
+    time: 0
+  };
+
+  function swordReach() { return 26 + G.swordLevel * 3; }
+  function swordDamage() { return 1 + (G.swordLevel - 1) * 0.5; }
+
+  // ============ INPUT ============
+  const keys = {};
+  const touchDir = { up: false, down: false, left: false, right: false };
+
+  document.addEventListener("keydown", (e) => {
+    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) e.preventDefault();
+    keys[e.code] = true;
+    if (e.code === "KeyP" || e.code === "Escape") togglePause();
+    if (e.code === "KeyR" && G.state !== "menu") restart();
+    if ((e.code === "Space" || e.code === "KeyJ") && G.state === "playing") doAttack();
+    if (e.code === "KeyE" && G.state === "playing") drinkPotion();
+    if (e.code === "KeyD") keys.KeyD = true;
+  }, { passive: false });
+
+  document.addEventListener("keyup", (e) => { keys[e.code] = false; });
+
+  // Wire touch controls
+  document.querySelectorAll(".tbtn[data-dir]").forEach((el) => {
+    const dir = el.dataset.dir;
+    const on = (e) => { e.preventDefault(); touchDir[dir] = true; };
+    const off = (e) => { e.preventDefault(); touchDir[dir] = false; };
+    el.addEventListener("touchstart", on, { passive: false });
+    el.addEventListener("touchend", off, { passive: false });
+    el.addEventListener("touchcancel", off, { passive: false });
+    el.addEventListener("mousedown", on);
+    el.addEventListener("mouseup", off);
+    el.addEventListener("mouseleave", off);
+  });
+  dom.tAttack.addEventListener("touchstart", (e) => { e.preventDefault(); if (G.state === "playing") doAttack(); if (G.state === "menu") startGame(); }, { passive: false });
+  dom.tAttack.addEventListener("click", () => { if (G.state === "playing") doAttack(); });
+  dom.tPotion.addEventListener("touchstart", (e) => { e.preventDefault(); if (G.state === "playing") drinkPotion(); }, { passive: false });
+  dom.tPotion.addEventListener("click", () => { if (G.state === "playing") drinkPotion(); });
+
+  if ("ontouchstart" in window || navigator.maxTouchPoints > 0) dom.touch.classList.add("on");
+
+  dom.startBtn.addEventListener("click", startGame);
+  dom.overBtn.addEventListener("click", startGame);
+  dom.winBtn.addEventListener("click", startGame);
+
+  function inputVector() {
+    let x = 0, y = 0;
+    if (keys.KeyA || keys.ArrowLeft || touchDir.left) x -= 1;
+    if (keys.KeyD || keys.ArrowRight || touchDir.right) x += 1;
+    if (keys.KeyW || keys.ArrowUp || touchDir.up) y -= 1;
+    if (keys.KeyS || keys.ArrowDown || touchDir.down) y += 1;
+    if (x !== 0 && y !== 0) { const inv = 1 / Math.SQRT2; x *= inv; y *= inv; }
+    return { x: x, y: y };
+  }
+
+  // ============ TILE HELPERS ============
+  function idx(tx, ty) { return ty * G.mapW + tx; }
+  function tileAt(tx, ty) {
+    if (tx < 0 || ty < 0 || tx >= G.mapW || ty >= G.mapH) return WALL;
+    return G.grid[ty * G.mapW + tx];
+  }
+  function setTile(tx, ty, v) {
+    if (tx < 0 || ty < 0 || tx >= G.mapW || ty >= G.mapH) return;
+    G.grid[ty * G.mapW + tx] = v;
+  }
+  function tileSolid(tx, ty) {
+    const t = tileAt(tx, ty);
+    return t === WALL || t === DOOR;
+  }
+  function circleRect(cx, cy, r, rx, ry, rw, rh) {
+    const nx = clamp(cx, rx, rx + rw);
+    const ny = clamp(cy, ry, ry + rh);
+    const dx = cx - nx, dy = cy - ny;
+    return dx * dx + dy * dy < r * r;
+  }
+  function circleHitsWall(cx, cy, r) {
+    const minx = Math.floor((cx - r) / TILE), maxx = Math.floor((cx + r) / TILE);
+    const miny = Math.floor((cy - r) / TILE), maxy = Math.floor((cy + r) / TILE);
+    for (let ty = miny; ty <= maxy; ty++)
+      for (let tx = minx; tx <= maxx; tx++)
+        if (tileSolid(tx, ty) && circleRect(cx, cy, r, tx * TILE, ty * TILE, TILE, TILE)) return true;
+    return false;
+  }
+  function isFloorTile(cx, cy) {
+    const t = tileAt(Math.floor(cx / TILE), Math.floor(cy / TILE));
+    return t === FLOOR || t === STAIRS;
+  }
+
+  // ============ MAP GENERATION ============
+  function placeRooms(W, H, count) {
+    const rooms = [];
+    const tries = 400;
+    for (let n = 0; n < tries && rooms.length < count; n++) {
+      const w = randi(6, 10), h = randi(5, 8);
+      const x = randi(2, W - w - 3), y = randi(2, H - h - 3);
+      let ok = true;
+      for (const r of rooms) {
+        if (x - 2 < r.x + r.w + 1 && x + w + 1 > r.x - 2 &&
+            y - 2 < r.y + r.h + 1 && y + h + 1 > r.y - 2) { ok = false; break; }
+      }
+      if (ok) rooms.push({ x: x, y: y, w: w, h: h });
+    }
+    return rooms;
+  }
+
+  function carveRoom(r) {
+    for (let y = r.y; y < r.y + r.h; y++)
+      for (let x = r.x; x < r.x + r.w; x++) setTile(x, y, FLOOR);
+  }
+
+  function carveCorridor(a, b) {
+    let x1 = Math.floor(a.x + a.w / 2), y1 = Math.floor(a.y + a.h / 2);
+    let x2 = Math.floor(b.x + b.w / 2), y2 = Math.floor(b.y + b.h / 2);
+    if (Math.random() < 0.5) {
+      for (let x = Math.min(x1, x2); x <= Math.max(x1, x2); x++) setTile(x, y1, FLOOR);
+      for (let y = Math.min(y1, y2); y <= Math.max(y1, y2); y++) setTile(x2, y, FLOOR);
+    } else {
+      for (let y = Math.min(y1, y2); y <= Math.max(y1, y2); y++) setTile(x1, y, FLOOR);
+      for (let x = Math.min(x1, x2); x <= Math.max(x1, x2); x++) setTile(x, y2, FLOOR);
+    }
+  }
+
+  function regionIsWall(x0, y0, w, h) {
+    if (x0 < 1 || y0 < 1 || x0 + w > G.mapW - 1 || y0 + h > G.mapH - 1) return false;
+    for (let y = y0; y < y0 + h; y++)
+      for (let x = x0; x < x0 + w; x++) if (tileAt(x, y) !== WALL) return false;
+    return true;
+  }
+
+  function tryAlcove(room) {
+    const cx = Math.floor(room.x + room.w / 2);
+    const cy = Math.floor(room.y + room.h / 2);
+    const sides = shuffle(["N", "S", "E", "W"]);
+    for (const s of sides) {
+      if (s === "N") {
+        const bx = cx - 2, by = room.y - 6;
+        if (regionIsWall(bx, by, 5, 6)) {
+          for (let y = by; y < room.y - 1; y++) for (let x = bx + 1; x < bx + 4; x++) setTile(x, y, FLOOR);
+          setTile(cx, room.y - 1, DOOR);
+          return { x: cx, y: room.y - 4 };
+        }
+      } else if (s === "S") {
+        const bx = cx - 2, by = room.y + room.h;
+        if (regionIsWall(bx, by, 5, 6)) {
+          for (let y = by + 1; y < by + 5; y++) for (let x = bx + 1; x < bx + 4; x++) setTile(x, y, FLOOR);
+          setTile(cx, by, DOOR);
+          return { x: cx, y: by + 2 };
+        }
+      } else if (s === "E") {
+        const bx = room.x + room.w, by = cy - 2;
+        if (regionIsWall(bx, by, 6, 5)) {
+          for (let x = bx + 1; x < bx + 5; x++) for (let y = by + 1; y < by + 4; y++) setTile(x, y, FLOOR);
+          setTile(bx, cy, DOOR);
+          return { x: bx + 2, y: cy };
+        }
+      } else {
+        const bx = room.x - 6, by = cy - 2;
+        if (regionIsWall(bx, by, 6, 5)) {
+          for (let x = bx; x < room.x - 1; x++) for (let y = by + 1; y < by + 4; y++) setTile(x, y, FLOOR);
+          setTile(room.x - 1, cy, DOOR);
+          return { x: bx + 2, y: cy };
+        }
+      }
+    }
+    return null;
+  }
+
+  function dist2(a, b) { const dx = a.x - b.x, dy = a.y - b.y; return dx * dx + dy * dy; }
+
+  function generateFloor(floor) {
+    G.mapW = 40 + floor * 2;
+    G.mapH = 30 + floor;
+    G.grid = new Uint8Array(G.mapW * G.mapH);
+    G.enemies = []; G.projectiles = []; G.pickups = []; G.particles = []; G.chests = [];
+
+    const count = 6 + floor;
+    let rooms = placeRooms(G.mapW, G.mapH, count);
+    if (rooms.length < 4) rooms = placeRooms(G.mapW, G.mapH, count); // retry once
+    G.rooms = rooms;
+    rooms.forEach(carveRoom);
+
+    // Chain-connect by x, then add a few loops
+    const sorted = rooms.slice().sort((a, b) => (a.x - b.x));
+    for (let i = 1; i < sorted.length; i++) carveCorridor(sorted[i - 1], sorted[i]);
+    for (let i = 0; i < rooms.length; i++) {
+      if (Math.random() < 0.4 && rooms.length > 2) {
+        let j = randi(0, rooms.length - 1);
+        if (j !== i) carveCorridor(rooms[i], rooms[j]);
+      }
+    }
+
+    const startRoom = rooms[0];
+    const sx = Math.floor(startRoom.x + startRoom.w / 2);
+    const sy = Math.floor(startRoom.y + startRoom.h / 2);
+    G.player = {
+      x: sx * TILE + TILE / 2, y: sy * TILE + TILE / 2,
+      r: STATS.player.radius, hp: G.player ? Math.max(G.player.hp, 2) : MAX_HEARTS,
+      face: 0, attackT: 0, attackCd: 0, hitSet: null, invuln: 0, anim: 0, swingDir: 0, hurtFlash: 0
+    };
+    if (!G.player.hp || G.player.hp > MAX_HEARTS) G.player.hp = MAX_HEARTS;
+
+    // Exit room = farthest from start
+    let exitRoom = startRoom, best = -1;
+    for (const r of rooms) {
+      const d = (r.x + r.w / 2 - sx) ** 2 + (r.y + r.h / 2 - sy) ** 2;
+      if (d > best) { best = d; exitRoom = r; }
+    }
+    const ex = Math.floor(exitRoom.x + exitRoom.w / 2);
+    const ey = Math.floor(exitRoom.y + exitRoom.h / 2);
+    setTile(ex, ey, STAIRS);
+    G.stairs = { x: ex * TILE + TILE / 2, y: ey * TILE + TILE / 2 };
+
+    // Treasure alcoves with chests, protected by locked doors
+    const alcoveRooms = shuffle(rooms.filter(r => r !== startRoom)).slice(0, Math.min(1 + Math.floor(floor / 2), 3));
+    for (const r of alcoveRooms) {
+      const spot = tryAlcove(r);
+      if (spot) {
+        let type = "coins";
+        const roll = Math.random();
+        if (roll < 0.32) type = "heart";
+        else if (roll < 0.5) type = "potion";
+        else if (roll < 0.62 && G.swordLevel < 3) type = "sword";
+        G.chests.push({ x: spot.x * TILE + TILE / 2, y: spot.y * TILE + TILE / 2, r: 13, type: type, bob: rand(0, TAU) });
+      }
+    }
+
+    // Scatter keys in rooms (guaranteed more than doors)
+    const keyCount = 1 + Math.floor(floor / 2);
+    const candidateRooms = shuffle(rooms.slice()).slice(0, Math.min(rooms.length, keyCount + 2));
+    let placedKeys = 0;
+    for (const r of candidateRooms) {
+      if (placedKeys >= keyCount) break;
+      for (let t = 0; t < 8; t++) {
+        const tx = randi(r.x, r.x + r.w - 1), ty = randi(r.y, r.y + r.h - 1);
+        if (tileAt(tx, ty) === FLOOR) {
+          G.pickups.push({ x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2, r: 10, type: "key", bob: rand(0, TAU) });
+          placedKeys++; break;
+        }
+      }
+    }
+
+    // Enemies
+    const enemyCount = 6 + floor * 2;
+    let spawned = 0, guard = 0;
+    while (spawned < enemyCount && guard++ < 500) {
+      const r = pick(rooms);
+      if (r === startRoom) continue;
+      const tx = randi(r.x, r.x + r.w - 1), ty = randi(r.y, r.y + r.h - 1);
+      if (tileAt(tx, ty) !== FLOOR) continue;
+      const px = tx * TILE + TILE / 2, py = ty * TILE + TILE / 2;
+      if ((px - G.player.x) ** 2 + (py - G.player.y) ** 2 < 130 * 130) continue;
+      let type = "slime";
+      const roll = Math.random();
+      if (roll < 0.32 + floor * 0.03) type = "bat";
+      else if (roll < 0.55 + floor * 0.04) type = "skeleton";
+      spawnEnemy(type, px, py);
+      spawned++;
+    }
+
+    // Boss on flagged floors, in largest room
+    G.bossAlive = false;
+    if (G.bossFloors.indexOf(floor) !== -1) {
+      let big = rooms[0];
+      for (const r of rooms) if (r.w * r.h > big.w * big.h) big = r;
+      const bx = (big.x + big.w / 2) * TILE, by = (big.y + big.h / 2) * TILE;
+      spawnBoss(bx, by, floor);
+      G.bossAlive = true;
+    }
+
+    buildMinimapSeen(floor);
+  }
+
+  function buildMinimapSeen() {
+    G.seen = new Uint8Array(G.mapW * G.mapH);
+    G.seen.fill(1); // simple full reveal minimap of layout; fog not tracked for cheapness
+  }
+
+  function spawnEnemy(type, x, y) {
+    const s = STATS[type];
+    G.enemies.push({
+      type: type, x: x, y: y, r: s.radius,
+      hp: s.hp + Math.floor((G.floor - 1) * (type === "skeleton" ? 1 : 0.5)),
+      maxhp: 0, speed: s.speed, dmg: s.dmg, color: s.color,
+      vx: 0, vy: 0, t: rand(0, 10), shootCd: rand(1, 2), bob: rand(0, TAU),
+      hitFlash: 0, knock: { x: 0, y: 0 }, boss: false
+    });
+    G.enemies[G.enemies.length - 1].maxhp = G.enemies[G.enemies.length - 1].hp;
+  }
+
+  function spawnBoss(x, y, floor) {
+    G.enemies.push({
+      type: "boss", x: x, y: y, r: 34,
+      hp: 28 + floor * 6, maxhp: 28 + floor * 6, speed: 46, dmg: 2, color: "#c65bd6",
+      vx: 0, vy: 0, t: 0, shootCd: 2.4, summonCd: 4.5, bob: 0,
+      hitFlash: 0, knock: { x: 0, y: 0 }, boss: true, dashCd: 3
+    });
+  }
+
+  // ============ PLAYER ACTIONS ============
+  function doAttack() {
+    const p = G.player;
+    if (p.attackCd > 0) return;
+    p.attackT = 0.2; p.attackCd = 0.34; p.hitSet = [];
+    p.swingDir = p.face;
+    tone(520, 0.07, "square");
+  }
+
+  function drinkPotion() {
+    const p = G.player;
+    if (G.potions <= 0) { toast("No potions left!"); return; }
+    if (p.hp >= MAX_HEARTS) { toast("Already at full health!"); return; }
+    G.potions--; p.hp = Math.min(MAX_HEARTS, p.hp + 3);
+    tone(880, 0.12, "sine"); setTimeout(() => tone(1180, 0.14, "sine"), 90);
+    for (let i = 0; i < 14; i++) particles(p.x, p.y, "#7fd0ff", 3);
+  }
+
+  function toast(msg) { G.message = msg; G.messageT = 2.4; }
+
+  function damagePlayer(amount, fromX, fromY) {
+    const p = G.player;
+    if (p.invuln > 0 || G.state !== "playing") return;
+    p.hp -= amount; p.invuln = 1.1; p.hurtFlash = 0.35;
+    tone(180, 0.18, "sawtooth"); triggerHaptic(40);
+    if (fromX !== undefined) {
+      const a = Math.atan2(p.y - fromY, p.x - fromX);
+      p.knock = { x: Math.cos(a) * 210, y: Math.sin(a) * 210, t: 0.14 };
+    }
+    for (let i = 0; i < 12; i++) particles(p.x, p.y, "#ff5b6e", 3);
+    if (p.hp <= 0) { p.hp = 0; gameOver(); }
+  }
+
+  function particles(x, y, color, n) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * TAU, s = rand(40, 170);
+      G.particles.push({ x: x, y: y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rand(0.35, 0.7), max: 0.7, color: color, size: rand(2, 4.5) });
+    }
+  }
+
+  // ============ COLLISION / MOVEMENT ============
+  function moveBody(e, dx, dy) {
+    e.x += dx;
+    if (circleHitsWall(e.x, e.y, e.r)) { e.x -= dx; }
+    e.y += dy;
+    if (circleHitsWall(e.x, e.y, e.r)) { e.y -= dy; }
+  }
+
+  // ============ UPDATE ============
+  function update(dt) {
+    G.time += dt;
+    const p = G.player;
+
+    // ---- player ----
+    const iv = inputVector();
+    if (iv.x !== 0 || iv.y !== 0) {
+      moveBody(p, iv.x * STATS.player.speed * dt, iv.y * STATS.player.speed * dt);
+      p.face = Math.atan2(iv.y, iv.x);
+      p.anim += dt * 10;
+    }
+    if (p.knock && p.knock.t > 0) {
+      moveBody(p, p.knock.x * dt, p.knock.y * dt);
+      p.knock.t -= dt;
+    }
+    p.attackT = Math.max(0, p.attackT - dt);
+    p.attackCd = Math.max(0, p.attackCd - dt);
+    p.invuln = Math.max(0, p.invuln - dt);
+    p.hurtFlash = Math.max(0, p.hurtFlash - dt);
+
+    // sword hitbox
+    if (p.attackT > 0) {
+      const hx = p.x + Math.cos(p.swingDir) * swordReach();
+      const hy = p.y + Math.sin(p.swingDir) * swordReach();
+      const hr = 22 + G.swordLevel * 2;
+      for (const e of G.enemies) {
+        if (p.hitSet.indexOf(e) !== -1) continue;
+        if ((e.x - hx) ** 2 + (e.y - hy) ** 2 < (hr + e.r) ** 2) {
+          p.hitSet.push(e);
+          hurtEnemy(e, swordDamage(), hx, hy);
+        }
+      }
+    }
+
+    // ---- enemies ----
+    for (let i = G.enemies.length - 1; i >= 0; i--) {
+      const e = G.enemies[i];
+      e.t += dt; e.hitFlash = Math.max(0, e.hitFlash - dt);
+      if (e.knock && e.knock.t > 0) { moveBody(e, e.knock.x * dt, e.knock.y * dt); e.knock.t -= dt; }
+
+      const dx = p.x - e.x, dy = p.y - e.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const nx = dx / d, ny = dy / d;
+
+      if (e.boss) {
+        updateBoss(e, dt, nx, ny, d);
+      } else if (e.type === "slime") {
+        const hop = (Math.sin(e.t * 3) + 1) * 0.5;
+        moveBody(e, nx * e.speed * dt * hop, ny * e.speed * dt * hop);
+      } else if (e.type === "bat") {
+        const wob = Math.sin(e.t * 4) * 0.7;
+        const mx = nx * Math.cos(wob) - ny * Math.sin(wob);
+        const my = nx * Math.sin(wob) + ny * Math.cos(wob);
+        moveBody(e, mx * e.speed * dt, my * e.speed * dt);
+      } else if (e.type === "skeleton") {
+        e.shootCd -= dt;
+        let mx = 0, my = 0;
+        if (d > 150) { mx = nx; my = ny; }
+        else if (d < 90) { mx = -nx; my = -ny; }
+        moveBody(e, mx * e.speed * dt, my * e.speed * dt);
+        if (e.shootCd <= 0 && d < 340) {
+          e.shootCd = 2.0;
+          G.projectiles.push({ x: e.x, y: e.y, vx: nx * 200, vy: ny * 200, r: 5, life: 2.2, dmg: 1, spin: 0 });
+          tone(300, 0.08, "triangle");
+        }
+      }
+
+      // contact damage
+      if (d < p.r + e.r && p.invuln <= 0) damagePlayer(e.dmg, e.x, e.y);
+    }
+
+    // ---- projectiles ----
+    for (let i = G.projectiles.length - 1; i >= 0; i--) {
+      const pr = G.projectiles[i];
+      pr.x += pr.vx * dt; pr.y += pr.vy * dt; pr.life -= dt; pr.spin += dt * 12;
+      if (pr.life <= 0 || circleHitsWall(pr.x, pr.y, pr.r)) { G.projectiles.splice(i, 1); continue; }
+      if ((pr.x - p.x) ** 2 + (pr.y - p.y) ** 2 < (p.r + pr.r) ** 2) {
+        damagePlayer(pr.dmg, pr.x, pr.y); G.projectiles.splice(i, 1);
+      }
+    }
+
+    // ---- pickups ----
+    for (let i = G.pickups.length - 1; i >= 0; i--) {
+      const it = G.pickups[i];
+      it.bob += dt * 4;
+      const dd = (it.x - p.x) ** 2 + (it.y - p.y) ** 2;
+      if (dd < (p.r + it.r + 4) ** 2) {
+        collectPickup(it); G.pickups.splice(i, 1);
+      }
+    }
+    // ---- chests ----
+    for (let i = G.chests.length - 1; i >= 0; i--) {
+      const c = G.chests[i];
+      c.bob += dt * 3;
+      if ((c.x - p.x) ** 2 + (c.y - p.y) ** 2 < (p.r + c.r + 6) ** 2) {
+        openChest(c); G.chests.splice(i, 1);
+      }
+    }
+
+    // ---- doors ----
+    openNearbyDoors();
+
+    // ---- stairs ----
+    if (G.stairs && !G.bossAlive) {
+      if ((G.stairs.x - p.x) ** 2 + (G.stairs.y - p.y) ** 2 < (p.r + 16) ** 2) {
+        descend();
+      }
+    } else if (G.stairs && G.bossAlive) {
+      if ((G.stairs.x - p.x) ** 2 + (G.stairs.y - p.y) ** 2 < (p.r + 16) ** 2) {
+        if (G.messageT <= 0) toast("The Warden still guards the stairs!");
+      }
+    }
+
+    // ---- particles ----
+    for (let i = G.particles.length - 1; i >= 0; i--) {
+      const pa = G.particles[i];
+      pa.x += pa.vx * dt; pa.y += pa.vy * dt;
+      pa.vx *= 0.92; pa.vy *= 0.92;
+      pa.life -= dt;
+      if (pa.life <= 0) G.particles.splice(i, 1);
+    }
+
+    if (G.messageT > 0) G.messageT -= dt;
+
+    // ---- camera ----
+    let camX = p.x - VW / 2, camY = p.y - VH / 2;
+    camX = clamp(camX, 0, Math.max(0, G.mapW * TILE - VW));
+    camY = clamp(camY, 0, Math.max(0, G.mapH * TILE - VH));
+    G.camera.x += (camX - G.camera.x) * Math.min(1, dt * 8);
+    G.camera.y += (camY - G.camera.y) * Math.min(1, dt * 8);
+  }
+
+  function updateBoss(e, dt, nx, ny, d) {
+    e.dashCd -= dt; e.summonCd -= dt;
+    if (e.dashCd <= 0) {
+      e.dashCd = rand(2.6, 3.8);
+      e.vx = nx * 320; e.vy = ny * 320; e.dashT = 0.5;
+      tone(140, 0.2, "sawtooth");
+    }
+    if (e.dashT > 0) {
+      e.dashT -= dt;
+      moveBody(e, e.vx * dt, e.vy * dt);
+      e.vx *= 0.9; e.vy *= 0.9;
+    } else {
+      moveBody(e, nx * e.speed * dt, ny * e.speed * dt);
+    }
+    if (e.summonCd <= 0 && G.enemies.length < 26) {
+      e.summonCd = 5;
+      for (let i = 0; i < 2; i++) {
+        const a = Math.random() * TAU;
+        const sx = e.x + Math.cos(a) * 60, sy = e.y + Math.sin(a) * 60;
+        if (!circleHitsWall(sx, sy, 13)) spawnEnemy("slime", sx, sy);
+      }
+      toast("The Warden summons minions!");
+      tone(200, 0.2, "square");
+    }
+  }
+
+  function hurtEnemy(e, dmg, fx, fy) {
+    e.hp -= dmg; e.hitFlash = 0.16;
+    const a = Math.atan2(e.y - fy, e.x - fx);
+    const force = e.boss ? 40 : 170;
+    e.knock = { x: Math.cos(a) * force, y: Math.sin(a) * force, t: 0.12 };
+    particles(e.x, e.y, e.color, 6);
+    tone(360, 0.05, "square");
+    if (e.hp <= 0) killEnemy(e);
+  }
+
+  function killEnemy(e) {
+    const k = G.enemies.indexOf(e);
+    if (k !== -1) G.enemies.splice(k, 1);
+    G.kills++;
+    G.score += e.boss ? 500 : 20;
+    particles(e.x, e.y, e.color, e.boss ? 40 : 14);
+    tone(e.boss ? 90 : 440, e.boss ? 0.5 : 0.12, e.boss ? "sawtooth" : "triangle");
+    triggerHaptic(e.boss ? 120 : 20);
+
+    if (e.boss) {
+      G.bossAlive = false;
+      G.coins += 40; G.score += 300;
+      toast("The Warden falls! The stairs open.");
+      for (let i = 0; i < 4; i++) {
+        G.pickups.push({ x: e.x + rand(-40, 40), y: e.y + rand(-40, 40), r: 10, type: "heart", bob: rand(0, TAU) });
+      }
+      G.pickups.push({ x: e.x, y: e.y + 26, r: 11, type: "sword", bob: 0 });
+      return;
+    }
+
+    // drops
+    const roll = Math.random();
+    if (roll < 0.55) dropCoin(e.x, e.y);
+    else if (roll < 0.7) G.pickups.push({ x: e.x, y: e.y, r: 10, type: "heart", bob: 0 });
+    else if (roll < 0.78) G.pickups.push({ x: e.x, y: e.y, r: 11, type: "potion", bob: 0 });
+    else if (roll < 0.86) dropCoin(e.x, e.y);
+    else if (e.type === "skeleton") G.pickups.push({ x: e.x, y: e.y, r: 10, type: "key", bob: 0 });
+  }
+
+  function dropCoin(x, y) {
+    G.pickups.push({ x: x + rand(-8, 8), y: y + rand(-8, 8), r: 9, type: "coin", bob: rand(0, TAU) });
+  }
+
+  function collectPickup(it) {
+    const p = G.player;
+    if (it.type === "coin") { G.coins++; G.score += 10; tone(1000, 0.06, "sine"); }
+    else if (it.type === "heart") { p.hp = Math.min(MAX_HEARTS, p.hp + 1); tone(880, 0.09, "sine"); }
+    else if (it.type === "key") { G.keys++; tone(1320, 0.1, "triangle"); toast("Picked up a key (" + G.keys + ")"); }
+    else if (it.type === "potion") { G.potions++; tone(760, 0.1, "sine"); }
+    else if (it.type === "sword") { upgradeSword(); return; }
+    particles(it.x, it.y, it.type === "coin" ? "#ffd977" : "#ffffff", 8);
+  }
+
+  function upgradeSword() {
+    if (G.swordLevel >= 3) { G.score += 200; toast("Sword already legendary (+score)"); return; }
+    G.swordLevel++;
+    const names = { 1: "Iron Blade", 2: "Steel Blade", 3: "Flame Blade" };
+    toast("Sword upgraded: " + names[G.swordLevel] + "!");
+    tone(660, 0.1, "square"); setTimeout(() => tone(990, 0.14, "square"), 100);
+    particles(G.player.x, G.player.y, "#ffae42", 24);
+  }
+
+  function openChest(c) {
+    if (c.type === "coins") {
+      for (let i = 0; i < 12; i++) dropCoin(c.x, c.y);
+      toast("A trove of coins!");
+    } else if (c.type === "heart") {
+      G.player.hp = MAX_HEARTS; toast("A magical heart mends you!");
+    } else if (c.type === "potion") {
+      G.potions += 2; toast("Two potions found!");
+    } else if (c.type === "sword") {
+      upgradeSword();
+    }
+    tone(540, 0.12, "sine");
+    particles(c.x, c.y, "#ffd977", 20);
+  }
+
+  function openNearbyDoors() {
+    const p = G.player;
+    const tx = Math.floor(p.x / TILE), ty = Math.floor(p.y / TILE);
+    const neigh = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    let adjacentDoor = null;
+    for (const n of neigh) {
+      if (tileAt(tx + n[0], ty + n[1]) === DOOR) { adjacentDoor = [tx + n[0], ty + n[1]]; break; }
+    }
+    if (G.keys <= 0) {
+      if (adjacentDoor && G.messageT <= 0) toast("A locked door — find a key!");
+      return;
+    }
+    for (const n of neigh) {
+      if (tileAt(tx + n[0], ty + n[1]) === DOOR) {
+        setTile(tx + n[0], ty + n[1], FLOOR);
+        G.keys--;
+        tone(480, 0.14, "triangle");
+        toast("Door unlocked!");
+        particles((tx + n[0]) * TILE + TILE / 2, (ty + n[1]) * TILE + TILE / 2, "#ffd977", 14);
+        return;
+      }
+    }
+  }
+
+  // ============ FLOW ============
+  function descend() {
+    G.floor++;
+    if (G.floor > G.maxFloors) { win(); return; }
+    tone(700, 0.14, "sine"); setTimeout(() => tone(950, 0.18, "sine"), 120);
+    generateFloor(G.floor);
+    toast("Floor " + G.floor + " — descend deeper...");
+    saveBest();
+  }
+
+  function saveBest() {
+    const bf = parseInt(localStorage.getItem("dungeonCrawlBest"), 10) || 1;
+    if (G.floor > bf) localStorage.setItem("dungeonCrawlBest", String(G.floor));
+    const bs = parseInt(localStorage.getItem("dungeonCrawlBestScore"), 10) || 0;
+    if (G.score > bs) localStorage.setItem("dungeonCrawlBestScore", String(G.score));
+  }
+
+  function startGame() {
+    hideAll();
+    G.floor = 1; G.coins = 0; G.kills = 0; G.score = 0;
+    G.keys = 0; G.potions = 1; G.swordLevel = 1;
+    G.player = null; G.message = ""; G.messageT = 0; G.time = 0;
+    generateFloor(1);
+    G.state = "playing";
+    tone(520, 0.1, "square");
+    toast("Floor 1 — find the stairs!");
+    updateOverlay();
+  }
+
+  function restart() { if (G.state === "win" || G.state === "over") { startGame(); } else { startGame(); } }
+
+  function togglePause() {
+    if (G.state === "playing") { G.state = "paused"; tone(420, 0.07, "triangle"); }
+    else if (G.state === "paused") { G.state = "playing"; tone(620, 0.07, "triangle"); }
+  }
+
+  function gameOver() {
+    G.state = "over";
+    tone(150, 0.4, "sawtooth");
+    saveBest();
+    document.getElementById("overFloor").textContent = G.floor;
+    document.getElementById("overCoins").textContent = G.coins;
+    document.getElementById("overKills").textContent = G.kills;
+    document.getElementById("overScore").textContent = G.score;
+    updateOverlay();
+    dom.overScreen.classList.remove("hidden");
+  }
+
+  function win() {
+    G.state = "win";
+    saveBest();
+    tone(660, 0.16, "sine");
+    setTimeout(() => tone(880, 0.16, "sine"), 140);
+    setTimeout(() => tone(1320, 0.28, "sine"), 300);
+    document.getElementById("winCoins").textContent = G.coins;
+    document.getElementById("winKills").textContent = G.kills;
+    document.getElementById("winScore").textContent = G.score;
+    updateOverlay();
+    dom.winScreen.classList.remove("hidden");
+  }
+
+  // ============ DRAWING ============
+  function hash(x, y) {
+    let h = (x * 374761393 + y * 668265263) ^ 0x5bd1e995;
+    h = (h ^ (h >> 13)) * 1274126177;
+    return ((h ^ (h >> 16)) >>> 0) / 4294967295;
+  }
+
+  function drawFloorTiles() {
+    const cam = G.camera;
+    const x0 = Math.max(0, Math.floor(cam.x / TILE));
+    const y0 = Math.max(0, Math.floor(cam.y / TILE));
+    const x1 = Math.min(G.mapW - 1, Math.ceil((cam.x + VW) / TILE));
+    const y1 = Math.min(G.mapH - 1, Math.ceil((cam.y + VH) / TILE));
+
+    for (let ty = y0; ty <= y1; ty++) {
+      for (let tx = x0; tx <= x1; tx++) {
+        const t = tileAt(tx, ty);
+        const px = tx * TILE - cam.x, py = ty * TILE - cam.y;
+        if (t === WALL) {
+          ctx.fillStyle = "#241a2e";
+          ctx.fillRect(px, py, TILE, TILE);
+          // brick texture
+          const r = hash(tx, ty);
+          ctx.fillStyle = r < 0.5 ? "#2e2138" : "#2a1e34";
+          ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
+          ctx.fillStyle = "rgba(90,70,110,.4)";
+          ctx.fillRect(px, py + TILE - 5, TILE, 3);
+          ctx.fillRect(px, py, TILE, 2);
+        } else {
+          const r = hash(tx, ty);
+          ctx.fillStyle = r < 0.5 ? "#3b2c47" : "#372938";
+          ctx.fillRect(px, py, TILE, TILE);
+          ctx.fillStyle = "rgba(120,95,140,.18)";
+          const sx = (hash(tx + 99, ty) * (TILE - 8)) | 0;
+          const sy = (hash(tx, ty + 77) * (TILE - 8)) | 0;
+          ctx.fillRect(px + sx, py + sy, 3, 3);
+          ctx.strokeStyle = "rgba(0,0,0,.22)";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(px + .5, py + .5, TILE - 1, TILE - 1);
+
+          if (t === STAIRS) drawStairs(px, py);
+          else if (t === DOOR) drawDoor(px, py);
+        }
+      }
+    }
+  }
+
+  function drawStairs(px, py) {
+    ctx.fillStyle = G.bossAlive ? "#4a3a55" : "#1b2a1e";
+    ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
+    const open = !G.bossAlive;
+    ctx.fillStyle = open ? "#7dffa0" : "#5c4a68";
+    for (let i = 0; i < 4; i++) {
+      ctx.globalAlpha = open ? (0.55 + 0.45 * Math.sin(G.time * 4 + i)) : 0.5;
+      ctx.fillRect(px + 4 + i * 3, py + 6 + i * 5, TILE - 8 - i * 6, 4);
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = open ? "#d8ffe4" : "#846f92";
+    ctx.font = "bold 9px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(open ? "EXIT" : "LOCK", px + TILE / 2, py + TILE - 4);
+  }
+
+  function drawDoor(px, py) {
+    ctx.fillStyle = "#6b4a2a";
+    ctx.fillRect(px + 1, py + 1, TILE - 2, TILE - 2);
+    ctx.fillStyle = "#8a6238";
+    ctx.fillRect(px + 3, py + 3, TILE - 6, TILE - 6);
+    ctx.strokeStyle = "#4a3118";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(px + TILE / 2, py + 3); ctx.lineTo(px + TILE / 2, py + TILE - 3);
+    ctx.stroke();
+    ctx.fillStyle = "#ffd977";
+    ctx.beginPath();
+    ctx.arc(px + TILE * 0.65, py + TILE / 2, 2.6, 0, TAU);
+    ctx.fill();
+  }
+
+  function drawEntitiesLayer() {
+    const cam = G.camera;
+    // pickups
+    for (const it of G.pickups) {
+      const x = it.x - cam.x, y = it.y - cam.y + Math.sin(it.bob) * 3;
+      if (x < -40 || x > VW + 40 || y < -40 || y > VH + 40) continue;
+      drawPickup(it, x, y);
+    }
+    // chests
+    for (const c of G.chests) {
+      const x = c.x - cam.x, y = c.y - cam.y;
+      drawChest(x, y);
+    }
+    // projectiles
+    for (const pr of G.projectiles) {
+      const x = pr.x - cam.x, y = pr.y - cam.y;
+      ctx.save();
+      ctx.translate(x, y); ctx.rotate(pr.spin);
+      ctx.fillStyle = "#f2ecd8";
+      ctx.fillRect(-6, -2.5, 12, 5);
+      ctx.beginPath(); ctx.arc(-6, 0, 3, 0, TAU); ctx.arc(6, 0, 3, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
+    // enemies
+    for (const e of G.enemies) {
+      const x = e.x - cam.x, y = e.y - cam.y;
+      if (x < -80 || x > VW + 80 || y < -80 || y > VH + 80) continue;
+      drawEnemy(e, x, y);
+    }
+    // player
+    drawPlayer(G.player.x - cam.x, G.player.y - cam.y);
+    // particles
+    for (const pa of G.particles) {
+      ctx.globalAlpha = Math.max(0, pa.life / pa.max);
+      ctx.fillStyle = pa.color;
+      ctx.beginPath();
+      ctx.arc(pa.x - cam.x, pa.y - cam.y, pa.size, 0, TAU);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawPickup(it, x, y) {
+    if (it.type === "coin") {
+      ctx.fillStyle = "#ffd977";
+      ctx.beginPath(); ctx.ellipse(x, y, 6, 8, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#b8860b";
+      ctx.beginPath(); ctx.ellipse(x, y, 3, 5, 0, 0, TAU); ctx.fill();
+    } else if (it.type === "heart") {
+      drawHeartShape(x, y, 8, "#ff5b6e");
+    } else if (it.type === "key") {
+      ctx.fillStyle = "#ffd977";
+      ctx.beginPath(); ctx.arc(x - 3, y - 3, 4, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#151019";
+      ctx.beginPath(); ctx.arc(x - 3, y - 3, 1.6, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#ffd977";
+      ctx.fillRect(x - 1, y - 1, 3, 9);
+      ctx.fillRect(x - 1, y + 4, 5, 2);
+      ctx.fillRect(x - 1, y + 7, 4, 2);
+    } else if (it.type === "potion") {
+      ctx.fillStyle = "#cfe9ff";
+      ctx.fillRect(x - 2, y - 9, 4, 4);
+      ctx.fillStyle = "#7fd0ff";
+      ctx.beginPath(); ctx.arc(x, y + 2, 7, 0, TAU); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,.6)";
+      ctx.beginPath(); ctx.arc(x - 2, y, 2, 0, TAU); ctx.fill();
+    } else if (it.type === "sword") {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(-Math.PI / 4);
+      ctx.fillStyle = "#dfe6ff";
+      ctx.fillRect(-2, -10, 4, 15);
+      ctx.fillStyle = "#ffae42";
+      ctx.fillRect(-7, 4, 14, 3);
+      ctx.fillStyle = "#8a6238";
+      ctx.fillRect(-2, 7, 4, 6);
+      ctx.restore();
+    }
+  }
+
+  function drawChest(x, y) {
+    ctx.fillStyle = "#7a4a22";
+    ctx.fillRect(x - 13, y - 9, 26, 18);
+    ctx.fillStyle = "#a06a32";
+    ctx.fillRect(x - 13, y - 13, 26, 8);
+    ctx.strokeStyle = "#3d2410"; ctx.lineWidth = 2;
+    ctx.strokeRect(x - 13, y - 13, 26, 22);
+    ctx.fillStyle = "#ffd977";
+    ctx.fillRect(x - 2, y - 6, 4, 8);
+    ctx.beginPath(); ctx.arc(x, y - 1, 2, 0, TAU); ctx.fill();
+    // sparkle
+    ctx.globalAlpha = 0.4 + 0.4 * Math.sin(G.time * 4);
+    ctx.fillStyle = "#fff4c2";
+    ctx.beginPath(); ctx.arc(x, y - 16, 3, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  function drawHeartShape(x, y, s, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x, y + s * 0.6);
+    ctx.bezierCurveTo(x - s * 1.3, y - s * 0.3, x - s * 0.5, y - s, x, y - s * 0.35);
+    ctx.bezierCurveTo(x + s * 0.5, y - s, x + s * 1.3, y - s * 0.3, x, y + s * 0.6);
+    ctx.fill();
+  }
+
+  function drawPlayer(x, y) {
+    const p = G.player;
+    const flash = p.invuln > 0 && Math.floor(G.time * 20) % 2 === 0;
+    ctx.save();
+    ctx.translate(x, y);
+
+    // shadow
+    ctx.fillStyle = "rgba(0,0,0,.35)";
+    ctx.beginPath(); ctx.ellipse(0, 11, 11, 4, 0, 0, TAU); ctx.fill();
+
+    if (flash) ctx.globalAlpha = 0.45;
+
+    const bob = Math.sin(p.anim) * 1.5;
+
+    // body
+    ctx.fillStyle = p.hurtFlash > 0 ? "#ffb0b0" : "#5b8dd6";
+    ctx.beginPath(); ctx.ellipse(0, 2 + bob, 9, 11, 0, 0, TAU); ctx.fill();
+    // belt
+    ctx.fillStyle = "#c9a04a";
+    ctx.fillRect(-8, 4 + bob, 16, 3);
+    // head
+    ctx.fillStyle = "#f2d2b0";
+    ctx.beginPath(); ctx.arc(0, -8 + bob, 7, 0, TAU); ctx.fill();
+    // helm
+    ctx.fillStyle = "#9fb8e6";
+    ctx.beginPath(); ctx.arc(0, -10 + bob, 8, Math.PI, 0); ctx.fill();
+    ctx.fillRect(-8, -10 + bob, 16, 3);
+    // eyes
+    ctx.fillStyle = "#22303f";
+    const ex = Math.cos(p.face) * 2.2, ey = Math.sin(p.face) * 1.4;
+    ctx.beginPath(); ctx.arc(-2.4 + ex, -7 + ey + bob, 1.4, 0, TAU); ctx.arc(2.4 + ex, -7 + ey + bob, 1.4, 0, TAU); ctx.fill();
+
+    // sword
+    const atk = p.attackT > 0 ? 1 - p.attackT / 0.2 : 0;
+    const dir = p.attackT > 0 ? p.swingDir : p.face;
+    const swing = p.attackT > 0 ? (-0.9 + atk * 1.8) : 0;
+    ctx.save();
+    ctx.rotate(dir + swing);
+    const reach = 12 + G.swordLevel * 2;
+    // hilt
+    ctx.fillStyle = "#8a6238";
+    ctx.fillRect(reach - 2, -2, 5, 4);
+    // blade
+    const bladeCol = G.swordLevel >= 3 ? "#ffae42" : G.swordLevel === 2 ? "#cfe0ff" : "#d8e2ef";
+    ctx.fillStyle = bladeCol;
+    ctx.fillRect(reach + 3, -2.2, 15 + G.swordLevel * 3, 4.4);
+    ctx.beginPath();
+    ctx.moveTo(reach + 18 + G.swordLevel * 3, -2.2);
+    ctx.lineTo(reach + 24 + G.swordLevel * 3, 0);
+    ctx.lineTo(reach + 18 + G.swordLevel * 3, 2.2);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+
+    // swing arc
+    if (p.attackT > 0) {
+      ctx.globalAlpha = (1 - atk) * 0.7;
+      ctx.strokeStyle = bladeCol;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(0, 0, swordReach() + 6, dir - 0.9, dir + 0.9);
+      ctx.stroke();
+      ctx.globalAlpha = flash ? 0.45 : 1;
+    }
+
+    ctx.restore();
+  }
+
+  function drawEnemy(e, x, y) {
+    ctx.save();
+    ctx.translate(x, y);
+    const hit = e.hitFlash > 0;
+
+    // shadow
+    ctx.fillStyle = "rgba(0,0,0,.3)";
+    ctx.beginPath(); ctx.ellipse(0, e.r * 0.85, e.r * 0.9, e.r * 0.35, 0, 0, TAU); ctx.fill();
+
+    const col = hit ? "#ffffff" : e.color;
+
+    if (e.type === "slime") {
+      const squish = Math.sin(e.t * 3) * 0.12;
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, e.r * (1 + squish), e.r * (1 - squish), 0, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,.35)";
+      ctx.beginPath(); ctx.arc(-e.r * 0.3, -e.r * 0.35, e.r * 0.3, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#1d2b22";
+      ctx.beginPath(); ctx.arc(-4, -2, 2, 0, TAU); ctx.arc(4, -2, 2, 0, TAU); ctx.fill();
+    } else if (e.type === "bat") {
+      const wing = Math.sin(e.t * 14) * 0.6;
+      ctx.fillStyle = "#5a3f7a";
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(-16, -6 + wing * 8, -22, 4 + wing * 4);
+      ctx.quadraticCurveTo(-12, 2, 0, 4);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(16, -6 + wing * 8, 22, 4 + wing * 4);
+      ctx.quadraticCurveTo(12, 2, 0, 4);
+      ctx.fill();
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(0, 0, e.r * 0.8, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#ff5b6e";
+      ctx.beginPath(); ctx.arc(-3, -1, 1.6, 0, TAU); ctx.arc(3, -1, 1.6, 0, TAU); ctx.fill();
+    } else if (e.type === "skeleton") {
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(0, -e.r * 0.4, e.r * 0.7, 0, TAU); ctx.fill(); // skull
+      ctx.fillStyle = "#2a2a2a";
+      ctx.beginPath(); ctx.arc(-3.5, -e.r * 0.4, 2.2, 0, TAU); ctx.arc(3.5, -e.r * 0.4, 2.2, 0, TAU); ctx.fill();
+      ctx.fillRect(-2, 2, 4, e.r * 0.9); // spine
+      ctx.fillRect(-8, 3, 16, 2.5);
+      ctx.fillRect(-8, 8, 16, 2.5);
+      // little bone
+      ctx.save(); ctx.rotate(e.t * 1.5);
+      ctx.fillStyle = "#f2ecd8";
+      ctx.fillRect(9, -8, 10, 3);
+      ctx.restore();
+    } else if (e.boss) {
+      const squish = Math.sin(e.t * 2) * 0.06;
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, e.r * (1 + squish), e.r * (1 - squish), 0, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = "rgba(255,220,255,.25)";
+      ctx.beginPath(); ctx.arc(0, -e.r * 0.2, e.r * 0.7, 0, TAU); ctx.fill();
+      // crown
+      ctx.fillStyle = "#ffd977";
+      ctx.beginPath();
+      ctx.moveTo(-16, -e.r + 4); ctx.lineTo(-10, -e.r - 10); ctx.lineTo(-4, -e.r + 2);
+      ctx.lineTo(0, -e.r - 12); ctx.lineTo(4, -e.r + 2); ctx.lineTo(10, -e.r - 10);
+      ctx.lineTo(16, -e.r + 4); ctx.closePath(); ctx.fill();
+      // eyes
+      ctx.fillStyle = "#fff";
+      ctx.beginPath(); ctx.arc(-9, -4, 5, 0, TAU); ctx.arc(9, -4, 5, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#d6294f";
+      ctx.beginPath(); ctx.arc(-9, -4, 2.6, 0, TAU); ctx.arc(9, -4, 2.6, 0, TAU); ctx.fill();
+      // mouth
+      ctx.strokeStyle = "#3a0d20"; ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = -3; i <= 3; i++) { ctx.lineTo(i * 5, 6 + (i % 2 ? 3 : 0)); }
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // enemy HP bar
+    if (e.type !== "boss" && e.hp < e.maxhp) {
+      const w = e.r * 2;
+      ctx.fillStyle = "rgba(0,0,0,.6)";
+      ctx.fillRect(x - w / 2, y - e.r - 12, w, 4);
+      ctx.fillStyle = "#7dffa0";
+      ctx.fillRect(x - w / 2, y - e.r - 12, w * (e.hp / e.maxhp), 4);
+    }
+  }
+
+  function drawBossBar() {
+    const boss = G.enemies.find(e => e.boss);
+    if (!boss) return;
+    const w = 420, x = (VW - w) / 2, y = VH - 46;
+    ctx.fillStyle = "rgba(0,0,0,.6)";
+    ctx.fillRect(x - 3, y - 3, w + 6, 20);
+    ctx.fillStyle = "#3a0d20";
+    ctx.fillRect(x, y, w, 14);
+    ctx.fillStyle = "#d6294f";
+    ctx.fillRect(x, y, w * clamp(boss.hp / boss.maxhp, 0, 1), 14);
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 12px 'Trebuchet MS', sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("THE DUNGEON WARDEN", VW / 2, y - 8);
+  }
+
+  function drawHUD() {
+    // hearts
+    for (let i = 0; i < MAX_HEARTS; i++) {
+      const hx = 22 + i * 30, hy = 26;
+      if (i < G.player.hp) drawHeartShape(hx, hy, 10, "#ff5b6e");
+      else { ctx.globalAlpha = 0.25; drawHeartShape(hx, hy, 10, "#ff5b6e"); ctx.globalAlpha = 1; }
+    }
+    // keys / coins / potions
+    ctx.font = "bold 16px 'Trebuchet MS', sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#ffd977";
+    ctx.fillText("⚷ " + G.keys, 20, 58);
+    ctx.fillStyle = "#ffcf5a";
+    ctx.fillText("◉ " + G.coins, 90, 58);
+    ctx.fillStyle = "#7fd0ff";
+    ctx.fillText("🧪 " + G.potions, 175, 58);
+    // floor + score
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#e8dff0";
+    ctx.fillText("FLOOR " + G.floor + " / " + G.maxFloors, VW - 20, 30);
+    ctx.fillStyle = "#b9a6c8";
+    ctx.font = "14px 'Trebuchet MS', sans-serif";
+    ctx.fillText("Score " + G.score, VW - 20, 52);
+
+    // sword level indicator
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#dfe6ff";
+    ctx.font = "13px 'Trebuchet MS', sans-serif";
+    const sname = G.swordLevel >= 3 ? "Flame Blade" : G.swordLevel === 2 ? "Steel Blade" : "Iron Blade";
+    ctx.fillText("⚔ " + sname, 20, 80);
+
+    // minimap
+    drawMinimap();
+
+    // boss bar
+    drawBossBar();
+
+    // toast message
+    if (G.messageT > 0 && G.message) {
+      const a = Math.min(1, G.messageT);
+      ctx.globalAlpha = a;
+      ctx.fillStyle = "rgba(0,0,0,.6)";
+      ctx.font = "bold 17px 'Trebuchet MS', sans-serif";
+      ctx.textAlign = "center";
+      const tw = ctx.measureText(G.message).width;
+      ctx.fillRect(VW / 2 - tw / 2 - 16, 96, tw + 32, 32);
+      ctx.fillStyle = "#ffe9b0";
+      ctx.fillText(G.message, VW / 2, 118);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function drawMinimap() {
+    const scale = 3;
+    const mw = G.mapW * scale, mh = G.mapH * scale;
+    const ox = VW - mw - 14, oy = VH - mh - 14;
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = "rgba(10,6,16,.75)";
+    ctx.fillRect(ox - 3, oy - 3, mw + 6, mh + 6);
+    for (let ty = 0; ty < G.mapH; ty++) {
+      for (let tx = 0; tx < G.mapW; tx++) {
+        const t = tileAt(tx, ty);
+        if (t === WALL) continue;
+        if (t === STAIRS) ctx.fillStyle = G.bossAlive ? "#6b5a78" : "#7dffa0";
+        else if (t === DOOR) ctx.fillStyle = "#ffd977";
+        else ctx.fillStyle = "rgba(150,130,175,.7)";
+        ctx.fillRect(ox + tx * scale, oy + ty * scale, scale, scale);
+      }
+    }
+    // player
+    ctx.fillStyle = "#5b8dd6";
+    ctx.fillRect(ox + (G.player.x / TILE) * scale - 1.5, oy + (G.player.y / TILE) * scale - 1.5, 4, 4);
+    // enemies (only on minimap if near)
+    ctx.fillStyle = "#ff5b6e";
+    for (const e of G.enemies) {
+      ctx.fillRect(ox + (e.x / TILE) * scale - 1, oy + (e.y / TILE) * scale - 1, 3, 3);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawPausedOverlay() {
+    ctx.fillStyle = "rgba(8,5,12,.78)";
+    ctx.fillRect(0, 0, VW, VH);
+    ctx.fillStyle = "#ffd977";
+    ctx.font = "bold 46px 'Trebuchet MS', sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("PAUSED", VW / 2, VH / 2 - 8);
+    ctx.fillStyle = "#cbb6d8";
+    ctx.font = "16px 'Trebuchet MS', sans-serif";
+    ctx.fillText("Press P to resume  ·  R to restart", VW / 2, VH / 2 + 30);
+  }
+
+  function render() {
+    ctx.fillStyle = "#0c0810";
+    ctx.fillRect(0, 0, VW, VH);
+    if (G.state === "menu") {
+      ctx.fillStyle = "#151019";
+      ctx.fillRect(0, 0, VW, VH);
+      return;
+    }
+    drawFloorTiles();
+    drawEntitiesLayer();
+    drawHUD();
+    if (G.state === "paused") drawPausedOverlay();
+  }
+
+  // ============ LOOP ============
+  let last = performance.now(), raf = null;
+  function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    if (G.state === "playing") update(dt);
+    render();
+    raf = requestAnimationFrame(loop);
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { cancelAnimationFrame(raf); raf = null; }
+    else if (!raf) { last = performance.now(); raf = requestAnimationFrame(loop); }
+  });
+
+  // ============ BOOT ============
+  updateOverlay();
+  generateFloor(1);   // build a floor so menu has a background behind overlay
+  G.state = "menu";
+  render();
+  raf = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Mancala (Kalah)</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(circle at 50% 20%, #4a3320 0%, #241609 70%, #150c05 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+    padding: 14px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: min(96vw, 980px);
+  }
+  .game-title {
+    font-size: clamp(1.4rem, 4vw, 2rem);
+    color: #ffd9a0;
+    letter-spacing: 3px;
+    text-shadow: 0 2px 0 #6a3f1c, 0 4px 12px rgba(0,0,0,.6);
+  }
+  .game-subtitle {
+    font-size: clamp(.72rem, 2.2vw, .95rem);
+    color: #c9a877;
+    letter-spacing: 1px;
+    margin-bottom: 2px;
+  }
+
+  /* ============ HUD ============ */
+  .hud {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 16px;
+    background: linear-gradient(180deg, rgba(82,55,30,.9), rgba(50,32,16,.9));
+    border: 1px solid rgba(255,210,150,.25);
+    border-radius: 14px;
+    color: #e8cfa5;
+    font-size: clamp(.78rem, 2.4vw, 1rem);
+    box-shadow: inset 0 1px 0 rgba(255,220,180,.15);
+  }
+  .hud .score { font-weight: 700; color: #ffd9a0; }
+  #turnLabel {
+    flex: 1;
+    text-align: center;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #fff1d7;
+    text-shadow: 0 0 10px rgba(255,200,120,.5);
+    transition: color .2s ease;
+  }
+  #turnLabel.p1 { color: #ffd9a0; }
+  #turnLabel.p2 { color: #9fd0ff; }
+
+  /* ============ STAGE / CANVAS ============ */
+  .stage {
+    position: relative;
+    width: 100%;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 18px 50px rgba(0,0,0,.6), 0 0 0 1px rgba(255,210,150,.15);
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    background: #241609;
+  }
+
+  /* ============ OVERLAYS (Start / Result) ============ */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 18px;
+    text-align: center;
+    background: radial-gradient(circle at 50% 40%, rgba(58,38,20,.92), rgba(15,9,4,.96));
+    transition: opacity .3s ease;
+  }
+  .overlay.hidden { opacity: 0; pointer-events: none; }
+  .overlay h1 {
+    font-size: clamp(1.6rem, 6vw, 2.6rem);
+    color: #ffd9a0;
+    letter-spacing: 4px;
+    text-shadow: 0 2px 0 #6a3f1c, 0 6px 18px rgba(0,0,0,.6);
+  }
+  .overlay .sub { color: #c9a877; font-size: clamp(.75rem, 2.6vw, 1rem); }
+  .overlay .wins { color: #9fd0ff; font-size: clamp(.75rem, 2.4vw, .95rem); }
+  .overlay .hint { color: #9a8163; font-size: clamp(.68rem, 2.2vw, .85rem); }
+
+  .modes { display: flex; gap: 10px; margin-top: 4px; flex-wrap: wrap; justify-content: center; }
+  .mode-btn {
+    font-family: inherit;
+    font-size: clamp(.78rem, 2.4vw, 1rem);
+    font-weight: 700;
+    padding: 9px 22px;
+    border-radius: 22px;
+    border: 2px solid rgba(255,210,150,.4);
+    background: rgba(60,40,20,.7);
+    color: #e8cfa5;
+    cursor: pointer;
+    transition: all .18s ease;
+  }
+  .mode-btn:hover { background: rgba(90,60,30,.9); }
+  .mode-btn.selected {
+    background: linear-gradient(180deg, #e9b06a, #c07c2e);
+    color: #2a1707;
+    border-color: #ffd9a0;
+    box-shadow: 0 4px 14px rgba(220,150,70,.5);
+  }
+  .action {
+    font-family: inherit;
+    font-size: clamp(.9rem, 2.8vw, 1.1rem);
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 12px 40px;
+    margin-top: 6px;
+    border: none;
+    border-radius: 26px;
+    color: #2a1707;
+    background: linear-gradient(180deg, #ffd9a0, #d9944a);
+    cursor: pointer;
+    box-shadow: 0 5px 0 #8a5a24, 0 8px 24px rgba(0,0,0,.5);
+    transition: transform .06s ease, box-shadow .12s ease;
+  }
+  .action:hover { background: linear-gradient(180deg, #ffe6bb, #e6a458); }
+  .action:active { transform: translateY(3px); box-shadow: 0 2px 0 #8a5a24, 0 4px 14px rgba(0,0,0,.5); }
+  .final { font-size: clamp(1.1rem, 4vw, 1.6rem); color: #fff1d7; font-weight: 700; letter-spacing: 1px; }
+
+  /* ============ CONTROLS ROW ============ */
+  .controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .controls button {
+    font-family: inherit;
+    font-size: clamp(.75rem, 2.3vw, .92rem);
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 9px 20px;
+    border: 1px solid rgba(255,210,150,.3);
+    border-radius: 12px;
+    background: rgba(70,46,24,.85);
+    color: #e8cfa5;
+    cursor: pointer;
+    box-shadow: 0 3px 0 rgba(0,0,0,.35);
+    transition: transform .06s ease, background .15s ease;
+  }
+  .controls button:hover { background: rgba(100,68,36,.9); }
+  .controls button:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.35); }
+
+  @media (max-width: 520px) {
+    .hud { padding: 8px 10px; }
+    #app { gap: 8px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1 class="game-title">MANCALA</h1>
+  <p class="game-subtitle">Kalah &mdash; sow, capture, fill your store</p>
+
+  <div class="hud">
+    <div><span id="p1Name">You</span>: <span class="score" id="p1Score">0</span></div>
+    <div id="turnLabel" class="p1">Your turn</div>
+    <div><span id="p2Name">CPU</span>: <span class="score" id="p2Score">0</span></div>
+  </div>
+
+  <div class="stage">
+    <canvas id="game" width="960" height="500"></canvas>
+
+    <!-- Start Screen -->
+    <div id="startOverlay" class="overlay">
+      <h1>MANCALA</h1>
+      <p class="sub">Pick a pit on your row to sow its stones.</p>
+      <div class="modes">
+        <button class="mode-btn selected" data-mode="cpu">Vs CPU</button>
+        <button class="mode-btn" data-mode="2p">2 Players</button>
+      </div>
+      <p class="wins">Wins vs CPU: <span id="winsCount">0</span></p>
+      <button class="action" id="startBtn">Start Game</button>
+      <p class="hint">Extra turn in your store &bull; capture from your empty pit opposite</p>
+    </div>
+
+    <!-- Result Screen -->
+    <div id="resultOverlay" class="overlay hidden">
+      <h1 id="resultTitle">You Win!</h1>
+      <p class="final" id="resultScore">0 &ndash; 0</p>
+      <button class="action" id="againBtn">Play Again</button>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="restartBtn" type="button">Restart</button>
+    <button id="soundBtn" type="button">Sound: On</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONFIGURATION ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;
+  const H = canvas.height;
+
+  const PITS_PER_SIDE = 6;
+  const INIT_STONES = 4;
+  const STORE_0 = 6;   // player (bottom) store  -> right end
+  const STORE_1 = 13;  // opponent (top) store  -> left end
+  const HOLES = 14;
+
+  // ============ STATE ============
+  let board = [];          // 0-5 player pits, 6 p-store, 7-12 opp pits, 13 o-store
+  let turn = 0;            // 0 = bottom player, 1 = top player
+  let mode = "cpu";        // "cpu" | "2p"
+  let over = false;
+  let busy = false;
+  let particles = [];
+  let started = false;
+  let wins = Number(localStorage.getItem("mancalaWins") || 0);
+  let muted = localStorage.getItem("mancalaMuted") === "1";
+
+  // ============ AUDIO (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    if (muted) return;
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "triangle";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.06, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  // ============ GEOMETRY (fixed canvas, CSS scales it) ============
+  const geom = (function () {
+    const pad = 22, storeW = 122;
+    const boardX = pad, boardY = pad;
+    const boardW = W - pad * 2, boardH = H - pad * 2;
+    const innerLeft = boardX + storeW + 16;
+    const innerRight = boardX + boardW - storeW - 16;
+    const cellW = (innerRight - innerLeft) / PITS_PER_SIDE;
+    const pitR = Math.min(cellW * 0.42, boardH * 0.19);
+    const topY = boardY + boardH * 0.29;  // opponent row
+    const botY = boardY + boardH * 0.71;  // player row
+    const pits = new Array(HOLES);
+    for (let i = 0; i < 6; i++) pits[i] = { x: innerLeft + cellW * (i + 0.5), y: botY, r: pitR };
+    for (let i = 7; i <= 12; i++) pits[i] = { x: innerRight - cellW * (i - 7 + 0.5), y: topY, r: pitR };
+    const storeH = boardH * 0.82;
+    const storeY = boardY + (boardH - storeH) / 2;
+    // player store 6 -> right end ; opponent store 13 -> left end
+    pits[STORE_0] = { x: boardX + boardW - storeW / 2, y: boardY + boardH / 2,
+                      store: true, sx: boardX + boardW - storeW + 8, sy: storeY, sw: storeW - 16, sh: storeH };
+    pits[STORE_1] = { x: boardX + storeW / 2, y: boardY + boardH / 2,
+                      store: true, sx: boardX + 8, sy: storeY, sw: storeW - 16, sh: storeH };
+    return { boardX, boardY, boardW, boardH, cellW, pitR, topY, botY, innerLeft, innerRight, pits };
+  })();
+
+  function inOwnPits(i, who) { return who === 0 ? (i >= 0 && i <= 5) : (i >= 7 && i <= 12); }
+  function storeOf(who) { return who === 0 ? STORE_0 : STORE_1; }
+  function oppStoreOf(who) { return who === 0 ? STORE_1 : STORE_0; }
+
+  // ============ DOM ============
+  const els = {
+    p1Name: document.getElementById("p1Name"),
+    p2Name: document.getElementById("p2Name"),
+    p1Score: document.getElementById("p1Score"),
+    p2Score: document.getElementById("p2Score"),
+    turnLabel: document.getElementById("turnLabel"),
+    startOverlay: document.getElementById("startOverlay"),
+    resultOverlay: document.getElementById("resultOverlay"),
+    resultTitle: document.getElementById("resultTitle"),
+    resultScore: document.getElementById("resultScore"),
+    winsCount: document.getElementById("winsCount"),
+    startBtn: document.getElementById("startBtn"),
+    againBtn: document.getElementById("againBtn"),
+    restartBtn: document.getElementById("restartBtn"),
+    soundBtn: document.getElementById("soundBtn"),
+    modeBtns: Array.prototype.slice.call(document.querySelectorAll(".mode-btn"))
+  };
+
+  // ============ HELPERS ============
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function sideName(who) {
+    if (mode === "cpu") return who === 0 ? "You" : "CPU";
+    return who === 0 ? "Player 1" : "Player 2";
+  }
+  function isSideEmpty(who) {
+    const a = who === 0 ? 0 : 7, b = who === 0 ? 5 : 12;
+    for (let i = a; i <= b; i++) if (board[i] > 0) return false;
+    return true;
+  }
+
+  // ============ PURE RULES: SIMULATE A MOVE ============
+  function simulate(src, who, pit) {
+    const nb = src.slice();
+    const myStore = storeOf(who);
+    const oppStore = oppStoreOf(who);
+    let stones = nb[pit];
+    nb[pit] = 0;
+    let idx = pit;
+    while (stones > 0) {
+      idx = (idx + 1) % HOLES;
+      if (idx === oppStore) continue; // skip opponent store
+      nb[idx]++;
+      stones--;
+    }
+    let extra = (idx === myStore);
+    let captured = 0;
+    if (!extra && inOwnPits(idx, who) && nb[idx] === 1) {
+      const opp = 12 - idx; // opposite pit across the board
+      if (nb[opp] > 0) {
+        captured = nb[opp] + 1;
+        nb[myStore] += captured;
+        nb[idx] = 0;
+        nb[opp] = 0;
+      }
+    }
+    return { board: nb, extra: extra, captured: captured, last: idx };
+  }
+
+  // ============ CPU AI: greedy + short lookahead ============
+  function chooseCpuMove(b) {
+    const moves = [];
+    for (let p = 7; p <= 12; p++) if (b[p] > 0) moves.push(p);
+    if (!moves.length) return null;
+
+    let bestVal = -Infinity, best = moves[0];
+    for (let m = 0; m < moves.length; m++) {
+      const pit = moves[m];
+      const r = simulate(b, 1, pit);
+      let val = (r.board[STORE_1] - r.board[STORE_0]) + r.captured * 0.6;
+      if (r.extra) {
+        val += 1.2; // keeping the turn is valuable
+      } else {
+        // opponent's best reply (they maximise their own advantage)
+        let oppBest = -Infinity;
+        for (let p = 0; p <= 5; p++) {
+          if (r.board[p] <= 0) continue;
+          const r2 = simulate(r.board, 0, p);
+          const oppVal = (r2.board[STORE_0] - r2.board[STORE_1]) + r2.captured * 0.5 + (r2.extra ? 0.8 : 0);
+          if (oppVal > oppBest) oppBest = oppVal;
+        }
+        if (oppBest !== -Infinity) val -= oppBest * 0.7;
+      }
+      if (val > bestVal) { bestVal = val; best = pit; }
+    }
+    return best;
+  }
+
+  // ============ GAME FLOW ============
+  function newGame(m) {
+    if (m) mode = m;
+    board = [INIT_STONES, INIT_STONES, INIT_STONES, INIT_STONES, INIT_STONES, INIT_STONES, 0,
+             INIT_STONES, INIT_STONES, INIT_STONES, INIT_STONES, INIT_STONES, INIT_STONES, 0];
+    turn = 0;
+    over = false;
+    busy = false;
+    particles = [];
+    started = true;
+    els.startOverlay.classList.add("hidden");
+    els.resultOverlay.classList.add("hidden");
+    els.p1Name.textContent = sideName(0);
+    els.p2Name.textContent = sideName(1);
+    updateHud();
+    beep(660, 0.09, "sine");
+  }
+
+  async function sow(pit, who) {
+    const myStore = storeOf(who);
+    const oppStore = oppStoreOf(who);
+    let stones = board[pit];
+    board[pit] = 0;
+    beep(480, 0.05, "triangle");
+    await sleep(60);
+
+    let idx = pit;
+    while (stones > 0) {
+      idx = (idx + 1) % HOLES;
+      if (idx === oppStore) continue; // skip opponent store
+      board[idx]++;
+      stones--;
+      beep(520 + (stones % 4) * 55, 0.035, "triangle");
+      await sleep(90);
+    }
+
+    const last = idx;
+    if (last === myStore) {
+      // Extra turn: landed in own store
+      beep(940, 0.16, "sine");
+    } else if (inOwnPits(last, who) && board[last] === 1) {
+      // Capture: landed in own empty pit
+      const opp = 12 - last;
+      if (board[opp] > 0) {
+        const gained = board[opp] + 1;
+        board[myStore] += gained;
+        board[last] = 0;
+        board[opp] = 0;
+        spawnFloat(geom.pits[myStore].x, geom.pits[myStore].y, "+" + gained);
+        beep(300, 0.2, "sawtooth");
+        await sleep(210);
+      }
+    }
+
+    const extra = (last === myStore);
+    if (isSideEmpty(0) || isSideEmpty(1)) {
+      endGame();
+    } else if (extra) {
+      turn = who; // same player continues
+    } else {
+      turn = who === 0 ? 1 : 0;
+    }
+    updateHud();
+  }
+
+  async function humanMove(pit) {
+    if (busy || over || !started) return;
+    if (!inOwnPits(pit, turn)) return;
+    if (board[pit] === 0) return;
+    busy = true;
+    await sow(pit, turn);
+    busy = false;
+    if (!over && turn === 1 && mode === "cpu") cpuTurn();
+  }
+
+  async function cpuTurn() {
+    if (busy || over || turn !== 1 || mode !== "cpu") return;
+    busy = true;
+    await sleep(420);            // brief "thinking" pause
+    const pit = chooseCpuMove(board);
+    busy = false;
+    if (pit === null || over) return;
+    await humanMove(pit);
+  }
+
+  function endGame() {
+    over = true;
+    // Remaining stones go to their owner's store
+    let p = 0;
+    for (let i = 0; i <= 5; i++) { p += board[i]; board[i] = 0; }
+    board[STORE_0] += p;
+    let c = 0;
+    for (let i = 7; i <= 12; i++) { c += board[i]; board[i] = 0; }
+    board[STORE_1] += c;
+    updateHud();
+
+    const s0 = board[STORE_0], s1 = board[STORE_1];
+    let title;
+    if (s0 > s1) title = mode === "cpu" ? "You Win!" : "Player 1 Wins!";
+    else if (s1 > s0) title = mode === "cpu" ? "CPU Wins!" : "Player 2 Wins!";
+    else title = "It's a Draw!";
+
+    if (mode === "cpu" && s0 > s1) {
+      wins++;
+      localStorage.setItem("mancalaWins", String(wins));
+      els.winsCount.textContent = wins;
+    }
+
+    if (s0 > s1) beep(700, 0.18, "sine"), setTimeout(function () { beep(1050, 0.25, "sine"); }, 160);
+    else if (s1 > s0) beep(300, 0.3, "sawtooth");
+    else beep(520, 0.25, "triangle");
+
+    els.resultTitle.textContent = title;
+    els.resultScore.textContent = s0 + " \u2013 " + s1;
+    setTimeout(function () {
+      els.resultOverlay.classList.remove("hidden");
+    }, 480);
+  }
+
+  function updateHud() {
+    els.p1Score.textContent = board[STORE_0] || 0;
+    els.p2Score.textContent = board[STORE_1] || 0;
+    if (over) {
+      els.turnLabel.textContent = "Game over";
+      els.turnLabel.className = "";
+    } else {
+      els.turnLabel.textContent = sideName(turn) + "'s turn";
+      els.turnLabel.className = turn === 0 ? "p1" : "p2";
+    }
+  }
+
+  // ============ PARTICLES (floating +n text) ============
+  function spawnFloat(x, y, text) {
+    particles.push({ x: x, y: y, text: text, born: performance.now(), life: 1100 });
+  }
+  function updateParticles(now) {
+    particles = particles.filter(function (p) { return now - p.born < p.life; });
+  }
+
+  // ============ DRAWING ============
+  function rr(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function drawWood() {
+    // felt table backdrop
+    const bg = ctx.createRadialGradient(W / 2, H / 2, 60, W / 2, H / 2, W * 0.72);
+    bg.addColorStop(0, "#3a2a1c");
+    bg.addColorStop(1, "#150c05");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // wooden board
+    const g = ctx.createLinearGradient(geom.boardX, geom.boardY, geom.boardX, geom.boardY + geom.boardH);
+    g.addColorStop(0, "#cf9350");
+    g.addColorStop(0.45, "#b9783a");
+    g.addColorStop(1, "#8f5824");
+    ctx.fillStyle = g;
+    rr(geom.boardX, geom.boardY, geom.boardW, geom.boardH, 26);
+    ctx.fill();
+
+    // grain streaks
+    ctx.save();
+    rr(geom.boardX, geom.boardY, geom.boardW, geom.boardH, 26);
+    ctx.clip();
+    ctx.strokeStyle = "rgba(90,50,15,0.16)";
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 26; i++) {
+      const y = geom.boardY + (i / 26) * geom.boardH + 6;
+      ctx.beginPath();
+      ctx.moveTo(geom.boardX, y);
+      ctx.bezierCurveTo(W * 0.3, y + 8, W * 0.7, y - 8, geom.boardX + geom.boardW, y + 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // inner border
+    ctx.strokeStyle = "rgba(255,220,170,0.35)";
+    ctx.lineWidth = 3;
+    rr(geom.boardX + 5, geom.boardY + 5, geom.boardW - 10, geom.boardH - 10, 22);
+    ctx.stroke();
+  }
+
+  function drawPit(x, y, r) {
+    const g = ctx.createRadialGradient(x - r * 0.32, y - r * 0.34, r * 0.15, x, y, r);
+    g.addColorStop(0, "#5a3519");
+    g.addColorStop(0.62, "#30190a");
+    g.addColorStop(1, "#160a03");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,225,180,0.22)";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+
+  function drawStoreBox(p) {
+    const g = ctx.createLinearGradient(p.sx, p.sy, p.sx, p.sy + p.sh);
+    g.addColorStop(0, "#44250f");
+    g.addColorStop(1, "#1b0d04");
+    ctx.fillStyle = g;
+    rr(p.sx, p.sy, p.sw, p.sh, p.sw / 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,225,180,0.28)";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+
+  function drawStone(x, y, r, seed) {
+    const t = (Math.sin(seed * 12.9898) * 43758.5453) % 1;
+    const jitter = Math.abs(t);
+    const mid = jitter > 0.5 ? "#e6b26a" : "#dda75c";
+    const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.12, x, y, r * 1.05);
+    g.addColorStop(0, "#fff0d2");
+    g.addColorStop(0.42, mid);
+    g.addColorStop(1, "#96601f");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(60,30,8,0.55)";
+    ctx.lineWidth = Math.max(1, r * 0.14);
+    ctx.stroke();
+  }
+
+  function packDots(n, bw, bh, maxDot) {
+    if (n <= 0) return { pts: [], r: 0 };
+    const ratio = bw / bh;
+    let cols = Math.ceil(Math.sqrt(n * ratio));
+    if (cols < 1) cols = 1;
+    let rows = Math.ceil(n / cols);
+    const stepX = bw / cols, stepY = bh / rows;
+    let r = Math.min(stepX, stepY) * 0.42;
+    if (r > maxDot) r = maxDot;
+    const pts = [];
+    for (let i = 0; i < n; i++) {
+      const cx = i % cols, cy = Math.floor(i / cols);
+      pts.push({
+        x: (cx + 0.5) * stepX - bw / 2,
+        y: (cy + 0.5) * stepY - bh / 2
+      });
+    }
+    return { pts: pts, r: r };
+  }
+
+  function drawPitStones(i) {
+    const n = board[i];
+    if (n <= 0) return;
+    const p = geom.pits[i];
+    const box = p.r * 1.42;
+    const pack = packDots(n, box, box, p.r * 0.30);
+    for (let k = 0; k < pack.pts.length; k++) {
+      const pt = pack.pts[k];
+      drawStone(p.x + pt.x, p.y + pt.y, pack.r, i * 7 + k + 1);
+    }
+  }
+
+  function drawStoreStones(i) {
+    const n = board[i];
+    if (n <= 0) return;
+    const p = geom.pits[i];
+    const pack = packDots(n, p.sw * 0.74, p.sh * 0.80, 15);
+    for (let k = 0; k < pack.pts.length; k++) {
+      const pt = pack.pts[k];
+      drawStone(p.x + pt.x, p.y + pt.y, pack.r, i * 13 + k + 1);
+    }
+  }
+
+  function drawStones() {
+    for (let i = 0; i < HOLES; i++) {
+      if (i === STORE_0 || i === STORE_1) drawStoreStones(i);
+      else drawPitStones(i);
+    }
+  }
+
+  function drawLabels() {
+    // row labels beside the stores
+    ctx.save();
+    ctx.fillStyle = "rgba(255,235,200,0.85)";
+    ctx.font = "bold 20px 'Trebuchet MS', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    // player store label (right end, below)
+    ctx.fillText(sideName(0), geom.pits[STORE_0].x, geom.boardY + geom.boardH + 2);
+    // opponent store label (left end, above)
+    ctx.fillText(sideName(1), geom.pits[STORE_1].x, geom.boardY - 2);
+    ctx.restore();
+  }
+
+  function drawHighlights(now) {
+    if (over || busy || !started) return;
+    const pulse = 0.45 + 0.35 * Math.sin(now / 320);
+    for (let i = 0; i < HOLES; i++) {
+      if (!inOwnPits(i, turn) || board[i] <= 0) continue;
+      const p = geom.pits[i];
+      ctx.save();
+      ctx.strokeStyle = "rgba(255,236,160," + pulse.toFixed(3) + ")";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r + 4, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function drawParticles(now) {
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      const age = (now - p.born) / p.life;
+      const alpha = 1 - age;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, alpha);
+      ctx.fillStyle = "#fff2cf";
+      ctx.font = "bold 34px 'Trebuchet MS', sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.strokeStyle = "rgba(80,40,10,0.8)";
+      ctx.lineWidth = 4;
+      ctx.strokeText(p.text, p.x, p.y - age * 46);
+      ctx.fillText(p.text, p.x, p.y - age * 46);
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function draw() {
+    const now = performance.now();
+    updateParticles(now);
+    ctx.clearRect(0, 0, W, H);
+    drawWood();
+
+    // pits
+    for (let i = 0; i < HOLES; i++) {
+      if (i === STORE_0 || i === STORE_1) continue;
+      drawPit(geom.pits[i].x, geom.pits[i].y, geom.pits[i].r);
+    }
+    // stores
+    drawStoreBox(geom.pits[STORE_0]);
+    drawStoreBox(geom.pits[STORE_1]);
+
+    drawStones();
+    drawHighlights(now);
+    drawLabels();
+    drawParticles(now);
+  }
+
+  // ============ INPUT ============
+  function toCanvas(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left) * (W / rect.width),
+      y: (clientY - rect.top) * (H / rect.height)
+    };
+  }
+
+  function handleTap(clientX, clientY) {
+    if (busy || over || !started) return;
+    const pt = toCanvas(clientX, clientY);
+    for (let i = 0; i < HOLES; i++) {
+      if (i === STORE_0 || i === STORE_1) continue;
+      const p = geom.pits[i];
+      const dx = pt.x - p.x, dy = pt.y - p.y;
+      if (dx * dx + dy * dy <= (p.r * 1.18) * (p.r * 1.18)) {
+        if (inOwnPits(i, turn) && board[i] > 0) humanMove(i);
+        else beep(200, 0.08, "square"); // invalid pick
+        return;
+      }
+    }
+  }
+
+  canvas.addEventListener("mousedown", function (e) { handleTap(e.clientX, e.clientY); });
+  canvas.addEventListener("touchstart", function (e) {
+    if (e.touches.length) {
+      e.preventDefault();
+      handleTap(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  }, { passive: false });
+
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "KeyR" || e.key === "r" || e.key === "R") {
+      if (started) newGame();
+    }
+  });
+
+  // ============ UI WIRING ============
+  els.modeBtns.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      els.modeBtns.forEach(function (b) { b.classList.remove("selected"); });
+      btn.classList.add("selected");
+      mode = btn.dataset.mode;
+    });
+  });
+
+  els.startBtn.addEventListener("click", function () { newGame(); });
+  els.againBtn.addEventListener("click", function () { newGame(); });
+  els.restartBtn.addEventListener("click", function () { newGame(); });
+
+  function syncSound() {
+    els.soundBtn.textContent = "Sound: " + (muted ? "Off" : "On");
+  }
+  els.soundBtn.addEventListener("click", function () {
+    muted = !muted;
+    localStorage.setItem("mancalaMuted", muted ? "1" : "0");
+    syncSound();
+    if (!muted) beep(700, 0.1, "sine");
+  });
+
+  // ============ RENDER LOOP ============
+  let raf = null;
+  function loop() {
+    draw();
+    raf = requestAnimationFrame(loop);
+  }
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { if (raf) { cancelAnimationFrame(raf); raf = null; } }
+    else if (!raf) { raf = requestAnimationFrame(loop); }
+  });
+
+  // ============ INIT ============
+  board = [INIT_STONES, INIT_STONES, INIT_STONES, INIT_STONES, INIT_STONES, INIT_STONES, 0,
+           INIT_STONES, INIT_STONES, INIT_STONES, INIT_STONES, INIT_STONES, INIT_STONES, 0];
+  els.winsCount.textContent = wins;
+  syncSound();
+  updateHud();
+  draw();
+  loop();
+})();
+</script>
+</body>
+</html>
