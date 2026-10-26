@@ -3970,6 +3970,10 @@
   
   // Public adapter for the dashboard. No raw serial handle or mutable state escapes.
   window.AirizConsole = Object.freeze({
+    getCameraStream() {
+      const stream = cameraState.stream;
+      return stream && stream.active ? stream : null;
+    },
     getStatus() {
       return Object.freeze({
         connected: state.connected,
