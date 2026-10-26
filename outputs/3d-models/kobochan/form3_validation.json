@@ -1,0 +1,102 @@
+{
+  "printer": "Formlabs Form 3",
+  "resin_planning_assumption": "Standard Grey Resin V4 / V4.1; actual resin not specified",
+  "overall_height_mm": 100.0,
+  "crown_tip_diameter_mm": 2.4,
+  "crown_root_diameter_mm": 3.2,
+  "build_volume_mm": [
+    145.0,
+    145.0,
+    185.0
+  ],
+  "brep": {
+    "valid_brep": true,
+    "solid_count": 1,
+    "shell_count": 1,
+    "size_mm": [
+      46.00000020000003,
+      32.0000002,
+      100.0000001
+    ],
+    "minimum_mm": [
+      -23.0000001,
+      -16.0000001,
+      -1e-07
+    ],
+    "maximum_mm": [
+      23.000000100000026,
+      16.0000001,
+      100.0
+    ],
+    "volume_mm3": 24658.859193858956,
+    "uniform_density_centroid_mm": [
+      -0.0007039848845111612,
+      -0.07098619170806321,
+      45.73227199028348
+    ]
+  },
+  "step_round_trip": {
+    "valid_brep": true,
+    "solid_count": 1,
+    "shell_count": 1,
+    "size_mm": [
+      46.0000002,
+      32.0000002,
+      100.0000001
+    ],
+    "minimum_mm": [
+      -23.0000001,
+      -16.0000001,
+      -1e-07
+    ],
+    "maximum_mm": [
+      23.0000001,
+      16.0000001,
+      100.0
+    ],
+    "volume_mm3": 24658.859600006326,
+    "uniform_density_centroid_mm": [
+      -0.0007040181601323007,
+      -0.0709861007386784,
+      45.73227250297164
+    ]
+  },
+  "upright_stl": {
+    "triangles": 144348,
+    "welded_vertices": 72174,
+    "connected_components": 1,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistently_oriented_edges": 0,
+    "degenerate_triangles": 0,
+    "signed_volume_mm3": 24625.95471886954,
+    "size_mm": [
+      45.99818992614746,
+      31.99405002593994,
+      100.0
+    ]
+  },
+  "tilted_stl": {
+    "triangles": 144348,
+    "welded_vertices": 72174,
+    "connected_components": 1,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistently_oriented_edges": 0,
+    "degenerate_triangles": 0,
+    "signed_volume_mm3": 24625.954772121466,
+    "size_mm": [
+      45.998191833496094,
+      59.17173385620117,
+      96.86962890625
+    ]
+  },
+  "tilt_about_x_degrees": -25.0,
+  "uniform_scale_parameter_test": "120 percent scale, checked and restored",
+  "enclosed_hollow_resin_cavities": false,
+  "supports_generated": false,
+  "preform_job_generated": false,
+  "preform_support_and_layer_checks_completed": false,
+  "physical_print_test_completed": false,
+  "status": "Geometrically checked; PreForm support/resin setup and test print still required"
+}

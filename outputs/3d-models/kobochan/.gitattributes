@@ -1,0 +1,8 @@
+# Preserve CAD/mesh exports byte-for-byte; these are generated assets, not source diffs.
+*.step binary
+*.stl binary
+*.png binary
+*.zip binary
+*.py text eol=lf
+*.json text eol=lf
+*.md text eol=lf
