@@ -6,7 +6,7 @@
   var catalog = window.SyncCatalog;
   var Players = window.SyncPlayers;
   var config = window.SYNC_CONFIG || {};
-  var VERSION = '1.4.0';
+  var VERSION = '1.4.1';
   var TICK_MS = 250;
   var DUCK_LEVEL = 0.3;
   var REACTIONS = ['❤️', '🔥', '😍', '🙌', '💃', '😂', '🎉'];
@@ -498,11 +498,18 @@
     $('#settings-btn').onclick = openSettings;
 
     $('#play').onclick = function () {
+      haptic(10);
       unlockAudio();
       room.intent({ type: room.state && room.state.playing ? 'pause' : 'play' });
     };
-    $('#prev').onclick = function () { room.intent({ type: 'prev' }); };
-    $('#next').onclick = function () { room.intent({ type: 'next' }); };
+    $('#prev').onclick = function () {
+      haptic(8);
+      room.intent({ type: 'prev' });
+    };
+    $('#next').onclick = function () {
+      haptic(8);
+      room.intent({ type: 'next' });
+    };
     var seek = $('#seek');
     seek.addEventListener('input', function () {
       seek.dataset.dragging = '1';
@@ -2041,6 +2048,21 @@
   var mediaSessionWired = false;
   var lastPositionUpdate = 0;
 
+  function remoteControl(action, position) {
+    if (!room || !canControl()) {
+      return;
+    }
+    if (action === 'play' || action === 'pause') {
+      room.intent({ type: action });
+    } else if (action === 'toggle') {
+      room.intent({ type: room.state && room.state.playing ? 'pause' : 'play' });
+    } else if (action === 'next' || action === 'prev') {
+      room.intent({ type: action });
+    } else if (action === 'seek' && typeof position === 'number') {
+      room.intent({ type: 'seek', position: position });
+    }
+  }
+
   function wireMediaSession() {
     if (mediaSessionWired || !('mediaSession' in navigator)) {
       return;
@@ -2048,29 +2070,19 @@
     mediaSessionWired = true;
     var handlers = {
       play: function () {
-        if (canControl()) {
-          room.intent({ type: 'play' });
-        }
+        remoteControl('play');
       },
       pause: function () {
-        if (canControl()) {
-          room.intent({ type: 'pause' });
-        }
+        remoteControl('pause');
       },
       nexttrack: function () {
-        if (canControl()) {
-          room.intent({ type: 'next' });
-        }
+        remoteControl('next');
       },
       previoustrack: function () {
-        if (canControl()) {
-          room.intent({ type: 'prev' });
-        }
+        remoteControl('prev');
       },
       seekto: function (details) {
-        if (canControl() && details && typeof details.seekTime === 'number') {
-          room.intent({ type: 'seek', position: details.seekTime });
-        }
+        remoteControl('seek', details && details.seekTime);
       },
     };
     Object.keys(handlers).forEach(function (action) {
@@ -2082,7 +2094,45 @@
     });
   }
 
+  // Android app: the WebView has no lock-screen player, so a native foreground service shows one
+  // (and keeps the app alive in the background / with the screen off while you are in a room).
+  var nativePlayback = { key: '', sentAt: 0 };
+
+  function updateNativePlayback(track, state, position, duration) {
+    if (!NATIVE || window.Capacitor.getPlatform() !== 'android' || !room) {
+      return;
+    }
+    var voiceOn = !!(voice && voice.stream);
+    var playing = !!(track && state.playing);
+    var key = [room.code, track ? track.id : '', playing, voiceOn, Math.round(duration)].join('|');
+    var now = performance.now();
+    if (key === nativePlayback.key && now - nativePlayback.sentAt < 15000) {
+      return;
+    }
+    nativePlayback.key = key;
+    nativePlayback.sentAt = now;
+    nativeCall('SyncPlayback', 'update', {
+      title: track ? track.title : 'Sync · Room ' + room.code,
+      artist: track ? (track.artist || 'Listening together') : 'Waiting for the next song',
+      room: 'Room ' + room.code,
+      playing: playing,
+      voice: voiceOn,
+      positionMs: Math.max(0, Math.round((position || 0) * 1000)),
+      durationMs: Math.max(0, Math.round((duration || 0) * 1000)),
+    }).catch(function () {
+      nativePlayback.key = ''; // e.g. started from the background: retry on the next tick
+    });
+  }
+
+  function stopNativePlayback() {
+    nativePlayback.key = '';
+    if (NATIVE && window.Capacitor.getPlatform() === 'android') {
+      nativeCall('SyncPlayback', 'stop').catch(function () {});
+    }
+  }
+
   function updateMediaSession(track, state, position, duration) {
+    updateNativePlayback(track, state, position, duration);
     if (!('mediaSession' in navigator)) {
       return;
     }
@@ -2125,6 +2175,7 @@
   }
 
   function clearMediaSession() {
+    stopNativePlayback();
     mediaSessionKey = null;
     if ('mediaSession' in navigator) {
       navigator.mediaSession.metadata = null;
@@ -2172,6 +2223,9 @@
       openFromLink(event && event.url);
     });
     nativeListen('App', 'resume', resumeRoom);
+    nativeListen('SyncPlayback', 'action', function (event) {
+      remoteControl(event && event.action, event && event.position);
+    });
     nativeCall('StatusBar', 'setStyle', { style: 'DARK' }).catch(function () {});
   }
 
