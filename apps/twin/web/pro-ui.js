@@ -820,6 +820,7 @@ async function openStockPro(symbol) {
             switchTab("trade");
           },
         }, GUEST || DEMO ? "Try TSLA replay" : "⚡ Plan a day trade")),
+      h("button", { class: "btn", onclick: () => openStrategyLab(symbol) }, "Strategy Lab · test against buy & hold"),
       h("button", {
         class: "btn ghost",
         onclick: () => {

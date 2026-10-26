@@ -9,6 +9,7 @@ import http.cookiejar
 import http.server
 import json
 import os
+import shutil
 import socket
 import stat
 import subprocess
@@ -132,7 +133,20 @@ def main():
     env = dict(os.environ, TWIN_DATA=data_dir,
                TWIN_ALPACA_PAPER_URL=f"http://127.0.0.1:{mock_port}/paper",
                TWIN_ALPACA_LIVE_URL=f"http://127.0.0.1:{mock_port}/live")
-    proc = subprocess.Popen([sys.executable, str(APP_DIR / "server.py"), "--port", str(port), "--no-browser"],
+    # Patch only this isolated test child, not production server behavior. Previously
+    # broker previews accidentally fetched live Yahoo quotes despite this suite's contract.
+    bootstrap = (
+        "import sys\n"
+        f"sys.path.insert(0, {str(APP_DIR)!r})\n"
+        "import server\n"
+        "prices = {'SPY': 500, 'MSFT': 400, 'AAPL': 200, 'TSLA': 250, 'BRK.B': 400}\n"
+        "server.quote = lambda symbol: {'price': prices[symbol]}\n"
+        "def no_market_network(*args, **kwargs):\n"
+        "    raise AssertionError('External market network forbidden in broker tests')\n"
+        "server.http_json = no_market_network\n"
+        "server.main()\n"
+    )
+    proc = subprocess.Popen([sys.executable, "-c", bootstrap, "--port", str(port), "--no-browser"],
                             env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
         base = f"http://127.0.0.1:{port}"
@@ -144,7 +158,8 @@ def main():
                 time.sleep(0.1)
         c = Client(base)
         c.post("/api/signup", {"username": "trader1", "password": "correct-horse-1", "name": "Tess"})
-        c.post("/api/quiz", {"answers": {}})
+        assessment = c.post("/api/quiz", {"answers": {"risk_points": [3], "style_points": [3], "flags": []}})
+        check("valid assessment establishes profile limits", assessment.get("ok"), str(assessment))
 
         print("Connect")
         r = c.post("/api/broker/status")
@@ -161,7 +176,10 @@ def main():
         dumped = json.dumps(r)
         check("secret never returned to the browser", PAPER_KEY[1] not in dumped and PAPER_KEY[0] not in dumped)
         stored = next(Path(data_dir).rglob("broker.json"))
-        check("keys file is owner-only (0600)", stat.S_IMODE(stored.stat().st_mode) == 0o600, oct(stored.stat().st_mode))
+        if os.name == "nt":
+            print("  [SKIP] POSIX owner-only mode test: Windows ACL security is not verified")
+        else:
+            check("keys file is owner-only (0600)", stat.S_IMODE(stored.stat().st_mode) == 0o600, oct(stored.stat().st_mode))
 
         print("Preview + place")
         r = c.post("/api/broker/preview", {"order": {"symbol": "SPY", "side": "buy", "type": "market", "dollars": 250}})
@@ -245,9 +263,24 @@ def main():
         check("live order goes to the live host", r.get("ok") and r["mode"] == "live" and [q for q in requests if q["method"] == "POST"][-1]["env"] == "live")
         profile = c.post("/api/me")["profile"]
         cap = int((profile.get("limits") or {}).get("max_trades_per_day") or 3)
+        stale = c.post("/api/broker/preview", {"order": {"symbol": "SPY", "side": "buy", "type": "market", "dollars": 10}})
+        # Changed profile limits must be read again by the actual HTTP submit route.
+        bracket = c.post("/api/broker/preview", {"order": {
+            "symbol": "SPY", "side": "buy", "type": "limit", "qty": 1, "limit": 100, "stop_loss": 90,
+        }})
+        c.post("/api/profile", {"limits": {"max_loss_per_trade_usd": 5}})
+        r = c.post("/api/broker/order", {"preview_id": bracket["preview"]["preview_id"], "confirm": True})
+        check("HTTP submit reloads changed profile risk limits", not r.get("ok") and "per-trade limit" in r.get("error", ""), str(r))
+        restored = c.post("/api/profile", {"limits": profile["limits"]})
+        check("profile limits restored after submission test", restored.get("ok"), str(restored))
         for _ in range(cap - 1):
             p = c.post("/api/broker/preview", {"order": {"symbol": "SPY", "side": "buy", "type": "market", "dollars": 10}})
+            assert p.get("ok"), p
             c.post("/api/broker/order", {"preview_id": p["preview"]["preview_id"], "confirm": True})
+        before = len([q for q in requests if q["method"] == "POST"])
+        r = c.post("/api/broker/order", {"preview_id": stale["preview"]["preview_id"], "confirm": True})
+        check("HTTP stale preview cannot bypass daily entry cap", not r.get("ok") and "Daily live order limit" in r.get("error", ""), str(r))
+        check("blocked submit sends no order to broker", len([q for q in requests if q["method"] == "POST"]) == before)
         r = c.post("/api/broker/preview", {"order": {"symbol": "SPY", "side": "buy", "type": "market", "dollars": 10}})
         check(f"daily live order cap ({cap}) enforced", not r.get("ok") and "Daily live order limit" in r.get("error", ""), r.get("error"))
 
@@ -270,6 +303,8 @@ def main():
         proc.terminate()
         proc.wait(timeout=10)
         mock.shutdown()
+        mock.server_close()
+        shutil.rmtree(data_dir)
     print("\n%s: %d failure(s)" % ("FAILED" if FAILURES else "PASSED", len(FAILURES)))
     return 1 if FAILURES else 0
 

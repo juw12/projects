@@ -65,7 +65,7 @@ SESSION_DAYS = 30
 LOCK = threading.RLock()
 # Routes that read-modify-write the profile run under LOCK so quick double taps can't lose updates.
 PROFILE_WRITE_PATHS = {"/api/profile", "/api/quiz", "/api/paper", "/api/paper/order",
-                       "/api/paper/copy", "/api/paper/reset"}
+                       "/api/paper/copy", "/api/paper/reset", "/api/broker/order"}
 
 # Demo mode replays the day-trader-skill README trade: TSLA, 2026-10-19, 10:15 ET.
 DEMO_NOW = "2026-10-19 10:15"
@@ -86,7 +86,7 @@ TOOL = {
 }
 
 
-VERSION = "1.4.0"
+VERSION = "1.4.1"
 
 
 class AppError(Exception):
@@ -1432,7 +1432,9 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/broker/preview":
             self.send_json({"ok": True, "preview": broker_call(BROKER.preview, uid, body.get("order") or {}, profile.get("limits") or {})})
         elif path == "/api/broker/order":
-            self.send_json({"ok": True, **broker_call(BROKER.place, uid, body.get("preview_id"), body.get("confirm"))})
+            self.send_json({"ok": True, **broker_call(
+                BROKER.place, uid, body.get("preview_id"), body.get("confirm"), profile.get("limits") or {}
+            )})
         elif path == "/api/broker/cancel":
             self.send_json({"ok": True, **broker_call(BROKER.cancel, uid, body.get("id"))})
         elif path == "/api/broker/cancel_all":

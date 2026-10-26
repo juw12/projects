@@ -99,7 +99,7 @@
     const keys = await caches.keys();
     check("unrelated app cache survives activation", keys.includes("other-app-keep-me"));
     check("old Twin cache cleaned", !keys.includes("tt-shell-v3"));
-    const current = keys.find((key) => key.startsWith("twin:") && key.endsWith(":1.4.0"));
+    const current = keys.find((key) => key.startsWith("twin:") && key.endsWith(":1.4.1"));
     const offline = await caches.open(current);
     const cached = await offline.keys();
     check("complete demo precached", ["demo.js", "theme.js", "theme.css", "demo/market.json", "demo/monthly.json", "demo/trade.json", "demo/news.json"].every((name) => cached.some((request) => request.url.split("?")[0].endsWith(name))));
@@ -291,6 +291,40 @@
     check("snapshot stock detail offers a valid replay, not fake live trading", Boolean(replayLink));
     replayLink.click();
     check("stock detail opens supported demo ticker", reloadWindow.eval('state.tradeMode === "demo" && state.tradeSymbol === "TSLA"'));
+
+    // Exercise the actual Strategy Lab UI in an isolated guest at phone width.
+    const paperBeforeLab = JSON.stringify((await reloadWindow.api("api/me")).profile.paper);
+    await reloadWindow.openStock("AAPL");
+    await delay(150);
+    const labButton = [...reloadDoc.querySelectorAll("button")].find((button) => button.textContent.includes("Strategy Lab"));
+    check("stock page exposes Strategy Lab", Boolean(labButton));
+    labButton.click();
+    for (let i = 0; i < 60 && !reloadDoc.getElementById("sheet").textContent.includes("Holdout results"); i++) {
+      await delay(50);
+    }
+    const labSheet = reloadDoc.getElementById("sheet");
+    check("Strategy Lab shows strategy and benchmark holdout results", labSheet.textContent.includes("Holdout results") && labSheet.textContent.includes("Buy & hold"));
+    check("Strategy Lab explicitly labels historical demo data", labSheet.textContent.includes("Historical demo"));
+    check("Strategy Lab shows data dates and limitations", labSheet.textContent.includes("data ends") && labSheet.textContent.includes("not a forecast"));
+    check("Strategy Lab fits phone width", reloadDoc.documentElement.scrollWidth <= 320 && labSheet.scrollWidth <= labSheet.clientWidth + 1);
+    const cost = labSheet.querySelector('input[aria-label="Fee per side in basis points"]');
+    const recalculate = [...labSheet.querySelectorAll("button")].find((button) => button.textContent.includes("Recalculate"));
+    cost.value = "-1";
+    recalculate.click();
+    check("Strategy Lab rejects invalid costs in UI", labSheet.textContent.includes("Fee per side (bps) must"));
+    cost.value = "10";
+    recalculate.click();
+    check("Strategy Lab recovers after invalid input", labSheet.textContent.includes("Holdout results"));
+    const copyReport = [...labSheet.querySelectorAll("button")].find((button) => button.textContent.includes("Copy reproducible report"));
+    Object.defineProperty(reloadWindow.navigator, "clipboard", { configurable: true, value: undefined });
+    copyReport.click();
+    await delay(50);
+    const reportField = reloadDoc.querySelector('textarea[aria-label="Strategy Lab report JSON"]');
+    const copied = JSON.parse(reportField.value);
+    check("report fallback contains replayable inputs and ledger", copied.data.points.length >= 120 && copied.strategy.trades.length > 0 && copied.source.symbol === "AAPL");
+    check("Strategy Lab never changes practice positions or cash", paperBeforeLab === JSON.stringify((await reloadWindow.api("api/me")).profile.paper));
+    check("Strategy Lab engine is available in offline shell cache", cached.some((request) => request.url.includes("strategy-lab.js?v=1.4.1")));
+    reloadWindow.closeSheet();
 
 
     check("no unhandled UI errors", errors.length === 0);
