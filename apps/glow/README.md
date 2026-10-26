@@ -12,6 +12,30 @@
 GlowChat installable app: `glow/chat/app.html`, mobile: `glow/chat/mobile.html`. GlowRoom: `glow/room/app.html`, `glow/room/mobile.html`.
 AI-suggested resources in GlowChat are not automatically browsed or verified; GlowChat does no autonomous building or execution (that is GlowRoom's job, and its results should still be reviewed).
 
+## v0.9.0 — memory, skills, automations and follow-ups
+
+Closes the most practical gaps with always-on agents that a browser-first app can honestly close.
+
+- **Memory:** tell GlowLead about yourself once (role, location, budget, tone, notes). It is
+  snapshotted into each mission's plan and worker briefs when *Use my memory* is on, and shown as
+  a badge and in exports. Stored only in this browser; it is sent to your AI provider when used.
+- **Skills:** *Save as skill* on a finished mission stores its approved plan. Reusing the skill
+  skips re-planning (no planner call) but still shows the plan for review by default.
+- **Automations:** repeat any brief or skill daily, on weekdays, or weekly at a set time. Plan
+  approval stays on by default and code execution stays off unless ticked. A Web Lock ensures a
+  due run starts in only one tab. Missed runs catch up **once** when Glow is next open, never as
+  a burst. Optional browser notifications for approvals, results and problems.
+  **Limit:** automations run only while a Glow tab is open on that device; this is not a cloud
+  scheduler, and nothing runs while the browser or PC is off.
+- **Follow-ups:** ask a follow-up under any report; GlowLead plans a new mission with the earlier
+  goal and result as context, linked back to it.
+- Invalid stored memory or automation entries are ignored rather than breaking the page.
+
+Checks: the hermetic Playwright suite grows to 31 tests (memory on/off reaching planner and
+workers, follow-up context, skill reuse without re-planning, schedule maths across daily/weekday/
+weekly, single catch-up with approval and notification, one-tab-only runs, create/pause/resume/
+delete, invalid storage, mobile layout). Live provider behaviour remains untested.
+
 ## v0.8.0 — GlowLead mission control
 
 GlowLead's existing orchestrator is upgraded, not replaced by a fork of Dots.
