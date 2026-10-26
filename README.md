@@ -20,7 +20,6 @@ runnable, deployable project.
 ## Ownership and content
 
 Maintained by [Juwen Lie (@juw12)](https://github.com/juw12).
-Co-founder and collaborator: [@juwpegatron](https://github.com/juwpegatron).
 Existing commit authorship is preserved.
 
 Guang Yao's published lessons, materials and events are stored in
