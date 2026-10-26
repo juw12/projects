@@ -6,7 +6,7 @@
   var catalog = window.SyncCatalog;
   var Players = window.SyncPlayers;
   var config = window.SYNC_CONFIG || {};
-  var VERSION = '1.1.0';
+  var VERSION = '1.2.0';
   var TICK_MS = 250;
   var DUCK_LEVEL = 0.3;
   var REACTIONS = ['🔥', '😍', '🙌', '💃', '😂', '🎉'];
@@ -33,6 +33,7 @@
       service: saved.service || 'auto',
       duck: saved.duck !== false,
       volume: saved.volume != null ? saved.volume : 1,
+      videoView: saved.videoView === true,
       nudge: 0,
     };
   })();
@@ -43,6 +44,7 @@
       service: prefs.service,
       duck: prefs.duck,
       volume: prefs.volume,
+      videoView: prefs.videoView,
     }));
   }
 
@@ -345,6 +347,8 @@
       '    <button id="settings-btn" class="icon" aria-label="Settings" title="Settings">' + icon('settings') + '</button>' +
       '    <button id="leave" class="icon" aria-label="Leave room" title="Leave room">' + icon('leave') + '</button>' +
       '  </header>' +
+      '  <div id="video-pip-anchor" class="video-anchor pip" aria-hidden="true"></div>' +
+      '  <div id="video-float" class="video-float" hidden><div id="video-slot" class="video-slot"></div></div>' +
       '  <main class="room-grid">' +
       '    <aside class="panel queue-panel">' +
       '      <div class="panel-head"><h3>Up next<small id="queue-count"></small></h3><button class="add-open icon sm" aria-label="Add music" title="Add music">' + icon('plus') + '</button></div>' +
@@ -356,12 +360,11 @@
       '        <div id="media" class="media">' +
       '          <img id="art" alt="" hidden>' +
       '          <div id="art-empty" class="art-empty">' + icon('disc') + '</div>' +
-      '          <div id="video-slot" class="video-slot"></div>' +
       '        </div>' +
-      '        <div id="reactions" class="reactions" aria-hidden="true"></div>' +
       '      </div>' +
+      '      <div id="video-hero-anchor" class="video-anchor hero" aria-hidden="true"></div>' +
       '      <div class="np-titles"><h2 id="np-title">Nothing playing yet</h2><p id="np-artist">Add a song to get the party started</p></div>' +
-      '      <div class="np-badges"><span id="np-source" class="badge" hidden></span><span id="sync-pill" class="badge" hidden></span></div>' +
+      '      <div class="np-badges"><span id="np-source" class="badge" hidden></span><span id="sync-pill" class="badge" hidden></span><button id="view-toggle" class="view-toggle" hidden></button></div>' +
       '      <div id="embed-slot" class="embed-slot"></div>' +
       '      <div id="np-notice" class="notice" hidden></div>' +
       '      <div id="stage-cta" class="empty-cta"><button class="add-open accent">' + icon('plus') + 'Add music</button></div>' +
@@ -373,12 +376,14 @@
       '          <button id="next" class="icon" aria-label="Next">' + icon('next') + '</button>' +
       '        </div>' +
       '        <div class="under">' +
+      '          <div id="reactions" class="reactions" aria-hidden="true"></div>' +
       '          <div class="react-bar">' + REACTIONS.map(function (e) {
         return '<button class="react" data-emoji="' + e + '" aria-label="React ' + e + '">' + e + '</button>';
       }).join('') + '</div>' +
       '          <div class="fine-tune" title="Nudge your playback if your version of the song starts earlier or later">Timing<button data-nudge="-0.1" aria-label="Play earlier">−0.1</button><b id="nudge-val">0.0s</b><button data-nudge="0.1" aria-label="Play later">+0.1</button></div>' +
       '        </div>' +
       '      </div>' +
+      '      <div id="video-dock-anchor" class="video-anchor dock" aria-hidden="true"></div>' +
       '    </section>' +
       '    <aside class="panel party-panel">' +
       '      <div class="panel-head"><h3>Party<small id="party-count"></small></h3></div>' +
@@ -522,8 +527,24 @@
       tab.onclick = function () {
         $('.room').dataset.view = tab.dataset.show;
         $all('.tabbar [data-show]').forEach(function (t) { t.classList.toggle('active', t === tab); });
+        placeVideo();
       };
     });
+    $('#view-toggle').onclick = function () {
+      prefs.videoView = !prefs.videoView;
+      savePrefs();
+      applyVideoView();
+    };
+    applyVideoView();
+    if (!placeVideo.timer) {
+      placeVideo.timer = setInterval(placeVideo, 400);
+    }
+    $('.stage').addEventListener('scroll', placeVideo, { passive: true });
+    window.addEventListener('resize', placeVideo);
+    if (window.ResizeObserver) {
+      var anchorObserver = new ResizeObserver(placeVideo);
+      $all('.video-anchor, .stage').forEach(function (el) { anchorObserver.observe(el); });
+    }
     $('#mini-play').onclick = function () {
       $('#play').click();
     };
@@ -1240,10 +1261,93 @@
     });
   }
 
+
+  /* ---------- YouTube video placement ----------
+     YouTube's embed rules: the player must stay visible (at least 200x200 px) with nothing drawn
+     over it. The iframe is created once inside #video-float and never moved in the DOM (moving an
+     iframe reloads it), so we position the float over whichever anchor is visible: the hero spot
+     (Video view), a card under the controls (Cover view), or a mini window on the phone's other tabs. */
+  function applyVideoView() {
+    var roomEl = $('.room');
+    var toggle = $('#view-toggle');
+    if (!roomEl || !toggle) {
+      return;
+    }
+    roomEl.classList.toggle('view-video', !!prefs.videoView);
+    toggle.innerHTML = prefs.videoView ? icon('disc') + 'Cover art' : icon('play') + 'Watch video';
+    toggle.setAttribute('aria-pressed', prefs.videoView ? 'true' : 'false');
+    placeVideo();
+  }
+
+  // Visible band of the stage between the top bar and the tab bar. The docked
+  // player is clipped to it so it scrolls like page content and is never
+  // painted over the header or the tab bar.
+  function stageBand() {
+    var top = 0;
+    var bottom = window.innerHeight;
+    var stage = $('.stage');
+    if (stage && stage.getClientRects().length) {
+      var stageRect = stage.getBoundingClientRect();
+      top = Math.max(top, stageRect.top);
+      bottom = Math.min(bottom, stageRect.bottom);
+    }
+    var topbar = $('.topbar');
+    if (topbar && topbar.getClientRects().length) {
+      top = Math.max(top, topbar.getBoundingClientRect().bottom);
+    }
+    var tabbar = $('.tabbar');
+    if (tabbar && getComputedStyle(tabbar).display !== 'none') {
+      bottom = Math.min(bottom, tabbar.getBoundingClientRect().top);
+    }
+    return { top: top, bottom: bottom };
+  }
+
+  function placeVideo() {
+    var float = $('#video-float');
+    var roomEl = $('.room');
+    if (!float || !roomEl) {
+      return;
+    }
+    var anchor = null;
+    if (roomEl.classList.contains('yt')) {
+      anchor = Array.prototype.filter.call($all('.video-anchor'), function (el) {
+        return el.getClientRects().length > 0;
+      })[0] || null;
+    }
+    float.hidden = !anchor;
+    if (!anchor) {
+      return;
+    }
+    var rect = anchor.getBoundingClientRect();
+    float.style.left = rect.left + 'px';
+    float.style.top = rect.top + 'px';
+    float.style.width = rect.width + 'px';
+    float.style.height = rect.height + 'px';
+    var isPip = anchor.classList.contains('pip');
+    float.classList.toggle('is-pip', isPip);
+    var clipTop = 0;
+    var clipBottom = 0;
+    if (!isPip) {
+      var band = stageBand();
+      clipTop = Math.max(0, band.top - rect.top);
+      clipBottom = Math.max(0, rect.bottom - band.bottom);
+    }
+    float.style.clipPath = (clipTop || clipBottom)
+      ? 'inset(' + Math.round(clipTop) + 'px 0 ' + Math.round(clipBottom) + 'px 0 round 16px)'
+      : '';
+    float.style.visibility = (clipTop + clipBottom >= rect.height) ? 'hidden' : '';
+  }
+
   function showMediaFor(kind) {
     var media = $('#media');
     if (media) {
       media.dataset.kind = kind || 'none';
+    }
+    var roomEl = $('.room');
+    if (roomEl) {
+      roomEl.classList.toggle('yt', kind === 'youtube');
+      $('#view-toggle').hidden = kind !== 'youtube';
+      placeVideo();
     }
     var badge = $('#np-source');
     if (badge) {
