@@ -12,6 +12,18 @@
 GlowChat installable app: `glow/chat/app.html`, mobile: `glow/chat/mobile.html`. GlowRoom: `glow/room/app.html`, `glow/room/mobile.html`.
 AI-suggested resources in GlowChat are not automatically browsed or verified; GlowChat does no autonomous building or execution (that is GlowRoom's job, and its results should still be reviewed).
 
+## v0.15.4 — finished work is never lost to a flaky connection
+
+Found in real GlowLead runs on Glow Free:
+- **The final check can fail without losing the mission.** If the last AI call (the check against your
+  done-criteria) fails, GlowLead now delivers the team's finished work marked *Result (not fully checked)*
+  with a note, instead of ending with "network error" and an empty report.
+- **Dropped connections are retried** in the GlowRoom engine (used by GlowLead and GlowRoom): a request that
+  fails with "Failed to fetch" is sent again, and a stream cut off mid-answer ("network error") is asked again.
+- **No endless "writing…"**: a streamed answer that only sends keep-alive pings is dropped after 45 s without
+  new text (4 minutes at most) and retried without streaming.
+- Self-test: 22 checks. Caches: `glowlead-v15`, `glowroom-v8`.
+
 ## v0.15.0 — Glow Android app and instant cloud browser
 
 - **Glow for Android** (`mobile/`): GlowLead as an app with its own built-in browser, so browser missions run
