@@ -417,5 +417,136 @@ class GlowLeadDrivesGlowHandsEndToEnd(unittest.TestCase):
         self.assertLessEqual(results[4], 500)
 
 
+@unittest.skipUnless(HAVE_PLAYWRIGHT, "Install the optional Playwright test dependency to run Glow Hands checks")
+class OneClickPairingTests(unittest.TestCase):
+    """Pairing without typing a code: the person at the PC answers a prompt (simulated here)."""
+
+    @classmethod
+    def setUpClass(cls):
+        from playwright.sync_api import sync_playwright
+
+        class QuietStatic(http.server.SimpleHTTPRequestHandler):
+            def log_message(self, *_args):
+                pass
+
+        cls.web = http.server.ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(QuietStatic, directory=str(APP / "web")))
+        threading.Thread(target=cls.web.serve_forever, daemon=True).start()
+        cls.web_url = f"http://127.0.0.1:{cls.web.server_port}"
+        cls.yes_port = free_port()
+        cls.yes = start_companion(cls.yes_port, tempfile.mkdtemp(prefix="glow-pair-yes-"), "--pair-test-answer", "yes")
+        cls.no_port = free_port()
+        cls.no = start_companion(cls.no_port, tempfile.mkdtemp(prefix="glow-pair-no-"), "--pair-test-answer", "no")
+        cls.playwright = sync_playwright().start()
+        cls.browser = cls.playwright.chromium.launch()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.browser.close()
+        cls.playwright.stop()
+        stop_companion(cls.yes)
+        stop_companion(cls.no)
+        cls.web.shutdown()
+        cls.web.server_close()
+
+    def test_pair_endpoint_rules(self):
+        status, data, headers = call(self.yes_port, "POST", "/pair", token=None, origin="https://juw12.github.io")
+        self.assertEqual(status, 200)
+        self.assertEqual(data["token"], TOKEN)
+        self.assertEqual(data["url"], f"http://127.0.0.1:{self.yes_port}")
+        self.assertEqual(headers.get("Access-Control-Allow-Origin"), "https://juw12.github.io")
+        self.assertEqual(call(self.yes_port, "POST", "/pair", token=None)[0], 400, "Must come from a browser page")
+        self.assertEqual(call(self.yes_port, "POST", "/pair", token=None, origin="https://evil.example")[0], 403)
+        self.assertEqual(call(self.yes_port, "POST", "/pair", token=None, origin="https://juw12.github.io", host="evil.example")[0], 403)
+
+    def test_declined_pairing_reveals_nothing_and_cools_down(self):
+        port = free_port()
+        process = start_companion(port, tempfile.mkdtemp(prefix="glow-pair-cool-"), "--pair-test-answer", "no")
+        self.addCleanup(stop_companion, process)
+        status, data, _ = call(port, "POST", "/pair", token=None, origin="https://juw12.github.io")
+        self.assertEqual(status, 403)
+        self.assertNotIn("token", data)
+        status, data, _ = call(port, "POST", "/pair", token=None, origin="https://juw12.github.io")
+        self.assertEqual(status, 429, "Repeated requests must not spam the person with prompts")
+        self.assertNotIn("token", data)
+
+    def open_lead(self, port, hash_part=""):
+        context = self.browser.new_context()
+        self.addCleanup(context.close)
+        context.route("**/crew-engine.js", lambda route: route.fulfill(content_type="application/javascript", body=E2E_ENGINE_STUB))
+        saved = json.dumps({"url": f"http://127.0.0.1:{port}", "token": ""})
+        context.add_init_script("if (location.protocol === 'http:' && !localStorage.getItem('glowlead.hands.v1')) "
+                                "localStorage.setItem('glowlead.hands.v1', " + json.dumps(saved) + ");")
+        page = context.new_page()
+        page.goto(self.web_url + "/lead/" + hash_part)
+        page.wait_for_function("!!window.GlowLead")
+        return page
+
+    def test_one_click_connect_saves_and_persists(self):
+        page = self.open_lead(self.yes_port)
+        page.wait_for_function("document.getElementById('hands-status').dataset.state === 'not-set'")
+        page.click("#hands-btn")
+        page.wait_for_function("document.getElementById('hands-status').dataset.state === 'paired'", timeout=15000)
+        saved = json.loads(page.evaluate("localStorage.getItem('glowlead.hands.v1')"))
+        self.assertEqual(saved, {"url": f"http://127.0.0.1:{self.yes_port}", "token": TOKEN})
+        self.assertTrue(page.locator("#allow-hands").is_enabled())
+        page.reload()
+        page.wait_for_function("document.getElementById('hands-status').dataset.state === 'paired'", timeout=15000)
+
+    def test_installer_handoff_connects_without_any_click(self):
+        page = self.open_lead(self.yes_port, "#hands-setup")
+        page.wait_for_function("document.getElementById('hands-status').dataset.state === 'paired'", timeout=15000)
+        self.assertNotIn("hands-setup", page.url)
+
+    def test_declined_connect_stays_disconnected_and_opens_help(self):
+        port = free_port()
+        process = start_companion(port, tempfile.mkdtemp(prefix="glow-pair-ui-no-"), "--pair-test-answer", "no")
+        self.addCleanup(stop_companion, process)
+        page = self.open_lead(port)
+        page.click("#hands-btn")
+        page.wait_for_selector("#hands-dialog[open]", timeout=15000)
+        self.assertIn("declined", page.locator("#hands-test-result").inner_text())
+        self.assertEqual(page.evaluate("JSON.parse(localStorage.getItem('glowlead.hands.v1')).token"), "")
+        self.assertTrue(page.locator("#allow-hands").is_disabled())
+        self.assertIn("install-glow-hands.ps1", page.locator("#hands-install-command").inner_text())
+
+    def test_outdated_companion_is_explained(self):
+        class OldCompanion(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                pass
+
+            def reply(self, status, body):
+                payload = json.dumps(body).encode()
+                self.send_response(status)
+                self.send_header("Access-Control-Allow-Origin", self.headers.get("Origin", "*"))
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def do_GET(self):
+                self.reply(200, {"ok": True, "app": "glow-hands", "version": "0.1.0", "paired": False})
+
+            def do_POST(self):
+                self.reply(404, {"error": "Not found."})
+
+        old = http.server.ThreadingHTTPServer(("127.0.0.1", 0), OldCompanion)
+        threading.Thread(target=old.serve_forever, daemon=True).start()
+        self.addCleanup(old.server_close)
+        self.addCleanup(old.shutdown)
+        page = self.open_lead(old.server_port)
+        page.click("#hands-btn")
+        page.wait_for_selector("#hands-dialog[open]", timeout=15000)
+        self.assertIn("older version", page.locator("#hands-test-result").inner_text())
+
+    def test_not_running_explains_install(self):
+        busy = [port for port in range(8765, 8771) if socket.socket().connect_ex(("127.0.0.1", port)) == 0]
+        if busy:
+            self.skipTest(f"Ports {busy} are in use on this machine, so 'not running' cannot be simulated")
+        page = self.open_lead(free_port())
+        page.click("#hands-btn")
+        page.wait_for_selector("#hands-dialog[open]", timeout=20000)
+        self.assertIn("isn't running", page.locator("#hands-test-result").inner_text())
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
