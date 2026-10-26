@@ -41,6 +41,7 @@ START_RE = re.compile(r"^[ \t]*<!-- PROJECTS:MANAGED:START[^>]*-->", re.MULTILIN
 END_RE = re.compile(r"^[ \t]*<!-- PROJECTS:MANAGED:END -->", re.MULTILINE)
 
 CARD_INDENT = " " * 10
+SUMMARY_SOFT_LIMIT = 130  # visible characters on a card
 CARD_SEP = "\n" + CARD_INDENT + "\n"
 
 
@@ -85,7 +86,14 @@ def render_card(app):
     lines.append(f'{ind}  <div class="project-content">')
     lines.append(f'{ind}    <span class="project-category">{app["category"]}</span>')
     lines.append(f'{ind}    <h3 class="project-title">{app["name"]}</h3>')
-    lines.append(f'{ind}    <p class="project-description">{app["description"]}</p>')
+    # Cards show the short `summary` so every card has the same text length;
+    # the full `description` is kept for the Details view.
+    summary = app.get("summary") or app["description"]
+    if len(unescape(re.sub(r"<[^>]+>", "", summary))) > SUMMARY_SOFT_LIMIT:
+        print(f"WARNING: {app['id']} card summary exceeds {SUMMARY_SOFT_LIMIT} characters")
+    lines.append(f'{ind}    <p class="project-description">{summary}</p>')
+    if app["description"] != summary:
+        lines.append(f'{ind}    <div class="project-details" hidden>{app["description"]}</div>')
     lines.append(f'{ind}    <div class="project-tags">')
     for tag in app["tags"]:
         lines.append(f'{ind}      <span class="tag">{tag}</span>')
