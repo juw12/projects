@@ -1,0 +1,70 @@
+name: Glow instant cloud browser (Cloudflare)
+
+# Bundles apps/glow/cloud on every change and deploys it to Cloudflare Workers + Browser Rendering
+# (free plan) from main. Deploying needs repository secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID;
+# without them the deploy is skipped.
+on:
+  push:
+    branches: [main]
+    paths: ['apps/glow/cloud/**', 'apps/glow/web/shared/**', '.github/workflows/glow-cloud-worker.yml']
+  pull_request:
+    paths: ['apps/glow/cloud/**', 'apps/glow/web/shared/**', '.github/workflows/glow-cloud-worker.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: glow-cloud-worker-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    defaults:
+      run:
+        working-directory: apps/glow/cloud
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Bundle the worker (dry run)
+        run: |
+          npm install --no-fund --no-audit
+          npx wrangler deploy --dry-run --outdir dist
+          ls -la dist
+      - name: Decide whether to deploy
+        id: gate
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          elif [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "Cloudflare secrets are not set; skipping the deploy."
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Deploy the worker
+        if: steps.gate.outputs.deploy == 'true'
+        run: |
+          npx wrangler deploy 2>&1 | tee deploy.log
+          url="$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' deploy.log | head -n 1)"
+          echo "Deployed to: $url"
+          echo "GLOW_CLOUD_URL=$url" >> "$GITHUB_ENV"
+      - name: Smoke test
+        if: steps.gate.outputs.deploy == 'true'
+        run: |
+          test -n "$GLOW_CLOUD_URL"
+          for attempt in 1 2 3 4 5 6; do
+            if curl -fsS -H "Origin: https://juw12.github.io" "$GLOW_CLOUD_URL/v1/status"; then
+              echo
+              exit 0
+            fi
+            sleep 10
+          done
+          exit 1

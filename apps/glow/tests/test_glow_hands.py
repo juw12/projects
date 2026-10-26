@@ -891,6 +891,7 @@ class CloudBrowserEndToEnd(unittest.TestCase):
         phone = context.new_page()
         phone.goto(self.web_url + "/lead/")
         phone.click("#hands-btn")
+        phone.click("#github-cloud summary")
         phone.click("#cloud-start")
         phone.wait_for_function("document.getElementById('cloud-note').textContent.includes('Set up the cloud browser first')", timeout=10000)
         phone.fill("#cloud-token", "github_pat_wrong")
