@@ -1,6 +1,6 @@
 /* AIRIZ Control Center — versioned, scope-isolated offline shell. */
 const CACHE_PREFIX = 'airiz-control-' + encodeURIComponent(self.registration.scope) + '-';
-const CACHE_NAME = CACHE_PREFIX + 'v2.9-phone-remote';
+const CACHE_NAME = CACHE_PREFIX + 'v2.10-bluefy-open';
 const ASSETS = [
   './',
   './index.html',
