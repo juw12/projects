@@ -16,6 +16,8 @@
     specFile: 'specs/requirements.md',
     specMode: 'preview',
     specLang: 'en',
+    specEdit: false,
+    glossaryOpen: false,
     promptDrafts: {},
     shareUrl: '',
     sharedPayload: null
@@ -936,7 +938,23 @@
     const store = project.specTranslations && project.specTranslations[lang];
     const entry = store && store[file];
     if (!entry || !entry.content) return null;
-    return { content: entry.content, stale: entry.source !== sourceHash(english) };
+    return {
+      content: entry.content,
+      stale: entry.source !== sourceHash(english),
+      edited: !!entry.edited,
+      problems: entry.problems || []
+    };
+  }
+
+  // Per-project glossary ("term = translation" per line) that the AI must follow.
+  function userGlossary(project, lang) {
+    const raw = project.specGlossary && project.specGlossary[lang];
+    const out = {};
+    String(raw || '').split('\n').forEach(function (line) {
+      const match = line.match(/^\s*(.+?)\s*(?:=|→|->)\s*(.+?)\s*$/);
+      if (match) out[match[1]] = match[2];
+    });
+    return out;
   }
 
   function displayedSpec(project, file) {
@@ -944,7 +962,12 @@
     if (ui.specLang === 'en') return { content: english, state: 'source' };
     const translated = specTranslation(project, ui.specLang, file, english);
     if (!translated) return { content: english, state: 'missing' };
-    return { content: translated.content, state: translated.stale ? 'stale' : 'fresh' };
+    return {
+      content: translated.content,
+      state: translated.stale ? 'stale' : 'fresh',
+      edited: translated.edited,
+      problems: translated.problems
+    };
   }
 
   async function translateSpecs(project, button, files) {
@@ -966,10 +989,12 @@
           const label = button.querySelector('.ai-cancel');
           if (label) label.previousSibling.textContent = ' ' + t('Translating {done}/{total}…', { done: done + 1, total: files.length }) + ' ';
         }
-        const translated = await window.SweepPro.ai.translateSpecFile(file, english, lang);
+        const result = await window.SweepPro.ai.translateSpecFile(file, english, lang, { glossary: userGlossary(project, lang) });
+        const translated = typeof result === 'string' ? result : result.text;
+        const problems = typeof result === 'string' ? [] : (result.problems || []);
         if (!project.specTranslations) project.specTranslations = {};
         if (!project.specTranslations[lang]) project.specTranslations[lang] = {};
-        project.specTranslations[lang][file] = { content: translated, source: sourceHash(english), at: new Date().toISOString() };
+        project.specTranslations[lang][file] = { content: translated, source: sourceHash(english), at: new Date().toISOString(), problems: problems };
         persist(project);
         done++;
       }
@@ -1933,10 +1958,30 @@
         (window.SweepPro && translatedCount < SPEC_FILE_ORDER.length
           ? ' <button type="button" class="btn btn-text btn-sm ai-btn" data-studio="translate-all">' + esc(t('Translate all {count} files', { count: SPEC_FILE_ORDER.length })) + '</button>'
           : '') +
-      '</div>';
-    const body = ui.specMode === 'preview' && isMarkdown
+        (shown.state !== 'missing'
+          ? ' <button type="button" class="btn btn-text btn-sm" data-studio="spec-edit">' + esc(t('Edit translation')) + '</button>'
+          : '') +
+        ' <button type="button" class="btn btn-text btn-sm" data-studio="glossary-toggle" aria-expanded="' + ui.glossaryOpen + '">' + esc(t('Glossary')) + '</button>' +
+        (shown.edited ? '<span class="spec-lang-tag">' + esc(t('Edited by you')) + '</span>' : '') +
+        (shown.problems && shown.problems.length && !shown.edited
+          ? '<span class="spec-lang-warn" title="' + esc(shown.problems.join(' ')) + '">⚠ ' + esc(t('Check this translation — {count} possible issue(s)', { count: shown.problems.length })) + '</span>'
+          : '') +
+      '</div>' +
+      (ui.glossaryOpen
+        ? '<div class="spec-glossary"><label class="settings-field"><span>' + esc(t('Your terms for {lang} (one per line: term = translation)', { lang: langName })) + '</span>' +
+            '<textarea id="spec-glossary-input" rows="4" spellcheck="false" data-no-i18n placeholder="streak = 连续打卡天数">' + esc((project.specGlossary && project.specGlossary[ui.specLang]) || '') + '</textarea></label>' +
+            '<div class="settings-actions"><button type="button" class="btn btn-secondary btn-sm" data-studio="glossary-save">' + esc(t('Save terms')) + '</button>' +
+            '<span class="settings-note small">' + esc(t('Used for every translation in this project. Re-translate to apply.')) + '</span></div></div>'
+        : '');
+    let body = ui.specMode === 'preview' && isMarkdown
       ? '<div class="md-body">' + renderMarkdown(content, project) + '</div>'
       : '<pre class="md-raw"><code>' + esc(content) + '</code></pre>';
+    if (ui.specEdit && ui.specLang !== 'en' && shown.state !== 'missing') {
+      body = '<div class="spec-editor"><label class="sr-only" for="spec-edit-input">' + esc(t('Edit translation')) + '</label>' +
+        '<textarea id="spec-edit-input" class="md-edit" spellcheck="false" data-no-i18n>' + esc(content) + '</textarea>' +
+        '<div class="settings-actions"><button type="button" class="btn btn-primary btn-sm" data-studio="spec-edit-save">' + esc(t('Save translation')) + '</button>' +
+        '<button type="button" class="btn btn-text btn-sm" data-studio="spec-edit-cancel">' + esc(t('Cancel')) + '</button></div></div>';
+    }
     return '<div class="spec-layout">' +
       '<nav class="spec-files" aria-label="Spec files">' +
         SPEC_FILE_ORDER.map(function (name) {
@@ -2483,12 +2528,14 @@
     const specFile = event.target.closest('[data-spec-file]');
     if (specFile) {
       ui.specFile = specFile.getAttribute('data-spec-file');
+      ui.specEdit = false;
       ui.specMode = /\.md$/.test(ui.specFile) ? ui.specMode : 'raw';
       renderStudio(project);
       return;
     }
     const specLang = event.target.closest('[data-spec-lang]');
     if (specLang) {
+      ui.specEdit = false;
       ui.specLang = specLang.getAttribute('data-spec-lang');
       renderStudio(project);
       return;
@@ -2536,6 +2583,43 @@
       persist(project);
       renderStudio(project);
       showToast(t('Reverted to the generated version'));
+    }
+    if (name === 'spec-edit') {
+      ui.specEdit = true;
+      renderStudio(project);
+      const editor = document.getElementById('spec-edit-input');
+      if (editor) editor.focus();
+    }
+    if (name === 'spec-edit-cancel') {
+      ui.specEdit = false;
+      renderStudio(project);
+    }
+    if (name === 'spec-edit-save') {
+      const editor = document.getElementById('spec-edit-input');
+      const entry = project.specTranslations && project.specTranslations[ui.specLang] && project.specTranslations[ui.specLang][ui.specFile];
+      if (editor && entry) {
+        entry.content = editor.value;
+        entry.edited = true;
+        entry.problems = [];
+        entry.at = new Date().toISOString();
+        persist(project);
+        showToast(t('Translation saved'));
+      }
+      ui.specEdit = false;
+      renderStudio(project);
+    }
+    if (name === 'glossary-toggle') {
+      ui.glossaryOpen = !ui.glossaryOpen;
+      renderStudio(project);
+    }
+    if (name === 'glossary-save') {
+      const input = document.getElementById('spec-glossary-input');
+      if (input) {
+        if (!project.specGlossary) project.specGlossary = {};
+        project.specGlossary[ui.specLang] = input.value;
+        persist(project);
+        showToast(t('Terms saved'));
+      }
     }
     if (name === 'translate-spec') translateSpecs(project, action, [ui.specFile]);
     if (name === 'translate-all') translateSpecs(project, action, SPEC_FILE_ORDER.slice());

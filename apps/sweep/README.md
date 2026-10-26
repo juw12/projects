@@ -61,6 +61,13 @@ from the plan's Studio strip, the **Studio** nav tab, or the command palette.
   ids, code, paths and the EARS keywords (WHEN … THEN THE SYSTEM SHALL) intact.
   Translations are cached per file with a hash of the English source, flagged as
   outdated when the brief changes, and ride along in the spec pack under `i18n/<lang>/`.
+  **Quality checks:** every answer is validated (headings, code blocks, ids such as
+  R1/T3, EARS keywords and checkboxes kept; prose really in the target language; not
+  cut off). A failing answer is retried once on a different free service with the
+  problems listed; if it still fails, the file shows "⚠ Check this translation" with
+  the issues on hover. A per-project **Glossary** ("streak = 连续打卡天数") is sent with
+  every request (on top of built-in defaults), and **Edit translation** lets you fix
+  wording by hand ("Edited by you").
 - **Time tracking** — moving a task to Doing starts a timer (pause/resume on the
   card, 6 h cap per session, "Log time" for manual hours). Done cards show actual
   hours, a Time tracking table compares estimate vs actual, and after ≥2 tracked
@@ -105,6 +112,26 @@ All optional and opened from the gear icon in the header (**Settings**).
   The token, passphrase and gist id inside the link are encrypted with that code
   (PBKDF2 + AES-GCM) and expire after 15 minutes; open the link (or scan on a phone),
   type the code, and sync is on. `web/qr.js` is a small dependency-free QR encoder.
+  The link packs its secret compactly (≈313 characters → QR version 11 instead of 13)
+  and "Show bigger QR" enlarges the code for phones that struggle.
+- **No GitHub account?** Two options with the same encryption and three-way merge:
+  - **Direct sync** — "Sync with another device now" shows a QR + link; open it on the
+    other device and both end up with the merged workspace (clashes go to Review).
+    Data travels device-to-device over WebRTC (vendored PeerJS 1.5.4, MIT, in
+    `web/vendor/`, loaded only when used), encrypted with a one-time code carried in the
+    link; the free PeerJS broker only introduces the two devices. Both must be online;
+    the offer expires after 10 minutes. Very strict networks that block WebRTC need the
+    file option below.
+  - **Sync file** — "Download sync file" saves an encrypted `sweep-sync-YYYY-MM-DD.sweep`
+    (passphrase ≥ 6 characters); open it on the other device with the same passphrase to
+    merge. Move it by AirDrop, USB, email or any cloud drive.
+- **QR robustness (tested)** — simulated phone photos (tilt, rotation, distance, blur,
+  screen moiré, glare, noise, JPEG) of the pairing QR at 1×/2×/3× screens, decoded with
+  Apple Vision (via Chrome's BarcodeDetector on macOS), jsQR and ZXing: "normal" photos
+  decode 10/10 with Vision and 7–10/10 with jsQR/ZXing; Vision still reads 6–10/10 of the
+  "hard" set. `qr.js` prefers the checkerboard mask (any mask is valid): ZXing-based scanners
+  missed 10–20% of codes with other masks even on perfect images. Matrices stay bit-identical to
+  the Python `qrcode` library for the same mask. Not yet confirmed on a physical phone camera.
 - **Offline + updates** — the main app registers `web/sw.js` (same-origin files only;
   GitHub/AI calls always hit the network) and shows "A new version is ready — Reload"
   when a deploy lands while the app is open. Dialogs keep keyboard focus inside.
