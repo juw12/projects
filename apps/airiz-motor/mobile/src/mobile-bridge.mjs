@@ -283,7 +283,7 @@ async function connect(device) {
   }
   request.disconnectRef = { current: null };
   request.selected = device;
-  lastDiagnostics = { app: 'AIRIZ Mobile 1.0.0', platform, transport: request.mode, device: { id: device.deviceId, name: device.name || null }, capturedAt: new Date().toISOString(), services: [], motorCommandsSentDuringDiscovery: false };
+  lastDiagnostics = { app: 'AIRIZ Mobile 1.0.1', platform, transport: request.mode, device: { id: device.deviceId, name: device.name || null }, capturedAt: new Date().toISOString(), services: [], motorCommandsSentDuringDiscovery: false };
   $('mobile-export-diagnostics').disabled = false;
   try {
     status('Connecting to ' + (device.name || device.deviceId) + '…');
