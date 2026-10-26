@@ -390,7 +390,14 @@
   function readHands() {
     const fallback = { mode: "local", url: "http://127.0.0.1:8765", token: "" };
     try {
-      const value = JSON.parse(localStorage.getItem(HANDS_KEY) || "{}");
+      const raw = localStorage.getItem(HANDS_KEY);
+      if (!raw && nativeBrowser()) return { mode: "app", host: "phone", url: "", token: "" };
+      const value = JSON.parse(raw || "{}");
+      if (value.mode === "app") return nativeBrowser() ? { mode: "app", host: "phone", url: "", token: "" } : fallback;
+      if (value.mode === "service") {
+        return /^[\w-]{8,100}$/.test(value.session || "")
+          ? { mode: "service", host: "cloud", session: value.session, url: "", token: "" } : fallback;
+      }
       if (value.mode === "remote") {
         const valid = /^glowhands-[0-9a-f]{24}$/.test(value.peerId || "") && typeof value.secret === "string" && /^[\w-]{24,100}$/.test(value.secret);
         const host = ["cloud", "server"].includes(value.host) ? value.host : "pc";
@@ -533,8 +540,133 @@
     });
   }
 
+  // ---- This phone's browser (Glow Android app): the browser built into the app, driven by the shared core.
+  function nativeBrowser() {
+    const cap = window.Capacitor;
+    const plugin = cap && cap.Plugins && cap.Plugins.GlowBrowser;
+    if (!plugin) return null;
+    return typeof cap.isNativePlatform === "function" && !cap.isNativePlatform() && !window.__glowBrowserTest ? null : plugin;
+  }
+
+  let appCore = null;
+  async function appHandsCore() {
+    if (appCore) return appCore;
+    if (!window.GlowHandsCore) await loadScript("../shared/hands-core.js");
+    const plugin = nativeBrowser();
+    const wrap = (source, arg) => "(() => { try { return JSON.stringify({ ok: true, value: (" + source + ")(" + JSON.stringify(arg) +
+      ") }); } catch (error) { return JSON.stringify({ ok: false, error: String((error && error.message) || error) }); } })()";
+    const decode = (raw) => {
+      let value = raw;
+      for (let i = 0; i < 2 && typeof value === "string"; i += 1) value = JSON.parse(value);
+      return value;
+    };
+    const driver = {
+      evaluate: async (source, arg) => {
+        const result = await plugin.evaluate({ script: wrap(source, arg) });
+        const out = decode(result && result.value);
+        if (!out) throw new Error("The page did not answer.");
+        if (!out.ok) throw new Error(out.error);
+        return out.value === undefined ? null : out.value;
+      },
+      goto: async (url) => {
+        const result = await plugin.open({ url });
+        if (result && result.error) throw new Error(result.error);
+      },
+      back: async () => {
+        await plugin.back();
+      },
+      info: async () => {
+        const state = await plugin.state();
+        return { url: state.url || "", title: state.title || "" };
+      },
+      settle: async () => {
+        for (let i = 0; i < 24; i += 1) {
+          const state = await plugin.state();
+          if (!state.loading) break;
+          await sleep(250);
+        }
+        await sleep(300);
+      },
+      close: async () => {
+        await plugin.close();
+      },
+    };
+    // __glowBrowserTest is only set by the automated tests (they use a local test site).
+    appCore = window.GlowHandsCore.createHandsCore(driver, { mode: "app", allowPrivate: window.__glowBrowserTest === true });
+    return appCore;
+  }
+
+  async function appCall(path, body) {
+    if (!nativeBrowser()) return { status: 503, error: "This phone's browser is only available in the Glow app." };
+    const core = await appHandsCore();
+    return core.handle(path, body);
+  }
+
+  // ---- Instant cloud browser: a shared Glow service (Cloudflare) runs the browser; nothing to set up.
+  const CLOUD_SERVICE_URL = "";
+  function cloudServiceUrl() {
+    return String(window.GLOW_CLOUD_SERVICE_URL || CLOUD_SERVICE_URL || "").replace(/\/+$/, "");
+  }
+
+  async function serviceCall(hands, path, body, signal) {
+    let response;
+    try {
+      response = await fetch(cloudServiceUrl() + "/v1/sessions/" + encodeURIComponent(hands.session) + "/call", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path, body: body || null }),
+        signal,
+      });
+    } catch (error) {
+      if (error && error.name === "AbortError") throw error;
+      throw new Error("Can't reach the Glow cloud browser. Check your internet connection.");
+    }
+    const data = await response.json().catch(() => ({}));
+    return { ...data, status: response.status };
+  }
+
+  async function startInstantCloud(report = () => {}) {
+    if (!cloudServiceUrl()) {
+      report("The instant cloud browser isn't available yet.");
+      return "unavailable";
+    }
+    report("Starting the cloud browser…");
+    let response;
+    try {
+      response = await fetch(cloudServiceUrl() + "/v1/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    } catch (error) {
+      report("Can't reach the Glow cloud browser. Check your internet connection.");
+      return "failed";
+    }
+    const data = await response.json().catch(() => ({}));
+    if (response.status !== 200 || !data.session) {
+      report(data.error || "The cloud browser couldn't start (error " + response.status + "). Try again in a minute.");
+      return response.status === 429 ? "quota" : "failed";
+    }
+    const current = readHands();
+    if (current.mode !== "service" && (current.mode === "remote" || current.token)) {
+      localStorage.setItem(HANDS_PREVIOUS_KEY, localStorage.getItem(HANDS_KEY) || "");
+    }
+    localStorage.setItem(HANDS_KEY, JSON.stringify({ mode: "service", session: data.session }));
+    const state = await renderHands();
+    report(state === "paired" ? "✓ Cloud browser ready. It stops after 10 minutes without use." : "The cloud browser started but isn't answering yet. Try again.");
+    return state;
+  }
+
+  async function stopInstantCloud(report = () => {}) {
+    const hands = readHands();
+    if (hands.mode === "service") {
+      await serviceCall(hands, "close", {}).catch(() => null);
+      restorePreviousHands();
+    }
+    await renderHands();
+    report("Cloud browser stopped.");
+  }
+
   async function handsCall(path, body, signal) {
     const hands = readHands();
+    if (hands.mode === "app") return appCall(path, body);
+    if (hands.mode === "service") return serviceCall(hands, path, body, signal);
     if (hands.mode === "remote") return remoteCall(hands, path, body, signal);
     if (!hands.token) throw new Error("Glow Hands is not connected. Click Connect browser control in the Glow Hands panel.");
     let response;
@@ -555,6 +687,15 @@
 
   async function checkHands() {
     const hands = readHands();
+    if (hands.mode === "app") return nativeBrowser() ? "paired" : "offline";
+    if (hands.mode === "service") {
+      try {
+        const data = await serviceCall(hands, "status", null, null);
+        return data.status === 200 && data.app === "glow-hands" ? "paired" : "offline";
+      } catch (error) {
+        return "offline";
+      }
+    }
     if (hands.mode === "remote") {
       try {
         const data = await remoteCall(hands, "status", null, null, 20000);
@@ -823,9 +964,9 @@
     const chip = $("hands-status");
     if (!chip) return "offline";
     const hands = readHands();
-    const state = hands.mode === "remote" || hands.token ? await checkHands() : "not-set";
-    const hostName = { pc: "PC", server: "SERVER", cloud: "CLOUD" }[hands.host] || "PC";
-    const label = hands.mode === "remote"
+    const state = hands.mode !== "local" || hands.token ? await checkHands() : "not-set";
+    const hostName = { pc: "PC", server: "SERVER", cloud: "CLOUD", phone: "THIS PHONE" }[hands.host] || "PC";
+    const label = hands.mode === "remote" || hands.mode === "app" || hands.mode === "service"
       ? (state === "paired" ? "CONNECTED · " + hostName : hands.host === "cloud" ? "CLOUD STOPPED" : hostName + " OFFLINE")
       : { paired: "CONNECTED", "wrong-token": "WRONG TOKEN", offline: "OFFLINE", "not-set": "NOT SET UP" }[state];
     chip.textContent = label;
@@ -837,8 +978,8 @@
     if ($("phone-link-box")) $("phone-link-box").hidden = !(hands.mode === "local" && state === "paired");
     if ($("cloud-use-pc")) $("cloud-use-pc").hidden = !(hands.host === "cloud" && localStorage.getItem(HANDS_PREVIOUS_KEY));
     if ($("hands-summary")) {
-      const where = { pc: "your PC", server: "your server", cloud: "the cloud browser" }[hands.host] || "your PC";
-      $("hands-summary").textContent = hands.mode === "remote"
+      const where = { pc: "your PC", server: "your server", cloud: "the cloud browser", phone: "this phone's browser" }[hands.host] || "your PC";
+      $("hands-summary").textContent = hands.mode === "remote" || hands.mode === "app" || hands.mode === "service"
         ? (state === "paired" ? "Linked to Glow Hands on " + where + ". Browser missions you start here run there."
           : hands.host === "cloud" ? "The cloud browser isn't running. Open Connect browser control and tap Start cloud browser."
             : "Linked to " + where + ", but it isn't reachable now. It must be on, online and running Glow Hands.")
@@ -1878,10 +2019,12 @@
       const dialog = $("hands-dialog");
       dialog.classList.toggle("on-phone", onPhone);
       $("hands-title").textContent = onPhone ? "Browser control from this phone" : "Connect Glow Hands";
-      // On a phone the PC-only steps are hidden and the cloud browser comes first.
-      if (onPhone && $("hands-title").nextElementSibling !== $("cloud-box")) {
-        $("hands-title").insertAdjacentElement("afterend", $("cloud-box"));
-      }
+      const inApp = !!nativeBrowser();
+      dialog.classList.toggle("in-app", inApp);
+      $("app-box").hidden = !inApp;
+      $("instant-box").hidden = !cloudServiceUrl();
+      $("android-app-link").hidden = inApp || !/Android/i.test(navigator.userAgent);
+      if (inApp) $("hands-title").textContent = "Browser control";
       const cloud = readCloud();
       $("cloud-token").value = cloud.token;
       $("cloud-key").value = cloud.key;
@@ -1889,6 +2032,31 @@
       if (!$("hands-dialog").open) $("hands-dialog").showModal();
     };
     const cloudReport = (message) => { $("cloud-note").textContent = message; };
+    const instantReport = (message) => { $("instant-note").textContent = message; };
+    $("instant-start").addEventListener("click", async () => {
+      $("instant-start").disabled = true;
+      const state = await startInstantCloud(instantReport);
+      $("instant-start").disabled = false;
+      if (state === "paired") toast("Cloud browser ready.");
+    });
+    $("instant-stop").addEventListener("click", async () => {
+      $("instant-stop").disabled = true;
+      await stopInstantCloud(instantReport);
+      $("instant-stop").disabled = false;
+    });
+    $("app-use").addEventListener("click", async () => {
+      const current = readHands();
+      if (current.mode !== "app" && (current.mode === "remote" || current.mode === "service" || current.token)) {
+        localStorage.setItem(HANDS_PREVIOUS_KEY, localStorage.getItem(HANDS_KEY) || "");
+      }
+      localStorage.setItem(HANDS_KEY, JSON.stringify({ mode: "app" }));
+      const state = await renderHands();
+      $("app-note").textContent = state === "paired" ? "✓ Missions now use this phone's browser." : "This phone's browser isn't available.";
+    });
+    $("app-show").addEventListener("click", async () => {
+      const plugin = nativeBrowser();
+      if (plugin) await plugin.show({});
+    });
     $("cloud-save").addEventListener("click", () => {
       try {
         saveCloud({ token: $("cloud-token").value, key: $("cloud-key").value });
@@ -2146,6 +2314,7 @@
       if (acceptCloudSetup()) {
         setTimeout(() => {
           $("hands-btn").click();
+          $("github-cloud").open = true;
           toast(readCloud().token ? "Cloud key saved. Tap Start cloud browser." : "Cloud key saved. Paste your GitHub token once, then tap Start cloud browser.");
         }, 300);
       }
@@ -2189,7 +2358,7 @@
       }
       else $("lead-input").value = goal.slice(0, 2000);
     }
-    if ("serviceWorker" in navigator && location.protocol === "https:" && !TEST_MODE) {
+    if ("serviceWorker" in navigator && location.protocol === "https:" && !TEST_MODE && !window.GLOW_NATIVE_APP) {
       navigator.serviceWorker.register("./sw.js").catch(() => {});
     }
     if (TEST_MODE) selfTest();
@@ -2354,6 +2523,7 @@
   }
 
   window.GlowLead = {
+    hands: { call: (path, body) => handsCall(path, body), mode: () => readHands().mode },
     start: startLead,
     stop: stopLead,
     resume: resumeLead,
