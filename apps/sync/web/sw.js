@@ -1,7 +1,7 @@
 /* Sync service worker — app-scoped offline shell. Never touches other apps' caches.
  * Live rooms need the network; this only makes the app open instantly and installable.
  * A new version waits for the user to tap "Update" so a live session never mixes builds. */
-const CACHE = 'sync-v1.0.0';
+const CACHE = 'sync-v1.1.0';
 const SHELL = [
   './',
   'index.html',
@@ -20,7 +20,7 @@ const SHELL = [
   'icons/icon.svg',
   'icons/icon-192.png',
   'icons/icon-512.png',
-  'icons/icon-512-maskable.png',
+  'icons/icon-512-maskable.png', 'fonts/plus-jakarta-sans-latin.woff2',
 ];
 
 self.addEventListener('install', function (event) {
