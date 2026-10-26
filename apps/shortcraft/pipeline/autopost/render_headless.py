@@ -169,6 +169,17 @@ def apply_reading_time(project):
     return changes
 
 
+def run_script_check(project, project_path):
+    """yt-script gates before any voice is generated (see script_check.py); skipped with "scriptCheck": false."""
+    if project.get("scriptCheck", "gate") is False:
+        return {"ok": True, "skipped": True}
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import script_check
+
+    report = script_check.check_project(project, script_check.find_title(project_path, project))
+    return {key: report[key] for key in ("mode", "ok", "failed", "blocking", "gates", "top_hooks")}
+
+
 def run_asr_check(project, site, voice_files):
     """Speech-to-text every narrated clip and compare with the script (see asr_check.py)."""
     lines = [
@@ -218,7 +229,11 @@ def render(project_path, out_path, port_http=None, port_cdp=None):
     try:
         site = Path(tmp) / "site"
         shutil.copytree(WEB_DIR, site)
-        qc = {"reading": apply_reading_time(project)}
+        qc = {"script": run_script_check(project, project_path)}
+        if not qc["script"]["ok"]:
+            raise RuntimeError("script check (/yt-script gates) failed: " + ", ".join(qc["script"]["blocking"])
+                               + " - run script_check.py on the project for details")
+        qc["reading"] = apply_reading_time(project)
         voice_files = make_voices(project, site)
         if project.get("asrCheck", True):
             qc["asr"] = run_asr_check(project, site, voice_files)

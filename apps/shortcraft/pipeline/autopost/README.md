@@ -158,3 +158,30 @@ rhythm and accent; ElevenLabs is the more faithful clone.
 
 The SFX timing and QC ideas were borrowed from [lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar) (MIT),
 re-implemented here from scratch; no code was copied.
+
+## 2e. Script gate (/yt-script)
+
+Before any voice is generated, `render_headless.py` runs `script_check.py`, the /yt-script rules from
+[youtube-agent-skill](https://github.com/Jakeschincariol/youtube-agent-skill) (MIT, vendored unchanged in
+`vendor/yt_script/`). Its `hookscore.py` word lists are English, so `script_check.py` adds Indonesian and
+Jakarta-slang words plus Indonesian patterns for all 21 hook formulas (English scores stay identical to upstream).
+
+```bash
+python script_check.py project.json            # hook panel + gates, exit 1 if a blocking gate fails
+python script_check.py --hooks hooks.txt       # rank hook options, one per line
+python autopost.py check queue/mending/*/project.json
+```
+
+| gate | blocks the render? | rule |
+|---|---|---|
+| hook | warn (`strict`: fail) | hook score ≥ 55; a low score means "look again", never a promise |
+| title | warn (`strict`: fail) | the first spoken sentence echoes the title |
+| no_intro | fail | no greeting, channel intro or subscribe pitch in the first two scenes |
+| on_screen | fail | every scene shows something |
+| payoff | warn | a question in the hook gets an answer beat before the close |
+| one_ask | fail | one ask (comment OR subscribe OR share…), not three |
+| sourced | fail | every scene that speaks a statistic carries `source` |
+| runtime | warn | about 60 s or less at 150 wpm |
+
+`"scriptCheck": "gate" | "strict" | "warn" | false` sets the mode. `"hookOptions": [...]` holds alternative hooks,
+which are all scored, and the top two are reported. `autopost.py plan --llm` asks for five hook options and prints the best two.
