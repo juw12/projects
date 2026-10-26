@@ -20,6 +20,7 @@
   const MAX_AUTOMATIONS = 10;
   const HANDS_KEY = TEST_MODE ? "glowlead.hands.selftest" : "glowlead.hands.v1";
   const MAX_BROWSER_ACTIONS = 15;
+  const HANDS_PORTS = [8765, 8766, 8767, 8768, 8769, 8770];
   const SCHEDULER_MS = 30000;
   const ACTIVE = ["planning", "working", "checking"];
   const ATTENTION = ["awaiting", "interrupted", "stopped", "error"];
@@ -425,6 +426,62 @@
     } catch (error) {
       return "offline";
     }
+  }
+
+  // Finds Glow Hands on this PC. Only runs after the user asks (button or #hands-setup from the installer),
+  // so ordinary visitors never get a local-network permission prompt.
+  async function discoverHands() {
+    const saved = readHands().url;
+    const candidates = [saved, ...HANDS_PORTS.map((port) => "http://127.0.0.1:" + port)].filter((url, index, all) => all.indexOf(url) === index);
+    for (const url of candidates) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 1500);
+      try {
+        const response = await fetch(url + "/" + "status", { signal: controller.signal });
+        const data = await response.json();
+        if (data && data.app === "glow-hands") return url;
+      } catch (error) {
+        // Nothing (or something else) on this port.
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+    return null;
+  }
+
+  async function autoConnectHands(report = () => {}) {
+    report("Looking for Glow Hands on this PC…");
+    const url = await discoverHands();
+    if (!url) {
+      report("Glow Hands isn't running on this PC yet. Install it with the one-line command below, then try again.");
+      return "not-found";
+    }
+    report("Found Glow Hands. Click Yes on the Windows prompt on this PC…");
+    let response;
+    try {
+      response = await fetch(url + "/" + "pair", { method: "POST" });
+    } catch (error) {
+      report("Couldn't reach Glow Hands. Make sure it's running, then try again.");
+      return "offline";
+    }
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 200 && typeof data.token === "string" && data.token.length >= 16) {
+      try {
+        localStorage.setItem(HANDS_KEY, JSON.stringify({ url, token: data.token }));
+      } catch (error) {
+        report("Browser storage is unavailable, so the connection couldn't be saved.");
+        return "storage";
+      }
+      const state = await renderHands();
+      report(state === "paired" ? "✓ Connected. This browser will stay connected." : "Paired, but the connection test failed. Try again.");
+      return state;
+    }
+    if (response.status === 404) {
+      report("This Glow Hands is an older version without one-click connect. Run the install command below to update it.");
+      return "outdated";
+    }
+    report(response.status === 429 ? "You just declined. Wait a few seconds, then try again." : "Not connected: the request was declined on this PC.");
+    return response.status === 429 ? "cooldown" : "declined";
   }
 
   async function renderHands() {
@@ -1466,13 +1523,33 @@
     $("skill-chip-clear").addEventListener("click", () => setPendingSkill(null));
 
     // Glow Hands
-    $("hands-btn").addEventListener("click", () => {
+    const openHandsDialog = (message = "") => {
       const hands = readHands();
       $("hands-url").value = hands.url;
       $("hands-token").value = hands.token;
-      $("hands-test-result").textContent = "";
-      $("hands-dialog").showModal();
-      $("hands-token").focus();
+      $("hands-test-result").textContent = message;
+      if (!$("hands-dialog").open) $("hands-dialog").showModal();
+    };
+    $("hands-btn").addEventListener("click", async () => {
+      if ($("hands-status").dataset.state === "paired") {
+        openHandsDialog("✓ Already connected.");
+        return;
+      }
+      $("hands-btn").disabled = true;
+      const state = await autoConnectHands((message) => { $("hands-summary").textContent = message; });
+      $("hands-btn").disabled = false;
+      if (state === "paired") toast("Glow Hands connected. No code needed on this browser again.");
+      else openHandsDialog($("hands-summary").textContent);
+    });
+    $("hands-auto").addEventListener("click", async () => {
+      $("hands-auto").disabled = true;
+      const state = await autoConnectHands((message) => { $("hands-test-result").textContent = message; });
+      $("hands-auto").disabled = false;
+      if (state === "paired") setTimeout(() => $("hands-dialog").close(), 900);
+    });
+    $("hands-copy-install").addEventListener("click", () => {
+      const command = $("hands-install-command").textContent.trim();
+      if (navigator.clipboard) navigator.clipboard.writeText(command).then(() => toast("Install command copied. Press Win+R, paste, Enter."), () => toast("Select the command and copy it."));
     });
     $("hands-cancel").addEventListener("click", () => $("hands-dialog").close());
     $("hands-form").addEventListener("submit", async (event) => {
@@ -1651,7 +1728,15 @@
     renderTemplates();
     renderMemory();
     renderAutomations();
-    renderHands();
+    if (location.hash === "#hands-setup" && !TEST_MODE) {
+      history.replaceState(null, "", location.pathname + location.search);
+      setTimeout(async () => {
+        const state = await autoConnectHands((message) => { if ($("hands-summary")) $("hands-summary").textContent = message; });
+        toast(state === "paired" ? "Glow Hands connected." : "Glow Hands: " + $("hands-summary").textContent);
+      }, 400);
+    } else {
+      renderHands();
+    }
     if (!TEST_MODE) {
       const tick = () => runDueAutomations().catch(() => {});
       setTimeout(tick, 1200);
@@ -1861,6 +1946,7 @@
     readAutomations,
     memoryText,
     parseBrowserAction,
+    autoConnectHands,
     collectSources,
     WORKERS,
   };

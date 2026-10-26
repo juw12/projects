@@ -28,15 +28,18 @@ import re
 import secrets
 import socket
 import sys
+import time
 import urllib.parse
 from pathlib import Path
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 DEFAULT_PORT = 8765
 ALLOWED_ORIGINS = {"https://juw12.github.io", "https://juwpegatron.github.io"}
 LOCAL_ORIGIN = re.compile(r"^http://(127\.0\.0\.1|localhost)(:\d{1,5})?$")
 MAX_BODY = 64 * 1024
 MAX_ELEMENTS = 120
+PAIR_COOLDOWN_SECONDS = 20
+PAIR_PROMPT_SECONDS = 60
 RISKY_WORDS = re.compile(
     r"\b(submit|send|buy|pay|purchase|order|checkout|check out|place|confirm|delete|remove|transfer|post|publish|"
     r"book|reserve|subscribe|sign ?up|register|apply|donate|unsubscribe|cancel|withdraw|accept|agree|log ?out)\b",
@@ -92,6 +95,26 @@ ELEMENT_INFO = r"""
     editable: node.isContentEditable || ['input', 'textarea', 'select'].includes(tag) };
 }
 """
+
+
+def ask_to_pair(origin, test_answer=None):
+    """Ask the person at this PC whether a browser may pair. Returns True only on an explicit Yes."""
+    if test_answer is not None:
+        return test_answer == "yes"
+    if sys.platform != "win32":
+        return False  # No safe prompt available: pair by pasting the token instead.
+    import ctypes
+    message = (f"A GlowLead page ({origin}) wants to connect to Glow Hands, so it can control the separate "
+               "Glow Hands browser window on this PC.\n\nClick Yes only if you just opened GlowLead or clicked "
+               "Connect browser control. Glow Hands will still ask before submitting anything.")
+    title = "Glow Hands: allow this browser?"
+    flags = 0x4 | 0x20 | 0x1000 | 0x10000 | 0x40000  # Yes/No, question, system-modal, foreground, topmost
+    user32 = ctypes.windll.user32
+    try:
+        answer = user32.MessageBoxTimeoutW(None, message, title, flags, 0, PAIR_PROMPT_SECONDS * 1000)
+    except AttributeError:
+        answer = user32.MessageBoxW(None, message, title, flags)
+    return answer == 6  # IDYES; a timeout or No refuses.
 
 
 class HandsError(Exception):
@@ -247,9 +270,10 @@ class Browser:
             self._playwright = None
 
 
-def make_handler(browser, token, port, extra_origins):
+def make_handler(browser, token, port, extra_origins, pair_test_answer=None):
     allowed_hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
     origins = ALLOWED_ORIGINS | set(extra_origins)
+    pairing = {"blocked_until": 0.0}
 
     class Handler(http.server.BaseHTTPRequestHandler):
         server_version = "GlowHands/" + VERSION
@@ -328,6 +352,9 @@ def make_handler(browser, token, port, extra_origins):
             self.send_json(404, {"error": "Not found."})
 
         def do_POST(self):
+            if self.path == "/pair":
+                self.pair()
+                return
             if not self.guard():
                 return
             if self.path == "/act":
@@ -339,6 +366,25 @@ def make_handler(browser, token, port, extra_origins):
                 self.run(lambda: (browser.close(), {"closed": True})[1])
             else:
                 self.send_json(404, {"error": "Not found."})
+
+        def pair(self):
+            """One-click pairing: the person at this PC approves a Windows prompt; nothing is typed."""
+            if not self.guard(need_token=False):
+                return
+            origin = self.headers.get("Origin")
+            if not origin:
+                self.send_json(400, {"error": "Pairing must come from the GlowLead page in a browser."})
+                return
+            now = time.monotonic()
+            if now < pairing["blocked_until"]:
+                self.send_json(429, {"error": "Pairing was just declined. Try again in a few seconds."})
+                return
+            if ask_to_pair(origin, pair_test_answer):
+                self.log_message("paired a browser from %s", origin)
+                self.send_json(200, {"token": token, "url": f"http://127.0.0.1:{port}"})
+            else:
+                pairing["blocked_until"] = time.monotonic() + PAIR_COOLDOWN_SECONDS
+                self.send_json(403, {"error": "Pairing was declined (or not answered) on this PC."})
 
         def run(self, work):
             try:
@@ -377,6 +423,7 @@ def main(argv=None):
     parser.add_argument("--allow-private", action="store_true", help="Allow localhost and private-network pages")
     parser.add_argument("--token", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--allow-origin", action="append", default=[], help="Extra web origin allowed to connect")
+    parser.add_argument("--pair-test-answer", choices=["yes", "no"], default=None, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     for stream in (sys.stdout, sys.stderr):
         try:
@@ -386,7 +433,7 @@ def main(argv=None):
 
     token = load_token(args.profile, args.token)
     browser = Browser(args.profile, headless=args.headless, channel=args.channel, allow_private=args.allow_private)
-    server = http.server.HTTPServer(("127.0.0.1", args.port), make_handler(browser, token, args.port, args.allow_origin))
+    server = http.server.HTTPServer(("127.0.0.1", args.port), make_handler(browser, token, args.port, args.allow_origin, args.pair_test_answer))
     print(f"Glow Hands {VERSION} is ready on http://127.0.0.1:{args.port}", flush=True)
     print(f"Pairing token: {token}", flush=True)
     print("In GlowLead open Glow Hands > Connect browser control, and paste the token. Press Ctrl+C to stop.", flush=True)
