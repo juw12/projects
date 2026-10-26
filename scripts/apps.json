@@ -1,467 +1,491 @@
 {
-  "_comment": "Single source of truth for the software apps shipped by this monorepo. Consumed by scripts/build_site.py (GitHub Pages landing page + deploy copy list) and scripts/publish_portfolio.py (portfolio cards + Obsidian notes). `description` is the full portfolio-card copy (HTML-ready); `desc` is the short landing-page blurb. `links` are relative to the deployed site root (https://juwpegatron.github.io/projects/<rel>). Extra fields `image_alt`, `project_id`, `label` (thumbnail aria-label) and `desc` reproduce the live markup verbatim.",
-  "apps": [
+ "_comment": "Single source of truth for the software apps shipped by this monorepo. Consumed by scripts/build_site.py (GitHub Pages landing page + deploy copy list) and scripts/publish_portfolio.py (portfolio cards + Obsidian notes). `description` is the full portfolio-card copy (HTML-ready); `desc` is the short landing-page blurb. `links` are relative to the deployed site root (https://juwpegatron.github.io/projects/<rel>). Extra fields `image_alt`, `project_id`, `label` (thumbnail aria-label) and `desc` reproduce the live markup verbatim.",
+ "apps": [
+  {
+   "id": "orbis",
+   "name": "Orbis",
+   "category": "Apps",
+   "desc": "Communication, identity and protection in one app",
+   "description": "Offline-first personal hub for communication and growth &mdash; manage replies, commitments and summaries on a zero-dependency Python + SQLite backend.",
+   "tags": [
+    "Python",
+    "SQLite",
+    "PWA",
+    "offline-first"
+   ],
+   "image": "orbis-abstract.jpg",
+   "image_alt": "Abstract geometric visualization of communication and identity networks",
+   "links": {
+    "app": "orbis/app.html",
+    "web": "orbis/index.html",
+    "mobile": "orbis/app-mobile.html"
+   },
+   "featured": true,
+   "order": 12
+  },
+  {
+   "id": "peers",
+   "name": "Peers",
+   "category": "Apps",
+   "desc": "Verified reviews across 32 categories — food, travel, market, AI tools, health and more",
+   "description": "Offline-first review app across 32 categories, from food to AI tools, with a built-in Use it / Wait / Skip scorecard.",
+   "tags": [
+    "PWA",
+    "reviews",
+    "32 categories",
+    "offline-first"
+   ],
+   "image": "peers-feed.jpg",
+   "image_alt": "Peers app feed screen showing verified reviews",
+   "thumbnails": [
     {
-      "id": "orbis",
-      "name": "Orbis",
-      "category": "Apps",
-      "desc": "Communication, identity and protection in one app",
-      "description": "Offline-first personal hub for communication and growth &mdash; manage replies, commitments and summaries on a zero-dependency Python + SQLite backend.",
-      "tags": [
-        "Python",
-        "SQLite",
-        "PWA",
-        "offline-first"
-      ],
-      "image": "orbis-abstract.jpg",
-      "image_alt": "Abstract geometric visualization of communication and identity networks",
-      "links": {
-        "app": "orbis/app.html",
-        "web": "orbis/index.html",
-        "mobile": "orbis/app-mobile.html"
-      },
-      "featured": true,
-      "order": 12
+     "src": "peers-market.jpg",
+     "alt": "Peers app market screen",
+     "label": "View market screen"
     },
     {
-      "id": "peers",
-      "name": "Peers",
-      "category": "Apps",
-      "desc": "Verified reviews across 32 categories — food, travel, market, AI tools, health and more",
-      "description": "Offline-first review app across 32 categories, from food to AI tools, with a built-in Use it / Wait / Skip scorecard.",
-      "tags": [
-        "PWA",
-        "reviews",
-        "32 categories",
-        "offline-first"
-      ],
-      "image": "peers-feed.jpg",
-      "image_alt": "Peers app feed screen showing verified reviews",
-      "thumbnails": [
-        {
-          "src": "peers-market.jpg",
-          "alt": "Peers app market screen",
-          "label": "View market screen"
-        },
-        {
-          "src": "peers-product.jpg",
-          "alt": "Peers app product screen",
-          "label": "View product screen"
-        }
-      ],
-      "project_id": "peers",
-      "links": {
-        "app": "peers/app.html",
-        "web": "peers/",
-        "mobile": "peers/mobile.html"
-      },
-      "featured": true,
-      "order": 13
-    },
-    {
-      "id": "house-of-articles",
-      "name": "House of Articles",
-      "category": "Apps",
-      "desc": "Athlete-moment sneaker news + live market feed",
-      "description": "Sneaker news meets market data &mdash; links athletes&rsquo; on-court moments to resale price moves. Mobile and desktop prototypes.",
-      "tags": [
-        "sneakers",
-        "market data",
-        "JSON",
-        "prototypes"
-      ],
-      "image": "hoa-hero.jpg",
-      "image_alt": "House of Articles sneaker news and athlete moments feature",
-      "thumbnails": [
-        {
-          "src": "hoa-runner.jpg",
-          "alt": "House of Articles running shoe feature",
-          "label": "View runner feature"
-        }
-      ],
-      "project_id": "hoa",
-      "links": {
-        "app": "house-of-articles/app.html",
-        "web": "house-of-articles/desktop.html",
-        "mobile": "house-of-articles/"
-      },
-      "featured": true,
-      "order": 16
-    },
-    {
-      "id": "hazel",
-      "name": "Hazel",
-      "category": "Creator Tools",
-      "desc": "Desktop studio for creators — generate a video from a prompt, refine it, fan it out to every platform, and keep your storage from overfilling",
-      "description": "Desktop creator studio: generate a video from a prompt, refine it in the editor and publish to every platform at once &mdash; plus bulk uploads and automatic media backup.",
-      "tags": [
-        "AI video",
-        "multi-platform publish",
-        "bulk upload",
-        "backup"
-      ],
-      "image": "hazel-hero.svg",
-      "image_alt": "Hazel studio generating a video from a prompt, with character casting, scene choice, length and size controls, a storyboard and a timeline",
-      "links": {
-        "app": "hazel/app.html",
-        "web": "hazel/",
-        "mobile": "hazel/mobile.html"
-      },
-      "featured": true,
-      "order": 11
-    },
-    {
-      "id": "sweep",
-      "name": "Sweep",
-      "category": "AI",
-      "desc": "Turn a plain-words idea into a scored spec (Kiro-style requirements, design, tasks), a drag-and-drop task board and a Build → Grow → Earn plan — hand it to Lovable, v0, Cursor or Claude Code in one click, share remix links, and let Otto, an offline approval-first AI operator, draft brand, site, posts and outreach",
-      "description": "Turns a rough app idea into a scored spec, a task board and a Build &rarr; Grow &rarr; Earn plan, then hands it to Lovable, v0, Cursor or Claude Code in one click. Its local agent Otto drafts brand, site and posts. Fully offline.",
-      "tags": [
-        "spec score",
-        "task board",
-        "1-click handoff",
-        "offline agent"
-      ],
-      "image": "sweep-hero.svg",
-      "image_alt": "Sweep turning a plain-words idea into a Build, Grow and Earn plan — a guided intake, an idea brief, a generated capability matrix, a Definition of Done checklist, a scaffold file tree and a project catalog",
-      "links": {
-        "app": "sweep/app.html",
-        "web": "sweep/",
-        "mobile": "sweep/mobile.html"
-      },
-      "featured": true,
-      "order": 7
-    },
-    {
-      "id": "airiz-motor",
-      "name": "Airiz Motor",
-      "category": "Automation",
-      "desc": "Dependency-free browser console for AIRIZ motor testing — command library, serial console and macro notepad",
-      "description": "Browser serial console that replaces TeraTerm for AIRIZ motor testing &mdash; command library, test macros, log saving and a hardware-free demo mode.",
-      "tags": [
-        "Web Serial",
-        "macro runner",
-        "PWA",
-        "offline demo"
-      ],
-      "image": "airiz-motor-hero.svg",
-      "image_alt": "Airiz Motor Test Console dashboard: command library, serial console and macro notepad for AIRIZ device motor testing",
-      "links": {
-        "app": "airiz-motor/",
-        "web": "airiz-motor/",
-        "mobile": "airiz-motor/"
-      },
-      "featured": true,
-      "order": 1
-    },
-    {
-      "id": "vertex",
-      "name": "Vertex",
-      "category": "CAD &amp; 3D",
-      "desc": "One local 3D app — build parts and export 3D files (STL/OBJ/glTF/3MF/DXF), repair models and plan assemblies in ANY 3D software, ask design questions, reverse-engineer scans, turn drawings into CAD, automate batches, and simulate",
-      "description": "Offline parametric CAD builder and engineering copilot: diagnoses broken models, plans repairs, checks clearance and motion, and exports STL, OBJ, glTF, 3MF and DXF.",
-      "tags": [
-        "parametric CAD",
-        "model repair",
-        "simulation",
-        "offline-first"
-      ],
-      "image": "vertex-hero.svg",
-      "image_alt": "Vertex: a dark 3D engineering workspace with a fitted part in a viewport, a ranked repair plan, a universal adapter strip (Fusion, SOLIDWORKS, FreeCAD, Blender, open formats) and review-gated export/apply steps",
-      "links": {
-        "app": "vertex/app.html",
-        "web": "vertex/index.html",
-        "mobile": "vertex/mobile.html"
-      },
-      "featured": true,
-      "order": 2
-    },
-    {
-      "id": "soma",
-      "name": "SOMA",
-      "category": "Tools I Use",
-      "external": true,
-      "url": "https://somacad.app/",
-      "desc": "Open-source AI CAD — describe a part, your coding agent writes CadQuery, SOMA builds it",
-      "description": "Open-source desktop CAD where a coding agent writes CadQuery for you, with checks, FEM and STEP/STL/3MF export. By Kai Jungsth&ouml;fel (GPL-3.0).",
-      "tags": [
-        "AI CAD",
-        "CadQuery",
-        "open source",
-        "3D printing"
-      ],
-      "image": "soma-hero.svg",
-      "image_alt": "SOMA: a CadQuery code panel beside a rebuilt parametric part and a build log",
-      "order": 17
-    },
-    {
-      "id": "vector",
-      "name": "Vector",
-      "category": "Tools I Use",
-      "external": true,
-      "url": "https://heyvector.co/",
-      "desc": "Engineering copilot that works inside Autodesk Fusion and SOLIDWORKS",
-      "description": "AI engineering copilot inside Fusion and SOLIDWORKS &mdash; answers design questions, creates and repairs native features, and shows every change for review. By Vector Copilot LLC.",
-      "tags": [
-        "AI copilot",
-        "Fusion",
-        "SOLIDWORKS",
-        "CAD repair"
-      ],
-      "image": "vector-hero.svg",
-      "image_alt": "Vector: connected Fusion and SOLIDWORKS integrations beside a chat panel showing a ranked repair plan",
-      "order": 18
-    },
-    {
-      "id": "mbs-miniature",
-      "name": "Marina Bay Sands Miniature",
-      "category": "CAD &amp; 3D",
-      "work": true,
-      "desc": "Agentic-CAD tabletop miniature — three curved glass towers joined by the boat-shaped SkyPark",
-      "description": "250 mm parametric miniature built in CadQuery by an AI agent in SOMA &mdash; three curved towers and a cantilevered SkyPark, driven by 12 parameters.",
-      "tags": [
-        "CadQuery",
-        "parametric",
-        "agentic CAD",
-        "STEP"
-      ],
-      "image": "mbs-iso.png",
-      "image_alt": "Marina Bay Sands miniature: three curved glass towers joined by the boat-shaped SkyPark with its upturned cantilever tip",
-      "thumbnails": [
-        {
-          "src": "mbs-front.png",
-          "alt": "Marina Bay Sands miniature, front elevation",
-          "label": "View front elevation"
-        }
-      ],
-      "files": "https://github.com/juwpegatron/projects/tree/main/outputs/mbs",
-      "order": 3
-    },
-    {
-      "id": "eiffel-tower",
-      "name": "Eiffel Tower",
-      "category": "CAD &amp; 3D",
-      "work": true,
-      "desc": "A 1:1000 solid Eiffel Tower, 330 mm tall, modelled with open CASCADE in Vector",
-      "description": "1:1000 solid miniature (330 mm) modelled in open CASCADE with Vector &mdash; lofted legs, arches, floors and spire as one watertight solid.",
-      "tags": [
-        "open CASCADE",
-        "1:1000",
-        "STEP",
-        "STL"
-      ],
-      "image": "eiffel-render.png",
-      "image_alt": "Eiffel Tower: a 330 mm solid miniature rendered in three-quarter view on a dark background, showing the four splayed legs, arched base and spire",
-      "files": "https://github.com/juwpegatron/projects/tree/main/outputs/eiffel",
-      "order": 4
-    },
-    {
-      "id": "lingua",
-      "name": "Lingua",
-      "category": "AI",
-      "desc": "Private, local Windows translation for English, Chinese and Bahasa Indonesia — with light/dark themes",
-      "description": "Offline Windows translator for English, Chinese (Simplified/Traditional) and Bahasa Indonesia, powered by a local Ollama model with tone, glossary and review checks.",
-      "tags": [
-        "offline translation",
-        "Ollama",
-        "Windows",
-        "multilingual"
-      ],
-      "image": "lingua.png",
-      "image_alt": "Lingua in dark mode: English and Traditional Chinese text, a Light mode toggle, context and a local model selector",
-      "links": {
-        "app": "lingua/"
-      },
-      "native": true,
-      "featured": true,
-      "order": 8,
-      "version": "1.1.0"
-    },
-    {
-      "id": "twin",
-      "name": "Twin",
-      "category": "Apps",
-      "desc": "Learn, practice and (optionally) trade for real — guest mode, Twin Academy lessons, Replay Lab and pro order types",
-      "description": "Twin (formerly Trade Twin) is an iPhone-ready investing and trading companion. Continue as guest without login or share a ?guest invite link, then save progress later. Practice with a separate $10,000 portfolio using market, limit, stop, stop-limit and trailing orders with brackets, price alerts, scrub-to-read charts with SMA/EMA/RSI, portfolio X-ray and a bar-by-bar Replay Lab. Twin Academy adds 12 interactive lessons with quizzes, points, badges and a completion card. Optional real trading through your own Alpaca account on the local Python server (paper by default; live needs password + confirmation phrase, per-order caps and preview/confirm). Guests use a dated snapshot; the web demo never asks for broker keys. Not financial advice.",
-      "tags": [
-        "paper trading",
-        "guest mode",
-        "SEC 13F",
-        "PWA",
-        "Alpaca API",
-        "interactive lessons"
-      ],
-      "image": "twin.png",
-      "image_alt": "Twin v1.3: Twin Academy lesson, scrub chart with bracket order ticket and real-trading connection",
-      "links": {
-        "app": "twin/?v=1.3.0",
-        "web": "twin/web.html",
-        "mobile": "twin/mobile.html"
-      },
-      "featured": true,
-      "order": 14,
-      "version": "1.3.0"
-    },
-    {
-      "id": "glow",
-      "name": "Glow",
-      "category": "AI",
-      "desc": "One home for your AI: GlowChat for chat, personas, a Council with a Judge and a model Arena; GlowRoom for an AI crew that researches, codes and reports back. One free Glow account, no sign-up needed to start",
-      "description": "One home, one free account, two AI apps. <strong>GlowChat</strong>: chat with any model, personas, a Council with a Judge and a side-by-side Arena. <strong>GlowRoom</strong>: hand a goal to an AI crew that searches the web, runs code and reports back with sources. Free for guests, no sign-up needed.",
-      "tags": [
-        "AI ecosystem",
-        "GlowChat",
-        "GlowRoom",
-        "AI agents",
-        "model arena",
-        "PWA"
-      ],
-      "image": "glow-hero.png",
-      "image_alt": "Glow: GlowChat council with a Judge, part of the Glow ecosystem with GlowRoom",
-      "links": {
-        "app": "glow/",
-        "web": "glow/",
-        "mobile": "glow/"
-      },
-      "card_links": [
-        {
-          "label": "Glow home",
-          "path": "glow/"
-        },
-        {
-          "label": "GlowChat",
-          "path": "glow/chat/"
-        },
-        {
-          "label": "GlowRoom",
-          "path": "glow/room/"
-        }
-      ],
-      "featured": true,
-      "order": 5,
-      "version": "0.6.1"
-    },
-    {
-      "id": "sped",
-      "name": "Sped",
-      "category": "Creator Tools",
-      "desc": "Sped-up, slowed and mashup edits of your own songs, exported as 9:16 MP4 shorts for TikTok, Reels and YouTube Shorts",
-      "description": "Browser shorts studio for your own audio: sped-up, slowed and mashup styles, a CapCut-style 9:16 editor with captions, and 1080&times;1920 MP4 export for TikTok, Reels and Shorts.",
-      "tags": [
-        "Web Audio",
-        "9:16 video export",
-        "TikTok / Reels / Shorts",
-        "PWA"
-      ],
-      "image": "sped.png",
-      "image_alt": "Sped 1.4 shorts editor with a 9:16 preview, timeline and post panel, using synthetic audio fixtures",
-      "links": {
-        "app": "sped/",
-        "web": "sped/web.html",
-        "mobile": "sped/mobile.html"
-      },
-      "featured": true,
-      "order": 10,
-      "version": "1.4.0"
-    },
-    {
-      "id": "shortcraft",
-      "name": "Shortcraft",
-      "category": "Creator Tools",
-      "desc": "Make faceless 9:16 explainer shorts in the browser — captions, music, MP4 export, channel kit and publishing",
-      "description": "Browser studio for faceless explainer shorts in English and Bahasa Indonesia: write scenes, add voice, export a captioned 1080&times;1920 MP4 and post to YouTube, TikTok and Instagram.",
-      "tags": [
-        "video",
-        "captions",
-        "auto-post",
-        "Bahasa Indonesia"
-      ],
-      "image": "shortcraft.png",
-      "image_alt": "Shortcraft: two 9:16 explainer frames, a light editorial step tracker and a dark CCTV teardown, next to the Shortcraft title",
-      "links": {
-        "app": "shortcraft/app.html",
-        "web": "shortcraft/",
-        "mobile": "shortcraft/mobile.html"
-      },
-      "featured": true,
-      "order": 9
-    },
-    {
-      "id": "guangyao",
-      "name": "Guang Yao Together · 光耀同行",
-      "category": "Apps",
-      "desc": "Unofficial learning and community concept for 發一光耀 — interactive lessons, spaced-repetition review, a source-citing AI study buddy and streaks in one installable PWA",
-      "description": "An unofficial Traditional Chinese learning and community concept for 發一光耀. Bite-size interactive lessons with instant feedback, automatic spaced-repetition flashcards, a study buddy that answers only from the lessons with citations and Socratic hints (optional opt-in cloud AI), daily goals, streaks with freezes, focus timer, progress heatmap, large-text and dark modes, plus activities, certificates and transparent-giving demos. No hearts or paywalls. Real accounts, payments and official certification are not connected.",
-      "tags": [
-        "PWA",
-        "spaced repetition",
-        "AI study buddy",
-        "Traditional Chinese",
-        "offline-first"
-      ],
-      "image": "guangyao-desktop.png",
-      "image_alt": "Guang Yao Together desktop demo: course progression, upcoming activities and a clear local-demo notice",
-      "thumbnails": [
-        {
-          "src": "guangyao-mobile.png",
-          "alt": "Guang Yao Together mobile PWA demo with bottom navigation and installation guidance",
-          "label": "View the mobile PWA demo"
-        },
-        {
-          "src": "guangyao-desktop.png",
-          "alt": "Guang Yao Together desktop learning dashboard demo",
-          "label": "Return to the desktop demo"
-        }
-      ],
-      "project_id": "guangyao",
-      "links": {
-        "app": "guangyao/index.html",
-        "web": "guangyao/",
-        "mobile": "guangyao/index.html#home"
-      },
-      "featured": true,
-      "order": 15,
-      "status": "frontend-pwa-demo",
-      "version": "3.0.0",
-      "note_tags": [
-        "projects",
-        "education",
-        "community",
-        "pwa",
-        "prototype"
-      ]
-    },
-    {
-      "id": "stackup",
-      "name": "Stackup",
-      "category": "Engineering",
-      "desc": "Tolerance stack-ups in seconds — worst case, RSS and Monte Carlo with Cpk, ppm and the biggest lever to tighten; offline, plus free Excel / Google Sheets workbook",
-      "description": "Offline tolerance stack-up studio for hardware engineers: worst case, RSS and Monte Carlo side by side, Cpk and ppm prediction, a variance Pareto with what-if, loop diagram and one-page PDF report &mdash; plus a free Excel / Google Sheets workbook.",
-      "tags": [
-        "tolerance stack-up",
-        "Monte Carlo",
-        "Cpk",
-        "PWA",
-        "Excel / Sheets"
-      ],
-      "note_tags": [
-        "tolerance-stack-up",
-        "monte-carlo",
-        "cpk",
-        "pwa",
-        "excel",
-        "google-sheets",
-        "dvt"
-      ],
-      "image": "stackup-hero.jpg",
-      "image_alt": "Stackup tolerance stack-up studio: IPX7 gasket compression stack failing at Cpk 1.03 with worst case, RSS, Monte Carlo histogram and variance Pareto",
-      "links": {
-        "app": "stackup/app.html",
-        "web": "stackup/web.html",
-        "mobile": "stackup/mobile.html"
-      },
-      "status": "shipped",
-      "order": 19
+     "src": "peers-product.jpg",
+     "alt": "Peers app product screen",
+     "label": "View product screen"
     }
-  ]
+   ],
+   "project_id": "peers",
+   "links": {
+    "app": "peers/app.html",
+    "web": "peers/",
+    "mobile": "peers/mobile.html"
+   },
+   "featured": true,
+   "order": 13
+  },
+  {
+   "id": "house-of-articles",
+   "name": "House of Articles",
+   "category": "Apps",
+   "desc": "Athlete-moment sneaker news + live market feed",
+   "description": "Sneaker news meets market data &mdash; links athletes&rsquo; on-court moments to resale price moves. Mobile and desktop prototypes.",
+   "tags": [
+    "sneakers",
+    "market data",
+    "JSON",
+    "prototypes"
+   ],
+   "image": "hoa-hero.jpg",
+   "image_alt": "House of Articles sneaker news and athlete moments feature",
+   "thumbnails": [
+    {
+     "src": "hoa-runner.jpg",
+     "alt": "House of Articles running shoe feature",
+     "label": "View runner feature"
+    }
+   ],
+   "project_id": "hoa",
+   "links": {
+    "app": "house-of-articles/app.html",
+    "web": "house-of-articles/desktop.html",
+    "mobile": "house-of-articles/"
+   },
+   "featured": true,
+   "order": 16
+  },
+  {
+   "id": "hazel",
+   "name": "Hazel",
+   "category": "Creator Tools",
+   "desc": "Desktop studio for creators — generate a video from a prompt, refine it, fan it out to every platform, and keep your storage from overfilling",
+   "description": "Desktop creator studio: generate a video from a prompt, refine it in the editor and publish to every platform at once &mdash; plus bulk uploads and automatic media backup.",
+   "tags": [
+    "AI video",
+    "multi-platform publish",
+    "bulk upload",
+    "backup"
+   ],
+   "image": "hazel-hero.svg",
+   "image_alt": "Hazel studio generating a video from a prompt, with character casting, scene choice, length and size controls, a storyboard and a timeline",
+   "links": {
+    "app": "hazel/app.html",
+    "web": "hazel/",
+    "mobile": "hazel/mobile.html"
+   },
+   "featured": true,
+   "order": 11
+  },
+  {
+   "id": "sweep",
+   "name": "Sweep",
+   "category": "AI",
+   "desc": "Turn a plain-words idea into a scored spec (Kiro-style requirements, design, tasks), a drag-and-drop task board and a Build → Grow → Earn plan — hand it to Lovable, v0, Cursor or Claude Code in one click, share remix links, and let Otto, an offline approval-first AI operator, draft brand, site, posts and outreach",
+   "description": "Turns a rough app idea into a scored spec, a task board and a Build &rarr; Grow &rarr; Earn plan, then hands it to Lovable, v0, Cursor or Claude Code in one click. Its local agent Otto drafts brand, site and posts. Fully offline.",
+   "tags": [
+    "spec score",
+    "task board",
+    "1-click handoff",
+    "offline agent"
+   ],
+   "image": "sweep-hero.svg",
+   "image_alt": "Sweep turning a plain-words idea into a Build, Grow and Earn plan — a guided intake, an idea brief, a generated capability matrix, a Definition of Done checklist, a scaffold file tree and a project catalog",
+   "links": {
+    "app": "sweep/app.html",
+    "web": "sweep/",
+    "mobile": "sweep/mobile.html"
+   },
+   "featured": true,
+   "order": 7
+  },
+  {
+   "id": "airiz-motor",
+   "name": "Airiz Motor",
+   "category": "Automation",
+   "desc": "Dependency-free browser console for AIRIZ motor testing — command library, serial console and macro notepad",
+   "description": "Browser serial console that replaces TeraTerm for AIRIZ motor testing &mdash; command library, test macros, log saving and a hardware-free demo mode.",
+   "tags": [
+    "Web Serial",
+    "macro runner",
+    "PWA",
+    "offline demo"
+   ],
+   "image": "airiz-motor-hero.svg",
+   "image_alt": "Airiz Motor Test Console dashboard: command library, serial console and macro notepad for AIRIZ device motor testing",
+   "links": {
+    "app": "airiz-motor/",
+    "web": "airiz-motor/",
+    "mobile": "airiz-motor/"
+   },
+   "featured": true,
+   "order": 1
+  },
+  {
+   "id": "vertex",
+   "name": "Vertex",
+   "category": "CAD &amp; 3D",
+   "desc": "One local 3D app — build parts and export 3D files (STL/OBJ/glTF/3MF/DXF), repair models and plan assemblies in ANY 3D software, ask design questions, reverse-engineer scans, turn drawings into CAD, automate batches, and simulate",
+   "description": "Offline parametric CAD builder and engineering copilot: diagnoses broken models, plans repairs, checks clearance and motion, and exports STL, OBJ, glTF, 3MF and DXF.",
+   "tags": [
+    "parametric CAD",
+    "model repair",
+    "simulation",
+    "offline-first"
+   ],
+   "image": "vertex-hero.svg",
+   "image_alt": "Vertex: a dark 3D engineering workspace with a fitted part in a viewport, a ranked repair plan, a universal adapter strip (Fusion, SOLIDWORKS, FreeCAD, Blender, open formats) and review-gated export/apply steps",
+   "links": {
+    "app": "vertex/app.html",
+    "web": "vertex/index.html",
+    "mobile": "vertex/mobile.html"
+   },
+   "featured": true,
+   "order": 2
+  },
+  {
+   "id": "soma",
+   "name": "SOMA",
+   "category": "Tools I Use",
+   "external": true,
+   "url": "https://somacad.app/",
+   "desc": "Open-source AI CAD — describe a part, your coding agent writes CadQuery, SOMA builds it",
+   "description": "Open-source desktop CAD where a coding agent writes CadQuery for you, with checks, FEM and STEP/STL/3MF export. By Kai Jungsth&ouml;fel (GPL-3.0).",
+   "tags": [
+    "AI CAD",
+    "CadQuery",
+    "open source",
+    "3D printing"
+   ],
+   "image": "soma-hero.svg",
+   "image_alt": "SOMA: a CadQuery code panel beside a rebuilt parametric part and a build log",
+   "order": 18
+  },
+  {
+   "id": "vector",
+   "name": "Vector",
+   "category": "Tools I Use",
+   "external": true,
+   "url": "https://heyvector.co/",
+   "desc": "Engineering copilot that works inside Autodesk Fusion and SOLIDWORKS",
+   "description": "AI engineering copilot inside Fusion and SOLIDWORKS &mdash; answers design questions, creates and repairs native features, and shows every change for review. By Vector Copilot LLC.",
+   "tags": [
+    "AI copilot",
+    "Fusion",
+    "SOLIDWORKS",
+    "CAD repair"
+   ],
+   "image": "vector-hero.svg",
+   "image_alt": "Vector: connected Fusion and SOLIDWORKS integrations beside a chat panel showing a ranked repair plan",
+   "order": 19
+  },
+  {
+   "id": "mbs-miniature",
+   "name": "Marina Bay Sands Miniature",
+   "category": "CAD &amp; 3D",
+   "work": true,
+   "desc": "Agentic-CAD tabletop miniature — three curved glass towers joined by the boat-shaped SkyPark",
+   "description": "250 mm parametric miniature built in CadQuery by an AI agent in SOMA &mdash; three curved towers and a cantilevered SkyPark, driven by 12 parameters.",
+   "tags": [
+    "CadQuery",
+    "parametric",
+    "agentic CAD",
+    "STEP"
+   ],
+   "image": "mbs-iso.png",
+   "image_alt": "Marina Bay Sands miniature: three curved glass towers joined by the boat-shaped SkyPark with its upturned cantilever tip",
+   "thumbnails": [
+    {
+     "src": "mbs-front.png",
+     "alt": "Marina Bay Sands miniature, front elevation",
+     "label": "View front elevation"
+    }
+   ],
+   "files": "https://github.com/juwpegatron/projects/tree/main/outputs/mbs",
+   "order": 3
+  },
+  {
+   "id": "eiffel-tower",
+   "name": "Eiffel Tower",
+   "category": "CAD &amp; 3D",
+   "work": true,
+   "desc": "A 1:1000 solid Eiffel Tower, 330 mm tall, modelled with open CASCADE in Vector",
+   "description": "1:1000 solid miniature (330 mm) modelled in open CASCADE with Vector &mdash; lofted legs, arches, floors and spire as one watertight solid.",
+   "tags": [
+    "open CASCADE",
+    "1:1000",
+    "STEP",
+    "STL"
+   ],
+   "image": "eiffel-render.png",
+   "image_alt": "Eiffel Tower: a 330 mm solid miniature rendered in three-quarter view on a dark background, showing the four splayed legs, arched base and spire",
+   "files": "https://github.com/juwpegatron/projects/tree/main/outputs/eiffel",
+   "order": 4
+  },
+  {
+   "id": "lingua",
+   "name": "Lingua",
+   "category": "AI",
+   "desc": "Private, local Windows translation for English, Chinese and Bahasa Indonesia — with light/dark themes",
+   "description": "Offline Windows translator for English, Chinese (Simplified/Traditional) and Bahasa Indonesia, powered by a local Ollama model with tone, glossary and review checks.",
+   "tags": [
+    "offline translation",
+    "Ollama",
+    "Windows",
+    "multilingual"
+   ],
+   "image": "lingua.png",
+   "image_alt": "Lingua in dark mode: English and Traditional Chinese text, a Light mode toggle, context and a local model selector",
+   "links": {
+    "app": "lingua/"
+   },
+   "native": true,
+   "featured": true,
+   "order": 8,
+   "version": "1.1.0"
+  },
+  {
+   "id": "twin",
+   "name": "Twin",
+   "category": "Apps",
+   "desc": "Learn, practice and (optionally) trade for real — guest mode, Twin Academy lessons, Replay Lab and pro order types",
+   "description": "Twin (formerly Trade Twin) is an iPhone-ready investing and trading companion. Continue as guest without login or share a ?guest invite link, then save progress later. Practice with a separate $10,000 portfolio using market, limit, stop, stop-limit and trailing orders with brackets, price alerts, scrub-to-read charts with SMA/EMA/RSI, portfolio X-ray and a bar-by-bar Replay Lab. Twin Academy adds 12 interactive lessons with quizzes, points, badges and a completion card. Optional real trading through your own Alpaca account on the local Python server (paper by default; live needs password + confirmation phrase, per-order caps and preview/confirm). Guests use a dated snapshot; the web demo never asks for broker keys. Not financial advice.",
+   "tags": [
+    "paper trading",
+    "guest mode",
+    "SEC 13F",
+    "PWA",
+    "Alpaca API",
+    "interactive lessons"
+   ],
+   "image": "twin.png",
+   "image_alt": "Twin v1.3: Twin Academy lesson, scrub chart with bracket order ticket and real-trading connection",
+   "links": {
+    "app": "twin/?v=1.3.0",
+    "web": "twin/web.html",
+    "mobile": "twin/mobile.html"
+   },
+   "featured": true,
+   "order": 14,
+   "version": "1.3.0"
+  },
+  {
+   "id": "glow",
+   "name": "Glow",
+   "category": "AI",
+   "desc": "One home for your AI: GlowChat for chat, personas, a Council with a Judge and a model Arena; GlowRoom for an AI crew that researches, codes and reports back. One free Glow account, no sign-up needed to start",
+   "description": "One home, one free account, two AI apps. <strong>GlowChat</strong>: chat with any model, personas, a Council with a Judge and a side-by-side Arena. <strong>GlowRoom</strong>: hand a goal to an AI crew that searches the web, runs code and reports back with sources. Free for guests, no sign-up needed.",
+   "tags": [
+    "AI ecosystem",
+    "GlowChat",
+    "GlowRoom",
+    "AI agents",
+    "model arena",
+    "PWA"
+   ],
+   "image": "glow-hero.png",
+   "image_alt": "Glow: GlowChat council with a Judge, part of the Glow ecosystem with GlowRoom",
+   "links": {
+    "app": "glow/",
+    "web": "glow/",
+    "mobile": "glow/"
+   },
+   "card_links": [
+    {
+     "label": "Glow home",
+     "path": "glow/"
+    },
+    {
+     "label": "GlowChat",
+     "path": "glow/chat/"
+    },
+    {
+     "label": "GlowRoom",
+     "path": "glow/room/"
+    }
+   ],
+   "featured": true,
+   "order": 5,
+   "version": "0.6.1"
+  },
+  {
+   "id": "sped",
+   "name": "Sped",
+   "category": "Creator Tools",
+   "desc": "Sped-up, slowed and mashup edits of your own songs, exported as 9:16 MP4 shorts for TikTok, Reels and YouTube Shorts",
+   "description": "Browser shorts studio for your own audio: sped-up, slowed and mashup styles, a CapCut-style 9:16 editor with captions, and 1080&times;1920 MP4 export for TikTok, Reels and Shorts.",
+   "tags": [
+    "Web Audio",
+    "9:16 video export",
+    "TikTok / Reels / Shorts",
+    "PWA"
+   ],
+   "image": "sped.png",
+   "image_alt": "Sped 1.4 shorts editor with a 9:16 preview, timeline and post panel, using synthetic audio fixtures",
+   "links": {
+    "app": "sped/",
+    "web": "sped/web.html",
+    "mobile": "sped/mobile.html"
+   },
+   "featured": true,
+   "order": 10,
+   "version": "1.4.0"
+  },
+  {
+   "id": "shortcraft",
+   "name": "Shortcraft",
+   "category": "Creator Tools",
+   "desc": "Make faceless 9:16 explainer shorts in the browser — captions, music, MP4 export, channel kit and publishing",
+   "description": "Browser studio for faceless explainer shorts in English and Bahasa Indonesia: write scenes, add voice, export a captioned 1080&times;1920 MP4 and post to YouTube, TikTok and Instagram.",
+   "tags": [
+    "video",
+    "captions",
+    "auto-post",
+    "Bahasa Indonesia"
+   ],
+   "image": "shortcraft.png",
+   "image_alt": "Shortcraft: two 9:16 explainer frames, a light editorial step tracker and a dark CCTV teardown, next to the Shortcraft title",
+   "links": {
+    "app": "shortcraft/app.html",
+    "web": "shortcraft/",
+    "mobile": "shortcraft/mobile.html"
+   },
+   "featured": true,
+   "order": 9
+  },
+  {
+   "id": "guangyao",
+   "name": "Guang Yao Together · 光耀同行",
+   "category": "Apps",
+   "desc": "Unofficial learning and community concept for 發一光耀 — interactive lessons, spaced-repetition review, a source-citing AI study buddy and streaks in one installable PWA",
+   "description": "An unofficial Traditional Chinese learning and community concept for 發一光耀. Bite-size interactive lessons with instant feedback, automatic spaced-repetition flashcards, a study buddy that answers only from the lessons with citations and Socratic hints (optional opt-in cloud AI), daily goals, streaks with freezes, focus timer, progress heatmap, large-text and dark modes, plus activities, certificates and transparent-giving demos. No hearts or paywalls. Real accounts, payments and official certification are not connected.",
+   "tags": [
+    "PWA",
+    "spaced repetition",
+    "AI study buddy",
+    "Traditional Chinese",
+    "offline-first"
+   ],
+   "image": "guangyao-desktop.png",
+   "image_alt": "Guang Yao Together desktop demo: course progression, upcoming activities and a clear local-demo notice",
+   "thumbnails": [
+    {
+     "src": "guangyao-mobile.png",
+     "alt": "Guang Yao Together mobile PWA demo with bottom navigation and installation guidance",
+     "label": "View the mobile PWA demo"
+    },
+    {
+     "src": "guangyao-desktop.png",
+     "alt": "Guang Yao Together desktop learning dashboard demo",
+     "label": "Return to the desktop demo"
+    }
+   ],
+   "project_id": "guangyao",
+   "links": {
+    "app": "guangyao/index.html",
+    "web": "guangyao/",
+    "mobile": "guangyao/index.html#home"
+   },
+   "featured": true,
+   "order": 15,
+   "status": "frontend-pwa-demo",
+   "version": "3.0.0",
+   "note_tags": [
+    "projects",
+    "education",
+    "community",
+    "pwa",
+    "prototype"
+   ]
+  },
+  {
+   "id": "stackup",
+   "name": "Stackup",
+   "category": "Engineering",
+   "desc": "Tolerance stack-ups in seconds — worst case, RSS and Monte Carlo with Cpk, ppm and the biggest lever to tighten; offline, plus free Excel / Google Sheets workbook",
+   "description": "Offline tolerance stack-up studio for hardware engineers: worst case, RSS and Monte Carlo side by side, Cpk and ppm prediction, a variance Pareto with what-if, loop diagram and one-page PDF report &mdash; plus a free Excel / Google Sheets workbook.",
+   "tags": [
+    "tolerance stack-up",
+    "Monte Carlo",
+    "Cpk",
+    "PWA",
+    "Excel / Sheets"
+   ],
+   "note_tags": [
+    "tolerance-stack-up",
+    "monte-carlo",
+    "cpk",
+    "pwa",
+    "excel",
+    "google-sheets",
+    "dvt"
+   ],
+   "image": "stackup-hero.jpg",
+   "image_alt": "Stackup tolerance stack-up studio: IPX7 gasket compression stack failing at Cpk 1.03 with worst case, RSS, Monte Carlo histogram and variance Pareto",
+   "links": {
+    "app": "stackup/app.html",
+    "web": "stackup/web.html",
+    "mobile": "stackup/mobile.html"
+   },
+   "status": "shipped",
+   "order": 20
+  },
+  {
+   "id": "sync",
+   "name": "Sync",
+   "category": "Apps",
+   "desc": "Listen to music together in real time from anywhere: Spotify, Apple Music and YouTube listeners in one room, shared files, and voice chat that lowers the music when friends talk",
+   "description": "<strong>Sync</strong> lets friends hear the same song at the same second from anywhere, with no shared Wi-Fi or Bluetooth. Spotify, Apple Music and YouTube listeners share one room, each hearing it on their own service. You can also share your own audio files peer-to-peer, and voice chat lowers the music while friends talk. No account or server: rooms run browser-to-browser over WebRTC.",
+   "tags": [
+    "WebRTC",
+    "real-time sync",
+    "voice chat",
+    "cross-service",
+    "PWA"
+   ],
+   "image": "sync-hero.png",
+   "image_alt": "Sync listening room with a synced now-playing card, cross-service queue and party voice chat",
+   "links": {
+    "app": "sync/",
+    "web": "sync/web.html",
+    "mobile": "sync/mobile.html"
+   },
+   "featured": true,
+   "order": 17,
+   "version": "1.0.0"
+  }
+ ]
 }
