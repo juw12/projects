@@ -26,7 +26,7 @@ class DemoHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         if urlsplit(self.path).path.endswith('/sw.js') and self.release_override:
-            content = (ROOT / 'sw.js').read_text().replace("'4.0.1'", "'4.0.2-test'")
+            content = (ROOT / 'sw.js').read_text().replace("'4.1.0'", "'4.1.1-test'")
             payload = content.encode()
             self.send_response(200)
             self.send_header('Content-Type', 'text/javascript; charset=utf-8')
@@ -709,7 +709,7 @@ def pwa_and_updates(browser, base):
     page.once('dialog', lambda dialog: dialog.accept())
     with page.expect_navigation(wait_until='domcontentloaded'):
         page.locator('#update-app').click()
-    page.wait_for_function('caches.keys().then(keys => keys.some(key => key.endsWith("4.0.2-test")))')
+    page.wait_for_function('caches.keys().then(keys => keys.some(key => key.endsWith("4.1.1-test")))')
     assert shell_key not in page.evaluate('caches.keys()')
     passed('Updates wait for confirmation; approved update activates and clears only its scoped old cache')
     DemoHandler.release_override = False
@@ -1141,6 +1141,85 @@ def screenshots(browser, base):
     context.close()
 
 
+NATIVE_SHELL_JS = """
+(() => {
+  window.__written = [];
+  window.__shared = [];
+  window.__signInCalls = 0;
+  window.Capacitor = {
+    isNativePlatform: () => true,
+    Plugins: {
+      Filesystem: {writeFile: async options => { window.__written.push(options); return {uri: 'file:///cache/' + options.path}; }},
+      Share: {share: async options => { window.__shared.push(options); }}
+    }
+  };
+  // Puter whose sign-in window is closed by the user: the promise never settles.
+  window.puter = {
+    auth: {isSignedIn: () => false, signIn: () => { window.__signInCalls += 1; return new Promise(() => {}); }, getUser: async () => null},
+    kv: {get: async () => null, set: async () => true, del: async () => true},
+    ai: {chat: async () => { throw new Error('offline'); }}
+  };
+})();
+"""
+
+
+def native_shell_flows(browser, base):
+    """The same site inside the Android/iPhone shell: detected by user agent, uses the native share sheet."""
+    context = make_context(browser, catalog=CONTENT_CATALOG, viewport={'width': 412, 'height': 900},
+                           user_agent='Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/141 Mobile Safari/537.36 GuangYaoApp/1.0')
+    context.add_init_script(NATIVE_SHELL_JS)
+    page = context.new_page()
+    page.set_default_timeout(8000)
+    errors = []
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    page.goto(base + 'index.html')
+    expect(page.locator('.welcome')).to_be_visible()
+    assert page.evaluate("window.GY_NATIVE.isApp && document.documentElement.classList.contains('native-app')")
+    expect(page.locator('[data-pwa-action="install"]')).to_be_hidden()
+    expect(page.locator('#network-state')).to_contain_text('光耀同行 App')
+
+    page.locator('.welcome [data-action="puter-signin"]').click()
+    page.wait_for_function('window.__signInCalls === 1')
+    page.locator('.welcome [data-action="puter-signin"]').click()
+    page.wait_for_timeout(200)
+    assert page.evaluate('window.__signInCalls') == 1
+    page.evaluate("window.dispatchEvent(new CustomEvent('guangyao:native-window-closed'))")
+    expect(page.locator('#signin-error')).to_contain_text('登入視窗已關閉')
+    page.locator('.welcome [data-action="puter-signin"]').click()
+    page.wait_for_function('window.__signInCalls === 2')
+    passed('App shell: detected by user agent, PWA install hidden, closing the Puter window unlocks sign-in again')
+
+    page.evaluate("window.dispatchEvent(new CustomEvent('guangyao:native-window-closed'))")
+    page.wait_for_timeout(1700)
+    page.locator('.welcome [data-action="guest-start"]').click()
+    expect(page.locator('.welcome')).to_have_count(0)
+    page.evaluate("document.body.insertAdjacentHTML('beforeend', '<button type=\"button\" data-action=\"share-card\" id=\"share-test\">share</button>')")
+    page.locator('#share-test').click()
+    page.wait_for_function('window.__shared.length === 1')
+    shared = page.evaluate('[window.__written[0].path, window.__written[0].directory, window.__written[0].data.length > 1000, window.__shared[0].files[0]]')
+    assert shared[0] == 'guangyao-progress.png' and shared[1] == 'CACHE' and shared[2], shared
+    assert shared[3] == 'file:///cache/guangyao-progress.png', shared
+    page.evaluate("downloadFile('guangyao-test.ics', 'BEGIN:VCALENDAR\\nEND:VCALENDAR', 'text/calendar;charset=utf-8')")
+    page.wait_for_function('window.__shared.length === 2')
+    assert page.evaluate('window.__written[1].path') == 'guangyao-test.ics'
+    assert not errors, errors
+    passed('App shell: progress card and calendar entries go through the native share sheet')
+    context.close()
+
+    web = make_context(browser, viewport={'width': 1280, 'height': 900})
+    page = web.new_page()
+    page.goto(base + 'index.html')
+    start_guest(page)
+    assert not page.evaluate('window.GY_NATIVE.isApp')
+    expect(page.locator('[data-pwa-action="install"]')).to_be_visible()
+    go(page, '#guide')
+    expect(page.locator('a[href$="/guangyao-android/GuangYao-android.apk"]').first).to_be_visible()
+    page.locator('[data-pwa-action="install"]').click()
+    expect(page.locator('#modal a[href$="/guangyao-android/GuangYao-android.apk"]')).to_be_visible()
+    passed('Web: guide and install help offer the Android app download')
+    web.close()
+
+
 def main():
     handler = partial(DemoHandler, directory=str(ROOT))
     server = ThreadingHTTPServer(('127.0.0.1', 0), handler)
@@ -1154,6 +1233,7 @@ def main():
             study_flows(chromium, base, 'Chromium')
             content_flows(chromium, base, 'Chromium')
             account_sync_flows(chromium, base)
+            native_shell_flows(chromium, base)
             admin_flows(chromium, base, 'Chromium')
             streak_rules(chromium, base)
             concurrent_and_storage(chromium, base)

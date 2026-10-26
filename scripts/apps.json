@@ -443,15 +443,15 @@
    "id": "guangyao",
    "name": "Guang Yao Together · 光耀同行",
    "category": "Apps",
-   "desc": "Unofficial learning app for 發一光耀 — sign in or continue as a guest, admin-published lessons and materials, an AI study companion, spaced review and streaks in one installable PWA",
-   "description": "An unofficial Traditional Chinese learning app for 發一光耀. Learners sign in with a free Puter account (progress syncs across devices) or continue as a guest; admins publish lessons, quizzes, handouts and events from a dedicated admin console backed by a versioned content repository. Includes an AI study companion that cites lessons and materials, quizzes, plans and makes flashcards, plus interactive lessons, spaced-repetition review, streaks, a usage guide and offline support. Points, giving and chat remain demos; no payments or official certification.",
+   "desc": "Unofficial learning app for 發一光耀 — sign in or continue as a guest, admin-published lessons and materials, an AI study companion, spaced review and streaks as a PWA and an Android app",
+   "description": "An unofficial Traditional Chinese learning app for 發一光耀. Learners sign in with a free Puter account (progress syncs across devices) or continue as a guest; admins publish lessons, quizzes, handouts and events from a dedicated admin console backed by a versioned content repository. Includes an AI study companion that cites lessons and materials, quizzes, plans and makes flashcards, plus interactive lessons, spaced-repetition review, streaks, a usage guide and offline support. Also available as an Android app (APK download); iPhone users add it to the home screen. Points, giving and chat remain demos; no payments or official certification.",
    "summary": "Unofficial Traditional Chinese learning app for 發一光耀 with lessons, an AI study companion and spaced review.",
    "tags": [
     "PWA",
     "accounts + guest mode",
     "admin console",
     "AI study companion",
-    "Traditional Chinese"
+    "Android app"
    ],
    "image": "guangyao-desktop.png",
    "image_alt": "Guang Yao Together desktop: today's goal, newest official lessons and the study dashboard",
@@ -476,7 +476,7 @@
    "featured": true,
    "order": 15,
    "status": "public-beta",
-   "version": "4.0.1",
+   "version": "4.1.0",
    "note_tags": [
     "projects",
     "education",

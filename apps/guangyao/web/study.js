@@ -1301,6 +1301,14 @@ async function shareProgress() {
     toast('無法產生圖片。');
     return;
   }
+  if (window.GY_NATIVE?.isApp) {
+    try {
+      if (await window.GY_NATIVE.shareFile('guangyao-progress.png', blob, '光耀同行 · 學習足跡')) return;
+    } catch (error) {
+      toast('無法開啟分享，請稍後再試。');
+      return;
+    }
+  }
   const file = new File([blob], 'guangyao-progress.png', {type: 'image/png'});
   if (navigator.canShare && navigator.canShare({files: [file]})) {
     try {

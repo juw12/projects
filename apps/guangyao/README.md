@@ -4,13 +4,19 @@
 
 Live: <https://juw12.github.io/projects/guangyao/> · Admin console: <https://juw12.github.io/projects/guangyao/admin.html> · Published content: <https://github.com/juw12/projects/tree/main/content/guangyao>
 
-One responsive app for desktop and phones (iPhone: Safari → Share → Add to Home Screen). Version 4 turns the study prototype into something people can actually use:
+One responsive app for desktop and phones: an **Android app** (APK below), iPhone via Safari → Share → Add to Home Screen, and the web. Version 4 turns the study prototype into something people can actually use:
 
 | Who | How they get in | What is real |
 | --- | --- | --- |
 | Learner with an account | **Sign in with Puter** (free account, same as the Glow app) | Progress, XP, streaks, flashcards, journal and registrations sync across devices; the AI study companion uses the learner's own Puter AI quota. |
 | Guest | **Continue as guest** | Everything stays on this device. Nothing is sent to Puter. Offline tutor only. Can sign in later; local progress is merged. |
 | Admin | `admin.html` with a GitHub token | Upload handouts, add lessons (text, YouTube, quiz, cards), events and an announcement. Learners see changes within about five minutes. |
+
+## Phone apps (4.1)
+
+- **Android:** <https://github.com/juw12/projects/releases/download/guangyao-android/GuangYao-android.apk> — open it on the phone and allow installing from the browser. A Capacitor shell around the live site, so content and fixes arrive without reinstalling.
+- **iPhone:** Add to Home Screen today. The iOS shell (`mobile/`) is ready for Xcode/TestFlight once there is an Apple Developer account.
+- Inside the app, Puter sign-in opens in an in-app window, other links open in the phone's browser, and the progress card / calendar export use the native share sheet. Details: `mobile/README.md`.
 
 ## How learners use it
 

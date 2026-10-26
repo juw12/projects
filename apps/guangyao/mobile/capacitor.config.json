@@ -1,0 +1,19 @@
+{
+  "appId": "io.github.juw12.guangyao",
+  "appName": "光耀同行",
+  "webDir": "www",
+  "backgroundColor": "#183e3c",
+  "appendUserAgent": "GuangYaoApp/1.0",
+  "server": {
+    "url": "https://juw12.github.io/projects/guangyao/index.html",
+    "errorPath": "offline.html",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "ios": {
+    "contentInset": "never",
+    "scheme": "GuangYao"
+  }
+}

@@ -82,7 +82,7 @@ window.GY_WELCOME = function welcomeScreen() {
       <h1>歡迎來到光耀同行</h1>
       <p class="welcome-lead">一起學習、一起成長：互動課程、每日複習、AI 學伴，以及同行活動。選一種方式開始。</p>
       <div class="welcome-options">
-        <button type="button" class="welcome-option primary" data-action="puter-signin" ${signingIn ? 'disabled' : ''}>${icon('cloud')}<span><strong>${signingIn ? '登入中…' : '登入 / 建立帳號'}</strong><small>使用免費的 Puter 帳號（可用 Google、Apple、Microsoft 或 Email）。進度跨裝置同步，並解鎖 AI 學伴。</small></span></button>
+        <button type="button" class="welcome-option primary" data-action="puter-signin" ${signingIn ? 'disabled' : ''}>${icon('cloud')}<span><strong>${signingIn ? '登入中…' : '登入 / 建立帳號'}</strong><small>使用免費的 Puter 帳號（Email 即可註冊）。進度跨裝置同步，並解鎖 AI 學伴。</small></span></button>
         <button type="button" class="welcome-option" data-action="guest-start">${icon('user')}<span><strong>以訪客身分繼續</strong><small>不用註冊，馬上開始。進度只存在這台裝置，之後隨時可以登入保存。</small></span></button>
       </div>
       <p class="welcome-error" id="signin-error" role="alert" hidden></p>
@@ -116,6 +116,15 @@ function preloadPuter() {
 ['pointerover', 'focusin', 'touchstart'].forEach(type => document.addEventListener(type, event => {
   if (event.target.closest && event.target.closest('[data-action="puter-signin"]')) preloadPuter();
 }, {passive: true}));
+
+// In the iPhone/Android app the Puter window is a native sheet; if it is closed before finishing, unlock the button.
+window.addEventListener('guangyao:native-window-closed', () => {
+  setTimeout(() => {
+    if (!signingIn || (window.puter && window.puter.auth.isSignedIn())) return;
+    signingIn = false;
+    setSigninError('登入視窗已關閉。需要時可以再按一次「登入 / 建立帳號」。');
+  }, 1500);
+});
 
 async function puterSignIn() {
   if (signingIn) return;
@@ -434,7 +443,7 @@ function guidePage() {
   const step = (number, title, body) => `<div class="guide-step"><span class="guide-number">${number}</span><div><h3>${title}</h3><p>${body}</p></div></div>`;
   const faq = [
     ['訪客的進度會不見嗎？', '訪客進度存在這台裝置的瀏覽器裡。清除瀏覽器資料或換手機就看不到了。登入後，目前的進度會一起保存到帳戶。'],
-    ['Puter 是什麼？要付錢嗎？', 'Puter 是提供登入、雲端儲存與 AI 的第三方服務，註冊免費，可用 Google、Apple、Microsoft 或 Email。AI 學伴使用你帳戶的免費額度。'],
+    ['Puter 是什麼？要付錢嗎？', 'Puter 是提供登入、雲端儲存與 AI 的第三方服務，註冊免費，用 Email 就能建立帳號。AI 學伴使用你帳戶的免費額度。'],
     ['AI 學伴會不會亂講？', '光光被要求只根據課程與教材回答並標出處，找不到會直接說不知道。AI 仍可能出錯，請以教材與老師說明為準。'],
     ['可以離線使用嗎？', '安裝成 App 後，課程、複習與離線學伴在沒有網路時也能用；AI 學伴、同步與新教材需要網路。'],
     ['我是管理員，要怎麼上傳教材？', '從頁尾或歡迎畫面點「管理員登入」，用 GitHub 權杖登入後台。後台有逐步說明。']
@@ -460,7 +469,7 @@ function guidePage() {
       </section>
       <section class="card card-pad space-top"><h2>${icon('download')} 4. 安裝到手機</h2>
         ${step('iPhone', 'Safari', '開啟網址 → 分享按鈕 → 「加入主畫面」。')}
-        ${step('Android', 'Chrome', '開啟網址 → 選單「⋮」→「安裝應用程式」或「加到主畫面」。')}
+        ${step('Android', 'App', `<a href="https://github.com/juw12/projects/releases/download/guangyao-android/GuangYao-android.apk" target="_blank" rel="noopener">下載 Android App（APK）</a>，開啟後允許安裝；或用 Chrome 選單「⋮」→「安裝應用程式」。`)}
         ${step('電腦', 'Chrome / Edge', '網址列右側的安裝圖示，或頁面上方的「安裝 App」。')}
       </section>
     </section>
