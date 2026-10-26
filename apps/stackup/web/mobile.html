@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Stackup — tolerance stack-up studio (mobile)</title>
+  <meta name="description" content="Free offline tolerance stack-up calculator: worst case, RSS, Monte Carlo, Cpk and ppm prediction with a contributor Pareto. Built for hardware and mechanical engineers.">
+  <meta name="theme-color" content="#0b1220">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/app-icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body class="is-mobile">
+  <a class="skip" href="#main">Skip to the calculator</a>
+  <header class="topbar">
+    <a class="brand" href="index.html" title="About Stackup"><img src="icons/app-icon.svg" alt="">Stackup</a>
+    <div class="stack-picker">
+      <label class="skip" for="stackSelect">Current stack</label>
+      <select id="stackSelect" aria-label="Current stack"></select>
+      <button class="btn icon-btn" id="newBtn" type="button" title="New stack" aria-label="New stack">＋</button>
+      <button class="btn icon-btn" id="dupBtn" type="button" title="Duplicate stack" aria-label="Duplicate stack">⧉</button>
+      <button class="btn icon-btn danger" id="delBtn" type="button" title="Delete stack" aria-label="Delete stack">✕</button>
+    </div>
+    <div class="toolbar">
+      <select id="presetSelect" aria-label="Load an example stack" style="width:auto">
+        <option value="">Load example…</option>
+      </select>
+      <button class="btn" id="importBtn" type="button" title="Import a .stackup.json file">⇪ <span class="label-text">Import</span></button>
+      <input id="importFile" type="file" accept=".json,application/json" hidden>
+      <button class="btn" id="exportJsonBtn" type="button" title="Save this stack as JSON">⇩ <span class="label-text">JSON</span></button>
+      <button class="btn" id="exportCsvBtn" type="button" title="Export CSV for Excel / Google Sheets">⇩ <span class="label-text">CSV</span></button>
+      <button class="btn" id="shareBtn" type="button" title="Copy a link that contains this stack">🔗 <span class="label-text">Share</span></button>
+      <button class="btn primary" id="printBtn" type="button" title="Print or save a one-page PDF report">⎙ <span class="label-text">Report</span></button>
+      <button class="btn icon-btn" id="themeBtn" type="button" title="Toggle light / dark" aria-label="Toggle light or dark theme">◐</button>
+    </div>
+  </header>
+
+  <div class="print-only" style="padding:0 0 10px">
+    <h1 id="printTitle" style="margin:0 0 4px;font-size:20px"></h1>
+    <div style="color:#444;font-size:12px">Tolerance stack-up report · <span id="printDate"></span> · generated with Stackup (juwpegatron.github.io/projects/stackup)</div>
+  </div>
+
+  <main class="layout" id="main">
+    <div data-area="setup" class="panel area-setup">
+      <h2>Stack <small>what you measure and what it must meet</small></h2>
+      <form id="setup" class="setup-grid" onsubmit="return false">
+        <div class="field span-4">
+          <label for="stackName">Stack name</label>
+          <input id="stackName" type="text" autocomplete="off">
+        </div>
+        <div class="field span-2">
+          <label for="units">Units</label>
+          <select id="units">
+            <option value="mm">mm</option>
+            <option value="in">inch</option>
+          </select>
+        </div>
+        <div class="field span-2">
+          <label for="lsl">Lower spec limit (LSL)</label>
+          <input id="lsl" type="number" step="any" inputmode="decimal" placeholder="none">
+        </div>
+        <div class="field span-2">
+          <label for="usl">Upper spec limit (USL)</label>
+          <input id="usl" type="number" step="any" inputmode="decimal" placeholder="none">
+        </div>
+        <div class="field span-2">
+          <label for="targetCpk">Target Cpk</label>
+          <input id="targetCpk" type="number" step="0.01" min="0.1" inputmode="decimal">
+        </div>
+        <div class="field span-6">
+          <label for="description">Notes (drawing refs, assumptions)</label>
+          <textarea id="description" rows="2"></textarea>
+        </div>
+      </form>
+    </div>
+    <div data-area="result" class="panel area-result" aria-live="polite">
+      <h2>Result</h2>
+      <div id="verdict" class="verdict"></div>
+      <div id="kpis" class="kpis"></div>
+    </div>
+    <div data-area="contrib" class="panel area-contrib">
+      <h2>Contributors <small>sens. +1 adds to the gap, −1 closes it, 0.5 for a diameter acting as a radius</small></h2>
+      <div class="table-wrap">
+        <table class="contrib">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Dimension</th>
+              <th>Part / source</th>
+              <th>Nominal</th>
+              <th>Tol +</th>
+              <th>Tol −</th>
+              <th>Sens.</th>
+              <th>Distribution</th>
+              <th title="Tolerance = k standard deviations (3 → Cp 1.0, 4 → Cp 1.33)">k (σ at tol)</th>
+              <th>Var. share</th>
+              <th><span class="skip">Row actions</span></th>
+            </tr>
+          </thead>
+          <tbody id="contribBody"></tbody>
+        </table>
+      </div>
+      <div class="add-row">
+        <button class="btn primary" id="addRowBtn" type="button">＋ Add contributor</button>
+      </div>
+      <p class="hint">Tolerances are magnitudes: 10 +0.05 / −0.02 shifts the mean to 10.015. Uniform suits flatness, float and clearance fits; triangular suits hand assembly; normal suits capable molded or machined features.</p>
+    </div>
+    <div data-area="dist" class="panel area-dist">
+      <h2>Distribution <small>Monte Carlo of the assembled gap</small></h2>
+      <div class="mc-controls">
+        <label for="samples">Runs</label>
+        <select id="samples" style="width:auto">
+          <option value="10000">10 000</option>
+          <option value="50000">50 000</option>
+          <option value="200000">200 000</option>
+        </select>
+        <button class="btn" id="rerunBtn" type="button">↻ New seed</button>
+      </div>
+      <canvas id="histCanvas" class="chart" role="img" aria-label="Histogram of simulated gap values with spec limits"></canvas>
+      <div class="legend">
+        <span><i style="background:var(--fail)"></i>Spec limits</span>
+        <span><i style="background:var(--warn)"></i>Worst case</span>
+        <span><i style="background:var(--text)"></i>Mean</span>
+        <span><i style="background:var(--bar)"></i>Simulated assemblies</span>
+      </div>
+    </div>
+    <div data-area="pareto" class="panel area-pareto">
+      <h2>Where the variation comes from</h2>
+      <div id="pareto" class="pareto"></div>
+      <div id="insight" class="insight"></div>
+    </div>
+    <div data-area="loop" class="panel area-loop">
+      <h2>Loop diagram <small>green opens the gap, red closes it, blue is the result</small></h2>
+      <canvas id="loopCanvas" class="loop" role="img" aria-label="Vector loop diagram of the stack"></canvas>
+    </div>
+    <div data-area="cta" class="panel area-cta no-print">
+      <h2>Want this in Excel or Google Sheets?</h2>
+      <p style="margin:0 0 10px">The free <strong>Stackup Lite</strong> workbook does worst case, RSS, Cpk and ppm with live formulas, and works in Excel and Google Sheets.</p>
+      <a class="btn" href="downloads/Stackup-Lite.xlsx" download>⇩ Stackup Lite (.xlsx)</a>
+      <a class="btn ghost" href="index.html#pro">Pro workbook →</a>
+    </div>
+  </main>
+
+  <p class="foot">Runs entirely in your browser — stacks are saved on this device only. Stackup is an engineering aid, not a substitute for a reviewed tolerance analysis. Made by <a href="https://juwpegatron.github.io/portfolio/" target="_blank" rel="noopener">Juwen Lie</a>.</p>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="stackup-core.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
