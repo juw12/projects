@@ -1,5 +1,5 @@
 /* Mint service worker — app shell cache. API calls (api/...) always go to the network. */
-var CACHE = "mint-v2.1.0";
+var CACHE = "mint-v2.2.0";
 var SHELL = [
   "./", "index.html", "app.html", "web.html", "mobile.html", "privacy.html", "terms.html", "app.css",
   "js/core.js", "js/xlsx.js", "js/guides.js", "js/store.js", "js/app.js",
@@ -42,5 +42,38 @@ self.addEventListener("fetch", function (event) {
     return response;
   }).catch(function () {
     return caches.match(event.request, { ignoreSearch: true });
+  }));
+});
+
+// Web Push: orders, payments and commissions (sent by the Mint API with VAPID).
+self.addEventListener("push", function (event) {
+  var data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (err) {
+    data = { title: "Mint", body: event.data ? event.data.text() : "" };
+  }
+  event.waitUntil(self.registration.showNotification(data.title || "Mint", {
+    body: data.body || "",
+    icon: "icons/icon-192.png",
+    badge: "icons/icon-192.png",
+    tag: data.tag || undefined,
+    data: { url: data.url || "./app.html" }
+  }));
+});
+
+self.addEventListener("notificationclick", function (event) {
+  event.notification.close();
+  var url = (event.notification.data && event.notification.data.url) || "./app.html";
+  event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (list) {
+    for (var i = 0; i < list.length; i += 1) {
+      if (list[i].url.indexOf("/mint/") !== -1 && "focus" in list[i]) {
+        if ("navigate" in list[i]) {
+          list[i].navigate(url).catch(function () {});
+        }
+        return list[i].focus();
+      }
+    }
+    return self.clients.openWindow(url);
   }));
 });

@@ -1441,3 +1441,22 @@ form[data-payout] input { margin: 6px 0; }
 .native-app .web-only {
   display: none;
 }
+
+/* v2.2: automatic payments + notifications */
+.autopay summary {
+  cursor: pointer;
+  list-style: none;
+}
+.autopay summary::-webkit-details-marker {
+  display: none;
+}
+.autopay[open] summary {
+  margin-bottom: 10px;
+}
+.autopay.on {
+  border-color: rgba(15, 157, 118, 0.5);
+}
+.autopay ul {
+  margin: 8px 0 12px;
+  padding-left: 18px;
+}

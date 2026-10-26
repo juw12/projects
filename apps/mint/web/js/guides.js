@@ -79,14 +79,13 @@
       title: "How payments work",
       summary: "How buying works on Mint, and how you get paid.",
       body:
-        "<p><strong>Mint is live.</strong> Accounts, listings, orders and affiliate links are stored on Mint\u2019s servers, so they work on every device.</p>" +
-        "<p><strong>How a sale works:</strong></p>" +
-        "<ol><li>Add your own payment link when you publish (Lynk.id, Saweria, Trakteer, a Stripe or PayPal link, Gumroad\u2026).</li>" +
-        "<li>A buyer clicks <em>Buy</em>, gets an order reference like <code>M-7K3QXA</code> and pays you on your link with that reference in the note.</li>" +
-        "<li>You see the order under <em>Sell \u2192 Orders to confirm</em>. Tap <em>Payment received</em> and the buyer can download right away.</li>" +
-        "<li>If an affiliate referred the sale, Mint shows the commission you owe and their payout details. Pay them, then tap <em>Mark paid</em>.</li></ol>" +
-        "<p>Mint never holds your money, so there\u2019s no payout delay. Free templates unlock instantly.</p>" +
-        "<p><strong>Tips:</strong> use a payment page that shows the amount (so buyers can\u2019t underpay), confirm orders at least daily, and reject orders that never arrive \u2014 the buyer can simply order again.</p>"
+        "<p><strong>Mint is live.</strong> Accounts, listings, orders and affiliate links are stored on Mint\u2019s servers, so they work on every device. Mint never holds your money.</p>" +
+        "<p><strong>Option 1 \u2014 automatic (recommended).</strong> Under <em>Sell \u2192 Get paid automatically</em>, connect your own Midtrans, Xendit or Stripe account with its secret key. Buyers then pay on that secure checkout (QRIS, e-wallets, bank transfer, cards); Mint confirms the payment directly with the provider and the file unlocks in seconds. Nothing to confirm by hand, and the money lands in your account. Try it first with a sandbox / test key.</p>" +
+        "<p><strong>Option 2 \u2014 payment link.</strong> Add your own link when you publish (Lynk.id, Saweria, Trakteer, PayPal, Gumroad\u2026):</p>" +
+        "<ol><li>A buyer clicks <em>Buy</em>, gets an order reference like <code>M-7K3QXA</code> and pays you on your link with that reference in the note.</li>" +
+        "<li>You get a notification and see the order under <em>Sell \u2192 Orders to confirm</em>. Tap <em>Payment received</em> and the buyer can download right away.</li></ol>" +
+        "<p><strong>Affiliates:</strong> if an affiliate referred the sale, Mint shows the commission you owe and their payout details. Pay them, then tap <em>Mark paid</em> \u2014 they get notified.</p>" +
+        "<p><strong>Notifications:</strong> switch them on under <em>Account \u2192 Notifications</em> (Chrome, Edge, Firefox, Android, and iPhone home-screen apps on iOS 16.4+). Free templates unlock instantly.</p>"
     },
     {
       slug: "phone",
