@@ -416,6 +416,38 @@
         "pwa",
         "prototype"
       ]
+    },
+    {
+      "id": "stackup",
+      "name": "Stackup",
+      "category": "Engineering",
+      "desc": "Tolerance stack-ups in seconds — worst case, RSS and Monte Carlo with Cpk, ppm and the biggest lever to tighten; offline, plus free Excel / Google Sheets workbook",
+      "description": "Offline tolerance stack-up studio for hardware engineers: worst case, RSS and Monte Carlo side by side, Cpk and ppm prediction, a variance Pareto with what-if, loop diagram and one-page PDF report &mdash; plus a free Excel / Google Sheets workbook.",
+      "tags": [
+        "tolerance stack-up",
+        "Monte Carlo",
+        "Cpk",
+        "PWA",
+        "Excel / Sheets"
+      ],
+      "note_tags": [
+        "tolerance-stack-up",
+        "monte-carlo",
+        "cpk",
+        "pwa",
+        "excel",
+        "google-sheets",
+        "dvt"
+      ],
+      "image": "stackup-hero.jpg",
+      "image_alt": "Stackup tolerance stack-up studio: IPX7 gasket compression stack failing at Cpk 1.03 with worst case, RSS, Monte Carlo histogram and variance Pareto",
+      "links": {
+        "app": "stackup/app.html",
+        "web": "stackup/web.html",
+        "mobile": "stackup/mobile.html"
+      },
+      "status": "shipped",
+      "order": 19
     }
   ]
 }
