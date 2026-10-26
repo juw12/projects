@@ -62,8 +62,11 @@ class ControllerShellTests(unittest.TestCase):
         self.assertIn("'./console-ui.css'", worker)
         self.assertIn('self.registration.scope', worker)
         self.assertIn('name.startsWith(CACHE_PREFIX)', worker)
-        self.assertIn('cache.match(event.request)', worker)
-        self.assertNotIn('caches.match(event.request)', worker)
+        # Network-first (one reload shows updates); own scoped cache as offline fallback.
+        self.assertIn('await fetch(event.request', worker)
+        self.assertIn('cache.match(event.request', worker)
+        self.assertNotIn('caches.match(event.request', worker)
+        self.assertIn("'./iphone.html'", worker)
 
     def test_reference_metadata_is_not_hidden(self):
         self.assertIn('reference-strip', self.by_id)
