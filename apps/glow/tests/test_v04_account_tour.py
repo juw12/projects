@@ -61,7 +61,7 @@ class V04Tests(unittest.TestCase):
     def test_catalog_version(self):
         apps = json.loads((REPO / "scripts/apps.json").read_text(encoding="utf-8"))["apps"]
         glow = next(app for app in apps if app["id"] == "glow")
-        self.assertEqual(glow["version"], "0.7.0")
+        self.assertEqual(glow["version"], "0.7.1")
         self.assertEqual(glow["name"], "Glow")
 
 

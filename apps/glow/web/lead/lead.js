@@ -608,7 +608,10 @@
     const goal = (params.get("goal") || "").trim();
     if (goal && !TEST_MODE) {
       history.replaceState(null, "", location.pathname + location.hash);
-      if (params.get("go") === "1") startLead(goal, false);
+      if (params.get("go") === "1") {
+        startLead(goal, false);
+        setTimeout(() => $("lead-run").scrollIntoView({ behavior: "smooth", block: "start" }), 150);
+      }
       else $("lead-input").value = goal.slice(0, 2000);
     }
     if ("serviceWorker" in navigator && location.protocol === "https:" && !TEST_MODE) {
