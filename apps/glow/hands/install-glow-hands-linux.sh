@@ -11,6 +11,7 @@
 #   GLOW_HANDS_SOURCE=/path/or/url   use this glow_hands.py instead of the latest from GitHub
 #   GLOW_HANDS_NO_SERVICE=1          only install; don't create or start the background service
 #   GLOW_HANDS_PORT=8765             local port (only used on this machine)
+#   GLOW_HANDS_BROWSER=chrome        use the Google Chrome already installed here (skips the Chromium download)
 set -euo pipefail
 
 SOURCE="${GLOW_HANDS_SOURCE:-https://raw.githubusercontent.com/juw12/projects/main/apps/glow/hands/glow_hands.py}"
@@ -20,6 +21,8 @@ VENV="$BASE/venv"
 APP="$BASE/app/glow_hands.py"
 PORT="${GLOW_HANDS_PORT:-8765}"
 PLAYWRIGHT_VERSION="1.55.0"
+BROWSER="${GLOW_HANDS_BROWSER:-chromium}"
+CHANNEL_ARG=""
 
 say() { printf '\n== %s\n' "$*"; }
 fail() { printf '\nGlow Hands setup stopped: %s\n' "$*" >&2; exit 1; }
@@ -62,12 +65,18 @@ grep -q '^VERSION = ' "$APP.download" || fail "The downloaded Glow Hands file lo
 mv "$APP.download" "$APP"
 VERSION="$(sed -n 's/^VERSION = "\(.*\)"/\1/p' "$APP" | head -n 1)"
 
-say "Installing the hidden browser (Chromium)"
-if can_admin; then
-  # --with-deps installs the system libraries Chromium needs (uses apt).
-  $SUDO "$VENV/bin/python" -m playwright install-deps chromium >/dev/null
+if [ "$BROWSER" = "chrome" ]; then
+  command -v google-chrome >/dev/null 2>&1 || fail "GLOW_HANDS_BROWSER=chrome was set, but Google Chrome isn't installed."
+  CHANNEL_ARG="--channel chrome"
+  say "Using the installed Google Chrome"
+else
+  say "Installing the hidden browser (Chromium)"
+  if can_admin; then
+    # Installs the system libraries Chromium needs (uses apt).
+    $SUDO "$VENV/bin/python" -m playwright install-deps chromium >/dev/null
+  fi
+  "$VENV/bin/python" -m playwright install chromium >/dev/null
 fi
-"$VENV/bin/python" -m playwright install chromium >/dev/null
 
 # Tiny VMs (1 GB) need some swap for a browser.
 MEM_KB="$(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)"
@@ -112,7 +121,7 @@ After=network-online.target
 [Service]
 User=$(id -un)
 Environment=PYTHONUNBUFFERED=1
-ExecStart=$VENV/bin/python -X utf8 $APP --headless --port $PORT --profile $BASE
+ExecStart=$VENV/bin/python -X utf8 $APP --headless --port $PORT --profile $BASE $CHANNEL_ARG
 Restart=always
 RestartSec=10
 
