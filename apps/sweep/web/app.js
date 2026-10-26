@@ -1121,8 +1121,13 @@ function formatStatus(status) {
   return map[status] || status;
 }
 
+function sweepLocale() {
+  const lang = window.SweepI18n ? window.SweepI18n.getLanguage() : 'en';
+  return ({ zh: 'zh-CN', id: 'id-ID' })[lang] || 'en-US';
+}
+
 function formatDate(isoString) {
-  return new Date(isoString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  return new Date(isoString).toLocaleDateString(sweepLocale(), { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 function openProject(id) {
@@ -2917,7 +2922,7 @@ function renderScheduledTasks(op) {
           <div style="flex:1">
             <div style="font-weight:600;font-size:13px">${escapeHtml(task.name)}</div>
             <div style="font-size:11px;color:var(--color-muted)">
-              ${task.cadence} · Next: ${new Date(task.nextRun).toLocaleString()}
+              ${task.cadence} · Next: ${new Date(task.nextRun).toLocaleString(sweepLocale())}
               ${task.paused ? ' <span style="color:var(--color-muted)">(paused)</span>' : ''}
             </div>
           </div>
@@ -3089,7 +3094,7 @@ function renderContentCalendar(op) {
     <div class="operator-calendar-grid">
       ${days.map(day => {
         const dateStr = day.toISOString().split('T')[0];
-        const dayName = day.toLocaleDateString('en-US', {weekday:'short'});
+        const dayName = day.toLocaleDateString(sweepLocale(), {weekday:'short'});
         const dayNum = day.getDate();
         const scheduled = postsByDay[dateStr] || [];
         

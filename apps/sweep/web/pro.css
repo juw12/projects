@@ -156,3 +156,27 @@
 @media (prefers-reduced-motion: reduce) {
   .ai-spinner { animation: none; }
 }
+
+/* ---------- AI cancel + update banner ---------- */
+.ai-btn[data-busy="1"] { cursor: pointer; }
+.ai-btn .ai-cancel { font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+
+.update-banner {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100vw - 24px);
+  padding: 10px 12px 10px 16px;
+  border: 1px solid var(--color-border-light, #d9d2c5);
+  border-radius: 12px;
+  background: var(--color-paper, #fffdf8);
+  color: var(--color-ink, #1f1b16);
+  box-shadow: var(--shadow-card, 0 10px 30px rgba(0, 0, 0, 0.18));
+  font-size: 14px;
+}
+.update-banner .btn { min-height: 36px; }
