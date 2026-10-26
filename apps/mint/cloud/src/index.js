@@ -9,11 +9,14 @@
 import { DurableObject } from "cloudflare:workers";
 import "../../web/js/core.js";
 import seedData from "../../web/data/seed.json";
+import * as Pay from "./payments.js";
+import * as Notify from "./notify.js";
 
 const Core = globalThis.MintCore;
 
 const APP = "mint";
-const VERSION = "2.1.0";
+const VERSION = "2.2.0";
+const APP_URL_DEFAULT = "https://juw12.github.io/projects/mint/app.html";
 const ORDER_EXPIRY_DAYS = 14;
 const REPORT_HIDE_THRESHOLD = 5;
 const RECOVERY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -352,6 +355,20 @@ export class MintDB extends DurableObject {
     if (!userColumns.includes("recovery_hash")) {
       this.run("ALTER TABLE users ADD COLUMN recovery_hash TEXT NOT NULL DEFAULT ''");
     }
+    if (!userColumns.includes("notify_email")) {
+      this.run("ALTER TABLE users ADD COLUMN notify_email INTEGER NOT NULL DEFAULT 1");
+    }
+    const orderColumns = this.all("PRAGMA table_info(orders)").map((c) => c.name);
+    for (const column of ["pay_provider", "pay_ref", "pay_url"]) {
+      if (!orderColumns.includes(column)) {
+        this.run(`ALTER TABLE orders ADD COLUMN ${column} TEXT NOT NULL DEFAULT ''`);
+      }
+    }
+    this.run(`CREATE TABLE IF NOT EXISTS payment_accounts (user_id TEXT PRIMARY KEY, provider TEXT NOT NULL,
+      key_sealed TEXT NOT NULL, key_hint TEXT NOT NULL, sandbox INTEGER NOT NULL DEFAULT 0, created REAL NOT NULL)`);
+    this.run(`CREATE TABLE IF NOT EXISTS push_subs (endpoint TEXT PRIMARY KEY, user_id TEXT NOT NULL, p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL, created REAL NOT NULL)`);
+    this.run("CREATE INDEX IF NOT EXISTS push_subs_user ON push_subs (user_id)");
   }
 
   expireOrders() {
@@ -523,6 +540,11 @@ export class MintDB extends DurableObject {
       return {
         ok: true, app: APP, version: VERSION, mode: "cloud", platformFeePct: this.feePct,
         ai: Boolean(this.env.AI), aiModel: this.env.AI ? (this.env.AI_MODEL || "") : "",
+        push: Notify.pushEnabled(this.env), vapidPublicKey: Notify.pushEnabled(this.env) ? this.env.VAPID_PUBLIC_KEY : "",
+        email: Notify.emailEnabled(this.env), autoPay: Boolean(this.env.PAYMENT_KEY_SECRET),
+        payProviders: Object.entries(Pay.PROVIDERS).map(([id, p]) => ({
+          id, label: p.label, methods: p.methods, currencies: p.currencies, keyHelp: p.keyHelp,
+        })),
       };
     }
     if (method === "POST") {
@@ -549,6 +571,13 @@ export class MintDB extends DurableObject {
       case "seller":
         if (method === "GET") {
           return this.sellerStats(request);
+        }
+        break;
+      case "push":
+        return this.routePush(request, method, parts.slice(1));
+      case "pay":
+        if (method === "POST" && parts[1] === "notify" && parts[2]) {
+          return this.paymentWebhook(request, parts[2]);
         }
         break;
       case "ai":
@@ -643,13 +672,27 @@ export class MintDB extends DurableObject {
   }
 
   async routeMe(request, method, parts = []) {
+    if (parts[0] === "payments") {
+      return this.routePayments(request, method, parts.slice(1));
+    }
+    if (method === "POST" && parts[0] === "notifications") {
+      const user = await this.currentUser(request);
+      const data = await this.readJson(request);
+      this.run("UPDATE users SET notify_email = ? WHERE id = ?", data.email ? 1 : 0, user.id);
+      return { ok: true, notifyEmail: Boolean(data.email) };
+    }
     if (method === "GET") {
       const user = await this.currentUser(request, false);
       if (!user) {
         return { user: null };
       }
       this.expireOrders();
-      return { user: this.publicUser(user), counts: this.counts(user), hasRecoveryCode: Boolean(user.recovery_hash) };
+      return {
+        user: this.publicUser(user), counts: this.counts(user), hasRecoveryCode: Boolean(user.recovery_hash),
+        notifyEmail: Boolean(user.notify_email),
+        pushDevices: this.one("SELECT COUNT(*) AS n FROM push_subs WHERE user_id = ?", user.id).n,
+        autoPay: this.paymentSummary(user.id),
+      };
     }
     if (method === "POST" && parts[0] === "password") {
       const user = await this.currentUser(request);
@@ -683,6 +726,8 @@ export class MintDB extends DurableObject {
       this.run("DELETE FROM templates WHERE owner_id = ?", user.id);
       this.run("DELETE FROM affiliate_links WHERE user_id = ?", user.id);
       this.run("DELETE FROM sessions WHERE user_id = ?", user.id);
+      this.run("DELETE FROM payment_accounts WHERE user_id = ?", user.id);
+      this.run("DELETE FROM push_subs WHERE user_id = ?", user.id);
       this.run(
         "UPDATE users SET email = ?, name = 'Deleted user', pw_hash = '!', salt = '', payout_info = '', recovery_hash = '' WHERE id = ?",
         "deleted-" + user.id + "@mint.invalid", user.id,
@@ -755,6 +800,7 @@ export class MintDB extends DurableObject {
       currency: row.currency,
       commissionPct: row.commission_pct,
       hasPaymentLink: Boolean(row.payment_url),
+      autoPay: this.autoPayFor(row.seller_id, row.currency) || "",
       status: row.status,
       sellerId: row.seller_id,
       sellerName: seller ? seller.name : "Unknown",
@@ -806,7 +852,7 @@ export class MintDB extends DurableObject {
       if (status === "live" && (listing.status === "flagged" || listing.status === "removed")) {
         throw new ApiError(403, "This template was hidden after several reports and is under review");
       }
-      if (status === "live" && listing.price_cents > 0 && !listing.payment_url) {
+      if (status === "live" && listing.price_cents > 0 && !listing.payment_url && !this.autoPayFor(user.id, listing.currency)) {
         throw new ApiError(400, "Add a payment link before republishing a paid template");
       }
       this.run("UPDATE listings SET status = ?, updated = ? WHERE id = ?", status, now(), listing.id);
@@ -861,8 +907,12 @@ export class MintDB extends DurableObject {
     let pending = null;
     if (user) {
       owned = Boolean(this.one("SELECT 1 AS x FROM orders WHERE listing_id = ? AND buyer_id = ? AND status = 'paid'", listing.id, user.id));
-      const p = this.one("SELECT * FROM orders WHERE listing_id = ? AND buyer_id = ? AND status = 'pending'", listing.id, user.id);
-      pending = p ? this.orderOut(p) : null;
+      let p = this.one("SELECT * FROM orders WHERE listing_id = ? AND buyer_id = ? AND status = 'pending'", listing.id, user.id);
+      if (p && p.pay_provider && this.limit("autocheck:" + p.id, 1, 15).ok) {
+        p = await this.verifyOrder(p).catch(() => p);
+        owned = p.status === "paid";
+      }
+      pending = p && p.status === "pending" ? this.orderOut(p) : null;
     }
     const reviews = this.all(
       `SELECT reviews.rating, reviews.body, reviews.created, users.name FROM reviews JOIN users ON users.id = reviews.user_id
@@ -878,13 +928,15 @@ export class MintDB extends DurableObject {
         pendingOrder: pending,
         isSeller,
         paymentUrl: isSeller || pending ? listing.payment_url : "",
-        paymentHost: paymentHost(listing.payment_url),
+        paymentHost: this.autoPayFor(listing.seller_id, listing.currency)
+          ? Pay.PROVIDERS[this.autoPayFor(listing.seller_id, listing.currency)].label + " (instant)"
+          : paymentHost(listing.payment_url),
         reviews: reviews.map((r) => ({ rating: r.rating, body: r.body, name: r.name, created: r.created })),
       },
     };
   }
 
-  listingFields(data, current) {
+  listingFields(data, current, sellerId, currency) {
     const price = data.price !== undefined ? moneyToCents(data.price) : current.price_cents;
     let commission = current.commission_pct;
     if (data.commissionPct !== undefined) {
@@ -894,8 +946,8 @@ export class MintDB extends DurableObject {
       }
     }
     const paymentUrl = data.paymentUrl !== undefined ? cleanUrl(data.paymentUrl) : current.payment_url;
-    if (price > 0 && !paymentUrl) {
-      throw new ApiError(400, "Paid templates need your payment link (Lynk.id, Saweria, Gumroad, Stripe Payment Link, PayPal…)");
+    if (price > 0 && !paymentUrl && !this.autoPayFor(sellerId, currency)) {
+      throw new ApiError(400, "Paid templates need your payment link (Lynk.id, Saweria, Gumroad, Stripe Payment Link, PayPal…) or automatic payments under Sell");
     }
     return { price, commission, paymentUrl };
   }
@@ -912,7 +964,7 @@ export class MintDB extends DurableObject {
     const description = cleanText(data.description, 1200, "Description");
     const category = CATEGORIES.has(data.category) ? data.category : "Other";
     const currency = CURRENCIES.has(data.currency) ? data.currency : "USD";
-    const fields = this.listingFields(data, { price_cents: 0, commission_pct: 20, payment_url: "" });
+    const fields = this.listingFields(data, { price_cents: 0, commission_pct: 20, payment_url: "" }, user.id, currency);
     const tags = (Array.isArray(data.tags) ? data.tags : []).map((t) => String(t).trim().slice(0, 24)).filter(Boolean).slice(0, 8);
     const id = randomId("l_");
     const t = now();
@@ -931,7 +983,7 @@ export class MintDB extends DurableObject {
       throw new ApiError(403, "Not your listing");
     }
     const data = await this.readJson(request);
-    const fields = this.listingFields(data, listing);
+    const fields = this.listingFields(data, listing, user.id, listing.currency);
     const title = data.title !== undefined ? cleanText(data.title, 70, "Title") : listing.title;
     const description = data.description !== undefined ? cleanText(data.description, 1200, "Description") : listing.description;
     this.run(
@@ -955,6 +1007,8 @@ export class MintDB extends DurableObject {
       sellerNet: row.seller_net_cents / 100,
       viaAffiliate: Boolean(row.affiliate_code),
       commissionPaid: Boolean(row.commission_paid),
+      autoPay: row.pay_provider || "",
+      payUrl: row.status === "pending" ? row.pay_url || "" : "",
       created: row.created,
       paidAt: row.paid_at,
       ...extra,
@@ -974,12 +1028,14 @@ export class MintDB extends DurableObject {
       listing.id, user.id,
     );
     if (existing) {
-      return { order: this.orderOut(existing), paymentUrl: existing.status === "pending" ? listing.payment_url : "", existing: true };
+      const url = existing.status === "pending" ? existing.pay_url || listing.payment_url : "";
+      return { order: this.orderOut(existing), paymentUrl: url, existing: true };
     }
     this.requireLimit("order:" + user.id, 30, 3600, "Too many orders — try again later");
     const data = await this.readJson(request);
     const price = listing.price_cents;
-    if (price > 0 && !listing.payment_url) {
+    const autoProvider = price > 0 ? this.autoPayFor(listing.seller_id, listing.currency) : "";
+    if (price > 0 && !listing.payment_url && !autoProvider) {
       throw new ApiError(400, "This seller hasn’t set up payments yet");
     }
     const fee = Math.round(price * this.feePct / 100);
@@ -1007,8 +1063,30 @@ export class MintDB extends DurableObject {
       affiliate ? affiliate.code : null, affiliate ? affiliate.user_id : null, commission, price - fee - commission,
       t, status === "paid" ? t : null,
     );
-    const order = this.one("SELECT * FROM orders WHERE id = ?", id);
-    return { __http: 201, body: { order: this.orderOut(order), paymentUrl: status === "pending" ? listing.payment_url : "", existing: false } };
+    let order = this.one("SELECT * FROM orders WHERE id = ?", id);
+    let paymentUrl = status === "pending" ? listing.payment_url : "";
+    if (status === "pending" && autoProvider) {
+      try {
+        const checkout = await this.startCheckout(request, order, listing, user, data.returnUrl);
+        paymentUrl = checkout.url;
+      } catch (err) {
+        if (!listing.payment_url) {
+          this.run("UPDATE orders SET status = 'cancelled' WHERE id = ?", id);
+          throw err instanceof Pay.PaymentError ? new ApiError(err.status, err.message) : err;
+        }
+        console.error("checkout fallback to payment link", err && err.message);
+      }
+      order = this.one("SELECT * FROM orders WHERE id = ?", id);
+    }
+    if (status === "pending" && !order.pay_provider) {
+      this.notifyUser(listing.seller_id, {
+        title: "New order " + order.ref,
+        body: user.name + " ordered “" + listing.title + "” (" + this.moneyText(order) + "). Confirm it once the payment arrives.",
+        url: this.appUrl() + "#/sell",
+        tag: "order-" + order.id,
+      });
+    }
+    return { __http: 201, body: { order: this.orderOut(order), paymentUrl, existing: false } };
   }
 
   async routeOrders(request, method, parts) {
@@ -1023,7 +1101,7 @@ export class MintDB extends DurableObject {
       );
       return {
         orders: rows.map((r) => this.orderOut(r, {
-          title: r.title, sellerName: r.seller_name, paymentUrl: r.status === "pending" ? r.payment_url : "",
+          title: r.title, sellerName: r.seller_name, paymentUrl: r.status === "pending" ? r.pay_url || r.payment_url : "",
         })),
       };
     }
@@ -1035,6 +1113,22 @@ export class MintDB extends DurableObject {
       throw new ApiError(404, "Order not found");
     }
     const action = parts[1];
+    if (action === "check") {
+      if (order.buyer_id !== user.id && order.seller_id !== user.id) {
+        throw new ApiError(403, "Not your order");
+      }
+      if (order.status !== "pending" || !order.pay_provider) {
+        return { order: this.orderOut(order) };
+      }
+      this.requireLimit("check:" + order.id, 30, 3600, "Checked too often — try again in a few minutes");
+      let checked;
+      try {
+        checked = await this.verifyOrder(order);
+      } catch (err) {
+        throw err instanceof Pay.PaymentError ? new ApiError(err.status, err.message) : err;
+      }
+      return { order: this.orderOut(checked) };
+    }
     if (action === "cancel") {
       if (order.buyer_id !== user.id || order.status !== "pending") {
         throw new ApiError(400, "Only your pending orders can be cancelled");
@@ -1048,7 +1142,7 @@ export class MintDB extends DurableObject {
         throw new ApiError(400, "This order is already " + order.status);
       }
       if (action === "confirm") {
-        this.run("UPDATE orders SET status = 'paid', paid_at = ? WHERE id = ?", now(), order.id);
+        this.markPaid(order, "seller");
       } else {
         this.run("UPDATE orders SET status = 'rejected' WHERE id = ?", order.id);
       }
@@ -1060,10 +1154,250 @@ export class MintDB extends DurableObject {
         throw new ApiError(400, "No commission is owed on this order");
       }
       this.run("UPDATE orders SET commission_paid = 1 WHERE id = ?", order.id);
+      if (order.affiliate_user_id) {
+        const listingRow = this.one("SELECT title FROM listings WHERE id = ?", order.listing_id);
+        this.notifyUser(order.affiliate_user_id, {
+          title: "Commission paid",
+          body: "The seller marked your " + this.moneyText(order, order.commission_cents) + " commission for “" + (listingRow ? listingRow.title : "a template") + "” as paid.",
+          url: this.appUrl() + "#/affiliate",
+          tag: "commission-" + order.id,
+        });
+      }
     } else {
       throw new ApiError(404, "Not found");
     }
     return { order: this.orderOut(this.one("SELECT * FROM orders WHERE id = ?", order.id)) };
+  }
+
+  // ---- automatic payments (seller's own Midtrans / Xendit / Stripe account)
+  autoPayFor(sellerId, currency) {
+    if (!sellerId || !this.env.PAYMENT_KEY_SECRET) {
+      return "";
+    }
+    const row = this.one("SELECT provider FROM payment_accounts WHERE user_id = ?", sellerId);
+    return row && Pay.supportsCurrency(row.provider, currency) ? row.provider : "";
+  }
+
+  paymentSummary(userId) {
+    const row = this.one("SELECT provider, key_hint, sandbox, created FROM payment_accounts WHERE user_id = ?", userId);
+    if (!row) {
+      return null;
+    }
+    const info = Pay.PROVIDERS[row.provider];
+    return {
+      provider: row.provider, label: info.label, methods: info.methods, currencies: info.currencies,
+      keyHint: row.key_hint, sandbox: Boolean(row.sandbox), connected: row.created,
+    };
+  }
+
+  async routePayments(request, method, parts) {
+    const user = await this.currentUser(request);
+    if (method === "GET" && !parts.length) {
+      return { enabled: Boolean(this.env.PAYMENT_KEY_SECRET), account: this.paymentSummary(user.id) };
+    }
+    if (method === "POST" && parts[0] === "disconnect") {
+      this.run("DELETE FROM payment_accounts WHERE user_id = ?", user.id);
+      return { ok: true, account: null };
+    }
+    if (method === "POST" && !parts.length) {
+      if (!this.env.PAYMENT_KEY_SECRET) {
+        throw new ApiError(503, "Automatic payments aren’t switched on for this Mint server yet");
+      }
+      this.requireLimit("payconnect:" + user.id, 10, 3600, "Too many attempts — try again later");
+      const data = await this.readJson(request);
+      const provider = String(data.provider || "");
+      let key;
+      try {
+        key = Pay.cleanSecretKey(provider, data.secretKey);
+        await Pay.validateKey(provider, key, this.env);
+      } catch (err) {
+        throw err instanceof Pay.PaymentError ? new ApiError(err.status, err.message) : err;
+      }
+      const sealed = await Pay.sealSecret(this.env.PAYMENT_KEY_SECRET, key);
+      this.run(
+        "INSERT OR REPLACE INTO payment_accounts (user_id, provider, key_sealed, key_hint, sandbox, created) VALUES (?, ?, ?, ?, ?, ?)",
+        user.id, provider, sealed, "…" + key.slice(-4), Pay.isSandboxKey(provider, key) ? 1 : 0, now(),
+      );
+      return { ok: true, account: this.paymentSummary(user.id) };
+    }
+    throw new ApiError(404, "Not found");
+  }
+
+  async sellerKey(sellerId) {
+    const row = this.one("SELECT * FROM payment_accounts WHERE user_id = ?", sellerId);
+    if (!row || !this.env.PAYMENT_KEY_SECRET) {
+      return null;
+    }
+    return { provider: row.provider, key: await Pay.openSecret(this.env.PAYMENT_KEY_SECRET, row.key_sealed) };
+  }
+
+  appUrl() {
+    return this.env.APP_URL || APP_URL_DEFAULT;
+  }
+
+  returnUrlFor(listing, requested) {
+    const allowed = String(this.env.ALLOWED_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean);
+    const candidate = String(requested || "");
+    if (candidate && candidate.length < 500) {
+      try {
+        const url = new URL(candidate);
+        if (allowed.includes(url.origin)) {
+          return url.origin + url.pathname + "#/item/" + encodeURIComponent(listing.id);
+        }
+      } catch (err) {
+        /* fall through to the default */
+      }
+    }
+    return this.appUrl() + "#/item/" + encodeURIComponent(listing.id);
+  }
+
+  async startCheckout(request, order, listing, buyer, requestedReturn) {
+    const seller = await this.sellerKey(listing.seller_id);
+    if (!seller) {
+      throw new Pay.PaymentError(400, "This seller hasn’t set up payments yet");
+    }
+    const origin = new URL(request.url).origin;
+    const checkout = await Pay.createCheckout(seller.provider, seller.key, this.env, {
+      id: order.id,
+      ref: order.ref,
+      amountCents: order.price_cents,
+      currency: order.currency,
+      title: listing.title,
+      buyerEmail: buyer.email,
+      buyerName: buyer.name,
+      returnUrl: this.returnUrlFor(listing, requestedReturn),
+      notifyUrl: origin + "/api/pay/notify/" + seller.provider,
+    });
+    this.run("UPDATE orders SET pay_provider = ?, pay_ref = ?, pay_url = ? WHERE id = ?",
+      seller.provider, checkout.providerRef, checkout.url, order.id);
+    return checkout;
+  }
+
+  /** Asks the seller's provider whether this order is paid; marks it paid if so. Returns the fresh row. */
+  async verifyOrder(order) {
+    if (order.status !== "pending" || !order.pay_provider) {
+      return order;
+    }
+    const seller = await this.sellerKey(order.seller_id);
+    if (!seller || seller.provider !== order.pay_provider) {
+      return order;
+    }
+    const result = await Pay.fetchStatus(seller.provider, seller.key, this.env, order.pay_ref, order.currency);
+    if (result.state === "paid") {
+      if (result.amountCents !== null && result.amountCents < order.price_cents) {
+        console.error("underpaid order", order.id, result.amountCents, order.price_cents);
+        return order;
+      }
+      this.markPaid(order, seller.provider);
+    } else if (result.state === "failed") {
+      this.run("UPDATE orders SET pay_url = '' WHERE id = ? AND status = 'pending'", order.id);
+    }
+    return this.one("SELECT * FROM orders WHERE id = ?", order.id);
+  }
+
+  markPaid(order, by) {
+    const t = now();
+    this.run("UPDATE orders SET status = 'paid', paid_at = ? WHERE id = ? AND status = 'pending'", t, order.id);
+    const listing = this.one("SELECT title FROM listings WHERE id = ?", order.listing_id);
+    const title = listing ? listing.title : "Your template";
+    this.notifyUser(order.buyer_id, {
+      title: "Ready to download: " + title,
+      body: "Payment for order " + order.ref + " is confirmed. It’s in your Mint library now.",
+      url: this.appUrl() + "#/item/" + encodeURIComponent(order.listing_id),
+      tag: "paid-" + order.id,
+    });
+    if (by !== "seller") {
+      const provider = Pay.PROVIDERS[by];
+      this.notifyUser(order.seller_id, {
+        title: "Sold: " + title,
+        body: "Order " + order.ref + " (" + this.moneyText(order) + ") was paid through " + (provider ? provider.label : by) + " and unlocked automatically.",
+        url: this.appUrl() + "#/sell",
+        tag: "sold-" + order.id,
+      });
+    }
+  }
+
+  async paymentWebhook(request, provider) {
+    if (!Pay.PROVIDERS[provider]) {
+      throw new ApiError(404, "Not found");
+    }
+    let body = {};
+    try {
+      body = JSON.parse((await request.text()).slice(0, 20000) || "{}");
+    } catch (err) {
+      body = {};
+    }
+    const orderId = Pay.orderIdFromWebhook(provider, body);
+    const order = orderId ? this.one("SELECT * FROM orders WHERE id = ?", orderId) : null;
+    if (order && order.pay_provider === provider && order.status === "pending" && this.limit("hook:" + order.id, 20, 3600).ok) {
+      // The payload is only a hint: the order is re-checked against the provider API with the seller's key.
+      await this.verifyOrder(order).catch((err) => console.error("webhook verify failed", err && err.message));
+    }
+    return { ok: true };
+  }
+
+  moneyText(order, cents) {
+    return Core.formatValue((cents === undefined ? order.price_cents : cents) / 100, "currency", order.currency);
+  }
+
+  // ---- notifications (Web Push + optional email)
+  async routePush(request, method, parts) {
+    const user = await this.currentUser(request);
+    if (method !== "POST") {
+      throw new ApiError(405, "Method not allowed");
+    }
+    const data = await this.readJson(request);
+    if (parts[0] === "subscribe") {
+      if (!Notify.pushEnabled(this.env)) {
+        throw new ApiError(503, "Push notifications aren’t switched on for this Mint server");
+      }
+      const sub = Notify.validSubscription(data.subscription, this.env);
+      if (!sub) {
+        throw new ApiError(400, "Invalid push subscription");
+      }
+      this.run("INSERT OR REPLACE INTO push_subs (endpoint, user_id, p256dh, auth, created) VALUES (?, ?, ?, ?, ?)",
+        sub.endpoint, user.id, sub.p256dh, sub.auth, now());
+      const extra = this.all("SELECT endpoint FROM push_subs WHERE user_id = ? ORDER BY created DESC LIMIT -1 OFFSET 10", user.id);
+      extra.forEach((row) => this.run("DELETE FROM push_subs WHERE endpoint = ?", row.endpoint));
+      if (data.test) {
+        await this.deliver(user.id, { title: "Mint notifications are on", body: "You’ll hear about orders, payments and commissions here.", url: this.appUrl(), tag: "welcome" });
+      }
+      return { ok: true, devices: this.one("SELECT COUNT(*) AS n FROM push_subs WHERE user_id = ?", user.id).n };
+    }
+    if (parts[0] === "unsubscribe") {
+      this.run("DELETE FROM push_subs WHERE endpoint = ? AND user_id = ?", String(data.endpoint || ""), user.id);
+      return { ok: true, devices: this.one("SELECT COUNT(*) AS n FROM push_subs WHERE user_id = ?", user.id).n };
+    }
+    throw new ApiError(404, "Not found");
+  }
+
+  async deliver(userId, message) {
+    const jobs = [];
+    if (Notify.pushEnabled(this.env)) {
+      const subs = this.all("SELECT * FROM push_subs WHERE user_id = ?", userId);
+      for (const sub of subs) {
+        jobs.push(Notify.sendPush(this.env, sub, message).then((status) => {
+          if (status === 404 || status === 410) {
+            this.run("DELETE FROM push_subs WHERE endpoint = ?", sub.endpoint);
+          }
+        }));
+      }
+    }
+    const user = this.one("SELECT email, notify_email FROM users WHERE id = ?", userId);
+    if (user && user.notify_email && Notify.emailEnabled(this.env)) {
+      jobs.push(Notify.sendEmail(this.env, user.email, message));
+    }
+    await Promise.allSettled(jobs);
+  }
+
+  notifyUser(userId, message) {
+    if (!userId) {
+      return;
+    }
+    const job = this.deliver(userId, message).catch((err) => console.error("notify failed", err && err.message));
+    if (this.ctx && typeof this.ctx.waitUntil === "function") {
+      this.ctx.waitUntil(job);
+    }
   }
 
   async report(request, listing) {

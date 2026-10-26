@@ -20,6 +20,11 @@ ALLOWED_ORIGINS = "https://juw12.github.io,http://127.0.0.1:48714,http://localho
 PLATFORM_FEE_PCT = "0"
 AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
 AI_DAILY_LIMIT = "300"
+APP_URL = "https://juw12.github.io/projects/mint/app.html"
+# Web Push (VAPID). The public key is public; VAPID_PRIVATE_KEY and PAYMENT_KEY_SECRET are Worker secrets
+# (`npx wrangler secret put …`). Email turns on when RESEND_API_KEY (secret) and MAIL_FROM are set.
+VAPID_PUBLIC_KEY = "BOhu8JmT9qM2p5kCYUB-oHkY_zwN1lDfAOG_g8ZuHoyUWnhnhYdOJ5IhvqhL24eKuzeXuyoK37WNm7dz7rDAIyU"
+VAPID_SUBJECT = "https://juw12.github.io/projects/mint/"
 
 [observability]
 enabled = true

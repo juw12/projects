@@ -39,8 +39,16 @@ apps/mint/web                                          apps/mint/cloud/src/index
   as `flagged` and the seller can't republish it. Pending orders expire after 14 days.
 - **Badges.** Sell / Library show counts (orders to confirm, commissions owed, orders awaiting
   payment), refreshed every 60 s, plus `(n)` in the tab title.
-- **Selling.** A paid template needs the seller's own payment link (Lynk.id, Saweria,
-  Trakteer, Stripe/PayPal link, Gumroad…).
+- **Automatic payments (v2.2).** A seller can connect their own Midtrans, Xendit or Stripe
+  account (secret key, stored AES-GCM encrypted with the `PAYMENT_KEY_SECRET` Worker secret). Orders
+  then open a hosted checkout on the seller's account (Snap / Invoice / Checkout Session); Mint
+  re-checks the status with the provider API (webhook bodies are only a hint) and unlocks the file
+  instantly. Money goes to the seller; Mint never holds funds. Code: `cloud/src/payments.js`.
+- **Notifications (v2.2).** Web Push with VAPID + aes128gcm (RFC 8291/8292, `cloud/src/notify.js`,
+  no third-party service) for new orders, payments, unlocks and commissions; optional email through
+  Resend when `RESEND_API_KEY` + `MAIL_FROM` are set.
+- **Selling with a payment link.** Without automatic payments, a paid template needs the seller's
+  own payment link (Lynk.id, Saweria, Trakteer, Stripe/PayPal link, Gumroad…).
   1. The buyer clicks *Buy* and gets an order reference such as `M-7K3QXA`.
   2. The buyer pays on the seller's link and puts the reference in the payment note.
   3. The seller taps *Payment received* in the dashboard.
@@ -81,7 +89,10 @@ apps/mint/
     src/index.js            API: auth, drafts, listings, orders, affiliate, seller ledger, AI
     wrangler.toml           production (AI binding, CORS origins, fee, AI limits)
     wrangler.local.toml     local/CI (no remote AI binding, fee 10% for ledger tests)
-    test/api_test.mjs       end-to-end API test (23 scenario checks)
+    src/payments.js         Midtrans / Xendit / Stripe checkout + status + key encryption
+    src/notify.js           Web Push (VAPID, aes128gcm) + Resend email
+    test/api_test.mjs       end-to-end API test (30 scenario checks, incl. decrypting pushes)
+    test/mock_services.mjs  local stand-ins for the providers, push services and Resend
   tests/test_core.py        static + JS core/xlsx checks (runs in scripts/run_all_tests.py)
   tools/build_seed.py       regenerates data/seed.json
   mobile/                   Capacitor 8 Android/iOS shell (server.url = live app, UA MintApp/1.0); see mobile/README.md
@@ -93,7 +104,7 @@ apps/mint/cloud/github-workflow.yml   (move to .github/workflows/) test on local
 ```bash
 cd apps/mint/cloud && npm install
 npm run dev                                   # API on http://127.0.0.1:8787 (local SQLite)
-node test/api_test.mjs http://127.0.0.1:8787  # 23 end-to-end API checks
+node test/api_test.mjs http://127.0.0.1:8787  # 30 end-to-end API checks (starts the mocks on :8799)
 
 python3 -m http.server -d apps/mint/web 48714
 # open http://127.0.0.1:48714/app.html?api=http://127.0.0.1:8787   (?api= is remembered; clear with localStorage "mint.api")
@@ -101,17 +112,18 @@ python3 -m http.server -d apps/mint/web 48714
 python3 apps/mint/tests/test_core.py
 ```
 
-Deploys happen automatically when `apps/mint/cloud/**` changes on `main`. This uses the
-repository's `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets.
+Deploy: `cd apps/mint/cloud && npx wrangler deploy` (after `npx wrangler login`). Worker secrets:
+`VAPID_PRIVATE_KEY`, `PAYMENT_KEY_SECRET`, optional `RESEND_API_KEY` (+ `MAIL_FROM` var) —
+`npx wrangler secret put NAME`. `github-workflow.yml` can be moved to `.github/workflows/` for CI deploys.
 
 ## Limits
 
-- There is no card or QRIS processing inside Mint. Payments go to the seller's own link and
-  are confirmed by hand, which keeps Mint license-free and fee-free. Instant automatic unlock
-  needs a payment provider: Midtrans or Xendit for Indonesia, or Stripe Connect globally. The
-  webhook would call the existing order-confirm path.
-- No email yet (no provider set up): password recovery uses the one-time recovery code, and
-  sellers learn about new orders from the in-app badges rather than email/push.
+- Automatic payments use each seller's own provider account (no platform money flow, so no
+  payment licence needed); they were tested against local provider mocks and the real APIs'
+  key validation, not with a real paid transaction. Mint collecting a fee automatically would
+  need a marketplace product (Xendit xenPlatform / Midtrans split / Stripe Connect).
+- Email needs a Resend API key + verified sender domain; until then notifications are Web Push
+  + in-app badges. Push doesn't work inside the Android WebView app (use Chrome / installed PWA).
 - iPhone: no App Store build (needs the Apple Developer Program and Xcode); the Add to Home
   Screen PWA is the iPhone app. The Android APK is sideloaded, not on Google Play.
 - Privacy and Terms pages are plain-language summaries, not lawyer-reviewed.

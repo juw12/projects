@@ -41,6 +41,11 @@
     this.base = base;
     this.feePct = health.platformFeePct;
     this.ai = !!health.ai;
+    this.push = !!health.push;
+    this.vapidPublicKey = health.vapidPublicKey || "";
+    this.email = !!health.email;
+    this.autoPayEnabled = !!health.autoPay;
+    this.payProviders = health.payProviders || [];
   }
 
   ApiStore.prototype.token = function () {
@@ -101,6 +106,9 @@
     return this.call("GET", "me").then(function (d) {
       self.counts = d.counts || null;
       self.hasRecoveryCode = !!d.hasRecoveryCode;
+      self.notifyEmail = d.notifyEmail !== false;
+      self.pushDevices = d.pushDevices || 0;
+      self.autoPay = d.autoPay || null;
       return d.user;
     });
   };
@@ -148,7 +156,34 @@
   ApiStore.prototype.publish = function (data) { return this.call("POST", "listings", data).then(function (d) { return d.listing; }); };
   ApiStore.prototype.editListing = function (id, data) { return this.call("POST", "listings/" + enc(id) + "/edit", data).then(function (d) { return d.listing; }); };
   ApiStore.prototype.setStatus = function (id, live) { return this.call("POST", "listings/" + enc(id) + "/" + (live ? "republish" : "unpublish"), {}); };
-  ApiStore.prototype.order = function (id, ref) { return this.call("POST", "listings/" + enc(id) + "/order", { ref: ref || "" }); };
+  ApiStore.prototype.order = function (id, ref) {
+    var back = root.location ? root.location.href.split("#")[0] : "";
+    return this.call("POST", "listings/" + enc(id) + "/order", { ref: ref || "", returnUrl: back });
+  };
+  ApiStore.prototype.payments = function () { return this.call("GET", "me/payments"); };
+  ApiStore.prototype.connectPayments = function (provider, secretKey) {
+    var self = this;
+    return this.call("POST", "me/payments", { provider: provider, secretKey: secretKey }).then(function (d) {
+      self.autoPay = d.account;
+      return d;
+    });
+  };
+  ApiStore.prototype.disconnectPayments = function () {
+    var self = this;
+    return this.call("POST", "me/payments/disconnect", {}).then(function (d) {
+      self.autoPay = null;
+      return d;
+    });
+  };
+  ApiStore.prototype.pushSubscribe = function (subscription, test) { return this.call("POST", "push/subscribe", { subscription: subscription, test: !!test }); };
+  ApiStore.prototype.pushUnsubscribe = function (endpoint) { return this.call("POST", "push/unsubscribe", { endpoint: endpoint }); };
+  ApiStore.prototype.setNotifyEmail = function (on) {
+    var self = this;
+    return this.call("POST", "me/notifications", { email: !!on }).then(function (d) {
+      self.notifyEmail = d.notifyEmail;
+      return d;
+    });
+  };
   ApiStore.prototype.orders = function () { return this.call("GET", "orders").then(function (d) { return d.orders; }); };
   ApiStore.prototype.orderAction = function (orderId, action) { return this.call("POST", "orders/" + enc(orderId) + "/" + action, {}).then(function (d) { return d.order; }); };
   ApiStore.prototype.review = function (id, rating, body) { return this.call("POST", "listings/" + enc(id) + "/reviews", { rating: rating, body: body }); };
@@ -693,6 +728,12 @@
   LocalStore.prototype.newRecoveryCode = needsLive;
   LocalStore.prototype.deleteAccount = needsLive;
   LocalStore.prototype.report = needsLive;
+  LocalStore.prototype.payments = function () { return Promise.resolve({ enabled: false, account: null }); };
+  LocalStore.prototype.connectPayments = needsLive;
+  LocalStore.prototype.disconnectPayments = needsLive;
+  LocalStore.prototype.pushSubscribe = needsLive;
+  LocalStore.prototype.pushUnsubscribe = needsLive;
+  LocalStore.prototype.setNotifyEmail = needsLive;
 
   LocalStore.prototype.reset = function () {
     localStorage.removeItem(KEY);

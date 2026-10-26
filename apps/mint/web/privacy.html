@@ -23,6 +23,8 @@
       <li><strong>Account:</strong> your name, email, a salted PBKDF2 hash of your password and a SHA-256 hash of your recovery code. Mint never sees or stores the password or code itself.</li>
       <li><strong>Marketplace data:</strong> drafts, listings (including your payment link), orders, reviews, reports, affiliate links and click counts.</li>
       <li><strong>Payout details</strong> you choose to enter, shown only to sellers who owe you an affiliate commission.</li>
+      <li><strong>Automatic payments (sellers who turn them on):</strong> your Midtrans, Xendit or Stripe secret key, encrypted (AES-GCM) and used only to create checkouts and read their payment status. Disconnecting deletes it.</li>
+      <li><strong>Notifications:</strong> the push address your browser gives Mint when you switch notifications on, and your email preference. Emails (when enabled) are sent through Resend.</li>
       <li><strong>Sign-in sessions:</strong> a random token kept in your browser’s local storage; the server keeps only its hash.</li>
       <li><strong>Abuse protection:</strong> your network address is used briefly for rate limits (sign-up, login, clicks) and is not stored with your account.</li>
     </ul>
