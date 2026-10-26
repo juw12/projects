@@ -12,6 +12,24 @@
 GlowChat installable app: `glow/chat/app.html`, mobile: `glow/chat/mobile.html`. GlowRoom: `glow/room/app.html`, `glow/room/mobile.html`.
 AI-suggested resources in GlowChat are not automatically browsed or verified; GlowChat does no autonomous building or execution (that is GlowRoom's job, and its results should still be reviewed).
 
+## v0.10.0 — Glow Hands: browser control
+
+GlowLead can now act on websites through **Glow Hands** (`hands/`), a small program on your PC:
+open pages, click, type, choose options and fill forms in its own visible browser window.
+
+- New **🖱 Glow Hands** worker, offered to the planner only when a mission ticks *Let Glow Hands use
+  my browser* and the companion is connected. Off by default; never enabled by automations.
+- One action per turn from a numbered list of the page's controls; up to 15 actions per step.
+- **Approval gate enforced by the companion itself:** risky clicks (submit, buy, pay, send, post,
+  delete, sign up...) and Enter in forms are refused until you press Approve in GlowLead. Decline
+  and Stop work at any point. It never types passwords, card numbers or one-time codes.
+- Pairing token, localhost-only listener, origin and Host checks, separate browser profile, and
+  local-network pages blocked by default. See `hands/README.md`.
+- Tests: 14 new checks with a real browser, including GlowLead's page driving the real companion
+  to fill a real form, submitting only after the UI approval, a declined submit never being sent,
+  refusal of passwords, Stop during approval, and token/origin/Host/scheme/private-network checks.
+  Real websites and free-model reliability on multi-page tasks were not tested.
+
 ## v0.9.0 — memory, skills, automations and follow-ups
 
 Closes the most practical gaps with always-on agents that a browser-first app can honestly close.

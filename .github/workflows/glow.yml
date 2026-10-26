@@ -29,7 +29,9 @@ jobs:
           python -m pip install playwright==1.55.0
           python -m playwright install --with-deps chromium
       - name: Hermetic browser regressions
-        run: python -X utf8 apps/glow/tests/test_mission_control_browser.py
+        run: |
+          python -X utf8 apps/glow/tests/test_mission_control_browser.py
+          python -X utf8 apps/glow/tests/test_glow_hands.py
       - name: Validate Pages build
         run: |
           python -X utf8 scripts/build_site.py
