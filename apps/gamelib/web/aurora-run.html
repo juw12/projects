@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>❄️ Aurora Run</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+      background: radial-gradient(circle at 50% 0%, #16204a 0%, #0a0d22 45%, #04050f 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+      color: #dfe9ff;
+    }
+
+    /* ============ GAME CONTAINER ============ */
+    .game-container {
+      background: rgba(16, 24, 52, 0.72);
+      border: 1px solid rgba(130, 210, 255, 0.18);
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), 0 0 60px rgba(90, 200, 255, 0.10) inset;
+      max-width: 940px;
+      width: 96%;
+      backdrop-filter: blur(6px);
+    }
+
+    .game-title {
+      text-align: center;
+      font-size: 2.1rem;
+      letter-spacing: 3px;
+      background: linear-gradient(90deg, #7ff0ff, #9d8bff, #ff9de2, #7ff0ff);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      filter: drop-shadow(0 0 12px rgba(120, 200, 255, 0.5));
+      margin-bottom: 4px;
+      font-weight: 700;
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.85rem;
+      letter-spacing: 1.5px;
+      color: #7f92c4;
+      margin-bottom: 14px;
+      text-transform: uppercase;
+    }
+
+    /* ============ SCORE DISPLAY ============ */
+    .score-board {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding: 10px 18px;
+      background: linear-gradient(135deg, rgba(40, 70, 140, 0.55), rgba(60, 40, 110, 0.45));
+      border: 1px solid rgba(130, 210, 255, 0.16);
+      border-radius: 14px;
+      font-size: 0.95rem;
+      letter-spacing: 1px;
+      color: #9fb2e0;
+    }
+
+    .score-board span {
+      font-weight: 700;
+      color: #7ff0ff;
+      text-shadow: 0 0 10px rgba(120, 230, 255, 0.6);
+    }
+
+    .sound-toggle {
+      background: rgba(20, 34, 70, 0.8);
+      border: 1px solid rgba(130, 210, 255, 0.25);
+      color: #9fd7ff;
+      border-radius: 10px;
+      padding: 6px 12px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .sound-toggle:hover { background: rgba(40, 70, 140, 0.9); }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(130, 210, 255, 0.14);
+      background: #04050f;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      touch-action: none;
+    }
+
+    /* ============ SCREENS (Start / Game Over) ============ */
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 24px;
+      background: radial-gradient(circle at 50% 40%, rgba(20, 34, 74, 0.82), rgba(4, 5, 15, 0.94));
+      transition: opacity 0.3s ease;
+    }
+
+    .screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .screen-title {
+      font-size: 2.2rem;
+      letter-spacing: 4px;
+      color: #bff0ff;
+      text-shadow: 0 0 20px rgba(120, 220, 255, 0.7);
+      margin-bottom: 10px;
+    }
+
+    .screen-subtitle {
+      font-size: 0.9rem;
+      color: #7f92c4;
+      line-height: 1.9;
+      margin-bottom: 22px;
+      max-width: 520px;
+      letter-spacing: 0.5px;
+    }
+
+    .screen-subtitle b { color: #9fd7ff; font-weight: 700; }
+
+    .final-score {
+      font-size: 1.4rem;
+      color: #9d8bff;
+      margin-bottom: 18px;
+      letter-spacing: 2px;
+      text-shadow: 0 0 16px rgba(160, 140, 255, 0.6);
+    }
+
+    /* ============ ACTION BUTTONS ============ */
+    .action-btn {
+      padding: 14px 40px;
+      background: linear-gradient(135deg, #3fa9ff, #7d5bff);
+      color: #f2f9ff;
+      border: none;
+      border-radius: 28px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 6px 22px rgba(80, 140, 255, 0.45);
+    }
+
+    .action-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 30px rgba(120, 160, 255, 0.6);
+      filter: brightness(1.1);
+    }
+
+    .action-btn:active { transform: translateY(-1px); }
+
+    /* ============ PAUSE OVERLAY ============ */
+    .pause-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(4, 8, 22, 0.72);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.8rem;
+      letter-spacing: 4px;
+      color: #9fd7ff;
+      font-weight: 700;
+      text-shadow: 0 0 18px rgba(120, 220, 255, 0.8);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .pause-overlay.visible { opacity: 1; }
+
+    /* ============ MOBILE CONTROLS ============ */
+    .mobile-controls {
+      display: none;
+      margin-top: 14px;
+      gap: 14px;
+      justify-content: center;
+    }
+
+    .mobile-controls.visible { display: flex; }
+
+    .control-btn {
+      flex: 1;
+      max-width: 220px;
+      padding: 16px 0;
+      background: linear-gradient(135deg, rgba(40, 70, 140, 0.7), rgba(60, 40, 110, 0.6));
+      border: 1px solid rgba(130, 210, 255, 0.28);
+      border-radius: 16px;
+      color: #bff0ff;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: all 0.12s ease;
+    }
+
+    .control-btn:active {
+      background: rgba(80, 140, 255, 0.6);
+      transform: scale(0.97);
+    }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 700px) {
+      .game-container { padding: 14px; border-radius: 18px; }
+      .game-title { font-size: 1.5rem; letter-spacing: 2px; }
+      .screen-title { font-size: 1.6rem; }
+      .score-board { font-size: 0.8rem; padding: 8px 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">AURORA RUN</h1>
+    <p class="game-subtitle">Run beneath the shifting lights</p>
+
+    <div class="score-board">
+      <div>Distance: <span id="score">0</span> m</div>
+      <div>Starlight: <span id="stars">0</span></div>
+      <div>Best: <span id="highScore">0</span> m</div>
+      <button class="sound-toggle" id="soundToggle">🔊</button>
+    </div>
+
+    <div class="canvas-wrapper" id="canvasWrapper">
+      <canvas id="gameCanvas" width="960" height="540"></canvas>
+
+      <!-- Start Screen -->
+      <div id="startScreen" class="screen">
+        <h2 class="screen-title">AURORA RUN</h2>
+        <p class="screen-subtitle">
+          <b>Jump</b> ice crevasses &nbsp;·&nbsp; <b>Slide</b> under ice arches &nbsp;·&nbsp; <b>Hold</b> to glide over wide gaps<br />
+          Collect <b>starlight</b> and run as far as you can.
+        </p>
+        <button class="action-btn" id="startBtn">START RUN</button>
+      </div>
+
+      <!-- Game Over Screen -->
+      <div id="gameOverScreen" class="screen hidden">
+        <h2 class="screen-title">FROZEN OUT</h2>
+        <p class="final-score">Distance: <span id="finalScore">0</span> m &nbsp;·&nbsp; Starlight: <span id="finalStars">0</span></p>
+        <button class="action-btn" id="playAgainBtn">RUN AGAIN</button>
+      </div>
+
+      <!-- Pause Overlay -->
+      <div id="pauseOverlay" class="pause-overlay">PAUSED</div>
+    </div>
+
+    <!-- Mobile Controls -->
+    <div class="mobile-controls" id="mobileControls">
+      <button class="control-btn" id="jumpBtn">JUMP / GLIDE</button>
+      <button class="control-btn" id="slideBtn">SLIDE</button>
+    </div>
+  </div>
+
+  <script>
+    // ============ GAME CONFIGURATION ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;   // 960
+    const H = canvas.height;  // 540
+    const GROUND_Y = 432;     // snow surface line
+    const PLAYER_X = 230;     // fixed horizontal position of the runner
+
+    // Physics constants
+    const GRAVITY = 2650;         // px / s^2
+    const GLIDE_GRAVITY = 520;    // reduced pull while gliding
+    const GLIDE_FALL_CAP = 155;   // max fall speed while gliding (px / s)
+    const JUMP_V = -930;          // initial jump velocity
+
+    // Speed ramp
+    const SPEED_START = 340;
+    const SPEED_MAX = 920;
+    const SPEED_RAMP = 9;         // px/s gained per second
+
+    // Player dimensions
+    const STAND_H = 50;
+    const SLIDE_H = 24;
+    const PLAYER_W = 34;
+
+    const STORAGE_KEY = 'auroraRunBest';
+
+    // ============ GAME STATE ============
+    let state = 'menu';           // 'menu' | 'playing' | 'over'
+    let player = null;
+    let obstacles = [];
+    let starfield = [];
+    let pickups = [];
+    let particles = [];
+    let trail = [];
+    let speed = SPEED_START;
+    let distance = 0;             // metres (px / 10)
+    let worldX = 0;               // always-advancing parallax clock
+    let collectCount = 0;
+    let spawnCooldown = 0;
+    let starCooldown = 0;
+    let elapsed = 0;              // total seconds since load
+    let auroraHue = 200;
+    let landFlash = 0;
+    let muted = false;
+
+    let best = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
+    if (isNaN(best)) best = 0;
+
+    // ============ DOM ELEMENTS ============
+    const scoreEl = document.getElementById('score');
+    const starsEl = document.getElementById('stars');
+    const highScoreEl = document.getElementById('highScore');
+    const finalScoreEl = document.getElementById('finalScore');
+    const finalStarsEl = document.getElementById('finalStars');
+    const startScreen = document.getElementById('startScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const startBtn = document.getElementById('startBtn');
+    const playAgainBtn = document.getElementById('playAgainBtn');
+    const soundToggle = document.getElementById('soundToggle');
+    const canvasWrapper = document.getElementById('canvasWrapper');
+    const mobileControls = document.getElementById('mobileControls');
+
+    highScoreEl.textContent = best;
+
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+      mobileControls.classList.add('visible');
+    }
+
+    // ============ AUDIO (WebAudio beeps) ============
+    let audioCtx = null;
+
+    function beep(freq, dur, type, vol) {
+      if (muted) return;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type || 'sine';
+        osc.frequency.setValueAtTime(freq || 440, now);
+        gain.gain.setValueAtTime(vol || 0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + (dur || 0.09));
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + (dur || 0.09));
+      } catch (e) { /* audio unavailable — silent fallback */ }
+    }
+
+    function chime(up) {
+      // Two-note sparkle
+      beep(up ? 880 : 300, 0.10, 'triangle', 0.10);
+      setTimeout(() => beep(up ? 1320 : 220, 0.14, 'triangle', 0.09), 70);
+    }
+
+    // ============ INPUT ============
+    const input = { jump: false, slide: false };
+
+    function pressJump() {
+      input.jump = true;
+      if (state === 'playing' && player.onGround) {
+        player.vy = JUMP_V;
+        player.onGround = false;
+        player.sliding = false;
+        beep(700, 0.09, 'triangle', 0.09);
+        spawnPuff(PLAYER_X, GROUND_Y, 6, '#cfeaff');
+      }
+    }
+
+    function releaseJump() { input.jump = false; }
+    function pressSlide() { input.slide = true; }
+    function releaseSlide() { input.slide = false; }
+
+    // Keyboard
+    document.addEventListener('keydown', (e) => {
+      if (['Space', 'ArrowUp', 'ArrowDown', 'KeyW', 'KeyS'].includes(e.code)) e.preventDefault();
+      if (e.repeat) return;
+
+      if (e.code === 'Space' || e.code === 'KeyP') {
+        if (state === 'playing') togglePause();
+        return;
+      }
+      if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') pressJump();
+      if (e.code === 'ArrowDown' || e.code === 'KeyS') pressSlide();
+    });
+
+    document.addEventListener('keyup', (e) => {
+      if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') releaseJump();
+      if (e.code === 'ArrowDown' || e.code === 'KeyS') releaseSlide();
+    });
+
+    // Touch / pointer on the canvas (top zone = jump/glide, bottom zone = slide)
+    function canvasZone(e) {
+      const rect = canvas.getBoundingClientRect();
+      const relY = (e.clientY - rect.top) / rect.height;
+      return relY < 0.62 ? 'jump' : 'slide';
+    }
+
+    canvasWrapper.addEventListener('pointerdown', (e) => {
+      if (state !== 'playing' || isPaused) return;
+      e.preventDefault();
+      if (canvasZone(e) === 'jump') pressJump(); else pressSlide();
+    });
+    canvasWrapper.addEventListener('pointerup', (e) => {
+      e.preventDefault();
+      releaseJump(); releaseSlide();
+    });
+    canvasWrapper.addEventListener('pointercancel', () => { releaseJump(); releaseSlide(); });
+    canvasWrapper.addEventListener('pointerleave', () => { releaseJump(); releaseSlide(); });
+
+    // Mobile action buttons
+    function bindHold(el, down, up) {
+      el.addEventListener('touchstart', (e) => { e.preventDefault(); down(); });
+      el.addEventListener('touchend', (e) => { e.preventDefault(); up(); });
+      el.addEventListener('touchcancel', (e) => { e.preventDefault(); up(); });
+      el.addEventListener('mousedown', (e) => { e.preventDefault(); down(); });
+      el.addEventListener('mouseup', (e) => { e.preventDefault(); up(); });
+    }
+    bindHold(document.getElementById('jumpBtn'), pressJump, releaseJump);
+    bindHold(document.getElementById('slideBtn'), pressSlide, releaseSlide);
+
+    // ============ TERRAIN / SPAWNING ============
+    function resetGame() {
+      player = {
+        feetY: GROUND_Y,
+        vy: 0,
+        onGround: true,
+        sliding: false,
+        h: STAND_H,
+        gliding: false,
+        runPhase: 0
+      };
+      obstacles = [];
+      pickups = [];
+      particles = [];
+      trail = [];
+      speed = SPEED_START;
+      distance = 0;
+      collectCount = 0;
+      spawnCooldown = 340;
+      starCooldown = 200;
+      landFlash = 0;
+      input.jump = false;
+      input.slide = false;
+      scoreEl.textContent = '0';
+      starsEl.textContent = '0';
+    }
+
+    function gameOver(reason) {
+      state = 'over';
+      isPaused = false;
+      pauseOverlay.classList.remove('visible');
+      const m = Math.floor(distance);
+      if (m > best) {
+        best = m;
+        localStorage.setItem(STORAGE_KEY, String(best));
+        highScoreEl.textContent = best;
+      }
+      finalScoreEl.textContent = m;
+      finalStarsEl.textContent = collectCount;
+      gameOverScreen.classList.remove('hidden');
+      chime(false);
+      beep(140, 0.5, 'sawtooth', 0.10);
+      // Burst of cold shards
+      for (let i = 0; i < 26; i++) {
+        particles.push({
+          x: PLAYER_X, y: player.feetY - player.h / 2,
+          vx: (Math.random() - 0.5) * 420,
+          vy: (Math.random() - 0.8) * 380,
+          life: 1, size: Math.random() * 4 + 2,
+          color: reason === 'fall' ? '#9fd7ff' : '#cfe9ff'
+        });
+      }
+    }
+
+    // Which region of the ground (if any) is a void gap at world-screen x
+    function voidAt(x) {
+      for (let i = 0; i < obstacles.length; i++) {
+        const o = obstacles[i];
+        if (o.type === 'gap' && x > o.x + 6 && x < o.x + o.w - 6) return true;
+      }
+      return false;
+    }
+
+    function spawnObstacle() {
+      const r = Math.random();
+      let o;
+      if (r < 0.42) {
+        o = { type: 'gap', x: W + 60, w: 78 + Math.random() * 46 };        // short crevasse
+      } else if (r < 0.68) {
+        o = { type: 'gap', x: W + 60, w: 190 + Math.random() * 110 };      // wide gap (needs glide)
+      } else {
+        o = { type: 'arch', x: W + 60, w: 74 };                            // slide under
+      }
+      obstacles.push(o);
+      spawnCooldown = o.w + (speed * 0.78 + 170);
+    }
+
+    function spawnStarArc(anchorX) {
+      const cx = anchorX;
+      const cy = GROUND_Y - (140 + Math.random() * 90);
+      const n = 3 + Math.floor(Math.random() * 3);
+      const spread = 54;
+      for (let i = 0; i < n; i++) {
+        const t = i / (n - 1 || 1) - 0.5;
+        pickups.push({
+          x: cx + t * spread * (n - 1),
+          y: cy - Math.sin((i + 1) / (n + 1) * Math.PI) * 46,
+          r: 11,
+          phase: Math.random() * Math.PI * 2,
+          taken: false
+        });
+      }
+    }
+
+    // ============ PARTICLES & TRAIL ============
+    function spawnPuff(x, y, count, color) {
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: x + (Math.random() - 0.5) * 20,
+          y: y - Math.random() * 8,
+          vx: -60 - Math.random() * 160,
+          vy: -Math.random() * 130,
+          life: 1,
+          size: Math.random() * 3 + 1.5,
+          color: color || '#eaf6ff'
+        });
+      }
+    }
+
+    function spawnSparkle(x, y) {
+      for (let i = 0; i < 12; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const s = 40 + Math.random() * 160;
+        particles.push({
+          x: x, y: y,
+          vx: Math.cos(a) * s,
+          vy: Math.sin(a) * s,
+          life: 1, size: Math.random() * 3 + 1.5,
+          color: '#ffe08a'
+        });
+      }
+    }
+
+    function updateParticles(dt) {
+      particles = particles.filter((p) => {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += 420 * dt;
+        p.life -= dt * 1.6;
+        return p.life > 0;
+      });
+    }
+
+    function drawParticles() {
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // ============ UPDATE ============
+    let isPaused = false;
+
+    function togglePause() {
+      if (state !== 'playing') return;
+      isPaused = !isPaused;
+      pauseOverlay.classList.toggle('visible', isPaused);
+    }
+
+    function update(dt) {
+      elapsed += dt;
+
+      // Ambient scroll always runs (parallax + aurora)
+      worldX += (state === 'playing' && !isPaused ? speed : 70) * dt;
+
+      // Aurora hue drifts with distance for shifting skies
+      auroraHue = (auroraHue + dt * (10 + distance * 0.22)) % 360;
+      landFlash = Math.max(0, landFlash - dt * 3);
+
+      if (state !== 'playing' || isPaused) {
+        // Idle menu/over animation — gentle bob and drifting sparkles
+        if (state !== 'playing') {
+          player.runPhase += dt * 6;
+          if (Math.random() < 0.25) {
+            spawnPuff(PLAYER_X - 18, GROUND_Y, 1, '#cfeaff');
+          }
+        }
+        updateParticles(dt);
+        return;
+      }
+
+      // ---- Speed ramp ----
+      speed = Math.min(SPEED_MAX, speed + SPEED_RAMP * dt);
+      distance += speed * dt * 0.1;   // 1 metre per 10 px
+
+      // ---- Player physics ----
+      player.sliding = input.slide && player.onGround;
+      player.h = player.sliding ? SLIDE_H : STAND_H;
+
+      const gliding = input.jump && !player.onGround && player.vy > 0;
+      player.gliding = gliding;
+
+      const g = gliding ? GLIDE_GRAVITY : GRAVITY;
+      player.vy += g * dt;
+      if (gliding && player.vy > GLIDE_FALL_CAP) player.vy = GLIDE_FALL_CAP;
+
+      player.feetY += player.vy * dt;
+      if (player.onGround) player.runPhase += dt * (8 + speed * 0.012);
+
+      // Fall into a crevasse: leave solid ground
+      if (player.onGround && voidAt(PLAYER_X)) {
+        player.onGround = false;
+        player.vy = 20;
+      }
+
+      // Landing on solid snow
+      if (!player.onGround && player.vy >= 0 && player.feetY >= GROUND_Y && !voidAt(PLAYER_X)) {
+        player.feetY = GROUND_Y;
+        player.vy = 0;
+        player.onGround = true;
+        landFlash = 1;
+        spawnPuff(PLAYER_X, GROUND_Y, 7, '#eaf6ff');
+        beep(320, 0.06, 'sine', 0.06);
+      }
+
+      // Fell off the world
+      if (player.feetY > H + 60) {
+        gameOver('fall');
+        return;
+      }
+
+      // ---- Obstacle scroll + collision ----
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        const o = obstacles[i];
+        o.x -= speed * dt;
+        if (o.x + o.w < -80) { obstacles.splice(i, 1); continue; }
+
+        if (o.type === 'arch') {
+          const boxTop = GROUND_Y - 190;
+          const boxBottom = GROUND_Y - 30;
+          const pTop = player.feetY - player.h;
+          const pBottom = player.feetY;
+          const px1 = PLAYER_X - PLAYER_W / 2;
+          const px2 = PLAYER_X + PLAYER_W / 2;
+          if (px2 > o.x && px1 < o.x + o.w && pBottom > boxTop && pTop < boxBottom) {
+            gameOver('hit');
+            return;
+          }
+        }
+      }
+
+      // ---- Pickups ----
+      const pcx = PLAYER_X;
+      const pcy = player.feetY - player.h / 2;
+      for (let i = pickups.length - 1; i >= 0; i--) {
+        const s = pickups[i];
+        s.x -= speed * dt;
+        s.phase += dt * 3;
+        if (s.x < -60) { pickups.splice(i, 1); continue; }
+        const dx = s.x - pcx, dy = s.y - pcy;
+        if (dx * dx + dy * dy < (s.r + 20) * (s.r + 20)) {
+          pickups.splice(i, 1);
+          collectCount++;
+          starsEl.textContent = collectCount;
+          spawnSparkle(s.x, s.y);
+          chime(true);
+        }
+      }
+
+      // ---- Spawners ----
+      spawnCooldown -= speed * dt;
+      if (spawnCooldown <= 0) {
+        spawnObstacle();
+      }
+      starCooldown -= speed * dt;
+      if (starCooldown <= 0) {
+        spawnStarArc(W + 60);
+        starCooldown = 260 + Math.random() * 340;
+      }
+
+      // ---- Trail ----
+      trail.push({ x: PLAYER_X - 14, y: player.feetY - player.h * 0.6, life: 1 });
+      trail = trail.filter((tp) => {
+        tp.life -= dt * 2.2;
+        return tp.life > 0;
+      });
+      if (trail.length > 40) trail.splice(0, trail.length - 40);
+
+      // ---- Snow spray while running on ground ----
+      if (player.onGround && Math.random() < 0.5) {
+        spawnPuff(PLAYER_X - 12, GROUND_Y, 1, '#dcefff');
+      }
+
+      // ---- HUD ----
+      scoreEl.textContent = Math.floor(distance);
+
+      updateParticles(dt);
+    }
+
+    // ============ DRAWING ============
+    function makeStarfield() {
+      starfield = [];
+      for (let i = 0; i < 140; i++) {
+        starfield.push({
+          x: Math.random() * W,
+          y: Math.random() * GROUND_Y * 0.72,
+          r: Math.random() * 1.5 + 0.4,
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+    }
+
+    function drawSky() {
+      const g = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+      g.addColorStop(0, '#04050f');
+      g.addColorStop(0.45, '#0a1030');
+      g.addColorStop(0.78, '#141a44');
+      g.addColorStop(1, '#241a4e');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, GROUND_Y);
+    }
+
+    function drawSkyStars() {
+      for (let i = 0; i < starfield.length; i++) {
+        const s = starfield[i];
+        const tw = 0.55 + 0.45 * Math.sin(elapsed * 2 + s.phase);
+        ctx.globalAlpha = tw;
+        ctx.fillStyle = '#dcebff';
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawAurora() {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 3; i++) {
+        const hue = (auroraHue + i * 78) % 360;
+        const amp = 38 + i * 16;
+        const yBase = 96 + i * 58;
+        ctx.beginPath();
+        ctx.moveTo(0, GROUND_Y);
+        for (let x = 0; x <= W; x += 14) {
+          const wx = x + worldX * (0.16 + 0.06 * i);
+          const y = yBase
+            + Math.sin(wx * 0.0042 + i * 1.4 + elapsed * 0.7) * amp
+            + Math.sin(wx * 0.0125 + i * 2.1) * amp * 0.42
+            + Math.sin(wx * 0.031 + elapsed) * 6;
+          ctx.lineTo(x, y);
+        }
+        ctx.lineTo(W, GROUND_Y);
+        ctx.closePath();
+        const lg = ctx.createLinearGradient(0, yBase - amp, 0, yBase + amp * 3.4);
+        lg.addColorStop(0, `hsla(${hue}, 95%, 72%, 0)`);
+        lg.addColorStop(0.32, `hsla(${hue}, 96%, 62%, 0.26)`);
+        lg.addColorStop(0.62, `hsla(${(hue + 46) % 360}, 95%, 56%, 0.15)`);
+        lg.addColorStop(1, `hsla(${(hue + 46) % 360}, 95%, 52%, 0)`);
+        ctx.fillStyle = lg;
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawMoon() {
+      const mx = 790, my = 96;
+      const glow = ctx.createRadialGradient(mx, my, 6, mx, my, 70);
+      glow.addColorStop(0, 'rgba(210, 235, 255, 0.5)');
+      glow.addColorStop(1, 'rgba(210, 235, 255, 0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.arc(mx, my, 70, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#eef6ff';
+      ctx.beginPath(); ctx.arc(mx, my, 26, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(180, 205, 235, 0.5)';
+      ctx.beginPath(); ctx.arc(mx - 8, my - 6, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(mx + 7, my + 8, 3.5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    function ridgeTop(worldXPos, base, amp, phase) {
+      return base - amp * (
+        0.55
+        + 0.26 * Math.sin(worldXPos * 0.0034 + phase)
+        + 0.15 * Math.sin(worldXPos * 0.0091 + phase * 1.7)
+        + 0.08 * Math.sin(worldXPos * 0.021 + phase * 2.3)
+      );
+    }
+
+    function drawRidge(factor, base, amp, color, phase) {
+      ctx.beginPath();
+      ctx.moveTo(0, GROUND_Y);
+      for (let x = 0; x <= W; x += 8) {
+        const wx = x + worldX * factor;
+        ctx.lineTo(x, ridgeTop(wx, base, amp, phase));
+      }
+      ctx.lineTo(W, GROUND_Y);
+      ctx.closePath();
+      const g = ctx.createLinearGradient(0, base - amp, 0, GROUND_Y);
+      g.addColorStop(0, color[0]);
+      g.addColorStop(1, color[1]);
+      ctx.fillStyle = g;
+      ctx.fill();
+    }
+
+    function drawGround() {
+      // Snow field
+      const g = ctx.createLinearGradient(0, GROUND_Y, 0, H);
+      g.addColorStop(0, '#e7f3ff');
+      g.addColorStop(0.18, '#b9d6ef');
+      g.addColorStop(0.55, '#7d9fc6');
+      g.addColorStop(1, '#4d6a93');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
+
+      // Bright surface line
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.fillRect(0, GROUND_Y - 2, W, 3);
+
+      // Sparkle texture on snow
+      if (Math.random() < 0.35) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        const sx = Math.random() * W;
+        ctx.fillRect(sx, GROUND_Y + Math.random() * (H - GROUND_Y), 2, 2);
+      }
+
+      // Crevasse voids
+      for (let i = 0; i < obstacles.length; i++) {
+        const o = obstacles[i];
+        if (o.type !== 'gap') continue;
+        const vg = ctx.createLinearGradient(o.x, GROUND_Y, o.x, H);
+        vg.addColorStop(0, '#10203f');
+        vg.addColorStop(0.5, '#060a18');
+        vg.addColorStop(1, '#02030a');
+        ctx.fillStyle = vg;
+        ctx.fillRect(o.x, GROUND_Y - 2, o.w, H - GROUND_Y + 2);
+
+        // Jagged ice lips on both edges
+        ctx.fillStyle = '#eaf6ff';
+        ctx.beginPath();
+        ctx.moveTo(o.x, GROUND_Y - 2);
+        ctx.lineTo(o.x + 12, GROUND_Y + 16);
+        ctx.lineTo(o.x, GROUND_Y + 22);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(o.x + o.w, GROUND_Y - 2);
+        ctx.lineTo(o.x + o.w - 12, GROUND_Y + 16);
+        ctx.lineTo(o.x + o.w, GROUND_Y + 22);
+        ctx.closePath();
+        ctx.fill();
+
+        // Cold glow rising from the void
+        const gg = ctx.createLinearGradient(o.x, GROUND_Y, o.x, GROUND_Y - 90);
+        gg.addColorStop(0, 'rgba(90, 200, 255, 0.22)');
+        gg.addColorStop(1, 'rgba(90, 200, 255, 0)');
+        ctx.fillStyle = gg;
+        ctx.fillRect(o.x, GROUND_Y - 90, o.w, 90);
+      }
+    }
+
+    function drawArches() {
+      for (let i = 0; i < obstacles.length; i++) {
+        const o = obstacles[i];
+        if (o.type !== 'arch') continue;
+        const top = -20;
+        const bottom = GROUND_Y - 30;
+
+        // Translucent ice curtain
+        const g = ctx.createLinearGradient(o.x, 0, o.x + o.w, 0);
+        g.addColorStop(0, 'rgba(150, 220, 255, 0.10)');
+        g.addColorStop(0.5, 'rgba(190, 240, 255, 0.26)');
+        g.addColorStop(1, 'rgba(150, 220, 255, 0.10)');
+        ctx.fillStyle = g;
+        ctx.fillRect(o.x, top, o.w, bottom - top);
+
+        // Vertical crystal streaks
+        ctx.strokeStyle = 'rgba(220, 245, 255, 0.35)';
+        ctx.lineWidth = 2;
+        for (let k = 1; k < 4; k++) {
+          const lx = o.x + (o.w / 4) * k;
+          ctx.beginPath();
+          ctx.moveTo(lx, top);
+          ctx.lineTo(lx + (k % 2 ? 3 : -3), bottom);
+          ctx.stroke();
+        }
+
+        // Bright bottom edge (the arch lip you slide under)
+        ctx.fillStyle = 'rgba(230, 248, 255, 0.95)';
+        ctx.fillRect(o.x - 3, bottom - 3, o.w + 6, 5);
+        ctx.save();
+        ctx.shadowColor = 'rgba(140, 225, 255, 0.9)';
+        ctx.shadowBlur = 16;
+        ctx.fillStyle = 'rgba(180, 235, 255, 0.9)';
+        ctx.fillRect(o.x - 3, bottom - 3, o.w + 6, 4);
+        ctx.restore();
+
+        // Hanging icicles inside the curtain
+        ctx.fillStyle = 'rgba(210, 240, 255, 0.6)';
+        for (let k = 0; k < 5; k++) {
+          const ix = o.x + 8 + k * (o.w - 16) / 4;
+          const len = 10 + ((k * 7) % 16);
+          ctx.beginPath();
+          ctx.moveTo(ix - 4, bottom - 30);
+          ctx.lineTo(ix + 4, bottom - 30);
+          ctx.lineTo(ix, bottom - 30 + len);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+    }
+
+    function drawPickups() {
+      for (let i = 0; i < pickups.length; i++) {
+        const s = pickups[i];
+        const tw = 0.6 + 0.4 * Math.sin(s.phase);
+        const r = s.r * tw;
+
+        const glow = ctx.createRadialGradient(s.x, s.y, 1, s.x, s.y, s.r * 2.6);
+        glow.addColorStop(0, 'rgba(255, 224, 138, 0.55)');
+        glow.addColorStop(1, 'rgba(255, 224, 138, 0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.r * 2.6, 0, Math.PI * 2); ctx.fill();
+
+        ctx.fillStyle = '#ffe9a8';
+        ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, Math.PI * 2); ctx.fill();
+
+        // Four-point star flare
+        ctx.strokeStyle = 'rgba(255, 245, 210, 0.9)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(s.x - s.r * 1.8, s.y); ctx.lineTo(s.x + s.r * 1.8, s.y);
+        ctx.moveTo(s.x, s.y - s.r * 1.8); ctx.lineTo(s.x, s.y + s.r * 1.8);
+        ctx.stroke();
+      }
+    }
+
+    function drawTrail() {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < trail.length; i++) {
+        const t = trail[i];
+        ctx.globalAlpha = t.life * 0.35;
+        ctx.fillStyle = `hsl(${(auroraHue + 30) % 360}, 95%, 68%)`;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, 5 * t.life, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    }
+
+    function drawPlayer() {
+      const cx = PLAYER_X;
+      const feet = player.feetY;
+      const sliding = player.sliding;
+      const h = player.h;
+      const cy = feet - h / 2;
+      const bw = sliding ? PLAYER_W * 1.5 : PLAYER_W;
+      const bh = sliding ? SLIDE_H : STAND_H;
+
+      // Ground shadow
+      if (player.onGround) {
+        ctx.fillStyle = 'rgba(10, 20, 45, 0.35)';
+        ctx.beginPath();
+        ctx.ellipse(cx, GROUND_Y + 4, bw * 0.9, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Soft aura
+      const aura = ctx.createRadialGradient(cx, cy, 4, cx, cy, 52);
+      aura.addColorStop(0, `hsla(${(auroraHue + 20) % 360}, 100%, 70%, 0.42)`);
+      aura.addColorStop(1, 'hsla(200, 100%, 70%, 0)');
+      ctx.fillStyle = aura;
+      ctx.beginPath(); ctx.arc(cx, cy, 52, 0, Math.PI * 2); ctx.fill();
+
+      // Glide wings
+      if (player.gliding) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = `hsla(${(auroraHue + 60) % 360}, 100%, 74%, 0.55)`;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.quadraticCurveTo(cx - 44, cy - 26, cx - 62, cy + 6);
+        ctx.quadraticCurveTo(cx - 34, cy - 4, cx, cy + 12);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.quadraticCurveTo(cx + 44, cy - 26, cx + 62, cy + 6);
+        ctx.quadraticCurveTo(cx + 34, cy - 4, cx, cy + 12);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      if (sliding) ctx.rotate(-0.18);
+
+      // Body
+      const bodyG = ctx.createLinearGradient(0, -bh / 2, 0, bh / 2);
+      bodyG.addColorStop(0, '#ffffff');
+      bodyG.addColorStop(0.5, '#dff2ff');
+      bodyG.addColorStop(1, '#9fd0f0');
+      ctx.fillStyle = bodyG;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, bw / 2, bh / 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Ears
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(-8, -bh / 2 + 4);
+      ctx.lineTo(-13, -bh / 2 - 12);
+      ctx.lineTo(-2, -bh / 2 + 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(8, -bh / 2 + 4);
+      ctx.lineTo(14, -bh / 2 - 13);
+      ctx.lineTo(2, -bh / 2 + 2);
+      ctx.closePath();
+      ctx.fill();
+
+      // Tail (glowing)
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = `hsla(${(auroraHue + 40) % 360}, 100%, 72%, 0.8)`;
+      ctx.beginPath();
+      ctx.moveTo(-bw / 2 + 4, 0);
+      ctx.quadraticCurveTo(-bw / 2 - 22, -6 + Math.sin(player.runPhase) * 8, -bw / 2 - 30, 12);
+      ctx.quadraticCurveTo(-bw / 2 - 14, 4, -bw / 2 + 4, 10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      // Eye
+      if (!sliding) {
+        ctx.fillStyle = '#1b2a4a';
+        ctx.beginPath(); ctx.arc(9, -4, 2.6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.arc(10, -5, 0.9, 0, Math.PI * 2); ctx.fill();
+      } else {
+        ctx.strokeStyle = '#1b2a4a';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(6, -6); ctx.lineTo(13, -4);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // Landing flash ring
+      if (landFlash > 0) {
+        ctx.strokeStyle = `rgba(200, 240, 255, ${landFlash * 0.6})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.ellipse(cx, GROUND_Y + 4, 30 + (1 - landFlash) * 40, 8, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    function drawHUD() {
+      // Speed gauge (canvas)
+      const bx = 26, by = H - 34, bw = 180, bh = 10;
+      const t = (speed - SPEED_START) / (SPEED_MAX - SPEED_START);
+      ctx.fillStyle = 'rgba(10, 20, 45, 0.55)';
+      ctx.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
+      const sg = ctx.createLinearGradient(bx, 0, bx + bw, 0);
+      sg.addColorStop(0, '#7ff0ff');
+      sg.addColorStop(1, `hsl(${(auroraHue + 60) % 360}, 95%, 66%)`);
+      ctx.fillStyle = sg;
+      ctx.fillRect(bx, by, bw * Math.max(0.04, t), bh);
+      ctx.fillStyle = '#9fb2e0';
+      ctx.font = '12px Trebuchet MS, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('SPEED', bx, by - 10);
+
+      // Distance (canvas, for scaling clarity)
+      ctx.fillStyle = '#dff2ff';
+      ctx.font = 'bold 22px Trebuchet MS, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(Math.floor(distance) + ' m', W - 26, 40);
+      ctx.font = '12px Trebuchet MS, sans-serif';
+      ctx.fillStyle = '#ffe08a';
+      ctx.fillText('★ ' + collectCount, W - 26, 60);
+      ctx.textAlign = 'left';
+    }
+
+    function draw() {
+      drawSky();
+      drawSkyStars();
+      drawAurora();
+      drawMoon();
+      drawRidge(0.20, GROUND_Y + 10, 120, ['#1b2350', '#0d1230'], 1.3);
+      drawRidge(0.38, GROUND_Y + 16, 86, ['#28356b', '#161d40'], 3.7);
+      drawGround();
+      drawArches();
+      drawPickups();
+      drawTrail();
+      if (player) drawPlayer();
+      drawParticles();
+      drawHUD();
+    }
+
+    // ============ MAIN LOOP ============
+    let lastTime = 0;
+
+    function loop(now) {
+      if (!lastTime) lastTime = now;
+      let dt = (now - lastTime) / 1000;
+      lastTime = now;
+      if (dt > 0.05) dt = 0.05;   // clamp after tab switches
+
+      update(dt);
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // ============ FLOW ============
+    function startRun() {
+      resetGame();
+      state = 'playing';
+      isPaused = false;
+      startScreen.classList.add('hidden');
+      gameOverScreen.classList.add('hidden');
+      pauseOverlay.classList.remove('visible');
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+      beep(520, 0.10, 'triangle', 0.10);
+      setTimeout(() => beep(780, 0.12, 'triangle', 0.09), 90);
+    }
+
+    startBtn.addEventListener('click', startRun);
+    playAgainBtn.addEventListener('click', startRun);
+
+    soundToggle.addEventListener('click', () => {
+      muted = !muted;
+      soundToggle.textContent = muted ? '🔇' : '🔊';
+      if (!muted) beep(600, 0.08, 'sine', 0.08);
+    });
+
+    // ============ INITIALISE ============
+    resetGame();
+    makeStarfield();
+    state = 'menu';
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

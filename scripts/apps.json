@@ -1,5 +1,5 @@
 {
- "_comment": "Single source of truth for the software apps shipped by this monorepo. Consumed by scripts/build_site.py (GitHub Pages landing page + deploy copy list) and scripts/publish_portfolio.py (portfolio cards + Obsidian notes). `description` is the full portfolio-card copy (HTML-ready); `desc` is the short landing-page blurb. `links` are relative to the deployed site root (https://juwpegatron.github.io/projects/<rel>). Extra fields `image_alt`, `project_id`, `label` (thumbnail aria-label) and `desc` reproduce the live markup verbatim.",
+ "_comment": "Single source of truth for the software apps shipped by this monorepo. Consumed by scripts/build_site.py (GitHub Pages landing page + deploy copy list) and scripts/publish_portfolio.py (portfolio cards + Obsidian notes). `description` is the full portfolio-card copy (HTML-ready); `desc` is the short landing-page blurb. `links` are relative to the deployed site root (https://juw12.github.io/projects/<rel>). Extra fields `image_alt`, `project_id`, `label` (thumbnail aria-label) and `desc` reproduce the live markup verbatim.",
  "apps": [
   {
    "id": "orbis",
@@ -147,7 +147,7 @@
    "image": "airiz-motor-hero.svg",
    "image_alt": "Airiz Motor Test Console dashboard: command library, serial console and macro notepad for AIRIZ device motor testing",
    "links": {
-    "app": "https://github.com/juwpegatron/projects/releases/download/airiz-desktop-v1.1.0/AIRIZ-Console-Setup-1.1.0-x64.exe",
+    "app": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.1.0/AIRIZ-Console-Setup-1.1.0-x64.exe",
     "web": "airiz-motor/",
     "mobile": "airiz-motor/"
    },
@@ -156,7 +156,7 @@
    "card_links": [
     {
      "label": "Windows app",
-     "path": "https://github.com/juwpegatron/projects/releases/download/airiz-desktop-v1.1.0/AIRIZ-Console-Setup-1.1.0-x64.exe"
+     "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.1.0/AIRIZ-Console-Setup-1.1.0-x64.exe"
     },
     {
      "label": "Web",
@@ -245,7 +245,7 @@
    ],
    "image": "kobochan-form3-hero.png",
    "image_alt": "Kobo-chan: a 100 mm solid figurine revised for Form 3, shown from the front and three-quarter view",
-   "files": "https://github.com/juwpegatron/projects/tree/main/outputs/3d-models",
+   "files": "https://github.com/juw12/projects/tree/main/outputs/3d-models",
    "order": 3,
    "anchor_id": "models-3d-library",
    "thumbnails": [
@@ -263,11 +263,11 @@
    "extra_links": [
     {
      "label": "Kobo-chan / Form 3",
-     "url": "https://github.com/juwpegatron/projects/tree/main/outputs/3d-models/kobochan"
+     "url": "https://github.com/juw12/projects/tree/main/outputs/3d-models/kobochan"
     },
     {
      "label": "Download package",
-     "url": "https://github.com/juwpegatron/projects/raw/refs/heads/main/outputs/3d-models/kobochan/kobochan_form3_package.zip"
+     "url": "https://github.com/juw12/projects/raw/refs/heads/main/outputs/3d-models/kobochan/kobochan_form3_package.zip"
     }
    ]
   },
@@ -442,7 +442,7 @@
    "featured": true,
    "order": 15,
    "status": "public-beta",
-   "version": "4.0.0",
+   "version": "4.0.1",
    "note_tags": [
     "projects",
     "education",
@@ -464,8 +464,8 @@
      "path": "guangyao/index.html#home"
     },
     {
-     "label": "Content repository",
-     "path": "https://github.com/juwpegatron/guangyao-content"
+     "label": "Published content",
+     "path": "https://github.com/juw12/projects/tree/main/content/guangyao"
     }
    ]
   },
@@ -579,6 +579,24 @@
    },
    "status": "shipped",
    "order": 21
+  },
+  {
+   "id": "gamelib",
+   "name": "Game Library",
+   "category": "Apps",
+   "desc": "Browser games, kept available by direct link without a public showcase card.",
+   "description": "A collection of browser games maintained inside Projects.",
+   "tags": [
+    "browser games",
+    "JavaScript"
+   ],
+   "links": {
+    "app": "gamelib/",
+    "web": "gamelib/",
+    "mobile": "gamelib/"
+   },
+   "listed": false,
+   "order": 999
   }
  ]
 }

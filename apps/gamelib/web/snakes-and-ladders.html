@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Snakes &amp; Ladders</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(circle at 50% 0%, #1d4b57 0%, #123039 55%, #0b1f26 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+    color: #eaf6f8;
+    padding: 14px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ============ LAYOUT ============ */
+  #app {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-start;
+    justify-content: center;
+    width: min(96vw, 980px);
+  }
+  #board-wrap {
+    position: relative;
+    flex: 1 1 420px;
+    max-width: 620px;
+    min-width: 300px;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 14px 44px rgba(0,0,0,.5), 0 0 0 3px rgba(247, 216, 160, .18);
+    background: #0e2830;
+  }
+  canvas { display: block; width: 100%; height: auto; }
+
+  /* ============ SIDE PANEL ============ */
+  #panel {
+    flex: 0 1 300px;
+    min-width: 260px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  #title {
+    text-align: center;
+    font-size: 1.35rem;
+    letter-spacing: 2px;
+    color: #ffd98a;
+    text-shadow: 0 2px 0 rgba(0,0,0,.45);
+  }
+  .card {
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 12px;
+    padding: 12px;
+  }
+  .card h3 {
+    font-size: .72rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #7fc6d4;
+    margin-bottom: 8px;
+    font-weight: 700;
+  }
+
+  /* ============ TURN + DIE ============ */
+  #turn-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  #turn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: .98rem;
+    font-weight: 700;
+  }
+  #turn-dot {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: #888;
+    box-shadow: 0 0 0 3px rgba(255,255,255,.12);
+    transition: background .2s ease;
+  }
+  #die {
+    width: 62px; height: 62px;
+    border-radius: 12px;
+    background: linear-gradient(160deg, #fffdf5, #ffe9c2);
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    padding: 8px;
+    gap: 2px;
+    box-shadow: inset 0 -4px 0 rgba(0,0,0,.12), 0 4px 10px rgba(0,0,0,.35);
+    flex: 0 0 auto;
+  }
+  #die.rolling { animation: shake .09s linear infinite; }
+  @keyframes shake {
+    0%   { transform: translate(0,0) rotate(0deg); }
+    25%  { transform: translate(-2px,1px) rotate(-6deg); }
+    50%  { transform: translate(2px,-1px) rotate(5deg); }
+    75%  { transform: translate(-1px,-2px) rotate(-3deg); }
+    100% { transform: translate(0,0) rotate(0deg); }
+  }
+  .cell3 { display: flex; align-items: center; justify-content: center; }
+  .pip {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #2a2a2a;
+    box-shadow: inset 0 1px 1px rgba(255,255,255,.35);
+  }
+
+  /* ============ PLAYERS LIST ============ */
+  .prow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 6px;
+    border-radius: 8px;
+    font-size: .9rem;
+    transition: background .2s ease;
+  }
+  .prow.active { background: rgba(255,217,138,.16); }
+  .pdot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+    box-shadow: 0 0 0 2px rgba(0,0,0,.25);
+  }
+  .pname { flex: 1 1 auto; }
+  .ppos { font-variant-numeric: tabular-nums; color: #ffd98a; font-weight: 700; }
+
+  /* ============ LOG ============ */
+  #log {
+    height: 148px;
+    overflow-y: auto;
+    font-size: .8rem;
+    line-height: 1.5;
+    color: #c7e0e5;
+  }
+  #log div { padding: 2px 0; border-bottom: 1px dashed rgba(255,255,255,.07); }
+  #log .up { color: #8ce09a; }
+  #log .down { color: #ff9a8c; }
+  #log .win { color: #ffd98a; font-weight: 700; }
+
+  /* ============ BUTTONS ============ */
+  .btn {
+    font-family: inherit;
+    font-size: .95rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    color: #10262c;
+    background: linear-gradient(160deg, #ffd98a, #f5b942);
+    box-shadow: 0 4px 0 rgba(0,0,0,.3);
+    transition: transform .06s ease, filter .15s ease;
+    user-select: none;
+  }
+  .btn:hover { filter: brightness(1.07); }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.3); }
+  #roll-btn { width: 100%; }
+  #roll-btn:disabled { filter: grayscale(.6) brightness(.75); cursor: default; transform: none; }
+
+  /* ============ OVERLAYS ============ */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    text-align: center;
+    padding: 22px;
+    background: radial-gradient(circle at 50% 40%, rgba(16,50,58,.94), rgba(8,24,29,.97));
+    backdrop-filter: blur(2px);
+    transition: opacity .28s ease;
+    z-index: 5;
+  }
+  .overlay.hidden { opacity: 0; pointer-events: none; }
+  .overlay h2 {
+    font-size: 1.7rem;
+    color: #ffd98a;
+    text-shadow: 0 2px 0 rgba(0,0,0,.5);
+    letter-spacing: 1px;
+  }
+  .overlay p { font-size: .9rem; color: #b8d8de; max-width: 340px; }
+  .sel-label { font-size: .78rem; letter-spacing: 2px; text-transform: uppercase; color: #7fc6d4; }
+  .sel-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .sel-btn {
+    font-family: inherit;
+    font-size: .88rem;
+    font-weight: 700;
+    padding: 9px 16px;
+    border-radius: 20px;
+    border: 2px solid rgba(255,255,255,.25);
+    background: rgba(255,255,255,.05);
+    color: #dceef1;
+    cursor: pointer;
+    transition: all .16s ease;
+  }
+  .sel-btn:hover { background: rgba(255,255,255,.13); }
+  .sel-btn.selected {
+    background: linear-gradient(160deg, #ffd98a, #f5b942);
+    color: #10262c;
+    border-color: #ffd98a;
+  }
+  #result-stats { font-size: .82rem; color: #9fc4cc; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 720px) {
+    #app { flex-direction: column; align-items: stretch; }
+    #board-wrap { max-width: 100%; }
+    #panel { flex: 1 1 auto; }
+    #title { font-size: 1.15rem; }
+    #log { height: 110px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ============ BOARD ============ -->
+  <div id="board-wrap">
+    <canvas id="board" width="600" height="600"></canvas>
+
+    <!-- Start Overlay -->
+    <div id="start-overlay" class="overlay">
+      <h2>Snakes &amp; Ladders</h2>
+      <p>Roll the die and race to square 100. Climb the ladders, dodge the snakes — land on 100 exactly to win!</p>
+      <span class="sel-label">CPU Players</span>
+      <div class="sel-row" id="cpu-row">
+        <button class="sel-btn" data-cpu="1">1 Player</button>
+        <button class="sel-btn selected" data-cpu="2">2 Players</button>
+        <button class="sel-btn" data-cpu="3">3 Players</button>
+      </div>
+      <button class="btn" id="start-btn">Start Game</button>
+      <div id="start-stats"></div>
+    </div>
+
+    <!-- Result Overlay -->
+    <div id="result-overlay" class="overlay hidden">
+      <h2 id="result-title">You Win!</h2>
+      <p id="result-sub"></p>
+      <div id="result-stats"></div>
+      <button class="btn" id="again-btn">Play Again</button>
+    </div>
+  </div>
+
+  <!-- ============ SIDE PANEL ============ -->
+  <div id="panel">
+    <div id="title">SNAKES &amp; LADDERS</div>
+
+    <div class="card">
+      <h3>Turn &amp; Die</h3>
+      <div id="turn-row">
+        <div id="turn"><span id="turn-dot"></span><span id="turn-text">—</span></div>
+        <div id="die"></div>
+      </div>
+      <div style="margin-top:12px;">
+        <button class="btn" id="roll-btn" disabled>Roll Die</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Players</h3>
+      <div id="players"></div>
+    </div>
+
+    <div class="card">
+      <h3>Move Log</h3>
+      <div id="log"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============ BOARD SETUP ============ */
+  const canvas = document.getElementById("board");
+  const ctx = canvas.getContext("2d");
+  const SIZE = canvas.width;        // square canvas
+  const N = 10;                     // 10 x 10 squares
+  const CELL = SIZE / N;
+
+  // Public-domain board connectors.
+  // Ladders: base square -> top square (climb up).
+  const LADDERS = { 1: 38, 4: 14, 9: 31, 21: 42, 28: 84, 36: 44, 51: 67, 71: 91, 80: 100 };
+  // Snakes: head square -> tail square (slide down).
+  const SNAKES = { 16: 6, 47: 26, 49: 11, 56: 53, 62: 19, 64: 60, 87: 24, 93: 73, 95: 75, 98: 78 };
+
+  const COLORS = ["#ff5470", "#3aa0ff", "#35c46a", "#ffb020"];
+  const P_COLORS = { human: COLORS[0], cpu: [COLORS[1], COLORS[2], COLORS[3]] };
+
+  /* ============ DOM ============ */
+  const dieEl = document.getElementById("die");
+  const turnDot = document.getElementById("turn-dot");
+  const turnText = document.getElementById("turn-text");
+  const rollBtn = document.getElementById("roll-btn");
+  const playersEl = document.getElementById("players");
+  const logEl = document.getElementById("log");
+  const startOverlay = document.getElementById("start-overlay");
+  const resultOverlay = document.getElementById("result-overlay");
+  const resultTitle = document.getElementById("result-title");
+  const resultSub = document.getElementById("result-sub");
+  const resultStats = document.getElementById("result-stats");
+  const startStats = document.getElementById("start-stats");
+  const cpuRow = document.getElementById("cpu-row");
+
+  /* ============ STATE ============ */
+  const STATE = { IDLE: 0, PLAYING: 1, OVER: 2 };
+  let state = STATE.IDLE;
+  let players = [];        // {name, color, pos, rx, ry, isCPU}
+  let cur = 0;             // current player index
+  let busy = false;        // animation / movement in progress
+  let dieVal = 1;
+
+  let cpuCount = clamp(Number(localStorage.getItem("sal_cpu") || 2), 1, 3);
+  let humanWins = Number(localStorage.getItem("sal_wins") || 0);
+  let gamesPlayed = Number(localStorage.getItem("sal_games") || 0);
+
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, isNaN(v) ? lo : v)); }
+
+  /* ============ SOUND (WebAudio, no assets) ============ */
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+  function chime() {
+    beep(660, 0.12, "sine");
+    setTimeout(function () { beep(880, 0.12, "sine"); }, 110);
+    setTimeout(function () { beep(1180, 0.22, "sine"); }, 230);
+  }
+
+  /* ============ DIE RENDERING (3x3 pip grid) ============ */
+  const PIP_LAYOUT = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+  function renderDie(v) {
+    const pips = PIP_LAYOUT[v] || [];
+    let html = "";
+    for (let i = 0; i < 9; i++) {
+      html += '<div class="cell3">' + (pips.indexOf(i) !== -1 ? '<span class="pip"></span>' : "") + '</div>';
+    }
+    dieEl.innerHTML = html;
+  }
+
+  /* ============ SQUARE <-> COORDINATES (boustrophedon) ============ */
+  // Square 1 at bottom-left, snaking left-to-right / right-to-left up the board.
+  function squareCenter(n) {
+    const i = n - 1;
+    const row = Math.floor(i / N);        // 0 = bottom row
+    let col = i % N;
+    if (row % 2 === 1) col = N - 1 - col; // reverse odd rows
+    return { x: col * CELL + CELL / 2, y: (N - 1 - row) * CELL + CELL / 2 };
+  }
+
+  /* ============ BOARD DRAWING ============ */
+  function drawBoard() {
+    // Parchment base
+    const g = ctx.createLinearGradient(0, 0, SIZE, SIZE);
+    g.addColorStop(0, "#fdf6e3");
+    g.addColorStop(1, "#f2e3c2");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, SIZE, SIZE);
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "bold " + Math.round(CELL * 0.24) + "px 'Trebuchet MS', sans-serif";
+
+    for (let n = 1; n <= N * N; n++) {
+      const i = n - 1;
+      const row = Math.floor(i / N);
+      let col = i % N;
+      if (row % 2 === 1) col = N - 1 - col;
+      const x = col * CELL;
+      const y = (N - 1 - row) * CELL;
+
+      // Alternating warm checker
+      ctx.fillStyle = ((row + col) % 2 === 0) ? "#fbeecd" : "#efdcb4";
+      if (n === 100) ctx.fillStyle = "#ffe08a";
+      if (n === 1) ctx.fillStyle = "#d8f0dc";
+      ctx.fillRect(x, y, CELL, CELL);
+
+      // Grid line
+      ctx.strokeStyle = "rgba(120, 90, 50, .22)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + .5, y + .5, CELL - 1, CELL - 1);
+
+      // Square number
+      ctx.fillStyle = "rgba(110, 80, 40, .65)";
+      ctx.fillText(String(n), x + CELL * 0.24, y + CELL * 0.22);
+    }
+
+    // START / FINISH markers
+    ctx.fillStyle = "#2f8f4a";
+    ctx.font = "bold " + Math.round(CELL * 0.2) + "px 'Trebuchet MS', sans-serif";
+    const s = squareCenter(1);
+    ctx.fillText("GO", s.x, s.y + CELL * 0.3);
+    ctx.fillStyle = "#b8842a";
+    const f = squareCenter(100);
+    ctx.fillText("END", f.x, f.y + CELL * 0.3);
+
+    // Decorative border
+    ctx.strokeStyle = "rgba(140, 100, 55, .55)";
+    ctx.lineWidth = 6;
+    ctx.strokeRect(3, 3, SIZE - 6, SIZE - 6);
+  }
+
+  function drawLadder(a, b) {
+    const p1 = squareCenter(a);
+    const p2 = squareCenter(b);
+    const dx = p2.x - p1.x, dy = p2.y - p1.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len, uy = dy / len;
+    const off = CELL * 0.17;
+    const nx = -uy * off, ny = ux * off;
+
+    // Rails
+    ctx.strokeStyle = "#a0622d";
+    ctx.lineWidth = Math.max(3, CELL * 0.08);
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(p1.x + nx, p1.y + ny); ctx.lineTo(p2.x + nx, p2.y + ny);
+    ctx.moveTo(p1.x - nx, p1.y - ny); ctx.lineTo(p2.x - nx, p2.y - ny);
+    ctx.stroke();
+
+    // Rungs
+    const rungs = Math.max(3, Math.round(len / (CELL * 0.34)));
+    ctx.strokeStyle = "#c78a4b";
+    ctx.lineWidth = Math.max(2, CELL * 0.05);
+    for (let i = 1; i < rungs; i++) {
+      const t = i / rungs;
+      const bx = p1.x + dx * t, by = p1.y + dy * t;
+      ctx.beginPath();
+      ctx.moveTo(bx + nx, by + ny);
+      ctx.lineTo(bx - nx, by - ny);
+      ctx.stroke();
+    }
+  }
+
+  function drawSnakeObj(a, b) {
+    const p1 = squareCenter(a);  // head (higher square)
+    const p2 = squareCenter(b);  // tail
+    const dx = p2.x - p1.x, dy = p2.y - p1.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len, uy = dy / len;
+    const nx = -uy, ny = ux;
+    const amp = CELL * 0.3;
+    const segs = Math.max(10, Math.floor(len / 10));
+
+    // Body: sine wave from head to tail
+    ctx.beginPath();
+    for (let i = 0; i <= segs; i++) {
+      const t = i / segs;
+      const bulge = Math.sin(t * Math.PI * 3) * amp * (1 - t * 0.35);
+      const x = p1.x + dx * t + nx * bulge;
+      const y = p1.y + dy * t + ny * bulge;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    // Dark outline then green body then lighter spine
+    ctx.lineWidth = CELL * 0.26;
+    ctx.strokeStyle = "#1d6b32";
+    ctx.stroke();
+    ctx.lineWidth = CELL * 0.18;
+    ctx.strokeStyle = "#38a34d";
+    ctx.stroke();
+    ctx.lineWidth = CELL * 0.05;
+    ctx.strokeStyle = "rgba(180, 245, 190, .8)";
+    ctx.stroke();
+
+    // Head (facing up the board, toward the head square)
+    ctx.save();
+    ctx.translate(p1.x, p1.y);
+    const ang = Math.atan2(-uy, -ux); // point outward from body start
+    ctx.rotate(ang);
+    ctx.fillStyle = "#2c8c42";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, CELL * 0.24, CELL * 0.19, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#1d6b32";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // Eyes
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.arc(CELL * 0.1, -CELL * 0.08, CELL * 0.05, 0, Math.PI * 2);
+    ctx.arc(CELL * 0.1, CELL * 0.08, CELL * 0.05, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#111";
+    ctx.beginPath();
+    ctx.arc(CELL * 0.12, -CELL * 0.08, CELL * 0.024, 0, Math.PI * 2);
+    ctx.arc(CELL * 0.12, CELL * 0.08, CELL * 0.024, 0, Math.PI * 2);
+    ctx.fill();
+    // Tongue
+    ctx.strokeStyle = "#ff5470";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(CELL * 0.22, 0);
+    ctx.lineTo(CELL * 0.32, 0);
+    ctx.stroke();
+    ctx.restore();
+
+    // Tail tip
+    ctx.fillStyle = "#2c8c42";
+    ctx.beginPath();
+    ctx.arc(p2.x, p2.y, CELL * 0.08, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  /* ============ TOKEN DRAWING ============ */
+  function drawTokens() {
+    // Group players sharing a square for tidy offsets
+    const groups = {};
+    players.forEach(function (p, i) {
+      (groups[p.pos] = groups[p.pos] || []).push(i);
+    });
+
+    players.forEach(function (p, i) {
+      const grp = groups[p.pos];
+      const idxInGrp = grp.indexOf(i);
+      const count = grp.length;
+      let ox = 0, oy = 0;
+      if (count > 1) {
+        const ang = (idxInGrp / count) * Math.PI * 2 - Math.PI / 2;
+        ox = Math.cos(ang) * CELL * 0.16;
+        oy = Math.sin(ang) * CELL * 0.16;
+      }
+
+      const x = p.rx + ox;
+      const y = p.ry + oy;
+      const r = CELL * 0.24;
+
+      // Pulsing ring on the active token
+      if (state === STATE.PLAYING && players[cur] === p) {
+        const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 260);
+        ctx.beginPath();
+        ctx.arc(x, y, r + 5 + pulse * 3, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(255, 217, 138," + (0.35 + pulse * 0.4) + ")";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
+
+      // Shadow
+      ctx.beginPath();
+      ctx.arc(x + 1.5, y + 2.5, r, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(0,0,0,.28)";
+      ctx.fill();
+
+      // Body
+      const grad = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.15, x, y, r);
+      grad.addColorStop(0, "#ffffff");
+      grad.addColorStop(0.28, p.color);
+      grad.addColorStop(1, shade(p.color, -0.35));
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,.4)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Label
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold " + Math.round(CELL * 0.24) + "px 'Trebuchet MS', sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(p.isCPU ? String(i) : "Y", x, y + 1);
+    });
+  }
+
+  function shade(hex, amt) {
+    const c = hex.replace("#", "");
+    let r = parseInt(c.substr(0, 2), 16);
+    let g = parseInt(c.substr(2, 2), 16);
+    let b = parseInt(c.substr(4, 2), 16);
+    r = clamp(Math.round(r + r * amt), 0, 255);
+    g = clamp(Math.round(g + g * amt), 0, 255);
+    b = clamp(Math.round(b + b * amt), 0, 255);
+    return "rgb(" + r + "," + g + "," + b + ")";
+  }
+
+  /* ============ RENDER LOOP ============ */
+  function render() {
+    ctx.clearRect(0, 0, SIZE, SIZE);
+    drawBoard();
+    for (const k in LADDERS) drawLadder(Number(k), LADDERS[k]);
+    for (const k in SNAKES) drawSnakeObj(Number(k), SNAKES[k]);
+    if (players.length) drawTokens();
+  }
+
+  function loop() {
+    // Smooth token tweening toward their logical square
+    for (const p of players) {
+      const t = squareCenter(p.pos);
+      p.rx += (t.x - p.rx) * 0.22;
+      p.ry += (t.y - p.ry) * 0.22;
+    }
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  /* ============ UI SYNC ============ */
+  function log(msg, cls) {
+    const d = document.createElement("div");
+    d.textContent = msg;
+    if (cls) d.className = cls;
+    logEl.appendChild(d);
+    while (logEl.children.length > 60) logEl.removeChild(logEl.firstChild);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function updateUI() {
+    // Turn indicator
+    if (state === STATE.PLAYING && players[cur]) {
+      turnDot.style.background = players[cur].color;
+      turnText.textContent = players[cur].isCPU ? (players[cur].name + "'s turn") : "Your turn";
+    } else {
+      turnDot.style.background = "#888";
+      turnText.textContent = "—";
+    }
+
+    // Roll button enabled only on human turn while idle
+    rollBtn.disabled = !(state === STATE.PLAYING && !busy && players[cur] && !players[cur].isCPU);
+
+    // Players list
+    playersEl.innerHTML = "";
+    players.forEach(function (p, i) {
+      const row = document.createElement("div");
+      row.className = "prow" + (state === STATE.PLAYING && i === cur ? " active" : "");
+      const dot = document.createElement("span");
+      dot.className = "pdot";
+      dot.style.background = p.color;
+      const nm = document.createElement("span");
+      nm.className = "pname";
+      nm.textContent = p.name;
+      const ps = document.createElement("span");
+      ps.className = "ppos";
+      ps.textContent = "sq " + p.pos;
+      row.appendChild(dot); row.appendChild(nm); row.appendChild(ps);
+      playersEl.appendChild(row);
+    });
+  }
+
+  function tallyText() {
+    return "Games: " + gamesPlayed + "  •  Your wins: " + humanWins;
+  }
+
+  /* ============ GAME FLOW ============ */
+  function buildPlayers(count) {
+    const list = [{ name: "You", color: P_COLORS.human, pos: 1, rx: 0, ry: 0, isCPU: false }];
+    for (let i = 0; i < count; i++) {
+      list.push({ name: "CPU " + (i + 1), color: P_COLORS.cpu[i], pos: 1, rx: 0, ry: 0, isCPU: true });
+    }
+    // Snapshot default positions so tokens start on square 1 (not tweened from origin)
+    list.forEach(function (p) { const c = squareCenter(1); p.rx = c.x; p.ry = c.y; });
+    return list;
+  }
+
+  function startGame() {
+    players = buildPlayers(cpuCount);
+    cur = 0;
+    busy = false;
+    dieVal = 1;
+    renderDie(1);
+    logEl.innerHTML = "";
+    state = STATE.PLAYING;
+    startOverlay.classList.add("hidden");
+    resultOverlay.classList.add("hidden");
+    log("New game — " + players.length + " players. You go first!");
+    updateUI();
+  }
+
+  function rollSequence() {
+    if (state !== STATE.PLAYING || busy) return;
+    busy = true;
+    const roller = players[cur];
+    updateUI();
+
+    // Animated spin
+    dieEl.classList.add("rolling");
+    let ticks = 0;
+    const iv = setInterval(function () {
+      dieVal = 1 + Math.floor(Math.random() * 6);
+      renderDie(dieVal);
+      beep(430 + dieVal * 40, 0.035, "square");
+      ticks++;
+      if (ticks >= 11) {
+        clearInterval(iv);
+        dieEl.classList.remove("rolling");
+        finalizeRoll(roller);
+      }
+    }, 65);
+  }
+
+  function finalizeRoll(roller) {
+    const roll = dieVal;
+    const from = roller.pos;
+
+    if (from + roll > 100) {
+      log(roller.name + " rolled " + roll + " — needs exact roll, stays on " + from + ".");
+      beep(240, 0.14, "triangle");
+      endTurn();
+      return;
+    }
+
+    let to = from + roll;
+    log(roller.name + " rolled " + roll + ": " + from + " → " + to + ".");
+
+    setTimeout(function () {
+      if (LADDERS[to]) {
+        const dest = LADDERS[to];
+        log(roller.name + " climbs a ladder " + to + " → " + dest + "!", "up");
+        roller.pos = dest;
+        beep(520, 0.1, "sine");
+        setTimeout(function () { beep(760, 0.12, "sine"); }, 110);
+      } else if (SNAKES[to]) {
+        const dest = SNAKES[to];
+        log(roller.name + " bitten by a snake " + to + " → " + dest + "!", "down");
+        roller.pos = dest;
+        beep(420, 0.1, "sawtooth");
+        setTimeout(function () { beep(200, 0.18, "sawtooth"); }, 110);
+      } else {
+        roller.pos = to;
+        beep(620, 0.08, "square");
+      }
+
+      updateUI();
+
+      if (roller.pos === 100) {
+        win(roller);
+      } else {
+        endTurn();
+      }
+    }, 240);
+
+    // Move the token part-way now so the hop reads naturally
+    roller.pos = to;
+    updateUI();
+  }
+
+  function endTurn() {
+    setTimeout(function () {
+      if (state !== STATE.PLAYING) return;
+      cur = (cur + 1) % players.length;
+      busy = false;
+      updateUI();
+      const p = players[cur];
+      if (p && p.isCPU) {
+        setTimeout(function () { rollSequence(); }, 650);
+      }
+    }, 420);
+  }
+
+  function win(roller) {
+    state = STATE.OVER;
+    busy = false;
+    gamesPlayed++;
+    if (!roller.isCPU) humanWins++;
+    localStorage.setItem("sal_games", String(gamesPlayed));
+    localStorage.setItem("sal_wins", String(humanWins));
+
+    log(roller.name + (roller.isCPU ? " wins!" : " win! 🎉"), "win");
+    chime();
+
+    resultTitle.textContent = roller.isCPU ? (roller.name + " Wins!") : "You Win!";
+    resultSub.textContent = roller.isCPU
+      ? "Better luck next time — the snakes were hungry."
+      : "You reached square 100 first. Well played!";
+    resultStats.textContent = tallyText();
+    resultOverlay.classList.remove("hidden");
+    updateUI();
+  }
+
+  /* ============ INPUT ============ */
+  function humanRoll() {
+    if (state !== STATE.PLAYING || busy) return;
+    const p = players[cur];
+    if (!p || p.isCPU) return;
+    beep(700, 0.06, "square");
+    rollSequence();
+  }
+
+  rollBtn.addEventListener("click", humanRoll);
+
+  // Tap the board also rolls on the human's turn (mobile-friendly)
+  canvas.addEventListener("mousedown", humanRoll);
+  canvas.addEventListener("touchstart", function (e) { e.preventDefault(); humanRoll(); }, { passive: false });
+
+  document.getElementById("start-btn").addEventListener("click", startGame);
+  document.getElementById("again-btn").addEventListener("click", startGame);
+
+  cpuRow.querySelectorAll(".sel-btn").forEach(function (b) {
+    b.addEventListener("click", function () {
+      cpuCount = clamp(Number(b.dataset.cpu), 1, 3);
+      localStorage.setItem("sal_cpu", String(cpuCount));
+      cpuRow.querySelectorAll(".sel-btn").forEach(function (x) {
+        x.classList.toggle("selected", x === b);
+      });
+      beep(600, 0.05, "triangle");
+    });
+  });
+
+  // Keyboard: Space / Enter to roll
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "Space" || e.code === "Enter") {
+      e.preventDefault();
+      if (state === STATE.OVER) startGame();
+      else humanRoll();
+    }
+  });
+
+  /* ============ BOOT ============ */
+  // Reflect saved CPU selection
+  cpuRow.querySelectorAll(".sel-btn").forEach(function (x) {
+    x.classList.toggle("selected", Number(x.dataset.cpu) === cpuCount);
+  });
+  renderDie(1);
+  startStats.textContent = tallyText();
+  resultStats.textContent = tallyText();
+  players = buildPlayers(cpuCount); // preview tokens on square 1 behind overlay
+  updateUI();
+  loop();
+})();
+</script>
+</body>
+</html>

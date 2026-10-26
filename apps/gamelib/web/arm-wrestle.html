@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ARM WRESTLE</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { min-height: 100%; }
+  body {
+    background: radial-gradient(circle at 50% -10%, #3a2b1e 0%, #1a1310 42%, #0a0706 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Courier New', monospace;
+    color: #e8dcc8; padding: 12px; touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent; user-select: none;
+  }
+  #app { display: flex; flex-direction: column; align-items: center; gap: 12px; width: min(96vw, 880px); }
+
+  /* ============ GAME FRAME ============ */
+  #game-wrap {
+    position: relative; width: 100%;
+    border: 3px solid #3a2c20; border-radius: 10px; overflow: hidden;
+    box-shadow: 0 18px 50px rgba(0,0,0,.75), inset 0 0 60px rgba(0,0,0,.6);
+    background: #0d0a08;
+  }
+  canvas { display: block; width: 100%; height: auto; touch-action: none; }
+
+  /* ============ OVERLAY SCREENS ============ */
+  .screen {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; text-align: center; padding: 18px;
+    background: radial-gradient(circle at 50% 40%, rgba(30,20,12,.86) 0%, rgba(6,4,3,.96) 70%);
+    transition: opacity .28s ease;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+
+  .big {
+    font-family: 'Arial Black', 'Impact', Haettenschweiler, sans-serif;
+    font-size: clamp(30px, 8vw, 62px); letter-spacing: 2px; line-height: .95;
+    color: #ffb020; text-transform: uppercase;
+    text-shadow: 0 3px 0 #6b3d00, 0 6px 22px rgba(255,150,0,.35);
+  }
+  .big span { display: block; color: #e8452c; text-shadow: 0 3px 0 #5c130a, 0 6px 22px rgba(255,60,20,.3); }
+  .big.small { font-size: clamp(22px, 6vw, 40px); }
+  .tag { color: #b9a688; font-size: clamp(11px, 2.6vw, 14px); letter-spacing: 2px; }
+  .howto { color: #cbbda3; font-size: clamp(11px, 2.6vw, 13.5px); line-height: 1.85; }
+  .howto b { color: #ffb020; }
+  .score { color: #ffd451; font-size: clamp(16px, 4vw, 22px); font-weight: bold; letter-spacing: 3px; }
+  .foot { color: #7d6f5c; font-size: 11px; letter-spacing: 1.5px; margin-top: 4px; }
+  .foot span { color: #ffb020; }
+
+  .cta {
+    font-family: 'Arial Black', 'Impact', sans-serif;
+    font-size: clamp(14px, 3.4vw, 18px); letter-spacing: 2px;
+    padding: 13px 34px; margin-top: 6px;
+    border: none; border-radius: 8px; cursor: pointer; color: #241400;
+    background: linear-gradient(#ffcb4d, #f59200);
+    box-shadow: 0 5px 0 #8a4d00, 0 8px 20px rgba(0,0,0,.5);
+    transition: transform .06s ease, filter .15s ease;
+  }
+  .cta:hover { filter: brightness(1.08); }
+  .cta:active { transform: translateY(3px); box-shadow: 0 2px 0 #8a4d00; }
+  .cta.alt {
+    background: linear-gradient(#5c5044, #362d24); color: #e8dcc8;
+    box-shadow: 0 5px 0 #16110d; font-size: 13px; padding: 10px 22px;
+  }
+  .cta.alt:active { box-shadow: 0 2px 0 #16110d; }
+
+  /* ============ TOUCH CONTROLS ============ */
+  #controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; }
+  #controls button {
+    font-family: 'Arial Black', 'Impact', sans-serif;
+    font-size: 13px; letter-spacing: 1.5px;
+    padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer;
+    color: #f3e8d6; background: linear-gradient(#4c3f33, #2b221b);
+    box-shadow: 0 4px 0 #14100c; transition: transform .05s ease, filter .15s ease;
+  }
+  #controls button:hover { filter: brightness(1.15); }
+  #controls button:active { transform: translateY(3px); box-shadow: 0 1px 0 #14100c; }
+  #btnBurst { background: linear-gradient(#ffcb4d, #f08000); color: #241400; box-shadow: 0 4px 0 #7d3f00; }
+  #controls button.small { font-size: 11px; padding: 12px 14px; background: linear-gradient(#5a2a24, #33140f); box-shadow: 0 4px 0 #170806; }
+  #hint { color: #6f6353; font-size: 11px; letter-spacing: 1px; text-align: center; }
+  @media (max-width: 560px) { #hint { display: none; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="game-wrap">
+    <canvas id="game" width="800" height="480"></canvas>
+
+    <!-- ============ START OVERLAY ============ -->
+    <div id="startScreen" class="screen">
+      <h1 class="big">ARM<span>WRESTLE</span></h1>
+      <p class="tag">MASH &middot; ALTERNATE &middot; SHOVE &middot; DON'T LET GO</p>
+      <div class="howto">
+        <p><b>A</b> / <b>D</b> (or &larr; &rarr;) &mdash; alternate keys to crank the arm</p>
+        <p><b>SPACE</b> &mdash; unleash a POWER SHOVE when the meter charges</p>
+        <p>Drain their grip before your own dies. First to 2 rounds wins.</p>
+      </div>
+      <button id="btnStart" class="cta" type="button">WRESTLE!</button>
+      <p class="foot">MATCHES WON: <span id="winsDisplay">0</span> &nbsp;&bull;&nbsp; LADDER: <span id="ladderDisplay">1 / 4</span></p>
+    </div>
+
+    <!-- ============ ROUND OVERLAY ============ -->
+    <div id="roundScreen" class="screen hidden">
+      <h2 id="roundTitle" class="big small">ROUND WON</h2>
+      <p id="roundQuip" class="tag"></p>
+      <div id="roundScore" class="score"></div>
+      <button id="btnNextRound" class="cta" type="button">NEXT ROUND</button>
+    </div>
+
+    <!-- ============ MATCH OVERLAY ============ -->
+    <div id="matchScreen" class="screen hidden">
+      <h2 id="matchTitle" class="big small">MATCH WON</h2>
+      <p id="matchQuip" class="tag"></p>
+      <div id="matchScore" class="score"></div>
+      <button id="btnMatchPrimary" class="cta" type="button">NEXT CHALLENGER</button>
+      <button id="btnLadder" class="cta alt" type="button">RESTART LADDER</button>
+    </div>
+  </div>
+
+  <!-- ============ TOUCH CONTROLS ============ -->
+  <div id="controls">
+    <button id="btnL" type="button">&#9664; CRANK</button>
+    <button id="btnBurst" type="button">POWER SHOVE</button>
+    <button id="btnR" type="button">CRANK &#9654;</button>
+    <button id="btnRestart" class="small" type="button">RESTART</button>
+  </div>
+  <p id="hint">A / D (or &larr; &rarr;) alternate &nbsp;|&nbsp; SPACE = power shove &nbsp;|&nbsp; R = restart &nbsp;|&nbsp; tap = alternate</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CANVAS & CONSTANTS ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height, CX = W / 2;
+
+  const STATE = { START: 0, COUNTDOWN: 1, PLAY: 2, ROUND_END: 3, MATCH_END: 4 };
+  const ROUND_TIME = 45;        // seconds before the leader takes the round
+  const POWER_HL = 0.35;        // momentum half-life in seconds
+  const STAM_DRAIN = 6.5;       // player stamina spent per press
+  const STAM_REGEN = 22;        // player stamina regained per second while idle
+  const CPU_STAM_DRAIN = 6.0;
+  const CPU_STAM_REGEN = 20;
+  const BURST_ALT = 9;          // burst gained on a proper alternating hit
+  const BURST_SAME = 3;         // burst gained on a repeat-key hit
+  const SHOVE_MIN = 30;         // burst needed before a shove fires
+
+  const SKIN = "#cf9a6a", SKIN_D = "#7d5230";
+  const PLAYER_COL = "#ffb020", PLAYER_DARK = "#8a5400";
+
+  // ============ OPPONENT LADDER ============
+  const OPPONENTS = [
+    { name: "RUSTY JOE",  color: "#c8763a", trim: "#7a3f18", power: 0.06, interval: 0.52 },
+    { name: "BIG MARLA",  color: "#b5468f", trim: "#6d2354", power: 0.24, interval: 0.42 },
+    { name: "IRON KAZ",   color: "#4f8fc0", trim: "#22496b", power: 0.33, interval: 0.36 },
+    { name: "TITAN GRIP", color: "#7d5bd6", trim: "#3d2a72", power: 0.42, interval: 0.30 }
+  ];
+
+  const TAUNTS = [
+    ["C'mon, kid!", "That all you got?", "Flex harder!"],
+    ["Wobblin' yet?", "I lift trucks for fun.", "Heh heh heh."],
+    ["Pathetic.", "BREAK!", "Say when."],
+    ["GIVE UP.", "I own this table.", "Crunch."]
+  ];
+
+  const WIN_LINES = ["CRUSHED IT!", "THAT'S HOW IT'S DONE!", "PINNED! DUST!", "TEXTBOOK SLAM!"];
+  const LOSE_LINES = ["SLIPPED!", "TOO SLOW, KID!", "YOUR GRIP'S WEAK!", "GET UP. AGAIN."];
+  const SHOVE_LINES = ["POWER SHOVE!", "BOOM!", "THERE IT IS!", "MASSIVE!"];
+  const PERFECT_LINES = ["PERFECT SHOVE!", "ABSOLUTE UNIT!", "UNREAL POWER!"];
+
+  // ============ GAME STATE ============
+  let state = STATE.START;
+  let level = Number(localStorage.getItem("armWrestleMaxLevel") || 0);
+  if (!OPPONENTS[level]) level = 0;
+  let totalWins = Number(localStorage.getItem("armWrestleWins") || 0);
+
+  let pos = 0;                  // -1 = your hand pinned (bad), +1 = their hand pinned (good)
+  let playerPower = 0, cpuPower = 0;
+  let playerStamina = 100, cpuStamina = 100;
+  let burst = 0;
+  let playerRounds = 0, cpuRounds = 0;
+  let lastSide = null;
+  let timeSincePress = 9;
+  let cpuTimer = 0.6;
+  let roundTime = ROUND_TIME;
+  let countdown = 0, lastCount = 0, goFlash = 0;
+  let roundEndDelay = 0, overlayShown = false, matchDecided = false;
+  let lastRoundWinner = "player";
+  let shake = 0, shoveRing = 0, flash = 0;
+  let frames = 0;
+  let banner = "", bannerLife = 0, bannerColor = "#ffd451";
+  let tauntTimer = 8;
+  let floats = [], drops = [];
+
+  const $ = function (id) { return document.getElementById(id); };
+  const startScreen = $("startScreen"), roundScreen = $("roundScreen"), matchScreen = $("matchScreen");
+  const pick = function (a) { return a[Math.floor(Math.random() * a.length)]; };
+
+  // ============ AUDIO (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(vol || 0.06, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  // ============ SMALL HELPERS ============
+  function setBanner(text, color) { banner = text; bannerLife = 1.5; bannerColor = color || "#ffd451"; }
+  function addFloat(x, y, text, color, size) {
+    floats.push({ x: x, y: y, text: text, color: color, size: size || 18, life: 1, vy: -46 });
+  }
+  function updateLadderText() {
+    $("winsDisplay").textContent = String(totalWins);
+    $("ladderDisplay").textContent = (level + 1) + " / " + OPPONENTS.length;
+  }
+  function hideOverlays() {
+    startScreen.classList.add("hidden");
+    roundScreen.classList.add("hidden");
+    matchScreen.classList.add("hidden");
+  }
+  function rr(x, y, w, h, r) {
+    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); return; }
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+  // Rounded-capsule limb between two points with independent end widths.
+  function limb(a, b, wA, wB, fill, stroke) {
+    const ang = Math.atan2(b.y - a.y, b.x - a.x), rA = wA / 2, rB = wB / 2;
+    ctx.beginPath();
+    ctx.arc(a.x, a.y, rA, ang + Math.PI / 2, ang + 3 * Math.PI / 2, false);
+    ctx.arc(b.x, b.y, rB, ang - Math.PI / 2, ang + Math.PI / 2, false);
+    ctx.closePath();
+    ctx.fillStyle = fill; ctx.fill();
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 3; ctx.stroke(); }
+  }
+  function lerpPt(a, b, t) { return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }; }
+  function shade(hex, amt) {
+    const n = parseInt(hex.slice(1), 16);
+    let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    r = Math.max(0, Math.min(255, r + amt * 255));
+    g = Math.max(0, Math.min(255, g + amt * 255));
+    b = Math.max(0, Math.min(255, b + amt * 255));
+    return "rgb(" + (r | 0) + "," + (g | 0) + "," + (b | 0) + ")";
+  }
+
+  // ============ FLOW CONTROL ============
+  function startMatch() {
+    playerRounds = 0; cpuRounds = 0; matchDecided = false;
+    hideOverlays();
+    startRound();
+  }
+  function startRound() {
+    pos = 0; playerPower = 0; cpuPower = 0;
+    playerStamina = 100; cpuStamina = 100; burst = 0;
+    lastSide = null; timeSincePress = 9; cpuTimer = 0.55;
+    roundTime = ROUND_TIME; floats = []; drops = [];
+    shake = 0; shoveRing = 0; flash = 0; tauntTimer = 8;
+    overlayShown = false; roundEndDelay = 0;
+    countdown = 3.0; lastCount = 0; goFlash = 0;
+    state = STATE.COUNTDOWN;
+    setBanner(OPPONENTS[level].name + " STEPS UP", "#ffb020");
+  }
+  function endRound(winner) {
+    if (state !== STATE.PLAY) return;
+    state = STATE.ROUND_END;
+    roundEndDelay = 1.15;
+    shake = 16;
+    lastRoundWinner = winner;
+    if (winner === "player") {
+      playerRounds++;
+      setBanner(pick(WIN_LINES), "#ffd451");
+      beep(600, 0.12, "square");
+      setTimeout(function () { beep(880, 0.22, "square"); }, 110);
+    } else {
+      cpuRounds++;
+      setBanner(pick(LOSE_LINES), "#ff5a3c");
+      beep(170, 0.3, "sawtooth");
+    }
+    matchDecided = (playerRounds >= 2 || cpuRounds >= 2);
+  }
+  function showRoundOverlay() {
+    const won = lastRoundWinner === "player";
+    $("roundTitle").textContent = won ? "ROUND WON" : "ROUND LOST";
+    $("roundTitle").style.color = won ? "#ffb020" : "#e8452c";
+    $("roundQuip").textContent = won
+      ? pick(["They felt that one.", "Grip like a vice.", "Keep that rhythm."])
+      : pick(["Shake it off.", "Breathe. Then crush.", "Alternate the keys!"]);
+    $("roundScore").textContent = "YOU " + playerRounds + "  \u2014  " + cpuRounds + " " + OPPONENTS[level].name;
+    $("btnNextRound").textContent = matchDecided ? "SEE RESULT" : "NEXT ROUND";
+    roundScreen.classList.remove("hidden");
+    beep(won ? 760 : 300, 0.12, "triangle");
+  }
+  function showMatchOverlay() {
+    const won = playerRounds > cpuRounds;
+    state = STATE.MATCH_END;
+    if (won) {
+      totalWins++;
+      const cleared = level >= OPPONENTS.length - 1;
+      const nextLevel = Math.min(level + 1, OPPONENTS.length - 1);
+      localStorage.setItem("armWrestleWins", String(totalWins));
+      const storedLevel = Number(localStorage.getItem("armWrestleMaxLevel") || 0);
+      localStorage.setItem("armWrestleMaxLevel", String(Math.max(storedLevel, nextLevel)));
+      $("matchTitle").textContent = cleared ? "LADDER CLEARED" : "MATCH WON";
+      $("matchTitle").style.color = "#ffb020";
+      $("matchQuip").textContent = cleared
+        ? pick(["You broke the whole ladder. Legend.", "Nobody left to beat. Respect."])
+        : (OPPONENTS[level].name + " is done. Somebody tougher is waiting.");
+      $("btnMatchPrimary").textContent = cleared ? "RUN IT BACK" : "NEXT CHALLENGER";
+      beep(700, 0.14, "square");
+      setTimeout(function () { beep(980, 0.3, "square"); }, 130);
+    } else {
+      $("matchTitle").textContent = "MATCH LOST";
+      $("matchTitle").style.color = "#e8452c";
+      $("matchQuip").textContent = pick(["Get back on the table.", "Shake it out. Go again.", "They got lucky. Prove it."]);
+      $("btnMatchPrimary").textContent = "TRY AGAIN";
+      beep(150, 0.4, "sawtooth");
+    }
+    $("matchScore").textContent = "YOU " + playerRounds + "  \u2014  " + cpuRounds + " " + OPPONENTS[level].name;
+    matchScreen.classList.remove("hidden");
+    updateLadderText();
+  }
+  function matchPrimaryAction() {
+    if (playerRounds > cpuRounds) {
+      level = level >= OPPONENTS.length - 1 ? 0 : level + 1;
+    }
+    startMatch();
+  }
+  function restartLadder() { level = 0; startMatch(); }
+  function restartCurrent() { startMatch(); }
+
+  // ============ INPUT ============
+  function press(side) {
+    if (state !== STATE.PLAY) return;
+    const alt = (side !== lastSide);
+    lastSide = side;
+    const staminaF = 0.45 + 0.55 * (playerStamina / 100);
+    playerPower += (alt ? 0.12 : 0.045) * staminaF;
+    playerStamina = Math.max(0, playerStamina - (alt ? STAM_DRAIN : STAM_DRAIN * 0.6));
+    burst = Math.min(100, burst + (alt ? BURST_ALT : BURST_SAME));
+    timeSincePress = 0;
+    flash = Math.max(flash, alt ? 0.55 : 0.3);
+    beep(alt ? 300 + burst * 2 : 190, 0.035, "square", 0.05);
+    if (!alt && Math.random() < 0.5) {
+      addFloat(CX + pos * 76, 168, pick(["SAME KEY!", "MIX IT UP!", "WEAK!"]), "#ff6b4a", 15);
+    } else if (burst >= 100) {
+      addFloat(CX, 150, "POWER READY!", "#ffd451", 17);
+    }
+  }
+  function shove() {
+    if (state !== STATE.PLAY) return;
+    if (burst < SHOVE_MIN) {
+      setBanner("NOT YET \u2014 KEEP MASHING!", "#ff8a4a");
+      beep(140, 0.1, "square", 0.05);
+      return;
+    }
+    const q = burst / 100;
+    const perfect = burst >= 92;
+    playerPower += 0.40 + q * 0.95;
+    playerStamina = Math.max(0, playerStamina - 12);
+    burst = 0;
+    shake = 15 + q * 12;
+    shoveRing = 1;
+    flash = 1;
+    addFloat(CX + pos * 76, 178, perfect ? pick(PERFECT_LINES) : pick(SHOVE_LINES),
+      perfect ? "#ffe066" : "#ffb020", perfect ? 26 : 22);
+    beep(perfect ? 560 : 430, 0.2, "sawtooth", 0.09);
+  }
+  function cpuPress() {
+    const opp = OPPONENTS[level];
+    const staminaF = 0.5 + 0.5 * (cpuStamina / 100);
+    cpuPower += ((opp.power * opp.interval) / 0.505) * staminaF;
+    cpuStamina = Math.max(0, cpuStamina - CPU_STAM_DRAIN);
+  }
+
+  // Keyboard
+  window.addEventListener("keydown", function (e) {
+    if (e.repeat && (e.code === "KeyA" || e.code === "KeyD" || e.code === "ArrowLeft" || e.code === "ArrowRight")) return;
+    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"].indexOf(e.code) >= 0) e.preventDefault();
+    if (e.code === "KeyR") { restartCurrent(); return; }
+    if (e.code === "Enter") {
+      if (!startScreen.classList.contains("hidden")) startMatch();
+      else if (!roundScreen.classList.contains("hidden")) roundScreenPrimary();
+      else if (!matchScreen.classList.contains("hidden")) matchPrimaryAction();
+      return;
+    }
+    if (e.code === "KeyA" || e.code === "ArrowLeft") press("L");
+    else if (e.code === "KeyD" || e.code === "ArrowRight") press("R");
+    else if (e.code === "Space") shove();
+  });
+
+  // Tap = auto-alternating mash
+  canvas.addEventListener("pointerdown", function (e) {
+    if (state === STATE.PLAY) { e.preventDefault(); press(lastSide === "L" ? "R" : "L"); }
+  });
+
+  // Touch pads
+  function bindPad(el, fn) {
+    el.addEventListener("pointerdown", function (e) { e.preventDefault(); fn(); });
+    el.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  }
+  bindPad($("btnL"), function () { press("L"); });
+  bindPad($("btnR"), function () { press("R"); });
+  bindPad($("btnBurst"), shove);
+  $("btnRestart").addEventListener("click", function (e) { e.currentTarget.blur(); restartCurrent(); });
+  $("btnStart").addEventListener("click", function (e) { e.currentTarget.blur(); startMatch(); });
+  function roundScreenPrimary() {
+    roundScreen.classList.add("hidden");
+    if (matchDecided) showMatchOverlay(); else startRound();
+  }
+  $("btnNextRound").addEventListener("click", function (e) { e.currentTarget.blur(); roundScreenPrimary(); });
+  $("btnMatchPrimary").addEventListener("click", function (e) { e.currentTarget.blur(); matchPrimaryAction(); });
+  $("btnLadder").addEventListener("click", function (e) { e.currentTarget.blur(); restartLadder(); });
+
+  // ============ UPDATE ============
+  function update(dt) {
+    frames++;
+    shake *= Math.pow(0.02, dt); if (shake < 0.4) shake = 0;
+    shoveRing *= Math.pow(0.02, dt); if (shoveRing < 0.02) shoveRing = 0;
+    flash *= Math.pow(0.05, dt);
+    bannerLife -= dt; if (bannerLife < 0) bannerLife = 0;
+    if (goFlash > 0) goFlash -= dt;
+
+    if (state === STATE.COUNTDOWN) {
+      countdown -= dt;
+      const n = Math.ceil(countdown);
+      if (n !== lastCount && n > 0) { lastCount = n; beep(520 + (3 - n) * 90, 0.1, "square"); }
+      if (countdown <= 0) {
+        state = STATE.PLAY; roundTime = ROUND_TIME; goFlash = 0.6;
+        setBanner("WRESTLE!", "#ffd451"); beep(760, 0.18, "square");
+      }
+    } else if (state === STATE.PLAY) {
+      roundTime -= dt;
+      playerPower *= Math.pow(0.5, dt / POWER_HL);
+      cpuPower *= Math.pow(0.5, dt / POWER_HL);
+      timeSincePress += dt;
+      if (timeSincePress > 0.18) playerStamina = Math.min(100, playerStamina + STAM_REGEN * dt);
+      cpuStamina = Math.min(100, cpuStamina + CPU_STAM_REGEN * dt);
+      cpuTimer -= dt;
+      if (cpuTimer <= 0) {
+        cpuPress();
+        cpuTimer = OPPONENTS[level].interval * (0.72 + Math.random() * 0.62);
+      }
+      tauntTimer -= dt;
+      if (tauntTimer <= 0) {
+        setBanner(OPPONENTS[level].name + ": \u201C" + pick(TAUNTS[Math.min(level, TAUNTS.length - 1)]) + "\u201D", "#c9b48f");
+        tauntTimer = 8 + Math.random() * 5;
+      }
+      pos += (playerPower - cpuPower) * dt;
+      pos -= pos * 0.06 * dt;         // light center tension keeps a lead from snowballing
+      pos = Math.max(-1.06, Math.min(1.06, pos));
+      if (pos >= 1) endRound("player");
+      else if (pos <= -1) endRound("cpu");
+      else if (roundTime <= 0) endRound(pos >= 0 ? "player" : "cpu");
+      if (playerStamina < 32 && Math.random() < dt * 6) {
+        drops.push({ x: CX - 300 + Math.random() * 90, y: 300 + Math.random() * 60, vx: -30 - Math.random() * 40, vy: -20, life: 1 });
+      }
+    } else if (state === STATE.ROUND_END) {
+      roundEndDelay -= dt;
+      if (roundEndDelay <= 0 && !overlayShown) {
+        overlayShown = true;
+        if (matchDecided) showMatchOverlay(); else showRoundOverlay();
+      }
+    }
+
+    for (let i = floats.length - 1; i >= 0; i--) {
+      const f = floats[i];
+      f.y += f.vy * dt; f.vy *= Math.pow(0.2, dt); f.life -= dt * 0.85;
+      if (f.life <= 0) floats.splice(i, 1);
+    }
+    for (let i = drops.length - 1; i >= 0; i--) {
+      const d = drops[i];
+      d.x += d.vx * dt; d.y += d.vy * dt; d.vy += 500 * dt; d.life -= dt * 1.1;
+      if (d.life <= 0 || d.y > 470) drops.splice(i, 1);
+    }
+  }
+
+  // ============ DRAW: BACKDROP ============
+  const crowd = [];
+  for (let i = 0; i < 46; i++) {
+    crowd.push({
+      x: (i / 46) * (W + 40) - 20 + (Math.random() - 0.5) * 14,
+      y: 104 + Math.random() * 34,
+      r: 15 + Math.random() * 15,
+      s: 0.7 + Math.random() * 0.5
+    });
+  }
+
+  function drawBackdrop() {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#1d1611");
+    g.addColorStop(0.45, "#2a1f17");
+    g.addColorStop(1, "#0d0907");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    const rg = ctx.createRadialGradient(CX, 90, 20, CX, 190, 640);
+    rg.addColorStop(0, "rgba(255,190,110,0.22)");
+    rg.addColorStop(0.5, "rgba(255,150,60,0.07)");
+    rg.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H);
+
+    for (let i = 0; i < crowd.length; i++) {
+      const c = crowd[i];
+      const sway = Math.sin(frames * 0.02 + i) * 3;
+      ctx.fillStyle = "rgba(0,0,0," + (0.34 * c.s).toFixed(3) + ")";
+      ctx.beginPath();
+      ctx.arc(c.x + sway, c.y, c.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = "rgba(8,6,4,0.62)";
+    ctx.fillRect(0, 0, W, 104);
+    ctx.strokeStyle = "rgba(255,176,32,0.14)";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, 104); ctx.lineTo(W, 104); ctx.stroke();
+  }
+
+  // ============ DRAW: TABLE ============
+  function drawTable() {
+    ctx.beginPath();
+    ctx.moveTo(0, 446);
+    ctx.quadraticCurveTo(CX, 402, W, 446);
+    ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+    const g = ctx.createLinearGradient(0, 402, 0, H);
+    g.addColorStop(0, "#4a3a2c");
+    g.addColorStop(0.25, "#31241a");
+    g.addColorStop(1, "#150e09");
+    ctx.fillStyle = g; ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(0, 446);
+    ctx.quadraticCurveTo(CX, 402, W, 446);
+    ctx.strokeStyle = "rgba(255,190,110,0.35)";
+    ctx.lineWidth = 4; ctx.stroke();
+
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.beginPath(); ctx.ellipse(CX - 115, 344, 62, 26, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(CX + 115, 344, 62, 26, 0, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // ============ DRAW: ARMS ============
+  function drawArms() {
+    const pElb = { x: CX - 115, y: 344 };
+    const cElb = { x: CX + 115, y: 344 };
+    const cls = { x: CX + pos * 76, y: 212 + Math.abs(pos) * 58 };
+    const shL = { x: CX - 330, y: 480 };
+    const shR = { x: CX + 330, y: 480 };
+    const opp = OPPONENTS[level];
+
+    ctx.save();
+    if (shake > 0) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
+    ctx.beginPath(); ctx.ellipse(CX, 470, 330, 70, 0, 0, Math.PI * 2); ctx.fill();
+
+    limb(shL, pElb, 96, 66, SKIN, SKIN_D);
+    limb(shR, cElb, 96, 66, SKIN, SKIN_D);
+
+    const bL = lerpPt(shL, pElb, 0.42), bR = lerpPt(shR, cElb, 0.42);
+    ctx.fillStyle = SKIN; ctx.strokeStyle = SKIN_D; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(bL.x - 12, bL.y, 56, 44, -0.4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(bR.x + 12, bR.y, 56, 44, 0.4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+    limb(shL, lerpPt(shL, pElb, 0.2), 108, 100, "#17110d", "#090706");
+    limb(shR, lerpPt(shR, cElb, 0.2), 108, 100, "#17110d", "#090706");
+
+    limb(pElb, cls, 60, 44, SKIN, SKIN_D);
+    limb(cElb, cls, 60, 44, SKIN, SKIN_D);
+
+    const wL = lerpPt(pElb, cls, 0.78), wR = lerpPt(cElb, cls, 0.78);
+    const wAng = Math.atan2(cls.y - pElb.y, cls.x - pElb.x);
+    ctx.save();
+    ctx.translate(wL.x, wL.y); ctx.rotate(wAng);
+    ctx.fillStyle = PLAYER_COL; rr(-11, -24, 22, 48, 6); ctx.fill();
+    ctx.strokeStyle = PLAYER_DARK; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.restore();
+    ctx.save();
+    ctx.translate(wR.x, wR.y); ctx.rotate(wAng);
+    ctx.fillStyle = opp.color; rr(-11, -24, 22, 48, 6); ctx.fill();
+    ctx.strokeStyle = opp.trim; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle = SKIN; ctx.strokeStyle = SKIN_D; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(pElb.x, pElb.y, 34, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cElb.x, cElb.y, 34, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+    const strain = Math.min(1, Math.abs(pos) * 0.8 + flash * 0.6);
+    if (strain > 0.15) {
+      ctx.strokeStyle = "rgba(255,120,40," + (0.15 + strain * 0.4).toFixed(3) + ")";
+      ctx.lineWidth = 3;
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath(); ctx.arc(cls.x, cls.y, 44 + i * 9, -1.1, -0.1); ctx.stroke();
+        ctx.beginPath(); ctx.arc(cls.x, cls.y, 44 + i * 9, 1.1, 2.1); ctx.stroke();
+      }
+    }
+
+    drawFist(cls.x - 12, cls.y, pos * 0.8 - 0.18, 56, PLAYER_COL, PLAYER_DARK);
+    drawFist(cls.x + 12, cls.y, pos * 0.8 + 0.18, 50, opp.color, opp.trim);
+
+    if (shoveRing > 0.02) {
+      const a = shoveRing;
+      ctx.strokeStyle = "rgba(255,220,120," + (a * 0.7).toFixed(3) + ")";
+      ctx.lineWidth = 5 * a + 1;
+      ctx.beginPath(); ctx.arc(cls.x, cls.y, (1 - a) * 170 + 30, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(cls.x, cls.y, (1 - a) * 240 + 40, 0, Math.PI * 2); ctx.stroke();
+    }
+
+    for (let i = 0; i < drops.length; i++) {
+      const d = drops[i];
+      ctx.fillStyle = "rgba(150,215,255," + (0.55 * d.life).toFixed(3) + ")";
+      ctx.beginPath(); ctx.ellipse(d.x, d.y, 3, 5, 0.5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    ctx.restore();
+  }
+  function drawFist(x, y, rot, size, col, dark) {
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(rot);
+    ctx.fillStyle = col; ctx.strokeStyle = dark; ctx.lineWidth = 3.5;
+    rr(-size / 2, -size / 2, size, size, size * 0.32); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = 2;
+    for (let i = -1; i <= 1; i++) {
+      ctx.beginPath();
+      ctx.moveTo(-size / 2 + 8, i * (size * 0.24));
+      ctx.lineTo(size / 2 - 8, i * (size * 0.24));
+      ctx.stroke();
+    }
+    ctx.fillStyle = "rgba(255,255,255,0.22)";
+    rr(-size / 2 + 6, -size / 2 + 6, size * 0.34, size * 0.22, 5); ctx.fill();
+    ctx.restore();
+  }
+
+  // ============ DRAW: HUD ============
+  function stamColor(f) {
+    if (f > 0.55) return "#5ad46a";
+    if (f > 0.25) return "#ffb020";
+    return "#e8452c";
+  }
+  function bar(x, y, w, h, frac, col, dir) {
+    ctx.fillStyle = "rgba(0,0,0,0.55)"; rr(x - 2, y - 2, w + 4, h + 4, 5); ctx.fill();
+    ctx.fillStyle = "#2a211b"; rr(x, y, w, h, 4); ctx.fill();
+    const fw = Math.max(0, Math.min(1, frac)) * w;
+    if (fw > 1) {
+      const g = ctx.createLinearGradient(x, y, x, y + h);
+      g.addColorStop(0, col); g.addColorStop(1, shade(col, -0.35));
+      ctx.fillStyle = g;
+      if (dir > 0) rr(x, y, fw, h, 4); else rr(x + w - fw, y, fw, h, 4);
+      ctx.fill();
+    }
+    ctx.strokeStyle = "rgba(255,255,255,0.14)"; ctx.lineWidth = 1.5; rr(x, y, w, h, 4); ctx.stroke();
+  }
+  function drawGauge() {
+    const gw = 320, gx = CX - gw / 2, gy = 82, gh = 9, mid = gx + gw / 2;
+    ctx.fillStyle = "rgba(0,0,0,0.5)"; rr(gx - 3, gy - 3, gw + 6, gh + 6, 6); ctx.fill();
+    ctx.fillStyle = "#241d17"; rr(gx, gy, gw, gh, 4); ctx.fill();
+    ctx.save();
+    rr(gx, gy, gw, gh, 4); ctx.clip();
+    ctx.fillStyle = "rgba(232,69,44,0.55)"; ctx.fillRect(gx, gy, gw / 2, gh);
+    ctx.fillStyle = "rgba(90,212,106,0.30)"; ctx.fillRect(mid, gy, gw / 2, gh);
+    ctx.restore();
+    ctx.strokeStyle = "rgba(255,255,255,0.25)"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(mid, gy - 2); ctx.lineTo(mid, gy + gh + 2); ctx.stroke();
+    const mx = mid + pos * (gw / 2 - 4);
+    ctx.fillStyle = "#fff";
+    rr(mx - 3, gy - 6, 6, gh + 12, 3); ctx.fill();
+  }
+  function drawHUD() {
+    const opp = OPPONENTS[level];
+    ctx.textBaseline = "alphabetic";
+
+    ctx.textAlign = "left";
+    ctx.font = "bold 14px 'Courier New', monospace";
+    ctx.fillStyle = PLAYER_COL;
+    ctx.fillText("YOU", 26, 26);
+    bar(26, 34, 230, 14, playerStamina / 100, stamColor(playerStamina / 100), 1);
+    for (let i = 0; i < 2; i++) {
+      ctx.beginPath(); ctx.arc(34 + i * 22, 60, 7, 0, Math.PI * 2);
+      ctx.fillStyle = i < playerRounds ? "#5ad46a" : "rgba(255,255,255,0.14)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.5)"; ctx.lineWidth = 2; ctx.stroke();
+    }
+
+    ctx.textAlign = "right";
+    ctx.fillStyle = opp.color;
+    ctx.fillText(opp.name, W - 26, 26);
+    bar(W - 256, 34, 230, 14, cpuStamina / 100, stamColor(cpuStamina / 100), -1);
+    for (let i = 0; i < 2; i++) {
+      ctx.beginPath(); ctx.arc(W - 34 - i * 22, 60, 7, 0, Math.PI * 2);
+      ctx.fillStyle = i < cpuRounds ? opp.color : "rgba(255,255,255,0.14)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.5)"; ctx.lineWidth = 2; ctx.stroke();
+    }
+
+    ctx.textAlign = "center";
+    ctx.font = "bold 28px 'Courier New', monospace";
+    ctx.fillStyle = (roundTime < 10 && state === STATE.PLAY) ? "#e8452c" : "#f3e8d6";
+    ctx.fillText(String(Math.max(0, Math.ceil(roundTime))), CX, 42);
+
+    const deg = Math.round(pos * 55);
+    ctx.font = "bold 12px 'Courier New', monospace";
+    ctx.fillStyle = "#b9a688";
+    ctx.fillText("ROUND " + Math.min(3, playerRounds + cpuRounds + 1) +
+      "  \u2022  ARM \u2220 " + (deg > 0 ? "+" : "") + deg + "\u00B0", CX, 62);
+
+    drawGauge();
+
+    const bx = CX - 150, by = 430, bw = 300, bh = 13;
+    ctx.textAlign = "left";
+    ctx.font = "bold 11px 'Courier New', monospace";
+    ctx.fillStyle = "#8a7b66";
+    ctx.fillText("POWER", bx, by - 6);
+    bar(bx, by, bw, bh, burst / 100,
+      burst >= 92 ? "#ffe066" : (burst >= SHOVE_MIN ? "#ffb020" : "#8a6a2a"), 1);
+    ctx.strokeStyle = "rgba(255,255,255,0.45)"; ctx.lineWidth = 2;
+    const sx = bx + bw * 0.92;
+    ctx.beginPath(); ctx.moveTo(sx, by - 3); ctx.lineTo(sx, by + bh + 3); ctx.stroke();
+    ctx.textAlign = "right";
+    ctx.fillStyle = burst >= SHOVE_MIN ? "#ffd451" : "#6f6353";
+    ctx.fillText(burst >= SHOVE_MIN ? "SHOVE! [SPACE]" : "CHARGE...", bx + bw, by - 6);
+  }
+
+  // ============ DRAW: TEXT LAYERS ============
+  function drawFloats() {
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    for (let i = 0; i < floats.length; i++) {
+      const f = floats[i];
+      ctx.globalAlpha = Math.max(0, Math.min(1, f.life));
+      ctx.font = "bold " + f.size + "px 'Arial Black', 'Impact', sans-serif";
+      ctx.lineWidth = 4; ctx.strokeStyle = "rgba(0,0,0,0.7)";
+      ctx.strokeText(f.text, f.x, f.y);
+      ctx.fillStyle = f.color;
+      ctx.fillText(f.text, f.x, f.y);
+    }
+    ctx.globalAlpha = 1; ctx.textBaseline = "alphabetic";
+  }
+  function drawBanner() {
+    if (bannerLife <= 0) return;
+    ctx.globalAlpha = Math.min(1, bannerLife / 0.5);
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = "bold 22px 'Arial Black', 'Impact', sans-serif";
+    ctx.lineWidth = 5; ctx.strokeStyle = "rgba(0,0,0,0.75)";
+    ctx.strokeText(banner, CX, 130);
+    ctx.fillStyle = bannerColor;
+    ctx.fillText(banner, CX, 130);
+    ctx.globalAlpha = 1; ctx.textBaseline = "alphabetic";
+  }
+  function drawCountdown() {
+    if (state !== STATE.COUNTDOWN && goFlash <= 0) return;
+    const txt = state === STATE.COUNTDOWN ? String(Math.max(1, Math.ceil(countdown))) : "WRESTLE!";
+    const frac = countdown - Math.floor(countdown);
+    const sc = state === STATE.COUNTDOWN ? 1 + (1 - frac) * 0.18 : 1 + Math.max(0, 0.6 - goFlash) * 0.4;
+    ctx.save();
+    ctx.translate(CX, 262); ctx.scale(sc, sc);
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = "bold 86px 'Arial Black', 'Impact', sans-serif";
+    ctx.lineWidth = 9; ctx.strokeStyle = "rgba(0,0,0,0.8)";
+    ctx.strokeText(txt, 0, 0);
+    ctx.fillStyle = "#ffd451";
+    ctx.fillText(txt, 0, 0);
+    ctx.restore();
+    ctx.textBaseline = "alphabetic";
+  }
+
+  // ============ RENDER / LOOP ============
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+    drawBackdrop();
+    drawArms();      // arms first so the table edge hides their lower halves
+    drawTable();
+    drawHUD();
+    drawFloats();
+    drawBanner();
+    drawCountdown();
+  }
+
+  let last = performance.now();
+  function loop(t) {
+    const dt = Math.min(0.05, (t - last) / 1000);
+    last = t;
+    update(dt);
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  // ============ BOOT ============
+  updateLadderText();
+  hideOverlays();
+  startScreen.classList.remove("hidden");
+  requestAnimationFrame(function (t) { last = t; requestAnimationFrame(loop); });
+})();
+
+
+
+
+</script>
+</body>
+</html>

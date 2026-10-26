@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>🌸 Bonsai — Grow &amp; Shape</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(160deg, #221e1b 0%, #2c2621 55%, #35302a 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 18px;
+    color: #eee;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ============ LAYOUT ============ */
+  .wrap {
+    width: 100%;
+    max-width: 940px;
+    background: rgba(38, 32, 28, 0.92);
+    border: 1px solid rgba(255, 220, 180, 0.12);
+    border-radius: 20px;
+    padding: 18px 18px 22px;
+    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+  }
+
+  header { text-align: center; margin-bottom: 12px; }
+
+  .title {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 1.9rem;
+    letter-spacing: 4px;
+    font-weight: 400;
+    color: #f4e3c8;
+    text-shadow: 0 2px 14px rgba(0,0,0,.6);
+  }
+  .title span { color: #e8a94b; }
+
+  .subtitle {
+    font-size: 0.8rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #9c8d78;
+    margin-top: 4px;
+  }
+
+  /* ============ TOOLBAR ============ */
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    margin: 12px 0;
+    padding: 10px;
+    background: rgba(0,0,0,0.22);
+    border-radius: 14px;
+    border: 1px solid rgba(255,220,180,0.08);
+  }
+
+  .toolbar-group {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding: 0 8px;
+    border-right: 1px solid rgba(255,220,180,0.12);
+  }
+  .toolbar-group:last-child { border-right: none; }
+
+  .tbtn {
+    padding: 8px 14px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,220,180,0.18);
+    border-radius: 10px;
+    color: #ded3c0;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    white-space: nowrap;
+  }
+  .tbtn:hover { background: rgba(255,255,255,0.13); transform: translateY(-1px); }
+  .tbtn:active { transform: translateY(0); }
+  .tbtn.active {
+    background: linear-gradient(135deg, #e8a94b, #d98b2b);
+    color: #241a0f;
+    border-color: #f0c070;
+    box-shadow: 0 3px 12px rgba(232,169,75,0.35);
+  }
+  .tbtn.warn { color: #e8b0a0; }
+  .tbtn.warn:hover { background: rgba(232,120,90,0.22); }
+
+  select {
+    padding: 8px 10px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,220,180,0.18);
+    border-radius: 10px;
+    color: #ded3c0;
+    font-size: 0.82rem;
+    cursor: pointer;
+    outline: none;
+  }
+  select option { background: #2c2621; color: #ded3c0; }
+
+  /* ============ CANVAS ============ */
+  .canvas-wrap {
+    position: relative;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: inset 0 0 60px rgba(0,0,0,0.5), 0 6px 24px rgba(0,0,0,0.4);
+    background: #0f0d0b;
+  }
+  canvas { display: block; width: 100%; height: auto; touch-action: none; cursor: crosshair; }
+
+  .hint {
+    position: absolute;
+    left: 14px;
+    bottom: 12px;
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 1px;
+    pointer-events: none;
+    text-shadow: 0 1px 4px rgba(0,0,0,.8);
+  }
+
+  /* ============ STATUS BAR ============ */
+  .status {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 10px 16px;
+    background: rgba(0,0,0,0.22);
+    border-radius: 12px;
+    font-size: 0.82rem;
+    color: #b8ab96;
+    letter-spacing: 1px;
+  }
+  .status b { color: #e8a94b; font-weight: 600; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 560px) {
+    .title { font-size: 1.4rem; letter-spacing: 2px; }
+    .toolbar-group { border-right: none; padding: 0 2px; }
+    .tbtn, select { padding: 7px 10px; font-size: 0.76rem; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1 class="title">BON<span>SAI</span></h1>
+      <p class="subtitle">grow · prune · shape · breathe</p>
+    </header>
+
+    <!-- ============ TOOLBAR ============ -->
+    <div class="toolbar">
+      <div class="toolbar-group">
+        <button class="tbtn active" id="toolPrune" data-tool="prune">✂ Prune</button>
+        <button class="tbtn" id="toolWire" data-tool="wire">〰 Wire</button>
+      </div>
+      <div class="toolbar-group">
+        <button class="tbtn" id="btnDay">☀ Next Day</button>
+        <button class="tbtn active" id="btnAuto">⏳ Auto</button>
+        <button class="tbtn" id="btnWater">💧 Water</button>
+      </div>
+      <div class="toolbar-group">
+        <select id="selSeason" title="Season">
+          <option value="spring">🌸 Spring</option>
+          <option value="summer" selected>🍃 Summer</option>
+          <option value="autumn">🍂 Autumn</option>
+          <option value="winter">❄ Winter</option>
+        </select>
+        <select id="selPot" title="Pot">
+          <option value="clay">Terracotta</option>
+          <option value="ceramic">Glazed Blue</option>
+          <option value="stone">Grey Stone</option>
+          <option value="slate">Slate Slab</option>
+        </select>
+        <select id="selFoliage" title="Foliage colour">
+          <option value="0">Lush Green</option>
+          <option value="1">Jade</option>
+          <option value="2">Deep Pine</option>
+          <option value="3">Lime</option>
+        </select>
+      </div>
+      <div class="toolbar-group">
+        <button class="tbtn" id="btnSave">💾 Save</button>
+        <button class="tbtn warn" id="btnRestart">↺ Restart</button>
+      </div>
+    </div>
+
+    <!-- ============ CANVAS ============ -->
+    <div class="canvas-wrap">
+      <canvas id="gameCanvas" width="880" height="620"></canvas>
+      <div class="hint" id="hint">Click a branch to prune · drag to wire</div>
+    </div>
+
+    <!-- ============ STATUS BAR ============ -->
+    <div class="status">
+      <div>Day <b id="statDay">0</b></div>
+      <div>Branches <b id="statBranches">1</b></div>
+      <div>Season <b id="statSeason">Summer</b></div>
+      <div id="statMsg"></div>
+    </div>
+  </div>
+
+<script>
+/* ==========================================================================
+   BONSAI — a meditative procedural tree-shaping toy
+   Sections:  CONFIG · AUDIO · STATE · TREE GEN · LAYOUT · DRAW · PARTICLES
+              · INPUT · TOOLBAR · PERSISTENCE · LOOP
+   ========================================================================== */
+
+/* ============ CONFIG ============ */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width;
+const H = canvas.height;
+const GROUND = H - 118;            // soil surface line
+const BASE_X = W / 2;
+const BASE_Y = GROUND - 4;
+const MAX_DEPTH = 7;
+const SAVE_KEY = 'bonsaiSave_v1';
+
+/* ============ AUDIO ============ */
+let actx = null;
+function beep(freq = 440, dur = 0.12, type = 'sine', vol = 0.12) {
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+    const o = actx.createOscillator();
+    const g = actx.createGain();
+    o.type = type;
+    o.frequency.value = freq;
+    o.connect(g);
+    g.connect(actx.destination);
+    const t = actx.currentTime;
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.start(t);
+    o.stop(t + dur + 0.03);
+  } catch (e) { /* audio unavailable — stay silent */ }
+}
+function chime(base, steps) {
+  steps.forEach((s, i) => setTimeout(() => beep(base * Math.pow(1.06, s), 0.22, 'sine', 0.09), i * 90));
+}
+
+/* ============ STATE ============ */
+let tree = null;
+let branchId = 0;
+let date = 0;                 // elapsed bonsai-days (float)
+let autoGrow = true;
+let daySpeed = 0.14;          // days per second
+let season = 'summer';
+let potStyle = 'clay';
+let foliageIdx = 0;
+let tool = 'prune';
+let particles = [];
+let leaves = [];
+let drag = null;
+let now = 0;
+let last = 0;
+let lastLeafSpawn = 0;
+
+const FOLIAGE = ['#5fae5a', '#4f9d7a', '#2f6b45', '#9ac74e'];
+const SEASON_BG = {
+  spring: ['#3a2f2b', '#4a3a33', '#5b4a3f'],
+  summer: ['#25291f', '#2f3526', '#3d4430'],
+  autumn: ['#33251c', '#43301f', '#5a3f26'],
+  winter: ['#2b2f36', '#363b44', '#454c58']
+};
+
+/* ============ UTIL ============ */
+const clamp = (v, a, b) => v < a ? a : (v > b ? b : v);
+const lerp = (a, b, t) => a + (b - a) * t;
+const rand = (a, b) => a + Math.random() * (b - a);
+function mulberry32(seed) {
+  let t = seed >>> 0;
+  return function () {
+    t = (t + 0x6D2B79F5) >>> 0;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const ease = t => 1 - Math.pow(1 - t, 3);
+function growth(b) {
+  if (date <= b.bornAt) return 0;
+  return ease(clamp((date - b.bornAt) / b.growTime, 0, 1));
+}
+function seasonDensity() {
+  return season === 'spring' ? 1.0 : season === 'summer' ? 1.15 : season === 'autumn' ? 0.95 : 0.3;
+}
+
+/* ============ TREE GENERATION ============ */
+function makeBranch(parent, depth, relAngle, bornAt, th, len) {
+  const b = {
+    id: branchId++,
+    parent: parent,
+    depth: depth,
+    relAngle: relAngle,
+    wire: 0,
+    curve: rand(-0.14, 0.14),
+    len: len,
+    th: th,
+    bornAt: bornAt,
+    growTime: rand(1.0, 2.0),
+    children: [],
+    alive: true,
+    leafSeed: Math.floor(Math.random() * 1e6),
+    // layout (filled each frame)
+    px: 0, py: 0, tx: 0, ty: 0, cx: 0, cy: 0, angle: 0, baseAbs: 0, grown: 0
+  };
+  if (depth < MAX_DEPTH && len > 10) {
+    const n = depth === 0 ? 2 : (Math.random() < 0.35 ? 1 : 2);
+    for (let i = 0; i < n; i++) {
+      const spread = n === 1
+        ? rand(-0.45, 0.45)
+        : lerp(-0.95, 0.95, i / (n - 1)) + rand(-0.28, 0.28);
+      const childLen = len * rand(0.62, 0.82);
+      const childTh = Math.max(1.4, th * 0.7);
+      const childBorn = bornAt + b.growTime * rand(0.85, 1.15);
+      b.children.push(makeBranch(b, depth + 1, spread, childBorn, childTh, childLen));
+    }
+  }
+  return b;
+}
+function newTree() {
+  branchId = 0;
+  return makeBranch(null, 0, 0, 0, 18, 158);
+}
+function countBranches(b) {
+  if (!b.alive) return 0;
+  let n = 1;
+  for (const c of b.children) n += countBranches(c);
+  return n;
+}
+function pruneBranch(b) {
+  if (!b.alive || b.depth === 0) return false;   // never remove the trunk
+  b.alive = false;
+  return true;
+}
+
+/* ============ LAYOUT (positions, hit-tested each frame) ============ */
+function layout(b, bx, by, parentAngle, time) {
+  if (!b.alive) return;
+  b.px = bx; b.py = by;
+  const baseAbs = parentAngle + b.relAngle + b.wire;
+  b.baseAbs = baseAbs;
+  const sway = Math.sin(time * 0.0008 + b.id * 0.7) * 0.012 * (0.3 + b.depth * 0.12);
+  const ang = baseAbs + sway;
+  b.angle = ang;
+
+  const g = growth(b);
+  b.grown = g;
+  const L = b.len * g;
+  b.tx = bx + Math.sin(ang) * L;
+  b.ty = by - Math.cos(ang) * L;
+
+  const mx = (bx + b.tx) / 2, my = (by + b.ty) / 2;
+  const pa = ang + Math.PI / 2;
+  b.cx = mx + Math.sin(pa) * b.curve * L;
+  b.cy = my - Math.cos(pa) * b.curve * L;
+
+  if (g > 0.35 && b.depth >= 3) buildLeaves(b);
+
+  for (const c of b.children) layout(c, b.tx, b.ty, baseAbs, time);
+}
+function bez(b, t) {
+  const mt = 1 - t;
+  return {
+    x: mt * mt * b.px + 2 * mt * t * b.cx + t * t * b.tx,
+    y: mt * mt * b.py + 2 * mt * t * b.cy + t * t * b.ty
+  };
+}
+
+/* ============ LEAVES ============ */
+function leafColors() {
+  if (season === 'spring') return ['#f7a8c4', '#f6c1d6', '#8fd694', '#b8e0a0'];
+  if (season === 'summer') return [FOLIAGE[foliageIdx], FOLIAGE[(foliageIdx + 1) % 4], '#7cc47a'];
+  if (season === 'autumn') return ['#e08a3c', '#c94f2f', '#e6b800', '#b5651d'];
+  return ['#cfe3ea', '#b9cdd6', '#e6eef2'];
+}
+function buildLeaves(b) {
+  const rnd = mulberry32(b.leafSeed);
+  const dens = seasonDensity();
+  const count = Math.round((2 + (MAX_DEPTH - b.depth) * 1.7) * dens * b.grown);
+  const cols = leafColors();
+  for (let i = 0; i < count; i++) {
+    const t = 0.35 + rnd() * 0.65;
+    const p = bez(b, t);
+    const off = (rnd() - 0.5) * (10 + b.depth * 3);
+    const pa = b.angle + Math.PI / 2;
+    leaves.push({
+      x: p.x + Math.sin(pa) * off,
+      y: p.y - Math.cos(pa) * off,
+      r: 3 + rnd() * 4,
+      c: cols[Math.floor(rnd() * cols.length)],
+      a: 0.75 + rnd() * 0.25
+    });
+  }
+}
+
+/* ============ PARTICLES ============ */
+function spawnPetal() {
+  if (!tree || tree.grown < 0.6) return;
+  const cols = season === 'spring' ? ['#f7a8c4', '#f6c1d6']
+    : season === 'autumn' ? ['#e08a3c', '#c94f2f']
+    : season === 'winter' ? ['#e6eef2']
+    : [FOLIAGE[foliageIdx]];
+  const from = leaves.length
+    ? leaves[Math.floor(Math.random() * leaves.length)]
+    : { x: BASE_X, y: BASE_Y - 200 };
+  particles.push({
+    x: from.x, y: from.y,
+    vx: rand(-0.4, 0.4), vy: rand(0.2, 0.7),
+    life: 1, max: 1,
+    r: rand(2, 4),
+    c: cols[Math.floor(Math.random() * cols.length)],
+    spin: rand(-0.05, 0.05), ang: 0
+  });
+}
+function updateParticles(dt) {
+  particles = particles.filter(p => {
+    p.ang += p.spin;
+    p.vx += Math.sin(now * 0.001 + p.y * 0.02) * 0.006;
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy = Math.min(p.vy + 0.004, 1.1);
+    p.life -= dt * 0.00018;
+    return p.life > 0 && p.y < H + 20;
+  });
+}
+
+/* ============ DRAW ============ */
+function drawBackground() {
+  const c = SEASON_BG[season];
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, c[0]);
+  grad.addColorStop(0.6, c[1]);
+  grad.addColorStop(1, c[2]);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // soft sun / moon halo
+  const halo = ctx.createRadialGradient(W * 0.76, 120, 10, W * 0.76, 120, 230);
+  const hc = season === 'winter' ? 'rgba(200,220,240,0.20)'
+    : season === 'autumn' ? 'rgba(255,180,90,0.20)'
+    : 'rgba(255,230,170,0.18)';
+  halo.addColorStop(0, hc);
+  halo.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = halo;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function drawPot() {
+  const topY = GROUND;
+  const bottomY = GROUND + 62;
+  const halfTop = 118;
+  const halfBottom = potStyle === 'slate' ? 128 : 92;
+  const cx = BASE_X;
+
+  ctx.save();
+  if (potStyle === 'slate') {
+    // flat slab
+    ctx.fillStyle = '#4a4e55';
+    ctx.beginPath();
+    ctx.roundRect(cx - halfTop, topY - 8, halfTop * 2, 30, 6);
+    ctx.fill();
+    ctx.fillStyle = '#3a3e44';
+    ctx.fillRect(cx - halfBottom + 6, topY + 22, (halfBottom - 6) * 2, bottomY - topY - 22);
+  } else {
+    const g = ctx.createLinearGradient(cx - halfTop, topY, cx + halfTop, bottomY);
+    if (potStyle === 'clay') { g.addColorStop(0, '#b9623c'); g.addColorStop(0.5, '#a4502e'); g.addColorStop(1, '#7d3a20'); }
+    else if (potStyle === 'ceramic') { g.addColorStop(0, '#3f6fa8'); g.addColorStop(0.5, '#2d548a'); g.addColorStop(1, '#1d3a63'); }
+    else { g.addColorStop(0, '#8b8f95'); g.addColorStop(0.5, '#74787e'); g.addColorStop(1, '#54585e'); }
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(cx - halfTop, topY);
+    ctx.lineTo(cx + halfTop, topY);
+    ctx.lineTo(cx + halfBottom, bottomY);
+    ctx.lineTo(cx - halfBottom, bottomY);
+    ctx.closePath();
+    ctx.fill();
+    // rim
+    ctx.fillStyle = potStyle === 'clay' ? '#c9744a' : potStyle === 'ceramic' ? '#4f83c0' : '#9a9ea4';
+    ctx.beginPath();
+    ctx.roundRect(cx - halfTop - 6, topY - 12, halfTop * 2 + 12, 16, 5);
+    ctx.fill();
+    // shadow on rim underside
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(cx - halfTop - 6, topY + 2, halfTop * 2 + 12, 5);
+  }
+  ctx.restore();
+
+  // soil
+  ctx.fillStyle = '#3b2c22';
+  ctx.beginPath();
+  ctx.ellipse(cx, topY - 2, halfTop - 8, 12, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(90,66,48,0.5)';
+  ctx.beginPath();
+  ctx.ellipse(cx - 22, topY - 4, 34, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function barkColor(b) {
+  const base = [92, 66, 50];
+  const t = (b.id % 7) / 7;
+  return `rgb(${base[0] + t * 24},${base[1] + t * 20},${base[2] + t * 16})`;
+}
+function drawBranch(b) {
+  if (!b.alive || b.grown <= 0.002) return;
+  const segs = 7;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = b.depth < 1 ? '#4a3628' : barkColor(b);
+  for (let i = 0; i < segs; i++) {
+    const t0 = i / segs, t1 = (i + 1) / segs;
+    const p0 = bez(b, t0), p1 = bez(b, t1);
+    ctx.lineWidth = Math.max(0.9, lerp(b.th, b.th * 0.5, t0));
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    ctx.lineTo(p1.x, p1.y);
+    ctx.stroke();
+  }
+  for (const c of b.children) drawBranch(c);
+}
+function drawLeaves() {
+  for (const l of leaves) {
+    ctx.globalAlpha = l.a;
+    ctx.fillStyle = l.c;
+    ctx.beginPath();
+    ctx.ellipse(l.x, l.y, l.r, l.r * 0.78, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+function drawParticles() {
+  for (const p of particles) {
+    ctx.globalAlpha = p.life * 0.9;
+    ctx.fillStyle = p.c;
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y, p.r, p.r * 0.6, p.ang, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+function drawVignette() {
+  const v = ctx.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.95);
+  v.addColorStop(0, 'rgba(0,0,0,0)');
+  v.addColorStop(1, 'rgba(0,0,0,0.45)');
+  ctx.fillStyle = v;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function render() {
+  drawBackground();
+  drawPot();
+
+  leaves = [];
+  if (tree) layout(tree, BASE_X, BASE_Y, 0, now);
+
+  if (tree) drawBranch(tree);
+
+  // ground contact shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.28)';
+  ctx.beginPath();
+  ctx.ellipse(BASE_X, BASE_Y + 6, 30, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  drawLeaves();
+  drawParticles();
+  drawVignette();
+}
+
+/* ============ INPUT ============ */
+function toCanvas(e) {
+  const r = canvas.getBoundingClientRect();
+  return {
+    x: (e.clientX - r.left) * (W / r.width),
+    y: (e.clientY - r.top) * (H / r.height)
+  };
+}
+function findBranch(b, x, y) {
+  if (!b.alive || b.grown <= 0.05) return null;
+  let best = null, bestD = 16;
+  for (let i = 0; i <= 8; i++) {
+    const p = bez(b, i / 8);
+    const d = Math.hypot(p.x - x, p.y - y);
+    if (d < bestD) { bestD = d; best = b; }
+  }
+  if (best) return best;
+  for (const c of b.children) {
+    const r = findBranch(c, x, y);
+    if (r) return r;
+  }
+  return null;
+}
+
+canvas.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  const p = toCanvas(e);
+  const b = tree ? findBranch(tree, p.x, p.y) : null;
+  if (!b) return;
+
+  if (tool === 'prune') {
+    if (pruneBranch(b)) {
+      beep(220, 0.10, 'triangle', 0.14);
+      setMsg('pruned a branch');
+      updateStatus();
+    } else {
+      beep(120, 0.08, 'sine', 0.08);
+      setMsg('the trunk stays');
+    }
+  } else {
+    drag = { b: b };
+    canvas.setPointerCapture(e.pointerId);
+    beep(560, 0.05, 'sine', 0.06);
+  }
+});
+
+canvas.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  const p = toCanvas(e);
+  const b = drag.b;
+  const desired = Math.atan2(p.x - b.px, -(p.y - b.py));
+  const baseAbs = b.baseAbs - b.wire;   // absolute angle without the wire offset
+  b.wire = clamp(desired - baseAbs, -1.35, 1.35);
+});
+
+function endDrag() {
+  if (drag) {
+    beep(680, 0.08, 'sine', 0.07);
+    setMsg('branch trained');
+    drag = null;
+    updateStatus();
+  }
+}
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
+
+// resize safety (canvas scales via CSS; keep crisp ratio)
+window.addEventListener('resize', () => { render(); });
+
+/* ============ TOOLBAR ============ */
+function setMsg(t) {
+  document.getElementById('statMsg').textContent = t;
+  clearTimeout(setMsg._t);
+  setMsg._t = setTimeout(() => { document.getElementById('statMsg').textContent = ''; }, 2200);
+}
+function updateStatus() {
+  document.getElementById('statDay').textContent = Math.floor(date);
+  document.getElementById('statBranches').textContent = tree ? countBranches(tree) : 0;
+  document.getElementById('statSeason').textContent =
+    season.charAt(0).toUpperCase() + season.slice(1);
+}
+
+const toolBtns = document.querySelectorAll('[data-tool]');
+toolBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    toolBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    tool = btn.dataset.tool;
+    document.getElementById('hint').textContent =
+      tool === 'prune' ? 'Click a branch to prune · drag to wire' : 'Drag a branch to wire & curve it';
+    beep(tool === 'prune' ? 420 : 620, 0.07, 'sine', 0.09);
+  });
+});
+
+document.getElementById('btnDay').addEventListener('click', () => {
+  date += 1;
+  autoGrow = false;
+  document.getElementById('btnAuto').classList.remove('active');
+  beep(520, 0.12, 'sine', 0.11);
+  setMsg('a day passes…');
+  updateStatus();
+});
+
+document.getElementById('btnAuto').addEventListener('click', (e) => {
+  autoGrow = !autoGrow;
+  e.currentTarget.classList.toggle('active', autoGrow);
+  beep(autoGrow ? 640 : 300, 0.08, 'sine', 0.09);
+  setMsg(autoGrow ? 'time flows' : 'time paused');
+});
+
+document.getElementById('btnWater').addEventListener('click', () => {
+  chime(523, [0, 2, 4]);
+  for (let i = 0; i < 14; i++) spawnPetal();
+  setMsg('watered — the tree breathes');
+  // watering gives a small growth nudge to the newest tips
+  date += 0.25;
+  updateStatus();
+});
+
+document.getElementById('selSeason').addEventListener('change', (e) => {
+  season = e.target.value;
+  beep(700, 0.09, 'sine', 0.1);
+  setMsg(season + ' arrives');
+  updateStatus();
+});
+document.getElementById('selPot').addEventListener('change', (e) => {
+  potStyle = e.target.value;
+  beep(300, 0.1, 'triangle', 0.1);
+  setMsg('new pot');
+});
+document.getElementById('selFoliage').addEventListener('change', (e) => {
+  foliageIdx = parseInt(e.target.value, 10);
+  beep(760, 0.08, 'sine', 0.09);
+  setMsg('foliage tuned');
+});
+
+document.getElementById('btnSave').addEventListener('click', () => {
+  saveTree();
+  chime(660, [0, 3, 5]);
+  setMsg('saved');
+});
+document.getElementById('btnRestart').addEventListener('click', () => {
+  restart();
+  chime(440, [0, -2, -5]);
+  setMsg('a new seedling');
+});
+
+/* ============ PERSISTENCE ============ */
+function serialize(b, arr, pid) {
+  if (!b) return;
+  const idx = arr.length;
+  arr.push({
+    pid: pid, depth: b.depth, relAngle: b.relAngle, wire: b.wire,
+    curve: b.curve, len: b.len, th: b.th, bornAt: b.bornAt,
+    growTime: b.growTime, leafSeed: b.leafSeed, alive: b.alive
+  });
+  for (const c of b.children) serialize(c, arr, idx);
+}
+function saveTree() {
+  try {
+    const arr = [];
+    serialize(tree, arr, -1);
+    const data = {
+      nodes: arr,
+      date: date, season: season, potStyle: potStyle, foliageIdx: foliageIdx
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  } catch (e) { setMsg('save failed'); }
+}
+function loadTree() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (!data || !data.nodes || !data.nodes.length) return false;
+
+    branchId = 0;
+    const nodes = data.nodes.map(n => ({
+      id: branchId++,
+      parent: null, depth: n.depth, relAngle: n.relAngle, wire: n.wire,
+      curve: n.curve, len: n.len, th: n.th, bornAt: n.bornAt,
+      growTime: n.growTime, leafSeed: n.leafSeed, children: [], alive: n.alive,
+      px: 0, py: 0, tx: 0, ty: 0, cx: 0, cy: 0, angle: 0, baseAbs: 0, grown: 0
+    }));
+    data.nodes.forEach((n, i) => {
+      if (n.pid >= 0) {
+        nodes[i].parent = nodes[n.pid];
+        nodes[n.pid].children.push(nodes[i]);
+      }
+    });
+    tree = nodes[0];
+    date = data.date != null ? data.date : 0;
+    season = data.season || 'summer';
+    potStyle = data.potStyle || 'clay';
+    foliageIdx = data.foliageIdx || 0;
+
+    document.getElementById('selSeason').value = season;
+    document.getElementById('selPot').value = potStyle;
+    document.getElementById('selFoliage').value = String(foliageIdx);
+    return true;
+  } catch (e) { return false; }
+}
+function restart() {
+  tree = newTree();
+  date = 0;
+  particles = [];
+  drag = null;
+  autoGrow = true;
+  document.getElementById('btnAuto').classList.add('active');
+  try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+  updateStatus();
+}
+
+/* ============ LOOP ============ */
+function tick(t) {
+  if (!last) last = t;
+  let dt = t - last;
+  last = t;
+  if (dt > 80) dt = 80;
+  now = t;
+
+  if (autoGrow) date += (dt / 1000) * daySpeed;
+
+  // drifting petals / leaves
+  lastLeafSpawn += dt;
+  const rate = season === 'winter' ? 900 : season === 'autumn' ? 520 : 780;
+  if (lastLeafSpawn > rate) {
+    lastLeafSpawn = 0;
+    if (particles.length < 80) spawnPetal();
+  }
+
+  updateParticles(dt);
+  render();
+  if ((t | 0) % 12 === 0) updateStatus();
+  requestAnimationFrame(tick);
+}
+
+/* ============ INIT ============ */
+if (!loadTree()) {
+  tree = newTree();
+}
+document.getElementById('selSeason').value = season;
+document.getElementById('selPot').value = potStyle;
+document.getElementById('selFoliage').value = String(foliageIdx);
+document.getElementById('statSeason').textContent = season.charAt(0).toUpperCase() + season.slice(1);
+updateStatus();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>

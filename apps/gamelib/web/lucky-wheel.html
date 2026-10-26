@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>🎡 Lucky Wheel</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --font-display: Georgia, 'Times New Roman', serif;
+    --font-body: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    --bg-0: #0b1622;
+    --bg-1: #102436;
+    --panel: rgba(18, 40, 62, 0.92);
+    --panel-line: rgba(120, 170, 210, 0.18);
+    --gold: #ffd166;
+    --gold-deep: #e0a92e;
+    --coral: #ef476f;
+    --mint: #06d6a0;
+    --blue: #2aa1d6;
+    --paper: #eaf2f8;
+    --muted: #8fa8bd;
+  }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--paper);
+    background:
+      radial-gradient(1100px 700px at 20% -10%, #1b3b56 0%, transparent 55%),
+      radial-gradient(900px 700px at 110% 20%, #2a1b3d 0%, transparent 50%),
+      linear-gradient(160deg, var(--bg-1), var(--bg-0));
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 14px;
+    touch-action: manipulation;
+  }
+
+  /* ============ LAYOUT ============ */
+  .game-container {
+    width: 100%;
+    max-width: 640px;
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    border-radius: 24px;
+    padding: 18px 18px 14px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255,255,255,0.05);
+    backdrop-filter: blur(6px);
+  }
+
+  /* ============ HEADER / STATS ============ */
+  .game-title {
+    text-align: center;
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 4vw, 2.1rem);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--gold);
+    text-shadow: 0 2px 0 #6b4a00, 0 0 22px rgba(255, 209, 102, 0.35);
+  }
+  .game-subtitle {
+    text-align: center;
+    font-size: 0.72rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 4px 0 12px;
+  }
+
+  .stats {
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .stat {
+    flex: 1;
+    background: linear-gradient(150deg, rgba(255,209,102,0.14), rgba(42,161,214,0.10));
+    border: 1px solid var(--panel-line);
+    border-radius: 12px;
+    padding: 8px 10px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--paper);
+  }
+  .stat small {
+    display: block;
+    font-weight: 500;
+    font-size: 0.62rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .stat.gold { color: var(--gold); }
+
+  /* ============ TABS ============ */
+  .tabs {
+    display: flex;
+    gap: 6px;
+    background: rgba(0,0,0,0.25);
+    border-radius: 14px;
+    padding: 5px;
+    margin-bottom: 12px;
+  }
+  .tab-btn {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 0.82rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 9px 4px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+  }
+  .tab-btn:hover { color: var(--paper); }
+  .tab-btn.active {
+    background: linear-gradient(150deg, var(--gold), var(--gold-deep));
+    color: #3a2a00;
+    box-shadow: 0 4px 14px rgba(255, 209, 102, 0.3);
+  }
+
+  /* ============ PANELS ============ */
+  .panel { display: none; }
+  .panel.active { display: block; animation: fade 0.25s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  /* ============ WHEEL STAGE ============ */
+  .wheel-stage {
+    position: relative;
+    width: 100%;
+    max-width: 440px;
+    margin: 4px auto 10px;
+    aspect-ratio: 1 / 1;
+  }
+  #wheelCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    filter: drop-shadow(0 14px 30px rgba(0,0,0,0.5));
+  }
+
+  /* ============ RESULT BANNER ============ */
+  .result {
+    text-align: center;
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 12px;
+    margin: 0 auto 10px;
+    max-width: 460px;
+    border-radius: 14px;
+    background: rgba(0,0,0,0.28);
+    border: 1px solid var(--panel-line);
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--paper);
+    transition: all 0.25s ease;
+  }
+  .result.win { border-color: var(--mint); box-shadow: 0 0 22px rgba(6,214,160,0.25); }
+  .result.jackpot {
+    border-color: var(--gold);
+    box-shadow: 0 0 30px rgba(255,209,102,0.5);
+    color: var(--gold);
+    animation: pop 0.5s ease;
+  }
+  .result .big { font-size: 1.35rem; }
+  @keyframes pop { 0% { transform: scale(0.85); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
+
+  /* ============ WHEEL PICKER ============ */
+  .wheel-picker {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .pick-btn {
+    border: 1px solid var(--panel-line);
+    background: rgba(0,0,0,0.22);
+    color: var(--muted);
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 0.76rem;
+    padding: 7px 13px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+  }
+  .pick-btn:hover { color: var(--paper); }
+  .pick-btn.active {
+    background: linear-gradient(150deg, var(--blue), #1b6f96);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 3px 12px rgba(42,161,214,0.4);
+  }
+  .pick-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* ============ ACTIONS ============ */
+  .actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn {
+    font-family: var(--font-body);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 26px;
+    padding: 13px 26px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    color: #3a2a00;
+    background: linear-gradient(150deg, var(--gold), var(--gold-deep));
+    box-shadow: 0 6px 0 rgba(0,0,0,0.28), 0 10px 24px rgba(255,209,102,0.25);
+    transition: transform 0.08s ease, box-shadow 0.12s ease, filter 0.15s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn:hover { filter: brightness(1.06); }
+  .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(0,0,0,0.28); }
+  .btn:disabled { filter: grayscale(0.7) brightness(0.7); cursor: not-allowed; transform: none; }
+  .btn.spin-btn { padding: 15px 46px; font-size: 1.15rem; }
+  .btn.daily-btn {
+    background: linear-gradient(150deg, var(--mint), #04a97e);
+    color: #04301f;
+    box-shadow: 0 6px 0 rgba(0,0,0,0.28), 0 10px 24px rgba(6,214,160,0.22);
+  }
+  .btn.ghost-btn {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--panel-line);
+    box-shadow: none;
+    font-size: 0.78rem;
+    padding: 11px 18px;
+  }
+  .btn.ghost-btn.armed {
+    color: #fff;
+    background: var(--coral);
+    border-color: transparent;
+  }
+
+  /* ============ SHOP ============ */
+  .shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .shop-item {
+    background: linear-gradient(155deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+    border: 1px solid var(--panel-line);
+    border-radius: 16px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .shop-item .ic { font-size: 1.8rem; }
+  .shop-item h3 { font-size: 1rem; color: var(--paper); }
+  .shop-item p { font-size: 0.8rem; color: var(--muted); flex: 1; }
+  .shop-item .buy {
+    align-self: flex-start;
+    border: none;
+    border-radius: 20px;
+    padding: 9px 18px;
+    font-weight: 800;
+    font-size: 0.8rem;
+    cursor: pointer;
+    color: #3a2a00;
+    background: linear-gradient(150deg, var(--gold), var(--gold-deep));
+    transition: transform 0.08s ease, filter 0.15s ease;
+  }
+  .shop-item .buy:hover { filter: brightness(1.08); }
+  .shop-item .buy:active { transform: translateY(2px); }
+  .shop-item .buy:disabled {
+    background: rgba(255,255,255,0.08);
+    color: var(--muted);
+    cursor: not-allowed;
+  }
+
+  /* ============ ALBUM ============ */
+  .album-info {
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 12px;
+    letter-spacing: 0.05em;
+  }
+  .album-info b { color: var(--gold); }
+  .album-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 8px;
+  }
+  .album-card {
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--panel-line);
+    border-radius: 14px;
+    padding: 12px 6px;
+    text-align: center;
+    transition: transform 0.18s ease;
+  }
+  .album-card:hover { transform: translateY(-3px); }
+  .album-card .emoji { font-size: 1.9rem; line-height: 1.2; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5)); }
+  .album-card .nm { font-size: 0.7rem; font-weight: 700; margin-top: 6px; color: var(--paper); }
+  .album-card .rar { font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 3px; }
+  .rar.common { color: var(--muted); }
+  .rar.rare { color: var(--blue); }
+  .rar.epic { color: var(--gold); }
+  .album-card.locked { opacity: 0.42; }
+  .album-card.locked .emoji { filter: grayscale(1) brightness(0.5); }
+  .album-card.rare { border-color: rgba(42,161,214,0.5); }
+  .album-card.epic { border-color: rgba(255,209,102,0.6); box-shadow: 0 0 18px rgba(255,209,102,0.14); }
+
+  /* ============ TOAST ============ */
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 26px;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(10, 24, 38, 0.96);
+    border: 1px solid var(--panel-line);
+    color: var(--paper);
+    font-weight: 700;
+    font-size: 0.86rem;
+    padding: 11px 20px;
+    border-radius: 24px;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.25s ease;
+    z-index: 50;
+    max-width: 90vw;
+    text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.good { border-color: var(--mint); color: var(--mint); }
+  .toast.bad { border-color: var(--coral); color: var(--coral); }
+  .toast.gold { border-color: var(--gold); color: var(--gold); }
+
+  /* ============ FOOTER ============ */
+  .hint {
+    text-align: center;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    color: rgba(143, 168, 189, 0.7);
+    margin-top: 14px;
+    line-height: 1.5;
+  }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 480px) {
+    .game-container { padding: 14px; border-radius: 18px; }
+    .stat { font-size: 0.85rem; padding: 7px 6px; }
+    .btn.spin-btn { padding: 13px 34px; font-size: 1rem; }
+    .wheel-stage { max-width: 340px; }
+  }
+</style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">🎡 Lucky Wheel</h1>
+    <p class="game-subtitle">Spin • Collect • Upgrade</p>
+
+    <!-- ============ STATS BAR ============ -->
+    <div class="stats">
+      <div class="stat gold">🪙 <span id="coins">0</span><small>Coins</small></div>
+      <div class="stat">🎟️ <span id="spins">0</span>/<span id="maxSpins">0</span><small>Spins</small></div>
+      <div class="stat">⏳ <span id="regen">--:--</span><small>Next Spin</small></div>
+    </div>
+
+    <!-- ============ TABS ============ -->
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="wheel">Wheel</button>
+      <button class="tab-btn" data-tab="shop">Shop</button>
+      <button class="tab-btn" data-tab="album">Album</button>
+    </nav>
+
+    <!-- ============ WHEEL PANEL ============ -->
+    <section class="panel active" id="panel-wheel">
+      <div class="wheel-stage">
+        <canvas id="wheelCanvas" width="560" height="560"></canvas>
+      </div>
+
+      <div class="result" id="result">Tap SPIN to try your luck!</div>
+
+      <div class="wheel-picker" id="wheelPicker"></div>
+
+      <div class="actions">
+        <button class="btn spin-btn" id="spinBtn">Spin</button>
+        <button class="btn daily-btn" id="dailyBtn">Daily Bonus</button>
+        <button class="btn ghost-btn" id="resetBtn">Reset</button>
+      </div>
+    </section>
+
+    <!-- ============ SHOP PANEL ============ -->
+    <section class="panel" id="panel-shop">
+      <div class="shop-grid" id="shopGrid"></div>
+    </section>
+
+    <!-- ============ ALBUM PANEL ============ -->
+    <section class="panel" id="panel-album">
+      <div class="album-info" id="albumInfo"></div>
+      <div class="album-grid" id="albumGrid"></div>
+    </section>
+
+    <p class="hint">Fill your collection &amp; upgrade your wheel. Everything here is cosmetic — no real money involved.</p>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CONFIGURATION ============
+  const SIZE = 560;            // logical canvas size (square)
+  const MAX_SPIN_MS = 5600;    // longest spin duration
+  const MIN_SPIN_MS = 4200;    // shortest spin duration
+  const MULTI_BASE = 120;      // coin value a "x1" multiplier would pay
+  const SAVE_KEY = "luckyWheelSave_v1";
+  const REGEN_MS = 20 * 60 * 1000; // one free spin every 20 minutes
+
+  // ============ COLLECTIBLE DEFINITIONS ============
+  const COLLECTIBLES = {
+    star:    { emoji: "⭐", name: "Lucky Star",  rarity: "common", bonus: 25  },
+    clover:  { emoji: "🍀", name: "Clover",       rarity: "common", bonus: 25  },
+    bell:    { emoji: "🔔", name: "Jingle Bell",  rarity: "common", bonus: 30  },
+    gem:     { emoji: "💎", name: "Gemstone",     rarity: "rare",   bonus: 75  },
+    moon:    { emoji: "🌙", name: "Moon Charm",   rarity: "rare",   bonus: 75  },
+    rainbow: { emoji: "🌈", name: "Rainbow",      rarity: "rare",   bonus: 90  },
+    sun:     { emoji: "☀️", name: "Sun Token",    rarity: "rare",   bonus: 100 },
+    heart:   { emoji: "💖", name: "Lucky Heart",  rarity: "rare",   bonus: 110 },
+    crown:   { emoji: "👑", name: "Royal Crown",  rarity: "epic",   bonus: 200 },
+    trophy:  { emoji: "🏆", name: "Grand Trophy", rarity: "epic",   bonus: 250 },
+    diamond: { emoji: "💠", name: "Diamond",      rarity: "epic",   bonus: 300 }
+  };
+  const COLL_KEYS = Object.keys(COLLECTIBLES);
+
+  // ============ WHEEL DEFINITIONS (weighted segments) ============
+  // t: prize type | w: weight | c: slice colour | v: value | id: collectible id
+  const WHEELS = {
+    classic: {
+      name: "Classic",
+      icon: "🎯",
+      segs: [
+        { t: "coin",  v: 10,  w: 22, c: "#2aa1d6", label: "10"   },
+        { t: "coin",  v: 25,  w: 16, c: "#ef476f", label: "25"   },
+        { t: "coll",  id: "star",   w: 9,  c: "#ffd166", label: "⭐"   },
+        { t: "coin",  v: 50,  w: 10, c: "#06d6a0", label: "50"   },
+        { t: "spin",  v: 1,   w: 9,  c: "#8338ec", label: "SPIN" },
+        { t: "coin",  v: 5,   w: 20, c: "#2aa1d6", label: "5"    },
+        { t: "coll",  id: "clover", w: 8,  c: "#ffd166", label: "🍀"   },
+        { t: "multi", v: 2,   w: 8,  c: "#ef476f", label: "×2"   },
+        { t: "coin",  v: 100, w: 5,  c: "#06d6a0", label: "100"  },
+        { t: "coll",  id: "gem",    w: 6,  c: "#ffb703", label: "💎"   },
+        { t: "coin",  v: 15,  w: 14, c: "#2aa1d6", label: "15"   },
+        { t: "jackpot", v: 500, w: 2, c: "#ffb703", label: "JACKPOT" }
+      ]
+    },
+    silver: {
+      name: "Silver",
+      icon: "🥈",
+      segs: [
+        { t: "coin",  v: 20,  w: 20, c: "#4f6f8f", label: "20"   },
+        { t: "coin",  v: 50,  w: 15, c: "#2aa1d6", label: "50"   },
+        { t: "coll",  id: "bell",    w: 8,  c: "#ffd166", label: "🔔" },
+        { t: "coin",  v: 75,  w: 10, c: "#06d6a0", label: "75"   },
+        { t: "spin",  v: 1,   w: 10, c: "#8338ec", label: "SPIN" },
+        { t: "coin",  v: 10,  w: 16, c: "#4f6f8f", label: "10"   },
+        { t: "coll",  id: "moon",    w: 8,  c: "#ffd166", label: "🌙" },
+        { t: "multi", v: 2,   w: 9,  c: "#ef476f", label: "×2"   },
+        { t: "coin",  v: 150, w: 6,  c: "#06d6a0", label: "150"  },
+        { t: "coll",  id: "crown",   w: 5,  c: "#ffb703", label: "👑" },
+        { t: "coin",  v: 40,  w: 16, c: "#2aa1d6", label: "40"   },
+        { t: "coll",  id: "rainbow", w: 7,  c: "#ffd166", label: "🌈" },
+        { t: "jackpot", v: 1000, w: 3, c: "#ffb703", label: "JACKPOT" }
+      ]
+    },
+    gold: {
+      name: "Gold",
+      icon: "🥇",
+      segs: [
+        { t: "coin",  v: 100, w: 16, c: "#c9902e", label: "100"  },
+        { t: "coin",  v: 250, w: 12, c: "#ffb703", label: "250"  },
+        { t: "coll",  id: "trophy",  w: 6,  c: "#ffd166", label: "🏆" },
+        { t: "coin",  v: 400, w: 8,  c: "#06d6a0", label: "400"  },
+        { t: "spin",  v: 2,   w: 10, c: "#8338ec", label: "SPIN×2" },
+        { t: "coin",  v: 50,  w: 14, c: "#c9902e", label: "50"   },
+        { t: "coll",  id: "diamond", w: 6,  c: "#8ad7ff", label: "💠" },
+        { t: "multi", v: 3,   w: 8,  c: "#ef476f", label: "×3"   },
+        { t: "coin",  v: 750, w: 6,  c: "#06d6a0", label: "750"  },
+        { t: "coll",  id: "sun",     w: 5,  c: "#ffd166", label: "☀️" },
+        { t: "coin",  v: 200, w: 12, c: "#ffb703", label: "200"  },
+        { t: "coll",  id: "heart",   w: 5,  c: "#ef476f", label: "💖" },
+        { t: "coin",  v: 150, w: 10, c: "#c9902e", label: "150"  },
+        { t: "jackpot", v: 5000, w: 2, c: "#ffb703", label: "JACKPOT" }
+      ]
+    }
+  };
+
+  // ============ SHOP ITEMS ============
+  const SHOP = [
+    { id: "spinpack", name: "Spin Pack",     icon: "🎟️", desc: "+3 spins, applied instantly.",                       cost: 150,  repeat: true  },
+    { id: "spincap",  name: "Charge Cap +3", icon: "🔋", desc: "Permanently raise your max spin reserve by 3.",       cost: 500,  repeat: false },
+    { id: "silver",   name: "Silver Wheel",  icon: "🥈", desc: "Unlock a wheel with stronger, more generous prizes.", cost: 600,  repeat: false },
+    { id: "gold",     name: "Gold Wheel",    icon: "🥇", desc: "Unlock the richest prize table. Big jackpots await.", cost: 2500, repeat: false }
+  ];
+
+  // ============ DOM REFERENCES ============
+  const canvas   = document.getElementById("wheelCanvas");
+  const ctx      = canvas.getContext("2d");
+  const coinsEl  = document.getElementById("coins");
+  const spinsEl  = document.getElementById("spins");
+  const maxEl    = document.getElementById("maxSpins");
+  const regenEl  = document.getElementById("regen");
+  const resultEl = document.getElementById("result");
+  const spinBtn  = document.getElementById("spinBtn");
+  const dailyBtn = document.getElementById("dailyBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const pickerEl = document.getElementById("wheelPicker");
+  const shopEl   = document.getElementById("shopGrid");
+  const albumEl  = document.getElementById("albumGrid");
+  const albumInfoEl = document.getElementById("albumInfo");
+  const toastEl  = document.getElementById("toast");
+
+  // ============ SAVE STATE ============
+  let save = null;
+
+  function defaultSave() {
+    const now = Date.now();
+    return {
+      coins: 0,
+      spins: 5,
+      maxSpins: 5,
+      lastRegen: now,
+      owned: ["classic"],
+      current: "classic",
+      purchased: {},          // one-time shop items
+      coll: {},               // unlocked collectible ids
+      lastDaily: "",          // YYYY-MM-DD of last claim
+      totalSpins: 0,
+      bestWin: 0,
+      lastResult: ""
+    };
+  }
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return defaultSave();
+      const parsed = JSON.parse(raw);
+      const base = defaultSave();
+      // shallow merge with sane fallbacks
+      const merged = Object.assign(base, parsed);
+      if (!Array.isArray(merged.owned) || !merged.owned.length) merged.owned = ["classic"];
+      if (!WHEELS[merged.current]) merged.current = "classic";
+      // recompute offline spin regeneration on load
+      regenSpins(merged);
+      return merged;
+    } catch (e) {
+      return defaultSave();
+    }
+  }
+
+  function persist() {
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* storage full / blocked */ }
+  }
+
+  // ============ SOUND (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      const v = typeof vol === "number" ? vol : 0.06;
+      g.gain.setValueAtTime(v, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  function tickSound()  { beep(1100, 0.03, "square", 0.035); }
+  function winSound()   { beep(880, 0.09, "sine"); setTimeout(function () { beep(1320, 0.14, "sine"); }, 90); }
+  function jackpotSound() {
+    const notes = [523, 659, 784, 1047, 1319];
+    notes.forEach(function (n, i) { setTimeout(function () { beep(n, 0.2, "triangle", 0.08); }, i * 110); });
+  }
+  function badSound() { beep(180, 0.2, "sawtooth", 0.05); }
+
+  // ============ ANIMATION STATE ============
+  let segs = WHEELS[save ? save.current : "classic"].segs;
+  let rot = 0;
+  let spinning = false;
+  let spinStart = 0, spinDur = 0, spinFrom = 0, spinTo = 0, spinTargetIdx = 0;
+  let frame = 0;
+  let lastPointerIdx = -1;
+  let confetti = [];
+  let hubPulse = 0;
+  let raf = null;
+
+  // ============ CANVAS FIT (high-DPI aware) ============
+  function fitCanvas() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(SIZE * dpr);
+    canvas.height = Math.round(SIZE * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  // ============ WHEEL MATH HELPERS ============
+  function segAngle() { return (Math.PI * 2) / segs.length; }
+
+  function segAtPointer(r) {
+    const seg = segAngle();
+    let a = (-Math.PI / 2 - r) % (Math.PI * 2);
+    if (a < 0) a += Math.PI * 2;
+    return Math.floor(a / seg) % segs.length;
+  }
+
+  function weightedPick(list) {
+    let total = 0;
+    for (let i = 0; i < list.length; i++) total += list[i].w;
+    let r = Math.random() * total;
+    for (let i = 0; i < list.length; i++) {
+      r -= list[i].w;
+      if (r <= 0) return i;
+    }
+    return list.length - 1;
+  }
+
+  // ============ DRAWING ============
+  function lighten(hex, amt) {
+    // simple hex lightener for slice shading
+    const n = parseInt(hex.slice(1), 16);
+    let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    r = Math.min(255, Math.round(r + 255 * amt));
+    g = Math.min(255, Math.round(g + 255 * amt));
+    b = Math.min(255, Math.round(b + 255 * amt));
+    return "rgb(" + r + "," + g + "," + b + ")";
+  }
+
+  function drawWheel() {
+    const cx = SIZE / 2, cy = SIZE / 2;
+    const R = SIZE * 0.45;
+    const seg = segAngle();
+    const n = segs.length;
+
+    ctx.clearRect(0, 0, SIZE, SIZE);
+
+    // ---- outer rim ----
+    const rimGrad = ctx.createRadialGradient(cx, cy, R * 0.8, cx, cy, R * 1.14);
+    rimGrad.addColorStop(0, "#3a2c12");
+    rimGrad.addColorStop(0.55, "#c9902e");
+    rimGrad.addColorStop(1, "#6b4a00");
+    ctx.beginPath();
+    ctx.arc(cx, cy, R * 1.09, 0, Math.PI * 2);
+    ctx.fillStyle = rimGrad;
+    ctx.fill();
+
+    // ---- slices ----
+    for (let i = 0; i < n; i++) {
+      const a0 = rot + i * seg;
+      const a1 = a0 + seg;
+      const base = segs[i].c;
+      const grad = ctx.createRadialGradient(cx, cy, R * 0.12, cx, cy, R);
+      grad.addColorStop(0, lighten(base, 0.22));
+      grad.addColorStop(1, base);
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, R, a0, a1);
+      ctx.closePath();
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "rgba(255,255,255,0.35)";
+      ctx.stroke();
+
+      // ---- slice label ----
+      const mid = a0 + seg / 2;
+      const fs = n > 12 ? 20 : 23;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(mid);
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      ctx.font = "800 " + fs + "px " + getComputedStyle(document.body).fontFamily;
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "rgba(0,0,0,0.35)";
+      ctx.strokeText(segs[i].label, R - 22, 0);
+      ctx.fillStyle = "#fff";
+      ctx.fillText(segs[i].label, R - 22, 0);
+      ctx.restore();
+    }
+
+    // ---- rim bulbs ----
+    const bulbs = 18;
+    const blink = spinning ? (Math.sin(frame * 0.4) > 0 ? 0 : 1) : (Math.sin(frame * 0.08) > 0 ? 0 : 1);
+    for (let i = 0; i < bulbs; i++) {
+      const a = (i / bulbs) * Math.PI * 2;
+      const bx = cx + Math.cos(a) * R * 1.045;
+      const by = cy + Math.sin(a) * R * 1.045;
+      const on = (i % 2 === blink);
+      ctx.beginPath();
+      ctx.arc(bx, by, 6.5, 0, Math.PI * 2);
+      ctx.fillStyle = on ? "#fff8d6" : "#8a6a1a";
+      ctx.shadowBlur = on ? 14 : 0;
+      ctx.shadowColor = "rgba(255,209,102,0.9)";
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    // ---- centre hub ----
+    hubPulse += 0.04;
+    const hubR = SIZE * 0.115;
+    const hubGrad = ctx.createRadialGradient(cx - hubR * 0.3, cy - hubR * 0.3, 2, cx, cy, hubR);
+    hubGrad.addColorStop(0, "#fff4c9");
+    hubGrad.addColorStop(0.5, "#ffd166");
+    hubGrad.addColorStop(1, "#b8860b");
+    ctx.beginPath();
+    ctx.arc(cx, cy, hubR, 0, Math.PI * 2);
+    ctx.fillStyle = hubGrad;
+    ctx.fill();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = "rgba(107,74,0,0.85)";
+    ctx.stroke();
+
+    const glow = 0.5 + Math.sin(hubPulse) * 0.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, hubR * 0.78, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(58,42,0," + (0.75 + glow * 0.15) + ")";
+    ctx.fill();
+
+    ctx.fillStyle = "#ffe9a8";
+    ctx.font = "800 26px " + getComputedStyle(document.body).fontFamily;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(WHEELS[save.current].icon, cx, cy);
+
+    // ---- top pointer ----
+    const tipY = cy - R + 8;
+    ctx.beginPath();
+    ctx.moveTo(cx - 20, cy - R * 1.14);
+    ctx.lineTo(cx + 20, cy - R * 1.14);
+    ctx.lineTo(cx, tipY);
+    ctx.closePath();
+    ctx.fillStyle = "#ef476f";
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#fff";
+    ctx.stroke();
+
+    // ---- confetti ----
+    drawConfetti();
+  }
+
+  function drawConfetti() {
+    for (let i = 0; i < confetti.length; i++) {
+      const p = confetti[i];
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2);
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function spawnConfetti(count, big) {
+    const cx = SIZE / 2, cy = SIZE / 2;
+    const colors = ["#ffd166", "#ef476f", "#06d6a0", "#2aa1d6", "#8338ec", "#ffffff"];
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = 3 + Math.random() * (big ? 12 : 7);
+      confetti.push({
+        x: cx, y: cy,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - (big ? 4 : 2),
+        s: 6 + Math.random() * (big ? 12 : 8),
+        rot: Math.random() * Math.PI * 2,
+        vr: (Math.random() - 0.5) * 0.4,
+        life: 1,
+        color: colors[(Math.random() * colors.length) | 0]
+      });
+    }
+  }
+
+  function updateConfetti() {
+    for (let i = confetti.length - 1; i >= 0; i--) {
+      const p = confetti[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.28;
+      p.vx *= 0.99;
+      p.rot += p.vr;
+      p.life -= 0.012;
+      if (p.life <= 0 || p.y > SIZE + 40) confetti.splice(i, 1);
+    }
+  }
+
+  // ============ GAME LOOP ============
+  function loop() {
+    frame++;
+
+    if (spinning) {
+      const now = performance.now();
+      let t = (now - spinStart) / spinDur;
+      if (t >= 1) { t = 1; }
+      const eased = 1 - Math.pow(1 - t, 4); // easeOutQuart
+      rot = spinFrom + (spinTo - spinFrom) * eased;
+
+      // tick when a new segment passes under the pointer
+      const idx = segAtPointer(rot);
+      if (idx !== lastPointerIdx) { lastPointerIdx = idx; tickSound(); }
+
+      if (t >= 1) {
+        spinning = false;
+        rot = spinTo;
+        spinBtn.disabled = false;
+        resolvePrize(segs[spinTargetIdx]);
+      }
+    }
+
+    updateConfetti();
+    drawWheel();
+    raf = requestAnimationFrame(loop);
+  }
+
+  // ============ SPIN LOGIC ============
+  function beginSpin() {
+    if (spinning) return;
+    if (save.spins <= 0) {
+      flash("No spins left — wait for recharge or visit the Shop!", "bad");
+      badSound();
+      return;
+    }
+
+    save.spins -= 1;
+    save.totalSpins += 1;
+    persist();
+    updateHUD();
+
+    spinBtn.disabled = true;
+    resultEl.className = "result";
+    resultEl.textContent = "Spinning…";
+
+    // pick a weighted winner, then aim the wheel at it
+    spinTargetIdx = weightedPick(segs);
+    const seg = segAngle();
+    const jitter = (Math.random() - 0.5) * seg * 0.8;
+    let target = -Math.PI / 2 - (spinTargetIdx + 0.5 + jitter / seg) * seg;
+
+    // always rotate forward a few full turns
+    let diff = target - rot;
+    diff = ((diff % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+    const turns = 4 + Math.floor(Math.random() * 3);
+    target = rot + diff + Math.PI * 2 * turns;
+
+    spinFrom = rot;
+    spinTo = target;
+    spinStart = performance.now();
+    spinDur = MIN_SPIN_MS + Math.random() * (MAX_SPIN_MS - MIN_SPIN_MS);
+    lastPointerIdx = segAtPointer(rot);
+    spinning = true;
+    beep(320, 0.12, "triangle");
+  }
+
+  // ============ PRIZE RESOLUTION ============
+  function resolvePrize(segDef) {
+    let coins = 0;
+    let msg = "";
+    let cls = "win";
+    let isNew = false;
+
+    if (segDef.t === "coin") {
+      coins = segDef.v;
+      msg = "🪙 +" + coins + " coins!";
+      winSound();
+
+    } else if (segDef.t === "multi") {
+      coins = MULTI_BASE * segDef.v;
+      msg = "✨ ×" + segDef.v + " multiplier → +" + coins + " coins!";
+      winSound();
+
+    } else if (segDef.t === "spin") {
+      save.spins += segDef.v;
+      msg = "🎟️ Bonus spin" + (segDef.v > 1 ? "s ×" + segDef.v : "") + "!";
+      winSound();
+
+    } else if (segDef.t === "jackpot") {
+      coins = segDef.v;
+      msg = "💥 JACKPOT! +" + coins + " coins!";
+      cls = "jackpot";
+      spawnConfetti(120, true);
+      jackpotSound();
+
+    } else if (segDef.t === "coll") {
+      const meta = COLLECTIBLES[segDef.id];
+      coins = meta.bonus;
+      if (!save.coll[segDef.id]) { save.coll[segDef.id] = true; isNew = true; }
+      msg = meta.emoji + " " + meta.name + (isNew ? " — NEW!" : " (dup)") + " +" + coins + " coins";
+      winSound();
+      spawnConfetti(isNew ? 50 : 22, false);
+    }
+
+    if (coins > 0) {
+      save.coins += coins;
+      if (coins > save.bestWin) save.bestWin = coins;
+      spawnConfetti(coinsSmallBurst(coins), false);
+    }
+
+    save.lastResult = msg.replace(/<[^>]*>/g, "");
+    persist();
+
+    resultEl.className = "result " + cls;
+    resultEl.innerHTML = "<span>" + (cls === "jackpot" ? '<span class="big">' : "") + msg + (cls === "jackpot" ? "</span>" : "") + "</span>";
+
+    updateHUD();
+    renderShop();
+    renderAlbum();
+    updateSpinButton();
+
+    if (isNew) {
+      flash("New collectible unlocked — check your Album!", "gold");
+    }
+  }
+
+  function coinsSmallBurst(value) {
+    if (value >= 500) return 40;
+    if (value >= 200) return 24;
+    if (value >= 50) return 14;
+    return 8;
+  }
+
+  // ============ SPIN REGENERATION ============
+  function regenSpins(target) {
+    const s = target || save;
+    const now = Date.now();
+    if (s.spins >= s.maxSpins) { s.lastRegen = now; return false; }
+    const elapsed = now - s.lastRegen;
+    const gained = Math.floor(elapsed / REGEN_MS);
+    if (gained > 0) {
+      s.spins = Math.min(s.maxSpins, s.spins + gained);
+      s.lastRegen = s.lastRegen + gained * REGEN_MS;
+      if (s.spins >= s.maxSpins) s.lastRegen = now;
+      return true;
+    }
+    return false;
+  }
+
+  function regenLabel() {
+    if (save.spins >= save.maxSpins) return "Full";
+    const remain = REGEN_MS - (Date.now() - save.lastRegen);
+    if (remain <= 0) return "Ready";
+    const m = Math.floor(remain / 60000);
+    const sec = Math.floor((remain % 60000) / 1000);
+    return m + ":" + (sec < 10 ? "0" : "") + sec;
+  }
+
+  // ============ DAILY BONUS ============
+  function todayStr() {
+    const d = new Date();
+    return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  }
+  function dailyAvailable() { return save.lastDaily !== todayStr(); }
+
+  function claimDaily() {
+    if (!dailyAvailable()) {
+      flash("Daily bonus already claimed — come back tomorrow!", "bad");
+      return;
+    }
+    save.lastDaily = todayStr();
+    save.spins += 3;
+    save.coins += 150;
+    persist();
+    updateHUD();
+    flash("🎁 Daily bonus: +3 spins & +150 coins!", "good");
+    beep(660, 0.1, "sine");
+    setTimeout(function () { beep(990, 0.16, "sine"); }, 110);
+    spawnConfetti(30, false);
+  }
+
+  // ============ HUD / UI ============
+  function updateHUD() {
+    coinsEl.textContent = save.coins;
+    spinsEl.textContent = save.spins;
+    maxEl.textContent = save.maxSpins;
+    regenEl.textContent = regenLabel();
+    dailyBtn.disabled = !dailyAvailable();
+    dailyBtn.textContent = dailyAvailable() ? "Daily Bonus" : "Claimed ✓";
+    updateSpinButton();
+    renderPicker();
+  }
+
+  function updateSpinButton() {
+    spinBtn.disabled = spinning || save.spins <= 0;
+  }
+
+  function flash(text, kind) {
+    toastEl.textContent = text;
+    toastEl.className = "toast show" + (kind ? " " + kind : "");
+    clearTimeout(flash._t);
+    flash._t = setTimeout(function () { toastEl.className = "toast"; }, 2200);
+  }
+
+  // ============ WHEEL PICKER ============
+  function renderPicker() {
+    pickerEl.innerHTML = "";
+    Object.keys(WHEELS).forEach(function (key) {
+      const owned = save.owned.indexOf(key) !== -1;
+      const btn = document.createElement("button");
+      btn.className = "pick-btn" + (save.current === key ? " active" : "");
+      btn.textContent = WHEELS[key].icon + " " + WHEELS[key].name;
+      btn.disabled = !owned;
+      btn.title = owned ? "" : "Unlock in the Shop";
+      btn.addEventListener("click", function () {
+        if (!owned || spinning) return;
+        save.current = key;
+        segs = WHEELS[key].segs;
+        persist();
+        renderPicker();
+        beep(520, 0.06, "triangle");
+      });
+      pickerEl.appendChild(btn);
+    });
+  }
+
+  // ============ SHOP ============
+  function ownsItem(item) {
+    if (item.id === "spinpack") return false;                 // always repeatable
+    if (item.id === "silver" || item.id === "gold") return save.owned.indexOf(item.id) !== -1;
+    return !!save.purchased[item.id];
+  }
+
+  function renderShop() {
+    shopEl.innerHTML = "";
+    SHOP.forEach(function (item) {
+      const owned = ownsItem(item);
+      const card = document.createElement("div");
+      card.className = "shop-item";
+      const afford = save.coins >= item.cost;
+      card.innerHTML =
+        '<div class="ic">' + item.icon + "</div>" +
+        "<h3>" + item.name + "</h3>" +
+        "<p>" + item.desc + "</p>";
+      const buy = document.createElement("button");
+      buy.className = "buy";
+      if (owned) {
+        buy.textContent = "Owned";
+        buy.disabled = true;
+        card.appendChild(buy);
+      } else {
+        buy.textContent = "Buy · " + item.cost + " 🪙";
+        buy.disabled = !afford;
+        buy.addEventListener("click", function () { buyItem(item); });
+        card.appendChild(buy);
+      }
+      shopEl.appendChild(card);
+    });
+  }
+
+  function buyItem(item) {
+    if (ownsItem(item)) return;
+    if (save.coins < item.cost) {
+      flash("Not enough coins for " + item.name + ".", "bad");
+      badSound();
+      return;
+    }
+    save.coins -= item.cost;
+
+    if (item.id === "spinpack") {
+      save.spins += 3;
+      flash("🎟️ Spin Pack: +3 spins!", "good");
+    } else if (item.id === "spincap") {
+      save.maxSpins += 3;
+      save.spins += 3;
+      save.purchased[item.id] = true;
+      flash("🔋 Max spins increased to " + save.maxSpins + "!", "good");
+    } else if (item.id === "silver" || item.id === "gold") {
+      save.owned.push(item.id);
+      save.current = item.id;
+      segs = WHEELS[item.id].segs;
+      save.purchased[item.id] = true;
+      flash(WHEELS[item.id].icon + " " + WHEELS[item.id].name + " Wheel unlocked!", "gold");
+    }
+
+    persist();
+    updateHUD();
+    renderShop();
+    beep(680, 0.09, "sine");
+    setTimeout(function () { beep(1020, 0.12, "sine"); }, 100);
+    spawnConfetti(26, false);
+  }
+
+  // ============ ALBUM ============
+  function renderAlbum() {
+    const unlockedCount = COLL_KEYS.filter(function (k) { return save.coll[k]; }).length;
+    albumInfoEl.innerHTML = "Collected <b>" + unlockedCount + "</b> / " + COLL_KEYS.length +
+      " &nbsp;•&nbsp; Best single win: <b>" + save.bestWin + "</b> 🪙";
+
+    albumEl.innerHTML = "";
+    COLL_KEYS.forEach(function (key) {
+      const meta = COLLECTIBLES[key];
+      const owned = !!save.coll[key];
+      const card = document.createElement("div");
+      card.className = "album-card " + meta.rarity + (owned ? "" : " locked");
+      card.innerHTML =
+        '<div class="emoji">' + (owned ? meta.emoji : "❔") + "</div>" +
+        '<div class="nm">' + (owned ? meta.name : "???") + "</div>" +
+        '<div class="rar ' + meta.rarity + '">' + meta.rarity + "</div>";
+      albumEl.appendChild(card);
+    });
+  }
+
+  // ============ RESET (two-step, no dialogs) ============
+  let resetArmed = false;
+  let resetTimer = null;
+  function onReset() {
+    if (!resetArmed) {
+      resetArmed = true;
+      resetBtn.classList.add("armed");
+      resetBtn.textContent = "Confirm?";
+      flash("Tap Reset again to wipe all progress.", "bad");
+      clearTimeout(resetTimer);
+      resetTimer = setTimeout(disarmReset, 3500);
+      return;
+    }
+    disarmReset();
+    save = defaultSave();
+    segs = WHEELS.classic.segs;
+    rot = 0;
+    confetti = [];
+    persist();
+    updateHUD();
+    renderShop();
+    renderAlbum();
+    resultEl.className = "result";
+    resultEl.textContent = "Fresh start! Tap SPIN to play.";
+    flash("Progress reset.", "good");
+    beep(400, 0.1, "triangle");
+  }
+  function disarmReset() {
+    resetArmed = false;
+    resetBtn.classList.remove("armed");
+    resetBtn.textContent = "Reset";
+    clearTimeout(resetTimer);
+  }
+
+  // ============ TABS ============
+  document.querySelectorAll(".tab-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      document.querySelectorAll(".tab-btn").forEach(function (b) { b.classList.remove("active"); });
+      document.querySelectorAll(".panel").forEach(function (p) { p.classList.remove("active"); });
+      btn.classList.add("active");
+      document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
+      if (btn.dataset.tab === "shop") renderShop();
+      if (btn.dataset.tab === "album") renderAlbum();
+      beep(600, 0.04, "triangle", 0.03);
+    });
+  });
+
+  // ============ INPUT WIRING ============
+  spinBtn.addEventListener("click", beginSpin);
+  canvas.addEventListener("click", function () { if (!spinning) beginSpin(); });
+  canvas.addEventListener("touchstart", function (e) {
+    if (!spinning) { e.preventDefault(); beginSpin(); }
+  }, { passive: false });
+  dailyBtn.addEventListener("click", claimDaily);
+  resetBtn.addEventListener("click", onReset);
+
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "Space" || e.key === " ") {
+      e.preventDefault();
+      if (!spinning) beginSpin();
+    }
+  });
+
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) {
+      if (regenSpins(save)) persist();
+      updateHUD();
+    }
+  });
+
+  window.addEventListener("resize", fitCanvas);
+
+  // ============ INITIALISATION ============
+  save = load();
+  segs = WHEELS[save.current].segs;
+  persist();
+
+  fitCanvas();
+  updateHUD();
+  renderShop();
+  renderAlbum();
+  resultEl.textContent = "Tap SPIN to try your luck!";
+
+  // keep the recharge timer + HUD fresh
+  setInterval(function () {
+    if (regenSpins(save)) persist();
+    regenEl.textContent = regenLabel();
+    updateSpinButton();
+    if (save.spins > 0 && !spinning) spinsEl.textContent = save.spins;
+  }, 1000);
+
+  loop();
+})();
+</script>
+</body>
+</html>

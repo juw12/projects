@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Volley Smash</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: #0d1b2a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Courier New", monospace;
+    overflow: hidden;
+    touch-action: manipulation;
+    padding: 10px;
+  }
+  #app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: min(96vw, 880px);
+  }
+
+  /* ============ SCORE HUD ============ */
+  .hud {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 8px 14px;
+    background: #14273b;
+    border-radius: 8px;
+    color: #cfe8ff;
+    letter-spacing: 1px;
+    font-weight: bold;
+    font-size: 15px;
+    box-shadow: 0 4px 0 rgba(0,0,0,.3);
+  }
+  .hud .team { display: flex; align-items: center; gap: 8px; }
+  .hud .team.right { flex-direction: row-reverse; }
+  .hud .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .hud .dot.you { background: #38bdf8; box-shadow: 0 0 8px #38bdf8; }
+  .hud .dot.cpu { background: #fb7185; box-shadow: 0 0 8px #fb7185; }
+  .hud .big { font-size: 22px; color: #fff; min-width: 26px; text-align: center; }
+  .hud .target { font-size: 12px; color: #7ea6c7; font-weight: normal; }
+
+  /* ============ CANVAS ============ */
+  #game-wrap {
+    position: relative;
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,.5);
+  }
+  canvas { display: block; width: 100%; height: auto; background: #10243a; }
+
+  /* ============ RALLY BADGE ============ */
+  #rallyBadge {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,.45);
+    color: #ffe14d;
+    font-size: 13px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    padding: 4px 14px;
+    border-radius: 20px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .2s ease;
+  }
+  #rallyBadge.show { opacity: 1; }
+
+  /* ============ SCREENS (Start / Result) ============ */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+    background: rgba(8, 20, 34, .92);
+    color: #e6f3ff;
+    padding: 20px;
+    transition: opacity .3s ease;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen-title {
+    font-size: 2.2rem;
+    letter-spacing: 4px;
+    color: #38bdf8;
+    text-shadow: 0 3px 0 rgba(0,0,0,.5);
+  }
+  .screen-sub { font-size: .95rem; color: #8fb4d4; letter-spacing: 1px; }
+  .final { font-size: 1.4rem; color: #ffe14d; letter-spacing: 2px; }
+  .final .win { color: #7bff9e; }
+  .final .lose { color: #ff8a9c; }
+
+  /* ============ BUTTONS ============ */
+  .action-btn {
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    padding: 12px 30px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #06243a;
+    background: #38bdf8;
+    box-shadow: 0 4px 0 #1f7fb0;
+    transition: transform .06s ease, background .15s ease;
+    user-select: none;
+  }
+  .action-btn:hover { background: #5fc9ff; }
+  .action-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #1f7fb0; }
+
+  #controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px 14px; }
+  #controls button {
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #fff;
+    background: #24486b;
+    box-shadow: 0 3px 0 rgba(0,0,0,.3);
+    transition: transform .06s ease, background .15s ease;
+    user-select: none;
+  }
+  #controls button:hover { background: #2e5a86; }
+  #controls button:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.3); }
+  #difficulty { display: flex; align-items: center; gap: 6px; }
+  #difficulty .label { color: #cfe8ff; font-size: 12px; font-weight: bold; letter-spacing: 1px; }
+  #difficulty button { background: rgba(255,255,255,.12); box-shadow: 0 3px 0 rgba(0,0,0,.25); }
+  #difficulty button:hover { background: rgba(255,255,255,.22); }
+  #difficulty button.active { background: #ffe14d; color: #4a3a00; }
+
+  /* ============ TOUCH CONTROLS ============ */
+  #touch { display: flex; align-items: center; justify-content: center; gap: 12px; }
+  #touch button {
+    font-family: inherit;
+    font-size: 18px;
+    font-weight: bold;
+    min-width: 92px;
+    padding: 14px 10px;
+    border: none;
+    border-radius: 12px;
+    color: #eaf6ff;
+    background: #1d3a57;
+    box-shadow: 0 4px 0 rgba(0,0,0,.35);
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .06s ease, background .12s ease;
+  }
+  #touch button:active, #touch button.pressed { background: #38bdf8; color: #06243a; transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.35); }
+  #touch button[data-act="jump"] { background: #b03a55; min-width: 110px; }
+  #touch button[data-act="jump"]:active, #touch button[data-act="jump"].pressed { background: #ffe14d; color: #4a3a00; }
+
+  /* ============ HINT ============ */
+  #hint { color: #6d8fac; font-size: 11px; letter-spacing: 1px; text-align: center; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 560px) {
+    .screen-title { font-size: 1.6rem; }
+    .hud { font-size: 13px; }
+    #hint { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ============ SCORE HUD ============ -->
+  <div class="hud">
+    <div class="team left"><span class="dot you"></span>YOU <span class="big" id="scoreP">0</span></div>
+    <div class="target">FIRST TO <span id="targetP">7</span></div>
+    <div class="team right"><span class="dot cpu"></span>CPU <span class="big" id="scoreC">0</span></div>
+  </div>
+
+  <!-- ============ CANVAS + OVERLAYS ============ -->
+  <div id="game-wrap">
+    <canvas id="game" width="800" height="450"></canvas>
+    <div id="rallyBadge">RALLY 0</div>
+
+    <!-- Start Screen -->
+    <div id="startScreen" class="screen">
+      <h1 class="screen-title">VOLLEY SMASH</h1>
+      <p class="screen-sub">Move + jump to smash the ball over the net.<br>Don't let it hit YOUR floor.</p>
+      <div id="difficulty">
+        <span class="label">MATCH:</span>
+        <button type="button" data-diff="easy">Easy</button>
+        <button type="button" data-diff="normal" class="active">Normal</button>
+        <button type="button" data-diff="hard">Hard</button>
+      </div>
+      <button class="action-btn" id="startBtn" type="button">START MATCH</button>
+      <p class="screen-sub" style="font-size:12px">Best rally: <span id="bestRallyStart">0</span></p>
+    </div>
+
+    <!-- Result Screen -->
+    <div id="resultScreen" class="screen hidden">
+      <h1 class="screen-title" id="resultTitle">YOU WIN</h1>
+      <p class="final" id="resultScore">0 - 0</p>
+      <p class="screen-sub" id="resultMeta">Best rally this match: 0</p>
+      <button class="action-btn" id="againBtn" type="button">PLAY AGAIN</button>
+    </div>
+  </div>
+
+  <!-- ============ CONTROLS ============ -->
+  <div id="controls">
+    <button id="btn-pause" type="button">Pause</button>
+    <button id="btn-restart" type="button">Restart</button>
+    <div id="difficultyBar">
+      <span class="label" style="color:#cfe8ff;font-size:12px;font-weight:bold;letter-spacing:1px;">MATCH:</span>
+      <button type="button" data-diff="easy">Easy</button>
+      <button type="button" data-diff="normal" class="active">Normal</button>
+      <button type="button" data-diff="hard">Hard</button>
+    </div>
+  </div>
+
+  <!-- ============ TOUCH CONTROLS ============ -->
+  <div id="touch">
+    <button type="button" data-act="left">&#9664;</button>
+    <button type="button" data-act="jump">JUMP</button>
+    <button type="button" data-act="right">&#9654;</button>
+  </div>
+
+  <div id="hint">&#8592; &#8594; move &nbsp;|&nbsp; SPACE / &#8593; jump &nbsp;|&nbsp; hit the ball while near it &nbsp;|&nbsp; P pause &nbsp;|&nbsp; R restart</div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CANVAS & CONSTANTS ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;
+  const H = canvas.height;
+
+  const FLOOR_Y = H - 44;          // top of the court floor
+  const NET_X = W / 2;             // net center
+  const NET_W = 12;                // net thickness
+  const NET_H = 150;               // net height
+  const NET_TOP = FLOOR_Y - NET_H; // y of the net's top edge
+
+  const PLAYER_R = 24;
+  const BALL_R = 15;
+
+  const GRAV_BALL = 0.17;          // ball gravity per frame (floaty arc)
+  const GRAV_P = 0.78;             // player gravity per frame
+  const JUMP_V = 13.2;             // jump impulse
+  const PLAYER_SPEED = 6.2;        // horizontal move speed
+  const HIT_COOLDOWN = 9;          // frames before a player can hit again
+  const RALLY_MIN_SPEED = 5;       // minimum outgoing hit speed
+
+  const MAX_BALL_V = 12;           // ball speed clamp
+
+  // Court side bounds (players cannot enter the net)
+  const LEFT_MIN_X = PLAYER_R + 6;
+  const LEFT_MAX_X = NET_X - NET_W / 2 - PLAYER_R - 4;
+  const RIGHT_MIN_X = NET_X + NET_W / 2 + PLAYER_R + 4;
+  const RIGHT_MAX_X = W - PLAYER_R - 6;
+
+  // Difficulty presets: target points + CPU movement speed
+  const DIFFICULTY = {
+    easy:   { target: 5,  cpu: 4.4 },
+    normal: { target: 7,  cpu: 6.0 },
+    hard:   { target: 11, cpu: 7.6 }
+  };
+  const DIFF_LABEL = { easy: "Easy", normal: "Normal", hard: "Hard" };
+
+  // ============ DOM ELEMENTS ============
+  const scorePEl   = document.getElementById("scoreP");
+  const scoreCEl   = document.getElementById("scoreC");
+  const targetPEl  = document.getElementById("targetP");
+  const rallyBadge = document.getElementById("rallyBadge");
+  const startScreen  = document.getElementById("startScreen");
+  const resultScreen = document.getElementById("resultScreen");
+  const resultTitle  = document.getElementById("resultTitle");
+  const resultScore  = document.getElementById("resultScore");
+  const resultMeta   = document.getElementById("resultMeta");
+  const bestRallyStart = document.getElementById("bestRallyStart");
+  const startBtn   = document.getElementById("startBtn");
+  const againBtn   = document.getElementById("againBtn");
+  const btnPause   = document.getElementById("btn-pause");
+  const btnRestart = document.getElementById("btn-restart");
+
+  // ============ GAME STATE ============
+  const STATE = { READY: 0, PLAYING: 1, OVER: 2 };
+  let state = STATE.READY;
+  let paused = false;
+  let frames = 0;
+
+  let diff = localStorage.getItem("volleyDiff") || "normal";
+  if (!DIFFICULTY[diff]) diff = "normal";
+
+  let scoreP = 0;
+  let scoreC = 0;
+  let rally = 0;
+  let matchBestRally = 0;
+  let bestRally = Number(localStorage.getItem("volleyBestRally") || 0);
+  let wins = Number(localStorage.getItem("volleyWins") || 0);
+
+  // ============ ENTITIES ============
+  const player = { x: 150, y: FLOOR_Y - PLAYER_R, vy: 0, r: PLAYER_R, onGround: true, cooldown: 0, homeX: 150, side: "left" };
+  const cpu    = { x: W - 150, y: FLOOR_Y - PLAYER_R, vy: 0, r: PLAYER_R, onGround: true, cooldown: 0, homeX: W - 150, side: "right" };
+  const ball   = { x: W / 2, y: NET_TOP - 80, vx: 0, vy: 0, r: BALL_R, rot: 0 };
+
+  // ============ INPUT ============
+  const keys = { left: false, right: false, jump: false };
+  let jumpQueued = false;
+
+  // ============ SOUND (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.06, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  // ============ HELPERS ============
+  function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
+  function cfg() { return DIFFICULTY[diff]; }
+
+  function updateHUD() {
+    scorePEl.textContent = scoreP;
+    scoreCEl.textContent = scoreC;
+    targetPEl.textContent = cfg().target;
+    bestRallyStart.textContent = bestRally;
+  }
+
+  function setRallyBadge() {
+    rallyBadge.textContent = "RALLY " + rally;
+    rallyBadge.classList.toggle("show", rally >= 2 && state === STATE.PLAYING);
+  }
+
+  // ============ MATCH FLOW ============
+  function resetPositions() {
+    player.x = player.homeX;
+    player.y = FLOOR_Y - PLAYER_R;
+    player.vy = 0;
+    player.onGround = true;
+    player.cooldown = HIT_COOLDOWN;
+    cpu.x = cpu.homeX;
+    cpu.y = FLOOR_Y - PLAYER_R;
+    cpu.vy = 0;
+    cpu.onGround = true;
+    cpu.cooldown = HIT_COOLDOWN;
+  }
+
+  // Serve the ball toward a side ("left" or "right")
+  function serveToward(side) {
+    const dir = side === "left" ? -1 : 1;
+    ball.x = NET_X + dir * 46;
+    ball.y = 64;
+    ball.vx = dir * 2.6;
+    ball.vy = 0;
+    ball.rot = 0;
+  }
+
+  function startMatch() {
+    scoreP = 0;
+    scoreC = 0;
+    rally = 0;
+    matchBestRally = 0;
+    paused = false;
+    frames = 0;
+    resetPositions();
+    serveToward(Math.random() < 0.5 ? "left" : "right");
+    updateHUD();
+    setRallyBadge();
+    startScreen.classList.add("hidden");
+    resultScreen.classList.add("hidden");
+    syncPauseButton();
+    state = STATE.PLAYING;
+  }
+
+  function scorePoint(who) {
+    if (state !== STATE.PLAYING) return;
+    if (who === "P") scoreP++; else scoreC++;
+    if (rally > matchBestRally) matchBestRally = rally;
+    rally = 0;
+    setRallyBadge();
+    updateHUD();
+    beep(who === "P" ? 760 : 200, 0.16, who === "P" ? "sine" : "sawtooth");
+
+    const target = cfg().target;
+    if (scoreP >= target) { endMatch("P"); return; }
+    if (scoreC >= target) { endMatch("C"); return; }
+
+    // Loser of the point receives the next serve
+    resetPositions();
+    serveToward(who === "P" ? "right" : "left");
+  }
+
+  function endMatch(winner) {
+    state = STATE.OVER;
+    paused = false;
+    if (winner === "P") {
+      wins++;
+      localStorage.setItem("volleyWins", String(wins));
+      resultTitle.textContent = "YOU WIN!";
+      resultTitle.style.color = "#7bff9e";
+    } else {
+      resultTitle.textContent = "CPU WINS";
+      resultTitle.style.color = "#ff8a9c";
+    }
+    resultScore.textContent = scoreP + " - " + scoreC;
+    resultMeta.textContent = "Best rally this match: " + matchBestRally + "  |  All-time: " + bestRally;
+    resultScreen.classList.remove("hidden");
+    rallyBadge.classList.remove("show");
+    beep(winner === "P" ? 880 : 150, 0.3, winner === "P" ? "triangle" : "sawtooth");
+  }
+
+  // ============ UPDATE: PLAYER ============
+  function updatePlayer() {
+    if (keys.left) player.x -= PLAYER_SPEED;
+    if (keys.right) player.x += PLAYER_SPEED;
+    if (jumpQueued && player.onGround) {
+      player.vy = -JUMP_V;
+      player.onGround = false;
+      beep(620, 0.06, "square");
+    }
+    player.x = clamp(player.x, LEFT_MIN_X, LEFT_MAX_X);
+
+    player.vy += GRAV_P;
+    player.y += player.vy;
+    if (player.y + player.r >= FLOOR_Y) {
+      player.y = FLOOR_Y - player.r;
+      player.vy = 0;
+      player.onGround = true;
+    }
+  }
+
+  // ============ UPDATE: CPU ============
+  function updateCPU() {
+    const spd = cfg().cpu;
+
+    // Chase the ball when it is on (or falling toward) the CPU half
+    let targetX = cpu.homeX;
+    const threat = ball.x > NET_X - 70 || ball.vx > 0;
+    if (threat) targetX = ball.x + ball.vx * 4;
+
+    targetX = clamp(targetX, RIGHT_MIN_X, RIGHT_MAX_X);
+    const dx = targetX - cpu.x;
+    if (Math.abs(dx) > 5) cpu.x += Math.sign(dx) * Math.min(spd, Math.abs(dx));
+    cpu.x = clamp(cpu.x, RIGHT_MIN_X, RIGHT_MAX_X);
+
+    // Jump when the ball is close, above, and reachable
+    const near = Math.abs(ball.x - cpu.x) < 62;
+    const above = ball.y < cpu.y - 10;
+    const reachable = ball.y > NET_TOP - 70 && ball.y < FLOOR_Y - 30;
+    if (near && above && reachable && cpu.onGround) {
+      cpu.vy = -JUMP_V;
+      cpu.onGround = false;
+      beep(420, 0.05, "triangle");
+    }
+
+    cpu.vy += GRAV_P;
+    cpu.y += cpu.vy;
+    if (cpu.y + cpu.r >= FLOOR_Y) {
+      cpu.y = FLOOR_Y - cpu.r;
+      cpu.vy = 0;
+      cpu.onGround = true;
+    }
+  }
+
+  // ============ HIT DETECTION ============
+  function hitPlayer(p) {
+    const dx = ball.x - p.x;
+    const dy = ball.y - p.y;
+    const d = Math.hypot(dx, dy);
+    const minD = ball.r + p.r;
+    if (d >= minD || d === 0) return;
+
+    // Push the ball out along the collision normal
+    const nx = dx / d;
+    const ny = dy / d;
+    ball.x = p.x + nx * minD;
+    ball.y = p.y + ny * minD;
+
+    // Outgoing direction: away from the player + toward the opposite court + upward
+    const dir = p.side === "left" ? 1 : -1;
+    let ox = nx * 0.55 + dir * 0.75;
+    let oy = ny * 0.5 - 0.72 - Math.max(0, -p.vy) * 0.02;
+    const om = Math.hypot(ox, oy) || 1;
+    ox /= om; oy /= om;
+
+    const inSpeed = Math.max(Math.hypot(ball.vx, ball.vy), RALLY_MIN_SPEED);
+    const outSpeed = Math.min(inSpeed * 1.15 + 2.6, 12);
+    ball.vx = ox * outSpeed;
+    ball.vy = oy * outSpeed;
+
+    p.cooldown = HIT_COOLDOWN;
+
+    // Rally bookkeeping
+    rally++;
+    if (rally > bestRally) {
+      bestRally = rally;
+      localStorage.setItem("volleyBestRally", String(bestRally));
+      bestRallyStart.textContent = bestRally;
+    }
+    setRallyBadge();
+    beep(500 + Math.min(rally, 14) * 34, 0.055, "square");
+  }
+
+  // ============ UPDATE: BALL ============
+  function updateBall() {
+    ball.vy += GRAV_BALL;
+    ball.vy = Math.min(ball.vy, MAX_BALL_V);
+    ball.x += ball.vx;
+    ball.y += ball.vy;
+    ball.rot += ball.vx * 0.05;
+
+    // Left / right walls
+    if (ball.x - ball.r < 0) { ball.x = ball.r; ball.vx = Math.abs(ball.vx) * 0.82; }
+    if (ball.x + ball.r > W) { ball.x = W - ball.r; ball.vx = -Math.abs(ball.vx) * 0.82; }
+    // Ceiling
+    if (ball.y - ball.r < 0) { ball.y = ball.r; ball.vy = Math.abs(ball.vy) * 0.82; }
+
+    // Net (only blocks when the ball is not above the net's top)
+    if (ball.y + ball.r > NET_TOP) {
+      const reach = ball.r + NET_W / 2;
+      if (Math.abs(ball.x - NET_X) < reach) {
+        if (ball.x < NET_X) ball.x = NET_X - reach;
+        else ball.x = NET_X + reach;
+        ball.vx = -ball.vx * 0.8;
+        beep(300, 0.04, "triangle");
+      }
+    }
+
+    // Floor -> point
+    if (ball.y + ball.r >= FLOOR_Y) {
+      ball.y = FLOOR_Y - ball.r;
+      if (ball.x < NET_X) scorePoint("C"); else scorePoint("P");
+      return;
+    }
+
+    // Players
+    hitPlayer(player);
+    hitPlayer(cpu);
+  }
+
+  // ============ MAIN UPDATE ============
+  function update() {
+    frames++;
+
+    if (player.cooldown > 0) player.cooldown--;
+    if (cpu.cooldown > 0) cpu.cooldown--;
+
+    if (state === STATE.PLAYING) {
+      updatePlayer();
+      updateCPU();
+      updateBall();
+    } else if (state === STATE.READY) {
+      // Gentle idle bob on the start screen
+      player.y = FLOOR_Y - PLAYER_R - Math.abs(Math.sin(frames * 0.05)) * 4;
+      cpu.y = FLOOR_Y - PLAYER_R - Math.abs(Math.cos(frames * 0.05)) * 4;
+    }
+    jumpQueued = false;
+  }
+
+  // ============ DRAWING ============
+  function drawCourt() {
+    // Sky
+    const sky = ctx.createLinearGradient(0, 0, 0, FLOOR_Y);
+    sky.addColorStop(0, "#0e2b4d");
+    sky.addColorStop(0.6, "#1d4b78");
+    sky.addColorStop(1, "#2f6ea3");
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, FLOOR_Y);
+
+    // Glow spotlight
+    const glow = ctx.createRadialGradient(W / 2, 40, 10, W / 2, 40, 320);
+    glow.addColorStop(0, "rgba(255,225,77,0.16)");
+    glow.addColorStop(1, "rgba(255,225,77,0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, W, FLOOR_Y);
+
+    // Crowd dots along the back
+    ctx.fillStyle = "rgba(255,255,255,0.07)";
+    for (let x = 14; x < W; x += 26) {
+      const y = 40 + ((x * 7) % 26);
+      ctx.beginPath();
+      ctx.arc(x, y, 6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Floor
+    const floor = ctx.createLinearGradient(0, FLOOR_Y, 0, H);
+    floor.addColorStop(0, "#d9a441");
+    floor.addColorStop(1, "#b5822c");
+    ctx.fillStyle = floor;
+    ctx.fillRect(0, FLOOR_Y, W, H - FLOOR_Y);
+
+    // Court center line + service marks
+    ctx.strokeStyle = "rgba(255,255,255,0.75)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, FLOOR_Y + 2);
+    ctx.lineTo(W, FLOOR_Y + 2);
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(255,255,255,0.4)";
+    ctx.lineWidth = 2;
+    [W * 0.25, W * 0.75].forEach(function (x) {
+      ctx.beginPath();
+      ctx.moveTo(x, FLOOR_Y + 6);
+      ctx.lineTo(x, H - 8);
+      ctx.stroke();
+    });
+  }
+
+  function drawNet() {
+    // Posts
+    ctx.fillStyle = "#8d949c";
+    ctx.fillRect(NET_X - NET_W / 2 - 3, NET_TOP - 6, 6, NET_H + 6);
+    ctx.fillStyle = "#cfd6dd";
+    ctx.fillRect(NET_X - NET_W / 2 - 1, NET_TOP - 6, 2, NET_H + 6);
+
+    // Net mesh
+    ctx.strokeStyle = "rgba(240,248,255,0.65)";
+    ctx.lineWidth = 1;
+    for (let y = NET_TOP; y <= FLOOR_Y; y += 12) {
+      ctx.beginPath();
+      ctx.moveTo(NET_X - NET_W / 2, y);
+      ctx.lineTo(NET_X + NET_W / 2, y);
+      ctx.stroke();
+    }
+    for (let x = -NET_W / 2; x <= NET_W / 2; x += 6) {
+      ctx.beginPath();
+      ctx.moveTo(NET_X + x, NET_TOP);
+      ctx.lineTo(NET_X + x, FLOOR_Y);
+      ctx.stroke();
+    }
+
+    // Top band
+    ctx.fillStyle = "#f4f8ff";
+    ctx.fillRect(NET_X - NET_W / 2 - 2, NET_TOP - 4, NET_W + 4, 5);
+    ctx.fillStyle = "#e04b6b";
+    ctx.fillRect(NET_X - NET_W / 2 - 2, NET_TOP - 4, NET_W + 4, 2);
+  }
+
+  function drawShadow(x, r) {
+    ctx.fillStyle = "rgba(0,0,0,0.22)";
+    ctx.beginPath();
+    ctx.ellipse(x, FLOOR_Y - 3, r * 1.05, r * 0.32, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawPlayer(p) {
+    drawShadow(p.x, p.r);
+
+    const isYou = p.side === "left";
+    const body = isYou ? "#38bdf8" : "#fb7185";
+    const dark = isYou ? "#1f7fb0" : "#c2415a";
+
+    // Body
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = dark;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Jersey stripe
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0.15 * Math.PI, 0.85 * Math.PI);
+    ctx.lineTo(p.x, p.y);
+    ctx.fill();
+
+    // Eyes
+    const ex = p.side === "left" ? 5 : -5;
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.arc(p.x + ex - 4, p.y - 6, 5, 0, Math.PI * 2);
+    ctx.arc(p.x + ex + 4, p.y - 6, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#10243a";
+    ctx.beginPath();
+    ctx.arc(p.x + ex - 4, p.y - 6, 2.4, 0, Math.PI * 2);
+    ctx.arc(p.x + ex + 4, p.y - 6, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Headband
+    ctx.strokeStyle = "#ffe14d";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r - 2, Math.PI * 1.08, Math.PI * 1.92);
+    ctx.stroke();
+  }
+
+  function drawBall() {
+    drawShadow(ball.x, ball.r * 0.85);
+
+    ctx.save();
+    ctx.translate(ball.x, ball.y);
+    ctx.rotate(ball.rot);
+
+    // Ball base
+    ctx.fillStyle = "#fdfdff";
+    ctx.beginPath();
+    ctx.arc(0, 0, ball.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#c9d3e0";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Colored panel seams
+    ctx.strokeStyle = "#2f6ea3";
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.arc(0, 0, ball.r - 1, -0.2, 1.2);
+    ctx.stroke();
+    ctx.strokeStyle = "#e04b6b";
+    ctx.beginPath();
+    ctx.arc(0, 0, ball.r - 1, 1.9, 3.3);
+    ctx.stroke();
+    ctx.strokeStyle = "#e0a800";
+    ctx.beginPath();
+    ctx.arc(0, 0, ball.r - 1, 3.9, 5.3);
+    ctx.stroke();
+
+    // Highlight
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.beginPath();
+    ctx.arc(-ball.r * 0.35, -ball.r * 0.4, ball.r * 0.28, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawCanvasScore() {
+    if (state !== STATE.PLAYING && state !== STATE.OVER) return;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    ctx.font = "bold 34px 'Courier New', monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.strokeStyle = "rgba(0,0,0,0.5)";
+    ctx.lineWidth = 5;
+    ctx.strokeText(scoreP + " : " + scoreC, W / 2, 52);
+    ctx.fillText(scoreP + " : " + scoreC, W / 2, 52);
+  }
+
+  function drawPauseOverlay() {
+    if (!paused || state === STATE.OVER) return;
+    ctx.fillStyle = "rgba(4,12,22,0.6)";
+    ctx.fillRect(0, 0, W, FLOOR_Y);
+    ctx.fillStyle = "#fff";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    ctx.font = "bold 44px 'Courier New', monospace";
+    ctx.fillText("PAUSED", W / 2, H / 2 - 4);
+    ctx.font = "16px 'Courier New', monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.8)";
+    ctx.fillText("Press Play / P to resume", W / 2, H / 2 + 32);
+  }
+
+  function render() {
+    drawCourt();
+    drawNet();
+    drawPlayer(player);
+    drawPlayer(cpu);
+    drawBall();
+    drawCanvasScore();
+    drawPauseOverlay();
+  }
+
+  // ============ MAIN LOOP ============
+  let raf;
+  function loop() {
+    if (!paused) update();
+    render();
+    raf = requestAnimationFrame(loop);
+  }
+
+  // ============ CONTROLS ============
+  function syncPauseButton() {
+    btnPause.textContent = paused ? "Play" : "Pause";
+  }
+
+  function togglePause() {
+    if (state === STATE.OVER) return;
+    if (state === STATE.READY) return; // nothing running yet
+    paused = !paused;
+    syncPauseButton();
+    beep(paused ? 420 : 620, 0.07, "triangle");
+  }
+
+  function setDifficulty(d) {
+    if (!DIFFICULTY[d]) return;
+    diff = d;
+    localStorage.setItem("volleyDiff", d);
+    syncDiffButtons();
+    updateHUD();
+    if (state === STATE.PLAYING || state === STATE.OVER) startMatch();
+  }
+
+  const diffButtons = Array.prototype.slice.call(document.querySelectorAll("[data-diff]"));
+  function syncDiffButtons() {
+    diffButtons.forEach(function (b) {
+      b.classList.toggle("active", b.dataset.diff === diff);
+    });
+  }
+
+  // Keyboard
+  window.addEventListener("keydown", function (e) {
+    const k = e.code;
+    if (k === "ArrowLeft" || k === "KeyA") { keys.left = true; e.preventDefault(); }
+    else if (k === "ArrowRight" || k === "KeyD") { keys.right = true; e.preventDefault(); }
+    else if (k === "Space" || k === "ArrowUp" || k === "KeyW") {
+      e.preventDefault();
+      if (!keys.jump) { jumpQueued = true; keys.jump = true; }
+      if (state === STATE.READY) startMatch();
+    }
+    else if (k === "KeyP" || k === "Escape") { e.preventDefault(); togglePause(); }
+    else if (k === "KeyR") { e.preventDefault(); startMatch(); }
+  });
+  window.addEventListener("keyup", function (e) {
+    const k = e.code;
+    if (k === "ArrowLeft" || k === "KeyA") keys.left = false;
+    else if (k === "ArrowRight" || k === "KeyD") keys.right = false;
+    else if (k === "Space" || k === "ArrowUp" || k === "KeyW") keys.jump = false;
+  });
+
+  // Touch / pointer buttons
+  document.querySelectorAll("#touch button").forEach(function (btn) {
+    const act = btn.dataset.act;
+    function down(e) {
+      e.preventDefault();
+      btn.classList.add("pressed");
+      if (state === STATE.READY) startMatch();
+      if (act === "left") keys.left = true;
+      else if (act === "right") keys.right = true;
+      else if (act === "jump") { jumpQueued = true; keys.jump = true; }
+    }
+    function up(e) {
+      if (e) e.preventDefault();
+      btn.classList.remove("pressed");
+      if (act === "left") keys.left = false;
+      else if (act === "right") keys.right = false;
+      else if (act === "jump") keys.jump = false;
+    }
+    btn.addEventListener("pointerdown", down);
+    btn.addEventListener("pointerup", up);
+    btn.addEventListener("pointercancel", up);
+    btn.addEventListener("pointerleave", up);
+  });
+
+  // Canvas tap = jump (and start from the READY screen)
+  canvas.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    if (state === STATE.READY) { startMatch(); return; }
+    jumpQueued = true;
+  });
+
+  // Buttons
+  startBtn.addEventListener("click", startMatch);
+  againBtn.addEventListener("click", startMatch);
+  btnRestart.addEventListener("click", startMatch);
+  btnPause.addEventListener("click", togglePause);
+  diffButtons.forEach(function (b) {
+    b.addEventListener("click", function () { setDifficulty(b.dataset.diff); });
+  });
+
+  // Pause simulation when the tab is hidden
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      cancelAnimationFrame(raf);
+      raf = null;
+    } else if (!raf) {
+      raf = requestAnimationFrame(loop);
+    }
+  });
+
+  // ============ INITIALIZATION ============
+  updateHUD();
+  syncDiffButtons();
+  syncPauseButton();
+  loop();
+})();
+</script>
+</body>
+</html>

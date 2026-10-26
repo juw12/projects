@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Colony Build</title>
+<style>
+  html,body{ margin:0; height:100%; background:#04070f; color:#e5e7eb;
+    font-family:system-ui,Segoe UI,Roboto,sans-serif; overflow:hidden; }
+  #wrap{ position:fixed; inset:0; display:flex; flex-direction:column; }
+  #top{ display:flex; gap:10px; flex-wrap:wrap; padding:8px 12px; background:#0a1120;
+    font:700 12px system-ui; align-items:center; }
+  .stat b{ color:#38bdf8; }
+  #top button{ margin-left:auto; font:inherit; padding:6px 12px; border:0; border-radius:8px;
+    background:#1e3a5f; color:#e5e7eb; cursor:pointer; }
+  #main{ flex:1; position:relative; }
+  canvas{ display:block; width:100%; height:100%; touch-action:none; }
+  #palette{ display:flex; gap:6px; flex-wrap:wrap; padding:8px 12px; background:#0a1120; border-top:1px solid #12233c; }
+  .tool{ padding:6px 10px; border-radius:8px; background:#132542; cursor:pointer; font:700 12px system-ui;
+    border:2px solid transparent; user-select:none; }
+  .tool.sel{ border-color:#38bdf8; }
+  .overlay{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:12px; background:rgba(3,6,14,.86); text-align:center; padding:20px; }
+  .overlay.hidden{ display:none; }
+  h1{ margin:0; font-size:clamp(26px,6vw,46px); letter-spacing:2px; color:#7dd3fc; }
+  .go{ font:inherit; font-weight:700; padding:12px 24px; border:0; border-radius:999px;
+    background:linear-gradient(135deg,#38bdf8,#6366f1); color:#fff; cursor:pointer; }
+  p{ max-width:36ch; opacity:.85; margin:0; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="top">
+    <span class="stat">Day <b id="day">1</b></span>
+    <span class="stat">Pop <b id="pop">3</b></span>
+    <span class="stat">O2 <b id="oxy">100</b></span>
+    <span class="stat">Power <b id="pow">0</b></span>
+    <span class="stat">Water <b id="wat">0</b></span>
+    <span class="stat">Food <b id="food">0</b></span>
+    <span class="stat">Credits <b id="cred">150</b></span>
+    <button id="reset">Restart</button>
+  </div>
+  <div id="main">
+    <canvas id="c"></canvas>
+    <div class="overlay" id="start">
+      <h1>COLONY BUILD</h1>
+      <p>Place modules to power, feed and hydrate a growing Mars colony. Keep the balance and survive the storms.</p>
+      <button class="go" id="btnStart">Begin</button>
+    </div>
+    <div class="overlay hidden" id="over">
+      <h1>Colony Lost</h1>
+      <p id="overText"></p>
+      <button class="go" id="btnRestart">Restart</button>
+    </div>
+  </div>
+  <div id="palette"></div>
+</div>
+<script>
+/* ===== Colony Build - grid colony strategy ===== */
+(function(){
+  "use strict";
+  const cv=document.getElementById("c"), ctx=cv.getContext("2d");
+  const startEl=document.getElementById("start"), overEl=document.getElementById("over"), overText=document.getElementById("overText");
+  const SAVE="colonybuild.best";
+  const cols=10, rows=8;
+  let W=0,H=0,DPR=1,cs=48,ox=0,oy=0;
+
+  function resize(){
+    DPR=Math.min(window.devicePixelRatio||1,2);
+    W=cv.clientWidth; H=cv.clientHeight;
+    cv.width=W*DPR; cv.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);
+    cs=Math.floor(Math.min(W/cols,H/rows)); ox=(W-cs*cols)/2; oy=(H-cs*rows)/2;
+  }
+  window.addEventListener("resize",resize);
+
+  let AC=null;
+  function beep(f,d,t,v){ try{ if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)();
+    const o=AC.createOscillator(),g=AC.createGain(); o.type=t||"sine"; o.frequency.value=f; g.gain.value=v||0.04;
+    o.connect(g); g.connect(AC.destination); o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime+(d||0.1)); o.stop(AC.currentTime+(d||0.1)); }catch(e){} }
+
+  const MOD={
+    empty:{name:"Clear",cost:0,color:"#0c1526",p:0,w:0,f:0},
+    habitat:{name:"Habitat",cost:60,color:"#2563eb",p:-1,w:0,f:0,pop:1},
+    solar:{name:"Solar",cost:40,color:"#eab308",p:5,w:0,f:0},
+    water:{name:"Water",cost:50,color:"#06b6d4",p:-2,w:4,f:0},
+    green:{name:"Greenhouse",cost:55,color:"#22c55e",p:-2,w:-1,f:3},
+    lab:{name:"Lab",cost:80,color:"#a855f7",p:-3,w:0,f:0}
+  };
+  let grid, day, pop, cred, oxy, sel="habitat", running=false, timer=0;
+  const tick=1.6;
+
+  function reset(){
+    grid=[]; for(let y=0;y<rows;y++) grid.push(new Array(cols).fill("empty"));
+    day=1; pop=3; cred=150; oxy=100; running=false; timer=0;
+  }
+  function totals(){
+    let p=0,w=0,f=0;
+    for(let y=0;y<rows;y++) for(let x=0;x<cols;x++){
+      const m=MOD[grid[y][x]]; p+=m.p||0; w+=m.w||0; f+=m.f||0;
+    }
+    return {p,w,f};
+  }
+  function hud(){
+    const t=totals();
+    document.getElementById("day").textContent=day;
+    document.getElementById("pop").textContent=pop;
+    document.getElementById("oxy").textContent=Math.max(0,Math.round(oxy));
+    document.getElementById("pow").textContent=t.p;
+    document.getElementById("wat").textContent=t.w;
+    document.getElementById("food").textContent=t.f;
+    document.getElementById("cred").textContent=cred;
+  }
+  function stepTurn(){
+    day++;
+    const t=totals();
+    cred+=Math.floor(pop*6+t.f*4);
+    if(t.p<0) oxy-=6;
+    if(t.w<0) oxy-=4;
+    if(t.f<0) oxy-=4;
+    if(t.p>=0&&t.w>=0&&t.f>=0) oxy=Math.min(100, oxy+3);
+    if(t.f>pop*0.4 && t.p>=0 && cred>=20 && pop<40) pop++;
+    const r=Math.random();
+    if(r<0.12){ oxy-=8; cred=Math.max(0,cred-20); }        // dust storm
+    else if(r<0.20){ cred+=30; }                            // discovery
+    beep(300,0.1,"sine",0.04);
+    hud();
+    if(oxy<=0) die();
+  }
+  function die(){
+    running=false;
+    overText.textContent="The colony fell on day "+day+" with a population of "+pop+".";
+    overEl.classList.remove("hidden");
+    try{ const b=+(localStorage.getItem(SAVE)||0); if(day>b) localStorage.setItem(SAVE,day); }catch(e){}
+  }
+  function build(x,y){
+    if(sel==="empty"){ grid[y][x]="empty"; beep(200,0.06,"square",0.04); hud(); return; }
+    if(grid[y][x]===sel){ grid[y][x]="empty"; beep(200,0.06,"square",0.04); hud(); return; }
+    const m=MOD[sel];
+    if(cred<m.cost) return;
+    cred-=m.cost; grid[y][x]=sel; beep(520,0.06,"square",0.05); hud();
+  }
+
+  cv.addEventListener("pointerdown",function(e){
+    const r=cv.getBoundingClientRect();
+    const x=Math.floor((e.clientX-r.left-ox)/cs), y=Math.floor((e.clientY-r.top-oy)/cs);
+    if(x>=0&&y>=0&&x<cols&&y<rows) build(x,y);
+  });
+
+  const pal=document.getElementById("palette");
+  Object.keys(MOD).forEach(function(k){
+    if(k==="empty") return;
+    const d=document.createElement("div");
+    d.className="tool"+(k===sel?" sel":""); d.dataset.k=k;
+    d.textContent=MOD[k].name+" $"+MOD[k].cost;
+    d.onclick=function(){ sel=k; Array.prototype.forEach.call(pal.children,function(c){ c.classList.toggle("sel", c.dataset.k===k); }); };
+    pal.appendChild(d);
+  });
+
+  function draw(){
+    ctx.fillStyle="#04070f"; ctx.fillRect(0,0,W,H);
+    for(let y=0;y<rows;y++) for(let x=0;x<cols;x++){
+      const v=grid[y][x], m=MOD[v], px=ox+x*cs, py=oy+y*cs;
+      ctx.fillStyle="#0c1526"; ctx.fillRect(px,py,cs-2,cs-2);
+      if(v!=="empty"){
+        ctx.fillStyle=m.color; ctx.fillRect(px+3,py+3,cs-8,cs-8);
+        ctx.fillStyle="#0b1220"; ctx.font="bold "+Math.floor(cs*0.34)+"px system-ui";
+        ctx.textAlign="center"; ctx.textBaseline="middle";
+        ctx.fillText(m.name.charAt(0), px+cs/2, py+cs/2);
+      }
+    }
+    ctx.strokeStyle="#12233c"; ctx.strokeRect(ox,oy,cs*cols,cs*rows);
+  }
+
+  let last=0;
+  function loop(ts){
+    const dt=Math.min(0.2,(ts-last)/1000||0); last=ts;
+    if(running){ timer+=dt; if(timer>=tick){ timer=0; stepTurn(); } }
+    draw(); requestAnimationFrame(loop);
+  }
+
+  function newGame(){
+    reset();
+    sel="habitat";
+    Array.prototype.forEach.call(pal.children,function(c){ c.classList.toggle("sel", c.dataset.k==="habitat"); });
+    running=true; startEl.classList.add("hidden"); overEl.classList.add("hidden");
+    if(!AC){ try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+    hud();
+  }
+  document.getElementById("btnStart").onclick=newGame;
+  document.getElementById("btnRestart").onclick=newGame;
+  document.getElementById("reset").onclick=newGame;
+
+  resize(); reset(); hud(); requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

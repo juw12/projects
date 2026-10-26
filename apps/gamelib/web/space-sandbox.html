@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Space Sandbox</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    background: #05060d;
+    color: #cfe3ff;
+    font-family: "Courier New", monospace;
+    overflow: hidden;
+    touch-action: none;
+  }
+
+  /* ============ LAYOUT ============ */
+  #app {
+    position: fixed;
+    inset: 0;
+    display: flex;
+  }
+  #stage {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: #05060d;
+    cursor: crosshair;
+  }
+
+  /* ============ TOP HUD ============ */
+  #hud {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    pointer-events: none;
+    font-size: 12px;
+    letter-spacing: 1px;
+    z-index: 5;
+  }
+  #hud .pill {
+    background: rgba(10, 16, 34, 0.72);
+    border: 1px solid rgba(90, 140, 220, 0.35);
+    border-radius: 20px;
+    padding: 5px 12px;
+    color: #9fbcff;
+    text-shadow: 0 1px 2px #000;
+  }
+  #hud .pill b { color: #fff; }
+
+  #hint {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(180, 205, 255, 0.7);
+    font-size: 11px;
+    letter-spacing: 1px;
+    pointer-events: none;
+    text-align: center;
+    text-shadow: 0 1px 3px #000;
+    z-index: 5;
+    max-width: 96%;
+  }
+
+  /* ============ SIDE PANEL ============ */
+  #panel {
+    flex: 0 0 240px;
+    background: linear-gradient(180deg, #0a1020, #070a15);
+    border-left: 1px solid rgba(90, 140, 220, 0.25);
+    padding: 12px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 6;
+  }
+  #panel h1 {
+    font-size: 15px;
+    letter-spacing: 2px;
+    color: #8fc4ff;
+    text-shadow: 0 0 10px rgba(90, 160, 255, 0.5);
+    text-align: center;
+  }
+  #panel h1 small {
+    display: block;
+    font-size: 9px;
+    color: #5c719b;
+    letter-spacing: 1px;
+    margin-top: 3px;
+  }
+  .group {
+    background: rgba(20, 30, 55, 0.55);
+    border: 1px solid rgba(90, 140, 220, 0.22);
+    border-radius: 10px;
+    padding: 9px 10px;
+  }
+  .group > .glabel {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: #6f8dc0;
+    margin-bottom: 7px;
+    text-transform: uppercase;
+  }
+  .body-btns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .body-btns button, #panel .action {
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    padding: 8px 4px;
+    border-radius: 7px;
+    border: 1px solid rgba(90, 140, 220, 0.4);
+    background: rgba(30, 45, 80, 0.8);
+    color: #cfe3ff;
+    cursor: pointer;
+    transition: background .15s ease, transform .05s ease, border-color .15s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .body-btns button:hover, #panel .action:hover {
+    background: rgba(50, 80, 140, 0.9);
+    border-color: #6fa8ff;
+  }
+  .body-btns button.active {
+    background: linear-gradient(135deg, #2f7bff, #1b57c9);
+    border-color: #8fc4ff;
+    color: #fff;
+    box-shadow: 0 0 12px rgba(70, 140, 255, 0.5);
+  }
+  .body-btns button:active, #panel .action:active { transform: scale(0.96); }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 7px;
+    font-size: 10px;
+    color: #9fbcff;
+  }
+  .row:last-child { margin-bottom: 0; }
+  .row label { flex: 0 0 74px; letter-spacing: 0.5px; }
+  .row input[type="range"] {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: linear-gradient(90deg, #2f7bff, #7fe0ff);
+    border-radius: 3px;
+    outline: none;
+  }
+  .row input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: #eaf3ff;
+    border: 2px solid #2f7bff;
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(70, 140, 255, 0.7);
+  }
+  .row input[type="range"]::-moz-range-thumb {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: #eaf3ff;
+    border: 2px solid #2f7bff;
+    cursor: pointer;
+  }
+  .row .val { flex: 0 0 34px; text-align: right; color: #fff; }
+
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .actions .wide { grid-column: 1 / -1; }
+  #btn-clear { background: rgba(120, 40, 40, 0.85); border-color: rgba(220, 100, 100, 0.5); }
+  #btn-clear:hover { background: rgba(170, 50, 50, 0.95); }
+  #btn-reset { background: rgba(90, 60, 20, 0.85); border-color: rgba(220, 170, 90, 0.5); }
+  #btn-reset:hover { background: rgba(150, 100, 30, 0.95); }
+
+  .legend { font-size: 9.5px; color: #6f8dc0; line-height: 1.6; }
+  .legend .k { color: #9fbcff; }
+
+  /* ============ MOBILE ============ */
+  #mobtoggle {
+    display: none;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 8;
+    font-family: inherit;
+    font-size: 12px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(90, 140, 220, 0.5);
+    background: rgba(20, 34, 60, 0.9);
+    color: #cfe3ff;
+    cursor: pointer;
+  }
+  @media (max-width: 720px) {
+    #panel {
+      position: absolute;
+      top: 0; right: 0; bottom: 0;
+      width: 250px;
+      max-width: 82vw;
+      transform: translateX(105%);
+      transition: transform .25s ease;
+      box-shadow: -8px 0 26px rgba(0,0,0,.6);
+    }
+    #panel.open { transform: translateX(0); }
+    #mobtoggle { display: block; }
+    #hint { font-size: 10px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <canvas id="game"></canvas>
+
+    <button id="mobtoggle" type="button">☰ Controls</button>
+
+    <div id="hud">
+      <span class="pill">Bodies <b id="stat-bodies">0</b></span>
+      <span class="pill">Zoom <b id="stat-zoom">1.0x</b></span>
+      <span class="pill">Mode <b id="stat-mode">Star</b></span>
+    </div>
+
+    <div id="hint">Drag empty space = spawn &nbsp;|&nbsp; Drag a body = sling &nbsp;|&nbsp; Right-drag = pan &nbsp;|&nbsp; Wheel = zoom &nbsp;|&nbsp; R = reset</div>
+  </div>
+
+  <aside id="panel">
+    <h1>SPACE SANDBOX<small>gravity playground</small></h1>
+
+    <div class="group">
+      <div class="glabel">Spawn Body</div>
+      <div class="body-btns" id="body-btns">
+        <button type="button" data-body="star" class="active">★ Star</button>
+        <button type="button" data-body="planet">● Planet</button>
+        <button type="button" data-body="asteroid">• Asteroid</button>
+        <button type="button" data-body="ship">▲ Ship</button>
+        <button type="button" data-body="comet">☄ Comet</button>
+        <button type="button" data-body="hole">◉ Black Hole</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="glabel">Mass</div>
+      <div class="row">
+        <label for="s-mass">Mass</label>
+        <input type="range" id="s-mass" min="1" max="100" value="30">
+        <span class="val" id="v-mass">30</span>
+      </div>
+      <div class="row">
+        <label for="s-vel">Velocity</label>
+        <input type="range" id="s-vel" min="0" max="100" value="35">
+        <span class="val" id="v-vel">35</span>
+      </div>
+      <div class="row">
+        <label for="s-grav">Gravity</label>
+        <input type="range" id="s-grav" min="0" max="200" value="60">
+        <span class="val" id="v-grav">60</span>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="glabel">Collisions</div>
+      <div class="body-btns" id="coll-btns">
+        <button type="button" data-coll="merge" class="active">Merge</button>
+        <button type="button" data-coll="explode">Explode</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="glabel">Actions</div>
+      <div class="actions">
+        <button type="button" class="action" id="btn-playpause">Pause</button>
+        <button type="button" class="action" id="btn-trails">Trails: On</button>
+        <button type="button" class="action wide" id="btn-random">✦ Random System</button>
+        <button type="button" class="action" id="btn-reset">Reset</button>
+        <button type="button" class="action" id="btn-clear">Clear</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="glabel">Controls</div>
+      <div class="legend">
+        <span class="k">Drag empty</span> spawn body<br>
+        <span class="k">Drag a body</span> aim &amp; sling<br>
+        <span class="k">Right-drag</span> / <span class="k">2-finger</span> pan<br>
+        <span class="k">Wheel</span> / <span class="k">pinch</span> zoom<br>
+        <span class="k">Space</span> pause &nbsp; <span class="k">R</span> reset &nbsp; <span class="k">C</span> clear
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ CANVAS & VIEW ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const stage = document.getElementById("stage");
+
+  let viewW = 0, viewH = 0, dpr = 1;
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    viewW = stage.clientWidth;
+    viewH = stage.clientHeight;
+    canvas.width = Math.max(1, Math.floor(viewW * dpr));
+    canvas.height = Math.max(1, Math.floor(viewH * dpr));
+    canvas.style.width = viewW + "px";
+    canvas.style.height = viewH + "px";
+  }
+  window.addEventListener("resize", resize);
+
+  // Camera: world -> screen: s = (w - cam) * zoom + center
+  const cam = { x: 0, y: 0, zoom: 1 };
+
+  function worldToScreen(wx, wy) {
+    return {
+      x: (wx - cam.x) * cam.zoom + viewW / 2,
+      y: (wy - cam.y) * cam.zoom + viewH / 2
+    };
+  }
+  function screenToWorld(sx, sy) {
+    return {
+      x: (sx - viewW / 2) / cam.zoom + cam.x,
+      y: (sy - viewH / 2) / cam.zoom + cam.y
+    };
+  }
+
+  // ============ AUDIO ============
+  let actx = null;
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "sine";
+      o.frequency.setValueAtTime(freq, actx.currentTime);
+      g.gain.setValueAtTime(vol || 0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+
+  // ============ BODY DEFINITIONS ============
+  const BODY_DEFS = {
+    star:     { r: 26, massMul: 14, color: "#ffd257", glow: "#ffb300", label: "Star" },
+    planet:   { r: 15, massMul: 4,  color: "#5fa8ff", glow: "#2f7bff", label: "Planet" },
+    asteroid: { r: 7,  massMul: 1,  color: "#b8b8c8", glow: "#8a8aa0", label: "Asteroid" },
+    ship:     { r: 9,  massMul: 1.4,color: "#7fe0a8", glow: "#2fd07a", label: "Ship" },
+    comet:    { r: 6,  massMul: 0.8,color: "#bff0ff", glow: "#7fd8ff", label: "Comet" },
+    hole:     { r: 20, massMul: 40, color: "#160026", glow: "#c050ff", label: "Black Hole" }
+  };
+
+  // ============ STATE ============
+  const G_DISPLAY = 60;   // slider value
+  let gravity = G_DISPLAY; // internal constant
+  let massSlider = 30;
+  let velSlider = 35;
+  let spawnType = "star";
+  let collideMode = "merge";
+  let paused = false;
+  let showTrails = true;
+
+  let bodies = [];
+  let particles = [];
+  let nextId = 1;
+
+  // ============ HELPERS ============
+  function bodyMass(b) {
+    return BODY_DEFS[b.type].massMul * b.massScale;
+  }
+
+  // Effective gravitational constant (matches physics()); used for seeding orbits.
+  function effectiveG() {
+    return gravity / 60 * 40;
+  }
+
+  function spawnBody(type, wx, wy, vx, vy) {
+    const def = BODY_DEFS[type];
+    if (!def) return null;
+    const massScale = massSlider / 30; // slider 30 -> 1.0
+    const b = {
+      id: nextId++,
+      type: type,
+      x: wx, y: wy,
+      vx: vx || 0, vy: vy || 0,
+      r: def.r * (0.7 + 0.3 * Math.min(massScale, 2)),
+      massScale: massScale,
+      mass: def.massMul * massScale,
+      spin: (Math.random() - 0.5) * 0.04,
+      ang: Math.random() * Math.PI * 2,
+      trail: [],
+      flash: 0,
+      dead: false
+    };
+    bodies.push(b);
+    return b;
+  }
+
+  function clearAll() {
+    bodies = [];
+    particles = [];
+    beep(300, 0.12, "sawtooth", 0.05);
+  }
+
+  function resetWorld() {
+    clearAll();
+    // A small starting solar-ish system
+    const sun = spawnBody("star", 0, 0, 0, 0);
+    if (sun) { sun.massScale = 2.2; sun.mass = BODY_DEFS.star.massMul * 2.2; }
+    cam.x = 0; cam.y = 0; cam.zoom = 1;
+
+    // orbiting planets
+    const defs = ["planet", "planet", "asteroid", "comet"];
+    for (let i = 0; i < defs.length; i++) {
+      const dist = 150 + i * 90 + Math.random() * 30;
+      const ang = Math.random() * Math.PI * 2;
+      const x = Math.cos(ang) * dist;
+      const y = Math.sin(ang) * dist;
+      // circular orbit speed approx sqrt(G*M/r)
+      const M = sun ? sun.mass : 14;
+      const spd = Math.sqrt(effectiveG() * M / Math.max(dist, 40)) * 0.95;
+      const vx = -Math.sin(ang) * spd;
+      const vy = Math.cos(ang) * spd;
+      const sb = spawnBody(defs[i], x, y, vx, vy);
+      if (sb) sb.massScale = 0.9;
+    }
+    beep(520, 0.09, "triangle", 0.05);
+  }
+
+  function randomSystem() {
+    clearAll();
+    const n = 1 + Math.floor(Math.random() * 2); // 1-2 stars
+    const stars = [];
+    for (let i = 0; i < n; i++) {
+      const s = spawnBody("star", (i - (n - 1) / 2) * 260, 0, 0, 0);
+      if (s) { s.massScale = 1.6 + Math.random() * 1.5; s.mass = BODY_DEFS.star.massMul * s.massScale; stars.push(s); }
+    }
+    const types = ["planet", "asteroid", "comet", "planet", "asteroid"];
+    const count = 6 + Math.floor(Math.random() * 8);
+    for (let i = 0; i < count; i++) {
+      const t = types[Math.floor(Math.random() * types.length)];
+      const host = stars[Math.floor(Math.random() * stars.length)] || { x: 0, y: 0, mass: 14 };
+      const dist = 120 + Math.random() * 420;
+      const ang = Math.random() * Math.PI * 2;
+      const x = host.x + Math.cos(ang) * dist;
+      const y = host.y + Math.sin(ang) * dist;
+      const M = host.mass || 14;
+      const spd = Math.sqrt(effectiveG() * M / Math.max(dist, 50)) * (0.85 + Math.random() * 0.3);
+      const vx = -Math.sin(ang) * spd, vy = Math.cos(ang) * spd;
+      const sb = spawnBody(t, x, y, vx, vy);
+      if (sb) sb.massScale = 0.6 + Math.random() * 1.2;
+    }
+    cam.x = 0; cam.y = 0;
+    beep(600, 0.1, "triangle", 0.05);
+  }
+
+  // ============ PARTICLES ============
+  function burst(x, y, color, count, power) {
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = (0.3 + Math.random()) * (power || 3);
+      particles.push({
+        x: x, y: y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: 1, color: color,
+        size: 1 + Math.random() * 2.5
+      });
+    }
+  }
+
+  // ============ PHYSICS ============
+  // G scale: gravity slider 60 -> moderate attraction.
+  const G_CONST = 1.0;
+
+  function physics(dt) {
+    const G = effectiveG() * G_CONST; // tuned constant
+
+    // pairwise gravity (n-body-ish)
+    for (let i = 0; i < bodies.length; i++) {
+      const a = bodies[i];
+      if (a.dead) continue;
+      for (let j = i + 1; j < bodies.length; j++) {
+        const b = bodies[j];
+        if (b.dead) continue;
+        let dx = b.x - a.x;
+        let dy = b.y - a.y;
+        let d2 = dx * dx + dy * dy;
+        if (d2 < 1) d2 = 1;
+        let d = Math.sqrt(d2);
+        // softened gravity
+        const soft = (a.r + b.r) * 0.6;
+        const eff = Math.max(d, soft);
+        const f = G * a.mass * b.mass / (eff * eff);
+        const nx = dx / d, ny = dy / d;
+        const ax = (nx * f / a.mass) * dt;
+        const ay = (ny * f / a.mass) * dt;
+        a.vx += ax; a.vy += ay;
+        b.vx -= (nx * f / b.mass) * dt;
+        b.vy -= (ny * f / b.mass) * dt;
+      }
+    }
+
+    // integrate
+    for (let i = 0; i < bodies.length; i++) {
+      const b = bodies[i];
+      if (b.dead) continue;
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.ang += b.spin * dt;
+      if (b.flash > 0) b.flash -= dt;
+
+      // trail
+      if (showTrails) {
+        b.trail.push({ x: b.x, y: b.y });
+        const maxLen = b.type === "star" || b.type === "hole" ? 0 : (b.type === "comet" ? 34 : 22);
+        while (b.trail.length > maxLen) b.trail.shift();
+      } else if (b.trail.length) {
+        b.trail.length = 0;
+      }
+    }
+
+    // collisions
+    for (let i = 0; i < bodies.length; i++) {
+      const a = bodies[i];
+      if (a.dead) continue;
+      for (let j = i + 1; j < bodies.length; j++) {
+        const b = bodies[j];
+        if (b.dead) continue;
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < (a.r + b.r) * 0.85) {
+          collide(a, b);
+        }
+      }
+    }
+
+    // cull dead
+    for (let i = bodies.length - 1; i >= 0; i--) {
+      if (bodies[i].dead) bodies.splice(i, 1);
+    }
+  }
+
+  function collide(a, b) {
+    const m = a.mass + b.mass;
+    const cx = (a.x * a.mass + b.x * b.mass) / m;
+    const cy = (a.y * a.mass + b.y * b.mass) / m;
+
+    if (collideMode === "explode") {
+      const col = mixColor(a, b);
+      burst(cx, cy, col, 22, 4.5);
+      burst(cx, cy, "#ffffff", 10, 6);
+      a.dead = true; b.dead = true;
+      beep(120 + Math.random() * 80, 0.22, "sawtooth", 0.06);
+      return;
+    }
+
+    // merge: bigger absorbs smaller
+    const big = a.mass >= b.mass ? a : b;
+    const small = big === a ? b : a;
+    // momentum conserved (both had velocity)
+    const nvx = (a.vx * a.mass + b.vx * b.mass) / m;
+    const nvy = (a.vy * a.mass + b.vy * b.mass) / m;
+    // resulting body is the larger type, area-conserving radius
+    big.x = cx; big.y = cy;
+    big.vx = nvx; big.vy = nvy;
+    big.massScale = (big.mass + small.mass) / BODY_DEFS[big.type].massMul;
+    big.mass = big.mass + small.mass;
+    big.r = Math.sqrt(big.r * big.r + small.r * small.r);
+    big.flash = 0.4;
+    small.dead = true;
+    burst(cx, cy, BODY_DEFS[small.type].color, 10, 2.5);
+    beep(260, 0.1, "triangle", 0.05);
+  }
+
+  function mixColor(a, b) {
+    return Math.random() < 0.5 ? BODY_DEFS[a.type].color : BODY_DEFS[b.type].color;
+  }
+
+  // ============ RENDER ============
+  let frame = 0;
+  function render() {
+    frame++;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, viewW, viewH);
+
+    drawStarfield();
+    drawTrails();
+    drawParticles();
+    drawBodies();
+    drawAim();
+  }
+
+  // parallax starfield fixed in world-space grid
+  function drawStarfield() {
+    ctx.fillStyle = "#05060d";
+    ctx.fillRect(0, 0, viewW, viewH);
+
+    // nebula glow wash
+    const g = ctx.createRadialGradient(viewW * 0.7, viewH * 0.3, 10, viewW * 0.7, viewH * 0.3, viewW);
+    g.addColorStop(0, "rgba(40,20,80,0.35)");
+    g.addColorStop(1, "rgba(5,6,13,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, viewW, viewH);
+
+    const g2 = ctx.createRadialGradient(viewW * 0.2, viewH * 0.8, 10, viewW * 0.2, viewH * 0.8, viewW * 0.8);
+    g2.addColorStop(0, "rgba(10,50,90,0.3)");
+    g2.addColorStop(1, "rgba(5,6,13,0)");
+    ctx.fillStyle = g2;
+    ctx.fillRect(0, 0, viewW, viewH);
+
+    // parallax stars (3 depth layers)
+    const layers = [
+      { span: 90, zoom: 0.15, alpha: 0.35, size: 1 },
+      { span: 160, zoom: 0.35, alpha: 0.55, size: 1.4 },
+      { span: 260, zoom: 0.6, alpha: 0.8, size: 2 }
+    ];
+    for (let li = 0; li < layers.length; li++) {
+      const L = layers[li];
+      const ox = -cam.x * L.zoom;
+      const oy = -cam.y * L.zoom;
+      const startX = Math.floor((ox - viewW) / L.span) * L.span;
+      const startY = Math.floor((oy - viewH) / L.span) * L.span;
+      ctx.fillStyle = "rgba(200,220,255," + L.alpha + ")";
+      for (let sx = startX; sx < ox + viewW + L.span; sx += L.span) {
+        for (let sy = startY; sy < oy + viewH + L.span; sy += L.span) {
+          // deterministic pseudo-random per cell
+          const h = Math.sin(sx * 12.9898 + sy * 78.233 + li * 4.1) * 43758.5453;
+          const frac = h - Math.floor(h);
+          if (frac < 0.5) continue;
+          const jx = (Math.sin(sx * 3.1 + sy) * 0.5 + 0.5) * L.span;
+          const jy = (Math.cos(sx + sy * 2.7) * 0.5 + 0.5) * L.span;
+          const px = (sx + jx) - ox;
+          const py = (sy + jy) - oy;
+          const tw = 0.7 + 0.3 * Math.sin(frame * 0.03 + frac * 30);
+          ctx.globalAlpha = L.alpha * tw;
+          ctx.fillRect(px, py, L.size, L.size);
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function drawTrails() {
+    if (!showTrails) return;
+    ctx.lineCap = "round";
+    for (let i = 0; i < bodies.length; i++) {
+      const b = bodies[i];
+      if (b.trail.length < 2) continue;
+      const def = BODY_DEFS[b.type];
+      const n = b.trail.length;
+      for (let k = 1; k < n; k++) {
+        const p0 = worldToScreen(b.trail[k - 1].x, b.trail[k - 1].y);
+        const p1 = worldToScreen(b.trail[k].x, b.trail[k].y);
+        const a = k / n;
+        ctx.strokeStyle = hexA(def.glow, a * 0.55);
+        ctx.lineWidth = Math.max(0.5, a * b.r * cam.zoom * 0.5);
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y);
+        ctx.lineTo(p1.x, p1.y);
+        ctx.stroke();
+      }
+    }
+    ctx.lineCap = "butt";
+  }
+
+  function drawParticles() {
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      const s = worldToScreen(p.x, p.y);
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, p.size * cam.zoom, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawBodies() {
+    for (let i = 0; i < bodies.length; i++) {
+      const b = bodies[i];
+      const def = BODY_DEFS[b.type];
+      const s = worldToScreen(b.x, b.y);
+      const R = Math.max(1.5, b.r * cam.zoom);
+
+      // cull offscreen (with margin)
+      const m = R + 80;
+      if (s.x < -m || s.x > viewW + m || s.y < -m || s.y > viewH + m) continue;
+
+      // glow
+      const glow = ctx.createRadialGradient(s.x, s.y, R * 0.3, s.x, s.y, R * (b.type === "star" ? 3.2 : 2.2));
+      glow.addColorStop(0, hexA(def.glow, b.type === "star" ? 0.55 : 0.35));
+      glow.addColorStop(1, hexA(def.glow, 0));
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, R * (b.type === "star" ? 3.2 : 2.2), 0, Math.PI * 2);
+      ctx.fill();
+
+      if (b.type === "hole") {
+        drawBlackHole(s, R, b);
+      } else {
+        // body disc
+        const grd = ctx.createRadialGradient(s.x - R * 0.35, s.y - R * 0.35, R * 0.1, s.x, s.y, R);
+        grd.addColorStop(0, lighten(def.color, 0.45));
+        grd.addColorStop(0.7, def.color);
+        grd.addColorStop(1, darken(def.color, 0.4));
+        ctx.fillStyle = grd;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, R, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (b.flash > 0) {
+          ctx.strokeStyle = "rgba(255,255,255," + (b.flash * 2) + ")";
+          ctx.lineWidth = 3;
+          ctx.stroke();
+        }
+
+        if (b.type === "star") drawStarRays(s, R, b);
+        if (b.type === "ship") drawShipGlyph(s, R, b);
+        if (b.type === "comet") drawCometTail(s, R, b);
+        if (b.type === "asteroid") drawAsteroidCraters(s, R, b);
+      }
+    }
+  }
+
+  function drawStarRays(s, R, b) {
+    ctx.save();
+    ctx.translate(s.x, s.y);
+    ctx.rotate(b.ang);
+    ctx.strokeStyle = "rgba(255,240,170,0.5)";
+    ctx.lineWidth = Math.max(1, R * 0.08);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const len = R * (1.25 + 0.25 * Math.sin(frame * 0.08 + i));
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * R * 0.9, Math.sin(a) * R * 0.9);
+      ctx.lineTo(Math.cos(a) * len, Math.sin(a) * len);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawShipGlyph(s, R, b) {
+    ctx.save();
+    ctx.translate(s.x, s.y);
+    const sp = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+    const dir = sp > 0.01 ? Math.atan2(b.vy, b.vx) : b.ang;
+    ctx.rotate(dir);
+    ctx.fillStyle = "#eaffef";
+    ctx.beginPath();
+    ctx.moveTo(R * 1.1, 0);
+    ctx.lineTo(-R * 0.75, R * 0.7);
+    ctx.lineTo(-R * 0.3, 0);
+    ctx.lineTo(-R * 0.75, -R * 0.7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    // engine flame
+    if (sp > 0.05) {
+      ctx.fillStyle = "rgba(120,255,180,0.5)";
+      ctx.beginPath();
+      ctx.arc(s.x - Math.cos(dir0(b)) * R, s.y - Math.sin(dir0(b)) * R, R * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  function dir0(b) { const sp = Math.sqrt(b.vx * b.vx + b.vy * b.vy); return sp > 0.01 ? Math.atan2(b.vy, b.vx) : b.ang; }
+
+  function drawCometTail(s, R, b) {
+    const sp = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+    if (sp < 0.01) return;
+    const ang = Math.atan2(b.vy, b.vx);
+    const len = Math.min(R * 8, sp * 22 * cam.zoom);
+    const tx = s.x - Math.cos(ang) * len;
+    const ty = s.y - Math.sin(ang) * len;
+    const g = ctx.createLinearGradient(s.x, s.y, tx, ty);
+    g.addColorStop(0, "rgba(200,245,255,0.65)");
+    g.addColorStop(1, "rgba(120,200,255,0)");
+    ctx.strokeStyle = g;
+    ctx.lineWidth = R * 1.2;
+    ctx.beginPath();
+    ctx.moveTo(s.x, s.y);
+    ctx.lineTo(tx, ty);
+    ctx.stroke();
+  }
+
+  function drawAsteroidCraters(s, R, b) {
+    ctx.fillStyle = "rgba(60,60,70,0.5)";
+    const seed = b.id * 7;
+    for (let i = 0; i < 3; i++) {
+      const a = (seed + i * 2.4);
+      const cx = s.x + Math.cos(a) * R * 0.4;
+      const cy = s.y + Math.sin(a) * R * 0.4;
+      ctx.beginPath();
+      ctx.arc(cx, cy, R * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawBlackHole(s, R, b) {
+    ctx.save();
+    ctx.translate(s.x, s.y);
+    ctx.rotate(b.ang * 0.5);
+    // accretion ring
+    ctx.strokeStyle = "rgba(190,100,255,0.75)";
+    ctx.lineWidth = R * 0.3;
+    ctx.beginPath();
+    ctx.arc(0, 0, R * 1.5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(120,60,220,0.5)";
+    ctx.lineWidth = R * 0.15;
+    ctx.beginPath();
+    ctx.arc(0, 0, R * 1.9, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+    // event horizon
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, R, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(200,130,255,0.9)";
+    ctx.lineWidth = Math.max(1, R * 0.12);
+    ctx.stroke();
+  }
+
+  // ============ INPUT ============
+  const pointers = new Map();
+  let mode = "idle"; // idle | pan | dragbody | sling
+  let dragBody = null;
+  let slingStart = null;
+  let panLast = null;
+  let aimWorld = null;
+  let pinchStartDist = 0;
+  let pinchStartZoom = 1;
+
+  function localPos(e) {
+    const r = canvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+
+  function findBodyAt(sx, sy) {
+    const w = screenToWorld(sx, sy);
+    let best = null, bestD = Infinity;
+    for (let i = 0; i < bodies.length; i++) {
+      const b = bodies[i];
+      const dx = b.x - w.x, dy = b.y - w.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < b.r + 8 / cam.zoom && d < bestD) { best = b; bestD = d; }
+    }
+    return best;
+  }
+
+  canvas.addEventListener("mousedown", function (e) {
+    if (e.button === 2 || e.ctrlKey) {
+      mode = "pan";
+      panLast = localPos(e);
+      canvas.style.cursor = "grabbing";
+      return;
+    }
+    const p = localPos(e);
+    const hit = findBodyAt(p.x, p.y);
+    if (hit) {
+      mode = "dragbody";
+      dragBody = hit;
+      slingStart = { x: hit.x, y: hit.y };
+      canvas.style.cursor = "grabbing";
+    } else {
+      mode = "sling";
+      slingStart = screenToWorld(p.x, p.y);
+      aimWorld = { x: slingStart.x, y: slingStart.y };
+      canvas.style.cursor = "crosshair";
+    }
+  });
+
+  canvas.addEventListener("mousemove", function (e) {
+    const p = localPos(e);
+    if (mode === "pan" && panLast) {
+      const dx = p.x - panLast.x, dy = p.y - panLast.y;
+      cam.x -= dx / cam.zoom;
+      cam.y -= dy / cam.zoom;
+      panLast = p;
+    } else if (mode === "dragbody" && dragBody) {
+      const w = screenToWorld(p.x, p.y);
+      dragBody.x = w.x; dragBody.y = w.y;
+      dragBody.vx = 0; dragBody.vy = 0;
+      aimWorld = { x: w.x, y: w.y };
+    } else if (mode === "sling") {
+      aimWorld = screenToWorld(p.x, p.y);
+    }
+  });
+
+  window.addEventListener("mouseup", function (e) {
+    if (mode === "pan") { canvas.style.cursor = "crosshair"; panLast = null; }
+    else if (mode === "dragbody" && dragBody) {
+      // launch toward cursor: velocity from drag vector (reverse slingshot)
+      const p = localPos(e);
+      const w = screenToWorld(p.x, p.y);
+      const dx = w.x - dragBody.x;
+      const dy = w.y - dragBody.y;
+      const mag = Math.sqrt(dx * dx + dy * dy);
+      const power = velSlider / 35 * 0.35;
+      if (mag > 2) {
+        dragBody.vx = dx * power;
+        dragBody.vy = dy * power;
+        dragBody.trail.length = 0;
+      }
+      dragBody = null; aimWorld = null;
+      canvas.style.cursor = "crosshair";
+    } else if (mode === "sling" && aimWorld) {
+      launchFromSling(aimWorld);
+      aimWorld = null;
+    }
+    mode = "idle";
+  });
+
+  function launchFromSling(w) {
+    const dx = w.x - slingStart.x;
+    const dy = w.y - slingStart.y;
+    const mag = Math.sqrt(dx * dx + dy * dy);
+    const powerScale = velSlider / 35 * 0.35;
+    let vx = 0, vy = 0;
+    if (mag > 2) {
+      vx = dx * powerScale;
+      vy = dy * powerScale;
+    }
+    const b = spawnBody(spawnType, slingStart.x, slingStart.y, vx, vy);
+    if (b) b.flash = 0.3;
+    if (mag > 2) burst(slingStart.x, slingStart.y, BODY_DEFS[spawnType].color, 6, 1.6);
+    beep(spawnType === "star" ? 420 : spawnType === "hole" ? 180 : 620, 0.08, "triangle", 0.05);
+  }
+
+  canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+  canvas.addEventListener("wheel", function (e) {
+    e.preventDefault();
+    const p = localPos(e);
+    const before = screenToWorld(p.x, p.y);
+    const factor = e.deltaY < 0 ? 1.12 : 0.89;
+    cam.zoom = Math.max(0.15, Math.min(6, cam.zoom * factor));
+    const after = screenToWorld(p.x, p.y);
+    cam.x += before.x - after.x;
+    cam.y += before.y - after.y;
+  }, { passive: false });
+
+  // ---- touch ----
+  canvas.addEventListener("touchstart", function (e) {
+    e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      const r = canvas.getBoundingClientRect();
+      pointers.set(t.identifier, { x: t.clientX - r.left, y: t.clientY - r.top });
+    }
+    if (pointers.size === 2) {
+      mode = "pinch";
+      const pts = Array.from(pointers.values());
+      pinchStartDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      pinchStartZoom = cam.zoom;
+      return;
+    }
+    const pts = Array.from(pointers.values());
+    const p = pts[pts.length - 1];
+    const hit = findBodyAt(p.x, p.y);
+    if (hit) { mode = "dragbody"; dragBody = hit; }
+    else { mode = "sling"; slingStart = screenToWorld(p.x, p.y); aimWorld = { x: slingStart.x, y: slingStart.y }; }
+  }, { passive: false });
+
+  canvas.addEventListener("touchmove", function (e) {
+    e.preventDefault();
+    const r = canvas.getBoundingClientRect();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (pointers.has(t.identifier)) {
+        pointers.set(t.identifier, { x: t.clientX - r.left, y: t.clientY - r.top });
+      }
+    }
+    if (mode === "pinch" && pointers.size >= 2) {
+      const pts = Array.from(pointers.values());
+      const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      if (pinchStartDist > 0) {
+        const before = screenToWorld((pts[0].x + pts[1].x) / 2, (pts[0].y + pts[1].y) / 2);
+        cam.zoom = Math.max(0.15, Math.min(6, pinchStartZoom * (d / pinchStartDist)));
+        const after = screenToWorld((pts[0].x + pts[1].x) / 2, (pts[0].y + pts[1].y) / 2);
+        cam.x += before.x - after.x;
+        cam.y += before.y - after.y;
+      }
+      return;
+    }
+    const pts = Array.from(pointers.values());
+    const p = pts[pts.length - 1];
+    if (!p) return;
+    if (mode === "dragbody" && dragBody) {
+      const w = screenToWorld(p.x, p.y);
+      dragBody.x = w.x; dragBody.y = w.y; dragBody.vx = 0; dragBody.vy = 0;
+    } else if (mode === "sling") {
+      aimWorld = screenToWorld(p.x, p.y);
+    }
+  }, { passive: false });
+
+  canvas.addEventListener("touchend", function (e) {
+    e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      pointers.delete(e.changedTouches[i].identifier);
+    }
+    if (mode === "pinch") {
+      if (pointers.size < 2) mode = "idle";
+      return;
+    }
+    if (mode === "dragbody" && dragBody) {
+      const pts = Array.from(pointers.values());
+      if (pts.length) {
+        const p = pts[0];
+        const w = screenToWorld(p.x, p.y);
+        const dx = w.x - dragBody.x, dy = w.y - dragBody.y;
+        const power = velSlider / 35 * 0.35;
+        if (Math.hypot(dx, dy) > 2) { dragBody.vx = dx * power; dragBody.vy = dy * power; dragBody.trail.length = 0; }
+      }
+      dragBody = null; aimWorld = null;
+    } else if (mode === "sling" && aimWorld) {
+      launchFromSling(aimWorld);
+      aimWorld = null;
+    }
+    mode = "idle";
+  }, { passive: false });
+
+  canvas.addEventListener("touchcancel", function (e) {
+    pointers.clear(); mode = "idle"; dragBody = null; aimWorld = null;
+  });
+
+  function drawAim() {
+    if (!aimWorld || !slingStart) return;
+    const a = worldToScreen(slingStart.x, slingStart.y);
+    const b = worldToScreen(aimWorld.x, aimWorld.y);
+    ctx.setLineDash([6, 6]);
+    ctx.strokeStyle = "rgba(140,200,255,0.7)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // arrow head
+    const ang = Math.atan2(b.y - a.y, b.x - a.x);
+    ctx.fillStyle = "rgba(160,215,255,0.9)";
+    ctx.beginPath();
+    ctx.moveTo(b.x, b.y);
+    ctx.lineTo(b.x - Math.cos(ang - 0.4) * 12, b.y - Math.sin(ang - 0.4) * 12);
+    ctx.lineTo(b.x - Math.cos(ang + 0.4) * 12, b.y - Math.sin(ang + 0.4) * 12);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // ============ KEYBOARD ============
+  window.addEventListener("keydown", function (e) {
+    if (e.key === " " || e.code === "KeyP") { e.preventDefault(); togglePause(); }
+    else if (e.key === "r" || e.key === "R") { e.preventDefault(); resetWorld(); }
+    else if (e.key === "c" || e.key === "C") { e.preventDefault(); clearAll(); }
+    else if (e.key === "t" || e.key === "T") { e.preventDefault(); toggleTrails(); }
+    else if (e.key === "+" || e.key === "=") { cam.zoom = Math.min(6, cam.zoom * 1.15); }
+    else if (e.key === "-" || e.key === "_") { cam.zoom = Math.max(0.15, cam.zoom / 1.15); }
+  });
+
+  // ============ UI WIRING ============
+  const statBodies = document.getElementById("stat-bodies");
+  const statZoom = document.getElementById("stat-zoom");
+  const statMode = document.getElementById("stat-mode");
+
+  const bodyBtns = Array.prototype.slice.call(document.querySelectorAll("#body-btns button"));
+  bodyBtns.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      bodyBtns.forEach(function (b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      spawnType = btn.dataset.body;
+      statMode.textContent = BODY_DEFS[spawnType].label;
+      beep(700, 0.05, "square", 0.04);
+    });
+  });
+
+  const collBtns = Array.prototype.slice.call(document.querySelectorAll("#coll-btns button"));
+  collBtns.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      collBtns.forEach(function (b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      collideMode = btn.dataset.coll;
+      beep(400, 0.05, "square", 0.04);
+    });
+  });
+
+  const sMass = document.getElementById("s-mass");
+  const vMass = document.getElementById("v-mass");
+  sMass.addEventListener("input", function () {
+    massSlider = parseInt(sMass.value, 10);
+    vMass.textContent = massSlider;
+  });
+
+  const sVel = document.getElementById("s-vel");
+  const vVel = document.getElementById("v-vel");
+  sVel.addEventListener("input", function () {
+    velSlider = parseInt(sVel.value, 10);
+    vVel.textContent = velSlider;
+  });
+
+  const sGrav = document.getElementById("s-grav");
+  const vGrav = document.getElementById("v-grav");
+  sGrav.addEventListener("input", function () {
+    gravity = parseInt(sGrav.value, 10);
+    vGrav.textContent = gravity;
+  });
+
+  const btnPlayPause = document.getElementById("btn-playpause");
+  function togglePause() {
+    paused = !paused;
+    btnPlayPause.textContent = paused ? "Play" : "Pause";
+    beep(paused ? 300 : 620, 0.07, "triangle", 0.05);
+  }
+  btnPlayPause.addEventListener("click", togglePause);
+
+  const btnTrails = document.getElementById("btn-trails");
+  function toggleTrails() {
+    showTrails = !showTrails;
+    btnTrails.textContent = "Trails: " + (showTrails ? "On" : "Off");
+    if (!showTrails) for (let i = 0; i < bodies.length; i++) bodies[i].trail.length = 0;
+  }
+  btnTrails.addEventListener("click", toggleTrails);
+
+  document.getElementById("btn-random").addEventListener("click", randomSystem);
+  document.getElementById("btn-reset").addEventListener("click", resetWorld);
+  document.getElementById("btn-clear").addEventListener("click", clearAll);
+
+  const mobtoggle = document.getElementById("mobtoggle");
+  const panel = document.getElementById("panel");
+  mobtoggle.addEventListener("click", function () { panel.classList.toggle("open"); });
+
+  // ============ COLOR HELPERS ============
+  function hexToRgb(hex) {
+    let h = hex.replace("#", "");
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    return { r: parseInt(h.slice(0, 2), 16), g: parseInt(h.slice(2, 4), 16), b: parseInt(h.slice(4, 6), 16) };
+  }
+  function hexA(hex, a) {
+    const c = hexToRgb(hex);
+    return "rgba(" + c.r + "," + c.g + "," + c.b + "," + a + ")";
+  }
+  function lighten(hex, amt) {
+    const c = hexToRgb(hex);
+    return "rgb(" + Math.min(255, c.r + (255 - c.r) * amt | 0) + "," +
+      Math.min(255, c.g + (255 - c.g) * amt | 0) + "," +
+      Math.min(255, c.b + (255 - c.b) * amt | 0) + ")";
+  }
+  function darken(hex, amt) {
+    const c = hexToRgb(hex);
+    return "rgb(" + (c.r * (1 - amt) | 0) + "," + (c.g * (1 - amt) | 0) + "," + (c.b * (1 - amt) | 0) + ")";
+  }
+
+  // ============ MAIN LOOP ============
+  let last = performance.now();
+  let acc = 0;
+  const FIXED = 1 / 60;
+
+  function loop(now) {
+    const dtReal = Math.min(0.05, (now - last) / 1000);
+    last = now;
+
+    if (!paused) {
+      acc += dtReal;
+      let steps = 0;
+      while (acc >= FIXED && steps < 4) {
+        physics(FIXED * 60); // step scaled to frame units
+        acc -= FIXED;
+        steps++;
+      }
+
+      // particles update
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx * dtReal * 60;
+        p.y += p.vy * dtReal * 60;
+        p.vx *= 0.97; p.vy *= 0.97;
+        p.life -= dtReal * 1.6;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+    }
+
+    render();
+
+    statBodies.textContent = bodies.length;
+    statZoom.textContent = cam.zoom.toFixed(2) + "x";
+
+    requestAnimationFrame(loop);
+  }
+
+  // ============ BOOT ============
+  resize();
+  resetWorld();
+  statMode.textContent = BODY_DEFS[spawnType].label;
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

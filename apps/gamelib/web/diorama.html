@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Diorama</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%; background: #241d18;
+    background-image:
+      radial-gradient(1100px 620px at 18% -8%, #3d3026 0%, rgba(61,48,38,0) 62%),
+      radial-gradient(900px 520px at 92% 112%, #2a3a34 0%, rgba(42,58,52,0) 60%);
+    display: flex; align-items: center; justify-content: center;
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+    color: #f6efe6; padding: 12px; touch-action: manipulation;
+  }
+  #app { width: min(97vw, 1120px); display: flex; flex-direction: column; gap: 10px; }
+  /* ============ HEADER ============ */
+  #topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; }
+  #title { font-size: 20px; font-weight: 800; letter-spacing: 2px; color: #ffd479; text-shadow: 0 2px 0 rgba(0,0,0,.5); }
+  #title small { display: block; font-size: 11px; letter-spacing: 1px; font-weight: 600; color: #b9d7c4; text-shadow: none; }
+  #stats { display: flex; flex-wrap: wrap; gap: 8px; }
+  .stat {
+    background: rgba(28,22,16,.6); border: 1px solid rgba(255,212,121,.22);
+    border-radius: 10px; padding: 5px 11px; font-size: 13px; font-weight: 700;
+    letter-spacing: .5px; white-space: nowrap;
+  }
+  .stat b { color: #ffd479; }
+  /* ============ CANVAS & TOAST ============ */
+  #game-wrap {
+    position: relative; width: 100%; border-radius: 14px; overflow: hidden;
+    box-shadow: 0 16px 44px rgba(0,0,0,.55), 0 0 0 2px rgba(255,212,121,.14) inset;
+    background: #8fc9ee;
+  }
+  canvas { display: block; width: 100%; height: auto; cursor: crosshair; touch-action: none; }
+  #toast {
+    position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%) translateY(12px);
+    background: rgba(24,18,12,.88); border: 1px solid rgba(255,212,121,.42); color: #ffd479;
+    font-size: 13px; font-weight: 700; letter-spacing: .5px; padding: 8px 18px; border-radius: 20px;
+    opacity: 0; pointer-events: none; transition: opacity .25s ease, transform .25s ease;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  /* ============ PANEL & PALETTE ============ */
+  #panel { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; justify-content: space-between; }
+  #palette { display: flex; flex-wrap: wrap; gap: 6px 14px; flex: 1 1 580px; }
+  .pal-group { display: flex; flex-direction: column; gap: 6px; }
+  .pal-label { font-size: 10px; font-weight: 800; letter-spacing: 2px; color: #c9a274; text-transform: uppercase; }
+  .pal-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tool {
+    font-family: inherit; font-size: 12px; font-weight: 700; letter-spacing: .3px; color: #eae0d2;
+    background: rgba(34,26,19,.75); border: 1px solid rgba(255,212,121,.2); border-radius: 9px;
+    padding: 7px 11px; cursor: pointer; display: flex; align-items: center; gap: 6px;
+    transition: background .12s ease, transform .06s ease, border-color .12s ease;
+    user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  .tool:hover { background: rgba(60,46,32,.92); }
+  .tool:active { transform: translateY(1px); }
+  .tool.active { background: linear-gradient(180deg, #ffd479, #eda83c); border-color: #ffe9ad; color: #4a2c00; box-shadow: 0 0 0 2px rgba(255,212,121,.32); }
+  .tool .sw { width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(0,0,0,.35); }
+  /* ============ SIDE (controls) ============ */
+  #side { flex: 0 0 270px; display: flex; flex-direction: column; gap: 10px; }
+  .box { background: rgba(28,22,16,.6); border: 1px solid rgba(255,212,121,.2); border-radius: 12px; padding: 10px 12px; }
+  .box h3 { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #c9a274; margin-bottom: 8px; }
+  #actions { display: flex; flex-wrap: wrap; gap: 7px; }
+  #actions button {
+    font-family: inherit; font-size: 12px; font-weight: 700; letter-spacing: .5px; color: #fff;
+    border: none; border-radius: 9px; padding: 9px 13px; cursor: pointer; background: #8a6a3c;
+    box-shadow: 0 3px 0 rgba(0,0,0,.3); transition: background .12s ease, transform .06s ease;
+    flex: 1 1 auto; -webkit-tap-highlight-color: transparent;
+  }
+  #actions button:hover { background: #a3814b; }
+  #actions button:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.3); }
+  #btn-save { background: #3f8a58; } #btn-save:hover { background: #4aa468; }
+  #btn-load { background: #3d6f9e; } #btn-load:hover { background: #4a83ba; }
+  #btn-new { background: #a5432f; } #btn-new:hover { background: #c2503a; }
+  #hint { font-size: 11px; line-height: 1.55; color: #b3a08c; margin-top: 9px; }
+  #hint b { color: #ffd479; }
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 780px) {
+    #side { flex: 1 1 100%; }
+    #title { font-size: 17px; }
+    .tool { padding: 8px 10px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ============ TOP BAR ============ -->
+  <div id="topbar">
+    <div id="title">🏡 DIORAMA
+      <small>paint a little world · plant it · watch it breathe</small>
+    </div>
+    <div id="stats">
+      <div class="stat">🕒 <b id="s-time">12:00</b></div>
+      <div class="stat">🧱 Blocks <b id="s-blocks">0</b></div>
+      <div class="stat">🌗 <b id="s-mode">Day</b></div>
+    </div>
+  </div>
+  <!-- ============ CANVAS ============ -->
+  <div id="game-wrap">
+    <canvas id="game" width="1020" height="620"></canvas>
+    <div id="toast"></div>
+  </div>
+  <!-- ============ PANEL ============ -->
+  <div id="panel">
+    <div id="palette"></div>
+    <div id="side">
+      <div class="box">
+        <h3>Diorama Controls</h3>
+        <div id="actions">
+          <button id="btn-day" type="button">🌗 Day / Night</button>
+          <button id="btn-auto" type="button">▶ Cycle</button>
+          <button id="btn-save" type="button">💾 Save</button>
+          <button id="btn-load" type="button">📂 Load</button>
+          <button id="btn-new" type="button">🌍 Restart</button>
+        </div>
+        <div id="hint">
+          <b>Drag</b> to paint terrain · <b>tap</b> to place an object.
+          Keys <b>1–9</b> pick tools, <b>R</b> rotates the object under your cursor,
+          <b>T</b> day/night, <b>S</b> save, <b>L</b> load, <b>N</b> restart.
+          Bridges &amp; fences auto-orient to their neighbours.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  "use strict";
+  // ============ CONFIGURATION ============
+  const COLS = 14;              // tiles across (x)
+  const ROWS = 14;              // tiles deep (y)
+  const DAY_LENGTH = 150;       // seconds for one full cycle when auto is on
+  const SAVE_KEY = "dioramaSave_v1";
+  // Terrain ids
+  const T = { GRASS: 0, SAND: 1, WATER: 2, ROAD: 3 };
+  // Object ids
+  const O = {
+    NONE: 0, TREE: 1, PINE: 2, HOUSE: 3, BRIDGE: 4,
+    FENCE: 5, ROCK: 6, FLOWER: 7, ANIMAL: 8
+  };
+  // Tool palette definition (emoji + label + swatch colour)
+  const GROUPS = [
+    { label: "Terrain", tools: [
+      { id: "grass", kind: "terrain", t: T.GRASS, label: "Grass", icon: "🌿", c: "#7cc35a" },
+      { id: "sand",  kind: "terrain", t: T.SAND,  label: "Sand",  icon: "🏖️", c: "#e8d7a0" },
+      { id: "water", kind: "terrain", t: T.WATER, label: "Water", icon: "💧", c: "#4fb0e6" },
+      { id: "road",  kind: "terrain", t: T.ROAD,  label: "Road",  icon: "🛣️", c: "#c9b189" }
+    ] },
+    { label: "Build", tools: [
+      { id: "house",  kind: "object", o: O.HOUSE,  label: "House",  icon: "🏠", c: "#c1663f" },
+      { id: "bridge", kind: "object", o: O.BRIDGE, label: "Bridge", icon: "🌉", c: "#8a5a30" },
+      { id: "fence",  kind: "object", o: O.FENCE,  label: "Fence",  icon: "🚧", c: "#b9a06a" },
+      { id: "rock",   kind: "object", o: O.ROCK,   label: "Rock",   icon: "🪨", c: "#9a978c" }
+    ] },
+    { label: "Nature", tools: [
+      { id: "tree",   kind: "object", o: O.TREE,   label: "Tree",   icon: "🌳", c: "#3f8f3a" },
+      { id: "pine",   kind: "object", o: O.PINE,   label: "Pine",   icon: "🌲", c: "#2b6b3a" },
+      { id: "flower", kind: "object", o: O.FLOWER, label: "Flowers", icon: "🌸", c: "#e88bb0" },
+      { id: "animal", kind: "object", o: O.ANIMAL, label: "Animal", icon: "🐑", c: "#f0ece2" }
+    ] },
+    { label: "Tools", tools: [
+      { id: "rotate", kind: "rotate", label: "Rotate", icon: "⟳", c: "#6fa8d6" },
+      { id: "erase",  kind: "erase",  label: "Erase",  icon: "🧽", c: "#8b7f6f" }
+    ] }
+  ];
+  // ============ DOM REFERENCES ============
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const paletteEl = document.getElementById("palette");
+  const toastEl = document.getElementById("toast");
+  const sTime = document.getElementById("s-time");
+  const sBlocks = document.getElementById("s-blocks");
+  const sMode = document.getElementById("s-mode");
+  const btnDay = document.getElementById("btn-day");
+  const btnAuto = document.getElementById("btn-auto");
+  const btnSave = document.getElementById("btn-save");
+  const btnLoad = document.getElementById("btn-load");
+  const btnNew = document.getElementById("btn-new");
+  // ============ VIEW GEOMETRY ============
+  let viewW = canvas.width;
+  let viewH = canvas.height;
+  let tw = 64;      // tile width
+  let th = 32;      // tile height (tw / 2)
+  let slabH = 12;   // side thickness of a ground block
+  let ox = viewW / 2;
+  let oy = 90;
+  // ============ AUDIO (WebAudio, no assets) ============
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.05, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+  // ============ STATE ============
+  let terrain = new Uint8Array(COLS * ROWS);   // T.* per cell
+  let object = new Uint8Array(COLS * ROWS);    // O.* per cell
+  let rot = new Uint8Array(COLS * ROWS);       // 0..3 orientation per cell
+  let timeOfDay = 0.4;    // 0 = midnight, 0.5 = noon
+  let dayTarget = 0.4;
+  let autoCycle = false;
+  let elapsed = 0;
+  let currentTool = GROUPS[0].tools[0];
+  let toastTimer = null;
+  let pointerPos = { x: -1, y: -1 };
+  const smoke = [];       // { x,y,vx,vy,life,max,size }
+  const clouds = [];      // { x,y,s,v }
+  // ============ HELPERS ============
+  function idx(x, y) { return y * COLS + x; }
+  function inBounds(x, y) { return x >= 0 && y >= 0 && x < COLS && y < ROWS; }
+  function terrainAt(x, y) { return inBounds(x, y) ? terrain[idx(x, y)] : T.GRASS; }
+  function objectAt(x, y) { return inBounds(x, y) ? object[idx(x, y)] : O.NONE; }
+  // Deterministic per-cell pseudo-random (for speckles, drift phases)
+  function hash(x, y) {
+    let n = x * 374761393 + y * 668265263;
+    n = (n ^ (n >> 13)) * 1274126177;
+    return ((n ^ (n >> 16)) >>> 0) / 4294967296;
+  }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function mix(c1, c2, t) {
+    return "rgb(" + Math.round(lerp(c1[0], c2[0], t)) + "," +
+                    Math.round(lerp(c1[1], c2[1], t)) + "," +
+                    Math.round(lerp(c1[2], c2[2], t)) + ")";
+  }
+  function dayAmount() {
+    const s = Math.sin((timeOfDay - 0.25) * Math.PI * 2);
+    return Math.max(0, Math.min(1, (s + 1) / 2));
+  }
+  // ============ ISOMETRIC PROJECTION ============
+  function isoX(x, y) { return ox + (x - y) * tw / 2; }
+  function isoY(x, y) { return oy + (x + y) * th / 2; }
+  function screenToTile(mx, my) {
+    const u = (mx - ox) * 2 / tw;   // u = x - y
+    const v = (my - oy) * 2 / th;   // v = x + y
+    return {
+      x: Math.floor((u + v) / 2),
+      y: Math.floor((v - u) / 2)
+    };
+  }
+  // ============ WORLD GENERATION ============
+  function generate() {
+    terrain = new Uint8Array(COLS * ROWS);
+    object = new Uint8Array(COLS * ROWS);
+    rot = new Uint8Array(COLS * ROWS);
+    smoke.length = 0;
+    timeOfDay = 0.4; dayTarget = 0.4; autoCycle = false; elapsed = 0;
+    // A cosy pond with a sandy shore in the lower-left
+    const px = 4, py = 9, pr = 2.7;
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const d = Math.hypot(x - px, y - py);
+        if (d < pr) terrain[idx(x, y)] = T.WATER;
+        else if (d < pr + 1.3) terrain[idx(x, y)] = T.SAND;
+      }
+    }
+    // A river running across the map (merges with the pond) with sandy banks
+    for (let x = 0; x < COLS; x++) terrain[idx(x, 9)] = T.WATER;
+    for (let x = 0; x < COLS; x++) {
+      if (terrainAt(x, 8) === T.GRASS) terrain[idx(x, 8)] = T.SAND;
+      if (terrainAt(x, 10) === T.GRASS) terrain[idx(x, 10)] = T.SAND;
+    }
+    // A road crossing the map (horizontal + vertical). Water tiles stay water;
+    // a bridge object is laid over the crossings below.
+    for (let x = 2; x < COLS - 1; x++) if (terrainAt(x, 6) !== T.WATER) terrain[idx(x, 6)] = T.ROAD;
+    for (let y = 3; y < ROWS - 1; y++) if (terrainAt(9, y) !== T.WATER) terrain[idx(9, y)] = T.ROAD;
+    // Forest clusters
+    plantCluster(O.TREE, 3, 5);
+    plantCluster(O.PINE, 2, 8);
+    // A small village beside the vertical road
+    place(O.HOUSE, 7, 4, 0);
+    place(O.HOUSE, 10, 4, 0);
+    place(O.HOUSE, 7, 8, 0);
+    // Bridges where the roads meet the water
+    for (let x = 2; x < COLS - 1; x++) if (terrainAt(x, 6) === T.WATER) autoOrientPlace(O.BRIDGE, x, 6);
+    for (let y = 3; y < ROWS - 1; y++) if (terrainAt(9, y) === T.WATER) autoOrientPlace(O.BRIDGE, 9, y);
+    // A little fence line and some animals on the dry meadow
+    for (let x = 10; x <= 12; x++) if (terrainAt(x, 12) === T.GRASS) autoOrientPlace(O.FENCE, x, 12);
+    if (terrainAt(10, 13) === T.GRASS) place(O.ANIMAL, 10, 13, 0);
+    if (terrainAt(11, 13) === T.GRASS) place(O.ANIMAL, 11, 13, 0);
+    if (terrainAt(3, 4) === T.GRASS) place(O.ROCK, 3, 4, 0);
+    if (terrainAt(6, 5) === T.GRASS) place(O.FLOWER, 6, 5, 0);
+    initClouds();
+  }
+  function plantCluster(type, count, spread) {
+    for (let i = 0; i < count; i++) {
+      const cx = 1 + Math.floor(Math.random() * (COLS - 2));
+      const cy = 1 + Math.floor(Math.random() * (ROWS - 2));
+      for (let y = cy - 3; y <= cy + 3; y++) {
+        for (let x = cx - 3; x <= cx + 3; x++) {
+          if (!inBounds(x, y)) continue;
+          if (Math.hypot(x - cx, y - cy) > spread) continue;
+          if (terrainAt(x, y) !== T.GRASS) continue;
+          if (objectAt(x, y) !== O.NONE) continue;
+          object[idx(x, y)] = type;
+        }
+      }
+    }
+  }
+  function place(type, x, y, r) {
+    if (!inBounds(x, y)) return;
+    object[idx(x, y)] = type;
+    rot[idx(x, y)] = r || 0;
+  }
+  // Auto-facing from neighbours: bridges span, fences follow their line
+  function autoOrientPlace(type, x, y) {
+    if (!inBounds(x, y)) return;
+    object[idx(x, y)] = type;
+    if (type === O.BRIDGE) {
+      // A bridge spans toward whichever axis has land (crossing the water)
+      const land = function (nx, ny) {
+        return terrainAt(nx, ny) !== T.WATER || objectAt(nx, ny) === O.BRIDGE;
+      };
+      const xLand = (land(x - 1, y) ? 1 : 0) + (land(x + 1, y) ? 1 : 0);
+      const yLand = (land(x, y - 1) ? 1 : 0) + (land(x, y + 1) ? 1 : 0);
+      rot[idx(x, y)] = (yLand > xLand) ? 1 : 0;
+    } else if (type === O.FENCE) {
+      const xl = objectAt(x - 1, y) === O.FENCE ? 1 : 0;
+      const xr = objectAt(x + 1, y) === O.FENCE ? 1 : 0;
+      const yl = objectAt(x, y - 1) === O.FENCE ? 1 : 0;
+      const yr = objectAt(x, y + 1) === O.FENCE ? 1 : 0;
+      rot[idx(x, y)] = (yl + yr > xl + xr) ? 1 : 0;
+    }
+  }
+  function initClouds() {
+    clouds.length = 0;
+    for (let i = 0; i < 6; i++) {
+      clouds.push({
+        x: Math.random() * 1.2 - 0.1,
+        y: 0.04 + Math.random() * 0.22,
+        s: 0.6 + Math.random() * 0.9,
+        v: 0.008 + Math.random() * 0.014
+      });
+    }
+  }
+  // ============ PALETTE UI ============
+  function buildPalette() {
+    paletteEl.innerHTML = "";
+    GROUPS.forEach(function (group) {
+      const wrap = document.createElement("div");
+      wrap.className = "pal-group";
+      const lab = document.createElement("div");
+      lab.className = "pal-label";
+      lab.textContent = group.label;
+      wrap.appendChild(lab);
+      const row = document.createElement("div");
+      row.className = "pal-row";
+      group.tools.forEach(function (tool) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "tool";
+        b.dataset.id = tool.id;
+        b.innerHTML = '<span class="sw" style="background:' + tool.c + '"></span>' +
+                      "<span>" + tool.icon + " " + tool.label + "</span>";
+        b.addEventListener("click", function () { selectTool(tool); });
+        row.appendChild(b);
+      });
+      wrap.appendChild(row);
+      paletteEl.appendChild(wrap);
+    });
+    syncToolButtons();
+  }
+  function selectTool(tool) {
+    currentTool = tool;
+    syncToolButtons();
+    beep(560, 0.05, "triangle");
+  }
+  function syncToolButtons() {
+    const btns = paletteEl.querySelectorAll(".tool");
+    for (let i = 0; i < btns.length; i++) {
+      btns[i].classList.toggle("active", btns[i].dataset.id === currentTool.id);
+    }
+  }
+  // ============ TOAST ============
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 2200);
+  }
+  // ============ PAINTING / PLACING ============
+  let painting = false;
+  let strokeDone = {};
+  function applyTool(tx, ty) {
+    if (!inBounds(tx, ty)) return;
+    const key = tx + "," + ty;
+    if (strokeDone[key]) return;
+    strokeDone[key] = true;
+    const i = idx(tx, ty);
+    if (currentTool.kind === "terrain") {
+      if (terrain[i] === currentTool.t) return;
+      terrain[i] = currentTool.t;
+      if (currentTool.t === T.WATER) { object[i] = O.NONE; rot[i] = 0; }
+      beep(currentTool.t === T.WATER ? 300 : 440, 0.06, "square");
+    } else if (currentTool.kind === "object") {
+      placeWithOrientation(currentTool.o, tx, ty);
+    } else if (currentTool.kind === "rotate") {
+      if (object[i] === O.NONE) { beep(260, 0.05, "square"); return; }
+      rot[i] = (rot[i] + 1) % 4;
+      beep(680, 0.05, "triangle");
+    } else if (currentTool.kind === "erase") {
+      if (object[i] !== O.NONE) { object[i] = O.NONE; rot[i] = 0; beep(300, 0.05, "square"); return; }
+      if (terrain[i] !== T.GRASS) { terrain[i] = T.GRASS; beep(240, 0.05, "square"); }
+    }
+  }
+  function placeWithOrientation(type, x, y) {
+    const i = idx(x, y);
+    const onWater = terrain[i] === T.WATER;
+    if (type === O.BRIDGE) {
+      if (!onWater && objectAt(x, y) !== O.BRIDGE) { beep(200, 0.05, "square"); return; }
+    } else if (onWater) {
+      beep(200, 0.05, "square"); return; // only bridges float on water
+    }
+    const first = object[i] !== type;
+    object[i] = type;
+    if (type === O.FENCE || type === O.BRIDGE) {
+      autoOrientPlace(type, x, y);
+      // Re-orient touching fences so the line stays continuous
+      if (type === O.FENCE) {
+        if (objectAt(x - 1, y) === O.FENCE) autoOrientPlace(O.FENCE, x - 1, y);
+        if (objectAt(x + 1, y) === O.FENCE) autoOrientPlace(O.FENCE, x + 1, y);
+        if (objectAt(x, y - 1) === O.FENCE) autoOrientPlace(O.FENCE, x, y - 1);
+        if (objectAt(x, y + 1) === O.FENCE) autoOrientPlace(O.FENCE, x, y + 1);
+      }
+    } else if (first) {
+      rot[i] = 0;
+    }
+    const freq = type === O.HOUSE ? 520 : type === O.ANIMAL ? 760 : 620;
+    beep(freq, 0.07, "sine");
+  }
+  function startPaint(clientX, clientY) {
+    painting = true;
+    strokeDone = {};
+    const p = screenToTile(clientX, clientY);
+    pointerPos = p;
+    applyTool(p.x, p.y);
+  }
+  function movePaint(clientX, clientY) {
+    const p = screenToTile(clientX, clientY);
+    pointerPos = p;
+    if (painting) applyTool(p.x, p.y);
+  }
+  canvas.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    if (canvas.setPointerCapture) { try { canvas.setPointerCapture(e.pointerId); } catch (err) {} }
+    startPaint(e.clientX, e.clientY);
+  });
+  canvas.addEventListener("pointermove", function (e) { movePaint(e.clientX, e.clientY); });
+  window.addEventListener("pointerup", function () { painting = false; });
+  canvas.addEventListener("pointerleave", function () { pointerPos = { x: -1, y: -1 }; });
+  canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  // ============ KEYBOARD ============
+  const flatTools = [];
+  GROUPS.forEach(function (g) { g.tools.forEach(function (t) { flatTools.push(t); }); });
+  // Number-key shortcuts (first nine tools)
+  const SHORTCUTS = ["grass", "sand", "water", "road", "house", "bridge", "fence", "tree", "erase"];
+  window.addEventListener("keydown", function (e) {
+    const k = e.key;
+    if (k >= "1" && k <= "9") {
+      const id = SHORTCUTS[parseInt(k, 10) - 1];
+      const t = flatTools.find(function (x) { return x.id === id; });
+      if (t) selectTool(t);
+      return;
+    }
+    if (k === "r" || k === "R") {
+      if (pointerPos.x >= 0 && inBounds(pointerPos.x, pointerPos.y)) {
+        const i = idx(pointerPos.x, pointerPos.y);
+        if (object[i] !== O.NONE) { rot[i] = (rot[i] + 1) % 4; beep(680, 0.05, "triangle"); }
+      }
+      return;
+    }
+    if (k === "t" || k === "T") { toggleDay(); return; }
+    if (k === "s" || k === "S") { saveWorld(); return; }
+    if (k === "l" || k === "L") { loadWorld(); return; }
+    if (k === "n" || k === "N") { newWorld(); return; }
+  });
+  // ============ DAY / NIGHT ============
+  function toggleDay() {
+    const night = dayAmount() < 0.5;
+    dayTarget = night ? 0.5 : 0.0;   // head to noon if it's night, midnight if day
+    autoCycle = false;
+    updateAutoBtn();
+    beep(night ? 880 : 300, 0.14, "sine");
+    showToast(night ? "☀️ Morning light spreads" : "🌙 Night falls");
+  }
+  function toggleAuto() {
+    autoCycle = !autoCycle;
+    updateAutoBtn();
+    beep(autoCycle ? 700 : 460, 0.08, "triangle");
+    showToast(autoCycle ? "▶ Day/night cycle running" : "⏸ Cycle paused");
+  }
+  function updateAutoBtn() {
+    btnAuto.textContent = autoCycle ? "⏸ Cycle" : "▶ Cycle";
+  }
+  function updateTime(dt) {
+    if (autoCycle) {
+      timeOfDay = (timeOfDay + dt / DAY_LENGTH) % 1;
+      dayTarget = timeOfDay;
+    } else {
+      let d = dayTarget - timeOfDay;
+      while (d > 0.5) d -= 1;
+      while (d < -0.5) d += 1;
+      timeOfDay = (timeOfDay + d * Math.min(1, dt * 1.6) + 1) % 1;
+    }
+  }
+  // ============ PERSISTENCE ============
+  function saveWorld() {
+    try {
+      const data = {
+        terrain: Array.prototype.slice.call(terrain),
+        object: Array.prototype.slice.call(object),
+        rot: Array.prototype.slice.call(rot),
+        timeOfDay: timeOfDay,
+        autoCycle: autoCycle
+      };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+      showToast("Diorama saved 💾");
+      beep(660, 0.09, "sine");
+    } catch (err) {
+      showToast("Could not save (storage blocked)");
+    }
+  }
+  function loadWorld(silent) {
+    let raw = null;
+    try { raw = localStorage.getItem(SAVE_KEY); } catch (err) { raw = null; }
+    if (!raw) { if (!silent) showToast("No saved diorama found"); return; }
+    try {
+      const data = JSON.parse(raw);
+      if (!data || !data.terrain || data.terrain.length !== COLS * ROWS) {
+        if (!silent) showToast("Save data is incompatible");
+        return;
+      }
+      terrain = Uint8Array.from(data.terrain);
+      object = Uint8Array.from(data.object || new Array(COLS * ROWS).fill(0));
+      rot = Uint8Array.from(data.rot || new Array(COLS * ROWS).fill(0));
+      timeOfDay = typeof data.timeOfDay === "number" ? data.timeOfDay : 0.4;
+      dayTarget = timeOfDay;
+      autoCycle = !!data.autoCycle;
+      updateAutoBtn();
+      smoke.length = 0;
+      if (!silent) { showToast("Diorama loaded 📂"); beep(560, 0.09, "sine"); }
+    } catch (err) {
+      if (!silent) showToast("Save file was corrupted");
+    }
+  }
+  function newWorld() {
+    generate();
+    updateAutoBtn();
+    showToast("A fresh diorama 🌍");
+    beep(400, 0.12, "triangle");
+  }
+  btnDay.addEventListener("click", toggleDay);
+  btnAuto.addEventListener("click", toggleAuto);
+  btnSave.addEventListener("click", saveWorld);
+  btnLoad.addEventListener("click", function () { loadWorld(false); });
+  btnNew.addEventListener("click", newWorld);
+  // ============ RESPONSIVE CANVAS ============
+  function resizeCanvas() {
+    const wrap = canvas.parentElement;
+    const cssW = Math.max(300, wrap.clientWidth);
+    viewW = Math.round(cssW);
+    tw = (viewW * 0.94) * 2 / (COLS + ROWS - 2);
+    th = tw / 2;
+    slabH = Math.max(3, th * 0.34);
+    const headroom = tw * 1.5;
+    oy = headroom;
+    ox = viewW / 2;
+    const chartH = (COLS + ROWS - 2) * th / 2 + th;
+    viewH = Math.round(chartH + headroom + tw * 0.4);
+    canvas.width = viewW;
+    canvas.height = viewH;
+  }
+  window.addEventListener("resize", resizeCanvas);
+  // ============ SIMULATION ============
+  function updateSim(dt) {
+    updateTime(dt);
+    elapsed += dt;
+    // Drift clouds
+    for (let i = 0; i < clouds.length; i++) {
+      const c = clouds[i];
+      c.x += c.v * dt;
+      if (c.x > 1.25) { c.x = -0.25; c.y = 0.04 + Math.random() * 0.22; }
+    }
+    // Chimney smoke from houses
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        if (object[idx(x, y)] !== O.HOUSE) continue;
+        if (Math.random() < dt * 1.1 && smoke.length < 170) {
+          const sx = isoX(x, y);
+          const sy = isoY(x, y) + th * 0.5;
+          smoke.push({
+            x: sx + tw * 0.12,
+            y: sy - th * 1.5,
+            vx: tw * 0.16,
+            vy: -tw * 0.5,
+            life: 0,
+            max: 2.4 + Math.random() * 0.8,
+            size: th * 0.14 + Math.random() * th * 0.1
+          });
+        }
+      }
+    }
+    // Advance smoke
+    for (let i = smoke.length - 1; i >= 0; i--) {
+      const p = smoke[i];
+      p.life += dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.size += dt * th * 0.14;
+      if (p.life >= p.max) smoke.splice(i, 1);
+    }
+  }
+  // ============ RENDERING ============
+  function draw() {
+    const day = dayAmount();
+    // --- Sky ---
+    const grad = ctx.createLinearGradient(0, 0, 0, viewH);
+    grad.addColorStop(0, mix([12, 18, 52], [128, 198, 238], day));
+    grad.addColorStop(0.55, mix([30, 44, 88], [196, 226, 250], day));
+    grad.addColorStop(1, mix([46, 58, 92], [216, 238, 255], day));
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, viewW, viewH);
+    // --- Stars ---
+    if (day < 0.75) drawStars(1 - day / 0.75);
+    // --- Clouds ---
+    drawClouds(day);
+    // --- Ground + objects (back to front along x + y) ---
+    for (let s = 0; s <= COLS + ROWS - 2; s++) {
+      for (let x = 0; x < COLS; x++) {
+        const y = s - x;
+        if (y < 0 || y >= ROWS) continue;
+        drawTile(x, y, day);
+      }
+    }
+    // --- Smoke ---
+    drawSmoke();
+    // --- Night tint ---
+    if (day < 0.985) {
+      ctx.fillStyle = "rgba(14,18,44," + ((1 - day) * 0.5).toFixed(3) + ")";
+      ctx.fillRect(0, 0, viewW, viewH);
+      drawWindowGlow(day);
+    }
+    // --- Cursor highlight ---
+    if (pointerPos.x >= 0 && inBounds(pointerPos.x, pointerPos.y)) drawCursor(pointerPos.x, pointerPos.y);
+  }
+  function diamond(sx, sy) {
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(sx + tw / 2, sy + th / 2);
+    ctx.lineTo(sx, sy + th);
+    ctx.lineTo(sx - tw / 2, sy + th / 2);
+    ctx.closePath();
+  }
+  function drawTile(x, y, day) {
+    const sx = isoX(x, y);
+    const sy = isoY(x, y);
+    const t = terrain[idx(x, y)];
+    const now = elapsed;
+    // Face colours per terrain
+    let top, left, right;
+    if (t === T.WATER) { top = "#4fb0e6"; left = "#2f86c0"; right = "#3b96d2"; }
+    else if (t === T.SAND) { top = "#e8d7a0"; left = "#c3ad74"; right = "#d4c188"; }
+    else if (t === T.ROAD) { top = "#c9b189"; left = "#a28f6a"; right = "#b8a078"; }
+    else { top = "#7cc35a"; left = "#569140"; right = "#68ab4c"; }
+    // Side faces (the "block" thickness of the diorama)
+    ctx.beginPath();
+    ctx.moveTo(sx - tw / 2, sy + th / 2);
+    ctx.lineTo(sx, sy + th);
+    ctx.lineTo(sx, sy + th + slabH);
+    ctx.lineTo(sx - tw / 2, sy + th / 2 + slabH);
+    ctx.closePath();
+    ctx.fillStyle = left;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(sx + tw / 2, sy + th / 2);
+    ctx.lineTo(sx, sy + th);
+    ctx.lineTo(sx, sy + th + slabH);
+    ctx.lineTo(sx + tw / 2, sy + th / 2 + slabH);
+    ctx.closePath();
+    ctx.fillStyle = right;
+    ctx.fill();
+    // Top face
+    diamond(sx, sy);
+    ctx.fillStyle = top;
+    ctx.fill();
+    // Terrain detail
+    if (t === T.GRASS) {
+      ctx.fillStyle = "rgba(70,130,48,0.5)";
+      for (let i = 0; i < 3; i++) {
+        const h1 = hash(x * 7 + i, y * 13 + i);
+        const h2 = hash(x * 3 + i * 5, y * 11 + i);
+        ctx.fillRect(sx - tw * 0.4 + h1 * tw * 0.72, sy + th * 0.1 + h2 * th * 0.6, Math.max(1, tw * 0.05), Math.max(1, th * 0.06));
+      }
+      if (hash(x, y) > 0.9) {
+        ctx.fillStyle = "#ffe08a";
+        ctx.beginPath();
+        ctx.arc(sx, sy + th * 0.5, th * 0.09, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (t === T.SAND) {
+      ctx.fillStyle = "rgba(160,140,90,0.45)";
+      for (let i = 0; i < 4; i++) {
+        const h1 = hash(x * 5 + i, y * 9 + i * 3);
+        const h2 = hash(x * 11 + i, y * 4 + i);
+        ctx.fillRect(sx - tw * 0.4 + h1 * tw * 0.72, sy + th * 0.1 + h2 * th * 0.6, Math.max(1, tw * 0.04), Math.max(1, th * 0.05));
+      }
+    } else if (t === T.WATER) {
+      // shimmering ripples
+      ctx.strokeStyle = "rgba(255,255,255,0.28)";
+      ctx.lineWidth = Math.max(1, th * 0.05);
+      for (let i = 0; i < 2; i++) {
+        const wob = Math.sin(now * 1.6 + x * 0.6 + y * 0.5 + i) * th * 0.12;
+        ctx.beginPath();
+        ctx.moveTo(sx - tw * 0.26 + i * tw * 0.14, sy + th * 0.42 + wob);
+        ctx.lineTo(sx + tw * 0.02 + i * tw * 0.14, sy + th * 0.5 + wob);
+        ctx.stroke();
+      }
+    } else if (t === T.ROAD) {
+      ctx.fillStyle = "rgba(120,95,60,0.35)";
+      ctx.beginPath();
+      ctx.moveTo(sx - tw * 0.5, sy + th * 0.5);
+      ctx.lineTo(sx, sy + th);
+      ctx.lineTo(sx + tw * 0.5, sy + th * 0.5);
+      ctx.lineTo(sx, sy);
+      ctx.closePath();
+      ctx.strokeStyle = "rgba(120,95,60,0.35)";
+      ctx.lineWidth = Math.max(1, th * 0.06);
+      ctx.stroke();
+    }
+    // Object on this tile
+    const o = object[idx(x, y)];
+    if (o !== O.NONE) drawObject(o, x, y, sx, sy);
+  }
+  function drawObject(o, x, y, sx, sy) {
+    const cx = sx;
+    const cy = sy + th * 0.5;   // centre of the tile's top face
+    const r = rot[idx(x, y)];
+    const ph = hash(x, y) * Math.PI * 2;
+    const t = elapsed;
+    switch (o) {
+      case O.TREE: {
+        const sway = Math.sin(t * 1.3 + ph) * th * 0.06;
+        ctx.fillStyle = "#7a5230";
+        ctx.fillRect(cx - tw * 0.045, cy - th * 0.6, tw * 0.09, th * 0.9);
+        ctx.fillStyle = "#3f8f3a";
+        ctx.beginPath();
+        ctx.arc(cx + sway, cy - th * 1.15, tw * 0.24, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#4fa845";
+        ctx.beginPath();
+        ctx.arc(cx - tw * 0.12 + sway, cy - th * 1.35, tw * 0.16, 0, Math.PI * 2);
+        ctx.arc(cx + tw * 0.13 + sway, cy - th * 1.32, tw * 0.13, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      }
+      case O.PINE: {
+        const sway = Math.sin(t * 1.1 + ph) * th * 0.04;
+        ctx.fillStyle = "#6b4a2a";
+        ctx.fillRect(cx - tw * 0.04, cy - th * 0.3, tw * 0.08, th * 0.6);
+        ctx.fillStyle = "#2b6b3a";
+        for (let i = 0; i < 3; i++) {
+          const w = tw * (0.34 - i * 0.08);
+          const yy = cy - th * (0.35 + i * 0.5);
+          ctx.beginPath();
+          ctx.moveTo(cx - w + sway, yy);
+          ctx.lineTo(cx + w + sway, yy);
+          ctx.lineTo(cx + sway, yy - th * 0.7);
+          ctx.closePath();
+          ctx.fill();
+        }
+        break;
+      }
+      case O.HOUSE: drawHouse(cx, cy, r, x, y); break;
+      case O.BRIDGE: drawBridge(cx, cy, r); break;
+      case O.FENCE: drawFence(cx, cy, r); break;
+      case O.ROCK: {
+        ctx.fillStyle = "#9a978c";
+        ctx.beginPath();
+        ctx.ellipse(cx, cy - th * 0.12, tw * 0.22, th * 0.3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#b4b1a6";
+        ctx.beginPath();
+        ctx.ellipse(cx - tw * 0.06, cy - th * 0.24, tw * 0.1, th * 0.16, 0, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      }
+      case O.FLOWER: {
+        for (let i = 0; i < 4; i++) {
+          const fx = cx + (hash(x * 9 + i, y * 5 + i) - 0.5) * tw * 0.6;
+          const fy = cy + (hash(x * 4 + i, y * 9 + i) - 0.5) * th * 0.6;
+          const col = ["#e88bb0", "#ffd479", "#c79ff0"][i % 3];
+          const sw = Math.sin(t * 2 + i + ph) * th * 0.05;
+          ctx.fillStyle = col;
+          for (let k = 0; k < 5; k++) {
+            const a = (k / 5) * Math.PI * 2;
+            ctx.beginPath();
+            ctx.arc(fx + Math.cos(a) * th * 0.06 + sw, fy + Math.sin(a) * th * 0.06, th * 0.06, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.fillStyle = "#fff2c0";
+          ctx.beginPath();
+          ctx.arc(fx + sw, fy, th * 0.05, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      }
+      case O.ANIMAL: {
+        const bob = Math.sin(t * 3 + ph) * th * 0.05;
+        const drift = Math.sin(t * 0.7 + ph) * tw * 0.08;
+        const gx = cx + drift;
+        const gy = cy + bob;
+        ctx.fillStyle = "rgba(0,0,0,0.2)";
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + th * 0.28, tw * 0.2, th * 0.12, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#f0ece2";
+        ctx.beginPath();
+        ctx.ellipse(gx, gy - th * 0.05, tw * 0.19, th * 0.2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        const face = (r % 2 === 0) ? 1 : -1;
+        ctx.fillStyle = "#e3ddd0";
+        ctx.beginPath();
+        ctx.arc(gx + face * tw * 0.16, gy - th * 0.14, th * 0.13, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#2d2a26";
+        ctx.beginPath();
+        ctx.arc(gx + face * tw * 0.19, gy - th * 0.17, th * 0.03, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      }
+    }
+  }
+  function drawHouse(cx, cy, r, x, y) {
+    const hw = tw * 0.24, hh = th * 0.24;
+    const bh = th * 0.85;                       // body height
+    const y0 = cy - bh;                         // top of the walls
+    // Walls (iso box)
+    isoBox(cx, cy + th * 0.12, hw, hh, bh, "#e8d4a8", "#c9b184", "#dcc79a");
+    // Pyramid roof
+    const rh = th * 0.8;
+    const apex = y0 - rh;
+    ctx.fillStyle = "#c1663f";
+    ctx.beginPath();
+    ctx.moveTo(cx - hw, y0);
+    ctx.lineTo(cx, y0 + hh);
+    ctx.lineTo(cx, apex);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#a9522f";
+    ctx.beginPath();
+    ctx.moveTo(cx, y0 + hh);
+    ctx.lineTo(cx + hw, y0);
+    ctx.lineTo(cx, apex);
+    ctx.closePath();
+    ctx.fill();
+    // Chimney
+    const chx = cx + (r % 2 === 0 ? hw * 0.4 : -hw * 0.4);
+    ctx.fillStyle = "#8a5236";
+    ctx.fillRect(chx - tw * 0.05, y0 - rh * 0.82, tw * 0.1, th * 0.34);
+    // Door on the front-right face
+    ctx.fillStyle = "#7a5230";
+    ctx.fillRect(cx + hw * 0.08, cy + th * 0.06, tw * 0.11, th * 0.4);
+    // Window on the front-left face (glows at night via drawWindowGlow)
+    ctx.fillStyle = "#9fc2dd";
+    ctx.fillRect(cx - hw * 0.75, cy - th * 0.02, tw * 0.1, th * 0.22);
+  }
+  // Generic isometric box with three visible faces
+  function isoBox(cx, cy, hw, hh, height, topCol, leftCol, rightCol) {
+    const y0 = cy - height;
+    // left face
+    ctx.fillStyle = leftCol;
+    ctx.beginPath();
+    ctx.moveTo(cx - hw, y0);
+    ctx.lineTo(cx, y0 + hh);
+    ctx.lineTo(cx, y0 + hh + height);
+    ctx.lineTo(cx - hw, y0 + height);
+    ctx.closePath();
+    ctx.fill();
+    // right face
+    ctx.fillStyle = rightCol;
+    ctx.beginPath();
+    ctx.moveTo(cx, y0 + hh);
+    ctx.lineTo(cx + hw, y0);
+    ctx.lineTo(cx + hw, y0 + height);
+    ctx.lineTo(cx, y0 + hh + height);
+    ctx.closePath();
+    ctx.fill();
+    // top face
+    ctx.fillStyle = topCol;
+    ctx.beginPath();
+    ctx.moveTo(cx, y0 - hh);
+    ctx.lineTo(cx + hw, y0);
+    ctx.lineTo(cx, y0 + hh);
+    ctx.lineTo(cx - hw, y0);
+    ctx.closePath();
+    ctx.fill();
+  }
+  function drawBridge(cx, cy, r) {
+    const angle = r === 0 ? Math.atan2(th / 2, tw / 2) : Math.atan2(th / 2, -tw / 2);
+    ctx.save();
+    ctx.translate(cx, cy + th * 0.08);
+    ctx.rotate(angle);
+    const len = tw * 0.96, wdt = th * 0.46;
+    // deck
+    ctx.fillStyle = "#8a5a30";
+    ctx.fillRect(-len / 2, -wdt / 2, len, wdt);
+    // planks
+    ctx.strokeStyle = "rgba(60,40,20,0.55)";
+    ctx.lineWidth = Math.max(1, th * 0.04);
+    for (let i = -3; i <= 3; i++) {
+      const px = i * len / 7;
+      ctx.beginPath();
+      ctx.moveTo(px, -wdt / 2);
+      ctx.lineTo(px, wdt / 2);
+      ctx.stroke();
+    }
+    // railings
+    ctx.fillStyle = "#a06b3c";
+    ctx.fillRect(-len / 2, -wdt / 2 - th * 0.1, len, th * 0.07);
+    ctx.fillRect(-len / 2, wdt / 2 + th * 0.03, len, th * 0.07);
+    ctx.restore();
+  }
+  function drawFence(cx, cy, r) {
+    const angle = r === 0 ? Math.atan2(th / 2, tw / 2) : Math.atan2(th / 2, -tw / 2);
+    ctx.save();
+    ctx.translate(cx, cy - th * 0.05);
+    ctx.rotate(angle);
+    const len = tw * 0.9;
+    ctx.fillStyle = "#b9a06a";
+    ctx.fillRect(-len / 2, -th * 0.12, len, th * 0.12);   // rail 1
+    ctx.fillRect(-len / 2, th * 0.04, len, th * 0.12);    // rail 2
+    ctx.fillStyle = "#8f7a4c";
+    for (let i = -1; i <= 1; i++) {
+      ctx.fillRect(i * len * 0.45 - tw * 0.03, -th * 0.2, tw * 0.06, th * 0.42);
+    }
+    ctx.restore();
+  }
+  function drawStars(amount) {
+    ctx.fillStyle = "rgba(255,255,255,1)";
+    const count = Math.floor(90 * amount);
+    for (let i = 0; i < count; i++) {
+      const h1 = hash(i * 3 + 1, i * 7 + 2);
+      const h2 = hash(i * 11 + 5, i * 5 + 3);
+      const tw2 = 0.5 + 0.5 * Math.sin(elapsed * 2 + i);
+      ctx.globalAlpha = (0.3 + 0.6 * tw2) * amount;
+      ctx.beginPath();
+      ctx.arc(h1 * viewW, h2 * viewH * 0.55, 0.6 + h2 * 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  function drawClouds(day) {
+    const alpha = 0.28 + day * 0.5;
+    for (let i = 0; i < clouds.length; i++) {
+      const c = clouds[i];
+      const x = c.x * viewW;
+      const y = c.y * viewH;
+      const s = c.s * tw * 0.9;
+      ctx.fillStyle = "rgba(255,255,255," + alpha.toFixed(2) + ")";
+      ctx.beginPath();
+      ctx.ellipse(x, y, s, s * 0.42, 0, 0, Math.PI * 2);
+      ctx.ellipse(x + s * 0.55, y + s * 0.08, s * 0.6, s * 0.32, 0, 0, Math.PI * 2);
+      ctx.ellipse(x - s * 0.6, y + s * 0.1, s * 0.5, s * 0.28, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  function drawSmoke() {
+    for (let i = 0; i < smoke.length; i++) {
+      const p = smoke[i];
+      const a = Math.max(0, 1 - p.life / p.max) * 0.42;
+      ctx.fillStyle = "rgba(220,220,225," + a.toFixed(3) + ")";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  function drawWindowGlow(day) {
+    const glow = Math.min(1, (1 - day) * 1.2);
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        if (object[idx(x, y)] !== O.HOUSE) continue;
+        const cx = isoX(x, y);
+        const cy = isoY(x, y) + th * 0.5;
+        const rad = tw * 0.55;
+        const g = ctx.createRadialGradient(cx, cy, tw * 0.03, cx, cy, rad);
+        g.addColorStop(0, "rgba(255,205,110," + (0.34 * glow).toFixed(2) + ")");
+        g.addColorStop(1, "rgba(255,205,110,0)");
+        ctx.fillStyle = g;
+        ctx.fillRect(cx - rad, cy - rad, rad * 2, rad * 2);
+        ctx.fillStyle = "rgba(255,214,120," + (0.9 * glow).toFixed(2) + ")";
+        ctx.fillRect(cx - tw * 0.18, cy - th * 0.02, tw * 0.1, th * 0.22);
+      }
+    }
+  }
+  function drawCursor(x, y) {
+    const sx = isoX(x, y);
+    const sy = isoY(x, y);
+    ctx.strokeStyle = "rgba(255,255,255,0.9)";
+    ctx.lineWidth = 2;
+    diamond(sx, sy);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(255,212,121,0.9)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(sx - tw / 2 + 3, sy + th / 2);
+    ctx.lineTo(sx, sy + 3);
+    ctx.lineTo(sx + tw / 2 - 3, sy + th / 2);
+    ctx.lineTo(sx, sy + th - 3);
+    ctx.closePath();
+    ctx.stroke();
+  }
+  // ============ HUD ============
+  function updateHUD() {
+    const h = timeOfDay * 24;
+    const hh = Math.floor(h);
+    const mm = Math.floor((h - hh) * 60);
+    sTime.textContent = (hh < 10 ? "0" : "") + hh + ":" + (mm < 10 ? "0" : "") + mm;
+    let blocks = 0;
+    for (let i = 0; i < object.length; i++) if (object[i] !== O.NONE) blocks++;
+    sBlocks.textContent = blocks;
+    sMode.textContent = dayAmount() > 0.5 ? "Day" : "Night";
+  }
+  // ============ MAIN LOOP ============
+  let raf = null;
+  let last = 0;
+  function loop(ts) {
+    if (!last) last = ts;
+    let dt = (ts - last) / 1000;
+    last = ts;
+    if (dt > 0.1) dt = 0.1;   // clamp after a tab switch
+    updateSim(dt);
+    draw();
+    updateHUD();
+    raf = requestAnimationFrame(loop);
+  }
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      cancelAnimationFrame(raf);
+      raf = null;
+    } else if (!raf) {
+      last = 0;
+      raf = requestAnimationFrame(loop);
+    }
+  });
+  window.addEventListener("beforeunload", function () {
+    // Best-effort autosave so a refresh keeps the diorama
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        terrain: Array.prototype.slice.call(terrain),
+        object: Array.prototype.slice.call(object),
+        rot: Array.prototype.slice.call(rot),
+        timeOfDay: timeOfDay,
+        autoCycle: autoCycle
+      }));
+    } catch (err) { /* ignore */ }
+  });
+  // ============ INIT ============
+  buildPalette();
+  resizeCanvas();
+  generate();
+  updateAutoBtn();
+  // Restore a previous diorama if one was saved
+  (function autoRestore() {
+    let raw = null;
+    try { raw = localStorage.getItem(SAVE_KEY); } catch (err) { raw = null; }
+    if (raw) loadWorld(true);
+  })();
+  raf = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

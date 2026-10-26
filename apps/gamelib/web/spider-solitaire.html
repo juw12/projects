@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Spider Solitaire</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --cw: 62px;         /* card width  */
+    --ch: 90px;         /* card height */
+    --gap: 6px;         /* column gap  */
+    --step-up: 27px;    /* vertical reveal for a face-up card  */
+    --step-down: 13px;  /* vertical reveal for a face-down card */
+  }
+
+  html, body {
+    min-height: 100%;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: radial-gradient(circle at 50% 0%, #14532d 0%, #0b3b21 55%, #062614 100%);
+    color: #eaf7ee;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 10px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ============ APP SHELL ============ */
+  #app {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: min(97vw, 1010px);
+  }
+
+  /* ============ HUD ============ */
+  #hud {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 14px;
+    background: rgba(0, 0, 0, 0.28);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 9px 14px;
+  }
+  #hud .brand {
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    font-size: 1.05rem;
+    color: #ffd75e;
+    text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+  }
+  #hud .stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    font-size: 0.92rem;
+    font-variant-numeric: tabular-nums;
+  }
+  #hud .stats b { color: #9be89f; font-weight: 700; }
+  #hud .tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    border-radius: 9px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    color: #fff;
+    background: #2f7d4f;
+    padding: 9px 15px;
+    font-size: 0.88rem;
+    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.28);
+    transition: transform 0.06s ease, background 0.15s ease;
+    user-select: none;
+  }
+  button:hover { background: #38945d; }
+  button:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.28); }
+  button.secondary { background: #8a5a2b; }
+  button.secondary:hover { background: #9d6a35; }
+  button.ghost {
+    background: rgba(0, 0, 0, 0.3);
+    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.2);
+  }
+  button.ghost:hover { background: rgba(0, 0, 0, 0.45); }
+  button.ghost.on {
+    background: #ffd75e;
+    color: #6b4b00;
+    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.2);
+  }
+  button.primary {
+    background: linear-gradient(135deg, #ffcf4d, #f39c12);
+    color: #5a3b00;
+    padding: 12px 30px;
+    font-size: 1rem;
+  }
+
+  /* ============ BOARD (FELT) ============ */
+  #board {
+    position: relative;
+    padding: 16px 12px;
+    border-radius: 16px;
+    background:
+      radial-gradient(circle at 30% 10%, rgba(255, 255, 255, 0.06), transparent 60%),
+      linear-gradient(160deg, #1c6b3e, #12522f 70%, #0d4527);
+    box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.45), 0 14px 40px rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  /* ============ TOP BAR: deck + foundations ============ */
+  #topbar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding: 0 2px;
+  }
+  #deck {
+    position: relative;
+    width: var(--cw);
+    height: var(--ch);
+    cursor: pointer;
+    flex: none;
+  }
+  #deck .deckcard {
+    position: absolute;
+    width: var(--cw);
+    height: var(--ch);
+    border-radius: calc(var(--cw) * 0.1);
+    background: repeating-linear-gradient(45deg, #2b4c8c 0 6px, #35589e 6px 12px);
+    border: 1px solid #17305f;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25), 0 2px 6px rgba(0, 0, 0, 0.22);
+  }
+  #deck .deckcard::after {
+    content: '';
+    position: absolute;
+    inset: 13%;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-radius: calc(var(--cw) * 0.06);
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.14), transparent 70%);
+  }
+  #deck:hover .deckcard { filter: brightness(1.12); }
+  #deck.empty { opacity: 0.3; cursor: default; }
+  #deck .count {
+    position: absolute;
+    right: -8px;
+    top: -8px;
+    background: #ffd75e;
+    color: #5a3b00;
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 1px 7px;
+    border-radius: 9px;
+    z-index: 5;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+  #foundations {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--gap);
+    justify-content: flex-end;
+  }
+  .fslot {
+    width: calc(var(--cw) * 0.72);
+    height: calc(var(--ch) * 0.72);
+    border-radius: calc(var(--cw) * 0.1);
+    border: 2px dashed rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: calc(var(--cw) * 0.4);
+    color: rgba(255, 255, 255, 0.25);
+  }
+  .fslot.done {
+    border-style: solid;
+    border-color: #ffd75e;
+    background: rgba(255, 215, 94, 0.15);
+    color: #ffd75e;
+    box-shadow: 0 0 12px rgba(255, 215, 94, 0.5);
+  }
+
+  /* ============ COLUMNS ============ */
+  #cols {
+    display: grid;
+    grid-template-columns: repeat(10, var(--cw));
+    column-gap: var(--gap);
+    justify-content: center;
+  }
+  .col {
+    position: relative;
+    width: var(--cw);
+    min-height: var(--ch);
+    border-radius: calc(var(--cw) * 0.1);
+    touch-action: none;
+  }
+  .col.empty::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--cw);
+    height: var(--ch);
+    border-radius: inherit;
+    border: 2px dashed rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.04);
+  }
+  .col.valid::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--cw);
+    height: var(--ch);
+    border-radius: inherit;
+    border: 3px solid #8df29a;
+    box-shadow: 0 0 16px rgba(141, 242, 154, 0.8);
+    pointer-events: none;
+    z-index: 30;
+  }
+  .col.src::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--cw);
+    height: var(--ch);
+    border-radius: inherit;
+    border: 3px solid #ffd75e;
+    box-shadow: 0 0 14px rgba(255, 215, 94, 0.7);
+    pointer-events: none;
+    z-index: 30;
+  }
+
+  /* ============ CARDS ============ */
+  .card {
+    position: absolute;
+    left: 0;
+    width: var(--cw);
+    height: var(--ch);
+    border-radius: calc(var(--cw) * 0.1);
+    background: linear-gradient(160deg, #ffffff, #eef0f4);
+    border: 1px solid rgba(0, 0, 0, 0.28);
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25), 0 2px 6px rgba(0, 0, 0, 0.22);
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-drag: none;
+    touch-action: none;
+    z-index: 2;
+  }
+  .card.back {
+    background: repeating-linear-gradient(45deg, #2b4c8c 0 6px, #35589e 6px 12px);
+    border-color: #17305f;
+  }
+  .card.back::after {
+    content: '';
+    position: absolute;
+    inset: 13%;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-radius: calc(var(--cw) * 0.06);
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.14), transparent 70%);
+  }
+  .card .corner {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    line-height: 1;
+    font-weight: 800;
+  }
+  .card .corner.tl { top: 2px; left: 4px; }
+  .card .corner.br {
+    bottom: 2px;
+    right: 4px;
+    transform: rotate(180deg);
+  }
+  .card .corner .r { font-size: calc(var(--cw) * 0.36); }
+  .card .corner .s { font-size: calc(var(--cw) * 0.30); }
+  .card .pip {
+    position: absolute;
+    top: 56%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: calc(var(--cw) * 0.55);
+    opacity: 0.85;
+  }
+  .card.red { color: #c62828; }
+  .card.black { color: #17171c; }
+  .card.sel {
+    outline: 3px solid #ffd75e;
+    outline-offset: -3px;
+    box-shadow: 0 0 12px rgba(255, 215, 94, 0.75), 0 2px 6px rgba(0, 0, 0, 0.25);
+    z-index: 6;
+  }
+
+  /* ============ DRAG GHOST ============ */
+  .ghost {
+    position: fixed;
+    width: var(--cw);
+    height: var(--ch);
+    z-index: 9999;
+    pointer-events: none;
+    filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.45));
+  }
+  .ghost .card { position: absolute; left: 0; }
+
+  /* ============ TOAST ============ */
+  #toast {
+    position: fixed;
+    left: 50%;
+    bottom: 26px;
+    transform: translate(-50%, 20px);
+    background: rgba(0, 0, 0, 0.82);
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 800;
+    max-width: 88vw;
+    text-align: center;
+  }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  /* ============ OVERLAYS ============ */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(3, 20, 12, 0.82);
+    backdrop-filter: blur(3px);
+    z-index: 500;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+    padding: 16px;
+  }
+  .overlay.show { opacity: 1; pointer-events: auto; }
+  .panel {
+    width: min(92vw, 440px);
+    background: linear-gradient(165deg, #17512f, #0c3520);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 18px;
+    padding: 26px 22px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  }
+  .panel h1 {
+    font-size: 1.7rem;
+    color: #ffd75e;
+    margin-bottom: 8px;
+    text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
+  }
+  .panel p.sub { color: #c8e6cd; font-size: 0.9rem; line-height: 1.45; margin-bottom: 16px; }
+  .panel .drawpick {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .panel .recap {
+    display: flex;
+    justify-content: space-around;
+    gap: 10px;
+    margin: 14px 0 18px;
+  }
+  .panel .recap div {
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 10px;
+    padding: 10px 14px;
+    min-width: 84px;
+  }
+  .panel .recap .lab { font-size: 0.7rem; color: #9fc7a8; letter-spacing: 1px; text-transform: uppercase; }
+  .panel .recap .val { font-size: 1.4rem; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; }
+  .panel .newbest { color: #ffd75e; font-weight: 800; margin-bottom: 10px; min-height: 20px; }
+  .panel .hintrow { font-size: 0.76rem; color: #9fc7a8; margin-top: 12px; }
+
+  /* ============ CONFETTI ============ */
+  .confetti {
+    position: fixed;
+    top: -40px;
+    font-size: 22px;
+    z-index: 600;
+    pointer-events: none;
+    animation: fall linear forwards;
+  }
+  @keyframes fall {
+    to { transform: translateY(112vh) rotate(720deg); opacity: 0.7; }
+  }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 820px) {
+    :root { --cw: 52px; --ch: 76px; --gap: 5px; --step-up: 23px; --step-down: 11px; }
+    #board { padding: 12px 8px; }
+  }
+  @media (max-width: 620px) {
+    :root { --cw: 42px; --ch: 61px; --gap: 4px; --step-up: 18px; --step-down: 9px; }
+    #hud .brand { font-size: 0.92rem; }
+    #hud .stats { font-size: 0.78rem; gap: 4px 11px; }
+    button { padding: 8px 11px; font-size: 0.78rem; }
+    #board { padding: 10px 6px; }
+  }
+  @media (max-width: 480px) {
+    :root { --cw: 32px; --ch: 47px; --gap: 3px; --step-up: 14px; --step-down: 7px; }
+    #foundations { gap: 3px; }
+    #topbar { margin-bottom: 10px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ============ HUD ============ -->
+  <div id="hud">
+    <span class="brand">🕷️ Spider Solitaire</span>
+    <div class="stats">
+      <span>Time <b id="s-time">0:00</b></span>
+      <span>Moves <b id="s-moves">0</b></span>
+      <span>Sets <b id="s-found">0/8</b></span>
+      <span>Best <b id="s-best">--</b></span>
+      <span>Wins <b id="s-wins">0</b></span>
+    </div>
+    <div class="tools">
+      <button class="secondary" id="btn-undo" type="button">Undo</button>
+      <button id="btn-deal" type="button">Deal</button>
+      <button id="btn-new" type="button">New&nbsp;Game</button>
+    </div>
+  </div>
+
+  <!-- ============ BOARD ============ -->
+  <div id="board">
+    <div id="topbar">
+      <div id="deck" title="Click to deal 10 cards"></div>
+      <div id="foundations"></div>
+    </div>
+    <div id="cols"></div>
+  </div>
+</div>
+
+<!-- ============ TOAST ============ -->
+<div id="toast"></div>
+
+<!-- ============ START OVERLAY ============ -->
+<div class="overlay show" id="startOverlay">
+  <div class="panel">
+    <h1>🕷️ Spider Solitaire</h1>
+    <p class="sub">
+      Build descending same-suit runs — King down to Ace. A run of King→Ace of one
+      suit is cleared to the foundation. Clear all <b>eight</b> to win.
+    </p>
+    <div class="drawpick" id="diffPick">
+      <button class="ghost on" data-suits="1" type="button">1 Suit</button>
+      <button class="ghost" data-suits="2" type="button">2 Suits</button>
+      <button class="ghost" data-suits="4" type="button">4 Suits</button>
+    </div>
+    <p class="sub" style="margin-bottom:16px">Easy → Hard · 2 decks (104 cards) · 10 columns</p>
+    <button class="primary" id="startBtn" type="button">Start Game</button>
+    <p class="hintrow">Tap a run then tap a column — or drag a run onto a card one rank higher.</p>
+  </div>
+</div>
+
+<!-- ============ WIN OVERLAY ============ -->
+<div class="overlay" id="winOverlay">
+  <div class="panel">
+    <h1>You Win! 🕷️</h1>
+    <p class="sub" id="winSub">All eight runs cleared.</p>
+    <div class="recap">
+      <div><div class="lab">Time</div><div class="val" id="winTime">0:00</div></div>
+      <div><div class="lab">Moves</div><div class="val" id="winMoves">0</div></div>
+      <div><div class="lab">Wins</div><div class="val" id="winWins">0</div></div>
+    </div>
+    <div class="newbest" id="winBest"></div>
+    <button class="primary" id="winAgain" type="button">Play Again</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============================================================
+     SECTION 1 — CONFIG & STATE
+     ============================================================ */
+  var SUIT_RED = { "\u2665": true, "\u2666": true };          // hearts, diamonds
+  var RANKS = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+
+  var DIFFS = {
+    1: { label: "1 Suit",  suits: ["\u2660"] },                       // spades only
+    2: { label: "2 Suits", suits: ["\u2660", "\u2665"] },             // spades + hearts
+    4: { label: "4 Suits", suits: ["\u2660", "\u2665", "\u2666", "\u2663"] }
+  };
+
+  var COLS = 10;
+  var COL_H = 13;            // cards in a complete run (K..A)
+  var MAX_HISTORY = 400;
+
+  var state = null;          // live game state
+  var history = [];          // undo stack (JSON snapshots)
+  var sel = null;            // { col, idx } currently selected run, or null
+  var drag = null;           // active pointer gesture descriptor
+  var chosenSuits = 1;       // difficulty selected on the start screen
+  var timerId = null;
+
+  // Board metrics (resolved from CSS each render)
+  var M = { ch: 90, up: 27, down: 13 };
+
+  /* ============================================================
+     SECTION 2 — SOUND (WebAudio, no assets)
+     ============================================================ */
+  var actx = null;
+  function beep(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = actx.createOscillator();
+      var g = actx.createGain();
+      o.type = type || "sine";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.06, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable — ignore */ }
+  }
+
+  /* ============================================================
+     SECTION 3 — DOM REFS
+     ============================================================ */
+  var colsEl        = document.getElementById("cols");
+  var deckEl        = document.getElementById("deck");
+  var foundEl       = document.getElementById("foundations");
+  var sTime         = document.getElementById("s-time");
+  var sMoves        = document.getElementById("s-moves");
+  var sFound        = document.getElementById("s-found");
+  var sBest         = document.getElementById("s-best");
+  var sWins         = document.getElementById("s-wins");
+  var btnUndo       = document.getElementById("btn-undo");
+  var btnDeal       = document.getElementById("btn-deal");
+  var btnNew        = document.getElementById("btn-new");
+  var startOverlay  = document.getElementById("startOverlay");
+  var winOverlay    = document.getElementById("winOverlay");
+  var startBtn      = document.getElementById("startBtn");
+  var winAgain      = document.getElementById("winAgain");
+  var winTime       = document.getElementById("winTime");
+  var winMoves      = document.getElementById("winMoves");
+  var winWins       = document.getElementById("winWins");
+  var winBest       = document.getElementById("winBest");
+  var winSub        = document.getElementById("winSub");
+  var toastEl       = document.getElementById("toast");
+  var diffButtons   = Array.prototype.slice.call(document.querySelectorAll("#diffPick button"));
+
+  /* ============================================================
+     SECTION 4 — DECK BUILD, SHUFFLE, DEAL
+     ============================================================ */
+  function buildDeck(suits) {
+    // 104 cards total. 1 suit -> 8 copies/rank; 2 -> 4; 4 -> 2.
+    var copies = 8 / suits.length;
+    var deck = [];
+    var id = 0;
+    for (var s = 0; s < suits.length; s++) {
+      for (var rep = 0; rep < copies; rep++) {
+        for (var r = 1; r <= 13; r++) {
+          deck.push({ id: id++, rank: r, suit: suits[s], faceUp: false });
+        }
+      }
+    }
+    return deck;
+  }
+
+  function shuffle(arr) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  function isRed(suit) { return !!SUIT_RED[suit]; }
+
+  /* ============================================================
+     SECTION 5 — RULES
+     ============================================================ */
+  // A run is movable if it is a same-suit descending sequence, all face-up.
+  function isMovableRun(col, startIdx) {
+    var c = state.cols[col];
+    if (startIdx === null || startIdx < 0 || startIdx >= c.length) return false;
+    if (!c[startIdx].faceUp) return false;
+    for (var i = startIdx; i < c.length - 1; i++) {
+      var a = c[i], b = c[i + 1];
+      if (!b.faceUp) return false;
+      if (a.suit !== b.suit) return false;
+      if (a.rank !== b.rank + 1) return false; // a sits above b, so a.rank = b.rank + 1
+    }
+    return true;
+  }
+
+  // A card may be dropped on the top card of `col` when it is exactly one rank
+  // higher (suit does not matter), or the column is empty.
+  function canDropOn(card, col) {
+    var dest = state.cols[col];
+    if (dest.length === 0) return true;
+    var top = dest[dest.length - 1];
+    if (!top.faceUp) return false;
+    return top.rank === card.rank + 1;
+  }
+
+  // Remove any complete same-suit K..A runs from a column (chain possible).
+  function resolveCompleted(col) {
+    var removed = 0;
+    var c = state.cols[col];
+    while (c.length >= COL_H) {
+      var s = c.length - COL_H;
+      if (!c[s].faceUp || c[s].rank !== 13) break;
+      var ok = true;
+      for (var i = s; i < c.length - 1; i++) {
+        if (c[i].suit !== c[i + 1].suit || c[i].rank !== c[i + 1].rank + 1) { ok = false; break; }
+      }
+      if (!ok) break;
+      c.splice(s, COL_H);
+      state.foundations++;
+      removed++;
+      if (c.length && !c[c.length - 1].faceUp) c[c.length - 1].faceUp = true;
+    }
+    return removed;
+  }
+
+  function resolveAll() {
+    for (var c = 0; c < COLS; c++) resolveCompleted(c);
+  }
+
+  function snapshot() {
+    return JSON.stringify({
+      cols: state.cols,
+      foundations: state.foundations,
+      stock: state.stock,
+      moves: state.moves
+    });
+  }
+
+  function pushHistory() {
+    history.push(snapshot());
+    if (history.length > MAX_HISTORY) history.shift();
+  }
+
+  function performMove(from, startIdx, to) {
+    if (from === to) return false;
+    if (!isMovableRun(from, startIdx)) return false;
+    var run = state.cols[from];
+    var moving = run.slice(startIdx);
+    if (!canDropOn(moving[0], to)) return false;
+
+    pushHistory();
+    state.cols[from].splice(startIdx);
+    for (var i = 0; i < moving.length; i++) state.cols[to].push(moving[i]);
+
+    var f = state.cols[from];
+    if (f.length && !f[f.length - 1].faceUp) f[f.length - 1].faceUp = true;
+
+    state.moves++;
+    sel = null;
+    resolveAll();
+    beep(520, 0.05, "sine");
+    render();
+    syncHud();
+    if (state.foundations >= 8) winGame();
+    return true;
+  }
+
+  function dealStock() {
+    if (!state || state.won) return;
+    if (state.stock.length === 0) { toast("No deals left"); beep(200, 0.08, "square"); return; }
+    if (state.cols.some(function (c) { return c.length === 0; })) {
+      toast("Fill every column before dealing"); beep(200, 0.08, "square"); return;
+    }
+    pushHistory();
+    for (var i = 0; i < COLS; i++) {
+      var card = state.stock.shift();
+      card.faceUp = true;
+      state.cols[i].push(card);
+    }
+    state.moves++;
+    sel = null;
+    resolveAll();
+    beep(430, 0.06, "sine");
+    render();
+    syncHud();
+    if (state.foundations >= 8) winGame();
+  }
+
+  function undoMove() {
+    if (!state || state.won) return;
+    if (history.length === 0) { toast("Nothing to undo"); beep(220, 0.06, "square"); return; }
+    var snap = JSON.parse(history.pop());
+    state.cols = snap.cols;
+    state.foundations = snap.foundations;
+    state.stock = snap.stock;
+    state.moves = snap.moves;
+    sel = null;
+    beep(320, 0.06, "triangle");
+    render();
+    syncHud();
+  }
+
+  /* ============================================================
+     SECTION 6 — RENDER
+     ============================================================ */
+  function readMetrics() {
+    var cs = getComputedStyle(document.documentElement);
+    M.ch   = parseFloat(cs.getPropertyValue("--ch")) || 90;
+    M.up    = parseFloat(cs.getPropertyValue("--step-up")) || 27;
+    M.down  = parseFloat(cs.getPropertyValue("--step-down")) || 13;
+  }
+
+  function makeCardEl(card, col, idx) {
+    var el = document.createElement("div");
+    var cls = "card ";
+    if (card.faceUp) cls += (isRed(card.suit) ? "red" : "black");
+    else cls += "back";
+    el.className = cls;
+    el.dataset.col = col;
+    el.dataset.idx = idx;
+    if (card.faceUp) {
+      var r = RANKS[card.rank];
+      var corner = '<span class="r">' + r + '</span><span class="s">' + card.suit + '</span>';
+      el.innerHTML =
+        '<div class="corner tl">' + corner + '</div>' +
+        '<div class="pip">' + card.suit + '</div>' +
+        '<div class="corner br">' + corner + '</div>';
+    }
+    return el;
+  }
+
+  function render() {
+    if (!state) return;
+    readMetrics();
+
+    // Columns
+    colsEl.innerHTML = "";
+    for (var c = 0; c < COLS; c++) {
+      var colEl = document.createElement("div");
+      colEl.className = "col";
+      colEl.dataset.col = c;
+      var cards = state.cols[c];
+      if (cards.length === 0) colEl.classList.add("empty");
+
+      var off = 0, lastOff = 0;
+      for (var i = 0; i < cards.length; i++) {
+        lastOff = off;
+        var cardEl = makeCardEl(cards[i], c, i);
+        cardEl.style.top = off + "px";
+        if (sel && sel.col === c && i >= sel.idx) cardEl.classList.add("sel");
+        if (drag && drag.moved && drag.col === c && drag.startIdx !== null && i >= drag.startIdx) {
+          cardEl.style.visibility = "hidden";
+        }
+        colEl.appendChild(cardEl);
+        off += cards[i].faceUp ? M.up : M.down;
+      }
+      colEl.style.minHeight = (cards.length ? lastOff + M.ch : M.ch) + "px";
+      colsEl.appendChild(colEl);
+    }
+
+    renderDeck();
+    renderFoundations();
+  }
+
+  function renderDeck() {
+    var deals = Math.floor(state.stock.length / COLS);
+    deckEl.innerHTML = "";
+    for (var i = 0; i < deals; i++) {
+      var b = document.createElement("div");
+      b.className = "deckcard";
+      b.style.left = (i * 3) + "px";
+      b.style.top = (-i * 3) + "px";
+      deckEl.appendChild(b);
+    }
+    if (deals > 0) {
+      var badge = document.createElement("div");
+      badge.className = "count";
+      badge.textContent = deals;
+      deckEl.appendChild(badge);
+      deckEl.classList.remove("empty");
+    } else {
+      deckEl.classList.add("empty");
+    }
+  }
+
+  function renderFoundations() {
+    foundEl.innerHTML = "";
+    for (var i = 0; i < 8; i++) {
+      var d = document.createElement("div");
+      d.className = "fslot" + (i < state.foundations ? " done" : "");
+      d.textContent = i < state.foundations ? "\u2660" : "";
+      foundEl.appendChild(d);
+    }
+  }
+
+  /* ============================================================
+     SECTION 7 — HUD & TIMER
+     ============================================================ */
+  function fmtTime(sec) {
+    var m = Math.floor(sec / 60);
+    var s = sec % 60;
+    return m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  function bestKey() { return "spiderBest_" + state.suits; }
+  function winsKey() { return "spiderWins_" + state.suits; }
+
+  function syncHud() {
+    if (!state) return;
+    sMoves.textContent = state.moves;
+    sFound.textContent = state.foundations + "/8";
+    sTime.textContent = fmtTime(currentTime());
+    var b = localStorage.getItem(bestKey());
+    sBest.textContent = b === null ? "--" : fmtTime(parseInt(b, 10));
+    sWins.textContent = localStorage.getItem(winsKey()) || "0";
+  }
+
+  function currentTime() {
+    if (!state) return 0;
+    if (state.won) return state.elapsed;
+    return Math.floor((Date.now() - state.startTime) / 1000);
+  }
+
+  function startTimer() {
+    stopTimer();
+    state.startTime = Date.now();
+    state.elapsed = 0;
+    timerId = setInterval(tickTimer, 250);
+  }
+  function stopTimer() {
+    if (timerId) { clearInterval(timerId); timerId = null; }
+  }
+  function tickTimer() {
+    if (!state || state.won) return;
+    sTime.textContent = fmtTime(currentTime());
+  }
+
+  /* ============================================================
+     SECTION 8 — INPUT (tap-to-move + drag)
+     ============================================================ */
+  function colUnderPoint(x, y) {
+    var el = document.elementFromPoint(x, y);
+    if (!el) return null;
+    var colEl = el.closest(".col");
+    return colEl ? parseInt(colEl.dataset.col, 10) : null;
+  }
+
+  function clearHighlights() {
+    for (var i = 0; i < colsEl.children.length; i++) {
+      colsEl.children[i].classList.remove("valid", "src");
+    }
+  }
+
+  function highlightTarget(t, from) {
+    for (var i = 0; i < colsEl.children.length; i++) {
+      colsEl.children[i].classList.toggle("valid", i === t && i !== from);
+    }
+  }
+
+  function buildGhost(fromCol, startIdx, x, y) {
+    var colEl = colsEl.children[fromCol];
+    var cardDom = colEl.querySelectorAll(".card");
+    var rect = cardDom[startIdx].getBoundingClientRect();
+    var grabX = x - rect.left;
+    var grabY = y - rect.top;
+
+    var ghost = document.createElement("div");
+    ghost.className = "ghost";
+    ghost.style.left = (x - grabX) + "px";
+    ghost.style.top = (y - grabY) + "px";
+
+    for (var i = startIdx; i < cardDom.length; i++) {
+      var g = cardDom[i].cloneNode(true);
+      g.classList.remove("sel");
+      g.style.visibility = "visible";
+      g.style.top = ((i - startIdx) * M.up) + "px";
+      ghost.appendChild(g);
+    }
+    document.body.appendChild(ghost);
+    for (var j = startIdx; j < cardDom.length; j++) cardDom[j].style.visibility = "hidden";
+
+    return { el: ghost, grabX: grabX, grabY: grabY };
+  }
+
+  function onDown(e) {
+    if (!state || state.won) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    var colEl = e.target.closest(".col");
+    if (!colEl) return;
+    var col = parseInt(colEl.dataset.col, 10);
+    var cardEl = e.target.closest(".card");
+    var idx = cardEl ? parseInt(cardEl.dataset.idx, 10) : null;
+
+    drag = {
+      col: col,
+      idx: idx,
+      startIdx: idx,
+      startX: e.clientX,
+      startY: e.clientY,
+      moved: false,
+      visual: null,
+      movable: idx !== null && isMovableRun(col, idx)
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+  }
+
+  function onMove(e) {
+    if (!drag) return;
+    var dx = e.clientX - drag.startX;
+    var dy = e.clientY - drag.startY;
+    if (!drag.moved && Math.sqrt(dx * dx + dy * dy) > 7) {
+      drag.moved = true;
+      if (drag.movable) {
+        drag.visual = buildGhost(drag.col, drag.startIdx, e.clientX, e.clientY);
+        clearHighlights();
+        colsEl.children[drag.col].classList.add("src");
+      }
+    }
+    if (drag.visual) {
+      drag.visual.el.style.left = (e.clientX - drag.visual.grabX) + "px";
+      drag.visual.el.style.top = (e.clientY - drag.visual.grabY) + "px";
+      var t = colUnderPoint(e.clientX, e.clientY);
+      highlightTarget(t, drag.col);
+    }
+  }
+
+  function onUp(e) {
+    if (!drag) return;
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+    window.removeEventListener("pointercancel", onUp);
+
+    var d = drag;
+    drag = null;
+
+    if (d.visual) {
+      d.visual.el.remove();
+      clearHighlights();
+      var target = colUnderPoint(e.clientX, e.clientY);
+      if (target !== null) performMove(d.col, d.startIdx, target);
+      render();   // always rebuild so hidden originals reappear
+      syncHud();
+    } else if (!d.moved) {
+      handleTap(d.col, d.idx);
+    }
+  }
+
+  function handleTap(col, idx) {
+    if (!state || state.won) return;
+    if (sel) {
+      if (sel.col === col) {
+        if (sel.idx === idx) { sel = null; render(); beep(300, 0.04, "triangle"); return; }
+        if (idx !== null && isMovableRun(col, idx)) { sel = { col: col, idx: idx }; beep(640, 0.04, "sine"); render(); return; }
+        sel = null; render(); return;
+      }
+      if (performMove(sel.col, sel.idx, col)) return;
+      if (idx !== null && isMovableRun(col, idx)) { sel = { col: col, idx: idx }; beep(640, 0.04, "sine"); }
+      else { sel = null; beep(220, 0.06, "square"); }
+      render();
+      return;
+    }
+    if (idx !== null && isMovableRun(col, idx)) {
+      sel = { col: col, idx: idx };
+      beep(680, 0.05, "sine");
+      render();
+    }
+  }
+
+  /* ============================================================
+     SECTION 9 — GAME LIFECYCLE
+     ============================================================ */
+  function newGame(suits) {
+    chosenSuits = suits;
+    var deck = shuffle(buildDeck(DIFFS[suits].suits));
+    var cols = [];
+    var c;
+    for (c = 0; c < COLS; c++) cols.push([]);
+
+    // Deal 6 cards to the first 4 columns and 5 to the rest (54 cards).
+    var p = 0;
+    for (var round = 0; round < 6; round++) {
+      for (c = 0; c < COLS; c++) {
+        if (round < 5 || c < 4) cols[c].push(deck[p++]);
+      }
+    }
+    for (c = 0; c < COLS; c++) cols[c][cols[c].length - 1].faceUp = true;
+
+    state = {
+      suits: suits,
+      cols: cols,
+      foundations: 0,
+      stock: deck.slice(p),
+      moves: 0,
+      won: false,
+      startTime: Date.now(),
+      elapsed: 0
+    };
+    history = [];
+    sel = null;
+    drag = null;
+    startTimer();
+    render();
+    syncHud();
+  }
+
+  function winGame() {
+    state.won = true;
+    state.elapsed = Math.floor((Date.now() - state.startTime) / 1000);
+    stopTimer();
+    beep(880, 0.12, "sine");
+    setTimeout(function () { beep(1180, 0.18, "sine"); }, 130);
+
+    var secs = state.elapsed;
+    var wins = parseInt(localStorage.getItem(winsKey()) || "0", 10) + 1;
+    localStorage.setItem(winsKey(), String(wins));
+
+    var prevBest = localStorage.getItem(bestKey());
+    var isBest = prevBest === null || secs < parseInt(prevBest, 10);
+    if (isBest) localStorage.setItem(bestKey(), String(secs));
+
+    winTime.textContent = fmtTime(secs);
+    winMoves.textContent = state.moves;
+    winWins.textContent = wins;
+    winSub.textContent = DIFFS[state.suits].label + " · all eight runs cleared.";
+    winBest.textContent = isBest ? "★ New best time!" : ("Best: " + fmtTime(parseInt(localStorage.getItem(bestKey()), 10)));
+
+    winOverlay.classList.add("show");
+    syncHud();
+    confetti();
+  }
+
+  function confetti() {
+    var glyphs = ["\u2660", "\u2665", "\u2666", "\u2663", "\u2728", "\uD83D\uDD77\uFE0F"];
+    for (var i = 0; i < 34; i++) {
+      (function (i) {
+        setTimeout(function () {
+          var d = document.createElement("div");
+          d.className = "confetti";
+          d.textContent = glyphs[i % glyphs.length];
+          d.style.left = (Math.random() * 96) + "vw";
+          d.style.color = ["#ffd75e", "#ff6b8a", "#8df29a", "#9bd6ff", "#ffffff"][i % 5];
+          d.style.animationDuration = (1.8 + Math.random() * 1.6) + "s";
+          document.body.appendChild(d);
+          setTimeout(function () { d.remove(); }, 3600);
+        }, i * 55);
+      })(i);
+    }
+  }
+
+  var toastTimer = null;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 1700);
+  }
+
+  /* ============================================================
+     SECTION 10 — WIRING
+     ============================================================ */
+  colsEl.addEventListener("pointerdown", onDown);
+  deckEl.addEventListener("click", dealStock);
+  btnDeal.addEventListener("click", dealStock);
+  btnUndo.addEventListener("click", undoMove);
+  btnNew.addEventListener("click", function () {
+    startOverlay.classList.add("show");
+  });
+
+  diffButtons.forEach(function (b) {
+    b.addEventListener("click", function () {
+      diffButtons.forEach(function (x) { x.classList.remove("on"); });
+      b.classList.add("on");
+      chosenSuits = parseInt(b.dataset.suits, 10);
+    });
+  });
+
+  startBtn.addEventListener("click", function () {
+    startOverlay.classList.remove("show");
+    winOverlay.classList.remove("show");
+    newGame(chosenSuits);
+    beep(660, 0.07, "sine");
+  });
+
+  winAgain.addEventListener("click", function () {
+    winOverlay.classList.remove("show");
+    newGame(chosenSuits);
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "u" || e.key === "U") { undoMove(); }
+    else if (e.key === "d" || e.key === "D") { dealStock(); }
+    else if (e.key === "n" || e.key === "N") { startOverlay.classList.add("show"); }
+    else if (e.key === "Escape") { sel = null; render(); }
+  });
+
+  var resizeTimer = null;
+  window.addEventListener("resize", function () {
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () { render(); }, 120);
+  });
+
+  /* ============================================================
+     SECTION 11 — BOOT
+     ============================================================ */
+  // Render a friendly empty board behind the start overlay.
+  state = {
+    suits: 1,
+    cols: (function () { var a = []; for (var i = 0; i < COLS; i++) a.push([]); return a; })(),
+    foundations: 0,
+    stock: [],
+    moves: 0,
+    won: false,
+    startTime: Date.now(),
+    elapsed: 0
+  };
+  render();
+})();
+</script>
+</body>
+</html>

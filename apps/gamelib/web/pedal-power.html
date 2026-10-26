@@ -1,0 +1,1075 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Pedal Power</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { min-height: 100%; background: #101a24; display: flex; align-items: center; justify-content: center; font-family: "Courier New", monospace; overflow: hidden; touch-action: manipulation; padding: 10px; }
+  /* ============ APP LAYOUT ============ */
+  #app { display: flex; flex-direction: column; align-items: center; gap: 10px; width: min(97vw, 900px); }
+  #game-wrap { position: relative; width: 100%; box-shadow: 0 12px 44px rgba(0,0,0,.55); border-radius: 10px; overflow: hidden; }
+  canvas { display: block; width: 100%; height: auto; background: #ffcf95; touch-action: none; }
+  #hint { position: absolute; bottom: 5px; width: 100%; text-align: center; color: rgba(255,255,255,.92); font-size: 11px; letter-spacing: .5px; pointer-events: none; text-shadow: 0 1px 3px rgba(0,0,0,.75); }
+  /* ============ CONTROLS ============ */
+  #controls, #pedalbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 10px; }
+  button { font-family: inherit; font-size: 13px; font-weight: bold; letter-spacing: 1px; padding: 9px 18px; border: none; border-radius: 8px; cursor: pointer; color: #fff; background: #d9632f; box-shadow: 0 4px 0 rgba(0,0,0,.3); transition: transform .05s ease, background .15s ease; user-select: none; -webkit-tap-highlight-color: transparent; }
+  button:hover { background: #ea7442; }
+  button:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.3); }
+  .label {
+    color: #fff;
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    text-shadow: 0 1px 2px rgba(0,0,0,.5);
+  }
+  #controls .opt {
+    padding: 8px 14px;
+    background: rgba(255,255,255,.13);
+    color: #cfe0ef;
+    box-shadow: 0 3px 0 rgba(0,0,0,.28);
+  }
+  #controls .opt:hover { background: rgba(255,255,255,.23); }
+  #controls .opt.active { background: #ffd23f; color: #4a3400; }
+  #controls .opt.active:hover { background: #ffe14d; }
+  /* ============ PEDAL BAR (touch + mouse) ============ */
+  #pedalbar { width: 100%; }
+  #pedalbar .pedal {
+    flex: 1 1 120px;
+    padding: 15px 8px;
+    font-size: 15px;
+    background: #26806b;
+  }
+  #pedalbar .pedal:hover { background: #2f9a81; }
+  #pedalbar .pedal.hit { background: #ffd23f; color: #3d2b00; }
+  #gear-box {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,.10);
+    border-radius: 8px;
+    padding: 4px 8px;
+    color: #ffd23f;
+    font-size: 13px;
+    font-weight: bold;
+    letter-spacing: 1px;
+  }
+  #gear-box button { padding: 8px 14px; background: #3e566d; font-size: 15px; }
+  #gear-box button:hover { background: #4d6a85; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="game-wrap">
+    <canvas id="game" width="880" height="500"></canvas>
+    <div id="hint">ALTERNATE LEFT / RIGHT (A &nbsp;D or &#8592; &#8594; or tap sides) to pedal &nbsp;|&nbsp; W / S = shift gear &nbsp;|&nbsp; R = restart</div>
+  </div>
+  <div id="controls">
+    <button id="btn-restart" type="button">Restart</button>
+    <span class="label">Mode:</span>
+    <button type="button" class="opt mode active" data-mode="road">Road Race</button>
+    <button type="button" class="opt mode" data-mode="tt">Time Trial</button>
+    <span class="label">Difficulty:</span>
+    <button type="button" class="opt diff" data-diff="easy">Easy</button>
+    <button type="button" class="opt diff active" data-diff="normal">Normal</button>
+    <button type="button" class="opt diff" data-diff="hard">Hard</button>
+  </div>
+  <div id="pedalbar">
+    <button id="ped-l" class="pedal" type="button">&#9664; PEDAL L</button>
+    <div id="gear-box">
+      <button id="gear-down" type="button">&#8211;</button>
+      <span id="gear-label">GEAR 5</span>
+      <button id="gear-up" type="button">+</button>
+    </div>
+    <button id="ped-r" class="pedal" type="button">PEDAL R &#9654;</button>
+  </div>
+</div>
+<script>
+(function () {
+  "use strict";
+  /* ============ CANVAS & VIEW ============ */
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;        // 880
+  const H = canvas.height;       // 500
+  const PX_PER_M = 3.0;          // horizontal metres -> pixels
+  const VERT = 1.6;              // elevation metres -> pixels
+  const GROUND_BASE = H * 0.70;  // road level directly under the player
+  const PLAYER_SX = W * 0.34;    // player's fixed screen x
+  const ROAD_H = 54;             // thickness of the road band (edge-on view)
+  /* ============ TUNING ============ */
+  const KP = 1.4;                // pedal power -> acceleration
+  const DRAG_C = 0.020;          // aero drag coefficient
+  const ROLL = 0.35;             // rolling resistance
+  const GRAV = 9.0;              // gravity on grades
+  const GR = [0.60, 0.70, 0.80, 0.90, 1.00, 1.10, 1.20, 1.30]; // gear ratios
+  const STROKE_G = 0.058;        // cadence gained per pedal stroke
+  const MIN_STROKE_GAP = 52;     // ms between strokes
+  const DRAFT_GAP = 9.5;         // metres behind a rival counts as drafting
+  const SPRINT_ZONE = 0.88;      // last 12% of the course is a sprint
+  const MODES = {
+    road: { finish: 1200, ai: 5, label: "Road Race" },
+    tt:   { finish: 900,  ai: 0, label: "Time Trial" }
+  };
+  const DIFF = {
+    easy:   { aiSpeed: [7.4, 7.9, 8.3, 8.7, 9.0], hill: 0.70, jitter: 0.05 },
+    normal: { aiSpeed: [8.1, 8.6, 9.0, 9.4, 9.8], hill: 1.00, jitter: 0.04 },
+    hard:   { aiSpeed: [8.7, 9.2, 9.6, 10.0, 10.4], hill: 1.25, jitter: 0.03 }
+  };
+  const DIFF_LABEL = { easy: "Easy", normal: "Normal", hard: "Hard" };
+  const AI_NAMES = ["RIDER 1", "RIDER 2", "RIDER 3", "RIDER 4", "RIDER 5"];
+  const AI_COLORS = ["#3f7fd6", "#d64f4f", "#38a86b", "#a05ad6", "#e08a2a"];
+  const PLAYER_COLOR = "#ffd23f";
+  /* ============ STATE ============ */
+  const ST = { READY: 0, COUNT: 1, RUN: 2, DONE: 3 };
+  let state = ST.READY;
+  let mode = localStorage.getItem("pedalPowerMode") || "road";
+  if (!MODES[mode]) mode = "road";
+  let diff = localStorage.getItem("pedalPowerDiff") || "normal";
+  if (!DIFF[diff]) diff = "normal";
+  let finish = MODES[mode].finish;
+  let hills = [];
+  let elevMin = 0, elevMax = 1;
+  let riders = [];
+  let player = null;
+  let raceTime = 0;
+  let countT = 0;
+  let countBeep = 4;
+  let result = null;
+  let lastSide = null;
+  let lastStrokeT = 0;
+  let strokeStreak = 0;
+  let tempo = 1;
+  let strokes = 0;
+  let blowWarn = 0;
+  let goFlash = 0;
+  let best = {};
+  try { best = JSON.parse(localStorage.getItem("pedalPowerBest") || "{}") || {}; }
+  catch (e) { best = {}; }
+  function bestKey() { return mode + "_" + diff; }
+  /* ============ AUDIO (WebAudio, no assets) ============ */
+  let actx = null;
+  function tone(freq, dur, type, vol) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(vol == null ? 0.055 : vol, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+  function beep(freq, dur, type) { tone(freq, dur, type, 0.055); }
+  function tickSound() { tone(400 + Math.random() * 60, 0.02, "sine", 0.03); }
+  function shiftSound() { tone(150, 0.07, "square", 0.075); }
+  function blowSound() { tone(120, 0.42, "sawtooth", 0.11); }
+  function finishSound() { beep(880, 0.13, "sine"); setTimeout(function () { beep(1320, 0.2, "sine"); }, 130); }
+  /* ============ COURSE (rolling hills) ============ */
+  function mulberry(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function generateCourse() {
+    const cfg = DIFF[diff];
+    const rnd = mulberry(mode === "road" ? 90210 + diff.length * 37 : 4114 + diff.length * 91);
+    hills = [];
+    let d = 240;
+    const count = mode === "road" ? 7 : 5;
+    for (let i = 0; i < count; i++) {
+      const w = 95 + rnd() * 115;
+      const h = (14 + rnd() * 18) * cfg.hill;
+      hills.push({ c: d, w: w, h: h });
+      d += 170 + rnd() * 130;
+      if (d > finish - 150) break;
+    }
+    elevMin = 1e9; elevMax = -1e9;
+    for (let m = 0; m <= finish; m += 10) {
+      const e = elev(m);
+      if (e < elevMin) elevMin = e;
+      if (e > elevMax) elevMax = e;
+    }
+  }
+  function elev(d) {
+    let e = 0;
+    for (let i = 0; i < hills.length; i++) {
+      const h = hills[i];
+      const t = (d - h.c) / h.w;
+      e += h.h * Math.exp(-t * t);
+    }
+    return e;
+  }
+  function grade(d) {
+    let g = 0;
+    for (let i = 0; i < hills.length; i++) {
+      const h = hills[i];
+      const t = (d - h.c) / h.w;
+      const e = Math.exp(-t * t);
+      g += h.h * (-2 * (d - h.c) / (h.w * h.w)) * e;
+    }
+    if (g > 0.12) g = 0.12;
+    if (g < -0.12) g = -0.12;
+    return g;
+  }
+  /* ============ RIDER FACTORY ============ */
+  function makeRider(name, color, isPlayer) {
+    return {
+      name: name, color: color, isPlayer: !!isPlayer,
+      dist: 0, speed: 0, cad: 0, gear: 5, stamina: 1,
+      wheelAng: 0, crankPh: Math.random() * 6.28,
+      yOff: 0, scale: 1,
+      finishTime: null,
+      target: 9, phase: Math.random() * 6.28,
+      flashL: 0, flashR: 0
+    };
+  }
+  function reset() {
+    finish = MODES[mode].finish;
+    generateCourse();
+    riders = [];
+    const cfg = DIFF[diff];
+    const n = MODES[mode].ai;
+    for (let i = 0; i < n; i++) {
+      const r = makeRider(AI_NAMES[i], AI_COLORS[i], false);
+      r.target = cfg.aiSpeed[i];
+      r.yOff = (i % 2 === 0 ? -1 : 1) * (4 + Math.random() * 5);
+      r.scale = 1 + r.yOff * 0.006;
+      r.dist = -2 - i * 1.6;        // staggered grid behind the line
+      riders.push(r);
+    }
+    player = makeRider("YOU", PLAYER_COLOR, true);
+    player.gear = 5;
+    player.yOff = 0;
+    player.scale = 1.03;
+    riders.push(player);
+    raceTime = 0;
+    countT = 0;
+    countBeep = 4;
+    result = null;
+    lastSide = null;
+    lastStrokeT = 0;
+    strokeStreak = 0;
+    tempo = 1;
+    strokes = 0;
+    blowWarn = 0;
+    goFlash = 0;
+    syncGearLabel();
+  }
+  /* ============ FLOW ============ */
+  function beginRace() {
+    reset();
+    state = ST.COUNT;
+    countT = 3.2;                 // brief lead-in before "3"
+    countBeep = 4;
+    beep(300, 0.08, "triangle");
+  }
+  function livePlace() {
+    let p = 1;
+    for (let i = 0; i < riders.length; i++) {
+      const r = riders[i];
+      if (r === player) continue;
+      const rd = r.finishTime !== null ? finish : r.dist;
+      const pd = player.finishTime !== null ? finish : player.dist;
+      if (rd > pd) p++;
+    }
+    return p;
+  }
+  function computeResult() {
+    const t = player.finishTime;
+    let place = 1;
+    if (MODES[mode].ai > 0) {
+      for (let i = 0; i < riders.length; i++) {
+        const r = riders[i];
+        if (r === player) continue;
+        const proj = r.finishTime !== null ? r.finishTime
+          : raceTime + (finish - r.dist) / Math.max(1, r.target);
+        if (proj < t) place++;
+      }
+    }
+    const k = bestKey();
+    const prev = best[k] != null ? best[k] : null;
+    const isBest = (prev === null || t < prev);
+    if (isBest) {
+      best[k] = t;
+      try { localStorage.setItem("pedalPowerBest", JSON.stringify(best)); } catch (e) {}
+    }
+    result = {
+      time: t,
+      place: MODES[mode].ai > 0 ? place : null,
+      total: MODES[mode].ai + 1,
+      avg: finish / t,
+      isBest: isBest,
+      prevBest: prev
+    };
+    state = ST.DONE;
+    finishSound();
+  }
+  /* ============ INPUT ACTIONS ============ */
+  function cadenceCap() {
+    const g = player.gear;
+    const up = Math.max(0, grade(player.dist));
+    let cap = (1.85 - 0.07 * (g - 1)) - up * 1.6 * (g - 1);
+    if (player.dist > finish * SPRINT_ZONE) cap += 0.15;
+    return Math.max(0.5, cap);
+  }
+  function stroke(side) {
+    if (state !== ST.RUN) return;
+    const now = performance.now();
+    if (side === lastSide) return;                 // must alternate feet
+    if (now - lastStrokeT < MIN_STROKE_GAP) return;
+    const gap = now - lastStrokeT;
+    lastSide = side;
+    lastStrokeT = now;
+    if (strokeStreak > 0 && gap > 70 && gap < 330) strokeStreak++;
+    else strokeStreak = 1;
+    tempo = Math.min(1.35, 1 + strokeStreak * 0.02);
+    const sprint = player.dist > finish * SPRINT_ZONE ? 1.25 : 1;
+    const cap = cadenceCap();
+    const gain = STROKE_G * tempo * sprint *
+      (1 - Math.min(0.94, player.cad / cap));
+    player.cad = Math.min(cap, player.cad + gain);
+    strokes++;
+    if (side === "L") player.flashL = 1; else player.flashR = 1;
+    tickSound();
+  }
+  function shiftGear(dir) {
+    if (state !== ST.RUN && state !== ST.READY && state !== ST.DONE) return;
+    const ng = Math.max(1, Math.min(8, player.gear + dir));
+    if (ng === player.gear) return;
+    player.gear = ng;
+    if (state === ST.RUN && dir > 0) player.cad *= 0.92;  // grinding a bigger gear
+    shiftSound();
+    syncGearLabel();
+  }
+  function primary() {
+    if (state === ST.READY || state === ST.DONE) { beginRace(); return true; }
+    return false;
+  }
+  /* ============ UPDATE ============ */
+  function update(dt) {
+    if (player.flashL > 0) player.flashL = Math.max(0, player.flashL - dt * 4);
+    if (player.flashR > 0) player.flashR = Math.max(0, player.flashR - dt * 4);
+    if (goFlash > 0) goFlash = Math.max(0, goFlash - dt * 1.8);
+    if (state === ST.COUNT) {
+      countT -= dt;
+      const c = Math.ceil(countT);
+      if (c < countBeep && c >= 1 && c <= 3) { countBeep = c; beep(520, 0.10, "triangle"); }
+      if (countT <= 0) {
+        state = ST.RUN;
+        raceTime = 0;
+        lastSide = null;
+        lastStrokeT = performance.now() - 999;
+        goFlash = 1;
+        tone(920, 0.28, "square", 0.09);
+      }
+      return;                     // cranks stay still during the count
+    }
+    if (state === ST.RUN) raceTime += dt;
+    const cfg = DIFF[diff];
+    // --- rival riders ---
+    for (let i = 0; i < riders.length; i++) {
+      const r = riders[i];
+      if (r.isPlayer) continue;
+      if (r.dist >= finish && r.finishTime === null) r.finishTime = raceTime;
+      if (r.dist < finish + 40) {
+        const gr = grade(r.dist);
+        const sprint = r.dist > finish * SPRINT_ZONE ? 1.06 : 1;
+        const wobble = Math.sin(raceTime * 0.7 + r.phase) * cfg.jitter * r.target;
+        let tgt = (r.target * sprint + wobble) * (1 - gr * 1.15);
+        if (tgt < 2.2) tgt = 2.2;
+        r.speed += (tgt - r.speed) * 1.7 * dt;
+      } else {
+        r.speed *= (1 - 1.5 * dt);
+      }
+      r.dist += r.speed * dt;
+      r.crankPh += (2 + r.speed * 1.05) * dt;
+      r.wheelAng += (r.speed * PX_PER_M) / (9 * r.scale) * dt;
+    }
+    // --- player physics ---
+    const gr = grade(player.dist);
+    const g = player.gear;
+    const power = player.cad * GR[g - 1];
+    const up = Math.max(0, gr);
+    const denom = 1 + up * (0.8 + 0.55 * (g - 1));
+    const drafting = checkDraft();
+    const dragC = DRAG_C * (drafting ? 0.62 : 1);
+    if (state === ST.RUN) {
+      const force = power * KP * (0.45 + 0.55 * player.stamina) / denom;
+      let a = force - dragC * player.speed * player.speed - ROLL - gr * GRAV;
+      if (player.speed <= 0.001 && a < 0) a = 0;
+      player.speed += a * dt;
+      if (player.speed < 0) player.speed = 0;
+      player.dist += player.speed * dt;
+      // cadence decay + gear-cap bleed
+      player.cad -= (0.09 + 0.07 * player.cad) * dt;
+      const cap = cadenceCap();
+      if (player.cad > cap) player.cad += (cap - player.cad) * Math.min(1, 4 * dt);
+      if (player.cad < 0) player.cad = 0;
+      // stamina
+      const drain = 0.011 * power * power * (1 + up * 2) * (drafting ? 0.7 : 1);
+      player.stamina -= drain * dt;
+      if (player.stamina < 0) player.stamina = 0;
+      if (power < 0.7 && player.stamina < 1) {
+        player.stamina = Math.min(1, player.stamina + 0.06 * dt);
+      }
+      if (player.stamina < 0.12) {
+        blowWarn += dt;
+        if (blowWarn > 1.6) { blowWarn = 0; blowSound(); }
+      } else blowWarn = 0;
+      player.wheelAng += (player.speed * PX_PER_M) / (9 * player.scale) * dt;
+      player.crankPh += player.cad * 9 * dt;
+      if (player.dist >= finish && player.finishTime === null) {
+        player.dist = finish;
+        player.finishTime = raceTime;
+        computeResult();
+      }
+    } else {
+      // freewheeling after the finish
+      player.speed *= (1 - 1.2 * dt);
+      player.dist += player.speed * dt;
+      player.cad -= (0.4 + 0.3 * player.cad) * dt;
+      if (player.cad < 0) player.cad = 0;
+      player.wheelAng += (player.speed * PX_PER_M) / (9 * player.scale) * dt;
+      player.crankPh += player.cad * 9 * dt;
+    }
+  }
+  function checkDraft() {
+    for (let i = 0; i < riders.length; i++) {
+      const r = riders[i];
+      if (r.isPlayer) continue;
+      const gap = r.dist - player.dist;
+      if (gap > 0.5 && gap < DRAFT_GAP && Math.abs(player.speed - r.speed) < 3.5) return r;
+    }
+    return null;
+  }
+  /* ============ DRAW HELPERS ============ */
+  function rr(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+  function camDist() { return player.dist - PLAYER_SX / PX_PER_M; }
+  function groundY(d) { return GROUND_BASE - (elev(d) - elev(player.dist)) * VERT; }
+  /* ============ BACKGROUND ============ */
+  function drawSky() {
+    const g = ctx.createLinearGradient(0, 0, 0, GROUND_BASE);
+    g.addColorStop(0, "#2c4a6b");
+    g.addColorStop(0.55, "#e08a52");
+    g.addColorStop(1, "#ffcf95");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, GROUND_BASE + 40);
+    const sunX = W * 0.72, sunY = GROUND_BASE - 118;
+    const rg = ctx.createRadialGradient(sunX, sunY, 6, sunX, sunY, 92);
+    rg.addColorStop(0, "rgba(255,246,200,0.95)");
+    rg.addColorStop(0.35, "rgba(255,196,110,0.55)");
+    rg.addColorStop(1, "rgba(255,150,80,0)");
+    ctx.fillStyle = rg;
+    ctx.beginPath(); ctx.arc(sunX, sunY, 92, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#fff3cd";
+    ctx.beginPath(); ctx.arc(sunX, sunY, 26, 0, Math.PI * 2); ctx.fill();
+  }
+  function drawHills() {
+    const cam = camDist();
+    ctx.fillStyle = "#6e5a72";
+    ctx.beginPath();
+    ctx.moveTo(0, GROUND_BASE);
+    for (let sx = 0; sx <= W; sx += 10) {
+      const p = (sx + cam * 0.18) * 0.0055;
+      const y = GROUND_BASE - 96 - 34 * Math.sin(p) - 14 * Math.sin(p * 2.3 + 1.2);
+      ctx.lineTo(sx, y);
+    }
+    ctx.lineTo(W, GROUND_BASE); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#40556a";
+    ctx.beginPath();
+    ctx.moveTo(0, GROUND_BASE);
+    for (let sx = 0; sx <= W; sx += 10) {
+      const p = (sx + cam * 0.34) * 0.008;
+      const y = GROUND_BASE - 58 - 26 * Math.sin(p + 0.6) - 11 * Math.sin(p * 1.7);
+      ctx.lineTo(sx, y);
+    }
+    ctx.lineTo(W, GROUND_BASE); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#2c4a3f";
+    ctx.beginPath();
+    ctx.moveTo(0, GROUND_BASE);
+    for (let sx = 0; sx <= W; sx += 8) {
+      const p = (sx + cam * 0.5) * 0.02;
+      const y = GROUND_BASE - 24 - 15 * Math.abs(Math.sin(p));
+      ctx.lineTo(sx, y);
+    }
+    ctx.lineTo(W, GROUND_BASE); ctx.closePath(); ctx.fill();
+  }
+  /* ============ ROAD ============ */
+  function roadTopPath(cam, extra) {
+    for (let sx = 0; sx <= W; sx += 4) {
+      const y = groundY(cam + sx / PX_PER_M) + extra;
+      if (sx === 0) ctx.moveTo(sx, y); else ctx.lineTo(sx, y);
+    }
+  }
+  function drawRoad() {
+    const cam = camDist();
+    const d0 = cam - 40;
+    const d1 = cam + W / PX_PER_M + 40;
+    // soil / verge below the road
+    ctx.fillStyle = "#33422f";
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    for (let sx = 0; sx <= W; sx += 4) ctx.lineTo(sx, groundY(cam + sx / PX_PER_M) + ROAD_H);
+    ctx.lineTo(W, H);
+    ctx.closePath(); ctx.fill();
+    // asphalt band (edge-on road surface)
+    ctx.fillStyle = "#b3aca2";
+    ctx.beginPath();
+    ctx.moveTo(0, groundY(cam));
+    for (let sx = 0; sx <= W; sx += 4) ctx.lineTo(sx, groundY(cam + sx / PX_PER_M));
+    ctx.lineTo(W, groundY(cam + W / PX_PER_M) + ROAD_H);
+    for (let sx = W; sx >= 0; sx -= 4) ctx.lineTo(sx, groundY(cam + sx / PX_PER_M) + ROAD_H);
+    ctx.closePath(); ctx.fill();
+    // lit top edge
+    ctx.strokeStyle = "rgba(255,240,210,0.85)";
+    ctx.lineWidth = 3;
+    ctx.beginPath(); roadTopPath(cam, 0); ctx.stroke();
+    // mid sheen
+    ctx.strokeStyle = "rgba(120,112,104,0.7)";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); roadTopPath(cam, ROAD_H * 0.55); ctx.stroke();
+    // faint 50 m grain lines
+    ctx.strokeStyle = "rgba(255,255,255,0.07)";
+    ctx.lineWidth = 2;
+    for (let m = Math.ceil(d0 / 50) * 50; m < d1; m += 50) {
+      const x = (m - cam) * PX_PER_M;
+      ctx.beginPath();
+      ctx.moveTo(x, groundY(m) + 4);
+      ctx.lineTo(x, groundY(m) + ROAD_H - 4);
+      ctx.stroke();
+    }
+    // distance posts every 250 m
+    for (let m = 250; m < finish; m += 250) {
+      const x = (m - cam) * PX_PER_M;
+      if (x < -20 || x > W + 20) continue;
+      const y = groundY(m);
+      ctx.fillStyle = "#f2efe6";
+      ctx.fillRect(x - 1.5, y - 30, 3, 30);
+      ctx.fillStyle = "#d9632f";
+      ctx.fillRect(x - 12, y - 30, 24, 12);
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 9px 'Courier New', monospace";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(m + "m", x, y - 24);
+    }
+  }
+  function drawBanner(m, label, checkered) {
+    const cam = camDist();
+    const x = (m - cam) * PX_PER_M;
+    if (x < -60 || x > W + 60) return;
+    const y = groundY(m);
+    ctx.fillStyle = "#1c2530";
+    ctx.fillRect(x - 34, y - 92, 5, 92);
+    ctx.fillRect(x + 29, y - 92, 5, 92);
+    if (checkered) {
+      const cw = 8, ch = 12;
+      for (let r = 0; r < 2; r++) {
+        for (let c = 0; c < 8; c++) {
+          ctx.fillStyle = ((r + c) % 2 === 0) ? "#ffffff" : "#1c2530";
+          ctx.fillRect(x - 34 + c * cw, y - 92 + r * ch, cw, ch);
+        }
+      }
+    } else {
+      ctx.fillStyle = "#d9632f";
+      ctx.fillRect(x - 34, y - 92, 68, 24);
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 12px 'Courier New', monospace";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(label, x, y - 80);
+    }
+  }
+  /* ============ CYCLIST FIGURE ============ */
+  function wheel(cx, cy, r, ang) {
+    ctx.save();
+    ctx.translate(cx, cy); ctx.rotate(ang);
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.lineWidth = r * 0.22; ctx.strokeStyle = "#20262e"; ctx.stroke();
+    ctx.lineWidth = r * 0.07; ctx.strokeStyle = "#cfd6de";
+    for (let i = 0; i < 6; i++) {
+      const a = i * Math.PI / 3;
+      ctx.beginPath(); ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(a) * r * 0.9, Math.sin(a) * r * 0.9);
+      ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.2, 0, Math.PI * 2);
+    ctx.fillStyle = "#98a3af"; ctx.fill();
+    ctx.restore();
+  }
+  function legIK(hx, hy, fx, fy, L1, L2) {
+    let dx = fx - hx, dy = fy - hy;
+    let d = Math.sqrt(dx * dx + dy * dy);
+    if (d > L1 + L2 - 0.6) d = L1 + L2 - 0.6;
+    if (d < 0.001) d = 0.001;
+    const ux = dx / d, uy = dy / d;
+    const a = (L1 * L1 - L2 * L2 + d * d) / (2 * d);
+    const h = Math.sqrt(Math.max(0, L1 * L1 - a * a));
+    const k1x = hx + ux * a - uy * h, k1y = hy + uy * a + ux * h;
+    const k2x = hx + ux * a + uy * h, k2y = hy + uy * a - ux * h;
+    return (k1x > k2x) ? { x: k1x, y: k1y } : { x: k2x, y: k2y };
+  }
+  function drawCyclist(sx, gy, s, r) {
+    const speedRatio = Math.min(1, r.speed / 11);
+    const lean = 1 + speedRatio * 3;
+    const skin = "#e8b487";
+    const WR = 9;
+    const rearX = sx - 15 * s, frontX = sx + 15 * s, hubY = gy - WR * s;
+    const bbX = sx, bbY = gy - 5 * s;
+    ctx.save();
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    // shadow
+    ctx.fillStyle = "rgba(0,0,0,0.20)";
+    ctx.beginPath();
+    ctx.ellipse(sx, gy + 2, 20 * s, 3 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // speed streaks
+    if (speedRatio > 0.3) {
+      ctx.strokeStyle = r.isPlayer ? "rgba(255,210,63,0.55)" : "rgba(255,255,255,0.4)";
+      ctx.lineWidth = 2 * s;
+      for (let k = 1; k <= 3; k++) {
+        ctx.beginPath();
+        ctx.moveTo(sx - (26 + k * 14) * s, gy - (12 + k * 9) * s);
+        ctx.lineTo(sx - (42 + k * 14) * s, gy - (12 + k * 9) * s);
+        ctx.stroke();
+      }
+    }
+    // wheels
+    wheel(rearX, hubY, WR * s, r.wheelAng);
+    wheel(frontX, hubY, WR * s, r.wheelAng);
+    // chain lines + chainring
+    const crankA = r.crankPh;
+    const cr = 6 * s;
+    const pedalNear = { x: bbX + Math.cos(crankA) * cr, y: bbY + Math.sin(crankA) * cr };
+    const pedalFar = { x: bbX + Math.cos(crankA + Math.PI) * cr, y: bbY + Math.sin(crankA + Math.PI) * cr };
+    ctx.strokeStyle = "#5b6570"; ctx.lineWidth = 1.6 * s;
+    ctx.beginPath();
+    ctx.moveTo(bbX, bbY); ctx.lineTo(rearX, hubY);
+    ctx.moveTo(bbX, bbY); ctx.lineTo(frontX, hubY);
+    ctx.stroke();
+    ctx.beginPath(); ctx.arc(bbX, bbY, cr, 0, Math.PI * 2);
+    ctx.lineWidth = 1.4 * s; ctx.strokeStyle = "#8a949f"; ctx.stroke();
+    // frame
+    const seatX = sx - 11 * s, seatY = gy - 23 * s;
+    const barX = sx + 12 * s, barY = gy - 21 * s;
+    ctx.strokeStyle = r.color; ctx.lineWidth = 2.6 * s;
+    ctx.beginPath();
+    ctx.moveTo(bbX, bbY); ctx.lineTo(seatX, seatY);
+    ctx.lineTo(barX - 1 * s, barY + 1 * s);
+    ctx.moveTo(bbX, bbY); ctx.lineTo(barX - 2 * s, barY + 2 * s);
+    ctx.moveTo(seatX, seatY); ctx.lineTo(rearX, hubY);
+    ctx.moveTo(bbX, bbY); ctx.lineTo(rearX, hubY);
+    ctx.moveTo(barX - 2 * s, barY + 2 * s); ctx.lineTo(frontX, hubY);
+    ctx.moveTo(barX - 1 * s, barY + 1 * s); ctx.lineTo(barX, barY - 3 * s);
+    ctx.stroke();
+    ctx.strokeStyle = "#20262e"; ctx.lineWidth = 2.4 * s;
+    ctx.beginPath();
+    ctx.moveTo(barX - 4 * s, barY - 2 * s);
+    ctx.lineTo(barX + 5 * s, barY - 3 * s);
+    ctx.stroke();
+    ctx.fillStyle = "#20262e";
+    ctx.beginPath();
+    ctx.ellipse(seatX, seatY - 1 * s, 4.5 * s, 1.8 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // legs (far leg first, then near)
+    const hipX = sx - 9 * s, hipY = gy - 26 * s;
+    const L1 = 10 * s, L2 = 11 * s;
+    function drawLeg(pedal, dark) {
+      const knee = legIK(hipX, hipY, pedal.x, pedal.y, L1, L2);
+      ctx.strokeStyle = dark ? "#1d3557" : "#2b4d78";
+      ctx.lineWidth = 4.2 * s;
+      ctx.beginPath(); ctx.moveTo(hipX, hipY); ctx.lineTo(knee.x, knee.y); ctx.stroke();
+      ctx.lineWidth = 3.4 * s;
+      ctx.beginPath(); ctx.moveTo(knee.x, knee.y); ctx.lineTo(pedal.x, pedal.y); ctx.stroke();
+      ctx.strokeStyle = "#141a20"; ctx.lineWidth = 3 * s;
+      ctx.beginPath();
+      ctx.moveTo(pedal.x - 2 * s, pedal.y + 1 * s);
+      ctx.lineTo(pedal.x + 3 * s, pedal.y + 1 * s);
+      ctx.stroke();
+    }
+    drawLeg(pedalFar, true);
+    drawLeg(pedalNear, false);
+    // crank arms
+    ctx.strokeStyle = "#6f7883"; ctx.lineWidth = 2 * s;
+    ctx.beginPath();
+    ctx.moveTo(bbX, bbY); ctx.lineTo(pedalFar.x, pedalFar.y);
+    ctx.moveTo(bbX, bbY); ctx.lineTo(pedalNear.x, pedalNear.y);
+    ctx.stroke();
+    // pedal flash on the foot that just pushed
+    if (r.flashL > 0 || r.flashR > 0) {
+      const p = r.flashL > r.flashR ? pedalNear : pedalFar;
+      const f = Math.max(r.flashL, r.flashR);
+      ctx.fillStyle = "rgba(255,232,120," + (f * 0.8) + ")";
+      ctx.beginPath(); ctx.arc(p.x, p.y, 5 * s * f + 2, 0, Math.PI * 2); ctx.fill();
+    }
+    // torso, arm, head
+    const shX = sx - 1.5 * s + lean * s, shY = gy - 36 * s;
+    ctx.strokeStyle = r.color; ctx.lineWidth = 6.5 * s;
+    ctx.beginPath(); ctx.moveTo(hipX, hipY); ctx.lineTo(shX, shY); ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 1.6 * s;
+    ctx.beginPath();
+    ctx.moveTo(hipX + 1 * s, hipY - 2 * s); ctx.lineTo(shX, shY + 2 * s);
+    ctx.stroke();
+    ctx.strokeStyle = skin; ctx.lineWidth = 3 * s;
+    ctx.beginPath();
+    ctx.moveTo(shX, shY); ctx.lineTo(barX - 2 * s, barY - 1 * s);
+    ctx.stroke();
+    const headX = shX + 6 * s, headY = shY - 7 * s;
+    ctx.fillStyle = skin;
+    ctx.beginPath(); ctx.arc(headX, headY, 3.6 * s, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = r.isPlayer ? "#ff8f2e" : "#28313c";
+    ctx.beginPath();
+    ctx.arc(headX, headY - 0.6 * s, 4.1 * s, Math.PI * 0.92, Math.PI * 2.06);
+    ctx.fill();
+    // sweat when the player is running low
+    if (r.isPlayer && r.stamina < 0.4) {
+      ctx.fillStyle = "rgba(160,220,255,0.85)";
+      const t = performance.now() * 0.006;
+      ctx.beginPath(); ctx.arc(headX + 5 * s, headY + Math.sin(t) * 2, 1.4 * s, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(headX - 5 * s, headY + Math.cos(t) * 2, 1.2 * s, 0, Math.PI * 2); ctx.fill();
+    }
+    // name tag
+    ctx.font = (r.isPlayer ? "bold " : "") + "10px 'Courier New', monospace";
+    ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+    ctx.fillStyle = r.isPlayer ? "#ffe14d" : "rgba(255,255,255,0.88)";
+    ctx.strokeStyle = "rgba(0,0,0,0.55)"; ctx.lineWidth = 3;
+    ctx.strokeText(r.name, sx, gy - 50 * s);
+    ctx.fillText(r.name, sx, gy - 50 * s);
+    ctx.restore();
+  }
+  function drawRiders() {
+    const cam = camDist();
+    const list = riders.slice().sort(function (a, b) { return a.yOff - b.yOff; });
+    for (let i = 0; i < list.length; i++) {
+      const r = list[i];
+      const x = (r.dist - cam) * PX_PER_M;
+      if (x < -70 || x > W + 70) continue;
+      drawCyclist(x, groundY(r.dist) + r.yOff, r.scale, r);
+    }
+  }
+  /* ============ HUD ============ */
+  function drawBar(x, y, w, h, frac, col) {
+    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    rr(x, y, w, h, 4); ctx.fill();
+    ctx.fillStyle = col;
+    rr(x + 2, y + 2, Math.max(0, (w - 4) * frac), h - 4, 3); ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.22)";
+    ctx.lineWidth = 1; rr(x, y, w, h, 4); ctx.stroke();
+  }
+  function drawProfile() {
+    const px = W / 2 - 140, py = H - 58, pw = 280, ph = 44;
+    ctx.fillStyle = "rgba(10,18,28,0.62)";
+    rr(px, py, pw, ph, 8); ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.18)";
+    ctx.lineWidth = 1; rr(px, py, pw, ph, 8); ctx.stroke();
+    const span = Math.max(1, elevMax - elevMin);
+    const yFor = function (e) { return py + ph - 8 - (e - elevMin) / span * (ph - 18); };
+    ctx.beginPath();
+    for (let i = 0; i <= pw; i += 3) {
+      const y = yFor(elev((i / pw) * finish));
+      if (i === 0) ctx.moveTo(px + i, y); else ctx.lineTo(px + i, y);
+    }
+    ctx.strokeStyle = "#79b6e6"; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = "rgba(255,210,63,0.18)";
+    ctx.fillRect(px + pw * SPRINT_ZONE, py + 2, pw * (1 - SPRINT_ZONE), ph - 4);
+    const mx = px + Math.min(1, player.dist / finish) * pw;
+    const my = yFor(elev(Math.min(player.dist, finish)));
+    ctx.fillStyle = PLAYER_COLOR;
+    ctx.beginPath(); ctx.arc(mx, my, 3.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.font = "9px 'Courier New', monospace";
+    ctx.textAlign = "left"; ctx.textBaseline = "top";
+    ctx.fillText("PROFILE", px + 6, py + 4);
+  }
+  function drawHud() {
+    const drafting = (state === ST.RUN) && checkDraft();
+    const kmh = player.speed * 3.6;
+    const sprinting = player.dist > finish * SPRINT_ZONE;
+    const tTxt = (state === ST.RUN || state === ST.DONE) ? raceTime.toFixed(2) + "s" : "0.00s";
+    ctx.textAlign = "left"; ctx.textBaseline = "top";
+    ctx.font = "bold 30px 'Courier New', monospace";
+    ctx.fillStyle = "#fff"; ctx.strokeStyle = "rgba(0,0,0,0.65)"; ctx.lineWidth = 4;
+    ctx.strokeText(tTxt, 14, 8); ctx.fillText(tTxt, 14, 8);
+    ctx.font = "13px 'Courier New', monospace";
+    ctx.lineWidth = 3;
+    const dTxt = Math.min(finish, player.dist).toFixed(0) + " / " + finish + " m";
+    ctx.strokeText(dTxt, 16, 44);
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.fillText(dTxt, 16, 44);
+    if (MODES[mode].ai > 0) {
+      ctx.font = "bold 15px 'Courier New', monospace";
+      ctx.fillStyle = "#ffd23f"; ctx.lineWidth = 3;
+      const pTxt = "PLACE " + livePlace() + " / " + (MODES[mode].ai + 1);
+      ctx.strokeText(pTxt, 16, 64); ctx.fillText(pTxt, 16, 64);
+    }
+    ctx.textAlign = "right";
+    ctx.font = "bold 34px 'Courier New', monospace";
+    ctx.fillStyle = "#ffe14d"; ctx.lineWidth = 4;
+    ctx.strokeText(kmh.toFixed(1), W - 58, 6);
+    ctx.fillText(kmh.toFixed(1), W - 58, 6);
+    ctx.font = "bold 15px 'Courier New', monospace";
+    ctx.fillStyle = "#fff";
+    ctx.strokeText("km/h", W - 14, 22); ctx.fillText("km/h", W - 14, 22);
+    ctx.font = "12px 'Courier New', monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    const bk = bestKey();
+    const bTxt = "BEST (" + MODES[mode].label + " / " + DIFF_LABEL[diff] + "): " +
+      (best[bk] != null ? best[bk].toFixed(2) + "s" : "--");
+    ctx.fillText(bTxt, W - 14, 50);
+    ctx.textAlign = "left";
+    ctx.font = "11px 'Courier New', monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.fillText("CADENCE", 16, H - 62);
+    const cadFrac = Math.min(1, player.cad / 1.85);
+    drawBar(16, H - 50, 170, 12, cadFrac, cadFrac > 0.6 ? "#3fd0a0" : "#e0a83f");
+    const st = player.stamina;
+    ctx.fillText("STAMINA", 16, H - 32);
+    drawBar(16, H - 20, 170, 12, st, st > 0.5 ? "#2ecc71" : (st > 0.25 ? "#f1c40f" : "#e74c3c"));
+    ctx.font = "bold 16px 'Courier New', monospace";
+    ctx.fillStyle = "#ffd23f";
+    ctx.fillText("GEAR " + player.gear, 200, H - 50);
+    ctx.font = "11px 'Courier New', monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.75)";
+    ctx.fillText("W / S", 200, H - 30);
+    drawProfile();
+    ctx.textAlign = "center";
+    if (drafting) {
+      ctx.font = "bold 18px 'Courier New', monospace";
+      ctx.fillStyle = "#79e0ff"; ctx.strokeStyle = "rgba(0,0,0,0.6)"; ctx.lineWidth = 3;
+      const bob = Math.sin(performance.now() * 0.008) * 2;
+      ctx.strokeText("DRAFTING \u2014 slipstream", W / 2, 26 + bob);
+      ctx.fillText("DRAFTING \u2014 slipstream", W / 2, 26 + bob);
+    } else if (sprinting && state === ST.RUN) {
+      ctx.font = "bold 20px 'Courier New', monospace";
+      ctx.fillStyle = "#ff5a3c"; ctx.strokeStyle = "rgba(0,0,0,0.6)"; ctx.lineWidth = 3;
+      ctx.globalAlpha = 0.6 + 0.4 * Math.sin(performance.now() * 0.012);
+      ctx.strokeText("SPRINT!", W / 2, 28); ctx.fillText("SPRINT!", W / 2, 28);
+      ctx.globalAlpha = 1;
+    }
+    if (state === ST.RUN && st < 0.15) {
+      ctx.font = "bold 15px 'Courier New', monospace";
+      ctx.fillStyle = "#ff6b6b"; ctx.strokeStyle = "rgba(0,0,0,0.6)"; ctx.lineWidth = 3;
+      ctx.strokeText("BLOWING UP \u2014 ease off!", W / 2, 50);
+      ctx.fillText("BLOWING UP \u2014 ease off!", W / 2, 50);
+    }
+  }
+  /* ============ OVERLAYS ============ */
+  function panel(y, h) {
+    ctx.fillStyle = "rgba(10,18,30,0.85)";
+    rr(70, y, W - 140, h, 14); ctx.fill();
+    ctx.strokeStyle = "rgba(255,210,63,0.55)"; ctx.lineWidth = 2; ctx.stroke();
+  }
+  function drawStartOverlay() {
+    panel(104, 244);
+    ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = "#ffd23f";
+    ctx.font = "bold 44px 'Courier New', monospace";
+    ctx.fillText("PEDAL POWER", W / 2, 164);
+    ctx.fillStyle = "#fff";
+    ctx.font = "14px 'Courier New', monospace";
+    ctx.fillText("Alternate LEFT / RIGHT feet to turn the cranks.", W / 2, 198);
+    ctx.fillText("Cadence builds speed \u2014 shift gears (W / S) for the hills.", W / 2, 220);
+    ctx.fillText("Sit in a rival's slipstream, then sprint at the flag.", W / 2, 242);
+    ctx.fillStyle = "#ffe14d";
+    ctx.font = "bold 16px 'Courier New', monospace";
+    ctx.fillText("Mode: " + MODES[mode].label + "   \u2022   Difficulty: " + DIFF_LABEL[diff], W / 2, 274);
+    ctx.font = "13px 'Courier New', monospace";
+    ctx.fillStyle = "#cfe0ef";
+    ctx.fillText("Gears 1-8: low for climbs, high for the flats. Watch stamina!", W / 2, 296);
+    const bk = bestKey();
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.font = "14px 'Courier New', monospace";
+    ctx.fillText("Best: " + (best[bk] != null ? best[bk].toFixed(2) + "s" : "no time yet"), W / 2, 322);
+    ctx.fillStyle = "rgba(255,255,255," + (0.55 + 0.45 * Math.sin(performance.now() * 0.006)) + ")";
+    ctx.font = "bold 16px 'Courier New', monospace";
+    ctx.fillText("Press SPACE / Tap to roll out", W / 2, 344);
+  }
+  function drawCountOverlay() {
+    const c = Math.ceil(countT);
+    ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = "rgba(10,18,30,0.5)";
+    rr(W / 2 - 130, 150, 260, 128, 14); ctx.fill();
+    if (c >= 1 && c <= 3) {
+      const frac = countT - (c - 1);
+      ctx.fillStyle = "rgba(255,255,255," + (0.35 + 0.65 * frac) + ")";
+      ctx.font = "bold 84px 'Courier New', monospace";
+      ctx.fillText(String(c), W / 2, 236);
+    }
+    ctx.fillStyle = "#ffd23f";
+    ctx.font = "bold 14px 'Courier New', monospace";
+    ctx.fillText("get ready \u2014 alternate your feet at the flag", W / 2, 266);
+  }
+  function drawResultOverlay() {
+    panel(92, 272);
+    ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = "#2ecc71";
+    ctx.font = "bold 40px 'Courier New', monospace";
+    ctx.fillText("FINISH!", W / 2, 144);
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 32px 'Courier New', monospace";
+    ctx.fillText(result.time.toFixed(2) + "s", W / 2, 184);
+    if (result.place !== null) {
+      const medals = ["", "#ffd23f", "#c0c0c0", "#cd7f32", "#8fa3b8", "#8fa3b8", "#8fa3b8"];
+      ctx.fillStyle = medals[result.place] || "#fff";
+      ctx.font = "bold 22px 'Courier New', monospace";
+      ctx.fillText("PLACE " + result.place + " of " + result.total, W / 2, 216);
+    }
+    ctx.fillStyle = "rgba(255,255,255,0.88)";
+    ctx.font = "13px 'Courier New', monospace";
+    ctx.fillText("avg " + (result.avg * 3.6).toFixed(1) + " km/h   \u2022   " +
+      strokes + " pedal strokes", W / 2, 244);
+    if (result.isBest) {
+      ctx.fillStyle = "#ffe14d";
+      ctx.font = "bold 16px 'Courier New', monospace";
+      ctx.fillText("\u2605 NEW PERSONAL BEST \u2605", W / 2, 276);
+    } else {
+      ctx.fillStyle = "rgba(255,255,255,0.75)";
+      ctx.font = "13px 'Courier New', monospace";
+      ctx.fillText("Best: " + (result.prevBest != null ? result.prevBest.toFixed(2) + "s" : "--"), W / 2, 276);
+    }
+    ctx.fillStyle = "rgba(255,255,255," + (0.55 + 0.45 * Math.sin(performance.now() * 0.006)) + ")";
+    ctx.font = "bold 16px 'Courier New', monospace";
+    ctx.fillText("Press SPACE / Tap or Restart to ride again", W / 2, 330);
+  }
+  /* ============ RENDER ============ */
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+    drawSky();
+    drawHills();
+    drawRoad();
+    drawBanner(0, "START", false);
+    drawBanner(finish, "FINISH", true);
+    drawRiders();
+    drawHud();
+    if (state === ST.READY) drawStartOverlay();
+    else if (state === ST.COUNT) drawCountOverlay();
+    else if (state === ST.DONE) drawResultOverlay();
+    if (goFlash > 0) {
+      ctx.fillStyle = "rgba(255,255,255," + (goFlash * 0.5) + ")";
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "rgba(40,220,140," + goFlash + ")";
+      ctx.font = "bold 72px 'Courier New', monospace";
+      ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+      ctx.fillText("GO!", W / 2, 208);
+    }
+  }
+  /* ============ MAIN LOOP ============ */
+  let raf = null;
+  let lastT = performance.now();
+  function loop(now) {
+    let dt = (now - lastT) / 1000;
+    lastT = now;
+    if (dt > 0.05) dt = 0.05;      // clamp to avoid jumps after a stall
+    update(dt);
+    render();
+    raf = requestAnimationFrame(loop);
+  }
+  /* ============ DOM BINDINGS ============ */
+  const btnRestart = document.getElementById("btn-restart");
+  const pedalL = document.getElementById("ped-l");
+  const pedalR = document.getElementById("ped-r");
+  const gearUpBtn = document.getElementById("gear-up");
+  const gearDownBtn = document.getElementById("gear-down");
+  const gearLabel = document.getElementById("gear-label");
+  const modeButtons = Array.prototype.slice.call(document.querySelectorAll("#controls .mode"));
+  const diffButtons = Array.prototype.slice.call(document.querySelectorAll("#controls .diff"));
+  function syncGearLabel() {
+    if (gearLabel) gearLabel.textContent = "GEAR " + player.gear;
+  }
+  function syncModeButtons() {
+    modeButtons.forEach(function (b) { b.classList.toggle("active", b.dataset.mode === mode); });
+  }
+  function syncDiffButtons() {
+    diffButtons.forEach(function (b) { b.classList.toggle("active", b.dataset.diff === diff); });
+  }
+  function flashPedal(btn) {
+    if (!btn) return;
+    btn.classList.add("hit");
+    setTimeout(function () { btn.classList.remove("hit"); }, 90);
+  }
+  /* ============ KEYBOARD INPUT ============ */
+  const GAME_KEYS = {
+    ArrowLeft: 1, ArrowRight: 1, ArrowUp: 1, ArrowDown: 1,
+    KeyA: 1, KeyD: 1, KeyW: 1, KeyS: 1, Space: 1, KeyR: 1, Enter: 1
+  };
+  window.addEventListener("keydown", function (e) {
+    if (GAME_KEYS[e.code]) e.preventDefault();
+    if (e.repeat) return;
+    if (e.code === "KeyR") { beginRace(); return; }
+    if (e.code === "Space" || e.code === "Enter") { primary(); return; }
+    if (e.code === "ArrowUp" || e.code === "KeyW") { shiftGear(1); return; }
+    if (e.code === "ArrowDown" || e.code === "KeyS") { shiftGear(-1); return; }
+    if (e.code === "ArrowLeft" || e.code === "KeyA") { stroke("L"); flashPedal(pedalL); return; }
+    if (e.code === "ArrowRight" || e.code === "KeyD") { stroke("R"); flashPedal(pedalR); return; }
+  });
+  /* ============ POINTER INPUT ============ */
+  canvas.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    if (primary()) return;                          // start / restart from the overlays
+    const rect = canvas.getBoundingClientRect();
+    const relX = (e.clientX - rect.left) / rect.width;
+    if (relX < 0.5) { stroke("L"); flashPedal(pedalL); }
+    else { stroke("R"); flashPedal(pedalR); }
+  });
+  canvas.addEventListener("touchstart", function (e) { e.preventDefault(); }, { passive: false });
+  pedalL.addEventListener("pointerdown", function (e) { e.preventDefault(); stroke("L"); });
+  pedalR.addEventListener("pointerdown", function (e) { e.preventDefault(); stroke("R"); });
+  gearUpBtn.addEventListener("click", function () { shiftGear(1); });
+  gearDownBtn.addEventListener("click", function () { shiftGear(-1); });
+  btnRestart.addEventListener("click", function () { beginRace(); });
+  modeButtons.forEach(function (b) {
+    b.addEventListener("click", function () {
+      mode = b.dataset.mode;
+      localStorage.setItem("pedalPowerMode", mode);
+      syncModeButtons();
+      reset();
+      state = ST.READY;
+    });
+  });
+  diffButtons.forEach(function (b) {
+    b.addEventListener("click", function () {
+      diff = b.dataset.diff;
+      localStorage.setItem("pedalPowerDiff", diff);
+      syncDiffButtons();
+      reset();
+      state = ST.READY;
+    });
+  });
+  // pause the loop while the tab is hidden
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+    } else if (!raf) {
+      lastT = performance.now();
+      raf = requestAnimationFrame(loop);
+    }
+  });
+  /* ============ BOOT ============ */
+  syncModeButtons();
+  syncDiffButtons();
+  reset();
+  raf = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

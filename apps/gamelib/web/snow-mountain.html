@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>❄️ Snow Mountain</title>
+  <style>
+    /* ============ RESET & BASE ============ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --snow: #eaf4ff;
+      --snow-mid: #cfe3f7;
+      --frost: #a9c6e8;
+      --pine: #2f5d55;
+      --pine-dark: #24403c;
+      --dusk-1: #1d2b45;
+      --dusk-2: #26456b;
+      --dusk-3: #4a6ea3;
+      --amber: #f2b86b;
+      --ink: #16202f;
+      --glass: rgba(255, 255, 255, 0.72);
+      --stroke: rgba(120, 160, 200, 0.35);
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: "Segoe UI", "Aptos", system-ui, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 700px at 20% -10%, #33517d 0%, transparent 60%),
+        radial-gradient(900px 600px at 90% 0%, #3c5c88 0%, transparent 55%),
+        linear-gradient(180deg, var(--dusk-1) 0%, var(--dusk-2) 45%, #5b7ea8 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 18px;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ============ LAYOUT ============ */
+    .game-container {
+      width: 100%;
+      max-width: 980px;
+      background: var(--glass);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.55);
+      border-radius: 22px;
+      padding: 18px 18px 16px;
+      box-shadow: 0 22px 60px rgba(8, 16, 30, 0.45);
+    }
+
+    .game-title {
+      font-family: "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+      font-size: 1.9rem;
+      letter-spacing: 0.02em;
+      color: #1f3555;
+      text-align: center;
+      line-height: 1.1;
+    }
+
+    .game-subtitle {
+      text-align: center;
+      font-size: 0.86rem;
+      color: #5a7091;
+      margin: 4px 0 14px;
+    }
+
+    /* ============ TOOLBAR ============ */
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      justify-content: center;
+      margin-bottom: 12px;
+    }
+
+    .tool-btn {
+      appearance: none;
+      border: 1px solid var(--stroke);
+      background: linear-gradient(180deg, #ffffff 0%, #eef5ff 100%);
+      color: #33506f;
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 8px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+      white-space: nowrap;
+    }
+
+    .tool-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(40, 80, 130, 0.18); }
+    .tool-btn:active { transform: translateY(0); }
+
+    .tool-btn.active {
+      background: linear-gradient(180deg, #2f6ea8 0%, #24547f 100%);
+      color: #fff;
+      border-color: #244f77;
+      box-shadow: 0 6px 16px rgba(30, 70, 120, 0.4);
+    }
+
+    .tool-btn.danger { color: #8a3550; }
+    .tool-btn.danger.active { background: linear-gradient(180deg, #a8486a 0%, #7f3352 100%); color: #fff; }
+    .tool-btn.spacer { border: none; background: none; pointer-events: none; width: 6px; padding: 0; }
+
+    /* ============ HUD ============ */
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 0.78rem;
+      color: #4a6183;
+      padding: 7px 12px;
+      margin-bottom: 10px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(228,240,255,0.7));
+      border: 1px solid var(--stroke);
+      border-radius: 12px;
+    }
+    .hud b { color: #22456b; }
+
+    /* ============ CANVAS ============ */
+    .canvas-wrapper {
+      position: relative;
+      width: 100%;
+      height: min(64vh, 560px);
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      box-shadow: inset 0 0 60px rgba(40, 70, 120, 0.18), 0 10px 30px rgba(10, 20, 35, 0.28);
+      background: linear-gradient(180deg, #33517d 0%, #6d8fb6 70%, #b9d0e8 100%);
+      cursor: crosshair;
+    }
+
+    canvas { display: block; width: 100%; height: 100%; }
+
+    .hint {
+      position: absolute;
+      left: 12px;
+      bottom: 10px;
+      font-size: 0.72rem;
+      color: rgba(255, 255, 255, 0.85);
+      background: rgba(20, 35, 60, 0.35);
+      padding: 5px 10px;
+      border-radius: 9px;
+      pointer-events: none;
+    }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 620px) {
+      body { padding: 10px; }
+      .game-container { padding: 12px; border-radius: 16px; }
+      .game-title { font-size: 1.45rem; }
+      .tool-btn { font-size: 0.74rem; padding: 7px 9px; border-radius: 10px; }
+      .canvas-wrapper { height: 56vh; }
+      .hud { font-size: 0.7rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">❄️ Snow Mountain</h1>
+    <p class="game-subtitle">Shape a hillside, then send skiers &amp; snowballs tumbling down.</p>
+
+    <!-- ============ TOOLBAR ============ -->
+    <div class="toolbar" id="toolbar">
+      <button class="tool-btn" data-tool="mound">⛰ Mound</button>
+      <button class="tool-btn" data-tool="dig">🕳 Dig</button>
+      <button class="tool-btn" data-tool="smooth">〰 Smooth</button>
+      <button class="tool-btn" data-tool="ramp">🛹 Ramp</button>
+      <button class="tool-btn" data-tool="tree">🌲 Tree</button>
+      <span class="tool-btn spacer"></span>
+      <button class="tool-btn" data-tool="skier">⛷ Skier</button>
+      <button class="tool-btn" data-tool="snowball">⚪ Snowball</button>
+      <span class="tool-btn spacer"></span>
+      <button class="tool-btn danger" id="resetBtn">↺ Reset</button>
+    </div>
+
+    <!-- ============ HUD ============ -->
+    <div class="hud">
+      <div>Tool: <b id="hudTool">Mound</b></div>
+      <div>Skiers: <b id="hudSkiers">0</b></div>
+      <div>Boulders: <b id="hudBalls">0</b></div>
+      <div>Trees: <b id="hudTrees">0</b></div>
+    </div>
+
+    <!-- ============ CANVAS ============ -->
+    <div class="canvas-wrapper" id="canvasWrapper">
+      <canvas id="gameCanvas"></canvas>
+      <div class="hint" id="hint">Drag to sculpt • pick Skier / Snowball then tap the slope</div>
+    </div>
+  </div>
+
+  <script>
+    // ============ CONFIGURATION ============
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const wrapper = document.getElementById('canvasWrapper');
+
+    const N = 220;              // terrain resolution (cells across width)
+    const GRAV = 1900;          // gravity px/s^2
+    const MAX_DT = 1 / 30;      // clamp timestep for stability
+    const BRUSH_R = 15;         // brush radius in cells
+    const MAX_OBJECTS = 70;     // safety cap on live agents
+
+    let CW = 900, CH = 520, DPR = 1;   // canvas logical size + device pixel ratio
+    let time = 0;                       // seconds since start
+
+    // ============ STATE ============
+    let terrain = [];           // normalized heights 0..1 (0 = sky, 1 = bottom)
+    let trees = [];             // { x(norm), size, sway, fallen, fall, hit }
+    let objects = [];           // skiers & snowballs
+    let flakes = [];            // ambient snowfall
+    let spray = [];             // powder / avalanche particles
+    let tool = 'mound';
+    let brushing = false;
+    let pointerX = 0;
+    let hasPointer = false;
+
+    // ============ DOM ELEMENTS ============
+    const toolBtns = document.querySelectorAll('.tool-btn[data-tool]');
+    const resetBtn = document.getElementById('resetBtn');
+    const hudTool = document.getElementById('hudTool');
+    const hudSkiers = document.getElementById('hudSkiers');
+    const hudBalls = document.getElementById('hudBalls');
+    const hudTrees = document.getElementById('hudTrees');
+    const hintEl = document.getElementById('hint');
+
+    // ============ AUDIO (WebAudio beep) ============
+    let actx = null;
+    let noiseBuf = null;
+
+    function audio() {
+      if (actx === null) {
+        try { actx = new (window.AudioContext || window.webkitAudioContext)(); }
+        catch (e) { actx = false; }
+      }
+      if (actx && actx.state === 'suspended') actx.resume();
+      return actx || null;
+    }
+
+    // Short synthesised tone
+    function beep(freq = 440, dur = 0.08, type = 'sine', vol = 0.07) {
+      const ac = audio();
+      if (!ac) return;
+      const osc = ac.createOscillator();
+      const gain = ac.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, ac.currentTime);
+      gain.gain.setValueAtTime(vol, ac.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + dur);
+      osc.connect(gain).connect(ac.destination);
+      osc.start();
+      osc.stop(ac.currentTime + dur);
+    }
+
+    // Soft filtered-noise "powder" whoosh
+    function puff(vol = 0.05) {
+      const ac = audio();
+      if (!ac) return;
+      if (!noiseBuf) {
+        const len = Math.floor(ac.sampleRate * 0.35);
+        noiseBuf = ac.createBuffer(1, len, ac.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+      }
+      const src = ac.createBufferSource();
+      src.buffer = noiseBuf;
+      const filt = ac.createBiquadFilter();
+      filt.type = 'lowpass';
+      filt.frequency.value = 850;
+      const gain = ac.createGain();
+      gain.gain.setValueAtTime(vol, ac.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.3);
+      src.connect(filt).connect(gain).connect(ac.destination);
+      src.start();
+    }
+
+    // ============ TERRAIN ============
+    function initTerrain() {
+      terrain = new Array(N);
+      trees = [];
+      for (let i = 0; i < N; i++) {
+        const t = i / (N - 1);
+        // A broad hillside: high on the left, descending to the right, plus soft drifts.
+        let h = 0.30 + 0.48 * t
+              + 0.055 * Math.sin(t * 9.0 + 0.4)
+              + 0.028 * Math.sin(t * 23.0 + 1.3);
+        terrain[i] = clamp(h, 0.06, 0.96);
+      }
+      // Scatter a few pines on the gentler upper stretches.
+      for (let k = 0; k < 9; k++) {
+        const x = 0.08 + Math.random() * 0.84;
+        const gi = Math.round(x * (N - 1));
+        if (Math.abs(slopeCells(gi)) < 0.55) {
+          trees.push({ x, size: 16 + Math.random() * 12, sway: Math.random() * 6.28, fallen: false, fall: 0, hit: 0 });
+        }
+      }
+    }
+
+    function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+
+    // Pixel width of one terrain cell
+    function cellW() { return CW / (N - 1); }
+
+    // Interpolated height (pixels) at a horizontal pixel position
+    function heightPx(px) {
+      const fi = clamp(px / (CW / (N - 1)), 0, N - 1);
+      const i = Math.floor(fi);
+      const frac = fi - i;
+      const a = terrain[i];
+      const b = terrain[Math.min(i + 1, N - 1)];
+      return (a + (b - a) * frac) * CH;
+    }
+
+    // d(height)/dx in pixels (slope), central difference
+    function slopePx(px) {
+      const fi = clamp(px / (CW / (N - 1)), 1, N - 2);
+      const i = Math.round(fi);
+      const dC = cellW();
+      return ((terrain[Math.min(i + 1, N - 1)] - terrain[Math.max(i - 1, 0)]) * CH) / (2 * dC);
+    }
+
+    // Slope in cell space (used for tree placement only)
+    function slopeCells(i) {
+      return (terrain[Math.min(i + 1, N - 1)] - terrain[Math.max(i - 1, 0)]) / 2;
+    }
+
+    // ============ TERRAIN SCULPTING ============
+    function applyBrush(px, kind) {
+      if (kind === 'tree') { plantTree(px); return; }
+      const dC = cellW();
+      const center = px / dC;
+      for (let r = -BRUSH_R; r <= BRUSH_R; r++) {
+        const i = Math.round(center + r);
+        if (i < 0 || i >= N) continue;
+        const fall = 1 - Math.abs(r) / BRUSH_R;
+        const w = fall * fall * (3 - 2 * fall); // smoothstep falloff
+        if (kind === 'mound') terrain[i] = clamp(terrain[i] - 0.55 * w * 0.06, 0.04, 0.97);
+        else if (kind === 'dig') terrain[i] = clamp(terrain[i] + 0.55 * w * 0.06, 0.04, 0.97);
+        else if (kind === 'ramp') {
+          // Asymmetric kicker: steep leading face + sharp lip.
+          const prof = w * (r < 0 ? 1.25 : 0.7);
+          terrain[i] = clamp(terrain[i] - prof * 0.09, 0.04, 0.97);
+        } else if (kind === 'smooth') {
+          const a = terrain[Math.max(i - 1, 0)];
+          const b = terrain[Math.min(i + 1, N - 1)];
+          terrain[i] = clamp(terrain[i] + ((a + b) / 2 - terrain[i]) * 0.4 * w, 0.04, 0.97);
+        }
+      }
+    }
+
+    // ============ TREES ============
+    function plantTree(px) {
+      const x = clamp(px / CW, 0.02, 0.98);
+      const gi = Math.round(x * (N - 1));
+      if (Math.abs(slopeCells(gi)) > 0.9) { beep(180, 0.06, 'sawtooth', 0.04); return; }
+      trees.push({ x, size: 16 + Math.random() * 12, sway: Math.random() * 6.28, fallen: false, fall: 0, hit: 0 });
+      beep(520, 0.07, 'triangle', 0.05);
+    }
+
+    // ============ OBJECT SPAWNING ============
+    function spawnObject(px, type) {
+      if (objects.length >= MAX_OBJECTS) objects.shift();
+      const x = clamp(px, 8, CW - 8);
+      objects.push({
+        type,
+        x,
+        y: heightPx(x) - (type === 'skier' ? 12 : 6),
+        vx: (Math.random() * 30 + 20) * (Math.random() < 0.5 ? 1 : 1), // always head downhill (right)
+        vy: 0,
+        r: type === 'skier' ? 7 : 5,
+        angle: 0,
+        spin: 0,
+        grounded: true,
+        tumble: 0,
+        life: 0
+      });
+      beep(type === 'skier' ? 660 : 420, 0.09, 'triangle', 0.06);
+    }
+
+    // ============ PARTICLES ============
+    function spawnSpray(x, y, amount, speed, big) {
+      for (let i = 0; i < amount; i++) {
+        spray.push({
+          x, y,
+          vx: (Math.random() - 0.5) * speed,
+          vy: -Math.random() * speed * 0.8,
+          r: big ? 1.6 + Math.random() * 2.6 : 1 + Math.random() * 1.8,
+          life: 0.5 + Math.random() * 0.7,
+          max: 1.2
+        });
+      }
+      if (spray.length > 600) spray.splice(0, spray.length - 600);
+    }
+
+    function initFlakes() {
+      flakes = [];
+      const count = 120;
+      for (let i = 0; i < count; i++) {
+        flakes.push({
+          x: Math.random() * CW,
+          y: Math.random() * CH,
+          r: 0.6 + Math.random() * 1.9,
+          vy: 12 + Math.random() * 26,
+          vx: -6 + Math.random() * 12,
+          ph: Math.random() * 6.28
+        });
+      }
+    }
+
+    // ============ PHYSICS ============
+    function updateObjects(dt) {
+      for (let k = objects.length - 1; k >= 0; k--) {
+        const o = objects[k];
+        o.life += dt;
+        const grad = slopePx(o.x);
+
+        if (o.grounded) {
+          // Gravity projected onto the slope drives downhill motion.
+          o.vx += GRAV * grad / (1 + grad * grad) * dt;
+          o.vx *= Math.pow(0.992, dt * 60); // gentle friction
+
+          const vyImplied = o.vx * grad;    // vertical velocity needed to hug the slope
+          const newX = o.x + o.vx * dt;
+          const newGroundY = heightPx(newX);
+          const ballisticY = o.y + vyImplied * dt + 0.5 * GRAV * dt * dt;
+
+          if (newGroundY > ballisticY + 1.5 && o.life > 0.2) {
+            // The hill fell away faster than gravity — we just left a ramp / crest.
+            o.x = newX;
+            o.y = ballisticY;
+            o.vy = vyImplied + GRAV * dt;
+            o.grounded = false;
+            if (o.type === 'skier') beep(760 + Math.random() * 120, 0.06, 'square', 0.035);
+          } else {
+            o.x = newX;
+            o.y = newGroundY;
+            o.vy = vyImplied;
+          }
+          o.angle = Math.atan(grad);
+        } else {
+          // Airborne: pure gravity.
+          o.vy += GRAV * dt;
+          o.x += o.vx * dt;
+          o.y += o.vy * dt;
+          o.angle += o.spin * dt;
+
+          const groundY = heightPx(o.x);
+          if (o.y >= groundY) {
+            const landGrad = slopePx(o.x);
+            const impact = o.vy;
+            o.y = groundY;
+            o.grounded = true;
+            o.vx += Math.max(0, impact) * landGrad * 0.45; // convert fall into forward momentum
+            o.vy = 0;
+            o.angle = Math.atan(landGrad);
+            o.spin = 0;
+            if (impact > 380) {
+              spawnSpray(o.x, o.y, 10, 200, true);
+              puff(0.06);
+              if (o.type === 'skier') o.tumble = 0.45;
+            }
+          }
+        }
+
+        // Rolling / tumbling visuals.
+        if (o.type === 'snowball') o.angle += (o.vx / Math.max(6, o.r)) * dt * 0.6;
+        if (o.tumble > 0) { o.tumble -= dt; o.angle += dt * 14; }
+
+        // Snowball grows as it rolls along the ground.
+        if (o.type === 'snowball' && o.grounded) {
+          const gain = Math.min(0.5, Math.abs(o.vx) * 0.0006);
+          o.r = Math.min(26, o.r + gain * dt * 6);
+          // Carve a shallow trail into the snow where the ball rolls fast.
+          if (Math.abs(o.vx) > 120) {
+            const gi = Math.round(clamp(o.x / CW, 0, 1) * (N - 1));
+            const span = Math.max(1, Math.round(o.r / cellW()));
+            for (let d = -span; d <= span; d++) {
+              const j = gi + d;
+              if (j >= 0 && j < N) terrain[j] = clamp(terrain[j] + 0.0009 * (1 - Math.abs(d) / (span + 1)), 0.04, 0.97);
+            }
+            if (Math.random() < 0.5) spawnSpray(o.x, o.y + o.r * 0.4, 1, 90, false);
+          }
+        }
+
+        // Skiers kick up powder while grounded and quick.
+        if (o.type === 'skier' && o.grounded && Math.abs(o.vx) > 90 && Math.random() < 0.5) {
+          spawnSpray(o.x - 4, o.y + 6, 1, 70, false);
+        }
+
+        // Avalanche vibe: big, fast boulders rumble.
+        if (o.type === 'snowball' && o.r > 15 && Math.abs(o.vx) > 260 && Math.random() < 0.12) {
+          puff(0.03);
+          spawnSpray(o.x, o.y + o.r, 3, 120, true);
+        }
+
+        // Tree collisions.
+        for (const t of trees) {
+          if (t.fallen) continue;
+          const tx = t.x * CW;
+          const ty = heightPx(tx);
+          if (Math.abs(o.x - tx) < o.r + 6 && Math.abs(o.y - ty) < 24) {
+            const fast = Math.abs(o.vx) > 70;
+            const heavy = o.type === 'snowball' && o.r > 14;
+            if (fast || heavy) {
+              t.fallen = true;
+              t.hit = 1;
+              spawnSpray(tx, ty - t.size * 0.4, 14, 220, true);
+              beep(150 + Math.random() * 60, 0.14, 'sawtooth', 0.07);
+              puff(0.07);
+              // Bounce the agent.
+              o.vx *= 0.55;
+              o.vy = Math.min(o.vy, -60);
+              o.grounded = false;
+              if (o.type === 'skier') o.tumble = 0.6;
+            }
+          }
+        }
+
+        // Retire off-screen agents.
+        if (o.x < -30 || o.x > CW + 30 || o.y > CH + 40) objects.splice(k, 1);
+      }
+    }
+
+    // Trees settle / fall animation state.
+    function updateTrees(dt) {
+      for (const t of trees) {
+        t.sway += dt * 1.2;
+        if (t.fallen && t.fall < 1) t.fall = Math.min(1, t.fall + dt * 2.2);
+        if (t.hit > 0) t.hit = Math.max(0, t.hit - dt * 2);
+      }
+    }
+
+    // ============ PARTICLE UPDATES ============
+    function updateSpray(dt) {
+      for (let i = spray.length - 1; i >= 0; i--) {
+        const p = spray[i];
+        p.vy += GRAV * 0.55 * dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.life -= dt;
+        // Powder settles onto the slope.
+        const g = heightPx(p.x);
+        if (p.y > g) { p.y = g; p.vx *= 0.4; p.vy = 0; p.life -= dt * 2; }
+        if (p.life <= 0) spray.splice(i, 1);
+      }
+    }
+
+    function updateFlakes(dt) {
+      for (const f of flakes) {
+        f.ph += dt;
+        f.x += (f.vx + Math.sin(f.ph) * 10) * dt;
+        f.y += f.vy * dt;
+        if (f.y > CH + 4) { f.y = -4; f.x = Math.random() * CW; }
+        if (f.x < -4) f.x = CW + 4;
+        if (f.x > CW + 4) f.x = -4;
+      }
+    }
+
+    // ============ RENDER ============
+    function drawSky() {
+      const sky = ctx.createLinearGradient(0, 0, 0, CH);
+      sky.addColorStop(0, '#233a5e');
+      sky.addColorStop(0.45, '#3f6090');
+      sky.addColorStop(0.8, '#7c9cc4');
+      sky.addColorStop(1, '#c3d8ee');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, CW, CH);
+
+      // Pale winter sun.
+      const sunX = CW * 0.78, sunY = CH * 0.22;
+      const glow = ctx.createRadialGradient(sunX, sunY, 4, sunX, sunY, CH * 0.5);
+      glow.addColorStop(0, 'rgba(255, 244, 220, 0.85)');
+      glow.addColorStop(0.3, 'rgba(255, 236, 200, 0.25)');
+      glow.addColorStop(1, 'rgba(255, 236, 200, 0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, CW, CH);
+    }
+
+    function drawPeaks() {
+      // Distant, static silhouette range for depth.
+      ctx.save();
+      ctx.fillStyle = 'rgba(150, 178, 214, 0.55)';
+      ctx.beginPath();
+      ctx.moveTo(0, CH * 0.5);
+      const peaks = [[0.12, 0.34], [0.24, 0.42], [0.38, 0.28], [0.52, 0.44], [0.66, 0.3], [0.8, 0.4], [1, 0.32]];
+      for (const [px, py] of peaks) ctx.lineTo(px * CW, py * CH);
+      ctx.lineTo(CW, CH * 0.6);
+      ctx.lineTo(0, CH * 0.6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawTerrain() {
+      ctx.beginPath();
+      ctx.moveTo(0, heightPx(0));
+      for (let px = 0; px <= CW; px += 3) ctx.lineTo(px, heightPx(px));
+      ctx.lineTo(CW, CH);
+      ctx.lineTo(0, CH);
+      ctx.closePath();
+
+      const g = ctx.createLinearGradient(0, CH * 0.2, 0, CH);
+      g.addColorStop(0, '#ffffff');
+      g.addColorStop(0.35, '#eaf4ff');
+      g.addColorStop(0.75, '#cfe3f7');
+      g.addColorStop(1, '#a9c6e8');
+      ctx.fillStyle = g;
+      ctx.fill();
+
+      // Bright snow crust along the surface line.
+      ctx.beginPath();
+      ctx.moveTo(0, heightPx(0));
+      for (let px = 0; px <= CW; px += 3) ctx.lineTo(px, heightPx(px));
+      ctx.lineWidth = 2.4;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+      ctx.stroke();
+
+      // Soft blue shadow just beneath the crust.
+      ctx.beginPath();
+      ctx.moveTo(0, heightPx(0) + 5);
+      for (let px = 0; px <= CW; px += 3) ctx.lineTo(px, heightPx(px) + 5);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(150, 185, 225, 0.25)';
+      ctx.stroke();
+    }
+
+    function drawTrees() {
+      for (const t of trees) {
+        const x = t.x * CW;
+        const y = heightPx(x);
+        const lean = t.fallen ? t.fall * 1.2 : 0;
+        const sway = t.fallen ? 0 : Math.sin(time * 1.1 + t.sway) * 0.05;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(lean + sway);
+        // Trunk
+        ctx.fillStyle = '#4a3a2c';
+        ctx.fillRect(-1.6, -t.size * 0.18, 3.2, t.size * 0.2);
+        // Three stacked pines
+        for (let layer = 0; layer < 3; layer++) {
+          const w = t.size * (0.85 - layer * 0.18);
+          const hy = -t.size * (0.2 + layer * 0.34);
+          ctx.beginPath();
+          ctx.moveTo(-w * 0.5, hy + t.size * 0.42);
+          ctx.lineTo(w * 0.5, hy + t.size * 0.42);
+          ctx.lineTo(0, hy);
+          ctx.closePath();
+          ctx.fillStyle = layer === 0 ? '#2f5d55' : (layer === 1 ? '#356a60' : '#3d766b');
+          ctx.fill();
+        }
+        // Snow caps
+        ctx.fillStyle = 'rgba(240, 250, 255, 0.9)';
+        ctx.beginPath();
+        ctx.moveTo(-t.size * 0.26, -t.size * 0.1);
+        ctx.lineTo(t.size * 0.26, -t.size * 0.1);
+        ctx.lineTo(0, -t.size * 0.24);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function drawObjects() {
+      for (const o of objects) {
+        ctx.save();
+        ctx.translate(o.x, o.y);
+        ctx.rotate(o.angle);
+
+        if (o.type === 'snowball') {
+          const rg = ctx.createRadialGradient(-o.r * 0.3, -o.r * 0.3, 1, 0, 0, o.r);
+          rg.addColorStop(0, '#ffffff');
+          rg.addColorStop(0.7, '#eef6ff');
+          rg.addColorStop(1, '#c2d8ef');
+          ctx.fillStyle = rg;
+          ctx.beginPath();
+          ctx.arc(0, 0, o.r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(150, 185, 225, 0.6)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        } else {
+          // Skier: body + head + skis.
+          ctx.fillStyle = '#1f3555';
+          ctx.beginPath();
+          ctx.ellipse(0, 0, 9, 5, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#e8634a';
+          ctx.beginPath();
+          ctx.arc(3, -5, 3.4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#f2f7ff';
+          ctx.beginPath();
+          ctx.arc(3.5, -6, 1.6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#274b73';
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.moveTo(-8, 6); ctx.lineTo(9, 6);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+    }
+
+    function drawSpray() {
+      for (const p of spray) {
+        const a = clamp(p.life / p.max, 0, 1) * 0.9;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawFlakes() {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      for (const f of flakes) {
+        ctx.globalAlpha = 0.35 + f.r * 0.22;
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawVignette() {
+      const v = ctx.createRadialGradient(CW / 2, CH / 2, CH * 0.3, CW / 2, CH / 2, CH * 0.85);
+      v.addColorStop(0, 'rgba(0,0,0,0)');
+      v.addColorStop(1, 'rgba(18, 32, 52, 0.3)');
+      ctx.fillStyle = v;
+      ctx.fillRect(0, 0, CW, CH);
+    }
+
+    function drawBrushCursor() {
+      if (!hasPointer || tool === 'skier' || tool === 'snowball' || !brushing) return;
+      const r = tool === 'tree' ? 14 : BRUSH_R * cellW();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.arc(pointerX, heightPx(pointerX), r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function render() {
+      drawSky();
+      drawPeaks();
+      drawTerrain();
+      drawFlakes();
+      drawTrees();
+      drawObjects();
+      drawSpray();
+      drawVignette();
+    }
+
+    // ============ MAIN LOOP ============
+    let last = performance.now();
+    function loop(now) {
+      let dt = (now - last) / 1000;
+      last = now;
+      if (dt > MAX_DT) dt = MAX_DT;
+      time += dt;
+
+      updateObjects(dt);
+      updateTrees(dt);
+      updateSpray(dt);
+      updateFlakes(dt);
+
+      render();
+      updateHud();
+      requestAnimationFrame(loop);
+    }
+
+    // ============ HUD ============
+    function updateHud() {
+      let s = 0, b = 0;
+      for (const o of objects) { if (o.type === 'skier') s++; else b++; }
+      hudSkiers.textContent = s;
+      hudBalls.textContent = b;
+      hudTrees.textContent = trees.length;
+    }
+
+    // ============ INPUT (mouse + touch via pointer events) ============
+    function localX(e) {
+      const r = canvas.getBoundingClientRect();
+      return clamp((e.clientX - r.left) * (CW / r.width), 0, CW);
+    }
+
+    canvas.addEventListener('pointerdown', (e) => {
+      canvas.setPointerCapture(e.pointerId);
+      audio(); // unlock WebAudio on first gesture
+      hasPointer = true;
+      pointerX = localX(e);
+      if (tool === 'skier' || tool === 'snowball') {
+        spawnObject(pointerX, tool);
+        return;
+      }
+      brushing = true;
+      applyBrush(pointerX, tool);
+      beep(300, 0.04, 'sine', 0.03);
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      hasPointer = true;
+      pointerX = localX(e);
+      if (brushing) applyBrush(pointerX, tool);
+    });
+
+    function endBrush() { brushing = false; }
+    canvas.addEventListener('pointerup', endBrush);
+    canvas.addEventListener('pointercancel', endBrush);
+    canvas.addEventListener('pointerleave', () => { hasPointer = false; });
+    canvas.addEventListener('pointerenter', () => { hasPointer = true; });
+
+    // ============ TOOLBAR WIRING ============
+    toolBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        tool = btn.dataset.tool;
+        toolBtns.forEach(b => b.classList.toggle('active', b === btn));
+        hudTool.textContent = btn.textContent.replace(/^[^\wA-Za-z]+/, '').trim() || btn.dataset.tool;
+        audio();
+        beep(540, 0.05, 'triangle', 0.05);
+      });
+    });
+
+    resetBtn.addEventListener('click', () => {
+      initTerrain();
+      objects = [];
+      spray = [];
+      beep(420, 0.1, 'sine', 0.06);
+      setTimeout(() => beep(300, 0.16, 'sine', 0.06), 90);
+    });
+
+    // ============ RESIZE / RESPONSIVE ============
+    function resize() {
+      const r = wrapper.getBoundingClientRect();
+      DPR = Math.min(2, window.devicePixelRatio || 1);
+      CW = Math.max(320, Math.round(r.width));
+      CH = Math.max(240, Math.round(r.height));
+      canvas.width = Math.round(CW * DPR);
+      canvas.height = Math.round(CH * DPR);
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      initFlakes();
+    }
+
+    window.addEventListener('resize', resize);
+
+    // ============ BOOT ============
+    resize();
+    initTerrain();
+    // Seed a couple of skiers so the slope isn't empty on first look.
+    spawnObject(CW * 0.32, 'skier');
+    spawnObject(CW * 0.24, 'snowball');
+    // Default tool selection.
+    document.querySelector('.tool-btn[data-tool="mound"]').classList.add('active');
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

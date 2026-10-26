@@ -39,7 +39,7 @@
       caches.keys().then(function (keys) {
         return Promise.all(
           keys.filter(function (key) {
-            // Only this app's caches: every app on juwpegatron.github.io shares one origin.
+            // Only this app's caches: every app on juw12.github.io shares one origin.
             var ours = key.indexOf('glowroom-') === 0 || key.indexOf('crewroom-') === 0;
             return ours && key !== CACHE_NAME;
           }).map(function (key) {

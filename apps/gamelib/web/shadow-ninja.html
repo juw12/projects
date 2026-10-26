@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>SHADOW NINJA</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(circle at 50% 0%, #1b2140 0%, #0a0d18 70%);
+    display: flex; align-items: center; justify-content: center;
+    font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+    overflow: hidden; padding: 10px; touch-action: manipulation; color: #dfe6ff;
+  }
+  #app { display: flex; flex-direction: column; align-items: center; gap: 10px; width: min(97vw, 1000px); }
+  #game-wrap {
+    position: relative; width: 100%; border-radius: 10px; overflow: hidden;
+    box-shadow: 0 14px 50px rgba(0,0,0,.6), 0 0 0 2px #2b3457 inset; background: #0a0d18;
+  }
+  canvas { display: block; width: 100%; height: auto; touch-action: none; }
+  #hint {
+    position: absolute; bottom: 4px; left: 0; width: 100%; text-align: center;
+    font-size: 11px; letter-spacing: 1px; color: rgba(200,215,255,.55);
+    pointer-events: none; text-shadow: 0 1px 3px #000;
+  }
+
+  /* ============ SCREENS (Start / Clear / Over / Pause) ============ */
+  .screen {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; padding: 18px;
+    background: rgba(6,9,18,.86); transition: opacity .25s ease; z-index: 5;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen h1 {
+    font-size: clamp(26px, 5vw, 52px); letter-spacing: 6px; color: #eaf1ff;
+    text-shadow: 0 0 18px rgba(94,231,255,.75), 0 4px 0 #1a2140; margin-bottom: 6px;
+  }
+  .screen h2 {
+    font-size: clamp(20px, 4vw, 38px); letter-spacing: 4px; color: #ff6b86;
+    text-shadow: 0 0 16px rgba(255,77,109,.6); margin-bottom: 8px;
+  }
+  .screen .tag { font-size: clamp(11px, 2.2vw, 15px); color: #93a4d8; letter-spacing: 3px; margin-bottom: 14px; }
+  .keys {
+    display: flex; flex-wrap: wrap; gap: 6px 12px; justify-content: center;
+    max-width: 660px; margin-bottom: 16px; font-size: clamp(10px, 1.9vw, 13px); color: #a9b8e8;
+  }
+  .keys b { color: #5ee7ff; font-weight: 600; }
+  .stat { font-size: clamp(13px, 2.4vw, 18px); color: #cfe0ff; margin-bottom: 6px; letter-spacing: 1px; }
+  .stat span { color: #ffd76b; font-weight: bold; }
+  .btn {
+    margin-top: 14px; font-family: inherit; font-size: clamp(13px, 2.4vw, 17px); font-weight: bold;
+    letter-spacing: 3px; padding: 12px 30px; border: none; border-radius: 8px; cursor: pointer;
+    color: #08101f; background: linear-gradient(180deg, #7cf0ff, #35b6e0);
+    box-shadow: 0 5px 0 #1c6f92, 0 0 22px rgba(94,231,255,.4);
+    transition: transform .06s ease, box-shadow .1s ease; user-select: none;
+  }
+  .btn:hover { box-shadow: 0 5px 0 #1c6f92, 0 0 30px rgba(94,231,255,.7); }
+  .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #1c6f92; }
+  .btn.red { background: linear-gradient(180deg, #ff9aab, #ff4d6d); box-shadow: 0 5px 0 #97203a, 0 0 22px rgba(255,77,109,.4); color: #20040a; }
+  .btn.red:hover { box-shadow: 0 5px 0 #97203a, 0 0 30px rgba(255,77,109,.7); }
+
+  /* ============ CONTROL BAR ============ */
+  #controls { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  #controls button {
+    font-family: inherit; font-size: 13px; font-weight: bold; letter-spacing: 2px;
+    padding: 9px 20px; border: none; border-radius: 7px; cursor: pointer; color: #d7e3ff;
+    background: #232c4c; box-shadow: 0 4px 0 #131a30;
+    transition: transform .06s ease, background .15s ease; user-select: none;
+  }
+  #controls button:hover { background: #2e3a63; }
+  #controls button:active { transform: translateY(2px); box-shadow: 0 2px 0 #131a30; }
+
+  /* ============ TOUCH PAD ============ */
+  #touch {
+    position: absolute; bottom: 0; left: 0; right: 0; display: none;
+    justify-content: space-between; align-items: flex-end; padding: 10px;
+    pointer-events: none; z-index: 4;
+  }
+  #touch.visible { display: flex; }
+  #touch .cluster { display: flex; gap: 8px; pointer-events: auto; }
+  .tbtn {
+    width: 54px; height: 54px; border-radius: 50%; border: 2px solid rgba(140,190,255,.45);
+    background: rgba(30,40,72,.66); color: #e7f0ff; font-size: 11px; font-weight: bold; letter-spacing: 1px;
+    display: flex; align-items: center; justify-content: center;
+    user-select: none; -webkit-tap-highlight-color: transparent; touch-action: none;
+  }
+  .tbtn:active { background: rgba(94,231,255,.35); transform: scale(.94); }
+  .tbtn.big { width: 64px; height: 64px; font-size: 12px; }
+  .tbtn.cy { border-color: rgba(94,231,255,.7); color: #b6f0ff; }
+  .tbtn.rd { border-color: rgba(255,109,140,.7); color: #ffc6d1; }
+  @media (max-width: 720px) { #hint { display: none; } .screen h1 { letter-spacing: 3px; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="game-wrap">
+    <canvas id="game" width="960" height="512"></canvas>
+
+    <!-- ============ START OVERLAY ============ -->
+    <div id="startScreen" class="screen">
+      <h1>SHADOW NINJA</h1>
+      <p class="tag">SILENT BLADE OF THE NIGHT CLAN</p>
+      <div class="keys">
+        <span><b>&#8592; &#8594;</b> / <b>A D</b> move</span>
+        <span><b>W</b> / <b>SPACE</b> jump &amp; wall-jump</span>
+        <span><b>J</b> / <b>X</b> sword slash</span>
+        <span><b>K</b> / <b>C</b> throw shuriken</span>
+        <span><b>L</b> / <b>SHIFT</b> shadow dash</span>
+      </div>
+      <div class="stat">Best Score: <span id="startBest">0</span></div>
+      <button class="btn" id="startBtn" type="button">BEGIN MISSION</button>
+    </div>
+
+    <!-- ============ STAGE CLEAR OVERLAY ============ -->
+    <div id="clearScreen" class="screen hidden">
+      <h2>STAGE CLEAR</h2>
+      <p class="tag" id="clearName">COURTYARD</p>
+      <div class="stat">Score: <span id="clearScore">0</span></div>
+      <button class="btn" id="nextBtn" type="button">NEXT STAGE</button>
+    </div>
+
+    <!-- ============ GAME OVER OVERLAY ============ -->
+    <div id="overScreen" class="screen hidden">
+      <h2 id="overTitle">YOU FELL</h2>
+      <p class="tag" id="overTag">THE MISSION ENDS HERE</p>
+      <div class="stat">Score: <span id="overScore">0</span></div>
+      <div class="stat">Best: <span id="overBest">0</span></div>
+      <button class="btn red" id="againBtn" type="button">PLAY AGAIN</button>
+    </div>
+
+    <!-- ============ PAUSE OVERLAY ============ -->
+    <div id="pauseScreen" class="screen hidden">
+      <h2>PAUSED</h2>
+      <p class="tag">CATCH YOUR BREATH</p>
+      <button class="btn" id="resumeBtn" type="button">RESUME</button>
+    </div>
+
+    <!-- ============ TOUCH CONTROLS ============ -->
+    <div id="touch">
+      <div class="cluster">
+        <div class="tbtn" data-k="left">&#9664;</div>
+        <div class="tbtn" data-k="right">&#9654;</div>
+      </div>
+      <div class="cluster">
+        <div class="tbtn rd" data-k="attack">SLASH</div>
+        <div class="tbtn cy" data-k="throw">STAR</div>
+        <div class="tbtn" data-k="dash">DASH</div>
+        <div class="tbtn big" data-k="jump">JUMP</div>
+      </div>
+    </div>
+
+    <div id="hint">MOVE A/D &nbsp;|&nbsp; JUMP SPACE &nbsp;|&nbsp; SLASH J &nbsp;|&nbsp; STAR K &nbsp;|&nbsp; DASH L &nbsp;|&nbsp; PAUSE P &nbsp;|&nbsp; RESTART R</div>
+  </div>
+
+  <div id="controls">
+    <button id="pauseBtn" type="button">PAUSE</button>
+    <button id="restartBtn" type="button">RESTART</button>
+  </div>
+</div>
+
+<script>
+(function () {
+"use strict";
+
+/* ============ CANVAS / CONSTANTS ============ */
+var canvas = document.getElementById("game");
+var ctx = canvas.getContext("2d");
+var VW = canvas.width;
+var VH = canvas.height;
+var TILE = 32;
+
+var GRAV = 0.62;
+var MAXFALL = 13;
+var RUN = 3.5;
+var ACC = 0.95;
+var JUMPV = -11.6;
+var WALLJUMP_X = 6.6;
+var DASH_SPEED = 10.5;
+var DASH_TIME = 11;
+var DASH_CD = 42;
+var MAXHP = 5;
+
+/* ============ AUDIO (WebAudio, no assets) ============ */
+var actx = null;
+function beep(freq, dur, type, vol) {
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === "suspended") actx.resume();
+    var o = actx.createOscillator();
+    var g = actx.createGain();
+    o.type = type || "square";
+    o.frequency.value = freq;
+    var v = vol || 0.06;
+    g.gain.setValueAtTime(v, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(); o.stop(actx.currentTime + dur);
+  } catch (e) { /* audio unavailable, ignore */ }
+}
+
+/* ============ LEVEL DATA (hand-made) ============ */
+/* legend:  # solid   = one-way platform   ^ spikes   S spawn   E exit
+            c coin    h heart   s shuriken  w walker  f flyer  t turret  B boss */
+var LEVELS = [
+  {
+    name: "MOONLIT COURTYARD",
+    rows: [
+      "                                            ",
+      "                                            ",
+      "                       c  c                 ",
+      "               ====                         ",
+      "         c                                  ",
+      "        ###          c c          c         ",
+      "                    ====         ===        ",
+      "                        =                   ",
+      "              f                        s    ",
+      "                                       w    ",
+      "   S     c          h                      ",
+      "        ###                    ###          ",
+      "                              ^^^   E      ",
+      "####################   #####################",
+      "####################   #####################",
+      "####################   #####################"
+    ]
+  },
+  {
+    name: "BAMBOO SHADOWS",
+    rows: [
+      "                                            ",
+      "                                            ",
+      "          c        c          c     c       ",
+      "        ====     ====       ====   ====      ",
+      "                                            ",
+      "     c            c   c            c        ",
+      "    ###          ###  ###         ###       ",
+      "                                            ",
+      "        f              f               s    ",
+      "                              w             ",
+      "  S   c      h              w               ",
+      "    ###        ###      ###     ###         ",
+      "              ^^^          ^^^              ",
+      "##############   #############   ###########",
+      "##############   #############   ###########",
+      "##############   #############   ###########"
+    ]
+  },
+  {
+    name: "CLIFF ASCENT",
+    rows: [
+      "                                            ",
+      "                                    E       ",
+      "                                 =====      ",
+      "                          c                 ",
+      "                       =====                ",
+      "                  c                         ",
+      "               =====               f        ",
+      "          c                                 ",
+      "        =====        t                      ",
+      "  S  c                ##                    ",
+      "     ##                    c                ",
+      "                       =====                ",
+      "              ^^^                           ",
+      "#########   ############################    ",
+      "#########   ############################    ",
+      "#########   ############################    "
+    ]
+  },
+  {
+    name: "FORTRESS GATE",
+    rows: [
+      "                                            ",
+      "        c                          c        ",
+      "       ====                      ====       ",
+      "              c        c                    ",
+      "          ##         ###                    ",
+      "                     t          c           ",
+      "   f              ##         =====          ",
+      "                              t             ",
+      "         c              ##                  ",
+      "   ##   ====                        f       ",
+      "   ##            w             w            ",
+      "   ##                    ##                 ",
+      "                              ^^^^      E   ",
+      "############################   #############",
+      "############################   #############",
+      "############################   #############"
+    ]
+  },
+  {
+    name: "SHADOW SHOGUN",
+    boss: true,
+    rows: [
+      "                                            ",
+      "                                            ",
+      "                                            ",
+      "        c  c  c  c  c  c  c  c  c  c        ",
+      "                                            ",
+      "      ========            ========          ",
+      "                                            ",
+      "                                            ",
+      "                         B                   ",
+      "                                            ",
+      "   S        h                               ",
+      "                                            ",
+      "              ^^^              ^^^          ",
+      "############################################",
+      "############################################",
+      "############################################"
+    ]
+  }
+];
+
+/*__CHUNK3__*/
+
+})();
+</script>
+</body>
+</html>

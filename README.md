@@ -1,4 +1,4 @@
-# apps/
+# Projects
 
 A monorepo for product projects, each promoted from prototype to a real,
 runnable, deployable project.
@@ -16,13 +16,19 @@ runnable, deployable project.
 | [`apps/sped`](apps/sped) | Sped (formerly Hookline): shorts studio — sped-up/slowed/mashup edits, live 9:16 preview and timeline, MP4 export for TikTok, Reels and Shorts | Zero-dependency browser DSP + Canvas/MediaRecorder + Web Workers + offline PWA |
 | [`apps/sync`](apps/sync) | Sync: listen to music together in real time from anywhere, with Spotify, Apple Music, YouTube and shared files in one room, plus voice chat that lowers the music | Static PWA, peer-to-peer WebRTC (PeerJS), no server |
 
-## Companion repositories
+## Ownership and content
 
-| Project | Repository | Purpose |
-| --- | --- | --- |
-| [Guang Yao Together](apps/guangyao) | [guangyao-content](https://github.com/juwpegatron/guangyao-content) | Published lessons, materials and events, managed through the app's admin console. |
+Maintained by [Juwen Lie (@juw12)](https://github.com/juw12).
+Co-founder and collaborator: [@juwpegatron](https://github.com/juwpegatron).
+Existing commit authorship is preserved.
 
-Guang Yao's content stays in its separate public repository; existing content URLs and publishing workflows are unchanged.
+Guang Yao's published lessons, materials and events are stored in
+[`content/guangyao`](content/guangyao), inside this repository. The admin console
+publishes to that folder; there is no separate content repository to maintain.
+
+Content-admin permissions are repository-wide: only trusted maintainers should
+receive write access to `juw12/projects`. GitHub does not restrict a collaborator
+to a single folder.
 
 Each project follows the same shape:
 
@@ -74,7 +80,7 @@ python scripts/run_all_tests.py
 
 ## Live site
 
-`.github/workflows/pages.yml` builds a static site from the three `web/`
+`.github/workflows/pages.yml` builds a static site from the apps' `web/`
 directories (`scripts/build_site.py`) and deploys it with GitHub Pages. A
 `scripts/check_site.py` validator blocks the two failures that pass locally but
 break on Pages: **absolute paths** and filename **case** mismatches.

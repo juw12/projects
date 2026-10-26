@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Simon — Memory Sequence</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(circle at 50% 20%, #1b2035 0%, #0a0d18 70%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    color: #e8ecf5;
+    padding: 14px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ============ APP SHELL ============ */
+  #app {
+    width: min(96vw, 460px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+  .title {
+    font-size: clamp(1.6rem, 6vw, 2.2rem);
+    font-weight: 800;
+    letter-spacing: 3px;
+    text-align: center;
+    background: linear-gradient(90deg, #35d07f, #ffd23f, #ff5a5a, #4a9bff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+  .hint {
+    text-align: center;
+    font-size: 0.82rem;
+    color: #8b93ad;
+    letter-spacing: 0.4px;
+    line-height: 1.4;
+  }
+
+  /* ============ SCORE BOARD ============ */
+  .scoreboard {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+  }
+  .stat { text-align: center; flex: 1; }
+  .stat .label {
+    display: block;
+    font-size: 0.66rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #7c86a3;
+  }
+  .stat .value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat.best .value { color: #ffd23f; }
+
+  /* ============ BOARD / PADS ============ */
+  #board {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 12px;
+    padding: 12px;
+    background: #05070d;
+    border-radius: 26px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  }
+  .pad {
+    position: relative;
+    border: none;
+    cursor: pointer;
+    border-radius: 20px;
+    background: var(--dim);
+    box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.35);
+    transition: background 0.08s ease, box-shadow 0.12s ease, transform 0.06s ease;
+    filter: saturate(0.55) brightness(0.62);
+    outline: none;
+  }
+  .pad:hover { filter: saturate(0.7) brightness(0.72); }
+  .pad:active { transform: scale(0.985); }
+  .pad.lit {
+    background: var(--hot);
+    filter: none;
+    box-shadow: 0 0 34px var(--glow), 0 0 70px var(--glow), inset 0 0 0 2px rgba(255, 255, 255, 0.25);
+    transform: scale(1.02);
+  }
+  /* colour themes */
+  .pad.green  { --dim: #0f7a44; --hot: #35d07f; --glow: rgba(53, 208, 127, 0.85); grid-area: 1 / 1; }
+  .pad.red    { --dim: #962828; --hot: #ff5a5a; --glow: rgba(255, 90, 90, 0.85);  grid-area: 1 / 2; }
+  .pad.yellow { --dim: #8a7412; --hot: #ffd23f; --glow: rgba(255, 210, 63, 0.85); grid-area: 2 / 1; }
+  .pad.blue   { --dim: #1c4c93; --hot: #4a9bff; --glow: rgba(74, 155, 255, 0.85); grid-area: 2 / 2; }
+
+  /* centre hub with round counter */
+  .hub {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 27%;
+    aspect-ratio: 1 / 1;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #2b3350, #0b0e18 80%);
+    border: 2px solid rgba(255, 255, 255, 0.12);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7);
+  }
+  .hub .round-no { font-size: clamp(1.1rem, 5vw, 1.7rem); font-weight: 800; color: #fff; line-height: 1; }
+  .hub .hub-label { font-size: 0.55rem; letter-spacing: 1.5px; color: #8b93ad; text-transform: uppercase; margin-top: 2px; }
+
+  /* board shake on error */
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-6px); }
+    80% { transform: translateX(6px); }
+  }
+  #board.shake { animation: shake 0.4s ease; }
+
+  /* ============ OVERLAY SCREENS ============ */
+  .screen {
+    position: absolute;
+    inset: 0;
+    border-radius: 26px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 22px;
+    text-align: center;
+    background: rgba(6, 9, 16, 0.93);
+    backdrop-filter: blur(3px);
+    transition: opacity 0.25s ease;
+    z-index: 5;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+  .screen h2 { font-size: 1.5rem; letter-spacing: 1px; color: #fff; }
+  .screen p { font-size: 0.84rem; color: #9aa3bd; line-height: 1.5; }
+  .screen .big { font-size: 2.1rem; font-weight: 800; color: #ffd23f; }
+  .screen .verdict { font-size: 0.9rem; font-weight: 700; letter-spacing: 0.5px; }
+  .screen .verdict.new { color: #35d07f; }
+  .screen .verdict.no { color: #ff8a8a; }
+
+  /* ============ DIFFICULTY + BUTTONS ============ */
+  .diff { display: flex; gap: 8px; justify-content: center; }
+  .diff button {
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 8px 16px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.06);
+    color: #aeb6cf;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .diff button:hover { background: rgba(255, 255, 255, 0.13); }
+  .diff button.active { background: #4a9bff; border-color: #4a9bff; color: #fff; box-shadow: 0 0 16px rgba(74, 155, 255, 0.5); }
+
+  .action {
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    padding: 13px 34px;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    color: #05121f;
+    background: linear-gradient(135deg, #35d07f, #29a95f);
+    box-shadow: 0 5px 0 rgba(0, 0, 0, 0.35), 0 0 22px rgba(53, 208, 127, 0.4);
+    transition: transform 0.06s ease, filter 0.15s ease;
+  }
+  .action:hover { filter: brightness(1.1); }
+  .action:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35); }
+
+  /* ============ CONTROLS ROW ============ */
+  #controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  #controls button {
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.07);
+    color: #d5dbea;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  #controls button:hover { background: rgba(255, 255, 255, 0.15); }
+  #btn-restart { background: rgba(255, 90, 90, 0.18); border-color: rgba(255, 90, 90, 0.4); color: #ffb3b3; }
+  #btn-restart:hover { background: rgba(255, 90, 90, 0.3); }
+  #status { font-size: 0.8rem; color: #8b93ad; letter-spacing: 0.5px; min-height: 1.1em; text-align: center; }
+
+  /* ============ RESPONSIVE (360px) ============ */
+  @media (max-width: 400px) {
+    #app { gap: 10px; }
+    .hint { font-size: 0.74rem; }
+    #board { gap: 8px; padding: 8px; border-radius: 20px; }
+    .pad { border-radius: 14px; }
+    .stat .value { font-size: 1.25rem; }
+    .diff button { padding: 7px 12px; font-size: 0.72rem; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1 class="title">SIMON</h1>
+  <p class="hint">Watch the sequence, then repeat it. Tap a pad — keys 1-4 or Q/W/A/S.</p>
+
+  <div class="scoreboard">
+    <div class="stat"><span class="label">Level</span><span class="value" id="level">0</span></div>
+    <div class="stat best"><span class="label">Best</span><span class="value" id="best">0</span></div>
+  </div>
+
+  <div id="board">
+    <button class="pad green"  data-pad="0" aria-label="Green pad"></button>
+    <button class="pad red"    data-pad="1" aria-label="Red pad"></button>
+    <button class="pad yellow" data-pad="2" aria-label="Yellow pad"></button>
+    <button class="pad blue"   data-pad="3" aria-label="Blue pad"></button>
+    <div class="hub">
+      <span class="round-no" id="roundNo">--</span>
+      <span class="hub-label">Round</span>
+    </div>
+
+    <!-- Start screen -->
+    <div class="screen" id="startScreen">
+      <h2>Simon</h2>
+      <p>Repeat the growing light &amp; tone sequence.<br>One wrong pad ends the run.</p>
+      <div class="diff">
+        <button data-diff="easy">Easy</button>
+        <button data-diff="normal" class="active">Normal</button>
+        <button data-diff="hard">Hard</button>
+      </div>
+      <button class="action" id="startBtn">Start</button>
+    </div>
+
+    <!-- Game over screen -->
+    <div class="screen hidden" id="overScreen">
+      <h2>Game Over</h2>
+      <span class="big" id="finalLevel">0</span>
+      <p class="verdict" id="verdict"></p>
+      <button class="action" id="againBtn">Play Again</button>
+    </div>
+  </div>
+
+  <div id="status">Press Start to begin</div>
+
+  <div id="controls">
+    <button id="btn-restart">Restart</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ============ ELEMENTS ============
+  const pads = Array.prototype.slice.call(document.querySelectorAll(".pad"));
+  const board = document.getElementById("board");
+  const levelEl = document.getElementById("level");
+  const bestEl = document.getElementById("best");
+  const roundNoEl = document.getElementById("roundNo");
+  const statusEl = document.getElementById("status");
+  const startScreen = document.getElementById("startScreen");
+  const overScreen = document.getElementById("overScreen");
+  const finalLevelEl = document.getElementById("finalLevel");
+  const verdictEl = document.getElementById("verdict");
+  const startBtn = document.getElementById("startBtn");
+  const againBtn = document.getElementById("againBtn");
+  const btnRestart = document.getElementById("btn-restart");
+  const diffButtons = Array.prototype.slice.call(document.querySelectorAll(".diff button"));
+
+  // ============ CONFIG ============
+  // Each pad: distinct tone + identity.
+  const TONES = [329.63, 261.63, 392.00, 196.00]; // E4, C4, G4, G3
+  // Playback timing per difficulty: initial gap (ms), minimum gap, shrink per level.
+  const DIFFICULTY = {
+    easy:   { start: 700, min: 420, step: 18, startExtra: 0 },
+    normal: { start: 560, min: 300, step: 22, startExtra: 1 },
+    hard:   { start: 420, min: 200, step: 28, startExtra: 2 }
+  };
+  const DIFF_LABEL = { easy: "Easy", normal: "Normal", hard: "Hard" };
+
+  const STATE = { READY: 0, SHOWING: 1, INPUT: 2, OVER: 3 };
+
+  // ============ STATE ============
+  let diff = localStorage.getItem("simonDiff") || "normal";
+  if (!DIFFICULTY[diff]) diff = "normal";
+  let best = Number(localStorage.getItem("simonBest") || 0);
+
+  let state = STATE.READY;
+  let sequence = [];      // pad indices to repeat
+  let inputIndex = 0;     // player progress within current sequence
+  let level = 0;          // completed rounds / current sequence length
+  let timers = [];        // pending setTimeout ids (so we can cancel cleanly)
+  let lastToneAt = 0;     // throttle for input tones
+
+  bestEl.textContent = best;
+
+  function cfg() { return DIFFICULTY[diff]; }
+
+  // ============ SOUND (WebAudio, no assets) ============
+  let actx = null;
+  function ensureAudio() {
+    if (!actx) {
+      try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; }
+    }
+    if (actx && actx.state === "suspended") { actx.resume().catch(function () {}); }
+    return actx;
+  }
+  function beep(freq, dur, type, vol) {
+    try {
+      const ctx = ensureAudio();
+      if (!ctx) return;
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = type || "sine";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(vol || 0.18, ctx.currentTime + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(); o.stop(ctx.currentTime + dur + 0.02);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+  function errorBuzz() {
+    try {
+      const ctx = ensureAudio();
+      if (!ctx) return;
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "sawtooth";
+      o.frequency.setValueAtTime(180, ctx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(70, ctx.currentTime + 0.5);
+      g.gain.setValueAtTime(0.22, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(); o.stop(ctx.currentTime + 0.52);
+    } catch (e) { /* ignore */ }
+  }
+
+  // ============ TIMERS ============ */
+  function clearTimers() {
+    timers.forEach(function (t) { clearTimeout(t); });
+    timers = [];
+  }
+  function later(fn, ms) {
+    timers.push(setTimeout(fn, ms));
+  }
+
+  // ============ VISUALS ============
+  function lightPad(index, ms) {
+    const pad = pads[index];
+    if (!pad) return;
+    pad.classList.add("lit");
+    beep(TONES[index], Math.max(0.12, (ms || 320) / 1000), "sine", 0.18);
+    later(function () { pad.classList.remove("lit"); }, ms || 320);
+  }
+  // ============ GAME FLOW ============
+  function playSequence() {
+    state = STATE.SHOWING;
+    inputIndex = 0;
+    statusEl.textContent = "Watch closely…";
+    const c = cfg();
+    const gap = Math.max(c.min, c.start - (level - 1) * c.step);
+    const litMs = Math.round(gap * 0.55);
+
+    sequence.forEach(function (padIndex, i) {
+      later(function () { lightPad(padIndex, litMs); }, i * gap);
+    });
+    // unlock input after the last flash finishes
+    later(function () {
+      state = STATE.INPUT;
+      statusEl.textContent = "Your turn — repeat " + sequence.length + " step" + (sequence.length > 1 ? "s" : "");
+    }, sequence.length * gap + 60);
+  }
+
+  function nextRound() {
+    level++;
+    levelEl.textContent = level;
+    roundNoEl.textContent = level;
+    sequence.push(Math.floor(Math.random() * 4));
+    playSequence();
+  }
+
+  function startGame() {
+    ensureAudio();
+    clearTimers();
+    sequence = [];
+    level = 0;
+    inputIndex = 0;
+    levelEl.textContent = "0";
+    roundNoEl.textContent = "--";
+    startScreen.classList.add("hidden");
+    overScreen.classList.add("hidden");
+    // difficulty may add extra starting steps
+    const extra = cfg().startExtra;
+    for (let i = 0; i < extra; i++) {
+      sequence.push(Math.floor(Math.random() * 4));
+    }
+    nextRound();
+  }
+
+  function handlePad(index) {
+    if (state !== STATE.INPUT) return;
+
+    // light + tone feedback on press
+    lightPad(index, 260);
+
+    if (sequence[inputIndex] === index) {
+      inputIndex++;
+      if (inputIndex === sequence.length) {
+        // full sequence correct → grow and replay
+        state = STATE.SHOWING;
+        statusEl.textContent = "Correct!";
+        beep(880, 0.12, "triangle", 0.14);
+        later(function () { nextRound(); }, 720);
+      }
+    } else {
+      gameOver();
+    }
+  }
+
+  function gameOver() {
+    if (state === STATE.OVER) return;
+    state = STATE.OVER;
+    clearTimers();
+    errorBuzz();
+    board.classList.add("shake");
+    later(function () { board.classList.remove("shake"); }, 420);
+
+    // a run's "level" is the number of steps successfully repeated
+    const reached = Math.max(0, level - 1);
+    const isNew = reached > best;
+    if (isNew) {
+      best = reached;
+      localStorage.setItem("simonBest", String(best));
+      bestEl.textContent = best;
+    }
+    finalLevelEl.textContent = reached;
+    verdictEl.textContent = isNew
+      ? "★ New best!"
+      : (best > 0 ? "Best: " + best : "No best yet");
+    verdictEl.className = "verdict " + (isNew ? "new" : "no");
+    statusEl.textContent = "Wrong pad — game over";
+
+    later(function () { overScreen.classList.remove("hidden"); }, 480);
+  }
+
+  function restartToStart() {
+    clearTimers();
+    state = STATE.READY;
+    sequence = [];
+    level = 0;
+    inputIndex = 0;
+    levelEl.textContent = "0";
+    roundNoEl.textContent = "--";
+    pads.forEach(function (p) { p.classList.remove("lit"); });
+    overScreen.classList.add("hidden");
+    startScreen.classList.remove("hidden");
+    statusEl.textContent = "Press Start to begin";
+  }
+
+  // ============ DIFFICULTY ============
+  function setDifficulty(d) {
+    if (!DIFFICULTY[d]) return;
+    diff = d;
+    localStorage.setItem("simonDiff", d);
+    diffButtons.forEach(function (b) { b.classList.toggle("active", b.dataset.diff === d); });
+    statusEl.textContent = "Difficulty: " + DIFF_LABEL[d];
+  }
+  diffButtons.forEach(function (b) {
+    b.addEventListener("click", function () { setDifficulty(b.dataset.diff); });
+  });
+
+  // ============ INPUT: PAD CLICKS / TAPS ============
+  pads.forEach(function (pad) {
+    const idx = Number(pad.dataset.pad);
+
+    function onPress(e) {
+      e.preventDefault();
+      handlePad(idx);
+    }
+    pad.addEventListener("click", onPress);
+    // touchstart gives snappier play; prevent the synthetic click duplicate
+    pad.addEventListener("touchstart", function (e) {
+      e.preventDefault();
+      handlePad(idx);
+    }, { passive: false });
+  });
+
+  // ============ INPUT: KEYBOARD ============
+  // 1-4 (row) and Q/W/A/S (pad positions), plus speed keys P pause-like restart.
+  const KEYMAP = {
+    "Digit1": 0, "Digit2": 1, "Digit3": 2, "Digit4": 3,
+    "Numpad1": 0, "Numpad2": 1, "Numpad3": 2, "Numpad4": 3,
+    "KeyQ": 0, "KeyW": 1, "KeyA": 2, "KeyS": 3
+  };
+  window.addEventListener("keydown", function (e) {
+    if (e.code in KEYMAP) {
+      e.preventDefault();
+      if (state === STATE.READY) { startGame(); return; }
+      handlePad(KEYMAP[e.code]);
+      return;
+    }
+    if (e.code === "KeyR" || e.key === "r" || e.key === "R") {
+      e.preventDefault();
+      if (state === STATE.OVER || state === STATE.READY) { startGame(); }
+      else { restartToStart(); }
+      return;
+    }
+    if (e.code === "Space" || e.key === " ") {
+      e.preventDefault();
+      if (state === STATE.READY) { startGame(); }
+      else if (state === STATE.OVER) { startGame(); }
+    }
+  });
+
+  // ============ BUTTONS ============
+  startBtn.addEventListener("click", startGame);
+  againBtn.addEventListener("click", startGame);
+  btnRestart.addEventListener("click", function () {
+    if (state === STATE.OVER) { startGame(); } else { restartToStart(); }
+  });
+
+  // ============ VISIBILITY: cancel pending cues when tab hidden ============
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden && state === STATE.SHOWING) {
+      // pause the reveal so the player never misses a cue while away
+      clearTimers();
+      later(function () { playSequence(); }, 400);
+    }
+  });
+
+  // ============ INIT ============
+  diffButtons.forEach(function (b) { b.classList.toggle("active", b.dataset.diff === diff); });
+
+  // short welcome arpeggio on first user gesture
+  ["pointerdown", "keydown"].forEach(function (evt) {
+    window.addEventListener(evt, function once() {
+      ensureAudio();
+      TONES.forEach(function (f, i) { later(function () { beep(f, 0.16, "sine", 0.12); }, i * 130); });
+      window.removeEventListener(evt, once);
+    });
+  });
+})();
+</script>
+</body>
+</html>

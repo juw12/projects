@@ -2,12 +2,12 @@
   "version": "1.1.0",
   "files": [
     {
-      "url": "https://github.com/juwpegatron/projects/releases/download/airiz-desktop-v1.1.0/AIRIZ-Console-Setup-1.1.0-x64.exe",
+      "url": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.1.0/AIRIZ-Console-Setup-1.1.0-x64.exe",
       "sha512": "RKNKBQVeeye+sXw50DIBqg+Z8pIV/IuXSQ2pLb8pJG/N3djoT950D4aZLhuVp8AhMknsmMPlf0ZPvA33PgFmNQ==",
       "size": 121834788
     }
   ],
-  "path": "https://github.com/juwpegatron/projects/releases/download/airiz-desktop-v1.1.0/AIRIZ-Console-Setup-1.1.0-x64.exe",
+  "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.1.0/AIRIZ-Console-Setup-1.1.0-x64.exe",
   "sha512": "RKNKBQVeeye+sXw50DIBqg+Z8pIV/IuXSQ2pLb8pJG/N3djoT950D4aZLhuVp8AhMknsmMPlf0ZPvA33PgFmNQ==",
   "releaseDate": "2026-10-26T05:47:05.603129+00:00",
   "releaseName": "AIRIZ Console 1.1.0"

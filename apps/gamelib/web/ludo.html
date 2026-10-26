@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Ludo</title>
+<style>
+  /* ============ RESET & BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --red: #e0453a;   --green: #2ea86b;   --yellow: #e6b13a;   --blue: #3d7fd0;
+    --red-d: #a72c23; --green-d: #1d7a4c; --yellow-d: #ad8018; --blue-d: #285a97;
+    --ink: #2c2a3a;   --paper: #fbf6ea;   --track: #f4ecd9;    --track-line: #d8cbb0;
+  }
+
+  html, body {
+    min-height: 100%;
+    background: radial-gradient(circle at 20% 10%, #3a3355 0%, #221d33 55%, #16121f 100%);
+    font-family: 'Trebuchet MS', 'Segoe UI', Tahoma, sans-serif;
+    color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    padding: 12px; touch-action: manipulation;
+  }
+
+  /* ============ LAYOUT ============ */
+  #app { width: min(96vw, 1080px); }
+  .game-container {
+    background: linear-gradient(160deg, #fffaf0, #f6ecd8);
+    border-radius: 20px; padding: 16px;
+    box-shadow: 0 18px 50px rgba(0,0,0,.45), inset 0 1px 0 #fff;
+  }
+  header { text-align: center; margin-bottom: 12px; }
+  h1 {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: clamp(1.5rem, 4vw, 2.2rem); letter-spacing: 1px;
+    color: #4a3f6b; text-shadow: 0 2px 0 #fff;
+  }
+  .subtitle { font-size: .82rem; color: #8a7f9c; letter-spacing: .5px; margin-top: 2px; }
+  .layout { display: flex; gap: 16px; align-items: flex-start; justify-content: center; }
+  .board-wrap {
+    position: relative; flex: 1 1 auto; max-width: 620px; aspect-ratio: 1 / 1;
+    border-radius: 14px; overflow: hidden; background: var(--paper);
+    box-shadow: 0 6px 22px rgba(0,0,0,.28); touch-action: manipulation;
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  /* ============ SIDE PANEL ============ */
+  .panel { flex: 0 0 250px; display: flex; flex-direction: column; gap: 10px; }
+  .turn-bar {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+    border-radius: 12px; background: #fff; box-shadow: 0 3px 10px rgba(0,0,0,.12);
+    border-left: 8px solid #999; transition: border-color .25s;
+  }
+  .turn-dot { width: 18px; height: 18px; border-radius: 50%; background: #999; flex: 0 0 auto; box-shadow: inset 0 -2px 3px rgba(0,0,0,.25); }
+  .turn-text { font-size: .92rem; font-weight: bold; line-height: 1.2; }
+  .turn-sub { font-size: .72rem; color: #8a7f9c; font-weight: normal; }
+  .die-row { display: flex; align-items: center; gap: 12px; }
+  .die {
+    width: 58px; height: 58px; padding: 7px; gap: 2px; flex: 0 0 auto;
+    background: linear-gradient(150deg, #ffffff, #efe7d6); border-radius: 12px;
+    box-shadow: 0 4px 0 #c9bda3, 0 6px 12px rgba(0,0,0,.2);
+    display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+    transition: transform .1s;
+  }
+  .die.rolling { transform: rotate(-8deg) scale(1.05); }
+  .pip { border-radius: 50%; }
+  .pip.on { background: radial-gradient(circle at 35% 30%, #6a5acd, #2b2350); }
+  .pip.off { background: transparent; }
+  .roll-btn {
+    flex: 1 1 auto; font-family: inherit; font-size: 1.05rem; font-weight: bold;
+    letter-spacing: .5px; padding: 14px 10px; border: none; border-radius: 12px;
+    cursor: pointer; color: #fff; user-select: none;
+    background: linear-gradient(150deg, #6a5acd, #4a3fa0); box-shadow: 0 4px 0 #332b78;
+    transition: transform .06s, background .15s, opacity .15s;
+  }
+  .roll-btn:hover:not(:disabled) { background: linear-gradient(150deg, #7d6de0, #5849b8); }
+  .roll-btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 #332b78; }
+  .roll-btn:disabled { opacity: .4; cursor: default; box-shadow: 0 4px 0 #b3aecb; }
+
+  .players { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .pcard {
+    display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 9px;
+    background: #fff; font-size: .74rem; font-weight: bold;
+    box-shadow: 0 2px 6px rgba(0,0,0,.1); border: 2px solid transparent;
+    transition: border-color .2s, transform .2s;
+  }
+  .pcard.active { border-color: currentColor; transform: translateY(-1px); }
+  .pdot { width: 12px; height: 12px; border-radius: 50%; flex: 0 0 auto; }
+  .pcard .home-count { margin-left: auto; opacity: .75; font-weight: normal; }
+
+  .log {
+    background: #fff; border-radius: 10px; padding: 8px 10px; height: 132px;
+    overflow-y: auto; font-size: .72rem; line-height: 1.45; color: #55496b;
+    box-shadow: inset 0 1px 4px rgba(0,0,0,.08);
+    display: flex; flex-direction: column-reverse;
+  }
+  .log div { padding: 1px 0; border-bottom: 1px dashed #eee6d6; }
+  .panel-actions { display: flex; gap: 8px; }
+  .ghost-btn {
+    flex: 1 1 auto; font-family: inherit; font-size: .82rem; font-weight: bold;
+    padding: 9px; border-radius: 10px; cursor: pointer; color: #6a5f80;
+    border: 2px solid #d9cfb8; background: #fff; transition: background .15s;
+  }
+  .ghost-btn:hover { background: #f4ecd9; }
+
+  /* ============ OVERLAYS ============ */
+  .overlay {
+    position: absolute; inset: 0; z-index: 5; padding: 20px; text-align: center;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(24,19,36,.86); color: #fff; transition: opacity .28s;
+  }
+  .overlay.hidden { opacity: 0; pointer-events: none; }
+  .overlay h2 { font-family: Georgia, serif; font-size: clamp(1.4rem, 5vw, 2rem); margin-bottom: 8px; text-shadow: 0 2px 8px rgba(0,0,0,.6); }
+  .overlay p { font-size: .85rem; max-width: 380px; line-height: 1.55; color: #ded6ee; margin-bottom: 16px; }
+  .overlay .big-btn {
+    font-family: inherit; font-size: 1.1rem; font-weight: bold; letter-spacing: .5px;
+    padding: 13px 40px; border: none; border-radius: 30px; cursor: pointer; color: #fff;
+    background: linear-gradient(150deg, #6a5acd, #4a3fa0); box-shadow: 0 5px 0 #332b78;
+    transition: transform .06s;
+  }
+  .overlay .big-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #332b78; }
+  .win-badge { font-size: 2.6rem; margin-bottom: 4px; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 760px) {
+    .layout { flex-direction: column; align-items: stretch; }
+    .board-wrap { max-width: 100%; }
+    .panel { flex: 1 1 auto; }
+    .log { height: 96px; }
+    .players { grid-template-columns: repeat(4, 1fr); }
+    .pcard { flex-direction: column; gap: 2px; text-align: center; }
+    .pcard .home-count { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="game-container">
+    <header>
+      <h1>Ludo</h1>
+      <div class="subtitle">Race all four tokens home &mdash; you play <b style="color:var(--red)">Red</b></div>
+    </header>
+
+    <div class="layout">
+      <!-- ============ BOARD ============ -->
+      <div class="board-wrap">
+        <canvas id="board" width="600" height="600"></canvas>
+
+        <div class="overlay" id="startScreen">
+          <h2>Ludo</h2>
+          <p>
+            Roll a <b>6</b> to bring a token out of its yard, then race it around
+            the track and into your home column. Land on a rival to send it back,
+            but <b>safe squares</b> (marked with a star) protect tokens. Get all
+            four tokens home to win. Rolling a 6 grants another roll.
+          </p>
+          <button class="big-btn" id="startBtn">Start Game</button>
+        </div>
+
+        <div class="overlay hidden" id="resultScreen">
+          <div class="win-badge" id="resultBadge">&#127942;</div>
+          <h2 id="resultTitle">Winner!</h2>
+          <p id="resultText"></p>
+          <button class="big-btn" id="playAgainBtn">Play Again</button>
+        </div>
+      </div>
+
+      <!-- ============ SIDE PANEL ============ -->
+      <aside class="panel">
+        <div class="turn-bar" id="turnBar">
+          <span class="turn-dot" id="turnDot"></span>
+          <span>
+            <div class="turn-text" id="turnText">Ready</div>
+            <div class="turn-sub" id="turnSub">Press Start to play</div>
+          </span>
+        </div>
+
+        <div class="die-row">
+          <div class="die" id="die"></div>
+          <button class="roll-btn" id="rollBtn" disabled>Roll</button>
+        </div>
+
+        <div class="players" id="players"></div>
+        <div class="log" id="log"></div>
+
+        <div class="panel-actions">
+          <button class="ghost-btn" id="restartBtn">Restart</button>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ==================================================================
+     SECTION: CONFIGURATION
+     ================================================================== */
+  const W = 600;            // canvas width  (px)
+  const H = 600;            // canvas height (px)
+  const N = 15;             // board is 15 x 15 cells
+  const CELL = W / N;       // 40 px per cell
+  const FINISH = 57;        // progress value meaning "home"
+
+  const NAMES = ["Red", "Green", "Yellow", "Blue"];
+  const HUES = [
+    { main: "#e0453a", dark: "#a72c23", light: "#f7c4bf" },
+    { main: "#2ea86b", dark: "#1d7a4c", light: "#bde9cf" },
+    { main: "#e6b13a", dark: "#ad8018", light: "#f7e6b4" },
+    { main: "#3d7fd0", dark: "#285a97", light: "#c2d9f4" }
+  ];
+
+  /* ==================================================================
+     SECTION: BOARD GEOMETRY  (row, col) on the 15x15 grid
+     ================================================================== */
+
+  // The 52-cell outer ring, clockwise.
+  const TRACK = [
+    [6,13],[6,12],[6,11],[6,10],[6,9],
+    [5,8],[4,8],[3,8],[2,8],[1,8],[0,8],
+    [0,7],[0,6],
+    [1,6],[2,6],[3,6],[4,6],[5,6],
+    [6,5],[6,4],[6,3],[6,2],[6,1],[6,0],
+    [7,0],[8,0],
+    [8,1],[8,2],[8,3],[8,4],[8,5],
+    [9,6],[10,6],[11,6],[12,6],[13,6],[14,6],
+    [14,7],[14,8],
+    [13,8],[12,8],[11,8],[10,8],[9,8],
+    [8,9],[8,10],[8,11],[8,12],[8,13],[8,14],
+    [7,14],[6,14]
+  ];
+
+  // Each player's entry index on the ring (a token's progress 0 lands here).
+  const START = [12, 51, 38, 25];
+
+  // Five home-column cells per player, from the entrance toward the centre.
+  const HOME = [
+    [[1,7],[2,7],[3,7],[4,7],[5,7]],     // Red    (enters from the top)
+    [[7,13],[7,12],[7,11],[7,10],[7,9]], // Green  (enters from the right)
+    [[13,7],[12,7],[11,7],[10,7],[9,7]], // Yellow (enters from the bottom)
+    [[7,1],[7,2],[7,3],[7,4],[7,5]]      // Blue   (enters from the left)
+  ];
+
+  // Yard slots where tokens wait before entering the board.
+  const BASE = [
+    [{r:1,c:1},{r:1,c:4},{r:4,c:1},{r:4,c:4}],           // Red    top-left
+    [{r:1,c:10},{r:1,c:13},{r:4,c:10},{r:4,c:13}],       // Green  top-right
+    [{r:10,c:10},{r:10,c:13},{r:13,c:10},{r:13,c:13}],   // Yellow bottom-right
+    [{r:10,c:1},{r:10,c:4},{r:13,c:1},{r:13,c:4}]        // Blue   bottom-left
+  ];
+
+  // Where finished tokens rest inside the central triangle.
+  const CENTER_HOME = [
+    [{r:6.45,c:6.6},{r:6.45,c:7.0},{r:6.85,c:6.6},{r:6.85,c:7.0}],
+    [{r:6.6,c:7.4},{r:7.0,c:7.4},{r:6.6,c:7.95},{r:7.0,c:7.95}],
+    [{r:7.45,c:7.0},{r:7.45,c:7.4},{r:7.85,c:7.0},{r:7.85,c:7.4}],
+    [{r:6.6,c:6.05},{r:7.0,c:6.05},{r:6.6,c:6.55},{r:7.0,c:6.55}]
+  ];
+
+  // Yard rectangles (top-left cell + size) for drawing and hit areas.
+  const YARD = [
+    {r:0, c:0, size:6}, {r:0, c:9, size:6},
+    {r:9, c:9, size:6}, {r:9, c:0, size:6}
+  ];
+
+  // Safe ring indices: the four start squares plus four star squares.
+  const SAFE = [12, 20, 51, 7, 38, 46, 25, 33];
+  function isSafe(idx) { return SAFE.indexOf(idx) !== -1; }
+
+  /* ==================================================================
+     SECTION: GAME STATE
+     ================================================================== */
+  let state = "start";   // "start" | "playing" | "over"
+  let cur = 0;           // whose turn
+  let roll = 0;          // last die value
+  let phase = "idle";    // "idle" | "rolling" | "choose" | "moving"
+  let busy = false;      // block input while CPU / animation runs
+  let consecutiveSixes = 0;
+  let currentMoves = [];
+  let winner = -1;
+  let pulse = 0;         // animation clock for highlights
+
+  // tokens[player][index] = { prog, dp }
+  //   prog : logical progress (-1 base, 0..51 ring, 52..56 home col, 57 home)
+  //   dp   : animated progress used for drawing
+  let tokens = [];
+  let wins = Number(localStorage.getItem("ludoWins") || 0);
+
+  /* ==================================================================
+     SECTION: AUDIO  (WebAudio, no assets)
+     ================================================================== */
+  let actx = null;
+  function beep(freq, dur, type, vol) {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type || "square";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(vol == null ? 0.06 : vol, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio unavailable */ }
+  }
+
+  /* ==================================================================
+     SECTION: DOM REFERENCES
+     ================================================================== */
+  const canvas = document.getElementById("board");
+  const ctx = canvas.getContext("2d");
+  const dieEl = document.getElementById("die");
+  const rollBtn = document.getElementById("rollBtn");
+  const restartBtn = document.getElementById("restartBtn");
+  const startBtn = document.getElementById("startBtn");
+  const playAgainBtn = document.getElementById("playAgainBtn");
+  const startScreen = document.getElementById("startScreen");
+  const resultScreen = document.getElementById("resultScreen");
+  const resultBadge = document.getElementById("resultBadge");
+  const resultTitle = document.getElementById("resultTitle");
+  const resultText = document.getElementById("resultText");
+  const turnBar = document.getElementById("turnBar");
+  const turnDot = document.getElementById("turnDot");
+  const turnText = document.getElementById("turnText");
+  const turnSub = document.getElementById("turnSub");
+  const playersEl = document.getElementById("players");
+  const logEl = document.getElementById("log");
+
+  // Build the die pips (3x3 grid of dots).
+  const PIPS = [];
+  for (let k = 0; k < 9; k++) {
+    const s = document.createElement("span");
+    s.className = "pip off";
+    dieEl.appendChild(s);
+    PIPS.push(s);
+  }
+  const FACES = {
+    0: [], 1: [4], 2: [0, 8], 3: [0, 4, 8],
+    4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8]
+  };
+  function renderDie(face) {
+    const on = FACES[face] || [];
+    PIPS.forEach(function (p, i) {
+      p.className = "pip " + (on.indexOf(i) !== -1 ? "on" : "off");
+    });
+  }
+  renderDie(0);
+
+  // Build the player cards.
+  const cardEls = [];
+  (function buildCards() {
+    for (let p = 0; p < 4; p++) {
+      const card = document.createElement("div");
+      card.className = "pcard";
+      card.style.color = HUES[p].dark;
+      card.innerHTML =
+        '<span class="pdot" style="background:' + HUES[p].main + '"></span>' +
+        '<span>' + NAMES[p] + (p === 0 ? " (You)" : "") + '</span>' +
+        '<span class="home-count">0/4</span>';
+      playersEl.appendChild(card);
+      cardEls.push(card);
+    }
+  })();
+
+  function log(msg) {
+    const d = document.createElement("div");
+    d.textContent = msg;
+    logEl.insertBefore(d, logEl.firstChild);
+    while (logEl.childNodes.length > 40) logEl.removeChild(logEl.lastChild);
+  }
+
+  /* ==================================================================
+     SECTION: GEOMETRY HELPERS
+     ================================================================== */
+
+  // Integer progress -> {r, c} cell coordinate.
+  function coordFor(p, prog, ti) {
+    if (prog < 0) return BASE[p][ti];
+    if (prog <= 51) return TRACK[(START[p] + Math.round(prog)) % 52];
+    if (prog <= 56) return HOME[p][Math.min(4, Math.round(prog) - 52)];
+    return CENTER_HOME[p][ti];
+  }
+
+  // Fractional progress -> interpolated coordinate (smooth gliding).
+  function tokenCoord(p, dp, ti) {
+    const lo = Math.floor(dp), hi = Math.ceil(dp);
+    if (lo === hi) return coordFor(p, lo, ti);
+    const a = coordFor(p, lo, ti), b = coordFor(p, hi, ti);
+    const f = dp - lo;
+    return { r: a.r + (b.r - a.r) * f, c: a.c + (b.c - a.c) * f };
+  }
+
+  function px(col) { return (col + 0.5) * CELL; }
+  function py(row) { return (row + 0.5) * CELL; }
+
+  // The ring index a token of player p sits on at progress prog (0..51).
+  function ringIndex(p, prog) { return (START[p] + prog) % 52; }
+
+  /* ==================================================================
+     SECTION: SETUP / RESET
+     ================================================================== */
+  function newTokens() {
+    const arr = [];
+    for (let p = 0; p < 4; p++) {
+      arr.push([]);
+      for (let i = 0; i < 4; i++) arr[p].push({ prog: -1, dp: -1 });
+    }
+    return arr;
+  }
+
+  function resetGame() {
+    tokens = newTokens();
+    cur = 0;
+    roll = 0;
+    phase = "idle";
+    busy = false;
+    consecutiveSixes = 0;
+    currentMoves = [];
+    winner = -1;
+    renderDie(0);
+    logEl.innerHTML = "";
+    log("New game \u2014 Red (You) goes first.");
+    syncUI();
+  }
+  /* ==================================================================
+     SECTION: LEGAL MOVES
+     ================================================================== */
+  function legalMoves(p, r) {
+    const moves = [];
+    const list = tokens[p];
+    for (let i = 0; i < 4; i++) {
+      const t = list[i];
+      if (t.prog === FINISH) continue;          // already home
+      if (t.prog < 0) {                          // waiting in the yard
+        if (r === 6) moves.push({ i: i, from: -1, to: 0 });
+        continue;
+      }
+      const to = t.prog + r;
+      if (to <= FINISH) moves.push({ i: i, from: t.prog, to: to });
+      // to > FINISH means overshoot -> illegal (must land exactly)
+    }
+    return moves;
+  }
+
+  // Opponents sitting on a given ring index (progress 0..51).
+  function enemiesOn(p, ringIdx) {
+    const found = [];
+    for (let o = 0; o < 4; o++) {
+      if (o === p) continue;
+      for (let j = 0; j < 4; j++) {
+        const u = tokens[o][j];
+        if (u.prog >= 0 && u.prog <= 51 && ringIndex(o, u.prog) === ringIdx) {
+          found.push({ o: o, j: j });
+        }
+      }
+    }
+    return found;
+  }
+
+  /* ==================================================================
+     SECTION: APPLY A MOVE
+     ================================================================== */
+  function playMove(p, m) {
+    phase = "moving";
+    busy = true;
+    const t = tokens[p][m.i];
+    const from = t.prog;
+    t.prog = m.to;
+
+    // Capture resolution (only on the open track, never on safe squares).
+    let captured = [];
+    if (t.prog >= 0 && t.prog <= 51) {
+      const ri = ringIndex(p, t.prog);
+      if (!isSafe(ri)) {
+        captured = enemiesOn(p, ri);
+        captured.forEach(function (c) {
+          tokens[c.o][c.j].prog = -1;
+          tokens[c.o][c.j].dp = -1;   // snap back to base
+        });
+      }
+    }
+
+    // Log + sound.
+    if (from < 0) log(NAMES[p] + " brings a token onto the board.");
+    else if (t.prog === FINISH) log(NAMES[p] + " token reaches HOME \u2014 1 more safe!");
+    else if (t.prog > 51) log(NAMES[p] + " token slides into the home column.");
+    else log(NAMES[p] + " moves " + from + " \u2192 " + t.prog + ".");
+
+    if (captured.length) {
+      const victims = captured.map(function (c) { return NAMES[c.o]; });
+      log(NAMES[p] + " captures " + victims.join(" & ") + "! Sent back to base.");
+      beep(170, 0.26, "sawtooth", 0.09);
+    }
+    if (t.prog === FINISH) beep(920, 0.16, "sine", 0.08);
+    else beep(640, 0.06, "triangle", 0.05);
+
+    syncUI();
+
+    // Win check.
+    if (tokens[p].every(function (x) { return x.prog === FINISH; })) {
+      setTimeout(function () { gameOver(p); }, 420);
+      return;
+    }
+
+    // Extra roll on a 6, otherwise hand over.
+    const extra = (roll === 6);
+    setTimeout(function () {
+      if (extra) beginTurn();       // same player rolls again
+      else nextTurn();
+    }, captured.length ? 560 : 440);
+  }
+
+  /* ==================================================================
+     SECTION: CPU DECISION MAKING
+     ================================================================== */
+  function destThreatened(p, ringIdx) {
+    // Roughly: could any opponent reach this square with a single roll?
+    for (let o = 0; o < 4; o++) {
+      if (o === p) continue;
+      for (let j = 0; j < 4; j++) {
+        const u = tokens[o][j];
+        if (u.prog >= 0 && u.prog <= 51) {
+          const d = (ringIdx - ringIndex(o, u.prog) + 52) % 52;
+          if (d >= 1 && d <= 6) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function scoreMove(p, m) {
+    const t = tokens[p][m.i];
+    const to = m.to;
+    let s = (to - Math.max(m.from, 0)) * 2;   // prefer forward progress
+
+    if (to === FINISH) s += 1000;              // finish a token
+    if (to >= 52 && to <= 56) s += 260;        // reach the safety of home column
+    if (m.from < 0) s += 320;                  // deploy a fresh token
+
+    if (to >= 0 && to <= 51) {
+      const ri = ringIndex(p, to);
+      if (!isSafe(ri)) {
+        const en = enemiesOn(p, ri);
+        if (en.length) s += 550;               // a capture
+        else if (destThreatened(p, ri)) s -= 70; // risky landing
+      } else {
+        s += 45;                               // land on a safe square
+      }
+    }
+    return s;
+  }
+
+  function chooseCPU(p, moves) {
+    let best = moves[0], bestScore = -1e9;
+    for (let k = 0; k < moves.length; k++) {
+      const s = scoreMove(p, moves[k]) + Math.random() * 6; // tiny tiebreak
+      if (s > bestScore) { bestScore = s; best = moves[k]; }
+    }
+    return best;
+  }
+
+  /* ==================================================================
+     SECTION: TURN FLOW
+     ================================================================== */
+  function nextTurn() {
+    consecutiveSixes = 0;
+    cur = (cur + 1) % 4;
+    beginTurn();
+  }
+
+  function beginTurn() {
+    if (state !== "playing") return;
+    phase = "idle";
+    currentMoves = [];
+    syncUI();
+    if (cur === 0) {
+      busy = false;                       // human waits for the Roll button
+    } else {
+      busy = true;
+      setTimeout(function () { if (state === "playing" && cur !== 0) doRoll(); }, 620);
+    }
+  }
+
+  function doRoll() {
+    if (state !== "playing" || phase === "rolling" || phase === "moving") return;
+    phase = "rolling";
+    busy = true;
+    syncUI();
+    dieEl.classList.add("rolling");
+    let n = 0;
+    const iv = setInterval(function () {
+      if (state !== "playing") { clearInterval(iv); dieEl.classList.remove("rolling"); return; }
+      renderDie(1 + Math.floor(Math.random() * 6));
+      n++;
+      if (n >= 7) {
+        clearInterval(iv);
+        dieEl.classList.remove("rolling");
+        roll = 1 + Math.floor(Math.random() * 6);
+        renderDie(roll);
+        beep(520, 0.09, "square", 0.06);
+        onRolled();
+      }
+    }, 60);
+  }
+
+  function onRolled() {
+    if (state !== "playing") return;
+    if (roll === 6) consecutiveSixes++; else consecutiveSixes = 0;
+
+    // Three sixes in a row forfeits the turn.
+    if (consecutiveSixes >= 3) {
+      log(NAMES[cur] + " rolled three 6s \u2014 turn forfeited.");
+      beep(200, 0.2, "sawtooth", 0.07);
+      busy = true;
+      setTimeout(nextTurn, 700);
+      return;
+    }
+
+    currentMoves = legalMoves(cur, roll);
+    syncUI();
+
+    if (currentMoves.length === 0) {
+      log(NAMES[cur] + " rolled " + roll + " \u2014 no move.");
+      busy = true;
+      setTimeout(function () {
+        if (roll === 6) beginTurn();  // bonus roll even without a move
+        else nextTurn();
+      }, 760);
+      return;
+    }
+
+    phase = "choose";
+
+    if (cur === 0) {
+      busy = false;
+      // With a single option, play it automatically for a snappier feel.
+      if (currentMoves.length === 1) {
+        busy = true;
+        setTimeout(function () { playMove(0, currentMoves[0]); }, 420);
+      } else {
+        log("Your move \u2014 tap a glowing token (rolled " + roll + ").");
+      }
+    } else {
+      busy = true;
+      setTimeout(function () {
+        if (state !== "playing") return;
+        playMove(cur, chooseCPU(cur, currentMoves));
+      }, 560);
+    }
+  }
+
+  function gameOver(p) {
+    if (state !== "playing") return;
+    state = "over";
+    phase = "idle";
+    busy = true;
+    winner = p;
+    if (p === 0) {
+      wins++;
+      localStorage.setItem("ludoWins", String(wins));
+      beep(660, 0.12, "sine", 0.09);
+      setTimeout(function () { beep(880, 0.2, "sine", 0.09); }, 140);
+    } else {
+      beep(200, 0.3, "sawtooth", 0.09);
+    }
+    log((p === 0 ? "You win!" : NAMES[p] + " wins.") + " Game over.");
+    resultBadge.textContent = p === 0 ? "\uD83C\uDFC6" : "\uD83D\uDE15";
+    resultTitle.textContent = p === 0 ? "You Win!" : NAMES[p] + " Wins";
+    resultText.textContent =
+      p === 0
+        ? "All four red tokens made it home. Total wins: " + wins + "."
+        : "The " + NAMES[p] + " tokens got home first. Total wins: " + wins + ".";
+    resultScreen.classList.remove("hidden");
+    syncUI();
+  }
+  /* ==================================================================
+     SECTION: UI SYNC
+     ================================================================== */
+  function syncUI() {
+    // Turn bar.
+    if (state === "start") {
+      turnBar.style.borderLeftColor = "#999";
+      turnDot.style.background = "#999";
+      turnText.textContent = "Ready";
+      turnSub.textContent = "Press Start to play";
+    } else if (state === "over") {
+      turnBar.style.borderLeftColor = winner === 0 ? HUES[0].main : HUES[winner].main;
+      turnDot.style.background = winner === 0 ? HUES[0].main : HUES[winner].main;
+      turnText.textContent = winner === 0 ? "You Win!" : NAMES[winner] + " Wins";
+      turnSub.textContent = "Total wins: " + wins;
+    } else {
+      turnBar.style.borderLeftColor = HUES[cur].main;
+      turnDot.style.background = HUES[cur].main;
+      turnText.textContent = NAMES[cur] + (cur === 0 ? " (You)" : " (CPU)");
+      if (phase === "choose" && cur === 0) turnSub.textContent = "Tap a glowing token";
+      else if (cur === 0) turnSub.textContent = "Your turn \u2014 roll the die";
+      else turnSub.textContent = "Thinking\u2026";
+    }
+
+    // Roll button.
+    const canRoll = (state === "playing" && cur === 0 && phase === "idle" && !busy);
+    rollBtn.disabled = !canRoll;
+    rollBtn.textContent = (state === "playing" && cur !== 0) ? "CPU\u2026" : "Roll";
+
+    // Player cards.
+    for (let p = 0; p < 4; p++) {
+      let home = 0;
+      for (let i = 0; i < 4; i++) if (tokens[p] && tokens[p][i].prog === FINISH) home++;
+      cardEls[p].classList.toggle("active", state === "playing" && cur === p);
+      cardEls[p].lastChild.textContent = home + "/4";
+    }
+  }
+
+  /* ==================================================================
+     SECTION: RENDERING
+     ================================================================== */
+  function roundRect(x, y, w, h, rad) {
+    ctx.beginPath();
+    ctx.moveTo(x + rad, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rad);
+    ctx.arcTo(x + w, y + h, x, y + h, rad);
+    ctx.arcTo(x, y + h, x, y, rad);
+    ctx.arcTo(x, y, x + w, y, rad);
+    ctx.closePath();
+  }
+
+  function drawBoard() {
+    // Paper background.
+    ctx.fillStyle = "#fbf6ea";
+    ctx.fillRect(0, 0, W, H);
+
+    // Yards.
+    for (let p = 0; p < 4; p++) {
+      const y = YARD[p];
+      const x0 = y.c * CELL, y0 = y.r * CELL, sz = y.size * CELL;
+      ctx.fillStyle = HUES[p].main;
+      roundRect(x0, y0, sz, sz, 10);
+      ctx.fill();
+      // Inner white resting area.
+      ctx.fillStyle = "#ffffff";
+      roundRect(x0 + CELL * 0.6, y0 + CELL * 0.6, sz - CELL * 1.2, sz - CELL * 1.2, 8);
+      ctx.fill();
+      ctx.strokeStyle = HUES[p].dark;
+      ctx.lineWidth = 2;
+      roundRect(x0 + CELL * 0.6, y0 + CELL * 0.6, sz - CELL * 1.2, sz - CELL * 1.2, 8);
+      ctx.stroke();
+    }
+
+    // Track squares.
+    for (let i = 0; i < 52; i++) {
+      const rr = TRACK[i][0], cc = TRACK[i][1];
+      const x = cc * CELL, y = rr * CELL;
+      ctx.fillStyle = isSafe(i) ? "#efe0bd" : "#f6efdd";
+      roundRect(x + 2, y + 2, CELL - 4, CELL - 4, 5);
+      ctx.fill();
+      ctx.strokeStyle = "#d8cbb0";
+      ctx.lineWidth = 1.5;
+      roundRect(x + 2, y + 2, CELL - 4, CELL - 4, 5);
+      ctx.stroke();
+
+      if (isSafe(i)) {
+        // Star marker.
+        drawStar(x + CELL / 2, y + CELL / 2, CELL * 0.22, "#c9a94f");
+      }
+    }
+
+    // Coloured start squares + arrows.
+    for (let p = 0; p < 4; p++) {
+      const c = TRACK[START[p]];
+      ctx.fillStyle = HUES[p].light;
+      roundRect(c[1] * CELL + 2, c[0] * CELL + 2, CELL - 4, CELL - 4, 5);
+      ctx.fill();
+      ctx.strokeStyle = HUES[p].dark;
+      ctx.lineWidth = 2;
+      roundRect(c[1] * CELL + 2, c[0] * CELL + 2, CELL - 4, CELL - 4, 5);
+      ctx.stroke();
+    }
+
+    // Home columns.
+    for (let p = 0; p < 4; p++) {
+      for (let k = 0; k < 5; k++) {
+        const rr = HOME[p][k][0], cc = HOME[p][k][1];
+        ctx.fillStyle = HUES[p].light;
+        roundRect(cc * CELL + 2, rr * CELL + 2, CELL - 4, CELL - 4, 5);
+        ctx.fill();
+        ctx.strokeStyle = HUES[p].main;
+        ctx.lineWidth = 1.5;
+        roundRect(cc * CELL + 2, rr * CELL + 2, CELL - 4, CELL - 4, 5);
+        ctx.stroke();
+      }
+    }
+
+    // Centre home triangles.
+    const cx = 7.5 * CELL, cy = 7.5 * CELL;
+    const a = 6 * CELL, b = 9 * CELL;
+    const tri = [
+      { pts: [[a, a], [b, a]], color: 0 },   // top    -> Red
+      { pts: [[b, a], [b, b]], color: 1 },   // right  -> Green
+      { pts: [[b, b], [a, b]], color: 2 },   // bottom -> Yellow
+      { pts: [[a, b], [a, a]], color: 3 }    // left   -> Blue
+    ];
+    tri.forEach(function (t) {
+      ctx.beginPath();
+      ctx.moveTo(t.pts[0][0], t.pts[0][1]);
+      ctx.lineTo(t.pts[1][0], t.pts[1][1]);
+      ctx.lineTo(cx, cy);
+      ctx.closePath();
+      ctx.fillStyle = HUES[t.color].main;
+      ctx.fill();
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    });
+
+    // Board outline around the cross.
+    ctx.strokeStyle = "#e2d7bd";
+    ctx.lineWidth = 6;
+    ctx.strokeRect(3, 3, W - 6, H - 6);
+  }
+
+  function drawStar(cx2, cy2, r, color) {
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const ang = -Math.PI / 2 + i * Math.PI / 5;
+      const rad = (i % 2 === 0) ? r : r * 0.45;
+      const x = cx2 + Math.cos(ang) * rad;
+      const y = cy2 + Math.sin(ang) * rad;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+
+  const OFFSETS = {
+    1: [[0, 0]],
+    2: [[-0.16, 0], [0.16, 0]],
+    3: [[0, -0.17], [-0.16, 0.11], [0.16, 0.11]],
+    4: [[-0.16, -0.16], [0.16, -0.16], [-0.16, 0.16], [0.16, 0.16]]
+  };
+
+  function drawTokens() {
+    // Group tokens that share a cell so they do not fully overlap.
+    const info = [];
+    const groups = {};
+    for (let p = 0; p < 4; p++) {
+      for (let i = 0; i < 4; i++) {
+        const t = tokens[p][i];
+        const co = tokenCoord(p, t.dp, i);
+        let key;
+        if (t.dp < 0) key = "B" + p + i;            // base: unique
+        else if (t.dp > 56.5) key = "H" + p + i;    // home: unique
+        else key = Math.round(co.r) + "," + Math.round(co.c);
+        const rec = { p: p, i: i, co: co, key: key };
+        info.push(rec);
+        (groups[key] = groups[key] || []).push(info.length - 1);
+      }
+    }
+    // Assign offsets within each group.
+    Object.keys(groups).forEach(function (k) {
+      const idxs = groups[k];
+      const n = Math.min(idxs.length, 4);
+      const offs = OFFSETS[Math.max(1, n)];
+      idxs.forEach(function (gi, k2) {
+        const o = offs[Math.min(k2, offs.length - 1)];
+        info[gi].ox = o[0] * CELL;
+        info[gi].oy = o[1] * CELL;
+      });
+    });
+
+    // Movable set (for highlight).
+    const movable = {};
+    if (state === "playing" && cur === 0 && phase === "choose") {
+      currentMoves.forEach(function (m) { movable[m.i] = true; });
+    }
+
+    // Draw the current player's movable tokens last (on top).
+    info.sort(function (a, b) {
+      const am = movable[a.i] ? 1 : 0, bm = movable[b.i] ? 1 : 0;
+      return am - bm;
+    });
+
+    info.forEach(function (rec) {
+      const t = tokens[rec.p][rec.i];
+      const x = px(rec.co.c) + (rec.ox || 0);
+      const y = py(rec.co.r) + (rec.oy || 0);
+      const r = CELL * 0.30;
+      const finished = t.prog === FINISH;
+
+      // Highlight ring for movable tokens.
+      if (movable[rec.i]) {
+        const glow = 0.5 + 0.5 * Math.sin(pulse * 0.2);
+        ctx.beginPath();
+        ctx.arc(x, y, r + 5 + glow * 3, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(106,90,205," + (0.45 + glow * 0.5) + ")";
+        ctx.lineWidth = 3.5;
+        ctx.stroke();
+      }
+
+      // Shadow.
+      ctx.beginPath();
+      ctx.ellipse(x, y + r * 0.55, r * 0.85, r * 0.4, 0, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(0,0,0,0.16)";
+      ctx.fill();
+
+      // Body.
+      const grad = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.2, x, y, r * 1.1);
+      grad.addColorStop(0, "#ffffff");
+      grad.addColorStop(0.35, HUES[rec.p].main);
+      grad.addColorStop(1, HUES[rec.p].dark);
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = finished ? "#ffffff" : HUES[rec.p].dark;
+      ctx.stroke();
+
+      // Inner dot / home star.
+      if (finished) {
+        drawStar(x, y, r * 0.55, "#ffffff");
+      } else {
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.34, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255,255,255,0.75)";
+        ctx.fill();
+      }
+    });
+  }
+
+  function render() {
+    drawBoard();
+    drawTokens();
+  }
+
+  /* ==================================================================
+     SECTION: INPUT
+     ================================================================== */
+  function onCanvasTap(e) {
+    if (state !== "playing" || cur !== 0 || phase !== "choose" || busy) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width * W;
+    const y = (e.clientY - rect.top) / rect.height * H;
+    let best = null, bestD = CELL * 0.95;
+    currentMoves.forEach(function (m) {
+      const t = tokens[0][m.i];
+      const co = tokenCoord(0, t.dp, m.i);
+      const d = Math.hypot(px(co.c) - x, py(co.r) - y);
+      if (d < bestD) { bestD = d; best = m; }
+    });
+    if (best) playMove(0, best);
+  }
+
+  rollBtn.addEventListener("click", function () {
+    if (state === "playing" && cur === 0 && phase === "idle" && !busy) doRoll();
+  });
+  canvas.addEventListener("pointerdown", onCanvasTap);
+
+  restartBtn.addEventListener("click", function () {
+    state = "start";
+    resetGame();
+    resultScreen.classList.add("hidden");
+    startScreen.classList.remove("hidden");
+    syncUI();
+  });
+  startBtn.addEventListener("click", startGame);
+  playAgainBtn.addEventListener("click", startGame);
+
+  document.addEventListener("keydown", function (e) {
+    if (e.code === "Space" || e.code === "Enter") {
+      if (state === "playing" && cur === 0 && phase === "idle" && !busy) {
+        e.preventDefault();
+        doRoll();
+      }
+    } else if (e.code === "KeyR") {
+      e.preventDefault();
+      state = "start";
+      resetGame();
+      resultScreen.classList.add("hidden");
+      startScreen.classList.remove("hidden");
+      syncUI();
+    }
+  });
+
+  /* ==================================================================
+     SECTION: START
+     ================================================================== */
+  function startGame() {
+    resetGame();
+    state = "playing";
+    startScreen.classList.add("hidden");
+    resultScreen.classList.add("hidden");
+    beginTurn();
+  }
+
+  /* ==================================================================
+     SECTION: MAIN LOOP  (smooth token gliding + highlight pulse)
+     ================================================================== */
+  function loop() {
+    pulse++;
+    for (let p = 0; p < 4; p++) {
+      for (let i = 0; i < 4; i++) {
+        const t = tokens[p][i];
+        if (!t) continue;
+        const diff = t.prog - t.dp;
+        if (Math.abs(diff) < 0.02) t.dp = t.prog;
+        else t.dp += diff * 0.18;
+      }
+    }
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  // Initial paint.
+  tokens = newTokens();
+  syncUI();
+  loop();
+
+})();
+
+
+
+</script>
+</body>
+</html>
