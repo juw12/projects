@@ -1,8 +1,8 @@
 # Guang Yao Together · 光耀同行
 
-**Unofficial 發一光耀 learning/community app · installable PWA · v4.0.0 public beta.**
+**Unofficial 發一光耀 learning/community app · installable PWA · v4.0.1 public beta.**
 
-Live: <https://juwpegatron.github.io/projects/guangyao/> · Admin console: <https://juwpegatron.github.io/projects/guangyao/admin.html> · Content repository: <https://github.com/juwpegatron/guangyao-content>
+Live: <https://juw12.github.io/projects/guangyao/> · Admin console: <https://juw12.github.io/projects/guangyao/admin.html> · Published content: <https://github.com/juw12/projects/tree/main/content/guangyao>
 
 One responsive app for desktop and phones (iPhone: Safari → Share → Add to Home Screen). Version 4 turns the study prototype into something people can actually use:
 
@@ -23,10 +23,10 @@ One responsive app for desktop and phones (iPhone: Safari → Share → Add to H
 
 ## How admins publish
 
-Admins are collaborators on `juwpegatron/guangyao-content`. The full step-by-step guide is in `docs/admin-guide.md`; in short:
+Admins are collaborators on `juw12/projects`. The full step-by-step guide is in `docs/admin-guide.md`; in short:
 
 1. The owner adds a collaborator (repository → Settings → Collaborators).
-2. The admin creates a token: the owner can use a **fine-grained token** limited to `guangyao-content` with *Contents: Read and write*; collaborators use a **classic token** with the `public_repo` scope (fine-grained tokens cannot write to another user's personal repository).
+2. The admin creates a token: the owner can use a **fine-grained token** limited to `projects` with *Contents: Read and write*; collaborators use a **classic token** with the `public_repo` scope (fine-grained tokens cannot write to another user's personal repository).
 3. Open `admin.html`, paste the token. It is checked against `/user` and the repository's push permission and is kept in session storage only (unless "remember on this device" is ticked). Sign out removes it.
 4. Publish. Each change is a commit (file first, then `catalog.json`, with conflict retries), so the repository history is the audit log and anything can be reverted.
 
@@ -39,7 +39,7 @@ Limits: files ≤ 20 MB (put video on YouTube, unlisted is fine); the content re
 - `web/catalog.js` – fetches and sanitizes the published catalog (ID/HTTPS/YouTube/path validation, drafts hidden, 5-minute cache with API fallback).
 - `web/account.js` – welcome gate, Puter sign-in/guest mode, cloud sync (chunked `puter.kv` keys, merge never loses XP/cards/completions), official library, guide, tour and announcement.
 - `web/admin.html`, `web/admin.js` – GitHub-backed admin console (not cached by the service worker).
-- `web/sw.js` – caches the exact public shell (release 4.0.0); updates wait for user approval.
+- `web/sw.js` – caches the exact public shell (release 4.0.1); updates wait for user approval.
 
 No build step and no server of our own: GitHub Pages hosts the app, GitHub stores content, Puter provides accounts, storage and AI.
 
@@ -71,3 +71,12 @@ Points/rewards, giving, community chat/polls, meetings and referrals remain loca
 Confirm institutional authorization, content ownership, teaching standards, certificate issuer, age/region policy, moderation, privacy/retention and accessibility. Donations need a legal recipient and payment provider. None of this is solved by static hosting.
 
 Code follows the repository's MIT license. That license does not grant permission to use organizational trademarks, teaching materials or imply official endorsement.
+
+## Repository migration
+
+The catalog now lives at `content/guangyao/catalog.json` and uploads at
+`content/guangyao/files/` in `juw12/projects`. Admin tokens must have access to
+this repository. Write permission covers all of Projects, not only this folder.
+Browser-only progress and installed PWAs do not automatically move between
+`juwpegatron.github.io` and `juw12.github.io`; keep the old installation until
+needed data has been recovered or account sync has been verified.

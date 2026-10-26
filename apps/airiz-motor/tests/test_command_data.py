@@ -268,7 +268,7 @@ def main():
             desktop_download = (
                 p.name == "index.html"
                 and re.fullmatch(
-                    r"https://github\.com/juwpegatron/projects/releases/download/"
+                    r"https://github\.com/juw12/projects/releases/download/"
                     r"airiz-desktop-v(?P<version>\d+\.\d+\.\d+)/"
                     r"AIRIZ-Console-(Setup|Portable)-(?P=version)-x64\.exe",
                     r,

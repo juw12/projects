@@ -38,7 +38,7 @@ ANGLE_WORDS = {
     "spesifikasi": 1, "baterai": 1, "power bank": 2, "langganan": 2, "tarif": 2, "naik": 1, "mahal": 2,
     "murah": 2, "belanja": 3, "shopee": 2, "tokopedia": 2, "tiktok shop": 2, "lazada": 2,
 }
-USER_AGENT = "Mozilla/5.0 (Shortcraft trend brief; +https://juwpegatron.github.io/projects/shortcraft/)"
+USER_AGENT = "Mozilla/5.0 (Shortcraft trend brief; +https://juw12.github.io/projects/shortcraft/)"
 
 
 def fetch(url, timeout=20):
