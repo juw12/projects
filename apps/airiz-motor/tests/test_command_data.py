@@ -285,13 +285,16 @@ def main():
                     )
                 )
             )
-            if (r.startswith("/") or re.match(r"^[a-z]+://", r)) and not (desktop_download or mobile_download):
+            # Bluefy (free Web Bluetooth browser for iPhone) — the only allowed store link.
+            bluefy_store = p.name == "index.html" and r == "https://apps.apple.com/app/id1492822055"
+            allowed_external = desktop_download or mobile_download or bluefy_store
+            if (r.startswith("/") or re.match(r"^[a-z]+://", r)) and not allowed_external:
                 offenders.append(f"{p.name}: {r}")
         if re.search(r"onclick\s*=", txt):
             offenders.append(f"{p.name}: inline onclick")
         if re.search(r"(unpkg|jsdelivr|cdnjs|googleapis)", txt):
             offenders.append(f"{p.name}: external CDN reference")
-    check(not offenders, "no absolute-root refs / CDNs / inline handlers; only explicit AIRIZ desktop release links allowed"
+    check(not offenders, "no absolute-root refs / CDNs / inline handlers; only explicit AIRIZ release links + Bluefy store link allowed"
           + ("" if not offenders else f" — {offenders}"))
 
     print("\n" + "=" * 52)
