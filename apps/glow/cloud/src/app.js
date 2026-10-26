@@ -9,42 +9,66 @@ const PATHS = new Set(["status", "observe", "act", "close"]);
 const MAX_BODY = 64 * 1024;
 const KEEP_ALIVE_MS = 10 * 60 * 1000;
 
+function withTimeout(promise, ms, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(label + " took too long")), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export function pageDriver(page) {
   const selector = (ref) => '[data-glow-ref="' + Number(ref) + '"]';
+  // Every step has a time limit so a stuck page can never hang the request.
   return {
-    evaluate: (source, arg) => page.evaluate("(" + source + ")(" + JSON.stringify(arg) + ")"),
-    goto: (url) => page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 }),
-    back: () => page.goBack({ waitUntil: "domcontentloaded", timeout: 15000 }).catch(() => null),
+    evaluate: (source, arg) => withTimeout(page.evaluate("(" + source + ")(" + JSON.stringify(arg) + ")"), 15000, "Reading the page"),
+    goto: (url) => withTimeout(page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 }), 35000, "Opening the page"),
+    back: () => withTimeout(page.goBack({ waitUntil: "domcontentloaded", timeout: 15000 }), 18000, "Going back").catch(() => null),
     info: async () => {
       // Reading the title fails while a page is still navigating; give it a moment and try again.
-      for (let attempt = 0; attempt < 5; attempt += 1) {
+      for (let attempt = 0; attempt < 6; attempt += 1) {
         try {
-          return { url: page.url(), title: await page.title() };
+          return { url: page.url(), title: await withTimeout(page.title(), 3000, "Reading the title") };
         } catch (error) {
-          await new Promise((resolve) => setTimeout(resolve, 500));
+          await pause(700);
         }
       }
       return { url: page.url(), title: "" };
     },
     settle: async () => {
-      await page.waitForNetworkIdle({ idleTime: 400, timeout: 5000 }).catch(() => {});
+      await withTimeout(page.waitForNetworkIdle({ idleTime: 400, timeout: 5000 }), 6000, "Waiting for the page").catch(() => {});
     },
     click: async (ref) => {
-      const navigation = page.waitForNavigation
-        ? page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 8000 }).catch(() => null)
-        : Promise.resolve(null);
-      await page.click(selector(ref));
-      await navigation;
+      // Click inside the page on the next tick, so this call returns before any navigation starts.
+      const clicked = await withTimeout(
+        page.evaluate(
+          "(() => { const node = document.querySelector(" + JSON.stringify(selector(ref)) + "); if (!node) return false; " +
+            "node.scrollIntoView({ block: 'center' }); setTimeout(() => node.click(), 0); return true; })()",
+        ),
+        10000,
+        "Clicking",
+      );
+      if (!clicked) throw new Error("That element is no longer on the page. Observe again.");
+      await pause(800);
+      if (page.waitForNavigation) {
+        await withTimeout(page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 8000 }), 9000, "Loading").catch(() => null);
+      }
     },
     fill: async (ref, text) => {
-      await page.$eval(selector(ref), (node) => {
-        if (node.isContentEditable) node.textContent = "";
-        else node.value = "";
-      });
-      await page.type(selector(ref), text);
+      await withTimeout(
+        page.$eval(selector(ref), (node) => {
+          if (node.isContentEditable) node.textContent = "";
+          else node.value = "";
+        }),
+        10000,
+        "Clearing the field",
+      );
+      await withTimeout(page.type(selector(ref), text), 20000, "Typing");
     },
-    press: (key) => page.keyboard.press(key),
-    scroll: (dy) => page.mouse.wheel({ deltaY: dy }),
+    press: (key) => withTimeout(page.keyboard.press(key), 10000, "Pressing a key"),
+    scroll: (dy) => withTimeout(page.mouse.wheel({ deltaY: dy }), 10000, "Scrolling"),
   };
 }
 
