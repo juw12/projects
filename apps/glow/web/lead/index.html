@@ -57,7 +57,7 @@
     <div class="sidebar-foot"><span class="online-dot" aria-hidden="true"></span> Browser-first workspace<p>History stays in this browser. AI requests go to your chosen provider. Keep this tab open while work runs.</p><a href="../">← All Glow apps</a></div>
   </aside>
   <main id="workspace" tabindex="-1">
-    <div class="workspace-label"><span>YOUR AI TEAM, WITH YOU IN CONTROL</span><span class="version-pill">GlowLead / 0.11</span></div>
+    <div class="workspace-label"><span>YOUR AI TEAM, WITH YOU IN CONTROL</span><span class="version-pill">GlowLead / 0.12</span></div>
     <section class="hero">
       <p class="eyebrow">From a spark to something real</p>
       <h1>Big idea.<br><span>Clear next steps.</span></h1>
@@ -117,18 +117,20 @@
 <dialog id="hands-dialog" aria-labelledby="hands-title">
   <form id="hands-form"><h2 id="hands-title">Connect Glow Hands</h2>
     <p class="helper">Glow Hands is a small program on your PC that lets GlowLead open sites, click, type and fill forms in its own browser window. You can watch and take over at any time.</p>
-    <ol class="setup-steps">
-      <li>Install Python 3.10+ if needed.</li>
-      <li>Download <a href="https://github.com/juw12/projects/tree/main/apps/glow/hands" target="_blank" rel="noopener noreferrer">the Glow Hands folder</a> and double-click <code>start-glow-hands.cmd</code> (uses Microsoft Edge).</li>
-      <li>Paste the pairing token it prints below. If your browser asks to allow access to devices on your local network, allow it for this site.</li>
-    </ol>
+    <button class="btn primary" id="hands-auto" type="button">Find &amp; connect automatically</button>
+    <p class="helper">Finds Glow Hands on this PC. Windows asks <b>"Allow this browser?"</b>; click Yes. No code to type. If your browser asks about local network access, allow it.</p>
+    <h3 class="setup-heading">New PC? Install in one step</h3>
+    <p class="helper">Press <b>Win + R</b>, paste this, press Enter. It installs Glow Hands, starts it at every login, and connects this site.</p>
+    <div class="install-command"><code id="hands-install-command">powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/juw12/projects/main/apps/glow/hands/install-glow-hands.ps1 | iex"</code><button class="btn small" id="hands-copy-install" type="button">Copy</button></div>
+    <details class="manual-pairing"><summary>Connect manually with a pairing code</summary>
     <label for="hands-url">Address</label>
     <input id="hands-url" value="http://127.0.0.1:8765" autocomplete="off">
     <label for="hands-token">Pairing token</label>
     <input id="hands-token" autocomplete="off" spellcheck="false" placeholder="Shown when Glow Hands starts">
+    </details>
     <p class="helper"><b>It always asks you</b> before submitting, buying, sending, posting or deleting. It never types passwords, card numbers or codes; you type those in its window. It uses its own browser profile, and blocks local-network pages by default.</p>
     <p id="hands-test-result" class="helper" role="status"></p>
-    <div class="start-actions"><button class="btn primary" type="submit">Save &amp; test</button><button class="btn" id="hands-cancel" type="button">Close</button></div>
+    <div class="start-actions"><button class="btn" type="submit">Save &amp; test code</button><button class="btn" id="hands-cancel" type="button">Close</button></div>
   </form>
 </dialog>
 <dialog id="automation-dialog" aria-labelledby="automation-title">
