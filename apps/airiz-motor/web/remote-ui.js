@@ -70,62 +70,21 @@
   }
 
   // ------------------------------------------------------------ iPhone button (Bluefy)
-  // Inside Bluefy (or any browser with Web Bluetooth) the button connects directly.
-  // In Safari it opens this page in Bluefy; only if Bluefy does not open (not
-  // installed) does it fall back to the App Store page.
+  // Inside Bluefy the button connects directly. Everywhere else it is a plain link to
+  // iphone.html, which opens this console in Bluefy (App Store only if not installed).
   const iphoneButton = $('iphone-bluefy');
-  const BLUEFY_OPEN = 'bluefy://open?url=';
-  const BLUEFY_SEEN_KEY = 'airiz.bluefyInstalled';
   const CONNECT_PARAM = 'ble';
-
-  function connectUrl() {
-    return location.origin + location.pathname + '?' + CONNECT_PARAM + '=connect';
-  }
-
-  function openInBluefy(storeUrl) {
-    let leftPage = false;
-    const markLeft = () => {
-      leftPage = true;
-      try {
-        localStorage.setItem(BLUEFY_SEEN_KEY, '1');
-      } catch (error) { /* private mode */ }
-    };
-    const onVisibility = () => {
-      if (document.hidden) markLeft();
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('pagehide', markLeft, { once: true });
-    toast('Opening Bluefy…');
-    window.location.assign(BLUEFY_OPEN + connectUrl());
-
-    let knownInstalled = false;
-    try {
-      knownInstalled = localStorage.getItem(BLUEFY_SEEN_KEY) === '1';
-    } catch (error) { /* private mode */ }
-    // Bluefy opened before on this phone: never bounce to the store.
-    if (knownInstalled) return;
-    setTimeout(() => {
-      document.removeEventListener('visibilitychange', onVisibility);
-      if (!leftPage && !document.hidden) window.location.assign(storeUrl);
-    }, 2500);
-  }
+  const inBluefy = () => /Bluefy/i.test(navigator.userAgent) || (!!navigator.bluetooth && ble.isIos());
 
   if (iphoneButton && !native) {
-    const inBluefy = !!navigator.bluetooth && ble.isIos();
-    if (inBluefy) {
+    if (inBluefy()) {
       iphoneButton.textContent = 'Connect AIRIZ';
       iphoneButton.title = 'Connect to the AIRIZ Bluetooth remote (AIRIZ-BT) and enter its PIN.';
-      iphoneButton.removeAttribute('target');
     }
     iphoneButton.addEventListener('click', event => {
-      if (inBluefy) {
-        event.preventDefault();
-        connectBluetooth();
-        return;
-      }
-      if (!ble.isIos()) return; // PC/Android without Web Bluetooth: show the store page
+      if (!inBluefy()) return; // follow the link to iphone.html
       event.preventDefault();
-      openInBluefy(iphoneButton.href);
+      connectBluetooth();
     });
   }
 

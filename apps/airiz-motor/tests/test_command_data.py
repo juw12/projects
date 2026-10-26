@@ -286,7 +286,7 @@ def main():
                 )
             )
             # Bluefy (free Web Bluetooth browser for iPhone) — the only allowed store link.
-            bluefy_store = p.name == "index.html" and r == "https://apps.apple.com/app/id1492822055"
+            bluefy_store = p.name in ("index.html", "iphone.html") and r == "https://apps.apple.com/app/id1492822055"
             allowed_external = desktop_download or mobile_download or bluefy_store
             if (r.startswith("/") or re.match(r"^[a-z]+://", r)) and not allowed_external:
                 offenders.append(f"{p.name}: {r}")
