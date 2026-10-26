@@ -444,44 +444,127 @@ async function streamReply(modelValue, system, messages, onText) {
       headers["X-Title"] = "Glow";
     }
     const body = JSON.stringify({ model, stream: true, messages: [{ role: "system", content: system }, ...mergeRoles(clean)] });
-    let waiting = false;
-    let response;
-    try {
-      response = await fetchWithRetry(
-        () => fetch(`${config.base}/chat/completions`, { method: "POST", headers, signal: controller.signal, body }),
-        controller.signal,
-        (seconds, attempt) => {
-          if (!waiting) {
-            waiting = true;
-            rateNotice.waiting += 1;
-          }
-          showRateWait(provider, seconds, attempt);
-        },
-      );
-    } finally {
-      if (waiting) rateNotice.waiting -= 1;
-    }
-    if (response.status === 429) {
-      showRateLimited(provider);
-    } else if (waiting) {
-      settleRateNotice();
-    }
-    if (!response.ok) {
-      const detail = await response.text().catch(() => "");
-      throw new Error(friendlyError(response.status, detail, provider));
-    }
-    try {
-      return await readSse(response, onText);
-    } catch (error) {
-      if (error.name !== "AbortError" && RATE_LIMIT_TEXT.test(error.message || "")) {
-        showRateLimited(provider);
-        throw new Error(friendlyError(429, error.message, provider));
+    // Shared free endpoints sometimes accept a request and never answer, stall mid-stream (or send only
+    // keep-alive pings), or drop the connection. Each try gets a watchdog; a stuck or dropped try is sent
+    // again once instead of leaving the reply spinning forever. ■ Stop still aborts everything at once.
+    const limits = chatTimeouts();
+    for (let tryNo = 0; ; tryNo++) {
+      const watchdog = replyWatchdog(controller.signal);
+      let latest = "";
+      try {
+        return await sendOnce(watchdog, limits, (full) => {
+          latest = full;
+          onText(full);
+        });
+      } catch (error) {
+        if (controller.signal.aborted) throw error; // the user pressed Stop
+        const stuck = watchdog.timedOut;
+        const dropped = !stuck && error && error.name === "TypeError";
+        if (!stuck && !dropped) throw error;
+        if (latest.replace(/<think>[\s\S]*?(<\/think>|$)/g, "").trim().length > 200) return latest; // keep a long partial answer
+        if (tryNo >= 1) {
+          throw new Error(stuck
+            ? "The AI didn't answer in time. Press ↻ Regenerate or try again in a minute; signing in gives faster models."
+            : "The connection to the AI dropped. Press ↻ Regenerate or try again.");
+        }
+        $("status").textContent = stuck ? "The AI is slow to answer, so it is being asked again…" : "The connection dropped, so the request is being sent again…";
+        onText("");
+        await sleep(2000, controller.signal);
+      } finally {
+        watchdog.done();
       }
-      throw error;
+    }
+
+    async function sendOnce(watchdog, timeouts, onFull) {
+      let waiting = false;
+      let response;
+      try {
+        response = await fetchWithRetry(
+          async () => {
+            watchdog.arm(timeouts.request); // waiting out the free limit between tries is not counted
+            try {
+              return await fetch(`${config.base}/chat/completions`, { method: "POST", headers, signal: watchdog.signal, body });
+            } finally {
+              watchdog.pause();
+            }
+          },
+          watchdog.signal,
+          (seconds, attempt) => {
+            if (!waiting) {
+              waiting = true;
+              rateNotice.waiting += 1;
+            }
+            showRateWait(provider, seconds, attempt);
+          },
+        );
+      } finally {
+        if (waiting) rateNotice.waiting -= 1;
+      }
+      if (response.status === 429) {
+        showRateLimited(provider);
+      } else if (waiting) {
+        settleRateNotice();
+      }
+      if (!response.ok) {
+        const detail = await response.text().catch(() => "");
+        throw new Error(friendlyError(response.status, detail, provider));
+      }
+      const startedAt = Date.now();
+      let length = 0;
+      watchdog.arm(timeouts.stall);
+      try {
+        return await readSse(response, (full) => {
+          if (full.length > length) {
+            length = full.length;
+            // New text arrived: re-arm the stall timer, but never past the total limit for one answer.
+            watchdog.arm(Math.max(1, Math.min(timeouts.stall, timeouts.total - (Date.now() - startedAt))));
+          }
+          onFull(full);
+        });
+      } catch (error) {
+        if (error.name !== "AbortError" && RATE_LIMIT_TEXT.test(error.message || "")) {
+          showRateLimited(provider);
+          throw new Error(friendlyError(429, error.message, provider));
+        }
+        throw error;
+      }
     }
   } finally {
     controllers.delete(controller);
   }
+}
+// Time limits for one AI reply (tests can shrink them with window.GLOW_CHAT_TIMEOUTS).
+function chatTimeouts() {
+  return Object.assign({ request: 75000, stall: 45000, total: 240000 }, window.GLOW_CHAT_TIMEOUTS || {});
+}
+// An abort signal for one try that fires when the outer signal does (■ Stop) or when the timer runs out.
+function replyWatchdog(outer) {
+  const inner = new AbortController();
+  let timer = null;
+  let timedOut = false;
+  const onOuter = () => inner.abort();
+  if (outer.aborted) inner.abort();
+  else outer.addEventListener("abort", onOuter, { once: true });
+  return {
+    signal: inner.signal,
+    get timedOut() {
+      return timedOut;
+    },
+    arm(ms) {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        timedOut = true;
+        inner.abort();
+      }, ms);
+    },
+    pause() {
+      clearTimeout(timer);
+    },
+    done() {
+      clearTimeout(timer);
+      outer.removeEventListener("abort", onOuter);
+    },
+  };
 }
 
 /* ================= visible rate-limit notice ================= */
