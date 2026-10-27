@@ -8,6 +8,11 @@ binding = "BROWSER"
 
 [vars]
 ALLOWED_ORIGINS = "https://juw12.github.io,https://localhost,capacitor://localhost"
+# Glow Pro (Lemon Squeezy). Pro goes on sale when PRO_STORE_ID and PRO_CHECKOUT_URL are set.
+PRO_STORE_ID = ""
+PRO_PRODUCT_ID = ""
+PRO_CHECKOUT_URL = ""
+PRO_PRICE_LABEL = "US$5 / month"
 
 [observability]
 enabled = true

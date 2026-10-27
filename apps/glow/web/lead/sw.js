@@ -1,6 +1,6 @@
 // GlowLead service worker: network first, cached copy when offline. Removes only its own old caches.
-const CACHE_NAME = 'glowlead-v17';
-const ASSETS = ['./', './index.html', './lead.css', './lead.js', './manifest.webmanifest', './icons/lead-icon.svg', '../room/crew-engine.js', '../shared/glow-apps.js'];
+const CACHE_NAME = 'glowlead-v18';
+const ASSETS = ['./', './index.html', './lead.css', './lead.js', './manifest.webmanifest', './icons/lead-icon.svg', '../room/crew-engine.js', '../shared/glow-apps.js', '../shared/glow-plans.js'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting()));

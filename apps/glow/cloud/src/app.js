@@ -2,6 +2,7 @@
 // one action at a time through the shared Glow Hands core, with the same safety rules as Glow Hands on a PC.
 // The browser provider is injected ({ launch, connect }) so the same code runs on Cloudflare and in tests.
 import * as coreModule from "../../web/shared/hands-core.js";
+import { handleLicense, plansInfo } from "./license.js";
 
 const Core = globalThis.GlowHandsCore || coreModule.default || coreModule;
 const SESSION = /^[0-9a-zA-Z-]{8,80}$/;
@@ -95,7 +96,7 @@ function friendlyStartError(error) {
   return { status: 503, error: "The cloud browser is busy right now. Try again in a minute." };
 }
 
-export function createApp({ launch, connect }) {
+export function createApp({ launch, connect, fetch: fetchImpl = globalThis.fetch }) {
   async function startSession() {
     const browser = await launch({ keep_alive: KEEP_ALIVE_MS });
     try {
@@ -142,10 +143,21 @@ export function createApp({ launch, connect }) {
       });
     }
     if (request.method === "GET" && url.pathname === "/v1/status") return json({ ok: true, app: "glow-cloud", version: Core.VERSION }, 200, origin);
+    if (request.method === "GET" && url.pathname === "/v1/plans") return json(plansInfo(env), 200, origin);
     if (request.method !== "POST") return json({ error: "Not found." }, 404, origin);
     const length = Number(request.headers.get("Content-Length") || 0);
     if (length > MAX_BODY) return json({ error: "Request too large." }, 413, origin);
 
+    if (url.pathname === "/v1/license") {
+      let body;
+      try {
+        body = await request.json();
+      } catch (error) {
+        return json({ error: "Invalid JSON." }, 400, origin);
+      }
+      const result = await handleLicense(body, env, fetchImpl);
+      return json(result, result.status || 200, origin);
+    }
     if (url.pathname === "/v1/sessions") {
       try {
         return json(await startSession(), 200, origin);

@@ -12,6 +12,25 @@
 GlowChat installable app: `glow/chat/app.html`, mobile: `glow/chat/mobile.html`. GlowRoom: `glow/room/app.html`, `glow/room/mobile.html`.
 AI-suggested resources in GlowChat are not automatically browsed or verified; GlowChat does no autonomous building or execution (that is GlowRoom's job, and its results should still be reviewed).
 
+## v0.16.0 — Glow plans: Glow Free stays free, Glow Pro for bigger work
+
+- **Glow Free (Rp 0)** keeps everything that worked before: GlowChat, GlowRoom, GlowLead, Glow Free AI, missions
+  up to 4 steps, browser missions up to 15 actions, 10 automations, 12 playbooks.
+- **Glow Pro** (monthly subscription, price set in Lemon Squeezy): missions up to 8 steps, browser missions up to 40
+  actions, 50 automations, 60 playbooks. Open **✦ Plans** in GlowLead (or `glow/lead/#plans`, linked from Glow home).
+- **Costs nothing to run.** Payments, tax and invoices: Lemon Squeezy (no monthly fee; it takes a share of each
+  sale). License keys are checked by the existing free Cloudflare Worker (`cloud/src/license.js`, `POST /v1/license`)
+  through Lemon Squeezy's License API, which needs no secret key. Nothing is stored on a server; the key stays in
+  the buyer's browser, is re-checked once a day, and Pro keeps working for 7 days if the check can't be reached.
+  The AI itself is free for Glow (Glow Free, or the user's own Puter account).
+- **To start selling:** create the Glow Pro subscription in Lemon Squeezy with license keys on, then set
+  `PRO_STORE_ID`, `PRO_PRODUCT_ID`, `PRO_CHECKOUT_URL` (and `PRO_PRICE_LABEL`) in `cloud/wrangler.toml`. Until then
+  the plans card says "coming soon" and nothing else changes.
+- **Fix:** GlowLead now closes the instant cloud browser as soon as a browser mission ends. Before, each mission
+  left it open 5 more minutes, using up the shared 10 free browser-minutes a day after about two missions.
+- Tests: `cloud/test/license.test.js` (5 checks, fake Lemon Squeezy, runs in the worker workflow); GlowLead
+  self-test 26 checks. Cache: `glowlead-v18`.
+
 ## v0.15.6 — website goals use the browser, or say plainly that they can't
 
 Found in a real GlowLead run on the live site with the instant cloud browser connected: "Use the browser to open
