@@ -5,6 +5,7 @@ Runs against a local mock of the Finnhub and Alpaca market-data APIs; no network
 import http.server
 import json
 import os
+import ssl
 import socket
 import subprocess
 import sys
@@ -159,7 +160,12 @@ def main():
         "p = server.backup_data(); p2 = server.backup_data(); print(p, p == p2)" % str(APP_DIR)
     )
     # Use the system CA bundle so the dummy cacert.pem in the data dir isn't loaded as certificates.
-    env = dict(os.environ, TWIN_DATA=str(backup_data), SSL_CERT_FILE="/etc/ssl/cert.pem")
+    env = dict(os.environ, TWIN_DATA=str(backup_data))
+    # The fake cacert.pem above is not a real bundle; point TLS at the system one (path differs per OS).
+    system_bundles = [ssl.get_default_verify_paths().cafile, "/etc/ssl/cert.pem", "/etc/ssl/certs/ca-certificates.crt"]
+    real_bundle = next((p for p in system_bundles if p and Path(p).is_file()), None)
+    if real_bundle:
+        env["SSL_CERT_FILE"] = real_bundle
     result = subprocess.run([sys.executable, "-c", script], env=env, capture_output=True, text=True, timeout=60)
     zips = sorted((backup_data / "backups").glob("twin-data-*.zip"))
     names = zipfile.ZipFile(zips[0]).namelist() if zips else []
