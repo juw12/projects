@@ -454,7 +454,7 @@
     "admin console",
     "AI study companion",
     "Android app",
-   "iPhone home-screen app"
+    "iPhone home-screen app"
    ],
    "image": "guangyao-desktop.png",
    "image_alt": "Guang Yao Together desktop: today's goal, newest official lessons and the study dashboard",
@@ -647,6 +647,43 @@
    "status": "shipped",
    "order": 22,
    "portfolio_order": -9
+  },
+  {
+   "id": "lingua",
+   "name": "Lingua",
+   "category": "AI",
+   "desc": "Read the words and letters in any picture and translate them, plus live-translated Teams captions: laptop, iPhone and Android",
+   "description": "Picture-to-text reader with crop, rotate, batch, history, read-aloud and translation into 16 languages, plus an always-on-top overlay that translates Microsoft Teams captions live. Windows app with a Share-to-phone QR pairing so iPhone and Android can read pictures with the camera through the laptop.",
+   "summary": "Picture-to-text and live caption translation for Windows, iPhone and Android.",
+   "tags": [
+    "OCR",
+    "translation",
+    "Windows",
+    "iPhone",
+    "Android"
+   ],
+   "links": {
+    "app": "lingua/picture.html",
+    "web": "lingua/web.html",
+    "mobile": "lingua/mobile.html"
+   },
+   "card_links": [
+    {
+     "label": "Read picture",
+     "path": "lingua/picture.html"
+    },
+    {
+     "label": "Web captions",
+     "path": "lingua/web.html"
+    },
+    {
+     "label": "Mobile",
+     "path": "lingua/mobile.html"
+    }
+   ],
+   "order": 4,
+   "portfolio": false,
+   "version": "2.0.0"
   }
  ]
 }
