@@ -1209,20 +1209,55 @@ function takeAttachments(text) {
   renderPendingFiles();
   return { content: text + blocks, display: text, files };
 }
+/* "Thinking…" placeholder while a model works before its first word arrives.
+   Slow free/reasoning models can stay silent for a minute; show that Glow is still working. */
+function startWaiting(bubble) {
+  const started = Date.now();
+  bubble.innerHTML = '<div class="waiting" role="status" aria-live="polite">'
+    + '<span class="waiting-dots" aria-hidden="true"><i></i><i></i><i></i></span>'
+    + '<span class="waiting-text">Thinking…</span><span class="waiting-time"></span></div>';
+  const timer = setInterval(() => {
+    const box = bubble.querySelector(".waiting");
+    if (!box) {
+      clearInterval(timer);
+      return;
+    }
+    const seconds = Math.round((Date.now() - started) / 1000);
+    box.querySelector(".waiting-time").textContent = seconds >= 3 ? ` · ${seconds}s` : "";
+    if (seconds >= 15) {
+      box.querySelector(".waiting-text").textContent = "Still thinking… some models take up to a minute. Press Stop to cancel.";
+    }
+  }, 1000);
+  return () => clearInterval(timer);
+}
+function isWaiting(bubble) {
+  return Boolean(bubble.querySelector(".waiting"));
+}
+function partialReply(bubble) {
+  return isWaiting(bubble) ? "" : bubble.textContent;
+}
 async function streamAssistant(model, system, history, who, css, view = (text) => text) {
   const bubble = messageElement(who, css, modelLabel(model));
   bubble.classList.add("cursor");
+  const stopWaiting = startWaiting(bubble);
   const conv = current;
   try {
     const reply = await streamReply(model, system, history, (full) => {
+      if (!full) return;
       bubble.innerHTML = renderReply(view(full));
       scrollDown();
     }, conv);
+    stopWaiting();
     bubble.classList.remove("cursor");
     return reply;
   } catch (error) {
+    stopWaiting();
     bubble.classList.remove("cursor");
-    if (error.name === "AbortError") return bubble.textContent;
+    if (error.name === "AbortError") {
+      const partial = partialReply(bubble);
+      if (!partial) bubble.innerHTML = "";
+      return partial;
+    }
     bubble.parentElement.remove();
     showNotice(errorText(error));
     return "";
@@ -1690,15 +1725,17 @@ async function fuseRound(roundIndex) {
   renderArena();
   const bubble = $(`fused-${roundIndex}`);
   bubble.classList.add("cursor");
+  const stopWaiting = startWaiting(bubble);
   bubble.scrollIntoView({ block: "nearest" });
   setBusy(true);
   try {
     round.fused.content = await streamReply(model, withInstructions(FUSE_PROMPT), history, (full) => {
-      bubble.innerHTML = renderReply(full);
+      if (full) bubble.innerHTML = renderReply(full);
     }, current);
   } catch (error) {
-    round.fused.content = error.name === "AbortError" ? bubble.textContent : `⚠️ ${errorText(error)}`;
+    round.fused.content = error.name === "AbortError" ? partialReply(bubble) : `⚠️ ${errorText(error)}`;
   }
+  stopWaiting();
   persist(current);
   setBusy(false);
   renderArena();
@@ -1721,16 +1758,18 @@ async function sendArena(text) {
   ];
   await Promise.all(round.replies.map(async (reply, slot) => {
     bubbles[slot].classList.add("cursor");
+    const stopWaiting = startWaiting(bubbles[slot]);
     try {
       const isDemo = splitModel(reply.model).provider === "demo";
       const system = isDemo ? `${SYSTEM_PROMPT} [arena:${slot}]` : withInstructions(SYSTEM_PROMPT);
       reply.content = await streamReply(reply.model, system, history(slot), (full) => {
-        bubbles[slot].innerHTML = renderReply(full);
+        if (full) bubbles[slot].innerHTML = renderReply(full);
       }, current);
     } catch (error) {
-      reply.content = error.name === "AbortError" ? bubbles[slot].textContent : `⚠️ ${errorText(error)}`;
+      reply.content = error.name === "AbortError" ? partialReply(bubbles[slot]) : `⚠️ ${errorText(error)}`;
       bubbles[slot].innerHTML = renderReply(reply.content);
     }
+    stopWaiting();
     bubbles[slot].classList.remove("cursor");
   }));
   persist(current);
