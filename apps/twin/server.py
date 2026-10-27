@@ -98,7 +98,7 @@ class AppError(Exception):
 def ca_bundle_path():
     """macOS' bundled Python often lacks CA roots (CERTIFICATE_VERIFY_FAILED).
     Export the system roots once and use them for every HTTPS call."""
-    if os.environ.get("SSL_CERT_FILE"):
+    if os.environ.get("SSL_CERT_FILE") and os.path.isfile(os.environ["SSL_CERT_FILE"]):
         return os.environ["SSL_CERT_FILE"]
     if sys.platform != "darwin":
         return None
