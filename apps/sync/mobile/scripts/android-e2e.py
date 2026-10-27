@@ -142,9 +142,27 @@ def advance_while(page, label, action, seconds):
     return ok
 
 
+def wait_for_network(timeout=180):
+    """A freshly booted emulator reports 'booted' before its network can reach the internet."""
+    host = SITE.split("/")[2]
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        connectivity = adb("shell", "dumpsys", "connectivity", check_exit=False)
+        if "VALIDATED" in connectivity:
+            print("network ready (Android validated internet access)", flush=True)
+            return
+        output = adb("shell", "ping", "-c", "1", "-W", "3", host, check_exit=False)
+        if " 0% packet loss" in output or "1 received" in output:
+            print(f"network ready ({host} reachable)", flush=True)
+            return
+        time.sleep(3)
+    print(f"warning: {host} still unreachable after {timeout}s; launching anyway", flush=True)
+
+
 def main(apk):
     report["apk"] = Path(apk).name
     adb("install", "-r", "-g", apk)
+    wait_for_network()
     adb("shell", "am", "start", "-n", PACKAGE + "/.MainActivity")
     chrome = None
     profile = tempfile.mkdtemp(prefix="sync-friend-")

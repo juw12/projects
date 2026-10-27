@@ -61,14 +61,15 @@ web/
 
 - `python3 apps/sync/tests/test_sync.py`: static checks + 62 core unit tests (CI).
 - `python3 apps/sync/tools/browser_smoke.py`: two real headless Chrome tabs over
-  real WebRTC (needs Chrome + internet). Last run: 17/18 passed:
+  real WebRTC (needs Chrome + internet). Last run: 20/20 passed:
   - guest clock deliberately skewed by +3.7 s → estimated offset −3700.0 ms
   - shared file: guest vs host **−10 ms** at the same real moment; seek/pause propagate
   - voice connects both ways; host music ducks to 34 % while the guest talks, back to 97 % on mute
   - host tab killed → guest takes over, playback continues (−22 ms), new guests can join
-  - YouTube (v1.5, each listener in its own window): start-up went from ~7 s dead air to ~4 s;
-    steady state host −57 ms / guest −70 ms vs the room clock (13 ms apart). The smoke-test
-    YouTube check is still flaky on a loaded 8 GB Mac (sometimes +0.4–0.7 s before it settles).
+  - YouTube (v1.5.1, each listener in its own window): start-up went from ~7 s dead air to ~2.5–4 s;
+    small steady offsets (>80 ms for 3 s) get one precise re-seek, so listeners end up 13–90 ms apart
+    (last smoke run: +87 ms, 20/20 checks). The fake guest clock skew is switched off for the YouTube
+    check: it only reaches our page, not YouTube's frame, which a real phone's wrong clock would.
   - The test uses a synthetic microphone (macOS blocks mic capture for headless Chrome).
 
 ## Honest limits

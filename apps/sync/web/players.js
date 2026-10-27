@@ -113,7 +113,7 @@
 
   function YouTubePlayer(container) {
     this.kind = 'youtube';
-    this.caps = { rate: false, softThreshold: 0.2, hardThreshold: 0.2, cooldown: 1.5, volume: true, seekLead: 0.35, adaptiveLead: true };
+    this.caps = { rate: false, softThreshold: 0.2, hardThreshold: 0.2, fineThreshold: 0.08, cooldown: 1.5, volume: true, seekLead: 0.35, adaptiveLead: true };
     this.host = document.createElement('div');
     this.host.className = 'yt-host';
     var inner = document.createElement('div');
@@ -161,9 +161,12 @@
   // Seeking again in this window restarts its buffering, so the sync loop waits instead.
   YouTubePlayer.prototype.starting = function () {
     var state = this.player.getPlayerState();
-    var waiting = state === -1 || state === 3 || state === 5;
     var now = performance.now();
-    if (!waiting || now - (this.playRequested || 0) >= 5000) {
+    var sincePlay = now - (this.playRequested || 0);
+    // Buffering (3) gets up to 5 s. Unstarted/cued (-1/5) only 1.5 s: there a plain play() is often
+    // ignored and a fresh seek + play (the sync loop's retry) is what gets it going.
+    var limit = state === 3 ? 5000 : (state === -1 || state === 5 ? 1500 : 0);
+    if (sincePlay >= limit) {
       return false;
     }
     // A play issued right after a seek is sometimes ignored while the video is still "unstarted":
@@ -314,7 +317,7 @@
       document.addEventListener('musickitloaded', function () {
         Promise.resolve(window.MusicKit.configure({
           developerToken: config.appleDeveloperToken,
-          app: { name: 'Sync', build: '1.5.0' },
+          app: { name: 'Sync', build: '1.5.1' },
         })).then(function () {
           resolve(window.MusicKit.getInstance());
         }, reject);
