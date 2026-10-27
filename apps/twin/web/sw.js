@@ -1,11 +1,11 @@
-// Twin 1.6.0: own cache only; offline shell; live demo data network-first; API never cached.
+// Twin 1.7.0: own cache only; offline shell; live demo data network-first; API never cached.
 // Market data (world snapshot, chart files, calendars) refreshes hourly: network first, cache as fallback.
 const PREFIX = "twin:" + self.registration.scope + ":";
-const SHELL = PREFIX + "1.6.0";
+const SHELL = PREFIX + "1.7.0";
 const FILES = [
-  "./", "index.html", "./?v=1.6.0", "index.html?v=1.6.0",
-  "demo.js?v=1.6.0", "pro.js?v=1.6.0", "pro-ui.js?v=1.6.0", "broker-ui.js?v=1.6.0", "academy.js?v=1.6.0", "global.js?v=1.6.0", "theme.js?v=1.6.0", "theme.css?v=1.6.0", "design.css?v=1.6.0", "icons.js?v=1.6.0", "manifest.webmanifest",
-  "strategy-lab.js?v=1.6.0", "strategy-lab-ui.js?v=1.6.0", "twinagent.js?v=1.6.0", "twinagent-ui.js?v=1.6.0",
+  "./", "index.html", "./?v=1.7.0", "index.html?v=1.7.0",
+  "demo.js?v=1.7.0", "pro.js?v=1.7.0", "pro-ui.js?v=1.7.0", "broker-ui.js?v=1.7.0", "academy.js?v=1.7.0", "global.js?v=1.7.0", "theme.js?v=1.7.0", "theme.css?v=1.7.0", "design.css?v=1.7.0", "icons.js?v=1.7.0", "manifest.webmanifest",
+  "strategy-lab.js?v=1.7.0", "strategy-lab-ui.js?v=1.7.0", "twinagent.js?v=1.7.0", "twinagent-ui.js?v=1.7.0",
   "icons/apple-touch-icon.png", "icons/icon-192.png", "icons/icon-512.png",
   "demo/meta.json", "demo/market.json", "demo/monthly.json",
   "demo/news.json", "demo/copycat.json", "demo/trade.json", "demo/world.json", "demo/fundamentals.json", "demo/calendars.json",

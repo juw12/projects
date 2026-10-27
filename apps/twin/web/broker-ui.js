@@ -56,6 +56,78 @@ function brokerMoney(value, currency) {
   return !currency || currency === "USD" ? fmtMoney(value) : TwinGlobal.money(Number(value), currency);
 }
 
+/* ------------------------------------------------------------ IBKR self-test (read-only) */
+function selfTestBlock() {
+  const out = h("div", { id: "ibkr-selftest-result" });
+  const symbolInput = h("input", { value: "AAPL", style: "max-width:110px", "aria-label": "Symbol to test" });
+  const run = h("button", { class: "btn ghost", id: "ibkr-selftest" }, "Test my gateway");
+  run.addEventListener("click", async () => {
+    run.disabled = true;
+    out.replaceChildren(spinner());
+    const r = await api("api/broker/selftest", { symbol: symbolInput.value });
+    run.disabled = false;
+    if (!r.ok) {
+      out.replaceChildren(errorBox(r.error));
+      return;
+    }
+    const t = r.selftest;
+    out.replaceChildren(
+      h("ul", { class: "small", style: "list-style:none;padding:0;margin:8px 0" },
+        t.steps.map((s) => h("li", { class: s.ok ? "" : "neg" }, (s.ok ? "✓ " : "✗ ") + s.name + " — " + s.detail))),
+      h("p", { class: "tiny muted" }, t.passed
+        ? `All checks passed on your ${t.paper ? "paper" : "LIVE"} account. Nothing was sent: the last check is IBKR's what-if, which only prices an order.`
+        : "Fix the first ✗ above and run the test again. Nothing was sent to the market."));
+  });
+  return h("div", { class: "card", style: "margin:8px 0;padding:10px" },
+    h("div", { class: "small" }, h("b", {}, "Check your setup first "), "— read-only: logs in, finds the stock, reads a price and asks IBKR to price (not send) a 1-share order."),
+    h("div", { style: "display:flex;gap:8px;margin-top:6px" }, symbolInput, run), out);
+}
+
+/* ------------------------------------------------------------ Market data sources */
+function marketDataCard() {
+  const card = h("div", { class: "card", id: "marketdata-card" }, h("h3", { style: "margin-top:0" }, "Market data"));
+  if (!brokerAvailable()) {
+    put(card, h("p", { class: "small muted" }, "This web/guest version shows a dated snapshot (Yahoo Finance, delayed and unofficial). On your own Twin server you can add real-time sources here."));
+    return card;
+  }
+  put(card, spinner());
+  api("api/marketdata/status", {}).then((r) => {
+    if (!r.ok) {
+      card.replaceChildren(h("h3", { style: "margin-top:0" }, "Market data"), errorBox(r.error));
+      return;
+    }
+    const md = r.marketdata;
+    const keyInput = h("input", { placeholder: md.finnhub ? `Saved (${md.finnhub_hint}) — paste a new key to replace` : "Finnhub API key", autocomplete: "off", spellcheck: "false", "aria-label": "Finnhub API key" });
+    const errorSlot = h("div");
+    const save = h("button", { class: "btn" }, md.finnhub ? "Replace key" : "Save key");
+    save.addEventListener("click", async () => {
+      save.disabled = true;
+      const res = await api("api/marketdata/finnhub", { key: keyInput.value });
+      save.disabled = false;
+      if (!res.ok) {
+        errorSlot.replaceChildren(errorBox(res.error));
+        return;
+      }
+      toast("Finnhub connected");
+      card.replaceWith(marketDataCard());
+    });
+    const remove = md.finnhub ? h("button", { class: "btn ghost", onclick: async () => {
+      await api("api/marketdata/finnhub", { key: "" });
+      card.replaceWith(marketDataCard());
+    } }, "Remove") : null;
+    card.replaceChildren(
+      h("h3", { style: "margin-top:0" }, "Market data"),
+      h("p", { class: "small" }, md.sources.length
+        ? "Prices come from your own sources first, then fall back to Yahoo Finance (delayed, unofficial):"
+        : "Prices now come from Yahoo Finance — free, but delayed and unofficial. Add a real-time source:"),
+      md.sources.length ? h("ul", { class: "small" }, md.sources.map((s) => h("li", {}, h("b", {}, s.label), " — " + s.markets))) : null,
+      h("p", { class: "tiny muted" }, "Connected brokers count automatically: Alpaca gives real-time US prices (IEX); Interactive Brokers gives prices for the markets your IBKR data subscriptions cover. Each price on a stock page says where it came from."),
+      h("label", { class: "f" }, "Finnhub key (free at finnhub.io — US stocks real-time)"), keyInput,
+      h("div", { style: "display:flex;gap:8px;margin-top:8px" }, save, remove), errorSlot);
+  });
+  return card;
+}
+
 /* ------------------------------------------------------------ Me card */
 function brokerCard() {
   const card = h("div", { class: "card", id: "broker-card" },
@@ -138,6 +210,7 @@ function drawConnectForm(card, status) {
   const cap = h("input", { type: "number", inputmode: "decimal", placeholder: "Max US$ per order (default paper $25,000 · live $1,000)", "aria-label": "Max order" });
   const password = h("input", { type: "password", placeholder: "Your Twin password", autocomplete: "current-password", "aria-label": "Twin password" });
   const phrase = h("input", { placeholder: `Type ${status.live_phrase}`, autocapitalize: "characters", "aria-label": "Live confirmation phrase" });
+  const rulesBox = h("input", { type: "checkbox", id: "broker-rules-ack" });
   const providerSeg = h("div", { class: "seg", id: "broker-provider" });
   const intro = h("div");
   const keysBox = h("div");
@@ -170,7 +243,8 @@ function drawConnectForm(card, status) {
         h("ol", { class: "small", id: "ibkr-steps", style: "padding-left:18px;margin:6px 0" },
           h("li", {}, "Download IBKR's ", h("a", { href: "https://www.interactivebrokers.com/en/trading/ib-api.php", target: "_blank", rel: "noopener" }, "Client Portal Gateway"), " (needs Java) and start it on this computer: ", h("code", {}, "bin/run.sh root/conf.yaml")),
           h("li", {}, "Open ", h("a", { href: "https://localhost:5000", target: "_blank", rel: "noopener" }, "https://localhost:5000"), " and log in (your browser will warn about its self-signed certificate — that's expected for this local gateway)."),
-          h("li", {}, "Log in with your ", h("b", {}, mode === "live" ? "live" : "paper"), " username, then come back and press Connect.")));
+          h("li", {}, "Log in with your ", h("b", {}, mode === "live" ? "live" : "paper"), " username, then come back and press Connect.")),
+        selfTestBlock());
       keysBox.replaceChildren();
     } else {
       intro.replaceChildren(h("p", { class: "small muted" }, "Connect an ", h("a", { href: "https://alpaca.markets", target: "_blank", rel: "noopener" }, "Alpaca"),
@@ -185,6 +259,8 @@ function drawConnectForm(card, status) {
       ready ? null : h("div", { class: "warn" }, "You haven't finished the Real-money readiness class in Learn yet. Strongly recommended first."),
       h("label", { class: "f" }, "Twin password"), password,
       h("label", { class: "f" }, `Type ${status.live_phrase} to confirm`), phrase,
+      h("label", { class: "small", style: "display:flex;gap:8px;align-items:flex-start;margin-top:10px" }, rulesBox,
+        h("span", {}, "I've checked that I'm allowed to trade these markets from the country I live in, that my broker account is eligible for them, and that I'll handle any tax on gains. Twin can't check this for me.")),
     ] : [h("p", { class: "tiny muted" }, provider === "ibkr"
       ? "IBKR paper accounts use fake money and real market prices. Twin checks that the gateway is logged in to a paper account."
       : "Paper uses Alpaca's simulated account with fake money and real market prices — the best next step after Twin's practice portfolio.")]));
@@ -199,6 +275,7 @@ function drawConnectForm(card, status) {
       secret: provider === "alpaca" ? secret.value : undefined,
       mode, max_order_usd: cap.value,
       password: mode === "live" ? password.value : undefined, phrase: mode === "live" ? phrase.value : undefined,
+      acknowledge_rules: mode === "live" ? rulesBox.checked : undefined,
     });
     connectButton.disabled = false;
     secret.value = "";

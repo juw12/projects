@@ -32,8 +32,47 @@ SUFFIX_TO_MIC = {
     "KL": "XKLS", "BK": "XBKK", "PS": "XPHS", "AX": "XASX", "NZ": "XNZE", "JO": "XJSE",
     "SR": "XSAU", "TA": "XTAE",
 }
-# Exchanges Twin lists but exchange_calendars does not cover (weekday rules only).
-UNCOVERED = ["QA", "AE"]
+# Exchanges exchange_calendars does not cover. Curated by hand from the exchanges' and governments'
+# published holiday lists; Islamic holidays follow moon sighting, so those dates are estimates
+# (listed in "estimated") until the exchange confirms them. Only trading days are listed.
+# Sources: qe.com.qa (QSE calendar), u.ae public holidays / UAE Cabinet resolution, adx.ae trading guide.
+CURATED = {
+    "QA": {
+        "mic": "DSMD", "tz": "Asia/Qatar", "open": "09:30", "close": "13:15", "lunch": None,
+        "weekmask": "1111001",  # Sunday-Thursday
+        "holidays": {
+            "2027-02-09": "National Sport Day",
+            "2027-03-07": "Bank holiday",
+            "2027-03-09": "Eid al-Fitr",
+            "2027-03-10": "Eid al-Fitr",
+            "2027-03-11": "Eid al-Fitr",
+            "2027-05-16": "Eid al-Adha",
+            "2027-05-17": "Eid al-Adha",
+            "2027-05-18": "Eid al-Adha",
+        },
+        "estimated": ["2027-03-09", "2027-03-10", "2027-03-11", "2027-05-16", "2027-05-17", "2027-05-18"],
+        "valid_to": "2027-11-25",
+        "source": "Qatar Stock Exchange calendar (qe.com.qa); Eid dates estimated",
+    },
+    "AE": {
+        "mic": "XADS", "tz": "Asia/Dubai", "open": "10:00", "close": "15:00", "lunch": None,
+        "weekmask": "1111100",  # Monday-Friday since 2022
+        "holidays": {
+            "2026-12-02": "National Day",
+            "2026-12-03": "National Day",
+            "2027-01-01": "New Year's Day",
+            "2027-03-09": "Eid al-Fitr",
+            "2027-03-10": "Eid al-Fitr",
+            "2027-03-11": "Eid al-Fitr",
+            "2027-05-17": "Eid al-Adha",
+            "2027-05-18": "Eid al-Adha",
+        },
+        "estimated": ["2027-03-09", "2027-03-10", "2027-03-11", "2027-05-17", "2027-05-18"],
+        "valid_to": "2027-11-25",
+        "source": "UAE Cabinet public holidays (u.ae) for ADX; Eid dates estimated",
+    },
+}
+UNCOVERED = []
 
 
 def local_hhmm(ts, tz):
@@ -87,6 +126,18 @@ def build_one(mic, start, end):
     }
 
 
+def curated_calendar(cal, start):
+    """A hand-curated calendar in the same shape as build_one's output (past dates dropped)."""
+    keep = sorted(day for day in cal["holidays"] if day >= start.isoformat())
+    return {
+        "mic": cal["mic"], "tz": cal["tz"], "open": cal["open"], "close": cal["close"], "lunch": cal["lunch"],
+        "weekmask": cal["weekmask"], "holidays": keep, "early_close": {}, "late_open": {},
+        "holiday_names": {day: cal["holidays"][day] for day in keep},
+        "estimated": [day for day in cal["estimated"] if day in keep],
+        "valid_to": cal["valid_to"], "curated": True, "source": cal["source"],
+    }
+
+
 def build():
     today = date.today()
     start = today - timedelta(days=30)
@@ -97,8 +148,10 @@ def build():
         if mic not in by_mic:
             by_mic[mic] = build_one(mic, start, end)
         exchanges[suffix] = by_mic[mic]
+    for suffix, cal in CURATED.items():
+        exchanges[suffix] = curated_calendar(cal, start)
     return {
-        "source": "exchange_calendars (github.com/gerrymanoim/exchange_calendars)",
+        "source": "exchange_calendars (github.com/gerrymanoim/exchange_calendars); Qatar and Abu Dhabi curated by hand",
         "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "valid_from": start.isoformat(),
         "valid_to": end.isoformat(),
@@ -112,7 +165,7 @@ def check(path=OUT):
     data = json.loads(path.read_text())
     problems = []
     exchanges = data.get("exchanges", {})
-    for suffix in SUFFIX_TO_MIC:
+    for suffix in list(SUFFIX_TO_MIC) + list(CURATED):
         cal = exchanges.get(suffix)
         if not cal:
             problems.append("missing %r" % suffix)

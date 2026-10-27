@@ -53,6 +53,10 @@ SEARCH = {
 }
 
 
+# Last prices the mock gateway reports: Toyota in yen; Vodafone LSE in pence (Twin shows pounds); ADR in dollars.
+SNAPSHOT = {"14052": "3210", "1": "120", "2": "C15.10"}
+
+
 class MockGateway(http.server.BaseHTTPRequestHandler):
     state = {"auth": False, "paper": True, "requests": [], "orders": {}, "next_id": 987}
 
@@ -93,6 +97,9 @@ class MockGateway(http.server.BaseHTTPRequestHandler):
         if path == "/iserver/secdef/search":
             symbol = urllib.parse.parse_qs(url.query).get("symbol", [""])[0]
             return self.reply(200, SEARCH.get(symbol, []))
+        if path == "/iserver/marketdata/snapshot":
+            conids = urllib.parse.parse_qs(url.query).get("conids", [""])[0].split(",")
+            return self.reply(200, [{"conid": int(c), "31": SNAPSHOT.get(c, ""), "6509": "RpB"} for c in conids if c])
         if path == "/iserver/account/%s/orders/whatif" % ACCOUNT:
             return self.reply(200, {"amount": {"amount": "x", "commission": "80 JPY", "total": "y"},
                                     "warn": None, "error": None})
@@ -185,12 +192,31 @@ def main():
         r = c.post("/api/broker/connect", {"provider": "ibkr", "mode": "paper"})
         check("gateway not logged in → clear message", not r.get("ok") and "not logged in" in r.get("error", ""), r.get("error"))
         check("failed connect stores nothing", not list(Path(data_dir).rglob("broker.json")))
+        r = c.post("/api/broker/selftest", {"symbol": "7203.T"})
+        steps = (r.get("selftest") or {}).get("steps", [])
+        check("self-test stops at the login step when the gateway is logged out",
+              r.get("ok") and len(steps) == 2 and steps[0]["ok"] and not steps[1]["ok"] and "Sign in" in steps[1]["detail"], str(r)[:400])
         MockGateway.state["auth"] = True
-        r = c.post("/api/broker/connect", {"provider": "ibkr", "mode": "live", "password": "correct-horse-1", "phrase": "REAL MONEY"})
+        r = c.post("/api/broker/connect", {"provider": "ibkr", "mode": "live", "acknowledge_rules": True, "password": "correct-horse-1", "phrase": "REAL MONEY"})
         check("live refused when the gateway account is paper", not r.get("ok") and "paper account" in r.get("error", ""), r.get("error"))
         r = c.post("/api/broker/connect", {"provider": "ibkr", "mode": "paper"})
         broker = r.get("broker", {})
         check("paper connect succeeds", r.get("ok") and broker.get("provider") == "ibkr" and broker.get("mode") == "paper", str(r)[:300])
+
+        print("Self-test and live prices")
+        orders_before_test = len(posted_orders())
+        r = c.post("/api/broker/selftest", {"symbol": "7203.T"})
+        test = r.get("selftest") or {}
+        check("self-test passes all six read-only steps", r.get("ok") and test.get("passed") and len(test.get("steps", [])) == 6, str(r)[:500])
+        check("self-test reports the data type IBKR gives", "real-time" in ((test.get("steps") or [{}] * 5)[4].get("detail", "")), str(test)[:400])
+        check("self-test sends no order (what-if only)", len(posted_orders()) == orders_before_test)
+        r = c.post("/api/quotes", {"symbols": ["7203.T", "VOD.L"]})
+        q = r.get("quotes", {})
+        toyota = q.get("7203.T", {})
+        check("IBKR price replaces the delayed Tokyo quote and says so",
+              toyota.get("price") == 3210.0 and toyota.get("source", "").startswith("Interactive Brokers") and toyota.get("realtime") is True
+              and toyota.get("yahoo_price") == 3200.0, str(toyota)[:300])
+        check("IBKR pence quote converted to pounds", abs(q.get("VOD.L", {}).get("price", 0) - 1.20) < 1e-9, str(q.get("VOD.L"))[:300])
         check("status shows IBKR equity", (broker.get("account") or {}).get("equity") == 100000.0, str(broker)[:300])
         stored = json.loads(next(Path(data_dir).rglob("broker.json")).read_text())
         check("no IBKR credentials stored (gateway holds the login)", set(stored) >= {"provider", "account"} and "secret" not in stored and "password" not in stored, str(stored))
@@ -281,11 +307,13 @@ def main():
         MockGateway.state["paper"] = False
         r = c.post("/api/broker/connect", {"provider": "ibkr", "mode": "paper"})
         check("paper refused when the gateway account is live", not r.get("ok") and "LIVE account" in r.get("error", ""), r.get("error"))
-        r = c.post("/api/broker/connect", {"provider": "ibkr", "mode": "live", "phrase": "REAL MONEY"})
-        check("live needs the Twin password", not r.get("ok") and "password" in r.get("error", "").lower(), r.get("error"))
-        r = c.post("/api/broker/connect", {"provider": "ibkr", "mode": "live", "password": "correct-horse-1"})
-        check("live needs the typed phrase", not r.get("ok") and "REAL MONEY" in r.get("error", ""), r.get("error"))
         r = c.post("/api/broker/connect", {"provider": "ibkr", "mode": "live", "password": "correct-horse-1", "phrase": "REAL MONEY"})
+        check("live needs the local-rules acknowledgement", not r.get("ok") and "country" in r.get("error", ""), r.get("error"))
+        r = c.post("/api/broker/connect", {"provider": "ibkr", "mode": "live", "acknowledge_rules": True, "phrase": "REAL MONEY"})
+        check("live needs the Twin password", not r.get("ok") and "password" in r.get("error", "").lower(), r.get("error"))
+        r = c.post("/api/broker/connect", {"provider": "ibkr", "mode": "live", "acknowledge_rules": True, "password": "correct-horse-1"})
+        check("live needs the typed phrase", not r.get("ok") and "REAL MONEY" in r.get("error", ""), r.get("error"))
+        r = c.post("/api/broker/connect", {"provider": "ibkr", "mode": "live", "acknowledge_rules": True, "password": "correct-horse-1", "phrase": "REAL MONEY"})
         check("live connects with password + phrase", r.get("ok") and r["broker"]["mode"] == "live" and r["broker"]["max_order_usd"] == 1000.0, str(r)[:300])
         r = c.post("/api/broker/preview", {"order": {"symbol": "7203.T", "side": "buy", "type": "limit", "qty": 10, "limit": 3100}})
         check("live preview warns about real money", r.get("ok") and any("real money" in w for w in r["preview"]["warnings"]), str(r)[:300])
