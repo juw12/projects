@@ -1,4 +1,4 @@
-﻿# Glow Hands one-step installer for Windows. No admin rights needed.
+# Glow Hands one-step installer for Windows. No admin rights needed.
 # Use:  Win+R  ->  powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/juw12/projects/main/apps/glow/hands/install-glow-hands.ps1 | iex"
 # It installs into %LOCALAPPDATA%\GlowHands, starts at every login, and opens GlowLead, which connects automatically.
 $ErrorActionPreference = 'Stop'
