@@ -186,3 +186,99 @@ body[data-tab="home"] header.top:not(.scrolled) .help {
 @media (prefers-reduced-motion: reduce) {
   .p-hero .hero-glow { animation: none; }
 }
+
+/* ================================================================ 1.10: every tab */
+/* Soft brand glow behind the header on the inner tabs (Home has its own hero). */
+body[data-tab]:not([data-tab="home"]) #app::before {
+  content: ""; position: fixed; left: 50%; top: -180px; width: 620px; height: 380px; transform: translateX(-50%);
+  background: radial-gradient(closest-side, var(--accent-soft), transparent 75%); pointer-events: none; z-index: 0;
+}
+body[data-tab] #main, body[data-tab] header.top { position: relative; z-index: 1; }
+body[data-tab] header.top { z-index: 10; }
+.snap-chip {
+  display: inline-flex; align-items: center; gap: 7px; margin: 0 0 12px; padding: 5px 11px; border-radius: 999px;
+  background: var(--card); box-shadow: var(--shadow); color: var(--muted); font-size: 11.5px; font-weight: 600;
+}
+.snap-chip i { width: 6px; height: 6px; border-radius: 50%; background: var(--amber, #f5b83d); }
+
+/* Gradient balance card used on Invest and Learn (a contained version of the Home hero) */
+.p-card {
+  position: relative; overflow: hidden; isolation: isolate; color: #fff; border-radius: 26px;
+  padding: 20px; margin: 12px 0; background: var(--hero-base);
+  box-shadow: 0 20px 44px -24px rgba(58, 47, 196, .75);
+}
+.p-card .hero-glow {
+  position: absolute; inset: -60% -40% -20%; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(40% 50% at 20% 30%, var(--hero-a), transparent 70%),
+    radial-gradient(35% 45% at 85% 25%, var(--hero-b), transparent 70%),
+    radial-gradient(30% 40% at 60% 90%, var(--hero-c), transparent 70%);
+  filter: blur(16px); animation: hero-drift 18s ease-in-out infinite alternate;
+}
+.p-card.down-day .hero-glow { filter: blur(16px) hue-rotate(-28deg) saturate(.9); }
+.p-card .hero-label { font-size: 13px; font-weight: 650; color: rgba(255, 255, 255, .82); }
+:root[data-theme] .p-card .hero-value { font-size: 44px; font-weight: 800; letter-spacing: -.05em; line-height: 1.05; margin: 6px 0 10px; color: #fff; }
+.p-card .hero-value .cents { font-size: .56em; opacity: .72; }
+.p-card .hero-chip-row { justify-content: flex-start; }
+.glass-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
+.glass-stats > div {
+  padding: 10px 12px; border-radius: 16px; background: rgba(255, 255, 255, .13);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); min-width: 0;
+}
+.glass-stats span { display: block; font-size: 11.5px; font-weight: 650; color: rgba(255, 255, 255, .78); }
+.glass-stats b { display: block; font-size: 15px; font-weight: 750; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
+
+/* ---------------------------------------------------------------- Learn */
+:root[data-theme] .academy-card { border: 0; }
+:root[data-theme] .academy-card h2 { color: #fff; font-size: 24px; }
+:root[data-theme] .academy-card .muted { color: rgba(255, 255, 255, .8); }
+:root[data-theme] .academy-card .stat { background: rgba(255, 255, 255, .13); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+:root[data-theme] .academy-card .stat .k { color: rgba(255, 255, 255, .78); }
+:root[data-theme] .academy-card .stat .v { color: #fff; }
+:root[data-theme] .academy-card .ico { color: #fff; }
+.course-ic {
+  flex: none; width: 50px; height: 50px; border-radius: 16px; display: grid; place-items: center; font-size: 26px; color: #fff;
+  background: linear-gradient(140deg, var(--course), color-mix(in srgb, var(--course) 60%, #000));
+  box-shadow: 0 10px 22px -12px var(--course);
+}
+.course-ic .ico { width: 24px; height: 24px; margin: 0; color: #fff; }
+:root[data-theme] .course-card { transition: transform .2s var(--ease); }
+:root[data-theme] .course-card:active { transform: scale(.98); }
+:root[data-theme] .course-card.locked .course-ic { background: var(--card3); box-shadow: none; color: var(--muted); }
+:root[data-theme] .course-card.locked .course-ic .ico { color: var(--muted); }
+:root[data-theme] .course-card .progress { height: 8px; background: var(--card2); }
+:root[data-theme] .course-card .progress div { background: linear-gradient(90deg, var(--course), color-mix(in srgb, var(--course) 55%, #fff)) !important; }
+
+/* ---------------------------------------------------------------- Trade */
+:root[data-theme] .stepper .st .dot,
+:root[data-theme] .steps .n { background: var(--accent-soft); color: var(--accent-text); font-weight: 800; }
+
+/* ----------------------------------------------------------------- News */
+:root[data-theme] .card > .news {
+  margin: 0 -6px; padding: 14px 12px; border-radius: 18px; border-bottom: 0; transition: background .15s ease;
+}
+:root[data-theme] .card > .news + .news { margin-top: 4px; }
+:root[data-theme] .card > .news:hover { background: var(--card2); }
+:root[data-theme] .news a { color: var(--text); font-weight: 700; text-decoration: none; }
+
+/* ------------------------------------------------------------------- Me */
+.me-head { text-align: center; padding: 6px 0 4px; }
+.me-avatar {
+  width: 84px; height: 84px; margin: 0 auto 10px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 30px; font-weight: 800; color: #3a1d00; background: linear-gradient(135deg, #ffd36e, #ff7a59);
+  box-shadow: 0 0 0 5px var(--card), 0 0 0 6px var(--line), 0 18px 40px -16px rgba(255, 122, 89, .7);
+}
+.me-name { font-size: 24px; font-weight: 800; letter-spacing: -.03em; }
+.me-sub { color: var(--muted); font-size: 13.5px; font-weight: 600; margin-top: 2px; }
+body[data-tab="me"] .card > h3:first-child { font-size: 15px; }
+
+/* 1.10 specificity fixes: generic `:root[data-theme] .card` / `.row > *` rules must not repaint these */
+:root[data-theme] .card.p-card,
+:root[data-theme] .p-card {
+  background: var(--hero-base); border: 0; color: #fff;
+  box-shadow: 0 20px 44px -24px rgba(58, 47, 196, .75);
+}
+:root[data-theme] .p-card .tiny,
+:root[data-theme] .p-card .muted { color: rgba(255, 255, 255, .82); }
+:root[data-theme] .row > .course-ic { flex: 0 0 50px; width: 50px; min-width: 50px; }
+:root[data-theme] .glass-stats b { font-size: 13.5px; letter-spacing: -.02em; }

@@ -273,6 +273,11 @@ history and are not predictions. Not financial advice.
 
 ## Changelog
 
+- **1.10.0 — Premium everywhere.** Every tab now matches the new Home: Invest opens with a glowing
+  portfolio card (big value, gain chip, glass Cash / Invested / Started-with tiles); Learn gets a gradient
+  academy card and colourful course tiles with gradient progress bars; Trade and News use the same rounded
+  cards and soft brand glow; Me starts with a large avatar, your name and account type. The "Guest
+  snapshot" note is now a small chip. Works in dark and light; features and flows unchanged.
 - **1.9.0 — Premium.** The look you picked from three concepts (Revolut-style): dark by default, a glowing
   gradient hero on Home with one big balance (smaller cents), a gain chip and a mini chart; round quick
   actions (Buy, Portfolio, Ask AI, Goal); swipeable promo cards for TwinAgent, Replay Lab, the day-trade
