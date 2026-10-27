@@ -297,29 +297,6 @@
    ]
   },
   {
-   "id": "lingua",
-   "name": "Lingua",
-   "category": "AI",
-   "desc": "Private, local Windows translation for English, Chinese and Bahasa Indonesia — with light/dark themes",
-   "description": "Offline Windows translator for English, Chinese (Simplified/Traditional) and Bahasa Indonesia, powered by a local Ollama model with tone, glossary and review checks.",
-   "summary": "Private, offline Windows translator for English, Chinese and Bahasa Indonesia, running on a local Ollama model.",
-   "tags": [
-    "offline translation",
-    "Ollama",
-    "Windows",
-    "multilingual"
-   ],
-   "image": "lingua.png",
-   "image_alt": "Lingua in dark mode: English and Traditional Chinese text, a Light mode toggle, context and a local model selector",
-   "links": {
-    "app": "lingua/"
-   },
-   "native": true,
-   "featured": true,
-   "order": 8,
-   "version": "1.1.0"
-  },
-  {
    "id": "twin",
    "name": "Twin",
    "category": "Apps",
