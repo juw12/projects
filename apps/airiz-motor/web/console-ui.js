@@ -155,7 +155,7 @@
         $('transport-note').textContent = status.demoMode && status.connected
           ? 'Simulator active. No commands are sent to hardware.'
           : status.connected
-            ? (status.transportLabel?.startsWith('Bluetooth')
+            ? (/^(Bluetooth|Remote)/.test(status.transportLabel || '')
               ? status.transportLabel + (status.deviceFirmware ? ' · FW ' + status.deviceFirmware : '')
               : status.baudRate.toLocaleString() + ' baud · 8N1 · USB serial')
             : window.airizMobile ? 'Discover and verify a Bluetooth command channel, or try Demo.' : 'Connect over USB serial, or try the simulator.';

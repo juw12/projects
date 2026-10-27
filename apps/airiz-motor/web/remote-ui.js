@@ -174,7 +174,7 @@
   async function pollClients() {
     if (clientPolling || remoteBusy || !dialog || !dialog.open) return;
     const status = api.getStatus();
-    if (!status.connected || String(status.transportLabel || '').startsWith('Bluetooth')) return;
+    if (!status.connected || /^(Bluetooth|Remote)/.test(String(status.transportLabel || ''))) return;
     clientPolling = true;
     api.setOutputMuted(true);
     try {
@@ -348,7 +348,7 @@
   // ------------------------------------------------------------ availability
   function refresh() {
     const status = api.getStatus();
-    const usb = status.connected && !status.demoMode && !String(status.transportLabel || '').startsWith('Bluetooth');
+    const usb = status.connected && !status.demoMode && !/^(Bluetooth|Remote)/.test(String(status.transportLabel || ''));
     if (stopButton) stopButton.disabled = !status.connected;
     if (bleButton) bleButton.disabled = status.connected;
     if (remoteButton) remoteButton.disabled = !usb || status.macroRunning || remoteBusy;

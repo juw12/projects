@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.2.6` in this repository's Releases section.
+`airiz-desktop-v1.3.0` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -161,6 +161,22 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.3.0: Remote control by code (no Bluetooth)
+
+* **Share control** (PC with the AIRIZ on USB, or in demo): shows a 6-digit code and a link
+  (`index.html#control=CODE`). Start sharing, then **Allow** or **Deny** each request.
+* **Connect by code** (phone, tablet or another PC, in the app or the website): enter the
+  code; after the PC operator allows it, the whole console (motor jogs, LED, commands,
+  macros, Stop motor) works as if the AIRIZ were connected locally. The firmware is checked
+  with `diag ver sw` before the console unlocks.
+* Path: direct WebRTC data channel when the network allows it, the AIRIZ relay
+  (`airiz-relay.juw12.workers.dev`) otherwise, so it also works behind company firewalls.
+* Safety: one controller at a time, operator must allow, Disconnect at any time, lines are
+  limited to 1000 characters and 25 commands/s, the remote Stop motor runs the PC's own
+  stop, and the PC sends a motor stop if the controller drops shortly after a motor command.
+  Sharing ends when the PC disconnects from the AIRIZ. Camera viewing still uses
+  Camera &rarr; Share to phone.
 
 ## 1.2.6: See who is connected
 
