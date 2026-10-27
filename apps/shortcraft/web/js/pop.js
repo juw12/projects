@@ -371,14 +371,18 @@
     fit.lines.forEach(function (line, i) {
       ctx.fillText(line, W / 2, cardY + 330 + i * fit.size * 1.15);
     });
-    var v = countValue(scene, local, 0.35, 1.3);
+    // `big` shows non-rupiah facts (e.g. "-30%"); otherwise count up `value` as Rp.
+    var priceText = scene.big != null
+      ? String(scene.big)
+      : formatRp(countValue(scene, local, 0.35, 1.3));
+    ctx.globalAlpha = scene.big != null ? easeOut(progress(local, 0.35, 0.4)) : 1;
     setFont(ctx, "900", 132, P.black);
-    var priceText = formatRp(v);
     while (ctx.measureText(priceText).width > W - 220) {
       ctx.font = ctx.font.replace(/\d+px/, function (m) { return (parseInt(m, 10) - 6) + "px"; });
     }
     ctx.fillStyle = P.yellow;
     ctx.fillText(priceText, W / 2, cardY + 500);
+    ctx.globalAlpha = 1;
     (scene.rows || []).forEach(function (row, i) {
       var p = easeOut(progress(local, 1.3 + i * 0.25, 0.35));
       var ry = cardY + 640 + i * 110;
