@@ -18,7 +18,7 @@
   .live { display: none; padding: 2px 8px; border-radius: 6px; background: #da3633; color: #fff; font-size: 0.75rem; font-weight: 700; }
   .live.on { display: inline-block; }
   main { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
-  video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+  video, #relay-image { width: 100%; height: 100%; object-fit: contain; background: #000; }
   form { display: flex; gap: 8px; padding: 24px; flex-direction: column; align-items: center; text-align: center; }
   input { font-size: 1.6rem; letter-spacing: 0.25em; width: 8em; text-align: center; padding: 8px; border-radius: 10px;
     border: 1px solid #30363d; background: #0d1117; color: #e6edf3; }
@@ -37,6 +37,7 @@
 </header>
 <main>
   <video autoplay="" id="video" muted="" playsinline="" hidden></video>
+  <img alt="Live AIRIZ camera" id="relay-image" hidden/>
   <form id="code-form" hidden>
     <p>Enter the 6-digit code shown in the AIRIZ console on the PC.</p>
     <input aria-label="Share code" autocomplete="off" id="code" inputmode="numeric" maxlength="6" pattern="[0-9]*"/>
@@ -44,6 +45,7 @@
   </form>
 </main>
 <script src="vendor/peerjs.min.js"></script>
+<script src="camera-frame-relay.js"></script>
 <script src="watch.js"></script>
 </body>
 </html>

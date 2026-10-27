@@ -59,8 +59,9 @@ function buildCsp() {
     "default-src 'self'", "script-src 'self' " + hashes.join(' '),
     "style-src 'self' 'unsafe-inline'", "img-src 'self' blob: data:",
     "media-src 'self' blob:",
-    // Phone camera viewer: PeerJS signalling only (video goes peer-to-peer over WebRTC).
-    "connect-src 'self' https://0.peerjs.com wss://0.peerjs.com", "object-src 'none'",
+    // Phone camera viewer: PeerJS signalling (video peer-to-peer over WebRTC) and the
+    // AIRIZ frame relay worker (JPEG snapshots over HTTPS when a firewall blocks WebRTC).
+    "connect-src 'self' https://0.peerjs.com wss://0.peerjs.com wss://airiz-relay.juw12.workers.dev", "object-src 'none'",
     "base-uri 'none'", "frame-src 'none'", "form-action 'none'"
   ].join('; ');
 }
