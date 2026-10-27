@@ -58,3 +58,8 @@ tr:last-child td { border-bottom: 0; }
   .command { flex-direction: column; }
   .command code { white-space: pre-wrap; word-break: break-all; }
 }
+
+.download { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 14px 0 8px; }
+.download .small { margin: 0; }
+.btn.big { font-size: 17px; padding: 14px 22px; border-radius: 14px; }
+.note { margin: 10px 0 0; padding: 10px 14px; border-radius: 12px; background: var(--card); border: 1px solid var(--border); font-size: 14px; }

@@ -1,0 +1,77 @@
+name: Glow Windows setup
+
+# Builds Glow-Setup.exe (the double-click Windows installer), installs Glow with it on a clean Windows
+# runner, and publishes it to the "glow-windows" release from main.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/glow/windows/**'
+      - 'apps/glow/install-glow.ps1'
+      - 'apps/glow/web/icons/icon-512.png'
+      - '.github/workflows/glow-windows.yml'
+  pull_request:
+    paths:
+      - 'apps/glow/windows/**'
+      - 'apps/glow/install-glow.ps1'
+      - '.github/workflows/glow-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: glow-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Glow-Setup.exe
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File apps/glow/windows/build.ps1 -Out dist
+      - name: Install Glow with it (silent test mode)
+        shell: powershell
+        run: |
+          $process = Start-Process -FilePath dist\Glow-Setup.exe -ArgumentList '/test' -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Glow-Setup.exe /test failed with exit code $($process.ExitCode)" }
+          $menu = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Glow'
+          foreach ($app in 'Glow', 'GlowLead', 'GlowChat', 'GlowRoom') {
+            if (-not (Test-Path (Join-Path $menu "$app.lnk"))) { throw "Missing Start menu shortcut: $app" }
+          }
+          $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Glow'
+          if (-not (Test-Path $key)) { throw 'Glow is missing from Settings > Apps' }
+          Get-ChildItem $menu | Select-Object Name
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Glow-Windows
+          path: dist/Glow-Setup.exe
+          retention-days: 14
+
+  publish:
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Glow-Windows
+          path: dist
+      - name: Publish Glow-Setup.exe to the glow-windows release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          test -f dist/Glow-Setup.exe || { echo "::error::Glow-Setup.exe was not built."; exit 1; }
+          NOTES="Glow for Windows: download Glow-Setup.exe, open it and press Install. Adds Glow, GlowLead, GlowChat and GlowRoom to the Start menu and desktop, plus Glow Hands. No admin rights needed. Built from ${GITHUB_SHA::7}."
+          if gh release view glow-windows --repo "$REPO" > /dev/null 2>&1; then
+            gh release upload glow-windows dist/Glow-Setup.exe --clobber --repo "$REPO"
+            gh release edit glow-windows --notes "$NOTES" --repo "$REPO"
+          else
+            gh release create glow-windows dist/Glow-Setup.exe --title "Glow for Windows" --notes "$NOTES" --target "$GITHUB_SHA" --repo "$REPO"
+          fi
