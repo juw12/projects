@@ -1,0 +1,10 @@
+{
+  "version": "1.18.0",
+  "released": "2026-10-27",
+  "notes": [
+    "GlowRoom now opens inside GlowChat and GlowLead, no new browser window",
+    "See your Glow version and update from inside the app"
+  ],
+  "android": "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk",
+  "windows": "https://github.com/juw12/projects/releases/download/glow-windows/Glow-Setup.exe"
+}
