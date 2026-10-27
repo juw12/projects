@@ -10,7 +10,7 @@
   const ROOT = new URL("../", scriptUrl); // .../glow/
   // The Glow family version. Bump it together with ../version.json for every release:
   // an older copy of this script then sees the newer version.json and offers "Update now".
-  const GLOW_VERSION = "1.20.0";
+  const GLOW_VERSION = "1.20.1";
   const LIVE_ROOT = "https://juw12.github.io/projects/glow/";
   const APK_URL = "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk";
   const embedded = (function () {
@@ -51,15 +51,17 @@
     try {
       const store = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
       const settings = (store && store.settings) || {};
-      const signedIn = settings.account === "puter";
+      // puterSession is written whenever a Glow app actually checks with Puter; false = the session expired.
+      const expired = settings.account === "puter" && settings.puterSession === false;
+      const signedIn = settings.account === "puter" && !expired;
       const guest = settings.account === "guest";
-      const accountName = signedIn ? settings.accountName || "Glow user" : "";
+      const accountName = settings.account === "puter" ? settings.accountName || "Glow user" : "";
       const displayName = String(settings.displayName || "").trim();
       const name = displayName || accountName || (guest ? "Guest" : "");
       const avatarColor = AVATAR_COLORS.includes(settings.avatarColor) ? settings.avatarColor : AVATAR_COLORS[0];
-      return { signedIn, guest, temp: signedIn && !!settings.accountTemp, accountName, displayName, name, avatarColor };
+      return { signedIn, expired, guest, temp: signedIn && !!settings.accountTemp, accountName, displayName, name, avatarColor };
     } catch (error) {
-      return { signedIn: false, guest: false, temp: false, accountName: "", displayName: "", name: "", avatarColor: AVATAR_COLORS[0] };
+      return { signedIn: false, expired: false, guest: false, temp: false, accountName: "", displayName: "", name: "", avatarColor: AVATAR_COLORS[0] };
     }
   }
 
@@ -130,6 +132,7 @@ html.glow-room-open,html.glow-room-open body{overflow:hidden}
 .glow-avatar-btn.guest{background:#4a4642;color:#e9e3d9}
 .glow-avatar-btn .glow-avatar-dot{position:absolute;width:9px;height:9px;border-radius:50%;background:#7fd1a8;border:2px solid #1f1e1c;right:-3px;bottom:-3px}
 .glow-avatar-btn.temp .glow-avatar-dot{background:#e7b75d}
+.glow-avatar-btn.expired{filter:grayscale(.65);opacity:.85}
 .glow-profile-menu{position:fixed;z-index:2147483000;width:min(300px,calc(100vw - 16px));background:#1f1e1c;color:#f3efe8;
   border:1px solid rgba(255,255,255,.12);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.45);padding:10px;
   font:14px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;animation:glowAppsIn .14s ease both}
@@ -259,8 +262,9 @@ html.glow-embedded [data-glow-apps]{display:none!important}
     button.style.setProperty("--glow-avatar", who.avatarColor);
     button.classList.toggle("guest", !who.signedIn && !who.displayName);
     button.classList.toggle("temp", who.temp);
+    button.classList.toggle("expired", who.expired);
     button.innerHTML = (letters ? escapeHtml(letters) : "👤") + (who.signedIn ? '<i class="glow-avatar-dot" aria-hidden="true"></i>' : "");
-    const label = who.name ? `${who.name} · Profile & settings` : "Profile & settings";
+    const label = (who.name ? `${who.name} · Profile & settings` : "Profile & settings") + (who.expired ? " (signed out of Puter)" : "");
     button.title = label;
     button.setAttribute("aria-label", label);
   }
@@ -277,7 +281,9 @@ html.glow-embedded [data-glow-apps]{display:none!important}
     const who = account();
     const status = who.signedIn
       ? (who.temp ? '<small class="warn">Temporary Puter account · save it on puter.com</small>' : `<small>Signed in with Puter${who.displayName && who.accountName ? " as " + escapeHtml(who.accountName) : ""}</small>`)
-      : `<small>${who.guest ? "Guest · not signed in" : "Not signed in"}</small>`;
+      : who.expired
+        ? `<small class="warn">Signed out of Puter${who.accountName ? " (" + escapeHtml(who.accountName) + ")" : ""} · sign in again</small>`
+        : `<small>${who.guest ? "Guest · not signed in" : "Not signed in"}</small>`;
     const letters = initials(who.name);
     const item = (icon, text, section, extra) => `<a class="glow-profile-item${extra || ""}" role="menuitem" href="${accountUrl(section)}"><span aria-hidden="true">${icon}</span>${text}</a>`;
     const element = document.createElement("div");
@@ -292,7 +298,7 @@ html.glow-embedded [data-glow-apps]{display:none!important}
       ${item("📊", "Usage &amp; allowance", "usage")}
       ${item("⚙", "Settings", "prefs")}
       ${item("🔒", "My data &amp; privacy", "data")}
-      ${who.signedIn ? "" : item("✦", "Sign in with Puter", "account", " primary")}`;
+      ${who.signedIn ? "" : item("✦", who.expired ? "Sign in again" : "Sign in with Puter", "account", " primary")}`;
     document.body.appendChild(element);
     return element;
   }

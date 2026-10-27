@@ -55,6 +55,17 @@ class GlowInAppTests(unittest.TestCase):
             self.assertIn(section, account)
         self.assertIn("'account'", (WEB.parent / "mobile" / "scripts" / "build-web.mjs").read_text(encoding="utf-8"))
 
+    def test_expired_puter_session_is_shared(self):
+        # An expired Puter session must read as signed out in every app, not as signed in.
+        self.assertIn('settings.puterSession === false', self.switcher)
+        self.assertIn("Sign in again", self.switcher)
+        chat = (WEB / "chat" / "app.js").read_text(encoding="utf-8")
+        self.assertIn("function recordPuterSession", chat)
+        self.assertIn('"puterSession"', chat)
+        account = (WEB / "account" / "account.js").read_text(encoding="utf-8")
+        self.assertIn("puterSession: false", account)
+        self.assertNotIn('if (s.account === "puter") saveSettings({ account: "guest"', account)
+
 
 if __name__ == "__main__":
     unittest.main()
