@@ -87,6 +87,7 @@ class QuietHandler(http.server.SimpleHTTPRequestHandler):
 
 def launch_chrome(chrome, profile):
     port = free_port()
+    errors = tempfile.TemporaryFile()
     process = subprocess.Popen([
         chrome,
         "--headless=new",
@@ -108,15 +109,19 @@ def launch_chrome(chrome, profile):
         "--disable-features=WebRtcHideLocalIpsWithMdns",
         "--window-size=1440,1000",
         "about:blank",
-    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    for _ in range(100):
+    ], stdout=subprocess.DEVNULL, stderr=errors)
+    # Up to 60 s: a CI machine that is also running an Android emulator can be slow to start Chrome.
+    deadline = time.time() + 60
+    while time.time() < deadline and process.poll() is None:
         try:
             with urllib.request.urlopen(f"http://127.0.0.1:{port}/json/version", timeout=1) as response:
                 return process, port, json.loads(response.read())["webSocketDebuggerUrl"]
         except OSError:
-            time.sleep(0.1)
+            time.sleep(0.2)
     process.kill()
-    raise RuntimeError("Chrome did not start")
+    errors.seek(0)
+    tail = errors.read().decode("utf-8", "replace")[-1500:]
+    raise RuntimeError(f"Chrome did not start (exit {process.poll()}): {tail}")
 
 
 class Tab:
