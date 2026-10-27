@@ -112,8 +112,10 @@ def launch_chrome(chrome, profile):
 
 
 class Tab:
-    def __init__(self, browser, debug_port, url, skew_ms=0, width=1440, height=1000):
-        self.target = browser.call("Target.createTarget", url="about:blank")["targetId"]
+    def __init__(self, browser, debug_port, url, skew_ms=0, width=1440, height=1000, new_window=False):
+        # new_window: a separate window keeps both listeners "on screen", like two people on two devices.
+        # (Two tabs in one window means one is a hidden background tab, where YouTube may not start.)
+        self.target = browser.call("Target.createTarget", url="about:blank", newWindow=new_window)["targetId"]
         self.dev = DevTools(f"ws://127.0.0.1:{debug_port}/devtools/page/{self.target}")
         self.dev.call("Page.enable")
         self.dev.call("Runtime.enable")
@@ -255,7 +257,7 @@ def main():
         title = host.js(MAKE_WAV)
         record("host shares a local audio file", title == "Smoke Beat", str(title))
 
-        guest = Tab(browser, debug_port, f"{base}?room={code}", skew_ms=GUEST_CLOCK_SKEW_MS)
+        guest = Tab(browser, debug_port, f"{base}?room={code}", skew_ms=GUEST_CLOCK_SKEW_MS, new_window=True)
         guest.js(f"__sync.enter('{code}', false, 'Gus')")
         joined = guest.wait_for("__sync.room() && __sync.room().state && __sync.room().state.members.length === 2", timeout=30)
         record("guest joins by room code (WebRTC data channel)", bool(joined))
@@ -352,13 +354,17 @@ def main():
             guest.front()
             loaded = loaded and guest.wait_for("__sync.engine.kind === 'youtube' && !__sync.engine.loading && !__sync.engine.error", timeout=25)
             if loaded:
-                time.sleep(6)
+                # Measure once both listeners show "In sync" (what people see), at most ~10 s after the switch.
+                # The test video is only 19 s (longer ones are too heavy for headless Chrome on a small Mac),
+                # so on a loaded machine this check can be flaky; youtube_drift_probe gives the steady state.
+                settled = host.wait_for("(document.querySelector('#sync-pill') || {}).textContent.indexOf('In sync') === 0", timeout=10) and \
+                    guest.wait_for("(document.querySelector('#sync-pill') || {}).textContent.indexOf('In sync') === 0", timeout=10)
                 host_drift = measure(host, "host", samples=4)
                 guest_drift = measure(guest, "guest", samples=4)
                 between = cross_drift(host, guest, samples=4)
                 ok = between is not None and abs(between) < 0.4
-                record("YouTube: guest and host hear the same moment", ok,
-                       f"guest vs host {between * 1000:+.0f} ms (room-clock drift host {host_drift}, guest {guest_drift})" if between is not None else
+                record("YouTube: guest and host hear the same moment", ok and bool(settled),
+                       f"guest vs host {between * 1000:+.0f} ms (settled: {bool(settled)}, room-clock drift host {host_drift}, guest {guest_drift})" if between is not None else
                        f"no samples (host {host.js(SAMPLE)}, guest {guest.js(SAMPLE)})")
             else:
                 record("YouTube playback in sync on both browsers", False,
@@ -376,8 +382,9 @@ def main():
         browser.call("Target.closeTarget", targetId=host.target)
         took_over = guest.wait_for("__sync.room().isHost === true && !!__sync.room().state", timeout=40, interval=0.5)
         state = guest.js("(function(){var s=__sync.room().state;return {q:s.queue.length, playing:s.playing, members:s.members.length};})()")
+        takeover_status = guest.js("(document.querySelector('#conn') || {}).textContent")
         record("host leaves: guest takes over the room", bool(took_over) and state and state["q"] == queue_len,
-               json.dumps(state))
+               json.dumps(state) + f" status={takeover_status!r}")
         if took_over:
             time.sleep(2.5)
             drift = measure(guest, "new host", samples=4)

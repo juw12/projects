@@ -175,6 +175,7 @@
         var existing = state.members.filter(function (m) { return m.id === member.id; })[0];
         if (existing) {
           existing.name = String(member.name || existing.name).slice(0, 40);
+          existing.supporter = !!member.supporter;
           return result(true);
         }
         if (state.members.length >= MAX_MEMBERS) {
@@ -185,6 +186,7 @@
           name: String(member.name || 'Guest').slice(0, 40),
           joinedAt: now,
           voice: false,
+          supporter: !!member.supporter,
         });
         return result(true);
       }

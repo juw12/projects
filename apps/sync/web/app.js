@@ -6,7 +6,7 @@
   var catalog = window.SyncCatalog;
   var Players = window.SyncPlayers;
   var config = window.SYNC_CONFIG || {};
-  var VERSION = '1.4.1';
+  var VERSION = '1.5.0';
   var TICK_MS = 250;
   var DUCK_LEVEL = 0.3;
   var REACTIONS = ['❤️', '🔥', '😍', '🙌', '💃', '😂', '🎉'];
@@ -36,6 +36,9 @@
       volume: saved.volume != null ? saved.volume : 1,
       videoView: saved.videoView === true,
       pipCorner: PIP_CORNERS.indexOf(saved.pipCorner) >= 0 ? saved.pipCorner : 'br',
+      supported: saved.supported === true,       // tapped "Support Sync" (honor system)
+      showBadge: saved.showBadge !== false,      // show the ♥ supporter badge to friends
+      supportAskedAt: saved.supportAskedAt || 0, // last gentle prompt (ms)
       nudge: 0,
     };
   })();
@@ -48,6 +51,9 @@
       volume: prefs.volume,
       videoView: prefs.videoView,
       pipCorner: prefs.pipCorner,
+      supported: prefs.supported,
+      showBadge: prefs.showBadge,
+      supportAskedAt: prefs.supportAskedAt,
     }));
   }
 
@@ -160,6 +166,69 @@
     return base + '?room=' + code;
   }
 
+  /* ---------- earning: tip jar + supporter badge, Apple Music affiliate links ---------- */
+
+  var SUPPORT_URL = String(config.supportUrl || '').trim();
+  var APPLE_TOKEN = String(config.appleAffiliateToken || '').trim();
+  var SUPPORT_ASK_AFTER_S = 20 * 60;               // listening together this long before one gentle ask
+  var SUPPORT_ASK_EVERY_MS = 30 * 24 * 3600 * 1000;  // at most once a month
+  var listenedTogether = 0;
+
+  // Store apps have their own payment rules, so the tip jar is web-only.
+  function supportEnabled() {
+    return !!SUPPORT_URL && !NATIVE;
+  }
+
+  function isSupporter() {
+    return supportEnabled() && prefs.supported && prefs.showBadge;
+  }
+
+  function openSupport(source) {
+    var url = SUPPORT_URL + (SUPPORT_URL.indexOf('?') >= 0 ? '&' : '?') + 'utm_source=sync&utm_medium=' + encodeURIComponent(source);
+    window.open(url, '_blank', 'noopener');
+    var first = !prefs.supported;
+    prefs.supported = true;
+    savePrefs();
+    if (room && room.supporter !== isSupporter()) {
+      room.setSupporter(isSupporter());
+    }
+    if (first) {
+      setTimeout(function () {
+        toast('Thank you for keeping Sync free 💜 Friends now see a ♥ next to your name (change it in Settings).', 'good');
+      }, 800);
+    }
+  }
+
+  function maybeAskForSupport(state) {
+    if (!supportEnabled() || prefs.supported || !state.playing || state.members.length < 2) {
+      return;
+    }
+    listenedTogether += TICK_MS / 1000;
+    if (listenedTogether < SUPPORT_ASK_AFTER_S || Date.now() - prefs.supportAskedAt < SUPPORT_ASK_EVERY_MS) {
+      return;
+    }
+    prefs.supportAskedAt = Date.now();
+    savePrefs();
+    toast('Enjoying Sync? It’s free, no ads, no account. A small tip keeps it that way.', '', {
+      label: 'Support',
+      run: function () {
+        openSupport('prompt');
+      },
+    });
+  }
+
+  function appleMusicUrl(songId) {
+    var url = 'https://geo.music.apple.com/song/' + encodeURIComponent(songId) + '?app=music';
+    if (APPLE_TOKEN) {
+      url += '&at=' + encodeURIComponent(APPLE_TOKEN) + '&ct=sync';
+    }
+    return url;
+  }
+
+  function spotifyUrl(trackId) {
+    return 'https://open.spotify.com/track/' + encodeURIComponent(trackId);
+  }
+
   function myId() {
     return room && room.myId();
   }
@@ -225,12 +294,19 @@
       '  <footer class="landing-foot">' +
       '    <span><b>1</b> Start a room</span><span><b>2</b> Share the link</span><span><b>3</b> Press play together</span>' +
       '    <span>Sync ' + VERSION + '</span>' +
+      (supportEnabled() ? '    <a id="support-link" class="support-link" href="' + esc(SUPPORT_URL) + '" target="_blank" rel="noopener">' + icon('heart') + 'Support Sync</a>' : '') +
       '  </footer>' +
       '</div>' +
       '<div id="toasts" class="toasts" aria-live="polite"></div>';
 
     $('#name').value = prefs.name;
     $('#service').value = prefs.service;
+    if ($('#support-link')) {
+      $('#support-link').onclick = function (event) {
+        event.preventDefault();
+        openSupport('landing');
+      };
+    }
 
     function begin(code, create) {
       var name = $('#name').value.trim();
@@ -291,7 +367,7 @@
     history.replaceState(null, '', '?room=' + code);
     document.title = 'Sync · Room ' + code;
 
-    room = new window.SyncRoom.Room({ code: code, name: prefs.name, create: create });
+    room = new window.SyncRoom.Room({ code: code, name: prefs.name, create: create, supporter: isSupporter() });
     voice = new window.SyncVoice.Voice(room);
 
     room.on('ready', function (info) {
@@ -394,6 +470,7 @@
       '      <div id="video-hero-anchor" class="video-anchor hero" aria-hidden="true"></div>' +
       '      <div class="np-titles"><h2 id="np-title">Nothing playing yet</h2><p id="np-artist">Add a song to get the party started</p></div>' +
       '      <div class="np-badges"><span id="np-source" class="badge" hidden></span><span id="sync-pill" class="badge" hidden></span><button id="view-toggle" class="view-toggle" hidden></button></div>' +
+      '      <div id="np-open" class="np-open" hidden></div>' +
       '      <div id="embed-slot" class="embed-slot"></div>' +
       '      <div id="np-notice" class="notice" hidden></div>' +
       '      <div id="stage-cta" class="empty-cta"><button class="add-open accent">' + icon('plus') + 'Add music</button></div>' +
@@ -458,6 +535,7 @@
       '      <label class="field"><span>Volume</span><input id="set-volume" type="range" min="0" max="1" step="0.05"></label>' +
       '      <label class="field" id="dj-field"><span>Who can control playback</span><select id="set-dj"><option value="everyone">Everyone</option><option value="host">Only me (host)</option></select></label>' +
       '      <p class="fine">Spotify plays full songs if you’re logged in to Spotify Premium in this browser, otherwise 30-second previews. Volume and auto-lowering don’t work in the Spotify player.</p>' +
+      '      <div id="support-box" class="support-box" hidden></div>' +
       '      <p class="fine">Privacy: there’s no Sync server. Room state, chat, voice and shared files go directly between browsers.</p>' +
       '      <div class="row end"><button value="close" class="primary">Done</button></div>' +
       '    </form>' +
@@ -696,6 +774,39 @@
 
   /* ---------- settings ---------- */
 
+  function renderSupportBox() {
+    var box = $('#support-box');
+    if (!box) {
+      return;
+    }
+    box.hidden = !supportEnabled();
+    if (box.hidden) {
+      return;
+    }
+    box.innerHTML =
+      '<div class="support-copy"><b>' + icon('heart') + ' Keep Sync free</b>' +
+      '<span>No ads, no account, no server bills passed on to you. Tips pay for the rest.</span></div>' +
+      '<button type="button" id="support-btn" class="accent">' + (prefs.supported ? 'Tip again' : 'Support Sync') + '</button>' +
+      (prefs.supported
+        ? '<label class="switch-row"><input type="checkbox" id="badge-toggle"' + (prefs.showBadge ? ' checked' : '') + '> Show my ♥ supporter badge to friends</label>'
+        : '');
+    $('#support-btn').onclick = function () {
+      openSupport('settings');
+      renderSupportBox();
+    };
+    var toggle = $('#badge-toggle');
+    if (toggle) {
+      toggle.onchange = function () {
+        prefs.showBadge = toggle.checked;
+        savePrefs();
+        if (room) {
+          room.setSupporter(isSupporter());
+        }
+        toast(toggle.checked ? 'Your ♥ supporter badge is showing.' : 'Supporter badge hidden.', 'good');
+      };
+    }
+  }
+
   function openSettings() {
     var dialog = $('#settings');
     $('#set-service').value = prefs.service;
@@ -737,6 +848,7 @@
     $('#set-dj').onchange = function (event) {
       room.intent({ type: 'setDj', mode: event.target.value });
     };
+    renderSupportBox();
     if (dialog.showModal) {
       dialog.showModal();
     } else {
@@ -906,6 +1018,24 @@
     return state && state.index >= 0 ? state.queue[state.index] : null;
   }
 
+  // "Save it to your library" links. Apple Music links carry the affiliate token when configured.
+  function renderOpenIn(track) {
+    var box = $('#np-open');
+    if (!box) {
+      return;
+    }
+    var sources = (track && track.sources) || {};
+    var links = [];
+    if (sources.apple) {
+      links.push('<a class="open-link apple" href="' + esc(appleMusicUrl(sources.apple)) + '" target="_blank" rel="noopener">Apple Music ↗</a>');
+    }
+    if (sources.spotify) {
+      links.push('<a class="open-link spotify" href="' + esc(spotifyUrl(sources.spotify)) + '" target="_blank" rel="noopener">Spotify ↗</a>');
+    }
+    box.hidden = !links.length;
+    box.innerHTML = links.length ? '<span>Save it on</span>' + links.join('') : '';
+  }
+
   function renderNowPlaying() {
     var track = currentTrack();
     var roomEl = $('.room');
@@ -918,6 +1048,7 @@
       retrigger($('.np-titles'), 'swap');
       retrigger($('#media'), 'swap');
     }
+    renderOpenIn(track);
     $('#np-title').textContent = track ? track.title : 'Nothing playing yet';
     $('#np-artist').textContent = track ? (track.artist || ' ') : 'Add a song to get the party started';
     $('#stage-cta').hidden = !!track;
@@ -1190,7 +1321,7 @@
     $('#members').innerHTML = state.members.map(function (m) {
       return '<li data-id="' + esc(m.id) + '" class="' + (speaking.has(m.id) ? 'speaking' : '') + '">' +
         '<span class="av" style="--h:' + hue(m.id) + '">' + esc(initials(m.name)) + '</span>' +
-        '<span class="m-name">' + esc(m.name) + (m.id === myId() ? ' <em>you</em>' : '') + '</span>' +
+        '<span class="m-name">' + esc(m.name) + (m.supporter ? ' <span class="tag-supporter" title="Supports Sync">♥</span>' : '') + (m.id === myId() ? ' <em>you</em>' : '') + '</span>' +
         (m.id === state.hostId ? '<span class="tag-host" title="Host">Host</span>' : '') +
         (m.voice ? '<span class="m-voice" title="In voice">' + icon('mic') + '</span>' : '') +
         '</li>';
@@ -1277,6 +1408,9 @@
     duck: 1,
     appliedVolume: null,
     drift: null,
+    seekLead: 0,        // learned head start for seeks (s), per player kind
+    seekLeadKind: null,
+    checkSeek: false,   // measure where the last seek landed on the next correction
   };
 
   function teardownPlayer() {
@@ -1914,6 +2048,7 @@
     var duration = (player && !engine.loading && player.duration && player.duration()) || (track && track.duration) || 0;
     updateProgress(expected, duration);
     updateMediaSession(track, state, expected, duration);
+    maybeAskForSupport(state);
 
     if (!track) {
       setSync('', '');
@@ -1982,6 +2117,10 @@
     }
 
     if (player.paused()) {
+      if (player.starting && player.starting()) {
+        setSync('warn', 'Starting…'); // let YouTube finish buffering; re-seeking now would restart it
+        return;
+      }
       if (now - engine.lastPlayTry > 1500) {
         engine.lastPlayTry = now;
         engine.playTries += 1;
@@ -2013,11 +2152,21 @@
     }
     var drift = player.time() - target;
     engine.drift = drift;
+    // Learn how late this player lands after a seek (YouTube buffers for a moment) and aim that much ahead.
+    if (engine.checkSeek && caps.adaptiveLead) {
+      engine.checkSeek = false;
+      engine.seekLead = clamp(engine.seekLead - clamp(drift * 0.5, -0.5, 0.5), 0, 2.5);
+    }
     var fix = core.correction(drift, caps);
     if (fix.action === 'seek') {
-      player.seek(Math.max(0, target + (caps.seekLead || 0)));
+      if (engine.seekLeadKind !== engine.kind) {
+        engine.seekLeadKind = engine.kind;
+        engine.seekLead = caps.seekLead || 0;
+      }
+      player.seek(Math.max(0, target + (caps.adaptiveLead ? engine.seekLead : (caps.seekLead || 0))));
       player.setRate(1);
       engine.lastSeek = now;
+      engine.checkSeek = true;
       setSync('warn', 'Re-syncing…');
       return;
     }
@@ -2268,6 +2417,12 @@
   window.__sync = {
     version: VERSION,
     native: NATIVE,
+    earning: function () {
+      return { supportEnabled: supportEnabled(), supporter: isSupporter(), appleToken: !!APPLE_TOKEN };
+    },
+    _listenFor: function (seconds) {
+      listenedTogether = seconds;
+    },
     mediaSession: function () {
       return 'mediaSession' in navigator && navigator.mediaSession.metadata
         ? {
