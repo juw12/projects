@@ -58,11 +58,13 @@ class StaticAppTests(unittest.TestCase):
         head = source.split('</head>', 1)[0]
         self.assertNotIn('互動原型', head)
         self.assertIn(f'<meta property="og:url" content="{site}">', source)
-        self.assertIn(f'<meta property="og:image" content="{site}icons/og-image.jpg">', source)
+        self.assertIn(f'<meta property="og:image" content="{site}icons/og-image-v2.jpg">', source)
         self.assertIn('<meta name="twitter:card" content="summary_large_image">', source)
+        self.assertIn('<meta property="og:locale:alternate" content="id_ID">', source)
+        self.assertIn('Aplikasi belajar gratis', source)
         for name in ('og:title', 'og:description', 'og:image:alt'):
             self.assertRegex(source, rf'<meta property="{name}" content="[^"]+">')
-        image = (WEB / 'icons' / 'og-image.jpg').read_bytes()
+        image = (WEB / 'icons' / 'og-image-v2.jpg').read_bytes()
         self.assertEqual(image[:3], b'\xff\xd8\xff')
         self.assertLess(len(image), 300_000)
         self.assertIn('content="1200"', source)
