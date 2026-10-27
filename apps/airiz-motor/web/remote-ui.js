@@ -51,7 +51,11 @@
         window.dispatchEvent(new CustomEvent('airiz-port-lost', { detail: lost }));
       }, { pinHint: lastRemotePin });
       await api.connectPort(port);
-      toast(port.bridge ? 'Bluetooth remote unlocked. Motor controls are ready.' : 'Bluetooth connected.');
+      const others = port.otherClients || [];
+      const alsoConnected = others.length
+        ? ' Also connected to this AIRIZ: ' + others.map(ble.describeClient).join('; ') + '.'
+        : '';
+      toast((port.bridge ? 'Bluetooth remote unlocked. Motor controls are ready.' : 'Bluetooth connected.') + alsoConnected);
     } catch (error) {
       if (error && (error.name === 'NotFoundError' || error.name === 'AbortError')) return;
       if (options.auto && error && error.name === 'SecurityError') {
@@ -119,6 +123,10 @@
       + 'Start it again after every power-up — the device firmware cannot auto-start it.</p>'
       + '<div id="phone-remote-pin" class="phone-remote-pin" hidden><span>PIN</span><strong id="phone-remote-pin-value"></strong></div>'
       + '<p id="phone-remote-status" class="phone-remote-status" role="status"></p>'
+      + '<section class="phone-remote-clients" aria-labelledby="phone-remote-clients-title">'
+      + '<h3 id="phone-remote-clients-title">Connected by Bluetooth</h3>'
+      + '<ul id="phone-remote-clients" aria-live="polite"><li class="muted">Start the remote to see connected devices.</li></ul>'
+      + '</section>'
       + '<ol class="phone-remote-steps"><li>iPhone: install the free <strong>Bluefy</strong> browser, open '
       + '<code>juw12.github.io/projects/airiz-motor</code>, tap <strong>Connect Bluetooth</strong>, choose <strong>AIRIZ-BT</strong> and enter the PIN.</li>'
       + '<li>Android: the AIRIZ Mobile app or Chrome on this website.</li></ol>'
@@ -137,6 +145,76 @@
     dialog.addEventListener('cancel', event => {
       if (remoteBusy) event.preventDefault();
     });
+    dialog.addEventListener('close', stopClientPolling);
+  }
+
+  // ---- who is connected to the AIRIZ over Bluetooth (bridge v3, read over USB)
+  let clientTimer = null;
+  let clientPolling = false;
+
+  function renderClients(info, note) {
+    const list = $('phone-remote-clients');
+    if (!list) return;
+    const rows = info && info.clients.length ? info.clients.map(client => {
+      const item = document.createElement('li');
+      const name = document.createElement('strong');
+      name.textContent = client.label || 'Unnamed device';
+      const details = document.createElement('span');
+      const minutes = Math.round(client.seconds / 60);
+      const age = client.seconds < 60 ? 'just connected' : minutes < 60 ? minutes + ' min'
+        : Math.floor(minutes / 60) + ' h ' + (minutes % 60) + ' min';
+      details.textContent = ' \u00b7 ' + (client.pinOk ? 'PIN ok' : 'no PIN yet') + ' \u00b7 ' + age
+        + ' \u00b7 ' + client.address;
+      item.append(name, details);
+      return item;
+    }) : [Object.assign(document.createElement('li'), { className: 'muted', textContent: note || 'No device connected by Bluetooth.' })];
+    list.replaceChildren(...rows);
+  }
+
+  async function pollClients() {
+    if (clientPolling || remoteBusy || !dialog || !dialog.open) return;
+    const status = api.getStatus();
+    if (!status.connected || String(status.transportLabel || '').startsWith('Bluetooth')) return;
+    clientPolling = true;
+    api.setOutputMuted(true);
+    try {
+      // The echoed command line contains "$(date" literally, so only the real output matches.
+      const reply = await run('echo "#AIRIZBT#who#$(date +%s)#$(cat /tmp/airiz/self 2>/dev/null)#"; '
+        + 'cat /tmp/airiz/clients 2>/dev/null; echo "#AIRIZBT#""whoend#END#"',
+      text => /#AIRIZBT#whoend#END#/.test(text), 4000);
+      const head = /#AIRIZBT#who#(\d+)#([0-9A-Fa-f:]*)#/.exec(reply);
+      if (!head) return;
+      const now = Number(head[1]);
+      const body = reply.slice(head.index).split('#AIRIZBT#whoend#END#')[0];
+      const clients = [];
+      for (const match of body.matchAll(/^([0-9A-Fa-f:]{17})\|([^|\r\n]*)\|(\d+)\|([01])\s*$/gm)) {
+        clients.push({
+          address: match[1].toUpperCase(),
+          label: match[2] === '-' ? '' : match[2],
+          seconds: Math.max(0, now - Number(match[3])),
+          pinOk: match[4] === '1',
+        });
+      }
+      const info = { controller: head[2].toUpperCase(), clients };
+      if (info.controller) ble.rememberWho(info);
+      renderClients(info, head[2] ? '' : 'The Bluetooth remote is not running (or is an older version). Press Start remote.');
+    } catch (ignored) {
+      /* USB busy or disconnected; try again next time */
+    } finally {
+      api.setOutputMuted(false);
+      clientPolling = false;
+    }
+  }
+
+  function startClientPolling() {
+    stopClientPolling();
+    pollClients();
+    clientTimer = setInterval(pollClients, 4000);
+  }
+
+  function stopClientPolling() {
+    clearInterval(clientTimer);
+    clientTimer = null;
   }
 
   function setStatus(text) {
@@ -196,6 +274,7 @@
   async function startRemote(newPin) {
     if (remoteBusy) return;
     setBusy(true);
+    while (clientPolling) await sleep(50);
     $('phone-remote-pin').hidden = true;
     api.setOutputMuted(true);
     try {
@@ -212,6 +291,7 @@
       $('phone-remote-pc-ble').hidden = !navigator.bluetooth || !!window.airizMobile;
       setStatus('AIRIZ-BT is advertising until the device is switched off. Connect a phone, '
         + 'or press "Connect this PC by Bluetooth" to control it wirelessly from here. You can unplug USB now.');
+      startClientPolling();
     } catch (error) {
       setStatus(error.message || 'Setup failed.');
     } finally {
@@ -239,11 +319,14 @@
   async function stopRemote() {
     if (remoteBusy) return;
     setBusy(true);
+    while (clientPolling) await sleep(50);
     try {
       const reply = await run('sh /data/airiz/stop.sh', text => /#AIRIZBT#stopped#END#/.test(text) || /not found/.test(text), 8000);
       $('phone-remote-pin').hidden = true;
       $('phone-remote-pc-ble').hidden = true;
       lastRemotePin = null;
+      stopClientPolling();
+      renderClients(null, 'The Bluetooth remote is stopped.');
       setStatus(/#AIRIZBT#stopped#END#/.test(reply) ? 'Bluetooth remote stopped.' : 'The remote is not installed on this device.');
     } finally {
       setBusy(false);
@@ -256,7 +339,9 @@
       if (!dialog) buildDialog();
       setStatus('Connected over USB. Press Start remote.');
       $('phone-remote-pin').hidden = true;
+      renderClients(null, 'Checking\u2026');
       dialog.showModal();
+      startClientPolling(); // shows phones already connected to a running remote
     });
   }
 

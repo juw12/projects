@@ -1,4 +1,4 @@
-# AIRIZ Bluetooth remote (bridge v2)
+# AIRIZ Bluetooth remote (bridge v3)
 
 The stock firmware (0.0.0.3) powers the Bluetooth radio with `diag ble on` but has
 no command service. This bridge adds one without changing the firmware:
@@ -14,6 +14,12 @@ no command service. This bridge adds one without changing the firmware:
 * **Stop**: `stop` (or `diag motor stop`) writes `0` to
   `/sys/devices/platform/soc/soc:motor/status`; the motor driver stops the
   timer-driven move at once (verified: a 400-step pan stopped at step 184).
+* **Who is connected** (v3): the bridge keeps `/tmp/airiz/clients`
+  (`ADDRESS|LABEL|CONNECTED_EPOCH|PIN_OK` per line) and the controller address in
+  `/tmp/airiz/self`. Clients send `hello <label>` (e.g. `hello iPhone (Bluefy)`) and can
+  ask `who` → `#WHO#<controller>#ADDR|LABEL|SECONDS|PIN_OK;...#END#`. Both work without
+  the PIN and only reveal device labels. `diag ver sw` adds `#BRIDGE#3#END#` so clients
+  know these commands exist. The console's *Phone remote* dialog shows the list over USB.
 * Installed in `/data/airiz` (persistent flash), so after a reboot only
   `sh /data/airiz/start.sh` is needed — the console's **Phone remote** button does
   this over USB. Runs until power-off (`start.sh SECONDS` for a time limit).

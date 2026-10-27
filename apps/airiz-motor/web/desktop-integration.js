@@ -199,6 +199,19 @@
   // Device picker for "Connect Bluetooth" (AIRIZ-BT remote). Electron has no built-in
   // Web Bluetooth chooser, so remote-ui.js announces the request and this dialog lists
   // what main.cjs reports from 'select-bluetooth-device'.
+  // "In use by iPhone (Bluefy) (PIN ok), 3 min" for an AIRIZ-BT whose controller address
+  // matches the last "who is connected" list this PC read (Phone remote or a connect).
+  function bluetoothUsage(deviceId) {
+    const ble = window.AirizBle;
+    const info = ble && typeof ble.recallWho === 'function' ? ble.recallWho() : null;
+    const hex = value => String(value || '').replace(/[^0-9a-f]/gi, '').toUpperCase();
+    if (!info || !info.controller || hex(info.controller) !== hex(deviceId)) return '';
+    const checked = Math.max(0, Math.round((Date.now() - info.at) / 60000));
+    const when = checked ? ' (checked ' + checked + ' min ago)' : '';
+    if (!info.clients.length) return 'Free \u2014 no device connected' + when;
+    return 'In use by ' + info.clients.map(ble.describeClient).join('; ') + when;
+  }
+
   function initializeBluetoothPicker() {
     if (!navigator.bluetooth || typeof host.onBluetoothDevices !== 'function') return;
     const dialog = document.createElement('dialog');
@@ -207,7 +220,8 @@
     dialog.setAttribute('aria-labelledby', 'bluetooth-picker-title');
     dialog.innerHTML = '<h2 id="bluetooth-picker-title">Connect Bluetooth</h2>'
       + '<p>Choose <strong>AIRIZ-BT</strong>. If it is not listed, start it over USB first: '
-      + '<strong>Phone remote \u2192 Start remote</strong> (again after every power-up).</p>'
+      + '<strong>Phone remote \u2192 Start remote</strong> (again after every power-up). '
+      + 'While a phone is connected the AIRIZ may stop advertising; the Phone remote dialog shows who is connected.</p>'
       + '<p id="bluetooth-picker-status" class="bluetooth-check-result" role="status">Searching\u2026</p>'
       + '<div id="bluetooth-picker-list" class="native-serial-list" role="group" aria-label="Bluetooth devices found"></div>'
       + '<div class="desktop-update-actions"><button id="bluetooth-picker-cancel" class="btn btn-secondary">Cancel</button></div>';
@@ -264,6 +278,13 @@
         const details = document.createElement('span');
         details.textContent = device.id;
         choice.append(name, details);
+        const usage = bluetoothUsage(device.id);
+        if (usage) {
+          const note = document.createElement('span');
+          note.className = 'bluetooth-in-use';
+          note.textContent = usage;
+          choice.append(note);
+        }
         choice.addEventListener('click', async () => {
           status.textContent = 'Connecting to ' + (device.name || device.id) + '\u2026';
           await host.chooseBluetoothDevice(device.id);

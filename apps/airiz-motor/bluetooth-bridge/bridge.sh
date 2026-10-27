@@ -1,5 +1,5 @@
 #!/bin/sh
-# AIRIZ Bluetooth command bridge v2.
+# AIRIZ Bluetooth command bridge v3.
 # Installed in /data/airiz (persistent); runtime files live in /tmp/airiz.
 # Exposes a Nordic-UART-style service named AIRIZ-BT. Each received text line is
 # checked against an allow-list and run locally; output goes back as notifications.
@@ -8,6 +8,11 @@
 # every Bluetooth connection before motor/LED commands run. Without the PIN only
 # the firmware-version query and the motor stop are accepted. Five wrong PINs
 # lock authentication for 60 s.
+#
+# v3: keeps a list of connected Bluetooth clients in /tmp/airiz/clients
+# (ADDRESS|LABEL|CONNECTED_EPOCH|PIN_OK per line; the controller address is in
+# /tmp/airiz/self). Clients may introduce themselves with "hello <label>" and ask
+# "who" (both allowed without the PIN; they only reveal device labels).
 A=/data/airiz
 D=/tmp/airiz
 export DBUS_SYSTEM_BUS_ADDRESS=unix:path=$D/bus
@@ -73,6 +78,47 @@ authed=0
 failures=0
 locked_until=0
 
+# ---- connected-client list (v3)
+client_add() {
+  [ -n "$1" ] || return
+  grep -v "^$1|" $D/clients 2>/dev/null > $D/clients.tmp
+  echo "$1|-|$(date +%s)|0" >> $D/clients.tmp
+  mv $D/clients.tmp $D/clients
+}
+
+client_del() {
+  [ -n "$1" ] || return
+  grep -v "^$1|" $D/clients 2>/dev/null > $D/clients.tmp
+  mv $D/clients.tmp $D/clients
+}
+
+# Set field $1 (2 = label, 4 = PIN ok) of the newest connection to $2.
+client_set() {
+  [ -s $D/clients ] || return
+  n=$(wc -l < $D/clients)
+  awk -F'|' -v OFS='|' -v n="$n" -v f="$1" -v v="$2" 'NR == n { $f = v } { print }' $D/clients > $D/clients.tmp
+  mv $D/clients.tmp $D/clients
+}
+
+newest_client() {
+  tail -n 1 $D/clients 2>/dev/null | cut -d'|' -f1
+}
+
+# "[CHG] Device AA:BB:CC:DD:EE:FF Connected: yes|no" from bluetoothctl.
+link_event() {
+  addr=$(echo "$1" | grep -o '[0-9A-Fa-f:]\{17\}' | head -n 1)
+  case "$1" in
+    *"Connected: yes"*) client_add "$addr" ;;
+    *) client_del "$addr" ;;
+  esac
+}
+
+who_text() {
+  now=$(date +%s)
+  list=$(awk -F'|' -v now="$now" '{ printf "%s%s|%s|%d|%s", (NR > 1 ? ";" : ""), $1, $2, now - $3, $4 }' $D/clients 2>/dev/null)
+  echo "#WHO#$(cat $D/self 2>/dev/null)#$list#END#"
+}
+
 handle() {
   cmd=$(echo "$1" | tr -s ' ' | sed 's/^ //; s/ $//')
   [ -z "$cmd" ] && return
@@ -86,12 +132,28 @@ handle() {
       [ -z "$out" ] && out="#INFO#unknown#END#"
       if [ "$authed" = 1 ]; then
         out="$out
+#BRIDGE#3#END#
 #AUTH#ok#END#"
       else
         out="$out
+#BRIDGE#3#END#
 #AUTH#required#END#"
       fi
       notify_text "$out
+"
+      return
+      ;;
+    "hello "*)
+      label=$(echo "${cmd#hello }" | tr -cd 'A-Za-z0-9 ._()-' | head -c 40)
+      [ -n "$label" ] || label=unknown
+      client_set 2 "$label"
+      log "hello: $label"
+      notify_text "#HELLO#$(newest_client)#END#
+"
+      return
+      ;;
+    "who")
+      notify_text "$(who_text)
 "
       return
       ;;
@@ -111,6 +173,7 @@ handle() {
       if [ -n "$PIN" ] && [ "${cmd#auth }" = "$PIN" ]; then
         authed=1
         failures=0
+        client_set 4 1
         log "auth ok"
         notify_text "#AUTH#ok#END#
 "
@@ -167,6 +230,11 @@ while true; do sleep 3600; done > $D/in &
 HOLDER=$!
 bluetoothctl < $D/in > $D/out 2>&1 &
 sleep 2
+# Controller address (shown to clients so the PC can match it with its scan list).
+: > $D/clients
+self=$(tr -d '\033' < $D/out | grep -o 'Controller [0-9A-Fa-f:]\{17\}' | head -n 1 | cut -d' ' -f2)
+[ -n "$self" ] || self=$(hciconfig hci0 2>/dev/null | grep -o '[0-9A-Fa-f:]\{17\}' | head -n 1)
+echo "$self" > $D/self
 # bluetoothctl prints pairing questions ("Accept pairing (yes/no):", "Confirm
 # passkey ... (yes/no):") without a newline and then waits; unanswered, the
 # iPhone link stalls and drops after ~30 s. Answer them automatically.
@@ -224,6 +292,7 @@ tail -n 0 -f $D/out | while IFS= read -r raw; do
       authed=0
       acc=""
       collecting=0
+      link_event "$line"
       log "link: ${line##*Device }"
       continue
       ;;
