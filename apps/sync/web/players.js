@@ -317,7 +317,7 @@
       document.addEventListener('musickitloaded', function () {
         Promise.resolve(window.MusicKit.configure({
           developerToken: config.appleDeveloperToken,
-          app: { name: 'Sync', build: '1.5.1' },
+          app: { name: 'Sync', build: '1.5.2' },
         })).then(function () {
           resolve(window.MusicKit.getInstance());
         }, reject);

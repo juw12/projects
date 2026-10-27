@@ -1,7 +1,7 @@
 /* Sync service worker — app-scoped offline shell. Never touches other apps' caches.
  * Live rooms need the network; this only makes the app open instantly and installable.
  * A new version waits for the user to tap "Update" so a live session never mixes builds. */
-const CACHE = 'sync-v1.5.1';
+const CACHE = 'sync-v1.5.2';
 const SHELL = [
   './',
   'index.html',
