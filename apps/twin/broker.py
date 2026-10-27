@@ -571,3 +571,7 @@ class BrokerRouter:
         if not hasattr(active, "reply"):
             raise BrokerError("Nothing to confirm.")
         return active.reply(uid, token, confirm, limits)
+
+    def selftest(self, uid, symbol="AAPL"):
+        """Read-only IBKR gateway check (works before connecting in Twin)."""
+        return self.ibkr.selftest(uid, symbol)
