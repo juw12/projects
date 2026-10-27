@@ -193,20 +193,8 @@
   }
 
   function captionState(item, t) {
-    var progressVo = (t - item.voStart) / item.voDur;
-    if (progressVo < 0 || progressVo > 1.08 || !item.chunks.length) {
-      return null;
-    }
-    var index = 0;
-    for (var i = 0; i < item.chunks.length; i++) {
-      if (progressVo >= item.chunks[i].start) {
-        index = i;
-      }
-    }
-    var start = item.chunks[index].start;
-    var end = index + 1 < item.chunks.length ? item.chunks[index + 1].start : 1;
-    var within = clamp((progressVo - start) / Math.max(0.0001, end - start), 0, 0.999);
-    return { text: item.chunks[index].text, within: within, sinceStart: (progressVo - start) * item.voDur };
+    // shared with the engine: real word timings when the clip was aligned (caption_timing.py)
+    return window.SC.captionAt(item, t);
   }
 
   /** Word-by-word karaoke caption: active word gets a yellow block. */
@@ -219,7 +207,7 @@
       return;
     }
     var words = state.text.split(/\s+/).filter(Boolean);
-    var active = Math.floor(state.within * words.length);
+    var active = Math.min(words.length - 1, state.active);
     var pop = backOut(state.sinceStart / 0.18);
     var size = 74;
     setFont(ctx, "900", size, P.black);
