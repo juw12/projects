@@ -103,6 +103,9 @@ def launch_chrome(chrome, profile):
         "--disable-background-timer-throttling",
         "--disable-backgrounding-occluded-windows",
         "--disable-renderer-backgrounding",
+        # Offer real LAN addresses as WebRTC candidates (not random .local names): an Android emulator on
+        # the same machine can reach those, but cannot resolve mDNS names or hairpin through the public IP.
+        "--disable-features=WebRtcHideLocalIpsWithMdns",
         "--window-size=1440,1000",
         "about:blank",
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
