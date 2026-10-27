@@ -14,6 +14,11 @@ import { DurableObject } from 'cloudflare:workers';
 const MAX_VIEWERS = 10;
 const MAX_FRAME_BYTES = 512 * 1024;
 const CODE_PATTERN = /^\d{6}$/;
+const MAX_LABEL = 40;
+
+function cleanLabel(value) {
+  return String(value || '').replace(/[^A-Za-z0-9 ._()-]/g, '').slice(0, MAX_LABEL);
+}
 
 function allowedOrigin(request, env) {
   const origin = request.headers.get('Origin');
@@ -32,7 +37,7 @@ function json(body, status = 200) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (url.pathname === '/v1/status') return json({ ok: true, app: 'airiz-relay', version: '1.0.0' });
+    if (url.pathname === '/v1/status') return json({ ok: true, app: 'airiz-relay', version: '1.1.0' });
 
     const match = /^\/v1\/room\/([^/]+)$/.exec(url.pathname);
     if (!match) return json({ error: 'not found' }, 404);
@@ -64,6 +69,7 @@ export class Room extends DurableObject {
       }
     }
     this.ctx.acceptWebSocket(server, [role]);
+    if (role === 'viewer') server.serializeAttachment({ label: '', since: Date.now() });
     if (role === 'viewer') {
       server.send(JSON.stringify({ type: 'status', pc: this.ctx.getWebSockets('pc').length > 0 }));
     } else {
@@ -87,11 +93,15 @@ export class Room extends DurableObject {
 
   // closing: a socket that is going away but may still be listed by getWebSockets().
   reportViewers(closing = null) {
-    const count = this.ctx.getWebSockets('viewer')
-      .filter(viewer => viewer !== closing).length;
+    const viewers = this.ctx.getWebSockets('viewer').filter(viewer => viewer !== closing);
+    const list = viewers.map(viewer => {
+      const info = viewer.deserializeAttachment() || {};
+      return { label: info.label || '', since: info.since || 0 };
+    });
+    const message = JSON.stringify({ type: 'viewers', count: viewers.length, list, now: Date.now() });
     for (const pc of this.ctx.getWebSockets('pc')) {
       try {
-        pc.send(JSON.stringify({ type: 'viewers', count }));
+        pc.send(message);
       } catch (ignored) { /* closing */ }
     }
   }
@@ -107,7 +117,17 @@ export class Room extends DurableObject {
       if (message.byteLength > MAX_FRAME_BYTES) return;
       this.broadcastToViewers(message);
     }
-    // Viewers only listen; anything they send is ignored.
+    // Viewers only introduce themselves ({"type":"hello","label":"iPhone (Safari)"}).
+    if (role === 'viewer' && typeof message === 'string' && message.length <= 500) {
+      try {
+        const data = JSON.parse(message);
+        if (data && data.type === 'hello') {
+          const info = ws.deserializeAttachment() || {};
+          ws.serializeAttachment({ label: cleanLabel(data.label), since: info.since || Date.now() });
+          this.reportViewers();
+        }
+      } catch (ignored) { /* not JSON */ }
+    }
   }
 
   async webSocketClose(ws) {
