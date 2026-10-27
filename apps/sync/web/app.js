@@ -6,7 +6,7 @@
   var catalog = window.SyncCatalog;
   var Players = window.SyncPlayers;
   var config = window.SYNC_CONFIG || {};
-  var VERSION = '1.5.0';
+  var VERSION = '1.5.1';
   var TICK_MS = 250;
   var DUCK_LEVEL = 0.3;
   var REACTIONS = ['❤️', '🔥', '😍', '🙌', '💃', '😂', '🎉'];
@@ -470,7 +470,6 @@
       '      <div id="video-hero-anchor" class="video-anchor hero" aria-hidden="true"></div>' +
       '      <div class="np-titles"><h2 id="np-title">Nothing playing yet</h2><p id="np-artist">Add a song to get the party started</p></div>' +
       '      <div class="np-badges"><span id="np-source" class="badge" hidden></span><span id="sync-pill" class="badge" hidden></span><button id="view-toggle" class="view-toggle" hidden></button></div>' +
-      '      <div id="np-open" class="np-open" hidden></div>' +
       '      <div id="embed-slot" class="embed-slot"></div>' +
       '      <div id="np-notice" class="notice" hidden></div>' +
       '      <div id="stage-cta" class="empty-cta"><button class="add-open accent">' + icon('plus') + 'Add music</button></div>' +
@@ -487,6 +486,7 @@
         return '<button class="react" data-emoji="' + e + '" aria-label="React ' + e + '">' + e + '</button>';
       }).join('') + '</div>' +
       '          <div class="fine-tune" title="Nudge your playback if your version of the song starts earlier or later">Timing<button data-nudge="-0.1" aria-label="Play earlier">−0.1</button><b id="nudge-val">0.0s</b><button data-nudge="0.1" aria-label="Play later">+0.1</button></div>' +
+      '          <div id="np-open" class="np-open" hidden></div>' +
       '        </div>' +
       '      </div>' +
       '      <div id="video-dock-anchor" class="video-anchor dock" aria-hidden="true"></div>' +
@@ -1411,6 +1411,7 @@
     seekLead: 0,        // learned head start for seeks (s), per player kind
     seekLeadKind: null,
     checkSeek: false,   // measure where the last seek landed on the next correction
+    fineSince: 0,       // when a small steady offset (above caps.fineThreshold) was first seen
   };
 
   function teardownPlayer() {
@@ -2158,7 +2159,16 @@
       engine.seekLead = clamp(engine.seekLead - clamp(drift * 0.5, -0.5, 0.5), 0, 2.5);
     }
     var fix = core.correction(drift, caps);
-    if (fix.action === 'seek') {
+    // Players without rate control (YouTube) only correct by seeking, so small steady offsets inside the
+    // hard threshold would stay forever. Fix those with a rare, precise seek once the offset has held for 3 s.
+    var fineDue = false;
+    if (fix.action !== 'seek' && caps.fineThreshold && Math.abs(drift) > caps.fineThreshold) {
+      engine.fineSince = engine.fineSince || now;
+      fineDue = now - engine.fineSince > 3000 && now - engine.lastSeek > 8000;
+    } else {
+      engine.fineSince = 0;
+    }
+    if (fix.action === 'seek' || fineDue) {
       if (engine.seekLeadKind !== engine.kind) {
         engine.seekLeadKind = engine.kind;
         engine.seekLead = caps.seekLead || 0;
@@ -2167,6 +2177,7 @@
       player.setRate(1);
       engine.lastSeek = now;
       engine.checkSeek = true;
+      engine.fineSince = 0;
       setSync('warn', 'Re-syncing…');
       return;
     }

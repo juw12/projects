@@ -98,6 +98,11 @@ def launch_chrome(chrome, profile):
         "--use-fake-ui-for-media-stream",
         "--use-fake-device-for-media-stream",
         "--mute-audio",
+        # Keep both "listeners" running at full speed even when the Mac's screen is locked or the
+        # test windows are covered; otherwise Chrome throttles their timers and the sync loop stalls.
+        "--disable-background-timer-throttling",
+        "--disable-backgrounding-occluded-windows",
+        "--disable-renderer-backgrounding",
         "--window-size=1440,1000",
         "about:blank",
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -123,7 +128,10 @@ class Tab:
         self.dev.call("Page.addScriptToEvaluateOnNewDocument", source=FAKE_MIC)
         if skew_ms:
             self.dev.call("Page.addScriptToEvaluateOnNewDocument", source=(
-                "(function(){var real=Date.now;Date.now=function(){return real()+%d;};})();" % skew_ms
+                # Adjustable so the YouTube check can switch it off: a real phone's wrong clock is wrong for
+                # the YouTube frame too, but this override only reaches our page, which skews YouTube's own
+                # position estimate (it extrapolates with Date.now) by up to ~0.7 s.
+                "(function(){var real=Date.now;window.__skewMs=%d;Date.now=function(){return real()+window.__skewMs;};})();" % skew_ms
             ))
         self.dev.call("Page.navigate", url=url)
         self.wait_for("!!window.__sync", timeout=15)
@@ -346,6 +354,9 @@ def main():
                f"rejoined={bool(back_in)} host={still_host} status={guest_status}")
 
         if not args.skip_youtube:
+            # Clock-offset correction was proven above; from here give the guest a consistent (unskewed)
+            # clock, shifting its learned offset to match and dropping the old ping samples.
+            guest.js(f"(function(){{var r=__sync.room();window.__skewMs=0;r.offset+={GUEST_CLOCK_SKEW_MS};r.samples=[];return r.offset;}})()")
             host.js("__sync.room().intent({type:'enqueue', track:{id:'yt1', title:'Me at the zoo', artist:'jawed', duration:19, sources:{youtube:'jNQXAC9IVRw'}}})")
             time.sleep(0.5)
             host.front()
@@ -354,11 +365,20 @@ def main():
             guest.front()
             loaded = loaded and guest.wait_for("__sync.engine.kind === 'youtube' && !__sync.engine.loading && !__sync.engine.error", timeout=25)
             if loaded:
-                # Measure once both listeners show "In sync" (what people see), at most ~10 s after the switch.
-                # The test video is only 19 s (longer ones are too heavy for headless Chrome on a small Mac),
-                # so on a loaded machine this check can be flaky; youtube_drift_probe gives the steady state.
-                settled = host.wait_for("(document.querySelector('#sync-pill') || {}).textContent.indexOf('In sync') === 0", timeout=10) and \
-                    guest.wait_for("(document.querySelector('#sync-pill') || {}).textContent.indexOf('In sync') === 0", timeout=10)
+                # Measure once both listeners show "In sync" (what people see). The test video is only 19 s
+                # (longer ones are too heavy for headless Chrome on a small Mac), so wait for both at once and,
+                # if the song already ended on a slow run, play it again (warm cache) and measure that.
+                in_sync = "(document.querySelector('#sync-pill') || {}).textContent.indexOf('In sync') === 0"
+                settled = False
+                for attempt in range(2):
+                    deadline = time.time() + 9
+                    while time.time() < deadline and not settled:
+                        settled = bool(host.js(in_sync)) and bool(guest.js(in_sync))
+                        if not settled:
+                            time.sleep(0.3)
+                    if settled or attempt == 1:
+                        break
+                    host.js("__sync.room().intent({type:'select', index: 1})")
                 host_drift = measure(host, "host", samples=4)
                 guest_drift = measure(guest, "guest", samples=4)
                 between = cross_drift(host, guest, samples=4)

@@ -27,9 +27,31 @@
     <button onclick="location.href='https://juw12.github.io/projects/sync/'">Try again</button>
   </main>
   <script>
-    window.addEventListener('online', function () {
-      location.href = 'https://juw12.github.io/projects/sync/';
+    // Come back by itself: phones often open the app a moment before Wi-Fi/mobile data is ready,
+    // and the 'online' event never fires when the OS already thought it was online.
+    var SITE = 'https://juw12.github.io/projects/sync/';
+    var delay = 3000;
+    var leaving = false;
+    function go() {
+      if (!leaving) {
+        leaving = true;
+        location.href = SITE;
+      }
+    }
+    function probe() {
+      fetch(SITE + 'sw.js?probe=' + Date.now(), { mode: 'no-cors', cache: 'no-store' })
+        .then(go, function () {
+          delay = Math.min(delay * 1.5, 20000);
+          setTimeout(probe, delay);
+        });
+    }
+    window.addEventListener('online', go);
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) {
+        probe();
+      }
     });
+    setTimeout(probe, delay);
   </script>
 </body>
 </html>
