@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.2.4` in this repository's Releases section.
+`airiz-desktop-v1.2.5` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -161,6 +161,19 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.2.5: Phone camera view works behind company firewalls
+
+* **Share to phone** now also works when the PC's network blocks WebRTC (company Wi-Fi
+  such as PEGATRON_OA blocks UDP and TURN). The app sends JPEG snapshots of the preview
+  (640 px, about 5 frames/s) over HTTPS to the AIRIZ relay, a Cloudflare Worker in this
+  repository (`apps/airiz-motor/relay`). Frames pass through Cloudflare and are not stored.
+* Phones and the share link try full-quality WebRTC video and the relay together, and
+  switch to WebRTC video as soon as it connects. Snapshots are only encoded while someone
+  watches through the relay.
+* The viewer count includes relay viewers. If the PeerJS service is unreachable, sharing
+  continues through the relay instead of failing.
+* The app's network policy adds `wss://airiz-relay.juw12.workers.dev`.
 
 ## 1.2.4: Control the AIRIZ from this PC over Bluetooth
 
