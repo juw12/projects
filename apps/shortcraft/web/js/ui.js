@@ -758,6 +758,12 @@
     }
   }
 
-  window.ShortcraftStudio = { state: state, seek: seek, exportVideo: exportVideo, setProject: setProject };
+  window.ShortcraftStudio = {
+    state: state,
+    seek: seek,
+    exportVideo: exportVideo,
+    setProject: setProject,
+    getAssets: function () { return assets; }
+  };
   document.addEventListener("DOMContentLoaded", init);
 })();

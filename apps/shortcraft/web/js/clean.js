@@ -5,10 +5,10 @@
  *   - story-style segmented progress (one segment per scene)
  *   - one typeface (Plus Jakarta Sans, bundled in web/fonts) and a single card style
  *   - A/B colour language: option A = mint, option B = coral, numbers = yellow
- *   - an optional talking-avatar bubble (project.avatar = {src, hookBig}) that is large
- *     during the hook and docks top-right afterwards, with a "speaking" ring
+ *   - an optional tiny talking host (project.avatar) bottom-left that speaks the
+ *     captions in a chat bubble — below the content area, clear of the right rail
  * Safe zones (1080x1920): platform UI covers y < 140, the right rail below y ~1000 and
- * the bottom ~320 px, so content lives in y 300-1380, captions at 1450, source at 1532.
+ * the bottom ~320 px, so content lives in y 390-1380, captions/host at 1452, source 1556.
  */
 (function () {
   "use strict";
@@ -36,12 +36,9 @@
   var PALETTE_MAP = { bg1: "bg", yellow: "yellow", green: "a", cyan: "a", pink: "b" };
 
   var CONTENT_TOP = 390;
-  var CONTENT_TOP_DOCKED = 540;   // when the avatar bubble is docked top-right
   var CONTENT_BOTTOM = 1380;
   var CAPTION_Y = 1450;
-  var SOURCE_Y = 1532;
-  var DOCK = { x: 935, y: 345, r: 105 };
-  var HOOK_FACE = { x: W / 2, y: 520, r: 200 };
+  var SOURCE_Y = 1556;
 
   if (document.fonts && document.fonts.load) {
     document.fonts.load("800 80px Jakarta");
@@ -451,32 +448,88 @@
     ctx.fillText(text, W / 2, SOURCE_Y);
   }
 
-  // ---------------------------------------------------------------- avatar bubble
-  var avatarVideos = {};
+  // ---------------------------------------------------------------- host + chat bubble
+  // A tiny talking host in the caption row (bottom-left) "says" each caption chunk in a
+  // chat bubble. It sits below the content area and left of the platform's right rail, so
+  // it never covers the scene animation. project.avatar = {
+  //   name, skin, hair, shirt, glasses (bool), hairStyle ("short"|"long"|"hijab"),
+  //   src (optional: a small looping/lip-synced clip that replaces the drawn face)
+  // }
+  var HOST = { x: 122, y: 1452, r: 58 };
+  var BUBBLE_LEFT = 206;
+  var BUBBLE_RIGHT_MAX = 920;      // keep clear of TikTok/Reels/Shorts right rail
+  var envelopes = typeof WeakMap === "function" ? new WeakMap() : null;
+  var hostVideos = {};
 
-  function avatarVideo(project) {
-    var src = project.avatar && project.avatar.src;
-    if (!src) {
-      return null;
+  /** Loudness envelope (60 Hz, 0..1) of a decoded narration buffer, cached per buffer. */
+  function envelopeOf(buffer) {
+    if (envelopes && envelopes.has(buffer)) {
+      return envelopes.get(buffer);
     }
-    if (!avatarVideos[src]) {
-      var video = document.createElement("video");
-      video.muted = true;
-      video.playsInline = true;
-      video.preload = "auto";
-      video.crossOrigin = "anonymous";
-      video.src = src;
-      avatarVideos[src] = video;
+    var data = buffer.getChannelData(0);
+    var hop = Math.max(1, Math.floor(buffer.sampleRate / 60));
+    var count = Math.ceil(data.length / hop);
+    var env = new Float32Array(count);
+    for (var i = 0; i < count; i++) {
+      var sum = 0;
+      var n = 0;
+      for (var j = i * hop; j < Math.min(data.length, (i + 1) * hop); j += 4) {
+        sum += data[j] * data[j];
+        n += 1;
+      }
+      env[i] = Math.sqrt(sum / Math.max(1, n));
     }
-    return avatarVideos[src];
+    var sorted = Array.prototype.slice.call(env).sort(function (a, b) { return a - b; });
+    var ref = Math.max(1e-4, sorted[Math.floor(sorted.length * 0.95)] || 0);
+    var smooth = 0;
+    for (var k = 0; k < count; k++) {
+      var v = clamp(env[k] / ref, 0, 1);
+      smooth = v > smooth ? v : smooth * 0.75 + v * 0.25;   // fast attack, soft release
+      env[k] = smooth;
+    }
+    if (envelopes) {
+      envelopes.set(buffer, env);
+    }
+    return env;
   }
 
-  /** Keep the avatar clip on the timeline clock; seeking only when it drifts. */
-  function syncVideo(video, t, exporting) {
-    if (!video || video.readyState < 1) {
+  /** 0..1 mouth opening: real voice loudness when buffers exist, else a caption-driven guess. */
+  function voiceLevel(item, t, speaking) {
+    var studio = window.ShortcraftStudio;
+    var buffer = studio && studio.state && studio.state.voiceBuffers && studio.state.voiceBuffers[item.index];
+    if (buffer && buffer.getChannelData) {
+      var env = envelopeOf(buffer);
+      var index = Math.floor((t - item.voStart) * 60);
+      return index >= 0 && index < env.length ? env[index] : 0;
+    }
+    if (!speaking) {
+      return 0;
+    }
+    return clamp(0.25 + 0.75 * Math.abs(Math.sin(t * 13.0)) * (0.55 + 0.45 * Math.sin(t * 4.7)), 0, 1);
+  }
+
+  function hostVideo(avatar) {
+    if (!avatar || !avatar.src) {
+      return null;
+    }
+    if (!hostVideos[avatar.src]) {
+      var video = document.createElement("video");
+      video.muted = true;
+      video.loop = !!avatar.loop;
+      video.playsInline = true;
+      video.preload = "auto";
+      video.src = avatar.src;
+      hostVideos[avatar.src] = video;
+    }
+    return hostVideos[avatar.src];
+  }
+
+  function syncVideo(video, t, loop) {
+    if (!video || video.readyState < 1 || !video.duration) {
       return;
     }
-    var target = Math.min(t, (video.duration || t) - 0.05);
+    var target = loop ? t % video.duration : Math.min(t, video.duration - 0.05);
+    var exporting = document.body && document.body.classList.contains("exporting");
     if (exporting) {
       if (video.paused) {
         video.play().catch(function () {});
@@ -485,94 +538,274 @@
         video.currentTime = target;
       }
     } else if (Math.abs(video.currentTime - target) > 0.04) {
-      if (!video.paused) {
-        video.pause();
-      }
+      video.pause();
       video.currentTime = target;
     }
   }
 
-  function avatarPlacement(project, timeline, t) {
-    var hookBig = !project.avatar || project.avatar.hookBig !== false;
-    var hookEnd = timeline.scenes.length > 1 ? timeline.scenes[1].start : timeline.total;
-    if (!hookBig) {
-      return { x: DOCK.x, y: DOCK.y, r: DOCK.r, big: 0 };
+  /** Drawn host face in a 200x200 design space centred on (0,0). */
+  function drawFace(ctx, avatar, t, level, speaking) {
+    var skin = avatar.skin || "#C98E62";
+    var hair = avatar.hair || "#1E1A19";
+    var shirt = avatar.shirt || C.a;
+    var style = avatar.hairStyle || "short";
+    var blinkPhase = (t + 0.7) % 3.6;
+    var blink = blinkPhase < 0.12 ? Math.abs(blinkPhase - 0.06) / 0.06 : 1;
+    var bob = speaking ? Math.sin(t * 5.5) * 2.5 : Math.sin(t * 1.2) * 1.2;
+    var tilt = speaking ? Math.sin(t * 2.1) * 0.04 : 0;
+
+    // shoulders
+    ctx.fillStyle = shirt;
+    ctx.beginPath();
+    ctx.ellipse(0, 112, 78, 50, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,0.12)";
+    ctx.beginPath();
+    ctx.moveTo(-16, 64);
+    ctx.lineTo(0, 86);
+    ctx.lineTo(16, 64);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.save();
+    ctx.translate(0, bob);
+    ctx.rotate(tilt);
+    if (style === "hijab") {
+      ctx.fillStyle = hair;
+      ctx.beginPath();
+      ctx.ellipse(0, 4, 60, 70, 0, 0, Math.PI * 2);
+      ctx.fill();
     }
-    var k = easeInOut(progress(t, hookEnd - 0.45, 0.6));
-    return {
-      x: HOOK_FACE.x + (DOCK.x - HOOK_FACE.x) * k,
-      y: HOOK_FACE.y + (DOCK.y - HOOK_FACE.y) * k,
-      r: HOOK_FACE.r + (DOCK.r - HOOK_FACE.r) * k,
-      big: 1 - k
-    };
+    // neck + head + ears
+    ctx.fillStyle = skin;
+    ctx.fillRect(-15, 34, 30, 34);
+    if (style !== "hijab") {
+      ctx.beginPath();
+      ctx.arc(-43, 2, 10, 0, Math.PI * 2);
+      ctx.arc(43, 2, 10, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.ellipse(0, -2, 43, 51, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // hair
+    ctx.fillStyle = hair;
+    if (style === "short") {
+      ctx.beginPath();
+      ctx.ellipse(0, -30, 46, 30, 0, Math.PI, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(-8, -38, 40, 17, -0.18, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillRect(-46, -32, 9, 22);
+      ctx.fillRect(37, -32, 9, 22);
+    } else if (style === "long") {
+      ctx.beginPath();
+      ctx.ellipse(0, -26, 50, 36, 0, Math.PI, Math.PI * 2);
+      ctx.fill();
+      ctx.fillRect(-52, -28, 16, 92);
+      ctx.fillRect(36, -28, 16, 92);
+      ctx.beginPath();
+      ctx.ellipse(-6, -38, 42, 18, -0.2, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (style === "hijab") {
+      ctx.beginPath();
+      ctx.ellipse(0, -30, 50, 30, 0, Math.PI, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // brows, eyes, glasses
+    var lift = level * 4;
+    ctx.strokeStyle = "rgba(30,20,20,0.85)";
+    ctx.lineWidth = 4;
+    ctx.lineCap = "round";
+    [-1, 1].forEach(function (side) {
+      ctx.beginPath();
+      ctx.moveTo(side * 9, -22 - lift);
+      ctx.lineTo(side * 25, -19 - lift * 0.5);
+      ctx.stroke();
+      ctx.fillStyle = "#1B1414";
+      ctx.beginPath();
+      ctx.ellipse(side * 17, -5, 5.5, Math.max(0.8, 6.5 * blink), 0, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    if (avatar.glasses) {
+      ctx.strokeStyle = "rgba(20,20,20,0.9)";
+      ctx.lineWidth = 3.5;
+      roundRect(ctx, -32, -16, 26, 22, 8);
+      ctx.stroke();
+      roundRect(ctx, 6, -16, 26, 22, 8);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-6, -7);
+      ctx.lineTo(6, -7);
+      ctx.stroke();
+    }
+
+    // mouth: opens with voice loudness, small smile when quiet
+    if (level > 0.08) {
+      var open = 3 + 13 * level;
+      ctx.fillStyle = "#4A1F22";
+      ctx.beginPath();
+      ctx.ellipse(0, 25, 10 + 3 * level, open / 2 + 1, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#E57A7A";
+      ctx.beginPath();
+      ctx.ellipse(0, 25 + open * 0.28, 6, Math.max(1, open * 0.18), 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.strokeStyle = "#4A1F22";
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.arc(0, 18, 10, 0.2 * Math.PI, 0.8 * Math.PI);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
-  function drawAvatar(ctx, project, timeline, t, speaking) {
-    var place = avatarPlacement(project, timeline, t);
-    var video = avatarVideo(project);
-    var exporting = document.body && document.body.classList.contains("exporting");
-    syncVideo(video, t, exporting);
-    var x = place.x;
-    var y = place.y;
-    var r = place.r;
+  function drawHost(ctx, project, item, t, speaking) {
+    var avatar = project.avatar || {};
+    var level = voiceLevel(item, t, speaking);
+    var x = HOST.x;
+    var y = HOST.y;
+    var r = HOST.r;
 
-    // speaking ring: soft pulse while narration plays
-    var pulse = speaking ? 0.5 + 0.5 * Math.sin(t * 9) : 0;
-    ctx.save();
-    ctx.globalAlpha = speaking ? 0.25 + 0.25 * pulse : 0.12;
-    ctx.fillStyle = C.a;
-    ctx.beginPath();
-    ctx.arc(x, y, r + 14 + pulse * 8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-
+    // speaking halo
+    if (speaking) {
+      ctx.save();
+      ctx.globalAlpha = 0.18 + 0.3 * level;
+      ctx.fillStyle = C.a;
+      ctx.beginPath();
+      ctx.arc(x, y, r + 7 + level * 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
     ctx.save();
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.clip();
+    ctx.fillStyle = C.surface2;
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    var video = hostVideo(avatar);
+    syncVideo(video, t, !!avatar.loop);
     if (video && video.readyState >= 2 && video.videoWidth) {
-      var vw = video.videoWidth;
-      var vh = video.videoHeight;
-      var side = Math.min(vw, vh);
-      var sx = (vw - side) / 2;
-      var sy = Math.max(0, (vh - side) * 0.35);
+      var side = Math.min(video.videoWidth, video.videoHeight);
+      var sx = (video.videoWidth - side) / 2;
+      var sy = Math.max(0, (video.videoHeight - side) * 0.3);
       ctx.drawImage(video, sx, sy, side, side, x - r, y - r, r * 2, r * 2);
     } else {
-      // placeholder until the avatar clip exists
-      ctx.fillStyle = C.surface2;
-      ctx.fillRect(x - r, y - r, r * 2, r * 2);
-      ctx.fillStyle = "rgba(244,247,248,0.22)";
-      ctx.beginPath();
-      ctx.arc(x, y - r * 0.18, r * 0.36, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(x, y + r * 0.78, r * 0.68, r * 0.5, 0, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.translate(x, y + r * 0.08);
+      ctx.scale(r / 100, r / 100);
+      drawFace(ctx, avatar, t, level, speaking);
     }
     ctx.restore();
-
-    ctx.strokeStyle = C.a;
-    ctx.lineWidth = Math.max(5, r * 0.05);
+    ctx.strokeStyle = speaking ? C.a : "rgba(77,225,193,0.55)";
+    ctx.lineWidth = 4;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.stroke();
-
-    // equaliser badge at the bottom of the bubble
-    var bw = Math.max(64, r * 0.62);
-    var bh = bw * 0.46;
-    var by = y + r - bh * 0.35;
-    ctx.fillStyle = C.a;
-    roundRect(ctx, x - bw / 2, by - bh / 2, bw, bh, bh / 2);
+    // online dot
+    ctx.fillStyle = C.bg;
+    ctx.beginPath();
+    ctx.arc(x + r * 0.72, y + r * 0.72, 13, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = C.dark;
-    for (var i = 0; i < 4; i++) {
-      var amp = speaking ? 0.35 + 0.65 * Math.abs(Math.sin(t * (7 + i * 2.3) + i)) : 0.25;
-      var barH = bh * 0.62 * amp;
-      var bx = x - bw * 0.24 + i * bw * 0.16;
-      roundRect(ctx, bx - bw * 0.04, by - barH / 2, bw * 0.08, Math.max(4, barH), bw * 0.04);
-      ctx.fill();
+    ctx.fillStyle = "#3DDC84";
+    ctx.beginPath();
+    ctx.arc(x + r * 0.72, y + r * 0.72, 8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function bubbleShape(ctx, x, y, w, h) {
+    var r = Math.min(30, h / 2);
+    var tailY = HOST.y;
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.lineTo(x + r, y + h);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.lineTo(x, Math.min(y + h - r, tailY + 12));
+    ctx.lineTo(x - 18, tailY);
+    ctx.lineTo(x, Math.max(y + r, tailY - 12));
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  /** Caption chunk spoken by the host, inside a chat bubble; "•••" between chunks. */
+  function chatCaptions(ctx, project, item, t) {
+    var state = captionState(item, t);
+    var x = BUBBLE_LEFT;
+    var maxW = BUBBLE_RIGHT_MAX - BUBBLE_LEFT;
+    if (!state || project.captions === false) {
+      var local = t - item.start;
+      if (local > 0.05 && local < item.dur - 0.1) {
+        // typing indicator
+        var h0 = 76;
+        ctx.fillStyle = "rgba(13,39,51,0.94)";
+        bubbleShape(ctx, x, HOST.y - h0 / 2, 128, h0);
+        ctx.fill();
+        ctx.strokeStyle = C.line;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        for (var d = 0; d < 3; d++) {
+          ctx.fillStyle = "rgba(244,247,248," + (0.3 + 0.7 * Math.abs(Math.sin(t * 6 + d * 0.9))) + ")";
+          ctx.beginPath();
+          ctx.arc(x + 36 + d * 28, HOST.y, 7.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      return;
     }
-    return place;
+    var words = state.text.split(/\s+/).filter(Boolean);
+    var active = Math.floor(state.within * words.length);
+    var padX = 34;
+    var spacing = 14;
+    var size = 54;
+    var widths;
+    var total;
+    do {
+      setFont(ctx, 800, size);
+      widths = words.map(function (w) { return ctx.measureText(w).width; });
+      total = widths.reduce(function (a, b) { return a + b; }, 0) + spacing * (words.length - 1);
+      size -= 2;
+    } while (total + padX * 2 > maxW && size > 32);
+    size += 2;
+    var w = Math.min(maxW, total + padX * 2);
+    var h = size * 1.9;
+    var pop = easeOut(state.sinceStart / 0.14);
+    ctx.save();
+    ctx.translate(x, HOST.y);
+    ctx.scale(0.96 + 0.04 * pop, 0.96 + 0.04 * pop);
+    ctx.translate(-x, -HOST.y);
+    ctx.fillStyle = "rgba(13,39,51,0.94)";
+    bubbleShape(ctx, x, HOST.y - h / 2, w, h);
+    ctx.fill();
+    ctx.strokeStyle = C.line;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    var cx = x + padX;
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "left";
+    words.forEach(function (word, i) {
+      if (i === active) {
+        ctx.fillStyle = C.yellow;
+        roundRect(ctx, cx - 9, HOST.y - size * 0.62, widths[i] + 18, size * 1.24, size * 0.28);
+        ctx.fill();
+        ctx.fillStyle = C.dark;
+      } else {
+        ctx.fillStyle = C.ink;
+      }
+      ctx.fillText(word, cx, HOST.y + 3);
+      cx += widths[i] + spacing;
+    });
+    ctx.restore();
+    if (project.avatar && project.avatar.name) {
+      setFont(ctx, 700, 24);
+      ctx.fillStyle = C.mute;
+      ctx.textAlign = "left";
+      ctx.fillText(project.avatar.name, x + 6, HOST.y - h / 2 - 22);
+    }
   }
 
   // ---------------------------------------------------------------- layouts
@@ -580,11 +813,7 @@
 
   LAYOUTS.hook = function (ctx, scene, item, local, box) {
     var y = box.top;
-    if (box.faceBig) {
-      // face occupies the upper half; text sits under it
-      // the talking face is the hook, so the badge is dropped here
-      y = HOOK_FACE.y + HOOK_FACE.r + 40;
-    } else {
+    {
       if (scene.badge) {
         var pb = backOut(progress(local, 0, 0.35));
         ctx.save();
@@ -953,19 +1182,7 @@
     background(ctx, t);
     segments(ctx, timeline, t);
 
-    var hasAvatar = !!project.avatar;
-    var place = null;
-    var speaking = !!captionState(item, t);
-    if (hasAvatar) {
-      place = avatarPlacement(project, timeline, t);
-    }
-    var faceBig = hasAvatar && item.index === 0 && place.big > 0.5;
-    var box = {
-      top: hasAvatar && !faceBig ? CONTENT_TOP_DOCKED : CONTENT_TOP,
-      bottom: CONTENT_BOTTOM,
-      faceBig: faceBig
-    };
-
+    var box = { top: CONTENT_TOP, bottom: CONTENT_BOTTOM, faceBig: false };
     var enter = easeOut(progress(local, 0, 0.35));
     var leave = item.index < timeline.scenes.length - 1 ? easeOut(progress(local, item.dur - 0.18, 0.18)) : 0;
     ctx.save();
@@ -976,11 +1193,14 @@
     ctx.restore();
     ctx.globalAlpha = 1;
 
-    header(ctx, project, hasAvatar && !faceBig);
-    if (hasAvatar) {
-      drawAvatar(ctx, project, timeline, t, speaking);
+    header(ctx, project, false);
+    if (project.avatar) {
+      var speaking = !!captionState(item, t);
+      chatCaptions(ctx, project, item, t);
+      drawHost(ctx, project, item, t, speaking);
+    } else {
+      captions(ctx, project, item, t);
     }
-    captions(ctx, project, item, t);
     sourceLine(ctx, project, scene);
   }
 

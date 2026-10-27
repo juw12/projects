@@ -10,6 +10,7 @@ Requires: Google Chrome, `pip install websocket-client edge-tts imageio-ffmpeg`.
 
 import base64
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -220,6 +221,109 @@ def free_port():
         return probe.getsockname()[1]
 
 
+FRAME_BATCH = 12
+
+FRAME_SETUP_JS = """
+(async () => {
+  await document.fonts.ready;
+  const S = window.ShortcraftStudio;
+  const canvas = document.createElement('canvas');
+  canvas.width = SC.W;
+  canvas.height = SC.H;
+  window.__frames = {
+    S: S,
+    canvas: canvas,
+    ctx: canvas.getContext('2d'),
+    assets: S.getAssets ? S.getAssets() : SC.makeAssets()
+  };
+  return SC.FPS;
+})()
+"""
+
+FRAME_BATCH_JS = """
+(() => {
+  const F = window.__frames;
+  const out = [];
+  for (let i = %d; i < %d; i++) {
+    F.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    F.ctx.clearRect(0, 0, SC.W, SC.H);
+    SC.renderFrame(F.ctx, F.S.state.project, F.S.state.timeline, i / SC.FPS, F.assets);
+    out.push(F.canvas.toDataURL('image/jpeg', 0.93).slice(23));
+  }
+  return out;
+})()
+"""
+
+# Same mix as the live player (ui.js start()): music bed + narration clips at voStart.
+OFFLINE_AUDIO_JS = """
+(async () => {
+  const S = window.ShortcraftStudio;
+  const total = S.state.timeline.total;
+  const rate = 48000;
+  const actx = new OfflineAudioContext(2, Math.ceil(total * rate), rate);
+  const mix = actx.createGain();
+  mix.gain.value = 1;
+  mix.connect(actx.destination);
+  const hasVoices = Object.keys(S.state.voiceBuffers).length > 0;
+  if (S.state.project.music !== 'none') {
+    SC.scheduleMusic(actx, mix, S.state.project.music, 0, total, hasVoices ? 0.55 : 0.8);
+  }
+  SC.scheduleVoices(actx, mix, S.state.timeline, S.state.voiceBuffers, 0, 0);
+  const rendered = await actx.startRendering();
+  const channels = [rendered.getChannelData(0), rendered.getChannelData(1)];
+  const frames = rendered.length;
+  const bytes = new Uint8Array(44 + frames * 4);
+  const view = new DataView(bytes.buffer);
+  const writeText = (offset, text) => { for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i)); };
+  writeText(0, 'RIFF'); view.setUint32(4, 36 + frames * 4, true); writeText(8, 'WAVE');
+  writeText(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 2, true);
+  view.setUint32(24, rate, true); view.setUint32(28, rate * 4, true); view.setUint16(32, 4, true); view.setUint16(34, 16, true);
+  writeText(36, 'data'); view.setUint32(40, frames * 4, true);
+  let offset = 44;
+  for (let i = 0; i < frames; i++) {
+    for (let c = 0; c < 2; c++) {
+      const v = Math.max(-1, Math.min(1, channels[c][i]));
+      view.setInt16(offset, v < 0 ? v * 0x8000 : v * 0x7FFF, true);
+      offset += 2;
+    }
+  }
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 32768) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 32768));
+  return btoa(s);
+})()
+"""
+
+
+def render_frames_offline(evaluate, total, workdir, out_path):
+    """Frame-accurate export: draw every frame at t = i/fps (independent of machine speed or
+    display sleep), pipe JPEGs to ffmpeg, and render the audio mix with OfflineAudioContext."""
+    started = time.time()
+    fps = evaluate(FRAME_SETUP_JS, await_promise=True)
+    frame_count = int(math.ceil(total * fps))
+    ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+    video_only = workdir / "frames.mkv"
+    encoder = subprocess.Popen(
+        [ffmpeg, "-y", "-loglevel", "error", "-f", "image2pipe", "-framerate", str(fps), "-c:v", "mjpeg",
+         "-i", "-", "-c:v", "libx264", "-preset", "veryfast", "-crf", "14", "-pix_fmt", "yuv420p", str(video_only)],
+        stdin=subprocess.PIPE,
+    )
+    try:
+        for start in range(0, frame_count, FRAME_BATCH):
+            batch = evaluate(FRAME_BATCH_JS % (start, min(frame_count, start + FRAME_BATCH)))
+            for encoded in batch:
+                encoder.stdin.write(base64.b64decode(encoded))
+    finally:
+        encoder.stdin.close()
+        encoder.wait()
+    if encoder.returncode:
+        raise RuntimeError("frame encoder failed")
+    wav = workdir / "mix.wav"
+    wav.write_bytes(base64.b64decode(evaluate(OFFLINE_AUDIO_JS, await_promise=True)))
+    subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-i", str(video_only), "-i", str(wav),
+                    "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "pcm_s16le", str(out_path)], check=True)
+    return {"mode": "frames", "frames": frame_count, "fps": fps, "seconds": round(time.time() - started, 1)}
+
+
 def render(project_path, out_path, port_http=None, port_cdp=None):
     port_http = port_http or free_port()
     port_cdp = port_cdp or free_port()
@@ -303,25 +407,31 @@ def render(project_path, out_path, port_http=None, port_cdp=None):
               return {total: S.state.timeline.total, scenes: S.state.timeline.scenes.map(s => ({start: s.start, dur: s.dur, voDur: s.voDur}))};
             })()
             """ % json.dumps(voice_files), await_promise=True)
-            evaluate("window.ShortcraftStudio.exportVideo(); true")
-            deadline = time.time() + info["total"] + 60
-            while time.time() < deadline:
-                time.sleep(1)
-                if (evaluate("document.getElementById('export-status').textContent") or "").startswith("Done"):
-                    break
+            mode = os.environ.get("SHORTCRAFT_RENDER_MODE") or project.get("renderMode") or "frames"
+            if mode == "frames":
+                raw = Path(tmp) / "raw_export.mkv"
+                qc["render_mode"] = render_frames_offline(evaluate, info["total"], Path(tmp), raw)
             else:
-                raise RuntimeError("export timed out")
-            b64 = evaluate("""
-            (async () => {
-              const blob = window.ShortcraftStudio.state.lastExport.blob;
-              const bytes = new Uint8Array(await blob.arrayBuffer());
-              let s = '';
-              for (let i = 0; i < bytes.length; i += 32768) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 32768));
-              return btoa(s);
-            })()
-            """, await_promise=True)
-            raw = Path(tmp) / "raw_export"
-            raw.write_bytes(base64.b64decode(b64))
+                evaluate("window.ShortcraftStudio.exportVideo(); true")
+                deadline = time.time() + info["total"] + 60
+                while time.time() < deadline:
+                    time.sleep(1)
+                    if (evaluate("document.getElementById('export-status').textContent") or "").startswith("Done"):
+                        break
+                else:
+                    raise RuntimeError("export timed out")
+                b64 = evaluate("""
+                (async () => {
+                  const blob = window.ShortcraftStudio.state.lastExport.blob;
+                  const bytes = new Uint8Array(await blob.arrayBuffer());
+                  let s = '';
+                  for (let i = 0; i < bytes.length; i += 32768) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 32768));
+                  return btoa(s);
+                })()
+                """, await_promise=True)
+                raw = Path(tmp) / "raw_export"
+                raw.write_bytes(base64.b64decode(b64))
+                qc["render_mode"] = {"mode": "realtime"}
         finally:
             chrome.terminate()
             server.terminate()
