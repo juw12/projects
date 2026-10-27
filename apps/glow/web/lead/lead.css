@@ -393,4 +393,5 @@ dialog .check input { width: 18px; height: 18px; flex: 0 0 18px; margin: 0; padd
 .plan-card h3 { margin: 0 0 4px; font-size: 16px; }
 .plan-card .plan-price { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
 .plan-card ul { margin: 0 0 12px; padding-left: 18px; font-size: 13px; line-height: 1.5; }
-@media (max-width: 560px) { .plan-cards { grid-template-columns: 1fr; } .plan-label { display: none; } .plan-btn { padding-left: 9px; padding-right: 9px; } }
+.plan-btn-inline { display: none; margin: 0 0 12px; }
+@media (max-width: 560px) { .plan-cards { grid-template-columns: 1fr; } #plans-btn { display: none; } .plan-btn-inline { display: inline-flex; } }
