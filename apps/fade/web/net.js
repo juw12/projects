@@ -147,9 +147,39 @@
     return value;
   }
 
+  // Same matcher as server.py blocked_phrase(): letters may repeat or be split by spaces/dots, leetspeak
+  // and accents are undone, and short words must stand alone (so "sky" and "Niger" are fine).
+  const LEET = { 0: 'o', 1: 'i', 3: 'e', 4: 'a', 5: 's', 7: 't', '@': 'a', $: 's', '!': 'i', '|': 'i' };
+  const BLOCKED_PATTERNS = BLOCKED_WORDS.map((phrase) => {
+    const letters = phrase.replace(/ /g, '');
+    const body = [...letters].map((ch) => `${ch}+`).join('[\\W_]*');
+    return new RegExp(`(?:^|[^a-z])${body}${letters.length <= 4 ? '(?![a-z])' : ''}`);
+  });
+
   function cleanText(value) {
-    const lower = String(value || '').toLowerCase();
-    return !BLOCKED_WORDS.some((word) => lower.includes(word));
+    const raw = String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const leet = raw.replace(/[013457@$!|]/g, (ch) => LEET[ch]);
+    const digits = raw.replace(/[013457]/g, (ch) => LEET[ch]);
+    const ones = raw.replace(/[1|]/g, 'l').replace(/[013457@$!|]/g, (ch) => LEET[ch]);
+    return !BLOCKED_PATTERNS.some((pattern) => [leet, digits, ones].some((text) => pattern.test(text)));
+  }
+
+  // On-device scan results (web/scan.js) travel with each short; clients enforce the same thresholds.
+  const SCAN = { block: 0.85, review: 0.5, reviewSexy: 0.9 };
+
+  function cleanScan(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const nsfw = Number(raw.nsfw);
+    const sexy = Number(raw.sexy);
+    if (!(nsfw >= 0 && nsfw <= 1 && sexy >= 0 && sexy <= 1)) return null;
+    return { nsfw: Math.round(nsfw * 10000) / 10000, sexy: Math.round(sexy * 10000) / 10000, model: String(raw.model || 'nsfwjs').slice(0, 40) };
+  }
+
+  function scanVerdict(scan) {
+    if (!scan) return 'unscanned';
+    if (scan.nsfw >= SCAN.block) return 'block';
+    if (scan.nsfw >= SCAN.review || scan.sexy >= SCAN.reviewSexy) return 'review';
+    return 'ok';
   }
 
   function ensureClean(value, what = 'text') {
@@ -691,9 +721,12 @@
           by: event.pubkey,
           target: tagValue(event, 'o') || tagValue(event, 'e') || tagValue(event, 'p'),
           targetPk: tagValue(event, 'p'),
-          reason: (event.tags.find((t) => t[0] === 'p') || [])[2] || 'other',
+          reason: (event.tags.find((t) => t[0] === 'p') || [])[2] || tagValue(event, 'l') || 'other',
           note: event.content.slice(0, 300),
           at: event.created_at,
+          offline: event.tags.some((t) => t[0] === 'client' && t[1] === 'fade-offline'),
+          auto: event.tags.some((t) => t[0] === 'client' && t[1] === 'fade-autoscan'),
+          preview: String(tagValue(event, 'preview') || '').slice(0, 140),
         });
         continue;
       }
@@ -794,6 +827,10 @@
     db.autoHidden = new Set();
     reportCounts.forEach((reporters, target) => {
       if (reporters.size >= AUTO_REPORT_HIDE && !db.mod.kept.has(target)) db.autoHidden.add(target);
+    });
+    db.shorts.forEach((short, id) => {
+      const verdict = scanVerdict(cleanScan((short.media || {}).scan));
+      if ((verdict === 'review' || verdict === 'block') && !db.mod.kept.has(id)) db.autoHidden.add(id);
     });
     db.isHidden = (target) => db.mod.hidden.has(target) || db.autoHidden.has(target);
 
@@ -1255,14 +1292,39 @@
   }
 
   // Publish as JSON (UTF-8 safe: titles may contain emoji, which HTTP headers can't carry).
-  async function push(pk, title, body, path, at) {
+  // `seq` is an ntfy sequence id: a later push with the same id replaces the earlier one on the phone
+  // (or the scheduled one on the server), and recallPush() deletes it from every device.
+  function seqId(value) {
+    return String(value || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60) || null;
+  }
+
+  async function push(pk, title, body, path, at, seq) {
     const topic = pk ? topicOf(pk) : null;
     if (!topic) return false;
-    const payload = { topic, title: String(title).slice(0, 120), message: String(body || '').slice(0, 400), tags: ['scissors'] };
+    const recipient = derive().users.get(pk) || {};
+    const privatePreview = recipient.pushPreview === 'private'; // recipient's choice: no names or text on the lock screen
+    const payload = {
+      topic,
+      title: privatePreview ? 'Fade' : String(title).slice(0, 120),
+      message: privatePreview ? 'You have a new notification — open Fade to see it' : String(body || '').slice(0, 400),
+      tags: ['scissors'],
+    };
     if (path) payload.click = appLink(path);
     if (at) payload.delay = String(Math.floor(at / 1000));
+    if (seqId(seq)) payload.sequence_id = seqId(seq);
     try {
       const res = await fetch(CFG.ntfy.replace(/\/+$/, ''), { method: 'POST', body: JSON.stringify(payload) });
+      return res.ok;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  async function recallPush(pk, seq) {
+    const topic = pk ? topicOf(pk) : null;
+    if (!topic || !seqId(seq)) return false;
+    try {
+      const res = await fetch(`${CFG.ntfy.replace(/\/+$/, '')}/${topic}/${seqId(seq)}`, { method: 'DELETE' });
       return res.ok;
     } catch (err) {
       return false;
@@ -1378,7 +1440,7 @@
           reason: verdict.reason || '', received: side ? side.data.received || [] : [], at: nowSec(),
         }, [booking.customerPk, placeOwner(booking.placeId)], { wait: false });
         push(booking.customerPk, verdict.ok ? 'Booking confirmed ✂️' : 'Booking declined',
-          verdict.ok ? `${barber.name} confirmed ${booking.serviceName} on ${booking.date}` : verdict.reason, '/bookings');
+          verdict.ok ? `${barber.name} confirmed ${booking.serviceName} on ${booking.date}` : verdict.reason, '/bookings', null, `bk-${booking.id}-c`);
       }
       // 1b. confirm Lightning payments straight from my wallet provider (LUD-21 verify)
       await verifyLightning(mineAsBarber);
@@ -1400,15 +1462,26 @@
     // 3. commissions I owe as a tagged barber or shop
     await syncCommissions(bookings, barber, place);
 
-    // 4. reminders for my confirmed bookings (scheduled push, up to 3 days ahead)
+    // 4. reminders for my confirmed bookings (scheduled push, up to 3 days ahead). Each is scheduled with
+    //    sequence id rm-<booking>: a reschedule replaces it, a cancellation/decline deletes it on the server.
     const reminded = local().reminded || {};
     let changed = false;
-    for (const booking of bookings.filter((b) => b.customerPk === ME.pk && b.status === 'upcoming' && b.confirmed)) {
+    const live = new Map(bookings.filter((b) => b.customerPk === ME.pk && b.status === 'upcoming' && b.confirmed).map((b) => [b.id, b]));
+    for (const key of Object.keys(reminded)) {
+      const [bookingId, rev] = key.split(':');
+      const current = live.get(bookingId);
+      if (!current || String(current.rev) !== rev) {
+        if (!current) await recallPush(ME.pk, `rm-${bookingId}`);
+        delete reminded[key];
+        changed = true;
+      }
+    }
+    for (const booking of live.values()) {
       const key = `${booking.id}:${booking.rev}`;
       const at = booking.startMs - 2 * 3600 * 1000;
       if (reminded[key] || at < Date.now() || at > Date.now() + 70 * 3600 * 1000) continue;
       const b = db.barbers.get(booking.barberId);
-      const ok = await push(ME.pk, 'Your cut is in 2 hours', `${booking.serviceName} with ${b ? b.name : 'your barber'}`, '/bookings', at);
+      const ok = await push(ME.pk, 'Your cut is in 2 hours', `${booking.serviceName} with ${b ? b.name : 'your barber'}`, '/bookings', at, `rm-${booking.id}`);
       if (ok) {
         reminded[key] = true;
         changed = true;
@@ -1996,7 +2069,7 @@
       customerName: user.name, customerHue: user.hue, rev: 0, payments: [], createdAt: nowSec(),
     };
     await putShared('booking', id, data, [barber.ownerPk, place.ownerPk]);
-    push(barber.ownerPk, 'New booking request ✂️', `${user.name} · ${service.name} on ${key}`, '/pro');
+    push(barber.ownerPk, 'New booking request ✂️', `${user.name} · ${service.name} on ${key}`, '/pro', null, `bk-${id}-b`);
     const booking = bookingFrom(derive().shared.get(`booking:${id}`));
     return { booking, earned: 0 };
   }
@@ -2030,7 +2103,8 @@
     const refundDue = free ? booking.paidNow : 0;
     data.cancelled = { at: nowSec(), refundDue };
     await putShared('booking', id, data, recipientsOf(booking));
-    push(booking.barberPk, 'Booking cancelled', `${data.customerName} cancelled ${booking.serviceName} on ${booking.date}${refundDue ? ` — refund $${refundDue.toFixed(2)} due` : ''}`, '/pro');
+    push(booking.barberPk, 'Booking cancelled', `${data.customerName} cancelled ${booking.serviceName} on ${booking.date}${refundDue ? ` — refund $${refundDue.toFixed(2)} due` : ''}`, '/pro', null, `bk-${id}-b`);
+    recallPush(ME.pk, `rm-${id}`); // the scheduled 2 h reminder is cancelled on the ntfy server
     return { refunded: 0, refundDue, free };
   }
 
@@ -2045,7 +2119,8 @@
     validateSlot(barber, service, key, t, placeId, id);
     Object.assign(data, { date: key, time: t, placeId, rev: (data.rev || 0) + 1 });
     await putShared('booking', id, data, [booking.customerPk, booking.barberPk, placeOwner(placeId)]);
-    push(booking.barberPk, 'Booking moved', `${data.customerName} moved to ${key}`, '/pro');
+    push(booking.barberPk, 'Booking moved', `${data.customerName} moved to ${key}`, '/pro', null, `bk-${id}-b`);
+    recallPush(ME.pk, `rm-${id}`); // a fresh reminder for the new time is scheduled by runDuties()
     return { booking: bookingFrom(derive().shared.get(`booking:${id}`)) };
   }
 
@@ -2060,7 +2135,7 @@
       completed: ['Thanks for the visit', 'Rate your cut and leave a tip if you loved it'],
       noshow: ['Marked as no-show', `You missed ${booking.serviceName} on ${booking.date}`],
     };
-    if (messages[statusValue]) push(booking.customerPk, messages[statusValue][0], messages[statusValue][1], '/bookings');
+    if (messages[statusValue]) push(booking.customerPk, messages[statusValue][0], messages[statusValue][1], '/bookings', null, `bk-${id}-c`);
     return { booking: bookingFrom(derive().shared.get(`booking:${id}`)) };
   }
 
@@ -2280,6 +2355,9 @@
       authorType = 'place';
       authorId = `p${pk16(ME.pk)}`;
     }
+    const scan = cleanScan(meta.scan);
+    const verdict = scanVerdict(scan);
+    if (verdict === 'block') fail(422, 'This looks like nudity or sexual content, which isn’t allowed on Fade');
     const uploaded = await uploadBlob(blob, (fraction) => onProgress && onProgress(fraction * 0.9));
     let poster = null;
     if (typeof meta.poster === 'string' && meta.poster.startsWith('data:image/')) {
@@ -2297,6 +2375,7 @@
       media: {
         kind: contentType.startsWith('video/') ? 'video' : 'image', url: uploaded.url, mirrors: uploaded.mirrors,
         type: contentType, poster, duration: Number(meta.duration) || null, sha256: uploaded.sha256, optimized: !!meta.optimized,
+        scan, scanVerdict: verdict, phash: /^[0-9a-f]{16}$/.test(meta.phash || '') ? meta.phash : null,
       },
       createdAt: nowSec(),
     };
@@ -2306,7 +2385,7 @@
       if (target && target.ownerPk !== ME.pk) push(target.ownerPk, 'You were tagged in a short', `${me().name} tagged you as ${tag.kind} — approve it in Fade`, '/pro');
     });
     if (onProgress) onProgress(1);
-    return { short: publicShort({ ...short, id, ownerPk: ME.pk }) };
+    return { short: publicShort({ ...short, id, ownerPk: ME.pk }), scan: verdict };
   }
 
   async function addPortfolio(blob, contentType, title) {
@@ -2644,6 +2723,7 @@
     const target = text(body, 'target', 80);
     const reason = ['spam', 'nudity', 'violence', 'harassment', 'hate', 'scam', 'impersonation', 'not-haircut', 'other'].includes(body.reason) ? body.reason : 'other';
     const tags = [['t', NS], ['o', target]];
+    if (body.auto) tags.push(['client', 'fade-autoscan']);
     if (body.pk && /^[0-9a-f]{64}$/.test(body.pk)) tags.push(['p', body.pk, reason]);
     else tags.push(['l', reason]);
     if (body.eventId && /^[0-9a-f]{64}$/.test(body.eventId)) tags.push(['e', body.eventId, reason]);
@@ -2711,6 +2791,10 @@
 
   function describeTarget(target) {
     const db = derive();
+    if (String(target).startsWith('demo:')) {
+      const sample = db.reports.find((r) => r.target === target && r.preview);
+      return { type: 'offline demo', text: sample ? sample.preview : target.slice(5) };
+    }
     if (db.shorts.has(target)) return { type: 'short', text: db.shorts.get(target).caption, media: db.shorts.get(target).media };
     if (db.barbers.has(target)) return { type: 'barber', text: db.barbers.get(target).name };
     if (db.places.has(target)) return { type: 'place', text: db.places.get(target).name };
@@ -2735,11 +2819,18 @@
     if (!short) fail(404, 'short not found');
     const id = `c${randomHex(6)}`;
     await putDoc('comment', id, { shortId, text: message }, [['o', shortId]]);
-    if (short.ownerPk !== ME.pk) push(short.ownerPk, `${me().name} commented`, message.slice(0, 120), '/feed');
+    if (short.ownerPk !== ME.pk) push(short.ownerPk, `${me().name} commented`, message.slice(0, 120), '/feed', null, `cm-${id}`);
     return { id };
   }
 
   async function deleteComment(id) {
+    const db = derive();
+    for (const [shortId, list] of db.comments) {
+      if (list.some((c) => c.id === id)) {
+        const short = db.shorts.get(shortId);
+        if (short && short.ownerPk !== ME.pk) recallPush(short.ownerPk, `cm-${id}`);
+      }
+    }
     await putDoc('comment', id, { deleted: true, shortId: null });
     deleteDoc('comment', id);
     return { ok: true };
@@ -2854,6 +2945,7 @@
       if ('pay' in body) patch.pay = cleanPay(body.pay);
       if ('location' in body && body.location) patch.location = { lat: Number(body.location.lat) || 0, lng: Number(body.location.lng) || 0, label: String(body.location.label || '').slice(0, 60) };
       if (body.rotateNotify) patch.notify = `fade-${randomHex(10)}`;
+      if (['full', 'private'].includes(body.pushPreview)) patch.pushPreview = body.pushPreview;
       await saveProfile(patch);
       if (patch.notify) setTimeout(listenNotifications, 300);
       return { ok: true };
@@ -2943,8 +3035,59 @@
     return !!me();
   }
 
+  // ---------------------------------------------------------------------------
+  // Offline demo bridge: reports made offline reach Fade's moderators on the relays, and their
+  // decisions about demo content come back to every offline device. Uses a throwaway device key.
+  // ---------------------------------------------------------------------------
+  const OFFLINE_KEY_STORE = `fade.offlinekey.${NS}`;
+
+  function offlineKey() {
+    let hex = localStorage.getItem(OFFLINE_KEY_STORE);
+    if (!/^[0-9a-f]{64}$/.test(hex || '')) {
+      hex = [...NT.generateSecretKey()].map((b) => b.toString(16).padStart(2, '0')).join('');
+      localStorage.setItem(OFFLINE_KEY_STORE, hex);
+    }
+    return Uint8Array.from(hex.match(/../g).map((h) => parseInt(h, 16)));
+  }
+
+  async function sendOfflineReport({ target, reason, note, preview }) {
+    if (!CFG.relays.length) return null;
+    const event = NT.finalizeEvent({
+      kind: 1984,
+      created_at: nowSec(),
+      tags: [['t', NS], ['o', `demo:${String(target).slice(0, 60)}`], ['l', String(reason || 'other').slice(0, 20)],
+        ['client', 'fade-offline'], ['preview', String(preview || '').slice(0, 140)]],
+      content: String(note || '').slice(0, 300),
+    }, offlineKey());
+    const accepted = await sendToRelays(event, 8000);
+    return accepted ? event.id : null;
+  }
+
+  async function fetchOfflineDecisions() {
+    if (!CFG.admins.length || !CFG.relays.length) return null;
+    let events = [];
+    try {
+      events = await pool.querySync(CFG.relays, { kinds: [30078], authors: CFG.admins, '#d': [`${NS}:mod:list`] }, { maxWait: 6000 });
+    } catch (err) {
+      return null;
+    }
+    const latest = events.sort((a, b) => b.created_at - a.created_at)[0];
+    if (!latest) return { hidden: [], kept: [] };
+    try {
+      const doc = JSON.parse(latest.content);
+      const demo = (list) => (list || []).filter((t) => String(t).startsWith('demo:')).map((t) => t.slice(5));
+      return { hidden: demo(doc.hidden), kept: demo(doc.kept), at: latest.created_at };
+    } catch (err) {
+      return null;
+    }
+  }
+
   window.FadeNet = {
     config: CFG,
+    offline: { sendReport: sendOfflineReport, fetchDecisions: fetchOfflineDecisions },
+    recallPush,
+    cleanText,
+    scanVerdict: (scan) => scanVerdict(cleanScan(scan)),
     start,
     handle,
     upload,

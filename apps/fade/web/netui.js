@@ -461,7 +461,106 @@
         ${REPORT.pk ? `<button class="btn ghost block mt8" data-act="netBlock" data-pk="${REPORT.pk}">Also block this person</button>` : ''}`;
     }
 
+    // -----------------------------------------------------------------------
+    // Automatic checks that don't depend on the uploader's device
+    // -----------------------------------------------------------------------
+    const VIEWSCAN_KEY = 'fade.viewscan';
+    const viewScanQueue = [];
+    let viewScanBusy = false;
+
+    function viewScans() {
+      try {
+        return JSON.parse(localStorage.getItem(VIEWSCAN_KEY) || '{}');
+      } catch (err) {
+        return {};
+      }
+    }
+
+    function autoHidden() {
+      const scans = viewScans();
+      return new Set(Object.keys(scans).filter((id) => scans[id] === 'review' || scans[id] === 'block'));
+    }
+
+    // Network mode: a short published without a scan (old or modified client) is checked on the viewer's
+    // device before it's trusted. Flagged shorts are hidden here and reported automatically; three
+    // devices' reports hide it for everyone (same rule as user reports).
+    function queueViewerCheck(sh) {
+      if (!API.net || !window.FadeScan || new URLSearchParams(location.search).get('scan') === '0') return;
+      const media = sh.media || {};
+      if (media.scan || !(media.poster || media.kind === 'image')) return;
+      if (viewScans()[sh.id] || viewScanQueue.some((q) => q.id === sh.id)) return;
+      viewScanQueue.push(sh);
+      runViewerChecks();
+    }
+
+    async function runViewerChecks() {
+      if (viewScanBusy) return;
+      viewScanBusy = true;
+      while (viewScanQueue.length) {
+        const sh = viewScanQueue.shift();
+        const media = sh.media || {};
+        let verdict = 'error';
+        try {
+          const scan = await window.FadeScan.scanUrl(media.poster || media.url, 'image');
+          verdict = scan.verdict;
+          if (verdict === 'review' || verdict === 'block') {
+            await API.req('POST', '/api/report', {
+              target: sh.id, pk: sh.ownerPk, reason: 'nudity', auto: true,
+              note: `automatic check on a viewer's device: ${Math.round(scan.nsfw * 100)}% explicit`,
+            }).catch(() => {});
+          }
+        } catch (err) {
+          verdict = 'error';
+        }
+        const scans = viewScans();
+        scans[sh.id] = verdict;
+        localStorage.setItem(VIEWSCAN_KEY, JSON.stringify(scans));
+        if (verdict === 'review' || verdict === 'block') {
+          S().shorts = S().shorts.filter((x) => x.id !== sh.id);
+          refresh();
+        }
+      }
+      viewScanBusy = false;
+    }
+
+    // Moderator console: check uploads that arrived without an on-device scan, on the moderator's device.
+    let modScanRunning = false;
+    const modScanTried = new Set();
+
+    async function moderatorScans(items) {
+      if (modScanRunning || !window.FadeScan || !items.length) return;
+      modScanRunning = true;
+      let flagged = 0;
+      for (const item of items.slice(0, 10)) {
+        modScanTried.add(item.id);
+        const media = item.media || {};
+        try {
+          const url = media.poster || media.url;
+          const scan = await window.FadeScan.scanUrl(API.net ? url : ctx.mediaUrl ? ctx.mediaUrl(url) : url, media.poster ? 'image' : media.kind);
+          if (API.net) {
+            if (scan.verdict === 'review' || scan.verdict === 'block') {
+              await API.req('POST', '/api/mod', { action: 'hide', target: item.id });
+              flagged++;
+            }
+            const scans = viewScans();
+            scans[item.id] = scan.verdict;
+            localStorage.setItem(VIEWSCAN_KEY, JSON.stringify(scans));
+          } else {
+            const result = await API.req('POST', '/api/mod', { action: 'scan', target: item.id, scan });
+            if (result.verdict === 'review' || result.verdict === 'block') flagged++;
+          }
+        } catch (err) {
+          // unreachable media: leave it in the list for a manual look
+        }
+      }
+      modScanRunning = false;
+      MODQ.loaded = false;
+      if (flagged) toast(`Automatic check hid ${flagged} upload${flagged > 1 ? 's' : ''}`);
+      refresh();
+    }
+
     function reelButtons(sh) {
+      queueViewerCheck(sh);
       const own = sh.byMe || (sh.ownerPk && sh.ownerPk === myId());
       const count = API.on ? sh.comments || 0 : commentsFor(sh.id).length;
       return `
@@ -496,7 +595,8 @@
             await API.req('POST', '/api/comments', { shortId: COMMENTS.shortId, text: value });
             if (!API.net) await pull();
           } else {
-            if (LOCAL_BLOCKED_WORDS.some((word) => value.toLowerCase().includes(word))) throw new Error('That comment breaks the community guidelines');
+            const clean = N() && N().cleanText ? N().cleanText(value) : !LOCAL_BLOCKED_WORDS.some((word) => value.toLowerCase().includes(word));
+            if (!clean) throw new Error('That comment breaks the community guidelines');
             const s = S();
             s.localComments = [...(s.localComments || []), {
               id: `lc${Date.now().toString(36)}`, shortId: COMMENTS.shortId, by: 'me', name: s.user.name, hue: s.user.hue,
@@ -519,6 +619,11 @@
         }
         setSheet(commentsHTML());
       },
+      netFlushReports: async () => {
+        const sent = await flushOfflineReports();
+        toast(sent ? `Sent ${sent} report${sent > 1 ? 's' : ''} to Fade’s moderators` : 'Still offline — they’ll go out when you’re connected');
+        refresh();
+      },
       netReport: (el) => {
         REPORT = { target: el.dataset.target, pk: el.dataset.pk || null, reason: null };
         openSheet(reportHTML());
@@ -536,14 +641,22 @@
             closeSheet();
             toast(result && result.hidden ? 'Thanks — it’s hidden while a moderator reviews it' : 'Thanks — a moderator will review it');
           } else {
-            // Offline demo: there is no shared moderator, so the report hides the content on this device.
+            // Offline demo: hide it here right away and deliver the report to Fade's moderators on the
+            // relays (queued until this device is online). Their decision comes back to every offline device.
             const s = S();
-            s.localReports = [...(s.localReports || []), { target: REPORT.target, reason: REPORT.reason, note, at: Date.now() }];
+            const short = s.shorts.find((sh) => sh.id === REPORT.target);
+            const comment = (s.localComments || []).find((c) => c.id === REPORT.target);
+            const preview = short ? short.caption : comment ? comment.text : REPORT.target;
+            s.localReports = [...(s.localReports || []), {
+              id: `lr${Date.now().toString(36)}`, target: REPORT.target, reason: REPORT.reason, note, preview: String(preview || '').slice(0, 140),
+              at: Date.now(), status: 'queued',
+            }];
             s.shorts = s.shorts.filter((sh) => sh.id !== REPORT.target);
             s.localComments = (s.localComments || []).filter((c) => c.id !== REPORT.target);
             ctx.save();
             closeSheet();
-            toast('Thanks — hidden on this device');
+            const sent = await flushOfflineReports();
+            toast(sent ? 'Thanks — hidden here and sent to Fade’s moderators' : 'Thanks — hidden here; it goes to Fade’s moderators when you’re online');
           }
           refresh();
         } catch (err) {
@@ -674,6 +787,7 @@
       const permission = typeof Notification === 'undefined' ? 'unsupported' : Notification.permission;
       const web = topic ? `${base}/${topic}` : '';
       const recent = recentNotifications();
+      const privatePreview = (S().user || {}).pushPreview === 'private';
       if (API.on && !API.net && recent.some((n) => !n.read)) {
         API.req('POST', '/api/notifications/read').then(() => recent.forEach((n) => { n.read = true; })).catch(() => {});
       }
@@ -707,6 +821,11 @@
             <a class="btn sm" href="https://play.google.com/store/apps/details?id=io.heckel.ntfy" target="_blank" rel="noopener">Android</a>
             <a class="btn sm" href="https://apps.apple.com/app/ntfy/id1625396347" target="_blank" rel="noopener">iPhone</a>
           </div></div>
+        <h2 class="sec">Privacy</h2>
+        <div class="listitem"><span class="grow"><b class="small">Private previews</b><div class="xs muted">${privatePreview ? 'On — the lock screen only shows “Fade: you have a new notification”' : 'Off — pushes show who and what'}</div></span>
+          <button class="btn xs ${privatePreview ? '' : 'primary'}" data-act="netPushPreview" data-v="${privatePreview ? 'full' : 'private'}">${privatePreview ? 'Turn off' : 'Turn on'}</button></div>
+        ${API.net ? '' : `<button class="btn block mt12" data-act="netRecallPushes">${icon('trash', 15)} Remove Fade notifications from my devices</button>`}
+        <p class="xs muted mt8">Pushes about a cancelled booking, a deleted comment or removed content are taken back from your phone automatically, and reading them here clears them there.</p>
         <button class="btn ghost block mt12" data-act="netRotateTopic">Get a new private topic</button>
         <p class="xs muted mt8">Keep the topic private: anyone who knows it can send you notifications. Rotate it if you get spam.</p>`;
     };
@@ -737,7 +856,7 @@
       MODQ.loading = true;
       try {
         const data = await API.req('GET', '/api/mod');
-        MODQ = { loaded: true, loading: false, queue: data.queue || [] };
+        MODQ = { loaded: true, loading: false, queue: data.queue || [], unscanned: data.unscanned || [], blockedHashes: data.blockedHashes || 0 };
       } catch (err) {
         MODQ = { loaded: true, loading: false, queue: [] };
         toast(err.message);
@@ -748,16 +867,32 @@
 
     VIEWS.admin = function () {
       const isAdmin = API.net ? N().isAdmin() : API.on && !!S().user.admin;
-      if (!isAdmin) return `${pageHead('Moderation')}<div class="empty">${API.on ? 'Moderators only' : 'Moderation runs on the Fade Network or on your own Fade server (python server/server.py --admin you@example.com).'}</div>`;
+      if (!isAdmin && !API.on) {
+        const mine = S().localReports || [];
+        const sent = mine.filter((r) => r.status === 'sent').length;
+        return `${pageHead('Moderation')}
+          <div class="card small" style="line-height:1.5">Reports you make in the offline demo hide the item here at once and are delivered to Fade’s moderators on the Fade Network. When they remove something, it disappears from every offline device too.</div>
+          <h2 class="sec">Your reports</h2>
+          ${mine.map((r) => `<div class="listitem"><span class="grow"><b class="small">${esc(r.reason)}</b><div class="xs muted ellip">${esc(r.preview || r.target)}</div></span>${r.status === 'sent' ? badge('sent to moderators', 'acc') : badge('waiting for internet', 'standard')}</div>`).join('') || '<div class="empty">No reports yet</div>'}
+          ${mine.length && sent < mine.length ? '<button class="btn block mt12" data-act="netFlushReports">Send now</button>' : ''}`;
+      }
+      if (!isAdmin) return `${pageHead('Moderation')}<div class="empty">Moderators only</div>`;
       if (!API.net && !MODQ.loaded) loadModQueue();
       const queue = API.net ? N().modQueue() : MODQ.queue;
+      const unscanned = API.net
+        ? S().shorts.filter((sh) => !(sh.media || {}).scan && !sh.hidden && !viewScans()[sh.id] && !sh.seed).map((sh) => ({ id: sh.id, caption: sh.caption, media: sh.media }))
+        : MODQ.unscanned || [];
+      const toScan = unscanned.filter((item) => !modScanTried.has(item.id));
+      if (toScan.length) setTimeout(() => moderatorScans(toScan), 50);
       const s = S();
       return `
         ${pageHead('Moderation')}
         <div class="kpis"><div class="kpi"><span>Open reports</span><b>${queue.length}</b></div><div class="kpi"><span>Barbers</span><b>${s.barbers.length}</b></div><div class="kpi"><span>Shops</span><b>${s.places.length}</b></div><div class="kpi"><span>Shorts</span><b>${s.shorts.length}</b></div></div>
+        <div class="card small mt12" style="line-height:1.5">${icon('shield', 14)} Automatic checks: uploads are classified on the uploader’s device (explicit ones never upload, borderline ones wait here)${API.net ? ', shorts without a scan are checked on viewers’ devices' : `, re-uploads of removed media are blocked by fingerprint${MODQ.blockedHashes ? ` (${MODQ.blockedHashes} blocked)` : ''}`}, and slurs, link spam and floods are refused.</div>
+        ${toScan.length ? `<div class="card small mt8">${icon('shield', 14)} Checking ${toScan.length} upload${toScan.length > 1 ? 's' : ''} that arrived without an on-device scan…</div>` : ''}
         <h2 class="sec">Report queue</h2>
         ${queue.map((q) => `
-          <div class="card mt8"><div class="row between"><b class="small">${esc(q.preview.type)} · ${q.reporters} reporter${q.reporters > 1 ? 's' : ''}</b>${q.hidden ? badge('hidden', 'hot') : q.kept ? badge('kept', 'acc') : ''}</div>
+          <div class="card mt8"><div class="row between"><b class="small">${esc(q.preview.type)} · ${q.reporters} reporter${q.reporters === 1 ? '' : 's'}${(q.auto || []).length || q.reports.some((r) => r.auto) ? ' · auto-flag' : ''}${q.reports.some((r) => r.offline) ? ' · from offline demo' : ''}</b>${q.hidden ? badge('hidden', 'hot') : q.kept ? badge('kept', 'acc') : ''}</div>
             <div class="small mt4 ellip">${esc(q.preview.text || q.target)}</div>
             <div class="xs muted mt4">${[...new Set(q.reports.map((r) => r.reason))].map(esc).join(', ')}${q.reports[0].note ? ` · “${esc(q.reports[0].note)}”` : ''}</div>
             <div class="row gap6 mt8 wrap">
@@ -829,6 +964,19 @@
         const result = await Notification.requestPermission();
         toast(result === 'granted' ? 'Alerts on' : 'Alerts are blocked');
         refresh();
+      },
+      netPushPreview: (el) => act(
+        () => (API.net ? API.req('PUT', '/api/me', { pushPreview: el.dataset.v }) : API.req('PUT', '/api/me/push', { preview: el.dataset.v })),
+        el.dataset.v === 'private' ? 'Private previews on' : 'Private previews off',
+      ),
+      netRecallPushes: async () => {
+        try {
+          const result = await API.req('POST', '/api/notifications/recall');
+          await pull();
+          toast(`Removed ${result.recalled || 0} notification${result.recalled === 1 ? '' : 's'} from your devices`);
+        } catch (err) {
+          toast(err.message);
+        }
       },
       netRotateTopic: () => act(() => (API.net ? API.req('PUT', '/api/me', { rotateNotify: true }) : API.req('PUT', '/api/me/push', { rotate: true })), 'New private topic — re-subscribe in the ntfy app'),
       netShowKey: () => {
@@ -949,6 +1097,46 @@
       }
     }
 
+    // Offline demo → Fade moderators. Reports wait in S().localReports until they reach a relay.
+    async function flushOfflineReports() {
+      const s = S();
+      const net = N();
+      if (API.on || !s || !net || !net.offline) return 0;
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) return 0;
+      let sent = 0;
+      for (const report of (s.localReports || []).filter((r) => r.status !== 'sent')) {
+        try {
+          const id = await net.offline.sendReport(report);
+          if (id) {
+            report.status = 'sent';
+            report.eventId = id;
+            sent++;
+          }
+        } catch (err) {
+          // stays queued
+        }
+      }
+      if (sent) ctx.save();
+      return sent;
+    }
+
+    // Moderators' decisions about demo content (hide) apply on every offline device.
+    async function syncOfflineDecisions() {
+      const s = S();
+      const net = N();
+      if (API.on || !s || !net || !net.offline) return null;
+      const decisions = await net.offline.fetchDecisions().catch(() => null);
+      if (!decisions) return null;
+      const hidden = new Set(decisions.hidden);
+      s.modHidden = [...hidden];
+      const before = s.shorts.length;
+      s.shorts = s.shorts.filter((sh) => !hidden.has(sh.id));
+      s.localComments = (s.localComments || []).filter((c) => !hidden.has(c.id));
+      ctx.save();
+      if (s.shorts.length !== before) refresh();
+      return decisions;
+    }
+
     // Offline demo: local notification feed + 2 h reminders while the app is open.
     function localNotify(title, message, click = '/bookings') {
       const s = S();
@@ -1020,7 +1208,7 @@
 
     return {
       openPay, checkoutHTML, successExtra, statusLabel, bookingCardExtra, rateTipNote, afterRate, cancelMessage,
-      meSafetyItems, onServerState, localNotify, localDuties, commentsFor,
+      meSafetyItems, onServerState, localNotify, localDuties, commentsFor, flushOfflineReports, syncOfflineDecisions, autoHidden,
       studioPanel, ownerPanel, creatorPanel, reelButtons, profileMenu, meAccountItems, meAppSection, authExtras,
       homeEmpty, checkout, blocked, orderRow,
     };

@@ -15,6 +15,7 @@ apps/orbis/data/
 apps/orbis/server/data/
 apps/peers/server/data/
 apps/house-of-articles/server/data/
+apps/fade/server/data/
 apps/lingua/settings.json
 apps/lingua/.lingua-theme-*.tmp
 *.db

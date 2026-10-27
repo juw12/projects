@@ -111,9 +111,26 @@ def wait_for(fn, timeout=10.0):
 
 class NtfyStub(BaseHTTPRequestHandler):
     received = []
+    actions = []  # (method, path) for recalls (DELETE /topic/seq) and clears (PUT /topic/seq/clear)
 
     def log_message(self, *args):
         pass
+
+    def _ok(self):
+        body = b'{"id":"stub"}'
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_DELETE(self):
+        NtfyStub.actions.append(("DELETE", self.path))
+        self._ok()
+
+    def do_PUT(self):
+        NtfyStub.actions.append(("PUT", self.path))
+        self._ok()
 
     def do_POST(self):
         length = int(self.headers.get("Content-Length") or 0)
@@ -135,7 +152,9 @@ import shutil, sys
 args = sys.argv[1:]
 source = args[args.index("-i") + 1]
 target = args[-1]
-if target.endswith(".jpg"):
+if target == "-":  # perceptual-hash probe (rawvideo to stdout): a flat 9x8 grey frame
+    sys.stdout.buffer.write(bytes([128]) * 72)
+elif target.endswith(".jpg"):
     open(target, "wb").write(b"\xff\xd8\xff\xe0fakejpeg\xff\xd9")
 else:
     shutil.copyfile(source, target)
