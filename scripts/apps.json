@@ -331,8 +331,8 @@
    "id": "glow",
    "name": "Glow",
    "category": "AI",
-   "desc": "One home for your AI: GlowLead plans goals and runs the other apps; GlowChat for chat, personas, a Council with a Judge and a model Arena; GlowRoom for an AI crew that researches, codes and reports back. One free Glow account, no sign-up needed to start",
-   "description": "One home, one free account, three AI apps. <strong>GlowLead</strong>: give one goal and the AI lead plans it, hands each step to GlowChat or the GlowRoom crew, checks the work against clear done-criteria and reports back. <strong>GlowChat</strong>: chat with any model, personas, a Council with a Judge and an Arena. <strong>GlowRoom</strong>: an AI crew that searches the web, runs code and cites sources. Free for guests.",
+   "desc": "One home for your AI: GlowLead plans goals and runs the other apps; GlowChat for chat with ranked models, your own persona, images, a Council with a Judge and a model Arena; GlowRoom for an AI crew that researches, codes and reports back. One free Glow account with Profile & settings in every app, no sign-up needed to start",
+   "description": "One home, one free account, three AI apps. <strong>GlowLead</strong>: give one goal and the AI lead plans it, hands each step to GlowChat or the GlowRoom crew, checks the work against clear done-criteria and reports back. <strong>GlowChat</strong>: chat with any model (ranked by category), your own persona, images, a usage meter, temporary chats, a Council with a Judge and an Arena. <strong>GlowRoom</strong>: an AI crew that searches the web, runs code and cites sources, in a warm Glow Studio office. One avatar in every app opens <strong>Profile &amp; settings</strong>: name, Puter account, persona, token usage and allowance, privacy and your data. Free for guests.",
    "summary": "Three AI apps on one free account &mdash; GlowLead plans goals, GlowChat compares models, GlowRoom researches and codes.",
    "tags": [
     "AI ecosystem",
@@ -370,7 +370,7 @@
    "featured": true,
    "order": 5,
    "portfolio_order": -5,
-   "version": "0.7.2"
+   "version": "1.20.1"
   },
   {
    "id": "sped",
