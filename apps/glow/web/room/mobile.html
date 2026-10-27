@@ -1994,22 +1994,32 @@ svg { display: block; }
   seed();
   showView(state.view || 'crew');
   // A mission handed over from Glow home or GlowChat (?goal=…, optional go=1 to start it at once).
-  (function acceptHandoff() {
-    const launch = new URLSearchParams(location.search);
-    const goal = (launch.get('goal') || '').trim();
+  function acceptGoal(goal, go) {
+    goal = String(goal || '').trim();
     if (!goal) return;
-    history.replaceState(null, '', location.pathname + location.hash);
     ui.pickSet = new Set(BOTS.map(b => b.id));
     renderPicker();
     showView('dispatch');
     $('#goal-input').value = goal.slice(0, 2000);
     updateDispatchButton();
-    if (launch.get('go') === '1') {
+    if (go) {
       setTimeout(() => $('#dispatch-btn').click(), 500);
     } else {
       $('#goal-input').focus();
     }
+  }
+  (function acceptHandoff() {
+    const launch = new URLSearchParams(location.search);
+    const goal = (launch.get('goal') || '').trim();
+    if (!goal) return;
+    history.replaceState(null, '', location.pathname + location.hash);
+    acceptGoal(goal, launch.get('go') === '1');
   })();
+  // GlowRoom inside another Glow app (the in-app panel) gets new missions by message, without reloading.
+  window.addEventListener('message', (event) => {
+    if (event.origin !== location.origin || !event.data || event.data.type !== 'glow-room-goal') return;
+    acceptGoal(event.data.goal, !!event.data.go);
+  });
   setInterval(tick, 500);
   // Relative timestamps / timers refresh even when paused.
   setInterval(() => {

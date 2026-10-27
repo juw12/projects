@@ -12,6 +12,17 @@
 GlowChat installable app: `glow/chat/app.html`, mobile: `glow/chat/mobile.html`. GlowRoom: `glow/room/app.html`, `glow/room/mobile.html`.
 AI-suggested resources in GlowChat are not automatically browsed or verified; GlowChat does no autonomous building or execution (that is GlowRoom's job, and its results should still be reviewed).
 
+## Versions and in-app updates
+
+Every Glow app shows its version in the **Glow apps** menu (the grid button). `web/version.json` is the
+published version; when it is newer than the version built into `web/shared/glow-apps.js`, the apps show
+**Glow x.y.z is ready → Update now**, which clears the Glow caches, refreshes the page files and reloads.
+The Android app shows **Download update** (the new APK). To release: bump `version` in `web/version.json`
+and `GLOW_VERSION` in `web/shared/glow-apps.js` together (a test checks they match), plus `mobile/package.json`.
+
+GlowRoom always opens inside the current app (a panel in GlowChat, GlowLead and the Glow menu) and keeps
+working while the panel is closed; links between Glow apps stay in the same window.
+
 ## Install every Glow app (master installer and setup guide)
 
 Guide with all platforms and a diagram of how the apps connect: https://juw12.github.io/projects/glow/setup/

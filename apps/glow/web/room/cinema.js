@@ -551,22 +551,33 @@
     const launch = new URLSearchParams(location.search);
     const sharedGoal = launch.get('goal');
     if (sharedGoal) {
-      localStorage.setItem(WELCOME_KEY, '1');
-      const input = document.getElementById('cn-input');
-      if (input) {
-        input.value = sharedGoal.slice(0, 2000);
-        input.dispatchEvent(new Event('input'));
-        input.focus();
-        input.setSelectionRange(0, 0);
-        input.scrollTop = 0;
-      }
-      // Coming from Glow home or GlowChat with "go": the user already chose to hand it over, so start right away.
-      if (launch.get('go') === '1') {
-        setTimeout(() => document.getElementById('cn-send')?.click(), 700);
-      }
+      acceptGoal(sharedGoal, launch.get('go') === '1');
       history.replaceState(null, '', location.pathname + location.hash);
     } else {
       setTimeout(showWelcome, 600);
+    }
+    // GlowRoom inside another Glow app (the in-app panel) gets new missions by message, without reloading.
+    window.addEventListener('message', (event) => {
+      if (event.origin !== location.origin || !event.data || event.data.type !== 'glow-room-goal') return;
+      acceptGoal(String(event.data.goal || ''), !!event.data.go);
+    });
+  }
+
+  function acceptGoal(goal, go) {
+    if (!goal) return;
+    localStorage.setItem(WELCOME_KEY, '1');
+    document.querySelector('.cn-welcome')?.remove();
+    const input = document.getElementById('cn-input');
+    if (input) {
+      input.value = goal.slice(0, 2000);
+      input.dispatchEvent(new Event('input'));
+      input.focus();
+      input.setSelectionRange(0, 0);
+      input.scrollTop = 0;
+    }
+    // Coming from Glow home, GlowChat or GlowLead with "go": the user already chose to hand it over, so start right away.
+    if (go) {
+      setTimeout(() => document.getElementById('cn-send')?.click(), 700);
     }
   }
 
