@@ -1,5 +1,5 @@
 // GlowChat service worker: offline app shell. AI requests always go to the network.
-const CACHE_NAME = 'glowchat-v5';
+const CACHE_NAME = 'glowchat-v6';
 const SHARED = new URL('../shared/', self.registration.scope).href;
 const ASSETS_TO_CACHE = [
   './index.html',
