@@ -213,7 +213,7 @@
             model: model,
             max_tokens: options.maxTokens || 2400,
             system: options.system,
-            messages: [{ role: 'user', content: options.user }]
+            messages: [{ role: 'user', content: options.user }].concat(continuationMessages(options))
           })
         }
       };
@@ -224,20 +224,49 @@
       headers['HTTP-Referer'] = location.origin;
       headers['X-Title'] = 'Sweep';
     }
+    const payload = {
+      model: model,
+      messages: [
+        { role: 'system', content: options.system },
+        { role: 'user', content: options.user }
+      ].concat(continuationMessages(options))
+    };
+    // The keyless Pollinations model is a reasoning model with a hard ~1500-token reply cap;
+    // at the default effort its thinking alone can use the whole cap, cutting answers off.
+    if (providerId === 'free' && /pollinations\.ai/.test(base)) payload.reasoning_effort = 'low';
     return {
       url: base + '/chat/completions',
       init: {
         method: 'POST',
         headers: headers,
-        body: JSON.stringify({
-          model: model,
-          messages: [
-            { role: 'system', content: options.system },
-            { role: 'user', content: options.user }
-          ]
-        })
+        body: JSON.stringify(payload)
       }
     };
+  }
+
+  // When a reply was cut off by the provider's length cap, ask for the rest in a follow-up turn.
+  function continuationMessages(options) {
+    if (!options.partial) return [];
+    return [
+      { role: 'assistant', content: options.partial },
+      { role: 'user', content: 'Your reply was cut off. Continue exactly where you stopped — do not repeat anything and do not add any comment.' }
+    ];
+  }
+
+  // Joins a continuation onto the text so far, dropping any overlap the model repeated.
+  function joinContinuation(previous, next) {
+    const maxOverlap = Math.min(400, previous.length, next.length);
+    for (let size = maxOverlap; size >= 12; size--) {
+      if (previous.slice(-size) === next.slice(0, size)) return previous + next.slice(size);
+    }
+    const lastLine = previous.slice(previous.lastIndexOf('\n') + 1);
+    if (lastLine.length >= 12 && next.indexOf(lastLine) === 0) return previous + next.slice(lastLine.length);
+    return previous + next;
+  }
+
+  function wasCutOff(kind, data) {
+    if (kind === 'anthropic') return data.stop_reason === 'max_tokens';
+    return (((data.choices || [])[0] || {}).finish_reason) === 'length';
   }
 
   function readAnswer(kind, data) {
@@ -315,6 +344,20 @@
       empty.retryable = true;
       throw empty;
     }
+    return { text: textOut, cutOff: wasCutOff(kind, data) };
+  }
+
+  const MAX_CONTINUATIONS = 3;
+
+  // Calls one endpoint and, if the provider cut the reply off at its length cap, asks it to
+  // continue (up to MAX_CONTINUATIONS times) so long files come back whole.
+  async function callWithContinuation(makeRequest, kind, signal, attempts, attemptMs, options) {
+    let reply = await callEndpoint(makeRequest(options), kind, signal, attempts, attemptMs);
+    let textOut = reply.text;
+    for (let round = 0; reply.cutOff && round < MAX_CONTINUATIONS; round++) {
+      reply = await callEndpoint(makeRequest(Object.assign({}, options, { partial: textOut })), kind, signal, attempts, attemptMs);
+      textOut = joinContinuation(textOut, reply.text);
+    }
     return textOut;
   }
 
@@ -360,8 +403,9 @@
           for (let index = 0; index < order.length; index++) {
             const entry = order[index];
             try {
-              const request = buildRequest('openai', entry.base, entry.model, '', 'free', options);
-              const textOut = await callEndpoint(request, 'openai', controller.signal, 1, FREE_ATTEMPT_MS);
+              const textOut = await callWithContinuation(function (requestOptions) {
+                return buildRequest('openai', entry.base, entry.model, '', 'free', requestOptions);
+              }, 'openai', controller.signal, 1, FREE_ATTEMPT_MS, options);
               if (entry !== chain[0]) notifyAiFallback(entry.name);
               return textOut;
             } catch (error) {
@@ -375,8 +419,9 @@
           throw busy;
         });
       } else {
-        const request = buildRequest(provider.kind, base, model, key, settings.provider, options);
-        answer = await callEndpoint(request, provider.kind, controller.signal, 3);
+        answer = await callWithContinuation(function (requestOptions) {
+          return buildRequest(provider.kind, base, model, key, settings.provider, requestOptions);
+        }, provider.kind, controller.signal, 3, 0, options);
       }
       if (cacheKey) rememberAnswer(cacheKey, answer);
       return answer;
