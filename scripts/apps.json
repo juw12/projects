@@ -104,7 +104,7 @@
     "bulk upload",
     "backup"
    ],
-   "image": "hazel-hero.svg",
+   "image": "hazel-hero-halftone.jpg",
    "image_alt": "Hazel studio generating a video from a prompt, with character casting, scene choice, length and size controls, a storyboard and a timeline",
    "links": {
     "app": "hazel/app.html",
@@ -127,7 +127,7 @@
     "1-click handoff",
     "offline agent"
    ],
-   "image": "sweep-hero.svg",
+   "image": "sweep-hero-halftone.jpg",
    "image_alt": "Sweep turning a plain-words idea into a Build, Grow and Earn plan — a guided intake, an idea brief, a generated capability matrix, a Definition of Done checklist, a scaffold file tree and a project catalog",
    "links": {
     "app": "sweep/app.html",
@@ -152,7 +152,7 @@
     "macro runner",
     "offline demo"
    ],
-   "image": "airiz-motor-hero.svg",
+   "image": "airiz-motor-hero-halftone.jpg",
    "image_alt": "Airiz Motor Test Console dashboard: command library, serial console and macro notepad for AIRIZ device motor testing",
    "links": {
     "app": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.2.6/AIRIZ-Console-Setup-1.2.6-x64.exe",
@@ -198,7 +198,7 @@
     "simulation",
     "offline-first"
    ],
-   "image": "vertex-hero.svg",
+   "image": "vertex-hero-halftone.jpg",
    "image_alt": "Vertex: a dark 3D engineering workspace with a fitted part in a viewport, a ranked repair plan, a universal adapter strip (Fusion, SOLIDWORKS, FreeCAD, Blender, open formats) and review-gated export/apply steps",
    "links": {
     "app": "vertex/app.html",
@@ -267,7 +267,7 @@
     "STEP",
     "miniatures"
    ],
-   "image": "kobochan-form3-hero.png",
+   "image": "kobochan-form3-hero-halftone.jpg",
    "image_alt": "Kobo-chan: a 100 mm solid figurine revised for Form 3, shown from the front and three-quarter view",
    "files": "https://github.com/juw12/projects/tree/main/outputs/3d-models",
    "order": 3,
@@ -315,7 +315,7 @@
     "Alpaca API",
     "PWA"
    ],
-   "image": "twin.png",
+   "image": "twin-halftone.jpg",
    "image_alt": "Twin 1.5: redesigned Home, TwinAgent Buy verdict with evidence score, risk gate with practice-trade plan, and AAPL stock page",
    "links": {
     "app": "twin/?v=1.7.0",
@@ -342,7 +342,7 @@
     "AI agents",
     "orchestrator"
    ],
-   "image": "glow-hero.png",
+   "image": "glow-hero-halftone.jpg",
    "image_alt": "Glow: GlowChat council with a Judge, part of the Glow ecosystem with GlowRoom",
    "links": {
     "app": "glow/",
@@ -385,7 +385,7 @@
     "TikTok / Reels / Shorts",
     "PWA"
    ],
-   "image": "sped.png",
+   "image": "sped-halftone.jpg",
    "image_alt": "Sped 1.4 shorts editor with a 9:16 preview, timeline and post panel, using synthetic audio fixtures",
    "links": {
     "app": "sped/",
@@ -409,7 +409,7 @@
     "auto-post",
     "Bahasa Indonesia"
    ],
-   "image": "shortcraft.png",
+   "image": "shortcraft-halftone.jpg",
    "image_alt": "Shortcraft: two 9:16 explainer frames, a light editorial step tracker and a dark CCTV teardown, next to the Shortcraft title",
    "links": {
     "app": "shortcraft/app.html",
@@ -434,7 +434,7 @@
     "Android app",
     "iPhone home-screen app"
    ],
-   "image": "guangyao-desktop.png",
+   "image": "guangyao-desktop-halftone.jpg",
    "image_alt": "Guang Yao Together desktop: today's goal, newest official lessons and the study dashboard",
    "thumbnails": [
     {
@@ -498,7 +498,7 @@
     "cross-service",
     "PWA"
    ],
-   "image": "sync-hero.png",
+   "image": "sync-hero-halftone.jpg",
    "image_alt": "Sync listening room with a synced now-playing card, cross-service queue and party voice chat",
    "links": {
     "app": "sync/",
@@ -523,7 +523,7 @@
     "haircut shorts",
     "creator commissions"
    ],
-   "image": "fade.png",
+   "image": "fade-halftone.jpg",
    "image_alt": "Fade screens: home with trending barbers, a haircut short with a paid-partnership tag, and creator earnings, using fictional demo data",
    "links": {
     "app": "fade/",
@@ -563,7 +563,7 @@
     "payments",
     "web-push"
    ],
-   "image": "mint-hero.jpg",
+   "image": "mint-hero-halftone.jpg",
    "image_alt": "Mint: prompt a spreadsheet template, tweak it, sell it — prompt box with Mint AI and the prompt, tweak, sell flow",
    "links": {
     "app": "mint/app.html",
@@ -615,7 +615,7 @@
     "offline-first",
     "file-vault"
    ],
-   "image": "me-rd-toolkit.png",
+   "image": "me-rd-toolkit-halftone.jpg",
    "image_alt": "ME R&D Toolkit dashboard with NPI flow, checklists, calculators and lessons quick-access tiles",
    "links": {
     "app": "me-rd-toolkit/index.html",
@@ -686,7 +686,7 @@
     "automation",
     "work"
    ],
-   "image": "plm-aml-approval-hero.svg",
+   "image": "plm-aml-approval-hero-halftone.jpg",
    "image_alt": "PLM AML Approval Assistant: six automated steps from part search to a verified approval form, stopping before Submit",
    "files": "https://github.com/juw12/projects/tree/main/apps/plm-aml-approval",
    "status": "preliminary",
