@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'">
+<meta name="description" content="Set up every Glow app in one step: Glow, GlowLead, GlowChat, GlowRoom, Glow Hands and the Glow Android app, and see how they work together.">
+<meta name="theme-color" content="#262624">
+<title>Set up Glow — every app, and how they connect</title>
+<link rel="stylesheet" href="../home.css">
+<link rel="stylesheet" href="./setup.css">
+<link rel="icon" type="image/svg+xml" href="../icons/app-icon.svg">
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="../" aria-label="Glow home"><img src="../icons/app-icon.svg" alt="" width="34" height="34"><span>Glow</span></a>
+  <div class="top-right">
+    <button class="icon-btn" id="glow-apps-btn" type="button" data-glow-apps aria-label="Glow apps" title="Glow apps"></button>
+  </div>
+</header>
+
+<main class="setup">
+  <p class="installed-banner" id="installed-banner" hidden>✓ Glow is installed on this PC. Find <b>Glow</b>, <b>GlowLead</b>, <b>GlowChat</b> and <b>GlowRoom</b> in the Start menu and on your desktop. Add your phone below.</p>
+
+  <section class="hero">
+    <p class="eyebrow">✦ Set up Glow</p>
+    <h1>Every Glow app, in one step.</h1>
+    <p class="lede">All Glow apps are free and run in your browser. Installing just gives them their own windows and icons, and adds <b>Glow Hands</b> so GlowLead can use a web browser for you.</p>
+  </section>
+
+  <section class="panel" id="windows" aria-labelledby="windows-title">
+    <div class="panel-head">
+      <span class="badge">Windows PC</span>
+      <h2 id="windows-title">Master installer: all apps + Glow Hands</h2>
+    </div>
+    <ol class="steps">
+      <li>Press <kbd>Win</kbd> + <kbd>R</kbd>, paste this line and press <kbd>Enter</kbd>. No admin rights needed.</li>
+    </ol>
+    <div class="command">
+      <code id="win-command">powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/juw12/projects/main/apps/glow/install-glow.ps1 | iex"</code>
+      <button class="btn" type="button" data-copy="win-command">Copy</button>
+    </div>
+    <ul class="ticks">
+      <li><b>Glow, GlowLead, GlowChat, GlowRoom</b> in the Start menu (folder “Glow”) and on the desktop. They open as app windows of Edge or Chrome with your normal browser profile, so they share one Glow account, your chats and missions.</li>
+      <li><b>Glow Hands</b> installed or updated: GlowLead's browser control on this PC. It starts at every login and GlowLead connects to it by itself.</li>
+      <li>Run it again any time to update. Python 3.13 is added for you if it is missing.</li>
+    </ul>
+    <details class="more">
+      <summary>Options and uninstall</summary>
+      <p>Set an option first, in the same Win+R line, e.g. <code>$env:GLOW_SKIP_HANDS='1'; irm …/install-glow.ps1 | iex</code>:</p>
+      <ul>
+        <li><code>GLOW_SKIP_HANDS=1</code>: only the app shortcuts, no Glow Hands</li>
+        <li><code>GLOW_NO_DESKTOP=1</code>: Start menu only</li>
+        <li><code>GLOW_UNINSTALL=1</code>: remove the shortcuts and Glow Hands (your chats stay in the browser)</li>
+      </ul>
+      <div class="command">
+        <code id="win-uninstall">powershell -ExecutionPolicy Bypass -c "$env:GLOW_UNINSTALL='1'; irm https://raw.githubusercontent.com/juw12/projects/main/apps/glow/install-glow.ps1 | iex"</code>
+        <button class="btn" type="button" data-copy="win-uninstall">Copy</button>
+      </div>
+    </details>
+  </section>
+
+  <section class="platforms" aria-label="Other devices">
+    <article class="panel" id="android">
+      <div class="panel-head"><span class="badge">Android</span><h2>Glow app</h2></div>
+      <p>GlowLead as a real app with its <b>own built-in browser</b>: browser missions run on the phone itself, no PC needed.</p>
+      <div class="qr-row">
+        <div class="qr" id="apk-qr" aria-label="QR code for the Glow Android app"></div>
+        <div>
+          <a class="btn primary" href="https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk">Download Glow-android.apk</a>
+          <p class="small">Open the file and allow “install unknown apps” for your browser once. GlowChat and GlowRoom: open them in Chrome and choose <b>Add to Home screen</b>.</p>
+        </div>
+      </div>
+    </article>
+    <article class="panel" id="iphone">
+      <div class="panel-head"><span class="badge">iPhone · iPad</span><h2>Add to Home Screen</h2></div>
+      <ol class="steps">
+        <li>Open <a href="../">juw12.github.io/projects/glow</a> in Safari or Chrome.</li>
+        <li>Tap <b>Share</b> → <b>Add to Home Screen</b>. Repeat for <a href="../lead/">GlowLead</a>, <a href="../chat/">GlowChat</a> and <a href="../room/">GlowRoom</a>.</li>
+        <li>For browser missions, in GlowLead open <b>Glow Hands → Connect browser control</b> and pick <b>Start instant cloud browser</b>, or link your PC (below).</li>
+      </ol>
+      <p class="small">A native iPhone app isn't available (it needs Apple's paid developer program).</p>
+    </article>
+    <article class="panel" id="mac-linux">
+      <div class="panel-head"><span class="badge">Mac · Linux</span><h2>Install from the browser</h2></div>
+      <p>Open each app in Chrome or Edge and click the <b>Install</b> icon in the address bar (or use the Install buttons on the <a href="../">Glow home</a>).</p>
+      <p>Always-on <b>Glow Hands</b> for a Linux machine (Ubuntu, Raspberry Pi, a free cloud VM). It prints a QR code for your phone:</p>
+      <div class="command">
+        <code id="linux-command">curl -fsSL https://raw.githubusercontent.com/juw12/projects/main/apps/glow/hands/install-glow-hands-linux.sh | bash</code>
+        <button class="btn" type="button" data-copy="linux-command">Copy</button>
+      </div>
+      <p class="small">Glow Hands isn't packaged for Mac yet; use the instant cloud browser or link a Windows/Linux PC.</p>
+    </article>
+  </section>
+
+  <section class="panel" id="phone-to-pc" aria-labelledby="phone-title">
+    <div class="panel-head"><span class="badge">Phone + PC</span><h2 id="phone-title">Use your PC's browser from your phone</h2></div>
+    <ol class="steps">
+      <li>On the PC (after the master installer), open <b>GlowLead</b> → <b>Glow Hands</b> → <b>Use from your phone</b>.</li>
+      <li>Scan the QR code with your phone. GlowLead on the phone now drives the PC's browser.</li>
+      <li>Approvals (submit, buy, send, delete) pop up on the phone; passwords you type yourself.</li>
+    </ol>
+  </section>
+
+  <section class="connect" id="how" aria-labelledby="how-title">
+    <h2 id="how-title">How the Glow apps connect</h2>
+    <p class="lede-left">One site, one browser storage: every Glow app on the same browser shares your Glow account, chats, missions and plan. GlowLead is the lead that hands work to the others.</p>
+
+    <div class="diagram" role="img" aria-label="You give a goal to GlowLead. GlowLead delegates writing to GlowChat, research and code to the GlowRoom crew, and website steps to browser control. Browser control is Glow Hands on a PC, the Glow Android app's own browser, or the instant cloud browser. All apps share one Glow account and storage in your browser, and use Glow AI.">
+      <div class="node you">🙂 <b>You</b><span>give one goal, approve risky steps</span></div>
+      <div class="arrow">↓</div>
+      <div class="node lead">👑 <b>GlowLead</b><span>plans the steps, delegates, checks the work, reports</span></div>
+      <div class="arrow split">↙ ↓ ↘</div>
+      <div class="row">
+        <div class="node chat">💬 <b>GlowChat</b><span>writing, Council debates; every mission is saved here as a chat</span></div>
+        <div class="node room">🏢 <b>GlowRoom crew</b><span>Nova plans, Scout researches the web, Byte runs code</span></div>
+        <div class="node hands">🖱 <b>Browser control</b><span>opens sites, fills forms, asks you before submitting</span></div>
+      </div>
+      <div class="arrow label">↓ browser control comes from one of</div>
+      <div class="row">
+        <div class="node mini">💻 <b>Glow Hands</b><span>on your Windows or Linux PC (local, paired automatically)</span></div>
+        <div class="node mini">📱 <b>Glow Android app</b><span>its own built-in browser</span></div>
+        <div class="node mini">☁️ <b>Instant cloud browser</b><span>no install; about 10 free browser-minutes a day, shared</span></div>
+      </div>
+      <div class="base">
+        <div class="node base-item">✦ <b>Glow home</b><span>start anything, recent chats and missions</span></div>
+        <div class="node base-item">🔑 <b>Glow account &amp; storage</b><span>shared by all apps in one browser; stays on your device</span></div>
+        <div class="node base-item">🤖 <b>Glow AI</b><span>Glow Free (no sign-in) or sign in with Puter for stronger models</span></div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Connection</th><th>How it works</th><th>What you do</th></tr></thead>
+        <tbody>
+          <tr><td>Apps ↔ apps</td><td>Same site (juw12.github.io), so the apps share browser storage: account, chats, missions, Glow Pro key. GlowLead calls GlowChat and the GlowRoom crew directly.</td><td>Nothing. Use the same browser on a device. Different browsers or devices don't sync.</td></tr>
+          <tr><td>GlowLead ↔ Glow Hands (PC)</td><td>Glow Hands runs on your PC at 127.0.0.1 (ports 8765–8770) and pairs with GlowLead using a token; nothing goes through the internet.</td><td>Run the master installer; allow local network access if the browser asks.</td></tr>
+          <tr><td>Phone ↔ PC</td><td>A direct, encrypted peer-to-peer link (WebRTC) from GlowLead on the phone to Glow Hands on the PC.</td><td>GlowLead → Glow Hands → Use from your phone, scan the QR.</td></tr>
+          <tr><td>Android app</td><td>GlowLead bundled with a native browser panel that Glow Hands' rules drive (no local addresses, password fields left to you).</td><td>Install the APK.</td></tr>
+          <tr><td>Instant cloud browser</td><td>A Cloudflare browser opened only at the first website step and closed after the mission (shared free time).</td><td>GlowLead → Connect browser control → Start instant cloud browser.</td></tr>
+          <tr><td>AI</td><td>Glow Free AI needs no sign-in (shared, about one reply every 30 s); a free Puter sign-in or your own API key gives faster models.</td><td>Optional: sign in once in GlowChat; it works in every app.</td></tr>
+          <tr><td>Scheduled missions</td><td>GlowLead automations run while a Glow tab is open; the optional GitHub Actions runner runs them on a schedule without a PC.</td><td>GlowLead → Automate…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="account">
+    <div>
+      <h2>Ready?</h2>
+      <p>Start with one goal in GlowLead, for example “Find the best budget laptop under Rp 8 juta with sources”.</p>
+    </div>
+    <a class="btn primary" href="../lead/">Open GlowLead</a>
+  </section>
+</main>
+
+<footer class="foot">
+  <span>✦ Glow · free · chats stay in your browser</span>
+  <a class="link" href="../">Glow home</a>
+  <a class="link" href="https://github.com/juw12/projects/tree/main/apps/glow">Source</a>
+</footer>
+
+<script src="../shared/glow-apps.js"></script>
+<script src="../shared/qrcode.js"></script>
+<script src="./setup.js"></script>
+</body>
+</html>
