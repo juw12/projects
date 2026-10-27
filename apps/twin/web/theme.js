@@ -4,7 +4,7 @@
   const KEY = "trade-twin-theme"; // legacy key kept so the saved theme survives the rename
   const choices = ["system", "light", "dark"];
   const media = window.matchMedia("(prefers-color-scheme: dark)");
-  let preference = "system";
+  let preference = "dark"; // 1.9 Premium is dark-first; System/Light stay one tap away
   try {
     const saved = localStorage.getItem(KEY);
     if (choices.includes(saved)) {
@@ -62,7 +62,7 @@
   }
   window.addEventListener("storage", (event) => {
     if (event.key === KEY || event.key === null) {
-      preference = choices.includes(event.newValue) ? event.newValue : "system";
+      preference = choices.includes(event.newValue) ? event.newValue : "dark";
       apply();
     }
   });

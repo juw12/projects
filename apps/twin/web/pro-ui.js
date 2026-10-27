@@ -760,7 +760,8 @@ async function openStockPro(symbol) {
     const held = state.paper && state.paper.positions.find((p) => p.symbol === symbol);
     const activeAlerts = proRead("alerts", []).filter((a) => a.symbol === symbol && !a.triggered).length;
     const openOrders = liveBook().orders.filter((o) => o.symbol === symbol && o.status === "open").length;
-    const priceEl = h("div", { class: "big" }, money(d.price));
+    const priceEl = h("div", { class: "big" }, splitMoney(money(d.price)));
+    const showPrice = (value) => priceEl.replaceChildren(...splitMoney(money(value)));
     const changeEl = h("div", { class: signClass(d.change) + " small", style: "font-weight:650" });
     const spanWord = { "1D": "today", "1W": "past week", "1M": "past month", "3M": "past 3 months", "1Y": "past year", "5Y": "past 5 years" }[span];
     const setChange = (value, base, label) => {
@@ -797,9 +798,10 @@ async function openStockPro(symbol) {
       },
     }, label);
     put(body,
-      h("div", { class: "between" },
-        h("div", {}, h("div", { class: "muted small" }, d.name), h("h2", { style: "margin:0" }, symbol)),
-        h("div", { class: "row", style: "flex:none;gap:6px" },
+      h("div", { class: "stock-head" },
+        monogram(symbol),
+        h("div", { style: "min-width:0" }, h("h2", {}, symbol), h("div", { class: "muted small" }, d.name)),
+        h("div", { class: "stock-tools" },
           h("button", { class: "btn small ghost", "aria-label": "Price alerts", onclick: () => openAlerts(symbol, d.price) }, activeAlerts ? `🔔 ${activeAlerts}` : "🔔"),
           h("button", {
             class: "btn small " + (watching ? "" : "ghost"),
@@ -812,7 +814,8 @@ async function openStockPro(symbol) {
                 draw();
               }
             },
-          }, watching ? "★ Watching" : "☆ Watch"))),
+            "aria-label": watching ? "Remove from watchlist" : "Add to watchlist",
+          }, watching ? "★" : "☆"))),
       h("div", { class: "scrub-head", style: "margin-top:8px" }, priceEl, changeEl),
       canvas,
       h("div", { class: "chips", style: "justify-content:space-between" },
@@ -845,9 +848,7 @@ async function openStockPro(symbol) {
           switchTab("invest");
         },
       }, `${openOrders} open order${openOrders > 1 ? "s" : ""} for ${symbol} ›`)) : null,
-      isIndex ? h("p", { class: "tiny muted" }, "Indices can't be bought directly — search for an index fund or ETF that tracks it.") : h("div", { class: "fab-row" },
-        h("button", { class: "btn green", onclick: () => openOrderPro(symbol, "buy", d.price, held) }, "Buy"),
-        h("button", { class: "btn red", disabled: held ? null : "", onclick: () => openOrderPro(symbol, "sell", d.price, held) }, "Sell")),
+      isIndex ? h("p", { class: "tiny muted" }, "Indices can't be bought directly — search for an index fund or ETF that tracks it.") : null,
       h("div", { class: "fab-row" },
         h("button", {
           class: "btn",
@@ -878,15 +879,18 @@ async function openStockPro(symbol) {
           switchTab("trade");
         },
       }, "⏪ Practise orders in Replay Lab"),
-      h("p", { class: "tiny muted" }, `${d.exchange || ""} · delayed quote · practice money only`));
+      h("p", { class: "tiny muted" }, `${d.exchange || ""} · delayed quote · practice money only`),
+      isIndex ? null : h("div", { class: "fab-row dock" },
+        h("button", { class: "btn red", disabled: held ? null : "", onclick: () => openOrderPro(symbol, "sell", d.price, held) }, "Sell"),
+        h("button", { class: "btn green", onclick: () => openOrderPro(symbol, "buy", d.price, held) }, "Buy")));
     afterPaint(() => proChart(canvas, {
       series, baseline: span === "1D" ? d.prev : undefined, height: 210,
       onScrub: (index) => {
         if (index === null) {
-          priceEl.textContent = money(d.price);
+          showPrice(d.price);
           setChange(d.price, base, spanWord);
         } else {
-          priceEl.textContent = money(closes[index]);
+          showPrice(closes[index]);
           setChange(closes[index], base, fmtDay(times[index], span === "1D" || span === "1W"));
         }
       },

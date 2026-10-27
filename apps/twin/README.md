@@ -273,6 +273,12 @@ history and are not predictions. Not financial advice.
 
 ## Changelog
 
+- **1.9.0 — Premium.** The look you picked from three concepts (Revolut-style): dark by default, a glowing
+  gradient hero on Home with one big balance (smaller cents), a gain chip and a mini chart; round quick
+  actions (Buy, Portfolio, Ask AI, Goal); swipeable promo cards for TwinAgent, Replay Lab, the day-trade
+  drill and investor holdings; a stock page with a logo header, large price and a Buy/Sell dock that stays
+  at the bottom. Light theme gets a rounded indigo hero. Also: a slow Home load from an earlier session can
+  no longer write into a fresh guest session. Features and flows unchanged; contrast stays WCAG AA.
 - **1.8.0 — New look.** A redesign in the style of today's most-loved finance apps: big bold numbers and
   large titles, soft borderless cards, pill buttons and chips, one indigo brand gradient (green/red only for
   money), coloured ticker badges, a floating glass tab bar with a sliding indicator, a header that frosts
