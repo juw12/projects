@@ -1,0 +1,60 @@
+/* Glow setup guide: extends ../home.css (same colours and buttons). */
+.setup { width: min(1080px, 100% - 32px); margin: 0 auto; padding-bottom: 32px; }
+.setup .hero { padding-bottom: 18px; }
+.installed-banner { margin: 8px 0 0; padding: 12px 16px; border-radius: 14px; background: color-mix(in srgb, var(--room) 18%, var(--panel)); border: 1px solid color-mix(in srgb, var(--room) 50%, var(--border)); }
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 20px; padding: 20px 22px; margin-top: 18px; }
+.panel h2 { margin: 0; font-size: 21px; letter-spacing: -.01em; }
+.panel p { color: var(--muted); }
+.panel p b, .panel li b { color: var(--text); }
+.panel-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 8px; }
+.badge { font-size: 12px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--gold); border: 1px solid color-mix(in srgb, var(--gold) 45%, var(--border)); border-radius: 999px; padding: 3px 10px; }
+#windows { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+.steps { margin: 8px 0; padding-left: 20px; }
+.steps li { margin: 4px 0; }
+.ticks { margin: 12px 0 4px; padding-left: 20px; color: var(--muted); }
+.ticks li { margin: 6px 0; }
+kbd { font: 600 13px/1 ui-monospace, SFMono-Regular, Consolas, monospace; padding: 3px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); }
+.command { display: flex; gap: 10px; align-items: stretch; margin: 10px 0; }
+.command code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; padding: 11px 13px; border-radius: 12px; background: var(--bg); border: 1px solid var(--border); font: 13px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.command .btn { flex: 0 0 auto; }
+.more { margin-top: 10px; color: var(--muted); }
+.more summary { cursor: pointer; color: var(--text); font-weight: 600; }
+.more code { font: 13px ui-monospace, SFMono-Regular, Consolas, monospace; }
+.platforms { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+.platforms .panel { margin-top: 18px; }
+.small { font-size: 13.5px; }
+.qr-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.qr { width: 132px; height: 132px; flex: 0 0 132px; background: #fff; border-radius: 12px; padding: 6px; display: grid; place-items: center; }
+.qr svg { width: 100%; height: 100%; }
+.connect { margin-top: 34px; }
+.connect h2 { font-size: 26px; letter-spacing: -.02em; margin: 0 0 6px; }
+.lede-left { color: var(--muted); margin: 0 0 16px; max-width: 760px; }
+.diagram { display: flex; flex-direction: column; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 22px; padding: 22px; }
+.diagram .row, .diagram .base { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; width: 100%; }
+.diagram .base { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border); }
+.node { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 12px 14px; text-align: center; }
+.node b { display: block; font-size: 16px; }
+.node span { display: block; color: var(--muted); font-size: 13.5px; margin-top: 2px; }
+.node.you, .node.lead { width: min(420px, 100%); }
+.node.lead { border-color: var(--gold); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 18%, transparent); }
+.node.chat { border-color: color-mix(in srgb, var(--accent) 60%, var(--border)); }
+.node.room { border-color: color-mix(in srgb, var(--room) 60%, var(--border)); }
+.node.hands { border-color: color-mix(in srgb, var(--text) 35%, var(--border)); }
+.node.mini { background: var(--bg); }
+.node.base-item { background: transparent; }
+.arrow { color: var(--muted); font-size: 18px; letter-spacing: .4em; }
+.arrow.split { letter-spacing: 1.6em; }
+.arrow.label { letter-spacing: normal; font-size: 14px; }
+.table-wrap { overflow-x: auto; margin-top: 18px; border: 1px solid var(--border); border-radius: 16px; }
+table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+th { background: var(--panel); font-size: 13px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+td:first-child { font-weight: 650; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+.setup .account { margin-top: 30px; }
+@media (max-width: 720px) {
+  .diagram .row, .diagram .base { grid-template-columns: 1fr; }
+  .arrow.split { letter-spacing: .4em; }
+  .command { flex-direction: column; }
+  .command code { white-space: pre-wrap; word-break: break-all; }
+}
