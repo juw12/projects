@@ -514,7 +514,7 @@
    "name": "Fade",
    "category": "Apps",
    "desc": "Book barbers, watch haircut shorts and pay them directly: free, online, 0% fees",
-   "description": "Barber marketplace with haircut shorts, live on the decentralised Fade Network or your own server: real accounts, end-to-end encrypted bookings and DMs, direct payments (PayPal, Venmo, Cash App, Stripe links, bank/QR, Lightning) with a 0% fee, private-by-default, recallable push notifications and 2 h reminders, automatic transcoding, nudity checks that don't trust the uploader's app (re-checked by the server or by every viewer's device), an external-checker hook for CSAM/violence services, re-upload blocking and spam filters, moderation that reaches even the offline demo, and 5&ndash;10% creator commissions when a short sends a booking.",
+   "description": "Barber marketplace with haircut shorts, live on the decentralised Fade Network or your own server: real accounts, end-to-end encrypted bookings and DMs, direct payments (PayPal, Venmo, Cash App, Stripe links, bank/QR, Lightning) with a 0% fee, private-by-default, recallable push notifications and 2 h reminders, automatic transcoding, nudity checks that don't trust the uploader's app (re-checked by the server, or by every viewer's device before anything is shown), human review of new accounts' first posts, built-in violence/weapon/hate-symbol checks (Sightengine) and a hook for CSAM hash-matching services, evidence export for moderators, re-upload blocking and spam filters, moderation that reaches even the offline demo, and 5&ndash;10% creator commissions when a short sends a booking.",
    "summary": "Barber marketplace with haircut shorts &mdash; live and free: book barbers, pay them directly at 0% fee, earn from your shorts.",
    "tags": [
     "PWA",
@@ -532,7 +532,7 @@
    },
    "featured": true,
    "order": 6,
-   "version": "3.3.0"
+   "version": "3.4.0"
   },
   {
    "id": "mint",

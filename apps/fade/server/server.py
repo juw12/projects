@@ -36,6 +36,7 @@ import argparse
 import base64
 import hashlib
 import hmac
+import io
 import json
 import math
 import mimetypes
@@ -60,6 +61,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import nsfw_scan  # noqa: E402  (server-side copy of the apps' safety classifier)
+import hook_sightengine  # noqa: E402  (ready-made external checker: violence, gore, weapons, hate symbols)
 
 try:
     from zoneinfo import ZoneInfo
@@ -67,7 +69,7 @@ except ImportError:  # pragma: no cover - Python < 3.9
     ZoneInfo = None
 
 APP_NAME = "fade"
-APP_VERSION = "3.3.0"
+APP_VERSION = "3.4.0"
 
 BASE_DIR = Path(__file__).resolve().parent
 WEB_DIR = BASE_DIR.parent / "web"
@@ -390,6 +392,7 @@ HOOK_ACTIONS = ("allow", "review", "block")
 HOOK_SEVERE_LABELS = ("csam", "child", "minor")  # external checker says child abuse: hide, ban, keep evidence
 # Pushes are content-free unless the person opts in: ntfy keeps message text in its cache (~12 h on ntfy.sh)
 # even after a recall, so by default nothing personal ever goes through it.
+LIVE_ONLY_HEADERS = {"Cache": "no", "Firebase": "no"}  # ntfy: deliver to connected devices, store nothing
 PRIVATE_PUSH_LABELS = {
     "bk": "Booking update", "rm": "Appointment reminder", "dm": "New message", "cm": "New comment",
     "comment": "New comment", "rp": "New report to review", "report": "New report to review",
@@ -609,7 +612,8 @@ class SafetyMixin:
     """Reports + moderator console, automatic scanning, ntfy push (updatable and recallable),
     in-app notifications and server-side ffmpeg transcoding."""
 
-    def setup_safety(self, admins=(), ntfy=None, public_url="", ffmpeg="auto", scan="off", scan_hook=None, hash_list=None):
+    def setup_safety(self, admins=(), ntfy=None, public_url="", ffmpeg="auto", scan="off", scan_hook=None, hash_list=None,
+                     review_new=0):
         self.admins = {email.strip().lower() for email in admins if email and email.strip()}
         self.ntfy = (ntfy or "").rstrip("/") or None
         self.public_url = (public_url or "").rstrip("/")
@@ -621,6 +625,8 @@ class SafetyMixin:
         # Server-side checks that don't trust the uploader's app: the same classifier (numpy), an optional
         # external checker (CSAM hash matching, violence, ... run by the operator) and an optional hash list.
         self.scan_hook = (scan_hook or "").strip() or None
+        # First uploads of every new account wait for a moderator (humans catch what classifiers miss).
+        self.review_new = max(0, int(review_new or 0))
         self.external_hashes = load_hash_list(hash_list) if hash_list else {}
         self.scanner = None
         self.scan_status = "off"
@@ -891,7 +897,9 @@ class SafetyMixin:
                 for s in self.s.all("short") if (s.get("media") or {}).get("verifying")]
         return {"queue": queue, "banned": sorted(mod["banned"].keys()), "unscanned": unscanned[:50],
                 "blockedHashes": len(mod["phash"]) + len(self.external_hashes), "held": held[:50],
-                "serverChecks": {"classifier": self.scan_status, "hook": bool(self.scan_hook), "hashList": len(self.external_hashes)}}
+                "serverChecks": {"classifier": self.scan_status, "hook": bool(self.scan_hook), "hashList": len(self.external_hashes),
+                                 "reviewNew": self.review_new},
+                "setup": self.safety_setup()}
 
     def moderate(self, user, body):
         if not self.is_admin(user):
@@ -960,6 +968,12 @@ class SafetyMixin:
                             short = self.s.get("short", key.split(":", 1)[1])
                             if short and short["media"].get("scanVerdict") == "unscanned":
                                 short["media"]["scanVerdict"] = "reviewed"
+                                self.s.put("short", short["id"], short)
+                            owner = self.s.get("user", (short or {}).get("userId") or "")
+                            if owner and not (short or {}).get("approvedCounted"):  # counts toward --review-new
+                                owner["approvedUploads"] = int(owner.get("approvedUploads") or 0) + 1
+                                self.save_user(owner)
+                                short["approvedCounted"] = True
                                 self.s.put("short", short["id"], short)
                 if action in ("hide", "keep"):
                     resolved_key = key
@@ -1088,16 +1102,20 @@ class SafetyMixin:
             self.s.commit()
         topic = recipient.get("notify")
         if self.ntfy and topic and recipient.get("pushOn", True):
-            private = recipient.get("pushPreview", "private") != "full"
-            payload = {
-                "topic": topic, "sequence_id": doc["seq"],
-                "title": "Fade" if private else doc["title"],
-                "message": f"{self.private_label(doc)} — open Fade to see it" if private else doc["message"],
-                "tags": ["scissors"] if private else (tags or ["scissors"]),
+            # What ntfy stores (and Firebase relays) is always content-free. With full previews on, the text
+            # follows as a live-only update of the same notification ("Cache: no", "Firebase: no"): phones
+            # connected right now show it, nothing keeps a copy, offline phones keep the generic one.
+            stored = {
+                "topic": topic, "sequence_id": doc["seq"], "title": "Fade",
+                "message": f"{self.private_label(doc)} — open Fade to see it", "tags": ["scissors"],
             }
             if self.public_url:
-                payload["click"] = f"{self.public_url}/#{click}"
-            threading.Thread(target=self._send_push, args=(payload,), daemon=True).start()
+                stored["click"] = f"{self.public_url}/#{click}"
+            sends = [(stored, None)]
+            if recipient.get("pushPreview", "private") == "full":
+                live = dict(stored, title=doc["title"], message=doc["message"], tags=tags or ["scissors"])
+                sends.append((live, LIVE_ONLY_HEADERS))
+            threading.Thread(target=self._send_pushes, args=(sends,), daemon=True).start()
         return doc
 
     @staticmethod
@@ -1107,8 +1125,9 @@ class SafetyMixin:
         ref_kind = (doc.get("ref") or "").split(":", 1)[0]
         return PRIVATE_PUSH_LABELS.get(prefix) or PRIVATE_PUSH_LABELS.get(ref_kind) or "New notification"
 
-    def _ntfy_call(self, method, url, data=None, kind="push", topic="", title=""):
+    def _ntfy_call(self, method, url, data=None, kind="push", topic="", title="", extra_headers=None):
         headers = {"Content-Type": "application/json"} if data is not None else {}
+        headers.update(extra_headers or {})
         request = urllib.request.Request(url, data=data, method=method, headers=headers)
         status = 0
         try:
@@ -1116,12 +1135,19 @@ class SafetyMixin:
                 status = response.status
         except Exception as err:  # network errors must never break the app
             status = getattr(err, "code", -1)
-        self.push_log.append({"kind": kind, "topic": topic, "title": title, "status": status, "t": now_ts(), "url": url})
+        self.push_log.append({"kind": kind, "topic": topic, "title": title, "status": status, "t": now_ts(), "url": url,
+                              "live": bool(extra_headers)})
         del self.push_log[:-300]
         return status
 
-    def _send_push(self, payload):
-        self._ntfy_call("POST", self.ntfy, json.dumps(payload).encode("utf-8"), "push", payload["topic"], payload["title"])
+    def _send_push(self, payload, extra_headers=None):
+        self._ntfy_call("POST", self.ntfy, json.dumps(payload).encode("utf-8"), "push", payload["topic"], payload["title"],
+                        extra_headers)
+
+    def _send_pushes(self, sends):
+        """In order: the stored content-free push first, then (optionally) its live-only full-text update."""
+        for payload, extra_headers in sends:
+            self._send_push(payload, extra_headers)
 
     def recall(self, predicate, remove=True):
         """Delete matching pushes from every subscribed device (ntfy DELETE /<topic>/<sequence_id>)."""
@@ -1353,9 +1379,12 @@ class SafetyMixin:
         answer = None
         error = None
         try:
-            request = urllib.request.Request(self.scan_hook, data=data, method="POST", headers=headers)
-            with urllib.request.urlopen(request, timeout=HOOK_TIMEOUT_S) as response:
-                answer = json.loads(response.read(65536).decode("utf-8") or "{}")
+            if self.scan_hook == "sightengine":  # built-in adapter, keys from SIGHTENGINE_USER / SIGHTENGINE_SECRET
+                answer = hook_sightengine.check_media(data, headers["Content-Type"])
+            else:
+                request = urllib.request.Request(self.scan_hook, data=data, method="POST", headers=headers)
+                with urllib.request.urlopen(request, timeout=HOOK_TIMEOUT_S) as response:
+                    answer = json.loads(response.read(65536).decode("utf-8") or "{}")
             if not isinstance(answer, dict) or answer.get("action") not in HOOK_ACTIONS:
                 raise ValueError(f"unexpected answer {str(answer)[:80]}")
         except Exception as err:
@@ -1389,7 +1418,8 @@ class SafetyMixin:
         severe = any(word in " ".join(labels + [reason.lower()]) for word in HOOK_SEVERE_LABELS)
         if action in ("review", "block"):
             note = f"external check: {action}" + (f" · {reason}" if reason else "") + (f" · {', '.join(labels)}" if labels else "")
-            category = "violence" if "violence" in labels or "gore" in labels else "nudity" if action == "block" or severe else "other"
+            violent = {"violence", "gore", "firearm"} & set(labels)
+            category = "violence" if violent else "hate" if "hate-symbol" in labels else "nudity" if action == "block" or severe else "other"
             self.auto_flag(f"short:{short_id}", short.get("userId"), category, note, hide=True)
         if severe and action == "block":
             self.emergency_ban(short.get("userId"), short_id)
@@ -1413,6 +1443,55 @@ class SafetyMixin:
             self.s.commit()
         self.recall(lambda n: n.get("actor") == user_id)
         self.alert_admins(f"short:{short_id}", "URGENT · external checker matched child-abuse material — account suspended, evidence kept")
+
+    def evidence_package(self, user, short_id):
+        """Moderators: a zip with the file, its SHA-256, the uploader's account details, checks, reports and
+        moderation history — what a report to the authorities (e.g. NCMEC's CyberTipline) asks for."""
+        if not self.is_admin(user):
+            raise ApiError(403, "Moderators only")
+        short = self.s.get("short", short_id)
+        if not short:
+            raise ApiError(404, "short not found")
+        uploader = self.s.get("user", short.get("userId") or "") or {}
+        path = self.s.media_dir / Path(short["media"].get("url", "")).name
+        data = path.read_bytes() if path.is_file() else b""
+        key = f"short:{short_id}"
+        mod = self.mod_doc()
+        record = {
+            "generatedAt": now_ts(), "generatedBy": user.get("email"), "server": self.public_url or None,
+            "short": {k: v for k, v in short.items() if k != "likedBy"},
+            "file": {"name": path.name, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest() if data else None},
+            "uploader": {k: uploader.get(k) for k in ("id", "name", "email", "role", "createdAt", "scanMismatches")},
+            "moderation": {"hidden": mod["hidden"].get(key), "kept": mod["kept"].get(key),
+                           "uploaderBanned": mod["banned"].get(uploader.get("id"))},
+            "reports": [r for r in self.s.all("report") if r["target"] in (key, f"user:{uploader.get('id')}")],
+            "checks": {"server": short["media"].get("serverScan"), "app": short["media"].get("scan"),
+                       "external": short["media"].get("hook"), "phash": short["media"].get("phash")},
+        }
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr("record.json", json.dumps(record, indent=2, default=str))
+            if data:
+                archive.writestr(f"media/{path.name}", data)
+        with self.s.lock:
+            short = self.s.get("short", short_id)
+            short.setdefault("evidenceExports", []).append({"by": user.get("email"), "at": now_ts()})
+            short["media"]["evidenceHold"] = True  # never auto-deleted once exported
+            self.s.put("short", short_id, short)
+            self.s.commit()
+        return buffer.getvalue(), f"fade-evidence-{short_id}.zip"
+
+    def safety_setup(self):
+        """What protects this server, and what's missing (moderator console + startup banner)."""
+        items = [
+            ("moderators", bool(self.admins), "moderator accounts (--admin)"),
+            ("classifier", self.server_scan_ready(), f"server-side nudity check ({self.scan_status})"),
+            ("external", bool(self.scan_hook), "external checker for violence / weapons / hate symbols / CSAM (--scan-hook)"),
+            ("review-new", self.review_new > 0, f"moderator approval of each new account's first {self.review_new or 'N'} uploads (--review-new)"),
+            ("hash-list", bool(self.external_hashes), "known-bad media list (--hash-list)"),
+            ("own-push", bool(self.ntfy) and "ntfy.sh" not in (self.ntfy or ""), "own ntfy server (--ntfy) — optional, pushes are content-free anyway"),
+        ]
+        return [{"id": i, "on": on, "label": label} for i, on, label in items]
 
     def retry_held_checks(self):
         """Sweeper: re-run the external check for uploads still held because the checker was unreachable."""
@@ -2143,6 +2222,10 @@ class Fade(SafetyMixin):
         if verdict == "review":
             self.auto_flag(f"short:{short_id}", user["id"], "nudity",
                            f"automatic check: {round(scan['nsfw'] * 100)}% explicit, {round(scan['sexy'] * 100)}% suggestive", hide=True)
+        approved = int((self.s.get("user", user["id"]) or {}).get("approvedUploads") or 0)
+        if self.review_new and approved < self.review_new and not self.is_admin(user):
+            self.auto_flag(f"short:{short_id}", user["id"], "other",
+                           f"new account: upload {approved + 1} of the first {self.review_new} waits for a moderator's OK", hide=True)
         for tag in tags:
             owner = self.tag_owner(tag)
             if tag["status"] == "pending" and owner:
@@ -2878,6 +2961,12 @@ def r_moderate(app, req, user, m):
     return app.moderate(user, req.json())
 
 
+@route("GET", r"/api/mod/evidence/([\w-]+)")
+def r_mod_evidence(app, req, user, m):
+    data, filename = app.evidence_package(user, m.group(1))
+    return RawResponse(data, "application/zip", filename)
+
+
 @route("POST", r"/api/comments")
 def r_comment(app, req, user, m):
     return app.add_comment(user, req.json())
@@ -2906,6 +2995,15 @@ def r_notifications_recall(app, req, user, m):
 @route("PUT", r"/api/me/push")
 def r_push_settings(app, req, user, m):
     return app.update_push(user, req.json())
+
+
+class RawResponse:
+    """A route result sent as a file download instead of JSON."""
+
+    def __init__(self, data, content_type, filename=None):
+        self.data = data
+        self.content_type = content_type
+        self.filename = filename
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -2953,11 +3051,22 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def send_raw(self, result):
+        self.send_response(200)
+        self.send_header("Content-Type", result.content_type)
+        self.send_header("Content-Length", str(len(result.data)))
+        self.send_header("Cache-Control", "no-store")
+        if result.filename:
+            self.send_header("Content-Disposition", f'attachment; filename="{result.filename}"')
+        self.cors()
+        self.end_headers()
+        self.wfile.write(result.data)
+
     def cors(self):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Fade-Meta, X-Title, Range")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-        self.send_header("Access-Control-Expose-Headers", "Content-Range, Accept-Ranges, Content-Length")
+        self.send_header("Access-Control-Expose-Headers", "Content-Range, Accept-Ranges, Content-Length, Content-Disposition")
 
     # ----- verbs -----
     def do_OPTIONS(self):
@@ -2994,7 +3103,10 @@ class Handler(BaseHTTPRequestHandler):
                     raise ApiError(401, "Please log in")
                 if user and method != "GET" and not path.endswith("/auth/logout") and self.app.is_banned(user):
                     raise ApiError(403, "This account is suspended for breaking the community guidelines")
-                return self.send_json(200, func(self.app, self, user, match))
+                result = func(self.app, self, user, match)
+                if isinstance(result, RawResponse):
+                    return self.send_raw(result)
+                return self.send_json(200, result)
             raise ApiError(404, "not found")
         except ApiError as err:
             self.send_json(err.status, {"error": err.message})
@@ -3068,10 +3180,10 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def make_server(host, port, data_dir, quiet=False, admins=(), ntfy=None, public_url="", ffmpeg="off", sweeper=False,
-                scan="off", scan_hook=None, hash_list=None):
+                scan="off", scan_hook=None, hash_list=None, review_new=0):
     store = Store(Path(data_dir))
     Handler.app = Fade(store, admins=admins, ntfy=ntfy, public_url=public_url, ffmpeg=ffmpeg,
-                       scan=scan, scan_hook=scan_hook, hash_list=hash_list)
+                       scan=scan, scan_hook=scan_hook, hash_list=hash_list, review_new=review_new)
     Handler.quiet = quiet
     if sweeper:
         Handler.app.start_sweeper()
@@ -3101,12 +3213,23 @@ def main():
                              "answers {\"action\": \"allow|review|block\"}; uploads stay hidden while it is unreachable")
     parser.add_argument("--hash-list", default=os.environ.get("FADE_HASH_LIST", ""), metavar="FILE",
                         help="extra blocked media: one 16-hex dHash per line (optional label after it)")
+    parser.add_argument("--review-new", default=os.environ.get("FADE_REVIEW_NEW") or "auto", metavar="N",
+                        help="the first N uploads of every new account wait for a moderator's OK "
+                             "('auto' = 1 when moderators are set, else 0)")
     args = parser.parse_args()
     admins = args.admin + [e for e in os.environ.get("FADE_ADMINS", "").split(",") if e.strip()]
     ntfy = None if args.ntfy.lower() == "off" else args.ntfy
+    if str(args.review_new).lower() == "auto":
+        review_new = 1 if admins else 0
+    else:
+        try:
+            review_new = max(0, int(args.review_new))
+        except ValueError:
+            parser.error("--review-new takes a number or 'auto'")
     server = make_server(args.host, args.port, args.data, args.quiet, admins=admins, ntfy=ntfy,
                          public_url=args.public_url, ffmpeg=args.ffmpeg, sweeper=True,
-                         scan=args.scan, scan_hook=args.scan_hook or None, hash_list=args.hash_list or None)
+                         scan=args.scan, scan_hook=args.scan_hook or None, hash_list=args.hash_list or None,
+                         review_new=review_new)
     app = Handler.app
     print(f"Fade {APP_VERSION} running on http://{args.host}:{args.port}/  (data: {args.data})")
     print(f"  moderators: {', '.join(sorted(app.admins)) or 'none (add --admin you@example.com)'}")
@@ -3117,7 +3240,12 @@ def main():
         checks.append(f"external hook {app.scan_hook}")
     if app.external_hashes:
         checks.append(f"{len(app.external_hashes)} listed hashes")
+    if app.review_new:
+        checks.append(f"new accounts' first {app.review_new} upload{'s' if app.review_new > 1 else ''} reviewed")
     print(f"  server checks: {' · '.join(checks)}")
+    missing = [item["label"] for item in app.safety_setup() if not item["on"] and item["id"] != "own-push"]
+    for label in missing:
+        print(f"  ! not set up: {label}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

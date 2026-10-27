@@ -1337,23 +1337,35 @@
     return PRIVATE_LABELS[String(seq || '').split('-')[0]] || 'New notification';
   }
 
+  // What ntfy stores (and relays via Firebase) is always content-free. Recipients who opted into full previews
+  // get the text as a live-only update of the same notification ("Cache: no", "Firebase: no"): devices connected
+  // right now show it, nothing keeps a copy. Scheduled pushes (reminders) can't be live-only, so they stay generic.
+  const LIVE_ONLY_HEADERS = { Cache: 'no', Firebase: 'no' };
+
   async function push(pk, title, body, path, at, seq) {
     const topic = pk ? topicOf(pk) : null;
     if (!topic) return false;
     const recipient = derive().users.get(pk) || {};
-    const privatePreview = recipient.pushPreview !== 'full'; // full previews are an explicit opt-in
-    const payload = {
+    const fullPreview = recipient.pushPreview === 'full'; // explicit opt-in
+    const stored = {
       topic,
-      title: privatePreview ? 'Fade' : String(title).slice(0, 120),
-      message: privatePreview ? `${privateLabel(seq)} — open Fade to see it` : String(body || '').slice(0, 400),
+      title: 'Fade',
+      message: `${privateLabel(seq)} — open Fade to see it`,
       tags: ['scissors'],
     };
-    if (path) payload.click = appLink(path);
-    if (at) payload.delay = String(Math.floor(at / 1000));
-    if (seqId(seq)) payload.sequence_id = seqId(seq);
+    if (path) stored.click = appLink(path);
+    if (at) stored.delay = String(Math.floor(at / 1000));
+    const sequence = seqId(seq) || (fullPreview && !at ? `n-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}` : null);
+    if (sequence) stored.sequence_id = sequence;
+    const endpoint = CFG.ntfy.replace(/\/+$/, '');
     try {
-      const res = await fetch(CFG.ntfy.replace(/\/+$/, ''), { method: 'POST', body: JSON.stringify(payload) });
-      return res.ok;
+      const res = await fetch(endpoint, { method: 'POST', body: JSON.stringify(stored) });
+      if (!res.ok) return false;
+      if (fullPreview && !at) {
+        const live = { ...stored, title: String(title).slice(0, 120), message: String(body || '').slice(0, 400) };
+        await fetch(endpoint, { method: 'POST', headers: LIVE_ONLY_HEADERS, body: JSON.stringify(live) }).catch(() => null);
+      }
+      return true;
     } catch (err) {
       return false;
     }
@@ -1379,10 +1391,16 @@
     const topic = ME.pk ? topicOf(ME.pk) : null;
     if (!topic || typeof EventSource === 'undefined' || PARAMS.get('sse') === '0') return;
     notifySource = new EventSource(`${CFG.ntfy}/${topic}/sse`);
+    const seen = new Map(); // sequence id -> time: the live full-text update replaces its generic twin
     notifySource.onmessage = (message) => {
       try {
         const data = JSON.parse(message.data);
         if (data.event !== 'message') return;
+        const now = Date.now();
+        const previous = data.sequence_id ? seen.get(data.sequence_id) : null;
+        if (data.sequence_id) seen.set(data.sequence_id, now);
+        if (seen.size > 200) seen.delete(seen.keys().next().value);
+        data.update = !!previous && now - previous < 15000;
         notifyListeners.forEach((fn) => fn(data));
       } catch (err) {
         // ignore
@@ -1750,6 +1768,7 @@
       likedByMe,
       createdAt: short.createdAt,
       hidden: db.isHidden(short.id),
+      kept: db.mod.kept.has(short.id),  // a moderator looked at it and kept it
     };
   }
 

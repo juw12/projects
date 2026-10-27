@@ -173,6 +173,8 @@ class PushStore:
                 factor = {"": 1, "s": 1, "m": 60, "h": 3600, "d": 86400}[match.group(2)]
                 when = now + int(match.group(1)) * factor
         sequence = headers.get("X-Sequence-ID") or headers.get("Sequence-ID") or headers.get("SID") or ""
+        # like ntfy's "Cache: no": hand it to devices listening right now, keep no copy (polls never see it)
+        live_only = str(headers.get("Cache") or headers.get("X-Cache") or "").strip().lower() == "no"
         with self.lock:
             self.counter += 1
             message = {
@@ -183,10 +185,11 @@ class PushStore:
                 "scheduled": when > now,
                 "sequence_id": sequence or f"m{self.counter}",
             }
-            if sequence:  # like ntfy: a new message replaces a still-scheduled one with the same sequence id
+            if sequence and not live_only:  # like ntfy: a new message replaces a still-scheduled one with the same sequence id
                 self.messages[topic] = [m for m in self.messages.get(topic, [])
                                         if not (m.get("sequence_id") == sequence and m.get("scheduled") and m["time"] > now)]
-            self.messages.setdefault(topic, []).append(message)
+            if not live_only:
+                self.messages.setdefault(topic, []).append(message)
             listeners = list(self.listeners.get(topic, []))
         if not message["scheduled"]:
             for listener in listeners:
@@ -528,6 +531,9 @@ class Handler(BaseHTTPRequestHandler):
             headers["At"] = str(payload["delay"])
         if payload.get("sequence_id"):
             headers["X-Sequence-ID"] = str(payload["sequence_id"])[:64]
+        cache = self.headers.get("Cache") or self.headers.get("X-Cache")
+        if cache:
+            headers["Cache"] = cache
         message = PUSH.publish(topic, str(payload.get("message") or ""), headers)
         return self.send_json(200, message)
 
