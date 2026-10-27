@@ -148,7 +148,7 @@ test("worker precaches both Strategy Lab scripts and stock page exposes feature"
   const web = path.join(__dirname, "../web");
   const worker = fs.readFileSync(path.join(web, "sw.js"), "utf8");
   const index = fs.readFileSync(path.join(web, "index.html"), "utf8");
-  for (const file of ["strategy-lab.js?v=1.6.0", "strategy-lab-ui.js?v=1.6.0"]) {
+  for (const file of ["strategy-lab.js?v=1.7.0", "strategy-lab-ui.js?v=1.7.0"]) {
     assert.ok(worker.includes(file));
     assert.ok(index.includes(file));
   }

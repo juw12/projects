@@ -50,7 +50,8 @@ Bank Central Asia, Samsung, Reliance, Petrobras, Nestlé and so on.
 - **Real exchange calendars:** open / lunch / closed, public holidays, early closes and late opens come
   from [`exchange_calendars`](https://github.com/gerrymanoim/exchange_calendars) (38 exchanges,
   `web/demo/calendars.json`, rebuilt by `scripts/market_calendars.py`). Stock pages list the next
-  market holidays. Qatar and Abu Dhabi have no calendar in that package and use regular hours only;
+  market holidays. Qatar and Abu Dhabi use hand-curated calendars (`CURATED` in the script); their Eid dates are
+  estimates (shown as “est.”) until the exchanges confirm them;
   Shanghai/Shenzhen and India are covered through 2026 until the package publishes later years.
 
 ## Features
@@ -143,6 +144,34 @@ The lab never submits orders or changes the practice portfolio.
   re-runs `scripts/world_snapshot.py` and `scripts/market_calendars.py` every hour (best effort — if
   Yahoo throttles, the committed data is kept). Run them yourself with `--check` to validate. Accounts
   and the practice portfolio stay in that browser's localStorage.
+
+## Real-time prices (optional, local server only)
+
+Out of the box Twin uses Yahoo Finance: free, but **delayed and unofficial**. On your own server you can
+add better sources in **Me → Market data**; each stock page then says exactly where its price came from
+(“● Real-time · Alpaca IEX” or “Delayed · Yahoo Finance”):
+
+| Source | Markets | Cost | How |
+| --- | --- | --- | --- |
+| Interactive Brokers gateway | Every market your IBKR data subscriptions cover | IBKR market-data fees | Connect IBKR in Me → Real trading |
+| Alpaca | US stocks & ETFs, real-time (IEX) | Free with an Alpaca account | Connect Alpaca in Me → Real trading |
+| Finnhub | US stocks real-time (free plan); other markets on paid plans | Free key at finnhub.io | Paste the key in Me → Market data |
+
+Order: IBKR → Alpaca → Finnhub → Yahoo. A live price that disagrees with Yahoo by more than 25% is not
+shown (except an exact ×100 pence/cents quote, which is converted), so a wrong contract or unit can't slip
+through. Keys stay in `data/` on your computer (0600) and are never sent to the browser.
+
+**IBKR self-test:** Me → Real trading → Interactive Brokers → *Test my gateway* runs read-only checks
+against your real gateway — reachable, logged in, account, contract lookup, market data (and whether
+it's real-time or delayed), and an IBKR *what-if* that prices a 1-share order without sending it.
+
+## Your data: daily backups and safe updates
+
+* The server zips `data/` (accounts, practice portfolios, settings, broker connections) once a day into
+  `data/backups/twin-data-YYYYMMDD.zip` and keeps the last 14.
+* To update an existing install, don't copy folders over it — run
+  `python3 apps/twin/scripts/update_local.py /path/to/your/twin`. It backs up the whole install first,
+  copies the new version over the old files and never deletes anything (unused old files are listed).
 
 ## Real trading (optional, local server only)
 
@@ -244,6 +273,13 @@ history and are not predictions. Not financial advice.
 
 ## Changelog
 
+- **1.7.0 — Real-time where you have it, safer data.** Real-time prices from your own sources (IBKR,
+  Alpaca IEX, Finnhub) with the source and time on every stock page and Yahoo as the labelled fallback;
+  unit/contract guard (pence ×100 converted, >25% mismatches dropped). Read-only **IBKR gateway self-test**.
+  **Qatar and Abu Dhabi calendars** (Eid dates marked as estimates). Live trading now asks you to confirm
+  you may trade those markets from your country. **Daily data backups** (14 kept) and a safe
+  `update_local.py` that backs up first and never deletes. Fixed a race where a background order check
+  could undo a cancel you made while prices were loading (or carry orders into a fresh guest session).
 - **1.6.0 — Limits fixed.** Web demo now ~280 stocks/ETFs on 35+ exchanges + 34 indices, refreshed
   **hourly** by GitHub Actions with a per-symbol chart for every listing (last good data kept on
   failures); **real exchange calendars** (holidays, early closes, late opens for 38 exchanges, "next

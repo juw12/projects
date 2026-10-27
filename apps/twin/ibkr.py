@@ -188,6 +188,85 @@ class IbkrBroker:
         except Exception:
             return None
 
+    # ------------------------------------------------------------- self-test
+    def selftest(self, uid, symbol="AAPL"):
+        """Read-only checks against the user's real gateway. Never places or modifies orders.
+
+        Gateway reachable -> logged in -> account -> contract lookup -> market data -> what-if.
+        The what-if asks IBKR to price a 1-share limit buy far below the market without sending it."""
+        steps = []
+
+        def step(name, fn):
+            try:
+                detail = fn()
+                steps.append({"name": name, "ok": True, "detail": detail})
+                return True
+            except Exception as exc:
+                steps.append({"name": name, "ok": False, "detail": str(exc)})
+                return False
+
+        state = {}
+
+        def reachable():
+            self._request("POST", "/tickle")
+            return "Gateway answered at %s" % GATEWAY_URL.rsplit("/v1", 1)[0]
+
+        def logged_in():
+            auth = self._request("POST", "/iserver/auth/status")
+            if not auth.get("authenticated"):
+                raise BrokerError("Not logged in. Sign in at https://localhost:5000, then run the test again.")
+            return "Logged in" + (" (competing session: another IBKR login is active)" if auth.get("competing") else "")
+
+        def account():
+            acct, is_paper = self._session()
+            state["account"] = acct
+            state["paper"] = is_paper
+            return "%s account …%s" % ("Paper" if is_paper else "LIVE", str(acct)[-4:])
+
+        def contract():
+            found, candidates = self.resolve_contract(symbol)
+            found = found or (candidates[0] if candidates else None)
+            if not found:
+                raise BrokerError("No contract for %s" % symbol)
+            state["conid"] = found["conid"]
+            return "%s → conid %s (%s)%s" % (symbol, found["conid"], found["header"],
+                                             "" if len(candidates) == 1 else ", %d listings found" % len(candidates))
+
+        def market_data():
+            path = "/iserver/marketdata/snapshot?conids=%s&fields=31,6509" % state["conid"]
+            row = {}
+            for _ in range(4):
+                rows = self._request("GET", path)
+                row = rows[0] if isinstance(rows, list) and rows else {}
+                if row.get("31"):
+                    break
+                time.sleep(0.5)
+            last = re.search(r"-?\d+(\.\d+)?", str(row.get("31") or "").replace(",", ""))
+            if not last:
+                raise BrokerError("No price returned. Your account may lack market data permissions for this market.")
+            state["price"] = float(last.group(0))
+            kind = str(row.get("6509") or "")
+            label = {"R": "real-time", "D": "delayed", "Z": "frozen", "Y": "frozen delayed"}.get(kind[:1], kind or "unknown")
+            return "Last %s (%s data)" % (last.group(0), label)
+
+        def whatif():
+            price = round(state["price"] * 0.5, 2)
+            ticket = {"acctId": state["account"], "conid": int(state["conid"]), "orderType": "LMT", "side": "BUY",
+                      "quantity": 1, "price": price, "tif": "DAY"}
+            result = self._request("POST", "/iserver/account/%s/orders/whatif" % urllib.parse.quote(state["account"]),
+                                   {"orders": [ticket]}) or {}
+            if isinstance(result, dict) and result.get("error"):
+                raise BrokerError("IBKR: %s" % result["error"])
+            amount = (result.get("amount") or {}) if isinstance(result, dict) else {}
+            return "What-if accepted (not sent): 1 share at %s, commission %s" % (price, amount.get("commission") or "n/a")
+
+        for name, fn in (("Gateway reachable", reachable), ("Logged in", logged_in), ("Account", account),
+                         ("Contract lookup", contract), ("Market data", market_data), ("Order what-if (nothing sent)", whatif)):
+            if not step(name, fn):
+                break
+        return {"symbol": symbol, "steps": steps, "passed": all(s["ok"] for s in steps) and len(steps) == 6,
+                "paper": state.get("paper")}
+
     # ------------------------------------------------------------- account
     def status(self, uid):
         cfg = self._config(uid)

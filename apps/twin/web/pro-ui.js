@@ -502,6 +502,29 @@ async function submitLiveOrder(fields, price) {
 }
 
 let syncing = false;
+// Merge a sync result into the latest stored book. Fills from the sync win (they
+// really happened); otherwise anything the user closed meanwhile stays closed;
+// orders added meanwhile are kept; new bracket legs from the sync are appended.
+function mergeOrderBooks(latest, synced, knownIds) {
+  const syncedById = new Map(synced.orders.map((o) => [o.id, o]));
+  const merged = latest.orders.map((current) => {
+    const result = syncedById.get(current.id);
+    if (!result) {
+      return current;
+    }
+    if (result.status === "filled") {
+      return result;
+    }
+    return current.status !== "open" ? current : result;
+  });
+  const present = new Set(latest.orders.map((o) => o.id));
+  for (const order of synced.orders) {
+    if (!present.has(order.id) && !knownIds.has(order.id)) {
+      merged.push(order);
+    }
+  }
+  return { ...latest, orders: merged };
+}
 // Check pending orders and price alerts against fresh quotes. Safe to call often.
 async function syncLiveOrders(extraPrices = {}) {
   if (syncing || !state.profile) {
@@ -518,6 +541,10 @@ async function syncLiveOrders(extraPrices = {}) {
   }
   syncing = true;
   const messages = [];
+  // The book is re-read before saving: a cancel, a new order or a guest reset can
+  // happen while quotes are loading, and a stale copy must never overwrite them.
+  const scopeAtStart = proKey("orders");
+  const knownIds = new Set(book.orders.map((o) => o.id));
   try {
     const prices = { ...extraPrices };
     if (symbols.length) {
@@ -528,10 +555,18 @@ async function syncLiveOrders(extraPrices = {}) {
         }
       }
     }
+    if (proKey("orders") !== scopeAtStart) {
+      return [];
+    }
     const now = new Date().toISOString();
     for (let i = 0; i < book.orders.length; i++) {
       const order = book.orders[i];
       const price = prices[order.symbol];
+      const current = liveBook().orders.find((o) => o.id === order.id);
+      if (current && current.status !== "open") {
+        book.orders[i] = current;
+        continue;
+      }
       if (order.status !== "open" || !(price > 0)) {
         continue;
       }
@@ -560,7 +595,10 @@ async function syncLiveOrders(extraPrices = {}) {
         book.orders.push(...TwinPro.bracketLegs(order, result.fill.qty, now, result.fill.price));
       }
     }
-    saveLiveBook(book);
+    if (proKey("orders") !== scopeAtStart) {
+      return messages;
+    }
+    saveLiveBook(mergeOrderBooks(liveBook(), book, knownIds));
     let alertsChanged = false;
     for (const alert of alerts) {
       const price = prices[alert.symbol];
@@ -575,7 +613,8 @@ async function syncLiveOrders(extraPrices = {}) {
       }
     }
     if (alertsChanged) {
-      proWrite("alerts", alerts);
+      const triggered = new Map(alerts.filter((a) => a.triggered).map((a) => [a.id, a]));
+      proWrite("alerts", proRead("alerts", []).map((a) => (!a.triggered && triggered.has(a.id) ? triggered.get(a.id) : a)));
     }
   } finally {
     syncing = false;

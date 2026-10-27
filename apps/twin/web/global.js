@@ -671,7 +671,21 @@ const TwinGlobal = (() => {
         ? h("div", { class: "tiny muted", style: "margin-top:6px" }, "Holiday calendar not available for this exchange — weekday hours only.")
         : null;
     }
-    return h("div", { class: "tiny muted", style: "margin-top:6px" }, `Next market holidays: ${days.map(fmt).join(" · ")}`);
+    const cal = calendarFor(info) || {};
+    const estimated = new Set(cal.estimated || []);
+    const label = (ymd) => fmt(ymd) + (estimated.has(ymd) ? " (est.)" : "");
+    const note = estimated.size && days.some((d) => estimated.has(d)) ? " · est. = moon-sighting date, confirmed by the exchange nearer the time" : "";
+    return h("div", { class: "tiny muted", style: "margin-top:6px" }, `Next market holidays: ${days.map(label).join(" · ")}${note}`);
+  }
+
+  // Where this price came from: the user's real-time source, or Yahoo (delayed, unofficial).
+  function sourceRow(d) {
+    if (!d || !d.source) {
+      return null;
+    }
+    const when = d.source_time ? new Date(d.source_time * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : null;
+    return h("div", { class: "tiny " + (d.realtime ? "pos" : "muted"), id: "price-source", style: "margin-top:4px" },
+      (d.realtime ? "● Real-time · " : "Delayed · ") + d.source + (when ? ` · ${when}` : ""));
   }
 
   function listingPanel(symbol, d) {
@@ -689,6 +703,7 @@ const TwinGlobal = (() => {
         h("span", { class: "pill blue" }, currency),
         h("span", { class: "pill " + (status.open ? "green" : "") + " g-status", title: `Local time ${status.localTime}` }, status.text)),
       shown ? h("div", { class: "tiny muted", style: "margin-top:4px" }, `≈ ${shown} per share · ${fxLabel(d)}`) : null,
+      sourceRow(d),
       rangeBar("Day range", d.day_low, d.day_high, d.price, currency),
       rangeBar("52-week range", d.low52, d.high52, d.price, currency),
       holidayRow(symbol, status));

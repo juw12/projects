@@ -86,7 +86,7 @@ TOOL = {
 }
 
 
-VERSION = "1.6.0"
+VERSION = "1.7.0"
 
 
 class AppError(Exception):
@@ -129,6 +129,7 @@ _cache = {}
 
 sys.path.insert(0, str(APP_DIR))
 import broker as broker_mod  # noqa: E402  (local module next to this file)
+import live_quotes  # noqa: E402
 
 
 def http_json(url, ttl=60):
@@ -1192,6 +1193,66 @@ def twinagent_evidence(uid, profile, symbol):
 
 
 BROKER = broker_mod.BrokerRouter(DATA, SSL_CTX, load_json, save_json, lambda symbol: quote(symbol), fx_usd)
+LIVE = live_quotes.LiveQuotes(DATA, SSL_CTX, load_json, save_json, BROKER)
+LIVE_OVERLAY_MAX = 12  # watchlist symbols upgraded to the user's live source per request (the rest stay Yahoo)
+
+
+def live_overlay(uid, quote_data):
+    try:
+        return LIVE.overlay(uid, quote_data)
+    except Exception:  # never let a live source break the Yahoo quote
+        return dict(quote_data, source=live_quotes.YAHOO_LABEL, realtime=False)
+
+
+def quotes_for(uid, symbols):
+    result = quotes(symbols)
+    first = [s for s in symbols if s in result["quotes"]][:LIVE_OVERLAY_MAX]
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        upgraded = list(pool.map(lambda s: live_overlay(uid, result["quotes"][s]), first))
+    for symbol, data in zip(first, upgraded):
+        result["quotes"][symbol] = data
+    for symbol, data in result["quotes"].items():
+        data.setdefault("source", live_quotes.YAHOO_LABEL)
+        data.setdefault("realtime", False)
+    return result
+
+
+# ------------------------------------------------------------- data backups
+BACKUP_DIR = DATA / "backups"
+BACKUP_KEEP = 14
+
+
+def backup_data():
+    """Zip accounts, practice portfolios and settings once a day; keep the last BACKUP_KEEP days."""
+    import zipfile
+    if not DATA.exists():
+        return None
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    target = BACKUP_DIR / ("twin-data-%s.zip" % datetime.now().strftime("%Y%m%d"))
+    if target.exists():
+        return target
+    tmp = target.with_suffix(".zip.tmp")
+    with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as archive:
+        for path in sorted(DATA.rglob("*")):
+            rel = path.relative_to(DATA)
+            if not path.is_file() or rel.parts[0] in ("backups",) or path.name == "cacert.pem" or path.suffix == ".tmp":
+                continue
+            archive.write(path, rel.as_posix())
+    tmp.chmod(0o600)
+    tmp.replace(target)
+    for old in sorted(BACKUP_DIR.glob("twin-data-*.zip"))[:-BACKUP_KEEP]:
+        old.unlink(missing_ok=True)
+    return target
+
+
+def backup_loop():
+    while True:
+        try:
+            backup_data()
+        except Exception as exc:  # a failed backup must not stop the server
+            print("backup failed: %s" % exc)
+        time.sleep(6 * 3600)
+
 
 
 def broker_call(fn, *args, **kwargs):
@@ -1411,9 +1472,17 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"ok": True, "profile": profile})
         elif path == "/api/quotes":
             symbols = [clean_symbol(s) for s in (body.get("symbols") or profile["watchlist"])][:40]
-            self.send_json({"ok": True, **quotes(symbols)})
+            self.send_json({"ok": True, **quotes_for(uid, symbols)})
         elif path == "/api/chart":
-            self.send_json({"ok": True, "data": chart(body.get("symbol"), body.get("span") or "1D")})
+            self.send_json({"ok": True, "data": live_overlay(uid, chart(body.get("symbol"), body.get("span") or "1D"))})
+        elif path == "/api/marketdata/status":
+            self.send_json({"ok": True, "marketdata": LIVE.status(uid)})
+        elif path == "/api/marketdata/finnhub":
+            try:
+                status = LIVE.set_finnhub(uid, body.get("key"))
+            except live_quotes.LiveQuoteError as exc:
+                raise AppError(str(exc))
+            self.send_json({"ok": True, "marketdata": status})
         elif path == "/api/world":
             self.send_json({"ok": True, **world_markets()})
         elif path == "/api/search":
@@ -1495,7 +1564,13 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(result)
         elif path == "/api/broker/status":
             self.send_json({"ok": True, "broker": broker_call(BROKER.status, uid)})
+        elif path == "/api/broker/selftest":
+            symbol = clean_symbol(body.get("symbol") or "AAPL")
+            self.send_json({"ok": True, "selftest": broker_call(BROKER.selftest, uid, symbol)})
         elif path == "/api/broker/connect":
+            if body.get("mode") == "live" and body.get("acknowledge_rules") is not True:
+                raise AppError("Confirm that you've checked you may trade these markets from your country "
+                               "and that your broker account is eligible. Twin can't check this for you.")
             status = broker_call(
                 BROKER.connect, uid, provider=body.get("provider") or "alpaca", key_id=body.get("key_id"),
                 secret=body.get("secret"), mode=body.get("mode", "paper"),
@@ -1555,6 +1630,7 @@ def main():
         if not repo.exists():
             sys.exit("missing %s (see README)" % repo)
     DATA.mkdir(parents=True, exist_ok=True)
+    threading.Thread(target=backup_loop, daemon=True).start()
     host = "0.0.0.0" if a.lan else "127.0.0.1"
     server = ThreadingHTTPServer((host, a.port), Handler)
     local = "http://127.0.0.1:%d" % a.port
