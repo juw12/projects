@@ -149,7 +149,7 @@ public static class GlowShortcut
         Guid iid = new Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99");
         IPropertyStore store;
         int hr = SHGetPropertyStoreFromParsingName(path, IntPtr.Zero, 2, ref iid, out store);
-        if (hr != 0) throw new COMException("Cannot open shortcut properties", hr);
+        if (hr < 0) throw new COMException("Cannot open shortcut properties", hr);
         IntPtr key = Marshal.AllocHGlobal(20);
         IntPtr value = Marshal.AllocHGlobal(24);
         IntPtr text = Marshal.StringToCoTaskMemUni(appId);
@@ -160,9 +160,10 @@ public static class GlowShortcut
             for (int i = 0; i < 24; i++) Marshal.WriteByte(value, i, 0);
             Marshal.WriteInt16(value, 0, 31);
             Marshal.WriteIntPtr(value, 8, text);
+            // S_FALSE (1) is a success too: the shortcut already had this ID.
             hr = store.SetValue(key, value);
-            if (hr == 0) hr = store.Commit();
-            if (hr != 0) throw new COMException("Cannot save shortcut properties", hr);
+            if (hr >= 0) hr = store.Commit();
+            if (hr < 0) throw new COMException("Cannot save shortcut properties", hr);
         }
         finally
         {
@@ -217,6 +218,7 @@ public static class GlowShortcut
             $url = $siteBase + $match.Page
             $shell = New-Object -ComObject WScript.Shell
             $pin = $shell.CreateShortcut($file.FullName)
+            if ($pin.Arguments -like "*--app=$url" -and $pin.IconLocation -like '*Glow*.ico*') { continue }
             $pin.TargetPath = $browser
             $pin.Arguments = "--profile-directory=`"$edgeProfile`" --app=$url"
             $pin.IconLocation = (Join-Path $iconDir ($match.Name + '.ico')) + ',0'

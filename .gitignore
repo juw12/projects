@@ -43,3 +43,4 @@ desktop.ini
 
 # ---- Local scratch (not part of the monorepo) ----
 3d/
+apps/glow/windows/dist/

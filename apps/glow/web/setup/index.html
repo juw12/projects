@@ -31,23 +31,32 @@
   <section class="panel" id="windows" aria-labelledby="windows-title">
     <div class="panel-head">
       <span class="badge">Windows PC</span>
-      <h2 id="windows-title">Master installer: all apps + Glow Hands</h2>
+      <h2 id="windows-title">Glow Setup: all apps + Glow Hands</h2>
+    </div>
+    <div class="download">
+      <a class="btn primary big" id="win-download" href="https://github.com/juw12/projects/releases/download/glow-windows/Glow-Setup.exe" download>⬇ Download Glow Setup for Windows</a>
+      <p class="small">Glow-Setup.exe · about 60 KB · Windows 10 and 11 · no admin rights needed</p>
     </div>
     <ol class="steps">
-      <li>Press <kbd>Win</kbd> + <kbd>R</kbd>, paste this line and press <kbd>Enter</kbd>. No admin rights needed.</li>
+      <li>Click <b>Download Glow Setup</b>, then open <b>Glow-Setup.exe</b> from your downloads.</li>
+      <li>Press <b>Install</b>. It takes about a minute.</li>
+      <li>Press <b>Open Glow</b>. Done: every Glow app is in the Start menu and on your desktop.</li>
     </ol>
-    <div class="command">
-      <code id="win-command">powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/juw12/projects/main/apps/glow/install-glow.ps1 | iex"</code>
-      <button class="btn" type="button" data-copy="win-command">Copy</button>
-    </div>
+    <p class="note">Glow Setup isn't code-signed yet, so Windows may ask first. In Edge choose <b>Keep</b> (⋯ → Keep → Keep anyway); if a blue “Windows protected your PC” box appears, click <b>More info</b> → <b>Run anyway</b>.</p>
     <ul class="ticks">
       <li><b>Glow, GlowLead, GlowChat, GlowRoom</b> in the Start menu (folder “Glow”) and on the desktop. They open as app windows of Edge or Chrome with your normal browser profile, so they share one Glow account, your chats and missions.</li>
       <li><b>Glow Hands</b> installed or updated: GlowLead's browser control on this PC. It starts at every login and GlowLead connects to it by itself.</li>
       <li>Pin any Glow app to the taskbar (right-click its window or the Start menu entry → <b>Pin to taskbar</b>); the pin keeps the Glow icon.</li>
-      <li>Run it again any time to update. Python 3.13 is added for you if it is missing. It also repairs Glow pins that show a blank icon.</li>
+      <li>Open Glow Setup again any time to update; it always installs the latest version. Python 3.13 is added for you if it is missing.</li>
+      <li>Remove Glow in <b>Settings → Apps → Installed apps → Glow → Uninstall</b>. Your chats stay in the browser.</li>
     </ul>
     <details class="more">
-      <summary>Options and uninstall</summary>
+      <summary>Other ways: one command, options</summary>
+      <p>The same installer as one line: press <kbd>Win</kbd> + <kbd>R</kbd>, paste it and press <kbd>Enter</kbd>.</p>
+      <div class="command">
+        <code id="win-command">powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/juw12/projects/main/apps/glow/install-glow.ps1 | iex"</code>
+        <button class="btn" type="button" data-copy="win-command">Copy</button>
+      </div>
       <p>Set an option first, in the same Win+R line, e.g. <code>$env:GLOW_SKIP_HANDS='1'; irm …/install-glow.ps1 | iex</code>:</p>
       <ul>
         <li><code>GLOW_SKIP_HANDS=1</code>: only the app shortcuts, no Glow Hands</li>
@@ -97,7 +106,7 @@
   <section class="panel" id="phone-to-pc" aria-labelledby="phone-title">
     <div class="panel-head"><span class="badge">Phone + PC</span><h2 id="phone-title">Use your PC's browser from your phone</h2></div>
     <ol class="steps">
-      <li>On the PC (after the master installer), open <b>GlowLead</b> → <b>Glow Hands</b> → <b>Use from your phone</b>.</li>
+      <li>On the PC (after Glow Setup), open <b>GlowLead</b> → <b>Glow Hands</b> → <b>Use from your phone</b>.</li>
       <li>Scan the QR code with your phone. GlowLead on the phone now drives the PC's browser.</li>
       <li>Approvals (submit, buy, send, delete) pop up on the phone; passwords you type yourself.</li>
     </ol>
@@ -135,7 +144,7 @@
         <thead><tr><th>Connection</th><th>How it works</th><th>What you do</th></tr></thead>
         <tbody>
           <tr><td>Apps ↔ apps</td><td>Same site (juw12.github.io), so the apps share browser storage: account, chats, missions, Glow Pro key. GlowLead calls GlowChat and the GlowRoom crew directly.</td><td>Nothing. Use the same browser on a device. Different browsers or devices don't sync.</td></tr>
-          <tr><td>GlowLead ↔ Glow Hands (PC)</td><td>Glow Hands runs on your PC at 127.0.0.1 (ports 8765–8770) and pairs with GlowLead using a token; nothing goes through the internet.</td><td>Run the master installer; allow local network access if the browser asks.</td></tr>
+          <tr><td>GlowLead ↔ Glow Hands (PC)</td><td>Glow Hands runs on your PC at 127.0.0.1 (ports 8765–8770) and pairs with GlowLead using a token; nothing goes through the internet.</td><td>Run Glow Setup; allow local network access if the browser asks.</td></tr>
           <tr><td>Phone ↔ PC</td><td>A direct, encrypted peer-to-peer link (WebRTC) from GlowLead on the phone to Glow Hands on the PC.</td><td>GlowLead → Glow Hands → Use from your phone, scan the QR.</td></tr>
           <tr><td>Android app</td><td>GlowLead bundled with a native browser panel that Glow Hands' rules drive (no local addresses, password fields left to you).</td><td>Install the APK.</td></tr>
           <tr><td>Instant cloud browser</td><td>A Cloudflare browser opened only at the first website step and closed after the mission (shared free time).</td><td>GlowLead → Connect browser control → Start instant cloud browser.</td></tr>
