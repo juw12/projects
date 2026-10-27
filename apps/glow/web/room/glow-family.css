@@ -118,3 +118,76 @@
 .cn-wfoot button { color: var(--glow-accent); }
 .cn-meta button { color: var(--glow-accent); }
 .cn-glow-dot { background: var(--glow-grad); }
+
+
+/* ---------------------------------------------------------------------------------------------
+   v1.20 · One Glow header. glow-room-ui.js moves the old second bar's controls up here and adds
+   body.gr-one-bar; the page grid drops the extra row so the office fills the space.
+   --------------------------------------------------------------------------------------------- */
+body.gr-one-bar { grid-template-rows: auto 1fr auto; }
+body.gr-one-bar > .header { display: none !important; }
+body.gr-one-bar .menubar {
+  min-height: 56px; padding: 0 14px; gap: 14px;
+  background: linear-gradient(180deg, rgba(38, 38, 36, .98), rgba(31, 30, 29, .98));
+  border-bottom: 1px solid rgba(236, 233, 225, .08);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .25);
+}
+body.gr-one-bar .menubar-left { gap: 12px; min-width: 0; flex: 1 1 auto; }
+body.gr-one-bar .menubar-logo { width: 30px; height: 30px; border-radius: 9px; box-shadow: 0 0 0 1px rgba(231, 183, 93, .25), 0 4px 14px rgba(217, 119, 87, .3); }
+body.gr-one-bar .menubar-title { font-size: 16px; font-weight: 750; letter-spacing: -.01em; color: var(--text-primary); }
+body.gr-one-bar .menubar-right { gap: 6px; flex: 0 0 auto; }
+
+.gr-status {
+  display: flex; align-items: center; gap: 12px; min-width: 0;
+  padding: 5px 12px 5px 10px; border-radius: 999px;
+  background: rgba(255, 255, 255, .04); border: 1px solid rgba(236, 233, 225, .1);
+}
+.gr-status .status-indicator { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; letter-spacing: .06em; color: var(--text-secondary); }
+.gr-status .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #7fb069; box-shadow: 0 0 0 3px rgba(127, 176, 105, .2); }
+.gr-status .cr-kpis { display: flex; align-items: center; gap: 12px; margin: 0; padding: 0; border: 0; background: none; }
+.gr-status .cr-kpi { display: flex; align-items: baseline; gap: 5px; }
+.gr-status .cr-kpi b { font-size: 14px; color: var(--text-primary); }
+.gr-status .cr-kpi b small { color: var(--text-muted); font-weight: 600; }
+.gr-status .cr-kpi span { font-size: 11px; color: var(--text-muted); text-transform: none; letter-spacing: 0; }
+.gr-status .cr-kpi:nth-of-type(3), .gr-status .cr-spark { display: none; }
+.gr-status .cr-load { width: 64px; height: 6px; border-radius: 999px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+.gr-status .cr-load i { display: block; height: 100%; background: var(--glow-grad); border-radius: inherit; }
+
+.gr-actions { display: flex; align-items: center; gap: 6px; margin-right: 6px; padding-right: 10px; border-right: 1px solid rgba(236, 233, 225, .1); }
+body.gr-one-bar .cr-kbd-btn, body.gr-one-bar .gr-btn, body.gr-one-bar #play-pause {
+  height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px;
+  border-radius: 10px; border: 1px solid rgba(236, 233, 225, .12); background: rgba(255, 255, 255, .04);
+  color: var(--text-primary); font: 600 13px/1 var(--font-sans); cursor: pointer; white-space: nowrap;
+  transition: border-color .12s, background .12s;
+}
+body.gr-one-bar .cr-kbd-btn:hover, body.gr-one-bar .gr-btn:hover, body.gr-one-bar #play-pause:hover { border-color: rgba(217, 119, 87, .6); background: rgba(217, 119, 87, .1); }
+body.gr-one-bar .cr-kbd-btn kbd { font: 600 10.5px/1 var(--font-sans); padding: 3px 5px; border-radius: 5px; background: rgba(255, 255, 255, .08); border: 0; color: var(--text-secondary); }
+body.gr-one-bar .cr-kbd-btn .gr-ico { font-size: 15px; opacity: .8; }
+body.gr-one-bar #cr-ai-btn.glow { background: linear-gradient(135deg, rgba(217, 119, 87, .22), rgba(231, 183, 93, .16)); border-color: rgba(231, 183, 93, .45); }
+body.gr-one-bar #play-pause { width: 34px; padding: 0; justify-content: center; }
+body.gr-one-bar .gr-icon-btn { width: 34px; padding: 0 !important; justify-content: center; font-size: 17px; }
+body.gr-one-bar .menu-btn { height: 34px; padding: 0 10px; border-radius: 10px; color: var(--text-secondary); font-weight: 600; font-size: 13px; }
+body.gr-one-bar .menu-btn:hover, body.gr-one-bar .menu-btn.active { color: var(--text-primary); background: rgba(255, 255, 255, .06); }
+body.gr-one-bar #gr-profile-btn { margin-left: 4px; }
+
+.gr-more { position: relative; }
+.gr-more-menu {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 3000; min-width: 250px; padding: 6px;
+  background: #1f1e1c; border: 1px solid rgba(236, 233, 225, .12); border-radius: 14px; box-shadow: 0 18px 50px rgba(0, 0, 0, .45);
+}
+.gr-more-menu[hidden] { display: none; }
+.gr-more-menu .gr-more-item {
+  display: flex !important; width: 100%; height: auto !important; align-items: center; gap: 8px; padding: 10px 12px !important;
+  border: 0 !important; border-radius: 10px !important; background: none !important; color: var(--text-primary) !important;
+  font: 550 13.5px/1.3 var(--font-sans) !important; text-align: left; text-decoration: none; cursor: pointer;
+}
+.gr-more-menu .gr-more-item:hover { background: rgba(255, 255, 255, .07) !important; }
+
+@media (max-width: 1280px) {
+  .gr-status .cr-kpi:nth-of-type(2), .gr-status .cr-load { display: none; }
+  body.gr-one-bar .cr-kbd-btn kbd { display: none; }
+}
+@media (max-width: 1080px) {
+  body.gr-one-bar .cr-kbd-btn .gr-txt, body.gr-one-bar .menubar-title { display: none; }
+  body.gr-one-bar .menu-item:has([data-menu="language"]) { display: none; }
+}

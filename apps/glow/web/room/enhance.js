@@ -519,7 +519,7 @@
       { label: 'View: 3D office', group: 'View', run: () => setMode('3d') },
       { label: 'View: Isometric', group: 'View', run: () => setMode('isometric') }
     );
-    [['modern', 'Modern'], ['loft', 'Loft'], ['nightcity', 'Night city'], ['space', 'Space station'], ['zen', 'Zen garden'], ['minimal', 'Minimal']]
+    [['glow', 'Glow studio'], ['modern', 'Modern'], ['loft', 'Loft'], ['nightcity', 'Night city'], ['space', 'Space station'], ['zen', 'Zen garden'], ['minimal', 'Minimal']]
       .forEach(([v, l]) => list.push({ label: `Environment: ${l}`, group: 'View', run: () => clickMenu('set-environment', v) }));
     [['midnight', 'Midnight'], ['dark', 'Dark'], ['slate', 'Slate'], ['light', 'Light']]
       .forEach(([v, l]) => list.push({ label: `Theme: ${l}`, group: 'Theme', run: () => office.app.ui.setTheme(v) }));

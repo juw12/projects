@@ -1,7 +1,7 @@
 // GlowRoom service worker: installable + offline.
 // Pages are network-first (so updates ship immediately); static assets are cache-first.
 (function () {
-  var CACHE_NAME = 'glowroom-v9';
+  var CACHE_NAME = 'glowroom-v10';
   var SCOPE = self.registration.scope;
 
   function resolveUrl(path) {
@@ -15,6 +15,7 @@
     resolveUrl('./enhance.js'),
     resolveUrl('./crew-engine.js'),
     resolveUrl('./cinema.js'),
+    resolveUrl('./glow-room-ui.js'),
     resolveUrl('./cinema.css'),
     resolveUrl('./enhance.css'),
     resolveUrl('./glow-family.css'),
