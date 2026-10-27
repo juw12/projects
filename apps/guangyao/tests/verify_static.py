@@ -52,6 +52,22 @@ class StaticAppTests(unittest.TestCase):
             self.assertEqual(f'{width}x{height}', icon['sizes'])
             self.assertIn('maskable', icon['purpose'])
 
+    def test_link_share_preview(self):
+        source = (WEB / 'index.html').read_text()
+        site = 'https://juw12.github.io/projects/guangyao/'
+        head = source.split('</head>', 1)[0]
+        self.assertNotIn('互動原型', head)
+        self.assertIn(f'<meta property="og:url" content="{site}">', source)
+        self.assertIn(f'<meta property="og:image" content="{site}icons/og-image.jpg">', source)
+        self.assertIn('<meta name="twitter:card" content="summary_large_image">', source)
+        for name in ('og:title', 'og:description', 'og:image:alt'):
+            self.assertRegex(source, rf'<meta property="{name}" content="[^"]+">')
+        image = (WEB / 'icons' / 'og-image.jpg').read_bytes()
+        self.assertEqual(image[:3], b'\xff\xd8\xff')
+        self.assertLess(len(image), 300_000)
+        self.assertIn('content="1200"', source)
+        self.assertIn('content="630"', source)
+
     def test_public_cache_allowlist(self):
         worker = (WEB / 'sw.js').read_text()
         block = re.search(r'const SHELL_FILES = \[(.*?)\];', worker, re.S).group(1)

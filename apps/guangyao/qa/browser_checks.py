@@ -26,7 +26,7 @@ class DemoHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         if urlsplit(self.path).path.endswith('/sw.js') and self.release_override:
-            content = (ROOT / 'sw.js').read_text().replace("'4.2.0'", "'4.2.1-test'")
+            content = (ROOT / 'sw.js').read_text().replace("'4.2.1'", "'4.2.2-test'")
             payload = content.encode()
             self.send_response(200)
             self.send_header('Content-Type', 'text/javascript; charset=utf-8')
@@ -709,7 +709,7 @@ def pwa_and_updates(browser, base):
     page.once('dialog', lambda dialog: dialog.accept())
     with page.expect_navigation(wait_until='domcontentloaded'):
         page.locator('#update-app').click()
-    page.wait_for_function('caches.keys().then(keys => keys.some(key => key.endsWith("4.2.1-test")))')
+    page.wait_for_function('caches.keys().then(keys => keys.some(key => key.endsWith("4.2.2-test")))')
     assert shell_key not in page.evaluate('caches.keys()')
     passed('Updates wait for confirmation; approved update activates and clears only its scoped old cache')
     DemoHandler.release_override = False
