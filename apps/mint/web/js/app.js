@@ -240,7 +240,7 @@
     var result = Core.compute(spec);
     var cols = spec.sheet.columns;
     var rows = result.rows.slice(0, opts.maxRows || 500);
-    var html = "<div class=\"sheet\" style=\"" + themeVars(spec.theme) + "\"><table><thead><tr>";
+    var html = "<div class=\"sheet\" translate=\"no\" style=\"" + themeVars(spec.theme) + "\"><table><thead><tr>";
     if (opts.editable) {
       html += "<th class=\"rownum\">#</th>";
     }
@@ -307,7 +307,7 @@
 
   function thumb(listing) {
     var cols = (listing.columns || []).slice(0, 4);
-    var html = "<div class=\"thumb\" style=\"" + themeVars(listing.theme) + "\"><div class=\"thead\">" + cols.map(function (c) {
+    var html = "<div class=\"thumb\" translate=\"no\" style=\"" + themeVars(listing.theme) + "\"><div class=\"thead\">" + cols.map(function (c) {
       return "<span>" + esc(c) + "</span>";
     }).join("") + "</div>";
     for (var i = 0; i < 4; i++) {
@@ -320,8 +320,8 @@
 
   function listingCard(l) {
     return "<a class=\"lcard\" href=\"#/item/" + encodeURIComponent(l.id) + "\">" + thumb(l) +
-      "<div class=\"lbody\"><div class=\"ltitle\">" + esc(l.title) + "</div>" +
-      "<div class=\"lmeta\">" + esc(l.sellerName) + " \u00b7 " + esc(l.category) + "</div>" +
+      "<div class=\"lbody\"><div class=\"ltitle\" translate=\"no\">" + esc(l.title) + "</div>" +
+      "<div class=\"lmeta\"><span translate=\"no\">" + esc(l.sellerName) + "</span> \u00b7 " + esc(l.category) + "</div>" +
       "<div class=\"lfoot\"><strong>" + esc(priceLabel(l)) + "</strong>" +
       (l.commissionPct > 0 && l.price > 0 ? "<span class=\"badge\">Earn " + l.commissionPct + "%</span>" : "") +
       "<span class=\"muted small\">" + (l.sales ? l.sales + " sold" : "New") + "</span></div></div></a>";
@@ -500,7 +500,7 @@
       "<button class=\"btn primary\" data-act=\"publish\">\ud83d\ude80 Publish to market</button>" +
       "<button class=\"btn ghost\" data-act=\"new\">\uff0b New template</button></div>" +
       "</aside>" +
-      "<section class=\"work\"><div class=\"workhead\"><h1 id=\"studioTitle\">" + esc(spec.title) + "</h1><span class=\"muted small\">" + (draft.templateId ? "Saved draft" : "Unsaved") + " \u00b7 changes auto-save on this device</span></div>" +
+      "<section class=\"work\"><div class=\"workhead\"><h1 id=\"studioTitle\" translate=\"no\">" + esc(spec.title) + "</h1><span class=\"muted small\">" + (draft.templateId ? "Saved draft" : "Unsaved") + " \u00b7 changes auto-save on this device</span></div>" +
       "<div id=\"preview\"></div><button class=\"btn small\" data-act=\"addrow\">\uff0b Add row</button>" +
       "<details open class=\"editor\"><summary>Columns</summary><div id=\"colEditor\"></div></details>" +
       "<details class=\"editor\"><summary>Dashboard cards</summary><div id=\"sumEditor\"></div></details>" +
@@ -513,7 +513,7 @@
     var spec = draft.spec;
     document.getElementById("preview").innerHTML = renderSheet(spec, { editable: true });
     document.getElementById("tweakLog").innerHTML = tweakLog.slice(-8).map(function (m) {
-      return "<div class=\"msg " + m.who + "\">" + esc(m.text) + "</div>";
+      return "<div class=\"msg " + m.who + "\"" + (m.who === "you" ? " translate=\"no\"" : "") + ">" + esc(m.text) + "</div>";
     }).join("") || "<p class=\"muted small\">Type a change and press Apply.</p>";
     var title = document.getElementById("studioTitle");
     if (title) {
@@ -879,13 +879,13 @@
       var aff = l.commissionPct > 0 && l.price > 0 && !l.isSeller ?
         "<div class=\"panel aff\"><h3>Earn " + l.commissionPct + "% promoting this</h3><p class=\"small\">" + esc(money(l.price * l.commissionPct / 100, l.currency)) + " per sale you refer (30-day attribution).</p><button class=\"btn block\" data-afflink>Get affiliate link</button><div id=\"affOut\"></div></div>" : "";
       view.innerHTML = "<section class=\"item\"><div class=\"itemmain\"><a class=\"muted small\" href=\"#/market\">\u2190 Market</a>" +
-        "<h1>" + esc(l.title) + "</h1><p class=\"meta\">by <strong>" + esc(l.sellerName) + "</strong> \u00b7 " + esc(l.category) + " \u00b7 " + stars(l.rating) + (l.ratingCount ? " (" + l.ratingCount + ")" : "") + " \u00b7 " + (l.sales || 0) + " sold</p>" +
-        "<p>" + esc(l.description) + "</p>" +
+        "<h1 translate=\"no\">" + esc(l.title) + "</h1><p class=\"meta\">by <strong translate=\"no\">" + esc(l.sellerName) + "</strong> \u00b7 " + esc(l.category) + " \u00b7 " + stars(l.rating) + (l.ratingCount ? " (" + l.ratingCount + ")" : "") + " \u00b7 " + (l.sales || 0) + " sold</p>" +
+        "<p translate=\"no\">" + esc(l.description) + "</p>" +
         (l.tags && l.tags.length ? "<p class=\"tags\">" + l.tags.map(function (t) { return "<span>#" + esc(t) + "</span>"; }).join("") + "</p>" : "") +
         "<h2>Live preview</h2>" + (l.spec.preview ? "<p class=\"note small\" data-preview-note>\ud83d\udd12 Preview \u2014 columns marked \ud83d\udd12 show sample results only. The formulas, dropdown logic and dashboard come with the file after purchase.</p>" : "") + renderSheet(l.spec, { maxRows: 8 }) +
         "<p class=\"muted small\">Includes " + l.spec.sheet.columns.length + " columns, " + l.spec.summary.length + " dashboard cards, " + l.spec.rules.length + " colour rules, dropdowns and 200 ready rows. Works in Excel &amp; Google Sheets.</p>" +
         "<h2>Reviews</h2><div id=\"reviews\">" + (l.reviews.length ? l.reviews.map(function (r) {
-          return "<div class=\"review\"><div>" + stars(r.rating) + " \u00b7 <strong>" + esc(r.name) + "</strong></div><p>" + esc(r.body) + "</p></div>";
+          return "<div class=\"review\"><div>" + stars(r.rating) + " \u00b7 <strong translate=\"no\">" + esc(r.name) + "</strong></div><p translate=\"no\">" + esc(r.body) + "</p></div>";
         }).join("") : "<p class=\"muted\">No reviews yet.</p>") + "</div>" +
         (owned ? "<form class=\"panel\" data-review><h3>Rate this template</h3><select name=\"rating\" aria-label=\"Rating\">" + [5, 4, 3, 2, 1].map(function (n) {
           return "<option value=\"" + n + "\">" + "\u2605\u2605\u2605\u2605\u2605".slice(0, n) + "</option>";
@@ -1092,7 +1092,7 @@
         return;
       }
       document.getElementById("orders").innerHTML = "<h2>Orders</h2><div class=\"list\">" + open.concat(closed).map(function (o) {
-        return "<div class=\"row\"><div><strong>" + esc(o.title) + "</strong> <span class=\"pill" + (o.status === "pending" ? " warn" : "") + "\">" + (o.status === "pending" ? "waiting for seller" : o.status) + "</span>" +
+        return "<div class=\"row\"><div><strong translate=\"no\">" + esc(o.title) + "</strong> <span class=\"pill" + (o.status === "pending" ? " warn" : "") + "\">" + (o.status === "pending" ? "waiting for seller" : o.status) + "</span>" +
           "<div class=\"muted small\">" + esc(o.ref) + " \u00b7 " + esc(money(o.price, o.currency)) + " \u00b7 " + esc(o.sellerName) + "</div></div>" +
           "<div class=\"rowact\">" + (o.paymentUrl ? "<a class=\"btn small primary\" href=\"" + esc(o.paymentUrl) + "\" target=\"_blank\" rel=\"noopener noreferrer\">Pay \u2197</a>" : "") +
           (o.autoPay && o.status === "pending" ? "<button class=\"btn small\" data-libcheck=\"" + esc(o.id) + "\">Check payment</button>" : "") +
@@ -1106,7 +1106,7 @@
         return;
       }
       el.innerHTML = "<div class=\"list\">" + items.map(function (it, i) {
-        return "<div class=\"row\"><div><strong>" + esc(it.title) + "</strong><div class=\"muted small\">" + (it.price > 0 ? esc(money(it.price, it.currency)) : "Free") + " \u00b7 " + new Date(it.purchased * 1000).toLocaleDateString() + "</div></div>" +
+        return "<div class=\"row\"><div><strong translate=\"no\">" + esc(it.title) + "</strong><div class=\"muted small\">" + (it.price > 0 ? esc(money(it.price, it.currency)) : "Free") + " \u00b7 " + new Date(it.purchased * 1000).toLocaleDateString() + "</div></div>" +
           "<div class=\"rowact\"><button class=\"btn small primary\" data-lib=\"xlsx\" data-i=\"" + i + "\">.xlsx</button><button class=\"btn small\" data-lib=\"csv\" data-i=\"" + i + "\">CSV</button>" +
           "<button class=\"btn small\" data-lib=\"remix\" data-i=\"" + i + "\" title=\"Copy into the Studio for personal edits\">Customize</button><a class=\"btn small ghost\" href=\"#/item/" + encodeURIComponent(it.listingId) + "\">View</a></div></div>";
       }).join("") + "</div><p class=\"muted small\">Purchased templates are licensed for your own use. Re-selling someone else\u2019s template is not allowed.</p>";
@@ -1199,7 +1199,7 @@
           "<label>Code<input name=\"code\" required maxlength=\"24\" autocapitalize=\"characters\" spellcheck=\"false\" placeholder=\"LAUNCH20\"></label>" +
           "<label>Discount %<input name=\"percent\" type=\"number\" min=\"5\" max=\"90\" step=\"5\" value=\"20\" required></label></div>" +
           "<label>Applies to<select name=\"listingId\"><option value=\"\">All my paid templates</option>" + paidListings.map(function (l) {
-            return "<option value=\"" + esc(l.id) + "\">" + esc(l.title) + "</option>";
+            return "<option translate=\"no\" value=\"" + esc(l.id) + "\">" + esc(l.title) + "</option>";
           }).join("") + "</select></label><div class=\"two\">" +
           "<label>Max uses (0 = unlimited)<input name=\"maxUses\" type=\"number\" min=\"0\" value=\"0\"></label>" +
           "<label>Expires after days (0 = never)<input name=\"days\" type=\"number\" min=\"0\" max=\"365\" value=\"14\"></label></div>" +
@@ -1212,7 +1212,7 @@
       }).join("") + "</div>" + (owed.length ? "" : "") : "";
       document.getElementById("sellBody").innerHTML = "<div class=\"kpis\">" + kpis + "</div>" + insightsHtml + autoPayPanel() + pendingHtml +
         "<h2>Listings</h2>" + (s.listings.length ? "<div class=\"list\">" + s.listings.map(function (l) {
-          return "<div class=\"row\"><div><strong>" + esc(l.title) + "</strong> <span class=\"pill " + (l.status === "live" ? "on" : "") + "\">" + l.status + "</span><div class=\"muted small\">" + esc(priceLabel(l)) + " \u00b7 " + l.sales + " sold \u00b7 " + (l.views || 0) + " views" + (l.conversion !== null && l.conversion !== undefined ? " \u00b7 " + l.conversion + "% conversion" : "") + " \u00b7 affiliate " + l.commissionPct + "% \u00b7 net " + esc(money(l.net, l.currency)) + "</div></div>" +
+          return "<div class=\"row\"><div><strong translate=\"no\">" + esc(l.title) + "</strong> <span class=\"pill " + (l.status === "live" ? "on" : "") + "\">" + l.status + "</span><div class=\"muted small\">" + esc(priceLabel(l)) + " \u00b7 " + l.sales + " sold \u00b7 " + (l.views || 0) + " views" + (l.conversion !== null && l.conversion !== undefined ? " \u00b7 " + l.conversion + "% conversion" : "") + " \u00b7 affiliate " + l.commissionPct + "% \u00b7 net " + esc(money(l.net, l.currency)) + "</div></div>" +
             "<div class=\"rowact\"><a class=\"btn small\" href=\"#/item/" + encodeURIComponent(l.id) + "\">View</a><a class=\"btn small\" href=\"#/kit/" + encodeURIComponent(l.id) + "\">Content kit</a>" +
             "<button class=\"btn small\" data-edit=\"" + esc(l.id) + "\">Edit</button>" +
             "<button class=\"btn small ghost\" data-status=\"" + esc(l.id) + "\" data-live=\"" + (l.status === "live" ? "0" : "1") + "\">" + (l.status === "live" ? "Unpublish" : "Republish") + "</button></div>" +
@@ -1221,7 +1221,7 @@
             "<label>Payment link<input name=\"paymentUrl\" type=\"url\" value=\"" + esc(l.paymentUrl || "") + "\" placeholder=\"https://\"></label><button class=\"btn small primary\" type=\"submit\">Save</button></form></div>";
         }).join("") + "</div>" : "<p class=\"muted\">No listings yet \u2014 publish a draft below.</p>") + couponsHtml + payoutHtml +
         "<h2>Drafts</h2>" + (drafts.length ? "<div class=\"list\">" + drafts.map(function (d, i) {
-          return "<div class=\"row\"><div><strong>" + esc(d.title) + "</strong><div class=\"muted small\">" + d.spec.sheet.columns.length + " columns \u00b7 edited " + new Date(d.updated * 1000).toLocaleString() + "</div></div>" +
+          return "<div class=\"row\"><div><strong translate=\"no\">" + esc(d.title) + "</strong><div class=\"muted small\">" + d.spec.sheet.columns.length + " columns \u00b7 edited " + new Date(d.updated * 1000).toLocaleString() + "</div></div>" +
             "<div class=\"rowact\"><button class=\"btn small\" data-open=\"" + i + "\">Edit</button><a class=\"btn small primary\" href=\"#/publish/" + encodeURIComponent(d.id) + "\">Publish</a><button class=\"btn small ghost danger\" data-deldraft=\"" + esc(d.id) + "\">Delete</button></div></div>";
         }).join("") + "</div>" : "<p class=\"muted\">No saved drafts.</p>") +
         "<h2>Recent sales</h2>" + (s.recent.length ? "<div class=\"list\">" + s.recent.map(function (r) {
@@ -1453,7 +1453,7 @@
         "<div class=\"kpi\"><span>Conversion</span><b>" + (clicks ? Math.round(sales / clicks * 1000) / 10 + "%" : "\u2014") + "</b></div></div>" +
         (links.length ? "<div class=\"list\">" + links.map(function (l) {
           var url = itemLink(l.listingId, l.code);
-          return "<div class=\"row\"><div><strong>" + esc(l.title) + "</strong><div class=\"muted small\">" + l.commissionPct + "% of " + esc(money(l.price, l.currency)) + " \u00b7 " + l.clicks + " clicks \u00b7 " + l.sales + " sales" + (l.pendingSales ? " (+" + l.pendingSales + " awaiting payment)" : "") + " \u00b7 earned " + esc(money(l.earnings, l.currency)) + " \u00b7 paid out " + esc(money(l.paidOut || 0, l.currency)) + "</div></div>" +
+          return "<div class=\"row\"><div><strong translate=\"no\">" + esc(l.title) + "</strong><div class=\"muted small\">" + l.commissionPct + "% of " + esc(money(l.price, l.currency)) + " \u00b7 " + l.clicks + " clicks \u00b7 " + l.sales + " sales" + (l.pendingSales ? " (+" + l.pendingSales + " awaiting payment)" : "") + " \u00b7 earned " + esc(money(l.earnings, l.currency)) + " \u00b7 paid out " + esc(money(l.paidOut || 0, l.currency)) + "</div></div>" +
             "<div class=\"rowact\"><button class=\"btn small\" data-copy=\"" + esc(url) + "\">Copy link</button><a class=\"btn small primary\" href=\"#/kit/" + encodeURIComponent(l.listingId) + "\">Content kit</a></div></div>";
         }).join("") + "</div>" : "<div class=\"empty\"><p>No links yet. Find templates with an <span class=\"badge\">Earn %</span> badge.</p><a class=\"btn primary\" href=\"#/market?sort=popular\">Find templates to promote</a></div>");
       view.onclick = function (e) {
@@ -1955,7 +1955,7 @@
       return loginWall("Account", "Log in or create an account to buy, sell and earn as an affiliate.");
     }
     var cfg = aiConfig();
-    view.innerHTML = "<section class=\"narrow\"><h1>Account</h1><div class=\"panel\"><p><strong>" + esc(user.name) + "</strong><br><span class=\"muted\">" + esc(user.email) + "</span></p>" +
+    view.innerHTML = "<section class=\"narrow\"><h1>Account</h1><div class=\"panel\"><p><strong translate=\"no\">" + esc(user.name) + "</strong><br><span class=\"muted\">" + esc(user.email) + "</span></p>" +
       "<p class=\"small\">" + (store.mode === "cloud" ? "Connected to Mint \u00b7 platform fee " + store.feePct + "%" + (store.ai ? " \u00b7 Mint AI on" : "") : "Offline \u2014 changes stay in this browser") + "</p>" +
       "<button class=\"btn\" data-logout>Log out</button>" + (store.mode === "offline" ? " <button class=\"btn ghost danger\" data-reset>Clear offline data</button>" : "") + "</div>" +
       "<form class=\"panel\" data-profile><h2>Profile & payouts</h2><label>Display name<input name=\"name\" maxlength=\"60\" required value=\"" + esc(user.name) + "\"></label>" +
@@ -2218,6 +2218,7 @@
     }).then(function (u) {
       user = u;
       window.addEventListener("hashchange", render);
+      window.addEventListener("mint:lang", render);
       render();
     }).catch(function (err) {
       view.innerHTML = "<div class=\"empty\"><p>Could not start: " + esc(errorMessage(err)) + "</p></div>";

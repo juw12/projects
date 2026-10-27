@@ -28,7 +28,7 @@ WEB = os.path.join(BASE, "web")
 
 REQUIRED = [
     "index.html", "app.html", "web.html", "mobile.html", "app.css",
-    "js/core.js", "js/xlsx.js", "js/store.js", "js/guides.js", "js/app.js",
+    "js/core.js", "js/xlsx.js", "js/store.js", "js/guides.js", "js/i18n.js", "js/app.js",
     "manifest.webmanifest", "sw.js", "screenshot.png", "data/seed.json",
     "icons/app-icon.svg", "icons/icon-192.png", "icons/icon-512.png",
     "icons/apple-touch-icon.png",
@@ -355,11 +355,65 @@ def store_checks():
     check("delete-account.html" in read("sw.js"), "service worker caches delete-account.html")
 
 
+I18N_PROBE = """
+const store = { "mint.lang": "id" };
+globalThis.localStorage = { getItem: (k) => store[k] || null, setItem: (k, v) => { store[k] = v; } };
+globalThis.window = { localStorage: globalThis.localStorage, navigator: { language: "en-US" } };
+globalThis.document = { readyState: "loading", addEventListener() {}, documentElement: {} };
+require(process.argv[2]);
+const t = window.MintI18n.t;
+console.log(JSON.stringify({
+  lang: window.MintI18n.lang(),
+  market: t("Market"),
+  padded: t("  Market  "),
+  sold: t("12 sold"),
+  category: t("Mint Studio \u00b7 Finance"),
+  unknown: t("Toko Stock Pro"),
+}));
+"""
+
+
+def i18n_checks():
+    print("language switch (EN / ID)")
+    source = read("js/i18n.js")
+    for rel in ["index.html", "app.html", "web.html", "mobile.html"]:
+        html = read(rel)
+        has_both = "js/i18n.js" in html and "js/app.js" in html
+        check(has_both and html.index("js/i18n.js") < html.index("js/app.js"), rel + " loads i18n.js before app.js")
+    check('"js/i18n.js"' in read("sw.js"), "service worker caches js/i18n.js")
+    check('addEventListener("mint:lang"' in read("js/app.js"), "app re-renders on language change")
+    check('"mint.lang"' in source, "language choice is stored under mint.lang")
+    keys = re.findall(r'^    "((?:[^"\\]|\\.)*)":', source, re.M)
+    check(len(keys) == len(set(keys)), "no duplicate dictionary keys (%d entries)" % len(keys))
+    if not shutil.which("node"):
+        print("  skip runtime translation probe (node not installed)")
+        return
+    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as handle:
+        handle.write(I18N_PROBE)
+        probe_path = handle.name
+    try:
+        result = subprocess.run(["node", probe_path, os.path.join(WEB, "js", "i18n.js")],
+                                capture_output=True, text=True, timeout=30)
+    finally:
+        os.unlink(probe_path)
+    check(result.returncode == 0, "i18n.js loads outside the browser " + result.stderr[-300:])
+    if result.returncode != 0:
+        return
+    out = json.loads(result.stdout.strip())
+    check(out["lang"] == "id", "stored language is honoured")
+    check(out["market"] == "Pasar", "Market -> Pasar")
+    check(out["padded"] == "  Pasar  ", "surrounding whitespace is preserved")
+    check(out["sold"] == "12 terjual", "counts translate inline (12 sold)")
+    check(out["category"] == "Mint Studio \u00b7 Keuangan", "category label translates after a separator")
+    check(out["unknown"] == "Toko Stock Pro", "unknown text falls back unchanged")
+
+
 def main():
     static_checks()
     cloud_checks()
     seed_checks()
     store_checks()
+    i18n_checks()
     try:
         js_checks()
     except Exception as error:

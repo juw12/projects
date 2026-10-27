@@ -58,6 +58,12 @@ apps/mint/web                                          apps/mint/cloud/src/index
 - **Share previews (v2.3).** Shared and affiliate links go through `https://mint-api…/s/<listing>`,
   which serves Open Graph / Twitter tags (title, price, description, card image) so WhatsApp, X,
   Facebook and Telegram show a rich preview, then redirects into the app keeping `ref` and `coupon`.
+- **English / Bahasa Indonesia (v2.4).** An EN/ID button in the top bar switches the whole UI
+  (nav, pages, guides, Studio replies, dialogs, placeholders). English is the source; `js/i18n.js`
+  translates the rendered text in place from a phrase dictionary and keeps the original on each
+  node, so switching back is instant. User content (titles, descriptions, reviews, names, chat
+  you typed) and sheet previews are marked `translate="no"` and never change. The choice is
+  saved per device; first visit follows the browser language (`id`/`ms` → Indonesian).
 - **Selling with a payment link.** Without automatic payments, a paid template needs the seller's
   own payment link (Lynk.id, Saweria, Trakteer, Stripe/PayPal link, Gumroad…).
   1. The buyer clicks *Buy* and gets an order reference such as `M-7K3QXA`.
@@ -95,7 +101,7 @@ apps/mint/
     js/core.js              generator, tweaks, formula engine, themes, promo kit, AI prompt (pure; also bundled into the worker)
     js/xlsx.js              .xlsx / CSV writer
     js/store.js             ApiStore (live API, bearer token) + LocalStore (offline fallback)
-    js/app.js js/guides.js app.css  index/app/web/mobile.html  sw.js  manifest  icons  data/seed.json
+    js/app.js js/guides.js js/i18n.js app.css  index/app/web/mobile.html  sw.js  manifest  icons  data/seed.json
   cloud/                    Cloudflare Worker + SQLite Durable Object
     src/index.js            API: auth, drafts, listings, orders, affiliate, seller ledger, AI
     wrangler.toml           production (AI binding, CORS origins, fee, AI limits)
@@ -140,5 +146,8 @@ Deploy: `cd apps/mint/cloud && npx wrangler deploy` (after `npx wrangler login`)
 - Privacy and Terms pages are plain-language summaries, not lawyer-reviewed.
 - Everything lives in one Durable Object. That is fine for thousands of users and listings,
   but would need sharding at real scale.
-- The .xlsx files are verified with openpyxl plus an independent recalculation, and by a
-  real-browser download. They have not been opened in desktop Excel by me.
+- The .xlsx files are verified with openpyxl plus an independent recalculation, by a
+  real-browser download, and in desktop Excel (all 14 seed templates, 104/104 values match).
+- Indonesian covers the app UI only. Strings missing from the dictionary (and server error
+  messages not listed there) fall back to English; the legal pages and the downloaded .xlsx /
+  sheet contents stay in English.
