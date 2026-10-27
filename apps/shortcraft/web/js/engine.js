@@ -96,30 +96,109 @@
   // ------------------------------------------------------------------
   var WORDS_PER_SEC = { en: 2.6, id: 2.3 };
 
-  function captionChunks(text, maxChars) {
+  var CAPTION_LEAD = 0.06;   // s: a caption may appear a hair before its word is heard (reads as "in sync")
+
+  /**
+   * Caption chunks (<= 3 words / maxChars, never across a sentence or comma break).
+   * With wordTimes ([[start, end] s per word, from whisper alignment in caption_timing.py) and the
+   * clip duration, each chunk starts when its first word is spoken and keeps per-word start/end
+   * (fractions of the clip) for the highlighted word; otherwise starts are estimated by length.
+   */
+  function captionChunks(text, maxChars, wordTimes, voDur) {
     var words = String(text || "").split(/\s+/).filter(Boolean);
-    var chunks = [];
+    var groups = [];
     var current = [];
-    words.forEach(function (word) {
-      var candidate = current.concat([word]).join(" ");
-      if (current.length && (candidate.length > maxChars || current.length >= 3)) {
-        chunks.push(current.join(" "));
-        current = [word];
+    words.forEach(function (word, index) {
+      var candidate = current.map(function (i) { return words[i]; }).concat([word]).join(" ");
+      var previous = current.length ? words[current[current.length - 1]] : "";
+      var breakAfterPrevious = /[.!?,;:\u2026]$/.test(previous);
+      if (current.length && (candidate.length > maxChars || current.length >= 3 || breakAfterPrevious)) {
+        groups.push(current);
+        current = [index];
       } else {
-        current.push(word);
+        current.push(index);
       }
     });
     if (current.length) {
-      chunks.push(current.join(" "));
+      groups.push(current);
     }
-    var weights = chunks.map(function (c) { return c.length + 4; });
+    var timed = wordTimes && voDur > 0 && wordTimes.length === words.length;
+    if (timed) {
+      return groups.map(function (group) {
+        var first = wordTimes[group[0]];
+        var last = wordTimes[group[group.length - 1]];
+        return {
+          text: group.map(function (i) { return words[i]; }).join(" "),
+          start: Math.max(0, first[0] - CAPTION_LEAD) / voDur,
+          end: last[1] / voDur,
+          words: group.map(function (i) {
+            return [Math.max(0, wordTimes[i][0] - CAPTION_LEAD) / voDur, wordTimes[i][1] / voDur];
+          })
+        };
+      });
+    }
+    var texts = groups.map(function (group) {
+      return group.map(function (i) { return words[i]; }).join(" ");
+    });
+    var weights = texts.map(function (c) { return c.length + 4; });
     var total = weights.reduce(function (a, b) { return a + b; }, 0) || 1;
     var acc = 0;
-    return chunks.map(function (c, i) {
+    return texts.map(function (c, i) {
       var start = acc / total;
       acc += weights[i];
       return { text: c, start: start };
     });
+  }
+
+  /**
+   * Caption state at time t for templates: current chunk, highlighted word, progress.
+   * Returns null outside the narration and in real pauses between sentences (timed captions only),
+   * so a template can show a "typing" or empty state instead of a stale line.
+   */
+  function captionAt(item, t) {
+    var progress = (t - item.voStart) / item.voDur;
+    if (progress < 0 || progress > 1.08 || !item.chunks.length) {
+      return null;
+    }
+    var index = -1;
+    for (var i = 0; i < item.chunks.length; i++) {
+      if (progress >= item.chunks[i].start) {
+        index = i;
+      }
+    }
+    if (index < 0) {
+      return null;
+    }
+    var chunk = item.chunks[index];
+    var next = item.chunks[index + 1];
+    var end = next ? next.start : 1;
+    if (chunk.words) {
+      var hold = 0.35 / item.voDur;     // keep the line up briefly after its last word
+      var gap = (next ? next.start : 1.08) - chunk.end;
+      if (progress > chunk.end + hold && gap > 0.6 / item.voDur) {
+        return null;
+      }
+    }
+    var count = chunk.text.split(/\s+/).filter(Boolean).length;
+    var active;
+    if (chunk.words) {
+      active = 0;
+      chunk.words.forEach(function (w, k) {
+        if (progress >= w[0]) {
+          active = k;
+        }
+      });
+    } else {
+      var within = clamp((progress - chunk.start) / Math.max(0.0001, end - chunk.start), 0, 0.999);
+      active = Math.floor(within * count);
+    }
+    return {
+      text: chunk.text,
+      index: index,
+      active: active,
+      within: clamp((progress - chunk.start) / Math.max(0.0001, end - chunk.start), 0, 0.999),
+      sinceStart: (progress - chunk.start) * item.voDur
+    };
   }
 
   function sceneRole(project, index) {
@@ -160,7 +239,7 @@
         voStart: cursor + 0.2,
         voDur: voDur,
         measured: !!measured,
-        chunks: captionChunks(scene.caption || narration, maxChars),
+        chunks: captionChunks(scene.caption || narration, maxChars, measured ? scene.wordTimes : null, voDur),
         stepIndex: role === "step" ? stepCount : -1
       };
       if (role === "step") {
@@ -849,6 +928,7 @@
     postKit: postKit,
     checklist: checklist,
     captionChunks: captionChunks,
+    captionAt: captionAt,
     MOODS: MOODS
   };
 })();

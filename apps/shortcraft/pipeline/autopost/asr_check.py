@@ -95,11 +95,17 @@ def main(argv):
 
     report = []
     for line in lines:
-        segments, _ = model.transcribe(line["audio"], language="id", beam_size=5, vad_filter=False)
+        segments, _ = model.transcribe(line["audio"], language="id", beam_size=5, vad_filter=False,
+                                       word_timestamps=True)
+        segments = list(segments)
         heard = " ".join(segment.text.strip() for segment in segments)
+        # word timings (seconds from clip start) drive caption sync, see caption_timing.py
+        words = [[word.word.strip(), round(word.start, 3), round(word.end, 3)]
+                 for segment in segments for word in (segment.words or []) if word.word.strip()]
         expected = line.get("asr") or line["text"]  # optional override for names / slang
         score = similarity(expected, heard)
-        report.append({"text": line["text"], "heard": heard, "score": round(score, 3), "ok": score >= threshold})
+        report.append({"text": line["text"], "heard": heard, "score": round(score, 3), "ok": score >= threshold,
+                       "words": words})
 
     ok = all(item["ok"] for item in report)
     print(json.dumps({"ok": ok, "threshold": threshold, "lines": report}, ensure_ascii=False))

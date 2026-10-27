@@ -347,6 +347,14 @@ def render(project_path, out_path, port_http=None, port_cdp=None):
                 raise RuntimeError("narration check failed: " + json.dumps(bad, ensure_ascii=False)[:800])
             if qc["asr"]["status"] == "not-run" and os.environ.get("ASR_REQUIRED") == "1":
                 raise RuntimeError("narration check could not run: " + str(qc["asr"].get("error"))[:400])
+            if qc["asr"].get("lines"):
+                # caption words follow the real speech timing (whisper word timestamps)
+                sys.path.insert(0, str(Path(__file__).resolve().parent))
+                import caption_timing
+
+                qc["caption_sync"] = caption_timing.apply_word_times(project, voice_files, qc["asr"])
+                for line in qc["asr"]["lines"]:
+                    line.pop("words", None)   # keep the QC report small
         (site / "_project.json").write_text(json.dumps(project), encoding="utf-8")
         server = subprocess.Popen([sys.executable, "-m", "http.server", str(port_http), "--bind", "127.0.0.1"], cwd=site,
                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

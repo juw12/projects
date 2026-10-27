@@ -365,20 +365,8 @@
   }
 
   function captionState(item, t) {
-    var progressVo = (t - item.voStart) / item.voDur;
-    if (progressVo < 0 || progressVo > 1.08 || !item.chunks.length) {
-      return null;
-    }
-    var index = 0;
-    for (var i = 0; i < item.chunks.length; i++) {
-      if (progressVo >= item.chunks[i].start) {
-        index = i;
-      }
-    }
-    var start = item.chunks[index].start;
-    var end = index + 1 < item.chunks.length ? item.chunks[index + 1].start : 1;
-    var within = clamp((progressVo - start) / Math.max(0.0001, end - start), 0, 0.999);
-    return { text: item.chunks[index].text, within: within, sinceStart: (progressVo - start) * item.voDur };
+    // shared with the engine: real word timings when the clip was aligned (caption_timing.py)
+    return window.SC.captionAt(item, t);
   }
 
   function captions(ctx, project, item, t) {
@@ -390,7 +378,7 @@
       return;
     }
     var words = state.text.split(/\s+/).filter(Boolean);
-    var active = Math.floor(state.within * words.length);
+    var active = Math.min(words.length - 1, state.active);
     var size = 66;
     var spacing = 18;
     var widths;
@@ -543,10 +531,25 @@
     }
   }
 
+  /** Lighten (amount > 0) or darken (amount < 0) a #rrggbb colour. */
+  function shadeColor(hex, amount) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+    if (!m) {
+      return hex;
+    }
+    var n = parseInt(m[1], 16);
+    var channels = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(function (c) {
+      var v = amount < 0 ? c * (1 + amount) : c + (255 - c) * amount;
+      return Math.round(clamp(v, 0, 255));
+    });
+    return "rgb(" + channels.join(",") + ")";
+  }
+
   /** Drawn host face in a 200x200 design space centred on (0,0). */
   function drawFace(ctx, avatar, t, level, speaking) {
-    var skin = avatar.skin || "#C98E62";
-    var hair = avatar.hair || "#1E1A19";
+    var skin = avatar.skin || "#F6D5B8";        // bright, warm East/Southeast-Asian tone
+    var skinShade = avatar.skinShade || shadeColor(skin, -0.12);
+    var hair = avatar.hair || "#15110F";
     var shirt = avatar.shirt || C.a;
     var style = avatar.hairStyle || "short";
     var blinkPhase = (t + 0.7) % 3.6;
@@ -579,12 +582,15 @@
     // neck + head + ears
     ctx.fillStyle = skin;
     ctx.fillRect(-15, 34, 30, 34);
+    ctx.fillStyle = skinShade;
+    ctx.fillRect(-15, 44, 30, 12);                 // shadow under the chin
     if (style !== "hijab") {
       ctx.beginPath();
       ctx.arc(-43, 2, 10, 0, Math.PI * 2);
       ctx.arc(43, 2, 10, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.fillStyle = skin;
     ctx.beginPath();
     ctx.ellipse(0, -2, 43, 51, 0, 0, Math.PI * 2);
     ctx.fill();
@@ -592,14 +598,26 @@
     // hair
     ctx.fillStyle = hair;
     if (style === "short") {
+      // straight black hair with a soft side-swept fringe
       ctx.beginPath();
-      ctx.ellipse(0, -30, 46, 30, 0, Math.PI, Math.PI * 2);
+      ctx.ellipse(0, -28, 47, 32, 0, Math.PI, Math.PI * 2);
       ctx.fill();
       ctx.beginPath();
-      ctx.ellipse(-8, -38, 40, 17, -0.18, 0, Math.PI * 2);
+      ctx.moveTo(-46, -26);
+      ctx.quadraticCurveTo(-40, -58, 0, -58);
+      ctx.quadraticCurveTo(40, -58, 46, -26);
+      ctx.lineTo(44, -14);
+      ctx.quadraticCurveTo(30, -30, 8, -27);
+      ctx.quadraticCurveTo(-14, -24, -30, -30);
+      ctx.quadraticCurveTo(-38, -22, -44, -12);
+      ctx.closePath();
       ctx.fill();
-      ctx.fillRect(-46, -32, 9, 22);
-      ctx.fillRect(37, -32, 9, 22);
+      ctx.fillRect(-47, -28, 8, 24);
+      ctx.fillRect(39, -28, 8, 24);
+      ctx.fillStyle = "rgba(255,255,255,0.10)";    // sheen
+      ctx.beginPath();
+      ctx.ellipse(-12, -46, 16, 5, -0.25, 0, Math.PI * 2);
+      ctx.fill();
     } else if (style === "long") {
       ctx.beginPath();
       ctx.ellipse(0, -26, 50, 36, 0, Math.PI, Math.PI * 2);
@@ -622,14 +640,43 @@
     ctx.lineCap = "round";
     [-1, 1].forEach(function (side) {
       ctx.beginPath();
-      ctx.moveTo(side * 9, -22 - lift);
-      ctx.lineTo(side * 25, -19 - lift * 0.5);
+      ctx.moveTo(side * 9, -21 - lift);
+      ctx.quadraticCurveTo(side * 18, -24 - lift, side * 26, -20 - lift * 0.5);
       ctx.stroke();
+      // almond eyes: wider than tall, outer corner slightly lifted, upper lid line
+      ctx.save();
+      ctx.translate(side * 17, -5);
+      ctx.rotate(side * -0.08);
       ctx.fillStyle = "#1B1414";
       ctx.beginPath();
-      ctx.ellipse(side * 17, -5, 5.5, Math.max(0.8, 6.5 * blink), 0, 0, Math.PI * 2);
+      ctx.ellipse(0, 0, 7.5, Math.max(0.8, 4.2 * blink), 0, 0, Math.PI * 2);
+      ctx.fill();
+      if (blink > 0.6) {
+        ctx.fillStyle = "rgba(255,255,255,0.85)";   // catch-light
+        ctx.beginPath();
+        ctx.arc(side * 2 - 1.5, -1.4, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(-9, -1.5 * blink);
+      ctx.quadraticCurveTo(0, -6.5 * blink, 9.5, -2.5 * blink);
+      ctx.stroke();
+      ctx.restore();
+      ctx.lineWidth = 4;
+      // blush
+      ctx.fillStyle = "rgba(255,120,120,0.22)";
+      ctx.beginPath();
+      ctx.ellipse(side * 26, 13, 9, 5, 0, 0, Math.PI * 2);
       ctx.fill();
     });
+    // small nose
+    ctx.strokeStyle = skinShade;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(-3, 9);
+    ctx.quadraticCurveTo(0, 12, 3, 9);
+    ctx.stroke();
     if (avatar.glasses) {
       ctx.strokeStyle = "rgba(20,20,20,0.9)";
       ctx.lineWidth = 3.5;
@@ -758,7 +805,7 @@
       return;
     }
     var words = state.text.split(/\s+/).filter(Boolean);
-    var active = Math.floor(state.within * words.length);
+    var active = Math.min(words.length - 1, state.active);
     var padX = 34;
     var spacing = 14;
     var size = 54;
