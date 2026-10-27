@@ -1,11 +1,11 @@
 {
-  "version": "1.19.1",
+  "version": "1.20.0",
   "released": "2026-10-27",
   "notes": [
-    "Token counts now include cached input, so the usage meter matches what Puter really charges",
-    "New privacy page: what GlowChat stores, where your messages go, and your controls",
-    "Clearer sign-in tip: Puter now asks for a free account (Google, Microsoft, Apple or email)",
-    "Model menu by category, your own persona, usage meter, temporary chats (from 1.19.0)"
+    "Profile & settings for every Glow app: tap your avatar at the top right",
+    "One page for your name, avatar, Puter account, persona, usage, settings and data",
+    "GlowRoom: one Glow-style top bar and a new warm Glow Studio office",
+    "Cached-token usage fix and privacy page (from 1.19.1)"
   ],
   "android": "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk",
   "windows": "https://github.com/juw12/projects/releases/download/glow-windows/Glow-Setup.exe"

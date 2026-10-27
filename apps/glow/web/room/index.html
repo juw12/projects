@@ -1397,6 +1397,9 @@
           </div>
           <div class="menu-divider"></div>
           <div class="menu-dropdown-header" data-i18n="view.environment">Environment</div>
+          <div class="menu-dropdown-item" data-action="set-environment" data-value="glow">
+            <span data-i18n="env.glow">Glow Studio</span>
+          </div>
           <div class="menu-dropdown-item" data-action="set-environment" data-value="modern">
             <span data-i18n="env.modern">Modern Office</span>
           </div>
@@ -1697,6 +1700,7 @@
               <span class="setting-label" data-i18n="view.environment">Environment</span>
               <div class="setting-control">
                 <select class="command-select" id="settings-environment" style="width: 150px;">
+                  <option value="glow" data-i18n="env.glow">Glow Studio</option>
                   <option value="modern" data-i18n="env.modern">Modern Office</option>
                   <option value="loft" data-i18n="env.loft">Cozy Loft</option>
                   <option value="nightcity" data-i18n="env.nightcity">Night City</option>
@@ -1874,6 +1878,7 @@
           'env.space': 'Space Station',
           'env.zen': 'Zen Garden',
           'env.minimal': 'Minimal Studio',
+          'env.glow': 'Glow Studio',
           'theme.midnight': 'Midnight',
           'theme.dark': 'Dark',
           'theme.slate': 'Slate',
@@ -2610,6 +2615,37 @@
     // ENVIRONMENT PRESETS
     // ============================================
     const ENVIRONMENTS = {
+      glow: {
+        id: 'glow',
+        name: 'Glow Studio',
+        // The Glow family look: warm charcoal floor, soft amber light, coral + gold accents.
+        floorColor: 0x2b2825,
+        floorRoughness: 0.85,
+        floorMetalness: 0.08,
+        gridColor: 0x4a3f36,
+        gridColor2: 0x35302b,
+        wallColor: 0x3a3530,
+        wallRoughness: 0.95,
+        wallMetalness: 0.04,
+        ambientColor: 0xffe4c8,
+        ambientIntensity: 0.55,
+        dirColor: 0xfff0dc,
+        dirIntensity: 0.7,
+        fillColor: 0xd97757,
+        fillIntensity: 0.28,
+        bgColor: 0x1f1e1d,
+        fogColor: 0x1f1e1d,
+        fogNear: 16,
+        fogFar: 34,
+        floor2D: '#2b2825',
+        wall2D: '#3a3530',
+        wallSide2D: '#322e2a',
+        grid2D: 'rgba(231, 183, 93, 0.10)',
+        roomColor1: 0x4a3128,
+        roomColor2: 0x473b26,
+        plantColor: 0x7fb069,
+        propStyle: 'wood'
+      },
       modern: {
         id: 'modern',
         name: 'Modern Office',
@@ -2800,25 +2836,27 @@
 
     // Environment Manager - applies environments to both renderers
     const EnvironmentManager = {
-      currentEnv: 'modern',
+      currentEnv: 'glow',
       
       // Store references to updateable scene elements
       threeObjects: null,
       
       init() {
-        // Load saved environment, default to 'minimal'
+        // Load the saved environment. Glow Studio (the Glow family look) is the default; people who
+        // only had the old automatic default (Minimal Studio) move to it once, picked looks are kept.
         try {
           const saved = localStorage.getItem('bots-environment');
-          if (saved && ENVIRONMENTS[saved]) {
+          const movedToGlow = localStorage.getItem('glow-env-v120') === '1';
+          if (saved && ENVIRONMENTS[saved] && !(saved === 'minimal' && !movedToGlow)) {
             this.currentEnv = saved;
           } else {
-            // Default to minimal studio
-            this.currentEnv = 'minimal';
-            localStorage.setItem('bots-environment', 'minimal');
+            this.currentEnv = 'glow';
+            localStorage.setItem('bots-environment', 'glow');
           }
+          localStorage.setItem('glow-env-v120', '1');
         } catch (e) {
           console.log('[EnvManager] Failed to load environment:', e.message);
-          this.currentEnv = 'minimal';
+          this.currentEnv = 'glow';
         }
       },
       
@@ -6725,5 +6763,6 @@
   <script src="crew-engine.js"></script>
   <script src="enhance.js"></script>
   <script src="cinema.js"></script>
+<script src="glow-room-ui.js"></script>
 </body>
 </html>

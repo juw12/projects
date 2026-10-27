@@ -10,7 +10,7 @@
   const ROOT = new URL("../", scriptUrl); // .../glow/
   // The Glow family version. Bump it together with ../version.json for every release:
   // an older copy of this script then sees the newer version.json and offers "Update now".
-  const GLOW_VERSION = "1.19.1";
+  const GLOW_VERSION = "1.20.0";
   const LIVE_ROOT = "https://juw12.github.io/projects/glow/";
   const APK_URL = "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk";
   const embedded = (function () {
@@ -43,15 +43,35 @@
     return "home";
   }
 
+  const AVATAR_COLORS = ["#d97757", "#e7b75d", "#7fb069", "#5fa8d3", "#a78bfa", "#ec6f9c"];
+
+  // The shared Glow account: Puter sign-in plus the name and avatar colour you pick in
+  // Profile & settings. Every Glow app reads it from the same browser store.
   function account() {
     try {
       const store = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
       const settings = (store && store.settings) || {};
-      if (settings.account === "puter") return { signedIn: true, name: settings.accountName || "Glow user" };
-      return { signedIn: false, name: settings.account === "guest" ? "Guest" : "" };
+      const signedIn = settings.account === "puter";
+      const guest = settings.account === "guest";
+      const accountName = signedIn ? settings.accountName || "Glow user" : "";
+      const displayName = String(settings.displayName || "").trim();
+      const name = displayName || accountName || (guest ? "Guest" : "");
+      const avatarColor = AVATAR_COLORS.includes(settings.avatarColor) ? settings.avatarColor : AVATAR_COLORS[0];
+      return { signedIn, guest, temp: signedIn && !!settings.accountTemp, accountName, displayName, name, avatarColor };
     } catch (error) {
-      return { signedIn: false, name: "" };
+      return { signedIn: false, guest: false, temp: false, accountName: "", displayName: "", name: "", avatarColor: AVATAR_COLORS[0] };
     }
+  }
+
+  function accountUrl(section) {
+    return new URL("account/", ROOT).href + (section ? "#" + section : "");
+  }
+
+  function initials(name) {
+    const words = String(name || "").trim().split(/\s+/).filter(Boolean);
+    if (!words.length) return "";
+    const letters = words.length > 1 ? words[0][0] + words[words.length - 1][0] : words[0].slice(0, 2);
+    return letters.toUpperCase();
   }
 
   const CSS = `
@@ -101,6 +121,29 @@
 .glow-room-bar .close{background:#d97757;border-color:#d97757;color:#fff}
 .glow-room-panel iframe{flex:1;width:100%;border:0;background:#1f1e1d}
 html.glow-room-open,html.glow-room-open body{overflow:hidden}
+.glow-apps-foot a.glow-apps-profile{display:flex;align-items:center;gap:8px;margin:0 -2px 8px;padding:8px 10px;border-radius:10px;color:#f3efe8;text-decoration:none;background:rgba(255,255,255,.05);font-weight:600;opacity:1}
+.glow-apps-foot a.glow-apps-profile:hover{background:rgba(232,135,93,.18)}
+.glow-avatar-btn{position:relative;display:inline-grid;place-items:center;width:34px;height:34px;min-width:34px;flex:0 0 34px;padding:0;border-radius:50%;
+  border:2px solid rgba(255,255,255,.18);background:var(--glow-avatar,#d97757);color:#fff;cursor:pointer;
+  font:700 13px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;letter-spacing:.02em;box-shadow:0 2px 8px rgba(0,0,0,.25);transition:transform .12s,border-color .12s}
+.glow-avatar-btn:hover,.glow-avatar-btn:focus-visible,.glow-avatar-btn[aria-expanded="true"]{border-color:#f0a27f;transform:scale(1.05);outline:none}
+.glow-avatar-btn.guest{background:#4a4642;color:#e9e3d9}
+.glow-avatar-btn .glow-avatar-dot{position:absolute;width:9px;height:9px;border-radius:50%;background:#7fd1a8;border:2px solid #1f1e1c;right:-3px;bottom:-3px}
+.glow-avatar-btn.temp .glow-avatar-dot{background:#e7b75d}
+.glow-profile-menu{position:fixed;z-index:2147483000;width:min(300px,calc(100vw - 16px));background:#1f1e1c;color:#f3efe8;
+  border:1px solid rgba(255,255,255,.12);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.45);padding:10px;
+  font:14px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;animation:glowAppsIn .14s ease both}
+.glow-profile-menu[hidden]{display:none}
+.glow-profile-head{display:flex;align-items:center;gap:12px;padding:6px 6px 12px;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:6px}
+.glow-profile-head .glow-avatar-btn{width:44px;height:44px;min-width:44px;flex-basis:44px;font-size:16px;cursor:default;transform:none}
+.glow-profile-head b{display:block;font-size:15px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.glow-profile-head small{display:block;font-size:12px;opacity:.7}
+.glow-profile-head small.warn{color:#e7b75d;opacity:1}
+.glow-profile-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;color:inherit;text-decoration:none}
+.glow-profile-item:hover,.glow-profile-item:focus-visible{background:rgba(255,255,255,.07);outline:none}
+.glow-profile-item span{width:22px;text-align:center}
+.glow-profile-item.primary{background:#d97757;color:#fff;font-weight:650;margin-top:4px}
+.glow-profile-item.primary:hover{background:#e0865f}
 html.glow-embedded [data-glow-apps]{display:none!important}
 @media (max-width:560px){.glow-room-bar small,.glow-room-bar .full span{display:none}.glow-update-bar small{max-width:24ch}}
 `;
@@ -129,9 +172,10 @@ html.glow-embedded [data-glow-apps]{display:none!important}
         <span><span class="glow-apps-name">${app.name}</span><br><span class="glow-apps-desc">${app.desc}</span></span>
         ${app.id === here ? '<span class="glow-apps-here">You\'re here</span>' : ""}
       </a>`).join("");
-    const foot = who.signedIn
+    const profile = `<a class="glow-apps-profile" href="${accountUrl()}">👤 Profile &amp; settings<span style="margin-left:auto;opacity:.6">›</span></a>`;
+    const foot = profile + (who.signedIn
       ? `Signed in as <b>${escapeHtml(who.name)}</b> · one Glow account for every app`
-      : "One Glow account for every app · sign in once in any of them";
+      : "One Glow account for every app · sign in once in any of them");
     const element = document.createElement("div");
     element.className = "glow-apps-menu";
     element.id = "glow-apps-menu";
@@ -198,6 +242,119 @@ html.glow-embedded [data-glow-apps]{display:none!important}
     }
   }, true);
   window.addEventListener("resize", close);
+
+
+  // ---------------------------------------------------------------------------------------------
+  // Your profile: an avatar button at the top right of every Glow app. It opens a small menu
+  // with Profile & settings, persona, usage and data, all on the shared ../account/ page.
+  // Usage: add an element with the attribute data-glow-profile, or call GlowApps.mountProfile(el).
+  // ---------------------------------------------------------------------------------------------
+  const profileButtons = new Set();
+  let profileMenu = null;
+  let profileOpener = null;
+
+  function renderProfileButton(button) {
+    const who = account();
+    const letters = initials(who.name);
+    button.style.setProperty("--glow-avatar", who.avatarColor);
+    button.classList.toggle("guest", !who.signedIn && !who.displayName);
+    button.classList.toggle("temp", who.temp);
+    button.innerHTML = (letters ? escapeHtml(letters) : "👤") + (who.signedIn ? '<i class="glow-avatar-dot" aria-hidden="true"></i>' : "");
+    const label = who.name ? `${who.name} · Profile & settings` : "Profile & settings";
+    button.title = label;
+    button.setAttribute("aria-label", label);
+  }
+
+  function refreshProfiles() {
+    profileButtons.forEach((button) => {
+      if (button.isConnected) renderProfileButton(button);
+      else profileButtons.delete(button);
+    });
+    if (profileMenu && !profileMenu.hidden && profileOpener) openProfile(profileOpener);
+  }
+
+  function buildProfileMenu() {
+    const who = account();
+    const status = who.signedIn
+      ? (who.temp ? '<small class="warn">Temporary Puter account · save it on puter.com</small>' : `<small>Signed in with Puter${who.displayName && who.accountName ? " as " + escapeHtml(who.accountName) : ""}</small>`)
+      : `<small>${who.guest ? "Guest · not signed in" : "Not signed in"}</small>`;
+    const letters = initials(who.name);
+    const item = (icon, text, section, extra) => `<a class="glow-profile-item${extra || ""}" role="menuitem" href="${accountUrl(section)}"><span aria-hidden="true">${icon}</span>${text}</a>`;
+    const element = document.createElement("div");
+    element.className = "glow-profile-menu";
+    element.id = "glow-profile-menu";
+    element.setAttribute("role", "menu");
+    element.hidden = true;
+    element.innerHTML = `<div class="glow-profile-head"><span class="glow-avatar-btn${!who.signedIn && !who.displayName ? " guest" : ""}" style="--glow-avatar:${who.avatarColor}" aria-hidden="true">${letters ? escapeHtml(letters) : "👤"}</span>
+      <span><b>${escapeHtml(who.name || "Your Glow profile")}</b>${status}</span></div>
+      ${item("👤", "Profile &amp; settings", "")}
+      ${item("🎭", "My persona", "persona")}
+      ${item("📊", "Usage &amp; allowance", "usage")}
+      ${item("⚙", "Settings", "prefs")}
+      ${item("🔒", "My data &amp; privacy", "data")}
+      ${who.signedIn ? "" : item("✦", "Sign in with Puter", "account", " primary")}`;
+    document.body.appendChild(element);
+    return element;
+  }
+
+  function closeProfile() {
+    if (!profileMenu || profileMenu.hidden) return;
+    profileMenu.hidden = true;
+    if (profileOpener) profileOpener.setAttribute("aria-expanded", "false");
+  }
+
+  function openProfile(button) {
+    ensureStyles();
+    close();
+    if (profileMenu) profileMenu.remove();
+    profileMenu = buildProfileMenu();
+    profileMenu.hidden = false;
+    profileOpener = button;
+    button.setAttribute("aria-expanded", "true");
+    const rect = button.getBoundingClientRect();
+    const width = profileMenu.offsetWidth || 300;
+    const left = Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8);
+    const below = rect.bottom + 8;
+    const top = below + profileMenu.offsetHeight > window.innerHeight - 8 ? Math.max(8, rect.top - profileMenu.offsetHeight - 8) : below;
+    profileMenu.style.left = `${left}px`;
+    profileMenu.style.top = `${top}px`;
+    const first = profileMenu.querySelector(".glow-profile-item");
+    if (first) first.focus({ preventScroll: true });
+  }
+
+  function mountProfile(button) {
+    if (!button || button.dataset.glowProfileMounted) return;
+    ensureStyles();
+    button.dataset.glowProfileMounted = "1";
+    button.classList.add("glow-avatar-btn");
+    if (button.tagName === "BUTTON" && !button.getAttribute("type")) button.type = "button";
+    button.setAttribute("aria-haspopup", "menu");
+    button.setAttribute("aria-expanded", "false");
+    profileButtons.add(button);
+    renderProfileButton(button);
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (profileMenu && !profileMenu.hidden && profileOpener === button) closeProfile();
+      else openProfile(button);
+    });
+  }
+
+  document.addEventListener("click", (event) => {
+    if (profileMenu && !profileMenu.hidden && !profileMenu.contains(event.target)) closeProfile();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && profileMenu && !profileMenu.hidden) {
+      event.stopPropagation();
+      closeProfile();
+      if (profileOpener) profileOpener.focus();
+    }
+  }, true);
+  window.addEventListener("resize", closeProfile);
+  // Another tab or Glow app changed the account: update every avatar on this page.
+  window.addEventListener("storage", (event) => {
+    if (event.key === null || event.key === STORE_KEY) refreshProfiles();
+  });
 
 
   // ---------------------------------------------------------------------------------------------
@@ -337,6 +494,7 @@ html.glow-embedded [data-glow-apps]{display:none!important}
     if (/^chat\//.test(rest)) return "chat";
     if (/^lead\//.test(rest)) return "lead";
     if (/^setup\//.test(rest)) return "setup";
+    if (/^account\//.test(rest)) return "account";
     if (rest === "" || rest === "index.html") return "home";
     return null;
   }
@@ -453,13 +611,15 @@ html.glow-embedded [data-glow-apps]{display:none!important}
 
   function autoMount() {
     document.querySelectorAll("[data-glow-apps]").forEach(mount);
+    document.querySelectorAll("[data-glow-profile]").forEach(mountProfile);
     startUpdateChecks();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", autoMount);
   else autoMount();
 
   window.GlowApps = {
-    mount, open, close, appUrl, currentApp, account, apps: APPS.map((a) => ({ ...a })),
+    mount, open, close, appUrl, currentApp, account, accountUrl, mountProfile, refreshProfiles, avatarColors: AVATAR_COLORS.slice(),
+    apps: APPS.map((a) => ({ ...a })),
     version: GLOW_VERSION, checkForUpdate, applyUpdate, compareVersions, openApp, openRoomPanel, closeRoomPanel,
     get updateState() { return updateState; },
     get latest() { return latest; },

@@ -463,3 +463,11 @@ a.side-btn { display: block; color: inherit; text-decoration: none; }
   .usage-pop { right: 12px; }
   .usage-chip { font-size: 11px; padding: 2px 7px; }
 }
+
+/* v1.20 · shared profile avatar in the sidebar */
+.account-box .profile-avatar { width: 30px; height: 30px; min-width: 30px; flex: 0 0 30px; font-size: 12px; }
+
+/* v1.20 · the usage chip shrinks on very narrow phones instead of widening the page */
+@media (max-width: 400px) {
+  #usage-btn { max-width: 34vw; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}

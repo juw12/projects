@@ -8,7 +8,7 @@ const web = path.resolve(root, '../web');
 const output = path.join(root, 'www');
 fs.rmSync(output, { recursive: true, force: true });
 fs.mkdirSync(output, { recursive: true });
-for (const folder of ['lead', 'shared', 'room', 'icons']) {
+for (const folder of ['lead', 'shared', 'room', 'account', 'icons']) {
   fs.cpSync(path.join(web, folder), path.join(output, folder), { recursive: true, filter: (name) => !name.endsWith('.md') });
 }
 // The app opens straight into GlowLead and never registers the web service worker (the app ships its own files).
