@@ -372,3 +372,25 @@ a.side-btn { display: block; color: inherit; text-decoration: none; }
 /* ===== Glow ecosystem: app launcher next to the brand ===== */
 .glow-apps-launcher { width: 30px; height: 30px; padding: 0; margin-right: 8px; vertical-align: -6px; border-radius: 9px; background: var(--card); border: 1px solid var(--border); color: var(--muted); }
 .glow-apps-launcher:hover, .glow-apps-launcher[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
+
+/* v0.17 — calmer sidebar and starters, matching Glow home and GlowLead. */
+#sidebar { gap: 8px; }
+#new-chat-btn { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; text-align: center; }
+#new-chat-btn:hover { filter: brightness(1.07); transform: none; }
+.side-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.side-row .side-btn { text-align: center; padding: 8px 6px; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side-row .side-btn:hover { transform: none; }
+.side-label { font-size: 12px; color: var(--muted); margin: 6px 4px -2px; }
+.side-row .crewroom-link { background: var(--card); }
+.side-row .crewroom-link:hover { background: color-mix(in srgb, var(--accent) 10%, var(--card)); }
+#settings-btn { background: transparent; }
+.account-box { border-radius: 10px; }
+.welcome h2 { font-weight: 700; letter-spacing: -.02em; }
+.starter { border-radius: 16px; }
+@media (max-width: 760px) {
+  .starters { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .starter { padding: 10px 12px; }
+  .starter b { font-size: 13.5px; }
+  .starter span:last-child { -webkit-line-clamp: 2; font-size: 12.5px; }
+  .welcome p { font-size: 14px; }
+}

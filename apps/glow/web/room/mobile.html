@@ -4,51 +4,53 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>GlowRoom — Mobile</title>
-<meta name="theme-color" content="#0a0e14">
+<meta name="theme-color" content="#262624">
 <meta name="description" content="GlowRoom mobile: watch and command your AI bot crew — live status, activity feed and goal dispatch.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="icons/app-icon.svg">
 <link rel="apple-touch-icon" href="icons/app-icon.svg">
 <style>
 :root {
-  --bg: #0a0e14;
-  --bg-2: #111823;
-  --panel: #151d2b;
-  --panel-2: #1a2332;
-  --line: #243045;
-  --line-2: #2d3a4f;
-  --text: #e8eef6;
-  --muted: #94a3b8;
-  --dim: #64748b;
+  --bg: #262624;
+  --bg-2: #1f1e1d;
+  --panel: #30302e;
+  --panel-2: #363532;
+  --line: #3e3e3a;
+  --line-2: #4a4944;
+  --text: #ece9e1;
+  --muted: #a39f94;
+  --dim: #7f7b72;
   --green: #10b981;
   --red: #ef4444;
   --amber: #f59e0b;
   --blue: #3b82f6;
   --purple: #8b5cf6;
   --pink: #ec4899;
-  --accent: #6d7cff;
-  --accent-grad: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  --glass: rgba(17, 24, 35, .78);
+  --accent: #d97757;
+  --accent-grad: linear-gradient(135deg, #d97757, #e7b75d);
+  --glass: rgba(38, 38, 36, .82);
   --shadow: 0 10px 30px -12px rgba(0, 0, 0, .6);
   --mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', Consolas, monospace;
-  --sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --tab-h: 64px;
   --radius: 16px;
 }
 [data-theme="light"] {
-  --bg: #f4f6fb;
-  --bg-2: #eef1f7;
+  --bg: #faf9f5;
+  --bg-2: #f0eee6;
   --panel: #ffffff;
-  --panel-2: #f3f5fa;
-  --line: #e2e7f0;
-  --line-2: #d3dae6;
-  --text: #0f172a;
-  --muted: #475569;
-  --dim: #94a3b8;
-  --glass: rgba(255, 255, 255, .82);
-  --shadow: 0 10px 30px -14px rgba(15, 23, 42, .25);
+  --panel-2: #f5f3ec;
+  --line: #dcd8cc;
+  --line-2: #cfcabc;
+  --text: #1f1e1d;
+  --muted: #6b675d;
+  --dim: #8f8a7e;
+  --accent: #c15f3c;
+  --accent-grad: linear-gradient(135deg, #c15f3c, #c8901f);
+  --glass: rgba(255, 255, 255, .86);
+  --shadow: 0 10px 30px -14px rgba(31, 30, 29, .22);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; background: var(--bg); }
@@ -58,8 +60,8 @@ body {
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
   background:
-    radial-gradient(90% 50% at 100% 0%, rgba(139, 92, 246, .12), transparent 60%),
-    radial-gradient(80% 40% at 0% 0%, rgba(59, 130, 246, .10), transparent 60%),
+    radial-gradient(90% 50% at 100% 0%, rgba(231, 183, 93, .10), transparent 60%),
+    radial-gradient(80% 40% at 0% 0%, rgba(217, 119, 87, .14), transparent 60%),
     var(--bg);
   background-attachment: fixed;
 }
@@ -360,7 +362,7 @@ svg { display: block; }
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
-    <linearGradient id="brandGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b82f6"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient>
+    <linearGradient id="brandGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d97757"/><stop offset="1" stop-color="#e7b75d"/></linearGradient>
   </defs>
   <symbol id="i-bots" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="4"/><path d="M12 8V4M9 14h.01M15 14h.01"/><circle cx="12" cy="3.5" r="1"/></g></symbol>
   <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
@@ -383,10 +385,10 @@ svg { display: block; }
 <header class="header">
   <svg class="brand-mark" viewBox="0 0 512 512" aria-hidden="true">
     <rect width="512" height="512" rx="120" fill="url(#brandGrad)"/>
-    <rect x="128" y="176" width="256" height="184" rx="56" fill="#0a0e14"/>
+    <rect x="128" y="176" width="256" height="184" rx="56" fill="#262624"/>
     <circle cx="208" cy="268" r="24" fill="#10b981"/>
     <circle cx="304" cy="268" r="24" fill="#10b981"/>
-    <rect x="244" y="96" width="24" height="72" rx="12" fill="#0a0e14"/>
+    <rect x="244" y="96" width="24" height="72" rx="12" fill="#262624"/>
     <circle cx="256" cy="92" r="22" fill="#f59e0b"/>
   </svg>
   <div class="brand">
@@ -1123,11 +1125,11 @@ svg { display: block; }
     const step = w / (buckets - 1);
     const pts = counts.map((c, i) => [i * step, h - 4 - (c / max) * (h - 10)]);
     const grad = ctx.createLinearGradient(0, 0, w, 0);
-    grad.addColorStop(0, '#3b82f6');
-    grad.addColorStop(1, '#8b5cf6');
+    grad.addColorStop(0, '#d97757');
+    grad.addColorStop(1, '#e7b75d');
     const fill = ctx.createLinearGradient(0, 0, 0, h);
-    fill.addColorStop(0, 'rgba(139,92,246,.35)');
-    fill.addColorStop(1, 'rgba(139,92,246,0)');
+    fill.addColorStop(0, 'rgba(217,119,87,.32)');
+    fill.addColorStop(1, 'rgba(217,119,87,0)');
 
     ctx.beginPath();
     pts.forEach(([x, y], i) => {
@@ -1150,7 +1152,7 @@ svg { display: block; }
     const [lx, ly] = pts[pts.length - 1];
     ctx.beginPath();
     ctx.arc(lx - 2, ly, 3, 0, Math.PI * 2);
-    ctx.fillStyle = '#8b5cf6';
+    ctx.fillStyle = '#e7b75d';
     ctx.fill();
   }
 
@@ -1299,7 +1301,7 @@ svg { display: block; }
     const allOn = ui.pickSet.size === BOTS.length;
     $('#picker').innerHTML =
       `<button class="pick all ${allOn ? 'on' : ''}" data-pick="all" aria-pressed="${allOn}">
-         <div class="avatar" style="--c:#6d7cff"><div class="face">${icon('bots')}</div><span class="check">${icon('check')}</span></div>Everyone
+         <div class="avatar" style="--c:#d97757"><div class="face">${icon('bots')}</div><span class="check">${icon('check')}</span></div>Everyone
        </button>` +
       BOTS.map(b => {
         const on = ui.pickSet.has(b.id);
@@ -1548,7 +1550,7 @@ svg { display: block; }
 
   function applyTheme() {
     document.documentElement.dataset.theme = state.settings.theme;
-    $('meta[name="theme-color"]').setAttribute('content', state.settings.theme === 'light' ? '#f4f6fb' : '#0a0e14');
+    $('meta[name="theme-color"]').setAttribute('content', state.settings.theme === 'light' ? '#faf9f5' : '#262624');
   }
 
   function render() {
