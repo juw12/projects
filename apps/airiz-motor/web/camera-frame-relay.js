@@ -31,9 +31,9 @@
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
 
-    function report(count) {
+    function report(count, list) {
       viewers = count;
-      if (typeof onViewers === 'function') onViewers(count);
+      if (typeof onViewers === 'function') onViewers(count, list || []);
       if (count > 0 && !timer) timer = setInterval(sendFrame, FRAME_INTERVAL_MS);
       if (count === 0 && timer) {
         clearInterval(timer);
@@ -74,7 +74,15 @@
         if (typeof event.data !== 'string') return;
         try {
           const message = JSON.parse(event.data);
-          if (message.type === 'viewers') report(message.count || 0);
+          if (message.type === 'viewers') {
+            // list: [{label, since}] with since converted to this PC's clock.
+            const offset = message.now ? Date.now() - message.now : 0;
+            const list = (message.list || []).map(item => ({
+              label: item.label || '',
+              since: item.since ? item.since + offset : Date.now(),
+            }));
+            report(message.count || 0, list);
+          }
         } catch (ignored) { /* not JSON */ }
       });
       socket.addEventListener('close', () => {
@@ -118,6 +126,12 @@
       return { close() {} };
     }
     socket.binaryType = 'arraybuffer';
+    socket.addEventListener('open', () => {
+      const label = typeof window.AirizDeviceLabel === 'function' ? window.AirizDeviceLabel() : '';
+      try {
+        socket.send(JSON.stringify({ type: 'hello', label }));
+      } catch (ignored) { /* closing */ }
+    });
     socket.addEventListener('message', event => {
       if (typeof event.data === 'string') {
         try {

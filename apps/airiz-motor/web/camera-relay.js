@@ -28,6 +28,7 @@
     stopShare: $('btn-relay-stop'),
     code: $('relay-share-code'),
     viewers: $('relay-viewers'),
+    viewerList: $('relay-viewer-list'),
     viewCode: $('relay-view-code'),
     watch: $('btn-relay-view'),
     stopWatch: $('btn-relay-view-stop'),
@@ -53,7 +54,50 @@
   }
 
   // ------------------------------------------------------------------ PC: share
-  const sharer = { peer: null, code: null, calls: new Set(), connections: new Set(), relay: null, relayViewers: 0 };
+  const sharer = {
+    peer: null, code: null, calls: new Set(), connections: new Set(), relay: null, relayViewers: 0,
+    relayList: [],          // [{label, since}] from the AIRIZ relay
+    labels: new Map(),      // WebRTC viewer peer id -> device label (sent by the viewer)
+    callSince: new Map(),   // WebRTC call -> time it started
+  };
+  const deviceLabel = () => (typeof window.AirizDeviceLabel === 'function' ? window.AirizDeviceLabel() : '');
+  const cleanLabel = value => String(value || '').replace(/[^A-Za-z0-9 ._()-]/g, '').slice(0, 40);
+
+  function ageText(since) {
+    const seconds = Math.max(0, Math.round((Date.now() - since) / 1000));
+    if (seconds < 60) return 'just now';
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) return minutes + ' min';
+    return Math.floor(minutes / 60) + ' h ' + (minutes % 60) + ' min';
+  }
+
+  // Who is watching: one line per viewer (device, path, time).
+  function renderViewerList() {
+    const list = els.viewerList;
+    if (!list) return;
+    const rows = [];
+    for (const call of sharer.calls) {
+      rows.push({
+        label: sharer.labels.get(call.peer) || 'Viewer',
+        path: 'direct video',
+        since: sharer.callSince.get(call) || Date.now(),
+      });
+    }
+    for (const item of sharer.relayList) {
+      rows.push({ label: cleanLabel(item.label) || 'Viewer', path: 'via AIRIZ relay', since: item.since || Date.now() });
+    }
+    list.replaceChildren(...rows.map(row => {
+      const entry = document.createElement('li');
+      const name = document.createElement('strong');
+      name.textContent = row.label;
+      entry.append(name, document.createTextNode(' \u00b7 ' + row.path + ' \u00b7 ' + ageText(row.since)));
+      return entry;
+    }));
+    list.hidden = rows.length === 0;
+  }
+  setInterval(() => {
+    if (sharer.code) renderViewerList();
+  }, 15000);
 
   function randomCode() {
     const value = new Uint32Array(1);
@@ -91,6 +135,7 @@
     els.viewers.textContent = sharer.code && els.code.textContent
       ? (count ? `${count} watching` : 'Waiting for viewers…')
       : '';
+    renderViewerList();
   }
 
   // Code is live: show it, the link, and start the HTTPS frame relay for phones whose
@@ -102,8 +147,9 @@
     els.nativeShare.hidden = typeof navigator.share !== 'function';
     els.stopShare.disabled = false;
     if (FrameRelay && !sharer.relay) {
-      sharer.relay = FrameRelay.startSender(code, api.getCameraStream, count => {
+      sharer.relay = FrameRelay.startSender(code, api.getCameraStream, (count, list) => {
         sharer.relayViewers = count;
+        sharer.relayList = list || [];
         updateViewerCount();
       });
     }
@@ -146,6 +192,12 @@
     });
     peer.on('connection', connection => {
       sharer.connections.add(connection);
+      connection.on('data', message => {
+        if (message && message.type === 'hello') {
+          sharer.labels.set(connection.peer, cleanLabel(message.label));
+          updateViewerCount();
+        }
+      });
       connection.on('open', () => {
         const current = api.getCameraStream();
         if (!current) {
@@ -154,11 +206,13 @@
         }
         const call = peer.call(connection.peer, current);
         sharer.calls.add(call);
+        sharer.callSince.set(call, Date.now());
         updateViewerCount();
         call.on('stream', () => {});
         setTimeout(() => limitSender(call), 1500);
         const drop = () => {
           sharer.calls.delete(call);
+          sharer.callSince.delete(call);
           updateViewerCount();
         };
         call.on('close', drop);
@@ -199,6 +253,9 @@
     sharer.peer = null;
     sharer.relay = null;
     sharer.relayViewers = 0;
+    sharer.relayList = [];
+    sharer.labels.clear();
+    sharer.callSince.clear();
     sharer.code = null;
     els.code.textContent = '';
     els.link.value = '';
@@ -315,6 +372,7 @@
     viewer.peer = peer;
     peer.on('open', () => {
       const connection = peer.connect(PEER_PREFIX + code, { reliable: true });
+      connection.on('open', () => connection.send({ type: 'hello', label: deviceLabel() }));
       connection.on('data', message => {
         if (message && message.type === 'error' && isCurrent()) setStatus(message.message);
       });

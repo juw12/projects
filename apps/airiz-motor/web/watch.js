@@ -151,6 +151,10 @@
     };
     currentPeer.on('open', () => {
       const connection = currentPeer.connect(PEER_PREFIX + code, { reliable: true });
+      connection.on('open', () => connection.send({
+        type: 'hello',
+        label: typeof window.AirizDeviceLabel === 'function' ? window.AirizDeviceLabel() : '',
+      }));
       connection.on('data', message => {
         if (message && message.type === 'error' && isCurrent()) status(message.message);
       });
