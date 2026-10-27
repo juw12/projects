@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="GlowLead mission control: plan, approve, delegate and review work across your Glow AI team.">
-<meta name="theme-color" content="#171b20">
-<title>GlowLead — Mission control</title>
+<meta name="theme-color" content="#262624">
+<title>GlowLead — your AI lead</title>
 <link rel="stylesheet" href="./lead.css">
 <link rel="icon" type="image/svg+xml" href="./icons/lead-icon.svg">
 <link rel="manifest" href="./manifest.webmanifest">
@@ -14,7 +14,7 @@
 <body>
 <a class="skip-link" href="#workspace">Skip to workspace</a>
 <header class="top">
-  <a class="logo" href="../" aria-label="Glow home"><span class="brand-mark" aria-hidden="true">✦</span><span>glow<span class="brand-divider"> / </span><b>Lead</b></span><small>MISSION CONTROL</small></a>
+  <a class="logo" href="../" aria-label="Glow home"><img class="brand-icon" src="./icons/lead-icon.svg" alt="" width="34" height="34"><span>GlowLead</span></a>
   <div class="top-right">
     <button class="btn small plan-btn" id="plans-btn" type="button" title="Glow plans" aria-label="Glow plans" aria-haspopup="dialog">✦<span class="plan-label" id="plans-label"> Plans</span></button>
     <span class="account-chip" id="account-chip">Guest · Glow Free</span>
@@ -58,12 +58,11 @@
     <div class="sidebar-foot"><span class="online-dot" aria-hidden="true"></span> Browser-first workspace<p>History stays in this browser. AI requests go to your chosen provider. Keep this tab open while work runs.</p><a href="../">← All Glow apps</a></div>
   </aside>
   <main id="workspace" tabindex="-1">
-    <div class="workspace-label"><span>YOUR AI TEAM, WITH YOU IN CONTROL</span><span class="version-pill">GlowLead / 0.16.0</span></div>
+    <div class="workspace-label"><span class="version-pill">GlowLead 0.17.0</span></div>
     <button class="btn small plan-btn plan-btn-inline" id="plans-btn-inline" type="button" aria-haspopup="dialog">✦ Plans &amp; Glow Pro</button>
     <section class="hero">
-      <p class="eyebrow">From a spark to something real</p>
-      <h1>Big idea.<br><span>Clear next steps.</span></h1>
-      <p class="lede">One brief. The right teammates. A plan you can edit, work you can follow, and a result you can question.</p>
+      <h1>Give one goal.<br><span>GlowLead gets it done.</span></h1>
+      <p class="lede">It plans the steps, hands them to GlowChat and the GlowRoom crew, checks the work and reports back. You approve the plan first.</p>
     </section>
     <section class="overview" aria-label="Mission overview">
       <div><span class="metric-label">In progress</span><strong id="stat-active">0</strong><small>Planning &amp; working</small></div>
@@ -71,10 +70,10 @@
       <div><span class="metric-label">Completed</span><strong id="stat-done">0</strong><small>Reports ready to review</small></div>
     </section>
     <section class="composer" aria-labelledby="brief-heading">
-      <div class="section-heading"><h2 id="brief-heading">What are we working on?</h2><span class="helper">Ctrl / ⌘ + Enter to start</span></div>
+      <div class="section-heading"><h2 id="brief-heading">What do you want done?</h2><span class="helper">Ctrl / ⌘ + Enter to start</span></div>
       <form class="start" id="lead-form" autocomplete="off">
         <label class="sr-only" for="lead-input">Mission brief</label>
-        <textarea id="lead-input" rows="3" maxlength="2000" placeholder="Describe the outcome, constraints and what a great result looks like…" aria-describedby="mission-hint"></textarea>
+        <textarea id="lead-input" rows="3" maxlength="2000" placeholder="e.g. Plan a 30-day launch for my small bakery, with a budget and first steps" aria-describedby="mission-hint"></textarea>
         <p class="skill-chip" id="skill-chip" hidden><span id="skill-chip-text"></span><button type="button" id="skill-chip-clear" aria-label="Stop using the saved plan">×</button></p>
         <div class="start-options">
           <label class="check"><input type="checkbox" id="lead-approve" checked> Review plan before work starts</label>

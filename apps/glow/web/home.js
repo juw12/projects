@@ -60,29 +60,39 @@
       const name = settings.accountName || "Glow user";
       chip.textContent = "✦ " + name;
       chip.classList.add("signed-in");
-      text.textContent = `Signed in as ${name}. GlowChat and GlowRoom both use this account and its Glow AI models.`;
-      action.textContent = "Manage in GlowChat";
+      text.textContent = `Signed in as ${name}. Every Glow app uses this account.`;
+      action.textContent = "Account";
     } else {
       chip.textContent = "👤 Guest";
       chip.classList.remove("signed-in");
-      text.textContent = "You're using Glow as a guest with Glow Free. Sign in once with a free Puter account, in GlowChat or GlowRoom, for stronger models; it works in every Glow app.";
-      action.textContent = "Sign in in GlowChat";
+      text.textContent = "You're using Glow as a guest. A free sign-in gives stronger models in every Glow app.";
+      action.textContent = "Sign in";
     }
     action.href = chatPage;
   }
 
-  // ---- quick start: hand the request to the right app ----
+  // ---- quick start: one Start button sends the request to the right app ----
   const ROOM_HINT = /\b(research|find|search|latest|news|compare|price|prices|sources?|code|script|calculate|compute|convert|csv|json|scrape|build|analy[sz]e|report|logo|svg|graphic)\b/i;
+  const APP_NAMES = { chat: "GlowChat", room: "the GlowRoom crew", lead: "GlowLead" };
+  const APP_REASONS = {
+    chat: "GlowChat will answer right away.",
+    room: "The GlowRoom crew will search the web or run code for this.",
+    lead: "GlowLead will plan this big goal step by step.",
+  };
+  function suggestedTarget() {
+    const text = $("start-input").value.trim();
+    if (!text) return "chat";
+    if (text.length > 260 || text.split("\n").filter((line) => line.trim()).length > 3) return "lead";
+    return ROOM_HINT.test(text) ? "room" : "chat";
+  }
   function suggest() {
     const text = $("start-input").value.trim();
-    const roomFirst = text.length > 0 && ROOM_HINT.test(text);
-    $("start-room").classList.toggle("suggested", roomFirst);
-    $("start-chat").classList.toggle("suggested", text.length > 0 && !roomFirst);
-    $("start-hint").textContent = !text
-      ? "Quick questions → GlowChat · research, code and multi-step jobs → GlowRoom"
-      : roomFirst
-        ? "Sounds like a job for the crew: GlowRoom can search the web and run code."
-        : "GlowChat can answer this right away.";
+    const target = suggestedTarget();
+    for (const name of ["chat", "room", "lead"]) {
+      $("start-" + name).classList.toggle("suggested", text.length > 0 && name === target);
+    }
+    $("start-hint").textContent = text ? APP_REASONS[target] : "Free, no sign-up needed.";
+    $("start-go").title = text ? "Open " + APP_NAMES[target] : "";
   }
   function launch(target) {
     const text = $("start-input").value.trim();
@@ -98,15 +108,27 @@
   $("start-input").addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
       event.preventDefault();
-      launch($("start-room").classList.contains("suggested") ? "room" : "chat");
+      launch(suggestedTarget());
     }
   });
   $("start-form").addEventListener("submit", (event) => {
     event.preventDefault();
-    launch("chat");
+    if (!$("start-input").value.trim()) {
+      $("start-input").focus();
+      return;
+    }
+    launch(suggestedTarget());
   });
-  $("start-room").addEventListener("click", () => launch("room"));
-  $("start-lead").addEventListener("click", () => launch("lead"));
+  for (const name of ["chat", "room", "lead"]) {
+    $("start-" + name).addEventListener("click", () => launch(name));
+  }
+  document.querySelectorAll("[data-example]").forEach((button) => {
+    button.addEventListener("click", () => {
+      $("start-input").value = button.dataset.example;
+      suggest();
+      $("start-input").focus();
+    });
+  });
 
   // ---- jump back in ----
   function timeAgo(timestamp) {
@@ -159,7 +181,7 @@
       const icon = conv.source === "crewroom" ? "🏢 " : (MODE_ICONS[conv.type] || "");
       chatList.appendChild(listItem(url.toString(), icon + (conv.title || "Untitled chat"), timeAgo(conv.updated)));
     }
-    if (!conversations.length) chatList.appendChild(emptyItem("No chats yet. Ask GlowChat anything above."));
+    if (!conversations.length) chatList.appendChild(emptyItem("No chats yet."));
 
     const missionList = $("recent-missions");
     missionList.replaceChildren();
@@ -167,7 +189,7 @@
       const status = run.status === "done" ? "✓ " : run.status === "running" ? "⏳ " : "";
       missionList.appendChild(listItem(new URL(roomPage, location.href).toString(), status + (run.goal.split("\n").find((line) => line.trim()) || "").replace(/\*\*/g, "").trim().slice(0, 90), timeAgo(run.createdAt)));
     }
-    if (!runs.length) missionList.appendChild(emptyItem("No missions yet. Give GlowRoom a goal above."));
+    if (!runs.length) missionList.appendChild(emptyItem("No crew missions yet."));
 
     $("recent").hidden = !conversations.length && !runs.length;
   }
@@ -204,5 +226,5 @@
     navigator.serviceWorker.register("./sw.js").catch(() => {});
   }
 
-  window.GlowHome = { renderRecent, renderAccount, suggest, launch };
+  window.GlowHome = { renderRecent, renderAccount, suggest, suggestedTarget, launch };
 })();
