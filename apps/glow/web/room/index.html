@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GlowRoom — 3D Office</title>
-  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+  <link rel="icon" type="image/svg+xml" href="icons/app-icon.svg">
   <link rel="apple-touch-icon" href="assets/icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#0a0e14">
+  <meta name="theme-color" content="#262624">
   <script>
     if (location.protocol === 'http:' || location.protocol === 'https:') {
       window.addEventListener('load', function () {
@@ -1369,12 +1369,13 @@
   </style>
   <link rel="stylesheet" href="enhance.css">
   <link rel="stylesheet" href="cinema.css">
+  <link rel="stylesheet" href="glow-family.css">
 </head>
 <body>
   <!-- Menu Bar -->
   <nav class="menubar">
     <div class="menubar-left">
-      <img src="assets/logo.svg" alt="GlowRoom" class="menubar-logo">
+      <img src="icons/app-icon.svg" alt="GlowRoom" class="menubar-logo">
       <span class="menubar-title" data-i18n="app.title">GlowRoom</span>
     </div>
     <div class="menubar-right">
@@ -1662,10 +1663,10 @@
             <div class="setting-row">
               <span class="setting-label" data-i18n="settings.theme">Theme</span>
               <div class="setting-control theme-picker" id="theme-picker">
-                <div class="theme-swatch active" data-theme="midnight" style="background: #0a0e14;" title="Midnight"></div>
-                <div class="theme-swatch" data-theme="dark" style="background: #0f141c;" title="Dark"></div>
-                <div class="theme-swatch" data-theme="slate" style="background: #1a1f2e;" title="Slate"></div>
-                <div class="theme-swatch" data-theme="light" style="background: #f8fafc;" title="Light"></div>
+                <div class="theme-swatch active" data-theme="midnight" style="background: #1f1e1d;" title="Glow (default)"></div>
+                <div class="theme-swatch" data-theme="dark" style="background: #262624;" title="Dark"></div>
+                <div class="theme-swatch" data-theme="slate" style="background: #2b2a27;" title="Slate"></div>
+                <div class="theme-swatch" data-theme="light" style="background: #faf9f5;" title="Light"></div>
               </div>
             </div>
             <div class="setting-row">
@@ -2630,8 +2631,8 @@
         fillColor: 0x404060,
         fillIntensity: 0.3,
         // 3D: Background & Fog
-        bgColor: 0x0a0e14,
-        fogColor: 0x0a0e14,
+        bgColor: 0x1f1e1d,
+        fogColor: 0x1f1e1d,
         fogNear: 15,
         fogFar: 30,
         // 2D: Canvas colors
@@ -4132,8 +4133,8 @@
       constructor(canvas) {
         this.canvas = canvas;
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x0a0e14);
-        this.scene.fog = new THREE.Fog(0x0a0e14, 15, 30);
+        this.scene.background = new THREE.Color(0x1f1e1d);
+        this.scene.fog = new THREE.Fog(0x1f1e1d, 15, 30);
 
         this.camera = new THREE.PerspectiveCamera(
           45,
@@ -5262,11 +5263,11 @@
 
         // Office ambient state
         if (state.officeState === 'calm') {
-          this.scene.background.setHex(0x0a0e14);
-          this.scene.fog.color.setHex(0x0a0e14);
+          this.scene.background.setHex(0x1f1e1d);
+          this.scene.fog.color.setHex(0x1f1e1d);
         } else if (state.officeState === 'celebrating') {
           // Subtle celebration glow
-          this.scene.background.setHex(0x0f141c);
+          this.scene.background.setHex(0x262624);
         }
 
         // Update and render confetti

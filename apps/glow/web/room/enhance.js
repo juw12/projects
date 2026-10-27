@@ -143,11 +143,11 @@
     const max = Math.max(3, ...counts);
     ctx.clearRect(0, 0, w, h);
     const grad = ctx.createLinearGradient(0, 0, w, 0);
-    grad.addColorStop(0, '#3b82f6');
-    grad.addColorStop(1, '#8b5cf6');
+    grad.addColorStop(0, '#d97757');
+    grad.addColorStop(1, '#e7b75d');
     const fill = ctx.createLinearGradient(0, 0, 0, h);
-    fill.addColorStop(0, 'rgba(139,92,246,.35)');
-    fill.addColorStop(1, 'rgba(139,92,246,0)');
+    fill.addColorStop(0, 'rgba(217,119,87,.32)');
+    fill.addColorStop(1, 'rgba(217,119,87,0)');
     ctx.beginPath();
     counts.forEach((c, i) => {
       const x = i / (buckets - 1) * w;

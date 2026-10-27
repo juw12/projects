@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'">
-<meta name="description" content="Glow: one home for your AI. GlowChat for conversations, councils and model arenas; GlowRoom for an AI crew that researches, codes and reports back. One free Glow account for every app.">
+<meta name="description" content="Glow: free AI that gets things done. Type what you need and Glow opens the right app: GlowChat to talk, GlowRoom for an AI crew that researches and codes, GlowLead to run a whole goal.">
 <meta name="theme-color" content="#262624">
-<title>Glow — one home for your AI</title>
+<title>Glow — free AI that gets things done</title>
 <link rel="stylesheet" href="./home.css">
 <link rel="icon" type="image/svg+xml" href="./icons/app-icon.svg">
 <link rel="manifest" href="./manifest.webmanifest">
@@ -24,69 +24,49 @@
 
 <main>
   <section class="hero">
-    <p class="eyebrow">✦ The Glow ecosystem</p>
-    <h1>One home for your AI.</h1>
-    <p class="lede">Ask, plan and get things done with free AI. Use <b>GlowChat</b> to talk things through, <b>GlowRoom</b> to give jobs to an AI crew, and <b>GlowLead</b> to lead whole goals across both. One Glow account works in every app.</p>
+    <h1>Get things done<br>with free AI.</h1>
+    <p class="lede">Type what you need. Glow picks the right helper for you.</p>
 
     <form class="start" id="start-form" autocomplete="off">
-      <label class="sr-only" for="start-input">What do you want to do?</label>
-      <textarea id="start-input" rows="2" maxlength="2000" placeholder="What do you want to do? e.g. “Plan a 3-day trip to Bali” or “Compare the best budget laptops”"></textarea>
-      <div class="start-actions">
-        <button type="submit" class="btn primary" id="start-chat" data-target="chat">💬 Ask GlowChat</button>
-        <button type="button" class="btn" id="start-room" data-target="room">🏢 Give it to GlowRoom</button>
-        <button type="button" class="btn" id="start-lead" data-target="lead">👑 Let GlowLead run it</button>
-        <span class="start-hint" id="start-hint">Quick questions → GlowChat · research and code → GlowRoom · big goals with several parts → GlowLead</span>
+      <label class="sr-only" for="start-input">What do you need?</label>
+      <textarea id="start-input" rows="2" maxlength="2000" placeholder="What do you need? e.g. Plan a 3-day trip to Bali"></textarea>
+      <div class="start-row">
+        <span class="start-hint" id="start-hint">Free, no sign-up needed.</span>
+        <button type="submit" class="btn primary go" id="start-go">Start <span aria-hidden="true">→</span></button>
       </div>
     </form>
+
+    <div class="examples" aria-label="Examples">
+      <button type="button" class="example" data-example="Plan a 3-day trip to Bali on a small budget">✈ Plan a trip</button>
+      <button type="button" class="example" data-example="Compare the best budget laptops under $600 with sources">🔎 Compare laptops</button>
+      <button type="button" class="example" data-example="Write a short, friendly follow-up email after a job interview">✉ Write an email</button>
+    </div>
+
+    <div class="send-to" role="group" aria-label="Or choose the app yourself">
+      <span>Or choose:</span>
+      <button type="button" class="pill" id="start-chat" data-target="chat">💬 Chat</button>
+      <button type="button" class="pill" id="start-room" data-target="room">🏢 AI crew</button>
+      <button type="button" class="pill" id="start-lead" data-target="lead">👑 Lead a goal</button>
+    </div>
   </section>
 
   <section class="apps" aria-label="Glow apps">
-    <article class="app-card lead">
-      <div class="app-icon" aria-hidden="true">👑</div>
-      <h2>GlowLead</h2>
-      <p>Your AI lead and the owner of GlowRoom. Give one goal: it plans the steps, hands each to GlowChat, a Council or the GlowRoom crew, checks the work against clear done-criteria and reports back.</p>
-      <ul>
-        <li>Plan → delegate → check → report</li>
-        <li>Approve the plan first, or let it run</li>
-        <li>Every lead becomes a chat in GlowChat</li>
-      </ul>
-      <div class="app-links">
-        <a class="btn primary" id="open-lead" href="./lead/">Open GlowLead</a>
-      </div>
-    </article>
-    <article class="app-card chat">
-      <div class="app-icon" aria-hidden="true">💬</div>
-      <h2>GlowChat</h2>
-      <p>Chat with free AI right away, or pick any model. Personas, tickable plans, a Council with a Judge and a side-by-side Arena.</p>
-      <ul>
-        <li>Searchable model picker with favourites</li>
-        <li>Planner, Tutor, Coder, Writer and more</li>
-        <li>Share chats by link, export to Markdown</li>
-      </ul>
-      <div class="app-links">
-        <a class="btn primary" id="open-chat" href="./chat/">Open GlowChat</a>
-        <a class="btn ghost" href="./chat/mobile.html">Mobile</a>
-        <a class="btn ghost" href="./chat/app.html">Install</a>
-      </div>
-    </article>
-    <article class="app-card room">
-      <div class="app-icon" aria-hidden="true">🏢</div>
-      <h2>GlowRoom</h2>
-      <p>Give a goal to an AI crew in a live 3D office. They search the web, run code and report back with sources.</p>
-      <ul>
-        <li>Nova plans, Scout researches, Byte codes</li>
-        <li>Every step visible, results with sources</li>
-        <li>Continue any result as a chat in GlowChat</li>
-      </ul>
-      <div class="app-links">
-        <a class="btn primary" id="open-room" href="./room/">Open GlowRoom</a>
-        <a class="btn ghost" href="./room/mobile.html">Mobile</a>
-        <a class="btn ghost" href="./room/app.html">Install</a>
-      </div>
-    </article>
+    <a class="app-tile chat" id="open-chat" href="./chat/">
+      <span class="app-icon" aria-hidden="true">💬</span>
+      <span class="app-text"><b>GlowChat</b><small>Ask questions, write and brainstorm.</small></span>
+      <span class="go-arrow" aria-hidden="true">→</span>
+    </a>
+    <a class="app-tile room" id="open-room" href="./room/">
+      <span class="app-icon" aria-hidden="true">🏢</span>
+      <span class="app-text"><b>GlowRoom</b><small>An AI crew searches the web and runs code.</small></span>
+      <span class="go-arrow" aria-hidden="true">→</span>
+    </a>
+    <a class="app-tile lead" id="open-lead" href="./lead/">
+      <span class="app-icon" aria-hidden="true">👑</span>
+      <span class="app-text"><b>GlowLead</b><small>Give one big goal; it plans and checks the work.</small></span>
+      <span class="go-arrow" aria-hidden="true">→</span>
+    </a>
   </section>
-
-  <p class="setup-link"><a href="./setup/">⚙ Install all Glow apps: one-click Windows setup, Android, iPhone, and how they connect →</a></p>
 
   <section class="recent" id="recent" hidden>
     <h2>Jump back in</h2>
@@ -103,19 +83,18 @@
   </section>
 
   <section class="account" aria-label="Your Glow account">
-    <div>
-      <h2>Your Glow account</h2>
-      <p id="account-text">You're using Glow as a guest. Sign in once with a free Puter account, in GlowChat or GlowRoom, for stronger models; it works in every Glow app.</p>
-    </div>
-    <a class="btn" id="account-action" href="./chat/">Sign in in GlowChat</a>
+    <p id="account-text">You're using Glow as a guest. A free sign-in gives stronger models in every Glow app.</p>
+    <a class="btn small" id="account-action" href="./chat/">Sign in</a>
   </section>
+
+  <p class="setup-link"><a href="./setup/">📥 Get the Glow apps for Windows, Android and iPhone</a></p>
 </main>
 
 <footer class="foot">
-  <span>✦ Glow · free · chats stay in your browser</span>
+  <span>✦ Glow · free · your chats stay in your browser</span>
   <button class="link" id="install-btn" type="button" hidden>Install Glow</button>
-  <a class="link" href="./setup/">⚙ Install every Glow app</a>
-  <a class="link" href="lead/#plans">✦ Plans &amp; Glow Pro</a>
+  <a class="link" href="./setup/">Install every Glow app</a>
+  <a class="link" href="lead/#plans">Plans &amp; Glow Pro</a>
   <a class="link" href="../">All projects</a>
 </footer>
 

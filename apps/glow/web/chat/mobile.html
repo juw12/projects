@@ -16,16 +16,21 @@
 <aside id="sidebar">
   <div class="brand"><button class="glow-apps-launcher" id="glow-apps-btn" type="button" data-glow-apps aria-label="Glow apps" title="Glow apps: Glow home, GlowChat and GlowRoom"></button>GlowChat<span>.</span></div>
   <button class="side-btn" id="new-chat-btn" type="button" title="New chat (Ctrl/⌘ K)">＋ New chat</button>
-  <button class="side-btn" id="new-council-btn" type="button">⚖ New council</button>
-  <button class="side-btn" id="new-arena-btn" type="button">⚔ New arena</button>
+  <div class="side-row">
+    <button class="side-btn" id="new-council-btn" type="button" title="Several AI agents debate your question, then a Judge decides">⚖ Council</button>
+    <button class="side-btn" id="new-arena-btn" type="button" title="Compare models side by side">⚔ Arena</button>
+  </div>
   <input type="search" id="search" placeholder="Search chats…" aria-label="Search chats">
   <div id="history"></div>
   <div class="account-box" id="account-box">
     <span class="account-label" id="account-label">👤 Guest</span>
     <button class="link-btn" id="account-btn" type="button">Sign in</button>
   </div>
-  <a class="side-btn crewroom-link" id="crewroom-link" href="../room/mobile.html" target="glowroom" rel="noopener" title="GlowRoom: an AI crew that searches the web, runs code and reports back, part of Glow. Anything typed in the message box becomes their mission.">🏢 GlowRoom: hand it to the crew</a>
-  <a class="side-btn crewroom-link glowlead-link" id="glowlead-link" href="../lead/" target="glowlead" rel="noopener" title="GlowLead: the Glow AI lead plans your goal, hands steps to GlowChat and the GlowRoom crew, checks the work and reports back. Anything typed in the message box becomes its goal.">👑 GlowLead: let it lead the job</a>
+  <div class="side-label">Hand it to</div>
+  <div class="side-row">
+    <a class="side-btn crewroom-link" id="crewroom-link" href="../room/mobile.html" target="glowroom" rel="noopener" title="GlowRoom: an AI crew that searches the web, runs code and reports back, part of Glow. Anything typed in the message box becomes their mission.">🏢 GlowRoom</a>
+    <a class="side-btn crewroom-link glowlead-link" id="glowlead-link" href="../lead/" target="glowlead" rel="noopener" title="GlowLead: the Glow AI lead plans your goal, hands steps to GlowChat and the GlowRoom crew, checks the work and reports back. Anything typed in the message box becomes its goal.">👑 GlowLead</a>
+  </div>
   <button class="side-btn" id="settings-btn" type="button">⚙ Settings &amp; models</button>
   <div class="side-foot">
     <button class="link-btn" id="theme-btn" type="button">☀ Light</button>

@@ -1,0 +1,120 @@
+/* GlowRoom in the Glow family look: the same warm palette, accent and type as Glow home,
+   GlowChat and GlowLead. Loaded last, so it only re-colours; layout and features are unchanged. */
+:root {
+  --bg-primary: #1f1e1d;
+  --bg-secondary: #262624;
+  --bg-tertiary: #30302e;
+  --bg-panel: #2a2927;
+  --text-primary: #ece9e1;
+  --text-secondary: #a39f94;
+  --text-muted: #7f7b72;
+  --accent-blue: #d97757;
+  --glow-blue: rgba(217, 119, 87, .3);
+  --border-color: #3e3e3a;
+  --shadow-color: rgba(0, 0, 0, .35);
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-heading: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --window-color: rgba(231, 183, 93, .08);
+
+  --glow-accent: #d97757;
+  --glow-gold: #e7b75d;
+  --glow-grad: linear-gradient(135deg, #d97757 0%, #e7b75d 100%);
+
+  --cn-glass: rgba(31, 30, 29, .78);
+  --cn-glass-strong: rgba(38, 38, 36, .92);
+  --cn-line: rgba(236, 233, 225, .12);
+  --cn-text: #ece9e1;
+  --cn-muted: #a39f94;
+  --cn-accent: #e08a6c;
+  --cn-grad: var(--glow-grad);
+
+  --cr-accent-grad: var(--glow-grad);
+  --cr-glass: rgba(31, 30, 29, .78);
+  --cr-line: rgba(236, 233, 225, .12);
+  --cr-text: #ece9e1;
+  --cr-muted: #a39f94;
+}
+[data-theme="dark"] {
+  --bg-primary: #262624;
+  --bg-secondary: #2c2b29;
+  --bg-tertiary: #363532;
+  --bg-panel: #30302e;
+  --border-color: #46453f;
+}
+[data-theme="slate"] {
+  --bg-primary: #2b2a27;
+  --bg-secondary: #33322f;
+  --bg-tertiary: #3d3c38;
+  --bg-panel: #383733;
+  --border-color: #4e4d47;
+  --text-primary: #f2efe8;
+  --text-secondary: #b3afa4;
+  --text-muted: #8a867c;
+}
+[data-theme="light"] {
+  --bg-primary: #faf9f5;
+  --bg-secondary: #f0eee6;
+  --bg-tertiary: #e8e5db;
+  --bg-panel: #ffffff;
+  --text-primary: #1f1e1d;
+  --text-secondary: #6b675d;
+  --text-muted: #8f8a7e;
+  --accent-blue: #c15f3c;
+  --border-color: #dcd8cc;
+  --shadow-color: rgba(31, 30, 29, .12);
+  --glow-accent: #c15f3c;
+  --glow-grad: linear-gradient(135deg, #c15f3c 0%, #c8901f 100%);
+
+  --cn-glass: rgba(250, 249, 245, .8);
+  --cn-glass-strong: rgba(255, 255, 255, .94);
+  --cn-line: rgba(31, 30, 29, .12);
+  --cn-text: #1f1e1d;
+  --cn-muted: #6b675d;
+  --cn-accent: #c15f3c;
+  --cr-glass: rgba(250, 249, 245, .85);
+  --cr-line: rgba(31, 30, 29, .12);
+  --cr-text: #1f1e1d;
+  --cr-muted: #6b675d;
+}
+
+/* Top bars: the same calm panel as the other Glow apps. */
+.menubar { background: var(--bg-secondary) !important; border-bottom: 1px solid var(--border-color) !important; }
+.menubar-logo { border-radius: 7px; }
+.menubar-title { font-weight: 700; letter-spacing: -.01em; }
+.header { background: var(--bg-primary) !important; border-bottom: 1px solid var(--border-color) !important; }
+.cr-kpi span { color: var(--text-secondary); }
+.cr-load { background: color-mix(in srgb, var(--text-secondary) 20%, transparent); }
+.cr-kbd-btn, .header button, .header a.cn-owner { border-radius: 10px; }
+.cr-kbd-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.cr-kbd-btn kbd, .cr-palette kbd { background: var(--bg-tertiary); border-color: var(--border-color); }
+.cn-owner { color: var(--glow-gold) !important; border-color: color-mix(in srgb, var(--glow-gold) 55%, transparent) !important; }
+[data-theme="light"] .cn-owner { color: #8a6410 !important; }
+
+/* The office: a warm vignette instead of the blue night tint. */
+.viewport::after {
+  background:
+    radial-gradient(120% 90% at 50% 40%, transparent 58%, rgba(20, 18, 16, .5) 100%),
+    linear-gradient(180deg, rgba(20, 18, 16, .2), transparent 18%, transparent 78%, rgba(20, 18, 16, .4));
+}
+[data-theme="light"] .viewport::after { background: radial-gradient(120% 90% at 50% 40%, transparent 62%, rgba(31, 30, 29, .14) 100%); }
+
+/* Command bar, mission strip and welcome card: Glow accent, no neon glow. */
+.cn-command { border-radius: 20px; box-shadow: var(--cn-shadow); }
+.cn-command.focus { border-color: color-mix(in srgb, var(--glow-accent) 60%, transparent); }
+.cn-command.focus::before { opacity: 0; }
+.cn-command.busy::before { opacity: .7; }
+.cn-send { background: var(--glow-accent); box-shadow: 0 10px 22px -12px var(--glow-accent); border-radius: 14px; }
+.cn-input { font-family: var(--font-sans); }
+.cn-mbtn.on { background: color-mix(in srgb, var(--glow-accent) 18%, transparent); }
+.cn-mbtn.primary { background: var(--glow-accent); }
+.cn-idea:hover { border-color: var(--glow-accent); }
+.cn-welcome { background: radial-gradient(60% 60% at 50% 45%, rgba(31, 30, 29, .5), rgba(20, 18, 16, .8)); }
+[data-theme="light"] .cn-welcome { background: radial-gradient(60% 60% at 50% 45%, rgba(250, 249, 245, .4), rgba(240, 238, 230, .75)); }
+.cn-wcard { border-radius: 22px; }
+.cn-wcard h2 { font-family: var(--font-heading); font-weight: 750; letter-spacing: -.035em; }
+.cn-wcard h2 span { background: none; -webkit-background-clip: initial; background-clip: initial; color: var(--glow-accent); }
+.cn-face, .cn-mission-btn { background: color-mix(in srgb, var(--cn-text) 5%, transparent); }
+.cn-mission-btn:hover { border-color: var(--glow-accent); background: color-mix(in srgb, var(--glow-accent) 10%, transparent); }
+.cn-wfoot button { color: var(--glow-accent); }
+.cn-meta button { color: var(--glow-accent); }
+.cn-glow-dot { background: var(--glow-grad); }
