@@ -63,6 +63,22 @@ class GlowSetupTests(unittest.TestCase):
             self.assertIn(asset, page)
             self.assertTrue((WEB / "setup" / asset).resolve().is_file(), asset)
 
+    def test_windows_setup_exe(self):
+        # The double-click installer: a small WinForms app that runs the latest install-glow.ps1.
+        source = (APP / "windows" / "GlowSetup.cs").read_text(encoding="utf-8")
+        for needle in (INSTALLER_URL, "GlowSetup.install-glow.ps1", "/uninstall", "/test", "RegisterUninstall",
+                       "GLOW_UNINSTALL", "GLOW_SKIP_HANDS", "GLOW_NO_DESKTOP", "GLOW_NO_BROWSER"):
+            self.assertIn(needle, source)
+        build = (APP / "windows" / "build.ps1").read_text(encoding="utf-8")
+        self.assertIn("csc.exe", build)
+        self.assertIn("/resource:$script,GlowSetup.install-glow.ps1", build)
+        workflow = (APP.parents[1] / ".github" / "workflows" / "glow-windows.yml").read_text(encoding="utf-8")
+        for needle in ("windows-latest", "apps/glow/windows/build.ps1", "'/test'", "glow-windows", "--clobber"):
+            self.assertIn(needle, workflow)
+        page = (WEB / "setup" / "index.html").read_text(encoding="utf-8")
+        self.assertIn('href="https://github.com/juw12/projects/releases/download/glow-windows/Glow-Setup.exe"', page)
+        self.assertIn("Run anyway", page)
+
     def test_home_links_to_setup(self):
         home = (WEB / "index.html").read_text(encoding="utf-8")
         self.assertIn('href="./setup/"', home)
