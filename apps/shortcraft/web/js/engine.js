@@ -140,7 +140,7 @@
   function buildTimeline(project, voiceDurations) {
     var lang = project.lang || "en";
     var rate = WORDS_PER_SEC[lang] || 2.5;
-    var maxChars = project.template === "editorial" ? 24 : (project.template === "pop" ? 18 : 20);
+    var maxChars = project.template === "editorial" ? 24 : (project.template === "pop" || project.template === "clean" ? 18 : 20);
     var cursor = 0;
     var stepCount = 0;
     var scenes = project.scenes.map(function (scene, i) {
