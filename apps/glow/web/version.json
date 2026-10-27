@@ -1,9 +1,11 @@
 {
-  "version": "1.18.0",
+  "version": "1.19.0",
   "released": "2026-10-27",
   "notes": [
-    "GlowRoom now opens inside GlowChat and GlowLead, no new browser window",
-    "See your Glow version and update from inside the app"
+    "Model menu sorted by what you want to do (Best, Quick, Code, Research, Writing, Images) and ranked best first",
+    "Make your own persona: a 60-second quiz based on the Orbis AI Type",
+    "See your token usage and Glow AI allowance above the message box",
+    "Temporary chats, auto-delete, and clear labels for temporary Puter accounts"
   ],
   "android": "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk",
   "windows": "https://github.com/juw12/projects/releases/download/glow-windows/Glow-Setup.exe"
