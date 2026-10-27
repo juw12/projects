@@ -113,7 +113,7 @@
 
   function YouTubePlayer(container) {
     this.kind = 'youtube';
-    this.caps = { rate: false, softThreshold: 0.35, hardThreshold: 0.35, cooldown: 1.5, volume: true, seekLead: 0.15 };
+    this.caps = { rate: false, softThreshold: 0.2, hardThreshold: 0.2, cooldown: 1.5, volume: true, seekLead: 0.35, adaptiveLead: true };
     this.host = document.createElement('div');
     this.host.className = 'yt-host';
     var inner = document.createElement('div');
@@ -153,7 +153,27 @@
       });
     });
   };
-  YouTubePlayer.prototype.play = function () { this.player.playVideo(); };
+  YouTubePlayer.prototype.play = function () {
+    this.playRequested = performance.now();
+    this.player.playVideo();
+  };
+  // True while YouTube is still getting a requested play going (unstarted / buffering / cued).
+  // Seeking again in this window restarts its buffering, so the sync loop waits instead.
+  YouTubePlayer.prototype.starting = function () {
+    var state = this.player.getPlayerState();
+    var waiting = state === -1 || state === 3 || state === 5;
+    var now = performance.now();
+    if (!waiting || now - (this.playRequested || 0) >= 5000) {
+      return false;
+    }
+    // A play issued right after a seek is sometimes ignored while the video is still "unstarted":
+    // press play again (never seek again; that would restart buffering).
+    if (state !== 3 && now - (this.lastNudge || 0) > 700) {
+      this.lastNudge = now;
+      this.player.playVideo();
+    }
+    return true;
+  };
   YouTubePlayer.prototype.pause = function () { this.player.pauseVideo(); };
   YouTubePlayer.prototype.seek = function (t) { this.player.seekTo(Math.max(0, t), true); };
   YouTubePlayer.prototype.time = function () { return this.player.getCurrentTime() || 0; };
@@ -294,7 +314,7 @@
       document.addEventListener('musickitloaded', function () {
         Promise.resolve(window.MusicKit.configure({
           developerToken: config.appleDeveloperToken,
-          app: { name: 'Sync', build: '1.4.1' },
+          app: { name: 'Sync', build: '1.5.0' },
         })).then(function () {
           resolve(window.MusicKit.getInstance());
         }, reject);

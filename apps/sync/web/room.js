@@ -57,6 +57,7 @@
   function Room(options) {
     this.code = options.code;
     this.name = options.name || 'Guest';
+    this.supporter = !!options.supporter; // shows a ♥ next to your name for everyone in the room
     this.wantsHost = !!options.create;
     this.listeners = {};
     this.state = null;
@@ -120,10 +121,11 @@
       self.offset = 0;
       self.migrating = false;
       if (previousState) {
-        var me = { id: id, name: self.name, joinedAt: Date.now(), voice: false };
+        var me = { id: id, name: self.name, joinedAt: Date.now(), voice: false, supporter: self.supporter };
         self.state = core.rebaseState(previousState, id, self.lastOffset || 0, [me]);
       } else {
         self.state = core.initialState(id, self.name, Date.now());
+        self.state.members[0].supporter = self.supporter;
       }
       self.emit('status', { level: 'good', text: 'Hosting' });
       self.emit('ready', { host: true, code: self.code });
@@ -248,7 +250,7 @@
     }
     switch (msg.t) {
       case 'hello': {
-        var joined = this.apply({ type: 'join', member: { id: conn.peer, name: msg.name } }, conn.peer);
+        var joined = this.apply({ type: 'join', member: { id: conn.peer, name: msg.name, supporter: !!msg.supporter } }, conn.peer);
         if (joined.error) {
           this.send(conn, { t: 'error', message: joined.error });
           setTimeout(function () { conn.close(); }, 500);
@@ -294,6 +296,17 @@
       this.emit('state', this.state);
     }
     return result;
+  };
+
+  // Show/hide your ♥ supporter badge for everyone right away (re-sends your profile).
+  Room.prototype.setSupporter = function (supporter) {
+    this.supporter = !!supporter;
+    var member = { id: this.myId(), name: this.name, supporter: this.supporter };
+    if (this.isHost && this.state) {
+      this.apply({ type: 'join', member: member }, member.id);
+    } else if (this.hostConn) {
+      this.send(this.hostConn, { t: 'hello', name: this.name, supporter: this.supporter });
+    }
   };
 
   Room.prototype.broadcast = function (message) {
@@ -378,7 +391,7 @@
       self.everConnected = true;
       self.migrating = false;
       self.lastHeard = performance.now();
-      self.send(conn, { t: 'hello', name: self.name });
+      self.send(conn, { t: 'hello', name: self.name, supporter: self.supporter });
       self.emit('status', { level: 'good', text: 'Connected' });
       self.syncClock();
       self.openFilesChannel();
