@@ -1,7 +1,7 @@
 /* Cache only this release's public app shell. Never cache API or user-data requests. */
 'use strict';
 
-const RELEASE = '4.2.1';
+const RELEASE = '4.2.2';
 const BASE = new URL(self.registration.scope);
 const PREFIX = `guangyao-shell-${encodeURIComponent(BASE.pathname)}-`;
 const CACHE_NAME = `${PREFIX}${RELEASE}`;
