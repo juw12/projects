@@ -332,7 +332,7 @@ def render(project_path, out_path, port_http=None, port_cdp=None):
         ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
         audio_inputs = ["-i", str(raw)]
         audio_filter = "loudnorm=I=-14:TP=-1.5:LRA=11"
-        if project.get("sfx", True) and project.get("template") == "pop":
+        if project.get("sfx", True) and project.get("template") in ("pop", "clean"):
             sys.path.insert(0, str(Path(__file__).resolve().parent))
             import sfx
 

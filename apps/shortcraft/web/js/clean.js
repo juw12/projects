@@ -1,0 +1,990 @@
+/* Shortcraft template "clean" — calm, minimal, poll-first layouts for A/B shorts.
+ *
+ * Same scene data as "pop" (hook, price, bars, chat, math, stamp, poll), drawn with:
+ *   - a flat navy canvas, faint drifting dot grid, one soft glow (no colour blobs)
+ *   - story-style segmented progress (one segment per scene)
+ *   - one typeface (Plus Jakarta Sans, bundled in web/fonts) and a single card style
+ *   - A/B colour language: option A = mint, option B = coral, numbers = yellow
+ *   - an optional talking-avatar bubble (project.avatar = {src, hookBig}) that is large
+ *     during the hook and docks top-right afterwards, with a "speaking" ring
+ * Safe zones (1080x1920): platform UI covers y < 140, the right rail below y ~1000 and
+ * the bottom ~320 px, so content lives in y 300-1380, captions at 1450, source at 1532.
+ */
+(function () {
+  "use strict";
+
+  var W = 1080;
+  var H = 1920;
+  var FONT = "'Jakarta', 'Avenir Next', 'Helvetica Neue', Arial, sans-serif";
+  var EMOJI = "'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif";
+
+  var C = {
+    bg: "#071B26",
+    glow: "15,59,58",
+    surface: "#0D2733",
+    surface2: "#143645",
+    line: "rgba(255,255,255,0.08)",
+    ink: "#F4F7F8",
+    soft: "rgba(244,247,248,0.70)",
+    mute: "rgba(244,247,248,0.45)",
+    yellow: "#FFD447",
+    a: "#4DE1C1",
+    b: "#FF6B6B",
+    dark: "#071B26"
+  };
+  var DEFAULT_C = Object.assign({}, C);
+  var PALETTE_MAP = { bg1: "bg", yellow: "yellow", green: "a", cyan: "a", pink: "b" };
+
+  var CONTENT_TOP = 390;
+  var CONTENT_TOP_DOCKED = 540;   // when the avatar bubble is docked top-right
+  var CONTENT_BOTTOM = 1380;
+  var CAPTION_Y = 1450;
+  var SOURCE_Y = 1532;
+  var DOCK = { x: 935, y: 345, r: 105 };
+  var HOOK_FACE = { x: W / 2, y: 520, r: 200 };
+
+  if (document.fonts && document.fonts.load) {
+    document.fonts.load("800 80px Jakarta");
+    document.fonts.load("600 40px Jakarta");
+  }
+
+  // ---------------------------------------------------------------- helpers
+  function applyPalette(palette) {
+    Object.keys(DEFAULT_C).forEach(function (key) {
+      C[key] = DEFAULT_C[key];
+    });
+    if (!palette) {
+      return;
+    }
+    Object.keys(PALETTE_MAP).forEach(function (key) {
+      if (typeof palette[key] === "string") {
+        C[PALETTE_MAP[key]] = palette[key];
+      }
+    });
+  }
+
+  function clamp(x, a, b) {
+    return Math.max(a, Math.min(b, x));
+  }
+
+  function easeOut(x) {
+    x = clamp(x, 0, 1);
+    return 1 - Math.pow(1 - x, 3);
+  }
+
+  function easeInOut(x) {
+    x = clamp(x, 0, 1);
+    return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+  }
+
+  function backOut(x) {
+    x = clamp(x, 0, 1);
+    var c1 = 1.2;
+    var c3 = c1 + 1;
+    return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+  }
+
+  function progress(local, start, dur) {
+    return clamp((local - start) / dur, 0, 1);
+  }
+
+  function formatRp(n) {
+    return "Rp" + Math.round(n).toLocaleString("id-ID");
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function setFont(ctx, weight, size) {
+    ctx.font = weight + " " + Math.round(size) + "px " + FONT;
+  }
+
+  function wrap(ctx, text, maxWidth) {
+    var lines = [];
+    String(text || "").split("\n").forEach(function (para) {
+      var line = "";
+      para.split(/\s+/).filter(Boolean).forEach(function (word) {
+        var test = line ? line + " " + word : word;
+        if (ctx.measureText(test).width > maxWidth && line) {
+          lines.push(line);
+          line = word;
+        } else {
+          line = test;
+        }
+      });
+      lines.push(line);
+    });
+    return lines;
+  }
+
+  function fitWrapped(ctx, text, weight, maxSize, maxWidth, maxLines, minSize) {
+    var size = maxSize;
+    var lines;
+    while (size > (minSize || 36)) {
+      setFont(ctx, weight, size);
+      lines = wrap(ctx, text, maxWidth);
+      var widest = Math.max.apply(null, lines.map(function (l) { return ctx.measureText(l).width; }));
+      if (lines.length <= maxLines && widest <= maxWidth) {
+        return { size: size, lines: lines };
+      }
+      size -= 4;
+    }
+    setFont(ctx, weight, size);
+    return { size: size, lines: wrap(ctx, text, maxWidth) };
+  }
+
+  function card(ctx, x, y, w, h, opts) {
+    opts = opts || {};
+    ctx.fillStyle = opts.fill || C.surface;
+    roundRect(ctx, x, y, w, h, opts.radius || 40);
+    ctx.fill();
+    ctx.strokeStyle = opts.stroke || C.line;
+    ctx.lineWidth = opts.lineWidth || 2;
+    ctx.stroke();
+  }
+
+  function pill(ctx, text, cx, cy, opts) {
+    opts = opts || {};
+    var size = opts.size || 34;
+    setFont(ctx, opts.weight || 800, size);
+    var w = ctx.measureText(text).width + size * 1.3;
+    var h = size * 1.9;
+    ctx.fillStyle = opts.fill || C.yellow;
+    roundRect(ctx, cx - w / 2, cy - h / 2, w, h, h / 2);
+    ctx.fill();
+    if (opts.stroke) {
+      ctx.strokeStyle = opts.stroke;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+    ctx.fillStyle = opts.color || C.dark;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, cx, cy + size * 0.06);
+    return w;
+  }
+
+  function iconTile(ctx, icon, cx, cy, size, local, delay) {
+    if (!icon) {
+      return;
+    }
+    var p = backOut(progress(local, delay || 0.1, 0.45));
+    if (p <= 0) {
+      return;
+    }
+    ctx.save();
+    ctx.translate(cx, cy + Math.sin(local * 1.8) * 6);
+    ctx.scale(p, p);
+    card(ctx, -size / 2, -size / 2, size, size, { fill: C.surface2, radius: size * 0.3 });
+    ctx.font = Math.round(size * 0.56) + "px " + EMOJI;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(icon, 0, size * 0.04);
+    ctx.restore();
+  }
+
+  /** Centered headline. Words before "atau" tint mint (A), after it coral (B) when abTint. */
+  function headline(ctx, text, y, local, opts) {
+    opts = opts || {};
+    var maxW = opts.maxWidth || W - 160;
+    var fit = fitWrapped(ctx, text, 800, opts.size || 92, maxW, opts.maxLines || 3, 44);
+    var lineH = fit.size * 1.16;
+    var words = String(text || "").split(/\s+/).filter(Boolean);
+    var splitAt = -1;
+    if (opts.abTint) {
+      words.forEach(function (word, i) {
+        if (splitAt < 0 && /^atau$/i.test(word)) {
+          splitAt = i;
+        }
+      });
+    }
+    var wordIndex = 0;
+    ctx.textBaseline = "middle";
+    fit.lines.forEach(function (line, li) {
+      var p = easeOut(progress(local, 0.04 + li * 0.08, 0.4));
+      ctx.save();
+      ctx.globalAlpha *= p;
+      ctx.translate(0, (1 - p) * 26);
+      setFont(ctx, 800, fit.size);
+      var lineWords = line.split(" ");
+      var space = ctx.measureText(" ").width;
+      var widths = lineWords.map(function (w) { return ctx.measureText(w).width; });
+      var total = widths.reduce(function (a, b) { return a + b; }, 0) + space * (lineWords.length - 1);
+      var x = W / 2 - total / 2;
+      ctx.textAlign = "left";
+      lineWords.forEach(function (word, i) {
+        var color = opts.color || C.ink;
+        if (splitAt >= 0) {
+          if (wordIndex < splitAt) {
+            color = C.a;
+          } else if (wordIndex === splitAt) {
+            color = C.soft;
+          } else {
+            color = C.b;
+          }
+        }
+        ctx.fillStyle = color;
+        ctx.fillText(word, x, y + li * lineH);
+        x += widths[i] + space;
+        wordIndex += 1;
+      });
+      ctx.restore();
+    });
+    return y + fit.lines.length * lineH;
+  }
+
+  function subline(ctx, text, y, local, delay) {
+    if (!text) {
+      return y;
+    }
+    var p = easeOut(progress(local, delay || 0.35, 0.4));
+    ctx.save();
+    ctx.globalAlpha *= p;
+    var fit = fitWrapped(ctx, text, 600, 42, W - 200, 2, 30);
+    ctx.fillStyle = C.soft;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    fit.lines.forEach(function (line, i) {
+      ctx.fillText(line, W / 2, y + i * fit.size * 1.3 + (1 - p) * 16);
+    });
+    ctx.restore();
+    return y + fit.lines.length * fit.size * 1.3;
+  }
+
+  function countValue(scene, local, delay, dur) {
+    return (scene.value || 0) * easeOut(progress(local, delay, dur));
+  }
+
+  // ---------------------------------------------------------------- shared layers
+  var gridCache = null;
+
+  function dotGrid() {
+    if (gridCache) {
+      return gridCache;
+    }
+    gridCache = document.createElement("canvas");
+    gridCache.width = W;
+    gridCache.height = H + 60;
+    var g = gridCache.getContext("2d");
+    g.fillStyle = "rgba(255,255,255,0.045)";
+    for (var y = 30; y < H + 60; y += 60) {
+      for (var x = 30; x < W; x += 60) {
+        g.beginPath();
+        g.arc(x, y, 2, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+    return gridCache;
+  }
+
+  function background(ctx, t) {
+    ctx.fillStyle = C.bg;
+    ctx.fillRect(0, 0, W, H);
+    var gx = W * 0.5 + Math.sin(t * 0.15) * 120;
+    var glow = ctx.createRadialGradient(gx, 260, 20, gx, 260, 1100);
+    glow.addColorStop(0, "rgba(" + C.glow + ",0.75)");
+    glow.addColorStop(1, "rgba(" + C.glow + ",0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, W, H);
+    ctx.drawImage(dotGrid(), 0, -((t * 8) % 60));
+  }
+
+  function segments(ctx, timeline, t) {
+    var x0 = 48;
+    var gap = 8;
+    var usable = W - 96 - gap * (timeline.scenes.length - 1);
+    var x = x0;
+    timeline.scenes.forEach(function (item) {
+      var w = usable * (item.dur / timeline.total);
+      var fill = clamp((t - item.start) / item.dur, 0, 1);
+      ctx.fillStyle = "rgba(255,255,255,0.16)";
+      roundRect(ctx, x, 150, w, 6, 3);
+      ctx.fill();
+      if (fill > 0) {
+        ctx.fillStyle = C.ink;
+        roundRect(ctx, x, 150, Math.max(6, w * fill), 6, 3);
+        ctx.fill();
+      }
+      x += w + gap;
+    });
+  }
+
+  function header(ctx, project, docked) {
+    var brand = (project.kicker || "").toUpperCase();
+    if (!brand) {
+      return;
+    }
+    var episode = project.episode ? project.episode.replace(/^eps?\s*/i, "#") : "";
+    setFont(ctx, 800, 28);
+    var brandW = ctx.measureText(brand).width;
+    setFont(ctx, 600, 28);
+    var epW = episode ? ctx.measureText("  ·  " + episode).width : 0;
+    var w = brandW + epW + 76;
+    ctx.fillStyle = "rgba(13,39,51,0.85)";
+    roundRect(ctx, 48, 186, w, 60, 30);
+    ctx.fill();
+    ctx.strokeStyle = C.line;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = C.yellow;
+    ctx.beginPath();
+    ctx.arc(78, 216, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    setFont(ctx, 800, 28);
+    ctx.fillStyle = C.ink;
+    ctx.fillText(brand, 98, 218);
+    if (episode) {
+      setFont(ctx, 600, 28);
+      ctx.fillStyle = C.mute;
+      ctx.fillText("  ·  " + episode, 98 + brandW, 218);
+    }
+    if (!docked) {
+      // A | B toggle chip — the channel's question, always on screen
+      var cx = W - 48 - 70;
+      ctx.fillStyle = "rgba(13,39,51,0.85)";
+      roundRect(ctx, cx - 70, 186, 140, 60, 30);
+      ctx.fill();
+      ctx.strokeStyle = C.line;
+      ctx.stroke();
+      setFont(ctx, 800, 28);
+      ctx.textAlign = "center";
+      ctx.fillStyle = C.a;
+      ctx.fillText("A", cx - 32, 218);
+      ctx.fillStyle = C.mute;
+      ctx.fillText("|", cx, 216);
+      ctx.fillStyle = C.b;
+      ctx.fillText("B", cx + 32, 218);
+    }
+  }
+
+  function captionState(item, t) {
+    var progressVo = (t - item.voStart) / item.voDur;
+    if (progressVo < 0 || progressVo > 1.08 || !item.chunks.length) {
+      return null;
+    }
+    var index = 0;
+    for (var i = 0; i < item.chunks.length; i++) {
+      if (progressVo >= item.chunks[i].start) {
+        index = i;
+      }
+    }
+    var start = item.chunks[index].start;
+    var end = index + 1 < item.chunks.length ? item.chunks[index + 1].start : 1;
+    var within = clamp((progressVo - start) / Math.max(0.0001, end - start), 0, 0.999);
+    return { text: item.chunks[index].text, within: within, sinceStart: (progressVo - start) * item.voDur };
+  }
+
+  function captions(ctx, project, item, t) {
+    if (project.captions === false) {
+      return;
+    }
+    var state = captionState(item, t);
+    if (!state) {
+      return;
+    }
+    var words = state.text.split(/\s+/).filter(Boolean);
+    var active = Math.floor(state.within * words.length);
+    var size = 66;
+    var spacing = 18;
+    var widths;
+    var total;
+    do {
+      setFont(ctx, 800, size);
+      widths = words.map(function (w) { return ctx.measureText(w).width; });
+      total = widths.reduce(function (a, b) { return a + b; }, 0) + spacing * (words.length - 1);
+      size -= 4;
+    } while (total > W - 160 && size > 40);
+    size += 4;
+    var p = easeOut(state.sinceStart / 0.16);
+    ctx.save();
+    ctx.globalAlpha = 0.4 + 0.6 * p;
+    ctx.translate(W / 2, CAPTION_Y + (1 - p) * 10);
+    var x = -total / 2;
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "left";
+    words.forEach(function (word, i) {
+      if (i === active) {
+        ctx.fillStyle = C.yellow;
+        roundRect(ctx, x - 12, -size * 0.66, widths[i] + 24, size * 1.32, size * 0.3);
+        ctx.fill();
+        ctx.fillStyle = C.dark;
+      } else {
+        ctx.shadowColor = "rgba(0,0,0,0.55)";
+        ctx.shadowBlur = 16;
+        ctx.shadowOffsetY = 3;
+        ctx.fillStyle = C.ink;
+      }
+      ctx.fillText(word, x, 3);
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+      x += widths[i] + spacing;
+    });
+    ctx.restore();
+  }
+
+  function sourceLine(ctx, project, scene) {
+    var source = scene.source || project.source;
+    if (!source) {
+      return;
+    }
+    var size = 24;
+    var text = "Sumber: " + source;
+    setFont(ctx, 600, size);
+    while (ctx.measureText(text).width > W - 160 && size > 17) {
+      size -= 1;
+      setFont(ctx, 600, size);
+    }
+    ctx.fillStyle = C.mute;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, W / 2, SOURCE_Y);
+  }
+
+  // ---------------------------------------------------------------- avatar bubble
+  var avatarVideos = {};
+
+  function avatarVideo(project) {
+    var src = project.avatar && project.avatar.src;
+    if (!src) {
+      return null;
+    }
+    if (!avatarVideos[src]) {
+      var video = document.createElement("video");
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = "auto";
+      video.crossOrigin = "anonymous";
+      video.src = src;
+      avatarVideos[src] = video;
+    }
+    return avatarVideos[src];
+  }
+
+  /** Keep the avatar clip on the timeline clock; seeking only when it drifts. */
+  function syncVideo(video, t, exporting) {
+    if (!video || video.readyState < 1) {
+      return;
+    }
+    var target = Math.min(t, (video.duration || t) - 0.05);
+    if (exporting) {
+      if (video.paused) {
+        video.play().catch(function () {});
+      }
+      if (Math.abs(video.currentTime - target) > 0.3) {
+        video.currentTime = target;
+      }
+    } else if (Math.abs(video.currentTime - target) > 0.04) {
+      if (!video.paused) {
+        video.pause();
+      }
+      video.currentTime = target;
+    }
+  }
+
+  function avatarPlacement(project, timeline, t) {
+    var hookBig = !project.avatar || project.avatar.hookBig !== false;
+    var hookEnd = timeline.scenes.length > 1 ? timeline.scenes[1].start : timeline.total;
+    if (!hookBig) {
+      return { x: DOCK.x, y: DOCK.y, r: DOCK.r, big: 0 };
+    }
+    var k = easeInOut(progress(t, hookEnd - 0.45, 0.6));
+    return {
+      x: HOOK_FACE.x + (DOCK.x - HOOK_FACE.x) * k,
+      y: HOOK_FACE.y + (DOCK.y - HOOK_FACE.y) * k,
+      r: HOOK_FACE.r + (DOCK.r - HOOK_FACE.r) * k,
+      big: 1 - k
+    };
+  }
+
+  function drawAvatar(ctx, project, timeline, t, speaking) {
+    var place = avatarPlacement(project, timeline, t);
+    var video = avatarVideo(project);
+    var exporting = document.body && document.body.classList.contains("exporting");
+    syncVideo(video, t, exporting);
+    var x = place.x;
+    var y = place.y;
+    var r = place.r;
+
+    // speaking ring: soft pulse while narration plays
+    var pulse = speaking ? 0.5 + 0.5 * Math.sin(t * 9) : 0;
+    ctx.save();
+    ctx.globalAlpha = speaking ? 0.25 + 0.25 * pulse : 0.12;
+    ctx.fillStyle = C.a;
+    ctx.beginPath();
+    ctx.arc(x, y, r + 14 + pulse * 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.clip();
+    if (video && video.readyState >= 2 && video.videoWidth) {
+      var vw = video.videoWidth;
+      var vh = video.videoHeight;
+      var side = Math.min(vw, vh);
+      var sx = (vw - side) / 2;
+      var sy = Math.max(0, (vh - side) * 0.35);
+      ctx.drawImage(video, sx, sy, side, side, x - r, y - r, r * 2, r * 2);
+    } else {
+      // placeholder until the avatar clip exists
+      ctx.fillStyle = C.surface2;
+      ctx.fillRect(x - r, y - r, r * 2, r * 2);
+      ctx.fillStyle = "rgba(244,247,248,0.22)";
+      ctx.beginPath();
+      ctx.arc(x, y - r * 0.18, r * 0.36, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(x, y + r * 0.78, r * 0.68, r * 0.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    ctx.strokeStyle = C.a;
+    ctx.lineWidth = Math.max(5, r * 0.05);
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // equaliser badge at the bottom of the bubble
+    var bw = Math.max(64, r * 0.62);
+    var bh = bw * 0.46;
+    var by = y + r - bh * 0.35;
+    ctx.fillStyle = C.a;
+    roundRect(ctx, x - bw / 2, by - bh / 2, bw, bh, bh / 2);
+    ctx.fill();
+    ctx.fillStyle = C.dark;
+    for (var i = 0; i < 4; i++) {
+      var amp = speaking ? 0.35 + 0.65 * Math.abs(Math.sin(t * (7 + i * 2.3) + i)) : 0.25;
+      var barH = bh * 0.62 * amp;
+      var bx = x - bw * 0.24 + i * bw * 0.16;
+      roundRect(ctx, bx - bw * 0.04, by - barH / 2, bw * 0.08, Math.max(4, barH), bw * 0.04);
+      ctx.fill();
+    }
+    return place;
+  }
+
+  // ---------------------------------------------------------------- layouts
+  var LAYOUTS = {};
+
+  LAYOUTS.hook = function (ctx, scene, item, local, box) {
+    var y = box.top;
+    if (box.faceBig) {
+      // face occupies the upper half; text sits under it
+      // the talking face is the hook, so the badge is dropped here
+      y = HOOK_FACE.y + HOOK_FACE.r + 40;
+    } else {
+      if (scene.badge) {
+        var pb = backOut(progress(local, 0, 0.35));
+        ctx.save();
+        ctx.globalAlpha *= pb;
+        pill(ctx, scene.badge, W / 2, y + 40, { size: 32 });
+        ctx.restore();
+      }
+      iconTile(ctx, scene.icon, W / 2, y + 260, 240, local, 0.12);
+      y += scene.icon ? 480 : 220;
+    }
+    y = headline(ctx, scene.headline || "", y + 50, local, {
+      size: box.faceBig ? 86 : 100,
+      maxLines: box.faceBig ? 3 : 4,
+      abTint: true
+    });
+    if (scene.value) {
+      var v = countValue(scene, local, 0.4, 1.1);
+      setFont(ctx, 800, 112);
+      ctx.fillStyle = C.yellow;
+      ctx.textAlign = "center";
+      ctx.fillText(scene.prefix === "" ? Math.round(v).toLocaleString("id-ID") : formatRp(v), W / 2, y + 90);
+      y += 160;
+    }
+    if (y + 40 < box.bottom) {
+      subline(ctx, scene.sub, y + 40, local, 0.5);
+    }
+  };
+
+  LAYOUTS.price = function (ctx, scene, item, local, box) {
+    var pc = easeOut(progress(local, 0, 0.4));
+    var rows = scene.rows || [];
+    var top = box.top + 20;
+    var h = 430 + rows.length * 108;
+    ctx.save();
+    ctx.globalAlpha *= pc;
+    card(ctx, 72, top, W - 144, h, { radius: 48 });
+    iconTile(ctx, scene.icon, 72 + 110, top + 110, 120, local, 0.1);
+    if (scene.stamp) {
+      var ps = backOut(progress(local, 1.6, 0.35));
+      if (ps > 0) {
+        setFont(ctx, 800, 30);
+        var sw = ctx.measureText(scene.stamp).width + 40;
+        ctx.save();
+        ctx.translate(W - 72 - 40 - sw / 2, top + 110);
+        ctx.scale(ps, ps);
+        pill(ctx, scene.stamp, 0, 0, { size: 30, fill: C.b, color: C.dark });
+        ctx.restore();
+      }
+    }
+    var fit = fitWrapped(ctx, scene.headline || "", 700, 52, W - 260, 2, 34);
+    ctx.fillStyle = C.soft;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    fit.lines.forEach(function (line, i) {
+      ctx.fillText(line, W / 2, top + 230 + i * fit.size * 1.2);
+    });
+    var bigText = scene.big != null ? String(scene.big) : formatRp(countValue(scene, local, 0.35, 1.3));
+    ctx.save();
+    ctx.globalAlpha *= scene.big != null ? easeOut(progress(local, 0.35, 0.4)) : 1;
+    setFont(ctx, 800, 136);
+    while (ctx.measureText(bigText).width > W - 260) {
+      ctx.font = ctx.font.replace(/\d+px/, function (m) { return (parseInt(m, 10) - 6) + "px"; });
+    }
+    ctx.fillStyle = C.yellow;
+    ctx.fillText(bigText, W / 2, top + 345 + (fit.lines.length - 1) * 30);
+    ctx.restore();
+    rows.forEach(function (row, i) {
+      var p = easeOut(progress(local, 1.1 + i * 0.25, 0.35));
+      var ry = top + 470 + (fit.lines.length - 1) * 30 + i * 108;
+      ctx.save();
+      ctx.globalAlpha *= p;
+      ctx.translate((1 - p) * 30, 0);
+      ctx.fillStyle = C.surface2;
+      roundRect(ctx, 120, ry - 42, W - 240, 84, 24);
+      ctx.fill();
+      setFont(ctx, 600, 36);
+      ctx.fillStyle = C.soft;
+      ctx.textAlign = "left";
+      ctx.fillText(row.label, 156, ry + 2);
+      setFont(ctx, 800, 38);
+      ctx.fillStyle = C.ink;
+      ctx.textAlign = "right";
+      ctx.fillText(row.value, W - 156, ry + 2);
+      ctx.restore();
+    });
+    ctx.restore();
+  };
+
+  LAYOUTS.bars = function (ctx, scene, item, local, box) {
+    var y = headline(ctx, scene.headline || "", box.top + 50, local, { size: 76, maxLines: 3 });
+    y = subline(ctx, scene.sub, y + 10, local, 0.3) + 80;
+    var bars = scene.bars || [];
+    var max = Math.max.apply(null, bars.map(function (b) { return b.value; }).concat([1]));
+    var barH = Math.min(120, (box.bottom - y) / Math.max(1, bars.length) - 80);
+    var colors = [C.b, C.a];
+    bars.forEach(function (bar, i) {
+      var p = easeOut(progress(local, 0.6 + i * 0.35, 0.9));
+      var by = y + i * (barH + 92);
+      setFont(ctx, 700, 36);
+      ctx.fillStyle = C.soft;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+      ctx.fillText(bar.label, 96, by - 18);
+      ctx.fillStyle = C.surface;
+      roundRect(ctx, 96, by, W - 192, barH, barH / 2);
+      ctx.fill();
+      ctx.strokeStyle = C.line;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      var w = Math.max(barH, (W - 192) * (bar.value / max) * p);
+      ctx.fillStyle = bar.hl ? C.yellow : colors[i % 2];
+      roundRect(ctx, 96, by, w, barH, barH / 2);
+      ctx.fill();
+      setFont(ctx, 800, Math.min(52, barH * 0.46));
+      ctx.textBaseline = "middle";
+      var label = bar.display || String(bar.value);
+      var lw = ctx.measureText(label).width;
+      var inside = w > lw + 70;
+      ctx.fillStyle = inside ? C.dark : C.ink;
+      ctx.globalAlpha = clamp(p * 2, 0, 1);
+      ctx.fillText(label, inside ? 96 + w - lw - 34 : 96 + w + 24, by + barH / 2 + 2);
+      ctx.globalAlpha = 1;
+    });
+  };
+
+  LAYOUTS.chat = function (ctx, scene, item, local, box) {
+    var p0 = easeOut(progress(local, 0, 0.3));
+    ctx.save();
+    ctx.globalAlpha *= p0;
+    pill(ctx, scene.headline || "", W / 2, box.top + 40, { size: 32, fill: C.surface2, color: C.ink, stroke: C.line });
+    ctx.restore();
+    var messages = scene.messages || [];
+    var span = Math.max(1.2, item.voDur - 0.4);
+    var y = box.top + 140;
+    messages.forEach(function (m, i) {
+      var appear = 0.25 + (span * i) / Math.max(1, messages.length);
+      var mine = m.from !== "them";
+      setFont(ctx, 600, 44);
+      var lines = wrap(ctx, m.text, 620);
+      var w = Math.max.apply(null, lines.map(function (l) { return ctx.measureText(l).width; })) + 72;
+      var h = lines.length * 58 + 48;
+      if (local < appear - 0.45 || y + h > box.bottom) {
+        return;
+      }
+      var x = mine ? W - 84 - w : 84;
+      if (local < appear) {
+        var tx = mine ? W - 84 - 150 : 84;
+        ctx.fillStyle = mine ? "rgba(77,225,193,0.30)" : C.surface2;
+        roundRect(ctx, tx, y, 150, 84, 42);
+        ctx.fill();
+        for (var d = 0; d < 3; d++) {
+          ctx.fillStyle = "rgba(244,247,248," + (0.35 + 0.65 * Math.abs(Math.sin(local * 7 + d))) + ")";
+          ctx.beginPath();
+          ctx.arc(tx + 42 + d * 33, y + 42, 9, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        y += 112;
+        return;
+      }
+      var p = backOut(progress(local, appear, 0.3));
+      ctx.save();
+      ctx.translate(mine ? x + w : x, y + h);
+      ctx.scale(p, p);
+      ctx.translate(mine ? -w : 0, -h);
+      ctx.fillStyle = mine ? C.a : C.surface2;
+      roundRect(ctx, 0, 0, w, h, 34);
+      ctx.fill();
+      ctx.fillStyle = mine ? C.dark : C.ink;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      lines.forEach(function (line, li) {
+        ctx.fillText(line, 36, 52 + li * 58);
+      });
+      ctx.restore();
+      y += h + 30;
+    });
+  };
+
+  LAYOUTS.math = function (ctx, scene, item, local, box) {
+    var y = headline(ctx, scene.headline || "", box.top + 50, local, { size: 70, maxLines: 2 }) + 50;
+    var lines = scene.lines || [];
+    var perLine = Math.max(0.6, (item.voDur * 0.45) / Math.max(1, lines.length));
+    var cardH = lines.length * 110 + 50;
+    var pc = easeOut(progress(local, 0.2, 0.35));
+    ctx.save();
+    ctx.globalAlpha *= pc;
+    card(ctx, 72, y, W - 144, cardH, { radius: 40 });
+    ctx.restore();
+    lines.forEach(function (line, i) {
+      var start = 0.4 + i * perLine;
+      var p = easeOut(progress(local, start, 0.35));
+      if (p <= 0) {
+        return;
+      }
+      var ly = y + 80 + i * 110;
+      var parts = line.split(/\s*=\s*/);
+      ctx.save();
+      ctx.globalAlpha *= p;
+      ctx.translate((1 - p) * 24, 0);
+      var size = 46;
+      setFont(ctx, 600, size);
+      var label = parts.length > 1 ? parts.slice(0, -1).join(" = ") : line;
+      var value = parts.length > 1 ? parts[parts.length - 1] : "";
+      setFont(ctx, 800, size);
+      var valueW = value ? ctx.measureText(value).width : 0;
+      setFont(ctx, 600, size);
+      while (ctx.measureText(label).width + valueW > W - 330 && size > 28) {
+        size -= 2;
+        setFont(ctx, 800, size);
+        valueW = value ? ctx.measureText(value).width : 0;
+        setFont(ctx, 600, size);
+      }
+      ctx.fillStyle = C.soft;
+      ctx.textAlign = value ? "left" : "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(label, value ? 120 : W / 2, ly);
+      if (value) {
+        setFont(ctx, 800, size);
+        ctx.fillStyle = C.ink;
+        ctx.textAlign = "right";
+        ctx.fillText(value, W - 120, ly);
+      }
+      if (i < lines.length - 1) {
+        ctx.fillStyle = C.line;
+        ctx.fillRect(120, ly + 55, W - 240, 2);
+      }
+      ctx.restore();
+    });
+    if (scene.result) {
+      var rs = 0.4 + lines.length * perLine;
+      var pr = backOut(progress(local, rs, 0.4));
+      if (pr > 0) {
+        var ry = y + cardH + 120;
+        var fit = fitWrapped(ctx, scene.result, 800, 72, W - 260, 2, 40);
+        var h = fit.lines.length * fit.size * 1.15 + 60;
+        ctx.save();
+        ctx.translate(W / 2, ry);
+        ctx.scale(pr, pr);
+        ctx.fillStyle = C.yellow;
+        roundRect(ctx, -(W - 144) / 2, -h / 2, W - 144, h, 36);
+        ctx.fill();
+        setFont(ctx, 800, fit.size);
+        ctx.fillStyle = C.dark;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        fit.lines.forEach(function (line, i) {
+          ctx.fillText(line, 0, 4 + (i - (fit.lines.length - 1) / 2) * fit.size * 1.15);
+        });
+        ctx.restore();
+      }
+    }
+    if (scene.sub) {
+      subline(ctx, scene.sub, Math.min(box.bottom - 30, y + cardH + 260), local, 0.4 + lines.length * perLine + 0.4);
+    }
+  };
+
+  LAYOUTS.stamp = function (ctx, scene, item, local, box) {
+    var quote = scene.quote || scene.headline || "";
+    var y = box.top;
+    if (scene.icon) {
+      iconTile(ctx, scene.icon, W / 2, y + 110, 180, local, 0.05);
+      y += 260;
+    } else {
+      y += 120;
+    }
+    y = headline(ctx, quote, y + 30, local, { size: 88, maxLines: 4 });
+    y = subline(ctx, scene.sub, y + 24, local, 0.5);
+    if (scene.stamp) {
+      // verdict chip: slides up with a check mark instead of a rubber stamp
+      var ps = easeOut(progress(local, 0.9, 0.35));
+      if (ps > 0) {
+        var cy = Math.min(y + 110, box.bottom - 50);
+        ctx.save();
+        ctx.globalAlpha *= ps;
+        ctx.translate(0, (1 - ps) * 30);
+        setFont(ctx, 800, 40);
+        var text = "✓  " + scene.stamp;
+        var w = ctx.measureText(text).width + 70;
+        ctx.fillStyle = "rgba(255,212,71,0.12)";
+        roundRect(ctx, W / 2 - w / 2, cy - 44, w, 88, 44);
+        ctx.fill();
+        ctx.strokeStyle = C.yellow;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.fillStyle = C.yellow;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(text, W / 2, cy + 2);
+        ctx.restore();
+      }
+    }
+  };
+
+  LAYOUTS.poll = function (ctx, scene, item, local, box) {
+    var y = headline(ctx, scene.headline || "", box.top + 60, local, { size: 88, maxLines: 2 }) + 60;
+    var options = scene.options || [];
+    var colors = [C.a, C.b];
+    var optionH = 190;
+    // the "tap" cursor alternates between the options to invite a choice
+    var cycle = (local - 1.2) % 2.4;
+    var tapIndex = local > 1.2 ? (cycle < 1.2 ? 0 : 1) : -1;
+    var tapPhase = local > 1.2 ? (cycle % 1.2) / 1.2 : 0;
+    options.forEach(function (opt, i) {
+      var p = easeOut(progress(local, 0.35 + i * 0.25, 0.45));
+      var oy = y + i * (optionH + 36);
+      var tapped = tapIndex === i && tapPhase > 0.35 && tapPhase < 0.7;
+      ctx.save();
+      ctx.globalAlpha *= p;
+      ctx.translate((1 - p) * (i ? 60 : -60), 0);
+      if (tapped) {
+        ctx.translate(W / 2, oy + optionH / 2);
+        ctx.scale(0.98, 0.98);
+        ctx.translate(-W / 2, -(oy + optionH / 2));
+      }
+      card(ctx, 72, oy, W - 144, optionH, {
+        radius: 44,
+        fill: tapped ? colors[i] : C.surface,
+        stroke: colors[i],
+        lineWidth: 3
+      });
+      ctx.fillStyle = tapped ? C.dark : colors[i];
+      ctx.beginPath();
+      ctx.arc(72 + 100, oy + optionH / 2, 52, 0, Math.PI * 2);
+      ctx.fill();
+      setFont(ctx, 800, 56);
+      ctx.fillStyle = tapped ? colors[i] : C.dark;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(i ? "B" : "A", 72 + 100, oy + optionH / 2 + 3);
+      var label = String(opt).replace(/^[AB]\s*[—–-]\s*/, "");
+      var fit = fitWrapped(ctx, label, 800, 50, W - 144 - 230, 2, 32);
+      ctx.fillStyle = tapped ? C.dark : C.ink;
+      ctx.textAlign = "left";
+      fit.lines.forEach(function (line, li) {
+        ctx.fillText(line, 72 + 186, oy + optionH / 2 + 3 + (li - (fit.lines.length - 1) / 2) * fit.size * 1.15);
+      });
+      ctx.restore();
+    });
+    if (tapIndex >= 0 && options.length) {
+      var oyTap = y + tapIndex * (optionH + 36) + optionH / 2;
+      var press = Math.sin(clamp((tapPhase - 0.2) / 0.6, 0, 1) * Math.PI);
+      ctx.save();
+      ctx.font = "96px " + EMOJI;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.globalAlpha = clamp(tapPhase * 5, 0, 1) * clamp((1 - tapPhase) * 5, 0, 1);
+      ctx.fillText("👆", W - 200, oyTap + 70 - press * 26);
+      ctx.restore();
+    }
+    var pc = easeOut(progress(local, 1.0, 0.4));
+    if (pc > 0 && scene.cta) {
+      ctx.save();
+      ctx.globalAlpha *= pc;
+      var bob = Math.sin(local * 4) * 4;
+      pill(ctx, scene.cta, W / 2, Math.min(box.bottom - 30, y + options.length * (optionH + 36) + 70) + bob, { size: 38 });
+      ctx.restore();
+    }
+  };
+
+  // ---------------------------------------------------------------- frame
+  function drawClean(ctx, project, timeline, t, assets, SC) {
+    applyPalette(project.palette);
+    var item = SC.sceneAt(timeline, t);
+    var scene = item.scene;
+    var local = t - item.start;
+    background(ctx, t);
+    segments(ctx, timeline, t);
+
+    var hasAvatar = !!project.avatar;
+    var place = null;
+    var speaking = !!captionState(item, t);
+    if (hasAvatar) {
+      place = avatarPlacement(project, timeline, t);
+    }
+    var faceBig = hasAvatar && item.index === 0 && place.big > 0.5;
+    var box = {
+      top: hasAvatar && !faceBig ? CONTENT_TOP_DOCKED : CONTENT_TOP,
+      bottom: CONTENT_BOTTOM,
+      faceBig: faceBig
+    };
+
+    var enter = easeOut(progress(local, 0, 0.35));
+    var leave = item.index < timeline.scenes.length - 1 ? easeOut(progress(local, item.dur - 0.18, 0.18)) : 0;
+    ctx.save();
+    ctx.globalAlpha = enter * (1 - leave);
+    ctx.translate(0, (1 - enter) * 50 - leave * 30);
+    var layout = LAYOUTS[scene.layout] || LAYOUTS.hook;
+    layout(ctx, scene, item, local, box);
+    ctx.restore();
+    ctx.globalAlpha = 1;
+
+    header(ctx, project, hasAvatar && !faceBig);
+    if (hasAvatar) {
+      drawAvatar(ctx, project, timeline, t, speaking);
+    }
+    captions(ctx, project, item, t);
+    sourceLine(ctx, project, scene);
+  }
+
+  window.SC_TEMPLATES = window.SC_TEMPLATES || {};
+  window.SC_TEMPLATES.clean = drawClean;
+  window.SC_CLEAN_LAYOUTS = Object.keys(LAYOUTS);
+})();
