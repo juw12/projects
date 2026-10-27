@@ -12,6 +12,22 @@
 GlowChat installable app: `glow/chat/app.html`, mobile: `glow/chat/mobile.html`. GlowRoom: `glow/room/app.html`, `glow/room/mobile.html`.
 AI-suggested resources in GlowChat are not automatically browsed or verified; GlowChat does no autonomous building or execution (that is GlowRoom's job, and its results should still be reviewed).
 
+## Install every Glow app (master installer and setup guide)
+
+Guide with all platforms and a diagram of how the apps connect: https://juw12.github.io/projects/glow/setup/
+
+- **Windows PC, one step** (Win+R, no admin): `powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/juw12/projects/main/apps/glow/install-glow.ps1 | iex"`
+  adds Glow, GlowLead, GlowChat and GlowRoom to the Start menu (folder "Glow") and the desktop as Edge/Chrome app
+  windows on your normal browser profile (so they share one account, chats and missions), installs or updates
+  Glow Hands (auto-starts at login, GlowLead pairs by itself) and opens the guide. Options: `GLOW_SKIP_HANDS=1`,
+  `GLOW_NO_DESKTOP=1`, `GLOW_NO_BROWSER=1`, `GLOW_UNINSTALL=1` (removes shortcuts and Glow Hands; chats stay in the browser).
+- **Android:** the Glow app APK (GlowLead with its own browser). **iPhone/iPad:** Add to Home Screen; browser missions
+  through the instant cloud browser or your PC's Glow Hands (GlowLead -> Glow Hands -> Use from your phone).
+- **Linux:** always-on Glow Hands with `hands/install-glow-hands-linux.sh`; apps install from the browser.
+- How they connect: one site = one shared browser storage (account, chats, missions, plan); GlowLead delegates to
+  GlowChat, the GlowRoom crew and browser control (Glow Hands on a PC at 127.0.0.1, the Android app's browser, or the
+  instant cloud browser); phone to PC is a direct WebRTC link. Nothing syncs between different browsers or devices.
+
 ## v0.16.0 — Glow plans: Glow Free stays free, Glow Pro for bigger work
 
 - **Glow Free (Rp 0)** keeps everything that worked before: GlowChat, GlowRoom, GlowLead, Glow Free AI, missions
