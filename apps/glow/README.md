@@ -7,10 +7,17 @@
 | **Glow** (home) | Start here: one box to ask or delegate, recent chats and missions, all apps | https://juw12.github.io/projects/glow/ |
 | **GlowChat** | Chat, Council with a Judge, and Arena comparisons to explore ideas and review plans | https://juw12.github.io/projects/glow/chat/ |
 | **GlowRoom** | A virtual office of AI agents (formerly Crewroom) that research, write code and make media for a mission | https://juw12.github.io/projects/glow/room/ |
+| **Profile & settings** 👤 | Your name, avatar, Puter account, persona, usage and data, shared by every Glow app (avatar at the top right) | https://juw12.github.io/projects/glow/account/ |
 | **GlowLead** 👑 | The AI lead (orchestrator) and owner of GlowRoom: plans a goal, delegates the steps to GlowChat and the GlowRoom crew, checks the work and reports | https://juw12.github.io/projects/glow/lead/ |
 
 GlowChat installable app: `glow/chat/app.html`, mobile: `glow/chat/mobile.html`. GlowRoom: `glow/room/app.html`, `glow/room/mobile.html`.
 AI-suggested resources in GlowChat are not automatically browsed or verified; GlowChat does no autonomous building or execution (that is GlowRoom's job, and its results should still be reviewed).
+
+## What's new
+
+- **1.20.1** – An expired Puter session now shows as signed out in every app (grey avatar, "Sign in again") instead of looking signed in; Profile & settings keeps your account name.
+- **1.20.0** – **Profile & settings** for every Glow app: the avatar at the top right (GlowChat: sidebar) opens your name and avatar colour, Puter sign in/switch/out, persona, token usage and monthly allowance, settings, data export/delete and updates (`glow/account/`). GlowRoom got one Glow-style top bar and the warm **Glow Studio** office.
+- **1.19.x** – Models ranked by category (Best, Quick, Code, Research, Writing, Images, Free & local), your own persona from a short quiz (Orbis AI Type), token usage meter (cached input counted), image generation, temporary chats, auto-delete and a privacy page.
 
 ## Versions and in-app updates
 
