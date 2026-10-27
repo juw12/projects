@@ -38,6 +38,8 @@ jobs:
           npm install --no-fund --no-audit
           npx wrangler deploy --dry-run --outdir dist
           ls -la dist
+      - name: Glow Pro plan and license tests (no network)
+        run: node --test test/license.test.js
       - name: Decide whether to deploy
         id: gate
         run: |
@@ -68,6 +70,9 @@ jobs:
             sleep 10
           done
           exit 1
+      - name: Plans endpoint answers
+        if: steps.gate.outputs.deploy == 'true'
+        run: curl -fsS -H "Origin: https://juw12.github.io" "$GLOW_CLOUD_URL/v1/plans"
       - name: Live mission check (real cloud browser)
         if: steps.gate.outputs.deploy == 'true'
         run: python3 test/live_check.py "$GLOW_CLOUD_URL"

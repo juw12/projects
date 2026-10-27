@@ -111,15 +111,23 @@ class InstantCloudEndToEnd(unittest.TestCase):
         page.evaluate("GlowLead.start('Order with the instant cloud browser', false, { allowHands: true })")
         page.wait_for_selector("#approve-action", timeout=60000)
         self.assertEqual(self.observe(page)["title"], "Test shop", "Nothing submitted before approval")
-        page.click("#approve-action")
-        page.wait_for_function("GlowLead.leads[0] && GlowLead.leads[0].status === 'done'", timeout=60000)
-        done = self.observe(page)
-        self.assertEqual(done["title"], "Done")
-        self.assertIn("name=Instant+User", done["url"])
-        self.assertIn("size=Large", done["url"])
-
         saved = json.loads(page.evaluate("localStorage.getItem('glowlead.hands.v1')"))
         self.assertTrue(saved.get("session"), "The mission opened a cloud browser")
+        page.click("#approve-action")
+        page.wait_for_function("GlowLead.leads[0] && GlowLead.leads[0].status === 'done'", timeout=60000)
+        output = page.evaluate("GlowLead.leads[0].steps.map((step) => step.output).join(' ')")
+        self.assertIn("Done", output, "The final page is recorded in the report")
+        self.assertIn("name=Instant+User", output)
+        self.assertIn("size=Large", output)
+
+        # 0.16: GlowLead closes the cloud browser as soon as the mission ends, so it doesn't keep using the
+        # shared free browser minutes for 5 more minutes.
+        page.wait_for_function("!JSON.parse(localStorage.getItem('glowlead.hands.v1') || '{}').session", timeout=20000)
+        closed = page.evaluate(
+            "(args) => fetch(args.url + '/v1/sessions/' + args.session + '/call', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({path: 'status'})}).then((r) => r.status)",
+            {"url": self.service_url, "session": saved["session"]},
+        )
+        self.assertEqual(closed, 410, "The finished mission really closed its cloud browser")
         page.click("#hands-btn")
         page.click("#instant-stop")
         page.wait_for_function("document.getElementById('instant-note').textContent.includes('stopped')", timeout=20000)

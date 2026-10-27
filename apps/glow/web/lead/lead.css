@@ -382,3 +382,15 @@ dialog .check input { width: 18px; height: 18px; flex: 0 0 18px; margin: 0; padd
 #hands-dialog.on-phone .phone-only-box { display: block; }
 #hands-dialog { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 @media (pointer: coarse) and (max-width: 820px) { .phone-only { display: block; } }
+
+/* Glow plans */
+.plan-btn { border-color: var(--gold); color: var(--gold); }
+.plan-btn.is-pro { background: var(--gold); color: var(--bg); }
+#plans-dialog { width: min(640px, calc(100% - 32px)); }
+.plan-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.plan-card { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: var(--card); }
+.plan-card.pro { border-color: var(--gold); }
+.plan-card h3 { margin: 0 0 4px; font-size: 16px; }
+.plan-card .plan-price { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
+.plan-card ul { margin: 0 0 12px; padding-left: 18px; font-size: 13px; line-height: 1.5; }
+@media (max-width: 560px) { .plan-cards { grid-template-columns: 1fr; } .plan-label { display: none; } .plan-btn { padding-left: 9px; padding-right: 9px; } }

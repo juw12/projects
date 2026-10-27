@@ -17,16 +17,23 @@
   const MEMORY_KEY = TEST_MODE ? "glowlead.memory.selftest" : "glowlead.memory.v1";
   const AUTOMATIONS_KEY = TEST_MODE ? "glowlead.automations.selftest" : "glowlead.automations.v1";
   const SCHEDULER_LOCK = TEST_MODE ? "glowlead.scheduler.selftest" : "glowlead.scheduler";
-  const MAX_AUTOMATIONS = 10;
   const HANDS_KEY = TEST_MODE ? "glowlead.hands.selftest" : "glowlead.hands.v1";
-  const MAX_BROWSER_ACTIONS = 15;
   const HANDS_PORTS = [8765, 8766, 8767, 8768, 8769, 8770];
   const SCHEDULER_MS = 30000;
   const ACTIVE = ["planning", "working", "checking"];
   const ATTENTION = ["awaiting", "interrupted", "stopped", "error"];
   const SAFE_BOTS = ["leader", "explore", "checker", "media"];
   const CODE_BOTS = [...SAFE_BOTS, "coder", "tester"];
-  const MAX_STEPS = 4;
+  // Glow Free keeps every limit it always had; Glow Pro (web/shared/glow-plans.js) raises them.
+  // Stored missions and automations are trimmed only to the Pro maximum, so nothing is lost if Pro ends.
+  const FREE_LIMITS = { steps: 4, browserActions: 15, automations: 10, skills: 12 };
+  const PRO_MAX = { steps: 8, browserActions: 40, automations: 50, skills: 60 };
+  let testLimits = null;
+  function planLimits() {
+    if (testLimits) return testLimits;
+    if (TEST_MODE || !window.GlowPlans) return FREE_LIMITS;
+    return window.GlowPlans.limits();
+  }
   const CONTEXT_PER_STEP = 2500;
   const POLL_MS = TEST_MODE ? 15 : 1000;
 
@@ -88,7 +95,7 @@
         report: typeof lead.report === "string" ? lead.report : "",
         met: Array.isArray(lead.met) ? lead.met.map((value) => typeof value === "boolean" ? value : null) : [],
         criteria: lead.criteria.filter((item) => typeof item === "string").slice(0, 5),
-        steps: lead.steps.filter((step) => step && Object.hasOwn(WORKERS, step.worker)).slice(0, MAX_STEPS + 1)
+        steps: lead.steps.filter((step) => step && Object.hasOwn(WORKERS, step.worker)).slice(0, PRO_MAX.steps + 1)
           .map((step) => ({ ...step, title: String(step.title || "Step"), task: String(step.task || ""), output: String(step.output || "") })),
         events: Array.isArray(lead.events) ? lead.events.filter((event) => event && typeof event.text === "string" && Number.isFinite(event.at)).slice(-80) : [],
       }));
@@ -158,6 +165,18 @@
     });
   }
 
+  // The instant cloud browser costs shared free minutes for as long as it is open (it stays open 5 minutes
+  // after the last step), so GlowLead closes it as soon as a mission that used it stops working.
+  async function releaseCloudBrowser(lead) {
+    const hands = readHands();
+    if (hands.mode !== "service" || !hands.session || !lead || !(lead.steps || []).some((step) => step.worker === "browser")) return false;
+    if (lead.status === "awaiting" || lead.pendingApproval) return false;
+    await serviceCall(hands, "close", {}).catch(() => null);
+    saveServiceSession(null);
+    record(lead, "Closed the cloud browser to save the shared free browser time");
+    return true;
+  }
+
   async function exclusively(lead, action) {
     if (executing) {
       toast("A mission is already running. Stop it or wait before starting another.");
@@ -181,7 +200,11 @@
           toast("This mission changed in another tab. Review its latest state before continuing.");
           return null;
         }
-        return action();
+        try {
+          return await action();
+        } finally {
+          await releaseCloudBrowser(lead);
+        }
       });
     } finally {
       executing = false;
@@ -258,7 +281,7 @@
       autoResearch: true,
     };
     const withResearch = [research, ...steps];
-    while (withResearch.length > MAX_STEPS) withResearch.splice(withResearch.length - 2, 1); // keep the research and the final step
+    while (withResearch.length > planLimits().steps) withResearch.splice(withResearch.length - 2, 1); // keep the research and the final step
     return withResearch;
   }
 
@@ -272,7 +295,7 @@
         title: clip(s.title || s.task, 80),
         task: clip(s.task || s.title, 1500),
       }))
-      .slice(0, MAX_STEPS);
+      .slice(0, planLimits().steps);
     let criteria = Array.isArray(json && json.criteria) ? json.criteria.map((c) => clip(c, 200)).filter(Boolean).slice(0, 5) : [];
     const planned = steps.length > 0;
     if (!planned) steps = fallbackPlan(goal);
@@ -1158,7 +1181,8 @@
     if (!lead.allowHands) throw new Error("Browser control was not allowed for this mission.");
     const history = [];
     let declined = 0;
-    for (let turn = 1; turn <= MAX_BROWSER_ACTIONS; turn++) {
+    const maxActions = planLimits().browserActions;
+    for (let turn = 1; turn <= maxActions; turn++) {
       checkStopped(signal);
       const view = await handsCall("observe", null, signal);
       if (view.status !== 200) throw new Error(view.error || "Glow Hands could not read the page.");
@@ -1203,7 +1227,7 @@
         record(lead, "Glow Hands could not: " + label);
       }
     }
-    throw new Error(`Glow Hands used its ${MAX_BROWSER_ACTIONS} actions without finishing. The browser window is still open for you.`);
+    throw new Error(`Glow Hands used its ${maxActions} actions without finishing. The browser window is still open for you.`);
   }
 
   const RUNNERS = { chat: runChatStep, council: runCouncilStep, room: runRoomStep, browser: runBrowserStep };
@@ -1554,7 +1578,7 @@
   function validPlan(plan) {
     if (!plan || !Array.isArray(plan.steps) || !Array.isArray(plan.criteria)) return null;
     const steps = plan.steps.filter((step) => step && Object.hasOwn(WORKERS, step.worker) && typeof step.task === "string" && step.task.trim())
-      .slice(0, MAX_STEPS)
+      .slice(0, planLimits().steps)
       .map((step) => ({ worker: step.worker, title: clip(String(step.title || step.task), 80), task: clip(step.task, 1500) }));
     const criteria = plan.criteria.filter((item) => typeof item === "string" && item.trim()).map((item) => clip(item, 200)).slice(0, 5);
     return steps.length && criteria.length ? { steps, criteria } : null;
@@ -1584,7 +1608,7 @@
       const list = JSON.parse(localStorage.getItem(AUTOMATIONS_KEY) || "[]");
       if (!Array.isArray(list)) return [];
       return list.filter((item) => item && typeof item.id === "string" && typeof item.goal === "string" && item.goal.trim() &&
-        ["daily", "weekdays", "weekly"].includes(item.cadence) && /^\d{2}:\d{2}$/.test(item.time || "")).slice(0, MAX_AUTOMATIONS)
+        ["daily", "weekdays", "weekly"].includes(item.cadence) && /^\d{2}:\d{2}$/.test(item.time || "")).slice(0, PRO_MAX.automations)
         .map((item) => ({ ...item, name: clip(item.name || item.goal, 60), weekday: Number(item.weekday) || 0,
           enabled: item.enabled !== false, approve: item.approve !== false, allowCode: item.allowCode === true,
           plan: validPlan(item.plan), nextRunAt: Number(item.nextRunAt) || 0 }));
@@ -1695,7 +1719,7 @@
     try {
       const list = JSON.parse(localStorage.getItem(TEMPLATES_KEY) || "[]");
       return Array.isArray(list) ? list.filter((item) => item && typeof item.id === "string" &&
-        typeof item.name === "string" && typeof item.goal === "string").slice(0, 12)
+        typeof item.name === "string" && typeof item.goal === "string").slice(0, PRO_MAX.skills)
         .map((item) => ({ ...item, plan: validPlan(item.plan) })) : [];
     } catch (error) {
       return [];
@@ -2006,8 +2030,72 @@
     }
   }
 
+  // ------------------------------------------------------------------ Glow plans (Free / Pro)
+  async function renderPlans(withPrices = false) {
+    const plansApi = window.GlowPlans;
+    if (!plansApi || !$("plans-btn")) return;
+    const state = plansApi.status();
+    const pro = state.plan === "pro";
+    $("plans-label").textContent = pro ? " Pro" : " Plans";
+    $("plans-btn").setAttribute("aria-label", pro ? "Glow Pro is on: plans" : "Glow plans");
+    $("plans-btn").classList.toggle("is-pro", pro);
+    $("plans-current").textContent = pro
+      ? `✦ Glow Pro is on for this device${state.customer ? " (" + state.customer + ")" : ""}. Thank you for supporting Glow!`
+      : state.note || "You're on Glow Free. Everything here keeps working for free.";
+    $("plans-deactivate").hidden = !pro;
+    $("plans-manage").hidden = !pro;
+    $("plans-activate").hidden = pro;
+    $("plans-key").hidden = pro;
+    if ($("plans-key").labels && $("plans-key").labels[0]) $("plans-key").labels[0].hidden = pro;
+    if (!withPrices) return; // the price list is only fetched when the plans window opens
+    const info = await plansApi.plans();
+    $("plans-price").textContent = info.priceLabel || "Monthly";
+    $("plans-buy").hidden = !info.onSale || pro;
+    if (info.onSale) $("plans-buy").href = info.checkoutUrl;
+    $("plans-soon").hidden = info.onSale || pro;
+    if (info.manageUrl) $("plans-manage").href = info.manageUrl;
+  }
+
+  function wirePlans() {
+    if (!$("plans-btn") || !window.GlowPlans) return;
+    const note = (text) => { $("plans-note").textContent = text; };
+    $("plans-btn").addEventListener("click", () => {
+      note("");
+      renderPlans(true);
+      $("plans-dialog").showModal();
+    });
+    $("plans-close").addEventListener("click", () => $("plans-dialog").close());
+    $("plans-form").addEventListener("submit", (event) => event.preventDefault());
+    $("plans-activate").addEventListener("click", async () => {
+      $("plans-activate").disabled = true;
+      note("Checking your license key…");
+      const result = await window.GlowPlans.activate($("plans-key").value);
+      $("plans-activate").disabled = false;
+      note(result.ok ? "✓ Glow Pro is on. Bigger missions and limits are ready." : result.error);
+      if (result.ok) $("plans-key").value = "";
+      renderPlans(true);
+    });
+    $("plans-deactivate").addEventListener("click", async () => {
+      $("plans-deactivate").disabled = true;
+      await window.GlowPlans.deactivate();
+      $("plans-deactivate").disabled = false;
+      note("Pro is off on this device. You can activate it again with the same key.");
+      renderPlans(true);
+    });
+    if (!TEST_MODE) {
+      window.GlowPlans.refresh().then(renderPlans).catch(() => {});
+      if (location.hash === "#plans") {
+        history.replaceState(null, "", location.pathname + location.search);
+        renderPlans(true);
+        $("plans-dialog").showModal();
+      }
+    }
+    renderPlans();
+  }
+
   // ------------------------------------------------------------------ wiring
   function wire() {
+    wirePlans();
     $("lead-form").addEventListener("submit", (event) => {
       event.preventDefault();
       const goal = $("lead-input").value;
@@ -2092,8 +2180,9 @@
       const name = $("template-name").value.trim();
       if (!name) return;
       const current = readTemplates();
-      if (current.length >= 12) {
-        toast("You have 12 playbooks. Delete one before saving another.");
+      const skillLimit = planLimits().skills;
+      if (current.length >= skillLimit) {
+        toast(`You have ${current.length} playbooks. Delete one before saving another${skillLimit < PRO_MAX.skills ? `, or get Glow Pro for up to ${PRO_MAX.skills}` : ""}.`);
         return;
       }
       const entry = skillSource
@@ -2317,8 +2406,9 @@
     $("automation-form").addEventListener("submit", (event) => {
       event.preventDefault();
       const items = readAutomations();
-      if (items.length >= MAX_AUTOMATIONS) {
-        toast("You have 10 automations. Delete one before adding another.");
+      const automationLimit = planLimits().automations;
+      if (items.length >= automationLimit) {
+        toast(`You have ${items.length} automations. Delete one before adding another${automationLimit < PRO_MAX.automations ? `, or get Glow Pro for up to ${PRO_MAX.automations}` : ""}.`);
         return;
       }
       const draft = $("automation-dialog").draft || {};
@@ -2637,6 +2727,46 @@
       .every((goal) => !BROWSER_HINT.test(goal));
     expect("browser: website goals turn on connected browser control (not for automations or an explicit no), other goals don't",
       pairedAuto && offlineAuto && hinted && plain);
+
+    // Glow plans: Pro raises the limits only while its license check is recent; Free keeps today's limits
+    const plansApi = window.GlowPlans;
+    const savedPlan = localStorage.getItem(plansApi.STORAGE_KEY);
+    localStorage.setItem(plansApi.STORAGE_KEY, JSON.stringify({ plan: "pro", licenseKey: "TEST-KEY-0001", checkedAt: Date.now() }));
+    const proSteps = plansApi.limits().steps;
+    localStorage.setItem(plansApi.STORAGE_KEY, JSON.stringify({ plan: "pro", licenseKey: "TEST-KEY-0001", checkedAt: Date.now() - 8 * 24 * 3600 * 1000 }));
+    const staleSteps = plansApi.limits().steps;
+    localStorage.removeItem(plansApi.STORAGE_KEY);
+    const freeSteps = plansApi.limits().steps;
+    if (savedPlan === null) localStorage.removeItem(plansApi.STORAGE_KEY);
+    else localStorage.setItem(plansApi.STORAGE_KEY, savedPlan);
+    const eightSteps = '{"steps":[' + [1, 2, 3, 4, 5, 6, 7, 8].map((n) => '{"worker":"chat","title":"S' + n + '","task":"t"}').join(",") + ']}';
+    testLimits = { ...PRO_MAX };
+    const proPlan = parsePlan(eightSteps, "Write a long guide");
+    testLimits = null;
+    const freePlan = parsePlan(eightSteps, "Write a long guide");
+    expect("plans: Glow Pro allows 8-step missions while its check is recent; Glow Free keeps 4",
+      proSteps === 8 && staleSteps === 4 && freeSteps === 4 && proPlan.steps.length === 8 && freePlan.steps.length === 4);
+
+    // The cloud browser is closed when a mission that used it stops, so it doesn't burn the shared free minutes
+    const savedHands = localStorage.getItem(HANDS_KEY);
+    const realFetch = window.fetch;
+    const cloudCalls = [];
+    window.fetch = async (url, options) => {
+      cloudCalls.push({ url: String(url), body: options && options.body ? JSON.parse(options.body) : null });
+      return new Response(JSON.stringify({ closed: true }), { status: 200, headers: { "Content-Type": "application/json" } });
+    };
+    localStorage.setItem(HANDS_KEY, JSON.stringify({ mode: "service", session: "selftest-session-1" }));
+    const usedBrowser = { id: "cloud-test", status: "done", steps: [{ worker: "browser" }], events: [] };
+    const closedIt = await releaseCloudBrowser(usedBrowser);
+    const sessionAfter = readHands().session;
+    localStorage.setItem(HANDS_KEY, JSON.stringify({ mode: "service", session: "selftest-session-2" }));
+    const noBrowser = await releaseCloudBrowser({ id: "cloud-test-2", status: "done", steps: [{ worker: "chat" }], events: [] });
+    window.fetch = realFetch;
+    if (savedHands === null) localStorage.removeItem(HANDS_KEY);
+    else localStorage.setItem(HANDS_KEY, savedHands);
+    expect("cloud: GlowLead closes the instant cloud browser when a browser mission ends, and only then",
+      closedIt && sessionAfter === null && !noBrowser && cloudCalls.length === 1 &&
+      cloudCalls[0].url.includes("/v1/sessions/selftest-session-1/call") && cloudCalls[0].body.path === "close");
 
     // The final check fails: the finished work is still delivered, marked as not checked
     backend.chat = async ({ system }) => {
