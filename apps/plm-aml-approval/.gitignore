@@ -1,0 +1,5 @@
+plm_config.json
+edge_plm_profile/
+screenshots/
+__pycache__/
+*.pyc
