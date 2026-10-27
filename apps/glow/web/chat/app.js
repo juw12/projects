@@ -6,6 +6,7 @@
 "use strict";
 
 const $ = (id) => document.getElementById(id);
+const byId = (id) => document.getElementById(id); // for elements that are created on the fly (persona studio, usage panel)
 const TEST_HASHES = ["#selftest", "#demo", "#demo-council", "#demo-arena"];
 const TEST_MODE = TEST_HASHES.includes(location.hash);
 // Demos and self-tests use their own sandbox so they never touch a visitor's saved chats or keys.
@@ -29,6 +30,75 @@ const PERSONAS = {
   critic: { icon: "🔍", name: "Critic", prompt: "You are a constructive critic and risk analyst. Find the weaknesses, hidden assumptions, risks and counter-arguments in the user's idea, ranked by importance, and suggest a fix for each. Be direct but fair. Use Markdown." },
   translator: { icon: "🌐", name: "Translator", prompt: "You are a professional translator. Detect the language of the user's text. If it is Indonesian, translate it into natural English; otherwise translate it into natural Indonesian, unless the user names another target language. Keep the meaning, tone and formatting. Reply with the translation, then one short note about any tricky phrase." },
 };
+// Personal personas follow Orbis's "AI Type" (apps/orbis): five ways people work with AI. A persona is
+// created by the person themselves: never inferred from their messages, stored privately in this browser
+// (and their own synced account, if they turn sync on), and it should never hold sensitive data.
+const AI_TYPES = {
+  professor: { icon: "🦉", name: "The Professor", nickname: "The Scholar (Owl)", oneliner: "Understands how AI works before trusting it", strengths: ["Analytical and deep", "Wants the concepts", "Verifies sources"], watchout: "Can over-analyse before acting", help: "explain the why briefly, then end with a clear good-enough next step", color: "#4F46E5", archetype: "Indigo",
+    prompt: "They like to understand how things work before trusting them: explain the reasoning and the key concepts briefly, say how to verify important facts and flag uncertainty. Then help them act: end with one clear, good-enough next step so they don't over-analyse." },
+  builder: { icon: "🐝", name: "The Builder", nickname: "The Assembler (Bee)", oneliner: "Learns by making real things", strengths: ["Practical and results-oriented", "Quick with new tools", "Focused on real use"], watchout: "May skip the deeper understanding", help: "lead with something usable right away, plus one line on why it works", color: "#16A34A", archetype: "Jade",
+    prompt: "They learn by making real things: lead with something concrete they can use right away (steps, code, a template or a draft), keep theory short, and add one line on why it works so they don't skip the understanding." },
+  detective: { icon: "🦌", name: "The Detective", nickname: "The Investigator (Mouse Deer)", oneliner: "Verifies, cross-checks and hunts hallucinations", strengths: ["Detailed and meticulous", "Healthy scepticism", "Spots inconsistencies"], watchout: "Can be so sceptical it slows them down", help: "separate facts from guesses and say clearly when something is well established", color: "#0284C7", archetype: "Cerulean",
+    prompt: "They verify and cross-check: be precise, separate facts from guesses, point out what could be wrong and how to check it, and never invent sources or numbers. Say plainly when something is well established so they can trust it and move on." },
+  guardian: { icon: "🦎", name: "The Guardian", nickname: "The Keeper (Komodo)", oneliner: "Guards data, ethics and safe use", strengths: ["Ethical and responsible", "Aware of privacy and risk", "Protects others"], watchout: "Can be too cautious to act", help: "flag real risks, then always give a safe way forward", color: "#64748B", archetype: "Stone",
+    prompt: "They care about data, ethics and safe use: point out privacy, security and fairness risks when they matter, suggest the safe option, and never ask for sensitive personal data. Balance caution with a practical way forward so they can still act." },
+  allrounder: { icon: "🐒", name: "The All-Rounder", nickname: "The Versatile (Monkey)", oneliner: "Uses AI for everything, balancing speed and care", strengths: ["Flexible and adaptive", "Works in many contexts", "Natural collaborator"], watchout: "May lack depth in one area", help: "give the quick answer first and offer to go deeper", color: "#0D9488", archetype: "Teal",
+    prompt: "They use AI for many kinds of tasks and balance speed and care: match the depth to the question, give the quick answer first and offer to go deeper when it would help." },
+};
+// Five everyday situations adapted from the Orbis AI Type test; each answer points to one type.
+const PERSONA_QUIZ = [
+  { q: "You get a new AI tool at work. What do you do first?", a: [
+    ["professor", "Read how it works and where its limits are"],
+    ["builder", "Try it right away on a real task"],
+    ["detective", "Test it with questions I already know the answers to"],
+    ["guardian", "Check what it does with my data"],
+    ["allrounder", "Try a bit of everything and see where it helps"],
+  ] },
+  { q: "The AI gives you a confident answer with a statistic. You…", a: [
+    ["detective", "Look up the source before using it"],
+    ["professor", "Ask it to explain where the number comes from"],
+    ["builder", "Use it if it looks right and keep going"],
+    ["guardian", "Think about who could be harmed if it's wrong"],
+    ["allrounder", "Depends on how important the task is"],
+  ] },
+  { q: "What makes an AI answer perfect for you?", a: [
+    ["builder", "Something I can use immediately: steps, code, a template"],
+    ["professor", "A clear explanation of why, not just what"],
+    ["detective", "Facts separated from guesses, with how to check them"],
+    ["guardian", "Safe advice that respects privacy and people"],
+    ["allrounder", "Short first, more detail when I ask"],
+  ] },
+  { q: "A friend starts an AI project and asks for your help. Your role?", a: [
+    ["builder", "I build the first working version"],
+    ["professor", "I explain the concepts behind it"],
+    ["detective", "I test it and find the bugs"],
+    ["guardian", "I make sure it's safe and fair"],
+    ["allrounder", "Whatever the team needs that day"],
+  ] },
+  { q: "When the AI gets something wrong, you…", a: [
+    ["detective", "Expected it: that's why I double-check"],
+    ["professor", "Want to understand why it happened"],
+    ["builder", "Rephrase and try again quickly"],
+    ["guardian", "Ask whether AI should be used for this at all"],
+    ["allrounder", "Shrug, fix it and keep going"],
+  ] },
+];
+const PERSONA_TONES = {
+  warm: ["😊 Warm & friendly", "Be warm, encouraging and friendly, like a supportive friend who knows a lot."],
+  direct: ["🎯 Direct", "Be direct and to the point: no filler, no flattery, plain words."],
+  playful: ["😄 Playful", "Be light and playful with a bit of humour, while staying accurate and useful."],
+  professional: ["👔 Professional", "Be calm, polished and professional, like a trusted consultant."],
+};
+const PERSONA_LENGTHS = {
+  short: ["Short", "Keep answers short: a few sentences or bullets, unless they ask for more."],
+  balanced: ["Balanced", "Keep answers focused: as long as needed and no longer."],
+  detailed: ["Detailed", "Give thorough, well-structured answers with examples."],
+};
+const PERSONA_LANGUAGES = {
+  auto: ["Match my language", "Reply in the language the user writes in."],
+  en: ["English", "Reply in English unless the user asks otherwise."],
+  id: ["Bahasa Indonesia", "Reply in natural Bahasa Indonesia unless the user asks otherwise."],
+};
 const FOLLOW_UP_INSTRUCTION = "\n\nAfter your answer, add a final section exactly in this form:\nFollow-ups:\n- <short question>\n- <short question>\nwith 2 or 3 natural next questions the user might ask. Write the follow-ups in exactly the same language as the user's last message (for example English if they wrote English, Indonesian if they wrote Indonesian). Keep the heading \"Follow-ups:\" in English.";
 const FOLLOW_UPS = /\n+[*_]{0,2}Follow[- ]?ups?[*_]{0,2}:?[*_]{0,2}:?[ \t]*\n((?:[ \t]*(?:[-*•]|\d+[.)])[ \t]+.+(?:\n|$)){1,4})\s*$/i;
 const IMPROVE_PROMPT = "You rewrite prompts so an AI assistant can answer them well. Keep the user's language, intent and every detail they gave. Make it specific: state the goal, the context worth including, the desired format and length, and any constraints. If key information is missing, add short [placeholders] for the user to fill in. Reply with the improved prompt only: no preamble, no quotes.";
@@ -36,19 +106,58 @@ const FUSE_PROMPT = "You are an expert editor. You receive several AI answers to
 const MAX_SHARE_CHARS = 60000;
 const AGENT_COLORS = ["a", "b", "c"];
 const PUTER_SDK_URL = "https://js.puter.com/v2/";
-// Curated Glow AI models served through Puter, best general picks first. Retired ids are
-// filtered out against Puter's live catalogue when it is reachable.
+// Curated Glow AI models served through Puter: dependable picks used before the live catalogue loads,
+// as 🔒 previews for guests and as fallbacks. Retired ids are filtered out against Puter's live catalogue.
 const PUTER_MODELS = [
   ["gpt-5-mini", "GPT-5 mini"],
-  ["gemini-2.5-flash", "Gemini 2.5 Flash"],
+  ["claude-haiku-5-5", "Claude Haiku 5.5"],
+  ["gemini-3.8-flash", "Gemini 3.8 Flash"],
+  ["deepseek-flash", "DeepSeek Flash"],
   ["claude-haiku-4-5", "Claude Haiku 4.5"],
-  ["deepseek-flash", "DeepSeek V4.1 Flash"],
+  ["gemini-2.5-flash", "Gemini 2.5 Flash"],
   ["gpt-5-nano", "GPT-5 nano (fastest, lightest)"],
   ["gemini-2.5-flash-lite", "Gemini 2.5 Flash-Lite (light)"],
+  ["claude-sonnet-5-5", "Claude Sonnet 5.5"],
+  ["gpt-6.1-sol", "GPT-6.1 Sol"],
+  ["gemini-3.1-pro-preview", "Gemini 3.1 Pro"],
+  ["claude-opus-5-5", "Claude Opus 5.5"],
+  ["kimi-k2.7-code", "Kimi K2.7 Code"],
   ["grok-4-1-fast-non-reasoning", "Grok 4.1 Fast"],
   ["gpt-4o-mini", "GPT-4o mini"],
-  ["claude-sonnet-4-6", "Claude Sonnet 4.6 (premium, uses more allowance)"],
 ];
+// Image models (Puter txt2img), best first. "quality" keeps each picture cheap on the free allowance.
+const IMAGE_MODELS = [
+  { id: "gpt-image-2", name: "GPT Image 2", quality: "low" },
+  { id: "gemini-3.1-flash-image", name: "Nano Banana (Gemini 3.1 Flash Image)" },
+  { id: "gemini-3-pro-image", name: "Nano Banana Pro (Gemini 3 Pro Image)", premium: true },
+  { id: "black-forest-labs/flux-2-pro", name: "FLUX.2 Pro" },
+  { id: "bytedance/seedream-4.5", name: "Seedream 4.5" },
+  { id: "black-forest-labs/flux-schnell", name: "FLUX.1 Schnell (fastest, lightest)", light: true },
+];
+// The model menu is organised by what people want to do; each list is ranked best first.
+const MODEL_CATEGORIES = [
+  { key: "best", icon: "⭐", label: "Best", hint: "The strongest all-round models, best first. Premium ones use more of your free allowance." },
+  { key: "quick", icon: "⚡", label: "Quick", hint: "Fast and light: great answers that save your allowance. Glow's default." },
+  { key: "code", icon: "💻", label: "Code", hint: "Best for writing, fixing and explaining code." },
+  { key: "research", icon: "🔎", label: "Research", hint: "Deep reasoning and long documents. Slower, and uses more allowance." },
+  { key: "writing", icon: "✍", label: "Writing", hint: "Natural, polished writing, editing and translation." },
+  { key: "media", icon: "🎨", label: "Images", hint: "Describe a picture and Glow draws it. Images are saved in this browser." },
+  { key: "free", icon: "🆓", label: "Free & local", hint: "Works without signing in: Glow Free, your own keys and models on your own computer." },
+];
+// Model families per category, best first. Within a family the newest release wins, so new versions
+// (for example a future claude-opus-6) rank automatically without code changes.
+const CATEGORY_FAMILIES = {
+  best: [/^claude-opus-\d/, /^gpt-\d+(\.\d+)?-sol\b/, /^gemini-\d+(\.\d+)?-pro\b|^gemini-4/, /^claude-sonnet-\d/, /^grok-\d+(\.\d+)?$/, /^kimi-k\d+(\.\d+)?(-pro)?$/, /^deepseek-v\d+(\.\d+)?-pro\b/, /^qwen\d+(\.\d+)?-max\b/, /^glm-\d+(\.\d+)?$/, /^mistral-large-/],
+  quick: [/^claude-haiku-\d/, /^gpt-\d+(\.\d+)?-luna\b/, /^gemini-\d+(\.\d+)?-flash(?!-lite|-image)/, /^gpt-5-mini\b/, /^deepseek-flash\b/, /^glm-\d+(\.\d+)?-flash$/, /^qwen\d+(\.\d+)?-flash$/, /^gemini-\d+(\.\d+)?-flash-lite(?!-image)/, /^gpt-5-nano\b/, /^mistral-small-/, /^grok-4-1-fast/, /^gpt-4o-mini\b/],
+  code: [/^claude-opus-\d/, /^gpt-\d+(\.\d+)?-codex\b/, /^claude-sonnet-\d/, /^gpt-\d+(\.\d+)?-sol\b/, /^kimi-k\d+(\.\d+)?-code$/, /^gemini-\d+(\.\d+)?-pro\b|^gemini-4/, /^grok-build/, /^qwen\d+(\.\d+)?-coder/, /^deepseek-v\d+(\.\d+)?-pro\b/, /^glm-\d+(\.\d+)?$/, /^codestral-/, /^minimax-m\d+(\.\d+)?$/, /^claude-haiku-\d/],
+  research: [/^gpt-\d+(\.\d+)?-pro\b/, /^gemini-\d+(\.\d+)?-pro\b|^gemini-4/, /^claude-opus-\d/, /^gpt-\d+(\.\d+)?-astra\b/, /^grok-\d+(\.\d+)?$/, /^kimi-k\d+(\.\d+)?-pro$/, /^deepseek-v\d+(\.\d+)?-pro\b/, /^qwen\d+(\.\d+)?-max\b/, /^claude-sonnet-\d/],
+  writing: [/^claude-sonnet-\d/, /^claude-opus-\d/, /^gpt-\d+(\.\d+)?-terra\b/, /^gpt-\d+(\.\d+)?-sol\b/, /^gemini-\d+(\.\d+)?-pro\b|^gemini-4/, /^kimi-k\d+(\.\d+)?$/, /^mistral-(medium|large)-/, /^claude-haiku-\d/, /^gpt-5-mini\b/],
+};
+// Catalogue entries that are not chat models (or only work through special APIs).
+const CATALOGUE_SKIP = /embed|tts|whisper|transcri|image|video|moderation|rerank|ocr|speech|audio|realtime|robotics|customtools|livetranslate|decision-model/i;
+// Output price (US cents per million tokens) above which a model is marked Premium, and below which Light.
+const PREMIUM_CENTS = 1200;
+const LIGHT_CENTS = 150;
 const CLOUD_PREFIX = "glow.sync.";
 const CLOUD_CHUNK_CHARS = 120000; // ≤ 360 KB per value even for 3-byte UTF-8 text (Puter limit 400 KB)
 const CLOUD_MAX_PARTS = 40;
@@ -63,6 +172,7 @@ let councilRunning = false;
 let puterSignedIn = false;
 let puterCatalogue = null;
 let puterCatalogueList = null;
+let puterAllowance = null; // { remaining, total, checked } from puter.auth.getMonthlyUsage()
 let puterPromise = null;
 let cloudTimer = null;
 let lastCloudPayload = "";
@@ -86,11 +196,18 @@ function loadState() {
       customInstructions: "",
       followUps: true,
       favoriteModels: [],
-      allPuterModels: false,
+      modelCategory: "",
+      customPersonas: [],
+      defaultPersona: "default",
+      personaOnboarded: false,
+      displayName: "",
+      accountTemp: false,
+      retentionDays: 0,
     },
     conversations: [],
     arenaStats: {},
     deleted: {},
+    usage: { days: {} },
   };
   try {
     const saved = JSON.parse(localStorage.getItem(STORE_KEY));
@@ -100,6 +217,7 @@ function loadState() {
         conversations: saved.conversations || [],
         arenaStats: saved.arenaStats || {},
         deleted: saved.deleted || {},
+        usage: saved.usage && saved.usage.days ? saved.usage : { days: {} },
       };
     }
   } catch (error) {
@@ -125,6 +243,9 @@ function inlineMarkdown(text) {
   const held = [];
   const hold = (html) => `\u0000${held.push(html) - 1}\u0000`;
   let out = text.replace(/`([^`]+)`/g, (_, code) => hold(`<code>${code}</code>`));
+  // Pictures made with 🎨 Images are stored inline as data URLs (only data:image is ever rendered).
+  out = out.replace(/!\[([^\]\n]*)\]\((data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+)\)/g, (_, alt, url) =>
+    hold(`<img class="gen-image" src="${url}" alt="${alt}" loading="lazy">`));
   out = out.replace(/\[([^\]\n]+)\]\(((?:https?:\/\/|mailto:)[^\s)]+)\)/g, (_, label, url) =>
     hold(`<a href="${url}" target="_blank" rel="noopener noreferrer">${label}</a>`));
   out = out.replace(/(^|[\s(])((?:https?:\/\/)[^\s<)]+[^\s<).,;:!?'"])/g, (_, lead, url) =>
@@ -347,14 +468,22 @@ function upgradeFromDemo() {
 }
 const PREFERRED_MODEL_PATTERNS = [/llama-3\.3-70b/i, /deepseek-(chat|v3|r1)/i, /gemini/i, /qwen.*(72b|235b|32b)/i, /mistral-(small|medium|large)/i, /gpt-oss/i, /llama/i, /qwen/i];
 function modelRank(value) {
-  if (value.startsWith("puter::")) return -1 + PUTER_MODELS.findIndex(([id]) => `puter::${id}` === value) / 100;
+  if (value.startsWith("puterimg::")) return 1000; // image models never become the default chat model
+  if (value.startsWith("puter::")) {
+    // Glow AI: the ⚡ Quick list first (great answers on a light allowance), then the curated picks.
+    const quick = rankedCategory("quick").findIndex((entry) => entry.value === value);
+    if (quick !== -1) return -2 + quick / 100;
+    const curated = PUTER_MODELS.findIndex(([id]) => `puter::${id}` === value);
+    return curated === -1 ? -0.5 : -1 + curated / 100;
+  }
   if (value.startsWith("ollama::")) return 0; // local models the user chose to install come first
   if (value.startsWith("free::")) return PREFERRED_MODEL_PATTERNS.length + 0.5; // after strong models from the user's own keys
   const index = PREFERRED_MODEL_PATTERNS.findIndex((pattern) => pattern.test(value));
   return index === -1 ? PREFERRED_MODEL_PATTERNS.length + 1 : index + 1;
 }
 function defaultModel(offset = 0) {
-  const real = models.slice(1).slice().sort((a, b) => modelRank(a.value) - modelRank(b.value));
+  const ranks = new Map(models.map((m) => [m.value, modelRank(m.value)]));
+  const real = models.slice(1).filter((m) => !m.value.startsWith("puterimg::")).sort((a, b) => ranks.get(a.value) - ranks.get(b.value));
   if (!real.length) return models[0].value;
   return real[offset % real.length].value;
 }
@@ -362,6 +491,7 @@ function fillSelect(select, selected) {
   select.innerHTML = "";
   const groups = {};
   for (const option of models) {
+    if (option.value.startsWith("puterimg::") && select.id !== "chat-model") continue; // Council and Arena need text models
     if (!groups[option.group]) {
       groups[option.group] = document.createElement("optgroup");
       groups[option.group].label = option.group;
@@ -428,14 +558,23 @@ async function fetchWithRetry(doFetch, signal, onWait = () => {}) {
     await sleep(waitMs, signal);
   }
 }
-async function streamReply(modelValue, system, messages, onText) {
+// Every AI call goes through here so token usage is counted once, for today and (when given) the chat.
+async function streamReply(modelValue, system, messages, onText, conv = null) {
+  const usage = { in: 0, out: 0, exact: false, images: 0 };
+  const reply = await streamProvider(modelValue, system, messages, onText, usage);
+  recordUsage(usage, reply, conv, modelValue);
+  return reply;
+}
+async function streamProvider(modelValue, system, messages, onText, usage) {
   const { provider, model } = splitModel(modelValue);
-  const clean = trimHistory(messages.map((m) => ({ role: m.role, content: stripThinking(m.content) })));
+  const clean = trimHistory(messages.map((m) => ({ role: m.role, content: stripImages(stripThinking(m.content)) })));
+  usage.in = estimateTokens(system) + clean.reduce((sum, m) => sum + estimateTokens(m.content), 0);
   const controller = new AbortController();
   controllers.add(controller);
   try {
     if (provider === "demo") return await streamDemo(system, clean, onText, controller.signal);
-    if (provider === "puter") return await streamPuter(model, system, clean, onText, controller.signal);
+    if (provider === "puter") return await streamPuter(model, system, clean, onText, controller.signal, usage);
+    if (provider === "puterimg") return await generateImage(model, clean, onText, controller.signal, usage);
     const config = providerConfig(provider);
     const headers = { "Content-Type": "application/json" };
     if (config.key) headers.Authorization = `Bearer ${config.key}`;
@@ -520,7 +659,7 @@ async function streamReply(modelValue, system, messages, onText) {
             watchdog.arm(Math.max(1, Math.min(timeouts.stall, timeouts.total - (Date.now() - startedAt))));
           }
           onFull(full);
-        });
+        }, usage);
       } catch (error) {
         if (error.name !== "AbortError" && RATE_LIMIT_TEXT.test(error.message || "")) {
           showRateLimited(provider);
@@ -613,7 +752,7 @@ function closeRateNotice() {
   $("rate-notice").classList.add("hidden");
   if (/^Rate limited/.test($("status").textContent)) $("status").textContent = "";
 }
-async function readSse(response, onText) {
+async function readSse(response, onText, usage = null) {
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
@@ -637,6 +776,7 @@ async function readSse(response, onText) {
         continue;
       }
       if (event.error) throw new Error(event.error.message || "Model error");
+      if (usage && event.usage) applyProviderUsage(usage, event.usage); // OpenAI-style final chunk
       const delta = ((event.choices || [])[0] || {}).delta || {};
       const reasoning = delta.reasoning || delta.reasoning_content;
       if (reasoning) {
@@ -675,10 +815,14 @@ function withInstructions(prompt) {
   const extra = (state.settings.customInstructions || "").trim();
   return extra ? `${prompt}\n\nAbout the user and how to answer (follow unless the user asks otherwise):\n${extra.slice(0, 1500)}` : prompt;
 }
+function personaFor(key) {
+  if (Object.prototype.hasOwnProperty.call(PERSONAS, key)) return PERSONAS[key];
+  return (state.settings.customPersonas || []).find((p) => p.id === key) || null;
+}
 function systemPromptFor(conv) {
-  const personaKey = PERSONAS[conv.persona] ? conv.persona : "default";
-  let prompt = withInstructions(PERSONAS[personaKey].prompt);
-  if (conv.type === "chat" && state.settings.followUps && personaKey !== "translator") prompt += FOLLOW_UP_INSTRUCTION;
+  const personaKey = personaFor(conv.persona) ? conv.persona : "default";
+  let prompt = withInstructions(personaFor(personaKey).prompt);
+  if (conv.type === "chat" && state.settings.followUps && personaKey !== "translator" && !String(conv.model || "").startsWith("puterimg::")) prompt += FOLLOW_UP_INSTRUCTION;
   return prompt;
 }
 function splitFollowUps(text) {
@@ -764,6 +908,12 @@ function newId() {
 }
 function persist(conv) {
   conv.updated = Date.now();
+  if (conv.temporary) {
+    // 👻 Temporary chats are never saved or synced; they disappear when you leave them.
+    renderHistory();
+    renderUsage();
+    return;
+  }
   if (!state.conversations.includes(conv)) state.conversations.unshift(conv);
   saveState();
   renderHistory();
@@ -831,7 +981,9 @@ function togglePin(conv) {
 function openConversation(conv) {
   current = conv;
   const labels = { chat: "Chat", council: "Council", arena: "Arena" };
-  $("mode-label").textContent = labels[conv.type];
+  $("mode-label").textContent = conv.temporary ? "👻 Temporary" : labels[conv.type];
+  $("temp-btn").classList.toggle("on", !!conv.temporary);
+  $("temp-btn").setAttribute("aria-pressed", String(!!conv.temporary));
   $("model-picker").classList.toggle("hidden", conv.type !== "chat");
   closeModelMenu();
   if (conv.type === "chat") fillSelect($("chat-model"), conv.model);
@@ -1043,8 +1195,10 @@ function errorText(error) {
 }
 
 /* ================= chat ================= */
-function newChat(persona = "default") {
-  current = { id: newId(), type: "chat", title: "New chat", messages: [], persona, model: $("chat-model").value || state.settings.lastModel };
+function newChat(persona = null, temporary = false) {
+  const chosen = persona || (personaFor(state.settings.defaultPersona) ? state.settings.defaultPersona : "default");
+  current = { id: newId(), type: "chat", title: "New chat", messages: [], persona: chosen, model: $("chat-model").value || state.settings.lastModel };
+  if (temporary) current.temporary = true;
   openConversation(current);
 }
 function takeAttachments(text) {
@@ -1058,11 +1212,12 @@ function takeAttachments(text) {
 async function streamAssistant(model, system, history, who, css, view = (text) => text) {
   const bubble = messageElement(who, css, modelLabel(model));
   bubble.classList.add("cursor");
+  const conv = current;
   try {
     const reply = await streamReply(model, system, history, (full) => {
       bubble.innerHTML = renderReply(view(full));
       scrollDown();
-    });
+    }, conv);
     bubble.classList.remove("cursor");
     return reply;
   } catch (error) {
@@ -1177,7 +1332,7 @@ async function secondOpinion() {
   if ($("send-btn").disabled) return "";
   const last = current.messages[current.messages.length - 1];
   const question = [...current.messages].reverse().find((m) => m.role === "user");
-  const realModels = models.filter((m) => m.value !== "demo::demo");
+  const realModels = models.filter((m) => m.value !== "demo::demo" && !m.value.startsWith("puterimg::"));
   const reviewer = realModels.find((m) => m.value !== last.model)
     || realModels.find((m) => m.value === last.model)
     || models[0];
@@ -1540,7 +1695,7 @@ async function fuseRound(roundIndex) {
   try {
     round.fused.content = await streamReply(model, withInstructions(FUSE_PROMPT), history, (full) => {
       bubble.innerHTML = renderReply(full);
-    });
+    }, current);
   } catch (error) {
     round.fused.content = error.name === "AbortError" ? bubble.textContent : `⚠️ ${errorText(error)}`;
   }
@@ -1571,7 +1726,7 @@ async function sendArena(text) {
       const system = isDemo ? `${SYSTEM_PROMPT} [arena:${slot}]` : withInstructions(SYSTEM_PROMPT);
       reply.content = await streamReply(reply.model, system, history(slot), (full) => {
         bubbles[slot].innerHTML = renderReply(full);
-      });
+      }, current);
     } catch (error) {
       reply.content = error.name === "AbortError" ? bubbles[slot].textContent : `⚠️ ${errorText(error)}`;
       bubbles[slot].innerHTML = renderReply(reply.content);
@@ -1681,6 +1836,9 @@ function openSettings() {
   $("set-sync").checked = s.cloudSync;
   $("set-instructions").value = s.customInstructions || "";
   $("set-followups").checked = s.followUps !== false;
+  $("set-display-name").value = s.displayName || "";
+  $("set-retention").value = String(s.retentionDays || 0);
+  $("data-summary").textContent = dataSummary();
   renderAccount();
   $("settings-modal").classList.add("open");
 }
@@ -1694,8 +1852,13 @@ async function saveSettings() {
     cloudSync: $("set-sync").checked,
     customInstructions: $("set-instructions").value.trim().slice(0, 1500),
     followUps: $("set-followups").checked,
+    displayName: $("set-display-name").value.trim().slice(0, 40),
+    retentionDays: Number($("set-retention").value) || 0,
   });
   saveState();
+  const removed = applyRetention();
+  if (removed) toast(`Auto-delete removed ${removed} old chat${removed > 1 ? "s" : ""}`);
+  renderAccount();
   $("settings-modal").classList.remove("open");
   await loadModels();
 }
@@ -1800,6 +1963,11 @@ function puterErrorText(error) {
   if (/model.*(not|unavailable|unknown)|not.?found/i.test(both)) return "This Glow AI model isn't available right now. Pick another model.";
   return `Glow AI (Puter) error: ${(message || code || "unknown problem").slice(0, 200)}`;
 }
+function catalogueMeta(m) {
+  const costs = (m && m.costs) || {};
+  const out = Number(costs.completion_tokens ?? costs.output_tokens ?? costs.output ?? NaN);
+  return { date: String((m && m.release_date) || ""), out: Number.isFinite(out) ? out : null };
+}
 async function puterModelOptions() {
   const sdk = window.puter;
   if (!puterCatalogue && sdk && sdk.ai && typeof sdk.ai.listModels === "function") {
@@ -1807,7 +1975,7 @@ async function puterModelOptions() {
       const list = await withTimeout(sdk.ai.listModels(), 5000, "catalogue timeout");
       puterCatalogueList = (Array.isArray(list) ? list : []).filter((m) => m && m.id
         && (!m.modalities || !m.modalities.output || m.modalities.output.includes("text"))
-        && !/embed|tts|whisper|transcri|image|video|moderation|rerank|ocr|speech|audio/i.test(m.id));
+        && !CATALOGUE_SKIP.test(m.id));
       const ids = new Set();
       for (const m of Array.isArray(list) ? list : []) {
         if (m && m.id) ids.add(m.id);
@@ -1818,27 +1986,37 @@ async function puterModelOptions() {
       // Catalogue unavailable: offer the curated list as-is.
     }
   }
+  // Curated picks keep their friendly names; every other chat model in Puter's catalogue follows, so the
+  // category lists and search cover all of them (no "show every model" switch needed).
+  const byId = new Map();
+  for (const m of puterCatalogueList || []) {
+    byId.set(m.id, m);
+    for (const alias of m.aliases || []) if (!byId.has(alias)) byId.set(alias, m);
+  }
   const available = PUTER_MODELS.filter(([id]) => !puterCatalogue || puterCatalogue.has(id));
-  const curated = (available.length ? available : PUTER_MODELS).map(([id, name]) => ({
-    value: `puter::${id}`,
-    label: name,
-    short: name.replace(/\s*\(.*\)$/, ""),
-    group: "Glow AI: free with your account",
-  }));
-  if (!state.settings.allPuterModels || !puterCatalogueList) return curated;
-  const seen = new Set(curated.map((m) => m.value));
-  const everything = puterCatalogueList
-    .filter((m) => !seen.has(`puter::${m.id}`))
-    .map((m) => ({
+  const covered = new Set();
+  const entries = (available.length ? available : PUTER_MODELS).map(([id, name]) => {
+    const info = byId.get(id);
+    if (info) covered.add(info);
+    return { value: `puter::${id}`, label: name, short: name.replace(/\s*\(.*\)$/, ""), group: "Glow AI: free with your account", meta: catalogueMeta(info) };
+  });
+  for (const m of puterCatalogueList || []) {
+    if (covered.has(m)) continue;
+    const name = m.name || m.id;
+    entries.push({
       value: `puter::${m.id}`,
-      label: m.name || m.id,
-      short: (m.name || m.id).replace(/\s*\(.*\)$/, ""),
-      group: `Glow AI: all models${m.provider ? ` · ${m.provider}` : ""}`,
-    }))
-    .sort((a, b) => a.group.localeCompare(b.group) || a.label.localeCompare(b.label));
-  return [...curated, ...everything];
+      label: name,
+      short: name.replace(/\s*\(.*\)$/, ""),
+      group: `Glow AI · ${m.provider || "more models"}`,
+      meta: catalogueMeta(m),
+    });
+  }
+  for (const image of IMAGE_MODELS) {
+    entries.push({ value: `puterimg::${image.id}`, label: image.name, short: image.name.replace(/\s*\(.*\)$/, ""), group: "Glow AI: images", meta: { date: "", out: image.premium ? PREMIUM_CENTS + 1 : image.light ? 0 : null } });
+  }
+  return entries;
 }
-async function streamPuter(model, system, messages, onText, signal) {
+async function streamPuter(model, system, messages, onText, signal, usage = null) {
   let sdk;
   try {
     sdk = await ensurePuter();
@@ -1867,6 +2045,7 @@ async function streamPuter(model, system, messages, onText, signal) {
   }
   if (!response || typeof response[Symbol.asyncIterator] !== "function") {
     const text = String((response && response.message && response.message.content) || response || "");
+    if (usage && response && response.usage) applyProviderUsage(usage, response.usage);
     onText(text);
     return text;
   }
@@ -1886,6 +2065,10 @@ async function streamPuter(model, system, messages, onText, signal) {
       const part = step.value || {};
       if (part.error) throw new Error(puterErrorText(part.error));
       const type = part.type || "text";
+      if (type === "usage" || (part.usage && typeof part.text !== "string")) {
+        if (usage) applyProviderUsage(usage, part.usage || part.usageDetails || part);
+        continue;
+      }
       const reasoning = typeof part.reasoning === "string" ? part.reasoning
         : /^reasoning/.test(type) && typeof part.text === "string" ? part.text : "";
       if (reasoning) {
@@ -1921,9 +2104,11 @@ function renderAccount() {
   let action;
   let status;
   if (puterSignedIn) {
-    label = s.accountName || "Signed in";
+    label = s.accountTemp ? `⚠ ${s.displayName || "Temporary account"}` : s.displayName || s.accountName || "Signed in";
     action = "Sign out";
-    status = `Signed in as ${s.accountName || "your Puter account"}. Glow AI models are ready.`;
+    status = s.accountTemp
+      ? `Puter signed you in with a temporary account (“${s.accountName}”). Glow AI works, but a temporary account lives only in this browser and can be lost. Save it free on puter.com, or switch to your own Puter account.`
+      : `Signed in as ${s.accountName || "your Puter account"}. Glow AI models are ready.`;
   } else if (s.account === "puter") {
     label = "Signed out";
     action = "Sign in";
@@ -1934,7 +2119,9 @@ function renderAccount() {
     status = "You're using Glow as a guest: demo replies or your own keys below.";
   }
   $("account-label").textContent = label;
-  $("account-label").title = puterSignedIn ? `Signed in with Puter as ${label}` : label;
+  $("account-label").title = puterSignedIn ? `Puter account: ${s.accountName || label}${s.accountTemp ? " (temporary: save it on puter.com)" : ""}` : label;
+  $("account-save").classList.toggle("hidden", !(puterSignedIn && s.accountTemp));
+  $("set-account-temp").classList.toggle("hidden", !(puterSignedIn && s.accountTemp));
   $("account-btn").textContent = action;
   $("set-account-status").textContent = status;
   $("set-account-btn").textContent = action;
@@ -1960,7 +2147,7 @@ async function signIn() {
     if (!sdk.auth.isSignedIn()) await sdk.auth.signIn();
     const user = await Promise.resolve(sdk.auth.getUser()).catch(() => null);
     puterSignedIn = true;
-    Object.assign(state.settings, { account: "puter", accountName: (user && user.username) || "Puter user" });
+    Object.assign(state.settings, { account: "puter", accountName: (user && user.username) || "Puter user", accountTemp: !!(user && user.is_temp) });
     saveState();
   } catch (error) {
     setSigninError(signinFailureText(error));
@@ -1972,21 +2159,29 @@ async function signIn() {
   }
   hideWelcome();
   renderAccount();
-  toast(`Signed in as ${state.settings.accountName}`);
+  toast(state.settings.accountTemp
+    ? "Signed in with a temporary Puter account. Save it in Settings so it isn't lost."
+    : `Signed in as ${state.settings.displayName || state.settings.accountName}`);
   await loadModels();
   if (current && current.type === "chat") fillSelect($("chat-model"), current.model);
   if (pendingModel && current && current.type === "chat") selectChatModel(pendingModel);
   pendingModel = null;
   await pullCloud();
-  maybeStartTour();
+  refreshAllowance(true);
+  maybeStartOnboarding();
   return true;
 }
 function continueAsGuest() {
-  Object.assign(state.settings, { account: "guest", accountName: "" });
+  Object.assign(state.settings, { account: "guest", accountName: "", accountTemp: false });
   saveState();
   hideWelcome();
   renderAccount();
-  maybeStartTour();
+  maybeStartOnboarding();
+}
+async function switchPuterAccount() {
+  $("settings-modal").classList.remove("open");
+  await signOut();
+  toast("Signed out. Sign in again and choose Log in or Create account in Puter's window.");
 }
 async function signOut() {
   clearTimeout(cloudTimer);
@@ -1997,9 +2192,11 @@ async function signOut() {
     console.warn("Puter sign-out failed", error);
   }
   puterSignedIn = false;
-  Object.assign(state.settings, { account: "guest", accountName: "" });
+  puterAllowance = null;
+  Object.assign(state.settings, { account: "guest", accountName: "", accountTemp: false });
   saveState();
   renderAccount();
+  renderUsage();
   await loadModels();
   if (current && current.type === "chat") fillSelect($("chat-model"), current.model);
   showWelcome();
@@ -2016,7 +2213,11 @@ async function restorePuterSession() {
     puterSignedIn = !!sdk.auth.isSignedIn();
     if (puterSignedIn) {
       const user = await Promise.resolve(sdk.auth.getUser()).catch(() => null);
-      if (user && user.username) state.settings.accountName = user.username;
+      if (user && user.username) {
+        state.settings.accountName = user.username;
+        state.settings.accountTemp = !!user.is_temp;
+      }
+      refreshAllowance(true);
     }
   } catch (error) {
     puterSignedIn = false;
@@ -2123,9 +2324,9 @@ function hideWelcome() {
 /* ================= guided tour ================= */
 const TOUR_STEPS = [
   { title: "Welcome to GlowChat ✨", text: "A quick tour of the main controls. Use Next or the → key, Back or ←, and Esc to skip." },
-  { target: "#model-picker-btn", title: "Pick a model", text: "Open this menu to search models, star your favorites and see what each is good at. Glow Free works right away; 🔒 models unlock with a free sign-in." },
+  { target: "#model-picker-btn", title: "Pick a model", text: "Models are sorted by what you want to do (⭐ Best, ⚡ Quick, 💻 Code, 🔎 Research, ✍ Writing, 🎨 Images) and ranked best first. Search finds any model; 🔒 ones unlock with a free sign-in." },
   { target: "#composer", title: "Ask anything", text: "Type here and press Enter to send. Shift+Enter adds a new line; 📎 or paste attaches files, ✨ improves your prompt and 🎤 lets you speak." },
-  { target: "#composer-tools", title: "Personas", text: "Switch how Glow answers: 🗺 Planner gives you a checklist you can tick off, plus 🎓 Tutor, 💻 Coder, ✍ Writer, 🔍 Critic and 🌐 Translator." },
+  { target: "#composer-tools", title: "Personas & tokens", text: "Switch how Glow answers (🗺 Planner, 🎓 Tutor, 💻 Coder…) or pick ＋ New persona to make one that fits you. ◔ on the right shows the tokens you've used and your Glow AI allowance." },
   { target: "#new-council-btn", sidebar: true, title: "Council ⚖", text: "2–3 agents with different roles debate until they agree, then a Judge writes the final answer." },
   { target: "#new-arena-btn", sidebar: true, title: "Arena ⚔", text: "Ask several models the same question side by side, vote for the best and build your own leaderboard." },
   { target: "#crewroom-link", sidebar: true, title: "GlowRoom 🏢", text: "Hand bigger jobs to GlowRoom, the Glow app where an AI crew searches the web and runs code. What you type becomes their mission (or press 🏢 Ask GlowRoom under a reply), and their result comes back here as a chat." },
@@ -2249,13 +2450,15 @@ let pickerActive = -1;
 function modelBadges(option) {
   const value = option.value.toLowerCase();
   const badges = [];
+  const out = option.meta ? option.meta.out : null;
   if (value.startsWith("demo::")) badges.push("Offline");
   if (value.startsWith("free::") || /:free$/.test(value)) badges.push("Free");
   if (value.startsWith("ollama::")) badges.push("Local");
-  if (value.startsWith("puter::")) badges.push("Glow AI");
-  if (/nano|mini|flash|lite|fast|haiku|\b[1-9]b\b/.test(value)) badges.push("Fast");
-  if (/gpt-oss|deepseek-r1|reason|think|qwq|\bo[34]\b/.test(value)) badges.push("Reasoning");
-  if (/sonnet|opus|-pro\b|large|70b|405b|gpt-4o$|gpt-5(\.\d)?$/.test(value)) badges.push("Smart");
+  if (value.startsWith("puterimg::")) badges.push("Images");
+  else if (value.startsWith("puter::")) badges.push("Glow AI");
+  if (out !== null && out !== undefined && out > PREMIUM_CENTS) badges.push("Premium");
+  else if ((out !== null && out !== undefined && out <= LIGHT_CENTS) || /nano|mini|flash|lite|fast|haiku|luna|\b[1-9]b\b/.test(value)) badges.push("Light");
+  if (/gpt-oss|deepseek-r1|reason|think|qwq|\bo[34]\b|-pro\b|opus|astra/.test(value)) badges.push("Reasoning");
   return badges.slice(0, 3);
 }
 function pickerEntries() {
@@ -2264,8 +2467,70 @@ function pickerEntries() {
     for (const [id, name] of PUTER_MODELS) {
       entries.push({ value: `puter::${id}`, label: name, short: name.replace(/\s*\(.*\)$/, ""), group: "🔒 Free with sign-in", locked: true });
     }
+    for (const image of IMAGE_MODELS) {
+      entries.push({ value: `puterimg::${image.id}`, label: image.name, short: image.name, group: "🔒 Free with sign-in", locked: true });
+    }
   }
   return entries;
+}
+// Ranked lists are cached per model list, because the ranking runs on every menu render and default pick.
+let rankCache = { source: null, signedIn: null, lists: {} };
+function versionNumbers(id) {
+  return (id.match(/\d+/g) || []).map(Number).filter((n) => n < 1000); // ignore date suffixes
+}
+function newerFirst(a, b) {
+  const da = (a.meta && a.meta.date) || "";
+  const db = (b.meta && b.meta.date) || "";
+  if (da && db && da !== db) return da > db ? -1 : 1;
+  const va = versionNumbers(splitModel(a.value).model);
+  const vb = versionNumbers(splitModel(b.value).model);
+  for (let i = 0; i < Math.max(va.length, vb.length); i++) {
+    const diff = (vb[i] ?? -1) - (va[i] ?? -1);
+    if (diff) return diff;
+  }
+  return 0;
+}
+function rankedCategory(key) {
+  if (rankCache.source !== models || rankCache.signedIn !== puterSignedIn) rankCache = { source: models, signedIn: puterSignedIn, lists: {} };
+  if (rankCache.lists[key]) return rankCache.lists[key];
+  const entries = pickerEntries();
+  let ranked;
+  if (key === "free") {
+    const order = (value) => (value.startsWith("free::") ? 0 : value.startsWith("ollama::") ? 1 : value.startsWith("openrouter::") ? 2 : value.startsWith("custom::") ? 3 : 4);
+    ranked = entries.filter((e) => !e.value.startsWith("puter")).sort((a, b) => order(a.value) - order(b.value));
+  } else if (key === "media") {
+    ranked = entries.filter((e) => e.value.startsWith("puterimg::"));
+  } else {
+    // Native Glow AI models only (aggregator duplicates such as "openrouter:…" stay searchable).
+    const native = entries.filter((e) => e.value.startsWith("puter::") && !/[:/]/.test(splitModel(e.value).model));
+    // Prefer the plain id over a dated snapshot of the same model (deepseek-v4-pro over deepseek-v4-pro-0813).
+    const nativeIds = new Set(native.map((e) => splitModel(e.value).model));
+    const pool = native.filter((e) => {
+      const id = splitModel(e.value).model;
+      const base = id.replace(/-(\d{4}-\d{2}-\d{2}|\d{4,8})$/, "");
+      return base === id || !nativeIds.has(base);
+    });
+    ranked = [];
+    const used = new Set();
+    for (const family of CATEGORY_FAMILIES[key] || []) {
+      const best = pool.filter((e) => !used.has(e.value) && family.test(splitModel(e.value).model)).sort(newerFirst)[0];
+      if (best) {
+        ranked.push(best);
+        used.add(best.value);
+      }
+      if (ranked.length >= 10) break;
+    }
+    // Your own keys still show up where they fit best.
+    if (key === "quick") ranked.push(...entries.filter((e) => e.value.startsWith("free::")));
+    if (key === "code") ranked.push(...entries.filter((e) => /coder|codestral|devstral/i.test(e.value) && !e.value.startsWith("puter")).slice(0, 3));
+  }
+  rankCache.lists[key] = ranked;
+  return ranked;
+}
+function currentPickerCategory() {
+  const saved = state.settings.modelCategory;
+  if (MODEL_CATEGORIES.some((c) => c.key === saved)) return saved;
+  return puterSignedIn ? "best" : "free";
 }
 function updatePickerLabel() {
   const value = $("chat-model").value;
@@ -2285,70 +2550,129 @@ function closeModelMenu() {
 function modelMenuOpen() {
   return !$("model-menu").classList.contains("hidden");
 }
+function modelRow(entry, selected, favorites, rank = 0) {
+  const row = document.createElement("div");
+  row.className = "model-row" + (entry.value === selected && !entry.locked ? " selected" : "") + (entry.locked ? " locked" : "");
+  row.setAttribute("role", "option");
+  row.setAttribute("aria-selected", String(entry.value === selected && !entry.locked));
+  row.dataset.value = entry.value;
+  row.dataset.locked = entry.locked ? "1" : "";
+  if (rank) {
+    const place = document.createElement("span");
+    place.className = "model-rank";
+    place.textContent = String(rank);
+    row.appendChild(place);
+  }
+  const name = document.createElement("span");
+  name.className = "model-name";
+  name.textContent = (entry.locked ? "🔒 " : "") + entry.label;
+  const badges = document.createElement("span");
+  badges.className = "model-badges";
+  for (const badge of modelBadges(entry)) {
+    const tag = document.createElement("span");
+    tag.className = `badge badge-${badge.toLowerCase().replace(/\s+/g, "-")}`;
+    tag.textContent = badge;
+    if (badge === "Premium") tag.title = "Uses more of your free Glow AI allowance per message";
+    if (badge === "Light") tag.title = "Fast and light on your allowance";
+    badges.appendChild(tag);
+  }
+  row.append(name, badges);
+  if (!entry.locked) {
+    const star = document.createElement("button");
+    star.type = "button";
+    star.className = "model-star" + (favorites.has(entry.value) ? " on" : "");
+    star.textContent = favorites.has(entry.value) ? "★" : "☆";
+    star.title = favorites.has(entry.value) ? "Remove from favorites" : "Add to favorites";
+    star.dataset.star = entry.value;
+    row.appendChild(star);
+  }
+  return row;
+}
+function groupHead(text) {
+  const head = document.createElement("div");
+  head.className = "model-group";
+  head.textContent = text;
+  return head;
+}
 function renderModelMenu() {
   const query = $("model-search").value.trim().toLowerCase();
   const selected = $("chat-model").value;
   const favorites = new Set(state.settings.favoriteModels || []);
+  const category = currentPickerCategory();
+  const tabs = $("model-tabs");
+  tabs.innerHTML = "";
+  for (const item of MODEL_CATEGORIES) {
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.className = "model-tab" + (item.key === category && !query ? " on" : "");
+    tab.dataset.category = item.key;
+    tab.setAttribute("role", "tab");
+    tab.setAttribute("aria-selected", String(item.key === category && !query));
+    tab.title = item.hint;
+    tab.textContent = `${item.icon} ${item.label}`;
+    tabs.appendChild(tab);
+  }
   const list = $("model-list");
   list.innerHTML = "";
-  const entries = pickerEntries().filter((e) => !query || `${e.label} ${e.value} ${e.group}`.toLowerCase().includes(query));
-  const groups = new Map();
-  const favoriteEntries = entries.filter((e) => favorites.has(e.value) && !e.locked);
-  if (favoriteEntries.length) groups.set("★ Favorites", favoriteEntries);
-  for (const entry of entries) {
-    if (!groups.has(entry.group)) groups.set(entry.group, []);
-    groups.get(entry.group).push(entry);
-  }
+  const all = pickerEntries();
+  const favoriteEntries = all.filter((e) => favorites.has(e.value) && !e.locked);
   let shown = 0;
-  for (const [group, items] of groups) {
-    if (shown >= 300) break;
-    const head = document.createElement("div");
-    head.className = "model-group";
-    head.textContent = group;
-    list.appendChild(head);
-    for (const entry of items) {
-      if (shown >= 300) break;
-      shown += 1;
-      const row = document.createElement("div");
-      row.className = "model-row" + (entry.value === selected && !entry.locked ? " selected" : "") + (entry.locked ? " locked" : "");
-      row.setAttribute("role", "option");
-      row.setAttribute("aria-selected", String(entry.value === selected && !entry.locked));
-      row.dataset.value = entry.value;
-      row.dataset.locked = entry.locked ? "1" : "";
-      const name = document.createElement("span");
-      name.className = "model-name";
-      name.textContent = entry.label;
-      const badges = document.createElement("span");
-      badges.className = "model-badges";
-      for (const badge of modelBadges(entry)) {
-        const tag = document.createElement("span");
-        tag.className = `badge badge-${badge.toLowerCase().replace(/\s+/g, "-")}`;
-        tag.textContent = badge;
-        badges.appendChild(tag);
-      }
-      row.append(name, badges);
-      if (!entry.locked) {
-        const star = document.createElement("button");
-        star.type = "button";
-        star.className = "model-star" + (favorites.has(entry.value) ? " on" : "");
-        star.textContent = favorites.has(entry.value) ? "★" : "☆";
-        star.title = favorites.has(entry.value) ? "Remove from favorites" : "Add to favorites";
-        star.dataset.star = entry.value;
-        row.appendChild(star);
-      }
-      list.appendChild(row);
+  if (query) {
+    // Search covers every model, grouped by provider.
+    const matches = all.filter((e) => `${e.label} ${e.value} ${e.group}`.toLowerCase().includes(query));
+    const groups = new Map();
+    for (const entry of matches) {
+      if (!groups.has(entry.group)) groups.set(entry.group, []);
+      groups.get(entry.group).push(entry);
     }
-  }
-  if (!entries.length) {
-    const empty = document.createElement("div");
-    empty.className = "model-empty";
-    empty.textContent = `No models match “${query}”.`;
-    list.appendChild(empty);
-  } else if (shown >= 300) {
-    const more = document.createElement("div");
-    more.className = "model-empty";
-    more.textContent = "Showing the first 300. Type to search the rest.";
-    list.appendChild(more);
+    for (const [group, items] of groups) {
+      if (shown >= 300) break;
+      list.appendChild(groupHead(group));
+      for (const entry of items) {
+        if (shown >= 300) break;
+        shown += 1;
+        list.appendChild(modelRow(entry, selected, favorites));
+      }
+    }
+    if (!matches.length) {
+      const empty = document.createElement("div");
+      empty.className = "model-empty";
+      empty.textContent = `No models match “${query}”.`;
+      list.appendChild(empty);
+    } else if (shown >= 300) {
+      const more = document.createElement("div");
+      more.className = "model-empty";
+      more.textContent = "Showing the first 300. Keep typing to narrow it down.";
+      list.appendChild(more);
+    }
+  } else {
+    if (favoriteEntries.length) {
+      list.appendChild(groupHead("★ Favorites"));
+      for (const entry of favoriteEntries) list.appendChild(modelRow(entry, selected, favorites));
+    }
+    const info = MODEL_CATEGORIES.find((c) => c.key === category);
+    list.appendChild(groupHead(`${info.icon} ${info.label}: ranked best first`));
+    const hint = document.createElement("div");
+    hint.className = "model-hint";
+    hint.textContent = info.hint;
+    list.appendChild(hint);
+    const ranked = rankedCategory(category);
+    ranked.forEach((entry, index) => list.appendChild(modelRow(entry, selected, favorites, index + 1)));
+    if (!ranked.length) {
+      const empty = document.createElement("div");
+      empty.className = "model-empty";
+      empty.textContent = category === "free"
+        ? "Add your own OpenRouter key or Ollama in Settings to see more here."
+        : "Sign in (free) to unlock these models.";
+      list.appendChild(empty);
+    }
+    const total = all.filter((e) => !e.locked).length;
+    if (total > ranked.length + favoriteEntries.length) {
+      const more = document.createElement("div");
+      more.className = "model-empty";
+      more.textContent = `${total.toLocaleString()} models available: type a name to search them all.`;
+      list.appendChild(more);
+    }
   }
   pickerActive = -1;
   const foot = $("model-menu-foot");
@@ -2358,13 +2682,8 @@ function renderModelMenu() {
     unlock.type = "button";
     unlock.className = "link-btn unlock";
     unlock.dataset.menuAction = "signin";
-    unlock.textContent = "🔓 Sign in free to unlock GPT, Claude, Gemini, DeepSeek…";
+    unlock.textContent = "🔓 Sign in free to unlock GPT, Claude, Gemini, images…";
     foot.appendChild(unlock);
-  } else if (puterSignedIn) {
-    const label = document.createElement("label");
-    label.className = "note";
-    label.innerHTML = `<input type="checkbox" data-menu-action="all-models"${state.settings.allPuterModels ? " checked" : ""}> Show every Glow AI model${puterCatalogueList ? ` (${puterCatalogueList.length})` : ""}`;
-    foot.appendChild(label);
   }
   const keys = document.createElement("button");
   keys.type = "button";
@@ -2373,13 +2692,23 @@ function renderModelMenu() {
   keys.textContent = "🔑 Use my own keys";
   foot.appendChild(keys);
 }
+function onModelTabClick(event) {
+  const tab = event.target.closest("[data-category]");
+  if (!tab) return;
+  event.stopPropagation(); // the tab is re-rendered, so the outside-click check must not see it
+  state.settings.modelCategory = tab.dataset.category;
+  saveState();
+  $("model-search").value = "";
+  renderModelMenu();
+  $("model-search").focus();
+}
 function selectChatModel(value, announce = true) {
   if (!models.some((m) => m.value === value)) return false;
   $("chat-model").value = value;
   $("chat-model").dispatchEvent(new Event("change"));
   updatePickerLabel();
   closeModelMenu();
-  if (announce) toast(`Model: ${modelLabel(value)}`);
+  if (announce) toast(value.startsWith("puterimg::") ? `Images: describe a picture and ${modelLabel(value)} draws it` : `Model: ${modelLabel(value)}`);
   return true;
 }
 function toggleFavorite(value) {
@@ -2402,7 +2731,7 @@ function onModelListClick(event) {
   if (row.dataset.locked) {
     pendingModel = row.dataset.value;
     closeModelMenu();
-    toast(`Sign in (free) to use ${row.querySelector(".model-name").textContent}`);
+    toast(`Sign in (free) to use ${row.querySelector(".model-name").textContent.replace(/^🔒 /, "")}`);
     showWelcome();
     return;
   }
@@ -2410,18 +2739,12 @@ function onModelListClick(event) {
 }
 async function onModelFootClick(event) {
   const action = event.target.dataset.menuAction;
-  if (action === "all-models" && event.type !== "change") return;
   if (action === "signin") {
     closeModelMenu();
     showWelcome();
   } else if (action === "keys") {
     closeModelMenu();
     openSettings();
-  } else if (action === "all-models") {
-    state.settings.allPuterModels = event.target.checked;
-    saveState();
-    await loadModels();
-    renderModelMenu();
   }
 }
 function onModelSearchKey(event) {
@@ -2439,30 +2762,596 @@ function onModelSearchKey(event) {
   }
 }
 
-/* ================= personas, character count ================= */
+/* ================= personas (built-in + your own), character count ================= */
 function fillPersonaSelect() {
   const select = $("persona-select");
   select.innerHTML = "";
-  for (const [key, persona] of Object.entries(PERSONAS)) {
+  const custom = state.settings.customPersonas || [];
+  const addOption = (parent, value, text) => {
     const option = document.createElement("option");
-    option.value = key;
-    option.textContent = `${persona.icon} ${persona.name}`;
-    select.appendChild(option);
+    option.value = value;
+    option.textContent = text;
+    parent.appendChild(option);
+  };
+  if (custom.length) {
+    const yours = document.createElement("optgroup");
+    yours.label = "Yours";
+    for (const persona of custom) addOption(yours, persona.id, `${persona.icon} ${persona.name}`);
+    select.appendChild(yours);
   }
+  const builtIn = document.createElement("optgroup");
+  builtIn.label = "Built-in";
+  for (const [key, persona] of Object.entries(PERSONAS)) addOption(builtIn, key, `${persona.icon} ${persona.name}`);
+  select.appendChild(builtIn);
+  const more = document.createElement("optgroup");
+  more.label = "Make it yours";
+  addOption(more, "__new", "＋ New persona…");
+  if (custom.length) addOption(more, "__manage", "✎ Edit my personas…");
+  select.appendChild(more);
 }
 function setPersona(key, announce = true) {
-  if (!current || current.type !== "chat" || !PERSONAS[key]) return;
+  if (!current || current.type !== "chat") return;
+  if (key === "__new" || key === "__manage") {
+    $("persona-select").value = personaFor(current.persona) ? current.persona : "default";
+    openPersonaStudio({ mode: key === "__new" ? "quiz" : "list" });
+    return;
+  }
+  const persona = personaFor(key);
+  if (!persona) return;
   current.persona = key;
   $("persona-select").value = key;
   if (current.messages.length) persist(current);
-  if (announce) toast(`Persona: ${PERSONAS[key].icon} ${PERSONAS[key].name}`);
+  if (announce) toast(`Persona: ${persona.icon} ${persona.name}`);
 }
 function syncComposerTools() {
   const isChat = current && current.type === "chat";
   $("persona-select").classList.toggle("hidden", !isChat);
   document.querySelector(".persona-label").classList.toggle("hidden", !isChat);
-  if (isChat) $("persona-select").value = PERSONAS[current.persona] ? current.persona : "default";
+  if (isChat) $("persona-select").value = personaFor(current.persona) ? current.persona : "default";
   updateCharCount();
+  renderUsage();
+}
+
+/* ================= persona studio: make a Glow that fits you ================= */
+const SENSITIVE_TEXT = /\b\d[\d -]{10,}\d\b|password|passwd|kata ?sandi|\bpin\b|\bnik\b|\bktp\b|credit card|kartu kredit|cvv|\biban\b/i;
+const studio = { open: false, mode: "quiz", step: 0, answers: [], draft: null, editingId: null, onboarding: false };
+function blankDraft(aiType = "allrounder") {
+  const type = AI_TYPES[aiType] || AI_TYPES.allrounder;
+  return { name: "My Glow", icon: type.icon, aiType, tone: "warm", length: "balanced", language: "auto", callMe: state.settings.displayName || "", about: "", extra: "", prompt: "", promptEdited: false };
+}
+function buildPersonaPrompt(draft) {
+  const type = AI_TYPES[draft.aiType] || AI_TYPES.allrounder;
+  const language = PERSONA_LANGUAGES[draft.language]
+    ? PERSONA_LANGUAGES[draft.language][1]
+    : `Reply in ${String(draft.language).slice(0, 40)} unless the user asks otherwise.`;
+  const parts = [
+    `You are ${draft.name || "Glow"}, a personal AI assistant in Glow.`,
+    type.prompt,
+    (PERSONA_TONES[draft.tone] || PERSONA_TONES.warm)[1],
+    (PERSONA_LENGTHS[draft.length] || PERSONA_LENGTHS.balanced)[1],
+    language,
+  ];
+  if (draft.callMe) parts.push(`Call the user ${draft.callMe.slice(0, 40)} now and then, naturally.`);
+  if (draft.about) parts.push(`What they chose to tell you about themselves (use it to tailor examples; don't repeat it back unprompted): ${draft.about.slice(0, 400)}`);
+  if (draft.extra) parts.push(`Their extra wishes: ${draft.extra.slice(0, 400)}`);
+  parts.push("Be accurate, say when you're unsure, and format answers with Markdown.");
+  return parts.join(" ");
+}
+function quizResult(answers) {
+  const score = {};
+  for (const type of answers) score[type] = (score[type] || 0) + 1;
+  let best = "allrounder";
+  for (const type of Object.keys(AI_TYPES)) if ((score[type] || 0) > (score[best] || 0)) best = type;
+  return best;
+}
+function openPersonaStudio({ mode = "quiz", editId = null, onboarding = false } = {}) {
+  closeSidebar();
+  $("settings-modal").classList.remove("open");
+  Object.assign(studio, { open: true, mode, step: 0, answers: [], draft: null, editingId: null, onboarding });
+  if (editId) {
+    const persona = (state.settings.customPersonas || []).find((p) => p.id === editId);
+    if (persona) {
+      studio.mode = "form";
+      studio.editingId = persona.id;
+      studio.draft = { ...blankDraft(), ...persona.profile, name: persona.name, icon: persona.icon, prompt: persona.prompt };
+    }
+  }
+  if (studio.mode === "form" && !studio.draft) studio.draft = blankDraft();
+  $("persona-modal").classList.add("open");
+  renderStudio();
+}
+function closePersonaStudio(finished = false) {
+  $("persona-modal").classList.remove("open");
+  const wasOnboarding = studio.onboarding;
+  studio.open = false;
+  if (wasOnboarding) {
+    state.settings.personaOnboarded = true;
+    saveState();
+    if (!finished) toast("No problem. Make your persona any time with 🎭 in the sidebar.");
+    maybeStartTour();
+  }
+}
+function studioOptions(name, options, selected) {
+  return Object.entries(options).map(([value, [label]]) =>
+    `<label class="chip-option${value === selected ? " on" : ""}"><input type="radio" name="${name}" value="${value}"${value === selected ? " checked" : ""}> ${escapeHtml(label)}</label>`).join("");
+}
+function renderStudio() {
+  const body = $("persona-body");
+  const title = $("persona-title");
+  if (studio.mode === "list") {
+    title.textContent = "🎭 Your personas";
+    const custom = state.settings.customPersonas || [];
+    const rows = custom.map((p) => `
+      <div class="persona-row">
+        <span class="persona-row-name">${escapeHtml(p.icon)} ${escapeHtml(p.name)}${state.settings.defaultPersona === p.id ? ' <span class="badge">Default</span>' : ""}</span>
+        <button class="link-btn" type="button" data-studio="use" data-id="${escapeHtml(p.id)}">Use</button>
+        <button class="link-btn" type="button" data-studio="default" data-id="${escapeHtml(p.id)}">Make default</button>
+        <button class="link-btn" type="button" data-studio="edit" data-id="${escapeHtml(p.id)}">Edit</button>
+        <button class="link-btn danger" type="button" data-studio="delete" data-id="${escapeHtml(p.id)}">Delete</button>
+      </div>`).join("");
+    body.innerHTML = `
+      <p class="note">Personas you make are private: they live in this browser (and your own account if sync is on) and are never shared in chat links.</p>
+      ${rows || '<p class="note">You have no personas yet.</p>'}
+      <div class="row studio-actions">
+        <button class="secondary" type="button" data-studio="blank">Start from scratch</button>
+        <span class="spacer"></span>
+        <button class="primary" type="button" data-studio="quiz">＋ New persona (60-second quiz)</button>
+      </div>`;
+    return;
+  }
+  if (studio.mode === "quiz") {
+    const item = PERSONA_QUIZ[studio.step];
+    title.textContent = studio.onboarding ? "✨ First, let's make Glow fit you" : "🎭 Make a persona";
+    body.innerHTML = `
+      ${studio.step === 0 ? `<p class="note">Five quick situations (from the Orbis AI Type test) so your Glow answers the way <b>you</b> like. It's based only on what you choose here, never on your chats.</p>` : ""}
+      <div class="quiz-progress"><span style="width:${(studio.step / PERSONA_QUIZ.length) * 100}%"></span></div>
+      <p class="quiz-step">Situation ${studio.step + 1} of ${PERSONA_QUIZ.length}</p>
+      <h4 class="quiz-q">${escapeHtml(item.q)}</h4>
+      <div class="quiz-answers">${item.a.map(([type, text]) => `<button class="quiz-answer" type="button" data-studio="answer" data-type="${type}">${escapeHtml(text)}</button>`).join("")}</div>
+      <div class="row studio-actions">
+        ${studio.step > 0 ? '<button class="link-btn" type="button" data-studio="back">← Back</button>' : ""}
+        <span class="spacer"></span>
+        <button class="link-btn" type="button" data-studio="${studio.onboarding ? "skip" : "blank"}">${studio.onboarding ? "Skip for now" : "Skip the quiz"}</button>
+      </div>`;
+    return;
+  }
+  if (studio.mode === "result") {
+    const key = quizResult(studio.answers);
+    const type = AI_TYPES[key];
+    title.textContent = "Your AI type";
+    body.innerHTML = `
+      <div class="type-card" style="--type:${type.color}">
+        <div class="type-icon">${type.icon}</div>
+        <div><h3>${escapeHtml(type.name)}</h3><p class="note">${escapeHtml(type.nickname)} · ${escapeHtml(type.oneliner)}</p></div>
+      </div>
+      <p><b>Strengths:</b> ${type.strengths.map(escapeHtml).join(" · ")}</p>
+      <p><b>Watch-out:</b> ${escapeHtml(type.watchout)}</p>
+      <p><b>So your Glow will</b> ${escapeHtml(type.help)}.</p>
+      <div class="row studio-actions">
+        <button class="link-btn" type="button" data-studio="retake">Retake</button>
+        <span class="spacer"></span>
+        <button class="primary" type="button" data-studio="tostyle">Next: how Glow talks to you →</button>
+      </div>`;
+    return;
+  }
+  // form
+  const d = studio.draft;
+  const customLanguage = !PERSONA_LANGUAGES[d.language];
+  const preview = d.promptEdited && d.prompt ? d.prompt : buildPersonaPrompt(d);
+  title.textContent = studio.editingId ? "✎ Edit persona" : "🎨 How should Glow talk to you?";
+  body.innerHTML = `
+    <div class="studio-grid">
+      <label class="field"><span>Name</span><input id="ps-name" maxlength="30" value="${escapeHtml(d.name)}"></label>
+      <label class="field small"><span>Icon</span><input id="ps-icon" maxlength="4" value="${escapeHtml(d.icon)}"></label>
+    </div>
+    <div class="field"><span>Your AI type</span><select id="ps-type">${Object.entries(AI_TYPES).map(([key, t]) => `<option value="${key}"${key === d.aiType ? " selected" : ""}>${t.icon} ${escapeHtml(t.name)}: ${escapeHtml(t.oneliner)}</option>`).join("")}</select></div>
+    <div class="field"><span>Tone</span><div class="chip-row">${studioOptions("ps-tone", PERSONA_TONES, d.tone)}</div></div>
+    <div class="field"><span>Answer length</span><div class="chip-row">${studioOptions("ps-length", PERSONA_LENGTHS, d.length)}</div></div>
+    <div class="studio-grid">
+      <label class="field"><span>Language</span><select id="ps-language">${Object.entries(PERSONA_LANGUAGES).map(([key, [label]]) => `<option value="${key}"${key === d.language ? " selected" : ""}>${label}</option>`).join("")}<option value="__other"${customLanguage ? " selected" : ""}>Other…</option></select></label>
+      <label class="field${customLanguage ? "" : " hidden"}" id="ps-language-other-wrap"><span>Which language?</span><input id="ps-language-other" maxlength="40" value="${customLanguage ? escapeHtml(d.language) : ""}"></label>
+      <label class="field"><span>What should Glow call you? (optional)</span><input id="ps-callme" maxlength="40" value="${escapeHtml(d.callMe)}"></label>
+    </div>
+    <label class="field"><span>About you (optional): work, interests, what you're learning</span><textarea id="ps-about" rows="2" maxlength="400" placeholder="e.g. Mechanical engineer in Batam, learning Python. I like real examples.">${escapeHtml(d.about)}</textarea></label>
+    <label class="field"><span>Anything else? (optional)</span><input id="ps-extra" maxlength="400" value="${escapeHtml(d.extra)}" placeholder="e.g. Use metric units. Give me a summary first."></label>
+    <p class="note warn hidden" id="ps-warning">🔒 That looks like private data (a long number, a password or an ID). Please leave it out: a persona never needs it.</p>
+    <details class="field"><summary>Advanced: see or edit the exact instructions</summary><textarea id="ps-prompt" rows="5">${escapeHtml(preview)}</textarea><p class="note">Editing this switches off automatic updates from the choices above.</p></details>
+    <div class="row studio-actions">
+      ${studio.editingId ? "" : '<button class="link-btn" type="button" data-studio="retake">← Retake quiz</button>'}
+      <span class="spacer"></span>
+      ${studio.onboarding ? '<button class="link-btn" type="button" data-studio="skip">Skip</button>' : '<button class="secondary" type="button" data-studio="cancel">Cancel</button>'}
+      <button class="primary" type="button" data-studio="save" id="ps-save">${studio.editingId ? "Save changes" : "Save & use my persona"}</button>
+    </div>`;
+}
+function readStudioForm() {
+  const d = studio.draft;
+  const value = (id) => ($(id) ? $(id).value.trim() : "");
+  const checked = (name) => (document.querySelector(`#persona-body input[name="${name}"]:checked`) || {}).value;
+  d.name = value("ps-name") || "My Glow";
+  d.icon = value("ps-icon") || (AI_TYPES[d.aiType] || AI_TYPES.allrounder).icon;
+  d.aiType = value("ps-type") || d.aiType;
+  d.tone = checked("ps-tone") || d.tone;
+  d.length = checked("ps-length") || d.length;
+  const language = value("ps-language");
+  d.language = language === "__other" ? value("ps-language-other") || "auto" : language || "auto";
+  d.callMe = value("ps-callme");
+  d.about = value("ps-about");
+  d.extra = value("ps-extra");
+  const promptBox = byId("ps-prompt");
+  if (promptBox && promptBox.value.trim() && promptBox.value.trim() !== buildPersonaPrompt(d) && d.promptEdited) d.prompt = promptBox.value.trim();
+  return d;
+}
+function savePersonaFromStudio() {
+  const d = readStudioForm();
+  if (SENSITIVE_TEXT.test(`${d.about} ${d.extra} ${d.callMe}`)) {
+    byId("ps-warning").classList.remove("hidden");
+    return false;
+  }
+  const prompt = d.promptEdited && d.prompt ? d.prompt.slice(0, 3000) : buildPersonaPrompt(d);
+  const profile = { aiType: d.aiType, tone: d.tone, length: d.length, language: d.language, callMe: d.callMe, about: d.about, extra: d.extra, promptEdited: !!d.promptEdited };
+  const list = state.settings.customPersonas || (state.settings.customPersonas = []);
+  let persona = studio.editingId ? list.find((p) => p.id === studio.editingId) : null;
+  if (persona) {
+    Object.assign(persona, { name: d.name, icon: d.icon, prompt, profile, updated: Date.now() });
+  } else {
+    persona = { id: `p-${newId()}`, name: d.name, icon: d.icon, prompt, profile, created: Date.now() };
+    list.push(persona);
+    state.settings.defaultPersona = persona.id; // a persona you just made becomes your default
+  }
+  if (d.callMe && !state.settings.displayName) state.settings.displayName = d.callMe;
+  saveState();
+  fillPersonaSelect();
+  if (current && current.type === "chat") setPersona(persona.id, false);
+  renderAccount();
+  toast(`${persona.icon} ${persona.name} is ready. New chats use it.`);
+  closePersonaStudio(true);
+  return persona;
+}
+function onStudioClick(event) {
+  const button = event.target.closest("[data-studio]");
+  if (!button) return;
+  const action = button.dataset.studio;
+  const id = button.dataset.id;
+  const list = state.settings.customPersonas || [];
+  if (action === "answer") {
+    studio.answers[studio.step] = button.dataset.type;
+    studio.step += 1;
+    if (studio.step >= PERSONA_QUIZ.length) studio.mode = "result";
+  } else if (action === "back") {
+    studio.step = Math.max(0, studio.step - 1);
+  } else if (action === "retake" || action === "quiz") {
+    Object.assign(studio, { mode: "quiz", step: 0, answers: [] });
+  } else if (action === "tostyle") {
+    const keep = studio.draft;
+    studio.draft = { ...blankDraft(quizResult(studio.answers)), ...(keep ? { name: keep.name, callMe: keep.callMe, about: keep.about } : {}) };
+    studio.mode = "form";
+  } else if (action === "blank") {
+    studio.draft = blankDraft();
+    studio.mode = "form";
+  } else if (action === "skip" || action === "cancel") {
+    closePersonaStudio(false);
+    return;
+  } else if (action === "save") {
+    savePersonaFromStudio();
+    return;
+  } else if (action === "use" || action === "default") {
+    if (action === "default") {
+      state.settings.defaultPersona = id;
+      saveState();
+      toast("New chats will use this persona");
+    }
+    if (current && current.type === "chat") setPersona(id, action === "use");
+    if (action === "use") {
+      closePersonaStudio(true);
+      return;
+    }
+  } else if (action === "edit") {
+    openPersonaStudio({ editId: id });
+    return;
+  } else if (action === "delete") {
+    const persona = list.find((p) => p.id === id);
+    if (!persona || !confirm(`Delete the persona “${persona.name}”?`)) return;
+    state.settings.customPersonas = list.filter((p) => p.id !== id);
+    if (state.settings.defaultPersona === id) state.settings.defaultPersona = "default";
+    for (const conv of state.conversations) if (conv.persona === id) conv.persona = "default";
+    if (current && current.persona === id) current.persona = "default";
+    saveState();
+    fillPersonaSelect();
+    syncComposerTools();
+  }
+  renderStudio();
+}
+function onStudioInput(event) {
+  if (!studio.draft || studio.mode !== "form") return;
+  if (event.target.id === "ps-prompt") {
+    studio.draft.promptEdited = true;
+    studio.draft.prompt = event.target.value;
+    return;
+  }
+  if (event.target.id === "ps-language") byId("ps-language-other-wrap").classList.toggle("hidden", event.target.value !== "__other");
+  if (event.target.name === "ps-tone" || event.target.name === "ps-length") {
+    for (const label of document.querySelectorAll(`#persona-body input[name="${event.target.name}"]`)) label.parentElement.classList.toggle("on", label.checked);
+  }
+  const d = readStudioForm();
+  byId("ps-warning").classList.toggle("hidden", !SENSITIVE_TEXT.test(`${d.about} ${d.extra} ${d.callMe}`));
+  if (!d.promptEdited && byId("ps-prompt")) byId("ps-prompt").value = buildPersonaPrompt(d);
+}
+function maybeStartOnboarding() {
+  // New people are asked to shape their Glow first; returning people and demos go straight on.
+  if (TEST_MODE || state.settings.personaOnboarded || (state.settings.customPersonas || []).length) {
+    maybeStartTour();
+    return;
+  }
+  openPersonaStudio({ mode: "quiz", onboarding: true });
+}
+function onPersonaButton() {
+  const hasOwn = (state.settings.customPersonas || []).length > 0;
+  openPersonaStudio({ mode: hasOwn ? "list" : "quiz" });
+}
+
+/* ================= token usage ================= */
+function estimateTokens(text) {
+  return Math.ceil(String(text || "").length / 4); // about 4 characters per token for English and Indonesian
+}
+function applyProviderUsage(usage, raw) {
+  if (!raw || typeof raw !== "object") return;
+  let input = null;
+  let output = null;
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      const kind = String((item && (item.type || item.name || item.usageType)) || "").toLowerCase();
+      const amount = Number(item && (item.amount ?? item.tokens ?? item.value));
+      if (!Number.isFinite(amount)) continue;
+      if (/prompt|input/.test(kind)) input = (input || 0) + amount;
+      else if (/completion|output/.test(kind)) output = (output || 0) + amount;
+    }
+  } else {
+    input = raw.input_tokens ?? raw.prompt_tokens ?? raw.inputTokens ?? raw.promptTokens ?? null;
+    output = raw.output_tokens ?? raw.completion_tokens ?? raw.outputTokens ?? raw.completionTokens ?? null;
+  }
+  if (input !== null && Number.isFinite(Number(input))) {
+    usage.in = Number(input);
+    usage.exact = true;
+  }
+  if (output !== null && Number.isFinite(Number(output))) {
+    usage.out = Number(output);
+    usage.exactOut = true;
+  }
+}
+function dayKey(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+function recordUsage(usage, reply, conv, modelValue = "") {
+  if (!usage.exactOut) usage.out = estimateTokens(reply);
+  if (!usage.in && !usage.out && !usage.images) return;
+  const days = state.usage.days || (state.usage.days = {});
+  const key = dayKey();
+  const day = days[key] || (days[key] = { in: 0, out: 0, replies: 0, images: 0 });
+  day.in += usage.in;
+  day.out += usage.out;
+  day.replies += 1;
+  day.images += usage.images || 0;
+  const keys = Object.keys(days).sort();
+  while (keys.length > 90) delete days[keys.shift()];
+  if (conv) {
+    conv.usage = conv.usage || { in: 0, out: 0 };
+    conv.usage.in += usage.in;
+    conv.usage.out += usage.out;
+    if (!usage.exact) conv.usage.estimated = true;
+  } else {
+    saveState();
+  }
+  renderUsage();
+  if (modelValue.startsWith("puter")) refreshAllowance();
+}
+function formatTokens(n) {
+  const value = Math.max(0, Math.round(n || 0));
+  if (value < 1000) return String(value);
+  if (value < 1e6) return `${(value / 1000).toFixed(value < 10000 ? 1 : 0)}k`;
+  return `${(value / 1e6).toFixed(1)}M`;
+}
+function usageTotals() {
+  const days = state.usage.days || {};
+  const todayKey = dayKey();
+  const today = days[todayKey] || { in: 0, out: 0, replies: 0, images: 0 };
+  let week = 0;
+  let month = 0;
+  const weekAgo = dayKey(new Date(Date.now() - 6 * 86400000));
+  for (const [key, day] of Object.entries(days)) {
+    if (key >= weekAgo) week += day.in + day.out;
+    if (key.slice(0, 7) === todayKey.slice(0, 7)) month += day.in + day.out;
+  }
+  return { today, week, month };
+}
+function allowancePercent() {
+  if (!puterAllowance || !puterAllowance.total) return null;
+  return Math.max(0, Math.min(100, Math.round((puterAllowance.remaining / puterAllowance.total) * 100)));
+}
+let allowanceCheckedAt = 0;
+async function refreshAllowance(force = false) {
+  const sdk = window.puter;
+  if (!puterSignedIn || !sdk || !sdk.auth || typeof sdk.auth.getMonthlyUsage !== "function") return;
+  if (!force && Date.now() - allowanceCheckedAt < 60000) return;
+  allowanceCheckedAt = Date.now();
+  try {
+    const data = await withTimeout(Promise.resolve(sdk.auth.getMonthlyUsage()), 8000, "usage timeout");
+    const info = (data && (data.allowanceInfo || data.allowance_info)) || data || {};
+    const total = Number(info.monthUsageAllowance ?? info.month_usage_allowance ?? info.allowance);
+    const remaining = Number(info.remaining);
+    if (Number.isFinite(total) && total > 0 && Number.isFinite(remaining)) puterAllowance = { total, remaining: Math.max(0, remaining) };
+  } catch (error) {
+    console.warn("Couldn't read the Glow AI allowance", error);
+  }
+  renderUsage();
+}
+function renderUsage() {
+  if (!$("usage-btn")) return;
+  const totals = usageTotals();
+  const todayTotal = totals.today.in + totals.today.out;
+  const chatTotal = current && current.usage ? current.usage.in + current.usage.out : 0;
+  const percent = allowancePercent();
+  const parts = [];
+  if (current && current.type !== "arena" || chatTotal) parts.push(`${formatTokens(chatTotal)} this chat`);
+  parts.push(`${formatTokens(todayTotal)} today`);
+  if (percent !== null) parts.push(`${percent}% left`);
+  $("usage-btn").textContent = `◔ ${parts.join(" · ")}`;
+  $("usage-btn").classList.toggle("low", percent !== null && percent < 15);
+  $("side-usage-text").textContent = `Today ${formatTokens(todayTotal)} tokens${percent !== null ? ` · ${percent}% allowance left` : ""}`;
+  $("side-usage-bar").style.width = `${percent === null ? 0 : percent}%`;
+  $("side-usage-meter").classList.toggle("hidden", percent === null);
+  if (!$("usage-pop").classList.contains("hidden")) renderUsagePop();
+}
+function renderUsagePop() {
+  const totals = usageTotals();
+  const usage = (current && current.usage) || { in: 0, out: 0 };
+  const percent = allowancePercent();
+  const approx = usage.estimated || !usage.in ? "≈ " : "";
+  $("usage-pop-body").innerHTML = `
+    <div class="usage-line"><span>This chat</span><b>${approx}${formatTokens(usage.in)} in · ${formatTokens(usage.out)} out</b></div>
+    <div class="usage-line"><span>Today</span><b>${formatTokens(totals.today.in + totals.today.out)} tokens · ${totals.today.replies} replies${totals.today.images ? ` · ${totals.today.images} image${totals.today.images > 1 ? "s" : ""}` : ""}</b></div>
+    <div class="usage-line"><span>Last 7 days</span><b>${formatTokens(totals.week)}</b></div>
+    <div class="usage-line"><span>This month</span><b>${formatTokens(totals.month)}</b></div>
+    ${percent !== null
+      ? `<div class="usage-line"><span>Glow AI allowance</span><b>${percent}% left this month</b></div><div class="usage-bar"><span style="width:${percent}%"></span></div>`
+      : `<p class="note">${puterSignedIn ? "Your monthly Glow AI allowance appears here after your first Glow AI reply." : "Sign in to see your free monthly Glow AI allowance."}</p>`}
+    <p class="note">≈ means estimated (about 4 characters per token); exact numbers are used when the AI provider reports them. To save allowance, Glow sends only the latest ~6,000 tokens of a long chat, and ⚡ Quick models often cost 10× less than ⭐ premium ones.</p>
+    <div class="row"><button class="link-btn" type="button" id="usage-reset">Reset these counters</button></div>`;
+  byId("usage-reset").addEventListener("click", () => {
+    if (!confirm("Reset your token counters? Chats are not affected.")) return;
+    state.usage = { days: {} };
+    for (const conv of state.conversations) delete conv.usage;
+    if (current) delete current.usage;
+    saveState();
+    renderUsage();
+  });
+}
+function toggleUsagePop(force) {
+  const pop = $("usage-pop");
+  const open = force === undefined ? pop.classList.contains("hidden") : force;
+  pop.classList.toggle("hidden", !open);
+  if (open) {
+    renderUsagePop();
+    refreshAllowance();
+  }
+}
+
+/* ================= 🎨 images (Puter txt2img) ================= */
+const IMAGE_MARKDOWN = /!\[[^\]\n]*\]\(data:image\/[a-z]+;base64,[A-Za-z0-9+/=]+\)/g;
+function stripImages(text) {
+  // Never resend pictures as text: a single image would cost tens of thousands of tokens.
+  return String(text || "").replace(IMAGE_MARKDOWN, "[image]");
+}
+function waitForImage(element) {
+  return new Promise((resolve, reject) => {
+    if (element.complete && element.naturalWidth) {
+      resolve();
+      return;
+    }
+    element.onload = () => resolve();
+    element.onerror = () => reject(new Error("The picture couldn't be loaded. Try again or pick another image model."));
+  });
+}
+async function imageToDataUrl(image) {
+  const source = typeof image === "string" ? image : image && image.src;
+  if (!source) throw new Error("The image service returned nothing. Try another image model.");
+  let element;
+  if (/^data:image\//.test(source)) {
+    element = image instanceof HTMLImageElement ? image : new Image();
+    if (element.src !== source) element.src = source;
+  } else {
+    // Remote picture: download it so it can be kept (and so the page's security rules allow showing it).
+    let blob;
+    try {
+      blob = await (await fetch(source)).blob();
+    } catch {
+      throw new Error("Couldn't download the picture. Try again or pick another image model.");
+    }
+    element = new Image();
+    element.src = URL.createObjectURL(blob);
+  }
+  await waitForImage(element);
+  try {
+    const scale = Math.min(1, 1024 / Math.max(element.naturalWidth || 1, element.naturalHeight || 1));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round((element.naturalWidth || 512) * scale));
+    canvas.height = Math.max(1, Math.round((element.naturalHeight || 512) * scale));
+    canvas.getContext("2d").drawImage(element, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL("image/jpeg", 0.86); // ~100–200 KB, small enough to keep in the chat
+  } catch {
+    if (/^data:image\//.test(source)) return source;
+    throw new Error("Couldn't save the picture. Try another image model.");
+  }
+}
+async function generateImage(model, messages, onText, signal, usage) {
+  const sdk = await ensurePuter();
+  if (!sdk.auth.isSignedIn()) {
+    puterSignedIn = false;
+    renderAccount();
+    throw new Error("Sign in (free) to make pictures with Glow AI.");
+  }
+  const lastUser = [...messages].reverse().find((m) => m.role === "user");
+  const prompt = String(lastUser ? lastUser.content : "").replace(/\n\n\[Attached file:[\s\S]*$/, "").trim().slice(0, 2000);
+  if (!prompt) throw new Error("Describe the picture you want, then send.");
+  const info = IMAGE_MODELS.find((m) => m.id === model) || { name: model };
+  usage.in = estimateTokens(prompt);
+  onText("🎨 Drawing your picture… this usually takes 10–30 seconds.");
+  const aborted = new Promise((_, reject) => {
+    if (signal.aborted) reject(new DOMException("Aborted", "AbortError"));
+    signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+  });
+  aborted.catch(() => {});
+  let image;
+  try {
+    const options = { model };
+    if (info.quality) options.quality = info.quality;
+    image = await Promise.race([sdk.ai.txt2img(prompt, options), aborted]);
+  } catch (error) {
+    if (error && error.name === "AbortError") throw error;
+    throw new Error(puterErrorText(error).replace("Glow AI (Puter) error", "Image error").replace("This Glow AI model", "This image model"));
+  }
+  const dataUrl = await imageToDataUrl(image);
+  Object.assign(usage, { images: 1, out: 0, exactOut: true });
+  const alt = prompt.replace(/[[\]\n]/g, " ").slice(0, 120);
+  const text = `![${alt}](${dataUrl})\n\n*${info.name} · saved in this browser*`;
+  onText(text);
+  return text;
+}
+
+/* ================= your data: temporary chats, auto-delete ================= */
+function applyRetention() {
+  const days = Number(state.settings.retentionDays) || 0;
+  if (!days) return 0;
+  const cutoff = Date.now() - days * 86400000;
+  const old = state.conversations.filter((c) => !c.pinned && (c.updated || 0) < cutoff && c !== current);
+  if (!old.length) return 0;
+  for (const conv of old) state.deleted[conv.id] = Date.now(); // so cloud sync doesn't bring them back
+  state.conversations = state.conversations.filter((c) => !old.includes(c));
+  saveState();
+  renderHistory();
+  return old.length;
+}
+function dataSummary() {
+  let bytes = 0;
+  try {
+    bytes = (localStorage.getItem(STORE_KEY) || "").length * 2;
+  } catch {
+    bytes = 0;
+  }
+  const size = bytes > 1e6 ? `${(bytes / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1000))} KB`;
+  const synced = cloudReady() ? "also synced to your own Puter account" : "not synced anywhere";
+  return `${state.conversations.length} chats (${size}) stored in this browser, ${synced}. Glow has no server of its own: it never receives or keeps your chats. Your messages go only to the AI provider you pick.`;
+}
+function toggleTemporaryChat() {
+  if (!current || current.type !== "chat") {
+    newChat(null, true);
+  } else if (!current.messages.length) {
+    current.temporary = !current.temporary;
+    openConversation(current);
+  } else {
+    newChat(null, true);
+  }
+  toast(current.temporary ? "👻 Temporary chat: not saved, not synced, gone when you leave" : "Back to a normal chat (saved to your history)");
 }
 function updateCharCount() {
   const length = $("input").value.length;
@@ -2481,7 +3370,8 @@ async function improvePrompt() {
     return null;
   }
   if ($("send-btn").disabled || $("improve-btn").disabled) return null;
-  const model = current && current.type === "chat" ? $("chat-model").value : defaultModel();
+  const chosen = current && current.type === "chat" ? $("chat-model").value : "";
+  const model = chosen && !chosen.startsWith("puterimg::") ? chosen : defaultModel();
   $("improve-btn").disabled = true;
   $("improve-btn").classList.add("working");
   try {
@@ -2649,7 +3539,7 @@ function sanitizeShared(data) {
     if (conv.models.length < 2) throw new Error("Incomplete arena");
     return conv;
   }
-  conv.persona = PERSONAS[data.persona] ? data.persona : "default";
+  conv.persona = Object.prototype.hasOwnProperty.call(PERSONAS, data.persona) ? data.persona : "default"; // personal personas stay private
   conv.model = state.settings.lastModel;
   conv.messages = (Array.isArray(data.messages) ? data.messages : []).slice(0, 400).map((m) => {
     const message = { role: m.role === "user" ? "user" : "assistant", content: text(m.content) };
@@ -2762,6 +3652,7 @@ function wire() {
       onSend();
     }
     if (modelMenuOpen() && !(target.closest && target.closest("#model-picker"))) closeModelMenu();
+    if (!$("usage-pop").classList.contains("hidden") && !(target.closest && target.closest("#usage-pop, #usage-btn, #side-usage"))) toggleUsagePop(false);
     if (target.dataset.start === "council") newCouncil();
     if (target.dataset.start === "arena") newArena();
   });
@@ -2798,8 +3689,13 @@ function wire() {
       $("input").focus();
     }
     if (e.key === "Escape") {
+      if (studio.open) {
+        closePersonaStudio(false);
+        return;
+      }
       stopAll();
       $("settings-modal").classList.remove("open");
+      toggleUsagePop(false);
     }
   });
   $("send-btn").addEventListener("click", onSend);
@@ -2864,6 +3760,23 @@ function wire() {
   });
   $("settings-close").addEventListener("click", () => $("settings-modal").classList.remove("open"));
   $("settings-save").addEventListener("click", saveSettings);
+  $("model-tabs").addEventListener("click", onModelTabClick);
+  $("persona-body").addEventListener("click", onStudioClick);
+  $("persona-body").addEventListener("input", onStudioInput);
+  $("persona-body").addEventListener("change", onStudioInput);
+  $("persona-close").addEventListener("click", () => closePersonaStudio(false));
+  $("persona-btn").addEventListener("click", onPersonaButton);
+  $("set-persona-btn").addEventListener("click", onPersonaButton);
+  $("usage-btn").addEventListener("click", () => toggleUsagePop());
+  $("side-usage").addEventListener("click", () => {
+    closeSidebar();
+    toggleUsagePop(true);
+  });
+  $("temp-btn").addEventListener("click", () => {
+    stopAll();
+    toggleTemporaryChat();
+  });
+  $("switch-account-btn").addEventListener("click", switchPuterAccount);
   $("backup-btn").addEventListener("click", exportAll);
   $("import-input").addEventListener("change", (e) => {
     if (e.target.files[0]) importAll(e.target.files[0]);
@@ -3129,11 +4042,73 @@ async function selfTest() {
   const followSent = await waitUntil(() => current.messages.some((m) => m.role === "user" && m.content === "What is step one?") && !$("send-btn").disabled);
   expect("follow-ups: tapping a chip asks it", followSent && current.messages[current.messages.length - 1].content.includes("- [ ]"));
 
+  // ---- v1.19: your own persona (Orbis AI type quiz), privacy guard, default persona ----
+  openPersonaStudio({ mode: "quiz" });
+  for (let i = 0; i < PERSONA_QUIZ.length; i++) document.querySelector('#persona-body [data-type="detective"]').click();
+  const typeShown = /The Detective/.test($("persona-body").textContent);
+  document.querySelector('#persona-body [data-studio="tostyle"]').click();
+  byId("ps-name").value = "Kancil";
+  document.querySelector('#persona-body input[name="ps-tone"][value="direct"]').click();
+  byId("ps-about").value = "My password is hunter2";
+  byId("ps-about").dispatchEvent(new Event("input", { bubbles: true }));
+  const privacyWarned = !byId("ps-warning").classList.contains("hidden");
+  document.querySelector('#persona-body [data-studio="save"]').click();
+  const privacyBlocked = !(state.settings.customPersonas || []).length && $("persona-modal").classList.contains("open");
+  byId("ps-about").value = "Engineer in Batam, learning Python";
+  byId("ps-about").dispatchEvent(new Event("input", { bubbles: true }));
+  const livePrompt = byId("ps-prompt").value;
+  document.querySelector('#persona-body [data-studio="save"]').click();
+  const mine = (state.settings.customPersonas || [])[0];
+  expect("persona studio: the quiz finds your AI type (Orbis)", typeShown && !!mine && mine.profile.aiType === "detective");
+  expect("persona studio: private data is flagged and never saved", privacyWarned && privacyBlocked && !!mine && !/hunter2/.test(mine.prompt));
+  expect("persona studio: preview follows your choices", /Engineer in Batam/.test(livePrompt) && /direct and to the point/.test(livePrompt));
+  expect("persona studio: your persona becomes the default and shows in the selector", !!mine && mine.name === "Kancil" && state.settings.defaultPersona === mine.id
+    && [...$("persona-select").options].some((o) => o.value === mine.id) && !$("persona-modal").classList.contains("open"));
   newChat();
+  expect("persona: new chats use your persona's own instructions", !!mine && current.persona === mine.id && systemPromptFor(current).includes("separate facts from guesses") && systemPromptFor(current).includes("Engineer in Batam"));
+  openPersonaStudio({ mode: "list" });
+  const listed = !!document.querySelector(`#persona-body [data-studio="edit"][data-id="${mine.id}"]`);
+  closePersonaStudio(false);
+  expect("persona studio: personas can be listed and edited later", listed);
+  const onboardedBefore = state.settings.personaOnboarded;
+  state.settings.personaOnboarded = false;
+  openPersonaStudio({ mode: "quiz", onboarding: true });
+  document.querySelector('#persona-body [data-studio="skip"]').click();
+  expect("onboarding: new people can skip and are not asked again", state.settings.personaOnboarded === true && !$("persona-modal").classList.contains("open"));
+  endTour(false);
+  state.settings.personaOnboarded = onboardedBefore;
+  state.settings.customPersonas = [];
+  state.settings.defaultPersona = "default";
+  fillPersonaSelect();
+
+  // ---- v1.19: model categories ranked best first (no "show every model" switch) ----
+  const modelsBeforeRanking = models;
+  const signedBeforeRanking = puterSignedIn;
+  const fake = (id, provider = "puter") => ({ value: `${provider}::${id}`, label: id, short: id, group: "Glow AI", meta: { date: "", out: null } });
+  puterSignedIn = true;
+  models = [modelsBeforeRanking[0], ...["claude-opus-4-5-20251101", "claude-opus-5-5", "gpt-6-sol", "gpt-6.1-sol", "claude-haiku-5-5", "gemini-3.8-flash", "gemini-3.5-flash-lite",
+    "gpt-5.3-codex", "kimi-k2.7-code", "openrouter:anthropic/claude-opus-5-5"].map((id) => fake(id)), fake("gpt-image-2", "puterimg"), FREE_MODEL];
+  const rankedIds = (key) => rankedCategory(key).map((e) => splitModel(e.value).model);
+  expect("ranking: best list puts the newest top model first", rankedIds("best")[0] === "claude-opus-5-5" && rankedIds("best")[1] === "gpt-6.1-sol" && !rankedIds("best").some((id) => id.includes(":")));
+  expect("ranking: code, quick and images each get their own ranked list", rankedIds("code").includes("gpt-5.3-codex") && rankedIds("code").includes("kimi-k2.7-code")
+    && rankedIds("quick")[0] === "claude-haiku-5-5" && rankedIds("quick").indexOf("gemini-3.8-flash") < rankedIds("quick").indexOf("gemini-3.5-flash-lite") && rankedIds("media").join() === "gpt-image-2");
+  expect("ranking: image models never become the default chat model", !defaultModel().startsWith("puterimg::") && defaultModel() === "puter::claude-haiku-5-5");
+  models = modelsBeforeRanking;
+  puterSignedIn = signedBeforeRanking;
+
+  newChat();
+  state.settings.modelCategory = "";
   $("model-picker-btn").click();
   const pickerRows = [...document.querySelectorAll("#model-list .model-row")];
-  expect("picker: menu lists models, badges and locked upgrades", !$("model-menu").classList.contains("hidden") && pickerRows.some((r) => r.dataset.value === "demo::demo")
-    && pickerRows.some((r) => r.dataset.locked && r.dataset.value === "puter::gpt-5-mini") && !!document.querySelector("#model-list .badge"));
+  const tabs = [...document.querySelectorAll("#model-tabs .model-tab")];
+  expect("picker: category tabs replace the show-every-model checkbox", tabs.length === MODEL_CATEGORIES.length && tabs.some((t) => /Code/.test(t.textContent)) && tabs.some((t) => /Images/.test(t.textContent))
+    && !document.querySelector('#model-menu input[type="checkbox"]'));
+  expect("picker: menu lists models, badges and locked upgrades", !$("model-menu").classList.contains("hidden") && pickerRows.some((r) => r.dataset.value === "demo::demo") && !!document.querySelector("#model-list .badge"));
+  document.querySelector('#model-tabs [data-category="quick"]').click();
+  const quickRows = [...document.querySelectorAll("#model-list .model-row")];
+  expect("picker: a category shows a numbered best-first list with 🔒 upgrades", quickRows.length >= 3 && quickRows[0].querySelector(".model-rank").textContent === "1"
+    && quickRows.some((r) => r.dataset.locked && r.dataset.value === "puter::gpt-5-mini") && state.settings.modelCategory === "quick" && !$("model-menu").classList.contains("hidden"));
+  document.querySelector('#model-tabs [data-category="free"]').click();
   $("model-search").value = "claude";
   $("model-search").dispatchEvent(new Event("input"));
   const filteredRows = [...document.querySelectorAll("#model-list .model-row")];
@@ -3147,6 +4122,7 @@ async function selfTest() {
   expect("picker: choosing updates the chat and closes the menu", $("chat-model").value === "demo::demo" && current.model === "demo::demo"
     && $("model-menu").classList.contains("hidden") && $("model-picker-label").textContent === "Demo");
   $("model-picker-btn").click();
+  document.querySelector('#model-tabs [data-category="best"]').click();
   document.querySelector('#model-list .model-row[data-locked="1"]').click();
   expect("picker: locked models lead to the free sign-in", !$("welcome-screen").classList.contains("hidden") && !!pendingModel && pendingModel.startsWith("puter::"));
   hideWelcome();
@@ -3154,6 +4130,33 @@ async function selfTest() {
   $("model-picker-btn").click();
   document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
   expect("picker: Esc closes the menu without stopping replies", $("model-menu").classList.contains("hidden"));
+  state.settings.modelCategory = "";
+
+  // ---- v1.19: token usage meter, temporary chats ----
+  const usageBefore = JSON.parse(JSON.stringify(state.usage));
+  newChat();
+  fillSelect($("chat-model"), "demo::demo");
+  await sendChat("Count my tokens please");
+  const chatUsage = current.usage || { in: 0, out: 0 };
+  expect("usage: each reply is counted for the chat and today", chatUsage.in > 0 && chatUsage.out > 0 && (state.usage.days[dayKey()] || {}).replies >= 1
+    && /this chat/.test($("usage-btn").textContent) && /today/.test($("usage-btn").textContent));
+  $("usage-btn").click();
+  expect("usage: the meter opens a breakdown", !$("usage-pop").classList.contains("hidden") && /Last 7 days/.test($("usage-pop").textContent) && /estimated/.test($("usage-pop").textContent));
+  toggleUsagePop(false);
+  const exact = { in: 0, out: 0 };
+  applyProviderUsage(exact, { prompt_tokens: 12, completion_tokens: 34 });
+  const exactPuter = { in: 0, out: 0 };
+  applyProviderUsage(exactPuter, [{ type: "prompt", amount: 7 }, { type: "completion", amount: 9 }]);
+  expect("usage: exact provider counts replace the estimate", exact.in === 12 && exact.out === 34 && exact.exact && exactPuter.in === 7 && exactPuter.out === 9);
+  const savedCount = state.conversations.length;
+  toggleTemporaryChat();
+  fillSelect($("chat-model"), "demo::demo");
+  await sendChat("This should vanish");
+  expect("temporary chat: replies work but nothing is saved", current.temporary === true && current.messages.length >= 2 && state.conversations.length === savedCount
+    && !state.conversations.includes(current) && $("mode-label").textContent.includes("Temporary"));
+  newChat();
+  state.usage = usageBefore;
+  renderUsage();
   state.settings.favoriteModels = [];
   expect("persona: selector shown in chat", !$("persona-select").classList.contains("hidden"));
 
@@ -3271,10 +4274,14 @@ async function selfTest() {
       async signOut() {
         this.signedIn = false;
       },
+      async getMonthlyUsage() {
+        return { allowanceInfo: { monthUsageAllowance: 1000, remaining: 750 } };
+      },
     },
     ai: {
       async listModels() {
-        return [{ id: "gpt-5-mini" }, { id: "gemini-2.5-flash" }, { id: "claude-haiku-4-5-20251001", aliases: ["claude-haiku-4-5"] }, { id: "deepseek-flash" }];
+        return [{ id: "gpt-5-mini" }, { id: "gemini-2.5-flash" }, { id: "claude-haiku-4-5-20251001", aliases: ["claude-haiku-4-5"] }, { id: "deepseek-flash" },
+          { id: "grok-4.7", name: "Grok 4.7", provider: "xai", release_date: "2026-09-21", costs: { completion_tokens: 600 } }];
       },
       async chat(messages, options) {
         chatCalls.push({ messages, options });
@@ -3285,7 +4292,14 @@ async function selfTest() {
           yield { type: "text", text: "Hello " };
           if (slow) await new Promise((resolve) => setTimeout(resolve, 5000));
           yield { type: "text", text: "from Glow AI" };
+          yield { type: "usage", usage: { input_tokens: 21, output_tokens: 5 } };
         })();
+      },
+      async txt2img(prompt, options) {
+        chatCalls.push({ prompt, options, image: true });
+        const picture = new Image();
+        picture.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+        return picture;
       },
     },
     kv: {
@@ -3312,18 +4326,33 @@ async function selfTest() {
   expect("sync: chats from another device are merged in", state.conversations.some((c) => c.id === "cloud1"));
   expect("sync: local chats are uploaded to the account", JSON.parse(kvStore.get(`${CLOUD_PREFIX}meta`)).parts >= 1 && kvStore.get(`${CLOUD_PREFIX}0`).includes("Plan a picnic"));
 
-  state.settings.allPuterModels = true;
-  await loadModels();
-  const showsEverything = models.some((m) => m.group.startsWith("Glow AI: all models"));
-  state.settings.allPuterModels = false;
-  await loadModels();
-  expect("picker: signed-in users can browse every Glow AI model", showsEverything && !models.some((m) => m.group.startsWith("Glow AI: all models")));
+  expect("picker: every Glow AI chat model is listed and searchable, plus images", models.some((m) => m.value === "puter::grok-4.7" && m.group === "Glow AI · xai")
+    && models.some((m) => m.value.startsWith("puterimg::")) && rankedCategory("best").some((e) => e.value === "puter::grok-4.7"));
   newChat();
-  expect("sign in: new chats default to a Glow AI model", $("chat-model").value === "puter::gpt-5-mini");
+  expect("sign in: new chats default to the top ⚡ Quick Glow AI model", $("chat-model").value === rankedCategory("quick")[0].value && $("chat-model").value.startsWith("puter::"));
   const aiReply = await sendChat("Say hello");
   const lastCall = chatCalls[chatCalls.length - 1];
-  expect("glow ai: streams a reply through puter.ai.chat", aiReply.includes("Hello from Glow AI") && lastCall.options.stream === true && lastCall.options.model === "gpt-5-mini" && lastCall.messages[0].role === "system");
+  expect("glow ai: streams a reply through puter.ai.chat", aiReply.includes("Hello from Glow AI") && lastCall.options.stream === true && lastCall.options.model === splitModel($("chat-model").value).model && lastCall.messages[0].role === "system");
   expect("glow ai: reasoning kept separate from the answer", aiReply.startsWith("<think>Thinking briefly</think>") && document.querySelector(".msg.assistant details.thinking") !== null);
+  expect("usage: Glow AI's exact token counts are used", !!current.usage && current.usage.in === 21 && current.usage.out === 5 && !current.usage.estimated);
+  await refreshAllowance(true);
+  expect("usage: monthly Glow AI allowance shown", allowancePercent() === 75 && /75% left/.test($("usage-btn").textContent) && !$("side-usage-meter").classList.contains("hidden"));
+  selectChatModel("puterimg::gpt-image-2", false);
+  const imageReply = await sendChat("A lighthouse at sunset");
+  const imageCall = chatCalls[chatCalls.length - 1];
+  expect("images: 🎨 models draw a picture that is kept in the chat", imageCall.image === true && imageCall.prompt === "A lighthouse at sunset" && imageCall.options.model === "gpt-image-2"
+    && /^!\[A lighthouse at sunset\]\(data:image\/(jpeg|png);base64,/.test(imageReply) && !!document.querySelector(".msg.assistant img.gen-image"));
+  selectChatModel(rankedCategory("quick")[0].value, false);
+  await sendChat("Describe it");
+  const afterImage = chatCalls[chatCalls.length - 1];
+  expect("images: pictures are never resent as tokens", !afterImage.messages.some((m) => /base64/.test(m.content)) && afterImage.messages.some((m) => m.content.includes("[image]")));
+  window.puter.auth.getUser = async () => ({ username: "fearless_door", is_temp: true });
+  await restorePuterSession();
+  expect("account: a temporary Puter account is labelled, with a way to save it", state.settings.accountTemp === true && /Temporary/.test($("account-label").textContent)
+    && !$("account-save").classList.contains("hidden") && /temporary/i.test($("set-account-status").textContent) && /fearless_door/.test($("set-account-status").textContent));
+  window.puter.auth.getUser = async () => ({ username: "glow_tester" });
+  await restorePuterSession();
+  expect("account: a real account shows its username again", state.settings.accountTemp === false && $("account-label").textContent === "glow_tester" && $("account-save").classList.contains("hidden"));
   chatMode = "quota";
   await sendChat("Again please");
   const notices = [...document.querySelectorAll(".msg.notice")];
@@ -3580,7 +4609,9 @@ async function boot() {
   applyTheme();
   fillPersonaSelect();
   wire();
+  if (!TEST_MODE) applyRetention();
   renderAccount();
+  renderUsage();
   await loadModels();
   newChat();
   const handedOff = importCrewroomInbox();
