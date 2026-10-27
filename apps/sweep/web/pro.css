@@ -233,3 +233,31 @@
 .spec-glossary textarea { width: 100%; padding: 8px 10px; font: 13.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .spec-editor { display: grid; gap: 10px; }
 .md-edit { width: 100%; min-height: 60vh; padding: 12px 14px; font: 13.5px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; border-radius: 10px; }
+
+/* ----- Sweep Plus ----- */
+.plus-btn.is-plus { color: var(--color-accent); }
+.plus-card { max-width: 640px; }
+.plus-card h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.plus-pill { font: 600 12px/1.2 var(--font-ui); padding: 4px 10px; border-radius: 999px; border: 1px solid var(--color-border); color: var(--color-ink-muted, #5f5a52); }
+.plus-pill.ok { border-color: var(--color-productive, #1a7f37); color: var(--color-productive, #1a7f37); }
+.plus-perks { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 10px; }
+.plus-perks li { display: grid; gap: 2px; padding-left: 22px; position: relative; }
+.plus-perks li::before { content: "★"; position: absolute; left: 0; top: 0; color: var(--color-accent); }
+.plus-perks span { color: var(--color-ink-muted, #5f5a52); font-size: 14px; }
+.plus-plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 10px 0 4px; }
+.plus-plan { display: grid; gap: 4px; padding: 14px; border: 1px solid var(--color-border); border-radius: 12px; text-decoration: none; color: inherit; background: var(--color-white); }
+.plus-plan:hover, .plus-plan:focus-visible { border-color: var(--color-accent); }
+.plus-plan.is-featured { border-color: var(--color-accent); box-shadow: 0 0 0 1px var(--color-accent) inset; }
+.plus-plan-name { font-weight: 700; }
+.plus-plan-price { font: 700 20px/1.2 var(--font-heading, Georgia, serif); }
+.plus-plan-cta { color: var(--color-accent); font-weight: 600; font-size: 14px; }
+.plus-tools { display: grid; gap: 14px; }
+.plus-tool { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--color-border-light, var(--color-border)); border-radius: 12px; }
+.plus-inline { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
+.plus-color input[type="color"] { width: 64px; height: 36px; padding: 2px; }
+.plus-tips { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.plus-tip { display: grid; gap: 2px; padding: 12px; border: 1px solid var(--color-border); border-radius: 12px; text-decoration: none; color: inherit; }
+.plus-tip span { font-size: 13px; color: var(--color-ink-muted, #5f5a52); }
+@media (max-width: 520px) {
+  .plus-inline { grid-template-columns: 1fr; }
+}
