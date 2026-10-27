@@ -262,7 +262,7 @@ def render(project_path, out_path, port_http=None, port_cdp=None):
                         raise
                     time.sleep(0.5)
             page = next(t for t in targets if t["type"] == "page")
-            ws = websocket.create_connection(page["webSocketDebuggerUrl"], timeout=600)
+            ws = websocket.create_connection(page["webSocketDebuggerUrl"], timeout=120)
             counter = [0]
 
             def send(method, params=None):
