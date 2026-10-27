@@ -61,7 +61,9 @@ class V04Tests(unittest.TestCase):
     def test_catalog_version(self):
         apps = json.loads((REPO / "scripts/apps.json").read_text(encoding="utf-8"))["apps"]
         glow = next(app for app in apps if app["id"] == "glow")
-        self.assertEqual(glow["version"], "0.7.2")
+        # The portfolio card shows the published Glow version, so keep it in step with web/version.json.
+        published = json.loads((APP / "web" / "version.json").read_text(encoding="utf-8"))["version"]
+        self.assertEqual(glow["version"], published)
         self.assertEqual(glow["name"], "Glow")
 
 
