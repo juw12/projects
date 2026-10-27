@@ -492,7 +492,8 @@ function renderLearn(main) {
   const totalLessons = COURSES.reduce((a, c) => a + c.lessons.length, 0);
   const done = Object.keys(progress.done).length;
   put(main,
-    h("div", { class: "card share-card", id: "academy-hero" },
+    h("div", { class: "card share-card p-card academy-card", id: "academy-hero" },
+      h("div", { class: "hero-glow", "aria-hidden": "true" }),
       h("div", { class: "between" },
         h("div", {}, h("div", { class: "muted tiny" }, "TWIN ACADEMY"), h("h2", { style: "margin:2px 0" }, "Learn by doing")),
         h("div", { style: "font-size:34px" }, "🎓")),
@@ -506,11 +507,11 @@ function renderLearn(main) {
     const unlocked = courseUnlocked(index, progress);
     const badge = progress.badges.includes(course.id);
     put(main, h("div", {
-      class: "card", "data-course": course.id, style: "cursor:pointer;" + (unlocked ? "" : "opacity:.6"),
+      class: "card course-card" + (unlocked ? "" : " locked"), "data-course": course.id, style: `cursor:pointer;--course:${course.color}` + (unlocked ? "" : ";opacity:0.6"),
       onclick: () => (unlocked ? openCourse(course) : toast(`Finish "${COURSES[index - 1].title}" to unlock`)),
     },
       h("div", { class: "row", style: "gap:12px" },
-        h("div", { style: `font-size:30px;flex:none;width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:${course.color}22` }, unlocked ? course.icon : "🔒"),
+        h("div", { class: "course-ic", style: `--course:${course.color}` }, unlocked ? course.icon : "🔒"),
         h("div", { style: "flex:1;min-width:0" },
           h("div", { class: "tiny muted" }, `LEVEL ${course.level} · ${course.lessons.length} lessons · ${course.lessons.reduce((a, l) => a + l.minutes, 0)} min`),
           h("b", {}, course.title), h("div", { class: "small muted" }, course.subtitle)),
