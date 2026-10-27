@@ -585,6 +585,86 @@
     return { text: best, problems: bestProblems };
   }
 
+  // ----- meaning check (back-translation) -----
+  // The translation is translated back into English and compared with the original by shared
+  // content words (Dice overlap). Calibrated on real free-AI round trips: faithful translations
+  // scored 0.56–0.67, unrelated text at most 0.25, so 0.42 separates the two with margin.
+  const MEANING_OK = 0.42;
+  const MEANING_SECTION_OK = 0.3;
+  const MEANING_STOP = {};
+  ('a an the and or of to in on for with by is are be as at it this that from will shall when then if while where can must ' +
+    'should not no into than so each per their its your you we they them has have had do does was were any all more most other ' +
+    'some such only own same too very just also how what which who whom why use used using').split(' ').forEach(function (word) {
+    MEANING_STOP[word] = true;
+  });
+
+  function meaningWords(textValue) {
+    return String(textValue || '')
+      .replace(/```[\s\S]*?```/g, ' ')
+      .replace(/`[^`]*`/g, ' ')
+      .replace(/https?:\/\/\S+/g, ' ')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(function (word) { return word.length > 2 && !MEANING_STOP[word]; })
+      .map(function (word) { return word.replace(/(ing|ed|es|s)$/, ''); });
+  }
+
+  function diceScore(first, second) {
+    if (!first.length && !second.length) return 1;
+    const counts = {};
+    first.forEach(function (word) { counts[word] = (counts[word] || 0) + 1; });
+    let shared = 0;
+    second.forEach(function (word) {
+      if (counts[word] > 0) {
+        shared++;
+        counts[word]--;
+      }
+    });
+    return (2 * shared) / (first.length + second.length);
+  }
+
+  function markdownSections(textValue) {
+    const sections = [];
+    let current = { heading: '', body: '' };
+    String(textValue || '').split('\n').forEach(function (line) {
+      if (/^#{1,6}\s/.test(line)) {
+        sections.push(current);
+        current = { heading: line.replace(/^#+\s*/, '').trim(), body: '' };
+      } else {
+        current.body += line + '\n';
+      }
+    });
+    sections.push(current);
+    return sections.filter(function (section) { return section.heading || section.body.trim(); });
+  }
+
+  function meaningScore(english, backTranslation) {
+    const overall = diceScore(meaningWords(english), meaningWords(backTranslation));
+    const original = markdownSections(english);
+    const back = markdownSections(backTranslation);
+    const weak = [];
+    if (original.length === back.length && original.length > 1) {
+      original.forEach(function (section, index) {
+        const words = meaningWords(section.body);
+        if (words.length < 10) return;
+        if (diceScore(words, meaningWords(back[index].body)) < MEANING_SECTION_OK) weak.push(section.heading || '—');
+      });
+    }
+    return { score: Math.round(overall * 100) / 100, ok: overall >= MEANING_OK && !weak.length, weak: weak };
+  }
+
+  async function meaningCheck(english, translated) {
+    const back = await aiComplete({
+      system: 'Translate this text back into English as literally as possible. Keep the Markdown structure. Reply with only the translation.',
+      user: translated,
+      maxTokens: 4000,
+      cache: true,
+      freeStart: 1
+    });
+    return meaningScore(english, stripFences(back));
+  }
+
   // =====================================================================
   // Sync (encrypted GitHub Gist)
   // =====================================================================
@@ -1337,6 +1417,8 @@
           lastFocusSync = 0;
           syncOnFocus();
           openDirectPrompt();
+          openDropPrompt();
+          checkDropReplies(true).catch(function () { /* offline */ });
         }, 300);
         return result;
       };
@@ -1421,10 +1503,18 @@
     const secrets = syncSecrets();
     const settings = syncSettings();
     const code = randomCode(10, PAIR_ALPHABET);
-    const envelope = await encryptPayload(
-      packPairingSecret(secrets.token, secrets.passphrase, settings.gistId || '', Date.now() + PAIR_TTL_MS),
-      code
-    );
+    const secretText = packPairingSecret(secrets.token, secrets.passphrase, settings.gistId || '', Date.now() + PAIR_TTL_MS);
+    const envelope = await encryptPayload(secretText, code);
+    // Preferred: park the encrypted secret on the backup relay so the link (and QR) stay tiny.
+    if (!window.SWEEP_DISABLE_RELAY) {
+      try {
+        const topicId = randomCode(16, TOPIC_ALPHABET);
+        await relayPut('sweep' + topicId, envelope);
+        return { url: shareBase() + '#pair=r' + topicId, code: code, short: true };
+      } catch (error) {
+        /* relay unreachable: fall back to the self-contained link */
+      }
+    }
     // One compact base64url blob (salt 16 B | iv 12 B | ciphertext) keeps the link and QR small.
     const parsed = JSON.parse(envelope);
     const salt = fromBase64(parsed.salt);
@@ -1439,6 +1529,11 @@
 
   async function redeemPairing(payload, code) {
     const damaged = t('This link is damaged. Create a new one on the other device.');
+    if (/^r[a-z0-9]{16}$/.test(payload)) {
+      const latest = await relayLatest('sweep' + payload.slice(1));
+      if (!latest) throw new Error(t('This link has expired. Create a new one on the other device.'));
+      return applyPairingEnvelope(latest.text, code, damaged);
+    }
     let packed;
     try {
       packed = base64UrlToBytes(payload);
@@ -1453,6 +1548,10 @@
       iv: toBase64(packed.subarray(16, 28)),
       data: toBase64(packed.subarray(28))
     });
+    return applyPairingEnvelope(envelope, code, damaged);
+  }
+
+  async function applyPairingEnvelope(envelope, code, damaged) {
     let secret;
     try {
       secret = await decryptPayload(envelope, normalizeCode(code));
@@ -1716,75 +1815,113 @@
 
   function stopDirectHost() {
     if (!directHost) return;
-    clearTimeout(directHost.timer);
+    const host = directHost;
+    directHost = null;
+    clearTimeout(host.timer);
+    if (host.stopRelay) host.stopRelay();
     try {
-      directHost.peer.destroy();
+      if (host.peer) host.peer.destroy();
     } catch (error) {
       /* already closed */
     }
-    directHost = null;
+  }
+
+  function finishDirectHost(host) {
+    // Close this session a moment later; the user may already have started a new one.
+    setTimeout(function () {
+      if (directHost === host) stopDirectHost();
+    }, 3000);
+  }
+
+  async function openPeer(Peer, peerId) {
+    const peer = peerId ? new Peer(peerId, { debug: 0 }) : new Peer({ debug: 0 });
+    await new Promise(function (resolve, reject) {
+      peer.on('open', resolve);
+      peer.on('error', function (error) {
+        reject(new Error(t('Could not reach the direct sync service. Check your connection.') + ' (' + (error.type || error.message) + ')'));
+      });
+      setTimeout(function () { reject(new Error(t('Could not reach the direct sync service. Check your connection.'))); }, 12000);
+    });
+    return peer;
   }
 
   async function startDirectHost() {
     if (typeof state === 'undefined' || !state.workspace) throw new Error('Open a workspace first.');
     stopDirectHost();
-    const Peer = await loadPeerLibrary();
     const code = randomCode(10, PAIR_ALPHABET);
-    const peerId = DIRECT_PEER_PREFIX + randomCode(20, 'abcdefghijklmnopqrstuvwxyz0123456789');
-    const peer = new Peer(peerId, { debug: 0 });
-    await new Promise(function (resolve, reject) {
-      peer.on('open', resolve);
-      peer.on('error', function (error) { reject(new Error(t('Could not reach the direct sync service. Check your connection.') + ' (' + (error.type || error.message) + ')')); });
-      setTimeout(function () { reject(new Error(t('Could not reach the direct sync service. Check your connection.'))); }, 20000);
-    });
-    directHost = { peer: peer, code: code, timer: setTimeout(function () {
+    const hostKey = randomCode(20, 'abcdefghijklmnopqrstuvwxyz0123456789');
+    const host = { peer: null, code: code, stopRelay: null, viaRelayOnly: false };
+    host.timer = setTimeout(function () {
+      if (directHost !== host) return;
       stopDirectHost();
       directStatus(t('Direct sync stopped after 10 minutes. Start again when both devices are ready.'));
-    }, DIRECT_WAIT_MS) };
-    peer.on('connection', function (connection) {
-      connection.on('data', async function (message) {
-        if (!message || message.type !== 'hello') return;
-        try {
-          directStatus(t('Other device connected — merging…'));
-          const remote = await decryptPayload(message.payload, code);
-          const result = await mergeIncoming(remote);
-          const reply = await encryptPayload({ projects: result.merged.projects, tombstones: result.merged.tombstones }, code);
-          connection.send({ type: 'merged', payload: reply, merges: swapClashSides(result.merged.merges) });
-          directStatus('✓ ' + t('Synced with your other device · {count} project(s)', { count: result.merged.projects.length }), 'ok');
-          toast(t('Synced with your other device'));
-          const finished = directHost;
-          setTimeout(function () {
-            // Only close this session; the user may already have started a new one.
-            if (directHost === finished) stopDirectHost();
-          }, 3000);
-        } catch (error) {
-          connection.send({ type: 'error', message: error.message });
-          directStatus('✗ ' + error.message, 'error');
-        }
+    }, DIRECT_WAIT_MS);
+    directHost = host;
+    // Two independent paths: WebRTC via the PeerJS broker, and the encrypted backup relay.
+    // Whichever reaches the other device first wins; either one failing is fine.
+    let peerError = null;
+    try {
+      const Peer = window.SWEEP_DISABLE_PEER ? null : await loadPeerLibrary();
+      if (!Peer) throw new Error('disabled');
+      host.peer = await openPeer(Peer, DIRECT_PEER_PREFIX + hostKey);
+    } catch (error) {
+      peerError = error;
+      host.peer = null;
+    }
+    let relayError = null;
+    try {
+      await hostRelayListen(host, hostKey);
+    } catch (error) {
+      relayError = error;
+    }
+    if (!host.peer && relayError) {
+      stopDirectHost();
+      throw peerError || relayError;
+    }
+    host.viaRelayOnly = !host.peer;
+    if (host.peer) {
+      host.peer.on('connection', function (connection) {
+        connection.on('data', async function (message) {
+          if (!message || message.type !== 'hello') return;
+          try {
+            directStatus(t('Other device connected — merging…'));
+            const remote = await decryptPayload(message.payload, code);
+            const result = await mergeIncoming(remote);
+            const reply = await encryptPayload({ projects: result.merged.projects, tombstones: result.merged.tombstones }, code);
+            connection.send({ type: 'merged', payload: reply, merges: swapClashSides(result.merged.merges) });
+            directStatus('✓ ' + t('Synced with your other device · {count} project(s)', { count: result.merged.projects.length }), 'ok');
+            toast(t('Synced with your other device'));
+            finishDirectHost(host);
+          } catch (error) {
+            connection.send({ type: 'error', message: error.message });
+            directStatus('✗ ' + error.message, 'error');
+          }
+        });
       });
-    });
-    return { url: shareBase() + '#direct=' + peerId.slice(DIRECT_PEER_PREFIX.length) + '.' + code, code: code };
+    }
+    return { url: shareBase() + '#direct=' + hostKey + '.' + code, code: code, viaRelayOnly: host.viaRelayOnly };
   }
 
-  async function joinDirect(hostKey, code) {
-    if (typeof state === 'undefined' || !state.workspace) throw new Error('Open a workspace first.');
+  // Errors the other device reported (wrong code, merge failure): retrying another way won't help.
+  function fatalError(message) {
+    const error = new Error(message);
+    error.fatal = true;
+    return error;
+  }
+
+  async function joinViaPeer(hostKey, code, onStatus) {
+    if (window.SWEEP_DISABLE_PEER) throw new Error('disabled');
     const Peer = await loadPeerLibrary();
-    const peer = new Peer({ debug: 0 });
+    const peer = await openPeer(Peer, null);
     try {
-      await new Promise(function (resolve, reject) {
-        peer.on('open', resolve);
-        peer.on('error', function (error) { reject(new Error(t('Could not reach the direct sync service. Check your connection.') + ' (' + (error.type || error.message) + ')')); });
-        setTimeout(function () { reject(new Error(t('Could not reach the direct sync service. Check your connection.'))); }, 20000);
-      });
+      if (onStatus) onStatus(t('Connecting…'));
       const connection = peer.connect(DIRECT_PEER_PREFIX + hostKey, { reliable: true });
       const local = localWorkspace();
       const reply = await new Promise(function (resolve, reject) {
-        const timer = setTimeout(function () { reject(new Error(t('The other device did not answer. Keep its Sync screen open and try again.'))); }, 45000);
+        const timer = setTimeout(function () { reject(new Error('timeout')); }, 25000);
         peer.on('error', function (error) {
           clearTimeout(timer);
-          reject(new Error(error.type === 'peer-unavailable'
-            ? t('The other device is no longer waiting. Start direct sync there again.')
-            : t('Could not connect to the other device.') + ' (' + (error.type || error.message) + ')'));
+          reject(new Error(error.type || error.message));
         });
         connection.on('open', async function () {
           connection.send({ type: 'hello', payload: await encryptPayload(local, code) });
@@ -1792,16 +1929,11 @@
         connection.on('data', function (message) {
           if (!message) return;
           clearTimeout(timer);
-          if (message.type === 'error') reject(new Error(message.message));
+          if (message.type === 'error') reject(fatalError(message.message));
           else if (message.type === 'merged') resolve(message);
         });
       });
-      const merged = await decryptPayload(reply.payload, code);
-      // The host already merged both sides; adopt its result so both devices end identical.
-      const changed = await adoptWorkspace(localWorkspace(), merged);
-      saveDirectBase(merged.projects);
-      if (reply.merges && reply.merges.length) rememberClashes(reply.merges);
-      return { changed: changed, count: merged.projects.length };
+      return { remote: await decryptPayload(reply.payload, code), merges: reply.merges || [], via: 'direct' };
     } finally {
       setTimeout(function () {
         try {
@@ -1811,6 +1943,23 @@
         }
       }, 1500);
     }
+  }
+
+  async function joinDirect(hostKey, code, onStatus) {
+    if (typeof state === 'undefined' || !state.workspace) throw new Error('Open a workspace first.');
+    let answer;
+    try {
+      answer = await joinViaPeer(hostKey, code, onStatus);
+    } catch (error) {
+      if (error.fatal) throw error;
+      // WebRTC blocked, broker down or host on relay only: use the encrypted backup relay.
+      answer = await joinViaRelay(hostKey, code, onStatus);
+    }
+    // The host already merged both sides; adopt its result so both devices end identical.
+    const changed = await adoptWorkspace(localWorkspace(), answer.remote);
+    saveDirectBase(answer.remote.projects);
+    if (answer.merges && answer.merges.length) rememberClashes(answer.merges);
+    return { changed: changed, count: answer.remote.projects.length, via: answer.via };
   }
 
   async function showDirectPanel() {
@@ -1828,8 +1977,8 @@
             '<p class="settings-note"><b>' + esc(t('Scan this with your other device')) + '</b> ' + esc(t('(or open the link there). Keep this screen open until it says synced.')) + '</p>' +
             '<div class="settings-actions"><button type="button" class="btn btn-secondary btn-sm" data-pro="sync-copy-link" data-link="' + esc(host.url) + '">' + esc(t('Copy link')) + '</button>' +
               '<button type="button" class="btn btn-text btn-sm" data-pro="direct-stop">' + esc(t('Stop')) + '</button></div>' +
-            '<p class="settings-status" id="direct-status" role="status">' + esc(t('Waiting for your other device…')) + '</p>' +
-            '<p class="settings-note small">' + esc(t('Works while both devices are online. Your projects travel encrypted, device to device.')) + '</p>' +
+            '<p class="settings-status" id="direct-status" role="status">' + esc(t('Waiting for your other device…')) + (host.viaRelayOnly ? ' ' + esc(t('(using the backup relay)')) : '') + '</p>' +
+            '<p class="settings-note small">' + esc(t('Works while both devices are online — directly when the network allows, otherwise through an encrypted backup relay.')) + '</p>' +
           '</div>' +
         '</div>';
     } catch (error) {
@@ -1882,7 +2031,10 @@
       status.className = 'settings-status';
       status.textContent = t('Connecting…');
       try {
-        const result = await joinDirect(pending.host, pending.code);
+        const result = await joinDirect(pending.host, pending.code, function (message) {
+          status.className = 'settings-status';
+          status.textContent = message;
+        });
         status.className = 'settings-status ok';
         status.textContent = '✓ ' + t('Synced with your other device · {count} project(s)', { count: result.count });
         toast(t('Synced with your other device'));
@@ -1913,6 +2065,427 @@
     if (!document.getElementById('settings-modal')) document.body.classList.remove('studio-modal-open');
     if (directReturnFocus && document.contains(directReturnFocus)) directReturnFocus.focus();
     directReturnFocus = null;
+  }
+
+  // =====================================================================
+  // Backup relay (ntfy.sh): an encrypted mailbox used when WebRTC cannot connect, for
+  // "send now, pick up later" and for short device-linking links.
+  // =====================================================================
+  // ntfy.sh is a free, open-source push service with open CORS. Sweep only ever puts ciphertext
+  // there (AES-GCM; the key comes from the one-time code in the link fragment, which never reaches
+  // the relay). Files expire after 3 hours on ntfy.sh. Set window.SWEEP_RELAY_URL to use a
+  // self-hosted ntfy server instead.
+  const RELAY_URL = 'https://ntfy.sh';
+  const RELAY_FILE_TTL_MS = 3 * 60 * 60 * 1000;
+  const DROP_OUTBOX_KEY = 'sweep_drop_outbox_v1';
+  const DROP_PENDING_KEY = 'sweep_drop_pending_v1';
+  const TOPIC_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let lastDropCheck = 0;
+
+  function relayEndpoint() {
+    return String(window.SWEEP_RELAY_URL || RELAY_URL).replace(/\/$/, '');
+  }
+
+  async function relayFetch(url, init, timeoutMs) {
+    const controller = new AbortController();
+    const timer = setTimeout(function () { controller.abort(); }, timeoutMs || 20000);
+    try {
+      return await fetch(url, Object.assign({}, init || {}, { signal: controller.signal }));
+    } catch (error) {
+      throw new Error(t('Could not reach the backup relay. Check your connection.'));
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  // Topic for a direct-sync session: derived from the host key so the relay never sees the key.
+  async function directRelayTopic(hostKey, suffix) {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('sweep-relay:' + hostKey));
+    const hex = Array.prototype.map.call(new Uint8Array(digest).subarray(0, 12), function (byte) {
+      return ('0' + byte.toString(16)).slice(-2);
+    }).join('');
+    return 'sweep' + hex + suffix;
+  }
+
+  async function gzipText(textValue) {
+    if (typeof CompressionStream === 'undefined') return null;
+    const stream = new Blob([textValue]).stream().pipeThrough(new CompressionStream('gzip'));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+
+  async function gunzipBytes(bytes) {
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return new Response(stream).text();
+  }
+
+  // Compress (when the browser can) and encrypt with the one-time code.
+  async function sealForRelay(object, code) {
+    const json = JSON.stringify(object);
+    let packed = null;
+    try {
+      packed = await gzipText(json);
+    } catch (error) {
+      packed = null;
+    }
+    return encryptPayload(packed ? { z: toBase64(packed) } : { j: json }, code);
+  }
+
+  async function openFromRelay(textValue, code) {
+    let inner;
+    try {
+      inner = await decryptPayload(textValue, code);
+    } catch (error) {
+      throw new Error(t('That code does not match. Check the code on the other device.'));
+    }
+    if (inner && typeof inner.z === 'string') return JSON.parse(await gunzipBytes(fromBase64(inner.z)));
+    if (inner && typeof inner.j === 'string') return JSON.parse(inner.j);
+    return inner;
+  }
+
+  async function relayPut(topic, textValue) {
+    const response = await relayFetch(relayEndpoint() + '/' + topic, {
+      method: 'PUT',
+      body: textValue,
+      headers: { 'Filename': 'sweep.txt', 'X-Message': 'sweep' }
+    }, 45000);
+    if (!response.ok) {
+      throw new Error(t('The backup relay is busy. Try again in a minute.') + ' (' + response.status + ')');
+    }
+    return response.json();
+  }
+
+  async function relayList(topic, sinceSeconds) {
+    const response = await relayFetch(relayEndpoint() + '/' + topic + '/json?poll=1&since=' + (sinceSeconds || 'all'), {}, 20000);
+    if (!response.ok) throw new Error(t('The backup relay is busy. Try again in a minute.') + ' (' + response.status + ')');
+    const body = await response.text();
+    return body.split('\n').map(function (line) {
+      try {
+        return JSON.parse(line);
+      } catch (error) {
+        return null;
+      }
+    }).filter(function (message) {
+      return message && message.event === 'message' && message.attachment && message.attachment.url;
+    });
+  }
+
+  async function relayDownload(message) {
+    const response = await relayFetch(message.attachment.url, {}, 45000);
+    if (!response.ok) throw new Error(t('This transfer has expired. Send it again from the other device.'));
+    return response.text();
+  }
+
+  // ntfy.sh needs about a second before a new file shows up in a poll, so one-shot reads retry briefly.
+  async function relayLatest(topic, sinceSeconds, retries) {
+    let list = await relayList(topic, sinceSeconds);
+    for (let attempt = 0; !list.length && attempt < (retries === undefined ? 3 : retries); attempt++) {
+      await new Promise(function (resolve) { setTimeout(resolve, 1200); });
+      list = await relayList(topic, sinceSeconds);
+    }
+    if (!list.length) return null;
+    const last = list[list.length - 1];
+    return { message: last, text: await relayDownload(last) };
+  }
+
+  // Calls onMessage once per new file on the topic: an initial poll for files already waiting,
+  // then a live stream (EventSource), with a slow poll as a safety net for proxies that block it.
+  function relayWatch(topic, sinceSeconds, onMessage) {
+    let closed = false;
+    let source = null;
+    const seen = {};
+    const handle = function (message) {
+      if (closed || !message || message.event !== 'message' || !message.attachment || seen[message.id]) return;
+      seen[message.id] = true;
+      onMessage(message);
+    };
+    const poll = function () {
+      relayList(topic, sinceSeconds).then(function (list) { list.forEach(handle); }).catch(function () { /* retry later */ });
+    };
+    poll();
+    if (typeof EventSource !== 'undefined') {
+      try {
+        source = new EventSource(relayEndpoint() + '/' + topic + '/sse?since=' + sinceSeconds);
+        source.onmessage = function (event) {
+          try {
+            handle(JSON.parse(event.data));
+          } catch (error) {
+            /* ignore keepalives */
+          }
+        };
+      } catch (error) {
+        source = null;
+      }
+    }
+    const timer = setInterval(poll, 8000);
+    return function stop() {
+      closed = true;
+      clearInterval(timer);
+      if (source) source.close();
+    };
+  }
+
+  function nowSeconds() {
+    return Math.floor(Date.now() / 1000);
+  }
+
+  // ----- direct sync over the relay (fallback when WebRTC or the PeerJS broker fails) -----
+  async function hostRelayListen(host, hostKey) {
+    const inbox = await directRelayTopic(hostKey, 'h');
+    const outbox = await directRelayTopic(hostKey, 'r');
+    host.stopRelay = relayWatch(inbox, nowSeconds() - 5, async function (message) {
+      if (directHost !== host) return;
+      try {
+        const hello = JSON.parse(await relayDownload(message));
+        if (!hello || hello.type !== 'hello') return;
+        directStatus(t('Other device connected — merging…'));
+        const remote = await openFromRelay(hello.payload, host.code);
+        const result = await mergeIncoming(remote);
+        const reply = {
+          type: 'merged',
+          payload: await sealForRelay({ projects: result.merged.projects, tombstones: result.merged.tombstones }, host.code),
+          merges: swapClashSides(result.merged.merges)
+        };
+        await relayPut(outbox, JSON.stringify(reply));
+        directStatus('✓ ' + t('Synced with your other device · {count} project(s)', { count: result.merged.projects.length }), 'ok');
+        toast(t('Synced with your other device'));
+        finishDirectHost(host);
+      } catch (error) {
+        relayPut(outbox, JSON.stringify({ type: 'error', message: error.message })).catch(function () { /* best effort */ });
+        directStatus('✗ ' + error.message, 'error');
+      }
+    });
+  }
+
+  async function joinViaRelay(hostKey, code, onStatus) {
+    if (onStatus) onStatus(t('Trying the backup relay…'));
+    const inbox = await directRelayTopic(hostKey, 'h');
+    const outbox = await directRelayTopic(hostKey, 'r');
+    const since = nowSeconds() - 2;
+    const hello = { type: 'hello', payload: await sealForRelay(localWorkspace(), code) };
+    return new Promise(function (resolve, reject) {
+      let stop = null;
+      const timer = setTimeout(function () {
+        if (stop) stop();
+        reject(new Error(t('The other device did not answer. Keep its Sync screen open and try again.')));
+      }, 75000);
+      stop = relayWatch(outbox, since, async function (message) {
+        try {
+          const reply = JSON.parse(await relayDownload(message));
+          if (!reply) return;
+          clearTimeout(timer);
+          stop();
+          if (reply.type === 'error') {
+            reject(new Error(reply.message));
+            return;
+          }
+          resolve({ remote: await openFromRelay(reply.payload, code), merges: reply.merges || [], via: 'relay' });
+        } catch (error) {
+          clearTimeout(timer);
+          stop();
+          reject(error);
+        }
+      });
+      relayPut(inbox, JSON.stringify(hello)).catch(function (error) {
+        clearTimeout(timer);
+        stop();
+        reject(error);
+      });
+    });
+  }
+
+  // ----- send now, pick up later -----
+  async function sendDrop() {
+    if (typeof state === 'undefined' || !state.workspace) throw new Error('Open a workspace first.');
+    const topicId = randomCode(22, TOPIC_ALPHABET);
+    const code = randomCode(10, PAIR_ALPHABET);
+    const local = localWorkspace();
+    await relayPut('sweep' + topicId, await sealForRelay(Object.assign({}, local, { savedAt: Date.now() }), code));
+    // What we sent becomes the common ancestor for merging the other device's answer later.
+    saveDirectBase(local.projects);
+    const outbox = readJson(localStorage, DROP_OUTBOX_KEY, []).filter(function (item) {
+      return item.expires > Date.now();
+    });
+    outbox.push({ topic: topicId, code: code, at: Date.now(), expires: Date.now() + RELAY_FILE_TTL_MS * 2 });
+    writeJson(localStorage, DROP_OUTBOX_KEY, outbox);
+    return { url: shareBase() + '#drop=' + topicId + '.' + code, expires: Date.now() + RELAY_FILE_TTL_MS };
+  }
+
+  async function receiveDrop(topicId, code) {
+    if (typeof state === 'undefined' || !state.workspace) throw new Error('Open a workspace first.');
+    const latest = await relayLatest('sweep' + topicId);
+    if (!latest) throw new Error(t('This transfer has expired. Send it again from the other device.'));
+    const remote = await openFromRelay(latest.text, code);
+    const result = await mergeIncoming(remote);
+    // Answer with the merged result so the sending device can pick up this device's projects too.
+    try {
+      await relayPut('sweep' + topicId + 'r', await sealForRelay({
+        projects: result.merged.projects,
+        tombstones: result.merged.tombstones,
+        merges: swapClashSides(result.merged.merges)
+      }, code));
+    } catch (error) {
+      /* the sender just won't get this device's projects back */
+    }
+    return { count: result.merged.projects.length, changed: result.changed };
+  }
+
+  // On the sending device: merge answers that arrived while it was closed.
+  async function checkDropReplies(force) {
+    if (typeof state === 'undefined' || !state.workspace) return 0;
+    if (!force && Date.now() - lastDropCheck < 60000) return 0;
+    lastDropCheck = Date.now();
+    const outbox = readJson(localStorage, DROP_OUTBOX_KEY, []);
+    const keep = [];
+    let picked = 0;
+    for (let i = 0; i < outbox.length; i++) {
+      const item = outbox[i];
+      if (item.expires <= Date.now()) continue;
+      try {
+        const reply = await relayLatest('sweep' + item.topic + 'r', 0, 1);
+        if (!reply) {
+          keep.push(item);
+          continue;
+        }
+        const remote = await openFromRelay(reply.text, item.code);
+        await mergeIncoming(remote);
+        if (remote.merges && remote.merges.length) rememberClashes(remote.merges);
+        picked++;
+      } catch (error) {
+        keep.push(item);
+      }
+    }
+    writeJson(localStorage, DROP_OUTBOX_KEY, keep);
+    if (picked) toast(t('Picked up changes from your other device'));
+    return picked;
+  }
+
+  function captureDropHash() {
+    const match = location.hash.match(/^#drop=([a-z0-9]{22})\.([A-Z2-9]{10})$/);
+    if (!match) return;
+    try {
+      sessionStorage.setItem(DROP_PENDING_KEY, JSON.stringify({ topic: match[1], code: match[2] }));
+    } catch (error) {
+      /* storage unavailable */
+    }
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+
+  let dropReturnFocus = null;
+  function openDropPrompt() {
+    const pending = readJson(sessionStorage, DROP_PENDING_KEY, null);
+    if (!pending || document.getElementById('drop-modal')) return;
+    if (typeof state === 'undefined' || !state.workspace) return;
+    dropReturnFocus = document.activeElement;
+    const modal = document.createElement('div');
+    modal.id = 'drop-modal';
+    modal.className = 'studio-modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'drop-title');
+    modal.innerHTML = '<div class="studio-modal-card settings-card">' +
+      '<button type="button" class="studio-modal-close" data-drop="close" aria-label="' + esc(t('Close')) + '">×</button>' +
+      '<h2 id="drop-title">' + esc(t('Get projects from your other device?')) + '</h2>' +
+      '<p class="settings-note">' + esc(t('They will be merged with the projects on this device. Nothing is deleted unless you deleted it on one of them.')) + '</p>' +
+      '<div class="settings-actions"><button type="button" class="btn btn-primary btn-sm" data-drop="get">' + esc(t('Get them')) + '</button>' +
+        '<button type="button" class="btn btn-text btn-sm" data-drop="close">' + esc(t('Cancel')) + '</button>' +
+        '<span class="settings-status" id="drop-status" role="status"></span></div>' +
+    '</div>';
+    document.body.appendChild(modal);
+    document.body.classList.add('studio-modal-open');
+    const status = modal.querySelector('#drop-status');
+    modal.addEventListener('click', async function (event) {
+      const action = event.target.closest('[data-drop]');
+      if (event.target === modal || (action && action.getAttribute('data-drop') === 'close')) {
+        closeDropPrompt(true);
+        return;
+      }
+      if (!action || action.getAttribute('data-drop') !== 'get' || action.disabled) return;
+      action.disabled = true;
+      status.className = 'settings-status';
+      status.textContent = t('Downloading…');
+      try {
+        const result = await receiveDrop(pending.topic, pending.code);
+        status.className = 'settings-status ok';
+        status.textContent = '✓ ' + t('Merged · {count} project(s)', { count: result.count });
+        toast(t('Projects from your other device are here'));
+        setTimeout(function () { closeDropPrompt(true); }, 1200);
+      } catch (error) {
+        action.disabled = false;
+        status.className = 'settings-status error';
+        status.textContent = '✗ ' + error.message;
+      }
+    });
+    modal.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') closeDropPrompt(true);
+    });
+    modal.querySelector('[data-drop="get"]').focus();
+  }
+
+  function closeDropPrompt(clearPending) {
+    const modal = document.getElementById('drop-modal');
+    if (clearPending) {
+      try {
+        sessionStorage.removeItem(DROP_PENDING_KEY);
+      } catch (error) {
+        /* storage unavailable */
+      }
+    }
+    if (!modal) return;
+    modal.remove();
+    if (!document.getElementById('settings-modal')) document.body.classList.remove('studio-modal-open');
+    if (dropReturnFocus && document.contains(dropReturnFocus)) dropReturnFocus.focus();
+    dropReturnFocus = null;
+  }
+
+  async function showDropPanel() {
+    const panel = document.getElementById('drop-panel');
+    if (!panel) return;
+    panel.hidden = false;
+    panel.innerHTML = '<p class="settings-note">' + esc(t('Encrypting and uploading…')) + '</p>';
+    try {
+      const drop = await sendDrop();
+      const qr = window.SweepQR ? window.SweepQR.svg(drop.url, { ecc: 'M', border: 4, label: t('QR code to pick up your projects on another device') }) : '';
+      panel.innerHTML =
+        '<div class="sync-link-grid">' +
+          (qr ? qrBlock(qr) : '') +
+          '<div class="sync-link-copy">' +
+            '<p class="settings-note"><b>' + esc(t('Open this on your other device within 3 hours.')) + '</b> ' + esc(t('It does not need to be online now. When it opens the link, this device picks up its projects the next time you open Sweep.')) + '</p>' +
+            '<div class="settings-actions"><button type="button" class="btn btn-secondary btn-sm" data-pro="sync-copy-link" data-link="' + esc(drop.url) + '">' + esc(t('Copy link')) + '</button></div>' +
+            '<p class="settings-note small">' + esc(t('Encrypted on this device; the relay only stores unreadable data for 3 hours.')) + '</p>' +
+          '</div>' +
+        '</div>';
+    } catch (error) {
+      panel.innerHTML = '<p class="settings-status error">✗ ' + esc(error.message) + '</p>';
+    }
+  }
+
+  // "Got a link?" — open any Sweep sync link pasted from a chat or email.
+  function openPastedLink(value) {
+    const raw = String(value || '').trim();
+    const hashAt = raw.indexOf('#');
+    const hash = hashAt >= 0 ? raw.slice(hashAt) : '#' + raw;
+    let match = hash.match(/^#pair=([A-Za-z0-9_\-.]+)$/);
+    if (match) {
+      sessionStorage.setItem(PAIR_PENDING_KEY, match[1]);
+      closeSettings();
+      openPairPrompt();
+      return 'pair';
+    }
+    match = hash.match(/^#direct=([a-z0-9]{20})\.([A-Z2-9]{10})$/);
+    if (match) {
+      sessionStorage.setItem(DIRECT_PENDING_KEY, JSON.stringify({ host: match[1], code: match[2] }));
+      closeSettings();
+      openDirectPrompt();
+      return 'direct';
+    }
+    match = hash.match(/^#drop=([a-z0-9]{22})\.([A-Z2-9]{10})$/);
+    if (match) {
+      sessionStorage.setItem(DROP_PENDING_KEY, JSON.stringify({ topic: match[1], code: match[2] }));
+      closeSettings();
+      openDropPrompt();
+      return 'drop';
+    }
+    throw new Error(t('That is not a Sweep sync link.'));
   }
 
   // ----- encrypted sync files -----
@@ -1950,9 +2523,15 @@
     const secrets = syncSecrets();
     return '<div class="sync-noaccount">' +
       '<h3>' + esc(t('No GitHub account?')) + '</h3>' +
-      '<p class="settings-note">' + esc(t('Sync two devices directly while both are open, or move an encrypted sync file (AirDrop, USB, email, a cloud drive). Same encryption and merge as above.')) + '</p>' +
-      '<div class="settings-actions"><button type="button" class="btn btn-secondary btn-sm" data-pro="direct-start">' + esc(t('Sync with another device now')) + '</button></div>' +
+      '<p class="settings-note">' + esc(t('Sync two devices while both are open, send your projects to pick up later (within 3 hours), or move an encrypted sync file. Same encryption and merge as above.')) + '</p>' +
+      '<div class="settings-actions"><button type="button" class="btn btn-secondary btn-sm" data-pro="direct-start">' + esc(t('Sync with another device now')) + '</button>' +
+        '<button type="button" class="btn btn-secondary btn-sm" data-pro="drop-send">' + esc(t('Send — pick up later')) + '</button></div>' +
       '<div id="direct-panel" class="sync-link-panel" hidden></div>' +
+      '<div id="drop-panel" class="sync-link-panel" hidden></div>' +
+      '<label class="settings-field"><span>' + esc(t('Got a link from your other device? Paste it here')) + '</span>' +
+        '<span class="input-with-button"><input type="url" id="sync-paste-link" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://…#direct=…" data-no-i18n>' +
+        '<button type="button" class="btn btn-secondary btn-sm" data-pro="paste-link">' + esc(t('Open')) + '</button></span></label>' +
+      '<p class="settings-status" id="paste-status" role="status"></p>' +
       '<label class="settings-field"><span>' + esc(t('Sync file passphrase')) + '</span>' +
         '<input type="password" id="sync-file-pass" autocomplete="new-password" value="' + esc(secrets.passphrase || '') + '"></label>' +
       '<div class="settings-actions">' +
@@ -2274,6 +2853,19 @@
       }
       return;
     }
+    if (name === 'drop-send') {
+      showDropPanel();
+      return;
+    }
+    if (name === 'paste-link') {
+      const field = document.getElementById('sync-paste-link');
+      try {
+        openPastedLink(field ? field.value : '');
+      } catch (error) {
+        setStatus('paste-status', '✗ ' + error.message, 'error');
+      }
+      return;
+    }
     if (name === 'direct-start') {
       showDirectPanel();
       return;
@@ -2444,14 +3036,20 @@
 
   capturePairingHash();
   captureDirectHash();
+  captureDropHash();
 
   function init() {
     settingsButton();
     renderClashBanner();
     setTimeout(openPairPrompt, 400);
     setTimeout(openDirectPrompt, 500);
+    setTimeout(openDropPrompt, 600);
+    setTimeout(function () { checkDropReplies(true).catch(function () { /* offline */ }); }, 1500);
     wrapPersistence();
     document.addEventListener('visibilitychange', syncOnFocus);
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') checkDropReplies(false).catch(function () { /* offline */ });
+    });
     document.addEventListener('keydown', trapFocus);
     registerServiceWorker();
     if (window.SweepI18n && window.SweepI18n.onChange) {
@@ -2476,6 +3074,8 @@
       improveSpecFile: improveSpecFile,
       translateSpecFile: translateSpecFile,
       validateTranslation: validateTranslation,
+      meaningCheck: meaningCheck,
+      meaningScore: meaningScore,
       glossary: SPEC_GLOSSARY,
       onChange: function (listener) { aiListeners.push(listener); },
       providers: PROVIDERS
@@ -2495,6 +3095,11 @@
       startDirect: startDirectHost,
       joinDirect: joinDirect,
       stopDirect: stopDirectHost,
+      sendDrop: sendDrop,
+      receiveDrop: receiveDrop,
+      checkDropReplies: checkDropReplies,
+      openLink: openPastedLink,
+      relay: { put: relayPut, latest: relayLatest, seal: sealForRelay, open: openFromRelay, endpoint: relayEndpoint },
       exportFile: exportSyncFile,
       importFile: importSyncFile,
       mergeIncoming: mergeIncoming,

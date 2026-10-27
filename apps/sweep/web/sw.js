@@ -1,7 +1,7 @@
 // Sweep Service Worker — Offline-first caching
 // Network-first for HTML/navigation, cache-first for static assets
 
-const CACHE_NAME = 'sweep-v16-noaccount';
+const CACHE_NAME = 'sweep-v17-plus-relay';
 const ASSETS_TO_CACHE = [
   './app.html',
   './index.html',
@@ -16,6 +16,7 @@ const ASSETS_TO_CACHE = [
   './badge.svg',
   './i18n.js',
   './pro.js',
+  './plus.js',
   './qr.js',
   './vendor/peerjs.min.js',
   './pro.css',

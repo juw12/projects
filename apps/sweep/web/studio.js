@@ -942,7 +942,8 @@
       content: entry.content,
       stale: entry.source !== sourceHash(english),
       edited: !!entry.edited,
-      problems: entry.problems || []
+      problems: entry.problems || [],
+      meaning: entry.meaning || null
     };
   }
 
@@ -966,7 +967,8 @@
       content: translated.content,
       state: translated.stale ? 'stale' : 'fresh',
       edited: translated.edited,
-      problems: translated.problems
+      problems: translated.problems,
+      meaning: translated.meaning
     };
   }
 
@@ -994,7 +996,16 @@
         const problems = typeof result === 'string' ? [] : (result.problems || []);
         if (!project.specTranslations) project.specTranslations = {};
         if (!project.specTranslations[lang]) project.specTranslations[lang] = {};
-        project.specTranslations[lang][file] = { content: translated, source: sourceHash(english), at: new Date().toISOString(), problems: problems };
+        let meaning = null;
+        if (window.SweepPro.ai.meaningCheck && !problems.length) {
+          try {
+            meaning = await window.SweepPro.ai.meaningCheck(english, translated, lang);
+          } catch (error) {
+            if (error.cancelled) throw error;
+            meaning = null;
+          }
+        }
+        project.specTranslations[lang][file] = { content: translated, source: sourceHash(english), at: new Date().toISOString(), problems: problems, meaning: meaning };
         persist(project);
         done++;
       }
@@ -1966,6 +1977,14 @@
         (shown.problems && shown.problems.length && !shown.edited
           ? '<span class="spec-lang-warn" title="' + esc(shown.problems.join(' ')) + '">⚠ ' + esc(t('Check this translation — {count} possible issue(s)', { count: shown.problems.length })) + '</span>'
           : '') +
+        (shown.meaning && !shown.edited && !(shown.problems && shown.problems.length)
+          ? (shown.meaning.ok
+            ? '<span class="spec-lang-tag ok" title="' + esc(t('Translated back to English and compared with the original (score {score}).', { score: shown.meaning.score })) + '">✓ ' + esc(t('Meaning check passed')) + '</span>'
+            : '<span class="spec-lang-warn" title="' + esc(t('Translated back to English and compared with the original (score {score}).', { score: shown.meaning.score })) + '">⚠ ' +
+              esc(shown.meaning.weak.length
+                ? t('Meaning check: these parts may say something different — {sections}', { sections: shown.meaning.weak.slice(0, 4).join(', ') })
+                : t('Meaning check: the translation may not match the original')) + '</span>')
+          : '') +
       '</div>' +
       (ui.glossaryOpen
         ? '<div class="spec-glossary"><label class="settings-field"><span>' + esc(t('Your terms for {lang} (one per line: term = translation)', { lang: langName })) + '</span>' +
@@ -2138,7 +2157,9 @@
     const canvas = document.getElementById('share-canvas');
     if (!canvas) return;
     const context = canvas.getContext('2d');
-    const accent = cssVar('--color-accent', '#8b1a1a');
+    // Sweep Plus: optional custom accent and no watermark.
+    const cardStyle = window.SweepPlus && window.SweepPlus.cardOptions ? window.SweepPlus.cardOptions() : null;
+    const accent = (cardStyle && cardStyle.accent) || cssVar('--color-accent', '#8b1a1a');
     const ok = cssVar('--color-productive', '#1a7f37');
     const score = scoreSpec(project);
     const board = boardSummary(project);
@@ -2153,22 +2174,26 @@
     context.fillStyle = accent;
     context.fillRect(0, 0, 14, 630);
 
-    context.fillStyle = accent;
-    roundRect(context, 70, 58, 44, 44, 11);
-    context.fill();
-    context.strokeStyle = '#fff';
-    context.lineWidth = 3.4;
-    context.lineCap = 'round';
-    context.beginPath();
-    context.moveTo(82, 90);
-    context.lineTo(102, 70);
-    context.stroke();
-    context.fillStyle = accent;
-    context.font = '700 24px ' + serif;
-    context.fillText('S W E E P', 128, 88);
-    context.fillStyle = '#7a746a';
-    context.font = '600 15px ' + sans;
-    context.fillText('PLANNED WITH SWEEP', 900, 88);
+    if (!(cardStyle && cardStyle.hideWatermark)) {
+      context.fillStyle = accent;
+      roundRect(context, 70, 58, 44, 44, 11);
+      context.fill();
+      context.strokeStyle = '#fff';
+      context.lineWidth = 3.4;
+      context.lineCap = 'round';
+      context.beginPath();
+      context.moveTo(82, 90);
+      context.lineTo(102, 70);
+      context.stroke();
+      context.fillStyle = accent;
+      context.font = '700 24px ' + serif;
+      context.fillText('S W E E P', 128, 88);
+    }
+    if (!(cardStyle && cardStyle.hideWatermark)) {
+      context.fillStyle = '#7a746a';
+      context.font = '600 15px ' + sans;
+      context.fillText('PLANNED WITH SWEEP', 900, 88);
+    }
 
     context.fillStyle = '#1a1a1a';
     context.font = '700 68px ' + serif;
