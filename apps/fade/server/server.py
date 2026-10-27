@@ -47,6 +47,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import tarfile
 import threading
 import time
 import unicodedata
@@ -57,13 +58,16 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import nsfw_scan  # noqa: E402  (server-side copy of the apps' safety classifier)
+
 try:
     from zoneinfo import ZoneInfo
 except ImportError:  # pragma: no cover - Python < 3.9
     ZoneInfo = None
 
 APP_NAME = "fade"
-APP_VERSION = "3.2.0"
+APP_VERSION = "3.3.0"
 
 BASE_DIR = Path(__file__).resolve().parent
 WEB_DIR = BASE_DIR.parent / "web"
@@ -379,6 +383,18 @@ SCAN_BLOCK = 0.85          # porn + hentai probability: refuse the upload
 SCAN_REVIEW = 0.5          # hide until a moderator looks at it
 SCAN_REVIEW_SEXY = 0.9     # "sexy" class alone: hide for review
 PHASH_MATCH_BITS = 10      # Hamming distance (of 64) that counts as the same picture
+SCAN_MISMATCH_MARGIN = 0.3  # server says explicit, uploader's app said clean by at least this much -> flag the account
+HOOK_TIMEOUT_S = 30
+HOOK_ALERT_AFTER = 3       # failed external checks before moderators are told (the upload stays held)
+HOOK_ACTIONS = ("allow", "review", "block")
+HOOK_SEVERE_LABELS = ("csam", "child", "minor")  # external checker says child abuse: hide, ban, keep evidence
+# Pushes are content-free unless the person opts in: ntfy keeps message text in its cache (~12 h on ntfy.sh)
+# even after a recall, so by default nothing personal ever goes through it.
+PRIVATE_PUSH_LABELS = {
+    "bk": "Booking update", "rm": "Appointment reminder", "dm": "New message", "cm": "New comment",
+    "comment": "New comment", "rp": "New report to review", "report": "New report to review",
+    "hd": "Update on your upload", "short": "New tag request", "booking": "Booking update",
+}
 LEET = str.maketrans({"0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", "$": "s", "!": "i", "|": "i"})
 URL_RE = re.compile(r"(https?://|www\.|\b[a-z0-9-]{2,}\.(com|net|org|io|xyz|ru|top|link|click|info|biz|me|co|ly)\b)", re.I)
 NEW_ACCOUNT_LINK_HOURS = 24
@@ -404,6 +420,35 @@ FFMPEG_WHEELS = {
     ("win32", "x86"): (f"{_PYPI}/a0/13/59da54728351883c3c1d9fca1710ab8eee82c7beba585df8f25ca925f08f/imageio_ffmpeg-0.6.0-py3-none-win32.whl",
                        "196faa79366b4a82f95c0f4053191d2013f4714a715780f0ad2a68ff37483cc2"),
 }
+
+# Linux CPUs without an imageio wheel (Raspberry Pi OS 32-bit, old ARM boards, 32-bit PCs): John Van Sickle's
+# static builds (GPLv3), pinned to the immutable 6.0.1 files in his old-releases archive by SHA-256.
+_JVS = "https://johnvansickle.com/ffmpeg/old-releases"
+_ARMHF = (f"{_JVS}/ffmpeg-6.0.1-armhf-static.tar.xz", "241cbf509222420033486ea82a7cf3cf4fb534437fa00d79df8abebd0184d7e6")
+_ARMEL = (f"{_JVS}/ffmpeg-6.0.1-armel-static.tar.xz", "1c2dd0795990796c29d0da8b0842e0bb13daf35eee062087a78cd70131301d58")
+_I686 = (f"{_JVS}/ffmpeg-6.0.1-i686-static.tar.xz", "4a50bf739ea2291f9d3b34642e8fe38bc03de80490f342dfb411749eaa7b67a5")
+FFMPEG_WHEELS.update({
+    ("linux", "armv7l"): _ARMHF, ("linux", "armv8l"): _ARMHF, ("linux", "armhf"): _ARMHF,
+    ("linux", "armv6l"): _ARMEL, ("linux", "armv5tel"): _ARMEL,
+    ("linux", "x86"): _I686,
+})
+
+
+def ffmpeg_install_hint():
+    """The one command that installs ffmpeg where Fade has no verified download."""
+    if sys.platform.startswith("freebsd"):
+        return "pkg install ffmpeg"
+    if sys.platform.startswith("openbsd"):
+        return "pkg_add ffmpeg"
+    if sys.platform.startswith("netbsd"):
+        return "pkgin install ffmpeg"
+    if sys.platform.startswith("linux"):
+        return "sudo apt install ffmpeg (Debian/Ubuntu) · sudo dnf install ffmpeg (Fedora) · apk add ffmpeg (Alpine)"
+    if sys.platform == "darwin":
+        return "brew install ffmpeg"
+    if sys.platform == "win32":
+        return "winget install ffmpeg"
+    return "install ffmpeg from https://ffmpeg.org/download.html"
 
 
 def platform_key():
@@ -431,7 +476,8 @@ def fetch_ffmpeg(cache_dir: Path, wheels=None, timeout=120):
     wheels = wheels or FFMPEG_WHEELS
     key = platform_key()
     if key not in wheels:
-        raise RuntimeError(f"no prebuilt ffmpeg for {key[0]}/{key[1]} — install ffmpeg and pass --ffmpeg /path/to/ffmpeg")
+        raise RuntimeError(f"no prebuilt ffmpeg for {key[0]}/{key[1]} — run: {ffmpeg_install_hint()} "
+                           "(Fade uses it from PATH on the next start, or pass --ffmpeg /path/to/ffmpeg)")
     url, digest = wheels[key]
     cache_dir.mkdir(parents=True, exist_ok=True)
     target = cache_dir / ("ffmpeg.exe" if key[0] == "win32" else "ffmpeg")
@@ -450,12 +496,20 @@ def fetch_ffmpeg(cache_dir: Path, wheels=None, timeout=120):
     if sha.hexdigest() != digest:
         partial.unlink(missing_ok=True)
         raise RuntimeError("ffmpeg download failed its SHA-256 check — not installed")
-    with zipfile.ZipFile(partial) as wheel:
-        members = [n for n in wheel.namelist() if "/binaries/ffmpeg" in n and not n.endswith((".md", ".py"))]
-        if not members:
-            raise RuntimeError("ffmpeg binary missing from the download")
-        with wheel.open(members[0]) as source, open(target, "wb") as out:
-            shutil.copyfileobj(source, out)
+    if url.endswith(".tar.xz"):
+        with tarfile.open(partial, "r:xz") as archive:
+            members = [m for m in archive.getmembers() if m.isfile() and m.name.rsplit("/", 1)[-1] == "ffmpeg"]
+            if not members:
+                raise RuntimeError("ffmpeg binary missing from the download")
+            with archive.extractfile(members[0]) as source, open(target, "wb") as out:
+                shutil.copyfileobj(source, out)
+    else:
+        with zipfile.ZipFile(partial) as wheel:
+            members = [n for n in wheel.namelist() if "/binaries/ffmpeg" in n and not n.endswith((".md", ".py"))]
+            if not members:
+                raise RuntimeError("ffmpeg binary missing from the download")
+            with wheel.open(members[0]) as source, open(target, "wb") as out:
+                shutil.copyfileobj(source, out)
     partial.unlink(missing_ok=True)
     target.chmod(0o755)
     if not working_ffmpeg(target):
@@ -510,6 +564,22 @@ def hamming(a, b):
         return 64
 
 
+
+def load_hash_list(path):
+    """Operator-supplied perceptual hashes to refuse: one 16-hex dHash per line, optional label after it.
+    '#' starts a comment. Returns {hash: label}."""
+    hashes = {}
+    for line in Path(path).read_text(encoding="utf-8", errors="replace").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        value, _, label = line.partition(" ")
+        value = value.strip().lower()
+        if re.fullmatch(r"[0-9a-f]{16}", value):
+            hashes[value] = (label.strip() or "operator list")[:60]
+    return hashes
+
+
 def scan_numbers(raw):
     """Validate a client scan result {nsfw, sexy, model}; None if missing or malformed."""
     if not isinstance(raw, dict):
@@ -539,12 +609,25 @@ class SafetyMixin:
     """Reports + moderator console, automatic scanning, ntfy push (updatable and recallable),
     in-app notifications and server-side ffmpeg transcoding."""
 
-    def setup_safety(self, admins=(), ntfy=None, public_url="", ffmpeg="auto"):
+    def setup_safety(self, admins=(), ntfy=None, public_url="", ffmpeg="auto", scan="off", scan_hook=None, hash_list=None):
         self.admins = {email.strip().lower() for email in admins if email and email.strip()}
         self.ntfy = (ntfy or "").rstrip("/") or None
         self.public_url = (public_url or "").rstrip("/")
         self.push_log = []  # last pushes, recalls and clears (for tests / diagnostics)
+        self.hook_log = []
         self.rate_events = {}
+        self.verify_lock = threading.Lock()
+        self.verifying_now = set()
+        # Server-side checks that don't trust the uploader's app: the same classifier (numpy), an optional
+        # external checker (CSAM hash matching, violence, ... run by the operator) and an optional hash list.
+        self.scan_hook = (scan_hook or "").strip() or None
+        self.external_hashes = load_hash_list(hash_list) if hash_list else {}
+        self.scanner = None
+        self.scan_status = "off"
+        if scan not in (None, "", "off"):
+            self.scanner = nsfw_scan.ServerScanner(self.s.media_dir.parent / "pylib", install=scan != "local")
+            self.scan_status = "loading"
+            threading.Thread(target=self.provision_scanner, daemon=True).start()
         self.ffmpeg = None
         self.ffmpeg_status = "off"
         self.ffmpeg_cache = self.s.media_dir.parent / "bin"
@@ -575,8 +658,26 @@ class SafetyMixin:
         self.process_backlog()
         return self.ffmpeg
 
+    def provision_scanner(self):
+        """Load numpy (fetched into <data>/pylib if missing) + the classifier, then check the backlog."""
+        try:
+            self.scanner.ready()
+            self.scan_status = self.scanner.status
+        except Exception as err:  # optional: the apps' own checks and moderators still work without it
+            self.scan_status = f"unavailable: {err}"[:200]
+            return False
+        self.process_backlog()
+        return True
+
+    def server_scan_ready(self):
+        return bool(self.ffmpeg) and self.scanner is not None and getattr(self.scanner, "model", None) is not None
+
+    def server_checks_active(self):
+        """True when uploads are held until the server's own checks have run."""
+        return self.server_scan_ready() or bool(self.scan_hook)
+
     def process_backlog(self):
-        """Transcode/hash shorts uploaded before ffmpeg was ready."""
+        """Transcode, hash and server-check shorts uploaded before ffmpeg / the classifier were ready."""
         for short in self.s.all("short"):
             media = short.get("media") or {}
             if short.get("seed") or media.get("processing"):
@@ -590,8 +691,9 @@ class SafetyMixin:
                     self.s.put("short", fresh["id"], fresh)
                     self.s.commit()
                 self.queue_transcode(fresh)
-            elif not media.get("phash") and media.get("url", "").startswith("/media/"):
-                threading.Thread(target=self.hash_and_match, args=(short["id"],), daemon=True).start()
+            elif media.get("url", "").startswith("/media/") and (
+                    not media.get("phash") or (self.server_scan_ready() and not media.get("serverScan"))):
+                threading.Thread(target=self.verify_media, args=(short["id"],), daemon=True).start()
 
     # ----- text rules -----
     @staticmethod
@@ -785,8 +887,11 @@ class SafetyMixin:
             if not s.get("seed") and (s.get("media") or {}).get("scanVerdict") == "unscanned"
             and f"short:{s['id']}" not in mod["hidden"] and f"short:{s['id']}" not in mod["kept"]
         ]
+        held = [{"id": s["id"], "caption": s.get("caption", ""), "error": s["media"].get("hookError")}
+                for s in self.s.all("short") if (s.get("media") or {}).get("verifying")]
         return {"queue": queue, "banned": sorted(mod["banned"].keys()), "unscanned": unscanned[:50],
-                "blockedHashes": len(mod["phash"])}
+                "blockedHashes": len(mod["phash"]) + len(self.external_hashes), "held": held[:50],
+                "serverChecks": {"classifier": self.scan_status, "hook": bool(self.scan_hook), "hashList": len(self.external_hashes)}}
 
     def moderate(self, user, body):
         if not self.is_admin(user):
@@ -983,17 +1088,24 @@ class SafetyMixin:
             self.s.commit()
         topic = recipient.get("notify")
         if self.ntfy and topic and recipient.get("pushOn", True):
-            private = recipient.get("pushPreview") == "private"
+            private = recipient.get("pushPreview", "private") != "full"
             payload = {
                 "topic": topic, "sequence_id": doc["seq"],
                 "title": "Fade" if private else doc["title"],
-                "message": "You have a new notification — open Fade to see it" if private else doc["message"],
-                "tags": tags or ["scissors"],
+                "message": f"{self.private_label(doc)} — open Fade to see it" if private else doc["message"],
+                "tags": ["scissors"] if private else (tags or ["scissors"]),
             }
             if self.public_url:
                 payload["click"] = f"{self.public_url}/#{click}"
             threading.Thread(target=self._send_push, args=(payload,), daemon=True).start()
         return doc
+
+    @staticmethod
+    def private_label(doc):
+        """What a content-free push says: only the kind of notification, never names, text or places."""
+        prefix = (doc.get("seq") or "").split("-", 1)[0]
+        ref_kind = (doc.get("ref") or "").split(":", 1)[0]
+        return PRIVATE_PUSH_LABELS.get(prefix) or PRIVATE_PUSH_LABELS.get(ref_kind) or "New notification"
 
     def _ntfy_call(self, method, url, data=None, kind="push", topic="", title=""):
         headers = {"Content-Type": "application/json"} if data is not None else {}
@@ -1074,7 +1186,7 @@ class SafetyMixin:
         if old_topic and self.ntfy:  # anything sent to the old topic is deleted from devices still subscribed
             seqs = [(old_topic, n.get("seq") or n["id"]) for n in self.notifications_for(fresh)]
             threading.Thread(target=self._recall_many, args=(seqs, "DELETE", "recall"), daemon=True).start()
-        return {"notify": fresh["notify"], "pushOn": fresh.get("pushOn", True), "pushPreview": fresh.get("pushPreview", "full")}
+        return {"notify": fresh["notify"], "pushOn": fresh.get("pushOn", True), "pushPreview": fresh.get("pushPreview", "private")}
 
     def booking_parties(self, booking):
         barber = self.s.get("barber", booking["barberId"]) or {}
@@ -1108,6 +1220,7 @@ class SafetyMixin:
             if barber.get("ownerId"):
                 self.notify(barber["ownerId"], "Client in 2 hours", f"{booking['customerName']} · {booking['serviceName']} at {when}", "/pro",
                             ["alarm_clock"], seq=f"rm-{booking['id']}-b", ref=f"booking:{booking['id']}")
+        self.retry_held_checks()
         return len(due)
 
     def start_sweeper(self):
@@ -1119,6 +1232,194 @@ class SafetyMixin:
                 except Exception:  # pragma: no cover - keep the loop alive
                     pass
         threading.Thread(target=loop, daemon=True).start()
+
+    # ----- server-side checks (don't depend on the uploader's app being honest) -----
+    def verify_media(self, short_id):
+        """Run every server check on a stored upload, then release it (or keep it held)."""
+        with self.verify_lock:
+            if short_id in self.verifying_now:
+                return None
+            self.verifying_now.add(short_id)
+        hook = None
+        try:
+            for check in (self.server_scan, self.hook_check, self.hash_and_match):
+                try:
+                    result = check(short_id)
+                except Exception as err:  # one failing check must not leave the upload hidden forever
+                    result = "pending" if check == self.hook_check else None
+                    self.hook_log.append({"kind": "check-error", "check": check.__name__, "short": short_id,
+                                          "error": str(err)[:200], "t": now_ts()})
+                if check == self.hook_check:
+                    hook = result
+            return hook
+        finally:
+            self.release(short_id, hold=hook == "pending")
+            with self.verify_lock:
+                self.verifying_now.discard(short_id)
+
+    def release(self, short_id, hold=False):
+        with self.s.lock:
+            short = self.s.get("short", short_id)
+            if not short:
+                return
+            media = short["media"]
+            if hold:
+                media["verifying"] = True
+            else:
+                media.pop("verifying", None)
+            media["checkedAt"] = now_ts()
+            self.s.put("short", short_id, short)
+            self.s.commit()
+
+    def server_scan(self, short_id):
+        """Classify the stored file with the server's own copy of the model. Its verdict replaces the app's."""
+        if not self.server_scan_ready():
+            return None
+        short = self.s.get("short", short_id)
+        if not short:
+            return None
+        path = self.s.media_dir / Path(short["media"]["url"]).name
+        if not path.exists():
+            return None
+        try:
+            result = self.scanner.scan_file(self.ffmpeg, path, short["media"]["kind"])
+        except Exception as err:  # a broken file or decoder must not crash the server
+            result = None
+            self.hook_log.append({"kind": "scan-error", "short": short_id, "error": str(err)[:200], "t": now_ts()})
+        if not result:
+            return None
+        verdict = scan_verdict(result)
+        client = short["media"].get("scan")
+        with self.s.lock:
+            short = self.s.get("short", short_id)
+            if not short:
+                return None
+            short["media"]["serverScan"] = result
+            short["media"]["scanVerdict"] = verdict
+            short["media"]["scanBy"] = "server"
+            self.s.put("short", short_id, short)
+            self.s.commit()
+        mismatch = bool(client) and scan_verdict(client) == "ok" and verdict in ("review", "block") \
+            and result["nsfw"] - client["nsfw"] >= SCAN_MISMATCH_MARGIN
+        if verdict in ("review", "block"):
+            note = (f"server check: {round(result['nsfw'] * 100)}% explicit, {round(result['sexy'] * 100)}% suggestive "
+                    f"over {result['frames']} frame{'s' if result['frames'] != 1 else ''}")
+            if mismatch:
+                note += f" — the uploader's app reported {round(client['nsfw'] * 100)}%"
+            elif not client:
+                note += " — uploaded without the app's own check"
+            self.auto_flag(f"short:{short_id}", short.get("userId"), "nudity", note, hide=True)
+        if mismatch:
+            self.flag_mismatch(short.get("userId"), short_id)
+        return verdict
+
+    def flag_mismatch(self, user_id, short_id):
+        """An upload the app called clean that the server finds explicit: likely a modified app. Tell moderators."""
+        if not user_id:
+            return
+        with self.s.lock:
+            user = self.s.get("user", user_id)
+            if not user:
+                return
+            user["scanMismatches"] = int(user.get("scanMismatches") or 0) + 1
+            count = user["scanMismatches"]
+            self.save_user(user)
+            self.s.commit()
+        self.auto_flag(f"user:{user_id}", user_id, "other",
+                       f"{count} upload{'s' if count > 1 else ''} didn't match the app's own safety check "
+                       f"(latest: short {short_id}) — possibly a modified app", hide=False)
+
+    def hook_check(self, short_id):
+        """POST the stored file to the operator's external checker (--scan-hook).
+
+        Request: the raw file, Content-Type of the upload, headers X-Fade-Short / X-Fade-Kind / X-Fade-Sha256 /
+        X-Fade-User. Response JSON: {"action": "allow"|"review"|"block", "reason": "...", "labels": [...]}.
+        Unreachable checker -> the upload stays held and is retried every minute ("pending")."""
+        if not self.scan_hook:
+            return "skip"
+        short = self.s.get("short", short_id)
+        if not short:
+            return "skip"
+        path = self.s.media_dir / Path(short["media"]["url"]).name
+        if not path.exists():
+            return "skip"
+        data = path.read_bytes()
+        headers = {
+            "Content-Type": short["media"].get("type") or "application/octet-stream",
+            "X-Fade-Short": short_id, "X-Fade-Kind": short["media"]["kind"],
+            "X-Fade-Sha256": hashlib.sha256(data).hexdigest(), "X-Fade-User": short.get("userId") or "",
+            "User-Agent": f"Fade/{APP_VERSION}",
+        }
+        answer = None
+        error = None
+        try:
+            request = urllib.request.Request(self.scan_hook, data=data, method="POST", headers=headers)
+            with urllib.request.urlopen(request, timeout=HOOK_TIMEOUT_S) as response:
+                answer = json.loads(response.read(65536).decode("utf-8") or "{}")
+            if not isinstance(answer, dict) or answer.get("action") not in HOOK_ACTIONS:
+                raise ValueError(f"unexpected answer {str(answer)[:80]}")
+        except Exception as err:
+            error = str(getattr(err, "reason", None) or err)[:200]
+        self.hook_log.append({"kind": "hook", "short": short_id, "action": (answer or {}).get("action"), "error": error, "t": now_ts()})
+        del self.hook_log[:-300]
+        with self.s.lock:
+            short = self.s.get("short", short_id)
+            if not short:
+                return "skip"
+            media = short["media"]
+            if error:
+                media["hookAttempts"] = int(media.get("hookAttempts") or 0) + 1
+                media["hookError"] = error
+                attempts = media["hookAttempts"]
+            else:
+                labels = [str(label)[:40].lower() for label in (answer.get("labels") or []) if label][:10]
+                media["hook"] = {"action": answer["action"], "reason": str(answer.get("reason") or "")[:200], "labels": labels}
+                media.pop("hookAttempts", None)
+                media.pop("hookError", None)
+            self.s.put("short", short_id, short)
+            self.s.commit()
+        if error:
+            if attempts == HOOK_ALERT_AFTER:
+                self.auto_flag(f"short:{short_id}", short.get("userId"), "other",
+                               f"external safety check unreachable ({error}) — the upload stays hidden until it answers", hide=False)
+            return "pending"
+        action = answer["action"]
+        reason = media["hook"]["reason"]
+        labels = media["hook"]["labels"]
+        severe = any(word in " ".join(labels + [reason.lower()]) for word in HOOK_SEVERE_LABELS)
+        if action in ("review", "block"):
+            note = f"external check: {action}" + (f" · {reason}" if reason else "") + (f" · {', '.join(labels)}" if labels else "")
+            category = "violence" if "violence" in labels or "gore" in labels else "nudity" if action == "block" or severe else "other"
+            self.auto_flag(f"short:{short_id}", short.get("userId"), category, note, hide=True)
+        if severe and action == "block":
+            self.emergency_ban(short.get("userId"), short_id)
+        return action
+
+    def emergency_ban(self, user_id, short_id):
+        """External checker matched child-abuse material: suspend the account at once, block the media's hashes
+        everywhere, keep the file as evidence for the operator's legal report (it is never shown again)."""
+        if not user_id:
+            return
+        with self.s.lock:
+            mod = self.mod_doc()
+            mod["banned"][user_id] = now_ts()
+            short = self.s.get("short", short_id)
+            if short:
+                short["media"]["evidenceHold"] = True
+                self.s.put("short", short_id, short)
+                self.block_hashes(mod, short, f"short:{short_id}")
+            self.s.put("meta", "mod", mod)
+            self.s.db.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+            self.s.commit()
+        self.recall(lambda n: n.get("actor") == user_id)
+        self.alert_admins(f"short:{short_id}", "URGENT · external checker matched child-abuse material — account suspended, evidence kept")
+
+    def retry_held_checks(self):
+        """Sweeper: re-run the external check for uploads still held because the checker was unreachable."""
+        for short in self.s.all("short"):
+            media = short.get("media") or {}
+            if media.get("verifying") and media.get("hookError") and not media.get("processing"):
+                threading.Thread(target=self.verify_media, args=(short["id"],), daemon=True).start()
 
     # ----- automatic media checks -----
     def screen_upload(self, user, meta):
@@ -1172,10 +1473,16 @@ class SafetyMixin:
                     if info.get("target") != f"short:{short_id}" and hamming(value, blocked) <= PHASH_MATCH_BITS:
                         match = info
                         break
+                for blocked, label in self.external_hashes.items():
+                    if not match and hamming(value, blocked) <= PHASH_MATCH_BITS:
+                        match = {"target": f"hash list: {label}", "external": True}
                 if match:
                     break
             self.s.commit()
-        if match:
+        if match and match.get("external"):
+            self.auto_flag(f"short:{short_id}", short.get("userId"), "other",
+                           f"matches the server's blocked-media list ({match['target']})", hide=True)
+        elif match:
             self.auto_flag(f"short:{short_id}", short.get("userId"), "spam",
                            f"re-upload of removed content ({match.get('target')})", hide=True)
         return hashes
@@ -1225,7 +1532,7 @@ class SafetyMixin:
                     media["poster"] = f"/media/{poster.name}"
             self.s.put("short", short_id, short)
             self.s.commit()
-        self.hash_and_match(short_id)
+        self.verify_media(short_id)
 
 
 class Fade(SafetyMixin):
@@ -1823,13 +2130,16 @@ class Fade(SafetyMixin):
         transcode = short["media"]["kind"] == "video" and bool(self.ffmpeg) and not meta.get("optimized")
         if transcode:
             short["media"]["processing"] = True
+        held = self.server_checks_active()
+        if held:  # nobody else sees it until the server has checked the file itself (a few seconds)
+            short["media"]["verifying"] = True
         with self.s.lock:
             self.s.put("short", short_id, short)
             self.s.commit()
         if transcode:
-            self.queue_transcode(short)  # hashes the result when done
+            self.queue_transcode(short)  # verifies the result when done
         else:
-            threading.Thread(target=self.hash_and_match, args=(short_id,), daemon=True).start()
+            threading.Thread(target=self.verify_media, args=(short_id,), daemon=True).start()
         if verdict == "review":
             self.auto_flag(f"short:{short_id}", user["id"], "nudity",
                            f"automatic check: {round(scan['nsfw'] * 100)}% explicit, {round(scan['sexy'] * 100)}% suggestive", hide=True)
@@ -1839,7 +2149,7 @@ class Fade(SafetyMixin):
                 self.notify(owner, "You were tagged in a short", f"{user['name']} tagged you ({tag['kind']}) — approve it in Fade", "/pro",
                             ref=f"short:{short_id}", actor=user["id"])
         short = self.s.get("short", short_id) or short
-        return {"short": self.public_short(short, user), "scan": verdict}
+        return {"short": self.public_short(short, user), "scan": verdict, "checking": held}
 
     def short_action(self, user, short_id, action):
         with self.s.lock:
@@ -1893,7 +2203,8 @@ class Fade(SafetyMixin):
     def public_short(self, short, user, comment_counts=None):
         doc = {key: value for key, value in short.items() if key != "likedBy"}
         if isinstance(doc.get("media"), dict):  # perceptual hashes stay on the server
-            doc["media"] = {k: v for k, v in doc["media"].items() if k not in ("phash", "clientHash")}
+            doc["media"] = {k: v for k, v in doc["media"].items()
+                            if k not in ("phash", "clientHash", "hook", "hookError", "hookAttempts", "evidenceHold")}
         doc["likedByMe"] = bool(user) and user["id"] in short.get("likedBy", [])
         doc["ownerPk"] = short.get("userId")
         if comment_counts is not None:
@@ -2290,7 +2601,8 @@ class Fade(SafetyMixin):
                 self.s.commit()
         shorts = [s for s in self.s.all("short")
                   if s.get("userId") == user["id"] or admin
-                  or (f"short:{s['id']}" not in mod["hidden"] and s.get("userId") not in mod["banned"])]
+                  or (f"short:{s['id']}" not in mod["hidden"] and s.get("userId") not in mod["banned"]
+                      and not (s.get("media") or {}).get("verifying"))]
         shorts = sorted(shorts, key=lambda s: -s["createdAt"])[:300]
         comments = self.visible_comments(user, {s["id"] for s in shorts})
         comment_counts = {}
@@ -2312,13 +2624,15 @@ class Fade(SafetyMixin):
         private = {key: value for key, value in user.items() if key not in ("salt", "pw")}
         private["admin"] = admin
         private["suspended"] = user["id"] in mod["banned"]
-        private.setdefault("pushPreview", "full")
+        private.setdefault("pushPreview", "private")
         private["followers"] = user.get("followers", 0) + counts.get(f"user:{user['id']}", 0)
         return {
             "server": {"app": APP_NAME, "version": APP_VERSION, "time": now_ts(), "ntfy": self.ntfy or "",
                        "push": bool(self.ntfy), "recall": bool(self.ntfy), "transcode": bool(self.ffmpeg),
                        "ffmpeg": self.ffmpeg_status, "phash": bool(self.ffmpeg),
-                       "scan": {"block": SCAN_BLOCK, "review": SCAN_REVIEW, "reviewSexy": SCAN_REVIEW_SEXY}},
+                       "scan": {"block": SCAN_BLOCK, "review": SCAN_REVIEW, "reviewSexy": SCAN_REVIEW_SEXY},
+                       "verify": {"classifier": self.scan_status, "active": self.server_scan_ready(),
+                                  "hook": bool(self.scan_hook), "hashList": len(self.external_hashes)}},
             "user": private,
             "barbers": sorted(barbers, key=lambda b: b["id"]),
             "places": sorted(places, key=lambda p: p["id"]),
@@ -2753,9 +3067,11 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
 
-def make_server(host, port, data_dir, quiet=False, admins=(), ntfy=None, public_url="", ffmpeg="off", sweeper=False):
+def make_server(host, port, data_dir, quiet=False, admins=(), ntfy=None, public_url="", ffmpeg="off", sweeper=False,
+                scan="off", scan_hook=None, hash_list=None):
     store = Store(Path(data_dir))
-    Handler.app = Fade(store, admins=admins, ntfy=ntfy, public_url=public_url, ffmpeg=ffmpeg)
+    Handler.app = Fade(store, admins=admins, ntfy=ntfy, public_url=public_url, ffmpeg=ffmpeg,
+                       scan=scan, scan_hook=scan_hook, hash_list=hash_list)
     Handler.quiet = quiet
     if sweeper:
         Handler.app.start_sweeper()
@@ -2777,16 +3093,31 @@ def main():
     parser.add_argument("--ffmpeg", default=os.environ.get("FADE_FFMPEG", "auto"),
                         help="ffmpeg for transcoding + re-upload blocking: 'auto' = PATH, else download a verified "
                              "static build once into <data>/bin; 'fetch' = always use the download; a path; or 'off'")
+    parser.add_argument("--scan", default=os.environ.get("FADE_SCAN", "auto"), choices=("auto", "local", "off"),
+                        help="server-side copy of the apps' safety check (needs ffmpeg + numpy): 'auto' fetches numpy into "
+                             "<data>/pylib if missing, 'local' only uses an installed numpy, 'off' trusts the apps' checks")
+    parser.add_argument("--scan-hook", default=os.environ.get("FADE_SCAN_HOOK", ""), metavar="URL",
+                        help="external checker that gets every upload (e.g. a CSAM hash-matching or violence service); "
+                             "answers {\"action\": \"allow|review|block\"}; uploads stay hidden while it is unreachable")
+    parser.add_argument("--hash-list", default=os.environ.get("FADE_HASH_LIST", ""), metavar="FILE",
+                        help="extra blocked media: one 16-hex dHash per line (optional label after it)")
     args = parser.parse_args()
     admins = args.admin + [e for e in os.environ.get("FADE_ADMINS", "").split(",") if e.strip()]
     ntfy = None if args.ntfy.lower() == "off" else args.ntfy
     server = make_server(args.host, args.port, args.data, args.quiet, admins=admins, ntfy=ntfy,
-                         public_url=args.public_url, ffmpeg=args.ffmpeg, sweeper=True)
+                         public_url=args.public_url, ffmpeg=args.ffmpeg, sweeper=True,
+                         scan=args.scan, scan_hook=args.scan_hook or None, hash_list=args.hash_list or None)
     app = Handler.app
     print(f"Fade {APP_VERSION} running on http://{args.host}:{args.port}/  (data: {args.data})")
     print(f"  moderators: {', '.join(sorted(app.admins)) or 'none (add --admin you@example.com)'}")
     ffmpeg_note = {"downloading": "downloading a verified static ffmpeg in the background…", "off": "off"}.get(app.ffmpeg_status, app.ffmpeg or app.ffmpeg_status)
-    print(f"  push: {app.ntfy or 'off'} (updatable + recallable) · transcoding: {ffmpeg_note}")
+    print(f"  push: {app.ntfy or 'off'} (content-free unless a user opts in · updatable + recallable) · transcoding: {ffmpeg_note}")
+    checks = [f"classifier {app.scan_status}"]
+    if app.scan_hook:
+        checks.append(f"external hook {app.scan_hook}")
+    if app.external_hashes:
+        checks.append(f"{len(app.external_hashes)} listed hashes")
+    print(f"  server checks: {' · '.join(checks)}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

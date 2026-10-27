@@ -476,21 +476,53 @@
       }
     }
 
-    function autoHidden() {
-      const scans = viewScans();
-      return new Set(Object.keys(scans).filter((id) => scans[id] === 'review' || scans[id] === 'block'));
+    function scanEntry(value) {  // older builds stored only the verdict string
+      return typeof value === 'string' ? { v: value } : value || {};
     }
 
-    // Network mode: a short published without a scan (old or modified client) is checked on the viewer's
-    // device before it's trusted. Flagged shorts are hidden here and reported automatically; three
-    // devices' reports hide it for everyone (same rule as user reports).
+    function autoHidden() {
+      const scans = viewScans();
+      return new Set(Object.keys(scans).filter((id) => ['review', 'block', 'reupload'].includes(scanEntry(scans[id]).v)));
+    }
+
+    function saveViewScan(id, entry) {
+      const scans = viewScans();
+      scans[id] = entry;
+      const ids = Object.keys(scans);
+      ids.slice(0, Math.max(0, ids.length - 2000)).forEach((old) => delete scans[old]);  // bounded cache
+      localStorage.setItem(VIEWSCAN_KEY, JSON.stringify(scans));
+    }
+
+    // Network mode has no server to trust, so every viewer's device checks what it is shown, independently of
+    // the scan the uploader's app attached (a modified app can attach anything):
+    //   * the photo, or the poster AND 3 frames of the video itself (a clean poster can't cover a bad video)
+    //   * the result is compared with the uploader's claim — a big gap is reported as a possibly modified app
+    //   * the frame's perceptual hash is compared with media moderators removed (signed moderation list)
+    // Anything flagged is hidden on this device at once and reported; 3 devices' reports hide it for everyone.
     function queueViewerCheck(sh) {
       if (!API.net || !window.FadeScan || new URLSearchParams(location.search).get('scan') === '0') return;
       const media = sh.media || {};
-      if (media.scan || !(media.poster || media.kind === 'image')) return;
+      if (!media.url && !media.poster) return;
+      if (sh.byMe || (sh.ownerPk && sh.ownerPk === myId())) return;
       if (viewScans()[sh.id] || viewScanQueue.some((q) => q.id === sh.id)) return;
       viewScanQueue.push(sh);
       runViewerChecks();
+    }
+
+    async function checkShortOnThisDevice(sh) {
+      const media = sh.media || {};
+      const results = [];
+      if (media.poster) results.push(await window.FadeScan.scanUrl(media.poster, 'image'));
+      if (media.url && (media.kind === 'video' || !media.poster)) {
+        try {
+          results.push(await window.FadeScan.scanUrl(media.url, media.kind === 'video' ? 'video' : 'image'));
+        } catch (err) {
+          if (!results.length) throw err;  // poster checked; the video itself couldn't be decoded here
+        }
+      }
+      const worst = results.reduce((acc, r) => ({ nsfw: Math.max(acc.nsfw, r.nsfw), sexy: Math.max(acc.sexy, r.sexy) }), { nsfw: 0, sexy: 0 });
+      const hashes = results.map((r) => r.phash).filter(Boolean);
+      return { ...worst, verdict: window.FadeScan.verdict(worst), phash: hashes[hashes.length - 1] || '', hashes };
     }
 
     async function runViewerChecks() {
@@ -499,23 +531,30 @@
       while (viewScanQueue.length) {
         const sh = viewScanQueue.shift();
         const media = sh.media || {};
-        let verdict = 'error';
+        let entry = { v: 'error' };
         try {
-          const scan = await window.FadeScan.scanUrl(media.poster || media.url, 'image');
-          verdict = scan.verdict;
-          if (verdict === 'review' || verdict === 'block') {
+          const scan = await checkShortOnThisDevice(sh);
+          entry = { v: scan.verdict, h: scan.phash, n: Math.round(scan.nsfw * 1000) / 1000 };
+          const claimed = media.scan && typeof media.scan.nsfw === 'number' ? media.scan : null;
+          const claimedOk = claimed && N().scanVerdict(claimed) === 'ok';
+          const mismatch = claimedOk && (scan.verdict === 'review' || scan.verdict === 'block') && scan.nsfw - claimed.nsfw >= 0.3;
+          const removed = scan.hashes.map((hash) => N().blockedMatch(hash, sh.id)).find(Boolean);
+          if (scan.verdict === 'review' || scan.verdict === 'block') {
+            let note = `automatic check on a viewer's device: ${Math.round(scan.nsfw * 100)}% explicit`;
+            if (mismatch) note += ` — the uploader's app reported ${Math.round(claimed.nsfw * 100)}% (modified app?)`;
+            await API.req('POST', '/api/report', { target: sh.id, pk: sh.ownerPk, reason: 'nudity', auto: true, note }).catch(() => {});
+          } else if (removed) {
+            entry.v = 'reupload';
             await API.req('POST', '/api/report', {
-              target: sh.id, pk: sh.ownerPk, reason: 'nudity', auto: true,
-              note: `automatic check on a viewer's device: ${Math.round(scan.nsfw * 100)}% explicit`,
+              target: sh.id, pk: sh.ownerPk, reason: 'spam', auto: true,
+              note: `re-upload of media moderators removed (${removed}) — matched on a viewer's device`,
             }).catch(() => {});
           }
         } catch (err) {
-          verdict = 'error';
+          entry = { v: 'error' };
         }
-        const scans = viewScans();
-        scans[sh.id] = verdict;
-        localStorage.setItem(VIEWSCAN_KEY, JSON.stringify(scans));
-        if (verdict === 'review' || verdict === 'block') {
+        saveViewScan(sh.id, entry);
+        if (['review', 'block', 'reupload'].includes(entry.v)) {
           S().shorts = S().shorts.filter((x) => x.id !== sh.id);
           refresh();
         }
@@ -538,13 +577,11 @@
           const url = media.poster || media.url;
           const scan = await window.FadeScan.scanUrl(API.net ? url : ctx.mediaUrl ? ctx.mediaUrl(url) : url, media.poster ? 'image' : media.kind);
           if (API.net) {
+            saveViewScan(item.id, { v: scan.verdict, h: scan.phash, n: Math.round(scan.nsfw * 1000) / 1000 });
             if (scan.verdict === 'review' || scan.verdict === 'block') {
-              await API.req('POST', '/api/mod', { action: 'hide', target: item.id });
+              await API.req('POST', '/api/mod', { action: 'hide', target: item.id, phash: [scan.phash] });
               flagged++;
             }
-            const scans = viewScans();
-            scans[item.id] = scan.verdict;
-            localStorage.setItem(VIEWSCAN_KEY, JSON.stringify(scans));
           } else {
             const result = await API.req('POST', '/api/mod', { action: 'scan', target: item.id, scan });
             if (result.verdict === 'review' || result.verdict === 'block') flagged++;
@@ -787,7 +824,7 @@
       const permission = typeof Notification === 'undefined' ? 'unsupported' : Notification.permission;
       const web = topic ? `${base}/${topic}` : '';
       const recent = recentNotifications();
-      const privatePreview = (S().user || {}).pushPreview === 'private';
+      const privatePreview = (S().user || {}).pushPreview !== 'full';
       if (API.on && !API.net && recent.some((n) => !n.read)) {
         API.req('POST', '/api/notifications/read').then(() => recent.forEach((n) => { n.read = true; })).catch(() => {});
       }
@@ -822,8 +859,9 @@
             <a class="btn sm" href="https://apps.apple.com/app/ntfy/id1625396347" target="_blank" rel="noopener">iPhone</a>
           </div></div>
         <h2 class="sec">Privacy</h2>
-        <div class="listitem"><span class="grow"><b class="small">Private previews</b><div class="xs muted">${privatePreview ? 'On — the lock screen only shows “Fade: you have a new notification”' : 'Off — pushes show who and what'}</div></span>
-          <button class="btn xs ${privatePreview ? '' : 'primary'}" data-act="netPushPreview" data-v="${privatePreview ? 'full' : 'private'}">${privatePreview ? 'Turn off' : 'Turn on'}</button></div>
+        <div class="listitem"><span class="grow"><b class="small">Private previews</b><div class="xs muted">${privatePreview ? 'On (default) — pushes only say what kind of thing happened, e.g. “Fade: New message”' : 'Off — pushes show who and what'}</div></span>
+          <button class="btn xs ${privatePreview ? '' : 'primary'}" data-act="netPushPreview" data-v="${privatePreview ? 'full' : 'private'}">${privatePreview ? 'Show full previews' : 'Turn on'}</button></div>
+        <p class="xs muted mt8">Why it's on: pushes travel through ntfy, which isn't end-to-end encrypted and keeps a copy for about 12 hours even after Fade takes a notification back. With private previews that copy never contains names, messages or places.</p>
         ${API.net ? '' : `<button class="btn block mt12" data-act="netRecallPushes">${icon('trash', 15)} Remove Fade notifications from my devices</button>`}
         <p class="xs muted mt8">Pushes about a cancelled booking, a deleted comment or removed content are taken back from your phone automatically, and reading them here clears them there.</p>
         <button class="btn ghost block mt12" data-act="netRotateTopic">Get a new private topic</button>

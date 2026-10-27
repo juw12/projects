@@ -77,11 +77,15 @@ class Client:
             return err.code, payload
 
 
-def register(base, name, email, role="customer", **extra):
+def register(base, name, email, role="customer", full_preview=True, **extra):
+    """New account. Pushes are content-free by default (3.3); these suites check push wording, so their
+    accounts opt into full previews like a user flipping the switch in Settings."""
     client = Client(base)
     status, data = client.call("POST", "/api/auth/register", {"name": name, "email": email, "password": "correct horse 1", "role": role, **extra})
     check(f"register {email}", status == 200, str(data))
     client.token = data.get("token")
+    if full_preview and client.token:
+        client.call("PUT", "/api/me/push", {"preview": "full"})
     return client
 
 

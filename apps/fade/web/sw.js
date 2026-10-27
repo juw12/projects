@@ -1,23 +1,23 @@
 /* Fade service worker: network-first for the app shell, offline fallback from cache.
  * API calls and uploaded media are never cached here. The on-device safety model (vendor/nsfw/)
  * is cached the first time someone uploads, so later checks work offline too. */
-const CACHE = 'fade-v3.2.0';
+const CACHE = 'fade-v3.3.0';
 const SHELL = [
   './',
   './index.html',
   './web.html',
   './mobile.html',
-  './vendor/nostr.bundle.js?v=3.2.0',
-  './vendor/qrcode.js?v=3.2.0',
-  './config.js?v=3.2.0',
-  './net.js?v=3.2.0',
-  './transcode.js?v=3.2.0',
-  './scan.js?v=3.2.0',
+  './vendor/nostr.bundle.js?v=3.3.0',
+  './vendor/qrcode.js?v=3.3.0',
+  './config.js?v=3.3.0',
+  './net.js?v=3.3.0',
+  './transcode.js?v=3.3.0',
+  './scan.js?v=3.3.0',
   './scan-worker.js',
-  './netui.js?v=3.2.0',
-  './app.js?v=3.2.0',
-  './data.js?v=3.2.0',
-  './styles.css?v=3.2.0',
+  './netui.js?v=3.3.0',
+  './app.js?v=3.3.0',
+  './data.js?v=3.3.0',
+  './styles.css?v=3.3.0',
   './manifest.webmanifest',
   './icons/icon.svg',
   './icons/icon-192.png',
