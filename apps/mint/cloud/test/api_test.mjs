@@ -553,6 +553,143 @@ r = await api("POST", `listings/${usdListing.id}/republish`, { token: seller.tok
 assert.equal(r.status, 400);
 ok("disconnecting automatic payments stops new orders on listings without a payment link");
 
+// ---- v2.3: coupons, views + seller insights, share previews
+// (sign-ups are capped per network, so this section reuses buyer2 / buyer / affiliate as shoppers)
+const c1 = buyer2;
+const c2 = buyer;
+const c3 = affiliate;
+r = await api("POST", "listings", {
+  token: seller.token,
+  body: { title: "Coupon Planner", description: "Plan with a discount.", category: "Business", tags: ["promo"],
+    price: 50000, currency: "IDR", commissionPct: 20, paymentUrl: "https://lynk.id/sari/coupon-planner", spec },
+});
+assert.equal(r.status, 201, JSON.stringify(r.data));
+const promo = r.data.listing;
+
+r = await api("POST", "seller/coupons", { token: seller.token, body: { code: "launch20", percent: 20, listingId: promo.id, days: 7 } });
+assert.equal(r.status, 201, JSON.stringify(r.data));
+const launch = r.data.coupon;
+assert.equal(launch.code, "LAUNCH20");
+assert.ok(launch.expires > Date.now() / 1000 + 6 * 86400);
+r = await api("POST", "seller/coupons", { token: seller.token, body: { code: "LAUNCH20", percent: 10 } });
+assert.equal(r.status, 409, "duplicate code");
+r = await api("POST", "seller/coupons", { token: seller.token, body: { code: "BIG", percent: 95 } });
+assert.equal(r.status, 400, "percent capped at 90");
+r = await api("POST", "seller/coupons", { token: seller.token, body: { code: "x y", percent: 10 } });
+assert.equal(r.status, 400, "code format");
+r = await api("POST", "seller/coupons", { token: affiliate.token, body: { code: "STEAL", percent: 50, listingId: promo.id } });
+assert.equal(r.status, 400, "can't make coupons for someone else's template");
+r = await api("POST", `seller/coupons/${launch.id}/toggle`, { token: affiliate.token, body: {} });
+assert.equal(r.status, 404, "other users can't touch the coupon");
+ok("coupons: create, normalise, validate, owner-only");
+
+r = await api("GET", `listings/${promo.id}/coupon?code=launch20`);
+assert.equal(r.status, 200, JSON.stringify(r.data));
+assert.equal(r.data.price, 40000);
+assert.equal(r.data.percent, 20);
+r = await api("GET", `listings/${promo.id}/coupon?code=NOPE99`);
+assert.equal(r.status, 400);
+r = await api("GET", `listings/${promo.id}/coupon?code=STEAL`);
+assert.equal(r.status, 400, "another seller's code doesn't work here");
+ok("coupon preview shows the discounted price; unknown codes rejected");
+
+r = await api("POST", "affiliate/links", { token: affiliate.token, body: { listingId: promo.id } });
+const promoRef = r.data.link.code;
+r = await api("POST", `listings/${promo.id}/order`, { token: c1.token, body: { ref: promoRef, coupon: "launch20" } });
+assert.equal(r.status, 201, JSON.stringify(r.data));
+const couponOrder = r.data.order;
+assert.equal(couponOrder.price, 40000);
+assert.equal(couponOrder.discount, 10000);
+assert.equal(couponOrder.coupon, "LAUNCH20");
+assert.equal(couponOrder.commission, 8000, "commission on the discounted price");
+assert.equal(couponOrder.sellerNet, 40000 - couponOrder.platformFee - 8000);
+r = await api("GET", "seller", { token: seller.token });
+assert.equal(r.data.pending.find((p) => p.id === couponOrder.id).coupon, "LAUNCH20", "seller sees the coupon on the order");
+await api("POST", `orders/${couponOrder.id}/confirm`, { token: seller.token, body: {} });
+ok("order with coupon + affiliate: price, discount, commission and net are consistent");
+
+r = await api("POST", `listings/${promo.id}/order`, { token: c2.token, body: {} });
+const fullOrder = r.data.order;
+assert.equal(fullOrder.price, 50000);
+r = await api("POST", `listings/${promo.id}/order`, { token: c2.token, body: {} });
+assert.equal(r.data.existing, true, "re-ordering without a coupon returns the same order");
+r = await api("POST", `listings/${promo.id}/order`, { token: c2.token, body: { coupon: "LAUNCH20" } });
+assert.equal(r.status, 201, JSON.stringify(r.data));
+assert.notEqual(r.data.order.id, fullOrder.id);
+assert.equal(r.data.order.price, 40000);
+r = await api("GET", "orders", { token: c2.token });
+assert.equal(r.data.orders.find((o) => o.id === fullOrder.id).status, "cancelled", "the unpaid full-price order is replaced");
+ok("applying a coupon after ordering replaces the unpaid order");
+
+r = await api("POST", "seller/coupons", { token: seller.token, body: { code: "ONCE50", percent: 50, maxUses: 1 } });
+const once = r.data.coupon;
+assert.equal(once.listingId, "", "store-wide coupon");
+r = await api("POST", `listings/${promo.id}/order`, { token: c3.token, body: { coupon: "ONCE50" } });
+assert.equal(r.status, 201, JSON.stringify(r.data));
+const onceOrder = r.data.order;
+assert.equal(onceOrder.price, 25000);
+r = await api("POST", `listings/${promo.id}/order`, { token: c2.token, body: { coupon: "ONCE50" } });
+assert.equal(r.status, 400, "max uses counts pending orders");
+assert.match(r.data.error, /fully used/);
+await api("POST", `orders/${onceOrder.id}/cancel`, { token: c3.token, body: {} });
+r = await api("POST", `listings/${promo.id}/order`, { token: c2.token, body: { coupon: "ONCE50" } });
+assert.equal(r.status, 201, "a cancelled order frees the use: " + JSON.stringify(r.data));
+assert.equal(r.data.order.price, 25000, "and the better coupon replaces the unpaid LAUNCH20 order");
+ok("max uses: pending orders hold a use, cancelling releases it");
+
+r = await api("POST", `seller/coupons/${launch.id}/toggle`, { token: seller.token, body: {} });
+assert.equal(r.data.coupon.active, false);
+r = await api("GET", `listings/${promo.id}/coupon?code=LAUNCH20`);
+assert.equal(r.status, 400, "paused coupon");
+r = await api("POST", "seller/coupons", { token: seller.token, body: { code: "AUTOONLY", percent: 30, listingId: autoListing.id } });
+assert.equal(r.status, 201, JSON.stringify(r.data));
+const autoOnly = r.data.coupon;
+r = await api("GET", `listings/${promo.id}/coupon?code=AUTOONLY`);
+assert.equal(r.status, 400, "listing-scoped coupon doesn't apply to other listings");
+r = await api("POST", `seller/coupons/${autoOnly.id}/delete`, { token: seller.token, body: {} });
+assert.equal(r.data.ok, true);
+r = await api("GET", "seller/coupons", { token: seller.token });
+assert.ok(!r.data.coupons.some((c) => c.id === autoOnly.id), "deleted");
+ok("paused and listing-scoped coupons are refused");
+
+// views: anonymous visits count once per network per hour; the seller's own visits don't count
+r = await api("GET", "seller", { token: seller.token });
+const viewsBefore = r.data.listings.find((l) => l.id === promo.id).views;
+await api("GET", `listings/${promo.id}`, { token: seller.token });
+await api("GET", `listings/${promo.id}`);
+await api("GET", `listings/${promo.id}`);
+await api("GET", `listings/${promo.id}`, { token: buyer2.token });
+r = await api("GET", "seller", { token: seller.token });
+const promoStats = r.data.listings.find((l) => l.id === promo.id);
+assert.equal(promoStats.views - viewsBefore, 1, "one view per network per hour");
+assert.equal(promoStats.sales, 1);
+assert.equal(promoStats.conversion, 100);
+assert.equal(r.data.insights.daily.length, 30);
+assert.ok(r.data.insights.views30 >= 1);
+assert.ok(r.data.insights.sales30 >= 1);
+assert.ok(r.data.insights.revenue30.some((x) => x.currency === "IDR" && x.net > 0));
+const launchStats = r.data.coupons.find((c) => c.code === "LAUNCH20");
+assert.equal(launchStats.paidUses, 1);
+assert.equal(launchStats.uses, 1, "the replaced (cancelled) order no longer holds a use");
+assert.equal(r.data.coupons.find((c) => c.code === "ONCE50").uses, 1);
+ok("views, 30-day insights, per-listing conversion and coupon usage in the seller dashboard");
+
+// share preview page
+const shareRes = await fetch(`${BASE}/s/${promo.id}?ref=${promoRef}&coupon=LAUNCH20`, { redirect: "manual" });
+assert.equal(shareRes.status, 200);
+assert.match(shareRes.headers.get("content-type"), /text\/html/);
+const shareHtml = await shareRes.text();
+assert.match(shareHtml, /<meta property="og:title" content="Coupon Planner — Rp[\s\u00a0]?50\.000 on Mint">/);
+assert.match(shareHtml, /og:image" content="[^"]+icons\/og-card\.png"/);
+assert.ok(shareHtml.includes(`#/item/${promo.id}?ref=${promoRef}&coupon=LAUNCH20`), "redirect keeps ref + coupon");
+const badRef = await fetch(`${BASE}/s/${promo.id}?ref=${encodeURIComponent('"><script>alert(1)</script>')}`, { redirect: "manual" });
+const badHtml = await badRef.text();
+assert.ok(!badHtml.includes("<script>alert"), "untrusted ref is dropped, not echoed");
+const missing = await fetch(`${BASE}/s/no-such-listing`, { redirect: "manual" });
+assert.equal(missing.status, 302);
+assert.match(missing.headers.get("location"), /#\/market$/);
+ok("share links render Open Graph previews and redirect into the app safely");
+
 // ---- AI endpoint (no binding locally → 503; live → spec)
 r = await api("POST", "ai/template", { token: buyer.token, body: { prompt: "habit tracker" } });
 assert.ok([200, 503, 429].includes(r.status), "ai status " + r.status);

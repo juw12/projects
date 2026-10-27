@@ -156,9 +156,18 @@
   ApiStore.prototype.publish = function (data) { return this.call("POST", "listings", data).then(function (d) { return d.listing; }); };
   ApiStore.prototype.editListing = function (id, data) { return this.call("POST", "listings/" + enc(id) + "/edit", data).then(function (d) { return d.listing; }); };
   ApiStore.prototype.setStatus = function (id, live) { return this.call("POST", "listings/" + enc(id) + "/" + (live ? "republish" : "unpublish"), {}); };
-  ApiStore.prototype.order = function (id, ref) {
+  ApiStore.prototype.order = function (id, ref, coupon) {
     var back = root.location ? root.location.href.split("#")[0] : "";
-    return this.call("POST", "listings/" + enc(id) + "/order", { ref: ref || "", returnUrl: back });
+    return this.call("POST", "listings/" + enc(id) + "/order", { ref: ref || "", coupon: coupon || "", returnUrl: back });
+  };
+  ApiStore.prototype.checkCoupon = function (id, code) { return this.call("GET", "listings/" + enc(id) + "/coupon?code=" + enc(code)); };
+  ApiStore.prototype.createCoupon = function (data) { return this.call("POST", "seller/coupons", data).then(function (d) { return d.coupon; }); };
+  ApiStore.prototype.couponAction = function (id, action) { return this.call("POST", "seller/coupons/" + enc(id) + "/" + action, {}); };
+  ApiStore.prototype.shareLink = function (id, params) {
+    var query = Object.keys(params || {}).filter(function (k) { return params[k]; }).map(function (k) {
+      return enc(k) + "=" + enc(params[k]);
+    }).join("&");
+    return this.base + "/s/" + enc(id) + (query ? "?" + query : "");
   };
   ApiStore.prototype.payments = function () { return this.call("GET", "me/payments"); };
   ApiStore.prototype.connectPayments = function (provider, secretKey) {
@@ -677,7 +686,7 @@
         var l = self.find(p.listingId);
         return { title: l.title, price: p.priceCents / 100, currency: p.currency, created: p.created, viaAffiliate: !!p.affiliateCode, commission: p.commissionCents / 100 };
       });
-      return { platformFeePct: self.feePct, listings: listings, recent: recent, pending: [], payouts: [] };
+      return { platformFeePct: self.feePct, listings: listings, recent: recent, pending: [], payouts: [], coupons: [], insights: null };
     });
   };
 
@@ -690,6 +699,18 @@
 
   LocalStore.prototype.orders = function () {
     return Promise.resolve([]);
+  };
+
+  LocalStore.prototype.checkCoupon = function () {
+    return fail(503, "Coupons need a connection to Mint");
+  };
+
+  LocalStore.prototype.createCoupon = function () {
+    return fail(503, "Coupons need a connection to Mint");
+  };
+
+  LocalStore.prototype.couponAction = function () {
+    return fail(503, "Coupons need a connection to Mint");
   };
 
   LocalStore.prototype.orderAction = function () {

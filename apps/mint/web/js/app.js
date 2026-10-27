@@ -156,8 +156,39 @@
     return location.href.split("#")[0];
   }
 
-  function itemLink(id, code) {
-    return baseUrl() + "#/item/" + encodeURIComponent(id) + (code ? "?ref=" + encodeURIComponent(code) : "");
+  function itemLink(id, code, coupon) {
+    if (store.mode === "cloud" && store.shareLink) {
+      return store.shareLink(id, { ref: code || "", coupon: coupon || "" });
+    }
+    var params = [];
+    if (code) {
+      params.push("ref=" + encodeURIComponent(code));
+    }
+    if (coupon) {
+      params.push("coupon=" + encodeURIComponent(coupon));
+    }
+    return baseUrl() + "#/item/" + encodeURIComponent(id) + (params.length ? "?" + params.join("&") : "");
+  }
+
+  function couponForm(prefill, label) {
+    return "<form class=\"coupon\" data-coupon><label class=\"small muted\">" + esc(label || "Have a coupon?") + "</label><div class=\"couponrow\">" +
+      "<input name=\"code\" maxlength=\"24\" autocapitalize=\"characters\" spellcheck=\"false\" placeholder=\"CODE\" value=\"" + esc(prefill || "") + "\" aria-label=\"Coupon code\">" +
+      "<button class=\"btn small\" type=\"submit\">Apply</button></div><p class=\"small\" data-coupon-out></p></form>";
+  }
+
+  function sparkline(daily) {
+    var w = 300;
+    var h = 56;
+    var max = Math.max(1, Math.max.apply(null, daily.map(function (d) { return d.views; })));
+    var step = w / daily.length;
+    var bars = daily.map(function (d, i) {
+      var bh = Math.round((d.views / max) * (h - 12));
+      var x = (i * step + 1).toFixed(1);
+      var bar = "<rect x=\"" + x + "\" y=\"" + (h - bh) + "\" width=\"" + (step - 2).toFixed(1) + "\" height=\"" + bh + "\" rx=\"1.5\" fill=\"#9fdcc8\"><title>" + d.day + ": " + d.views + " views, " + d.sales + " sales</title></rect>";
+      var dot = d.sales ? "<circle cx=\"" + (i * step + step / 2).toFixed(1) + "\" cy=\"5\" r=\"3.5\" fill=\"#0f9d76\"><title>" + d.day + ": " + d.sales + " sales</title></circle>" : "";
+      return bar + dot;
+    }).join("");
+    return "<svg class=\"spark\" viewBox=\"0 0 " + w + " " + h + "\" role=\"img\" aria-label=\"Views per day for the last 30 days, dots mark days with sales\">" + bars + "</svg>";
   }
 
   function route() {
@@ -779,6 +810,13 @@
   }
 
   // --- Item
+  function captureCoupon(id, query) {
+    if (query.coupon) {
+      sessionStorage.setItem("mint.coupon." + id, String(query.coupon).toUpperCase().slice(0, 24));
+    }
+    return sessionStorage.getItem("mint.coupon." + id) || "";
+  }
+
   function captureRef(id, query) {
     if (query.ref) {
       localStorage.setItem(REF_PREFIX + id, JSON.stringify({ code: query.ref, ts: Date.now() }));
@@ -804,10 +842,13 @@
 
   function viewItem(id, query) {
     captureRef(id, query);
+    var linkCoupon = captureCoupon(id, query);
+    var applied = null;
     view.innerHTML = "<p class=\"muted\">Loading\u2026</p>";
     store.listing(id).then(function (l) {
       var owned = l.owned;
       var price = priceLabel(l);
+      var canCoupon = l.price > 0 && store.mode === "cloud" && !l.isSeller && !owned;
       var buyArea;
       if (l.isSeller) {
         buyArea = "<p class=\"note\">This is your listing.</p><a class=\"btn block\" href=\"#/kit/" + encodeURIComponent(l.id) + "\">\ud83d\udce3 Content kit</a>";
@@ -819,7 +860,8 @@
           "<p class=\"small\">Pay " + esc(money(ao.price, ao.currency)) + " on the seller\u2019s secure checkout. The template unlocks automatically a few seconds after you pay.</p>" +
           (ao.payUrl ? "<a class=\"btn primary block\" href=\"" + esc(ao.payUrl) + "\" target=\"_blank\" rel=\"noopener noreferrer\">Pay now \u2197</a>" : "") +
           "<button class=\"btn block\" data-check-order=\"" + esc(ao.id) + "\">I\u2019ve paid \u2014 check now</button>" +
-          "<button class=\"btn ghost block small\" data-cancel-order=\"" + esc(ao.id) + "\">Cancel order</button></div>";
+          "<button class=\"btn ghost block small\" data-cancel-order=\"" + esc(ao.id) + "\">Cancel order</button>" +
+          (ao.coupon ? "<p class=\"okline small\">\u2714 Coupon " + esc(ao.coupon) + " (\u2212" + esc(money(ao.discount, ao.currency)) + ")</p>" : couponForm(linkCoupon, "Got a coupon? Re-order at the lower price")) + "</div>";
         pollPayment(id, ao.id);
       } else if (l.pendingOrder) {
         var po = l.pendingOrder;
@@ -827,9 +869,11 @@
           "<ol class=\"steps small\"><li>Pay " + esc(money(po.price, po.currency)) + " on the seller\u2019s checkout.</li><li>Put <strong>" + esc(po.ref) + "</strong> in the payment note.</li><li>The seller confirms \u2192 it unlocks in your library.</li></ol>" +
           (l.paymentUrl ? "<a class=\"btn primary block\" href=\"" + esc(l.paymentUrl) + "\" target=\"_blank\" rel=\"noopener noreferrer\">Pay on " + esc(l.paymentHost || "seller\u2019s checkout") + " \u2197</a>" : "") +
           "<button class=\"btn block\" data-copy=\"" + esc(po.ref) + "\">Copy reference " + esc(po.ref) + "</button>" +
-          "<button class=\"btn ghost block small\" data-cancel-order=\"" + esc(po.id) + "\">Cancel order</button></div>";
+          "<button class=\"btn ghost block small\" data-cancel-order=\"" + esc(po.id) + "\">Cancel order</button>" +
+          (po.coupon ? "<p class=\"okline small\">\u2714 Coupon " + esc(po.coupon) + " (\u2212" + esc(money(po.discount, po.currency)) + ")</p>" : couponForm(linkCoupon, "Got a coupon? Re-order at the lower price")) + "</div>";
       } else {
         buyArea = "<button class=\"btn primary block\" data-buy>" + (l.price > 0 ? "Buy \u2014 " + esc(price) : "Get it free") + "</button>" +
+          (canCoupon ? couponForm(linkCoupon) : "") +
           (l.price > 0 ? "<p class=\"muted small\">" + (store.mode === "cloud" ? (l.paymentHost ? "You\u2019ll pay on <strong>" + esc(l.paymentHost) + "</strong>. " : "") + "You pay the seller directly on their checkout (QRIS, e-wallet, card\u2026). Your order reference unlocks the template once the seller confirms. Your name and email are shared with the seller for this order." : "Offline \u2014 connect to buy.") + "</p>" : "");
       }
       var aff = l.commissionPct > 0 && l.price > 0 && !l.isSeller ?
@@ -860,7 +904,7 @@
             if (l.price > 0 && store.mode === "cloud" && !NATIVE) {
               payWindow = window.open("", "_blank");
             }
-            return store.order(l.id, activeRef(l.id));
+            return store.order(l.id, activeRef(l.id), applied ? applied.code : "");
           }).then(function (res) {
             if (res.order.status === "paid") {
               if (payWindow) {
@@ -942,7 +986,47 @@
           copy(b.dataset.copy);
         }
       };
+      function applyCoupon(form, code) {
+        var out = form.querySelector("[data-coupon-out]");
+        var pendingBox = form.closest(".orderbox");
+        out.className = "small";
+        out.textContent = "Checking\u2026";
+        store.checkCoupon(l.id, code).then(function (res) {
+          applied = res;
+          sessionStorage.setItem("mint.coupon." + l.id, res.code);
+          out.className = "small okline";
+          out.textContent = "\u2714 " + res.code + ": " + res.percent + "% off \u2014 " + money(res.price, res.currency) + " instead of " + money(res.originalPrice, res.currency);
+          var buy = view.querySelector("[data-buy]");
+          if (buy) {
+            buy.innerHTML = "Buy \u2014 " + esc(money(res.price, res.currency)) + " <s class=\"muted\">" + esc(money(res.originalPrice, res.currency)) + "</s>";
+          }
+          if (pendingBox && window.confirm("Replace your unpaid order with one at " + money(res.price, res.currency) + "? Only do this if you haven\u2019t paid yet.")) {
+            store.order(l.id, activeRef(l.id), res.code).then(function (r) {
+              toast("New order " + r.order.ref + " at the coupon price");
+              viewItem(id, {});
+            }).catch(function (err) {
+              toast(errorMessage(err), "bad");
+            });
+          }
+        }).catch(function (err) {
+          applied = null;
+          out.className = "small bad";
+          out.textContent = errorMessage(err);
+        });
+      }
+      var autoForm = view.querySelector("[data-coupon]");
+      if (autoForm && linkCoupon && !view.querySelector(".orderbox")) {
+        applyCoupon(autoForm, linkCoupon);
+      }
       view.onsubmit = function (e) {
+        if (e.target.hasAttribute("data-coupon")) {
+          e.preventDefault();
+          var code = e.target.code.value.trim().toUpperCase();
+          if (code) {
+            applyCoupon(e.target, code);
+          }
+          return;
+        }
         if (e.target.hasAttribute("data-review")) {
           e.preventDefault();
           var f = e.target;
@@ -1088,25 +1172,54 @@
           "<div class=\"kpi good\"><span>Your earnings</span><b>" + esc(money(v.net, k)) + "</b></div>";
       }).join("") || "<div class=\"kpi\"><span>Sales</span><b>0</b></div><div class=\"kpi\"><span>Your earnings</span><b>" + esc(money(0, "USD")) + "</b></div>";
       var pendingHtml = s.pending && s.pending.length ? "<h2>Orders to confirm <span class=\"pill warn\">" + s.pending.length + "</span></h2><p class=\"muted small\">Check your payment app for the reference in the payment note, then confirm. Confirmed buyers can download immediately.</p><div class=\"list\">" + s.pending.map(function (o) {
-        return "<div class=\"row\"><div><strong>" + esc(o.ref) + "</strong> \u00b7 " + esc(o.title) + "<div class=\"muted small\">" + esc(o.buyerName) + " &lt;" + esc(o.buyerEmail) + "&gt; \u00b7 " + esc(money(o.price, o.currency)) + " \u00b7 " + new Date(o.created * 1000).toLocaleString() + (o.viaAffiliate ? " \u00b7 via affiliate" : "") + "</div></div>" +
+        return "<div class=\"row\"><div><strong>" + esc(o.ref) + "</strong> \u00b7 " + esc(o.title) + "<div class=\"muted small\">" + esc(o.buyerName) + " &lt;" + esc(o.buyerEmail) + "&gt; \u00b7 " + esc(money(o.price, o.currency)) + " \u00b7 " + new Date(o.created * 1000).toLocaleString() + (o.viaAffiliate ? " \u00b7 via affiliate" : "") + (o.coupon ? " \u00b7 coupon " + esc(o.coupon) : "") + "</div></div>" +
           "<div class=\"rowact\"><button class=\"btn small primary\" data-order=\"" + esc(o.id) + "\" data-act=\"confirm\">Payment received</button><button class=\"btn small ghost danger\" data-order=\"" + esc(o.id) + "\" data-act=\"reject\">Not paid</button></div></div>";
       }).join("") + "</div>" : "";
+      var ins = s.insights;
+      var insightsHtml = ins ? "<div class=\"panel insights\"><div class=\"sechead\"><h2>Last 30 days</h2><span class=\"muted small\">views count once per visitor per hour</span></div>" +
+        "<div class=\"kpis\"><div class=\"kpi\"><span>Views</span><b>" + ins.views30 + "</b></div><div class=\"kpi\"><span>Sales</span><b>" + ins.sales30 + "</b></div>" +
+        "<div class=\"kpi\"><span>Conversion</span><b>" + (ins.conversion30 === null ? "\u2014" : ins.conversion30 + "%") + "</b></div>" +
+        (ins.revenue30.length ? ins.revenue30.map(function (r) {
+          return "<div class=\"kpi good\"><span>Earned (" + esc(r.currency) + ")</span><b>" + esc(money(r.net, r.currency)) + "</b></div>";
+        }).join("") : "<div class=\"kpi good\"><span>Earned</span><b>\u2014</b></div>") + "</div>" + sparkline(ins.daily) + "</div>" : "";
+      var coupons = s.coupons || [];
+      var paidListings = s.listings.filter(function (l) { return l.price > 0; });
+      var couponsHtml = store.mode !== "cloud" ? "" : "<h2>Coupons</h2><p class=\"muted small\">Discount codes for launches, followers or bundles. Buyers type the code or open your coupon link; affiliate commission is paid on the discounted price.</p>" +
+        (coupons.length ? "<div class=\"list\">" + coupons.map(function (c) {
+          var state = c.expired ? "<span class=\"pill\">expired</span>" : c.active ? "<span class=\"pill on\">active</span>" : "<span class=\"pill\">paused</span>";
+          var link = c.listingId ? itemLink(c.listingId, "", c.code) : "";
+          return "<div class=\"row\"><div><strong>" + esc(c.code) + "</strong> \u00b7 " + c.percent + "% off " + state +
+            "<div class=\"muted small\">" + (c.listingTitle ? esc(c.listingTitle) : "All your templates") + " \u00b7 used " + c.uses + (c.maxUses ? "/" + c.maxUses : "") + " (" + c.paidUses + " paid)" +
+            (c.expires ? " \u00b7 " + (c.expired ? "ended " : "until ") + new Date(c.expires * 1000).toLocaleDateString() : "") + "</div></div>" +
+            "<div class=\"rowact\">" + (link ? "<button class=\"btn small\" data-copy=\"" + esc(link) + "\">Copy link</button>" : "<button class=\"btn small\" data-copy=\"" + esc(c.code) + "\">Copy code</button>") +
+            "<button class=\"btn small ghost\" data-coupon-act=\"toggle\" data-coupon-id=\"" + esc(c.id) + "\">" + (c.active ? "Pause" : "Resume") + "</button>" +
+            "<button class=\"btn small ghost danger\" data-coupon-act=\"delete\" data-coupon-id=\"" + esc(c.id) + "\">Delete</button></div></div>";
+        }).join("") + "</div>" : "") +
+        (paidListings.length ? "<form class=\"panel couponnew\" data-newcoupon><h3>New coupon</h3><div class=\"two\">" +
+          "<label>Code<input name=\"code\" required maxlength=\"24\" autocapitalize=\"characters\" spellcheck=\"false\" placeholder=\"LAUNCH20\"></label>" +
+          "<label>Discount %<input name=\"percent\" type=\"number\" min=\"5\" max=\"90\" step=\"5\" value=\"20\" required></label></div>" +
+          "<label>Applies to<select name=\"listingId\"><option value=\"\">All my paid templates</option>" + paidListings.map(function (l) {
+            return "<option value=\"" + esc(l.id) + "\">" + esc(l.title) + "</option>";
+          }).join("") + "</select></label><div class=\"two\">" +
+          "<label>Max uses (0 = unlimited)<input name=\"maxUses\" type=\"number\" min=\"0\" value=\"0\"></label>" +
+          "<label>Expires after days (0 = never)<input name=\"days\" type=\"number\" min=\"0\" max=\"365\" value=\"14\"></label></div>" +
+          "<button class=\"btn primary small\" type=\"submit\">Create coupon</button></form>" : "<p class=\"muted small\">Coupons work on paid templates \u2014 publish one first.</p>");
       var owed = (s.payouts || []).filter(function (p) { return !p.commissionPaid; });
       var payoutHtml = s.payouts && s.payouts.length ? "<h2>Affiliate commissions</h2><p class=\"muted small\">Pay affiliates to the details they gave, then mark it paid.</p><div class=\"list\">" + s.payouts.map(function (p) {
         return "<div class=\"row\"><div><strong>" + esc(money(p.commission, p.currency)) + "</strong> \u2192 " + esc(p.affiliateName) + " <span class=\"pill" + (p.commissionPaid ? " on" : " warn") + "\">" + (p.commissionPaid ? "paid" : "owed") + "</span>" +
           "<div class=\"muted small\">" + esc(p.title) + " \u00b7 " + esc(p.ref) + " \u00b7 " + (p.affiliatePayout ? "pay to: " + esc(p.affiliatePayout) : "affiliate hasn\u2019t added payout details yet") + "</div></div>" +
           (p.commissionPaid ? "" : "<div class=\"rowact\"><button class=\"btn small\" data-order=\"" + esc(p.id) + "\" data-act=\"commission-paid\">Mark paid</button></div>") + "</div>";
       }).join("") + "</div>" + (owed.length ? "" : "") : "";
-      document.getElementById("sellBody").innerHTML = "<div class=\"kpis\">" + kpis + "</div>" + autoPayPanel() + pendingHtml +
+      document.getElementById("sellBody").innerHTML = "<div class=\"kpis\">" + kpis + "</div>" + insightsHtml + autoPayPanel() + pendingHtml +
         "<h2>Listings</h2>" + (s.listings.length ? "<div class=\"list\">" + s.listings.map(function (l) {
-          return "<div class=\"row\"><div><strong>" + esc(l.title) + "</strong> <span class=\"pill " + (l.status === "live" ? "on" : "") + "\">" + l.status + "</span><div class=\"muted small\">" + esc(priceLabel(l)) + " \u00b7 " + l.sales + " sold \u00b7 affiliate " + l.commissionPct + "% \u00b7 net " + esc(money(l.net, l.currency)) + "</div></div>" +
+          return "<div class=\"row\"><div><strong>" + esc(l.title) + "</strong> <span class=\"pill " + (l.status === "live" ? "on" : "") + "\">" + l.status + "</span><div class=\"muted small\">" + esc(priceLabel(l)) + " \u00b7 " + l.sales + " sold \u00b7 " + (l.views || 0) + " views" + (l.conversion !== null && l.conversion !== undefined ? " \u00b7 " + l.conversion + "% conversion" : "") + " \u00b7 affiliate " + l.commissionPct + "% \u00b7 net " + esc(money(l.net, l.currency)) + "</div></div>" +
             "<div class=\"rowact\"><a class=\"btn small\" href=\"#/item/" + encodeURIComponent(l.id) + "\">View</a><a class=\"btn small\" href=\"#/kit/" + encodeURIComponent(l.id) + "\">Content kit</a>" +
             "<button class=\"btn small\" data-edit=\"" + esc(l.id) + "\">Edit</button>" +
             "<button class=\"btn small ghost\" data-status=\"" + esc(l.id) + "\" data-live=\"" + (l.status === "live" ? "0" : "1") + "\">" + (l.status === "live" ? "Unpublish" : "Republish") + "</button></div>" +
             "<form class=\"editform\" data-editform=\"" + esc(l.id) + "\" hidden><div class=\"two\"><label>Price (" + esc(l.currency) + ")<input name=\"price\" type=\"number\" min=\"0\" step=\"any\" value=\"" + l.price + "\"></label>" +
             "<label>Affiliate %<input name=\"commission\" type=\"number\" min=\"0\" max=\"50\" step=\"5\" value=\"" + l.commissionPct + "\"></label></div>" +
             "<label>Payment link<input name=\"paymentUrl\" type=\"url\" value=\"" + esc(l.paymentUrl || "") + "\" placeholder=\"https://\"></label><button class=\"btn small primary\" type=\"submit\">Save</button></form></div>";
-        }).join("") + "</div>" : "<p class=\"muted\">No listings yet \u2014 publish a draft below.</p>") + payoutHtml +
+        }).join("") + "</div>" : "<p class=\"muted\">No listings yet \u2014 publish a draft below.</p>") + couponsHtml + payoutHtml +
         "<h2>Drafts</h2>" + (drafts.length ? "<div class=\"list\">" + drafts.map(function (d, i) {
           return "<div class=\"row\"><div><strong>" + esc(d.title) + "</strong><div class=\"muted small\">" + d.spec.sheet.columns.length + " columns \u00b7 edited " + new Date(d.updated * 1000).toLocaleString() + "</div></div>" +
             "<div class=\"rowact\"><button class=\"btn small\" data-open=\"" + i + "\">Edit</button><a class=\"btn small primary\" href=\"#/publish/" + encodeURIComponent(d.id) + "\">Publish</a><button class=\"btn small ghost danger\" data-deldraft=\"" + esc(d.id) + "\">Delete</button></div></div>";
@@ -1128,6 +1241,22 @@
               toast(errorMessage(err), "bad");
             });
           }
+          return;
+        }
+        if (b.dataset.couponAct) {
+          if (b.dataset.couponAct === "delete" && !window.confirm("Delete this coupon? Orders that used it keep their price.")) {
+            return;
+          }
+          store.couponAction(b.dataset.couponId, b.dataset.couponAct).then(function () {
+            toast(b.dataset.couponAct === "delete" ? "Coupon deleted" : "Coupon updated");
+            viewSell();
+          }).catch(function (err) {
+            toast(errorMessage(err), "bad");
+          });
+          return;
+        }
+        if (b.dataset.copy) {
+          copy(b.dataset.copy);
           return;
         }
         if (b.dataset.order) {
@@ -1172,6 +1301,22 @@
           }).catch(function (err) {
             btn.disabled = false;
             btn.textContent = "Connect";
+            toast(errorMessage(err), "bad");
+          });
+          return;
+        }
+        if (f.hasAttribute("data-newcoupon")) {
+          e.preventDefault();
+          store.createCoupon({
+            code: f.code.value.trim().toUpperCase(),
+            percent: parseInt(f.percent.value, 10),
+            listingId: f.listingId.value,
+            maxUses: parseInt(f.maxUses.value, 10) || 0,
+            days: parseInt(f.days.value, 10) || 0
+          }).then(function (c) {
+            toast("Coupon " + c.code + " created");
+            viewSell();
+          }).catch(function (err) {
             toast(errorMessage(err), "bad");
           });
           return;

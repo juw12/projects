@@ -1460,3 +1460,12 @@ form[data-payout] input { margin: 6px 0; }
   margin: 8px 0 12px;
   padding-left: 18px;
 }
+
+/* v2.3: coupons, seller insights */
+.coupon { margin-top: 12px; display: grid; gap: 4px; }
+.couponrow { display: flex; gap: 6px; }
+.couponrow input { flex: 1; min-width: 0; text-transform: uppercase; letter-spacing: .04em; }
+.panel.insights .kpis { margin: 8px 0 10px; }
+.spark { width: 100%; height: 64px; display: block; }
+.couponnew { margin-top: 12px; }
+[data-buy] s { font-weight: 400; margin-left: 6px; color: rgba(255, 255, 255, .78); }

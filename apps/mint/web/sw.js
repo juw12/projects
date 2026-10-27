@@ -1,5 +1,5 @@
 /* Mint service worker — app shell cache. API calls (api/...) always go to the network. */
-var CACHE = "mint-v2.2.1";
+var CACHE = "mint-v2.3.0";
 var SHELL = [
   "./", "index.html", "app.html", "web.html", "mobile.html", "privacy.html", "terms.html", "delete-account.html", "app.css",
   "js/core.js", "js/xlsx.js", "js/guides.js", "js/store.js", "js/app.js",
