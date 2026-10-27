@@ -29,4 +29,15 @@ window.SYNC_CONFIG = {
 
   // Largest audio file a listener can share with the room, in megabytes.
   maxUploadMb: 40,
+
+  // ---- Earning (optional; empty = switched off) ----
+  // Tip jar: your Ko-fi / Buy Me a Coffee / GitHub Sponsors page or a Stripe Payment Link.
+  // Shows "Support Sync" on the web (never inside the store apps, whose payment rules differ),
+  // a supporter badge friends can see, and one gentle thank-you prompt after 20 min of listening together.
+  supportUrl: '',
+
+  // Apple Services Performance Partners token (the "at" value, https://performance-partners.apple.com).
+  // Every song from Apple's catalog gets an "Apple Music" link; you earn a commission when a listener
+  // starts an Apple Music subscription from it. Empty = the links still work, without the token.
+  appleAffiliateToken: '',
 };

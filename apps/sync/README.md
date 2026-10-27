@@ -41,8 +41,21 @@ web/
   voice.js     voice mesh, speaking detection
   catalog.js   iTunes Search/Lookup + YouTube/Spotify oEmbed (all key-free, CORS)
   app.js       UI + sync loop
-  config.js    optional: TURN relay, own PeerJS server, Apple developer token, YouTube API key
+  config.js    optional: TURN relay, own PeerJS server, Apple developer token, YouTube API key,
+               supportUrl (tip jar), appleAffiliateToken (Apple Music links)
 ```
+
+## Earning (v1.5, all off until configured)
+
+- **Tip jar + supporter badge**: set `supportUrl` in `web/config.js` to a Ko-fi, GitHub Sponsors
+  or Stripe Payment Link. Adds a "Support Sync" link on the landing page, a Support box in
+  Settings, an optional ♥ badge other listeners see, and one gentle ask after 20 min of
+  listening together (at most once per 30 days). Web only: hidden in the store apps, where
+  Apple/Google payment rules apply.
+- **"Save it on" links**: Apple Music links carry `at=appleAffiliateToken&ct=sync` once you join
+  Apple's Services Performance Partners program; Spotify links are plain (no affiliate program).
+- **No ads**: YouTube's API policy forbids ads in or near the player and charging for YouTube content.
+- `python3 apps/sync/tools/earning_test.py` checks all of the above (13 checks).
 
 ## Verified
 
@@ -53,8 +66,9 @@ web/
   - shared file: guest vs host **−10 ms** at the same real moment; seek/pause propagate
   - voice connects both ways; host music ducks to 34 % while the guest talks, back to 97 % on mute
   - host tab killed → guest takes over, playback continues (−22 ms), new guests can join
-  - YouTube: the foreground listener held −62 ms vs the room clock; the *background* headless
-    tab's YouTube player stalled (headless throttling; not yet verified in real background tabs)
+  - YouTube (v1.5, each listener in its own window): start-up went from ~7 s dead air to ~4 s;
+    steady state host −57 ms / guest −70 ms vs the room clock (13 ms apart). The smoke-test
+    YouTube check is still flaky on a loaded 8 GB Mac (sometimes +0.4–0.7 s before it settles).
   - The test uses a synthetic microphone (macOS blocks mic capture for headless Chrome).
 
 ## Honest limits

@@ -1056,3 +1056,29 @@ body.layout-mobile .hero-visual { width: min(80%, 360px); order: -1; }
 }
 /* In the app there is no browser chrome: stop rubber-band overscroll from dragging the whole UI. */
 .native-app body { overscroll-behavior: none; }
+
+/* ---------- v1.5: earning (tip jar, supporter badge, "save it on" links) ---------- */
+.support-link { display: inline-flex; align-items: center; gap: 6px; color: #f9a8d4; text-decoration: none; font-weight: 700; }
+.support-link .i { width: 14px; height: 14px; color: #f472b6; }
+.support-link:hover { color: #fbcfe8; }
+.support-box {
+  display: grid; grid-template-columns: 1fr auto; gap: 10px 14px; align-items: center;
+  padding: 14px 16px; margin: 4px 0 10px; border-radius: 16px;
+  background: linear-gradient(135deg, rgba(244, 114, 182, 0.14), rgba(167, 139, 250, 0.12));
+  border: 1px solid rgba(244, 114, 182, 0.25);
+}
+.support-box[hidden] { display: none; }
+.support-copy { display: grid; gap: 3px; }
+.support-copy b { display: inline-flex; align-items: center; gap: 6px; }
+.support-copy b .i { width: 15px; height: 15px; color: #f472b6; }
+.support-copy span { color: var(--muted); font-size: 0.84rem; line-height: 1.35; }
+.switch-row { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; font-size: 0.86rem; color: var(--muted); }
+.tag-supporter { color: #f472b6; font-size: 0.85em; margin-left: 2px; }
+.np-open { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 8px; font-size: 0.78rem; color: var(--faint); }
+.np-open[hidden] { display: none; }
+.open-link {
+  display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; text-decoration: none;
+  font-weight: 700; color: var(--text); background: var(--glass-2); border: 1px solid var(--line, rgba(255,255,255,0.08));
+}
+.open-link.apple:hover { background: rgba(250, 45, 72, 0.18); }
+.open-link.spotify:hover { background: rgba(30, 215, 96, 0.16); }
