@@ -1,10 +1,10 @@
 {
-  "version": "1.20.1",
+  "version": "1.20.2",
   "released": "2026-10-27",
   "notes": [
-    "Signed out of Puter? Every Glow app now says so (grey avatar, \"Sign in again\") instead of looking signed in",
-    "Profile & settings keeps your account name when the Puter session ends, instead of switching you to guest",
-    "Profile & settings for every Glow app, one-bar GlowRoom and Glow Studio office (from 1.20.0)"
+    "GlowChat shows a \"Thinking…\" indicator with a timer while a model works, instead of a silent blinking cursor",
+    "Slow models (like Glow Free) now say they're still working after 15 s, and Stop cancels cleanly",
+    "Expired Puter session shows as signed out in every app (from 1.20.1)"
   ],
   "android": "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk",
   "windows": "https://github.com/juw12/projects/releases/download/glow-windows/Glow-Setup.exe"

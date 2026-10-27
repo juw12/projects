@@ -15,6 +15,7 @@ AI-suggested resources in GlowChat are not automatically browsed or verified; Gl
 
 ## What's new
 
+- **1.20.2** – GlowChat shows a "Thinking…" indicator with an elapsed timer while a model works (also in Arena and fused answers), so slow models like Glow Free no longer look stuck.
 - **1.20.1** – An expired Puter session now shows as signed out in every app (grey avatar, "Sign in again") instead of looking signed in; Profile & settings keeps your account name.
 - **1.20.0** – **Profile & settings** for every Glow app: the avatar at the top right (GlowChat: sidebar) opens your name and avatar colour, Puter sign in/switch/out, persona, token usage and monthly allowance, settings, data export/delete and updates (`glow/account/`). GlowRoom got one Glow-style top bar and the warm **Glow Studio** office.
 - **1.19.x** – Models ranked by category (Best, Quick, Code, Research, Writing, Images, Free & local), your own persona from a short quiz (Orbis AI Type), token usage meter (cached input counted), image generation, temporary chats, auto-delete and a privacy page.

@@ -24,6 +24,7 @@ jobs:
           python -X utf8 apps/glow/tests/test_rename.py
           python -X utf8 apps/glow/tests/test_static_integrity.py
           python -X utf8 apps/glow/tests/test_v04_account_tour.py
+          python -X utf8 apps/glow/tests/test_v1202_thinking.py
           python -X utf8 apps/glow/tests/test_glow_setup.py
           python -X utf8 apps/glow/tests/test_glow_inapp.py
       - name: Install browser test tools (not app dependencies)
