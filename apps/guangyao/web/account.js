@@ -468,7 +468,7 @@ function guidePage() {
         <div class="callout">訪客使用<strong>離線學伴</strong>（只比對課程內容、不傳送資料）。登入後使用<strong>AI 學伴</strong>：問題與相關摘錄會送到 Puter 的 AI 服務處理，請勿輸入敏感個資。</div>
       </section>
       <section class="card card-pad space-top"><h2>${icon('download')} 4. 安裝到手機</h2>
-        ${step('iPhone', 'Safari', '開啟網址 → 分享按鈕 → 「加入主畫面」。')}
+        ${step('iPhone', '主畫面 App', '用 Safari（或 Chrome、Edge）開啟網址 → 分享按鈕 → 「加入主畫面」→「加入」，免費。<button type="button" class="text-button" data-pwa-action="iphone-guide">看 iPhone 圖解</button>')}
         ${step('Android', 'App', `<a href="https://github.com/juw12/projects/releases/download/guangyao-android/GuangYao-android.apk" target="_blank" rel="noopener">下載 Android App（APK）</a>，開啟後允許安裝；或用 Chrome 選單「⋮」→「安裝應用程式」。`)}
         ${step('電腦', 'Chrome / Edge', '網址列右側的安裝圖示，或頁面上方的「安裝 App」。')}
       </section>
@@ -489,7 +489,7 @@ const TOUR = [
   () => `<div class="tour-hero">${icon('sun')}</div><h2>歡迎，${esc(state.name)}！</h2><p>先告訴我們怎麼稱呼你（之後可以在帳戶裡修改）。</p><form data-form="tour-name"><label class="field"><span>顯示名稱</span><input name="name" value="${esc(state.name)}" maxlength="20" required></label><div class="form-actions">${button('略過導覽', 'tour-skip', '', 'ghost')}<button class="btn" type="submit">下一步 ${icon('arrow')}</button></div></form>`,
   () => `<div class="tour-hero">${icon('book')}</div><h2>每天十分鐘就好</h2><ol class="tour-list"><li><strong>今日目標</strong>：選一個做得到的節奏。</li><li><strong>上一堂課</strong>：閱讀、練習、寫一句心得。</li><li><strong>每日複習</strong>：在快忘記時複習，記得最久。</li></ol>`,
   () => `<div class="tour-hero">${icon('spark')}</div><h2>AI 學伴「光光」</h2><p>${isPuter() ? '你已登入，可以自由提問、請光光出題批改、排學習計畫或做閃卡。課程問題會標出處。' : '訪客可使用離線學伴（有出處的課程問答）。登入免費 Puter 帳號即可解鎖完整 AI 學伴與跨裝置同步。'}</p>`,
-  () => `<div class="tour-hero">${icon('download')}</div><h2>裝到手機，隨時學</h2><p>iPhone 用 Safari「加入主畫面」；Android 用 Chrome「安裝應用程式」。完整說明都在「使用指南」。</p>`
+  () => `<div class="tour-hero">${icon('download')}</div><h2>裝到手機，隨時學</h2><p>iPhone：分享 →「加入主畫面」，就是免費的全螢幕 App；Android：下載 App。完整說明都在「使用指南」。</p>`
 ];
 function renderTour() {
   const last = tourStep === TOUR.length - 1;

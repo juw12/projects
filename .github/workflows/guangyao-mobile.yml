@@ -1,6 +1,6 @@
 name: Guang Yao mobile apps
 
-# Builds the 光耀同行 Android APK and checks the iOS project compiles for the simulator.
+# Builds the 光耀同行 Android APK and the iPhone app (simulator check + unsigned IPA for free sideloading).
 # The signed APK is published to the "guangyao-android" release from main when the signing secrets exist.
 on:
   push:
@@ -141,11 +141,71 @@ jobs:
           sleep 25
           mkdir -p dist
           xcrun simctl io "$DEVICE" screenshot dist/ios-simulator.png
+      - name: Build the unsigned iPhone app for free sideloading
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build-device \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+          rm -rf ipa && mkdir -p ipa/Payload dist
+          cp -R build-device/Build/Products/Release-iphoneos/App.app ipa/Payload/
+          (cd ipa && zip -qry ../dist/GuangYao-iOS.ipa Payload)
+      - name: Check the IPA
+        run: |
+          APP=ipa/Payload/App.app
+          BUNDLE_ID=$(plutil -extract CFBundleIdentifier raw "$APP/Info.plist")
+          VERSION=$(plutil -extract CFBundleShortVersionString raw "$APP/Info.plist")
+          NAME=$(plutil -extract CFBundleDisplayName raw "$APP/Info.plist" 2>/dev/null || plutil -extract CFBundleName raw "$APP/Info.plist")
+          echo "bundle=$BUNDLE_ID version=$VERSION name=$NAME"
+          test "$BUNDLE_ID" = "io.github.juw12.guangyao"
+          test "$VERSION" = "$(node -p "require('./package.json').version")"
+          lipo -info "$APP/App" | grep -q arm64
+          grep -q 'juw12.github.io/projects/guangyao' "$APP/capacitor.config.json"
+          test -f "$APP/public/offline.html"
+          unzip -l dist/GuangYao-iOS.ipa | grep -q 'Payload/App.app/Info.plist'
+          ls -l dist/GuangYao-iOS.ipa
       - uses: actions/upload-artifact@v4
         with:
-          name: GuangYao-iOS-simulator
+          name: GuangYao-iOS
           path: apps/guangyao/mobile/dist
           retention-days: 7
+
+  publish-ios:
+    needs: [ios]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: GuangYao-iOS
+          path: dist
+      - name: Publish the IPA to the guangyao-ios release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          cat > notes.md <<'EOF'
+          光耀同行 Guang Yao Together — iPhone app (free sideload)
+
+          **大多數人請用免費的「加入主畫面」**：用 Safari 開啟 https://juw12.github.io/projects/guangyao/ → 分享 →「加入主畫面」→「加入」。從主畫面開啟就是全螢幕 App，網站更新時自動更新。
+          Most people should use the free Home Screen app: open the site in Safari → Share → Add to Home Screen.
+
+          **進階：原生 App（免費側載）/ Advanced: native app, free sideload**
+          `GuangYao-iOS.ipa` is unsigned. You sign it with your own free Apple ID:
+          1. 在電腦安裝 Sideloadly（Windows / Mac）或 AltStore。Install Sideloadly or AltStore on a computer.
+          2. 用傳輸線連接 iPhone，把 `GuangYao-iOS.ipa` 拖進 Sideloadly，輸入你的 Apple ID，按 Start。Connect the iPhone, drop the IPA into Sideloadly, enter your Apple ID, Start.
+          3. iPhone：設定 → 隱私權與安全性 → 開發者模式 → 開啟（iOS 16 以上）；設定 → 一般 → VPN 與裝置管理 → 信任你的 Apple ID。Enable Developer Mode and trust your Apple ID in Settings.
+          4. 打開「光耀同行」，用 Email 登入 Puter。Open the app and sign in with email.
+
+          Apple's limits for free Apple IDs: the app must be re-signed every 7 days (Sideloadly/AltStore can refresh it), at most 3 sideloaded apps at a time. Not distributed through the App Store; unofficial app.
+          EOF
+          if gh release view guangyao-ios --repo "$REPO" > /dev/null 2>&1; then
+            gh release upload guangyao-ios dist/GuangYao-iOS.ipa --clobber --repo "$REPO"
+          else
+            gh release create guangyao-ios dist/GuangYao-iOS.ipa --title "光耀同行 for iPhone (free sideload)" --notes-file notes.md --target "$GITHUB_SHA" --latest=false --repo "$REPO"
+          fi
 
   publish:
     needs: [android, emulator]

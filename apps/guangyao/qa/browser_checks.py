@@ -26,7 +26,7 @@ class DemoHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         if urlsplit(self.path).path.endswith('/sw.js') and self.release_override:
-            content = (ROOT / 'sw.js').read_text().replace("'4.1.0'", "'4.1.1-test'")
+            content = (ROOT / 'sw.js').read_text().replace("'4.2.0'", "'4.2.1-test'")
             payload = content.encode()
             self.send_response(200)
             self.send_header('Content-Type', 'text/javascript; charset=utf-8')
@@ -709,7 +709,7 @@ def pwa_and_updates(browser, base):
     page.once('dialog', lambda dialog: dialog.accept())
     with page.expect_navigation(wait_until='domcontentloaded'):
         page.locator('#update-app').click()
-    page.wait_for_function('caches.keys().then(keys => keys.some(key => key.endsWith("4.1.1-test")))')
+    page.wait_for_function('caches.keys().then(keys => keys.some(key => key.endsWith("4.2.1-test")))')
     assert shell_key not in page.evaluate('caches.keys()')
     passed('Updates wait for confirmation; approved update activates and clears only its scoped old cache')
     DemoHandler.release_override = False
@@ -1163,6 +1163,86 @@ NATIVE_SHELL_JS = """
 """
 
 
+IPHONE_UA = ('Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 '
+             '(KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1')
+
+
+def close_tour_if_open(page):
+    if page.evaluate("document.getElementById('modal').open"):
+        skip = page.locator('#modal [data-action="tour-skip"]')
+        if skip.count():
+            skip.first.click()
+        else:
+            page.locator('#modal [data-action="close"]').first.click()
+    expect(page.locator('#modal')).not_to_be_visible()
+
+
+def iphone_install_flows(browser, base):
+    """iPhone visitors get a free home-screen app: icons, launch screens, guided steps and a one-time hint."""
+    context = make_context(browser, viewport={'width': 393, 'height': 852}, user_agent=IPHONE_UA)
+    page = context.new_page()
+    page.set_default_timeout(8000)
+    errors = []
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    page.goto(base + 'index.html')
+    expect(page.locator('.welcome')).to_be_visible()
+    head = page.evaluate("""() => ({
+        touch: document.querySelector('link[rel="apple-touch-icon"]').getAttribute('href'),
+        sizes: document.querySelector('link[rel="apple-touch-icon"]').getAttribute('sizes'),
+        startup: [...document.querySelectorAll('link[rel="apple-touch-startup-image"]')].map(link => link.getAttribute('href')),
+        capable: document.querySelector('meta[name="apple-mobile-web-app-capable"]').content,
+        title: document.querySelector('meta[name="apple-mobile-web-app-title"]').content
+    })""")
+    assert head['touch'] == 'icons/apple-touch-icon.png' and head['sizes'] == '180x180', head
+    assert len(head['startup']) >= 10 and head['capable'] == 'yes' and head['title'] == '光耀同行', head
+    for href in [head['touch']] + head['startup']:
+        response = page.request.get(base + href)
+        assert response.ok and response.headers['content-type'].startswith('image/png'), href
+    # The hint never covers the welcome screen.
+    page.wait_for_timeout(7000)
+    expect(page.locator('.ios-install-prompt')).to_have_count(0)
+    passed('iPhone: 180 px home-screen icon, launch screens for current iPhones, no hint over the welcome screen')
+
+    page.locator('.welcome [data-action="guest-start"]').click()
+    close_tour_if_open(page)
+    prompt = page.locator('.ios-install-prompt')
+    expect(prompt).to_be_visible(timeout=15000)
+    expect(prompt).to_contain_text('把光耀同行加到主畫面')
+    prompt.locator('[data-pwa-action="iphone-guide"]').click()
+    dialog = page.locator('#modal')
+    expect(dialog).to_contain_text('把光耀同行裝到 iPhone')
+    expect(dialog.locator('.ios-steps li')).to_have_count(4)
+    expect(dialog).to_contain_text('加入主畫面')
+    ipa = dialog.locator('.ios-advanced a').first
+    assert ipa.get_attribute('href').endswith('/guangyao-ios/GuangYao-iOS.ipa'), ipa.get_attribute('href')
+    expect(prompt).to_have_count(0)
+    assert page.evaluate("Boolean(localStorage.getItem('gy-ios-install-dismissed'))")
+    dialog.locator('[data-action="close"]').first.click()
+    expect(page.locator('[data-pwa-action="install"]')).to_have_text('加到主畫面')
+    page.locator('[data-pwa-action="install"]').click()
+    expect(dialog).to_contain_text('把光耀同行裝到 iPhone')
+    dialog.locator('[data-action="close"]').first.click()
+    page.reload()
+    page.wait_for_timeout(11000)
+    expect(page.locator('.ios-install-prompt')).to_have_count(0)
+    assert not errors, errors
+    passed('iPhone: one-time hint opens the step-by-step home-screen guide (with free sideload option) and stays dismissed')
+    context.close()
+
+    installed = make_context(browser, viewport={'width': 393, 'height': 852}, user_agent=IPHONE_UA)
+    installed.add_init_script("Object.defineProperty(navigator, 'standalone', {get: () => true})")
+    page = installed.new_page()
+    page.set_default_timeout(8000)
+    page.goto(base + 'index.html')
+    page.locator('.welcome [data-action="guest-start"]').click()
+    close_tour_if_open(page)
+    page.wait_for_timeout(11000)
+    expect(page.locator('.ios-install-prompt')).to_have_count(0)
+    expect(page.locator('[data-pwa-action="install"]')).to_have_text('已安裝 · 使用說明')
+    passed('iPhone: opened from the home screen, no install hint is shown')
+    installed.close()
+
+
 def native_shell_flows(browser, base):
     """The same site inside the Android/iPhone shell: detected by user agent, uses the native share sheet."""
     context = make_context(browser, catalog=CONTENT_CATALOG, viewport={'width': 412, 'height': 900},
@@ -1245,6 +1325,7 @@ def main():
             study_flows(webkit, base, 'WebKit')
             content_flows(webkit, base, 'WebKit')
             admin_flows(webkit, base, 'WebKit')
+            iphone_install_flows(webkit, base)
             webkit.close()
         print(f'\n{len(PASSED)} grouped regression checks passed, including 84 route-layout checks, accounts, sync, official content and the admin console.', flush=True)
     finally:
