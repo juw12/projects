@@ -191,6 +191,19 @@
   // --------------------------------------------------------------- phone: watch
   const viewer = { peer: null, call: null, timer: null };
 
+  const NETWORK_HINT = 'The PC’s network is blocking the video (company firewall). Put the phone and the PC on the same Wi-Fi, or connect the PC to this phone’s hotspot, then try again.';
+
+  // A direct/relayed WebRTC path could not be opened (typically a company firewall).
+  function watchIce(pc) {
+    if (!pc) return;
+    pc.addEventListener('iceconnectionstatechange', () => {
+      if (pc.iceConnectionState === 'failed' && !els.video.srcObject) {
+        clearTimeout(viewer.timer);
+        setStatus('Could not open a video connection to the PC. ' + NETWORK_HINT);
+      }
+    });
+  }
+
   function startWatching() {
     const code = (els.viewCode.value || '').replace(/\D/g, '');
     if (code.length !== 6) {
@@ -204,18 +217,27 @@
     els.stopWatch.disabled = false;
     setStatus('Connecting to the PC…');
     viewer.timer = setTimeout(() => {
-      if (!els.video.srcObject) setStatus('No video yet. Check the code and that the PC is still sharing.');
+      if (!els.video.srcObject) {
+        setStatus(viewer.reachedPc
+          ? 'Found the PC, but no video gets through. ' + NETWORK_HINT
+          : 'No video yet. Check the code and that the PC is still sharing. ' + NETWORK_HINT);
+      }
     }, CONNECT_TIMEOUT_MS);
 
+    viewer.reachedPc = false;
     peer.on('open', () => {
       const connection = peer.connect(PEER_PREFIX + code, { reliable: true });
       connection.on('data', message => {
         if (message && message.type === 'error') setStatus(message.message);
       });
+      watchIce(connection.peerConnection);
     });
     peer.on('call', call => {
       viewer.call = call;
+      viewer.reachedPc = true; // the PC answered through the signalling server
+      setStatus('PC found. Starting video…');
       call.answer();
+      watchIce(call.peerConnection);
       call.on('stream', remote => {
         els.video.srcObject = remote;
         els.video.hidden = false;

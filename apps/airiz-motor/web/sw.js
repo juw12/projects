@@ -1,6 +1,6 @@
-/* AIRIZ Control Center — versioned, scope-isolated offline shell. */
+﻿/* AIRIZ Control Center â€” versioned, scope-isolated offline shell. */
 const CACHE_PREFIX = 'airiz-control-' + encodeURIComponent(self.registration.scope) + '-';
-const CACHE_NAME = CACHE_PREFIX + 'v2.18-pc-bluetooth';
+const CACHE_NAME = CACHE_PREFIX + 'v2.19-relay-network-hint';
 const ASSETS = [
   './',
   './index.html',

@@ -41,6 +41,8 @@
     showVideo(false);
   }
 
+  const NETWORK_HINT = 'The PC’s network is blocking the video (company firewall). Put the phone and the PC on the same Wi-Fi, or connect the PC to this phone’s hotspot, then try again.';
+
   function watch(code) {
     stop();
     form.hidden = true;
@@ -54,19 +56,35 @@
     const current = peer;
     timer = setTimeout(() => {
       if (!video.srcObject) {
-        status('No video yet. The PC may have stopped sharing, or the network blocks the stream.');
+        status((reachedPc ? 'Found the PC, but no video gets through. ' : 'No video yet. The PC may have stopped sharing. ')
+          + NETWORK_HINT);
         retry.hidden = false;
       }
     }, NO_VIDEO_MS);
 
+    let reachedPc = false;
+    const watchIce = pc => {
+      if (!pc) return;
+      pc.addEventListener('iceconnectionstatechange', () => {
+        if (pc.iceConnectionState === 'failed' && !video.srcObject && peer === current) {
+          clearTimeout(timer);
+          status('Could not open a video connection to the PC. ' + NETWORK_HINT);
+          retry.hidden = false;
+        }
+      });
+    };
     current.on('open', () => {
       const connection = current.connect(PEER_PREFIX + code, { reliable: true });
       connection.on('data', message => {
         if (message && message.type === 'error') status(message.message);
       });
+      watchIce(connection.peerConnection);
     });
     current.on('call', call => {
+      reachedPc = true;
+      status('PC found. Starting video…');
       call.answer();
+      watchIce(call.peerConnection);
       call.on('stream', remote => {
         video.srcObject = remote;
         showVideo(true);
