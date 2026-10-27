@@ -36,12 +36,15 @@ fingerprint is in `android-certificate-sha256.txt`.
 - **Android:** `GuangYao-android.apk` on the `guangyao-android` release of this repository
   (<https://github.com/juw12/projects/releases/download/guangyao-android/GuangYao-android.apk>). Install by opening
   the file on the phone and allowing installs from the browser. Google Play needs a developer account ($25 once).
-- **iPhone:** Apple only installs apps through the App Store/TestFlight (Apple Developer Program, $99/year) or
-  Xcode on a Mac. Until then, iPhone users use Safari → Share → Add to Home Screen, which gives the same app
-  full-screen with its own icon.
+- **iPhone:** free options only, no Apple Developer account:
+  - Home Screen web app (recommended): Safari/Chrome/Edge → Share → Add to Home Screen. The site ships a 180 px
+    `apple-touch-icon`, launch screens for current iPhones and an in-app guide.
+  - Native app by free sideloading: CI (`.github/workflows/guangyao-mobile.yml`, job `ios`) builds an unsigned
+    Release IPA, checks bundle id, version, arm64 and the live-site config, and `publish-ios` uploads it to the
+    `guangyao-ios` release. Users sign it with their own Apple ID in Sideloadly/AltStore (7-day signatures, max 3 apps).
 
 ## Known limits
 
 - Needs a connection on first launch (then the web app's own offline cache applies on Android).
 - Google sign-in is blocked by Google inside embedded browsers; create the Puter account with email.
-- The iOS project is generated and patched by `prepare-native.mjs` but has not been compiled here (no Xcode).
+- The iOS project compiles in CI (simulator build + launch screenshot, unsigned device IPA); it has not been run on a real iPhone.

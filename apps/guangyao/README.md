@@ -12,10 +12,11 @@ One responsive app for desktop and phones: an **Android app** (APK below), iPhon
 | Guest | **Continue as guest** | Everything stays on this device. Nothing is sent to Puter. Offline tutor only. Can sign in later; local progress is merged. |
 | Admin | `admin.html` with a GitHub token | Upload handouts, add lessons (text, YouTube, quiz, cards), events and an announcement. Learners see changes within about five minutes. |
 
-## Phone apps (4.1)
+## Phone apps (4.2)
 
 - **Android:** <https://github.com/juw12/projects/releases/download/guangyao-android/GuangYao-android.apk> — open it on the phone and allow installing from the browser. A Capacitor shell around the live site, so content and fixes arrive without reinstalling.
-- **iPhone:** Add to Home Screen today. The iOS shell (`mobile/`) is ready for Xcode/TestFlight once there is an Apple Developer account.
+- **iPhone (free):** open the site in Safari, Chrome or Edge → Share → **Add to Home Screen**. It opens full screen with its own icon and launch screen, and updates with the site. iPhone visitors get a one-time hint and a step-by-step guide (`使用指南`, install button).
+- **iPhone native app (free sideload, advanced):** <https://github.com/juw12/projects/releases/download/guangyao-ios/GuangYao-iOS.ipa> is an unsigned build from CI. Sign it with your own free Apple ID in Sideloadly or AltStore and turn on Developer Mode. Apple limits free Apple IDs to 7-day signatures (refresh weekly) and 3 sideloaded apps. App Store/TestFlight would need the paid Apple Developer Program.
 - Inside the app, Puter sign-in opens in an in-app window, other links open in the phone's browser, and the progress card / calendar export use the native share sheet. Details: `mobile/README.md`.
 
 ## How learners use it

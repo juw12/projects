@@ -10,7 +10,18 @@
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+  <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/iphone-1320x2868.png">
+  <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/iphone-1290x2796.png">
+  <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/iphone-1284x2778.png">
+  <link rel="apple-touch-startup-image" media="(device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/iphone-1260x2736.png">
+  <link rel="apple-touch-startup-image" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/iphone-1206x2622.png">
+  <link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/iphone-1179x2556.png">
+  <link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/iphone-1170x2532.png">
+  <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/iphone-1125x2436.png">
+  <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/splash/iphone-1242x2688.png">
+  <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="icons/splash/iphone-828x1792.png">
+  <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="icons/splash/iphone-750x1334.png">
   <meta name="theme-color" content="#183e3c">
   <title>光耀同行 — 發一光耀學習與社群平台 · 互動原型</title>
   <style>
@@ -352,6 +363,24 @@
     .lesson-player .demo-pill { background: #faf4e8; }
     .install-steps { padding-left: 20px; color: #60775e; font-size: 13px; }
     .install-steps li { margin: 10px 0; }
+    .text-button { border: none; background: none; padding: 0 0 0 6px; color: #205b48; font: inherit; font-weight: 650; text-decoration: underline; cursor: pointer; }
+    .ios-share-icon { width: 17px; height: 17px; vertical-align: -3px; color: #2f7af6; margin: 0 2px; }
+    .ios-steps { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 10px; }
+    .ios-steps li { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid #e1e8dc; border-radius: 10px; background: #fbfcf8; }
+    .ios-steps strong { display: block; color: #24453b; font-size: 14px; }
+    .ios-steps span:not(.ios-step-number) { display: block; color: #6c7e6c; font-size: 12px; margin-top: 2px; }
+    .ios-step-number { flex: none; width: 26px; height: 26px; border-radius: 50%; background: #183e3c; color: #f3d48c; display: grid; place-items: center; font-weight: 700; font-size: 13px; }
+    .ios-advanced { margin: 6px 0 4px; padding: 10px 14px; border: 1px dashed #d6dfd1; border-radius: 10px; font-size: 12px; color: #60775e; }
+    .ios-advanced summary { cursor: pointer; font-weight: 650; color: #24453b; }
+    .ios-install-prompt { position: fixed; left: 12px; right: 12px; bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 40; display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 12px; border-radius: 14px; background: #183e3c; color: #f6f7f3; box-shadow: 0 10px 30px #0f2a2640; max-width: 520px; margin: 0 auto; }
+    .ios-install-prompt img { border-radius: 9px; flex: none; }
+    .ios-install-prompt div { flex: 1; min-width: 0; font-size: 12px; line-height: 1.35; }
+    .ios-install-prompt strong { display: block; font-size: 13px; }
+    .ios-install-prompt span { color: #c9dccf; }
+    .ios-install-how { border: none; border-radius: 9px; padding: 8px 12px; background: #f3d48c; color: #2b2410; font-weight: 700; font: inherit; font-size: 13px; }
+    .ios-install-close { border: none; background: none; color: #c9dccf; font-size: 20px; width: 32px; height: 32px; }
+    html[data-theme="dark"] .ios-steps li { background: #182a27; border-color: var(--line); }
+    html[data-theme="dark"] .ios-steps strong { color: #e3eee6; }
     @media (max-width: 760px) {
       body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
       body.drawer-open { overflow: hidden; }
@@ -1052,7 +1081,7 @@
       const route = location.hash.slice(1) || 'home';
       const page = route.split('/')[0];
       const activePage = page === 'course' ? 'courses' : page;
-      document.getElementById('sidebar').innerHTML = `<button type="button" class="icon-button drawer-close" data-action="close-menu" aria-label="關閉主選單">${icon('close')}</button><div class="brand"><span class="brandmark">${icon('sun')}</span><div><strong>光耀同行</strong><small>發一光耀 · 學習與成長</small></div></div><nav>${navItems.map(([group, id, symbol, label]) => `${group ? `<div class="nav-group">${group}</div>` : ''}<button class="nav-item ${activePage === id ? 'active' : ''}" data-action="navigate" data-page="${id}" ${activePage === id ? 'aria-current="page"' : ''}>${icon(symbol)}${label}${(window.GY_NAV_BADGE && window.GY_NAV_BADGE(id)) || (id === 'community' ? '<span class="count">2</span>' : '')}</button>`).join('')}${canManage() ? `<div class="nav-group">工作空間</div><button class="nav-item ${page === 'admin' ? 'active' : ''}" data-action="navigate" data-page="admin">${icon('shield')}${canAdmin() ? '管理中心' : '活動工作台'}</button>` : ''}</nav><div class="sidebar-bottom"><div class="sidebar-note">${icon('leaf')} 一起學習，一起成為更好的自己。<p>每一個微小的善意，都值得被看見。</p></div><div class="sidebar-foot"><span>光耀同行 · V4.1</span><a href="app-plan.html" target="_blank" rel="noopener">產品藍圖 ↗</a></div></div>`;
+      document.getElementById('sidebar').innerHTML = `<button type="button" class="icon-button drawer-close" data-action="close-menu" aria-label="關閉主選單">${icon('close')}</button><div class="brand"><span class="brandmark">${icon('sun')}</span><div><strong>光耀同行</strong><small>發一光耀 · 學習與成長</small></div></div><nav>${navItems.map(([group, id, symbol, label]) => `${group ? `<div class="nav-group">${group}</div>` : ''}<button class="nav-item ${activePage === id ? 'active' : ''}" data-action="navigate" data-page="${id}" ${activePage === id ? 'aria-current="page"' : ''}>${icon(symbol)}${label}${(window.GY_NAV_BADGE && window.GY_NAV_BADGE(id)) || (id === 'community' ? '<span class="count">2</span>' : '')}</button>`).join('')}${canManage() ? `<div class="nav-group">工作空間</div><button class="nav-item ${page === 'admin' ? 'active' : ''}" data-action="navigate" data-page="admin">${icon('shield')}${canAdmin() ? '管理中心' : '活動工作台'}</button>` : ''}</nav><div class="sidebar-bottom"><div class="sidebar-note">${icon('leaf')} 一起學習，一起成為更好的自己。<p>每一個微小的善意，都值得被看見。</p></div><div class="sidebar-foot"><span>光耀同行 · V4.2</span><a href="app-plan.html" target="_blank" rel="noopener">產品藍圖 ↗</a></div></div>`;
       document.getElementById('topbar').innerHTML = `<button class="icon-button mobile-menu" data-action="menu" aria-label="開啟或關閉導覽" aria-controls="sidebar" aria-expanded="false">${icon('menu')}</button><form class="search-wrap" data-form="search">${icon('search')}<input name="query" aria-label="搜尋課程、活動或頁面" placeholder="搜尋課程、活動或學習靈感…" maxlength="80" required><kbd>↵</kbd></form><div class="top-actions">${window.GY_ACCOUNT_PILL ? window.GY_ACCOUNT_PILL() : ''}<button class="icon-button notification" data-action="notifications" aria-label="查看示範通知">${icon('bell')}</button><button class="profile-button" data-action="account" aria-label="帳戶"><span class="avatar">${state.signedIn ? esc(state.name.slice(-1)) : '客'}</span><span class="profile-copy"><strong>${state.signedIn ? esc(state.name) : '尚未登入'}</strong><small>${window.GY_ACCOUNT_LABEL ? window.GY_ACCOUNT_LABEL() : ''}</small></span><span style="color:#a1ada1;font-size:11px">⌄</span></button></div>`;
       const pages = {home: homePage, courses: coursesPage, schedule: schedulePage, community: communityPage, meetings: meetingsPage, portfolio: portfolioPage, vault: vaultPage, rewards: rewardsPage, invite: invitePage, about: aboutPage, admin: adminPage, ...(window.GY_PAGES || {})};
       let content;
