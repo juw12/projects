@@ -219,7 +219,8 @@
 
     window.addEventListener('airiz-port-lost', event => {
       if (state.port && event.detail === state.port) {
-        logToConsole('Bluetooth connection lost', 'warning');
+        const label = String(state.port.transportLabel || '');
+        logToConsole(label.startsWith('Remote') ? 'Remote control connection lost' : 'Bluetooth connection lost', 'warning');
         disconnect();
       }
     });
@@ -566,9 +567,18 @@
       response = '';
     }
     
+    // The simulator answers the firmware query like real firmware (#INFO#...#END#), so a
+    // phone that controls this demo through "Remote control by code" can verify it.
+    if (/^diag\s+ver\s+sw$/i.test(String(command).trim())) {
+      response = '#INFO#0:0.0.0.3#END#\r\n';
+    }
+
     // Always end with prompt
     response += '~ #\r\n';
     
+    for (const listener of outputListeners) {
+      try { listener(response); } catch (listenerError) { console.error(listenerError); }
+    }
     appendToConsole(response, 'response');
     state.demoBuffer += response;
   }

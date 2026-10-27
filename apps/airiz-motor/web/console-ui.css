@@ -673,3 +673,11 @@ body.console-redesign { color-scheme: inherit; }
 .phone-remote-clients ul { margin: 0; padding-left: 1.2rem; font-size: 0.85rem; display: grid; gap: 2px; }
 .phone-remote-clients .muted { list-style: none; margin-left: -1.2rem; opacity: 0.7; }
 .bluetooth-in-use { display: block; font-size: 0.8rem; color: #d29922; }
+
+/* Remote control by code (1.3.0) */
+.share-control-link-row { display: flex; gap: 8px; margin: 8px 0; }
+.share-control-link-row .input { flex: 1; min-width: 0; }
+#share-control-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 0; }
+#share-control-list li .btn { padding: 4px 12px; min-height: 0; }
+.connect-code-field { display: grid; gap: 6px; margin: 10px 0; font-weight: 600; }
+.connect-code-field .input { font-size: 1.6rem; letter-spacing: 0.3em; text-align: center; max-width: 12ch; }
