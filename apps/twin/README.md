@@ -273,6 +273,13 @@ history and are not predictions. Not financial advice.
 
 ## Changelog
 
+- **1.8.0 — New look.** A redesign in the style of today's most-loved finance apps: big bold numbers and
+  large titles, soft borderless cards, pill buttons and chips, one indigo brand gradient (green/red only for
+  money), coloured ticker badges, a floating glass tab bar with a sliding indicator, a header that frosts
+  as you scroll, charts that draw themselves in with a glowing end dot, a count-up on your portfolio value,
+  shimmer loading cards, springy sheets you can swipe down to close and light haptics on Android. All
+  features, ids and flows unchanged; contrast stays WCAG AA in light and dark; motion respects
+  "reduce motion".
 - **1.7.0 — Real-time where you have it, safer data.** Real-time prices from your own sources (IBKR,
   Alpaca IEX, Finnhub) with the source and time on every stock page and Yahoo as the labelled fallback;
   unit/contract guard (pence ×100 converted, >25% mismatches dropped). Read-only **IBKR gateway self-test**.

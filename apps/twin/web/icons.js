@@ -15,6 +15,7 @@ const TwinIcons = (() => {
   const SHAPES = {
     home: P("M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"),
     trend: P("M3 17l6-6 4 4 8-8") + P("M14 7h7v7"),
+    trendDown: P("M3 7l6 6 4-4 8 8") + P("M14 17h7v-7"),
     zap: P("M13 2 4 14h7l-1 8 9-12h-7z"),
     cap: P("M2 9l10-5 10 5-10 5z") + P("M6 11v5c3 2 9 2 12 0v-5") + P("M22 9v5"),
     news: P("M4 5h13v14H6a2 2 0 0 1-2-2z") + P("M17 8h3v9a2 2 0 0 1-2 2") + P("M7 9h7M7 13h7M7 16h4"),

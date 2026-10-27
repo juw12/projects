@@ -13,10 +13,12 @@
 <link rel="manifest" href="manifest.webmanifest">
 <title>Twin — invest &amp; day-trade with 10,000 replays</title>
 <meta name="description" content="Twin: a personality-matched investing and day-trading companion. Paper trading, 10,000-future goal planner, copy a famous investor's 13F, news feed and the day-trader-skill Time Machine.">
-<script src="theme.js?v=1.7.0"></script>
-<script src="icons.js?v=1.7.0"></script>
-<link rel="stylesheet" href="theme.css?v=1.7.0">
-<link rel="stylesheet" href="design.css?v=1.7.0">
+<script src="theme.js?v=1.8.0"></script>
+<script src="icons.js?v=1.8.0"></script>
+<link rel="stylesheet" href="theme.css?v=1.8.0">
+<link rel="stylesheet" href="design.css?v=1.8.0">
+<link rel="stylesheet" href="neo.css?v=1.8.0">
+<script src="motion.js?v=1.8.0" defer></script>
 <style>
   :root {
     --bg: #0b0f14;
@@ -224,16 +226,16 @@
 <div class="sheet" id="sheet" inert aria-hidden="true"></div>
 <div class="toast" id="toast"></div>
 
-<script src="demo.js?v=1.7.0"></script>
-<script src="pro.js?v=1.7.0"></script>
-<script src="pro-ui.js?v=1.7.0"></script>
-<script src="broker-ui.js?v=1.7.0"></script>
-<script src="academy.js?v=1.7.0"></script>
-<script src="global.js?v=1.7.0"></script>
-<script src="strategy-lab.js?v=1.7.0"></script>
-<script src="strategy-lab-ui.js?v=1.7.0"></script>
-<script src="twinagent.js?v=1.7.0"></script>
-<script src="twinagent-ui.js?v=1.7.0"></script>
+<script src="demo.js?v=1.8.0"></script>
+<script src="pro.js?v=1.8.0"></script>
+<script src="pro-ui.js?v=1.8.0"></script>
+<script src="broker-ui.js?v=1.8.0"></script>
+<script src="academy.js?v=1.8.0"></script>
+<script src="global.js?v=1.8.0"></script>
+<script src="strategy-lab.js?v=1.8.0"></script>
+<script src="strategy-lab-ui.js?v=1.8.0"></script>
+<script src="twinagent.js?v=1.8.0"></script>
+<script src="twinagent-ui.js?v=1.8.0"></script>
 <script>
 "use strict";
 
@@ -485,8 +487,28 @@ function afterPaint(fn) {
   requestAnimationFrame(() => requestAnimationFrame(fn));
 }
 
+const drawnCharts = new WeakSet();
 function lineChart(canvas, values, opts = {}) {
-  chartRenderers.set(canvas, () => lineChart(canvas, values, opts));
+  chartRenderers.set(canvas, () => drawLineChart(canvas, values, opts, 1));
+  const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (calm || drawnCharts.has(canvas) || !values || values.length < 2) {
+    drawnCharts.add(canvas);
+    drawLineChart(canvas, values, opts, 1);
+    return;
+  }
+  drawnCharts.add(canvas);
+  const started = performance.now();
+  const frame = (now) => {
+    const t = Math.min(1, (now - started) / 700);
+    drawLineChart(canvas, values, opts, 1 - Math.pow(1 - t, 3));
+    if (t < 1 && canvas.isConnected) {
+      requestAnimationFrame(frame);
+    }
+  };
+  requestAnimationFrame(frame);
+}
+
+function drawLineChart(canvas, values, opts, progress) {
   const height = opts.height || 180;
   const { ctx, width } = prepCanvas(canvas, height);
   if (!values || values.length < 2) {
@@ -515,8 +537,12 @@ function lineChart(canvas, values, opts = {}) {
     ctx.stroke();
     ctx.setLineDash([]);
   }
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, width * progress + 1, height);
+  ctx.clip();
   const gradient = ctx.createLinearGradient(0, 0, 0, height);
-  gradient.addColorStop(0, color + "55");
+  gradient.addColorStop(0, color + "40");
   gradient.addColorStop(1, color + "00");
   ctx.beginPath();
   values.forEach((v, i) => (i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v))));
@@ -527,9 +553,34 @@ function lineChart(canvas, values, opts = {}) {
   ctx.fill();
   ctx.beginPath();
   values.forEach((v, i) => (i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v))));
-  ctx.strokeStyle = adaptChartColor(color);
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.25;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
   ctx.stroke();
+  ctx.restore();
+  if (progress >= 1 && opts.dot !== false) {
+    const lastX = Math.min(x(values.length - 1), width - 6);
+    const lastY = y(values[values.length - 1]);
+    ctx.beginPath();
+    ctx.arc(lastX, lastY, 8, 0, Math.PI * 2);
+    ctx.fillStyle = color + "33";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(lastX, lastY, 3.6, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+}
+
+// Coloured two-letter badge for a ticker (stable hue per symbol), like broker app logos.
+function monogram(symbol, small = false) {
+  const clean = String(symbol || "?").replace(/^\^/, "").split(".")[0];
+  let hue = 0;
+  for (const ch of clean) {
+    hue = (hue * 31 + ch.charCodeAt(0)) % 360;
+  }
+  return h("span", { class: "mono" + (small ? " sm" : ""), style: `--hue:${hue}`, "aria-hidden": "true" }, clean.slice(0, clean.length > 3 ? 2 : 3));
 }
 
 function sparkline(values, up) {
@@ -1428,7 +1479,7 @@ function nextStep() {
 
 async function renderHome(main) {
   const quiz = state.profile.quiz;
-  const portfolio = h("div", { class: "card" }, spinner());
+  const portfolio = h("div", { class: "card hero", id: "home-hero" }, spinner());
   const watch = h("div", { class: "card" }, spinner());
   const greeting = new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 18 ? "Good afternoon" : "Good evening";
   put(main, 
@@ -1469,11 +1520,19 @@ async function renderHome(main) {
   if (paperResult.ok) {
     const p = (state.paper = paperResult.paper);
     const canvas = h("canvas");
+    const trend = p.gain > 0 ? "up" : p.gain < 0 ? "down" : "flat";
+    portfolio.classList.toggle("down-day", p.gain < 0);
     put(portfolio, 
-      h("div", { class: "muted small" }, "Practice portfolio"),
-      h("div", { class: "big" }, fmtMoney(p.value)),
+      h("div", { class: "between" },
+        h("div", { class: "muted small", style: "font-weight:600" }, "Practice portfolio"),
+        h("span", { class: "pill gray" }, GUEST || DEMO ? "Paper" : "Paper · live prices")),
+      h("div", { class: "big", "data-countup": "" }, fmtMoney(p.value)),
       TwinGlobal.inDisplay(p.value) ? h("div", { class: "tiny muted", id: "home-display-value" }, `≈ ${TwinGlobal.inDisplay(p.value)}`) : null,
-      h("div", { class: signClass(p.gain) + " small", style: "font-weight:650" }, `${p.gain >= 0 ? "+" : ""}${fmtMoney(p.gain)} (${fmtPct(p.gain_pct)}) all time`),
+      h("div", { class: "row", style: "gap:8px;flex-wrap:wrap" },
+        h("span", { class: "gain-chip " + trend, style: "flex:none" },
+          TwinIcons.svg(trend === "down" ? "trendDown" : "trend"),
+          `${p.gain >= 0 ? "+" : ""}${fmtMoney(p.gain)} (${fmtPct(p.gain_pct)})`),
+        h("span", { class: "muted small", style: "flex:none" }, "all time")),
       canvas,
       h("div", { class: "between small muted" }, h("span", {}, "Buying power " + fmtMoney(p.cash)),
         h("a", { href: "#invest", onclick: (e) => { e.preventDefault(); state.investView = "portfolio"; switchTab("invest"); } }, "Positions ›")));
@@ -1518,6 +1577,7 @@ async function renderHome(main) {
     }
     const cls = q.change_pct > 0 ? "up" : q.change_pct < 0 ? "down" : "flat";
     put(list, h("div", { class: "item", onclick: () => openStock(symbol) },
+      monogram(symbol),
       h("div", { style: "flex:1;min-width:0" }, h("div", { class: "sym" }, symbol), h("div", { class: "nm" }, q.name)),
       sparkline(q.spark, q.change_pct >= 0),
       h("div", { class: "px" }, h("div", { style: "font-weight:650" }, fmtPrice(q.price)), h("span", { class: "chg " + cls }, fmtPct(q.change_pct)))));
@@ -1553,10 +1613,12 @@ async function investPortfolio(body) {
     return;
   }
   const p = (state.paper = result.paper);
-  put(body, h("div", { class: "card" },
-    h("div", { class: "muted small" }, "Practice portfolio value"),
-    h("div", { class: "big" }, fmtMoney(p.value)),
-    h("div", { class: signClass(p.gain), style: "font-weight:650" }, `${fmtMoney(p.gain)} (${fmtPct(p.gain_pct)})`),
+  const investTrend = p.gain > 0 ? "up" : p.gain < 0 ? "down" : "flat";
+  put(body, h("div", { class: "card hero" + (p.gain < 0 ? " down-day" : "") },
+    h("div", { class: "muted small", style: "font-weight:600" }, "Practice portfolio value"),
+    h("div", { class: "big", "data-countup": "" }, fmtMoney(p.value)),
+    h("span", { class: "gain-chip " + investTrend + " " + signClass(p.gain) },
+      TwinIcons.svg(investTrend === "down" ? "trendDown" : "trend"), `${fmtMoney(p.gain)} (${fmtPct(p.gain_pct)})`),
     h("div", { class: "grid2", style: "margin-top:12px" },
       h("div", { class: "stat" }, h("div", { class: "k" }, "Cash"), h("div", { class: "v" }, fmtMoney(p.cash))),
       h("div", { class: "stat" }, h("div", { class: "k" }, "Started with"), h("div", { class: "v" }, fmtMoney(p.start_cash, 0))))));
@@ -1570,6 +1632,7 @@ async function investPortfolio(body) {
     const list = h("div", { class: "list" });
     for (const pos of p.positions) {
       put(list, h("div", { class: "item", onclick: () => openStock(pos.symbol) },
+        monogram(pos.symbol),
         h("div", { style: "flex:1;min-width:0" }, h("div", { class: "sym" }, pos.symbol), h("div", { class: "nm" }, `${pos.qty} sh · avg ${fmtMoney(pos.avg_cost)}`)),
         sparkline(pos.spark, (pos.day_pct || 0) >= 0),
         h("div", { class: "px" }, h("div", { style: "font-weight:650" }, fmtMoney(pos.value)),
@@ -2238,7 +2301,7 @@ function renderMe(main) {
       }, "Save limits")),
     h("div", { class: "card" }, h("h3", {}, "Guide"), guideList()),
     h("div", { class: "card small muted" },
-      h("b", { style: "color:var(--text)" }, "Twin · v1.7.0"),
+      h("b", { style: "color:var(--text)" }, "Twin · v1.8.0"),
       h("p", {}, "Twin is built on two free, MIT-licensed skill packs by Jake Schincariol (day-trader-skill and trader-skill). Data: Yahoo Finance (delayed, unofficial), SEC EDGAR."),
       h("p", {}, "Not financial advice. Practice money only. You can lose money investing; past performance and simulations do not guarantee future results.")),
     h("button", {
