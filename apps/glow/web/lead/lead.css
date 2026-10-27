@@ -461,3 +461,10 @@ h1 span { color: var(--accent); }
   h1 { font-size: 36px; }
   .overview small { font-size: 11px; }
 }
+
+/* v1.20 · on phones the profile avatar replaces the account chip, so the header never overflows. */
+@media (max-width: 520px) {
+  .top .account-chip { display: none; }
+  .top-right { gap: 6px; min-width: 0; }
+}
+@media (max-width: 360px) { .top #theme-btn { display: none; } }

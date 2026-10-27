@@ -3836,6 +3836,59 @@ function wire() {
   });
 }
 
+
+/* ================= links from Profile & settings (glow/account/) ================= */
+// The shared account page links here with #settings, #personas or #persona-quiz.
+function openFromHash(hash) {
+  const actions = {
+    "#settings": () => openSettings(),
+    "#personas": () => openPersonaStudio({ mode: "list" }),
+    "#persona-quiz": () => openPersonaStudio({ mode: "quiz" }),
+  };
+  if (!actions[hash]) return false;
+  history.replaceState(null, "", location.pathname + location.search);
+  actions[hash]();
+  return true;
+}
+// Profile & settings edits the same store in another tab: take its shared fields without
+// overwriting this tab's chats.
+const SHARED_SETTING_KEYS = ["displayName", "avatarColor", "defaultPersona", "theme", "followUps", "cloudSync", "retentionDays", "account", "accountName", "accountTemp"];
+function mergeSharedSettings(raw) {
+  let saved;
+  try {
+    saved = JSON.parse(raw || "null");
+  } catch (error) {
+    return false;
+  }
+  if (!saved || !saved.settings) return false;
+  let changed = false;
+  for (const key of SHARED_SETTING_KEYS) {
+    if (key in saved.settings && JSON.stringify(saved.settings[key]) !== JSON.stringify(state.settings[key])) {
+      state.settings[key] = saved.settings[key];
+      changed = true;
+    }
+  }
+  if (Array.isArray(saved.settings.customPersonas) && saved.settings.customPersonas.length >= (state.settings.customPersonas || []).length) {
+    state.settings.customPersonas = saved.settings.customPersonas;
+  }
+  if (changed) {
+    applyTheme();
+    renderAccount();
+    fillPersonaSelect();
+  }
+  return changed;
+}
+if (!TEST_MODE) {
+  window.addEventListener("storage", (event) => {
+    if (event.key !== STORE_KEY) return;
+    if (event.newValue === null) {
+      location.reload(); // everything was deleted from Profile & settings
+      return;
+    }
+    mergeSharedSettings(event.newValue);
+  });
+}
+
 /* ================= self-test (open with #selftest) ================= */
 async function selfTest() {
   const results = [];
@@ -4158,6 +4211,12 @@ async function selfTest() {
   const exactPuter = { in: 0, out: 0 };
   applyProviderUsage(exactPuter, [{ type: "prompt", amount: 7 }, { type: "completion", amount: 9 }]);
   expect("usage: exact provider counts replace the estimate", exact.in === 12 && exact.out === 34 && exact.exact && exactPuter.in === 7 && exactPuter.out === 9);
+  const sharedRaw = JSON.stringify({ settings: { ...state.settings, displayName: "Juwen", avatarColor: "#7fb069" } });
+  const savedProfile = { displayName: state.settings.displayName, avatarColor: state.settings.avatarColor };
+  expect("profile page: name and avatar colour from Profile & settings reach GlowChat", mergeSharedSettings(sharedRaw) && state.settings.displayName === "Juwen" && state.settings.avatarColor === "#7fb069");
+  Object.assign(state.settings, savedProfile);
+  expect("profile page: #personas opens the persona studio", openFromHash("#personas") && $("persona-modal").classList.contains("open"));
+  closePersonaStudio();
   const puterOpenAI = { in: 0, out: 0 };
   applyProviderUsage(puterOpenAI, { prompt_tokens: 10, completion_tokens: 4, cached_tokens: 3 });
   const puterClaude = { in: 0, out: 0 };
@@ -4655,6 +4714,7 @@ async function boot() {
       await pullCloud();
     }
     applyLaunchParams();
+    openFromHash(hash);
   }
   if (TEST_MODE) {
     localStorage.removeItem(STORE_KEY); // sandbox key only
