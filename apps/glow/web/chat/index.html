@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://js.puter.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://puter.com https://*.puter.com; font-src 'self' data:; frame-src 'self' https://puter.com https://*.puter.com; connect-src 'self' https: wss://*.puter.com http://localhost:* http://127.0.0.1:*">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://js.puter.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://puter.com https://*.puter.com; font-src 'self' data:; frame-src 'self' https://puter.com https://*.puter.com; connect-src 'self' https: wss://*.puter.com http://localhost:* http://127.0.0.1:*">
 <meta name="description" content="GlowChat, part of Glow: explore ideas and shape plans with AI chat, a Council of agents, a Judge and side-by-side model comparisons. A free browser prototype.">
 <meta name="theme-color" content="#262624">
 <title>GlowChat — From a spark to something real</title>
@@ -24,14 +24,22 @@
   <div id="history"></div>
   <div class="account-box" id="account-box">
     <span class="account-label" id="account-label">👤 Guest</span>
+    <a class="link-btn hidden" id="account-save" href="https://puter.com" target="_blank" rel="noopener" title="Your Puter account is temporary. Open puter.com and save it so it isn't lost.">Save</a>
     <button class="link-btn" id="account-btn" type="button">Sign in</button>
   </div>
+  <button class="side-usage" id="side-usage" type="button" title="Token usage and your Glow AI allowance">
+    <span id="side-usage-text">Today 0 tokens</span>
+    <span class="usage-meter hidden" id="side-usage-meter"><span id="side-usage-bar"></span></span>
+  </button>
   <div class="side-label">Hand it to</div>
   <div class="side-row">
     <a class="side-btn crewroom-link" id="crewroom-link" href="../room/" target="glowroom" rel="noopener" title="GlowRoom: an AI crew that searches the web, runs code and reports back, part of Glow. Anything typed in the message box becomes their mission.">🏢 GlowRoom</a>
     <a class="side-btn crewroom-link glowlead-link" id="glowlead-link" href="../lead/" target="glowlead" rel="noopener" title="GlowLead: the Glow AI lead plans your goal, hands steps to GlowChat and the GlowRoom crew, checks the work and reports back. Anything typed in the message box becomes its goal.">👑 GlowLead</a>
   </div>
-  <button class="side-btn" id="settings-btn" type="button">⚙ Settings &amp; models</button>
+  <div class="side-row">
+    <button class="side-btn" id="persona-btn" type="button" title="Make a persona so Glow answers the way you like">🎭 My persona</button>
+    <button class="side-btn" id="settings-btn" type="button">⚙ Settings</button>
+  </div>
   <div class="side-foot">
     <button class="link-btn" id="theme-btn" type="button">☀ Light</button>
     · Free · <a href="https://github.com/juw12/projects/tree/main/apps/glow">source</a>
@@ -48,7 +56,8 @@
         <span id="model-picker-label">Model</span><span class="caret" aria-hidden="true">▾</span>
       </button>
       <div id="model-menu" class="model-menu hidden" role="dialog" aria-label="Choose a model">
-        <input type="search" id="model-search" placeholder="Search models…" aria-label="Search models" autocomplete="off">
+        <input type="search" id="model-search" placeholder="Search all models…" aria-label="Search models" autocomplete="off">
+        <div id="model-tabs" class="model-tabs" role="tablist" aria-label="Model categories"></div>
         <div id="model-list" class="model-list" role="listbox" aria-label="Models"></div>
         <div id="model-menu-foot" class="model-menu-foot"></div>
       </div>
@@ -56,6 +65,7 @@
     </div>
     <span class="spacer"></span>
     <span id="status"></span>
+    <button class="icon-btn temp-btn" id="temp-btn" type="button" aria-pressed="false" title="Temporary chat: not saved to your history, not synced, gone when you leave" aria-label="Temporary chat">👻</button>
     <button class="secondary small" id="share-btn" type="button" title="Copy a link that opens this chat (no account needed)">🔗 Share</button>
     <button class="secondary small" id="export-btn" type="button" title="Export this conversation as Markdown">⤓ Export</button>
     <button class="icon-btn" id="theme-toggle" type="button" title="Switch light / dark theme" aria-label="Switch light or dark theme">☀</button>
@@ -89,6 +99,11 @@
       <select id="persona-select" aria-label="Persona"></select>
       <span class="spacer"></span>
       <span id="char-count" class="char-count" aria-live="off"></span>
+      <button class="usage-chip" id="usage-btn" type="button" title="Token usage: click for details">◔ 0 today</button>
+    </div>
+    <div id="usage-pop" class="usage-pop hidden" role="dialog" aria-label="Token usage">
+      <div class="usage-pop-head"><b>Token usage</b></div>
+      <div id="usage-pop-body"></div>
     </div>
     <div id="pending-files" class="hidden"></div>
     <div id="composer">
@@ -113,8 +128,22 @@
       <span class="spacer"></span>
       <button class="secondary small" id="set-account-btn" type="button">Sign in</button>
     </div>
+    <div id="set-account-temp" class="temp-box hidden">
+      <p class="note">⚠ This is a <b>temporary</b> Puter account. To keep it (and your synced chats), open puter.com and choose <b>Save account</b>, or sign in with your own account.</p>
+      <div class="row">
+        <a class="secondary small" href="https://puter.com" target="_blank" rel="noopener">Save it on puter.com</a>
+        <button class="secondary small" id="switch-account-btn" type="button">Use my own Puter account</button>
+      </div>
+    </div>
     <label class="note"><input type="checkbox" id="set-sync"> Sync my chats to my account (so they follow me to other devices)</label>
     <p class="note">Sign-in uses <a href="https://puter.com" target="_blank" rel="noopener">Puter</a>, a free third-party account. Glow AI models run on your own free Puter allowance, so there are no API keys and no cost to you or to Glow. API keys you add below are never synced.</p>
+
+    <h4>Your persona</h4>
+    <div class="row" style="margin-top:4px">
+      <label for="set-display-name" class="note">What Glow calls you</label>
+      <input id="set-display-name" maxlength="40" placeholder="Your name or nickname (optional)" style="flex:1">
+      <button class="secondary small" id="set-persona-btn" type="button">🎭 Make or edit personas</button>
+    </div>
 
     <h4>About you &amp; how Glow should answer</h4>
     <p class="note">Added to every chat, council and arena prompt. Example: “I'm a student in Batam. Explain simply and give examples in Indonesian Rupiah.”</p>
@@ -150,6 +179,17 @@
     <input type="password" id="set-custom-key" placeholder="API key" autocomplete="off" style="margin-top:6px">
 
     <h4>Your data</h4>
+    <p class="note" id="data-summary"></p>
+    <div class="row" style="margin-top:4px">
+      <label for="set-retention" class="note">Auto-delete chats older than</label>
+      <select id="set-retention">
+        <option value="0">Never</option>
+        <option value="30">30 days</option>
+        <option value="90">90 days</option>
+        <option value="365">1 year</option>
+      </select>
+      <span class="note">Pinned chats are kept. 👻 in the top bar starts a temporary chat that is never saved.</span>
+    </div>
     <div class="row" style="margin-top:4px">
       <button class="secondary" id="backup-btn" type="button">Back up everything</button>
       <label class="file-btn">Restore backup<input type="file" id="import-input" accept="application/json"></label>
@@ -172,10 +212,19 @@
     <p class="welcome-tag">From a spark to something real.</p>
     <button class="primary big" id="signin-btn" type="button">Sign in, free real AI</button>
     <p class="note">GPT, Claude, Gemini, DeepSeek and more, with no API key. Uses your own free <a href="https://puter.com" target="_blank" rel="noopener">Puter</a> account, and your chats can sync across devices.</p>
+    <p class="note welcome-tip">Tip: in Puter's window, <b>create an account or log in</b> so it's really yours. If Puter gives you a temporary name (like <i>fearless_door</i>), you can save it later in Settings.</p>
     <p class="signin-error hidden" id="signin-error" role="alert"></p>
     <div class="divider"><span>or</span></div>
     <button class="secondary big" id="guest-btn" type="button">Continue as guest</button>
     <p class="note">Chat with free AI right away, no sign-up. You can also bring your own OpenRouter key or local Ollama. Everything stays in this browser, including chats and keys you already have.</p>
+  </div>
+</div>
+
+<div class="modal-bg" id="persona-modal">
+  <div class="modal persona-modal" role="dialog" aria-labelledby="persona-title">
+    <button class="icon-btn modal-close" id="persona-close" type="button" aria-label="Close">✕</button>
+    <h3 id="persona-title">🎭 Your persona</h3>
+    <div id="persona-body"></div>
   </div>
 </div>
 
