@@ -61,14 +61,16 @@
       chip.textContent = "✦ " + name;
       chip.classList.add("signed-in");
       text.textContent = `Signed in as ${name}. Every Glow app uses this account.`;
-      action.textContent = "Account";
+      action.textContent = "Profile & settings";
+      action.href = new URL("account/", location.href).href;
     } else {
       chip.textContent = "👤 Guest";
       chip.classList.remove("signed-in");
       text.textContent = "You're using Glow as a guest. A free sign-in gives stronger models in every Glow app.";
       action.textContent = "Sign in";
+      action.href = new URL("account/#account", location.href).href;
     }
-    action.href = chatPage;
+    if (window.GlowApps && window.GlowApps.refreshProfiles) window.GlowApps.refreshProfiles();
   }
 
   // ---- quick start: one Start button sends the request to the right app ----

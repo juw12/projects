@@ -39,8 +39,21 @@ class GlowInAppTests(unittest.TestCase):
 
     def test_every_app_loads_the_switcher(self):
         for page in ("index.html", "chat/index.html", "chat/app.html", "chat/mobile.html", "lead/index.html",
-                     "room/index.html", "room/mobile.html", "setup/index.html"):
+                     "room/index.html", "room/mobile.html", "setup/index.html", "account/index.html"):
             self.assertIn("shared/glow-apps.js", (WEB / page).read_text(encoding="utf-8"), page)
+
+
+    def test_profile_and_settings_everywhere(self):
+        for needle in ("function mountProfile", "data-glow-profile", "function accountUrl", "Profile &amp; settings"):
+            self.assertIn(needle, self.switcher)
+        for page in ("index.html", "chat/index.html", "chat/app.html", "chat/mobile.html", "lead/index.html",
+                     "room/mobile.html", "account/index.html"):
+            self.assertIn("data-glow-profile", (WEB / page).read_text(encoding="utf-8"), page)
+        self.assertIn("gr-profile-btn", (WEB / "room" / "glow-room-ui.js").read_text(encoding="utf-8"))
+        account = (WEB / "account" / "index.html").read_text(encoding="utf-8")
+        for section in ('id="account"', 'id="persona"', 'id="usage"', 'id="prefs"', 'id="data"', 'id="about"'):
+            self.assertIn(section, account)
+        self.assertIn("'account'", (WEB.parent / "mobile" / "scripts" / "build-web.mjs").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
