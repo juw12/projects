@@ -16,6 +16,7 @@
 <header class="top">
   <a class="logo" href="../" aria-label="Glow home"><span class="brand-mark" aria-hidden="true">✦</span><span>glow<span class="brand-divider"> / </span><b>Lead</b></span><small>MISSION CONTROL</small></a>
   <div class="top-right">
+    <button class="btn small plan-btn" id="plans-btn" type="button" title="Glow plans" aria-label="Glow plans" aria-haspopup="dialog">✦<span class="plan-label" id="plans-label"> Plans</span></button>
     <span class="account-chip" id="account-chip">Guest · Glow Free</span>
     <button class="btn small" id="signin-btn" type="button" hidden>Sign in</button>
     <button class="icon-btn" id="provider-btn" type="button" title="AI provider settings" aria-label="AI provider settings">⚙</button>
@@ -57,7 +58,7 @@
     <div class="sidebar-foot"><span class="online-dot" aria-hidden="true"></span> Browser-first workspace<p>History stays in this browser. AI requests go to your chosen provider. Keep this tab open while work runs.</p><a href="../">← All Glow apps</a></div>
   </aside>
   <main id="workspace" tabindex="-1">
-    <div class="workspace-label"><span>YOUR AI TEAM, WITH YOU IN CONTROL</span><span class="version-pill">GlowLead / 0.15.6</span></div>
+    <div class="workspace-label"><span>YOUR AI TEAM, WITH YOU IN CONTROL</span><span class="version-pill">GlowLead / 0.16.0</span></div>
     <section class="hero">
       <p class="eyebrow">From a spark to something real</p>
       <h1>Big idea.<br><span>Clear next steps.</span></h1>
@@ -189,7 +190,47 @@
     <div class="start-actions"><button class="btn primary" type="submit">Save automation</button><button class="btn" id="automation-cancel" type="button">Cancel</button><button class="btn ghost" id="notify-btn" type="button">Turn on notifications</button></div>
   </form>
 </dialog>
+<dialog id="plans-dialog" aria-labelledby="plans-title">
+  <form id="plans-form"><h2 id="plans-title">Glow plans</h2>
+    <p class="helper" id="plans-current" role="status">You're on Glow Free.</p>
+    <div class="plan-cards">
+      <section class="plan-card" aria-label="Glow Free">
+        <h3>Glow Free</h3><p class="plan-price">Rp 0 · forever</p>
+        <ul>
+          <li>GlowChat, GlowRoom and GlowLead</li>
+          <li>Free AI (Glow Free), or sign in for stronger models</li>
+          <li>Missions up to 4 steps</li>
+          <li>Browser missions up to 15 actions</li>
+          <li>10 automations · 12 playbooks</li>
+        </ul>
+      </section>
+      <section class="plan-card pro" aria-label="Glow Pro">
+        <h3>✦ Glow Pro</h3><p class="plan-price" id="plans-price">Monthly</p>
+        <ul>
+          <li>Everything in Glow Free</li>
+          <li>Bigger missions: up to 8 steps</li>
+          <li>Longer browser missions: up to 40 actions</li>
+          <li>50 automations · 60 playbooks</li>
+          <li>Supports Glow's development</li>
+        </ul>
+        <a class="btn primary small" id="plans-buy" href="#" target="_blank" rel="noopener" hidden>Get Glow Pro</a>
+        <p class="helper" id="plans-soon">Glow Pro is coming soon.</p>
+      </section>
+    </div>
+    <label for="plans-key">Already have Glow Pro? Your license key (from the purchase email)</label>
+    <input id="plans-key" autocomplete="off" spellcheck="false" maxlength="120" placeholder="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX">
+    <div class="start-actions">
+      <button class="btn primary small" id="plans-activate" type="button">Activate on this device</button>
+      <button class="btn ghost small" id="plans-deactivate" type="button" hidden>Turn off Pro on this device</button>
+      <a class="btn ghost small" id="plans-manage" href="https://app.lemonsqueezy.com/my-orders" target="_blank" rel="noopener" hidden>Manage subscription</a>
+    </div>
+    <p class="helper" id="plans-note" role="status"></p>
+    <p class="helper">Payments and invoices are handled by Lemon Squeezy. Cancel anytime; Pro stays until the paid month ends. Your key is kept only in this browser and checked about once a day.</p>
+    <div class="start-actions"><button class="btn" id="plans-close" type="button">Close</button></div>
+  </form>
+</dialog>
 <script src="../shared/glow-apps.js"></script>
+<script src="../shared/glow-plans.js"></script>
 <script src="../room/crew-engine.js"></script>
 <script src="./lead.js"></script>
 </body>
