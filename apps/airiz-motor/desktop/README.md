@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.2.5` in this repository's Releases section.
+`airiz-desktop-v1.2.6` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -161,6 +161,20 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.2.6: See who is connected
+
+* **Camera sharing:** under "N watching" the PC lists every viewer with its device, path
+  and time, e.g. "iPhone (Safari) · via AIRIZ relay · 3 min" or "Android (Chrome) · direct
+  video · just now". Viewers send only a short device label (no names or addresses).
+* **Phone remote:** the dialog shows the devices connected to the AIRIZ over Bluetooth
+  (label, PIN ok or not, connected time, Bluetooth address), refreshed every 4 s over USB.
+  Needs Bluetooth bridge v3, which is installed automatically by *Start remote*.
+* **Connect Bluetooth:** the device picker marks AIRIZ-BT as "In use by …" or "Free" from
+  the last list this PC saw. After connecting, the app tells you if another device is also
+  connected to the same AIRIZ.
+* Bridge v3 adds `hello <label>` and `who` (no PIN needed, labels only); older bridges are
+  detected and never sent these commands.
 
 ## 1.2.5: Phone camera view works behind company firewalls
 
