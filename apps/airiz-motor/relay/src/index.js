@@ -85,8 +85,10 @@ export class Room extends DurableObject {
     }
   }
 
-  reportViewers() {
-    const count = this.ctx.getWebSockets('viewer').length;
+  // closing: a socket that is going away but may still be listed by getWebSockets().
+  reportViewers(closing = null) {
+    const count = this.ctx.getWebSockets('viewer')
+      .filter(viewer => viewer !== closing).length;
     for (const pc of this.ctx.getWebSockets('pc')) {
       try {
         pc.send(JSON.stringify({ type: 'viewers', count }));
@@ -116,7 +118,7 @@ export class Room extends DurableObject {
     if (role === 'pc' && this.ctx.getWebSockets('pc').every(other => other === ws)) {
       this.broadcastToViewers(JSON.stringify({ type: 'ended' }));
     }
-    this.reportViewers();
+    this.reportViewers(ws);
   }
 
   async webSocketError(ws) {
