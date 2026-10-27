@@ -16,7 +16,8 @@ AI-suggested resources in GlowChat are not automatically browsed or verified; Gl
 
 Guide with all platforms and a diagram of how the apps connect: https://juw12.github.io/projects/glow/setup/
 
-- **Windows PC, one step** (Win+R, no admin): `powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/juw12/projects/main/apps/glow/install-glow.ps1 | iex"`
+- **Windows PC, one click:** download [Glow-Setup.exe](https://github.com/juw12/projects/releases/download/glow-windows/Glow-Setup.exe), open it and press **Install** (no admin). It adds every app to the Start menu and desktop, installs Glow Hands, and appears in Settings > Apps for uninstalling. Source: `windows/GlowSetup.cs` (built and published to the `glow-windows` release by `.github/workflows/glow-windows.yml`; it runs the latest `install-glow.ps1`).
+- **Windows PC, one command** (Win+R, no admin): `powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/juw12/projects/main/apps/glow/install-glow.ps1 | iex"`
   adds Glow, GlowLead, GlowChat and GlowRoom to the Start menu (folder "Glow") and the desktop as Edge/Chrome app
   windows on your normal browser profile (so they share one account, chats and missions), installs or updates
   Glow Hands (auto-starts at login, GlowLead pairs by itself) and opens the guide. Options: `GLOW_SKIP_HANDS=1`,
