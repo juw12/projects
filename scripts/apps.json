@@ -143,7 +143,7 @@
    "category": "Automation",
    "desc": "Windows, Android and browser console for AIRIZ motor testing: USB or Bluetooth jog, LEDs, macros and live camera sharing to phones",
    "description": "Downloadable Windows console with a locally bundled controller, serial port chooser, camera tools, macros and offline demo. A PIN-protected on-device Bluetooth remote adds wireless pan, up/down, LED control and a real motor stop from Android or iPhone (Bluefy). Camera \u2192 Share to phone streams the AIRIZ camera to phones by link or 6-digit code over WebRTC, with an HTTPS frame relay (Cloudflare Worker) that keeps it working on company networks that block WebRTC. The browser and mobile-web editions remain available.",
-   "summary": "AIRIZ motor-test console for Windows, Android, iPhone and web &mdash; USB or Bluetooth jog, motor stop, LEDs, macros and live camera sharing to phones.",
+   "summary": "AIRIZ test console for Windows, Android, iPhone and web &mdash; USB/Bluetooth jog, motor stop, LEDs, macros, phone camera sharing.",
    "tags": [
     "Windows app",
     "Web Serial",
