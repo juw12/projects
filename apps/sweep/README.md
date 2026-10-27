@@ -68,6 +68,11 @@ from the plan's Studio strip, the **Studio** nav tab, or the command palette.
   the issues on hover. A per-project **Glossary** ("streak = 连续打卡天数") is sent with
   every request (on top of built-in defaults), and **Edit translation** lets you fix
   wording by hand ("Edited by you").
+  **Meaning check:** when the structure checks pass, the translation is translated back into
+  English and compared with the original by shared content words, overall and per section.
+  Calibrated on real free-AI round trips (faithful 0.56–0.67, unrelated text ≤ 0.25; threshold
+  0.42): the file shows "✓ Meaning check passed" or names the sections that may say
+  something different.
 - **Time tracking** — moving a task to Doing starts a timer (pause/resume on the
   card, 6 h cap per session, "Log time" for manual hours). Done cards show actual
   hours, a Time tracking table compares estimate vs actual, and after ≥2 tracked
@@ -112,19 +117,31 @@ All optional and opened from the gear icon in the header (**Settings**).
   The token, passphrase and gist id inside the link are encrypted with that code
   (PBKDF2 + AES-GCM) and expire after 15 minutes; open the link (or scan on a phone),
   type the code, and sync is on. `web/qr.js` is a small dependency-free QR encoder.
-  The link packs its secret compactly (≈313 characters → QR version 11 instead of 13)
-  and "Show bigger QR" enlarges the code for phones that struggle.
-- **No GitHub account?** Two options with the same encryption and three-way merge:
+  The encrypted secret is parked on the backup relay (below), so the link is only ~62
+  characters (QR version 4, big modules); if the relay is unreachable Sweep falls back to a
+  self-contained link (~313 characters). "Show bigger QR" enlarges any code.
+- **No GitHub account?** Three options with the same encryption and three-way merge:
   - **Direct sync** — "Sync with another device now" shows a QR + link; open it on the
     other device and both end up with the merged workspace (clashes go to Review).
-    Data travels device-to-device over WebRTC (vendored PeerJS 1.5.4, MIT, in
-    `web/vendor/`, loaded only when used), encrypted with a one-time code carried in the
-    link; the free PeerJS broker only introduces the two devices. Both must be online;
-    the offer expires after 10 minutes. Very strict networks that block WebRTC need the
-    file option below.
+    Two independent paths race: WebRTC (vendored PeerJS 1.5.4, MIT, in `web/vendor/`,
+    loaded only when used; PeerJS's STUN/TURN servers included) and the **backup relay**.
+    If WebRTC is blocked or the PeerJS broker is down, the guest switches to the relay
+    automatically ("Trying the backup relay…"); a host that cannot reach the broker waits
+    on the relay alone. Both devices must be online; the offer expires after 10 minutes.
+  - **Send — pick up later** — encrypts the workspace, uploads it to the relay and shows a
+    QR + link (~84 characters). The other device can open it any time within 3 hours, even
+    if this device is off by then; it merges and leaves its own merged result on the relay,
+    which this device picks up the next time Sweep opens (so both end up with everything).
   - **Sync file** — "Download sync file" saves an encrypted `sweep-sync-YYYY-MM-DD.sweep`
     (passphrase ≥ 6 characters); open it on the other device with the same passphrase to
     merge. Move it by AirDrop, USB, email or any cloud drive.
+  - **Paste a link** — any Sweep sync link received in a chat or email can be pasted on the
+    Sync tab instead of scanning.
+- **Backup relay** — [ntfy.sh](https://ntfy.sh) (free, open source, open CORS) used as an
+  encrypted mailbox. Only ciphertext is stored (AES-GCM with a key from the one-time code
+  in the link fragment, which the relay never sees; payloads are gzip-compressed first);
+  files expire after 3 hours. Direct-sync topics are derived from a SHA-256 of the host key.
+  Set `window.SWEEP_RELAY_URL` to point at a self-hosted ntfy server.
 - **QR robustness (tested)** — simulated phone photos (tilt, rotation, distance, blur,
   screen moiré, glare, noise, JPEG) of the pairing QR at 1×/2×/3× screens, decoded with
   Apple Vision (via Chrome's BarcodeDetector on macOS), jsQR and ZXing: "normal" photos
@@ -138,6 +155,47 @@ All optional and opened from the gear icon in the header (**Settings**).
 
 Remove the `i18n.js` / `qr.js` / `pro.js` / `pro.css` tags to disable; Studio and the core
 app fall back to English and offline-only behaviour.
+
+### Earning from Sweep (`web/plus.js`)
+
+Everything Sweep already did stays free. **Sweep Plus** adds new tools on top, and the ★
+button in the header opens the Plus panel:
+
+- **Export tasks** to Jira (CSV import columns, estimates in seconds), Linear (CSV), GitHub
+  Issues (a `gh` script that creates labels and one issue per open task) or plain CSV.
+- **Client time report**: tracked hours per task as CSV or Markdown, with an optional hourly
+  rate and currency (for example IDR), and a total. Ready for an invoice.
+- **Share card in your colours**: hides the Sweep logo and "Planned with Sweep" and uses
+  your own accent colour.
+
+**How payment works (no server):** sell "Sweep Plus" on [Lemon Squeezy](https://lemonsqueezy.com)
+with license keys turned on. Buyers paste their key into the Plus panel; Sweep checks it with
+Lemon Squeezy's public License API (`/v1/licenses/activate`, `/validate`, `/deactivate`,
+open CORS) and re-checks every 3 days. If the device is offline, Plus keeps working for
+up to 14 days after the last successful check. Keys can be limited to your store/product
+IDs, and "Remove from this device" frees an activation. This is an honour system that
+makes paying easy, not DRM (the app runs entirely in the browser).
+
+**Until you fill in a checkout link, Plus is "free during the beta"**: there is no paywall and
+the tools work for everyone.
+
+Setup (about 15 minutes):
+
+1. Create a Lemon Squeezy store and add a product "Sweep Plus" with variants, for example
+   Monthly $3, Yearly $24 and Lifetime $49 (any prices you like). Turn on **Generate license
+   keys** (activation limit 3 is a good default).
+2. In `web/plus.js` → `DEFAULT_CONFIG`, paste each variant's checkout link into
+   `checkout.monthly / yearly / lifetime`, adjust `prices`, and set `storeId` /
+   `productIds` (shown in the Lemon Squeezy dashboard) so only your keys are accepted.
+3. Optional tips: put your `trakteer.id/…` and `saweria.co/…` pages (Indonesia: GoPay, OVO,
+   DANA, QRIS, bank; 5% fee) and/or Ko-fi / GitHub Sponsors (worldwide) in `tips`.
+   Optionally add `teamEmail` for team enquiries.
+4. Bump the `?v=` query in `index.html` / `mobile.html` and the `sw.js` cache name, then
+   push.
+
+Lemon Squeezy is the merchant of record: it handles cards, PayPal, VAT/sales tax and
+payouts (bank or PayPal). Check that your country and payout method are supported when
+you sign up.
 
 ### Visual theme (`web/theme.css`)
 
