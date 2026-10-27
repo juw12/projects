@@ -432,7 +432,7 @@
     "admin console",
     "AI study companion",
     "Android app",
-   "iPhone home-screen app"
+    "iPhone home-screen app"
    ],
    "image": "guangyao-desktop.png",
    "image_alt": "Guang Yao Together desktop: today's goal, newest official lessons and the study dashboard",
@@ -663,6 +663,35 @@
    "order": 4,
    "portfolio": false,
    "version": "2.3.1"
+  },
+  {
+   "id": "plm-aml-approval",
+   "name": "PLM AML Approval Assistant",
+   "category": "Automation",
+   "work": true,
+   "desc": "Fills a Windchill PLM AML approval workflow (final or conditional) in Edge and stops before Submit for a human check",
+   "description": "Python + Playwright assistant for a Windchill-based PLM part-approval (AML) workflow: searches the part, starts the workflow, assigns the project, creates or re-links the approval documents, fills the final or conditional approval form (customer-assigned or not), adds the reviewer, verifies every field and <strong>stops before Submit</strong>. Four one-click launchers and a step-by-step training deck for new users. v0.1 preliminary release.",
+   "summary": "Automates a PLM part-approval workflow in Edge &mdash; final or conditional &mdash; and stops before Submit for a human check.",
+   "tags": [
+    "Python",
+    "Playwright",
+    "Windchill PLM",
+    "workflow automation"
+   ],
+   "note_tags": [
+    "plm",
+    "windchill",
+    "aml",
+    "playwright",
+    "automation",
+    "work"
+   ],
+   "image": "plm-aml-approval-hero.svg",
+   "image_alt": "PLM AML Approval Assistant: six automated steps from part search to a verified approval form, stopping before Submit",
+   "files": "https://github.com/juw12/projects/tree/main/apps/plm-aml-approval",
+   "status": "preliminary",
+   "order": 23,
+   "portfolio_order": -7
   }
  ]
 }
