@@ -42,6 +42,46 @@ PLAYER_STATE = """(function(){
 report = {"site": SITE, "checks": []}
 
 
+DIAGNOSE = r"""(function(){
+  // Snapshot of signalling + WebRTC state, written to window.__diag (getStats is async).
+  var r = __sync.room();
+  var out = {status: (document.querySelector('#conn') || {}).textContent, isHost: !!(r && r.isHost),
+             members: r && r.state ? r.state.members.length : null, hostConn: !!(r && r.hostConn),
+             peerOpen: !!(r && r.peer && r.peer.open), peerDisconnected: !!(r && r.peer && r.peer.disconnected), pcs: []};
+  var conns = (r && r.peer && r.peer.connections) || {};
+  var jobs = [];
+  Object.keys(conns).forEach(function (id) {
+    conns[id].forEach(function (c) {
+      var pc = c.peerConnection;
+      if (!pc) { return; }
+      var info = {peer: id, type: c.type, open: c.open, ice: pc.iceConnectionState, gathering: pc.iceGatheringState, candidates: []};
+      out.pcs.push(info);
+      jobs.push(pc.getStats().then(function (stats) {
+        stats.forEach(function (s) {
+          if (s.type === 'local-candidate' || s.type === 'remote-candidate') {
+            info.candidates.push(s.type.charAt(0) + ':' + s.candidateType + ':' + (s.address || s.ip) + ':' + s.port + ':' + s.protocol);
+          }
+        });
+      }));
+    });
+  });
+  window.__diag = null;
+  Promise.all(jobs).then(function () { window.__diag = JSON.stringify(out); }, function (e) { window.__diag = JSON.stringify({error: String(e), out: out}); });
+  return 1;
+})()"""
+
+
+def diagnose(label, run_js):
+    try:
+        run_js(DIAGNOSE)
+        time.sleep(2)
+        detail = run_js("window.__diag")
+    except Exception as error:  # diagnostics must never hide the real failure
+        detail = f"diagnostics failed: {error}"
+    print(f"   diag {label}: {detail}", flush=True)
+    report.setdefault("diagnostics", {})[label] = detail
+
+
 def check(name, ok, detail=""):
     report["checks"].append({"name": name, "ok": bool(ok), "detail": detail})
     print(("PASS " if ok else "FAIL ") + name + (f" — {detail}" if detail else ""), flush=True)
@@ -199,8 +239,14 @@ def main(apk):
         browser = smoke.DevTools(browser_ws)
         friend = smoke.Tab(browser, debug_port, f"{SITE}?room={code}")
         friend.js(f"__sync.enter('{code}', false, 'Desk')")
-        joined = page.wait_for("__sync.room().state.members.length === 2", timeout=60)
-        check("a desktop friend joins the app's room", bool(joined))
+        try:
+            joined = page.wait_for("__sync.room().state.members.length === 2", timeout=60)
+        except AssertionError:
+            joined = False
+            diagnose("app", page.evaluate)
+            diagnose("friend", friend.js)
+        if not check("a desktop friend joins the app's room", bool(joined)):
+            raise AssertionError("The desktop friend could not connect to the app's room (see diagnostics)")
         friend.wait_for("(function(){var s=__sync.room().state;var f=s&&s.queue[0]&&s.queue[0].sources.file;return f&&!!__sync.room().fileUrl(f.fileId);})()", timeout=60)
 
         page.evaluate("__sync.room().intent({type:'play'})", gesture=True)
