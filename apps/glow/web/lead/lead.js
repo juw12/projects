@@ -2039,6 +2039,7 @@
     $("plans-label").textContent = pro ? " Pro" : " Plans";
     $("plans-btn").setAttribute("aria-label", pro ? "Glow Pro is on: plans" : "Glow plans");
     $("plans-btn").classList.toggle("is-pro", pro);
+    if ($("plans-btn-inline")) $("plans-btn-inline").textContent = pro ? "✦ Glow Pro is on" : "✦ Plans & Glow Pro";
     $("plans-current").textContent = pro
       ? `✦ Glow Pro is on for this device${state.customer ? " (" + state.customer + ")" : ""}. Thank you for supporting Glow!`
       : state.note || "You're on Glow Free. Everything here keeps working for free.";
@@ -2059,11 +2060,13 @@
   function wirePlans() {
     if (!$("plans-btn") || !window.GlowPlans) return;
     const note = (text) => { $("plans-note").textContent = text; };
-    $("plans-btn").addEventListener("click", () => {
+    const openPlans = () => {
       note("");
       renderPlans(true);
       $("plans-dialog").showModal();
-    });
+    };
+    $("plans-btn").addEventListener("click", openPlans);
+    if ($("plans-btn-inline")) $("plans-btn-inline").addEventListener("click", openPlans);
     $("plans-close").addEventListener("click", () => $("plans-dialog").close());
     $("plans-form").addEventListener("submit", (event) => event.preventDefault());
     $("plans-activate").addEventListener("click", async () => {

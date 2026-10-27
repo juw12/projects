@@ -72,7 +72,9 @@ jobs:
           exit 1
       - name: Plans endpoint answers
         if: steps.gate.outputs.deploy == 'true'
-        run: curl -fsS -H "Origin: https://juw12.github.io" "$GLOW_CLOUD_URL/v1/plans"
+        run: |
+          curl -fsS -H "Origin: https://juw12.github.io" "$GLOW_CLOUD_URL/v1/plans"
+          echo
       - name: Live mission check (real cloud browser)
         if: steps.gate.outputs.deploy == 'true'
         run: python3 test/live_check.py "$GLOW_CLOUD_URL"
