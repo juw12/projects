@@ -66,8 +66,9 @@
     const s = settings();
     const name = String(s.displayName || "").trim();
     const color = COLORS.includes(s.avatarColor) ? s.avatarColor : COLORS[0];
-    const signedIn = s.account === "puter";
-    const shown = name || (signedIn ? s.accountName : "");
+    const expired = s.account === "puter" && s.puterSession === false;
+    const signedIn = s.account === "puter" && !expired;
+    const shown = name || (s.account === "puter" ? s.accountName : "");
     const avatar = $("avatar-xl");
     const words = String(shown || "").trim().split(/\s+/).filter(Boolean);
     const letters = words.length > 1 ? words[0][0] + words[words.length - 1][0] : (words[0] || "").slice(0, 2);
@@ -81,6 +82,9 @@
       $("account-sub").textContent = s.accountTemp
         ? "Temporary Puter account: save it on puter.com so you don't lose it."
         : "Glow AI models and chat sync use this free Puter account in every Glow app.";
+    } else if (expired) {
+      $("account-title").textContent = `Signed out of ${s.accountName || "your Puter account"}`;
+      $("account-sub").textContent = "Your Puter session ended (signed out elsewhere or it expired). Sign in again to use Glow AI models and sync. Your chats on this device are safe.";
     } else if (s.account === "guest") {
       $("account-title").textContent = "Guest";
       $("account-sub").textContent = "You're using Glow without an account. Sign in to use Glow AI models and sync your chats.";
@@ -89,6 +93,7 @@
       $("account-sub").textContent = "Sign in with a free Puter account (Google, Microsoft, Apple or email) to use Glow AI models and sync your chats.";
     }
     $("signin-btn").hidden = signedIn;
+    $("signin-btn").textContent = expired ? "Sign in again" : "Sign in with Puter";
     $("switch-btn").hidden = !signedIn;
     $("signout-btn").hidden = !signedIn;
     $("temp-box").hidden = !(signedIn && s.accountTemp);
@@ -143,12 +148,12 @@
     }
     const s = settings();
     if (!signedIn) {
-      if (s.account === "puter") saveSettings({ account: "guest", accountName: "", accountTemp: false });
+      if (s.account === "puter" && s.puterSession !== false) saveSettings({ puterSession: false });
       return;
     }
     try {
       const user = await puter.auth.getUser();
-      saveSettings({ account: "puter", accountName: (user && user.username) || s.accountName || "Puter user", accountTemp: !!(user && user.is_temp) });
+      saveSettings({ account: "puter", accountName: (user && user.username) || s.accountName || "Puter user", accountTemp: !!(user && user.is_temp), puterSession: true });
     } catch (error) {
       // Offline or Puter is slow: keep what we know.
     }
@@ -181,7 +186,7 @@
     } catch (error) {
       // Signed out locally either way.
     }
-    saveSettings({ account: "guest", accountName: "", accountTemp: false });
+    saveSettings({ account: "guest", accountName: "", accountTemp: false, puterSession: undefined });
     allowance = null;
     renderUsage();
     if (!silent) toast("Signed out. Your chats stay on this device.");
