@@ -2104,6 +2104,9 @@
           return false;
         }
 
+        // Static hosting (GitHub Pages etc.) has no bridge: skip the /api probes.
+        this.isStaticHost = /(^|\.)github\.io$|\.pages\.dev$/.test(window.location.hostname);
+
         // Derive base URL from current location
         this.baseUrl = window.location.origin;
         console.log('[Bridge] Detected bridge at:', this.baseUrl);
@@ -2111,7 +2114,8 @@
       },
 
       async checkHealth() {
-        if (this.isFileProtocol) {
+        if (this.isFileProtocol || this.isStaticHost) {
+          this.mode = 'sim';
           return { ok: false, mode: 'sim' };
         }
 
@@ -2129,7 +2133,7 @@
       },
 
       async getAgents() {
-        if (this.isFileProtocol) {
+        if (this.isFileProtocol || this.isStaticHost) {
           return this.getDefaultAgents();
         }
 
