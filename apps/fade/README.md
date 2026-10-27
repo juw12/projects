@@ -1,4 +1,4 @@
-# Fade 3.2: book barbers, watch haircut shorts, earn as a creator, now live on the Fade Network
+# Fade 3.3: book barbers, watch haircut shorts, earn as a creator, now live on the Fade Network
 
 *Formerly **Fadeline** (v1). 2.0 added shorts and commissions; 3.0 puts it online for free.*
 
@@ -80,10 +80,10 @@ fee) with editable Tue–Sat 10:00–18:00 shifts. Opening a shop later upgrades
 | | Fade Network | Self-hosted server | Offline demo |
 |---|---|---|---|
 | **Reports + moderators** | NIP-56 reports, auto-hide at 3 reporters, moderator console for keys in `web/config.js` | `/api/report`, auto-hide at 3 reporters, moderator console for `--admin EMAIL` accounts (hide / keep / ban / verify / dismiss); bans sign the account out and make it read-only | Hidden on the device at once **and delivered to Fade's moderators** on the relays (queued while offline); moderators' removals of demo content sync back to every offline device |
-| **Automatic scanning** | On-device nudity classifier before upload; held uploads hidden by every client until a moderator keeps them; shorts published without a scan are checked on viewers' devices and auto-reported | Same on-device check, enforced by the server; unscanned uploads are checked on the moderator's device; re-uploads of removed media blocked by perceptual hash; obfuscated slurs, link spam, copy-paste floods and bursts refused | Same on-device check before saving |
+| **Automatic scanning** | On-device nudity classifier before upload; **every viewer's device re-checks what it is shown** (photo, or poster + 3 video frames) instead of trusting the uploader's claim, hides flagged shorts at once and auto-reports them (a clean claim contradicted by the viewer's check is reported as a possibly modified app); moderators' removals publish perceptual hashes in the signed moderation list so re-uploads are hidden on every device | Same on-device check, **then the server re-checks the stored file itself** (the same model in numpy, up to 8 video frames) and holds the upload until it has; a contradicted clean claim flags the account; optional **external checker** (`--scan-hook`, e.g. CSAM hash matching or violence detection) and **hash list** (`--hash-list`); re-uploads of removed media blocked by perceptual hash; obfuscated slurs, link spam, copy-paste floods and bursts refused | Same on-device check before saving |
 | **Push** | ntfy to each account's private topic + 2 h reminders, all with sequence ids: later pushes **replace** earlier ones; a cancelled/moved booking **deletes** its scheduled reminder; deleted comments recall their push | In-app feed + ntfy pushes with sequence ids; cancellations, deleted/hidden content and bans **recall** pushes from phones; reading in the app clears the phone's drawer; "remove from my devices"; topic rotation recalls the old topic | Local feed + device alerts and the 2 h reminder while the app is open |
-| **Private previews** | Recipient's choice, honoured by senders | `PUT /api/me/push {preview}` | n/a |
-| **Transcoding** | In the browser (≤ 720×1280, 2.5 Mbps, 60 s) | In the browser, plus server-side ffmpeg (H.264 720p, faststart, poster). If ffmpeg isn't installed the server **downloads a pinned, SHA-256-verified static build** once into `<data>/bin` and transcodes the backlog | In the browser before saving |
+| **Private previews** | **On by default**: pushes only say what kind of thing happened ("Fade: New message"); full previews are an opt-in | Same default; `PUT /api/me/push {preview}` | n/a |
+| **Transcoding** | In the browser (≤ 720×1280, 2.5 Mbps, 60 s) | In the browser, plus server-side ffmpeg (H.264 720p, faststart, poster). If ffmpeg isn't installed the server **downloads a pinned, SHA-256-verified static build** once into `<data>/bin` (macOS Intel/Apple Silicon, Linux x86_64 / arm64 / 32-bit ARM hard- and soft-float / i686, Windows) and transcodes the backlog; anywhere else it prints the exact install command | In the browser before saving |
 
 **How automatic scanning works.** `web/scan.js` runs NSFWJS (MobileNetV2, vendored in
 `web/vendor/nsfw/`, ~5 MB, loaded only when someone uploads) in a Web Worker on the
@@ -94,12 +94,35 @@ without one (old or modified clients) are checked on a moderator's device (serve
 viewers' devices (network). The server also fingerprints every upload (64-bit dHash of up
 to 3 frames via ffmpeg) and automatically hides re-uploads of anything a moderator removed.
 
+**Not trusting the uploader's app (3.3).** A modified app can lie about its own scan, so:
+
+- *Server:* `server/nsfw_scan.py` runs the **same NSFWJS model files** with numpy
+  (fetched once into `<data>/pylib` if missing) on frames ffmpeg extracts from the stored
+  file, up to 8 frames per video. Its output matches the browser model to within 10⁻⁵ on
+  every class (`test/net/run_scan_parity.sh`). Uploads stay hidden from everyone but the
+  uploader until this check — plus the optional `--scan-hook` and `--hash-list` — has run;
+  if the external checker is unreachable they stay hidden and are retried every minute.
+- *Network:* there is no server to trust, so every viewer's device checks what it is shown
+  and reports what it flags; because every honest device runs the same model, flagged
+  content collects the 3 reports that hide it for everyone.
+- *External checker:* `--scan-hook URL` receives each upload (raw bytes + `X-Fade-Short`,
+  `X-Fade-Kind`, `X-Fade-Sha256`, `X-Fade-User`) and answers
+  `{"action": "allow"|"review"|"block", "reason": "...", "labels": [...]}`. Use it to plug in
+  a CSAM hash-matching service (PhotoDNA, Thorn Safer, Cloudflare's CSAM tool...) or a
+  violence/gore classifier. A `block` with a child-abuse label suspends the account at
+  once, signs it out, blocks the media's hashes and keeps the file as evidence.
+
 ```bash
 python apps/fade/server/server.py --admin you@example.com --public-url https://fade.example.com
 #   --ffmpeg auto (default: PATH, else verified download) | fetch | /path/to/ffmpeg | off
+#   --scan auto (default: server-side classifier, numpy fetched if missing) | local | off
+#   --scan-hook https://checker.example/scan   (optional external checker)
+#   --hash-list blocked-hashes.txt              (optional: one 16-hex dHash per line)
 #   --ntfy https://ntfy.sh (default) | your own ntfy | off
 python apps/fade/tests/verify_safety.py     # 62 checks (65 with a real ffmpeg on PATH or FADE_TEST_FFMPEG)
 python apps/fade/tests/verify_limits.py     # 42 checks (47 with a real ffmpeg; FADE_TEST_DOWNLOAD=1 also fetches the real build)
+python apps/fade/tests/verify_guarantees.py # 49 checks (53 with ffmpeg + numpy: real classifier + browser parity;
+                                            #   FADE_TEST_DOWNLOAD=1 also pip-installs numpy for a bare python)
 ```
 
 URL overrides: `?ns=` (namespace), `?relays=wss://a,wss://b`, `?blossom=`, `?ntfy=`,
@@ -113,9 +136,10 @@ python apps/fade/tests/verify_safety.py     # moderation, push, transcoding on t
 python apps/fade/server/devnet.py           # local network for development
 ```
 
-Browser suites (headless Chrome, outside CI): 70 multi-user network API checks,
-49 two-user UI checks (barber + client) on the devnet, 70 offline-demo checks,
-32 server UI checks, 16 safety checks and 17 end-to-end checks of the 3.2 fixes
+Browser suites (headless Chrome, outside CI): 75 multi-user network API checks,
+51 two-user UI checks (barber + client) on the devnet, 70 offline-demo checks,
+32 server UI checks, 16 safety checks (real server-side ffmpeg + classifier), the
+numpy/browser classifier parity run, and 17 end-to-end checks of the 3.2 fixes
 (`test/net/run_limits.sh`: offline reports reaching moderators on a relay, moderator
 removals syncing back, the real on-device classifier on uploads, held/blocked verdicts,
 moderator-device scans and the push privacy controls).
@@ -135,18 +159,26 @@ moderator-device scans and the push privacy controls).
   and back up the secret key from *Account & privacy*.
 - Booking contents are encrypted, but relays can see *that* two accounts share a
   booking record (the `p` tags), and timestamps.
-- Automatic scanning is a filter, not a guarantee. The nudity classifier is a small
-  on-device model: it misses some content and occasionally flags harmless photos (which
-  go to a moderator rather than being deleted). It does not detect violence, hate symbols
-  or CSAM by hash (PhotoDNA-style lists are not freely available); reports and moderators
-  remain the backstop. On the open Fade Network a modified client can skip its own scan;
-  viewers' devices then check the poster image, and three automatic reports hide it.
-- Push recall uses ntfy's sequence ids. Per the ntfy docs the Android and web apps act on
-  updates, clears and deletes; other ntfy clients may keep showing the original. ntfy.sh
-  also keeps its append-only message cache (about 12 h), so turn on private previews if
-  push contents themselves are sensitive.
-- The automatic ffmpeg download covers macOS (Intel/Apple Silicon), Linux (x86_64/arm64)
-  and Windows; other platforms need `--ffmpeg /path/to/ffmpeg`. Without ffmpeg, uploads are
-  still optimised in the browser and fingerprint blocking is off.
+- **No automatic check is a guarantee.** The built-in classifier is a small nudity
+  model: it misses some content and sometimes flags harmless photos (they go to a
+  moderator, nothing is deleted). It does not recognise violence, hate symbols or known
+  child-abuse images by itself. Those lists are only given to vetted operators, so Fade
+  ships the `--scan-hook` to plug them in rather than pretending to include them; whoever
+  runs a server is responsible for connecting one and for reporting what it finds as their
+  law requires. Reports and moderators remain the backstop.
+- On the Fade Network nobody can stop a modified app from *publishing* something; what
+  3.3 guarantees is that honest apps check it themselves before trusting it, hide what
+  they flag, and that 3 such devices hide it for everyone. The first viewer may still see a
+  frame before their own check finishes (a second or two).
+- Pushes are content-free by default, so an un-recalled push never reveals more than
+  "Fade: New message". If you opt into full previews, the text passes through ntfy (not
+  end-to-end encrypted) and ntfy.sh keeps it about 12 h even after Fade deletes the push
+  (deletes are append-only there); recall itself depends on the ntfy app (Android and web
+  act on it). Run your own ntfy (`--ntfy`) with a short cache if that matters.
+- The ffmpeg download covers macOS, Linux (x86_64, arm64, 32-bit ARM, i686) and Windows.
+  The 32-bit Linux builds are pinned and checksum-verified but were not run on real
+  32-bit hardware during testing. Elsewhere (e.g. FreeBSD) Fade prints the one install
+  command; without ffmpeg, uploads are still optimised in the browser, but the server's
+  own classifier and fingerprinting are off and the app's own scans are used.
 - The network starts empty. The offline demo's barbers, shops, creators and reviews
   are fictional.

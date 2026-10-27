@@ -175,6 +175,28 @@
     return { nsfw: Math.round(nsfw * 10000) / 10000, sexy: Math.round(sexy * 10000) / 10000, model: String(raw.model || 'nsfwjs').slice(0, 40) };
   }
 
+  const PHASH_MATCH_BITS = 10; // same threshold as server.py
+
+  function hamming16(a, b) {
+    if (!/^[0-9a-f]{16}$/.test(a || '') || !/^[0-9a-f]{16}$/.test(b || '')) return 64;
+    let x = BigInt(`0x${a}`) ^ BigInt(`0x${b}`);
+    let bits = 0;
+    while (x) {
+      bits += Number(x & 1n);
+      x >>= 1n;
+    }
+    return bits;
+  }
+
+  // Removed media whose perceptual hash is within PHASH_MATCH_BITS of `hash` (not counting `ownId` itself).
+  function blockedMatch(hash, ownId, db) {
+    if (!/^[0-9a-f]{16}$/.test(hash || '')) return null;
+    for (const [blocked, target] of (db || derive()).mod.phash) {
+      if (target !== ownId && hamming16(hash, blocked) <= PHASH_MATCH_BITS) return target || 'removed media';
+    }
+    return null;
+  }
+
   function scanVerdict(scan) {
     if (!scan) return 'unscanned';
     if (scan.nsfw >= SCAN.block) return 'block';
@@ -697,7 +719,7 @@
       busy: new Map(),
       receipts: new Map(),
       reports: [],
-      mod: { hidden: new Set(), banned: new Set(), verified: new Set(), kept: new Set(), dismissed: new Set(), featured: new Set() },
+      mod: { hidden: new Set(), banned: new Set(), verified: new Set(), kept: new Set(), dismissed: new Set(), featured: new Set(), phash: new Map() },
       shared: new Map(),
       dms: new Map(),
       memo: new Map(),
@@ -709,6 +731,10 @@
         const data = parseJson(event) || {};
         ['hidden', 'banned', 'verified', 'kept', 'dismissed', 'featured'].forEach((key) => {
           (data[key] || []).forEach((value) => db.mod[key].add(value));
+        });
+        (data.phash || []).forEach((entry) => {  // "<16-hex dHash>@<removed target>"
+          const [hash, target] = String(entry).split('@');
+          if (/^[0-9a-f]{16}$/.test(hash)) db.mod.phash.set(hash, target || '');
         });
       }
     }
@@ -831,6 +857,8 @@
     db.shorts.forEach((short, id) => {
       const verdict = scanVerdict(cleanScan((short.media || {}).scan));
       if ((verdict === 'review' || verdict === 'block') && !db.mod.kept.has(id)) db.autoHidden.add(id);
+      // honest re-uploads of removed media (the declared hash); viewers' own hashes catch dishonest ones
+      if (!db.mod.kept.has(id) && blockedMatch((short.media || {}).phash, id, db)) db.autoHidden.add(id);
     });
     db.isHidden = (target) => db.mod.hidden.has(target) || db.autoHidden.has(target);
 
@@ -1298,15 +1326,26 @@
     return String(value || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60) || null;
   }
 
+  // ntfy keeps message text in its cache (~12 h on ntfy.sh) even after a recall, and has no end-to-end
+  // encryption, so pushes say only what kind of thing happened unless the recipient opted into full previews.
+  const PRIVATE_LABELS = {
+    bk: 'Booking update', rm: 'Appointment reminder', dm: 'New message', cm: 'New comment',
+    rp: 'New report to review', tg: 'New tag request', pay: 'Payment update',
+  };
+
+  function privateLabel(seq) {
+    return PRIVATE_LABELS[String(seq || '').split('-')[0]] || 'New notification';
+  }
+
   async function push(pk, title, body, path, at, seq) {
     const topic = pk ? topicOf(pk) : null;
     if (!topic) return false;
     const recipient = derive().users.get(pk) || {};
-    const privatePreview = recipient.pushPreview === 'private'; // recipient's choice: no names or text on the lock screen
+    const privatePreview = recipient.pushPreview !== 'full'; // full previews are an explicit opt-in
     const payload = {
       topic,
       title: privatePreview ? 'Fade' : String(title).slice(0, 120),
-      message: privatePreview ? 'You have a new notification — open Fade to see it' : String(body || '').slice(0, 400),
+      message: privatePreview ? `${privateLabel(seq)} — open Fade to see it` : String(body || '').slice(0, 400),
       tags: ['scissors'],
     };
     if (path) payload.click = appLink(path);
@@ -2731,25 +2770,46 @@
     return { ok: true };
   }
 
+  // perceptual hash this device computed when it checked a short (netui.js viewer checks, fade.viewscan)
+  function viewerHash(shortId) {
+    try {
+      const entry = JSON.parse(localStorage.getItem('fade.viewscan') || '{}')[shortId];
+      return (entry && entry.h) || '';
+    } catch (err) {
+      return '';
+    }
+  }
+
   async function modUpdate(body) {
     if (!CFG.admins.includes(ME.pk)) fail(403, 'Moderators only');
     const current = myDoc('mod', 'list') || {};
     const lists = {};
-    ['hidden', 'banned', 'verified', 'kept', 'dismissed', 'featured'].forEach((key) => {
+    ['hidden', 'banned', 'verified', 'kept', 'dismissed', 'featured', 'phash'].forEach((key) => {
       lists[key] = new Set(current[key] || []);
     });
     const { action, target } = body;
     const value = String(target || '');
     if (!value) fail(400, 'target required');
+    const forgetHashes = () => [...lists.phash].filter((entry) => entry.endsWith(`@${value}`)).forEach((entry) => lists.phash.delete(entry));
     const toggles = {
       hide: () => {
         lists.hidden.add(value);
         lists.kept.delete(value);
+        // block re-uploads everywhere: the hash the uploader declared + what this moderator's device computed
+        const short = derive().shorts.get(value);
+        const hashes = new Set([...(body.phash || []), (short && short.media && short.media.phash) || '', viewerHash(value)]);
+        hashes.forEach((hash) => {
+          if (/^[0-9a-f]{16}$/.test(hash || '')) lists.phash.add(`${hash}@${value}`);
+        });
       },
-      unhide: () => lists.hidden.delete(value),
+      unhide: () => {
+        lists.hidden.delete(value);
+        forgetHashes();
+      },
       keep: () => {
         lists.kept.add(value);
         lists.hidden.delete(value);
+        forgetHashes();
       },
       ban: () => lists.banned.add(value),
       unban: () => lists.banned.delete(value),
@@ -3088,6 +3148,8 @@
     recallPush,
     cleanText,
     scanVerdict: (scan) => scanVerdict(cleanScan(scan)),
+    blockedMatch: (hash, ownId) => blockedMatch(hash, ownId),
+    hamming: hamming16,
     start,
     handle,
     upload,

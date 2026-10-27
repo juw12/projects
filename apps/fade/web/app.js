@@ -8,7 +8,7 @@
   'use strict';
 
   const SEED = window.SEED;
-  const VERSION = '3.2.0';
+  const VERSION = '3.3.0';
   const LOCAL_KEY = 'fade.state';
   const REMOTE_KEY = 'fade.remote';
   const STATE_VERSION = 1;
@@ -3077,7 +3077,8 @@
         await pull();
         const sh = result.short;
         closeSheet();
-        toast(result.scan === 'review' || (scan && scan.verdict === 'review') ? 'Posted — held for a quick moderator check 🛡️' : 'Posted 🎬');
+        toast(result.scan === 'review' || (scan && scan.verdict === 'review') ? 'Posted — held for a quick moderator check 🛡️'
+          : result.checking ? 'Posted — others see it once Fade’s safety check finishes (a few seconds) 🎬' : 'Posted 🎬');
         openShortCtx(sh.id, sh.authorType === 'user' ? { type: 'user', id: 'me' } : { type: sh.authorType, id: sh.authorId });
       } catch (err) {
         if (UP) {
