@@ -488,15 +488,17 @@
    "id": "sync",
    "name": "Sync",
    "category": "Apps",
-   "desc": "Listen to music together in real time from anywhere: Spotify, Apple Music and YouTube listeners in one room, shared files, and voice chat that lowers the music when friends talk",
-   "description": "<strong>Sync</strong> lets friends hear the same song at the same second from anywhere, with no shared Wi-Fi or Bluetooth. Spotify, Apple Music and YouTube listeners share one room, each hearing it on their own service. You can also share your own audio files peer-to-peer, and voice chat lowers the music while friends talk. No account or server: rooms run browser-to-browser over WebRTC.",
-   "summary": "Listen to music together in real time across Spotify, Apple Music and YouTube, with voice chat and no account.",
+   "desc": "Listen to music together in real time from anywhere: Spotify, Apple Music and YouTube listeners in one room, shared files, and voice chat that lowers the music when friends talk. On the web, Android and iPhone",
+   "description": "<strong>Sync</strong> lets friends hear the same song at the same second from anywhere, with no shared Wi-Fi or Bluetooth. Spotify, Apple Music and YouTube listeners share one room, each hearing it on their own service. You can also share your own audio files peer-to-peer, and voice chat lowers the music while friends talk. The Android app keeps playing in the background and with the screen off, with lock-screen controls; on iPhone it installs from Safari to the home screen. No account or server: rooms run device-to-device over WebRTC.",
+   "summary": "Listen together in real time across Spotify, Apple Music and YouTube, with voice chat, on web, Android and iPhone.",
    "tags": [
     "WebRTC",
     "real-time sync",
     "voice chat",
     "cross-service",
-    "PWA"
+    "PWA",
+    "Android",
+    "iOS"
    ],
    "image": "sync-hero-halftone.jpg",
    "image_alt": "Sync listening room with a synced now-playing card, cross-service queue and party voice chat",
@@ -507,7 +509,25 @@
    },
    "featured": true,
    "order": 17,
-   "version": "1.0.0"
+   "version": "1.5.2",
+   "card_links": [
+    {
+     "label": "Open app",
+     "path": "sync/"
+    },
+    {
+     "label": "Android app",
+     "path": "https://github.com/juw12/projects/releases/tag/sync-mobile"
+    },
+    {
+     "label": "iPhone",
+     "path": "sync/mobile.html"
+    },
+    {
+     "label": "Source",
+     "path": "https://github.com/juw12/projects/tree/main/apps/sync"
+    }
+   ]
   },
   {
    "id": "fade",
