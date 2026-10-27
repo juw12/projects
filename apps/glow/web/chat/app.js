@@ -3523,6 +3523,9 @@ function openCrewroom(event) {
   if (!text) return;
   event.preventDefault();
   window.open(crewroomUrl(text), "crewroom");
+  $("input").value = "";
+  $("input").dispatchEvent(new Event("input", { bubbles: true }));
+  toast("🏢 The GlowRoom crew is on it");
 }
 // "🏢 Ask the crew" under a reply: the question plus Glow's answer become the crew's mission.
 function askCrew() {
