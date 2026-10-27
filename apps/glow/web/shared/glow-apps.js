@@ -10,7 +10,7 @@
   const ROOT = new URL("../", scriptUrl); // .../glow/
   // The Glow family version. Bump it together with ../version.json for every release:
   // an older copy of this script then sees the newer version.json and offers "Update now".
-  const GLOW_VERSION = "1.18.0";
+  const GLOW_VERSION = "1.19.0";
   const LIVE_ROOT = "https://juw12.github.io/projects/glow/";
   const APK_URL = "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk";
   const embedded = (function () {
