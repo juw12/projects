@@ -28,6 +28,28 @@ class GlowSetupTests(unittest.TestCase):
         for icon in re.findall(r"Icon = '([^']+)'", script):
             self.assertTrue((WEB / icon).is_file(), f"missing icon {icon}")
 
+    def test_taskbar_pins_keep_the_glow_icon(self):
+        # A pinned Edge --app window keeps its icon only when a Start-menu shortcut carries the same
+        # AppUserModelID Edge gives the window (host_path, cut in the middle to 31 chars on the Default profile).
+        script = (APP / "install-glow.ps1").read_text(encoding="ascii")
+        for needle in ("function Get-EdgeAppId", "function Set-ShortcutAppId", "function Repair-TaskbarPins",
+                       "9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3", "--profile-directory=", "$limit = 31", "'MSEdge.'"):
+            self.assertIn(needle, script)
+        self.assertIn("@(16, 20, 24, 32, 40, 48, 64, 96, 128, 256)", script, "icon must hold every taskbar size")
+        self.assertNotIn('"--app=$guide"', script, "the guide must not open as a pinnable app window")
+
+        def edge_app_id(host, path, limit=31):
+            name = host + "_" + path
+            if len(name) > limit:
+                head = limit // 2
+                name = name[:head] + name[len(name) - (limit - head):]
+            return "MSEdge." + name
+
+        # Values read from real Edge app windows on Windows 11 (Default profile).
+        self.assertEqual(edge_app_id("juw12.github.io", "/projects/glow/"), "MSEdge.juw12.github.io_/projects/glow/")
+        self.assertEqual(edge_app_id("juw12.github.io", "/projects/glow/lead/"), "MSEdge.juw12.github.iojects/glow/lead/")
+        self.assertEqual(edge_app_id("juw12.github.io", "/projects/glow/setup/"), "MSEdge.juw12.github.ioects/glow/setup/")
+
     def test_setup_guide(self):
         page = (WEB / "setup" / "index.html").read_text(encoding="utf-8")
         self.assertIn(INSTALLER_URL, page)
