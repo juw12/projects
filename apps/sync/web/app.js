@@ -6,7 +6,7 @@
   var catalog = window.SyncCatalog;
   var Players = window.SyncPlayers;
   var config = window.SYNC_CONFIG || {};
-  var VERSION = '1.5.1';
+  var VERSION = '1.5.2';
   var TICK_MS = 250;
   var DUCK_LEVEL = 0.3;
   var REACTIONS = ['❤️', '🔥', '😍', '🙌', '💃', '😂', '🎉'];
@@ -2407,6 +2407,7 @@
             toast('A new version of Sync is ready.', '', {
               label: 'Update',
               run: function () {
+                updateRequested = true;
                 worker.postMessage({ type: 'ACTIVATE_UPDATE' });
               },
             });
@@ -2414,9 +2415,13 @@
         });
       });
     }).catch(function () {});
+    // Reload only when the listener tapped "Update". On a first visit the new worker claims the page
+    // (controllerchange) a few seconds after load; reloading then threw people out of the room they
+    // had just started or joined from an invite link.
+    var updateRequested = false;
     var reloaded = false;
     navigator.serviceWorker.addEventListener('controllerchange', function () {
-      if (!reloaded) {
+      if (updateRequested && !reloaded) {
         reloaded = true;
         location.reload();
       }

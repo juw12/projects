@@ -61,6 +61,11 @@ def static_checks():
     for page, layout in layouts.items():
         check(f'class="{layout}"' in (WEB / page).read_text(encoding="utf-8"), f"{page} should use {layout}")
 
+    app_js = (WEB / "app.js").read_text(encoding="utf-8")
+    handler = app_js.split("addEventListener('controllerchange'", 1)[1][:200]
+    check("updateRequested" in handler,
+          "app.js must only reload on controllerchange after the user taps Update (first visits were reloaded mid-join)")
+
     sw = (WEB / "sw.js").read_text(encoding="utf-8")
     shell = sw.split("const SHELL = [", 1)[1].split("];", 1)[0]
     for entry in re.findall(r"'([^']+)'", shell):
