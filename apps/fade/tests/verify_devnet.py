@@ -153,6 +153,11 @@ def main():
         check(messages[1]["scheduled"] and messages[1]["time"] > time.time() + 3600, "ntfy delay schedules the 2 h reminder")
         status, _, _ = http("POST", f"{base}/ntfy", b'{"topic":"bad topic!"}', {"Content-Type": "application/json"})
         check(status == 400, "ntfy rejects invalid topics")
+        live_only = json.dumps({"topic": "fade-live-topic", "title": "Ana booked a skin fade", "message": "Fri 10:00"})
+        status, _, _ = http("POST", f"{base}/ntfy", live_only.encode(), {"Content-Type": "application/json", "Cache": "no"})
+        status_poll, _, body = http("GET", f"{base}/ntfy/fade-live-topic/json?poll=1")
+        check(status == 200 and status_poll == 200 and json.loads(body or b"[]") == [],
+              "ntfy 'Cache: no' messages are delivered live but never stored")
 
         # ---- app ----
         status, _, body = http("GET", f"{base}/app/")

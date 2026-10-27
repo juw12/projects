@@ -498,26 +498,114 @@
     //   * the photo, or the poster AND 3 frames of the video itself (a clean poster can't cover a bad video)
     //   * the result is compared with the uploader's claim — a big gap is reported as a possibly modified app
     //   * the frame's perceptual hash is compared with media moderators removed (signed moderation list)
-    // Anything flagged is hidden on this device at once and reported; 3 devices' reports hide it for everyone.
-    function queueViewerCheck(sh) {
-      if (!API.net || !window.FadeScan || new URLSearchParams(location.search).get('scan') === '0') return;
+    // Nothing is drawn before this device's check passes (mediaGate): grids wait for the poster check, the
+    // full-screen player for poster + video frames. Anything flagged is hidden at once and reported;
+    // 3 devices' reports hide it for everyone.
+    const revealed = new Set();  // "couldn't check here — show anyway", this session only
+
+    function checksOn() {
+      return API.net && !!window.FadeScan && new URLSearchParams(location.search).get('scan') !== '0';
+    }
+
+    function isOwn(sh) {
+      return !!(sh.byMe || (sh.ownerPk && sh.ownerPk === myId()));
+    }
+
+    function queueViewerCheck(sh, level = 'full') {
+      if (!checksOn()) return;
       const media = sh.media || {};
       if (!media.url && !media.poster) return;
-      if (sh.byMe || (sh.ownerPk && sh.ownerPk === myId())) return;
-      if (viewScans()[sh.id] || viewScanQueue.some((q) => q.id === sh.id)) return;
-      viewScanQueue.push(sh);
+      if (isOwn(sh)) return;
+      const entry = scanEntry(viewScans()[sh.id]);
+      if (entry.v || (level === 'poster' && entry.pv)) return;
+      if (level === 'poster' && !media.poster) level = 'full';  // photos: the photo is the poster
+      const queued = viewScanQueue.find((q) => q.sh.id === sh.id);
+      if (queued) {
+        if (level === 'full' && queued.level !== 'full') {
+          queued.level = 'full';
+          viewScanQueue.splice(viewScanQueue.indexOf(queued), 1);
+          viewScanQueue.unshift(queued);
+        }
+        return;
+      }
+      if (level === 'full') viewScanQueue.unshift({ sh, level });  // what's on screen full-size goes first
+      else viewScanQueue.push({ sh, level });
       runViewerChecks();
     }
 
-    async function checkShortOnThisDevice(sh) {
+    // null = show the media; otherwise the placeholder HTML to draw instead (no media element, nothing loads)
+    function mediaGate(sh, mode) {
+      if (!checksOn()) return null;
+      const media = sh.media || {};
+      if (!media.url && !media.poster) return null;
+      if (isOwn(sh) || sh.kept || revealed.has(sh.id)) return null;
+      const entry = scanEntry(viewScans()[sh.id]);
+      const needFull = mode !== 'tile' || !media.poster;
+      if (entry.v === 'ok' || (!needFull && entry.pv === 'ok')) return null;
+      const failed = entry.v === 'error' || (!needFull && entry.pv === 'error');
+      if (!failed) queueViewerCheck(sh, needFull ? 'full' : 'poster');
+      const label = failed ? "Couldn't check this on your device" : 'Checking on your device…';
+      const reveal = failed && mode !== 'tile'
+        ? `<button class="btn xs mt8" data-act="netRevealShort" data-sid="${esc(sh.id)}">Show anyway</button>` : '';
+      return `<div class="sv gate ${failed ? 'failed' : ''}" data-gate-sid="${esc(sh.id)}" data-gate-mode="${esc(mode)}">
+        <div class="gate-in">${icon(failed ? 'eye' : 'shield', mode === 'tile' ? 16 : 26)}<span>${label}</span>${reveal}</div></div>`;
+    }
+
+    // A check finished: swap placeholders for this short (still-gated ones get the updated placeholder).
+    function openGates(id) {
+      const sh = S().shorts.find((x) => x.id === id);
+      document.querySelectorAll(`.gate[data-gate-sid="${CSS.escape(id)}"]`).forEach((el) => {
+        if (!sh) {
+          el.remove();
+          return;
+        }
+        const holder = document.createElement('div');
+        holder.innerHTML = ctx.shortVisual(sh, el.dataset.gateMode);
+        const replacement = holder.firstElementChild;
+        if (!replacement) return;
+        el.replaceWith(replacement);
+        if (ctx.gateOpened && !replacement.classList.contains('gate')) ctx.gateOpened(replacement);
+      });
+    }
+
+    // Server mode: zip with the file, its hash, uploader details, checks, reports and history (kept from deletion)
+    ACTIONS.netEvidence = async (el) => {
+      try {
+        const res = await fetch(`${API.base}/api/mod/evidence/${encodeURIComponent(el.dataset.t)}`, {
+          headers: { Authorization: `Bearer ${API.token}` },
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
+        const blob = await res.blob();
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `fade-evidence-${el.dataset.t}.zip`;
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+          URL.revokeObjectURL(link.href);
+          link.remove();
+        }, 1000);
+        toast('Evidence exported — the upload is now kept from deletion');
+      } catch (err) {
+        toast(`Couldn't export: ${err.message}`);
+      }
+    };
+
+    ACTIONS.netRevealShort = (el) => {
+      revealed.add(el.dataset.sid);
+      openGates(el.dataset.sid);
+    };
+
+    async function checkShortOnThisDevice(sh, level = 'full') {
       const media = sh.media || {};
       const results = [];
       if (media.poster) results.push(await window.FadeScan.scanUrl(media.poster, 'image'));
-      if (media.url && (media.kind === 'video' || !media.poster)) {
+      if (level === 'full' && media.url && (media.kind === 'video' || !media.poster)) {
         try {
           results.push(await window.FadeScan.scanUrl(media.url, media.kind === 'video' ? 'video' : 'image'));
         } catch (err) {
-          if (!results.length) throw err;  // poster checked; the video itself couldn't be decoded here
+          if (!results.length) throw err;
+          throw Object.assign(new Error('video frames could not be decoded here'), { partial: results });
         }
       }
       const worst = results.reduce((acc, r) => ({ nsfw: Math.max(acc.nsfw, r.nsfw), sexy: Math.max(acc.sexy, r.sexy) }), { nsfw: 0, sexy: 0 });
@@ -525,38 +613,61 @@
       return { ...worst, verdict: window.FadeScan.verdict(worst), phash: hashes[hashes.length - 1] || '', hashes };
     }
 
+    // Report + flag; returns the cache verdict ('review' | 'block' | 'reupload') or null when it passed.
+    async function judgeScan(sh, scan) {
+      const media = sh.media || {};
+      const claimed = media.scan && typeof media.scan.nsfw === 'number' ? media.scan : null;
+      const claimedOk = claimed && N().scanVerdict(claimed) === 'ok';
+      const mismatch = claimedOk && (scan.verdict === 'review' || scan.verdict === 'block') && scan.nsfw - claimed.nsfw >= 0.3;
+      const removed = scan.hashes.map((hash) => N().blockedMatch(hash, sh.id)).find(Boolean);
+      if (scan.verdict === 'review' || scan.verdict === 'block') {
+        let note = `automatic check on a viewer's device: ${Math.round(scan.nsfw * 100)}% explicit`;
+        if (mismatch) note += ` — the uploader's app reported ${Math.round(claimed.nsfw * 100)}% (modified app?)`;
+        await API.req('POST', '/api/report', { target: sh.id, pk: sh.ownerPk, reason: 'nudity', auto: true, note }).catch(() => {});
+        return scan.verdict;
+      }
+      if (removed) {
+        await API.req('POST', '/api/report', {
+          target: sh.id, pk: sh.ownerPk, reason: 'spam', auto: true,
+          note: `re-upload of media moderators removed (${removed}) — matched on a viewer's device`,
+        }).catch(() => {});
+        return 'reupload';
+      }
+      return null;
+    }
+
     async function runViewerChecks() {
       if (viewScanBusy) return;
       viewScanBusy = true;
       while (viewScanQueue.length) {
-        const sh = viewScanQueue.shift();
-        const media = sh.media || {};
-        let entry = { v: 'error' };
+        const { sh, level } = viewScanQueue.shift();
+        const previous = scanEntry(viewScans()[sh.id]);
+        let entry = { ...previous };
         try {
-          const scan = await checkShortOnThisDevice(sh);
-          entry = { v: scan.verdict, h: scan.phash, n: Math.round(scan.nsfw * 1000) / 1000 };
-          const claimed = media.scan && typeof media.scan.nsfw === 'number' ? media.scan : null;
-          const claimedOk = claimed && N().scanVerdict(claimed) === 'ok';
-          const mismatch = claimedOk && (scan.verdict === 'review' || scan.verdict === 'block') && scan.nsfw - claimed.nsfw >= 0.3;
-          const removed = scan.hashes.map((hash) => N().blockedMatch(hash, sh.id)).find(Boolean);
-          if (scan.verdict === 'review' || scan.verdict === 'block') {
-            let note = `automatic check on a viewer's device: ${Math.round(scan.nsfw * 100)}% explicit`;
-            if (mismatch) note += ` — the uploader's app reported ${Math.round(claimed.nsfw * 100)}% (modified app?)`;
-            await API.req('POST', '/api/report', { target: sh.id, pk: sh.ownerPk, reason: 'nudity', auto: true, note }).catch(() => {});
-          } else if (removed) {
-            entry.v = 'reupload';
-            await API.req('POST', '/api/report', {
-              target: sh.id, pk: sh.ownerPk, reason: 'spam', auto: true,
-              note: `re-upload of media moderators removed (${removed}) — matched on a viewer's device`,
-            }).catch(() => {});
-          }
+          const scan = await checkShortOnThisDevice(sh, level);
+          const flagged = await judgeScan(sh, scan);
+          const verdict = flagged || scan.verdict;
+          if (level === 'full' || flagged) entry = { ...entry, v: verdict, h: scan.phash, n: Math.round(scan.nsfw * 1000) / 1000 };
+          entry.pv = flagged || (previous.pv && previous.pv !== 'error' ? previous.pv : scan.verdict);
+          if (!entry.h) entry.h = scan.phash;
         } catch (err) {
-          entry = { v: 'error' };
+          if (err && err.partial) {  // poster passed, frames undecodable: grids may show the poster, the player may not
+            const scan = { ...err.partial[0], hashes: err.partial.map((r) => r.phash).filter(Boolean) };
+            scan.verdict = window.FadeScan.verdict(scan);
+            const flagged = await judgeScan(sh, scan);
+            entry = { ...entry, pv: flagged || scan.verdict, v: flagged || 'error', h: scan.phash };
+          } else if (level === 'full') {
+            entry.v = 'error';
+          } else {
+            entry.pv = 'error';
+          }
         }
         saveViewScan(sh.id, entry);
         if (['review', 'block', 'reupload'].includes(entry.v)) {
           S().shorts = S().shorts.filter((x) => x.id !== sh.id);
           refresh();
+        } else {
+          openGates(sh.id);
         }
       }
       viewScanBusy = false;
@@ -597,7 +708,7 @@
     }
 
     function reelButtons(sh) {
-      queueViewerCheck(sh);
+      queueViewerCheck(sh, 'full');
       const own = sh.byMe || (sh.ownerPk && sh.ownerPk === myId());
       const count = API.on ? sh.comments || 0 : commentsFor(sh.id).length;
       return `
@@ -894,7 +1005,10 @@
       MODQ.loading = true;
       try {
         const data = await API.req('GET', '/api/mod');
-        MODQ = { loaded: true, loading: false, queue: data.queue || [], unscanned: data.unscanned || [], blockedHashes: data.blockedHashes || 0 };
+        MODQ = {
+          loaded: true, loading: false, queue: data.queue || [], unscanned: data.unscanned || [], blockedHashes: data.blockedHashes || 0,
+          setup: data.setup || [], held: data.held || [],
+        };
       } catch (err) {
         MODQ = { loaded: true, loading: false, queue: [] };
         toast(err.message);
@@ -927,6 +1041,8 @@
         ${pageHead('Moderation')}
         <div class="kpis"><div class="kpi"><span>Open reports</span><b>${queue.length}</b></div><div class="kpi"><span>Barbers</span><b>${s.barbers.length}</b></div><div class="kpi"><span>Shops</span><b>${s.places.length}</b></div><div class="kpi"><span>Shorts</span><b>${s.shorts.length}</b></div></div>
         <div class="card small mt12" style="line-height:1.5">${icon('shield', 14)} Automatic checks: uploads are classified on the uploader’s device (explicit ones never upload, borderline ones wait here)${API.net ? ', shorts without a scan are checked on viewers’ devices' : `, re-uploads of removed media are blocked by fingerprint${MODQ.blockedHashes ? ` (${MODQ.blockedHashes} blocked)` : ''}`}, and slurs, link spam and floods are refused.</div>
+        ${!API.net && (MODQ.setup || []).length ? `<h2 class="sec">Safety setup</h2><div class="card small" data-safety-setup style="line-height:1.6">${MODQ.setup.map((item) => `<div class="row gap6">${item.on ? '✅' : '⚠️'} <span class="${item.on ? '' : 'hot'}">${esc(item.label)}</span></div>`).join('')}</div>` : ''}
+        ${!API.net && (MODQ.held || []).length ? `<div class="card small mt8">${icon('shield', 14)} ${MODQ.held.length} upload${MODQ.held.length > 1 ? 's' : ''} held until the server's checks finish</div>` : ''}
         ${toScan.length ? `<div class="card small mt8">${icon('shield', 14)} Checking ${toScan.length} upload${toScan.length > 1 ? 's' : ''} that arrived without an on-device scan…</div>` : ''}
         <h2 class="sec">Report queue</h2>
         ${queue.map((q) => `
@@ -938,6 +1054,7 @@
               <button class="btn xs" data-act="netMod" data-a="keep" data-t="${esc(q.target)}">Keep</button>
               ${q.targetPk ? `<button class="btn xs hot" data-act="netMod" data-a="${q.banned ? 'unban' : 'ban'}" data-t="${esc(q.targetPk)}">${q.banned ? 'Unban' : 'Ban account'}</button>` : ''}
               ${q.reports.map((r) => `<button class="btn xs ghost" data-act="netMod" data-a="dismiss" data-t="${r.id}">Dismiss</button>`).slice(0, 1).join('')}
+              ${!API.net && String(q.target).startsWith('short:') ? `<button class="btn xs ghost" data-act="netEvidence" data-t="${esc(q.target.slice(6))}">Export evidence</button>` : ''}
             </div></div>`).join('') || '<div class="empty">Nothing to review 🎉</div>'}
         <h2 class="sec">Verification</h2>
         ${[...s.barbers, ...s.places].map((x) => `<div class="listitem"><span class="grow"><b class="small">${esc(x.name)}</b><div class="xs muted">${x.id.startsWith('b') ? 'Barber' : 'Shop'} · ${esc(x.city || '')}</div></span>
@@ -1248,7 +1365,7 @@
       openPay, checkoutHTML, successExtra, statusLabel, bookingCardExtra, rateTipNote, afterRate, cancelMessage,
       meSafetyItems, onServerState, localNotify, localDuties, commentsFor, flushOfflineReports, syncOfflineDecisions, autoHidden,
       studioPanel, ownerPanel, creatorPanel, reelButtons, profileMenu, meAccountItems, meAppSection, authExtras,
-      homeEmpty, checkout, blocked, orderRow,
+      homeEmpty, checkout, blocked, orderRow, mediaGate,
     };
   };
 })();

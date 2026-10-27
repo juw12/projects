@@ -714,3 +714,13 @@ body.mobile .phone { width: 100vw; height: 100dvh; border-radius: 0; border: 0; 
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
 .net-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--hot); margin-right: 6px; vertical-align: middle; }
 .net-dot.ok { background: var(--ok); }
+
+/* Fade Network: media waits for this device's own safety check */
+.sv.gate { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; min-height: 120px;
+  background: repeating-linear-gradient(135deg, #15171c 0 14px, #1a1d23 14px 28px); color: #9aa3b2; text-align: center; }
+.sv.gate .gate-in { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px; font-size: 13px; line-height: 1.3; }
+.stile .sv.gate { min-height: 0; aspect-ratio: 9 / 16; }
+.stile .sv.gate .gate-in { font-size: 10px; gap: 4px; }
+.sv.gate:not(.failed) svg { animation: gate-pulse 1.4s ease-in-out infinite; }
+.sv.gate.failed { color: #c9a27a; }
+@keyframes gate-pulse { 50% { opacity: .35; } }

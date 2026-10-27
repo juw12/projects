@@ -8,7 +8,7 @@
   'use strict';
 
   const SEED = window.SEED;
-  const VERSION = '3.3.0';
+  const VERSION = '3.4.0';
   const LOCAL_KEY = 'fade.state';
   const REMOTE_KEY = 'fade.remote';
   const STATE_VERSION = 1;
@@ -2564,6 +2564,9 @@
     if (!m.kind || m.kind === 'art') {
       return `<div class="art-wrap ${mode === 'reel' ? 'kb' : ''}">${cutArt(m.style || 'fade', m.hue || 200, { color: m.color })}</div>`;
     }
+    // Fade Network: nothing is drawn until this device's own check of the media passes
+    const gate = API.net && NETUI && NETUI.mediaGate ? NETUI.mediaGate(sh, mode) : null;
+    if (gate) return gate;
     const src = m.url ? `src="${esc(mediaUrl(m.url))}"` : '';
     const keyAttr = m.key ? `data-media-key="${esc(m.key)}"` : '';
     if (mode === 'tile') {
@@ -5276,7 +5279,16 @@
     NETUI = window.FadeNetUI({
       API, VIEWS, ACTIONS, $, esc, money, icon, avatar, barberAvatar, pageHead, toast, openSheet, setSheet, closeSheet,
       go, refresh, pull, remoteDo, barberById, placeById, fmtDate, fmtTime, whenLabel, firstName, confetti, compact, ago,
-      placeCover, refNoteHTML, shareLink, logoutLocal, activeRef, placeTimeToDate, mediaUrl,
+      placeCover, refNoteHTML, shareLink, logoutLocal, activeRef, placeTimeToDate, mediaUrl, shortVisual,
+      gateOpened: (el) => {
+        hydrateMedia(el.parentElement);
+        const reel = el.closest('.reel');
+        if (el.tagName === 'VIDEO' && el.src && reel && reel.dataset.sid === ACTIVE_SID) {
+          el.muted = FEED.muted;
+          const playing = el.play();
+          if (playing && playing.catch) playing.catch(() => {});
+        }
+      },
       state: () => S,
       save: () => save(),
       cartDelivery: () => CART.delivery,
@@ -5324,7 +5336,10 @@
       toast(`${message.title ? `${message.title}: ` : ''}${message.message || ''}`.slice(0, 140));
       if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.hidden) {
         try {
-          new Notification(message.title || 'Fade', { body: message.message || '', icon: 'icons/icon-192.png' });
+          // same tag: the live full-text update replaces the generic notification instead of stacking
+          new Notification(message.title || 'Fade', {
+            body: message.message || '', icon: 'icons/icon-192.png', tag: message.sequence_id || undefined, renotify: false,
+          });
         } catch (err) {
           // some browsers only allow notifications from a service worker
         }
