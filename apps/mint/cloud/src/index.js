@@ -15,7 +15,7 @@ import * as Notify from "./notify.js";
 const Core = globalThis.MintCore;
 
 const APP = "mint";
-const VERSION = "2.2.0";
+const VERSION = "2.3.0";
 const APP_URL_DEFAULT = "https://juw12.github.io/projects/mint/app.html";
 const ORDER_EXPIRY_DAYS = 14;
 const REPORT_HIDE_THRESHOLD = 5;
@@ -27,6 +27,8 @@ const CATEGORIES = new Set(Core.CATEGORIES);
 const CURRENCIES = new Set(Object.keys(Core.CURRENCIES));
 const EMAIL_RE = /^[^@\s]{1,64}@[^@\s]{1,190}\.[A-Za-z]{2,24}$/;
 const CODE_RE = /^[A-Za-z0-9_-]{4,40}$/;
+const COUPON_RE = /^[A-Z0-9][A-Z0-9_-]{2,23}$/;
+const DAY = 86400;
 const REF_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const STUDIO_EMAIL = "studio@mint.local";
 
@@ -45,6 +47,10 @@ export default {
     const cors = corsHeaders(origin, env);
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: cors });
+    }
+    const share = url.pathname.match(/^\/s\/([A-Za-z0-9_-]{1,80})\/?$/);
+    if (share && (request.method === "GET" || request.method === "HEAD")) {
+      return sharePage(request, env, url, share[1]);
     }
     if (!url.pathname.startsWith("/api/")) {
       return json({ ok: true, app: APP, hint: "API lives under /api/" }, 200, cors);
@@ -95,6 +101,76 @@ function json(payload, status = 200, extra = {}) {
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
       ...extra,
+    },
+  });
+}
+
+
+// ------------------------------------------------------------------ coupons
+function discountedCents(cents, percent) {
+  return Math.max(0, Math.round(cents * (100 - percent) / 100));
+}
+
+function dayKey(seconds) {
+  return new Date(seconds * 1000).toISOString().slice(0, 10);
+}
+
+// ------------------------------------------------------------------ share pages
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+}
+
+/** A tiny HTML page with Open Graph / Twitter tags so shared links show a rich preview, then sends people to the app. */
+async function sharePage(request, env, url, listingId) {
+  const appUrl = env.APP_URL || APP_URL_DEFAULT;
+  const ref = url.searchParams.get("ref") || "";
+  const coupon = (url.searchParams.get("coupon") || "").toUpperCase();
+  const params = [];
+  if (CODE_RE.test(ref)) {
+    params.push("ref=" + encodeURIComponent(ref));
+  }
+  if (COUPON_RE.test(coupon)) {
+    params.push("coupon=" + encodeURIComponent(coupon));
+  }
+  const target = appUrl + "#/item/" + encodeURIComponent(listingId) + (params.length ? "?" + params.join("&") : "");
+  const headers = new Headers({ "x-mint-ip": request.headers.get("CF-Connecting-IP") || "local" });
+  const response = await env.MINT_DB.get(env.MINT_DB.idFromName("main"))
+    .fetch(new Request(url.origin + "/api/share/" + encodeURIComponent(listingId), { headers }));
+  if (!response.ok) {
+    return Response.redirect(appUrl + "#/market", 302);
+  }
+  const info = await response.json();
+  const priceText = info.price > 0 ? Core.formatValue(info.price, "currency", info.currency) : "Free";
+  const title = info.title + " — " + priceText + " on Mint";
+  const description = (info.description || "Spreadsheet template for Excel & Google Sheets.").slice(0, 220) +
+    (coupon && COUPON_RE.test(coupon) ? " Coupon " + coupon + " applied." : "");
+  const image = appUrl.replace(/[^/]*$/, "") + "icons/og-card.png";
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escapeHtml(title)}</title>
+<meta name="description" content="${escapeHtml(description)}">
+<meta property="og:type" content="product">
+<meta property="og:site_name" content="Mint">
+<meta property="og:title" content="${escapeHtml(title)}">
+<meta property="og:description" content="${escapeHtml(description)}">
+<meta property="og:url" content="${escapeHtml(url.href)}">
+<meta property="og:image" content="${escapeHtml(image)}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${escapeHtml(title)}">
+<meta name="twitter:description" content="${escapeHtml(description)}">
+<meta name="twitter:image" content="${escapeHtml(image)}">
+<link rel="canonical" href="${escapeHtml(target)}">
+<meta http-equiv="refresh" content="0; url=${escapeHtml(target)}">
+<style>body{font:16px system-ui,sans-serif;margin:40px;color:#123;}a{color:#0f9d76}</style>
+</head><body><p>Opening <a href="${escapeHtml(target)}">${escapeHtml(info.title)}</a> on Mint…</p>
+<script>location.replace(${JSON.stringify(target).replace(/</g, "\\u003c")});</script></body></html>`;
+  return new Response(request.method === "HEAD" ? null : html, {
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "public, max-age=300",
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }
@@ -359,11 +435,19 @@ export class MintDB extends DurableObject {
       this.run("ALTER TABLE users ADD COLUMN notify_email INTEGER NOT NULL DEFAULT 1");
     }
     const orderColumns = this.all("PRAGMA table_info(orders)").map((c) => c.name);
-    for (const column of ["pay_provider", "pay_ref", "pay_url"]) {
+    for (const column of ["pay_provider", "pay_ref", "pay_url", "coupon_id", "coupon_code"]) {
       if (!orderColumns.includes(column)) {
         this.run(`ALTER TABLE orders ADD COLUMN ${column} TEXT NOT NULL DEFAULT ''`);
       }
     }
+    if (!orderColumns.includes("discount_cents")) {
+      this.run("ALTER TABLE orders ADD COLUMN discount_cents INTEGER NOT NULL DEFAULT 0");
+    }
+    this.run(`CREATE TABLE IF NOT EXISTS listing_views (listing_id TEXT NOT NULL, day TEXT NOT NULL, views INTEGER NOT NULL,
+      PRIMARY KEY (listing_id, day))`);
+    this.run(`CREATE TABLE IF NOT EXISTS coupons (id TEXT PRIMARY KEY, seller_id TEXT NOT NULL, code TEXT NOT NULL,
+      listing_id TEXT NOT NULL DEFAULT '', percent INTEGER NOT NULL, max_uses INTEGER NOT NULL DEFAULT 0,
+      expires REAL NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, created REAL NOT NULL, UNIQUE (seller_id, code))`);
     this.run(`CREATE TABLE IF NOT EXISTS payment_accounts (user_id TEXT PRIMARY KEY, provider TEXT NOT NULL,
       key_sealed TEXT NOT NULL, key_hint TEXT NOT NULL, sandbox INTEGER NOT NULL DEFAULT 0, created REAL NOT NULL)`);
     this.run(`CREATE TABLE IF NOT EXISTS push_subs (endpoint TEXT PRIMARY KEY, user_id TEXT NOT NULL, p256dh TEXT NOT NULL,
@@ -569,8 +653,16 @@ export class MintDB extends DurableObject {
       case "affiliate":
         return this.routeAffiliate(request, method, parts.slice(1), ip);
       case "seller":
+        if (parts[1] === "coupons") {
+          return this.routeCoupons(request, method, parts.slice(2));
+        }
         if (method === "GET") {
           return this.sellerStats(request);
+        }
+        break;
+      case "share":
+        if (method === "GET" && parts[1]) {
+          return this.shareInfo(parts[1]);
         }
         break;
       case "push":
@@ -834,6 +926,9 @@ export class MintDB extends DurableObject {
     if (method === "POST" && (action === "order" || action === "buy")) {
       return this.createOrder(request, listing);
     }
+    if (method === "GET" && action === "coupon") {
+      return this.checkCoupon(request, listing, query.code);
+    }
     if (method === "POST" && action === "reviews") {
       return this.review(request, listing);
     }
@@ -900,6 +995,9 @@ export class MintDB extends DurableObject {
     const isSeller = Boolean(user && user.id === listing.seller_id);
     if (listing.status !== "live" && !isSeller) {
       throw new ApiError(404, "Listing not found");
+    }
+    if (!isSeller) {
+      this.recordView(listing.id, request.headers.get("x-mint-ip") || "local");
     }
     this.expireOrders();
     const summary = this.summary(listing);
@@ -1009,6 +1107,8 @@ export class MintDB extends DurableObject {
       commissionPaid: Boolean(row.commission_paid),
       autoPay: row.pay_provider || "",
       payUrl: row.status === "pending" ? row.pay_url || "" : "",
+      coupon: row.coupon_code || "",
+      discount: (row.discount_cents || 0) / 100,
       created: row.created,
       paidAt: row.paid_at,
       ...extra,
@@ -1023,17 +1123,29 @@ export class MintDB extends DurableObject {
     if (listing.seller_id === user.id) {
       throw new ApiError(400, "You can’t buy your own template");
     }
-    const existing = this.one(
+    const data = await this.readJson(request);
+    const coupon = listing.price_cents > 0 ? this.couponFor(listing, data.coupon) : null;
+    let existing = this.one(
       "SELECT * FROM orders WHERE listing_id = ? AND buyer_id = ? AND status IN ('pending', 'paid')",
       listing.id, user.id,
     );
+    if (existing && existing.status === "pending" && coupon && existing.coupon_id !== coupon.id) {
+      // The buyer found a coupon after ordering: replace the unpaid order with a discounted one.
+      if (existing.pay_provider) {
+        existing = await this.verifyOrder(existing).catch(() => existing);
+      }
+      if (existing.status === "pending") {
+        this.run("UPDATE orders SET status = 'cancelled' WHERE id = ? AND status = 'pending'", existing.id);
+        existing = null;
+      }
+    }
     if (existing) {
       const url = existing.status === "pending" ? existing.pay_url || listing.payment_url : "";
       return { order: this.orderOut(existing), paymentUrl: url, existing: true };
     }
     this.requireLimit("order:" + user.id, 30, 3600, "Too many orders — try again later");
-    const data = await this.readJson(request);
-    const price = listing.price_cents;
+    const listPrice = listing.price_cents;
+    const price = coupon ? discountedCents(listPrice, coupon.percent) : listPrice;
     const autoProvider = price > 0 ? this.autoPayFor(listing.seller_id, listing.currency) : "";
     if (price > 0 && !listing.payment_url && !autoProvider) {
       throw new ApiError(400, "This seller hasn’t set up payments yet");
@@ -1057,11 +1169,13 @@ export class MintDB extends DurableObject {
     const t = now();
     this.run(
       `INSERT INTO orders (id, ref, listing_id, buyer_id, seller_id, status, price_cents, currency, platform_fee_cents,
-        affiliate_code, affiliate_user_id, commission_cents, seller_net_cents, commission_paid, created, paid_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+        affiliate_code, affiliate_user_id, commission_cents, seller_net_cents, commission_paid, created, paid_at,
+        coupon_id, coupon_code, discount_cents)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`,
       id, ref, listing.id, user.id, listing.seller_id, status, price, listing.currency, fee,
       affiliate ? affiliate.code : null, affiliate ? affiliate.user_id : null, commission, price - fee - commission,
       t, status === "paid" ? t : null,
+      coupon ? coupon.id : "", coupon ? coupon.code : "", listPrice - price,
     );
     let order = this.one("SELECT * FROM orders WHERE id = ?", id);
     let paymentUrl = status === "pending" ? listing.payment_url : "";
@@ -1512,20 +1626,242 @@ export class MintDB extends DurableObject {
     throw new ApiError(404, "Not found");
   }
 
+
+  // ---- share previews, views, coupons
+  shareInfo(listingId) {
+    const listing = this.one("SELECT * FROM listings WHERE id = ? AND status = 'live'", listingId);
+    if (!listing) {
+      throw new ApiError(404, "Listing not found");
+    }
+    const seller = this.one("SELECT name FROM users WHERE id = ?", listing.seller_id);
+    return {
+      id: listing.id,
+      title: listing.title,
+      description: listing.description,
+      category: listing.category,
+      price: listing.price_cents / 100,
+      currency: listing.currency,
+      sellerName: seller ? seller.name : "",
+    };
+  }
+
+  recordView(listingId, ip) {
+    if (!this.limit("view:" + ip + ":" + listingId, 1, 3600).ok) {
+      return;
+    }
+    this.run(
+      `INSERT INTO listing_views (listing_id, day, views) VALUES (?, ?, 1)
+       ON CONFLICT (listing_id, day) DO UPDATE SET views = views + 1`,
+      listingId, dayKey(now()),
+    );
+  }
+
+  couponUses(couponId) {
+    return this.one("SELECT COUNT(*) AS n FROM orders WHERE coupon_id = ? AND status IN ('pending', 'paid')", couponId).n;
+  }
+
+  /** Validates a buyer-entered code for this listing; returns the coupon row, null for no code, or throws. */
+  couponFor(listing, rawCode) {
+    const code = String(rawCode || "").trim().toUpperCase();
+    if (!code) {
+      return null;
+    }
+    const invalid = new ApiError(400, "That coupon code isn’t valid for this template");
+    if (!COUPON_RE.test(code)) {
+      throw invalid;
+    }
+    const coupon = this.one("SELECT * FROM coupons WHERE seller_id = ? AND code = ?", listing.seller_id, code);
+    if (!coupon || !coupon.active || (coupon.listing_id && coupon.listing_id !== listing.id)) {
+      throw invalid;
+    }
+    if (coupon.expires && coupon.expires < now()) {
+      throw new ApiError(400, "That coupon has expired");
+    }
+    if (coupon.max_uses > 0 && this.couponUses(coupon.id) >= coupon.max_uses) {
+      throw new ApiError(400, "That coupon has been fully used");
+    }
+    return coupon;
+  }
+
+  async checkCoupon(request, listing, rawCode) {
+    if (listing.status !== "live") {
+      throw new ApiError(404, "Listing not found");
+    }
+    if (listing.price_cents <= 0) {
+      throw new ApiError(400, "This template is already free");
+    }
+    const ip = request.headers.get("x-mint-ip") || "local";
+    this.requireLimit("coupon:" + ip, 30, 600, "Too many coupon attempts — wait a few minutes");
+    const coupon = this.couponFor(listing, rawCode);
+    if (!coupon) {
+      throw new ApiError(400, "Enter a coupon code");
+    }
+    return {
+      code: coupon.code,
+      percent: coupon.percent,
+      price: discountedCents(listing.price_cents, coupon.percent) / 100,
+      originalPrice: listing.price_cents / 100,
+      currency: listing.currency,
+    };
+  }
+
+  couponOut(row) {
+    const paid = this.one(
+      "SELECT COUNT(*) AS n, COALESCE(SUM(discount_cents), 0) AS given FROM orders WHERE coupon_id = ? AND status = 'paid'",
+      row.id,
+    );
+    const listing = row.listing_id ? this.one("SELECT title FROM listings WHERE id = ?", row.listing_id) : null;
+    return {
+      id: row.id,
+      code: row.code,
+      percent: row.percent,
+      listingId: row.listing_id || "",
+      listingTitle: listing ? listing.title : "",
+      maxUses: row.max_uses,
+      uses: this.couponUses(row.id),
+      paidUses: paid.n,
+      expires: row.expires || 0,
+      active: Boolean(row.active),
+      expired: Boolean(row.expires && row.expires < now()),
+      created: row.created,
+    };
+  }
+
+  async routeCoupons(request, method, parts) {
+    const user = await this.currentUser(request);
+    if (method === "GET" && !parts.length) {
+      const rows = this.all("SELECT * FROM coupons WHERE seller_id = ? ORDER BY created DESC", user.id);
+      return { coupons: rows.map((row) => this.couponOut(row)) };
+    }
+    if (method === "POST" && !parts.length) {
+      const data = await this.readJson(request);
+      const code = String(data.code || "").trim().toUpperCase();
+      if (!COUPON_RE.test(code)) {
+        throw new ApiError(400, "Coupon codes are 3–24 letters, numbers, - or _ (for example LAUNCH20)");
+      }
+      const percent = parseInt(data.percent, 10);
+      if (!Number.isInteger(percent) || percent < 5 || percent > 90) {
+        throw new ApiError(400, "Discount must be 5–90%");
+      }
+      const maxUses = data.maxUses === undefined || data.maxUses === "" ? 0 : parseInt(data.maxUses, 10);
+      if (!Number.isInteger(maxUses) || maxUses < 0 || maxUses > 100000) {
+        throw new ApiError(400, "Max uses must be 0 (unlimited) or more");
+      }
+      const days = data.days === undefined || data.days === "" ? 0 : parseInt(data.days, 10);
+      if (!Number.isInteger(days) || days < 0 || days > 365) {
+        throw new ApiError(400, "Expiry must be 0 (never) to 365 days");
+      }
+      let listingId = String(data.listingId || "");
+      if (listingId) {
+        const own = this.one("SELECT id FROM listings WHERE id = ? AND seller_id = ?", listingId, user.id);
+        if (!own) {
+          throw new ApiError(400, "Pick one of your own templates");
+        }
+      } else {
+        listingId = "";
+      }
+      if (this.one("SELECT COUNT(*) AS n FROM coupons WHERE seller_id = ?", user.id).n >= 50) {
+        throw new ApiError(400, "You can have up to 50 coupons — delete old ones first");
+      }
+      if (this.one("SELECT 1 AS x FROM coupons WHERE seller_id = ? AND code = ?", user.id, code)) {
+        throw new ApiError(409, "You already have a coupon called " + code);
+      }
+      const id = randomId("c_");
+      const t = now();
+      this.run(
+        `INSERT INTO coupons (id, seller_id, code, listing_id, percent, max_uses, expires, active, created)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+        id, user.id, code, listingId, percent, maxUses, days ? t + days * DAY : 0, t,
+      );
+      return { __http: 201, body: { coupon: this.couponOut(this.one("SELECT * FROM coupons WHERE id = ?", id)) } };
+    }
+    if (method === "POST" && parts.length === 2) {
+      const coupon = this.one("SELECT * FROM coupons WHERE id = ? AND seller_id = ?", parts[0], user.id);
+      if (!coupon) {
+        throw new ApiError(404, "Coupon not found");
+      }
+      if (parts[1] === "toggle") {
+        this.run("UPDATE coupons SET active = ? WHERE id = ?", coupon.active ? 0 : 1, coupon.id);
+        return { coupon: this.couponOut(this.one("SELECT * FROM coupons WHERE id = ?", coupon.id)) };
+      }
+      if (parts[1] === "delete") {
+        this.run("DELETE FROM coupons WHERE id = ?", coupon.id);
+        return { ok: true };
+      }
+    }
+    throw new ApiError(404, "Not found");
+  }
+
+  /** Views, sales and conversion for the last 30 days, per day and per listing. */
+  sellerInsights(sellerId, listingRows) {
+    const t = now();
+    const since = t - 30 * DAY;
+    const sinceDay = dayKey(since);
+    const days = [];
+    for (let i = 29; i >= 0; i -= 1) {
+      days.push(dayKey(t - i * DAY));
+    }
+    const viewsByDay = {};
+    for (const row of this.all(
+      `SELECT day, SUM(views) AS v FROM listing_views
+       WHERE listing_id IN (SELECT id FROM listings WHERE seller_id = ?) AND day >= ? GROUP BY day`,
+      sellerId, sinceDay,
+    )) {
+      viewsByDay[row.day] = row.v;
+    }
+    const salesByDay = {};
+    for (const row of this.all(
+      `SELECT paid_at FROM orders WHERE seller_id = ? AND status = 'paid' AND paid_at >= ?`,
+      sellerId, since,
+    )) {
+      const key = dayKey(row.paid_at);
+      salesByDay[key] = (salesByDay[key] || 0) + 1;
+    }
+    const revenue = this.all(
+      `SELECT currency, COALESCE(SUM(seller_net_cents), 0) AS net, COUNT(*) AS n FROM orders
+       WHERE seller_id = ? AND status = 'paid' AND paid_at >= ? AND price_cents > 0 GROUP BY currency`,
+      sellerId, since,
+    ).map((row) => ({ currency: row.currency, net: row.net / 100, sales: row.n }));
+    const daily = days.map((day) => ({ day, views: viewsByDay[day] || 0, sales: salesByDay[day] || 0 }));
+    const views30 = daily.reduce((sum, d) => sum + d.views, 0);
+    const sales30 = daily.reduce((sum, d) => sum + d.sales, 0);
+    const perListing = {};
+    for (const row of listingRows) {
+      const all = this.one("SELECT COALESCE(SUM(views), 0) AS v FROM listing_views WHERE listing_id = ?", row.id).v;
+      const recent = this.one("SELECT COALESCE(SUM(views), 0) AS v FROM listing_views WHERE listing_id = ? AND day >= ?", row.id, sinceDay).v;
+      perListing[row.id] = { views: all, views30: recent };
+    }
+    return {
+      insights: {
+        views30,
+        sales30,
+        conversion30: views30 ? Math.min(100, Math.round(sales30 / views30 * 1000) / 10) : null,
+        revenue30: revenue,
+        daily,
+      },
+      perListing,
+    };
+  }
+
   // ---- seller
   async sellerStats(request) {
     const user = await this.currentUser(request);
     this.expireOrders();
-    const listings = this.all("SELECT * FROM listings WHERE seller_id = ? ORDER BY created DESC", user.id).map((row) => {
+    const listingRows = this.all("SELECT * FROM listings WHERE seller_id = ? ORDER BY created DESC", user.id);
+    const { insights, perListing } = this.sellerInsights(user.id, listingRows);
+    const listings = listingRows.map((row) => {
       const agg = this.one(
         `SELECT COUNT(*) AS n, COALESCE(SUM(price_cents), 0) AS gross, COALESCE(SUM(platform_fee_cents), 0) AS fees,
            COALESCE(SUM(commission_cents), 0) AS commissions, COALESCE(SUM(seller_net_cents), 0) AS net
          FROM orders WHERE listing_id = ? AND status = 'paid'`,
         row.id,
       );
+      const seen = perListing[row.id] || { views: 0, views30: 0 };
       return {
         ...this.summary(row), paymentUrl: row.payment_url,
         gross: agg.gross / 100, fees: agg.fees / 100, commissions: agg.commissions / 100, net: agg.net / 100,
+        views: seen.views, views30: seen.views30,
+        conversion: seen.views ? Math.min(100, Math.round(agg.n / seen.views * 1000) / 10) : null,
       };
     });
     const pending = this.all(
@@ -1546,7 +1882,8 @@ export class MintDB extends DurableObject {
        WHERE orders.seller_id = ? AND orders.status = 'paid' ORDER BY orders.paid_at DESC LIMIT 20`,
       user.id,
     ).map((r) => this.orderOut(r, { title: r.title }));
-    return { platformFeePct: this.feePct, listings, pending, payouts, recent };
+    const coupons = this.all("SELECT * FROM coupons WHERE seller_id = ? ORDER BY created DESC", user.id).map((row) => this.couponOut(row));
+    return { platformFeePct: this.feePct, listings, pending, payouts, recent, insights, coupons };
   }
 
   // ---- AI

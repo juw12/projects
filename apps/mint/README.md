@@ -47,6 +47,17 @@ apps/mint/web                                          apps/mint/cloud/src/index
 - **Notifications (v2.2).** Web Push with VAPID + aes128gcm (RFC 8291/8292, `cloud/src/notify.js`,
   no third-party service) for new orders, payments, unlocks and commissions; optional email through
   Resend when `RESEND_API_KEY` + `MAIL_FROM` are set.
+- **Coupons (v2.3).** Sellers create codes (5–90% off, one template or all, optional max uses and
+  expiry) under *Sell → Coupons*. Buyers type the code or open a coupon link (`?coupon=CODE`); the
+  price, platform fee, affiliate commission and seller net are all computed on the discounted price
+  server-side. Pending orders hold a use; cancelled/expired ones release it. A buyer who finds a
+  coupon after ordering can replace the unpaid order at the lower price.
+- **Seller insights (v2.3).** Listing views (one per network per hour, the seller's own visits
+  excluded), 30-day views/sales/conversion/earnings with a daily chart, and views + conversion per
+  listing.
+- **Share previews (v2.3).** Shared and affiliate links go through `https://mint-api…/s/<listing>`,
+  which serves Open Graph / Twitter tags (title, price, description, card image) so WhatsApp, X,
+  Facebook and Telegram show a rich preview, then redirects into the app keeping `ref` and `coupon`.
 - **Selling with a payment link.** Without automatic payments, a paid template needs the seller's
   own payment link (Lynk.id, Saweria, Trakteer, Stripe/PayPal link, Gumroad…).
   1. The buyer clicks *Buy* and gets an order reference such as `M-7K3QXA`.
