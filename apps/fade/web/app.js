@@ -8,7 +8,7 @@
   'use strict';
 
   const SEED = window.SEED;
-  const VERSION = '3.1.0';
+  const VERSION = '3.2.0';
   const LOCAL_KEY = 'fade.state';
   const REMOTE_KEY = 'fade.remote';
   const STATE_VERSION = 1;
@@ -2356,7 +2356,8 @@
     S.orders = st.orders;
     S.threads = st.threads.map((t) => normalizeThread(t, u));
     const blockedPks = NETUI ? new Set(NETUI.blocked()) : new Set();
-    S.shorts = st.shorts.filter((sh) => !blockedPks.has(sh.ownerPk || sh.userId)).map((sh) => ({ ...sh, createdAt: sh.createdAt * 1000 }));
+    const autoHidden = NETUI && NETUI.autoHidden ? NETUI.autoHidden() : new Set();
+    S.shorts = st.shorts.filter((sh) => !blockedPks.has(sh.ownerPk || sh.userId) && !autoHidden.has(sh.id)).map((sh) => ({ ...sh, createdAt: sh.createdAt * 1000 }));
     S.rent = st.rent || [];
     S.netReviews = st.reviews || [];
     S.following = u.following || [];
@@ -2994,6 +2995,30 @@
       <button class="btn primary block mt12" data-act="upPost" ${UP.busy ? 'disabled' : ''}>${UP.busy ? 'Posting…' : 'Post short'}</button>`;
   }
 
+  // Automatic on-device check before anything is uploaded or saved (all modes). A blocked verdict stops
+  // here; "review" uploads are held for a moderator; if the check can't run in time the server/network
+  // treats the upload as unscanned and a moderator's device checks it instead.
+  const SCAN_BUDGET_MS = 30000;
+  async function safetyScan(file, onStage) {
+    if (!window.FadeScan || new URLSearchParams(location.search).get('scan') === '0') return null;
+    if (onStage) onStage('Checking the content…');
+    try {
+      return await Promise.race([
+        window.FadeScan.scanFile(file),
+        new Promise((resolve) => setTimeout(() => resolve(null), SCAN_BUDGET_MS)),
+      ]);
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function scanMeta(scan) {
+    if (!scan) return {};
+    return { scan: { nsfw: scan.nsfw, sexy: scan.sexy, frames: scan.frames, model: scan.model }, phash: scan.phash };
+  }
+
+  const BLOCKED_UPLOAD = 'This looks like nudity or sexual content, which isn’t allowed on Fade';
+
   async function postShort() {
     if (!UP || !UP.file || UP.busy) return;
     const caption = UP.caption.trim();
@@ -3028,6 +3053,9 @@
         let file = UP.file;
         let type = UP.type;
         let share = 1;
+        const scan = await safetyScan(UP.file, (label) => paint(0.02, label));
+        if (scan && scan.verdict === 'block') throw new Error(BLOCKED_UPLOAD);
+        Object.assign(meta, scanMeta(scan));
         if (UP.kind === 'video' && window.FadeTranscode) {
           try {
             const optimized = await window.FadeTranscode.optimize(UP.file, (f) => paint(f * 0.5, `Optimizing video for fast playback… ${Math.round(f * 100)}%`));
@@ -3049,7 +3077,7 @@
         await pull();
         const sh = result.short;
         closeSheet();
-        toast('Posted 🎬');
+        toast(result.scan === 'review' || (scan && scan.verdict === 'review') ? 'Posted — held for a quick moderator check 🛡️' : 'Posted 🎬');
         openShortCtx(sh.id, sh.authorType === 'user' ? { type: 'user', id: 'me' } : { type: sh.authorType, id: sh.authorId });
       } catch (err) {
         if (UP) {
@@ -3064,9 +3092,20 @@
     const key = `short:${id}`;
     let localFile = UP.file;
     let localType = UP.type;
-    if (UP.kind === 'video' && window.FadeTranscode) {
-      UP.busy = true;
+    UP.busy = true;
+    setSheet(uploadHTML());
+    const localScan = await safetyScan(UP.file, (label) => {
+      const note = $('#up-stage');
+      if (note) note.textContent = label;
+    });
+    if (!UP) return;
+    if (localScan && localScan.verdict === 'block') {
+      UP.busy = false;
       setSheet(uploadHTML());
+      toast(BLOCKED_UPLOAD);
+      return;
+    }
+    if (UP.kind === 'video' && window.FadeTranscode) {
       try {
         const optimized = await window.FadeTranscode.optimize(UP.file, (f) => {
           const note = $('#up-stage');
@@ -3086,6 +3125,10 @@
     try {
       await Media.put(key, localFile);
     } catch (err) {
+      if (UP) {
+        UP.busy = false;
+        setSheet(uploadHTML());
+      }
       toast('Could not save the video on this device (storage full or private browsing)');
       return;
     }
@@ -3094,7 +3137,7 @@
     const short = {
       id, authorType, authorId, byMe: true, caption, category: UP.category,
       tags: UP.tags.map((t) => ({ ...t, status: 'pending' })),
-      media: { kind: UP.kind, key, type: localType, poster: UP.poster, duration: UP.duration },
+      media: { kind: UP.kind, key, type: localType, poster: UP.poster, duration: UP.duration, ...scanMeta(localScan) },
       likes: 0, views: 0, shares: 0, conversions: 0, createdAt: Date.now(), likedByMe: false,
     };
     S.shorts.unshift(short);
@@ -5192,6 +5235,16 @@
     if (NETUI && S && !API.on) NETUI.localDuties();
   }, 60 * 1000);
 
+  // Offline demo ↔ Fade moderators: queued reports go out, moderators' removals come back.
+  async function offlineSafetySync() {
+    if (!NETUI || !S || API.on || !NETUI.flushOfflineReports) return;
+    await NETUI.flushOfflineReports().catch(() => 0);
+    await NETUI.syncOfflineDecisions().catch(() => null);
+  }
+  window.addEventListener('online', offlineSafetySync);
+  setTimeout(offlineSafetySync, 4000);
+  setInterval(offlineSafetySync, 10 * 60 * 1000);
+
   // Server mode: keep chats, bookings and earnings fresh.
   let polling = false;
   setInterval(async () => {
@@ -5222,7 +5275,7 @@
     NETUI = window.FadeNetUI({
       API, VIEWS, ACTIONS, $, esc, money, icon, avatar, barberAvatar, pageHead, toast, openSheet, setSheet, closeSheet,
       go, refresh, pull, remoteDo, barberById, placeById, fmtDate, fmtTime, whenLabel, firstName, confetti, compact, ago,
-      placeCover, refNoteHTML, shareLink, logoutLocal, activeRef, placeTimeToDate,
+      placeCover, refNoteHTML, shareLink, logoutLocal, activeRef, placeTimeToDate, mediaUrl,
       state: () => S,
       save: () => save(),
       cartDelivery: () => CART.delivery,

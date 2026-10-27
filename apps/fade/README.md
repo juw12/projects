@@ -1,4 +1,4 @@
-# Fade 3.1: book barbers, watch haircut shorts, earn as a creator, now live on the Fade Network
+# Fade 3.2: book barbers, watch haircut shorts, earn as a creator, now live on the Fade Network
 
 *Formerly **Fadeline** (v1). 2.0 added shorts and commissions; 3.0 puts it online for free.*
 
@@ -79,14 +79,27 @@ fee) with editable Tue–Sat 10:00–18:00 shifts. Opening a shop later upgrades
 
 | | Fade Network | Self-hosted server | Offline demo |
 |---|---|---|---|
-| **Moderation** | NIP-56 reports, auto-hide at 3 reporters, moderator console for keys in `web/config.js` | `/api/report`, auto-hide at 3 reporters, moderator console for `--admin EMAIL` accounts (hide / keep / ban / verify / dismiss); banned accounts become read-only and are signed out; blocked-word filter on names, captions, comments and messages | Report hides the item on this device; local comments with the same word filter |
-| **Comments** | signed events | stored on the server; authors, short owners and moderators can delete | stored on the device |
-| **Push** | ntfy to each account's private topic + 2 h reminders | in-app notification feed + ntfy pushes (`--ntfy`, default ntfy.sh, `off` to disable) for bookings, cancellations, DMs, comments, tags, commissions and reports; a background sweeper sends the 2 h reminder at the right time (reschedules/cancels stay correct) | local feed + device alerts and the 2 h reminder while the app is open |
-| **Transcoding** | in the browser (≤ 720×1280, 2.5 Mbps, 60 s) | in the browser, plus server-side ffmpeg for anything not already optimised (H.264 720p, faststart, poster frame; auto-detected, `--ffmpeg PATH` or `off`) | in the browser before saving |
+| **Reports + moderators** | NIP-56 reports, auto-hide at 3 reporters, moderator console for keys in `web/config.js` | `/api/report`, auto-hide at 3 reporters, moderator console for `--admin EMAIL` accounts (hide / keep / ban / verify / dismiss); bans sign the account out and make it read-only | Hidden on the device at once **and delivered to Fade's moderators** on the relays (queued while offline); moderators' removals of demo content sync back to every offline device |
+| **Automatic scanning** | On-device nudity classifier before upload; held uploads hidden by every client until a moderator keeps them; shorts published without a scan are checked on viewers' devices and auto-reported | Same on-device check, enforced by the server; unscanned uploads are checked on the moderator's device; re-uploads of removed media blocked by perceptual hash; obfuscated slurs, link spam, copy-paste floods and bursts refused | Same on-device check before saving |
+| **Push** | ntfy to each account's private topic + 2 h reminders, all with sequence ids: later pushes **replace** earlier ones; a cancelled/moved booking **deletes** its scheduled reminder; deleted comments recall their push | In-app feed + ntfy pushes with sequence ids; cancellations, deleted/hidden content and bans **recall** pushes from phones; reading in the app clears the phone's drawer; "remove from my devices"; topic rotation recalls the old topic | Local feed + device alerts and the 2 h reminder while the app is open |
+| **Private previews** | Recipient's choice, honoured by senders | `PUT /api/me/push {preview}` | n/a |
+| **Transcoding** | In the browser (≤ 720×1280, 2.5 Mbps, 60 s) | In the browser, plus server-side ffmpeg (H.264 720p, faststart, poster). If ffmpeg isn't installed the server **downloads a pinned, SHA-256-verified static build** once into `<data>/bin` and transcodes the backlog | In the browser before saving |
+
+**How automatic scanning works.** `web/scan.js` runs NSFWJS (MobileNetV2, vendored in
+`web/vendor/nsfw/`, ~5 MB, loaded only when someone uploads) in a Web Worker on the
+uploader's device on the photo or 3 frames of the video: porn + hentai ≥ 0.85 is refused
+before anything is uploaded; ≥ 0.5 (or "sexy" ≥ 0.9) is uploaded but hidden until a
+moderator keeps it. The server and the network store the verdict; uploads that arrive
+without one (old or modified clients) are checked on a moderator's device (server) or on
+viewers' devices (network). The server also fingerprints every upload (64-bit dHash of up
+to 3 frames via ffmpeg) and automatically hides re-uploads of anything a moderator removed.
 
 ```bash
 python apps/fade/server/server.py --admin you@example.com --public-url https://fade.example.com
+#   --ffmpeg auto (default: PATH, else verified download) | fetch | /path/to/ffmpeg | off
+#   --ntfy https://ntfy.sh (default) | your own ntfy | off
 python apps/fade/tests/verify_safety.py     # 62 checks (65 with a real ffmpeg on PATH or FADE_TEST_FFMPEG)
+python apps/fade/tests/verify_limits.py     # 42 checks (47 with a real ffmpeg; FADE_TEST_DOWNLOAD=1 also fetches the real build)
 ```
 
 URL overrides: `?ns=` (namespace), `?relays=wss://a,wss://b`, `?blossom=`, `?ntfy=`,
@@ -100,9 +113,12 @@ python apps/fade/tests/verify_safety.py     # moderation, push, transcoding on t
 python apps/fade/server/devnet.py           # local network for development
 ```
 
-Browser suites (headless Chrome, outside CI): 68 multi-user network API checks,
-51 two-user UI checks (barber + client) on the devnet, the same 51 on the public
-relays, and 70 offline-demo checks.
+Browser suites (headless Chrome, outside CI): 70 multi-user network API checks,
+49 two-user UI checks (barber + client) on the devnet, 70 offline-demo checks,
+32 server UI checks, 16 safety checks and 17 end-to-end checks of the 3.2 fixes
+(`test/net/run_limits.sh`: offline reports reaching moderators on a relay, moderator
+removals syncing back, the real on-device classifier on uploads, held/blocked verdicts,
+moderator-device scans and the push privacy controls).
 
 ## Honest limits
 
@@ -119,7 +135,18 @@ relays, and 70 offline-demo checks.
   and back up the secret key from *Account & privacy*.
 - Booking contents are encrypted, but relays can see *that* two accounts share a
   booking record (the `p` tags), and timestamps.
-- Moderation is community + moderator based, not automatic image/video scanning. In the offline demo a report only hides content on that device.
-- Server-side transcoding needs ffmpeg installed on the server; without it, uploads are still optimised in the browser (browsers without MediaRecorder upload the original).
+- Automatic scanning is a filter, not a guarantee. The nudity classifier is a small
+  on-device model: it misses some content and occasionally flags harmless photos (which
+  go to a moderator rather than being deleted). It does not detect violence, hate symbols
+  or CSAM by hash (PhotoDNA-style lists are not freely available); reports and moderators
+  remain the backstop. On the open Fade Network a modified client can skip its own scan;
+  viewers' devices then check the poster image, and three automatic reports hide it.
+- Push recall uses ntfy's sequence ids. Per the ntfy docs the Android and web apps act on
+  updates, clears and deletes; other ntfy clients may keep showing the original. ntfy.sh
+  also keeps its append-only message cache (about 12 h), so turn on private previews if
+  push contents themselves are sensitive.
+- The automatic ffmpeg download covers macOS (Intel/Apple Silicon), Linux (x86_64/arm64)
+  and Windows; other platforms need `--ffmpeg /path/to/ffmpeg`. Without ffmpeg, uploads are
+  still optimised in the browser and fingerprint blocking is off.
 - The network starts empty. The offline demo's barbers, shops, creators and reviews
   are fictional.

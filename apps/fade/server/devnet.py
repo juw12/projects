@@ -172,6 +172,7 @@ class PushStore:
             elif match:
                 factor = {"": 1, "s": 1, "m": 60, "h": 3600, "d": 86400}[match.group(2)]
                 when = now + int(match.group(1)) * factor
+        sequence = headers.get("X-Sequence-ID") or headers.get("Sequence-ID") or headers.get("SID") or ""
         with self.lock:
             self.counter += 1
             message = {
@@ -180,13 +181,33 @@ class PushStore:
                 "tags": [t for t in (headers.get("Tags") or headers.get("X-Tags") or "").split(",") if t],
                 "click": headers.get("Click") or headers.get("X-Click") or "",
                 "scheduled": when > now,
+                "sequence_id": sequence or f"m{self.counter}",
             }
+            if sequence:  # like ntfy: a new message replaces a still-scheduled one with the same sequence id
+                self.messages[topic] = [m for m in self.messages.get(topic, [])
+                                        if not (m.get("sequence_id") == sequence and m.get("scheduled") and m["time"] > now)]
             self.messages.setdefault(topic, []).append(message)
             listeners = list(self.listeners.get(topic, []))
         if not message["scheduled"]:
             for listener in listeners:
                 listener.put(message)
         return message
+
+    def sequence_event(self, topic, sequence, event):
+        """ntfy message_delete / message_clear: deletes still-scheduled messages, tells clients to drop/clear theirs."""
+        now = int(time.time())
+        with self.lock:
+            self.counter += 1
+            if event == "message_delete":
+                self.messages[topic] = [m for m in self.messages.get(topic, [])
+                                        if not (m.get("sequence_id") == sequence and m.get("scheduled") and m["time"] > now)]
+            marker = {"id": f"m{self.counter}", "time": now, "event": event, "topic": topic, "sequence_id": sequence,
+                      "title": "", "message": ""}
+            self.messages.setdefault(topic, []).append(marker)
+            listeners = list(self.listeners.get(topic, []))
+        for listener in listeners:
+            listener.put(marker)
+        return marker
 
     def listen(self, topic):
         channel = queue.Queue()
@@ -472,6 +493,18 @@ class Handler(BaseHTTPRequestHandler):
             body = self.read_body().decode("utf-8", "replace")
             message = PUSH.publish(topic, body, self.headers)
             return self.send_json(200, message)
+        sequence_ok = len(parts) >= 2 and re.fullmatch(r"[A-Za-z0-9_-]{1,64}", parts[1]) and parts[1] not in ("json", "sse")
+        if sequence_ok and len(parts) == 2 and method == "DELETE":
+            return self.send_json(200, PUSH.sequence_event(topic, parts[1], "message_delete"))
+        if sequence_ok and len(parts) == 3 and parts[2] == "delete" and method == "GET":
+            return self.send_json(200, PUSH.sequence_event(topic, parts[1], "message_delete"))
+        if sequence_ok and len(parts) == 3 and parts[2] in ("clear", "read") and method in ("PUT", "GET"):
+            return self.send_json(200, PUSH.sequence_event(topic, parts[1], "message_clear"))
+        if sequence_ok and len(parts) == 2 and method in ("POST", "PUT"):
+            body = self.read_body().decode("utf-8", "replace")
+            headers = dict(self.headers)
+            headers["X-Sequence-ID"] = parts[1]
+            return self.send_json(200, PUSH.publish(topic, body, headers))
         if method == "GET" and len(parts) == 2 and parts[1] == "json":
             return self.send_json(200, PUSH.poll(topic))
         if method == "GET" and len(parts) == 2 and parts[1] == "sse":
@@ -493,6 +526,8 @@ class Handler(BaseHTTPRequestHandler):
         }
         if payload.get("delay"):
             headers["At"] = str(payload["delay"])
+        if payload.get("sequence_id"):
+            headers["X-Sequence-ID"] = str(payload["sequence_id"])[:64]
         message = PUSH.publish(topic, str(payload.get("message") or ""), headers)
         return self.send_json(200, message)
 
