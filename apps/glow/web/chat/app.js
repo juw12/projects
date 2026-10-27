@@ -2070,7 +2070,7 @@ async function streamPuter(model, system, messages, onText, signal, usage = null
         continue;
       }
       const reasoning = typeof part.reasoning === "string" ? part.reasoning
-        : /^reasoning/.test(type) && typeof part.text === "string" ? part.text : "";
+        : type === "reasoning" && typeof part.text === "string" ? part.text : "";
       if (reasoning) {
         if (!thinking) {
           full += "<think>";
@@ -3108,6 +3108,16 @@ function applyProviderUsage(usage, raw) {
   } else {
     input = raw.input_tokens ?? raw.prompt_tokens ?? raw.inputTokens ?? raw.promptTokens ?? null;
     output = raw.output_tokens ?? raw.completion_tokens ?? raw.outputTokens ?? raw.completionTokens ?? null;
+    // Puter's usage line lists cached input apart from the rest: `cached_tokens` for OpenAI-style
+    // models, `cache_read_input_tokens` / `ephemeral_*_input_tokens` for Claude. Anthropic's own API
+    // does the same with `cache_creation_input_tokens`. They still count as tokens you sent.
+    const cachedKeys = ["cached_tokens", "cache_read_input_tokens", "cache_creation_input_tokens",
+      "ephemeral_5m_input_tokens", "ephemeral_1h_input_tokens", "cacheReadTokens", "cacheWriteTokens"];
+    let cached = 0;
+    for (const key of cachedKeys) {
+      if (Number.isFinite(Number(raw[key]))) cached += Number(raw[key]);
+    }
+    if (cached && input !== null) input = Number(input) + cached;
   }
   if (input !== null && Number.isFinite(Number(input))) {
     usage.in = Number(input);
@@ -4148,6 +4158,11 @@ async function selfTest() {
   const exactPuter = { in: 0, out: 0 };
   applyProviderUsage(exactPuter, [{ type: "prompt", amount: 7 }, { type: "completion", amount: 9 }]);
   expect("usage: exact provider counts replace the estimate", exact.in === 12 && exact.out === 34 && exact.exact && exactPuter.in === 7 && exactPuter.out === 9);
+  const puterOpenAI = { in: 0, out: 0 };
+  applyProviderUsage(puterOpenAI, { prompt_tokens: 10, completion_tokens: 4, cached_tokens: 3 });
+  const puterClaude = { in: 0, out: 0 };
+  applyProviderUsage(puterClaude, { input_tokens: 5, ephemeral_5m_input_tokens: 2, ephemeral_1h_input_tokens: 0, cache_read_input_tokens: 100, output_tokens: 9 });
+  expect("usage: cached input from Puter's usage line is counted (OpenAI + Claude shapes)", puterOpenAI.in === 13 && puterOpenAI.out === 4 && puterClaude.in === 107 && puterClaude.out === 9);
   const savedCount = state.conversations.length;
   toggleTemporaryChat();
   fillSelect($("chat-model"), "demo::demo");
