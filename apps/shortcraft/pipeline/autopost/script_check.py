@@ -251,6 +251,10 @@ def check_project(project, title=None):
             layout_problems.append(f"scene {i}: stamp '{scene['stamp']}' over 10 chars gets clipped")
         if layout == "price" and len(scene.get("headline", "")) > 22:
             layout_problems.append(f"scene {i}: price headline over 22 chars wraps into the price")
+        if layout == "price" and scene.get("value") is None and scene.get("big") is None:
+            layout_problems.append(f"scene {i}: price card needs 'value' (Rp) or 'big' text, else it shows Rp0")
+        if layout == "price" and len(str(scene.get("big", ""))) > 9:
+            layout_problems.append(f"scene {i}: price big text over 9 chars shrinks too far")
         if layout == "price" and len(scene.get("stamp", "")) > 12:
             layout_problems.append(f"scene {i}: price sticker '{scene['stamp']}' over 12 chars")
     gates.append(gate("layout", not layout_problems, "; ".join(layout_problems) or "fits the template"))
