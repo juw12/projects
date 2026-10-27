@@ -13,12 +13,13 @@
 <link rel="manifest" href="manifest.webmanifest">
 <title>Twin — invest &amp; day-trade with 10,000 replays</title>
 <meta name="description" content="Twin: a personality-matched investing and day-trading companion. Paper trading, 10,000-future goal planner, copy a famous investor's 13F, news feed and the day-trader-skill Time Machine.">
-<script src="theme.js?v=1.8.0"></script>
-<script src="icons.js?v=1.8.0"></script>
-<link rel="stylesheet" href="theme.css?v=1.8.0">
-<link rel="stylesheet" href="design.css?v=1.8.0">
-<link rel="stylesheet" href="neo.css?v=1.8.0">
-<script src="motion.js?v=1.8.0" defer></script>
+<script src="theme.js?v=1.9.0"></script>
+<script src="icons.js?v=1.9.0"></script>
+<link rel="stylesheet" href="theme.css?v=1.9.0">
+<link rel="stylesheet" href="design.css?v=1.9.0">
+<link rel="stylesheet" href="neo.css?v=1.9.0">
+<link rel="stylesheet" href="premium.css?v=1.9.0">
+<script src="motion.js?v=1.9.0" defer></script>
 <style>
   :root {
     --bg: #0b0f14;
@@ -226,16 +227,16 @@
 <div class="sheet" id="sheet" inert aria-hidden="true"></div>
 <div class="toast" id="toast"></div>
 
-<script src="demo.js?v=1.8.0"></script>
-<script src="pro.js?v=1.8.0"></script>
-<script src="pro-ui.js?v=1.8.0"></script>
-<script src="broker-ui.js?v=1.8.0"></script>
-<script src="academy.js?v=1.8.0"></script>
-<script src="global.js?v=1.8.0"></script>
-<script src="strategy-lab.js?v=1.8.0"></script>
-<script src="strategy-lab-ui.js?v=1.8.0"></script>
-<script src="twinagent.js?v=1.8.0"></script>
-<script src="twinagent-ui.js?v=1.8.0"></script>
+<script src="demo.js?v=1.9.0"></script>
+<script src="pro.js?v=1.9.0"></script>
+<script src="pro-ui.js?v=1.9.0"></script>
+<script src="broker-ui.js?v=1.9.0"></script>
+<script src="academy.js?v=1.9.0"></script>
+<script src="global.js?v=1.9.0"></script>
+<script src="strategy-lab.js?v=1.9.0"></script>
+<script src="strategy-lab-ui.js?v=1.9.0"></script>
+<script src="twinagent.js?v=1.9.0"></script>
+<script src="twinagent-ui.js?v=1.9.0"></script>
 <script>
 "use strict";
 
@@ -527,10 +528,12 @@ function drawLineChart(canvas, values, opts, progress) {
   const x = (i) => (width - 2) * i / (values.length - 1) + 1;
   const y = (v) => pad + (height - 2 * pad) * (hi - v) / (hi - lo);
   const up = values[values.length - 1] >= (base ?? values[0]);
-  const color = adaptChartColor(opts.color || (up ? "#22c55e" : "#ef4444"));
+  // On the light-theme hero gradient the line is white; on dark it keeps gain/loss colours.
+  const onGradient = opts.hero && document.documentElement.dataset.theme === "light";
+  const color = onGradient ? "#ffffff" : adaptChartColor(opts.color || (up ? "#22c55e" : "#ef4444"));
   if (base !== undefined && base !== null) {
     ctx.setLineDash([2, 4]);
-    ctx.strokeStyle = cssColor("--line");
+    ctx.strokeStyle = opts.hero ? "rgba(255,255,255,.28)" : cssColor("--line");
     ctx.beginPath();
     ctx.moveTo(0, y(base));
     ctx.lineTo(width, y(base));
@@ -1154,6 +1157,7 @@ function switchTab(id) {
     return;
   }
   state.tab = id;
+  document.body.dataset.tab = id;
   history.replaceState(null, "", "#" + id);
   document.querySelectorAll("nav.tabs button").forEach((b) => b.classList.toggle("on", b.id === "tab-" + id));
   const titles = { home: "Home", invest: "Invest", trade: "Trade", learn: "Learn", news: "News", me: "Me" };
@@ -1477,19 +1481,76 @@ function nextStep() {
   return steps.find((s) => s[0]);
 }
 
+// Big balance with smaller cents ("$9,948" + ".66"), Revolut-style. textContent stays a plain amount.
+function splitMoney(text) {
+  const value = String(text);
+  const match = value.match(/^(.*\d)(\.\d{2})(\D*)$/);
+  if (!match) {
+    return [h("span", {}, value)];
+  }
+  return [h("span", {}, match[1]), h("small", { class: "cents" }, match[2] + match[3])];
+}
+
+function heroCount(element, value) {
+  const finalText = fmtMoney(value);
+  const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (calm || !Number.isFinite(value)) {
+    element.replaceChildren(...splitMoney(finalText));
+    return;
+  }
+  const started = performance.now();
+  const frame = (now) => {
+    const t = Math.min(1, (now - started) / 900);
+    const eased = 1 - Math.pow(1 - t, 4);
+    element.replaceChildren(...splitMoney(t < 1 ? fmtMoney(value * (0.94 + 0.06 * eased)) : finalText));
+    if (t < 1 && element.isConnected) {
+      requestAnimationFrame(frame);
+    }
+  };
+  requestAnimationFrame(frame);
+}
+
+function quickAction(id, icon, label, onclick) {
+  return h("button", { class: "qa", id, onclick }, h("span", { class: "qa-disc" }, TwinIcons.svg(icon)), h("span", { class: "qa-label" }, label));
+}
+
+let homeRenders = 0;
 async function renderHome(main) {
   const quiz = state.profile.quiz;
-  const portfolio = h("div", { class: "card hero", id: "home-hero" }, spinner());
+  const firstName = (state.profile.name || "there").split(" ")[0];
+  const valueEl = h("div", { class: "big hero-value", "aria-live": "polite" }, splitMoney(fmtMoney(0)));
+  const chip = h("span", { class: "hero-chip flat" }, h("i"), h("span", {}, "Loading…"));
+  const heroCanvas = h("canvas");
+  const heroFoot = h("div", { class: "hero-foot" });
+  const portfolio = h("section", { class: "p-hero", id: "home-hero" },
+    h("div", { class: "hero-glow", "aria-hidden": "true" }),
+    TwinGlobal.searchBar(),
+    h("div", { class: "hero-label" },
+      GUEST || DEMO ? "Practice portfolio · paper money" : "Practice portfolio · live prices"),
+    valueEl,
+    h("div", { class: "hero-chip-row" }, chip),
+    heroCanvas,
+    heroFoot);
   const watch = h("div", { class: "card" }, spinner());
   const greeting = new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 18 ? "Good afternoon" : "Good evening";
-  put(main, 
-    (DEMO || GUEST) ? demoBanner() : null,
-    h("div", { class: "between", style: "margin-top:4px" },
-      h("div", {}, h("div", { class: "muted small" }, greeting), h("h2", { style: "margin:0" }, state.profile.name.split(" ")[0])),
-      h("span", { class: "pill blue", onclick: () => switchTab("me") }, quiz.emoji + " " + quiz.title)),
-    TwinGlobal.searchBar(),
+  put(main,
     portfolio,
-    TwinGlobal.worldStrip());
+    h("div", { class: "qa-row" },
+      quickAction("qa-buy", "search", "Buy", () => TwinGlobal.openSearch()),
+      quickAction("qa-portfolio", "briefcase", "Portfolio", () => { state.investView = "portfolio"; switchTab("invest"); }),
+      quickAction("qa-agent", "sparkles", "Ask AI", () => { state.tradeView = "agent"; switchTab("trade"); }),
+      quickAction("qa-goal", "target", "Goal", () => { state.investView = "goal"; switchTab("invest"); })),
+    (DEMO || GUEST) ? demoBanner() : null,
+    h("div", { class: "between home-greet" },
+      h("div", {}, h("div", { class: "muted small" }, greeting), h("h2", { style: "margin:0" }, firstName)),
+      h("span", { class: "pill blue", onclick: () => switchTab("me") }, quiz.emoji + " " + quiz.title)));
+  const promo = (id, tone, icon, title, sub, onclick) => h("button", { class: "promo " + tone, id, onclick },
+    h("span", { class: "promo-ic" }, TwinIcons.svg(icon)), h("b", {}, title), h("span", {}, sub));
+  put(main, h("div", { class: "promo-row", role: "list" },
+    promo("home-twinagent", "p-violet", "bot", "Ask TwinAgent", "Five analysts argue bull vs bear, with sources", () => { state.tradeView = "agent"; switchTab("trade"); }),
+    promo("home-replay", "p-blue", "rewind", "Replay Lab", "Trade a hidden past session bar by bar", () => { state.tradeView = "replay"; switchTab("trade"); }),
+    promo("home-daytrade", "p-pink", "zap", "Day-trade drill", "TSLA opening-range replay, no risk", () => { state.tradeView = "checklist"; state.tradeMode = "demo"; state.tradeSymbol = "TSLA"; switchTab("trade"); }),
+    promo("home-holdings", "p-amber", "briefcase", "Investor holdings", "Copy a famous 13F on paper", () => { state.investView = "copy"; switchTab("invest"); })));
   const step = nextStep();
   if (step) {
     put(main, h("div", { class: "card tight", onclick: step[3], style: "cursor:pointer" },
@@ -1498,48 +1559,41 @@ async function renderHome(main) {
           h("div", {}, h("div", { class: "eyebrow" }, "Next step"), h("b", {}, step[2]))),
         h("span", { class: "muted", style: "flex:none;display:grid" }, TwinIcons.svg("chevron")))));
   }
-  put(main, academyHomeCard());
+  put(main, academyHomeCard(), watch, TwinGlobal.worldStrip());
+  const moversSlot = h("div");
+  put(main, moversSlot);
+  moversCard().then((card) => moversSlot.replaceWith(card));
   if (GUEST) {
-    const tile = (id, icon, title, sub, onclick, featured = false) => h("button", {
-      class: "tile" + (featured ? " featured" : ""), id, onclick,
-    }, h("span", { class: "tile-ic" }, TwinIcons.svg(icon)), h("b", {}, title), h("span", {}, sub));
     put(main, h("div", { class: "guest-actions" },
-      h("div", { class: "action-grid" },
-        tile("home-twinagent", "bot", "TwinAgent", "Five-analyst research on any stock", () => { state.tradeView = "agent"; switchTab("trade"); }, true),
-        tile("home-replay", "rewind", "Replay Lab", "Trade a hidden past session bar by bar", () => { state.tradeView = "replay"; switchTab("trade"); }),
-        tile("home-daytrade", "zap", "Day-trade drill", "TSLA opening-range replay", () => { state.tradeView = "checklist"; state.tradeMode = "demo"; state.tradeSymbol = "TSLA"; switchTab("trade"); }),
-        tile("home-holdings", "briefcase", "Investor holdings", "Copy a famous 13F on paper", () => { state.investView = "copy"; switchTab("invest"); })),
       h("button", { class: "btn ghost", id: "home-save", onclick: () => openSaveProgress() }, TwinIcons.svg("save"), "Save my progress")),
       inviteCard());
   }
-  put(main, watch);
-  moversCard().then((card) => put(main, card));
 
+  // A slow request from an earlier session (e.g. after "start fresh guest") must not write
+  // that session's portfolio or orders into the new one.
+  const render = ++homeRenders;
+  const stale = () => render !== homeRenders || !main.isConnected || state.tab !== "home";
   const paperResult = await api("api/paper");
-  portfolio.innerHTML = "";
+  if (stale()) {
+    return;
+  }
   if (paperResult.ok) {
     const p = (state.paper = paperResult.paper);
-    const canvas = h("canvas");
     const trend = p.gain > 0 ? "up" : p.gain < 0 ? "down" : "flat";
     portfolio.classList.toggle("down-day", p.gain < 0);
-    put(portfolio, 
-      h("div", { class: "between" },
-        h("div", { class: "muted small", style: "font-weight:600" }, "Practice portfolio"),
-        h("span", { class: "pill gray" }, GUEST || DEMO ? "Paper" : "Paper · live prices")),
-      h("div", { class: "big", "data-countup": "" }, fmtMoney(p.value)),
-      TwinGlobal.inDisplay(p.value) ? h("div", { class: "tiny muted", id: "home-display-value" }, `≈ ${TwinGlobal.inDisplay(p.value)}`) : null,
-      h("div", { class: "row", style: "gap:8px;flex-wrap:wrap" },
-        h("span", { class: "gain-chip " + trend, style: "flex:none" },
-          TwinIcons.svg(trend === "down" ? "trendDown" : "trend"),
-          `${p.gain >= 0 ? "+" : ""}${fmtMoney(p.gain)} (${fmtPct(p.gain_pct)})`),
-        h("span", { class: "muted small", style: "flex:none" }, "all time")),
-      canvas,
-      h("div", { class: "between small muted" }, h("span", {}, "Buying power " + fmtMoney(p.cash)),
-        h("a", { href: "#invest", onclick: (e) => { e.preventDefault(); state.investView = "portfolio"; switchTab("invest"); } }, "Positions ›")));
+    heroCount(valueEl, p.value);
+    chip.className = "hero-chip " + trend;
+    chip.lastChild.textContent = `${p.gain >= 0 ? "+" : "−"}${fmtMoney(Math.abs(p.gain))} · ${fmtPct(p.gain_pct)} all time`;
+    if (TwinGlobal.inDisplay(p.value)) {
+      put(portfolio.querySelector(".hero-chip-row"), h("span", { class: "hero-fx", id: "home-display-value" }, `≈ ${TwinGlobal.inDisplay(p.value)}`));
+    }
+    heroFoot.replaceChildren(
+      h("span", {}, "Buying power ", h("b", {}, fmtMoney(p.cash))),
+      h("a", { href: "#invest", onclick: (e) => { e.preventDefault(); state.investView = "portfolio"; switchTab("invest"); } }, "Positions ›"));
     const values = p.snapshots.map((s) => s[1]);
-    afterPaint(() => lineChart(canvas, values.length > 1 ? values : [p.start_cash, p.value], { baseline: p.start_cash, height: 110 }));
+    afterPaint(() => lineChart(heroCanvas, values.length > 1 ? values : [p.start_cash, p.value], { baseline: p.start_cash, height: 84, hero: true }));
   } else {
-    put(portfolio, errorBox(paperResult.error));
+    heroFoot.replaceChildren(errorBox(paperResult.error));
   }
 
   const addInput = h("input", { placeholder: "Add ticker (e.g. AMZN)", autocapitalize: "characters" });
@@ -1562,6 +1616,9 @@ async function renderHome(main) {
     }
   });
   const quoteResult = await api("api/quotes", { symbols: state.profile.watchlist });
+  if (stale()) {
+    return;
+  }
   watch.innerHTML = "";
   put(watch, h("div", { class: "between" }, h("h3", { style: "margin:0" }, "Watchlist"), h("span", { class: "muted tiny" }, "delayed")));
   if (!quoteResult.ok) {
@@ -2301,7 +2358,7 @@ function renderMe(main) {
       }, "Save limits")),
     h("div", { class: "card" }, h("h3", {}, "Guide"), guideList()),
     h("div", { class: "card small muted" },
-      h("b", { style: "color:var(--text)" }, "Twin · v1.8.0"),
+      h("b", { style: "color:var(--text)" }, "Twin · v1.9.0"),
       h("p", {}, "Twin is built on two free, MIT-licensed skill packs by Jake Schincariol (day-trader-skill and trader-skill). Data: Yahoo Finance (delayed, unofficial), SEC EDGAR."),
       h("p", {}, "Not financial advice. Practice money only. You can lose money investing; past performance and simulations do not guarantee future results.")),
     h("button", {
