@@ -8,6 +8,18 @@
   const STORE_KEY = "mufakat.v1";
   const scriptUrl = document.currentScript ? document.currentScript.src : location.href;
   const ROOT = new URL("../", scriptUrl); // .../glow/
+  // The Glow family version. Bump it together with ../version.json for every release:
+  // an older copy of this script then sees the newer version.json and offers "Update now".
+  const GLOW_VERSION = "1.18.0";
+  const LIVE_ROOT = "https://juw12.github.io/projects/glow/";
+  const APK_URL = "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk";
+  const embedded = (function () {
+    try {
+      return window.top !== window && !!window.parent.document;
+    } catch (error) {
+      return false;
+    }
+  })();
   // Mobile builds on mobile pages, and on phones even from Glow home.
   const onMobilePage = /mobile\.html$/.test(location.pathname) || window.matchMedia("(max-width: 720px)").matches;
 
@@ -63,6 +75,34 @@
 .glow-apps-desc{font-size:12px;opacity:.7}
 .glow-apps-here{margin-left:auto;font-size:11px;opacity:.65}
 .glow-apps-foot{margin-top:8px;padding:8px 8px 2px;border-top:1px solid rgba(255,255,255,.1);font-size:12px;opacity:.8}
+.glow-apps-version{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;padding:8px;border-radius:10px;background:rgba(255,255,255,.05);font-size:12.5px}
+.glow-apps-version b{color:#f3efe8}
+.glow-apps-version .ok{color:#7fd1a8}
+.glow-apps-version button{margin-left:auto;border:0;border-radius:8px;padding:5px 10px;font:600 12px system-ui,sans-serif;cursor:pointer;background:rgba(255,255,255,.1);color:#f3efe8}
+.glow-apps-version button.go{background:#d97757;color:#fff}
+.glow-update-bar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:2147483001;display:flex;align-items:center;gap:10px;
+  max-width:calc(100vw - 24px);padding:10px 10px 10px 16px;border-radius:14px;background:#1f1e1c;color:#f3efe8;border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 16px 44px rgba(0,0,0,.4);font:14px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;animation:glowAppsIn .2s ease both}
+.glow-update-bar[hidden]{display:none}
+.glow-update-bar span{min-width:0}
+.glow-update-bar small{display:block;opacity:.7;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46ch}
+.glow-update-bar button{border:0;border-radius:10px;padding:8px 14px;font:600 13px system-ui,sans-serif;cursor:pointer;white-space:nowrap}
+.glow-update-bar .go{background:#d97757;color:#fff}
+.glow-update-bar .later{background:transparent;color:#f3efe8;opacity:.75;padding:8px}
+.glow-room-panel{position:fixed;inset:0;z-index:2147482000;display:flex;flex-direction:column;background:#1f1e1d}
+.glow-room-panel[hidden]{display:none}
+.glow-room-bar{display:flex;align-items:center;gap:10px;padding:8px 10px 8px 14px;background:#262624;color:#ece9e1;border-bottom:1px solid #3e3e3a;
+  font:14px/1.3 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-top:max(8px,env(safe-area-inset-top))}
+.glow-room-bar b{font-size:15px}
+.glow-room-bar small{opacity:.65}
+.glow-room-bar .grow{flex:1}
+.glow-room-bar button{border:1px solid #3e3e3a;background:#30302e;color:#ece9e1;border-radius:10px;padding:7px 12px;font:600 13px system-ui,sans-serif;cursor:pointer}
+.glow-room-bar button:hover{border-color:#d97757}
+.glow-room-bar .close{background:#d97757;border-color:#d97757;color:#fff}
+.glow-room-panel iframe{flex:1;width:100%;border:0;background:#1f1e1d}
+html.glow-room-open,html.glow-room-open body{overflow:hidden}
+html.glow-embedded [data-glow-apps]{display:none!important}
+@media (max-width:560px){.glow-room-bar small,.glow-room-bar .full span{display:none}.glow-update-bar small{max-width:24ch}}
 `;
 
   let menu = null;
@@ -97,8 +137,9 @@
     element.id = "glow-apps-menu";
     element.setAttribute("role", "menu");
     element.hidden = true;
-    element.innerHTML = `<div class="glow-apps-head"><b>✦</b> Glow apps</div><div class="glow-apps-list">${items}</div><div class="glow-apps-foot">${foot}</div>`;
+    element.innerHTML = `<div class="glow-apps-head"><b>✦</b> Glow apps</div><div class="glow-apps-list">${items}</div><div class="glow-apps-foot">${foot}<div class="glow-apps-version" id="glow-apps-version"></div></div>`;
     document.body.appendChild(element);
+    renderVersionLine(element.querySelector("#glow-apps-version"));
     return element;
   }
 
@@ -158,11 +199,269 @@
   }, true);
   window.addEventListener("resize", close);
 
+
+  // ---------------------------------------------------------------------------------------------
+  // Versions and in-app updates. Every Glow app shows its version in the Glow apps menu. When
+  // ../version.json (never cached) lists a newer version, an "Update now" bar appears; it clears
+  // the Glow caches, refreshes this page's files and reloads, so the app updates in place.
+  // The Android app ships its own files, so there "Update" downloads the new APK instead.
+  // ---------------------------------------------------------------------------------------------
+  const DISMISS_KEY = "glow.update.dismissed";
+  let latest = null;
+  let updateState = "unknown"; // unknown | checking | current | available | error
+  let lastCheck = 0;
+  let updateBar = null;
+
+  function isNativeApp() {
+    return !!(window.GLOW_NATIVE_APP || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()));
+  }
+
+  function versionUrl() {
+    const local = /^https?:$/.test(location.protocol) && !isNativeApp();
+    return (local ? new URL("version.json", ROOT).href : LIVE_ROOT + "version.json") + "?t=" + Date.now();
+  }
+
+  function compareVersions(a, b) {
+    const left = String(a || "0").split(/[.-]/).map((part) => parseInt(part, 10) || 0);
+    const right = String(b || "0").split(/[.-]/).map((part) => parseInt(part, 10) || 0);
+    for (let i = 0; i < Math.max(left.length, right.length); i++) {
+      const diff = (left[i] || 0) - (right[i] || 0);
+      if (diff) return diff > 0 ? 1 : -1;
+    }
+    return 0;
+  }
+
+  function renderVersionLine(box) {
+    if (!box) return;
+    if (updateState === "available" && latest) {
+      box.innerHTML = `<span>Version <b>${escapeHtml(GLOW_VERSION)}</b> · <b>${escapeHtml(latest.version)}</b> is ready</span><button class="go" type="button" data-glow-update>${isNativeApp() ? "Download update" : "Update now"}</button>`;
+    } else if (updateState === "checking") {
+      box.innerHTML = `<span>Version <b>${escapeHtml(GLOW_VERSION)}</b> · checking…</span>`;
+    } else if (updateState === "current") {
+      box.innerHTML = `<span>Version <b>${escapeHtml(GLOW_VERSION)}</b> · <span class="ok">✓ up to date</span></span><button type="button" data-glow-check>Check again</button>`;
+    } else {
+      box.innerHTML = `<span>Version <b>${escapeHtml(GLOW_VERSION)}</b></span><button type="button" data-glow-check>Check for updates</button>`;
+    }
+    const updateButton = box.querySelector("[data-glow-update]");
+    if (updateButton) updateButton.addEventListener("click", (event) => { event.stopPropagation(); applyUpdate(); });
+    const checkButton = box.querySelector("[data-glow-check]");
+    if (checkButton) checkButton.addEventListener("click", (event) => { event.stopPropagation(); checkForUpdate(true); });
+  }
+
+  function refreshVersionViews() {
+    renderVersionLine(document.getElementById("glow-apps-version"));
+    document.querySelectorAll("[data-glow-version]").forEach((el) => {
+      el.textContent = "Glow " + GLOW_VERSION + (updateState === "available" && latest ? " · update ready" : "");
+      el.title = updateState === "available" && latest ? "Glow " + latest.version + " is ready. Open the Glow apps menu to update." : "Glow version";
+    });
+  }
+
+  function showUpdateBar() {
+    if (embedded || !latest) return;
+    if (localStorage.getItem(DISMISS_KEY) === latest.version) return;
+    ensureStyles();
+    if (!updateBar) {
+      updateBar = document.createElement("div");
+      updateBar.className = "glow-update-bar";
+      updateBar.setAttribute("role", "status");
+      document.body.appendChild(updateBar);
+    }
+    const note = Array.isArray(latest.notes) && latest.notes.length ? latest.notes[0] : "Fixes and improvements";
+    updateBar.innerHTML = `<span>✦ <b>Glow ${escapeHtml(latest.version)} is ready</b><small>${escapeHtml(note)}</small></span>
+      <button class="go" type="button">${isNativeApp() ? "Download update" : "Update now"}</button>
+      <button class="later" type="button" aria-label="Later">Later</button>`;
+    updateBar.hidden = false;
+    updateBar.querySelector(".go").addEventListener("click", applyUpdate);
+    updateBar.querySelector(".later").addEventListener("click", () => {
+      localStorage.setItem(DISMISS_KEY, latest.version);
+      updateBar.hidden = true;
+    });
+  }
+
+  async function checkForUpdate(force) {
+    if (!force && Date.now() - lastCheck < 10 * 60 * 1000) return updateState;
+    lastCheck = Date.now();
+    updateState = "checking";
+    refreshVersionViews();
+    try {
+      const response = await fetch(versionUrl(), { cache: "no-store" });
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      latest = await response.json();
+      updateState = compareVersions(latest.version, GLOW_VERSION) > 0 ? "available" : "current";
+    } catch (error) {
+      updateState = "error";
+    }
+    refreshVersionViews();
+    if (updateState === "available") {
+      if (force) localStorage.removeItem(DISMISS_KEY);
+      showUpdateBar();
+    }
+    window.dispatchEvent(new CustomEvent("glow-update", { detail: { state: updateState, current: GLOW_VERSION, latest } }));
+    return updateState;
+  }
+
+  async function applyUpdate() {
+    if (isNativeApp()) {
+      location.href = (latest && latest.android) || APK_URL;
+      return;
+    }
+    if (updateBar) updateBar.innerHTML = "<span>✦ <b>Updating Glow…</b></span>";
+    try {
+      const names = await caches.keys();
+      await Promise.all(names.filter((name) => /^(glow|crewroom)/.test(name)).map((name) => caches.delete(name)));
+    } catch (error) {
+      // No Cache Storage (private window): the reload below still fetches fresh files.
+    }
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((registration) => registration.update().catch(() => {})));
+    } catch (error) {
+      // No service worker: nothing to refresh.
+    }
+    const files = [location.href.split("#")[0]];
+    document.querySelectorAll("script[src], link[rel='stylesheet'][href], link[rel='manifest'][href]").forEach((el) => files.push(el.src || el.href));
+    await Promise.all(files.filter((url) => url.startsWith(location.origin)).map((url) => fetch(url, { cache: "reload" }).catch(() => {})));
+    location.reload();
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Everything stays in the app: GlowRoom opens in a panel inside the current Glow app, and links
+  // to the other Glow apps open in this window instead of a new browser tab or window.
+  // ---------------------------------------------------------------------------------------------
+  let roomPanel = null;
+
+  function appOf(url) {
+    if (url.origin !== location.origin || !url.pathname.startsWith(ROOT.pathname)) return null;
+    const rest = url.pathname.slice(ROOT.pathname.length);
+    if (/^room\//.test(rest)) return "room";
+    if (/^chat\//.test(rest)) return "chat";
+    if (/^lead\//.test(rest)) return "lead";
+    if (/^setup\//.test(rest)) return "setup";
+    if (rest === "" || rest === "index.html") return "home";
+    return null;
+  }
+
+  function parentApps() {
+    if (!embedded) return null;
+    try {
+      return window.parent.GlowApps || null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function closeRoomPanel() {
+    if (!roomPanel || roomPanel.hidden) return;
+    roomPanel.hidden = true;
+    document.documentElement.classList.remove("glow-room-open");
+  }
+
+  function openRoomPanel(url) {
+    ensureStyles();
+    if (onMobilePage && /\/room\/(index\.html)?$/.test(url.pathname)) url.pathname = url.pathname.replace(/(index\.html)?$/, "mobile.html");
+    if (!roomPanel) {
+      roomPanel = document.createElement("div");
+      roomPanel.className = "glow-room-panel";
+      roomPanel.setAttribute("role", "dialog");
+      roomPanel.setAttribute("aria-label", "GlowRoom");
+      roomPanel.innerHTML = `<div class="glow-room-bar"><span aria-hidden="true">🏢</span><b>GlowRoom</b><small>your AI crew keeps working while this is closed</small><span class="grow"></span>
+        <button class="full" type="button" title="Open GlowRoom on its own">⤢<span> Full screen</span></button>
+        <button class="close" type="button">✕ Close</button></div><iframe title="GlowRoom" allow="clipboard-write; fullscreen"></iframe>`;
+      document.body.appendChild(roomPanel);
+      roomPanel.querySelector(".close").addEventListener("click", closeRoomPanel);
+      roomPanel.querySelector(".full").addEventListener("click", () => {
+        location.assign(roomPanel.querySelector("iframe").dataset.base || appUrl("room"));
+      });
+    }
+    const frame = roomPanel.querySelector("iframe");
+    const base = url.origin + url.pathname;
+    const goal = url.searchParams.get("goal");
+    if (frame.dataset.base !== base) {
+      frame.dataset.base = base;
+      frame.src = url.href;
+    } else if (goal) {
+      frame.contentWindow.postMessage({ type: "glow-room-goal", goal, go: url.searchParams.get("go") === "1" }, location.origin);
+    }
+    roomPanel.hidden = false;
+    document.documentElement.classList.add("glow-room-open");
+    close();
+    roomPanel.querySelector(".close").focus({ preventScroll: true });
+  }
+
+  function openApp(target) {
+    const url = new URL(target, location.href);
+    const app = appOf(url);
+    if (!app) return false;
+    const parent = parentApps();
+    if (parent && parent.openApp) return parent.openApp(url.href);
+    if (app === "room" && currentApp() !== "room") {
+      openRoomPanel(url);
+      return true;
+    }
+    closeRoomPanel();
+    const samePage = url.pathname === location.pathname && url.search === location.search;
+    location.assign(url.href);
+    if (samePage) location.reload();
+    return true;
+  }
+
+  document.addEventListener("click", (event) => {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const link = event.target && event.target.closest ? event.target.closest("a[href]") : null;
+    if (!link || link.hasAttribute("download") || link.dataset.glowExternal) return;
+    let url;
+    try {
+      url = new URL(link.href, location.href);
+    } catch (error) {
+      return;
+    }
+    const app = appOf(url);
+    if (!app) return;
+    const target = (link.getAttribute("target") || "").toLowerCase();
+    const newWindow = target && target !== "_self";
+    const roomInPanel = app === "room" && currentApp() !== "room" && currentApp() !== "home";
+    if (newWindow || roomInPanel || (embedded && app !== "room")) {
+      event.preventDefault();
+      openApp(url.href);
+    }
+  });
+
+  const nativeOpen = window.open ? window.open.bind(window) : null;
+  window.open = function (url, name, features) {
+    try {
+      if (url && appOf(new URL(url, location.href)) && openApp(url)) return null;
+    } catch (error) {
+      // Not a Glow app URL: open it normally below.
+    }
+    return nativeOpen ? nativeOpen(url, name, features) : null;
+  };
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && roomPanel && !roomPanel.hidden) closeRoomPanel();
+  });
+  if (embedded) document.documentElement.classList.add("glow-embedded");
+
+  function startUpdateChecks() {
+    refreshVersionViews();
+    if (embedded) return;
+    setTimeout(() => checkForUpdate(true), 2500);
+    setInterval(() => checkForUpdate(false), 30 * 60 * 1000);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") checkForUpdate(false);
+    });
+  }
+
   function autoMount() {
     document.querySelectorAll("[data-glow-apps]").forEach(mount);
+    startUpdateChecks();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", autoMount);
   else autoMount();
 
-  window.GlowApps = { mount, open, close, appUrl, currentApp, account, apps: APPS.map((a) => ({ ...a })) };
+  window.GlowApps = {
+    mount, open, close, appUrl, currentApp, account, apps: APPS.map((a) => ({ ...a })),
+    version: GLOW_VERSION, checkForUpdate, applyUpdate, compareVersions, openApp, openRoomPanel, closeRoomPanel,
+    get updateState() { return updateState; },
+    get latest() { return latest; },
+  };
 })();
