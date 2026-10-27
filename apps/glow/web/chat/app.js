@@ -2147,7 +2147,7 @@ async function signIn() {
     if (!sdk.auth.isSignedIn()) await sdk.auth.signIn();
     const user = await Promise.resolve(sdk.auth.getUser()).catch(() => null);
     puterSignedIn = true;
-    Object.assign(state.settings, { account: "puter", accountName: (user && user.username) || "Puter user", accountTemp: !!(user && user.is_temp) });
+    Object.assign(state.settings, { account: "puter", accountName: (user && user.username) || "Puter user", accountTemp: !!(user && user.is_temp), puterSession: true });
     saveState();
   } catch (error) {
     setSigninError(signinFailureText(error));
@@ -2172,7 +2172,7 @@ async function signIn() {
   return true;
 }
 function continueAsGuest() {
-  Object.assign(state.settings, { account: "guest", accountName: "", accountTemp: false });
+  Object.assign(state.settings, { account: "guest", accountName: "", accountTemp: false, puterSession: undefined });
   saveState();
   hideWelcome();
   renderAccount();
@@ -2193,7 +2193,7 @@ async function signOut() {
   }
   puterSignedIn = false;
   puterAllowance = null;
-  Object.assign(state.settings, { account: "guest", accountName: "", accountTemp: false });
+  Object.assign(state.settings, { account: "guest", accountName: "", accountTemp: false, puterSession: undefined });
   saveState();
   renderAccount();
   renderUsage();
@@ -2207,10 +2207,18 @@ function onAccountButton() {
   if (puterSignedIn) signOut();
   else showWelcome();
 }
+// Share the real Puter session state with the other Glow apps (their avatars read it).
+function recordPuterSession(live) {
+  if (state.settings.account !== "puter" || state.settings.puterSession === live) return;
+  state.settings.puterSession = live;
+  saveState();
+  if (window.GlowApps && window.GlowApps.refreshProfiles) window.GlowApps.refreshProfiles();
+}
 async function restorePuterSession() {
   try {
     const sdk = await withTimeout(ensurePuter(), 10000, "Puter is taking too long to load.");
     puterSignedIn = !!sdk.auth.isSignedIn();
+    recordPuterSession(puterSignedIn);
     if (puterSignedIn) {
       const user = await Promise.resolve(sdk.auth.getUser()).catch(() => null);
       if (user && user.username) {
@@ -3852,7 +3860,7 @@ function openFromHash(hash) {
 }
 // Profile & settings edits the same store in another tab: take its shared fields without
 // overwriting this tab's chats.
-const SHARED_SETTING_KEYS = ["displayName", "avatarColor", "defaultPersona", "theme", "followUps", "cloudSync", "retentionDays", "account", "accountName", "accountTemp"];
+const SHARED_SETTING_KEYS = ["displayName", "avatarColor", "defaultPersona", "theme", "followUps", "cloudSync", "retentionDays", "account", "accountName", "accountTemp", "puterSession"];
 function mergeSharedSettings(raw) {
   let saved;
   try {
@@ -4427,6 +4435,7 @@ async function selfTest() {
   window.puter.auth.getUser = async () => ({ username: "glow_tester" });
   await restorePuterSession();
   expect("account: a real account shows its username again", state.settings.accountTemp === false && $("account-label").textContent === "glow_tester" && $("account-save").classList.contains("hidden"));
+  expect("account: the confirmed Puter session is shared with the other Glow apps", state.settings.puterSession === true);
   chatMode = "quota";
   await sendChat("Again please");
   const notices = [...document.querySelectorAll(".msg.notice")];

@@ -198,7 +198,8 @@ def resolve(root_id, rel):
     if STRICT and categorize(root_id, rel)[0] == "Other":
         return None
     base = os.path.realpath(root["path"])
-    full = os.path.realpath(os.path.join(base, rel.replace("/", os.sep)))
+    # Data packs write Windows paths ("a\\b"); accept both separators on every OS.
+    full = os.path.realpath(os.path.join(base, rel.replace("\\", "/").replace("/", os.sep)))
     try:
         if os.path.commonpath([base.lower(), full.lower()]) != base.lower():
             return None
