@@ -28,7 +28,7 @@
    "id": "peers",
    "name": "Peers",
    "category": "Apps",
-   "desc": "Verified reviews across 32 categories — food, travel, market, AI tools, health and more",
+   "desc": "Verified reviews across 32 categories â€” food, travel, market, AI tools, health and more",
    "description": "Offline-first review app across 32 categories, from food to AI tools, with a built-in Use it / Wait / Skip scorecard.",
    "summary": "Offline-first review app across 32 categories, from food to AI tools, with a quick Use it / Wait / Skip scorecard.",
    "tags": [
@@ -95,7 +95,7 @@
    "id": "hazel",
    "name": "Hazel",
    "category": "Creator Tools",
-   "desc": "Desktop studio for creators — generate a video from a prompt, refine it, fan it out to every platform, and keep your storage from overfilling",
+   "desc": "Desktop studio for creators â€” generate a video from a prompt, refine it, fan it out to every platform, and keep your storage from overfilling",
    "description": "Desktop creator studio: generate a video from a prompt, refine it in the editor and publish to every platform at once &mdash; plus bulk uploads and automatic media backup.",
    "summary": "Desktop creator studio: generate a video from a prompt, refine it and publish to every platform at once.",
    "tags": [
@@ -118,7 +118,7 @@
    "id": "sweep",
    "name": "Sweep",
    "category": "AI",
-   "desc": "Turn a plain-words idea into a scored spec (Kiro-style requirements, design, tasks), a drag-and-drop task board and a Build → Grow → Earn plan — hand it to Lovable, v0, Cursor or Claude Code in one click, share remix links, and let Otto, an offline approval-first AI operator, draft brand, site, posts and outreach",
+   "desc": "Turn a plain-words idea into a scored spec (Kiro-style requirements, design, tasks), a drag-and-drop task board and a Build â†’ Grow â†’ Earn plan â€” hand it to Lovable, v0, Cursor or Claude Code in one click, share remix links, and let Otto, an offline approval-first AI operator, draft brand, site, posts and outreach",
    "description": "Turns a rough app idea into a scored spec, a task board and a Build &rarr; Grow &rarr; Earn plan, then hands it to Lovable, v0, Cursor or Claude Code in one click. Its local agent Otto drafts brand, site and posts. Fully offline.",
    "summary": "Turns a rough app idea into a scored spec, task board and launch plan, then hands it to Cursor, v0 or Claude Code.",
    "tags": [
@@ -128,7 +128,7 @@
     "offline agent"
    ],
    "image": "sweep-hero.svg",
-   "image_alt": "Sweep turning a plain-words idea into a Build, Grow and Earn plan — a guided intake, an idea brief, a generated capability matrix, a Definition of Done checklist, a scaffold file tree and a project catalog",
+   "image_alt": "Sweep turning a plain-words idea into a Build, Grow and Earn plan â€” a guided intake, an idea brief, a generated capability matrix, a Definition of Done checklist, a scaffold file tree and a project catalog",
    "links": {
     "app": "sweep/app.html",
     "web": "sweep/",
@@ -189,7 +189,7 @@
    "id": "vertex",
    "name": "Vertex",
    "category": "CAD &amp; 3D",
-   "desc": "One local 3D app — build parts and export 3D files (STL/OBJ/glTF/3MF/DXF), repair models and plan assemblies in ANY 3D software, ask design questions, reverse-engineer scans, turn drawings into CAD, automate batches, and simulate",
+   "desc": "One local 3D app â€” build parts and export 3D files (STL/OBJ/glTF/3MF/DXF), repair models and plan assemblies in ANY 3D software, ask design questions, reverse-engineer scans, turn drawings into CAD, automate batches, and simulate",
    "description": "Offline parametric CAD builder and engineering copilot: diagnoses broken models, plans repairs, checks clearance and motion, and exports STL, OBJ, glTF, 3MF and DXF.",
    "summary": "Offline parametric CAD and engineering copilot that repairs models, checks clearances and exports STL, 3MF and DXF.",
    "tags": [
@@ -215,7 +215,7 @@
    "category": "Tools I Use",
    "external": true,
    "url": "https://somacad.app/",
-   "desc": "Open-source AI CAD — describe a part, your coding agent writes CadQuery, SOMA builds it",
+   "desc": "Open-source AI CAD â€” describe a part, your coding agent writes CadQuery, SOMA builds it",
    "description": "Open-source desktop CAD where a coding agent writes CadQuery for you, with checks, FEM and STEP/STL/3MF export. By Kai Jungsth&ouml;fel (GPL-3.0).",
    "summary": "Open-source AI CAD by Kai Jungsth&ouml;fel &mdash; a coding agent writes CadQuery, SOMA builds, checks and exports it.",
    "tags": [
@@ -301,7 +301,7 @@
    "name": "Twin",
    "category": "Apps",
    "desc": "TwinAgent research team, stocks from any country with real exchange calendars, real-time prices from your own broker or data key, multi-currency practice and optional real trading via Alpaca or Interactive Brokers",
-   "description": "Twin is an iPhone-ready investing and trading companion with a clean, professional design (1.5.1: new design system, line icons, dark and light themes) that updates itself the moment a new version ships (1.5.2). New in 1.7: real-time prices from your own Interactive Brokers, Alpaca or Finnhub account with the source shown on every stock page (Yahoo stays the labelled, delayed fallback), a read-only IBKR gateway self-test, Qatar and Abu Dhabi holiday calendars, daily backups of your data and a safe updater. From 1.6: the web demo covers about 280 stocks and ETFs on 35+ exchanges plus 34 indices, refreshed hourly; market status follows real exchange calendars (holidays, early closes); FX rates refresh every minute with their time shown; and real orders can go through Interactive Brokers for world exchanges as well as Alpaca for US listings. From 1.5: TwinAgent, a free research team of five analysts (trend, SEC-filed fundamentals, risk, relevance-screened headlines, famous investors' 13Fs) that argue a bull and bear case from cited, dated evidence; a portfolio manager rates the stock and a risk gate built from your own limits sizes or blocks the idea. No AI subscription, the same evidence always gives the same report, future data is filtered out, and a walk-forward scorecard tests the price evidence over decades against buy-and-hold. Search stocks by company, ticker or country — Tokyo, Hong Kong, Jakarta, London, Frankfurt, Mumbai, Toronto, São Paulo, Sydney and more — with exchange, currency, market status and next holidays, ≈ USD price with the FX time and US-listing hints on every stock page. World markets shows market clocks, 34 indices, movers and a heatmap; practice trades in a separate $10,000 USD portfolio convert foreign prices at current FX rates, and totals can be shown in your home currency (25 currencies). Continue as guest or share a ?guest link; market, limit, stop, stop-limit and trailing orders with brackets, price alerts, scrub charts with SMA/EMA/RSI, portfolio X-ray with country and currency exposure, a bar-by-bar Replay Lab and 12 Twin Academy lessons. The local server searches any Yahoo Finance listing; the web demo uses an hourly snapshot of about 280 global stocks and ETFs. Optional real trading on the local server through your own Alpaca (US) or Interactive Brokers (world exchanges) account, with preview, confirm, caps and submission-time checks. Not financial advice.",
+   "description": "Twin is an iPhone-ready investing and trading companion with a clean, professional design (1.5.1: new design system, line icons, dark and light themes) that updates itself the moment a new version ships (1.5.2). New in 1.7: real-time prices from your own Interactive Brokers, Alpaca or Finnhub account with the source shown on every stock page (Yahoo stays the labelled, delayed fallback), a read-only IBKR gateway self-test, Qatar and Abu Dhabi holiday calendars, daily backups of your data and a safe updater. From 1.6: the web demo covers about 280 stocks and ETFs on 35+ exchanges plus 34 indices, refreshed hourly; market status follows real exchange calendars (holidays, early closes); FX rates refresh every minute with their time shown; and real orders can go through Interactive Brokers for world exchanges as well as Alpaca for US listings. From 1.5: TwinAgent, a free research team of five analysts (trend, SEC-filed fundamentals, risk, relevance-screened headlines, famous investors' 13Fs) that argue a bull and bear case from cited, dated evidence; a portfolio manager rates the stock and a risk gate built from your own limits sizes or blocks the idea. No AI subscription, the same evidence always gives the same report, future data is filtered out, and a walk-forward scorecard tests the price evidence over decades against buy-and-hold. Search stocks by company, ticker or country â€” Tokyo, Hong Kong, Jakarta, London, Frankfurt, Mumbai, Toronto, SÃ£o Paulo, Sydney and more â€” with exchange, currency, market status and next holidays, â‰ˆ USD price with the FX time and US-listing hints on every stock page. World markets shows market clocks, 34 indices, movers and a heatmap; practice trades in a separate $10,000 USD portfolio convert foreign prices at current FX rates, and totals can be shown in your home currency (25 currencies). Continue as guest or share a ?guest link; market, limit, stop, stop-limit and trailing orders with brackets, price alerts, scrub charts with SMA/EMA/RSI, portfolio X-ray with country and currency exposure, a bar-by-bar Replay Lab and 12 Twin Academy lessons. The local server searches any Yahoo Finance listing; the web demo uses an hourly snapshot of about 280 global stocks and ETFs. Optional real trading on the local server through your own Alpaca (US) or Interactive Brokers (world exchanges) account, with preview, confirm, caps and submission-time checks. Not financial advice.",
    "summary": "Investing companion with a five-analyst AI research team, global stock search, paper trading and a replay lab.",
    "tags": [
     "TwinAgent",
@@ -400,7 +400,7 @@
    "id": "shortcraft",
    "name": "Shortcraft",
    "category": "Creator Tools",
-   "desc": "Make faceless 9:16 explainer shorts in the browser — captions, music, MP4 export, channel kit and publishing",
+   "desc": "Make faceless 9:16 explainer shorts in the browser â€” captions, music, MP4 export, channel kit and publishing",
    "description": "Browser studio for faceless explainer shorts in English and Bahasa Indonesia: write scenes, add voice, export a captioned 1080&times;1920 MP4 and post to YouTube, TikTok and Instagram.",
    "summary": "Browser studio for faceless explainer shorts &mdash; script, voice, captions and 1080&times;1920 MP4 export with auto-posting.",
    "tags": [
@@ -421,18 +421,18 @@
   },
   {
    "id": "guangyao",
-   "name": "Guang Yao Together · 光耀同行",
+   "name": "Guang Yao Together Â· å…‰è€€åŒè¡Œ",
    "category": "Apps",
-   "desc": "Unofficial learning app for 發一光耀 — sign in or continue as a guest, admin-published lessons and materials, an AI study companion, spaced review and streaks as a PWA, an Android app and a free iPhone home-screen app",
-   "description": "An unofficial Traditional Chinese learning app for 發一光耀. Learners sign in with a free Puter account (progress syncs across devices) or continue as a guest; admins publish lessons, quizzes, handouts and events from a dedicated admin console backed by a versioned content repository. Includes an AI study companion that cites lessons and materials, quizzes, plans and makes flashcards, plus interactive lessons, spaced-repetition review, streaks, a usage guide and offline support. Also available as an Android app (APK download); iPhone users get a guided, free home-screen app, or can sideload the native app with a free Apple ID. Points, giving and chat remain demos; no payments or official certification.",
-   "summary": "Unofficial Traditional Chinese learning app for 發一光耀 with lessons, an AI study companion and spaced review.",
+   "desc": "Unofficial learning app for ç™¼ä¸€å…‰è€€ â€” sign in or continue as a guest, admin-published lessons and materials, an AI study companion, spaced review and streaks as a PWA, an Android app and a free iPhone home-screen app",
+   "description": "An unofficial Traditional Chinese learning app for ç™¼ä¸€å…‰è€€. Learners sign in with a free Puter account (progress syncs across devices) or continue as a guest; admins publish lessons, quizzes, handouts and events from a dedicated admin console backed by a versioned content repository. Includes an AI study companion that cites lessons and materials, quizzes, plans and makes flashcards, plus interactive lessons, spaced-repetition review, streaks, a usage guide and offline support. Also available as an Android app (APK download); iPhone users get a guided, free home-screen app, or can sideload the native app with a free Apple ID. Points, giving and chat remain demos; no payments or official certification.",
+   "summary": "Unofficial Traditional Chinese learning app for ç™¼ä¸€å…‰è€€ with lessons, an AI study companion and spaced review.",
    "tags": [
     "PWA",
     "accounts + guest mode",
     "admin console",
     "AI study companion",
     "Android app",
-   "iPhone home-screen app"
+    "iPhone home-screen app"
    ],
    "image": "guangyao-desktop.png",
    "image_alt": "Guang Yao Together desktop: today's goal, newest official lessons and the study dashboard",
@@ -538,8 +538,8 @@
    "id": "mint",
    "name": "Mint",
    "category": "Creator Tools",
-   "desc": "Prompt a spreadsheet template with AI, tweak it with words, and sell it — instant QRIS/e-wallet/card checkout on the seller's own Midtrans, Xendit or Stripe, push notifications, affiliate payouts, Android app",
-   "description": "Live template marketplace for Excel / Google Sheets: describe a sheet in English or Bahasa Indonesia and Mint AI designs it, tweak it with words (&ldquo;add column Supplier&rdquo;), export a real .xlsx with live formulas and a dashboard, then sell it &mdash; buyers pay the seller directly — instantly through the seller's own Midtrans, Xendit or Stripe checkout (QRIS, e-wallets, VA, cards; the file unlocks by itself) or via their payment link with seller confirmation, with tracked affiliate commissions and payouts. Recovery codes, formula-free previews of paid templates, listing reports, order badges and Web Push notifications; Android app (APK) and iPhone Add to Home Screen. Cloudflare Workers + SQLite Durable Object backend.",
+   "desc": "Prompt a spreadsheet template with AI, tweak it with words, and sell it â€” instant QRIS/e-wallet/card checkout on the seller's own Midtrans, Xendit or Stripe, push notifications, affiliate payouts, Android app",
+   "description": "Live template marketplace for Excel / Google Sheets: describe a sheet in English or Bahasa Indonesia and Mint AI designs it, tweak it with words (&ldquo;add column Supplier&rdquo;), export a real .xlsx with live formulas and a dashboard, then sell it &mdash; buyers pay the seller directly â€” instantly through the seller's own Midtrans, Xendit or Stripe checkout (QRIS, e-wallets, VA, cards; the file unlocks by itself) or via their payment link with seller confirmation, with tracked affiliate commissions and payouts. Recovery codes, formula-free previews of paid templates, listing reports, order badges and Web Push notifications; Android app (APK) and iPhone Add to Home Screen. Cloudflare Workers + SQLite Durable Object backend.",
    "summary": "Describe a spreadsheet, tweak it in plain words, export a working .xlsx and sell it on a built-in marketplace.",
    "tags": [
     "Template marketplace",
@@ -564,7 +564,7 @@
     "web-push"
    ],
    "image": "mint-hero.jpg",
-   "image_alt": "Mint: prompt a spreadsheet template, tweak it, sell it — prompt box with Mint AI and the prompt, tweak, sell flow",
+   "image_alt": "Mint: prompt a spreadsheet template, tweak it, sell it â€” prompt box with Mint AI and the prompt, tweak, sell flow",
    "links": {
     "app": "mint/app.html",
     "web": "mint/web.html",
@@ -596,7 +596,7 @@
    "id": "me-rd-toolkit",
    "name": "ME R&D Toolkit",
    "category": "Engineering",
-   "desc": "Mechanical R&D workspace — NPI flow, review checklists, issue log, 11 engineering calculators and an optional LAN file vault; offline PWA",
+   "desc": "Mechanical R&D workspace â€” NPI flow, review checklists, issue log, 11 engineering calculators and an optional LAN file vault; offline PWA",
    "description": "Offline-first workspace for hardware/mechanical R&amp;D: NPI task flow, OK/NG/NA review checklists, issue log and one-page project report, 11 calculators (Cpk, x&#772; &minus; 3&sigma;, torque window, stack-up, snap-fit, thermal pad, IEC openings, &Delta;E) and an optional stdlib-only file vault server. Ships with generic demo data; real content loads from a private data pack.",
    "summary": "Offline workspace for mechanical R&amp;D &mdash; NPI task flow, review checklists, issue log and 11 engineering calculators.",
    "tags": [
@@ -625,6 +625,44 @@
    "status": "shipped",
    "order": 22,
    "portfolio_order": -9
+  },
+  {
+   "id": "lingua",
+   "name": "Lingua",
+   "category": "AI",
+   "desc": "Universal language helper: translate text with tone and glossary, read the words in any picture, and live-translate Teams captions on laptop, iPhone and Android",
+   "description": "Picture-to-text reader with crop, rotate, batch, history, read-aloud and translation into 16 languages, plus an always-on-top overlay that translates Microsoft Teams captions live. Windows app with a Share-to-phone QR pairing so iPhone and Android can read pictures with the camera through the laptop. Now also includes a translation desk: paste text and translate it with a tone, context, glossary, alternatives and word-choice notes, using the company AI, local AI on the laptop (Ollama) or offline packs.",
+   "summary": "Universal language helper for Windows, iPhone and Android: text, pictures and live captions, with local AI and offline fallback.",
+   "tags": [
+    "translation desk",
+    "OCR",
+    "translation",
+    "Windows",
+    "iPhone",
+    "Android"
+   ],
+   "links": {
+    "app": "lingua/picture.html",
+    "web": "lingua/web.html",
+    "mobile": "lingua/mobile.html"
+   },
+   "card_links": [
+    {
+     "label": "Read picture",
+     "path": "lingua/picture.html"
+    },
+    {
+     "label": "Web captions",
+     "path": "lingua/web.html"
+    },
+    {
+     "label": "Mobile",
+     "path": "lingua/mobile.html"
+    }
+   ],
+   "order": 4,
+   "portfolio": false,
+   "version": "2.3.1"
   }
  ]
 }
