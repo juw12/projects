@@ -100,7 +100,10 @@ All optional and opened from the gear icon in the header (**Settings**).
   Groq, or any OpenAI-compatible endpoint with your own key. The free tier falls back
   across keyless services (Pollinations → LLM7) when one is busy, rate-limited (402/429)
   or stalls (60 s per service), skips a rate-limited service for 30 s, queues free
-  requests one at a time and caches identical answers for 24 h. Keys stay in this browser (session-only unless
+  requests one at a time and caches identical answers for 24 h. The keyless Pollinations model is a
+  reasoning model with a ~1500-token reply cap, so Sweep asks it for low reasoning effort, and any
+  reply a provider cuts off at its length cap is continued automatically (up to 3 follow-ups, with
+  repeated overlap removed) so long spec files come back whole. Keys stay in this browser (session-only unless
   "remember" is ticked); requests go straight from the browser to the provider.
   A running request can be cancelled from the same button.
 - **Sync** — end-to-end encrypted (PBKDF2-SHA256 → AES-GCM, passphrase never
