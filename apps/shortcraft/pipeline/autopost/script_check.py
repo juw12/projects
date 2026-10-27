@@ -17,6 +17,7 @@ then runs the yt-script rules as gates, adapted for Shorts:
     sourced     every scene that speaks a statistic carries a `source`
     runtime     estimate at 150 words per minute (the upstream rule); warn above 60 s
     placeholders  no TODO / {{...}} left from a template (blocks the render)
+    layout      text limits per layout so nothing overlaps or gets clipped (blocks the render)
     package     yt-package title lint >= 70 (length, number, caps, cover text not repeating the title)
 
     python3 script_check.py project.json [--title "..."] [--json]
@@ -38,7 +39,7 @@ HERE = Path(__file__).resolve().parent
 VENDOR = HERE / "vendor" / "yt_script"
 WPM = 150
 HOOK_PASS = 55
-OBJECTIVE_GATES = ("no_intro", "on_screen", "one_ask", "sourced", "placeholders")
+OBJECTIVE_GATES = ("no_intro", "on_screen", "one_ask", "sourced", "placeholders", "layout")
 HEURISTIC_GATES = ("hook", "title")
 
 # ----------------------------------------------------------------------------- Indonesian lexicon
@@ -239,6 +240,20 @@ def check_project(project, title=None):
                  if STATISTIC.search(text) and not (scene.get("source") or project.get("sources"))]
     gates.append(gate("sourced", not unsourced, f"statistic without a source in scene(s) {unsourced}"
                       if unsourced else "every spoken statistic has a source"))
+
+    # layout limits measured on the pop template (1080x1920): beyond these, text collides or is clipped
+    layout_problems = []
+    for i, scene in enumerate(scenes, start=1):
+        layout = scene.get("layout")
+        if layout == "hook" and scene.get("value") and len(scene.get("headline", "")) > 24:
+            layout_problems.append(f"scene {i}: hook counter + headline over 24 chars overlaps the captions")
+        if layout == "stamp" and len(scene.get("stamp", "")) > 10:
+            layout_problems.append(f"scene {i}: stamp '{scene['stamp']}' over 10 chars gets clipped")
+        if layout == "price" and len(scene.get("headline", "")) > 22:
+            layout_problems.append(f"scene {i}: price headline over 22 chars wraps into the price")
+        if layout == "price" and len(scene.get("stamp", "")) > 12:
+            layout_problems.append(f"scene {i}: price sticker '{scene['stamp']}' over 12 chars")
+    gates.append(gate("layout", not layout_problems, "; ".join(layout_problems) or "fits the template"))
 
     leftovers = [i + 1 for i, scene in enumerate(scenes)
                  if PLACEHOLDER.search(json.dumps(scene, ensure_ascii=False))]
