@@ -1,6 +1,6 @@
 ﻿/* AIRIZ Control Center â€” versioned, scope-isolated offline shell. */
 const CACHE_PREFIX = 'airiz-control-' + encodeURIComponent(self.registration.scope) + '-';
-const CACHE_NAME = CACHE_PREFIX + 'v2.20-camera-frame-relay';
+const CACHE_NAME = CACHE_PREFIX + 'v2.21-who-is-connected';
 const ASSETS = [
   './',
   './index.html',
@@ -13,6 +13,7 @@ const ASSETS = [
   './remote-ui.js',
   './camera-relay.js',
   './camera-frame-relay.js',
+  './device-label.js',
   './watch.html',
   './watch.js',
   './vendor/peerjs.min.js',

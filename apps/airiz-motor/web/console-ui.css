@@ -658,9 +658,18 @@ body.console-redesign { color-scheme: inherit; }
 .camera-relay-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
 .camera-relay-code { font-size: 1.6rem; letter-spacing: 0.2em; font-variant-numeric: tabular-nums; }
 .camera-relay-viewers, .camera-relay-status { font-size: 0.85rem; opacity: 0.85; }
+.camera-relay-viewer-list { margin: 0; padding-left: 1.2rem; font-size: 0.85rem; display: grid; gap: 2px; }
+.camera-relay-viewer-list[hidden] { display: none; }
 .camera-relay-input { width: 9em; font-size: 1.1rem; letter-spacing: 0.15em; }
 .camera-relay-video { width: 100%; max-height: 70vh; background: #000; border-radius: 8px; margin-top: 6px; }
 .camera-relay-phone { border-color: var(--accent, #2f81f7); margin: 0 0 14px; background: var(--surface, rgba(255,255,255,0.03)); }
 .camera-relay[hidden], .camera-relay-row[hidden] { display: none !important; }
 .camera-relay-link { flex: 1 1 260px; min-width: 0; font-size: 0.85rem; }
 .camera-relay-phone .camera-relay-input { flex: 1 1 9em; width: auto; letter-spacing: 0.08em; }
+
+/* Phone remote: devices connected by Bluetooth */
+.phone-remote-clients { margin: 0.5rem 0; }
+.phone-remote-clients h3 { font-size: 0.9rem; margin: 0 0 0.25rem; }
+.phone-remote-clients ul { margin: 0; padding-left: 1.2rem; font-size: 0.85rem; display: grid; gap: 2px; }
+.phone-remote-clients .muted { list-style: none; margin-left: -1.2rem; opacity: 0.7; }
+.bluetooth-in-use { display: block; font-size: 0.8rem; color: #d29922; }

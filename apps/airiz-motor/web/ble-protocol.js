@@ -88,6 +88,51 @@
     return { state: match[1] };
   }
 
+  // Bridge v3 "who" reply: #WHO#<controller>#ADDR|LABEL|SECONDS|PIN_OK;...#END#
+  function parseWho(text) {
+    const match = /#WHO#([0-9A-Fa-f:]*)#([^#]*)#END#/.exec(text || '');
+    if (!match) return null;
+    const clients = match[2].split(';').filter(Boolean).map(entry => {
+      const [address, label, seconds, pinOk] = entry.split('|');
+      return {
+        address: (address || '').toUpperCase(),
+        label: label && label !== '-' ? label : '',
+        seconds: Number(seconds) || 0,
+        pinOk: pinOk === '1',
+      };
+    }).filter(client => /^[0-9A-F:]{17}$/.test(client.address));
+    return { controller: match[1].toUpperCase(), clients };
+  }
+
+  function bridgeVersion(text) {
+    const match = /#BRIDGE#(\d+)#END#/.exec(text || '');
+    return match ? Number(match[1]) : 0;
+  }
+
+  // Last known "who is connected" list, used to mark AIRIZ-BT in the PC device picker.
+  const WHO_CACHE_KEY = 'airiz.bt.who';
+  function rememberWho(info) {
+    try {
+      if (root && root.localStorage && info && info.controller) {
+        root.localStorage.setItem(WHO_CACHE_KEY, JSON.stringify(Object.assign({ at: Date.now() }, info)));
+      }
+    } catch (ignored) { /* storage unavailable */ }
+  }
+  function recallWho(maxAgeMs) {
+    try {
+      const info = JSON.parse(root.localStorage.getItem(WHO_CACHE_KEY) || 'null');
+      if (info && Date.now() - info.at <= (maxAgeMs || 10 * 60 * 1000)) return info;
+    } catch (ignored) { /* storage unavailable */ }
+    return null;
+  }
+
+  function describeClient(client) {
+    const minutes = Math.round(client.seconds / 60);
+    const age = client.seconds < 60 ? 'just now' : minutes < 60 ? minutes + ' min'
+      : Math.floor(minutes / 60) + ' h ' + (minutes % 60) + ' min';
+    return (client.label || 'Unnamed device') + (client.pinOk ? ' (PIN ok)' : ' (no PIN yet)') + ', ' + age;
+  }
+
   function concatBytes(first, second) {
     const joined = new Uint8Array(first.length + second.length);
     joined.set(first, 0);
@@ -113,6 +158,9 @@
       this.transportLabel = link.label;
       this.firmwareVersion = null;
       this.bridge = false;
+      this.bridgeVersion = 0;
+      this.myAddress = '';
+      this.whoInfo = null;     // {controller, clients} from bridge v3
       this.authenticated = false;
       this.opened = false;
       this.closed = false;
@@ -250,8 +298,10 @@
         const auth = await this.waitFor(text => authReply(text) || null, 600, 'no-auth').catch(() => null);
         if (auth) {
           this.bridge = true;
+          this.bridgeVersion = bridgeVersion(this.probeText);
           if (auth.state === 'required') await this.authenticate();
           else this.authenticated = auth.state === 'ok';
+          if (this.bridgeVersion >= 3) await this.introduce();
         }
         if (this.closed) throw new Error('Device disconnected during verification.');
         this.opened = true;
@@ -261,6 +311,33 @@
         await this.close();
         throw error;
       }
+    }
+
+    // Bridge v3: tell the AIRIZ who we are and ask who else is connected. Never
+    // blocks the connection: missing answers are simply ignored.
+    async introduce() {
+      const label = root && typeof root.AirizDeviceLabel === 'function' ? root.AirizDeviceLabel() : 'Device';
+      try {
+        let mark = this.probeText.length;
+        const hello = this.waitFor(text => {
+          const match = /#HELLO#([0-9A-Fa-f:]*)#END#/.exec(text.slice(mark));
+          return match ? match[1] || '-' : null;
+        }, 2000, 'no-hello');
+        await this.send('hello ' + label + '\n');
+        const address = await hello.catch(() => '');
+        this.myAddress = address && address !== '-' ? address.toUpperCase() : '';
+        mark = this.probeText.length;
+        const who = this.waitFor(text => parseWho(text.slice(mark)), 2000, 'no-who');
+        await this.send('who\n');
+        this.whoInfo = await who.catch(() => null);
+        if (this.whoInfo) rememberWho(this.whoInfo);
+      } catch (ignored) { /* optional information */ }
+    }
+
+    // Other devices connected to the same AIRIZ (not this one).
+    get otherClients() {
+      if (!this.whoInfo) return [];
+      return this.whoInfo.clients.filter(client => client.address !== this.myAddress);
     }
 
     remoteDisconnected(error) {
@@ -463,6 +540,7 @@
     FIRMWARE_QUERY, SPP_UUID, NUS_SERVICE, NUS_WRITE, NUS_NOTIFY, HM10_SERVICE,
     MOTOR_STOP_USB, MOTOR_STOP_BRIDGE,
     normalizeUuid, discoverProfiles, customProfile, firmwareVersion, authReply, chunks,
+    parseWho, bridgeVersion, rememberWho, recallWho, describeClient,
     VerifiedSerialPort, pinStore, askPin, requestWebBluetoothPort, webBluetoothHelp, isIos, stageError
   };
 }));
