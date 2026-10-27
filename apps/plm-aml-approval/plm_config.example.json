@@ -1,0 +1,6 @@
+{
+  "plm_home_url": "https://<your-plm-host>/Windchill/wtcore/jsp/wt/portal/dcasearch.jsp?history=4",
+  "part_bom_tab_selector": "a[onclick*='<part-bom-tab-page>']",
+  "green_rule_checkbox_id": "<checkbox-element-id>",
+  "default_reviewer": "<reviewer_plm_id>"
+}
