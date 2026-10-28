@@ -2,6 +2,25 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.1.1",
+      "date": "2026-10-28",
+      "title": "Owner info",
+      "notes": {
+        "en": [
+          "About Pips now shows the owner: Juwen Lie (right-click the pet → Help → About)"
+        ],
+        "id": [
+          "Tentang Pips sekarang menampilkan pemilik: Juwen Lie (klik kanan peliharaan → Bantuan → Tentang)"
+        ],
+        "zh_TW": [
+          "「關於 Pips」現在會顯示擁有者：Juwen Lie（右鍵寵物 → 說明 → 關於）"
+        ],
+        "zh_CN": [
+          "“关于 Pips”现在会显示所有者：Juwen Lie（右键宠物 → 帮助 → 关于）"
+        ]
+      }
+    },
+    {
       "version": "2.1.0",
       "date": "2026-10-28",
       "title": "Interactive guide & in-app updates",
