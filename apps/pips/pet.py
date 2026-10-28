@@ -2834,6 +2834,144 @@ class DesktopPet:
     # ------------------------------------------------------------------ menu
     def _show_menu(self, event):
         self._touch()
+        try:
+            import fancy_menu
+            self._show_fancy_menu(event, fancy_menu)
+            self._tour_event("menu")
+            return
+        except Exception as exc:
+            logger.warning("Fancy menu failed, using the classic menu: %s", exc)
+        self._show_native_menu(event)
+
+    def _show_fancy_menu(self, event, fm):
+        name = self.s["name"]
+        open_now = bool(self._call("is_window_open"))
+        update = self._call("update_info") if self.cb.get("update_info") else None
+        menu = fm.FancyMenu(self.win, accent=self.color)
+        st = self.st
+        menu.header(
+            name,
+            f"{species_label(self.s['species'])} \u00b7 {self.mood_label()}",
+            avatar=(name[:1] or "P").upper(),
+            stats=[
+                ("\u2665", st.get("happiness", 0), "#e0557a"),
+                ("\u26A1", st.get("energy", 0), "#e2a72e"),
+                ("\U0001F356", st.get("fullness", 0), "#e07b39"),
+            ],
+        )
+        if update:
+            menu.banner(
+                t("fm_upd_title", v=update.get("version", "")),
+                t("fm_upd_sub"),
+                lambda: self._call("show_update"),
+                icon="\U0001F381",
+                badge=t("fm_new"),
+            )
+
+        tiles = []
+        if self.social:
+            tiles.append(("\U0001F465", t("fm_friends"), lambda: self.open_hub()))
+            if self.shop:
+                tiles.append(("\U0001F6CD", t("fm_shop"), lambda: self.open_hub("shop")))
+        tiles.append(("\U0001F36A", t("fm_snack"), self.feed))
+        tiles.append(("\U0001F49E", t("fm_pat"), self.pet))
+        tiles.append(("\u23F1", t("fm_focus"), lambda: self._call("toggle_window")))
+        tiles.append(("\U0001F4CA", t("fm_stats"), lambda: self._call("open_dashboard")))
+        if self.sleeping:
+            tiles.append(("\u2600", t("fm_wake"), lambda: self.wake("poke")))
+        else:
+            tiles.append(("\U0001F319", t("fm_sleep"), lambda: self.go_to_sleep("manual")))
+        if self.mode == "taskbar":
+            tiles.append(("\U0001F388", t("fm_float"), self.float_free))
+        else:
+            tiles.append(("\u2B07", t("fm_dock"), self.go_to_taskbar))
+        menu.tiles(tiles)
+
+        moves = self.shop.moves() if self.shop else []
+        if moves:
+            def build_tricks(sub):
+                for move in moves:
+                    sub.item("\u2728", t("mv_" + move).split(":")[0], lambda m=move: self.do_trick(m))
+            menu.submenu("\U0001F3AA", t("p_tricks"), build_tricks, hint=str(len(moves)))
+
+        menu.section(t("fm_customize"))
+
+        def build_animals(sub):
+            for category in CATEGORIES:
+                def build_category(cat_menu, category=category):
+                    for sp in SPECIES_BY_CATEGORY[category]:
+                        cat_menu.choice("\U0001F43E", species_label(sp), sp == self.s["species"],
+                                        lambda v=sp: self.set_species(v))
+                current_in = self.s["species"] in SPECIES_BY_CATEGORY[category]
+                sub.submenu("\u25CF" if current_in else "\u25CB", t("cat_" + category), build_category,
+                            hint=str(len(SPECIES_BY_CATEGORY[category])))
+        menu.submenu("\U0001F43E", t("p_animal"), build_animals, hint=species_label(self.s["species"]))
+
+        def build_colors(sub):
+            sub.swatches([(value, t("col_" + label)) for label, value in COLOR_PRESETS],
+                         self.s["color"], lambda v: self.update_setting("color", v))
+            sub.separator()
+            sub.item("\U0001F3A8", t("fm_custom_colour"), self._pick_custom_color)
+        menu.submenu("\U0001F3A8", t("p_colour"), build_colors, width=268)
+
+        menu.segmented("\u2195", t("p_size"), [(v, t("size_" + v)) for v in ("S", "M", "L")],
+                       self.s["size"], lambda v: self.update_setting("size", v))
+
+        click_options = (("tickle_hub", "p_click_hub"), ("tickle_open", "p_click_open"),
+                         ("tickle_only", "p_click_only"), ("tickle_never", "p_click_never"))
+
+        def build_click(sub):
+            for value, key in click_options:
+                sub.choice("\U0001F446", t(key), value == self.s["click_action"],
+                           lambda v=value: self.update_setting("click_action", v))
+        current_click = next((t(key) for value, key in click_options if value == self.s["click_action"]), "")
+        menu.submenu("\U0001F446", t("p_click"), build_click, hint=current_click, width=250)
+
+        sounds_on = bool(self.s.get("sounds", True))
+        menu.toggle("\U0001F50A", t("p_sounds"), sounds_on, lambda v: self.update_setting("sounds", v))
+        if self.cb.get("set_theme"):
+            try:
+                import theme as theme_mod
+                dark = theme_mod.current_name() == "dark"
+            except ImportError:
+                dark = False
+            menu.toggle("\U0001F319", t("p_dark_mode"), dark,
+                        lambda v: self._call("set_theme", "dark" if v else "light"), close=True)
+
+        menu.section(t("fm_more"))
+        if i18n and self.cb.get("set_language"):
+            def build_languages(sub):
+                for code, lang_name, _hi in i18n.LANGUAGES:
+                    sub.choice("\U0001F310", lang_name, code == i18n.get_language(),
+                               lambda c=code: self._call("set_language", c))
+            current_lang = next((n for c, n, _h in i18n.LANGUAGES if c == i18n.get_language()), "")
+            menu.submenu("\U0001F310", t("m_language"), build_languages, hint=current_lang)
+
+        def build_help(sub):
+            if update:
+                sub.item("\U0001F381", t("fm_upd_item", v=update.get("version", "")),
+                         lambda: self._call("show_update"), badge=t("fm_new"), highlight=True)
+            sub.item("\U0001F9ED", t("m_guide"), self.start_tour)
+            if self.cb.get("open_user_guide"):
+                sub.item("\U0001F4D6", t("m_user_guide"), lambda: self._call("open_user_guide"))
+            if self.cb.get("check_updates"):
+                sub.item("\U0001F504", t("m_check_updates"), lambda: self._call("check_updates"))
+            if self.cb.get("version"):
+                version = self._call("version") or ""
+                owner = (self._call("owner") if self.cb.get("owner") else "") or ""
+                sub.item("\u2139", t("m_about", v=version),
+                         lambda v=version, o=owner: self.say(
+                             t("about_text", v=v, owner=o, email=getattr(social, "OWNER_EMAIL", "")),
+                             duration=8, priority=1))
+        menu.submenu("\u2753", t("m_help"), build_help, badge=t("fm_new") if update else None, width=250)
+        menu.item("\u2699", t("p_settings"), self.open_settings)
+        menu.item("\U0001F648", t("p_hide", name=name), lambda: self._call("hide_pet"))
+        menu.separator()
+        menu.item("\u23FB", t("p_quit"), lambda: self._call("quit"), danger=True)
+        menu.popup(event.x_root, event.y_root)
+        self._fancy_menu = menu
+
+    def _show_native_menu(self, event):
         bg, fg = "#ffffff", "#1a1a1a"
 
         def submenu(parent):
