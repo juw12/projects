@@ -2,8 +2,9 @@
  *
  * The AIRIZ camera reaches the PC as a USB webcam. A phone (Bluefy/iPhone or Android)
  * cannot open it directly, so the PC relays it:
- *   PC  : Camera → Start Preview (AIRIZ camera) → "Share to phone" → shows a 6-digit code
- *   Phone: Camera → enter the code → "Watch"
+ *   PC  : Remote by code / Share control shares motor + camera with one 6-digit code
+ *         (quick-connect.js calls AirizCameraRelay.shareWithCode; no separate camera share button since v1.7.2)
+ *   Phone: Remote by code, or Camera → enter the code → "Watch"
  * Video goes PC → phone over WebRTC (direct, or via the PeerJS TURN relay when networks
  * block direct links). The free PeerJS cloud server only introduces the two peers.
  * When a network blocks WebRTC completely (company firewalls), the AIRIZ frame relay
@@ -24,8 +25,7 @@
 
   const els = {
     section: $('camera-relay'),
-    share: $('btn-relay-share'),
-    stopShare: $('btn-relay-stop'),
+    liveRow: $('relay-live-row'),
     code: $('relay-share-code'),
     viewers: $('relay-viewers'),
     viewerList: $('relay-viewer-list'),
@@ -34,10 +34,6 @@
     stopWatch: $('btn-relay-view-stop'),
     video: $('relay-remote-video'),
     relayImage: $('relay-remote-image'),
-    linkRow: $('relay-link-row'),
-    link: $('relay-share-link'),
-    copy: $('btn-relay-copy'),
-    nativeShare: $('btn-relay-native-share'),
     status: $('relay-status')
   };
   if (!els.section) return;
@@ -48,7 +44,6 @@
 
   if (!PeerLib || !api || typeof api.getCameraStream !== 'function') {
     setStatus('Phone viewer is unavailable in this browser.');
-    els.share.disabled = true;
     els.watch.disabled = true;
     return;
   }
@@ -112,24 +107,6 @@
     return base + '#' + code;
   }
 
-  async function copyLink() {
-    const text = els.link.value;
-    if (!text) return;
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch (error) {
-      els.link.select();
-      document.execCommand('copy');
-    }
-    setStatus('Link copied. Anyone with it can watch while sharing is on (view only).');
-  }
-
-  async function nativeShare() {
-    try {
-      await navigator.share({ title: 'AIRIZ camera (live)', text: 'Live AIRIZ camera view', url: els.link.value });
-    } catch (error) { /* User closed the share sheet */ }
-  }
-
   function updateViewerCount() {
     const count = sharer.calls.size + sharer.relayViewers;
     els.viewers.textContent = sharer.code && els.code.textContent
@@ -142,12 +119,9 @@
   // WebRTC path is blocked. The relay only encodes frames while someone watches through it.
   function publishCode(code) {
     els.code.textContent = code;
-    els.link.value = watchLink(code);
-    els.linkRow.hidden = false;
-    els.nativeShare.hidden = typeof navigator.share !== 'function';
-    els.stopShare.disabled = false;
-    // Ziris PTB members: ziris-team.js posts the code to the team's Teams chat.
-    document.dispatchEvent(new CustomEvent('airiz:share-code', { detail: { kind: 'camera', code, link: els.link.value } }));
+    if (els.liveRow) els.liveRow.hidden = false;
+    // ziris-team.js skips this when it is the Remote by code code (already posted as motor + camera).
+    document.dispatchEvent(new CustomEvent('airiz:share-code', { detail: { kind: 'camera', code, link: watchLink(code) } }));
     if (FrameRelay && !sharer.relay) {
       sharer.relay = FrameRelay.startSender(code, api.getCameraStream, (count, list) => {
         sharer.relayViewers = count;
@@ -177,7 +151,7 @@
   function startSharing(attempt = 0, fixedCode = null) {
     const stream = api.getCameraStream();
     if (!stream) {
-      setStatus('Start Preview with the AIRIZ camera first, then Share to phone.');
+      setStatus('Start Preview with the AIRIZ camera first.');
       return;
     }
     stopSharing(true);
@@ -186,12 +160,11 @@
     const peer = new PeerLib(PEER_PREFIX + code, { debug: 0 });
     sharer.peer = peer;
     sharer.code = code;
-    els.share.disabled = true;
     setStatus('Creating share code…');
 
     peer.on('open', () => {
       publishCode(code);
-      setStatus('Send the link, or enter the code on the phone (Camera → Watch). Keep this window open while sharing.');
+      setStatus('The camera is shared with the Remote by code code. Keep this window open while sharing.');
     });
     peer.on('connection', connection => {
       sharer.connections.add(connection);
@@ -235,7 +208,7 @@
         // The PeerJS server is unreachable or a call failed: keep sharing through the AIRIZ relay.
         publishCode(code);
         setStatus('Sharing through the AIRIZ relay (direct path unavailable: ' + reason + '). '
-          + 'Send the link, or enter the code on the phone. Keep this window open while sharing.');
+          + 'Keep this window open while sharing.');
         return;
       }
       setStatus('Share failed: ' + reason);
@@ -263,10 +236,7 @@
     sharer.code = null;
     els.code.textContent = '';
     if (endedCode) document.dispatchEvent(new CustomEvent('airiz:share-code', { detail: { kind: 'camera', code: null } }));
-    els.link.value = '';
-    els.linkRow.hidden = true;
-    els.share.disabled = false;
-    els.stopShare.disabled = true;
+    if (els.liveRow) els.liveRow.hidden = true;
     updateViewerCount();
     if (!quiet) setStatus('Sharing stopped.');
   }
@@ -434,7 +404,6 @@
     if (!quiet) setStatus('Stopped watching.');
   }
 
-  els.share.addEventListener('click', () => startSharing());
   // Used by quick-connect.js (one button for motor + camera).
   window.AirizCameraRelay = Object.freeze({
     shareWithCode(code) {
@@ -468,9 +437,6 @@
       return els.status.textContent;
     },
   });
-  els.copy.addEventListener('click', copyLink);
-  els.nativeShare.addEventListener('click', nativeShare);
-  els.stopShare.addEventListener('click', () => stopSharing(false));
   els.watch.addEventListener('click', () => startWatching());
   els.stopWatch.addEventListener('click', () => stopWatching(false));
   els.viewCode.addEventListener('keydown', event => {
@@ -492,13 +458,11 @@
   const phone = /iPhone|iPad|iPod|Android/i.test(userAgent) || touchMac || smallTouchScreen || !!window.airizMobile;
   if (phone && !window.airizDesktop) {
     els.section.classList.add('camera-relay-phone');
-    const shareRow = els.share.closest('.camera-relay-row');
-    if (shareRow) shareRow.hidden = true;
-    els.linkRow.hidden = true;
+    if (els.liveRow) els.liveRow.remove();
     const hint = els.section.querySelector('.camera-relay-hint');
     if (hint) {
-      hint.textContent = 'Watch the AIRIZ camera here. On the PC: Camera \u2192 Start Preview \u2192 Share to phone, '
-        + 'then enter the 6-digit code below (or just open the link the PC shares).';
+      hint.textContent = 'Watch the AIRIZ camera here: enter the 6-digit Remote by code code from the PC below '
+        + '(or open the link from the Ziris PTB chat).';
     }
     const intro = document.querySelector('.page-intro');
     const cameraView = $('view-camera');

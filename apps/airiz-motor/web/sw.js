@@ -1,6 +1,6 @@
 ﻿/* AIRIZ Control Center — versioned, scope-isolated offline shell. */
 const CACHE_PREFIX = 'airiz-control-' + encodeURIComponent(self.registration.scope) + '-';
-const CACHE_NAME = CACHE_PREFIX + 'v2.31-1.7.1-coadmin-invite';
+const CACHE_NAME = CACHE_PREFIX + 'v2.32-1.7.2-teams-autopost';
 const ASSETS = [
   './',
   './index.html',

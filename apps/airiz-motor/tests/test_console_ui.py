@@ -106,9 +106,16 @@ class ControllerShellTests(unittest.TestCase):
 
     def test_ziris_team_page_guide_and_owner(self):
         for element_id in ['tab-team', 'view-team', 'tab-guide', 'view-guide', 'team-pass-input', 'team-join-button',
-                           'team-auto-camera', 'team-auto-control', 'team-test', 'team-owner-url', 'team-owner-create',
-                           'relay-teams-status', 'btn-relay-teams-send', 'sidebar-owner', 'team-log']:
+                           'team-auto-post', 'team-test', 'team-owner-url', 'team-owner-create',
+                           'sidebar-owner', 'team-log']:
             self.assertIn(element_id, self.by_id, element_id)
+        # 1.7.2: no separate camera share button / Teams line on the Camera page (Remote by code shares it).
+        for removed_id in ['btn-relay-share', 'btn-relay-stop', 'relay-link-row', 'relay-teams-status',
+                           'btn-relay-teams-send', 'team-auto-camera', 'team-auto-control']:
+            self.assertNotIn(removed_id, self.by_id, removed_id)
+        remote_js = (WEB / 'remote-control.js').read_text(encoding='utf-8')
+        self.assertIn('share-control-teams', remote_js)
+        self.assertIn('share-control-teams-send', remote_js)
         self.assertIn('ziris-team.js', self.parser.scripts)
         self.assertLess(self.parser.scripts.index('ziris-team.js'), self.parser.scripts.index('camera-relay.js'))
         self.assertIn('ziris-team.css', self.parser.styles)
