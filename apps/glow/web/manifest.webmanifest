@@ -1,7 +1,7 @@
 {
-  "name": "Glow — one home for your AI",
+  "name": "Glow — free AI that gets things done",
   "short_name": "Glow",
-  "description": "Glow home: start in GlowChat or GlowRoom with one free Glow account.",
+  "description": "Free AI app: chat with top AI models, send an AI crew to research and code, or hand Glow a whole goal. Works offline with AI on your device.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -11,11 +11,24 @@
     {
       "src": "./icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "./icons/icon-512.png",
       "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icons/apple-touch-icon.png",
+      "sizes": "180x180",
       "type": "image/png"
     },
     {
@@ -34,6 +47,42 @@
       "name": "GlowRoom",
       "url": "./room/",
       "description": "Give a goal to the AI crew"
+    },
+    {
+      "name": "Download Glow",
+      "url": "./download/",
+      "description": "Get Glow on your other devices"
+    }
+  ],
+  "id": "./",
+  "lang": "en",
+  "dir": "ltr",
+  "orientation": "any",
+  "categories": [
+    "productivity",
+    "utilities",
+    "education"
+  ],
+  "launch_handler": {
+    "client_mode": [
+      "navigate-existing",
+      "auto"
+    ]
+  },
+  "screenshots": [
+    {
+      "src": "./icons/screenshot-wide.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Glow home: type what you need and Glow picks the right AI helper"
+    },
+    {
+      "src": "./icons/screenshot-phone.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "GlowChat on a phone"
     }
   ]
 }

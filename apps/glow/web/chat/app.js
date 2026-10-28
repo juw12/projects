@@ -206,6 +206,7 @@ function loadState() {
       displayName: "",
       accountTemp: false,
       retentionDays: 0,
+      offlineModel: "",
     },
     conversations: [],
     arenaStats: {},
@@ -389,6 +390,177 @@ function providerConfig(provider) {
   if (provider === "custom") return { base: s.customUrl.replace(/\/$/, ""), key: s.customKey };
   return null;
 }
+
+/* ================= Glow Offline: AI on this device (../shared/glow-offline-ai.js) ================= */
+// Providers that need the internet. Without it, a downloaded Glow Offline model answers instead.
+const NETWORK_PROVIDERS = new Set(["puter", "puterimg", "free", "openrouter", "custom"]);
+function offlineModelOptions() {
+  if (!window.GlowOfflineAI) return [];
+  return window.GlowOfflineAI.downloaded().map((m) => ({
+    value: `local::${m.key}`,
+    label: `${m.name} (on this device, works offline)`,
+    short: m.name,
+    group: "On this device: works offline",
+  }));
+}
+// The model to use with no internet: the one last used offline, else the biggest one downloaded.
+function offlineFallbackModel() {
+  const ready = offlineModelOptions();
+  if (!ready.length) return "";
+  const last = ready.find((m) => m.value === state.settings.offlineModel);
+  return (last || ready[ready.length - 1]).value;
+}
+// The model that really answers: with no internet a downloaded Glow Offline model stands in for cloud ones.
+function effectiveModel(value) {
+  const { provider } = splitModel(value || "");
+  if (navigator.onLine || !NETWORK_PROVIDERS.has(provider)) return value;
+  return offlineFallbackModel() || value;
+}
+async function streamLocal(key, system, messages, onText, signal, usage) {
+  if (!window.GlowOfflineAI) throw new Error("Glow Offline isn't available in this app.");
+  // On-device models have a small working memory: keep the latest messages that fit.
+  const history = trimHistory(messages, window.GlowOfflineAI.isPhone ? 5000 : 11000);
+  const prompt = system.length > 2400 ? system.slice(0, 2400) : system;
+  const before = $("status").textContent;
+  const showStatus = (text) => {
+    $("status").textContent = text || before;
+  };
+  let result;
+  try {
+    result = await window.GlowOfflineAI.chat({
+      key,
+      messages: [{ role: "system", content: prompt }, ...mergeRoles(history)],
+      onText,
+      onStatus: showStatus,
+      signal,
+    });
+  } finally {
+    if (/^Starting the AI on this device/.test($("status").textContent)) showStatus("");
+  }
+  if (result.usage) applyProviderUsage(usage, result.usage);
+  if (state.settings.offlineModel !== `local::${key}`) {
+    state.settings.offlineModel = `local::${key}`;
+    saveState();
+  }
+  return result.text;
+}
+function offlineStatusText() {
+  if (navigator.onLine) return "";
+  return offlineFallbackModel()
+    ? "You're offline: Glow Offline answers on this device."
+    : "You're offline. Your chats are saved here; download Glow Offline in Settings to chat without internet.";
+}
+// Starting an on-device model takes a while, so begin as soon as someone starts writing to it.
+function warmOfflineModel() {
+  if (!window.GlowOfflineAI || !$("chat-model")) return;
+  const { provider, model } = splitModel(effectiveModel($("chat-model").value) || "");
+  if (provider === "local") window.GlowOfflineAI.prepare(model);
+}
+function showConnectivity() {
+  const note = offlineStatusText();
+  if (note) $("status").textContent = note;
+  else if (/^You're offline/.test($("status").textContent)) loadModels();
+}
+let offlineBusy = false;
+async function renderOfflinePanel() {
+  const panel = $("offline-ai-panel");
+  if (!panel) return;
+  if (!window.GlowOfflineAI) {
+    panel.innerHTML = `<p class="note">Offline AI isn't available in this app.</p>`;
+    return;
+  }
+  const ai = window.GlowOfflineAI;
+  const device = await ai.support();
+  if (!device.ok) {
+    panel.innerHTML = `<p class="note offline-warn">⚠ ${escapeHtml(device.reason)}</p>`;
+    return;
+  }
+  const ready = new Set(ai.downloaded().map((m) => m.key));
+  panel.innerHTML = ai.models.map((m) => {
+    const recommended = m.key === device.recommended ? ` <span class="offline-tag">Recommended for this device</span>` : "";
+    const actions = ready.has(m.key)
+      ? `<span class="offline-ready">✓ Ready offline</span><button class="secondary small" type="button" data-offline-use="${m.key}">Use in this chat</button><button class="secondary small" type="button" data-offline-remove="${m.key}">Delete</button>`
+      : `<button class="secondary small" type="button" data-offline-get="${m.key}">⬇ Download · ${escapeHtml(ai.sizeLabel(m.bytes))}</button>`;
+    return `<div class="offline-model" data-offline-key="${m.key}">
+      <div class="offline-head"><b>${escapeHtml(m.name)}</b>${recommended}</div>
+      <p class="note">${escapeHtml(m.about)}</p>
+      <div class="row offline-actions">${actions}</div>
+      <div class="offline-progress hidden"><div class="offline-bar"><span></span></div><small class="note"></small></div>
+    </div>`;
+  }).join("") + `<p class="note">Models are kept in this browser's storage${device.phone ? "; on iPhone, add Glow to your Home Screen first so it can keep them" : ""}. Wi-Fi recommended for the download.</p>`;
+}
+async function offlineDownload(key, row) {
+  if (offlineBusy) return;
+  offlineBusy = true;
+  const ai = window.GlowOfflineAI;
+  const model = ai.modelByKey(key);
+  const box = row.querySelector(".offline-progress");
+  const bar = row.querySelector(".offline-bar span");
+  const label = box.querySelector("small");
+  row.querySelectorAll("button").forEach((b) => (b.disabled = true));
+  box.classList.remove("hidden");
+  label.textContent = "Checking the download servers…";
+  try {
+    await ai.download(key, (report) => {
+      const percent = Math.max(0, Math.min(100, Math.round((report.progress || 0) * 100)));
+      bar.style.width = `${percent}%`;
+      label.textContent = /fetch|download|param|cache/i.test(report.text || "") && percent < 100
+        ? `Downloading ${model.name}… ${percent}%`
+        : "Starting the AI on this device…";
+    });
+    bar.style.width = "100%";
+    toast(`${model.name} is ready. It works with no internet.`);
+    await loadModels();
+    if (current && current.type === "chat" && !current.messages.length) {
+      current.model = `local::${key}`;
+      fillSelect($("chat-model"), current.model);
+    }
+  } catch (error) {
+    label.textContent = error.message;
+    label.classList.add("offline-warn");
+    offlineBusy = false;
+    row.querySelectorAll("button").forEach((b) => (b.disabled = false));
+    return;
+  }
+  offlineBusy = false;
+  renderOfflinePanel();
+}
+function wireOfflinePanel() {
+  const panel = $("offline-ai-panel");
+  if (!panel) return;
+  panel.addEventListener("click", async (event) => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    const row = button.closest(".offline-model");
+    if (button.dataset.offlineGet) {
+      offlineDownload(button.dataset.offlineGet, row);
+    } else if (button.dataset.offlineUse) {
+      const value = `local::${button.dataset.offlineUse}`;
+      await loadModels();
+      if (current && current.type === "chat") {
+        current.model = value;
+        fillSelect($("chat-model"), value);
+      }
+      state.settings.lastModel = value;
+      saveState();
+      toast(`${window.GlowOfflineAI.modelByKey(button.dataset.offlineUse).name} answers this chat`);
+    } else if (button.dataset.offlineRemove) {
+      const model = window.GlowOfflineAI.modelByKey(button.dataset.offlineRemove);
+      if (!confirm(`Delete ${model.name} from this device? You can download it again later.`)) return;
+      button.disabled = true;
+      try {
+        await window.GlowOfflineAI.remove(button.dataset.offlineRemove);
+      } catch (error) {
+        toast(error.message);
+      }
+      await loadModels();
+      renderOfflinePanel();
+    }
+  });
+  window.addEventListener("online", showConnectivity);
+  window.addEventListener("offline", showConnectivity);
+  $("input").addEventListener("focus", warmOfflineModel);
+}
 async function fetchJson(url, headers = {}) {
   const response = await fetch(url, { headers });
   if (!response.ok) throw new Error(`${response.status}`);
@@ -407,6 +579,7 @@ function applyRegionRules(list) {
 async function loadModels() {
   const s = state.settings;
   const list = [{ value: "demo::demo", label: "Demo agent (offline, canned replies)", short: "Demo", group: "Demo: no setup" }];
+  list.push(...offlineModelOptions());
   if (puterSignedIn) list.push(...(await puterModelOptions()));
   if (TEST_MODE) {
     models = applyRegionRules(list);
@@ -463,7 +636,7 @@ async function loadModels() {
 
   await Promise.all(jobs);
   models = applyRegionRules(list);
-  $("status").textContent = status.length ? status.join(" · ") : "Demo mode";
+  $("status").textContent = offlineStatusText() || (status.length ? status.join(" · ") : "Demo mode");
   $("setup-banner").classList.toggle("hidden", models.length > 1);
   upgradeFromDemo();
   refreshModelSelects();
@@ -490,6 +663,7 @@ function modelRank(value) {
   }
   if (value.startsWith("ollama::")) return 0; // local models the user chose to install come first
   if (value.startsWith("free::")) return PREFERRED_MODEL_PATTERNS.length + 0.5; // after strong models from the user's own keys
+  if (value.startsWith("local::")) return PREFERRED_MODEL_PATTERNS.length + 0.75; // on-device: smaller, so cloud models come first while online
   const index = PREFERRED_MODEL_PATTERNS.findIndex((pattern) => pattern.test(value));
   return index === -1 ? PREFERRED_MODEL_PATTERNS.length + 1 : index + 1;
 }
@@ -582,13 +756,23 @@ async function streamProvider(modelValue, system, messages, onText, usage) {
     const where = window.GlowLocale.regionName(window.GlowLocale.get().region);
     throw new Error(`${modelLabel(modelValue)} isn't offered in ${where}. Pick another model, or change your region in Language & region.`);
   }
-  const { provider, model } = splitModel(modelValue);
+  let { provider, model } = splitModel(modelValue);
+  // No internet: a downloaded Glow Offline model answers instead of the cloud model.
+  if (!navigator.onLine && NETWORK_PROVIDERS.has(provider)) {
+    const fallback = effectiveModel(modelValue);
+    if (fallback === modelValue) {
+      throw new Error("You're offline. Your chats are saved on this device. To keep chatting with no internet, download Glow Offline (Settings → Offline AI on this device) the next time you're online.");
+    }
+    ({ provider, model } = splitModel(fallback));
+    $("status").textContent = "You're offline: Glow Offline answers on this device.";
+  }
   const clean = trimHistory(messages.map((m) => ({ role: m.role, content: stripImages(stripThinking(m.content)) })));
   usage.in = estimateTokens(system) + clean.reduce((sum, m) => sum + estimateTokens(m.content), 0);
   const controller = new AbortController();
   controllers.add(controller);
   try {
     if (provider === "demo") return await streamDemo(system, clean, onText, controller.signal);
+    if (provider === "local") return await streamLocal(model, system, clean, onText, controller.signal, usage);
     if (provider === "puter") return await streamPuter(model, system, clean, onText, controller.signal, usage);
     if (provider === "puterimg") return await generateImage(model, clean, onText, controller.signal, usage);
     const config = providerConfig(provider);
@@ -1254,7 +1438,7 @@ function partialReply(bubble) {
   return isWaiting(bubble) ? "" : bubble.textContent;
 }
 async function streamAssistant(model, system, history, who, css, view = (text) => text) {
-  const bubble = messageElement(who, css, modelLabel(model));
+  const bubble = messageElement(who, css, modelLabel(effectiveModel(model)));
   bubble.classList.add("cursor");
   const stopWaiting = startWaiting(bubble);
   const conv = current;
@@ -1291,10 +1475,11 @@ async function sendChat(text) {
 }
 async function replyToChat() {
   setBusy(true);
+  const answeredBy = effectiveModel(current.model);
   const reply = await streamAssistant(current.model, systemPromptFor(current), current.messages, "Glow", "assistant", (text) => splitFollowUps(text).body);
   if (reply) {
     const { body, questions } = splitFollowUps(reply);
-    current.messages.push({ role: "assistant", content: body, model: current.model, followUps: questions });
+    current.messages.push({ role: "assistant", content: body, model: answeredBy, followUps: questions });
   }
   persist(current);
   setBusy(false);
@@ -1919,6 +2104,10 @@ function openSettings() {
   $("set-retention").value = String(s.retentionDays || 0);
   $("data-summary").textContent = dataSummary();
   renderAccount();
+  renderOfflinePanel();
+  if (window.GlowOfflineAI && window.GlowOfflineAI.downloaded().length) {
+    window.GlowOfflineAI.verify().then(() => renderOfflinePanel()).catch(() => {});
+  }
   $("settings-modal").classList.add("open");
 }
 async function saveSettings() {
@@ -2539,6 +2728,7 @@ function modelBadges(option) {
   const badges = [];
   const out = option.meta ? option.meta.out : null;
   if (value.startsWith("demo::")) badges.push("Offline");
+  if (value.startsWith("local::")) badges.push("Offline", "Local");
   if (value.startsWith("free::") || /:free$/.test(value)) badges.push("Free");
   if (value.startsWith("ollama::")) badges.push("Local");
   if (value.startsWith("puterimg::")) badges.push("Images");
@@ -2593,7 +2783,7 @@ function rankedCategory(key) {
   const entries = pickerEntries();
   let ranked;
   if (key === "free") {
-    const order = (value) => (value.startsWith("free::") ? 0 : value.startsWith("ollama::") ? 1 : value.startsWith("openrouter::") ? 2 : value.startsWith("custom::") ? 3 : 4);
+    const order = (value) => (value.startsWith("free::") ? 0 : value.startsWith("local::") ? 0.5 : value.startsWith("ollama::") ? 1 : value.startsWith("openrouter::") ? 2 : value.startsWith("custom::") ? 3 : 4);
     ranked = entries.filter((e) => !e.value.startsWith("puter")).sort((a, b) => order(a.value) - order(b.value));
   } else if (key === "media") {
     ranked = entries.filter((e) => e.value.startsWith("puterimg::"));
@@ -4801,6 +4991,7 @@ async function boot() {
   applyTheme();
   fillPersonaSelect();
   wire();
+  wireOfflinePanel();
   if (!TEST_MODE) applyRetention();
   renderAccount();
   renderUsage();

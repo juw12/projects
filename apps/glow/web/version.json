@@ -1,11 +1,11 @@
 {
-  "version": "1.21.0",
+  "version": "1.22.0",
   "released": "2026-10-28",
   "notes": [
-    "Glow speaks your language: GlowChat, GlowRoom, GlowLead, Profile and Setup in English, Bahasa Indonesia, 简体中文 or 繁體中文",
-    "Your region picks the AI models you can use: mainland China gets providers that serve China; Hong Kong & Macau hide OpenAI, Claude and Gemini",
-    "China: DeepSeek, Qwen, Kimi and GLM key presets, PIPL consent, Chinese privacy notice; EU: GDPR notice; work-device mode hides DeepSeek",
-    "Glow Pro price shown in your currency (≈); answers and voice input follow your language and region"
+    "Glow Offline: download a small AI model once and GlowChat keeps answering with no internet (Settings → Offline AI on this device)",
+    "Glow for iPhone and iPad: a free Home Screen app with its own icon, launch screen and offline storage, plus a step-by-step install guide",
+    "Every Glow app now opens offline after one visit, and slow connections fall back to the saved app after a few seconds",
+    "New download page for Windows, Android, iPhone, Mac and Linux, and Glow can now be found by search engines"
   ],
   "android": "https://github.com/juw12/projects/releases/download/glow-android/Glow-android.apk",
   "windows": "https://github.com/juw12/projects/releases/download/glow-windows/Glow-Setup.exe"

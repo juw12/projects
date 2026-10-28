@@ -1,7 +1,9 @@
 // GlowRoom service worker: installable + offline.
-// Pages are network-first (so updates ship immediately); static assets are cache-first.
+// Pages are network-first (so updates ship immediately) with a short timeout that falls back to the
+// saved copy on a weak connection; static assets are cache-first.
 (function () {
-  var CACHE_NAME = 'glowroom-v13';
+  var CACHE_NAME = 'glowroom-v14';
+  var NETWORK_TIMEOUT_MS = 4000;
   var SCOPE = self.registration.scope;
 
   function resolveUrl(path) {
@@ -71,17 +73,33 @@
     if (url.pathname.split('/').indexOf('api') !== -1) return;
 
     if (isPage(req, url)) {
-      event.respondWith(
-        fetch(req).then(function (res) {
+      var fromCache = function () {
+        return caches.match(req, { ignoreSearch: req.mode === 'navigate' }).then(function (hit) {
+          return hit || (req.mode === 'navigate' ? caches.match(resolveUrl('./index.html')) : hit);
+        });
+      };
+      var network = fetch(req).then(function (res) {
+        if (res.ok && res.status === 200 && res.type === 'basic') {
           var copy = res.clone();
           caches.open(CACHE_NAME).then(function (cache) {
-            cache.put(req, copy);
+            return cache.put(req, copy);
+          }).catch(function () {});
+        }
+        return res;
+      });
+      var slow = new Promise(function (resolve) {
+        setTimeout(resolve, NETWORK_TIMEOUT_MS);
+      }).then(fromCache);
+      event.respondWith(Promise.race([
+        network.catch(function () {
+          return fromCache().then(function (hit) {
+            return hit || Response.error();
           });
-          return res;
-        }).catch(function () {
-          return caches.match(req);
+        }),
+        slow.then(function (hit) {
+          return hit || network;
         })
-      );
+      ]));
       return;
     }
 

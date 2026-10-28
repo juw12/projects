@@ -1,0 +1,18 @@
+/* Glow download page: extends ../home.css and ../setup/setup.css. */
+.download-page .hero h1 { font-size: clamp(32px, 6vw, 52px); }
+.version-line { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+.pick { border-color: color-mix(in srgb, var(--accent) 60%, var(--border)); background:
+  radial-gradient(520px 200px at 0% 0%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%), var(--panel); }
+.pick-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0 4px; }
+.all-platforms .panel { display: flex; flex-direction: column; align-items: flex-start; }
+.all-platforms .panel .btn { margin-top: 6px; }
+.offline .ticks li { margin: 8px 0; }
+.phone-link[hidden] { display: none; }
+.faq { margin-top: 30px; }
+.faq h2 { font-size: 26px; letter-spacing: -.02em; margin: 0 0 10px; }
+.faq-item { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 12px 16px; margin: 10px 0; }
+.faq-item summary { cursor: pointer; font-weight: 650; }
+.faq-item p { color: var(--muted); margin: 8px 0 2px; }
+@media (max-width: 560px) {
+  .pick-actions .btn { width: 100%; text-align: center; }
+}

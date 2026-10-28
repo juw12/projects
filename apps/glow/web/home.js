@@ -231,12 +231,21 @@
     $("install-btn").hidden = false;
   });
   $("install-btn").addEventListener("click", async () => {
-    if (!installEvent) return;
+    if (!installEvent) {
+      // iPhone and iPad have no install prompt: show how to add Glow to the Home Screen instead.
+      if (window.GlowApps && window.GlowApps.showInstallGuide) window.GlowApps.showInstallGuide({ force: true });
+      return;
+    }
     installEvent.prompt();
     await installEvent.userChoice.catch(() => null);
     installEvent = null;
     $("install-btn").hidden = true;
   });
+  if (window.GlowApps && window.GlowApps.isAppleMobile && !window.GlowApps.isStandalone()) {
+    $("install-btn").hidden = false;
+    // First visit on an iPhone or iPad: offer the free Home Screen app once (then every 3 weeks at most).
+    setTimeout(() => window.GlowApps.showInstallGuide(), 6000);
+  }
   if ("serviceWorker" in navigator && location.protocol === "https:") {
     navigator.serviceWorker.register("./sw.js").catch(() => {});
   }
