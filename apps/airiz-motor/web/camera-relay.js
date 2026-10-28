@@ -174,14 +174,15 @@
     }
   }
 
-  function startSharing(attempt = 0) {
+  function startSharing(attempt = 0, fixedCode = null) {
     const stream = api.getCameraStream();
     if (!stream) {
       setStatus('Start Preview with the AIRIZ camera first, then Share to phone.');
       return;
     }
     stopSharing(true);
-    const code = randomCode();
+    // One-button sharing (v1.7.0) reuses the remote-control code so one code carries everything.
+    const code = fixedCode || randomCode();
     const peer = new PeerLib(PEER_PREFIX + code, { debug: 0 });
     sharer.peer = peer;
     sharer.code = code;
@@ -225,7 +226,7 @@
     peer.on('error', error => {
       if (sharer.peer !== peer) return;
       if (error.type === 'unavailable-id' && attempt < 3) {
-        startSharing(attempt + 1);
+        startSharing(attempt + 1, fixedCode);
         return;
       }
       const reason = error.type || error.message || error;
@@ -298,7 +299,8 @@
     if (els.relayImage) els.relayImage.removeAttribute('src');
   }
 
-  function startWatching() {
+  function startWatching(fixedCode) {
+    if (typeof fixedCode === 'string') els.viewCode.value = fixedCode;
     const code = (els.viewCode.value || '').replace(/\D/g, '');
     if (code.length !== 6) {
       setStatus('Enter the 6-digit code shown on the PC.');
@@ -433,10 +435,43 @@
   }
 
   els.share.addEventListener('click', () => startSharing());
+  // Used by quick-connect.js (one button for motor + camera).
+  window.AirizCameraRelay = Object.freeze({
+    shareWithCode(code) {
+      if (!api.getCameraStream()) return false;
+      if (sharer.code === code) return true;
+      startSharing(0, code);
+      return true;
+    },
+    stopShare() {
+      if (sharer.code) stopSharing(true);
+    },
+    get shareCode() {
+      return sharer.code;
+    },
+    watch(code) {
+      startWatching(code);
+    },
+    stopWatch() {
+      stopWatching(true);
+    },
+    get watching() {
+      return !!(viewer.peer || viewer.relay);
+    },
+    get video() {
+      return els.video;
+    },
+    get image() {
+      return els.relayImage;
+    },
+    get status() {
+      return els.status.textContent;
+    },
+  });
   els.copy.addEventListener('click', copyLink);
   els.nativeShare.addEventListener('click', nativeShare);
   els.stopShare.addEventListener('click', () => stopSharing(false));
-  els.watch.addEventListener('click', startWatching);
+  els.watch.addEventListener('click', () => startWatching());
   els.stopWatch.addEventListener('click', () => stopWatching(false));
   els.viewCode.addEventListener('keydown', event => {
     if (event.key === 'Enter') startWatching();

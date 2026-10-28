@@ -789,7 +789,34 @@
     "6-digit code": "6 位數代碼",
     "Control the AIRIZ by code": "以代碼控制 AIRIZ",
     "Phone: type the code (1.6.0)": "手機直接輸入代碼（1.6.0）",
-    "A Control by code box at the top: type the 6-digit code from Share control and the phone connects by itself. No Bluetooth; Bluetooth options are folded away on phones.": "頂端新增「以代碼控制」欄位：輸入 Share control 顯示的 6 位數代碼，手機就會自動連線。不需藍牙；手機上的藍牙選項已收合。"
+    "A Control by code box at the top: type the 6-digit code from Share control and the phone connects by itself. No Bluetooth; Bluetooth options are folded away on phones.": "頂端新增「以代碼控制」欄位：輸入 Share control 顯示的 6 位數代碼，手機就會自動連線。不需藍牙；手機上的藍牙選項已收合。",
+    "Remote by code": "以代碼遠端連線",
+    "One code for motor, camera and everything else. No Bluetooth.": "一組代碼即可連線馬達、相機與所有功能，不需藍牙。",
+    "One code connects everything: motor, LEDs, commands, macros and the live camera. No Bluetooth.": "一組代碼連線全部：馬達、LED、指令、巨集與即時相機畫面，不需藍牙。",
+    "Connect to an AIRIZ": "連線到 AIRIZ",
+    "Type the 6-digit code shown on the AIRIZ PC.": "輸入 AIRIZ 電腦上顯示的 6 位數代碼。",
+    "This PC has the AIRIZ (USB)": "這台電腦接著 AIRIZ（USB）",
+    "Share the motor and the camera with one code. You press Allow for each phone.": "用一組代碼分享馬達與相機。每支手機連線時由您按「允許」。",
+    "Share this AIRIZ": "分享這台 AIRIZ",
+    "Not now": "稍後再說",
+    "Connected. You are controlling the AIRIZ (motor + camera).": "已連線。您正在控制 AIRIZ（馬達＋相機）。",
+    "Disconnected.": "已中斷連線。",
+    "Connected: motor, LEDs, commands and macros. Opening the camera…": "已連線：馬達、LED、指令與巨集。正在開啟相機…",
+    "This console is itself remote-controlled. Share from the PC that has the USB cable.": "此主控台本身正被遠端控制。請從接著 USB 線的電腦分享。",
+    "Choose the AIRIZ port…": "請選擇 AIRIZ 連接埠…",
+    "Connect the AIRIZ by USB first (or press Try demo to test), then press Share again.": "請先以 USB 連接 AIRIZ（或按「試用示範」測試），再按一次分享。",
+    "Could not start sharing. Use Share control in Device connection.": "無法開始分享。請使用「裝置連線」中的分享控制。",
+    "AIRIZ camera": "AIRIZ 相機",
+    "connecting…": "連線中…",
+    "live": "即時",
+    "live (relay)": "即時（中繼）",
+    "Bigger or smaller": "放大或縮小",
+    "Hide camera": "隱藏相機",
+    "📷 Show camera": "📷 顯示相機",
+    "Connecting to the camera…": "正在連線相機…",
+    "No camera picture yet. On the AIRIZ PC open Camera → Start Preview; it is shared automatically with the same code.": "尚無相機畫面。請在 AIRIZ 電腦開啟「相機 → 開始預覽」，會自動以同一組代碼分享。",
+    "One button: Remote by code (1.7.0)": "一鍵「以代碼遠端連線」（1.7.0）",
+    "A Remote by code button opens at every start: the PC shares motor and camera with one code; the phone types the code and gets the motor, LEDs, commands, macros and the live camera automatically.": "每次開啟都會出現「以代碼遠端連線」：電腦用一組代碼同時分享馬達與相機；手機輸入代碼即自動連上馬達、LED、指令、巨集與即時相機畫面。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -1170,6 +1197,26 @@
     [
       "^Sharing through the AIRIZ relay \\(direct path unavailable: (.+)\\)\\.? ?(.*)$",
       "經由 AIRIZ 中繼分享（無法直接連線：$1）。$2"
+    ],
+    [
+      "^Sharing with code (\\d{6})\\.$",
+      "正在以代碼 $1 分享。"
+    ],
+    [
+      "^Sharing motor control with code (\\d{6})\\. Starting the camera…$",
+      "正在以代碼 $1 分享馬達控制。正在啟動相機…"
+    ],
+    [
+      "^Sharing motor \\+ camera with code (\\d{6})\\.$",
+      "正在以代碼 $1 分享馬達＋相機。"
+    ],
+    [
+      "^Sharing motor control with code (\\d{6})\\. No AIRIZ camera preview, so the camera is not shared\\.$",
+      "正在以代碼 $1 分享馬達控制。沒有 AIRIZ 相機預覽，因此未分享相機。"
+    ],
+    [
+      "^The camera is shared with the same code (\\d{6})\\.$",
+      "相機也以同一組代碼 $1 分享。"
     ]
   ]
 }

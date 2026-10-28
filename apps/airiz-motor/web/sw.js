@@ -1,6 +1,6 @@
 ﻿/* AIRIZ Control Center — versioned, scope-isolated offline shell. */
 const CACHE_PREFIX = 'airiz-control-' + encodeURIComponent(self.registration.scope) + '-';
-const CACHE_NAME = CACHE_PREFIX + 'v2.28-inline-code';
+const CACHE_NAME = CACHE_PREFIX + 'v2.30-1.7.0-one-button';
 const ASSETS = [
   './',
   './index.html',
@@ -14,6 +14,7 @@ const ASSETS = [
   './camera-relay.js',
   './camera-frame-relay.js',
   './remote-control.js',
+  './quick-connect.js',
   './ziris-team.js',
   './ziris-team.css',
   './i18n.js',

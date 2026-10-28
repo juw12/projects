@@ -910,5 +910,24 @@
     get hostCode() {
       return host.code;
     },
+    // quick-connect.js: one button = share (PC) / connect (phone)
+    shareStart() {
+      if (!host.dialog) hostBuildDialog(); // hostStart fills the dialog's code fields
+      hostStart();
+      hostRender();
+      return host.code;
+    },
+    shareStop() {
+      if (host.code) hostStop('Sharing stopped.');
+    },
+    openShareDialog() {
+      if (shareButton) shareButton.click();
+    },
+    connectWithCode(code, ui) {
+      return connectWithCode(code, ui);
+    },
+    isRemote() {
+      return isRemoteTransport(api.getStatus());
+    },
   });
 })();

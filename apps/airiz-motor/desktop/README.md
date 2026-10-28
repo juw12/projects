@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.6.0` in this repository's Releases section.
+`airiz-desktop-v1.7.0` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -161,6 +161,17 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.7.0: One button: Remote by code
+* **Remote by code** opens every time the console starts (after the language box on a first
+  start) and stays as a large button in the header. One code connects everything.
+* **PC with the AIRIZ on USB:** *Share this AIRIZ* connects the USB device if needed, shares motor
+  control, starts the camera preview and shares the camera under the **same** 6-digit code, then
+  shows the code. *Share control* from Device connection now shares the camera with the same code too.
+* **Phone / other PC:** type the code; it connects by itself at the 6th digit. Motor, LEDs,
+  commands and macros work, and the live AIRIZ camera opens by itself in a floating window
+  (bigger/smaller, hide). The PC still presses **Allow** for every controller.
+* Stopping the share on the PC also stops the camera share.
 
 ## 1.6.0: Type the code straight into the console
 * **Control by code box** at the top of the console: type the 6-digit code from *Share control*
