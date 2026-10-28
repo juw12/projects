@@ -27,7 +27,8 @@
   }
 })();
 </script>
-<link href="console-ui.css" rel="stylesheet"/></head>
+<link href="console-ui.css" rel="stylesheet"/>
+<link href="ziris-team.css" rel="stylesheet"/></head>
 <body class="console-redesign">
 <aside aria-label="Workspace navigation" class="sidebar">
 <a aria-label="AIRIZ home" class="brand" href="#controller">
@@ -37,12 +38,13 @@
 <div class="workspace-label">WORKSPACE <span>01</span></div>
 <nav aria-label="Workspace views" aria-orientation="vertical" class="side-nav" role="tablist">
 <button aria-controls="view-controller" aria-selected="true" class="nav-item" id="tab-controller" role="tab"><svg aria-hidden="true" class="ui-icon" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.65" viewbox="0 0 24 24"><rect height="7" rx="2" width="7" x="3" y="3"></rect><rect height="7" rx="2" width="7" x="14" y="3"></rect><rect height="7" rx="2" width="7" x="3" y="14"></rect><rect height="7" rx="2" width="7" x="14" y="14"></rect></svg><span>Motor control</span><span class="nav-active-dot"></span></button>
-<button aria-controls="view-console" aria-selected="false" class="nav-item" id="tab-console" role="tab"><svg aria-hidden="true" class="ui-icon" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.65" viewbox="0 0 24 24"><path d="m4 6 6 6-6 6m9 0h7"></path></svg><span>Commands &amp; macros</span></button><button aria-controls="view-camera" aria-selected="false" class="nav-item" id="tab-camera" role="tab"><svg aria-hidden="true" class="ui-icon" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.65" viewbox="0 0 24 24"><rect height="14" rx="3" width="18" x="3" y="6"></rect><path d="m8 6 2-3h4l2 3"></path><circle cx="12" cy="13" r="4"></circle></svg><span>Camera</span></button><button aria-controls="view-sfx" aria-selected="false" class="nav-item" id="tab-sfx" role="tab"><svg aria-hidden="true" class="ui-icon" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.65" viewbox="0 0 24 24"><path d="M4 9v6m4-10v14m4-16v18m4-15v12m4-9v6"></path></svg><span>Sound FX</span></button></nav>
+<button aria-controls="view-console" aria-selected="false" class="nav-item" id="tab-console" role="tab"><svg aria-hidden="true" class="ui-icon" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.65" viewbox="0 0 24 24"><path d="m4 6 6 6-6 6m9 0h7"></path></svg><span>Commands &amp; macros</span></button><button aria-controls="view-camera" aria-selected="false" class="nav-item" id="tab-camera" role="tab"><svg aria-hidden="true" class="ui-icon" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.65" viewbox="0 0 24 24"><rect height="14" rx="3" width="18" x="3" y="6"></rect><path d="m8 6 2-3h4l2 3"></path><circle cx="12" cy="13" r="4"></circle></svg><span>Camera</span></button><button aria-controls="view-sfx" aria-selected="false" class="nav-item" id="tab-sfx" role="tab"><svg aria-hidden="true" class="ui-icon" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.65" viewbox="0 0 24 24"><path d="M4 9v6m4-10v14m4-16v18m4-15v12m4-9v6"></path></svg><span>Sound FX</span></button><button aria-controls="view-team" aria-selected="false" class="nav-item" id="tab-team" role="tab"><svg aria-hidden="true" class="ui-icon" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.65" viewbox="0 0 24 24"><circle cx="9" cy="8" r="3.2"></circle><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"></path><path d="M16 5.2a3 3 0 0 1 0 5.6M18 14.3c1.8.8 3 2.6 3 4.7"></path></svg><span>Ziris PTB team</span></button><button aria-controls="view-guide" aria-selected="false" class="nav-item" id="tab-guide" role="tab"><svg aria-hidden="true" class="ui-icon" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.65" viewbox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"></path><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5M8 7h8M8 11h6"></path></svg><span>Guide &amp; history</span></button></nav>
 <div class="side-divider"></div>
 <div class="sidebar-note"><span class="eyebrow">BUILT FOR THE BENCH</span><p>One workspace.<br/>Every device interaction.</p><div class="mini-wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
 <div class="sidebar-bottom">
 <button class="shortcut-help" id="btn-shortcuts"><svg aria-hidden="true" class="ui-icon" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.65" viewbox="0 0 24 24"><rect height="14" rx="3" width="20" x="2" y="5"></rect><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10"></path></svg><span>Keyboard shortcuts</span><kbd>?</kbd></button>
 <div class="device-mini"><span class="device-mini-icon"><svg aria-hidden="true" class="ui-icon" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.65" viewbox="0 0 24 24"><path d="M9 3v4m6-4v4M7 7h10v4a5 5 0 0 1-10 0V7Zm5 9v5"></path></svg></span><div><strong>AIRIZ device</strong><span id="sidebar-status">Waiting for connection</span></div><span class="signal-dot" id="sidebar-dot"></span></div>
+<div class="sidebar-owner" id="sidebar-owner"><span class="eyebrow">OWNER</span><strong data-owner-name="">Juwen Lie</strong><small>Ziris PTB · <span id="sidebar-team-member">Guest</span></small></div>
 <div class="sidebar-footer">CONTROL CONSOLE <span>UI / 02</span></div>
 </div>
 </aside>
@@ -342,6 +344,7 @@
 <p class="camera-relay-hint">See the AIRIZ camera on a phone or send it to others. PC: Start Preview with the AIRIZ camera, then <strong>Share to phone</strong> and copy the link (view only). Phone: open the link, or enter the code here and tap <strong>Watch</strong>.</p>
 <div class="camera-relay-row"><button class="btn btn-sm btn-primary" id="btn-relay-share" type="button">Share to phone</button><button class="btn btn-sm btn-danger" disabled="" id="btn-relay-stop" type="button">Stop sharing</button><strong aria-label="Share code" class="camera-relay-code" id="relay-share-code"></strong><span class="camera-relay-viewers" id="relay-viewers"></span></div><ul aria-label="Who is watching" class="camera-relay-viewer-list" hidden="" id="relay-viewer-list"></ul>
 <div class="camera-relay-row" hidden id="relay-link-row"><input aria-label="Share link" class="input camera-relay-link" id="relay-share-link" readonly="" type="text"/><button class="btn btn-sm btn-primary" id="btn-relay-copy" type="button">Copy link</button><button class="btn btn-sm" hidden id="btn-relay-native-share" type="button">Share…</button></div>
+<div class="camera-relay-row camera-relay-teams" id="relay-teams-row"><p aria-live="polite" class="camera-relay-teams-status" hidden="" id="relay-teams-status"></p><button class="btn btn-sm btn-secondary" hidden="" id="btn-relay-teams-send" type="button">Send to Teams</button></div>
 <div class="camera-relay-row"><input aria-label="Share code from the PC" autocomplete="off" class="input camera-relay-input" id="relay-view-code" inputmode="numeric" maxlength="6" pattern="[0-9]*" placeholder="Code from PC"/><button class="btn btn-sm btn-primary" id="btn-relay-view" type="button">Watch</button><button class="btn btn-sm" disabled="" id="btn-relay-view-stop" type="button">Stop</button></div>
 <video autoplay="" class="camera-relay-video" hidden="" id="relay-remote-video" muted="" playsinline=""></video><img alt="Live AIRIZ camera from the PC" class="camera-relay-video" hidden="" id="relay-remote-image"/>
 <div aria-live="polite" class="camera-relay-status" id="relay-status"></div>
@@ -494,6 +497,217 @@
 <div aria-live="polite" class="sfx-status" id="sfx-status"></div>
 </section>
 </div>
+<!-- Ziris PTB Team View -->
+<div aria-labelledby="tab-team" hidden="" id="view-team" role="tabpanel">
+<div class="team-grid">
+<section aria-labelledby="team-owner-heading" class="control-card team-card">
+<div class="card-heading"><div><span class="section-number">01</span><h2 id="team-owner-heading">Ziris PTB team</h2></div><span class="outline-tag">MICROSOFT TEAMS GROUP</span></div>
+<div class="team-body">
+<ul class="team-people">
+<li class="team-person team-person-owner"><span aria-hidden="true" class="team-avatar">JL</span><div><strong data-owner-name="">Juwen Lie</strong><span>Owner · built and maintains the AIRIZ console, issues team passes</span></div><span class="team-role-chip owner">OWNER</span></li>
+<li class="team-person"><span aria-hidden="true" class="team-avatar">CA</span><div><strong>Co-admins</strong><span>Help the owner run the bench and the Ziris PTB chat</span></div><span class="team-role-chip">CO-ADMIN</span></li>
+<li class="team-person"><span aria-hidden="true" class="team-avatar">T</span><div><strong>Testers</strong><span>Run motor, camera and audio tests and share the camera</span></div><span class="team-role-chip">TESTER</span></li>
+</ul>
+<div class="team-you"><span class="eyebrow">ON THIS PC</span><div class="team-you-line"><strong id="team-member-name">Not signed in</strong><span class="team-role-chip" id="team-member-role">Guest</span></div><p id="team-member-note"></p></div>
+</div>
+</section>
+<section aria-labelledby="team-post-heading" class="control-card team-card">
+<div class="card-heading"><div><span class="section-number">02</span><h2 id="team-post-heading">Teams auto-post</h2></div><span class="outline-tag">MEMBERS ONLY</span></div>
+<div class="team-body">
+<p class="team-text">When you press <strong>Share to phone</strong> on the Camera page, the 6-digit code is posted to the <strong>Ziris PTB</strong> chat in Microsoft Teams automatically, with a Watch button for the phone.</p>
+<div id="team-join">
+<label class="label" for="team-pass-input">Team pass (from the owner)</label>
+<textarea autocomplete="off" class="input input-full team-pass-input" id="team-pass-input" placeholder="ZPTB1-…" rows="3" spellcheck="false"></textarea>
+<div class="team-actions"><button class="btn btn-primary" id="team-join-button" type="button">Join Ziris PTB</button></div>
+</div>
+<div hidden="" id="team-joined">
+<label class="checkbox-label team-check"><input checked="" id="team-auto-camera" type="checkbox"/> Auto-send the camera share code (Camera → Share to phone)</label>
+<label class="checkbox-label team-check"><input id="team-auto-control" type="checkbox"/> Also auto-send the remote control code (Share control)</label>
+<div class="team-actions"><button class="btn btn-secondary" id="team-test" type="button">Send test message</button><button class="btn btn-danger btn-sm" id="team-leave" type="button">Remove team pass</button></div>
+</div>
+<p aria-live="polite" class="team-status" id="team-status" role="status"></p>
+</div>
+</section>
+<section aria-labelledby="team-log-heading" class="control-card team-card">
+<div class="card-heading"><div><span class="section-number">03</span><h2 id="team-log-heading">Sent from this PC</h2></div><span class="outline-tag">LAST 25</span></div>
+<div class="team-body"><ul aria-live="polite" class="team-log" id="team-log"></ul></div>
+</section>
+<section aria-labelledby="team-owner-setup-heading" class="control-card team-card">
+<div class="card-heading"><div><span class="section-number">04</span><h2 id="team-owner-setup-heading">Owner setup</h2></div><span class="outline-tag" data-owner-name="">Juwen Lie</span></div>
+<div class="team-body">
+<details class="team-owner-details">
+<summary>Connect the Ziris PTB chat and create team passes</summary>
+<ol class="team-steps">
+<li>In Microsoft Teams open the <strong>Ziris PTB</strong> group chat → <strong>…</strong> → <strong>Workflows</strong>.</li>
+<li>Choose the template <strong>Send webhook alerts to a chat</strong>, keep <em>Ziris PTB</em> as the chat, and save. Teams shows the workflow address (it starts with https:// and ends with a long <code>sig=</code> code).</li>
+<li>Copy that address and paste it below. Treat it like a password: anyone holding it can post into the chat.</li>
+<li>Create one pass per person (yourself as Owner, then each co-admin or tester) and send it to them privately in a 1:1 chat.</li>
+<li>To remove someone: delete the workflow, create a new one and give new passes to the remaining members.</li>
+</ol>
+<label class="label" for="team-owner-url">Ziris PTB workflow address</label>
+<input autocomplete="off" class="input input-full" id="team-owner-url" placeholder="https://…logic.azure.com/workflows/…/invoke?…&amp;sig=…" spellcheck="false" type="text"/>
+<div class="team-owner-row">
+<div><label class="label" for="team-owner-name">Member name</label><input autocomplete="off" class="input input-full" id="team-owner-name" placeholder="e.g. Juwen Lie" type="text"/></div>
+<div><label class="label" for="team-owner-role">Role</label><select class="select select-full" id="team-owner-role"><option value="tester">Tester</option><option value="coadmin">Co-admin</option><option value="owner">Owner</option></select></div>
+</div>
+<div class="team-actions"><button class="btn btn-primary" id="team-owner-create" type="button">Create team pass</button><button class="btn btn-secondary" disabled="" id="team-owner-copy" type="button">Copy pass</button></div>
+<textarea aria-label="Generated team pass" class="input input-full team-pass-input" id="team-owner-pass" readonly="" rows="3"></textarea>
+<p aria-live="polite" class="team-status" id="team-owner-status"></p>
+</details>
+</div>
+</section>
+</div>
+</div>
+<!-- User Guide & History View -->
+<div aria-labelledby="tab-guide" hidden="" id="view-guide" role="tabpanel">
+<div class="guide-layout">
+<nav aria-label="Guide contents" class="guide-toc">
+<span class="eyebrow">CONTENTS</span>
+<a href="#guide-start">1. Getting started</a>
+<a href="#guide-motor">2. Motor control</a>
+<a href="#guide-commands">3. Commands &amp; macros</a>
+<a href="#guide-camera">4. Camera</a>
+<a href="#guide-share">5. Share the camera to a phone</a>
+<a href="#guide-teams">6. Ziris PTB Teams auto-post</a>
+<a href="#guide-remote">7. Remote control by code</a>
+<a href="#guide-bluetooth">8. Phone remote (Bluetooth)</a>
+<a href="#guide-sound">9. Sound FX &amp; audio</a>
+<a href="#guide-trouble">10. Troubleshooting</a>
+<a href="#guide-history">11. History of the app</a>
+</nav>
+<article class="guide-content">
+<section class="guide-hero control-card">
+<span class="eyebrow">AIRIZ CONSOLE · USER GUIDE</span>
+<h2>One console for the whole AIRIZ bench.</h2>
+<p>Motor jogging, the firmware command library, macros, the device camera, sound and phone sharing in one app. It replaces the old TeraTerm/CWD serial workflow.</p>
+<dl class="guide-facts">
+<div><dt>Owner</dt><dd data-owner-name="">Juwen Lie</dd></div>
+<div><dt>Team</dt><dd>Ziris PTB (co-admins &amp; testers)</dd></div>
+<div><dt>Editions</dt><dd>Windows desktop app · browser (Chrome/Edge) · Android · iPhone via Bluefy</dd></div>
+</dl>
+</section>
+
+<section class="guide-section" id="guide-start">
+<h3><span>1</span> Getting started</h3>
+<ol>
+<li>Use the <strong>Windows desktop app</strong> (recommended) or open the console in Chrome or Edge. Other browsers can only run the demo.</li>
+<li>Plug the AIRIZ in with the FT232R USB-serial cable and press <strong>Connect</strong>. Pick the port; the baud rate is 115200 unless told otherwise.</li>
+<li>Wait until the device answers (prompt <code>~ #</code> in the console). Motor controls unlock only after the firmware replies.</li>
+<li>No hardware? Press <strong>Try demo</strong> to explore every page with a simulated device; nothing moves.</li>
+</ol>
+</section>
+
+<section class="guide-section" id="guide-motor">
+<h3><span>2</span> Motor control</h3>
+<ul>
+<li>Each click on the jog pad (or arrow key) sends <strong>one finite jog</strong> – pan left/right, rising up/down. Nothing runs continuously.</li>
+<li>Set <em>Speed / strength</em> (pan 1–17, rising 1–30, firmware scale, not RPM) and <em>Steps</em>, or use the Fine/Medium/Coarse presets.</li>
+<li>The switch next to the pad locks new jogs; <strong>Stop motor</strong> (or Esc) stops a move already running.</li>
+<li>The device picture is a command visualisation, not position feedback.</li>
+</ul>
+</section>
+
+<section class="guide-section" id="guide-commands">
+<h3><span>3</span> Commands &amp; macros</h3>
+<ul>
+<li><strong>Command library</strong>: search every diagnostic command, fill in parameters and press Send. Reboot-type commands ask first.</li>
+<li><strong>Live console</strong>: type raw commands (Enter sends), filter, clear and <em>Save Log</em> to a timestamped text file.</li>
+<li><strong>Macro studio</strong>: pick a built-in macro (the original TeraTerm test_motor macros are included) or build your own with Blank, Command, Wait, Pause and Note steps, set Repeat and press Run. Save As keeps your macro; Export .ttl gives TeraTerm code.</li>
+<li>Stop ends the macro schedule; it does not stop a motor move already sent – use Stop motor for that.</li>
+</ul>
+</section>
+
+<section class="guide-section" id="guide-camera">
+<h3><span>4</span> Camera</h3>
+<ul>
+<li>Open the camera panel, choose the AIRIZ UVC camera and a mode, then <strong>Start Preview</strong>.</li>
+<li>Capture full-resolution stills, take snapshots, record video, or start a session folder that collects everything for one test.</li>
+<li><strong>Day/Night &amp; Lights</strong> switches the IR-cut, IR LED and spot LED and reads the ALS sensor. <em>Daylight fix</em> turns the lights off and sets Day mode in one click.</li>
+</ul>
+</section>
+
+<section class="guide-section" id="guide-share">
+<h3><span>5</span> Share the camera to a phone</h3>
+<ol>
+<li>On the PC: Camera → Start Preview → <strong>Share to phone</strong>. A <strong>6-digit code</strong> and a link appear.</li>
+<li>On the phone: open the AIRIZ console (or the link) → Camera → enter the code → <strong>Watch</strong>.</li>
+<li>The viewer list shows who is watching. Behind a company firewall the picture comes through the AIRIZ relay as quick snapshots.</li>
+<li>Keep the PC window open while sharing; <strong>Stop sharing</strong> ends it and the code stops working.</li>
+</ol>
+</section>
+
+<section class="guide-section guide-highlight" id="guide-teams">
+<h3><span>6</span> Ziris PTB Teams auto-post</h3>
+<p>For Ziris PTB members only. When you share the camera, the code is posted straight to the <strong>Ziris PTB</strong> group chat in Microsoft Teams, so whoever holds the phone just opens Teams and taps <em>Watch on phone</em>. Nobody has to read the number off the screen.</p>
+<h4>Members (co-admins and testers)</h4>
+<ol>
+<li>Get your personal <strong>team pass</strong> (starts with <code>ZPTB1-</code>) from the owner, <span data-owner-name="">Juwen Lie</span>.</li>
+<li>Open <strong>Ziris PTB team</strong> in the left menu, paste the pass, press <strong>Join Ziris PTB</strong>.</li>
+<li>Press <strong>Send test message</strong> once and check the chat.</li>
+<li>From now on every <em>Share to phone</em> code is sent automatically. The Camera page confirms it (“Code … sent to Ziris PTB”). If it fails, press <strong>Send to Teams</strong> to retry.</li>
+<li>Optional: tick <em>Also auto-send the remote control code</em>. Controllers still need the PC operator to press Allow.</li>
+</ol>
+<h4>Owner</h4>
+<ol>
+<li>In the Ziris PTB chat add the Teams workflow <em>Send webhook alerts to a chat</em> and copy its address.</li>
+<li>Ziris PTB team → Owner setup: paste the address, enter a name and role, <strong>Create team pass</strong>, send it privately.</li>
+<li>To revoke access, replace the workflow and hand out new passes.</li>
+</ol>
+<p class="guide-note">Without a pass the app never sends anything to Teams. The pass is personal – do not post it in public channels. Messages contain only the code, the public watch link, the member name and the PC name.</p>
+</section>
+
+<section class="guide-section" id="guide-remote">
+<h3><span>7</span> Remote control by code</h3>
+<ol>
+<li>On the PC connected by USB: <strong>Share control</strong> → a 6-digit code appears.</li>
+<li>On the phone or another PC: <strong>Connect by code</strong> → enter the code.</li>
+<li>The PC operator presses <strong>Allow</strong>. One controller at a time; the PC can revoke at any moment, and a dropped controller after a motor command triggers a motor stop.</li>
+</ol>
+</section>
+
+<section class="guide-section" id="guide-bluetooth">
+<h3><span>8</span> Phone remote (Bluetooth)</h3>
+<ol>
+<li>Connect the device over USB → <strong>Phone remote</strong> → <strong>Start remote</strong> (shows a PIN). Repeat after every power-up.</li>
+<li>Android: AIRIZ Mobile app or Chrome. iPhone: the free <strong>Bluefy</strong> browser → this console → Connect Bluetooth → AIRIZ-BT → PIN.</li>
+<li><em>Bluetooth on</em> in the status bar is only a firmware test; it does not let the phone see the device.</li>
+</ol>
+</section>
+
+<section class="guide-section" id="guide-sound">
+<h3><span>9</span> Sound FX &amp; audio</h3>
+<ul>
+<li>Sound laboratory: searchable synthesised sounds (offline) plus your own audio files; play them or send a test WAV to the device.</li>
+<li>With <em>Auto-save recording</em> on, every DMIC record is pulled from the device and saved as <code>dmic_&lt;date-time&gt;_&lt;seconds&gt;s_&lt;gain&gt;.wav</code>.</li>
+</ul>
+</section>
+
+<section class="guide-section" id="guide-trouble">
+<h3><span>10</span> Troubleshooting</h3>
+<dl class="guide-faq">
+<dt>No port in the Connect list</dt><dd>Check the cable and the FTDI driver; close TeraTerm or any other program that holds the COM port.</dd>
+<dt>Phone says “No PC is sharing with that code”</dt><dd>The PC stopped sharing or the preview stopped. Share again and use the new code.</dd>
+<dt>Phone finds the PC but no video</dt><dd>A firewall blocks WebRTC. Update the PC console to the latest version (relay fallback) or put both on the same Wi-Fi.</dd>
+<dt>Code not posted to Teams</dt><dd>Open Ziris PTB team: you need a team pass and auto-post switched on. Send test message shows the exact error. If the owner replaced the workflow, ask for a new pass.</dd>
+<dt>Motor does not stop with the macro Stop</dt><dd>Macro Stop only stops scheduling; press Stop motor or Esc.</dd>
+</dl>
+</section>
+
+<section class="guide-section" id="guide-history">
+<h3><span>11</span> History of the app</h3>
+<p>Created by <strong data-owner-name="">Juwen Lie</strong> for AIRIZ device testing (Ziris project), built step by step from real bench needs.</p>
+<ol class="guide-timeline">
+<li><time>Jun 2026</time><div><strong>Before the console</strong><p>Motor tests ran in TeraTerm with .ttl macros (test_motor, no-light and 1100 variants) and the Ziris command list in Excel (firmware 0.0.0.9). The command library was compiled from that sheet (v1.2, 12 Jun 2026).</p></div></li>
+<li><time>23 Oct 2026</time><div><strong>First browser console</strong><p>“Ziris Motor” – Web Serial connection, command library and macro notepad replace TeraTerm; light/dark theme; renamed AIRIZ.</p></div></li>
+<li><time>24 Oct 2026</time><div><strong>Camera &amp; sound</strong><p>Camera test console (modes, full-res stills, day/night &amp; lights, session folder, recording), Sound FX board, Send WAV and device audio auto-save.</p></div></li>
+<li><time>26 Oct 2026</time><div><strong>Desktop app, phones and Bluetooth (1.1 – 1.2.4)</strong><p>New controller dashboard; standalone Windows installer and portable app with safe in-app updates; Android and iPhone builds; Bluetooth bridge and phone remote with PIN; iPhone through Bluefy; phone camera viewer with a 6-digit share code and links; Connect Bluetooth from the PC.</p></div></li>
+<li><time>27 Oct 2026</time><div><strong>Works through company firewalls (1.2.5 – 1.3.0)</strong><p>AIRIZ relay (Cloudflare) carries the camera when WebRTC is blocked; see who is connected; remote control of the whole console by code with PC approval.</p></div></li>
+<li><time>28 Oct 2026</time><div><strong>Ziris PTB team (1.4.0)</strong><p>Share codes posted automatically to the Ziris PTB Teams chat for members, owner and roles in the app, this user guide and history page.</p></div></li>
+</ol>
+</section>
+</article>
+</div>
+</div>
 </div>
 <!-- Save As Modal -->
 <dialog class="modal" id="modal-save-as">
@@ -530,5 +744,5 @@
 <script src="app.js"></script>
 <div aria-live="polite" class="ui-toast" hidden="" id="ui-toast" role="status"></div>
 <dialog class="help-dialog" id="shortcuts-dialog"><div class="dialog-heading"><h2>At your fingertips.</h2><button aria-label="Close keyboard help" class="btn" id="close-shortcuts">✕</button></div><p>Arrow-key jogging is ready after connection by default. It only runs in the focused Motor control view, outside fields and dialogs. You can turn keyboard control off with one click.</p><dl><div><dt>Pan reverse / forward</dt><dd><kbd>←</kbd> <kbd>→</kbd></dd></div><div><dt>Rising forward / reverse</dt><dd><kbd>↑</kbd> <kbd>↓</kbd></dd></div><div><dt>Lock jog + stop motor</dt><dd><kbd>Esc</kbd></dd></div><div><dt>Focus command input</dt><dd><kbd>/</kbd></dd></div><div><dt>Show this help</dt><dd><kbd>?</kbd></dd></div></dl><div class="help-warning">Escape blocks new jogs and sends a motor stop (the driver halts the current move). It is a software stop, not a safety-rated emergency stop or power cut-off. Each key press sends one finite jog; holding a key does not repeat.</div></dialog>
-<script src="console-ui.js"></script><script src="data/bridge-files.js"></script><script src="remote-ui.js"></script><script src="vendor/peerjs.min.js"></script><script src="device-label.js"></script><script src="camera-frame-relay.js"></script><script src="camera-relay.js"></script><script src="remote-control.js"></script><script src="desktop-integration.js"></script></body>
+<script src="console-ui.js"></script><script src="data/bridge-files.js"></script><script src="remote-ui.js"></script><script src="vendor/peerjs.min.js"></script><script src="device-label.js"></script><script src="camera-frame-relay.js"></script><script src="ziris-team.js"></script><script src="camera-relay.js"></script><script src="remote-control.js"></script><script src="desktop-integration.js"></script></body>
 </html>

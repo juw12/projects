@@ -146,6 +146,8 @@
     els.linkRow.hidden = false;
     els.nativeShare.hidden = typeof navigator.share !== 'function';
     els.stopShare.disabled = false;
+    // Ziris PTB members: ziris-team.js posts the code to the team's Teams chat.
+    document.dispatchEvent(new CustomEvent('airiz:share-code', { detail: { kind: 'camera', code, link: els.link.value } }));
     if (FrameRelay && !sharer.relay) {
       sharer.relay = FrameRelay.startSender(code, api.getCameraStream, (count, list) => {
         sharer.relayViewers = count;
@@ -256,8 +258,10 @@
     sharer.relayList = [];
     sharer.labels.clear();
     sharer.callSince.clear();
+    const endedCode = sharer.code;
     sharer.code = null;
     els.code.textContent = '';
+    if (endedCode) document.dispatchEvent(new CustomEvent('airiz:share-code', { detail: { kind: 'camera', code: null } }));
     els.link.value = '';
     els.linkRow.hidden = true;
     els.share.disabled = false;

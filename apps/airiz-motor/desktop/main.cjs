@@ -1,10 +1,10 @@
 'use strict';
 
-const { app, BrowserWindow, protocol, session, ipcMain, dialog, Menu, shell } = require('electron');
+const { app, BrowserWindow, protocol, session, ipcMain, dialog, Menu, shell, net } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
-const { isAppUrl, resolveAsset, canOpenExternal } = require('./security.cjs');
+const { isAppUrl, resolveAsset, canOpenExternal, isTeamsWorkflowUrl } = require('./security.cjs');
 const { createSerialChooser } = require('./serial-chooser.cjs');
 const { createUpdateController } = require('./update-controller.cjs');
 const { createGrantStore } = require('./device-grants.cjs');
@@ -252,6 +252,35 @@ async function createWindow() {
   ipcMain.handle('airiz:take-pending-reconnect', event => {
     if (!trustedSender(event)) throw new Error('Untrusted sender');
     return grants.takePendingReconnect();
+  });
+  // Ziris PTB team: post a share-code card to the team's Teams workflow. The request is
+  // made here (system proxy, no CORS) and only to Power Automate / Teams webhook hosts.
+  ipcMain.handle('airiz:teams-post', async (event, workflowUrl, body) => {
+    if (!trustedSender(event)) return { ok: false, error: 'Untrusted sender' };
+    if (!isTeamsWorkflowUrl(workflowUrl)) return { ok: false, error: 'Invalid Teams workflow address.' };
+    if (typeof body !== 'string' || body.length > 28000) return { ok: false, error: 'Message too large.' };
+    try {
+      JSON.parse(body);
+    } catch {
+      return { ok: false, error: 'Message is not JSON.' };
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
+    try {
+      const response = await net.fetch(workflowUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        signal: controller.signal
+      });
+      return response.ok
+        ? { ok: true, status: response.status }
+        : { ok: false, status: response.status, error: 'Teams answered HTTP ' + response.status + '.' };
+    } catch (error) {
+      return { ok: false, error: error && error.name === 'AbortError' ? 'Teams did not answer in time.' : 'No connection to Teams (network or firewall).' };
+    } finally {
+      clearTimeout(timer);
+    }
   });
   ipcMain.handle('airiz:serial-choice', (event, id) => {
     if (!trustedSender(event) || typeof id !== 'string' || id.length > 256) return false;

@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('airizDesktop', {
     return () => ipcRenderer.removeListener('airiz:show-updates', listener);
   },
   chooseSerialPort: portId => ipcRenderer.invoke('airiz:serial-choice', portId),
+  postToTeams: (workflowUrl, body) => ipcRenderer.invoke('airiz:teams-post', String(workflowUrl), String(body)),
   onSerialPorts: callback => {
     if (typeof callback !== 'function') throw new TypeError('A callback is required');
     const listener = (_event, payload) => callback(payload);
