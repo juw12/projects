@@ -53,6 +53,39 @@ function isTeamsWorkflowUrl(value) {
   }
 }
 
+// Ziris PTB invite handed over from the website / Teams:
+//   airiz-console://join?team=ZPTB1-<base64url>&name=<display name>
+// Only the pass text and a cleaned name leave this function; the renderer still validates the pass.
+const DEEP_LINK_SCHEME = 'airiz-console';
+
+function parseTeamInvite(value) {
+  try {
+    const text = String(value || '');
+    if (text.length > 8000) return null;
+    const url = new URL(text);
+    if (url.protocol !== DEEP_LINK_SCHEME + ':' || url.username || url.password) return null;
+    const action = (url.hostname || url.pathname.replace(/^\/+/, '')).replace(/\/+$/, '').toLowerCase();
+    if (action !== 'join') return null;
+    const pass = String(url.searchParams.get('team') || '').trim();
+    if (!/^ZPTB1-[A-Za-z0-9_-]{16,6000}$/.test(pass)) return null;
+    const name = String(url.searchParams.get('name') || '')
+      .replace(/[\u0000-\u001f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    return { pass, name };
+  } catch {
+    return null;
+  }
+}
+
+function findTeamInvite(argv) {
+  for (const argument of Array.isArray(argv) ? argv : []) {
+    if (typeof argument === 'string' && argument.toLowerCase().startsWith(DEEP_LINK_SCHEME + ':')) {
+      const invite = parseTeamInvite(argument);
+      if (invite) return invite;
+    }
+  }
+  return null;
+}
+
 function publicPort(port) {
   return {
     id: String(port.portId),
@@ -63,4 +96,7 @@ function publicPort(port) {
   };
 }
 
-module.exports = { isAppUrl, resolveAsset, canOpenExternal, isTeamsWorkflowUrl, publicPort };
+module.exports = {
+  isAppUrl, resolveAsset, canOpenExternal, isTeamsWorkflowUrl, publicPort,
+  DEEP_LINK_SCHEME, parseTeamInvite, findTeamInvite
+};

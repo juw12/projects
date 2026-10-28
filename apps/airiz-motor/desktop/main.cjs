@@ -4,7 +4,9 @@ const { app, BrowserWindow, protocol, session, ipcMain, dialog, Menu, shell, net
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
-const { isAppUrl, resolveAsset, canOpenExternal, isTeamsWorkflowUrl } = require('./security.cjs');
+const {
+  isAppUrl, resolveAsset, canOpenExternal, isTeamsWorkflowUrl, DEEP_LINK_SCHEME, findTeamInvite
+} = require('./security.cjs');
 const { createSerialChooser } = require('./serial-chooser.cjs');
 const { createUpdateController } = require('./update-controller.cjs');
 const { createGrantStore } = require('./device-grants.cjs');
@@ -28,6 +30,32 @@ if (profileArgument) {
     fs.mkdirSync(destination, { recursive: true });
     app.setPath(key, destination);
   }
+}
+
+// 1.7.3: "Open in the AIRIZ Windows app" on the website (Ziris PTB invite) starts this app with
+// airiz-console://join?team=…&name=…; the renderer takes the invite and joins on this PC too.
+// Test runs with their own profile never register, so they cannot take over the real handler.
+function registerDeepLinkHandler() {
+  if (profileArgument) return;
+  try {
+    if (process.env.PORTABLE_EXECUTABLE_FILE) {
+      app.setAsDefaultProtocolClient(DEEP_LINK_SCHEME, process.env.PORTABLE_EXECUTABLE_FILE, []);
+    } else if (process.defaultApp && process.argv.length >= 2) {
+      app.setAsDefaultProtocolClient(DEEP_LINK_SCHEME, process.execPath, [path.resolve(process.argv[1])]);
+    } else {
+      app.setAsDefaultProtocolClient(DEEP_LINK_SCHEME);
+    }
+  } catch {
+    // Registration is a convenience; the invite link can still be pasted on the Team page.
+  }
+}
+
+let pendingTeamInvite = findTeamInvite(process.argv);
+
+function deliverTeamInvite(invite) {
+  if (!invite) return;
+  pendingTeamInvite = invite;
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('airiz:team-invite-ready');
 }
 
 let mainWindow = null;
@@ -242,6 +270,12 @@ async function createWindow() {
     if (!trustedSender(event)) throw new Error('Untrusted sender');
     return { version: app.getVersion(), platform: process.platform, packaged: app.isPackaged, offline: true, portable: !!process.env.PORTABLE_EXECUTABLE_FILE };
   });
+  ipcMain.handle('airiz:take-team-invite', event => {
+    if (!trustedSender(event)) throw new Error('Untrusted sender');
+    const invite = pendingTeamInvite;
+    pendingTeamInvite = null;
+    return invite;
+  });
   ipcMain.handle('airiz:bluetooth-choice', (event, id) => {
     if (!trustedSender(event) || typeof id !== 'string' || id.length > 256 || !bluetoothCallback) return false;
     const callback = bluetoothCallback;
@@ -377,7 +411,9 @@ const locked = app.requestSingleInstanceLock();
 if (!locked) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
+  registerDeepLinkHandler();
+  app.on('second-instance', (_event, argv) => {
+    deliverTeamInvite(findTeamInvite(argv));
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.show();

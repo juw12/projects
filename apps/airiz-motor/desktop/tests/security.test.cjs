@@ -4,7 +4,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { EventEmitter } = require('node:events');
-const { isAppUrl, resolveAsset, canOpenExternal, isTeamsWorkflowUrl, publicPort } = require('../security.cjs');
+const {
+  isAppUrl, resolveAsset, canOpenExternal, isTeamsWorkflowUrl, publicPort, parseTeamInvite, findTeamInvite
+} = require('../security.cjs');
 const { createSerialChooser } = require('../serial-chooser.cjs');
 
 test('Ziris PTB Teams posts only go to Power Automate / Teams webhook hosts', () => {
@@ -99,4 +101,23 @@ test('untrusted serial request is denied instead of auto-selecting a device', ()
   session.emit('select-serial-port', event, [{ portId: 'p1' }], untrusted, id => selected.push(id));
   assert.deepEqual(selected, ['']);
   assert.equal(chooser.hasPending(), false);
+});
+
+test('Ziris PTB invite hand-off link (airiz-console://join) is parsed strictly', () => {
+  const pass = 'ZPTB1-' + 'eyJ2IjoxLCJ0ZWFtIjoiWmlyaXMgUFRCIn0'.repeat(3);
+  assert.deepEqual(parseTeamInvite('airiz-console://join?team=' + pass + '&name=Luar%20Handoyo'), { pass, name: 'Luar Handoyo' });
+  assert.deepEqual(parseTeamInvite('airiz-console://join/?team=' + pass), { pass, name: '' });
+  assert.deepEqual(parseTeamInvite('AIRIZ-CONSOLE://JOIN?team=' + pass + '&name=%3Cb%3EEve%3C%2Fb%3E%0A'), { pass, name: 'bEve/b' });
+  assert.equal(parseTeamInvite('airiz-console://join?team=' + pass + '&name=' + 'x'.repeat(200)).name.length, 60);
+  for (const bad of [
+    'airiz-console://join?team=NOTAPASS', 'airiz-console://join?team=ZPTB1-short',
+    'airiz-console://join?team=ZPTB1-' + 'a'.repeat(40) + '%22%3E', 'airiz-console://delete?team=' + pass,
+    'airiz://app/?team=' + pass, 'https://juw12.github.io/projects/airiz-motor/index.html#team=' + pass,
+    'airiz-console://user:pw@join?team=' + pass, 'airiz-console://join?team=' + 'ZPTB1-' + 'a'.repeat(9000), '', null
+  ]) {
+    assert.equal(parseTeamInvite(bad), null, String(bad).slice(0, 60));
+  }
+  assert.deepEqual(findTeamInvite(['AIRIZ Console.exe', '--flag', 'airiz-console://join?team=' + pass + '&name=Tian']), { pass, name: 'Tian' });
+  assert.equal(findTeamInvite(['AIRIZ Console.exe', 'airiz-console://join?team=bad']), null);
+  assert.equal(findTeamInvite(undefined), null);
 });

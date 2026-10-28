@@ -30,6 +30,13 @@ contextBridge.exposeInMainWorld('airizDesktop', {
   },
   chooseSerialPort: portId => ipcRenderer.invoke('airiz:serial-choice', portId),
   postToTeams: (workflowUrl, body) => ipcRenderer.invoke('airiz:teams-post', String(workflowUrl), String(body)),
+  // Ziris PTB invite opened with airiz-console://join… (website "Open in the AIRIZ Windows app").
+  takeTeamInvite: () => ipcRenderer.invoke('airiz:take-team-invite'),
+  onTeamInvite: callback => {
+    const listener = () => callback();
+    ipcRenderer.on('airiz:team-invite-ready', listener);
+    return () => ipcRenderer.removeListener('airiz:team-invite-ready', listener);
+  },
   onSerialPorts: callback => {
     if (typeof callback !== 'function') throw new TypeError('A callback is required');
     const listener = (_event, payload) => callback(payload);

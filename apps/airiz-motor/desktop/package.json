@@ -1,6 +1,6 @@
 {
   "name": "airiz-console-desktop",
-  "version": "1.7.2",
+  "version": "1.7.3",
   "description": "AIRIZ offline motor, serial, camera and macro control console for Windows",
   "productName": "AIRIZ Console",
   "author": "AIRIZ",
@@ -72,6 +72,14 @@
       {
         "provider": "generic",
         "url": "https://juw12.github.io/projects/airiz-motor/updates/windows/"
+      }
+    ],
+    "protocols": [
+      {
+        "name": "AIRIZ Console",
+        "schemes": [
+          "airiz-console"
+        ]
       }
     ]
   },

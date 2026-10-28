@@ -104,3 +104,6 @@
   .guide-timeline div { padding-left: 0; }
   .guide-timeline div::before { display: none; }
 }
+
+.team-app-handoff { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin: 4px 0 12px; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--ui-accent-soft); }
+.team-app-handoff .team-app-hint { margin: 0; flex: 1 1 260px; font-size: 0.85rem; }

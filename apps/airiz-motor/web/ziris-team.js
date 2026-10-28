@@ -93,6 +93,21 @@
     return PUBLIC_BASE + 'index.html#team=' + pass;
   }
 
+  // 1.7.3: the website hands the invite (and the name typed there) to the Windows app.
+  const APP_SCHEME = 'airiz-console';
+
+  function appJoinLink(pass, name) {
+    return APP_SCHEME + '://join?team=' + encodeURIComponent(pass)
+      + (name ? '&name=' + encodeURIComponent(cleanName(name)) : '');
+  }
+
+  // Website opened in a Windows desktop browser (not the app itself, not a phone or tablet).
+  function canHandToWindowsApp() {
+    if (window.airizDesktop || window.airizMobile) return false;
+    const agent = navigator.userAgent || '';
+    return /Windows NT/i.test(agent) && !/Mobile|Phone|Tablet/i.test(agent);
+  }
+
   // Opened from an invite link: tell the language box and the Remote-by-code launcher to wait.
   const invitedPass = (() => {
     const match = INVITE_HASH.exec(location.hash || '');
@@ -303,7 +318,7 @@
           wrap: true,
           text: '1. Press Join ' + TEAM_NAME + ' below (it opens the console).\n'
             + '2. Type your name and press Join. You are a Co-admin; nothing else to set up.\n'
-            + 'Windows app: copy this message\'s link and paste it in Ziris PTB team \u2192 Join.'
+            + '3. AIRIZ Windows app: on that page press Open in the AIRIZ Windows app; the app joins with the same name.'
         },
         { type: 'TextBlock', text: 'Invite from ' + OWNER_NAME + ' \u00b7 keep it inside this chat', isSubtle: true, size: 'Small', wrap: true }
       ],
@@ -477,6 +492,8 @@
       autoPost.checked = settings.autoPost;
       autoPost.disabled = !member;
     }
+    const handoff = $('team-app-handoff');
+    if (handoff) handoff.hidden = !(member && canHandToWindowsApp());
     const test = $('team-test');
     if (test) test.disabled = !member;
     const sidebar = $('sidebar-team-member');
@@ -530,6 +547,33 @@
     if (state.status === 'sent' || state.status === 'failed') renderLog();
   });
 
+  // Website: start the AIRIZ Windows app with the same invite and name (needs a click on Edge/Chrome).
+  function openInWindowsApp() {
+    const member = currentMember();
+    if (!member || !canHandToWindowsApp()) return false;
+    try {
+      window.location.href = appJoinLink(member.pass, member.name);
+      setText('team-app-hint', 'If the browser asks, allow it to open AIRIZ Console. The app joins '
+        + TEAM_NAME + ' as ' + member.name + ' by itself. Nothing happens? Update the Windows app to 1.7.3 or newer.');
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Windows app: an invite handed over by the website (airiz-console://join…).
+  async function takeDesktopInvite() {
+    const desktop = window.airizDesktop;
+    if (!desktop || typeof desktop.takeTeamInvite !== 'function') return;
+    let invite = null;
+    try {
+      invite = await desktop.takeTeamInvite();
+    } catch {
+      return;
+    }
+    if (invite && invite.pass) openInvite(invite.pass, invite.name, true);
+  }
+
   function showTeamStatus(text, isError) {
     const status = $('team-status');
     if (!status) return;
@@ -560,7 +604,12 @@
           const member = joinTeam(input.value, nameInput ? nameInput.value : '');
           input.value = '';
           renderMembership();
-          showTeamStatus('Welcome, ' + member.name + ' (' + member.roleLabel + '). Press Send test message to check Teams.', false);
+          if (canHandToWindowsApp()) {
+            showTeamStatus('Welcome, ' + member.name + ' (' + member.roleLabel + '). '
+              + 'Using the AIRIZ Windows app? Press Open in the AIRIZ Windows app so it joins too.', false);
+          } else {
+            showTeamStatus('Welcome, ' + member.name + ' (' + member.roleLabel + '). Press Send test message to check Teams.', false);
+          }
         } catch (error) {
           showTeamStatus(error.message, true);
         }
@@ -686,6 +735,11 @@
       if (lastShare) sendShareCode(lastShare.kind, lastShare.code, { manual: true });
     });
     document.addEventListener('airiz:share-dialog', renderShareLine);
+    const openAppButton = $('team-open-app');
+    if (openAppButton) openAppButton.addEventListener('click', openInWindowsApp);
+    if (window.airizDesktop && typeof window.airizDesktop.onTeamInvite === 'function') {
+      window.airizDesktop.onTeamInvite(takeDesktopInvite);
+    }
     window.addEventListener('storage', event => {
       if (event.key === SETTINGS_KEY) {
         settings = loadSettings();
@@ -697,40 +751,51 @@
       element.textContent = OWNER_NAME;
     });
     renderMembership();
-    openInvite();
+    if (invitedPass) openInvite(invitedPass, '', false);
+    takeDesktopInvite();
   }
 
-  // Opened from the invite link: show the Team page with the invite filled in.
-  // If this PC already knows the person's name, join right away (one click from Teams).
-  function openInvite() {
-    if (!invitedPass) return;
-    try {
-      history.replaceState(null, '', location.pathname + location.search); // keep the secret out of the address bar
-    } catch {
-      // ignore
+  // Opened from the invite link (website) or handed over to the Windows app: show the Team page.
+  // If the name is known (typed on the website, or remembered on this PC) join right away.
+  function openInvite(inviteText, nameHint, handedToApp) {
+    if (!inviteText) return;
+    if (!handedToApp) {
+      try {
+        history.replaceState(null, '', location.pathname + location.search); // keep the secret out of the address bar
+      } catch {
+        // ignore
+      }
     }
     const tab = $('tab-team');
     if (tab) tab.click();
     let pass;
     try {
-      pass = readPass(invitedPass);
+      pass = readPass(inviteText);
     } catch (error) {
       showTeamStatus(error.message, true);
       return;
     }
-    const known = pass.name || settings.name;
+    const known = pass.name || cleanName(nameHint) || settings.name;
     if (known) {
       try {
-        const member = joinTeam(invitedPass, known);
+        const member = joinTeam(inviteText, known);
         renderMembership();
-        showTeamStatus('Welcome, ' + member.name + ' (' + member.roleLabel + '). You joined ' + TEAM_NAME + ' from the invite link.', false);
+        if (handedToApp) {
+          showTeamStatus('Welcome, ' + member.name + ' (' + member.roleLabel + '). The AIRIZ Windows app on this PC joined '
+            + TEAM_NAME + ' too.', false);
+        } else if (canHandToWindowsApp()) {
+          showTeamStatus('Welcome, ' + member.name + ' (' + member.roleLabel + '). You joined ' + TEAM_NAME + ' on this website. '
+            + 'Using the AIRIZ Windows app? Press Open in the AIRIZ Windows app so it joins too.', false);
+        } else {
+          showTeamStatus('Welcome, ' + member.name + ' (' + member.roleLabel + '). You joined ' + TEAM_NAME + ' from the invite link.', false);
+        }
         return;
       } catch (error) {
         showTeamStatus(error.message, true);
       }
     }
     const input = $('team-pass-input');
-    if (input) input.value = invitedPass;
+    if (input) input.value = pass.pass;
     const nameInput = $('team-name-input');
     showTeamStatus('Invite from ' + OWNER_NAME + ' found. Type your name and press Join ' + TEAM_NAME + '.', false);
     if (nameInput) setTimeout(() => nameInput.focus(), 100);
@@ -747,6 +812,7 @@
     readPass,
     joinTeam,
     inviteLink,
+    appJoinLink,
     isWorkflowUrl,
     buildMessage,
     publicLink,
