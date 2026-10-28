@@ -2,6 +2,37 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.10.0",
+      "date": "2026-10-28",
+      "title": "Chat bots",
+      "notes": {
+        "en": [
+          "🤖 6 friendly chat bots in the Chat tab: Pip Helper (app questions), Coach Focus (focus tips from your real stats), Sunny (live weather for any city), Arena Master (battle tips + quick battle), Giggles (jokes & games) and Guardian (safety & reporting help)",
+          "Private bot chats with suggestion chips, typing indicator and a clear button - your bot chats stay on your PC",
+          "Mention a bot in a group chat (e.g. @weather Batam) and it answers in the room for everyone",
+          "Bots reply in your app language; up to 120 bot messages per day"
+        ],
+        "id": [
+          "🤖 6 bot obrolan di tab Chat: Pip Helper (pertanyaan aplikasi), Coach Focus (tips fokus dari statistikmu), Sunny (cuaca langsung kota mana pun), Arena Master (tips bertarung + quick battle), Giggles (lelucon & permainan) dan Guardian (bantuan keamanan & laporan)",
+          "Chat pribadi dengan bot lengkap dengan saran pertanyaan, indikator mengetik dan tombol hapus - chat bot tersimpan di PC-mu",
+          "Sebut bot di grup (mis. @weather Batam) dan bot akan menjawab di grup untuk semua",
+          "Bot menjawab dalam bahasa aplikasimu; maksimal 120 pesan bot per hari"
+        ],
+        "zh_TW": [
+          "🤖 聊天分頁新增 6 個聊天機器人：Pip Helper（應用問題）、Coach Focus（依你的真實數據給專注建議）、Sunny（任何城市的即時天氣）、Arena Master（對戰技巧 + 快速對戰）、Giggles（笑話與小遊戲）和 Guardian（安全與檢舉協助）",
+          "與機器人私聊，附建議問題、輸入中提示和清除按鈕，機器人聊天紀錄只存在你的電腦",
+          "在群組中提及機器人（例如 @weather Batam），它會在群組裡回答所有人",
+          "機器人以你的應用語言回覆；每天最多 120 則機器人訊息"
+        ],
+        "zh_CN": [
+          "🤖 聊天标签新增 6 个聊天机器人：Pip Helper（应用问题）、Coach Focus（根据你的真实数据给专注建议）、Sunny（任何城市的实时天气）、Arena Master（对战技巧 + 快速对战）、Giggles（笑话与小游戏）和 Guardian（安全与举报帮助）",
+          "与机器人私聊，附建议问题、输入中提示和清除按钮，机器人聊天记录只保存在你的电脑",
+          "在群组中提及机器人（例如 @weather Batam），它会在群组里回答所有人",
+          "机器人以你的应用语言回复；每天最多 120 条机器人消息"
+        ]
+      }
+    },
+    {
       "version": "2.9.0",
       "date": "2026-10-28",
       "title": "Location & live weather",

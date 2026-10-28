@@ -65,6 +65,19 @@ OWNER_EMAIL = "Juwen_Lie@pegatroncorp.com"
 OWNER_LEVEL = 99
 OWNER_XP = 999999
 PREMIUM_FOREVER = 4102444800        # server value for "Premium forever"
+
+# Chat bots (v2.10) - mirrored from the server; replies come from /v1/bot/ask.
+BOTS = [
+    {"key": "helper", "code": "BOTPIP", "name": "Pip Helper", "species": "owl", "color": "#9b7bd4", "handle": "helper"},
+    {"key": "coach", "code": "BOTFCS", "name": "Coach Focus", "species": "dog", "color": "#f08c3c", "handle": "coach"},
+    {"key": "weather", "code": "BOTWTR", "name": "Sunny", "species": "penguin", "color": "#5aa7e6", "handle": "weather"},
+    {"key": "arena", "code": "BOTARN", "name": "Arena Master", "species": "dragon", "color": "#d6453d", "handle": "arena"},
+    {"key": "fun", "code": "BOTFUN", "name": "Giggles", "species": "bunny", "color": "#f783ac", "handle": "fun"},
+    {"key": "guard", "code": "BOTGRD", "name": "Guardian", "species": "bear", "color": "#3b82c4", "handle": "guard"},
+]
+BOT_BY_KEY = {b["key"]: b for b in BOTS}
+BOT_CODES = {b["code"] for b in BOTS}
+BOT_HISTORY = 60
 STAFF_ROLES = ("owner", "mod")
 
 INBOX_EVERY_S = 45
@@ -308,6 +321,7 @@ class Social:
         self._inbox_busy = False
         self._last_news = 0.0
         self.geo_results = None     # city search results (/v1/geo)
+        self.bot_pending = None     # bot key we're waiting on
         self.arena = None           # /v1/arena payload
         self.arena_open = False     # Arena tab visible -> fast lobby polling + "in arena" presence
         self._next_arena = 0.0
@@ -648,6 +662,28 @@ class Social:
     def redeem_key(self, key: str):
         self._act("redeemed", "/v1/premium/redeem", {"key": key.strip().upper()})
 
+    # ---- chat bots (v2.10) ----
+    def bot_chat(self, key: str) -> list:
+        return list((self.data.get("bot_chats") or {}).get(key, []))
+
+    def ask_bot(self, key: str, text: str):
+        text = text.strip()[:400]
+        if not text or key not in BOT_BY_KEY or not self.enabled:
+            return
+        chats = self.data.setdefault("bot_chats", {})
+        history = chats.get(key, [])
+        payload = {"bot": key, "text": text, "lang": getattr(self.pet, "lang", "en"),
+                   "history": [{"mine": m["mine"], "text": m["text"]} for m in history[-8:]]}
+        history.append({"mine": True, "text": text, "at": time.time()})
+        chats[key] = history[-BOT_HISTORY:]
+        self.bot_pending = key
+        self.save()
+        self._run("bot_reply", api_call, "POST", "/v1/bot/ask", payload, self.account)
+
+    def clear_bot_chat(self, key: str):
+        (self.data.get("bot_chats") or {}).pop(key, None)
+        self.save()
+
     # ---- location & weather (v2.9) ----
     def my_weather(self):
         me = (self.board or {}).get("me") or {}
@@ -934,7 +970,7 @@ class Social:
             body = random.choice(shop.moves())       # my pet shows off a move when it arrives
         if shop:
             shop.add_interaction_bonus()
-        payload = {"kind": kind, "body": body[:500]}
+        payload = {"kind": kind, "body": body[:500], "lang": getattr(self.pet, "lang", "en")}
         if room.startswith("dm:"):
             payload["to"] = room[3:]
         else:
@@ -1096,6 +1132,8 @@ class Social:
                     self.data.pop(key, None)
                 self.save()
                 self.pet.update_setting("friends", False)
+            if kind == "bot_reply":
+                self.bot_pending = None
             if payload == "no_location" and self.window and self.window.alive():
                 self.window.show_error("no_location")
                 return
@@ -1118,6 +1156,16 @@ class Social:
                         self.check_achievements()
         if isinstance(payload, dict) and "friends" in payload:
             self._take_board(payload)
+        if kind == "bot_reply":
+            key = payload.get("bot") or self.bot_pending
+            self.bot_pending = None
+            if key in BOT_BY_KEY:
+                chats = self.data.setdefault("bot_chats", {})
+                chats.setdefault(key, []).append({"mine": False, "text": payload.get("reply", "..."), "at": time.time()})
+                chats[key] = chats[key][-BOT_HISTORY:]
+                self.save()
+            self._refresh_window()
+            return
         if kind == "geo":
             self.geo_results = payload.get("places", [])
             if self.window and self.window.alive():
