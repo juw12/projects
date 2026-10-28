@@ -1,6 +1,6 @@
 ﻿/* AIRIZ Control Center â€” versioned, scope-isolated offline shell. */
 const CACHE_PREFIX = 'airiz-control-' + encodeURIComponent(self.registration.scope) + '-';
-const CACHE_NAME = CACHE_PREFIX + 'v2.24-language-region';
+const CACHE_NAME = CACHE_PREFIX + 'v2.25-bird-logo';
 const ASSETS = [
   './',
   './index.html',
@@ -33,7 +33,8 @@ const ASSETS = [
   './icons/app-icon.svg',
   './icons/apple-touch-icon.png',
   './icons/icon-192.png',
-  './icons/icon-512.png'
+  './icons/icon-512.png',
+  './icons/icon-maskable-512.png'
 ];
 
 self.addEventListener('install', (event) => {
