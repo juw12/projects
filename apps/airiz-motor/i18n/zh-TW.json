@@ -777,6 +777,8 @@
     "Light": "淺色",
     "Theme: Light": "主題：淺色",
     "Theme: System": "主題：系統",
+    "Phone links connect again (1.5.1)": "手機連結可再次連線（1.5.1）",
+    "Opening a Share control link on a new phone no longer gets stuck behind the language box; the link fills in the code and connects by itself (the PC still presses Allow).": "在新手機上開啟 Share control 連結時不再被語言視窗擋住；連結會自動填入代碼並連線（PC 仍需按 Allow）。",
     "Language, region & new logo (1.5.0)": "語言、地區與新標誌（1.5.0）",
     "Choose English, Traditional or Simplified Chinese and your site (Taiwan, China, Indonesia – Batam) on first start; new bird-on-controller app icon.": "首次啟動時選擇英文、繁體或簡體中文以及所在地（台灣、中國、印尼 – 巴淡島）；全新「控制器上的小鳥」應用程式圖示。"
   },

@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.5.0` in this repository's Releases section.
+`airiz-desktop-v1.5.1` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -161,6 +161,15 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.5.1: Phone links connect again
+* **Fix:** opening a *Share control* link on a phone (`index.html#control=123456`, e.g. from
+  Teams) on a phone that never used the console showed the first-run language box and the
+  *Connect by code* box on top of each other, so the phone could not connect. Links now skip
+  the language box (language and site are guessed from the phone and can be changed with 🌐).
+* **Links connect by themselves:** the code from the link is filled in and *Connect* is pressed
+  automatically; the PC still has to press **Allow**.
+* The first-run language box now waits until no other dialog is open.
 
 ## 1.5.0: Language & region, new logo
 * **Language & region** chosen on first start (English / 繁體中文 / 简体中文; Taiwan, China,
