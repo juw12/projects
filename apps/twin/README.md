@@ -273,6 +273,10 @@ history and are not predictions. Not financial advice.
 
 ## Changelog
 
+- **1.10.1 — Premium landing.** The welcome screen is new: a big "Invest smarter. Practice first." headline,
+  a glowing practice-balance card with a live sparkline, three feature tiles, a gradient "Continue as guest"
+  button and the sign-in form in its own card. The desktop page (web.html) gets the same dark premium look
+  with stats, feature cards and the app in a glowing phone frame.
 - **1.10.0 — Premium everywhere.** Every tab now matches the new Home: Invest opens with a glowing
   portfolio card (big value, gain chip, glass Cash / Invested / Started-with tiles); Learn gets a gradient
   academy card and colourful course tiles with gradient progress bars; Trade and News use the same rounded
