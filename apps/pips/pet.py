@@ -54,6 +54,11 @@ try:
 except ImportError:  # pragma: no cover - sounds are optional
     pet_sounds = None
 
+try:
+    import social
+except ImportError:  # pragma: no cover - friends / achievements are optional
+    social = None
+
 logger = logging.getLogger("pet")
 
 # Transparent colour key: pixels of exactly this colour are see-through and
@@ -81,6 +86,7 @@ DEFAULT_PET_SETTINGS = {
     "sounds": True,              # little animal voices (meow, ribbit, hoot...)
     "sound_volume": 60,          # 0..100
     "quiet_focus": True,         # no pet sounds during a focus session
+    "friends": False,            # opt-in: share level / pomodoro counts with friends (social.py)
 }
 
 COLOR_PRESETS = [
@@ -1452,6 +1458,12 @@ class DesktopPet:
 
         self._build_window()
         self._apply_offline_time()
+        self.social = None
+        if social is not None:
+            try:
+                self.social = social.Social(self)
+            except Exception as exc:
+                logger.warning("Friends / achievements unavailable: %s", exc)
         self.bubble = SpeechBubble(self)
         self._place_initial()
         if not self.visible:
@@ -1811,6 +1823,12 @@ class DesktopPet:
             elif st["energy"] < 20 and not self.focus:
                 self.say(random.choice(lines("tired_hint")), duration=6, priority=0)
                 self._prompt_next = time.time() + 40 * 60
+
+        if self.social:
+            try:
+                self.social.tick(now)
+            except Exception:
+                logger.exception("social tick failed")
 
         if now >= self._next_vocal:
             # every now and then the pet "talks" in its current mood
@@ -2492,6 +2510,9 @@ class DesktopPet:
                 n = kw.get("count")
                 extra = t("pomo_today", n=n) if n else ""
                 self.say(t("pomo_done", extra=extra), duration=6, priority=2)
+            if self.social:
+                # give the app a moment to record the finished session first
+                self.root.after(2500, self.social.on_pomodoro)
         elif event == "distracted":
             self.set_action("worried", 2.5)
             self._bump("happiness", -3)
@@ -2667,6 +2688,8 @@ class DesktopPet:
                 pass
         self._cancel_open()
         self.save_state()
+        if getattr(self, "social", None):
+            self.social.close()
         if self.settings_win:
             self.settings_win.close()
         self.bubble.destroy()
@@ -2690,6 +2713,8 @@ class DesktopPet:
         menu.add_command(label=t("p_hide_window") if open_now else t("p_open"),
                          command=lambda: self._call("toggle_window"))
         menu.add_command(label=t("p_dashboard"), command=lambda: self._call("open_dashboard"))
+        if self.social:
+            menu.add_command(label=t("p_friends"), command=self.social.open_window)
         menu.add_separator()
         menu.add_command(label=t("p_snack"), command=self.feed)
         menu.add_command(label=t("p_pet", name=name), command=self.pet)
