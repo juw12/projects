@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kitty self-test</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <style>
+    body { font: 14px/1.5 ui-monospace, Menlo, Consolas, monospace; padding: 24px; background: #0e0f16; color: #ecedf7; }
+    .pass { color: #3ddc97; }
+    .fail { color: #ff6b81; }
+    h1 { font-family: system-ui, sans-serif; }
+  </style>
+</head>
+<body>
+  <h1>🐱 Kitty self-test</h1>
+  <p>Runs the budgeting core, cell-level merge, encryption and (with <code>?relay=URL</code>) a live two-client sync through a relay.</p>
+  <pre id="out"></pre>
+  <script src="js/core.js"></script>
+  <script src="js/sync.js"></script>
+  <script>
+    (async function () {
+      const K = window.Kitty;
+      const out = document.getElementById('out');
+      const results = [];
+      function log(ok, name, detail) {
+        results.push({ ok: ok, name: name, detail: detail || '' });
+        out.innerHTML += '<span class="' + (ok ? 'pass' : 'fail') + '">' + (ok ? 'PASS' : 'FAIL') + '</span> ' + name + (detail ? ' — ' + String(detail).replace(/</g, '&lt;') : '') + '\n';
+      }
+      function eq(name, actual, expected) {
+        const ok = JSON.stringify(actual) === JSON.stringify(expected);
+        log(ok, name, ok ? '' : 'got ' + JSON.stringify(actual) + ', expected ' + JSON.stringify(expected));
+      }
+      function check(name, cond, detail) {
+        log(!!cond, name, cond ? '' : detail);
+      }
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+      try {
+        // ---------------------------------------------------------- amounts
+        eq('parse 25k', K.parseAmount('25k', 'IDR'), 25000);
+        eq('parse 1.5jt', K.parseAmount('1.5jt', 'IDR'), 1500000);
+        eq('parse Rp 25.000', K.parseAmount('Rp 25.000', 'IDR'), 25000);
+        eq('parse 1.250.000', K.parseAmount('1.250.000', 'IDR'), 1250000);
+        eq('parse 1,250.50 USD', K.parseAmount('1,250.50', 'USD'), 1250.5);
+        eq('parse 12,50 EUR', K.parseAmount('12,50', 'EUR'), 12.5);
+        eq('parse 1.234,56', K.parseAmount('1.234,56', 'EUR'), 1234.56);
+        eq('parse $4.99', K.parseAmount('$4.99', 'USD'), 4.99);
+        eq('parse 2m', K.parseAmount('2m', 'USD'), 2000000);
+        check('parse garbage is NaN', isNaN(K.parseAmount('abc', 'IDR')));
+        eq('fmtPlain IDR', K.fmtPlain(1250000, 'IDR'), '1.250.000');
+        eq('round trip IDR', K.parseAmount(K.fmtPlain(1250000, 'IDR'), 'IDR'), 1250000);
+        eq('round trip USD', K.parseAmount(K.fmtPlain(1250.5, 'USD'), 'USD'), 1250.5);
+        eq('round trip INR', K.parseAmount(K.fmtPlain(125000, 'INR'), 'INR'), 125000);
+        eq('round trip VND', K.parseAmount(K.fmtPlain(2500000, 'VND'), 'VND'), 2500000);
+        eq('round trip EUR', K.parseAmount(K.fmtPlain(1250.5, 'EUR'), 'EUR'), 1250.5);
+
+        // ---------------------------------------------------------- merge
+        const base = K.newBook({ name: 'Test', currency: 'IDR', by: 'a' });
+        const op0 = K.put(base, 'txns', { id: 'row1', desc: 'Coffee', amount: 30000, cat: '', date: '2026-10-01', type: 'expense' }, 'a');
+        const A = JSON.parse(JSON.stringify(base));
+        const B = JSON.parse(JSON.stringify(base));
+        const opA = K.put(A, 'txns', { id: 'row1', amount: 35000 }, 'a');
+        const opB = K.put(B, 'txns', { id: 'row1', desc: 'Kopi susu' }, 'b');
+        K.applyOp(A, opB);
+        K.applyOp(B, opA);
+        eq('concurrent cell edits both survive (A)', [A.txns.row1.desc, A.txns.row1.amount], ['Kopi susu', 35000]);
+        eq('concurrent cell edits converge', JSON.stringify(A.txns.row1), JSON.stringify(B.txns.row1));
+        const C = JSON.parse(JSON.stringify(base));
+        const opC1 = K.put(C, 'txns', { id: 'row1', amount: 1 }, 'c');
+        const opC2 = K.put(C, 'txns', { id: 'row1', amount: 2 }, 'c');
+        const D = JSON.parse(JSON.stringify(base));
+        K.applyOp(D, opC2);
+        check('stale op ignored', K.applyOp(D, opC1) === false && D.txns.row1.amount === 2);
+        const del = K.remove(A, 'txns', 'row1', 'a');
+        K.applyOp(B, del);
+        check('delete hides row', K.list(B, 'txns').length === 0);
+        const E = JSON.parse(JSON.stringify(base));
+        K.applyOps(E, [op0, opA, opB, del]);
+        const F = JSON.parse(JSON.stringify(base));
+        K.applyOps(F, [del, opB, opA, op0]);
+        eq('order independent', JSON.stringify(E.txns.row1), JSON.stringify(F.txns.row1));
+        check('rejects bad ids', K.applyOp(E, { c: 'txns', id: '__proto__', r: { a: 1 } }) === false && !({}).a);
+        K.applyOp(E, { c: 'txns', id: 'evil', r: JSON.parse('{"__proto__": {"polluted": 1}, "desc": "x", "_u": 1}') });
+        check('no prototype pollution', ({}).polluted === undefined);
+        const metaJoin = K.newBook({ id: base.id, name: 'Placeholder', unstamped: true });
+        K.applyOps(metaJoin, K.snapshotOps(base));
+        eq('joiner meta replaced by shared meta', [metaJoin.meta.name, metaJoin.meta.currency], ['Test', 'IDR']);
+
+        // ---------------------------------------------------------- stats + alerts
+        const today = '2026-10-20';
+        const demo = K.demoBook(today, 'me');
+        const st = K.monthStats(demo, '2026-10', today);
+        check('demo has spending', st.spent > 0 && st.txnCount > 20, 'spent ' + st.spent);
+        check('planned income monthly', Math.round(st.plannedIncome) === Math.round(18500000 + 12000000 + (750000 * 52) / 12), st.plannedIncome);
+        check('savings counted separately', st.saved >= 3000000 + 4500000, st.saved);
+        check('cumulative ends at spent', Math.abs(st.cumulative[st.dim - 1] - st.spent) < 1);
+        check('safe daily is finite', isFinite(st.safeDaily) && st.safeDaily >= 0);
+        const shopping = st.rows.find((r) => r.cat.name === 'Shopping');
+        const alerts = K.alertsFor(st, 'IDR');
+        check('alerts produced', Array.isArray(alerts));
+        const b2 = K.newBook({ by: 'x' });
+        K.put(b2, 'categories', { id: 'c1', name: 'Dining', group: 'wants', limit: 100000, kind: 'flex' }, 'x');
+        const s0 = K.monthStats(b2, '2026-10', today);
+        K.put(b2, 'txns', { date: '2026-10-05', amount: 85000, type: 'expense', cat: 'c1' }, 'x');
+        const s1 = K.monthStats(b2, '2026-10', today);
+        eq('80% crossing detected', K.crossings(s0, s1), ['c1']);
+        eq('warn status', s1.rows[0].status, 'warn');
+        K.put(b2, 'txns', { date: '2026-10-06', amount: 20000, type: 'expense', cat: 'c1' }, 'x');
+        const s2 = K.monthStats(b2, '2026-10', today);
+        eq('over status', s2.rows[0].status, 'over');
+        eq('over crossing', K.crossings(s1, s2), ['c1']);
+        check('over alert text', K.alertsFor(s2, 'IDR')[0].title.indexOf('over budget') > 0);
+        const b3 = K.newBook({ by: 'x' });
+        K.put(b3, 'categories', { id: 'c1', name: 'Food', group: 'needs', limit: 3000000, kind: 'flex' }, 'x');
+        K.put(b3, 'txns', { date: '2026-10-08', amount: 1500000, type: 'expense', cat: 'c1' }, 'x');
+        eq('pace status (50% spent by day 10)', K.monthStats(b3, '2026-10', '2026-10-10').rows[0].status, 'pace');
+
+        // ---------------------------------------------------------- quiz + personas
+        const answersFor = {
+          squirrel: { payday: 'save_first', impulse: 'wait', balance: 'weekly', windfall: 'save', drop: 'sell_some', social: 'skip', emergency: 3, debt: 0, experience: 0 },
+          owl: { payday: 'plan', impulse: 'check', balance: 'daily', windfall: 'split', drop: 'hold', social: 'suggest', emergency: 2, debt: 0, experience: 1 },
+          butterfly: { payday: 'treat', impulse: 'buy', balance: 'weekly', windfall: 'split', drop: 'hold', social: 'skip', emergency: 0, debt: 1, experience: 1 },
+          lion: { payday: 'save_first', impulse: 'wait', balance: 'daily', windfall: 'invest', drop: 'buy', social: 'suggest', emergency: 2, debt: 0, experience: 3 },
+          dolphin: { payday: 'bills', impulse: 'gift', balance: 'weekly', windfall: 'share', drop: 'hold', social: 'go', emergency: 1, debt: 1, experience: 1 },
+          turtle: { payday: 'bills', impulse: 'wait', balance: 'avoid', windfall: 'save', drop: 'never', social: 'guilt', emergency: 1, debt: 3, experience: 0 },
+        };
+        Object.keys(answersFor).forEach((k) => {
+          const r = K.scoreQuiz(Object.assign({ name: 'T', income: 10000000, household: 'solo', goals: [] }, answersFor[k]));
+          eq('persona reachable: ' + k, r.persona, k);
+        });
+        const traitsOk = Object.keys(answersFor).every((k) => {
+          const r = K.scoreQuiz(answersFor[k]);
+          return Object.keys(r.traits).every((t) => r.traits[t] >= 0 && r.traits[t] <= 100);
+        });
+        check('traits normalised 0..100', traitsOk);
+
+        // ---------------------------------------------------------- planner
+        ['squirrel', 'owl', 'butterfly', 'lion', 'dolphin', 'turtle'].forEach((persona) => {
+          [
+            { income: 15000000, housing: 4000000, household: 'couple', goals: ['travel', 'invest'], ef: 0, debt: 2 },
+            { income: 8000000, housing: 4500000, household: 'solo', goals: ['home'], ef: 3, debt: 0 },
+            { income: 6000, housing: 0, household: 'family', goals: ['family', 'education'], ef: 1, debt: 3 },
+          ].forEach((facts, i) => {
+            const cur = i === 2 ? 'USD' : 'IDR';
+            const plan = K.suggestPlan({ persona: persona, facts: facts }, cur);
+            const pctSum = plan.pct.needs + plan.pct.wants + plan.pct.savings + plan.pct.invest;
+            const limSum = plan.categories.reduce((s, c) => s + c.limit, 0);
+            const neg = plan.categories.some((c) => c.limit < 0);
+            check('plan ' + persona + ' #' + i + ' sums to income', pctSum === 100 && Math.abs(limSum - facts.income) < 1 && !neg, 'pct ' + pctSum + ' limits ' + limSum + ' vs ' + facts.income);
+            if (facts.housing > 0) {
+              const h = plan.categories.find((c) => c.name === 'Housing');
+              check('plan ' + persona + ' #' + i + ' housing = rent', Math.abs(h.limit - facts.housing) < 1, h.limit);
+            }
+          });
+        });
+
+        // ---------------------------------------------------------- portfolio
+        const pf = K.portfolio(demo);
+        check('portfolio total > 0', pf.total > 0);
+        check('allocation sums to 100', Math.abs(pf.drift.reduce((s, d) => s + d.actualPct, 0) - 100) < 0.01);
+        check('rebalance trades net to zero', Math.abs(pf.drift.reduce((s, d) => s + d.trade, 0)) < 1);
+        const fv = K.projectFV(0, 100, 0, 10);
+        eq('FV at 0% = contributions', Math.round(fv[10].value), 12000);
+        const fv2 = K.projectFV(1000, 0, 12, 1);
+        check('FV monthly compounding', Math.abs(fv2[1].value - 1000 * Math.pow(1.01, 12)) < 0.01);
+        const tips = K.tipsFor({ book: demo, stats: st, profile: { persona: 'owl', facts: { ef: 1 } }, portfolio: pf, today: today });
+        check('tips include persona tips', tips.filter((t) => t.kind === 'persona').length === 6);
+        check('tips include data tips', tips.filter((t) => t.kind === 'data').length >= 1);
+
+        // ---------------------------------------------------------- crypto
+        const keyStr = K.newRoomKey();
+        const key = await K.importRoomKey(keyStr);
+        const msg = { t: 'ops', ops: K.snapshotOps(demo) };
+        const sealed = await K.seal(key, msg);
+        check('large payload compressed (k2)', sealed.indexOf('k2.') === 0, sealed.slice(0, 3));
+        const opened = await K.unseal(key, sealed);
+        eq('seal/unseal round trip', opened.ops.length, msg.ops.length);
+        const small = await K.seal(key, { t: 'hello', from: 'x' });
+        check('small payload uncompressed (k1)', small.indexOf('k1.') === 0);
+        let wrongKeyFailed = false;
+        try {
+          await K.unseal(await K.importRoomKey(K.newRoomKey()), sealed);
+        } catch (e) {
+          wrongKeyFailed = true;
+        }
+        check('wrong key cannot decrypt', wrongKeyFailed);
+        const link = K.shareLink('https://x.test/kitty/index.html?view=home', demo.id, keyStr, K.DEFAULT_RELAY, 'Our home');
+        const parsed = K.parseJoin(link.split('#')[1]);
+        eq('share link round trip', [parsed.bookId, parsed.key, parsed.relay, parsed.name], [demo.id, keyStr, K.DEFAULT_RELAY, 'Our home']);
+        check('key stays in fragment', link.split('#')[0].indexOf(keyStr) < 0);
+
+        // ---------------------------------------------------------- live sync through a relay
+        const relay = new URLSearchParams(location.search).get('relay');
+        if (relay) {
+          const owner = K.demoBook(today, 'owner');
+          const ownerKey = K.newRoomKey();
+          const joiner = K.newBook({ id: owner.id, name: 'Shared', unstamped: true });
+          const statuses = { a: [], b: [] };
+          const remoteB = [];
+          const remoteA = [];
+          const roomA = new K.Room({ bookId: owner.id, key: ownerKey, relay: relay, me: { id: 'owner', name: 'Owner', color: '#f00' }, getBook: () => owner, onStatus: (s) => statuses.a.push(s), onRemote: (c, info) => remoteA.push(info) });
+          await roomA.start();
+          const t0 = Date.now();
+          while (roomA.status !== 'live' && Date.now() - t0 < 15000) await sleep(100);
+          await sleep(4500); // owner publishes its first snapshot
+          const roomB = new K.Room({ bookId: owner.id, key: ownerKey, relay: relay, me: { id: 'joiner', name: 'Joiner', color: '#0f0' }, getBook: () => joiner, onStatus: (s) => statuses.b.push(s), onRemote: (c, info) => remoteB.push(info) });
+          await roomB.start();
+          const t1 = Date.now();
+          while (K.list(joiner, 'txns').length < K.list(owner, 'txns').length && Date.now() - t1 < 20000) await sleep(150);
+          eq('joiner received full book via relay', K.list(joiner, 'txns').length, K.list(owner, 'txns').length);
+          eq('joiner got shared meta', joiner.meta.name, owner.meta.name);
+          while (roomB.status !== 'live' && Date.now() - t1 < 25000) await sleep(100);
+          const opLive = K.put(owner, 'txns', { date: today, desc: 'Live sync test', amount: 12345, type: 'expense', cat: '', createdAt: Date.now() }, 'owner');
+          roomA.push([opLive]);
+          const t2 = Date.now();
+          while (!joiner.txns[opLive.id] && Date.now() - t2 < 15000) await sleep(100);
+          check('live edit A → B', !!joiner.txns[opLive.id], 'waited ' + (Date.now() - t2) + 'ms');
+          check('B saw it as a live edit', remoteB.some((i) => i.kind === 'live'));
+          const opBack = K.put(joiner, 'txns', { id: opLive.id, desc: 'Edited by joiner' }, 'joiner');
+          roomB.push([opBack]);
+          const t3 = Date.now();
+          while (owner.txns[opLive.id].desc !== 'Edited by joiner' && Date.now() - t3 < 15000) await sleep(100);
+          eq('live edit B → A', owner.txns[opLive.id].desc, 'Edited by joiner');
+          log(true, 'sync latency A→B / B→A', (t3 - t2) + 'ms total');
+          roomA.stop();
+          roomB.stop();
+        } else {
+          log(true, 'live relay test skipped', 'add ?relay=https://ntfy.sh or a local relay URL');
+        }
+      } catch (e) {
+        log(false, 'uncaught error', e && e.stack ? e.stack : String(e));
+      }
+      const failed = results.filter((r) => !r.ok).length;
+      document.title = (failed ? 'FAIL ' : 'PASS ') + (results.length - failed) + '/' + results.length;
+      out.innerHTML += '\n' + (failed ? '<span class="fail">' + failed + ' failed</span>' : '<span class="pass">All ' + results.length + ' passed</span>') + '\n';
+      window.__kittyTests = { done: true, failed: failed, results: results };
+    })();
+  </script>
+</body>
+</html>

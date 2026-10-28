@@ -1,0 +1,13 @@
+{
+  "name": "Kitty: shared budgeting",
+  "short_name": "Kitty",
+  "description": "Live shared budgets with a money personality, smart warnings and an investing portfolio.",
+  "start_url": "index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f5fb",
+  "theme_color": "#6c5ce7",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
