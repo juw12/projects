@@ -309,8 +309,6 @@ kbd { font: 10px var(--font-mono); border: 1px solid var(--color-border); border
 .console-redesign .command-list { overflow: auto; }
 .console-redesign .command-card { border-color: var(--color-border); }
 .console-redesign .panel-camera { margin: 0; }
-.console-redesign #view-sfx { overflow: visible; }
-.console-redesign .sfx-panel { max-width: none; margin: 0; }
 .ui-toast { position: fixed; bottom: 24px; left: calc(50% + 110px); transform: translateX(-50%); background: var(--color-bg-panel); color: var(--color-text); border: 1px solid var(--color-border); border-left: 3px solid var(--color-accent); padding: 13px 20px; border-radius: 8px; box-shadow: 0 10px 40px #0006; z-index: 1200; font-size: 12px; max-width: min(550px, 90vw); width: max-content; }
 .help-dialog { margin: auto; width: min(480px, calc(100% - 32px)); border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-bg-panel); color: var(--color-text); padding: 26px; box-shadow: 0 25px 90px #0009; }
 .help-dialog::backdrop { background: #050a13b8; backdrop-filter: blur(5px); }

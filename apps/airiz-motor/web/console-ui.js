@@ -11,7 +11,6 @@
       controller: ['Motor control', 'Make your next move. Precision control for your device.'],
       console: ['Commands & macros', 'Your complete command library and repeatable test workflows.'],
       camera: window.airizMobile ? ['Phone camera', 'Local phone-camera preview, not video over Bluetooth.'] : ['Camera workspace', 'Preview, capture, and inspect your device camera.'],
-      sfx: ['Sound laboratory', 'Explore synthesized sounds, playback, and audio experiments.'],
       team: ['Ziris PTB team', 'Owner Juwen Lie with co-admins. Members post share codes to the Ziris PTB Teams chat automatically.'],
       guide: ['Guide & history', 'How to use every part of the AIRIZ console, and how it was built.']
     };

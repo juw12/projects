@@ -1,6 +1,6 @@
 ﻿/* AIRIZ Control Center — versioned, scope-isolated offline shell. */
 const CACHE_PREFIX = 'airiz-control-' + encodeURIComponent(self.registration.scope) + '-';
-const CACHE_NAME = CACHE_PREFIX + 'v2.36-1.8.2-owner-setup';
+const CACHE_NAME = CACHE_PREFIX + 'v2.37-1.8.3-sfx-removed';
 const ASSETS = [
   './',
   './index.html',
@@ -29,7 +29,6 @@ const ASSETS = [
   './data/bridge-files.js',
   './data/commands.js',
   './data/macros.js',
-  './data/sounds.js',
   './manifest.webmanifest',
   './icons/app-icon.svg',
   './icons/apple-touch-icon.png',

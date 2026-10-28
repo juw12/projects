@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.8.2` in this repository's Releases section.
+`airiz-desktop-v1.8.3` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -163,6 +163,16 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.8.3: Sound FX removed
+
+* **Sound FX tab removed:** the in-browser sound board (synthesised effects, search, volume and
+  "Add sounds…") did not work and is gone, together with its sound library.
+* **Play test WAV goes to the device again:** Commands & macros → Audio → Play test WAV has a
+  single **Send** button that sends `diag audio play /audio/16K_16bit_Stereo_Loud.wav` to the
+  AIRIZ speaker instead of previewing a browser sound.
+* **Unchanged:** Set volume, DMIC recording with auto-save and the PTZ siren still use the device
+  audio path. Guide section 9 is now "Device audio".
 
 ## 1.8.2: One-click owner setup
 

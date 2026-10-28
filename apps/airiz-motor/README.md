@@ -24,7 +24,7 @@ A downloadable Windows x64 desktop edition now bundles this entire console local
 It is not a website shortcut and does not require Chrome, Edge, Node or Python to run.
 Installer and portable preview builds are available at:
 
-https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.8.2
+https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.8.3
 
 The initial binaries are unsigned. The packaged app was tested with demo/synthetic
 hardware; real-device bench validation is still required. Browser and mobile-web
@@ -42,7 +42,6 @@ A complete, production-quality, dependency-free browser app that replaces the Te
 - **Command Library**: Browse all diagnostic commands by category, with live parameter inputs
 - **Serial Console**: Dark terminal with scrollback, log saving, and raw command input
 - **Macro Notepad**: Visual step editor for creating and running test macros
-- **Sound FX**: Browseable, searchable sound effects board (synthesised in-browser, offline) + load your own audio files
 - **Device Audio Auto-Save**: after each DMIC record, the console pulls the WAV off the device over serial and saves it to a folder
 - **PWA Support**: Installable app with offline caching via service worker
 - **Demo Mode**: Test the full UI without hardware connected
@@ -61,7 +60,6 @@ apps/airiz-motor/web/
   data/
     commands.js        # Command library (read-only)
     macros.js          # Macro definitions (read-only)
-    sounds.js          # Built-in sound-effects library (read-only)
 ```
 
 ## Running the App
