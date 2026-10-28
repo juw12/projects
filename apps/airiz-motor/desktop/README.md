@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.8.0` in this repository's Releases section.
+`airiz-desktop-v1.8.1` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -161,6 +161,18 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.8.1: Camera position follows the real camera
+* New **camera position view** in the PTZ card: a side view shows how far the camera is raised
+  (fully down / halfway / fully up, in steps of the 1100-step stroke) and a top view shows the pan angle
+  from Home (4800 steps = 360°, forward = counter-clockwise). It animates with the real move timing.
+* Rising height is now absolute from the bottom switch: the console reads `diag button get rising-det`
+  on connect and after every move that should end fully down; "Pressed" sets the height to 0.
+* Moves past an end stop (e.g. 2000 steps up) saturate at 0 / full travel like the real motor stalling,
+  and console moves never ask for more than the travel.
+* Fix: the switch answer `#INFO#0:Pressed#END#` (firmware command list) was not understood, so Find rising
+  home and Privacy failed on real devices. Text and number answers are both accepted now.
+* Calibration: *Rising full travel* (default 1100) and *Pan steps per turn* (default 4800) are editable.
 
 ## 1.8.0: PTZ live view & smart camera
 * New **PTZ live view & smart camera** card on the Camera page (works in this app and on the website).

@@ -92,7 +92,7 @@
 <section class="page-intro"><div><div class="eyebrow">AIRIZ / CONTROL CENTER</div><h1 id="page-title">Motor control<span class="title-dot">.</span></h1><p id="page-description">Make your next move. Precision control for your device.</p></div><div class="session-time"><span class="eyebrow">SESSION TIME</span><span id="session-clock">00:00:00</span></div></section>
 <section aria-label="Control the AIRIZ by code" class="remote-code-card" id="remote-code-card"><div class="remote-code-copy"><span aria-hidden="true" class="remote-code-mark">#</span><div><strong>Control by code</strong><p>Type the 6-digit code from <b>Share control</b> on the AIRIZ PC. It connects by itself. No Bluetooth needed.</p></div></div><form class="remote-code-form" id="remote-code-form" autocomplete="off"><input aria-label="6-digit code" autocomplete="one-time-code" class="input remote-code-input" enterkeyhint="go" id="remote-code-inline" inputmode="numeric" maxlength="6" pattern="[0-9]*" placeholder="123456"><button class="btn btn-primary" id="remote-code-go" type="submit">Connect</button></form><p class="remote-code-status" id="remote-code-status" role="status"></p><button aria-expanded="false" class="remote-code-other" id="remote-code-other" type="button">Other ways (Bluetooth, Windows app)</button></section><section aria-label="Download the Windows desktop app" class="desktop-download-banner" id="desktop-download-banner">
 <div class="desktop-download-copy"><span aria-hidden="true" class="desktop-download-mark">⊞</span><div><strong>Get the Windows desktop app</strong><p>Runs locally in its own window. No browser required. Windows x64 · unsigned first release.</p></div></div>
-<div class="desktop-download-actions"><a class="btn btn-primary" href="https://github.com/juw12/projects/releases/download/airiz-desktop-v1.8.0/AIRIZ-Console-Setup-1.8.0-x64.exe" id="download-windows-installer">Download installer <span aria-hidden="true">↓</span></a><a class="btn btn-secondary" href="https://github.com/juw12/projects/releases/download/airiz-desktop-v1.8.0/AIRIZ-Console-Portable-1.8.0-x64.exe" id="download-windows-portable">Portable app</a></div>
+<div class="desktop-download-actions"><a class="btn btn-primary" href="https://github.com/juw12/projects/releases/download/airiz-desktop-v1.8.1/AIRIZ-Console-Setup-1.8.1-x64.exe" id="download-windows-installer">Download installer <span aria-hidden="true">↓</span></a><a class="btn btn-secondary" href="https://github.com/juw12/projects/releases/download/airiz-desktop-v1.8.1/AIRIZ-Console-Portable-1.8.1-x64.exe" id="download-windows-portable">Portable app</a></div>
 </section><section aria-label="Android and iPhone Bluetooth app builds" class="desktop-download-banner" id="mobile-download-banner">
 <div class="desktop-download-copy"><span aria-hidden="true" class="desktop-download-mark">▣</span><div><strong>Bluetooth phone apps</strong><p>Android APK, or on iPhone the free Bluefy browser with this page (Connect Bluetooth). Start the remote over USB first (Phone remote); it is PIN-protected.</p></div></div>
 <div class="desktop-download-actions"><a class="btn btn-primary" href="https://github.com/juw12/projects/releases/download/airiz-mobile-v1.0.2/AIRIZ-Mobile-1.0.2-android.apk" id="download-android">Android app ↓</a><a class="btn btn-secondary" href="iphone.html" id="iphone-bluefy" title="Opens this console in the free Bluefy browser (Web Bluetooth on iPhone); App Store if Bluefy is not installed.">iPhone: open in Bluefy</a><a class="btn btn-secondary" href="https://github.com/juw12/projects/releases/tag/airiz-mobile-v1.0.2">Setup &amp; limits</a></div>
@@ -366,6 +366,27 @@
 <span class="ptz-zoom"><button aria-label="Zoom out" class="btn btn-sm" id="ptz-zoom-out" type="button">−</button><output id="ptz-zoom-value">1.0×</output><button aria-label="Zoom in" class="btn btn-sm" id="ptz-zoom-in" type="button">+</button></span>
 <button class="btn btn-sm btn-secondary" id="ptz-snapshot" type="button">Snapshot</button>
 </div>
+<div class="ptz-pose" data-moving="false" id="ptz-pose">
+<svg aria-label="Camera height, side view" class="ptz-pose-side" id="ptz-pose-side" role="img" viewBox="0 0 120 150">
+<line class="ptz-pose-travel" x1="12" x2="108" y1="20" y2="20"></line>
+<line class="ptz-pose-travel" x1="12" x2="108" y1="63" y2="63"></line>
+<rect class="ptz-pose-mast" height="0" id="ptz-pose-mast" rx="3" width="16" x="52" y="116"></rect>
+<g id="ptz-pose-head" transform="translate(0 106)"><rect class="ptz-pose-headbox" height="26" rx="9" width="48" x="36" y="0"></rect><circle class="ptz-pose-lens" cx="60" cy="13" r="7"></circle><circle class="ptz-pose-lens-dot" cx="60" cy="13" r="2.5"></circle></g>
+<rect class="ptz-pose-base" height="30" rx="7" width="84" x="18" y="112"></rect>
+<circle class="ptz-pose-switch" cx="30" cy="127" r="3"></circle>
+</svg>
+<svg aria-label="Pan direction, top view" class="ptz-pose-top" role="img" viewBox="-60 -60 120 120">
+<circle class="ptz-pose-dial" r="50"></circle>
+<path class="ptz-pose-ticks" d="M0 -50V-44M50 0H44M0 50V44M-50 0H-44"></path>
+<path class="ptz-pose-homemark" d="M0 -58L-5 -50H5Z"></path>
+<g id="ptz-pose-arrow" transform="rotate(0)"><path class="ptz-pose-beam" d="M0 0L-17 -44A47 47 0 0 1 17 -44Z"></path><circle class="ptz-pose-hub" r="11"></circle><circle class="ptz-pose-lens" cx="0" cy="-6" r="3.5"></circle></g>
+</svg>
+<div class="ptz-pose-text">
+<div class="ptz-pose-line"><span class="ptz-label">Height</span><strong id="ptz-pose-height">Height unknown</strong><span class="ptz-pose-steps" id="ptz-pose-height-steps"></span></div>
+<div class="ptz-pose-line"><span class="ptz-label">Pan</span><strong id="ptz-pose-pan">Facing home</strong><span class="ptz-pose-steps" id="ptz-pose-pan-steps"></span></div>
+<p class="ptz-note" id="ptz-pose-note"></p>
+</div>
+</div>
 <p aria-live="polite" class="ptz-status" id="ptz-status" role="status"></p>
 <div class="ptz-grid">
 <details class="ptz-group" open="">
@@ -409,6 +430,7 @@
 <details class="ptz-group">
 <summary>Calibration</summary>
 <div class="ptz-row"><label class="ptz-inline">Pan speed <input class="input ptz-num" id="ptz-pan-speed" max="17" min="1" type="number" value="2"/></label><label class="ptz-inline">Rising speed <input class="input ptz-num" id="ptz-rising-speed" max="30" min="1" type="number" value="3"/></label></div>
+<div class="ptz-row"><label class="ptz-inline">Rising full travel <input class="input ptz-num" id="ptz-travel-rising" max="5000" min="100" type="number" value="1100"/> steps</label><label class="ptz-inline">Pan steps per turn (360°) <input class="input ptz-num" id="ptz-travel-pan" max="50000" min="100" type="number" value="4800"/></label></div>
 <div class="ptz-row"><label class="ptz-inline">Pan steps per picture width <input class="input ptz-num" id="ptz-cal-pan" type="number"/></label><label class="ptz-inline">Rising steps per picture height <input class="input ptz-num" id="ptz-cal-rising" type="number"/></label></div>
 <div class="ptz-row"><span class="ptz-label">2-click calibration</span><select aria-label="Axis to calibrate" class="input" id="ptz-cal-axis"><option value="pan">Pan</option><option value="rising">Rising</option></select><label class="ptz-inline"><input class="input ptz-num" id="ptz-cal-steps" max="2000" min="10" type="number" value="100"/> steps</label><button class="btn btn-sm btn-primary" id="ptz-cal-start" type="button">Calibrate</button></div>
 <div class="ptz-row"><label class="ptz-inline">Pan timing <input class="input ptz-num" id="ptz-time-pan" step="0.1" type="number"/></label><label class="ptz-inline">Rising timing <input class="input ptz-num" id="ptz-time-rising" step="0.1" type="number"/></label></div>
@@ -775,6 +797,7 @@
 <li><time>26 Oct 2026</time><div><strong>Desktop app, phones and Bluetooth (1.1 – 1.2.4)</strong><p>New controller dashboard; standalone Windows installer and portable app with safe in-app updates; Android and iPhone builds; Bluetooth bridge and phone remote with PIN; iPhone through Bluefy; phone camera viewer with a 6-digit share code and links; Connect Bluetooth from the PC.</p></div></li>
 <li><time>27 Oct 2026</time><div><strong>Works through company firewalls (1.2.5 – 1.3.0)</strong><p>AIRIZ relay (Cloudflare) carries the camera when WebRTC is blocked; see who is connected; remote control of the whole console by code with PC approval.</p></div></li>
 <li><time>28 Oct 2026</time><div><strong>Ziris PTB team (1.4.0)</strong><p>Share codes posted automatically to the Ziris PTB Teams chat for members, owner and roles in the app, this user guide and history page.</p></div></li>
+<li><time>28 Oct 2026</time><div><strong>Camera position follows the real camera (1.8.1)</strong><p>A side and top view show where the real camera is: fully down, halfway or fully up (1100-step stroke) and the pan angle from Home, animated while it moves. The height syncs with the bottom switch.</p></div></li>
 <li><time>28 Oct 2026</time><div><strong>PTZ live view &amp; smart camera (1.8.0)</strong><p>Camera page: click the picture to center it, hold an arrow to move, digital zoom, saved positions and auto scan, privacy mode, motion detection with zones (photo, 10 s clip, auto-track, spotlight, siren, desktop and Teams alerts) and automatic night vision from the light sensor.</p></div></li>
 <li><time>28 Oct 2026</time><div><strong>Teams invite joins the Windows app too (1.7.3)</strong><p>After joining Ziris PTB from the Teams invite in the browser, press Open in the AIRIZ Windows app: the Windows app on that PC joins too, with the same name. Works when the app is closed or already open.</p></div></li>
 <li><time>28 Oct 2026</time><div><strong>Share codes post to Teams automatically (1.7.2)</strong><p>Share codes from Remote by code and Share control now post to the Ziris PTB Teams chat automatically, one message per code (motor + camera). The separate Share to phone button on the Camera page is gone: the same code shares the camera. The Team page has one auto-send switch.</p></div></li>

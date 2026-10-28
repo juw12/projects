@@ -357,6 +357,118 @@
   color: var(--color-accent, #3d8bfd);
 }
 
+/* Camera position (digital twin of the real camera) */
+.ptz-pose {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3, 12px);
+  margin-top: var(--space-3, 12px);
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  border: 1px solid var(--color-border, #3a3f4b);
+  border-radius: var(--radius-md, 6px);
+}
+
+.ptz-pose svg {
+  flex: 0 0 auto;
+  height: 112px;
+  width: auto;
+}
+
+.ptz-pose svg.ptz-pose-side {
+  height: 140px;
+}
+
+.ptz-pose-travel {
+  stroke: var(--color-text-muted, #9aa0aa);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.6;
+}
+
+.ptz-pose-mast {
+  fill: var(--color-text-muted, #9aa0aa);
+}
+
+.ptz-pose-headbox,
+.ptz-pose-hub {
+  fill: var(--color-bg-button, #2a2f3a);
+  stroke: var(--color-text, #e6e6e6);
+  stroke-width: 2;
+}
+
+.ptz-pose-lens {
+  fill: #0b0d12;
+  stroke: var(--color-accent, #3d8bfd);
+  stroke-width: 2;
+}
+
+.ptz-pose-lens-dot {
+  fill: var(--color-accent, #3d8bfd);
+}
+
+.ptz-pose-base {
+  fill: var(--color-bg-panel-header, #1d2129);
+  stroke: var(--color-text, #e6e6e6);
+  stroke-width: 2;
+}
+
+.ptz-pose-switch {
+  fill: var(--color-text-muted, #9aa0aa);
+}
+
+.ptz-pose-side.ptz-pose-unknown #ptz-pose-head,
+.ptz-pose-side.ptz-pose-unknown .ptz-pose-mast {
+  opacity: 0.4;
+}
+
+.ptz-pose-side.ptz-pose-unknown .ptz-pose-headbox {
+  stroke-dasharray: 4 3;
+}
+
+.ptz-pose-dial {
+  fill: none;
+  stroke: var(--color-border, #3a3f4b);
+  stroke-width: 2;
+}
+
+.ptz-pose-ticks {
+  stroke: var(--color-text-muted, #9aa0aa);
+  stroke-width: 2;
+}
+
+.ptz-pose-homemark {
+  fill: var(--color-success, #2e9e5b);
+}
+
+.ptz-pose-beam {
+  fill: var(--color-accent, #3d8bfd);
+  opacity: 0.35;
+}
+
+.ptz-pose[data-moving="true"] .ptz-pose-beam {
+  opacity: 0.6;
+}
+
+.ptz-pose-text {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.ptz-pose-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px var(--space-2, 8px);
+  margin: 2px 0;
+}
+
+.ptz-pose-steps {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85em;
+  color: var(--color-text-muted, #9aa0aa);
+}
+
 @media (max-width: 640px) {
   .ptz-grid {
     grid-template-columns: 1fr;
