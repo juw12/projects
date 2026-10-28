@@ -92,7 +92,7 @@
 <section class="page-intro"><div><div class="eyebrow">AIRIZ / CONTROL CENTER</div><h1 id="page-title">Motor control<span class="title-dot">.</span></h1><p id="page-description">Make your next move. Precision control for your device.</p></div><div class="session-time"><span class="eyebrow">SESSION TIME</span><span id="session-clock">00:00:00</span></div></section>
 <section aria-label="Control the AIRIZ by code" class="remote-code-card" id="remote-code-card"><div class="remote-code-copy"><span aria-hidden="true" class="remote-code-mark">#</span><div><strong>Control by code</strong><p>Type the 6-digit code from <b>Share control</b> on the AIRIZ PC. It connects by itself. No Bluetooth needed.</p></div></div><form class="remote-code-form" id="remote-code-form" autocomplete="off"><input aria-label="6-digit code" autocomplete="one-time-code" class="input remote-code-input" enterkeyhint="go" id="remote-code-inline" inputmode="numeric" maxlength="6" pattern="[0-9]*" placeholder="123456"><button class="btn btn-primary" id="remote-code-go" type="submit">Connect</button></form><p class="remote-code-status" id="remote-code-status" role="status"></p><button aria-expanded="false" class="remote-code-other" id="remote-code-other" type="button">Other ways (Bluetooth, Windows app)</button></section><section aria-label="Download the Windows desktop app" class="desktop-download-banner" id="desktop-download-banner">
 <div class="desktop-download-copy"><span aria-hidden="true" class="desktop-download-mark">⊞</span><div><strong>Get the Windows desktop app</strong><p>Runs locally in its own window. No browser required. Windows x64 · unsigned first release.</p></div></div>
-<div class="desktop-download-actions"><a class="btn btn-primary" href="https://github.com/juw12/projects/releases/download/airiz-desktop-v1.7.0/AIRIZ-Console-Setup-1.7.0-x64.exe" id="download-windows-installer">Download installer <span aria-hidden="true">↓</span></a><a class="btn btn-secondary" href="https://github.com/juw12/projects/releases/download/airiz-desktop-v1.7.0/AIRIZ-Console-Portable-1.7.0-x64.exe" id="download-windows-portable">Portable app</a></div>
+<div class="desktop-download-actions"><a class="btn btn-primary" href="https://github.com/juw12/projects/releases/download/airiz-desktop-v1.7.1/AIRIZ-Console-Setup-1.7.1-x64.exe" id="download-windows-installer">Download installer <span aria-hidden="true">↓</span></a><a class="btn btn-secondary" href="https://github.com/juw12/projects/releases/download/airiz-desktop-v1.7.1/AIRIZ-Console-Portable-1.7.1-x64.exe" id="download-windows-portable">Portable app</a></div>
 </section><section aria-label="Android and iPhone Bluetooth app builds" class="desktop-download-banner" id="mobile-download-banner">
 <div class="desktop-download-copy"><span aria-hidden="true" class="desktop-download-mark">▣</span><div><strong>Bluetooth phone apps</strong><p>Android APK, or on iPhone the free Bluefy browser with this page (Connect Bluetooth). Start the remote over USB first (Phone remote); it is PIN-protected.</p></div></div>
 <div class="desktop-download-actions"><a class="btn btn-primary" href="https://github.com/juw12/projects/releases/download/airiz-mobile-v1.0.2/AIRIZ-Mobile-1.0.2-android.apk" id="download-android">Android app ↓</a><a class="btn btn-secondary" href="iphone.html" id="iphone-bluefy" title="Opens this console in the free Bluefy browser (Web Bluetooth on iPhone); App Store if Bluefy is not installed.">iPhone: open in Bluefy</a><a class="btn btn-secondary" href="https://github.com/juw12/projects/releases/tag/airiz-mobile-v1.0.2">Setup &amp; limits</a></div>
@@ -504,9 +504,8 @@
 <div class="card-heading"><div><span class="section-number">01</span><h2 id="team-owner-heading">Ziris PTB team</h2></div><span class="outline-tag">MICROSOFT TEAMS GROUP</span></div>
 <div class="team-body">
 <ul class="team-people">
-<li class="team-person team-person-owner"><span aria-hidden="true" class="team-avatar">JL</span><div><strong data-owner-name="">Juwen Lie</strong><span>Owner · built and maintains the AIRIZ console, issues team passes</span></div><span class="team-role-chip owner">OWNER</span></li>
-<li class="team-person"><span aria-hidden="true" class="team-avatar">CA</span><div><strong>Co-admins</strong><span>Help the owner run the bench and the Ziris PTB chat</span></div><span class="team-role-chip">CO-ADMIN</span></li>
-<li class="team-person"><span aria-hidden="true" class="team-avatar">T</span><div><strong>Testers</strong><span>Run motor, camera and audio tests and share the camera</span></div><span class="team-role-chip">TESTER</span></li>
+<li class="team-person team-person-owner"><span aria-hidden="true" class="team-avatar">JL</span><div><strong data-owner-name="">Juwen Lie</strong><span>Owner · built and maintains the AIRIZ console, issues the team invite</span></div><span class="team-role-chip owner">OWNER</span></li>
+<li class="team-person"><span aria-hidden="true" class="team-avatar">CA</span><div><strong>Co-admins</strong><span>Run motor, camera and audio tests, share the camera and help run the Ziris PTB chat</span></div><span class="team-role-chip">CO-ADMIN</span></li>
 </ul>
 <div class="team-you"><span class="eyebrow">ON THIS PC</span><div class="team-you-line"><strong id="team-member-name">Not signed in</strong><span class="team-role-chip" id="team-member-role">Guest</span></div><p id="team-member-note"></p></div>
 </div>
@@ -516,14 +515,17 @@
 <div class="team-body">
 <p class="team-text">When you press <strong>Share to phone</strong> on the Camera page, the 6-digit code is posted to the <strong>Ziris PTB</strong> chat in Microsoft Teams automatically, with a Watch button for the phone.</p>
 <div id="team-join">
-<label class="label" for="team-pass-input">Team pass (from the owner)</label>
-<textarea autocomplete="off" class="input input-full team-pass-input" id="team-pass-input" placeholder="ZPTB1-…" rows="3" spellcheck="false"></textarea>
+<p class="team-text team-join-hint">Easiest: press <strong>Join Ziris PTB</strong> on the invite in the Ziris PTB Teams chat. Or paste the invite link here.</p>
+<label class="label" for="team-name-input">Your name</label>
+<input autocomplete="name" class="input input-full" id="team-name-input" maxlength="60" placeholder="e.g. Luar Handoyo" type="text"/>
+<label class="label" for="team-pass-input">Invite link (from the owner)</label>
+<textarea autocomplete="off" class="input input-full team-pass-input" id="team-pass-input" placeholder="https://…#team=ZPTB1-…" rows="2" spellcheck="false"></textarea>
 <div class="team-actions"><button class="btn btn-primary" id="team-join-button" type="button">Join Ziris PTB</button></div>
 </div>
 <div hidden="" id="team-joined">
 <label class="checkbox-label team-check"><input checked="" id="team-auto-camera" type="checkbox"/> Auto-send the camera share code (Camera → Share to phone)</label>
 <label class="checkbox-label team-check"><input id="team-auto-control" type="checkbox"/> Also auto-send the remote control code (Share control)</label>
-<div class="team-actions"><button class="btn btn-secondary" id="team-test" type="button">Send test message</button><button class="btn btn-danger btn-sm" id="team-leave" type="button">Remove team pass</button></div>
+<div class="team-actions"><button class="btn btn-secondary" id="team-test" type="button">Send test message</button><button class="btn btn-danger btn-sm" id="team-leave" type="button">Leave team on this PC</button></div>
 </div>
 <p aria-live="polite" class="team-status" id="team-status" role="status"></p>
 </div>
@@ -536,22 +538,19 @@
 <div class="card-heading"><div><span class="section-number">04</span><h2 id="team-owner-setup-heading">Owner setup</h2></div><span class="outline-tag" data-owner-name="">Juwen Lie</span></div>
 <div class="team-body">
 <details class="team-owner-details">
-<summary>Connect the Ziris PTB chat and create team passes</summary>
+<summary>Connect the Ziris PTB chat and create the team invite</summary>
 <ol class="team-steps">
 <li>In Microsoft Teams open the <strong>Ziris PTB</strong> group chat → <strong>…</strong> → <strong>Workflows</strong>.</li>
 <li>Choose the template <strong>Send webhook alerts to a chat</strong>, keep <em>Ziris PTB</em> as the chat, and save. Teams shows the workflow address (it starts with https:// and ends with a long <code>sig=</code> code).</li>
 <li>Copy that address and paste it below. Treat it like a password: anyone holding it can post into the chat.</li>
-<li>Create one pass per person (yourself as Owner, then each co-admin or tester) and send it to them privately in a 1:1 chat.</li>
-<li>To remove someone: delete the workflow, create a new one and give new passes to the remaining members.</li>
+<li>Leave <em>Member name</em> empty and press <strong>Create invite</strong>: one link for every co-admin. Press <strong>Post invite to Ziris PTB chat</strong>; co-admins press Join there and type their name. (Type a name only for a personal invite, e.g. your own.)</li>
+<li>To remove someone: delete the workflow, create a new one and post a new invite.</li>
 </ol>
 <label class="label" for="team-owner-url">Ziris PTB workflow address</label>
 <input autocomplete="off" class="input input-full" id="team-owner-url" placeholder="https://…logic.azure.com/workflows/…/invoke?…&amp;sig=…" spellcheck="false" type="text"/>
-<div class="team-owner-row">
-<div><label class="label" for="team-owner-name">Member name</label><input autocomplete="off" class="input input-full" id="team-owner-name" placeholder="e.g. Juwen Lie" type="text"/></div>
-<div><label class="label" for="team-owner-role">Role</label><select class="select select-full" id="team-owner-role"><option value="tester">Tester</option><option value="coadmin">Co-admin</option><option value="owner">Owner</option></select></div>
-</div>
-<div class="team-actions"><button class="btn btn-primary" id="team-owner-create" type="button">Create team pass</button><button class="btn btn-secondary" disabled="" id="team-owner-copy" type="button">Copy pass</button></div>
-<textarea aria-label="Generated team pass" class="input input-full team-pass-input" id="team-owner-pass" readonly="" rows="3"></textarea>
+<label class="label" for="team-owner-name">Member name (optional – empty = one invite for all co-admins)</label><input autocomplete="off" class="input input-full" id="team-owner-name" placeholder="empty = everybody" type="text"/>
+<div class="team-actions"><button class="btn btn-primary" id="team-owner-create" type="button">Create invite</button><button class="btn btn-secondary" disabled="" id="team-owner-post" type="button">Post invite to Ziris PTB chat</button><button class="btn btn-secondary" disabled="" id="team-owner-copy" type="button">Copy link</button></div>
+<textarea aria-label="Generated invite link" class="input input-full team-pass-input" id="team-owner-pass" readonly="" rows="3"></textarea>
 <p aria-live="polite" class="team-status" id="team-owner-status"></p>
 </details>
 </div>
@@ -582,7 +581,7 @@
 <p>Motor jogging, the firmware command library, macros, the device camera, sound and phone sharing in one app. It replaces the old TeraTerm/CWD serial workflow.</p>
 <dl class="guide-facts">
 <div><dt>Owner</dt><dd data-owner-name="">Juwen Lie</dd></div>
-<div><dt>Team</dt><dd>Ziris PTB (co-admins &amp; testers)</dd></div>
+<div><dt>Team</dt><dd>Ziris PTB (co-admins)</dd></div>
 <div><dt>Editions</dt><dd>Windows desktop app · browser (Chrome/Edge) · Android · iPhone via Bluefy</dd></div>
 </dl>
 </section>
@@ -638,11 +637,11 @@
 
 <section class="guide-section guide-highlight" id="guide-teams">
 <h3><span>6</span> Ziris PTB Teams auto-post</h3>
-<p>For Ziris PTB members only. When you share the camera, the code is posted straight to the <strong>Ziris PTB</strong> group chat in Microsoft Teams, so whoever holds the phone just opens Teams and taps <em>Watch on phone</em>. Nobody has to read the number off the screen.</p>
-<h4>Members (co-admins and testers)</h4>
+<p>For Ziris PTB co-admins only. When you share the camera, the code is posted straight to the <strong>Ziris PTB</strong> group chat in Microsoft Teams, so whoever holds the phone just opens Teams and taps <em>Watch on phone</em>. Nobody has to read the number off the screen.</p>
+<h4>Co-admins: join once</h4>
 <ol>
-<li>Get your personal <strong>team pass</strong> (starts with <code>ZPTB1-</code>) from the owner, <span data-owner-name="">Juwen Lie</span>.</li>
-<li>Open <strong>Ziris PTB team</strong> in the left menu, paste the pass, press <strong>Join Ziris PTB</strong>.</li>
+<li>In the Ziris PTB Teams chat press <strong>Join Ziris PTB</strong> on the invite from <span data-owner-name="">Juwen Lie</span> (Windows app: paste the invite link in <strong>Ziris PTB team</strong>).</li>
+<li>Type your name and press <strong>Join Ziris PTB</strong>. That is all: everybody is a Co-admin.</li>
 <li>Press <strong>Send test message</strong> once and check the chat.</li>
 <li>From now on every <em>Share to phone</em> code is sent automatically. The Camera page confirms it (“Code … sent to Ziris PTB”). If it fails, press <strong>Send to Teams</strong> to retry.</li>
 <li>Optional: tick <em>Also auto-send the remote control code</em>. Controllers still need the PC operator to press Allow.</li>
@@ -650,10 +649,10 @@
 <h4>Owner</h4>
 <ol>
 <li>In the Ziris PTB chat add the Teams workflow <em>Send webhook alerts to a chat</em> and copy its address.</li>
-<li>Ziris PTB team → Owner setup: paste the address, enter a name and role, <strong>Create team pass</strong>, send it privately.</li>
-<li>To revoke access, replace the workflow and hand out new passes.</li>
+<li>Ziris PTB team → Owner setup: paste the address, leave the name empty, <strong>Create invite</strong>, then <strong>Post invite to Ziris PTB chat</strong>.</li>
+<li>To revoke access, replace the workflow and post a new invite.</li>
 </ol>
-<p class="guide-note">Without a pass the app never sends anything to Teams. The pass is personal – do not post it in public channels. Messages contain only the code, the public watch link, the member name and the PC name.</p>
+<p class="guide-note">Without an invite the app never sends anything to Teams. Keep the invite inside the Ziris PTB chat – do not post it in public channels. Messages contain only the code, the public watch link, the member name and the PC name.</p>
 </section>
 
 <section class="guide-section" id="guide-remote">
@@ -688,7 +687,7 @@
 <dt>No port in the Connect list</dt><dd>Check the cable and the FTDI driver; close TeraTerm or any other program that holds the COM port.</dd>
 <dt>Phone says “No PC is sharing with that code”</dt><dd>The PC stopped sharing or the preview stopped. Share again and use the new code.</dd>
 <dt>Phone finds the PC but no video</dt><dd>A firewall blocks WebRTC. Update the PC console to the latest version (relay fallback) or put both on the same Wi-Fi.</dd>
-<dt>Code not posted to Teams</dt><dd>Open Ziris PTB team: you need a team pass and auto-post switched on. Send test message shows the exact error. If the owner replaced the workflow, ask for a new pass.</dd>
+<dt>Code not posted to Teams</dt><dd>Open Ziris PTB team: you need to join the team and switch auto-post on. Send test message shows the exact error. If the owner replaced the workflow, ask for a new invite link.</dd>
 <dt>Motor does not stop with the macro Stop</dt><dd>Macro Stop only stops scheduling; press Stop motor or Esc.</dd>
 </dl>
 </section>
@@ -703,6 +702,7 @@
 <li><time>26 Oct 2026</time><div><strong>Desktop app, phones and Bluetooth (1.1 – 1.2.4)</strong><p>New controller dashboard; standalone Windows installer and portable app with safe in-app updates; Android and iPhone builds; Bluetooth bridge and phone remote with PIN; iPhone through Bluefy; phone camera viewer with a 6-digit share code and links; Connect Bluetooth from the PC.</p></div></li>
 <li><time>27 Oct 2026</time><div><strong>Works through company firewalls (1.2.5 – 1.3.0)</strong><p>AIRIZ relay (Cloudflare) carries the camera when WebRTC is blocked; see who is connected; remote control of the whole console by code with PC approval.</p></div></li>
 <li><time>28 Oct 2026</time><div><strong>Ziris PTB team (1.4.0)</strong><p>Share codes posted automatically to the Ziris PTB Teams chat for members, owner and roles in the app, this user guide and history page.</p></div></li>
+<li><time>28 Oct 2026</time><div><strong>One role: Co-admin (1.7.1)</strong><p>Testers and co-admins are now one role, Co-admin. The owner posts one invite to the Ziris PTB Teams chat; co-admins press Join, type their name once and are in. Old passes keep working.</p></div></li>
 <li><time>28 Oct 2026</time><div><strong>One button: Remote by code (1.7.0)</strong><p>A Remote by code button opens at every start: the PC shares motor and camera with one code; the phone types the code and gets the motor, LEDs, commands, macros and the live camera automatically.</p></div></li>
 <li><time>28 Oct 2026</time><div><strong>Phone: type the code (1.6.0)</strong><p>A Control by code box at the top: type the 6-digit code from Share control and the phone connects by itself. No Bluetooth; Bluetooth options are folded away on phones.</p></div></li>
 <li><time>28 Oct 2026</time><div><strong>Phone links connect again (1.5.1)</strong><p>Opening a Share control link on a new phone no longer gets stuck behind the language box; the link fills in the code and connects by itself (the PC still presses Allow).</p></div></li>

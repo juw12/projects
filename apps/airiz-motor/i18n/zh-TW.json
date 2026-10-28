@@ -309,7 +309,7 @@
     "Night": "夜間",
     "No firmware stop command is documented. Locking prevents new jogs; it does not stop an in-flight move.": "韌體沒有文件化的停止指令。鎖定只會阻擋新的點動，不會停止進行中的動作。",
     "No port in the Connect list": "連線清單中沒有序列埠",
-    "Not signed in": "未登入",
+    "Not signed in": "尚未登入",
     "Note the double space in the source command — kept verbatim.": "注意：原始指令中有兩個空格 — 已照原樣保留。",
     "Note: The browser's device label may differ from the Windows DirectShow name. Verify with: ffmpeg -list_devices true -f dshow -i dummy": "注意：瀏覽器顯示的裝置名稱可能與 Windows DirectShow 名稱不同。請用以下指令確認：ffmpeg -list_devices true -f dshow -i dummy",
     "Nothing sent from this PC yet.": "這台 PC 尚未傳送任何訊息。",
@@ -816,7 +816,34 @@
     "Connecting to the camera…": "正在連線相機…",
     "No camera picture yet. On the AIRIZ PC open Camera → Start Preview; it is shared automatically with the same code.": "尚無相機畫面。請在 AIRIZ 電腦開啟「相機 → 開始預覽」，會自動以同一組代碼分享。",
     "One button: Remote by code (1.7.0)": "一鍵「以代碼遠端連線」（1.7.0）",
-    "A Remote by code button opens at every start: the PC shares motor and camera with one code; the phone types the code and gets the motor, LEDs, commands, macros and the live camera automatically.": "每次開啟都會出現「以代碼遠端連線」：電腦用一組代碼同時分享馬達與相機；手機輸入代碼即自動連上馬達、LED、指令、巨集與即時相機畫面。"
+    "A Remote by code button opens at every start: the PC shares motor and camera with one code; the phone types the code and gets the motor, LEDs, commands, macros and the live camera automatically.": "每次開啟都會出現「以代碼遠端連線」：電腦用一組代碼同時分享馬達與相機；手機輸入代碼即自動連上馬達、LED、指令、巨集與即時相機畫面。",
+    "Co-admins: join once": "共同管理員：只需加入一次",
+    "Connect the Ziris PTB chat and create the team invite": "連結 Ziris PTB 聊天並建立團隊邀請",
+    "Create invite": "建立邀請",
+    "Generated invite link": "產生的邀請連結",
+    "Invite link (from the owner)": "邀請連結（由負責人提供）",
+    "Leave team on this PC": "在這台 PC 退出團隊",
+    "Member name (optional – empty = one invite for all co-admins)": "成員名稱（選填，留空 = 所有共同管理員共用一個邀請）",
+    "Open Ziris PTB team: you need to join the team and switch auto-post on. Send test message shows the exact error. If the owner replaced the workflow, ask for a new invite link.": "請開啟 Ziris PTB 團隊頁：需要先加入團隊並開啟自動傳送。按「傳送測試訊息」可看到確切錯誤。若負責人更換了 workflow，請索取新的邀請連結。",
+    "Owner Juwen Lie with co-admins. Members post share codes to the Ziris PTB Teams chat automatically.": "負責人 Juwen Lie 與共同管理員。成員的分享代碼會自動傳送到 Ziris PTB Teams 聊天。",
+    "Owner · built and maintains the AIRIZ console, issues the team invite": "負責人 · 開發並維護 AIRIZ 主控台，發出團隊邀請",
+    "Post invite to Ziris PTB chat": "將邀請傳送到 Ziris PTB 聊天",
+    "Run motor, camera and audio tests, share the camera and help run the Ziris PTB chat": "執行馬達、相機與音訊測試，分享相機並協助管理 Ziris PTB 聊天",
+    "To remove someone: delete the workflow, create a new one and post a new invite.": "若要移除某人：刪除 workflow、建立新的 workflow，再傳送新的邀請。",
+    "To revoke access, replace the workflow and post a new invite.": "若要撤銷存取權，請更換 workflow 並傳送新的邀請。",
+    "Your name": "您的名字",
+    "Ziris PTB (co-admins)": "Ziris PTB（共同管理員）",
+    "e.g. Luar Handoyo": "例如 Luar Handoyo",
+    "empty = everybody": "留空 = 所有人",
+    "https://…#team=ZPTB1-…": "https://…#team=ZPTB1-…",
+    "Type your name, then press Join.": "請輸入您的名字，再按「加入」。",
+    "Left the team on this PC.": "已在這台 PC 退出團隊。",
+    "Invite link copied.": "已複製邀請連結。",
+    "Select the link and copy it with Ctrl+C.": "請選取連結並按 Ctrl+C 複製。",
+    "The team pass has no valid role.": "團隊通行碼中沒有有效的角色。",
+    "Without an invite the app never sends anything to Teams. Keep the invite inside the Ziris PTB chat – do not post it in public channels. Messages contain only the code, the public watch link, the member name and the PC name.": "沒有邀請時，App 絕不會傳送任何內容到 Teams。請將邀請保留在 Ziris PTB 聊天內，不要貼到公開頻道。訊息只包含代碼、公開觀看連結、成員名稱與 PC 名稱。",
+    "One role: Co-admin (1.7.1)": "單一角色：共同管理員（1.7.1）",
+    "Testers and co-admins are now one role, Co-admin. The owner posts one invite to the Ziris PTB Teams chat; co-admins press Join, type their name once and are in. Old passes keep working.": "測試人員與共同管理員合併為單一角色「共同管理員」。負責人在 Ziris PTB Teams 聊天傳送一個邀請；共同管理員按 Join、輸入一次名字即可加入。舊的通行碼仍可使用。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -879,7 +906,13 @@
     "10 Troubleshooting": "<span>10</span> 疑難排解",
     "11 History of the app": "<span>11</span> App 歷程",
     "Created by Juwen Lie for AIRIZ device testing (Ziris project), built step by step from real bench needs.": "由 <strong data-owner-name=\"\">Juwen Lie</strong> 為 AIRIZ 裝置測試（Ziris 專案）開發，依實際測試台需求一步步打造。",
-    "Type the 6-digit code from Share control on the AIRIZ PC. It connects by itself. No Bluetooth needed.": "輸入 AIRIZ 電腦上 <b>分享控制</b> 顯示的 6 位數代碼，會自動連線，不需藍牙。"
+    "Type the 6-digit code from Share control on the AIRIZ PC. It connects by itself. No Bluetooth needed.": "輸入 AIRIZ 電腦上 <b>分享控制</b> 顯示的 6 位數代碼，會自動連線，不需藍牙。",
+    "For Ziris PTB co-admins only. When you share the camera, the code is posted straight to the Ziris PTB group chat in Microsoft Teams, so whoever holds the phone just opens Teams and taps Watch on phone. Nobody has to read the number off the screen.": "僅限 Ziris PTB 共同管理員。分享相機時，代碼會直接傳送到 Microsoft Teams 的 <strong>Ziris PTB</strong> 群組聊天，拿手機的人只要打開 Teams 點 <em>Watch on phone</em> 即可，不必再看螢幕抄號碼。",
+    "In the Ziris PTB Teams chat press Join Ziris PTB on the invite from Juwen Lie (Windows app: paste the invite link in Ziris PTB team).": "在 Ziris PTB Teams 聊天中，於 <span data-owner-name=\"\">Juwen Lie</span> 傳送的邀請上按 <strong>Join Ziris PTB</strong>（Windows App：在 <strong>Ziris PTB team</strong> 貼上邀請連結）。",
+    "Type your name and press Join Ziris PTB. That is all: everybody is a Co-admin.": "輸入您的名字並按 <strong>加入 Ziris PTB</strong>。就這樣，所有人都是共同管理員。",
+    "Leave Member name empty and press Create invite: one link for every co-admin. Press Post invite to Ziris PTB chat; co-admins press Join there and type their name. (Type a name only for a personal invite, e.g. your own.)": "<em>成員名稱</em>留空並按 <strong>建立邀請</strong>：所有共同管理員共用一個連結。按 <strong>將邀請傳送到 Ziris PTB 聊天</strong>；共同管理員在聊天中按 Join 並輸入名字即可。（只有個人專用邀請才需要輸入名稱，例如您自己。）",
+    "Easiest: press Join Ziris PTB on the invite in the Ziris PTB Teams chat. Or paste the invite link here.": "最簡單：在 Ziris PTB Teams 聊天的邀請上按 <strong>Join Ziris PTB</strong>。或在此貼上邀請連結。",
+    "Ziris PTB team → Owner setup: paste the address, leave the name empty, Create invite, then Post invite to Ziris PTB chat.": "Ziris PTB team → Owner setup：貼上網址、名稱留空，按 <strong>建立邀請</strong>，再按 <strong>將邀請傳送到 Ziris PTB 聊天</strong>。"
   },
   "patterns": [
     [
@@ -1217,6 +1250,54 @@
     [
       "^The camera is shared with the same code (\\d{6})\\.$",
       "相機也以同一組代碼 $1 分享。"
+    ],
+    [
+      "^Invite from (.+?) · issued (.+?)\\. Share codes from this PC go to the (.+) Teams chat\\.$",
+      "邀請由 $1 發出（$2）。這台 PC 的分享代碼會傳送到 $3 Teams 聊天。"
+    ],
+    [
+      "^Invite from (.+?)\\. Share codes from this PC go to the (.+) Teams chat\\.$",
+      "邀請由 $1 發出。這台 PC 的分享代碼會傳送到 $2 Teams 聊天。"
+    ],
+    [
+      "^Only (.+) co-admins can use the Teams auto-post\\. Open the invite link from (.+) \\(or paste it below\\), type your name and press Join\\.$",
+      "只有 $1 共同管理員可以使用 Teams 自動傳送。請開啟 $2 提供的邀請連結（或貼在下方），輸入您的名字並按「加入」。"
+    ],
+    [
+      "^Welcome, (.+) \\((.+)\\)\\. You joined (.+) from the invite link\\.$",
+      "歡迎，$1（$2）。您已透過邀請連結加入 $3。"
+    ],
+    [
+      "^Invite from (.+) found\\. Type your name and press Join (.+)\\.$",
+      "已找到 $1 的邀請。請輸入您的名字並按「加入 $2」。"
+    ],
+    [
+      "^Leave the (.+) team on this PC\\? Auto-post stops until you join again\\.$",
+      "要在這台 PC 退出 $1 團隊嗎？在重新加入前將停止自動傳送。"
+    ],
+    [
+      "^Invite ready for every co-admin\\. Press Post invite to Ziris PTB chat, or copy the link\\. Anyone holding it can post to (.+), so keep it inside the team\\.$",
+      "已產生所有共同管理員共用的邀請。請按「將邀請傳送到 Ziris PTB 聊天」，或複製連結。持有者都能發訊息到 $1，請只在團隊內分享。"
+    ],
+    [
+      "^Invite ready for (.+)\\. Send it privately\\.$",
+      "已產生 $1 的邀請。請私下傳送。"
+    ],
+    [
+      "^Posting the invite to (.+)…$",
+      "正在將邀請傳送到 $1…"
+    ],
+    [
+      "^Invite posted to the (.+) chat\\. Co-admins press Join there and type their name\\.$",
+      "邀請已傳送到 $1 聊天。共同管理員在聊天中按 Join 並輸入名字即可。"
+    ],
+    [
+      "^Could not post the invite: (.*)$",
+      "無法傳送邀請：$1"
+    ],
+    [
+      "^This pass is not for the (.+) team\\.$",
+      "此通行碼不屬於 $1 團隊。"
     ]
   ]
 }
