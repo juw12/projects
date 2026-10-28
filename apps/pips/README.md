@@ -1,7 +1,5 @@
 ﻿# Pips
 
-**Download:** https://juw12.github.io/projects/pips/ &nbsp;·&nbsp; [Pips-Windows.zip](https://juw12.github.io/projects/pips/download/Pips-Windows.zip)
-
 An always-on-top desktop widget that turns your day into a score. It combines a
 **Pomodoro timer**, looping **rain / thunder / brown-noise / café soundscapes**,
 **live app-usage tracking**, a **daily productivity score with a 1–5 star rating**,
@@ -10,6 +8,19 @@ and a **daily AI-style coach + weekly report** — all running locally on Window
 
 It lives as a small floating card you can drag anywhere. Click to expand a full
 dashboard or open your history; right-click for everything else.
+
+---
+
+## New in 2.1 — interactive guide & in-app updates
+
+- **Interactive first-run guide**: your pet teaches you clicking, dragging, petting and the
+  right-click menu in about a minute. Replay it any time: right-click the pet → *Help* → *Interactive guide*.
+- **In-app updates**: Pips checks `https://juw12.github.io/projects/pips/download/latest.json`,
+  your pet announces new versions with what's new, and *Update now* downloads the zip, verifies its
+  SHA-256, backs up the current files to `backup\`, installs and restarts. `config.json`, `data\`,
+  `logs\` and `output\` are never touched. Turn the automatic check off in *Pet status & settings*.
+- **User guide**: `Pips-Guide.pptx` in this folder (also *Help* → *User guide*).
+- Version history: `CHANGELOG.json`.
 
 ---
 

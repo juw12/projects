@@ -28,6 +28,15 @@ except ImportError:  # pragma: no cover - i18n ships with Pips
     def T(key, lang=None, **kwargs):
         return key
 
+APP_VERSION = "2.1.0"
+USER_GUIDE_URL = "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
+SITE_URL = "https://juw12.github.io/projects/pips/"
+
+try:
+    import updater
+except ImportError:  # pragma: no cover
+    updater = None
+
 # Windows-specific imports (guarded)
 try:
     import win32gui
@@ -696,6 +705,10 @@ class ProductivityWidget:
         # Start refresh loop
         self._schedule_refresh()
         
+        # Background update checks (first one shortly after start, then every 6 hours)
+        self._update_busy = False
+        self.root.after(25_000, self._auto_update_tick)
+        
         # Handle window close
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
     
@@ -1101,6 +1114,9 @@ class ProductivityWidget:
                     "hide_pet": self._hide_pet,
                     "quit": self._on_close,
                     "set_language": self._set_language,
+                    "check_updates": lambda: self._check_updates(manual=True),
+                    "open_user_guide": self._open_user_guide,
+                    "version": lambda: APP_VERSION,
                     "icon_path": str(icon) if icon.exists() else None,
                 },
             )
@@ -1695,6 +1711,138 @@ class ProductivityWidget:
                 json.dump(disk, f, indent=2)
         except Exception as e:
             logger.warning(f"Failed to save position: {e}")
+    
+
+    # ------------------------------------------------------------------
+    # Updates
+    # ------------------------------------------------------------------
+    def _auto_update_enabled(self) -> bool:
+        pet_settings = self.pet.s if self.pet else (self.cfg.get("pet") or {})
+        return bool(pet_settings.get("auto_update", True))
+    
+    def _auto_update_tick(self):
+        try:
+            if self._auto_update_enabled():
+                self._check_updates(manual=False)
+        finally:
+            self.root.after(6 * 3600 * 1000, self._auto_update_tick)
+    
+    def _check_updates(self, manual: bool = False):
+        """Check the published manifest in a background thread."""
+        if not updater or self._update_busy:
+            return
+        self._update_busy = True
+        
+        def worker():
+            try:
+                manifest = updater.check(APP_VERSION)
+                outcome = ("found", manifest) if manifest else ("latest", None)
+            except Exception as e:
+                logger.info(f"Update check failed: {e}")
+                outcome = ("offline", str(e))
+            self.root.after(0, lambda: self._on_update_result(outcome, manual))
+        
+        threading.Thread(target=worker, daemon=True).start()
+    
+    def _on_update_result(self, outcome, manual: bool):
+        self._update_busy = False
+        kind, payload = outcome
+        if kind == "found":
+            skipped = (self.cfg.get("updates") or {}).get("skipped_version")
+            if not manual and skipped == payload.get("version"):
+                return
+            self._offer_update(payload)
+        elif manual and kind == "latest":
+            self._tell(T("upd_latest", v=APP_VERSION))
+        elif manual:
+            self._tell(T("upd_offline"))
+    
+    def _tell(self, text, actions=None, duration=6.0, priority=2):
+        if self.pet and self.pet.is_visible():
+            self.pet.say(text, actions=actions, duration=duration, priority=priority)
+            return
+        try:
+            from tkinter import messagebox
+            messagebox.showinfo("Pips", text, parent=self.card_frame)
+        except Exception:
+            logger.info(text)
+    
+    def _offer_update(self, manifest: dict):
+        version = manifest.get("version", "?")
+        lang = i18n.get_language() if i18n else "en"
+        notes = updater.notes_for(manifest, lang)[:4]
+        notes_text = "\n".join("\u2022 " + n for n in notes)
+        text = T("upd_available", v=version, notes=notes_text)
+        if self.pet and self.pet.is_visible():
+            self.pet.say(
+                text,
+                actions=[
+                    (T("upd_now"), lambda: self._install_update(manifest)),
+                    (T("upd_later"), None),
+                    (T("upd_skip"), lambda: self._skip_version(version)),
+                ],
+                duration=90,
+                priority=2,
+            )
+            return
+        from tkinter import messagebox
+        if messagebox.askyesno("Pips", text + "\n\n" + T("upd_now") + "?", parent=self.card_frame):
+            self._install_update(manifest)
+    
+    def _skip_version(self, version: str):
+        self.cfg.setdefault("updates", {})["skipped_version"] = version
+        try:
+            disk = {}
+            if CONFIG_PATH.exists():
+                with open(CONFIG_PATH, "r", encoding="utf-8-sig") as f:
+                    disk = json.load(f)
+            disk.setdefault("updates", {})["skipped_version"] = version
+            with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+                json.dump(disk, f, indent=2)
+        except Exception as e:
+            logger.warning(f"Could not save skipped version: {e}")
+    
+    def _install_update(self, manifest: dict):
+        if not updater:
+            return
+        version = manifest.get("version", "?")
+        self._tell(T("upd_downloading"), duration=120, priority=3)
+        
+        def progress(stage):
+            if stage == "install":
+                self.root.after(0, lambda: self._tell(T("upd_installing"), duration=120, priority=3))
+        
+        def worker():
+            try:
+                updater.install(manifest, BASE_DIR, APP_VERSION, progress=progress)
+                self.root.after(0, lambda: self._finish_update(version))
+            except Exception as e:
+                logger.error(f"Update failed: {e}")
+                message = str(e)
+                self.root.after(0, lambda: self._tell(
+                    T("upd_failed", err=message),
+                    actions=[(T("upd_open_site"), lambda: os.startfile(SITE_URL))],
+                    duration=30, priority=3))
+        
+        threading.Thread(target=worker, daemon=True).start()
+    
+    def _finish_update(self, version: str):
+        self._tell(T("upd_done", v=version), duration=10, priority=3)
+        
+        def relaunch():
+            try:
+                updater.restart(BASE_DIR)
+            finally:
+                self._on_close()
+        
+        self.root.after(2200, relaunch)
+    
+    def _open_user_guide(self):
+        local = BASE_DIR / "Pips-Guide.pptx"
+        try:
+            os.startfile(str(local) if local.exists() else USER_GUIDE_URL)
+        except Exception as e:
+            logger.warning(f"Could not open user guide: {e}")
     
     # ------------------------------------------------------------------
     # Language
@@ -3601,6 +3749,15 @@ class ProductivityWidget:
                 lang_menu.add_command(label=mark + lang_name, command=lambda c=code: self._set_language(c))
             menu.add_cascade(label=T("m_language"), menu=lang_menu)
         
+        help_menu = tk.Menu(menu, tearoff=0, bg=THEME["white"], fg=THEME["ink_black"])
+        if self.pet:
+            help_menu.add_command(label=T("m_guide"), command=self.pet.start_tour)
+        help_menu.add_command(label=T("m_user_guide"), command=self._open_user_guide)
+        help_menu.add_command(label=T("m_check_updates"), command=lambda: self._check_updates(manual=True))
+        help_menu.add_command(label=T("m_about", v=APP_VERSION),
+                              command=lambda: self._tell(T("about_text", v=APP_VERSION), priority=1))
+        menu.add_cascade(label=T("m_help"), menu=help_menu)
+        
         menu.add_separator()
         if self.pet:
             menu.add_command(label=T("m_hide_to_pet"), command=self._hide_card)
@@ -3778,6 +3935,7 @@ def main(argv=None) -> int:
     parser.add_argument("--no-track", action="store_true", help="Disable tracker")
     parser.add_argument("--reset-pos", action="store_true", help="Reset window position")
     parser.add_argument("--choose-language", action="store_true", help="Show the language picker again")
+    parser.add_argument("--version", action="version", version=f"Pips {APP_VERSION}")
     
     args = parser.parse_args(argv)
     

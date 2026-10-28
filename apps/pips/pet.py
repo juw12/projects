@@ -56,6 +56,7 @@ KEY = "#010203"
 
 DEFAULT_PET_SETTINGS = {
     "enabled": True,
+    "auto_update": True,         # check for new Pips versions in the background
     "name": "Pip",
     "species": "cat",
     "color": "#ffc78f",
@@ -1069,6 +1070,7 @@ class SpeechBubble:
         self.pop = 0.0
         self.hover = False
         self._button_hit = False
+        self.sticky = False
         self.cv.bind("<ButtonRelease-1>", self._on_click)
         self.cv.bind("<Enter>", lambda e: setattr(self, "hover", True))
         self.cv.bind("<Leave>", lambda e: setattr(self, "hover", False))
@@ -1077,10 +1079,11 @@ class SpeechBubble:
     def hwnd(self):
         return hwnd_of(self.win)
 
-    def show(self, text, actions=None, duration=6.0, priority=1, on_click=None) -> bool:
+    def show(self, text, actions=None, duration=6.0, priority=1, on_click=None, sticky=False) -> bool:
         now = time.monotonic()
         if self.visible and priority < self.priority and now < self.hide_at:
             return False
+        self.sticky = sticky
         self.text = text
         self.actions = list(actions or [])
         self.on_click = on_click
@@ -1177,10 +1180,14 @@ class SpeechBubble:
     def _on_close_click(self, _event):
         self._button_hit = True
         self.hide()
+        if self.pet.tour:
+            self.pet.tour.finish(skipped=True)
 
     def _on_click(self, _event):
         if self._button_hit:
             self._button_hit = False
+            return
+        if self.sticky:
             return
         callback = self.on_click
         self.hide()
@@ -1224,6 +1231,104 @@ class SpeechBubble:
             self.win.destroy()
         except tk.TclError:
             pass
+
+
+
+# =============================================================================
+# Interactive first-run guide
+# =============================================================================
+
+class Tour:
+    """Step-by-step guide told by the pet. Steps that need an action wait for it."""
+
+    STEPS = [
+        ("tour_welcome", None),
+        ("tour_click", "click"),
+        ("tour_card", None),
+        ("tour_drag", "drop"),
+        ("tour_pet", "pet"),
+        ("tour_menu", "menu"),
+        ("tour_moods", None),
+        ("tour_finish", None),
+    ]
+
+    def __init__(self, pet: "DesktopPet"):
+        self.pet = pet
+        self.index = -1
+        self.active = False
+        self._advance_job = None
+
+    def start(self):
+        self.active = True
+        self.index = -1
+        self.pet.walking = False
+        self.next()
+
+    @property
+    def waiting_for(self):
+        if not self.active or self.index < 0:
+            return None
+        return self.STEPS[self.index][1]
+
+    def next(self):
+        self.index += 1
+        if self.index >= len(self.STEPS):
+            self.finish()
+            return
+        self.show()
+
+    def show(self):
+        key, wait = self.STEPS[self.index]
+        pet = self.pet
+        text = t(key, name=pet.s["name"])
+        if key == "tour_welcome":
+            actions = [(t("tour_go"), self.next), (t("tour_skip"), lambda: self.finish(skipped=True))]
+            pet.set_action("cheer", 1.4)
+        elif key == "tour_finish":
+            actions = [(t("tour_done_btn"), self.finish)]
+            pet.set_action("love", 2.0)
+            pet._spawn("heart", 5)
+        elif wait == "click":
+            actions = [(t("tour_skip"), lambda: self.finish(skipped=True))]
+        elif wait:
+            actions = [(t("tour_next"), self.next), (t("tour_skip"), lambda: self.finish(skipped=True))]
+        else:
+            actions = [(t("tour_next"), self.next), (t("tour_skip"), lambda: self.finish(skipped=True))]
+        if key == "tour_moods":
+            pet._spawn("heart", 2)
+        # keep the bubble up by re-showing it after a button press hides it
+        pet.bubble.show(text, actions=actions, duration=3600, priority=3, sticky=True)
+
+    def event(self, kind):
+        if self.waiting_for != kind:
+            return
+        if self._advance_job:
+            return
+        delay = {"click": 1100, "drop": 700, "pet": 1400, "menu": 300}.get(kind, 500)
+
+        def advance():
+            self._advance_job = None
+            if self.active and self.waiting_for == kind:
+                self.next()
+
+        self._advance_job = self.pet.root.after(delay, advance)
+
+    def finish(self, skipped=False):
+        if not self.active:
+            return
+        self.active = False
+        if self._advance_job:
+            try:
+                self.pet.root.after_cancel(self._advance_job)
+            except tk.TclError:
+                pass
+            self._advance_job = None
+        self.pet.st["tour_done"] = True
+        self.pet.save_state()
+        self.pet.bubble.hide()
+        if skipped:
+            self.pet.say(t("tour_finish"), duration=6, priority=1)
+        self.pet.next_walk_at = time.monotonic() + 6
 
 
 # =============================================================================
@@ -1327,6 +1432,7 @@ class DesktopPet:
         self._errors = 0
         self._after_id = None
         self._open_job = None
+        self.tour = None
 
         self._build_window()
         self._apply_offline_time()
@@ -1561,7 +1667,7 @@ class DesktopPet:
 
     def _walk(self, dt, now):
         allowed = (self.s.get("walk_on_taskbar", True) and not self.sleeping and self.action is None
-                   and not self.hovering and self.visible)
+                   and not self.hovering and self.visible and not (self.tour and self.tour.active))
         if not allowed:
             self.walking = False
             return
@@ -2098,6 +2204,7 @@ class DesktopPet:
             self._after_landing(taskbar=False)
         self.drag_vx = 0.0
         self.save_state()
+        self._tour_event("drop")
 
     def _after_landing(self, taskbar=True):
         if self.pending_dizzy:
@@ -2142,8 +2249,10 @@ class DesktopPet:
             self._call("toggle_window")
             return
         self.tickle()
-        if click_action == "tickle_open" and not double:
+        touring = bool(self.tour and self.tour.waiting_for == "click")
+        if (click_action == "tickle_open" and not double) or touring:
             self._schedule_open(450)
+        self._tour_event("click")
 
     def _schedule_open(self, delay_ms):
         self._cancel_open()
@@ -2222,6 +2331,7 @@ class DesktopPet:
             return
         self.set_action("petted", 1.8)
         self._spawn("heart", 3)
+        self._tour_event("pet")
         self._bump("happiness", 5)
         self._bump("bond", 0.5)
         self.grumpy_until = min(self.grumpy_until, now + 3)
@@ -2301,6 +2411,8 @@ class DesktopPet:
     def say(self, text, actions=None, duration=5.0, priority=1, on_click=None) -> bool:
         if not self.visible or self.fs_hidden or getattr(self, "_destroyed", False):
             return False
+        if self.tour and self.tour.active and priority < 3:
+            return False
         try:
             return self.bubble.show(text, actions=actions, duration=duration, priority=priority, on_click=on_click)
         except tk.TclError:
@@ -2369,6 +2481,21 @@ class DesktopPet:
 
     def is_visible(self) -> bool:
         return self.visible and not self.fs_hidden
+
+    def start_tour(self):
+        if not self.visible:
+            self.set_visible(True)
+        if self.sleeping:
+            self.wake("poke", quiet=True)
+        if self.tour and self.tour.active:
+            self.tour.show()
+            return
+        self.tour = Tour(self)
+        self.tour.start()
+
+    def _tour_event(self, kind):
+        if self.tour and self.tour.active:
+            self.tour.event(kind)
 
     def dismiss_chatter(self):
         """Hide a low-priority bubble (e.g. when the Pips card opens over it)."""
@@ -2444,6 +2571,9 @@ class DesktopPet:
         self.settings_win = PetSettingsWindow(self)
 
     def _greet(self):
+        if not self.st.get("tour_done"):
+            self.start_tour()
+            return
         hour = datetime.now().hour
         if 5 <= hour < 12:
             hello = t("greet_morning")
@@ -2550,6 +2680,17 @@ class DesktopPet:
                 mark = "\u25cf " if code == i18n.get_language() else "   "
                 lang_menu.add_command(label=mark + lang_name, command=lambda c=code: self._call("set_language", c))
             menu.add_cascade(label=t("m_language"), menu=lang_menu)
+        help_menu = submenu(menu)
+        help_menu.add_command(label=t("m_guide"), command=self.start_tour)
+        if self.cb.get("open_user_guide"):
+            help_menu.add_command(label=t("m_user_guide"), command=lambda: self._call("open_user_guide"))
+        if self.cb.get("check_updates"):
+            help_menu.add_command(label=t("m_check_updates"), command=lambda: self._call("check_updates"))
+        if self.cb.get("version"):
+            version = self._call("version") or ""
+            help_menu.add_command(label=t("m_about", v=version),
+                                  command=lambda v=version: self.say(t("about_text", v=v), duration=6, priority=1))
+        menu.add_cascade(label=t("m_help"), menu=help_menu)
         menu.add_separator()
         menu.add_command(label=t("p_settings"), command=self.open_settings)
         menu.add_command(label=t("p_hide", name=name), command=lambda: self._call("hide_pet"))
@@ -2559,6 +2700,7 @@ class DesktopPet:
             menu.tk_popup(event.x_root, event.y_root)
         finally:
             menu.grab_release()
+        self._tour_event("menu")
 
     def _pick_custom_color(self):
         result = colorchooser.askcolor(color=self.s["color"], title=t("p_pick_colour", name=self.s["name"]))
@@ -2757,7 +2899,7 @@ class PetSettingsWindow:
                            cursor="hand2").pack(fill="x", padx=(8, 0))
         self.flag_vars = {}
         for key in ("bubble_reminders", "walk_on_taskbar", "gravity", "sleep_when_away", "open_near_pet",
-                    "start_with_card", "chatty", "hide_in_fullscreen"):
+                    "start_with_card", "chatty", "hide_in_fullscreen", "auto_update"):
             var = tk.BooleanVar(value=bool(pet.s.get(key)))
             self.flag_vars[key] = var
             tk.Checkbutton(beh, text=t("f_" + key), variable=var, anchor="w", font=("Segoe UI", 9), bg=self.CARD,

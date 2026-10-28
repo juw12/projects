@@ -1,17 +1,26 @@
-﻿PIPS - desktop pet + Pomodoro focus widget (Windows 10/11)
+PIPS - desktop pet + Pomodoro focus widget (Windows 10/11)
 =============================================================
 
 1. Unzip this folder anywhere (e.g. Documents\Pips).
 2. Double-click  "Start Pips.bat".
    - Needs Python 3 (free from python.org). The first start installs two small helpers.
 3. Pick your language (English / Bahasa Indonesia / 繁體中文 / 简体中文).
-4. Say hi to your pet on the taskbar! Click it to open Pips, right-click for options.
+4. Your pet appears on the taskbar and walks you through a 1-minute interactive guide.
 
 Tips
+- Click the pet to open the Pomodoro card. Right-click it for everything else.
 - Right-click the pet -> Animal: 23 animals (Land / Water / Sky).
 - Drag it anywhere; drop it on the taskbar and it walks there.
 - Rub the mouse back and forth over it to pet it.
-- Start Pips with Windows: run  install_autostart.ps1  (right-click -> Run with PowerShell).
+- Replay the guide: right-click the pet -> Help -> Interactive guide.
+- Full user guide: Pips-Guide.pptx (in this folder).
+- Start Pips with Windows: right-click the Pips card -> Autostart.
+
+Updates
+- Pips checks for new versions by itself and your pet tells you. Click "Update now":
+  it downloads, installs and restarts - your settings and history are kept
+  (the old version is saved in the backup\ folder).
+- Manual check: right-click the pet -> Help -> Check for updates.
 
 Pips stores everything locally in this folder (data\, config.json). Nothing is uploaded.
 More: https://juw12.github.io/projects/pips/

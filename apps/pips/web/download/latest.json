@@ -1,0 +1,35 @@
+{
+  "version": "2.1.0",
+  "date": "2026-10-28",
+  "title": "Interactive guide & in-app updates",
+  "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
+  "sha256": "6adfb3651cf3361e55b710a4e2beccf003e7c6c69f6ee4e3bdf726bcda39c891",
+  "size": 560935,
+  "notes": {
+    "en": [
+      "Interactive first-run guide: your pet walks you through clicking, dragging, petting and the right-click menu",
+      "In-app updates: Pips tells you when a new version is out - update with one click (your settings and data are kept)",
+      "New Help menu: replay the guide, check for updates, see the version",
+      "Option to turn automatic update checks off"
+    ],
+    "id": [
+      "Panduan interaktif saat pertama dipakai: peliharaanmu mengajarimu klik, seret, elus, dan menu klik kanan",
+      "Update di dalam aplikasi: Pips memberi tahu saat ada versi baru - update dengan satu klik (pengaturan dan data tetap aman)",
+      "Menu Bantuan baru: putar ulang panduan, cek update, lihat versi",
+      "Pilihan untuk mematikan cek update otomatis"
+    ],
+    "zh_TW": [
+      "互動式新手導覽：寵物會帶你學會點擊、拖曳、摸摸和右鍵選單",
+      "應用程式內更新：有新版本時 Pips 會通知你，一鍵更新（設定和資料都會保留）",
+      "新的說明選單：重播導覽、檢查更新、查看版本",
+      "可以關閉自動檢查更新"
+    ],
+    "zh_CN": [
+      "互动式新手引导：宠物会带你学会点击、拖动、摸摸和右键菜单",
+      "应用内更新：有新版本时 Pips 会通知你，一键更新（设置和数据都会保留）",
+      "新的帮助菜单：重播引导、检查更新、查看版本",
+      "可以关闭自动检查更新"
+    ]
+  },
+  "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
+}
