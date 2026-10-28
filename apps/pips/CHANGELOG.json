@@ -2,6 +2,25 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.1.2",
+      "date": "2026-10-28",
+      "title": "Tickle-only mode",
+      "notes": {
+        "en": [
+          "New click option \"Only tickle (never open Pips)\": click and tickle your pet as much as you like - the Pomodoro window stays closed (open it from the right-click menu). Right-click the pet → When I click"
+        ],
+        "id": [
+          "Opsi klik baru \"Hanya gelitik (tidak membuka Pips)\": klik dan gelitik peliharaanmu sepuasnya - jendela Pomodoro tetap tertutup (buka lewat menu klik kanan). Klik kanan peliharaan → Saat aku diklik"
+        ],
+        "zh_TW": [
+          "新的點擊選項「只搔癢 (不開啟 Pips)」：盡情點擊搔癢寵物，番茄鐘視窗不會打開（可從右鍵選單開啟）。右鍵寵物 → 點擊我時"
+        ],
+        "zh_CN": [
+          "新的点击选项“只挠痒 (不打开 Pips)”：尽情点击挠痒宠物，番茄钟窗口不会打开（可从右键菜单打开）。右键宠物 → 点击我时"
+        ]
+      }
+    },
+    {
       "version": "2.1.1",
       "date": "2026-10-28",
       "title": "Owner info",

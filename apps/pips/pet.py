@@ -62,7 +62,7 @@ DEFAULT_PET_SETTINGS = {
     "color": "#ffc78f",
     "cheek_color": "#ff8fa3",
     "size": "M",                 # S | M | L
-    "click_action": "tickle_open",  # tickle_open | tickle_only
+    "click_action": "tickle_open",  # tickle_open | tickle_only | tickle_never
     "bubble_reminders": True,    # show health/break reminders as chat bubbles
     "walk_on_taskbar": True,
     "gravity": False,            # (land animals) dropped in mid-air -> fall to the taskbar
@@ -2669,7 +2669,8 @@ class DesktopPet:
         menu.add_cascade(label=t("p_size"), menu=size_menu)
 
         click_menu = submenu(menu)
-        for value, key in (("tickle_open", "p_click_open"), ("tickle_only", "p_click_only")):
+        for value, key in (("tickle_open", "p_click_open"), ("tickle_only", "p_click_only"),
+                           ("tickle_never", "p_click_never")):
             mark = "\u25cf " if value == self.s["click_action"] else "   "
             click_menu.add_command(label=mark + t(key), command=lambda v=value: self.update_setting("click_action", v))
         menu.add_cascade(label=t("p_click"), menu=click_menu)
@@ -2894,7 +2895,8 @@ class PetSettingsWindow:
         self.click_var = tk.StringVar(value=pet.s["click_action"])
         tk.Label(beh, text=t("click_q"), font=("Segoe UI", 9), fg=self.INK, bg=self.CARD,
                  anchor="w").pack(fill="x")
-        for value, key in (("tickle_open", "click_open_long"), ("tickle_only", "click_only_long")):
+        for value, key in (("tickle_open", "click_open_long"), ("tickle_only", "click_only_long"),
+                           ("tickle_never", "click_never_long")):
             tk.Radiobutton(beh, text=t(key), value=value, variable=self.click_var,
                            command=lambda: pet.update_setting("click_action", self.click_var.get()),
                            font=("Segoe UI", 9), bg=self.CARD, activebackground=self.CARD, anchor="w",
