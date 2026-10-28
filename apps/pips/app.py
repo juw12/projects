@@ -28,7 +28,7 @@ except ImportError:  # pragma: no cover - i18n ships with Pips
     def T(key, lang=None, **kwargs):
         return key
 
-APP_VERSION = "2.10.0"
+APP_VERSION = "2.11.0"
 APP_OWNER = "Juwen Lie"
 USER_GUIDE_URL = "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
 SITE_URL = "https://juw12.github.io/projects/pips/"
@@ -708,6 +708,7 @@ class ProductivityWidget:
         
         # Background update checks (first one shortly after start, then every 6 hours)
         self._update_busy = False
+        self._update_manifest = None
         self.root.after(25_000, self._auto_update_tick)
         
         # Handle window close
@@ -1119,7 +1120,9 @@ class ProductivityWidget:
                     "check_updates": lambda: self._check_updates(manual=True),
                     "open_user_guide": self._open_user_guide,
                     "version": lambda: APP_VERSION,
-            "owner": lambda: APP_OWNER,
+                    "owner": lambda: APP_OWNER,
+                    "update_info": lambda: self._update_manifest,
+                    "show_update": self._show_pending_update,
                     "icon_path": str(icon) if icon.exists() else None,
                 },
             )
@@ -1751,12 +1754,15 @@ class ProductivityWidget:
         self._update_busy = False
         kind, payload = outcome
         if kind == "found":
+            self._update_manifest = payload
             skipped = (self.cfg.get("updates") or {}).get("skipped_version")
             if not manual and skipped == payload.get("version"):
                 return
             self._offer_update(payload)
-        elif manual and kind == "latest":
-            self._tell(T("upd_latest", v=APP_VERSION))
+        elif kind == "latest":
+            self._update_manifest = None
+            if manual:
+                self._tell(T("upd_latest", v=APP_VERSION))
         elif manual:
             self._tell(T("upd_offline"))
     
@@ -1791,6 +1797,13 @@ class ProductivityWidget:
         from tkinter import messagebox
         if messagebox.askyesno("Pips", text + "\n\n" + T("upd_now") + "?", parent=self.card_frame):
             self._install_update(manifest)
+    
+    def _show_pending_update(self):
+        """Menu banner click: show the update offer (or re-check if it went stale)."""
+        if self._update_manifest:
+            self._offer_update(self._update_manifest)
+        else:
+            self._check_updates(manual=True)
     
     def _skip_version(self, version: str):
         self.cfg.setdefault("updates", {})["skipped_version"] = version
@@ -3738,7 +3751,95 @@ class ProductivityWidget:
             logger.error(f"History update error: {e}")
     
     def _show_card_menu(self, event):
-        """Show right-click context menu on card."""
+        """Show the right-click menu on the card (animated card menu, classic fallback)."""
+        try:
+            import fancy_menu
+            self._show_fancy_card_menu(event, fancy_menu)
+            return
+        except Exception as e:
+            logger.warning(f"Fancy card menu failed, using classic menu: {e}")
+        self._show_native_card_menu(event)
+    
+    def _show_fancy_card_menu(self, event, fm):
+        try:
+            import theme as theme_mod
+            accent = theme_mod.palette()["accent"]
+        except Exception:
+            accent = "#8b1a1a"
+        menu = fm.FancyMenu(self.card_frame, accent=accent)
+        menu.header("Pips", T("fm_card_sub", v=APP_VERSION), avatar="P")
+        update = self._update_manifest
+        if update:
+            menu.banner(
+                T("fm_upd_title", v=update.get("version", "")),
+                T("fm_upd_sub"),
+                self._show_pending_update,
+                icon="\U0001F381",
+                badge=T("fm_new"),
+            )
+        menu.tiles([
+            ("\U0001F4CA", T("fm_stats"), self._open_dashboard),
+            ("\U0001F570", T("fm_history"), self._open_history),
+            ("\U0001F4C5", T("fm_weekly"), self._open_weekly_report),
+            ("\U0001F5D3", T("fm_monthly"), self._open_monthly_report),
+        ])
+        
+        def build_diary(sub):
+            sub.item("\u270D", T("m_gen_diary"), self._generate_diary)
+            sub.item("\U0001F4C2", T("m_open_diary"), self._open_diary_folder)
+            sub.item("\U0001F680", T("m_publish"), self._publish_diary)
+        menu.submenu("\U0001F4D4", T("fm_diary"), build_diary, width=250)
+        menu.item("\U0001F504", T("m_refresh_maas"), self._refresh_maas_now)
+        
+        if self.sound_engine:
+            def build_sounds(sub):
+                current = self._focus_sound
+                for sound in self.sound_engine.sounds():
+                    vol = self._sound_volume(sound)
+                    entry = sub.choice("\U0001F3B5", sound, sound == current,
+                                       lambda s=sound: self._choose_focus_sound(s))
+                    if vol is not None:
+                        entry["hint"] = T("fm_volume", v=vol)
+            menu.submenu("\U0001F3A7", T("m_sound"), build_sounds, hint=str(self._focus_sound or ""))
+        
+        if self.pet:
+            name = self.pet.s.get("name", "Pip")
+            
+            def build_pet(sub):
+                sub.item("\U0001F441", T("m_hide_pet", name=name) if self.pet.visible else T("m_show_pet", name=name),
+                         self._toggle_pet_visible)
+                sub.item("\U0001F36A", T("m_snack"), self.pet.feed)
+                sub.item("\u2699", T("m_pet_settings"), self.pet.open_settings)
+            menu.submenu("\U0001F43E", T("m_pet", name=name), build_pet, width=250)
+        
+        menu.section(T("fm_app"))
+        if i18n:
+            def build_languages(sub):
+                for code, lang_name, _hello in i18n.LANGUAGES:
+                    sub.choice("\U0001F310", lang_name, code == i18n.get_language(),
+                               lambda c=code: self._set_language(c))
+            current_lang = next((n for c, n, _h in i18n.LANGUAGES if c == i18n.get_language()), "")
+            menu.submenu("\U0001F310", T("m_language"), build_languages, hint=current_lang)
+        
+        def build_help(sub):
+            if update:
+                sub.item("\U0001F381", T("fm_upd_item", v=update.get("version", "")),
+                         self._show_pending_update, badge=T("fm_new"), highlight=True)
+            if self.pet:
+                sub.item("\U0001F9ED", T("m_guide"), self.pet.start_tour)
+            sub.item("\U0001F4D6", T("m_user_guide"), self._open_user_guide)
+            sub.item("\U0001F504", T("m_check_updates"), lambda: self._check_updates(manual=True))
+            sub.item("\u2139", T("m_about", v=APP_VERSION),
+                     lambda: self._tell(T("about_text", v=APP_VERSION, owner=APP_OWNER), priority=1))
+        menu.submenu("\u2753", T("m_help"), build_help, badge=T("fm_new") if update else None, width=250)
+        if self.pet:
+            menu.item("\U0001F43E", T("m_hide_to_pet"), self._hide_card)
+        menu.item("\U0001F680", T("m_autostart"), self._toggle_autostart)
+        menu.separator()
+        menu.item("\u23FB", T("m_quit"), self._on_close, danger=True)
+        menu.popup(event.x_root, event.y_root)
+    
+    def _show_native_card_menu(self, event):
         menu = tk.Menu(self.card_frame, tearoff=0, bg=THEME["white"], fg=THEME["ink_black"])
         menu.add_command(label=T("m_dashboard"), command=self._open_dashboard)
         menu.add_command(label=T("m_history"), command=self._open_history)

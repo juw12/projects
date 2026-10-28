@@ -1,34 +1,34 @@
 {
-  "version": "2.10.0",
+  "version": "2.11.0",
   "date": "2026-10-28",
-  "title": "Chat bots",
+  "title": "New right-click menus",
   "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
-  "sha256": "ebe1e0c6c9e4c312a03711b738b9138ded72b3b87f7360f4e46a554aa0c14101",
-  "size": 754369,
+  "sha256": "dc4efff5cd3e59c8edb1b60cfd4b4ab2ad1ac5b4223d638d5343c9c16341f8a5",
+  "size": 768394,
   "notes": {
     "en": [
-      "🤖 6 friendly chat bots in the Chat tab: Pip Helper (app questions), Coach Focus (focus tips from your real stats), Sunny (live weather for any city), Arena Master (battle tips + quick battle), Giggles (jokes & games) and Guardian (safety & reporting help)",
-      "Private bot chats with suggestion chips, typing indicator and a clear button - your bot chats stay on your PC",
-      "Mention a bot in a group chat (e.g. @weather Batam) and it answers in the room for everyone",
-      "Bots reply in your app language; up to 120 bot messages per day"
+      "✨ Brand-new animated right-click menu for your pet: mood & stat bars, quick-action tiles (Friends, Shop, Snack, Pat, Focus, Stats, Sleep, Taskbar), hover effects and smooth fly-out submenus",
+      "Pick colours from swatches, switch size with one click and flip Sounds / Dark mode with toggle switches - changes show instantly",
+      "Updates are highlighted: a glowing banner and NEW badge appear in the menu when a new version is ready",
+      "The focus card's right-click menu got the same new look; keyboard arrows, Enter and Esc work too"
     ],
     "id": [
-      "🤖 6 bot obrolan di tab Chat: Pip Helper (pertanyaan aplikasi), Coach Focus (tips fokus dari statistikmu), Sunny (cuaca langsung kota mana pun), Arena Master (tips bertarung + quick battle), Giggles (lelucon & permainan) dan Guardian (bantuan keamanan & laporan)",
-      "Chat pribadi dengan bot lengkap dengan saran pertanyaan, indikator mengetik dan tombol hapus - chat bot tersimpan di PC-mu",
-      "Sebut bot di grup (mis. @weather Batam) dan bot akan menjawab di grup untuk semua",
-      "Bot menjawab dalam bahasa aplikasimu; maksimal 120 pesan bot per hari"
+      "✨ Menu klik kanan baru yang beranimasi untuk peliharaanmu: bar mood & status, tombol cepat (Teman, Toko, Camilan, Elus, Fokus, Statistik, Tidur, Taskbar), efek hover dan submenu yang mulus",
+      "Pilih warna dari palet, ganti ukuran sekali klik, dan nyalakan Suara / Mode gelap dengan sakelar - perubahan langsung terlihat",
+      "Update kini disorot: banner menyala dan lencana BARU muncul di menu saat versi baru siap",
+      "Menu klik kanan kartu fokus juga punya tampilan baru; panah keyboard, Enter dan Esc juga bisa dipakai"
     ],
     "zh_TW": [
-      "🤖 聊天分頁新增 6 個聊天機器人：Pip Helper（應用問題）、Coach Focus（依你的真實數據給專注建議）、Sunny（任何城市的即時天氣）、Arena Master（對戰技巧 + 快速對戰）、Giggles（笑話與小遊戲）和 Guardian（安全與檢舉協助）",
-      "與機器人私聊，附建議問題、輸入中提示和清除按鈕，機器人聊天紀錄只存在你的電腦",
-      "在群組中提及機器人（例如 @weather Batam），它會在群組裡回答所有人",
-      "機器人以你的應用語言回覆；每天最多 120 則機器人訊息"
+      "✨ 全新動畫右鍵選單：心情與狀態條、快捷按鈕（好友、商店、點心、摸摸、專注、統計、睡覺、工作列）、滑過特效和流暢的子選單",
+      "從色票選顏色、一鍵切換大小、用開關切換聲音／深色模式，變化立即生效",
+      "更新會被醒目標示：有新版本時選單會出現發光橫幅和「新」標籤",
+      "專注卡的右鍵選單也換上新外觀；也可以用方向鍵、Enter 和 Esc 操作"
     ],
     "zh_CN": [
-      "🤖 聊天标签新增 6 个聊天机器人：Pip Helper（应用问题）、Coach Focus（根据你的真实数据给专注建议）、Sunny（任何城市的实时天气）、Arena Master（对战技巧 + 快速对战）、Giggles（笑话与小游戏）和 Guardian（安全与举报帮助）",
-      "与机器人私聊，附建议问题、输入中提示和清除按钮，机器人聊天记录只保存在你的电脑",
-      "在群组中提及机器人（例如 @weather Batam），它会在群组里回答所有人",
-      "机器人以你的应用语言回复；每天最多 120 条机器人消息"
+      "✨ 全新动画右键菜单：心情与状态条、快捷按钮（好友、商店、点心、摸摸、专注、统计、睡觉、任务栏）、悬停特效和流畅的子菜单",
+      "从色板选颜色、一键切换大小、用开关切换声音／深色模式，变化立即生效",
+      "更新会被醒目标示：有新版本时菜单会出现发光横幅和“新”标签",
+      "专注卡的右键菜单也换上新外观；也可以用方向键、Enter 和 Esc 操作"
     ]
   },
   "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"

@@ -2,6 +2,37 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.11.0",
+      "date": "2026-10-28",
+      "title": "New right-click menus",
+      "notes": {
+        "en": [
+          "✨ Brand-new animated right-click menu for your pet: mood & stat bars, quick-action tiles (Friends, Shop, Snack, Pat, Focus, Stats, Sleep, Taskbar), hover effects and smooth fly-out submenus",
+          "Pick colours from swatches, switch size with one click and flip Sounds / Dark mode with toggle switches - changes show instantly",
+          "Updates are highlighted: a glowing banner and NEW badge appear in the menu when a new version is ready",
+          "The focus card's right-click menu got the same new look; keyboard arrows, Enter and Esc work too"
+        ],
+        "id": [
+          "✨ Menu klik kanan baru yang beranimasi untuk peliharaanmu: bar mood & status, tombol cepat (Teman, Toko, Camilan, Elus, Fokus, Statistik, Tidur, Taskbar), efek hover dan submenu yang mulus",
+          "Pilih warna dari palet, ganti ukuran sekali klik, dan nyalakan Suara / Mode gelap dengan sakelar - perubahan langsung terlihat",
+          "Update kini disorot: banner menyala dan lencana BARU muncul di menu saat versi baru siap",
+          "Menu klik kanan kartu fokus juga punya tampilan baru; panah keyboard, Enter dan Esc juga bisa dipakai"
+        ],
+        "zh_TW": [
+          "✨ 全新動畫右鍵選單：心情與狀態條、快捷按鈕（好友、商店、點心、摸摸、專注、統計、睡覺、工作列）、滑過特效和流暢的子選單",
+          "從色票選顏色、一鍵切換大小、用開關切換聲音／深色模式，變化立即生效",
+          "更新會被醒目標示：有新版本時選單會出現發光橫幅和「新」標籤",
+          "專注卡的右鍵選單也換上新外觀；也可以用方向鍵、Enter 和 Esc 操作"
+        ],
+        "zh_CN": [
+          "✨ 全新动画右键菜单：心情与状态条、快捷按钮（好友、商店、点心、摸摸、专注、统计、睡觉、任务栏）、悬停特效和流畅的子菜单",
+          "从色板选颜色、一键切换大小、用开关切换声音／深色模式，变化立即生效",
+          "更新会被醒目标示：有新版本时菜单会出现发光横幅和“新”标签",
+          "专注卡的右键菜单也换上新外观；也可以用方向键、Enter 和 Esc 操作"
+        ]
+      }
+    },
+    {
       "version": "2.10.0",
       "date": "2026-10-28",
       "title": "Chat bots",

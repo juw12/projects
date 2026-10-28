@@ -1020,6 +1020,34 @@ S = {
     "bot_try_guard": ("rules|Someone is rude to me|How do I report?|What do moderators do?", "rules|Ada yang kasar padaku|Cara melapor?|Apa tugas moderator?", "rules|有人對我很沒禮貌|怎麼檢舉？|管理員做什麼？", "rules|有人对我很没礼貌|怎么举报？|管理员做什么？"),
 }
 
+# --- v2.11 fancy right-click menus ---
+S.update({
+    "fm_friends": ("Friends", "Teman", "好友", "好友"),
+    "fm_shop": ("Shop", "Toko", "商店", "商店"),
+    "fm_snack": ("Snack", "Camilan", "點心", "点心"),
+    "fm_pat": ("Pat", "Elus", "摸摸", "摸摸"),
+    "fm_focus": ("Focus", "Fokus", "專注", "专注"),
+    "fm_stats": ("Stats", "Statistik", "統計", "统计"),
+    "fm_sleep": ("Sleep", "Tidur", "睡覺", "睡觉"),
+    "fm_wake": ("Wake", "Bangun", "叫醒", "叫醒"),
+    "fm_float": ("Float", "Lepas", "漂浮", "漂浮"),
+    "fm_dock": ("Taskbar", "Taskbar", "工作列", "任务栏"),
+    "fm_history": ("History", "Riwayat", "歷史", "历史"),
+    "fm_weekly": ("Weekly", "Mingguan", "每週", "每周"),
+    "fm_monthly": ("Monthly", "Bulanan", "每月", "每月"),
+    "fm_diary": ("Diary", "Diary", "日記", "日记"),
+    "fm_customize": ("Customize", "Kustomisasi", "自訂", "自定义"),
+    "fm_more": ("More", "Lainnya", "更多", "更多"),
+    "fm_app": ("App", "Aplikasi", "應用程式", "应用"),
+    "fm_new": ("NEW", "BARU", "新", "新"),
+    "fm_upd_title": ("Update {v} is ready!", "Update {v} sudah siap!", "{v} 更新已就緒！", "{v} 更新已就绪！"),
+    "fm_upd_sub": ("Click to see what's new", "Klik untuk lihat yang baru", "點一下查看新內容", "点一下查看新内容"),
+    "fm_upd_item": ("Update to {v}", "Update ke {v}", "更新到 {v}", "更新到 {v}"),
+    "fm_card_sub": ("Focus card · v{v}", "Kartu fokus · v{v}", "專注卡 · v{v}", "专注卡 · v{v}"),
+    "fm_custom_colour": ("Custom colour…", "Warna kustom…", "自訂顏色…", "自定义颜色…"),
+    "fm_volume": ("{v}%", "{v}%", "{v}%", "{v}%"),
+})
+
 # Random pet lines: key -> (en, id, zh_TW, zh_CN) lists
 L = {
     "tickle": (
