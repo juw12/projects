@@ -345,6 +345,32 @@ class Shop:
         return {slot: item for slot, item in (self.data.get("gear") or {}).items()
                 if item in GEAR and GEAR[item][0] == slot and self.owns(item)}
 
+    # ---- gifts (v2.13) ----
+    def is_known(self, item: str) -> bool:
+        return item in PROPS or item in MOVES or item in GEAR
+
+    def spend(self, amount: int):
+        """Pay for something that isn't an item for yourself (e.g. a gift for a friend)."""
+        if self.unlimited or amount <= 0:
+            return
+        self.data["spent"] = int(self.data.get("spent", 0)) + int(amount)
+        self.save()
+
+    def add_gift_coins(self, amount: int):
+        if amount > 0:
+            self.data["bonus"] = int(self.data.get("bonus", 0)) + int(amount)
+            self.save()
+
+    def receive_item(self, item: str) -> str:
+        """Add a gifted item. Returns 'new', or 'coins' if it was already owned / unknown (refunded as coins)."""
+        if self.is_known(item) and item not in self.data["owned"]:
+            self.data["owned"].append(item)
+            self.save()
+            return "new"
+        if self.is_known(item):
+            self.add_gift_coins(self.price(item))
+        return "coins"
+
 
 def clean_look(look) -> dict:
     """Validate a look dict coming from the server (friends' props)."""

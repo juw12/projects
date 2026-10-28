@@ -1,34 +1,38 @@
 {
-  "version": "2.12.0",
+  "version": "2.13.0",
   "date": "2026-10-28",
-  "title": "Mega update: 28 new animals, 31 shop items, 13 moves",
+  "title": "Birthdays, parties & gifts",
   "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
-  "sha256": "068b702afb86be1533cc4c941f3e47287960ecb5f84395fd0f970a00674f4239",
-  "size": 782335,
+  "sha256": "b06c34458028ad2fb5aa52d67edae5046777f0b320ddb1db2e355e07e099a402",
+  "size": 796498,
   "notes": {
     "en": [
-      "🦁 28 new animals (51 total): lion, tiger, unicorn, deer, sheep, cow, raccoon, red panda, monkey, hedgehog, dino, squirrel, mouse, koala, shark, dolphin, seal, otter, pufferfish, duck, crab, parrot, chick, ladybug, phoenix, pegasus, ghost and flamingo",
-      "🎩 31 new shop items: top hat, cowboy, chef, pirate, Santa, viking, graduation cap, beret, bow, propeller cap, flower crown, nerd glasses, eyepatch, mustache, goggles, masquerade mask, tie, pearls, flower lei, gold chain, balloon, backpack, guitar, shield, butterfly / devil wings and more - plus Premium galaxy crown, galaxy cape and dragon wings",
-      "💃 13 new moves: wave, jump, hearts, sing, yoga, zoomies, cartwheel, juggle, rain dance, breakdance, magic, confetti and the Premium rocket launch",
-      "The Shop is now split into sections (Hats, Face, Neck, Back, Moves, Arena gear) with an owned counter for each"
+      "Set your birthday in Social → Profile (month + day, optionally visible to friends).",
+      "On your birthday Pips throws confetti and gives you 100 bonus coins.",
+      "Friends tab shows upcoming birthdays; you get reminders 3 days, 1 day and on the day.",
+      "Birthday parties: join a friend's party, see who's there, sign the guestbook and celebrate together.",
+      "Send gifts: any shop item (previewed on their pet), coins, or both, with a message — paid from your own coins."
     ],
     "id": [
-      "🦁 28 hewan baru (total 51): singa, harimau, unicorn, rusa, domba, sapi, rakun, panda merah, monyet, landak, dino, tupai, tikus, koala, hiu, lumba-lumba, anjing laut, berang-berang, ikan buntal, bebek, kepiting, beo, anak ayam, kepik, phoenix, pegasus, hantu dan flamingo",
-      "🎩 31 item toko baru: topi tinggi, koboi, koki, bajak laut, Sinterklas, viking, topi wisuda, baret, pita, topi baling-baling, mahkota bunga, kacamata kutu buku, penutup mata, kumis, kacamata renang, topeng pesta, dasi, mutiara, kalung bunga, kalung emas, balon, ransel, gitar, perisai, sayap kupu-kupu / iblis dan lainnya - plus mahkota galaksi, jubah galaksi dan sayap naga khusus Premium",
-      "💃 13 gerakan baru: lambai, lompat, hati, nyanyi, yoga, lari kencang, roda, juggling, tari hujan, breakdance, sulap, konfeti dan peluncuran roket Premium",
-      "Toko kini dibagi per bagian (Topi, Wajah, Leher, Punggung, Gerakan, Perlengkapan arena) dengan penghitung item yang dimiliki"
+      "Atur ulang tahunmu di Sosial → Profil (bulan + tanggal, bisa ditampilkan ke teman).",
+      "Di hari ulang tahunmu Pips menebar konfeti dan memberi 100 koin bonus.",
+      "Tab Teman menampilkan ulang tahun terdekat; pengingat 3 hari, 1 hari, dan di hari-H.",
+      "Pesta ulang tahun: datang ke pesta teman, lihat siapa yang hadir, tulis di buku tamu dan rayakan bersama.",
+      "Kirim hadiah: item toko (pratinjau di pet mereka), koin, atau keduanya, dengan pesan — dibayar dari koinmu."
     ],
     "zh_TW": [
-      "🦁 28 種新動物（共 51 種）：獅子、老虎、獨角獸、小鹿、綿羊、乳牛、浣熊、小熊貓、猴子、刺蝟、恐龍、松鼠、老鼠、無尾熊、鯊魚、海豚、海豹、水獺、河豚、鴨子、螃蟹、鸚鵡、小雞、瓢蟲、鳳凰、天馬、小幽靈和紅鶴",
-      "🎩 31 件新商品：紳士帽、牛仔帽、廚師帽、海盜帽、聖誕帽、維京頭盔、學士帽、貝雷帽、蝴蝶結、竹蜻蜓帽、花環、書呆子眼鏡、眼罩、八字鬍、護目鏡、假面舞會面具、領帶、珍珠項鍊、花圈項鍊、金項鍊、氣球、背包、吉他、盾牌、蝴蝶／小惡魔翅膀等，還有 Premium 銀河皇冠、銀河披風和龍之翼",
-      "💃 13 個新動作：揮手、跳跳、愛心、唱歌、瑜伽、暴衝、側翻、雜耍、求雨舞、霹靂舞、魔術、彩帶和 Premium 火箭升空",
-      "商店分成不同區塊（帽子、臉部、頸部、背部、動作、競技場裝備），並顯示已擁有數量"
+      "在 社交 → 個人檔案 設定生日（月 + 日，可選擇讓好友看到）。",
+      "生日當天 Pips 會灑彩帶並送你 100 枚獎勵金幣。",
+      "好友分頁顯示即將到來的生日；前 3 天、前 1 天與當天都會提醒。",
+      "生日派對：參加好友的派對、看看誰在場、在留言簿寫祝福並一起慶祝。",
+      "送禮：任何商店物品（可在對方寵物上預覽）、金幣或兩者皆送，並附上留言——由你自己的金幣支付。"
     ],
     "zh_CN": [
-      "🦁 28 种新动物（共 51 种）：狮子、老虎、独角兽、小鹿、绵羊、奶牛、浣熊、小熊猫、猴子、刺猬、恐龙、松鼠、老鼠、考拉、鲨鱼、海豚、海豹、水獭、河豚、鸭子、螃蟹、鹦鹉、小鸡、瓢虫、凤凰、天马、小幽灵和火烈鸟",
-      "🎩 31 件新商品：绅士帽、牛仔帽、厨师帽、海盗帽、圣诞帽、维京头盔、学士帽、贝雷帽、蝴蝶结、竹蜻蜓帽、花环、书呆子眼镜、眼罩、八字胡、护目镜、假面舞会面具、领带、珍珠项链、花环项链、金项链、气球、背包、吉他、盾牌、蝴蝶／小恶魔翅膀等，还有 Premium 银河皇冠、银河披风和龙之翼",
-      "💃 13 个新动作：挥手、跳跳、爱心、唱歌、瑜伽、暴冲、侧翻、杂耍、求雨舞、霹雳舞、魔术、彩带和 Premium 火箭升空",
-      "商店分成不同区块（帽子、脸部、颈部、背部、动作、竞技场装备），并显示已拥有数量"
+      "在 社交 → 个人资料 设置生日（月 + 日，可选择让好友看到）。",
+      "生日当天 Pips 会撒彩带并送你 100 枚奖励金币。",
+      "好友页显示即将到来的生日；提前 3 天、1 天和当天都会提醒。",
+      "生日派对：参加好友的派对、看看谁在场、在留言簿写祝福并一起庆祝。",
+      "送礼：任何商店物品（可在对方宠物上预览）、金币或两者都送，并附上留言——由你自己的金币支付。"
     ]
   },
   "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"

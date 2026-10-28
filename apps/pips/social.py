@@ -25,6 +25,7 @@ The window lives in social_ui.py. All user-facing text comes from i18n.py.
 from __future__ import annotations
 
 import base64
+import calendar
 import json
 import logging
 import math
@@ -293,6 +294,24 @@ def default_display_name() -> str:
 # Social controller (lives inside the DesktopPet)
 # =============================================================================
 
+
+def item_name(item: str) -> str:
+    """Display name of any shop item (prop, move or arena gear)."""
+    if pet_shop is not None:
+        if item in pet_shop.PROPS:
+            return t("pr_" + item)
+        if item in pet_shop.GEAR:
+            return t("gr_" + item)
+        if item in pet_shop.MOVES:
+            return t("mv_" + item).split(":")[0]
+    return item
+
+
+def bday_text(month: int, day: int) -> str:
+    if not month:
+        return ""
+    return t("bday_fmt", d=int(day), month=t("month_%d" % int(month)))
+
 class Social:
     def __init__(self, pet):
         self.pet = pet
@@ -323,6 +342,9 @@ class Social:
         self.geo_results = None     # city search results (/v1/geo)
         self.bot_pending = None     # bot key we're waiting on
         self.arena = None           # /v1/arena payload
+        self.parties = {}           # host code -> /v1/party payload (v2.13)
+        self.party_windows = {}     # host code -> PartyWindow
+        self._pending_gift = None
         self.arena_open = False     # Arena tab visible -> fast lobby polling + "in arena" presence
         self._next_arena = 0.0
         self.duels: dict = {}       # duel id -> latest /v1/duel view
@@ -709,6 +731,164 @@ class Social:
         self.data["loc_prompted"] = True
         self.pet.root.after(8000, lambda: self.pet.say(t("wx_prompt"), duration=10, priority=0,
                                                          on_click=lambda: self.open_window("profile")))
+
+    # ---- birthdays, parties & gifts (v2.13) ----
+    BDAY_BONUS = 100
+    GIFT_COIN_CHOICES = (25, 50, 100, 200)
+
+    def my_birthday(self):
+        me = (self.board or {}).get("me") or {}
+        return int(me.get("bday_m") or 0), int(me.get("bday_d") or 0), bool(me.get("bday_visible", True))
+
+    def set_birthday(self, month: int, day: int, visible: bool = True):
+        self._act("bday_set", "/v1/birthday", {"m": int(month), "d": int(day), "visible": bool(visible)})
+
+    @staticmethod
+    def days_until(bday, today=None):
+        """Days until the next birthday {m, d} (0 = today), or None."""
+        if not bday or not bday.get("m"):
+            return None
+        today = today or date.today()
+        month, day = int(bday["m"]), int(bday["d"])
+        for year in (today.year, today.year + 1):
+            d = day
+            if month == 2 and day == 29 and not calendar.isleap(year):
+                d = 28
+            try:
+                when = date(year, month, d)
+            except ValueError:
+                return None
+            if when >= today:
+                return (when - today).days
+        return None
+
+    def upcoming_birthdays(self, within: int = 7) -> list:
+        out = []
+        for friend in self.friends():
+            days = self.days_until(friend.get("bday"))
+            if days is not None and days <= within:
+                out.append((days, friend))
+        out.sort(key=lambda pair: (pair[0], pair[1].get("name", "").lower()))
+        return out
+
+    def is_my_birthday(self) -> bool:
+        m, d, _visible = self.my_birthday()
+        return bool(m) and self.days_until({"m": m, "d": d}) == 0
+
+    def gift_cost(self, item: str, coins: int) -> int:
+        shop = getattr(self.pet, "shop", None)
+        cost = int(coins or 0)
+        if item and shop and shop.is_known(item):
+            cost += shop.price(item)
+        return cost
+
+    def send_gift(self, code: str, item: str = "", coins: int = 0, message: str = "") -> str:
+        """Returns '' when the gift is on its way, otherwise an error code."""
+        if not self.enabled:
+            return "offline"
+        shop = getattr(self.pet, "shop", None)
+        if not shop or (not item and not coins):
+            return "empty"
+        if item and pet_shop is not None and item in pet_shop.PREMIUM_ITEMS:
+            return "premium_only"
+        cost = self.gift_cost(item, coins)
+        if cost > self.wallet().get("balance", 0):
+            return "poor"
+        self._pending_gift = {"cost": cost, "code": code, "item": item, "coins": int(coins or 0)}
+        self._run("gift_sent", api_call, "POST", "/v1/gift",
+                  {"to": code, "item": item, "coins": int(coins or 0), "message": message}, self.account)
+        return ""
+
+    def load_party(self, code: str):
+        if self.enabled:
+            self._run("party", api_call, "GET", f"/v1/party?code={code}&date={date.today().isoformat()}",
+                      None, self.account)
+
+    def party_wish(self, code: str, text: str):
+        if self.enabled and text.strip():
+            self._run("party_wish", api_call, "POST", "/v1/party/wish",
+                      {"code": code, "date": date.today().isoformat(), "text": text.strip()}, self.account)
+
+    def open_party(self, code: str):
+        import party_ui
+        win = self.party_windows.get(code)
+        if win and win.alive():
+            win.win.deiconify()
+            win.win.lift()
+            return
+        self.party_windows[code] = party_ui.PartyWindow(self, code)
+
+    def open_gift(self, code: str):
+        import party_ui
+        friend = self.friend(code)
+        if friend:
+            party_ui.GiftDialog(self, friend)
+
+    def _take_gifts(self, gifts):
+        shop = getattr(self.pet, "shop", None)
+        if not gifts or not shop:
+            return
+        seen = self.data.setdefault("gifts_seen", [])
+        fresh = [g for g in gifts if g.get("id") not in seen]
+        claim = [g["id"] for g in gifts]
+        for gift in fresh:
+            item = gift.get("item") or ""
+            coins = int(gift.get("coins") or 0)
+            parts = []
+            if item:
+                outcome = shop.receive_item(item)
+                name = item_name(item)
+                parts.append(name if outcome == "new" else t("gift_dupe", item=name))
+            if coins:
+                shop.add_gift_coins(coins)
+                parts.append(f"{pet_shop.COIN if pet_shop else ''} {coins}")
+            seen.append(gift["id"])
+            sender = (gift.get("from") or {}).get("name", "?")
+            text = t("gift_received", name=sender, what=" + ".join(parts))
+            if gift.get("message"):
+                text += "\n\u201c" + gift["message"] + "\u201d"
+            self.pet.set_action("cheer", 1.6)
+            self.pet._spawn("heart", 6)
+            self.pet._voice("happy")
+            self.pet.say(text, duration=9, priority=2, on_click=lambda: self.open_window("shop"))
+        self.data["gifts_seen"] = seen[-300:]
+        self.save()
+        if claim:
+            self._run("gifts_claimed", api_call, "POST", "/v1/gift/claim", {"ids": claim}, self.account)
+        if fresh:
+            self._refresh_window()
+
+    def _check_birthdays(self):
+        today = date.today()
+        stamp = today.isoformat()
+        if self.data.get("bday_checked") == stamp:
+            return
+        self.data["bday_checked"] = stamp
+        shop = getattr(self.pet, "shop", None)
+        if self.is_my_birthday():
+            if self.data.get("bday_bonus_year") != today.year and shop:
+                self.data["bday_bonus_year"] = today.year
+                shop.add_gift_coins(self.BDAY_BONUS)
+            name = (self.board or {}).get("me", {}).get("name", "")
+            code = self.data.get("code", "")
+            self.pet.root.after(4000, lambda: self._celebrate_me(name, code))
+        for days, friend in self.upcoming_birthdays(within=3):
+            code, name = friend["code"], friend.get("name", "?")
+            if days == 0:
+                actions = [(t("bday_join"), lambda c=code: self.open_party(c)),
+                           (t("bday_gift"), lambda c=code: self.open_gift(c))]
+                self.pet.root.after(9000, lambda n=name, a=actions: self.pet.say(
+                    t("bday_today_friend", name=n), actions=a, duration=25, priority=2))
+            elif days in (1, 3):
+                self.pet.root.after(12000, lambda n=name, d=days, c=code: self.pet.say(
+                    t("bday_soon", name=n, n=d), actions=[(t("bday_gift"), lambda: self.open_gift(c))],
+                    duration=12, priority=1))
+        self.save()
+
+    def _celebrate_me(self, name, code):
+        self.pet.do_trick("confetti", force=True)
+        self.pet.say(t("bday_mine", name=name, n=self.BDAY_BONUS),
+                     actions=[(t("bday_my_party"), lambda: self.open_party(code))], duration=20, priority=2)
 
     # ---- arena & duels (v2.8) ----
     def load_arena(self, here=False):
@@ -1134,6 +1314,15 @@ class Social:
                 self.pet.update_setting("friends", False)
             if kind == "bot_reply":
                 self.bot_pending = None
+            if kind in ("party", "party_wish", "gift_sent"):
+                self._pending_gift = None
+                for win in list(self.party_windows.values()):
+                    if win.alive():
+                        win.on_error(payload)
+                        return
+                if kind == "gift_sent":
+                    self.pet.say(t("gift_failed", err=payload), duration=5, priority=1)
+                    return
             if payload == "no_location" and self.window and self.window.alive():
                 self.window.show_error("no_location")
                 return
@@ -1165,6 +1354,42 @@ class Social:
                 chats[key] = chats[key][-BOT_HISTORY:]
                 self.save()
             self._refresh_window()
+            return
+        if kind == "bday_set":
+            result = payload.get("_result", {})
+            if result.get("bday_m"):
+                self.pet.set_action("hop", 0.55)
+                self.pet.say(t("bday_saved", date=bday_text(result["bday_m"], result["bday_d"])), duration=5, priority=1)
+            self._refresh_window()
+            return
+        if kind == "gift_sent":
+            pending = getattr(self, "_pending_gift", None) or {}
+            self._pending_gift = None
+            shop = getattr(self.pet, "shop", None)
+            if shop and pending.get("cost"):
+                shop.spend(pending["cost"])
+            friend = self.friend(pending.get("code", "")) or {}
+            self.pet.set_action("cheer", 1.4)
+            self.pet._spawn("heart", 5)
+            self.pet.say(t("gift_sent", name=friend.get("name", "?")), duration=5, priority=1)
+            for win in list(self.party_windows.values()):
+                if win.alive():
+                    win.on_gift_sent()
+            self._refresh_window()
+            return
+        if kind == "party":
+            code = (payload.get("host") or {}).get("code", "")
+            self.parties[code] = dict(payload, _at=time.time())
+            win = self.party_windows.get(code)
+            if win and win.alive():
+                win.on_party(payload)
+            return
+        if kind == "party_wish":
+            for code, win in list(self.party_windows.items()):
+                if win.alive():
+                    self.load_party(code)
+            return
+        if kind == "gifts_claimed":
             return
         if kind == "geo":
             self.geo_results = payload.get("places", [])
@@ -1298,6 +1523,8 @@ class Social:
             self._apply_owner()
         self._take_notices(board.get("notices", []))
         self._maybe_prompt_location(board)
+        self._take_gifts(board.get("gifts", []))
+        self._check_birthdays()
         self.data["groups"] = [g["code"] for g in board.get("groups", [])]
         self.invites = board.get("invites", self.invites)
         self._notify_requests()
