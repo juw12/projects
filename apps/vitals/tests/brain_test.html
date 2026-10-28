@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Vitals brain tests</title></head>
+<body><pre id="out">running</pre>
+<script src="../web/brain.js"></script>
+<script>
+(function () {
+  const B = window.VitalsBrain;
+  const results = [];
+  const check = (cond, label) => results.push((cond ? "ok   " : "FAIL ") + label);
+  const GB = B.GB;
+
+  // Intent routing — the phrases real users type.
+  const intents = {
+    "free 10 GB without touching downloads": "goal",
+    "i need 500mb of space": "goal",
+    "why is my laptop so slow": "slow",
+    "my mac keeps freezing": "slow",
+    "why is my laptop hot": "hot",
+    "the fan is so loud": "hot",
+    "battery drains overnight": "battery-drain",
+    "why does my battery die so fast": "battery-drain",
+    "battery health": "battery-health",
+    "should i replace my battery": "battery-health",
+    "how do I preserve my battery": "charging",
+    "is it ok to keep it plugged in": "charging",
+    "undo last clean": "undo",
+    "bring it back": "undo",
+    "quit chrome": "quit",
+    "close slack please": "quit",
+    "should I use a ram booster": "ram-myth",
+    "my iphone storage is full": "iphone",
+    "samsung battery tips": "android",
+    "what grew this week": "grew",
+    "show my biggest files": "large",
+    "find duplicate photos": "duplicates",
+    "what starts at login": "startup",
+    "how do I stop apps at startup": "startup",
+    "do you upload my data": "privacy",
+    "clean junk": "storage",
+    "how is my device": "status",
+    "hello": "help",
+  };
+  Object.entries(intents).forEach(([text, want]) => {
+    const got = B.detectIntent(text);
+    check(got === want, "intent '" + text + "' -> " + want + (got === want ? "" : " (got " + got + ")"));
+  });
+
+  // Size parsing.
+  check(Math.abs(B.parseSize("free 10 GB") - 10 * GB) < 1, "parse 10 GB");
+  check(Math.abs(B.parseSize("need 500mb") - 500 * B.MB) < 1, "parse 500 MB");
+  check(Math.abs(B.parseSize("clear 1.5g") - 1.5 * GB) < 1, "parse 1.5 g");
+
+  // Exclusions.
+  const ex = B.parseExclusions("free 10 GB without touching downloads");
+  check(ex.has("old-installers") && ex.has("old-downloads"), "exclusion: downloads");
+  check(B.parseExclusions("free 5gb but keep my backups").has("iphone-backups"), "exclusion: backups");
+  check(B.parseExclusions("free 5 gb").size === 0, "no exclusion when none asked");
+
+  // Goal planner: safe first, respects exclusions, reports shortfall honestly.
+  const scan = {
+    categories: [
+      { id: "app-caches", name: "App caches", safety: "safe", bytes: 3 * GB },
+      { id: "xcode-derived", name: "Xcode", safety: "safe", bytes: 6 * GB },
+      { id: "old-downloads", name: "Old downloads", safety: "review", bytes: 20 * GB },
+      { id: "iphone-backups", name: "Backups", safety: "review", bytes: 30 * GB },
+    ],
+    duplicates: [{ copy_ids: ["a", "b"] }],
+    duplicate_waste: 2 * GB,
+  };
+  let plan = B.planGoal(scan, 5 * GB, {});
+  check(plan.reached && plan.steps[0].id === "xcode-derived" && plan.steps.length === 1, "5 GB goal met by largest safe item alone");
+  plan = B.planGoal(scan, 10 * GB, {});
+  check(plan.steps.map((s) => s.id).join(",") === "xcode-derived,app-caches,duplicates", "safe before duplicates before review");
+  plan = B.planGoal(scan, 30 * GB, { exclude: new Set(["old-downloads"]) });
+  check(!plan.steps.some((s) => s.id === "old-downloads"), "excluded category never planned");
+  plan = B.planGoal(scan, 500 * GB, {});
+  check(!plan.reached && plan.total === plan.available, "unreachable goal reports everything available");
+
+  // Health score is transparent and adds up.
+  const v = {
+    disk: { total: 100 * GB, free: 3 * GB }, memory: { percent: 95, pressure: "high", swap_used: 4 * GB },
+    cpu: { percent: 30 }, battery: { present: true, health_percent: 71.3, cycles: 1453 }, uptime: 3 * 86400,
+  };
+  const h = B.healthScore(v, null);
+  const sum = 100 + h.factors.reduce((s, f) => s + f.points, 0);
+  check(h.score === Math.max(0, sum), "score equals 100 plus listed penalties");
+  check(h.score === 38 && h.band === "Critical", "real-machine profile scores 38 / Critical (got " + h.score + ")");
+  check(B.healthScore({}, null).known === 0, "no data -> no fake score");
+
+  // Responses: browser mode never pretends to clean.
+  const browserReply = B.respond("free 10 GB", { mode: "browser", platform: "iphone" });
+  check(/can't|cannot|need/i.test(browserReply.text) && !browserReply.plan, "browser mode is honest about limits");
+  const ramReply = B.respond("ram booster", { mode: "browser", platform: "android" });
+  check(/don't make devices faster/.test(ramReply.text), "RAM booster myth answered honestly");
+  const agentReply = B.respond("free 5 GB", { mode: "agent", platform: "mac", scan: scan, vitals: v });
+  check(agentReply.plan && agentReply.chips.some((c) => c.action === "clean-plan"), "agent mode returns a cleanable plan");
+  const quitReply = B.respond("quit windowserver", { mode: "agent", processes: [{ pid: 9, name: "WindowServer", protected: true, owned: false, rss: 1 }] });
+  check(/won't touch/.test(quitReply.text) && !quitReply.chips.length, "refuses to quit system processes");
+
+  // Platform detection.
+  check(B.detectPlatform("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)", "", 5) === "iphone", "detect iPhone");
+  check(B.detectPlatform("Mozilla/5.0 (Linux; Android 14; Pixel 8)", "", 5) === "android", "detect Android");
+  check(B.detectPlatform("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", "", 0) === "mac", "detect Mac");
+  check(B.detectPlatform("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", "", 5) === "iphone", "detect iPad (desktop UA + touch)");
+  check(B.detectPlatform("Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "", 0) === "windows", "detect Windows");
+
+  const failed = results.filter((r) => r.startsWith("FAIL")).length;
+  document.getElementById("out").textContent = results.join("\n") + "\n\nRESULT " + (failed ? "FAILED " + failed : "PASSED " + results.length);
+})();
+</script></body></html>

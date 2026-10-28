@@ -17,6 +17,7 @@ runnable, deployable project.
 | [`apps/sync`](apps/sync) | Sync: listen to music together in real time from anywhere, with Spotify, Apple Music, YouTube and shared files in one room, plus voice chat that lowers the music | Static PWA, peer-to-peer WebRTC (PeerJS), no server |
 | [`apps/me-rd-toolkit`](apps/me-rd-toolkit) | Mechanical R&D workspace — NPI flow, review checklists, issue log, engineering calculators and an optional LAN file vault | Static offline PWA + optional zero-dependency Python stdlib vault server |
 | [`apps/plm-aml-approval`](apps/plm-aml-approval) | PLM AML final / conditional approval submission assistant — fills the Windchill approval workflow form and stops before Submit (v0.1 preliminary) | Python + Playwright driving Microsoft Edge; site settings in a local, git-ignored config |
+| [`apps/vitals`](apps/vitals) | Vitals: device health copilot for laptops and phones — safety-graded cleaning with a 72 h Undo Vault and measured receipts, goal planner, battery wear forecast, drain detective, personal baseline and a fix-it chat | Zero-dependency Python stdlib agent + offline PWA (phone pairing) |
 
 ## Ownership and content
 

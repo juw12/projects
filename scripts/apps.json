@@ -850,6 +850,41 @@
       "featured": true,
       "order": 24,
       "portfolio_order": -10
+    },
+    {
+      "id": "vitals",
+      "name": "Vitals",
+      "category": "Apps",
+      "desc": "Device health copilot — undoable storage cleaning, battery wear forecast, drain detective and a diagnostic chat for laptops and phones",
+      "description": "Honest device-health copilot for Mac, Windows, Linux, iPhone and Android. Safety-graded storage cleaning where every cleanup sits in a 72-hour Undo Vault with measured before/after receipts; a goal planner (&ldquo;free 10&nbsp;GB without touching downloads&rdquo;); a transparent health score; battery wear forecast, Drain Detective and idle-drainer alerts; a baseline that learns <em>your</em> normal; and a chat that diagnoses from plain words and runs reversible fixes. Zero-dependency Python agent + offline PWA, phone pairing by one-time code, local-only, no telemetry.",
+      "summary": "Device health copilot: undoable cleaning with measured receipts, battery wear forecast, drain detective and a fix-it chat.",
+      "tags": [
+        "Python",
+        "PWA",
+        "undo vault",
+        "battery",
+        "local-only"
+      ],
+      "note_tags": [
+        "device-health",
+        "storage-cleaner",
+        "battery",
+        "undo-vault",
+        "chat-assistant",
+        "pwa",
+        "python-stdlib",
+        "local-only"
+      ],
+      "image": "vitals-card.jpg",
+      "image_alt": "Vitals overview: health score orb with an itemized why-this-score list, live vitals and ranked one-click fixes",
+      "links": {
+        "app": "vitals/app.html",
+        "web": "vitals/index.html",
+        "mobile": "vitals/mobile.html"
+      },
+      "status": "shipped",
+      "order": 25,
+      "portfolio_order": -10
     }
   ]
 }
