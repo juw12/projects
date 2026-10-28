@@ -757,3 +757,9 @@ body.console-redesign { color-scheme: inherit; }
   .qc-camera { right: 8px; left: 8px; bottom: 8px; width: auto; }
   .qc-camera.is-large { width: auto; }
 }
+
+/* Keep all header actions reachable when opening setup on a narrow phone. */
+@media (max-width: 580px) {
+  .console-redesign .header { height: auto; min-height: 49px; flex-wrap: wrap; gap: 8px; padding-top: 10px; padding-bottom: 10px; }
+  .console-redesign .header-meta { flex: 1 1 100%; min-width: 0; flex-wrap: wrap; justify-content: flex-start; }
+}

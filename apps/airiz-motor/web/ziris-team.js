@@ -12,6 +12,10 @@
  * still work and show as Co-admin. Without an invite nothing is ever sent, so the public app
  * stays quiet for everybody outside the team.
  *
+ * 1.8.2: one-click owner setup posts one shared invite, then commits the owner profile and
+ * auto-post setting. A saved receipt prevents repeat invites; HTTP acceptance is not delivery.
+ * The private workflow URL is never bundled in the app or read from the clipboard on startup.
+ *
  * Transport: the Windows desktop app posts from its main process (airizDesktop.postToTeams),
  * a browser posts directly to the Workflow (Power Automate allows cross-origin POST).
  * Nothing else leaves the PC: the message holds the code, the public watch link, the member
@@ -61,9 +65,14 @@
 
   function isWorkflowUrl(value) {
     try {
-      const url = new URL(String(value || '').trim());
-      return url.protocol === 'https:' && !url.username && !url.password
-        && WORKFLOW_HOSTS.some(pattern => pattern.test(url.hostname));
+      const text = String(value || '').trim();
+      if (!text || text.length > 4000 || /\s/.test(text)) return false;
+      const url = new URL(text);
+      return url.protocol === 'https:' && !url.username && !url.password && !url.hash
+        && (!url.port || url.port === '443')
+        && WORKFLOW_HOSTS.some(pattern => pattern.test(url.hostname))
+        && (/\/workflows\/[^/]+\/triggers\/[^/]+\/paths\/invoke\/?$/i.test(url.pathname)
+          || (/\.webhook\.office\.com$/i.test(url.hostname) && /^\/webhookb2\/.+/i.test(url.pathname)));
     } catch {
       return false;
     }
@@ -170,18 +179,21 @@
         pass: typeof stored.pass === 'string' ? stored.pass : '',
         name: typeof stored.name === 'string' ? cleanName(stored.name) : '',
         // v1.7.2: one switch for every share code (was autoCamera + autoControl).
-        autoPost: typeof stored.autoPost === 'boolean' ? stored.autoPost : stored.autoCamera !== false
+        autoPost: typeof stored.autoPost === 'boolean' ? stored.autoPost : stored.autoCamera !== false,
+        ownerSetup: stored.ownerSetup && typeof stored.ownerSetup === 'object' ? stored.ownerSetup : null
       };
     } catch {
-      return { pass: '', name: '', autoPost: true };
+      return { pass: '', name: '', autoPost: true, ownerSetup: null };
     }
   }
 
   function saveSettings(settings) {
     try {
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      return true;
     } catch {
       // Private mode: the pass then lasts for this session only.
+      return false;
     }
   }
 
@@ -205,6 +217,9 @@
   }
 
   let settings = loadSettings();
+  let ownerSetupRequest = null;
+  let ownerUiBusy = false;
+  let ownerSaveOk = true;
 
   function currentMember() {
     if (!settings.pass) return null;
@@ -223,7 +238,15 @@
     const pass = readPass(inviteText);
     const name = pass.name || cleanName(typedName);
     if (!name) throw new Error('Type your name, then press Join.');
-    settings = { ...settings, pass: pass.pass, name: pass.name ? settings.name : name };
+    const previousOwner = currentMember();
+    const keepReceipt = pass.role === 'owner' && previousOwner && previousOwner.role === 'owner'
+      && sameWorkflowUrl(pass.hook, previousOwner.hook);
+    settings = {
+      ...settings,
+      pass: pass.pass,
+      name: pass.name ? settings.name : name,
+      ownerSetup: keepReceipt ? settings.ownerSetup : null
+    };
     saveSettings(settings);
     return currentMember();
   }
@@ -349,6 +372,7 @@
         body,
         signal: controller.signal,
         credentials: 'omit',
+        redirect: 'error',
         referrerPolicy: 'no-referrer'
       });
       if (!response.ok) throw new Error('Teams answered HTTP ' + response.status + '.');
@@ -360,6 +384,101 @@
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  // ------------------------------------------------------------------ owner setup
+
+  function sameWorkflowUrl(first, second) {
+    try {
+      return new URL(first).href === new URL(second).href;
+    } catch {
+      return false;
+    }
+  }
+
+  // A receipt is only reusable by the owner profile for exactly the same destination.
+  // It contains the SHARED Co-admin invite, never the private personal Owner pass.
+  function ownerReceipt() {
+    const member = currentMember();
+    const receipt = settings.ownerSetup;
+    if (!member || member.role !== 'owner' || !sameName(member.name, OWNER_NAME)
+      || !receipt || !Number.isFinite(receipt.acceptedAt) || receipt.acceptedAt <= 0) return null;
+    try {
+      const invite = readPass(receipt.invite);
+      if (!invite.shared || invite.role !== 'coadmin' || !sameWorkflowUrl(invite.hook, member.hook)) return null;
+      return { invite: invite.pass, acceptedAt: receipt.acceptedAt, hook: member.hook };
+    } catch {
+      return null;
+    }
+  }
+
+  async function completeOwnerSetup(workflowUrl) {
+    const hook = String(workflowUrl || '').trim();
+    if (!isWorkflowUrl(hook)) {
+      throw new Error('Paste the complete HTTPS Teams workflow address, then try again.');
+    }
+    const previousSettings = settings;
+    const receipt = ownerReceipt();
+    const reused = !!(receipt && sameWorkflowUrl(receipt.hook, hook));
+    const sharedPass = reused ? receipt.invite : createPass({ workflowUrl: hook });
+    const link = inviteLink(sharedPass);
+    let response = null;
+    if (!reused) {
+      // This single invite doubles as the connection test. Never send a second test card.
+      response = await postMessage(hook, buildInviteMessage(link));
+      if (settings !== previousSettings) {
+        throw new Error('Team settings changed during setup. The invite may be in Teams; your current profile was kept.');
+      }
+    }
+    settings = {
+      ...previousSettings,
+      pass: createPass({ name: OWNER_NAME, role: 'owner', workflowUrl: hook }),
+      name: OWNER_NAME,
+      autoPost: true,
+      ownerSetup: {
+        invite: sharedPass,
+        acceptedAt: reused ? receipt.acceptedAt : Date.now()
+      }
+    };
+    ownerSaveOk = saveSettings(settings);
+    if (!reused) addLog({ at: Date.now(), kind: 'invite', code: '', ok: true, by: OWNER_NAME });
+    return {
+      ok: true,
+      reused,
+      persisted: ownerSaveOk,
+      inviteLink: link,
+      // A 2xx response is workflow acceptance, not proof of downstream delivery.
+      accepted: true,
+      status: response ? response.status : null
+    };
+  }
+
+  function setupOwner({ workflowUrl } = {}) {
+    if (ownerSetupRequest) return ownerSetupRequest;
+    ownerSetupRequest = completeOwnerSetup(workflowUrl).finally(() => {
+      ownerSetupRequest = null;
+    });
+    return ownerSetupRequest;
+  }
+
+  async function readOwnerClipboard() {
+    let value = '';
+    const desktop = window.airizDesktop;
+    if (desktop && typeof desktop.readTeamsWorkflowClipboard === 'function') {
+      // The native bridge only returns a validated Teams URL, never arbitrary clipboard text.
+      const result = await desktop.readTeamsWorkflowClipboard();
+      value = result && result.workflowUrl;
+    } else {
+      try {
+        value = await navigator.clipboard.readText();
+      } catch {
+        throw new Error('Clipboard access is unavailable. Paste the workflow address into the box and press Finish owner setup.');
+      }
+    }
+    if (!isWorkflowUrl(value)) {
+      throw new Error('No Teams workflow address was found on the clipboard. Copy it from Teams or paste it into the box.');
+    }
+    return String(value).trim();
   }
 
   // 1.8.0: motion alert from the PTZ smart detection (members only; the caller rate-limits).
@@ -502,8 +621,9 @@
       const item = document.createElement('li');
       const badge = document.createElement('span');
       badge.className = 'team-log-badge ' + (entry.ok ? 'ok' : 'failed');
-      badge.textContent = entry.ok ? 'Sent' : 'Failed';
-      const what = entry.kind === 'test' ? 'Test message'
+      badge.textContent = entry.ok ? (entry.kind === 'invite' ? 'Accepted' : 'Sent') : 'Failed';
+      const what = entry.kind === 'invite' ? 'Team invite'
+        : entry.kind === 'test' ? 'Test message'
         : entry.kind === 'alert' ? 'Motion alert'
           : (entry.kind === 'control' ? 'Control code ' : 'Camera code ') + entry.code;
       item.append(badge, document.createTextNode(' ' + what + ' \u00b7 ' + formatTime(entry.at)
@@ -529,16 +649,17 @@
     const autoPost = $('team-auto-post');
     if (autoPost) {
       autoPost.checked = settings.autoPost;
-      autoPost.disabled = !member;
+      autoPost.disabled = !member || ownerUiBusy;
     }
     const handoff = $('team-app-handoff');
     if (handoff) handoff.hidden = !(member && canHandToWindowsApp());
     const test = $('team-test');
-    if (test) test.disabled = !member;
+    if (test) test.disabled = !member || ownerUiBusy;
     const sidebar = $('sidebar-team-member');
     if (sidebar) sidebar.textContent = member ? member.name + ' \u00b7 ' + member.roleLabel : 'Guest';
     renderShareLine();
     renderLog();
+    renderOwnerSetup();
   }
 
   let shareState = null;
@@ -625,15 +746,167 @@
       await navigator.clipboard.writeText(text);
       return true;
     } catch {
-      if (input) {
-        input.select();
-        return document.execCommand('copy');
+      try {
+        if (input) {
+          input.select();
+          return document.execCommand('copy');
+        }
+      } catch {
+        // Clipboard failure must not undo a successful owner setup.
       }
       return false;
     }
   }
 
+  function showOwnerStatus(message, state = 'ok') {
+    const status = $('team-owner-status');
+    if (!status) return;
+    status.textContent = message;
+    status.dataset.state = state;
+  }
+
+  function ownerStep(step, state) {
+    const element = $('team-owner-step-' + step);
+    if (element) element.dataset.state = state;
+  }
+
+  function setOwnerBusy(busy) {
+    ownerUiBusy = busy;
+    const card = $('team-owner-card');
+    if (card) card.setAttribute('aria-busy', String(busy));
+    for (const id of ['team-owner-setup', 'team-owner-url', 'team-owner-reveal', 'team-owner-name',
+      'team-owner-create', 'team-owner-post', 'team-owner-copy', 'team-leave', 'team-join-button',
+      'team-auto-post', 'team-test']) {
+      const element = $(id);
+      if (element) element.disabled = busy;
+    }
+    if (busy) setText('team-owner-setup', 'Setting up owner…');
+    else renderMembership();
+  }
+
+  function showOwnerInvite(link) {
+    const output = $('team-owner-pass');
+    if (output) output.value = link;
+    for (const id of ['team-owner-copy', 'team-owner-post']) {
+      const button = $(id);
+      if (button) button.disabled = ownerUiBusy || !link;
+    }
+  }
+
+  function renderOwnerSetup() {
+    if (ownerUiBusy) return;
+    const member = currentMember();
+    const input = $('team-owner-url');
+    const button = $('team-owner-setup');
+    if (!input || !button) return;
+    if (!input.dataset.edited) input.value = member && member.role === 'owner' ? member.hook : '';
+    const receipt = ownerReceipt();
+    const ready = !!(receipt && sameWorkflowUrl(receipt.hook, input.value.trim()));
+    button.disabled = ready && settings.autoPost;
+    button.textContent = ready
+      ? (settings.autoPost ? 'Owner setup complete' : 'Enable owner auto-post')
+      : 'Finish owner setup';
+    const progress = $('team-owner-progress');
+    if (progress) progress.hidden = !ready;
+    if (ready) {
+      ownerStep('url', 'done');
+      ownerStep('invite', 'done');
+      ownerStep('profile', settings.autoPost ? 'done' : 'pending');
+      ownerStep('save', ownerSaveOk ? 'done' : 'error');
+      const output = $('team-owner-pass');
+      if (output && (!output.value || output.dataset.source !== 'manual')) {
+        output.dataset.source = 'saved';
+        showOwnerInvite(inviteLink(receipt.invite));
+      }
+    }
+    const hasLink = !!($('team-owner-pass') && $('team-owner-pass').value);
+    for (const id of ['team-owner-copy', 'team-owner-post']) {
+      const element = $(id);
+      if (element) element.disabled = !hasLink;
+    }
+  }
+
+  async function runOwnerSetup() {
+    if (ownerUiBusy) return;
+    const member = currentMember();
+    if (member && (member.role !== 'owner' || !sameName(member.name, OWNER_NAME))) {
+      if (!confirm('Set up this PC as Juwen Lie (Owner)? This replaces the current local team profile.')) return;
+    }
+    setOwnerBusy(true);
+    const progress = $('team-owner-progress');
+    if (progress) progress.hidden = false;
+    for (const step of ['url', 'invite', 'profile', 'save']) ownerStep(step, 'pending');
+    ownerStep('url', 'working');
+    showOwnerStatus('Checking the owner workflow address…', 'working');
+    let stage = 'url';
+    let outcome = null;
+    try {
+      const input = $('team-owner-url');
+      const hook = input.value.trim() || await readOwnerClipboard();
+      if (!isWorkflowUrl(hook)) throw new Error('Paste the complete HTTPS Teams workflow address, then try again.');
+      input.value = hook;
+      input.dataset.edited = 'true';
+      ownerStep('url', 'done');
+      stage = 'invite';
+      ownerStep('invite', 'working');
+      showOwnerStatus('Submitting one shared invite to the Ziris PTB workflow…', 'working');
+      outcome = await setupOwner({ workflowUrl: hook });
+      const output = $('team-owner-pass');
+      output.dataset.source = 'saved';
+      showOwnerInvite(outcome.inviteLink);
+      const copied = await copyText(outcome.inviteLink, output);
+      let message = outcome.reused
+        ? 'Owner auto-post enabled. The existing invite was reused; no new card was submitted.'
+        : 'Owner setup complete. The workflow accepted the invite; check the Ziris PTB chat to confirm delivery.';
+      message += outcome.persisted
+        ? ' Saved for next launch in this app/browser.'
+        : ' Storage is unavailable: this setup lasts only for this session.';
+      message += copied ? ' Invite link copied.' : ' Clipboard copy was blocked; use Copy invite link.';
+      showOwnerStatus(message, outcome.persisted ? 'ok' : 'warning');
+    } catch (error) {
+      let message = 'Owner setup was not completed. Your previous team settings were kept. ' + error.message;
+      if (stage === 'invite') {
+        message += ' Check the Teams chat before retrying; a timed-out request may still arrive.';
+        if (/HTTP (401|403)/.test(error.message)) {
+          message += ' This console needs an Anyone trigger permitted by your organization; it cannot bypass Microsoft sign-in.';
+        }
+      }
+      showOwnerStatus(message, 'error');
+    } finally {
+      setOwnerBusy(false);
+      // Keep the failed step visible instead of replacing it with a false success state.
+      if (!outcome) {
+        if (progress) progress.hidden = false;
+        ownerStep(stage, 'error');
+      }
+    }
+  }
+
   function bindTeamPage() {
+    const ownerButton = $('team-owner-setup');
+    if (ownerButton) ownerButton.addEventListener('click', runOwnerSetup);
+    const ownerUrl = $('team-owner-url');
+    if (ownerUrl) {
+      ownerUrl.addEventListener('input', () => {
+        ownerUrl.dataset.edited = 'true';
+        showOwnerInvite('');
+        showOwnerStatus('', 'idle');
+        renderOwnerSetup();
+      });
+      ownerUrl.addEventListener('keydown', event => {
+        if (event.key === 'Enter' && !event.shiftKey && ownerButton && !ownerButton.disabled) {
+          event.preventDefault();
+          ownerButton.click();
+        }
+      });
+    }
+    const reveal = $('team-owner-reveal');
+    if (reveal && ownerUrl) reveal.addEventListener('click', () => {
+      const visible = ownerUrl.type === 'password';
+      ownerUrl.type = visible ? 'text' : 'password';
+      reveal.textContent = visible ? 'Hide address' : 'Show address';
+      reveal.setAttribute('aria-pressed', String(visible));
+    });
     const joinButton = $('team-join-button');
     if (joinButton) {
       joinButton.addEventListener('click', () => {
@@ -683,8 +956,14 @@
     if (leaveButton) {
       leaveButton.addEventListener('click', () => {
         if (!confirm('Leave the ' + TEAM_NAME + ' team on this PC? Auto-post stops until you join again.')) return;
-        settings = { ...settings, pass: '' };
+        settings = { ...settings, pass: '', ownerSetup: null };
         saveSettings(settings);
+        if (ownerUrl) {
+          ownerUrl.value = '';
+          delete ownerUrl.dataset.edited;
+        }
+        showOwnerInvite('');
+        showOwnerStatus('', 'idle');
         renderMembership();
         showTeamStatus('Left the team on this PC.', false);
       });
@@ -693,8 +972,9 @@
     if (autoPostBox) {
       autoPostBox.addEventListener('change', () => {
         settings = { ...settings, autoPost: autoPostBox.checked };
-        saveSettings(settings);
+        ownerSaveOk = saveSettings(settings);
         renderShareLine();
+        renderOwnerSetup();
       });
     }
     const testButton = $('team-test');
@@ -725,10 +1005,11 @@
           const name = cleanName($('team-owner-name').value);
           const pass = createPass({ name, workflowUrl: $('team-owner-url').value });
           output.value = inviteLink(pass);
+          output.dataset.source = 'manual';
           $('team-owner-copy').disabled = false;
           const post = $('team-owner-post');
           if (post) post.disabled = false;
-          setText('team-owner-status', name
+          showOwnerStatus(name
             ? 'Invite ready for ' + name + '. Send it privately.'
             : 'Invite ready for every co-admin. Press Post invite to Ziris PTB chat, or copy the link. '
               + 'Anyone holding it can post to ' + TEAM_NAME + ', so keep it inside the team.');
@@ -737,7 +1018,7 @@
           $('team-owner-copy').disabled = true;
           const post = $('team-owner-post');
           if (post) post.disabled = true;
-          setText('team-owner-status', error.message);
+          showOwnerStatus(error.message, 'error');
         }
       });
     }
@@ -747,12 +1028,14 @@
         const link = $('team-owner-pass').value;
         if (!link) return;
         postButton.disabled = true;
-        setText('team-owner-status', 'Posting the invite to ' + TEAM_NAME + '\u2026');
+        showOwnerStatus('Posting the invite to ' + TEAM_NAME + '\u2026', 'working');
         try {
           await postMessage(readPass(link).hook, buildInviteMessage(link));
-          setText('team-owner-status', 'Invite posted to the ' + TEAM_NAME + ' chat. Co-admins press Join there and type their name.');
+          addLog({ at: Date.now(), kind: 'invite', code: '', ok: true, by: OWNER_NAME });
+          renderLog();
+          showOwnerStatus('The workflow accepted the invite. Check the Ziris PTB chat to confirm delivery.');
         } catch (error) {
-          setText('team-owner-status', 'Could not post the invite: ' + error.message);
+          showOwnerStatus('Could not post the invite: ' + error.message, 'error');
         } finally {
           postButton.disabled = false;
         }
@@ -764,7 +1047,7 @@
         const output = $('team-owner-pass');
         if (!output.value) return;
         const copied = await copyText(output.value, output);
-        setText('team-owner-status', copied ? 'Invite link copied.' : 'Select the link and copy it with Ctrl+C.');
+        showOwnerStatus(copied ? 'Invite link copied.' : 'Open Advanced, select the link and copy it with Ctrl+C.', copied ? 'ok' : 'warning');
       });
     }
     // The Share control dialog is built on first use: delegate the resend click.
@@ -782,6 +1065,7 @@
     window.addEventListener('storage', event => {
       if (event.key === SETTINGS_KEY) {
         settings = loadSettings();
+        ownerSaveOk = true;
         renderMembership();
       }
       if (event.key === LOG_KEY) renderLog();
@@ -790,6 +1074,11 @@
       element.textContent = OWNER_NAME;
     });
     renderMembership();
+    if (ownerReceipt()) {
+      showOwnerStatus(settings.autoPost
+        ? 'Owner setup restored. Auto-post is on; no invite was submitted on startup.'
+        : 'Owner setup restored. Auto-post is off; enable it when you want to share codes to Teams.');
+    }
     if (invitedPass) openInvite(invitedPass, '', false);
     takeDesktopInvite();
   }
@@ -848,6 +1137,7 @@
     TEAM_NAME,
     ROLES,
     createPass,
+    setupOwner,
     readPass,
     joinTeam,
     inviteLink,

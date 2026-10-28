@@ -32,9 +32,11 @@ function resolveAsset(root, requestUrl) {
 function canOpenExternal(value) {
   try {
     const url = new URL(value);
-    if (url.protocol !== 'https:' || url.username || url.password) return false;
+    if (url.protocol !== 'https:' || url.username || url.password || (url.port && url.port !== '443')) return false;
     return (url.hostname === 'github.com' && url.pathname.startsWith('/juw12/projects/'))
-      || (url.hostname === 'juw12.github.io' && url.pathname.startsWith('/projects/airiz-motor/'));
+      || (url.hostname === 'juw12.github.io' && url.pathname.startsWith('/projects/airiz-motor/'))
+      || (!url.search && !url.hash && (url.href === 'https://teams.microsoft.com/'
+        || url.href === 'https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook'));
   } catch {
     return false;
   }
@@ -43,14 +45,26 @@ function canOpenExternal(value) {
 // Ziris PTB Teams auto-post: Power Automate workflow / Teams webhook endpoints only.
 function isTeamsWorkflowUrl(value) {
   try {
-    const url = new URL(String(value));
-    if (url.protocol !== 'https:' || url.username || url.password || (url.port && url.port !== '443')) return false;
-    return /^[a-z0-9-]+(\.[a-z0-9-]+)*\.logic\.azure\.com$/i.test(url.hostname)
+    const text = String(value || '').trim();
+    if (!text || text.length > 4000 || /\s/.test(text)) return false;
+    const url = new URL(text);
+    if (url.protocol !== 'https:' || url.username || url.password || url.hash
+      || (url.port && url.port !== '443')) return false;
+    const allowedHost = /^[a-z0-9-]+(\.[a-z0-9-]+)*\.logic\.azure\.com$/i.test(url.hostname)
       || /^[a-z0-9-]+(\.[a-z0-9-]+)*\.api\.powerplatform\.com$/i.test(url.hostname)
       || /^[a-z0-9-]+\.webhook\.office\.com$/i.test(url.hostname);
+    const triggerPath = /\/workflows\/[^/]+\/triggers\/[^/]+\/paths\/invoke\/?$/i.test(url.pathname)
+      || (/\.webhook\.office\.com$/i.test(url.hostname) && /^\/webhookb2\/.+/i.test(url.pathname));
+    return allowedHost && triggerPath;
   } catch {
     return false;
   }
+}
+
+// Owner setup is the only clipboard reader. Do not expose unrelated clipboard data to the renderer.
+function teamsWorkflowFromClipboard(value) {
+  const text = typeof value === 'string' ? value.trim() : '';
+  return isTeamsWorkflowUrl(text) ? text : '';
 }
 
 // Ziris PTB invite handed over from the website / Teams:
@@ -97,6 +111,6 @@ function publicPort(port) {
 }
 
 module.exports = {
-  isAppUrl, resolveAsset, canOpenExternal, isTeamsWorkflowUrl, publicPort,
+  isAppUrl, resolveAsset, canOpenExternal, isTeamsWorkflowUrl, teamsWorkflowFromClipboard, publicPort,
   DEEP_LINK_SCHEME, parseTeamInvite, findTeamInvite
 };
