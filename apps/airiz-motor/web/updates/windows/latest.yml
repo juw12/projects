@@ -1,14 +1,14 @@
 {
-  "version": "1.7.0",
+  "version": "1.7.1",
   "files": [
     {
-      "url": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.7.0/AIRIZ-Console-Setup-1.7.0-x64.exe",
-      "sha512": "j6E/JPuQCGBfUk7MqmzphWWbeca2jYI8I88X64v0rMx30rHUI1ExQYls4Zo/LDgfMXoDYxAKax/TqDsgxVJ5oQ==",
-      "size": 121824825
+      "url": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.7.1/AIRIZ-Console-Setup-1.7.1-x64.exe",
+      "sha512": "7M9MPydApcXc0CNf5gh2NgmcwIP0nROMy+2aApUohqZn5Yv4brW1jkzEcEmGLTQrXV5MtRMvYfFleFfqt6lm+g==",
+      "size": 121827565
     }
   ],
-  "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.7.0/AIRIZ-Console-Setup-1.7.0-x64.exe",
-  "sha512": "j6E/JPuQCGBfUk7MqmzphWWbeca2jYI8I88X64v0rMx30rHUI1ExQYls4Zo/LDgfMXoDYxAKax/TqDsgxVJ5oQ==",
-  "releaseDate": "2026-10-28T04:08:42.565361+00:00",
-  "releaseName": "AIRIZ Console 1.7.0"
+  "path": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.7.1/AIRIZ-Console-Setup-1.7.1-x64.exe",
+  "sha512": "7M9MPydApcXc0CNf5gh2NgmcwIP0nROMy+2aApUohqZn5Yv4brW1jkzEcEmGLTQrXV5MtRMvYfFleFfqt6lm+g==",
+  "releaseDate": "2026-10-28T04:49:29.643517+00:00",
+  "releaseName": "AIRIZ Console 1.7.1 - One role: Co-admin, join the team with one invite"
 }
