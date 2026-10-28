@@ -279,7 +279,9 @@ class FriendsWindow:
                     "premium_only": t("fr_err_premium_only"), "busy": t("duel_err_busy"),
                     "no_location": t("wx_err_auto"), "bad_location": t("wx_err_auto"),
                     "bot_limit": t("bot_err_limit"), "bot": t("bot_err_friend"),
-                    "expired": t("duel_expired")}
+                    "expired": t("duel_expired"), "gift_limit": t("gift_err_limit"),
+                    "wish_limit": t("party_err_wish_limit"), "not_birthday": t("party_err_not_birthday"),
+                    "empty": t("gift_pick")}
         self.error = messages.get(code, t("fr_err_generic", code=code))
         self.refresh(force=True)
 
@@ -525,6 +527,7 @@ class FriendsWindow:
         sent = self.social.sent_requests()
         if sent:
             self._label(self.body, t("req_sent_count", n=len(sent)), size=8, fg=self.MUTED).pack(fill="x", pady=(0, 4))
+        self._render_upcoming_birthdays()
         self._label(self.body, t("fr_today_board"), bold=True).pack(fill="x", pady=(4, 2))
         people = [dict(board.get("me", {}), _me=True, code=self.social.data.get("code"),
                        avatar_v=self.social.data.get("avatar_v", 0))] if board.get("me") else []
@@ -562,6 +565,15 @@ class FriendsWindow:
         label_btn = self._button(acts, "\u2661 " + t("lbl_set"), lambda: None, small=True)
         label_btn.bind("<Button-1>", lambda e, c=code, cur=person.get("label", ""): self._label_menu(e, c, cur))
         buttons.append(label_btn)
+        buttons.append(self._button(acts, "\U0001F381 " + t("bday_gift"), lambda c=code: self.social.open_gift(c),
+                                    small=True))
+        days = self.social.days_until(person.get("bday"))
+        if days == 0:
+            buttons.append(self._button(acts, "\U0001F389 " + t("bday_join"), lambda c=code: self.social.open_party(c),
+                                        small=True, primary=True))
+        if days is not None and days <= 7:
+            chip = "\U0001F382 " + (t("bday_is_today") if days == 0 else t("bday_in_days", n=days))
+            self._label(parent, chip, size=8, bold=days == 0, fg=self.PINK, bg=bg).pack(fill="x")
         for i, btn in enumerate(buttons):
             btn.grid(row=i // 3, column=i % 3, sticky="ew", padx=(0, 3), pady=(0, 2))
 
@@ -1173,6 +1185,19 @@ class FriendsWindow:
             self._label(card, t("prof_private_body"), size=8, fg=self.MUTED, bg=self.TILE,
                         wrap=self.WIDTH - 90).pack(fill="x", pady=(2, 0))
             return
+        if user.get("bday"):
+            import social as social_mod
+            days = self.social.days_until(user["bday"])
+            when = social_mod.bday_text(user["bday"]["m"], user["bday"]["d"])
+            text = "\U0001F382 " + (t("bday_view_today", date=when) if days == 0 else t("bday_view", date=when))
+            self._label(self.body, text, size=9, bold=days == 0, fg=self.PINK).pack(fill="x", pady=(2, 0))
+            if days == 0 and user.get("code") != self.social.data.get("code") and self.social.friend(user.get("code", "")):
+                prow = tk.Frame(self.body, bg=self.CARD)
+                prow.pack(fill="x", pady=(2, 4))
+                self._button(prow, "\U0001F389 " + t("bday_join"), lambda c=user["code"]: self.social.open_party(c),
+                             primary=True, small=True).pack(side="left")
+                self._button(prow, "\U0001F381 " + t("bday_gift"), lambda c=user["code"]: self.social.open_gift(c),
+                             small=True).pack(side="left", padx=4)
         if user.get("bio"):
             self._section_title(t("prof_about"))
             self._label(self.body, user["bio"], wrap=self.WIDTH - 70).pack(fill="x")
@@ -1716,6 +1741,7 @@ class FriendsWindow:
             self._label(self.body, t("prof_offline_note"), size=8, fg=self.MUTED,
                         wrap=self.WIDTH - 70).pack(fill="x", pady=(4, 0))
         self._render_location()
+        self._render_birthday()
         # theme
         self._section_title(t("theme_title"))
         th = tk.Frame(self.body, bg=self.CARD)
@@ -1764,6 +1790,79 @@ class FriendsWindow:
             self._button(row2, "\u2715 " + t("wx_remove"), lambda: self.social.set_location("off"), small=True).pack(
                 side="left", padx=4)
         self._label(self.body, t("wx_privacy"), size=8, fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x", pady=(4, 0))
+
+    # ---- birthday (v2.13) ----
+    def _render_birthday(self):
+        self._section_title("\U0001F382 " + t("bday_title"))
+        if not self.social.enabled:
+            self._label(self.body, t("premium_needs_friends"), size=8, fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x")
+            return
+        month, day, visible = self.social.my_birthday()
+        import social as social_mod
+        if month:
+            days = self.social.days_until({"m": month, "d": day})
+            when = social_mod.bday_text(month, day)
+            line = t("bday_current_today", date=when) if days == 0 else t("bday_current", date=when, n=days)
+            self._label(self.body, "\U0001F382 " + line, bold=True, fg=self.PINK).pack(fill="x")
+            if not visible:
+                self._label(self.body, "\U0001F512 " + t("bday_hidden"), size=8, fg=self.MUTED).pack(fill="x")
+        else:
+            self._label(self.body, t("bday_none"), size=8, fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x")
+        row = tk.Frame(self.body, bg=self.CARD)
+        row.pack(fill="x", pady=(6, 0))
+        months = [t("month_%d" % m) for m in range(1, 13)]
+        self.bday_month = tk.StringVar(value=months[month - 1] if month else months[0])
+        self.bday_day = tk.StringVar(value=str(day or 1))
+        self.bday_visible = tk.BooleanVar(value=visible)
+        month_menu = tk.OptionMenu(row, self.bday_month, *months)
+        month_menu.config(font=("Segoe UI", 9), bg=self.SOFT, fg=self.INK, relief="flat", highlightthickness=0,
+                          activebackground=self.WARM, width=10)
+        month_menu.pack(side="left")
+        day_menu = tk.OptionMenu(row, self.bday_day, *[str(d) for d in range(1, 32)])
+        day_menu.config(font=("Segoe UI", 9), bg=self.SOFT, fg=self.INK, relief="flat", highlightthickness=0,
+                        activebackground=self.WARM, width=3)
+        day_menu.pack(side="left", padx=4)
+        tk.Checkbutton(row, text=t("bday_show"), variable=self.bday_visible, font=("Segoe UI", 8), bg=self.CARD,
+                       fg=self.INK, activebackground=self.CARD, selectcolor=self.CARD).pack(side="left", padx=4)
+        row2 = tk.Frame(self.body, bg=self.CARD)
+        row2.pack(fill="x", pady=(4, 0))
+        self._button(row2, "\u2714 " + t("bday_save"), lambda: self._save_birthday(months), primary=True,
+                     small=True).pack(side="left")
+        if month:
+            self._button(row2, "\u2715 " + t("wx_remove"), lambda: self.social.set_birthday(0, 0, True),
+                         small=True).pack(side="left", padx=4)
+        self._label(self.body, t("bday_privacy"), size=8, fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x", pady=(4, 0))
+
+    def _save_birthday(self, months):
+        try:
+            month = months.index(self.bday_month.get()) + 1
+            day = int(self.bday_day.get())
+        except ValueError:
+            return
+        self.social.set_birthday(month, day, bool(self.bday_visible.get()))
+        self.status.config(text=t("fr_connecting"), fg=self.MUTED)
+
+    def _render_upcoming_birthdays(self):
+        upcoming = self.social.upcoming_birthdays(within=7)
+        if not upcoming:
+            return
+        card = tk.Frame(self.body, bg=self.WARM, padx=8, pady=6)
+        card.pack(fill="x", pady=(0, 8))
+        self._label(card, "\U0001F382 " + t("bday_upcoming"), bold=True, fg=self.PINK, bg=self.WARM).pack(fill="x")
+        for days, friend in upcoming[:5]:
+            row = tk.Frame(card, bg=self.WARM)
+            row.pack(fill="x", pady=1)
+            av = self._avatar(row, friend.get("species"), friend.get("color"), size=26, bg=self.WARM,
+                              look=friend.get("look"), person=friend)
+            av.pack(side="left", padx=(0, 6))
+            when = t("bday_is_today") if days == 0 else t("bday_in_days", n=days)
+            self._label(row, f"{friend.get('name', '?')} \u00b7 {when}", bold=days == 0, bg=self.WARM).pack(side="left")
+            code = friend["code"]
+            if days == 0:
+                self._button(row, "\U0001F389 " + t("bday_join"), lambda c=code: self.social.open_party(c),
+                             primary=True, small=True).pack(side="right")
+            self._button(row, "\U0001F381 " + t("bday_gift"), lambda c=code: self.social.open_gift(c),
+                         small=True).pack(side="right", padx=3)
 
     def _search_city(self):
         query = self.city_var.get().strip()

@@ -2,6 +2,41 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.13.0",
+      "date": "2026-10-28",
+      "title": "Birthdays, parties & gifts",
+      "notes": {
+        "en": [
+          "Set your birthday in Social → Profile (month + day, optionally visible to friends).",
+          "On your birthday Pips throws confetti and gives you 100 bonus coins.",
+          "Friends tab shows upcoming birthdays; you get reminders 3 days, 1 day and on the day.",
+          "Birthday parties: join a friend's party, see who's there, sign the guestbook and celebrate together.",
+          "Send gifts: any shop item (previewed on their pet), coins, or both, with a message — paid from your own coins."
+        ],
+        "id": [
+          "Atur ulang tahunmu di Sosial → Profil (bulan + tanggal, bisa ditampilkan ke teman).",
+          "Di hari ulang tahunmu Pips menebar konfeti dan memberi 100 koin bonus.",
+          "Tab Teman menampilkan ulang tahun terdekat; pengingat 3 hari, 1 hari, dan di hari-H.",
+          "Pesta ulang tahun: datang ke pesta teman, lihat siapa yang hadir, tulis di buku tamu dan rayakan bersama.",
+          "Kirim hadiah: item toko (pratinjau di pet mereka), koin, atau keduanya, dengan pesan — dibayar dari koinmu."
+        ],
+        "zh_TW": [
+          "在 社交 → 個人檔案 設定生日（月 + 日，可選擇讓好友看到）。",
+          "生日當天 Pips 會灑彩帶並送你 100 枚獎勵金幣。",
+          "好友分頁顯示即將到來的生日；前 3 天、前 1 天與當天都會提醒。",
+          "生日派對：參加好友的派對、看看誰在場、在留言簿寫祝福並一起慶祝。",
+          "送禮：任何商店物品（可在對方寵物上預覽）、金幣或兩者皆送，並附上留言——由你自己的金幣支付。"
+        ],
+        "zh_CN": [
+          "在 社交 → 个人资料 设置生日（月 + 日，可选择让好友看到）。",
+          "生日当天 Pips 会撒彩带并送你 100 枚奖励金币。",
+          "好友页显示即将到来的生日；提前 3 天、1 天和当天都会提醒。",
+          "生日派对：参加好友的派对、看看谁在场、在留言簿写祝福并一起庆祝。",
+          "送礼：任何商店物品（可在对方宠物上预览）、金币或两者都送，并附上留言——由你自己的金币支付。"
+        ]
+      }
+    },
+    {
       "version": "2.12.0",
       "date": "2026-10-28",
       "title": "Mega update: 28 new animals, 31 shop items, 13 moves",
