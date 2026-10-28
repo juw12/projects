@@ -9,8 +9,13 @@ social.py - levels, achievements and Friends for Pips.
   colour, level, XP, streak, today's / this week's pomodoros and focus minutes,
   achievements, pet mood. Never: app names, window titles, scores, files.
 
+v2 adds chat (friends + groups), private groups ("circles") with invites,
+affinity (friendship level that grows with every interaction) and pet
+interactions: wave, pet, snack, high five and pet visits (the friend's pet
+walks onto your desktop for a moment).
+
 Account (id + secret + friend code) lives in data/social.json on this PC.
-All user-facing text comes from i18n.py.
+The window lives in social_ui.py. All user-facing text comes from i18n.py.
 """
 
 from __future__ import annotations
@@ -20,6 +25,7 @@ import logging
 import math
 import os
 import queue
+import random
 import sqlite3
 import threading
 import time
@@ -42,6 +48,27 @@ SYNC_EVERY_S = 10 * 60
 BOARD_EVERY_S = 15 * 60
 ACH_CHECK_EVERY_S = 5 * 60
 FRIEND_NEWS_GAP_S = 30 * 60
+INBOX_EVERY_S = 45
+INBOX_FAST_S = 5          # while a chat is open
+MAX_ROOM_HISTORY = 150
+
+# affinity (friendship) levels: (points needed, i18n key)
+AFFINITY_LEVELS = [(0, "aff_acq"), (20, "aff_buddy"), (60, "aff_good"), (150, "aff_close"),
+                   (300, "aff_best"), (600, "aff_soul")]
+INTERACTIONS = ("wave", "pet", "snack", "highfive", "visit")
+INTERACTION_SYMBOL = {"wave": "\u270b", "pet": "\u2665", "snack": "\u2615", "highfive": "\u2605",
+                      "visit": "\u2302", "cheer": "\u266b"}
+
+
+def affinity_level(points: int):
+    """-> (level index 0.., i18n key, points of this level, points of next level or None)."""
+    points = max(0, int(points or 0))
+    index = 0
+    for i, (need, _key) in enumerate(AFFINITY_LEVELS):
+        if points >= need:
+            index = i
+    nxt = AFFINITY_LEVELS[index + 1][0] if index + 1 < len(AFFINITY_LEVELS) else None
+    return index, AFFINITY_LEVELS[index][1], AFFINITY_LEVELS[index][0], nxt
 
 # (id, symbol, condition) - names/descriptions are i18n keys "ach_<id>"
 ACHIEVEMENTS = [
@@ -65,6 +92,8 @@ ACHIEVEMENTS = [
     ("chef", "\u2615", lambda s: s["snacks_total"] >= 20),
     ("friend_1", "\u263a", lambda s: s["friends"] >= 1),
     ("team_1", "\u2691", lambda s: s["groups"] >= 1),
+    ("close_friend", "\u2766", lambda s: s.get("max_affinity", 0) >= 150),
+    ("visitor", "\u2302", lambda s: s.get("visits_sent", 0) >= 1),
 ]
 ACH_IDS = [a[0] for a in ACHIEVEMENTS]
 ACH_SYMBOL = {a[0]: a[1] for a in ACHIEVEMENTS}
@@ -96,7 +125,7 @@ def _parse(ts):
 
 
 def compute_stats(db_path, pet_state: dict | None = None, friends: int = 0, groups: int = 0,
-                  today: date | None = None) -> dict:
+                  today: date | None = None, max_affinity: int = 0, visits_sent: int = 0) -> dict:
     """Everything the level / achievement / Friends features need, from local data only."""
     today = today or date.today()
     pet_state = pet_state or {}
@@ -183,6 +212,8 @@ def compute_stats(db_path, pet_state: dict | None = None, friends: int = 0, grou
         "snacks_total": int(pet_state.get("snacks_total", 0) or 0),
         "friends": friends,
         "groups": groups,
+        "max_affinity": max_affinity,
+        "visits_sent": visits_sent,
     }
     stats["achievements"] = [aid for aid, _sym, cond in ACHIEVEMENTS if cond(stats)]
     return stats
@@ -241,10 +272,17 @@ class Social:
         self.board_at = 0.0
         self.stats = None
         self.busy = False
+        self.rooms: dict[str, list] = {}        # "dm:CODE" / "c:ID" -> messages (oldest first)
+        self.invites: list = []
+        self.history_loaded = False
+        self.chat_open_room = None              # room shown in the chat view (fast polling)
+        self.visitors = []
         now = time.monotonic()
         self._next_ach = now + 20
         self._next_sync = now + 45
         self._next_board = now + 90
+        self._next_inbox = now + 8
+        self._inbox_busy = False
         self._last_news = 0.0
 
     # ---- persistence ----
@@ -274,13 +312,54 @@ class Social:
             return {"id": self.data["id"], "secret": self.data["secret"]}
         return None
 
+    # ---- lookups ----
+    def friends(self) -> list:
+        return list((self.board or {}).get("friends", []))
+
+    def friend(self, code: str):
+        for f in self.friends():
+            if f.get("code") == code:
+                return f
+        return None
+
+    def circles(self) -> list:
+        return list((self.board or {}).get("circles", []))
+
+    def circle(self, circle_id: str):
+        for c in self.circles():
+            if c.get("id") == circle_id:
+                return c
+        return None
+
+    def room_title(self, room: str) -> str:
+        if room.startswith("dm:"):
+            f = self.friend(room[3:])
+            return f["name"] if f else room[3:]
+        c = self.circle(room[2:])
+        return c["name"] if c else "?"
+
+    def unread(self, room: str) -> int:
+        read = self.data.get("read", {}).get(room, 0)
+        return sum(1 for m in self.rooms.get(room, []) if not m.get("mine") and m["id"] > read)
+
+    def total_unread(self) -> int:
+        return sum(self.unread(r) for r in self.rooms)
+
+    def mark_read(self, room: str):
+        msgs = self.rooms.get(room) or []
+        if msgs:
+            self.data.setdefault("read", {})[room] = msgs[-1]["id"]
+            self.save()
+
     # ---- stats / achievements ----
     def refresh_stats(self) -> dict:
         board = self.board or {}
         self.stats = compute_stats(
             self.db_path, self.pet.st,
             friends=len(board.get("friends", [])) if self.enabled else 0,
-            groups=len(self.data.get("groups", [])) if self.enabled else 0)
+            groups=(len(self.data.get("groups", [])) + len(board.get("circles", []))) if self.enabled else 0,
+            max_affinity=max([f.get("affinity", 0) for f in board.get("friends", [])] or [0]) if self.enabled else 0,
+            visits_sent=int(self.data.get("visits_sent", 0)))
         return self.stats
 
     def check_achievements(self, announce=True) -> list:
@@ -307,8 +386,7 @@ class Social:
         elif not self.data.get("ach_seeded"):
             self.data["ach_seeded"] = True
             self.save()
-        if self.window and self.window.alive():
-            self.window.refresh()
+        self._refresh_window()
         return new
 
     # ---- background work ----
@@ -344,16 +422,20 @@ class Social:
             "mood": self.pet.mood(),
         }
 
-    def _sync_and_board(self, payload, account, day, week):
+    def _board_now(self, account=None):
+        stats = self.stats or self.refresh_stats()
+        return api_call("GET", f"/v1/board?day={stats['day']}&week={stats['week']}", None,
+                        account or self.account)
+
+    def _sync_and_board(self, payload, account):
         api_call("POST", "/v1/profile", payload, account)
-        return api_call("GET", f"/v1/board?day={day}&week={week}", None, account)
+        return self._board_now(account)
 
     def sync(self):
         if not self.enabled:
             return
-        stats = self.refresh_stats()
-        self._run("board", self._sync_and_board, self._profile_payload(), self.account,
-                  stats["day"], stats["week"])
+        self.refresh_stats()
+        self._run("board", self._sync_and_board, self._profile_payload(), self.account)
 
     def enable(self, name: str):
         name = (name or "").strip()[:24] or default_display_name()
@@ -363,55 +445,195 @@ class Social:
         if self.data.get("id"):
             self.sync()
             return
-        stats = self.refresh_stats()
+        self.refresh_stats()
         body = {"name": name, "species": self.pet.s.get("species", "cat"),
                 "color": self.pet.s.get("color", "#ffc78f")}
         self.busy = True
-        self._run("register", self._register_then_sync, body, stats)
+        self._run("register", self._register_then_sync, body)
 
-    def _register_then_sync(self, body, stats):
+    def _register_then_sync(self, body):
         account = api_call("POST", "/v1/register", body)
         self.results.put(("account", True, account))
         acc = {"id": account["id"], "secret": account["secret"]}
-        payload = dict(self._profile_payload())
-        api_call("POST", "/v1/profile", payload, acc)
-        return api_call("GET", f"/v1/board?day={stats['day']}&week={stats['week']}", None, acc)
+        api_call("POST", "/v1/profile", dict(self._profile_payload()), acc)
+        return self._board_now(acc)
 
     def disable_and_delete(self):
         account = self.account
         self.pet.update_setting("friends", False)
         self.board = None
+        self.rooms = {}
+        self.invites = []
+        self.history_loaded = False
         if account:
             self._run("deleted", api_call, "DELETE", "/v1/me", None, account)
-        for key in ("id", "secret", "code", "groups"):
+        for key in ("id", "secret", "code", "groups", "read", "seen_id", "notified_invites"):
             self.data.pop(key, None)
         self.save()
-        if self.window and self.window.alive():
-            self.window.refresh()
-
-    def add_friend(self, code: str):
-        if self.enabled:
-            self._run("friend_added", self._then_board, "POST", "/v1/friends/add",
-                      {"code": code.strip().upper()})
-
-    def remove_friend(self, code: str):
-        if self.enabled:
-            self._run("friend_removed", self._then_board, "POST", "/v1/friends/remove", {"code": code})
-
-    def join_group(self, group: str):
-        if self.enabled:
-            self._run("group_joined", self._then_board, "POST", "/v1/groups/join", {"group": group})
-
-    def leave_group(self, group: str):
-        if self.enabled:
-            self._run("group_left", self._then_board, "POST", "/v1/groups/leave", {"group": group})
+        self._refresh_window()
 
     def _then_board(self, method, path, body):
         result = api_call(method, path, body, self.account)
-        stats = self.stats or self.refresh_stats()
-        board = api_call("GET", f"/v1/board?day={stats['day']}&week={stats['week']}", None, self.account)
+        board = self._board_now()
         board["_result"] = result
         return board
+
+    def _act(self, kind, path, body):
+        if self.enabled:
+            self._run(kind, self._then_board, "POST", path, body)
+
+    def add_friend(self, code: str):
+        self._act("friend_added", "/v1/friends/add", {"code": code.strip().upper()})
+
+    def remove_friend(self, code: str):
+        self._act("friend_removed", "/v1/friends/remove", {"code": code})
+
+    def join_group(self, group: str):
+        self._act("group_joined", "/v1/groups/join", {"group": group})
+
+    def leave_group(self, group: str):
+        self._act("group_left", "/v1/groups/leave", {"group": group})
+
+    def create_circle(self, name: str):
+        self._act("circle_created", "/v1/circles/create", {"name": name})
+
+    def invite_to_circle(self, circle_id: str, code: str):
+        self._act("circle_invited", "/v1/circles/invite", {"circle": circle_id, "code": code})
+
+    def respond_invite(self, circle_id: str, accept: bool):
+        self.invites = [i for i in self.invites if i.get("circle") != circle_id]
+        self._act("circle_joined" if accept else "circle_declined", "/v1/circles/respond",
+                  {"circle": circle_id, "accept": bool(accept)})
+
+    def leave_circle(self, circle_id: str):
+        self._act("circle_left", "/v1/circles/leave", {"circle": circle_id})
+
+    def kick_from_circle(self, circle_id: str, code: str):
+        self._act("circle_kicked", "/v1/circles/kick", {"circle": circle_id, "code": code})
+
+    # ---- chat & interactions ----
+    def send(self, room: str, kind: str = "text", body: str = ""):
+        if not self.enabled:
+            return
+        payload = {"kind": kind, "body": body[:500]}
+        if room.startswith("dm:"):
+            payload["to"] = room[3:]
+        else:
+            payload["circle"] = room[2:]
+        if kind == "visit":
+            self.data["visits_sent"] = int(self.data.get("visits_sent", 0)) + 1
+            self.save()
+        self._run("sent", self._send_then_inbox, payload, room, kind)
+
+    def _send_then_inbox(self, payload, room, kind):
+        api_call("POST", "/v1/send", payload, self.account)
+        result = api_call("GET", f"/v1/inbox?since={self._since()}", None, self.account)
+        result["_room"] = room
+        result["_kind"] = kind
+        return result
+
+    def _since(self) -> int:
+        return max([m["id"] for msgs in self.rooms.values() for m in msgs] or [0]) if self.history_loaded else 0
+
+    def poll_inbox(self):
+        if not self.enabled or self._inbox_busy:
+            return
+        self._inbox_busy = True
+        self._run("inbox", api_call, "GET", f"/v1/inbox?since={self._since()}", None, self.account)
+
+    def _take_inbox(self, result, initial=False):
+        seen = int(self.data.get("seen_id", 0))
+        fresh = []
+        for m in result.get("messages", []):
+            room = m.get("room")
+            if not room:
+                continue
+            msgs = self.rooms.setdefault(room, [])
+            if msgs and msgs[-1]["id"] >= m["id"]:
+                continue
+            msgs.append(m)
+            if len(msgs) > MAX_ROOM_HISTORY:
+                del msgs[: len(msgs) - MAX_ROOM_HISTORY]
+            if m["id"] > seen and not m.get("mine"):
+                fresh.append(m)
+        top = max([m["id"] for m in result.get("messages", [])] or [seen])
+        if top > seen:
+            self.data["seen_id"] = top
+            self.save()
+        if self.chat_open_room:
+            self.mark_read(self.chat_open_room)
+        self.invites = result.get("invites", self.invites)
+        self._notify_invites()
+        # first load after start: only react to things that arrived very recently
+        cutoff = time.time() - (10 * 60 if initial else 24 * 3600)
+        for m in fresh[-5:]:
+            if m.get("at", 0) >= cutoff:
+                self._react_to(m)
+
+    def _notify_invites(self):
+        notified = set(self.data.get("notified_invites", []))
+        for inv in self.invites:
+            if inv["circle"] not in notified:
+                notified.add(inv["circle"])
+                self.pet.say(t("cir_invited_you", name=inv.get("by", "?"), group=inv.get("name", "?")),
+                             duration=7, priority=1, on_click=lambda: self.open_window("groups"))
+        self.data["notified_invites"] = sorted(notified)[-50:]
+        self.save()
+
+    def _quiet(self) -> bool:
+        return bool(self.pet.focus and self.pet.s.get("quiet_focus", True))
+
+    def _react_to(self, m):
+        """Your pet reacts to an incoming message / interaction."""
+        pet = self.pet
+        who = (m.get("from") or {}).get("name", "?")
+        kind = m.get("kind", "text")
+        room = m.get("room", "")
+        open_chat = lambda r=room: self.open_window("chat", room=r)
+        if self.window and self.window.alive() and self.chat_open_room == room and kind == "text":
+            return  # you're looking at it already
+        pet_name = pet.s.get("name", "Pip")
+        if kind == "text":
+            body = m.get("body", "")
+            body = body if len(body) <= 80 else body[:77] + "\u2026"
+            where = "" if room.startswith("dm:") else " (" + self.room_title(room) + ")"
+            pet.say(t("chat_bubble", name=who + where, text=body), duration=7,
+                    priority=0 if self._quiet() else 1, on_click=open_chat)
+            if not self._quiet():
+                pet.set_action("hop", 0.55)
+                pet._voice("greet")
+            return
+        if kind == "wave":
+            pet.set_action("hop", 0.55)
+            pet._voice("greet")
+        elif kind == "pet":
+            pet.set_action("petted", 1.8)
+            pet._spawn("heart", 3)
+            pet._bump("happiness", 3)
+            pet._voice("pet")
+        elif kind == "snack":
+            pet.set_action("eat", 2.0)
+            pet._spawn("crumb", 4)
+            pet._bump("fullness", 10)
+            pet._bump("happiness", 4)
+            pet._voice("eat")
+        elif kind in ("highfive", "cheer"):
+            pet.set_action("cheer", 1.4)
+            pet._spawn("sparkle", 4)
+            pet._voice("happy")
+        elif kind == "visit":
+            self.start_visit(m.get("from") or {})
+            pet._voice("greet")
+        group = "" if room.startswith("dm:") else self.room_title(room)
+        pet.say(t("ix_in_" + kind, name=who, pet=pet_name, group=group), duration=6, priority=1, on_click=open_chat)
+
+    def start_visit(self, who: dict):
+        if len(self.visitors) >= 2 or not self.pet.visible or self.pet.fs_hidden:
+            return
+        try:
+            self.visitors.append(VisitorPet(self, who))
+        except Exception:
+            logger.exception("visit failed")
 
     # ---- main-thread pump ----
     def poll(self):
@@ -420,7 +642,10 @@ class Social:
                 kind, ok, payload = self.results.get_nowait()
             except queue.Empty:
                 break
-            self._handle(kind, ok, payload)
+            try:
+                self._handle(kind, ok, payload)
+            except Exception:
+                logger.exception("social: handling %s failed", kind)
 
     def _handle(self, kind, ok, payload):
         if kind == "account":
@@ -430,6 +655,8 @@ class Social:
             return
         if kind == "register":
             self.busy = False
+        if kind == "inbox":
+            self._inbox_busy = False
         if not ok:
             if payload == "unauthorized" and kind != "deleted":
                 logger.warning("social: account no longer valid - turning Friends off")
@@ -437,9 +664,23 @@ class Social:
                     self.data.pop(key, None)
                 self.save()
                 self.pet.update_setting("friends", False)
-            if self.window and self.window.alive():
+            if kind != "inbox" and self.window and self.window.alive():
                 self.window.show_error(payload)
             return
+        if not self.enabled:
+            return  # late reply after Friends was turned off
+        if kind == "inbox" or (kind == "sent" and isinstance(payload, dict)):
+            initial = not self.history_loaded
+            self.history_loaded = True
+            self._take_inbox(payload, initial=initial)
+            if kind == "sent":
+                pet = self.pet
+                pet.set_action("hop", 0.55)
+                if payload.get("_kind") in INTERACTIONS:
+                    pet.say(t("ix_sent_" + payload["_kind"], name=self.room_title(payload["_room"])),
+                            duration=3, priority=1)
+                    if payload["_kind"] == "visit":
+                        self.check_achievements()
         if isinstance(payload, dict) and "friends" in payload:
             self._take_board(payload)
         if kind == "friend_added":
@@ -448,21 +689,24 @@ class Social:
             self.pet._voice("greet")
             self.pet.say(t("fr_added", name=friend.get("name", "?")), duration=4, priority=1)
             self.check_achievements()
-        elif kind == "group_joined":
+        elif kind in ("group_joined", "circle_joined", "circle_created"):
             self.check_achievements()
-        if self.window and self.window.alive():
-            self.window.refresh()
+        elif kind == "circle_invited":
+            self.pet.say(t("cir_invite_sent", name=payload.get("_result", {}).get("invited", "?")),
+                         duration=3, priority=1)
+        self._refresh_window()
 
     def _take_board(self, board):
         if not self.enabled:
-            return  # a late reply after Friends was turned off
+            return
         old = {f["code"]: f for f in (self.board or {}).get("friends", [])}
         self.board = board
         self.board_at = time.time()
         self.data["code"] = board.get("me", {}).get("code", self.data.get("code"))
         self.data["groups"] = [g["code"] for g in board.get("groups", [])]
+        self.invites = board.get("invites", self.invites)
         self.save()
-        # friendly news: a friend finished more pomodoros since the last look
+        self._notify_invites()
         if old and self.pet.s.get("chatty", True) and time.monotonic() - self._last_news > FRIEND_NEWS_GAP_S:
             for friend in board.get("friends", []):
                 before = old.get(friend["code"])
@@ -471,22 +715,40 @@ class Social:
                     self.pet.say(t("fr_news", name=friend["name"], n=friend["today_poms"]),
                                  duration=5, priority=0, on_click=self.open_window)
                     break
+                if before and affinity_level(friend.get("affinity", 0))[0] > affinity_level(before.get("affinity", 0))[0]:
+                    self._last_news = time.monotonic()
+                    self.pet.set_action("love", 2.0)
+                    self.pet.say(t("aff_level_up", name=friend["name"],
+                                   level=t(affinity_level(friend["affinity"])[1])),
+                                 duration=6, priority=1, on_click=self.open_window)
+                    break
+
+    def _refresh_window(self):
+        if self.window and self.window.alive():
+            self.window.refresh()
 
     def tick(self, now: float):
         self.poll()
+        self.visitors = [v for v in self.visitors if v.alive]
         if now >= self._next_ach:
             self._next_ach = now + ACH_CHECK_EVERY_S
             try:
                 self.check_achievements()
             except Exception:
                 logger.exception("achievement check failed")
-        if self.enabled and now >= self._next_sync:
+        if not self.enabled:
+            return
+        if now >= self._next_sync:
             self._next_sync = now + SYNC_EVERY_S
             self._next_board = now + BOARD_EVERY_S
             self.sync()
-        elif self.enabled and now >= self._next_board:
+        elif now >= self._next_board:
             self._next_board = now + BOARD_EVERY_S
             self.sync()
+        fast = self.window and self.window.alive() and self.chat_open_room
+        if now >= self._next_inbox:
+            self._next_inbox = now + (INBOX_FAST_S if fast else INBOX_EVERY_S)
+            self.poll_inbox()
 
     def on_pomodoro(self):
         try:
@@ -498,352 +760,142 @@ class Social:
             self.sync()
 
     # ---- window ----
-    def open_window(self):
+    def open_window(self, tab=None, room=None):
+        import social_ui
         if self.window and self.window.alive():
             self.window.win.deiconify()
             self.window.win.lift()
-            self.window.refresh()
         else:
-            self.window = FriendsWindow(self)
+            self.window = social_ui.FriendsWindow(self)
+        if tab:
+            self.window.show_tab(tab, room=room)
+        else:
+            self.window.refresh()
         if self.enabled and time.time() - self.board_at > 30:
             self.sync()
+        if self.enabled:
+            self.poll_inbox()
 
     def close(self):
         if self.window and self.window.alive():
             self.window.close()
+        for v in self.visitors:
+            v.leave(now=True)
 
 
 # =============================================================================
-# Friends & achievements window
+# A friend's pet visiting your desktop
 # =============================================================================
 
-class FriendsWindow:
-    BG = "#faf8f3"
-    CARD = "#ffffff"
-    INK = "#1a1a1a"
-    MUTED = "#6b6b6b"
-    BORDER = "#e2ddd4"
-    ACCENT = "#8b1a1a"
-    GOLD = "#c8961e"
-    WIDTH = 440
+class VisitorPet:
+    DURATION_S = 25.0
 
-    def __init__(self, social: Social):
+    def __init__(self, social: Social, who: dict):
         import pet as pet_mod  # late import: pet imports social
 
         self.pet_mod = pet_mod
         self.social = social
-        self.pet = social.pet
-        self.tab = "friends"
-        self._alive = True
-        self.error = ""
-        self.win = tk.Toplevel(self.pet.root)
-        self.win.title(t("fr_title"))
-        self.win.configure(bg=self.BG)
-        self.win.resizable(False, True)
-        self.win.protocol("WM_DELETE_WINDOW", self.close)
-        icon = self.pet.cb.get("icon_path") if hasattr(self.pet, "cb") else None
-        if icon:
+        self.host = social.pet
+        self.who = who
+        self.alive = True
+        host = self.host
+        self.size = int(host.size * 0.9)
+        self.W = int(self.size * 2.0)
+        self.H = int(self.size * 2.0)
+        species = who.get("species") if who.get("species") in pet_mod.SPECIES else "cat"
+        self.look_base = pet_mod.default_look({"species": species,
+                                               "color": who.get("color") or pet_mod.SPECIES[species]["color"]})
+        self.win = tk.Toplevel(host.root)
+        self.win.overrideredirect(True)
+        self.win.attributes("-topmost", True)
+        self.win.configure(bg=pet_mod.KEY)
+        try:
+            self.win.attributes("-transparentcolor", pet_mod.KEY)
+        except tk.TclError:
+            pass
+        self.cv = tk.Canvas(self.win, width=self.W, height=self.H, bg=pet_mod.KEY, highlightthickness=0,
+                            cursor="hand2")
+        self.cv.pack()
+        self.cv.bind("<Button-1>", self._on_click)
+        wx, wy, w, h = host.window_rect()
+        screen_w = host.root.winfo_screenwidth()
+        self.side = -1 if wx + w + self.W > screen_w - 10 else 1   # which side of your pet
+        self.floor = wy + h
+        self.target_x = (wx - self.W + 10) if self.side < 0 else (wx + w - 10)
+        self.x = float(self.target_x + self.side * 160)
+        self.t0 = time.monotonic()
+        self.hop_until = self.t0 + 1.5
+        self.hearts = []
+        self.leaving = False
+        self._frame()
+
+    def _on_click(self, _event):
+        self.hop_until = time.monotonic() + 0.8
+        self.hearts.append([self.W / 2, self.H - self.size * 1.1, time.monotonic()])
+
+    def leave(self, now=False):
+        if now:
+            self.alive = False
             try:
-                self.win.iconbitmap(icon)
+                self.win.destroy()
             except tk.TclError:
                 pass
-        self.outer = tk.Frame(self.win, bg=self.BG, padx=14, pady=12)
-        self.outer.pack(fill="both", expand=True)
-        self.head = tk.Frame(self.outer, bg=self.CARD, highlightthickness=1, highlightbackground=self.BORDER)
-        self.head.pack(fill="x")
-        tabs = tk.Frame(self.outer, bg=self.BG)
-        tabs.pack(fill="x", pady=(10, 6))
-        self.tab_buttons = {}
-        for key in ("friends", "teams", "achievements"):
-            btn = tk.Label(tabs, text=t("fr_tab_" + key), font=("Segoe UI", 9, "bold"), padx=12, pady=4,
-                           cursor="hand2")
-            btn.pack(side="left", padx=(0, 4))
-            btn.bind("<Button-1>", lambda e, k=key: self.show_tab(k))
-            self.tab_buttons[key] = btn
-        self.body = tk.Frame(self.outer, bg=self.CARD, highlightthickness=1, highlightbackground=self.BORDER,
-                             padx=12, pady=10)
-        self.body.pack(fill="both", expand=True)
-        self.status = tk.Label(self.outer, text="", font=("Segoe UI", 8), fg=self.MUTED, bg=self.BG,
-                               anchor="w", wraplength=self.WIDTH - 20, justify="left")
-        self.status.pack(fill="x", pady=(6, 0))
-        self.win.geometry(f"{self.WIDTH}x760")
-        self._place()
-        self.refresh()
-        self.win.after(1000, self._pump)
+        else:
+            self.leaving = True
 
-    # ---- helpers ----
-    def alive(self) -> bool:
-        return self._alive
-
-    def close(self):
-        self._alive = False
-        try:
-            self.win.destroy()
-        except tk.TclError:
-            pass
-
-    def _place(self):
-        try:
-            self.win.update_idletasks()
-            x = max(20, self.pet.root.winfo_screenwidth() // 2 - self.WIDTH // 2)
-            self.win.geometry(f"+{x}+80")
-        except tk.TclError:
-            pass
-
-    def _pump(self):
-        if not self._alive:
+    def _frame(self):
+        if not self.alive:
             return
-        self.social.poll()
-        self.win.after(400, self._pump)
-
-    def _button(self, parent, text, command, primary=False):
-        btn = tk.Label(parent, text=text, font=("Segoe UI", 9, "bold" if primary else "normal"),
-                       fg="#ffffff" if primary else self.INK, bg=self.ACCENT if primary else "#f1ece4",
-                       padx=10, pady=3, cursor="hand2")
-        btn.bind("<Button-1>", lambda e: command())
-        return btn
-
-    def _avatar(self, parent, species, color, size=34, bg=None):
-        cv = tk.Canvas(parent, width=size, height=size, bg=bg or self.CARD, highlightthickness=0)
-        try:
-            look = self.pet_mod.default_look({"species": species if species in self.pet_mod.SPECIES else "cat",
-                                              "color": color or "#ffc78f",
-                                              "cheek_color": "#ff8fa3"})
-            look["t"] = time.monotonic()
+        now = time.monotonic()
+        age = now - self.t0
+        if age > self.DURATION_S:
+            self.leaving = True
+        goal = self.target_x + (self.side * 220 if self.leaving else 0)
+        walking = abs(goal - self.x) > 2
+        if walking:
+            step = 3.2 if self.leaving else 2.6
+            self.x += step if goal > self.x else -step
+        elif self.leaving:
+            self.leave(now=True)
+            return
+        look = dict(self.look_base)
+        look["t"] = now
+        look["facing"] = (1 if goal > self.x else -1) if walking else -self.side
+        phase = now * 9
+        if walking:
+            look["foot_l"] = math.sin(phase) * 3
+            look["foot_r"] = -math.sin(phase) * 3
+            look["hop"] = abs(math.sin(phase)) * 2
+        if now < self.hop_until:
+            look["hop"] = abs(math.sin((self.hop_until - now) * 9)) * 10
+            look["mouth"] = "open"
+        else:
             look["mouth"] = "smile"
-            self.pet_mod.draw_pet(cv, size / 2, size - 2, size * 0.62, look)
-        except Exception:
-            cv.create_oval(4, 4, size - 4, size - 4, fill=color or "#ffc78f", outline="")
-        return cv
-
-    def show_error(self, code):
-        messages = {"offline": t("fr_err_offline"), "not_found": t("fr_err_not_found"),
-                    "self": t("fr_err_self"), "bad_code": t("fr_err_bad_code"),
-                    "too_many": t("fr_err_too_many"), "bad_group": t("fr_err_bad_group")}
-        self.error = messages.get(code, t("fr_err_generic", code=code))
-        self.refresh()
-
-    def show_tab(self, key):
-        self.tab = key
-        self.error = ""
-        self.refresh()
-
-    # ---- rendering ----
-    def refresh(self):
-        if not self._alive:
-            return
-        stats = self.social.stats or self.social.refresh_stats()
-        for child in self.head.winfo_children():
-            child.destroy()
-        for child in self.body.winfo_children():
-            child.destroy()
-        for key, btn in self.tab_buttons.items():
-            active = key == self.tab
-            btn.config(bg=self.ACCENT if active else "#f1ece4", fg="#ffffff" if active else self.INK)
-        self._render_head(stats)
-        if self.tab == "achievements":
-            self._render_achievements()
-        elif not self.social.enabled:
-            self._render_off()
-        elif self.tab == "teams":
-            self._render_teams()
-        else:
-            self._render_friends()
-        if self.error:
-            self.status.config(text=self.error, fg=self.ACCENT)
-        elif self.social.busy:
-            self.status.config(text=t("fr_connecting"), fg=self.MUTED)
-        elif self.social.enabled and self.social.board_at:
-            stamp = datetime.fromtimestamp(self.social.board_at).strftime("%H:%M")
-            self.status.config(text=t("fr_updated", time=stamp), fg=self.MUTED)
-        else:
-            self.status.config(text=t("fr_privacy_short"), fg=self.MUTED)
-
-    def _render_head(self, stats):
-        row = tk.Frame(self.head, bg=self.CARD, padx=10, pady=8)
-        row.pack(fill="x")
-        self._avatar(row, self.pet.s.get("species"), self.pet.s.get("color"), size=52).pack(side="left")
-        info = tk.Frame(row, bg=self.CARD)
-        info.pack(side="left", fill="x", expand=True, padx=(10, 0))
-        name = self.social.data.get("name") or default_display_name()
-        tk.Label(info, text=f"{name} & {self.pet.s.get('name', 'Pip')}", font=("Segoe UI", 11, "bold"),
-                 fg=self.INK, bg=self.CARD, anchor="w").pack(fill="x")
-        tk.Label(info, text=t("fr_level_line", level=stats["level"], xp=stats["xp"]),
-                 font=("Segoe UI", 9), fg=self.ACCENT, bg=self.CARD, anchor="w").pack(fill="x")
-        bar = tk.Canvas(info, width=220, height=8, bg=self.CARD, highlightthickness=0)
-        bar.pack(anchor="w", pady=(2, 2))
-        span = max(1, stats["level_next"] - stats["level_floor"])
-        frac = max(0.0, min(1.0, (stats["xp"] - stats["level_floor"]) / span))
-        bar.create_rectangle(0, 0, 220, 8, fill="#eeeae3", outline="")
-        bar.create_rectangle(0, 0, max(3, 220 * frac), 8, fill=self.GOLD, outline="")
-        tk.Label(info, text=t("fr_stats_line", today=stats["today_poms"], week=stats["week_poms"],
-                              streak=stats["streak"]),
-                 font=("Segoe UI", 8), fg=self.MUTED, bg=self.CARD, anchor="w").pack(fill="x")
-
-    def _render_off(self):
-        tk.Label(self.body, text=t("fr_off_title"), font=("Segoe UI", 11, "bold"), fg=self.INK,
-                 bg=self.CARD, anchor="w").pack(fill="x")
-        tk.Label(self.body, text=t("fr_off_body"), font=("Segoe UI", 9), fg=self.INK, bg=self.CARD,
-                 justify="left", anchor="w", wraplength=self.WIDTH - 60).pack(fill="x", pady=(4, 6))
-        tk.Label(self.body, text=t("fr_shared"), font=("Segoe UI", 9), fg=self.MUTED, bg=self.CARD,
-                 justify="left", anchor="w", wraplength=self.WIDTH - 60).pack(fill="x", pady=(0, 10))
-        row = tk.Frame(self.body, bg=self.CARD)
-        row.pack(fill="x")
-        tk.Label(row, text=t("fr_your_name"), font=("Segoe UI", 9), fg=self.INK, bg=self.CARD).pack(side="left")
-        self.name_var = tk.StringVar(value=self.social.data.get("name") or default_display_name())
-        tk.Entry(row, textvariable=self.name_var, width=18, font=("Segoe UI", 10)).pack(side="left", padx=6)
-        self._button(self.body, t("fr_turn_on"), lambda: self._enable(), primary=True).pack(anchor="w",
-                                                                                              pady=(10, 0))
-
-    def _enable(self):
-        self.error = ""
-        self.social.enable(self.name_var.get())
-        self.refresh()
-
-    def _ranked_row(self, parent, rank, person, value_text, is_me=False, on_remove=None):
-        bg = "#fbf3e6" if is_me else self.CARD
-        row = tk.Frame(parent, bg=bg, pady=2)
-        row.pack(fill="x")
-        tk.Label(row, text=str(rank), width=2, font=("Segoe UI", 10, "bold"),
-                 fg=self.GOLD if rank <= 3 else self.MUTED, bg=bg).pack(side="left")
-        self._avatar(row, person.get("species"), person.get("color"), size=34, bg=bg).pack(side="left",
-                                                                                           padx=(2, 6))
-        info = tk.Frame(row, bg=bg)
-        info.pack(side="left", fill="x", expand=True)
-        name = person.get("name", "?") + ("  " + t("fr_you") if is_me else "")
-        tk.Label(info, text=name, font=("Segoe UI", 10, "bold" if is_me else "normal"), fg=self.INK,
-                 bg=bg, anchor="w").pack(fill="x")
-        tk.Label(info, text=t("fr_row_line", level=person.get("level", 1), streak=person.get("streak", 0),
-                              n=len(person.get("achievements", []))),
-                 font=("Segoe UI", 8), fg=self.MUTED, bg=bg, anchor="w").pack(fill="x")
-        tk.Label(row, text=value_text, font=("Segoe UI", 10, "bold"), fg=self.ACCENT, bg=bg).pack(side="left",
-                                                                                                padx=6)
-        if on_remove:
-            x = tk.Label(row, text="\u00d7", font=("Segoe UI", 11), fg=self.MUTED, bg=bg, cursor="hand2")
-            x.pack(side="left")
-            x.bind("<Button-1>", lambda e: on_remove())
-
-    def _render_friends(self):
-        board = self.social.board or {}
-        code = self.social.data.get("code", "------")
-        top = tk.Frame(self.body, bg=self.CARD)
-        top.pack(fill="x")
-        tk.Label(top, text=t("fr_your_code"), font=("Segoe UI", 9), fg=self.MUTED, bg=self.CARD).pack(side="left")
-        tk.Label(top, text=code, font=("Consolas", 14, "bold"), fg=self.ACCENT, bg=self.CARD).pack(side="left",
-                                                                                                padx=6)
-        self._button(top, t("fr_copy"), lambda: self._copy(code)).pack(side="left")
-        add = tk.Frame(self.body, bg=self.CARD)
-        add.pack(fill="x", pady=(8, 8))
-        self.code_var = tk.StringVar()
-        entry = tk.Entry(add, textvariable=self.code_var, width=10, font=("Consolas", 12))
-        entry.pack(side="left")
-        entry.bind("<Return>", lambda e: self._add())
-        self._button(add, t("fr_add"), self._add, primary=True).pack(side="left", padx=6)
-        tk.Label(add, text=t("fr_add_hint"), font=("Segoe UI", 8), fg=self.MUTED, bg=self.CARD,
-                 wraplength=170, justify="left").pack(side="left")
-        tk.Label(self.body, text=t("fr_today_board"), font=("Segoe UI", 9, "bold"), fg=self.INK, bg=self.CARD,
-                 anchor="w").pack(fill="x", pady=(4, 2))
-        people = [dict(board.get("me", {}), _me=True)] if board.get("me") else []
-        people += board.get("friends", [])
-        if len(people) <= 1:
-            tk.Label(self.body, text=t("fr_no_friends"), font=("Segoe UI", 9), fg=self.MUTED, bg=self.CARD,
-                     wraplength=self.WIDTH - 60, justify="left", anchor="w").pack(fill="x", pady=(0, 6))
-        people.sort(key=lambda p: (-p.get("today_poms", 0), -p.get("week_poms", 0), p.get("name", "")))
-        for rank, person in enumerate(people[:30], 1):
-            value = t("fr_poms_value", today=person.get("today_poms", 0), week=person.get("week_poms", 0))
-            remove = None
-            if not person.get("_me"):
-                remove = lambda c=person["code"], n=person.get("name", ""): self._remove(c, n)
-            self._ranked_row(self.body, rank, person, value, is_me=person.get("_me", False), on_remove=remove)
-        self._button(self.body, t("fr_turn_off"), self._disable).pack(anchor="e", pady=(10, 0))
-
-    def _render_teams(self):
-        board = self.social.board or {}
-        row = tk.Frame(self.body, bg=self.CARD)
-        row.pack(fill="x")
-        tk.Label(row, text=t("fr_team_code"), font=("Segoe UI", 9), fg=self.INK, bg=self.CARD).pack(side="left")
-        self.group_var = tk.StringVar()
-        entry = tk.Entry(row, textvariable=self.group_var, width=10, font=("Consolas", 12))
-        entry.pack(side="left", padx=6)
-        entry.bind("<Return>", lambda e: self._join())
-        self._button(row, t("fr_join"), self._join, primary=True).pack(side="left")
-        tk.Label(self.body, text=t("fr_team_hint"), font=("Segoe UI", 8), fg=self.MUTED, bg=self.CARD,
-                 wraplength=self.WIDTH - 60, justify="left", anchor="w").pack(fill="x", pady=(4, 6))
-        groups = board.get("groups", [])
-        if not groups:
-            tk.Label(self.body, text=t("fr_no_teams"), font=("Segoe UI", 9), fg=self.MUTED, bg=self.CARD,
-                     anchor="w").pack(fill="x")
-        for group in groups:
-            head = tk.Frame(self.body, bg=self.CARD)
-            head.pack(fill="x", pady=(8, 2))
-            members = sorted(group.get("members", []),
-                             key=lambda p: (-p.get("week_poms", 0), -p.get("today_poms", 0), p.get("name", "")))
-            tk.Label(head, text=t("fr_team_head", team=group["code"], n=len(members)),
-                     font=("Segoe UI", 10, "bold"), fg=self.INK, bg=self.CARD).pack(side="left")
-            leave = tk.Label(head, text=t("fr_leave"), font=("Segoe UI", 8, "underline"), fg=self.MUTED,
-                             bg=self.CARD, cursor="hand2")
-            leave.pack(side="right")
-            leave.bind("<Button-1>", lambda e, g=group["code"]: self.social.leave_group(g))
-            for rank, person in enumerate(members[:15], 1):
-                value = t("fr_week_value", n=person.get("week_poms", 0))
-                self._ranked_row(self.body, rank, person, value, is_me=person.get("me", False))
-
-    def _render_achievements(self):
-        unlocked = self.social.data.get("unlocked", {})
-        tk.Label(self.body, text=t("fr_ach_count", n=len(unlocked), total=len(ACH_IDS)),
-                 font=("Segoe UI", 9, "bold"), fg=self.INK, bg=self.CARD, anchor="w").pack(fill="x",
-                                                                                           pady=(0, 6))
-        grid = tk.Frame(self.body, bg=self.CARD)
-        grid.pack(fill="both", expand=True)
-        for i, aid in enumerate(ACH_IDS):
-            got = aid in unlocked
-            cell = tk.Frame(grid, bg="#fbf3e6" if got else "#f4f2ee", padx=6, pady=2)
-            cell.grid(row=i // 2, column=i % 2, sticky="nsew", padx=2, pady=2)
-            tk.Label(cell, text=ACH_SYMBOL[aid], font=("Segoe UI Symbol", 14),
-                     fg=self.GOLD if got else "#c9c4bb", bg=cell["bg"]).pack(side="left")
-            name, _, desc = t("ach_" + aid).partition(":")
-            box = tk.Frame(cell, bg=cell["bg"])
-            box.pack(side="left", fill="x", padx=(4, 0))
-            tk.Label(box, text=name.strip(), font=("Segoe UI", 9, "bold"),
-                     fg=self.INK if got else "#9a958c", bg=cell["bg"], anchor="w").pack(fill="x")
-            tk.Label(box, text=desc.strip(), font=("Segoe UI", 8), fg=self.MUTED, bg=cell["bg"],
-                     anchor="w", wraplength=150, justify="left").pack(fill="x")
-        grid.grid_columnconfigure(0, weight=1, uniform="a")
-        grid.grid_columnconfigure(1, weight=1, uniform="a")
-
-    # ---- actions ----
-    def _copy(self, code):
+        if int(age * 2) % 9 == 0 and not walking:
+            look["eyes"] = "happy"
+        if self.look_base["species"] in self.pet_mod.SPECIES and \
+                self.pet_mod.SPECIES[self.look_base["species"]].get("cat") == "air":
+            look["flap"] = math.sin(now * 14)
+            look["hover"] = 6 + math.sin(now * 2) * 3
+        if not walking and age > 3 and int(age) % 5 == 0 and not self.hearts:
+            self.hearts.append([self.W / 2 + random.uniform(-8, 8), self.H - self.size * 1.1, now])
         try:
-            self.win.clipboard_clear()
-            self.win.clipboard_append(code)
-            self.status.config(text=t("fr_copied"), fg=self.MUTED)
+            self.cv.delete("all")
+            self.pet_mod.draw_pet(self.cv, self.W / 2, self.H - 4, self.size, look)
+            name = (self.who.get("name") or "?")[:16]
+            label_y = self.H - self.size * 1.25 - look.get("hop", 0) - look.get("hover", 0)
+            self.cv.create_text(self.W / 2, max(8, label_y), text=name, font=("Segoe UI", 8, "bold"),
+                                fill="#8b1a1a")
+            keep = []
+            for hx, hy, born in self.hearts:
+                life = now - born
+                if life < 1.6:
+                    self.cv.create_text(hx, hy - life * 25, text="\u2665", fill="#ff6b8b",
+                                        font=("Segoe UI Symbol", 12))
+                    keep.append([hx, hy, born])
+            self.hearts = keep
+            self.win.geometry("%dx%d+%d+%d" % (self.W, self.H, int(self.x), int(self.floor - self.H)))
         except tk.TclError:
-            pass
-
-    def _add(self):
-        code = "".join(ch for ch in self.code_var.get().upper() if ch.isalnum())
-        if len(code) != 6:
-            self.show_error("bad_code")
+            self.alive = False
             return
-        self.error = ""
-        self.social.add_friend(code)
-        self.status.config(text=t("fr_connecting"), fg=self.MUTED)
-
-    def _remove(self, code, name):
-        from tkinter import messagebox
-        if messagebox.askyesno(t("fr_title"), t("fr_remove_q", name=name), parent=self.win):
-            self.social.remove_friend(code)
-
-    def _join(self):
-        group = "".join(ch for ch in self.group_var.get().upper() if ch.isalnum() or ch in "-_")
-        if len(group) < 2:
-            self.show_error("bad_group")
-            return
-        self.error = ""
-        self.social.join_group(group)
-        self.status.config(text=t("fr_connecting"), fg=self.MUTED)
-
-    def _disable(self):
-        from tkinter import messagebox
-        if messagebox.askyesno(t("fr_title"), t("fr_turn_off_q"), parent=self.win):
-            self.social.disable_and_delete()
+        self.host.root.after(40, self._frame)

@@ -2,6 +2,41 @@
   "_comment": "Pips version history. Newest first. Feeds the in-app update notice (latest.json), the PPT guide and the update emails.",
   "releases": [
     {
+      "version": "2.4.0",
+      "date": "2026-10-28",
+      "title": "Chat, groups, affinity & pet visits",
+      "notes": {
+        "en": [
+          "Chat: message your friends, and chat inside groups. Your pet pops up new messages as a bubble - click it to reply",
+          "Pet interactions: wave, pet their pet, send a snack, high five - or send your pet to visit: it walks onto your friend's desktop for a little while!",
+          "Affinity: every chat and interaction grows your friendship - Acquaintance → Buddy → Good friends → Close friends → Best friends → Soulmates",
+          "Your own groups: create a private group, invite your friends, they accept or decline. Group board + group chat; the owner can remove members",
+          "2 new achievements (Close friends, Globetrotter). Right-click the pet → Friends & achievements…"
+        ],
+        "id": [
+          "Chat: kirim pesan ke teman dan chat di grup. Peliharaanmu menampilkan pesan baru sebagai gelembung - klik untuk membalas",
+          "Interaksi peliharaan: lambai, elus peliharaan mereka, kirim camilan, tos - atau kirim peliharaanmu berkunjung: ia berjalan ke desktop temanmu sebentar!",
+          "Afinitas: setiap chat dan interaksi menumbuhkan pertemanan - Kenalan → Sobat → Teman baik → Teman dekat → Sahabat → Belahan jiwa",
+          "Grup sendiri: buat grup pribadi, undang temanmu, mereka bisa menerima atau menolak. Papan grup + chat grup; pemilik bisa mengeluarkan anggota",
+          "2 pencapaian baru (Teman dekat, Penjelajah). Klik kanan peliharaan → Teman & pencapaian…"
+        ],
+        "zh_TW": [
+          "聊天：可以和好友私訊，也能在群組裡聊天。新訊息會由寵物以對話泡泡顯示，點一下就能回覆",
+          "寵物互動：揮手、摸摸對方的寵物、送點心、擊掌，還能派你的寵物去拜訪，牠會走到朋友的桌面待一會兒！",
+          "親密度：每次聊天和互動都會增進友誼：點頭之交 → 好夥伴 → 好朋友 → 知心好友 → 最好的朋友 → 靈魂伴侶",
+          "自己的群組：建立私人群組並邀請好友，對方可以接受或拒絕。群組排行 + 群組聊天；群主可以移除成員",
+          "新增 2 個成就 (知心好友、環遊世界)。右鍵寵物 → 好友與成就…"
+        ],
+        "zh_CN": [
+          "聊天：可以和好友私聊，也能在群组里聊天。新消息会由宠物以对话气泡显示，点一下就能回复",
+          "宠物互动：挥手、摸摸对方的宠物、送点心、击掌，还能派你的宠物去拜访，它会走到朋友的桌面待一会儿！",
+          "亲密度：每次聊天和互动都会增进友谊：点头之交 → 好伙伴 → 好朋友 → 知心好友 → 最好的朋友 → 灵魂伴侣",
+          "自己的群组：创建私人群组并邀请好友，对方可以接受或拒绝。群组排行 + 群组聊天；群主可以移除成员",
+          "新增 2 个成就 (知心好友、环游世界)。右键宠物 → 好友与成就…"
+        ]
+      }
+    },
+    {
       "version": "2.3.0",
       "date": "2026-10-28",
       "title": "Friends, levels & achievements",
