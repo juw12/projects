@@ -4,10 +4,12 @@
  * 6-digit code. For members of the Ziris PTB team this module posts that code automatically
  * to the "Ziris PTB" Microsoft Teams group chat, so the phone user can read it there.
  *
- * Who counts as a member: anyone who installed a team pass issued by the owner (Juwen Lie).
- * The pass carries the member's name and role and the private Teams Workflow address of the
- * Ziris PTB chat. Without a pass nothing is ever sent, so the public app stays quiet for
- * everybody outside the team.
+ * Who counts as a member: anyone who joined with the team invite from the owner (Juwen Lie).
+ * 1.7.1: one role only (Co-admin). The owner makes ONE invite link for everybody; a co-admin
+ * clicks it (or pastes it), types their name once and is in. The invite carries the private
+ * Teams Workflow address of the Ziris PTB chat. Older personal passes (also "Tester" ones)
+ * still work and show as Co-admin. Without an invite nothing is ever sent, so the public app
+ * stays quiet for everybody outside the team.
  *
  * Transport: the Windows desktop app posts from its main process (airizDesktop.postToTeams),
  * a browser posts directly to the Workflow (Power Automate allows cross-origin POST).
@@ -25,7 +27,9 @@
   const LOG_LIMIT = 25;
   const POST_TIMEOUT_MS = 20000;
   const PUBLIC_BASE = 'https://juw12.github.io/projects/airiz-motor/';
-  const ROLES = Object.freeze({ owner: 'Owner', coadmin: 'Co-admin', tester: 'Tester' });
+  const ROLES = Object.freeze({ owner: 'Owner', coadmin: 'Co-admin' });
+  const LEGACY_ROLES = Object.freeze({ tester: 'coadmin' }); // 1.4.x passes
+  const INVITE_HASH = /(?:^|[#&?])team=(ZPTB1-[A-Za-z0-9_-]+)/;
   const WORKFLOW_HOSTS = [
     /^[a-z0-9-]+(\.[a-z0-9-]+)*\.logic\.azure\.com$/i,
     /^[a-z0-9-]+(\.[a-z0-9-]+)*\.api\.powerplatform\.com$/i,
@@ -68,12 +72,39 @@
     return ROLES[role] || 'Member';
   }
 
+  function normalRole(role) {
+    const value = LEGACY_ROLES[role] || role;
+    return ROLES[value] ? value : null;
+  }
+
+  function sameName(a, b) {
+    return cleanName(a).toLowerCase() === cleanName(b).toLowerCase();
+  }
+
+  // A team pass may arrive as the bare pass or inside the invite link (…#team=ZPTB1-…).
+  function extractPass(text) {
+    const value = String(text || '').trim();
+    const match = INVITE_HASH.exec(value);
+    return (match ? match[1] : value).replace(/\s+/g, '');
+  }
+
+  function inviteLink(pass) {
+    return PUBLIC_BASE + 'index.html#team=' + pass;
+  }
+
+  // Opened from an invite link: tell the language box and the Remote-by-code launcher to wait.
+  const invitedPass = (() => {
+    const match = INVITE_HASH.exec(location.hash || '');
+    return match ? match[1] : '';
+  })();
+  if (invitedPass && !window.AirizDeepLink) window.AirizDeepLink = 'team';
+
   // ------------------------------------------------------------------ team pass
 
-  function createPass({ name, role, workflowUrl }) {
+  // name empty = one shared invite for every co-admin (each person types their own name).
+  function createPass({ name, role, workflowUrl } = {}) {
     const memberName = cleanName(name);
-    if (!memberName) throw new Error('Enter the member name.');
-    if (!ROLES[role]) throw new Error('Choose a role.');
+    const passRole = role === 'owner' || (memberName && sameName(memberName, OWNER_NAME)) ? 'owner' : 'coadmin';
     if (!isWorkflowUrl(workflowUrl)) {
       throw new Error('Paste the HTTPS address of the Ziris PTB Teams workflow (Power Automate webhook).');
     }
@@ -82,7 +113,7 @@
       team: TEAM_NAME,
       owner: OWNER_NAME,
       name: memberName,
-      role,
+      role: passRole,
       hook: String(workflowUrl).trim(),
       issued: new Date().toISOString().slice(0, 10)
     };
@@ -90,7 +121,7 @@
   }
 
   function readPass(text) {
-    const value = String(text || '').replace(/\s+/g, '');
+    const value = extractPass(text);
     if (!value.startsWith(PASS_PREFIX)) throw new Error('This is not a Ziris PTB team pass (it starts with ' + PASS_PREFIX + ').');
     let body;
     try {
@@ -100,12 +131,14 @@
     }
     if (!body || body.v !== 1 || body.team !== TEAM_NAME) throw new Error('This pass is not for the ' + TEAM_NAME + ' team.');
     const name = cleanName(body.name);
-    if (!name || !ROLES[body.role]) throw new Error('The team pass has no valid member name or role.');
+    const role = normalRole(body.role);
+    if (!role) throw new Error('The team pass has no valid role.');
     if (!isWorkflowUrl(body.hook)) throw new Error('The team pass has no valid Teams workflow address.');
     return Object.freeze({
       name,
-      role: body.role,
-      roleLabel: roleLabel(body.role),
+      shared: !name,
+      role,
+      roleLabel: roleLabel(role),
       hook: body.hook,
       issued: String(body.issued || '').slice(0, 10),
       pass: value
@@ -119,11 +152,12 @@
       const stored = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
       return {
         pass: typeof stored.pass === 'string' ? stored.pass : '',
+        name: typeof stored.name === 'string' ? cleanName(stored.name) : '',
         autoCamera: stored.autoCamera !== false,
         autoControl: stored.autoControl === true
       };
     } catch {
-      return { pass: '', autoCamera: true, autoControl: false };
+      return { pass: '', name: '', autoCamera: true, autoControl: false };
     }
   }
 
@@ -159,10 +193,23 @@
   function currentMember() {
     if (!settings.pass) return null;
     try {
-      return readPass(settings.pass);
+      const pass = readPass(settings.pass);
+      const name = pass.name || settings.name;
+      if (!name) return null;
+      return Object.freeze({ ...pass, name });
     } catch {
       return null;
     }
+  }
+
+  // Join with an invite (link or pass) and the person's name. Returns the member.
+  function joinTeam(inviteText, typedName) {
+    const pass = readPass(inviteText);
+    const name = pass.name || cleanName(typedName);
+    if (!name) throw new Error('Type your name, then press Join.');
+    settings = { ...settings, pass: pass.pass, name: pass.name ? settings.name : name };
+    saveSettings(settings);
+    return currentMember();
   }
 
   // ------------------------------------------------------------------ message
@@ -238,6 +285,31 @@
     return {
       type: 'message',
       summary: test ? title : title + ' ' + code,
+      attachments: [{ contentType: 'application/vnd.microsoft.card.adaptive', contentUrl: null, content: card }]
+    };
+  }
+
+  function buildInviteMessage(link) {
+    const card = {
+      $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+      type: 'AdaptiveCard',
+      version: '1.4',
+      body: [
+        { type: 'TextBlock', text: 'Join the ' + TEAM_NAME + ' team in the AIRIZ console', weight: 'Bolder', size: 'Medium', wrap: true },
+        {
+          type: 'TextBlock',
+          wrap: true,
+          text: '1. Press Join ' + TEAM_NAME + ' below (it opens the console).\n'
+            + '2. Type your name and press Join. You are a Co-admin; nothing else to set up.\n'
+            + 'Windows app: copy this message\'s link and paste it in Ziris PTB team \u2192 Join.'
+        },
+        { type: 'TextBlock', text: 'Invite from ' + OWNER_NAME + ' \u00b7 keep it inside this chat', isSubtle: true, size: 'Small', wrap: true }
+      ],
+      actions: [{ type: 'Action.OpenUrl', title: 'Join ' + TEAM_NAME, url: link }]
+    };
+    return {
+      type: 'message',
+      summary: 'Join the ' + TEAM_NAME + ' team',
       attachments: [{ contentType: 'application/vnd.microsoft.card.adaptive', contentUrl: null, content: card }]
     };
   }
@@ -373,10 +445,10 @@
     setText('team-member-name', member ? member.name : 'Not signed in');
     setText('team-member-role', member ? member.roleLabel : 'Guest');
     setText('team-member-note', member
-      ? 'Team pass from ' + OWNER_NAME + (member.issued ? ' \u00b7 issued ' + member.issued : '') + '. '
+      ? 'Invite from ' + OWNER_NAME + (member.issued ? ' \u00b7 issued ' + member.issued : '') + '. '
         + 'Share codes from this PC go to the ' + TEAM_NAME + ' Teams chat.'
-      : 'Only ' + TEAM_NAME + ' members (co-admins and testers added by ' + OWNER_NAME + ') can use the Teams auto-post. '
-        + 'Paste the team pass you received from the owner below.');
+      : 'Only ' + TEAM_NAME + ' co-admins can use the Teams auto-post. '
+        + 'Open the invite link from ' + OWNER_NAME + ' (or paste it below), type your name and press Join.');
     const joined = $('team-joined');
     const join = $('team-join');
     if (joined) joined.hidden = !member;
@@ -482,10 +554,9 @@
     if (joinButton) {
       joinButton.addEventListener('click', () => {
         const input = $('team-pass-input');
+        const nameInput = $('team-name-input');
         try {
-          const member = readPass(input.value);
-          settings = { ...settings, pass: member.pass };
-          saveSettings(settings);
+          const member = joinTeam(input.value, nameInput ? nameInput.value : '');
           input.value = '';
           renderMembership();
           showTeamStatus('Welcome, ' + member.name + ' (' + member.roleLabel + '). Press Send test message to check Teams.', false);
@@ -494,14 +565,39 @@
         }
       });
     }
+    const passInput = $('team-pass-input');
+    const nameInput = $('team-name-input');
+    if (nameInput && settings.name) nameInput.value = settings.name;
+    if (passInput) {
+      // A personal pass already carries the name: hide the name box for it.
+      passInput.addEventListener('input', () => {
+        if (!nameInput) return;
+        try {
+          const pass = readPass(passInput.value);
+          if (pass.name) nameInput.value = pass.name;
+          nameInput.disabled = !!pass.name;
+        } catch {
+          nameInput.disabled = false;
+        }
+      });
+    }
+    for (const field of [passInput, nameInput]) {
+      if (!field) continue;
+      field.addEventListener('keydown', event => {
+        if (event.key === 'Enter' && !event.shiftKey && joinButton) {
+          event.preventDefault();
+          joinButton.click();
+        }
+      });
+    }
     const leaveButton = $('team-leave');
     if (leaveButton) {
       leaveButton.addEventListener('click', () => {
-        if (!confirm('Remove the ' + TEAM_NAME + ' team pass from this PC? Auto-post stops until a pass is added again.')) return;
+        if (!confirm('Leave the ' + TEAM_NAME + ' team on this PC? Auto-post stops until you join again.')) return;
         settings = { ...settings, pass: '' };
         saveSettings(settings);
         renderMembership();
-        showTeamStatus('Team pass removed from this PC.', false);
+        showTeamStatus('Left the team on this PC.', false);
       });
     }
     for (const [id, key] of [['team-auto-camera', 'autoCamera'], ['team-auto-control', 'autoControl']]) {
@@ -538,19 +634,39 @@
       createButton.addEventListener('click', () => {
         const output = $('team-owner-pass');
         try {
-          const pass = createPass({
-            name: $('team-owner-name').value,
-            role: $('team-owner-role').value,
-            workflowUrl: $('team-owner-url').value
-          });
-          output.value = pass;
+          const name = cleanName($('team-owner-name').value);
+          const pass = createPass({ name, workflowUrl: $('team-owner-url').value });
+          output.value = inviteLink(pass);
           $('team-owner-copy').disabled = false;
-          setText('team-owner-status', 'Pass ready for ' + cleanName($('team-owner-name').value)
-            + '. Send it privately (Teams 1:1 chat). Anyone holding it can post to ' + TEAM_NAME + '.');
+          const post = $('team-owner-post');
+          if (post) post.disabled = false;
+          setText('team-owner-status', name
+            ? 'Invite ready for ' + name + '. Send it privately.'
+            : 'Invite ready for every co-admin. Press Post invite to Ziris PTB chat, or copy the link. '
+              + 'Anyone holding it can post to ' + TEAM_NAME + ', so keep it inside the team.');
         } catch (error) {
           output.value = '';
           $('team-owner-copy').disabled = true;
+          const post = $('team-owner-post');
+          if (post) post.disabled = true;
           setText('team-owner-status', error.message);
+        }
+      });
+    }
+    const postButton = $('team-owner-post');
+    if (postButton) {
+      postButton.addEventListener('click', async () => {
+        const link = $('team-owner-pass').value;
+        if (!link) return;
+        postButton.disabled = true;
+        setText('team-owner-status', 'Posting the invite to ' + TEAM_NAME + '\u2026');
+        try {
+          await postMessage(readPass(link).hook, buildInviteMessage(link));
+          setText('team-owner-status', 'Invite posted to the ' + TEAM_NAME + ' chat. Co-admins press Join there and type their name.');
+        } catch (error) {
+          setText('team-owner-status', 'Could not post the invite: ' + error.message);
+        } finally {
+          postButton.disabled = false;
         }
       });
     }
@@ -560,7 +676,7 @@
         const output = $('team-owner-pass');
         if (!output.value) return;
         const copied = await copyText(output.value, output);
-        setText('team-owner-status', copied ? 'Pass copied.' : 'Select the pass and copy it with Ctrl+C.');
+        setText('team-owner-status', copied ? 'Invite link copied.' : 'Select the link and copy it with Ctrl+C.');
       });
     }
     const resend = $('btn-relay-teams-send');
@@ -580,6 +696,43 @@
       element.textContent = OWNER_NAME;
     });
     renderMembership();
+    openInvite();
+  }
+
+  // Opened from the invite link: show the Team page with the invite filled in.
+  // If this PC already knows the person's name, join right away (one click from Teams).
+  function openInvite() {
+    if (!invitedPass) return;
+    try {
+      history.replaceState(null, '', location.pathname + location.search); // keep the secret out of the address bar
+    } catch {
+      // ignore
+    }
+    const tab = $('tab-team');
+    if (tab) tab.click();
+    let pass;
+    try {
+      pass = readPass(invitedPass);
+    } catch (error) {
+      showTeamStatus(error.message, true);
+      return;
+    }
+    const known = pass.name || settings.name;
+    if (known) {
+      try {
+        const member = joinTeam(invitedPass, known);
+        renderMembership();
+        showTeamStatus('Welcome, ' + member.name + ' (' + member.roleLabel + '). You joined ' + TEAM_NAME + ' from the invite link.', false);
+        return;
+      } catch (error) {
+        showTeamStatus(error.message, true);
+      }
+    }
+    const input = $('team-pass-input');
+    if (input) input.value = invitedPass;
+    const nameInput = $('team-name-input');
+    showTeamStatus('Invite from ' + OWNER_NAME + ' found. Type your name and press Join ' + TEAM_NAME + '.', false);
+    if (nameInput) setTimeout(() => nameInput.focus(), 100);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindTeamPage);
@@ -591,6 +744,8 @@
     ROLES,
     createPass,
     readPass,
+    joinTeam,
+    inviteLink,
     isWorkflowUrl,
     buildMessage,
     publicLink,

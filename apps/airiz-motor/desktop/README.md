@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.7.0` in this repository's Releases section.
+`airiz-desktop-v1.7.1` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -161,6 +161,14 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.7.1: One role: Co-admin, join with one click
+* There is only one team role now: **Co-admin** (the separate Tester role is gone).
+* **Owner:** Ziris PTB team → Owner setup: paste the workflow address, leave the member name empty,
+  **Create invite**, then **Post invite to Ziris PTB chat**. One link works for every co-admin.
+* **Co-admins:** press **Join Ziris PTB** on the invite card in the Teams chat, type your name once,
+  press Join. In the Windows app, paste the invite link in Ziris PTB team instead.
+* Older personal passes keep working; Tester passes now show as Co-admin.
 
 ## 1.7.0: One button: Remote by code
 * **Remote by code** opens every time the console starts (after the language box on a first
