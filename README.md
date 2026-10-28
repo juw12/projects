@@ -5,7 +5,7 @@ runnable, deployable project.
 
 | Project | What it is | Stack |
 | --- | --- | --- |
-| [`apps/orbis`](apps/orbis) | Communication, identity, protection — and hiring (Orbis Work) — in one app | Zero-dependency Python stdlib server + SQLite + static PWA |
+| [`apps/orbis`](apps/orbis) | Communication, identity, protection — and hiring (Orbis Work) — in one app, plus **Orbis Chat**: real-time multi-user messaging with accounts, teams and email invites on web, iPhone and Android | Zero-dependency Python stdlib server + SQLite + SSE + installable PWA |
 | [`apps/peers`](apps/peers) | Verified reviews for food, travel and products | Single-file web app + optional stdlib persistence backend |
 | [`apps/house-of-articles`](apps/house-of-articles) | Athlete-moment sneaker news + live market feed | Static prototype + versioned data spine |
 | [`apps/ailene-open`](apps/ailene-open) | Open, vendor-neutral AI learning — offline-first, bilingual, no login | Static PWA + inline data spine + optional stdlib API |

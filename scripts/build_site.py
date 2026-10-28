@@ -56,6 +56,12 @@ APPS = [
         "mobile": "orbis/app-mobile.html",
     },
     {
+        "name": "Orbis Chat",
+        "desc": "Real-time chat with accounts, teams and email invites — web, iPhone and Android (needs the Orbis server)",
+        "desktop": "orbis/chat.html",
+        "mobile": "orbis/chat.html",
+    },
+    {
         "name": "Peers",
         "desc": "Verified reviews for food, travel and products",
         "desktop": "peers/",
