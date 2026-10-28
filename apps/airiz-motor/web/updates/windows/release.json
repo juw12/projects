@@ -1,17 +1,17 @@
 {
-  "version": "1.3.0",
-  "releaseDate": "2026-10-27T12:23:06.706520+00:00",
-  "releasePage": "https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.3.0",
+  "version": "1.4.0",
+  "releaseDate": "2026-10-28T01:53:00.016188+00:00",
+  "releasePage": "https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.4.0",
   "installer": {
-    "url": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.3.0/AIRIZ-Console-Setup-1.3.0-x64.exe",
-    "size": 121894932,
-    "sha256": "e6cbd8f30fbdf4e566e4e5fe20d5da5ec7231e04a2faedd99afd2094c9c7fa7b",
-    "sha512": "9Z+Vj9Y+vET5+LVuDGdO4acC5wL7RGzYrY8jvERKI6UodaXgzc4NouZ0rW4t8nVzSF6XzbjG6y+SCYZMhozzfg=="
+    "url": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.4.0/AIRIZ-Console-Setup-1.4.0-x64.exe",
+    "size": 121905014,
+    "sha256": "3ade9c42ef7fc62aa50924d99b035cea0401a79ae0d58f7707f8855896ca14dc",
+    "sha512": "YhXmQOitZejr+/uLqZEHM7k5PCzXfY9aHewwy19RkDFnXiX5uVTGcvfXbdV8Hf3SFBpAmb3yf0SVp0KV0IKb/w=="
   },
   "portable": {
-    "url": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.3.0/AIRIZ-Console-Portable-1.3.0-x64.exe",
-    "size": 110905624,
-    "sha256": "ed30ddf81b50def73b1e58cb36033c044137319f6c2cf0f4f4d4ead9197a24e3",
-    "sha512": "2qklvjDR/B7vEn8zGswJwotiGDkvlZ+Lt89mr708kz7HEyeM5kQ6H8B6nqCs9j/oRqY9yK4/bfusCPtpukWOfg=="
+    "url": "https://github.com/juw12/projects/releases/download/airiz-desktop-v1.4.0/AIRIZ-Console-Portable-1.4.0-x64.exe",
+    "size": 110916379,
+    "sha256": "8b334b8bfd64a6736b42368756c2749898e08b338c597765437d22f701dbed90",
+    "sha512": "IMHBa/tnY3cnkNMs+oP8Dm9jBHDGH6+HjYNtpERx1mEc3/+wNOQ0in0B/hISK8QAXMb9txZag0DfiGTF1JeB6g=="
   }
 }

@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.3.0` in this repository's Releases section.
+`airiz-desktop-v1.4.0` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -161,6 +161,16 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.4.0: Ziris PTB team, Teams auto-post, user guide
+* **Teams auto-post (members only):** when a Ziris PTB member presses Camera &rarr; Share to
+  phone, the 6-digit code is posted to the *Ziris PTB* Teams group chat (card with code,
+  member, PC and a Watch on phone button). Optional: the Share control code too.
+* Only PCs with a personal **team pass** issued by the owner (Ziris PTB team &rarr; Owner setup)
+  post anything. The desktop app posts from the main process (`airiz:teams-post`) and only to
+  Power Automate / Teams webhook hosts.
+* **Owner Juwen Lie** shown in the sidebar, the team page and the guide.
+* **Guide & history** page: how to use every feature, troubleshooting, and the app's history.
 
 ## 1.3.0: Remote control by code (no Bluetooth)
 
