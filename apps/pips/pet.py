@@ -59,6 +59,11 @@ try:
 except ImportError:  # pragma: no cover - friends / achievements are optional
     social = None
 
+try:
+    import pet_shop
+except ImportError:  # pragma: no cover - shop is optional
+    pet_shop = None
+
 logger = logging.getLogger("pet")
 
 # Transparent colour key: pixels of exactly this colour are see-through and
@@ -73,7 +78,7 @@ DEFAULT_PET_SETTINGS = {
     "color": "#ffc78f",
     "cheek_color": "#ff8fa3",
     "size": "M",                 # S | M | L
-    "click_action": "tickle_open",  # tickle_open | tickle_only | tickle_never
+    "click_action": "tickle_hub",   # tickle_hub | tickle_open (focus timer) | tickle_only | tickle_never
     "bubble_reminders": True,    # show health/break reminders as chat bubbles
     "walk_on_taskbar": True,
     "gravity": False,            # (land animals) dropped in mid-air -> fall to the taskbar
@@ -466,8 +471,29 @@ def _band_points(cx, cy, rx, ry, y1, y2, skew, steps=6):
     return pts
 
 
+def body_geometry(cx: float, floor: float, size: float, look: dict) -> dict:
+    """Where the body will be drawn (same maths as draw_pet) - used to place props behind the pet."""
+    spec = species_spec(look.get("species", "cat"))
+    u = size / 64.0
+    sq = look.get("squash", 0.0)
+    bx_k, by_k = spec.get("body", (1.0, 1.0))
+    base = floor - (look.get("hop", 0.0) + look.get("hover", 0.0)) * u
+    rx = 24 * u * bx_k * (1 + sq * 0.8)
+    ry = 19 * u * by_k * (1 - sq)
+    if look.get("dangle"):
+        base -= 3 * u
+    bottom = base - 3 * u - spec.get("lift", 0) * u
+    if spec.get("feet") is None:
+        bottom = base - 1 * u - spec.get("lift", 0) * u
+    cy = bottom - ry
+    lean = look.get("lean", 0.0) * u
+    return {"cx": cx, "cy": cy, "rx": rx, "ry": ry, "u": u, "facing": 1 if look.get("facing", 1) >= 0 else -1,
+            "lean": lean, "feature_dx": lean * 0.62, "bottom": bottom,
+            "eye_y": cy - 1.5 * u + spec.get("eye_dy", 0) * u, "eye_sep": spec.get("eye_sep", 11) * u}
+
+
 def draw_pet(cv: tk.Canvas, cx: float, floor: float, size: float, look: dict):
-    """Draw the pet with its feet resting on `floor` (canvas y), centred on `cx`."""
+    """Draw the pet with its feet resting on `floor` (canvas y), centred on `cx`. Returns its body geometry."""
     spec = species_spec(look.get("species", "cat"))
     extras = spec.get("extras", ())
     u = size / 64.0
@@ -1046,6 +1072,9 @@ def draw_pet(cv: tk.Canvas, cx: float, floor: float, size: float, look: dict):
         sy = cy - ry * 0.55
         cv.create_polygon(sx, sy - 3 * u, sx - 2 * u, sy + 1 * u, sx + 2 * u, sy + 1 * u, smooth=True,
                           fill="#9fd8ff", outline="#5aa9e6", width=max(1, 0.8 * u))
+    return {"cx": cx, "cy": cy, "rx": rx, "ry": ry, "u": u, "facing": facing, "lean": lean,
+            "feature_dx": feature_dx, "bottom": bottom,
+            "eye_y": cy - 1.5 * u + spec.get("eye_dy", 0) * u, "eye_sep": spec.get("eye_sep", 11) * u}
 
 
 # =============================================================================
@@ -1386,6 +1415,11 @@ class DesktopPet:
         self.s["cheek_color"] = safe_color(self.s.get("cheek_color"), DEFAULT_PET_SETTINGS["cheek_color"])
         if self.s.get("size") not in SIZES:
             self.s["size"] = "M"
+        if not self.s.get("hub_migrated"):
+            # 2.5: the pet is a social hub now - the focus timer moved to the right-click menu
+            if self.s.get("click_action") in (None, "tickle_open"):
+                self.s["click_action"] = "tickle_hub"
+            self.s["hub_migrated"] = True
         self.state_path = self.base_dir / "data" / "pet_state.json"
         self.st = self._load_state()
 
@@ -1449,6 +1483,16 @@ class DesktopPet:
         self._open_job = None
         self.tour = None
         self._next_vocal = now + random.uniform(6 * 60, 15 * 60)
+        self._next_trick = now + random.uniform(10 * 60, 20 * 60)
+        self.trick_dx = 0.0
+        self.trick_lift = 0.0
+        self.trick_extra_h = 0
+        self.shop = None
+        if pet_shop is not None:
+            try:
+                self.shop = pet_shop.Shop(self.base_dir)
+            except Exception as exc:
+                logger.warning("Shop unavailable: %s", exc)
         self.voice = None
         if pet_sounds is not None:
             try:
@@ -1579,7 +1623,7 @@ class DesktopPet:
 
     # --------------------------------------------------------------- geometry
     def window_rect(self):
-        wx = int(round(self.px - self.W / 2))
+        wx = int(round(self.px - self.W / 2 + self.trick_dx))
         wy = int(round(self.floor_y)) - self.H
         return wx, wy, self.W, self.H
 
@@ -1630,9 +1674,14 @@ class DesktopPet:
                 pass
 
     def _update(self, dt, now):
+        if self.action and pet_shop is not None and self.action in pet_shop.MOVES:
+            span = max(0.01, self.action_t1 - self.action_t0)
+            p = max(0.0, min(1.0, (now - self.action_t0) / span))
+            self.trick_dx, self.trick_lift = pet_shop.trick_motion(self.action, p, now, self.facing)
         if self.action and now >= self.action_t1:
             finished = self.action
             self.action = None
+            self._end_trick()
             if finished == "yawn_to_sleep":
                 self.sleeping = True
                 self.sleep_started = now
@@ -1829,6 +1878,13 @@ class DesktopPet:
                 self.social.tick(now)
             except Exception:
                 logger.exception("social tick failed")
+
+        if now >= self._next_trick:
+            self._next_trick = now + random.uniform(12 * 60, 25 * 60)
+            owned = self.shop.moves() if self.shop else []
+            if (owned and not away and not self.focus and self.action is None and not self.dragging
+                    and self.mood() in ("happy", "content")):
+                self.do_trick(random.choice(owned))
 
         if now >= self._next_vocal:
             # every now and then the pet "talks" in its current mood
@@ -2068,6 +2124,10 @@ class DesktopPet:
                 L.update(eyes="open", brows="sad", mouth="wavy", droop=0.4)
             elif act == "sip":
                 L.update(eyes="closed", mouth="o", blush=True, squash=math.sin(t_ * 6) * 0.03)
+            elif pet_shop is not None and act in pet_shop.MOVES:
+                pet_shop.trick_pose(L, act, p, t_)
+                if self.trick_lift:
+                    L["hover"] = L.get("hover", 0.0) + self.trick_lift / self.u
         return L
 
     def _render(self, now):
@@ -2075,7 +2135,16 @@ class DesktopPet:
         cv.delete("all")
         look = self.compute_look(now)
         self.current_hover = look.get("hover", 0.0) + look.get("hop", 0.0)
-        draw_pet(cv, self.W / 2, self.H - 1, self.size, look)
+        props = self.shop.equipped() if self.shop else {}
+        if props and pet_shop is not None:
+            pet_shop.draw_back_props(cv, body_geometry(self.W / 2, self.H - 1, self.size, look), props, now)
+        geo = draw_pet(cv, self.W / 2, self.H - 1, self.size, look)
+        if props and pet_shop is not None:
+            pet_shop.draw_front_props(cv, geo, props, now)
+        if pet_shop is not None and self.action in pet_shop.MOVES:
+            span = max(0.01, self.action_t1 - self.action_t0)
+            p = max(0.0, min(1.0, (now - self.action_t0) / span))
+            pet_shop.draw_trick_fx(cv, self.action, p, now, geo, self.W, self.trick_dx)
         fsize = max(7, int(6 + self.size / 14))
         head_y = self.H - 1 - self.size * 0.95 - self.current_hover * self.u
         for p in self.particles:
@@ -2135,6 +2204,8 @@ class DesktopPet:
     # ---------------------------------------------------------- interactions
     def set_action(self, name, duration):
         now = time.monotonic()
+        if pet_shop is not None and self.action in pet_shop.MOVES and name != self.action:
+            self._end_trick()
         self.action = name
         self.action_t0 = now
         self.action_t1 = now + duration
@@ -2279,11 +2350,13 @@ class DesktopPet:
         now = time.monotonic()
         double = now - self.last_click_t < 0.38
         self.last_click_t = now
-        click_action = self.s.get("click_action", "tickle_open")
+        click_action = self.s.get("click_action", "tickle_hub")
         if self.sleeping:
             self.wake("poke")
             if click_action == "tickle_open":
                 self._schedule_open(700)
+            elif click_action == "tickle_hub":
+                self._schedule_hub(700)
             return
         if double and click_action == "tickle_only":
             self._cancel_open()
@@ -2291,9 +2364,21 @@ class DesktopPet:
             return
         self.tickle()
         touring = bool(self.tour and self.tour.waiting_for == "click")
-        if (click_action == "tickle_open" and not double) or touring:
+        if click_action == "tickle_open" and not double:
             self._schedule_open(450)
+        elif (click_action == "tickle_hub" and not double) or touring:
+            self._schedule_hub(450)
         self._tour_event("click")
+
+    def _schedule_hub(self, delay_ms):
+        if not self.social:
+            self._schedule_open(delay_ms)
+            return
+        window = self.social.window
+        if window and window.alive():
+            return  # already open - just a tickle
+        self._cancel_open()
+        self._open_job = self.root.after(delay_ms, self.open_hub)
 
     def _schedule_open(self, delay_ms):
         self._cancel_open()
@@ -2306,6 +2391,43 @@ class DesktopPet:
             except tk.TclError:
                 pass
             self._open_job = None
+
+    def do_trick(self, move: str, force=False) -> bool:
+        """Perform a move from the shop (if owned)."""
+        if pet_shop is None or move not in pet_shop.MOVES:
+            return False
+        if not force and not (self.shop and self.shop.owns(move)):
+            return False
+        if self.sleeping:
+            self.wake("poke", quiet=True)
+        self._end_trick()
+        extra = pet_shop.TALL_MOVES.get(move, 0)
+        if extra:
+            self.trick_extra_h = extra
+            self.H += extra
+            self.cv.config(height=self.H)
+            self._last_geom = None
+        self.walking = False
+        self.set_action(move, pet_shop.MOVES[move][1])
+        self._voice("happy")
+        self._touch()
+        return True
+
+    def _end_trick(self):
+        self.trick_dx = 0.0
+        self.trick_lift = 0.0
+        if self.trick_extra_h:
+            self.H -= self.trick_extra_h
+            self.trick_extra_h = 0
+            try:
+                self.cv.config(height=self.H)
+            except tk.TclError:
+                pass
+            self._last_geom = None
+
+    def open_hub(self, tab=None):
+        if self.social:
+            self.social.open_window(tab)
 
     def _voice(self, kind, force=False) -> bool:
         """Play this animal's sound for a mood / event (respects the sound settings)."""
@@ -2710,11 +2832,15 @@ class DesktopPet:
         menu = submenu(self.win)
         name = self.s["name"]
         open_now = bool(self._call("is_window_open"))
-        menu.add_command(label=t("p_hide_window") if open_now else t("p_open"),
-                         command=lambda: self._call("toggle_window"))
-        menu.add_command(label=t("p_dashboard"), command=lambda: self._call("open_dashboard"))
         if self.social:
-            menu.add_command(label=t("p_friends"), command=self.social.open_window)
+            menu.add_command(label=t("p_friends"), command=lambda: self.open_hub())
+            if self.shop:
+                menu.add_command(label=t("p_shop"), command=lambda: self.open_hub("shop"))
+        if self.shop and self.shop.moves():
+            trick_menu = submenu(menu)
+            for move in self.shop.moves():
+                trick_menu.add_command(label=t("mv_" + move).split(":")[0], command=lambda m=move: self.do_trick(m))
+            menu.add_cascade(label=t("p_tricks"), menu=trick_menu)
         menu.add_separator()
         menu.add_command(label=t("p_snack"), command=self.feed)
         menu.add_command(label=t("p_pet", name=name), command=self.pet)
@@ -2726,6 +2852,11 @@ class DesktopPet:
             menu.add_command(label=t("p_float"), command=self.float_free)
         else:
             menu.add_command(label=t("p_taskbar"), command=self.go_to_taskbar)
+        focus_menu = submenu(menu)
+        focus_menu.add_command(label=t("p_hide_window") if open_now else t("p_open"),
+                               command=lambda: self._call("toggle_window"))
+        focus_menu.add_command(label=t("p_dashboard"), command=lambda: self._call("open_dashboard"))
+        menu.add_cascade(label=t("p_focus"), menu=focus_menu)
         menu.add_separator()
 
         animal_menu = submenu(menu)
@@ -2752,8 +2883,8 @@ class DesktopPet:
         menu.add_cascade(label=t("p_size"), menu=size_menu)
 
         click_menu = submenu(menu)
-        for value, key in (("tickle_open", "p_click_open"), ("tickle_only", "p_click_only"),
-                           ("tickle_never", "p_click_never")):
+        for value, key in (("tickle_hub", "p_click_hub"), ("tickle_open", "p_click_open"),
+                           ("tickle_only", "p_click_only"), ("tickle_never", "p_click_never")):
             mark = "\u25cf " if value == self.s["click_action"] else "   "
             click_menu.add_command(label=mark + t(key), command=lambda v=value: self.update_setting("click_action", v))
         menu.add_cascade(label=t("p_click"), menu=click_menu)
@@ -2978,11 +3109,11 @@ class PetSettingsWindow:
 
         # --- behaviour ---
         beh = self._section(outer, t("sec_behaviour"))
-        self.click_var = tk.StringVar(value=pet.s["click_action"])
+        self.click_var = tk.StringVar(value=pet.s.get("click_action", "tickle_hub"))
         tk.Label(beh, text=t("click_q"), font=("Segoe UI", 9), fg=self.INK, bg=self.CARD,
                  anchor="w").pack(fill="x")
-        for value, key in (("tickle_open", "click_open_long"), ("tickle_only", "click_only_long"),
-                           ("tickle_never", "click_never_long")):
+        for value, key in (("tickle_hub", "click_hub_long"), ("tickle_open", "click_open_long"),
+                           ("tickle_only", "click_only_long"), ("tickle_never", "click_never_long")):
             tk.Radiobutton(beh, text=t(key), value=value, variable=self.click_var,
                            command=lambda: pet.update_setting("click_action", self.click_var.get()),
                            font=("Segoe UI", 9), bg=self.CARD, activebackground=self.CARD, anchor="w",

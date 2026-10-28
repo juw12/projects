@@ -14,6 +14,11 @@ from datetime import datetime
 from tkinter import messagebox
 
 import social
+
+try:
+    import pet_shop
+except ImportError:  # pragma: no cover
+    pet_shop = None
 from social import ACH_IDS, ACH_SYMBOL, INTERACTIONS, INTERACTION_SYMBOL, affinity_level, default_display_name
 
 try:
@@ -35,7 +40,7 @@ class FriendsWindow:
     MINE = "#fbeee6"
     THEIRS = "#f1f4f8"
     WIDTH = 500
-    TABS = ("friends", "chat", "groups", "teams", "achievements")
+    TABS = ("friends", "chat", "groups", "teams", "shop", "achievements")
 
     def __init__(self, soc: "social.Social"):
         import pet as pet_mod  # late import: pet imports social
@@ -67,7 +72,7 @@ class FriendsWindow:
         tabs.pack(fill="x", pady=(10, 6))
         self.tab_buttons = {}
         for key in self.TABS:
-            btn = tk.Label(tabs, text=t("fr_tab_" + key), font=("Segoe UI", 9, "bold"), padx=9, pady=4,
+            btn = tk.Label(tabs, text=t("fr_tab_" + key), font=("Segoe UI", 9, "bold"), padx=7, pady=4,
                            cursor="hand2")
             btn.pack(side="left", padx=(0, 3))
             btn.bind("<Button-1>", lambda e, k=key: self.show_tab(k))
@@ -90,7 +95,7 @@ class FriendsWindow:
         self.status = tk.Label(self.outer, text="", font=("Segoe UI", 8), fg=self.MUTED, bg=self.BG,
                                anchor="w", wraplength=self.WIDTH - 20, justify="left")
         self.status.pack(fill="x", pady=(6, 0))
-        self.win.geometry(f"{self.WIDTH}x780")
+        self.win.geometry(f"{self.WIDTH}x800")
         self._place()
         self.refresh()
         self.win.after(400, self._pump)
@@ -144,15 +149,20 @@ class FriendsWindow:
         btn.bind("<Button-1>", lambda e: command())
         return btn
 
-    def _avatar(self, parent, species, color, size=34, bg=None):
+    def _avatar(self, parent, species, color, size=34, bg=None, look=None):
         cv = tk.Canvas(parent, width=size, height=size, bg=bg or self.CARD, highlightthickness=0)
         try:
-            sp = species if species in self.pet_mod.SPECIES else "cat"
-            look = self.pet_mod.default_look({"species": sp, "color": color or "#ffc78f",
-                                              "cheek_color": "#ff8fa3"})
-            look["t"] = time.monotonic()
-            look["mouth"] = "smile"
-            self.pet_mod.draw_pet(cv, size / 2, size - 2, size * 0.62, look)
+            props = pet_shop.clean_look(look) if (pet_shop is not None and look) else {}
+            scale = 0.5 if props else 0.62
+            if pet_shop is not None:
+                pet_shop.draw_props_preview(cv, self.pet_mod, size * scale, species, color, props,
+                                            cx=size / 2, floor=size - 2, t=time.monotonic())
+            else:
+                sp = species if species in self.pet_mod.SPECIES else "cat"
+                pl = self.pet_mod.default_look({"species": sp, "color": color or "#ffc78f", "cheek_color": "#ff8fa3"})
+                pl["t"] = time.monotonic()
+                pl["mouth"] = "smile"
+                self.pet_mod.draw_pet(cv, size / 2, size - 2, size * scale, pl)
         except Exception:
             cv.create_oval(4, 4, size - 4, size - 4, fill=color or "#ffc78f", outline="")
         return cv
@@ -167,7 +177,8 @@ class FriendsWindow:
                     "self": t("fr_err_self"), "bad_code": t("fr_err_bad_code"),
                     "too_many": t("fr_err_too_many"), "bad_group": t("fr_err_bad_group"),
                     "too_fast": t("fr_err_too_fast"), "not_friends": t("fr_err_not_friends"),
-                    "already_member": t("cir_err_member"), "bad_name": t("cir_err_name")}
+                    "already_member": t("cir_err_member"), "bad_name": t("cir_err_name"),
+                    "poor": t("shop_poor")}
         self.error = messages.get(code, t("fr_err_generic", code=code))
         self.refresh()
 
@@ -205,6 +216,8 @@ class FriendsWindow:
         self._render_head(stats)
         if self.tab == "achievements":
             self._render_achievements()
+        elif self.tab == "shop":
+            self._render_shop()
         elif not self.social.enabled:
             self._render_off()
         elif self.tab == "chat":
@@ -228,7 +241,8 @@ class FriendsWindow:
     def _render_head(self, stats):
         row = tk.Frame(self.head, bg=self.CARD, padx=10, pady=8)
         row.pack(fill="x")
-        self._avatar(row, self.pet.s.get("species"), self.pet.s.get("color"), size=52).pack(side="left")
+        self._avatar(row, self.pet.s.get("species"), self.pet.s.get("color"), size=56,
+                     look=self.social.my_look()).pack(side="left")
         info = tk.Frame(row, bg=self.CARD)
         info.pack(side="left", fill="x", expand=True, padx=(10, 0))
         name = self.social.data.get("name") or default_display_name()
@@ -242,6 +256,11 @@ class FriendsWindow:
         bar.create_rectangle(0, 0, max(3, 240 * frac), 8, fill=self.GOLD, outline="")
         self._label(info, t("fr_stats_line", today=stats["today_poms"], week=stats["week_poms"],
                             streak=stats["streak"]), size=8, fg=self.MUTED).pack(fill="x")
+        if pet_shop is not None and getattr(self.pet, "shop", None):
+            coins = self._label(info, f"{pet_shop.COIN} " + t("shop_balance", n=self.social.wallet()["balance"]),
+                                size=9, bold=True, fg=self.GOLD, cursor="hand2")
+            coins.pack(fill="x")
+            coins.bind("<Button-1>", lambda e: self.show_tab("shop"))
         if self.social.enabled and self.social.data.get("code"):
             code = self.social.data["code"]
             box = tk.Frame(row, bg=self.CARD)
@@ -278,8 +297,8 @@ class FriendsWindow:
         if rank is not None:
             tk.Label(row, text=str(rank), width=2, font=("Segoe UI", 10, "bold"),
                      fg=self.GOLD if rank <= 3 else self.MUTED, bg=bg).pack(side="left", anchor="n", pady=6)
-        self._avatar(row, person.get("species"), person.get("color"), size=34, bg=bg).pack(side="left", anchor="n",
-                                                                                         padx=(2, 6))
+        self._avatar(row, person.get("species"), person.get("color"), size=38, bg=bg,
+                     look=person.get("look")).pack(side="left", anchor="n", padx=(2, 6))
         info = tk.Frame(row, bg=bg)
         info.pack(side="left", fill="x", expand=True)
         top = tk.Frame(info, bg=bg)
@@ -595,6 +614,117 @@ class FriendsWindow:
             for rank, person in enumerate(members[:20], 1):
                 self._person_row(self.body, rank, person, t("fr_week_value", n=person.get("week_poms", 0)),
                                  is_me=person.get("me", False))
+
+
+    # ---- shop ----
+    def _render_shop(self):
+        shop = getattr(self.pet, "shop", None)
+        if pet_shop is None or not shop:
+            self._label(self.body, t("shop_unavailable"), fg=self.MUTED).pack(fill="x")
+            return
+        wallet = self.social.wallet()
+        card = tk.Frame(self.body, bg="#fbf3e6", padx=10, pady=8)
+        card.pack(fill="x", pady=(0, 8))
+        self._label(card, f"{pet_shop.COIN} " + t("shop_balance", n=wallet["balance"]), size=14, bold=True,
+                    fg=self.GOLD, bg="#fbf3e6").pack(fill="x")
+        self._label(card, t("shop_earned", pom=wallet["pomodoros"], lvl=wallet["levels"], ach=wallet["achievements"],
+                            days=wallet["days"], fr=wallet["friends"], soc=wallet["social"], gift=wallet["gift"]),
+                    size=8, fg=self.MUTED, bg="#fbf3e6", wrap=self.WIDTH - 110).pack(fill="x")
+        self._label(card, t("shop_how"), size=8, fg=self.INK, bg="#fbf3e6", wrap=self.WIDTH - 110).pack(fill="x",
+                                                                                                   pady=(2, 0))
+        balance = wallet["balance"]
+        equipped = shop.equipped()
+        species = self.pet.s.get("species")
+        color = self.pet.s.get("color")
+
+        self._label(self.body, t("shop_props"), size=11, bold=True).pack(fill="x", pady=(6, 2))
+        grid = tk.Frame(self.body, bg=self.CARD)
+        grid.pack(fill="x")
+        for i, (item, (slot, price)) in enumerate(pet_shop.PROPS.items()):
+            owned = shop.owns(item)
+            wearing = equipped.get(slot) == item
+            cell = tk.Frame(grid, bg="#fbf3e6" if wearing else "#f6f4f0", padx=4, pady=4)
+            cell.grid(row=i // 3, column=i % 3, sticky="nsew", padx=2, pady=2)
+            preview = dict(equipped)
+            preview[slot] = item
+            cv = tk.Canvas(cell, width=70, height=62, bg=cell["bg"], highlightthickness=0)
+            cv.pack()
+            try:
+                pet_shop.draw_props_preview(cv, self.pet_mod, 30, species, color, {slot: item}, cx=35, floor=58,
+                                            t=time.monotonic())
+            except Exception:
+                pass
+            self._label(cell, t("pr_" + item), size=8, bold=True, bg=cell["bg"]).pack(anchor="center")
+            if wearing:
+                btn = self._button(cell, t("shop_takeoff"), lambda s=slot: self._unequip(s), small=True)
+            elif owned:
+                btn = self._button(cell, t("shop_wear"), lambda it=item: self._equip(it), small=True, primary=True)
+            else:
+                btn = self._button(cell, f"{pet_shop.COIN} {price}", lambda it=item: self._buy(it), small=True,
+                                   primary=price <= balance)
+                if price > balance:
+                    btn.config(fg="#9a958c")
+            btn.pack(anchor="center", pady=(2, 0))
+        for c in range(3):
+            grid.grid_columnconfigure(c, weight=1, uniform="p")
+
+        self._label(self.body, t("shop_moves"), size=11, bold=True).pack(fill="x", pady=(10, 2))
+        for move, (price, _secs) in pet_shop.MOVES.items():
+            owned = shop.owns(move)
+            row = tk.Frame(self.body, bg="#f6f4f0", padx=8, pady=5)
+            row.pack(fill="x", pady=2)
+            name, _, desc = t("mv_" + move).partition(":")
+            box = tk.Frame(row, bg=row["bg"])
+            box.pack(side="left", fill="x", expand=True)
+            self._label(box, name.strip(), size=10, bold=True, bg=row["bg"]).pack(fill="x")
+            self._label(box, desc.strip(), size=8, fg=self.MUTED, bg=row["bg"], wrap=self.WIDTH - 200).pack(fill="x")
+            if owned:
+                btn = self._button(row, "\u25b6 " + t("shop_do"), lambda m=move: self._do_move(m), small=True,
+                                   primary=True)
+            else:
+                btn = self._button(row, f"{pet_shop.COIN} {price}", lambda m=move: self._buy(m), small=True,
+                                   primary=price <= balance)
+                if price > balance:
+                    btn.config(fg="#9a958c")
+            btn.pack(side="right")
+
+    def _buy(self, item):
+        shop = self.pet.shop
+        balance = self.social.wallet()["balance"]
+        if shop.price(item) > balance:
+            self.show_error("poor")
+            return
+        if not shop.buy(item, balance):
+            self.show_error("poor")
+            return
+        name = t("pr_" + item) if item in pet_shop.PROPS else t("mv_" + item).split(":")[0]
+        self.error = ""
+        self.pet.set_action("cheer", 1.4)
+        self.pet._spawn("sparkle", 5)
+        self.pet._voice("happy")
+        self.pet.say(t("shop_bought", item=name), duration=4, priority=1)
+        if item in pet_shop.MOVES:
+            self.pet.root.after(1500, lambda: self.pet.do_trick(item))
+        self.social.check_achievements(announce=False)
+        if self.social.enabled:
+            self.social.sync()
+        self.refresh()
+
+    def _equip(self, item):
+        self.pet.shop.equip(item)
+        self.pet.set_action("hop", 0.55)
+        if self.social.enabled:
+            self.social.sync()
+        self.refresh()
+
+    def _unequip(self, slot):
+        self.pet.shop.unequip(slot)
+        if self.social.enabled:
+            self.social.sync()
+        self.refresh()
+
+    def _do_move(self, move):
+        self.pet.do_trick(move)
 
     # ---- achievements ----
     def _render_achievements(self):
