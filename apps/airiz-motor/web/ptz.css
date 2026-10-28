@@ -1,0 +1,368 @@
+/* PTZ live view & smart camera (Camera view). Uses the theme variables from styles.css. */
+
+.ptz-card {
+  margin: var(--space-4, 16px) 0;
+  padding: var(--space-4, 16px);
+  border: 1px solid var(--color-border, #3a3f4b);
+  border-radius: var(--radius-lg, 10px);
+  background: var(--color-bg-panel, transparent);
+}
+
+.ptz-card.ptz-privacy .ptz-stage::after {
+  content: "\1F512";
+  font-size: 2.4em;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+.ptz-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2, 8px) var(--space-3, 12px);
+}
+
+.ptz-head .camera-still-title {
+  margin: 0;
+  flex: 1 1 auto;
+}
+
+.ptz-pos {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.9em;
+  color: var(--color-text-muted, #9aa0aa);
+}
+
+.ptz-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.8em;
+  border: 1px solid var(--color-border, #3a3f4b);
+  color: var(--color-text-muted, #9aa0aa);
+}
+
+.ptz-badge[data-state="ok"] {
+  border-color: var(--color-success, #2e9e5b);
+  color: var(--color-success, #2e9e5b);
+}
+
+.ptz-badge[data-state="warn"] {
+  border-color: var(--color-warning, #d49a1f);
+  color: var(--color-warning, #d49a1f);
+}
+
+.ptz-hint {
+  margin: var(--space-2, 8px) 0;
+  font-size: 0.9em;
+  color: var(--color-text-muted, #9aa0aa);
+}
+
+/* Viewer: stage with hold-to-move arrows around it */
+.ptz-viewer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.ptz-viewer-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.ptz-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #000;
+  border-radius: var(--radius-md, 6px);
+  user-select: none;
+  touch-action: none;
+}
+
+.ptz-stage video {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  transform-origin: 0 0;
+}
+
+.ptz-stage canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+.ptz-stage[data-mode="zones"] canvas {
+  cursor: crosshair;
+}
+
+.ptz-stage:not(.ptz-live) canvas {
+  cursor: default;
+}
+
+.ptz-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4, 16px);
+  text-align: center;
+  color: #c8ccd4;
+  font-size: 0.95em;
+  pointer-events: none;
+}
+
+.ptz-placeholder[hidden] {
+  display: none;
+}
+
+.ptz-hold {
+  min-width: 40px;
+  min-height: 34px;
+  padding: 4px 10px;
+  border: 1px solid var(--color-border, #3a3f4b);
+  border-radius: var(--radius-sm, 4px);
+  background: var(--color-bg-button, #2a2f3a);
+  color: var(--color-text, inherit);
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+}
+
+.ptz-hold-left,
+.ptz-hold-right {
+  align-self: stretch;
+}
+
+.ptz-hold:hover {
+  border-color: var(--color-accent, #3d8bfd);
+}
+
+.ptz-hold.ptz-holding {
+  background: var(--color-accent, #3d8bfd);
+  border-color: var(--color-accent, #3d8bfd);
+  color: var(--color-bg, #111);
+}
+
+.ptz-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  margin-top: var(--space-2, 8px);
+}
+
+.ptz-toolbar [aria-pressed="true"] {
+  background: var(--color-accent, #3d8bfd);
+  border-color: var(--color-accent, #3d8bfd);
+  color: var(--color-bg, #111);
+  font-weight: 600;
+}
+
+.ptz-zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ptz-zoom output {
+  min-width: 3.2em;
+  text-align: center;
+  font-family: var(--font-mono, monospace);
+}
+
+.ptz-status {
+  min-height: 1.3em;
+  margin: var(--space-2, 8px) 0;
+  font-size: 0.9em;
+}
+
+.ptz-status[data-state="error"] {
+  color: var(--color-danger, #d9534f);
+}
+
+/* Settings groups */
+.ptz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--space-3, 12px);
+  align-items: start;
+}
+
+.ptz-group {
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  border: 1px solid var(--color-border, #3a3f4b);
+  border-radius: var(--radius-md, 6px);
+}
+
+.ptz-group > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 4px 0;
+}
+
+.ptz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px var(--space-2, 8px);
+  margin: var(--space-2, 8px) 0;
+}
+
+.ptz-label {
+  min-width: 6.5em;
+  font-weight: 600;
+  font-size: 0.9em;
+}
+
+.ptz-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ptz-note {
+  margin: 4px 0;
+  font-size: 0.85em;
+  color: var(--color-text-muted, #9aa0aa);
+}
+
+.ptz-num {
+  width: 5.5em;
+}
+
+.ptz-time {
+  width: 7.5em;
+}
+
+.ptz-row input[type="range"] {
+  flex: 1 1 120px;
+}
+
+/* Saved positions */
+.ptz-presets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ptz-presets li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px var(--space-2, 8px);
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--color-border, #3a3f4b);
+}
+
+.ptz-presets li strong {
+  flex: 1 1 auto;
+}
+
+.ptz-preset-where {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85em;
+  color: var(--color-text-muted, #9aa0aa);
+}
+
+/* Motion meter */
+.ptz-meter {
+  position: relative;
+  display: inline-block;
+  flex: 1 1 100px;
+  max-width: 220px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--color-bg-input, #1d2129);
+  overflow: hidden;
+}
+
+.ptz-meter > span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  background: var(--color-success, #2e9e5b);
+  transition: width 0.15s linear;
+}
+
+.ptz-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 4px var(--space-3, 12px);
+  margin: var(--space-2, 8px) 0;
+}
+
+/* Events */
+.ptz-events-head {
+  justify-content: space-between;
+}
+
+.ptz-events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.ptz-events li {
+  display: flex;
+  gap: var(--space-2, 8px);
+  align-items: flex-start;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-border, #3a3f4b);
+  font-size: 0.9em;
+}
+
+.ptz-events li img {
+  width: 96px;
+  height: auto;
+  border-radius: var(--radius-sm, 4px);
+  flex: 0 0 auto;
+  background: #000;
+}
+
+.ptz-event-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2, 8px);
+  margin-top: 4px;
+}
+
+.ptz-event-links a {
+  color: var(--color-accent, #3d8bfd);
+}
+
+@media (max-width: 640px) {
+  .ptz-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ptz-label {
+    min-width: 0;
+  }
+}

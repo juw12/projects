@@ -362,6 +362,44 @@
     }
   }
 
+  // 1.8.0: motion alert from the PTZ smart detection (members only; the caller rate-limits).
+  async function postAlert({ title, text }) {
+    const member = currentMember();
+    if (!member) return { ok: false, error: 'Join Ziris PTB first (Team page).' };
+    const when = new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'medium' });
+    const card = {
+      $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+      type: 'AdaptiveCard',
+      version: '1.4',
+      body: [
+        { type: 'TextBlock', text: String(title || 'AIRIZ motion alert'), weight: 'Bolder', size: 'Medium', wrap: true, color: 'Attention' },
+        { type: 'TextBlock', text: String(text || ''), wrap: true, spacing: 'Small' },
+        {
+          type: 'FactSet',
+          facts: [
+            { title: 'PC', value: pcLabel() },
+            { title: 'Site', value: siteLabel() },
+            { title: 'Time', value: when },
+            { title: 'Member', value: member.name }
+          ]
+        }
+      ]
+    };
+    try {
+      await postMessage(member.hook, {
+        type: 'message',
+        summary: String(title || 'AIRIZ motion alert'),
+        attachments: [{ contentType: 'application/vnd.microsoft.card.adaptive', contentUrl: null, content: card }]
+      });
+      addLog({ at: Date.now(), kind: 'alert', code: '', ok: true, by: member.name });
+      return { ok: true };
+    } catch (error) {
+      const message = (error && error.message) || String(error);
+      addLog({ at: Date.now(), kind: 'alert', code: '', ok: false, by: member.name, error: message });
+      return { ok: false, error: message };
+    }
+  }
+
   // ------------------------------------------------------------------ automation
 
   const sentCodes = new Set(); // codes already posted (one Teams card per code)
@@ -466,7 +504,8 @@
       badge.className = 'team-log-badge ' + (entry.ok ? 'ok' : 'failed');
       badge.textContent = entry.ok ? 'Sent' : 'Failed';
       const what = entry.kind === 'test' ? 'Test message'
-        : (entry.kind === 'control' ? 'Control code ' : 'Camera code ') + entry.code;
+        : entry.kind === 'alert' ? 'Motion alert'
+          : (entry.kind === 'control' ? 'Control code ' : 'Camera code ') + entry.code;
       item.append(badge, document.createTextNode(' ' + what + ' \u00b7 ' + formatTime(entry.at)
         + ' \u00b7 ' + (entry.by || '') + (entry.ok ? '' : ' \u00b7 ' + (entry.error || ''))));
       return item;
@@ -817,6 +856,7 @@
     buildMessage,
     publicLink,
     sendShareCode,
+    postAlert,
     get member() {
       return currentMember();
     }

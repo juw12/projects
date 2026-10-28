@@ -856,7 +856,134 @@
     "Open in the AIRIZ Windows app": "在 AIRIZ Windows App 開啟",
     "Joins the AIRIZ Console Windows app on this PC too, with the same name (app version 1.7.3 or newer).": "讓這台 PC 上的 AIRIZ Console Windows App 也以同一個名字加入（App 需 1.7.3 以上版本）。",
     "Teams invite joins the Windows app too (1.7.3)": "Teams 邀請也能讓 Windows App 一起加入（1.7.3）",
-    "After joining Ziris PTB from the Teams invite in the browser, press Open in the AIRIZ Windows app: the Windows app on that PC joins too, with the same name. Works when the app is closed or already open.": "從 Teams 邀請在瀏覽器加入 Ziris PTB 後，按「在 AIRIZ Windows App 開啟」：這台 PC 上的 Windows App 也會以同一個名字加入。App 關閉或已開啟時都可使用。"
+    "After joining Ziris PTB from the Teams invite in the browser, press Open in the AIRIZ Windows app: the Windows app on that PC joins too, with the same name. Works when the app is closed or already open.": "從 Teams 邀請在瀏覽器加入 Ziris PTB 後，按「在 AIRIZ Windows App 開啟」：這台 PC 上的 Windows App 也會以同一個名字加入。App 關閉或已開啟時都可使用。",
+    "PTZ live view & smart camera": "PTZ 即時畫面與智慧攝影機",
+    "Home not set": "尚未設定原點",
+    "Position estimated": "位置為估計值",
+    "Position tracked": "位置追蹤中",
+    "Click the picture to center that spot. Hold an arrow to move, release to stop. Wheel = digital zoom, drag = look around when zoomed.": "點擊畫面可將該點置中。按住箭頭移動，放開即停止。滾輪 = 數位變焦，放大時拖曳可移動檢視。",
+    "Drag on the picture to draw up to 4 activity zones. Motion outside the zones is ignored.": "在畫面上拖曳可畫出最多 4 個偵測區域。區域外的動作會被忽略。",
+    "Hold to raise the camera": "按住以升起攝影機",
+    "Hold to pan reverse": "按住以反向水平旋轉",
+    "Hold to pan forward": "按住以正向水平旋轉",
+    "Hold to lower the camera": "按住以降下攝影機",
+    "Live view: click to center, drag to draw zones": "即時畫面：點擊置中，拖曳畫偵測區域",
+    "Start Preview with the AIRIZ camera to use the live view.": "請用 AIRIZ 攝影機按「開始預覽」以使用即時畫面。",
+    "Live view tools": "即時畫面工具",
+    "Click to center": "點擊置中",
+    "Draw zones": "畫偵測區域",
+    "Zoom out": "縮小",
+    "Zoom in": "放大",
+    "Position, saved positions & privacy": "位置、預設位置與隱私",
+    "Set home here": "將此處設為原點",
+    "Go home": "回到原點",
+    "Soft limits": "軟體限位",
+    "Set pan min": "設定水平最小",
+    "Set pan max": "設定水平最大",
+    "Set lowest": "設定最低點",
+    "Set highest": "設定最高點",
+    "Clear limits": "清除限位",
+    "Name for the saved position": "預設位置名稱",
+    "Name, e.g. Door": "名稱，例如：門口",
+    "Save position": "儲存位置",
+    "No saved positions yet.": "尚無預設位置。",
+    "Go": "前往",
+    "Auto scan": "自動巡航",
+    "Stay": "每個位置停留",
+    "s at each": "秒",
+    "Start auto scan": "開始自動巡航",
+    "Privacy": "隱私",
+    "Privacy on": "開啟隱私",
+    "Privacy off": "關閉隱私",
+    "Find rising home": "尋找升降原點",
+    "Read rising switch": "讀取升降開關",
+    "Positions are counted in motor steps from Home, from every motor command this console sends. The motors report no position, so after a stop mid-move the position is estimated: set Home again from a known spot.": "位置以距原點的馬達步數計算，來源是本主控台送出的每一個馬達指令。馬達不會回報位置，因此移動中途停止後位置為估計值：請從已知位置重新設定原點。",
+    "Smart detection": "智慧偵測",
+    "Motion detection": "移動偵測",
+    "Motion level": "動作強度",
+    "Sensitivity": "靈敏度",
+    "Active hours": "啟用時段",
+    "Active from": "開始時間",
+    "Active until": "結束時間",
+    "(empty = always)": "（空白 = 全天）",
+    "Zones": "偵測區域",
+    "Whole picture": "整個畫面",
+    "Clear zones": "清除區域",
+    "Auto-track (follow the motion)": "自動追蹤（跟隨動作）",
+    "Record a 10 s clip": "錄製 10 秒片段",
+    "Spotlight on for 30 s": "開啟聚光燈 30 秒",
+    "Siren": "警報",
+    "Desktop notification": "桌面通知",
+    "Alert the Ziris PTB chat": "通知 Ziris PTB 聊天室",
+    "Return home after": "無動作",
+    "s without motion": "秒後回到原點",
+    "Next event after": "下一次事件間隔",
+    "s": "秒",
+    "Events": "事件",
+    "No motion events yet.": "尚無移動事件。",
+    "Photo": "照片",
+    "Clip": "影片",
+    "Motion detection is off.": "移動偵測已關閉。",
+    "Armed. Start Preview with the AIRIZ camera so the picture can be watched.": "已啟用。請用 AIRIZ 攝影機按「開始預覽」，才能監看畫面。",
+    "Armed and watching.": "已啟用並監看中。",
+    "Armed and watching with auto-tracking.": "已啟用並監看中（自動追蹤）。",
+    "Tracking movement…": "追蹤動作中…",
+    "Night vision & siren": "夜視與警報",
+    "Automatic night vision (light sensor)": "自動夜視（光感測器）",
+    "Night below": "低於此值切夜間",
+    "Day above": "高於此值切日間",
+    "Sound siren": "啟動警報",
+    "Stop siren": "停止警報",
+    "Siren stopped.": "警報已停止。",
+    "The siren plays the loud test sound on the AIRIZ speaker every 4 s and turns the spotlight on. A sound already playing finishes (the firmware has no stop for playback).": "警報會每 4 秒在 AIRIZ 喇叭播放大聲測試音並開啟聚光燈。已在播放的聲音會播完（韌體沒有停止播放的指令）。",
+    "ALS did not answer.": "光感測器沒有回應。",
+    "Reading the light sensor…": "讀取光感測器中…",
+    "Calibration": "校正",
+    "Pan speed": "水平速度",
+    "Rising speed": "升降速度",
+    "Pan steps per picture width": "畫面寬度對應水平步數",
+    "Rising steps per picture height": "畫面高度對應升降步數",
+    "2-click calibration": "兩次點擊校正",
+    "Axis to calibrate": "要校正的軸",
+    "Pan": "水平",
+    "Rising": "升降",
+    "Calibrate": "校正",
+    "Pan timing": "水平時間係數",
+    "Rising timing": "升降時間係數",
+    "Timing test": "時間測試",
+    "Axis to time": "要測時的軸",
+    "Start timing move": "開始測時移動",
+    "It stopped": "已停止",
+    "Switch pressed value": "開關按下時的值",
+    "Timing = milliseconds per step × speed. It sets how long the console waits for a move and how far a stopped move got. Calibrate once per device: steps per picture make click-to-center and auto-tracking land on target.": "時間係數 = 每步毫秒數 × 速度。它決定主控台等待移動完成的時間，以及中途停止時移動了多遠。每台裝置校正一次：畫面對應步數讓點擊置中與自動追蹤能準確對準目標。",
+    "Calibration cancelled.": "校正已取消。",
+    "Now click the SAME object again.": "現在再點一次「同一個」物體。",
+    "Click a clear object in the picture (a corner, a lamp…).": "點擊畫面中明顯的物體（牆角、燈…）。",
+    "Watch the camera and press \"It stopped\" the moment it stops.": "請看著攝影機，停下的瞬間按「已停止」。",
+    "Connect the AIRIZ first (USB, or Try demo).": "請先連接 AIRIZ（USB，或試用示範）。",
+    "Connect the AIRIZ first.": "請先連接 AIRIZ。",
+    "Connect the AIRIZ and Start Preview first.": "請先連接 AIRIZ 並開始預覽。",
+    "Start Preview first.": "請先開始預覽。",
+    "Already there.": "已在該位置。",
+    "Move finished.": "移動完成。",
+    "Move finished (stopped at a soft limit).": "移動完成（停在軟體限位）。",
+    "Moving…": "移動中…",
+    "Motor command not sent. Check the connection and the console.": "馬達指令未送出。請檢查連線與主控台。",
+    "Auto scan stopped (motor stop).": "自動巡航已停止（馬達停止）。",
+    "Auto scan stopped.": "自動巡航已停止。",
+    "Home set here. Positions are now counted from this point.": "已將此處設為原點。位置現在從這裡開始計算。",
+    "Soft limits cleared.": "軟體限位已清除。",
+    "Up to 12 saved positions. Delete one first.": "最多 12 個預設位置。請先刪除一個。",
+    "No answer from the rising switch.": "升降開關沒有回應。",
+    "Finding rising home: lowering until the switch is pressed…": "尋找升降原點：下降直到開關被按下…",
+    "The rising switch did not answer. Rising home not found.": "升降開關沒有回應。找不到升降原點。",
+    "Set the lowest rising position first: \"Find rising home\", or lower the camera and press \"Set lowest\".": "請先設定升降最低點：按「尋找升降原點」，或降下攝影機後按「設定最低點」。",
+    "Privacy on: camera lowered, lights off, motion detection paused.": "隱私已開啟：攝影機已降下、燈已關閉、移動偵測暫停。",
+    "Privacy off.": "隱私已關閉。",
+    "Teams alerts need Ziris PTB membership (Team page).": "Teams 通知需要 Ziris PTB 成員資格（團隊頁面）。",
+    "to": "至",
+    "PTZ live view & smart camera (1.8.0)": "PTZ 即時畫面與智慧攝影機（1.8.0）",
+    "Camera page: click the picture to center it, hold an arrow to move, digital zoom, saved positions and auto scan, privacy mode, motion detection with zones (photo, 10 s clip, auto-track, spotlight, siren, desktop and Teams alerts) and automatic night vision from the light sensor.": "相機頁：點擊畫面置中、按住箭頭移動、數位變焦、預設位置與自動巡航、隱私模式、可設定區域的移動偵測（照片、10 秒影片、自動追蹤、聚光燈、警報、桌面與 Teams 通知），以及依光感測器自動夜視。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -933,9 +1060,132 @@
     "For Ziris PTB co-admins only. When you share with Remote by code or Share control, the code is posted straight to the Ziris PTB group chat in Microsoft Teams, so whoever holds the phone just opens Teams and taps Open AIRIZ console. Nobody has to read the number off the screen.": "僅限 Ziris PTB 共同管理員。使用以代碼遠端連線或分享控制分享時，代碼會直接傳送到 Microsoft Teams 的 <strong>Ziris PTB</strong> 群組聊天，拿手機的人只要打開 Teams 點 <em>Open AIRIZ console</em> 即可，不必再看螢幕抄號碼。",
     "From now on every share code is sent automatically, one message per code. The Share control window confirms it (“Code … sent to Ziris PTB”). If it fails, press Send to Teams there to retry.": "之後每個分享代碼都會自動傳送，每個代碼一則。分享控制視窗會顯示確認（「Code … sent to Ziris PTB」）。若失敗，在該視窗按 <strong>傳送到 Teams</strong> 重試。",
     "In the Ziris PTB Teams chat press Join Ziris PTB on the invite from Juwen Lie. The invite opens in the browser.": "在 Ziris PTB Teams 聊天中，於 <span data-owner-name=\"\">Juwen Lie</span> 傳送的邀請上按 <strong>Join Ziris PTB</strong>，邀請會在瀏覽器開啟。",
-    "Using the AIRIZ Windows app? On the same page press Open in the AIRIZ Windows app and allow the browser to open it: the app joins with the same name. (Or paste the invite link in the app's Ziris PTB team page.)": "使用 AIRIZ Windows App？在同一頁按 <strong>在 AIRIZ Windows App 開啟</strong> 並允許瀏覽器開啟：App 會以同一個名字加入。（或在 App 的 <strong>Ziris PTB team</strong> 頁貼上邀請連結。）"
+    "Using the AIRIZ Windows app? On the same page press Open in the AIRIZ Windows app and allow the browser to open it: the app joins with the same name. (Or paste the invite link in the app's Ziris PTB team page.)": "使用 AIRIZ Windows App？在同一頁按 <strong>在 AIRIZ Windows App 開啟</strong> 並允許瀏覽器開啟：App 會以同一個名字加入。（或在 App 的 <strong>Ziris PTB team</strong> 頁貼上邀請連結。）",
+    "PTZ live view: click the picture to center that spot, hold an arrow to move (release = stop) and use the wheel for digital zoom. Set Home, soft limits and up to 12 saved positions; Auto scan visits them in turn.": "<strong>PTZ 即時畫面</strong>：點擊畫面可將該點置中，按住箭頭移動（放開 = 停止），滾輪可數位變焦。可設定<strong>原點</strong>、軟體限位與最多 12 個預設位置；<strong>自動巡航</strong>會依序巡視這些位置。",
+    "Smart detection watches the preview for motion inside your zones and active hours, saves a photo and a 10 s clip, and can follow the motion, turn the spotlight on, sound the siren, show a desktop notification or alert the Ziris PTB chat. It runs while the console is open.": "<strong>智慧偵測</strong>會在您設定的區域與時段內監看預覽畫面的動作，儲存照片與 10 秒影片，並可跟隨動作、開啟聚光燈、啟動警報、顯示桌面通知或通知 Ziris PTB 聊天室。主控台開著時才會運作。",
+    "Privacy lowers the camera to the rising switch and turns the lights off; automatic night vision switches IR-cut and IR LED from the light sensor. The motors report no position, so positions are counted in steps: calibrate once per device under Calibration.": "<strong>隱私</strong>會把攝影機降到升降開關位置並關燈；<strong>自動夜視</strong>依光感測器切換 IR-cut 與 IR LED。馬達不回報位置，因此位置以步數計算：每台裝置請在<em>校正</em>中校正一次。"
   },
   "patterns": [
+    [
+      "^Pan (-?\\d+|–) · Rising (-?\\d+|–)$",
+      "水平 $1 · 升降 $2"
+    ],
+    [
+      "^Pan (-?\\d+|–) … (-?\\d+|–) · Rising (-?\\d+|–) … (-?\\d+|–)$",
+      "水平 $1 … $2 · 升降 $3 … $4"
+    ],
+    [
+      "^(\\d+) zones?$",
+      "$1 個區域"
+    ],
+    [
+      "^Moving to (.+)…$",
+      "正在移動到 $1…"
+    ],
+    [
+      "^At (.+) \\(stopped at a soft limit\\)\\.$",
+      "已到達 $1（停在軟體限位）。"
+    ],
+    [
+      "^At (.+)\\.$",
+      "已到達 $1。"
+    ],
+    [
+      "^(.+): already there\\.$",
+      "$1：已在該位置。"
+    ],
+    [
+      "^Soft limit reached on (pan|rising)\\.$",
+      "$1 已到達軟體限位。"
+    ],
+    [
+      "^Snapshot saved \\((\\d+)×(\\d+)\\)\\.$",
+      "快照已儲存（$1×$2）。"
+    ],
+    [
+      "^Soft limit saved: (pan|rising) (min|max) = (-?\\d+)\\. Moves from this console stop there\\.$",
+      "軟體限位已儲存：$1 $2 = $3。本主控台的移動會停在這裡。"
+    ],
+    [
+      "^Saved \\\"(.+)\\\"\\.$",
+      "已儲存「$1」。"
+    ],
+    [
+      "^Auto scan round (\\d+): (.+)…$",
+      "自動巡航第 $1 輪：$2…"
+    ],
+    [
+      "^Rising switch: (.*) \\(pressed, camera down\\)$",
+      "升降開關：$1（按下，攝影機在最低點）"
+    ],
+    [
+      "^Rising switch: (.*) \\(released\\)$",
+      "升降開關：$1（放開）"
+    ],
+    [
+      "^Rising home found after (\\d+) steps down\\. Rising = 0 is now the lowest position \\(privacy\\)\\.$",
+      "下降 $1 步後找到升降原點。升降 = 0 現在是最低位置（隱私）。"
+    ],
+    [
+      "^Lowered (\\d+) steps without the switch pressing\\. Check \\\"Switch pressed value\\\" in Calibration\\.$",
+      "已下降 $1 步但開關未被按下。請檢查「校正」中的「開關按下時的值」。"
+    ],
+    [
+      "^Armed, outside the active hours \\((.*)–(.*)\\)\\.$",
+      "已啟用，目前不在啟用時段（$1–$2）。"
+    ],
+    [
+      "^No motion for (\\d+) s: returning\\.$",
+      "$1 秒沒有動作：返回中。"
+    ],
+    [
+      "^Motion at (.+) \\(([\\d.]+)% of the zone\\)\\.$",
+      "$1 偵測到動作（區域的 $2%）。"
+    ],
+    [
+      "^Motion at (.+)$",
+      "$1 偵測到動作"
+    ],
+    [
+      "^Teams alert not sent: (.+)$",
+      "Teams 通知未送出：$1"
+    ],
+    [
+      "^Siren on for (\\d+) s\\.$",
+      "警報開啟 $1 秒。"
+    ],
+    [
+      "^ALS (-?[\\d.]+) · Night \\(IR\\)$",
+      "光感 $1 · 夜間（紅外線）"
+    ],
+    [
+      "^ALS (-?[\\d.]+) · Day$",
+      "光感 $1 · 日間"
+    ],
+    [
+      "^ALS (-?[\\d.]+) · between thresholds$",
+      "光感 $1 · 介於門檻之間"
+    ],
+    [
+      "^Moving (pan|rising) (\\d+) steps…$",
+      "$1 移動 $2 步…"
+    ],
+    [
+      "^Calibrated: (-?[\\d.]+) steps per picture width\\. Moving back…$",
+      "校正完成：畫面寬度 $1 步。移回中…"
+    ],
+    [
+      "^Calibrated: (-?[\\d.]+) steps per picture height\\. Moving back…$",
+      "校正完成：畫面高度 $1 步。移回中…"
+    ],
+    [
+      "^Not enough room before the soft limit for (\\d+) steps forward\\.$",
+      "軟體限位前的空間不足以正向移動 $1 步。"
+    ],
+    [
+      "^(pan|rising): (\\d+) steps took ([\\d.]+) s at speed (\\d+) → timing ([\\d.]+)\\.$",
+      "$1：$2 步在速度 $4 花了 $3 秒 → 時間係數 $5。"
+    ],
     [
       "^Welcome, (.+) \\((.+)\\)\\. The AIRIZ Windows app on this PC joined (.+) too\\.$",
       "歡迎，$1（$2）。這台 PC 上的 AIRIZ Windows App 也已加入 $3。"
