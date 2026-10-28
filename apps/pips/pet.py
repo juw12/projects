@@ -16,6 +16,7 @@ A tiny animated companion that lives on your desktop and taskbar.
     sleeping - driven by how you treat it and how your day goes.
   * Sleeps when tired or when you are away; wakes up when you come back.
   * Cute chat bubbles for reminders and notifications.
+  * Every animal has its own voice (pet_sounds.py) that changes with its mood.
 
 Settings live in config.json -> "pet"; the pet's state in data/pet_state.json.
 All user-facing text comes from i18n.py.
@@ -48,6 +49,11 @@ except ImportError:  # pragma: no cover - i18n ships with Pips
     def lines(key):
         return [key]
 
+try:
+    import pet_sounds
+except ImportError:  # pragma: no cover - sounds are optional
+    pet_sounds = None
+
 logger = logging.getLogger("pet")
 
 # Transparent colour key: pixels of exactly this colour are see-through and
@@ -72,6 +78,9 @@ DEFAULT_PET_SETTINGS = {
     "start_with_card": False,    # show the Pips card at launch
     "chatty": True,              # occasional little messages
     "hide_in_fullscreen": True,  # get out of the way of games / videos
+    "sounds": True,              # little animal voices (meow, ribbit, hoot...)
+    "sound_volume": 60,          # 0..100
+    "quiet_focus": True,         # no pet sounds during a focus session
 }
 
 COLOR_PRESETS = [
@@ -1433,6 +1442,13 @@ class DesktopPet:
         self._after_id = None
         self._open_job = None
         self.tour = None
+        self._next_vocal = now + random.uniform(6 * 60, 15 * 60)
+        self.voice = None
+        if pet_sounds is not None:
+            try:
+                self.voice = pet_sounds.PetVoice()
+            except Exception as exc:
+                logger.warning("Pet sounds unavailable: %s", exc)
 
         self._build_window()
         self._apply_offline_time()
@@ -1795,6 +1811,12 @@ class DesktopPet:
             elif st["energy"] < 20 and not self.focus:
                 self.say(random.choice(lines("tired_hint")), duration=6, priority=0)
                 self._prompt_next = time.time() + 40 * 60
+
+        if now >= self._next_vocal:
+            # every now and then the pet "talks" in its current mood
+            self._next_vocal = now + random.uniform(8 * 60, 20 * 60)
+            if not away and not self.bubble.visible and self.action is None:
+                self._voice(self.mood())
 
         if self.visible:
             fs = self.s.get("hide_in_fullscreen", True) and foreground_is_fullscreen(
@@ -2230,6 +2252,7 @@ class DesktopPet:
         self.pending_dizzy = False
         self.dizzy_cooldown = time.monotonic() + 6
         self.set_action("dizzy", 2.6)
+        self._voice("dizzy")
         self._bump("happiness", -5)
         self._bump("bond", -1)
 
@@ -2266,10 +2289,30 @@ class DesktopPet:
                 pass
             self._open_job = None
 
+    def _voice(self, kind, force=False) -> bool:
+        """Play this animal's sound for a mood / event (respects the sound settings)."""
+        if not self.voice or getattr(self, "_destroyed", False):
+            return False
+        if not force:
+            if not self.s.get("sounds", True) or not self.visible or self.fs_hidden:
+                return False
+            if self.focus and self.s.get("quiet_focus", True):
+                return False
+        try:
+            volume = max(0, min(100, int(self.s.get("sound_volume", 60)))) / 100.0
+        except (TypeError, ValueError):
+            volume = 0.6
+        try:
+            return self.voice.play(self.s["species"], kind, volume)
+        except Exception as exc:
+            logger.debug("pet voice failed: %s", exc)
+            return False
+
     def tickle(self):
         now = time.monotonic()
         if now < self.pout_until:
             self.set_action("angry", 0.8)
+            self._voice("grumpy")
             self.say(t("hmph"), duration=1.5, priority=0)
             return
         self.tickles = [x for x in self.tickles if now - x < 15] + [now]
@@ -2281,9 +2324,11 @@ class DesktopPet:
             self.pout_until = now + 5
             self._bump("happiness", -6)
             self._bump("bond", -1)
+            self._voice("angry")
             self.say(random.choice(lines("angry")), duration=3, priority=1)
             return
         self.set_action("tickle", 1.3)
+        self._voice("tickle")
         self._bump("happiness", 3 if len(self.tickles) <= 3 else 1)
         self._bump("bond", 0.3)
         self.st["tickles_total"] = self.st.get("tickles_total", 0) + 1
@@ -2330,6 +2375,7 @@ class DesktopPet:
             self._bump("happiness", 2)
             return
         self.set_action("petted", 1.8)
+        self._voice("pet")
         self._spawn("heart", 3)
         self._tour_event("pet")
         self._bump("happiness", 5)
@@ -2346,6 +2392,7 @@ class DesktopPet:
         recent = [x for x in self.st.get("snacks", []) if now - x < 3600]
         if self.st["fullness"] > 90 or len(recent) >= 4:
             self.set_action("refuse", 1.2)
+            self._voice("grumpy")
             self._bump("happiness", -1)
             self.say(t("too_full"), duration=2.5, priority=1)
             return
@@ -2358,6 +2405,7 @@ class DesktopPet:
         self._bump("energy", 5)
         self._bump("bond", 1)
         self.set_action("eat", 2.0)
+        self._voice("eat")
         self._spawn("crumb", 5)
         self.say(line, duration=2.5, priority=1)
 
@@ -2367,6 +2415,8 @@ class DesktopPet:
         self.walking = False
         self.sleep_reason = reason
         self.set_action("yawn_to_sleep", 1.4)
+        if reason != "away":
+            self._voice("tired")
         if reason == "tired":
             self.say(random.choice(lines("tired_sleep")), duration=2.5, priority=0)
         elif reason == "manual":
@@ -2381,10 +2431,12 @@ class DesktopPet:
         self.next_walk_at = now + random.uniform(3, 6)
         if reason == "back":
             self.set_action("cheer", 1.4)
+            self._voice("greet")
             self._bump("happiness", 3)
             self.say(random.choice(lines("back")), duration=3, priority=1)
         elif reason == "rested":
             self.set_action("wake", 1.3)
+            self._voice("wake")
             self.say(random.choice(lines("rested")), duration=2.5, priority=0)
         elif reason == "poke" and self.st["energy"] < 30:
             self.set_action("startle", 0.6)
@@ -2392,10 +2444,12 @@ class DesktopPet:
             self.grumpy_until = now + 15
             self._bump("happiness", -3)
             if not quiet:
+                self._voice("grumpy")
                 self.say(random.choice(lines("grumpy_wake")), duration=2.5, priority=0)
         else:
             self.set_action("wake", 1.2)
             if not quiet:
+                self._voice("wake")
                 self.say(random.choice(lines("wake")), duration=2.2, priority=0)
 
     def _call(self, name, *args):
@@ -2518,6 +2572,7 @@ class DesktopPet:
         self.set_action("cheer", 1.2)
         self._spawn("sparkle", 4)
         self.update_setting("species", species)
+        self._voice("happy")
 
     def update_setting(self, key, value):
         self.s[key] = value
@@ -2539,6 +2594,8 @@ class DesktopPet:
             self.walking = False
         elif key == "gravity" and value and self.mode == "free" and self.category == "land":
             self._start_fall()
+        elif key == "sounds" and value:
+            self._voice("happy")
         self._call("save_settings", dict(self.s))
         if self.settings_win:
             self.settings_win.refresh_controls()
@@ -2588,6 +2645,7 @@ class DesktopPet:
             self.set_action("cheer", 1.4)
         else:
             self.set_action("hop", 0.55)
+        self._voice("greet")
         if self._first_run:
             hello = t("first_hi", name=self.s["name"])
         elif not self._call("is_window_open"):
@@ -2674,6 +2732,9 @@ class DesktopPet:
             mark = "\u25cf " if value == self.s["click_action"] else "   "
             click_menu.add_command(label=mark + t(key), command=lambda v=value: self.update_setting("click_action", v))
         menu.add_cascade(label=t("p_click"), menu=click_menu)
+        sounds_on = bool(self.s.get("sounds", True))
+        menu.add_command(label=("\u2713 " if sounds_on else "   ") + t("p_sounds"),
+                         command=lambda: self.update_setting("sounds", not sounds_on))
 
         if i18n and self.cb.get("set_language"):
             lang_menu = submenu(menu)
@@ -2903,13 +2964,25 @@ class PetSettingsWindow:
                            cursor="hand2").pack(fill="x", padx=(8, 0))
         self.flag_vars = {}
         for key in ("bubble_reminders", "walk_on_taskbar", "gravity", "sleep_when_away", "open_near_pet",
-                    "start_with_card", "chatty", "hide_in_fullscreen", "auto_update"):
+                    "start_with_card", "chatty", "hide_in_fullscreen", "auto_update", "sounds", "quiet_focus"):
             var = tk.BooleanVar(value=bool(pet.s.get(key)))
             self.flag_vars[key] = var
             tk.Checkbutton(beh, text=t("f_" + key), variable=var, anchor="w", font=("Segoe UI", 9), bg=self.CARD,
                            activebackground=self.CARD, cursor="hand2",
                            command=lambda k=key, v=var: pet.update_setting(k, bool(v.get()))
                            ).pack(fill="x", pady=(2 if key == "bubble_reminders" else 0, 0))
+
+        row = tk.Frame(beh, bg=self.CARD)
+        row.pack(fill="x", pady=(2, 0))
+        tk.Label(row, text=t("l_volume"), font=("Segoe UI", 9), fg=self.INK, bg=self.CARD,
+                 anchor="w").pack(side="left", padx=(4, 6))
+        self.volume_var = tk.IntVar(value=int(pet.s.get("sound_volume", 60)))
+        volume = tk.Scale(row, from_=0, to=100, orient="horizontal", variable=self.volume_var, showvalue=False,
+                          length=130, sliderlength=14, width=10, bg=self.CARD, highlightthickness=0,
+                          troughcolor="#eeeae3", activebackground=self.ACCENT, bd=0)
+        volume.pack(side="left")
+        volume.bind("<ButtonRelease-1>", lambda e: self._volume_changed())
+        self._button(row, t("b_hear"), lambda: pet._voice(pet.mood(), force=True)).pack(side="left", padx=(8, 0))
 
         # --- language ---
         if i18n and pet.cb.get("set_language"):
@@ -2993,6 +3066,7 @@ class PetSettingsWindow:
         self.click_var.set(s["click_action"])
         for key, var in self.flag_vars.items():
             var.set(bool(s.get(key)))
+        self.volume_var.set(int(s.get("sound_volume", 60)))
         self.preview.config(bg=lighten(s["color"], 0.75))
         if species_spec(s["species"])["cat"] != self.category:
             self._show_category(species_spec(s["species"])["cat"])
@@ -3010,6 +3084,12 @@ class PetSettingsWindow:
         result = colorchooser.askcolor(color=self.pet.s["color"], parent=self.win, title=t("pick_colour"))
         if result and result[1]:
             self.pet.update_setting("color", safe_color(result[1], self.pet.s["color"]))
+
+    def _volume_changed(self):
+        value = int(self.volume_var.get())
+        if value != int(self.pet.s.get("sound_volume", 60)):
+            self.pet.update_setting("sound_volume", value)
+        self.pet._voice(self.pet.mood(), force=True)
 
     def _toggle_sleep(self):
         if self.pet.sleeping:

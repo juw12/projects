@@ -410,6 +410,15 @@ S = {
     "upd_open_site": ("Open website", "Buka website", "開啟網站", "打开网站"),
     "f_auto_update": ("Check for updates automatically", "Cek update otomatis", "自動檢查更新", "自动检查更新"),
 
+    # --- pet sounds ---
+    "f_sounds": ("Animal sounds (voice changes with mood)", "Suara hewan (berubah sesuai mood)",
+                 "動物叫聲 (隨心情變化)", "动物叫声 (随心情变化)"),
+    "f_quiet_focus": ("Stay quiet while I'm focusing", "Diam saat aku sedang fokus",
+                      "專注時保持安靜", "专注时保持安静"),
+    "l_volume": ("Volume", "Volume", "音量", "音量"),
+    "b_hear": ("\u25b6 Hear me", "\u25b6 Dengar", "\u25b6 聽聽看", "\u25b6 听听看"),
+    "p_sounds": ("Sounds", "Suara", "聲音", "声音"),
+
     # --- language picker ---
     "pick_title": ("Welcome to Pips!", "Selamat datang di Pips!", "歡迎使用 Pips!", "欢迎使用 Pips!"),
     "pick_sub": ("Choose your language", "Pilih bahasamu", "請選擇語言", "请选择语言"),
