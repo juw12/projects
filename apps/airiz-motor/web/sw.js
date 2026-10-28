@@ -1,6 +1,6 @@
 ﻿/* AIRIZ Control Center — versioned, scope-isolated offline shell. */
 const CACHE_PREFIX = 'airiz-control-' + encodeURIComponent(self.registration.scope) + '-';
-const CACHE_NAME = CACHE_PREFIX + 'v2.37-1.8.3-sfx-removed';
+const CACHE_NAME = CACHE_PREFIX + 'v2.38-1.9.0-multi-remote';
 const ASSETS = [
   './',
   './index.html',
@@ -21,6 +21,7 @@ const ASSETS = [
   './i18n-strings.js',
   './i18n.css',
   './device-label.js',
+  './remote-session.js',
   './watch.html',
   './watch.js',
   './vendor/peerjs.min.js',

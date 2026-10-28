@@ -1,6 +1,8 @@
 'use strict';
 
-const { app, BrowserWindow, protocol, session, ipcMain, dialog, Menu, shell, net, clipboard } = require('electron');
+const {
+  app, BrowserWindow, protocol, session, ipcMain, dialog, Menu, shell, net, clipboard, powerSaveBlocker, powerMonitor
+} = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
@@ -10,6 +12,7 @@ const {
 const { createSerialChooser } = require('./serial-chooser.cjs');
 const { createUpdateController } = require('./update-controller.cjs');
 const { createGrantStore } = require('./device-grants.cjs');
+const { createPowerKeeper } = require('./power-keeper.cjs');
 
 protocol.registerSchemesAsPrivileged([{
   scheme: 'airiz',
@@ -62,6 +65,7 @@ let mainWindow = null;
 let chooser = null;
 let updates = null;
 let grants = null;
+let powerKeeper = null;
 let bluetoothCallback = null;
 let closeConfirmed = false;
 let closeDialogPending = false;
@@ -204,6 +208,7 @@ async function createWindow() {
     }
   });
 
+  powerKeeper = createPowerKeeper(powerSaveBlocker);
   mainWindow = new BrowserWindow({
     width: 1460, height: 1040, minWidth: 760, minHeight: 650,
     title: 'AIRIZ Console', backgroundColor: '#0d1117',
@@ -261,10 +266,38 @@ async function createWindow() {
     chooser.cancel();
     if (bluetoothCallback) bluetoothCallback('');
     bluetoothCallback = null;
+    powerKeeper.stop();
+  });
+  // A reloaded page is not sharing any more until it says so again.
+  mainWindow.webContents.on('did-start-loading', () => {
+    powerKeeper.stop();
+    mainWindow.webContents.setBackgroundThrottling(true);
   });
   mainWindow.on('close', closeSafely);
   mainWindow.once('ready-to-show', () => mainWindow.show());
-  mainWindow.on('closed', () => { mainWindow = null; });
+  mainWindow.on('closed', () => {
+    powerKeeper.stop();
+    mainWindow = null;
+  });
+
+  // 1.9.0: keep the PC awake while sharing; tell the page about sleep and wake-up so the
+  // share recovers with the same code at once.
+  ipcMain.handle('airiz:keep-awake', (event, flag) => {
+    if (!trustedSender(event)) throw new Error('Untrusted sender');
+    return powerKeeper.set(flag === true);
+  });
+  // While sharing, a minimized window must keep its timers running (PeerJS heartbeats, relay
+  // keepalives, the USB reconnect), or the share code can drop off the server.
+  ipcMain.handle('airiz:sharing', (event, flag) => {
+    if (!trustedSender(event)) throw new Error('Untrusted sender');
+    mainWindow.webContents.setBackgroundThrottling(flag !== true);
+    return flag === true;
+  });
+  for (const state of ['suspend', 'resume']) {
+    powerMonitor.on(state, () => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('airiz:power', state);
+    });
+  }
 
   ipcMain.handle('airiz:app-info', event => {
     if (!trustedSender(event)) throw new Error('Untrusted sender');

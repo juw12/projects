@@ -7,7 +7,8 @@
  *                              live camera opens by itself in a floating window.
  * The launcher opens every time the console starts (after the first-run language box),
  * and a large "Remote by code" button stays in the header.
- * The PC operator still presses Allow for every controller (unchanged safety rule).
+ * The PC operator decides who may control: Allow, or (1.9.0) devices they chose to remember;
+ * several phones can control at the same time.
  */
 (function () {
   'use strict';
@@ -74,7 +75,7 @@
       + '</section>'
       + '<section class="qc-option qc-host" id="qc-host">'
       + '<h3><span aria-hidden="true">💻</span> This PC has the AIRIZ (USB)</h3>'
-      + '<p>Share the motor and the camera with one code. You press Allow for each phone.</p>'
+      + '<p>Share the motor and the camera with one code. Several phones can connect; you press Allow or let remembered phones in.</p>'
       + '<button class="btn btn-secondary qc-big" id="qc-share" type="button">Share this AIRIZ</button>'
       + '<p class="qc-status" id="qc-share-status" role="status"></p>'
       + '</section>'

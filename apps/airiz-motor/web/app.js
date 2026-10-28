@@ -23,6 +23,7 @@
     connected: false,
     demoMode: false,
     demoBuffer: '',
+    autoReconnect: null, // 1.9.0: reopening the same AIRIZ after sleep / a replug
     
     // Console
     consoleLines: [],
@@ -196,9 +197,12 @@
     if (navigator.serial && typeof navigator.serial.addEventListener === 'function') {
       navigator.serial.addEventListener('disconnect', event => {
         if (state.port && (event.target === state.port || event.port === state.port)) {
-          logToConsole('Device connection lost', 'warning');
-          disconnect();
+          handleDeviceLost(state.port, 'unplugged, or the PC went to sleep');
         }
+      });
+      // 1.9.0: the AIRIZ is back (after sleep or a replug) - reconnect at once.
+      navigator.serial.addEventListener('connect', () => {
+        if (state.autoReconnect) scheduleReconnectAttempt(state.autoReconnect, 300);
       });
     }
 
@@ -288,6 +292,7 @@
     try {
       const selectedPort = await navigator.serial.requestPort();
       if (state.updatePending) return;
+      await stopAutoReconnectAndWait();
       await openSerialPort(selectedPort, parseInt(elements.baudSelect.value, 10));
     } catch (error) {
       if (error.name !== 'AbortError') {
@@ -325,6 +330,7 @@
   }
 
   async function disconnect() {
+    cancelAutoReconnect();
     state.connected = false;
     state.demoMode = false;
     state.macroStop = true;
@@ -368,6 +374,7 @@
       state.demoMode = false;
       disconnect();
     } else {
+      cancelAutoReconnect();
       state.demoMode = true;
       state.connected = true;
       updateConnectionUI(true, true);
@@ -377,14 +384,19 @@
   }
 
   function updateConnectionUI(connected, isDemo) {
+    const reconnecting = !connected && !!state.autoReconnect;
     elements.btnConnect.disabled = connected;
-    elements.btnDisconnect.disabled = !connected;
-    elements.baudSelect.disabled = connected;
+    // While reconnecting, Disconnect cancels the automatic reconnect.
+    elements.btnDisconnect.disabled = !connected && !reconnecting;
+    elements.baudSelect.disabled = connected || reconnecting;
     elements.btnDemo.disabled = connected;
     
     if (connected) {
       elements.connectionStatus.textContent = isDemo ? 'Demo Mode' : 'Connected';
       elements.connectionStatus.className = 'status-indicator ' + (isDemo ? 'demo' : 'connected');
+    } else if (reconnecting) {
+      elements.connectionStatus.textContent = 'Reconnecting…';
+      elements.connectionStatus.className = 'status-indicator reconnecting';
     } else {
       elements.connectionStatus.textContent = 'Disconnected';
       elements.connectionStatus.className = 'status-indicator';
@@ -397,17 +409,29 @@
   
   async function readLoop() {
     const decoder = new TextDecoder();
-    
-    try {
-      while (state.readLoopActive && state.port && state.port.readable) {
-        const reader = state.port.readable.getReader();
-        state.reader = reader;
-        
-        try {
-          while (state.readLoopActive) {
-            const { value, done } = await reader.read();
-            if (done) break;
+    const port = state.port;
+    const softErrors = [];
+    let quickEnds = 0;
+    // 1.9.0: keep reading through non-fatal serial errors (break, framing, parity and overrun
+    // errors come with a fresh stream). When the stream is gone for good (device lost after
+    // sleep or a replug), close cleanly and reconnect by itself instead of leaving a console
+    // that says "Connected" but hears nothing.
+    while (state.readLoopActive && state.port === port && port && port.readable) {
+      let reader;
+      try {
+        reader = port.readable.getReader();
+      } catch (lockError) {
+        break;
+      }
+      state.reader = reader;
+      const startedAt = Date.now();
+      let received = false;
+      try {
+        while (state.readLoopActive) {
+          const { value, done } = await reader.read();
+          if (done) break;
             if (value) {
+              received = true;
               const text = decoder.decode(value);
               for (const listener of outputListeners) {
                 try { listener(text); } catch (listenerError) { console.error(listenerError); }
@@ -435,21 +459,177 @@
                 state.demoBuffer += text;
               }
             }
-          }
-        } catch (error) {
-          if (error.name !== 'AbortError') {
-            throw error;
-          }
-        } finally {
+        }
+      } catch (error) {
+        if (error && error.name !== 'AbortError' && state.readLoopActive && state.port === port) {
+          const now = Date.now();
+          softErrors.push(now);
+          while (softErrors.length && now - softErrors[0] > 10000) softErrors.shift();
+          if (softErrors.length <= 3) logToConsole(`Read error: ${error.message}`, 'warning');
+        }
+      } finally {
+        try {
           reader.releaseLock();
-          if (state.reader === reader) state.reader = null;
+        } catch (releaseError) { /* already released */ }
+        if (state.reader === reader) state.reader = null;
+      }
+      if (softErrors.length > 20) break;
+      // A stream that ends at once again and again (port closing) must not spin.
+      if (!received && Date.now() - startedAt < 200) {
+        quickEnds += 1;
+        if (quickEnds > 5) break;
+        await sleep(200);
+      } else {
+        quickEnds = 0;
+      }
+    }
+    if (state.readLoopActive && state.port === port && state.connected && !state.demoMode) {
+      handleDeviceLost(port, port && port.readable ? 'repeated read errors' : 'the serial port closed');
+    }
+  }
+
+  // ========================================================================
+  // AUTOMATIC RECONNECT (1.9.0)
+  // ========================================================================
+  // Sleep, USB power saving or a loose cable drops the serial port. Close it cleanly and
+  // reopen the same AIRIZ as soon as Windows shows it again (same port, or the only port
+  // with the same USB vendor/product id). Disconnect, Connect, Demo or an update cancel it.
+
+  const AUTO_RECONNECT_INTERVAL_MS = 3000;
+  const AUTO_RECONNECT_LIMIT_MS = 10 * 60 * 1000;
+
+  function portInfo(port) {
+    try {
+      return (port && typeof port.getInfo === 'function' && port.getInfo()) || {};
+    } catch (error) {
+      return {};
+    }
+  }
+
+  async function handleDeviceLost(port, reason) {
+    if (!port || state.port !== port || state.demoMode || state.updatePending) return;
+    if (port.transportLabel) {
+      // Bluetooth and Remote by code recover on their own (airiz-port-lost).
+      logToConsole(`Connection lost (${reason})`, 'warning');
+      await disconnect();
+      return;
+    }
+    if (state.autoReconnect) return;
+    const job = {
+      port,
+      info: portInfo(port),
+      baudRate: state.baudRate,
+      startedAt: Date.now(),
+      attempts: 0,
+      timer: null,
+      busy: false
+    };
+    state.autoReconnect = job;
+    logToConsole(`Device connection lost (${reason}). Reconnecting automatically…`, 'warning');
+    await closeLostPort(port);
+    if (state.autoReconnect === job) updateConnectionUI(false, false);
+    window.dispatchEvent(new CustomEvent('airiz:device-lost', { detail: { reconnecting: true, reason } }));
+    scheduleReconnectAttempt(job, 1500);
+  }
+
+  async function closeLostPort(port) {
+    state.connected = false;
+    state.macroStop = true;
+    state.readLoopActive = false;
+    if (state.reader) {
+      try {
+        await state.reader.cancel();
+      } catch (error) { /* stream already gone */ }
+      state.reader = null;
+    }
+    if (state.writer) {
+      try {
+        await state.writer.close();
+      } catch (error) { /* stream already gone */ }
+      state.writer = null;
+    }
+    try {
+      await port.close();
+    } catch (error) { /* already closed, or closes when Windows drops it */ }
+    if (state.port === port) state.port = null;
+  }
+
+  function scheduleReconnectAttempt(job, delay) {
+    if (!job || state.autoReconnect !== job) return;
+    clearTimeout(job.timer);
+    job.timer = setTimeout(() => attemptReconnect(job), delay);
+  }
+
+  function cancelAutoReconnect() {
+    const job = state.autoReconnect;
+    if (!job) return;
+    state.autoReconnect = null;
+    clearTimeout(job.timer);
+  }
+
+  async function stopAutoReconnectAndWait() {
+    const job = state.autoReconnect;
+    cancelAutoReconnect();
+    for (let waited = 0; job && job.busy && waited < 40; waited++) await sleep(100);
+  }
+
+  async function findReconnectPort(job) {
+    if (!navigator.serial || typeof navigator.serial.getPorts !== 'function') return null;
+    const ports = await navigator.serial.getPorts();
+    if (ports.includes(job.port)) return job.port;
+    if (job.info.usbVendorId == null) return null;
+    const matches = ports.filter(port => {
+      const info = portInfo(port);
+      return info.usbVendorId === job.info.usbVendorId && info.usbProductId === job.info.usbProductId;
+    });
+    return matches.length === 1 ? matches[0] : null;
+  }
+
+  async function attemptReconnect(job) {
+    if (state.autoReconnect !== job || job.busy) return;
+    if (state.connected || state.updatePending) {
+      cancelAutoReconnect();
+      return;
+    }
+    if (Date.now() - job.startedAt > AUTO_RECONNECT_LIMIT_MS) {
+      cancelAutoReconnect();
+      updateConnectionUI(false, false);
+      logToConsole('The AIRIZ did not come back within 10 minutes. Check the USB cable, then press Connect.', 'warning');
+      window.dispatchEvent(new CustomEvent('airiz:device-reconnect-failed'));
+      return;
+    }
+    job.busy = true;
+    job.attempts += 1;
+    let restored = false;
+    try {
+      const port = await findReconnectPort(job);
+      if (port && state.autoReconnect === job && !state.connected) {
+        try {
+          await openSerialPort(port, job.baudRate);
+          restored = true;
+        } catch (error) {
+          if (error && error.name === 'InvalidStateError') {
+            // Still open from before the drop: close it so the next attempt can open it.
+            try {
+              await port.close();
+            } catch (closeError) { /* try again next time */ }
+          }
         }
       }
     } catch (error) {
-      if (state.readLoopActive) {
-        logToConsole(`Read error: ${error.message}`, 'error');
-      }
+      // getPorts() failed (waking up): the next attempt tries again.
+    } finally {
+      job.busy = false;
     }
+    if (restored) {
+      if (state.autoReconnect === job) state.autoReconnect = null;
+      clearTimeout(job.timer);
+      updateConnectionUI(true, false);
+      logToConsole(`Reconnected to the AIRIZ after ${Math.max(1, Math.round((Date.now() - job.startedAt) / 1000))} s.`, 'welcome');
+      window.dispatchEvent(new CustomEvent('airiz:device-restored'));
+      return;
+    }
+    scheduleReconnectAttempt(job, AUTO_RECONNECT_INTERVAL_MS);
   }
 
   // ========================================================================
@@ -487,6 +667,9 @@
       if (!quiet) appendToConsole(`> ${line}`, 'command');
     } catch (error) {
       logToConsole(`Send error: ${error.message}`, 'error');
+      if (error && error.name === 'NetworkError' && state.port && !state.port.transportLabel) {
+        handleDeviceLost(state.port, 'the device stopped answering');
+      }
       return false;
     } finally {
       if (writer) writer.releaseLock();
@@ -3472,8 +3655,15 @@
         bluetoothRemote: !!state.port?.bridge,
         cameraRecording: !!cameraState.recorder && cameraState.recorder.state !== 'inactive',
         sessionActive: cameraState.sessionActive,
-        audioCaptureActive: state.capture.active
+        audioCaptureActive: state.capture.active,
+        reconnecting: !!state.autoReconnect && !state.connected
       });
+    },
+    // 1.9.0: after sleep, write one empty line so a dead USB port shows up at once
+    // (and reconnects by itself) instead of on the next command.
+    async probe() {
+      if (!state.connected || state.demoMode || !state.port) return state.connected;
+      return sendLine('', { quiet: true });
     },
     sendCommand: sendLine,
     stopMotor,
@@ -3490,6 +3680,7 @@
     },
     async connectPort(port) {
       if (state.connected || state.updatePending) throw new Error('Disconnect first.');
+      await stopAutoReconnectAndWait();
       await openSerialPort(port, state.baudRate);
     },
     async prepareForUpdate() {
@@ -3505,7 +3696,15 @@
           usbVendorId: info.usbVendorId,
           usbProductId: info.usbProductId
         };
+      } else if (state.autoReconnect && !state.connected) {
+        // Updating while the AIRIZ is reconnecting: reopen it after the restart instead.
+        reconnect = {
+          baudRate: state.autoReconnect.baudRate,
+          usbVendorId: state.autoReconnect.info.usbVendorId,
+          usbProductId: state.autoReconnect.info.usbProductId
+        };
       }
+      cancelAutoReconnect();
       state.updatePending = true;
       if (state.port || state.demoMode) {
         logToConsole('Closing the connection for the update. It reconnects automatically after restart.', 'warning');

@@ -145,14 +145,15 @@
 
     function refreshStatus() {
       const status = api.getStatus();
-      const connectionKey = String(status.connected) + ':' + String(status.demoMode);
+      const connectionKey = String(status.connected) + ':' + String(status.demoMode) + ':' + String(!!status.reconnecting);
       if (connectionKey !== lastConnection) {
         lastConnection = connectionKey;
         if (status.connected) unlockJog();
         else lockJog();
         $('sidebar-status').textContent = status.demoMode && status.connected
           ? 'Demo · no hardware'
-          : status.connected ? (status.transportLabel || 'USB serial') + ' connected' : 'Waiting for connection';
+          : status.connected ? (status.transportLabel || 'USB serial') + ' connected'
+            : status.reconnecting ? 'Reconnecting to the AIRIZ…' : 'Waiting for connection';
         $('transport-note').textContent = status.demoMode && status.connected
           ? 'Simulator active. No commands are sent to hardware.'
           : status.connected
@@ -162,7 +163,7 @@
             : window.airizMobile ? 'Discover and verify a Bluetooth command channel, or try Demo.' : 'Connect over USB serial, or try the simulator.';
         $('motion-mode').textContent = status.demoMode && status.connected ? 'DEMO / SIMULATED' : 'MANUAL JOG';
         $('stage-state').textContent = status.demoMode && status.connected
-          ? 'SIMULATOR READY' : status.connected ? 'SERIAL CONNECTED' : 'STANDBY';
+          ? 'SIMULATOR READY' : status.connected ? 'SERIAL CONNECTED' : status.reconnecting ? 'RECONNECTING' : 'STANDBY';
         for (const id of ['sidebar-dot', 'stage-dot']) {
           $(id).className = 'signal-dot' + (status.connected ? status.demoMode ? ' demo' : ' active' : '');
         }

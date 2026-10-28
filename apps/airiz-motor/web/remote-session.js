@@ -1,0 +1,438 @@
+/* AIRIZ remote sessions (v1.9.0): remembered devices, reconnect after sleep, keep awake.
+ *
+ * Phone / other device: a random device id + secret key kept in this browser. It goes
+ * with every "Control by code" request so the PC can recognise the device next time.
+ * PC (has the AIRIZ on USB): the devices its operator chose to remember. Only a SHA-256
+ * hash of each device key is stored. Remembered devices can be let in automatically
+ * (a setting the operator controls); any device can be forgotten at any time.
+ *
+ * Also shared by remote-control.js and camera-relay.js: the phone reconnect policy, a
+ * liveness check, a sleep/wake hub and the keep-awake switch used while sharing.
+ * Loaded as a plain script (window.AirizRemoteSession) and by the Node unit tests.
+ */
+(function (root, factory) {
+  const api = factory(root);
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  if (root) root.AirizRemoteSession = api;
+})(typeof window !== 'undefined' ? window : null, function (root) {
+  'use strict';
+
+  const IDENTITY_KEY = 'airiz.remote.identity.v1';
+  const TRUST_KEY = 'airiz.remote.trust.v1';
+  const MAX_DEVICES = 50;
+  const ID_PATTERN = /^[0-9a-f]{16}$/;
+  const KEY_PATTERN = /^[0-9a-f]{32}$/;
+  const HASH_PATTERN = /^[0-9a-f]{64}$/;
+
+  // ------------------------------------------------------------------ storage helpers
+  function memoryStorage() {
+    const data = new Map();
+    return {
+      getItem: key => (data.has(key) ? data.get(key) : null),
+      setItem: (key, value) => {
+        data.set(key, String(value));
+      },
+      removeItem: key => {
+        data.delete(key);
+      },
+    };
+  }
+
+  let fallbackStorage = null;
+  function defaultStorage() {
+    try {
+      if (typeof localStorage !== 'undefined' && localStorage) return localStorage;
+    } catch (ignored) { /* storage blocked (private mode) */ }
+    fallbackStorage = fallbackStorage || memoryStorage();
+    return fallbackStorage;
+  }
+
+  function readJson(storage, key) {
+    try {
+      const raw = storage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (ignored) {
+      return null;
+    }
+  }
+
+  function writeJson(storage, key, value) {
+    try {
+      storage.setItem(key, JSON.stringify(value));
+      return true;
+    } catch (ignored) {
+      return false;
+    }
+  }
+
+  function randomHex(byteCount) {
+    const bytes = new Uint8Array(byteCount);
+    globalThis.crypto.getRandomValues(bytes);
+    return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  }
+
+  function cleanName(value) {
+    return String(value || '').replace(/[^A-Za-z0-9 ._()-]/g, '').trim().slice(0, 40) || 'Remote device';
+  }
+
+  // ------------------------------------------------------------------ phone identity
+  // The same id + key for every connection from this browser (until its data is cleared).
+  function loadIdentity(storage) {
+    const store = storage || defaultStorage();
+    const saved = readJson(store, IDENTITY_KEY);
+    if (saved && ID_PATTERN.test(saved.id) && KEY_PATTERN.test(saved.key)) return { id: saved.id, key: saved.key };
+    const identity = { id: randomHex(8), key: randomHex(16) };
+    writeJson(store, IDENTITY_KEY, identity);
+    return identity;
+  }
+
+  function validIdentity(id, key) {
+    return ID_PATTERN.test(String(id || '')) && KEY_PATTERN.test(String(key || ''));
+  }
+
+  async function hashKey(key) {
+    const subtle = globalThis.crypto && globalThis.crypto.subtle;
+    if (!subtle || typeof subtle.digest !== 'function') throw new Error('SHA-256 is not available here.');
+    const digest = await subtle.digest('SHA-256', new TextEncoder().encode('airiz-remote-v1:' + key));
+    return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+  }
+
+  // ------------------------------------------------------------------ PC: remembered devices
+  function createTrustStore(storage, clock) {
+    const store = storage || defaultStorage();
+    const now = clock || (() => Date.now());
+
+    function load() {
+      const saved = readJson(store, TRUST_KEY) || {};
+      const devices = Array.isArray(saved.devices)
+        ? saved.devices.filter(item => item && ID_PATTERN.test(item.id) && HASH_PATTERN.test(item.keyHash))
+        : [];
+      return { autoAllow: saved.autoAllow !== false, devices };
+    }
+
+    function save(data) {
+      data.devices.sort((first, second) => (second.lastSeen || 0) - (first.lastSeen || 0));
+      return writeJson(store, TRUST_KEY, { autoAllow: data.autoAllow, devices: data.devices.slice(0, MAX_DEVICES) });
+    }
+
+    return {
+      get autoAllow() {
+        return load().autoAllow;
+      },
+      setAutoAllow(flag) {
+        const data = load();
+        data.autoAllow = !!flag;
+        return save(data);
+      },
+      list() {
+        return load().devices
+          .map(item => ({ id: item.id, name: cleanName(item.name), added: item.added || 0, lastSeen: item.lastSeen || 0 }))
+          .sort((first, second) => second.lastSeen - first.lastSeen);
+      },
+      // { status: 'unknown' | 'remembered' | 'mismatch', device? }
+      async check(id, key) {
+        if (!validIdentity(id, key)) return { status: 'unknown' };
+        const device = load().devices.find(item => item.id === id);
+        if (!device) return { status: 'unknown' };
+        let hash;
+        try {
+          hash = await hashKey(key);
+        } catch (ignored) {
+          return { status: 'unknown' };
+        }
+        const copy = { id: device.id, name: cleanName(device.name), added: device.added || 0, lastSeen: device.lastSeen || 0 };
+        return hash === device.keyHash ? { status: 'remembered', device: copy } : { status: 'mismatch', device: copy };
+      },
+      async remember(id, key, name) {
+        if (!validIdentity(id, key)) return false;
+        let hash;
+        try {
+          hash = await hashKey(key);
+        } catch (ignored) {
+          return false;
+        }
+        const data = load();
+        const time = now();
+        const existing = data.devices.find(item => item.id === id);
+        if (existing) {
+          existing.keyHash = hash;
+          existing.name = cleanName(name);
+          existing.lastSeen = time;
+        } else {
+          data.devices.push({ id, keyHash: hash, name: cleanName(name), added: time, lastSeen: time });
+        }
+        return save(data);
+      },
+      touch(id, name) {
+        const data = load();
+        const device = data.devices.find(item => item.id === id);
+        if (!device) return false;
+        device.lastSeen = now();
+        if (name) device.name = cleanName(name);
+        return save(data);
+      },
+      forget(id) {
+        const data = load();
+        const before = data.devices.length;
+        data.devices = data.devices.filter(item => item.id !== id);
+        save(data);
+        return data.devices.length !== before;
+      },
+      forgetAll() {
+        const data = load();
+        data.devices = [];
+        return save(data);
+      },
+    };
+  }
+
+  // What the PC does with a control request.
+  //   trust: 'unknown' | 'remembered' | 'mismatch'
+  //   sessionApproved: this device (same id and key) was allowed earlier while sharing this code
+  function decide(request) {
+    const options = request || {};
+    if (options.trust === 'mismatch') return 'ask-warning';
+    if (options.sessionApproved) return 'auto-session';
+    if (options.trust === 'remembered' && options.autoAllow) return 'auto-remembered';
+    return 'ask';
+  }
+
+  // ------------------------------------------------------------------ phone: reconnect policy
+  // Reasons a remote-control link ends (link.lastError.reason):
+  //   lost       the transport to the PC dropped        pc-gone   the PC left without saying why
+  //   pc-silent  the PC stopped answering pings         stopped   the PC operator stopped sharing
+  //   denied / revoked / busy  the PC operator said no  cancelled the user on this device stopped
+  //   no-pc / timeout / approval-timeout / network      a (re)connect attempt failed
+  const RETRY_START = ['lost', 'pc-gone', 'pc-silent'];
+  const RETRY_CONTINUE = RETRY_START.concat(['no-pc', 'timeout', 'approval-timeout', 'network', 'verify']);
+  const RETRY_WINDOW_MS = 30 * 60 * 1000;
+
+  function retryDelay(attempt) {
+    if (attempt < 3) return 3000;
+    if (attempt < 8) return 8000;
+    return 20000;
+  }
+
+  function canStartRetry(reason) {
+    return RETRY_START.includes(reason);
+  }
+
+  function canContinueRetry(reason, startedAt, now) {
+    const time = now === undefined ? Date.now() : now;
+    return RETRY_CONTINUE.includes(reason) && time - startedAt < RETRY_WINDOW_MS;
+  }
+
+  // ------------------------------------------------------------------ liveness (phone side)
+  // tick() every few seconds while connected: 'ping' = send a ping now, 'dead' = the PC has not
+  // answered for too long, 'wait' = nothing to do. A long gap between ticks means THIS device
+  // was asleep: the PC gets a fresh chance to answer instead of being declared dead.
+  function createLiveness(options) {
+    const settings = options || {};
+    const timeout = settings.timeout || 30000;
+    const pingEvery = settings.pingEvery || 10000;
+    const suspendGap = settings.suspendGap || 15000;
+    const clock = settings.now || (() => Date.now());
+    let lastHeard = clock();
+    let lastPing = -Infinity;
+    let lastTick = clock();
+    return {
+      heard() {
+        lastHeard = clock();
+      },
+      tick() {
+        const time = clock();
+        if (time - lastTick > suspendGap) {
+          lastHeard = time;
+          lastPing = -Infinity;
+        }
+        lastTick = time;
+        if (time - lastHeard > timeout) return 'dead';
+        if (time - lastPing >= pingEvery) {
+          lastPing = time;
+          return 'ping';
+        }
+        return 'wait';
+      },
+    };
+  }
+
+  // ------------------------------------------------------------------ sleep / wake
+  // Timers stop while a PC sleeps; a gap far longer than the interval means it woke up.
+  // The threshold is above Chrome's one-minute background throttling, so a hidden window
+  // does not look like a wake-up.
+  function createWakeDetector(onWake, options) {
+    const settings = options || {};
+    const interval = settings.interval || 5000;
+    const threshold = settings.threshold || 90000;
+    const clock = settings.now || (() => Date.now());
+    const schedule = settings.setInterval || setInterval;
+    const cancel = settings.clearInterval || clearInterval;
+    let last = clock();
+    function check() {
+      const time = clock();
+      const gap = time - last;
+      last = time;
+      if (gap > threshold) onWake(gap);
+      return gap;
+    }
+    const timer = schedule(check, interval);
+    return {
+      check,
+      stop() {
+        cancel(timer);
+      },
+    };
+  }
+
+  const wakeListeners = new Set();
+  const suspendListeners = new Set();
+  let wakeHubStarted = false;
+  let lastWakeAt = 0;
+
+  function emitWake(reason) {
+    const time = Date.now();
+    // Power resume, the timer gap and "online" often report the same wake-up.
+    if (time - lastWakeAt < 3000) return;
+    lastWakeAt = time;
+    for (const listener of [...wakeListeners]) {
+      try {
+        listener(reason);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+  }
+
+  function emitSuspend() {
+    for (const listener of [...suspendListeners]) {
+      try {
+        listener();
+      } catch (error) {
+        console.error(error);
+      }
+    }
+  }
+
+  function startWakeHub() {
+    if (wakeHubStarted || !root) return;
+    wakeHubStarted = true;
+    createWakeDetector(() => emitWake('timer-gap'));
+    if (typeof root.addEventListener === 'function') root.addEventListener('online', () => emitWake('online'));
+    if (root.document) root.document.addEventListener('resume', () => emitWake('page-resume'));
+    const desktop = root.airizDesktop;
+    if (desktop && typeof desktop.onPowerChange === 'function') {
+      desktop.onPowerChange(state => {
+        if (state === 'resume') emitWake('power-resume');
+        if (state === 'suspend') emitSuspend();
+      });
+    }
+  }
+
+  function onWake(listener) {
+    startWakeHub();
+    wakeListeners.add(listener);
+    return () => wakeListeners.delete(listener);
+  }
+
+  function onSuspend(listener) {
+    startWakeHub();
+    suspendListeners.add(listener);
+    return () => suspendListeners.delete(listener);
+  }
+
+  // ------------------------------------------------------------------ keep awake while sharing
+  // Windows app: a power-save blocker in the main process (system + display stay on).
+  // Browser: the Screen Wake Lock (only while the console tab is visible).
+  function createKeepAwake(environment) {
+    const env = environment || {};
+    let wanted = false;
+    let sentinel = null;
+    let requesting = false;
+    let desktopActive = false;
+
+    function visible() {
+      return !env.document || env.document.visibilityState === 'visible';
+    }
+
+    async function acquire() {
+      if (!env.wakeLock || sentinel || requesting || !wanted || !visible()) return;
+      requesting = true;
+      try {
+        const lock = await env.wakeLock.request('screen');
+        if (!wanted) {
+          lock.release().catch(() => {});
+          return;
+        }
+        sentinel = lock;
+        lock.addEventListener('release', () => {
+          if (sentinel === lock) sentinel = null;
+        });
+      } catch (ignored) {
+        // Not allowed right now (hidden tab, battery saver); retried when the tab is visible.
+      } finally {
+        requesting = false;
+      }
+    }
+
+    function release() {
+      const lock = sentinel;
+      sentinel = null;
+      if (lock) lock.release().catch(() => {});
+    }
+
+    if (env.document && !env.desktop) {
+      env.document.addEventListener('visibilitychange', () => {
+        if (wanted) acquire();
+      });
+    }
+
+    return {
+      get wanted() {
+        return wanted;
+      },
+      get active() {
+        return env.desktop ? desktopActive : !!sentinel;
+      },
+      get mode() {
+        if (env.desktop && typeof env.desktop.setKeepAwake === 'function') return 'desktop';
+        return env.wakeLock ? 'screen' : 'none';
+      },
+      async set(flag) {
+        wanted = !!flag;
+        if (env.desktop && typeof env.desktop.setKeepAwake === 'function') {
+          try {
+            desktopActive = !!(await env.desktop.setKeepAwake(wanted));
+          } catch (ignored) {
+            desktopActive = false;
+          }
+          return desktopActive;
+        }
+        if (wanted) await acquire();
+        else release();
+        return !!sentinel;
+      },
+    };
+  }
+
+  return Object.freeze({
+    IDENTITY_KEY,
+    TRUST_KEY,
+    MAX_DEVICES,
+    RETRY_WINDOW_MS,
+    memoryStorage,
+    loadIdentity,
+    validIdentity,
+    hashKey,
+    createTrustStore,
+    decide,
+    retryDelay,
+    canStartRetry,
+    canContinueRetry,
+    createLiveness,
+    createWakeDetector,
+    onWake,
+    onSuspend,
+    emitWake,
+    createKeepAwake,
+  });
+});

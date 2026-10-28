@@ -968,7 +968,60 @@
     "Owner auto-post enabled. The existing invite was reused; no new card was submitted. Saved for next launch in this app/browser. Clipboard copy was blocked; use Copy invite link.": "已啟用負責人自動傳送。沿用現有邀請，未送出新的邀請卡。 已儲存，下次在此 App／瀏覽器啟動時會還原。 剪貼簿複製遭封鎖；請使用「複製邀請連結」。",
     "Owner auto-post enabled. The existing invite was reused; no new card was submitted. Storage is unavailable: this setup lasts only for this session. Invite link copied.": "已啟用負責人自動傳送。沿用現有邀請，未送出新的邀請卡。 無法儲存：此設定只在目前工作階段有效。 已複製邀請連結。",
     "Owner auto-post enabled. The existing invite was reused; no new card was submitted. Storage is unavailable: this setup lasts only for this session. Clipboard copy was blocked; use Copy invite link.": "已啟用負責人自動傳送。沿用現有邀請，未送出新的邀請卡。 無法儲存：此設定只在目前工作階段有效。 剪貼簿複製遭封鎖；請使用「複製邀請連結」。",
-    "Get the Windows desktop app": "取得 Windows 桌面版 App"
+    "Get the Windows desktop app": "取得 Windows 桌面版 App",
+    "Several phones or PCs can control at the same time. Allow & remember lets a device in by itself next time.": "多支手機或 PC 可同時控制。按「允許並記住」後，該裝置下次會自動連入。",
+    "Remembered devices": "已記住的裝置",
+    "Let remembered devices in automatically (no Allow needed)": "自動讓已記住的裝置連入（不需按允許）",
+    "Keep this PC awake while sharing": "分享期間保持這台 PC 喚醒",
+    "Allowed devices can move the motors and send any console command. Stop motor and Esc on this PC always work; a move already sent finishes unless stopped.": "已允許的裝置可以移動馬達並送出任何主控台指令。這台 PC 上的 Stop motor 與 Esc 隨時有效；已送出的動作除非停止，否則會執行完畢。",
+    "Allow & remember": "允許並記住",
+    "Allow now and let this device in by itself next time": "現在允許，下次讓此裝置自動連入",
+    "Remember": "記住",
+    "Let this device in by itself next time": "下次讓此裝置自動連入",
+    "remembered": "已記住",
+    "key changed": "金鑰不符",
+    "controlling": "控制中",
+    "checking…": "確認中…",
+    "direct": "直連",
+    "via AIRIZ relay": "經由 AIRIZ 中繼",
+    "direct + relay": "直連＋中繼",
+    "reconnecting…": "重新連線中…",
+    "Forget": "忘記",
+    "No remembered devices yet.": "尚未記住任何裝置。",
+    "used just now": "剛剛使用",
+    "Remembered devices are let in automatically.": "已記住的裝置會自動連入。",
+    "Remembered devices now wait for Allow like any other device.": "已記住的裝置現在也和其他裝置一樣需等待「允許」。",
+    "Forgotten. That device needs your Allow next time.": "已忘記。該裝置下次需要您按「允許」。",
+    "This device could not be remembered here (secure storage unavailable).": "無法在此記住這個裝置（安全儲存不可用）。",
+    "The PC may go to sleep while sharing. Phones reconnect with the same code when it wakes up.": "分享期間 PC 可能進入睡眠。PC 喚醒後，手機會以同一組代碼重新連線。",
+    "Windows did not accept the keep-awake request. Set sleep to Never while sharing.": "Windows 未接受保持喚醒的要求。分享期間請將睡眠設為「永不」。",
+    "While sharing, this PC and its screen stay on. Closing the lid can still put it to sleep; it then reconnects with the same code when it wakes up.": "分享期間，這台 PC 與螢幕會保持開啟。闔上筆電仍可能讓它睡眠；喚醒後會以同一組代碼重新連線。",
+    "This browser keeps the screen on while this tab is visible. The AIRIZ Windows app also keeps the PC awake in the background.": "此瀏覽器會在此分頁顯示時保持螢幕開啟。AIRIZ Windows App 即使在背景也能讓 PC 保持喚醒。",
+    "This browser cannot keep the PC awake. Use the AIRIZ Windows app, or set Windows sleep to Never while sharing.": "此瀏覽器無法讓 PC 保持喚醒。請使用 AIRIZ Windows App，或在分享期間將 Windows 睡眠設為「永不」。",
+    "The relay connection dropped right after a motor command - motor stop sent for safety.": "中繼連線在馬達指令後中斷 - 已為安全送出馬達停止。",
+    "Motor stop sent for safety: a remote device had just moved the motor.": "已為安全送出馬達停止：遠端裝置剛剛移動過馬達。",
+    "Allowed (this device is remembered). Checking the AIRIZ through the PC…": "已允許（此裝置已被記住）。正透過 PC 確認 AIRIZ…",
+    "The PC stopped answering (asleep or offline?).": "PC 沒有回應（睡眠或離線？）。",
+    "The PC is going to sleep. This device reconnects by itself when it wakes up.": "PC 即將進入睡眠。PC 喚醒後此裝置會自動重新連線。",
+    "The PC left (asleep or offline?).": "PC 已離開（睡眠或離線？）。",
+    "Connected (remembered device). You are controlling the AIRIZ through the PC.": "已連線（已記住的裝置）。您正透過 PC 控制 AIRIZ。",
+    "No PC is sharing this code right now (it may be asleep).": "目前沒有 PC 分享此代碼（可能在睡眠中）。",
+    "The PC did not answer (it may be asleep).": "PC 沒有回應（可能在睡眠中）。",
+    "The PC operator did not press Allow yet.": "PC 操作者尚未按「允許」。",
+    "Reconnected. You are controlling the AIRIZ through the PC.": "已重新連線，您正透過 PC 控制 AIRIZ。",
+    "Stopped reconnecting after 30 minutes. Type the code to connect again.": "30 分鐘後已停止重新連線。請輸入代碼再次連線。",
+    "Stopped reconnecting. Type the code to connect again.": "已停止重新連線。請輸入代碼再次連線。",
+    "Could not reconnect.": "無法重新連線。",
+    "Remote: reconnecting…": "遠端：重新連線中…",
+    "Reconnecting…": "重新連線中…",
+    "Reconnecting to the AIRIZ…": "正在重新連線 AIRIZ…",
+    "RECONNECTING": "重新連線中",
+    "Share the motor and the camera with one code. Several phones can connect; you press Allow or let remembered phones in.": "用一組代碼分享馬達與相機。可同時連線多支手機；由您按「允許」，或讓已記住的手機自動連入。",
+    "While sharing, the Windows app keeps the PC and its screen awake. If the PC still sleeps (lid closed) or the network drops, it keeps the same code and the phones reconnect by themselves; a dropped AIRIZ USB link reconnects by itself too.": "分享期間，Windows App 會讓 PC 與螢幕保持喚醒。若 PC 仍進入睡眠（闔上筆電）或網路中斷，代碼不變，手機會自動重新連線；AIRIZ 的 USB 連線中斷也會自動重新連線。",
+    "CODE": "代碼",
+    "Remote control link": "遠端控制連結",
+    "Several phones, remembered devices, sleep-proof sharing (1.9.0)": "多支手機同時控制、記住裝置、睡眠不斷線（1.9.0）",
+    "Several phones can control the AIRIZ at the same time. Allow & remember lets a phone in by itself next time (switch it off or Forget a phone any time). While sharing, the Windows app keeps the PC awake; after sleep or a network drop the code stays the same and phones reconnect by themselves, and a dropped USB link to the AIRIZ reconnects automatically.": "多支手機可同時控制 AIRIZ。「允許並記住」讓手機下次自動連入（可隨時關閉或忘記手機）。分享期間 Windows App 會讓 PC 保持喚醒；睡眠或網路中斷後代碼不變、手機自動重新連線，AIRIZ 的 USB 連線中斷也會自動重新連線。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -1021,7 +1074,6 @@
     "7 Remote control by code": "<span>7</span> 以代碼遠端控制",
     "On the PC connected by USB: Share control → a 6-digit code appears.": "在以 USB 連接裝置的 PC 上：<strong>Share control</strong> → 出現 6 位數代碼。",
     "On the phone or another PC: Connect by code → enter the code.": "在手機或另一台 PC 上：<strong>Connect by code</strong> → 輸入代碼。",
-    "The PC operator presses Allow. One controller at a time; the PC can revoke at any moment, and a dropped controller after a motor command triggers a motor stop.": "PC 操作者按 <strong>Allow</strong>。同一時間只允許一個控制端；PC 可隨時收回控制權，若控制端在送出馬達指令後斷線，會自動送出馬達停止。",
     "8 Phone remote (Bluetooth)": "<span>8</span> 手機遙控（藍牙）",
     "Connect the device over USB → Phone remote → Start remote (shows a PIN). Repeat after every power-up.": "透過 USB 連接裝置 → <strong>Phone remote</strong> → <strong>Start remote</strong>（會顯示 PIN）。每次開機後需重新啟動。",
     "Android: AIRIZ Mobile app or Chrome. iPhone: the free Bluefy browser → this console → Connect Bluetooth → AIRIZ-BT → PIN.": "Android：AIRIZ Mobile App 或 Chrome。iPhone：免費的 <strong>Bluefy</strong> 瀏覽器 → 本主控台 → Connect Bluetooth → AIRIZ-BT → PIN。",
@@ -1057,9 +1109,131 @@
     "Copy the workflow address. Return here and press Finish owner setup, or paste the address into the box first.": "複製工作流程網址，回到此處按<strong>完成負責人設定</strong>；也可以先將網址貼入欄位。",
     "Once in Teams: add Send webhook alerts to a chat for Ziris PTB, authorize it and copy the workflow address. Use an Anyone trigger only if your organization permits private bearer webhooks.": "在 Teams 完成一次：為 Ziris PTB 新增 <strong>Send webhook alerts to a chat</strong>，授權後複製工作流程網址。只有在組織允許私人持有者 webhook 時，才使用 <strong>Anyone（任何人）</strong> 觸發程序。",
     "Ziris PTB team → Finish owner setup. The button uses your saved owner address or the one you copied; pasting it first also works.": "Ziris PTB 團隊 → <strong>完成負責人設定</strong>。按鈕會使用已儲存的負責人網址或剛複製的網址；也可以先貼上。",
-    "If setup fails, your previous team settings are kept. Check Teams before retrying a timed-out request. Manual invite and resend controls remain under Advanced: personal invite or resend.": "設定失敗時會保留原團隊設定。重試逾時請求前請先查看 Teams。手動邀請及重傳控制仍保留在<strong>進階：個人邀請或重新傳送</strong>中。"
+    "If setup fails, your previous team settings are kept. Check Teams before retrying a timed-out request. Manual invite and resend controls remain under Advanced: personal invite or resend.": "設定失敗時會保留原團隊設定。重試逾時請求前請先查看 Teams。手動邀請及重傳控制仍保留在<strong>進階：個人邀請或重新傳送</strong>中。",
+    "The PC operator presses Allow, or Allow & remember to let that phone in by itself next time (switch that off, or Forget a phone, under Remembered devices). Several phones can control at the same time; the PC can disconnect any of them, and a phone that drops right after a motor command triggers a motor stop.": "PC 操作者按 <strong>Allow</strong>，或按 <strong>Allow &amp; remember</strong>（允許並記住）讓該手機下次自動連入（可在「已記住的裝置」中關閉此功能，或按 <strong>Forget</strong> 忘記手機）。多支手機可同時控制；PC 可隨時中斷任何一支，若手機在送出馬達指令後斷線，會自動送出馬達停止。",
+    "Let a phone or another PC control this AIRIZ through this PC - no Bluetooth needed. On the other device open the AIRIZ console and type the code into Control by code. You decide who may control it.": "讓手機或另一台 PC 透過這台 PC 控制這台 AIRIZ - 不需藍牙。在另一台裝置開啟 AIRIZ 主控台，並在<strong>以代碼控制</strong>輸入代碼。由您決定誰可以控制。"
   },
   "patterns": [
+    [
+      "^Shared · (\\d+) devices$",
+      "已分享 · $1 台裝置"
+    ],
+    [
+      "^Share control · (\\d+) waiting$",
+      "分享控制 · $1 個等待中"
+    ],
+    [
+      "^(\\d+) devices are controlling the AIRIZ\\. Commands they send appear in the Live console\\.$",
+      "$1 台裝置正在控制 AIRIZ，其送出的指令會顯示在即時主控台。"
+    ],
+    [
+      "^(.+) is now controlling the AIRIZ through this PC\\. (\\d+) devices are controlling\\.$",
+      "$1 正透過這台 PC 控制 AIRIZ。目前共 $2 台裝置在控制。"
+    ],
+    [
+      "^(.+) \\(remembered\\) is controlling the AIRIZ - let in automatically\\. (\\d+) devices are controlling\\.$",
+      "$1（已記住）已自動連入並控制 AIRIZ。目前共 $2 台裝置在控制。"
+    ],
+    [
+      "^(.+) \\(remembered\\) is controlling the AIRIZ - let in automatically\\.$",
+      "$1（已記住）已自動連入並控制 AIRIZ。"
+    ],
+    [
+      "^(.+) reconnected and is controlling the AIRIZ again\\. (\\d+) devices are controlling\\.$",
+      "$1 已重新連線並再次控制 AIRIZ。目前共 $2 台裝置在控制。"
+    ],
+    [
+      "^(.+) reconnected and is controlling the AIRIZ again\\.$",
+      "$1 已重新連線並再次控制 AIRIZ。"
+    ],
+    [
+      "^(.+) is remembered and will be let in automatically next time\\.$",
+      "已記住 $1，下次會自動連入。"
+    ],
+    [
+      "^(.+) is remembered\\.$",
+      "已記住 $1。"
+    ],
+    [
+      "^(.+) asks to control the AIRIZ, but its key does not match the remembered device\\. Check it before allowing\\.$",
+      "$1 要求控制 AIRIZ，但其金鑰與已記住的裝置不符。允許前請先確認。"
+    ],
+    [
+      "^(.+) disconnected\\. Motor stop sent for safety\\.$",
+      "$1 已中斷連線。已為安全送出馬達停止。"
+    ],
+    [
+      "^(.+) stopped answering\\. Motor stop sent for safety\\.$",
+      "$1 已無回應。已為安全送出馬達停止。"
+    ],
+    [
+      "^Disconnected (.+)\\. Motor stop sent for safety\\.$",
+      "已中斷 $1。已為安全送出馬達停止。"
+    ],
+    [
+      "^(.+) stopped answering\\.$",
+      "$1 已無回應。"
+    ],
+    [
+      "^(.+) disconnected\\.$",
+      "$1 已中斷連線。"
+    ],
+    [
+      "^Disconnected (.+)\\.$",
+      "已中斷 $1。"
+    ],
+    [
+      "^Reconnecting the share after sleep or a network change - same code (\\d{6})\\.$",
+      "睡眠或網路變更後正在恢復分享 - 代碼不變（$1）。"
+    ],
+    [
+      "^Sharing with code (\\d{6})\\. Phones reconnect by themselves\\.$",
+      "正在以代碼 $1 分享。手機會自動重新連線。"
+    ],
+    [
+      "^The AIRIZ is back on USB\\. Still sharing with code (\\d{6})\\.$",
+      "AIRIZ 已重新以 USB 連線，仍以代碼 $1 分享。"
+    ],
+    [
+      "^The AIRIZ USB connection dropped - reconnecting\\. Sharing stays on with code (\\d{6})\\.$",
+      "AIRIZ 的 USB 連線中斷 - 重新連線中。分享仍以代碼 $1 持續。"
+    ],
+    [
+      "^used (\\d+) min ago$",
+      "$1 分鐘前使用"
+    ],
+    [
+      "^used (\\d+) h ago$",
+      "$1 小時前使用"
+    ],
+    [
+      "^used (\\d+) days ago$",
+      "$1 天前使用"
+    ],
+    [
+      "^(\\d+) h (\\d+) min$",
+      "$1 小時 $2 分鐘"
+    ],
+    [
+      "^(\\d+) min$",
+      "$1 分鐘"
+    ],
+    [
+      "^(.+?) Reconnecting automatically \\(attempt (\\d+)\\)…$",
+      "$1 自動重新連線中（第 $2 次）…"
+    ],
+    [
+      "^(.+?) Reconnecting automatically with code (\\d{6})…$",
+      "$1 正以代碼 $2 自動重新連線…"
+    ],
+    [
+      "^Reconnecting to the PC with code (\\d{6})…$",
+      "正以代碼 $1 重新連線到 PC…"
+    ],
+    [
+      "^Reconnected to the PC \\(code (\\d{6})\\)\\.$",
+      "已重新連線到 PC（代碼 $1）。"
+    ],
     [
       "^Owner setup was not completed\\. Your previous team settings were kept\\. (.*?)(?: (Check\\ the\\ Teams\\ chat\\ before\\ retrying;\\ a\\ timed\\-out\\ request\\ may\\ still\\ arrive\\.))?(?: (This\\ console\\ needs\\ an\\ Anyone\\ trigger\\ permitted\\ by\\ your\\ organization;\\ it\\ cannot\\ bypass\\ Microsoft\\ sign\\-in\\.))?$",
       "負責人設定尚未完成，已保留原團隊設定。$1 $2 $3"
