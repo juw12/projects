@@ -5,9 +5,9 @@
       "id": "orbis",
       "name": "Orbis",
       "category": "Apps",
-      "desc": "Communication, identity and protection in one app",
-      "description": "Offline-first personal hub for communication and growth &mdash; manage replies, commitments and summaries on a zero-dependency Python + SQLite backend. Now with a Ctrl/⌘K command palette, keyboard-first triage, undo on every action, a drag-and-drop Kanban board, a focus timer and light/dark themes.",
-      "summary": "Offline-first hub for replies, commitments and summaries, now with a Ctrl/⌘K palette, keyboard triage, undo, Kanban and dark mode.",
+      "desc": "Communication, identity and protection in one app, with live multi-user Orbis Chat",
+      "description": "Offline-first personal hub for communication and growth &mdash; manage replies, commitments and summaries on a zero-dependency Python + SQLite backend. Now with a Ctrl/⌘K command palette, keyboard-first triage, undo on every action, a drag-and-drop Kanban board, a focus timer and light/dark themes. Includes <strong>Orbis Chat</strong>: real-time messaging between real accounts with teams, channels, email invites, read receipts, typing indicators and push notifications that arrive even when the app is closed &mdash; on web, iPhone and Android.",
+      "summary": "Personal comms hub plus live Orbis Chat: real accounts, teams, invites and push alerts on web, iPhone and Android.",
       "tags": [
         "Python",
         "SQLite",
