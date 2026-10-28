@@ -6,8 +6,8 @@
       "name": "Orbis",
       "category": "Apps",
       "desc": "Communication, identity and protection in one app",
-      "description": "Offline-first personal hub for communication and growth &mdash; manage replies, commitments and summaries on a zero-dependency Python + SQLite backend.",
-      "summary": "Offline-first personal hub for replies, commitments and summaries on a zero-dependency Python + SQLite backend.",
+      "description": "Offline-first personal hub for communication and growth &mdash; manage replies, commitments and summaries on a zero-dependency Python + SQLite backend. Now with a Ctrl/⌘K command palette, keyboard-first triage, undo on every action, a drag-and-drop Kanban board, a focus timer and light/dark themes.",
+      "summary": "Offline-first hub for replies, commitments and summaries, now with a Ctrl/⌘K palette, keyboard triage, undo, Kanban and dark mode.",
       "tags": [
         "Python",
         "SQLite",
@@ -29,8 +29,8 @@
       "name": "Peers",
       "category": "Apps",
       "desc": "Verified reviews across 32 categories — food, travel, market, AI tools, health and more",
-      "description": "Offline-first review app across 32 categories, from food to AI tools, with a built-in Use it / Wait / Skip scorecard.",
-      "summary": "Offline-first review app across 32 categories, from food to AI tools, with a quick Use it / Wait / Skip scorecard.",
+      "description": "Offline-first review app across 32 categories, from food to AI tools, with a built-in Use it / Wait / Skip scorecard. Now with a Ctrl/⌘K command palette, keyboard shortcuts, undo, saved reviews and light/dark themes with custom accents.",
+      "summary": "Offline-first reviews across 32 categories with a Use it / Wait / Skip scorecard, a Ctrl/⌘K palette, saved reviews and dark mode.",
       "tags": [
         "PWA",
         "reviews",
