@@ -26,6 +26,11 @@ try:
     import pet_shop
 except ImportError:  # pragma: no cover
     pet_shop = None
+
+try:
+    import weather_fx
+except ImportError:  # pragma: no cover
+    weather_fx = None
 from social import ACH_IDS, ACH_SYMBOL, INTERACTIONS, INTERACTION_SYMBOL, affinity_level, default_display_name
 
 try:
@@ -268,6 +273,7 @@ class FriendsWindow:
                     "not_allowed": t("fr_err_not_allowed"), "not_staff": t("fr_err_not_allowed"),
                     "not_owner": t("fr_err_not_allowed"), "bad_key": t("fr_err_bad_key"),
                     "premium_only": t("fr_err_premium_only"), "busy": t("duel_err_busy"),
+                    "no_location": t("wx_err_auto"), "bad_location": t("wx_err_auto"),
                     "expired": t("duel_expired")}
         self.error = messages.get(code, t("fr_err_generic", code=code))
         self.refresh(force=True)
@@ -365,6 +371,12 @@ class FriendsWindow:
             self.status.config(text=t("fr_privacy_short"), fg=self.MUTED)
 
     def _render_head(self, stats):
+        weather, loc = self.social.my_weather() if self.social.enabled else (None, None)
+        if weather and weather_fx is not None:
+            banner = weather_fx.WeatherBanner(self.head, weather, loc, self.WIDTH - 30, 26, compact=True)
+            banner.cv.pack(fill="x")
+            banner.cv.config(cursor="hand2")
+            banner.cv.bind("<Button-1>", lambda e: self.open_profile(self.social.data.get("code")))
         row = tk.Frame(self.head, bg=self.CARD, padx=10, pady=8)
         row.pack(fill="x")
         me = dict((self.social.board or {}).get("me") or {})
@@ -459,6 +471,9 @@ class FriendsWindow:
             self._chip(top, self._label_text(person["label"]), bg).pack(side="left", padx=(6, 0))
         if person.get("status_text"):
             self._label(info, "\u201c" + person["status_text"] + "\u201d", size=8, fg=self.MUTED, bg=bg).pack(fill="x")
+        if person.get("weather") and weather_fx is not None:
+            self._label(info, weather_fx.short_text(person["weather"], person.get("loc"))
+                        + f"  \u00b7  {weather_fx.local_time(person['weather'])}", size=8, fg=self.ACCENT, bg=bg).pack(fill="x")
         if value_text:
             color = self.PRESENCE.get(person.get("presence") or "", self.ACCENT) if person.get("presence") else self.ACCENT
             self._label(top, value_text, size=9, bold=True, fg=color, bg=bg).pack(side="right")
@@ -949,6 +964,12 @@ class FriendsWindow:
             return
         user = entry["user"]
         full = entry.get("full")
+        if user.get("weather") and weather_fx is not None:
+            banner = weather_fx.WeatherBanner(self.body, user["weather"], user.get("loc"), self.WIDTH - 60, 96)
+            banner.cv.pack(fill="x", pady=(0, 0))
+        elif user.get("loc"):
+            self._label(self.body, "\U0001F4CD " + user["loc"].get("city", ""), size=9, bold=True,
+                        fg=self.ACCENT).pack(fill="x")
         hero = tk.Frame(self.body, bg=self.WARM, padx=12, pady=10)
         hero.pack(fill="x")
         self._avatar(hero, user.get("species"), user.get("color"), size=88, bg=self.WARM, look=user.get("look"),
@@ -1564,6 +1585,7 @@ class FriendsWindow:
         else:
             self._label(self.body, t("prof_offline_note"), size=8, fg=self.MUTED,
                         wrap=self.WIDTH - 70).pack(fill="x", pady=(4, 0))
+        self._render_location()
         # theme
         self._section_title(t("theme_title"))
         th = tk.Frame(self.body, bg=self.CARD)
@@ -1574,6 +1596,72 @@ class FriendsWindow:
                          lambda k=key: self._set_theme(k), primary=current == key).pack(side="left", padx=(0, 6))
         self._render_premium()
         self._render_credits()
+
+    # ---- location & weather (v2.9) ----
+    def _render_location(self):
+        self._section_title("\U0001F4CD " + t("wx_title"))
+        if not self.social.enabled:
+            self._label(self.body, t("premium_needs_friends"), size=8, fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x")
+            return
+        me = (self.social.board or {}).get("me") or {}
+        weather, loc = me.get("weather"), me.get("loc")
+        if weather and weather_fx is not None:
+            weather_fx.WeatherBanner(self.body, weather, loc, self.WIDTH - 60, 96).cv.pack(fill="x")
+        elif loc:
+            self._label(self.body, "\U0001F4CD " + loc.get("city", ""), bold=True).pack(fill="x")
+        else:
+            self._label(self.body, t("wx_none"), size=8, fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x")
+        if loc and not me.get("loc_visible", True):
+            self._label(self.body, "\U0001F512 " + t("wx_hidden"), size=8, fg=self.MUTED).pack(fill="x")
+        row = tk.Frame(self.body, bg=self.CARD)
+        row.pack(fill="x", pady=(6, 0))
+        self._button(row, "\U0001F4CD " + t("wx_auto"), lambda: self.social.set_location("auto"), primary=True,
+                     small=True).pack(side="left")
+        self.city_var = tk.StringVar()
+        entry = self._entry(row, self.city_var, width=18)
+        entry.pack(side="left", padx=(8, 4))
+        entry.bind("<Return>", lambda e: self._search_city())
+        self._button(row, "\U0001F50D " + t("wx_search"), self._search_city, small=True).pack(side="left")
+        self.geo_box = tk.Frame(self.body, bg=self.CARD)
+        self.geo_box.pack(fill="x")
+        if loc:
+            row2 = tk.Frame(self.body, bg=self.CARD)
+            row2.pack(fill="x", pady=(4, 0))
+            if me.get("loc_visible", True):
+                self._button(row2, "\U0001F512 " + t("wx_hide"), lambda: self.social.set_location("hide"), small=True).pack(side="left")
+            else:
+                self._button(row2, "\U0001F441 " + t("wx_show"), lambda: self.social.set_location("show"), small=True).pack(side="left")
+            self._button(row2, "\u2715 " + t("wx_remove"), lambda: self.social.set_location("off"), small=True).pack(
+                side="left", padx=4)
+        self._label(self.body, t("wx_privacy"), size=8, fg=self.MUTED, wrap=self.WIDTH - 70).pack(fill="x", pady=(4, 0))
+
+    def _search_city(self):
+        query = self.city_var.get().strip()
+        if len(query) < 2:
+            return
+        self.social.search_city(query)
+        self.status.config(text=t("fr_connecting"), fg=self.MUTED)
+
+    def show_geo_results(self):
+        box = getattr(self, "geo_box", None)
+        try:
+            if box is None or not box.winfo_exists():
+                return
+        except tk.TclError:
+            return
+        for child in box.winfo_children():
+            child.destroy()
+        places = self.social.geo_results or []
+        if not places:
+            self._label(box, t("wx_no_results"), size=8, fg=self.MUTED).pack(fill="x")
+        for place in places[:6]:
+            label = ", ".join(x for x in (place.get("name"), place.get("admin"), place.get("country")) if x)
+            row = tk.Frame(box, bg=self.TILE, padx=6, pady=2)
+            row.pack(fill="x", pady=1)
+            self._label(row, label, size=9, bg=self.TILE).pack(side="left")
+            self._button(row, t("wx_pick"), lambda p=place: self.social.set_location("city", p), primary=True,
+                         small=True).pack(side="right")
+        self.status.config(text="", fg=self.MUTED)
 
     def _render_credits(self):
         self._section_title(t("credits_title"))

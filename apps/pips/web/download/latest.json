@@ -1,38 +1,34 @@
 {
-  "version": "2.8.0",
+  "version": "2.9.0",
   "date": "2026-10-28",
-  "title": "Pips Arena - duels, gear & live battles",
+  "title": "Location & live weather",
   "url": "https://juw12.github.io/projects/pips/download/Pips-Windows.zip",
-  "sha256": "a3b2867e4c032bcd2244443ef2d22f61bd417bdd6ee436149746cec2a8678895",
-  "size": 739898,
+  "sha256": "1e3054c327edce34f55bae728dc0c5fb1f8acca07505b702b7b6110ab248da13",
+  "size": 748100,
   "notes": {
     "en": [
-      "⚔ New Arena tab: challenge friends or anyone in the arena to a live duel - each round pick Attack, Guard or Special within 12 seconds and watch your pets fight",
-      "⚡ Quick battle: an instant auto-fight against anyone's fighter, even when they're offline",
-      "Arena gear in the Shop: 7 weapons (water pistol to rocket launcher), 5 armors and 5 gadgets that decide your special move - better gear and a higher level make a stronger fighter",
-      "Live duels can be watched by everyone, plus recent battle replays, top fighters, rating and win/loss records; wins earn coins",
-      "★ Premium gear: plasma cannon, mech suit and force field"
+      "📍 Add your city in Profile → Location & weather (auto-detect or search) - only your city and country are shown, never your exact position",
+      "Live weather banners on every profile with animations: rain, drizzle, thunderstorms with lightning, snow, fog, clouds, sunshine or a starry night - plus temperature, feels-like, humidity, wind and local time",
+      "Your own weather strip on top of the hub, and each friend's weather + local time in the friends list",
+      "Hide your location from others or remove it any time"
     ],
     "id": [
-      "⚔ Tab Arena baru: tantang teman atau siapa saja di arena untuk duel langsung - setiap ronde pilih Serang, Bertahan atau Spesial dalam 12 detik dan tonton peliharaanmu bertarung",
-      "⚡ Tarung cepat: pertarungan otomatis instan melawan petarung siapa saja, bahkan saat mereka offline",
-      "Perlengkapan arena di Toko: 7 senjata (pistol air sampai peluncur roket), 5 baju zirah dan 5 gadget yang menentukan gerakan spesialmu - perlengkapan lebih baik dan level lebih tinggi membuat petarung lebih kuat",
-      "Duel langsung bisa ditonton semua orang, plus tayangan ulang, petarung teratas, rating dan rekor menang/kalah; kemenangan memberi koin",
-      "★ Perlengkapan Premium: meriam plasma, baju robot dan medan pelindung"
+      "📍 Tambahkan kotamu di Profil → Lokasi & cuaca (deteksi otomatis atau cari) - hanya kota dan negaramu yang ditampilkan, tidak pernah posisi persismu",
+      "Banner cuaca langsung di setiap profil dengan animasi: hujan, gerimis, badai petir dengan kilat, salju, kabut, awan, cerah atau malam berbintang - plus suhu, terasa seperti, kelembapan, angin dan waktu setempat",
+      "Strip cuacamu sendiri di atas hub, dan cuaca + waktu setempat setiap teman di daftar teman",
+      "Sembunyikan lokasimu dari orang lain atau hapus kapan saja"
     ],
     "zh_TW": [
-      "⚔ 新的競技場分頁：向好友或競技場裡的任何人發起即時對決，每回合在 12 秒內選擇攻擊、防禦或特技，看你的寵物對戰",
-      "⚡ 快速對戰：與任何人的戰士即時自動對戰，對方離線也可以",
-      "商店新增競技場裝備：7 種武器（水槍到火箭筒）、5 種護甲和 5 種決定特技的道具，裝備越好、等級越高越強",
-      "所有人都能觀看即時對決，另有對戰重播、頂尖戰士、積分和勝負紀錄；勝利可得金幣",
-      "★ 高級會員裝備：電漿砲、機甲裝和力場產生器"
+      "📍 在 個人檔案 → 位置與天氣 加入你的城市（自動偵測或搜尋），只會顯示城市和國家，絕不顯示精確位置",
+      "每個人的檔案都有即時天氣動畫橫幅：下雨、毛毛雨、閃電雷雨、下雪、起霧、多雲、晴天或星空夜晚，並顯示溫度、體感、濕度、風速和當地時間",
+      "中心頂部顯示你自己的天氣條，好友列表顯示每位好友的天氣和當地時間",
+      "隨時可以對他人隱藏或移除你的位置"
     ],
     "zh_CN": [
-      "⚔ 新的竞技场标签：向好友或竞技场里的任何人发起实时对决，每回合在 12 秒内选择攻击、防御或特技，看你的宠物对战",
-      "⚡ 快速对战：与任何人的战士即时自动对战，对方离线也可以",
-      "商店新增竞技场装备：7 种武器（水枪到火箭筒）、5 种护甲和 5 种决定特技的道具，装备越好、等级越高越强",
-      "所有人都能观看实时对决，另有对战回放、顶尖战士、积分和胜负记录；胜利可得金币",
-      "★ 高级会员装备：等离子炮、机甲装和力场发生器"
+      "📍 在 个人资料 → 位置与天气 加入你的城市（自动检测或搜索），只会显示城市和国家，绝不显示精确位置",
+      "每个人的资料都有实时天气动画横幅：下雨、毛毛雨、闪电雷雨、下雪、起雾、多云、晴天或星空夜晚，并显示温度、体感、湿度、风速和当地时间",
+      "中心顶部显示你自己的天气条，好友列表显示每位好友的天气和当地时间",
+      "随时可以对他人隐藏或移除你的位置"
     ]
   },
   "guide": "https://juw12.github.io/projects/pips/download/Pips-Guide.pptx"
