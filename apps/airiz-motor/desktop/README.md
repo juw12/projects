@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.4.0` in this repository's Releases section.
+`airiz-desktop-v1.5.0` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -161,6 +161,13 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.5.0: Language & region, new logo
+* **Language & region** chosen on first start (English / 繁體中文 / 简体中文; Taiwan, China,
+  Indonesia – Batam, Other). Changeable any time from the 🌐 button in the header.
+* **New app icon**: flat green tile with a bird inside a game controller (window, taskbar,
+  shortcuts, installer). The installer refreshes the Windows icon cache on install and on
+  every auto-update (`assets/installer.nsh`), so pinned taskbar icons switch too.
 
 ## 1.4.0: Ziris PTB team, Teams auto-post, user guide
 * **Teams auto-post (members only):** when a Ziris PTB member presses Camera &rarr; Share to
