@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.5.1` in this repository's Releases section.
+`airiz-desktop-v1.6.0` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -161,6 +161,16 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.6.0: Type the code straight into the console
+* **Control by code box** at the top of the console: type the 6-digit code from *Share control*
+  on the AIRIZ PC and it connects by itself as soon as the 6th digit is in. No dialog, no
+  Bluetooth. The same box shows *Connected* and has a *Disconnect* button. The PC still presses
+  **Allow**, exactly as before.
+* **Phones:** the box is the first thing on the screen. The Bluetooth app card, the Windows
+  download card and the Bluetooth buttons are folded behind *Other ways (Bluetooth, Windows app)*.
+* The PC share dialog now tells the other side to type the code into *Control by code*.
+  The box hides itself on the PC that has the AIRIZ on USB.
 
 ## 1.5.1: Phone links connect again
 * **Fix:** opening a *Share control* link on a phone (`index.html#control=123456`, e.g. from
