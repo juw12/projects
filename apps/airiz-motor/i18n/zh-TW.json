@@ -852,7 +852,11 @@
     "Share codes from Remote by code and Share control now post to the Ziris PTB Teams chat automatically, one message per code (motor + camera). The separate Share to phone button on the Camera page is gone: the same code shares the camera. The Team page has one auto-send switch.": "「以代碼遠端連線」與「分享控制」的代碼現在會自動傳送到 Ziris PTB Teams 聊天，每個代碼一則（馬達＋相機）。相機頁獨立的「分享到手機」按鈕已移除：同一個代碼即可分享相機。團隊頁只剩一個自動傳送開關。",
     "Start Preview with the AIRIZ camera first.": "請先用 AIRIZ 相機開始預覽。",
     "The camera is shared with the Remote by code code. Keep this window open while sharing.": "相機已用「以代碼遠端連線」的代碼分享。分享期間請保持此視窗開啟。",
-    "Watch the AIRIZ camera here: enter the 6-digit Remote by code code from the PC below (or open the link from the Ziris PTB chat).": "在此觀看 AIRIZ 相機：在下方輸入 PC 上「以代碼遠端連線」的 6 位數代碼（或開啟 Ziris PTB 聊天中的連結）。"
+    "Watch the AIRIZ camera here: enter the 6-digit Remote by code code from the PC below (or open the link from the Ziris PTB chat).": "在此觀看 AIRIZ 相機：在下方輸入 PC 上「以代碼遠端連線」的 6 位數代碼（或開啟 Ziris PTB 聊天中的連結）。",
+    "Open in the AIRIZ Windows app": "在 AIRIZ Windows App 開啟",
+    "Joins the AIRIZ Console Windows app on this PC too, with the same name (app version 1.7.3 or newer).": "讓這台 PC 上的 AIRIZ Console Windows App 也以同一個名字加入（App 需 1.7.3 以上版本）。",
+    "Teams invite joins the Windows app too (1.7.3)": "Teams 邀請也能讓 Windows App 一起加入（1.7.3）",
+    "After joining Ziris PTB from the Teams invite in the browser, press Open in the AIRIZ Windows app: the Windows app on that PC joins too, with the same name. Works when the app is closed or already open.": "從 Teams 邀請在瀏覽器加入 Ziris PTB 後，按「在 AIRIZ Windows App 開啟」：這台 PC 上的 Windows App 也會以同一個名字加入。App 關閉或已開啟時都可使用。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -927,9 +931,27 @@
     "On the PC: press Remote by code (start screen) or Share control (Motor page). One 6-digit code shares the motor and the camera; the camera preview starts by itself.": "在 PC 上：按 <strong>以代碼遠端連線</strong>（開始畫面）或 <strong>分享控制</strong>（馬達頁）。一個 <strong>6 位數代碼</strong> 同時分享馬達與相機；相機預覽會自動開始。",
     "On the phone: open the AIRIZ console → Remote by code → type the code (or Camera → enter the code → Watch to only watch).": "在手機上：開啟 AIRIZ 主控台 → <strong>以代碼遠端連線</strong> → 輸入代碼（只想觀看：相機 → 輸入代碼 → <strong>觀看</strong>）。",
     "For Ziris PTB co-admins only. When you share with Remote by code or Share control, the code is posted straight to the Ziris PTB group chat in Microsoft Teams, so whoever holds the phone just opens Teams and taps Open AIRIZ console. Nobody has to read the number off the screen.": "僅限 Ziris PTB 共同管理員。使用以代碼遠端連線或分享控制分享時，代碼會直接傳送到 Microsoft Teams 的 <strong>Ziris PTB</strong> 群組聊天，拿手機的人只要打開 Teams 點 <em>Open AIRIZ console</em> 即可，不必再看螢幕抄號碼。",
-    "From now on every share code is sent automatically, one message per code. The Share control window confirms it (“Code … sent to Ziris PTB”). If it fails, press Send to Teams there to retry.": "之後每個分享代碼都會自動傳送，每個代碼一則。分享控制視窗會顯示確認（「Code … sent to Ziris PTB」）。若失敗，在該視窗按 <strong>傳送到 Teams</strong> 重試。"
+    "From now on every share code is sent automatically, one message per code. The Share control window confirms it (“Code … sent to Ziris PTB”). If it fails, press Send to Teams there to retry.": "之後每個分享代碼都會自動傳送，每個代碼一則。分享控制視窗會顯示確認（「Code … sent to Ziris PTB」）。若失敗，在該視窗按 <strong>傳送到 Teams</strong> 重試。",
+    "In the Ziris PTB Teams chat press Join Ziris PTB on the invite from Juwen Lie. The invite opens in the browser.": "在 Ziris PTB Teams 聊天中，於 <span data-owner-name=\"\">Juwen Lie</span> 傳送的邀請上按 <strong>Join Ziris PTB</strong>，邀請會在瀏覽器開啟。",
+    "Using the AIRIZ Windows app? On the same page press Open in the AIRIZ Windows app and allow the browser to open it: the app joins with the same name. (Or paste the invite link in the app's Ziris PTB team page.)": "使用 AIRIZ Windows App？在同一頁按 <strong>在 AIRIZ Windows App 開啟</strong> 並允許瀏覽器開啟：App 會以同一個名字加入。（或在 App 的 <strong>Ziris PTB team</strong> 頁貼上邀請連結。）"
   },
   "patterns": [
+    [
+      "^Welcome, (.+) \\((.+)\\)\\. The AIRIZ Windows app on this PC joined (.+) too\\.$",
+      "歡迎，$1（$2）。這台 PC 上的 AIRIZ Windows App 也已加入 $3。"
+    ],
+    [
+      "^Welcome, (.+) \\((.+)\\)\\. You joined (.+) on this website\\. Using the AIRIZ Windows app\\? Press Open in the AIRIZ Windows app so it joins too\\.$",
+      "歡迎，$1（$2）。您已在此網頁加入 $3。使用 AIRIZ Windows App？請按「在 AIRIZ Windows App 開啟」讓 App 也加入。"
+    ],
+    [
+      "^Welcome, (.+) \\((.+)\\)\\. Using the AIRIZ Windows app\\? Press Open in the AIRIZ Windows app so it joins too\\.$",
+      "歡迎，$1（$2）。使用 AIRIZ Windows App？請按「在 AIRIZ Windows App 開啟」讓 App 也加入。"
+    ],
+    [
+      "^If the browser asks, allow it to open AIRIZ Console\\. The app joins (.+) as (.+) by itself\\. Nothing happens\\? Update the Windows app to 1\\.7\\.3 or newer\\.$",
+      "若瀏覽器詢問，請允許開啟 AIRIZ Console。App 會自動以 $2 加入 $1。沒有反應？請將 Windows App 更新到 1.7.3 以上版本。"
+    ],
     [
       "^Control code (\\d+) · (.+)$",
       "控制代碼 $1 · $2"

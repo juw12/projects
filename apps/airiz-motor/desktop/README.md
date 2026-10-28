@@ -9,7 +9,7 @@ is required to use the installed app or its hardware-free demo.
 ## Downloads
 
 Windows x64 releases are published under the app-specific tag
-`airiz-desktop-v1.7.2` in this repository's Releases section.
+`airiz-desktop-v1.7.3` in this repository's Releases section.
 
 - **Installer**: assisted, per-user installation with Start-menu/desktop shortcuts
   and an uninstaller. The wizard lets the user choose the installation directory.
@@ -161,6 +161,14 @@ reports whether a framed firmware reply came back. Results can be exported.
 No pairing is accepted without confirmation and no motor command is sent.
 Another program on the PC still cannot open COM4 while this app holds it: that is
 a Windows serial-port rule, which is why the check runs inside the app.
+
+## 1.7.3: Teams invite joins the Windows app too
+* Before, pressing **Join Ziris PTB** in Teams only joined the browser: the Windows app kept its own,
+  separate settings and stayed "Not signed in".
+* Now, after joining on that web page, press **Open in the AIRIZ Windows app** (allow the browser to open it).
+  The app starts (or comes to the front if it is open) and joins Ziris PTB with the same name, no typing.
+* The app registers the `airiz-console://` link on start; only `airiz-console://join?team=ZPTB1-…` links are
+  accepted and the invite is checked the same way as a pasted one. Pasting the invite link in the app still works.
 
 ## 1.7.2: Share codes post to Teams automatically, one camera share
 * **Remote by code** and **Share control** codes now go to the Ziris PTB Teams chat by themselves
