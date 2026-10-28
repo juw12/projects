@@ -109,6 +109,9 @@
       + '<input id="share-control-link" class="input" readonly aria-label="Remote control link">'
       + '<button id="share-control-copy" class="btn">Copy link</button></div>'
       + '<p id="share-control-status" class="phone-remote-status" role="status"></p>'
+      // Ziris PTB co-admins: ziris-team.js fills this line (auto-post to Teams) and the resend button.
+      + '<div class="share-control-teams-row"><p id="share-control-teams" class="share-control-teams-status" aria-live="polite" hidden></p>'
+      + '<button id="share-control-teams-send" class="btn btn-sm btn-secondary" type="button" hidden>Send to Teams</button></div>'
       + '<section class="phone-remote-clients" aria-labelledby="share-control-list-title">'
       + '<h3 id="share-control-list-title">Controllers</h3>'
       + '<ul id="share-control-list" aria-live="polite"><li class="muted">Nobody yet.</li></ul></section>'
@@ -124,6 +127,7 @@
     $('share-control-close').addEventListener('click', () => dialog.close());
     $('share-control-copy').addEventListener('click', hostCopyLink);
     host.dialog = dialog;
+    document.dispatchEvent(new CustomEvent('airiz:share-dialog'));
     return dialog;
   }
 

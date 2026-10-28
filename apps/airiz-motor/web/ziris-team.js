@@ -1,8 +1,9 @@
 /* Ziris PTB team: owner, members and Microsoft Teams auto-post.
  *
- * When a team member shares the AIRIZ camera (Camera -> Share to phone) the console shows a
- * 6-digit code. For members of the Ziris PTB team this module posts that code automatically
- * to the "Ziris PTB" Microsoft Teams group chat, so the phone user can read it there.
+ * When a team member shares with Remote by code / Share control the console shows one 6-digit
+ * code for motor + camera. For members of the Ziris PTB team this module posts that code
+ * automatically to the "Ziris PTB" Microsoft Teams group chat, once per code (1.7.2: on by
+ * default, one switch; the camera echo of the same code is not posted again).
  *
  * Who counts as a member: anyone who joined with the team invite from the owner (Juwen Lie).
  * 1.7.1: one role only (Co-admin). The owner makes ONE invite link for everybody; a co-admin
@@ -153,11 +154,11 @@
       return {
         pass: typeof stored.pass === 'string' ? stored.pass : '',
         name: typeof stored.name === 'string' ? cleanName(stored.name) : '',
-        autoCamera: stored.autoCamera !== false,
-        autoControl: stored.autoControl === true
+        // v1.7.2: one switch for every share code (was autoCamera + autoControl).
+        autoPost: typeof stored.autoPost === 'boolean' ? stored.autoPost : stored.autoCamera !== false
       };
     } catch {
-      return { pass: '', name: '', autoCamera: true, autoControl: false };
+      return { pass: '', name: '', autoPost: true };
     }
   }
 
@@ -234,12 +235,13 @@
     const camera = kind !== 'control';
     const title = test
       ? 'AIRIZ console test message'
-      : camera ? 'AIRIZ camera share code' : 'AIRIZ remote control code';
+      : camera ? 'AIRIZ camera share code' : 'AIRIZ remote code (motor + camera)';
     const instructions = test
       ? 'Auto-post to ' + TEAM_NAME + ' works on this PC.'
       : camera
         ? 'Phone: open the AIRIZ console \u2192 Camera \u2192 enter the code \u2192 Watch, or tap the button below.'
-        : 'Phone or PC: AIRIZ console \u2192 Connect by code \u2192 enter the code. The PC operator must press Allow.';
+        : 'Phone or PC: open the AIRIZ console \u2192 Remote by code \u2192 type the code (the camera opens by itself). '
+          + 'The PC operator presses Allow.';
     const when = new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
     const body = [
       { type: 'TextBlock', text: title, weight: 'Bolder', size: 'Medium', wrap: true },
@@ -347,9 +349,10 @@
 
   // ------------------------------------------------------------------ automation
 
-  const sentCodes = new Set();
+  const sentCodes = new Set(); // codes already posted (one Teams card per code)
   const listeners = new Set();
-  let lastShare = null;
+  let lastShare = null;         // the share code currently live on this PC
+  let controlCode = null;       // live Share control / Remote by code code
 
   function notify(state) {
     listeners.forEach(listener => {
@@ -365,10 +368,9 @@
     const member = currentMember();
     if (!member) return { skipped: 'not-member' };
     if (!/^\d{6}$/.test(String(code))) return { skipped: 'bad-code' };
-    const key = kind + ':' + code;
+    const key = String(code);
     if (!manual) {
-      const enabled = kind === 'control' ? settings.autoControl : settings.autoCamera;
-      if (!enabled) {
+      if (!settings.autoPost) {
         notify({ kind, code, status: 'off' });
         return { skipped: 'off' };
       }
@@ -393,13 +395,30 @@
   document.addEventListener('airiz:share-code', event => {
     const detail = event.detail || {};
     const kind = detail.kind === 'control' ? 'control' : 'camera';
-    if (!detail.code) {
-      if (lastShare && lastShare.kind === kind) lastShare = null;
-      notify({ kind, code: null, status: 'stopped' });
+    const code = detail.code ? String(detail.code) : null;
+    if (kind === 'control') {
+      controlCode = code;
+      if (!code) {
+        lastShare = null;
+        notify({ kind, code: null, status: 'stopped' });
+        return;
+      }
+      lastShare = { kind, code };
+      sendShareCode(kind, code);
       return;
     }
-    lastShare = { kind, code: String(detail.code) };
-    sendShareCode(kind, String(detail.code));
+    // Camera: since v1.7.0 it rides on the control code, which is already posted as
+    // "motor + camera". Only a camera code of its own is posted separately.
+    if (!code) {
+      if (lastShare && lastShare.kind === 'camera') {
+        lastShare = null;
+        notify({ kind, code: null, status: 'stopped' });
+      }
+      return;
+    }
+    if (code === controlCode) return;
+    lastShare = { kind, code };
+    sendShareCode(kind, code);
   });
 
   // ------------------------------------------------------------------ views
@@ -453,46 +472,42 @@
     const join = $('team-join');
     if (joined) joined.hidden = !member;
     if (join) join.hidden = !!member;
-    const camera = $('team-auto-camera');
-    const control = $('team-auto-control');
-    if (camera) {
-      camera.checked = settings.autoCamera;
-      camera.disabled = !member;
-    }
-    if (control) {
-      control.checked = settings.autoControl;
-      control.disabled = !member;
+    const autoPost = $('team-auto-post');
+    if (autoPost) {
+      autoPost.checked = settings.autoPost;
+      autoPost.disabled = !member;
     }
     const test = $('team-test');
     if (test) test.disabled = !member;
     const sidebar = $('sidebar-team-member');
     if (sidebar) sidebar.textContent = member ? member.name + ' \u00b7 ' + member.roleLabel : 'Guest';
-    renderCameraLine();
+    renderShareLine();
     renderLog();
   }
 
-  let cameraState = null;
+  let shareState = null;
 
-  function renderCameraLine() {
-    const line = $('relay-teams-status');
+  // Teams line under the code in the Share control dialog (Remote by code and Share control).
+  function renderShareLine() {
+    const line = $('share-control-teams');
     if (!line) return;
     const member = currentMember();
-    const resend = $('btn-relay-teams-send');
+    const resend = $('share-control-teams-send');
     if (!member) {
       line.hidden = true;
       if (resend) resend.hidden = true;
       return;
     }
     line.hidden = false;
-    const state = cameraState;
-    const active = lastShare && lastShare.kind === 'camera' ? lastShare.code : null;
+    const active = lastShare ? lastShare.code : null;
+    const state = shareState && shareState.code === active ? shareState : null;
     if (resend) {
       resend.hidden = !active;
       resend.disabled = !!(state && state.status === 'sending');
     }
     let text;
-    if (!state || state.status === 'stopped' || !active) {
-      text = settings.autoCamera
+    if (!active || !state) {
+      text = settings.autoPost
         ? 'Teams auto-post is on: the share code goes to ' + TEAM_NAME + ' as soon as it appears.'
         : 'Teams auto-post is off (Team page). Use Send to Teams to post the code yourself.';
     } else if (state.status === 'sending') {
@@ -509,23 +524,9 @@
     line.dataset.state = state ? state.status : 'idle';
   }
 
-  function renderControlLine(state) {
-    const status = $('share-control-status');
-    if (!status || !state || !state.code) return;
-    const extra = state.status === 'sent' ? ' Code sent to ' + TEAM_NAME + ' in Teams.'
-      : state.status === 'failed' ? ' (Teams post failed: ' + state.error + ')' : '';
-    // Compare with the English source text: the language layer may show the status translated.
-    const current = window.AirizI18n ? window.AirizI18n.originalText(status) : status.textContent;
-    if (extra && !current.includes(extra)) status.appendChild(document.createTextNode(extra));
-  }
-
   listeners.add(state => {
-    if (state.kind === 'camera') {
-      cameraState = state;
-      renderCameraLine();
-    } else {
-      renderControlLine(state);
-    }
+    shareState = state.code ? state : null;
+    renderShareLine();
     if (state.status === 'sent' || state.status === 'failed') renderLog();
   });
 
@@ -600,13 +601,12 @@
         showTeamStatus('Left the team on this PC.', false);
       });
     }
-    for (const [id, key] of [['team-auto-camera', 'autoCamera'], ['team-auto-control', 'autoControl']]) {
-      const box = $(id);
-      if (!box) continue;
-      box.addEventListener('change', () => {
-        settings = { ...settings, [key]: box.checked };
+    const autoPostBox = $('team-auto-post');
+    if (autoPostBox) {
+      autoPostBox.addEventListener('change', () => {
+        settings = { ...settings, autoPost: autoPostBox.checked };
         saveSettings(settings);
-        renderCameraLine();
+        renderShareLine();
       });
     }
     const testButton = $('team-test');
@@ -679,12 +679,13 @@
         setText('team-owner-status', copied ? 'Invite link copied.' : 'Select the link and copy it with Ctrl+C.');
       });
     }
-    const resend = $('btn-relay-teams-send');
-    if (resend) {
-      resend.addEventListener('click', () => {
-        if (lastShare && lastShare.kind === 'camera') sendShareCode('camera', lastShare.code, { manual: true });
-      });
-    }
+    // The Share control dialog is built on first use: delegate the resend click.
+    document.addEventListener('click', event => {
+      const target = event.target;
+      if (!target || !target.closest || !target.closest('#share-control-teams-send')) return;
+      if (lastShare) sendShareCode(lastShare.kind, lastShare.code, { manual: true });
+    });
+    document.addEventListener('airiz:share-dialog', renderShareLine);
     window.addEventListener('storage', event => {
       if (event.key === SETTINGS_KEY) {
         settings = loadSettings();

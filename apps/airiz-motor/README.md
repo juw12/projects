@@ -4,9 +4,10 @@ Owner: **Juwen Lie** · Team: **Ziris PTB** (co-admins and testers)
 
 ## Ziris PTB team: Teams auto-post (members only)
 
-When a Ziris PTB member presses **Camera → Share to phone**, the 6-digit code is posted
-automatically to the *Ziris PTB* Microsoft Teams group chat (adaptive card with the code,
-member name, PC name and a *Watch on phone* button). Optionally the *Share control* code too.
+When a Ziris PTB member shares with **Remote by code** or **Share control**, the 6-digit code
+(motor + camera) is posted automatically to the *Ziris PTB* Microsoft Teams group chat, once per
+code (adaptive card with the code, member name, PC name and an *Open AIRIZ console* button).
+Since 1.7.2 there is no separate camera share button: the camera rides on the same code.
 
 - Only PCs with a **team pass** (`ZPTB1-…`, issued by the owner in *Ziris PTB team → Owner setup*)
   ever send anything. Without a pass the app stays silent.
@@ -23,7 +24,7 @@ A downloadable Windows x64 desktop edition now bundles this entire console local
 It is not a website shortcut and does not require Chrome, Edge, Node or Python to run.
 Installer and portable preview builds are available at:
 
-https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.7.1
+https://github.com/juw12/projects/releases/tag/airiz-desktop-v1.7.2
 
 The initial binaries are unsigned. The packaged app was tested with demo/synthetic
 hardware; real-device bench validation is still required. Browser and mobile-web

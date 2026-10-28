@@ -843,7 +843,16 @@
     "The team pass has no valid role.": "團隊通行碼中沒有有效的角色。",
     "Without an invite the app never sends anything to Teams. Keep the invite inside the Ziris PTB chat – do not post it in public channels. Messages contain only the code, the public watch link, the member name and the PC name.": "沒有邀請時，App 絕不會傳送任何內容到 Teams。請將邀請保留在 Ziris PTB 聊天內，不要貼到公開頻道。訊息只包含代碼、公開觀看連結、成員名稱與 PC 名稱。",
     "One role: Co-admin (1.7.1)": "單一角色：共同管理員（1.7.1）",
-    "Testers and co-admins are now one role, Co-admin. The owner posts one invite to the Ziris PTB Teams chat; co-admins press Join, type their name once and are in. Old passes keep working.": "測試人員與共同管理員合併為單一角色「共同管理員」。負責人在 Ziris PTB Teams 聊天傳送一個邀請；共同管理員按 Join、輸入一次名字即可加入。舊的通行碼仍可使用。"
+    "Testers and co-admins are now one role, Co-admin. The owner posts one invite to the Ziris PTB Teams chat; co-admins press Join, type their name once and are in. Old passes keep working.": "測試人員與共同管理員合併為單一角色「共同管理員」。負責人在 Ziris PTB Teams 聊天傳送一個邀請；共同管理員按 Join、輸入一次名字即可加入。舊的通行碼仍可使用。",
+    "Auto-send share codes to Ziris PTB (Remote by code / Share control)": "自動傳送分享代碼到 Ziris PTB（以代碼遠端連線／分享控制）",
+    "Camera shared with code": "相機已用此代碼分享",
+    "Controllers still need the PC operator to press Allow.": "控制端仍需 PC 操作者按 Allow。",
+    "Open AIRIZ console": "開啟 AIRIZ 主控台",
+    "Share codes post to Teams automatically (1.7.2)": "分享代碼自動傳送到 Teams（1.7.2）",
+    "Share codes from Remote by code and Share control now post to the Ziris PTB Teams chat automatically, one message per code (motor + camera). The separate Share to phone button on the Camera page is gone: the same code shares the camera. The Team page has one auto-send switch.": "「以代碼遠端連線」與「分享控制」的代碼現在會自動傳送到 Ziris PTB Teams 聊天，每個代碼一則（馬達＋相機）。相機頁獨立的「分享到手機」按鈕已移除：同一個代碼即可分享相機。團隊頁只剩一個自動傳送開關。",
+    "Start Preview with the AIRIZ camera first.": "請先用 AIRIZ 相機開始預覽。",
+    "The camera is shared with the Remote by code code. Keep this window open while sharing.": "相機已用「以代碼遠端連線」的代碼分享。分享期間請保持此視窗開啟。",
+    "Watch the AIRIZ camera here: enter the 6-digit Remote by code code from the PC below (or open the link from the Ziris PTB chat).": "在此觀看 AIRIZ 相機：在下方輸入 PC 上「以代碼遠端連線」的 6 位數代碼（或開啟 Ziris PTB 聊天中的連結）。"
   },
   "html": {
     "AIRIZDEVICE LAB": "AIRIZ<small>裝置實驗室</small>",
@@ -912,7 +921,13 @@
     "Type your name and press Join Ziris PTB. That is all: everybody is a Co-admin.": "輸入您的名字並按 <strong>加入 Ziris PTB</strong>。就這樣，所有人都是共同管理員。",
     "Leave Member name empty and press Create invite: one link for every co-admin. Press Post invite to Ziris PTB chat; co-admins press Join there and type their name. (Type a name only for a personal invite, e.g. your own.)": "<em>成員名稱</em>留空並按 <strong>建立邀請</strong>：所有共同管理員共用一個連結。按 <strong>將邀請傳送到 Ziris PTB 聊天</strong>；共同管理員在聊天中按 Join 並輸入名字即可。（只有個人專用邀請才需要輸入名稱，例如您自己。）",
     "Easiest: press Join Ziris PTB on the invite in the Ziris PTB Teams chat. Or paste the invite link here.": "最簡單：在 Ziris PTB Teams 聊天的邀請上按 <strong>Join Ziris PTB</strong>。或在此貼上邀請連結。",
-    "Ziris PTB team → Owner setup: paste the address, leave the name empty, Create invite, then Post invite to Ziris PTB chat.": "Ziris PTB team → Owner setup：貼上網址、名稱留空，按 <strong>建立邀請</strong>，再按 <strong>將邀請傳送到 Ziris PTB 聊天</strong>。"
+    "Ziris PTB team → Owner setup: paste the address, leave the name empty, Create invite, then Post invite to Ziris PTB chat.": "Ziris PTB team → Owner setup：貼上網址、名稱留空，按 <strong>建立邀請</strong>，再按 <strong>將邀請傳送到 Ziris PTB 聊天</strong>。",
+    "To share the camera, use Remote by code (start screen) or Share control (Motor page): one code shares the motor and the camera. Phone: enter that code here and tap Watch.": "要分享相機，請使用 <strong>以代碼遠端連線</strong>（開始畫面）或 <strong>分享控制</strong>（馬達頁）：一個代碼同時分享馬達與相機。手機：在此輸入該代碼後點 <strong>觀看</strong>。",
+    "When you share with Remote by code or Share control, the 6-digit code (motor + camera) is posted to the Ziris PTB chat in Microsoft Teams automatically, once per code.": "使用 <strong>以代碼遠端連線</strong> 或 <strong>分享控制</strong> 分享時，6 位數代碼（馬達＋相機）會自動傳送到 Microsoft Teams 的 <strong>Ziris PTB</strong> 聊天，每個代碼一則。",
+    "On the PC: press Remote by code (start screen) or Share control (Motor page). One 6-digit code shares the motor and the camera; the camera preview starts by itself.": "在 PC 上：按 <strong>以代碼遠端連線</strong>（開始畫面）或 <strong>分享控制</strong>（馬達頁）。一個 <strong>6 位數代碼</strong> 同時分享馬達與相機；相機預覽會自動開始。",
+    "On the phone: open the AIRIZ console → Remote by code → type the code (or Camera → enter the code → Watch to only watch).": "在手機上：開啟 AIRIZ 主控台 → <strong>以代碼遠端連線</strong> → 輸入代碼（只想觀看：相機 → 輸入代碼 → <strong>觀看</strong>）。",
+    "For Ziris PTB co-admins only. When you share with Remote by code or Share control, the code is posted straight to the Ziris PTB group chat in Microsoft Teams, so whoever holds the phone just opens Teams and taps Open AIRIZ console. Nobody has to read the number off the screen.": "僅限 Ziris PTB 共同管理員。使用以代碼遠端連線或分享控制分享時，代碼會直接傳送到 Microsoft Teams 的 <strong>Ziris PTB</strong> 群組聊天，拿手機的人只要打開 Teams 點 <em>Open AIRIZ console</em> 即可，不必再看螢幕抄號碼。",
+    "From now on every share code is sent automatically, one message per code. The Share control window confirms it (“Code … sent to Ziris PTB”). If it fails, press Send to Teams there to retry.": "之後每個分享代碼都會自動傳送，每個代碼一則。分享控制視窗會顯示確認（「Code … sent to Ziris PTB」）。若失敗，在該視窗按 <strong>傳送到 Teams</strong> 重試。"
   },
   "patterns": [
     [
