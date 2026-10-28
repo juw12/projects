@@ -58,7 +58,46 @@ PROPS = {
     "star_glasses": ("face", 180),
     "diamond": ("neck", 220),
     "fairy_wings": ("back", 320),
+    # v2.12 - head
+    "bow": ("head", 45),
+    "beret": ("head", 70),
+    "propeller_cap": ("head", 95),
+    "flower_crown": ("head", 110),
+    "chef_hat": ("head", 120),
+    "cowboy_hat": ("head", 150),
+    "santa_hat": ("head", 150),
+    "grad_cap": ("head", 170),
+    "pirate_hat": ("head", 190),
+    "top_hat": ("head", 210),
+    "viking_helmet": ("head", 240),
+    # v2.12 - face
+    "clown_nose": ("face", 40),
+    "mustache": ("face", 70),
+    "nerd_glasses": ("face", 90),
+    "eyepatch": ("face", 100),
+    "goggles": ("face", 140),
+    "masquerade": ("face", 170),
+    # v2.12 - neck
+    "bandana": ("neck", 55),
+    "tie": ("neck", 75),
+    "lei": ("neck", 90),
+    "pearls": ("neck", 160),
+    "gold_chain": ("neck", 230),
+    # v2.12 - back
+    "balloon": ("back", 60),
+    "backpack": ("back", 130),
+    "guitar": ("back", 220),
+    "shield": ("back", 260),
+    "butterfly_wings": ("back", 300),
+    "devil_wings": ("back", 300),
+    # v2.12 - Premium
+    "galaxy_crown": ("head", 280),
+    "galaxy_cape": ("back", 300),
+    "dragon_wings": ("back", 360),
 }
+
+# Shop sections (v2.12)
+SHOP_CATEGORIES = ("head", "face", "neck", "back", "moves", "gear")
 
 # id -> (price, seconds)
 MOVES = {
@@ -69,6 +108,20 @@ MOVES = {
     "kungfu": (260, 3.4),
     "spider": (420, 5.5),
     "fireworks": (300, 3.6),      # Premium-only
+    # v2.12
+    "wave": (30, 2.4),
+    "jump": (50, 2.6),
+    "hearts": (70, 3.2),
+    "sing": (80, 3.6),
+    "yoga": (100, 4.0),
+    "zoomies": (120, 3.2),
+    "cartwheel": (150, 2.4),
+    "juggle": (170, 4.0),
+    "rain_dance": (190, 4.2),
+    "breakdance": (220, 3.6),
+    "magic": (240, 3.0),
+    "confetti": (110, 3.0),
+    "rocket": (340, 4.2),         # Premium-only
 }
 # Arena gear (v2.8): id -> (slot, price, stats). Stats are mirrored from the server (which is authoritative).
 GEAR_SLOTS = ("weapon", "armor", "tool")
@@ -93,6 +146,7 @@ GEAR = {
 }
 
 PREMIUM_ITEMS = {"tiara", "star_glasses", "diamond", "fairy_wings", "fireworks",
+                 "galaxy_crown", "galaxy_cape", "dragon_wings", "rocket",
                  "plasma_cannon", "mech_suit", "force_field"}
 
 
@@ -124,7 +178,7 @@ def fighter_stats(level: int, gear: dict) -> dict:
             "power": round(hp / 4 + atk * 3 + df * 3 + crit + spd)}
 PREMIUM_DAILY_COINS = 30          # Premium: bonus coins every day you use Pips
 PREMIUM_INTERACTION_CAP = 40      # Premium: daily cap for friend-interaction coins (normal: 20)
-TALL_MOVES = {"spider": 230, "fireworks": 70}      # extra canvas height (px) the move needs above the pet
+TALL_MOVES = {"spider": 230, "fireworks": 70, "rocket": 240, "juggle": 50, "magic": 40, "confetti": 60, "rain_dance": 50, "hearts": 40}      # extra canvas height (px) the move needs above the pet
 
 
 # =============================================================================
@@ -368,6 +422,79 @@ def draw_back_props(cv, geo: dict, props: dict, t: float = 0.0):
                            font=("Segoe UI Symbol", max(5, int(4 * u * twinkle))))
 
 
+    _draw_back_props_v212(cv, geo, props, t)
+
+
+def _draw_back_props_v212(cv, geo, props, t):
+    item = props.get("back")
+    if not item:
+        return
+    u = geo["u"]
+    cx, cy, rx, ry = geo["cx"], geo["cy"], geo["rx"], geo["ry"]
+    facing = geo["facing"]
+    side = -facing
+    lw = max(1, 1.2 * u)
+    if item == "backpack":
+        bx = cx + side * rx * 0.72
+        cv.create_rectangle(bx - 7 * u, cy - ry * 0.55, bx + 7 * u, cy + ry * 0.55, fill="#4dabf7",
+                            outline="#1864ab", width=lw)
+        cv.create_rectangle(bx - 5 * u, cy + ry * 0.05, bx + 5 * u, cy + ry * 0.4, fill="#74c0fc",
+                            outline="#1864ab", width=max(1, u))
+        cv.create_line(bx - 7 * u, cy - ry * 0.5, bx - 5 * u, cy - ry * 0.75, bx + 5 * u, cy - ry * 0.75,
+                       bx + 7 * u, cy - ry * 0.5, fill="#1864ab", width=lw, smooth=True)
+    elif item == "balloon":
+        bob = math.sin(t * 2.0) * 3 * u
+        bx, by = cx + side * (rx + 8 * u), cy - ry - 24 * u + bob
+        cv.create_line(cx + side * rx * 0.6, cy, bx - side * 1 * u, by + 10 * u + 2 * u, smooth=True,
+                       fill="#868e96", width=max(1, 0.8 * u))
+        _oval(cv, bx, by, 8 * u, 10 * u, "#ff6b6b", "#c92a2a", lw)
+        _oval(cv, bx - 2.5 * u, by - 4 * u, 1.8 * u, 2.6 * u, "#ffc9c9", "")
+        _poly(cv, [bx - 1.5 * u, by + 10 * u, bx + 1.5 * u, by + 10 * u, bx, by + 12 * u], "#c92a2a", "")
+    elif item == "guitar":
+        gx, gy = cx + side * rx * 0.55, cy + ry * 0.1
+        cv.create_line(gx - side * 4 * u, gy + 6 * u, gx + side * 14 * u, gy - ry * 1.15, fill="#5c3d1e",
+                       width=max(2, 3 * u))
+        _oval(cv, gx - side * 5 * u, gy + 7 * u, 8 * u, 7 * u, "#e8590c", "#7c2d12", lw)
+        _oval(cv, gx - side * 1 * u, gy + 1 * u, 6 * u, 5 * u, "#e8590c", "#7c2d12", lw)
+        _oval(cv, gx - side * 3.5 * u, gy + 5 * u, 2 * u, 2 * u, "#3b2a20", "")
+    elif item == "shield":
+        sx, sy = cx + side * rx * 0.85, cy
+        pts = [sx - 8 * u, sy - 9 * u, sx + 8 * u, sy - 9 * u, sx + 8 * u, sy + 1 * u, sx, sy + 11 * u,
+               sx - 8 * u, sy + 1 * u]
+        _poly(cv, pts, "#adb5bd", "#495057", lw)
+        _poly(cv, [sx - 5 * u, sy - 6 * u, sx + 5 * u, sy - 6 * u, sx + 5 * u, sy, sx, sy + 7 * u, sx - 5 * u, sy],
+              "#e03131", "", 0)
+        cv.create_text(sx, sy - 1 * u, text="\u2605", fill="#ffd43b", font=("Segoe UI Symbol", max(5, int(4 * u))))
+    elif item in ("butterfly_wings", "devil_wings", "dragon_wings"):
+        flap = math.sin(t * (7 if item == "butterfly_wings" else 4)) * 3 * u
+        for s in (-1, 1):
+            base_x = cx + s * rx * 0.45
+            if item == "butterfly_wings":
+                _oval(cv, cx + s * (rx + 8 * u), cy - ry * 0.55 - flap, 11 * u, 9 * u, "#ffd43b", "#e67700", lw)
+                _oval(cv, cx + s * (rx + 6 * u), cy + ry * 0.3 + flap * 0.5, 8 * u, 7 * u, "#ff922b", "#e67700", lw)
+                _oval(cv, cx + s * (rx + 9 * u), cy - ry * 0.6 - flap, 3 * u, 3 * u, "#ffffff", "")
+            else:
+                col, edge = ("#c92a2a", "#5c0a0a") if item == "devil_wings" else ("#2f9e44", "#0b4d1d")
+                span = 16 if item == "devil_wings" else 21
+                pts = [base_x, cy - ry * 0.25, cx + s * (rx + span * u), cy - ry * 1.05 - flap,
+                       cx + s * (rx + (span - 4) * u), cy - ry * 0.3 - flap * 0.4,
+                       cx + s * (rx + (span - 2) * u), cy + ry * 0.15,
+                       cx + s * (rx + (span - 8) * u), cy - ry * 0.05,
+                       cx + s * (rx + (span - 10) * u), cy + ry * 0.35, base_x, cy + ry * 0.2]
+                _poly(cv, pts, col, edge, lw)
+    elif item == "galaxy_cape":
+        sway = math.sin(t * 2.4) * 3 * u
+        pts = [cx - rx * 0.55, cy - ry * 0.35, cx + rx * 0.55, cy - ry * 0.35,
+               cx + rx * 0.95 + side * 4 * u + sway, cy + ry * 1.05, cx + side * 6 * u + sway, cy + ry * 0.92,
+               cx - rx * 0.95 + side * 4 * u + sway, cy + ry * 1.05]
+        _poly(cv, pts, "#2b2d6e", "#7048e8", max(1, 1.4 * u), smooth=True)
+        for k in range(7):
+            sx = cx + math.sin(k * 2.7) * rx * 0.75 + sway * 0.5
+            sy = cy + ry * (0.0 + 0.14 * k)
+            tw = 0.5 + 0.5 * abs(math.sin(t * 3 + k))
+            _oval(cv, sx, sy, 0.9 * u * tw + 0.4 * u, 0.9 * u * tw + 0.4 * u, "#fff3bf", "")
+
+
 def draw_front_props(cv, geo: dict, props: dict, t: float = 0.0):
     """Props drawn *on top of* the pet (hats, glasses, neckwear). Call after draw_pet."""
     if not geo or not props:
@@ -539,6 +666,194 @@ def draw_front_props(cv, geo: dict, props: dict, t: float = 0.0):
         _oval(cv, hx, y0 - 6.5 * u, 1.9 * u, 1.9 * u, "#f783ac", "#c2255c", max(1, 0.8 * u))
         _oval(cv, hx - w * 0.3, y0 - 5.2 * u, sparkle * u * 0.8, sparkle * u * 0.8, "#99e9f2", "")
         _oval(cv, hx + w * 0.3, y0 - 5.2 * u, sparkle * u * 0.8, sparkle * u * 0.8, "#99e9f2", "")
+
+
+    _draw_front_props_v212(cv, geo, props, t)
+
+
+def _draw_front_props_v212(cv, geo, props, t):
+    u = geo["u"]
+    cx, cy, rx, ry = geo["cx"], geo["cy"], geo["rx"], geo["ry"]
+    fx = geo.get("feature_dx", 0.0)
+    facing = geo["facing"]
+    top = cy - ry
+    lw = max(1, 1.2 * u)
+    eye_y = geo.get("eye_y", cy - 1.5 * u)
+    sep = geo.get("eye_sep", 11 * u)
+    hx = cx + fx * 0.6
+    neck_y = cy + ry * 0.48
+    mouth_y = eye_y + 5.5 * u
+
+    neck = props.get("neck")
+    if neck == "bandana":
+        _poly(cv, [hx - rx * 0.62, neck_y - 3 * u, hx + rx * 0.62, neck_y - 3 * u, hx, neck_y + 9 * u],
+              "#e03131", "#8f1d1d", lw)
+        for k in (-0.3, 0.0, 0.3):
+            _oval(cv, hx + rx * k * 0.8, neck_y + 0.5 * u, 0.9 * u, 0.9 * u, "#ffffff", "")
+    elif neck == "tie":
+        _poly(cv, [hx - 2.5 * u, neck_y - 3 * u, hx + 2.5 * u, neck_y - 3 * u, hx + 1.5 * u, neck_y],
+              "#1c7ed6", "#0b4f8c", lw)
+        _poly(cv, [hx - 1.5 * u, neck_y, hx + 1.5 * u, neck_y, hx + 3.5 * u, neck_y + 11 * u, hx,
+                   neck_y + 14 * u, hx - 3.5 * u, neck_y + 11 * u], "#1c7ed6", "#0b4f8c", lw)
+        cv.create_line(hx - 2.5 * u, neck_y + 4 * u, hx + 2.8 * u, neck_y + 7 * u, fill="#74c0fc", width=max(1, u))
+    elif neck == "lei":
+        colors = ("#ff8fab", "#ffd43b", "#ff6b6b", "#b197fc")
+        for k in range(9):
+            a = math.pi * k / 8
+            px = hx - math.cos(a) * rx * 0.66
+            py = neck_y - 2 * u + math.sin(a) * 4.5 * u
+            _oval(cv, px, py, 2.6 * u, 2.6 * u, colors[k % 4], "", 0)
+            _oval(cv, px, py, 0.8 * u, 0.8 * u, "#ffffff", "")
+    elif neck == "pearls":
+        for k in range(11):
+            a = math.pi * k / 10
+            _oval(cv, hx - math.cos(a) * rx * 0.62, neck_y - 2.5 * u + math.sin(a) * 4 * u, 1.6 * u, 1.6 * u,
+                  "#f8f9fa", "#ced4da", max(1, 0.6 * u))
+    elif neck == "gold_chain":
+        chain = []
+        for k in range(13):
+            a = math.pi * k / 12
+            chain += [hx - math.cos(a) * rx * 0.62, neck_y - 2 * u + math.sin(a) * 5 * u]
+        cv.create_line(*chain, fill="#fab005", width=max(2, 2.2 * u), smooth=True)
+        cv.create_line(*chain, fill="#ffe066", width=max(1, 0.8 * u), smooth=True, dash=(2, 2))
+        _oval(cv, hx, neck_y + 5 * u, 3.6 * u, 3.6 * u, "#fab005", "#a36a00", lw)
+        cv.create_text(hx, neck_y + 5 * u, text="$", fill="#7a4f00", font=("Segoe UI", max(5, int(4 * u)), "bold"))
+
+    face = props.get("face")
+    if face == "nerd_glasses":
+        for s in (-1, 1):
+            ex = cx + fx + s * sep
+            cv.create_rectangle(ex - 4.6 * u, eye_y - 3.6 * u, ex + 4.6 * u, eye_y + 3.6 * u, outline="#212529",
+                                width=max(2, 1.8 * u))
+        cv.create_line(cx + fx - sep + 4.6 * u, eye_y - 1 * u, cx + fx + sep - 4.6 * u, eye_y - 1 * u,
+                       fill="#212529", width=max(2, 1.6 * u))
+        cv.create_rectangle(cx + fx - 1.2 * u, eye_y - 2 * u, cx + fx + 1.2 * u, eye_y, fill="#ffffff", outline="")
+    elif face == "eyepatch":
+        ex = cx + fx + facing * sep
+        cv.create_line(cx - rx * 0.9, eye_y - 5 * u, cx + rx * 0.9, eye_y - 1 * u, fill="#212529", width=max(1, u))
+        _oval(cv, ex, eye_y, 4.4 * u, 4.0 * u, "#212529", "#000000", lw)
+    elif face == "mustache":
+        my = mouth_y - 1.5 * u
+        for s in (-1, 1):
+            _poly(cv, [hx + fx * 0.4, my, hx + fx * 0.4 + s * 3 * u, my - 2 * u, hx + fx * 0.4 + s * 8 * u,
+                       my - 1 * u, hx + fx * 0.4 + s * 9.5 * u, my - 3.5 * u, hx + fx * 0.4 + s * 9 * u, my + 1 * u,
+                       hx + fx * 0.4 + s * 4 * u, my + 1.5 * u], "#3b2a20", "", 0, smooth=True)
+    elif face == "goggles":
+        cv.create_line(cx - rx * 0.95, eye_y, cx + rx * 0.95, eye_y, fill="#495057", width=max(2, 2.4 * u))
+        for s in (-1, 1):
+            ex = cx + fx + s * sep
+            _oval(cv, ex, eye_y, 5.4 * u, 5 * u, "#a5d8ff", "#495057", max(2, 1.8 * u))
+            _oval(cv, ex - 1.6 * u, eye_y - 1.6 * u, 1.2 * u, 1.2 * u, "#ffffff", "")
+    elif face == "clown_nose":
+        _oval(cv, hx + fx * 0.4, mouth_y - 2.5 * u, 3.2 * u, 3.2 * u, "#ff2b2b", "#a61e1e", lw)
+        _oval(cv, hx + fx * 0.4 - 1 * u, mouth_y - 3.5 * u, 0.9 * u, 0.9 * u, "#ffffff", "")
+    elif face == "masquerade":
+        pts = [cx + fx - sep - 7 * u, eye_y - 3 * u, cx + fx - sep, eye_y - 4.5 * u, cx + fx, eye_y - 2 * u,
+               cx + fx + sep, eye_y - 4.5 * u, cx + fx + sep + 7 * u, eye_y - 3 * u, cx + fx + sep + 5 * u,
+               eye_y + 3.5 * u, cx + fx + sep, eye_y + 4 * u, cx + fx, eye_y + 1.5 * u, cx + fx - sep,
+               eye_y + 4 * u, cx + fx - sep - 5 * u, eye_y + 3.5 * u]
+        _poly(cv, pts, "#7048e8", "#3b1f8c", lw, smooth=True)
+        for s in (-1, 1):
+            _oval(cv, cx + fx + s * sep, eye_y, 2.6 * u, 2.2 * u, "#1a1a1a", "")
+        cv.create_line(cx + fx + sep + 6 * u, eye_y - 3 * u, cx + fx + sep + 10 * u, eye_y - 10 * u,
+                       fill="#ffd43b", width=max(1, 1.2 * u))
+
+    head = props.get("head")
+    if head == "bow":
+        bx, by = hx + facing * rx * 0.45, top + 2 * u
+        _poly(cv, [bx, by, bx - 7 * u, by - 5 * u, bx - 7 * u, by + 4 * u], "#f06595", "#a61e4d", lw)
+        _poly(cv, [bx, by, bx + 7 * u, by - 5 * u, bx + 7 * u, by + 4 * u], "#f06595", "#a61e4d", lw)
+        _oval(cv, bx, by, 2.2 * u, 2.2 * u, "#ff8fab", "#a61e4d", lw)
+    elif head == "beret":
+        _oval(cv, hx - facing * 2 * u, top + 1 * u, rx * 0.72, 5 * u, "#c92a2a", "#7a1414", lw)
+        cv.create_line(hx - facing * 2 * u, top - 4 * u, hx - facing * 1 * u, top - 7 * u, fill="#7a1414",
+                       width=max(1, 1.4 * u))
+    elif head == "propeller_cap":
+        pts = []
+        for k in range(13):
+            a = math.pi * k / 12
+            pts += [hx - math.cos(a) * rx * 0.66, top + 4 * u - math.sin(a) * 8 * u]
+        _poly(cv, pts, "#fcc419", "#b8860b", lw, smooth=True)
+        cv.create_line(hx - rx * 0.66, top + 4 * u, hx, top - 4 * u, fill="#e03131", width=max(1, 1.5 * u))
+        cv.create_line(hx + rx * 0.66, top + 4 * u, hx, top - 4 * u, fill="#1c7ed6", width=max(1, 1.5 * u))
+        cv.create_line(hx, top - 4 * u, hx, top - 7 * u, fill="#495057", width=max(1, u))
+        spin = math.cos(t * 14)
+        cv.create_line(hx - 8 * u * spin, top - 7.5 * u, hx + 8 * u * spin, top - 7.5 * u, fill="#e03131",
+                       width=max(2, 2.2 * u), capstyle="round")
+    elif head == "flower_crown":
+        colors = ("#ff8fab", "#ffd43b", "#b197fc", "#69db7c", "#ff922b")
+        for k in range(7):
+            a = math.pi * (0.12 + 0.76 * k / 6)
+            px, py = hx - math.cos(a) * rx * 0.66, top + 4 * u - math.sin(a) * 5 * u
+            _oval(cv, px, py, 2.8 * u, 2.8 * u, colors[k % 5], darken_hex(colors[k % 5]), max(1, 0.7 * u))
+            _oval(cv, px, py, 1 * u, 1 * u, "#fff3bf", "")
+    elif head == "chef_hat":
+        cv.create_rectangle(hx - rx * 0.5, top - 2 * u, hx + rx * 0.5, top + 4 * u, fill="#ffffff",
+                            outline="#adb5bd", width=lw)
+        for dx, r in ((-0.35, 6.5), (0.0, 8), (0.35, 6.5)):
+            _oval(cv, hx + rx * dx, top - 8 * u, r * u, r * u, "#ffffff", "#adb5bd", lw)
+        cv.create_rectangle(hx - rx * 0.48, top - 5 * u, hx + rx * 0.48, top + 3 * u, fill="#ffffff", outline="")
+    elif head == "cowboy_hat":
+        _oval(cv, hx, top + 2 * u, rx * 1.0, 3.8 * u, "#a0522d", "#5c2e14", lw)
+        pts = [hx - rx * 0.45, top + 2 * u, hx - rx * 0.4, top - 10 * u, hx, top - 7 * u, hx + rx * 0.4,
+               top - 10 * u, hx + rx * 0.45, top + 2 * u]
+        _poly(cv, pts, "#b5651d", "#5c2e14", lw, smooth=True)
+        cv.create_line(hx - rx * 0.44, top - 1 * u, hx + rx * 0.44, top - 1 * u, fill="#3b2a20", width=max(2, 2 * u))
+    elif head == "santa_hat":
+        tip_x = hx - facing * rx * 0.9
+        _poly(cv, [hx - rx * 0.62, top + 3 * u, hx + rx * 0.62, top + 3 * u, hx + rx * 0.1, top - 13 * u,
+                   tip_x, top - 6 * u], "#e03131", "#8f1d1d", lw, smooth=True)
+        cv.create_rectangle(hx - rx * 0.66, top + 0.5 * u, hx + rx * 0.66, top + 5.5 * u, fill="#ffffff",
+                            outline="#dee2e6", width=lw)
+        _oval(cv, tip_x, top - 6 * u, 3 * u, 3 * u, "#ffffff", "#dee2e6", lw)
+    elif head == "grad_cap":
+        _poly(cv, [hx - rx * 0.4, top + 4 * u, hx + rx * 0.4, top + 4 * u, hx + rx * 0.4, top - 2 * u,
+                   hx - rx * 0.4, top - 2 * u], "#212529", "#000000", lw)
+        _poly(cv, [hx - rx * 0.85, top - 3 * u, hx, top - 8 * u, hx + rx * 0.85, top - 3 * u, hx, top + 1.5 * u],
+              "#343a40", "#000000", lw)
+        swing = math.sin(t * 2.5) * 1.5 * u
+        cv.create_line(hx, top - 3 * u, hx + facing * rx * 0.75, top - 1 * u, hx + facing * rx * 0.78 + swing,
+                       top + 7 * u, fill="#fcc419", width=max(1, 1.2 * u))
+    elif head == "pirate_hat":
+        pts = [hx - rx * 0.9, top + 3 * u, hx - rx * 0.6, top - 7 * u, hx, top - 11 * u, hx + rx * 0.6,
+               top - 7 * u, hx + rx * 0.9, top + 3 * u, hx, top - 1 * u]
+        _poly(cv, pts, "#212529", "#000000", lw, smooth=True)
+        cv.create_text(hx, top - 5 * u, text="\u2620", fill="#f8f9fa", font=("Segoe UI Symbol", max(5, int(5 * u))))
+    elif head == "top_hat":
+        _oval(cv, hx, top + 2.5 * u, rx * 0.85, 3 * u, "#212529", "#000000", lw)
+        cv.create_rectangle(hx - rx * 0.48, top - 15 * u, hx + rx * 0.48, top + 2 * u, fill="#212529",
+                            outline="#000000", width=lw)
+        cv.create_rectangle(hx - rx * 0.48, top - 3 * u, hx + rx * 0.48, top, fill="#c92a2a", outline="")
+    elif head == "viking_helmet":
+        pts = []
+        for k in range(13):
+            a = math.pi * k / 12
+            pts += [hx - math.cos(a) * rx * 0.74, top + 5 * u - math.sin(a) * 10 * u]
+        _poly(cv, pts, "#adb5bd", "#495057", lw, smooth=True)
+        cv.create_rectangle(hx - rx * 0.76, top + 2 * u, hx + rx * 0.76, top + 6 * u, fill="#c99a2e",
+                            outline="#7a5c12", width=lw)
+        for s in (-1, 1):
+            bx = hx + s * rx * 0.7
+            _poly(cv, [bx, top + 1 * u, bx + s * 9 * u, top - 4 * u, bx + s * 11 * u, top - 14 * u,
+                       bx + s * 5 * u, top - 4 * u, bx - s * 1 * u, top - 3 * u], "#fff4e6", "#a08060", lw,
+                  smooth=True)
+    elif head == "galaxy_crown":
+        y0 = top + 3 * u
+        w = rx * 0.62
+        pts = [hx - w, y0, hx - w, y0 - 9 * u, hx - w * 0.5, y0 - 4 * u, hx, y0 - 12 * u,
+               hx + w * 0.5, y0 - 4 * u, hx + w, y0 - 9 * u, hx + w, y0]
+        _poly(cv, pts, "#5f3dc4", "#e599f7", lw)
+        for k, gx in enumerate((-0.6, -0.2, 0.2, 0.6)):
+            tw = 0.6 + 0.4 * abs(math.sin(t * 3 + k))
+            _oval(cv, hx + w * gx, y0 - 3 * u, 1.3 * u * tw, 1.3 * u * tw, "#fff3bf", "")
+        cv.create_text(hx, y0 - 15 * u, text="\u2726", fill="#ffd43b",
+                       font=("Segoe UI Symbol", max(5, int((4 + abs(math.sin(t * 2)) * 2) * u))))
+
+
+def darken_hex(color: str, amount: float = 0.3) -> str:
+    color = color.lstrip("#")
+    r, g, b = (int(color[i:i + 2], 16) for i in (0, 2, 4))
+    return "#%02x%02x%02x" % (int(r * (1 - amount)), int(g * (1 - amount)), int(b * (1 - amount)))
 
 
 def draw_props_preview(cv, pet_mod, size, species, color, props, cx=None, floor=None, t=0.0):
@@ -736,6 +1051,51 @@ def trick_pose(L: dict, trick: str, p: float, t: float) -> dict:
         beat = abs(math.sin(t * 5))
         L.update(eyes="big" if p < 0.2 else "happy", mouth="big_open", blush=True, brows=None,
                  hop=beat * 7 * (1 - p * 0.4), squash=-beat * 0.05, wag=math.sin(t * 9) * 4)
+    elif trick == "wave":
+        L.update(eyes="happy", mouth="smile", blush=True, brows=None, lean=math.sin(t * 10) * 2.5,
+                 foot_r=3 + math.sin(t * 12) * 2.5)
+    elif trick == "jump":
+        jumps = abs(math.sin(p * math.pi * 3))
+        L.update(eyes="happy" if jumps > 0.3 else "open", mouth="big_open", blush=True, brows=None,
+                 hop=jumps * 20, squash=(0.18 if jumps < 0.12 else -0.08 * jumps))
+    elif trick == "hearts":
+        L.update(eyes="heart", mouth="smile", blush=True, brows=None, hop=abs(math.sin(t * 4)) * 3,
+                 lean=math.sin(t * 3) * 2)
+    elif trick == "sing":
+        L.update(eyes="closed" if int(t * 2) % 2 else "happy", mouth="big_open" if math.sin(t * 7) > 0 else "o",
+                 blush=True, brows=None, lean=math.sin(t * 2.5) * 3.5)
+    elif trick == "yoga":
+        breathe = math.sin(t * 2)
+        L.update(eyes="closed", mouth="smile", brows=None, blush=False, squash=-0.12 - breathe * 0.06,
+                 hop=2 + breathe * 2, foot_l=4, foot_r=0)
+    elif trick == "zoomies":
+        L.update(eyes="big", mouth="big_open", blush=True, brows=None,
+                 lean=6 * (1 if math.cos(p * math.pi * 4) > 0 else -1), hop=abs(math.sin(t * 22)) * 4,
+                 foot_l=abs(math.sin(t * 22)) * 4, foot_r=abs(math.cos(t * 22)) * 4)
+    elif trick == "cartwheel":
+        L.update(eyes="dizzy" if p > 0.8 else "happy", mouth="big_open", brows=None, blush=True,
+                 hop=bump * 18, facing=1 if int(p * 8) % 2 == 0 else -1, squash=math.sin(t * 20) * 0.08)
+    elif trick == "juggle":
+        L.update(eyes="open", mouth="o" if int(t * 3) % 2 else "smile", brows=None,
+                 lean=math.sin(t * 6) * 2, hop=abs(math.sin(t * 6)) * 2)
+    elif trick == "rain_dance":
+        beat = math.sin(t * 6)
+        L.update(eyes="happy", mouth="big_open", blush=True, brows=None, lean=beat * 5, hop=abs(beat) * 8,
+                 foot_l=max(0.0, beat) * 4, foot_r=max(0.0, -beat) * 4)
+    elif trick == "breakdance":
+        L.update(eyes="half" if p < 0.6 else "happy", mouth="smile", brows=None, blush=True,
+                 squash=0.22 + math.sin(t * 16) * 0.06, facing=1 if int(t * 7) % 2 == 0 else -1,
+                 hop=abs(math.sin(t * 8)) * 3, lean=math.sin(t * 8) * 6)
+    elif trick == "magic":
+        L.update(eyes="big" if p > 0.6 else "closed", mouth="o" if p > 0.6 else "smile", brows=None,
+                 blush=p > 0.6, hop=bump * 4)
+    elif trick == "confetti":
+        beat = abs(math.sin(t * 6))
+        L.update(eyes="happy", mouth="big_open", blush=True, brows=None, hop=beat * 10, squash=-beat * 0.06,
+                 wag=math.sin(t * 9) * 4)
+    elif trick == "rocket":
+        L.update(eyes="big" if p < 0.25 else "happy", mouth="big_open", brows=None, blush=True,
+                 squash=-0.08, dangle=False)
     return L
 
 
@@ -748,6 +1108,15 @@ def trick_motion(trick: str, p: float, t: float, facing: int):
         swing = math.sin(p * math.pi * 3.0) * 130 * env
         lift = (70 + 45 * abs(math.cos(p * math.pi * 3.0))) * env
         return swing, lift
+    if trick == "zoomies":
+        return math.sin(p * math.pi * 4) * 120 * math.sin(p * math.pi), 0.0
+    if trick == "cartwheel":
+        return facing * math.sin(p * math.pi) * 90, 0.0
+    if trick == "rocket":
+        if p < 0.2:
+            return math.sin(p * 120) * 2, 0.0
+        climb = math.sin(min(1.0, (p - 0.2) / 0.8) * math.pi)
+        return 0.0, climb * 200
     return 0.0, 0.0
 
 
@@ -822,3 +1191,110 @@ def draw_trick_fx(cv, trick: str, p: float, t: float, geo: dict, canvas_w: float
             a = t * 9 + k * 2.1
             cv.create_text(cx + math.cos(a) * (rx + 6 * u), cy + math.sin(a) * ry * 0.8, text="\u2726",
                            fill="#f5b700", font=("Segoe UI Symbol", font_px))
+
+    _draw_trick_fx_v212(cv, trick, p, t, geo, canvas_w, dx)
+
+
+def _draw_trick_fx_v212(cv, trick, p, t, geo, canvas_w, dx=0.0):
+    u = geo["u"]
+    cx, cy, rx, ry = geo["cx"], geo["cy"], geo["rx"], geo["ry"]
+    font_px = max(7, int(5 * u))
+    top = cy - ry
+    if trick == "wave":
+        side = geo["facing"]
+        hand_x = cx + side * (rx + 4 * u)
+        hand_y = cy - ry * 0.6 + math.sin(t * 12) * 3 * u
+        _oval(cv, hand_x, hand_y, 3.4 * u, 3.4 * u, "#ffe8cc", "#a35b00", max(1, u))
+        cv.create_text(hand_x + side * 9 * u, hand_y - 6 * u, text="hi!", fill="#1c7ed6",
+                       font=("Segoe UI", font_px, "bold italic"))
+    elif trick == "hearts":
+        for k in range(5):
+            phase = (p * 1.6 + k * 0.21) % 1.0
+            hx_ = cx + math.sin(k * 2.1 + t * 2) * (rx + 4 * u)
+            hy_ = cy - phase * (ry + 30 * u)
+            size = max(6, int((4 + 3 * (1 - phase)) * u))
+            cv.create_text(hx_, hy_, text="\u2665", fill=("#ff4d6d", "#ff8fab", "#f06595")[k % 3],
+                           font=("Segoe UI Symbol", size))
+    elif trick == "sing":
+        for k in range(3):
+            a = t * 2.4 + k * 2.1
+            cv.create_text(cx + math.cos(a) * (rx + 9 * u), top - 6 * u + math.sin(a * 1.4) * 5 * u,
+                           text=("\u266a", "\u266b", "\u266c")[k], fill=("#7048e8", "#e64980", "#1c7ed6")[k],
+                           font=("Segoe UI Symbol", font_px + 2, "bold"))
+    elif trick == "yoga":
+        cv.create_text(cx, top - 10 * u, text="o m m m . . .", fill="#868e96", font=("Segoe UI", font_px, "italic"))
+        r = rx * (1.35 + 0.05 * math.sin(t * 2))
+        cv.create_oval(cx - r, cy - r * 0.95, cx + r, cy + r * 0.95, outline="#d0bfff", width=max(1, u), dash=(3, 4))
+    elif trick == "zoomies":
+        for k in range(3):
+            y_ = cy - ry * 0.3 + k * ry * 0.35
+            cv.create_line(cx - (rx + 6 * u) * (1 if dx < 0 else -1), y_,
+                           cx - (rx + 18 * u) * (1 if dx < 0 else -1), y_, fill="#adb5bd", width=max(1, u))
+        if p > 0.85:
+            cv.create_text(cx, top - 8 * u, text="zoom!", fill="#f76707", font=("Segoe UI", font_px, "bold italic"))
+    elif trick == "cartwheel":
+        r = rx * 1.3
+        cv.create_arc(cx - r, cy - r, cx + r, cy + r, start=(p * 720) % 360, extent=140, style="arc",
+                      outline="#ffa94d", width=max(1, 1.4 * u))
+    elif trick == "juggle":
+        colors = ("#ff6b6b", "#4dabf7", "#ffd43b")
+        for k in range(3):
+            a = t * 5 + k * 2 * math.pi / 3
+            bx_ = cx + math.cos(a) * rx * 0.8
+            by_ = top - 14 * u - abs(math.sin(a)) * 18 * u
+            _oval(cv, bx_, by_, 3.2 * u, 3.2 * u, colors[k], "#495057", max(1, 0.8 * u))
+    elif trick == "rain_dance":
+        cloud_y = top - 26 * u
+        for dxk, r in ((-8, 7), (0, 9), (8, 7)):
+            _oval(cv, cx + dxk * u, cloud_y, r * u, r * 0.75 * u, "#ced4da", "#868e96", max(1, 0.8 * u))
+        for k in range(7):
+            phase = (t * 1.8 + k * 0.37) % 1.0
+            x_ = cx + (k - 3) * 4 * u
+            y_ = cloud_y + 6 * u + phase * (cy - cloud_y)
+            cv.create_line(x_, y_, x_ - 1 * u, y_ + 4 * u, fill="#4dabf7", width=max(1, u))
+    elif trick == "breakdance":
+        for k in range(4):
+            a = t * 10 + k * math.pi / 2
+            cv.create_text(cx + math.cos(a) * (rx + 8 * u), cy + math.sin(a) * ry * 0.5 + ry * 0.4, text="\u2726",
+                           fill="#20c997", font=("Segoe UI Symbol", font_px))
+        if p > 0.8:
+            cv.create_text(cx, top - 8 * u, text="freeze!", fill="#20c997", font=("Segoe UI", font_px, "bold italic"))
+    elif trick == "magic":
+        wand_x, wand_y = cx + geo["facing"] * (rx + 6 * u), cy - ry * 0.4
+        cv.create_line(wand_x - geo["facing"] * 6 * u, wand_y + 6 * u, wand_x, wand_y, fill="#343a40", width=max(2, 2 * u))
+        cv.create_text(wand_x, wand_y - 2 * u, text="\u2605", fill="#ffd43b", font=("Segoe UI Symbol", font_px + 1))
+        if p < 0.6:
+            for k in range(6):
+                a = t * 6 + k
+                r = (6 + (p / 0.6) * 18) * u
+                cv.create_text(wand_x + math.cos(a) * r, wand_y + math.sin(a) * r, text="\u2727", fill="#b197fc",
+                               font=("Segoe UI Symbol", max(5, font_px - 1)))
+            cv.create_text(cx, top - 10 * u, text="abracadabra~", fill="#7048e8", font=("Segoe UI", font_px, "italic"))
+        else:
+            puff = (p - 0.6) / 0.4
+            for k in range(6):
+                a = k * math.pi / 3
+                _oval(cv, cx + math.cos(a) * (rx * 0.6 + puff * 14 * u), cy + math.sin(a) * (ry * 0.6 + puff * 10 * u),
+                      (5 - puff * 3) * u, (5 - puff * 3) * u, "#e9ecef", "#ced4da", max(1, 0.6 * u))
+            cv.create_text(cx, top - 10 * u, text="ta-da!", fill="#7048e8", font=("Segoe UI", font_px + 1, "bold italic"))
+    elif trick == "confetti":
+        colors = ("#ff6b6b", "#ffd43b", "#69db7c", "#4dabf7", "#da77f2", "#ff922b")
+        for k in range(18):
+            phase = (p * 1.4 + k * 0.083) % 1.0
+            x_ = cx + math.sin(k * 1.7) * (rx + 14 * u) + math.sin(t * 3 + k) * 3 * u
+            y_ = top - 34 * u + phase * (ry * 2 + 34 * u)
+            w_ = 2.2 * u
+            cv.create_rectangle(x_ - w_, y_ - w_ * 0.5, x_ + w_, y_ + w_ * 0.5, fill=colors[k % 6], outline="")
+        if p < 0.3:
+            cv.create_text(cx, top - 14 * u, text="\U0001F389 yay!", fill="#e64980", font=("Segoe UI Emoji", font_px + 1, "bold"))
+    elif trick == "rocket":
+        flame = 0.7 + 0.3 * abs(math.sin(t * 30))
+        for s in (-1, 1):
+            px_ = cx + s * rx * 0.55
+            cv.create_rectangle(px_ - 3 * u, cy - ry * 0.2, px_ + 3 * u, cy + ry * 0.6, fill="#adb5bd",
+                                outline="#495057", width=max(1, u))
+            _poly(cv, [px_ - 3 * u, cy + ry * 0.6, px_ + 3 * u, cy + ry * 0.6, px_, cy + ry * 0.6 + 12 * u * flame],
+                  "#ff922b", "#ffd43b", max(1, u))
+        if p < 0.22:
+            cv.create_text(cx, top - 8 * u, text=str(3 - int(p / 0.22 * 3)) if p < 0.21 else "liftoff!",
+                           fill="#e03131", font=("Segoe UI", font_px + 2, "bold"))

@@ -1887,10 +1887,40 @@ class FriendsWindow:
         species = self.pet.s.get("species")
         color = self.pet.s.get("color")
 
-        self._label(self.body, t("shop_props"), size=11, bold=True).pack(fill="x", pady=(6, 2))
+        categories = getattr(pet_shop, "SHOP_CATEGORIES", ("head", "face", "neck", "back", "moves", "gear"))
+        cat = getattr(self, "shop_cat", "head")
+        if cat not in categories:
+            cat = "head"
+        chips = tk.Frame(self.body, bg=self.CARD)
+        chips.pack(fill="x", pady=(2, 6))
+        for n, key in enumerate(categories):
+            if key == "moves":
+                items = list(pet_shop.MOVES)
+            elif key == "gear":
+                items = list(pet_shop.GEAR)
+            else:
+                items = [k for k, (s, _p) in pet_shop.PROPS.items() if s == key]
+            owned_n = sum(1 for k in items if shop.owns(k))
+            selected = key == cat
+            chip = tk.Label(chips, text=f"{t('shop_cat_' + key)}  {owned_n}/{len(items)}",
+                            font=("Segoe UI", 8, "bold" if selected else "normal"),
+                            fg=self.ACCENT_INK if selected else self.INK, bg=self.ACCENT if selected else self.SOFT,
+                            padx=7, pady=3, cursor="hand2")
+            chip.grid(row=n // 3, column=n % 3, sticky="ew", padx=2, pady=2)
+            chip.bind("<Button-1>", lambda e, k=key: self._set_shop_cat(k))
+        for c in range(3):
+            chips.grid_columnconfigure(c, weight=1, uniform="sc")
+
+        if cat == "gear":
+            self._render_gear_shop(shop, balance)
+            return
+        if cat == "moves":
+            self._render_moves_shop(shop, balance)
+            return
         grid = tk.Frame(self.body, bg=self.CARD)
         grid.pack(fill="x")
-        for i, (item, (slot, price)) in enumerate(pet_shop.PROPS.items()):
+        cat_items = [(item, sp) for item, sp in pet_shop.PROPS.items() if sp[0] == cat]
+        for i, (item, (slot, price)) in enumerate(cat_items):
             owned = shop.owns(item)
             wearing = equipped.get(slot) == item
             cell = tk.Frame(grid, bg=self.WARM if wearing else self.TILE, padx=4, pady=4)
@@ -1924,7 +1954,13 @@ class FriendsWindow:
         for c in range(3):
             grid.grid_columnconfigure(c, weight=1, uniform="p")
 
-        self._label(self.body, t("shop_moves"), size=11, bold=True).pack(fill="x", pady=(10, 2))
+    def _set_shop_cat(self, key):
+        self.shop_cat = key
+        self.canvas.yview_moveto(0)
+        self.refresh(force=True)
+
+    def _render_moves_shop(self, shop, balance):
+        self._label(self.body, t("shop_moves"), size=11, bold=True).pack(fill="x", pady=(4, 2))
         for move, (price, _secs) in pet_shop.MOVES.items():
             owned = shop.owns(move)
             row = tk.Frame(self.body, bg=self.TILE, padx=8, pady=5)
@@ -1948,7 +1984,6 @@ class FriendsWindow:
                 if price > balance:
                     btn.config(fg=self.OFF_INK)
             btn.pack(side="right")
-        self._render_gear_shop(shop, balance)
 
     def _render_gear_shop(self, shop, balance):
         self._label(self.body, "\u2694 " + t("shop_gear"), size=11, bold=True).pack(fill="x", pady=(12, 0))

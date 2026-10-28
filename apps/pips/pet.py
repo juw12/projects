@@ -174,6 +174,66 @@ SPECIES = {
                       extras=("wings_butterfly",), body=(0.82, 0.95), flap_hz=7),
     "dragon": dict(cat="air", color="#80ed99", ears="horns", tail="dragon", feet="paws",
                    extras=("wings_dragon", "belly_scales"), flap_hz=7),
+
+    # ---------------- v2.12 land ----------------
+    "lion": dict(cat="land", color="#f4c06a", ears="bear", tail="cat", feet="paws",
+                 extras=("mane", "muzzle", "nose", "whiskers")),
+    "tiger": dict(cat="land", color="#ff9f1c", ears="cat", tail="cat", feet="paws",
+                  extras=("tiger_stripes", "whiskers", "nose")),
+    "unicorn": dict(cat="land", color="#fdf6ff", ears="cat", tail="puff", feet="paws",
+                    extras=("horn", "mane_pastel", "nose_pink")),
+    "deer": dict(cat="land", color="#c08552", ears="deer", tail="puff", feet="paws_dark",
+                 extras=("antlers", "nose", "spots")),
+    "sheep": dict(cat="land", color="#f8f4ec", ears="dog", tail="puff", feet="paws_dark",
+                  extras=("wool", "nose_pink")),
+    "cow": dict(cat="land", color="#fbfbfb", ears="horns", tail="cat", feet="paws_dark",
+                extras=("cow_spots", "snout")),
+    "raccoon": dict(cat="land", color="#9a9a9a", ears="cat", tail="ringed", feet="paws_dark",
+                    extras=("bandit_mask", "whiskers", "nose"), eye_ring=True),
+    "red_panda": dict(cat="land", color="#d9622b", ears="cat", tail="ringed", feet="paws_dark",
+                      extras=("fox_mask", "whiskers", "nose")),
+    "monkey": dict(cat="land", color="#a0522d", ears="monkey", tail="cat", feet="paws",
+                   extras=("monkey_face", "nose"), face_light=True),
+    "hedgehog": dict(cat="land", color="#c9a27e", ears="hamster", tail=None, feet="paws",
+                     extras=("quills", "nose"), body=(1.08, 0.94)),
+    "dino": dict(cat="land", color="#7bd389", ears=None, tail="dragon", feet="paws",
+                 extras=("back_spikes", "belly_scales")),
+    "squirrel": dict(cat="land", color="#c96f3b", ears="cat", tail="squirrel", feet="paws",
+                     extras=("nose_pink", "whiskers"), cheek_scale=1.3),
+    "mouse": dict(cat="land", color="#c9c9cf", ears="mouse", tail="cat", feet="paws",
+                  extras=("whiskers", "nose_pink"), body=(0.96, 0.95)),
+    "koala": dict(cat="land", color="#a8a9ad", ears="koala", tail=None, feet="paws",
+                  extras=("big_nose",), body=(1.04, 1.0)),
+    # ---------------- v2.12 water ----------------
+    "shark": dict(cat="water", color="#8d99ae", ears=None, tail="fish", feet=None,
+                  extras=("dorsal", "fins", "whale_belly", "fangs"), body=(1.15, 0.86), float=4),
+    "dolphin": dict(cat="water", color="#8ecae6", ears=None, tail="whale", feet=None,
+                    extras=("dorsal", "fins", "whale_belly"), body=(1.18, 0.86), float=3),
+    "seal": dict(cat="water", color="#b8c0c8", ears=None, tail="turtle", feet=None,
+                 extras=("flippers", "whiskers", "nose"), body=(1.15, 0.9)),
+    "otter": dict(cat="water", color="#8b5e3c", ears="hamster", tail="dog", feet="webbed",
+                  extras=("muzzle", "nose", "whiskers")),
+    "puffer": dict(cat="water", color="#ffd166", ears=None, tail="fish", feet=None,
+                   extras=("quills", "fins"), body=(1.05, 1.05), float=4),
+    "duck": dict(cat="water", color="#fff3b0", ears="tuft", tail="bird", feet="webbed",
+                 extras=("beak", "wings_bird")),
+    "crab": dict(cat="water", color="#ef6351", ears=None, tail=None, feet="crab",
+                 extras=("claws",), body=(1.15, 0.8)),
+    # ---------------- v2.12 air ----------------
+    "parrot": dict(cat="air", color="#e63946", ears="tuft", tail="bird", feet="bird",
+                   extras=("beak", "wings_bird")),
+    "chick": dict(cat="air", color="#ffe45e", ears="tuft", tail=None, feet="bird",
+                  extras=("beak", "wings_bird"), body=(0.95, 1.0)),
+    "ladybug": dict(cat="air", color="#e63946", ears="antennae", tail=None, feet=None,
+                    extras=("wings_bug", "cow_spots"), flap_hz=24),
+    "phoenix": dict(cat="air", color="#ff7b00", ears="tuft", tail="flame", feet="bird",
+                    extras=("beak", "wings_bird"), flap_hz=6),
+    "pegasus": dict(cat="air", color="#f1f3f5", ears="cat", tail="puff", feet="paws",
+                    extras=("mane_pastel", "wings_bird", "nose_pink")),
+    "ghost": dict(cat="air", color="#f1f3f5", ears=None, tail=None, feet=None, shape="dome",
+                  float=7, lift=4),
+    "flamingo": dict(cat="air", color="#ff8fab", ears=None, tail="bird", feet="stilts",
+                     extras=("beak", "wings_bird"), lift=8, body=(0.95, 1.0)),
 }
 
 SPECIES_BY_CATEGORY = {c: [k for k, v in SPECIES.items() if v["cat"] == c] for c in CATEGORIES}
@@ -734,6 +794,90 @@ def draw_pet(cv: tk.Canvas, cx: float, floor: float, size: float, look: dict):
             r = 7.0 * u
             cv.create_oval(ex - r, ey - r, ex + r, ey + r, fill=body, outline=outline, width=lw)
 
+    # --- v2.12 parts behind the body ---
+    if "mane" in extras or "mane_pastel" in extras:
+        pastel = "mane_pastel" in extras
+        palette_mane = ("#ffadad", "#ffd6a5", "#caffbf", "#9bf6ff", "#bdb2ff", "#ffc6ff")
+        n_tufts = 13
+        for k in range(n_tufts):
+            a = math.radians(-20 + 220 * k / (n_tufts - 1))
+            mx_ = cx + math.cos(a) * rx * 1.02
+            my_ = cy - math.sin(a) * ry * 1.05
+            col = palette_mane[k % len(palette_mane)] if pastel else darken(body, 0.28)
+            blob(mx_, my_, 6.2 * u, 5.4 * u, col, out=darken(col, 0.25), width=max(1, 0.8 * u), n=14)
+    if "antlers" in extras:
+        ant = "#8a5a2b"
+        for s in (-1, 1):
+            x0, y0 = ell(90 - s * 28, 0.95)
+            x1, y1 = x0 + s * 5 * u, y0 - 12 * u
+            cv.create_line(x0, y0, x1, y1, width=max(2, 2.4 * u), fill=ant, capstyle=tk.ROUND)
+            cv.create_line(x0 + s * 2 * u, y0 - 6 * u, x0 + s * 8 * u, y0 - 9 * u, width=max(2, 2 * u),
+                           fill=ant, capstyle=tk.ROUND)
+            cv.create_line(x1, y1, x1 - s * 3 * u, y1 - 5 * u, width=max(2, 2 * u), fill=ant, capstyle=tk.ROUND)
+            cv.create_line(x1, y1, x1 + s * 4 * u, y1 - 4 * u, width=max(2, 2 * u), fill=ant, capstyle=tk.ROUND)
+    if "quills" in extras:
+        quill = darken(body, 0.35)
+        for k in range(11):
+            a = math.radians(5 + 170 * k / 10)
+            bx_, by_ = cx + math.cos(a) * rx * 0.92, cy - math.sin(a) * ry * 0.92
+            tx_, ty_ = cx + math.cos(a) * (rx + 7 * u), cy - math.sin(a) * (ry + 7 * u)
+            px_, py_ = -math.sin(a) * 3 * u, -math.cos(a) * 3 * u
+            cv.create_polygon(bx_ - px_, by_ - py_, tx_, ty_, bx_ + px_, by_ + py_, fill=quill,
+                              outline=darken(quill, 0.3), width=max(1, 0.6 * u))
+    if "back_spikes" in extras:
+        plate = mix(body, "#f4a259", 0.55)
+        for k in range(5):
+            a = math.radians(55 + 70 * k / 4 + (-side) * 0)
+            bx_, by_ = cx + math.cos(a) * rx * 0.95, cy - math.sin(a) * ry * 0.95
+            tx_, ty_ = cx + math.cos(a) * (rx + 6 * u), cy - math.sin(a) * (ry + 6 * u)
+            px_, py_ = -math.sin(a) * 3.2 * u, -math.cos(a) * 3.2 * u
+            cv.create_polygon(bx_ - px_, by_ - py_, tx_, ty_, bx_ + px_, by_ + py_, fill=plate,
+                              outline=outline, width=max(1, 0.8 * u))
+    if tail == "ringed":
+        tx = cx + side * (rx + 5 * u) + wag * 0.6 * u
+        ty = bottom - 11 * u
+        rot = side * -0.95 + wag * 0.04
+        blob(tx, ty, 11 * u, 5.6 * u, body, rot=rot, out=outline)
+        for k in (-0.45, 0.0, 0.45):
+            ox = tx + math.cos(rot) * 11 * u * k * side * side
+            oy = ty + math.sin(rot) * 11 * u * k
+            blob(ox, oy, 1.8 * u, 5.0 * u, darken(body, 0.5), rot=rot)
+    elif tail == "squirrel":
+        tx = cx + side * (rx + 2 * u) + wag * 0.4 * u
+        blob(tx, cy - ry * 0.35, 8.5 * u, 15 * u, darken(body, 0.05), rot=side * -0.25 + wag * 0.03, out=outline)
+        blob(tx + side * 4 * u, cy - ry * 1.05, 6 * u, 5 * u, lighten(body, 0.15), rot=side * 0.6, out=outline)
+    elif tail == "flame":
+        flick = math.sin(t_ * 9)
+        for k, col in enumerate(("#ff3d00", "#ff9100", "#ffd600")):
+            length = (16 - k * 4) * u
+            ang = side * (0.35 + k * 0.25) + flick * 0.08
+            fx_ = cx + side * rx * 0.75 + math.cos(ang) * 0 + side * length * 0.6
+            fy_ = bottom - 8 * u - k * 3 * u
+            blob(fx_, fy_, length * 0.75, (4.5 - k) * u, col, rot=side * (0.25 + 0.15 * k) + flick * 0.1)
+    for s in (-1, 1):
+        if ears == "mouse":
+            ex, ey = ell(90 - s * 42, 0.95)
+            r = 9.5 * u
+            cv.create_oval(ex - r, ey - r, ex + r, ey + r, fill=body, outline=outline, width=lw)
+            r2 = r * 0.62
+            cv.create_oval(ex - r2, ey - r2, ex + r2, ey + r2, fill=mix(cheek, "#ffffff", 0.3), outline="")
+        elif ears == "koala":
+            ex, ey = ell(90 - s * 55, 0.95)
+            r = 9 * u
+            cv.create_oval(ex - r, ey - r, ex + r, ey + r, fill=body, outline=outline, width=lw)
+            r2 = r * 0.6
+            cv.create_oval(ex - r2, ey - r2, ex + r2, ey + r2, fill="#f1f1f1", outline="")
+        elif ears == "monkey":
+            ex, ey = cx + s * (rx + 1 * u), cy - ry * 0.15
+            r = 5.8 * u
+            cv.create_oval(ex - r, ey - r, ex + r, ey + r, fill=body, outline=outline, width=lw)
+            r2 = r * 0.58
+            cv.create_oval(ex - r2, ey - r2, ex + r2, ey + r2, fill=lighten(body, 0.45), outline="")
+        elif ears == "deer":
+            ex, ey = ell(90 - s * 50, 0.95)
+            blob(ex + s * 4 * u, ey - 1 * u, 7.5 * u, 3.6 * u, body, rot=s * -0.45 - s * droop * 0.4, out=outline)
+            blob(ex + s * 4 * u, ey - 1 * u, 4.6 * u, 1.8 * u, inner, rot=s * -0.45 - s * droop * 0.4)
+
     # dorsal fin (fish) sits behind the body
     if "dorsal" in extras:
         top_x, top_y = ell(95, 0.98)
@@ -812,6 +956,41 @@ def draw_pet(cv: tk.Canvas, cx: float, floor: float, size: float, look: dict):
             y = cy + (k % 2) * 3 * u
             cv.create_arc(x - 3 * u, y - 3 * u, x + 3 * u, y + 3 * u, start=90 + side * 90 - 60, extent=120,
                           style=tk.ARC, outline=darken(body, 0.22), width=max(1, u))
+    if "wool" in extras:
+        wool = "#ffffff" if luminance(body) > 0.85 else lighten(body, 0.45)
+        for k in range(12):
+            a = math.radians(-10 + 200 * k / 11)
+            wx_, wy_ = cx + math.cos(a) * rx * 0.88, cy - math.sin(a) * ry * 0.88
+            cv.create_oval(wx_ - 5.2 * u, wy_ - 5.2 * u, wx_ + 5.2 * u, wy_ + 5.2 * u, fill=wool,
+                           outline=darken(wool, 0.12), width=max(1, 0.7 * u))
+        blob(cx + lean * 0.3, cy + ry * 0.05, rx * 0.62, ry * 0.58, mix(body, "#f3d9c7", 0.5), n=20)
+    if "cow_spots" in extras:
+        spot = "#2b2b2b" if luminance(body) > 0.5 else "#111111"
+        for dx, dy, r_x, r_y in ((-0.55, -0.45, 5.2, 4.2), (0.62, -0.2, 4.2, 3.6), (0.15, -0.82, 3.0, 2.4),
+                                 (-0.2, 0.45, 3.4, 2.6), (0.5, 0.5, 2.6, 2.2)):
+            x_, y_ = skew_x(cx + rx * dx, cy + ry * dy), cy + ry * dy
+            blob(x_, y_, r_x * u, r_y * u, spot, rot=dx, n=14)
+    if "tiger_stripes" in extras:
+        stripe = "#3b2a20"
+        for s in (-1, 1):
+            for k in range(3):
+                y_ = cy - ry * 0.35 + k * ry * 0.33
+                x_ = cx + s * rx * 0.98
+                cv.create_line(x_, y_, x_ - s * 7 * u, y_ + 1.5 * u, x_ - s * 9.5 * u, y_ + 0.5 * u, smooth=True,
+                               width=max(2, 2.4 * u), fill=stripe, capstyle=tk.ROUND)
+        top_x, top_y = ell(90, 0.95)
+        for dx in (-3, 0, 3):
+            cv.create_line(top_x + dx * u, top_y + 1 * u, top_x + dx * 0.6 * u, top_y + 5 * u,
+                           width=max(2, 2 * u), fill=stripe, capstyle=tk.ROUND)
+    if "horn" in extras:
+        hx_, hy_ = ell(90, 0.98)
+        hx_ += feature_dx * 0.4
+        cv.create_polygon(hx_ - 3.2 * u, hy_ + 1 * u, hx_ + 1 * u, hy_ - 15 * u, hx_ + 3.2 * u, hy_ + 1 * u,
+                          fill="#ffd43b", outline="#c99a00", width=max(1, u), joinstyle=tk.ROUND)
+        for k in range(3):
+            yy = hy_ - 2 * u - k * 4 * u
+            half = 2.6 * u * (1 - k * 0.28)
+            cv.create_line(hx_ - half, yy + 1 * u, hx_ + half, yy - 1 * u, fill="#c99a00", width=max(1, 0.8 * u))
     if ears == "sprout":
         top_x, top_y = ell(90, 1.0)
         tip_x = top_x + (3 + math.degrees(twitch) * 0.08) * u - droop * 4 * u
@@ -847,7 +1026,7 @@ def draw_pet(cv: tk.Canvas, cx: float, floor: float, size: float, look: dict):
                     cv.create_line(fx, fy2 - 3.5 * u, fx + k * 2.4 * u, fy2, width=max(1, 1.5 * u), fill=col,
                                    capstyle=tk.ROUND)
             elif feet == "webbed":
-                col = darken(body, 0.18) if spec["cat"] != "air" else "#ff9f43"
+                col = "#ff9f43" if (spec["cat"] == "air" or "beak" in extras) else darken(body, 0.18)
                 blob(fx, fy2 - 2 * u, 5.6 * u, 2.4 * u, col, out=outline, width=max(1, u))
             else:
                 cv.create_oval(fx - 4.8 * u, fy2 - 4.4 * u, fx + 4.8 * u, fy2, fill=foot_col, outline=outline,
@@ -870,11 +1049,38 @@ def draw_pet(cv: tk.Canvas, cx: float, floor: float, size: float, look: dict):
                 pts.extend([x0 + math.sin(t_ * 3 + i + k * 0.9) * 1.6 * u, y])
             cv.create_line(*pts, smooth=True, width=max(1, 1.6 * u), fill=darken(body, 0.15))
 
+    elif feet == "crab":
+        leg = darken(body, 0.2)
+        for s in (-1, 1):
+            for k in range(3):
+                x0 = cx + s * rx * (0.45 + k * 0.17)
+                y0 = bottom - 3 * u
+                kick = math.sin(t_ * 6 + k + s) * 1.2 * u
+                cv.create_line(x0, y0, x0 + s * 4 * u, y0 + 3 * u + kick, x0 + s * 6 * u, base,
+                               width=max(1, 1.6 * u), fill=leg, capstyle=tk.ROUND)
+    elif feet == "stilts":
+        leg = mix(body, "#e5383b", 0.35)
+        for s, lift_ in ((-1, look["foot_l"]), (1, look["foot_r"])):
+            fx = cx + s * 5 * u
+            fy2 = base - lift_ * u
+            cv.create_line(fx, bottom - 1 * u, fx + s * 0.5 * u, fy2 - 1 * u, width=max(1, 1.5 * u), fill=leg)
+            cv.create_line(fx + s * 0.5 * u, fy2 - 1 * u, fx + s * 4 * u, fy2, width=max(1, 1.5 * u), fill=leg,
+                           capstyle=tk.ROUND)
+
     # ================= front decorations =================
     if "fins" in extras:
         for s in (-1, 1):
             blob(cx + s * rx * 0.55, cy + ry * 0.35, 4.5 * u, 2.6 * u, darken(body, 0.1),
                  rot=s * (0.5 + 0.35 * flap), out=outline, width=max(1, u))
+    if "claws" in extras:
+        snap = abs(math.sin(t_ * 3)) * 0.35
+        for s in (-1, 1):
+            ax, ay = cx + s * (rx + 6 * u), cy - ry * 0.55
+            cv.create_line(cx + s * rx * 0.85, cy, ax, ay + 4 * u, width=max(2, 2.4 * u), fill=darken(body, 0.15),
+                           capstyle=tk.ROUND)
+            blob(ax, ay, 6 * u, 4.6 * u, body, rot=s * 0.5, out=outline)
+            cv.create_polygon(ax + s * 1 * u, ay - 1 * u, ax + s * 7 * u, ay - (4 + snap * 6) * u,
+                              ax + s * 6 * u, ay + 1 * u, fill=lighten(body, 0.2), outline=outline, width=max(1, u))
     if "flippers" in extras or "wings_bird" in extras:
         wcol = darken(body, 0.12)
         for s in (-1, 1):
@@ -907,6 +1113,15 @@ def draw_pet(cv: tk.Canvas, cx: float, floor: float, size: float, look: dict):
     if "owl_face" in extras:
         for s in (-1, 1):
             blob(fcx + s * sep, ey, r * 1.9, r * 1.9, lighten(body, 0.55))
+    if "bandit_mask" in extras:
+        blob(fcx, ey + 0.5 * u, sep + 6.5 * u, 4.6 * u, "#3a3a3a", n=22)
+    if "monkey_face" in extras:
+        face_col = mix(body, "#ffe0c2", 0.75)
+        for s in (-1, 1):
+            blob(fcx + s * sep * 0.85, ey, 6.2 * u, 6.0 * u, face_col)
+        blob(mx, my - 0.5 * u, 8.5 * u, 5.4 * u, face_col)
+    if "big_nose" in extras:
+        blob(mx, my - 2.6 * u, 3.8 * u, 3.0 * u, "#3b3b3b", n=16)
     if "fox_mask" in extras:
         for s in (-1, 1):
             blob(fcx + s * 6.5 * u, ey + 4.6 * u, 6.8 * u, 4.6 * u, "#fff7ee")
